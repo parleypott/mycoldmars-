@@ -1,0 +1,992 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #f83500;
+  --bg-panel: rgba(248, 53, 0, 0.95);
+  --bg-solid: #f83500;
+  --bg-start: rgba(248, 53, 0, 0.85);
+  --text: #1a1a1a;
+  --text-dim: rgba(0, 0, 0, 0.55);
+  --text-faint: rgba(0, 0, 0, 0.3);
+  --red: #1a1a1a;
+  --green: #fffbe6;
+  --border: #1a1a1a;
+  --border-light: rgba(0, 0, 0, 0.15);
+  --font: 'Bebas Neue', 'Helvetica Neue', system-ui, sans-serif;
+  --mono: 'Bebas Neue', 'Helvetica Neue', system-ui, sans-serif;
+  --btn-bg: #1a1a1a;
+  --btn-text: #f83500;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: var(--font);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  isolation: isolate;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 0;
+}
+
+.mapboxgl-ctrl-attrib {
+  opacity: 0.2;
+  font-size: 9px !important;
+  font-family: var(--mono) !important;
+}
+
+.walker-marker {
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* ═══════════════════════════════════════
+   GAME PANEL — floating card on center-left
+   ═══════════════════════════════════════ */
+
+#game-panel {
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 380px;
+  max-width: calc(100vw - 48px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+}
+
+#game-panel.hidden { display: none; }
+
+/* ═══════════════════════════════════════
+   CLUE BAR — card inside game panel
+   ═══════════════════════════════════════ */
+
+#clue-bar {
+  background: var(--bg-panel);
+  border: 2px solid var(--border);
+  padding: 14px 24px 16px;
+  transform: translateZ(0);
+}
+
+#clue-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+#clue-divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: 10px 0;
+}
+
+#clue-text {
+  font-family: var(--font);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+#pin-tracker {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  min-height: 18px;
+}
+
+.tracker-dot {
+  animation: dotPop 0.25s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+/* ═══════════════════════════════════════
+   PIN SQUARE — universal square marker
+   ═══════════════════════════════════════ */
+
+.pin-square {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid;
+  flex-shrink: 0;
+}
+
+.pin-square.wrong {
+  border-color: var(--red);
+  background: rgba(255, 0, 0, 0.08);
+}
+
+.pin-square.correct {
+  border-color: var(--green);
+  background: rgba(0, 230, 118, 0.1);
+}
+
+#clue-answer {
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--green);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+#clue-answer.hidden { display: none; }
+
+#score-display {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+/* ═══════════════════════════════════════
+   SCORE LEDGER — stacked below clue bar
+   ═══════════════════════════════════════ */
+
+#score-ledger {
+  background: var(--bg-panel);
+  border: 2px solid var(--border);
+  border-top: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: 300px;
+  transform: translateZ(0);
+}
+
+#score-ledger.hidden { display: none; }
+
+#ledger-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+#ledger-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text);
+}
+
+#ledger-pin-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+#ledger-rows {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.ledger-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  animation: ledgerRowIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ledger-row .ledger-name {
+  flex: 1;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text);
+  margin-right: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ledger-row .ledger-pins {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  margin-right: 8px;
+}
+
+.ledger-row .ledger-count {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 20px;
+  text-align: right;
+}
+
+.ledger-count.perfect { color: var(--green); }
+.ledger-count.good { color: var(--text); }
+.ledger-count.rough { color: var(--red); }
+
+#ledger-footer {
+  border-top: 2px solid var(--border);
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#ledger-total-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+}
+
+#ledger-total {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+#ledger-total.bump {
+  animation: totalBump 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* ═══════════════════════════════════════
+   MAP MARKERS
+   ═══════════════════════════════════════ */
+
+.pin-marker {
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid;
+  cursor: default;
+  animation: pinPop 0.2s ease;
+}
+
+.pin-wrong {
+  border-color: var(--red);
+  background: rgba(255, 0, 0, 0.08);
+}
+
+.pin-correct {
+  border-color: var(--green);
+  background: rgba(0, 230, 118, 0.1);
+}
+
+/* Direction arrow — clean line arrow */
+.direction-arrow {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  color: var(--red);
+}
+
+.direction-arrow svg {
+  width: 44px;
+  height: 44px;
+}
+
+.direction-arrow-inner {
+  animation: arrowPulse 1.5s ease-in-out infinite;
+}
+
+/* Tentative marker */
+.tentative-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.tentative-dot {
+  width: 12px;
+  height: 12px;
+  border: 2.5px solid var(--border);
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.tentative-buttons {
+  display: flex;
+  gap: 2px;
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+.tentative-confirm {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: none;
+  padding: 6px 14px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: opacity 0.1s;
+}
+
+.tentative-confirm:hover { opacity: 0.7; }
+
+.tentative-cancel {
+  background: var(--bg-solid);
+  color: var(--text);
+  border: 2px solid var(--border);
+  padding: 6px 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.tentative-cancel:hover { opacity: 0.7; }
+
+/* ═══════════════════════════════════════
+   PIN DISTANCE LABELS
+   ═══════════════════════════════════════ */
+
+.pin-distance {
+  text-align: center;
+  pointer-events: none;
+  font-family: var(--mono);
+  line-height: 1.5;
+  margin-top: 6px;
+  animation: fadeIn 0.2s ease;
+  white-space: nowrap;
+}
+
+.pin-distance .dist-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--red);
+}
+
+.pin-distance .dist-mi {
+  font-size: 10px;
+  font-weight: 400;
+  color: rgba(255, 0, 0, 0.5);
+}
+
+.pin-distance .dist-unit {
+  transition: opacity 0.8s ease;
+}
+
+.pin-distance .dist-unit.dissolve {
+  opacity: 0;
+}
+
+/* ═══════════════════════════════════════
+   SUCCESS CELEBRATION + BLURB (unified)
+   ═══════════════════════════════════════ */
+
+#success-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--green);
+  pointer-events: none;
+  transition: background 0.4s ease;
+  animation: overlayFadeIn 0.3s ease both;
+  transform: translateZ(0);
+}
+
+#success-overlay.hidden { display: none; }
+
+#success-overlay.phase-blurb {
+  background: var(--bg-solid);
+  pointer-events: auto;
+}
+
+#success-answer {
+  font-family: var(--font);
+  font-size: clamp(48px, 12vw, 140px);
+  font-weight: 700;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-align: center;
+  padding: 0 24px;
+  animation: answerPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.phase-blurb #success-answer {
+  font-size: clamp(36px, 8vw, 80px);
+  transition: font-size 0.3s ease;
+}
+
+#success-pins {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+#success-pins .pin-square {
+  width: 14px;
+  height: 14px;
+  border-width: 2.5px;
+}
+
+.phase-blurb #success-pins {
+  margin-top: 8px;
+}
+
+.phase-blurb #success-pins .pin-square {
+  width: 12px;
+  height: 12px;
+}
+
+#success-blurb {
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text);
+  text-align: center;
+  max-width: 500px;
+  padding: 0 24px;
+  margin-top: 20px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.phase-blurb #success-blurb {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#success-next-btn {
+  margin-top: 32px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: none;
+  padding: 16px 48px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.phase-blurb #success-next-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.phase-blurb #success-next-btn:hover {
+  opacity: 0.7;
+}
+
+/* ═══════════════════════════════════════
+   SCORECARD — full-screen celebration
+   ═══════════════════════════════════════ */
+
+#scorecard {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-solid);
+  z-index: 30;
+  animation: fadeIn 0.4s ease;
+  transform: translateZ(0);
+}
+
+#scorecard.hidden { display: none; }
+
+#scorecard-inner {
+  text-align: center;
+  max-width: 520px;
+  width: 90%;
+  padding: 48px 32px 40px;
+  animation: scoreCardIn 0.4s ease;
+}
+
+/* ── Difficulty Badge ── */
+
+#scorecard-badge {
+  margin-bottom: 24px;
+  animation: fadeIn 0.5s ease 0.1s both;
+}
+
+/* Easy badge — understated text */
+.badge-easy {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* Hard badge — ornamental seal */
+.badge-hard {
+  display: flex;
+  justify-content: center;
+}
+
+.hard-seal {
+  width: 80px;
+  height: 80px;
+  color: var(--text);
+  animation: sealReveal 0.6s cubic-bezier(0.34, 1.4, 0.64, 1) 0.2s both;
+}
+
+/* ── Hero Total ── */
+
+#scorecard-total {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.total-number {
+  font-family: var(--mono);
+  font-size: 96px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  animation: totalPop 0.4s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+.total-label {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--text-dim);
+  margin-top: 8px;
+  animation: fadeIn 0.3s ease both;
+}
+
+/* ── Divider ── */
+
+#scorecard-rule {
+  width: 48px;
+  height: 2px;
+  background: var(--border);
+  margin: 0 auto 28px;
+  animation: fadeIn 0.3s ease 0.4s both;
+}
+
+/* ── Clue rows ── */
+
+#scorecard-body {
+  text-align: left;
+  margin-bottom: 36px;
+}
+
+.scorecard-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-light);
+  animation: rowSlideIn 0.3s ease both;
+}
+
+.scorecard-row .clue-label {
+  color: var(--text-dim);
+  font-weight: 400;
+  flex: 1;
+  margin-right: 12px;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+}
+
+.scorecard-row .pin-dots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  margin-right: 10px;
+}
+
+.scorecard-row .pin-dots .pin-square {
+  animation: dotPop 0.3s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+.scorecard-row .pin-count {
+  font-family: var(--mono);
+  font-weight: 700;
+  min-width: 20px;
+  text-align: right;
+  font-size: 16px;
+}
+
+.scorecard-row .pin-count.perfect { color: var(--green); }
+.scorecard-row .pin-count.good { color: var(--text); }
+.scorecard-row .pin-count.rough { color: var(--red); }
+
+/* ── Branding ── */
+
+#scorecard-brand {
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin-bottom: 28px;
+  animation: fadeIn 0.3s ease 0.8s both;
+}
+
+/* ── Play Again Button ── */
+
+#play-again-btn {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: none;
+  padding: 16px 48px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: opacity 0.1s;
+}
+
+#play-again-btn:hover { opacity: 0.7; }
+
+/* ═══════════════════════════════════════
+   DIFFICULTY TOGGLE
+   ═══════════════════════════════════════ */
+
+#difficulty-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 28px;
+}
+
+.diff-btn {
+  background: none;
+  border: 2px solid var(--border);
+  padding: 10px 28px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: all 0.15s ease;
+}
+
+.diff-btn:first-child {
+  border-right: 1px solid var(--border);
+}
+
+.diff-btn:last-child {
+  border-left: 1px solid var(--border);
+}
+
+.diff-btn.active {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border-color: var(--btn-bg);
+}
+
+.diff-btn:not(.active):hover {
+  background: var(--border-light);
+}
+
+/* ═══════════════════════════════════════
+   VIBES BUTTON — theme cycler
+   ═══════════════════════════════════════ */
+
+#vibes-btn {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  z-index: 20;
+  transform: translateZ(0);
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: none;
+  padding: 10px 18px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 20px;
+  transition: transform 0.15s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+#vibes-btn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+#vibes-btn:active {
+  transform: scale(0.95);
+}
+
+/* ═══════════════════════════════════════
+   START SCREEN — semi-transparent over spinning globe
+   ═══════════════════════════════════════ */
+
+#start-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-start);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 40;
+  transform: translateZ(0);
+}
+
+#start-screen.hidden { display: none; }
+
+#start-inner {
+  text-align: center;
+}
+
+#start-screen h1 {
+  font-family: var(--font);
+  font-size: 72px;
+  font-weight: 700;
+  line-height: 0.95;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+#start-rule {
+  width: 60px;
+  height: 3px;
+  background: var(--border);
+  margin: 24px auto;
+}
+
+#start-screen p {
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+#start-screen .subtitle {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  letter-spacing: 0.06em;
+  margin-bottom: 32px;
+}
+
+#start-btn {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: none;
+  padding: 16px 48px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: opacity 0.1s;
+}
+
+#start-btn:hover { opacity: 0.7; }
+
+/* ═══════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════ */
+
+@keyframes pinPop {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes arrowPulse {
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+  50% { transform: translateY(-5px); opacity: 1; }
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes answerPop {
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes scoreCardIn {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes rowSlideIn {
+  0% { opacity: 0; transform: translateX(-12px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes dotPop {
+  0% { opacity: 0; transform: scale(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes totalPop {
+  0% { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes ledgerRowIn {
+  0% { opacity: 0; transform: translateX(20px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes totalBump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@keyframes sealReveal {
+  0% { opacity: 0; transform: scale(0.3) rotate(-20deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* ═══════════════════════════════════════
+   BOLD THEME — maximalist overrides
+   ═══════════════════════════════════════ */
+
+[data-theme="bold"] #start-screen h1 {
+  font-size: clamp(80px, 20vw, 160px);
+  letter-spacing: 0.04em;
+}
+
+[data-theme="bold"] #clue-text {
+  font-size: 22px;
+  letter-spacing: 0.06em;
+}
+
+[data-theme="bold"] .total-number {
+  font-size: 120px;
+  letter-spacing: 0.02em;
+}
+
+[data-theme="bold"] #clue-meta,
+[data-theme="bold"] #ledger-title,
+[data-theme="bold"] #ledger-pin-label,
+[data-theme="bold"] #ledger-total-label,
+[data-theme="bold"] .badge-easy,
+[data-theme="bold"] .total-label {
+  letter-spacing: 0.18em;
+}
+
+[data-theme="bold"] .direction-arrow {
+  color: #ffffff;
+}
+
+[data-theme="bold"] #success-blurb {
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+[data-theme="bold"] .diff-btn,
+[data-theme="bold"] #start-btn,
+[data-theme="bold"] #play-again-btn,
+[data-theme="bold"] #success-next-btn,
+[data-theme="bold"] #vibes-btn,
+[data-theme="bold"] .tentative-confirm,
+[data-theme="bold"] .tentative-cancel {
+  letter-spacing: 0.16em;
+}
+
+/* ═══════════════════════════════════════
+   MOBILE
+   ═══════════════════════════════════════ */
+
+@media (max-width: 600px) {
+  #game-panel {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+    top: auto;
+    bottom: 60px;
+    transform: none;
+  }
+
+  #score-ledger {
+    max-height: 140px;
+  }
+
+  #ledger-rows {
+    max-height: 100px;
+  }
+
+  #scorecard-inner {
+    padding: 32px 20px 28px;
+  }
+
+  .total-number {
+    font-size: 72px;
+  }
+
+  .hard-seal {
+    width: 64px;
+    height: 64px;
+  }
+
+  #start-screen h1 {
+    font-size: 56px;
+  }
+}
