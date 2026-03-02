@@ -990,3 +990,37 @@ html, body {
     font-size: 56px;
   }
 }
+
+/* ── Neon Theme ─────────────────────────────────────────────── */
+[data-theme="neon"] #game-panel,
+[data-theme="neon"] #start-screen,
+[data-theme="neon"] #scorecard-overlay > div,
+[data-theme="neon"] #success-overlay {
+  border: 1px solid #00ff41;
+  box-shadow: 0 0 12px rgba(0, 255, 65, 0.4), inset 0 0 8px rgba(0, 255, 65, 0.05);
+}
+
+[data-theme="neon"] .diff-btn,
+[data-theme="neon"] #start-btn,
+[data-theme="neon"] #play-again-btn,
+[data-theme="neon"] #success-next-btn,
+[data-theme="neon"] #vibes-btn,
+[data-theme="neon"] .tentative-confirm,
+[data-theme="neon"] .tentative-cancel {
+  border: 1px solid #00ff41;
+  box-shadow: 0 0 8px rgba(0, 255, 65, 0.5);
+  color: #00ff41;
+  background: #000000;
+}
+
+[data-theme="neon"] #vibes-btn:hover,
+[data-theme="neon"] #start-btn:hover,
+[data-theme="neon"] #play-again-btn:hover,
+[data-theme="neon"] #success-next-btn:hover {
+  background: rgba(0, 255, 65, 0.1);
+  box-shadow: 0 0 16px rgba(0, 255, 65, 0.8);
+}
+
+[data-theme="neon"] #clue-divider {
+  background: rgba(0, 255, 65, 0.3);
+}

@@ -38,6 +38,45 @@ const THEMES = {
     },
   },
 
+  neon: {
+    label: 'Neon',
+    css: {
+      '--bg': '#000000',
+      '--bg-panel': 'rgba(0, 0, 0, 0.92)',
+      '--bg-solid': '#000000',
+      '--bg-start': 'rgba(0, 0, 0, 0.85)',
+      '--text': '#00ff41',
+      '--text-dim': 'rgba(0, 255, 65, 0.55)',
+      '--text-faint': 'rgba(0, 255, 65, 0.25)',
+      '--red': '#00ff41',
+      '--green': '#00ff41',
+      '--border': '#00ff41',
+      '--border-light': 'rgba(0, 255, 65, 0.2)',
+      '--font': "'Space Mono', 'Courier New', monospace",
+      '--mono': "'Space Mono', 'Courier New', monospace",
+      '--btn-bg': '#000000',
+      '--btn-text': '#00ff41',
+    },
+    map: {
+      background: '#000000',
+      water: '#000000',
+      outlines: '#00ff41',
+      labelColor: ['interpolate', ['linear'], ['zoom'], 1, 'rgba(0,255,65,0)', 2, 'rgba(0,255,65,0.2)', 3, 'rgba(0,255,65,0.4)', 5, 'rgba(0,255,65,0.7)', 7, '#00ff41'],
+      labelHalo: '#000000',
+      capitalColor: ['interpolate', ['linear'], ['zoom'], 3, 'rgba(0,255,65,0.3)', 5, 'rgba(0,255,65,0.6)', 7, 'rgba(0,255,65,0.85)'],
+      cityColor: 'rgba(0,255,65,0.35)',
+      cityMinorColor: 'rgba(0,255,65,0.2)',
+      fog: {
+        color: '#000000',
+        'high-color': '#000000',
+        'space-color': '#000000',
+        'horizon-blend': 0,
+        'star-intensity': 0,
+        range: [20, 20],
+      },
+    },
+  },
+
   monochrome: {
     label: 'Monochrome',
     css: {
@@ -77,7 +116,7 @@ const THEMES = {
   },
 };
 
-const THEME_ORDER = ['bold', 'monochrome'];
+const THEME_ORDER = ['bold', 'monochrome', 'neon'];
 let currentTheme = 'bold';
 let mapRef = null;
 
