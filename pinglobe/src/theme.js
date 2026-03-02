@@ -160,8 +160,12 @@ function applyTheme(name) {
   document.body.dataset.theme = name;
 
   // Apply Mapbox paint properties
-  if (mapRef && mapRef.isStyleLoaded()) {
-    applyMapTheme(theme.map);
+  if (mapRef) {
+    if (mapRef.isStyleLoaded()) {
+      applyMapTheme(theme.map);
+    } else {
+      mapRef.once('style.load', () => applyMapTheme(theme.map));
+    }
   }
 }
 
