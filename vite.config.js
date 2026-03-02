@@ -8,6 +8,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         pinglobe: resolve(__dirname, 'pinglobe/index.html'),
         theHumanElement: resolve(__dirname, 'the-human-element/index.html'),
+        bedroom: resolve(__dirname, 'bedroom/index.html'),
       },
     },
   },
