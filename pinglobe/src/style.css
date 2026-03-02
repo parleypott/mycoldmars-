@@ -963,14 +963,37 @@ html, body {
     top: auto;
     bottom: 60px;
     transform: none;
+    max-height: 38vh;
+    overflow: hidden;
+  }
+
+  #clue-bar {
+    padding: 8px 14px 10px;
+  }
+
+  #clue-text {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  #clue-meta {
+    font-size: 10px;
+  }
+
+  #clue-divider {
+    margin: 6px 0;
+  }
+
+  #pin-tracker {
+    margin-top: 6px;
   }
 
   #score-ledger {
-    max-height: 140px;
+    max-height: 120px;
   }
 
   #ledger-rows {
-    max-height: 100px;
+    max-height: 80px;
   }
 
   #scorecard-inner {
