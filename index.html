@@ -217,12 +217,47 @@
       .dots { gap: clamp(8px, 3vw, 14px); }
       .dot-label { font-size: 9px; }
     }
+
+    /* ── Orbiting planet ── */
+    .orbit-planet {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      border-radius: 50%;
+      pointer-events: none;
+      animation: orbitSpin 28s linear infinite;
+      opacity: 0;
+      animation: orbitSpin 28s linear infinite, fadeIn 0.6s ease 1.5s forwards;
+    }
+
+    .orbit-planet::after {
+      content: '';
+      position: absolute;
+      top: -3px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ivory-bright);
+      box-shadow:
+        0 0 6px 2px rgba(245, 240, 232, 0.6),
+        0 0 14px 4px rgba(245, 240, 232, 0.25);
+    }
+
+    @keyframes orbitSpin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
 
   <div class="ring">
     <span class="ring-label top">Games &amp; Experiments</span>
+    <div class="orbit-planet"></div>
 
     <h1 class="title">My Cold Mars</h1>
 
@@ -244,9 +279,6 @@
           <path d="M66 16 C71 14, 78 16, 81 20 C83 24, 81 28, 77 30 C73 31, 69 28, 67 24 C65 21, 65 18, 66 16Z" fill="currentColor"/>
         </svg>
         <span class="dot-label">PinGlobe</span>
-      </a>
-      <a href="/the-human-element/" class="dot">
-        <span class="dot-label">The Human Element</span>
       </a>
       <a href="/border-guesser/" class="dot">
         <span class="dot-label">Border Guesser</span>
