@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Human Element</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,700;9..40,900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root { --red: #f83500; --ivory: #faf7f2; }
+    html, body { min-height: 100vh; background: var(--red); font-family: 'DM Sans', sans-serif; -webkit-font-smoothing: antialiased; color: var(--ivory); }
+    body::after { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events: none; z-index: 100; }
+    .back { position: fixed; top: 24px; left: 28px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ivory); text-decoration: none; opacity: 0.7; transition: opacity 0.2s; z-index: 200; }
+    .back:hover { opacity: 1; }
+    .page { padding: 80px 40px 60px; max-width: 1200px; margin: 0 auto; }
+    header { margin-bottom: 60px; }
+    h1 { font-size: clamp(48px, 9vw, 120px); font-weight: 900; letter-spacing: -0.03em; line-height: 0.92; color: var(--ivory); text-transform: uppercase; }
+    .subtitle { margin-top: 16px; font-size: 13px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.5; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    @media (max-width: 700px) { .grid { grid-template-columns: repeat(2, 1fr); } .page { padding: 70px 20px 40px; } }
+    @media (max-width: 420px) { .grid { grid-template-columns: 1fr; } }
+    .card { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 36px 24px 28px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.3s cubic-bezier(0.22,1,0.36,1), border-color 0.3s, background 0.3s; }
+    .card:hover { transform: scale(1.03); border-color: rgba(255,255,255,0.35); background: rgba(0,0,0,0.45); }
+    .card svg { width: 140px; height: 140px; margin-bottom: 20px; }
+    .card-name { font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ivory); opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <a href="/" class="back">← Back</a>
+  <div class="page">
+    <header>
+      <h1>The Human<br>Element</h1>
+      <p class="subtitle">Five places. Five stories.</p>
+    </header>
+    <div class="grid">
+      <div class="card">
+        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M118 30 C124 38,128 50,130 65 C132 80,131 95,128 110 C125 125,120 140,114 152 C108 164,101 172,95 175 C89 172,84 162,81 148 C78 134,77 118,79 102 C81 86,85 70,91 57 C97 44,105 33,112 28 C114 28,116 29,118 30Z" fill="#faf7f2" opacity="0.92"/>
+        </svg>
+        <span class="card-name">Taiwan</span>
+      </div>
+      <div class="card">
+        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="100" cy="80" rx="18" ry="24" fill="#faf7f2" opacity="0.92"/>
+          <ellipse cx="72" cy="108" rx="12" ry="16" fill="#faf7f2" opacity="0.92"/>
+          <ellipse cx="126" cy="115" rx="10" ry="14" fill="#faf7f2" opacity="0.92"/>
+          <ellipse cx="88" cy="140" rx="8" ry="10" fill="#faf7f2" opacity="0.92"/>
+          <ellipse cx="118" cy="148" rx="6" ry="8" fill="#faf7f2" opacity="0.92"/>
+        </svg>
+        <span class="card-name">Palau</span>
+      </div>
+      <div class="card">
+        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M100 22 C112 22,130 30,140 45 C150 60,148 78,138 90 C132 97,124 101,120 108 C118 114,119 122,116 130 C113 138,108 145,105 155 C103 162,103 170,101 178 C99 170,97 162,95 155 C92 145,88 138,86 130 C83 122,83 114,82 108 C78 101,70 97,63 90 C53 78,51 60,61 45 C71 30,88 22,100 22Z" fill="#faf7f2" opacity="0.92"/>
+        </svg>
+        <span class="card-name">Myanmar</span>
+      </div>
+      <div class="card">
+        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M28 88 C35 82,50 78,70 76 C90 74,115 74,140 76 C158 78,170 82,174 88 C176 92,174 98,168 102 C155 108,135 112,110 113 C85 114,60 112,44 108 C32 104,26 98,28 88Z" fill="#faf7f2" opacity="0.92"/>
+        </svg>
+        <span class="card-name">Nepal</span>
+      </div>
+      <div class="card">
+        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M55 50 C70 42,90 40,108 44 C126 48,138 58,144 72 C150 86,148 102,155 112 C162 122,170 128,168 138 C166 148,154 152,140 150 C126 148,112 140,100 140 C88 140,78 146,66 144 C54 142,44 132,40 118 C36 104,38 88,42 74 C46 62,50 54,55 50Z" fill="#faf7f2" opacity="0.92"/>
+          <path d="M155 112 C162 108,172 106,178 110 C182 113,180 120,174 124 C168 128,162 126,158 122 C155 118,154 115,155 112Z" fill="#faf7f2" opacity="0.92"/>
+        </svg>
+        <span class="card-name">Ethiopia</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
