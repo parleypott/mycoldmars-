@@ -11,6 +11,7 @@ export default defineConfig({
         bedroom: resolve(__dirname, 'bedroom/index.html'),
         borderGuesser: resolve(__dirname, 'border-guesser/index.html'),
         bounce: resolve(__dirname, 'bounce/index.html'),
+        flight: resolve(__dirname, 'flight/index.html'),
         palau: resolve(__dirname, 'palau/index.html'),
         borders: resolve(__dirname, 'borders/index.html'),
       },

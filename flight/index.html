@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flight · My Cold Mars</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,700;9..40,900&display=swap" rel="stylesheet">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #1c1c1e; overflow: hidden; font-family: 'DM Sans', sans-serif; }
+
+    #map { width: 100%; height: 100%; }
+
+    /* Hide Mapbox attribution */
+    .mapboxgl-ctrl-bottom-left,
+    .mapboxgl-ctrl-bottom-right,
+    .mapboxgl-ctrl-attrib { display: none !important; }
+
+    #back {
+      position: fixed; top: 20px; left: 20px; z-index: 10;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: rgba(255,255,255,0.3);
+      text-decoration: none; transition: color 0.2s;
+    }
+    #back:hover { color: rgba(255,255,255,0.8); }
+
+    /* Palau label */
+    #palau-label {
+      position: fixed; bottom: 22%; left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+      z-index: 10;
+    }
+    #palau-label .name {
+      font-size: clamp(28px, 6vw, 52px);
+      font-weight: 900; letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #ffffff;
+    }
+    #palau-label .sub {
+      font-size: 11px; letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      margin-top: 6px;
+    }
+    #palau-label.visible { opacity: 1; }
+
+    /* Grain */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+<a href="/" id="back">← Back</a>
+<div id="palau-label">
+  <div class="name">Palau</div>
+  <div class="sub">13,000 km · 15h from DC</div>
+</div>
+<div id="map"></div>
+
+<script>
+mapboxgl.accessToken = 'pk.eyJ1Ijoiam9obm55d2hhcnJpcyIsImEiOiJ3ck1DN2dnIn0.B-hCqwHxWQwTFGYWOfCLfg';
+
+// ── Coordinates ──
+const DC    = [-77.037, 38.907];
+const PALAU = [134.479, 7.515];
+
+// ── Great circle interpolation ──
+function toRad(d) { return d * Math.PI / 180; }
+function toDeg(r) { return r * 180 / Math.PI; }
+
+function greatCirclePoints(from, to, n) {
+  const lat1 = toRad(from[1]), lon1 = toRad(from[0]);
+  const lat2 = toRad(to[1]),   lon2 = toRad(to[0]);
+  const d = 2 * Math.asin(Math.sqrt(
+    Math.pow(Math.sin((lat2-lat1)/2),2) +
+    Math.cos(lat1)*Math.cos(lat2)*Math.pow(Math.sin((lon2-lon1)/2),2)
+  ));
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const f = i / n;
+    const A = Math.sin((1-f)*d)/Math.sin(d);
+    const B = Math.sin(f*d)/Math.sin(d);
+    const x = A*Math.cos(lat1)*Math.cos(lon1) + B*Math.cos(lat2)*Math.cos(lon2);
+    const y = A*Math.cos(lat1)*Math.sin(lon1) + B*Math.cos(lat2)*Math.sin(lon2);
+    const z = A*Math.sin(lat1)               + B*Math.sin(lat2);
+    pts.push([
+      toDeg(Math.atan2(y, x)),
+      toDeg(Math.atan2(z, Math.sqrt(x*x+y*y)))
+    ]);
+  }
+  return pts;
+}
+
+const ARC_POINTS = greatCirclePoints(DC, PALAU, 120);
+
+// ── Map ──
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/dark-v11',
+  center: [20, 20],
+  zoom: 1.5,
+  projection: 'globe',
+  interactive: false,
+  attributionControl: false,
+});
+
+map.on('style.load', () => {
+  // Atmosphere — dark, minimal
+  map.setFog({
+    color: '#1c1c1e',
+    'high-color': '#1c1c1e',
+    'horizon-blend': 0.03,
+    'space-color': '#1c1c1e',
+    'star-intensity': 0.0,
+  });
+
+  // Override land/water to match charcoal aesthetic
+  const layers = map.getStyle().layers;
+  for (const layer of layers) {
+    if (layer.type === 'fill' && layer.id.includes('land')) {
+      map.setPaintProperty(layer.id, 'fill-color', '#2a2a2e');
+    }
+    if (layer.type === 'fill' && layer.id.includes('water')) {
+      map.setPaintProperty(layer.id, 'fill-color', '#1c1c1e');
+    }
+    if (layer.type === 'line' && (layer.id.includes('border') || layer.id.includes('boundary'))) {
+      map.setPaintProperty(layer.id, 'line-color', 'rgba(255,255,255,0.35)');
+      map.setPaintProperty(layer.id, 'line-width', 0.5);
+    }
+    // Hide labels, roads, buildings for minimalism
+    if (['symbol','line'].includes(layer.type) &&
+        (layer.id.includes('road') || layer.id.includes('transit') ||
+         layer.id.includes('label') || layer.id.includes('place') ||
+         layer.id.includes('poi'))) {
+      map.setLayoutProperty(layer.id, 'visibility', 'none');
+    }
+  }
+
+  // ── Arc source & layers ──
+  map.addSource('arc', {
+    type: 'geojson',
+    data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } }
+  });
+
+  // Glow (wide, faint)
+  map.addLayer({
+    id: 'arc-glow',
+    type: 'line',
+    source: 'arc',
+    paint: {
+      'line-color': '#ffffff',
+      'line-width': 8,
+      'line-opacity': 0.08,
+      'line-blur': 4,
+    }
+  });
+
+  // Core line
+  map.addLayer({
+    id: 'arc-line',
+    type: 'line',
+    source: 'arc',
+    paint: {
+      'line-color': '#ffffff',
+      'line-width': 1.5,
+      'line-opacity': 0.9,
+    }
+  });
+
+  // Dot at tip of arc (leading point)
+  map.addSource('dot', {
+    type: 'geojson',
+    data: { type: 'Feature', geometry: { type: 'Point', coordinates: DC } }
+  });
+  map.addLayer({
+    id: 'arc-dot',
+    type: 'circle',
+    source: 'dot',
+    paint: {
+      'circle-radius': 4,
+      'circle-color': '#ffffff',
+      'circle-opacity': 0,
+      'circle-blur': 0.3,
+    }
+  });
+
+  startLoop();
+});
+
+// ── Animation state machine ──
+const STATE = { SPINNING: 0, DRAWING: 1, HOLDING: 2, FADING: 3, ZOOMING_IN: 4, ZOOMING_OUT: 5 };
+let state = STATE.SPINNING;
+let spinBearing = 20;
+let drawProgress = 0;   // 0→1
+let arcOpacity = 0;
+let spinRAF = null;
+
+const SPIN_SPEED     = 0.018;  // degrees/frame
+const DRAW_SPEED     = 0.004;  // fraction/frame
+const HOLD_MS        = 3200;
+const FADE_DURATION  = 1400;
+const DRAW_START_BEARING = -40; // bearing where DC comes into good view
+
+function setArcProgress(t) {
+  const n = Math.max(1, Math.floor(t * ARC_POINTS.length));
+  const coords = ARC_POINTS.slice(0, n);
+  map.getSource('arc').setData({
+    type: 'Feature', geometry: { type: 'LineString', coordinates: coords }
+  });
+  if (coords.length > 0) {
+    map.getSource('dot').setData({
+      type: 'Feature', geometry: { type: 'Point', coordinates: coords[coords.length-1] }
+    });
+  }
+}
+
+function clearArc() {
+  map.getSource('arc').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [] } });
+  map.setPaintProperty('arc-line', 'line-opacity', 0.9);
+  map.setPaintProperty('arc-glow', 'line-opacity', 0.08);
+  map.setPaintProperty('arc-dot', 'circle-opacity', 0);
+}
+
+function showLabel() { document.getElementById('palau-label').classList.add('visible'); }
+function hideLabel() { document.getElementById('palau-label').classList.remove('visible'); }
+
+function fadeArcOut(duration, cb) {
+  const start = performance.now();
+  const startOp = 0.9, startGlow = 0.08;
+  function tick(ts) {
+    const t = Math.min((ts - start) / duration, 1);
+    map.setPaintProperty('arc-line', 'line-opacity', startOp * (1 - t));
+    map.setPaintProperty('arc-glow', 'line-opacity', startGlow * (1 - t));
+    map.setPaintProperty('arc-dot', 'circle-opacity', 0.9 * (1 - t));
+    if (t < 1) requestAnimationFrame(tick);
+    else { clearArc(); if (cb) cb(); }
+  }
+  requestAnimationFrame(tick);
+}
+
+function animateDotIn(duration, cb) {
+  const start = performance.now();
+  function tick(ts) {
+    const t = Math.min((ts - start) / duration, 1);
+    map.setPaintProperty('arc-dot', 'circle-opacity', t * 0.9);
+    if (t < 1) requestAnimationFrame(tick);
+    else if (cb) cb();
+  }
+  requestAnimationFrame(tick);
+}
+
+function loop() {
+  if (state === STATE.SPINNING) {
+    spinBearing += SPIN_SPEED;
+    map.setBearing(spinBearing % 360);
+
+    // Normalize bearing to check if DC is centered-ish (bearing ~-40 to 0)
+    const b = ((spinBearing % 360) + 360) % 360;
+    if (b > 316 && b < 326) {
+      state = STATE.DRAWING;
+      drawProgress = 0;
+      clearArc();
+      map.setPaintProperty('arc-dot', 'circle-opacity', 0);
+      animateDotIn(600, null);
+    }
+  }
+  else if (state === STATE.DRAWING) {
+    spinBearing += SPIN_SPEED * 0.3; // slow the spin while drawing
+    map.setBearing(spinBearing % 360);
+    drawProgress = Math.min(drawProgress + DRAW_SPEED, 1);
+    setArcProgress(drawProgress);
+    map.setPaintProperty('arc-dot', 'circle-opacity', 0.9);
+
+    if (drawProgress >= 1) {
+      state = STATE.ZOOMING_IN;
+      showLabel();
+      map.flyTo({
+        center: PALAU,
+        zoom: 5.5,
+        duration: 2400,
+        easing: t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t,
+      });
+      setTimeout(() => {
+        state = STATE.HOLDING;
+        setTimeout(() => {
+          state = STATE.FADING;
+          hideLabel();
+          fadeArcOut(FADE_DURATION, () => {
+            state = STATE.ZOOMING_OUT;
+            map.flyTo({
+              center: [spinBearing % 360 > 180 ? 20 : 20, 20],
+              zoom: 1.5,
+              bearing: spinBearing % 360,
+              duration: 2000,
+              easing: t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t,
+            });
+            setTimeout(() => {
+              state = STATE.SPINNING;
+            }, 2200);
+          });
+        }, HOLD_MS);
+      }, 2600);
+    }
+  }
+
+  spinRAF = requestAnimationFrame(loop);
+}
+
+function startLoop() {
+  // Set initial camera
+  map.setCenter([20, 20]);
+  map.setZoom(1.5);
+  map.setBearing(spinBearing);
+  clearArc();
+  state = STATE.SPINNING;
+  loop();
+}
+</script>
+</body>
+</html>
