@@ -14,8 +14,8 @@
     #back:hover { color: rgba(250,247,242,0.8); }
 
     /* Level intro */
-    #level-screen { position: fixed; inset: 0; background: #0d0d0d; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 40; gap: 16px; opacity: 0; pointer-events: none; transition: opacity 0.5s; }
-    #level-screen.show { opacity: 1; pointer-events: auto; }
+    #level-screen { position: fixed; inset: 0; background: #0d0d0d; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 40; gap: 16px; }
+    #level-screen.show { display: flex; }
     #level-num { font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(250,247,242,0.35); }
     #level-title { font-size: clamp(36px, 9vw, 72px); font-weight: 900; letter-spacing: -0.04em; color: #faf7f2; text-align: center; }
     #level-desc { font-size: 14px; color: rgba(250,247,242,0.4); text-align: center; max-width: 280px; line-height: 1.6; font-style: italic; }
@@ -206,7 +206,10 @@ window.addEventListener('resize', resize);
 // Pre-parse paths
 for (const [lvl, countries] of Object.entries(LEVELS)) {
   for (const c of countries) {
-    if (!parsedPaths[c.name]) parsedPaths[c.name] = new Path2D(c.path);
+    if (!parsedPaths[c.name]) {
+      try { parsedPaths[c.name] = new Path2D(c.path); }
+      catch(e) { console.warn('Bad path for', c.name, e); }
+    }
   }
 }
 
