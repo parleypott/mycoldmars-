@@ -62,18 +62,22 @@
       display: flex;
       flex-direction: column;
       justify-content: space-evenly;
-      padding: 60px 0 40px;
+      padding: 70px 0 50px;
     }
 
     /* Individual LED strip */
     .strip {
       position: relative;
-      width: 100%;
-      height: 38px;
+      height: 28px;
       overflow: hidden;
       background: #0c0c09;
-      border-top: 1px solid rgba(240, 140, 20, 0.12);
-      border-bottom: 1px solid rgba(240, 140, 20, 0.12);
+      border-top: 1px solid rgba(240, 140, 20, 0.1);
+      border-bottom: 1px solid rgba(240, 140, 20, 0.1);
+      /* dot-matrix pixel grid overlay */
+      background-image:
+        radial-gradient(circle, rgba(0,0,0,0.55) 1px, transparent 1px);
+      background-size: 4px 4px;
+      background-color: #0c0c09;
     }
 
     /* Inner glow on strips */
@@ -110,7 +114,7 @@
     }
 
     .strip-text {
-      font-size: 15px;
+      font-size: 11px;
       letter-spacing: 0.06em;
       line-height: 1;
       color: #f0a020;
@@ -230,9 +234,24 @@ const STRIPS = [
 
 const boards = document.getElementById('boards');
 
+// Stagger config: [widthPct, leftOffsetPct]
+const STAGGER = [
+  [88, 0],
+  [72, 14],
+  [95, 0],
+  [65, 8],
+  [82, 4],
+  [78, 10],
+  [90, 0],
+];
+
+
 STRIPS.forEach((strip, i) => {
   const el = document.createElement('div');
   el.className = 'strip';
+  const [wPct, lPct] = STAGGER[i] || [85, 0];
+  el.style.width = wPct + '%';
+  el.style.marginLeft = lPct + '%';
 
   const inner = document.createElement('div');
   inner.className = 'strip-inner';
