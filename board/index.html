@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>On the Board · My Cold Mars</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #111110; overflow: hidden; font-family: 'Share Tech Mono', monospace; }
+
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 999;
+    }
+
+    #back {
+      position: fixed; top: 20px; left: 20px;
+      font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: rgba(240,140,20,0.3); text-decoration: none; z-index: 100;
+      transition: color 0.2s;
+    }
+    #back:hover { color: rgba(240,140,20,0.8); }
+
+    #label {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+      color: rgba(240,140,20,0.2); z-index: 100; white-space: nowrap;
+    }
+
+    /* Room */
+    #scene {
+      width: 100%; height: 100%;
+      display: flex; align-items: flex-end; justify-content: center;
+      padding-bottom: 0;
+    }
+
+    /* Floor line */
+    #floor {
+      position: fixed; bottom: 18%; left: 0; right: 0; height: 1px;
+      background: rgba(255,255,255,0.04);
+    }
+
+    /* Wall shadow at bottom */
+    #wall-shadow {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 22%;
+      background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
+    }
+
+    /* Tripod wrapper — sits on floor */
+    #tripod-wrap {
+      position: fixed;
+      bottom: 18%;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* The board itself */
+    #board {
+      width: 220px;
+      height: 330px; /* 4:6 ratio */
+      background: #2a1f14;
+      background-image:
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 18px,
+          rgba(0,0,0,0.15) 18px,
+          rgba(0,0,0,0.15) 19px
+        ),
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 6px,
+          rgba(255,255,255,0.02) 6px,
+          rgba(255,255,255,0.02) 7px
+        );
+      border: 2px solid #1a1008;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.05),
+        4px 8px 32px rgba(0,0,0,0.7),
+        -2px 0 12px rgba(0,0,0,0.4);
+      position: relative;
+      overflow: hidden;
+      border-radius: 3px;
+      margin-bottom: 0;
+    }
+
+    /* Wood grain overlay */
+    #board::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(170deg,
+        rgba(255,200,100,0.04) 0%,
+        transparent 40%,
+        rgba(0,0,0,0.1) 100%);
+      pointer-events: none;
+    }
+
+    /* Board edge highlight */
+    #board::after {
+      content: '';
+      position: absolute; inset: 0;
+      border: 1px solid rgba(255,200,100,0.06);
+      pointer-events: none;
+      border-radius: 2px;
+    }
+
+    /* LED strips on the board */
+    .b-strip {
+      position: absolute;
+      height: 14px;
+      overflow: hidden;
+      background: #080806;
+      border-top: 1px solid rgba(240,140,20,0.15);
+      border-bottom: 1px solid rgba(240,140,20,0.15);
+      background-image: radial-gradient(circle, rgba(0,0,0,0.6) 1px, transparent 1px);
+      background-size: 3px 3px;
+      background-color: #080806;
+    }
+
+    .b-strip::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(to right,
+        #2a1f14 0%, transparent 8%,
+        transparent 92%, #2a1f14 100%);
+      pointer-events: none; z-index: 2;
+    }
+
+    .b-strip-inner {
+      position: absolute; top: 0; left: 0; height: 100%;
+      display: flex; align-items: center;
+      white-space: nowrap;
+    }
+
+    .b-strip-text {
+      font-size: 6px;
+      letter-spacing: 0.04em;
+      color: #f0a020;
+      text-shadow:
+        0 0 3px rgba(240,160,32,1),
+        0 0 7px rgba(240,140,20,0.6),
+        0 0 14px rgba(240,120,10,0.3);
+      padding: 0 8px;
+    }
+
+    .b-strip:nth-child(even) .b-strip-text {
+      color: #cc8010;
+    }
+
+    /* Blink dot */
+    .b-dot {
+      position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+      width: 3px; height: 3px; border-radius: 50%;
+      background: #f0a020;
+      box-shadow: 0 0 4px rgba(240,160,32,0.9);
+      z-index: 3;
+      animation: blink 2.4s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.1} }
+
+    /* Tripod legs — pure CSS */
+    #tripod {
+      width: 220px;
+      height: 80px;
+      position: relative;
+    }
+    #tripod::before, #tripod::after, #tripod .leg3 {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      width: 1px;
+      background: rgba(255,255,255,0.18);
+    }
+    /* left leg */
+    #tripod::before {
+      height: 78px;
+      left: 18px;
+      transform-origin: bottom center;
+      transform: rotate(12deg);
+    }
+    /* right leg */
+    #tripod::after {
+      height: 78px;
+      right: 18px;
+      transform-origin: bottom center;
+      transform: rotate(-12deg);
+    }
+    /* center leg */
+    #tripod .leg3 {
+      height: 72px;
+      left: 50%;
+      transform-origin: bottom center;
+      transform: rotate(2deg);
+    }
+    /* horizontal brace */
+    #tripod .brace {
+      position: absolute;
+      bottom: 28px; left: 30px; right: 30px;
+      height: 1px;
+      background: rgba(255,255,255,0.1);
+    }
+    /* head mount */
+    #tripod .head {
+      position: absolute;
+      top: 0; left: 50%; transform: translateX(-50%);
+      width: 8px; height: 4px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 1px;
+    }
+
+    /* Ambient light from board onto floor */
+    #board-glow {
+      position: fixed;
+      bottom: 18%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 300px; height: 40px;
+      background: radial-gradient(ellipse, rgba(240,140,20,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    @keyframes scroll-rtl {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+  </style>
+</head>
+<body>
+
+<a href="/newpress-robot/" id="back">← Feed</a>
+<div id="label">Concept · Newpress Robot on a Board</div>
+
+<div id="floor"></div>
+<div id="wall-shadow"></div>
+<div id="board-glow"></div>
+
+<div id="scene">
+  <div id="tripod-wrap">
+    <div id="board">
+      <!-- strips injected by JS -->
+    </div>
+    <div id="tripod">
+      <div class="leg3"></div>
+      <div class="brace"></div>
+      <div class="head"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TEXTS = [
+  "TSMC makes Taiwan the most strategically important island on earth  ·  23 million people living under a geopolitical sword of Damocles  ·  Silicon Shield is a real concept",
+  "Growing up Taiwanese-American this hit different  ·  My grandparents fled in 1949 and never talked about it  ·  This is the first time I actually understood why",
+  "The Strait is only 180km wide  ·  That's DC to New York  ·  I never realized how close this all is until I saw it on a map",
+  "Taiwan has been self-governing for 75 years  ·  At some point that just becomes the reality  ·  The 1992 Consensus explained for the first time",
+  "Bubble tea origin being Taiwanese not Chinese  ·  A perfect metaphor for the whole identity question  ·  Nobody covers this better",
+  "Strategic ambiguity as foreign policy  ·  Deliberately vague by design  ·  The most fascinating geopolitical concept I've learned this year",
+  "Kinmen Island sits right off the Chinese coastline  ·  This detail broke my brain  ·  Booking a flight to Taipei  ·  Night market footage was enough",
+];
+
+// [top%, left%, width%]
+const POSITIONS = [
+  [8,  4,  88],
+  [20, 10, 74],
+  [32, 2,  82],
+  [44, 14, 68],
+  [56, 6,  78],
+  [67, 10, 72],
+  [78, 3,  85],
+];
+
+const SPEEDS = [22, 30, 26, 34, 28, 32, 24];
+
+const board = document.getElementById('board');
+
+POSITIONS.forEach(([top, left, width], i) => {
+  const strip = document.createElement('div');
+  strip.className = 'b-strip';
+  strip.style.top = top + '%';
+  strip.style.left = left + '%';
+  strip.style.width = width + '%';
+
+  const inner = document.createElement('div');
+  inner.className = 'b-strip-inner';
+
+  const txt = TEXTS[i % TEXTS.length] + '   ·   ';
+  const a = document.createElement('span'); a.className = 'b-strip-text'; a.textContent = txt;
+  const b = document.createElement('span'); b.className = 'b-strip-text'; b.textContent = txt;
+  inner.appendChild(a); inner.appendChild(b);
+
+  const dot = document.createElement('div'); dot.className = 'b-dot';
+  dot.style.animationDelay = `-${(i * 0.7).toFixed(1)}s`;
+
+  strip.appendChild(inner);
+  strip.appendChild(dot);
+  board.appendChild(strip);
+
+  requestAnimationFrame(() => {
+    const w = a.offsetWidth;
+    inner.style.width = (w * 2) + 'px';
+    inner.style.animation = `scroll-rtl ${SPEEDS[i]}s linear infinite`;
+    inner.style.animationDelay = `-${(i * SPEEDS[i] / 7).toFixed(1)}s`;
+  });
+});
+</script>
+</body>
+</html>

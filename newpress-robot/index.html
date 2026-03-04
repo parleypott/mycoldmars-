@@ -48,6 +48,8 @@
     }
     #back:hover { color: rgba(240, 140, 20, 0.8); }
 
+    #board-link { position: fixed; top: 18px; right: 20px; font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(240,140,20,0.35); text-decoration: none; z-index: 1000; transition: color 0.2s; }
+    #board-link:hover { color: rgba(240,140,20,0.8); }
     #header {
       position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
       font-size: 10px; letter-spacing: 0.35em; text-transform: uppercase;
@@ -169,6 +171,7 @@
 
 <a href="/" id="back">← Back</a>
 <div id="header">Newpress Robot · Community Feed · Taiwan</div>
+<a href="/board/" id="board-link">Put it on a board →</a>
 
 <div id="boards"></div>
 
