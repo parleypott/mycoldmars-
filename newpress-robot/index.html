@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Newpress Robot · My Cold Mars</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #080806;
+      font-family: 'Share Tech Mono', 'Courier New', monospace;
+      overflow: hidden;
+    }
+
+    /* Grain */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 999;
+    }
+
+    /* Scanlines */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.12) 2px,
+        rgba(0,0,0,0.12) 4px
+      );
+      pointer-events: none; z-index: 998;
+    }
+
+    #back {
+      position: fixed; top: 20px; left: 20px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: rgba(240, 140, 20, 0.35);
+      text-decoration: none; z-index: 1000;
+      transition: color 0.2s;
+    }
+    #back:hover { color: rgba(240, 140, 20, 0.8); }
+
+    #header {
+      position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+      font-size: 10px; letter-spacing: 0.35em; text-transform: uppercase;
+      color: rgba(240, 140, 20, 0.25);
+      z-index: 1000;
+      white-space: nowrap;
+    }
+
+    /* Board container — full screen, strips distributed vertically */
+    #boards {
+      width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-evenly;
+      padding: 60px 0 40px;
+    }
+
+    /* Individual LED strip */
+    .strip {
+      position: relative;
+      width: 100%;
+      height: 38px;
+      overflow: hidden;
+      background: #0c0c09;
+      border-top: 1px solid rgba(240, 140, 20, 0.12);
+      border-bottom: 1px solid rgba(240, 140, 20, 0.12);
+    }
+
+    /* Inner glow on strips */
+    .strip::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 100% at 50% 50%,
+        rgba(240, 140, 20, 0.04) 0%,
+        transparent 100%);
+      pointer-events: none; z-index: 1;
+    }
+
+    /* Left and right fade masks */
+    .strip::after {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        linear-gradient(to right,
+          #0c0c09 0%,
+          transparent 6%,
+          transparent 94%,
+          #0c0c09 100%);
+      pointer-events: none; z-index: 2;
+    }
+
+    .strip-inner {
+      position: absolute;
+      top: 0; left: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      /* animation set per-strip via JS */
+    }
+
+    .strip-text {
+      font-size: 15px;
+      letter-spacing: 0.06em;
+      line-height: 1;
+      color: #f0a020;
+      text-shadow:
+        0 0 6px rgba(240, 160, 32, 0.9),
+        0 0 14px rgba(240, 140, 20, 0.5),
+        0 0 28px rgba(240, 120, 10, 0.25);
+      padding: 0 4vw;
+    }
+
+    /* Separator between repeated strings */
+    .sep {
+      color: rgba(240, 140, 20, 0.25);
+      padding: 0 2vw;
+      font-size: 13px;
+    }
+
+    /* Dim alternating strips slightly for depth */
+    .strip:nth-child(even) .strip-text {
+      color: #cc8010;
+      text-shadow:
+        0 0 5px rgba(200, 120, 16, 0.8),
+        0 0 12px rgba(200, 110, 10, 0.4),
+        0 0 22px rgba(200, 100, 8, 0.18);
+    }
+
+    /* Status dot — blinking */
+    .strip-status {
+      position: absolute;
+      right: 12px; top: 50%; transform: translateY(-50%);
+      width: 5px; height: 5px; border-radius: 50%;
+      background: #f0a020;
+      box-shadow: 0 0 6px rgba(240, 160, 32, 0.9);
+      z-index: 3;
+      animation: blink 2.4s ease-in-out infinite;
+    }
+    .strip:nth-child(3n) .strip-status { animation-delay: -0.8s; }
+    .strip:nth-child(5n) .strip-status { animation-delay: -1.6s; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.15; }
+    }
+
+    @keyframes scroll-rtl {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+  </style>
+</head>
+<body>
+
+<a href="/" id="back">← Back</a>
+<div id="header">Newpress Robot · Community Feed · Taiwan</div>
+
+<div id="boards"></div>
+
+<script>
+const STRIPS = [
+  {
+    speed: 38, // seconds for one full loop
+    text: `Just watched the Taiwan episode — TSMC alone makes this the most strategically important island on earth and nobody in mainstream media explains why`
+       + `  ·  ·  ·  `
+       + `The identity question is so complex. Taiwanese people I've met don't call themselves Chinese at all. That's the story Western media refuses to tell properly`
+       + `  ·  ·  ·  `
+       + `Growing up Taiwanese-American this hit different. My grandparents fled in 1949 and never talked about it. This is the first time I actually understood why.`,
+  },
+  {
+    speed: 52,
+    text: `The Taiwan Strait is only 180km wide. That's DC to New York. I never fully understood how close this all is until I saw it on a map`
+       + `  ·  ·  ·  `
+       + `Can someone explain the 1992 Consensus? Every explanation I find is written by someone with an agenda`
+       + `  ·  ·  ·  `
+       + `Taiwan has been functionally self-governing for 75 years. At some point that just becomes the reality regardless of what any government says`,
+  },
+  {
+    speed: 44,
+    text: `The bubble tea origin being Taiwanese not Chinese is a perfect metaphor for this whole identity thing`
+       + `  ·  ·  ·  `
+       + `My professor literally told us Taiwan was a province of China. I went back to class and corrected him. He did not appreciate it`
+       + `  ·  ·  ·  `
+       + `What gets me is that 23 million people are just living their lives under this geopolitical sword of Damocles. They're just going to night markets and living normally`,
+  },
+  {
+    speed: 61,
+    text: `The Silicon Shield concept is wild to think about. Taiwan's chip dominance might be the only thing preventing an invasion. Economic deterrence at a global scale`
+       + `  ·  ·  ·  `
+       + `Watched this with my girlfriend's Taiwanese family. Her mom cried. Her dad nodded silently the whole time and then said "this is the first time I've seen it explained correctly"`
+       + `  ·  ·  ·  `
+       + `Nobody explains KMT vs DPP better than this. It's like watching the trauma of 1949 still playing out in every election`,
+  },
+  {
+    speed: 47,
+    text: `US strategic ambiguity as foreign policy is the most fascinating geopolitical concept I've learned this year. Deliberately vague by design`
+       + `  ·  ·  ·  `
+       + `Indigenous Taiwanese culture is so underrepresented — even within Taiwan itself. Would love a whole episode just on the 16 recognized indigenous tribes`
+       + `  ·  ·  ·  `
+       + `The night market footage alone made me book a flight. Taipei in three weeks`,
+  },
+  {
+    speed: 55,
+    text: `Something I didn't know: Taiwan runs its own Olympics team, its own passport, its own military, its own currency. By every functional measure it's a country`
+       + `  ·  ·  ·  `
+       + `The generational divide is real. Older Taiwanese I've spoken to still have this complicated relationship with mainland China. Younger people just don't`
+       + `  ·  ·  ·  `
+       + `Kinmen Island is basically Taiwan sitting right off the Chinese coastline. That detail broke my brain`,
+  },
+  {
+    speed: 42,
+    text: `This made me realize I'd never actually looked up where Taiwan is on a map. I just assumed I knew`
+       + `  ·  ·  ·  `
+       + `The fact that most countries can't officially recognize Taiwan but still maintain "unofficial" embassies and trade relationships is the most open diplomatic fiction in the world`
+       + `  ·  ·  ·  `
+       + `Showing this to my entire family at Thanksgiving. We need to talk about this more openly as Americans`,
+  },
+];
+
+const boards = document.getElementById('boards');
+
+STRIPS.forEach((strip, i) => {
+  const el = document.createElement('div');
+  el.className = 'strip';
+
+  const inner = document.createElement('div');
+  inner.className = 'strip-inner';
+
+  // Duplicate text for seamless loop
+  const textA = document.createElement('span');
+  textA.className = 'strip-text';
+  textA.textContent = strip.text + '   ·   ·   ·   ';
+
+  const textB = document.createElement('span');
+  textB.className = 'strip-text';
+  textB.textContent = strip.text + '   ·   ·   ·   ';
+
+  inner.appendChild(textA);
+  inner.appendChild(textB);
+
+  // Status blink dot
+  const dot = document.createElement('div');
+  dot.className = 'strip-status';
+
+  el.appendChild(inner);
+  el.appendChild(dot);
+  boards.appendChild(el);
+
+  // Set animation after render so we can measure text width
+  requestAnimationFrame(() => {
+    const w = textA.offsetWidth;
+    inner.style.animation = `scroll-rtl ${strip.speed}s linear infinite`;
+    inner.style.width = (w * 2) + 'px';
+    inner.style.transform = 'translateX(0)';
+
+    // Slightly offset start so strips don't all begin in sync
+    inner.style.animationDelay = `-${(i * strip.speed / 7).toFixed(1)}s`;
+  });
+});
+</script>
+</body>
+</html>
