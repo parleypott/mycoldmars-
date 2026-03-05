@@ -6,71 +6,762 @@
   <title>The Human Element</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,700;9..40,900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700;9..40,900&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    :root { --red: #f83500; --ivory: #faf7f2; }
-    html, body { min-height: 100vh; background: var(--red); font-family: 'DM Sans', sans-serif; -webkit-font-smoothing: antialiased; color: var(--ivory); }
-    body::after { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events: none; z-index: 100; }
-    .back { position: fixed; top: 24px; left: 28px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ivory); text-decoration: none; opacity: 0.7; transition: opacity 0.2s; z-index: 200; }
+
+    :root {
+      --red: #d42e05;
+      --orange: #ff5206;
+      --ivory: #faf7f2;
+      --ivory-mid: rgba(250, 247, 242, 0.6);
+      --ivory-faint: rgba(250, 247, 242, 0.2);
+      --dark: #0a0a0a;
+      --dark-card: rgba(255,255,255,0.05);
+      --dark-border: rgba(255,255,255,0.08);
+    }
+
+    html {
+      background: var(--dark);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      color: var(--ivory);
+      overflow-x: hidden;
+    }
+
+    /* Grain overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    /* ── Nav ── */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 24px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 500;
+      mix-blend-mode: difference;
+    }
+
+    .back {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ivory);
+      text-decoration: none;
+      opacity: 0.7;
+      transition: opacity 0.3s;
+    }
+
     .back:hover { opacity: 1; }
-    .page { padding: 80px 40px 60px; max-width: 1200px; margin: 0 auto; }
-    header { margin-bottom: 60px; }
-    h1 { font-size: clamp(48px, 9vw, 120px); font-weight: 900; letter-spacing: -0.03em; line-height: 0.92; color: var(--ivory); text-transform: uppercase; }
-    .subtitle { margin-top: 16px; font-size: 13px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.5; }
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-    @media (max-width: 700px) { .grid { grid-template-columns: repeat(2, 1fr); } .page { padding: 70px 20px 40px; } }
-    @media (max-width: 420px) { .grid { grid-template-columns: 1fr; } }
-    .card { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.12); border-radius: 4px; padding: 36px 24px 28px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.3s cubic-bezier(0.22,1,0.36,1), border-color 0.3s, background 0.3s; }
-    .card:hover { transform: scale(1.03); border-color: rgba(255,255,255,0.35); background: rgba(0,0,0,0.45); }
-    .card svg { width: 140px; height: 140px; margin-bottom: 20px; }
-    .card-name { font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ivory); opacity: 0.9; }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 120px clamp(24px, 6vw, 80px) clamp(60px, 8vw, 100px);
+      position: relative;
+      background: var(--dark);
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background: url('./images/hero-egypt.png') center center / cover no-repeat;
+      opacity: 0.55;
+    }
+
+    .hero-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, var(--dark) 0%, rgba(10,10,10,0.3) 40%, transparent 70%),
+                  linear-gradient(to right, rgba(10,10,10,0.6) 0%, transparent 60%);
+    }
+
+    .hero-eyebrow {
+      position: relative;
+      z-index: 2;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--ivory);
+      opacity: 0.6;
+      margin-bottom: 24px;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.3s forwards;
+    }
+
+    .hero-title {
+      position: relative;
+      z-index: 2;
+      font-size: clamp(52px, 10vw, 140px);
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 0.9;
+      text-transform: uppercase;
+      color: var(--ivory);
+      max-width: 900px;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.5s forwards;
+    }
+
+    .hero-sub {
+      position: relative;
+      z-index: 2;
+      margin-top: clamp(24px, 4vw, 48px);
+      font-size: clamp(16px, 2vw, 22px);
+      font-weight: 300;
+      line-height: 1.6;
+      color: var(--ivory);
+      opacity: 0;
+      max-width: 600px;
+      animation: fadeUp 0.8s ease 0.7s forwards;
+    }
+
+    .hero-scroll {
+      position: absolute;
+      z-index: 2;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--ivory);
+      opacity: 0;
+      animation: fadeIn 0.8s ease 1.2s forwards, pulse 2.5s ease-in-out 2s infinite;
+    }
+
+    /* ── Cinematic image break ── */
+    .cine-break {
+      width: 100%;
+      height: clamp(200px, 35vw, 420px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cine-break img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .cine-break::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, var(--dark) 0%, transparent 20%, transparent 80%, var(--dark) 100%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* ── Sections ── */
+    section {
+      padding: clamp(60px, 10vw, 120px) clamp(24px, 6vw, 80px);
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--orange);
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: clamp(28px, 5vw, 56px);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      margin-bottom: clamp(20px, 3vw, 40px);
+    }
+
+    .section-body {
+      font-size: clamp(15px, 1.6vw, 19px);
+      font-weight: 300;
+      line-height: 1.75;
+      color: var(--ivory-mid);
+      max-width: 680px;
+    }
+
+    /* ── Divider ── */
+    .divider {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 clamp(24px, 6vw, 80px);
+    }
+
+    .divider hr {
+      border: none;
+      height: 1px;
+      background: var(--dark-border);
+    }
+
+    /* ── Stats row ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(16px, 3vw, 32px);
+      margin-top: clamp(32px, 5vw, 56px);
+    }
+
+    .stat {
+      text-align: center;
+      padding: clamp(20px, 3vw, 36px) 16px;
+      border: 1px solid var(--dark-border);
+      border-radius: 6px;
+      background: var(--dark-card);
+    }
+
+    .stat-number {
+      font-size: clamp(28px, 4.5vw, 52px);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      color: var(--ivory);
+      line-height: 1;
+    }
+
+    .stat-label {
+      margin-top: 8px;
+      font-size: clamp(10px, 1.1vw, 13px);
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ivory-faint);
+    }
+
+    /* ── Format block ── */
+    .format-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(16px, 2.5vw, 24px);
+      margin-top: clamp(32px, 4vw, 48px);
+    }
+
+    .format-card {
+      padding: clamp(24px, 3vw, 36px);
+      border: 1px solid var(--dark-border);
+      border-radius: 6px;
+      background: var(--dark-card);
+      transition: border-color 0.4s, background 0.4s;
+    }
+
+    .format-card:hover {
+      border-color: rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.07);
+    }
+
+    .format-card-title {
+      font-size: clamp(14px, 1.4vw, 18px);
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .format-card-body {
+      font-size: clamp(13px, 1.2vw, 15px);
+      font-weight: 300;
+      line-height: 1.65;
+      color: var(--ivory-mid);
+    }
+
+    /* ── Proof section (validated episodes) ── */
+    .proof-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(16px, 2.5vw, 24px);
+      margin-top: clamp(32px, 4vw, 48px);
+    }
+
+    .proof-card {
+      padding: clamp(24px, 3vw, 36px);
+      border: 1px solid var(--dark-border);
+      border-radius: 6px;
+      background: var(--dark-card);
+      transition: border-color 0.4s, transform 0.4s cubic-bezier(0.22,1,0.36,1);
+    }
+
+    .proof-card:hover {
+      border-color: rgba(255,255,255,0.15);
+      transform: translateY(-4px);
+    }
+
+    .proof-card-title {
+      font-size: clamp(15px, 1.5vw, 19px);
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 16px;
+    }
+
+    .proof-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 16px;
+      border-top: 1px solid var(--dark-border);
+    }
+
+    .proof-runtime,
+    .proof-views {
+      font-size: clamp(11px, 1vw, 13px);
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .proof-runtime { color: var(--ivory-faint); }
+
+    .proof-views { color: var(--orange); }
+
+    /* ── Pilot episodes ── */
+    .pilot-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(16px, 2.5vw, 24px);
+      margin-top: clamp(32px, 4vw, 48px);
+    }
+
+    .pilot-card {
+      padding: clamp(28px, 3.5vw, 44px);
+      border: 1px solid var(--dark-border);
+      border-radius: 6px;
+      background: var(--dark-card);
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.4s, transform 0.4s cubic-bezier(0.22,1,0.36,1);
+    }
+
+    .pilot-card:hover {
+      border-color: rgba(255,255,255,0.15);
+      transform: translateY(-4px);
+    }
+
+    .pilot-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--orange);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .pilot-card:hover::before { opacity: 1; }
+
+    .pilot-region {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--orange);
+      margin-bottom: 14px;
+    }
+
+    .pilot-title {
+      font-size: clamp(20px, 2.5vw, 30px);
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+
+    .pilot-body {
+      font-size: clamp(13px, 1.2vw, 15px);
+      font-weight: 300;
+      line-height: 1.7;
+      color: var(--ivory-mid);
+    }
+
+    /* ── Launch section (red bg) ── */
+    .launch-wrap {
+      background: var(--red);
+      margin-top: clamp(60px, 10vw, 120px);
+      position: relative;
+    }
+
+    .launch-wrap::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(170deg, transparent 40%, rgba(0,0,0,0.2));
+      pointer-events: none;
+    }
+
+    .launch-section {
+      padding: clamp(60px, 10vw, 120px) clamp(24px, 6vw, 80px);
+      max-width: 1200px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .launch-section .section-label { color: var(--ivory); opacity: 0.5; }
+
+    .launch-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(16px, 2.5vw, 24px);
+      margin-top: clamp(32px, 4vw, 48px);
+    }
+
+    .launch-card {
+      padding: clamp(24px, 3vw, 36px);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      background: rgba(0,0,0,0.15);
+      transition: background 0.4s, transform 0.4s cubic-bezier(0.22,1,0.36,1);
+    }
+
+    .launch-card:hover {
+      background: rgba(0,0,0,0.25);
+      transform: translateY(-4px);
+    }
+
+    .launch-card-title {
+      font-size: clamp(14px, 1.4vw, 18px);
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .launch-card-body {
+      font-size: clamp(13px, 1.2vw, 15px);
+      font-weight: 300;
+      line-height: 1.65;
+      color: rgba(250,247,242,0.7);
+    }
+
+    /* ── Partners section ── */
+    .partners-section .section-body {
+      max-width: 720px;
+    }
+
+    .partner-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: clamp(24px, 3vw, 40px);
+    }
+
+    .partner-tag {
+      padding: 10px 20px;
+      border: 1px solid var(--dark-border);
+      border-radius: 100px;
+      font-size: clamp(11px, 1.1vw, 13px);
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ivory-mid);
+      transition: border-color 0.3s, color 0.3s;
+    }
+
+    .partner-tag:hover {
+      border-color: var(--orange);
+      color: var(--ivory);
+    }
+
+    /* ── Footer ── */
+    .footer {
+      padding: 40px clamp(24px, 6vw, 80px);
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid var(--dark-border);
+    }
+
+    .footer-left {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.4;
+    }
+
+    .footer-right {
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      opacity: 0.3;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 0.5; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; }
+      50%      { opacity: 0.2; }
+    }
+
+    /* Scroll-triggered fade-in */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.8s cubic-bezier(0.22,1,0.36,1), transform 0.8s cubic-bezier(0.22,1,0.36,1);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .stats { grid-template-columns: repeat(3, 1fr); }
+      .format-grid { grid-template-columns: 1fr; }
+      .proof-grid { grid-template-columns: 1fr; }
+      .pilot-grid { grid-template-columns: 1fr; }
+      .launch-grid { grid-template-columns: 1fr; }
+      .footer { flex-direction: column; gap: 12px; text-align: center; }
+    }
+
+    @media (max-width: 480px) {
+      .stats { grid-template-columns: 1fr; }
+      .nav { padding: 16px 20px; }
+    }
   </style>
 </head>
 <body>
-  <a href="/" class="back">← Back</a>
-  <div class="page">
-    <header>
-      <h1>The Human<br>Element</h1>
-      <p class="subtitle">Five places. Five stories.</p>
-    </header>
-    <div class="grid">
-      <div class="card">
-        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M118 30 C124 38,128 50,130 65 C132 80,131 95,128 110 C125 125,120 140,114 152 C108 164,101 172,95 175 C89 172,84 162,81 148 C78 134,77 118,79 102 C81 86,85 70,91 57 C97 44,105 33,112 28 C114 28,116 29,118 30Z" fill="#faf7f2" opacity="0.92"/>
-        </svg>
-        <span class="card-name">Taiwan</span>
+
+  <!-- Nav -->
+  <nav class="nav">
+    <a href="/" class="back">&larr; Back</a>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero">
+    <div class="hero-bg"></div>
+    <p class="hero-eyebrow">A Newpress Production</p>
+    <h1 class="hero-title">The Human<br>Element</h1>
+    <p class="hero-sub">We are modernizing the documentary for the YouTube era. Premium, character-driven journalism that makes viewers feel smarter, more connected, and more human.</p>
+    <span class="hero-scroll">Scroll</span>
+  </header>
+
+  <!-- Mission -->
+  <section class="reveal">
+    <p class="section-label">The Mission</p>
+    <h2 class="section-title">Nourishing journalism in an era of noise</h2>
+    <p class="section-body">
+      While legacy media retreats from ambitious on-the-ground reporting, The Human Element leans in. A global documentary series that bridges the gap between high-context explainer journalism and deeply emotional, character-driven storytelling&mdash;at a time when the internet is flooded with synthetic content and polarizing noise.
+    </p>
+  </section>
+
+  <!-- Cinematic break -->
+  <div class="cine-break">
+    <img src="./images/canyon-boat.png" alt="" loading="lazy">
+  </div>
+
+  <!-- The Anchor -->
+  <section class="reveal">
+    <p class="section-label">The Anchor</p>
+    <h2 class="section-title">Johnny Harris</h2>
+    <p class="section-body">
+      YouTube-native journalist and creator. Curious, humble, and rigorous&mdash;Johnny acts as a proxy for the viewer, traveling the world to ask big questions and find real answers by meeting characters along the way.
+    </p>
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-number">7.5M+</div>
+        <div class="stat-label">Subscribers</div>
       </div>
-      <div class="card">
-        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="100" cy="80" rx="18" ry="24" fill="#faf7f2" opacity="0.92"/>
-          <ellipse cx="72" cy="108" rx="12" ry="16" fill="#faf7f2" opacity="0.92"/>
-          <ellipse cx="126" cy="115" rx="10" ry="14" fill="#faf7f2" opacity="0.92"/>
-          <ellipse cx="88" cy="140" rx="8" ry="10" fill="#faf7f2" opacity="0.92"/>
-          <ellipse cx="118" cy="148" rx="6" ry="8" fill="#faf7f2" opacity="0.92"/>
-        </svg>
-        <span class="card-name">Palau</span>
+      <div class="stat">
+        <div class="stat-number">12</div>
+        <div class="stat-label">Episodes &middot; Season 1</div>
       </div>
-      <div class="card">
-        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M100 22 C112 22,130 30,140 45 C150 60,148 78,138 90 C132 97,124 101,120 108 C118 114,119 122,116 130 C113 138,108 145,105 155 C103 162,103 170,101 178 C99 170,97 162,95 155 C92 145,88 138,86 130 C83 122,83 114,82 108 C78 101,70 97,63 90 C53 78,51 60,61 45 C71 30,88 22,100 22Z" fill="#faf7f2" opacity="0.92"/>
-        </svg>
-        <span class="card-name">Myanmar</span>
-      </div>
-      <div class="card">
-        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M28 88 C35 82,50 78,70 76 C90 74,115 74,140 76 C158 78,170 82,174 88 C176 92,174 98,168 102 C155 108,135 112,110 113 C85 114,60 112,44 108 C32 104,26 98,28 88Z" fill="#faf7f2" opacity="0.92"/>
-        </svg>
-        <span class="card-name">Nepal</span>
-      </div>
-      <div class="card">
-        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M55 50 C70 42,90 40,108 44 C126 48,138 58,144 72 C150 86,148 102,155 112 C162 122,170 128,168 138 C166 148,154 152,140 150 C126 148,112 140,100 140 C88 140,78 146,66 144 C54 142,44 132,40 118 C36 104,38 88,42 74 C46 62,50 54,55 50Z" fill="#faf7f2" opacity="0.92"/>
-          <path d="M155 112 C162 108,172 106,178 110 C182 113,180 120,174 124 C168 128,162 126,158 122 C155 118,154 115,155 112Z" fill="#faf7f2" opacity="0.92"/>
-        </svg>
-        <span class="card-name">Ethiopia</span>
+      <div class="stat">
+        <div class="stat-number">30&ndash;40</div>
+        <div class="stat-label">Minute Runtime</div>
       </div>
     </div>
+  </section>
+
+  <div class="divider"><hr></div>
+
+  <!-- The Format -->
+  <section class="reveal">
+    <p class="section-label">The Format</p>
+    <h2 class="section-title">Built for the platform</h2>
+    <p class="section-body">
+      Season 1 launches in 2026 with 12 episodes&mdash;a standardized, repeatable show format blending cinematic on-the-ground reporting, high-end explanatory animation, and behind-the-curtain transparency.
+    </p>
+    <div class="format-grid">
+      <div class="format-card">
+        <p class="format-card-title">Cinematic Reporting</p>
+        <p class="format-card-body">High-fidelity, on-the-ground documentary filmmaking from locations around the world.</p>
+      </div>
+      <div class="format-card">
+        <p class="format-card-title">Explanatory Animation</p>
+        <p class="format-card-body">High-end motion graphics that make complex geopolitical and scientific topics accessible.</p>
+      </div>
+      <div class="format-card">
+        <p class="format-card-title">Multi-Format Flywheel</p>
+        <p class="format-card-body">Deep integration with YouTube Shorts for storytelling nuggets and Community for real-time reporting updates.</p>
+      </div>
+      <div class="format-card">
+        <p class="format-card-title">Transparent Process</p>
+        <p class="format-card-body">Behind-the-curtain moments that build trust and pull the audience into the journalistic process.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cinematic break -->
+  <div class="cine-break">
+    <img src="./images/dark-ocean.png" alt="" loading="lazy">
   </div>
+
+  <!-- Proof -->
+  <section class="reveal">
+    <p class="section-label">Validated</p>
+    <h2 class="section-title">The format works</h2>
+    <p class="section-body">
+      Early versions of this format have already been tested and validated on Johnny's channel, earning millions of views per episode.
+    </p>
+    <div class="proof-grid">
+      <div class="proof-card">
+        <p class="proof-card-title">Inside the Most Prepared Country on Earth</p>
+        <div class="proof-meta">
+          <span class="proof-runtime">52:30</span>
+          <span class="proof-views">4.5M views</span>
+        </div>
+      </div>
+      <div class="proof-card">
+        <p class="proof-card-title">Why Saudi Arabia is Building a $1 Trillion City in the Desert</p>
+        <div class="proof-meta">
+          <span class="proof-runtime">34:17</span>
+          <span class="proof-views">6.9M views</span>
+        </div>
+      </div>
+      <div class="proof-card">
+        <p class="proof-card-title">Why Switzerland Has 374,142 Bunkers</p>
+        <div class="proof-meta">
+          <span class="proof-runtime">29:22</span>
+          <span class="proof-views">9.3M views</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cinematic break -->
+  <div class="cine-break">
+    <img src="./images/red-sail.png" alt="" loading="lazy">
+  </div>
+
+  <!-- Pilot Episodes -->
+  <section class="reveal">
+    <p class="section-label">Season 1</p>
+    <h2 class="section-title">Pilot episodes in development</h2>
+    <div class="pilot-grid">
+      <div class="pilot-card">
+        <p class="pilot-region">Palau</p>
+        <p class="pilot-title">When the Ocean Turns Against You</p>
+        <p class="pilot-body">
+          How the citizens of Palau are navigating the immediate, physical effects of ocean acidification and rising sea levels. Moving past theoretical debate to show how a coastal society is re-engineering its food systems and traditional way of life as the surrounding environment becomes increasingly unstable.
+        </p>
+      </div>
+      <div class="pilot-card">
+        <p class="pilot-region">Nepal</p>
+        <p class="pilot-title">The Roads That Change Everything</p>
+        <p class="pilot-body">
+          The impact of rapid road construction in the remote Himalayan provinces&mdash;a region caught in a geopolitical squeeze between India and China. Following apple farmers and transporters whose livelihoods have been transformed by new market access, while threatened by the landslides and environmental instability the roads have caused.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Launch Event (red section) -->
+  <div class="launch-wrap">
+    <section class="launch-section reveal">
+      <p class="section-label">Q3 2026</p>
+      <h2 class="section-title">Launching with a splash</h2>
+      <p class="section-body">
+        An invitation-only premiere at a flagship venue in New York City&mdash;bridging the gap between the creator economy and the global press.
+      </p>
+      <div class="launch-grid">
+        <div class="launch-card">
+          <p class="launch-card-title">The Screening</p>
+          <p class="launch-card-body">A cinematic presentation of the flagship episode on the big screen to showcase the high-fidelity production and visual rigor.</p>
+        </div>
+        <div class="launch-card">
+          <p class="launch-card-title">The Salon</p>
+          <p class="launch-card-body">A high-level Q&amp;A and moderated panel featuring world-class experts and the real-world subjects of the film.</p>
+        </div>
+        <div class="launch-card">
+          <p class="launch-card-title">The Network</p>
+          <p class="launch-card-body">A curated evening bringing together brand partners, legacy journalists, and top-tier creators to discuss the future of media.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Brand Partnerships -->
+  <section class="partners-section reveal">
+    <p class="section-label">Partnerships</p>
+    <h2 class="section-title">The smartest room on the internet</h2>
+    <p class="section-body">
+      A prestige environment for Blue Chip brands tired of the unpredictability of the influencer world and the declining reach of linear TV. The Human Element is built for partners who value global citizenship and want to project intellectual authority.
+    </p>
+    <div class="partner-tags">
+      <span class="partner-tag">Sustainability</span>
+      <span class="partner-tag">Global Logistics</span>
+      <span class="partner-tag">Technology</span>
+      <span class="partner-tag">Global Connectivity</span>
+      <span class="partner-tag">Education</span>
+      <span class="partner-tag">Travel</span>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <span class="footer-left">Newpress &middot; 2026</span>
+    <span class="footer-right">The Human Element</span>
+  </footer>
+
+  <!-- Scroll reveal -->
+  <script>
+    const reveals = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.15 });
+
+    reveals.forEach(el => observer.observe(el));
+  </script>
+
 </body>
 </html>
