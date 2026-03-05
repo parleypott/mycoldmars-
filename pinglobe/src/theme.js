@@ -114,47 +114,9 @@ const THEMES = {
       },
     },
   },
-  candy: {
-    label: 'Candy',
-    css: {
-      '--bg': '#ff2d9b',
-      '--bg-panel': 'rgba(255, 45, 155, 0.95)',
-      '--bg-solid': '#ff2d9b',
-      '--bg-start': 'rgba(255, 45, 155, 0.9)',
-      '--text': '#faff00',
-      '--text-dim': 'rgba(250, 255, 0, 0.65)',
-      '--text-faint': 'rgba(250, 255, 0, 0.35)',
-      '--red': '#faff00',
-      '--green': '#00ffcc',
-      '--border': '#faff00',
-      '--border-light': 'rgba(250, 255, 0, 0.3)',
-      '--font': "'Bungee Shade', 'Impact', system-ui, sans-serif",
-      '--mono': "'Bungee Shade', 'Impact', system-ui, sans-serif",
-      '--btn-bg': '#faff00',
-      '--btn-text': '#ff2d9b',
-    },
-    map: {
-      background: '#ff2d9b',
-      water: '#ff2d9b',
-      outlines: '#faff00',
-      labelColor: ['interpolate', ['linear'], ['zoom'], 1, 'rgba(250,255,0,0)', 2, 'rgba(250,255,0,0.2)', 3, 'rgba(250,255,0,0.4)', 5, 'rgba(250,255,0,0.7)', 7, '#faff00'],
-      labelHalo: '#ff2d9b',
-      capitalColor: ['interpolate', ['linear'], ['zoom'], 3, 'rgba(250,255,0,0.3)', 5, 'rgba(250,255,0,0.6)', 7, 'rgba(250,255,0,0.85)'],
-      cityColor: 'rgba(250,255,0,0.35)',
-      cityMinorColor: 'rgba(250,255,0,0.2)',
-      fog: {
-        color: '#ff2d9b',
-        'high-color': '#c800ff',
-        'space-color': '#7b00ff',
-        'horizon-blend': 0.03,
-        'star-intensity': 0,
-        range: [20, 20],
-      },
-    },
-  },
 };
 
-const THEME_ORDER = ['bold', 'monochrome', 'neon', 'candy'];
+const THEME_ORDER = ['bold', 'monochrome', 'neon'];
 let currentTheme = 'bold';
 let mapRef = null;
 
