@@ -7,7 +7,7 @@
   <title>My Cold Mars</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700;9..40,900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700;9..40,900&family=Noto+Serif+TC:wght@900&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -212,6 +212,21 @@
       to   { opacity: 1; }
     }
 
+    /* ── Night market Chinese character ── */
+    .dot-zh {
+      font-family: 'Noto Serif TC', serif;
+      font-weight: 900;
+      font-size: clamp(22px, 3.5vw, 36px);
+      color: var(--red);
+      line-height: 1;
+      opacity: 0.85;
+      transition: opacity 0.4s ease;
+    }
+
+    .dot-nightmarket:hover .dot-zh {
+      opacity: 1;
+    }
+
     @media (max-width: 600px) {
       .ring { width: 94vw; height: 94vw; }
       .dots { gap: clamp(8px, 3vw, 14px); }
@@ -291,6 +306,10 @@
       </a>
       <a href="/the-human-element/" class="dot">
         <span class="dot-label">The Human Element</span>
+      </a>
+      <a href="/night-market/" class="dot dot-nightmarket">
+        <span class="dot-zh">夜</span>
+        <span class="dot-label">Night Market 夜市</span>
       </a>
     </nav>
 

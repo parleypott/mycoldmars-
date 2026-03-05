@@ -16,6 +16,7 @@ export default defineConfig({
         board: resolve(__dirname, 'board/index.html'),
         palau: resolve(__dirname, 'palau/index.html'),
         borders: resolve(__dirname, 'borders/index.html'),
+        nightMarket: resolve(__dirname, 'night-market/index.html'),
       },
     },
   },

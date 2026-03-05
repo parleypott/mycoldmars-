@@ -1,0 +1,623 @@
+/* ============================================================
+   Night Market — Editorial Food Learning UI
+   ============================================================ */
+
+:root {
+  --bg:         #1a1a2e;
+  --bg-card:    rgba(30, 30, 52, 0.96);
+  --bg-modal:   rgba(22, 22, 40, 0.98);
+  --border:     rgba(58, 58, 90, 0.5);
+  --border-hi:  rgba(232, 160, 64, 0.3);
+  --warm:       #e8a040;
+  --warm-dim:   rgba(208, 128, 48, 0.5);
+  --warm-faint: rgba(208, 128, 48, 0.12);
+  --text:       #d0d4de;
+  --text-dim:   #7a8098;
+  --green:      #5cb870;
+  --red:        #d05848;
+  --font-zh:    'Noto Serif TC', serif;
+  --font-en:    'DM Sans', sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  background: var(--bg);
+  font-family: var(--font-en);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+}
+
+#app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 clamp(16px, 4vw, 40px);
+}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+#hero {
+  padding: clamp(48px, 10vw, 100px) 0 clamp(32px, 6vw, 60px);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.hero-zh {
+  font-family: var(--font-zh);
+  font-weight: 900;
+  font-size: clamp(64px, 14vw, 140px);
+  color: var(--text);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.hero-en {
+  font-size: clamp(12px, 1.4vw, 16px);
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--warm);
+  margin-top: 8px;
+}
+
+.hero-sub {
+  font-size: clamp(14px, 1.6vw, 18px);
+  font-weight: 300;
+  color: var(--text-dim);
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+.hero-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-en);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.3s, color 0.3s;
+}
+
+.mode-btn:hover { border-color: var(--warm-dim); color: var(--text); }
+
+.mode-icon { font-size: 14px; }
+
+#progress-hud {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--warm);
+}
+
+/* ============================================================
+   FOOD GRID
+   ============================================================ */
+#food-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(12px, 2vw, 20px);
+  padding-bottom: clamp(48px, 8vw, 100px);
+}
+
+/* ── Card ── */
+.food-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: border-color 0.35s, transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s;
+}
+
+.food-card:hover {
+  border-color: var(--border-hi);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3), 0 0 0 1px var(--border-hi);
+}
+
+.food-card.studied {
+  border-color: rgba(92, 184, 112, 0.25);
+}
+
+.food-card.studied::after {
+  content: '✓';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+/* ── Card Carousel ── */
+.card-carousel {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: rgba(42,42,74,0.3);
+}
+
+.carousel-track {
+  display: flex;
+  height: 100%;
+  transition: transform 0.35s cubic-bezier(0.22,1,0.36,1);
+}
+
+.carousel-img {
+  width: 100%;
+  height: 100%;
+  flex-shrink: 0;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+}
+
+.food-card:hover .carousel-img {
+  /* no zoom — keep it clean for the carousel */
+}
+
+.card-placeholder {
+  width: 100%;
+  height: 100%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-zh);
+  font-size: 48px;
+  font-weight: 900;
+  color: var(--warm-faint);
+}
+
+/* Arrows */
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(10,10,22,0.65);
+  backdrop-filter: blur(4px);
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s, background 0.25s;
+}
+
+.food-card:hover .carousel-arrow {
+  opacity: 1;
+}
+
+.carousel-arrow:hover {
+  background: rgba(10,10,22,0.85);
+}
+
+.carousel-prev { left: 8px; }
+.carousel-next { right: 8px; }
+
+/* Dots */
+.carousel-dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.food-card:hover .carousel-dots {
+  opacity: 1;
+}
+
+.carousel-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.3);
+  transition: background 0.25s;
+}
+
+.carousel-dot.active {
+  background: var(--warm);
+}
+
+/* Number badge */
+.card-number {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(10,10,22,0.65);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+/* ============================================================
+   OVERLAYS & MODALS
+   ============================================================ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(10, 10, 22, 0.92);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: clamp(20px, 4vw, 60px) clamp(12px, 3vw, 24px);
+  animation: overlayIn 0.3s ease;
+}
+
+.modal-panel {
+  width: min(96vw, 600px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-modal);
+  position: relative;
+  overflow: hidden;
+  animation: modalIn 0.35s cubic-bezier(0.22,1,0.36,1);
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(26,26,46,0.8);
+  backdrop-filter: blur(4px);
+  color: var(--text-dim);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.3s, color 0.3s;
+  font-family: var(--font-en);
+  line-height: 1;
+}
+
+.modal-close:hover { border-color: var(--warm-dim); color: var(--text); }
+
+/* ── Photos ── */
+.photo-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+
+.photo-row.single-photo {
+  grid-template-columns: 1fr;
+}
+
+.photo-slot {
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: rgba(42,42,74,0.3);
+}
+
+.photo-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-placeholder {
+  aspect-ratio: 4 / 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(42,42,74,0.2);
+}
+
+.photo-placeholder .ph-icon {
+  font-size: 24px;
+  opacity: 0.15;
+}
+
+.photo-placeholder .ph-label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  opacity: 0.5;
+}
+
+/* ── Modal body ── */
+.modal-body {
+  padding: clamp(20px, 4vw, 32px);
+}
+
+.modal-zh {
+  font-family: var(--font-zh);
+  font-weight: 900;
+  font-size: clamp(36px, 7vw, 52px);
+  color: var(--text);
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+
+.modal-en {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--warm-dim);
+  margin-bottom: clamp(20px, 3vw, 32px);
+}
+
+.detail-section {
+  margin-bottom: clamp(20px, 3vw, 28px);
+}
+
+.label {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--warm);
+  margin-bottom: 10px;
+}
+
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ingredient-pill {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-size: 12px;
+  color: var(--text-dim);
+  transition: border-color 0.3s, color 0.3s;
+}
+
+.ingredient-pill:hover {
+  border-color: var(--warm-dim);
+  color: var(--text);
+}
+
+.body-text {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-dim);
+}
+
+.trivia-q {
+  font-style: italic;
+  color: var(--text);
+}
+
+.trivia-a {
+  margin-top: 10px;
+  color: var(--green);
+  font-weight: 500;
+}
+
+.reveal-btn {
+  margin-top: 10px;
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-en);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.3s, color 0.3s;
+}
+
+.reveal-btn:hover { border-color: var(--warm); color: var(--warm); }
+
+.quiz-cta {
+  width: 100%;
+  padding: 14px;
+  margin-top: 8px;
+  border: 1px solid var(--warm-dim);
+  border-radius: 6px;
+  background: var(--warm-faint);
+  color: var(--warm);
+  font-family: var(--font-en);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.quiz-cta:hover {
+  background: rgba(208,128,48,0.2);
+  border-color: var(--warm);
+}
+
+/* ============================================================
+   QUIZ
+   ============================================================ */
+.quiz-modal .modal-body { text-align: center; }
+
+.quiz-prompt {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 18px;
+  line-height: 1.5;
+}
+
+.quiz-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.quiz-choice {
+  padding: 12px 18px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-en);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.3s, color 0.3s, background 0.3s;
+}
+
+.quiz-choice:hover { border-color: var(--warm-dim); color: var(--text); }
+
+.quiz-choice.correct {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(92,184,112,0.08);
+}
+
+.quiz-choice.wrong {
+  border-color: var(--red);
+  color: var(--red);
+  background: rgba(208,88,72,0.08);
+}
+
+.quiz-choice.disabled { pointer-events: none; opacity: 0.4; }
+.quiz-choice.reveal { border-color: var(--green); opacity: 1 !important; color: var(--green); }
+
+.quiz-feedback {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.quiz-feedback.correct-fb {
+  color: var(--green);
+  border: 1px solid rgba(92,184,112,0.3);
+  background: rgba(92,184,112,0.06);
+}
+
+.quiz-feedback.wrong-fb {
+  color: var(--red);
+  border: 1px solid rgba(208,88,72,0.3);
+  background: rgba(208,88,72,0.06);
+}
+
+.quiz-next {
+  padding: 10px 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--warm-dim);
+  font-family: var(--font-en);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.3s, color 0.3s;
+}
+
+.quiz-next:hover { border-color: var(--warm); color: var(--warm); }
+
+/* ============================================================
+   UTILITIES & ANIMATIONS
+   ============================================================ */
+.hidden { display: none !important; }
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 900px) {
+  #food-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 640px) {
+  #food-grid { grid-template-columns: repeat(2, 1fr); }
+  #hero { flex-direction: column; align-items: flex-start; }
+  .hero-stats { width: 100%; }
+  .modal-panel { border-radius: 8px; }
+  .photo-row { grid-template-columns: 1fr; }
+  .photo-row .photo-slot:nth-child(n+2) { display: none; }
+}
+
+@media (max-width: 400px) {
+  #food-grid { grid-template-columns: 1fr; }
+  .card-zh { font-size: 22px; }
+}
