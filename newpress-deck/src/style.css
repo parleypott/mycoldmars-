@@ -1,0 +1,416 @@
+/* ============================================================
+   Newpress Deck — Presentation System
+   ============================================================
+   Brand fonts (swap when self-hosting):
+     Headlines: PP Editorial New → Instrument Serif (placeholder)
+     Body:      GT Pressura Mono → Space Mono (placeholder)
+   ============================================================ */
+
+:root {
+  --ink:       #121118;
+  --warm:      #F4F2E6;
+  --blue:      #004CFF;
+  --yellow:    #FFBF00;
+  --red:       #DD2C1E;
+  --burgundy:  #520004;
+  --green:     #0D5921;
+  --sepia:     #412c27;
+  --neutral:   #D9D9D9;
+  --dim:       rgba(244, 242, 230, 0.4);
+
+  --font-head: 'Instrument Serif', Georgia, serif;
+  --font-body: 'Space Mono', 'Courier New', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  background: var(--ink);
+  color: var(--warm);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  cursor: default;
+  user-select: none;
+}
+
+/* ============================================================
+   DECK CONTAINER
+   ============================================================ */
+#deck {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* ============================================================
+   SLIDE BASE
+   ============================================================ */
+.slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(40px, 8vw, 120px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+.slide.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ============================================================
+   TYPOGRAPHY
+   ============================================================ */
+.headline {
+  font-family: var(--font-head);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.headline em {
+  font-style: italic;
+}
+
+.headline-xl { font-size: clamp(48px, 9vw, 140px); }
+.headline-lg { font-size: clamp(36px, 6vw, 96px); }
+.headline-md { font-size: clamp(28px, 4vw, 64px); }
+.headline-sm { font-size: clamp(22px, 3vw, 44px); }
+
+.body {
+  font-family: var(--font-body);
+  font-size: clamp(13px, 1.4vw, 18px);
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--dim);
+  max-width: 680px;
+}
+
+.body strong {
+  color: var(--warm);
+  font-weight: 700;
+}
+
+.label {
+  font-family: var(--font-body);
+  font-size: clamp(10px, 1vw, 13px);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.accent-blue { color: var(--blue); }
+.accent-yellow { color: var(--yellow); }
+.accent-red { color: var(--red); }
+
+/* ============================================================
+   SLIDE LAYOUTS
+   ============================================================ */
+
+/* — Title — */
+.slide-title {
+  align-items: center;
+  text-align: center;
+  gap: 20px;
+}
+
+.slide-title .headline {
+  max-width: 900px;
+}
+
+.slide-title .stats-line {
+  font-family: var(--font-body);
+  font-size: clamp(10px, 1vw, 12px);
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-top: 24px;
+}
+
+.slide-title .stats-line span {
+  color: var(--warm);
+}
+
+/* — Statement — */
+.slide-statement {
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.slide-statement .headline {
+  max-width: 1000px;
+}
+
+.slide-statement .body {
+  margin-top: 28px;
+}
+
+/* — Quote — */
+.slide-quote {
+  align-items: center;
+  text-align: center;
+  gap: 32px;
+}
+
+.slide-quote .headline {
+  font-style: italic;
+  max-width: 860px;
+}
+
+.slide-quote .attribution {
+  font-family: var(--font-body);
+  font-size: clamp(11px, 1.1vw, 14px);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.slide-quote .quote-rule {
+  width: 48px;
+  height: 2px;
+  background: var(--blue);
+}
+
+/* — Stats — */
+.slide-stats {
+  align-items: center;
+  text-align: center;
+  gap: 48px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: clamp(24px, 4vw, 48px);
+  width: 100%;
+  max-width: 960px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-number {
+  font-family: var(--font-head);
+  font-size: clamp(40px, 6vw, 80px);
+  font-weight: 400;
+  line-height: 1;
+  color: var(--warm);
+}
+
+.stat-label {
+  font-family: var(--font-body);
+  font-size: clamp(10px, 1vw, 13px);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  line-height: 1.5;
+}
+
+/* — Creators grid — */
+.slide-grid {
+  align-items: center;
+  gap: 40px;
+}
+
+.creators-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(16px, 3vw, 32px);
+  width: 100%;
+  max-width: 960px;
+}
+
+.creator-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.creator-avatar {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: var(--sepia);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-head);
+  font-size: clamp(24px, 3vw, 40px);
+  color: var(--dim);
+}
+
+.creator-name {
+  font-family: var(--font-head);
+  font-size: clamp(16px, 2vw, 24px);
+  line-height: 1.2;
+}
+
+.creator-role {
+  font-family: var(--font-body);
+  font-size: clamp(9px, 0.9vw, 11px);
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  line-height: 1.5;
+}
+
+.creator-stat {
+  font-family: var(--font-body);
+  font-size: clamp(10px, 1vw, 12px);
+  font-weight: 700;
+  color: var(--blue);
+}
+
+/* — Two-column — */
+.slide-split {
+  flex-direction: row;
+  align-items: center;
+  gap: clamp(32px, 6vw, 80px);
+}
+
+.split-left, .split-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.split-point {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 0;
+  border-top: 1px solid rgba(244, 242, 230, 0.08);
+}
+
+.split-point:first-child {
+  border-top: none;
+}
+
+.split-point .label {
+  color: var(--blue);
+}
+
+/* — Section break — */
+.slide-break {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.slide-break .break-rule {
+  width: 48px;
+  height: 2px;
+  background: var(--yellow);
+}
+
+/* — Tiers — */
+.tiers-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(12px, 2vw, 20px);
+  width: 100%;
+  max-width: 960px;
+}
+
+.tier-card {
+  border: 1px solid rgba(244, 242, 230, 0.1);
+  border-radius: 4px;
+  padding: clamp(16px, 2vw, 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tier-card.featured {
+  border-color: var(--blue);
+  background: rgba(0, 76, 255, 0.06);
+}
+
+.tier-name {
+  font-family: var(--font-body);
+  font-size: clamp(9px, 0.9vw, 11px);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+
+.tier-desc {
+  font-family: var(--font-body);
+  font-size: clamp(11px, 1.1vw, 13px);
+  color: var(--dim);
+  line-height: 1.6;
+}
+
+/* ============================================================
+   PROGRESS BAR
+   ============================================================ */
+#progress {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--blue);
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 100;
+}
+
+/* ============================================================
+   NAV HINT (fades out after first interaction)
+   ============================================================ */
+#nav-hint {
+  position: fixed;
+  bottom: 24px;
+  right: 32px;
+  display: flex;
+  gap: 6px;
+  opacity: 0.3;
+  transition: opacity 0.6s ease;
+  z-index: 100;
+}
+
+#nav-hint.faded { opacity: 0; pointer-events: none; }
+
+.key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(244, 242, 230, 0.15);
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--dim);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 768px) {
+  .creators-grid { grid-template-columns: repeat(2, 1fr); }
+  .tiers-row { grid-template-columns: repeat(2, 1fr); }
+  .slide-split { flex-direction: column; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .tiers-row { grid-template-columns: 1fr; }
+}

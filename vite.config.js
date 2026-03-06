@@ -17,6 +17,7 @@ export default defineConfig({
         palau: resolve(__dirname, 'palau/index.html'),
         borders: resolve(__dirname, 'borders/index.html'),
         nightMarket: resolve(__dirname, 'night-market/index.html'),
+        newpressDeck: resolve(__dirname, 'newpress-deck/index.html'),
       },
     },
   },
