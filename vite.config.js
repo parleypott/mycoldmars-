@@ -18,6 +18,7 @@ export default defineConfig({
         borders: resolve(__dirname, 'borders/index.html'),
         nightMarket: resolve(__dirname, 'night-market/index.html'),
         newpressDeck: resolve(__dirname, 'newpress-deck/index.html'),
+        pinglobeFeedback: resolve(__dirname, 'pinglobe-feedback/index.html'),
       },
     },
   },

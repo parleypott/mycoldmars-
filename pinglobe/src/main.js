@@ -484,3 +484,48 @@ playAgainBtn.addEventListener('click', () => {
   game.startRound();
   clearAllMarkers();
 });
+
+// ─── Feedback ───
+
+const feedbackBtn = document.getElementById('feedback-btn');
+const feedbackOverlay = document.getElementById('feedback-overlay');
+const feedbackInner = document.getElementById('feedback-inner');
+const feedbackThanks = document.getElementById('feedback-thanks');
+const feedbackText = document.getElementById('feedback-text');
+const feedbackSubmit = document.getElementById('feedback-submit');
+const feedbackClose = document.getElementById('feedback-close');
+const thanksClose = document.getElementById('thanks-close');
+
+feedbackBtn.addEventListener('click', () => {
+  feedbackInner.classList.remove('hidden');
+  feedbackThanks.classList.add('hidden');
+  feedbackText.value = '';
+  feedbackOverlay.classList.remove('hidden');
+  feedbackText.focus();
+});
+
+feedbackClose.addEventListener('click', () => {
+  feedbackOverlay.classList.add('hidden');
+});
+
+thanksClose.addEventListener('click', () => {
+  feedbackOverlay.classList.add('hidden');
+});
+
+feedbackSubmit.addEventListener('click', () => {
+  const text = feedbackText.value.trim();
+  if (!text) return;
+
+  const entry = {
+    text,
+    ts: new Date().toISOString(),
+    ua: navigator.userAgent,
+  };
+
+  const stored = JSON.parse(localStorage.getItem('pg-feedback') || '[]');
+  stored.push(entry);
+  localStorage.setItem('pg-feedback', JSON.stringify(stored));
+
+  feedbackInner.classList.add('hidden');
+  feedbackThanks.classList.remove('hidden');
+});

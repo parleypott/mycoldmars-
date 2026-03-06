@@ -767,6 +767,159 @@ html, body {
 }
 
 /* ═══════════════════════════════════════
+   FEEDBACK BUTTON + OVERLAY
+   ═══════════════════════════════════════ */
+
+#feedback-btn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 20;
+  transform: translateZ(0);
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: none;
+  padding: 10px 18px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 20px;
+  transition: transform 0.15s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+#feedback-btn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+#feedback-btn:active {
+  transform: scale(0.95);
+}
+
+#feedback-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-solid, var(--bg));
+  z-index: 50;
+  transform: translateZ(0);
+  animation: fadeIn 0.3s ease;
+}
+
+#feedback-overlay.hidden { display: none; }
+
+#feedback-inner,
+#feedback-thanks {
+  text-align: center;
+  width: 100%;
+  max-width: 420px;
+  padding: 0 24px;
+}
+
+#feedback-title,
+#thanks-title {
+  font-family: var(--font);
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+#feedback-rule,
+#thanks-rule {
+  width: 40px;
+  height: 3px;
+  background: var(--border);
+  margin: 16px auto;
+}
+
+#feedback-sub,
+#thanks-sub {
+  font-family: var(--body);
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--text);
+  opacity: 0.6;
+  margin-bottom: 24px;
+}
+
+#feedback-text {
+  width: 100%;
+  background: transparent;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text);
+  resize: vertical;
+  min-height: 100px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#feedback-text::placeholder {
+  color: var(--text);
+  opacity: 0.3;
+}
+
+#feedback-text:focus {
+  border-color: var(--text);
+}
+
+#feedback-submit,
+#thanks-close {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: none;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+
+#feedback-submit:hover,
+#thanks-close:hover {
+  opacity: 0.7;
+}
+
+#feedback-close {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0.4;
+  transition: opacity 0.1s;
+}
+
+#feedback-close:hover {
+  opacity: 0.7;
+}
+
+/* ═══════════════════════════════════════
    START SCREEN — semi-transparent over spinning globe
    ═══════════════════════════════════════ */
 
