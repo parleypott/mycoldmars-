@@ -19,49 +19,41 @@ const slides = [
     layout: 'data',
     bg: 'blue',
     label: 'PROBLEM \u2014 WHY',
-    headline: 'People don\u2019t trust institutions anymore.\nThey trust people.',
-    body: 'Legacy media is losing the audience it needs to fund the journalism. Creators are gaining the audience without the infrastructure to do it well. The gap between them is where Newpress lives.',
+    headline: 'People don\u2019t trust\ninstitutions anymore.\nThey trust people.',
+    body: 'Legacy media is losing the audience it needs to fund the journalism. Creators are gaining the audience without the infrastructure to do good journalism. The gap between them is where Newpress lives.',
     stats: [
-      { number: '54%', text: 'of Americans now access news via social or video networks \u2014 surpassing TV and news websites for the first time.', source: 'Reuters Institute, 2025' },
+      { number: '54%', text: 'of Americans now access news via social or video networks, surpassing TV (50%) and news websites/apps (48%) for the first time.', source: 'Reuters Institute Digital News Report, 2025' },
       { number: '28%', text: 'of Americans have confidence in mass media \u2014 a record low.', source: 'Gallup, 2025' },
-      { number: '70%', text: 'of news executives say creators are taking audience attention away from publishers.', source: 'Reuters / Nieman Lab' },
+      { number: '70%', text: 'of news executives say creators are taking audience attention away from publishers.', source: 'Nieman Journalism Lab / Reuters Institute' },
     ],
   },
 
-  // ─── 3. SOLUTION — HOW ───
+  // ─── 3. SOLUTION ───
   {
-    layout: 'solution',
-    label: 'SOLUTION \u2014 HOW',
-    headline: 'The journalist is the brand.\nThe newsroom is the backbone.',
-    body: 'Every model that exists right now has a structural flaw. Legacy media has the journalism \u2014 but not the audience. The creator economy has the audience \u2014 but not the infrastructure. Venture digital tried to bridge both and collapsed under its own overhead.',
-    subhead: 'Newpress is built differently.',
-    points: [
-      'Creator-led shows with direct audience trust',
-      'Small, elite teams \u2014 not large editorial staffs',
-      'Shared reporting, production, and visual infrastructure',
-      'Cross-platform storytelling built for modern distribution',
-      'Multiple revenue streams built around each show',
-    ],
-    kicker: 'Creators build single shows. Media companies build expensive institutions. Newpress builds both.',
+    layout: 'statement',
+    bg: 'green',
+    label: 'SOLUTION',
+    headline: 'The trust and reach of creators.\nThe rigor of a newsroom.',
+    body: 'Newpress combines both. By providing shared editorial, operational and production infrastructure behind each show, we enable trusted creators to produce high-quality journalism that can scale across multiple platforms into a durable media franchise.',
   },
 
-  // ─── 4. WHY NOW ───
+  // ─── 4. WHY NOW? ───
   {
     layout: 'whynow',
     stripe: 'yellow',
     label: 'WHY NOW?',
-    headline: 'The talent and the audience are moving at the same time.',
+    headline: 'The talent and audiences\nare moving fast.',
     sections: [
       {
         num: '1',
         title: 'The audience has already moved.',
         text: 'YouTube held the highest share of TV viewing every single month in 2025, overtaking Disney and Netflix. 38% of adults under 30 regularly get news from creators. This isn\u2019t a trend \u2014 it\u2019s the new baseline.',
-        source: 'Nielsen, 2025 \u00B7 Pew Research Center',
+        source: 'Nielsen Media Distributor Gauge, 2025',
       },
       {
         num: '2',
         title: 'Legacy talent is available \u2014 right now.',
-        text: 'Top-tier journalists are leaving institutions in waves. Trust in national news organizations has dropped 20 points since 2016. The people who built the best journalism of the last decade are looking for a new home.',
+        text: 'Top-tier journalists are leaving institutions in waves. Trust in national news organizations has dropped 20 points since 2016. The window to recruit is open now.',
         source: 'Pew Research Center',
       },
       {
@@ -72,101 +64,111 @@ const slides = [
     ],
   },
 
-  // ─── 5. MARKET — AD MIGRATION ───
+  // ─── 5. MARKET POTENTIAL ───
   {
-    layout: 'market',
+    layout: 'marketQuote',
     bg: 'burgundy',
-    label: 'MARKET \u2014 THE AD MIGRATION',
-    headline: '$60 billion is looking\nfor a new home.',
-    body: 'Linear TV advertising is in structural decline. Over $60B in annual US ad spend is beginning to move out of television as audiences shift to digital platforms. This isn\u2019t a gradual drift \u2014 it\u2019s a structural reallocation happening in real time.',
-    stats: [
-      { number: '$250B', label: 'Creator economy\ntoday' },
-      { number: '$480B', label: 'Creator economy\nby 2027 (projected)', source: 'Goldman Sachs' },
-      { number: '$60B+', label: 'Linear TV ad spend\nunder pressure' },
-      { number: '48%', label: 'Ad decision-makers call\ncreator partnerships \u201Cmust-buy\u201D', source: 'IAB' },
+    label: 'MARKET POTENTIAL',
+    headline: 'A once-in-a-generation\nmedia transition.',
+    quoteLabel: 'TOTAL MARKET SCALE',
+    quote: 'The total addressable market of the creator economy could roughly double in size over the next five years to $480 billion by 2027 from $250 billion today.',
+    quoteSource: 'Goldman Sachs',
+    subhead: 'THE LARGEST ADVERTISING MIGRATION IN DECADES',
+    bullets: [
+      'Linear TV advertising is entering structural decline.',
+      'Over $60B in annual ad spend is beginning to move out of television.',
+      'The money has to go somewhere.',
+      'Brands need a rigorous, safe environment. We are the only credible option.',
     ],
   },
 
-  // ─── 6. MARKET — DESTINATION PROBLEM ───
+  // ─── 6. MARKET — THE DESTINATION ───
   {
     layout: 'statement',
-    label: 'MARKET \u2014 THE DESTINATION PROBLEM',
+    bg: 'yellow',
+    label: 'MARKET POTENTIAL \u2014 THE DESTINATION',
     labelDot: 'red',
-    headline: 'Brands want to move.\nThey don\u2019t know where to land.',
-    body: 'Creators are capturing the audience. Brands want to follow. But most of the creator economy can\u2019t absorb enterprise-scale advertising \u2014 not safely, not at the quality brands require.',
+    headline: 'The destination\nisn\u2019t clear yet.',
+    stat: 'Nearly half (48%) of advertising decision-makers now classify creator partnerships as a \u201Cmust-buy\u201D strategic pillar, ranking it just behind social media and paid search in importance.',
+    body: 'Creators are capturing the audience. Brands want to move ad spend there. But most creators lack the infrastructure brands need:',
     bullets: [
-      'Brand safety and editorial standards',
-      'Professional production quality',
-      'Scalable partnership infrastructure',
-      'Consistent audience trust \u2014 not algorithmic reach',
+      'Brand safety',
+      'Editorial rigor',
+      'Professional production',
+      'Scalable partnerships',
     ],
-    bulletLabel: 'WHAT BRANDS NEED THAT MOST CREATORS CAN\u2019T OFFER',
-    kicker: 'The result: billions in ad budget sitting on the sidelines, waiting for a home that doesn\u2019t exist yet.',
   },
 
   // ─── 7. MARKET — OUR POSITION ───
   {
     layout: 'position',
     bg: 'blue',
-    label: 'MARKET \u2014 OUR POSITION',
+    label: 'MARKET POTENTIAL \u2014 OUR POSITION',
     headline: 'We are built for\nthis moment.',
-    quote: 'Brand ads in vetted, premium media environments drive a 40% higher increase in purchase intent than those in lower-quality social feeds.',
-    body: 'Our creator-led media brands are ready to absorb the next generation of advertising. We\u2019re not asking brands to take a chance on creators. We\u2019re giving them what they\u2019ve been waiting for: the reach of YouTube with the trust of a newsroom.',
+    body: 'Newpress combines the trust and reach of creators with the rigor and infrastructure of a newsroom. A brand-safe environment where creators can produce high-quality journalism at scale.',
+    resultLabel: 'THE RESULT',
+    resultBody: 'Our creator-led media brands are ready to absorb the next generation of advertising.',
+    quote: 'Brand ads appearing in vetted, premium media environments drive a 40% higher increase in purchase intent than those in less-vetted or lower-quality social feeds.',
   },
 
   // ─── 8. BUSINESS MODEL ───
   {
     layout: 'business',
+    stripe: 'green',
     label: 'BUSINESS MODEL',
     labelDot: 'green',
     headline: 'Two revenue streams.\nOne flywheel.',
-    subhead: 'We\u2019ve already built a profitable business with this model. Now we scale it.',
+    subhead: 'We\u2019ve already built a profitable business model with two main revenue streams.',
     col1: {
-      title: 'ADVERTISING',
+      title: 'AD SALES',
       points: [
-        'YouTube ad revenue: 30M+ monthly views, 13-min avg watch time, premium CPMs',
-        'Brand partnerships: host-read integrations, presenting sponsorships, multi-creator bundles',
-        'Enterprise sales opportunity: bridge legacy TV ad budgets to the creator economy',
+        'YouTube ad revenue: 30M+ monthly views',
+        'Brand partnerships: host-read integrations, presenting sponsorships, multi-creator network bundles',
       ],
     },
     col2: {
-      title: 'SUBSCRIBER PLATFORM',
+      title: 'SUBSCRIBER REVENUE',
       intro: 'Newpress.com membership launched February 19, 2026. Zero paid marketing.',
       stats: [
-        { number: '34,773', label: 'Total members' },
+        { number: '34,773', label: 'Members' },
         { number: '3,937', label: 'Paid subscribers' },
         { number: '$236K', label: 'Revenue banked' },
-        { number: '11%', label: 'Paid conversion rate' },
+        { number: '11%', label: 'Paid conversion' },
       ],
       kicker: 'In two weeks.',
     },
+    revenueOpp: {
+      label: 'REVENUE OPPORTUNITY',
+      body: 'Combine proven media models with direct audience relationships of the creator economy.',
+      bullets: ['Merchandise & products', 'Podcast expansion', 'Newsletters & owned audiences', 'Licensing & syndication', 'Streaming & distribution deals'],
+    },
   },
 
-  // ─── 9. COMPETITION ───
+  // ─── 9. WHAT WE'RE NOT ───
   {
     layout: 'competition',
     stripe: 'red',
-    label: 'COMPETITION \u2014 WHAT WE\u2019RE NOT',
+    label: 'WHAT WE\u2019RE NOT',
     cards: [
       {
         title: 'NOT LEGACY MEDIA',
-        text: 'Traditional newsrooms built for television and print. Great journalism, wrong distribution. Not designed for the platforms or formats where audiences now learn.',
+        text: 'Traditional newsrooms built for television and print distribution. Great reporting, but not designed for the platforms or formats where audiences now learn.',
         accent: false,
       },
       {
         title: 'NOT VENTURE DIGITAL',
         sub: 'Vox \u00B7 BuzzFeed \u00B7 Vice',
-        text: 'Built to chase traffic scale. Required massive headcount and constant publishing volume. When platforms shifted, the economics collapsed.',
+        text: 'Large editorial organizations built to chase traffic scale and ad volume, requiring massive headcount and constant publishing.',
         accent: false,
       },
       {
         title: 'NOT SOLO CREATORS',
-        text: 'Massive reach, real trust \u2014 but one person is one point of failure. No reporting infrastructure. No editorial floor. No flywheel.',
+        text: 'Individual creators with massive reach, but limited reporting infrastructure and difficult to scale beyond a single personality.',
         accent: false,
       },
       {
         title: 'WHAT WE ARE',
-        text: 'Creator-led journalism built to scale. Trusted creators supported by shared newsroom infrastructure. The reach of YouTube. The trust of a newsroom. The economics of neither.',
+        text: 'Creator-led journalism built to scale. Trusted creators supported by a shared newsroom infrastructure, producing high-quality reporting across multiple scalable shows.',
         accent: true,
       },
     ],
@@ -175,6 +177,7 @@ const slides = [
   // ─── 10. CREATORS ───
   {
     layout: 'creators',
+    bg: 'warm',
     label: 'CREATORS \u2014 PROOF OF CONCEPT',
     headline: 'They didn\u2019t inherit their audiences.\nThey earned them.',
     stages: [
@@ -182,24 +185,23 @@ const slides = [
         num: '1',
         title: 'THE PROOF OF CONCEPT',
         name: 'Johnny Harris',
-        detail: 'Built from scratch. Emmy-winning journalist. 7.5M subscribers. 3.2M average views per video.',
-        sub: 'The playbook that became Newpress.',
-        image: null, // PLACEHOLDER — need Johnny headshot
-        channel: null,
+        detail: 'Built from scratch. 7.5M subscribers. 3.2M average video views. The playbook that became Newpress.',
+        image: null,
       },
       {
         num: '2',
         title: 'THE PLAYBOOK IS EXPORTABLE',
+        subtitle: 'We proved we can take journalists leaving institutions and launch them successfully with the same quality and growth velocity.',
         creators: [
           {
             name: 'Search Party \u00B7 Sam Ellis',
-            detail: 'Emmy nominated. Formerly Vox Atlas. Geopolitics and sport. 891K subscribers.',
-            image: null, // PLACEHOLDER — need Sam headshot
+            detail: 'Ex-Vox Atlas, Emmy nominated. 891K subscribers.',
+            image: null,
             channel: '/deck/search-party-banner.jpg',
           },
           {
             name: 'Tunnel Vision \u00B7 Christophe Haubursin',
-            detail: 'Emmy nominated. Formerly Vox. Tech and internet investigations. 286K subscribers.',
+            detail: 'Ex-Vox, Emmy nominated. 286K subscribers.',
             image: '/deck/christophe.png',
             channel: '/deck/tunnel-vision-banner.jpg',
           },
@@ -207,29 +209,28 @@ const slides = [
       },
       {
         num: '3',
-        title: 'THE MOST IMPORTANT PROOF',
+        title: 'EXPANDING THE MODEL',
         name: 'The Bigger Picture \u00B7 Max Fisher',
-        detail: 'Pulitzer Prize finalist. A decade at The Washington Post and The New York Times. Founding editor of Vox. Not video-native.',
-        sub: 'Newpress can modernize the best talent from collapsing legacy newsrooms.',
-        image: null, // PLACEHOLDER — need Max headshot
-        channel: null, // PLACEHOLDER — need Bigger Picture art
+        detail: 'We took a legacy journalist \u2014 Pulitzer finalist, ex-NYT, ex-WaPo, founding editor of Vox \u2014 not video-native \u2014 and successfully translated him into the creator era.',
+        image: null,
       },
     ],
     kicker: 'Newpress owns the intellectual property of all four channels.',
   },
 
-  // ─── 11. THE HUMAN ELEMENT ───
+  // ─── 11. FINANCIALS ───
   {
-    layout: 'series',
-    bg: 'sepia',
-    label: 'THE HUMAN ELEMENT \u2014 IN DEVELOPMENT',
-    headline: 'The next evolution of\nwhat already works.',
-    tagline: 'Anthony Bourdain meets 60 Minutes.',
-    body: 'A premium adventure documentary series explaining the invisible forces reshaping our world \u2014 geopolitics, climate, trade, technology \u2014 through the lives of people at the center of change. Cinematic. Rigorous. Human.',
-    episodes: ['Taiwan', 'Myanmar', 'Palau', 'Nepal', '+ 8 more'],
-    proof: 'Johnny\u2019s existing field documentaries already average 4 million views at 40\u201360 minute runtimes.',
-    status: 'In active development. In talks with YouTube for a New York City premiere in Fall 2026.',
-    image: null, // PLACEHOLDER — need The Human Element key art
+    layout: 'financials',
+    bg: 'yellow',
+    label: 'FINANCIALS',
+    headline: 'Profitable from day one.\n30% growth. Zero outside capital.',
+    stats: [
+      { number: '$4.5M', label: 'FY25\nrevenue' },
+      { number: '~30%', label: 'Year-over-year\ngrowth' },
+      { number: '$0', label: 'Outside capital\nraised' },
+      { number: '$236K', label: 'Membership revenue\n2 weeks, no marketing' },
+    ],
+    kicker: 'Six years. Profitable every year. Built without a single outside dollar.\nThis raise is not a lifeline. It\u2019s an accelerant.',
   },
 
   // ─── 12. TEAM ───
@@ -240,53 +241,38 @@ const slides = [
     members: [
       {
         name: 'Iz Harris',
-        title: 'Co-Founder & CEO',
-        detail: 'Formerly Vox Media. Built Newpress from the ground up alongside Johnny.',
+        title: 'Co-Founder & CEO, Executive Producer',
+        detail: 'Formerly Vox Media Producer. The operational architect.',
         image: '/deck/iz-harris.png',
       },
       {
         name: 'Johnny Harris',
-        title: 'Co-Founder',
-        detail: '7.5M subscribers. The proof of concept and primary distribution engine.',
-        image: null, // PLACEHOLDER
+        title: 'Co-Founder, Emmy-Winning Journalist',
+        detail: 'The distribution flywheel and proof of concept.',
+        image: null,
       },
       {
         name: 'Michael Letta',
         title: 'Chief Operating Officer',
-        detail: 'Has scaled multiple media startups from early stage to institutional operations.',
-        image: null, // PLACEHOLDER
+        detail: 'Has scaled multiple media startups.',
+        image: null,
       },
       {
         name: 'Jon Laurence',
         title: 'VP Production',
-        detail: 'Emmy and Peabody Award winner. Formerly AJ+, NowThis, Channel 4 UK.',
-        image: null, // PLACEHOLDER
+        detail: 'Emmy & Peabody winner. Formerly AJ+, NowThis, Channel 4 UK.',
+        image: null,
       },
       {
         name: 'Adam Freelander',
-        title: 'Supervising Producer',
-        detail: 'Formerly Vox and The New York Times.',
-        image: null, // PLACEHOLDER
+        title: 'Supervising Producer, Editorial',
+        detail: 'Formerly Vox and NYT.',
+        image: null,
       },
     ],
   },
 
-  // ─── 13. FINANCIALS ───
-  {
-    layout: 'financials',
-    bg: 'yellow',
-    label: 'FINANCIALS',
-    headline: 'Profitable from day one.\n30% growth. Zero outside capital.',
-    stats: [
-      { number: '$4.5M', label: 'FY25 top-line\nrevenue' },
-      { number: '~30%', label: 'Year-over-year\ngrowth' },
-      { number: '$0', label: 'Outside capital\nraised' },
-      { number: '$236K', label: 'Membership revenue\nfirst 2 weeks, no marketing' },
-    ],
-    kicker: 'Six years. Profitable every year. Built without a single outside dollar.\nThis raise is not a lifeline. It\u2019s an accelerant.',
-  },
-
-  // ─── 14. THE RAISE ───
+  // ─── 13. THE RAISE ───
   {
     layout: 'raise',
     stripe: 'blue',
@@ -296,25 +282,25 @@ const slides = [
       {
         pct: '40%',
         title: 'CHANNEL EXPANSION',
-        text: 'Identify, recruit, and launch a new cohort of world-class journalists. We provide the infrastructure and distribution \u2014 they bring the talent and trust.',
+        text: 'We have a proven launch playbook. Identify, recruit, and launch a new cohort of world-class journalists. We provide the infrastructure; they bring the talent and trust.',
         color: 'blue',
       },
       {
         pct: '35%',
         title: 'OPERATIONAL EXCELLENCE',
-        text: 'Institutional-grade production, rigorous fact-checking, and operational leadership. More output without sacrificing the Newpress standard.',
+        text: 'Institutional-grade production, fact-checking, and operational leadership. More output without sacrificing the Newpress standard. Faster audience growth. Higher advertising rates.',
         color: 'yellow',
       },
       {
         pct: '25%',
         title: 'REVENUE ENGINE',
-        text: 'Dedicated enterprise salesforce to bridge legacy ad budgets to the creator economy. Expanding the subscriber platform.',
+        text: 'Dedicated enterprise salesforce to bridge legacy ad budgets to the creator economy. Expanding revenue team around subscriber funded platform.',
         color: 'red',
       },
     ],
   },
 
-  // ─── 15. VISION ───
+  // ─── 14. VISION ───
   {
     layout: 'vision',
     bg: 'blue',
@@ -324,7 +310,7 @@ const slides = [
     phases: [
       {
         title: 'YEAR 1\u20132',
-        items: ['10+ channels launched', 'The Human Element on air', 'Enterprise sales team built', '100K paid members'],
+        items: ['10+ channels launched', 'Human Element on air', 'Enterprise sales team built', '100K paid members'],
       },
       {
         title: 'YEAR 3\u20134',
@@ -335,6 +321,7 @@ const slides = [
         items: ['The NBC News of the creator era', 'IPO-ready or strategic acquisition candidate', 'The place the world\u2019s best journalists want to be'],
       },
     ],
+    closing: 'We\u2019ve proven the model. Now we build the institution.',
   },
 ];
 

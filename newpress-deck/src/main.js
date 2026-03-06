@@ -3,7 +3,6 @@ import slides from './slides.js';
 
 const deck = document.getElementById('deck');
 const progress = document.getElementById('progress');
-const navHint = document.getElementById('nav-hint');
 
 let current = 0;
 let navUsed = false;
@@ -22,16 +21,21 @@ function buildSlides() {
     el.className = cls;
     el.dataset.index = i;
 
-    const counter = `<span class="slide-counter">${String(i + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}</span>`;
+    const counter = `<span class="slide-counter">${i + 1} / ${total}</span>`;
     const corner = (i > 0 && i < total - 1) ? `<span class="corner-mark">Newpress</span>` : '';
 
-    el.innerHTML = counter + corner + renderSlide(s);
+    let extra = '';
+    if (i === 0) {
+      extra = `<div class="nav-arrow" id="nav-arrow"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M12 8l8 8-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-arrow-text">Click or press arrow</span></div>`;
+    }
+
+    el.innerHTML = counter + corner + renderSlide(s, i) + extra;
     deck.appendChild(el);
   });
   updateProgress();
 }
 
-function renderSlide(s) {
+function renderSlide(s, i) {
   switch (s.layout) {
 
     case 'title':
@@ -58,16 +62,15 @@ function renderSlide(s) {
         </div>
       `;
 
-    case 'solution':
+    case 'statement':
       return `
         ${labelHTML(s)}
-        <h1 class="headline headline-md">${nl(s.headline)}</h1>
-        <p class="body" style="margin:20px 0 8px">${e(s.body)}</p>
-        <p class="body" style="color:var(--warm);margin-bottom:20px"><strong>${e(s.subhead)}</strong></p>
-        <ul class="point-list">
-          ${s.points.map(p => `<li>${e(p)}</li>`).join('')}
-        </ul>
-        <p class="kicker">${e(s.kicker)}</p>
+        <h1 class="headline headline-lg">${nl(s.headline)}</h1>
+        ${s.stat ? `<p class="stat-callout">${e(s.stat)}</p>` : ''}
+        <p class="body" style="margin:20px 0">${e(s.body)}</p>
+        ${s.bulletLabel ? `<p class="label accent-blue" style="margin-top:24px">${e(s.bulletLabel)}</p>` : ''}
+        ${s.bullets ? `<ul class="point-list" style="margin-top:12px">${s.bullets.map(b => `<li>${e(b)}</li>`).join('')}</ul>` : ''}
+        ${s.kicker ? `<p class="kicker" style="margin-top:24px">${e(s.kicker)}</p>` : ''}
       `;
 
     case 'whynow':
@@ -88,38 +91,31 @@ function renderSlide(s) {
         </div>
       `;
 
-    case 'market':
+    case 'marketQuote':
       return `
         ${labelHTML(s)}
         <h1 class="headline headline-lg">${nl(s.headline)}</h1>
-        <p class="body" style="margin:20px 0 36px">${e(s.body)}</p>
-        <div class="stats-grid four-col">
-          ${s.stats.map((st, i) => `
-            <div class="stat-item">
-              <span class="stat-number color-${['blue','red','yellow','green'][i % 4]}">${e(st.number)}</span>
-              <span class="stat-label">${nl(st.label)}</span>
-              ${st.source ? `<span class="stat-source">${e(st.source)}</span>` : ''}
-            </div>
-          `).join('')}
+        <div class="mq-section" style="margin:32px 0">
+          <p class="label" style="margin-bottom:16px">${e(s.quoteLabel)}</p>
+          <blockquote class="pull-quote">\u201C${e(s.quote)}\u201D</blockquote>
+          <p class="quote-source">\u2014 ${e(s.quoteSource)}</p>
         </div>
-      `;
-
-    case 'statement':
-      return `
-        ${labelHTML(s)}
-        <h1 class="headline headline-lg">${nl(s.headline)}</h1>
-        <p class="body" style="margin:20px 0">${e(s.body)}</p>
-        ${s.bulletLabel ? `<p class="label accent-blue" style="margin-top:24px">${e(s.bulletLabel)}</p>` : ''}
-        ${s.bullets ? `<ul class="point-list" style="margin-top:12px">${s.bullets.map(b => `<li>${e(b)}</li>`).join('')}</ul>` : ''}
-        ${s.kicker ? `<p class="kicker" style="margin-top:24px">${e(s.kicker)}</p>` : ''}
+        <p class="label" style="margin-bottom:14px">${e(s.subhead)}</p>
+        <ul class="point-list">
+          ${s.bullets.map(b => `<li>${e(b)}</li>`).join('')}
+        </ul>
       `;
 
     case 'position':
       return `
         ${labelHTML(s)}
         <h1 class="headline headline-lg">${nl(s.headline)}</h1>
+        <p class="body" style="margin:20px 0 28px">${e(s.body)}</p>
+        ${s.resultLabel ? `
+          <p class="label accent-yellow" style="margin-bottom:8px">${e(s.resultLabel)}</p>
+          <p class="body" style="color:var(--warm);font-weight:700;margin-bottom:28px">${e(s.resultBody)}</p>
+        ` : ''}
         <blockquote class="pull-quote">\u201C${e(s.quote)}\u201D</blockquote>
-        <p class="body">${e(s.body)}</p>
       `;
 
     case 'business':
@@ -146,6 +142,13 @@ function renderSlide(s) {
             <p class="biz-kicker">${e(s.col2.kicker)}</p>
           </div>
         </div>
+        ${s.revenueOpp ? `
+          <div class="revenue-opp">
+            <p class="label accent-yellow">${e(s.revenueOpp.label)}</p>
+            <p class="body" style="margin:8px 0 12px">${e(s.revenueOpp.body)}</p>
+            <div class="rev-tags">${s.revenueOpp.bullets.map(b => `<span class="rev-tag">${e(b)}</span>`).join('')}</div>
+          </div>
+        ` : ''}
       `;
 
     case 'competition':
@@ -175,6 +178,7 @@ function renderSlide(s) {
                     <span class="stage-num">${e(st.num)}</span>
                     <span class="stage-title">${e(st.title)}</span>
                   </div>
+                  ${st.subtitle ? `<p class="stage-subtitle">${e(st.subtitle)}</p>` : ''}
                   <div class="stage-creators">
                     ${st.creators.map(c => `
                       <div class="stage-creator">
@@ -208,23 +212,6 @@ function renderSlide(s) {
           }).join('')}
         </div>
         <p class="kicker" style="margin-top:24px">${e(s.kicker)}</p>
-      `;
-
-    case 'series':
-      return `
-        ${labelHTML(s)}
-        <h1 class="headline headline-md">${nl(s.headline)}</h1>
-        <p class="series-tagline">${e(s.tagline)}</p>
-        <p class="body" style="margin:16px 0 24px">${e(s.body)}</p>
-        <div class="series-meta">
-          <div class="series-episodes">
-            <p class="label accent-yellow">SEASON 1 \u2014 12 EPISODES</p>
-            <div class="episode-tags">${s.episodes.map(ep => `<span class="ep-tag">${e(ep)}</span>`).join('')}</div>
-          </div>
-          ${s.image ? `<img src="${s.image}" class="series-image" alt="The Human Element">` : '<div class="image-placeholder">THE HUMAN ELEMENT<br>KEY ART</div>'}
-        </div>
-        <p class="body" style="margin-top:20px">${e(s.proof)}</p>
-        <p class="body" style="margin-top:8px"><strong>${e(s.status)}</strong></p>
       `;
 
     case 'team':
@@ -289,6 +276,7 @@ function renderSlide(s) {
             </div>
           `).join('')}
         </div>
+        ${s.closing ? `<p class="closing-statement">\u201C${e(s.closing)}\u201D</p>` : ''}
       `;
 
     default:
@@ -320,7 +308,7 @@ function imgOrPlaceholder(src, name, cls) {
   if (src) {
     return `<img src="${src}" alt="${e(name)}" class="${cls}">`;
   }
-  const initials = (name || '').split(/[\s·]+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  const initials = (name || '').split(/[\s\u00B7]+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
   return `<div class="${cls} placeholder-avatar">${initials}</div>`;
 }
 
@@ -329,7 +317,11 @@ function imgOrPlaceholder(src, name, cls) {
    ============================================================ */
 function goTo(index) {
   if (index < 0 || index >= total || index === current) return;
-  if (!navUsed) { navUsed = true; navHint.classList.add('faded'); }
+  if (!navUsed) {
+    navUsed = true;
+    const arrow = document.getElementById('nav-arrow');
+    if (arrow) arrow.classList.add('hidden');
+  }
   const all = deck.querySelectorAll('.slide');
   all[current].classList.remove('active');
   all[index].classList.add('active');
