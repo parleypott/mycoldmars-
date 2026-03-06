@@ -38,21 +38,22 @@ const slides = [
 
   // ─── 4. WHY NOW? ───
   {
-    layout: 'statement',
+    layout: 'whynow',
     stripe: 'yellow',
     label: 'WHY NOW?',
     headline: 'Talent and audiences\nare moving fast.',
-    bullets: [
-      'YouTube is #1 \u2014 highest share of TV viewing every single month in 2025, overtaking Disney and Netflix.',
-      'Talent is available \u2014 top-tier journalists are leaving institutions in waves, looking for a new home. The window to recruit is open now.',
-      'Trust in national news orgs has dropped 20 points since 2016.',
-      '38% of adults under 30 regularly get news from influencers.',
-    ],
-    bulletSources: [
-      'Nielsen Media Distributor Gauge, 2025',
-      null,
-      'Pew Research Center',
-      null,
+    sections: [
+      {
+        num: '1',
+        title: 'YouTube is #1',
+        text: 'Highest share of TV viewing every single month in 2025, overtaking Disney and Netflix.',
+        source: 'Nielsen Media Distributor Gauge, 2025',
+      },
+      {
+        num: '2',
+        title: 'Talent is available',
+        text: 'Top-tier journalists are leaving institutions in waves, looking for a new home. The window to recruit is open now.',
+      },
     ],
   },
 
