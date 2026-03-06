@@ -98,7 +98,7 @@ export function initUI() {
       return;
     }
 
-    loadPhotos(els.detailPhotos, food.id, food.enName);
+    loadPhoto(els.detailPhotos, food);
     els.detailZh.textContent = food.zhName;
     els.detailEn.textContent = food.enName;
 
@@ -126,7 +126,7 @@ export function initUI() {
     quizPhase = 'name';
     score.visited++;
 
-    loadPhotos(els.quizPhotos, food.id, food.enName);
+    loadPhoto(els.quizPhotos, food);
     els.quizFeedback.classList.add('hidden');
     els.quizFeedback.className = 'quiz-feedback hidden';
     els.quizTrivia.classList.add('hidden');
@@ -242,32 +242,21 @@ export function initUI() {
 
 // ─── Helpers ───
 
-function loadPhotos(container, foodId, altName) {
+function loadPhoto(container, food) {
   container.innerHTML = '';
-  let loadedCount = 0;
-
-  for (let i = 1; i <= 3; i++) {
-    const slot = document.createElement('div');
-    slot.className = 'photo-slot';
-    const img = document.createElement('img');
-    img.src = `/photos/${foodId}-${i}.jpg`;
-    img.alt = `${altName} ${i}`;
-    img.loading = i === 1 ? 'eager' : 'lazy';
-    img.onload = () => {
-      loadedCount++;
-      // If only 1 photo loaded, make it bigger
-      if (loadedCount === 1 && i === 3) {
-        container.classList.add('single-photo');
-      }
-    };
-    img.onerror = () => {
-      slot.className = 'photo-placeholder';
-      slot.innerHTML = '<span class="ph-icon">&#x1F4F7;</span><span class="ph-label">No photo</span>';
-    };
-    slot.appendChild(img);
-    container.appendChild(slot);
-  }
-  container.classList.remove('single-photo');
+  container.classList.add('single-photo');
+  const slot = document.createElement('div');
+  slot.className = 'photo-slot';
+  const img = document.createElement('img');
+  img.src = food.image;
+  img.alt = food.enName;
+  img.loading = 'eager';
+  img.onerror = () => {
+    slot.className = 'photo-placeholder';
+    slot.textContent = food.zhName.charAt(0);
+  };
+  slot.appendChild(img);
+  container.appendChild(slot);
 }
 
 function shuffle(arr) {

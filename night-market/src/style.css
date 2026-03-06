@@ -163,37 +163,30 @@ body {
   z-index: 2;
 }
 
-/* ── Card Carousel ── */
-.card-carousel {
+/* ── Card Photo ── */
+.card-photo {
   position: relative;
   aspect-ratio: 1;
   overflow: hidden;
   background: rgba(42,42,74,0.3);
 }
 
-.carousel-track {
-  display: flex;
-  height: 100%;
-  transition: transform 0.35s cubic-bezier(0.22,1,0.36,1);
-}
-
-.carousel-img {
+.card-img {
   width: 100%;
   height: 100%;
-  flex-shrink: 0;
   object-fit: cover;
   display: block;
   user-select: none;
+  transition: transform 0.5s cubic-bezier(0.22,1,0.36,1);
 }
 
-.food-card:hover .carousel-img {
-  /* no zoom — keep it clean for the carousel */
+.food-card:hover .card-img {
+  transform: scale(1.05);
 }
 
 .card-placeholder {
   width: 100%;
   height: 100%;
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -201,69 +194,6 @@ body {
   font-size: 48px;
   font-weight: 900;
   color: var(--warm-faint);
-}
-
-/* Arrows */
-.carousel-arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 3;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(10,10,22,0.65);
-  backdrop-filter: blur(4px);
-  color: var(--text);
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.25s, background 0.25s;
-}
-
-.food-card:hover .carousel-arrow {
-  opacity: 1;
-}
-
-.carousel-arrow:hover {
-  background: rgba(10,10,22,0.85);
-}
-
-.carousel-prev { left: 8px; }
-.carousel-next { right: 8px; }
-
-/* Dots */
-.carousel-dots {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3;
-  display: flex;
-  gap: 5px;
-  opacity: 0;
-  transition: opacity 0.25s;
-}
-
-.food-card:hover .carousel-dots {
-  opacity: 1;
-}
-
-.carousel-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.3);
-  transition: background 0.25s;
-}
-
-.carousel-dot.active {
-  background: var(--warm);
 }
 
 /* Number badge */
@@ -337,19 +267,13 @@ body {
 
 .modal-close:hover { border-color: var(--warm-dim); color: var(--text); }
 
-/* ── Photos ── */
+/* ── Modal Photo ── */
 .photo-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
-}
-
-.photo-row.single-photo {
-  grid-template-columns: 1fr;
+  display: block;
 }
 
 .photo-slot {
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
   background: rgba(42,42,74,0.3);
 }
@@ -362,26 +286,15 @@ body {
 }
 
 .photo-placeholder {
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 9;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
   background: rgba(42,42,74,0.2);
-}
-
-.photo-placeholder .ph-icon {
-  font-size: 24px;
-  opacity: 0.15;
-}
-
-.photo-placeholder .ph-label {
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  opacity: 0.5;
+  font-family: var(--font-zh);
+  font-size: 48px;
+  font-weight: 900;
+  color: var(--warm-faint);
 }
 
 /* ── Modal body ── */
@@ -613,11 +526,10 @@ body {
   #hero { flex-direction: column; align-items: flex-start; }
   .hero-stats { width: 100%; }
   .modal-panel { border-radius: 8px; }
-  .photo-row { grid-template-columns: 1fr; }
-  .photo-row .photo-slot:nth-child(n+2) { display: none; }
+  .photo-slot { aspect-ratio: 4 / 3; }
 }
 
 @media (max-width: 400px) {
   #food-grid { grid-template-columns: 1fr; }
-  .card-zh { font-size: 22px; }
+  .card-number { width: 22px; height: 22px; font-size: 10px; }
 }
