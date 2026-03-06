@@ -109,8 +109,10 @@ const slides = [
     headline: 'We\u2019ve already built a profitable business model with two main revenue streams.',
     col1: {
       title: 'AD SALES',
+      heroStat: '30M+',
+      heroLabel: 'monthly views',
+      heroSub: 'YouTube adsense revenue against our audience',
       points: [
-        'YouTube ad revenue: 30M+ monthly views',
         'Brand partnerships: host-read integrations, presenting sponsorships, multi-creator network bundles',
       ],
     },

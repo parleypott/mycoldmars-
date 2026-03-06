@@ -381,6 +381,25 @@ html, body {
   font-family: var(--font-body); font-size: clamp(10px,1vw,12px);
   font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
 }
+/* Ad sales hero stat */
+.biz-hero {
+  display: flex; align-items: baseline; gap: 12px;
+  margin: 8px 0 4px;
+}
+.biz-hero-num {
+  font-family: var(--font-head); font-size: clamp(40px,5vw,72px);
+  color: var(--warm); line-height: 1;
+}
+.biz-hero-label {
+  font-family: var(--font-body); font-size: clamp(12px,1.2vw,16px);
+  font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--blue);
+}
+.biz-hero-sub {
+  font-family: var(--font-body); font-size: clamp(12px,1.1vw,14px);
+  color: var(--text-sec); line-height: 1.6; margin-bottom: 16px;
+}
+
 .biz-list {
   list-style: none; display: flex; flex-direction: column; gap: 10px;
 }
