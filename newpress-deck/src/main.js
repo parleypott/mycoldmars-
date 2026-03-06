@@ -29,13 +29,13 @@ function buildSlides() {
       extra = `<div class="nav-arrow" id="nav-arrow"><span class="nav-arrow-label">Next</span><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
     }
 
-    el.innerHTML = counter + corner + renderSlide(s, i) + extra;
+    el.innerHTML = counter + corner + renderSlide(s) + extra;
     deck.appendChild(el);
   });
   updateProgress();
 }
 
-function renderSlide(s, i) {
+function renderSlide(s) {
   switch (s.layout) {
 
     case 'title':
@@ -67,28 +67,15 @@ function renderSlide(s, i) {
         ${labelHTML(s)}
         <h1 class="headline headline-lg">${nl(s.headline)}</h1>
         ${s.stat ? `<p class="stat-callout">${e(s.stat)}</p>` : ''}
-        <p class="body" style="margin:20px 0">${e(s.body)}</p>
-        ${s.bulletLabel ? `<p class="label accent-blue" style="margin-top:24px">${e(s.bulletLabel)}</p>` : ''}
-        ${s.bullets ? `<ul class="point-list" style="margin-top:12px">${s.bullets.map(b => `<li>${e(b)}</li>`).join('')}</ul>` : ''}
+        ${s.body ? `<p class="body" style="margin:20px 0">${e(s.body)}</p>` : ''}
+        ${s.bullets ? `<ul class="point-list" style="margin-top:16px">${s.bullets.map((b, i) => {
+          let src = '';
+          if (s.bulletSources && s.bulletSources[i]) {
+            src = `<span class="bullet-source">${e(s.bulletSources[i])}</span>`;
+          }
+          return `<li>${e(b)}${src}</li>`;
+        }).join('')}</ul>` : ''}
         ${s.kicker ? `<p class="kicker" style="margin-top:24px">${e(s.kicker)}</p>` : ''}
-      `;
-
-    case 'whynow':
-      return `
-        ${labelHTML(s)}
-        <h1 class="headline headline-md" style="margin-bottom:32px">${nl(s.headline)}</h1>
-        <div class="numbered-sections">
-          ${s.sections.map(sec => `
-            <div class="num-section">
-              <span class="num-badge">${e(sec.num)}</span>
-              <div class="num-content">
-                <p class="num-title">${e(sec.title)}</p>
-                <p class="num-text">${e(sec.text)}</p>
-                ${sec.source ? `<p class="num-source">${e(sec.source)}</p>` : ''}
-              </div>
-            </div>
-          `).join('')}
-        </div>
       `;
 
     case 'marketQuote':
@@ -96,11 +83,11 @@ function renderSlide(s, i) {
         ${labelHTML(s)}
         <h1 class="headline headline-lg">${nl(s.headline)}</h1>
         <div class="mq-section" style="margin:32px 0">
-          <p class="label" style="margin-bottom:16px">${e(s.quoteLabel)}</p>
+          <p class="label-dim" style="margin-bottom:16px">${e(s.quoteLabel)}</p>
           <blockquote class="pull-quote">\u201C${e(s.quote)}\u201D</blockquote>
           <p class="quote-source">\u2014 ${e(s.quoteSource)}</p>
         </div>
-        <p class="label" style="margin-bottom:14px">${e(s.subhead)}</p>
+        <p class="label-dim" style="margin-bottom:14px">${e(s.subhead)}</p>
         <ul class="point-list">
           ${s.bullets.map(b => `<li>${e(b)}</li>`).join('')}
         </ul>
@@ -113,17 +100,16 @@ function renderSlide(s, i) {
         <p class="body" style="margin:20px 0 28px">${e(s.body)}</p>
         ${s.resultLabel ? `
           <p class="label accent-yellow" style="margin-bottom:8px">${e(s.resultLabel)}</p>
-          <p class="body" style="color:var(--warm);font-weight:700;margin-bottom:28px">${e(s.resultBody)}</p>
+          <p class="result-body">${e(s.resultBody)}</p>
         ` : ''}
-        <blockquote class="pull-quote">\u201C${e(s.quote)}\u201D</blockquote>
+        ${s.quote ? `<blockquote class="pull-quote" style="margin-top:28px">\u201C${e(s.quote)}\u201D</blockquote>` : ''}
       `;
 
     case 'business':
       return `
         ${labelHTML(s)}
         <h1 class="headline headline-md">${nl(s.headline)}</h1>
-        <p class="body" style="margin:16px 0 32px">${e(s.subhead)}</p>
-        <div class="biz-columns">
+        <div class="biz-columns" style="margin-top:32px">
           <div class="biz-col">
             <p class="biz-col-title accent-blue">${e(s.col1.title)}</p>
             <ul class="biz-list">${s.col1.points.map(p => `<li>${e(p)}</li>`).join('')}</ul>
@@ -168,7 +154,6 @@ function renderSlide(s, i) {
     case 'creators':
       return `
         ${labelHTML(s)}
-        <h1 class="headline headline-md" style="margin-bottom:32px">${nl(s.headline)}</h1>
         <div class="stages">
           ${s.stages.map(st => {
             if (st.creators) {
@@ -200,18 +185,16 @@ function renderSlide(s, i) {
                   <span class="stage-title">${e(st.title)}</span>
                 </div>
                 <div class="stage-single">
-                  ${imgOrPlaceholder(st.image, st.name, 'stage-avatar')}
+                  ${st.name ? imgOrPlaceholder(st.image, st.name, 'stage-avatar') : ''}
                   <div class="stage-info">
-                    <p class="stage-name">${e(st.name)}</p>
+                    ${st.name ? `<p class="stage-name">${e(st.name)}</p>` : ''}
                     <p class="stage-detail">${e(st.detail)}</p>
-                    ${st.sub ? `<p class="stage-sub">${e(st.sub)}</p>` : ''}
                   </div>
                 </div>
               </div>
             `;
           }).join('')}
         </div>
-        <p class="kicker" style="margin-top:24px">${e(s.kicker)}</p>
       `;
 
     case 'team':
@@ -234,7 +217,7 @@ function renderSlide(s, i) {
       return `
         ${labelHTML(s)}
         <h1 class="headline headline-lg">${nl(s.headline)}</h1>
-        <div class="stats-grid four-col" style="margin:36px 0 32px">
+        <div class="stats-grid four-col" style="margin:36px 0 24px">
           ${s.stats.map(st => `
             <div class="stat-item">
               <span class="stat-number">${e(st.number)}</span>
@@ -242,7 +225,7 @@ function renderSlide(s, i) {
             </div>
           `).join('')}
         </div>
-        <p class="kicker">${nl(s.kicker)}</p>
+        ${s.note ? `<p class="financial-note">${e(s.note)}</p>` : ''}
       `;
 
     case 'raise':
