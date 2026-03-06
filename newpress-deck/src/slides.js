@@ -32,7 +32,7 @@ const slides = [
     layout: 'statement',
     bg: 'green',
     label: 'SOLUTION',
-    headline: 'Newpress combines the trust and reach of creators with the rigor of a newsroom.',
+    headline: 'Newpress combines the trust and reach\nof creators with the rigor of a newsroom.',
     body: 'By providing shared editorial, operational and production infrastructure behind each show, we enable trusted creators to produce high-quality journalism that can scale across multiple platforms into a durable media franchise.',
   },
 
