@@ -58,12 +58,105 @@ html, body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.5s ease;
+  background: var(--ink);
 }
 
 .slide.active {
   opacity: 1;
   pointer-events: auto;
 }
+
+/* ============================================================
+   COLORED BACKGROUNDS
+   ============================================================ */
+.slide.bg-blue {
+  background: var(--blue);
+  color: var(--warm);
+}
+.slide.bg-blue .dim-text,
+.slide.bg-blue .body,
+.slide.bg-blue .label { color: rgba(244, 242, 230, 0.6); }
+.slide.bg-blue .attribution { color: rgba(244, 242, 230, 0.5); }
+
+.slide.bg-burgundy {
+  background: var(--burgundy);
+  color: var(--warm);
+}
+.slide.bg-burgundy .body,
+.slide.bg-burgundy .label,
+.slide.bg-burgundy .attribution { color: rgba(244, 242, 230, 0.55); }
+.slide.bg-burgundy .quote-rule { background: var(--yellow); }
+
+.slide.bg-yellow {
+  background: var(--yellow);
+  color: var(--ink);
+}
+.slide.bg-yellow .body,
+.slide.bg-yellow .label { color: rgba(18, 17, 24, 0.5); }
+.slide.bg-yellow .break-rule { background: var(--ink); }
+.slide.bg-yellow .headline { color: var(--ink); }
+
+.slide.bg-warm {
+  background: var(--warm);
+  color: var(--ink);
+}
+.slide.bg-warm .body,
+.slide.bg-warm .label { color: rgba(18, 17, 24, 0.5); }
+.slide.bg-warm .headline { color: var(--ink); }
+
+.slide.bg-sepia {
+  background: var(--sepia);
+  color: var(--warm);
+}
+.slide.bg-sepia .body,
+.slide.bg-sepia .label { color: rgba(244, 242, 230, 0.5); }
+
+/* ============================================================
+   ACCENT STRIPE — left edge color bar
+   ============================================================ */
+.slide.stripe::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+}
+.slide.stripe-blue::before { background: var(--blue); }
+.slide.stripe-yellow::before { background: var(--yellow); }
+.slide.stripe-red::before { background: var(--red); }
+.slide.stripe-green::before { background: var(--green); }
+
+/* ============================================================
+   SLIDE COUNTER
+   ============================================================ */
+.slide-counter {
+  position: absolute;
+  top: clamp(20px, 3vw, 40px);
+  right: clamp(24px, 4vw, 48px);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: rgba(244, 242, 230, 0.2);
+}
+.slide.bg-yellow .slide-counter,
+.slide.bg-warm .slide-counter { color: rgba(18, 17, 24, 0.15); }
+
+/* ============================================================
+   CORNER WORDMARK
+   ============================================================ */
+.corner-mark {
+  position: absolute;
+  bottom: clamp(20px, 3vw, 40px);
+  left: clamp(24px, 4vw, 48px);
+  font-family: var(--font-head);
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  color: rgba(244, 242, 230, 0.12);
+}
+.slide.bg-yellow .corner-mark,
+.slide.bg-warm .corner-mark { color: rgba(18, 17, 24, 0.1); }
 
 /* ============================================================
    TYPOGRAPHY
@@ -75,7 +168,7 @@ html, body {
   letter-spacing: -0.02em;
 }
 
-.headline em {
+.headline em, .headline i {
   font-style: italic;
 }
 
@@ -107,9 +200,25 @@ html, body {
   color: var(--dim);
 }
 
+/* Label with colored dot indicator */
+.label-dot::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+.label-dot.dot-blue::before { background: var(--blue); }
+.label-dot.dot-yellow::before { background: var(--yellow); }
+.label-dot.dot-red::before { background: var(--red); }
+.label-dot.dot-green::before { background: var(--green); }
+
 .accent-blue { color: var(--blue); }
 .accent-yellow { color: var(--yellow); }
 .accent-red { color: var(--red); }
+.accent-green { color: var(--green); }
 
 /* ============================================================
    SLIDE LAYOUTS
@@ -126,6 +235,13 @@ html, body {
   max-width: 900px;
 }
 
+.slide-title .title-rule {
+  width: 64px;
+  height: 3px;
+  background: var(--blue);
+  margin-bottom: 4px;
+}
+
 .slide-title .stats-line {
   font-family: var(--font-body);
   font-size: clamp(10px, 1vw, 12px);
@@ -139,6 +255,10 @@ html, body {
 .slide-title .stats-line span {
   color: var(--warm);
 }
+
+.slide.bg-blue .title-rule { background: var(--yellow); }
+.slide.bg-blue .stats-line { color: rgba(244, 242, 230, 0.5); }
+.slide.bg-blue .stats-line span { color: var(--warm); }
 
 /* — Statement — */
 .slide-statement {
@@ -177,7 +297,7 @@ html, body {
 
 .slide-quote .quote-rule {
   width: 48px;
-  height: 2px;
+  height: 3px;
   background: var(--blue);
 }
 
@@ -200,6 +320,8 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding-top: 20px;
+  border-top: 2px solid rgba(244, 242, 230, 0.06);
 }
 
 .stat-number {
@@ -210,6 +332,11 @@ html, body {
   color: var(--warm);
 }
 
+.stat-number.color-blue { color: var(--blue); }
+.stat-number.color-red { color: var(--red); }
+.stat-number.color-yellow { color: var(--yellow); }
+.stat-number.color-green { color: var(--green); }
+
 .stat-label {
   font-family: var(--font-body);
   font-size: clamp(10px, 1vw, 13px);
@@ -219,6 +346,12 @@ html, body {
   color: var(--dim);
   line-height: 1.5;
 }
+
+/* Color bar atop each stat */
+.stat-item:nth-child(1) { border-color: var(--blue); }
+.stat-item:nth-child(2) { border-color: var(--red); }
+.stat-item:nth-child(3) { border-color: var(--yellow); }
+.stat-item:nth-child(4) { border-color: var(--green); }
 
 /* — Creators grid — */
 .slide-grid {
@@ -250,8 +383,24 @@ html, body {
   justify-content: center;
   font-family: var(--font-head);
   font-size: clamp(24px, 3vw, 40px);
-  color: var(--dim);
+  color: rgba(244, 242, 230, 0.25);
+  position: relative;
+  overflow: hidden;
 }
+
+/* Colored top edge on each creator card */
+.creator-avatar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+.creator-card:nth-child(1) .creator-avatar::after { background: var(--blue); }
+.creator-card:nth-child(2) .creator-avatar::after { background: var(--red); }
+.creator-card:nth-child(3) .creator-avatar::after { background: var(--yellow); }
+.creator-card:nth-child(4) .creator-avatar::after { background: var(--green); }
 
 .creator-name {
   font-family: var(--font-head);
@@ -273,8 +422,11 @@ html, body {
   font-family: var(--font-body);
   font-size: clamp(10px, 1vw, 12px);
   font-weight: 700;
-  color: var(--blue);
 }
+.creator-card:nth-child(1) .creator-stat { color: var(--blue); }
+.creator-card:nth-child(2) .creator-stat { color: var(--red); }
+.creator-card:nth-child(3) .creator-stat { color: var(--yellow); }
+.creator-card:nth-child(4) .creator-stat { color: var(--green); }
 
 /* — Two-column — */
 .slide-split {
@@ -288,6 +440,10 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.split-left .label {
+  font-size: clamp(12px, 1.2vw, 16px);
 }
 
 .split-point {
@@ -306,6 +462,10 @@ html, body {
   color: var(--blue);
 }
 
+/* Alternate point colors */
+.split-point:nth-child(2) .label { color: var(--yellow); }
+.split-point:nth-child(3) .label { color: var(--green); }
+
 /* — Section break — */
 .slide-break {
   align-items: center;
@@ -316,11 +476,16 @@ html, body {
 
 .slide-break .break-rule {
   width: 48px;
-  height: 2px;
+  height: 3px;
   background: var(--yellow);
 }
 
 /* — Tiers — */
+.slide-tiers {
+  align-items: center;
+  gap: 32px;
+}
+
 .tiers-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -330,13 +495,30 @@ html, body {
 }
 
 .tier-card {
-  border: 1px solid rgba(244, 242, 230, 0.1);
+  border: 1px solid rgba(244, 242, 230, 0.08);
   border-radius: 4px;
   padding: clamp(16px, 2vw, 24px);
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
+  overflow: hidden;
 }
+
+/* Colored top border on each tier */
+.tier-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(244, 242, 230, 0.08);
+}
+.tier-card:nth-child(1)::before { background: rgba(244, 242, 230, 0.12); }
+.tier-card:nth-child(2)::before { background: rgba(244, 242, 230, 0.16); }
+.tier-card:nth-child(3)::before { background: var(--yellow); }
+.tier-card.featured::before { background: var(--blue); }
 
 .tier-card.featured {
   border-color: var(--blue);
@@ -349,8 +531,10 @@ html, body {
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--blue);
+  color: var(--dim);
 }
+
+.tier-card.featured .tier-name { color: var(--blue); }
 
 .tier-desc {
   font-family: var(--font-body);
@@ -366,10 +550,15 @@ html, body {
   position: fixed;
   bottom: 0;
   left: 0;
-  height: 2px;
+  height: 3px;
   background: var(--blue);
   transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   z-index: 100;
+}
+
+/* Switch progress bar color on light-bg slides */
+#progress.on-light {
+  background: var(--ink);
 }
 
 /* ============================================================
@@ -409,6 +598,7 @@ html, body {
   .tiers-row { grid-template-columns: repeat(2, 1fr); }
   .slide-split { flex-direction: column; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .corner-mark { display: none; }
 }
 
 @media (max-width: 480px) {

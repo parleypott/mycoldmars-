@@ -12,24 +12,29 @@ const slides = [
   },
   {
     layout: 'statement',
-    label: '',
+    bg: 'blue',
     headline: 'Media is broken.\nWe\u2019ve built something new.',
   },
   {
     layout: 'statement',
     label: 'HOW WE GOT HERE',
+    labelDot: 'blue',
+    stripe: 'blue',
     headline: 'Johnny Harris spent years at Vox building one of the most-watched journalism teams in the world.',
     body: 'He learned what audiences wanted\u200A\u2014\u200Adepth, context, honesty\u200A\u2014\u200Aand what institutional media kept getting in the way of delivering. In 2020 he went independent. The audience followed. Then it grew. Then they became collaborators. That was the moment that pointed toward something bigger than a YouTube channel.',
   },
   {
     layout: 'statement',
     label: 'WHAT IS NEWPRESS',
+    labelDot: 'yellow',
+    stripe: 'yellow',
     headline: 'More than a media company, Newpress is a movement.',
     body: "We\u2019re on a mission to rebuild audience trust through transparent and collaborative journalism. We\u2019re tearing down the wall between storytellers and audiences. We\u2019re engaging a community of loyal, curious viewers eager to participate in the content they consume.",
   },
   {
     layout: 'split',
     label: 'HOW WE\u2019RE RE-IMAGINING JOURNALISM',
+    labelDot: 'red',
     points: [
       {
         label: 'CREATOR-LED',
@@ -43,11 +48,13 @@ const slides = [
   },
   {
     layout: 'quote',
+    bg: 'burgundy',
     text: '\u201CJournalism done with people,\nnot at people.\u201D',
     attribution: 'Johnny Harris, Newpress Co-Founder',
   },
   {
     layout: 'break',
+    bg: 'yellow',
     label: 'MEET OUR CREATORS',
     headline: 'Creators who inform,\nnot just perform.',
   },
@@ -87,22 +94,25 @@ const slides = [
   {
     layout: 'stats',
     label: 'OUR AUDIENCE',
+    labelDot: 'green',
     items: [
-      { number: '13M+', label: 'Total subscribers\nacross platforms' },
-      { number: '30M+', label: 'Monthly views\nacross the network' },
-      { number: '70%', label: 'Returning viewers\non YouTube' },
-      { number: '30K', label: 'Community members\non Newpress.com' },
+      { number: '13M+', label: 'Total subscribers\nacross platforms', color: 'blue' },
+      { number: '30M+', label: 'Monthly views\nacross the network', color: 'red' },
+      { number: '70%', label: 'Returning viewers\non YouTube', color: 'yellow' },
+      { number: '30K', label: 'Community members\non Newpress.com', color: 'green' },
     ],
   },
   {
     layout: 'statement',
+    bg: 'sepia',
     label: 'WHY PARTNER WITH US',
-    headline: 'The audiences that matter most to brands are increasingly unreachable through traditional channels.',
-    body: 'Pre-roll ads are skipped in five seconds. Algorithms reward outrage. Legacy institutions are losing credibility. We ground these issues in the language of the internet. Our channels are where those audiences live. Advertising with Newpress creators means reaching a highly-engaged community who will listen.',
+    headline: 'The audiences that matter most are increasingly unreachable through traditional channels.',
+    body: 'Pre-roll ads are skipped in five seconds. Algorithms reward outrage. Legacy institutions are losing credibility. Our channels are where those audiences live. Advertising with Newpress creators means reaching a highly-engaged community who will listen.',
   },
   {
     layout: 'tiers',
     label: 'HOW WE WORK WITH BRANDS',
+    labelDot: 'blue',
     tiers: [
       {
         name: 'SINGLE CHANNEL',
@@ -129,6 +139,7 @@ const slides = [
   {
     layout: 'split',
     label: 'HOW WE WORK WITH FOUNDATIONS',
+    labelDot: 'green',
     points: [
       {
         label: 'PRESENTING PARTNER',
@@ -146,12 +157,15 @@ const slides = [
   },
   {
     layout: 'statement',
+    stripe: 'red',
     label: 'BRAND SAFETY',
+    labelDot: 'red',
     headline: 'Structural separation between editorial and business.',
     body: 'Iz Harris and Michael Letta manage all brand and foundation relationships. The creators manage their journalism. Those two sides don\u2019t cross. Brand partners get meaningful visibility into what\u2019s coming. What they don\u2019t get is editorial direction over what gets made.',
   },
   {
     layout: 'title',
+    bg: 'blue',
     headline: 'Newpress',
     sub: 'Journalism, co-created.',
     stats: 'partnerships@newpress.com',
@@ -167,22 +181,41 @@ const navHint = document.getElementById('nav-hint');
 
 let current = 0;
 let navUsed = false;
+const total = slides.length;
 
 function buildSlides() {
   slides.forEach((s, i) => {
     const el = document.createElement('div');
-    el.className = `slide slide-${s.layout}` + (i === 0 ? ' active' : '');
+
+    // Build class list
+    let cls = `slide slide-${s.layout}`;
+    if (i === 0) cls += ' active';
+    if (s.bg) cls += ` bg-${s.bg}`;
+    if (s.stripe) cls += ` stripe stripe-${s.stripe}`;
+    el.className = cls;
     el.dataset.index = i;
-    el.innerHTML = renderSlide(s);
+
+    // Slide counter + corner mark
+    const counterHTML = `<span class="slide-counter">${String(i + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}</span>`;
+    const cornerHTML = i > 0 && i < total - 1 ? `<span class="corner-mark">Newpress</span>` : '';
+
+    el.innerHTML = counterHTML + cornerHTML + renderSlide(s);
     deck.appendChild(el);
   });
   updateProgress();
+}
+
+function labelHTML(s) {
+  if (!s.label) return '';
+  const dotClass = s.labelDot ? ` label-dot dot-${s.labelDot}` : '';
+  return `<p class="label${dotClass}">${esc(s.label)}</p>`;
 }
 
 function renderSlide(s) {
   switch (s.layout) {
     case 'title':
       return `
+        <div class="title-rule"></div>
         <h1 class="headline headline-xl">${esc(s.headline)}</h1>
         <p class="body" style="text-align:center;max-width:640px;margin:0 auto">${esc(s.sub)}</p>
         <p class="stats-line"><span>${esc(s.stats)}</span></p>
@@ -190,7 +223,7 @@ function renderSlide(s) {
 
     case 'statement':
       return `
-        ${s.label ? `<p class="label">${esc(s.label)}</p>` : ''}
+        ${labelHTML(s)}
         <h1 class="headline headline-lg" style="margin-top:${s.label ? '16px' : '0'}">${nl2br(esc(s.headline))}</h1>
         ${s.body ? `<p class="body" style="margin-top:24px">${esc(s.body)}</p>` : ''}
       `;
@@ -204,11 +237,11 @@ function renderSlide(s) {
 
     case 'stats':
       return `
-        <p class="label">${esc(s.label)}</p>
+        ${labelHTML(s)}
         <div class="stats-grid">
           ${s.items.map((item) => `
             <div class="stat-item">
-              <span class="stat-number">${esc(item.number)}</span>
+              <span class="stat-number color-${item.color}">${esc(item.number)}</span>
               <span class="stat-label">${nl2br(esc(item.label))}</span>
             </div>
           `).join('')}
@@ -232,12 +265,12 @@ function renderSlide(s) {
     case 'split':
       return `
         <div class="split-left">
-          <p class="label">${esc(s.label)}</p>
+          ${labelHTML(s)}
         </div>
         <div class="split-right">
           ${s.points.map((p) => `
             <div class="split-point">
-              <p class="label accent-blue">${esc(p.label)}</p>
+              <p class="label">${esc(p.label)}</p>
               <p class="body">${esc(p.text)}</p>
             </div>
           `).join('')}
@@ -253,7 +286,7 @@ function renderSlide(s) {
 
     case 'tiers':
       return `
-        <p class="label" style="text-align:center;width:100%">${esc(s.label)}</p>
+        ${labelHTML(s)}
         <div class="tiers-row">
           ${s.tiers.map((t) => `
             <div class="tier-card${t.featured ? ' featured' : ''}">
@@ -293,6 +326,14 @@ function prev() { goTo(current - 1); }
 function updateProgress() {
   const pct = ((current + 1) / slides.length) * 100;
   progress.style.width = pct + '%';
+
+  // Swap progress bar color on light backgrounds
+  const bg = slides[current].bg;
+  if (bg === 'yellow' || bg === 'warm') {
+    progress.classList.add('on-light');
+  } else {
+    progress.classList.remove('on-light');
+  }
 }
 
 // Keyboard
