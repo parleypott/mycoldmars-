@@ -112,13 +112,6 @@ function renderSlide(s) {
         <div class="biz-columns" style="margin-top:32px">
           <div class="biz-col">
             <p class="biz-col-title accent-blue">${e(s.col1.title)}</p>
-            ${s.col1.heroStat ? `
-              <div class="biz-hero">
-                <span class="biz-hero-num">${e(s.col1.heroStat)}</span>
-                <span class="biz-hero-label">${e(s.col1.heroLabel)}</span>
-              </div>
-              <p class="biz-hero-sub">${e(s.col1.heroSub)}</p>
-            ` : ''}
             <ul class="biz-list">${s.col1.points.map(p => `<li>${e(p)}</li>`).join('')}</ul>
           </div>
           <div class="biz-col">
