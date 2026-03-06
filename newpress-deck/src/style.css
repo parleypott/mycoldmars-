@@ -163,35 +163,47 @@ html, body {
   border-left: 3px solid var(--yellow); max-width: 700px;
 }
 
-/* ── Logo placeholder ── */
-.logo-placeholder {
-  font-family: var(--font-head); font-size: clamp(14px,1.4vw,18px);
-  letter-spacing: 0.3em; color: var(--dim); margin-bottom: 24px;
-  text-transform: uppercase;
+/* ── Logo ── */
+.deck-logo {
+  width: clamp(200px, 28vw, 420px);
+  height: auto;
+  margin-bottom: clamp(28px, 4vw, 48px);
+  opacity: 0.92;
 }
 
 /* ============================================================
    NAV ARROW (slide 1)
    ============================================================ */
 .nav-arrow {
-  position: absolute; bottom: clamp(40px,5vw,70px); right: clamp(40px,6vw,100px);
-  display: flex; align-items: center; gap: 10px;
-  color: var(--dim);
-  animation: pulseRight 2s ease-in-out infinite;
-  transition: opacity 0.6s ease;
+  position: absolute; bottom: clamp(36px,5vw,64px); right: clamp(40px,6vw,100px);
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 24px 12px 28px;
+  border: 1px solid rgba(244,242,230,0.2);
+  border-radius: 100px;
+  color: var(--warm);
+  cursor: pointer;
+  animation: glideRight 3s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  transition: opacity 0.8s ease, border-color 0.3s;
 }
+.nav-arrow:hover { border-color: rgba(244,242,230,0.5); }
 .nav-arrow.hidden { opacity: 0; pointer-events: none; }
 
-.nav-arrow svg { flex-shrink: 0; }
-
-.nav-arrow-text {
-  font-family: var(--font-body); font-size: 11px;
-  letter-spacing: 0.1em; color: rgba(244,242,230,0.35);
+.nav-arrow-label {
+  font-family: var(--font-body); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(244,242,230,0.6);
 }
 
-@keyframes pulseRight {
-  0%, 100% { transform: translateX(0); opacity: 0.5; }
-  50% { transform: translateX(10px); opacity: 0.9; }
+.nav-arrow svg {
+  flex-shrink: 0;
+  color: rgba(244,242,230,0.6);
+}
+
+@keyframes glideRight {
+  0% { transform: translateX(0); opacity: 0.6; }
+  40% { transform: translateX(14px); opacity: 1; }
+  80% { transform: translateX(14px); opacity: 1; }
+  100% { transform: translateX(0); opacity: 0.6; }
 }
 
 /* ============================================================

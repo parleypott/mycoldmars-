@@ -26,7 +26,7 @@ function buildSlides() {
 
     let extra = '';
     if (i === 0) {
-      extra = `<div class="nav-arrow" id="nav-arrow"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M12 8l8 8-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="nav-arrow-text">Click or press arrow</span></div>`;
+      extra = `<div class="nav-arrow" id="nav-arrow"><span class="nav-arrow-label">Next</span><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
     }
 
     el.innerHTML = counter + corner + renderSlide(s, i) + extra;
@@ -40,7 +40,7 @@ function renderSlide(s, i) {
 
     case 'title':
       return `
-        ${s.logo ? '<div class="logo-placeholder">NEWPRESS</div>' : ''}
+        ${s.logo ? '<img src="/deck/newpress-logo-white.png" alt="Newpress" class="deck-logo">' : ''}
         ${labelHTML(s)}
         <h1 class="headline headline-lg">${nl(s.headline)}</h1>
         <p class="body">${e(s.body)}</p>
