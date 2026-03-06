@@ -71,7 +71,6 @@ const slides = [
       'Linear TV advertising is entering structural decline.',
       'Over $60B in annual ad spend is beginning to move out of television as audiences shift to digital platforms.',
       'The money has to go somewhere.',
-      'Brands want to move legacy ad spend to creators but need a rigorous, safe environment. We are the only credible option for journalism.',
     ],
   },
 
