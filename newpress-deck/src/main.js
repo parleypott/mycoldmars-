@@ -42,7 +42,7 @@ function renderSlide(s) {
       return `
         ${s.logo ? '<img src="/deck/newpress-logo-white.png" alt="Newpress" class="deck-logo">' : ''}
         ${labelHTML(s)}
-        <h1 class="headline headline-lg">${nl(s.headline)}</h1>
+        <h1 class="headline headline-xl">${nl(s.headline)}</h1>
         <p class="body">${e(s.body)}</p>
       `;
 

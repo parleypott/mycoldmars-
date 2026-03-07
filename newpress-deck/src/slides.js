@@ -8,6 +8,7 @@ const slides = [
   // ─── 1 ───
   {
     layout: 'title',
+    bg: 'yellow',
     headline: 'Creator-led media company\nbuilt to scale.',
     body: 'Newpress is building the next generation of journalism: creator-led, visually compelling, and built for the platforms where people actually consume media today. By pairing trusted creators with scalable newsroom infrastructure, we turn individual shows into enduring media brands.',
     logo: true,

@@ -86,6 +86,13 @@ html, body {
 .slide.bg-yellow .corner-mark { color: rgba(18,17,24,0.08); }
 .slide.bg-yellow .financial-note { color: rgba(18,17,24,0.6); }
 .slide.bg-yellow .kicker { color: var(--ink); }
+.slide.bg-yellow .nav-arrow {
+  border-color: rgba(18,17,24,0.2);
+  color: var(--ink);
+}
+.slide.bg-yellow .nav-arrow:hover { border-color: rgba(18,17,24,0.5); }
+.slide.bg-yellow .nav-arrow-label { color: rgba(18,17,24,0.5); }
+.slide.bg-yellow .nav-arrow svg { color: rgba(18,17,24,0.5); }
 
 /* Warm / cream */
 .slide.bg-warm .body { color: rgba(18,17,24,0.7); }
@@ -140,7 +147,7 @@ html, body {
   font-family: var(--font-head); font-weight: 400;
   line-height: 1.05; letter-spacing: -0.02em;
 }
-.headline-xl { font-size: clamp(48px,9vw,140px); }
+.headline-xl { font-size: clamp(48px,8vw,120px); }
 .headline-lg { font-size: clamp(32px,5vw,72px); }
 .headline-md { font-size: clamp(26px,3.5vw,52px); }
 
@@ -206,6 +213,10 @@ html, body {
   height: auto;
   margin-bottom: clamp(28px, 4vw, 48px);
   opacity: 0.92;
+}
+.slide.bg-yellow .deck-logo {
+  filter: brightness(0);
+  opacity: 0.85;
 }
 
 /* ============================================================
