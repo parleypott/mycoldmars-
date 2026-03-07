@@ -40,10 +40,23 @@ function renderSlide(s) {
 
     case 'title':
       return `
-        ${s.logo ? '<img src="/deck/newpress-logo-white.png" alt="Newpress" class="deck-logo">' : ''}
-        ${labelHTML(s)}
-        <h1 class="headline headline-xl">${nl(s.headline)}</h1>
-        <p class="body">${e(s.body)}</p>
+        <div class="title-frame">
+          <div class="tf-grain"></div>
+          <span class="tf-h" style="top:8%"></span>
+          <span class="tf-h" style="top:34%"></span>
+          <span class="tf-h" style="top:76%"></span>
+          <span class="tf-h" style="bottom:8%"></span>
+          <span class="tf-v" style="left:6%"></span>
+          <span class="tf-v" style="left:62%"></span>
+          <span class="tf-v" style="right:6%"></span>
+          ${s.logo ? '<img src="/deck/newpress-logo-white.png" alt="Newpress" class="tf-logo">' : ''}
+          <span class="tf-tag" style="top:10%;right:8%;text-align:right">INVESTOR DECK<br>2026</span>
+          <h1 class="tf-headline">${nl(s.headline)}</h1>
+          <span class="tf-tag" style="top:36%;left:64%">CREATOR-LED<br>JOURNALISM</span>
+          <p class="tf-body">${e(s.body)}</p>
+          <span class="tf-tag" style="bottom:10%;left:8%">NEWPRESS</span>
+          <span class="tf-tag" style="bottom:10%;right:8%;text-align:right">001</span>
+        </div>
       `;
 
     case 'data':
@@ -343,3 +356,21 @@ deck.addEventListener('touchend', (ev) => {
    INIT
    ============================================================ */
 buildSlides();
+
+/* Film grain texture */
+(function initGrain() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  const d = ctx.createImageData(256, 256);
+  for (let i = 0; i < d.data.length; i += 4) {
+    const v = Math.random() * 255 | 0;
+    d.data[i] = d.data[i + 1] = d.data[i + 2] = v;
+    d.data[i + 3] = 22;
+  }
+  ctx.putImageData(d, 0, 0);
+  const url = c.toDataURL();
+  document.querySelectorAll('.tf-grain').forEach(el => {
+    el.style.backgroundImage = `url(${url})`;
+  });
+})();
