@@ -1,49 +1,21 @@
 /**
  * Layered gallery — tall scrolling canvas (3x viewport height).
- * Auto-scrolls down one page, then back up, repeating forever.
- * Layers are spread across the full height, stacked by depth.
- * More layers, more gridded, every inch covered.
+ * Auto-scrolls down then back up, looping forever.
+ *
+ * Each layer's clip-path is driven by continuous sine waves —
+ * always moving, never stopping. No states, no easing, just
+ * slow perpetual drift. When a layer closes enough, it swaps media.
  */
 
 const LAYER_COUNT = 36;
-const PAGE_HEIGHT = 300; // % of viewport (3 pages tall)
-const SCROLL_SPEED = 0.35; // pixels per frame
+const PAGE_HEIGHT = 300;
+const SCROLL_SPEED = 0.35;
 const KB = ['kb-zoom-in', 'kb-zoom-out', 'kb-pan-left', 'kb-pan-right', 'kb-pan-up'];
 
-// Size ranges: [minW%, maxW%, minH(vh), maxH(vh)]
-// Heights in vh so they scale with viewport, not the tall container
 function sizeForIndex(i) {
-  if (i < 8) {
-    // Back: huge
-    return {
-      w: [60 + Math.random() * 40, 0], // 60–100% width
-      hVh: 50 + Math.random() * 55,    // 50–105vh
-    };
-  } else if (i < 20) {
-    // Mid: medium
-    return {
-      w: [25 + Math.random() * 45, 0], // 25–70%
-      hVh: 25 + Math.random() * 45,    // 25–70vh
-    };
-  } else {
-    // Front: smaller
-    return {
-      w: [12 + Math.random() * 30, 0], // 12–42%
-      hVh: 12 + Math.random() * 30,    // 12–42vh
-    };
-  }
-}
-
-function speedForIndex(i) {
-  if (i < 8) return 0.015 + Math.random() * 0.012;
-  if (i < 20) return 0.025 + Math.random() * 0.02;
-  return 0.04 + Math.random() * 0.025;
-}
-
-function holdForIndex(i) {
-  if (i < 8) return [350, 700];
-  if (i < 20) return [180, 400];
-  return [80, 240];
+  if (i < 8) return { w: 60 + Math.random() * 40, hVh: 50 + Math.random() * 55 };
+  if (i < 20) return { w: 25 + Math.random() * 45, hVh: 25 + Math.random() * 45 };
+  return { w: 12 + Math.random() * 30, hVh: 12 + Math.random() * 30 };
 }
 
 class LayerController {
@@ -54,63 +26,43 @@ class LayerController {
     this.stageHeightVh = stageHeightVh;
     this.mediaIdx = Math.floor(Math.random() * pool.length);
     this.mediaEl = null;
-    this.speed = speedForIndex(index) * (0.6 + Math.random() * 0.8);
+    this.swapped = false;
 
-    this.clip = { t: 100, r: 100, b: 100, l: 100 };
-    this.target = { t: 100, r: 100, b: 100, l: 100 };
+    // Each clip side gets its own sine wave: amplitude, frequency, phase, center
+    // This creates continuously evolving, organic clip motion
+    this.waves = {};
+    for (const side of ['t', 'r', 'b', 'l']) {
+      this.waves[side] = {
+        // Center: where the clip oscillates around (0 = fully open, 50 = half clipped)
+        center: 5 + Math.random() * 25,
+        // Amplitude: how far it swings
+        amp: 8 + Math.random() * 25,
+        // Frequency: how fast it moves (radians per frame)
+        // Back layers slower, front layers faster
+        freq: (0.001 + Math.random() * 0.003) * (index < 8 ? 0.6 : index < 20 ? 1.0 : 1.5),
+        // Phase offset so all sides move independently
+        phase: Math.random() * Math.PI * 2,
+        // Second harmonic for organic feel
+        freq2: (0.0005 + Math.random() * 0.002) * (index < 8 ? 0.5 : 1.0),
+        phase2: Math.random() * Math.PI * 2,
+        amp2: 4 + Math.random() * 12,
+      };
+    }
 
-    this.state = 'waiting';
-    this.timer = index * 5 + Math.floor(Math.random() * 80);
-    this.morphs = 0;
-    this.maxMorphs = 1 + Math.floor(Math.random() * 3);
-
+    this.t = Math.random() * 10000; // start at random time offset
     this.setRandomBounds();
     this.loadMedia();
   }
 
   setRandomBounds() {
     const size = sizeForIndex(this.index);
-    const w = size.w[0];
-    const hVh = size.hVh;
-    // Convert vh height to % of stage height
-    const hPct = (hVh / this.stageHeightVh) * 100;
-    const x = -5 + Math.random() * (105 - w);
+    const hPct = (size.hVh / this.stageHeightVh) * 100;
+    const x = -5 + Math.random() * (105 - size.w);
     const y = Math.random() * (100 - hPct);
-
     this.el.style.left = x + '%';
     this.el.style.top = y + '%';
-    this.el.style.width = w + '%';
+    this.el.style.width = size.w + '%';
     this.el.style.height = hPct + '%';
-  }
-
-  randomCrop() {
-    const style = Math.random();
-    if (style < 0.35) {
-      return {
-        t: Math.random() * 6, r: Math.random() * 6,
-        b: Math.random() * 6, l: Math.random() * 6,
-      };
-    } else if (style < 0.55) {
-      const s = 12 + Math.random() * 30;
-      return {
-        t: s * Math.random(), r: Math.random() * 8,
-        b: s * (1 - Math.random()), l: Math.random() * 8,
-      };
-    } else if (style < 0.75) {
-      const s = 12 + Math.random() * 30;
-      return {
-        t: Math.random() * 8, r: s * Math.random(),
-        b: Math.random() * 8, l: s * (1 - Math.random()),
-      };
-    } else {
-      const sides = ['t', 'r', 'b', 'l'];
-      const crop = {};
-      const heavy = Math.floor(Math.random() * 4);
-      sides.forEach((s, i) => {
-        crop[s] = i === heavy ? (18 + Math.random() * 40) : (Math.random() * 10);
-      });
-      return crop;
-    }
   }
 
   loadMedia() {
@@ -145,7 +97,6 @@ class LayerController {
     }
 
     this.mediaEl.className = `layer-media ${KB[Math.floor(Math.random() * KB.length)]}`;
-    this.applyClip();
     this.el.appendChild(this.mediaEl);
   }
 
@@ -155,84 +106,48 @@ class LayerController {
     while (next === this.mediaIdx && this.pool.length > 1);
     this.mediaIdx = next;
     this.loadMedia();
-  }
-
-  easeToTarget() {
-    let done = true;
-    for (const k of ['t', 'r', 'b', 'l']) {
-      const diff = this.target[k] - this.clip[k];
-      if (Math.abs(diff) > 0.2) {
-        this.clip[k] += diff * this.speed;
-        done = false;
-      } else {
-        this.clip[k] = this.target[k];
-      }
-    }
-    return done;
-  }
-
-  applyClip() {
-    if (this.mediaEl) {
-      this.mediaEl.style.clipPath =
-        `inset(${this.clip.t}% ${this.clip.r}% ${this.clip.b}% ${this.clip.l}%)`;
+    // Reposition on swap
+    this.setRandomBounds();
+    // Randomize wave params slightly so it doesn't repeat the same motion
+    for (const side of ['t', 'r', 'b', 'l']) {
+      const w = this.waves[side];
+      w.center = 5 + Math.random() * 25;
+      w.amp = 8 + Math.random() * 25;
+      w.phase += Math.random() * Math.PI;
+      w.amp2 = 4 + Math.random() * 12;
     }
   }
 
   tick() {
-    const holdRange = holdForIndex(this.index);
+    this.t++;
 
-    switch (this.state) {
-      case 'waiting':
-        this.timer--;
-        if (this.timer <= 0) {
-          this.state = 'revealing';
-          this.target = this.randomCrop();
-        }
-        break;
+    let sumClip = 0;
+    const clip = {};
 
-      case 'revealing':
-        if (this.easeToTarget()) {
-          this.state = 'holding';
-          this.timer = holdRange[0] + Math.random() * (holdRange[1] - holdRange[0]);
-        }
-        break;
-
-      case 'holding':
-        this.timer--;
-        if (this.timer <= 0) {
-          if (this.morphs < this.maxMorphs && Math.random() < 0.6) {
-            this.state = 'morphing';
-            this.target = this.randomCrop();
-            this.morphs++;
-          } else {
-            this.state = 'hiding';
-            this.target = { t: 50, r: 50, b: 50, l: 50 };
-          }
-        }
-        break;
-
-      case 'morphing':
-        if (this.easeToTarget()) {
-          this.state = 'holding';
-          this.timer = holdRange[0] * 0.5 + Math.random() * holdRange[0];
-        }
-        break;
-
-      case 'hiding':
-        if (this.easeToTarget()) {
-          this.setRandomBounds();
-          this.nextMedia();
-          this.morphs = 0;
-          this.maxMorphs = 1 + Math.floor(Math.random() * 3);
-          this.clip = { t: 100, r: 100, b: 100, l: 100 };
-          this.applyClip();
-          this.state = 'waiting';
-          this.timer = 15 + Math.random() * 35;
-        }
-        break;
+    for (const side of ['t', 'r', 'b', 'l']) {
+      const w = this.waves[side];
+      // Two layered sine waves for organic motion
+      const val = w.center
+        + Math.sin(this.t * w.freq + w.phase) * w.amp
+        + Math.sin(this.t * w.freq2 + w.phase2) * w.amp2;
+      // Clamp to 0–80 range
+      clip[side] = Math.max(0, Math.min(80, val));
+      sumClip += clip[side];
     }
 
-    this.applyClip();
+    // If all sides are very clipped (mostly hidden), swap media
+    if (sumClip > 240 && !this.swapped) {
+      this.swapped = true;
+      this.nextMedia();
+    }
+    if (sumClip < 200) {
+      this.swapped = false;
+    }
+
+    if (this.mediaEl) {
+      this.mediaEl.style.clipPath =
+        `inset(${clip.t}% ${clip.r}% ${clip.b}% ${clip.l}%)`;
+    }
   }
 
   destroy() {
@@ -248,7 +163,6 @@ class LayerController {
 }
 
 export function createGridGallery(mediaList, container) {
-  // Scrolling wrapper
   const scroller = document.createElement('div');
   scroller.className = 'layer-scroller';
 
@@ -268,18 +182,14 @@ export function createGridGallery(mediaList, container) {
   scroller.appendChild(stage);
   container.appendChild(scroller);
 
-  // Auto-scroll state
   let scrollPos = 0;
-  let scrollDir = 1; // 1 = down, -1 = up
-  const maxScroll = () => scroller.scrollHeight - scroller.clientHeight;
+  let scrollDir = 1;
 
   let rafId;
   function loop() {
-    // Tick all layer animations
     for (let i = 0; i < controllers.length; i++) controllers[i].tick();
 
-    // Auto-scroll
-    const max = maxScroll();
+    const max = scroller.scrollHeight - scroller.clientHeight;
     if (max > 0) {
       scrollPos += SCROLL_SPEED * scrollDir;
       if (scrollPos >= max) { scrollPos = max; scrollDir = -1; }
