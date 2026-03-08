@@ -20,6 +20,7 @@ export default defineConfig({
         newpressDeck: resolve(__dirname, 'newpress-deck/index.html'),
         pinglobeFeedback: resolve(__dirname, 'pinglobe-feedback/index.html'),
         zanyplans: resolve(__dirname, 'zanyplans/index.html'),
+        spin: resolve(__dirname, 'spin/index.html'),
       },
     },
   },
