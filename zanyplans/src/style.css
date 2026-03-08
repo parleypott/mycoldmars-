@@ -414,6 +414,123 @@ html, body {
 }
 
 /* ══════════════════════════════════════════
+   GRID COLLAGE
+   ══════════════════════════════════════════ */
+
+.collage-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  width: 100%;
+  height: 100vh;
+  gap: 2px;
+  background: #060610;
+}
+
+.grid-cell {
+  position: relative;
+  overflow: hidden;
+  background: #0a0a14;
+}
+
+/* ── Stripe mask overlay ── */
+.grid-cell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    var(--mask-angle, 0deg),
+    transparent 0,
+    transparent var(--stripe-open, 20px),
+    #060610 var(--stripe-open, 20px),
+    #060610 var(--stripe-size, 40px)
+  );
+}
+
+/* Slide directions — animate background-position for seamless loop */
+.grid-cell.stripe-v::after {
+  animation: stripe-v var(--mask-speed, 10s) linear infinite;
+  animation-delay: var(--anim-delay, 0s);
+}
+.grid-cell.stripe-h::after {
+  animation: stripe-h var(--mask-speed, 10s) linear infinite;
+  animation-delay: var(--anim-delay, 0s);
+}
+.grid-cell.stripe-diag::after {
+  animation: stripe-diag var(--mask-speed, 10s) linear infinite;
+  animation-delay: var(--anim-delay, 0s);
+}
+.grid-cell.stripe-diag-r::after {
+  animation: stripe-diag-r var(--mask-speed, 10s) linear infinite;
+  animation-delay: var(--anim-delay, 0s);
+}
+
+@keyframes stripe-v {
+  from { background-position: 0 0; }
+  to { background-position: 0 200px; }
+}
+@keyframes stripe-h {
+  from { background-position: 0 0; }
+  to { background-position: 200px 0; }
+}
+@keyframes stripe-diag {
+  from { background-position: 0 0; }
+  to { background-position: 200px 200px; }
+}
+@keyframes stripe-diag-r {
+  from { background-position: 0 0; }
+  to { background-position: -200px 200px; }
+}
+
+/* ── Media element fills the cell ── */
+.grid-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ── Ken Burns motion on the media ── */
+.kb-zoom-in {
+  animation: kb-zoom-in 20s ease-in-out infinite alternate;
+}
+.kb-zoom-out {
+  animation: kb-zoom-out 18s ease-in-out infinite alternate;
+}
+.kb-pan-left {
+  animation: kb-pan-left 24s ease-in-out infinite alternate;
+}
+.kb-pan-right {
+  animation: kb-pan-right 22s ease-in-out infinite alternate;
+}
+.kb-pan-up {
+  animation: kb-pan-up 20s ease-in-out infinite alternate;
+}
+
+@keyframes kb-zoom-in {
+  from { transform: scale(1.05); }
+  to { transform: scale(1.2); }
+}
+@keyframes kb-zoom-out {
+  from { transform: scale(1.25); }
+  to { transform: scale(1.05); }
+}
+@keyframes kb-pan-left {
+  from { transform: scale(1.2) translateX(5%); }
+  to { transform: scale(1.2) translateX(-5%); }
+}
+@keyframes kb-pan-right {
+  from { transform: scale(1.2) translateX(-5%); }
+  to { transform: scale(1.2) translateX(5%); }
+}
+@keyframes kb-pan-up {
+  from { transform: scale(1.15) translateY(4%); }
+  to { transform: scale(1.15) translateY(-4%); }
+}
+
+/* ══════════════════════════════════════════
    EFFECTS OVERLAY
    ══════════════════════════════════════════ */
 

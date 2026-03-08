@@ -1,5 +1,5 @@
 import { spaces, mediaManifest } from './spaces.js';
-import { createFloatingScene, destroyFloatingScene } from './floating-windows.js';
+import { createGridCollage, destroyGridCollage } from './grid-collage.js';
 import { createWheel, destroyWheel } from './wheel.js';
 import { initEffects, applyEffect, clearEffect, destroyEffects } from './effects.js';
 import './style.css';
@@ -110,9 +110,9 @@ function renderSpace(slug) {
   container.className = 'windows-container';
   app.appendChild(container);
 
-  // Create floating windows
+  // Create grid collage
   const media = getMediaForSpace(slug);
-  const scene = createFloatingScene(media, container);
+  const scene = createGridCollage(media, container);
 
   // Wheel of fortune
   const wheel = createWheel((effectName) => {
@@ -125,7 +125,7 @@ function renderSpace(slug) {
   app.appendChild(effectsCanvas);
 
   currentCleanup = () => {
-    destroyFloatingScene(scene);
+    destroyGridCollage(scene);
     destroyWheel();
     destroyEffects();
   };
