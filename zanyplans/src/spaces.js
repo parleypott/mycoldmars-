@@ -15,7 +15,8 @@ export const spaces = [
     slug: 'taiwan-hong-kong',
     name: 'TAIWAN HONG KONG',
     description: 'Freedom in the fog',
-    buttonColor: '#1a2e2e'
+    buttonColor: '#1a2e2e',
+    audio: 'ambient.mp3'
   }
 ];
 

@@ -438,6 +438,68 @@ html, body {
 }
 
 /* ══════════════════════════════════════════
+   AUDIO PLAY BUTTON
+   ══════════════════════════════════════════ */
+
+.audio-btn {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10001;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.25);
+  background: rgba(10, 10, 15, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.3s, transform 0.2s, background 0.3s;
+}
+.audio-btn:hover {
+  border-color: rgba(255,255,255,0.5);
+  transform: translateX(-50%) scale(1.08);
+}
+.audio-btn:active {
+  transform: translateX(-50%) scale(0.95);
+}
+.audio-btn.playing {
+  border-color: rgba(255,255,255,0.6);
+  background: rgba(255,255,255,0.1);
+}
+
+.audio-btn svg {
+  width: 28px;
+  height: 28px;
+  fill: rgba(255,255,255,0.7);
+  transition: fill 0.3s;
+}
+.audio-btn:hover svg {
+  fill: rgba(255,255,255,0.95);
+}
+.audio-btn.playing svg {
+  fill: #fff;
+}
+
+/* Pulse ring when playing */
+.audio-btn.playing::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.2);
+  animation: audio-pulse 2s ease-out infinite;
+}
+@keyframes audio-pulse {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+/* ══════════════════════════════════════════
    GRID GALLERY (default — growing frames)
    ══════════════════════════════════════════ */
 

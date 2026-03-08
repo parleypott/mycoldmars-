@@ -148,7 +148,34 @@ function renderSpace(slug, mode) {
   const effectsCanvas = initEffects();
   app.appendChild(effectsCanvas);
 
+  // Audio play button (if space has audio)
+  let audioEl = null;
+  if (space.audio) {
+    audioEl = new Audio(`/zanyplans/spaces/${slug}/${space.audio}`);
+    audioEl.loop = true;
+
+    const playSvg = `<svg viewBox="0 0 24 24"><polygon points="6,4 20,12 6,20"/></svg>`;
+    const pauseSvg = `<svg viewBox="0 0 24 24"><rect x="5" y="4" width="4" height="16"/><rect x="15" y="4" width="4" height="16"/></svg>`;
+
+    const audioBtn = document.createElement('button');
+    audioBtn.className = 'audio-btn';
+    audioBtn.innerHTML = playSvg;
+    audioBtn.addEventListener('click', () => {
+      if (audioEl.paused) {
+        audioEl.play();
+        audioBtn.innerHTML = pauseSvg;
+        audioBtn.classList.add('playing');
+      } else {
+        audioEl.pause();
+        audioBtn.innerHTML = playSvg;
+        audioBtn.classList.remove('playing');
+      }
+    });
+    app.appendChild(audioBtn);
+  }
+
   currentCleanup = () => {
+    if (audioEl) { audioEl.pause(); audioEl.src = ''; }
     if (currentMode === 'blinds') destroyGridCollage(scene);
     else destroyGridGallery(scene);
     destroyWheel();
