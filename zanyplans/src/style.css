@@ -438,77 +438,31 @@ html, body {
 }
 
 /* ══════════════════════════════════════════
-   WHEEL OF FORTUNE
+   NEON WHEEL (minimal fidget spinner)
    ══════════════════════════════════════════ */
 
 .wheel-container {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: 20px;
+  right: 20px;
   z-index: 10001;
-  width: 180px;
-  height: 180px;
+  width: 70px;
+  height: 70px;
   cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.wheel-container:hover {
+  transform: scale(1.1);
+}
+.wheel-container:active {
+  transform: scale(0.95);
 }
 
 .wheel-svg {
   width: 100%;
   height: 100%;
-  transition: transform 3s cubic-bezier(0.17, 0.67, 0.12, 0.99);
-  filter: drop-shadow(0 0 12px rgba(0,0,0,0.6));
-}
-
-.wheel-pointer {
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 10px solid transparent;
-  border-right: 10px solid transparent;
-  border-top: 18px solid #fff;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
-  z-index: 2;
-}
-
-.wheel-label {
-  position: fixed;
-  bottom: 220px;
-  right: 24px;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 11px;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.85);
-  border: 1px solid #555;
-  padding: 10px 16px;
-  z-index: 10002;
-  opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 0.3s, transform 0.3s;
-  pointer-events: none;
-  text-align: center;
-  line-height: 1.6;
-}
-.wheel-label.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.wheel-spin-hint {
-  position: absolute;
-  bottom: -24px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: 'VT323', monospace;
-  font-size: 14px;
-  color: #555;
-  white-space: nowrap;
-  animation: pulse-hint 2s ease-in-out infinite;
-}
-@keyframes pulse-hint {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+  transition: transform 2.6s cubic-bezier(0.17, 0.67, 0.12, 0.99);
 }
 
 /* ══════════════════════════════════════════
@@ -879,7 +833,7 @@ html, body {
 
 /* VHS MELT */
 .fx-vhs {
-  filter: saturate(1.4) contrast(1.1) brightness(1.05);
+  filter: saturate(1.8) contrast(1.3) brightness(1.1);
 }
 .fx-vhs .mac-win {
   animation: vhs-wobble 0.1s steps(2) infinite;
@@ -917,7 +871,7 @@ html, body {
 
 /* DATAMOSH */
 .fx-datamosh {
-  filter: contrast(1.8) saturate(2.5);
+  filter: contrast(2.2) saturate(3);
   image-rendering: pixelated;
 }
 .fx-datamosh .mac-win-content {
@@ -932,7 +886,7 @@ html, body {
 
 /* SCANLINES */
 .fx-scanlines {
-  filter: sepia(0.2) hue-rotate(80deg) brightness(0.75) contrast(1.3);
+  filter: sepia(0.3) hue-rotate(80deg) brightness(0.65) contrast(1.6);
 }
 
 /* FUNHOUSE */
@@ -946,16 +900,22 @@ html, body {
   75% { transform: perspective(800px) rotateY(1.5deg) scaleX(1.02); }
 }
 
-/* PIXELSTORM */
-.fx-pixelstorm {
-  animation: pixelstorm-cycle 0.8s steps(6) infinite;
+/* NEGATIVE */
+.fx-negative {
+  filter: invert(1) contrast(1.4) brightness(1.1);
 }
-@keyframes pixelstorm-cycle {
-  0% { filter: hue-rotate(0deg) contrast(1.5); }
-  16% { filter: hue-rotate(60deg) contrast(2) invert(1); }
-  33% { filter: hue-rotate(120deg) contrast(1.8); }
-  50% { filter: hue-rotate(180deg) contrast(1.5) invert(1); }
-  66% { filter: hue-rotate(240deg) contrast(2); }
-  83% { filter: hue-rotate(300deg) contrast(1.8) invert(1); }
-  100% { filter: hue-rotate(360deg) contrast(1.5); }
+
+/* THERMAL */
+.fx-thermal {
+  filter: saturate(3) sepia(0.6) hue-rotate(-20deg) contrast(1.6) brightness(0.85);
+}
+
+/* DEEP FRY */
+.fx-deepfry {
+  filter: saturate(4) contrast(2.2) brightness(1.3);
+  animation: deepfry-pulse 0.5s ease-in-out infinite alternate;
+}
+@keyframes deepfry-pulse {
+  from { filter: saturate(4) contrast(2.2) brightness(1.3); }
+  to { filter: saturate(5) contrast(2.5) brightness(1.4) hue-rotate(10deg); }
 }
