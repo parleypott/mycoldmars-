@@ -148,34 +148,47 @@ function renderSpace(slug, mode) {
   const effectsCanvas = initEffects();
   app.appendChild(effectsCanvas);
 
-  // Audio play button (if space has audio)
-  let audioEl = null;
-  if (space.audio) {
-    audioEl = new Audio(`/zanyplans/spaces/${slug}/${space.audio}`);
-    audioEl.loop = true;
+  // Audio play buttons
+  const audioEls = [];
+  const audioFiles = space.audio
+    ? (Array.isArray(space.audio) ? space.audio : [space.audio])
+    : [];
+  const colorClasses = ['audio-yellow', 'audio-red', 'audio-blue', 'audio-green'];
+
+  if (audioFiles.length > 0) {
+    const btnContainer = document.createElement('div');
+    btnContainer.className = 'audio-btns';
 
     const playSvg = `<svg viewBox="0 0 24 24"><polygon points="6,4 20,12 6,20"/></svg>`;
     const pauseSvg = `<svg viewBox="0 0 24 24"><rect x="5" y="4" width="4" height="16"/><rect x="15" y="4" width="4" height="16"/></svg>`;
 
-    const audioBtn = document.createElement('button');
-    audioBtn.className = 'audio-btn';
-    audioBtn.innerHTML = playSvg;
-    audioBtn.addEventListener('click', () => {
-      if (audioEl.paused) {
-        audioEl.play();
-        audioBtn.innerHTML = pauseSvg;
-        audioBtn.classList.add('playing');
-      } else {
-        audioEl.pause();
-        audioBtn.innerHTML = playSvg;
-        audioBtn.classList.remove('playing');
-      }
+    audioFiles.forEach((file, i) => {
+      const audio = new Audio(`/zanyplans/spaces/${slug}/${file}`);
+      audio.loop = true;
+      audioEls.push(audio);
+
+      const btn = document.createElement('button');
+      btn.className = `audio-btn ${colorClasses[i] || colorClasses[0]}`;
+      btn.innerHTML = playSvg;
+      btn.addEventListener('click', () => {
+        if (audio.paused) {
+          audio.play();
+          btn.innerHTML = pauseSvg;
+          btn.classList.add('playing');
+        } else {
+          audio.pause();
+          btn.innerHTML = playSvg;
+          btn.classList.remove('playing');
+        }
+      });
+      btnContainer.appendChild(btn);
     });
-    app.appendChild(audioBtn);
+
+    app.appendChild(btnContainer);
   }
 
   currentCleanup = () => {
-    if (audioEl) { audioEl.pause(); audioEl.src = ''; }
+    audioEls.forEach(a => { a.pause(); a.src = ''; });
     if (currentMode === 'blinds') destroyGridCollage(scene);
     else destroyGridGallery(scene);
     destroyWheel();

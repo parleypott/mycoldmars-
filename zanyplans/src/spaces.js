@@ -16,7 +16,7 @@ export const spaces = [
     name: 'TAIWAN HONG KONG',
     description: 'Freedom in the fog',
     buttonColor: '#1a2e2e',
-    audio: 'ambient.mp3'
+    audio: ['ambient.mp3', 'ambient-2.mp3']
   }
 ];
 
