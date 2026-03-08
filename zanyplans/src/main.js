@@ -91,181 +91,166 @@ function renderHome() {
   app.appendChild(nav);
 
   // ── Typographic debris + CJK + hanko stamps ──
-  const debris = document.createElement('div');
-  debris.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2';
-  debris.innerHTML = `
-    <!-- Corner crop marks -->
-    <div class="td-crop td-crop-tl"></div>
-    <div class="td-crop td-crop-tr"></div>
-    <div class="td-crop td-crop-bl"></div>
-    <div class="td-crop td-crop-br"></div>
+  const d = document.createElement('div');
+  d.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2';
+  d.innerHTML = `
+    <!-- Crop marks -->
+    <div class="td-crop td-crop-tl"></div><div class="td-crop td-crop-tr"></div>
+    <div class="td-crop td-crop-bl"></div><div class="td-crop td-crop-br"></div>
 
-    <!-- Long rules -->
-    <div class="td-rule-h" style="top:18%;left:2%;width:38%"></div>
-    <div class="td-rule-h" style="top:18%;right:2%;width:22%"></div>
-    <div class="td-rule-h" style="top:82%;left:8%;width:84%"></div>
-    <div class="td-rule-h" style="top:36%;left:0;width:12%"></div>
-    <div class="td-rule-h" style="top:36%;right:0;width:10%"></div>
-    <div class="td-rule-h" style="top:68%;left:3%;width:20%"></div>
-    <div class="td-rule-h" style="top:68%;right:5%;width:15%"></div>
-    <div class="td-rule-h" style="top:10%;left:12%;width:76%"></div>
-    <div class="td-rule-h" style="top:92%;left:4%;width:92%"></div>
-    <div class="td-rule-h" style="top:50%;left:0;width:6%"></div>
-    <div class="td-rule-h" style="top:50%;right:0;width:6%"></div>
-    <div class="td-rule-h-thick" style="top:20%;left:5%;width:100px"></div>
-    <div class="td-rule-h-thick" style="bottom:18%;right:8%;width:80px"></div>
-    <div class="td-rule-h-thick" style="top:58%;left:3%;width:50px"></div>
-    <div class="td-rule-h-thick" style="bottom:6%;left:10%;width:60px"></div>
+    <!-- ═══ BIG CJK — the soul of the page ═══ -->
+    <div class="td-cjk td-cjk-lg td-cjk-vert" style="top:5%;right:6%;color:rgba(255,255,255,0.09)">奇抜計画</div>
+    <div class="td-cjk td-cjk-lg td-cjk-vert" style="bottom:5%;left:5%;color:rgba(255,255,255,0.07)">空間記録</div>
+    <div class="td-cjk td-cjk-lg" style="top:2%;left:10%;color:rgba(255,255,255,0.06);font-size:clamp(60px,10vw,140px)">版</div>
+    <div class="td-cjk td-cjk-lg" style="bottom:2%;right:10%;color:rgba(255,255,255,0.06);font-size:clamp(60px,10vw,140px)">印</div>
+    <div class="td-cjk td-cjk-lg td-cjk-vert" style="top:20%;left:15%;color:rgba(255,255,255,0.04);font-size:clamp(40px,6vw,90px)">虚無</div>
+    <div class="td-cjk td-cjk-lg" style="bottom:15%;right:15%;color:rgba(255,255,255,0.04);font-size:clamp(40px,6vw,90px)">記憶</div>
 
-    <!-- Vertical rules -->
-    <div class="td-rule-v" style="top:0;left:8%;height:100%"></div>
-    <div class="td-rule-v" style="top:0;right:8%;height:100%"></div>
-    <div class="td-rule-v" style="top:2%;left:18%;height:30%"></div>
-    <div class="td-rule-v" style="bottom:2%;left:18%;height:22%"></div>
-    <div class="td-rule-v" style="top:5%;right:20%;height:28%"></div>
-    <div class="td-rule-v" style="bottom:5%;right:20%;height:18%"></div>
-    <div class="td-rule-v" style="top:10%;left:50%;height:12%"></div>
-    <div class="td-rule-v" style="bottom:8%;left:50%;height:8%"></div>
-    <div class="td-rule-v" style="top:30%;left:36%;height:15%"></div>
-    <div class="td-rule-v" style="top:60%;right:32%;height:18%"></div>
-    <div class="td-rule-v-thick" style="top:14%;left:14%;height:50px"></div>
-    <div class="td-rule-v-thick" style="bottom:14%;right:14%;height:50px"></div>
-    <div class="td-rule-v-thick" style="top:40%;right:5%;height:40px"></div>
+    <!-- CJK Medium — scattered with purpose -->
+    <div class="td-cjk td-cjk-md" style="top:12%;left:5%;color:rgba(255,255,255,0.14)">活字印刷</div>
+    <div class="td-cjk td-cjk-md" style="bottom:5%;left:4%;color:rgba(255,255,255,0.12)">夜市散策</div>
+    <div class="td-cjk td-cjk-md" style="top:22%;right:5%;color:rgba(255,255,255,0.12)">記憶装置</div>
+    <div class="td-cjk td-cjk-md td-cjk-vert" style="top:30%;left:3%;color:rgba(255,255,255,0.1)">虚無空間</div>
+    <div class="td-cjk td-cjk-md td-cjk-vert" style="bottom:20%;right:3%;color:rgba(255,255,255,0.1)">台灣香港</div>
+    <div class="td-cjk td-cjk-md" style="top:68%;left:5%;color:rgba(255,255,255,0.1)">創造</div>
+    <div class="td-cjk td-cjk-md" style="bottom:32%;right:5%;color:rgba(255,255,255,0.09)">自由</div>
+    <div class="td-cjk td-cjk-md" style="top:78%;right:8%;color:rgba(255,255,255,0.08)">美食</div>
+    <div class="td-cjk td-cjk-md td-cjk-vert" style="top:50%;left:8%;color:rgba(255,255,255,0.06);transform:translateY(-50%)">遊歩道</div>
 
-    <!-- Crosshairs -->
-    <div class="td-cross" style="top:18%;left:18%"></div>
-    <div class="td-cross" style="top:18%;right:20%"></div>
-    <div class="td-cross" style="bottom:18%;left:18%"></div>
-    <div class="td-cross" style="bottom:18%;right:20%"></div>
-    <div class="td-cross" style="top:50%;left:8%;transform:translateY(-50%)"></div>
-    <div class="td-cross" style="top:50%;right:8%;transform:translateY(-50%)"></div>
-    <div class="td-cross" style="top:10%;left:50%;transform:translateX(-50%)"></div>
-    <div class="td-cross" style="bottom:8%;left:50%;transform:translateX(-50%)"></div>
-    <div class="td-cross" style="top:36%;left:36%"></div>
-    <div class="td-cross" style="top:68%;right:32%"></div>
-    <div class="td-cross" style="top:92%;left:18%"></div>
-    <div class="td-cross" style="top:92%;right:20%"></div>
+    <!-- CJK Small — dense labeling -->
+    <div class="td-cjk td-cjk-sm" style="top:18%;left:20%;color:rgba(255,255,255,0.2)">特集 — 空間探索</div>
+    <div class="td-cjk td-cjk-sm" style="top:14%;right:22%;color:rgba(255,255,255,0.18)">第一号 二〇二六年</div>
+    <div class="td-cjk td-cjk-sm" style="bottom:18%;left:6%;color:rgba(255,255,255,0.16)">版画技法</div>
+    <div class="td-cjk td-cjk-sm" style="bottom:14%;right:12%;color:rgba(255,255,255,0.16)">写真印刷</div>
+    <div class="td-cjk td-cjk-sm" style="top:75%;left:6%;color:rgba(255,255,255,0.15)">食文化紀行</div>
+    <div class="td-cjk td-cjk-sm" style="top:85%;right:8%;color:rgba(255,255,255,0.15)">街角物語</div>
+    <div class="td-cjk td-cjk-sm" style="top:38%;right:4%;color:rgba(255,255,255,0.14)">入口</div>
+    <div class="td-cjk td-cjk-sm" style="bottom:38%;left:4%;color:rgba(255,255,255,0.14)">出口</div>
+    <div class="td-cjk td-cjk-sm" style="top:6%;left:30%;color:rgba(255,255,255,0.12)">選択してください</div>
+    <div class="td-cjk td-cjk-sm" style="bottom:6%;right:30%;color:rgba(255,255,255,0.12)">次元を選べ</div>
 
-    <!-- Targets ⊕ -->
-    <div class="td-target" style="top:10%;left:10%"></div>
-    <div class="td-target" style="top:8%;right:12%"></div>
-    <div class="td-target" style="bottom:10%;right:8%"></div>
-    <div class="td-target" style="bottom:12%;left:6%"></div>
-    <div class="td-target" style="top:30%;right:6%"></div>
-    <div class="td-target" style="bottom:30%;left:4%"></div>
+    <!-- ═══ HANKO STAMPS — bold ═══ -->
+    <div class="hanko" style="top:5%;right:5%;transform:rotate(-12deg);--hanko-size:64px">計</div>
+    <div class="hanko hanko-sq" style="bottom:6%;left:5%;transform:rotate(6deg);--hanko-size:56px">印</div>
+    <div class="hanko" style="top:28%;left:4%;transform:rotate(-8deg);--hanko-size:44px">空</div>
+    <div class="hanko hanko-sq" style="bottom:25%;right:4%;transform:rotate(15deg);--hanko-size:48px">記</div>
+    <div class="hanko" style="top:70%;right:3%;transform:rotate(-20deg);--hanko-size:38px">版</div>
+    <div class="hanko hanko-sq" style="top:50%;left:3%;transform:rotate(4deg) translateY(-50%);--hanko-size:42px">夢</div>
 
-    <!-- Halftone dots -->
-    <div class="td-dot" style="top:9%;left:7%;width:12px;height:12px"></div>
-    <div class="td-dot" style="bottom:9%;right:6%;width:8px;height:8px"></div>
-    <div class="td-dot" style="top:55%;left:5%;width:4px;height:4px"></div>
-    <div class="td-dot" style="top:22%;right:7%;width:6px;height:6px"></div>
+    <!-- ═══ LARGE GHOST LATIN TEXT ═══ -->
+    <div class="td td-lg" style="top:1%;left:2%">NR.<sup style="font-size:0.5em">1</sup></div>
+    <div class="td td-lg" style="bottom:1%;right:2%">ARCHIVE</div>
+    <div class="td td-lg td-flip" style="top:4%;left:2%;color:rgba(255,255,255,0.05)">CONCEPT</div>
 
-    <!-- Rectangles -->
-    <div class="td-rect" style="top:21%;left:5%;width:40px;height:10px"></div>
-    <div class="td-rect" style="bottom:16%;right:8%;width:30px;height:8px"></div>
-    <div class="td-rect" style="top:6%;left:20%;width:6px;height:18px"></div>
-    <div class="td-rect" style="bottom:6%;right:22%;width:6px;height:18px"></div>
-    <div class="td-rect" style="top:58%;left:3%;width:14px;height:5px"></div>
+    <!-- Medium text — higher opacity -->
+    <div class="td td-md" style="top:11%;left:5%">ZANY PLANS</div>
+    <div class="td td-md" style="bottom:3%;left:4%">TYPOGRAPHIC PROCESS</div>
+    <div class="td td-md" style="top:22%;right:4%;letter-spacing:0.3em">ARCHIVE</div>
+    <div class="td td-md" style="top:65%;right:3%">SELECT</div>
+    <div class="td td-md" style="top:38%;left:2%">VOID</div>
+    <div class="td td-md" style="bottom:32%;right:2%">MEMORIES</div>
 
-    <!-- ═══ LARGE GHOST TEXT ═══ -->
-    <div class="td td-lg" style="top:2%;left:3%">NR.<sup style="font-size:0.5em">1</sup></div>
-    <div class="td td-lg" style="bottom:2%;right:3%">ARCHIVE</div>
-    <div class="td td-lg td-flip" style="top:5%;left:3%">CONCEPT</div>
-    <div class="td td-lg" style="bottom:22%;left:2%;font-size:clamp(20px,3vw,40px)">PROCESS</div>
-    <div class="td td-lg" style="top:26%;right:2%;font-size:clamp(18px,2.5vw,36px)">LAYOUT</div>
-
-    <!-- ═══ CJK — Large vertical columns ═══ -->
-    <div class="td-cjk td-cjk-lg td-cjk-vert" style="top:8%;right:10%;color:rgba(255,255,255,0.035)">奇抜計画</div>
-    <div class="td-cjk td-cjk-lg td-cjk-vert" style="bottom:10%;left:10%;color:rgba(255,255,255,0.03)">空間記録</div>
-    <div class="td-cjk td-cjk-lg" style="top:3%;left:18%;color:rgba(255,255,255,0.025);font-size:clamp(36px,5vw,80px)">版</div>
-    <div class="td-cjk td-cjk-lg" style="bottom:3%;right:18%;color:rgba(255,255,255,0.025);font-size:clamp(36px,5vw,80px)">印</div>
-
-    <!-- CJK — Medium text scattered -->
-    <div class="td-cjk td-cjk-md" style="top:13%;left:5%;color:rgba(255,255,255,0.06)">活字印刷</div>
-    <div class="td-cjk td-cjk-md" style="bottom:5%;left:5%;color:rgba(255,255,255,0.05)">夜市散策</div>
-    <div class="td-cjk td-cjk-md" style="top:24%;right:5%;color:rgba(255,255,255,0.05)">記憶装置</div>
-    <div class="td-cjk td-cjk-md td-cjk-vert" style="top:35%;left:3%;color:rgba(255,255,255,0.04)">虚無空間</div>
-    <div class="td-cjk td-cjk-md td-cjk-vert" style="bottom:25%;right:3%;color:rgba(255,255,255,0.04)">台灣香港</div>
-    <div class="td-cjk td-cjk-md" style="top:65%;left:6%;color:rgba(255,255,255,0.04)">創造</div>
-    <div class="td-cjk td-cjk-md" style="bottom:35%;right:6%;color:rgba(255,255,255,0.04)">自由</div>
-
-    <!-- CJK — Small labels -->
-    <div class="td-cjk td-cjk-sm" style="top:20%;left:20%;color:rgba(255,255,255,0.1)">特集 — 空間探索</div>
-    <div class="td-cjk td-cjk-sm" style="top:15%;right:25%;color:rgba(255,255,255,0.08)">第一号</div>
-    <div class="td-cjk td-cjk-sm" style="bottom:19%;left:6%;color:rgba(255,255,255,0.08)">版画技法</div>
-    <div class="td-cjk td-cjk-sm" style="bottom:15%;right:15%;color:rgba(255,255,255,0.08)">写真印刷</div>
-    <div class="td-cjk td-cjk-sm" style="top:75%;left:8%;color:rgba(255,255,255,0.08)">食文化紀行</div>
-    <div class="td-cjk td-cjk-sm" style="top:85%;right:10%;color:rgba(255,255,255,0.08)">街角物語</div>
-    <div class="td-cjk td-cjk-sm" style="top:45%;left:4%;color:rgba(255,255,255,0.06)">遊歩道</div>
-    <div class="td-cjk td-cjk-sm" style="bottom:45%;right:4%;color:rgba(255,255,255,0.06)">美食紀行</div>
-
-    <!-- ═══ HANKO STAMPS ═══ -->
-    <div class="hanko" style="top:6%;right:6%;transform:rotate(-15deg);--hanko-size:52px">計</div>
-    <div class="hanko hanko-sq" style="bottom:8%;left:6%;transform:rotate(8deg);--hanko-size:44px">印</div>
-    <div class="hanko" style="top:30%;left:5%;transform:rotate(-5deg);--hanko-size:36px;opacity:0.4">空</div>
-    <div class="hanko hanko-sq" style="bottom:28%;right:5%;transform:rotate(12deg);--hanko-size:40px;opacity:0.5">記</div>
-    <div class="hanko" style="top:72%;right:4%;transform:rotate(-22deg);--hanko-size:30px;opacity:0.35">版</div>
-
-    <!-- ═══ MEDIUM TEXT ═══ -->
-    <div class="td td-md" style="top:12%;left:5%">ZANY PLANS</div>
-    <div class="td td-md" style="bottom:4%;left:5%;font-size:clamp(10px,1.5vw,16px)">TYPOGRAPHIC PROCESS</div>
-    <div class="td td-md" style="top:24%;right:5%;letter-spacing:0.3em;font-size:clamp(10px,1.3vw,14px)">ARCHIVE</div>
-    <div class="td td-md" style="bottom:24%;left:10%;font-size:clamp(10px,1.3vw,14px)">DIMENSION</div>
-    <div class="td td-md" style="top:65%;right:3%;font-size:clamp(9px,1.2vw,13px)">SELECT</div>
-    <div class="td td-md" style="top:40%;left:2%;font-size:clamp(12px,1.8vw,20px)">VOID</div>
-    <div class="td td-md" style="bottom:35%;right:2%;font-size:clamp(11px,1.6vw,18px)">MEMORIES</div>
-
-    <!-- Vertical text -->
-    <div class="td td-md td-vert" style="top:15%;left:2%;font-size:clamp(9px,1vw,12px);letter-spacing:0.4em">OFFSET PRINT</div>
-    <div class="td td-md td-vert" style="top:20%;right:2%;font-size:clamp(9px,1vw,12px);letter-spacing:0.4em">PROOF SHEET</div>
-    <div class="td td-md td-vert" style="bottom:15%;left:4%;font-size:clamp(8px,0.9vw,11px);letter-spacing:0.3em">REGISTRATION</div>
-    <div class="td td-md td-vert" style="bottom:20%;right:4%;font-size:clamp(8px,0.9vw,11px);letter-spacing:0.3em">ALIGNMENT</div>
+    <!-- Vertical Latin -->
+    <div class="td td-md td-vert" style="top:12%;left:1.5%;font-size:clamp(9px,1.1vw,13px);letter-spacing:0.4em">OFFSET PRINT</div>
+    <div class="td td-md td-vert" style="top:15%;right:1.5%;font-size:clamp(9px,1.1vw,13px);letter-spacing:0.4em">PROOF SHEET</div>
+    <div class="td td-md td-vert" style="bottom:12%;left:3%;font-size:clamp(8px,1vw,12px);letter-spacing:0.3em">REGISTRATION</div>
+    <div class="td td-md td-vert" style="bottom:15%;right:3%;font-size:clamp(8px,1vw,12px);letter-spacing:0.3em">ALIGNMENT</div>
+    <div class="td td-md td-flip" style="top:7%;left:22%">CONCEPT</div>
 
     <!-- Small labels -->
-    <div class="td td-sm" style="top:5%;left:5%">CMYK PROCESS</div>
-    <div class="td td-sm" style="top:7%;left:5%">100% K</div>
-    <div class="td td-sm" style="top:5%;right:5%">SFr/DIM 3</div>
-    <div class="td td-sm" style="top:7%;right:5%">US $ 1</div>
-    <div class="td td-sm" style="bottom:5%;left:5%">01</div>
-    <div class="td td-sm" style="bottom:3%;left:5%">A4 FORMAT</div>
-    <div class="td td-sm" style="bottom:5%;right:5%">2026</div>
-    <div class="td td-sm" style="bottom:3%;right:5%">PROOF</div>
-    <div class="td td-sm" style="top:20%;left:20%">510</div>
-    <div class="td td-sm" style="top:22%;left:20%">La Guardia Place</div>
-    <div class="td td-sm" style="top:15%;right:25%">TRIM</div>
-    <div class="td td-sm" style="top:19%;left:6%">REG MARKS</div>
-    <div class="td td-sm" style="bottom:19%;right:6%">CROP AREA</div>
-    <div class="td td-sm" style="top:75%;left:5%">BLEED 3mm</div>
-    <div class="td td-sm" style="top:85%;right:5%">OVERPRINT</div>
-    <div class="td td-sm" style="top:45%;left:3%">PAGE 14</div>
-    <div class="td td-sm" style="bottom:45%;right:3%">SECTION B</div>
+    <div class="td td-sm" style="top:4%;left:4%">CMYK PROCESS</div>
+    <div class="td td-sm" style="top:6%;left:4%">100% K</div>
+    <div class="td td-sm" style="top:4%;right:4%">SFr/DIM 3 — US $ 1</div>
+    <div class="td td-sm" style="bottom:4%;left:4%">01 — A4 FORMAT</div>
+    <div class="td td-sm" style="bottom:4%;right:4%">PROOF — 2026</div>
+    <div class="td td-sm" style="top:18%;left:20%">510 La Guardia Place</div>
+    <div class="td td-sm" style="top:20%;left:20%">New York NY 10012</div>
+    <div class="td td-sm" style="top:18%;left:5%">REG MARKS</div>
+    <div class="td td-sm" style="bottom:18%;right:5%">CROP AREA</div>
+    <div class="td td-sm" style="top:75%;left:4%">BLEED 3mm</div>
+    <div class="td td-sm" style="top:85%;right:4%">OVERPRINT</div>
 
     <!-- Tiny data -->
-    <div class="td td-xs" style="top:14%;left:10%">212 &nbsp; 473 &nbsp; 9652</div>
-    <div class="td td-xs" style="top:26%;right:8%">New York &nbsp; NY &nbsp; 10012</div>
-    <div class="td td-xs" style="bottom:14%;left:8%">HARRIS &nbsp; J.</div>
-    <div class="td td-xs" style="bottom:26%;right:10%">VOL. 1 &mdash; 2026</div>
-    <div class="td td-xs" style="top:34%;left:6%">PANTONE 485 C</div>
-    <div class="td td-xs" style="top:62%;right:6%">PANTONE 7409 C</div>
-    <div class="td td-xs" style="bottom:62%;left:6%">PANTONE 2728 C</div>
-    <div class="td td-xs" style="bottom:34%;right:6%">PANTONE 1525 C</div>
-    <div class="td td-xs" style="top:88%;left:15%">FOLIO &nbsp; 47</div>
-    <div class="td td-xs" style="top:88%;right:15%">SHEET &nbsp; 03</div>
-    <div class="td td-xs" style="top:42%;right:4%">4C + SPOT</div>
-    <div class="td td-xs" style="bottom:42%;left:4%">COLD SET</div>
+    <div class="td td-xs" style="top:13%;left:10%">212 &nbsp; 473 &nbsp; 9652</div>
+    <div class="td td-xs" style="bottom:13%;left:8%">HARRIS &nbsp; J.</div>
+    <div class="td td-xs" style="bottom:25%;right:8%">VOL. 1 &mdash; 2026</div>
+    <div class="td td-xs" style="top:32%;left:5%">PANTONE 485 C</div>
+    <div class="td td-xs" style="top:60%;right:5%">PANTONE 7409 C</div>
+    <div class="td td-xs" style="bottom:60%;left:5%">PANTONE 2728 C</div>
+    <div class="td td-xs" style="bottom:32%;right:5%">PANTONE 1525 C</div>
+    <div class="td td-xs" style="top:90%;left:12%">FOLIO 47 &nbsp;&nbsp; SHEET 03</div>
+    <div class="td td-xs" style="top:90%;right:12%">4C + SPOT &nbsp;&nbsp; COLD SET</div>
 
-    <!-- Upside-down text -->
-    <div class="td td-md td-flip" style="top:8%;left:22%;font-size:clamp(8px,1vw,11px)">CONCEPT</div>
-    <div class="td td-sm td-flip" style="bottom:8%;right:22%">TYPESET</div>
+    <!-- ═══ RULES — structural lines ═══ -->
+    <div class="td-rule-h" style="top:16%;left:0;width:40%"></div>
+    <div class="td-rule-h" style="top:16%;right:0;width:25%"></div>
+    <div class="td-rule-h" style="top:83%;left:5%;width:90%"></div>
+    <div class="td-rule-h" style="top:10%;left:10%;width:80%"></div>
+    <div class="td-rule-h" style="top:92%;left:3%;width:94%"></div>
+    <div class="td-rule-h" style="top:35%;left:0;width:10%"></div>
+    <div class="td-rule-h" style="top:35%;right:0;width:8%"></div>
+    <div class="td-rule-h" style="top:65%;left:0;width:12%"></div>
+    <div class="td-rule-h" style="top:65%;right:0;width:10%"></div>
+    <div class="td-rule-h-thick" style="top:19%;left:4%;width:120px"></div>
+    <div class="td-rule-h-thick" style="bottom:17%;right:6%;width:100px"></div>
+    <div class="td-rule-h-thick" style="top:56%;left:2%;width:60px"></div>
+    <div class="td-rule-h-thick" style="bottom:5%;left:8%;width:80px"></div>
 
-    <!-- Ink spots / splatters -->
-    <div class="ink-spot" style="top:15%;left:25%;width:80px;height:80px;opacity:0.6"></div>
-    <div class="ink-spot" style="bottom:20%;right:28%;width:60px;height:60px;opacity:0.4"></div>
-    <div class="ink-spot" style="top:60%;left:8%;width:40px;height:40px;opacity:0.5"></div>
-    <div class="ink-spot" style="top:40%;right:12%;width:100px;height:100px;opacity:0.3"></div>
-    <div class="ink-spot" style="bottom:40%;left:30%;width:50px;height:50px;opacity:0.4"></div>
+    <div class="td-rule-v" style="top:0;left:7%;height:100%"></div>
+    <div class="td-rule-v" style="top:0;right:7%;height:100%"></div>
+    <div class="td-rule-v" style="top:0;left:16%;height:35%"></div>
+    <div class="td-rule-v" style="bottom:0;left:16%;height:25%"></div>
+    <div class="td-rule-v" style="top:0;right:18%;height:30%"></div>
+    <div class="td-rule-v" style="bottom:0;right:18%;height:22%"></div>
+    <div class="td-rule-v" style="top:10%;left:50%;height:10%"></div>
+    <div class="td-rule-v" style="bottom:8%;left:50%;height:8%"></div>
+    <div class="td-rule-v-thick" style="top:12%;left:12%;height:60px"></div>
+    <div class="td-rule-v-thick" style="bottom:12%;right:12%;height:60px"></div>
+    <div class="td-rule-v-thick" style="top:38%;right:4%;height:50px"></div>
+
+    <!-- Crosshairs -->
+    <div class="td-cross" style="top:16%;left:16%"></div>
+    <div class="td-cross" style="top:16%;right:18%"></div>
+    <div class="td-cross" style="bottom:17%;left:16%"></div>
+    <div class="td-cross" style="bottom:17%;right:18%"></div>
+    <div class="td-cross" style="top:50%;left:7%;transform:translateY(-50%)"></div>
+    <div class="td-cross" style="top:50%;right:7%;transform:translateY(-50%)"></div>
+    <div class="td-cross" style="top:10%;left:50%;transform:translateX(-50%)"></div>
+    <div class="td-cross" style="bottom:8%;left:50%;transform:translateX(-50%)"></div>
+    <div class="td-cross" style="top:35%;left:7%"></div>
+    <div class="td-cross" style="top:65%;right:7%"></div>
+    <div class="td-cross" style="top:92%;left:16%"></div>
+    <div class="td-cross" style="top:92%;right:18%"></div>
+    <div class="td-cross" style="top:83%;left:7%"></div>
+    <div class="td-cross" style="top:83%;right:7%"></div>
+
+    <!-- Targets -->
+    <div class="td-target" style="top:9%;left:9%"></div>
+    <div class="td-target" style="top:7%;right:10%"></div>
+    <div class="td-target" style="bottom:9%;right:7%"></div>
+    <div class="td-target" style="bottom:10%;left:5%"></div>
+    <div class="td-target" style="top:28%;right:5%"></div>
+    <div class="td-target" style="bottom:28%;left:3%"></div>
+
+    <!-- Dots + rects -->
+    <div class="td-dot" style="top:8%;left:6%;width:14px;height:14px"></div>
+    <div class="td-dot" style="bottom:8%;right:5%;width:10px;height:10px"></div>
+    <div class="td-dot" style="top:50%;left:4%;width:5px;height:5px"></div>
+    <div class="td-dot" style="top:20%;right:6%;width:8px;height:8px"></div>
+    <div class="td-rect" style="top:20%;left:4%;width:50px;height:12px"></div>
+    <div class="td-rect" style="bottom:15%;right:6%;width:40px;height:10px"></div>
+    <div class="td-rect" style="top:5%;left:18%;width:8px;height:22px"></div>
+    <div class="td-rect" style="bottom:5%;right:20%;width:8px;height:22px"></div>
+
+    <!-- Ink splotches -->
+    <div class="ink-spot" style="top:12%;left:22%;width:120px;height:120px"></div>
+    <div class="ink-spot" style="bottom:15%;right:25%;width:90px;height:90px"></div>
+    <div class="ink-spot" style="top:55%;left:6%;width:60px;height:60px"></div>
+    <div class="ink-spot" style="top:35%;right:10%;width:140px;height:140px"></div>
+    <div class="ink-spot" style="bottom:35%;left:25%;width:80px;height:80px"></div>
+    <div class="ink-spot" style="top:75%;right:15%;width:70px;height:70px"></div>
   `;
-  app.appendChild(debris);
+  app.appendChild(d);
 }
 
 // ═══════════════════════════════════════════
