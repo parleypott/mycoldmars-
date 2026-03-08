@@ -1,59 +1,36 @@
 const SEGMENTS = [
-  { color: '#e53e3e', label: 'VHS\nMELT',      effect: 'VHS MELT' },
-  { color: '#dd6b20', label: 'CHROMATIC\nRIP',  effect: 'CHROMATIC RIP' },
-  { color: '#d69e2e', label: 'KALEIDO\nVISION', effect: 'KALEIDOVISION' },
-  { color: '#38a169', label: 'DATA\nMOSH',      effect: 'DATAMOSH' },
-  { color: '#3182ce', label: 'SCAN\nLINES',     effect: 'SCANLINES' },
-  { color: '#805ad5', label: 'FUN\nHOUSE',      effect: 'FUNHOUSE' },
-  { color: '#e2e8f0', label: 'PIXEL\nSTORM',    effect: 'PIXELSTORM' },
+  { color: '#00ffcc', effect: 'VHS MELT' },
+  { color: '#ff3366', effect: 'CHROMATIC RIP' },
+  { color: '#aa44ff', effect: 'KALEIDOVISION' },
+  { color: '#44ff88', effect: 'DATAMOSH' },
+  { color: '#ff8800', effect: 'SCANLINES' },
+  { color: '#00aaff', effect: 'FUNHOUSE' },
+  { color: '#ff00aa', effect: 'NEGATIVE' },
+  { color: '#ffee00', effect: 'THERMAL' },
+  { color: '#ff2200', effect: 'DEEP FRY' },
 ];
 
 let wheelEl = null;
 let svgEl = null;
-let labelEl = null;
 let spinning = false;
 let currentRotation = 0;
+let glowHue = 0;
+let glowRaf = null;
 
-/**
- * Creates the wheel of fortune element.
- * @param {function} onEffectSelected - callback(effectName)
- * @returns {HTMLElement}
- */
 export function createWheel(onEffectSelected) {
   const container = document.createElement('div');
   container.className = 'wheel-container';
   wheelEl = container;
 
-  // Pointer
-  const pointer = document.createElement('div');
-  pointer.className = 'wheel-pointer';
-  container.appendChild(pointer);
-
-  // SVG Wheel
   const svg = buildWheelSVG();
   svgEl = svg;
   container.appendChild(svg);
-
-  // Spin hint
-  const hint = document.createElement('div');
-  hint.className = 'wheel-spin-hint';
-  hint.textContent = 'CLICK TO SPIN';
-  container.appendChild(hint);
-
-  // Label popup
-  const label = document.createElement('div');
-  label.className = 'wheel-label';
-  labelEl = label;
-  document.body.appendChild(label);
 
   // Click handler
   container.addEventListener('click', () => {
     if (spinning) return;
     spinning = true;
-    hint.style.display = 'none';
-    labelEl.classList.remove('show');
 
-    // Random spin: 3–6 full rotations + random offset
     const extraRotations = 3 + Math.floor(Math.random() * 4);
     const segmentAngle = 360 / SEGMENTS.length;
     const randomSegment = Math.floor(Math.random() * SEGMENTS.length);
@@ -62,36 +39,32 @@ export function createWheel(onEffectSelected) {
     currentRotation = targetAngle;
     svg.style.transform = `rotate(${targetAngle}deg)`;
 
-    // After spin completes (~3s transition)
     setTimeout(() => {
       spinning = false;
-      // Determine which segment is at top (pointer points down into wheel)
       const normalizedAngle = targetAngle % 360;
-      // The pointer is at top (0°/360°). Segment 0 starts at 0°.
-      // After rotation, the segment at top is determined by which arc faces up.
       const idx = Math.round(normalizedAngle / segmentAngle) % SEGMENTS.length;
-      // Invert because rotation goes clockwise but segments are laid out clockwise
       const selected = SEGMENTS[(SEGMENTS.length - idx) % SEGMENTS.length];
-
-      // Show label
-      labelEl.innerHTML = `<span style="color:${selected.color}">${selected.effect}</span>`;
-      labelEl.classList.add('show');
-
       onEffectSelected(selected.effect);
-
-      // Synthesize click sound using Web Audio
       try { playClickSound(); } catch(e) {}
-    }, 3100);
+    }, 2600);
   });
+
+  // Ambient glow animation
+  function animateGlow() {
+    glowHue = (glowHue + 0.3) % 360;
+    container.style.filter = `drop-shadow(0 0 8px hsla(${glowHue}, 100%, 60%, 0.5)) drop-shadow(0 0 20px hsla(${glowHue + 60}, 100%, 50%, 0.2))`;
+    glowRaf = requestAnimationFrame(animateGlow);
+  }
+  glowRaf = requestAnimationFrame(animateGlow);
 
   return container;
 }
 
 function buildWheelSVG() {
-  const size = 180;
+  const size = 80;
   const cx = size / 2;
   const cy = size / 2;
-  const r = size / 2 - 6;
+  const r = size / 2 - 4;
   const n = SEGMENTS.length;
   const angleStep = (2 * Math.PI) / n;
 
@@ -100,16 +73,15 @@ function buildWheelSVG() {
   svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
   svg.setAttribute('class', 'wheel-svg');
 
-  // Outer ring
-  const ring = document.createElementNS(ns, 'circle');
-  ring.setAttribute('cx', cx);
-  ring.setAttribute('cy', cy);
-  ring.setAttribute('r', r + 3);
-  ring.setAttribute('fill', 'none');
-  ring.setAttribute('stroke', '#444');
-  ring.setAttribute('stroke-width', '3');
-  svg.appendChild(ring);
+  // Dark background circle
+  const bg = document.createElementNS(ns, 'circle');
+  bg.setAttribute('cx', cx);
+  bg.setAttribute('cy', cy);
+  bg.setAttribute('r', r);
+  bg.setAttribute('fill', '#0a0a12');
+  svg.appendChild(bg);
 
+  // Neon arcs — no text
   SEGMENTS.forEach((seg, i) => {
     const startAngle = i * angleStep - Math.PI / 2;
     const endAngle = (i + 1) * angleStep - Math.PI / 2;
@@ -121,47 +93,69 @@ function buildWheelSVG() {
 
     const largeArc = angleStep > Math.PI ? 1 : 0;
 
-    const path = document.createElementNS(ns, 'path');
-    path.setAttribute('d', `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z`);
-    path.setAttribute('fill', seg.color);
-    path.setAttribute('stroke', '#222');
-    path.setAttribute('stroke-width', '1');
-    svg.appendChild(path);
+    // Filled wedge — very dark, just a hint of color
+    const wedge = document.createElementNS(ns, 'path');
+    wedge.setAttribute('d', `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z`);
+    wedge.setAttribute('fill', seg.color);
+    wedge.setAttribute('fill-opacity', '0.15');
+    wedge.setAttribute('stroke', seg.color);
+    wedge.setAttribute('stroke-width', '0.3');
+    wedge.setAttribute('stroke-opacity', '0.3');
+    svg.appendChild(wedge);
 
-    // Label
+    // Outer arc glow
+    const arc = document.createElementNS(ns, 'path');
+    const outerR = r - 1;
+    const ax1 = cx + outerR * Math.cos(startAngle + 0.04);
+    const ay1 = cy + outerR * Math.sin(startAngle + 0.04);
+    const ax2 = cx + outerR * Math.cos(endAngle - 0.04);
+    const ay2 = cy + outerR * Math.sin(endAngle - 0.04);
+    arc.setAttribute('d', `M${ax1},${ay1} A${outerR},${outerR} 0 ${largeArc} 1 ${ax2},${ay2}`);
+    arc.setAttribute('fill', 'none');
+    arc.setAttribute('stroke', seg.color);
+    arc.setAttribute('stroke-width', '2.5');
+    arc.setAttribute('stroke-opacity', '0.7');
+    arc.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(arc);
+
+    // Small dot at midpoint of arc
     const midAngle = startAngle + angleStep / 2;
-    const labelR = r * 0.6;
-    const lx = cx + labelR * Math.cos(midAngle);
-    const ly = cy + labelR * Math.sin(midAngle);
-
-    const lines = seg.label.split('\n');
-    const text = document.createElementNS(ns, 'text');
-    text.setAttribute('x', lx);
-    text.setAttribute('y', ly - (lines.length - 1) * 5);
-    text.setAttribute('text-anchor', 'middle');
-    text.setAttribute('font-family', "'Press Start 2P', monospace");
-    text.setAttribute('font-size', '6');
-    text.setAttribute('fill', seg.color === '#e2e8f0' ? '#000' : '#fff');
-
-    lines.forEach((line, j) => {
-      const tspan = document.createElementNS(ns, 'tspan');
-      tspan.setAttribute('x', lx);
-      tspan.setAttribute('dy', j === 0 ? '0' : '10');
-      tspan.textContent = line;
-      text.appendChild(tspan);
-    });
-
-    svg.appendChild(text);
+    const dotR = r - 6;
+    const dot = document.createElementNS(ns, 'circle');
+    dot.setAttribute('cx', cx + dotR * Math.cos(midAngle));
+    dot.setAttribute('cy', cy + dotR * Math.sin(midAngle));
+    dot.setAttribute('r', '1.5');
+    dot.setAttribute('fill', seg.color);
+    dot.setAttribute('fill-opacity', '0.6');
+    svg.appendChild(dot);
   });
 
-  // Center dot
+  // Outer ring
+  const ring = document.createElementNS(ns, 'circle');
+  ring.setAttribute('cx', cx);
+  ring.setAttribute('cy', cy);
+  ring.setAttribute('r', r);
+  ring.setAttribute('fill', 'none');
+  ring.setAttribute('stroke', 'rgba(255,255,255,0.15)');
+  ring.setAttribute('stroke-width', '0.5');
+  svg.appendChild(ring);
+
+  // Inner ring
+  const innerRing = document.createElementNS(ns, 'circle');
+  innerRing.setAttribute('cx', cx);
+  innerRing.setAttribute('cy', cy);
+  innerRing.setAttribute('r', r * 0.3);
+  innerRing.setAttribute('fill', '#0a0a12');
+  innerRing.setAttribute('stroke', 'rgba(255,255,255,0.2)');
+  innerRing.setAttribute('stroke-width', '0.5');
+  svg.appendChild(innerRing);
+
+  // Tiny center dot
   const center = document.createElementNS(ns, 'circle');
   center.setAttribute('cx', cx);
   center.setAttribute('cy', cy);
-  center.setAttribute('r', '12');
-  center.setAttribute('fill', '#222');
-  center.setAttribute('stroke', '#555');
-  center.setAttribute('stroke-width', '2');
+  center.setAttribute('r', '3');
+  center.setAttribute('fill', 'rgba(255,255,255,0.3)');
   svg.appendChild(center);
 
   return svg;
@@ -171,20 +165,20 @@ function playClickSound() {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
-  osc.type = 'square';
-  osc.frequency.setValueAtTime(800, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.15);
-  gain.gain.setValueAtTime(0.15, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(600, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.12);
+  gain.gain.setValueAtTime(0.08, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
   osc.connect(gain);
   gain.connect(ctx.destination);
   osc.start();
-  osc.stop(ctx.currentTime + 0.2);
+  osc.stop(ctx.currentTime + 0.15);
 }
 
 export function destroyWheel() {
+  if (glowRaf) { cancelAnimationFrame(glowRaf); glowRaf = null; }
   if (wheelEl) { wheelEl.remove(); wheelEl = null; }
-  if (labelEl) { labelEl.remove(); labelEl = null; }
   svgEl = null;
   spinning = false;
   currentRotation = 0;

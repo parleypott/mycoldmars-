@@ -197,9 +197,10 @@ class LayerController {
       sumClip += clip[side];
     }
 
-    // Swap threshold depends on tier
-    const swapThreshold = this.tier === 'backdrop' ? 50 : this.tier === 'back' ? 180 : 240;
-    const resetThreshold = this.tier === 'backdrop' ? 30 : this.tier === 'back' ? 140 : 200;
+    // Swap threshold depends on tier — backdrop never swaps to prevent flashing
+    if (this.tier === 'backdrop') return;
+    const swapThreshold = this.tier === 'back' ? 180 : 240;
+    const resetThreshold = this.tier === 'back' ? 140 : 200;
 
     if (sumClip > swapThreshold && !this.swapped) {
       this.swapped = true;
