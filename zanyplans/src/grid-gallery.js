@@ -5,6 +5,9 @@
  * Each layer's clip-path is driven by continuous sine waves —
  * always moving, never stopping. No states, no easing, just
  * slow perpetual drift. When a layer closes enough, it swaps media.
+ *
+ * The first ~6 layers are HUGE backdrop layers that guarantee
+ * zero black space — they cover everything at all times.
  */
 
 const LAYER_COUNT = 36;
@@ -12,10 +15,61 @@ const PAGE_HEIGHT = 300;
 const SCROLL_SPEED = 0.35;
 const KB = ['kb-zoom-in', 'kb-zoom-out', 'kb-pan-left', 'kb-pan-right', 'kb-pan-up'];
 
+// Tier definitions: backdrop, back, mid, front
+function tierForIndex(i) {
+  if (i < 6)  return 'backdrop'; // massive, always visible, minimal clip
+  if (i < 14) return 'back';     // large, slow drift
+  if (i < 26) return 'mid';      // medium
+  return 'front';                 // small accent
+}
+
 function sizeForIndex(i) {
-  if (i < 8) return { w: 60 + Math.random() * 40, hVh: 50 + Math.random() * 55 };
-  if (i < 20) return { w: 25 + Math.random() * 45, hVh: 25 + Math.random() * 45 };
-  return { w: 12 + Math.random() * 30, hVh: 12 + Math.random() * 30 };
+  const tier = tierForIndex(i);
+  switch (tier) {
+    case 'backdrop': return { w: 110 + Math.random() * 50, hVh: 110 + Math.random() * 60 };
+    case 'back':     return { w: 55 + Math.random() * 50, hVh: 45 + Math.random() * 60 };
+    case 'mid':      return { w: 25 + Math.random() * 45, hVh: 25 + Math.random() * 45 };
+    default:         return { w: 12 + Math.random() * 30, hVh: 12 + Math.random() * 30 };
+  }
+}
+
+function waveParamsForIndex(index) {
+  const tier = tierForIndex(index);
+  switch (tier) {
+    case 'backdrop': return {
+      // Very small oscillation — these should almost always be fully open
+      center: 1 + Math.random() * 4,   // oscillate around 1-5% (barely clipped)
+      amp: 2 + Math.random() * 5,       // small swing
+      freq: (0.0005 + Math.random() * 0.001), // very slow
+      amp2: 1 + Math.random() * 3,
+      freq2: (0.0003 + Math.random() * 0.0008),
+      maxClip: 20,                       // never clip more than 20%
+    };
+    case 'back': return {
+      center: 5 + Math.random() * 15,
+      amp: 5 + Math.random() * 18,
+      freq: (0.001 + Math.random() * 0.002) * 0.6,
+      amp2: 3 + Math.random() * 10,
+      freq2: (0.0005 + Math.random() * 0.0015) * 0.5,
+      maxClip: 60,
+    };
+    case 'mid': return {
+      center: 5 + Math.random() * 25,
+      amp: 8 + Math.random() * 25,
+      freq: (0.001 + Math.random() * 0.003),
+      amp2: 4 + Math.random() * 12,
+      freq2: (0.0005 + Math.random() * 0.002),
+      maxClip: 80,
+    };
+    default: return {
+      center: 5 + Math.random() * 25,
+      amp: 8 + Math.random() * 25,
+      freq: (0.001 + Math.random() * 0.003) * 1.5,
+      amp2: 4 + Math.random() * 12,
+      freq2: (0.0005 + Math.random() * 0.002),
+      maxClip: 80,
+    };
+  }
 }
 
 class LayerController {
@@ -23,33 +77,29 @@ class LayerController {
     this.el = el;
     this.pool = pool;
     this.index = index;
+    this.tier = tierForIndex(index);
     this.stageHeightVh = stageHeightVh;
     this.mediaIdx = Math.floor(Math.random() * pool.length);
     this.mediaEl = null;
     this.swapped = false;
 
-    // Each clip side gets its own sine wave: amplitude, frequency, phase, center
-    // This creates continuously evolving, organic clip motion
+    // Each clip side gets its own sine wave
     this.waves = {};
     for (const side of ['t', 'r', 'b', 'l']) {
+      const p = waveParamsForIndex(index);
       this.waves[side] = {
-        // Center: where the clip oscillates around (0 = fully open, 50 = half clipped)
-        center: 5 + Math.random() * 25,
-        // Amplitude: how far it swings
-        amp: 8 + Math.random() * 25,
-        // Frequency: how fast it moves (radians per frame)
-        // Back layers slower, front layers faster
-        freq: (0.001 + Math.random() * 0.003) * (index < 8 ? 0.6 : index < 20 ? 1.0 : 1.5),
-        // Phase offset so all sides move independently
+        center: p.center,
+        amp: p.amp,
+        freq: p.freq,
         phase: Math.random() * Math.PI * 2,
-        // Second harmonic for organic feel
-        freq2: (0.0005 + Math.random() * 0.002) * (index < 8 ? 0.5 : 1.0),
+        freq2: p.freq2,
         phase2: Math.random() * Math.PI * 2,
-        amp2: 4 + Math.random() * 12,
+        amp2: p.amp2,
+        maxClip: p.maxClip,
       };
     }
 
-    this.t = Math.random() * 10000; // start at random time offset
+    this.t = Math.random() * 10000;
     this.setRandomBounds();
     this.loadMedia();
   }
@@ -57,10 +107,19 @@ class LayerController {
   setRandomBounds() {
     const size = sizeForIndex(this.index);
     const hPct = (size.hVh / this.stageHeightVh) * 100;
-    const x = -5 + Math.random() * (105 - size.w);
-    const y = Math.random() * (100 - hPct);
-    this.el.style.left = x + '%';
-    this.el.style.top = y + '%';
+
+    if (this.tier === 'backdrop') {
+      // Backdrop layers: centered, oversized, guaranteed coverage
+      const x = -10 + Math.random() * (110 - size.w + 20);
+      const y = Math.random() * (100 - hPct + 10);
+      this.el.style.left = x + '%';
+      this.el.style.top = y + '%';
+    } else {
+      const x = -5 + Math.random() * (105 - size.w);
+      const y = Math.random() * Math.max(0, 100 - hPct);
+      this.el.style.left = x + '%';
+      this.el.style.top = y + '%';
+    }
     this.el.style.width = size.w + '%';
     this.el.style.height = hPct + '%';
   }
@@ -106,15 +165,15 @@ class LayerController {
     while (next === this.mediaIdx && this.pool.length > 1);
     this.mediaIdx = next;
     this.loadMedia();
-    // Reposition on swap
     this.setRandomBounds();
-    // Randomize wave params slightly so it doesn't repeat the same motion
+    // Randomize wave params slightly
     for (const side of ['t', 'r', 'b', 'l']) {
+      const p = waveParamsForIndex(this.index);
       const w = this.waves[side];
-      w.center = 5 + Math.random() * 25;
-      w.amp = 8 + Math.random() * 25;
+      w.center = p.center;
+      w.amp = p.amp;
       w.phase += Math.random() * Math.PI;
-      w.amp2 = 4 + Math.random() * 12;
+      w.amp2 = p.amp2;
     }
   }
 
@@ -126,21 +185,22 @@ class LayerController {
 
     for (const side of ['t', 'r', 'b', 'l']) {
       const w = this.waves[side];
-      // Two layered sine waves for organic motion
       const val = w.center
         + Math.sin(this.t * w.freq + w.phase) * w.amp
         + Math.sin(this.t * w.freq2 + w.phase2) * w.amp2;
-      // Clamp to 0–80 range
-      clip[side] = Math.max(0, Math.min(80, val));
+      clip[side] = Math.max(0, Math.min(w.maxClip, val));
       sumClip += clip[side];
     }
 
-    // If all sides are very clipped (mostly hidden), swap media
-    if (sumClip > 240 && !this.swapped) {
+    // Swap threshold depends on tier
+    const swapThreshold = this.tier === 'backdrop' ? 50 : this.tier === 'back' ? 180 : 240;
+    const resetThreshold = this.tier === 'backdrop' ? 30 : this.tier === 'back' ? 140 : 200;
+
+    if (sumClip > swapThreshold && !this.swapped) {
       this.swapped = true;
       this.nextMedia();
     }
-    if (sumClip < 200) {
+    if (sumClip < resetThreshold) {
       this.swapped = false;
     }
 
