@@ -10,6 +10,12 @@ export const spaces = [
     name: 'MEMORIES.EXE',
     description: 'Things that happened',
     buttonColor: '#2e1a1a'
+  },
+  {
+    slug: 'taiwan-hong-kong',
+    name: 'TAIWAN HONG KONG',
+    description: 'Freedom in the fog',
+    buttonColor: '#1a2e2e'
   }
 ];
 
@@ -17,5 +23,17 @@ export const spaces = [
 // Supported: .mp4, .webm, .gif, .jpg, .jpeg, .png
 export const mediaManifest = {
   void: [],
-  memories: []
+  memories: [],
+  'taiwan-hong-kong': [
+    'freedom-taiwan-1.mp4',
+    'freedom-taiwan-2.mp4',
+    'youth-1.mp4',
+    'youth-2.mp4',
+    'youth-3.mp4',
+    'cityscape-rain.png',
+    'towers-fog.png',
+    'cliff-overlook.png',
+    'vigil-harbor.png',
+    'vigil-park.png',
+  ]
 };
