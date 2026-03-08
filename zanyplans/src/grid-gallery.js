@@ -99,6 +99,11 @@ class LayerController {
       };
     }
 
+    // Border overlay — same clip-path, renders as thin white edge
+    this.borderEl = document.createElement('div');
+    this.borderEl.className = 'layer-border';
+    this.el.appendChild(this.borderEl);
+
     this.t = Math.random() * 10000;
     this.setRandomBounds();
     this.loadMedia();
@@ -205,8 +210,9 @@ class LayerController {
     }
 
     if (this.mediaEl) {
-      this.mediaEl.style.clipPath =
-        `inset(${clip.t}% ${clip.r}% ${clip.b}% ${clip.l}%)`;
+      const cp = `inset(${clip.t}% ${clip.r}% ${clip.b}% ${clip.l}%)`;
+      this.mediaEl.style.clipPath = cp;
+      this.borderEl.style.clipPath = cp;
     }
   }
 

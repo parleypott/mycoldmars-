@@ -546,7 +546,6 @@ html, body {
 .layer {
   position: absolute;
   overflow: hidden;
-  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.12));
 }
 
 .layer-media {
@@ -555,6 +554,15 @@ html, body {
   object-fit: cover;
   display: block;
   clip-path: inset(50% 50% 50% 50%);
+}
+
+.layer-border {
+  position: absolute;
+  inset: 0;
+  border: 0.5px solid rgba(255, 255, 255, 0.25);
+  clip-path: inset(50% 50% 50% 50%);
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* ══════════════════════════════════════════
