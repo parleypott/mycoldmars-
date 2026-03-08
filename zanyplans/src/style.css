@@ -530,10 +530,16 @@ html, body {
    LAYERED GALLERY (default — stacked layers)
    ══════════════════════════════════════════ */
 
-.layer-stage {
+.layer-scroller {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  overflow: hidden; /* JS controls scrollTop */
+}
+
+.layer-stage {
+  position: relative;
+  width: 100%;
+  height: 300vh; /* 3 pages tall */
   background: #060610;
 }
 

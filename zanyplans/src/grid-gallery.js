@@ -1,130 +1,113 @@
 /**
- * Layered gallery — absolutely positioned media layers stacked on top
- * of each other. Big ones in back, small ones in front. All overlapping,
- * zero black space. Each layer independently reveals/morphs/hides and
- * swaps media from the pool. Huge variation in size, speed, crop, timing.
+ * Layered gallery — tall scrolling canvas (3x viewport height).
+ * Auto-scrolls down one page, then back up, repeating forever.
+ * Layers are spread across the full height, stacked by depth.
+ * More layers, more gridded, every inch covered.
  */
 
-const LAYER_COUNT = 18;
+const LAYER_COUNT = 36;
+const PAGE_HEIGHT = 300; // % of viewport (3 pages tall)
+const SCROLL_SPEED = 0.35; // pixels per frame
 const KB = ['kb-zoom-in', 'kb-zoom-out', 'kb-pan-left', 'kb-pan-right', 'kb-pan-up'];
 
-// Size tiers — back layers are huge, front layers are smaller
-// [minW%, maxW%, minH%, maxH%]
-const SIZE_TIERS = [
-  // Back layers (0–5): massive, cover most of screen
-  [80, 110, 70, 110],
-  [70, 100, 60, 100],
-  [65, 95, 55, 90],
-  [60, 90, 50, 85],
-  [55, 85, 50, 80],
-  [50, 80, 45, 75],
-  // Mid layers (6–11): medium
-  [35, 65, 30, 60],
-  [30, 60, 25, 55],
-  [30, 55, 25, 50],
-  [25, 50, 20, 50],
-  [25, 50, 20, 45],
-  [20, 45, 20, 45],
-  // Front layers (12–17): smaller accents
-  [15, 40, 15, 40],
-  [15, 35, 15, 35],
-  [12, 35, 12, 35],
-  [12, 30, 12, 30],
-  [10, 30, 10, 30],
-  [10, 25, 10, 25],
-];
+// Size ranges: [minW%, maxW%, minH(vh), maxH(vh)]
+// Heights in vh so they scale with viewport, not the tall container
+function sizeForIndex(i) {
+  if (i < 8) {
+    // Back: huge
+    return {
+      w: [60 + Math.random() * 40, 0], // 60–100% width
+      hVh: 50 + Math.random() * 55,    // 50–105vh
+    };
+  } else if (i < 20) {
+    // Mid: medium
+    return {
+      w: [25 + Math.random() * 45, 0], // 25–70%
+      hVh: 25 + Math.random() * 45,    // 25–70vh
+    };
+  } else {
+    // Front: smaller
+    return {
+      w: [12 + Math.random() * 30, 0], // 12–42%
+      hVh: 12 + Math.random() * 30,    // 12–42vh
+    };
+  }
+}
 
-// Speed tiers — back layers change slower, front layers faster
-const SPEED_TIERS = [
-  0.015, 0.018, 0.02, 0.02, 0.022, 0.025,  // back: slow
-  0.028, 0.03, 0.032, 0.035, 0.038, 0.04,   // mid: medium
-  0.04, 0.045, 0.05, 0.05, 0.055, 0.06,     // front: fast
-];
+function speedForIndex(i) {
+  if (i < 8) return 0.015 + Math.random() * 0.012;
+  if (i < 20) return 0.025 + Math.random() * 0.02;
+  return 0.04 + Math.random() * 0.025;
+}
 
-// Hold time ranges per tier (frames at 60fps)
-const HOLD_TIERS = [
-  [400, 700], [380, 650], [350, 600], [320, 580], [300, 550], [280, 500], // back: long
-  [200, 420], [180, 400], [160, 380], [150, 350], [140, 320], [130, 300], // mid: medium
-  [100, 260], [90, 240], [80, 220], [70, 200], [60, 180], [50, 160],     // front: short
-];
+function holdForIndex(i) {
+  if (i < 8) return [350, 700];
+  if (i < 20) return [180, 400];
+  return [80, 240];
+}
 
 class LayerController {
-  constructor(el, pool, index) {
+  constructor(el, pool, index, stageHeightVh) {
     this.el = el;
     this.pool = pool;
     this.index = index;
+    this.stageHeightVh = stageHeightVh;
     this.mediaIdx = Math.floor(Math.random() * pool.length);
     this.mediaEl = null;
+    this.speed = speedForIndex(index) * (0.6 + Math.random() * 0.8);
 
-    const tier = SIZE_TIERS[index];
-    this.speed = SPEED_TIERS[index] * (0.7 + Math.random() * 0.6);
-
-    // Clip: inset(top% right% bottom% left%)
     this.clip = { t: 100, r: 100, b: 100, l: 100 };
     this.target = { t: 100, r: 100, b: 100, l: 100 };
 
     this.state = 'waiting';
-    // Stagger: back layers start sooner, front layers later
-    this.timer = index * 8 + Math.floor(Math.random() * 60);
+    this.timer = index * 5 + Math.floor(Math.random() * 80);
     this.morphs = 0;
     this.maxMorphs = 1 + Math.floor(Math.random() * 3);
 
-    // Random position and size for this cycle
     this.setRandomBounds();
     this.loadMedia();
   }
 
   setRandomBounds() {
-    const tier = SIZE_TIERS[this.index];
-    const w = tier[0] + Math.random() * (tier[1] - tier[0]);
-    const h = tier[2] + Math.random() * (tier[3] - tier[2]);
-    // Position so it can extend beyond edges
-    const x = -10 + Math.random() * (110 - w);
-    const y = -10 + Math.random() * (110 - h);
+    const size = sizeForIndex(this.index);
+    const w = size.w[0];
+    const hVh = size.hVh;
+    // Convert vh height to % of stage height
+    const hPct = (hVh / this.stageHeightVh) * 100;
+    const x = -5 + Math.random() * (105 - w);
+    const y = Math.random() * (100 - hPct);
 
     this.el.style.left = x + '%';
     this.el.style.top = y + '%';
     this.el.style.width = w + '%';
-    this.el.style.height = h + '%';
+    this.el.style.height = hPct + '%';
   }
 
   randomCrop() {
-    // Varied crops — sometimes wide sliver, sometimes almost full, sometimes corner
     const style = Math.random();
-
-    if (style < 0.3) {
-      // Nearly full reveal with slight random trim
+    if (style < 0.35) {
       return {
-        t: Math.random() * 8,
-        r: Math.random() * 8,
-        b: Math.random() * 8,
-        l: Math.random() * 8,
+        t: Math.random() * 6, r: Math.random() * 6,
+        b: Math.random() * 6, l: Math.random() * 6,
       };
     } else if (style < 0.55) {
-      // Horizontal strip (wide, short)
-      const stripH = 15 + Math.random() * 35;
+      const s = 12 + Math.random() * 30;
       return {
-        t: stripH * Math.random(),
-        r: Math.random() * 10,
-        b: stripH * (1 - Math.random()),
-        l: Math.random() * 10,
+        t: s * Math.random(), r: Math.random() * 8,
+        b: s * (1 - Math.random()), l: Math.random() * 8,
       };
     } else if (style < 0.75) {
-      // Vertical strip (tall, narrow)
-      const stripW = 15 + Math.random() * 35;
+      const s = 12 + Math.random() * 30;
       return {
-        t: Math.random() * 10,
-        r: stripW * Math.random(),
-        b: Math.random() * 10,
-        l: stripW * (1 - Math.random()),
+        t: Math.random() * 8, r: s * Math.random(),
+        b: Math.random() * 8, l: s * (1 - Math.random()),
       };
     } else {
-      // Asymmetric — 2–3 sides open, one heavily cropped
       const sides = ['t', 'r', 'b', 'l'];
       const crop = {};
       const heavy = Math.floor(Math.random() * 4);
       sides.forEach((s, i) => {
-        crop[s] = i === heavy ? (20 + Math.random() * 45) : (Math.random() * 12);
+        crop[s] = i === heavy ? (18 + Math.random() * 40) : (Math.random() * 10);
       });
       return crop;
     }
@@ -196,7 +179,7 @@ class LayerController {
   }
 
   tick() {
-    const holdRange = HOLD_TIERS[this.index];
+    const holdRange = holdForIndex(this.index);
 
     switch (this.state) {
       case 'waiting':
@@ -237,7 +220,6 @@ class LayerController {
 
       case 'hiding':
         if (this.easeToTarget()) {
-          // Swap media, reposition, restart
           this.setRandomBounds();
           this.nextMedia();
           this.morphs = 0;
@@ -245,7 +227,7 @@ class LayerController {
           this.clip = { t: 100, r: 100, b: 100, l: 100 };
           this.applyClip();
           this.state = 'waiting';
-          this.timer = 20 + Math.random() * 40;
+          this.timer = 15 + Math.random() * 35;
         }
         break;
     }
@@ -266,6 +248,10 @@ class LayerController {
 }
 
 export function createGridGallery(mediaList, container) {
+  // Scrolling wrapper
+  const scroller = document.createElement('div');
+  scroller.className = 'layer-scroller';
+
   const stage = document.createElement('div');
   stage.className = 'layer-stage';
 
@@ -274,16 +260,33 @@ export function createGridGallery(mediaList, container) {
   for (let i = 0; i < LAYER_COUNT; i++) {
     const layer = document.createElement('div');
     layer.className = 'layer';
-    layer.style.zIndex = i; // 0 = back (big), 17 = front (small)
+    layer.style.zIndex = i;
     stage.appendChild(layer);
-    controllers.push(new LayerController(layer, mediaList, i));
+    controllers.push(new LayerController(layer, mediaList, i, PAGE_HEIGHT));
   }
 
-  container.appendChild(stage);
+  scroller.appendChild(stage);
+  container.appendChild(scroller);
+
+  // Auto-scroll state
+  let scrollPos = 0;
+  let scrollDir = 1; // 1 = down, -1 = up
+  const maxScroll = () => scroller.scrollHeight - scroller.clientHeight;
 
   let rafId;
   function loop() {
+    // Tick all layer animations
     for (let i = 0; i < controllers.length; i++) controllers[i].tick();
+
+    // Auto-scroll
+    const max = maxScroll();
+    if (max > 0) {
+      scrollPos += SCROLL_SPEED * scrollDir;
+      if (scrollPos >= max) { scrollPos = max; scrollDir = -1; }
+      if (scrollPos <= 0) { scrollPos = 0; scrollDir = 1; }
+      scroller.scrollTop = scrollPos;
+    }
+
     rafId = requestAnimationFrame(loop);
   }
   rafId = requestAnimationFrame(loop);
@@ -292,7 +295,7 @@ export function createGridGallery(mediaList, container) {
     destroy() {
       cancelAnimationFrame(rafId);
       controllers.forEach(c => c.destroy());
-      stage.remove();
+      scroller.remove();
     }
   };
 }
