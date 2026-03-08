@@ -91,10 +91,23 @@
     // Small circle near top (like "Present" circle in the image)
     const circle = { angle: -90, dist: 0.22, radius: 0.04, speed: 0.02 };
 
+    // Orbiting dots — small dots that travel along very thin orbital lines
+    const orbiters = [
+      { radius: 0.12, speed: 0.035, angle: 0,    dotSize: 1.8, lineOpacity: 0.08 },
+      { radius: 0.18, speed: -0.02, angle: 90,   dotSize: 1.5, lineOpacity: 0.06 },
+      { radius: 0.26, speed: 0.015, angle: 200,  dotSize: 2.0, lineOpacity: 0.07 },
+      { radius: 0.33, speed: -0.008,angle: 45,   dotSize: 1.3, lineOpacity: 0.05 },
+      { radius: 0.40, speed: 0.005, angle: 150,  dotSize: 1.6, lineOpacity: 0.06 },
+    ];
+
     // State
     const state = lines.map(l => ({
       currentAngle: l.angle,
       currentSpeed: l.speed,
+    }));
+
+    const orbiterState = orbiters.map(o => ({
+      currentAngle: o.angle,
     }));
 
     let circleState = {
@@ -134,6 +147,25 @@
       ctx.setLineDash([]);
     }
 
+    function drawOrbiter(angle, radius, dotSize, lineOpacity) {
+      const rad = (angle * Math.PI) / 180;
+      const x = cx + Math.cos(rad) * radius * size;
+      const y = cy + Math.sin(rad) * radius * size;
+
+      // Thin orbital ring
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * size, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(80, 75, 68, ${lineOpacity})`;
+      ctx.lineWidth = 0.4;
+      ctx.stroke();
+
+      // Dot
+      ctx.beginPath();
+      ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(80, 75, 68, 0.45)';
+      ctx.fill();
+    }
+
     function drawCenterDot() {
       ctx.beginPath();
       ctx.arc(cx, cy, 2, 0, Math.PI * 2);
@@ -156,6 +188,14 @@
         s.currentAngle += s.currentSpeed * dt * 0.06;
 
         drawLine(s.currentAngle, l.length, l.dash, l.opacity, l.width);
+      }
+
+      // Update and draw orbiters
+      for (let i = 0; i < orbiters.length; i++) {
+        const o = orbiters[i];
+        const os = orbiterState[i];
+        os.currentAngle += o.speed * dt * 0.06;
+        drawOrbiter(os.currentAngle, o.radius, o.dotSize, o.lineOpacity);
       }
 
       // Update and draw circle
