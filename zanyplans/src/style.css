@@ -81,12 +81,13 @@ html, body {
 }
 
 .home-title {
-  font-family: 'DM Sans', sans-serif;
-  font-weight: 900;
-  font-size: clamp(52px, 10vw, 130px);
-  color: #e8e4de;
-  letter-spacing: -0.03em;
-  line-height: 0.9;
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  font-size: clamp(16px, 2.2vw, 28px);
+  color: rgba(255,255,255,0.75);
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  line-height: 1;
   margin-bottom: 60px;
   position: relative;
   z-index: 3;
