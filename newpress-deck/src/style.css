@@ -394,7 +394,8 @@ html, body {
   flex: 0 0 42%; max-width: 42%;
 }
 .statement-wrap.has-image .headline {
-  font-size: clamp(26px,3.8vw,56px);
+  font-size: clamp(24px,3.2vw,46px);
+  text-wrap: balance;
 }
 .statement-text { flex: 1; min-width: 0; }
 .statement-image {
