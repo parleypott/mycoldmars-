@@ -381,6 +381,33 @@ html, body {
 }
 
 /* ============================================================
+   LAYOUT: STATEMENT WITH IMAGE
+   ============================================================ */
+.statement-wrap {
+  display: flex; flex-direction: column;
+}
+.statement-wrap.has-image {
+  flex-direction: row; align-items: center; gap: clamp(32px,5vw,64px);
+}
+.statement-text { flex: 1; min-width: 0; }
+.statement-image {
+  flex: 0 0 auto; width: clamp(200px, 28vw, 380px);
+}
+.statement-img {
+  width: 100%; height: auto; border-radius: 6px;
+  object-fit: cover;
+}
+
+@media (max-width: 900px) {
+  .statement-wrap.has-image {
+    flex-direction: column;
+  }
+  .statement-image {
+    width: 100%; max-width: 320px;
+  }
+}
+
+/* ============================================================
    LAYOUT: WHY NOW
    ============================================================ */
 .numbered-sections {

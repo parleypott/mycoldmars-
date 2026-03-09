@@ -70,18 +70,23 @@ function renderSlide(s) {
 
     case 'statement':
       return `
-        ${labelHTML(s)}
-        <h1 class="headline headline-lg">${nl(s.headline)}</h1>
-        ${s.stat ? `<p class="stat-callout">${e(s.stat)}</p>` : ''}
-        ${s.body ? `<p class="body" style="margin:20px 0">${e(s.body)}</p>` : ''}
-        ${s.bullets ? `<ul class="point-list" style="margin-top:16px">${s.bullets.map((b, i) => {
-          let src = '';
-          if (s.bulletSources && s.bulletSources[i]) {
-            src = `<span class="bullet-source">${e(s.bulletSources[i])}</span>`;
-          }
-          return `<li>${e(b)}${src}</li>`;
-        }).join('')}</ul>` : ''}
-        ${s.kicker ? `<p class="kicker" style="margin-top:24px">${e(s.kicker)}</p>` : ''}
+        <div class="statement-wrap${s.image ? ' has-image' : ''}">
+          <div class="statement-text">
+            ${labelHTML(s)}
+            <h1 class="headline headline-lg">${nl(s.headline)}</h1>
+            ${s.stat ? `<p class="stat-callout">${e(s.stat)}</p>` : ''}
+            ${s.body ? `<p class="body" style="margin:20px 0">${e(s.body)}</p>` : ''}
+            ${s.bullets ? `<ul class="point-list" style="margin-top:16px">${s.bullets.map((b, i) => {
+              let src = '';
+              if (s.bulletSources && s.bulletSources[i]) {
+                src = `<span class="bullet-source">${e(s.bulletSources[i])}</span>`;
+              }
+              return `<li>${e(b)}${src}</li>`;
+            }).join('')}</ul>` : ''}
+            ${s.kicker ? `<p class="kicker" style="margin-top:24px">${e(s.kicker)}</p>` : ''}
+          </div>
+          ${s.image ? `<div class="statement-image"><img src="${s.image}" alt="" class="statement-img"></div>` : ''}
+        </div>
       `;
 
     case 'whynow':
