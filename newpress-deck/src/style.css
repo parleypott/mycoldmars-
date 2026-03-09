@@ -285,13 +285,14 @@ html, body {
 /* Body text */
 .tf-body {
   position: absolute;
-  bottom: 14%;
+  bottom: 12%;
   left: 8%;
-  max-width: 52%;
-  font-family: var(--font-body);
-  font-size: clamp(10px, 0.85vw, 13px);
-  line-height: 1.85;
-  color: rgba(18,17,24,0.38);
+  max-width: 56%;
+  font-family: var(--font-head);
+  font-size: clamp(15px, 1.6vw, 22px);
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+  color: rgba(255,255,255,0.92);
 }
 
 /* Nav arrow positioning on title */
