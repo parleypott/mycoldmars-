@@ -36,7 +36,7 @@ const slides = [
     label: 'SOLUTION',
     headline: 'Newpress combines the trust and reach\nof creators with the rigor of a newsroom.',
     body: 'By providing shared editorial, operational and production infrastructure behind each show, we enable trusted creators to produce high-quality journalism that can scale across multiple platforms into a durable media franchise.',
-    image: '/deck/greenland.gif',
+    image: '/deck/jh-myanmar.gif',
   },
 
   // ─── 4. WHY NOW? ───

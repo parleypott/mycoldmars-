@@ -387,23 +387,36 @@ html, body {
   display: flex; flex-direction: column;
 }
 .statement-wrap.has-image {
-  flex-direction: row; align-items: center; gap: clamp(32px,5vw,64px);
+  flex-direction: row; align-items: center; gap: clamp(28px,4vw,56px);
+}
+.statement-wrap.has-image .statement-text {
+  flex: 0 0 42%; max-width: 42%;
+}
+.statement-wrap.has-image .headline {
+  font-size: clamp(26px,3.8vw,56px);
 }
 .statement-text { flex: 1; min-width: 0; }
 .statement-image {
-  flex: 0 0 auto; width: clamp(200px, 28vw, 380px);
+  flex: 1; min-width: 0;
 }
 .statement-img {
   width: 100%; height: auto; border-radius: 6px;
   object-fit: cover;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.3);
 }
 
 @media (max-width: 900px) {
   .statement-wrap.has-image {
     flex-direction: column;
   }
+  .statement-wrap.has-image .statement-text {
+    flex: 1; max-width: 100%;
+  }
+  .statement-wrap.has-image .headline {
+    font-size: clamp(26px,5vw,48px);
+  }
   .statement-image {
-    width: 100%; max-width: 320px;
+    width: 100%; max-width: 480px;
   }
 }
 
