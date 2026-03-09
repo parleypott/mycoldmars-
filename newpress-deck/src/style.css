@@ -58,6 +58,7 @@ html, body {
 .slide.bg-warm { background: var(--warm); color: var(--ink); }
 .slide.bg-green { background: var(--green); }
 .slide.bg-sepia { background: var(--sepia); }
+.slide.bg-ink { background: var(--ink); }
 
 /* ── Text on colored backgrounds ── */
 
@@ -86,6 +87,7 @@ html, body {
 .slide.bg-yellow .corner-mark { color: rgba(18,17,24,0.08); }
 .slide.bg-yellow .financial-note { color: rgba(18,17,24,0.6); }
 .slide.bg-yellow .kicker { color: var(--ink); }
+.slide.bg-yellow .stat-note { color: rgba(18,17,24,0.45); }
 .slide.bg-yellow .nav-arrow {
   border-color: rgba(18,17,24,0.2);
   color: var(--ink);
@@ -103,6 +105,7 @@ html, body {
 .slide.bg-warm .corner-mark { color: rgba(18,17,24,0.08); }
 .slide.bg-warm .stage-name { color: var(--ink); }
 .slide.bg-warm .stage-detail { color: rgba(18,17,24,0.7); }
+.slide.bg-warm .stage-tagline { color: rgba(18,17,24,0.55); }
 .slide.bg-warm .stage-subtitle { color: rgba(18,17,24,0.65); }
 .slide.bg-warm .stage-title { color: rgba(18,17,24,0.4); }
 .slide.bg-warm .num-badge { background: var(--ink); color: var(--warm); }
@@ -207,6 +210,13 @@ html, body {
   font-weight: 700; line-height: 1.6; color: var(--text);
 }
 
+/* ── Stat note (footnotes) ── */
+.stat-note {
+  font-family: var(--font-body); font-size: 10px;
+  letter-spacing: 0.08em; color: var(--text-faint);
+  font-style: italic; margin-top: 4px;
+}
+
 /* ── Logo ── */
 .deck-logo {
   width: clamp(200px, 28vw, 420px);
@@ -220,7 +230,7 @@ html, body {
 }
 
 /* ============================================================
-   TITLE FRAME (editorial grid — slide 1)
+   TITLE FRAME (slide 1) — clean, no lines, no grain
    ============================================================ */
 .slide-title {
   padding: 0 !important;
@@ -232,24 +242,6 @@ html, body {
   position: relative;
   width: 100%;
   height: 100%;
-}
-
-/* Hairlines — extend 14px past frame edges for cross marks */
-.tf-h {
-  position: absolute;
-  left: calc(6% - 14px);
-  right: calc(6% - 14px);
-  height: 1px;
-  background: rgba(18,17,24,0.1);
-  pointer-events: none;
-}
-.tf-v {
-  position: absolute;
-  top: calc(8% - 14px);
-  bottom: calc(8% - 14px);
-  width: 1px;
-  background: rgba(18,17,24,0.1);
-  pointer-events: none;
 }
 
 /* Logo */
@@ -300,16 +292,6 @@ html, body {
   font-size: clamp(10px, 0.85vw, 13px);
   line-height: 1.85;
   color: rgba(18,17,24,0.38);
-}
-
-/* Film grain overlay */
-.tf-grain {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 5;
-  mix-blend-mode: multiply;
-  background-size: 256px 256px;
 }
 
 /* Nav arrow positioning on title */
@@ -399,7 +381,7 @@ html, body {
 }
 
 /* ============================================================
-   LAYOUT: WHY NOW — now uses statement layout
+   LAYOUT: WHY NOW
    ============================================================ */
 .numbered-sections {
   display: flex; flex-direction: column; gap: 40px; max-width: 860px;
@@ -428,7 +410,7 @@ html, body {
 }
 
 /* ============================================================
-   LAYOUT: MARKET QUOTE (slide 5)
+   LAYOUT: MARKET QUOTE (slide 6)
    ============================================================ */
 .pull-quote {
   font-family: var(--font-head); font-style: italic;
@@ -479,7 +461,7 @@ html, body {
 }
 
 /* ============================================================
-   LAYOUT: BUSINESS MODEL (slide 8)
+   LAYOUT: BUSINESS MODEL (slide 10)
    ============================================================ */
 .biz-columns {
   display: grid; grid-template-columns: 1fr 1fr;
@@ -511,6 +493,26 @@ html, body {
   color: var(--text-sec); line-height: 1.6; margin-bottom: 16px;
 }
 
+/* Partner grid */
+.partner-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-top: 12px;
+}
+.partner-item {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 8px 12px;
+  border: 1px solid rgba(244,242,230,0.1);
+  border-radius: 4px;
+}
+.partner-channel {
+  font-family: var(--font-body); font-size: clamp(11px,1vw,13px);
+  font-weight: 700; letter-spacing: 0.1em; color: var(--warm);
+}
+.partner-range {
+  font-family: var(--font-body); font-size: clamp(11px,1vw,13px);
+  color: var(--text-sec);
+}
+
 .biz-list {
   list-style: none; display: flex; flex-direction: column; gap: 10px;
 }
@@ -526,7 +528,7 @@ html, body {
   color: var(--text); line-height: 1.7;
 }
 .biz-stats {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
 }
 .biz-stat { display: flex; flex-direction: column; gap: 2px; }
 .biz-stat-num {
@@ -602,8 +604,40 @@ html, body {
   color: var(--warm); font-weight: 400;
 }
 
+/* Traits (creator-led, curiosity-driven, visual-first) */
+.comp-traits {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.comp-trait {
+  padding: 4px 10px;
+  border: 1px solid var(--blue);
+  border-radius: 100px;
+  font-family: var(--font-body); font-size: 10px;
+  font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+
+/* Values (understanding > noise, etc.) */
+.comp-values-label {
+  font-family: var(--font-body); font-size: 10px;
+  font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--yellow); margin-top: 8px; margin-bottom: 6px;
+}
+.comp-values {
+  list-style: none; display: flex; flex-direction: column; gap: 4px;
+}
+.comp-values li {
+  font-family: var(--font-body); font-size: clamp(11px,1vw,13px);
+  color: rgba(244,242,230,0.7); line-height: 1.5;
+  padding-left: 12px; position: relative;
+}
+.comp-values li::before {
+  content: '\2013'; position: absolute; left: 0; color: var(--yellow);
+}
+
 /* ============================================================
-   LAYOUT: CREATORS (slide 10)
+   LAYOUT: CREATORS (slide 5)
    ============================================================ */
 .stages {
   display: flex; flex-direction: column; gap: 24px; max-width: 900px;
@@ -628,6 +662,11 @@ html, body {
 .stage-subtitle {
   font-family: var(--font-body); font-size: clamp(13px,1.15vw,15px);
   color: var(--text); line-height: 1.7; margin-bottom: 14px;
+}
+.stage-tagline {
+  font-family: var(--font-head); font-size: clamp(13px,1.2vw,16px);
+  font-style: italic; line-height: 1.5;
+  color: var(--text-sec); margin-top: 2px; margin-bottom: 4px;
 }
 .stage-single, .stage-creators {
   display: flex; gap: 16px; align-items: flex-start;
@@ -658,7 +697,7 @@ html, body {
 }
 
 /* ============================================================
-   LAYOUT: TEAM (slide 12)
+   LAYOUT: TEAM (slide 13)
    ============================================================ */
 .team-grid {
   display: grid; grid-template-columns: repeat(5,1fr);
@@ -688,7 +727,29 @@ html, body {
 }
 
 /* ============================================================
-   LAYOUT: RAISE (slide 13)
+   LAYOUT: FUNDING ASK (slide 14)
+   ============================================================ */
+.opp-grid {
+  display: grid; grid-template-columns: repeat(2,1fr);
+  gap: clamp(12px,2vw,24px); max-width: 960px;
+}
+.opp-card {
+  padding: clamp(16px,2vw,24px);
+  border: 1px solid rgba(244,242,230,0.1);
+  border-radius: 6px;
+  background: rgba(244,242,230,0.03);
+}
+.opp-title {
+  font-family: var(--font-head); font-size: clamp(18px,2vw,26px);
+  color: var(--warm); margin-bottom: 8px; line-height: 1.2;
+}
+.opp-text {
+  font-family: var(--font-body); font-size: clamp(12px,1.1vw,14px);
+  color: var(--text); line-height: 1.7;
+}
+
+/* ============================================================
+   LAYOUT: RAISE (legacy — kept for compatibility)
    ============================================================ */
 .alloc-bar {
   display: flex; height: 8px; border-radius: 4px; overflow: hidden;
@@ -722,7 +783,7 @@ html, body {
 }
 
 /* ============================================================
-   LAYOUT: VISION (slide 14)
+   LAYOUT: VISION (slide 15)
    ============================================================ */
 .vision-phases {
   display: grid; grid-template-columns: repeat(3,1fr);
@@ -754,6 +815,27 @@ html, body {
 }
 
 /* ============================================================
+   LAYOUT: SUBSCRIBER MODEL (slide 11)
+   ============================================================ */
+.slide-subscriberModel .headline {
+  margin-bottom: 24px;
+}
+
+/* ============================================================
+   LAYOUT: HUMAN ELEMENT (slide 12)
+   ============================================================ */
+.he-body .body {
+  max-width: 760px;
+}
+
+/* ============================================================
+   LAYOUT: APPENDIX FINANCIALS (slide 16)
+   ============================================================ */
+.membership-section .stat-number {
+  font-size: clamp(28px,4vw,52px);
+}
+
+/* ============================================================
    PROGRESS
    ============================================================ */
 #progress {
@@ -774,6 +856,9 @@ html, body {
   .team-grid { grid-template-columns: repeat(3,1fr); }
   .alloc-grid { grid-template-columns: 1fr; }
   .vision-phases { grid-template-columns: 1fr; }
+  .opp-grid { grid-template-columns: 1fr; }
+  .partner-grid { grid-template-columns: 1fr; }
+  .biz-stats { grid-template-columns: 1fr 1fr; }
   .corner-mark { display: none; }
   .nav-arrow-label { display: none; }
 }
