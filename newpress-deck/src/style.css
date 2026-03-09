@@ -679,6 +679,31 @@ html, body {
 /* ============================================================
    LAYOUT: CREATORS (slide 5)
    ============================================================ */
+.creators-wrap {
+  display: flex; flex-direction: column;
+}
+.creators-wrap.has-hero {
+  flex-direction: row; align-items: stretch; gap: clamp(28px,4vw,56px);
+}
+.creators-text { flex: 1; min-width: 0; }
+.creators-hero {
+  flex: 0 0 36%; display: flex; align-items: center;
+}
+.creators-hero-img {
+  width: 100%; height: auto; border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+}
+
+@media (max-width: 900px) {
+  .creators-wrap.has-hero {
+    flex-direction: column;
+  }
+  .creators-hero {
+    flex: none; max-width: 360px;
+  }
+}
+
 .stages {
   display: flex; flex-direction: column; gap: 24px; max-width: 900px;
 }

@@ -68,6 +68,7 @@ const slides = [
     bg: 'warm',
     label: 'CREATORS',
     headline: 'The shows we\u2019ve built so far.',
+    heroImage: '/deck/creators.gif',
     stages: [
       {
         num: '1',

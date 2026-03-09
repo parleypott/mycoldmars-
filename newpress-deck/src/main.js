@@ -221,9 +221,11 @@ function renderSlide(s) {
 
     case 'creators':
       return `
-        ${labelHTML(s)}
-        ${s.headline ? `<h1 class="headline headline-lg" style="margin-bottom:28px">${e(s.headline)}</h1>` : ''}
-        <div class="stages">
+        <div class="creators-wrap${s.heroImage ? ' has-hero' : ''}">
+          <div class="creators-text">
+            ${labelHTML(s)}
+            ${s.headline ? `<h1 class="headline headline-lg" style="margin-bottom:28px">${e(s.headline)}</h1>` : ''}
+            <div class="stages">
           ${s.stages.map(st => {
             if (st.creators) {
               return `
@@ -265,6 +267,9 @@ function renderSlide(s) {
               </div>
             `;
           }).join('')}
+            </div>
+          </div>
+          ${s.heroImage ? `<div class="creators-hero"><img src="${s.heroImage}" alt="" class="creators-hero-img"></div>` : ''}
         </div>
       `;
 
