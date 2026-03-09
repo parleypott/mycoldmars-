@@ -45,7 +45,7 @@ const slides = [
     stripe: 'yellow',
     label: 'WHY NOW?',
     headline: 'Talent and audiences\nare moving fast.',
-    quote: 'We build journalism in the language of the internet \u2014 designed for mass distribution across YouTube and social platforms.',
+    subtext: 'We build journalism in the language of the internet \u2014 designed for mass distribution across YouTube and social platforms.',
     reach: 'Today, our shows reach 13M followers, generate 30M monthly views, and maintain 70% returning viewers \u2014 demonstrating the power of creator-led journalism distributed at scale.',
     sections: [
       {

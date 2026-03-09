@@ -93,7 +93,7 @@ function renderSlide(s) {
       return `
         ${labelHTML(s)}
         <h1 class="headline headline-lg">${nl(s.headline)}</h1>
-        ${s.quote ? `<blockquote class="pull-quote" style="margin:24px 0 16px">\u201C${e(s.quote)}\u201D</blockquote>` : ''}
+        ${s.subtext ? `<p class="body" style="margin:20px 0 16px">${e(s.subtext)}</p>` : ''}
         ${s.reach ? `<p class="body" style="margin:0 0 32px">${e(s.reach)}</p>` : ''}
         <div class="numbered-sections">
           ${s.sections.map(sec => `
