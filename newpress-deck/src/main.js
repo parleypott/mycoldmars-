@@ -222,6 +222,7 @@ function renderSlide(s) {
     case 'creators':
       return `
         ${labelHTML(s)}
+        ${s.headline ? `<h1 class="headline headline-lg" style="margin-bottom:28px">${e(s.headline)}</h1>` : ''}
         <div class="stages">
           ${s.stages.map(st => {
             if (st.creators) {
@@ -235,11 +236,11 @@ function renderSlide(s) {
                   <div class="stage-creators">
                     ${st.creators.map(c => `
                       <div class="stage-creator">
-                        ${imgOrPlaceholder(c.image, c.name, 'stage-avatar')}
+                        ${imgOrPlaceholder(c.image, c.name, 'stage-avatar stage-avatar-lg')}
                         <div class="stage-info">
                           <p class="stage-name">${e(c.name)}</p>
                           ${c.tagline ? `<p class="stage-tagline">${e(c.tagline)}</p>` : ''}
-                          <p class="stage-detail">${e(c.detail)}</p>
+                          <p class="stage-detail">${e(c.detail)}${c.subs ? ` <span class="subs-highlight">${e(c.subs)}</span>` : ''}</p>
                         </div>
                       </div>
                     `).join('')}
@@ -254,11 +255,11 @@ function renderSlide(s) {
                   <span class="stage-title">${e(st.title)}</span>
                 </div>
                 <div class="stage-single">
-                  ${st.name ? imgOrPlaceholder(st.image, st.name, 'stage-avatar') : ''}
+                  ${st.name ? imgOrPlaceholder(st.image, st.name, 'stage-avatar stage-avatar-lg') : ''}
                   <div class="stage-info">
                     ${st.name ? `<p class="stage-name">${e(st.name)}</p>` : ''}
                     ${st.tagline ? `<p class="stage-tagline">${e(st.tagline)}</p>` : ''}
-                    <p class="stage-detail">${e(st.detail)}</p>
+                    <p class="stage-detail">${e(st.detail)}${st.subs ? ` <span class="subs-highlight">${e(st.subs)}</span>` : ''}</p>
                   </div>
                 </div>
               </div>
