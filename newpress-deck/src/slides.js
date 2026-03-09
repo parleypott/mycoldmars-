@@ -77,7 +77,7 @@ const slides = [
         tagline: 'Examining the systems that run our world through the voices of those most affected.',
         detail: 'Built from scratch. 3.2M average video views. The playbook that became Newpress.',
         subs: '7.5M subscribers',
-        image: null,
+        image: '/deck/johnny-harris.png',
       },
       {
         num: '2',
@@ -109,7 +109,7 @@ const slides = [
         tagline: 'Illuminating our world\u2019s inner workings, from geopolitics to our deepest mental recesses.',
         detail: 'We took a legacy journalist \u2014 not video-native \u2014 and successfully translated him into the creator era. Pulitzer finalist, ex-NYT, ex-WaPo, founding editor of Vox.',
         subs: '45K subscribers',
-        image: null,
+        image: '/deck/max-fisher.png',
       },
     ],
   },
