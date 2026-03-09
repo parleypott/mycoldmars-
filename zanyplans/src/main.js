@@ -50,14 +50,6 @@ function renderHome() {
   app.innerHTML = '';
   app.className = 'home';
 
-  // Button colors
-  const btnColors = [
-    { bg: '#c22828', glow: 'rgba(194,40,40,0.35)', glowFar: 'rgba(194,40,40,0.12)' },
-    { bg: '#c8a000', glow: 'rgba(200,160,0,0.35)', glowFar: 'rgba(200,160,0,0.12)' },
-    { bg: '#2244aa', glow: 'rgba(34,68,170,0.35)', glowFar: 'rgba(34,68,170,0.12)' },
-    { bg: '#b85a1b', glow: 'rgba(184,90,27,0.35)', glowFar: 'rgba(184,90,27,0.12)' },
-  ];
-
   // Subtitle
   const subtitle = document.createElement('p');
   subtitle.className = 'home-subtitle';
@@ -77,12 +69,6 @@ function renderHome() {
     const link = document.createElement('button');
     link.className = 'home-link';
     link.textContent = space.name;
-    const c = btnColors[i % btnColors.length];
-    link.style.setProperty('--btn-bg', c.bg);
-    link.style.setProperty('--btn-glow', c.glow);
-    link.style.setProperty('--btn-glow-far', c.glowFar);
-    link.style.setProperty('--pulse-dur', `${5 + i * 0.8}s`);
-    link.style.setProperty('--pulse-delay', `${i * -1.5}s`);
     link.addEventListener('click', () => {
       location.hash = `/space/${space.slug}`;
     });

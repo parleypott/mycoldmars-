@@ -96,37 +96,37 @@ html, body {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 12px;
+  gap: 32px;
   position: relative;
   z-index: 3;
   flex-wrap: wrap;
   justify-content: center;
-  max-width: 90vw;
 }
 
 .home-link {
   font-family: 'DM Sans', sans-serif;
-  font-weight: 900;
-  font-size: 11px;
+  font-weight: 500;
+  font-size: 8px;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: #fff;
-  background: var(--btn-bg);
-  border: none;
+  letter-spacing: 0.18em;
+  color: rgba(255,255,255,0.5);
+  background: none;
+  border: 0.5px solid rgba(255,255,255,0.18);
+  border-radius: 50%;
+  width: 110px;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.5;
   cursor: pointer;
-  padding: 18px 34px;
-  transition: transform 0.3s, box-shadow 0.3s;
-  animation: btn-pulse var(--pulse-dur, 5s) ease-in-out infinite;
-  animation-delay: var(--pulse-delay, 0s);
+  padding: 0 14px;
+  transition: color 0.3s, border-color 0.3s;
 }
 .home-link:hover {
-  transform: scale(1.06);
-  box-shadow: 0 0 40px var(--btn-glow);
-}
-
-@keyframes btn-pulse {
-  0%, 100% { opacity: 0.88; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.02); }
+  color: rgba(255,255,255,0.9);
+  border-color: rgba(255,255,255,0.45);
 }
 
 /* ── Marks — all use one consistent opacity ── */
