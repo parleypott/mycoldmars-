@@ -241,6 +241,11 @@ const slides = [
     bg: 'ink',
     label: 'SUBSCRIBER MODEL',
     body: 'We are building the home for the most curious audience on the internet. What begins as deeper access to our stories will evolve into a platform where people participate in reporting, explore complex ideas, and spend real time understanding the world together.',
+    images: [
+      '/deck/sub-comment.png',
+      '/deck/sub-tinder.png',
+      '/deck/sub-palau.png',
+    ],
   },
 
   // ─── 12. THE HUMAN ELEMENT ───

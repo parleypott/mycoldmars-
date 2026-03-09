@@ -936,8 +936,28 @@ html, body {
 /* ============================================================
    LAYOUT: SUBSCRIBER MODEL (slide 11)
    ============================================================ */
-.slide-subscriberModel .headline {
-  margin-bottom: 24px;
+.sub-model-wrap {
+  display: flex; align-items: center; gap: clamp(32px,5vw,64px);
+}
+.sub-model-text {
+  flex: 0 0 40%; max-width: 40%;
+}
+.sub-model-images {
+  flex: 1; display: flex; gap: clamp(10px,1.5vw,16px);
+  align-items: flex-start;
+}
+.sub-model-img {
+  flex: 1; min-width: 0;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  object-fit: contain;
+  max-height: 70vh;
+}
+
+@media (max-width: 900px) {
+  .sub-model-wrap { flex-direction: column; }
+  .sub-model-text { flex: 1; max-width: 100%; }
+  .sub-model-images { width: 100%; }
 }
 
 /* ============================================================

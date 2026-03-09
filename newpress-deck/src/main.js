@@ -285,9 +285,18 @@ function renderSlide(s) {
 
     case 'subscriberModel':
       return `
-        ${labelHTML(s)}
-        <h1 class="headline headline-lg" style="margin-bottom:32px">The home for the most curious<br>audience on the internet.</h1>
-        <p class="body" style="max-width:800px">${e(s.body)}</p>
+        <div class="sub-model-wrap">
+          <div class="sub-model-text">
+            ${labelHTML(s)}
+            <h1 class="headline headline-lg" style="margin-bottom:24px">The home for the most curious<br>audience on the internet.</h1>
+            <p class="body">${e(s.body)}</p>
+          </div>
+          ${s.images ? `
+            <div class="sub-model-images">
+              ${s.images.map(img => `<img src="${img}" alt="" class="sub-model-img">`).join('')}
+            </div>
+          ` : ''}
+        </div>
       `;
 
     case 'humanElement':
