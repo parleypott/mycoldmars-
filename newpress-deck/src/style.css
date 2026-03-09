@@ -534,7 +534,45 @@ html, body {
   color: var(--text-sec); line-height: 1.6; margin-bottom: 16px;
 }
 
-/* Partner grid */
+/* ── 3-pillar layout ── */
+.pillars-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: clamp(16px, 2.5vw, 32px); margin-top: 32px; max-width: 1060px;
+}
+.pillar-card {
+  padding: clamp(20px, 2.5vw, 32px);
+  border: 1px solid rgba(244,242,230,0.08);
+  border-radius: 6px;
+  background: rgba(244,242,230,0.03);
+  display: flex; flex-direction: column; gap: 12px;
+  position: relative; overflow: hidden;
+}
+.pillar-bar {
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.pillar-bar-blue { background: var(--blue); }
+.pillar-bar-yellow { background: var(--yellow); }
+.pillar-bar-green { background: var(--green); }
+.pillar-title {
+  font-family: var(--font-body); font-size: clamp(10px,1vw,12px);
+  font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+}
+.pillar-text {
+  font-family: var(--font-body); font-size: clamp(12px,1.1vw,14px);
+  color: var(--text); line-height: 1.7;
+}
+.pillar-card .biz-hero { margin: 4px 0; }
+.pillar-card .biz-hero-num { font-size: clamp(32px, 4vw, 56px); }
+.pillar-stats {
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+/* Partner list (vertical in pillar) */
+.partner-list {
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+/* Partner grid (legacy) */
 .partner-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
   margin-top: 12px;
@@ -938,6 +976,7 @@ html, body {
   .alloc-grid { grid-template-columns: 1fr; }
   .vision-phases { grid-template-columns: 1fr; }
   .opp-grid { grid-template-columns: 1fr; }
+  .pillars-grid { grid-template-columns: 1fr; }
   .partner-grid { grid-template-columns: 1fr; }
   .biz-stats { grid-template-columns: 1fr 1fr; }
   .corner-mark { display: none; }

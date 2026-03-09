@@ -200,31 +200,39 @@ const slides = [
 
   // ─── 10. BUSINESS MODEL ───
   {
-    layout: 'business',
+    layout: 'business3',
     stripe: 'green',
     label: 'BUSINESS MODEL',
-    headline: 'We\u2019ve already built a foundational business model\nwith two core revenue streams.',
-    col1: {
-      title: 'PROGRAMMATIC DIGITAL',
-      heroNum: '$100K',
-      heroLabel: 'PER MONTH',
-      partnerTitle: 'BRAND PARTNERSHIPS',
-      partners: [
-        { channel: 'JH', range: '100\u2013150K' },
-        { channel: 'SP', range: '$8\u201315K' },
-        { channel: 'TV', range: '$10\u201320K' },
-        { channel: 'TBP', range: '$8\u201315K' },
-      ],
-    },
-    col2: {
-      title: 'SUBSCRIBER BASE',
-      intro: 'Newpress.com membership: launched Feb 19, 2026. Zero paid marketing.',
-      stats: [
-        { number: '36,143', label: 'Members' },
-        { number: '4,056', label: 'Paid subscribers' },
-        { number: '11%', label: 'Paid conversion' },
-      ],
-    },
+    headline: 'We\u2019ve already built a foundational business model with three core revenue pillars.',
+    pillars: [
+      {
+        title: 'PROGRAMMATIC DIGITAL',
+        color: 'blue',
+        heroNum: '$100K',
+        heroLabel: 'PER MONTH',
+        text: 'Digital ad revenue against our 30M+ monthly views across all channels.',
+      },
+      {
+        title: 'BRAND PARTNERSHIPS',
+        color: 'yellow',
+        partners: [
+          { channel: 'JH', range: '100\u2013150K' },
+          { channel: 'SP', range: '$8\u201315K' },
+          { channel: 'TV', range: '$10\u201320K' },
+          { channel: 'TBP', range: '$8\u201315K' },
+        ],
+      },
+      {
+        title: 'SUBSCRIBER BASE',
+        color: 'green',
+        intro: 'Launched Feb 19, 2026. Zero paid marketing.',
+        stats: [
+          { number: '36,143', label: 'Members' },
+          { number: '4,056', label: 'Paid' },
+          { number: '11%', label: 'Conversion' },
+        ],
+      },
+    ],
   },
 
   // ─── 11. SUBSCRIBER MODEL ───

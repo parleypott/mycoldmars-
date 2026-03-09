@@ -154,37 +154,47 @@ function renderSlide(s) {
       return `
         ${labelHTML(s)}
         <h1 class="headline headline-md">${nl(s.headline)}</h1>
-        <div class="biz-columns" style="margin-top:32px">
-          <div class="biz-col">
-            <p class="biz-col-title accent-blue">${e(s.col1.title)}</p>
-            <div class="biz-hero">
-              <span class="biz-hero-num">${e(s.col1.heroNum)}</span>
-              <span class="biz-hero-label">${e(s.col1.heroLabel)}</span>
-            </div>
-            ${s.col1.partnerTitle ? `
-              <p class="biz-col-title accent-yellow" style="margin-top:24px">${e(s.col1.partnerTitle)}</p>
-              <div class="partner-grid">
-                ${s.col1.partners.map(p => `
-                  <div class="partner-item">
-                    <span class="partner-channel">${e(p.channel)}</span>
-                    <span class="partner-range">${e(p.range)}</span>
-                  </div>
-                `).join('')}
-              </div>
-            ` : ''}
-          </div>
-          <div class="biz-col">
-            <p class="biz-col-title accent-green">${e(s.col2.title)}</p>
-            <p class="biz-intro">${e(s.col2.intro)}</p>
-            <div class="biz-stats">
-              ${s.col2.stats.map(st => `
-                <div class="biz-stat">
-                  <span class="biz-stat-num">${e(st.number)}</span>
-                  <span class="biz-stat-label">${e(st.label)}</span>
+      `;
+
+    case 'business3':
+      return `
+        ${labelHTML(s)}
+        <h1 class="headline headline-md">${nl(s.headline)}</h1>
+        <div class="pillars-grid">
+          ${s.pillars.map(p => `
+            <div class="pillar-card">
+              <div class="pillar-bar pillar-bar-${p.color}"></div>
+              <p class="pillar-title accent-${p.color}">${e(p.title)}</p>
+              ${p.heroNum ? `
+                <div class="biz-hero">
+                  <span class="biz-hero-num">${e(p.heroNum)}</span>
+                  <span class="biz-hero-label">${e(p.heroLabel)}</span>
                 </div>
-              `).join('')}
+                ${p.text ? `<p class="pillar-text">${e(p.text)}</p>` : ''}
+              ` : ''}
+              ${p.partners ? `
+                <div class="partner-list">
+                  ${p.partners.map(pr => `
+                    <div class="partner-item">
+                      <span class="partner-channel">${e(pr.channel)}</span>
+                      <span class="partner-range">${e(pr.range)}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+              ${p.intro ? `<p class="pillar-text">${e(p.intro)}</p>` : ''}
+              ${p.stats ? `
+                <div class="pillar-stats">
+                  ${p.stats.map(st => `
+                    <div class="biz-stat">
+                      <span class="biz-stat-num">${e(st.number)}</span>
+                      <span class="biz-stat-label">${e(st.label)}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
             </div>
-          </div>
+          `).join('')}
         </div>
       `;
 
