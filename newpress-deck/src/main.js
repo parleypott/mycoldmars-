@@ -5,7 +5,6 @@ const deck = document.getElementById('deck');
 const progressBar = document.getElementById('progress-bar');
 
 let current = 0;
-let navUsed = false;
 const total = slides.length;
 
 /* ============================================================
@@ -24,12 +23,11 @@ function buildSlides() {
     const counter = `<span class="slide-counter">${i + 1} / ${total}</span>`;
     const corner = (i > 0 && i < total - 1) ? `<span class="corner-mark">Newpress</span>` : '';
 
-    let extra = '';
-    if (i === 0) {
-      extra = `<div class="nav-arrow" id="nav-arrow"><span class="nav-arrow-label">Next</span><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
-    }
+    const hint = i < total - 1
+      ? `<div class="nav-hint"><svg width="18" height="32" viewBox="0 0 18 32" fill="none"><path d="M2 2l14 14L2 30" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`
+      : '';
 
-    el.innerHTML = counter + corner + renderSlide(s) + extra;
+    el.innerHTML = counter + corner + renderSlide(s) + hint;
     deck.appendChild(el);
   });
   updateProgress();
@@ -533,11 +531,6 @@ function imgOrPlaceholder(src, name, cls) {
    ============================================================ */
 function goTo(index) {
   if (index < 0 || index >= total || index === current) return;
-  if (!navUsed) {
-    navUsed = true;
-    const arrow = document.getElementById('nav-arrow');
-    if (arrow) arrow.classList.add('hidden');
-  }
   const all = deck.querySelectorAll('.slide');
   all[current].classList.remove('active');
   all[index].classList.add('active');

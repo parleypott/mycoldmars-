@@ -88,14 +88,6 @@ html, body {
 .slide.bg-yellow .financial-note { color: rgba(18,17,24,0.6); }
 .slide.bg-yellow .kicker { color: var(--ink); }
 .slide.bg-yellow .stat-note { color: rgba(18,17,24,0.45); }
-.slide.bg-yellow .nav-arrow {
-  border-color: rgba(18,17,24,0.2);
-  color: var(--ink);
-}
-.slide.bg-yellow .nav-arrow:hover { border-color: rgba(18,17,24,0.5); }
-.slide.bg-yellow .nav-arrow-label { color: rgba(18,17,24,0.5); }
-.slide.bg-yellow .nav-arrow svg { color: rgba(18,17,24,0.5); }
-
 /* Warm / cream */
 .slide.bg-warm .body { color: rgba(18,17,24,0.7); }
 .slide.bg-warm .label { color: rgba(18,17,24,0.4); }
@@ -315,44 +307,25 @@ html, body {
 }
 
 /* Nav arrow positioning on title */
-.slide-title .nav-arrow {
-  bottom: 9.5%;
-  right: 8%;
-  z-index: 6;
-}
-
 /* ============================================================
-   NAV ARROW (slide 1)
+   NAV HINT — subtle chevron, right edge
    ============================================================ */
-.nav-arrow {
-  position: absolute; bottom: clamp(36px,5vw,64px); right: clamp(40px,6vw,100px);
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 24px 12px 28px;
-  border: 1px solid rgba(244,242,230,0.2);
-  border-radius: 100px;
-  color: var(--warm);
-  cursor: pointer;
-  animation: glideRight 3s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-  transition: opacity 0.8s ease, border-color 0.3s;
+.nav-hint {
+  position: absolute; right: clamp(20px,3vw,40px);
+  top: 50%; transform: translateY(-50%);
+  color: rgba(244,242,230,0.08);
+  pointer-events: none;
+  animation: hintDrift 8s ease-in-out infinite;
 }
-.nav-arrow:hover { border-color: rgba(244,242,230,0.5); }
-.nav-arrow.hidden { opacity: 0; pointer-events: none; }
-
-.nav-arrow-label {
-  font-family: var(--font-body); font-size: 12px; font-weight: 700;
-  letter-spacing: 0.18em; text-transform: uppercase;
-  color: rgba(244,242,230,0.6);
-}
-.nav-arrow svg {
-  flex-shrink: 0;
-  color: rgba(244,242,230,0.6);
+.slide.bg-yellow .nav-hint,
+.slide.bg-warm .nav-hint {
+  color: rgba(18,17,24,0.06);
 }
 
-@keyframes glideRight {
-  0% { transform: translateX(0); opacity: 0.6; }
-  40% { transform: translateX(14px); opacity: 1; }
-  80% { transform: translateX(14px); opacity: 1; }
-  100% { transform: translateX(0); opacity: 0.6; }
+@keyframes hintDrift {
+  0%   { transform: translateY(-50%) translateX(0); }
+  50%  { transform: translateY(-50%) translateX(5px); }
+  100% { transform: translateY(-50%) translateX(0); }
 }
 
 /* ============================================================
@@ -1164,7 +1137,6 @@ html, body {
   .partner-grid { grid-template-columns: 1fr; }
   .biz-stats { grid-template-columns: 1fr 1fr; }
   .corner-mark { display: none; }
-  .nav-arrow-label { display: none; }
 }
 
 @media (max-width: 600px) {
