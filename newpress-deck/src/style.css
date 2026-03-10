@@ -801,10 +801,12 @@ html, body {
 }
 .cg-show {
   font-family: var(--font-head); font-size: clamp(16px, 1.8vw, 22px);
-  color: var(--ink); text-decoration: none; line-height: 1.2;
-  transition: color 0.2s;
+  color: var(--blue); text-decoration: underline; text-underline-offset: 3px;
+  line-height: 1.2; display: inline-flex; align-items: center; gap: 6px;
+  transition: opacity 0.2s;
 }
-.cg-show:hover { color: var(--blue); }
+.cg-show:hover { opacity: 0.7; }
+.cg-show .yt-icon { width: 16px; height: 16px; color: #FF0000; flex-shrink: 0; }
 .cg-name {
   font-family: var(--font-body); font-size: clamp(10px, 1vw, 12px);
   color: rgba(18,17,24,0.45); letter-spacing: 0.05em;
