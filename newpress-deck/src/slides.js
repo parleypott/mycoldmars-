@@ -107,7 +107,7 @@ const slides = [
             tagline: 'Decoding geopolitics, sports and their unexpected links.',
             detail: 'Ex-Vox Atlas, Emmy nominated.',
             subs: '891K subscribers',
-            image: null,
+            image: '/deck/sam-ellis.png',
             channel: '/deck/search-party-banner.jpg',
           },
           {
