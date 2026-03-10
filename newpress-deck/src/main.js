@@ -2,7 +2,7 @@ import './style.css';
 import slides from './slides.js';
 
 const deck = document.getElementById('deck');
-const progress = document.getElementById('progress');
+const progressBar = document.getElementById('progress-bar');
 
 let current = 0;
 let navUsed = false;
@@ -548,10 +548,27 @@ function goTo(index) {
 function next() { goTo(current + 1); }
 function prev() { goTo(current - 1); }
 
+function buildProgressBar() {
+  progressBar.innerHTML = '';
+  const fill = document.createElement('div');
+  fill.className = 'prog-fill';
+  progressBar.appendChild(fill);
+  for (let i = 0; i < total; i++) {
+    const tick = document.createElement('div');
+    tick.className = 'prog-tick';
+    tick.style.left = ((i + 1) / total) * 100 + '%';
+    progressBar.appendChild(tick);
+  }
+}
+
 function updateProgress() {
-  progress.style.width = ((current + 1) / total) * 100 + '%';
+  const fill = progressBar.querySelector('.prog-fill');
+  if (fill) fill.style.width = ((current + 1) / total) * 100 + '%';
+  const ticks = progressBar.querySelectorAll('.prog-tick');
+  ticks.forEach((t, i) => t.classList.toggle('passed', i <= current));
   const bg = slides[current].bg;
-  progress.classList.toggle('on-light', bg === 'yellow' || bg === 'warm');
+  const onLight = bg === 'yellow' || bg === 'warm';
+  progressBar.classList.toggle('on-light', onLight);
 }
 
 window.addEventListener('keydown', (ev) => {
@@ -576,6 +593,7 @@ deck.addEventListener('touchend', (ev) => {
    INIT
    ============================================================ */
 buildSlides();
+buildProgressBar();
 
 /* ============================================================
    SUB-MODEL CAROUSEL
