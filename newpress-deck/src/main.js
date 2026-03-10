@@ -158,7 +158,7 @@ function renderSlide(s) {
           <div class="revenue-opp" style="margin-top:24px;border-top:none;padding-top:0">
             <p class="label accent-yellow">${e(s.revenueOpp.label)}</p>
             <p class="body" style="margin:8px 0 12px">${e(s.revenueOpp.body)}</p>
-            <div class="rev-tags">${s.revenueOpp.bullets.map(b => `<span class="rev-tag">${e(b)}</span>`).join('')}</div>
+            <ul class="rev-list">${s.revenueOpp.bullets.map(b => `<li>${e(b)}</li>`).join('')}</ul>
           </div>
         ` : ''}
       `;
@@ -275,18 +275,31 @@ function renderSlide(s) {
         ${s.footer ? `<p class="kicker" style="margin-top:28px">${e(s.footer)}</p>` : ''}
       `;
 
-    case 'creatorsGrid':
+    case 'creatorsTimeline':
       return `
         ${labelHTML(s)}
-        <h1 class="headline headline-lg" style="margin-bottom:36px">${e(s.headline)}</h1>
-        <div class="cg-grid">
-          ${s.creators.map(c => `
-            <div class="cg-card">
-              ${imgOrPlaceholder(c.image, c.name, 'cg-avatar')}
-              <a href="${c.youtube}" target="_blank" rel="noopener" class="cg-show">${e(c.show)}<svg class="yt-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></a>
-              <p class="cg-name">${e(c.name)}</p>
-              <span class="cg-subs">${e(c.subs)}</span>
-              <p class="cg-detail">${e(c.detail)}</p>
+        <h1 class="headline headline-lg" style="margin-bottom:32px">${e(s.headline)}</h1>
+        <div class="ct-timeline">
+          ${s.stages.map((st, si) => `
+            ${si > 0 ? `<svg class="ct-arrow" viewBox="0 0 40 80" fill="none"><path d="M4 10 C 16 8, 20 35, 24 42 S 30 65, 36 72" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M28 66 L37 73 L30 72" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>` : ''}
+            <div class="ct-stage">
+              <div class="ct-header">
+                <span class="ct-num">${e(st.num)}</span>
+                <span class="ct-title">${e(st.title)}</span>
+              </div>
+              ${st.subtitle ? `<p class="ct-subtitle">${e(st.subtitle)}</p>` : ''}
+              <div class="ct-creators">
+                ${st.creators.map(c => `
+                  <div class="ct-creator">
+                    ${imgOrPlaceholder(c.image, c.name, 'ct-avatar')}
+                    <div class="ct-info">
+                      <a href="${c.youtube}" target="_blank" rel="noopener" class="ct-show">${e(c.show)}<svg class="yt-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></a>
+                      <span class="ct-subs">${e(c.subs)}</span>
+                      <p class="ct-detail">${e(c.detail)}</p>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
             </div>
           `).join('')}
         </div>
