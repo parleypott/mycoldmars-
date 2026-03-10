@@ -395,6 +395,37 @@ html, body {
   box-shadow: 0 8px 40px rgba(0,0,0,0.3);
 }
 
+/* Callout box */
+.callout-box {
+  margin-top: clamp(20px, 2.5vw, 32px);
+  padding: clamp(16px, 2vw, 24px) clamp(20px, 2.5vw, 32px);
+  border: 2px solid rgba(18,17,24,0.15);
+  border-radius: 4px;
+  background: rgba(18,17,24,0.04);
+  display: inline-block;
+}
+.callout-text {
+  font-family: var(--font-head);
+  font-size: clamp(16px, 2vw, 24px);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--ink);
+}
+/* On dark backgrounds */
+.slide.bg-blue .callout-box,
+.slide.bg-green .callout-box,
+.slide.bg-burgundy .callout-box,
+.slide.bg-sepia .callout-box {
+  border-color: rgba(244,242,230,0.18);
+  background: rgba(244,242,230,0.05);
+}
+.slide.bg-blue .callout-text,
+.slide.bg-green .callout-text,
+.slide.bg-burgundy .callout-text,
+.slide.bg-sepia .callout-text {
+  color: var(--warm);
+}
+
 @media (max-width: 900px) {
   .statement-wrap.has-image {
     flex-direction: column;

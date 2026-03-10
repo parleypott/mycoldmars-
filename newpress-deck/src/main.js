@@ -81,6 +81,7 @@ function renderSlide(s) {
               return `<li>${e(b)}${src}</li>`;
             }).join('')}</ul>` : ''}
             ${s.kicker ? `<p class="kicker" style="margin-top:24px">${e(s.kicker)}</p>` : ''}
+            ${s.callout ? `<div class="callout-box"><span class="callout-text">${e(s.callout)}</span></div>` : ''}
           </div>
           ${s.image ? `<div class="statement-image"><img src="${s.image}" alt="" class="statement-img"></div>` : ''}
         </div>

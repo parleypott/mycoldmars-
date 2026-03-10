@@ -56,6 +56,7 @@ const slides = [
       'Depth over volume',
     ],
     kicker: 'When audiences trust the journalism, they return again and again. That loyalty is what allows creator-led journalism to scale, and it\u2019s exactly what we\u2019re seeing across our shows today.',
+    callout: '70% of Newpress views come from returning viewers',
   },
 
   // ─── 5. WHY NOW? ───
