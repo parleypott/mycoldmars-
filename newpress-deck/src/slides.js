@@ -270,6 +270,7 @@ const slides = [
     label: 'NEW MEMBERSHIP PLATFORM',
     body: 'Newpress.com is the home for the most curious audience on the internet. Launched in February 2026, we already have over 40k active users and over 4k paying ($60/yr). The platform gives our audience a place to contribute to reporting and witness stories as they take shape. Over time, it will grow into a destination people return to each week to understand the world, and explore ideas together.',
     images: [
+      '/deck/sub-homepage.png',
       '/deck/sub-palau.png',
       '/deck/sub-comment.png',
       '/deck/sub-tinder.png',
