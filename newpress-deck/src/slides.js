@@ -41,7 +41,34 @@ const slides = [
     image: '/deck/jh-myanmar.gif',
   },
 
-  // ─── 4. NEWPRESS EDITORIAL MODEL ───
+  // ─── 4. COMPETITORS ───
+  {
+    layout: 'competition',
+    bg: 'burgundy',
+    label: 'COMPETITORS',
+    competitorHeadline: 'The next generation of journalism won\u2019t come from existing media models.',
+    cards: [
+      {
+        title: 'NOT LEGACY MEDIA',
+        text: 'Newsrooms built for television and print distribution. Strong reporting, but disconnected from where audiences now live.',
+        accent: false,
+      },
+      {
+        title: 'NOT VENTURE DIGITAL MEDIA',
+        sub: 'Vox \u00B7 BuzzFeed \u00B7 Vice',
+        text: 'Traffic-driven editorial machines built to chase ad volume at scale. Massive headcount, endless publishing, fragile economics.',
+        accent: false,
+      },
+      {
+        title: 'NOT SOLO CREATORS',
+        text: 'Creators with enormous reach, but limited reporting infrastructure, editorial rigor, and long-term scalability.',
+        accent: false,
+      },
+    ],
+    footer: 'None of these models solve the core challenge of modern journalism: trust, scale, and sustainability, all at once.',
+  },
+
+  // ─── 5. NEWPRESS EDITORIAL MODEL ───
   {
     layout: 'statement',
     bg: 'warm',
@@ -184,34 +211,7 @@ const slides = [
     },
   },
 
-  // ─── 10. COMPETITORS ───
-  {
-    layout: 'competition',
-    bg: 'burgundy',
-    label: 'COMPETITORS',
-    competitorHeadline: 'The next generation of journalism won\u2019t come from existing media models.',
-    cards: [
-      {
-        title: 'NOT LEGACY MEDIA',
-        text: 'Newsrooms built for television and print distribution. Strong reporting, but disconnected from where audiences now live.',
-        accent: false,
-      },
-      {
-        title: 'NOT VENTURE DIGITAL MEDIA',
-        sub: 'Vox \u00B7 BuzzFeed \u00B7 Vice',
-        text: 'Traffic-driven editorial machines built to chase ad volume at scale. Massive headcount, endless publishing, fragile economics.',
-        accent: false,
-      },
-      {
-        title: 'NOT SOLO CREATORS',
-        text: 'Creators with enormous reach, but limited reporting infrastructure, editorial rigor, and long-term scalability.',
-        accent: false,
-      },
-    ],
-    footer: 'None of these models solve the core challenge of modern journalism: trust, scale, and sustainability, all at once.',
-  },
-
-  // ─── 11. WHO WE ARE ───
+  // ─── 10. WHO WE ARE ───
   {
     layout: 'whoWeAre',
     bg: 'green',
