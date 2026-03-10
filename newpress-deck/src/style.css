@@ -291,16 +291,15 @@ html, body {
   color: rgba(18,17,24,0.7);
 }
 
-/* Body2 — italic kicker */
+/* Body2 — second paragraph */
 .tf-body2 {
-  max-width: 540px;
-  font-family: var(--font-head);
-  font-size: clamp(13px, 1.2vw, 17px);
-  font-style: italic;
-  line-height: 1.6;
-  color: var(--ink);
-  opacity: 0.55;
-  margin-top: clamp(16px, 2vw, 28px);
+  max-width: 640px;
+  font-family: var(--font-body);
+  font-size: clamp(14px, 1.4vw, 18px);
+  font-style: normal;
+  line-height: 1.75;
+  color: rgba(18,17,24,0.7);
+  margin-top: clamp(12px, 1.5vw, 20px);
 }
 
 /* Year badge — bottom center */
