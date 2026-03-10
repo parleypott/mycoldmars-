@@ -265,9 +265,9 @@ const slides = [
     label: 'NEW MEMBERSHIP PLATFORM',
     body: 'We are building the home for the most curious audience on the internet. Today, Newpress.com gives our audience a place to contribute to reporting and witness stories as they take shape. Over time, it will grow into a destination people return to each week to understand the world, and explore ideas together.',
     images: [
+      '/deck/sub-palau.png',
       '/deck/sub-comment.png',
       '/deck/sub-tinder.png',
-      '/deck/sub-palau.png',
     ],
   },
 
