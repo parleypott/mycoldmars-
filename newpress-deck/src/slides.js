@@ -27,6 +27,7 @@ const slides = [
       { number: '54%', text: 'of Americans now access news via social or video networks, surpassing TV (50%) and news websites/apps (48%) for the first time.', source: 'Reuters Institute Digital News Report, 2025' },
       { number: '28%', text: 'of Americans have confidence in mass media \u2014 a record low.', source: 'Gallup, 2025' },
       { number: '70%', text: 'of news executives say creators are taking audience attention away from publishers.', source: 'Nieman Journalism Lab / Reuters Institute Trends Report' },
+      { number: '#1', text: 'YouTube is #1 \u2014 highest share of TV viewing every single month in 2025, overtaking Disney and Netflix.', source: 'Nielsen Media Distributor Gauge, 2025' },
     ],
   },
 
@@ -35,7 +36,7 @@ const slides = [
     layout: 'statement',
     bg: 'green',
     label: 'SOLUTION',
-    headline: 'Newpress combines the trust and reach of creators with the rigor of a newsroom.',
+    headline: 'Newpress\u2019s creator-led model combines the trust and reach of creators with the rigor of a newsroom.',
     body: 'By providing shared editorial, operational and production infrastructure behind each show, we enable trusted creators to produce high-quality journalism that can scale across multiple platforms into a durable media franchise.',
     kicker: 'Infrastructure makes creator-led journalism possible. Our editorial model is what makes it trusted.',
     image: '/deck/jh-myanmar.gif',
@@ -59,25 +60,17 @@ const slides = [
     callout: '70% of Newpress views come from returning viewers',
   },
 
-  // ─── 5. WHY NOW? ───
+  // ─── 5. PROOF OF CONCEPT ───
   {
-    layout: 'whynow',
+    layout: 'proofOfConcept',
     bg: 'burgundy',
-    label: 'WHY NOW?',
+    label: 'PROOF OF CONCEPT',
     headline: 'The Newpress model\nis already working.',
-    reach: 'Today, our shows reach 13M+ followers, generate 30M monthly views, and maintain 70% returning viewers.',
-    sections: [
-      {
-        num: '1',
-        title: 'YouTube is #1',
-        text: 'Highest share of TV viewing every single month in 2025, overtaking Disney and Netflix.',
-        source: 'Nielsen Media Distributor Gauge, 2025',
-      },
-      {
-        num: '2',
-        title: 'Talent is available',
-        text: 'Top-tier journalists are leaving institutions in waves, looking for a new home. The window to recruit is open now.',
-      },
+    intro: 'Today, our shows reach:',
+    heroStats: [
+      { number: '13M+', label: 'followers' },
+      { number: '30M', label: 'monthly views' },
+      { number: '70%', label: 'returning viewers' },
     ],
     kicker: 'Our shows are built in the language of the internet, designed for mass distribution across YouTube and social platforms, proving the power of creator-led journalism at scale.',
   },

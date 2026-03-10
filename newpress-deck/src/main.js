@@ -107,6 +107,22 @@ function renderSlide(s) {
         ${s.kicker ? `<p class="kicker" style="margin-top:28px">${e(s.kicker)}</p>` : ''}
       `;
 
+    case 'proofOfConcept':
+      return `
+        ${labelHTML(s)}
+        <h1 class="headline headline-lg">${nl(s.headline)}</h1>
+        ${s.intro ? `<p class="body" style="margin:24px 0 12px">${e(s.intro)}</p>` : ''}
+        <div class="poc-stats">
+          ${s.heroStats.map(st => `
+            <div class="poc-stat">
+              <span class="poc-num">${e(st.number)}</span>
+              <span class="poc-label">${e(st.label)}</span>
+            </div>
+          `).join('')}
+        </div>
+        ${s.kicker ? `<p class="kicker" style="margin-top:36px">${e(s.kicker)}</p>` : ''}
+      `;
+
     case 'marketQuote':
       return `
         ${labelHTML(s)}
