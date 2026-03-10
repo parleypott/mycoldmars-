@@ -417,29 +417,29 @@ html, body {
 .kicker-callout-wrap .kicker {
   margin: 0; padding-right: clamp(8px, 1.5vw, 16px);
 }
-.hand-arrow {
-  width: clamp(60px, 8vw, 100px);
+.simple-arrow {
+  width: clamp(40px, 5vw, 72px);
   height: auto;
-  color: rgba(18,17,24,0.2);
+  color: rgba(18,17,24,0.25);
   flex-shrink: 0;
 }
-.slide.bg-blue .hand-arrow,
-.slide.bg-green .hand-arrow,
-.slide.bg-burgundy .hand-arrow,
-.slide.bg-sepia .hand-arrow {
-  color: rgba(244,242,230,0.2);
+.slide.bg-blue .simple-arrow,
+.slide.bg-green .simple-arrow,
+.slide.bg-burgundy .simple-arrow,
+.slide.bg-sepia .simple-arrow {
+  color: rgba(244,242,230,0.3);
 }
 
 /* Callout box */
 .callout-box {
-  padding: clamp(16px, 2vw, 24px) clamp(20px, 2.5vw, 32px);
-  border: 2px solid rgba(18,17,24,0.15);
-  border-radius: 4px;
-  background: rgba(18,17,24,0.04);
+  padding: clamp(20px, 2.5vw, 32px) clamp(24px, 3vw, 40px);
+  border: 2px solid rgba(18,17,24,0.2);
+  border-radius: 6px;
+  background: rgba(18,17,24,0.06);
 }
 .callout-text {
   font-family: var(--font-head);
-  font-size: clamp(16px, 2vw, 24px);
+  font-size: clamp(20px, 2.4vw, 30px);
   font-weight: 400;
   line-height: 1.3;
   color: var(--ink);
@@ -449,8 +449,8 @@ html, body {
 .slide.bg-green .callout-box,
 .slide.bg-burgundy .callout-box,
 .slide.bg-sepia .callout-box {
-  border-color: rgba(244,242,230,0.18);
-  background: rgba(244,242,230,0.05);
+  border-color: rgba(244,242,230,0.25);
+  background: rgba(244,242,230,0.08);
 }
 .slide.bg-blue .callout-text,
 .slide.bg-green .callout-text,
