@@ -50,7 +50,7 @@ const slides = [
     headline: 'In a polarized media environment, attention is rewarded for speed, outrage, and certainty.',
     body: 'Newpress is built differently.',
     bullets: [
-      'Understanding over outrage',
+      'Understanding over noise',
       'Nuance over certainty',
       'Visual storytelling that makes complexity accessible',
       'Creator voices grounded in transparency and rigor',
