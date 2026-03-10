@@ -112,6 +112,12 @@ html, body {
 .slide.bg-warm .stage-num { background: var(--ink); color: var(--warm); }
 .slide.bg-warm .placeholder-avatar { background: rgba(18,17,24,0.08); color: rgba(18,17,24,0.3); }
 .slide.bg-warm .stage { border-color: rgba(18,17,24,0.1); }
+.slide.bg-warm .point-list li { color: rgba(18,17,24,0.72); }
+.slide.bg-warm .point-list li::before { background: var(--ink); }
+.slide.bg-warm .body { color: rgba(18,17,24,0.7); }
+.slide.bg-warm .kicker { color: var(--ink); }
+.slide.bg-warm .comp-values li { color: rgba(18,17,24,0.7); }
+.slide.bg-warm .comp-values li::before { color: var(--ink); }
 
 /* Green */
 .slide.bg-green .body { color: rgba(244,242,230,0.82); }
