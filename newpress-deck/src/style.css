@@ -867,10 +867,10 @@ html, body {
   gap: clamp(12px,2vw,24px); max-width: 960px;
 }
 .opp-card {
-  padding: clamp(16px,2vw,24px);
-  border: 1px solid rgba(244,242,230,0.1);
-  border-radius: 6px;
-  background: rgba(244,242,230,0.03);
+  padding: clamp(20px,2.5vw,32px);
+  border: 1.5px solid rgba(244,242,230,0.18);
+  border-radius: 8px;
+  background: rgba(244,242,230,0.04);
 }
 .opp-title {
   font-family: var(--font-head); font-size: clamp(18px,2vw,26px);

@@ -330,7 +330,7 @@ const slides = [
   // ─── 16. THE OPPORTUNITY ───
   {
     layout: 'fundingAsk',
-    bg: 'blue',
+    bg: 'green',
     label: 'THE OPPORTUNITY',
     headline: 'We are raising growth capital.\nHere\u2019s the opportunity.',
     opportunities: [
