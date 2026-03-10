@@ -121,6 +121,17 @@ html, body {
 .slide.bg-sepia .body { color: rgba(244,242,230,0.8); }
 .slide.bg-sepia .label { color: rgba(244,242,230,0.45); }
 
+/* Warm — business layout overrides */
+.slide.bg-warm .biz-hero-num { color: var(--ink); }
+.slide.bg-warm .biz-stat-num { color: var(--ink); }
+.slide.bg-warm .biz-stat-label { color: rgba(18,17,24,0.45); }
+.slide.bg-warm .biz-col-subtitle { color: rgba(18,17,24,0.4); }
+.slide.bg-warm .biz-intro { color: rgba(18,17,24,0.7); }
+.slide.bg-warm .partner-item { border-color: rgba(18,17,24,0.12); }
+.slide.bg-warm .partner-channel { color: var(--ink); }
+.slide.bg-warm .partner-range { color: rgba(18,17,24,0.5); }
+.slide.bg-warm .biz-hero-label { color: var(--blue); }
+
 /* ── Stripes ── */
 .slide.stripe::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px;

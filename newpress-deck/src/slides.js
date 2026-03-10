@@ -238,7 +238,7 @@ const slides = [
   // ─── 12. BUSINESS MODEL ───
   {
     layout: 'business',
-    bg: 'blue',
+    bg: 'warm',
     label: 'BUSINESS MODEL',
     headline: 'We\u2019ve already built a foundational business model with two core revenue streams.',
     col1: {
