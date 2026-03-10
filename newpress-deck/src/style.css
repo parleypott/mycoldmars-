@@ -827,7 +827,8 @@ html, body {
 /* YouTube link on creator name */
 .stage-yt-link {
   display: inline-flex; align-items: center; gap: 8px;
-  text-decoration: none; color: inherit;
+  text-decoration: underline; text-underline-offset: 3px;
+  color: var(--blue);
   cursor: pointer;
   transition: opacity 0.2s;
 }

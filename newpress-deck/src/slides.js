@@ -111,6 +111,7 @@ const slides = [
             subs: '891K subscribers',
             image: '/deck/sam-ellis.png',
             channel: '/deck/search-party-banner.jpg',
+            youtube: 'https://www.youtube.com/@SearchParty',
           },
           {
             name: 'Tunnel Vision \u00B7 Christophe Haubursin',
@@ -119,6 +120,7 @@ const slides = [
             subs: '286K subscribers',
             image: '/deck/christophe.png',
             channel: '/deck/tunnel-vision-banner.jpg',
+            youtube: 'https://www.youtube.com/@christophe',
           },
         ],
       },
@@ -130,6 +132,7 @@ const slides = [
         detail: 'We took a legacy journalist, not video-native \u2014 and successfully translated him into the creator era. Pulitzer finalist, ex-NYT, ex-WaPo, founding editor of Vox.',
         subs: '45K subscribers',
         image: '/deck/max-fisher.png',
+        youtube: 'https://www.youtube.com/@maxfisher',
       },
     ],
   },
