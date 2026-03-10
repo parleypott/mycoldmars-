@@ -46,6 +46,7 @@ function renderSlide(s) {
           <h1 class="tf-headline">${nl(s.headline)}</h1>
           <span class="tf-tag" style="top:36%;left:64%">CREATOR-LED<br>JOURNALISM</span>
           <p class="tf-body">${e(s.body)}</p>
+          ${s.body2 ? `<p class="tf-body2">${e(s.body2)}</p>` : ''}
           <span class="tf-tag" style="bottom:10%;left:8%">NEWPRESS</span>
           <span class="tf-tag" style="bottom:10%;right:8%;text-align:right">001</span>
         </div>
@@ -93,8 +94,7 @@ function renderSlide(s) {
       return `
         ${labelHTML(s)}
         <h1 class="headline headline-lg">${nl(s.headline)}</h1>
-        ${s.subtext ? `<p class="body" style="margin:20px 0 16px">${e(s.subtext)}</p>` : ''}
-        ${s.reach ? `<p class="body" style="margin:0 0 32px">${e(s.reach)}</p>` : ''}
+        ${s.reach ? `<p class="body" style="margin:20px 0 32px">${e(s.reach)}</p>` : ''}
         <div class="numbered-sections">
           ${s.sections.map(sec => `
             <div class="num-section">
@@ -107,6 +107,7 @@ function renderSlide(s) {
             </div>
           `).join('')}
         </div>
+        ${s.kicker ? `<p class="kicker" style="margin-top:28px">${e(s.kicker)}</p>` : ''}
       `;
 
     case 'marketQuote':
@@ -154,6 +155,45 @@ function renderSlide(s) {
       return `
         ${labelHTML(s)}
         <h1 class="headline headline-md">${nl(s.headline)}</h1>
+        <div class="biz-columns" style="margin-top:32px">
+          <div class="biz-col">
+            <p class="biz-col-title accent-blue">${e(s.col1.title)}</p>
+            ${s.col1.sections ? s.col1.sections.map(sec => `
+              <div style="margin-top:16px">
+                <p class="biz-col-subtitle">${e(sec.subtitle)}</p>
+                ${sec.heroNum ? `
+                  <div class="biz-hero">
+                    <span class="biz-hero-num">${e(sec.heroNum)}</span>
+                    <span class="biz-hero-label">${e(sec.heroLabel)}</span>
+                  </div>
+                ` : ''}
+                ${sec.subLabel ? `<p class="biz-col-subtitle" style="margin-top:16px">${e(sec.subtitle)}${sec.subLabel ? ` <span style="opacity:0.5">${e(sec.subLabel)}</span>` : ''}</p>` : ''}
+                ${sec.partners ? `
+                  <div class="partner-list" style="margin-top:8px">
+                    ${sec.partners.map(p => `
+                      <div class="partner-item">
+                        <span class="partner-channel">${e(p.channel)}</span>
+                        <span class="partner-range">${e(p.range)}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : ''}
+              </div>
+            `).join('') : ''}
+          </div>
+          <div class="biz-col">
+            <p class="biz-col-title accent-green">${e(s.col2.title)}</p>
+            <p class="biz-intro">${e(s.col2.intro)}</p>
+            <div class="biz-stats">
+              ${s.col2.stats.map(st => `
+                <div class="biz-stat">
+                  <span class="biz-stat-num">${e(st.number)}</span>
+                  <span class="biz-stat-label">${e(st.label)}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
       `;
 
     case 'business3':
@@ -201,32 +241,17 @@ function renderSlide(s) {
     case 'competition':
       return `
         ${labelHTML(s)}
-        <div class="comp-grid">
-          ${s.cards.map(c => {
-            if (c.accent) {
-              return `
-                <div class="comp-card comp-accent">
-                  <p class="comp-title">${e(c.title)}</p>
-                  ${c.traits ? `<div class="comp-traits">${c.traits.map(t => `<span class="comp-trait">${e(t)}</span>`).join('')}</div>` : ''}
-                  <p class="comp-text">${e(c.text)}</p>
-                  ${c.values ? `
-                    <p class="comp-values-label">WE VALUE</p>
-                    <ul class="comp-values">
-                      ${c.values.map(v => `<li>${e(v)}</li>`).join('')}
-                    </ul>
-                  ` : ''}
-                </div>
-              `;
-            }
-            return `
-              <div class="comp-card">
-                <p class="comp-title">${e(c.title)}</p>
-                ${c.sub ? `<p class="comp-sub">${e(c.sub)}</p>` : ''}
-                <p class="comp-text">${e(c.text)}</p>
-              </div>
-            `;
-          }).join('')}
+        ${s.competitorHeadline ? `<h1 class="headline headline-md" style="margin-bottom:24px">${e(s.competitorHeadline)}</h1>` : ''}
+        <div class="comp-grid comp-grid-3">
+          ${s.cards.map(c => `
+            <div class="comp-card">
+              <p class="comp-title">${e(c.title)}</p>
+              ${c.sub ? `<p class="comp-sub">${e(c.sub)}</p>` : ''}
+              <p class="comp-text">${e(c.text)}</p>
+            </div>
+          `).join('')}
         </div>
+        ${s.footer ? `<p class="kicker" style="margin-top:28px">${e(s.footer)}</p>` : ''}
       `;
 
     case 'creators':
@@ -341,26 +366,52 @@ function renderSlide(s) {
         ${s.note ? `<p class="financial-note">${e(s.note)}</p>` : ''}
       `;
 
+    case 'whoWeAre':
+      return `
+        ${labelHTML(s)}
+        <h1 class="headline headline-md" style="margin-bottom:24px">${e(s.headline)}</h1>
+        ${s.traits ? `<ul class="point-list">${s.traits.map(t => `<li>${e(t)}</li>`).join('')}</ul>` : ''}
+        ${s.resultText ? `<p class="kicker" style="margin-top:24px">${e(s.resultText)}</p>` : ''}
+        ${s.valuesLabel ? `
+          <div style="margin-top:32px">
+            <p class="label accent-yellow" style="margin-bottom:12px">${e(s.valuesLabel)}</p>
+            <ul class="comp-values" style="gap:8px">
+              ${s.values.map(v => `<li>${e(v)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+        ${s.closing ? `<p class="kicker" style="margin-top:24px">${e(s.closing)}</p>` : ''}
+      `;
+
+    case 'howWeScale':
+      return `
+        ${labelHTML(s)}
+        <h1 class="headline headline-md" style="margin-bottom:28px">${e(s.headline)}</h1>
+        <div class="scale-grid">
+          ${s.sections.map(sec => `
+            <div class="scale-card">
+              <span class="num-badge">${e(sec.num)}</span>
+              <div class="scale-content">
+                <p class="scale-title">${e(sec.title)}</p>
+                <p class="scale-text">${e(sec.text)}</p>
+                ${sec.bullets ? `<ul class="point-list" style="margin-top:8px">${sec.bullets.map(b => `<li>${e(b)}</li>`).join('')}</ul>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
     case 'fundingAsk':
       return `
         ${labelHTML(s)}
         <h1 class="headline headline-md">${nl(s.headline)}</h1>
-        <div class="funding-section" style="margin-top:32px">
-          <p class="label accent-yellow" style="margin-bottom:20px">THE OPPORTUNITY</p>
-          <div class="opp-grid">
-            ${s.opportunities.map(o => `
-              <div class="opp-card">
-                <p class="opp-title">${e(o.title)}</p>
-                <p class="opp-text">${e(o.text)}</p>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-        <div class="funding-section" style="margin-top:36px">
-          <p class="label accent-blue" style="margin-bottom:16px">${e(s.proceedsLabel)}</p>
-          <ul class="point-list">
-            ${s.proceeds.map(p => `<li>${e(p)}</li>`).join('')}
-          </ul>
+        <div class="opp-grid" style="margin-top:32px">
+          ${s.opportunities.map(o => `
+            <div class="opp-card">
+              <p class="opp-title">${e(o.title)}</p>
+              <p class="opp-text">${e(o.text)}</p>
+            </div>
+          `).join('')}
         </div>
       `;
 
@@ -395,7 +446,7 @@ function renderSlide(s) {
             </div>
           `).join('')}
         </div>
-        ${s.closing ? `<p class="closing-statement">\u201C${e(s.closing)}\u201D</p>` : ''}
+        ${s.closing ? `<p class="closing-statement">${e(s.closing)}</p>` : ''}
       `;
 
     case 'appendixFinancials':

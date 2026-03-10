@@ -294,6 +294,20 @@ html, body {
   color: var(--ink);
 }
 
+/* Body2 text (kicker line under body) */
+.tf-body2 {
+  position: absolute;
+  top: 72%;
+  left: 8%;
+  max-width: 54%;
+  font-family: var(--font-head);
+  font-size: clamp(13px, 1.3vw, 18px);
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--ink);
+  opacity: 0.7;
+}
+
 /* Nav arrow positioning on title */
 .slide-title .nav-arrow {
   bottom: 9.5%;
@@ -515,6 +529,11 @@ html, body {
   font-family: var(--font-body); font-size: clamp(10px,1vw,12px);
   font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
 }
+.biz-col-subtitle {
+  font-family: var(--font-body); font-size: clamp(9px,0.9vw,11px);
+  font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--text-sec);
+}
 /* Ad sales hero stat */
 .biz-hero {
   display: flex; align-items: baseline; gap: 12px;
@@ -645,6 +664,7 @@ html, body {
   display: grid; grid-template-columns: repeat(4,1fr);
   gap: clamp(10px,1.5vw,20px); max-width: 1060px; margin-top: 16px;
 }
+.comp-grid.comp-grid-3 { grid-template-columns: repeat(3,1fr); }
 .comp-card {
   padding: clamp(20px,2.5vw,32px); border: 1px solid rgba(244,242,230,0.1);
   border-radius: 6px; display: flex; flex-direction: column; gap: 12px;
@@ -930,11 +950,40 @@ html, body {
 
 .closing-statement {
   font-family: var(--font-head); font-size: clamp(20px,2.5vw,36px);
-  color: var(--warm); margin-top: 40px; font-style: italic;
+  color: var(--warm); margin-top: 40px;
 }
 
 /* ============================================================
-   LAYOUT: SUBSCRIBER MODEL (slide 11)
+   LAYOUT: HOW WE SCALE
+   ============================================================ */
+.scale-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: clamp(16px, 2vw, 24px); max-width: 1060px;
+}
+.scale-card {
+  display: flex; gap: 16px; align-items: flex-start;
+  padding: clamp(16px, 2vw, 24px);
+  border: 1px solid rgba(244,242,230,0.1);
+  border-radius: 6px; background: rgba(244,242,230,0.04);
+}
+.scale-content { flex: 1; }
+.scale-title {
+  font-family: var(--font-head); font-size: clamp(18px, 2vw, 26px);
+  color: var(--warm); margin-bottom: 6px; line-height: 1.2;
+}
+.scale-text {
+  font-family: var(--font-body); font-size: clamp(12px, 1.1vw, 14px);
+  color: var(--text); line-height: 1.7;
+}
+.scale-card .point-list li {
+  font-size: clamp(11px, 1vw, 13px);
+}
+.scale-card .num-badge {
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   LAYOUT: SUBSCRIBER MODEL (slide 13)
    ============================================================ */
 .sub-model-wrap {
   display: flex; align-items: center; gap: clamp(32px,5vw,64px);
@@ -997,6 +1046,8 @@ html, body {
   .vision-phases { grid-template-columns: 1fr; }
   .opp-grid { grid-template-columns: 1fr; }
   .pillars-grid { grid-template-columns: 1fr; }
+  .scale-grid { grid-template-columns: 1fr; }
+  .comp-grid.comp-grid-3 { grid-template-columns: 1fr; }
   .partner-grid { grid-template-columns: 1fr; }
   .biz-stats { grid-template-columns: 1fr 1fr; }
   .corner-mark { display: none; }
