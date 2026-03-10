@@ -780,7 +780,51 @@ html, body {
 }
 
 /* ============================================================
-   LAYOUT: CREATORS (slide 5)
+   LAYOUT: CREATORS GRID (slide 6)
+   ============================================================ */
+.cg-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: clamp(20px, 3vw, 40px); max-width: 1000px;
+}
+.cg-card {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.cg-avatar {
+  width: 100%; aspect-ratio: 1; border-radius: 6px;
+  object-fit: cover; margin-bottom: 8px;
+}
+.cg-avatar.placeholder-avatar {
+  background: rgba(18,17,24,0.08);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-body); font-size: 20px; font-weight: 700;
+  color: rgba(18,17,24,0.2);
+}
+.cg-show {
+  font-family: var(--font-head); font-size: clamp(16px, 1.8vw, 22px);
+  color: var(--ink); text-decoration: none; line-height: 1.2;
+  transition: color 0.2s;
+}
+.cg-show:hover { color: var(--blue); }
+.cg-name {
+  font-family: var(--font-body); font-size: clamp(10px, 1vw, 12px);
+  color: rgba(18,17,24,0.45); letter-spacing: 0.05em;
+}
+.cg-subs {
+  font-family: var(--font-head); font-size: clamp(28px, 3.5vw, 44px);
+  color: var(--ink); line-height: 1; letter-spacing: -0.02em;
+  margin: 4px 0;
+}
+.cg-detail {
+  font-family: var(--font-body); font-size: clamp(11px, 1vw, 13px);
+  color: rgba(18,17,24,0.55); line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .cg-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================================================
+   LAYOUT: CREATORS legacy (slide 5)
    ============================================================ */
 .creators-wrap {
   display: flex; flex-direction: column;

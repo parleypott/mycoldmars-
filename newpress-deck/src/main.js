@@ -264,6 +264,23 @@ function renderSlide(s) {
         ${s.footer ? `<p class="kicker" style="margin-top:28px">${e(s.footer)}</p>` : ''}
       `;
 
+    case 'creatorsGrid':
+      return `
+        ${labelHTML(s)}
+        <h1 class="headline headline-lg" style="margin-bottom:36px">${e(s.headline)}</h1>
+        <div class="cg-grid">
+          ${s.creators.map(c => `
+            <div class="cg-card">
+              ${imgOrPlaceholder(c.image, c.name, 'cg-avatar')}
+              <a href="${c.youtube}" target="_blank" rel="noopener" class="cg-show">${e(c.show)}</a>
+              <p class="cg-name">${e(c.name)}</p>
+              <span class="cg-subs">${e(c.subs)}</span>
+              <p class="cg-detail">${e(c.detail)}</p>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
     case 'creators':
       return `
         <div class="creators-wrap${s.heroImage ? ' has-hero' : ''}">
