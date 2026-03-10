@@ -547,18 +547,25 @@ function buildProgressBar() {
   fill.className = 'prog-fill';
   progressBar.appendChild(fill);
   for (let i = 0; i < total; i++) {
-    const tick = document.createElement('div');
-    tick.className = 'prog-tick';
-    tick.style.left = ((i + 1) / total) * 100 + '%';
-    progressBar.appendChild(tick);
+    const seg = document.createElement('div');
+    seg.className = 'prog-seg';
+    seg.style.left = (i / total) * 100 + '%';
+    seg.style.width = (100 / total) + '%';
+    seg.dataset.idx = i;
+    const tooltip = document.createElement('span');
+    tooltip.className = 'prog-tooltip';
+    tooltip.textContent = i + 1;
+    seg.appendChild(tooltip);
+    seg.addEventListener('click', (ev) => { ev.stopPropagation(); goTo(i); });
+    progressBar.appendChild(seg);
   }
 }
 
 function updateProgress() {
   const fill = progressBar.querySelector('.prog-fill');
   if (fill) fill.style.width = ((current + 1) / total) * 100 + '%';
-  const ticks = progressBar.querySelectorAll('.prog-tick');
-  ticks.forEach((t, i) => t.classList.toggle('passed', i <= current));
+  const segs = progressBar.querySelectorAll('.prog-seg');
+  segs.forEach((s, i) => s.classList.toggle('passed', i <= current));
   const bg = slides[current].bg;
   const onLight = bg === 'yellow' || bg === 'warm';
   progressBar.classList.toggle('on-light', onLight);

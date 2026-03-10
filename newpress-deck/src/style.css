@@ -1147,24 +1147,40 @@ html, body {
   background: var(--blue);
   transition: width 0.4s cubic-bezier(0.22,1,0.36,1);
   opacity: 0.35;
+  pointer-events: none;
 }
 #progress-bar.on-light .prog-fill { background: var(--ink); }
 
-.prog-tick {
-  position: absolute; top: 0; bottom: 0; width: 2px;
-  background: rgba(244,242,230,0.12);
-  transform: translateX(-1px);
-  transition: background 0.3s, box-shadow 0.3s;
+/* Clickable segments */
+.prog-seg {
+  position: absolute; top: 0; bottom: 0;
+  cursor: pointer;
+  border-right: 1.5px solid rgba(244,242,230,0.12);
+  transition: background 0.2s;
+  z-index: 1;
 }
-#progress-bar.on-light .prog-tick { background: rgba(18,17,24,0.12); }
+.prog-seg:last-of-type { border-right: none; }
+.prog-seg:hover { background: rgba(244,242,230,0.1); }
+#progress-bar.on-light .prog-seg { border-right-color: rgba(18,17,24,0.1); }
+#progress-bar.on-light .prog-seg:hover { background: rgba(18,17,24,0.08); }
 
-.prog-tick.passed {
-  background: rgba(244,242,230,0.5);
-  box-shadow: 0 0 4px rgba(244,242,230,0.2);
+/* Tooltip */
+.prog-tooltip {
+  position: absolute; bottom: 100%; left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  font-family: var(--font-body); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--warm); background: var(--ink);
+  padding: 3px 7px; border-radius: 3px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  white-space: nowrap;
 }
-#progress-bar.on-light .prog-tick.passed {
-  background: rgba(18,17,24,0.4);
-  box-shadow: 0 0 4px rgba(18,17,24,0.15);
+.prog-seg:hover .prog-tooltip {
+  opacity: 1; transform: translateX(-50%) translateY(-4px);
+}
+#progress-bar.on-light .prog-tooltip {
+  color: var(--ink); background: rgba(18,17,24,0.12);
 }
 
 
