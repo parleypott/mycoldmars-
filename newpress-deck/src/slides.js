@@ -96,6 +96,7 @@ const slides = [
         detail: 'Built from scratch. 3.2M average video views. The playbook that became Newpress.',
         subs: '7.5M subscribers',
         image: '/deck/johnny-harris.png',
+        youtube: 'https://www.youtube.com/@johnnyharris',
       },
       {
         num: '2',
