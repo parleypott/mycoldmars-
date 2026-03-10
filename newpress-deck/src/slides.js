@@ -237,27 +237,18 @@ const slides = [
     label: 'BUSINESS MODEL',
     headline: 'We\u2019ve already built a foundational business model with two core revenue streams.',
     col1: {
-      title: '1. ADVERTISING',
-      sections: [
-        {
-          subtitle: 'PROGRAMMATIC DIGITAL',
-          heroNum: '$100K',
-          heroLabel: 'PER MONTH',
-        },
-        {
-          subtitle: 'BRAND PARTNERSHIPS',
-          subLabel: 'PER VIDEO',
-          partners: [
-            { channel: 'JH', range: '100\u2013150K' },
-            { channel: 'SP', range: '$8\u201315K' },
-            { channel: 'TV', range: '$10\u201320K' },
-            { channel: 'TBP', range: '$8\u201315K' },
-          ],
-        },
+      title: 'ADVERTISING',
+      programmatic: { number: '$100K', label: 'PROGRAMMATIC / MONTH' },
+      partnerLabel: 'BRAND PARTNERSHIPS (PER VIDEO)',
+      partners: [
+        { channel: 'Johnny Harris', range: '$100\u2013150K' },
+        { channel: 'Search Party', range: '$8\u201315K' },
+        { channel: 'Tunnel Vision', range: '$10\u201320K' },
+        { channel: 'The Bigger Picture', range: '$8\u201315K' },
       ],
     },
     col2: {
-      title: '2. SUBSCRIPTION',
+      title: 'SUBSCRIPTION',
       intro: 'Newpress.com membership: launched Feb 19, 2026. Zero paid marketing.',
       stats: [
         { number: '36,143', label: 'Members' },

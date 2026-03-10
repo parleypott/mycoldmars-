@@ -158,33 +158,30 @@ function renderSlide(s) {
         <div class="biz-columns" style="margin-top:32px">
           <div class="biz-col">
             <p class="biz-col-title accent-blue">${e(s.col1.title)}</p>
-            ${s.col1.sections ? s.col1.sections.map(sec => `
-              <div style="margin-top:16px">
-                <p class="biz-col-subtitle">${e(sec.subtitle)}</p>
-                ${sec.heroNum ? `
-                  <div class="biz-hero">
-                    <span class="biz-hero-num">${e(sec.heroNum)}</span>
-                    <span class="biz-hero-label">${e(sec.heroLabel)}</span>
-                  </div>
-                ` : ''}
-                ${sec.subLabel ? `<p class="biz-col-subtitle" style="margin-top:16px">${e(sec.subtitle)}${sec.subLabel ? ` <span style="opacity:0.5">${e(sec.subLabel)}</span>` : ''}</p>` : ''}
-                ${sec.partners ? `
-                  <div class="partner-list" style="margin-top:8px">
-                    ${sec.partners.map(p => `
-                      <div class="partner-item">
-                        <span class="partner-channel">${e(p.channel)}</span>
-                        <span class="partner-range">${e(p.range)}</span>
-                      </div>
-                    `).join('')}
-                  </div>
-                ` : ''}
+            ${s.col1.programmatic ? `
+              <div class="biz-hero" style="margin-top:16px">
+                <span class="biz-hero-num">${e(s.col1.programmatic.number)}</span>
+                <span class="biz-hero-label">${e(s.col1.programmatic.label)}</span>
               </div>
-            `).join('') : ''}
+            ` : ''}
+            ${s.col1.partnerLabel ? `
+              <p class="biz-col-subtitle" style="margin-top:28px;margin-bottom:12px">${e(s.col1.partnerLabel)}</p>
+            ` : ''}
+            ${s.col1.partners ? `
+              <div class="partner-list">
+                ${s.col1.partners.map(p => `
+                  <div class="partner-item">
+                    <span class="partner-channel">${e(p.channel)}</span>
+                    <span class="partner-range">${e(p.range)}</span>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
           </div>
           <div class="biz-col">
             <p class="biz-col-title accent-green">${e(s.col2.title)}</p>
-            <p class="biz-intro">${e(s.col2.intro)}</p>
-            <div class="biz-stats">
+            <p class="biz-intro" style="margin-top:12px">${e(s.col2.intro)}</p>
+            <div class="biz-stats" style="margin-top:16px">
               ${s.col2.stats.map(st => `
                 <div class="biz-stat">
                   <span class="biz-stat-num">${e(st.number)}</span>
@@ -319,8 +316,22 @@ function renderSlide(s) {
             <p class="body">${e(s.body)}</p>
           </div>
           ${s.images ? `
-            <div class="sub-model-images">
-              ${s.images.map(img => `<img src="${img}" alt="" class="sub-model-img">`).join('')}
+            <div class="sub-carousel">
+              <div class="sub-carousel-track">
+                ${s.images.map((img, idx) => `<img src="${img}" alt="" class="sub-carousel-img${idx === 0 ? ' active' : ''}">`).join('')}
+              </div>
+              <div class="sub-carousel-controls">
+                <button class="sub-carousel-btn sub-carousel-prev" aria-label="Previous">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M5 12l6-6M5 12l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <span class="sub-carousel-dots">
+                  ${s.images.map((_, idx) => `<span class="sub-carousel-dot${idx === 0 ? ' active' : ''}" data-idx="${idx}"></span>`).join('')}
+                </span>
+                <button class="sub-carousel-btn sub-carousel-next" aria-label="Next">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M19 12l-6-6M19 12l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+              <p class="sub-carousel-caption">Examples of Newpress community already working</p>
             </div>
           ` : ''}
         </div>
@@ -560,3 +571,28 @@ deck.addEventListener('touchend', (ev) => {
    INIT
    ============================================================ */
 buildSlides();
+
+/* ============================================================
+   SUB-MODEL CAROUSEL
+   ============================================================ */
+(function initCarousel() {
+  const wrap = document.querySelector('.sub-carousel');
+  if (!wrap) return;
+  const imgs = wrap.querySelectorAll('.sub-carousel-img');
+  const dots = wrap.querySelectorAll('.sub-carousel-dot');
+  const prevBtn = wrap.querySelector('.sub-carousel-prev');
+  const nextBtn = wrap.querySelector('.sub-carousel-next');
+  let idx = 0;
+
+  function show(n) {
+    imgs[idx].classList.remove('active');
+    dots[idx].classList.remove('active');
+    idx = (n + imgs.length) % imgs.length;
+    imgs[idx].classList.add('active');
+    dots[idx].classList.add('active');
+  }
+
+  prevBtn.addEventListener('click', (ev) => { ev.stopPropagation(); show(idx - 1); });
+  nextBtn.addEventListener('click', (ev) => { ev.stopPropagation(); show(idx + 1); });
+  dots.forEach(d => d.addEventListener('click', (ev) => { ev.stopPropagation(); show(+d.dataset.idx); }));
+})();
