@@ -80,8 +80,19 @@ function renderSlide(s) {
               }
               return `<li>${e(b)}${src}</li>`;
             }).join('')}</ul>` : ''}
-            ${s.kicker ? `<p class="kicker" style="margin-top:24px">${e(s.kicker)}</p>` : ''}
-            ${s.callout ? `<div class="callout-box"><span class="callout-text">${e(s.callout)}</span></div>` : ''}
+            ${s.kicker && s.callout ? `
+              <div class="kicker-callout-wrap">
+                <p class="kicker">${e(s.kicker)}</p>
+                <svg class="hand-arrow" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 8 C 20 4, 35 28, 55 38 S 90 52, 108 68" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none" stroke-dasharray="3 0" pathLength="1"/>
+                  <path d="M100 60 L110 70 L98 68" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                </svg>
+                <div class="callout-box"><span class="callout-text">${e(s.callout)}</span></div>
+              </div>
+            ` : `
+              ${s.kicker ? `<p class="kicker" style="margin-top:24px">${e(s.kicker)}</p>` : ''}
+              ${s.callout ? `<div class="callout-box"><span class="callout-text">${e(s.callout)}</span></div>` : ''}
+            `}
           </div>
           ${s.image ? `<div class="statement-image"><img src="${s.image}" alt="" class="statement-img"></div>` : ''}
         </div>

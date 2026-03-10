@@ -405,14 +405,37 @@ html, body {
   box-shadow: 0 8px 40px rgba(0,0,0,0.3);
 }
 
+/* Kicker + callout side-by-side */
+.kicker-callout-wrap {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0;
+  margin-top: clamp(20px, 2.5vw, 32px);
+  max-width: 900px;
+}
+.kicker-callout-wrap .kicker {
+  margin: 0; padding-right: clamp(8px, 1.5vw, 16px);
+}
+.hand-arrow {
+  width: clamp(60px, 8vw, 100px);
+  height: auto;
+  color: rgba(18,17,24,0.2);
+  flex-shrink: 0;
+}
+.slide.bg-blue .hand-arrow,
+.slide.bg-green .hand-arrow,
+.slide.bg-burgundy .hand-arrow,
+.slide.bg-sepia .hand-arrow {
+  color: rgba(244,242,230,0.2);
+}
+
 /* Callout box */
 .callout-box {
-  margin-top: clamp(20px, 2.5vw, 32px);
   padding: clamp(16px, 2vw, 24px) clamp(20px, 2.5vw, 32px);
   border: 2px solid rgba(18,17,24,0.15);
   border-radius: 4px;
   background: rgba(18,17,24,0.04);
-  display: inline-block;
 }
 .callout-text {
   font-family: var(--font-head);
