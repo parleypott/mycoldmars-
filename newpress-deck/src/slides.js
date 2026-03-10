@@ -285,8 +285,8 @@ const slides = [
     poster: '/deck/human-element-poster.png',
     headline: 'We\u2019re reinventing documentary\nfor the YouTube age.',
     body1: 'Johnny Harris has already built one of the largest audiences for explanatory journalism on the internet.',
-    body2: 'His new show will push documentary storytelling into a new medium. The Human Element will combine investigative journalism, cinematic filmmaking, and creator-led storytelling designed for global digital distribution.',
-    body3: 'The goal isn\u2019t just views. It\u2019s to build the kind of documentary storytelling that wins Emmys, Oscars, and reaches massive audiences at the same time.',
+    body2: 'His new show \u201CThe Human Element\u201D will push documentary storytelling into a new medium by combining investigative journalism, cinematic filmmaking, and creator-led storytelling designed for global digital distribution.',
+    body3: 'The goal isn\u2019t just views. It\u2019s to build the kind of documentary storytelling that impacts culture, wins awards, and attracts reputation and trust for the rest of Newpress.',
   },
 
   // ─── 15. TEAM ───
