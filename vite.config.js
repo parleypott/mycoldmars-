@@ -21,6 +21,7 @@ export default defineConfig({
         pinglobeFeedback: resolve(__dirname, 'pinglobe-feedback/index.html'),
         zanyplans: resolve(__dirname, 'zanyplans/index.html'),
         spin: resolve(__dirname, 'spin/index.html'),
+        hakka: resolve(__dirname, 'hakka/index.html'),
       },
     },
   },
