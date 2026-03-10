@@ -1058,10 +1058,46 @@ html, body {
 }
 
 /* ============================================================
-   LAYOUT: HUMAN ELEMENT (slide 12)
+   LAYOUT: HUMAN ELEMENT — cinematic full-bleed
    ============================================================ */
-.he-body .body {
-  max-width: 760px;
+.slide-humanElement { padding: 0 !important; }
+
+.he-poster {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center 20%;
+  z-index: 0;
+}
+.he-poster::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(18,17,24,0.92) 0%,
+    rgba(18,17,24,0.78) 38%,
+    rgba(18,17,24,0.35) 65%,
+    rgba(18,17,24,0.10) 100%
+  );
+}
+
+.he-overlay {
+  position: relative; z-index: 1;
+  padding: clamp(36px,6vw,80px) clamp(40px,8vw,120px);
+  display: flex; flex-direction: column; justify-content: center;
+  height: 100%;
+}
+.he-overlay .label {
+  color: rgba(244,242,230,0.5);
+}
+.he-overlay .headline {
+  color: var(--warm);
+  text-shadow: 0 2px 24px rgba(0,0,0,0.4);
+}
+.he-overlay .body {
+  color: rgba(244,242,230,0.85);
+  text-shadow: 0 1px 8px rgba(0,0,0,0.3);
+}
+.he-overlay .kicker {
+  color: rgba(244,242,230,0.7);
+  text-shadow: 0 1px 8px rgba(0,0,0,0.3);
 }
 
 /* ============================================================

@@ -86,6 +86,7 @@ const slides = [
     layout: 'creators',
     bg: 'warm',
     label: 'HERE\u2019S HOW WE PROVED IT',
+    headline: 'The shows we\u2019ve built so far.',
     heroImage: '/deck/creators.gif',
     stages: [
       {
@@ -274,8 +275,9 @@ const slides = [
   // ─── 14. THE HUMAN ELEMENT ───
   {
     layout: 'humanElement',
-    bg: 'sepia',
+    bg: 'ink',
     label: 'THE HUMAN ELEMENT',
+    poster: '/deck/human-element-poster.png',
     headline: 'We\u2019re reinventing documentary\nfor the YouTube age.',
     body1: 'Johnny Harris has already built one of the largest audiences for explanatory journalism on the internet.',
     body2: 'His new show will push documentary storytelling into a new medium. The Human Element will combine investigative journalism, cinematic filmmaking, and creator-led storytelling designed for global digital distribution.',
