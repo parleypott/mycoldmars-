@@ -262,7 +262,7 @@ html, body {
 
 /* Main headline — centered */
 .tf-headline {
-  max-width: 720px;
+  max-width: 900px;
   font-family: var(--font-head);
   font-size: clamp(36px, 5.5vw, 80px);
   font-weight: 400;
@@ -273,11 +273,11 @@ html, body {
 
 /* Body text — centered */
 .tf-body {
-  max-width: 600px;
+  max-width: 640px;
   font-family: var(--font-body);
-  font-size: clamp(12px, 1.15vw, 15px);
-  line-height: 1.8;
-  color: rgba(18,17,24,0.65);
+  font-size: clamp(14px, 1.4vw, 18px);
+  line-height: 1.75;
+  color: rgba(18,17,24,0.7);
 }
 
 /* Body2 — italic kicker */
