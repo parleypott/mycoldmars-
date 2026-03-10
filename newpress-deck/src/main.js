@@ -425,6 +425,7 @@ function renderSlide(s) {
           ${s.opportunities.map(o => `
             <div class="opp-card">
               <p class="opp-title">${e(o.title)}</p>
+              <hr class="opp-divider">
               <p class="opp-text">${e(o.text)}</p>
             </div>
           `).join('')}
