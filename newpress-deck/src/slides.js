@@ -11,7 +11,6 @@ const slides = [
     bg: 'yellow',
     headline: 'Creator-led media company\nbuilt to scale.',
     body: 'Newpress is reimagining the future of journalism: creator-led, visually compelling, and built for the platforms where people actually consume media. By pairing trusted creators with scalable newsroom infrastructure, we turn individual shows into enduring brands.',
-    body2: 'Why? Because the relationship between audiences, institutions, and creators has fundamentally changed.',
     logo: true,
   },
 
@@ -77,42 +76,62 @@ const slides = [
 
   // ─── 6. HERE'S HOW WE PROVED IT ───
   {
-    layout: 'creatorsGrid',
+    layout: 'creatorsTimeline',
     bg: 'warm',
     label: 'HERE\u2019S HOW WE PROVED IT',
     headline: 'The shows we\u2019ve built so far.',
-    creators: [
+    stages: [
       {
-        show: 'Johnny Harris',
-        name: 'Johnny Harris',
-        detail: 'Built from scratch. 3.2M average video views. The playbook that became Newpress.',
-        subs: '7.5M',
-        image: '/deck/johnny-harris.png',
-        youtube: 'https://www.youtube.com/@johnnyharris',
+        num: '1',
+        title: 'THE PROOF OF CONCEPT',
+        creators: [
+          {
+            show: 'Johnny Harris',
+            name: 'Johnny Harris',
+            detail: 'Built from scratch. Emmy-winning journalism. This became the Newpress playbook.',
+            subs: '7.5M',
+            image: '/deck/johnny-harris.png',
+            youtube: 'https://www.youtube.com/@johnnyharris',
+          },
+        ],
       },
       {
-        show: 'Search Party',
-        name: 'Sam Ellis',
-        detail: 'Ex-Vox Atlas, Emmy nominated.',
-        subs: '891K',
-        image: '/deck/sam-ellis.png',
-        youtube: 'https://www.youtube.com/@SearchParty',
+        num: '2',
+        title: 'THE PLAYBOOK IS EXPORTABLE',
+        subtitle: 'Successfully launched journalists leaving institutions with comparable quality and velocity.',
+        creators: [
+          {
+            show: 'Search Party',
+            name: 'Sam Ellis',
+            detail: 'Ex-Vox Atlas, Emmy nominated.',
+            subs: '891K',
+            image: '/deck/sam-ellis.png',
+            youtube: 'https://www.youtube.com/@SearchParty',
+          },
+          {
+            show: 'Tunnel Vision',
+            name: 'Christophe Haubursin',
+            detail: 'Ex-Vox, Emmy nominated.',
+            subs: '286K',
+            image: '/deck/christophe.png',
+            youtube: 'https://www.youtube.com/@christophe',
+          },
+        ],
       },
       {
-        show: 'Tunnel Vision',
-        name: 'Christophe Haubursin',
-        detail: 'Ex-Vox, Emmy nominated.',
-        subs: '286K',
-        image: '/deck/christophe.png',
-        youtube: 'https://www.youtube.com/@christophe',
-      },
-      {
-        show: 'The Bigger Picture',
-        name: 'Max Fisher',
-        detail: 'Pulitzer finalist, ex-NYT, ex-WaPo.',
-        subs: '45K',
-        image: '/deck/max-fisher.png',
-        youtube: 'https://www.youtube.com/@maxfisher',
+        num: '3',
+        title: 'EXPANDING THE MODEL',
+        subtitle: 'Translated a legacy journalist \u2014 not video-native \u2014 into the creator era successfully.',
+        creators: [
+          {
+            show: 'The Bigger Picture',
+            name: 'Max Fisher',
+            detail: 'Pulitzer finalist, ex-NYT, ex-WaPo, founding editor of Vox.',
+            subs: '45K',
+            image: '/deck/max-fisher.png',
+            youtube: 'https://www.youtube.com/@maxfisher',
+          },
+        ],
       },
     ],
   },
