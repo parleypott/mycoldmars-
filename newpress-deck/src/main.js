@@ -40,13 +40,11 @@ function renderSlide(s) {
       return `
         <div class="title-frame">
           ${s.logo ? '<img src="/deck/newpress-logo-white.png" alt="Newpress" class="tf-logo">' : ''}
-          <span class="tf-tag" style="top:10%;right:8%;text-align:right">2026</span>
           <h1 class="tf-headline">${nl(s.headline)}</h1>
-          <span class="tf-tag" style="top:36%;left:64%">CREATOR-LED<br>JOURNALISM</span>
+          <div class="tf-rule"></div>
           <p class="tf-body">${e(s.body)}</p>
           ${s.body2 ? `<p class="tf-body2">${e(s.body2)}</p>` : ''}
-          <span class="tf-tag" style="bottom:10%;left:8%">NEWPRESS</span>
-          <span class="tf-tag" style="bottom:10%;right:8%;text-align:right">001</span>
+          <span class="tf-year">2026</span>
         </div>
       `;
 
