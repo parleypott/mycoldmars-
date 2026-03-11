@@ -147,9 +147,10 @@ const slides = [
       {
         num: '3',
         title: 'EXPANDING THE MODEL',
+        subtitle: 'We took a legacy journalist, not video-native \u2014 and successfully translated him into the creator era.',
         name: 'The Bigger Picture \u00B7 Max Fisher',
         tagline: 'Illuminating our world\u2019s inner workings, from geopolitics to our deepest mental recesses.',
-        detail: 'We took a legacy journalist, not video-native \u2014 and successfully translated him into the creator era. Pulitzer finalist, ex-NYT, ex-WaPo, founding editor of Vox.',
+        detail: 'Pulitzer finalist, ex-NYT, ex-WaPo, founding editor of Vox.',
         subs: '45K subscribers',
         image: '/deck/max-fisher.png',
         youtube: 'https://www.youtube.com/@maxfisher',
