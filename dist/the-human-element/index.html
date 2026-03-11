@@ -27,7 +27,6 @@
     html {
       background: var(--ink);
       -webkit-font-smoothing: antialiased;
-      scroll-behavior: smooth;
     }
 
     body {
@@ -36,7 +35,7 @@
       overflow-x: hidden;
     }
 
-    /* ── Film grain (fixed overlay) ── */
+    /* ── Film grain ── */
     #grain {
       position: fixed;
       inset: 0;
@@ -45,118 +44,6 @@
       mix-blend-mode: multiply;
       background-size: 256px 256px;
       opacity: 0.85;
-    }
-
-    /* ══════════════════════════════════════
-       HERO — editorial frame
-       ══════════════════════════════════════ */
-    .hero {
-      position: relative;
-      width: 100%;
-      height: 100vh;
-      min-height: 600px;
-      overflow: hidden;
-    }
-
-    .hero-bg {
-      position: absolute;
-      inset: 0;
-      background: url('/assets/cine-egypt-BaN7KyY-.png') center 20% / cover no-repeat;
-      opacity: 0.45;
-    }
-
-    .hero-bg::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(to bottom, var(--ink) 0%, transparent 25%, transparent 55%, var(--ink) 100%),
-        linear-gradient(to right, rgba(18,17,24,0.6) 0%, transparent 50%);
-    }
-
-    /* Grid hairlines */
-    .hl { position: absolute; pointer-events: none; }
-    .hl-h {
-      left: calc(6% - 14px);
-      right: calc(6% - 14px);
-      height: 1px;
-      background: rgba(244,242,230,0.07);
-    }
-    .hl-v {
-      top: calc(8% - 14px);
-      bottom: calc(8% - 14px);
-      width: 1px;
-      background: rgba(244,242,230,0.07);
-    }
-
-    /* Scattered tags */
-    .tag {
-      position: absolute;
-      font-family: var(--mono);
-      font-size: clamp(8px, 0.7vw, 10px);
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      line-height: 1.9;
-      pointer-events: none;
-      z-index: 2;
-    }
-
-    /* Logo in hero */
-    .hero-logo {
-      width: clamp(100px, 14vw, 220px);
-      height: auto;
-      opacity: 0.6;
-      display: block;
-    }
-
-    /* Title */
-    .hero-title {
-      position: absolute;
-      top: 38%;
-      left: 8%;
-      font-family: var(--head);
-      font-size: clamp(48px, 8vw, 130px);
-      font-weight: 400;
-      line-height: 0.95;
-      letter-spacing: -0.02em;
-      color: var(--warm);
-      z-index: 2;
-      opacity: 0;
-      animation: fadeUp 1s ease 0.4s forwards;
-    }
-
-    /* Subtitle */
-    .hero-sub {
-      position: absolute;
-      bottom: 16%;
-      left: 8%;
-      max-width: 50%;
-      font-family: var(--mono);
-      font-size: clamp(11px, 1vw, 14px);
-      line-height: 1.8;
-      color: var(--text);
-      z-index: 2;
-      opacity: 0;
-      animation: fadeUp 0.8s ease 0.8s forwards;
-    }
-
-    /* Scroll hint */
-    .scroll-hint {
-      position: absolute;
-      bottom: 9%;
-      left: 50%;
-      transform: translateX(-50%);
-      font-family: var(--mono);
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      z-index: 2;
-      opacity: 0;
-      animation: fadeIn 0.8s ease 1.4s forwards, pulse 3s ease-in-out 2.4s infinite;
     }
 
     /* ── Back link ── */
@@ -179,22 +66,186 @@
     .back-link:hover { opacity: 0.8; }
 
     /* ══════════════════════════════════════
-       SECTIONS
+       PARALLAX IMAGE PANELS
        ══════════════════════════════════════ */
-    .sect {
+    .panel {
       position: relative;
-      padding: clamp(80px, 10vw, 140px) clamp(32px, 6vw, 80px);
-      max-width: 1200px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .panel--hero { height: 100vh; min-height: 600px; }
+    .panel--full { height: 80vh; min-height: 400px; }
+    .panel--launch { height: 100vh; min-height: 600px; }
+
+    .panel-bg {
+      position: absolute;
+      top: -15%;
+      left: 0;
+      right: 0;
+      height: 130%;
+      background-size: cover;
+      background-position: center;
+      will-change: transform;
+    }
+
+    /* Gradient overlays per panel type */
+    .panel--hero .panel-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to bottom, var(--ink) 0%, transparent 30%, transparent 50%, var(--ink) 100%),
+        linear-gradient(to right, rgba(18,17,24,0.6) 0%, transparent 60%);
+    }
+
+    .panel--full .panel-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to bottom, var(--ink) 0%, transparent 15%, transparent 85%, var(--ink) 100%);
+    }
+
+    .panel--launch .panel-bg {
+      opacity: 0.3;
+    }
+    .panel--launch .panel-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(170deg, transparent 30%, rgba(221,44,30,0.6)),
+        linear-gradient(to bottom, var(--ink) 0%, transparent 20%, transparent 80%, var(--ink) 100%);
+    }
+
+    /* Panel overlay content */
+    .panel-content {
+      position: relative;
+      z-index: 2;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 clamp(32px, 8vw, 120px);
+      max-width: 1400px;
       margin: 0 auto;
     }
 
-    /* Thin hairline at top of each section */
+    /* ── Hero specifics ── */
+    .hero-meta {
+      position: absolute;
+      top: clamp(20px, 3vw, 36px);
+      right: clamp(24px, 4vw, 48px);
+      font-family: var(--mono);
+      font-size: clamp(8px, 0.7vw, 10px);
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      text-align: right;
+      line-height: 1.9;
+      z-index: 3;
+    }
+
+    .hero-logo {
+      width: clamp(80px, 12vw, 180px);
+      height: auto;
+      opacity: 0.5;
+      margin-bottom: 32px;
+    }
+
+    .hero-title {
+      font-family: var(--head);
+      font-size: clamp(56px, 10vw, 160px);
+      font-weight: 400;
+      line-height: 0.92;
+      letter-spacing: -0.03em;
+      color: var(--warm);
+      opacity: 0;
+      animation: fadeUp 1.2s ease 0.3s forwards;
+    }
+
+    .hero-sub {
+      max-width: 560px;
+      font-family: var(--mono);
+      font-size: clamp(11px, 1vw, 14px);
+      line-height: 1.85;
+      color: var(--text);
+      margin-top: clamp(24px, 3vw, 40px);
+      opacity: 0;
+      animation: fadeUp 0.9s ease 0.8s forwards;
+    }
+
+    .hero-tags {
+      display: flex;
+      gap: 32px;
+      margin-top: clamp(36px, 4vw, 56px);
+      opacity: 0;
+      animation: fadeUp 0.9s ease 1.1s forwards;
+    }
+
+    .hero-tag {
+      font-family: var(--mono);
+      font-size: clamp(8px, 0.7vw, 10px);
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      line-height: 1.9;
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: clamp(24px, 4vw, 48px);
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      z-index: 2;
+      opacity: 0;
+      animation: fadeIn 0.8s ease 1.6s forwards, pulse 3s ease-in-out 2.6s infinite;
+    }
+
+    /* ── Panel caption (small tag on image panels) ── */
+    .panel-caption {
+      position: absolute;
+      bottom: clamp(32px, 5vw, 60px);
+      right: clamp(32px, 6vw, 80px);
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(244,242,230,0.15);
+      z-index: 3;
+    }
+
+    /* ══════════════════════════════════════
+       CONTENT SECTIONS (dark bg between panels)
+       ══════════════════════════════════════ */
+    .sect {
+      position: relative;
+      z-index: 3;
+      background: var(--ink);
+      padding: clamp(80px, 12vw, 180px) clamp(32px, 8vw, 120px);
+    }
+
+    .sect-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
     .sect::before {
       content: '';
       position: absolute;
       top: 0;
-      left: clamp(32px, 6vw, 80px);
-      right: clamp(32px, 6vw, 80px);
+      left: clamp(32px, 8vw, 120px);
+      right: clamp(32px, 8vw, 120px);
       height: 1px;
       background: var(--line);
     }
@@ -209,13 +260,27 @@
       margin-bottom: 24px;
     }
 
+    .sect-num {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      line-height: 28px;
+      text-align: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-right: 12px;
+      vertical-align: middle;
+    }
+
     .sect-title {
       font-family: var(--head);
-      font-size: clamp(32px, 5vw, 68px);
+      font-size: clamp(36px, 5.5vw, 80px);
       font-weight: 400;
-      line-height: 1.06;
+      line-height: 1.04;
       letter-spacing: -0.02em;
-      margin-bottom: clamp(20px, 3vw, 36px);
+      margin-bottom: clamp(24px, 3vw, 44px);
     }
 
     .sect-body {
@@ -227,11 +292,10 @@
       max-width: 680px;
     }
 
-    /* ── Right-aligned metadata tag in sections ── */
-    .sect-meta {
+    .sect-meta-right {
       position: absolute;
-      top: clamp(80px, 10vw, 140px);
-      right: clamp(32px, 6vw, 80px);
+      top: clamp(80px, 12vw, 180px);
+      right: clamp(32px, 8vw, 120px);
       font-family: var(--mono);
       font-size: clamp(8px, 0.65vw, 10px);
       font-weight: 700;
@@ -249,11 +313,11 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: clamp(16px, 3vw, 32px);
-      margin-top: clamp(36px, 5vw, 56px);
+      margin-top: clamp(48px, 6vw, 72px);
     }
 
     .stat {
-      padding-top: 16px;
+      padding-top: 20px;
       border-top: 2px solid var(--line);
     }
     .stat:nth-child(1) { border-color: var(--blue); }
@@ -262,7 +326,7 @@
 
     .stat-num {
       font-family: var(--head);
-      font-size: clamp(32px, 4.5vw, 60px);
+      font-size: clamp(36px, 5vw, 68px);
       line-height: 1;
     }
 
@@ -273,33 +337,32 @@
       letter-spacing: 0.15em;
       text-transform: uppercase;
       color: var(--text-dim);
-      margin-top: 8px;
+      margin-top: 10px;
     }
 
     /* ══════════════════════════════════════
-       CARDS (format, launch)
+       CARDS
        ══════════════════════════════════════ */
     .card-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: clamp(12px, 2vw, 20px);
-      margin-top: clamp(32px, 4vw, 48px);
+      margin-top: clamp(40px, 5vw, 56px);
     }
 
     .card-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
 
     .card {
-      padding: clamp(24px, 3vw, 36px);
+      padding: clamp(28px, 3vw, 40px);
       border: 1px solid var(--line);
       background: rgba(244,242,230,0.015);
       transition: border-color 0.4s;
     }
-
     .card:hover { border-color: rgba(244,242,230,0.12); }
 
     .card-title {
       font-family: var(--head);
-      font-size: clamp(16px, 1.8vw, 22px);
+      font-size: clamp(17px, 1.8vw, 24px);
       font-weight: 400;
       line-height: 1.25;
       margin-bottom: 12px;
@@ -313,10 +376,10 @@
     }
 
     /* ══════════════════════════════════════
-       PROOF EPISODES (table-like rows)
+       PROOF EPISODES
        ══════════════════════════════════════ */
     .proof-list {
-      margin-top: clamp(36px, 5vw, 56px);
+      margin-top: clamp(40px, 5vw, 60px);
       display: flex;
       flex-direction: column;
     }
@@ -325,18 +388,17 @@
       display: flex;
       align-items: baseline;
       gap: 24px;
-      padding: clamp(18px, 2.5vw, 28px) 0;
+      padding: clamp(20px, 2.5vw, 30px) 0;
       border-top: 1px solid var(--line);
       transition: border-color 0.3s;
     }
-
     .proof-row:last-child { border-bottom: 1px solid var(--line); }
     .proof-row:hover { border-color: rgba(244,242,230,0.12); }
 
     .proof-title {
       flex: 1;
       font-family: var(--head);
-      font-size: clamp(18px, 2.2vw, 28px);
+      font-size: clamp(20px, 2.5vw, 32px);
       font-weight: 400;
       line-height: 1.2;
     }
@@ -360,78 +422,24 @@
     }
 
     /* ══════════════════════════════════════
-       CINEMATIC IMAGE BREAKS
-       ══════════════════════════════════════ */
-    .cine {
-      position: relative;
-      width: 100%;
-      height: clamp(300px, 50vw, 600px);
-      overflow: hidden;
-    }
-
-    .cine img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .cine::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(to bottom, var(--ink) 0%, transparent 20%, transparent 80%, var(--ink) 100%);
-      z-index: 1;
-      pointer-events: none;
-    }
-
-    /* Thin hairline across the image */
-    .cine::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: rgba(244,242,230,0.05);
-      z-index: 2;
-      pointer-events: none;
-    }
-
-    .cine-tag {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      right: clamp(32px, 6vw, 80px);
-      font-family: var(--mono);
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: rgba(244,242,230,0.12);
-      z-index: 3;
-    }
-
-    /* ══════════════════════════════════════
        PILOT EPISODES
        ══════════════════════════════════════ */
     .pilot-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: clamp(16px, 2.5vw, 24px);
-      margin-top: clamp(32px, 4vw, 48px);
+      margin-top: clamp(40px, 5vw, 56px);
     }
 
     .pilot {
-      padding: clamp(28px, 3.5vw, 44px);
       border: 1px solid var(--line);
       background: rgba(244,242,230,0.015);
       position: relative;
+      overflow: hidden;
       transition: border-color 0.4s;
     }
-
     .pilot:hover { border-color: rgba(244,242,230,0.12); }
+    .pilot:hover::before { opacity: 1; }
 
     .pilot::before {
       content: '';
@@ -443,7 +451,20 @@
       transition: opacity 0.4s;
     }
 
-    .pilot:hover::before { opacity: 1; }
+    .pilot-map {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      display: block;
+      opacity: 0.6;
+      filter: saturate(0.7);
+      transition: opacity 0.4s;
+    }
+    .pilot:hover .pilot-map { opacity: 0.8; }
+
+    .pilot-text {
+      padding: clamp(24px, 3vw, 36px);
+    }
 
     .pilot-region {
       font-family: var(--mono);
@@ -452,7 +473,7 @@
       letter-spacing: 0.25em;
       text-transform: uppercase;
       color: var(--blue);
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     .pilot-title {
@@ -460,7 +481,7 @@
       font-size: clamp(22px, 2.5vw, 32px);
       font-weight: 400;
       line-height: 1.15;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     .pilot-body {
@@ -471,55 +492,46 @@
     }
 
     /* ══════════════════════════════════════
-       LAUNCH (red band)
+       LAUNCH OVERLAY
        ══════════════════════════════════════ */
-    .launch-band {
-      background: var(--red);
+    .launch-overlay {
       position: relative;
-      margin-top: clamp(40px, 6vw, 80px);
-    }
-
-    .launch-band::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(170deg, transparent 40%, rgba(0,0,0,0.25));
-      pointer-events: none;
-    }
-
-    .launch-inner {
-      position: relative;
-      padding: clamp(80px, 10vw, 140px) clamp(32px, 6vw, 80px);
-      max-width: 1200px;
+      z-index: 2;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 clamp(32px, 8vw, 120px);
+      max-width: 1400px;
       margin: 0 auto;
     }
 
-    .launch-band .sect-label { color: rgba(244,242,230,0.4); }
+    .launch-overlay .sect-label { color: rgba(244,242,230,0.45); }
 
-    .launch-band .card {
+    .launch-overlay .card {
       border-color: rgba(244,242,230,0.12);
-      background: rgba(0,0,0,0.15);
-    }
-
-    .launch-band .card:hover {
-      border-color: rgba(244,242,230,0.25);
       background: rgba(0,0,0,0.25);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
-
-    .launch-band .card-body { color: rgba(244,242,230,0.6); }
+    .launch-overlay .card:hover {
+      border-color: rgba(244,242,230,0.25);
+      background: rgba(0,0,0,0.35);
+    }
+    .launch-overlay .card-body { color: rgba(244,242,230,0.55); }
 
     /* ══════════════════════════════════════
-       PARTNERS (tags)
+       PARTNERS
        ══════════════════════════════════════ */
     .partner-tags {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-      margin-top: clamp(28px, 4vw, 44px);
+      margin-top: clamp(32px, 4vw, 48px);
     }
 
     .partner-tag {
-      padding: 10px 22px;
+      padding: 12px 24px;
       border: 1px solid var(--line);
       font-family: var(--mono);
       font-size: clamp(10px, 0.85vw, 12px);
@@ -529,7 +541,6 @@
       color: rgba(244,242,230,0.35);
       transition: border-color 0.3s, color 0.3s;
     }
-
     .partner-tag:hover {
       border-color: var(--blue);
       color: var(--warm);
@@ -539,15 +550,13 @@
        FOOTER
        ══════════════════════════════════════ */
     .footer {
-      padding: 40px clamp(32px, 6vw, 80px);
-      max-width: 1200px;
-      margin: 0 auto;
+      background: var(--ink);
+      padding: 48px clamp(32px, 8vw, 120px);
       display: flex;
       justify-content: space-between;
       align-items: center;
       border-top: 1px solid var(--line);
     }
-
     .footer span {
       font-family: var(--mono);
       font-size: 10px;
@@ -561,15 +570,13 @@
        ANIMATIONS
        ══════════════════════════════════════ */
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(24px); }
+      from { opacity: 0; transform: translateY(28px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-
     @keyframes fadeIn {
       from { opacity: 0; }
       to   { opacity: 0.5; }
     }
-
     @keyframes pulse {
       0%, 100% { opacity: 0.5; }
       50%      { opacity: 0.15; }
@@ -578,15 +585,32 @@
     /* Scroll reveal */
     .reveal {
       opacity: 0;
-      transform: translateY(30px);
-      transition: opacity 0.9s cubic-bezier(0.22,1,0.36,1),
-                  transform 0.9s cubic-bezier(0.22,1,0.36,1);
+      transform: translateY(36px);
+      transition: opacity 1s cubic-bezier(0.22,1,0.36,1),
+                  transform 1s cubic-bezier(0.22,1,0.36,1);
     }
-
     .reveal.visible {
       opacity: 1;
       transform: translateY(0);
     }
+
+    /* Staggered children */
+    .reveal-children > * {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.8s cubic-bezier(0.22,1,0.36,1),
+                  transform 0.8s cubic-bezier(0.22,1,0.36,1);
+    }
+    .reveal-children.visible > * {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-children.visible > *:nth-child(1) { transition-delay: 0s; }
+    .reveal-children.visible > *:nth-child(2) { transition-delay: 0.1s; }
+    .reveal-children.visible > *:nth-child(3) { transition-delay: 0.2s; }
+    .reveal-children.visible > *:nth-child(4) { transition-delay: 0.3s; }
+    .reveal-children.visible > *:nth-child(5) { transition-delay: 0.4s; }
+    .reveal-children.visible > *:nth-child(6) { transition-delay: 0.5s; }
 
     /* ══════════════════════════════════════
        RESPONSIVE
@@ -595,14 +619,16 @@
       .card-grid { grid-template-columns: 1fr; }
       .card-grid.cols-3 { grid-template-columns: 1fr; }
       .pilot-grid { grid-template-columns: 1fr; }
-      .sect-meta { display: none; }
+      .sect-meta-right { display: none; }
       .proof-row { flex-wrap: wrap; gap: 8px; }
       .proof-title { flex-basis: 100%; }
+      .hero-tags { flex-direction: column; gap: 16px; }
     }
 
     @media (max-width: 600px) {
       .stats-row { grid-template-columns: 1fr; }
-      .hero-title { max-width: 85%; }
+      .hero-title { font-size: clamp(44px, 14vw, 80px); }
+      .panel--full { height: 60vh; }
     }
   </style>
 </head>
@@ -614,187 +640,214 @@
   <!-- Back -->
   <a href="/" class="back-link">&larr; Back</a>
 
-  <!-- ═══════ HERO ═══════ -->
-  <header class="hero">
-    <div class="hero-bg"></div>
+  <!-- ═══════════════════════════════════
+       1. HERO
+       ═══════════════════════════════════ -->
+  <div class="panel panel--hero">
+    <div class="panel-bg" data-parallax="0.3" style="background-image:url('/assets/epic-ocean-BHpDQXxi.png'); background-position:center 30%; opacity:0.5;"></div>
 
-    <!-- Grid hairlines -->
-    <span class="hl hl-h" style="top:8%"></span>
-    <span class="hl hl-h" style="top:34%"></span>
-    <span class="hl hl-h" style="top:76%"></span>
-    <span class="hl hl-h" style="bottom:8%"></span>
-    <span class="hl hl-v" style="left:6%"></span>
-    <span class="hl hl-v" style="left:62%"></span>
-    <span class="hl hl-v" style="right:6%"></span>
+    <span class="hero-meta">A NEWPRESS ORIGINAL<br>Q3 2026</span>
 
-    <!-- Top-left: logo -->
-    <span class="tag" style="top:10%;left:8%">
+    <div class="panel-content" style="justify-content:flex-end; padding-bottom:clamp(80px,12vw,160px);">
       <img src="/deck/newpress-logo-white.png" alt="Newpress" class="hero-logo">
-    </span>
+      <h1 class="hero-title">The Human<br>Element</h1>
+      <p class="hero-sub">Global Stories, Human Lens. A premium documentary series modernizing ambitious, on-the-ground reporting for the YouTube era.</p>
+      <div class="hero-tags">
+        <span class="hero-tag">WITH JOHNNY HARRIS<br>7.5M SUBSCRIBERS</span>
+        <span class="hero-tag">12 EPISODES<br>SEASON 1</span>
+        <span class="hero-tag">COMING<br>FALL 2026</span>
+      </div>
+    </div>
 
-    <!-- Top-right: metadata -->
-    <span class="tag" style="top:10%;right:8%;text-align:right">A NEWPRESS ORIGINAL<br>Q3 2026</span>
-
-    <!-- Title -->
-    <h1 class="hero-title">The Human<br>Element</h1>
-
-    <!-- Right column tags -->
-    <span class="tag" style="top:36%;left:64%">WITH JOHNNY HARRIS<br>7.5M SUBSCRIBERS</span>
-    <span class="tag" style="top:52%;left:64%">12 EPISODES<br>SEASON 1</span>
-
-    <!-- Subtitle -->
-    <p class="hero-sub">Global Stories, Human Lens. A premium documentary series modernizing ambitious, on-the-ground reporting for the YouTube era.</p>
-
-    <!-- Bottom tags -->
-    <span class="tag" style="bottom:10%;left:8%">NEWPRESS</span>
-    <span class="tag" style="bottom:10%;right:8%;text-align:right">THE HUMAN ELEMENT</span>
-
-    <!-- Scroll hint -->
     <span class="scroll-hint">Scroll</span>
-  </header>
-
-  <!-- ═══════ THE MISSION ═══════ -->
-  <section class="sect reveal">
-    <span class="sect-meta">SECTION 01</span>
-    <p class="sect-label">The Mission</p>
-    <h2 class="sect-title">Nourishing journalism<br>in an era of noise</h2>
-    <p class="sect-body">
-      While legacy media retreats from ambitious on-the-ground reporting, Johnny and his media company Newpress are leaning in. The Human Element is a premium, repeatable show format that bridges the gap between high-context explainer journalism and deeply emotional, character-driven storytelling. At a time when the internet is flooded with synthetic content and polarizing noise, The Human Element offers nourishing journalism&mdash;content that makes the viewer feel smarter, more connected, and more human.
-    </p>
-  </section>
-
-  <!-- Image break -->
-  <div class="cine reveal">
-    <img src="/assets/cine-iceberg-CAxoczlK.png" alt="" loading="lazy">
-    <span class="cine-tag">On Location</span>
   </div>
 
-  <!-- ═══════ THE ANCHOR ═══════ -->
-  <section class="sect reveal">
-    <span class="sect-meta">SECTION 02</span>
-    <p class="sect-label">The Anchor</p>
-    <h2 class="sect-title">Johnny Harris</h2>
-    <p class="sect-body">
-      Hosted by Johnny Harris&mdash;acting as a proxy for the viewer. Curious, humble, and rigorous, he travels the world to ask big questions and find real answers by meeting characters along the way.
-    </p>
-    <div class="stats-row">
-      <div class="stat">
-        <div class="stat-num">7.5M+</div>
-        <div class="stat-lbl">Subscribers</div>
-      </div>
-      <div class="stat">
-        <div class="stat-num">12</div>
-        <div class="stat-lbl">Episodes &middot; Season 1</div>
-      </div>
-      <div class="stat">
-        <div class="stat-num">30&ndash;40</div>
-        <div class="stat-lbl">Minute Runtime</div>
-      </div>
+  <!-- ═══════════════════════════════════
+       2. THE MISSION
+       ═══════════════════════════════════ -->
+  <section class="sect">
+    <div class="sect-inner reveal">
+      <span class="sect-meta-right">SECTION 01</span>
+      <p class="sect-label"><span class="sect-num">1</span> The Mission</p>
+      <h2 class="sect-title">Nourishing journalism<br>in an era of noise</h2>
+      <p class="sect-body">
+        While legacy media retreats from ambitious on-the-ground reporting, Johnny and his media company Newpress are leaning in. The Human Element is a premium, repeatable show format that bridges the gap between high-context explainer journalism and deeply emotional, character-driven storytelling. At a time when the internet is flooded with synthetic content and polarizing noise, The Human Element offers nourishing journalism&mdash;content that makes the viewer feel smarter, more connected, and more human.
+      </p>
     </div>
   </section>
 
-  <!-- ═══════ THE FORMAT ═══════ -->
-  <section class="sect reveal">
-    <span class="sect-meta">SECTION 03</span>
-    <p class="sect-label">The Format</p>
-    <h2 class="sect-title">Built for the platform</h2>
-    <p class="sect-body">
-      Season 1 launches in 2026 with 12 episodes&mdash;a standardized, repeatable show format blending cinematic on-the-ground reporting, high-end explanatory animation, and behind-the-curtain transparency.
-    </p>
-    <div class="card-grid">
-      <div class="card">
-        <p class="card-title">Cinematic Reporting</p>
-        <p class="card-body">High-fidelity, on-the-ground documentary filmmaking from locations around the world.</p>
-      </div>
-      <div class="card">
-        <p class="card-title">Explanatory Animation</p>
-        <p class="card-body">High-end motion graphics that make complex geopolitical and scientific topics accessible.</p>
-      </div>
-      <div class="card">
-        <p class="card-title">Multi-Format Flywheel</p>
-        <p class="card-body">Deep integration with YouTube Shorts for storytelling nuggets and Community for real-time reporting updates.</p>
-      </div>
-      <div class="card">
-        <p class="card-title">Transparent Process</p>
-        <p class="card-body">Behind-the-curtain moments that build trust and pull the audience into the journalistic process.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Image break -->
-  <div class="cine reveal">
-    <img src="/assets/cine-fortress-5UW7p_EY.png" alt="" loading="lazy">
-    <span class="cine-tag">Production</span>
+  <!-- ═══════════════════════════════════
+       PARALLAX — Typewriter
+       ═══════════════════════════════════ -->
+  <div class="panel panel--full">
+    <div class="panel-bg" data-parallax="0.3" style="background-image:url('/assets/typewriter-DZwzbCg_.png');"></div>
+    <span class="panel-caption">On Location</span>
   </div>
 
-  <!-- ═══════ VALIDATED ═══════ -->
-  <section class="sect reveal">
-    <span class="sect-meta">SECTION 04</span>
-    <p class="sect-label">Validated</p>
-    <h2 class="sect-title">The format works</h2>
-    <p class="sect-body">
-      A version of the format has been tested and validated on Johnny's channel already, earning millions of views per episode.
-    </p>
-    <div class="proof-list">
-      <div class="proof-row">
-        <p class="proof-title">Inside the Most Prepared Country on Earth</p>
-        <span class="proof-runtime">52:30</span>
-        <span class="proof-views">4.5M Views</span>
-      </div>
-      <div class="proof-row">
-        <p class="proof-title">Why Saudi Arabia is Building a $1 Trillion City in the Desert</p>
-        <span class="proof-runtime">34:17</span>
-        <span class="proof-views">6.9M Views</span>
-      </div>
-      <div class="proof-row">
-        <p class="proof-title">Why Switzerland Has 374,142 Bunkers</p>
-        <span class="proof-runtime">29:22</span>
-        <span class="proof-views">9.3M Views</span>
+  <!-- ═══════════════════════════════════
+       3. THE ANCHOR
+       ═══════════════════════════════════ -->
+  <section class="sect">
+    <div class="sect-inner reveal">
+      <span class="sect-meta-right">SECTION 02</span>
+      <p class="sect-label"><span class="sect-num">2</span> The Anchor</p>
+      <h2 class="sect-title">Johnny Harris</h2>
+      <p class="sect-body">
+        Hosted by Johnny Harris&mdash;acting as a proxy for the viewer. Curious, humble, and rigorous, he travels the world to ask big questions and find real answers by meeting characters along the way.
+      </p>
+      <div class="stats-row reveal-children">
+        <div class="stat">
+          <div class="stat-num">7.5M+</div>
+          <div class="stat-lbl">Subscribers</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">12</div>
+          <div class="stat-lbl">Episodes &middot; Season 1</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">30&ndash;40</div>
+          <div class="stat-lbl">Minute Runtime</div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- Image break -->
-  <div class="cine reveal">
-    <img src="/assets/cine-penguins-DV2GAv7H.png" alt="" loading="lazy">
-    <span class="cine-tag">Global</span>
+  <!-- ═══════════════════════════════════
+       PARALLAX — Sunset Silhouette
+       ═══════════════════════════════════ -->
+  <div class="panel panel--full">
+    <div class="panel-bg" data-parallax="0.3" style="background-image:url('/assets/sunset-silhouette-BwbNylkz.png');"></div>
+    <span class="panel-caption">Production</span>
   </div>
 
-  <!-- ═══════ SEASON 1 PILOTS ═══════ -->
-  <section class="sect reveal">
-    <span class="sect-meta">SECTION 05</span>
-    <p class="sect-label">Season 1</p>
-    <h2 class="sect-title">Pilot episodes in development</h2>
-    <div class="pilot-grid">
-      <div class="pilot">
-        <p class="pilot-region">Palau</p>
-        <p class="pilot-title">When the Ocean Turns Against You</p>
-        <p class="pilot-body">
-          This episode examines how the citizens of Palau are navigating the immediate, physical effects of ocean acidification and rising sea levels. It moves past the theoretical debate of climate change to show how a coastal society is forced to re-engineer its food systems and traditional way of life as the surrounding environment becomes increasingly unstable.
-        </p>
-      </div>
-      <div class="pilot">
-        <p class="pilot-region">Nepal</p>
-        <p class="pilot-title">The Roads That Change Everything</p>
-        <p class="pilot-body">
-          This episode explores the impact of rapid road construction in the remote provinces in the Himalayan range&mdash;a region caught in a geopolitical squeeze between India and China. We follow the local apple farmers and transporters whose livelihoods have been transformed by new market access, while simultaneously being threatened by the landslides and environmental instability caused.
-        </p>
+  <!-- ═══════════════════════════════════
+       4. THE FORMAT
+       ═══════════════════════════════════ -->
+  <section class="sect">
+    <div class="sect-inner reveal">
+      <span class="sect-meta-right">SECTION 03</span>
+      <p class="sect-label"><span class="sect-num">3</span> The Format</p>
+      <h2 class="sect-title">Built for the platform</h2>
+      <p class="sect-body">
+        Season 1 launches in 2026 with 12 episodes&mdash;a standardized, repeatable show format blending cinematic on-the-ground reporting, high-end explanatory animation, and behind-the-curtain transparency.
+      </p>
+      <div class="card-grid reveal-children">
+        <div class="card">
+          <p class="card-title">Cinematic Reporting</p>
+          <p class="card-body">High-fidelity, on-the-ground documentary filmmaking from locations around the world.</p>
+        </div>
+        <div class="card">
+          <p class="card-title">Explanatory Animation</p>
+          <p class="card-body">High-end motion graphics that make complex geopolitical and scientific topics accessible.</p>
+        </div>
+        <div class="card">
+          <p class="card-title">Multi-Format Flywheel</p>
+          <p class="card-body">Deep integration with YouTube Shorts for storytelling nuggets and Community for real-time reporting updates.</p>
+        </div>
+        <div class="card">
+          <p class="card-title">Transparent Process</p>
+          <p class="card-body">Behind-the-curtain moments that build trust and pull the audience into the journalistic process.</p>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ═══════ THE LAUNCH (red band) ═══════ -->
-  <div class="launch-band">
-    <div class="launch-inner reveal">
+  <!-- ═══════════════════════════════════
+       PARALLAX — Taiwan Night Market
+       ═══════════════════════════════════ -->
+  <div class="panel panel--full">
+    <div class="panel-bg" data-parallax="0.3" style="background-image:url('/assets/taiwan-market-8ts2MjYQ.png');"></div>
+    <span class="panel-caption">Taiwan</span>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       5. VALIDATED
+       ═══════════════════════════════════ -->
+  <section class="sect">
+    <div class="sect-inner reveal">
+      <span class="sect-meta-right">SECTION 04</span>
+      <p class="sect-label"><span class="sect-num">4</span> Validated</p>
+      <h2 class="sect-title">The format works</h2>
+      <p class="sect-body">
+        A version of the format has been tested and validated on Johnny's channel already, earning millions of views per episode.
+      </p>
+      <div class="proof-list reveal-children">
+        <div class="proof-row">
+          <p class="proof-title">Inside the Most Prepared Country on Earth</p>
+          <span class="proof-runtime">52:30</span>
+          <span class="proof-views">4.5M Views</span>
+        </div>
+        <div class="proof-row">
+          <p class="proof-title">Why Saudi Arabia is Building a $1 Trillion City in the Desert</p>
+          <span class="proof-runtime">34:17</span>
+          <span class="proof-views">6.9M Views</span>
+        </div>
+        <div class="proof-row">
+          <p class="proof-title">Why Switzerland Has 374,142 Bunkers</p>
+          <span class="proof-runtime">29:22</span>
+          <span class="proof-views">9.3M Views</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════
+       PARALLAX — Clouds
+       ═══════════════════════════════════ -->
+  <div class="panel panel--full">
+    <div class="panel-bg" data-parallax="0.3" style="background-image:url('/assets/clouds-text-DlV6-JMQ.png');"></div>
+    <span class="panel-caption">Global</span>
+  </div>
+
+  <!-- ═══════════════════════════════════
+       6. SEASON 1 PILOTS
+       ═══════════════════════════════════ -->
+  <section class="sect">
+    <div class="sect-inner reveal">
+      <span class="sect-meta-right">SECTION 05</span>
+      <p class="sect-label"><span class="sect-num">5</span> Season 1</p>
+      <h2 class="sect-title">Pilot episodes in<br>development</h2>
+      <div class="pilot-grid reveal-children">
+        <div class="pilot">
+          <img src="/assets/taiwan-map-CUnAsZM7.jpg" alt="Pacific region" class="pilot-map" loading="lazy">
+          <div class="pilot-text">
+            <p class="pilot-region">Palau</p>
+            <p class="pilot-title">When the Ocean Turns Against You</p>
+            <p class="pilot-body">
+              This episode examines how the citizens of Palau are navigating the immediate, physical effects of ocean acidification and rising sea levels&mdash;showing how a coastal society is forced to re-engineer its food systems and traditional way of life.
+            </p>
+          </div>
+        </div>
+        <div class="pilot">
+          <img src="/assets/india-map-DgGSXSoa.jpg" alt="South Asia region" class="pilot-map" loading="lazy">
+          <div class="pilot-text">
+            <p class="pilot-region">Nepal</p>
+            <p class="pilot-title">The Roads That Change Everything</p>
+            <p class="pilot-body">
+              This episode explores the impact of rapid road construction in the remote Himalayan provinces&mdash;a region caught in a geopolitical squeeze between India and China, where new market access transforms and threatens livelihoods.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════
+       7. THE LAUNCH (red poster parallax)
+       ═══════════════════════════════════ -->
+  <div class="panel panel--launch">
+    <div class="panel-bg" data-parallax="0.2" style="background-image:url('/assets/red-poster-BS0Sir_q.png'); background-position:center top;"></div>
+
+    <div class="launch-overlay">
       <p class="sect-label">Q3 2026</p>
-      <h2 class="sect-title">Launching with a splash</h2>
-      <p class="sect-body" style="color:rgba(244,242,230,0.65)">
+      <h2 class="sect-title">Launching with<br>a splash</h2>
+      <p class="sect-body" style="color:rgba(244,242,230,0.65); max-width:600px;">
         To match the scale and ambition of The Human Element, we intend to treat the Q3 launch as a major media event&mdash;an invitation-only premiere at a flagship venue in New York City, bridging the gap between the creator economy and the global press.
       </p>
-      <div class="card-grid cols-3">
+      <div class="card-grid cols-3" style="margin-top:clamp(32px,4vw,48px);">
         <div class="card">
           <p class="card-title">The Screening</p>
-          <p class="card-body">A cinematic presentation of the flagship episode on the big screen to showcase the high-fidelity production and visual rigor.</p>
+          <p class="card-body">A cinematic presentation of the flagship episode on the big screen to showcase the high-fidelity production.</p>
         </div>
         <div class="card">
           <p class="card-title">The Salon</p>
@@ -802,27 +855,31 @@
         </div>
         <div class="card">
           <p class="card-title">The Network</p>
-          <p class="card-body">A curated evening bringing together brand partners, legacy journalists, and top-tier creators to discuss the future of media.</p>
+          <p class="card-body">A curated evening bringing together brand partners, legacy journalists, and top-tier creators.</p>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ═══════ PARTNERSHIPS ═══════ -->
-  <section class="sect reveal">
-    <span class="sect-meta">SECTION 07</span>
-    <p class="sect-label">Partnerships</p>
-    <h2 class="sect-title">The smartest room<br>on the internet</h2>
-    <p class="sect-body">
-      Blue Chip partners tired of the unpredictability of the influencer world and the declining reach of linear TV. The Human Element provides a prestige environment for brands that value global citizenship or who want to project intellectual authority&mdash;brands who want to be associated with the smartest room on the internet.
-    </p>
-    <div class="partner-tags">
-      <span class="partner-tag">Sustainability</span>
-      <span class="partner-tag">Global Logistics</span>
-      <span class="partner-tag">Technology</span>
-      <span class="partner-tag">Global Connectivity</span>
-      <span class="partner-tag">Education</span>
-      <span class="partner-tag">Travel</span>
+  <!-- ═══════════════════════════════════
+       8. PARTNERSHIPS
+       ═══════════════════════════════════ -->
+  <section class="sect">
+    <div class="sect-inner reveal">
+      <span class="sect-meta-right">SECTION 07</span>
+      <p class="sect-label"><span class="sect-num">6</span> Partnerships</p>
+      <h2 class="sect-title">The smartest room<br>on the internet</h2>
+      <p class="sect-body">
+        Blue Chip partners tired of the unpredictability of the influencer world and the declining reach of linear TV. The Human Element provides a prestige environment for brands that value global citizenship or who want to project intellectual authority&mdash;brands who want to be associated with the smartest room on the internet.
+      </p>
+      <div class="partner-tags reveal-children">
+        <span class="partner-tag">Sustainability</span>
+        <span class="partner-tag">Global Logistics</span>
+        <span class="partner-tag">Technology</span>
+        <span class="partner-tag">Global Connectivity</span>
+        <span class="partner-tag">Education</span>
+        <span class="partner-tag">Travel</span>
+      </div>
     </div>
   </section>
 
@@ -832,9 +889,11 @@
     <span>The Human Element</span>
   </footer>
 
-  <!-- ═══════ SCRIPTS ═══════ -->
+  <!-- ═══════════════════════════════════
+       SCRIPTS
+       ═══════════════════════════════════ -->
   <script>
-    /* Film grain texture (canvas-generated) */
+    /* Film grain texture */
     (function () {
       const c = document.createElement('canvas');
       c.width = c.height = 256;
@@ -846,18 +905,53 @@
         d.data[i + 3] = 18;
       }
       ctx.putImageData(d, 0, 0);
-      const grain = document.getElementById('grain');
-      grain.style.backgroundImage = `url(${c.toDataURL()})`;
+      document.getElementById('grain').style.backgroundImage = `url(${c.toDataURL()})`;
     })();
 
-    /* Scroll reveal */
+    /* ── Parallax ── */
+    const parallaxEls = document.querySelectorAll('[data-parallax]');
+    let ticking = false;
+
+    function updateParallax() {
+      const scrollY = window.scrollY;
+      const viewH = window.innerHeight;
+
+      parallaxEls.forEach(el => {
+        const parent = el.parentElement;
+        const rect = parent.getBoundingClientRect();
+        const speed = parseFloat(el.dataset.parallax) || 0.3;
+
+        // Only transform when the panel is in or near the viewport
+        if (rect.bottom < -viewH || rect.top > viewH * 2) return;
+
+        // Center point of the panel relative to the viewport center
+        const centerOffset = rect.top + rect.height / 2 - viewH / 2;
+        const translate = centerOffset * speed;
+
+        el.style.transform = `translate3d(0, ${translate}px, 0)`;
+      });
+
+      ticking = false;
+    }
+
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        requestAnimationFrame(updateParallax);
+        ticking = true;
+      }
+    }, { passive: true });
+
+    // Initial position
+    updateParallax();
+
+    /* ── Scroll reveal ── */
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) entry.target.classList.add('visible');
       });
-    }, { threshold: 0.12 });
+    }, { threshold: 0.1 });
 
-    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    document.querySelectorAll('.reveal, .reveal-children').forEach(el => observer.observe(el));
   </script>
 
 </body>
