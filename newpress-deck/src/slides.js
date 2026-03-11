@@ -277,7 +277,7 @@ const slides = [
         name: 'Johnny Harris',
         title: 'Co-Founder, Emmy-Winning Journalist',
         detail: 'The distribution flywheel and proof of concept.',
-        image: null,
+        image: '/deck/johnny-harris.png',
       },
       {
         name: 'Michael Letta',
