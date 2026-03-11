@@ -1239,7 +1239,9 @@ html, body {
   text-shadow: 0 1px 8px rgba(0,0,0,0.3);
 }
 .he-overlay .kicker {
-  color: rgba(244,242,230,0.7);
+  font-weight: 400;
+  font-size: clamp(13px,1.2vw,16px);
+  color: rgba(244,242,230,0.85);
   text-shadow: 0 1px 8px rgba(0,0,0,0.3);
 }
 
