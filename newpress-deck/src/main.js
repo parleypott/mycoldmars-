@@ -395,7 +395,6 @@ function renderSlide(s) {
     case 'humanElement':
       return `
         ${s.poster ? `<div class="he-poster" style="background-image:url('${s.poster}')"></div>` : ''}
-        ${s.comingSoon ? `<span class="he-coming">${e(s.comingSoon)}</span>` : ''}
         <div class="he-overlay">
           ${labelHTML(s)}
           <h1 class="headline headline-lg">${nl(s.headline)}</h1>
@@ -403,6 +402,7 @@ function renderSlide(s) {
             <p class="body" style="margin-bottom:16px">${e(s.body1)}</p>
             <p class="body" style="margin-bottom:16px">${e(s.body2)}</p>
             <p class="kicker">${e(s.body3)}</p>
+            ${s.comingSoon ? `<span class="he-coming">${e(s.comingSoon)}</span>` : ''}
           </div>
         </div>
       `;
