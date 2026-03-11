@@ -395,6 +395,7 @@ function renderSlide(s) {
     case 'humanElement':
       return `
         ${s.poster ? `<div class="he-poster" style="background-image:url('${s.poster}')"></div>` : ''}
+        ${s.comingSoon ? `<span class="he-coming">${e(s.comingSoon)}</span>` : ''}
         <div class="he-overlay">
           ${labelHTML(s)}
           <h1 class="headline headline-lg">${nl(s.headline)}</h1>

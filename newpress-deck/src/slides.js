@@ -262,6 +262,7 @@ const slides = [
     body1: 'Johnny Harris has already built one of the largest audiences for explanatory journalism on the internet.',
     body2: 'His new show \u201CThe Human Element\u201D will push documentary storytelling into a new medium by combining investigative journalism, cinematic filmmaking, and creator-led storytelling designed for global digital distribution.',
     body3: 'The goal isn\u2019t just views. It\u2019s to build the kind of documentary storytelling that impacts culture, wins awards, and attracts reputation and trust for the rest of Newpress.',
+    comingSoon: 'Coming Fall 2026.',
   },
 
   // ─── 15. TEAM ───
