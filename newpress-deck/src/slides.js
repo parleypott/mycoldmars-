@@ -288,7 +288,7 @@ const slides = [
         name: 'Michael Letta',
         title: 'Chief Operating Officer',
         detail: 'Experienced builder and operator. Inherently financial.',
-        image: null,
+        image: '/deck/michael-letta.jpg',
       },
       {
         name: 'Jon Laurence',
