@@ -409,7 +409,7 @@ const slides = [
     headline: 'FY25 Results',
     stats: [
       { number: '$4.4M', label: 'Net revenue*\n+30% growth YoY', note: '*after paid commissions' },
-      { number: '$213K', label: 'Net income\n5% profit margin' },
+      { number: '$213K', label: 'Net income*\n5% profit margin', note: '*while investing in key executives and scaling production capacity' },
       { number: '$1M', label: 'Cash on-hand' },
       { number: '30', label: 'Headcount' },
     ],
