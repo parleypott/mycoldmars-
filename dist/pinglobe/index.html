@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PinGlobe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.19.0/mapbox-gl.css" rel="stylesheet">
+  <script type="module" crossorigin src="/assets/pinglobe-ppepGDiC.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="/assets/mapbox-gl-DFE56ATp.js">
+  <link rel="stylesheet" crossorigin href="/assets/pinglobe-BJZ-CuES.css">
+</head>
+<body>
+  <div id="app">
+    <div id="map"></div>
+
+    <!-- Game Panel — floating card grouping clue + ledger -->
+    <div id="game-panel" class="hidden">
+      <!-- Clue Bar -->
+      <div id="clue-bar">
+        <div id="clue-meta">
+          <span id="clue-number">01/05</span>
+          <span id="score-display">0</span>
+        </div>
+        <div id="clue-divider"></div>
+        <div id="clue-text"></div>
+        <div id="pin-tracker"></div>
+        <div id="clue-answer" class="hidden"></div>
+      </div>
+
+      <!-- Score Ledger — stacked below clue bar -->
+      <div id="score-ledger" class="hidden">
+        <div id="ledger-header">
+          <span id="ledger-title">SCORECARD</span>
+          <span id="ledger-pin-label"></span>
+        </div>
+        <div id="ledger-rows"></div>
+        <div id="ledger-footer">
+          <span id="ledger-total-label">TOTAL</span>
+          <span id="ledger-total">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Success Celebration + Blurb (unified) -->
+    <div id="success-overlay" class="hidden">
+      <div id="success-answer"></div>
+      <div id="success-pins"></div>
+      <div id="success-blurb"></div>
+      <button id="success-next-btn">NEXT</button>
+    </div>
+
+    <!-- Scorecard — full-screen celebration -->
+    <div id="scorecard" class="hidden">
+      <div id="scorecard-inner">
+        <div id="scorecard-badge"></div>
+        <div id="scorecard-total"></div>
+        <div id="scorecard-rule"></div>
+        <div id="scorecard-body"></div>
+        <div id="scorecard-brand">PINGLOBE</div>
+        <button id="play-again-btn">PLAY AGAIN</button>
+      </div>
+    </div>
+
+    <!-- Theme Toggle — cycles through themes -->
+    <button id="vibes-btn">VIBES</button>
+
+    <!-- Feedback Button -->
+    <button id="feedback-btn">FEEDBACK</button>
+
+    <!-- Feedback Form Overlay -->
+    <div id="feedback-overlay" class="hidden">
+      <div id="feedback-inner">
+        <div id="feedback-title">FEEDBACK</div>
+        <div id="feedback-rule"></div>
+        <p id="feedback-sub">What did you think? Bugs, ideas, vibes — all welcome.</p>
+        <textarea id="feedback-text" placeholder="Type here..." rows="4"></textarea>
+        <button id="feedback-submit">SEND</button>
+        <button id="feedback-close">BACK</button>
+      </div>
+      <div id="feedback-thanks" class="hidden">
+        <div id="thanks-title">SENT</div>
+        <div id="thanks-rule"></div>
+        <p id="thanks-sub">Thanks for the feedback.</p>
+        <button id="thanks-close">BACK TO GAME</button>
+      </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen">
+      <div id="start-inner">
+        <h1>PIN<br>GLOBE</h1>
+        <div id="start-rule"></div>
+        <p>Read the clue. Spin the globe. Drop your pin.</p>
+        <p class="subtitle">Fewest pins wins.</p>
+        <div id="difficulty-toggle">
+          <button id="diff-easy" class="diff-btn active">EASY</button>
+          <button id="diff-hard" class="diff-btn">HARD</button>
+        </div>
+        <button id="start-btn">START</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

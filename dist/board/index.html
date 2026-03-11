@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>On the Board · My Cold Mars</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=DM+Sans:opsz,wght@9..40,300;9..40,400&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'DM Sans', sans-serif; }
+    /* Office room — cream walls, warm light */
+    body {
+      background: #ede8e0;
+    }
+    /* Subtle wall gradient — ceiling slightly lighter */
+    #room {
+      position: fixed; inset: 0;
+      background: linear-gradient(to bottom,
+        #f2ede5 0%,
+        #ede8e0 55%,
+        #d8d0c4 100%);
+    }
+    /* Floor */
+    #floor {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 22%;
+      background: linear-gradient(to bottom, #c8bfb0, #b8aea0);
+      border-top: 1px solid rgba(0,0,0,0.08);
+    }
+    /* Baseboard */
+    #baseboard {
+      position: fixed; bottom: 22%; left: 0; right: 0;
+      height: 3px;
+      background: #d4cabb;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+    /* Subtle grain on walls */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 999;
+    }
+    #back {
+      position: fixed; top: 20px; left: 20px;
+      font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: rgba(80,65,50,0.4); text-decoration: none; z-index: 100;
+      transition: color 0.2s;
+    }
+    #back:hover { color: rgba(80,65,50,0.8); }
+    #label {
+      position: fixed; top: 22px; left: 50%; transform: translateX(-50%);
+      font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+      color: rgba(80,65,50,0.3); z-index: 100; white-space: nowrap;
+    }
+    /* Scene container */
+    #scene {
+      position: fixed; inset: 0;
+      display: flex; align-items: flex-end; justify-content: center;
+      padding-bottom: 22%; /* sit on floor */
+    }
+    /* Tripod + board assembly */
+    #assembly {
+      display: flex; flex-direction: column; align-items: center;
+      position: relative;
+    }
+    /* ── WOODEN FRAME around board ── */
+    #frame {
+      background: #7a5230;
+      padding: 11px 11px 11px 11px;
+      border-radius: 3px;
+      box-shadow:
+        0 2px 0 #5a3a1a,
+        0 4px 0 #4a2e10,
+        inset 0 1px 0 rgba(255,220,150,0.25),
+        inset 0 -1px 0 rgba(0,0,0,0.3),
+        0 12px 40px rgba(0,0,0,0.25),
+        0 4px 12px rgba(0,0,0,0.15);
+      position: relative;
+    }
+    /* Frame wood grain highlight */
+    #frame::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(
+        92deg,
+        transparent,
+        transparent 22px,
+        rgba(0,0,0,0.06) 22px,
+        rgba(0,0,0,0.06) 23px
+      );
+      border-radius: 3px;
+      pointer-events: none;
+    }
+    #frame::after {
+      content: '';
+      position: absolute; inset: 2px;
+      border: 1px solid rgba(255,200,100,0.12);
+      border-radius: 2px;
+      pointer-events: none;
+    }
+    /* Corner accents */
+    .corner {
+      position: absolute;
+      width: 10px; height: 10px;
+      background: #5a3a1a;
+      border-radius: 1px;
+      z-index: 2;
+    }
+    .corner.tl { top: 3px; left: 3px; }
+    .corner.tr { top: 3px; right: 3px; }
+    .corner.bl { bottom: 3px; left: 3px; }
+    .corner.br { bottom: 3px; right: 3px; }
+    /* ── BOARD — horizontal, dark ── */
+    #board {
+      width: clamp(320px, 60vw, 520px);
+      height: clamp(200px, 26vh, 290px);
+      background: #0a0906;
+      background-image:
+        radial-gradient(circle, rgba(255,255,255,0.0) 1px, transparent 1px);
+      background-size: 4px 4px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 1px;
+    }
+    /* Soft inner glow from LED light */
+    #board::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 50%,
+        rgba(240,140,20,0.06) 0%, transparent 100%);
+      pointer-events: none; z-index: 1;
+    }
+    /* LED strips */
+    .b-strip {
+      position: absolute;
+      height: clamp(12px, 2.2vh, 18px);
+      overflow: hidden;
+      background: #080806;
+      border-top: 1px solid rgba(240,140,20,0.12);
+      border-bottom: 1px solid rgba(240,140,20,0.12);
+      background-image: radial-gradient(circle, rgba(0,0,0,0.65) 1px, transparent 1px);
+      background-size: 3px 3px;
+      background-color: #080806;
+    }
+    .b-strip::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(to right,
+        #080806 0%, transparent 7%,
+        transparent 93%, #080806 100%);
+      pointer-events: none; z-index: 2;
+    }
+    .b-strip-inner {
+      position: absolute; top: 0; left: 0; height: 100%;
+      display: flex; align-items: center;
+      white-space: nowrap;
+    }
+    .b-strip-text {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: clamp(5px, 0.9vw, 7px);
+      letter-spacing: 0.05em;
+      color: #f0a020;
+      text-shadow:
+        0 0 4px rgba(240,160,32,1),
+        0 0 9px rgba(240,140,20,0.65),
+        0 0 18px rgba(240,120,10,0.3);
+      padding: 0 10px;
+    }
+    .b-strip:nth-child(even) .b-strip-text {
+      color: #d08818;
+      text-shadow:
+        0 0 3px rgba(200,130,24,0.9),
+        0 0 8px rgba(200,120,16,0.5);
+    }
+    .b-dot {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      width: 4px; height: 4px; border-radius: 50%;
+      background: #f0a020; box-shadow: 0 0 5px rgba(240,160,32,0.9);
+      z-index: 3;
+      animation: blink 2.6s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.08} }
+    /* ── TRIPOD ── */
+    #tripod {
+      position: relative;
+      width: clamp(340px, 65vw, 580px);
+      height: 180px;
+      margin-top: -2px;
+    }
+    /* Tripod head — the mount */
+    #tripod-head {
+      position: absolute;
+      top: 0; left: 50%; transform: translateX(-50%);
+      width: 40px; height: 12px;
+      background: linear-gradient(to bottom, #888, #555);
+      border-radius: 2px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+    #tripod-head::after {
+      content: '';
+      position: absolute;
+      top: 11px; left: 50%; transform: translateX(-50%);
+      width: 5px; height: 30px;
+      background: linear-gradient(to bottom, #777, #555);
+    }
+    /* SVG tripod legs */
+    #tripod svg {
+      position: absolute;
+      bottom: 0; left: 0;
+      width: 100%; height: 100%;
+    }
+    /* Floor shadow under tripod */
+    #tripod-shadow {
+      position: absolute;
+      bottom: -6px; left: 50%; transform: translateX(-50%);
+      width: 260px; height: 12px;
+      background: radial-gradient(ellipse, rgba(0,0,0,0.18) 0%, transparent 70%);
+    }
+    /* Ambient LED glow cast on floor */
+    #led-glow {
+      position: absolute;
+      bottom: -30px; left: 50%; transform: translateX(-50%);
+      width: clamp(280px, 55vw, 480px);
+      height: 50px;
+      background: radial-gradient(ellipse, rgba(240,140,20,0.07) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    @keyframes scroll-rtl {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+  </style>
+</head>
+<body>
+
+<div id="room"></div>
+<div id="floor"></div>
+<div id="baseboard"></div>
+
+<a href="/newpress-robot/" id="back">← Feed</a>
+<div id="label">Concept · Newpress Robot on a Board</div>
+
+<div id="scene">
+  <div id="assembly">
+    <div id="frame">
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+      <div id="board">
+        <!-- strips injected by JS -->
+      </div>
+    </div>
+
+    <div id="tripod">
+      <div id="tripod-head"></div>
+      <svg viewBox="0 0 460 90" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- left leg -->
+        <line x1="230" y1="12" x2="60" y2="90" stroke="#666" stroke-width="3" stroke-linecap="round"/>
+        <!-- right leg -->
+        <line x1="230" y1="12" x2="400" y2="90" stroke="#666" stroke-width="3" stroke-linecap="round"/>
+        <!-- center leg -->
+        <line x1="230" y1="12" x2="220" y2="90" stroke="#555" stroke-width="3" stroke-linecap="round"/>
+        <!-- horizontal brace -->
+        <line x1="115" y1="58" x2="345" y2="58" stroke="#555" stroke-width="1.8" stroke-dasharray="none" opacity="0.8"/>
+        <!-- brace connectors -->
+        <circle cx="115" cy="58" r="4" fill="#666"/>
+        <circle cx="345" cy="58" r="4" fill="#666"/>
+        <circle cx="220" cy="58" r="4" fill="#555"/>
+        <!-- foot pads -->
+        <ellipse cx="60" cy="90" rx="9" ry="3" fill="#888" opacity="0.7"/>
+        <ellipse cx="400" cy="90" rx="9" ry="3" fill="#888" opacity="0.7"/>
+        <ellipse cx="220" cy="90" rx="7" ry="3" fill="#777" opacity="0.7"/>
+      </svg>
+      <div id="tripod-shadow"></div>
+      <div id="led-glow"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TEXTS = [
+  "TSMC makes Taiwan the most strategically important island on earth  ·  Silicon Shield  ·  Nobody in mainstream media explains why",
+  "Growing up Taiwanese-American this hit different  ·  My grandparents fled 1949 and never talked about it  ·  First time I understood",
+  "The Strait is only 180km wide  ·  DC to New York  ·  I never realized how close this all is until I saw a map",
+  "Taiwan has been self-governing for 75 years  ·  At some point that just becomes the reality  ·  1992 Consensus explained",
+  "Bubble tea origin being Taiwanese is a perfect metaphor for the whole identity question  ·  Booking flights to Taipei",
+  "Strategic ambiguity as foreign policy  ·  Deliberately vague by design  ·  Most fascinating geopolitical concept this year",
+  "Kinmen Island sits right off the Chinese coastline  ·  This detail broke my brain  ·  Night market footage was enough",
+];
+
+// [top%, left%, width%] — staggered across the board
+const POSITIONS = [
+  [7,  2,  90],
+  [20, 8,  76],
+  [33, 1,  84],
+  [46, 12, 70],
+  [57, 4,  80],
+  [70, 9,  74],
+  [82, 2,  88],
+];
+
+const SPEEDS = [26, 34, 29, 38, 31, 36, 27];
+
+const board = document.getElementById('board');
+
+POSITIONS.forEach(([top, left, width], i) => {
+  const strip = document.createElement('div');
+  strip.className = 'b-strip';
+  strip.style.top = top + '%';
+  strip.style.left = left + '%';
+  strip.style.width = width + '%';
+
+  const inner = document.createElement('div');
+  inner.className = 'b-strip-inner';
+
+  const txt = TEXTS[i % TEXTS.length] + '   ·   ';
+  ['a','b'].forEach(() => {
+    const s = document.createElement('span');
+    s.className = 'b-strip-text';
+    s.textContent = txt;
+    inner.appendChild(s);
+  });
+
+  const dot = document.createElement('div');
+  dot.className = 'b-dot';
+  dot.style.animationDelay = `-${(i * 0.8).toFixed(1)}s`;
+
+  strip.appendChild(inner);
+  strip.appendChild(dot);
+  board.appendChild(strip);
+
+  requestAnimationFrame(() => {
+    const spans = inner.querySelectorAll('span');
+    const w = spans[0].offsetWidth;
+    inner.style.width = (w * 2) + 'px';
+    inner.style.animation = `scroll-rtl ${SPEEDS[i]}s linear infinite`;
+    inner.style.animationDelay = `-${(i * SPEEDS[i] / 7).toFixed(1)}s`;
+  });
+});
+</script>
+</body>
+</html>
