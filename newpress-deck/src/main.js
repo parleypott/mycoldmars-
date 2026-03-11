@@ -343,6 +343,7 @@ function renderSlide(s) {
                   <span class="stage-num">${e(st.num)}</span>
                   <span class="stage-title">${e(st.title)}</span>
                 </div>
+                ${st.subtitle ? `<p class="stage-subtitle">${e(st.subtitle)}</p>` : ''}
                 <div class="stage-single">
                   ${st.name ? imgOrPlaceholder(st.image, st.name, 'stage-avatar stage-avatar-lg') : ''}
                   <div class="stage-info">
