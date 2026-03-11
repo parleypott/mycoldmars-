@@ -99,9 +99,9 @@ html, body {
 .slide.bg-warm .stage-detail { color: rgba(18,17,24,0.7); }
 .slide.bg-warm .stage-tagline { color: rgba(18,17,24,0.55); }
 .slide.bg-warm .stage-subtitle { color: rgba(18,17,24,0.65); }
-.slide.bg-warm .stage-title { color: rgba(18,17,24,0.4); }
+.slide.bg-warm .stage-title { color: #fff; }
 .slide.bg-warm .num-badge { background: var(--ink); color: var(--warm); }
-.slide.bg-warm .stage-num { background: var(--ink); color: var(--warm); }
+.slide.bg-warm .stage-num { background: rgba(244,242,230,0.2); color: #fff; }
 .slide.bg-warm .placeholder-avatar { background: rgba(18,17,24,0.08); color: rgba(18,17,24,0.3); }
 .slide.bg-warm .stage { border-color: rgba(18,17,24,0.1); }
 .slide.bg-warm .point-list li { color: rgba(18,17,24,0.72); }
@@ -887,17 +887,19 @@ html, body {
 }
 .stage:first-child { border-top: none; padding-top: 0; }
 .stage-header {
-  display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+  display: inline-flex; align-items: center; gap: 10px; margin-bottom: 14px;
+  background: var(--blue); padding: 8px 16px 8px 10px; border-radius: 4px;
 }
 .stage-num {
-  width: 24px; height: 24px; border-radius: 50%; background: var(--blue);
-  color: var(--warm); font-family: var(--font-body); font-size: 11px;
+  width: 22px; height: 22px; border-radius: 50%; background: rgba(244,242,230,0.2);
+  color: #fff; font-family: var(--font-body); font-size: 11px;
   font-weight: 700; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
 }
 .stage-title {
   font-family: var(--font-body); font-size: clamp(10px,1vw,12px);
   font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--text-sec);
+  color: #fff;
 }
 .stage-subtitle {
   font-family: var(--font-body); font-size: clamp(13px,1.15vw,15px);
