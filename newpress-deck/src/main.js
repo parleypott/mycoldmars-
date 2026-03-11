@@ -368,7 +368,7 @@ function renderSlide(s) {
         <div class="sub-model-wrap">
           <div class="sub-model-text">
             ${labelHTML(s)}
-            <h1 class="headline headline-lg" style="margin-bottom:24px">The home for the most curious<br>audience on the internet.</h1>
+            <h1 class="headline headline-lg" style="margin-bottom:24px">The home for the most<br>curious audience on the internet.</h1>
             <p class="body">${e(s.body)}</p>
           </div>
           ${s.images ? `
