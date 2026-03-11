@@ -300,7 +300,7 @@ const slides = [
         name: 'Adam Freelander',
         title: 'Supervising Producer, Editorial',
         detail: 'Formerly Vox and NYT.',
-        image: null,
+        image: '/deck/adam-freelander.jpg',
       },
     ],
   },
