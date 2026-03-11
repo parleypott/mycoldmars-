@@ -210,29 +210,7 @@ const slides = [
     },
   },
 
-  // ─── 10. WHO WE ARE ───
-  {
-    layout: 'whoWeAre',
-    bg: 'green',
-    label: 'WHO WE ARE',
-    headline: 'Newpress takes the strengths of each model and rebuilds them for the creator era.',
-    traits: [
-      'Creator-led trust',
-      'Journalistic rigor',
-      'Visual-first storytelling',
-      'Scalable editorial infrastructure',
-    ],
-    resultText: 'The result: trusted journalism built for the internet era.',
-    valuesLabel: 'OUR EDITORIAL NORTH STAR',
-    values: [
-      'Understanding > noise',
-      'Nuance > polarization',
-      'Depth > volume',
-    ],
-    closing: 'We don\u2019t chase headlines.',
-  },
-
-  // ─── 12. BUSINESS MODEL ───
+  // ─── 11. BUSINESS MODEL ───
   {
     layout: 'business',
     bg: 'warm',
