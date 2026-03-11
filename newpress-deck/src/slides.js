@@ -357,8 +357,8 @@ const slides = [
       },
       {
         num: '3',
-        title: 'Editorial & Production Infrastructure',
-        text: 'Build the editorial systems that allow creators and trust to scale.',
+        title: 'Professionalize the Editorial Systems',
+        text: 'Attract the exceptional experienced talent that allow creators and trust to scale.',
         bullets: [
           'Reporting and research teams',
           'Production and visual storytelling capacity',
@@ -370,9 +370,11 @@ const slides = [
         title: 'Audience & Revenue Expansion',
         text: 'Strengthen direct audience relationships and monetization.',
         bullets: [
-          'Membership growth and owned audience channels',
-          'Brand partnerships and advertising expansion to more premium partners',
-          'Podcasts, newsletters, and licensing opportunities',
+          'Grow our audience and fully monetize our platforms and content',
+          'Build sales and marketing function',
+          'Invest in Membership scale and merchandising',
+          'Expand sponsorships with more premium brand partnerships',
+          'Mix paid marketing with owned channels to scale reach',
         ],
       },
     ],
