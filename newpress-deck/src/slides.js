@@ -307,7 +307,7 @@ const slides = [
     layout: 'fundingAsk',
     bg: 'green',
     label: 'THE OPPORTUNITY',
-    headline: 'We are raising growth capital.\nHere\u2019s the opportunity.',
+    headline: 'Capital investment will accelerate\nfour core areas of the Newpress model.',
     opportunities: [
       {
         title: 'Undermonetized audience',
