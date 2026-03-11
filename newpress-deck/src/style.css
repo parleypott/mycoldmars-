@@ -1210,10 +1210,15 @@ html, body {
   position: absolute; z-index: 2;
   bottom: clamp(36px,6vw,72px); right: clamp(40px,8vw,120px);
   font-family: var(--font-head); font-style: italic;
-  font-size: clamp(14px, 1.6vw, 20px);
-  color: rgba(244,242,230,0.6);
+  font-size: clamp(20px, 2.4vw, 32px);
+  color: rgba(244,242,230,0.9);
   letter-spacing: 0.04em;
-  text-shadow: 0 1px 12px rgba(0,0,0,0.4);
+  padding: clamp(12px,1.5vw,20px) clamp(20px,2.5vw,36px);
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(244,242,230,0.12);
+  border-radius: 4px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .he-overlay {
