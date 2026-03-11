@@ -401,7 +401,7 @@ function renderSlide(s) {
           <div class="he-body" style="margin-top:28px;max-width:640px">
             <p class="body" style="margin-bottom:16px">${e(s.body1)}</p>
             <p class="body" style="margin-bottom:16px">${e(s.body2)}</p>
-            <p class="kicker">${e(s.body3)}</p>
+            <p class="body">${e(s.body3)}</p>
             ${s.comingSoon ? `<span class="he-coming">${e(s.comingSoon)}</span>` : ''}
           </div>
         </div>
