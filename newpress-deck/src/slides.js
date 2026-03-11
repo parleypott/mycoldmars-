@@ -289,7 +289,7 @@ const slides = [
         name: 'Jon Laurence',
         title: 'VP Production',
         detail: 'Emmy & Peabody winner. Formerly AJ+, NowThis, Channel 4 UK.',
-        image: null,
+        image: '/deck/jon-laurence.jpg',
       },
       {
         name: 'Adam Freelander',
