@@ -111,9 +111,10 @@ const slides = [
       {
         num: '1',
         title: 'THE PROOF OF CONCEPT',
+        subtitle: 'Built from scratch. 3.2M average video views. The playbook that became Newpress.',
         name: 'Johnny Harris',
         tagline: 'Examining the systems that run our world through the voices of those most affected.',
-        detail: 'Built from scratch. 3.2M average video views. The playbook that became Newpress.',
+        detail: 'Ex-Vox Borders, Emmy winning.',
         subs: '7.5M subscribers',
         image: '/deck/johnny-harris.png',
         youtube: 'https://www.youtube.com/@johnnyharris',
