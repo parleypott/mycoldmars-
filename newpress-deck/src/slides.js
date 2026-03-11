@@ -318,7 +318,7 @@ const slides = [
       },
       {
         title: 'Distribution upside',
-        text: 'Outsized growth potential through YouTube optimization, growing demand for Shorts, and broader social platform expansion.',
+        text: 'Outsized growth potential through YouTube optimization, growing demand for Shorts, broader social platform expansion and licensing and syndication.',
       },
       {
         title: 'Untapped channel expansion',
