@@ -880,15 +880,15 @@ html, body {
 }
 
 .stages {
-  display: flex; flex-direction: column; gap: 24px; max-width: 900px;
+  display: flex; flex-direction: column; gap: 14px; max-width: 900px;
 }
 .stage {
-  border-top: 1px solid rgba(244,242,230,0.06); padding-top: 20px;
+  border-top: 1px solid rgba(244,242,230,0.06); padding-top: 12px;
 }
 .stage:first-child { border-top: none; padding-top: 0; }
 .stage-header {
-  display: inline-flex; align-items: center; gap: 10px; margin-bottom: 14px;
-  background: var(--blue); padding: 8px 16px 8px 10px; border-radius: 4px;
+  display: inline-flex; align-items: center; gap: 10px; margin-bottom: 8px;
+  background: var(--blue); padding: 6px 14px 6px 8px; border-radius: 4px;
 }
 .stage-num {
   width: 22px; height: 22px; border-radius: 50%; background: rgba(244,242,230,0.2);
@@ -902,8 +902,8 @@ html, body {
   color: #fff;
 }
 .stage-subtitle {
-  font-family: var(--font-body); font-size: clamp(13px,1.15vw,15px);
-  color: var(--text); line-height: 1.7; margin-bottom: 14px;
+  font-family: var(--font-body); font-size: clamp(12px,1vw,14px);
+  color: var(--text); line-height: 1.6; margin-bottom: 8px;
 }
 .stage-tagline {
   font-family: var(--font-head); font-size: clamp(13px,1.2vw,16px);
@@ -913,14 +913,14 @@ html, body {
 .stage-single, .stage-creators {
   display: flex; gap: 16px; align-items: flex-start;
 }
-.stage-creators { flex-direction: column; gap: 14px; }
+.stage-creators { flex-direction: column; gap: 10px; }
 .stage-creator { display: flex; gap: 14px; align-items: flex-start; }
 
 .stage-avatar {
   width: 56px; height: 56px; border-radius: 4px; object-fit: cover; flex-shrink: 0;
 }
 .stage-avatar-lg {
-  width: 80px; height: 80px;
+  width: 64px; height: 64px;
 }
 .stage-avatar.placeholder-avatar {
   background: var(--sepia); display: flex; align-items: center; justify-content: center;
