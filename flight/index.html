@@ -13,7 +13,6 @@
 
     #map { width: 100%; height: 100%; }
 
-    /* Hide Mapbox attribution */
     .mapboxgl-ctrl-bottom-left,
     .mapboxgl-ctrl-bottom-right,
     .mapboxgl-ctrl-attrib { display: none !important; }
@@ -26,7 +25,6 @@
     }
     #back:hover { color: rgba(255,255,255,0.8); }
 
-    /* Palau label */
     #palau-label {
       position: fixed; bottom: 22%; left: 50%;
       transform: translateX(-50%);
@@ -50,7 +48,16 @@
     }
     #palau-label.visible { opacity: 1; }
 
-    /* Grain */
+    /* DC label */
+    .marker-label {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+      pointer-events: none;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    }
+
     body::after {
       content: '';
       position: fixed; inset: 0;
@@ -71,11 +78,10 @@
 <script>
 mapboxgl.accessToken = 'pk.eyJ1Ijoiam9obm55d2hhcnJpcyIsImEiOiJ3ck1DN2dnIn0.B-hCqwHxWQwTFGYWOfCLfg';
 
-// ── Coordinates ──
 const DC    = [-77.037, 38.907];
 const PALAU = [134.479, 7.515];
 
-// ── Great circle interpolation ──
+// Great circle interpolation
 function toRad(d) { return d * Math.PI / 180; }
 function toDeg(r) { return r * 180 / Math.PI; }
 
@@ -102,21 +108,22 @@ function greatCirclePoints(from, to, n) {
   return pts;
 }
 
-const ARC_POINTS = greatCirclePoints(DC, PALAU, 120);
+const ARC_POINTS = greatCirclePoints(DC, PALAU, 200);
 
-// ── Map ──
+// Midpoint of the arc for centering the globe
+const mid = ARC_POINTS[Math.floor(ARC_POINTS.length / 2)];
+
 const map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/mapbox/dark-v11',
-  center: [20, 20],
-  zoom: 1.5,
+  center: mid,
+  zoom: 1.3,
   projection: 'globe',
   interactive: false,
   attributionControl: false,
 });
 
 map.on('style.load', () => {
-  // Atmosphere — dark, minimal
   map.setFog({
     color: '#1c1c1e',
     'high-color': '#1c1c1e',
@@ -125,7 +132,6 @@ map.on('style.load', () => {
     'star-intensity': 0.0,
   });
 
-  // Override land/water to match charcoal aesthetic
   const layers = map.getStyle().layers;
   for (const layer of layers) {
     if (layer.type === 'fill' && layer.id.includes('land')) {
@@ -138,7 +144,6 @@ map.on('style.load', () => {
       map.setPaintProperty(layer.id, 'line-color', 'rgba(255,255,255,0.35)');
       map.setPaintProperty(layer.id, 'line-width', 0.5);
     }
-    // Hide labels, roads, buildings for minimalism
     if (['symbol','line'].includes(layer.type) &&
         (layer.id.includes('road') || layer.id.includes('transit') ||
          layer.id.includes('label') || layer.id.includes('place') ||
@@ -147,13 +152,12 @@ map.on('style.load', () => {
     }
   }
 
-  // ── Arc source & layers ──
+  // Arc source
   map.addSource('arc', {
     type: 'geojson',
     data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } }
   });
 
-  // Glow (wide, faint)
   map.addLayer({
     id: 'arc-glow',
     type: 'line',
@@ -166,7 +170,6 @@ map.on('style.load', () => {
     }
   });
 
-  // Core line
   map.addLayer({
     id: 'arc-line',
     type: 'line',
@@ -178,7 +181,26 @@ map.on('style.load', () => {
     }
   });
 
-  // Dot at tip of arc (leading point)
+  // Endpoint dots
+  map.addSource('endpoints', {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [
+      { type: 'Feature', geometry: { type: 'Point', coordinates: DC }, properties: { label: 'DC' } },
+    ]}
+  });
+
+  map.addLayer({
+    id: 'endpoint-dots',
+    type: 'circle',
+    source: 'endpoints',
+    paint: {
+      'circle-radius': 4,
+      'circle-color': '#ffffff',
+      'circle-opacity': 0,
+    }
+  });
+
+  // Leading dot
   map.addSource('dot', {
     type: 'geojson',
     data: { type: 'Feature', geometry: { type: 'Point', coordinates: DC } }
@@ -188,29 +210,16 @@ map.on('style.load', () => {
     type: 'circle',
     source: 'dot',
     paint: {
-      'circle-radius': 4,
+      'circle-radius': 5,
       'circle-color': '#ffffff',
       'circle-opacity': 0,
       'circle-blur': 0.3,
     }
   });
 
-  startLoop();
+  // Start the animation after a brief pause
+  setTimeout(startAnimation, 1200);
 });
-
-// ── Animation state machine ──
-const STATE = { SPINNING: 0, DRAWING: 1, HOLDING: 2, FADING: 3, ZOOMING_IN: 4, ZOOMING_OUT: 5 };
-let state = STATE.SPINNING;
-let spinBearing = 20;
-let drawProgress = 0;   // 0→1
-let arcOpacity = 0;
-let spinRAF = null;
-
-const SPIN_SPEED     = 0.018;  // degrees/frame
-const DRAW_SPEED     = 0.004;  // fraction/frame
-const HOLD_MS        = 3200;
-const FADE_DURATION  = 1400;
-const DRAW_START_BEARING = -40; // bearing where DC comes into good view
 
 function setArcProgress(t) {
   const n = Math.max(1, Math.floor(t * ARC_POINTS.length));
@@ -225,106 +234,42 @@ function setArcProgress(t) {
   }
 }
 
-function clearArc() {
-  map.getSource('arc').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [] } });
-  map.setPaintProperty('arc-line', 'line-opacity', 0.9);
-  map.setPaintProperty('arc-glow', 'line-opacity', 0.08);
-  map.setPaintProperty('arc-dot', 'circle-opacity', 0);
-}
+function startAnimation() {
+  // Show DC dot
+  map.setPaintProperty('endpoint-dots', 'circle-opacity', 0.7);
 
-function showLabel() { document.getElementById('palau-label').classList.add('visible'); }
-function hideLabel() { document.getElementById('palau-label').classList.remove('visible'); }
+  // Start drawing arc
+  let progress = 0;
+  const DRAW_SPEED = 0.004;
 
-function fadeArcOut(duration, cb) {
-  const start = performance.now();
-  const startOp = 0.9, startGlow = 0.08;
-  function tick(ts) {
-    const t = Math.min((ts - start) / duration, 1);
-    map.setPaintProperty('arc-line', 'line-opacity', startOp * (1 - t));
-    map.setPaintProperty('arc-glow', 'line-opacity', startGlow * (1 - t));
-    map.setPaintProperty('arc-dot', 'circle-opacity', 0.9 * (1 - t));
-    if (t < 1) requestAnimationFrame(tick);
-    else { clearArc(); if (cb) cb(); }
-  }
-  requestAnimationFrame(tick);
-}
+  map.setPaintProperty('arc-dot', 'circle-opacity', 0.9);
 
-function animateDotIn(duration, cb) {
-  const start = performance.now();
-  function tick(ts) {
-    const t = Math.min((ts - start) / duration, 1);
-    map.setPaintProperty('arc-dot', 'circle-opacity', t * 0.9);
-    if (t < 1) requestAnimationFrame(tick);
-    else if (cb) cb();
-  }
-  requestAnimationFrame(tick);
-}
+  function draw() {
+    progress = Math.min(progress + DRAW_SPEED, 1);
+    setArcProgress(easeInOut(progress));
 
-function loop() {
-  if (state === STATE.SPINNING) {
-    spinBearing += SPIN_SPEED;
-    map.setBearing(spinBearing % 360);
+    if (progress < 1) {
+      requestAnimationFrame(draw);
+    } else {
+      // Arc complete — show Palau label and zoom in
+      document.getElementById('palau-label').classList.add('visible');
 
-    // Normalize bearing to check if DC is centered-ish (bearing ~-40 to 0)
-    const b = ((spinBearing % 360) + 360) % 360;
-    if (b > 316 && b < 326) {
-      state = STATE.DRAWING;
-      drawProgress = 0;
-      clearArc();
-      map.setPaintProperty('arc-dot', 'circle-opacity', 0);
-      animateDotIn(600, null);
-    }
-  }
-  else if (state === STATE.DRAWING) {
-    spinBearing += SPIN_SPEED * 0.3; // slow the spin while drawing
-    map.setBearing(spinBearing % 360);
-    drawProgress = Math.min(drawProgress + DRAW_SPEED, 1);
-    setArcProgress(drawProgress);
-    map.setPaintProperty('arc-dot', 'circle-opacity', 0.9);
-
-    if (drawProgress >= 1) {
-      state = STATE.ZOOMING_IN;
-      showLabel();
-      map.flyTo({
-        center: PALAU,
-        zoom: 5.5,
-        duration: 2400,
-        easing: t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t,
-      });
       setTimeout(() => {
-        state = STATE.HOLDING;
-        setTimeout(() => {
-          state = STATE.FADING;
-          hideLabel();
-          fadeArcOut(FADE_DURATION, () => {
-            state = STATE.ZOOMING_OUT;
-            map.flyTo({
-              center: [spinBearing % 360 > 180 ? 20 : 20, 20],
-              zoom: 1.5,
-              bearing: spinBearing % 360,
-              duration: 2000,
-              easing: t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t,
-            });
-            setTimeout(() => {
-              state = STATE.SPINNING;
-            }, 2200);
-          });
-        }, HOLD_MS);
-      }, 2600);
+        map.flyTo({
+          center: PALAU,
+          zoom: 5.5,
+          duration: 2800,
+          easing: t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t,
+        });
+      }, 600);
     }
   }
 
-  spinRAF = requestAnimationFrame(loop);
+  requestAnimationFrame(draw);
 }
 
-function startLoop() {
-  // Set initial camera
-  map.setCenter([20, 20]);
-  map.setZoom(1.5);
-  map.setBearing(spinBearing);
-  clearArc();
-  state = STATE.SPINNING;
-  loop();
+function easeInOut(t) {
+  return t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
 }
 </script>
 </body>
