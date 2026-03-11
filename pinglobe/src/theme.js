@@ -77,6 +77,45 @@ const THEMES = {
     },
   },
 
+  pink: {
+    label: 'Pink',
+    css: {
+      '--bg': '#ff7eb3',
+      '--bg-panel': 'rgba(255, 126, 179, 0.95)',
+      '--bg-solid': '#ff7eb3',
+      '--bg-start': 'rgba(255, 126, 179, 0.85)',
+      '--text': '#ffffff',
+      '--text-dim': 'rgba(255, 255, 255, 0.6)',
+      '--text-faint': 'rgba(255, 255, 255, 0.3)',
+      '--red': '#d6336c',
+      '--green': '#ffffff',
+      '--border': '#ffffff',
+      '--border-light': 'rgba(255, 255, 255, 0.25)',
+      '--font': "'Space Grotesk', 'Helvetica Neue', system-ui, sans-serif",
+      '--mono': "'Space Mono', 'Courier New', monospace",
+      '--btn-bg': '#ffffff',
+      '--btn-text': '#ff7eb3',
+    },
+    map: {
+      background: '#ff7eb3',
+      water: '#ff7eb3',
+      outlines: '#ffffff',
+      labelColor: ['interpolate', ['linear'], ['zoom'], 1, 'rgba(255,255,255,0)', 2, 'rgba(255,255,255,0.2)', 3, 'rgba(255,255,255,0.4)', 5, 'rgba(255,255,255,0.7)', 7, '#ffffff'],
+      labelHalo: '#ff7eb3',
+      capitalColor: ['interpolate', ['linear'], ['zoom'], 3, 'rgba(255,255,255,0.3)', 5, 'rgba(255,255,255,0.6)', 7, 'rgba(255,255,255,0.85)'],
+      cityColor: 'rgba(255,255,255,0.4)',
+      cityMinorColor: 'rgba(255,255,255,0.25)',
+      fog: {
+        color: '#ff7eb3',
+        'high-color': '#ff7eb3',
+        'space-color': '#ff7eb3',
+        'horizon-blend': 0,
+        'star-intensity': 0,
+        range: [20, 20],
+      },
+    },
+  },
+
   monochrome: {
     label: 'Monochrome',
     css: {
@@ -116,7 +155,7 @@ const THEMES = {
   },
 };
 
-const THEME_ORDER = ['bold', 'monochrome', 'neon'];
+const THEME_ORDER = ['bold', 'pink', 'monochrome', 'neon'];
 let currentTheme = 'bold';
 let mapRef = null;
 
