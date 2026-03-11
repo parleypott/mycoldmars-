@@ -404,7 +404,20 @@ const slides = [
     closing: 'We\u2019ve proven the model. Now we build the institution.',
   },
 
-  // ─── 19. APPENDIX / FINANCIALS ───
+  // ─── 19. APPENDIX / ANNUAL GROWTH ───
+  {
+    layout: 'appendixGrowth',
+    bg: 'yellow',
+    label: 'APPENDIX / ANNUAL GROWTH',
+    headline: 'FY25 Growth',
+    stats: [
+      { number: '2.8M', label: 'subscribers gained' },
+      { number: '736M', label: 'views' },
+      { number: '137M', label: 'hours watched (YT)' },
+    ],
+  },
+
+  // ─── 20. APPENDIX / FINANCIALS ───
   {
     layout: 'appendixFinancials',
     bg: 'yellow',

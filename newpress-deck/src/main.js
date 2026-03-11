@@ -523,6 +523,20 @@ function renderSlide(s) {
         ${s.closing ? `<p class="closing-statement">${e(s.closing)}</p>` : ''}
       `;
 
+    case 'appendixGrowth':
+      return `
+        ${labelHTML(s)}
+        <h1 class="headline headline-lg">${nl(s.headline)}</h1>
+        <div class="poc-stats" style="margin-top:36px">
+          ${s.stats.map(st => `
+            <div class="poc-stat">
+              <span class="poc-num">${e(st.number)}</span>
+              <span class="poc-label">${e(st.label)}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
     case 'appendixFinancials':
       return `
         ${labelHTML(s)}
