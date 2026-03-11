@@ -201,7 +201,6 @@ const slides = [
   {
     layout: 'monetization',
     bg: 'blue',
-    label: 'MONETIZATION READINESS',
     headline: 'We are built for\nthis moment.',
     body: 'Our creator-led media brands are ready to absorb the next generation of advertising. A brand-safe environment where creators can produce high-quality content at scale.',
     revenueOpp: {
