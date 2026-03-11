@@ -352,6 +352,7 @@ const slides = [
         bullets: [
           'Develop flagship documentary-style programming',
           'Establish signature shows that elevate the entire network',
+          'Live events, and in-person premieres with creators',
         ],
       },
       {
