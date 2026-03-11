@@ -97,6 +97,8 @@ const slides = [
       { number: '13M+', label: 'followers' },
       { number: '30M', label: 'monthly views' },
       { number: '70%', label: 'returning viewers' },
+      { number: '1.26B', label: 'lifetime views' },
+      { number: '137M', label: 'lifetime hours watched' },
     ],
     kicker: 'Our shows are built in the language of the internet, designed for mass distribution across YouTube and social platforms, proving the power of creator-led journalism at scale.',
   },
