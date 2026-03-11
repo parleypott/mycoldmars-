@@ -530,8 +530,8 @@ function renderSlide(s) {
         <div class="poc-stats" style="margin-top:36px">
           ${s.stats.map(st => `
             <div class="poc-stat">
-              <span class="poc-num">${e(st.number)}</span>
-              <span class="poc-label">${e(st.label)}</span>
+              <span class="poc-num" style="color:var(--ink)">${e(st.number)}</span>
+              <span class="poc-label" style="color:var(--ink)">${e(st.label)}</span>
             </div>
           `).join('')}
         </div>
