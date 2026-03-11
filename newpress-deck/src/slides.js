@@ -105,7 +105,6 @@ const slides = [
   {
     layout: 'creators',
     bg: 'warm',
-    label: 'HERE\u2019S HOW WE PROVED IT',
     headline: 'The shows we\u2019ve built so far.',
     heroImage: '/deck/creators.gif',
     stages: [
