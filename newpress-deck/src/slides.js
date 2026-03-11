@@ -313,7 +313,7 @@ const slides = [
     headline: 'We are raising growth capital.\nHere\u2019s the opportunity.',
     opportunities: [
       {
-        title: 'Significant monetization headroom',
+        title: 'Undermonetized audience',
         text: 'Tens of millions of followers with only very early traction (newly launched membership product) leaving significant room to grow direct to consumer.',
       },
       {
