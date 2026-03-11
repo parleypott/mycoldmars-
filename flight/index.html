@@ -10,7 +10,6 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; background: #1c1c1e; overflow: hidden; font-family: 'DM Sans', sans-serif; }
-
     #map { width: 100%; height: 100%; }
 
     .mapboxgl-ctrl-bottom-left,
@@ -25,38 +24,26 @@
     }
     #back:hover { color: rgba(255,255,255,0.8); }
 
-    #palau-label {
-      position: fixed; bottom: 22%; left: 50%;
-      transform: translateX(-50%);
-      text-align: center;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 1.2s ease;
+    .location-label {
+      position: fixed; left: 50%; transform: translateX(-50%);
+      text-align: center; pointer-events: none;
+      opacity: 0; transition: opacity 1.4s ease;
       z-index: 10;
     }
-    #palau-label .name {
+    #dc-label { top: 18%; }
+    #palau-label { bottom: 18%; }
+    .location-label .name {
       font-size: clamp(28px, 6vw, 52px);
       font-weight: 900; letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #ffffff;
+      text-transform: uppercase; color: #ffffff;
     }
-    #palau-label .sub {
+    .location-label .sub {
       font-size: 11px; letter-spacing: 0.25em;
       text-transform: uppercase;
       color: rgba(255,255,255,0.35);
       margin-top: 6px;
     }
-    #palau-label.visible { opacity: 1; }
-
-    /* DC label */
-    .marker-label {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 10px; font-weight: 700;
-      letter-spacing: 0.15em; text-transform: uppercase;
-      color: rgba(255,255,255,0.5);
-      pointer-events: none;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.6);
-    }
+    .location-label.visible { opacity: 1; }
 
     body::after {
       content: '';
@@ -69,10 +56,17 @@
 <body>
 
 <a href="/" id="back">← Back</a>
-<div id="palau-label">
+
+<div id="dc-label" class="location-label">
+  <div class="name">Washington DC</div>
+  <div class="sub">Departure</div>
+</div>
+
+<div id="palau-label" class="location-label">
   <div class="name">Palau</div>
   <div class="sub">13,000 km · 15h from DC</div>
 </div>
+
 <div id="map"></div>
 
 <script>
@@ -81,7 +75,7 @@ mapboxgl.accessToken = 'pk.eyJ1Ijoiam9obm55d2hhcnJpcyIsImEiOiJ3ck1DN2dnIn0.B-hCq
 const DC    = [-77.037, 38.907];
 const PALAU = [134.479, 7.515];
 
-// Great circle interpolation
+// ── Great circle ──
 function toRad(d) { return d * Math.PI / 180; }
 function toDeg(r) { return r * 180 / Math.PI; }
 
@@ -108,16 +102,51 @@ function greatCirclePoints(from, to, n) {
   return pts;
 }
 
-const ARC_POINTS = greatCirclePoints(DC, PALAU, 200);
+const ARC_POINTS = greatCirclePoints(DC, PALAU, 300);
+const MID = ARC_POINTS[Math.floor(ARC_POINTS.length / 2)];
 
-// Midpoint of the arc for centering the globe
-const mid = ARC_POINTS[Math.floor(ARC_POINTS.length / 2)];
+// ── Camera keyframes ──
+// Each keyframe: { t: 0-1, center: [lng,lat], zoom: n }
+// Camera interpolates smoothly between these as the arc draws
+const CAMERA_KEYFRAMES = [
+  { t: 0.0,  center: DC,    zoom: 2.8 },
+  { t: 0.15, center: DC,    zoom: 2.2 },   // linger on DC
+  { t: 0.5,  center: MID,   zoom: 1.2 },   // pull out to see the full route
+  { t: 0.85, center: PALAU, zoom: 2.2 },   // approaching Palau
+  { t: 1.0,  center: PALAU, zoom: 2.8 },   // arrive
+];
 
+function lerpCamera(t) {
+  // Find the two keyframes we're between
+  let a = CAMERA_KEYFRAMES[0], b = CAMERA_KEYFRAMES[CAMERA_KEYFRAMES.length - 1];
+  for (let i = 0; i < CAMERA_KEYFRAMES.length - 1; i++) {
+    if (t >= CAMERA_KEYFRAMES[i].t && t <= CAMERA_KEYFRAMES[i+1].t) {
+      a = CAMERA_KEYFRAMES[i];
+      b = CAMERA_KEYFRAMES[i+1];
+      break;
+    }
+  }
+  const segT = (t - a.t) / (b.t - a.t);
+  const ease = segT < 0.5 ? 2*segT*segT : -1+(4-2*segT)*segT; // ease in-out per segment
+
+  return {
+    center: [
+      a.center[0] + (b.center[0] - a.center[0]) * ease,
+      a.center[1] + (b.center[1] - a.center[1]) * ease,
+    ],
+    zoom: a.zoom + (b.zoom - a.zoom) * ease,
+  };
+}
+
+// ── Duration of the full arc draw (ms) ──
+const DRAW_DURATION = 12000;
+
+// ── Map ──
 const map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/mapbox/dark-v11',
-  center: mid,
-  zoom: 1.3,
+  center: DC,
+  zoom: 2.8,
   projection: 'globe',
   interactive: false,
   attributionControl: false,
@@ -134,12 +163,10 @@ map.on('style.load', () => {
 
   const layers = map.getStyle().layers;
   for (const layer of layers) {
-    if (layer.type === 'fill' && layer.id.includes('land')) {
+    if (layer.type === 'fill' && layer.id.includes('land'))
       map.setPaintProperty(layer.id, 'fill-color', '#2a2a2e');
-    }
-    if (layer.type === 'fill' && layer.id.includes('water')) {
+    if (layer.type === 'fill' && layer.id.includes('water'))
       map.setPaintProperty(layer.id, 'fill-color', '#1c1c1e');
-    }
     if (layer.type === 'line' && (layer.id.includes('border') || layer.id.includes('boundary'))) {
       map.setPaintProperty(layer.id, 'line-color', 'rgba(255,255,255,0.35)');
       map.setPaintProperty(layer.id, 'line-width', 0.5);
@@ -147,9 +174,8 @@ map.on('style.load', () => {
     if (['symbol','line'].includes(layer.type) &&
         (layer.id.includes('road') || layer.id.includes('transit') ||
          layer.id.includes('label') || layer.id.includes('place') ||
-         layer.id.includes('poi'))) {
+         layer.id.includes('poi')))
       map.setLayoutProperty(layer.id, 'visibility', 'none');
-    }
   }
 
   // Arc source
@@ -157,68 +183,39 @@ map.on('style.load', () => {
     type: 'geojson',
     data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } }
   });
+  map.addLayer({ id: 'arc-glow', type: 'line', source: 'arc', paint: {
+    'line-color': '#ffffff', 'line-width': 8, 'line-opacity': 0.08, 'line-blur': 4,
+  }});
+  map.addLayer({ id: 'arc-line', type: 'line', source: 'arc', paint: {
+    'line-color': '#ffffff', 'line-width': 1.5, 'line-opacity': 0.9,
+  }});
 
-  map.addLayer({
-    id: 'arc-glow',
-    type: 'line',
-    source: 'arc',
-    paint: {
-      'line-color': '#ffffff',
-      'line-width': 8,
-      'line-opacity': 0.08,
-      'line-blur': 4,
-    }
-  });
-
-  map.addLayer({
-    id: 'arc-line',
-    type: 'line',
-    source: 'arc',
-    paint: {
-      'line-color': '#ffffff',
-      'line-width': 1.5,
-      'line-opacity': 0.9,
-    }
-  });
-
-  // Endpoint dots
-  map.addSource('endpoints', {
-    type: 'geojson',
-    data: { type: 'FeatureCollection', features: [
-      { type: 'Feature', geometry: { type: 'Point', coordinates: DC }, properties: { label: 'DC' } },
-    ]}
-  });
-
-  map.addLayer({
-    id: 'endpoint-dots',
-    type: 'circle',
-    source: 'endpoints',
-    paint: {
-      'circle-radius': 4,
-      'circle-color': '#ffffff',
-      'circle-opacity': 0,
-    }
-  });
-
-  // Leading dot
-  map.addSource('dot', {
+  // DC dot
+  map.addSource('dc-dot', {
     type: 'geojson',
     data: { type: 'Feature', geometry: { type: 'Point', coordinates: DC } }
   });
-  map.addLayer({
-    id: 'arc-dot',
-    type: 'circle',
-    source: 'dot',
-    paint: {
-      'circle-radius': 5,
-      'circle-color': '#ffffff',
-      'circle-opacity': 0,
-      'circle-blur': 0.3,
-    }
-  });
+  map.addLayer({ id: 'dc-dot', type: 'circle', source: 'dc-dot', paint: {
+    'circle-radius': 5, 'circle-color': '#ffffff', 'circle-opacity': 0,
+  }});
 
-  // Start the animation after a brief pause
-  setTimeout(startAnimation, 1200);
+  // Leading dot
+  map.addSource('lead-dot', {
+    type: 'geojson',
+    data: { type: 'Feature', geometry: { type: 'Point', coordinates: DC } }
+  });
+  map.addLayer({ id: 'lead-dot', type: 'circle', source: 'lead-dot', paint: {
+    'circle-radius': 5, 'circle-color': '#ffffff', 'circle-opacity': 0, 'circle-blur': 0.3,
+  }});
+
+  // Show DC label, pause, then begin
+  setTimeout(() => {
+    document.getElementById('dc-label').classList.add('visible');
+    map.setPaintProperty('dc-dot', 'circle-opacity', 0.8);
+  }, 800);
+
+  // Start the arc draw after lingering on DC
+  setTimeout(startDraw, 3000);
 });
 
 function setArcProgress(t) {
@@ -228,48 +225,55 @@ function setArcProgress(t) {
     type: 'Feature', geometry: { type: 'LineString', coordinates: coords }
   });
   if (coords.length > 0) {
-    map.getSource('dot').setData({
-      type: 'Feature', geometry: { type: 'Point', coordinates: coords[coords.length-1] }
+    map.getSource('lead-dot').setData({
+      type: 'Feature', geometry: { type: 'Point', coordinates: coords[coords.length - 1] }
     });
   }
 }
 
-function startAnimation() {
-  // Show DC dot
-  map.setPaintProperty('endpoint-dots', 'circle-opacity', 0.7);
+function startDraw() {
+  // Hide DC label as we start moving
+  document.getElementById('dc-label').classList.remove('visible');
+  map.setPaintProperty('lead-dot', 'circle-opacity', 0.9);
 
-  // Start drawing arc
-  let progress = 0;
-  const DRAW_SPEED = 0.004;
+  const startTime = performance.now();
 
-  map.setPaintProperty('arc-dot', 'circle-opacity', 0.9);
+  function tick(now) {
+    const elapsed = now - startTime;
+    const rawT = Math.min(elapsed / DRAW_DURATION, 1);
 
-  function draw() {
-    progress = Math.min(progress + DRAW_SPEED, 1);
-    setArcProgress(easeInOut(progress));
+    // Global ease — slow start, steady middle, slow end
+    const t = easeInOutCubic(rawT);
 
-    if (progress < 1) {
-      requestAnimationFrame(draw);
+    // Draw arc
+    setArcProgress(t);
+
+    // Move camera
+    const cam = lerpCamera(rawT); // use raw t for camera so keyframe timing is predictable
+    map.jumpTo({ center: cam.center, zoom: cam.zoom });
+
+    if (rawT < 1) {
+      requestAnimationFrame(tick);
     } else {
-      // Arc complete — show Palau label and zoom in
-      document.getElementById('palau-label').classList.add('visible');
-
+      // Arrived at Palau
       setTimeout(() => {
+        document.getElementById('palau-label').classList.add('visible');
+        // Final slow zoom in
         map.flyTo({
           center: PALAU,
           zoom: 5.5,
-          duration: 2800,
+          duration: 3500,
           easing: t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t,
         });
-      }, 600);
+      }, 800);
     }
   }
 
-  requestAnimationFrame(draw);
+  requestAnimationFrame(tick);
 }
 
-function easeInOut(t) {
-  return t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3) / 2;
 }
 </script>
 </body>
