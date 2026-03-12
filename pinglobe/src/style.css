@@ -1201,3 +1201,32 @@ html, body {
   background: rgba(0, 255, 65, 0.3);
 }
 
+
+/* ── Custom glowing pin cursor ── */
+#map { cursor: none; }
+
+#custom-cursor {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -100%);
+  display: none;
+}
+
+#custom-cursor svg {
+  overflow: visible;
+  filter: drop-shadow(0 0 6px var(--cursor-color, #f0a020));
+}
+
+@keyframes pin-hue {
+  0%   { --cursor-color: #f0a020; }
+  20%  { --cursor-color: #e04060; }
+  40%  { --cursor-color: #a040f0; }
+  60%  { --cursor-color: #20c0f0; }
+  80%  { --cursor-color: #40e080; }
+  100% { --cursor-color: #f0a020; }
+}
+
+#custom-cursor {
+  animation: pin-hue 4s linear infinite;
+}

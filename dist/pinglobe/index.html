@@ -8,10 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.19.0/mapbox-gl.css" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/pinglobe-CTjVVcac.js"></script>
+  <script type="module" crossorigin src="/assets/pinglobe-tndtCPTw.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="modulepreload" crossorigin href="/assets/mapbox-gl-DFE56ATp.js">
-  <link rel="stylesheet" crossorigin href="/assets/pinglobe-BJZ-CuES.css">
+  <link rel="stylesheet" crossorigin href="/assets/pinglobe-Bc_WfFfh.css">
 </head>
 <body>
   <div id="app">
@@ -104,5 +104,40 @@
       </div>
     </div>
   </div>
+
+  <!-- Animated pin cursor -->
+  <div id="custom-cursor">
+    <svg width="24" height="36" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- pin body -->
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24C24 5.373 18.627 0 12 0z" fill="var(--cursor-color, #f0a020)" opacity="0.9"/>
+      <!-- inner circle highlight -->
+      <circle cx="12" cy="12" r="5" fill="white" opacity="0.35"/>
+      <!-- center dot -->
+      <circle cx="12" cy="12" r="2.5" fill="white" opacity="0.9"/>
+    </svg>
+  </div>
+
+<script>
+(function() {
+  const el = document.getElementById('custom-cursor');
+  const colors = ['#f0a020','#e04060','#a040f0','#20c0f0','#40e080'];
+  let colorIdx = 0, lastColor = Date.now();
+
+  document.addEventListener('mousemove', e => {
+    el.style.display = 'block';
+    el.style.left = e.clientX + 'px';
+    el.style.top  = e.clientY + 'px';
+    const now = Date.now();
+    if (now - lastColor > 800) {
+      colorIdx = (colorIdx + 1) % colors.length;
+      el.style.setProperty('--cursor-color', colors[colorIdx]);
+      lastColor = now;
+    }
+  });
+
+  document.addEventListener('mouseleave', () => { el.style.display = 'none'; });
+})();
+</script>
+
 </body>
 </html>

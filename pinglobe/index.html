@@ -101,5 +101,40 @@
     </div>
   </div>
   <script type="module" src="./src/main.js"></script>
+
+  <!-- Animated pin cursor -->
+  <div id="custom-cursor">
+    <svg width="24" height="36" viewBox="0 0 24 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- pin body -->
+      <path d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24C24 5.373 18.627 0 12 0z" fill="var(--cursor-color, #f0a020)" opacity="0.9"/>
+      <!-- inner circle highlight -->
+      <circle cx="12" cy="12" r="5" fill="white" opacity="0.35"/>
+      <!-- center dot -->
+      <circle cx="12" cy="12" r="2.5" fill="white" opacity="0.9"/>
+    </svg>
+  </div>
+
+<script>
+(function() {
+  const el = document.getElementById('custom-cursor');
+  const colors = ['#f0a020','#e04060','#a040f0','#20c0f0','#40e080'];
+  let colorIdx = 0, lastColor = Date.now();
+
+  document.addEventListener('mousemove', e => {
+    el.style.display = 'block';
+    el.style.left = e.clientX + 'px';
+    el.style.top  = e.clientY + 'px';
+    const now = Date.now();
+    if (now - lastColor > 800) {
+      colorIdx = (colorIdx + 1) % colors.length;
+      el.style.setProperty('--cursor-color', colors[colorIdx]);
+      lastColor = now;
+    }
+  });
+
+  document.addEventListener('mouseleave', () => { el.style.display = 'none'; });
+})();
+</script>
+
 </body>
 </html>

@@ -1108,25 +1108,25 @@ html, body {
    ============================================================ */
 .scale-grid {
   display: grid; grid-template-columns: repeat(2, 1fr);
-  gap: clamp(16px, 2vw, 24px); max-width: 1060px;
+  gap: clamp(10px, 1.4vw, 16px); max-width: 1060px;
 }
 .scale-card {
-  display: flex; gap: 16px; align-items: flex-start;
-  padding: clamp(16px, 2vw, 24px);
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: clamp(12px, 1.4vw, 18px);
   border: 1px solid rgba(244,242,230,0.1);
   border-radius: 6px; background: rgba(244,242,230,0.04);
 }
 .scale-content { flex: 1; }
 .scale-title {
-  font-family: var(--font-head); font-size: clamp(18px, 2vw, 26px);
-  color: var(--warm); margin-bottom: 6px; line-height: 1.2;
+  font-family: var(--font-head); font-size: clamp(15px, 1.6vw, 22px);
+  color: var(--warm); margin-bottom: 4px; line-height: 1.2;
 }
 .scale-text {
-  font-family: var(--font-body); font-size: clamp(12px, 1.1vw, 14px);
-  color: var(--text); line-height: 1.7;
+  font-family: var(--font-body); font-size: clamp(11px, 0.95vw, 13px);
+  color: var(--text); line-height: 1.6;
 }
 .scale-card .point-list li {
-  font-size: clamp(11px, 1vw, 13px);
+  font-size: clamp(10px, 0.85vw, 12px);
 }
 .scale-card .num-badge {
   flex-shrink: 0;
@@ -1330,4 +1330,19 @@ html, body {
   .comp-grid { grid-template-columns: 1fr; }
   .team-grid { grid-template-columns: repeat(2,1fr); }
   .stats-grid.four-col { grid-template-columns: 1fr; }
+}
+
+/* Stage launched tag */
+.stage-launched {
+  display: inline-block;
+  font-family: var(--font-body);
+  font-size: clamp(9px, 0.8vw, 11px);
+  color: rgba(244,242,230,0.5);
+  border: 1px solid rgba(244,242,230,0.2);
+  border-radius: 3px;
+  padding: 1px 6px;
+  margin-left: 8px;
+  vertical-align: middle;
+  font-weight: 400;
+  letter-spacing: 0.04em;
 }

@@ -65,7 +65,7 @@ const slides = [
         accent: false,
       },
     ],
-    footer: 'None of these models solve the core challenge of modern journalism: trust, scale, and sustainability, all at once.',
+    footer: 'None of these models solve the core challenge of modern journalism: <strong>trust, scale, and sustainability all at once.</strong>',
   },
 
   // ─── 5. NEWPRESS EDITORIAL MODEL ───
@@ -130,7 +130,7 @@ const slides = [
             name: 'Search Party \u00B7 Sam Ellis',
             tagline: 'Decoding geopolitics, sports and their unexpected links.',
             detail: 'Ex-Vox Atlas, Emmy nominated.',
-            subs: '1M subscribers',
+            subs: '900K subscribers',
             image: '/deck/sam-ellis.png',
             channel: '/deck/search-party-banner.jpg',
             youtube: 'https://www.youtube.com/@SearchParty',
@@ -139,7 +139,7 @@ const slides = [
             name: 'Tunnel Vision \u00B7 Christophe Haubursin',
             tagline: 'Using OSINT to solve internet mysteries and bring viewers along for the journey.',
             detail: 'Ex-Vox, Emmy nominated.',
-            subs: '286K subscribers',
+            subs: '290K subscribers',
             image: '/deck/christophe.png',
             channel: '/deck/tunnel-vision-banner.jpg',
             youtube: 'https://www.youtube.com/@christophe',
@@ -153,7 +153,8 @@ const slides = [
         name: 'The Bigger Picture \u00B7 Max Fisher',
         tagline: 'Illuminating our world\u2019s inner workings, from geopolitics to our deepest mental recesses.',
         detail: 'Pulitzer finalist, ex-NYT, ex-WaPo, founding editor of Vox.',
-        subs: '45K subscribers',
+        launched: '[launched Feb 2026]',
+        subs: '50K subscribers',
         image: '/deck/max-fisher.png',
         youtube: 'https://www.youtube.com/@maxfisher',
       },
@@ -174,7 +175,6 @@ const slides = [
       'Linear TV advertising is entering structural decline.',
       'Over $60B in annual ad spend is beginning to move out of television as audiences shift to digital platforms.',
       'The money has to go somewhere.',
-      'Brands want to move legacy ad spend to creators but need a rigorous, safe environment. We are the only credible option for journalism.',
     ],
   },
 
@@ -185,7 +185,7 @@ const slides = [
     label: 'MARKET POTENTIAL \u2014 THE DESTINATION',
     headline: 'The destination\nisn\u2019t clear yet.',
     stat: 'Nearly half (48%) of advertising decision-makers now classify creator partnerships as a \u201Cmust-buy\u201D strategic pillar, ranking it just behind social media and paid search in importance.',
-    body: 'Creators are capturing the audience. Brands want to move ad spend there. But most creators lack the infrastructure brands need:',
+    body: 'Brands want to move legacy ad spend to creators. But most creators lack the infrastructure brands need. We are the only credible option for journalism:',
     bullets: [
       'Brand safety',
       'Editorial rigor',
@@ -240,7 +240,7 @@ const slides = [
     layout: 'subscriberModel',
     bg: 'burgundy',
     label: 'NEW MEMBERSHIP PLATFORM',
-    body: 'Newpress.com is the home for the most curious audience on the internet. Launched in February 2026, we already have over 40k active users and over 4k paying ($60/yr). The platform gives our audience a place to contribute to reporting and witness stories as they take shape. Over time, it will grow into a destination people return to each week to understand the world, and explore ideas together.',
+    body: 'Newpress.com, launched in February 2026, already has over 30K active users and over 4k paying ($60/year). The platform gives our audience a place to contribute to reporting and witness stories as they take shape. Over time, it will grow into a destination people return to each week to understand the world, and explore ideas together.',
     images: [
       '/deck/sub-homepage.png',
       '/deck/sub-palau.png',
@@ -307,7 +307,7 @@ const slides = [
     layout: 'fundingAsk',
     bg: 'green',
     label: 'THE OPPORTUNITY',
-    headline: 'Capital investment will accelerate\nfour core areas of the Newpress model.',
+    headline: 'We\'re raising growth capital.\nHere\'s the opportunity.',
     opportunities: [
       {
         title: 'Undermonetized audience',
@@ -333,7 +333,7 @@ const slides = [
     layout: 'howWeScale',
     bg: 'green',
     label: 'HOW WE SCALE',
-    headline: 'This investment will accelerate four core areas of the Newpress model.',
+    headline: 'Capital investment will accelerate four core areas of the Newpress model.',
     sections: [
       {
         num: '1',
@@ -394,7 +394,7 @@ const slides = [
       },
       {
         title: 'YEAR 3\u20134',
-        items: ['20+ creator network', '$20M+ revenue', 'Dominant in premium creator advertising'],
+        items: ['100M+ subscribers', '$20M+ revenue', 'Dominant in premium creator advertising'],
       },
       {
         title: 'YEAR 5',
@@ -412,8 +412,8 @@ const slides = [
     headline: 'FY25 Growth',
     stats: [
       { number: '2.8M', label: 'subscribers gained' },
-      { number: '736M', label: 'views' },
-      { number: '137M', label: 'hours watched (YT)' },
+      { number: '736M', label: 'views gained' },
+      { number: '137M', label: 'hours watched (YT) increased' },
     ],
   },
 

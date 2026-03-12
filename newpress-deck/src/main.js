@@ -271,7 +271,7 @@ function renderSlide(s) {
             </div>
           `).join('')}
         </div>
-        ${s.footer ? `<p class="kicker" style="margin-top:28px">${e(s.footer)}</p>` : ''}
+        ${s.footer ? `<p class="kicker" style="margin-top:28px">${s.footer}</p>` : ''}
       `;
 
     case 'creatorsTimeline':
@@ -348,7 +348,7 @@ function renderSlide(s) {
                   ${st.name ? imgOrPlaceholder(st.image, st.name, 'stage-avatar stage-avatar-lg') : ''}
                   <div class="stage-info">
                     ${st.name && st.youtube
-                      ? `<a href="${st.youtube}" target="_blank" rel="noopener" class="stage-name stage-yt-link">${e(st.name)}<svg class="yt-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></a>`
+                      ? `<a href="${st.youtube}" target="_blank" rel="noopener" class="stage-name stage-yt-link">${e(st.name)}<svg class="yt-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>${st.launched ? ` <span class="stage-launched">${e(st.launched)}</span>` : ''}</a>`
                       : st.name ? `<p class="stage-name">${e(st.name)}</p>` : ''}
                     ${st.tagline ? `<p class="stage-tagline">${e(st.tagline)}</p>` : ''}
                     <p class="stage-detail">${e(st.detail)}${st.subs ? ` <span class="subs-highlight">${e(st.subs)}</span>` : ''}</p>
@@ -459,7 +459,7 @@ function renderSlide(s) {
     case 'howWeScale':
       return `
         ${labelHTML(s)}
-        <h1 class="headline headline-md" style="margin-bottom:28px">${e(s.headline)}</h1>
+        <h1 class="headline headline-md" style="margin-bottom:16px;font-size:clamp(22px,2.2vw,32px)">${e(s.headline)}</h1>
         <div class="scale-grid">
           ${s.sections.map(sec => `
             <div class="scale-card">
