@@ -1215,18 +1215,16 @@ html, body {
 
 #custom-cursor svg {
   overflow: visible;
-  filter: drop-shadow(0 0 6px var(--cursor-color, #f0a020));
+  filter: drop-shadow(0 0 4px var(--cursor-color, #e8941a));
 }
 
 @keyframes pin-hue {
-  0%   { --cursor-color: #f0a020; }
-  20%  { --cursor-color: #e04060; }
-  40%  { --cursor-color: #a040f0; }
-  60%  { --cursor-color: #20c0f0; }
-  80%  { --cursor-color: #40e080; }
-  100% { --cursor-color: #f0a020; }
+  0%   { --cursor-color: #e8941a; }
+  33%  { --cursor-color: #c8d840; }
+  66%  { --cursor-color: #40b8d0; }
+  100% { --cursor-color: #e8941a; }
 }
 
 #custom-cursor {
-  animation: pin-hue 4s linear infinite;
+  animation: pin-hue 14s ease-in-out infinite;
 }
