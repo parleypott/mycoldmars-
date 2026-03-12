@@ -23,6 +23,7 @@ export default defineConfig({
         spin: resolve(__dirname, 'spin/index.html'),
         hakka: resolve(__dirname, 'hakka/index.html'),
         animation: resolve(__dirname, 'animation/index.html'),
+        essays: resolve(__dirname, 'essays/index.html'),
       },
     },
   },
