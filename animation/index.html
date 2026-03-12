@@ -171,7 +171,7 @@ function showResult(p) {
   const m = matchAnim(p);
   document.getElementById('generatingState').style.display = 'none';
   document.getElementById('resultPlayer').setAttribute('src', m.src);
-  document.getElementById('resultLabel').textContent = '"' + m.label + '"';
+  document.getElementById('resultLabel').textContent = m.label;
   document.getElementById('previewResult').style.display = 'flex';
 }
 
