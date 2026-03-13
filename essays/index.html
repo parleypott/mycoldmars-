@@ -8,369 +8,323 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400&display=swap" rel="stylesheet">
   <style>
     :root {
-      --paper: #f2ede4;
-      --ink: #1a1714;
-      --rule: rgba(26,23,20,0.12);
-      --amber: #c8760a;
-      --amber-bg: #f5e6c8;
+      --paper: #f0ebe0;
+      --ink: #181411;
+      --rule: rgba(24,20,17,0.1);
+      --amber: #c07010;
       --mono: 'Space Mono', monospace;
       --serif: 'DM Serif Display', serif;
       --sans: 'DM Sans', sans-serif;
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
     html, body {
       background: var(--paper);
       color: var(--ink);
       font-family: var(--sans);
       min-height: 100%;
-      transition: background 1.8s ease;
+      overflow-x: hidden;
     }
 
-    body.playing { background: var(--amber-bg); }
-
-    /* Grain */
-    body::after {
-      content: '';
-      position: fixed; inset: 0; pointer-events: none; z-index: 999;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.032'/%3E%3C/svg%3E");
+    /* Grain overlay */
+    body::before {
+      content:''; position:fixed; inset:0; pointer-events:none; z-index:999;
+      opacity: 0.045;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
     }
 
-    /* ── Layout ── */
-    .page {
-      display: grid;
-      grid-template-columns: 48px 1fr;
-      min-height: 100vh;
+    /* ── Ticker ── */
+    .ticker-wrap {
+      border-bottom: 1px solid var(--rule);
+      overflow: hidden;
+      height: 28px;
+      display: flex; align-items: center;
+      background: var(--ink);
     }
-
-    /* Vertical spine */
-    .spine {
-      border-right: 1px solid var(--rule);
-      display: flex; align-items: flex-start; justify-content: center;
-      padding-top: 32px;
-      position: relative;
-    }
-    .spine-text {
-      writing-mode: vertical-rl;
-      text-orientation: mixed;
-      transform: rotate(180deg);
-      font-family: var(--mono);
-      font-size: 9px;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      color: rgba(26,23,20,0.25);
-      user-select: none;
-    }
-
-    /* Main content */
-    .content {
+    .ticker-track {
       display: flex;
-      flex-direction: column;
+      white-space: nowrap;
+      animation: ticker 28s linear infinite;
     }
+    @keyframes ticker {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    .ticker-item {
+      font-family: var(--mono);
+      font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: rgba(240,235,224,0.35);
+      padding: 0 32px;
+    }
+    .ticker-item span { color: var(--amber); margin-right: 8px; }
 
     /* ── Masthead ── */
     .masthead {
-      padding: 36px 28px 28px;
+      display: grid;
+      grid-template-columns: 56px 1fr;
       border-bottom: 2px solid var(--ink);
     }
-    .masthead-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 4px;
+    .spine {
+      border-right: 1px solid var(--rule);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding-top: 28px;
     }
-    .masthead-name {
-      font-family: var(--mono);
-      font-size: 9px;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: rgba(26,23,20,0.45);
+    .spine-text {
+      writing-mode: vertical-rl; transform: rotate(180deg);
+      font-family: var(--mono); font-size: 8px;
+      letter-spacing: 0.3em; text-transform: uppercase;
+      color: rgba(24,20,17,0.2); user-select: none;
     }
-    .masthead-tagline {
-      font-family: var(--mono);
-      font-size: 9px;
-      letter-spacing: 0.1em;
-      color: rgba(26,23,20,0.3);
+    .masthead-body { padding: 28px 24px 20px; }
+    .masthead-meta {
+      font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(24,20,17,0.3); margin-bottom: 8px;
     }
     .masthead-title {
       font-family: var(--serif);
-      font-size: clamp(52px, 14vw, 96px);
-      font-weight: 400;
-      line-height: 0.92;
-      letter-spacing: -0.02em;
-      color: var(--ink);
+      font-size: clamp(56px, 16vw, 108px);
+      font-weight: 400; line-height: 0.88;
+      letter-spacing: -0.025em;
+    }
+    .masthead-sub {
+      margin-top: 10px;
+      font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.14em; color: rgba(24,20,17,0.3);
+      text-transform: uppercase;
     }
 
-    /* Thin rule */
-    .rule { border: none; border-top: 1px solid var(--rule); }
+    /* ── Library ── */
+    #library {
+      display: grid;
+      grid-template-columns: 56px 1fr;
+    }
+    .lib-spine {
+      border-right: 1px solid var(--rule);
+    }
 
-    /* ── Essay list ── */
-    #library { flex: 1; }
+    #essay-list { flex: 1; }
 
-    .essay-row {
+    /* ── Essay row ── */
+    .row {
       border-bottom: 1px solid var(--rule);
+      position: relative; overflow: hidden;
+      transition: background 0.4s;
       cursor: pointer;
-      position: relative;
-      overflow: hidden;
-      transition: background 0.3s;
     }
-    .essay-row:hover { background: rgba(26,23,20,0.03); }
-    .essay-row.active {
-      background: var(--ink);
-      color: var(--paper);
-    }
-    .essay-row.active .row-number,
-    .essay-row.active .row-duration,
-    .essay-row.active .row-date,
-    .essay-row.active .row-desc { color: rgba(242,237,228,0.5); }
-    .essay-row.active .row-title { color: var(--paper); }
+    .row:hover:not(.expanded) { background: rgba(24,20,17,0.03); }
 
-    .row-inner {
-      padding: 20px 28px 18px;
-    }
+    /* Collapsed state */
+    .row-collapsed { padding: 18px 24px 16px; }
 
-    .row-top {
-      display: flex;
-      align-items: baseline;
-      gap: 16px;
-      margin-bottom: 5px;
-    }
-    .row-number {
-      font-family: var(--mono);
-      font-size: 10px;
-      color: rgba(26,23,20,0.3);
-      letter-spacing: 0.08em;
-      flex-shrink: 0;
-      min-width: 22px;
-    }
-    .row-title {
-      font-family: var(--serif);
-      font-size: clamp(22px, 6vw, 36px);
-      font-weight: 400;
-      line-height: 1.05;
-      letter-spacing: -0.01em;
-      flex: 1;
-    }
-    .row-title em { font-style: italic; }
-    .row-play-indicator {
-      flex-shrink: 0;
-      display: flex; gap: 2px; align-items: flex-end;
-      height: 18px;
-    }
-    .bar {
-      width: 2px;
-      background: var(--paper);
-      border-radius: 1px;
-      transform-origin: bottom;
-    }
-    .essay-row:not(.active) .bar { background: var(--amber); opacity: 0; }
-    .essay-row.active .bar { opacity: 1; }
-    @keyframes eq1 { 0%,100%{height:4px} 50%{height:16px} }
-    @keyframes eq2 { 0%,100%{height:12px} 33%{height:5px} 66%{height:18px} }
-    @keyframes eq3 { 0%,100%{height:8px} 25%{height:16px} 75%{height:3px} }
-    @keyframes eq4 { 0%,100%{height:14px} 40%{height:4px} 80%{height:18px} }
-    @keyframes eq5 { 0%,100%{height:6px} 50%{height:14px} }
-    .bar-1 { animation: eq1 0.9s ease-in-out infinite; height: 4px; }
-    .bar-2 { animation: eq2 1.1s ease-in-out infinite; height: 12px; }
-    .bar-3 { animation: eq3 0.85s ease-in-out infinite; height: 8px; }
-    .bar-4 { animation: eq4 1.3s ease-in-out infinite; height: 14px; }
-    .bar-5 { animation: eq5 0.95s ease-in-out infinite; height: 6px; }
-    .essay-row:not(.active) .bar-1,
-    .essay-row:not(.active) .bar-2,
-    .essay-row:not(.active) .bar-3,
-    .essay-row:not(.active) .bar-4,
-    .essay-row:not(.active) .bar-5 { animation: none; height: 3px; opacity: 0; }
-
-    .row-meta {
-      display: flex;
-      align-items: center;
-      gap: 18px;
-      padding-left: 38px;
+    .row-num {
+      font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.12em; color: rgba(24,20,17,0.25);
       margin-bottom: 4px;
     }
-    .row-date, .row-duration {
-      font-family: var(--mono);
-      font-size: 9px;
-      letter-spacing: 0.1em;
-      color: rgba(26,23,20,0.35);
+    .row-name {
+      font-family: var(--serif);
+      font-size: clamp(24px, 7vw, 42px);
+      line-height: 1.0; letter-spacing: -0.01em;
+      transition: opacity 0.3s;
     }
-    .row-desc {
-      font-family: var(--sans);
-      font-size: 12px;
-      color: rgba(26,23,20,0.45);
-      font-weight: 300;
-      line-height: 1.5;
-      padding-left: 38px;
+    .row-info {
+      display: flex; gap: 16px; align-items: center;
+      margin-top: 6px;
     }
-
-    /* Progress bar — thin rule style */
-    .row-progress {
-      position: absolute;
-      bottom: 0; left: 0;
-      height: 2px;
-      background: var(--amber);
-      transition: width 0.3s linear;
-      width: 0%;
-    }
-    .essay-row.active .row-progress { background: rgba(242,237,228,0.4); }
-
-    /* Resume tag */
-    .resume-tag {
-      display: inline-block;
-      font-family: var(--mono);
-      font-size: 8px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      border: 1px solid var(--amber);
-      color: var(--amber);
-      padding: 1px 6px;
-      border-radius: 2px;
-      margin-left: 8px;
-      vertical-align: middle;
-    }
-    .essay-row.active .resume-tag {
-      border-color: rgba(242,237,228,0.4);
-      color: rgba(242,237,228,0.5);
+    .row-date, .row-dur {
+      font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.1em; color: rgba(24,20,17,0.3);
     }
 
-    /* ── Sticky player ── */
-    #player {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
+    /* Expanded / active state */
+    .row.expanded {
       background: var(--ink);
       color: var(--paper);
-      padding: 14px 20px 14px 68px;
-      padding-bottom: calc(14px + env(safe-area-inset-bottom));
+      cursor: default;
+    }
+    .row.expanded .row-collapsed { display: none; }
+    .row-expanded-inner {
       display: none;
-      z-index: 100;
-      border-top: 1px solid rgba(242,237,228,0.08);
+      padding: 24px 24px 28px;
+      padding-bottom: calc(28px + env(safe-area-inset-bottom));
+      position: relative;
+      min-height: 260px;
     }
-    #player.visible { display: block; }
+    .row.expanded .row-expanded-inner { display: block; }
 
-    /* Scrub — thin rule */
-    .scrub-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
+    /* Ghost timestamp */
+    .ghost-time {
+      position: absolute;
+      top: 50%; right: -10px;
+      transform: translateY(-50%);
+      font-family: var(--mono);
+      font-size: clamp(80px, 22vw, 160px);
+      font-weight: 700;
+      color: rgba(255,255,255,0.04);
+      letter-spacing: -0.04em;
+      pointer-events: none;
+      user-select: none;
+      white-space: nowrap;
+      transition: opacity 0.5s;
     }
-    .t { font-family: var(--mono); font-size: 10px; color: rgba(242,237,228,0.4); min-width: 34px; font-variant-numeric: tabular-nums; }
-    .t.r { text-align: right; }
+
+    /* Big title */
+    .exp-title {
+      font-family: var(--serif);
+      font-size: clamp(36px, 10vw, 72px);
+      line-height: 0.95; letter-spacing: -0.02em;
+      color: var(--paper);
+      margin-bottom: 20px;
+      position: relative; z-index: 1;
+    }
+    .exp-title em { font-style: italic; color: var(--amber); }
+
+    /* Eq bars */
+    .exp-eq {
+      display: flex; gap: 3px; align-items: flex-end;
+      height: 20px; margin-bottom: 20px;
+    }
+    .ebar {
+      width: 3px; border-radius: 1.5px;
+      background: rgba(240,235,224,0.3);
+      transform-origin: bottom;
+    }
+    .paused .ebar { animation: none !important; height: 3px !important; opacity: 0.3; }
+    @keyframes b1 { 0%,100%{height:4px} 50%{height:18px} }
+    @keyframes b2 { 0%,100%{height:14px} 33%{height:5px} 66%{height:20px} }
+    @keyframes b3 { 0%,100%{height:9px} 25%{height:18px} 75%{height:3px} }
+    @keyframes b4 { 0%,100%{height:16px} 40%{height:4px} 80%{height:20px} }
+    @keyframes b5 { 0%,100%{height:7px} 55%{height:16px} }
+    @keyframes b6 { 0%,100%{height:11px} 45%{height:20px} 70%{height:5px} }
+    @keyframes b7 { 0%,100%{height:5px} 30%{height:17px} }
+    .ebar:nth-child(1){animation:b1 0.9s ease-in-out infinite;height:4px}
+    .ebar:nth-child(2){animation:b2 1.1s ease-in-out infinite;height:14px}
+    .ebar:nth-child(3){animation:b3 0.85s ease-in-out infinite;height:9px}
+    .ebar:nth-child(4){animation:b4 1.3s ease-in-out infinite;height:16px}
+    .ebar:nth-child(5){animation:b5 0.95s ease-in-out infinite;height:7px}
+    .ebar:nth-child(6){animation:b6 1.15s ease-in-out infinite;height:11px}
+    .ebar:nth-child(7){animation:b7 0.8s ease-in-out infinite;height:5px}
+
+    /* Scrub */
+    .scrub-wrap { margin-bottom: 16px; position: relative; z-index: 1; }
     .scrub-track {
-      flex: 1; height: 1px;
-      background: rgba(242,237,228,0.15);
-      position: relative; cursor: pointer;
+      height: 1px; background: rgba(240,235,224,0.15);
+      position: relative; cursor: col-resize; margin-bottom: 8px;
     }
-    .scrub-track:hover { height: 2px; }
-    .scrub-fill { height: 100%; background: var(--paper); pointer-events: none; }
+    .scrub-fill { height: 100%; background: rgba(240,235,224,0.7); pointer-events: none; }
     .scrub-head {
-      position: absolute; top: 50%; right: 0;
-      width: 10px; height: 10px; border-radius: 50%;
-      background: var(--paper); transform: translate(50%,-50%);
-      opacity: 0; pointer-events: none; transition: opacity 0.15s;
+      position: absolute; top:50%; right:0;
+      width:8px; height:8px; border-radius:50%;
+      background:var(--paper); transform:translate(50%,-50%);
+      opacity:0; transition:opacity 0.15s; pointer-events:none;
     }
-    .scrub-track:hover .scrub-head { opacity: 1; }
+    .scrub-track:hover .scrub-head { opacity:1; }
+    .scrub-times {
+      display:flex; justify-content:space-between;
+    }
+    .scrub-t {
+      font-family:var(--mono); font-size:10px;
+      color:rgba(240,235,224,0.35); font-variant-numeric:tabular-nums;
+    }
 
     /* Controls */
-    .ctrl-row {
-      display: flex; align-items: center; gap: 6px;
+    .exp-controls {
+      display: flex; align-items: center; gap: 8px;
+      position: relative; z-index: 1;
     }
-    .cb {
-      background: none; border: none; color: rgba(242,237,228,0.5);
-      cursor: pointer; padding: 6px; border-radius: 4px;
-      transition: color 0.15s; font-family: var(--mono); font-size: 10px;
-      letter-spacing: 0.06em;
+    .xbtn {
+      background:none; border:none; cursor:pointer;
+      color:rgba(240,235,224,0.5); padding:8px;
+      border-radius:4px; transition:color 0.15s;
+      display:flex; align-items:center; justify-content:center;
     }
-    .cb:hover { color: var(--paper); }
-    .cb svg { display: block; fill: currentColor; }
+    .xbtn:hover { color:var(--paper); }
+    .xbtn svg { fill:currentColor; display:block; }
 
-    .play-main {
-      width: 38px; height: 38px; border-radius: 50%;
-      border: 1px solid rgba(242,237,228,0.3);
-      background: transparent;
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: border-color 0.2s, background 0.2s;
-      flex-shrink: 0;
+    .xplay {
+      width:44px; height:44px; border-radius:50%;
+      border:1px solid rgba(240,235,224,0.25);
+      background:transparent; cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      transition:all 0.2s; flex-shrink:0;
     }
-    .play-main:hover { border-color: var(--paper); background: rgba(242,237,228,0.08); }
-    .play-main svg { fill: var(--paper); }
+    .xplay:hover { border-color:var(--paper); }
+    .xplay svg { fill:var(--paper); }
 
-    .spacer { flex: 1; }
-    .spd {
-      font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
-      color: rgba(242,237,228,0.4); background: none;
-      border: 1px solid rgba(242,237,228,0.12);
-      border-radius: 3px; padding: 3px 7px; cursor: pointer;
-      transition: all 0.15s;
+    .xspd {
+      font-family:var(--mono); font-size:10px; letter-spacing:0.06em;
+      color:rgba(240,235,224,0.4); background:none;
+      border:1px solid rgba(240,235,224,0.12);
+      border-radius:3px; padding:4px 8px; cursor:pointer;
+      transition:all 0.15s;
     }
-    .spd:hover { color: var(--paper); border-color: rgba(242,237,228,0.3); }
-    .spd.on { color: var(--paper); border-color: rgba(242,237,228,0.4); }
+    .xspd:hover { color:var(--paper); border-color:rgba(240,235,224,0.3); }
+    .xspd.on { color:var(--amber); border-color:rgba(192,112,16,0.4); }
 
-    .close-player {
-      font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
-      text-transform: uppercase; color: rgba(242,237,228,0.25);
-      background: none; border: none; cursor: pointer;
-      padding: 6px; transition: color 0.15s;
+    .xclose {
+      margin-left:auto; font-family:var(--mono); font-size:9px;
+      letter-spacing:0.12em; text-transform:uppercase;
+      color:rgba(240,235,224,0.2); background:none; border:none;
+      cursor:pointer; transition:color 0.15s; padding:6px;
     }
-    .close-player:hover { color: rgba(242,237,228,0.7); }
+    .xclose:hover { color:rgba(240,235,224,0.6); }
 
-    /* Empty state */
+    /* Row progress line */
+    .row-prog-line {
+      position:absolute; bottom:0; left:0;
+      height:1px; background:var(--amber);
+      width:0%; transition:width 0.3s linear; pointer-events:none;
+    }
+    .row.expanded .row-prog-line { background:rgba(240,235,224,0.2); }
+
+    /* Resume pill */
+    .resume-pill {
+      display:inline-block;
+      font-family:var(--mono); font-size:8px; letter-spacing:0.1em;
+      border:1px solid rgba(192,112,16,0.5); color:var(--amber);
+      padding:1px 6px; border-radius:2px; margin-left:10px;
+      vertical-align:middle;
+    }
+
+    /* Stagger load */
+    .row { opacity:0; transform:translateY(10px); transition:opacity 0.5s, transform 0.5s, background 0.4s; }
+    .row.loaded { opacity:1; transform:translateY(0); }
+
+    /* Empty */
     .empty {
-      padding: 60px 28px;
-      font-family: var(--mono); font-size: 10px;
-      letter-spacing: 0.2em; text-transform: uppercase;
-      color: rgba(26,23,20,0.2);
+      padding:60px 24px; font-family:var(--mono);
+      font-size:10px; letter-spacing:0.2em; text-transform:uppercase;
+      color:rgba(24,20,17,0.18);
     }
 
-    audio { display: none; }
+    audio { display:none; }
   </style>
 </head>
 <body>
 
-<div class="page">
-  <div class="spine">
-    <span class="spine-text">Johnny Harris · Essays · Audio</span>
-  </div>
-  <div class="content">
-
-    <div class="masthead">
-      <div class="masthead-top">
-        <span class="masthead-name">Johnny Harris</span>
-        <span class="masthead-tagline">Put your phone down and listen.</span>
-      </div>
-      <h1 class="masthead-title">Essays</h1>
-    </div>
-
-    <div id="library"></div>
-
+<!-- Ticker -->
+<div class="ticker-wrap">
+  <div class="ticker-track" id="ticker-track">
+    <!-- filled by JS -->
   </div>
 </div>
 
-<div id="player">
-  <div class="scrub-row">
-    <span class="t" id="tc">0:00</span>
-    <div class="scrub-track" id="st">
-      <div class="scrub-fill" id="sf" style="width:0%"></div>
-      <div class="scrub-head" id="sh"></div>
-    </div>
-    <span class="t r" id="tt">0:00</span>
+<!-- Masthead -->
+<div class="masthead">
+  <div class="spine"><span class="spine-text">Essays</span></div>
+  <div class="masthead-body">
+    <p class="masthead-meta">Johnny Harris · Audio</p>
+    <h1 class="masthead-title">Essays</h1>
+    <p class="masthead-sub">Long-form. Put your phone down.</p>
   </div>
-  <div class="ctrl-row">
-    <button class="spd" id="spd">1×</button>
-    <button class="cb" id="b15" title="−15s">
-      <svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 5V2L8 6l4 4V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
-    </button>
-    <button class="play-main" id="bplay">
-      <svg id="iplay" width="18" height="18" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-      <svg id="ipause" width="18" height="18" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-    </button>
-    <button class="cb" id="bf30" title="+30s">
-      <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2z"/></svg>
-    </button>
-    <div class="spacer"></div>
-    <button class="close-player" id="bclose">close</button>
-  </div>
+</div>
+
+<!-- Library -->
+<div id="library">
+  <div class="lib-spine"></div>
+  <div id="essay-list"></div>
 </div>
 
 <audio id="audio"></audio>
@@ -396,72 +350,168 @@ function fmt(s) {
   if (!s || isNaN(s)) return '0:00';
   return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 }
-function save(id, t) { localStorage.setItem('ep_'+id, t); }
+function save(id,t) { localStorage.setItem('ep_'+id,t); }
 function load(id) { return parseFloat(localStorage.getItem('ep_'+id))||0; }
 function fmtDate(s) {
   if (!s) return '';
-  const d = new Date(s+'T12:00:00');
-  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  return new Date(s+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 }
 
+// ── Ticker ──
+function buildTicker() {
+  const items = ESSAYS.length
+    ? ESSAYS.map(e=>`<span class="ticker-item"><span>▶</span>${e.title} · ${e.duration||'—'}</span>`).join('')
+    : `<span class="ticker-item"><span>◆</span>No essays yet</span>`;
+  const filler = items.repeat(8);
+  document.getElementById('ticker-track').innerHTML = filler + filler;
+}
+
+// ── Render ──
 function render() {
-  const lib = document.getElementById('library');
-  if (!ESSAYS.length) { lib.innerHTML = `<p class="empty">No essays yet</p>`; return; }
-  lib.innerHTML = ESSAYS.map((e,i) => {
+  const list = document.getElementById('essay-list');
+  if (!ESSAYS.length) { list.innerHTML=`<p class="empty">No essays yet</p>`; return; }
+  list.innerHTML = ESSAYS.map((e,i)=>{
     const prog = load(e.id);
     const hasResume = prog > 10;
-    return `<div class="essay-row" id="row-${e.id}" onclick="pick('${e.id}')">
-      <div class="row-progress" id="rp-${e.id}" style="width:0%"></div>
-      <div class="row-inner">
-        <div class="row-top">
-          <span class="row-number">0${i+1}</span>
-          <span class="row-title">${e.title}${hasResume ? `<span class="resume-tag">${fmt(prog)}</span>` : ''}</span>
-          <div class="row-play-indicator">
-            <div class="bar bar-1"></div>
-            <div class="bar bar-2"></div>
-            <div class="bar bar-3"></div>
-            <div class="bar bar-4"></div>
-            <div class="bar bar-5"></div>
+    return `
+    <div class="row" id="row-${e.id}" data-id="${e.id}">
+      <div class="row-prog-line" id="rpl-${e.id}"></div>
+
+      <!-- Collapsed -->
+      <div class="row-collapsed" onclick="pick('${e.id}')">
+        <div class="row-num">0${i+1}</div>
+        <div class="row-name">${e.title}${hasResume?`<span class="resume-pill">${fmt(prog)}</span>`:''}</div>
+        <div class="row-info">
+          ${e.date?`<span class="row-date">${fmtDate(e.date)}</span>`:''}
+          ${e.duration?`<span class="row-dur">${e.duration}</span>`:''}
+        </div>
+      </div>
+
+      <!-- Expanded -->
+      <div class="row-expanded-inner" id="exp-${e.id}">
+        <div class="ghost-time" id="ghost-${e.id}">0:00</div>
+        <div class="exp-title">${e.title}</div>
+
+        <div class="exp-eq paused" id="eq-${e.id}">
+          ${Array(7).fill('<div class="ebar"></div>').join('')}
+        </div>
+
+        <div class="scrub-wrap">
+          <div class="scrub-track" id="st-${e.id}">
+            <div class="scrub-fill" id="sf-${e.id}" style="width:0%"></div>
+            <div class="scrub-head"></div>
+          </div>
+          <div class="scrub-times">
+            <span class="scrub-t" id="tc-${e.id}">0:00</span>
+            <span class="scrub-t" id="tt-${e.id}">—</span>
           </div>
         </div>
-        <div class="row-meta">
-          ${e.date ? `<span class="row-date">${fmtDate(e.date)}</span>` : ''}
-          ${e.duration ? `<span class="row-duration">${e.duration}</span>` : ''}
+
+        <div class="exp-controls">
+          <button class="xspd" id="spd-${e.id}">1×</button>
+          <button class="xbtn" id="b15-${e.id}" title="−15s">
+            <svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 5V2L8 6l4 4V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+          </button>
+          <button class="xplay" id="bp-${e.id}">
+            <svg id="iplay-${e.id}" width="18" height="18" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="ipause-${e.id}" width="18" height="18" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          </button>
+          <button class="xbtn" id="bf30-${e.id}" title="+30s">
+            <svg width="22" height="22" viewBox="0 0 24 24"><path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2z"/></svg>
+          </button>
+          <button class="xclose" id="bc-${e.id}">close</button>
         </div>
-        ${e.description ? `<p class="row-desc">${e.description}</p>` : ''}
       </div>
     </div>`;
   }).join('');
+
+  // Wire scrub per row
+  ESSAYS.forEach(e => {
+    const st = document.getElementById(`st-${e.id}`);
+    if (!st) return;
+    st.addEventListener('mousedown', ev=>{ scrubbing=true; doScrub(e.id,ev); });
+    st.addEventListener('touchstart', ev=>{ scrubbing=true; doScrub(e.id,ev); },{passive:true});
+    document.getElementById(`b15-${e.id}`).addEventListener('click', ()=>{ audio.currentTime=Math.max(0,audio.currentTime-15); });
+    document.getElementById(`bf30-${e.id}`).addEventListener('click', ()=>{ audio.currentTime=Math.min(audio.duration||0,audio.currentTime+30); });
+    document.getElementById(`bp-${e.id}`).addEventListener('click', toggle);
+    document.getElementById(`bc-${e.id}`).addEventListener('click', close_player);
+    document.getElementById(`spd-${e.id}`).addEventListener('click', cycleSpeed);
+  });
+
+  // Stagger load
+  setTimeout(()=>{
+    document.querySelectorAll('.row').forEach((r,i)=>{
+      setTimeout(()=>r.classList.add('loaded'), i*80);
+    });
+  }, 50);
 }
 
+function doScrub(id, e) {
+  if (current!==id) return;
+  const st = document.getElementById(`st-${id}`);
+  const r = st.getBoundingClientRect();
+  const x = (e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  const pct = Math.max(0,Math.min(1,x/r.width));
+  audio.currentTime = pct*(audio.duration||0);
+  document.getElementById(`sf-${id}`).style.width=(pct*100)+'%';
+}
+
+document.addEventListener('mousemove', e=>{ if(scrubbing&&current) doScrub(current,e); });
+document.addEventListener('touchmove', e=>{ if(scrubbing&&current) doScrub(current,e); },{passive:true});
+document.addEventListener('mouseup', ()=>scrubbing=false);
+document.addEventListener('touchend', ()=>scrubbing=false);
+
 function pick(id) {
-  const essay = ESSAYS.find(e=>e.id===id);
-  if (!essay) return;
-  if (current===id) { toggle(); return; }
-  if (current) deactivate(current);
+  if (current===id) return;
+  if (current) collapse(current);
   current = id;
+  const essay = ESSAYS.find(e=>e.id===id);
   audio.src = essay.src;
   audio.load();
   const saved = load(id);
-  if (saved > 10) audio.currentTime = saved;
+  if (saved>10) audio.currentTime = saved;
   audio.play();
-  document.getElementById(`row-${id}`)?.classList.add('active');
-  document.getElementById('player').classList.add('visible');
-  document.body.classList.add('playing');
+  expand(id);
   setMS(essay);
 }
 
-function deactivate(id) {
-  document.getElementById(`row-${id}`)?.classList.remove('active');
+function expand(id) {
+  document.getElementById(`row-${id}`)?.classList.add('expanded');
+  // Shrink others slightly
+  document.querySelectorAll('.row:not(.expanded) .row-name').forEach(el=>{ el.style.opacity='0.35'; });
+}
+
+function collapse(id) {
+  document.getElementById(`row-${id}`)?.classList.remove('expanded');
+  document.querySelectorAll('.row-name').forEach(el=>{ el.style.opacity=''; });
 }
 
 function toggle() {
   audio.paused ? audio.play() : audio.pause();
 }
 
+function close_player() {
+  audio.pause();
+  if (current) { save(current,audio.currentTime); collapse(current); current=null; }
+  document.querySelectorAll('.row-name').forEach(el=>{ el.style.opacity=''; });
+}
+
+function cycleSpeed() {
+  si=(si+1)%SPEEDS.length;
+  const s=SPEEDS[si];
+  audio.playbackRate=s;
+  if (current) {
+    const btn=document.getElementById(`spd-${current}`);
+    if(btn){ btn.textContent=s===1?'1×':s+'×'; btn.classList.toggle('on',s!==1); }
+  }
+}
+
 function updateIcons(playing) {
-  document.getElementById('iplay').style.display = playing?'none':'';
-  document.getElementById('ipause').style.display = playing?'':'none';
+  if (!current) return;
+  document.getElementById(`iplay-${current}`).style.display=playing?'none':'';
+  document.getElementById(`ipause-${current}`).style.display=playing?'':'none';
+  const eq=document.getElementById(`eq-${current}`);
+  if(eq){ eq.classList.toggle('paused',!playing); }
 }
 
 audio.addEventListener('play', ()=>updateIcons(true));
@@ -469,65 +519,33 @@ audio.addEventListener('pause', ()=>updateIcons(false));
 audio.addEventListener('ended', ()=>{ updateIcons(false); if(current)save(current,0); });
 
 audio.addEventListener('timeupdate', ()=>{
-  if (scrubbing||!current) return;
-  const pct = audio.duration ? (audio.currentTime/audio.duration)*100 : 0;
-  document.getElementById('sf').style.width = pct+'%';
-  document.getElementById('tc').textContent = fmt(audio.currentTime);
-  document.getElementById('tt').textContent = fmt(audio.duration);
-  const rp = document.getElementById(`rp-${current}`);
-  if (rp) rp.style.width = pct+'%';
-  if (Math.floor(audio.currentTime)%5===0) save(current, audio.currentTime);
+  if(!current) return;
+  const pct=audio.duration?(audio.currentTime/audio.duration)*100:0;
+  document.getElementById(`sf-${current}`).style.width=pct+'%';
+  document.getElementById(`tc-${current}`).textContent=fmt(audio.currentTime);
+  document.getElementById(`tt-${current}`).textContent=fmt(audio.duration);
+  document.getElementById(`ghost-${current}`).textContent=fmt(audio.currentTime);
+  const rpl=document.getElementById(`rpl-${current}`);
+  if(rpl) rpl.style.width=pct+'%';
+  if(Math.floor(audio.currentTime)%5===0) save(current,audio.currentTime);
 });
 
 audio.addEventListener('loadedmetadata', ()=>{
-  document.getElementById('tt').textContent = fmt(audio.duration);
-});
-
-// Scrub
-const st = document.getElementById('st');
-function scrubTo(e) {
-  const r = st.getBoundingClientRect();
-  const x = (e.touches?e.touches[0].clientX:e.clientX) - r.left;
-  const pct = Math.max(0,Math.min(1,x/r.width));
-  audio.currentTime = pct * (audio.duration||0);
-  document.getElementById('sf').style.width = (pct*100)+'%';
-}
-st.addEventListener('mousedown', e=>{scrubbing=true;scrubTo(e);});
-st.addEventListener('touchstart', e=>{scrubbing=true;scrubTo(e);},{passive:true});
-document.addEventListener('mousemove', e=>{if(scrubbing)scrubTo(e);});
-document.addEventListener('touchmove', e=>{if(scrubbing)scrubTo(e);},{passive:true});
-document.addEventListener('mouseup', ()=>scrubbing=false);
-document.addEventListener('touchend', ()=>scrubbing=false);
-
-document.getElementById('bplay').addEventListener('click', toggle);
-document.getElementById('b15').addEventListener('click', ()=>{ audio.currentTime=Math.max(0,audio.currentTime-15); });
-document.getElementById('bf30').addEventListener('click', ()=>{ audio.currentTime=Math.min(audio.duration||0,audio.currentTime+30); });
-document.getElementById('bclose').addEventListener('click', ()=>{
-  audio.pause();
-  if(current){ save(current,audio.currentTime); deactivate(current); current=null; }
-  document.getElementById('player').classList.remove('visible');
-  document.body.classList.remove('playing');
-});
-
-document.getElementById('spd').addEventListener('click', ()=>{
-  si=(si+1)%SPEEDS.length;
-  const s=SPEEDS[si];
-  audio.playbackRate=s;
-  const btn=document.getElementById('spd');
-  btn.textContent=(s===1?'1×':s+'×');
-  btn.classList.toggle('on',s!==1);
+  if(!current) return;
+  document.getElementById(`tt-${current}`).textContent=fmt(audio.duration);
 });
 
 function setMS(essay) {
-  if (!('mediaSession' in navigator)) return;
-  navigator.mediaSession.metadata = new MediaMetadata({ title:essay.title, artist:'Johnny Harris', album:'Essays' });
-  navigator.mediaSession.setActionHandler('play', ()=>audio.play());
-  navigator.mediaSession.setActionHandler('pause', ()=>audio.pause());
-  navigator.mediaSession.setActionHandler('seekbackward', ()=>{ audio.currentTime=Math.max(0,audio.currentTime-15); });
-  navigator.mediaSession.setActionHandler('seekforward', ()=>{ audio.currentTime=Math.min(audio.duration,audio.currentTime+30); });
-  navigator.mediaSession.setActionHandler('seekto', d=>{ if(d.seekTime!=null)audio.currentTime=d.seekTime; });
+  if(!('mediaSession' in navigator)) return;
+  navigator.mediaSession.metadata=new MediaMetadata({title:essay.title,artist:'Johnny Harris',album:'Essays'});
+  navigator.mediaSession.setActionHandler('play',()=>audio.play());
+  navigator.mediaSession.setActionHandler('pause',()=>audio.pause());
+  navigator.mediaSession.setActionHandler('seekbackward',()=>{audio.currentTime=Math.max(0,audio.currentTime-15);});
+  navigator.mediaSession.setActionHandler('seekforward',()=>{audio.currentTime=Math.min(audio.duration,audio.currentTime+30);});
+  navigator.mediaSession.setActionHandler('seekto',d=>{if(d.seekTime!=null)audio.currentTime=d.seekTime;});
 }
 
+buildTicker();
 render();
 </script>
 </body>
