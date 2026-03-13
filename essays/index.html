@@ -275,6 +275,21 @@
     /* Resume pill */
     .resume-pill { display:inline-block; font-family:var(--mono); font-size:8px; letter-spacing:0.1em; border:1px solid rgba(192,112,16,0.45); color:var(--amber); padding:1px 5px; border-radius:2px; margin-left:10px; vertical-align:middle; }
 
+    /* Bouncing character */
+    .row-name-wrap { position: relative; }
+    .bounce-char {
+      position: absolute;
+      top: 50%; transform: translateY(-50%);
+      font-family: var(--serif);
+      font-size: clamp(16px, 4.5vw, 26px);
+      color: var(--amber);
+      opacity: 0.65;
+      pointer-events: none;
+      user-select: none;
+      white-space: nowrap;
+      will-change: left;
+    }
+
     .empty { padding:60px 20px; font-family:var(--mono); font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(24,20,17,0.18); }
     audio { display:none; }
   </style>
@@ -524,6 +539,47 @@ window.addEventListener('scroll', ()=>{
 
 buildTicker();
 render();
+
+// ── Bouncing 夜市 character ──
+(function() {
+  function startBounce() {
+    const charEl = document.getElementById('bchar-night-market');
+    const nameEl = document.getElementById('rname-night-market');
+    if (!charEl || !nameEl) return;
+
+    const parent = charEl.parentElement; // row-name-wrap
+    let pos = 0;
+    let vel = 0.35; // px per frame — very slow
+    let nameRight = 0;
+    let containerWidth = 0;
+    let charWidth = 0;
+
+    function measure() {
+      const pr = parent.getBoundingClientRect();
+      const nr = nameEl.getBoundingClientRect();
+      nameRight = nr.right - pr.left;
+      containerWidth = pr.width;
+      charWidth = charEl.offsetWidth;
+      if (pos < nameRight) pos = nameRight + 4;
+    }
+
+    measure();
+    window.addEventListener('resize', measure, {passive:true});
+
+    function frame() {
+      pos += vel;
+      const maxRight = containerWidth - charWidth - 4;
+      if (pos >= maxRight) { pos = maxRight; vel = -Math.abs(vel); }
+      if (pos <= nameRight + 2) { pos = nameRight + 2; vel = Math.abs(vel); }
+      charEl.style.left = pos + 'px';
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // Wait for fonts + layout
+  document.fonts.ready.then(() => setTimeout(startBounce, 200));
+})();
 </script>
 </body>
 </html>
