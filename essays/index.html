@@ -61,6 +61,7 @@
       border-bottom: 2px solid var(--ink);
       padding: 20px 20px 0;
       overflow: hidden;
+      position: relative;
     }
     .masthead-meta {
       font-family: var(--mono); font-size: 9px;
@@ -80,7 +81,7 @@
     .anaglyph-layer {
       display: block;
       font-family: var(--condensed);
-      font-size: clamp(88px, 26vw, 180px);
+      font-size: clamp(72px, 22vw, 148px);
       font-weight: 400;
       letter-spacing: -0.01em;
       line-height: 0.85;
@@ -117,6 +118,7 @@
       font-family: var(--mono); font-size: 9px;
       letter-spacing: 0.16em; text-transform: uppercase;
       color: rgba(24,20,17,0.28); padding: 10px 4px 14px;
+      position: relative; z-index: 5;
     }
 
     /* ── Library ── */
@@ -290,6 +292,33 @@
       will-change: left;
     }
 
+    /* PDF viewer */
+    .pdf-section {
+      display: none;
+      height: calc(100vh - 200px);
+      border-top: 1px solid rgba(240,235,224,0.1);
+      margin-top: 16px;
+    }
+    .row.expanded .pdf-section { display: block; }
+    .pdf-section iframe {
+      width: 100%; height: 100%;
+      border: none;
+      background: #1a1a1a;
+    }
+    /* Sticky player inside expanded row */
+    .exp-player-sticky {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--ink);
+      padding: 20px 20px 16px;
+      padding-top: calc(20px + env(safe-area-inset-top));
+      border-bottom: 1px solid rgba(240,235,224,0.08);
+    }
+    .row.expanded .row-expanded-inner {
+      padding: 0 !important;
+    }
+
     .empty { padding:60px 20px; font-family:var(--mono); font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:rgba(24,20,17,0.18); }
     audio { display:none; }
   </style>
@@ -383,39 +412,41 @@ function render() {
       </div>
 
       <div class="row-expanded-inner" id="exp-${e.id}">
-        <div class="ghost-time" id="ghost-${e.id}">0:00</div>
-        <div class="exp-title-wrap">
-          <div class="exp-title-cyan" id="etcyan-${e.id}" aria-hidden="true">${e.title.toUpperCase()}</div>
-          <div class="exp-title-red"  id="etred-${e.id}"  aria-hidden="true">${e.title.toUpperCase()}</div>
-
-        </div>
-        <div class="exp-eq paused" id="eq-${e.id}">
-          ${Array(7).fill('<div class="ebar"></div>').join('')}
-        </div>
-        <div class="scrub-wrap">
-          <div class="scrub-track" id="st-${e.id}">
-            <div class="scrub-fill" id="sf-${e.id}" style="width:0%"></div>
-            <div class="scrub-head"></div>
+        <div class="${e.id === 'night-market-paper' ? 'exp-player-sticky' : ''}" style="${e.id !== 'night-market-paper' ? 'padding:22px 20px 20px;' : ''}">
+          <div class="ghost-time" id="ghost-${e.id}">0:00</div>
+          <div class="exp-title-wrap">
+            <div class="exp-title-cyan" id="etcyan-${e.id}" aria-hidden="true">${e.title.toUpperCase()}</div>
+            <div class="exp-title-red"  id="etred-${e.id}"  aria-hidden="true">${e.title.toUpperCase()}</div>
           </div>
-          <div class="scrub-times">
-            <span class="scrub-t" id="tc-${e.id}">0:00</span>
-            <span class="scrub-t" id="tt-${e.id}">—</span>
+          <div class="exp-eq paused" id="eq-${e.id}">
+            ${Array(7).fill('<div class="ebar"></div>').join('')}
+          </div>
+          <div class="scrub-wrap">
+            <div class="scrub-track" id="st-${e.id}">
+              <div class="scrub-fill" id="sf-${e.id}" style="width:0%"></div>
+              <div class="scrub-head"></div>
+            </div>
+            <div class="scrub-times">
+              <span class="scrub-t" id="tc-${e.id}">0:00</span>
+              <span class="scrub-t" id="tt-${e.id}">—</span>
+            </div>
+          </div>
+          <div class="exp-controls">
+            <button class="xspd" id="spd-${e.id}">1×</button>
+            <button class="xbtn" id="b15-${e.id}">
+              <svg width="21" height="21" viewBox="0 0 24 24"><path d="M12 5V2L8 6l4 4V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+            </button>
+            <button class="xplay" id="bp-${e.id}">
+              <svg id="iplay-${e.id}" width="17" height="17" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <svg id="ipause-${e.id}" width="17" height="17" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+            <button class="xbtn" id="bf30-${e.id}">
+              <svg width="21" height="21" viewBox="0 0 24 24"><path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2z"/></svg>
+            </button>
+            <button class="xclose" id="bc-${e.id}">close</button>
           </div>
         </div>
-        <div class="exp-controls">
-          <button class="xspd" id="spd-${e.id}">1×</button>
-          <button class="xbtn" id="b15-${e.id}">
-            <svg width="21" height="21" viewBox="0 0 24 24"><path d="M12 5V2L8 6l4 4V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
-          </button>
-          <button class="xplay" id="bp-${e.id}">
-            <svg id="iplay-${e.id}" width="17" height="17" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            <svg id="ipause-${e.id}" width="17" height="17" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-          </button>
-          <button class="xbtn" id="bf30-${e.id}">
-            <svg width="21" height="21" viewBox="0 0 24 24"><path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2z"/></svg>
-          </button>
-          <button class="xclose" id="bc-${e.id}">close</button>
-        </div>
+        ${e.id === 'night-market-paper' ? `<div class="pdf-section"><iframe src="/essays/night-market-paper.pdf" title="Night Market Paper"></iframe></div>` : ''}
       </div>
     </div>`;
   }).join('');
