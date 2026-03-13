@@ -60,7 +60,7 @@
     .masthead {
       border-bottom: 2px solid var(--ink);
       padding: 20px 20px 0;
-      overflow: hidden;
+      overflow: visible;
       position: relative;
     }
     .masthead-meta {
@@ -77,6 +77,7 @@
       margin: 0 -20px;
       padding: 0 12px;
       cursor: default;
+      overflow: visible;
     }
     .anaglyph-layer {
       display: block;
@@ -89,7 +90,7 @@
       white-space: nowrap;
     }
     .layer-black {
-      color: transparent;
+      color: var(--ink);
       position: relative;
       z-index: 3;
     }
@@ -140,7 +141,7 @@
     .row:hover:not(.expanded) { background: rgba(24,20,17,0.03); }
     .row.expanded { background: var(--ink); color: var(--paper); cursor: default; }
 
-    .row-collapsed { padding: 18px 20px 16px; }
+    .row-collapsed { padding: 18px 20px 16px; display: flex; align-items: center; gap: 16px; }
     .row-num {
       font-family: var(--mono); font-size: 9px;
       letter-spacing: 0.12em; color: rgba(24,20,17,0.25); margin-bottom: 3px;
@@ -158,6 +159,23 @@
       font-family: var(--mono); font-size: 9px;
       letter-spacing: 0.1em; color: rgba(24,20,17,0.3);
     }
+
+    /* Play button in collapsed row */
+    .row-play-btn {
+      width: 42px; height: 42px; min-width: 42px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(24,20,17,0.15);
+      background: transparent;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s, border-color 0.2s;
+      flex-shrink: 0;
+    }
+    .row-play-btn svg { fill: var(--ink); transition: fill 0.2s; }
+    .row-play-btn:hover { background: var(--ink); border-color: var(--ink); }
+    .row-play-btn:hover svg { fill: var(--paper); }
+
+    .row-text { flex: 1; min-width: 0; }
 
     /* Expanded state */
     .row-expanded-inner { display: none; }
@@ -332,6 +350,7 @@
 <div class="masthead">
   <p class="masthead-meta">Johnny Harris · Audio Essays</p>
   <div class="anaglyph-wrap" id="anaglyph-wrap">
+    <span class="anaglyph-layer layer-black">Essays</span>
     <span class="anaglyph-layer layer-cyan" id="layer-cyan" aria-hidden="true">Essays</span>
     <span class="anaglyph-layer layer-red"  id="layer-red"  aria-hidden="true">Essays</span>
   </div>
@@ -370,6 +389,8 @@ let current = null, scrubbing = false;
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 let si = 1;
 
+const PLAY_SVG = '<svg width="16" height="16" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+
 function fmt(s) {
   if (!s || isNaN(s)) return '0:00';
   return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
@@ -400,14 +421,17 @@ function render() {
       <div class="row-prog-line" id="rpl-${e.id}"></div>
 
       <div class="row-collapsed" onclick="pick('${e.id}')">
-        <div class="row-num">0${i+1}</div>
-        <div class="row-name-wrap">
-          <div class="row-name" id="rname-${e.id}">${e.title.toUpperCase()}${hasResume?`<span class="resume-pill">${fmt(prog)}</span>`:''}</div>
-          ${e.id === 'night-market' ? '<div class="bounce-char" id="bchar-night-market">夜市</div>' : ''}
-        </div>
-        <div class="row-info">
-          ${e.date?`<span class="row-date">${fmtDate(e.date)}</span>`:''}
-          ${e.duration?`<span class="row-dur">${e.duration}</span>`:''}
+        <button class="row-play-btn" aria-label="Play ${e.title}">${PLAY_SVG}</button>
+        <div class="row-text">
+          <div class="row-num">0${i+1}</div>
+          <div class="row-name-wrap">
+            <div class="row-name" id="rname-${e.id}">${e.title.toUpperCase()}${hasResume?`<span class="resume-pill">${fmt(prog)}</span>`:''}</div>
+            ${e.id === 'night-market' ? '<div class="bounce-char" id="bchar-night-market">夜市</div>' : ''}
+          </div>
+          <div class="row-info">
+            ${e.date?`<span class="row-date">${fmtDate(e.date)}</span>`:''}
+            ${e.duration?`<span class="row-dur">${e.duration}</span>`:''}
+          </div>
         </div>
       </div>
 
