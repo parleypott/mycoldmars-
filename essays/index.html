@@ -276,7 +276,7 @@
     .resume-pill { display:inline-block; font-family:var(--mono); font-size:8px; letter-spacing:0.1em; border:1px solid rgba(192,112,16,0.45); color:var(--amber); padding:1px 5px; border-radius:2px; margin-left:10px; vertical-align:middle; }
 
     /* Bouncing character */
-    .row-name-wrap { position: relative; }
+    .row-name-wrap { position: relative; overflow: hidden; }
     .bounce-char {
       position: absolute;
       top: 50%; transform: translateY(-50%);
@@ -364,7 +364,10 @@ function render() {
 
       <div class="row-collapsed" onclick="pick('${e.id}')">
         <div class="row-num">0${i+1}</div>
-        <div class="row-name">${e.title.toUpperCase()}${hasResume?`<span class="resume-pill">${fmt(prog)}</span>`:''}</div>
+        <div class="row-name-wrap">
+          <div class="row-name" id="rname-${e.id}">${e.title.toUpperCase()}${hasResume?`<span class="resume-pill">${fmt(prog)}</span>`:''}</div>
+          ${e.id === 'night-market' ? '<div class="bounce-char" id="bchar-night-market">夜市</div>' : ''}
+        </div>
         <div class="row-info">
           ${e.date?`<span class="row-date">${fmtDate(e.date)}</span>`:''}
           ${e.duration?`<span class="row-dur">${e.duration}</span>`:''}
