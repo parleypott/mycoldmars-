@@ -66,6 +66,21 @@ html, body {
 
 #tooltip.visible { opacity: 1; }
 
+/* ─── Palau label ─── */
+.palau-label {
+  font-family: 'Space Grotesk', 'Helvetica Neue', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(245, 238, 225, 0.7);
+  text-shadow:
+    0 0 12px rgba(232, 220, 200, 0.3),
+    0 0 30px rgba(232, 220, 200, 0.1);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 /* ─── Mobile ─── */
 @media (max-width: 600px) {
   #title { top: 16px; letter-spacing: 0.25em; }

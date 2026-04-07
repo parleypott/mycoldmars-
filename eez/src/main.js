@@ -257,7 +257,81 @@ function addEEZLayers(eezData) {
     'country-outlines',
   );
 
+  // Palau highlight layers — filtered to just Palau's EEZ
+  map.addLayer(
+    {
+      id: 'palau-fill',
+      type: 'fill',
+      source: 'eez',
+      filter: ['any',
+        ['==', ['get', 'Country'], 'Palau'],
+        ['==', ['get', 'Country'], 'Republic of Palau'],
+      ],
+      paint: {
+        'fill-color': '#e8dcc8',
+        'fill-opacity': 0.15,
+      },
+    },
+    'country-outlines',
+  );
+
+  map.addLayer(
+    {
+      id: 'palau-glow',
+      type: 'line',
+      source: 'eez',
+      filter: ['any',
+        ['==', ['get', 'Country'], 'Palau'],
+        ['==', ['get', 'Country'], 'Republic of Palau'],
+      ],
+      paint: {
+        'line-color': '#e8dcc8',
+        'line-width': [
+          'interpolate', ['linear'], ['zoom'],
+          0, 2, 3, 4, 6, 6,
+        ],
+        'line-blur': [
+          'interpolate', ['linear'], ['zoom'],
+          0, 3, 3, 5, 6, 8,
+        ],
+        'line-opacity': 0.4,
+        'line-emissive-strength': 1.0,
+      },
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+    },
+    'country-outlines',
+  );
+
+  // Palau label marker
+  const palauLabel = document.createElement('div');
+  palauLabel.className = 'palau-label';
+  palauLabel.textContent = 'PALAU';
+  new mapboxgl.Marker({ element: palauLabel, anchor: 'center' })
+    .setLngLat([134.58, 7.51])
+    .addTo(map);
+
+  // Pulse animation
+  pulsePalau();
+
   setupHover();
+}
+
+// ─── Palau pulse ────────────────────────────────────────────────────
+function pulsePalau() {
+  const start = performance.now();
+  const period = 3000; // 3 second cycle
+
+  function tick() {
+    const t = ((performance.now() - start) % period) / period;
+    const ease = 0.5 + 0.5 * Math.sin(t * Math.PI * 2); // 0 → 1 → 0
+    const opacity = 0.06 + ease * 0.2; // pulse between 0.06 and 0.26
+
+    map.setPaintProperty('palau-fill', 'fill-opacity', opacity);
+    map.setPaintProperty('palau-glow', 'line-opacity', 0.2 + ease * 0.4);
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
 }
 
 // ─── Hover interaction ──────────────────────────────────────────────
