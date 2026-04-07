@@ -1,0 +1,73 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #020817;
+  color: #c8deff;
+  font-family: 'Space Grotesk', 'Helvetica Neue', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-attrib { opacity: 0.12; }
+
+/* ─── Title ─── */
+#title {
+  position: fixed;
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Space Grotesk', 'Helvetica Neue', system-ui, sans-serif;
+  font-size: clamp(36px, 6vw, 72px);
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  pointer-events: none;
+  z-index: 10;
+  color: rgba(100, 180, 255, 0.25);
+  text-shadow:
+    0 0 30px rgba(100, 180, 255, 0.15),
+    0 0 80px rgba(100, 180, 255, 0.05);
+  text-transform: uppercase;
+}
+
+/* ─── Tooltip ─── */
+#tooltip {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Space Mono', 'Courier New', monospace;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(100, 180, 255, 0.6);
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  white-space: nowrap;
+}
+
+#tooltip.visible { opacity: 1; }
+
+/* ─── Mobile ─── */
+@media (max-width: 600px) {
+  #title { top: 16px; letter-spacing: 0.25em; }
+  #tooltip { bottom: 16px; font-size: 10px; }
+}

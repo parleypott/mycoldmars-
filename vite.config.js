@@ -24,6 +24,7 @@ export default defineConfig({
         hakka: resolve(__dirname, 'hakka/index.html'),
         animation: resolve(__dirname, 'animation/index.html'),
         essays: resolve(__dirname, 'essays/index.html'),
+        eez: resolve(__dirname, 'eez/index.html'),
       },
     },
   },
