@@ -27,27 +27,27 @@ const mapStyle = {
     {
       id: 'background',
       type: 'background',
-      paint: { 'background-color': '#020817' },
+      paint: { 'background-color': '#2c2418' },
     },
     {
       id: 'water',
       type: 'fill',
       source: 'mapbox-streets',
       'source-layer': 'water',
-      paint: { 'fill-color': '#040d1f' },
+      paint: { 'fill-color': '#3a3024' },
     },
     {
       id: 'land',
       type: 'fill',
       source: 'countries',
-      paint: { 'fill-color': '#0a1628' },
+      paint: { 'fill-color': '#4a3e30' },
     },
     {
       id: 'country-outlines',
       type: 'line',
       source: 'countries',
       paint: {
-        'line-color': 'rgba(100, 180, 255, 0.08)',
+        'line-color': 'rgba(232, 220, 200, 0.1)',
         'line-width': [
           'interpolate', ['linear'], ['zoom'],
           0, 0.3,
@@ -78,12 +78,12 @@ const mapStyle = {
       paint: {
         'text-color': [
           'interpolate', ['linear'], ['zoom'],
-          3, 'rgba(100, 180, 255, 0)',
-          4, 'rgba(100, 180, 255, 0.1)',
-          6, 'rgba(100, 180, 255, 0.2)',
-          8, 'rgba(100, 180, 255, 0.35)',
+          3, 'rgba(245, 238, 225, 0)',
+          4, 'rgba(245, 238, 225, 0.15)',
+          6, 'rgba(245, 238, 225, 0.3)',
+          8, 'rgba(245, 238, 225, 0.45)',
         ],
-        'text-halo-color': '#020817',
+        'text-halo-color': '#2c2418',
         'text-halo-width': 1.5,
       },
     },
@@ -141,11 +141,11 @@ map.on('moveend', scheduleResume);
 // ─── Fog / atmosphere ───────────────────────────────────────────────
 map.on('style.load', () => {
   map.setFog({
-    color: '#0a1628',
-    'high-color': '#1a3a6a',
-    'space-color': '#020817',
-    'horizon-blend': 0.03,
-    'star-intensity': 0.6,
+    color: '#3a3024',
+    'high-color': '#2c2418',
+    'space-color': '#1a150f',
+    'horizon-blend': 0.04,
+    'star-intensity': 0,
     range: [0.5, 8],
   });
 });
@@ -182,7 +182,7 @@ function addEEZLayers(eezData) {
       type: 'fill',
       source: 'eez',
       paint: {
-        'fill-color': '#1a4a8a',
+        'fill-color': '#8a7a5a',
         'fill-opacity': DEFAULT_FILL_OPACITY,
       },
     },
@@ -196,7 +196,7 @@ function addEEZLayers(eezData) {
       type: 'line',
       source: 'eez',
       paint: {
-        'line-color': '#4a9eff',
+        'line-color': '#c8a86a',
         'line-width': [
           'interpolate', ['linear'], ['zoom'],
           0, 3, 3, 5, 6, 8,
@@ -220,7 +220,7 @@ function addEEZLayers(eezData) {
       type: 'line',
       source: 'eez',
       paint: {
-        'line-color': '#6ab4ff',
+        'line-color': '#d4b878',
         'line-width': [
           'interpolate', ['linear'], ['zoom'],
           0, 1.5, 3, 2.5, 6, 4,
@@ -244,7 +244,7 @@ function addEEZLayers(eezData) {
       type: 'line',
       source: 'eez',
       paint: {
-        'line-color': '#8acfff',
+        'line-color': '#e8dcc8',
         'line-width': [
           'interpolate', ['linear'], ['zoom'],
           0, 0.4, 3, 0.7, 6, 1.2,

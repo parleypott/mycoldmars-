@@ -4,8 +4,8 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #020817;
-  color: #c8deff;
+  background: #2c2418;
+  color: #e8dcc8;
   font-family: 'Space Grotesk', 'Helvetica Neue', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -38,10 +38,10 @@ html, body {
   letter-spacing: 0.35em;
   pointer-events: none;
   z-index: 10;
-  color: rgba(100, 180, 255, 0.25);
+  color: rgba(232, 220, 200, 0.2);
   text-shadow:
-    0 0 30px rgba(100, 180, 255, 0.15),
-    0 0 80px rgba(100, 180, 255, 0.05);
+    0 0 30px rgba(232, 220, 200, 0.1),
+    0 0 80px rgba(232, 220, 200, 0.03);
   text-transform: uppercase;
 }
 
@@ -56,7 +56,7 @@ html, body {
   font-weight: 400;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(100, 180, 255, 0.6);
+  color: rgba(232, 220, 200, 0.55);
   pointer-events: none;
   z-index: 10;
   opacity: 0;
