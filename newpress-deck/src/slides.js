@@ -154,7 +154,7 @@ const slides = [
         tagline: 'Illuminating our world\u2019s inner workings, from geopolitics to our deepest mental recesses.',
         detail: 'Pulitzer finalist, ex-NYT, ex-WaPo, founding editor of Vox.',
         launched: '[launched Feb 2026]',
-        subs: '190K subscribers',
+        subs: '185K subscribers',
         image: '/deck/max-fisher.png',
         youtube: 'https://www.youtube.com/@maxfisher',
       },
@@ -228,8 +228,8 @@ const slides = [
       title: 'SUBSCRIPTION',
       intro: 'Newpress.com membership: launched Feb 19, 2026. Zero paid marketing.',
       stats: [
-        { number: '36,143', label: 'Members' },
-        { number: '4,056', label: 'Paid subscribers' },
+        { number: '42,284', label: 'Members' },
+        { number: '4,627', label: 'Paid subscribers' },
         { number: '11%', label: 'Paid conversion' },
       ],
     },
@@ -240,7 +240,7 @@ const slides = [
     layout: 'subscriberModel',
     bg: 'burgundy',
     label: 'NEW MEMBERSHIP PLATFORM',
-    body: 'Newpress.com, launched in February 2026, already has over 30K active users and over 4k paying ($60/year). The platform gives our audience a place to contribute to reporting and witness stories as they take shape. Over time, it will grow into a destination people return to each week to understand the world, and explore ideas together.',
+    body: 'Newpress.com, launched in February 2026, already has over 40K active users and over 4k paying ($60/year). The platform gives our audience a place to contribute to reporting and witness stories as they take shape. Over time, it will grow into a destination people return to each week to understand the world, and explore ideas together.',
     images: [
       '/deck/sub-homepage.png',
       '/deck/sub-palau.png',
@@ -363,6 +363,7 @@ const slides = [
           'Reporting and research teams',
           'Production and visual storytelling capacity',
           'Shared editorial standards and workflows',
+          'Upgraded studio facilities in DC and NYC',
         ],
       },
       {
@@ -431,8 +432,8 @@ const slides = [
     ],
     membershipLabel: 'NEW SEGMENT \u2014 MEMBERSHIP \u2014 LAUNCHED 2/19/26',
     membershipStats: [
-      { number: '$243K', label: 'Gross revenue*', note: '*89% gross margin' },
-      { number: '$53', label: 'Per paid subscriber' },
+      { number: '$278K', label: 'Gross revenue*', note: '*90% gross margin' },
+      { number: '$54', label: 'Per paid subscriber' },
     ],
     membershipNote: 'No marketing.',
   },
