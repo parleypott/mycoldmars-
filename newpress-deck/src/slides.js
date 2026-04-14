@@ -154,7 +154,7 @@ const slides = [
         tagline: 'Illuminating our world\u2019s inner workings, from geopolitics to our deepest mental recesses.',
         detail: 'Pulitzer finalist, ex-NYT, ex-WaPo, founding editor of Vox.',
         launched: '[launched Feb 2026]',
-        subs: '50K subscribers',
+        subs: '190K subscribers',
         image: '/deck/max-fisher.png',
         youtube: 'https://www.youtube.com/@maxfisher',
       },
