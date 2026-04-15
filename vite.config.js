@@ -25,6 +25,7 @@ export default defineConfig({
         animation: resolve(__dirname, 'animation/index.html'),
         essays: resolve(__dirname, 'essays/index.html'),
         eez: resolve(__dirname, 'eez/index.html'),
+        modernMiddleEast: resolve(__dirname, 'modern-middle-east/index.html'),
       },
     },
   },

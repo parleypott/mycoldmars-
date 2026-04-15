@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modern Middle East</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.19.0/mapbox-gl.css" rel="stylesheet">
+  <link rel="stylesheet" href="./src/style.css">
+</head>
+<body data-theme="bold">
+  <div id="app">
+    <!-- Mapbox background — fixed on Middle East -->
+    <div id="map"></div>
+
+    <!-- Start Screen -->
+    <div id="start-screen">
+      <div id="start-inner">
+        <h1>MODERN<br>MIDDLE<br>EAST</h1>
+        <div id="start-rule"></div>
+        <p>Test your knowledge of the modern Middle East.</p>
+        <p class="subtitle">5 questions. Choose wisely.</p>
+        <div id="difficulty-toggle">
+          <button id="diff-easy" class="diff-btn active">EASY</button>
+          <button id="diff-hard" class="diff-btn">HARD</button>
+        </div>
+        <button id="start-btn">START</button>
+      </div>
+    </div>
+
+    <!-- Quiz Panel -->
+    <div id="quiz-panel" class="hidden">
+      <div id="quiz-meta">
+        <span id="quiz-number">01/05</span>
+        <span id="quiz-score">0</span>
+      </div>
+      <div id="quiz-divider"></div>
+      <div id="quiz-question"></div>
+      <div id="quiz-options"></div>
+      <div id="quiz-feedback" class="hidden">
+        <div id="feedback-icon"></div>
+        <div id="feedback-text"></div>
+      </div>
+      <button id="quiz-next" class="hidden">NEXT</button>
+    </div>
+
+    <!-- Result Overlay — shows after answering -->
+    <div id="result-overlay" class="hidden">
+      <div id="result-word"></div>
+      <div id="result-explanation"></div>
+      <button id="result-next-btn">NEXT</button>
+    </div>
+
+    <!-- Scorecard -->
+    <div id="scorecard" class="hidden">
+      <div id="scorecard-inner">
+        <div id="scorecard-badge"></div>
+        <div id="scorecard-total"></div>
+        <div id="scorecard-rule"></div>
+        <div id="scorecard-body"></div>
+        <div id="scorecard-brand">MODERN MIDDLE EAST</div>
+        <button id="play-again-btn">PLAY AGAIN</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.19.0/mapbox-gl.js"></script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
