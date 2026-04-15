@@ -170,27 +170,17 @@ function handleAnswer(idx) {
     if (i === idx && !isCorrect) btn.classList.add('wrong');
   });
 
-  // Show feedback
-  feedbackIcon.textContent = isCorrect ? 'CORRECT' : 'WRONG';
-  feedbackIcon.className = isCorrect ? 'is-correct' : 'is-wrong';
-  feedbackText.textContent = q.explanation;
-  quizFeedback.classList.remove('hidden');
-  quizNext.classList.remove('hidden');
+  // Go straight to result overlay after a short delay
+  setTimeout(() => {
+    quizPanel.classList.add('hidden');
+    resultOverlay.classList.remove('hidden');
+    resultOverlay.className = isCorrect ? 'is-correct' : 'is-wrong';
+    resultWord.textContent = isCorrect ? 'CORRECT' : 'WRONG';
+    resultExplanation.textContent = q.explanation;
+  }, 400);
 }
 
 /* ─── Next / Result Flow ─── */
-quizNext.addEventListener('click', () => {
-  const q = questions[currentIdx];
-  const lastResult = results[results.length - 1];
-
-  // Show result overlay
-  quizPanel.classList.add('hidden');
-  resultOverlay.classList.remove('hidden');
-  resultOverlay.className = lastResult.correct ? 'is-correct' : 'is-wrong';
-  resultWord.textContent = lastResult.correct ? 'CORRECT' : 'WRONG';
-  resultExplanation.textContent = q.explanation;
-});
-
 resultNextBtn.addEventListener('click', () => {
   resultOverlay.classList.add('hidden');
   currentIdx++;
