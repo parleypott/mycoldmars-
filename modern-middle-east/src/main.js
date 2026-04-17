@@ -1,5 +1,117 @@
 import { easy, hard } from './questions.js';
 
+/* ─── Themes ─── */
+const THEMES = {
+  bold: {
+    css: {
+      '--bg': '#f83500',
+      '--bg-panel': 'rgba(248, 53, 0, 0.95)',
+      '--bg-solid': '#f83500',
+      '--bg-start': 'rgba(248, 53, 0, 0.88)',
+      '--text': '#1a1a1a',
+      '--text-dim': 'rgba(0, 0, 0, 0.55)',
+      '--text-faint': 'rgba(0, 0, 0, 0.3)',
+      '--correct': '#fffbe6',
+      '--wrong': '#1a1a1a',
+      '--border': '#1a1a1a',
+      '--border-light': 'rgba(0, 0, 0, 0.15)',
+      '--btn-bg': '#1a1a1a',
+      '--btn-text': '#f83500',
+    },
+    map: {
+      bg: '#f83500',
+      fill: '#f83500',
+      outline: '#fffbe6',
+    },
+  },
+  neon: {
+    css: {
+      '--bg': '#000000',
+      '--bg-panel': 'rgba(0, 0, 0, 0.92)',
+      '--bg-solid': '#000000',
+      '--bg-start': 'rgba(0, 0, 0, 0.85)',
+      '--text': '#00ff41',
+      '--text-dim': 'rgba(0, 255, 65, 0.55)',
+      '--text-faint': 'rgba(0, 255, 65, 0.25)',
+      '--correct': '#00ff41',
+      '--wrong': '#ff0040',
+      '--border': '#00ff41',
+      '--border-light': 'rgba(0, 255, 65, 0.2)',
+      '--btn-bg': '#000000',
+      '--btn-text': '#00ff41',
+    },
+    map: {
+      bg: '#000000',
+      fill: '#000000',
+      outline: '#00ff41',
+    },
+  },
+  monochrome: {
+    css: {
+      '--bg': '#ffffff',
+      '--bg-panel': 'rgba(255, 255, 255, 0.92)',
+      '--bg-solid': '#ffffff',
+      '--bg-start': 'rgba(255, 255, 255, 0.85)',
+      '--text': '#000000',
+      '--text-dim': 'rgba(0, 0, 0, 0.4)',
+      '--text-faint': 'rgba(0, 0, 0, 0.2)',
+      '--correct': '#00e676',
+      '--wrong': '#ff0000',
+      '--border': '#000000',
+      '--border-light': 'rgba(0, 0, 0, 0.1)',
+      '--btn-bg': '#000000',
+      '--btn-text': '#ffffff',
+    },
+    map: {
+      bg: '#ffffff',
+      fill: '#ffffff',
+      outline: '#000000',
+    },
+  },
+};
+
+const THEME_ORDER = ['bold', 'neon', 'monochrome'];
+let currentTheme = 'bold';
+
+function applyTheme(name) {
+  const theme = THEMES[name];
+  if (!theme) return;
+  currentTheme = name;
+
+  const root = document.documentElement;
+  for (const [prop, value] of Object.entries(theme.css)) {
+    root.style.setProperty(prop, value);
+  }
+  document.body.dataset.theme = name;
+
+  // Update map
+  if (map.isStyleLoaded()) {
+    applyMapTheme(theme.map);
+  } else {
+    map.once('style.load', () => applyMapTheme(theme.map));
+  }
+
+  localStorage.setItem('mme-theme', name);
+}
+
+function applyMapTheme(m) {
+  try {
+    map.setPaintProperty('background', 'background-color', m.bg);
+    map.setPaintProperty('country-fills', 'fill-color', m.fill);
+    map.setPaintProperty('country-outlines', 'line-color', m.outline);
+    map.setFog({
+      color: m.bg,
+      'high-color': m.bg,
+      'space-color': m.bg,
+      'horizon-blend': 0,
+      'star-intensity': 0,
+      range: [20, 20],
+    });
+  } catch (e) {
+    console.warn('Theme map update failed:', e);
+  }
+}
+
 /* ─── Mapbox Background ─── */
 mapboxgl.accessToken = 'pk.eyJ1Ijoiam9obm55d2hhcnJpcyIsImEiOiJ3ck1DN2dnIn0.B-hCqwHxWQwTFGYWOfCLfg';
 
@@ -236,3 +348,19 @@ playAgainBtn.addEventListener('click', () => {
   scorecard.classList.add('hidden');
   startScreen.classList.remove('hidden');
 });
+
+/* ─── Vibes Button ─── */
+const vibesBtn = document.getElementById('vibes-btn');
+vibesBtn.addEventListener('click', () => {
+  const idx = THEME_ORDER.indexOf(currentTheme);
+  const next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
+  applyTheme(next);
+  vibesBtn.style.transform = 'scale(1.15)';
+  setTimeout(() => { vibesBtn.style.transform = ''; }, 150);
+});
+
+// Restore saved theme
+const saved = localStorage.getItem('mme-theme');
+if (saved && THEMES[saved]) {
+  map.on('style.load', () => applyTheme(saved));
+}

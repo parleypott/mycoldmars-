@@ -53,6 +53,32 @@ html, body {
 }
 
 /* ═══════════════════════════════════════
+   VIBES BUTTON
+   ═══════════════════════════════════════ */
+
+#vibes-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 60;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: 2px solid var(--border);
+  padding: 10px 20px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+#vibes-btn:hover {
+  opacity: 0.8;
+}
+
+/* ═══════════════════════════════════════
    START SCREEN
    ═══════════════════════════════════════ */
 
