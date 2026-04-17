@@ -738,31 +738,47 @@ html, body {
 
 #vibes-btn {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
   z-index: 20;
-  transform: translateZ(0);
   background: var(--btn-bg);
   color: var(--btn-text);
   border: none;
-  padding: 10px 18px;
   font-family: var(--mono);
-  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   cursor: pointer;
   border-radius: 20px;
-  transition: transform 0.15s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.15s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  opacity: 0;
+  pointer-events: none;
+  /* Start state: big and centered */
+  bottom: 50%;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  padding: 20px 44px;
+  font-size: 16px;
+  transition: all 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-#vibes-btn:hover {
+#vibes-btn.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#vibes-btn.settled {
+  bottom: 20px;
+  left: 20px;
+  transform: translate(0, 0);
+  padding: 10px 18px;
+  font-size: 10px;
+}
+
+#vibes-btn.settled:hover {
   transform: scale(1.06);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
-#vibes-btn:active {
+#vibes-btn.settled:active {
   transform: scale(0.95);
 }
 

@@ -456,6 +456,9 @@ successNextBtn.addEventListener('click', () => {
 
 // ─── Start / Restart ───
 
+let vibesIntroPlayed = false;
+const vibesBtn = document.getElementById('vibes-btn');
+
 startBtn.addEventListener('click', () => {
   // Stop spinning globe
   stopSpin();
@@ -471,6 +474,18 @@ startBtn.addEventListener('click', () => {
   pinTracker.innerHTML = '';
   game.startRound();
   clearAllMarkers();
+
+  // Vibes button intro: appear big, then shrink to corner
+  if (!vibesIntroPlayed && vibesBtn) {
+    vibesIntroPlayed = true;
+    vibesBtn.classList.remove('settled');
+    vibesBtn.classList.add('visible');
+    setTimeout(() => {
+      vibesBtn.classList.add('settled');
+    }, 1200);
+  } else if (vibesBtn) {
+    vibesBtn.classList.add('visible', 'settled');
+  }
 });
 
 playAgainBtn.addEventListener('click', () => {
@@ -483,6 +498,8 @@ playAgainBtn.addEventListener('click', () => {
   pinTracker.innerHTML = '';
   game.startRound();
   clearAllMarkers();
+
+  if (vibesBtn) vibesBtn.classList.add('visible', 'settled');
 });
 
 // ─── Feedback ───

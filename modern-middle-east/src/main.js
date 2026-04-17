@@ -222,6 +222,8 @@ function pickQuestions() {
 /* ─── Start Game ─── */
 document.getElementById('start-btn').addEventListener('click', startGame);
 
+let vibesIntroPlayed = false;
+
 function startGame() {
   questions = pickQuestions();
   currentIdx = 0;
@@ -231,9 +233,25 @@ function startGame() {
   startScreen.classList.add('hidden');
   scorecard.classList.add('hidden');
   resultOverlay.classList.add('hidden');
-  quizPanel.classList.remove('hidden');
 
-  showQuestion();
+  // Vibes button intro: appear big, then shrink to corner
+  if (!vibesIntroPlayed) {
+    vibesIntroPlayed = true;
+    vibesBtn.classList.remove('settled');
+    vibesBtn.classList.add('visible');
+    setTimeout(() => {
+      vibesBtn.classList.add('settled');
+    }, 1200);
+    // Delay showing quiz panel until button starts settling
+    setTimeout(() => {
+      quizPanel.classList.remove('hidden');
+      showQuestion();
+    }, 1600);
+  } else {
+    vibesBtn.classList.add('visible', 'settled');
+    quizPanel.classList.remove('hidden');
+    showQuestion();
+  }
 }
 
 /* ─── Show Question ─── */
