@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Channel Growth — Newpress</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap');
 
@@ -49,128 +48,174 @@
       <canvas id="growthChart"></canvas>
     </div>
     <div class="chart-caption">
-      YouTube subscribers, Johnny Harris channel. [ Data via public tracking sites. ]
+      YouTube subscribers from channel launch. Aligned by channel age to compare growth rates.
     </div>
   </div>
 
   <script>
-    // Raw milestone data
-    const milestones = [
-      { date: '2018-01-01', subs: 15000 },
-      { date: '2018-06-01', subs: 30000 },
-      { date: '2018-12-01', subs: 55000 },
-      { date: '2019-06-01', subs: 95000 },
-      { date: '2019-12-01', subs: 170000 },
-      { date: '2020-01-01', subs: 200000 },
-      { date: '2020-04-01', subs: 280000 },
-      { date: '2020-07-16', subs: 390000 },
-      { date: '2020-08-24', subs: 487000 },
-      { date: '2020-10-07', subs: 572000 },
-      { date: '2020-12-01', subs: 640000 },
-      { date: '2021-01-25', subs: 702000 },
-      { date: '2021-03-10', subs: 910000 },
-      { date: '2021-04-30', subs: 1210000 },
-      { date: '2021-06-18', subs: 1490000 },
-      { date: '2021-08-10', subs: 1610000 },
-      { date: '2021-10-01', subs: 1780000 },
-      { date: '2021-12-01', subs: 2000000 },
-      { date: '2022-02-19', subs: 2190000 },
-      { date: '2022-06-01', subs: 2600000 },
-      { date: '2022-09-01', subs: 2950000 },
-      { date: '2023-01-12', subs: 3400000 },
-      { date: '2023-06-01', subs: 3900000 },
-      { date: '2023-09-01', subs: 4200000 },
-      { date: '2024-01-25', subs: 4840000 },
-      { date: '2024-06-01', subs: 5400000 },
-      { date: '2024-09-01', subs: 5800000 },
-      { date: '2025-01-11', subs: 6260000 },
-      { date: '2025-06-01', subs: 6800000 },
-      { date: '2025-10-01', subs: 7100000 },
-      { date: '2026-01-01', subs: 7350000 },
-      { date: '2026-04-10', subs: 7640000 },
+    // ── Johnny Harris ──
+    // Year 1 start = Jan 2019 (independent channel era)
+    const jhMilestones = [
+      { monthsIn: 0, subs: 55000 },     // Jan 2019
+      { monthsIn: 6, subs: 95000 },     // Jul 2019
+      { monthsIn: 12, subs: 200000 },   // Jan 2020
+      { monthsIn: 15, subs: 280000 },
+      { monthsIn: 18, subs: 390000 },
+      { monthsIn: 20, subs: 487000 },
+      { monthsIn: 21, subs: 572000 },
+      { monthsIn: 23, subs: 640000 },
+      { monthsIn: 24, subs: 702000 },   // Jan 2021
+      { monthsIn: 26, subs: 910000 },
+      { monthsIn: 28, subs: 1210000 },
+      { monthsIn: 30, subs: 1490000 },
+      { monthsIn: 32, subs: 1610000 },
+      { monthsIn: 34, subs: 1780000 },
+      { monthsIn: 36, subs: 2000000 },  // Jan 2022
+      { monthsIn: 38, subs: 2190000 },
+      { monthsIn: 42, subs: 2600000 },
+      { monthsIn: 44, subs: 2950000 },
+      { monthsIn: 48, subs: 3400000 },  // Jan 2023
+      { monthsIn: 53, subs: 3900000 },
+      { monthsIn: 56, subs: 4200000 },
+      { monthsIn: 60, subs: 4840000 },  // Jan 2024
+      { monthsIn: 65, subs: 5400000 },
+      { monthsIn: 68, subs: 5800000 },
+      { monthsIn: 72, subs: 6260000 },  // Jan 2025
+      { monthsIn: 77, subs: 6800000 },
+      { monthsIn: 81, subs: 7100000 },
+      { monthsIn: 84, subs: 7350000 },  // Jan 2026
+      { monthsIn: 87, subs: 7640000 },  // Apr 2026
     ];
 
-    // Interpolate to monthly
+    // ── Search Party ──
+    // Year 1 start = Jul 2023 (channel launch)
+    const spMilestones = [
+      { monthsIn: 0, subs: 0 },          // Jul 2023
+      { monthsIn: 1, subs: 30000 },
+      { monthsIn: 3, subs: 100000 },
+      { monthsIn: 5, subs: 200000 },
+      { monthsIn: 7, subs: 303000 },     // Feb 2024
+      { monthsIn: 8, subs: 320000 },
+      { monthsIn: 9, subs: 340000 },
+      { monthsIn: 10, subs: 350000 },
+      { monthsIn: 11, subs: 365000 },
+      { monthsIn: 12, subs: 380000 },    // Jul 2024
+      { monthsIn: 13, subs: 457000 },
+      { monthsIn: 14, subs: 490000 },
+      { monthsIn: 15, subs: 511000 },
+      { monthsIn: 16, subs: 517000 },
+      { monthsIn: 17, subs: 522000 },
+      { monthsIn: 18, subs: 561000 },    // Jan 2025
+      { monthsIn: 19, subs: 599000 },
+      { monthsIn: 20, subs: 627000 },
+      { monthsIn: 21, subs: 645000 },
+      { monthsIn: 22, subs: 664000 },
+      { monthsIn: 23, subs: 685000 },
+      { monthsIn: 24, subs: 692000 },    // Jul 2025
+      { monthsIn: 26, subs: 719000 },
+      { monthsIn: 28, subs: 759000 },
+      { monthsIn: 31, subs: 840000 },
+      { monthsIn: 33, subs: 919000 },    // Apr 2026
+    ];
+
+    // Interpolate milestones to monthly
     function lerp(a, b, t) { return a + (b - a) * t; }
-    function toTs(d) { return new Date(d).getTime(); }
 
-    const monthlyData = [];
-    const startDate = new Date('2018-01-01');
-    const endDate = new Date('2026-04-01');
-    let d = new Date(startDate);
-
-    while (d <= endDate) {
-      const ts = d.getTime();
-      let before = milestones[0], after = milestones[milestones.length - 1];
-      for (let i = 0; i < milestones.length - 1; i++) {
-        if (ts >= toTs(milestones[i].date) && ts <= toTs(milestones[i + 1].date)) {
-          before = milestones[i];
-          after = milestones[i + 1];
-          break;
+    function interpolate(milestones, maxMonth) {
+      const data = [];
+      for (let m = 0; m <= maxMonth; m++) {
+        let before = milestones[0], after = milestones[milestones.length - 1];
+        for (let i = 0; i < milestones.length - 1; i++) {
+          if (m >= milestones[i].monthsIn && m <= milestones[i + 1].monthsIn) {
+            before = milestones[i];
+            after = milestones[i + 1];
+            break;
+          }
         }
+        if (m > milestones[milestones.length - 1].monthsIn) break;
+        const span = after.monthsIn - before.monthsIn || 1;
+        const t = (m - before.monthsIn) / span;
+        data.push(Math.round(lerp(before.subs, after.subs, Math.max(0, Math.min(1, t)))));
       }
-      const t = (ts - toTs(before.date)) / (toTs(after.date) - toTs(before.date) || 1);
-      const subs = Math.round(lerp(before.subs, after.subs, Math.max(0, Math.min(1, t))));
-      monthlyData.push({ x: new Date(d), y: subs });
-      d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      return data;
     }
 
-    // Year-start data points for the dots (Jan of each year)
-    const yearDots = monthlyData.filter(p => p.x.getMonth() === 0);
+    const maxMonths = 87; // JH goes to month 87
+    const jhData = interpolate(jhMilestones, maxMonths);
+    const spData = interpolate(spMilestones, maxMonths);
+
+    // X-axis labels: month numbers
+    const labels = [];
+    for (let m = 0; m <= maxMonths; m++) labels.push(m);
 
     // Colors
     const red = '#C0392B';
     const redLight = 'rgba(192, 57, 43, 0.08)';
+    const blue = '#004CFF';
+    const blueLight = 'rgba(0, 76, 255, 0.08)';
 
-    // Year labels: 2019 = Year 1
-    const yearLabelMap = {};
-    for (let yr = 2019; yr <= 2026; yr++) {
-      yearLabelMap[yr] = 'Year ' + (yr - 2018);
-    }
-
-    // End-point callout plugin
+    // End callout plugin
     const endCallout = {
       id: 'endCallout',
       afterDraw(chart) {
-        const meta = chart.getDatasetMeta(0);
-        if (!meta || !meta.data.length) return;
-        const lastPt = meta.data[meta.data.length - 1];
-        const x = lastPt.x;
-        const y = lastPt.y;
         const ctx = chart.ctx;
-        const lastVal = monthlyData[monthlyData.length - 1].y;
-        const label = (lastVal / 1e6).toFixed(1) + 'M';
+        const chartArea = chart.chartArea;
 
-        ctx.save();
+        // JH callout
+        const jhMeta = chart.getDatasetMeta(0);
+        const jhLast = jhMeta.data[jhMeta.data.length - 1];
+        if (jhLast) {
+          const val = (jhData[jhData.length - 1] / 1e6).toFixed(1) + 'M';
+          ctx.save();
+          // Ring
+          ctx.beginPath();
+          ctx.arc(jhLast.x, jhLast.y, 6, 0, Math.PI * 2);
+          ctx.strokeStyle = red;
+          ctx.lineWidth = 2;
+          ctx.fillStyle = '#F4F2E6';
+          ctx.fill();
+          ctx.stroke();
+          // Number
+          ctx.font = "bold 28px 'Instrument Serif', serif";
+          ctx.fillStyle = red;
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(val, chartArea.right, chartArea.top - 8);
+          // Label
+          ctx.font = "bold 10px 'Space Mono', monospace";
+          ctx.textBaseline = 'top';
+          ctx.fillText('JOHNNY HARRIS', chartArea.right, chartArea.top - 6);
+          ctx.restore();
+        }
 
-        // Open circle (ring)
-        ctx.beginPath();
-        ctx.arc(x, y, 7, 0, Math.PI * 2);
-        ctx.strokeStyle = red;
-        ctx.lineWidth = 2;
-        ctx.fillStyle = '#F4F2E6';
-        ctx.fill();
-        ctx.stroke();
-
-        // Big number
-        ctx.font = "bold 36px 'Instrument Serif', serif";
-        ctx.fillStyle = red;
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(label, chart.chartArea.right, chart.chartArea.top - 12);
-
-        // "SUBSCRIBERS" label
-        ctx.font = "bold 11px 'Space Mono', monospace";
-        ctx.fillStyle = red;
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'top';
-        ctx.fillText('SUBSCRIBERS', chart.chartArea.right, chart.chartArea.top - 10);
-
-        ctx.restore();
+        // SP callout
+        const spMeta = chart.getDatasetMeta(1);
+        const spLast = spMeta.data[spMeta.data.length - 1];
+        if (spLast) {
+          const val = Math.round(spData[spData.length - 1] / 1000) + 'K';
+          ctx.save();
+          // Ring
+          ctx.beginPath();
+          ctx.arc(spLast.x, spLast.y, 6, 0, Math.PI * 2);
+          ctx.strokeStyle = blue;
+          ctx.lineWidth = 2;
+          ctx.fillStyle = '#F4F2E6';
+          ctx.fill();
+          ctx.stroke();
+          // Number + label next to the last point
+          ctx.font = "bold 15px 'Space Mono', monospace";
+          ctx.fillStyle = blue;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(val, spLast.x + 12, spLast.y);
+          ctx.font = "10px 'Space Mono', monospace";
+          ctx.fillText('SEARCH PARTY', spLast.x + 12, spLast.y + 16);
+          ctx.restore();
+        }
       }
     };
 
-    // Tracing dot
+    // Tracing dot (traces both lines)
     let dotProgress = 0;
     let dotFinished = false;
     let dotStartTime = null;
@@ -180,67 +225,63 @@
       id: 'tracingDot',
       afterDraw(chart) {
         if (dotFinished) return;
-        const meta = chart.getDatasetMeta(0);
-        if (!meta || !meta.data.length) return;
-
         const ctx = chart.ctx;
-        const totalPoints = meta.data.length;
-        const rawIndex = dotProgress * (totalPoints - 1);
-        const currentIndex = Math.min(Math.floor(rawIndex), totalPoints - 1);
-        const frac = rawIndex - currentIndex;
 
-        let x, y;
-        const pt = meta.data[currentIndex];
-        if (currentIndex < totalPoints - 1) {
-          const nextPt = meta.data[currentIndex + 1];
-          x = pt.x + (nextPt.x - pt.x) * frac;
-          y = pt.y + (nextPt.y - pt.y) * frac;
-        } else {
-          x = pt.x;
-          y = pt.y;
-        }
+        [0, 1].forEach(dsIndex => {
+          const meta = chart.getDatasetMeta(dsIndex);
+          if (!meta || !meta.data.length) return;
+          const totalPoints = meta.data.length;
+          const rawIndex = dotProgress * (totalPoints - 1);
+          const currentIndex = Math.min(Math.floor(rawIndex), totalPoints - 1);
+          const frac = rawIndex - currentIndex;
 
-        // Interpolated values
-        const d1 = monthlyData[currentIndex];
-        let displaySubs;
-        if (currentIndex < totalPoints - 1) {
-          const d2 = monthlyData[currentIndex + 1];
-          displaySubs = Math.round(lerp(d1.y, d2.y, frac));
-        } else {
-          displaySubs = d1.y;
-        }
+          let x, y;
+          const pt = meta.data[currentIndex];
+          if (currentIndex < totalPoints - 1) {
+            const nextPt = meta.data[currentIndex + 1];
+            x = pt.x + (nextPt.x - pt.x) * frac;
+            y = pt.y + (nextPt.y - pt.y) * frac;
+          } else {
+            x = pt.x; y = pt.y;
+          }
 
-        const subsStr = displaySubs >= 1000000
-          ? (displaySubs / 1000000).toFixed(1).replace(/\.0$/, '') + 'M'
-          : Math.round(displaySubs / 1000) + 'K';
+          const dataArr = dsIndex === 0 ? jhData : spData;
+          let displaySubs;
+          if (currentIndex < totalPoints - 1 && currentIndex < dataArr.length - 1) {
+            displaySubs = Math.round(lerp(dataArr[currentIndex], dataArr[currentIndex + 1], frac));
+          } else {
+            displaySubs = dataArr[Math.min(currentIndex, dataArr.length - 1)];
+          }
 
-        ctx.save();
+          const color = dsIndex === 0 ? red : blue;
+          const subsStr = displaySubs >= 1000000
+            ? (displaySubs / 1e6).toFixed(1).replace(/\.0$/, '') + 'M'
+            : Math.round(displaySubs / 1000) + 'K';
 
-        // Glow
-        ctx.beginPath();
-        ctx.arc(x, y, 12, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(192, 57, 43, 0.12)';
-        ctx.fill();
+          ctx.save();
+          // Glow
+          ctx.beginPath();
+          ctx.arc(x, y, 10, 0, Math.PI * 2);
+          ctx.fillStyle = dsIndex === 0 ? 'rgba(192,57,43,0.12)' : 'rgba(0,76,255,0.12)';
+          ctx.fill();
+          // Dot
+          ctx.beginPath();
+          ctx.arc(x, y, 4, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+          // Label
+          const chartArea = chart.chartArea;
+          let labelX = x, textAlign = 'center';
+          if (x < chartArea.left + 60) { labelX = x + 12; textAlign = 'left'; }
+          else if (x > chartArea.right - 60) { labelX = x - 12; textAlign = 'right'; }
 
-        // Dot
-        ctx.beginPath();
-        ctx.arc(x, y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = red;
-        ctx.fill();
-
-        // Sub count label
-        const chartArea = chart.chartArea;
-        let labelX = x, textAlign = 'center';
-        if (x < chartArea.left + 70) { labelX = x + 14; textAlign = 'left'; }
-        else if (x > chartArea.right - 70) { labelX = x - 14; textAlign = 'right'; }
-
-        ctx.font = "bold 15px 'Space Mono', monospace";
-        ctx.fillStyle = red;
-        ctx.textAlign = textAlign;
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(subsStr, labelX, y - 16);
-
-        ctx.restore();
+          ctx.font = "bold 13px 'Space Mono', monospace";
+          ctx.fillStyle = color;
+          ctx.textAlign = textAlign;
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(subsStr, labelX, y - 14);
+          ctx.restore();
+        });
       }
     };
 
@@ -271,38 +312,42 @@
     const chart = new Chart(ctx, {
       type: 'line',
       data: {
+        labels: labels,
         datasets: [
-          // Main line
           {
-            data: monthlyData,
+            label: 'Johnny Harris',
+            data: jhData,
             borderColor: red,
             backgroundColor: redLight,
             borderWidth: 2.5,
-            pointRadius: 0,
+            pointRadius: function(ctx) {
+              return ctx.index % 12 === 0 ? 4 : 0;
+            },
+            pointBackgroundColor: red,
             pointHoverRadius: 0,
             tension: 0.3,
             fill: true
           },
-          // Yearly dots
           {
-            data: yearDots,
-            borderColor: red,
-            backgroundColor: red,
-            borderWidth: 0,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            pointHoverBackgroundColor: red,
-            showLine: false,
-            fill: false
+            label: 'Search Party',
+            data: spData,
+            borderColor: blue,
+            backgroundColor: blueLight,
+            borderWidth: 2.5,
+            pointRadius: function(ctx) {
+              return ctx.index % 12 === 0 ? 4 : 0;
+            },
+            pointBackgroundColor: blue,
+            pointHoverRadius: 0,
+            tension: 0.3,
+            fill: true
           }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        layout: {
-          padding: { top: 60, right: 10 }
-        },
+        layout: { padding: { top: 60, right: 80 } },
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },
@@ -314,38 +359,41 @@
             borderWidth: 1,
             titleFont: { family: "'Space Mono', monospace", weight: '700' },
             bodyFont: { family: "'Space Mono', monospace" },
-            displayColors: false,
-            filter: function(item) { return item.datasetIndex === 0; },
+            displayColors: true,
             callbacks: {
               title: function(items) {
-                const dt = new Date(items[0].parsed.x);
-                const yr = dt.getFullYear();
-                const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                const yearLabel = yearLabelMap[yr] ? ` (${yearLabelMap[yr]})` : '';
-                return monthNames[dt.getMonth()] + ' ' + yr + yearLabel;
+                const m = items[0].parsed.x;
+                const yr = Math.floor(m / 12) + 1;
+                const mo = m % 12;
+                return `Year ${yr}, Month ${mo + 1}`;
               },
               label: function(context) {
+                if (context.parsed.y == null) return null;
                 const v = context.parsed.y;
-                return v >= 1000000
-                  ? (v / 1000000).toFixed(1) + 'M subscribers'
-                  : Math.round(v / 1000) + 'K subscribers';
+                const name = context.dataset.label;
+                const formatted = v >= 1000000
+                  ? (v / 1e6).toFixed(1) + 'M'
+                  : Math.round(v / 1000) + 'K';
+                return `${name}: ${formatted}`;
               }
             }
           }
         },
         scales: {
           x: {
-            type: 'time',
-            time: { unit: 'year', displayFormats: { year: 'yyyy' } },
             grid: { display: false },
             ticks: {
               font: { family: "'Space Mono', monospace", size: 12, weight: '700' },
               color: '#aaa',
-              callback: function(value) {
-                const yr = new Date(value).getFullYear();
-                if (yr < 2019) return '';
-                return yearLabelMap[yr] || '';
-              }
+              callback: function(value, index) {
+                if (index % 12 === 0) {
+                  const yr = (index / 12) + 1;
+                  return 'Year ' + yr;
+                }
+                return '';
+              },
+              maxRotation: 0,
+              autoSkip: false
             },
             border: { color: '#ddd' }
           },
@@ -358,9 +406,9 @@
               color: '#bbb',
               callback: function(v) {
                 if (v === 0) return '0';
-                return v >= 1000000 ? (v / 1000000) + 'M' : (v / 1000) + 'K';
+                return v >= 1000000 ? (v / 1e6) + 'M' : (v / 1000) + 'K';
               },
-              stepSize: 2000000
+              stepSize: 1000000
             }
           }
         },
