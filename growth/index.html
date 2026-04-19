@@ -191,36 +191,47 @@
     const ink = '#121118';
     const blue = '#004CFF';
 
-    // "Year 1" annotation plugin
-    const yearOneAnnotation = {
-      id: 'yearOneAnnotation',
+    // Year markers annotation plugin
+    const yearMarkers = {
+      id: 'yearMarkers',
       afterDraw(chart) {
-        const meta = chart.getDatasetMeta(0);
-        if (!meta || !meta.data.length) return;
         const ctx = chart.ctx;
         const chartArea = chart.chartArea;
+        const xScale = chart.scales.x;
 
-        // Find the x position for Jan 2018 (first data point)
-        const pt = meta.data[0];
-        const x = pt.x;
+        const years = [
+          { date: '2019-01-01', label: 'YEAR 1' },
+          { date: '2020-01-01', label: 'YEAR 2' },
+          { date: '2021-01-01', label: 'YEAR 3' },
+          { date: '2022-01-01', label: 'YEAR 4' },
+          { date: '2023-01-01', label: 'YEAR 5' },
+          { date: '2024-01-01', label: 'YEAR 6' },
+          { date: '2025-01-01', label: 'YEAR 7' },
+          { date: '2026-01-01', label: 'YEAR 8' },
+        ];
 
-        // Dashed vertical line
         ctx.save();
-        ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = '#bbb';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(x, chartArea.top);
-        ctx.lineTo(x, chartArea.bottom);
-        ctx.stroke();
+        years.forEach(({ date, label }) => {
+          const x = xScale.getPixelForValue(new Date(date).getTime());
+          if (x < chartArea.left || x > chartArea.right) return;
 
-        // Label
-        ctx.setLineDash([]);
-        ctx.font = "bold 13px 'Space Mono', monospace";
-        ctx.fillStyle = '#999';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText('YEAR 1', x, chartArea.top - 6);
+          // Dashed vertical line
+          ctx.setLineDash([4, 4]);
+          ctx.strokeStyle = '#ddd';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x, chartArea.top);
+          ctx.lineTo(x, chartArea.bottom);
+          ctx.stroke();
+
+          // Label
+          ctx.setLineDash([]);
+          ctx.font = "bold 11px 'Space Mono', monospace";
+          ctx.fillStyle = '#bbb';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(label, x, chartArea.top - 6);
+        });
         ctx.restore();
       }
     };
@@ -406,7 +417,7 @@
         },
         animation: false
       },
-      plugins: [yearOneAnnotation, tracingDot]
+      plugins: [yearMarkers, tracingDot]
     });
 
     animateDot(chart);
