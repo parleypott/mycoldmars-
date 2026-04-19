@@ -102,7 +102,7 @@
 
     <div class="chart-card">
       <div class="chart-label">Johnny Harris</div>
-      <div class="chart-sub">YouTube subscribers — Jan 2020 to present</div>
+      <div class="chart-sub">YouTube subscribers — Jan 2018 to present</div>
       <div class="chart-wrapper">
         <canvas id="growthChart"></canvas>
       </div>
@@ -112,11 +112,11 @@
           <div class="label">Current subscribers</div>
         </div>
         <div class="stat-box">
-          <div class="num">~200K</div>
-          <div class="label">Jan 2020</div>
+          <div class="num">~15K</div>
+          <div class="label">Jan 2018</div>
         </div>
         <div class="stat-box">
-          <div class="num">38x</div>
+          <div class="num">509x</div>
           <div class="label">Growth multiple</div>
         </div>
       </div>
@@ -126,6 +126,11 @@
   <script>
     // Raw milestone data from tracking sites
     const milestones = [
+      { date: '2018-01-01', subs: 15000 },
+      { date: '2018-06-01', subs: 30000 },
+      { date: '2018-12-01', subs: 55000 },
+      { date: '2019-06-01', subs: 95000 },
+      { date: '2019-12-01', subs: 170000 },
       { date: '2020-01-01', subs: 200000 },
       { date: '2020-04-01', subs: 280000 },
       { date: '2020-07-16', subs: 390000 },
@@ -160,7 +165,7 @@
     function toTs(d) { return new Date(d).getTime(); }
 
     const monthlyData = [];
-    const startDate = new Date('2020-01-01');
+    const startDate = new Date('2018-01-01');
     const endDate = new Date('2026-04-01');
     let d = new Date(startDate);
 
@@ -185,6 +190,40 @@
     // Colors
     const ink = '#121118';
     const blue = '#004CFF';
+
+    // "Year 1" annotation plugin
+    const yearOneAnnotation = {
+      id: 'yearOneAnnotation',
+      afterDraw(chart) {
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data.length) return;
+        const ctx = chart.ctx;
+        const chartArea = chart.chartArea;
+
+        // Find the x position for Jan 2018 (first data point)
+        const pt = meta.data[0];
+        const x = pt.x;
+
+        // Dashed vertical line
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = '#bbb';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, chartArea.top);
+        ctx.lineTo(x, chartArea.bottom);
+        ctx.stroke();
+
+        // Label
+        ctx.setLineDash([]);
+        ctx.font = "bold 13px 'Space Mono', monospace";
+        ctx.fillStyle = '#999';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('YEAR 1', x, chartArea.top - 6);
+        ctx.restore();
+      }
+    };
 
     // Tracing dot plugin
     let dotProgress = 0;
@@ -367,7 +406,7 @@
         },
         animation: false
       },
-      plugins: [tracingDot]
+      plugins: [yearOneAnnotation, tracingDot]
     });
 
     animateDot(chart);
