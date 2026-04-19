@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Channel Growth — Newpress</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Space+Mono:wght@400;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Mono', monospace;
+      background: #F4F2E6;
+      color: #121118;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .page {
+      max-width: 960px;
+      width: 100%;
+    }
+
+    .page-title {
+      font-family: 'Instrument Serif', serif;
+      font-size: 42px;
+      font-weight: 400;
+      color: #121118;
+      margin-bottom: 4px;
+    }
+
+    .page-subtitle {
+      font-size: 13px;
+      color: #888;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 40px;
+    }
+
+    .chart-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.06);
+    }
+
+    .chart-label {
+      font-family: 'Instrument Serif', serif;
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+
+    .chart-sub {
+      font-size: 12px;
+      color: #999;
+      margin-bottom: 24px;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      width: 100%;
+      height: 480px;
+    }
+
+    .stat-row {
+      display: flex;
+      gap: 20px;
+      margin-top: 24px;
+    }
+
+    .stat-box {
+      flex: 1;
+      background: #F4F2E6;
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+
+    .stat-box .num {
+      font-family: 'Instrument Serif', serif;
+      font-size: 28px;
+      color: #121118;
+    }
+
+    .stat-box .label {
+      font-size: 11px;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-title">Channel Growth</div>
+    <div class="page-subtitle">Subscriber milestones over time</div>
+
+    <div class="chart-card">
+      <div class="chart-label">Johnny Harris</div>
+      <div class="chart-sub">YouTube subscribers — Jan 2020 to present</div>
+      <div class="chart-wrapper">
+        <canvas id="growthChart"></canvas>
+      </div>
+      <div class="stat-row">
+        <div class="stat-box">
+          <div class="num">7.64M</div>
+          <div class="label">Current subscribers</div>
+        </div>
+        <div class="stat-box">
+          <div class="num">~200K</div>
+          <div class="label">Jan 2020</div>
+        </div>
+        <div class="stat-box">
+          <div class="num">38x</div>
+          <div class="label">Growth multiple</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Raw milestone data from tracking sites
+    const milestones = [
+      { date: '2020-01-01', subs: 200000 },
+      { date: '2020-04-01', subs: 280000 },
+      { date: '2020-07-16', subs: 390000 },
+      { date: '2020-08-24', subs: 487000 },
+      { date: '2020-10-07', subs: 572000 },
+      { date: '2020-12-01', subs: 640000 },
+      { date: '2021-01-25', subs: 702000 },
+      { date: '2021-03-10', subs: 910000 },
+      { date: '2021-04-30', subs: 1210000 },
+      { date: '2021-06-18', subs: 1490000 },
+      { date: '2021-08-10', subs: 1610000 },
+      { date: '2021-10-01', subs: 1780000 },
+      { date: '2021-12-01', subs: 2000000 },
+      { date: '2022-02-19', subs: 2190000 },
+      { date: '2022-06-01', subs: 2600000 },
+      { date: '2022-09-01', subs: 2950000 },
+      { date: '2023-01-12', subs: 3400000 },
+      { date: '2023-06-01', subs: 3900000 },
+      { date: '2023-09-01', subs: 4200000 },
+      { date: '2024-01-25', subs: 4840000 },
+      { date: '2024-06-01', subs: 5400000 },
+      { date: '2024-09-01', subs: 5800000 },
+      { date: '2025-01-11', subs: 6260000 },
+      { date: '2025-06-01', subs: 6800000 },
+      { date: '2025-10-01', subs: 7100000 },
+      { date: '2026-01-01', subs: 7350000 },
+      { date: '2026-04-10', subs: 7640000 },
+    ];
+
+    // Interpolate to monthly data points
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function toTs(d) { return new Date(d).getTime(); }
+
+    const monthlyData = [];
+    const startDate = new Date('2020-01-01');
+    const endDate = new Date('2026-04-01');
+    let d = new Date(startDate);
+
+    while (d <= endDate) {
+      const ts = d.getTime();
+      // find surrounding milestones
+      let before = milestones[0], after = milestones[milestones.length - 1];
+      for (let i = 0; i < milestones.length - 1; i++) {
+        if (ts >= toTs(milestones[i].date) && ts <= toTs(milestones[i + 1].date)) {
+          before = milestones[i];
+          after = milestones[i + 1];
+          break;
+        }
+      }
+      const t = (ts - toTs(before.date)) / (toTs(after.date) - toTs(before.date) || 1);
+      const subs = Math.round(lerp(before.subs, after.subs, Math.max(0, Math.min(1, t))));
+
+      monthlyData.push({ x: new Date(d), y: subs });
+      d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    }
+
+    // Colors
+    const ink = '#121118';
+    const blue = '#004CFF';
+
+    // Tracing dot plugin
+    let dotProgress = 0;
+    let dotFinished = false;
+    let dotStartTime = null;
+    const DOT_DURATION = 12000;
+
+    const tracingDot = {
+      id: 'tracingDot',
+      afterDraw(chart) {
+        if (dotFinished) return;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data.length) return;
+
+        const ctx = chart.ctx;
+        const totalPoints = meta.data.length;
+        const rawIndex = dotProgress * (totalPoints - 1);
+        const currentIndex = Math.min(Math.floor(rawIndex), totalPoints - 1);
+        const frac = rawIndex - currentIndex;
+
+        let x, y;
+        const pt = meta.data[currentIndex];
+        if (currentIndex < totalPoints - 1) {
+          const nextPt = meta.data[currentIndex + 1];
+          x = pt.x + (nextPt.x - pt.x) * frac;
+          y = pt.y + (nextPt.y - pt.y) * frac;
+        } else {
+          x = pt.x;
+          y = pt.y;
+        }
+
+        // Interpolate values
+        const d1 = monthlyData[currentIndex];
+        let displayDate, displaySubs;
+        if (currentIndex < totalPoints - 1) {
+          const d2 = monthlyData[currentIndex + 1];
+          const interpTime = d1.x.getTime() + (d2.x.getTime() - d1.x.getTime()) * frac;
+          displayDate = new Date(interpTime);
+          displaySubs = Math.round(lerp(d1.y, d2.y, frac));
+        } else {
+          displayDate = d1.x;
+          displaySubs = d1.y;
+        }
+
+        const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const dateStr = monthNames[displayDate.getMonth()] + ' ' + displayDate.getFullYear();
+        const subsStr = displaySubs >= 1000000
+          ? (displaySubs / 1000000).toFixed(1).replace(/\.0$/, '') + 'M'
+          : Math.round(displaySubs / 1000) + 'K';
+
+        // Glow
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, 12, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 76, 255, 0.12)';
+        ctx.fill();
+
+        // Dot
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = blue;
+        ctx.fill();
+
+        // Label positioning
+        const chartArea = chart.chartArea;
+        let labelX = x, textAlign = 'center';
+        if (x < chartArea.left + 70) { labelX = x + 12; textAlign = 'left'; }
+        else if (x > chartArea.right - 70) { labelX = x - 12; textAlign = 'right'; }
+
+        const labelY = y - 18;
+
+        ctx.font = "bold 16px 'Space Mono', monospace";
+        ctx.fillStyle = ink;
+        ctx.textAlign = textAlign;
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(subsStr, labelX, labelY);
+
+        ctx.font = "12px 'Space Mono', monospace";
+        ctx.fillStyle = '#999';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(dateStr, labelX, labelY - 20);
+
+        ctx.restore();
+      }
+    };
+
+    function easeInOutQuart(t) {
+      return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2;
+    }
+
+    function animateDot(chartInstance) {
+      function tick(timestamp) {
+        if (!dotStartTime) dotStartTime = timestamp;
+        const elapsed = timestamp - dotStartTime;
+        const linear = Math.min(elapsed / DOT_DURATION, 1);
+        dotProgress = easeInOutQuart(linear);
+        chartInstance.draw();
+        if (linear >= 1) {
+          dotFinished = true;
+          chartInstance.draw();
+          return;
+        }
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // Chart
+    const ctx = document.getElementById('growthChart').getContext('2d');
+
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: [{
+          data: monthlyData,
+          borderColor: blue,
+          backgroundColor: 'rgba(0, 76, 255, 0.06)',
+          borderWidth: 2.5,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: blue,
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#fff',
+            titleColor: ink,
+            bodyColor: '#666',
+            borderColor: '#eee',
+            borderWidth: 1,
+            titleFont: { family: "'Space Mono', monospace", weight: '700' },
+            bodyFont: { family: "'Space Mono', monospace" },
+            displayColors: false,
+            callbacks: {
+              title: function(items) {
+                const d = new Date(items[0].parsed.x);
+                const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                return monthNames[d.getMonth()] + ' ' + d.getFullYear();
+              },
+              label: function(context) {
+                const v = context.parsed.y;
+                return v >= 1000000
+                  ? (v / 1000000).toFixed(1) + 'M subscribers'
+                  : Math.round(v / 1000) + 'K subscribers';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: { unit: 'year', displayFormats: { year: 'yyyy' } },
+            grid: { display: false },
+            ticks: {
+              font: { family: "'Space Mono', monospace", size: 12 },
+              color: '#aaa'
+            },
+            border: { color: '#ddd' }
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: '#f0ede4' },
+            border: { display: false },
+            ticks: {
+              font: { family: "'Space Mono', monospace", size: 12 },
+              color: '#aaa',
+              callback: function(v) {
+                return v >= 1000000 ? (v / 1000000) + 'M' : (v / 1000) + 'K';
+              },
+              stepSize: 1000000
+            }
+          }
+        },
+        animation: false
+      },
+      plugins: [tracingDot]
+    });
+
+    animateDot(chart);
+  </script>
+</body>
+</html>
