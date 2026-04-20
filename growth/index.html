@@ -112,6 +112,25 @@
     .grow-btn:hover { opacity: 0.8; }
     .grow-btn:disabled { opacity: 0.4; cursor: default; }
 
+    .skip-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 20;
+      background: none;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: #aaa;
+      letter-spacing: 0.5px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .skip-btn:hover { color: #666; border-color: #999; }
+    .skip-btn.hidden { display: none; }
+
     .chart-caption {
       font-family: 'Space Mono', monospace;
       font-size: 12px;
@@ -127,6 +146,7 @@
     <h1 class="chart-title">Newpress Shows <span>(YouTube Subscribers)</span></h1>
     <div class="chart-wrapper">
       <canvas id="growthChart"></canvas>
+      <button class="skip-btn" id="skipBtn" onclick="skipForward()">&#9654;&#9654;</button>
       <div class="story-label" id="storyLabel">
         <div class="story-inner">
           <img class="headshot" id="storyPhoto" src="" alt="">
@@ -462,8 +482,8 @@
           const ss = t * t * (3 - 2 * t); // smoothstep
           chart.options.scales.y.max = lerp(startY, targetY, ss);
           chart.update('none');
-          if (t < 1) requestAnimationFrame(tick);
-          else resolve();
+          if (t < 1 && !skipRequested) requestAnimationFrame(tick);
+          else { chart.options.scales.y.max = targetY; chart.update('none'); resolve(); }
         }
         requestAnimationFrame(tick);
       });
@@ -521,12 +541,12 @@
 
           chart.update('none');
 
-          if (t < 1) {
+          if (t < 1 && !skipRequested) {
             requestAnimationFrame(tick);
           } else {
             // Remove clip — start fill fade-in
             revealMonth[dsIndex] = null;
-            fadeInFill(dsIndex, 700);
+            if (!skipRequested) fadeInFill(dsIndex, 700);
             chart.update('none');
             resolve();
           }
@@ -550,32 +570,95 @@
       return peak * 1.3;
     }
 
+    // ── Skip / fast-forward ──
+    let introChannel = 0;   // which channel the intro is currently on
+    let skipRequested = false;
+    let introRunning = true;
+
+    // Instantly complete one channel to its end state
+    function snapChannel(idx, visibleMonths) {
+      const src = fullData[idx];
+      const data = chart.data.datasets[idx].data;
+      const pointCount = Math.min(visibleMonths + 1, src.length);
+      for (let j = 0; j < pointCount; j++) data[j] = src[j];
+      revealMonth[idx] = null;
+      chart.data.datasets[idx].backgroundColor = fills[idx];
+      chart.data.datasets[idx].fill = true;
+      const targetY = computeTargetY(idx, visibleMonths);
+      chart.options.scales.y.max = targetY;
+    }
+
+    function skipForward() {
+      if (!introRunning) return;
+      skipRequested = true;
+    }
+
     async function introSequence() {
       const visibleMonths = 24;
 
       for (let i = 0; i < 4; i++) {
+        introChannel = i;
+
+        // If skip was pressed, snap this channel instantly
+        if (skipRequested) {
+          skipRequested = false;
+          hideLabel();
+          snapChannel(i, visibleMonths);
+          chart.update('none');
+          // Brief flash of the label
+          showLabel(i);
+          await wait(250);
+          hideLabel();
+          await wait(100);
+          continue;
+        }
+
         const targetY = computeTargetY(i, visibleMonths);
 
         showLabel(i);
 
         // Animate y-axis BEFORE drawing (prevents stutter during line draw)
         const currentY = chart.options.scales.y.max;
-        if (targetY > currentY * 1.3 || targetY < currentY * 0.6) {
+        if (!skipRequested && targetY > currentY * 1.3 || targetY < currentY * 0.6) {
           await animateYAxis(targetY, 600);
-          await wait(250);
+          if (!skipRequested) await wait(250);
         } else {
           chart.options.scales.y.max = targetY;
           chart.update('none');
-          await wait(500);
+          if (!skipRequested) await wait(500);
+        }
+
+        // Check again after y-axis animation
+        if (skipRequested) {
+          skipRequested = false;
+          snapChannel(i, visibleMonths);
+          chart.update('none');
+          await wait(150);
+          hideLabel();
+          await wait(100);
+          continue;
         }
 
         await drawOnChannel(i, visibleMonths);
+
+        // Check if skip pressed during draw
+        if (skipRequested) {
+          skipRequested = false;
+          snapChannel(i, visibleMonths);
+          chart.update('none');
+          hideLabel();
+          await wait(100);
+          continue;
+        }
+
         await wait(400);
         hideLabel();
         await wait(300);
       }
 
-      // Show the button
+      // Done — hide skip button, show expand button
+      introRunning = false;
+      document.getElementById('skipBtn').classList.add('hidden');
       await wait(300);
       const btn = document.getElementById('growBtn');
       btn.classList.add('visible');
