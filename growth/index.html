@@ -359,50 +359,62 @@
       storyLabel.classList.remove('visible');
     }
 
-    // Draw on one channel's data point by point
+    // Draw on one channel — smooth fractional reveal
     function drawOnChannel(dsIndex, maxIdx) {
       return new Promise(resolve => {
         const src = fullData[dsIndex];
         const data = chart.data.datasets[dsIndex].data;
         const pointCount = Math.min(maxIdx + 1, src.length);
-        const duration = 10000; // 10 seconds per channel
+        const duration = 7000; // 7 seconds per channel
         const startTime = performance.now();
 
-        // Rescale y-axis to fit the new data nicely
+        // Target y-axis peak
         let peakSoFar = 0;
         chart.data.datasets.forEach((ds, i) => {
           if (i > dsIndex) return;
           const d = i < dsIndex ? fullData[i] : src;
-          const limit = i < dsIndex ? Math.min(maxIdx + 1, d.length) : pointCount;
+          const limit = Math.min(maxIdx + 1, d.length);
           for (let j = 0; j < limit; j++) {
             if (d[j] > peakSoFar) peakSoFar = d[j];
           }
         });
+        const targetY = peakSoFar * 1.3;
+        const startY = chart.options.scales.y.suggestedMax;
 
         function tick(now) {
           const elapsed = now - startTime;
           const t = Math.min(elapsed / duration, 1);
-          const eased = 1 - Math.pow(1 - t, 2); // easeOutQuad
-          const currentPoint = Math.floor(eased * (pointCount - 1));
+          // Smooth ease — cubic out
+          const eased = 1 - Math.pow(1 - t, 3);
+          const fracPoint = eased * (pointCount - 1);
+          const wholePoint = Math.floor(fracPoint);
+          const frac = fracPoint - wholePoint;
 
-          // Fill in data up to currentPoint
-          for (let j = 0; j <= currentPoint && j < src.length; j++) {
+          // Fill fully revealed points
+          for (let j = 0; j <= wholePoint && j < src.length; j++) {
             data[j] = src[j];
           }
 
-          // Smoothly scale y
-          const currentPeak = Math.max(...data.filter(v => v !== null), 1);
-          chart.options.scales.y.suggestedMax = Math.max(currentPeak * 1.3, peakSoFar * 1.3);
+          // Interpolate the leading edge for smoothness
+          if (wholePoint < pointCount - 1 && wholePoint + 1 < src.length) {
+            data[wholePoint + 1] = Math.round(lerp(src[wholePoint], src[wholePoint + 1], frac));
+          }
+
+          // Smooth y-axis transition
+          chart.options.scales.y.suggestedMax = lerp(startY, targetY, Math.min(eased * 1.5, 1));
 
           chart.update('none');
+
+          // Clean up the interpolated leading edge from previous frame
+          if (wholePoint + 2 < data.length && data[wholePoint + 2] !== null && wholePoint + 2 > wholePoint + 1) {
+            // no-op, handled next frame
+          }
 
           if (t < 1) {
             requestAnimationFrame(tick);
           } else {
-            // Ensure all points are filled
-            for (let j = 0; j < pointCount && j < src.length; j++) {
-              data[j] = src[j];
-            }
+            for (let j = 0; j < pointCount && j < src.length; j++) data[j] = src[j];
+            chart.options.scales.y.suggestedMax = targetY;
             chart.update('none');
             resolve();
           }
@@ -418,11 +430,11 @@
 
       for (let i = 0; i < 4; i++) {
         showLabel(i);
-        await wait(800); // pause to read the name
-        await drawOnChannel(i, visibleMonths);
         await wait(600);
-        hideLabel();
+        await drawOnChannel(i, visibleMonths);
         await wait(400);
+        hideLabel();
+        await wait(300);
       }
 
       // Show the button
