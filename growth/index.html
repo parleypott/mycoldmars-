@@ -32,11 +32,33 @@
       height: 520px;
     }
 
+    .controls {
+      text-align: center;
+      margin-top: 24px;
+    }
+
+    .grow-btn {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: #121118;
+      color: #F4F2E6;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .grow-btn:hover { opacity: 0.8; }
+    .grow-btn:disabled { opacity: 0.4; cursor: default; }
+
     .chart-caption {
       font-family: 'Space Mono', monospace;
       font-size: 12px;
       color: #aaa;
-      margin-top: 20px;
+      margin-top: 16px;
       text-align: center;
       letter-spacing: 0.3px;
     }
@@ -47,6 +69,9 @@
     <div class="chart-wrapper">
       <canvas id="growthChart"></canvas>
     </div>
+    <div class="controls">
+      <button class="grow-btn" id="growBtn" onclick="expandChart()">Show Full Growth</button>
+    </div>
     <div class="chart-caption">
       YouTube subscribers from channel launch. Aligned by channel age to compare growth rates.
     </div>
@@ -54,140 +79,181 @@
 
   <script>
     // ── Johnny Harris ──
-    // Year 1 start = Jan 2017
+    // Year 1 = Jan 2017
     const jhMilestones = [
-      { monthsIn: 0, subs: 2000 },      // Jan 2017
-      { monthsIn: 6, subs: 4000 },      // Jul 2017
-      { monthsIn: 12, subs: 8000 },     // Jan 2018
-      { monthsIn: 18, subs: 20000 },    // Jul 2018
-      { monthsIn: 24, subs: 55000 },    // Jan 2019
-      { monthsIn: 30, subs: 95000 },    // Jul 2019
-      { monthsIn: 36, subs: 200000 },   // Jan 2020
-      { monthsIn: 39, subs: 280000 },
-      { monthsIn: 42, subs: 390000 },
-      { monthsIn: 44, subs: 487000 },
-      { monthsIn: 45, subs: 572000 },
-      { monthsIn: 47, subs: 640000 },
-      { monthsIn: 48, subs: 702000 },   // Jan 2021
-      { monthsIn: 50, subs: 910000 },
-      { monthsIn: 52, subs: 1210000 },
-      { monthsIn: 54, subs: 1490000 },
-      { monthsIn: 56, subs: 1610000 },
-      { monthsIn: 58, subs: 1780000 },
-      { monthsIn: 60, subs: 2000000 },  // Jan 2022
-      { monthsIn: 62, subs: 2190000 },
-      { monthsIn: 66, subs: 2600000 },
-      { monthsIn: 68, subs: 2950000 },
-      { monthsIn: 72, subs: 3400000 },  // Jan 2023
-      { monthsIn: 77, subs: 3900000 },
-      { monthsIn: 80, subs: 4200000 },
-      { monthsIn: 84, subs: 4840000 },  // Jan 2024
-      { monthsIn: 89, subs: 5400000 },
-      { monthsIn: 92, subs: 5800000 },
-      { monthsIn: 96, subs: 6260000 },  // Jan 2025
-      { monthsIn: 101, subs: 6800000 },
-      { monthsIn: 105, subs: 7100000 },
-      { monthsIn: 108, subs: 7350000 }, // Jan 2026
-      { monthsIn: 111, subs: 7640000 }, // Apr 2026
+      { m: 0, s: 2000 },
+      { m: 6, s: 4000 },
+      { m: 12, s: 8000 },
+      { m: 18, s: 20000 },
+      { m: 24, s: 55000 },
+      { m: 30, s: 95000 },
+      { m: 36, s: 200000 },
+      { m: 39, s: 280000 },
+      { m: 42, s: 390000 },
+      { m: 44, s: 487000 },
+      { m: 45, s: 572000 },
+      { m: 47, s: 640000 },
+      { m: 48, s: 702000 },
+      { m: 50, s: 910000 },
+      { m: 52, s: 1210000 },
+      { m: 54, s: 1490000 },
+      { m: 56, s: 1610000 },
+      { m: 58, s: 1780000 },
+      { m: 60, s: 2000000 },
+      { m: 62, s: 2190000 },
+      { m: 66, s: 2600000 },
+      { m: 68, s: 2950000 },
+      { m: 72, s: 3400000 },
+      { m: 77, s: 3900000 },
+      { m: 80, s: 4200000 },
+      { m: 84, s: 4840000 },
+      { m: 89, s: 5400000 },
+      { m: 92, s: 5800000 },
+      { m: 96, s: 6260000 },
+      { m: 101, s: 6800000 },
+      { m: 105, s: 7100000 },
+      { m: 108, s: 7350000 },
+      { m: 111, s: 7640000 },
     ];
 
-    // ── Search Party ──
-    // Year 1 start = Jul 2023 (channel launch)
+    // ── Search Party (Sam Ellis) ──
+    // Year 1 = Jul 2023
     const spMilestones = [
-      { monthsIn: 0, subs: 0 },          // Jul 2023
-      { monthsIn: 1, subs: 30000 },
-      { monthsIn: 3, subs: 100000 },
-      { monthsIn: 5, subs: 200000 },
-      { monthsIn: 7, subs: 303000 },     // Feb 2024
-      { monthsIn: 8, subs: 320000 },
-      { monthsIn: 9, subs: 340000 },
-      { monthsIn: 10, subs: 350000 },
-      { monthsIn: 11, subs: 365000 },
-      { monthsIn: 12, subs: 380000 },    // Jul 2024
-      { monthsIn: 13, subs: 457000 },
-      { monthsIn: 14, subs: 490000 },
-      { monthsIn: 15, subs: 511000 },
-      { monthsIn: 16, subs: 517000 },
-      { monthsIn: 17, subs: 522000 },
-      { monthsIn: 18, subs: 561000 },    // Jan 2025
-      { monthsIn: 19, subs: 599000 },
-      { monthsIn: 20, subs: 627000 },
-      { monthsIn: 21, subs: 645000 },
-      { monthsIn: 22, subs: 664000 },
-      { monthsIn: 23, subs: 685000 },
-      { monthsIn: 24, subs: 692000 },    // Jul 2025
-      { monthsIn: 26, subs: 719000 },
-      { monthsIn: 28, subs: 759000 },
-      { monthsIn: 31, subs: 840000 },
-      { monthsIn: 33, subs: 919000 },    // Apr 2026
+      { m: 0, s: 0 },
+      { m: 1, s: 30000 },
+      { m: 3, s: 100000 },
+      { m: 5, s: 200000 },
+      { m: 7, s: 303000 },
+      { m: 8, s: 320000 },
+      { m: 9, s: 340000 },
+      { m: 10, s: 350000 },
+      { m: 11, s: 365000 },
+      { m: 12, s: 380000 },
+      { m: 13, s: 457000 },
+      { m: 14, s: 490000 },
+      { m: 15, s: 511000 },
+      { m: 16, s: 517000 },
+      { m: 17, s: 522000 },
+      { m: 18, s: 561000 },
+      { m: 19, s: 599000 },
+      { m: 20, s: 627000 },
+      { m: 21, s: 645000 },
+      { m: 22, s: 664000 },
+      { m: 23, s: 685000 },
+      { m: 24, s: 692000 },
+      { m: 26, s: 719000 },
+      { m: 28, s: 759000 },
+      { m: 31, s: 840000 },
+      { m: 33, s: 919000 },
     ];
 
-    // ── Tunnel Vision ──
-    // Year 1 start = Dec 2024 (channel launch)
-    // ~estimated, exact count TBD
+    // ── Tunnel Vision (Christophe Haubursin) ──
+    // Year 1 = Dec 2024
     const tvMilestones = [
-      { monthsIn: 0, subs: 0 },          // Dec 2024
-      { monthsIn: 1, subs: 50000 },      // Jan 2025
-      { monthsIn: 2, subs: 90000 },
-      { monthsIn: 3, subs: 120000 },
-      { monthsIn: 4, subs: 150000 },     // Apr 2025
+      { m: 0, s: 0 },
+      { m: 1, s: 35000 },
+      { m: 2, s: 65000 },
+      { m: 3, s: 95000 },
+      { m: 4, s: 115000 },
+      { m: 5, s: 135000 },
+      { m: 6, s: 155000 },
+      { m: 7, s: 175000 },
+      { m: 8, s: 195000 },
+      { m: 9, s: 215000 },
+      { m: 10, s: 235000 },
+      { m: 11, s: 255000 },
+      { m: 12, s: 275000 },
+      { m: 13, s: 290000 },
+      { m: 14, s: 305000 },
+      { m: 15, s: 320000 },
+      { m: 16, s: 332000 },
     ];
 
-    // Interpolate milestones to monthly
+    // ── The Bigger Picture (Max Fisher) ──
+    // Year 1 = Jan 2026
+    const mfMilestones = [
+      { m: 0, s: 0 },
+      { m: 1, s: 30000 },
+      { m: 2, s: 80000 },
+      { m: 3, s: 156000 },
+      { m: 4, s: 185000 },
+    ];
+
+    // Interpolation
     function lerp(a, b, t) { return a + (b - a) * t; }
 
     function interpolate(milestones, maxMonth) {
       const data = [];
       for (let m = 0; m <= maxMonth; m++) {
+        const lastM = milestones[milestones.length - 1].m;
+        if (m > lastM) break;
         let before = milestones[0], after = milestones[milestones.length - 1];
         for (let i = 0; i < milestones.length - 1; i++) {
-          if (m >= milestones[i].monthsIn && m <= milestones[i + 1].monthsIn) {
+          if (m >= milestones[i].m && m <= milestones[i + 1].m) {
             before = milestones[i];
             after = milestones[i + 1];
             break;
           }
         }
-        if (m > milestones[milestones.length - 1].monthsIn) break;
-        const span = after.monthsIn - before.monthsIn || 1;
-        const t = (m - before.monthsIn) / span;
-        data.push(Math.round(lerp(before.subs, after.subs, Math.max(0, Math.min(1, t)))));
+        const span = after.m - before.m || 1;
+        const t = (m - before.m) / span;
+        data.push(Math.round(lerp(before.s, after.s, Math.max(0, Math.min(1, t)))));
       }
       return data;
     }
 
-    const maxMonths = 111; // JH goes to month 111
+    const maxMonths = 111;
     const jhData = interpolate(jhMilestones, maxMonths);
     const spData = interpolate(spMilestones, maxMonths);
     const tvData = interpolate(tvMilestones, maxMonths);
+    const mfData = interpolate(mfMilestones, maxMonths);
+    const allData = [jhData, spData, tvData, mfData];
 
-    // X-axis labels: month numbers
     const labels = [];
     for (let m = 0; m <= maxMonths; m++) labels.push(m);
 
     // Colors
     const red = '#C0392B';
-    const redLight = 'rgba(192, 57, 43, 0.08)';
     const blue = '#004CFF';
-    const blueLight = 'rgba(0, 76, 255, 0.08)';
     const green = '#0D5921';
-    const greenLight = 'rgba(13, 89, 33, 0.08)';
+    const purple = '#7B2D8E';
 
+    const colors = [red, blue, green, purple];
+    const fills = [
+      'rgba(192,57,43,0.08)',
+      'rgba(0,76,255,0.08)',
+      'rgba(13,89,33,0.08)',
+      'rgba(123,45,142,0.08)',
+    ];
+    const channelLabels = [
+      'JOHNNY HARRIS',
+      '2ND CHANNEL: SEARCH PARTY',
+      '3RD CHANNEL: TUNNEL VISION',
+      '4TH CHANNEL: THE BIGGER PICTURE',
+    ];
 
-    // Line labels plugin — labels at the end of each line
+    // Line labels plugin
     const lineLabels = {
       id: 'lineLabels',
       afterDraw(chart) {
         const ctx = chart.ctx;
-        const datasets = chart.data.datasets;
+        const xMax = chart.scales.x.max;
 
-        datasets.forEach((ds, i) => {
+        chart.data.datasets.forEach((ds, i) => {
           const meta = chart.getDatasetMeta(i);
           if (!meta || !meta.data.length) return;
-          const last = meta.data[meta.data.length - 1];
-          const dataArr = [jhData, spData, tvData][i];
-          const lastVal = dataArr[dataArr.length - 1];
+          const dataArr = allData[i];
+
+          // Find the last visible point
+          let lastIdx = meta.data.length - 1;
+          // Make sure it's within the visible x range
+          while (lastIdx > 0 && labels[lastIdx] > xMax) lastIdx--;
+          if (lastIdx < 0) return;
+
+          const last = meta.data[lastIdx];
+          if (!last) return;
+          const lastVal = dataArr[Math.min(lastIdx, dataArr.length - 1)];
           const color = ds.borderColor;
-          const channelLabel = ds.channelLabel || ds.label;
 
           const valStr = lastVal >= 1000000
             ? (lastVal / 1e6).toFixed(1) + 'M'
@@ -195,25 +261,24 @@
 
           ctx.save();
 
-          // Ring at endpoint
+          // Ring
           ctx.beginPath();
-          ctx.arc(last.x, last.y, 6, 0, Math.PI * 2);
+          ctx.arc(last.x, last.y, 5, 0, Math.PI * 2);
           ctx.strokeStyle = color;
           ctx.lineWidth = 2;
           ctx.fillStyle = '#F4F2E6';
           ctx.fill();
           ctx.stroke();
 
-          // Label to the right of the endpoint
-          ctx.font = "bold 13px 'Space Mono', monospace";
+          // Value + label
+          ctx.font = "bold 12px 'Space Mono', monospace";
           ctx.fillStyle = color;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.fillText(valStr, last.x + 12, last.y - 2);
+          ctx.fillText(valStr, last.x + 10, last.y - 2);
 
-          ctx.font = "10px 'Space Mono', monospace";
-          ctx.fillStyle = color;
-          ctx.fillText(channelLabel, last.x + 12, last.y + 14);
+          ctx.font = "9px 'Space Mono', monospace";
+          ctx.fillText(channelLabels[i], last.x + 10, last.y + 12);
 
           ctx.restore();
         });
@@ -227,58 +292,23 @@
       type: 'line',
       data: {
         labels: labels,
-        datasets: [
-          {
-            label: 'Johnny Harris',
-            channelLabel: 'JOHNNY HARRIS',
-            data: jhData,
-            borderColor: red,
-            backgroundColor: redLight,
-            borderWidth: 2.5,
-            pointRadius: function(ctx) {
-              return ctx.index % 12 === 0 ? 4 : 0;
-            },
-            pointBackgroundColor: red,
-            pointHoverRadius: 0,
-            tension: 0.3,
-            fill: true
-          },
-          {
-            label: 'Search Party',
-            channelLabel: '2ND CHANNEL: SEARCH PARTY',
-            data: spData,
-            borderColor: blue,
-            backgroundColor: blueLight,
-            borderWidth: 2.5,
-            pointRadius: function(ctx) {
-              return ctx.index % 12 === 0 ? 4 : 0;
-            },
-            pointBackgroundColor: blue,
-            pointHoverRadius: 0,
-            tension: 0.3,
-            fill: true
-          },
-          {
-            label: 'Tunnel Vision',
-            channelLabel: '3RD CHANNEL: TUNNEL VISION',
-            data: tvData,
-            borderColor: green,
-            backgroundColor: greenLight,
-            borderWidth: 2.5,
-            pointRadius: function(ctx) {
-              return ctx.index % 12 === 0 ? 4 : 0;
-            },
-            pointBackgroundColor: green,
-            pointHoverRadius: 0,
-            tension: 0.3,
-            fill: true
-          }
-        ]
+        datasets: allData.map((data, i) => ({
+          label: channelLabels[i],
+          data: data,
+          borderColor: colors[i],
+          backgroundColor: fills[i],
+          borderWidth: 2.5,
+          pointRadius: function(c) { return c.index % 12 === 0 ? 3.5 : 0; },
+          pointBackgroundColor: colors[i],
+          pointHoverRadius: 0,
+          tension: 0.3,
+          fill: true
+        }))
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        layout: { padding: { top: 40, right: 180 } },
+        layout: { padding: { top: 20, right: 200 } },
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },
@@ -288,39 +318,37 @@
             bodyColor: '#666',
             borderColor: '#e0e0e0',
             borderWidth: 1,
-            titleFont: { family: "'Space Mono', monospace", weight: '700' },
-            bodyFont: { family: "'Space Mono', monospace" },
+            titleFont: { family: "'Space Mono', monospace", weight: '700', size: 11 },
+            bodyFont: { family: "'Space Mono', monospace", size: 11 },
             displayColors: true,
             callbacks: {
               title: function(items) {
                 const m = items[0].parsed.x;
                 const yr = Math.floor(m / 12) + 1;
-                const mo = m % 12;
-                return `Year ${yr}, Month ${mo + 1}`;
+                const mo = (m % 12) + 1;
+                return `Year ${yr}, Month ${mo}`;
               },
               label: function(context) {
                 if (context.parsed.y == null) return null;
                 const v = context.parsed.y;
-                const name = context.dataset.label;
                 const formatted = v >= 1000000
                   ? (v / 1e6).toFixed(1) + 'M'
                   : Math.round(v / 1000) + 'K';
-                return `${name}: ${formatted}`;
+                return ` ${context.dataset.label}: ${formatted}`;
               }
             }
           }
         },
         scales: {
           x: {
+            min: 0,
+            max: 24, // Start zoomed in: Year 1 + Year 2
             grid: { display: false },
             ticks: {
               font: { family: "'Space Mono', monospace", size: 12, weight: '700' },
               color: '#aaa',
               callback: function(value, index) {
-                if (index % 12 === 0) {
-                  const yr = (index / 12) + 1;
-                  return 'Year ' + yr;
-                }
+                if (index % 12 === 0) return 'Year ' + ((index / 12) + 1);
                 return '';
               },
               maxRotation: 0,
@@ -330,6 +358,7 @@
           },
           y: {
             beginAtZero: true,
+            suggestedMax: 1000000, // Start with 1M max for zoomed view
             grid: { color: '#e8e5da' },
             border: { display: false },
             ticks: {
@@ -338,15 +367,55 @@
               callback: function(v) {
                 if (v === 0) return '0';
                 return v >= 1000000 ? (v / 1e6) + 'M' : (v / 1000) + 'K';
-              },
-              stepSize: 1000000
+              }
             }
           }
         },
-        animation: false
+        animation: { duration: 600, easing: 'easeInOutQuart' }
       },
       plugins: [lineLabels]
     });
+
+    // Expand animation
+    let expanded = false;
+
+    function expandChart() {
+      if (expanded) return;
+      expanded = true;
+      document.getElementById('growBtn').disabled = true;
+      document.getElementById('growBtn').textContent = 'Expanding...';
+
+      const totalSteps = 60;
+      const duration = 2000;
+      const startX = 24;
+      const endX = maxMonths;
+      const startY = 1000000;
+      const endY = 8500000;
+      let step = 0;
+
+      function easeOut(t) {
+        return 1 - Math.pow(1 - t, 3);
+      }
+
+      function tick() {
+        step++;
+        const t = easeOut(step / totalSteps);
+        const currentX = Math.round(startX + (endX - startX) * t);
+        const currentY = startY + (endY - startY) * t;
+
+        chart.options.scales.x.max = currentX;
+        chart.options.scales.y.suggestedMax = currentY;
+        chart.update('none');
+
+        if (step < totalSteps) {
+          requestAnimationFrame(tick);
+        } else {
+          document.getElementById('growBtn').textContent = 'Full Growth';
+        }
+      }
+
+      requestAnimationFrame(tick);
+    }
   </script>
 </body>
 </html>
