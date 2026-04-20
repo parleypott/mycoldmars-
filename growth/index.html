@@ -349,10 +349,12 @@
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
           if (i === 3) {
-            // Max Fisher: label well above and right to clear other lines
-            ctx.fillText(valStr, last.x+14, last.y-28);
+            // Max Fisher: label to the left, above, with line break
+            ctx.textAlign = 'right';
+            ctx.fillText(valStr, last.x-10, last.y-14);
             ctx.font = "9px 'Space Mono', monospace";
-            ctx.fillText(channelLabelsShort[i], last.x+14, last.y-42);
+            ctx.fillText('4TH CHANNEL:', last.x-10, last.y-28);
+            ctx.fillText('THE BIGGER PICTURE', last.x-10, last.y-40);
           } else {
             ctx.fillText(valStr, last.x+10, last.y-2);
             ctx.font = "9px 'Space Mono', monospace";
