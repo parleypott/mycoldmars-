@@ -191,10 +191,8 @@
 
     const red='#C0392B', blue='#004CFF', green='#0D5921', purple='#7B2D8E';
     const colors = [red, blue, green, purple];
-    const fills = [
-      'rgba(192,57,43,0.08)','rgba(0,76,255,0.08)',
-      'rgba(13,89,33,0.08)','rgba(123,45,142,0.08)',
-    ];
+    const fillRGB = [[192,57,43],[0,76,255],[13,89,33],[123,45,142]];
+    const fills = fillRGB.map(([r,g,b]) => `rgba(${r},${g},${b},0.08)`);
     const channelNames = ['Johnny Harris','Search Party','Tunnel Vision','The Bigger Picture'];
     const channelLabelsShort = [
       'JOHNNY HARRIS','2ND CHANNEL: SEARCH PARTY',
@@ -305,13 +303,21 @@
           ctx.fill();
           ctx.stroke();
 
+          // Position label above for Max Fisher (i=3) to avoid overlap
+          const above = (i === 3);
           ctx.font = "bold 12px 'Space Mono', monospace";
           ctx.fillStyle = color;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.fillText(valStr, last.x+10, last.y-2);
-          ctx.font = "9px 'Space Mono', monospace";
-          ctx.fillText(channelLabelsShort[i], last.x+10, last.y+12);
+          if (above) {
+            ctx.fillText(valStr, last.x+10, last.y-18);
+            ctx.font = "9px 'Space Mono', monospace";
+            ctx.fillText(channelLabelsShort[i], last.x+10, last.y-32);
+          } else {
+            ctx.fillText(valStr, last.x+10, last.y-2);
+            ctx.font = "9px 'Space Mono', monospace";
+            ctx.fillText(channelLabelsShort[i], last.x+10, last.y+12);
+          }
           ctx.restore();
         });
       }
@@ -450,6 +456,24 @@
       });
     }
 
+    // Fade in the fill shading after line draw completes (fire-and-forget)
+    function fadeInFill(dsIndex, duration) {
+      const [r,g,b] = fillRGB[dsIndex];
+      const targetAlpha = 0.08;
+      const startTime = performance.now();
+      chart.data.datasets[dsIndex].backgroundColor = `rgba(${r},${g},${b},0)`;
+      chart.data.datasets[dsIndex].fill = true;
+
+      function tick(now) {
+        const t = Math.min((now - startTime) / duration, 1);
+        const alpha = targetAlpha * (t * t * (3 - 2 * t)); // smoothstep fade
+        chart.data.datasets[dsIndex].backgroundColor = `rgba(${r},${g},${b},${alpha.toFixed(4)})`;
+        chart.update('none');
+        if (t < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
     // Draw on one channel — clip-mask, no y-axis changes during draw
     function drawOnChannel(dsIndex, maxIdx) {
       return new Promise(resolve => {
@@ -461,7 +485,7 @@
         // Pre-fill ALL data at once
         for (let j = 0; j < pointCount; j++) data[j] = src[j];
 
-        // Disable fill during draw-on (fill plugin draws before clip, causing fill-before-line bug)
+        // Disable fill during draw-on
         chart.data.datasets[dsIndex].fill = false;
 
         // Start with clip at month 0
@@ -474,9 +498,10 @@
         function tick(now) {
           const elapsed = now - startTime;
           const t = Math.min(elapsed / duration, 1);
-          // 85% linear + 15% smoothstep
-          const ss = t * t * (3 - 2 * t);
-          const progress = t * 0.85 + ss * 0.15;
+          // Ease-out cubic for natural deceleration at end
+          const easeOut = 1 - Math.pow(1 - t, 3);
+          // Blend: 70% linear + 30% ease-out
+          const progress = t * 0.7 + easeOut * 0.3;
 
           // Move clip edge to actual data end, NOT maxIdx
           revealMonth[dsIndex] = progress * dataEndMonth;
@@ -486,9 +511,9 @@
           if (t < 1) {
             requestAnimationFrame(tick);
           } else {
-            // Remove clip — fully visible, re-enable fill
+            // Remove clip — start fill fade-in
             revealMonth[dsIndex] = null;
-            chart.data.datasets[dsIndex].fill = true;
+            fadeInFill(dsIndex, 700);
             chart.update('none');
             resolve();
           }
