@@ -246,15 +246,24 @@
           if (revealMonth[i] !== null) {
             const rm = revealMonth[i];
             if (rm < 0.5) return; // don't label at very start
-            const floorIdx = Math.floor(rm);
-            const frac = rm - floorIdx;
+            // Find the last valid data index
+            let lastValidIdx = 0;
+            for (let j = dataArr.length - 1; j >= 0; j--) {
+              if (dataArr[j] !== null) { lastValidIdx = j; break; }
+            }
+            // Cap at actual data boundary
+            const cappedRm = Math.min(rm, lastValidIdx);
+            const floorIdx = Math.min(Math.floor(cappedRm), lastValidIdx);
+            const ceilIdx = Math.min(floorIdx + 1, lastValidIdx);
+            const frac = cappedRm - floorIdx;
             const p1 = meta.data[floorIdx];
-            const p2 = meta.data[Math.min(floorIdx + 1, meta.data.length - 1)];
+            const p2 = meta.data[ceilIdx];
             if (!p1 || !p2) return;
+            if (dataArr[floorIdx] === null) return;
             const lx = p1.x + (p2.x - p1.x) * frac;
             const ly = p1.y + (p2.y - p1.y) * frac;
             const v1 = dataArr[floorIdx] || 0;
-            const v2 = dataArr[Math.min(floorIdx + 1, dataArr.length - 1)] || 0;
+            const v2 = dataArr[ceilIdx] || v1;
             const lv = lerp(v1, v2, frac);
             const color = ds.borderColor;
             const valStr = lv>=1e6?(lv/1e6).toFixed(1)+'M':Math.round(lv/1000)+'K';
@@ -417,55 +426,68 @@
       storyLabel.classList.remove('visible');
     }
 
-    // Draw on one channel — clip-mask approach for perfectly smooth reveal
+    // Smooth y-axis transition (isolated from line drawing)
+    function animateYAxis(targetY, duration) {
+      return new Promise(resolve => {
+        const startY = chart.options.scales.y.max;
+        if (Math.abs(startY - targetY) / Math.max(startY, targetY) < 0.05) {
+          chart.options.scales.y.max = targetY;
+          chart.update('none');
+          resolve();
+          return;
+        }
+        const startTime = performance.now();
+        function tick(now) {
+          const t = Math.min((now - startTime) / duration, 1);
+          const ss = t * t * (3 - 2 * t); // smoothstep
+          chart.options.scales.y.max = lerp(startY, targetY, ss);
+          chart.update('none');
+          if (t < 1) requestAnimationFrame(tick);
+          else resolve();
+        }
+        requestAnimationFrame(tick);
+      });
+    }
+
+    // Draw on one channel — clip-mask, no y-axis changes during draw
     function drawOnChannel(dsIndex, maxIdx) {
       return new Promise(resolve => {
         const src = fullData[dsIndex];
         const data = chart.data.datasets[dsIndex].data;
         const pointCount = Math.min(maxIdx + 1, src.length);
+        const dataEndMonth = pointCount - 1; // actual last month with data
 
-        // Pre-fill ALL data at once (clip mask hides the unrevealed portion)
+        // Pre-fill ALL data at once
         for (let j = 0; j < pointCount; j++) data[j] = src[j];
 
-        // Calculate target y-axis
-        let peakSoFar = 0;
-        for (let i = 0; i <= dsIndex; i++) {
-          const d = fullData[i];
-          const limit = Math.min(maxIdx + 1, d.length);
-          for (let j = 0; j < limit; j++) {
-            if (d[j] > peakSoFar) peakSoFar = d[j];
-          }
-        }
-        const targetY = peakSoFar * 1.3;
-        const startY = chart.options.scales.y.max;
+        // Disable fill during draw-on (fill plugin draws before clip, causing fill-before-line bug)
+        chart.data.datasets[dsIndex].fill = false;
 
         // Start with clip at month 0
         revealMonth[dsIndex] = 0;
 
-        const duration = 3500; // 3.5 seconds per channel
+        // Duration proportional to data length (min 1.5s, max 3.5s)
+        const duration = Math.max(1500, (dataEndMonth / 24) * 3500);
         const startTime = performance.now();
 
         function tick(now) {
           const elapsed = now - startTime;
           const t = Math.min(elapsed / duration, 1);
-          // 85% linear + 15% smoothstep for very subtle ease
+          // 85% linear + 15% smoothstep
           const ss = t * t * (3 - 2 * t);
           const progress = t * 0.85 + ss * 0.15;
 
-          // Move clip edge smoothly across the data range
-          revealMonth[dsIndex] = progress * maxIdx;
-
-          // Animate y-axis
-          chart.options.scales.y.max = lerp(startY, targetY, Math.min(progress * 1.4, 1));
+          // Move clip edge to actual data end, NOT maxIdx
+          revealMonth[dsIndex] = progress * dataEndMonth;
 
           chart.update('none');
 
           if (t < 1) {
             requestAnimationFrame(tick);
           } else {
-            // Remove clip — fully visible
+            // Remove clip — fully visible, re-enable fill
             revealMonth[dsIndex] = null;
-            chart.options.scales.y.max = targetY;
+            chart.data.datasets[dsIndex].fill = true;
             chart.update('none');
             resolve();
           }
@@ -476,12 +498,38 @@
 
     function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+    // Compute target y-axis for channels 0..upTo
+    function computeTargetY(upTo, maxIdx) {
+      let peak = 0;
+      for (let k = 0; k <= upTo; k++) {
+        const d = fullData[k];
+        const limit = Math.min(maxIdx + 1, d.length);
+        for (let j = 0; j < limit; j++) {
+          if (d[j] > peak) peak = d[j];
+        }
+      }
+      return peak * 1.3;
+    }
+
     async function introSequence() {
-      const visibleMonths = 24; // Year 1-2 view
+      const visibleMonths = 24;
 
       for (let i = 0; i < 4; i++) {
+        const targetY = computeTargetY(i, visibleMonths);
+
         showLabel(i);
-        await wait(600);
+
+        // Animate y-axis BEFORE drawing (prevents stutter during line draw)
+        const currentY = chart.options.scales.y.max;
+        if (targetY > currentY * 1.3 || targetY < currentY * 0.6) {
+          await animateYAxis(targetY, 500);
+          await wait(200);
+        } else {
+          chart.options.scales.y.max = targetY;
+          chart.update('none');
+          await wait(400);
+        }
+
         await drawOnChannel(i, visibleMonths);
         await wait(400);
         hideLabel();
