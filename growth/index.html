@@ -112,24 +112,27 @@
     .grow-btn:hover { opacity: 0.8; }
     .grow-btn:disabled { opacity: 0.4; cursor: default; }
 
-    .skip-btn {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      z-index: 20;
-      background: none;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      padding: 4px 8px;
-      cursor: pointer;
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      color: #aaa;
-      letter-spacing: 0.5px;
-      transition: color 0.2s, border-color 0.2s;
+    .transport {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      margin-top: 14px;
     }
-    .skip-btn:hover { color: #666; border-color: #999; }
-    .skip-btn.hidden { display: none; }
+    .transport-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #ccc;
+      padding: 4px 6px;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    .transport-btn:hover { color: #888; }
+    .transport-btn.active { color: #121118; }
+    .transport-btn:disabled { color: #e8e5da; cursor: default; }
+    .transport-btn.rw, .transport-btn.ff { font-size: 11px; letter-spacing: -2px; }
+    .transport-btn.play { font-size: 15px; }
 
     .chart-caption {
       font-family: 'Space Mono', monospace;
@@ -146,7 +149,6 @@
     <h1 class="chart-title">Newpress Shows <span>(YouTube Subscribers)</span></h1>
     <div class="chart-wrapper">
       <canvas id="growthChart"></canvas>
-      <button class="skip-btn" id="skipBtn" onclick="skipForward()">&#9654;&#9654;</button>
       <div class="story-label" id="storyLabel">
         <div class="story-inner">
           <img class="headshot" id="storyPhoto" src="" alt="">
@@ -156,6 +158,11 @@
           </div>
         </div>
       </div>
+    </div>
+    <div class="transport" id="transport">
+      <button class="transport-btn rw" id="rwBtn" onclick="rewindStep()" disabled>&#9664;&#9664;</button>
+      <button class="transport-btn play" id="playBtn" onclick="playIntro()">&#9654;</button>
+      <button class="transport-btn ff" id="ffBtn" onclick="ffStep()">&#9654;&#9654;</button>
     </div>
     <div class="controls">
       <button class="grow-btn" id="growBtn" onclick="toggleChart()">Show Year 1–10</button>
@@ -467,7 +474,7 @@
     }
 
     // Smooth y-axis transition (isolated from line drawing)
-    function animateYAxis(targetY, duration) {
+    function animateYAxis(targetY, duration, myGen) {
       return new Promise(resolve => {
         const startY = chart.options.scales.y.max;
         if (Math.abs(startY - targetY) / Math.max(startY, targetY) < 0.05) {
@@ -478,12 +485,13 @@
         }
         const startTime = performance.now();
         function tick(now) {
+          if (gen !== myGen) { chart.options.scales.y.max = targetY; chart.update('none'); resolve(); return; }
           const t = Math.min((now - startTime) / duration, 1);
-          const ss = t * t * (3 - 2 * t); // smoothstep
+          const ss = t * t * (3 - 2 * t);
           chart.options.scales.y.max = lerp(startY, targetY, ss);
           chart.update('none');
-          if (t < 1 && !skipRequested) requestAnimationFrame(tick);
-          else { chart.options.scales.y.max = targetY; chart.update('none'); resolve(); }
+          if (t < 1) requestAnimationFrame(tick);
+          else resolve();
         }
         requestAnimationFrame(tick);
       });
@@ -508,45 +516,34 @@
     }
 
     // Draw on one channel — clip-mask, no y-axis changes during draw
-    function drawOnChannel(dsIndex, maxIdx) {
+    function drawOnChannel(dsIndex, maxIdx, myGen) {
       return new Promise(resolve => {
         const src = fullData[dsIndex];
         const data = chart.data.datasets[dsIndex].data;
         const pointCount = Math.min(maxIdx + 1, src.length);
-        const dataEndMonth = pointCount - 1; // actual last month with data
+        const dataEndMonth = pointCount - 1;
 
-        // Pre-fill ALL data at once
         for (let j = 0; j < pointCount; j++) data[j] = src[j];
-
-        // Disable fill during draw-on
         chart.data.datasets[dsIndex].fill = false;
-
-        // Start with clip at month 0
         revealMonth[dsIndex] = 0;
 
-        // Duration proportional to data length (min 2s, max 4.5s)
         const duration = Math.max(2000, (dataEndMonth / 24) * 4500);
         const startTime = performance.now();
 
         function tick(now) {
+          if (gen !== myGen) { revealMonth[dsIndex] = null; resolve(); return; }
           const elapsed = now - startTime;
           const t = Math.min(elapsed / duration, 1);
-          // Ease-out cubic for natural deceleration at end
           const easeOut = 1 - Math.pow(1 - t, 3);
-          // Blend: 70% linear + 30% ease-out
           const progress = t * 0.7 + easeOut * 0.3;
-
-          // Move clip edge to actual data end, NOT maxIdx
           revealMonth[dsIndex] = progress * dataEndMonth;
-
           chart.update('none');
 
-          if (t < 1 && !skipRequested) {
+          if (t < 1) {
             requestAnimationFrame(tick);
           } else {
-            // Remove clip — start fill fade-in
             revealMonth[dsIndex] = null;
-            if (!skipRequested) fadeInFill(dsIndex, 700);
+            fadeInFill(dsIndex, 700);
             chart.update('none');
             resolve();
           }
@@ -554,8 +551,6 @@
         requestAnimationFrame(tick);
       });
     }
-
-    function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
     // Compute target y-axis for channels 0..upTo
     function computeTargetY(upTo, maxIdx) {
@@ -570,101 +565,132 @@
       return peak * 1.3;
     }
 
-    // ── Skip / fast-forward ──
-    let introChannel = 0;   // which channel the intro is currently on
-    let skipRequested = false;
-    let introRunning = true;
+    // ── Transport controls ──
+    const VM = 24; // visible months (Year 1-3 view)
+    let gen = 0;           // generation counter — incremented on any transport action
+    let revealedCount = 0; // how many channels are fully shown (0-4)
+    let playing = false;
 
-    // Instantly complete one channel to its end state
-    function snapChannel(idx, visibleMonths) {
+    function waitGen(ms, myGen) {
+      return new Promise(r => {
+        const start = performance.now();
+        function check(now) {
+          if (gen !== myGen || now - start >= ms) { r(); return; }
+          requestAnimationFrame(check);
+        }
+        requestAnimationFrame(check);
+      });
+    }
+
+    // Snap one channel to its end state instantly
+    function snapOn(idx) {
       const src = fullData[idx];
       const data = chart.data.datasets[idx].data;
-      const pointCount = Math.min(visibleMonths + 1, src.length);
-      for (let j = 0; j < pointCount; j++) data[j] = src[j];
+      const pc = Math.min(VM + 1, src.length);
+      for (let j = 0; j < pc; j++) data[j] = src[j];
       revealMonth[idx] = null;
       chart.data.datasets[idx].backgroundColor = fills[idx];
       chart.data.datasets[idx].fill = true;
-      const targetY = computeTargetY(idx, visibleMonths);
-      chart.options.scales.y.max = targetY;
+      chart.options.scales.y.max = computeTargetY(idx, VM);
     }
 
-    function skipForward() {
-      if (!introRunning) return;
-      skipRequested = true;
+    // Clear one channel
+    function snapOff(idx) {
+      const data = chart.data.datasets[idx].data;
+      for (let j = 0; j < data.length; j++) data[j] = null;
+      revealMonth[idx] = null;
+      chart.data.datasets[idx].fill = true;
+      chart.options.scales.y.max = idx > 0 ? computeTargetY(idx - 1, VM) : 60000;
     }
 
-    async function introSequence() {
-      const visibleMonths = 24;
+    function updateTransport() {
+      document.getElementById('rwBtn').disabled = revealedCount === 0;
+      document.getElementById('ffBtn').disabled = revealedCount >= 4;
+      document.getElementById('playBtn').disabled = revealedCount >= 4;
+      const pb = document.getElementById('playBtn');
+      if (playing) pb.classList.add('active');
+      else pb.classList.remove('active');
 
-      for (let i = 0; i < 4; i++) {
-        introChannel = i;
+      const growBtn = document.getElementById('growBtn');
+      if (revealedCount >= 4) growBtn.classList.add('visible');
+      else growBtn.classList.remove('visible');
+    }
 
-        // If skip was pressed, snap this channel instantly
-        if (skipRequested) {
-          skipRequested = false;
-          hideLabel();
-          snapChannel(i, visibleMonths);
-          chart.update('none');
-          // Brief flash of the label
-          showLabel(i);
-          await wait(250);
-          hideLabel();
-          await wait(100);
-          continue;
-        }
+    function stopAll() {
+      gen++;
+      playing = false;
+      hideLabel();
+      for (let i = 0; i < 4; i++) revealMonth[i] = null;
+    }
 
-        const targetY = computeTargetY(i, visibleMonths);
+    function ffStep() {
+      stopAll();
+      if (revealedCount < 4) {
+        snapOn(revealedCount);
+        revealedCount++;
+        chart.update('none');
+      }
+      updateTransport();
+    }
 
+    function rewindStep() {
+      stopAll();
+      if (revealedCount > 0) {
+        revealedCount--;
+        snapOff(revealedCount);
+        chart.update('none');
+      }
+      updateTransport();
+    }
+
+    async function playIntro() {
+      if (playing || revealedCount >= 4) return;
+      stopAll();
+      const myGen = ++gen;
+      playing = true;
+      updateTransport();
+
+      for (let i = revealedCount; i < 4; i++) {
+        if (gen !== myGen) break;
+
+        const targetY = computeTargetY(i, VM);
         showLabel(i);
 
-        // Animate y-axis BEFORE drawing (prevents stutter during line draw)
         const currentY = chart.options.scales.y.max;
-        if (!skipRequested && targetY > currentY * 1.3 || targetY < currentY * 0.6) {
-          await animateYAxis(targetY, 600);
-          if (!skipRequested) await wait(250);
+        if (targetY > currentY * 1.3 || targetY < currentY * 0.6) {
+          await animateYAxis(targetY, 600, myGen);
+          if (gen !== myGen) break;
+          await waitGen(250, myGen);
         } else {
           chart.options.scales.y.max = targetY;
           chart.update('none');
-          if (!skipRequested) await wait(500);
+          await waitGen(500, myGen);
         }
+        if (gen !== myGen) break;
 
-        // Check again after y-axis animation
-        if (skipRequested) {
-          skipRequested = false;
-          snapChannel(i, visibleMonths);
-          chart.update('none');
-          await wait(150);
-          hideLabel();
-          await wait(100);
-          continue;
-        }
+        await drawOnChannel(i, VM, myGen);
+        if (gen !== myGen) break;
 
-        await drawOnChannel(i, visibleMonths);
+        // Channel complete
+        revealedCount = i + 1;
+        updateTransport();
 
-        // Check if skip pressed during draw
-        if (skipRequested) {
-          skipRequested = false;
-          snapChannel(i, visibleMonths);
-          chart.update('none');
-          hideLabel();
-          await wait(100);
-          continue;
-        }
-
-        await wait(400);
+        await waitGen(400, myGen);
+        if (gen !== myGen) break;
         hideLabel();
-        await wait(300);
+        await waitGen(300, myGen);
       }
 
-      // Done — hide skip button, show expand button
-      introRunning = false;
-      document.getElementById('skipBtn').classList.add('hidden');
-      await wait(300);
-      const btn = document.getElementById('growBtn');
-      btn.classList.add('visible');
+      if (gen === myGen) {
+        playing = false;
+        hideLabel();
+        updateTransport();
+      }
     }
 
-    introSequence();
+    // Auto-play on load
+    updateTransport();
+    playIntro();
 
     // ── Toggle expand/collapse ──
     let expanded = false;
