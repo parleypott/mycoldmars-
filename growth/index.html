@@ -26,6 +26,19 @@
       width: 100%;
     }
 
+    .chart-title {
+      font-family: 'Instrument Serif', serif;
+      font-size: 24px;
+      font-weight: 400;
+      color: #121118;
+      margin-bottom: 16px;
+    }
+    .chart-title span {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: #999;
+    }
+
     .chart-wrapper {
       position: relative;
       width: 100%;
@@ -111,6 +124,7 @@
 </head>
 <body>
   <div class="chart-container">
+    <h1 class="chart-title">Newpress Shows <span>(YouTube Subscribers)</span></h1>
     <div class="chart-wrapper">
       <canvas id="growthChart"></canvas>
       <div class="story-label" id="storyLabel">
