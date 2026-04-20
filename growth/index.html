@@ -384,9 +384,13 @@
         function tick(now) {
           const elapsed = now - startTime;
           const t = Math.min(elapsed / duration, 1);
-          // Smooth ease — cubic out
-          const eased = 1 - Math.pow(1 - t, 3);
-          const fracPoint = eased * (pointCount - 1);
+          // Nearly linear — very subtle ease
+          const eased = t < 0.5
+            ? 2 * t * t
+            : 1 - Math.pow(-2 * t + 2, 2) / 2;
+          // Blend 80% linear + 20% eased for minimal ease
+          const progress = t * 0.8 + eased * 0.2;
+          const fracPoint = progress * (pointCount - 1);
           const wholePoint = Math.floor(fracPoint);
           const frac = fracPoint - wholePoint;
 
@@ -401,14 +405,9 @@
           }
 
           // Smooth y-axis transition
-          chart.options.scales.y.suggestedMax = lerp(startY, targetY, Math.min(eased * 1.5, 1));
+          chart.options.scales.y.suggestedMax = lerp(startY, targetY, Math.min(progress * 1.4, 1));
 
           chart.update('none');
-
-          // Clean up the interpolated leading edge from previous frame
-          if (wholePoint + 2 < data.length && data[wholePoint + 2] !== null && wholePoint + 2 > wholePoint + 1) {
-            // no-op, handled next frame
-          }
 
           if (t < 1) {
             requestAnimationFrame(tick);
@@ -455,28 +454,32 @@
       const btn = document.getElementById('growBtn');
       btn.disabled = true;
 
+      // Gentle ease for both directions
+      function smoothStep(t) {
+        return t * t * (3 - 2 * t);
+      }
+
       if (!expanded) {
-        // First, fill in all full data beyond month 24
+        // Fill in all full data beyond month 24
         for (let i = 0; i < 4; i++) {
           const src = fullData[i];
           const data = chart.data.datasets[i].data;
           for (let j = 0; j < src.length; j++) data[j] = src[j];
         }
 
-        // Expand slowly — 5 seconds
-        const totalSteps = 150;
+        // Expand — 8 seconds, smooth
+        const durationMs = 8000;
         const startX = 24, endX = maxMonths;
         const startY = chart.options.scales.y.suggestedMax;
         const endY = 8500000;
-        let step = 0;
-        function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
-        function tickExpand() {
-          step++;
-          const t = easeOut(step / totalSteps);
+        const t0 = performance.now();
+
+        function tickExpand(now) {
+          const t = smoothStep(Math.min((now - t0) / durationMs, 1));
           chart.options.scales.x.max = Math.round(startX + (endX - startX) * t);
           chart.options.scales.y.suggestedMax = startY + (endY - startY) * t;
           chart.update('none');
-          if (step < totalSteps) {
+          if ((now - t0) < durationMs) {
             requestAnimationFrame(tickExpand);
           } else {
             expanded = true;
@@ -488,19 +491,18 @@
         requestAnimationFrame(tickExpand);
 
       } else {
-        // Collapse faster — 3 seconds
-        const totalSteps = 90;
+        // Collapse — 5 seconds, smooth
+        const durationMs = 5000;
         const startX = maxMonths, endX = 24;
         const startY = 8500000, endY = 1000000;
-        let step = 0;
-        function easeIn(t) { return t * t; }
-        function tickCollapse() {
-          step++;
-          const t = easeIn(step / totalSteps);
+        const t0 = performance.now();
+
+        function tickCollapse(now) {
+          const t = smoothStep(Math.min((now - t0) / durationMs, 1));
           chart.options.scales.x.max = Math.round(startX + (endX - startX) * t);
           chart.options.scales.y.suggestedMax = startY + (endY - startY) * t;
           chart.update('none');
-          if (step < totalSteps) {
+          if ((now - t0) < durationMs) {
             requestAnimationFrame(tickCollapse);
           } else {
             expanded = false;
