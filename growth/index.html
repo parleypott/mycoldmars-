@@ -205,6 +205,31 @@
       'Our third channel','Our fourth channel',
     ];
 
+    // ── Clip-mask reveal state ──
+    // revealMonth[i] = fractional month position for clip edge, null = no clip
+    const revealMonth = [null, null, null, null];
+
+    // Plugin: clip mask for smooth line reveal
+    const clipReveal = {
+      id: 'clipReveal',
+      beforeDatasetDraw(chart, args) {
+        const i = args.index;
+        if (revealMonth[i] === null) return;
+        const xScale = chart.scales.x;
+        const area = chart.chartArea;
+        const clipX = xScale.getPixelForValue(revealMonth[i]);
+        chart.ctx.save();
+        chart.ctx.beginPath();
+        chart.ctx.rect(area.left - 2, area.top - 10, clipX - area.left + 4, area.bottom - area.top + 20);
+        chart.ctx.clip();
+      },
+      afterDatasetDraw(chart, args) {
+        const i = args.index;
+        if (revealMonth[i] === null) return;
+        chart.ctx.restore();
+      }
+    };
+
     // Line labels plugin
     const lineLabels = {
       id: 'lineLabels',
@@ -214,9 +239,42 @@
         chart.data.datasets.forEach((ds, i) => {
           const meta = chart.getDatasetMeta(i);
           if(!meta||!meta.data.length) return;
-          // Only label datasets that have visible data
           const dataArr = ds.data;
           if(!dataArr||dataArr.length===0||dataArr.every(v=>v===null)) return;
+
+          // During clip animation, show label at clip edge
+          if (revealMonth[i] !== null) {
+            const rm = revealMonth[i];
+            if (rm < 0.5) return; // don't label at very start
+            const floorIdx = Math.floor(rm);
+            const frac = rm - floorIdx;
+            const p1 = meta.data[floorIdx];
+            const p2 = meta.data[Math.min(floorIdx + 1, meta.data.length - 1)];
+            if (!p1 || !p2) return;
+            const lx = p1.x + (p2.x - p1.x) * frac;
+            const ly = p1.y + (p2.y - p1.y) * frac;
+            const v1 = dataArr[floorIdx] || 0;
+            const v2 = dataArr[Math.min(floorIdx + 1, dataArr.length - 1)] || 0;
+            const lv = lerp(v1, v2, frac);
+            const color = ds.borderColor;
+            const valStr = lv>=1e6?(lv/1e6).toFixed(1)+'M':Math.round(lv/1000)+'K';
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(lx, ly, 5, 0, Math.PI*2);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.fillStyle = '#F4F2E6';
+            ctx.fill();
+            ctx.stroke();
+            ctx.font = "bold 12px 'Space Mono', monospace";
+            ctx.fillStyle = color;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(valStr, lx+10, ly-2);
+            ctx.restore();
+            return;
+          }
 
           let lastIdx = -1;
           for(let j=meta.data.length-1;j>=0;j--){
@@ -315,7 +373,7 @@
           },
           y: {
             beginAtZero: true,
-            suggestedMax: 60000,
+            max: 60000,
             grid: { color: '#e8e5da' },
             border: { display: false },
             ticks: {
@@ -330,7 +388,7 @@
         },
         animation: false
       },
-      plugins: [lineLabels]
+      plugins: [clipReveal, lineLabels]
     });
 
     // ── Intro storytelling sequence ──
@@ -340,7 +398,7 @@
     const storyPhoto = document.getElementById('storyPhoto');
 
     const headshots = [
-      'johnny-harris.jpg',
+      'johnny-harris.jpeg',
       'sam-ellis.png',
       'christophe.png',
       'max-fisher.png',
@@ -359,61 +417,55 @@
       storyLabel.classList.remove('visible');
     }
 
-    // Draw on one channel — smooth fractional reveal
+    // Draw on one channel — clip-mask approach for perfectly smooth reveal
     function drawOnChannel(dsIndex, maxIdx) {
       return new Promise(resolve => {
         const src = fullData[dsIndex];
         const data = chart.data.datasets[dsIndex].data;
         const pointCount = Math.min(maxIdx + 1, src.length);
-        const duration = 7000; // 7 seconds per channel
-        const startTime = performance.now();
 
-        // Target y-axis peak
+        // Pre-fill ALL data at once (clip mask hides the unrevealed portion)
+        for (let j = 0; j < pointCount; j++) data[j] = src[j];
+
+        // Calculate target y-axis
         let peakSoFar = 0;
-        chart.data.datasets.forEach((ds, i) => {
-          if (i > dsIndex) return;
-          const d = i < dsIndex ? fullData[i] : src;
+        for (let i = 0; i <= dsIndex; i++) {
+          const d = fullData[i];
           const limit = Math.min(maxIdx + 1, d.length);
           for (let j = 0; j < limit; j++) {
             if (d[j] > peakSoFar) peakSoFar = d[j];
           }
-        });
+        }
         const targetY = peakSoFar * 1.3;
-        const startY = chart.options.scales.y.suggestedMax;
+        const startY = chart.options.scales.y.max;
+
+        // Start with clip at month 0
+        revealMonth[dsIndex] = 0;
+
+        const duration = 3500; // 3.5 seconds per channel
+        const startTime = performance.now();
 
         function tick(now) {
           const elapsed = now - startTime;
           const t = Math.min(elapsed / duration, 1);
-          // Nearly linear — very subtle ease
-          const eased = t < 0.5
-            ? 2 * t * t
-            : 1 - Math.pow(-2 * t + 2, 2) / 2;
-          // Blend 80% linear + 20% eased for minimal ease
-          const progress = t * 0.8 + eased * 0.2;
-          const fracPoint = progress * (pointCount - 1);
-          const wholePoint = Math.floor(fracPoint);
-          const frac = fracPoint - wholePoint;
+          // 85% linear + 15% smoothstep for very subtle ease
+          const ss = t * t * (3 - 2 * t);
+          const progress = t * 0.85 + ss * 0.15;
 
-          // Fill fully revealed points
-          for (let j = 0; j <= wholePoint && j < src.length; j++) {
-            data[j] = src[j];
-          }
+          // Move clip edge smoothly across the data range
+          revealMonth[dsIndex] = progress * maxIdx;
 
-          // Interpolate the leading edge for smoothness
-          if (wholePoint < pointCount - 1 && wholePoint + 1 < src.length) {
-            data[wholePoint + 1] = Math.round(lerp(src[wholePoint], src[wholePoint + 1], frac));
-          }
-
-          // Smooth y-axis transition
-          chart.options.scales.y.suggestedMax = lerp(startY, targetY, Math.min(progress * 1.4, 1));
+          // Animate y-axis
+          chart.options.scales.y.max = lerp(startY, targetY, Math.min(progress * 1.4, 1));
 
           chart.update('none');
 
           if (t < 1) {
             requestAnimationFrame(tick);
           } else {
-            for (let j = 0; j < pointCount && j < src.length; j++) data[j] = src[j];
-            chart.options.scales.y.suggestedMax = targetY;
+            // Remove clip — fully visible
+            revealMonth[dsIndex] = null;
+            chart.options.scales.y.max = targetY;
             chart.update('none');
             resolve();
           }
@@ -470,14 +522,14 @@
         // Expand — 8 seconds, smooth
         const durationMs = 8000;
         const startX = 24, endX = maxMonths;
-        const startY = chart.options.scales.y.suggestedMax;
+        const startY = chart.options.scales.y.max;
         const endY = 8500000;
         const t0 = performance.now();
 
         function tickExpand(now) {
           const t = smoothStep(Math.min((now - t0) / durationMs, 1));
           chart.options.scales.x.max = Math.round(startX + (endX - startX) * t);
-          chart.options.scales.y.suggestedMax = startY + (endY - startY) * t;
+          chart.options.scales.y.max = startY + (endY - startY) * t;
           chart.update('none');
           if ((now - t0) < durationMs) {
             requestAnimationFrame(tickExpand);
@@ -500,7 +552,7 @@
         function tickCollapse(now) {
           const t = smoothStep(Math.min((now - t0) / durationMs, 1));
           chart.options.scales.x.max = Math.round(startX + (endX - startX) * t);
-          chart.options.scales.y.suggestedMax = startY + (endY - startY) * t;
+          chart.options.scales.y.max = startY + (endY - startY) * t;
           chart.update('none');
           if ((now - t0) < durationMs) {
             requestAnimationFrame(tickCollapse);
