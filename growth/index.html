@@ -164,7 +164,7 @@
       {m:16,s:517000},{m:17,s:522000},{m:18,s:561000},{m:19,s:599000},
       {m:20,s:627000},{m:21,s:645000},{m:22,s:664000},{m:23,s:685000},
       {m:24,s:692000},{m:26,s:719000},{m:28,s:759000},{m:31,s:840000},
-      {m:33,s:919000},
+      {m:33,s:925000},
     ];
     const tvMilestones = [
       {m:0,s:0},{m:1,s:35000},{m:2,s:65000},{m:3,s:95000},{m:4,s:115000},
@@ -173,8 +173,8 @@
       {m:13,s:290000},{m:14,s:305000},{m:15,s:320000},{m:16,s:332000},
     ];
     const mfMilestones = [
-      {m:0,s:0},{m:1,s:30000},{m:2,s:80000},{m:3,s:156000},{m:3.5,s:185000},
-      {m:4,s:196000},
+      {m:0,s:0},{m:1,s:30000},{m:2,s:80000},{m:3,s:156000},{m:3.5,s:188000},
+      {m:4,s:199000},
     ];
 
     function lerp(a,b,t){return a+(b-a)*t}
@@ -317,16 +317,15 @@
           ctx.fill();
           ctx.stroke();
 
-          // Position label above for Max Fisher (i=3) to avoid overlap
-          const above = (i === 3);
           ctx.font = "bold 12px 'Space Mono', monospace";
           ctx.fillStyle = color;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          if (above) {
-            ctx.fillText(valStr, last.x+10, last.y-18);
+          if (i === 3) {
+            // Max Fisher: label well above and right to clear other lines
+            ctx.fillText(valStr, last.x+14, last.y-28);
             ctx.font = "9px 'Space Mono', monospace";
-            ctx.fillText(channelLabelsShort[i], last.x+10, last.y-32);
+            ctx.fillText(channelLabelsShort[i], last.x+14, last.y-42);
           } else {
             ctx.fillText(valStr, last.x+10, last.y-2);
             ctx.font = "9px 'Space Mono', monospace";
