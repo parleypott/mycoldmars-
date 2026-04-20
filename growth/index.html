@@ -390,7 +390,8 @@
               color: '#bbb',
               callback: function(v){
                 if(v===0)return '0';
-                return v>=1e6?(v/1e6)+'M':(v/1000)+'K';
+                if(v>=1e6) return Math.round(v/1e6)+'M';
+                return Math.round(v/1000)+'K';
               }
             }
           }
@@ -466,8 +467,8 @@
         // Start with clip at month 0
         revealMonth[dsIndex] = 0;
 
-        // Duration proportional to data length (min 1.5s, max 3.5s)
-        const duration = Math.max(1500, (dataEndMonth / 24) * 3500);
+        // Duration proportional to data length (min 2s, max 4.5s)
+        const duration = Math.max(2000, (dataEndMonth / 24) * 4500);
         const startTime = performance.now();
 
         function tick(now) {
@@ -522,12 +523,12 @@
         // Animate y-axis BEFORE drawing (prevents stutter during line draw)
         const currentY = chart.options.scales.y.max;
         if (targetY > currentY * 1.3 || targetY < currentY * 0.6) {
-          await animateYAxis(targetY, 500);
-          await wait(200);
+          await animateYAxis(targetY, 600);
+          await wait(250);
         } else {
           chart.options.scales.y.max = targetY;
           chart.update('none');
-          await wait(400);
+          await wait(500);
         }
 
         await drawOnChannel(i, visibleMonths);
