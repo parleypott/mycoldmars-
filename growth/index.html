@@ -45,6 +45,22 @@
       z-index: 10;
     }
     .story-label.visible { opacity: 1; }
+    .story-label .story-inner {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .story-label .headshot {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid currentColor;
+      flex-shrink: 0;
+    }
+    .story-label .text-col {
+      text-align: left;
+    }
     .story-label .ordinal {
       font-family: 'Space Mono', monospace;
       font-size: 11px;
@@ -98,8 +114,13 @@
     <div class="chart-wrapper">
       <canvas id="growthChart"></canvas>
       <div class="story-label" id="storyLabel">
-        <div class="ordinal" id="storyOrdinal"></div>
-        <div class="channel-name" id="storyName"></div>
+        <div class="story-inner">
+          <img class="headshot" id="storyPhoto" src="" alt="">
+          <div class="text-col">
+            <div class="ordinal" id="storyOrdinal"></div>
+            <div class="channel-name" id="storyName"></div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="controls">
@@ -316,12 +337,22 @@
     const storyLabel = document.getElementById('storyLabel');
     const storyOrdinal = document.getElementById('storyOrdinal');
     const storyName = document.getElementById('storyName');
+    const storyPhoto = document.getElementById('storyPhoto');
+
+    const headshots = [
+      'johnny-harris.jpg',
+      'sam-ellis.png',
+      'christophe.png',
+      'max-fisher.png',
+    ];
 
     function showLabel(index) {
       storyOrdinal.textContent = ordinals[index];
       storyName.textContent = channelNames[index];
       storyOrdinal.style.color = colors[index];
       storyName.style.color = colors[index];
+      storyPhoto.src = headshots[index];
+      storyPhoto.style.borderColor = colors[index];
       storyLabel.classList.add('visible');
     }
     function hideLabel() {
