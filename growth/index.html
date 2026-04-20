@@ -121,19 +121,19 @@
     }
     .transport-btn {
       background: none;
-      border: 1px solid #004CFF;
-      border-radius: 4px;
+      border: none;
       cursor: pointer;
-      color: #004CFF;
-      padding: 5px 10px;
+      color: #c49a6c;
+      padding: 4px;
       line-height: 1;
-      transition: color 0.2s, border-color 0.2s, background 0.2s;
+      font-size: 13px;
+      letter-spacing: -1px;
+      transition: color 0.2s, opacity 0.2s;
+      opacity: 0.6;
     }
-    .transport-btn:hover { background: #004CFF; color: #F4F2E6; }
-    .transport-btn.active { background: #004CFF; color: #F4F2E6; }
-    .transport-btn:disabled { color: #d0d8e8; border-color: #d0d8e8; background: none; cursor: default; }
-    .transport-btn.rw, .transport-btn.ff { font-size: 11px; letter-spacing: -2px; }
-    .transport-btn.play { font-size: 15px; }
+    .transport-btn:hover { opacity: 1; }
+    .transport-btn.active { opacity: 1; color: #a0724a; }
+    .transport-btn:disabled { opacity: 0.2; cursor: default; }
 
     .chart-caption {
       font-family: 'Space Mono', monospace;
@@ -161,9 +161,9 @@
       </div>
     </div>
     <div class="transport" id="transport">
-      <button class="transport-btn rw" id="rwBtn" onclick="rewindStep()" disabled>&#9664;&#9664;</button>
-      <button class="transport-btn play" id="playBtn" onclick="playIntro()">&#9654;</button>
-      <button class="transport-btn ff" id="ffBtn" onclick="ffStep()">&#9654;&#9654;</button>
+      <button class="transport-btn" id="rwBtn" onclick="rewindStep()" disabled>&#9666;&#9666;</button>
+      <button class="transport-btn" id="playBtn" onclick="playIntro()">&#9654;</button>
+      <button class="transport-btn" id="ffBtn" onclick="ffStep()">&#9656;&#9656;</button>
     </div>
     <div class="controls">
       <button class="grow-btn" id="growBtn" onclick="toggleChart()">Show Year 1–10</button>
