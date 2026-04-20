@@ -121,16 +121,17 @@
     }
     .transport-btn {
       background: none;
-      border: none;
+      border: 1px solid #004CFF;
+      border-radius: 4px;
       cursor: pointer;
-      color: #ccc;
-      padding: 4px 6px;
+      color: #004CFF;
+      padding: 5px 10px;
       line-height: 1;
-      transition: color 0.2s;
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
     }
-    .transport-btn:hover { color: #888; }
-    .transport-btn.active { color: #121118; }
-    .transport-btn:disabled { color: #e8e5da; cursor: default; }
+    .transport-btn:hover { background: #004CFF; color: #F4F2E6; }
+    .transport-btn.active { background: #004CFF; color: #F4F2E6; }
+    .transport-btn:disabled { color: #d0d8e8; border-color: #d0d8e8; background: none; cursor: default; }
     .transport-btn.rw, .transport-btn.ff { font-size: 11px; letter-spacing: -2px; }
     .transport-btn.play { font-size: 15px; }
 
