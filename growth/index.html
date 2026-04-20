@@ -70,7 +70,7 @@
       <canvas id="growthChart"></canvas>
     </div>
     <div class="controls">
-      <button class="grow-btn" id="growBtn" onclick="expandChart()">Show Full Growth</button>
+      <button class="grow-btn" id="growBtn" onclick="toggleChart()">Show Year 1–10</button>
     </div>
     <div class="chart-caption">
       YouTube subscribers from channel launch. Aligned by channel age to compare growth rates.
@@ -377,45 +377,74 @@
       plugins: [lineLabels]
     });
 
-    // Expand animation
+    // Toggle animation
     let expanded = false;
+    let animating = false;
 
-    function expandChart() {
-      if (expanded) return;
-      expanded = true;
-      document.getElementById('growBtn').disabled = true;
-      document.getElementById('growBtn').textContent = 'Expanding...';
+    function toggleChart() {
+      if (animating) return;
+      animating = true;
+      const btn = document.getElementById('growBtn');
+      btn.disabled = true;
 
-      const totalSteps = 60;
-      const duration = 2000;
-      const startX = 24;
-      const endX = maxMonths;
-      const startY = 1000000;
-      const endY = 8500000;
-      let step = 0;
+      if (!expanded) {
+        // Expand: slow — 5 seconds
+        const totalSteps = 150;
+        const startX = 24;
+        const endX = maxMonths;
+        const startY = 1000000;
+        const endY = 8500000;
+        let step = 0;
 
-      function easeOut(t) {
-        return 1 - Math.pow(1 - t, 3);
-      }
+        function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
 
-      function tick() {
-        step++;
-        const t = easeOut(step / totalSteps);
-        const currentX = Math.round(startX + (endX - startX) * t);
-        const currentY = startY + (endY - startY) * t;
+        function tickExpand() {
+          step++;
+          const t = easeOut(step / totalSteps);
+          chart.options.scales.x.max = Math.round(startX + (endX - startX) * t);
+          chart.options.scales.y.suggestedMax = startY + (endY - startY) * t;
+          chart.update('none');
 
-        chart.options.scales.x.max = currentX;
-        chart.options.scales.y.suggestedMax = currentY;
-        chart.update('none');
-
-        if (step < totalSteps) {
-          requestAnimationFrame(tick);
-        } else {
-          document.getElementById('growBtn').textContent = 'Full Growth';
+          if (step < totalSteps) {
+            requestAnimationFrame(tickExpand);
+          } else {
+            expanded = true;
+            animating = false;
+            btn.disabled = false;
+            btn.textContent = 'Show Year 1\u20133';
+          }
         }
-      }
+        requestAnimationFrame(tickExpand);
 
-      requestAnimationFrame(tick);
+      } else {
+        // Collapse: faster — 3 seconds
+        const totalSteps = 90;
+        const startX = maxMonths;
+        const endX = 24;
+        const startY = 8500000;
+        const endY = 1000000;
+        let step = 0;
+
+        function easeIn(t) { return t * t; }
+
+        function tickCollapse() {
+          step++;
+          const t = easeIn(step / totalSteps);
+          chart.options.scales.x.max = Math.round(startX + (endX - startX) * t);
+          chart.options.scales.y.suggestedMax = startY + (endY - startY) * t;
+          chart.update('none');
+
+          if (step < totalSteps) {
+            requestAnimationFrame(tickCollapse);
+          } else {
+            expanded = false;
+            animating = false;
+            btn.disabled = false;
+            btn.textContent = 'Show Year 1\u201310';
+          }
+        }
+        requestAnimationFrame(tickCollapse);
+      }
     }
   </script>
 </body>
