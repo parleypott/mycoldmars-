@@ -122,6 +122,17 @@
       { monthsIn: 33, subs: 919000 },    // Apr 2026
     ];
 
+    // ── Tunnel Vision ──
+    // Year 1 start = Dec 2024 (channel launch)
+    // ~estimated, exact count TBD
+    const tvMilestones = [
+      { monthsIn: 0, subs: 0 },          // Dec 2024
+      { monthsIn: 1, subs: 50000 },      // Jan 2025
+      { monthsIn: 2, subs: 90000 },
+      { monthsIn: 3, subs: 120000 },
+      { monthsIn: 4, subs: 150000 },     // Apr 2025
+    ];
+
     // Interpolate milestones to monthly
     function lerp(a, b, t) { return a + (b - a) * t; }
 
@@ -147,6 +158,7 @@
     const maxMonths = 111; // JH goes to month 111
     const jhData = interpolate(jhMilestones, maxMonths);
     const spData = interpolate(spMilestones, maxMonths);
+    const tvData = interpolate(tvMilestones, maxMonths);
 
     // X-axis labels: month numbers
     const labels = [];
@@ -157,158 +169,56 @@
     const redLight = 'rgba(192, 57, 43, 0.08)';
     const blue = '#004CFF';
     const blueLight = 'rgba(0, 76, 255, 0.08)';
+    const green = '#0D5921';
+    const greenLight = 'rgba(13, 89, 33, 0.08)';
 
-    // End callout plugin
-    const endCallout = {
-      id: 'endCallout',
+
+    // Line labels plugin — labels at the end of each line
+    const lineLabels = {
+      id: 'lineLabels',
       afterDraw(chart) {
         const ctx = chart.ctx;
-        const chartArea = chart.chartArea;
+        const datasets = chart.data.datasets;
 
-        // JH callout
-        const jhMeta = chart.getDatasetMeta(0);
-        const jhLast = jhMeta.data[jhMeta.data.length - 1];
-        if (jhLast) {
-          const val = (jhData[jhData.length - 1] / 1e6).toFixed(1) + 'M';
-          ctx.save();
-          // Ring
-          ctx.beginPath();
-          ctx.arc(jhLast.x, jhLast.y, 6, 0, Math.PI * 2);
-          ctx.strokeStyle = red;
-          ctx.lineWidth = 2;
-          ctx.fillStyle = '#F4F2E6';
-          ctx.fill();
-          ctx.stroke();
-          // Number
-          ctx.font = "bold 28px 'Instrument Serif', serif";
-          ctx.fillStyle = red;
-          ctx.textAlign = 'right';
-          ctx.textBaseline = 'bottom';
-          ctx.fillText(val, chartArea.right, chartArea.top - 8);
-          // Label
-          ctx.font = "bold 10px 'Space Mono', monospace";
-          ctx.textBaseline = 'top';
-          ctx.fillText('JOHNNY HARRIS', chartArea.right, chartArea.top - 6);
-          ctx.restore();
-        }
-
-        // SP callout
-        const spMeta = chart.getDatasetMeta(1);
-        const spLast = spMeta.data[spMeta.data.length - 1];
-        if (spLast) {
-          const val = Math.round(spData[spData.length - 1] / 1000) + 'K';
-          ctx.save();
-          // Ring
-          ctx.beginPath();
-          ctx.arc(spLast.x, spLast.y, 6, 0, Math.PI * 2);
-          ctx.strokeStyle = blue;
-          ctx.lineWidth = 2;
-          ctx.fillStyle = '#F4F2E6';
-          ctx.fill();
-          ctx.stroke();
-          // Number + label next to the last point
-          ctx.font = "bold 15px 'Space Mono', monospace";
-          ctx.fillStyle = blue;
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(val, spLast.x + 12, spLast.y);
-          ctx.font = "10px 'Space Mono', monospace";
-          ctx.fillText('SEARCH PARTY', spLast.x + 12, spLast.y + 16);
-          ctx.restore();
-        }
-      }
-    };
-
-    // Tracing dot (traces both lines)
-    let dotProgress = 0;
-    let dotFinished = false;
-    let dotStartTime = null;
-    const DOT_DURATION = 12000;
-
-    const tracingDot = {
-      id: 'tracingDot',
-      afterDraw(chart) {
-        if (dotFinished) return;
-        const ctx = chart.ctx;
-
-        [0, 1].forEach(dsIndex => {
-          const meta = chart.getDatasetMeta(dsIndex);
+        datasets.forEach((ds, i) => {
+          const meta = chart.getDatasetMeta(i);
           if (!meta || !meta.data.length) return;
-          const totalPoints = meta.data.length;
-          const rawIndex = dotProgress * (totalPoints - 1);
-          const currentIndex = Math.min(Math.floor(rawIndex), totalPoints - 1);
-          const frac = rawIndex - currentIndex;
+          const last = meta.data[meta.data.length - 1];
+          const dataArr = [jhData, spData, tvData][i];
+          const lastVal = dataArr[dataArr.length - 1];
+          const color = ds.borderColor;
+          const channelLabel = ds.channelLabel || ds.label;
 
-          let x, y;
-          const pt = meta.data[currentIndex];
-          if (currentIndex < totalPoints - 1) {
-            const nextPt = meta.data[currentIndex + 1];
-            x = pt.x + (nextPt.x - pt.x) * frac;
-            y = pt.y + (nextPt.y - pt.y) * frac;
-          } else {
-            x = pt.x; y = pt.y;
-          }
-
-          const dataArr = dsIndex === 0 ? jhData : spData;
-          let displaySubs;
-          if (currentIndex < totalPoints - 1 && currentIndex < dataArr.length - 1) {
-            displaySubs = Math.round(lerp(dataArr[currentIndex], dataArr[currentIndex + 1], frac));
-          } else {
-            displaySubs = dataArr[Math.min(currentIndex, dataArr.length - 1)];
-          }
-
-          const color = dsIndex === 0 ? red : blue;
-          const subsStr = displaySubs >= 1000000
-            ? (displaySubs / 1e6).toFixed(1).replace(/\.0$/, '') + 'M'
-            : Math.round(displaySubs / 1000) + 'K';
+          const valStr = lastVal >= 1000000
+            ? (lastVal / 1e6).toFixed(1) + 'M'
+            : Math.round(lastVal / 1000) + 'K';
 
           ctx.save();
-          // Glow
-          ctx.beginPath();
-          ctx.arc(x, y, 10, 0, Math.PI * 2);
-          ctx.fillStyle = dsIndex === 0 ? 'rgba(192,57,43,0.12)' : 'rgba(0,76,255,0.12)';
-          ctx.fill();
-          // Dot
-          ctx.beginPath();
-          ctx.arc(x, y, 4, 0, Math.PI * 2);
-          ctx.fillStyle = color;
-          ctx.fill();
-          // Label
-          const chartArea = chart.chartArea;
-          let labelX = x, textAlign = 'center';
-          if (x < chartArea.left + 60) { labelX = x + 12; textAlign = 'left'; }
-          else if (x > chartArea.right - 60) { labelX = x - 12; textAlign = 'right'; }
 
+          // Ring at endpoint
+          ctx.beginPath();
+          ctx.arc(last.x, last.y, 6, 0, Math.PI * 2);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.fillStyle = '#F4F2E6';
+          ctx.fill();
+          ctx.stroke();
+
+          // Label to the right of the endpoint
           ctx.font = "bold 13px 'Space Mono', monospace";
           ctx.fillStyle = color;
-          ctx.textAlign = textAlign;
-          ctx.textBaseline = 'bottom';
-          ctx.fillText(subsStr, labelX, y - 14);
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(valStr, last.x + 12, last.y - 2);
+
+          ctx.font = "10px 'Space Mono', monospace";
+          ctx.fillStyle = color;
+          ctx.fillText(channelLabel, last.x + 12, last.y + 14);
+
           ctx.restore();
         });
       }
     };
-
-    function easeInOutQuart(t) {
-      return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2;
-    }
-
-    function animateDot(chartInstance) {
-      function tick(timestamp) {
-        if (!dotStartTime) dotStartTime = timestamp;
-        const elapsed = timestamp - dotStartTime;
-        const linear = Math.min(elapsed / DOT_DURATION, 1);
-        dotProgress = easeInOutQuart(linear);
-        chartInstance.draw();
-        if (linear >= 1) {
-          dotFinished = true;
-          chartInstance.draw();
-          return;
-        }
-        requestAnimationFrame(tick);
-      }
-      requestAnimationFrame(tick);
-    }
 
     // Chart
     const ctx = document.getElementById('growthChart').getContext('2d');
@@ -320,6 +230,7 @@
         datasets: [
           {
             label: 'Johnny Harris',
+            channelLabel: 'JOHNNY HARRIS',
             data: jhData,
             borderColor: red,
             backgroundColor: redLight,
@@ -334,6 +245,7 @@
           },
           {
             label: 'Search Party',
+            channelLabel: '2ND CHANNEL: SEARCH PARTY',
             data: spData,
             borderColor: blue,
             backgroundColor: blueLight,
@@ -345,13 +257,28 @@
             pointHoverRadius: 0,
             tension: 0.3,
             fill: true
+          },
+          {
+            label: 'Tunnel Vision',
+            channelLabel: '3RD CHANNEL: TUNNEL VISION',
+            data: tvData,
+            borderColor: green,
+            backgroundColor: greenLight,
+            borderWidth: 2.5,
+            pointRadius: function(ctx) {
+              return ctx.index % 12 === 0 ? 4 : 0;
+            },
+            pointBackgroundColor: green,
+            pointHoverRadius: 0,
+            tension: 0.3,
+            fill: true
           }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        layout: { padding: { top: 60, right: 80 } },
+        layout: { padding: { top: 40, right: 180 } },
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },
@@ -418,10 +345,8 @@
         },
         animation: false
       },
-      plugins: [endCallout, tracingDot]
+      plugins: [lineLabels]
     });
-
-    animateDot(chart);
   </script>
 </body>
 </html>
