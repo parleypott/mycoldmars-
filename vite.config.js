@@ -26,7 +26,7 @@ export default defineConfig({
         essays: resolve(__dirname, 'essays/index.html'),
         eez: resolve(__dirname, 'eez/index.html'),
         modernMiddleEast: resolve(__dirname, 'modern-middle-east/index.html'),
-        flyingMoney: resolve(__dirname, 'flying-money/index.html'),
+        flyingMoney: resolve(__dirname, 'flyingmoney/index.html'),
         growth: resolve(__dirname, 'growth/index.html'),
       },
     },
