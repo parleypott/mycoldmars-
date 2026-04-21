@@ -69,11 +69,11 @@ const easy = [
     timecode: 1083,
   },
   {
-    question: 'What did Hitler name his paramilitary group?',
-    options: ['The Blackshirts', 'The Brownshirts', 'The Greenshirts', 'The Iron Guard'],
+    question: 'What year did Mussolini found the fascist movement?',
+    options: ['1914', '1919', '1922', '1925'],
     answer: 1,
-    explanation: 'Hitler\'s militia was called the Brownshirts (officially the Sturmabteilung, or stormtroopers), echoing Mussolini\'s Blackshirts.',
-    timecode: 1814,
+    explanation: 'Mussolini founded his fascist movement in the spring of 1919 in Milan — less than a year after World War I ended.',
+    timecode: 593,
   },
   {
     question: 'What was the full name of the Nazi Party?',
