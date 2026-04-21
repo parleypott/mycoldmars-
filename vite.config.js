@@ -29,6 +29,7 @@ export default defineConfig({
         flyingMoney: resolve(__dirname, 'flyingmoney/index.html'),
         fascism: resolve(__dirname, 'fascism/index.html'),
         growth: resolve(__dirname, 'growth/index.html'),
+        deckV2: resolve(__dirname, 'deck-v2/index.html'),
       },
     },
   },
