@@ -3,9 +3,9 @@ import { easy, hard } from './questions.js';
 /* ─── Constants ─── */
 const VIDEO_ID = 'GV8KGcFqeLc';
 const MAP_COLORS = {
-  bg: '#c0392b',
-  fill: '#b53325',
-  outline: 'rgba(255, 255, 255, 0.3)',
+  bg: '#ffffff',
+  fill: '#d42b2b',
+  outline: '#ffffff',
 };
 
 /* ─── Mapbox Background ─── */
@@ -36,7 +36,7 @@ const map = new mapboxgl.Map({
         type: 'line',
         source: 'countries',
         'source-layer': 'country_boundaries',
-        paint: { 'line-color': MAP_COLORS.outline, 'line-width': 0.6, 'line-opacity': 0.5 },
+        paint: { 'line-color': MAP_COLORS.outline, 'line-width': 0.8, 'line-opacity': 0.8 },
       },
     ],
   },
