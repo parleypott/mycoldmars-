@@ -364,8 +364,15 @@ html, body {
 }
 
 /* YouTube timecoded link */
+.yt-icon {
+  vertical-align: -1px;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
 .yt-link {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   margin-top: 20px;
   padding: 10px 24px;
   font-family: 'Space Mono', 'Courier New', monospace;
