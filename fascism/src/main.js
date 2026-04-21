@@ -3,9 +3,9 @@ import { easy, hard } from './questions.js';
 /* ─── Constants ─── */
 const VIDEO_ID = 'GV8KGcFqeLc';
 const MAP_COLORS = {
-  bg: '#8b0000',
-  fill: '#7a0000',
-  outline: 'rgba(232, 232, 232, 0.4)',
+  bg: '#c0392b',
+  fill: '#b53325',
+  outline: 'rgba(255, 255, 255, 0.3)',
 };
 
 /* ─── Mapbox Background ─── */
