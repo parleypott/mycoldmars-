@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monthly Views Growth — Newpress</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Mono', monospace;
+      background: #F4F2E6;
+      color: #121118;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .chart-container {
+      max-width: 700px;
+      width: 100%;
+    }
+
+    .chart-title {
+      font-family: 'Instrument Serif', serif;
+      font-size: 24px;
+      font-weight: 400;
+      color: #121118;
+      margin-bottom: 16px;
+    }
+    .chart-title span {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: #999;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      width: 100%;
+      height: 520px;
+    }
+
+    /* Story overlay */
+    .story-label {
+      position: absolute;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+      z-index: 10;
+    }
+    .story-label.visible { opacity: 1; }
+    .story-label .story-inner {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .story-label .headshot {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid currentColor;
+      flex-shrink: 0;
+    }
+    .story-label .text-col {
+      text-align: left;
+    }
+    .story-label .ordinal {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .story-label .channel-name {
+      font-family: 'Instrument Serif', serif;
+      font-size: 32px;
+      line-height: 1.1;
+    }
+
+    .chart-footer {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+      justify-content: center;
+    }
+
+    .transport {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .transport-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #E67E22;
+      padding: 4px;
+      line-height: 1;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      transition: opacity 0.2s, color 0.2s;
+    }
+    .transport-btn:hover { color: #D35400; }
+    .transport-btn.active { color: #D35400; }
+    .transport-btn:disabled { opacity: 0.2; cursor: default; }
+
+    .zoom-toggle {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #121118;
+      cursor: pointer;
+      padding: 7px 16px;
+      border: 1.5px solid rgba(18, 17, 24, 0.2);
+      border-radius: 4px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s, background 0.15s;
+      user-select: none;
+    }
+    .zoom-toggle.visible { opacity: 1; pointer-events: auto; }
+    .zoom-toggle:hover { background: rgba(18, 17, 24, 0.05); }
+
+    .zoom-arrow {
+      display: inline-block;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .zoom-toggle[data-dir="right"] .zoom-arrow {
+      animation: pulse-right 1.5s ease-in-out infinite;
+    }
+    .zoom-toggle[data-dir="left"] .zoom-arrow {
+      animation: pulse-left 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-right {
+      0%, 100% { transform: translateX(0); opacity: 0.4; }
+      50% { transform: translateX(4px); opacity: 1; }
+    }
+    @keyframes pulse-left {
+      0%, 100% { transform: translateX(0); opacity: 0.4; }
+      50% { transform: translateX(-4px); opacity: 1; }
+    }
+
+    .chart-caption {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: #aaa;
+      margin-top: 16px;
+      text-align: center;
+      letter-spacing: 0.3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="chart-container">
+    <h1 class="chart-title">Newpress Shows <span>(Monthly Views)</span></h1>
+    <div class="chart-wrapper">
+      <canvas id="growthChart"></canvas>
+      <div class="story-label" id="storyLabel">
+        <div class="story-inner">
+          <img class="headshot" id="storyPhoto" src="" alt="">
+          <div class="text-col">
+            <div class="ordinal" id="storyOrdinal"></div>
+            <div class="channel-name" id="storyName"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="chart-footer">
+      <div class="transport" id="transport">
+        <button class="transport-btn" id="rwBtn" onclick="rewindStep()" disabled>&#9666;&#9666;</button>
+        <button class="transport-btn" id="playBtn" onclick="playIntro()">&#9654;</button>
+        <button class="transport-btn" id="ffBtn" onclick="ffStep()">&#9656;&#9656;</button>
+      </div>
+      <div class="zoom-toggle" id="zoomToggle" data-dir="right" onclick="toggleChart()">
+        <span id="zoomText">Year 1–10</span>
+        <span class="zoom-arrow" id="zoomArrow">&rarr;</span>
+      </div>
+    </div>
+    <div class="chart-caption">
+      Monthly YouTube views from channel launch. Aligned by channel age to compare growth rates.
+    </div>
+  </div>
+
+  <script>
+    // ── Channel definitions ──
+    // Add more channels here as data becomes available.
+    const channels = [
+      {
+        name: 'Johnny Harris',
+        labelShort: 'JOHNNY HARRIS',
+        ordinal: 'Our first channel',
+        color: '#C0392B',
+        fillRGB: [192, 57, 43],
+        headshot: 'johnny-harris.jpeg',
+        // Monthly views starting Jan 2017 (month 0 = Year 1)
+        data: [
+          62,54,63,82,134,151,178,151,143,84,134,117,
+          78,85,87,84,93,88,246,410,109,1358,105420,242174,
+          295216,184704,618744,312644,336842,332709,81596,189824,441593,312530,528454,686645,
+          432058,568519,849943,1155922,1147735,3826307,4979918,3545592,2751388,2693607,2293808,2427838,
+          2070151,8646183,5266157,15154513,12215055,7071392,6609363,7693956,7096385,7085832,4261489,8666228,
+          7573975,13744072,22558576,7082266,8044516,5869989,7246208,7082262,5376933,17373064,25926146,17358053,
+          13441602,22800872,20155907,18431106,13503953,13794557,20745205,19171882,17754407,48512930,34150499,38005648,
+          24521382,17487367,23431278,16316265,13691691,16368681,19360019,24898148,47708507,61106789,33405747,47876868,
+          29573409,31401761,26449954,13829302,17367480,24812975,17316150,14996193,15348515,13371760,21333028,18195893,
+          22487503,16400588,25988100,12991113,
+        ],
+      },
+      // Future channels:
+      // { name: 'Search Party', labelShort: '2ND CHANNEL: SEARCH PARTY', ... },
+      // { name: 'Tunnel Vision', labelShort: '3RD CHANNEL: TUNNEL VISION', ... },
+      // { name: 'The Bigger Picture', labelShort: '4TH CHANNEL: THE BIGGER PICTURE', ... },
+    ];
+
+    const TOTAL_CHANNELS = channels.length;
+    const maxMonths = 111;
+
+    // Build full data arrays (pad shorter arrays with null)
+    const fullData = channels.map(ch => {
+      const d = [...ch.data];
+      while (d.length <= maxMonths) d.push(null);
+      return d;
+    });
+
+    const labels = [];
+    for (let m = 0; m <= maxMonths; m++) labels.push(m);
+
+    const colors = channels.map(ch => ch.color);
+    const fillRGB = channels.map(ch => ch.fillRGB);
+    const fills = fillRGB.map(([r,g,b]) => `rgba(${r},${g},${b},0.08)`);
+
+    function lerp(a,b,t){return a+(b-a)*t}
+
+    // ── Clip-mask reveal state ──
+    const revealMonth = channels.map(() => null);
+
+    // Plugin: clip mask for smooth line reveal
+    const clipReveal = {
+      id: 'clipReveal',
+      beforeDatasetDraw(chart, args) {
+        const i = args.index;
+        if (revealMonth[i] === null) return;
+        const xScale = chart.scales.x;
+        const area = chart.chartArea;
+        const clipX = xScale.getPixelForValue(revealMonth[i]);
+        chart.ctx.save();
+        chart.ctx.beginPath();
+        chart.ctx.rect(area.left - 2, area.top - 10, clipX - area.left + 4, area.bottom - area.top + 20);
+        chart.ctx.clip();
+      },
+      afterDatasetDraw(chart, args) {
+        const i = args.index;
+        if (revealMonth[i] === null) return;
+        chart.ctx.restore();
+      }
+    };
+
+    // Line labels plugin
+    const lineLabels = {
+      id: 'lineLabels',
+      afterDraw(chart) {
+        const ctx = chart.ctx;
+        const xMax = chart.scales.x.max;
+        chart.data.datasets.forEach((ds, i) => {
+          const meta = chart.getDatasetMeta(i);
+          if(!meta||!meta.data.length) return;
+          const dataArr = ds.data;
+          if(!dataArr||dataArr.length===0||dataArr.every(v=>v===null)) return;
+
+          // During clip animation, show label at clip edge
+          if (revealMonth[i] !== null) {
+            const rm = revealMonth[i];
+            if (rm < 0.5) return;
+            let lastValidIdx = 0;
+            for (let j = dataArr.length - 1; j >= 0; j--) {
+              if (dataArr[j] !== null) { lastValidIdx = j; break; }
+            }
+            const cappedRm = Math.min(rm, lastValidIdx);
+            const floorIdx = Math.min(Math.floor(cappedRm), lastValidIdx);
+            const ceilIdx = Math.min(floorIdx + 1, lastValidIdx);
+            const frac = cappedRm - floorIdx;
+            const p1 = meta.data[floorIdx];
+            const p2 = meta.data[ceilIdx];
+            if (!p1 || !p2) return;
+            if (dataArr[floorIdx] === null) return;
+            const lx = p1.x + (p2.x - p1.x) * frac;
+            const ly = p1.y + (p2.y - p1.y) * frac;
+            const v1 = dataArr[floorIdx] || 0;
+            const v2 = dataArr[ceilIdx] || v1;
+            const lv = lerp(v1, v2, frac);
+            const color = ds.borderColor;
+            const valStr = fmtViews(lv);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(lx, ly, 5, 0, Math.PI*2);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.fillStyle = '#F4F2E6';
+            ctx.fill();
+            ctx.stroke();
+            ctx.font = "bold 12px 'Space Mono', monospace";
+            ctx.fillStyle = color;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(valStr, lx+10, ly-2);
+            ctx.restore();
+            return;
+          }
+
+          let lastIdx = -1;
+          for(let j=meta.data.length-1;j>=0;j--){
+            if(dataArr[j]!==null && labels[j]<=xMax){lastIdx=j;break;}
+          }
+          if(lastIdx<0) return;
+          const last = meta.data[lastIdx];
+          if(!last) return;
+          const lastVal = dataArr[lastIdx];
+          const color = ds.borderColor;
+          const valStr = fmtViews(lastVal);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(last.x, last.y, 5, 0, Math.PI*2);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.fillStyle = '#F4F2E6';
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.font = "bold 12px 'Space Mono', monospace";
+          ctx.fillStyle = color;
+
+          // Last channel: label to the left
+          if (i === TOTAL_CHANNELS - 1 && TOTAL_CHANNELS > 1) {
+            ctx.textAlign = 'right';
+            ctx.fillText(valStr, last.x-10, last.y-14);
+            ctx.font = "9px 'Space Mono', monospace";
+            ctx.fillText(channels[i].labelShort, last.x-10, last.y-28);
+          } else {
+            ctx.textAlign = 'left';
+            ctx.fillText(valStr, last.x+10, last.y-2);
+            ctx.font = "9px 'Space Mono', monospace";
+            ctx.fillText(channels[i].labelShort, last.x+10, last.y+12);
+          }
+          ctx.restore();
+        });
+      }
+    };
+
+    function fmtViews(v) {
+      if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
+      if (v >= 1e3) return Math.round(v/1000) + 'K';
+      return Math.round(v).toString();
+    }
+
+    // Chart — start with all datasets empty (nulls)
+    const ctx = document.getElementById('growthChart').getContext('2d');
+    const emptyRow = labels.map(()=>null);
+
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: channels.map((ch, i) => ({
+          label: ch.labelShort,
+          data: [...emptyRow],
+          borderColor: ch.color,
+          backgroundColor: fills[i],
+          borderWidth: 2.5,
+          pointRadius: function(c){return c.raw!==null&&c.index%12===0?3.5:0;},
+          pointBackgroundColor: ch.color,
+          pointHoverRadius: 0,
+          tension: 0.3,
+          fill: true,
+          spanGaps: false
+        }))
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 60, right: 200 } },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(255,255,255,0.95)',
+            titleColor: '#333', bodyColor: '#666',
+            borderColor: '#e0e0e0', borderWidth: 1,
+            titleFont: {family:"'Space Mono',monospace",weight:'700',size:11},
+            bodyFont: {family:"'Space Mono',monospace",size:11},
+            displayColors: true,
+            filter: function(item){return item.raw!==null;},
+            callbacks: {
+              title: function(items){
+                const m=items[0].parsed.x;
+                return `Year ${Math.floor(m/12)+1}, Month ${(m%12)+1}`;
+              },
+              label: function(c){
+                if(c.parsed.y==null)return null;
+                return ` ${c.dataset.label}: ${fmtViews(c.parsed.y)}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            min: 0, max: 24,
+            grid: { display: false },
+            ticks: {
+              font:{family:"'Space Mono',monospace",size:12,weight:'700'},
+              color: '#aaa',
+              callback: function(v,i){return i%12===0?'Year '+((i/12)+1):'';},
+              maxRotation: 0, autoSkip: false
+            },
+            border: { color: '#ddd' }
+          },
+          y: {
+            beginAtZero: true,
+            max: 500,
+            grid: { color: '#e8e5da' },
+            border: { display: false },
+            ticks: {
+              font:{family:"'Space Mono',monospace",size:12},
+              color: '#bbb',
+              callback: function(v){
+                if(v===0)return '0';
+                if(v>=1e6) return Math.round(v/1e6)+'M';
+                if(v>=1e3) return Math.round(v/1000)+'K';
+                return v;
+              }
+            }
+          }
+        },
+        animation: false
+      },
+      plugins: [clipReveal, lineLabels]
+    });
+
+    // ── Intro storytelling sequence ──
+    const storyLabel = document.getElementById('storyLabel');
+    const storyOrdinal = document.getElementById('storyOrdinal');
+    const storyName = document.getElementById('storyName');
+    const storyPhoto = document.getElementById('storyPhoto');
+
+    function showLabel(index) {
+      const ch = channels[index];
+      storyOrdinal.textContent = ch.ordinal;
+      storyName.textContent = ch.name;
+      storyOrdinal.style.color = ch.color;
+      storyName.style.color = ch.color;
+      storyPhoto.src = ch.headshot;
+      storyPhoto.style.borderColor = ch.color;
+      storyLabel.classList.add('visible');
+    }
+    function hideLabel() {
+      storyLabel.classList.remove('visible');
+    }
+
+    // Smooth y-axis transition
+    function animateYAxis(targetY, duration, myGen) {
+      return new Promise(resolve => {
+        const startY = chart.options.scales.y.max;
+        if (Math.abs(startY - targetY) / Math.max(startY, targetY) < 0.05) {
+          chart.options.scales.y.max = targetY;
+          chart.update('none');
+          resolve();
+          return;
+        }
+        const startTime = performance.now();
+        function tick(now) {
+          if (gen !== myGen) { chart.options.scales.y.max = targetY; chart.update('none'); resolve(); return; }
+          const t = Math.min((now - startTime) / duration, 1);
+          const ss = t * t * (3 - 2 * t);
+          chart.options.scales.y.max = lerp(startY, targetY, ss);
+          chart.update('none');
+          if (t < 1) requestAnimationFrame(tick);
+          else resolve();
+        }
+        requestAnimationFrame(tick);
+      });
+    }
+
+    // Fade in the fill shading after line draw completes
+    function fadeInFill(dsIndex, duration) {
+      const [r,g,b] = fillRGB[dsIndex];
+      const targetAlpha = 0.08;
+      const startTime = performance.now();
+      chart.data.datasets[dsIndex].backgroundColor = `rgba(${r},${g},${b},0)`;
+      chart.data.datasets[dsIndex].fill = true;
+
+      function tick(now) {
+        const t = Math.min((now - startTime) / duration, 1);
+        const alpha = targetAlpha * (t * t * (3 - 2 * t));
+        chart.data.datasets[dsIndex].backgroundColor = `rgba(${r},${g},${b},${alpha.toFixed(4)})`;
+        chart.update('none');
+        if (t < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // Draw on one channel — clip-mask
+    function drawOnChannel(dsIndex, maxIdx, myGen) {
+      return new Promise(resolve => {
+        const src = fullData[dsIndex];
+        const data = chart.data.datasets[dsIndex].data;
+        const pointCount = Math.min(maxIdx + 1, src.length);
+        const dataEndMonth = pointCount - 1;
+
+        for (let j = 0; j < pointCount; j++) data[j] = src[j];
+        chart.data.datasets[dsIndex].fill = false;
+        revealMonth[dsIndex] = 0;
+
+        const duration = Math.max(2000, (dataEndMonth / 24) * 4500);
+        const startTime = performance.now();
+
+        function tick(now) {
+          if (gen !== myGen) { revealMonth[dsIndex] = null; resolve(); return; }
+          const elapsed = now - startTime;
+          const t = Math.min(elapsed / duration, 1);
+          const easeOut = 1 - Math.pow(1 - t, 3);
+          const progress = t * 0.7 + easeOut * 0.3;
+          revealMonth[dsIndex] = progress * dataEndMonth;
+          chart.update('none');
+
+          if (t < 1) {
+            requestAnimationFrame(tick);
+          } else {
+            revealMonth[dsIndex] = null;
+            fadeInFill(dsIndex, 700);
+            chart.update('none');
+            resolve();
+          }
+        }
+        requestAnimationFrame(tick);
+      });
+    }
+
+    // Compute target y-axis for channels 0..upTo
+    function computeTargetY(upTo, maxIdx) {
+      let peak = 0;
+      for (let k = 0; k <= upTo; k++) {
+        const d = fullData[k];
+        const limit = Math.min(maxIdx + 1, d.length);
+        for (let j = 0; j < limit; j++) {
+          if (d[j] !== null && d[j] > peak) peak = d[j];
+        }
+      }
+      return peak * 1.3;
+    }
+
+    // ── Transport controls ──
+    const VM = 24; // visible months (Year 1-3 view)
+    let gen = 0;
+    let revealedCount = 0;
+    let playing = false;
+
+    function waitGen(ms, myGen) {
+      return new Promise(r => {
+        const start = performance.now();
+        function check(now) {
+          if (gen !== myGen || now - start >= ms) { r(); return; }
+          requestAnimationFrame(check);
+        }
+        requestAnimationFrame(check);
+      });
+    }
+
+    function snapOn(idx) {
+      const src = fullData[idx];
+      const data = chart.data.datasets[idx].data;
+      const pc = Math.min(VM + 1, src.length);
+      for (let j = 0; j < pc; j++) data[j] = src[j];
+      revealMonth[idx] = null;
+      chart.data.datasets[idx].backgroundColor = fills[idx];
+      chart.data.datasets[idx].fill = true;
+      chart.options.scales.y.max = computeTargetY(idx, VM);
+    }
+
+    function snapOff(idx) {
+      const data = chart.data.datasets[idx].data;
+      for (let j = 0; j < data.length; j++) data[j] = null;
+      revealMonth[idx] = null;
+      chart.data.datasets[idx].fill = true;
+      chart.options.scales.y.max = idx > 0 ? computeTargetY(idx - 1, VM) : 500;
+    }
+
+    function updateTransport() {
+      document.getElementById('rwBtn').disabled = revealedCount === 0;
+      document.getElementById('ffBtn').disabled = revealedCount >= TOTAL_CHANNELS;
+      document.getElementById('playBtn').disabled = revealedCount >= TOTAL_CHANNELS;
+      const pb = document.getElementById('playBtn');
+      if (playing) pb.classList.add('active');
+      else pb.classList.remove('active');
+
+      const zt = document.getElementById('zoomToggle');
+      if (revealedCount >= TOTAL_CHANNELS) zt.classList.add('visible');
+      else zt.classList.remove('visible');
+    }
+
+    function stopAll() {
+      gen++;
+      playing = false;
+      hideLabel();
+      for (let i = 0; i < TOTAL_CHANNELS; i++) revealMonth[i] = null;
+    }
+
+    function ffStep() {
+      stopAll();
+      if (revealedCount < TOTAL_CHANNELS) {
+        snapOn(revealedCount);
+        revealedCount++;
+        chart.update('none');
+      }
+      updateTransport();
+    }
+
+    function rewindStep() {
+      stopAll();
+      if (revealedCount > 0) {
+        revealedCount--;
+        snapOff(revealedCount);
+        chart.update('none');
+      }
+      updateTransport();
+    }
+
+    async function playIntro() {
+      if (playing || revealedCount >= TOTAL_CHANNELS) return;
+      stopAll();
+      const myGen = ++gen;
+      playing = true;
+      updateTransport();
+
+      for (let i = revealedCount; i < TOTAL_CHANNELS; i++) {
+        if (gen !== myGen) break;
+
+        const targetY = computeTargetY(i, VM);
+        showLabel(i);
+
+        const currentY = chart.options.scales.y.max;
+        if (targetY > currentY * 1.3 || targetY < currentY * 0.6) {
+          await animateYAxis(targetY, 600, myGen);
+          if (gen !== myGen) break;
+          await waitGen(250, myGen);
+        } else {
+          chart.options.scales.y.max = targetY;
+          chart.update('none');
+          await waitGen(500, myGen);
+        }
+        if (gen !== myGen) break;
+
+        await drawOnChannel(i, VM, myGen);
+        if (gen !== myGen) break;
+
+        revealedCount = i + 1;
+        updateTransport();
+
+        await waitGen(400, myGen);
+        if (gen !== myGen) break;
+        hideLabel();
+        await waitGen(300, myGen);
+      }
+
+      if (gen === myGen) {
+        playing = false;
+        hideLabel();
+        updateTransport();
+      }
+    }
+
+    // Auto-play on load
+    updateTransport();
+    playIntro();
+
+    // ── Toggle expand/collapse ──
+    let expanded = false;
+    let animating = false;
+
+    function toggleChart() {
+      if (animating) return;
+      animating = true;
+      const zt = document.getElementById('zoomToggle');
+      const zoomText = document.getElementById('zoomText');
+      const zoomArrow = document.getElementById('zoomArrow');
+      zt.classList.remove('visible');
+
+      function smoothStep(t) {
+        return t * t * (3 - 2 * t);
+      }
+
+      if (!expanded) {
+        for (let i = 0; i < TOTAL_CHANNELS; i++) {
+          const src = fullData[i];
+          const data = chart.data.datasets[i].data;
+          for (let j = 0; j < src.length; j++) data[j] = src[j];
+        }
+
+        const durationMs = 8000;
+        const startX = 24, endX = maxMonths;
+        const startY = chart.options.scales.y.max;
+        const endY = computeTargetY(TOTAL_CHANNELS - 1, maxMonths);
+        const t0 = performance.now();
+
+        function tickExpand(now) {
+          const t = smoothStep(Math.min((now - t0) / durationMs, 1));
+          chart.options.scales.x.max = Math.round(startX + (endX - startX) * t);
+          chart.options.scales.y.max = startY + (endY - startY) * t;
+          chart.update('none');
+          if ((now - t0) < durationMs) {
+            requestAnimationFrame(tickExpand);
+          } else {
+            expanded = true;
+            animating = false;
+            zt.dataset.dir = 'left';
+            zoomArrow.textContent = '\u2190';
+            zoomText.textContent = 'Year 1\u20133';
+            zt.classList.add('visible');
+          }
+        }
+        requestAnimationFrame(tickExpand);
+
+      } else {
+        const durationMs = 5000;
+        const startX = maxMonths, endX = 24;
+        const startY = chart.options.scales.y.max;
+        const endY = computeTargetY(TOTAL_CHANNELS - 1, VM);
+        const t0 = performance.now();
+
+        function tickCollapse(now) {
+          const t = smoothStep(Math.min((now - t0) / durationMs, 1));
+          chart.options.scales.x.max = Math.round(startX + (endX - startX) * t);
+          chart.options.scales.y.max = startY + (endY - startY) * t;
+          chart.update('none');
+          if ((now - t0) < durationMs) {
+            requestAnimationFrame(tickCollapse);
+          } else {
+            expanded = false;
+            animating = false;
+            zt.dataset.dir = 'right';
+            zoomArrow.textContent = '\u2192';
+            zoomText.textContent = 'Year 1\u201310';
+            zt.classList.add('visible');
+          }
+        }
+        requestAnimationFrame(tickCollapse);
+      }
+    }
+  </script>
+</body>
+</html>
