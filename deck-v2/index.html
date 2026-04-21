@@ -156,6 +156,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (window.Babel && typeof window.Babel.transformScriptTags === 'function') {
       window.Babel.transformScriptTags();
     }
+    // Inject favicon after document swap
+    var fi = document.createElement('link');
+    fi.rel = 'icon'; fi.type = 'image/png'; fi.href = '/deck-v2/favicon.png';
+    document.head.appendChild(fi);
   } catch (err) {
     setStatus('Error unpacking: ' + err.message);
     console.error('Bundle unpack error:', err);
