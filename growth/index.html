@@ -92,30 +92,29 @@
       display: flex;
       align-items: center;
       margin-top: 10px;
-      padding-left: 60px;
+      justify-content: center;
     }
 
     .transport {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 16px;
     }
     .transport-btn {
-      background: #E67E22;
+      background: none;
       border: none;
       cursor: pointer;
-      color: #fff;
-      padding: 5px 10px;
+      color: #E67E22;
+      padding: 4px;
       line-height: 1;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 700;
       letter-spacing: -1px;
-      border-radius: 3px;
-      transition: opacity 0.2s;
+      transition: opacity 0.2s, color 0.2s;
     }
-    .transport-btn:hover { opacity: 0.85; }
-    .transport-btn.active { background: #D35400; }
-    .transport-btn:disabled { opacity: 0.25; cursor: default; }
+    .transport-btn:hover { color: #D35400; }
+    .transport-btn.active { color: #D35400; }
+    .transport-btn:disabled { opacity: 0.2; cursor: default; }
 
     .zoom-toggle {
       margin-left: auto;
