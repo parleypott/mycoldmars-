@@ -4,7 +4,7 @@ import { easy, hard } from './questions.js';
 const VIDEO_ID = 'GV8KGcFqeLc';
 const MAP_COLORS = {
   bg: '#ffffff',
-  fill: '#d42b2b',
+  fill: '#FF0000',
   outline: '#ffffff',
 };
 
