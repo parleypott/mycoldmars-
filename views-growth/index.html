@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Monthly Views Growth — Newpress</title>
+  <title>Total Views Growth — Newpress</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap');
@@ -171,7 +171,7 @@
 </head>
 <body>
   <div class="chart-container">
-    <h1 class="chart-title">Newpress Shows <span>(Monthly Views)</span></h1>
+    <h1 class="chart-title">Newpress Shows <span>(Total Views)</span></h1>
     <div class="chart-wrapper">
       <canvas id="growthChart"></canvas>
       <div class="story-label" id="storyLabel">
@@ -191,12 +191,12 @@
         <button class="transport-btn" id="ffBtn" onclick="ffStep()">&#9656;&#9656;</button>
       </div>
       <div class="zoom-toggle" id="zoomToggle" data-dir="right" onclick="toggleChart()">
-        <span id="zoomText">Year 1–10</span>
+        <span id="zoomText">Year 1–8</span>
         <span class="zoom-arrow" id="zoomArrow">&rarr;</span>
       </div>
     </div>
     <div class="chart-caption">
-      Monthly YouTube views from channel launch. Aligned by channel age to compare growth rates.
+      Cumulative total YouTube views from channel launch. Aligned by channel age to compare growth rates.
     </div>
   </div>
 
@@ -210,11 +210,10 @@
         ordinal: 'Our first channel',
         color: '#C0392B',
         fillRGB: [192, 57, 43],
-        headshot: 'johnny-harris.jpeg',
-        // Monthly views starting Jan 2017 (month 0 = Year 1)
+        headshot: '../growth/johnny-harris.jpeg',
+        // Monthly views starting Jun 2018 (month 0 = Year 1)
         data: [
-          62,54,63,82,134,151,178,151,143,84,134,117,
-          78,85,87,84,93,88,246,410,109,1358,105420,242174,
+          88,246,410,109,1358,105420,242174,
           295216,184704,618744,312644,336842,332709,81596,189824,441593,312530,528454,686645,
           432058,568519,849943,1155922,1147735,3826307,4979918,3545592,2751388,2693607,2293808,2427838,
           2070151,8646183,5266157,15154513,12215055,7071392,6609363,7693956,7096385,7085832,4261489,8666228,
@@ -231,7 +230,7 @@
         ordinal: 'Our second channel',
         color: '#004CFF',
         fillRGB: [0, 76, 255],
-        headshot: 'sam-ellis.png',
+        headshot: '../growth/sam-ellis.png',
         // Monthly views starting Jul 2023 (month 0)
         data: [
           831597,712440,511021,856772,560679,761698,
@@ -248,7 +247,7 @@
         ordinal: 'Our third channel',
         color: '#0D5921',
         fillRGB: [13, 89, 33],
-        headshot: 'christophe.png',
+        headshot: '../growth/christophe.png',
         // Monthly views starting Oct 2024 (month 0)
         data: [
           0,25477,863345,385536,1566285,468739,
@@ -262,7 +261,7 @@
         ordinal: 'Our fourth channel',
         color: '#7B2D8E',
         fillRGB: [123, 45, 142],
-        headshot: 'max-fisher.png',
+        headshot: '../growth/max-fisher.png',
         // Monthly views starting Sep 2025 (month 0)
         data: [
           0,0,0,0,389852,261356,1818714,15155741,
@@ -271,13 +270,18 @@
     ];
 
     const TOTAL_CHANNELS = channels.length;
-    const maxMonths = 111;
+    const maxMonths = 94;
 
-    // Build full data arrays (pad shorter arrays with null)
+    // Convert monthly data to cumulative totals, then pad
     const fullData = channels.map(ch => {
-      const d = [...ch.data];
-      while (d.length <= maxMonths) d.push(null);
-      return d;
+      const cumulative = [];
+      let sum = 0;
+      for (let i = 0; i < ch.data.length; i++) {
+        sum += ch.data[i];
+        cumulative.push(sum);
+      }
+      while (cumulative.length <= maxMonths) cumulative.push(null);
+      return cumulative;
     });
 
     const labels = [];
@@ -407,6 +411,7 @@
     };
 
     function fmtViews(v) {
+      if (v >= 1e9) return (v/1e9).toFixed(1) + 'B';
       if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
       if (v >= 1e3) return Math.round(v/1000) + 'K';
       return Math.round(v).toString();
@@ -483,6 +488,7 @@
               color: '#bbb',
               callback: function(v){
                 if(v===0)return '0';
+                if(v>=1e9) return (v/1e9).toFixed(1)+'B';
                 if(v>=1e6) return Math.round(v/1e6)+'M';
                 if(v>=1e3) return Math.round(v/1000)+'K';
                 return v;
@@ -640,7 +646,7 @@
       for (let j = 0; j < data.length; j++) data[j] = null;
       revealMonth[idx] = null;
       chart.data.datasets[idx].fill = true;
-      chart.options.scales.y.max = idx > 0 ? computeTargetY(idx - 1, VM) : 500;
+      chart.options.scales.y.max = idx > 0 ? computeTargetY(idx - 1, VM) : 1000;
     }
 
     function updateTransport() {
@@ -797,7 +803,7 @@
             animating = false;
             zt.dataset.dir = 'right';
             zoomArrow.textContent = '\u2192';
-            zoomText.textContent = 'Year 1\u201310';
+            zoomText.textContent = 'Year 1\u20138';
             zt.classList.add('visible');
           }
         }
