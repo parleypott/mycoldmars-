@@ -27,6 +27,7 @@ export default defineConfig({
         eez: resolve(__dirname, 'eez/index.html'),
         modernMiddleEast: resolve(__dirname, 'modern-middle-east/index.html'),
         flyingMoney: resolve(__dirname, 'flyingmoney/index.html'),
+        fascism: resolve(__dirname, 'fascism/index.html'),
         growth: resolve(__dirname, 'growth/index.html'),
       },
     },
