@@ -88,52 +88,77 @@
       line-height: 1.1;
     }
 
-    .controls {
-      text-align: center;
-      margin-top: 24px;
+    .chart-footer {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+      padding-left: 60px;
     }
-
-    .grow-btn {
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      background: #121118;
-      color: #F4F2E6;
-      border: none;
-      padding: 12px 32px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: opacity 0.2s;
-      opacity: 0;
-    }
-    .grow-btn.visible { opacity: 1; }
-    .grow-btn:hover { opacity: 0.8; }
-    .grow-btn:disabled { opacity: 0.4; cursor: default; }
 
     .transport {
       display: flex;
-      justify-content: center;
       align-items: center;
-      gap: 20px;
-      margin-top: 14px;
+      gap: 6px;
     }
     .transport-btn {
-      background: none;
+      background: #E67E22;
       border: none;
       cursor: pointer;
-      color: #c49a6c;
-      padding: 4px;
+      color: #fff;
+      padding: 5px 10px;
       line-height: 1;
       font-size: 13px;
+      font-weight: 700;
       letter-spacing: -1px;
-      transition: color 0.2s, opacity 0.2s;
-      opacity: 0.6;
+      border-radius: 3px;
+      transition: opacity 0.2s;
     }
-    .transport-btn:hover { opacity: 1; }
-    .transport-btn.active { opacity: 1; color: #a0724a; }
-    .transport-btn:disabled { opacity: 0.2; cursor: default; }
+    .transport-btn:hover { opacity: 0.85; }
+    .transport-btn.active { background: #D35400; }
+    .transport-btn:disabled { opacity: 0.25; cursor: default; }
+
+    .zoom-toggle {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #121118;
+      cursor: pointer;
+      padding: 7px 16px;
+      border: 1.5px solid rgba(18, 17, 24, 0.2);
+      border-radius: 4px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s, background 0.15s;
+      user-select: none;
+    }
+    .zoom-toggle.visible { opacity: 1; pointer-events: auto; }
+    .zoom-toggle:hover { background: rgba(18, 17, 24, 0.05); }
+
+    .zoom-arrow {
+      display: inline-block;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .zoom-toggle[data-dir="right"] .zoom-arrow {
+      animation: pulse-right 1.5s ease-in-out infinite;
+    }
+    .zoom-toggle[data-dir="left"] .zoom-arrow {
+      animation: pulse-left 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-right {
+      0%, 100% { transform: translateX(0); opacity: 0.4; }
+      50% { transform: translateX(4px); opacity: 1; }
+    }
+    @keyframes pulse-left {
+      0%, 100% { transform: translateX(0); opacity: 0.4; }
+      50% { transform: translateX(-4px); opacity: 1; }
+    }
 
     .chart-caption {
       font-family: 'Space Mono', monospace;
@@ -160,13 +185,16 @@
         </div>
       </div>
     </div>
-    <div class="transport" id="transport">
-      <button class="transport-btn" id="rwBtn" onclick="rewindStep()" disabled>&#9666;&#9666;</button>
-      <button class="transport-btn" id="playBtn" onclick="playIntro()">&#9654;</button>
-      <button class="transport-btn" id="ffBtn" onclick="ffStep()">&#9656;&#9656;</button>
-    </div>
-    <div class="controls">
-      <button class="grow-btn" id="growBtn" onclick="toggleChart()">Show Year 1–10</button>
+    <div class="chart-footer">
+      <div class="transport" id="transport">
+        <button class="transport-btn" id="rwBtn" onclick="rewindStep()" disabled>&#9666;&#9666;</button>
+        <button class="transport-btn" id="playBtn" onclick="playIntro()">&#9654;</button>
+        <button class="transport-btn" id="ffBtn" onclick="ffStep()">&#9656;&#9656;</button>
+      </div>
+      <div class="zoom-toggle" id="zoomToggle" data-dir="right" onclick="toggleChart()">
+        <span id="zoomText">Year 1–10</span>
+        <span class="zoom-arrow" id="zoomArrow">→</span>
+      </div>
     </div>
     <div class="chart-caption">
       YouTube subscribers from channel launch. Aligned by channel age to compare growth rates.
@@ -614,9 +642,9 @@
       if (playing) pb.classList.add('active');
       else pb.classList.remove('active');
 
-      const growBtn = document.getElementById('growBtn');
-      if (revealedCount >= 4) growBtn.classList.add('visible');
-      else growBtn.classList.remove('visible');
+      const zt = document.getElementById('zoomToggle');
+      if (revealedCount >= 4) zt.classList.add('visible');
+      else zt.classList.remove('visible');
     }
 
     function stopAll() {
@@ -702,23 +730,22 @@
     function toggleChart() {
       if (animating) return;
       animating = true;
-      const btn = document.getElementById('growBtn');
-      btn.disabled = true;
+      const zt = document.getElementById('zoomToggle');
+      const zoomText = document.getElementById('zoomText');
+      const zoomArrow = document.getElementById('zoomArrow');
+      zt.classList.remove('visible');
 
-      // Gentle ease for both directions
       function smoothStep(t) {
         return t * t * (3 - 2 * t);
       }
 
       if (!expanded) {
-        // Fill in all full data beyond month 24
         for (let i = 0; i < 4; i++) {
           const src = fullData[i];
           const data = chart.data.datasets[i].data;
           for (let j = 0; j < src.length; j++) data[j] = src[j];
         }
 
-        // Expand — 8 seconds, smooth
         const durationMs = 8000;
         const startX = 24, endX = maxMonths;
         const startY = chart.options.scales.y.max;
@@ -735,14 +762,15 @@
           } else {
             expanded = true;
             animating = false;
-            btn.disabled = false;
-            btn.textContent = 'Show Year 1\u20133';
+            zt.dataset.dir = 'left';
+            zoomArrow.textContent = '\u2190';
+            zoomText.textContent = 'Year 1\u20133';
+            zt.classList.add('visible');
           }
         }
         requestAnimationFrame(tickExpand);
 
       } else {
-        // Collapse — 5 seconds, smooth
         const durationMs = 5000;
         const startX = maxMonths, endX = 24;
         const startY = 8500000, endY = 1000000;
@@ -758,8 +786,10 @@
           } else {
             expanded = false;
             animating = false;
-            btn.disabled = false;
-            btn.textContent = 'Show Year 1\u201310';
+            zt.dataset.dir = 'right';
+            zoomArrow.textContent = '\u2192';
+            zoomText.textContent = 'Year 1\u201310';
+            zt.classList.add('visible');
           }
         }
         requestAnimationFrame(tickCollapse);
