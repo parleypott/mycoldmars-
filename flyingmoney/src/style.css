@@ -134,18 +134,23 @@ html, body {
 }
 
 .diff-btn:first-child {
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--border-light);
 }
 
 .diff-btn:last-child {
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--border-light);
 }
 
 .diff-btn.active {
-  background: var(--btn-bg);
-  color: var(--btn-text);
-  border-color: var(--btn-bg);
-  box-shadow: 0 0 12px rgba(0, 255, 65, 0.3);
+  background: rgba(0, 255, 65, 0.15);
+  color: var(--text);
+  border-color: var(--border);
+  box-shadow: 0 0 16px rgba(0, 255, 65, 0.35);
+}
+
+.diff-btn:not(.active) {
+  border-color: var(--border-light);
+  color: var(--text-faint);
 }
 
 .diff-btn:not(.active):hover {
