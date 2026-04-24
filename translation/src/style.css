@@ -659,6 +659,93 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.03); }
   font-size: 0.85em;
 }
 
+/* ── Bank ── */
+.bank-count {
+  font-size: 10px;
+  background: var(--np-red);
+  color: var(--np-warm-white);
+  padding: 1px 6px;
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.view-toggle-btn.active .bank-count {
+  background: var(--np-yellow);
+  color: var(--np-ink);
+}
+.bank-empty {
+  padding: var(--np-space-12) 0;
+  text-align: center;
+  font-family: var(--np-font-mono);
+  font-size: 14px;
+  color: var(--np-sepia);
+}
+.bank-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--np-space-4);
+  margin-bottom: var(--np-space-8);
+}
+.bank-item {
+  border: 1px solid var(--np-ink);
+  padding: var(--np-space-4) var(--np-space-6);
+  position: relative;
+  animation: bankIn var(--np-duration-lg) var(--np-ease);
+}
+@keyframes bankIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.bank-item-meta {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: var(--np-space-2);
+  display: flex;
+  gap: var(--np-space-4);
+}
+.bank-item-speaker {
+  color: var(--np-ink);
+  font-weight: 600;
+}
+.bank-item-tc {
+  color: var(--np-red);
+}
+.bank-item-text {
+  font-family: var(--np-font-serif);
+  font-size: 18px;
+  line-height: 1.5;
+}
+.bank-item-x {
+  position: absolute;
+  top: var(--np-space-3);
+  right: var(--np-space-3);
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--np-ink);
+  background: transparent;
+  color: var(--np-ink);
+  font-family: var(--np-font-mono);
+  font-size: 14px;
+  line-height: 22px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--np-duration) var(--np-ease),
+              color var(--np-duration) var(--np-ease);
+}
+.bank-item-x:hover {
+  background: var(--np-red);
+  border-color: var(--np-red);
+  color: var(--np-warm-white);
+}
+.bank-item.removing {
+  animation: bankOut var(--np-duration) var(--np-ease) forwards;
+}
+@keyframes bankOut {
+  to { opacity: 0; transform: translateX(20px); height: 0; padding: 0; margin: 0; border-width: 0; overflow: hidden; }
+}
+
 /* ── Utility ── */
 .hidden { display: none !important; }
 

@@ -8,6 +8,7 @@ let analysis = null;     // { narrative_summary, language_map, themes, questions
 let translations = [];    // [{ number, original, translated, language, kept_original, unintelligible }]
 let srtContent = '';
 let currentStep = 1;
+let bank = [];          // [{ id, speaker, tc, text }]
 
 // ── DOM refs ──
 const $ = (sel) => document.querySelector(sel);
@@ -310,20 +311,16 @@ btnCopy.addEventListener('click', async () => {
   setTimeout(() => fb.classList.add('hidden'), 2000);
 });
 
-// ── View toggle (SRT / Reader) ──
-$('#btn-view-srt').addEventListener('click', () => {
-  $('#btn-view-srt').classList.add('active');
-  $('#btn-view-reader').classList.remove('active');
-  $('#srt-view').classList.remove('hidden');
-  $('#reader-view').classList.add('hidden');
-});
-
-$('#btn-view-reader').addEventListener('click', () => {
-  $('#btn-view-reader').classList.add('active');
-  $('#btn-view-srt').classList.remove('active');
-  $('#reader-view').classList.remove('hidden');
-  $('#srt-view').classList.add('hidden');
-});
+// ── View toggle (SRT / Reader / Bank) ──
+function switchView(view) {
+  ['srt', 'reader', 'bank'].forEach(v => {
+    $(`#btn-view-${v}`).classList.toggle('active', v === view);
+    $(`#${v}-view`).classList.toggle('hidden', v !== view);
+  });
+}
+$('#btn-view-srt').addEventListener('click', () => switchView('srt'));
+$('#btn-view-reader').addEventListener('click', () => switchView('reader'));
+$('#btn-view-bank').addEventListener('click', () => switchView('bank'));
 
 // ── Reader view ──
 function formatTimecodeShort(tc) {
@@ -392,7 +389,7 @@ function buildReaderView() {
   }
 }
 
-// Intercept copy in reader — prepend [Speaker — TC]
+// Intercept copy in reader — prepend [Speaker — TC] and bank it
 $('#reader-content').addEventListener('copy', (e) => {
   const selection = window.getSelection();
   if (!selection || selection.isCollapsed) return;
@@ -400,7 +397,6 @@ $('#reader-content').addEventListener('copy', (e) => {
   const selectedText = selection.toString().trim();
   if (!selectedText) return;
 
-  // Walk from anchor node up to find the segment span with data-start
   let node = selection.anchorNode;
   while (node && !(node.dataset && node.dataset.start)) {
     node = node.parentElement;
@@ -414,9 +410,79 @@ $('#reader-content').addEventListener('copy', (e) => {
   e.preventDefault();
   e.clipboardData.setData('text/plain', `[${speaker} — ${tc}] ${selectedText}`);
 
+  // Auto-bank the bite
+  addToBank(speaker, tc, selectedText);
+
   const fb = $('#reader-copy-feedback');
   fb.classList.remove('hidden');
   setTimeout(() => fb.classList.add('hidden'), 2000);
+});
+
+// ── Bank ──
+let bankId = 0;
+
+function addToBank(speaker, tc, text) {
+  bank.push({ id: ++bankId, speaker, tc, text });
+  renderBank();
+}
+
+function renderBank() {
+  const list = $('#bank-list');
+  const empty = $('#bank-empty');
+  const actions = $('#bank-actions');
+  const countEl = $('#bank-count');
+
+  if (bank.length === 0) {
+    empty.classList.remove('hidden');
+    actions.classList.add('hidden');
+    countEl.classList.add('hidden');
+    list.innerHTML = '';
+    return;
+  }
+
+  empty.classList.add('hidden');
+  actions.classList.remove('hidden');
+  countEl.classList.remove('hidden');
+  countEl.textContent = bank.length;
+
+  list.innerHTML = bank.map(item => `
+    <div class="bank-item" data-bank-id="${item.id}">
+      <button class="bank-item-x" data-bank-id="${item.id}">&times;</button>
+      <div class="bank-item-meta">
+        <span class="bank-item-speaker">${esc(item.speaker)}</span>
+        <span class="bank-item-tc">${esc(item.tc)}</span>
+      </div>
+      <div class="bank-item-text">${esc(item.text)}</div>
+    </div>
+  `).join('');
+
+  // Wire up X buttons
+  list.querySelectorAll('.bank-item-x').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.bankId);
+      const el = list.querySelector(`.bank-item[data-bank-id="${id}"]`);
+      el.classList.add('removing');
+      el.addEventListener('animationend', () => {
+        bank = bank.filter(b => b.id !== id);
+        renderBank();
+      });
+    });
+  });
+}
+
+// Copy all banked items
+$('#btn-bank-copy-all').addEventListener('click', async () => {
+  const text = bank.map(b => `[${b.speaker} — ${b.tc}] ${b.text}`).join('\n\n');
+  await navigator.clipboard.writeText(text);
+  const fb = $('#bank-copy-feedback');
+  fb.classList.remove('hidden');
+  setTimeout(() => fb.classList.add('hidden'), 2000);
+});
+
+// Clear all
+$('#btn-bank-clear').addEventListener('click', () => {
+  bank = [];
+  renderBank();
 });
 
 // ── Helpers ──
