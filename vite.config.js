@@ -31,6 +31,7 @@ export default defineConfig({
         growth: resolve(__dirname, 'growth/index.html'),
         deckV2: resolve(__dirname, 'deck-v2/index.html'),
         viewsGrowth: resolve(__dirname, 'views-growth/index.html'),
+        subtitleTranslator: resolve(__dirname, 'subtitle-translator/index.html'),
       },
     },
   },
