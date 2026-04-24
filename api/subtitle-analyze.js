@@ -8,6 +8,35 @@ function isGenericSpeaker(name) {
   return /^speaker\s*\d+$/i.test(name.trim());
 }
 
+/** Extract JSON from Claude's response, handling markdown fencing and surrounding text */
+function extractJSON(text) {
+  try { return JSON.parse(text.trim()); } catch {}
+
+  const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (fenced) {
+    try { return JSON.parse(fenced[1].trim()); } catch {}
+  }
+
+  const startArr = text.indexOf('[');
+  const startObj = text.indexOf('{');
+  const start = startArr === -1 ? startObj : startObj === -1 ? startArr : Math.min(startArr, startObj);
+  if (start !== -1) {
+    const open = text[start];
+    const close = open === '[' ? ']' : '}';
+    let depth = 0;
+    for (let i = start; i < text.length; i++) {
+      if (text[i] === open) depth++;
+      else if (text[i] === close) depth--;
+      if (depth === 0) {
+        try { return JSON.parse(text.slice(start, i + 1)); } catch {}
+        break;
+      }
+    }
+  }
+
+  throw new Error('No valid JSON found in response');
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -93,8 +122,7 @@ Rules:
 
     let result;
     try {
-      const cleaned = text.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim();
-      result = JSON.parse(cleaned);
+      result = extractJSON(text);
     } catch {
       return res.status(500).json({ error: 'Failed to parse analysis response', raw: text });
     }
