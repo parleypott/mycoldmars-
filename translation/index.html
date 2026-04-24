@@ -1,40 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Translation — newpress</title>
+  <title>Translation — Newpress</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Gloock&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="src/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <div id="app">
     <header>
-      <div class="eyebrow">newpress tools</div>
+      <div class="np-eyebrow np-eyebrow--red">Newpress Tools</div>
       <h1>Translation</h1>
-      <div class="rule"></div>
-      <p class="subtitle">Transcript to subtitles — with context-aware AI translation</p>
+      <hr class="np-rule np-rule--short">
+      <p class="header-desc">Transcript to subtitles — with context-aware AI translation.</p>
     </header>
 
-    <!-- Progress bar -->
     <nav class="steps">
       <div class="step active" data-step="1"><span class="step-num">01</span> Upload</div>
-      <div class="step-divider"></div>
       <div class="step" data-step="2"><span class="step-num">02</span> Analyze</div>
-      <div class="step-divider"></div>
       <div class="step" data-step="3"><span class="step-num">03</span> Clarify</div>
-      <div class="step-divider"></div>
       <div class="step" data-step="4"><span class="step-num">04</span> Translate</div>
-      <div class="step-divider"></div>
       <div class="step" data-step="5"><span class="step-num">05</span> Export</div>
     </nav>
 
     <!-- Step 1: Upload -->
     <section id="step-1" class="panel active">
       <div id="drop-zone" class="drop-zone">
-        <div class="drop-icon">&darr;</div>
-        <p>Drop your <strong>.csv</strong> transcript here</p>
-        <p class="drop-sub">or <label for="file-input" class="file-label">browse files</label></p>
+        <div class="drop-label">Drop .csv transcript here</div>
+        <div class="drop-sub">or <label for="file-input" class="file-link">browse files</label></div>
         <input type="file" id="file-input" accept=".csv" hidden>
       </div>
       <div id="upload-preview" class="upload-preview hidden">
@@ -57,7 +52,7 @@
             <tbody></tbody>
           </table>
         </div>
-        <button id="btn-analyze" class="btn primary">Analyze Transcript &rarr;</button>
+        <button id="btn-analyze" class="np-button np-button--primary">Analyze transcript</button>
       </div>
     </section>
 
@@ -65,61 +60,64 @@
     <section id="step-2" class="panel">
       <div id="analyze-loading" class="loading">
         <div class="spinner"></div>
-        <p>Reading the full transcript...</p>
+        <div class="np-eyebrow">Reading transcript</div>
       </div>
       <div id="analyze-result" class="hidden">
         <div class="card">
-          <h3>Narrative Summary</h3>
-          <p id="narrative-summary"></p>
+          <div class="np-eyebrow np-eyebrow--blue">Narrative Summary</div>
+          <p id="narrative-summary" class="card-body"></p>
         </div>
         <div class="card">
-          <h3>Languages Detected</h3>
-          <div id="language-map"></div>
+          <div class="np-eyebrow np-eyebrow--blue">Languages Detected</div>
+          <div id="language-map" class="card-body"></div>
         </div>
         <div id="questions-notice"></div>
-        <button id="btn-to-clarify" class="btn primary">Continue &rarr;</button>
+        <button id="btn-to-clarify" class="np-button np-button--primary">Continue</button>
       </div>
     </section>
 
     <!-- Step 3: Clarify -->
     <section id="step-3" class="panel">
-      <h2>Clarifications</h2>
+      <h2>Clarify</h2>
+      <hr class="np-rule">
 
       <div id="themes-card" class="card">
-        <h3>Themes Identified</h3>
-        <div id="themes-list"></div>
+        <div class="np-eyebrow np-eyebrow--red">Themes Identified</div>
+        <div id="themes-list" class="themes-list"></div>
       </div>
 
       <div class="card">
-        <h3>Editorial Focus</h3>
-        <p class="focus-desc">What is this piece about? What themes matter most? This guides translation priorities.</p>
-        <textarea id="editorial-focus" placeholder="e.g. Focus on the knifemaker's family legacy and the military history of the island. The craft techniques are secondary."></textarea>
+        <div class="np-eyebrow np-eyebrow--red">Editorial Focus</div>
+        <p class="card-desc">What is this piece about. What themes matter most. This guides translation priorities.</p>
+        <textarea id="editorial-focus" class="np-textarea" placeholder="e.g. Focus on the knifemaker's family legacy and the military history of the island. The craft techniques are secondary."></textarea>
       </div>
 
       <div id="questions-section">
-        <h3 class="questions-heading">Questions</h3>
-        <p class="section-desc">Ambiguous passages that could affect translation. Answer what you can — skip the rest.</p>
+        <div class="np-eyebrow" style="margin-top: var(--np-space-8);">Questions</div>
+        <hr class="np-rule">
+        <p class="section-desc">Ambiguous passages that could affect translation. Answer what you can.</p>
         <div id="questions-list"></div>
       </div>
 
-      <button id="btn-translate" class="btn primary">Translate &rarr;</button>
+      <button id="btn-translate" class="np-button np-button--primary">Translate</button>
     </section>
 
     <!-- Step 4: Translate + Review -->
     <section id="step-4" class="panel">
       <div id="translate-loading" class="loading">
         <div class="spinner"></div>
-        <p>Translating segments...</p>
+        <div class="np-eyebrow">Translating segments</div>
+        <p id="translate-progress" class="loading-detail"></p>
       </div>
       <div id="translate-result" class="hidden">
         <div class="controls-bar">
-          <label>
-            <span class="control-label">Max words</span>
+          <label class="control">
+            <span class="np-eyebrow">Max words</span>
             <input type="range" id="max-words" min="10" max="25" value="16">
             <span id="max-words-val" class="control-val">16</span>
           </label>
-          <label>
-            <span class="control-label">Max duration</span>
+          <label class="control">
+            <span class="np-eyebrow">Max duration</span>
             <input type="range" id="max-duration" min="3" max="8" value="5">
             <span id="max-duration-val" class="control-val">5s</span>
           </label>
@@ -136,19 +134,20 @@
             <tbody></tbody>
           </table>
         </div>
-        <button id="btn-export" class="btn primary">Generate SRT &rarr;</button>
+        <button id="btn-export" class="np-button np-button--primary">Generate SRT</button>
       </div>
     </section>
 
     <!-- Step 5: Export -->
     <section id="step-5" class="panel">
       <h2>Export</h2>
+      <hr class="np-rule">
       <div id="srt-preview" class="srt-preview"></div>
       <div class="export-actions">
-        <button id="btn-download" class="btn primary">Download .srt</button>
-        <button id="btn-copy" class="btn secondary">Copy to Clipboard</button>
+        <button id="btn-download" class="np-button np-button--primary">Download .srt</button>
+        <button id="btn-copy" class="np-button">Copy to clipboard</button>
       </div>
-      <p id="copy-feedback" class="hidden">Copied!</p>
+      <p id="copy-feedback" class="hidden copy-feedback">Copied.</p>
     </section>
   </div>
 
