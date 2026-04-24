@@ -1,6 +1,10 @@
 const BASE = '/api';
 const BATCH_SIZE = 50;
 
+/**
+ * POST to API route. Handles streaming responses (keepalive spaces + JSON).
+ * The server streams spaces to keep the connection alive, then sends JSON at the end.
+ */
 async function post(path, body) {
   const res = await fetch(`${BASE}/${path}`, {
     method: 'POST',
@@ -9,11 +13,29 @@ async function post(path, body) {
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `API error ${res.status}`);
+    // Try to read error as text (might be streamed)
+    const text = await res.text();
+    let error;
+    try {
+      error = JSON.parse(text.trim())?.error;
+    } catch {
+      error = res.statusText;
+    }
+    throw new Error(error || `API error ${res.status}`);
   }
 
-  return res.json();
+  // Read full response as text, trim keepalive spaces, parse JSON
+  const text = await res.text();
+  const trimmed = text.trim();
+
+  if (!trimmed) throw new Error('Empty response from API');
+
+  const parsed = JSON.parse(trimmed);
+
+  // Check if the response itself is an error object
+  if (parsed.error) throw new Error(parsed.error);
+
+  return parsed;
 }
 
 export function analyzeTranscript(segments) {
@@ -32,7 +54,6 @@ function isGenericSpeaker(name) {
  * sends each batch as a separate API call, then merges results back.
  */
 export async function translateSegments({ segments, languageMap, narrativeSummary, clarifications, editorialFocus, onProgress }) {
-  // Separate labeled vs generic
   const results = new Array(segments.length);
   const labeledWithIndex = [];
 
@@ -56,7 +77,6 @@ export async function translateSegments({ segments, languageMap, narrativeSummar
     return Array.from(results);
   }
 
-  // Split labeled segments into batches
   const batches = [];
   for (let i = 0; i < labeledWithIndex.length; i += BATCH_SIZE) {
     batches.push(labeledWithIndex.slice(i, i + BATCH_SIZE));
@@ -69,7 +89,6 @@ export async function translateSegments({ segments, languageMap, narrativeSummar
     editorial_focus: editorialFocus,
   };
 
-  // Run all batches in parallel
   let completed = 0;
   const batchPromises = batches.map(async (batch) => {
     const batchSegments = batch.map(b => b.segment);
@@ -86,7 +105,6 @@ export async function translateSegments({ segments, languageMap, narrativeSummar
 
   const batchResults = await Promise.all(batchPromises);
 
-  // Merge results back in order
   for (const { batch, translated } of batchResults) {
     for (let j = 0; j < batch.length; j++) {
       const { resultIndex } = batch[j];

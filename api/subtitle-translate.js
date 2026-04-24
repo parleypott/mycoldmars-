@@ -2,13 +2,6 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic();
 
-/** Speakers like "Speaker 1", "Speaker 9", etc. are unlabeled mic noise */
-function isGenericSpeaker(name) {
-  if (!name) return true;
-  return /^speaker\s*\d+$/i.test(name.trim());
-}
-
-/** Extract JSON from Claude's response, handling markdown fencing and surrounding text */
 function extractJSON(text) {
   try { return JSON.parse(text.trim()); } catch {}
 
@@ -34,7 +27,7 @@ function extractJSON(text) {
     }
   }
 
-  throw new Error('No valid JSON found in response');
+  throw new Error('No valid JSON found');
 }
 
 export default async function handler(req, res) {
@@ -48,7 +41,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'No segments provided' });
   }
 
-  // Build context block
   let context = `NARRATIVE CONTEXT:\n${narrative_summary || 'No summary available.'}\n\n`;
 
   if (editorial_focus) {
@@ -71,68 +63,72 @@ export default async function handler(req, res) {
     context += '\n';
   }
 
-  // Build segments for translation (client already filtered to labeled only)
   const segmentText = segments
-    .map(s => {
-      const speaker = s.speaker ? `[${s.speaker}]` : '';
-      return `SEG ${s.number} ${speaker}: ${s.text}`;
-    })
+    .map(s => `SEG ${s.number} [${s.speaker || ''}]: ${s.text}`)
     .join('\n');
 
-  const systemPrompt = `You are a professional subtitle translator for a documentary production team. You have full context about this transcript and must now translate the labeled speakers' dialogue segment by segment.
+  const systemPrompt = `You are a professional subtitle translator for a documentary production team.
 
 ${context}
 
-TRANSLATION RULES:
-1. Translate each non-English segment into natural, conversational English suitable for on-screen subtitles.
-2. If a segment is ALREADY in English, pass it through exactly as-is and mark it as kept_original: true.
-3. Maintain the speaker's tone and register — formal speech stays formal, casual stays casual.
-4. Use the narrative context, editorial focus, and clarifications to resolve ambiguities. Do NOT guess blindly.
-5. Keep translations concise — subtitles must be readable in the time available.
-6. Do NOT add quotation marks, speaker labels, or formatting — just the translated text.
-7. Preserve proper nouns, place names, and technical terms as discussed in clarifications.
-8. If a segment appears to be garbled auto-transcription, do your best to infer meaning from context and translate. If impossible, output "[inaudible]".
+RULES:
+1. Translate non-English segments into natural English for subtitles.
+2. English segments: pass through as-is, mark kept_original: true.
+3. Keep the speaker's tone. Be concise. No quotes or speaker labels.
+4. Garbled transcription: infer from context or output "[inaudible]".
 
-Respond with a JSON array (no markdown fencing). Each element must have:
-{
-  "number": <segment number>,
-  "original": "<original text>",
-  "translated": "<English translation or original if already English>",
-  "language": "<detected language of this segment>",
-  "kept_original": <true if English, false if translated>
-}
+Respond with JSON array only (no markdown):
+[{"number": 1, "original": "...", "translated": "...", "language": "...", "kept_original": false}]
 
-Maintain the exact same order and count as the input segments (${segments.length} segments).`;
+${segments.length} segments. Maintain exact order and count.`;
+
+  // Use streaming to prevent Vercel timeout
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Transfer-Encoding', 'chunked');
+
+  let fullText = '';
 
   try {
-    const message = await client.messages.create({
+    const stream = await client.messages.stream({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
       system: systemPrompt,
       messages: [
         {
           role: 'user',
-          content: `Translate these ${segments.length} labeled segments:\n\n${segmentText}`,
+          content: `Translate these ${segments.length} segments:\n\n${segmentText}`,
         },
       ],
     });
 
-    const text = message.content[0].text;
+    const keepalive = setInterval(() => {
+      res.write(' ');
+    }, 5000);
+
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta?.text) {
+        fullText += event.delta.text;
+      }
+    }
+
+    clearInterval(keepalive);
 
     let translated;
     try {
-      translated = extractJSON(text);
+      translated = extractJSON(fullText);
     } catch {
-      return res.status(500).json({ error: 'Failed to parse translation response', raw: text });
+      res.end(JSON.stringify({ error: 'Failed to parse translation response', raw: fullText }));
+      return;
     }
 
     if (!Array.isArray(translated)) {
-      return res.status(500).json({ error: 'Translation response is not an array', raw: text });
+      res.end(JSON.stringify({ error: 'Translation response is not an array', raw: fullText }));
+      return;
     }
 
-    return res.status(200).json(translated);
+    res.end(JSON.stringify(translated));
   } catch (err) {
     console.error('Translate API error:', err);
-    return res.status(500).json({ error: err.message });
+    res.end(JSON.stringify({ error: err.message }));
   }
 }
