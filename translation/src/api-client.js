@@ -19,12 +19,12 @@ export function analyzeTranscript(segments) {
   return post('subtitle-analyze', { segments });
 }
 
-export function translateSegments({ segments, languageMap, narrativeSummary, clarifications, chunkingPrefs }) {
+export function translateSegments({ segments, languageMap, narrativeSummary, clarifications, editorialFocus }) {
   return post('subtitle-translate', {
     segments,
     language_map: languageMap,
     narrative_summary: narrativeSummary,
     clarifications,
-    chunkingPrefs,
+    editorial_focus: editorialFocus,
   });
 }

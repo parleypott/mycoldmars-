@@ -4,8 +4,8 @@ import { buildSRT } from './srt-builder.js';
 
 // ── State ──
 let segments = [];
-let analysis = null;     // { narrative_summary, language_map, questions }
-let translations = [];    // [{ number, original, translated, language, kept_original }]
+let analysis = null;     // { narrative_summary, language_map, themes, questions, generic_segments }
+let translations = [];    // [{ number, original, translated, language, kept_original, unintelligible }]
 let srtContent = '';
 let currentStep = 1;
 
@@ -128,42 +128,63 @@ function renderAnalysis() {
     langDiv.textContent = 'Could not detect languages';
   }
 
-  const qCount = analysis.questions?.length || 0;
+  // Show generic segment count
+  const genericCount = analysis.generic_segments?.length || 0;
   const notice = $('#questions-notice');
-  if (qCount > 0) {
-    notice.innerHTML = `<p style="margin-top:0.5rem;color:#555;">Claude has <strong>${qCount}</strong> clarification question${qCount > 1 ? 's' : ''}.</p>`;
-    btnToClarify.textContent = 'Answer Questions';
-  } else {
-    notice.innerHTML = `<p style="margin-top:0.5rem;color:#555;">No clarification questions — ready to translate.</p>`;
-    btnToClarify.textContent = 'Skip to Translate';
+  const qCount = analysis.questions?.length || 0;
+  let noticeHtml = '';
+
+  if (genericCount > 0) {
+    noticeHtml += `<p style="margin-top:0.5rem;color:var(--muted);font-family:var(--font-mono);font-size:0.75rem;">${genericCount} unlabeled segment${genericCount > 1 ? 's' : ''} will be marked [unintelligible]</p>`;
   }
+
+  if (qCount > 0) {
+    noticeHtml += `<p style="margin-top:0.5rem;color:var(--muted);font-family:var(--font-mono);font-size:0.75rem;">${qCount} clarification question${qCount > 1 ? 's' : ''}</p>`;
+  }
+
+  notice.innerHTML = noticeHtml;
+  btnToClarify.innerHTML = 'Continue &rarr;';
 }
 
 // ── Step 3: Clarify ──
 btnToClarify.addEventListener('click', () => {
-  const questions = analysis?.questions || [];
-  if (questions.length === 0) {
-    // Skip to translate directly
-    startTranslation();
-    return;
-  }
-
   goToStep(3);
-  renderQuestions(questions);
+  renderClarifyStep();
 });
 
-function renderQuestions(questions) {
-  const list = $('#questions-list');
-  list.innerHTML = questions
-    .map((q, i) => `
-      <div class="question-card" data-qid="${esc(q.id)}">
-        ${q.quoted_text ? `<div class="quote">"${esc(q.quoted_text)}"</div>` : ''}
-        <div class="question-text">${esc(q.question)}</div>
-        ${q.why ? `<div class="why">${esc(q.why)}</div>` : ''}
-        <textarea placeholder="Type your answer or leave blank to skip" data-idx="${i}"></textarea>
-      </div>
-    `)
-    .join('');
+function renderClarifyStep() {
+  // Render themes
+  const themesList = $('#themes-list');
+  const themes = analysis?.themes || [];
+  if (themes.length > 0) {
+    themesList.innerHTML = themes
+      .map(t => `<span class="theme-tag">${esc(t)}</span>`)
+      .join('');
+    $('#themes-card').classList.remove('hidden');
+  } else {
+    $('#themes-card').classList.add('hidden');
+  }
+
+  // Render questions
+  const questions = analysis?.questions || [];
+  const questionsSection = $('#questions-section');
+
+  if (questions.length > 0) {
+    questionsSection.classList.remove('hidden');
+    const list = $('#questions-list');
+    list.innerHTML = questions
+      .map((q, i) => `
+        <div class="question-card" data-qid="${esc(q.id)}">
+          ${q.quoted_text ? `<div class="quote">"${esc(q.quoted_text)}"</div>` : ''}
+          <div class="question-text">${esc(q.question)}</div>
+          ${q.why ? `<div class="why">${esc(q.why)}</div>` : ''}
+          <textarea placeholder="Type your answer or leave blank to skip" data-idx="${i}"></textarea>
+        </div>
+      `)
+      .join('');
+  } else {
+    questionsSection.classList.add('hidden');
+  }
 }
 
 function gatherClarifications() {
@@ -189,6 +210,7 @@ async function startTranslation() {
   $('#translate-result').classList.add('hidden');
 
   const clarifications = gatherClarifications();
+  const editorialFocus = $('#editorial-focus')?.value?.trim() || '';
 
   try {
     const result = await translateSegments({
@@ -196,6 +218,7 @@ async function startTranslation() {
       languageMap: analysis?.language_map || {},
       narrativeSummary: analysis?.narrative_summary || '',
       clarifications,
+      editorialFocus,
     });
 
     translations = result;
@@ -212,17 +235,20 @@ function renderTranslations() {
 
   const tbody = $('#translation-table tbody');
   tbody.innerHTML = translations
-    .map((t, i) => `<tr>
-      <td>${t.number}</td>
-      <td>${esc(t.original)}</td>
-      <td class="editable" data-idx="${i}">
-        ${esc(t.translated)}
-        ${t.kept_original ? '<span class="kept-badge">kept</span>' : ''}
-      </td>
-    </tr>`)
+    .map((t, i) => {
+      const isUnintelligible = t.unintelligible;
+      return `<tr class="${isUnintelligible ? 'unintelligible' : ''}">
+        <td>${t.number}</td>
+        <td>${esc(t.original)}</td>
+        <td class="${isUnintelligible ? '' : 'editable'}" data-idx="${i}">
+          ${esc(t.translated)}
+          ${t.kept_original ? '<span class="kept-badge">kept</span>' : ''}
+        </td>
+      </tr>`;
+    })
     .join('');
 
-  // Inline editing
+  // Inline editing (only for non-unintelligible)
   tbody.querySelectorAll('td.editable').forEach(td => {
     td.addEventListener('click', () => {
       if (td.classList.contains('editing')) return;
@@ -248,7 +274,7 @@ $('#max-words').addEventListener('input', (e) => {
 });
 
 $('#max-duration').addEventListener('input', (e) => {
-  $('#max-duration-val').textContent = e.target.value;
+  $('#max-duration-val').textContent = e.target.value + 's';
 });
 
 // ── Step 5: Export ──

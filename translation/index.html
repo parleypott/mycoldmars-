@@ -84,8 +84,24 @@
     <!-- Step 3: Clarify -->
     <section id="step-3" class="panel">
       <h2>Clarifications</h2>
-      <p class="section-desc">Questions about ambiguous passages. Answer what you can — skip the rest.</p>
-      <div id="questions-list"></div>
+
+      <div id="themes-card" class="card">
+        <h3>Themes Identified</h3>
+        <div id="themes-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>Editorial Focus</h3>
+        <p class="focus-desc">What is this piece about? What themes matter most? This guides translation priorities.</p>
+        <textarea id="editorial-focus" placeholder="e.g. Focus on the knifemaker's family legacy and the military history of the island. The craft techniques are secondary."></textarea>
+      </div>
+
+      <div id="questions-section">
+        <h3 class="questions-heading">Questions</h3>
+        <p class="section-desc">Ambiguous passages that could affect translation. Answer what you can — skip the rest.</p>
+        <div id="questions-list"></div>
+      </div>
+
       <button id="btn-translate" class="btn primary">Translate &rarr;</button>
     </section>
 

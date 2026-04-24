@@ -421,6 +421,73 @@ tbody tr:hover {
   margin-bottom: 1.5rem;
 }
 
+/* ── Themes ── */
+#themes-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.theme-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* ── Editorial focus ── */
+.focus-desc {
+  font-family: var(--font-sans) !important;
+  font-size: 0.85rem !important;
+  color: var(--muted) !important;
+  margin-bottom: 0.75rem;
+}
+
+#editorial-focus {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  resize: vertical;
+  min-height: 4rem;
+  background: var(--paper);
+  line-height: 1.6;
+  transition: border-color 220ms var(--ease);
+}
+
+#editorial-focus:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.questions-heading {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--subtle);
+  margin-bottom: 0.5rem;
+  margin-top: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* ── Unintelligible rows ── */
+#translation-table tr.unintelligible {
+  opacity: 0.4;
+}
+
+#translation-table tr.unintelligible td {
+  font-style: italic;
+}
+
 /* ── Controls bar ── */
 .controls-bar {
   display: flex;
