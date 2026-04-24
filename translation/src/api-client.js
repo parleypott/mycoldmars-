@@ -1,4 +1,4 @@
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 20;
 
 /**
  * Call Claude via our proxy. Streams the response and accumulates text.
@@ -194,11 +194,20 @@ export async function translateSegments({ segments, languageMap, narrativeSummar
     const rawText = await callClaude(
       systemPrompt,
       `Translate these ${batchSegments.length} segments:\n\n${segmentText}`,
-      4096,
+      8192,
     );
 
-    const translated = extractJSON(rawText);
-    if (!Array.isArray(translated)) throw new Error('Translation response is not an array');
+    let translated;
+    try {
+      translated = extractJSON(rawText);
+    } catch (e) {
+      console.error('Failed to parse batch response. Raw text:', rawText.slice(0, 500));
+      throw new Error(`Batch parse failed: ${e.message}`);
+    }
+    if (!Array.isArray(translated)) {
+      console.error('Not an array. Got:', typeof translated, rawText.slice(0, 500));
+      throw new Error('Translation response is not an array');
+    }
 
     completed++;
     if (onProgress) onProgress(completed, batches.length);
