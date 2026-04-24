@@ -10,26 +10,53 @@
 </head>
 <body>
   <div id="app">
+
+    <!-- Hero header — asymmetric, oversized -->
     <header>
-      <div class="np-eyebrow np-eyebrow--red">Newpress Tools</div>
-      <h1>Translation</h1>
-      <hr class="np-rule np-rule--short">
-      <p class="header-desc">Transcript to subtitles — with context-aware AI translation.</p>
+      <div class="header-top">
+        <div class="np-eyebrow np-eyebrow--red">Newpress Tools</div>
+        <div class="header-issue">No. 001</div>
+      </div>
+      <hr class="np-rule">
+      <h1>Trans<em>lation</em></h1>
+      <div class="header-bottom">
+        <p class="header-desc">Context-aware subtitle translation.<br>Upload a transcript. Get an SRT.</p>
+        <div class="header-accent"></div>
+      </div>
     </header>
 
+    <!-- Steps — editorial ticker style -->
     <nav class="steps">
-      <div class="step active" data-step="1"><span class="step-num">01</span> Upload</div>
-      <div class="step" data-step="2"><span class="step-num">02</span> Analyze</div>
-      <div class="step" data-step="3"><span class="step-num">03</span> Clarify</div>
-      <div class="step" data-step="4"><span class="step-num">04</span> Translate</div>
-      <div class="step" data-step="5"><span class="step-num">05</span> Export</div>
+      <div class="step active" data-step="1">
+        <span class="step-num">01</span>
+        <span class="step-label">Upload</span>
+      </div>
+      <div class="step" data-step="2">
+        <span class="step-num">02</span>
+        <span class="step-label">Analyze</span>
+      </div>
+      <div class="step" data-step="3">
+        <span class="step-num">03</span>
+        <span class="step-label">Clarify</span>
+      </div>
+      <div class="step" data-step="4">
+        <span class="step-num">04</span>
+        <span class="step-label">Translate</span>
+      </div>
+      <div class="step" data-step="5">
+        <span class="step-num">05</span>
+        <span class="step-label">Export</span>
+      </div>
     </nav>
 
     <!-- Step 1: Upload -->
     <section id="step-1" class="panel active">
       <div id="drop-zone" class="drop-zone">
-        <div class="drop-label">Drop .csv transcript here</div>
-        <div class="drop-sub">or <label for="file-input" class="file-link">browse files</label></div>
+        <div class="drop-big-num">01</div>
+        <div class="drop-content">
+          <div class="drop-label">Drop .csv here</div>
+          <div class="drop-sub">or <label for="file-input" class="file-link">browse</label></div>
+        </div>
         <input type="file" id="file-input" accept=".csv" hidden>
       </div>
       <div id="upload-preview" class="upload-preview hidden">
@@ -41,13 +68,7 @@
         <div class="table-wrap">
           <table id="transcript-table">
             <thead>
-              <tr>
-                <th>#</th>
-                <th>Speaker</th>
-                <th>Start</th>
-                <th>End</th>
-                <th>Text</th>
-              </tr>
+              <tr><th>#</th><th>Speaker</th><th>Start</th><th>End</th><th>Text</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -59,17 +80,20 @@
     <!-- Step 2: Analyze -->
     <section id="step-2" class="panel">
       <div id="analyze-loading" class="loading">
-        <div class="spinner"></div>
+        <div class="loading-big-num">02</div>
         <div class="np-eyebrow">Reading transcript</div>
+        <div class="loading-bar"><div class="loading-bar-fill"></div></div>
       </div>
       <div id="analyze-result" class="hidden">
-        <div class="card">
-          <div class="np-eyebrow np-eyebrow--blue">Narrative Summary</div>
-          <p id="narrative-summary" class="card-body"></p>
-        </div>
-        <div class="card">
-          <div class="np-eyebrow np-eyebrow--blue">Languages Detected</div>
-          <div id="language-map" class="card-body"></div>
+        <div class="result-grid">
+          <div class="card card--feature">
+            <div class="np-eyebrow np-eyebrow--yellow">Summary</div>
+            <p id="narrative-summary" class="card-pullquote"></p>
+          </div>
+          <div class="card">
+            <div class="np-eyebrow np-eyebrow--blue">Languages</div>
+            <div id="language-map" class="card-body"></div>
+          </div>
         </div>
         <div id="questions-notice"></div>
         <button id="btn-to-clarify" class="np-button np-button--primary">Continue</button>
@@ -78,36 +102,42 @@
 
     <!-- Step 3: Clarify -->
     <section id="step-3" class="panel">
-      <h2>Clarify</h2>
+      <div class="section-header">
+        <div class="section-big-num">03</div>
+        <div>
+          <h2>Clarify</h2>
+          <p class="section-desc">Tell the translator what matters.</p>
+        </div>
+      </div>
       <hr class="np-rule">
 
       <div id="themes-card" class="card">
-        <div class="np-eyebrow np-eyebrow--red">Themes Identified</div>
+        <div class="np-eyebrow np-eyebrow--red">Themes</div>
         <div id="themes-list" class="themes-list"></div>
       </div>
 
-      <div class="card">
-        <div class="np-eyebrow np-eyebrow--red">Editorial Focus</div>
-        <p class="card-desc">What is this piece about. What themes matter most. This guides translation priorities.</p>
-        <textarea id="editorial-focus" class="np-textarea" placeholder="e.g. Focus on the knifemaker's family legacy and the military history of the island. The craft techniques are secondary."></textarea>
+      <div class="card card--focus">
+        <div class="np-eyebrow np-eyebrow--yellow">Editorial Focus</div>
+        <p class="card-desc">What is this piece about. Which themes matter most.</p>
+        <textarea id="editorial-focus" class="np-textarea" placeholder="e.g. Focus on the knifemaker's family legacy and the military history of the island."></textarea>
       </div>
 
       <div id="questions-section">
         <div class="np-eyebrow" style="margin-top: var(--np-space-8);">Questions</div>
         <hr class="np-rule">
-        <p class="section-desc">Ambiguous passages that could affect translation. Answer what you can.</p>
         <div id="questions-list"></div>
       </div>
 
       <button id="btn-translate" class="np-button np-button--primary">Translate</button>
     </section>
 
-    <!-- Step 4: Translate + Review -->
+    <!-- Step 4: Translate -->
     <section id="step-4" class="panel">
       <div id="translate-loading" class="loading">
-        <div class="spinner"></div>
-        <div class="np-eyebrow">Translating segments</div>
+        <div class="loading-big-num">04</div>
+        <div class="np-eyebrow">Translating</div>
         <p id="translate-progress" class="loading-detail"></p>
+        <div class="loading-bar"><div class="loading-bar-fill"></div></div>
       </div>
       <div id="translate-result" class="hidden">
         <div class="controls-bar">
@@ -125,11 +155,7 @@
         <div class="table-wrap">
           <table id="translation-table">
             <thead>
-              <tr>
-                <th>#</th>
-                <th>Original</th>
-                <th>Translated</th>
-              </tr>
+              <tr><th>#</th><th>Original</th><th>Translated</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -140,11 +166,16 @@
 
     <!-- Step 5: Export -->
     <section id="step-5" class="panel">
-      <h2>Export</h2>
-      <hr class="np-rule">
+      <div class="export-hero">
+        <div class="section-big-num section-big-num--light">05</div>
+        <div>
+          <h2 class="export-title">Done.</h2>
+          <p class="export-desc">Your SRT is ready.</p>
+        </div>
+      </div>
       <div id="srt-preview" class="srt-preview"></div>
       <div class="export-actions">
-        <button id="btn-download" class="np-button np-button--primary">Download .srt</button>
+        <button id="btn-download" class="np-button np-button--red">Download .srt</button>
         <button id="btn-copy" class="np-button">Copy to clipboard</button>
       </div>
       <p id="copy-feedback" class="hidden copy-feedback">Copied.</p>
