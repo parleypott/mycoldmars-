@@ -57,13 +57,9 @@ export default async function handler(req, res) {
   const labeled = taggedSegments.filter(s => !s.isGeneric);
   const genericCount = taggedSegments.filter(s => s.isGeneric).length;
 
-  // Build transcript — only labeled speakers get full text
-  // Generic speakers get a placeholder so Claude knows the gap exists
-  const transcriptText = taggedSegments
+  // Only send labeled speaker text — skip generic entirely to save tokens/time
+  const transcriptText = labeled
     .map(s => {
-      if (s.isGeneric) {
-        return `${s.number}. [UNLABELED — ${s.speaker || 'no speaker'}] (${s.start} → ${s.end}): [background/ambient audio — ignore]`;
-      }
       const speaker = s.speaker ? `[${s.speaker}]` : '';
       return `${s.number}. ${speaker} (${s.start} → ${s.end}): ${s.text}`;
     })

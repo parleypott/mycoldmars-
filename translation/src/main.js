@@ -213,12 +213,16 @@ async function startTranslation() {
   const editorialFocus = $('#editorial-focus')?.value?.trim() || '';
 
   try {
+    const loadingText = $('#translate-loading p');
     const result = await translateSegments({
       segments,
       languageMap: analysis?.language_map || {},
       narrativeSummary: analysis?.narrative_summary || '',
       clarifications,
       editorialFocus,
+      onProgress: (done, total) => {
+        loadingText.textContent = `Translating batch ${done} of ${total}...`;
+      },
     });
 
     translations = result;
