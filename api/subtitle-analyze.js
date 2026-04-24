@@ -1,41 +1,56 @@
-import Anthropic from '@anthropic-ai/sdk';
-
-const client = new Anthropic();
+export const config = { runtime: 'edge' };
 
 function isGenericSpeaker(name) {
   if (!name) return true;
   return /^speaker\s*\d+$/i.test(name.trim());
 }
 
-export default async function handler(req, res) {
+function extractJSON(text) {
+  try { return JSON.parse(text.trim()); } catch {}
+  const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (fenced) try { return JSON.parse(fenced[1].trim()); } catch {}
+  const startArr = text.indexOf('[');
+  const startObj = text.indexOf('{');
+  const start = startArr === -1 ? startObj : startObj === -1 ? startArr : Math.min(startArr, startObj);
+  if (start !== -1) {
+    const open = text[start], close = open === '[' ? ']' : '}';
+    let depth = 0;
+    for (let i = start; i < text.length; i++) {
+      if (text[i] === open) depth++;
+      else if (text[i] === close) depth--;
+      if (depth === 0) {
+        try { return JSON.parse(text.slice(start, i + 1)); } catch {}
+        break;
+      }
+    }
+  }
+  throw new Error('No valid JSON found');
+}
+
+export default async function handler(req) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
   }
 
-  const { segments } = req.body;
+  const { segments } = await req.json();
 
-  if (!segments || !Array.isArray(segments) || segments.length === 0) {
-    return res.status(400).json({ error: 'No segments provided' });
+  if (!segments?.length) {
+    return new Response(JSON.stringify({ error: 'No segments' }), { status: 400 });
   }
 
-  const taggedSegments = segments.map(s => ({
-    ...s,
-    isGeneric: isGenericSpeaker(s.speaker),
-  }));
+  const tagged = segments.map(s => ({ ...s, isGeneric: isGenericSpeaker(s.speaker) }));
+  const labeled = tagged.filter(s => !s.isGeneric);
+  const genericCount = tagged.filter(s => s.isGeneric).length;
+  const genericNums = tagged.filter(s => s.isGeneric).map(s => s.number);
 
-  const labeled = taggedSegments.filter(s => !s.isGeneric);
-  const genericCount = taggedSegments.filter(s => s.isGeneric).length;
-  const genericNums = taggedSegments.filter(s => s.isGeneric).map(s => s.number);
-
-  // Only send labeled speaker text — compact format to reduce tokens
   const transcriptText = labeled
     .map(s => `${s.number}. [${s.speaker}]: ${s.text}`)
     .join('\n');
 
-  const systemPrompt = `You are a translation analysis assistant for a documentary video production team. You will receive a transcript from an interview/documentary shoot.
+  const systemPrompt = `You are a translation analysis assistant for a documentary video production team.
 
 Your job:
-1. Read the dialogue as one continuous narrative — understand the story, topics, and flow.
+1. Read the dialogue as one continuous narrative.
 2. Identify which language each speaker uses.
 3. Identify 3-6 major themes/topics.
 4. Flag ambiguous passages needing clarification (max 10).
@@ -48,79 +63,81 @@ Respond with JSON only (no markdown fencing):
   "questions": [{ "id": "q1", "segment_range": "15-18", "quoted_text": "...", "question": "...", "why": "..." }]
 }`;
 
-  // Use streaming to prevent Vercel timeout
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.setHeader('Transfer-Encoding', 'chunked');
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
 
-  let fullText = '';
+  const apiKey = process.env.ANTHROPIC_API_KEY;
 
-  try {
-    const stream = await client.messages.stream({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
-      system: systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: `Transcript (${labeled.length} labeled segments, ${genericCount} unlabeled ignored):\n\n${transcriptText}`,
-        },
-      ],
-    });
-
-    // Send keepalive spaces while streaming to prevent timeout
-    const keepalive = setInterval(() => {
-      res.write(' ');
-    }, 5000);
-
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta?.text) {
-        fullText += event.delta.text;
-      }
-    }
-
-    clearInterval(keepalive);
-
-    // Parse the accumulated text and send as final JSON
-    let result;
+  // Run in background — stream keepalives to client while waiting
+  const work = (async () => {
     try {
-      result = extractJSON(fullText);
-    } catch {
-      res.end(JSON.stringify({ error: 'Failed to parse analysis response', raw: fullText }));
-      return;
-    }
+      // Call Claude with streaming enabled
+      const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2000,
+          stream: true,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: `Transcript (${labeled.length} labeled, ${genericCount} unlabeled ignored):\n\n${transcriptText}` }],
+        }),
+      });
 
-    result.generic_segments = genericNums;
-    res.end(JSON.stringify(result));
-  } catch (err) {
-    console.error('Analyze API error:', err);
-    res.end(JSON.stringify({ error: err.message }));
-  }
-}
-
-function extractJSON(text) {
-  try { return JSON.parse(text.trim()); } catch {}
-
-  const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-  if (fenced) {
-    try { return JSON.parse(fenced[1].trim()); } catch {}
-  }
-
-  const startArr = text.indexOf('[');
-  const startObj = text.indexOf('{');
-  const start = startArr === -1 ? startObj : startObj === -1 ? startArr : Math.min(startArr, startObj);
-  if (start !== -1) {
-    const open = text[start];
-    const close = open === '[' ? ']' : '}';
-    let depth = 0;
-    for (let i = start; i < text.length; i++) {
-      if (text[i] === open) depth++;
-      else if (text[i] === close) depth--;
-      if (depth === 0) {
-        try { return JSON.parse(text.slice(start, i + 1)); } catch {}
-        break;
+      if (!claudeRes.ok) {
+        const errText = await claudeRes.text();
+        throw new Error(`Claude API ${claudeRes.status}: ${errText}`);
       }
-    }
-  }
 
-  throw new Error('No valid JSON found');
+      // Read SSE stream from Claude, accumulate text
+      const reader = claudeRes.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = '';
+      let sseBuffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+          try {
+            const event = JSON.parse(data);
+            if (event.type === 'content_block_delta' && event.delta?.text) {
+              fullText += event.delta.text;
+              // Send keepalive space to browser
+              await writer.write(encoder.encode(' '));
+            }
+          } catch {}
+        }
+      }
+
+      // Parse result, add generic segments, send final JSON
+      const result = extractJSON(fullText);
+      result.generic_segments = genericNums;
+      await writer.write(encoder.encode(JSON.stringify(result)));
+    } catch (err) {
+      await writer.write(encoder.encode(JSON.stringify({ error: err.message })));
+    } finally {
+      await writer.close();
+    }
+  })();
+
+  // Don't await — let it run while streaming
+  void work;
+
+  return new Response(readable, {
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
 }

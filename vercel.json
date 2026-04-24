@@ -1,10 +1,2 @@
 {
-  "functions": {
-    "api/subtitle-analyze.js": {
-      "maxDuration": 60
-    },
-    "api/subtitle-translate.js": {
-      "maxDuration": 60
-    }
-  }
 }

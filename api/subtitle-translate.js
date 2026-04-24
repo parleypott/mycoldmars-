@@ -1,21 +1,14 @@
-import Anthropic from '@anthropic-ai/sdk';
-
-const client = new Anthropic();
+export const config = { runtime: 'edge' };
 
 function extractJSON(text) {
   try { return JSON.parse(text.trim()); } catch {}
-
   const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-  if (fenced) {
-    try { return JSON.parse(fenced[1].trim()); } catch {}
-  }
-
+  if (fenced) try { return JSON.parse(fenced[1].trim()); } catch {}
   const startArr = text.indexOf('[');
   const startObj = text.indexOf('{');
   const start = startArr === -1 ? startObj : startObj === -1 ? startArr : Math.min(startArr, startObj);
   if (start !== -1) {
-    const open = text[start];
-    const close = open === '[' ? ']' : '}';
+    const open = text[start], close = open === '[' ? ']' : '}';
     let depth = 0;
     for (let i = start; i < text.length; i++) {
       if (text[i] === open) depth++;
@@ -26,41 +19,27 @@ function extractJSON(text) {
       }
     }
   }
-
   throw new Error('No valid JSON found');
 }
 
-export default async function handler(req, res) {
+export default async function handler(req) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
   }
 
-  const { segments, language_map, narrative_summary, clarifications, editorial_focus } = req.body;
+  const { segments, language_map, narrative_summary, clarifications, editorial_focus } = await req.json();
 
-  if (!segments || !Array.isArray(segments) || segments.length === 0) {
-    return res.status(400).json({ error: 'No segments provided' });
+  if (!segments?.length) {
+    return new Response(JSON.stringify({ error: 'No segments' }), { status: 400 });
   }
 
   let context = `NARRATIVE CONTEXT:\n${narrative_summary || 'No summary available.'}\n\n`;
-
-  if (editorial_focus) {
-    context += `EDITORIAL FOCUS (from the editor):\n${editorial_focus}\n\n`;
-  }
-
+  if (editorial_focus) context += `EDITORIAL FOCUS:\n${editorial_focus}\n\n`;
   if (language_map && Object.keys(language_map).length > 0) {
-    context += `LANGUAGES:\n`;
-    for (const [speaker, lang] of Object.entries(language_map)) {
-      context += `- ${speaker}: ${lang}\n`;
-    }
-    context += '\n';
+    context += `LANGUAGES:\n${Object.entries(language_map).map(([s, l]) => `- ${s}: ${l}`).join('\n')}\n\n`;
   }
-
-  if (clarifications && clarifications.length > 0) {
-    context += `CLARIFICATIONS FROM THE EDITOR:\n`;
-    for (const c of clarifications) {
-      context += `- Q(${c.id}): ${c.answer}\n`;
-    }
-    context += '\n';
+  if (clarifications?.length > 0) {
+    context += `CLARIFICATIONS:\n${clarifications.map(c => `- Q(${c.id}): ${c.answer}`).join('\n')}\n\n`;
   }
 
   const segmentText = segments
@@ -82,53 +61,75 @@ Respond with JSON array only (no markdown):
 
 ${segments.length} segments. Maintain exact order and count.`;
 
-  // Use streaming to prevent Vercel timeout
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.setHeader('Transfer-Encoding', 'chunked');
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
 
-  let fullText = '';
+  const apiKey = process.env.ANTHROPIC_API_KEY;
 
-  try {
-    const stream = await client.messages.stream({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: `Translate these ${segments.length} segments:\n\n${segmentText}`,
-        },
-      ],
-    });
-
-    const keepalive = setInterval(() => {
-      res.write(' ');
-    }, 5000);
-
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta?.text) {
-        fullText += event.delta.text;
-      }
-    }
-
-    clearInterval(keepalive);
-
-    let translated;
+  const work = (async () => {
     try {
-      translated = extractJSON(fullText);
-    } catch {
-      res.end(JSON.stringify({ error: 'Failed to parse translation response', raw: fullText }));
-      return;
-    }
+      const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4096,
+          stream: true,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: `Translate these ${segments.length} segments:\n\n${segmentText}` }],
+        }),
+      });
 
-    if (!Array.isArray(translated)) {
-      res.end(JSON.stringify({ error: 'Translation response is not an array', raw: fullText }));
-      return;
-    }
+      if (!claudeRes.ok) {
+        const errText = await claudeRes.text();
+        throw new Error(`Claude API ${claudeRes.status}: ${errText}`);
+      }
 
-    res.end(JSON.stringify(translated));
-  } catch (err) {
-    console.error('Translate API error:', err);
-    res.end(JSON.stringify({ error: err.message }));
-  }
+      const reader = claudeRes.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = '';
+      let sseBuffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+          try {
+            const event = JSON.parse(data);
+            if (event.type === 'content_block_delta' && event.delta?.text) {
+              fullText += event.delta.text;
+              await writer.write(encoder.encode(' '));
+            }
+          } catch {}
+        }
+      }
+
+      const translated = extractJSON(fullText);
+      if (!Array.isArray(translated)) throw new Error('Response is not an array');
+      await writer.write(encoder.encode(JSON.stringify(translated)));
+    } catch (err) {
+      await writer.write(encoder.encode(JSON.stringify({ error: err.message })));
+    } finally {
+      await writer.close();
+    }
+  })();
+
+  void work;
+
+  return new Response(readable, {
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
 }
