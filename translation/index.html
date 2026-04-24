@@ -153,39 +153,46 @@
       <p class="section-desc">Your SRT is ready.</p>
       <hr class="np-rule">
 
-      <div class="view-toggle">
-        <button id="btn-view-srt" class="view-toggle-btn active">SRT</button>
-        <button id="btn-view-reader" class="view-toggle-btn">Reader</button>
-        <button id="btn-view-bank" class="view-toggle-btn">Bank <span id="bank-count" class="bank-count hidden">0</span></button>
-      </div>
+      <div class="export-layout">
+        <div class="export-main">
+          <div class="view-toggle">
+            <button id="btn-view-srt" class="view-toggle-btn active">SRT</button>
+            <button id="btn-view-reader" class="view-toggle-btn">Reader</button>
+          </div>
 
-      <div id="srt-view">
-        <div id="srt-preview" class="srt-preview"></div>
-        <div class="export-actions">
-          <button id="btn-download" class="np-button np-button--red">Download .srt</button>
-          <button id="btn-copy" class="np-button">Copy to clipboard</button>
-        </div>
-        <p id="copy-feedback" class="hidden copy-feedback">Copied.</p>
-      </div>
+          <div id="srt-view">
+            <div id="srt-preview" class="srt-preview"></div>
+            <div class="export-actions">
+              <button id="btn-download" class="np-button np-button--red">Download .srt</button>
+              <button id="btn-copy" class="np-button">Copy to clipboard</button>
+            </div>
+            <p id="copy-feedback" class="hidden copy-feedback">Copied.</p>
+          </div>
 
-      <div id="reader-view" class="reader hidden">
-        <div class="reader-hint">
-          <span class="np-eyebrow">Select text to copy with timecode</span>
+          <div id="reader-view" class="reader hidden">
+            <div class="reader-hint">
+              <span class="np-eyebrow">Select text to copy with timecode</span>
+            </div>
+            <div id="reader-content" class="reader-content"></div>
+            <p id="reader-copy-feedback" class="hidden copy-feedback">Copied with timecode.</p>
+          </div>
         </div>
-        <div id="reader-content" class="reader-content"></div>
-        <p id="reader-copy-feedback" class="hidden copy-feedback">Copied with timecode.</p>
-      </div>
 
-      <div id="bank-view" class="hidden">
-        <div id="bank-empty" class="bank-empty">
-          <p>No bites yet. Select text in the Reader to start collecting.</p>
-        </div>
-        <div id="bank-list" class="bank-list"></div>
-        <div id="bank-actions" class="export-actions hidden">
-          <button id="btn-bank-copy-all" class="np-button np-button--primary">Copy all</button>
-          <button id="btn-bank-clear" class="np-button">Clear all</button>
-        </div>
-        <p id="bank-copy-feedback" class="hidden copy-feedback">Copied.</p>
+        <aside class="bank-sidebar">
+          <div class="bank-header">
+            <span class="np-eyebrow np-eyebrow--red">Bank</span>
+            <span id="bank-count" class="bank-count hidden">0</span>
+          </div>
+          <div id="bank-empty" class="bank-empty">
+            <p>Select text in the Reader to collect bites.</p>
+          </div>
+          <div id="bank-list" class="bank-list"></div>
+          <div id="bank-actions" class="bank-actions hidden">
+            <button id="btn-bank-copy-all" class="np-button np-button--primary">Copy all</button>
+            <button id="btn-bank-clear" class="np-button">Clear all</button>
+          </div>
+          <p id="bank-copy-feedback" class="hidden copy-feedback">Copied.</p>
+        </aside>
       </div>
     </section>
   </div>

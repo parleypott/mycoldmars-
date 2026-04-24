@@ -44,7 +44,7 @@ body {
 }
 
 #app {
-  max-width: 880px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: var(--np-space-16) var(--np-space-6) var(--np-space-24);
 }
@@ -528,8 +528,8 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   display: block;
 }
 .reader-para {
-  font-family: var(--np-font-serif);
-  font-size: clamp(18px, 2vw, 22px);
+  font-family: var(--np-font-mono);
+  font-size: 14px;
   line-height: 1.7;
   color: var(--np-ink);
 }
@@ -539,32 +539,54 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
 .reader-para .seg-unintelligible {
   color: var(--np-cool-neutral);
   font-style: italic;
-  font-size: 0.85em;
 }
 
-/* ── Bank ── */
+/* ── Export layout — two-column ── */
+.export-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: var(--np-space-8);
+  align-items: start;
+}
+.export-main {
+  min-width: 0;
+}
+
+/* ── Bank sidebar ── */
+.bank-sidebar {
+  border-left: 1px solid var(--np-cool-neutral);
+  padding-left: var(--np-space-6);
+  position: sticky;
+  top: var(--np-space-6);
+  max-height: calc(100vh - var(--np-space-12));
+  overflow-y: auto;
+}
+.bank-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--np-space-2);
+  margin-bottom: var(--np-space-4);
+}
 .bank-count {
-  font-size: 10px;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
   color: var(--np-red);
-  margin-left: 2px;
   font-variant-numeric: tabular-nums;
 }
 .bank-empty {
-  padding: var(--np-space-16) 0;
-  text-align: center;
+  padding: var(--np-space-8) 0;
   font-family: var(--np-font-mono);
-  font-size: 14px;
+  font-size: 13px;
   color: var(--np-sepia);
+  line-height: 1.5;
 }
 .bank-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  margin-bottom: var(--np-space-8);
 }
 .bank-item {
-  padding: var(--np-space-6) 0;
-  padding-right: var(--np-space-8);
+  padding: var(--np-space-4) 0;
+  padding-right: var(--np-space-6);
   position: relative;
   border-bottom: 1px solid var(--np-cool-neutral);
   animation: bankIn var(--np-duration-lg) var(--np-ease);
@@ -575,12 +597,12 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
 }
 .bank-item-meta {
   font-family: var(--np-font-mono);
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  margin-bottom: var(--np-space-2);
+  margin-bottom: var(--np-space-1);
   display: flex;
-  gap: var(--np-space-4);
+  gap: var(--np-space-3);
 }
 .bank-item-speaker {
   color: var(--np-sepia);
@@ -589,22 +611,22 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   color: var(--np-red);
 }
 .bank-item-text {
-  font-family: var(--np-font-serif);
-  font-size: 18px;
+  font-family: var(--np-font-mono);
+  font-size: 13px;
   line-height: 1.5;
 }
 .bank-item-x {
   position: absolute;
-  top: var(--np-space-6);
+  top: var(--np-space-4);
   right: 0;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border: none;
   background: transparent;
   color: var(--np-cool-neutral);
   font-family: var(--np-font-mono);
-  font-size: 16px;
-  line-height: 20px;
+  font-size: 14px;
+  line-height: 16px;
   text-align: center;
   cursor: pointer;
   padding: 0;
@@ -618,6 +640,15 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
 }
 @keyframes bankOut {
   to { opacity: 0; height: 0; padding: 0; margin: 0; border-width: 0; overflow: hidden; }
+}
+.bank-actions {
+  display: flex;
+  gap: var(--np-space-3);
+  margin-top: var(--np-space-4);
+}
+.bank-actions .np-button {
+  font-size: 11px;
+  padding: var(--np-space-2) var(--np-space-4);
 }
 
 /* ── Utility ── */
@@ -633,6 +664,19 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
 }
 
 /* ── Responsive ── */
+@media (max-width: 900px) {
+  .export-layout {
+    grid-template-columns: 1fr;
+  }
+  .bank-sidebar {
+    border-left: none;
+    border-top: 1px solid var(--np-cool-neutral);
+    padding-left: 0;
+    padding-top: var(--np-space-6);
+    position: static;
+    max-height: none;
+  }
+}
 @media (max-width: 640px) {
   #app { padding: var(--np-space-8) var(--np-space-4); }
   header h1 { font-size: 48px; }

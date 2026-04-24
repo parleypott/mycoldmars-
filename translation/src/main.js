@@ -311,16 +311,15 @@ btnCopy.addEventListener('click', async () => {
   setTimeout(() => fb.classList.add('hidden'), 2000);
 });
 
-// ── View toggle (SRT / Reader / Bank) ──
+// ── View toggle (SRT / Reader) ──
 function switchView(view) {
-  ['srt', 'reader', 'bank'].forEach(v => {
+  ['srt', 'reader'].forEach(v => {
     $(`#btn-view-${v}`).classList.toggle('active', v === view);
     $(`#${v}-view`).classList.toggle('hidden', v !== view);
   });
 }
 $('#btn-view-srt').addEventListener('click', () => switchView('srt'));
 $('#btn-view-reader').addEventListener('click', () => switchView('reader'));
-$('#btn-view-bank').addEventListener('click', () => switchView('bank'));
 
 // ── Reader view ──
 function formatTimecodeShort(tc) {
