@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic();
+const BATCH_SIZE = 50;
 
 /** Speakers like "Speaker 1", "Speaker 9", etc. are unlabeled mic noise */
 function isGenericSpeaker(name) {
@@ -10,16 +11,13 @@ function isGenericSpeaker(name) {
 
 /** Extract JSON from Claude's response, handling markdown fencing and surrounding text */
 function extractJSON(text) {
-  // Try direct parse first
   try { return JSON.parse(text.trim()); } catch {}
 
-  // Strip markdown code fences
   const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
   if (fenced) {
     try { return JSON.parse(fenced[1].trim()); } catch {}
   }
 
-  // Find the first [ or { and match to its closing bracket
   const startArr = text.indexOf('[');
   const startObj = text.indexOf('{');
   const start = startArr === -1 ? startObj : startObj === -1 ? startArr : Math.min(startArr, startObj);
@@ -40,68 +38,9 @@ function extractJSON(text) {
   throw new Error('No valid JSON found in response');
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { segments, language_map, narrative_summary, clarifications, editorial_focus } = req.body;
-
-  if (!segments || !Array.isArray(segments) || segments.length === 0) {
-    return res.status(400).json({ error: 'No segments provided' });
-  }
-
-  // Separate labeled vs generic segments
-  const labeled = [];
-  const results = [];
-
-  for (const s of segments) {
-    if (isGenericSpeaker(s.speaker)) {
-      // Mark as unintelligible — don't send to Claude
-      results.push({
-        number: s.number,
-        original: s.text,
-        translated: '[unintelligible]',
-        language: 'unknown',
-        kept_original: false,
-        unintelligible: true,
-      });
-    } else {
-      labeled.push(s);
-      results.push(null); // placeholder — will be filled
-    }
-  }
-
-  // If no labeled segments, return all as unintelligible
-  if (labeled.length === 0) {
-    return res.status(200).json(results);
-  }
-
-  // Build context block
-  let context = `NARRATIVE CONTEXT:\n${narrative_summary || 'No summary available.'}\n\n`;
-
-  if (editorial_focus) {
-    context += `EDITORIAL FOCUS (from the editor):\n${editorial_focus}\n\n`;
-  }
-
-  if (language_map && Object.keys(language_map).length > 0) {
-    context += `LANGUAGES:\n`;
-    for (const [speaker, lang] of Object.entries(language_map)) {
-      context += `- ${speaker}: ${lang}\n`;
-    }
-    context += '\n';
-  }
-
-  if (clarifications && clarifications.length > 0) {
-    context += `CLARIFICATIONS FROM THE EDITOR:\n`;
-    for (const c of clarifications) {
-      context += `- Q(${c.id}): ${c.answer}\n`;
-    }
-    context += '\n';
-  }
-
-  // Build only labeled segments for translation
-  const segmentText = labeled
+/** Translate a single batch of labeled segments */
+async function translateBatch(batch, context) {
+  const segmentText = batch
     .map(s => {
       const speaker = s.speaker ? `[${s.speaker}]` : '';
       return `SEG ${s.number} ${speaker}: ${s.text}`;
@@ -131,39 +70,107 @@ Respond with a JSON array (no markdown fencing). Each element must have:
   "kept_original": <true if English, false if translated>
 }
 
-Maintain the exact same order and count as the input segments (${labeled.length} segments).`;
+Maintain the exact same order and count as the input segments (${batch.length} segments).`;
+
+  const message = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 4096,
+    system: systemPrompt,
+    messages: [
+      {
+        role: 'user',
+        content: `Translate these ${batch.length} labeled segments:\n\n${segmentText}`,
+      },
+    ],
+  });
+
+  const text = message.content[0].text;
+  const parsed = extractJSON(text);
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('Translation response is not an array');
+  }
+
+  return parsed;
+}
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { segments, language_map, narrative_summary, clarifications, editorial_focus } = req.body;
+
+  if (!segments || !Array.isArray(segments) || segments.length === 0) {
+    return res.status(400).json({ error: 'No segments provided' });
+  }
+
+  // Separate labeled vs generic segments
+  const labeled = [];
+  const results = [];
+
+  for (const s of segments) {
+    if (isGenericSpeaker(s.speaker)) {
+      results.push({
+        number: s.number,
+        original: s.text,
+        translated: '[unintelligible]',
+        language: 'unknown',
+        kept_original: false,
+        unintelligible: true,
+      });
+    } else {
+      labeled.push(s);
+      results.push(null); // placeholder
+    }
+  }
+
+  if (labeled.length === 0) {
+    return res.status(200).json(results);
+  }
+
+  // Build shared context block
+  let context = `NARRATIVE CONTEXT:\n${narrative_summary || 'No summary available.'}\n\n`;
+
+  if (editorial_focus) {
+    context += `EDITORIAL FOCUS (from the editor):\n${editorial_focus}\n\n`;
+  }
+
+  if (language_map && Object.keys(language_map).length > 0) {
+    context += `LANGUAGES:\n`;
+    for (const [speaker, lang] of Object.entries(language_map)) {
+      context += `- ${speaker}: ${lang}\n`;
+    }
+    context += '\n';
+  }
+
+  if (clarifications && clarifications.length > 0) {
+    context += `CLARIFICATIONS FROM THE EDITOR:\n`;
+    for (const c of clarifications) {
+      context += `- Q(${c.id}): ${c.answer}\n`;
+    }
+    context += '\n';
+  }
 
   try {
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 8000,
-      system: systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: `Translate these ${labeled.length} labeled segments:\n\n${segmentText}`,
-        },
-      ],
-    });
-
-    const text = message.content[0].text;
-
-    let translated;
-    try {
-      translated = extractJSON(text);
-    } catch {
-      return res.status(500).json({ error: 'Failed to parse translation response', raw: text });
+    // Split labeled segments into batches and translate in parallel
+    const batches = [];
+    for (let i = 0; i < labeled.length; i += BATCH_SIZE) {
+      batches.push(labeled.slice(i, i + BATCH_SIZE));
     }
 
-    if (!Array.isArray(translated)) {
-      return res.status(500).json({ error: 'Translation response is not an array', raw: text });
-    }
+    const batchResults = await Promise.all(
+      batches.map(batch => translateBatch(batch, context))
+    );
 
-    // Merge translated results back into the full results array
+    // Flatten all batch results
+    const allTranslated = batchResults.flat();
+
+    // Merge back into full results array
     let tIdx = 0;
     for (let i = 0; i < results.length; i++) {
       if (results[i] === null) {
-        results[i] = translated[tIdx] || {
+        results[i] = allTranslated[tIdx] || {
           number: segments[i].number,
           original: segments[i].text,
           translated: segments[i].text,
