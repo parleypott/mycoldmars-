@@ -173,12 +173,28 @@
           <p class="export-desc">Your SRT is ready.</p>
         </div>
       </div>
-      <div id="srt-preview" class="srt-preview"></div>
-      <div class="export-actions">
-        <button id="btn-download" class="np-button np-button--red">Download .srt</button>
-        <button id="btn-copy" class="np-button">Copy to clipboard</button>
+
+      <div class="view-toggle">
+        <button id="btn-view-srt" class="view-toggle-btn active">SRT</button>
+        <button id="btn-view-reader" class="view-toggle-btn">Reader</button>
       </div>
-      <p id="copy-feedback" class="hidden copy-feedback">Copied.</p>
+
+      <div id="srt-view">
+        <div id="srt-preview" class="srt-preview"></div>
+        <div class="export-actions">
+          <button id="btn-download" class="np-button np-button--red">Download .srt</button>
+          <button id="btn-copy" class="np-button">Copy to clipboard</button>
+        </div>
+        <p id="copy-feedback" class="hidden copy-feedback">Copied.</p>
+      </div>
+
+      <div id="reader-view" class="reader hidden">
+        <div class="reader-hint">
+          <span class="np-eyebrow np-eyebrow--blue">Select text to copy with timecode</span>
+        </div>
+        <div id="reader-content" class="reader-content"></div>
+        <p id="reader-copy-feedback" class="hidden copy-feedback">Copied with timecode.</p>
+      </div>
     </section>
   </div>
 

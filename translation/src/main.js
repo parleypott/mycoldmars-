@@ -290,6 +290,7 @@ btnExport.addEventListener('click', () => {
   goToStep(5);
 
   $('#srt-preview').textContent = srtContent;
+  buildReaderView();
 });
 
 btnDownload.addEventListener('click', () => {
@@ -305,6 +306,115 @@ btnDownload.addEventListener('click', () => {
 btnCopy.addEventListener('click', async () => {
   await navigator.clipboard.writeText(srtContent);
   const fb = $('#copy-feedback');
+  fb.classList.remove('hidden');
+  setTimeout(() => fb.classList.add('hidden'), 2000);
+});
+
+// ── View toggle (SRT / Reader) ──
+$('#btn-view-srt').addEventListener('click', () => {
+  $('#btn-view-srt').classList.add('active');
+  $('#btn-view-reader').classList.remove('active');
+  $('#srt-view').classList.remove('hidden');
+  $('#reader-view').classList.add('hidden');
+});
+
+$('#btn-view-reader').addEventListener('click', () => {
+  $('#btn-view-reader').classList.add('active');
+  $('#btn-view-srt').classList.remove('active');
+  $('#reader-view').classList.remove('hidden');
+  $('#srt-view').classList.add('hidden');
+});
+
+// ── Reader view ──
+function formatTimecodeShort(tc) {
+  if (!tc) return '0:00';
+  const match = tc.match(/(\d+):(\d+):(\d+)/);
+  if (match) {
+    const [, h, m, s] = match;
+    return parseInt(h) > 0 ? `${h}:${m}:${s}` : `${parseInt(m)}:${s}`;
+  }
+  const match2 = tc.match(/(\d+):(\d+)/);
+  if (match2) return `${parseInt(match2[1])}:${match2[2]}`;
+  return tc;
+}
+
+function buildReaderView() {
+  const container = $('#reader-content');
+  container.innerHTML = '';
+
+  // Group consecutive segments by speaker
+  const groups = [];
+  let currentGroup = null;
+
+  for (let i = 0; i < translations.length; i++) {
+    const t = translations[i];
+    const seg = segments[i];
+    if (!seg) continue;
+
+    const speaker = seg.speaker || 'Unknown';
+
+    if (!currentGroup || currentGroup.speaker !== speaker) {
+      currentGroup = { speaker, items: [] };
+      groups.push(currentGroup);
+    }
+
+    currentGroup.items.push({
+      text: t.translated || t.original,
+      start: seg.start,
+      speaker,
+      unintelligible: t.unintelligible,
+    });
+  }
+
+  for (const group of groups) {
+    const block = document.createElement('div');
+    block.className = 'reader-speaker-block';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'reader-speaker-name';
+    nameEl.textContent = group.speaker;
+    block.appendChild(nameEl);
+
+    const para = document.createElement('p');
+    para.className = 'reader-para';
+
+    for (const item of group.items) {
+      const span = document.createElement('span');
+      span.className = item.unintelligible ? 'seg seg-unintelligible' : 'seg';
+      span.dataset.start = item.start;
+      span.dataset.speaker = item.speaker;
+      span.textContent = item.text + ' ';
+      para.appendChild(span);
+    }
+
+    block.appendChild(para);
+    container.appendChild(block);
+  }
+}
+
+// Intercept copy in reader — prepend [Speaker — TC]
+$('#reader-content').addEventListener('copy', (e) => {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed) return;
+
+  const selectedText = selection.toString().trim();
+  if (!selectedText) return;
+
+  // Walk from anchor node up to find the segment span with data-start
+  let node = selection.anchorNode;
+  while (node && !(node.dataset && node.dataset.start)) {
+    node = node.parentElement;
+  }
+
+  if (!node) return;
+
+  const speaker = node.dataset.speaker;
+  const tc = formatTimecodeShort(node.dataset.start);
+
+  e.preventDefault();
+  e.clipboardData.setData('text/plain', `[${speaker} — ${tc}] ${selectedText}`);
+
+  const fb = $('#reader-copy-feedback');
   fb.classList.remove('hidden');
   setTimeout(() => fb.classList.add('hidden'), 2000);
 });

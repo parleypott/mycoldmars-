@@ -586,6 +586,79 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.03); }
   margin-top: var(--np-space-4);
 }
 
+/* ── View toggle ── */
+.view-toggle {
+  display: flex;
+  border: 1px solid var(--np-ink);
+  margin-bottom: var(--np-space-8);
+  width: fit-content;
+}
+.view-toggle-btn {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: var(--np-space-2) var(--np-space-6);
+  border: none;
+  background: transparent;
+  color: var(--np-ink);
+  cursor: pointer;
+  transition: background var(--np-duration) var(--np-ease),
+              color var(--np-duration) var(--np-ease);
+}
+.view-toggle-btn + .view-toggle-btn {
+  border-left: 1px solid var(--np-ink);
+}
+.view-toggle-btn.active {
+  background: var(--np-ink);
+  color: var(--np-warm-white);
+}
+
+/* ── Reader view ── */
+.reader-hint {
+  margin-bottom: var(--np-space-6);
+}
+.reader-content {
+  line-height: 1.7;
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: var(--np-space-4);
+}
+.reader-speaker-block {
+  margin-bottom: var(--np-space-8);
+}
+.reader-speaker-name {
+  font-family: var(--np-font-sans);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--np-warm-white);
+  background: var(--np-ink);
+  padding: var(--np-space-1) var(--np-space-4);
+  margin-bottom: var(--np-space-3);
+  display: inline-block;
+}
+.reader-speaker-block:nth-child(3n+2) .reader-speaker-name { background: var(--np-red); }
+.reader-speaker-block:nth-child(3n+3) .reader-speaker-name { background: var(--np-burgundy); }
+.reader-para {
+  font-family: var(--np-font-serif);
+  font-size: clamp(18px, 2vw, 22px);
+  line-height: 1.7;
+  color: var(--np-ink);
+}
+.reader-para .seg {
+  cursor: text;
+  transition: background var(--np-duration) var(--np-ease);
+}
+.reader-para .seg:hover {
+  background: rgba(255, 191, 0, 0.15);
+}
+.reader-para .seg-unintelligible {
+  color: var(--np-cool-neutral);
+  font-style: italic;
+  font-size: 0.85em;
+}
+
 /* ── Utility ── */
 .hidden { display: none !important; }
 
