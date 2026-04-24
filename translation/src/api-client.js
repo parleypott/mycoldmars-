@@ -1,58 +1,157 @@
-const BASE = '/api';
 const BATCH_SIZE = 50;
 
 /**
- * POST to API route. Handles streaming responses (keepalive spaces + JSON).
- * The server streams spaces to keep the connection alive, then sends JSON at the end.
+ * Call Claude via our proxy. Streams the response and accumulates text.
+ * All waiting happens in the browser — the proxy just pipes bytes.
  */
-async function post(path, body) {
-  const res = await fetch(`${BASE}/${path}`, {
+async function callClaude(systemPrompt, userMessage, maxTokens = 2000) {
+  const res = await fetch('/api/claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: maxTokens,
+      stream: true,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+    }),
   });
 
   if (!res.ok) {
-    // Try to read error as text (might be streamed)
     const text = await res.text();
-    let error;
-    try {
-      error = JSON.parse(text.trim())?.error;
-    } catch {
-      error = res.statusText;
-    }
-    throw new Error(error || `API error ${res.status}`);
+    throw new Error(`Claude API error ${res.status}: ${text.slice(0, 200)}`);
   }
 
-  // Read full response as text, trim keepalive spaces, parse JSON
-  const text = await res.text();
-  const trimmed = text.trim();
+  // Parse SSE stream in the browser
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText = '';
+  let buffer = '';
 
-  if (!trimmed) throw new Error('Empty response from API');
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
 
-  const parsed = JSON.parse(trimmed);
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
 
-  // Check if the response itself is an error object
-  if (parsed.error) throw new Error(parsed.error);
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6);
+      if (data === '[DONE]') continue;
+      try {
+        const event = JSON.parse(data);
+        if (event.type === 'content_block_delta' && event.delta?.text) {
+          fullText += event.delta.text;
+        }
+      } catch {}
+    }
+  }
 
-  return parsed;
+  return fullText;
 }
 
-export function analyzeTranscript(segments) {
-  return post('subtitle-analyze', { segments });
+/** Extract JSON from Claude's text response */
+function extractJSON(text) {
+  try { return JSON.parse(text.trim()); } catch {}
+
+  const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (fenced) try { return JSON.parse(fenced[1].trim()); } catch {}
+
+  const startArr = text.indexOf('[');
+  const startObj = text.indexOf('{');
+  const start = startArr === -1 ? startObj : startObj === -1 ? startArr : Math.min(startArr, startObj);
+  if (start !== -1) {
+    const open = text[start], close = open === '[' ? ']' : '}';
+    let depth = 0;
+    for (let i = start; i < text.length; i++) {
+      if (text[i] === open) depth++;
+      else if (text[i] === close) depth--;
+      if (depth === 0) {
+        try { return JSON.parse(text.slice(start, i + 1)); } catch {}
+        break;
+      }
+    }
+  }
+  throw new Error('Could not parse response from Claude');
 }
 
-/** Check if a speaker name is generic (Speaker 1, Speaker 2, etc.) */
 function isGenericSpeaker(name) {
   if (!name) return true;
   return /^speaker\s*\d+$/i.test(name.trim());
 }
 
-/**
- * Translate segments with client-side batching.
- * Filters out generic speakers, splits labeled segments into batches of 50,
- * sends each batch as a separate API call, then merges results back.
- */
+// ── Analyze ──
+
+export async function analyzeTranscript(segments) {
+  const tagged = segments.map(s => ({ ...s, isGeneric: isGenericSpeaker(s.speaker) }));
+  const labeled = tagged.filter(s => !s.isGeneric);
+  const genericCount = tagged.filter(s => s.isGeneric).length;
+  const genericNums = tagged.filter(s => s.isGeneric).map(s => s.number);
+
+  const transcriptText = labeled
+    .map(s => `${s.number}. [${s.speaker}]: ${s.text}`)
+    .join('\n');
+
+  const systemPrompt = `You are a translation analysis assistant for a documentary video production team.
+
+Your job:
+1. Read the dialogue as one continuous narrative.
+2. Identify which language each speaker uses.
+3. Identify 3-6 major themes/topics.
+4. Flag ambiguous passages needing clarification (max 10).
+
+Respond with JSON only (no markdown fencing):
+{
+  "narrative_summary": "2-3 sentence summary",
+  "themes": ["theme 1", "theme 2"],
+  "language_map": { "Speaker Name": "Language" },
+  "questions": [{ "id": "q1", "segment_range": "15-18", "quoted_text": "...", "question": "...", "why": "..." }]
+}`;
+
+  const rawText = await callClaude(
+    systemPrompt,
+    `Transcript (${labeled.length} labeled, ${genericCount} unlabeled ignored):\n\n${transcriptText}`,
+    2000,
+  );
+
+  const result = extractJSON(rawText);
+  result.generic_segments = genericNums;
+  return result;
+}
+
+// ── Translate ──
+
+function buildTranslatePrompt(context) {
+  return `You are a professional subtitle translator for a documentary production team.
+
+${context}
+
+RULES:
+1. Translate non-English segments into natural English for subtitles.
+2. English segments: pass through as-is, mark kept_original: true.
+3. Keep the speaker's tone. Be concise. No quotes or speaker labels.
+4. Garbled transcription: infer from context or output "[inaudible]".
+
+Respond with JSON array only (no markdown):
+[{"number": 1, "original": "...", "translated": "...", "language": "...", "kept_original": false}]
+
+Maintain exact order and count.`;
+}
+
+function buildContext({ narrativeSummary, editorialFocus, languageMap, clarifications }) {
+  let context = `NARRATIVE CONTEXT:\n${narrativeSummary || 'No summary available.'}\n\n`;
+  if (editorialFocus) context += `EDITORIAL FOCUS:\n${editorialFocus}\n\n`;
+  if (languageMap && Object.keys(languageMap).length > 0) {
+    context += `LANGUAGES:\n${Object.entries(languageMap).map(([s, l]) => `- ${s}: ${l}`).join('\n')}\n\n`;
+  }
+  if (clarifications?.length > 0) {
+    context += `CLARIFICATIONS:\n${clarifications.map(c => `- Q(${c.id}): ${c.answer}`).join('\n')}\n\n`;
+  }
+  return context;
+}
+
 export async function translateSegments({ segments, languageMap, narrativeSummary, clarifications, editorialFocus, onProgress }) {
   const results = new Array(segments.length);
   const labeledWithIndex = [];
@@ -73,29 +172,33 @@ export async function translateSegments({ segments, languageMap, narrativeSummar
     }
   }
 
-  if (labeledWithIndex.length === 0) {
-    return Array.from(results);
-  }
+  if (labeledWithIndex.length === 0) return Array.from(results);
 
+  // Split into batches
   const batches = [];
   for (let i = 0; i < labeledWithIndex.length; i += BATCH_SIZE) {
     batches.push(labeledWithIndex.slice(i, i + BATCH_SIZE));
   }
 
-  const sharedContext = {
-    language_map: languageMap,
-    narrative_summary: narrativeSummary,
-    clarifications,
-    editorial_focus: editorialFocus,
-  };
+  const context = buildContext({ narrativeSummary, editorialFocus, languageMap, clarifications });
+  const systemPrompt = buildTranslatePrompt(context);
 
+  // Run batches in parallel
   let completed = 0;
   const batchPromises = batches.map(async (batch) => {
     const batchSegments = batch.map(b => b.segment);
-    const translated = await post('subtitle-translate', {
-      segments: batchSegments,
-      ...sharedContext,
-    });
+    const segmentText = batchSegments
+      .map(s => `SEG ${s.number} [${s.speaker || ''}]: ${s.text}`)
+      .join('\n');
+
+    const rawText = await callClaude(
+      systemPrompt,
+      `Translate these ${batchSegments.length} segments:\n\n${segmentText}`,
+      4096,
+    );
+
+    const translated = extractJSON(rawText);
+    if (!Array.isArray(translated)) throw new Error('Translation response is not an array');
 
     completed++;
     if (onProgress) onProgress(completed, batches.length);
