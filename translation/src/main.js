@@ -1,7 +1,15 @@
-import { parseCSV, getStats } from './csv-parser.js';
+import { parseCSV, getStats, cleanSpeakerName, buildSpeakerMap, isGenericSpeaker } from './csv-parser.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript, createProject, listProjects, deleteProject } from './db.js';
+import { mountEditor } from './editor/mount.js';
+import { buildEditorDocument } from './editor/document-builder.js';
+import { mountTagSearch } from './tags/mount.js';
+import { mountCopilot } from './copilot/mount.js';
+import { buildPremiereXML } from './export/premiere-xml.js';
+import { exportHighlightsPDF } from './export/pdf-export.js';
+import { exportSummaryText } from './export/summary-export.js';
+import { extractHighlightsFromEditor } from './editor/document-builder.js';
 
 // ── State ──
 let segments = [];
@@ -13,6 +21,13 @@ let currentTranscriptId = null;
 let currentTranscriptName = '';
 let speakerColors = {};
 let annotations = {};
+let speakerMap = {};          // { raw CSV name: clean display name }
+let hiddenSpeakers = [];      // raw speaker names hidden by default
+let showAllSpeakers = false;  // toggle for showing hidden speakers
+let currentProjectId = null;
+let projects = [];
+let editorState = null;       // Tiptap JSON document
+let editorInstance = null;    // mounted editor reference
 
 const SPEAKER_PALETTE = [
   '#DD2C1E', '#004CFF', '#0D5921', '#FFBF00',
@@ -45,6 +60,14 @@ const libraryView = $('#library-view');
 const libraryList = $('#library-list');
 const libraryEmpty = $('#library-empty');
 const stepsNav = $('.steps');
+const btnSpeakerToggle = $('#btn-speaker-toggle');
+const projectModal = $('#project-modal');
+const projectNameInput = $('#project-name');
+const btnProjectConfirm = $('#btn-project-confirm');
+const btnProjectCancel = $('#btn-project-cancel');
+const btnNewProject = $('#btn-new-project');
+const projectSelect = $('#project-select');
+const saveProjectSelect = $('#save-project-select');
 
 // ── Step navigation ──
 let libraryShowing = false;
@@ -80,8 +103,9 @@ function showLibrary() {
 // ── Library ──
 async function fetchLibrary() {
   try {
+    projects = await listProjects();
     const transcripts = await listTranscripts();
-    renderLibrary(transcripts);
+    renderLibrary(transcripts, projects);
   } catch (err) {
     libraryList.innerHTML = '';
     libraryEmpty.classList.remove('hidden');
@@ -89,35 +113,57 @@ async function fetchLibrary() {
   }
 }
 
-function renderLibrary(transcripts) {
-  if (!transcripts || transcripts.length === 0) {
+function renderLibrary(transcripts, projectsList) {
+  if ((!transcripts || transcripts.length === 0) && (!projectsList || projectsList.length === 0)) {
     libraryList.innerHTML = '';
     libraryEmpty.classList.remove('hidden');
     return;
   }
 
   libraryEmpty.classList.add('hidden');
-  libraryList.innerHTML = transcripts.map(t => {
-    const date = new Date(t.updated_at).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric'
-    });
-    const stepLabel = STEP_LABELS[t.step] || 'Upload';
-    return `
-      <div class="library-item" data-id="${t.id}">
-        <div class="library-item-info">
-          <div class="library-item-name">${esc(t.name)}</div>
-          <div class="library-item-meta">
-            <span>${date}</span>
-            <span class="library-item-step">Step ${t.step}: ${stepLabel}</span>
-          </div>
+
+  // Group transcripts by project
+  const byProject = {};
+  const unsorted = [];
+  for (const t of (transcripts || [])) {
+    if (t.project_id) {
+      if (!byProject[t.project_id]) byProject[t.project_id] = [];
+      byProject[t.project_id].push(t);
+    } else {
+      unsorted.push(t);
+    }
+  }
+
+  let html = '';
+
+  // Render each project group
+  for (const proj of (projectsList || [])) {
+    const items = byProject[proj.id] || [];
+    html += `
+      <div class="library-project-group">
+        <div class="library-project-header">
+          <span class="np-eyebrow np-eyebrow--red">${esc(proj.name)}</span>
+          <button class="np-button library-delete-project-btn" data-id="${proj.id}" title="Delete project">&times;</button>
         </div>
-        <div class="library-item-actions">
-          <button class="np-button library-load-btn" data-id="${t.id}">Load</button>
-          <button class="np-button library-delete-btn" data-id="${t.id}">&times;</button>
-        </div>
+        ${items.length === 0 ? '<p class="library-project-empty">No transcripts</p>' : ''}
+        ${items.map(t => renderLibraryItem(t)).join('')}
       </div>
     `;
-  }).join('');
+  }
+
+  // Unsorted section
+  if (unsorted.length > 0) {
+    html += `
+      <div class="library-project-group">
+        <div class="library-project-header">
+          <span class="np-eyebrow">Unsorted</span>
+        </div>
+        ${unsorted.map(t => renderLibraryItem(t)).join('')}
+      </div>
+    `;
+  }
+
+  libraryList.innerHTML = html;
 
   // Wire up buttons
   libraryList.querySelectorAll('.library-load-btn').forEach(btn => {
@@ -126,6 +172,34 @@ function renderLibrary(transcripts) {
   libraryList.querySelectorAll('.library-delete-btn').forEach(btn => {
     btn.addEventListener('click', () => handleDelete(btn.dataset.id));
   });
+  libraryList.querySelectorAll('.library-delete-project-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await deleteProject(btn.dataset.id);
+      fetchLibrary();
+    });
+  });
+}
+
+function renderLibraryItem(t) {
+  const date = new Date(t.updated_at).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric'
+  });
+  const stepLabel = STEP_LABELS[t.step] || 'Upload';
+  return `
+    <div class="library-item" data-id="${t.id}">
+      <div class="library-item-info">
+        <div class="library-item-name">${esc(t.name)}</div>
+        <div class="library-item-meta">
+          <span>${date}</span>
+          <span class="library-item-step">Step ${t.step}: ${stepLabel}</span>
+        </div>
+      </div>
+      <div class="library-item-actions">
+        <button class="np-button library-load-btn" data-id="${t.id}">Load</button>
+        <button class="np-button library-delete-btn" data-id="${t.id}">&times;</button>
+      </div>
+    </div>
+  `;
 }
 
 async function handleLoad(id) {
@@ -139,8 +213,14 @@ async function handleLoad(id) {
     srtContent = t.srt_content || '';
     speakerColors = t.speaker_colors || {};
     annotations = t.annotations || {};
+    speakerMap = t.speaker_map || {};
+    hiddenSpeakers = t.hidden_speakers || [];
+    currentProjectId = t.project_id || null;
+    editorState = t.editor_state || null;
     currentTranscriptId = t.id;
     currentTranscriptName = t.name;
+    // Reset editor instance so it remounts with new state
+    editorInstance = null;
 
     // Restore metadata
     const meta = t.metadata || {};
@@ -210,9 +290,11 @@ btnSave.addEventListener('click', () => {
     saveNameInput.value = currentTranscriptName;
   } else {
     const firstSpeaker = segments[0]?.speaker || '';
+    const cleanName = speakerMap[firstSpeaker] || firstSpeaker;
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    saveNameInput.value = firstSpeaker ? `${firstSpeaker} — ${date}` : '';
+    saveNameInput.value = cleanName ? `${cleanName} — ${date}` : '';
   }
+  refreshProjectSelects();
   saveModal.classList.remove('hidden');
   saveNameInput.focus();
 });
@@ -228,6 +310,11 @@ saveModal.addEventListener('click', (e) => {
 btnSaveConfirm.addEventListener('click', async () => {
   const name = saveNameInput.value.trim();
   if (!name) return;
+
+  // Read selected project from save modal
+  if (saveProjectSelect) {
+    currentProjectId = saveProjectSelect.value || null;
+  }
 
   btnSaveConfirm.textContent = 'Saving...';
   btnSaveConfirm.disabled = true;
@@ -266,6 +353,10 @@ function gatherState(name) {
     srtContent,
     speakerColors,
     annotations,
+    speakerMap,
+    hiddenSpeakers,
+    projectId: currentProjectId,
+    editorState,
     metadata: {
       editorialFocus,
       clarifications,
@@ -286,6 +377,36 @@ async function autoSave() {
 // ── Library button ──
 btnLibrary.addEventListener('click', showLibrary);
 
+// ── Search button ──
+let searchMounted = false;
+$('#btn-search').addEventListener('click', () => {
+  // Toggle search view
+  const searchView = $('#search-view');
+  if (searchView.classList.contains('active')) {
+    searchView.classList.remove('active');
+    stepsNav.classList.remove('hidden');
+    return;
+  }
+
+  $$('.panel').forEach(p => p.classList.remove('active'));
+  stepsNav.classList.add('hidden');
+  searchView.classList.add('active');
+
+  if (!searchMounted) {
+    mountTagSearch($('#search-mount'), {
+      onNavigate: (result) => {
+        if (result.transcripts?.id) handleLoad(result.transcripts.id);
+      },
+      onClose: () => {
+        searchView.classList.remove('active');
+        stepsNav.classList.remove('hidden');
+        goToStep(currentStep);
+      },
+    });
+    searchMounted = true;
+  }
+});
+
 // ── Step 1: Upload ──
 function handleFile(file) {
   if (!file || !file.name.endsWith('.csv')) {
@@ -305,6 +426,12 @@ function handleFile(file) {
       srtContent = '';
       speakerColors = {};
       annotations = {};
+      speakerMap = buildSpeakerMap(segments);
+      hiddenSpeakers = segments
+        .map(s => s.speaker)
+        .filter(s => isGenericSpeaker(s))
+        .filter((v, i, a) => a.indexOf(v) === i);
+      showAllSpeakers = false;
       renderTranscript();
     } catch (err) {
       showError(err.message);
@@ -315,18 +442,33 @@ function handleFile(file) {
 
 function renderTranscript() {
   const stats = getStats(segments);
+  const hiddenCount = hiddenSpeakers.length;
   $('#stat-segments').textContent = `${stats.segmentCount} segments`;
   $('#stat-duration').textContent = `Duration: ${stats.duration}`;
   $('#stat-speakers').textContent = `${stats.speakerCount} speaker${stats.speakerCount !== 1 ? 's' : ''}`;
 
+  // Show/hide speaker toggle
+  if (hiddenCount > 0) {
+    btnSpeakerToggle.classList.remove('hidden');
+    btnSpeakerToggle.textContent = showAllSpeakers
+      ? 'Hide unlabeled'
+      : `Show all (${hiddenCount} hidden)`;
+  } else {
+    btnSpeakerToggle.classList.add('hidden');
+  }
+
   transcriptBody.innerHTML = segments
-    .map(s => `<tr>
+    .map(s => {
+      const isHidden = !showAllSpeakers && hiddenSpeakers.includes(s.speaker);
+      const displayName = speakerMap[s.speaker] || s.speaker;
+      return `<tr class="${isHidden ? 'hidden' : ''} ${isGenericSpeaker(s.speaker) ? 'dimmed-speaker' : ''}">
       <td>${s.number}</td>
-      <td>${esc(s.speaker)}</td>
+      <td>${esc(displayName)}</td>
       <td>${esc(s.start)}</td>
       <td>${esc(s.end)}</td>
       <td>${esc(s.text)}</td>
-    </tr>`)
+    </tr>`;
+    })
     .join('');
 
   dropZone.classList.add('hidden');
@@ -561,6 +703,14 @@ btnExport.addEventListener('click', () => {
 
   $('#srt-preview').textContent = srtContent;
   buildReaderView();
+
+  // Build editor state if not already present
+  if (!editorState) {
+    editorState = buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers);
+  }
+
+  // Default to editor view
+  switchView('editor');
   autoSave();
 });
 
@@ -581,15 +731,35 @@ btnCopy.addEventListener('click', async () => {
   setTimeout(() => fb.classList.add('hidden'), 2000);
 });
 
-// ── View toggle (SRT / Reader) ──
+// ── View toggle (SRT / Reader / Editor) ──
 function switchView(view) {
-  ['srt', 'reader'].forEach(v => {
-    $(`#btn-view-${v}`).classList.toggle('active', v === view);
-    $(`#${v}-view`).classList.toggle('hidden', v !== view);
+  ['srt', 'reader', 'editor'].forEach(v => {
+    const btn = $(`#btn-view-${v}`);
+    const el = $(`#${v}-view`);
+    if (btn) btn.classList.toggle('active', v === view);
+    if (el) el.classList.toggle('hidden', v !== view);
   });
+
+  // Mount editor on first switch to editor view
+  if (view === 'editor' && editorState) {
+    const container = $('#editor-mount');
+    if (container && !editorInstance) {
+      editorInstance = mountEditor(container, {
+        initialContent: editorState,
+        projectId: currentProjectId,
+        onUpdate: (json) => {
+          editorState = json;
+        },
+        onAskAI: (selection) => {
+          openCopilot(selection);
+        },
+      });
+    }
+  }
 }
 $('#btn-view-srt').addEventListener('click', () => switchView('srt'));
 $('#btn-view-reader').addEventListener('click', () => switchView('reader'));
+$('#btn-view-editor').addEventListener('click', () => switchView('editor'));
 
 // ── Reader view ──
 function formatTimecodeShort(tc) {
@@ -619,8 +789,11 @@ function buildReaderView() {
 
     const speaker = seg.speaker || 'Unknown';
 
+    // Skip hidden speakers unless toggled
+    if (!showAllSpeakers && hiddenSpeakers.includes(speaker)) continue;
+
     if (!currentGroup || currentGroup.speaker !== speaker) {
-      currentGroup = { speaker, items: [] };
+      currentGroup = { speaker, items: [], isGeneric: isGenericSpeaker(speaker) };
       groups.push(currentGroup);
     }
 
@@ -635,13 +808,15 @@ function buildReaderView() {
   for (const group of groups) {
     const block = document.createElement('div');
     block.className = 'reader-speaker-block';
+    if (group.isGeneric) block.classList.add('dimmed-speaker');
 
+    const displayName = speakerMap[group.speaker] || group.speaker;
     const color = speakerColors[group.speaker] || '#DD2C1E';
     block.style.setProperty('--speaker-color', color);
 
     const nameEl = document.createElement('div');
     nameEl.className = 'reader-speaker-name';
-    nameEl.textContent = group.speaker;
+    nameEl.textContent = displayName;
     block.appendChild(nameEl);
 
     const para = document.createElement('p');
@@ -695,6 +870,147 @@ function esc(str) {
   return d.innerHTML;
 }
 
+// ── Speaker toggle ──
+btnSpeakerToggle.addEventListener('click', () => {
+  showAllSpeakers = !showAllSpeakers;
+  renderTranscript();
+  if (translations.length > 0) buildReaderView();
+});
+
+// ── Projects ──
+btnNewProject.addEventListener('click', () => {
+  projectNameInput.value = '';
+  projectModal.classList.remove('hidden');
+  projectNameInput.focus();
+});
+
+btnProjectCancel.addEventListener('click', () => {
+  projectModal.classList.add('hidden');
+});
+
+projectModal.addEventListener('click', (e) => {
+  if (e.target === projectModal) projectModal.classList.add('hidden');
+});
+
+btnProjectConfirm.addEventListener('click', async () => {
+  const name = projectNameInput.value.trim();
+  if (!name) return;
+  btnProjectConfirm.textContent = 'Creating...';
+  btnProjectConfirm.disabled = true;
+  try {
+    const proj = await createProject({ name });
+    projects.push(proj);
+    currentProjectId = proj.id;
+    projectModal.classList.add('hidden');
+    refreshProjectSelects();
+    if (libraryShowing) fetchLibrary();
+  } catch (err) {
+    showError('Failed to create project: ' + err.message);
+  } finally {
+    btnProjectConfirm.textContent = 'Create';
+    btnProjectConfirm.disabled = false;
+  }
+});
+
+// Project select in save modal
+async function refreshProjectSelects() {
+  try {
+    projects = await listProjects();
+  } catch {}
+  const opts = '<option value="">No project</option>' +
+    projects.map(p => `<option value="${p.id}" ${p.id === currentProjectId ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+  if (saveProjectSelect) saveProjectSelect.innerHTML = opts;
+}
+
+// ── Export menu ──
+const btnExportMenu = $('#btn-export-menu');
+const exportDropdown = $('#export-dropdown');
+
+if (btnExportMenu) {
+  btnExportMenu.addEventListener('click', () => {
+    exportDropdown.classList.toggle('hidden');
+  });
+
+  // Close dropdown on outside click
+  document.addEventListener('click', (e) => {
+    if (!btnExportMenu.contains(e.target) && !exportDropdown.contains(e.target)) {
+      exportDropdown.classList.add('hidden');
+    }
+  });
+
+  exportDropdown.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-format]');
+    if (!btn) return;
+    exportDropdown.classList.add('hidden');
+
+    const format = btn.dataset.format;
+    switch (format) {
+      case 'srt': {
+        const blob = new Blob([srtContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'subtitles.srt';
+        a.click();
+        URL.revokeObjectURL(url);
+        break;
+      }
+      case 'premiere': {
+        const highlights = editorState ? extractHighlightsFromEditor(editorState) : [];
+        const xml = buildPremiereXML(highlights, segments, currentTranscriptName);
+        const blob = new Blob([xml], { type: 'application/xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${(currentTranscriptName || 'markers').replace(/[^a-z0-9]/gi, '-').toLowerCase()}.xml`;
+        a.click();
+        URL.revokeObjectURL(url);
+        break;
+      }
+      case 'highlights': {
+        const highlights = editorState ? extractHighlightsFromEditor(editorState) : [];
+        exportHighlightsPDF(highlights, [], currentTranscriptName);
+        break;
+      }
+      case 'summary': {
+        // Will use cached summary if copilot generated one
+        const summaryEl = document.querySelector('.summary-content');
+        const summaryText = summaryEl?.textContent || 'No summary generated. Use the AI Copilot to generate a summary first.';
+        exportSummaryText(summaryText, currentTranscriptName);
+        break;
+      }
+    }
+  });
+}
+
+// ── Copilot ──
+let copilotInstance = null;
+
+function openCopilot(selection) {
+  const panel = $('#copilot-panel');
+  panel.classList.add('active');
+
+  const editorialFocus = $('#editorial-focus')?.value?.trim() || '';
+
+  const props = {
+    selection,
+    segments,
+    translations,
+    speakerMap,
+    highlights: [], // extracted from editor state in future
+    editorialFocus,
+    onClose: () => {
+      panel.classList.remove('active');
+    },
+  };
+
+  if (copilotInstance) {
+    copilotInstance.update(props);
+  } else {
+    copilotInstance = mountCopilot($('#copilot-mount'), props);
+  }
+}
+
 function showError(msg, parentSel) {
   const parent = parentSel ? $(parentSel) : $('#step-1');
   const existing = parent.querySelector('.error-msg');
@@ -707,3 +1023,11 @@ function showError(msg, parentSel) {
 
   setTimeout(() => div.remove(), 8000);
 }
+
+// ── Init: load projects on startup ──
+(async function init() {
+  try {
+    projects = await listProjects();
+    refreshProjectSelects();
+  } catch {}
+})();

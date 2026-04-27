@@ -9,9 +9,18 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@preact/preset-vite": "^2.10.5",
     "@supabase/supabase-js": "^2.104.1",
+    "@tiptap/core": "^3.22.4",
+    "@tiptap/extension-bubble-menu": "^3.22.4",
+    "@tiptap/extension-highlight": "^3.22.4",
+    "@tiptap/pm": "^3.22.4",
+    "@tiptap/react": "^3.22.4",
+    "@tiptap/starter-kit": "^3.22.4",
     "mapbox-gl": "^3.19.0",
+    "preact": "^10.29.1",
     "topojson-client": "^3.1.0",
+    "use-sync-external-store": "^1.6.0",
     "world-atlas": "^2.0.2"
   },
   "devDependencies": {

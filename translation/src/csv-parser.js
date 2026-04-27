@@ -1,3 +1,30 @@
+/** Strip trailing dates/timecodes from speaker names */
+export function cleanSpeakerName(raw) {
+  if (!raw) return '';
+  return raw
+    .replace(/\s*\d{4}[-/]\d{2}[-/]\d{2}.*$/, '')  // trailing dates
+    .replace(/\s*\d{1,2}:\d{2}(:\d{2})?.*$/, '')   // trailing timecodes
+    .replace(/\s*\(\d+\)\s*$/, '')                   // trailing (1), (2), etc.
+    .trim();
+}
+
+/** Check if speaker is generic/unlabeled */
+export function isGenericSpeaker(name) {
+  if (!name) return true;
+  return /^speaker\s*\d+$/i.test(name.trim());
+}
+
+/** Build a speaker map: raw CSV name → clean display name */
+export function buildSpeakerMap(segments) {
+  const map = {};
+  for (const seg of segments) {
+    const raw = seg.speaker || '';
+    if (!raw || map[raw] !== undefined) continue;
+    map[raw] = cleanSpeakerName(raw);
+  }
+  return map;
+}
+
 /**
  * Parse Happy Scribe semicolon-delimited CSV.
  * Expected header: Number;Speaker;Start time;End time;Duration;Text

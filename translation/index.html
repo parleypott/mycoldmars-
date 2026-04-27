@@ -18,6 +18,7 @@
           <h1>Trans<em>lation</em></h1>
         </div>
         <div class="header-actions">
+          <button id="btn-search" class="np-button">Search</button>
           <button id="btn-library" class="np-button">Library</button>
           <button id="btn-save" class="np-button np-button--primary">Save</button>
         </div>
@@ -62,6 +63,7 @@
           <span id="stat-segments"></span>
           <span id="stat-duration"></span>
           <span id="stat-speakers"></span>
+          <button id="btn-speaker-toggle" class="np-button hidden" style="font-size:11px;padding:4px 12px;">Show all</button>
         </div>
         <div class="table-wrap">
           <table id="transcript-table">
@@ -157,16 +159,34 @@
 
     <!-- Step 5: Export -->
     <section id="step-5" class="panel">
-      <h2>Done.</h2>
-      <p class="section-desc">Your SRT is ready.</p>
+      <div class="export-header">
+        <div>
+          <h2>Done.</h2>
+          <p class="section-desc">Your SRT is ready.</p>
+        </div>
+        <div class="export-menu">
+          <button id="btn-export-menu" class="np-button">Export</button>
+          <div id="export-dropdown" class="export-dropdown hidden">
+            <button class="export-dropdown-item" data-format="srt">Download SRT</button>
+            <button class="export-dropdown-item" data-format="premiere">Premiere Pro Markers (XML)</button>
+            <button class="export-dropdown-item" data-format="highlights">Highlights (PDF)</button>
+            <button class="export-dropdown-item" data-format="summary">Summary (Text)</button>
+          </div>
+        </div>
+      </div>
       <hr class="np-rule">
 
       <div class="view-toggle">
-        <button id="btn-view-srt" class="view-toggle-btn active">SRT</button>
+        <button id="btn-view-editor" class="view-toggle-btn active">Editor</button>
+        <button id="btn-view-srt" class="view-toggle-btn">SRT</button>
         <button id="btn-view-reader" class="view-toggle-btn">Reader</button>
       </div>
 
-      <div id="srt-view">
+      <div id="editor-view">
+        <div id="editor-mount"></div>
+      </div>
+
+      <div id="srt-view" class="hidden">
         <div id="srt-preview" class="srt-preview"></div>
         <div class="export-actions">
           <button id="btn-download" class="np-button np-button--red">Download .srt</button>
@@ -183,10 +203,25 @@
         <p id="reader-copy-feedback" class="hidden copy-feedback">Copied with timecode.</p>
       </div>
     </section>
+    <!-- Search view -->
+    <section id="search-view" class="panel">
+      <div id="search-mount"></div>
+    </section>
+
+    <!-- Copilot panel (Phase 4) -->
+    <aside id="copilot-panel" class="copilot-panel">
+      <div id="copilot-mount"></div>
+    </aside>
+
     <!-- Library view -->
     <section id="library-view" class="panel">
-      <h2>Library</h2>
-      <p class="section-desc">Your saved transcripts.</p>
+      <div class="library-header">
+        <div>
+          <h2>Library</h2>
+          <p class="section-desc">Your saved transcripts.</p>
+        </div>
+        <button id="btn-new-project" class="np-button">New Project</button>
+      </div>
       <hr class="np-rule">
       <div id="library-list"></div>
       <div id="library-empty">
@@ -199,9 +234,27 @@
       <div class="save-modal-inner">
         <div class="np-eyebrow np-eyebrow--red">Save Transcript</div>
         <input id="save-name" class="np-textarea" placeholder="e.g. Taiwan fishing village interview" style="min-height:auto">
+        <div class="save-modal-field">
+          <label class="np-eyebrow" for="save-project-select">Project</label>
+          <select id="save-project-select" class="np-select">
+            <option value="">No project</option>
+          </select>
+        </div>
         <div class="save-modal-actions">
           <button id="btn-save-confirm" class="np-button np-button--primary">Save</button>
           <button id="btn-save-cancel" class="np-button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Project modal -->
+    <div id="project-modal" class="save-modal hidden">
+      <div class="save-modal-inner">
+        <div class="np-eyebrow np-eyebrow--red">New Project</div>
+        <input id="project-name" class="np-textarea" placeholder="e.g. Taiwan Documentary 2026" style="min-height:auto">
+        <div class="save-modal-actions">
+          <button id="btn-project-confirm" class="np-button np-button--primary">Create</button>
+          <button id="btn-project-cancel" class="np-button">Cancel</button>
         </div>
       </div>
     </div>
