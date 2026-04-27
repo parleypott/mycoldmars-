@@ -279,7 +279,7 @@
 
   <script>
     // Simple access code gate — checks cookie or prompts for code
-    (function() {
+    (async function() {
       const COOKIE_NAME = 'np_access';
       const gate = document.getElementById('gate');
       const app = document.getElementById('app');
@@ -297,6 +297,24 @@
       if (getCookie(COOKIE_NAME) === 'granted') {
         gate.classList.add('hidden');
         app.classList.remove('hidden');
+        return;
+      }
+
+      // Check if gate is even needed (dev mode or no ACCESS_CODE set)
+      try {
+        const probe = await fetch('/api/access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: '' }),
+        });
+        if (probe.status === 404 || probe.ok) {
+          // No gate configured or endpoint missing — skip
+          unlock();
+          return;
+        }
+      } catch {
+        // Network error — no API available, skip gate
+        unlock();
         return;
       }
 
@@ -322,13 +340,16 @@
           });
           if (res.ok) {
             unlock();
+          } else if (res.status === 404) {
+            // Endpoint doesn't exist (dev mode) — skip gate
+            unlock();
           } else {
             errorMsg.classList.remove('hidden');
             codeInput.value = '';
             codeInput.focus();
           }
         } catch {
-          // In dev mode (no /api/access), skip the gate
+          // Network error (dev mode) — skip gate
           unlock();
         }
       }
