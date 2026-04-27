@@ -306,13 +306,11 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   margin-bottom: var(--np-space-4);
 }
 .card-pullquote {
-  font-family: var(--np-font-serif);
-  font-style: italic;
-  font-size: clamp(18px, 2.2vw, 24px);
-  line-height: 1.3;
-  color: var(--np-ink);
-  border-left: 3px solid var(--np-red);
-  padding-left: var(--np-space-6);
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--np-sepia);
+  max-width: 560px;
 }
 
 /* Result grid */
