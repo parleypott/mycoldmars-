@@ -25,9 +25,14 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
   const [showSummary, setShowSummary] = useState(false);
   const [committed, setCommitted] = useState(new Set());
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   useEffect(() => {
-    if (messagesEndRef.current) {
+    const container = messagesContainerRef.current;
+    if (!container || !messagesEndRef.current) return;
+    // Only auto-scroll if user is near the bottom (within 120px)
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+    if (isNearBottom) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
@@ -186,7 +191,11 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
 
   function handleCommit(suggestionText) {
     if (!onCommitTranslation || !selection?.segmentNumber) return;
-    onCommitTranslation(selection.segmentNumber, suggestionText);
+    // Pass all segment numbers for multi-segment selections
+    const segNums = selection.segmentNumbers && selection.segmentNumbers.length > 0
+      ? selection.segmentNumbers
+      : [selection.segmentNumber];
+    onCommitTranslation(segNums, suggestionText);
     setCommitted(prev => new Set([...prev, suggestionText]));
   }
 
@@ -281,7 +290,7 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
         </div>
       )}
 
-      <div className="copilot-messages">
+      <div className="copilot-messages" ref={messagesContainerRef}>
         {messages.map((msg, i) => (
           <div key={i} className={`copilot-msg copilot-msg--${msg.role}`}>
             {renderMessageContent(msg.content, msg.role)}

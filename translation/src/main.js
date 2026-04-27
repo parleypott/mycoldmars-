@@ -1248,36 +1248,87 @@ async function generateAutoSummary() {
 
 // ── Copilot helpers ──
 
-function updateEditorStateJSON(doc, segmentNumber, newText) {
+function updateEditorStateJSON(doc, segmentNumbers, newText) {
+  const nums = Array.isArray(segmentNumbers) ? segmentNumbers : [segmentNumbers];
+  const numSet = new Set(nums);
   const updated = JSON.parse(JSON.stringify(doc));
+  let isFirst = true;
+
   function walk(node) {
     if (node.marks) {
       for (const mark of node.marks) {
-        if (mark.type === 'segment' && mark.attrs.number === segmentNumber) {
-          node.text = newText + ' ';
-          return true;
+        if (mark.type === 'segment' && numSet.has(mark.attrs.number)) {
+          if (isFirst) {
+            node.text = newText + ' ';
+            // Extend end time to cover all replaced segments
+            if (nums.length > 1) {
+              const lastNum = nums[nums.length - 1];
+              findEndTime(updated, lastNum, mark);
+            }
+            isFirst = false;
+          } else {
+            node.text = '';
+          }
         }
       }
     }
     if (node.content) {
       for (const child of node.content) {
-        if (walk(child)) return true;
+        walk(child);
       }
     }
-    return false;
   }
+
+  // Find the end time of a specific segment number and apply it to the target mark
+  function findEndTime(root, segNum, targetMark) {
+    function search(node) {
+      if (node.marks) {
+        for (const m of node.marks) {
+          if (m.type === 'segment' && m.attrs.number === segNum && m.attrs.end) {
+            targetMark.attrs.end = m.attrs.end;
+            return true;
+          }
+        }
+      }
+      if (node.content) {
+        for (const child of node.content) {
+          if (search(child)) return true;
+        }
+      }
+      return false;
+    }
+    search(root);
+  }
+
   walk(updated);
+
+  // Remove empty text nodes from paragraphs
+  function cleanEmpty(node) {
+    if (node.content) {
+      node.content = node.content.filter(child => {
+        cleanEmpty(child);
+        if (child.type === 'text' && !child.text) return false;
+        return true;
+      });
+    }
+  }
+  cleanEmpty(updated);
+
   return updated;
 }
 
-function commitTranslationToEditor(segmentNumber, newText) {
-  // Update translations array
-  const t = translations.find(t => t.number === segmentNumber);
-  if (t) t.translated = newText;
+function commitTranslationToEditor(segmentNumbers, newText) {
+  const nums = Array.isArray(segmentNumbers) ? segmentNumbers : [segmentNumbers];
 
-  // Update editor state JSON
+  // Update translations array — first segment gets new text, rest cleared
+  for (let i = 0; i < nums.length; i++) {
+    const t = translations.find(t => t.number === nums[i]);
+    if (t) t.translated = i === 0 ? newText : '';
+  }
+
+  // Update editor state JSON (handles multi-segment replacement + cleanup)
   if (editorState) {
-    editorState = updateEditorStateJSON(editorState, segmentNumber, newText);
+    editorState = updateEditorStateJSON(editorState, nums, newText);
   }
 
   // Push to live editor

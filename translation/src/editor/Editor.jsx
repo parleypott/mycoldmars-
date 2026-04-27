@@ -1,6 +1,6 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { useEffect, useState, useCallback } from 'preact/hooks';
+import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
 import { SpeakerBlock } from './extensions/SpeakerBlock.js';
 import { Segment } from './extensions/Segment.js';
 import { DeletedMark } from './extensions/DeletedMark.js';
@@ -17,6 +17,7 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [editingSpeaker, setEditingSpeaker] = useState(null);
   const [editValue, setEditValue] = useState('');
+  const [timecodeTooltip, setTimecodeTooltip] = useState(null);
 
   const seqNameRef = sequenceInfo?.sequenceName || '';
   const primarySpeakerRef = sequenceInfo?.primarySpeaker || '';
@@ -131,6 +132,63 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
     if (el) el.classList.toggle('show-dismissed', showDismissed);
   }, [showDismissed]);
 
+  // Timecode tooltip on selection
+  useEffect(() => {
+    if (!editor) return;
+    const handleSelectionUpdate = ({ editor: ed }) => {
+      const { from, to } = ed.state.selection;
+      if (from === to) { setTimecodeTooltip(null); return; }
+
+      let firstStart = '';
+      let lastEnd = '';
+      ed.state.doc.nodesBetween(from, to, (node) => {
+        if (node.isText && node.marks) {
+          const seg = node.marks.find(m => m.type.name === 'segment');
+          if (seg) {
+            if (!firstStart && seg.attrs.start) firstStart = seg.attrs.start;
+            if (seg.attrs.end) lastEnd = seg.attrs.end;
+          }
+        }
+      });
+
+      if (!firstStart) { setTimecodeTooltip(null); return; }
+
+      const fmtShort = (tc) => {
+        if (!tc) return '';
+        let secs;
+        if (/^\d+(\.\d+)?$/.test(tc)) { secs = parseFloat(tc); }
+        else {
+          const m = tc.match(/(\d+):(\d+):(\d+)/);
+          if (m) secs = parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseInt(m[3]);
+          else { const m2 = tc.match(/(\d+):(\d+)/); secs = m2 ? parseInt(m2[1]) * 60 + parseInt(m2[2]) : 0; }
+        }
+        const h = Math.floor(secs / 3600);
+        const m = Math.floor((secs % 3600) / 60);
+        const s = Math.floor(secs % 60);
+        const pad = n => String(n).padStart(2, '0');
+        return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+      };
+
+      const startFmt = fmtShort(firstStart);
+      const endFmt = lastEnd && lastEnd !== firstStart ? fmtShort(lastEnd) : '';
+      const label = endFmt ? `${startFmt} \u2013 ${endFmt}` : startFmt;
+
+      // Position above the selection start
+      const coords = ed.view.coordsAtPos(from);
+      const editorRect = ed.view.dom.closest('.editor-content')?.getBoundingClientRect();
+      if (!editorRect) { setTimecodeTooltip(null); return; }
+
+      setTimecodeTooltip({
+        label,
+        top: coords.top - editorRect.top - 22,
+        left: coords.left - editorRect.left,
+      });
+    };
+
+    editor.on('selectionUpdate', handleSelectionUpdate);
+    return () => editor.off('selectionUpdate', handleSelectionUpdate);
+  }, [editor]);
+
   const handleHighlight = useCallback(() => {
     setShowTagPicker(true);
   }, []);
@@ -152,17 +210,21 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
 
     let originalText = '';
     let segmentNumber = null;
+    const segmentNumbers = [];
     editor.state.doc.nodesBetween(from, to, (node) => {
       if (node.isText && node.marks) {
         const segMark = node.marks.find(m => m.type.name === 'segment');
         if (segMark) {
           originalText += (segMark.attrs.originalText || '') + ' ';
           if (!segmentNumber) segmentNumber = segMark.attrs.number;
+          if (segMark.attrs.number != null && !segmentNumbers.includes(segMark.attrs.number)) {
+            segmentNumbers.push(segMark.attrs.number);
+          }
         }
       }
     });
 
-    onAskAI({ text: text.trim(), originalText: originalText.trim(), segmentNumber });
+    onAskAI({ text: text.trim(), originalText: originalText.trim(), segmentNumber, segmentNumbers });
   }, [editor, onAskAI]);
 
   function startEditSpeaker(rawName) {
@@ -282,7 +344,17 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
           onClose={() => setShowTagPicker(false)}
         />
       )}
-      <EditorContent editor={editor} className="editor-content" />
+      <div className="editor-content" style={{ position: 'relative' }}>
+        {timecodeTooltip && (
+          <div
+            className="editor-timecode-tooltip"
+            style={{ top: timecodeTooltip.top + 'px', left: timecodeTooltip.left + 'px' }}
+          >
+            {timecodeTooltip.label}
+          </div>
+        )}
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }
