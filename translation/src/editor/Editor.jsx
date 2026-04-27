@@ -24,6 +24,7 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
   const [editingSpeaker, setEditingSpeaker] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [timecodeTooltip, setTimecodeTooltip] = useState(null);
+  const [filteredSpeakers, setFilteredSpeakers] = useState(new Set());
 
   const seqNameLatest = useRef(sequenceInfo?.sequenceName || '');
   const primarySpeakerLatest = useRef(sequenceInfo?.primarySpeaker || '');
@@ -147,6 +148,28 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
     const el = document.querySelector('.editor-content');
     if (el) el.classList.toggle('show-dismissed', showDismissed);
   }, [showDismissed]);
+
+  // Speaker filter: inject dynamic CSS to hide filtered speaker blocks
+  useEffect(() => {
+    let styleEl = document.getElementById('speaker-filter-styles');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'speaker-filter-styles';
+      document.head.appendChild(styleEl);
+    }
+    if (filteredSpeakers.size === 0) {
+      styleEl.textContent = '';
+    } else {
+      const rules = [...filteredSpeakers].map(name => {
+        const escaped = CSS.escape(name);
+        return `.editor-content [data-speaker-block][data-speaker="${escaped}"] { display: none; }`;
+      }).join('\n');
+      styleEl.textContent = rules;
+    }
+    return () => {
+      if (styleEl.parentNode) styleEl.textContent = '';
+    };
+  }, [filteredSpeakers]);
 
   // Timecode tooltip on selection
   useEffect(() => {
@@ -346,8 +369,19 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
           {speakers.map(([raw, clean]) => {
             const color = speakerColors?.[raw] || '#DD2C1E';
             const isEditing = editingSpeaker === raw;
+            const isFiltered = filteredSpeakers.has(clean);
             return (
-              <div key={raw} className="editor-speaker-chip">
+              <div key={raw} className={`editor-speaker-chip ${isFiltered ? 'editor-speaker-chip--filtered' : ''}`}>
+                <input
+                  type="checkbox"
+                  className="editor-speaker-chip-check"
+                  checked={!isFiltered}
+                  onChange={() => {
+                    const next = new Set(filteredSpeakers);
+                    if (isFiltered) next.delete(clean); else next.add(clean);
+                    setFilteredSpeakers(next);
+                  }}
+                />
                 <span className="editor-speaker-chip-dot" style={{ background: color }} />
                 {isEditing ? (
                   <input

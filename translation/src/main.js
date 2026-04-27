@@ -312,6 +312,11 @@ async function handleLoad(id) {
     }
 
     goToStep(step);
+
+    // If loaded into editor step, mount the editor view
+    if (step === 5) {
+      switchView('editor');
+    }
   } catch (err) {
     console.error('Failed to load transcript:', err);
     showError('Failed to load transcript: ' + err.message);
@@ -1882,6 +1887,7 @@ if (btnStartNew) {
   btnStartNew.addEventListener('click', () => {
     clearLastTranscript();
     clearPermalinkHash();
+    clearTimeout(debouncedAutoSaveTimer);
     // Reset state
     segments = [];
     analysis = null;
