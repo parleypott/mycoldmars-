@@ -1902,6 +1902,17 @@ if (btnStartNew) {
     const editorMount = document.getElementById('editor-mount');
     if (editorMount) editorMount.innerHTML = '';
     editorInstance = null;
+    // Clear rendered DOM from previous transcript
+    const uploadPreview = document.getElementById('upload-preview');
+    if (uploadPreview) { uploadPreview.classList.add('hidden'); uploadPreview.querySelector('tbody').innerHTML = ''; }
+    const analyzeResult = document.getElementById('analyze-result');
+    if (analyzeResult) analyzeResult.classList.add('hidden');
+    const analyzeLoading = document.getElementById('analyze-loading');
+    if (analyzeLoading) analyzeLoading.classList.add('hidden');
+    const srtPreview = document.getElementById('srt-preview');
+    if (srtPreview) srtPreview.textContent = '';
+    const readerMount = document.getElementById('reader-mount');
+    if (readerMount) readerMount.innerHTML = '';
     goToStep(1);
   });
 }
