@@ -249,6 +249,7 @@ async function handleLoad(id) {
     wordTimingsMap = t.wordTimings || t.word_timings || null;
     currentTranscriptId = t.id;
     currentTranscriptName = t.name;
+    rememberLastTranscript(t.id);
     // Sync editor colors with saved speaker colors
     syncEditorColors();
     // Reset editor instance so it remounts with new state
@@ -381,6 +382,7 @@ btnSaveConfirm.addEventListener('click', async () => {
     } else {
       const row = await saveTranscript(payload);
       currentTranscriptId = row.id;
+      rememberLastTranscript(row.id);
     }
 
     currentTranscriptName = name;
@@ -492,6 +494,7 @@ async function autoSave() {
       const row = await saveTranscript(payload);
       currentTranscriptId = row.id;
       currentTranscriptName = name;
+      rememberLastTranscript(row.id);
     }
     updateSaveStatus('saved');
   } catch (err) {
@@ -558,6 +561,7 @@ function updateEditorInstance() {
       openCopilot(selection);
     },
     onInterestVote: handleInterestVote,
+    onRegenerateSummary: () => generateAutoSummary(),
   });
 }
 
@@ -1120,6 +1124,7 @@ function switchView(view) {
           openCopilot(selection);
         },
         onInterestVote: handleInterestVote,
+        onRegenerateSummary: () => generateAutoSummary(),
       });
 
       // Auto-generate summary on first entry if not already generated
@@ -1859,10 +1864,63 @@ function showError(msg, parentSel) {
   setTimeout(() => div.remove(), 8000);
 }
 
-// ── Init: load projects on startup ──
+// ── Remember last transcript for auto-reload ──
+function rememberLastTranscript(id) {
+  try { localStorage.setItem('mcm_last_transcript', id); } catch {}
+}
+function getLastTranscript() {
+  try { return localStorage.getItem('mcm_last_transcript'); } catch { return null; }
+}
+function clearLastTranscript() {
+  try { localStorage.removeItem('mcm_last_transcript'); } catch {}
+}
+
+// ── "Start New Transcription" button ──
+const btnStartNew = document.getElementById('btn-start-new');
+if (btnStartNew) {
+  btnStartNew.addEventListener('click', () => {
+    clearLastTranscript();
+    // Reset state
+    segments = [];
+    analysis = null;
+    translations = [];
+    srtContent = '';
+    currentTranscriptId = null;
+    currentTranscriptName = '';
+    speakerColors = {};
+    annotations = {};
+    speakerMap = {};
+    hiddenSpeakers = [];
+    customSequenceName = '';
+    editorState = null;
+    editorDirty = false;
+    currentSummary = null;
+    rawSummary = null;
+    summaryBullets = [];
+    interestVotes = {};
+    wordTimingsMap = null;
+    const editorMount = document.getElementById('editor-mount');
+    if (editorMount) editorMount.innerHTML = '';
+    editorInstance = null;
+    goToStep(1);
+  });
+}
+
+// ── Init: load projects and auto-reload last transcript ──
 (async function init() {
   try {
     projects = await listProjects();
     refreshProjectSelects();
   } catch {}
+
+  // Auto-reload last transcript
+  const lastId = getLastTranscript();
+  if (lastId) {
+    try {
+      await handleLoad(lastId);
+    } catch (err) {
+      console.warn('Auto-reload failed:', err.message);
+      clearLastTranscript();
+    }
+  }
 })();

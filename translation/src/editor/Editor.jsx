@@ -12,7 +12,7 @@ import { SummaryView } from '../copilot/SummaryView.jsx';
 import { extractSequenceBase } from '../csv-parser.js';
 import { formatPreciseTimecode } from '../timecode-utils.js';
 
-export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, onSequenceNameChange, editorDirty, summary, summaryBullets, interestVotes, onInterestVote, sequenceInfo, speakerColors, speakerMap, onSpeakerMapChange }) {
+export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, onSequenceNameChange, editorDirty, summary, summaryBullets, interestVotes, onInterestVote, onRegenerateSummary, sequenceInfo, speakerColors, speakerMap, onSpeakerMapChange }) {
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
@@ -376,13 +376,24 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
       {/* Summary collapsible panel */}
       {summary && (
         <div className={`editor-summary-panel ${summaryExpanded ? 'expanded' : ''}`}>
-          <button
-            className="editor-summary-toggle"
-            onClick={() => setSummaryExpanded(!summaryExpanded)}
-          >
-            <span className="np-eyebrow">Interview Summary</span>
-            <span className="editor-summary-arrow">{summaryExpanded ? '−' : '+'}</span>
-          </button>
+          <div className="editor-summary-header">
+            <button
+              className="editor-summary-toggle"
+              onClick={() => setSummaryExpanded(!summaryExpanded)}
+            >
+              <span className="np-eyebrow">Interview Summary</span>
+              <span className="editor-summary-arrow">{summaryExpanded ? '−' : '+'}</span>
+            </button>
+            {summaryExpanded && onRegenerateSummary && (
+              <button
+                className="editor-summary-regen-btn"
+                onClick={onRegenerateSummary}
+                title="Regenerate summary"
+              >
+                Regenerate
+              </button>
+            )}
+          </div>
           {summaryExpanded && (
             <SummaryView
               content={summary}
