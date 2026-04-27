@@ -361,7 +361,14 @@ btnSaveConfirm.addEventListener('click', async () => {
     saveModal.classList.add('hidden');
   } catch (err) {
     console.error('Save failed:', err);
-    showError('Save failed: ' + err.message);
+    const inner = saveModal.querySelector('.save-modal-inner');
+    const existing = inner.querySelector('.error-msg');
+    if (existing) existing.remove();
+    const div = document.createElement('div');
+    div.className = 'error-msg';
+    div.textContent = 'Save failed: ' + err.message;
+    inner.appendChild(div);
+    setTimeout(() => div.remove(), 8000);
   } finally {
     btnSaveConfirm.textContent = 'Save';
     btnSaveConfirm.disabled = false;
@@ -1015,7 +1022,16 @@ btnProjectConfirm.addEventListener('click', async () => {
     refreshProjectSelects();
     if (libraryShowing) fetchLibrary();
   } catch (err) {
-    showError('Failed to create project: ' + err.message);
+    console.error('Failed to create project:', err);
+    // Show error inside the modal so it's visible
+    const inner = projectModal.querySelector('.save-modal-inner');
+    const existing = inner.querySelector('.error-msg');
+    if (existing) existing.remove();
+    const div = document.createElement('div');
+    div.className = 'error-msg';
+    div.textContent = 'Failed to create project: ' + err.message;
+    inner.appendChild(div);
+    setTimeout(() => div.remove(), 8000);
   } finally {
     btnProjectConfirm.textContent = 'Create';
     btnProjectConfirm.disabled = false;
