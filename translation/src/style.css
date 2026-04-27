@@ -977,7 +977,6 @@ tr.dimmed-speaker { opacity: 0.35; }
 
 .editor-sync-btn {
   position: relative;
-  margin-left: auto;
   font-family: var(--np-font-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -1006,6 +1005,49 @@ tr.dimmed-speaker { opacity: 0.35; }
   height: 6px;
   border-radius: 50%;
   background: var(--np-red);
+}
+.editor-sync-wrap {
+  position: relative;
+  margin-left: auto;
+}
+.editor-sync-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: var(--np-space-1);
+  background: var(--np-warm-white);
+  border: 1px solid var(--np-cool-neutral);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 20;
+  min-width: 140px;
+}
+.editor-sync-dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--np-space-2) var(--np-space-3);
+  border: none;
+  background: transparent;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--np-ink);
+  cursor: pointer;
+  transition: background var(--np-duration) var(--np-ease);
+}
+.editor-sync-dropdown-item:hover {
+  background: rgba(221, 44, 30, 0.04);
+}
+.editor-sync-dropdown-item:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.editor-sync-dropdown-item:disabled:hover {
+  background: transparent;
+}
+.editor-sync-dropdown-item + .editor-sync-dropdown-item {
+  border-top: 1px solid var(--np-cool-neutral);
 }
 
 /* ── Bubble Menu ── */

@@ -1036,9 +1036,9 @@ function switchView(view) {
           editorDirty = true;
           debouncedAutoSave();
         },
-        onSync: () => {
-          const count = syncEditorToTranslations();
-          showSyncFeedback(count);
+        onSync: (segNums) => {
+          const count = syncEditorToTranslations(segNums);
+          showSyncFeedback(count, segNums);
           autoSave();
         },
         onSequenceNameChange: handleSequenceNameChange,
@@ -1381,9 +1381,9 @@ async function generateAutoSummary() {
           editorDirty = true;
           debouncedAutoSave();
         },
-        onSync: () => {
-          const count = syncEditorToTranslations();
-          showSyncFeedback(count);
+        onSync: (segNums) => {
+          const count = syncEditorToTranslations(segNums);
+          showSyncFeedback(count, segNums);
           autoSave();
         },
         onSequenceNameChange: handleSequenceNameChange,
@@ -1402,8 +1402,10 @@ async function generateAutoSummary() {
 
 // ── Editor ↔ Translations sync ──
 
-function syncEditorToTranslations() {
+function syncEditorToTranslations(onlySegmentNumbers) {
   if (!editorState?.content) return 0;
+
+  const limitSet = onlySegmentNumbers ? new Set(onlySegmentNumbers) : null;
 
   // Walk editor JSON, collect text per segment number
   const segmentTexts = new Map();
@@ -1413,6 +1415,7 @@ function syncEditorToTranslations() {
       const segMark = node.marks.find(m => m.type === 'segment');
       if (segMark && segMark.attrs.number != null) {
         const num = segMark.attrs.number;
+        if (limitSet && !limitSet.has(num)) return;
         const existing = segmentTexts.get(num) || '';
         segmentTexts.set(num, existing + (node.text || ''));
       }
@@ -1438,7 +1441,7 @@ function syncEditorToTranslations() {
 
   // Clear cached SRT so it regenerates fresh
   srtContent = '';
-  editorDirty = false;
+  if (!limitSet) editorDirty = false;
 
   // Update dirty indicator on sync button
   updateSyncDirtyIndicator();
@@ -1446,11 +1449,17 @@ function syncEditorToTranslations() {
   return synced;
 }
 
-function showSyncFeedback(count) {
+function showSyncFeedback(count, segNums) {
   const btn = document.querySelector('.editor-sync-btn');
   if (!btn) return;
-  const original = btn.textContent;
-  btn.textContent = count > 0 ? `Synced ${count} segments` : 'Already in sync';
+  const isPartial = Array.isArray(segNums);
+  let msg;
+  if (count > 0) {
+    msg = isPartial ? `Synced ${count} selected` : `Synced ${count} segments`;
+  } else {
+    msg = 'Already in sync';
+  }
+  btn.textContent = msg;
   btn.disabled = true;
   setTimeout(() => {
     btn.textContent = 'Sync';
@@ -1477,9 +1486,9 @@ function updateSyncDirtyIndicator() {
         editorDirty = true;
         debouncedAutoSave();
       },
-      onSync: () => {
-        const count = syncEditorToTranslations();
-        showSyncFeedback(count);
+      onSync: (segNums) => {
+        const count = syncEditorToTranslations(segNums);
+        showSyncFeedback(count, segNums);
         autoSave();
       },
       onSequenceNameChange: handleSequenceNameChange,
@@ -1594,9 +1603,9 @@ function commitTranslationToEditor(segmentNumbers, newText) {
         editorDirty = true;
         debouncedAutoSave();
       },
-      onSync: () => {
-        const count = syncEditorToTranslations();
-        showSyncFeedback(count);
+      onSync: (segNums) => {
+        const count = syncEditorToTranslations(segNums);
+        showSyncFeedback(count, segNums);
         autoSave();
       },
       onSequenceNameChange: handleSequenceNameChange,

@@ -16,6 +16,8 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
   const [showDismissed, setShowDismissed] = useState(false);
   const [editingSeqName, setEditingSeqName] = useState(false);
   const [seqNameValue, setSeqNameValue] = useState('');
+  const [syncMenuOpen, setSyncMenuOpen] = useState(false);
+  const syncMenuRef = useRef(null);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [editingSpeaker, setEditingSpeaker] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -243,6 +245,37 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
     setEditingSpeaker(null);
   }
 
+  // Close sync dropdown on outside click
+  useEffect(() => {
+    if (!syncMenuOpen) return;
+    const handleClick = (e) => {
+      if (syncMenuRef.current && !syncMenuRef.current.contains(e.target)) {
+        setSyncMenuOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClick, true);
+    return () => document.removeEventListener('click', handleClick, true);
+  }, [syncMenuOpen]);
+
+  const handleSyncSelected = useCallback(() => {
+    if (!editor || !onSync) return;
+    const { from, to } = editor.state.selection;
+    if (from === to) return; // no selection
+    const segNums = [];
+    editor.state.doc.nodesBetween(from, to, (node) => {
+      if (node.isText && node.marks) {
+        const seg = node.marks.find(m => m.type.name === 'segment');
+        if (seg && seg.attrs.number != null && !segNums.includes(seg.attrs.number)) {
+          segNums.push(seg.attrs.number);
+        }
+      }
+    });
+    if (segNums.length > 0) {
+      onSync(segNums);
+    }
+    setSyncMenuOpen(false);
+  }, [editor, onSync]);
+
   if (!editor) return null;
 
   // Get unique speakers from speakerMap
@@ -365,14 +398,33 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
           <span>Show dismissed</span>
         </label>
         {onSync && (
-          <button
-            className="editor-sync-btn"
-            data-dirty={editorDirty ? 'true' : 'false'}
-            onClick={onSync}
-            title="Sync editor text back to translations for SRT export"
-          >
-            Sync
-          </button>
+          <div className="editor-sync-wrap" ref={syncMenuRef}>
+            <button
+              className="editor-sync-btn"
+              data-dirty={editorDirty ? 'true' : 'false'}
+              onClick={() => setSyncMenuOpen(!syncMenuOpen)}
+              title="Sync editor text back to translations for SRT export"
+            >
+              Sync
+            </button>
+            {syncMenuOpen && (
+              <div className="editor-sync-dropdown">
+                <button
+                  className="editor-sync-dropdown-item"
+                  onClick={() => { onSync(); setSyncMenuOpen(false); }}
+                >
+                  Sync All
+                </button>
+                <button
+                  className="editor-sync-dropdown-item"
+                  onClick={handleSyncSelected}
+                  disabled={!editor || editor.state.selection.from === editor.state.selection.to}
+                >
+                  Sync Selected
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
