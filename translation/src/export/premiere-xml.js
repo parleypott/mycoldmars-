@@ -255,7 +255,7 @@ ${clipItems.map((clip, i) => `          <clipitem id="clip-audio-${i + 1}">
  * Each soundbite becomes a clip on the timeline referencing the sacred sequence,
  * with configurable gap frames between each clip.
  */
-export function buildSacredSequencerXML({ soundbites, sacredSequenceName, fps = 23.976, gapFrames = 12 }) {
+export function buildSacredSequencerXML({ soundbites, sacredSequenceName, outputName, fps = 23.976, gapFrames = 12 }) {
   const timebase = Math.round(fps);
   const isNtsc = (fps === 23.976 || fps === 29.97 || fps === 59.94);
 
@@ -295,7 +295,7 @@ export function buildSacredSequencerXML({ soundbites, sacredSequenceName, fps = 
   }
 
   const totalDuration = timelinePos > 0 ? timelinePos - gapFrames : 0;
-  const seqName = sacredSequenceName + ' — Sacred Selects';
+  const seqName = outputName || sacredSequenceName + '_Sacred Selects';
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xmeml>

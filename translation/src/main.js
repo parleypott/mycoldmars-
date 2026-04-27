@@ -861,8 +861,9 @@ $('#seq-parse-btn').addEventListener('click', () => {
 });
 
 $('#seq-confirm-yes').addEventListener('click', () => {
-  const confirmedName = $('#seq-confirm-name').value.trim();
-  $('#seq-name').value = confirmedName || 'Sacred Sequence';
+  const confirmedName = $('#seq-confirm-name').value.trim() || 'Sacred Sequence';
+  $('#seq-name').value = confirmedName;
+  $('#seq-output-name').value = confirmedName + '_Sacred Selects';
 
   $('#seq-confirm').classList.add('hidden');
   $('#seq-arrange').classList.remove('hidden');
@@ -895,12 +896,14 @@ $('#seq-export-btn').addEventListener('click', () => {
   if (seqSoundbites.length === 0) return;
 
   const sacredSequenceName = $('#seq-name').value.trim() || 'Sacred Sequence';
+  const outputName = $('#seq-output-name').value.trim() || sacredSequenceName + '_Sacred Selects';
   const fps = parseFloat($('#seq-fps').value) || 23.976;
   const gapFrames = parseInt($('#seq-gap').value) || 12;
 
   const xml = buildSacredSequencerXML({
     soundbites: seqSoundbites,
     sacredSequenceName,
+    outputName,
     fps,
     gapFrames,
   });
@@ -909,7 +912,7 @@ $('#seq-export-btn').addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${sacredSequenceName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-sacred-selects.xml`;
+  a.download = `${outputName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.xml`;
   a.click();
   URL.revokeObjectURL(url);
 });
