@@ -1,6 +1,7 @@
 import { parseCSV, getStats } from './csv-parser.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript } from './db.js';
 
 // ── State ──
 let segments = [];
@@ -8,7 +9,17 @@ let analysis = null;     // { narrative_summary, language_map, themes, questions
 let translations = [];    // [{ number, original, translated, language, kept_original, unintelligible }]
 let srtContent = '';
 let currentStep = 1;
-let bank = [];          // [{ id, speaker, tc, text }]
+let currentTranscriptId = null;
+let currentTranscriptName = '';
+let speakerColors = {};
+let annotations = {};
+
+const SPEAKER_PALETTE = [
+  '#DD2C1E', '#004CFF', '#0D5921', '#FFBF00',
+  '#520004', '#412C27', '#6B5CE7', '#E85D04'
+];
+
+const STEP_LABELS = ['', 'Upload', 'Analyze', 'Clarify', 'Translate', 'Export'];
 
 // ── DOM refs ──
 const $ = (sel) => document.querySelector(sel);
@@ -24,10 +35,30 @@ const btnTranslate = $('#btn-translate');
 const btnExport = $('#btn-export');
 const btnDownload = $('#btn-download');
 const btnCopy = $('#btn-copy');
+const btnLibrary = $('#btn-library');
+const btnSave = $('#btn-save');
+const saveModal = $('#save-modal');
+const saveNameInput = $('#save-name');
+const btnSaveConfirm = $('#btn-save-confirm');
+const btnSaveCancel = $('#btn-save-cancel');
+const libraryView = $('#library-view');
+const libraryList = $('#library-list');
+const libraryEmpty = $('#library-empty');
+const stepsNav = $('.steps');
 
 // ── Step navigation ──
+let libraryShowing = false;
+
 function goToStep(n) {
   currentStep = n;
+
+  // Hide library if showing
+  if (libraryShowing) {
+    libraryView.classList.remove('active');
+    stepsNav.classList.remove('hidden');
+    libraryShowing = false;
+  }
+
   $$('.panel').forEach(p => p.classList.remove('active'));
   $(`#step-${n}`).classList.add('active');
 
@@ -37,6 +68,223 @@ function goToStep(n) {
     s.classList.toggle('done', sn < n);
   });
 }
+
+function showLibrary() {
+  libraryShowing = true;
+  $$('.panel').forEach(p => p.classList.remove('active'));
+  stepsNav.classList.add('hidden');
+  libraryView.classList.add('active');
+  fetchLibrary();
+}
+
+// ── Library ──
+async function fetchLibrary() {
+  try {
+    const transcripts = await listTranscripts();
+    renderLibrary(transcripts);
+  } catch (err) {
+    libraryList.innerHTML = '';
+    libraryEmpty.classList.remove('hidden');
+    console.error('Failed to load library:', err);
+  }
+}
+
+function renderLibrary(transcripts) {
+  if (!transcripts || transcripts.length === 0) {
+    libraryList.innerHTML = '';
+    libraryEmpty.classList.remove('hidden');
+    return;
+  }
+
+  libraryEmpty.classList.add('hidden');
+  libraryList.innerHTML = transcripts.map(t => {
+    const date = new Date(t.updated_at).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
+    const stepLabel = STEP_LABELS[t.step] || 'Upload';
+    return `
+      <div class="library-item" data-id="${t.id}">
+        <div class="library-item-info">
+          <div class="library-item-name">${esc(t.name)}</div>
+          <div class="library-item-meta">
+            <span>${date}</span>
+            <span class="library-item-step">Step ${t.step}: ${stepLabel}</span>
+          </div>
+        </div>
+        <div class="library-item-actions">
+          <button class="np-button library-load-btn" data-id="${t.id}">Load</button>
+          <button class="np-button library-delete-btn" data-id="${t.id}">&times;</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Wire up buttons
+  libraryList.querySelectorAll('.library-load-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleLoad(btn.dataset.id));
+  });
+  libraryList.querySelectorAll('.library-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleDelete(btn.dataset.id));
+  });
+}
+
+async function handleLoad(id) {
+  try {
+    const t = await loadTranscript(id);
+
+    // Restore state
+    segments = t.segments || [];
+    analysis = t.analysis || null;
+    translations = t.translations || [];
+    srtContent = t.srt_content || '';
+    speakerColors = t.speaker_colors || {};
+    annotations = t.annotations || {};
+    currentTranscriptId = t.id;
+    currentTranscriptName = t.name;
+
+    // Restore metadata
+    const meta = t.metadata || {};
+    if (meta.editorialFocus) {
+      const ef = $('#editorial-focus');
+      if (ef) ef.value = meta.editorialFocus;
+    }
+
+    // Re-render based on step
+    const step = t.step || 1;
+
+    if (segments.length > 0) {
+      renderTranscript();
+    }
+
+    if (analysis) {
+      renderAnalysis();
+      renderClarifyStep();
+
+      // Restore clarification answers
+      if (meta.clarifications && analysis.questions) {
+        const answers = meta.clarifications;
+        $$('#questions-list .question-card').forEach(card => {
+          const qid = card.dataset.qid;
+          const match = answers.find(a => a.id === qid);
+          if (match) {
+            const ta = card.querySelector('textarea');
+            if (ta) ta.value = match.answer;
+          }
+        });
+      }
+    }
+
+    if (translations.length > 0) {
+      renderTranslations();
+    }
+
+    if (srtContent) {
+      $('#srt-preview').textContent = srtContent;
+      buildReaderView();
+    }
+
+    goToStep(step);
+  } catch (err) {
+    console.error('Failed to load transcript:', err);
+    showError('Failed to load transcript: ' + err.message);
+  }
+}
+
+async function handleDelete(id) {
+  try {
+    await deleteTranscript(id);
+    if (currentTranscriptId === id) {
+      currentTranscriptId = null;
+      currentTranscriptName = '';
+    }
+    fetchLibrary();
+  } catch (err) {
+    console.error('Failed to delete:', err);
+  }
+}
+
+// ── Save ──
+btnSave.addEventListener('click', () => {
+  // Pre-fill name
+  if (currentTranscriptName) {
+    saveNameInput.value = currentTranscriptName;
+  } else {
+    const firstSpeaker = segments[0]?.speaker || '';
+    const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    saveNameInput.value = firstSpeaker ? `${firstSpeaker} — ${date}` : '';
+  }
+  saveModal.classList.remove('hidden');
+  saveNameInput.focus();
+});
+
+btnSaveCancel.addEventListener('click', () => {
+  saveModal.classList.add('hidden');
+});
+
+saveModal.addEventListener('click', (e) => {
+  if (e.target === saveModal) saveModal.classList.add('hidden');
+});
+
+btnSaveConfirm.addEventListener('click', async () => {
+  const name = saveNameInput.value.trim();
+  if (!name) return;
+
+  btnSaveConfirm.textContent = 'Saving...';
+  btnSaveConfirm.disabled = true;
+
+  try {
+    const payload = gatherState(name);
+
+    if (currentTranscriptId) {
+      await updateTranscript(currentTranscriptId, payload);
+    } else {
+      const row = await saveTranscript(payload);
+      currentTranscriptId = row.id;
+    }
+
+    currentTranscriptName = name;
+    saveModal.classList.add('hidden');
+  } catch (err) {
+    console.error('Save failed:', err);
+    showError('Save failed: ' + err.message);
+  } finally {
+    btnSaveConfirm.textContent = 'Save';
+    btnSaveConfirm.disabled = false;
+  }
+});
+
+function gatherState(name) {
+  const editorialFocus = $('#editorial-focus')?.value?.trim() || '';
+  const clarifications = gatherClarifications();
+
+  return {
+    name: name || currentTranscriptName,
+    step: currentStep,
+    segments,
+    analysis,
+    translations,
+    srtContent,
+    speakerColors,
+    annotations,
+    metadata: {
+      editorialFocus,
+      clarifications,
+    },
+  };
+}
+
+async function autoSave() {
+  if (!currentTranscriptId) return;
+  try {
+    const payload = gatherState();
+    await updateTranscript(currentTranscriptId, payload);
+  } catch (err) {
+    console.error('Auto-save failed:', err);
+  }
+}
+
+// ── Library button ──
+btnLibrary.addEventListener('click', showLibrary);
 
 // ── Step 1: Upload ──
 function handleFile(file) {
@@ -49,6 +297,14 @@ function handleFile(file) {
   reader.onload = (e) => {
     try {
       segments = parseCSV(e.target.result);
+      // Reset state for new file
+      currentTranscriptId = null;
+      currentTranscriptName = '';
+      analysis = null;
+      translations = [];
+      srtContent = '';
+      speakerColors = {};
+      annotations = {};
       renderTranscript();
     } catch (err) {
       showError(err.message);
@@ -107,12 +363,24 @@ btnAnalyze.addEventListener('click', async () => {
 
   try {
     analysis = await analyzeTranscript(segments);
+    assignSpeakerColors();
     renderAnalysis();
+    autoSave();
   } catch (err) {
     $('#analyze-loading').classList.add('hidden');
     showError(err.message, '#step-2');
   }
 });
+
+function assignSpeakerColors() {
+  if (!analysis?.language_map) return;
+  const speakers = Object.keys(analysis.language_map);
+  speakers.forEach((speaker, i) => {
+    if (!speakerColors[speaker]) {
+      speakerColors[speaker] = SPEAKER_PALETTE[i % SPEAKER_PALETTE.length];
+    }
+  });
+}
 
 function renderAnalysis() {
   $('#analyze-loading').classList.add('hidden');
@@ -228,6 +496,7 @@ async function startTranslation() {
 
     translations = result;
     renderTranslations();
+    autoSave();
   } catch (err) {
     $('#translate-loading').classList.add('hidden');
     showError(err.message, '#step-4');
@@ -292,6 +561,7 @@ btnExport.addEventListener('click', () => {
 
   $('#srt-preview').textContent = srtContent;
   buildReaderView();
+  autoSave();
 });
 
 btnDownload.addEventListener('click', () => {
@@ -366,6 +636,9 @@ function buildReaderView() {
     const block = document.createElement('div');
     block.className = 'reader-speaker-block';
 
+    const color = speakerColors[group.speaker] || '#DD2C1E';
+    block.style.setProperty('--speaker-color', color);
+
     const nameEl = document.createElement('div');
     nameEl.className = 'reader-speaker-name';
     nameEl.textContent = group.speaker;
@@ -388,7 +661,7 @@ function buildReaderView() {
   }
 }
 
-// Intercept copy in reader — prepend [Speaker — TC] and bank it
+// Intercept copy in reader — prepend [Speaker — TC]
 $('#reader-content').addEventListener('copy', (e) => {
   const selection = window.getSelection();
   if (!selection || selection.isCollapsed) return;
@@ -409,79 +682,9 @@ $('#reader-content').addEventListener('copy', (e) => {
   e.preventDefault();
   e.clipboardData.setData('text/plain', `[${speaker} — ${tc}] ${selectedText}`);
 
-  // Auto-bank the bite
-  addToBank(speaker, tc, selectedText);
-
   const fb = $('#reader-copy-feedback');
   fb.classList.remove('hidden');
   setTimeout(() => fb.classList.add('hidden'), 2000);
-});
-
-// ── Bank ──
-let bankId = 0;
-
-function addToBank(speaker, tc, text) {
-  bank.push({ id: ++bankId, speaker, tc, text });
-  renderBank();
-}
-
-function renderBank() {
-  const list = $('#bank-list');
-  const empty = $('#bank-empty');
-  const actions = $('#bank-actions');
-  const countEl = $('#bank-count');
-
-  if (bank.length === 0) {
-    empty.classList.remove('hidden');
-    actions.classList.add('hidden');
-    countEl.classList.add('hidden');
-    list.innerHTML = '';
-    return;
-  }
-
-  empty.classList.add('hidden');
-  actions.classList.remove('hidden');
-  countEl.classList.remove('hidden');
-  countEl.textContent = bank.length;
-
-  list.innerHTML = bank.map(item => `
-    <div class="bank-item" data-bank-id="${item.id}">
-      <button class="bank-item-x" data-bank-id="${item.id}">&times;</button>
-      <div class="bank-item-meta">
-        <span class="bank-item-speaker">${esc(item.speaker)}</span>
-        <span class="bank-item-tc">${esc(item.tc)}</span>
-      </div>
-      <div class="bank-item-text">${esc(item.text)}</div>
-    </div>
-  `).join('');
-
-  // Wire up X buttons
-  list.querySelectorAll('.bank-item-x').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = parseInt(btn.dataset.bankId);
-      const el = list.querySelector(`.bank-item[data-bank-id="${id}"]`);
-      el.classList.add('removing');
-      el.addEventListener('animationend', () => {
-        bank = bank.filter(b => b.id !== id);
-        renderBank();
-      });
-    });
-  });
-}
-
-// Copy all banked items
-$('#btn-bank-copy-all').addEventListener('click', async () => {
-  const text = bank.map(b => `[${b.speaker} — ${b.tc}] ${b.text}`).join('\n\n');
-  await navigator.clipboard.writeText(text);
-  const fb = $('#bank-copy-feedback');
-  fb.classList.remove('hidden');
-  setTimeout(() => fb.classList.add('hidden'), 2000);
-});
-
-// Clear all
-$('#btn-bank-clear').addEventListener('click', () => {
-  bank = [];
-  renderBank();
 });
 
 // ── Helpers ──

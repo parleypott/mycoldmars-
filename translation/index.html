@@ -12,8 +12,16 @@
   <div id="app">
 
     <header>
-      <div class="np-eyebrow np-eyebrow--red">Newpress</div>
-      <h1>Trans<em>lation</em></h1>
+      <div class="header-row">
+        <div>
+          <div class="np-eyebrow np-eyebrow--red">Newpress</div>
+          <h1>Trans<em>lation</em></h1>
+        </div>
+        <div class="header-actions">
+          <button id="btn-library" class="np-button">Library</button>
+          <button id="btn-save" class="np-button np-button--primary">Save</button>
+        </div>
+      </div>
       <p class="header-desc">Upload a transcript. Get an SRT.</p>
     </header>
 
@@ -153,48 +161,50 @@
       <p class="section-desc">Your SRT is ready.</p>
       <hr class="np-rule">
 
-      <div class="export-layout">
-        <div class="export-main">
-          <div class="view-toggle">
-            <button id="btn-view-srt" class="view-toggle-btn active">SRT</button>
-            <button id="btn-view-reader" class="view-toggle-btn">Reader</button>
-          </div>
+      <div class="view-toggle">
+        <button id="btn-view-srt" class="view-toggle-btn active">SRT</button>
+        <button id="btn-view-reader" class="view-toggle-btn">Reader</button>
+      </div>
 
-          <div id="srt-view">
-            <div id="srt-preview" class="srt-preview"></div>
-            <div class="export-actions">
-              <button id="btn-download" class="np-button np-button--red">Download .srt</button>
-              <button id="btn-copy" class="np-button">Copy to clipboard</button>
-            </div>
-            <p id="copy-feedback" class="hidden copy-feedback">Copied.</p>
-          </div>
-
-          <div id="reader-view" class="reader hidden">
-            <div class="reader-hint">
-              <span class="np-eyebrow">Select text to copy with timecode</span>
-            </div>
-            <div id="reader-content" class="reader-content"></div>
-            <p id="reader-copy-feedback" class="hidden copy-feedback">Copied with timecode.</p>
-          </div>
+      <div id="srt-view">
+        <div id="srt-preview" class="srt-preview"></div>
+        <div class="export-actions">
+          <button id="btn-download" class="np-button np-button--red">Download .srt</button>
+          <button id="btn-copy" class="np-button">Copy to clipboard</button>
         </div>
+        <p id="copy-feedback" class="hidden copy-feedback">Copied.</p>
+      </div>
 
-        <aside class="bank-sidebar">
-          <div class="bank-header">
-            <span class="np-eyebrow np-eyebrow--red">Bank</span>
-            <span id="bank-count" class="bank-count hidden">0</span>
-          </div>
-          <div id="bank-empty" class="bank-empty">
-            <p>Select text in the Reader to collect bites.</p>
-          </div>
-          <div id="bank-list" class="bank-list"></div>
-          <div id="bank-actions" class="bank-actions hidden">
-            <button id="btn-bank-copy-all" class="np-button np-button--primary">Copy all</button>
-            <button id="btn-bank-clear" class="np-button">Clear all</button>
-          </div>
-          <p id="bank-copy-feedback" class="hidden copy-feedback">Copied.</p>
-        </aside>
+      <div id="reader-view" class="reader hidden">
+        <div class="reader-hint">
+          <span class="np-eyebrow">Select text to copy with timecode</span>
+        </div>
+        <div id="reader-content" class="reader-content"></div>
+        <p id="reader-copy-feedback" class="hidden copy-feedback">Copied with timecode.</p>
       </div>
     </section>
+    <!-- Library view -->
+    <section id="library-view" class="panel">
+      <h2>Library</h2>
+      <p class="section-desc">Your saved transcripts.</p>
+      <hr class="np-rule">
+      <div id="library-list"></div>
+      <div id="library-empty">
+        <p>No saved transcripts yet.</p>
+      </div>
+    </section>
+
+    <!-- Save modal -->
+    <div id="save-modal" class="save-modal hidden">
+      <div class="save-modal-inner">
+        <div class="np-eyebrow np-eyebrow--red">Save Transcript</div>
+        <input id="save-name" class="np-textarea" placeholder="e.g. Taiwan fishing village interview" style="min-height:auto">
+        <div class="save-modal-actions">
+          <button id="btn-save-confirm" class="np-button np-button--primary">Save</button>
+          <button id="btn-save-cancel" class="np-button">Cancel</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="src/main.js"></script>
