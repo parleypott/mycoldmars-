@@ -60,9 +60,9 @@ export function buildPremiereXML(highlights, segments, transcriptName) {
 }
 
 /**
- * Convert HH:MM:SS.mmm timecode to frame count (assuming 24fps).
+ * Convert HH:MM:SS.mmm timecode to frame count.
  */
-function timecodeToFrames(tc) {
+function timecodeToFrames(tc, fps = 24) {
   if (!tc) return 0;
 
   let hours = 0, minutes = 0, seconds = 0, ms = 0;
@@ -82,7 +82,7 @@ function timecodeToFrames(tc) {
   }
 
   const totalSeconds = hours * 3600 + minutes * 60 + seconds + ms / 1000;
-  return Math.round(totalSeconds * 24); // 24fps
+  return Math.round(totalSeconds * fps);
 }
 
 function tagColorToPremiereColor(hex) {
@@ -98,6 +98,156 @@ function tagColorToPremiereColor(hex) {
     '#412C27': 'Tan',
   };
   return colorMap[hex] || 'Cyan';
+}
+
+/**
+ * Build an FCP XML that creates a new sequence referencing the "sacred sequence"
+ * as a nested clip. Each segment becomes a cut in the timeline using the
+ * transcript timecodes as in/out points within the sacred sequence.
+ *
+ * @param {Object} opts
+ * @param {string} opts.sacredSequenceName — name of the master sequence in Premiere
+ * @param {string} opts.outputName — name for the new sequence
+ * @param {Array}  opts.segments — transcript segments with start/end timecodes
+ * @param {Array}  opts.translations — translation data (for text overlays / markers)
+ * @param {Object} opts.interestVotes — optional: { segNum: 'interested' | 'not-interested' }
+ * @param {Set}    opts.dismissedSegments — optional: segment numbers dismissed in editor
+ * @param {number} opts.fps — frame rate (default 23.976)
+ */
+export function buildPremiereSequenceXML(opts) {
+  const {
+    sacredSequenceName,
+    outputName,
+    segments,
+    translations,
+    interestVotes,
+    dismissedSegments,
+    fps = 23.976,
+  } = opts;
+
+  const timebase = Math.round(fps);
+  const isNtsc = (fps === 23.976 || fps === 29.97 || fps === 59.94);
+
+  // Determine which segments to include
+  let includedSegments = segments.filter(seg => {
+    if (dismissedSegments && dismissedSegments.has(seg.number)) return false;
+    if (interestVotes) {
+      const vote = interestVotes[seg.number];
+      if (vote === 'not-interested') return false;
+    }
+    return true;
+  });
+
+  // If no filtering applied, include all
+  if (includedSegments.length === 0) includedSegments = segments;
+
+  // Find the total duration of the sacred sequence (last segment end)
+  const lastSeg = segments[segments.length - 1];
+  const sacredDurationFrames = lastSeg ? timecodeToFrames(lastSeg.end, fps) : 0;
+
+  // Build clip items — each segment is a portion of the sacred sequence
+  let timelinePos = 0;
+  const clipItems = [];
+
+  for (const seg of includedSegments) {
+    const inFrames = timecodeToFrames(seg.start, fps);
+    const outFrames = timecodeToFrames(seg.end, fps);
+    const duration = outFrames - inFrames;
+    if (duration <= 0) continue;
+
+    // Find matching translation for marker comment
+    const trans = translations ? translations.find(t => t.number === seg.number) : null;
+    const comment = trans ? (trans.translated || seg.text) : seg.text;
+    const speaker = seg.speaker || '';
+
+    clipItems.push({
+      inFrame: inFrames,
+      outFrame: outFrames,
+      startFrame: timelinePos,
+      endFrame: timelinePos + duration,
+      duration,
+      speaker,
+      comment,
+      segNumber: seg.number,
+    });
+
+    timelinePos += duration;
+  }
+
+  const totalDuration = timelinePos;
+
+  // Generate a unique ID for the sacred sequence reference
+  const sacredId = 'sacred-seq-1';
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<xmeml version="5">
+  <sequence>
+    <name>${escapeXml(outputName || 'Translated Selects')}</name>
+    <duration>${totalDuration}</duration>
+    <rate>
+      <timebase>${timebase}</timebase>
+      <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
+    </rate>
+    <media>
+      <video>
+        <format>
+          <samplecharacteristics>
+            <width>1920</width>
+            <height>1080</height>
+          </samplecharacteristics>
+        </format>
+        <track>
+${clipItems.map((clip, i) => `          <clipitem id="clip-${i + 1}">
+            <name>${escapeXml(sacredSequenceName)} — Seg ${clip.segNumber}</name>
+            <duration>${sacredDurationFrames}</duration>
+            <rate>
+              <timebase>${timebase}</timebase>
+              <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
+            </rate>
+            <start>${clip.startFrame}</start>
+            <end>${clip.endFrame}</end>
+            <in>${clip.inFrame}</in>
+            <out>${clip.outFrame}</out>
+            <file id="${sacredId}">
+              <name>${escapeXml(sacredSequenceName)}</name>
+              <duration>${sacredDurationFrames}</duration>
+              <rate>
+                <timebase>${timebase}</timebase>
+                <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
+              </rate>
+            </file>
+            <marker>
+              <name>${escapeXml(clip.speaker)}</name>
+              <comment>${escapeXml(clip.comment.slice(0, 200))}</comment>
+              <in>0</in>
+              <out>${clip.duration}</out>
+            </marker>
+          </clipitem>`).join('\n')}
+        </track>
+      </video>
+      <audio>
+        <track>
+${clipItems.map((clip, i) => `          <clipitem id="clip-audio-${i + 1}">
+            <name>${escapeXml(sacredSequenceName)} — Seg ${clip.segNumber}</name>
+            <duration>${sacredDurationFrames}</duration>
+            <rate>
+              <timebase>${timebase}</timebase>
+              <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
+            </rate>
+            <start>${clip.startFrame}</start>
+            <end>${clip.endFrame}</end>
+            <in>${clip.inFrame}</in>
+            <out>${clip.outFrame}</out>
+            <file id="${sacredId}"/>
+          </clipitem>`).join('\n')}
+        </track>
+      </audio>
+    </media>
+  </sequence>
+</xmeml>`;
+
+  return xml;
 }
 
 function escapeXml(str) {

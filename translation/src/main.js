@@ -8,7 +8,7 @@ import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
 import { mountTagSearch } from './tags/mount.js';
 import { mountCopilot } from './copilot/mount.js';
-import { buildPremiereXML } from './export/premiere-xml.js';
+import { buildPremiereXML, buildPremiereSequenceXML } from './export/premiere-xml.js';
 import { exportHighlightsPDF } from './export/pdf-export.js';
 import { exportSummaryText } from './export/summary-export.js';
 import { extractHighlightsFromEditor } from './editor/document-builder.js';
@@ -1446,6 +1446,27 @@ if (btnExportMenu) {
         const a = document.createElement('a');
         a.href = url;
         a.download = `${(currentTranscriptName || 'markers').replace(/[^a-z0-9]/gi, '-').toLowerCase()}.xml`;
+        a.click();
+        URL.revokeObjectURL(url);
+        break;
+      }
+      case 'premiere-sequence': {
+        const seqName = customSequenceName || currentTranscriptName || 'Sacred Sequence';
+        const dismissed = editorState ? new Set(getDismissedSegmentNumbers(editorState)) : new Set();
+        const xml = buildPremiereSequenceXML({
+          sacredSequenceName: seqName,
+          outputName: `${currentTranscriptName || 'Selects'} — Cut`,
+          segments,
+          translations,
+          interestVotes,
+          dismissedSegments: dismissed,
+          fps: 23.976,
+        });
+        const blob = new Blob([xml], { type: 'application/xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${(currentTranscriptName || 'sequence-cut').replace(/[^a-z0-9]/gi, '-').toLowerCase()}.xml`;
         a.click();
         URL.revokeObjectURL(url);
         break;
