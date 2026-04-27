@@ -1569,6 +1569,37 @@ tr.dimmed-speaker { opacity: 0.35; }
   color: var(--np-cool-neutral);
 }
 
+/* ── Speaker Checkboxes (Step 2) ── */
+.speaker-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--np-space-3);
+  padding: var(--np-space-2) 0;
+}
+.speaker-checkbox-row input[type="checkbox"] {
+  accent-color: var(--np-red);
+}
+.speaker-checkbox-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.speaker-checkbox-label {
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--np-ink);
+}
+.speaker-checkbox-lang {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+  opacity: 0.7;
+}
+
 /* ── Utility ── */
 .hidden { display: none !important; }
 

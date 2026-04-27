@@ -674,6 +674,9 @@ function renderAnalysis() {
     langDiv.textContent = 'Could not detect languages';
   }
 
+  // Populate speaker checkboxes
+  renderSpeakerCheckboxes();
+
   // Show generic segment count
   const genericCount = analysis.generic_segments?.length || 0;
   const notice = $('#questions-notice');
@@ -692,8 +695,42 @@ function renderAnalysis() {
   btnToClarify.innerHTML = 'Continue &rarr;';
 }
 
+function renderSpeakerCheckboxes() {
+  const container = $('#speaker-checkboxes');
+  if (!analysis?.language_map || typeof analysis.language_map !== 'object') {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = Object.entries(analysis.language_map)
+    .map(([speaker, lang]) => {
+      const color = speakerColors[speaker] || '#DD2C1E';
+      const isHidden = hiddenSpeakers.includes(speaker);
+      const checked = !isHidden;
+      return `<label class="speaker-checkbox-row">
+        <input type="checkbox" data-speaker="${esc(speaker)}" ${checked ? 'checked' : ''}>
+        <span class="speaker-checkbox-dot" style="background:${color}"></span>
+        <span class="speaker-checkbox-label">${esc(speaker)}</span>
+        <span class="speaker-checkbox-lang">${esc(lang)}</span>
+      </label>`;
+    })
+    .join('');
+}
+
+function gatherSpeakerSelections() {
+  const checkboxes = $$('#speaker-checkboxes input[type="checkbox"]');
+  if (checkboxes.length === 0) return;
+  hiddenSpeakers = [];
+  checkboxes.forEach(cb => {
+    if (!cb.checked) {
+      hiddenSpeakers.push(cb.dataset.speaker);
+    }
+  });
+}
+
 // ── Skip to Editor ──
 function skipToEditor() {
+  gatherSpeakerSelections();
   // Build editor state directly from segments (no translations)
   editorState = buildEditorDocument(segments, translations.length > 0 ? translations : null, speakerColors, speakerMap, hiddenSpeakers, analysis?.language_map);
   editorInstance = null;
@@ -765,6 +802,7 @@ btnTranslate.addEventListener('click', () => {
 });
 
 async function startTranslation() {
+  gatherSpeakerSelections();
   goToStep(4);
   $('#translate-loading').classList.remove('hidden');
   $('#translate-result').classList.add('hidden');
@@ -772,10 +810,14 @@ async function startTranslation() {
   const clarifications = gatherClarifications();
   const editorialFocus = $('#editorial-focus')?.value?.trim() || '';
 
+  // Filter out hidden speakers — they get [chatter] results directly
+  const hiddenSet = new Set(hiddenSpeakers);
+  const segmentsToTranslate = segments.filter(s => !hiddenSet.has(s.speaker));
+
   try {
     const loadingText = $('#translate-loading p');
     const result = await translateSegments({
-      segments,
+      segments: segmentsToTranslate,
       languageMap: analysis?.language_map || {},
       narrativeSummary: analysis?.narrative_summary || '',
       clarifications,
@@ -785,7 +827,24 @@ async function startTranslation() {
       },
     });
 
-    translations = result;
+    // Merge results: translated segments get API results, hidden get [chatter]
+    const translatedMap = new Map(result.map(r => [r.number, r]));
+    translations = segments.map(seg => {
+      if (translatedMap.has(seg.number)) {
+        return translatedMap.get(seg.number);
+      }
+      // Hidden speaker — fill with chatter
+      return {
+        number: seg.number,
+        original: seg.text,
+        translated: '[chatter]',
+        language: analysis?.language_map?.[seg.speaker] || '',
+        kept_original: false,
+        unintelligible: false,
+        chatter: true,
+      };
+    });
+
     renderTranslations();
     editorState = buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, analysis?.language_map);
     editorInstance = null;

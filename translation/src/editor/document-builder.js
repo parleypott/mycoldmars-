@@ -93,6 +93,7 @@ export function buildEditorDocument(segments, translations, speakerColors, speak
         speaker: speakerMap?.[group.speaker] || group.speaker,
         color,
         visible: !isHidden,
+        dismissed: isHidden,
         language: langCode,
       },
       content: [{
