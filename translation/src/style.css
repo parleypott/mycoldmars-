@@ -187,6 +187,31 @@ header {
   color: var(--np-ink);
   background: rgba(0,0,0,0.04);
 }
+#btn-sequencer {
+  background: linear-gradient(135deg, #7b2ff7, #c840e9, #f637cf);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(200, 64, 233, 0.6);
+  border-radius: 3px;
+  box-shadow:
+    0 0 8px rgba(123, 47, 247, 0.4),
+    0 0 20px rgba(200, 64, 233, 0.2);
+  animation: seq-btn-glow 2s ease-in-out infinite;
+}
+#btn-sequencer:hover {
+  background: linear-gradient(135deg, #8f4ff9, #d060f0, #ff50dd);
+  box-shadow:
+    0 0 12px rgba(123, 47, 247, 0.6),
+    0 0 30px rgba(200, 64, 233, 0.35),
+    0 0 50px rgba(246, 55, 207, 0.15);
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+}
+@keyframes seq-btn-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(123,47,247,0.4), 0 0 20px rgba(200,64,233,0.2); }
+  50% { box-shadow: 0 0 12px rgba(123,47,247,0.6), 0 0 28px rgba(200,64,233,0.3), 0 0 45px rgba(246,55,207,0.12); }
+}
 .header-btn--primary {
   color: var(--np-warm-white);
   background: var(--np-ink);
