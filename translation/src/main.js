@@ -259,7 +259,7 @@ async function handleLoad(id) {
       const ef = $('#editorial-focus');
       if (ef) ef.value = meta.editorialFocus;
     }
-    currentSummary = meta.summary || null;
+    currentSummary = meta.summary ? enrichSummaryWithTimecodes(meta.summary) : null;
 
     // Re-render based on step
     const step = t.step || 1;
@@ -1319,6 +1319,52 @@ if (btnExportMenu) {
 }
 
 // ── Auto Summary ──
+function enrichSummaryWithTimecodes(text) {
+  if (!text || !segments.length) return text;
+
+  // Build a map: segment number → start timecode
+  const segTimecodes = {};
+  for (const seg of segments) {
+    if (seg.number != null && seg.start) {
+      segTimecodes[seg.number] = seg.start;
+    }
+  }
+
+  // Format a timecode value to short form (M:SS or H:MM:SS)
+  function fmtShort(tc) {
+    let secs;
+    if (/^\d+(\.\d+)?$/.test(tc)) {
+      secs = parseFloat(tc);
+    } else {
+      const m = tc.match(/(\d+):(\d+):(\d+)/);
+      if (m) secs = parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseInt(m[3]);
+      else {
+        const m2 = tc.match(/(\d+):(\d+)/);
+        secs = m2 ? parseInt(m2[1]) * 60 + parseInt(m2[2]) : 0;
+      }
+    }
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = Math.floor(secs % 60);
+    const pad = n => String(n).padStart(2, '0');
+    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+  }
+
+  // Replace (Segments X-Y) with (X:XX – Segments X-Y)
+  return text.replace(/\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)/gi, (match, startNum, endNum) => {
+    const startTc = segTimecodes[parseInt(startNum)];
+    if (!startTc) return match;
+    const startFmt = fmtShort(startTc);
+    if (endNum) {
+      const endTc = segTimecodes[parseInt(endNum)];
+      const endFmt = endTc ? fmtShort(endTc) : '';
+      const range = endFmt ? `${startFmt} – ${endFmt}` : startFmt;
+      return `(${range})`;
+    }
+    return `(${startFmt})`;
+  });
+}
+
 async function generateAutoSummary() {
   try {
     const userMessage = buildAutoSummaryPrompt(segments, translations, speakerMap);
@@ -1362,7 +1408,7 @@ async function generateAutoSummary() {
       }
     }
 
-    currentSummary = text;
+    currentSummary = enrichSummaryWithTimecodes(text);
 
     // Update editor with the summary
     if (editorInstance) {
