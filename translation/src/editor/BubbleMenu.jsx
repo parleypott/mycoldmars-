@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 
 /**
  * Custom bubble menu that positions itself near the text selection.
- * No dependency on @tiptap/extension-bubble-menu.
+ * Uses fixed positioning relative to the viewport for reliable placement.
  */
 export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
   const [visible, setVisible] = useState(false);
@@ -19,24 +19,21 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
         return;
       }
 
-      // Get selection coordinates
-      const domSelection = window.getSelection();
-      if (!domSelection || domSelection.rangeCount === 0) {
+      // Get the editor's coordinate for the start of selection
+      const coords = editor.view.coordsAtPos(from);
+      if (!coords) {
         setVisible(false);
         return;
       }
 
-      const range = domSelection.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-
-      if (rect.width === 0) {
-        setVisible(false);
-        return;
-      }
+      // Position to the left of the text, vertically centered on selection start
+      const editorEl = editor.view.dom.closest('.transcript-editor');
+      const editorRect = editorEl?.getBoundingClientRect();
+      const leftEdge = editorRect ? editorRect.left : coords.left;
 
       setPosition({
-        top: rect.top - 48 + window.scrollY,
-        left: rect.left + rect.width / 2,
+        top: coords.top,
+        left: Math.max(8, leftEdge - 8),
       });
       setVisible(true);
     };
@@ -60,10 +57,10 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
       ref={menuRef}
       className="bubble-menu"
       style={{
-        position: 'absolute',
+        position: 'fixed',
         top: `${position.top}px`,
         left: `${position.left}px`,
-        transform: 'translateX(-50%)',
+        transform: 'translate(-100%, -4px)',
         zIndex: 100,
       }}
     >
@@ -72,7 +69,7 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
         onMouseDown={(e) => { e.preventDefault(); toggleDelete(); }}
         title="Soft delete (strikethrough)"
       >
-        Delete
+        Del
       </button>
       {onHighlight && (
         <button
@@ -80,7 +77,7 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
           onMouseDown={(e) => { e.preventDefault(); onHighlight(); }}
           title="Highlight with tag"
         >
-          Highlight
+          Tag
         </button>
       )}
       {onAskAI && (
@@ -89,7 +86,7 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
           onMouseDown={(e) => { e.preventDefault(); onAskAI(); }}
           title="Ask AI about selection"
         >
-          Ask AI
+          AI
         </button>
       )}
     </div>

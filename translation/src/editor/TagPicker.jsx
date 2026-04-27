@@ -6,15 +6,13 @@ const TAG_COLORS = ['#DD2C1E', '#004CFF', '#0D5921', '#FFBF00', '#520004', '#6B5
 export function TagPicker({ projectId, onSelect, onClose }) {
   const [tags, setTags] = useState([]);
   const [newTagName, setNewTagName] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!projectId) {
-      setTags([]);
-      setLoading(false);
-      return;
+    if (projectId) {
+      setLoading(true);
+      loadTags();
     }
-    loadTags();
   }, [projectId]);
 
   async function loadTags() {
@@ -28,17 +26,30 @@ export function TagPicker({ projectId, onSelect, onClose }) {
     }
   }
 
-  async function handleCreate() {
+  function handleCreate() {
     const name = newTagName.trim();
-    if (!name || !projectId) return;
+    if (!name) return;
     const color = TAG_COLORS[tags.length % TAG_COLORS.length];
-    try {
-      const tag = await createTag({ projectId, name, color });
-      setTags([...tags, tag]);
+
+    if (projectId) {
+      // Save to DB
+      createTag({ projectId, name, color })
+        .then(tag => {
+          setTags([...tags, tag]);
+          setNewTagName('');
+          onSelect(tag);
+        })
+        .catch(err => console.error('Failed to create tag:', err));
+    } else {
+      // Local-only tag — no DB needed
+      const localTag = {
+        id: `local-${Date.now()}`,
+        name,
+        color,
+      };
+      setTags([...tags, localTag]);
       setNewTagName('');
-      onSelect(tag);
-    } catch (err) {
-      console.error('Failed to create tag:', err);
+      onSelect(localTag);
     }
   }
 
@@ -82,13 +93,8 @@ export function TagPicker({ projectId, onSelect, onClose }) {
                 onKeyDown={handleKeyDown}
                 autoFocus
               />
-              {newTagName.trim() && (
-                <button onClick={handleCreate}>+</button>
-              )}
+              <button onClick={handleCreate}>+</button>
             </div>
-            {!projectId && (
-              <div className="tag-picker-warning">Save to a project first to create tags</div>
-            )}
           </>
         )}
       </div>

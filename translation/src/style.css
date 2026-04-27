@@ -915,6 +915,7 @@ tr.dimmed-speaker { opacity: 0.35; }
 /* ── Bubble Menu ── */
 .bubble-menu {
   display: flex;
+  flex-direction: column;
   gap: 2px;
   background: var(--np-ink);
   padding: 4px;
