@@ -1,29 +1,78 @@
 /**
- * Build system prompt for the AI copilot based on transcript context.
+ * Build system prompt for the AI copilot.
+ * Uses 3-tier context model:
+ *   Default: summary + highlighted passage + 10 segments before/after
+ *   Deep context: full transcript (opt-in per message)
  */
-export function buildCopilotSystemPrompt(segments, translations, speakerMap) {
-  // Build full transcript context
-  const transcriptLines = segments.map((seg, i) => {
-    const trans = translations[i];
-    const displayName = speakerMap?.[seg.speaker] || seg.speaker || 'Unknown';
-    const original = seg.text || '';
-    const translated = trans?.translated || original;
-    return `[${seg.number}] ${displayName} (${seg.start}):\n  Original: ${original}\n  Translation: ${translated}`;
-  }).join('\n\n');
+
+/**
+ * Build the default (lightweight) system prompt.
+ * Includes the stored summary + a local window around the selection.
+ */
+export function buildCopilotSystemPrompt({ summary, segments, translations, speakerMap, selection, deepContext }) {
+  let transcriptContext = '';
+
+  if (deepContext) {
+    // Full transcript
+    transcriptContext = buildFullTranscriptContext(segments, translations, speakerMap);
+  } else {
+    // Local window: 10 segments before and after the selection
+    transcriptContext = buildLocalWindow(segments, translations, speakerMap, selection);
+  }
 
   return `You are an editorial assistant for a documentary filmmaker working with interview transcripts.
 
-You help interpret, contextualize, and analyze interview content. The filmmaker works primarily with Chinese-language interviews translated to English.
-
-FULL TRANSCRIPT:
-${transcriptLines}
-
-GUIDELINES:
+${summary ? `INTERVIEW SUMMARY:\n${summary}\n\n` : ''}${transcriptContext ? `TRANSCRIPT CONTEXT:\n${transcriptContext}\n\n` : ''}GUIDELINES:
 - Always reference both the original language and the translation when discussing specific passages.
 - Provide cultural context when relevant (Chinese idioms, historical references, regional expressions).
-- When suggesting alternative translations, explain the nuance being captured or lost.
+- When suggesting alternative translations, explain the nuance each captures differently.
 - Be concise but thorough. The filmmaker needs practical, actionable insights.
 - When asked about themes, connect specific quotes to broader narrative arcs.`;
+}
+
+/**
+ * Build full transcript context (for deep context mode).
+ */
+function buildFullTranscriptContext(segments, translations, speakerMap) {
+  const hasTranslations = translations && translations.length > 0;
+  return segments.map((seg, i) => {
+    const trans = hasTranslations ? translations[i] : null;
+    const displayName = speakerMap?.[seg.speaker] || seg.speaker || 'Unknown';
+    const original = seg.text || '';
+    const translated = trans?.translated || original;
+    if (hasTranslations && translated !== original) {
+      return `[${seg.number}] ${displayName} (${seg.start}):\n  Original: ${original}\n  Translation: ${translated}`;
+    }
+    return `[${seg.number}] ${displayName} (${seg.start}): ${original}`;
+  }).join('\n\n');
+}
+
+/**
+ * Build local window context: 10 segments before and after the selection.
+ */
+function buildLocalWindow(segments, translations, speakerMap, selection) {
+  if (!selection || !selection.segmentNumber) return '';
+
+  const hasTranslations = translations && translations.length > 0;
+  const segIdx = segments.findIndex(s => s.number === selection.segmentNumber);
+  if (segIdx === -1) return '';
+
+  const start = Math.max(0, segIdx - 10);
+  const end = Math.min(segments.length, segIdx + 11);
+  const windowSegs = segments.slice(start, end);
+
+  return windowSegs.map((seg, i) => {
+    const actualIdx = start + i;
+    const trans = hasTranslations ? translations[actualIdx] : null;
+    const displayName = speakerMap?.[seg.speaker] || seg.speaker || 'Unknown';
+    const original = seg.text || '';
+    const translated = trans?.translated || original;
+    const marker = seg.number === selection.segmentNumber ? ' <<<SELECTED>>>' : '';
+    if (hasTranslations && translated !== original) {
+      return `[${seg.number}] ${displayName} (${seg.start}):${marker}\n  Original: ${original}\n  Translation: ${translated}`;
+    }
+    return `[${seg.number}] ${displayName} (${seg.start}):${marker} ${original}`;
+  }).join('\n\n');
 }
 
 /**
@@ -55,9 +104,26 @@ export function buildPassagePrompt(selection, question) {
 }
 
 /**
+ * Build prompt for multi-highlight questions (from Search view multi-select).
+ */
+export function buildMultiHighlightPrompt(highlights, question) {
+  let prompt = 'SELECTED PASSAGES:\n\n';
+  for (let i = 0; i < highlights.length; i++) {
+    const h = highlights[i];
+    prompt += `[${i + 1}] From "${h.transcriptName || 'Unknown'}":\n`;
+    prompt += `  Text: ${h.textPreview}\n`;
+    if (h.originalTextPreview) prompt += `  Original: ${h.originalTextPreview}\n`;
+    if (h.tagName) prompt += `  Tag: ${h.tagName}\n`;
+    prompt += '\n';
+  }
+  prompt += question;
+  return prompt;
+}
+
+/**
  * Build the prompt for generating a holistic summary from highlights.
  */
-export function buildSummaryPrompt(highlights, tags, editorialFocus) {
+export function buildSummaryPrompt(highlights, editorialFocus) {
   let prompt = 'Generate a comprehensive editorial summary of this interview based on the highlighted passages.\n\n';
 
   if (editorialFocus) {
@@ -90,6 +156,34 @@ export function buildSummaryPrompt(highlights, tags, editorialFocus) {
 5. **Translation Notes**: Any passages where the translation may lose nuance.`;
 
   return prompt;
+}
+
+/**
+ * Build the prompt for auto-generating the chronological interview summary.
+ * This is called on first editor entry.
+ */
+export function buildAutoSummaryPrompt(segments, translations, speakerMap) {
+  const hasTranslations = translations && translations.length > 0;
+
+  const transcriptText = segments.map((seg, i) => {
+    const trans = hasTranslations ? translations[i] : null;
+    const displayName = speakerMap?.[seg.speaker] || seg.speaker || 'Unknown';
+    const text = hasTranslations ? (trans?.translated || seg.text) : seg.text;
+    return `[${seg.number}] ${displayName}: ${text}`;
+  }).join('\n');
+
+  return `Read this interview transcript and produce a chronological narrative summary.
+
+FORMAT:
+- Write it as a sequence of bullet points covering what the conversation discusses, in order.
+- Be granular — capture each distinct topic shift or important point.
+- Include the approximate segment numbers for each point so the reader can jump to that section.
+- Focus on content, not meta-commentary. Say what was said, not "they discussed X."
+- Keep each bullet to 1-2 sentences.
+- Aim for 15-30 bullet points depending on interview length.
+
+TRANSCRIPT:
+${transcriptText}`;
 }
 
 /**

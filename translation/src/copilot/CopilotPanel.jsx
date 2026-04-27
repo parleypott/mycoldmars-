@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { buildCopilotSystemPrompt, buildPassagePrompt, buildSummaryPrompt, QUICK_ACTIONS } from './copilot-prompts.js';
+import { buildCopilotSystemPrompt, buildPassagePrompt, buildMultiHighlightPrompt, buildSummaryPrompt, QUICK_ACTIONS } from './copilot-prompts.js';
 import { SummaryView } from './SummaryView.jsx';
 
-export function CopilotPanel({ selection, segments, translations, speakerMap, highlights, editorialFocus, onClose }) {
+export function CopilotPanel({ selection, segments, translations, speakerMap, highlights, editorialFocus, summary, onClose }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [deepContext, setDeepContext] = useState(false);
   const [summaryContent, setSummaryContent] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
   const messagesEndRef = useRef(null);
@@ -16,10 +17,24 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
     }
   }, [messages]);
 
+  // Reset messages when selection changes
+  useEffect(() => {
+    setMessages([]);
+    setDeepContext(false);
+  }, [selection?.text]);
+
   async function sendMessage(question) {
     if (!question.trim()) return;
 
-    const systemPrompt = buildCopilotSystemPrompt(segments, translations, speakerMap);
+    const systemPrompt = buildCopilotSystemPrompt({
+      summary,
+      segments,
+      translations,
+      speakerMap,
+      selection,
+      deepContext,
+    });
+
     const userMessage = selection
       ? buildPassagePrompt(selection, question)
       : question;
@@ -28,8 +43,17 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
     setMessages(newMessages);
     setInput('');
     setLoading(true);
+    // Reset deep context after each send
+    setDeepContext(false);
 
     try {
+      const allMessages = newMessages.map(m => ({ role: m.role, content: m.content }));
+      // For Claude, we send the actual user message (with context) only for the first,
+      // subsequent messages are just the conversation
+      if (allMessages.length === 1) {
+        allMessages[0].content = userMessage;
+      }
+
       const res = await fetch('/api/claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -38,7 +62,7 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
           max_tokens: 2000,
           stream: true,
           system: systemPrompt,
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          messages: allMessages,
         }),
       });
 
@@ -79,12 +103,20 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
     }
   }
 
-  async function generateSummary() {
+  async function generateHighlightSummary() {
     setLoading(true);
     setShowSummary(true);
 
-    const systemPrompt = buildCopilotSystemPrompt(segments, translations, speakerMap);
-    const userMessage = buildSummaryPrompt(highlights || [], [], editorialFocus);
+    const systemPrompt = buildCopilotSystemPrompt({
+      summary,
+      segments,
+      translations,
+      speakerMap,
+      selection: null,
+      deepContext: true, // summary needs full context
+    });
+
+    const userMessage = buildSummaryPrompt(highlights || [], editorialFocus);
 
     try {
       const res = await fetch('/api/claude', {
@@ -163,7 +195,7 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
       <div className="copilot-header">
         <span className="np-eyebrow np-eyebrow--red">AI Copilot</span>
         <div className="copilot-header-actions">
-          <button className="copilot-summary-btn" onClick={generateSummary}>Summary</button>
+          <button className="copilot-summary-btn" onClick={generateHighlightSummary}>Summary</button>
           <button className="tag-picker-close" onClick={onClose}>&times;</button>
         </div>
       </div>
@@ -204,21 +236,31 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
       </div>
 
       <div className="copilot-input">
-        <textarea
-          value={input}
-          onInput={e => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask about this passage..."
-          disabled={loading}
-          rows={2}
-        />
-        <button
-          className="copilot-send"
-          onClick={() => sendMessage(input)}
-          disabled={loading || !input.trim()}
-        >
-          Send
-        </button>
+        <div className="copilot-input-row">
+          <textarea
+            value={input}
+            onInput={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about this passage..."
+            disabled={loading}
+            rows={2}
+          />
+          <button
+            className="copilot-send"
+            onClick={() => sendMessage(input)}
+            disabled={loading || !input.trim()}
+          >
+            Send
+          </button>
+        </div>
+        <label className="copilot-deep-toggle">
+          <input
+            type="checkbox"
+            checked={deepContext}
+            onChange={e => setDeepContext(e.target.checked)}
+          />
+          <span>Deep context</span>
+        </label>
       </div>
     </div>
   );

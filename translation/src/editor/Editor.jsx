@@ -8,13 +8,16 @@ import { HighlightMark } from './extensions/HighlightMark.js';
 import { EditorBubbleMenu } from './BubbleMenu.jsx';
 import { TagPicker } from './TagPicker.jsx';
 
-export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI }) {
+export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, summary, sequenceInfo, speakerColors, speakerMap, onSpeakerMapChange }) {
   const [showTagPicker, setShowTagPicker] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const [editingSpeaker, setEditingSpeaker] = useState(null);
+  const [editValue, setEditValue] = useState('');
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        // Disable nodes we don't need
         heading: false,
         blockquote: false,
         codeBlock: false,
@@ -37,7 +40,6 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI 
 
   useEffect(() => {
     if (editor && initialContent) {
-      // Only set content if editor exists and content differs
       const current = JSON.stringify(editor.getJSON());
       const incoming = JSON.stringify(initialContent);
       if (current !== incoming) {
@@ -45,6 +47,45 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI 
       }
     }
   }, [initialContent]);
+
+  // Toggle deleted content visibility
+  useEffect(() => {
+    const el = document.querySelector('.editor-content');
+    if (el) el.classList.toggle('show-deleted', showDeleted);
+  }, [showDeleted]);
+
+  // Copy handler: inject sequence name + timecode
+  useEffect(() => {
+    const container = document.querySelector('.editor-content');
+    if (!container) return;
+
+    const handleCopy = (e) => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) return;
+      const selectedText = selection.toString().trim();
+      if (!selectedText) return;
+
+      // Find the nearest segment mark to get timecode
+      let node = selection.anchorNode;
+      while (node && node !== container) {
+        if (node.dataset?.start) break;
+        if (node.closest?.('[data-start]')) { node = node.closest('[data-start]'); break; }
+        node = node.parentElement;
+      }
+
+      const timecode = node?.dataset?.start || node?.getAttribute?.('data-start') || '';
+      const seqName = sequenceInfo?.sequenceName || '';
+
+      if (seqName || timecode) {
+        e.preventDefault();
+        const prefix = [seqName, timecode].filter(Boolean).join(' | ');
+        e.clipboardData.setData('text/plain', `[${prefix}] ${selectedText}`);
+      }
+    };
+
+    container.addEventListener('copy', handleCopy);
+    return () => container.removeEventListener('copy', handleCopy);
+  }, [sequenceInfo]);
 
   const handleHighlight = useCallback(() => {
     setShowTagPicker(true);
@@ -65,24 +106,118 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI 
     const { from, to } = editor.state.selection;
     const text = editor.state.doc.textBetween(from, to, ' ');
 
-    // Find original text from segment marks
     let originalText = '';
+    let segmentNumber = null;
     editor.state.doc.nodesBetween(from, to, (node) => {
       if (node.isText && node.marks) {
         const segMark = node.marks.find(m => m.type.name === 'segment');
         if (segMark) {
           originalText += (segMark.attrs.originalText || '') + ' ';
+          if (!segmentNumber) segmentNumber = segMark.attrs.number;
         }
       }
     });
 
-    onAskAI({ text: text.trim(), originalText: originalText.trim() });
+    onAskAI({ text: text.trim(), originalText: originalText.trim(), segmentNumber });
   }, [editor, onAskAI]);
+
+  function startEditSpeaker(rawName) {
+    setEditingSpeaker(rawName);
+    setEditValue(speakerMap?.[rawName] || rawName);
+  }
+
+  function saveSpeakerEdit() {
+    if (editingSpeaker && onSpeakerMapChange) {
+      onSpeakerMapChange(editingSpeaker, editValue.trim());
+    }
+    setEditingSpeaker(null);
+  }
 
   if (!editor) return null;
 
+  // Get unique speakers from speakerMap
+  const speakers = Object.entries(speakerMap || {});
+  const dateStr = sequenceInfo?.dateFilmed
+    ? sequenceInfo.dateFilmed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null;
+
   return (
     <div className="transcript-editor">
+      {/* Sequence header */}
+      {sequenceInfo?.sequenceName && (
+        <div className="editor-sequence-header">
+          <div className="editor-sequence-name">
+            <svg className="editor-premiere-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect width="16" height="16" rx="2" fill="#00005B"/>
+              <text x="3" y="12" fill="white" fontSize="10" fontFamily="sans-serif" fontWeight="bold">Pr</text>
+            </svg>
+            <span>{sequenceInfo.sequenceName}</span>
+          </div>
+          {dateStr && <div className="editor-sequence-date">{dateStr}</div>}
+        </div>
+      )}
+
+      {/* Speaker panel */}
+      {speakers.length > 0 && (
+        <div className="editor-speaker-panel">
+          {speakers.map(([raw, clean]) => {
+            const color = speakerColors?.[raw] || '#DD2C1E';
+            const isEditing = editingSpeaker === raw;
+            return (
+              <div key={raw} className="editor-speaker-chip">
+                <span className="editor-speaker-chip-dot" style={{ background: color }} />
+                {isEditing ? (
+                  <input
+                    className="editor-speaker-chip-input"
+                    value={editValue}
+                    onInput={e => setEditValue(e.target.value)}
+                    onBlur={saveSpeakerEdit}
+                    onKeyDown={e => { if (e.key === 'Enter') saveSpeakerEdit(); }}
+                    autoFocus
+                  />
+                ) : (
+                  <span
+                    className="editor-speaker-chip-name"
+                    onClick={() => startEditSpeaker(raw)}
+                    title="Click to edit"
+                  >
+                    {clean}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Summary collapsible panel */}
+      {summary && (
+        <div className={`editor-summary-panel ${summaryExpanded ? 'expanded' : ''}`}>
+          <button
+            className="editor-summary-toggle"
+            onClick={() => setSummaryExpanded(!summaryExpanded)}
+          >
+            <span className="np-eyebrow">Interview Summary</span>
+            <span className="editor-summary-arrow">{summaryExpanded ? '−' : '+'}</span>
+          </button>
+          {summaryExpanded && (
+            <div className="editor-summary-content">{summary}</div>
+          )}
+        </div>
+      )}
+
+      {/* Editor toolbar */}
+      <div className="editor-toolbar">
+        <label className="editor-toolbar-toggle">
+          <input
+            type="checkbox"
+            checked={showDeleted}
+            onChange={e => setShowDeleted(e.target.checked)}
+          />
+          <span>Show deleted</span>
+        </label>
+      </div>
+
       <EditorBubbleMenu
         editor={editor}
         onHighlight={handleHighlight}

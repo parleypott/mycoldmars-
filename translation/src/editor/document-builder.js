@@ -1,16 +1,18 @@
 /**
  * Build a Tiptap-compatible JSON document from segments + translations.
  * Groups consecutive segments by speaker into speaker blocks.
+ * If translations is null/empty (English-only), uses segment text directly.
  */
 export function buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers) {
+  const hasTranslations = translations && translations.length > 0;
   const groups = [];
   let currentGroup = null;
 
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
-    const trans = translations[i];
-    if (!seg || !trans) continue;
+    if (!seg) continue;
 
+    const trans = hasTranslations ? translations[i] : null;
     const speaker = seg.speaker || 'Unknown';
 
     if (!currentGroup || currentGroup.speaker !== speaker) {
@@ -22,9 +24,12 @@ export function buildEditorDocument(segments, translations, speakerColors, speak
       number: seg.number,
       start: seg.start,
       end: seg.end,
-      originalText: seg.text,
-      translated: trans.translated || trans.original || seg.text,
-      unintelligible: trans.unintelligible || false,
+      // For English-only: original and display text are the same
+      originalText: hasTranslations ? seg.text : '',
+      translated: hasTranslations
+        ? (trans?.translated || trans?.original || seg.text)
+        : seg.text,
+      unintelligible: trans?.unintelligible || false,
     });
   }
 

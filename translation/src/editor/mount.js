@@ -5,24 +5,15 @@ let currentUnmount = null;
 
 /**
  * Mount the Tiptap editor into a DOM container.
- * Returns an object with methods to interact with the mounted editor.
  */
-export function mountEditor(container, { initialContent, projectId, onUpdate, onAskAI }) {
+export function mountEditor(container, props) {
   // Unmount previous if any
   if (currentUnmount) {
     currentUnmount();
     currentUnmount = null;
   }
 
-  render(
-    h(TranscriptEditor, {
-      initialContent,
-      projectId,
-      onUpdate,
-      onAskAI,
-    }),
-    container
-  );
+  render(h(TranscriptEditor, props), container);
 
   currentUnmount = () => render(null, container);
 
@@ -30,6 +21,9 @@ export function mountEditor(container, { initialContent, projectId, onUpdate, on
     unmount: () => {
       render(null, container);
       currentUnmount = null;
+    },
+    update: (newProps) => {
+      render(h(TranscriptEditor, newProps), container);
     },
   };
 }

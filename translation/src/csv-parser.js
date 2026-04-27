@@ -1,17 +1,55 @@
-/** Strip trailing dates/timecodes from speaker names */
+/**
+ * Extract the speaker name from a raw field like "260317-04-104-JERRY - JOHNNY"
+ * Rule: take the last word that's all letters (min 2 chars). That's the speaker name.
+ */
 export function cleanSpeakerName(raw) {
   if (!raw) return '';
-  return raw
-    .replace(/\s*\d{4}[-/]\d{2}[-/]\d{2}.*$/, '')  // trailing dates
-    .replace(/\s*\d{1,2}:\d{2}(:\d{2})?.*$/, '')   // trailing timecodes
-    .replace(/\s*\(\d+\)\s*$/, '')                   // trailing (1), (2), etc.
-    .trim();
+  // Split on common delimiters: hyphens, spaces, underscores
+  const words = raw.split(/[\s\-_]+/);
+  // Find the last word that's purely alphabetic (min 2 chars)
+  for (let i = words.length - 1; i >= 0; i--) {
+    const w = words[i].replace(/['']/g, ''); // strip apostrophes
+    if (/^[a-zA-Z]{2,}$/i.test(w)) {
+      // Return with proper casing: first letter upper, rest as-is
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    }
+  }
+  // Fallback: return trimmed original
+  return raw.trim();
+}
+
+/**
+ * Parse the Premiere sequence name from a raw speaker field.
+ * The sequence is the full raw name of the first speaker entry.
+ */
+export function parseSequenceInfo(rawSpeakerName) {
+  if (!rawSpeakerName) return { sequenceName: '', dateFilmed: null };
+  // Try to extract date from the beginning: YYMMDD or YYYYMMDD patterns
+  const dateMatch = rawSpeakerName.match(/(\d{6})/);
+  let dateFilmed = null;
+  if (dateMatch) {
+    const d = dateMatch[1];
+    // YYMMDD format: 260317 = 2026-03-17
+    const year = 2000 + parseInt(d.slice(0, 2));
+    const month = parseInt(d.slice(2, 4));
+    const day = parseInt(d.slice(4, 6));
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      dateFilmed = new Date(year, month - 1, day);
+    }
+  }
+  return { sequenceName: rawSpeakerName.trim(), dateFilmed };
 }
 
 /** Check if speaker is generic/unlabeled */
 export function isGenericSpeaker(name) {
   if (!name) return true;
-  return /^speaker\s*\d+$/i.test(name.trim());
+  const cleaned = name.trim();
+  // "Speaker 1", "Speaker 2", etc.
+  if (/^speaker\s*\d+$/i.test(cleaned)) return true;
+  // Pure numbers or codes with no alpha word
+  const words = cleaned.split(/[\s\-_]+/);
+  const hasAlphaWord = words.some(w => /^[a-zA-Z]{2,}$/.test(w.replace(/['']/g, '')) && !/^speaker$/i.test(w));
+  return !hasAlphaWord;
 }
 
 /** Build a speaker map: raw CSV name → clean display name */
@@ -23,6 +61,19 @@ export function buildSpeakerMap(segments) {
     map[raw] = cleanSpeakerName(raw);
   }
   return map;
+}
+
+/**
+ * Extract sequence metadata from the first labeled speaker in segments.
+ * Returns { sequenceName, dateFilmed, primarySpeaker }
+ */
+export function getSequenceMetadata(segments) {
+  // First non-generic speaker is the sequence identifier
+  const firstLabeled = segments.find(s => s.speaker && !isGenericSpeaker(s.speaker));
+  if (!firstLabeled) return { sequenceName: '', dateFilmed: null, primarySpeaker: '' };
+  const { sequenceName, dateFilmed } = parseSequenceInfo(firstLabeled.speaker);
+  const primarySpeaker = cleanSpeakerName(firstLabeled.speaker);
+  return { sequenceName, dateFilmed, primarySpeaker };
 }
 
 /**

@@ -1,4 +1,4 @@
-import { parseCSV, getStats, cleanSpeakerName, buildSpeakerMap, isGenericSpeaker } from './csv-parser.js';
+import { parseCSV, getStats, cleanSpeakerName, buildSpeakerMap, isGenericSpeaker, getSequenceMetadata } from './csv-parser.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
 import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript, createProject, listProjects, deleteProject } from './db.js';
@@ -10,6 +10,7 @@ import { buildPremiereXML } from './export/premiere-xml.js';
 import { exportHighlightsPDF } from './export/pdf-export.js';
 import { exportSummaryText } from './export/summary-export.js';
 import { extractHighlightsFromEditor } from './editor/document-builder.js';
+import { buildAutoSummaryPrompt } from './copilot/copilot-prompts.js';
 
 // ── State ──
 let segments = [];
@@ -28,6 +29,7 @@ let currentProjectId = null;
 let projects = [];
 let editorState = null;       // Tiptap JSON document
 let editorInstance = null;    // mounted editor reference
+let currentSummary = null;    // auto-generated chronological summary
 
 const SPEAKER_PALETTE = [
   '#DD2C1E', '#004CFF', '#0D5921', '#FFBF00',
@@ -228,6 +230,7 @@ async function handleLoad(id) {
       const ef = $('#editorial-focus');
       if (ef) ef.value = meta.editorialFocus;
     }
+    currentSummary = meta.summary || null;
 
     // Re-render based on step
     const step = t.step || 1;
@@ -360,6 +363,7 @@ function gatherState(name) {
     metadata: {
       editorialFocus,
       clarifications,
+      summary: currentSummary,
     },
   };
 }
@@ -557,6 +561,19 @@ function renderAnalysis() {
   btnToClarify.innerHTML = 'Continue &rarr;';
 }
 
+// ── Skip to Editor ──
+function skipToEditor() {
+  // Build editor state directly from segments (no translations)
+  editorState = buildEditorDocument(segments, translations.length > 0 ? translations : null, speakerColors, speakerMap, hiddenSpeakers);
+  editorInstance = null;
+  goToStep(5);
+  switchView('editor');
+  autoSave();
+}
+
+$('#btn-skip-to-editor').addEventListener('click', skipToEditor);
+$('#btn-skip-to-editor-upload').addEventListener('click', skipToEditor);
+
 // ── Step 3: Clarify ──
 btnToClarify.addEventListener('click', () => {
   goToStep(3);
@@ -744,9 +761,17 @@ function switchView(view) {
   if (view === 'editor' && editorState) {
     const container = $('#editor-mount');
     if (container && !editorInstance) {
+      const seqMeta = getSequenceMetadata(segments);
       editorInstance = mountEditor(container, {
         initialContent: editorState,
         projectId: currentProjectId,
+        summary: currentSummary,
+        sequenceInfo: seqMeta,
+        speakerColors,
+        speakerMap,
+        onSpeakerMapChange: (rawName, newCleanName) => {
+          speakerMap[rawName] = newCleanName;
+        },
         onUpdate: (json) => {
           editorState = json;
         },
@@ -754,6 +779,11 @@ function switchView(view) {
           openCopilot(selection);
         },
       });
+
+      // Auto-generate summary on first entry if not already generated
+      if (!currentSummary) {
+        generateAutoSummary();
+      }
     }
   }
 }
@@ -981,6 +1011,81 @@ if (btnExportMenu) {
       }
     }
   });
+}
+
+// ── Auto Summary ──
+async function generateAutoSummary() {
+  try {
+    const userMessage = buildAutoSummaryPrompt(segments, translations, speakerMap);
+    const res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 3000,
+        stream: true,
+        system: 'You are an editorial assistant. Generate a concise chronological summary of this interview transcript.',
+        messages: [{ role: 'user', content: userMessage }],
+      }),
+    });
+
+    if (!res.ok) return;
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let text = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const event = JSON.parse(data);
+          if (event.type === 'content_block_delta' && event.delta?.text) {
+            text += event.delta.text;
+          }
+        } catch {}
+      }
+    }
+
+    currentSummary = text;
+
+    // Update editor with the summary
+    if (editorInstance) {
+      const seqMeta = getSequenceMetadata(segments);
+      editorInstance.update({
+        initialContent: editorState,
+        projectId: currentProjectId,
+        summary: currentSummary,
+        sequenceInfo: seqMeta,
+        speakerColors,
+        speakerMap,
+        onSpeakerMapChange: (rawName, newCleanName) => {
+          speakerMap[rawName] = newCleanName;
+        },
+        onUpdate: (json) => {
+          editorState = json;
+        },
+        onAskAI: (selection) => {
+          openCopilot(selection);
+        },
+      });
+    }
+
+    // Save summary in metadata
+    autoSave();
+  } catch (err) {
+    console.error('Auto-summary generation failed:', err);
+  }
 }
 
 // ── Copilot ──
