@@ -351,6 +351,7 @@ export async function listTranscripts(projectId) {
     let query = supabase
       .from('transcripts')
       .select('id, name, step, created_at, updated_at, project_id, metadata')
+      .is('deleted_at', null)
       .order('updated_at', { ascending: false });
 
     if (projectId) query = query.eq('project_id', projectId);
@@ -361,7 +362,7 @@ export async function listTranscripts(projectId) {
   } catch (err) {
     if (supabase) markSupabaseFailed(err);
     const index = lsGetIndex('transcripts');
-    let items = index.map(id => lsGet(`transcript_${id}`)).filter(Boolean);
+    let items = index.map(id => lsGet(`transcript_${id}`)).filter(t => t && !t.deleted_at);
     if (projectId) items = items.filter(t => t.project_id === projectId);
     // Return only list-level fields, sorted by updated_at desc
     return items
@@ -390,6 +391,45 @@ export async function loadTranscript(id) {
 }
 
 export async function deleteTranscript(id) {
+  // Soft-delete: set deleted_at timestamp, auto-purge after 30 days
+  try {
+    const { error } = await db()
+      .from('transcripts')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    markSupabaseSuccess();
+  } catch (err) {
+    if (supabase) markSupabaseFailed(err);
+    const existing = lsGet(`transcript_${id}`);
+    if (existing) {
+      existing.deleted_at = new Date().toISOString();
+      lsSet(`transcript_${id}`, existing);
+    }
+  }
+}
+
+export async function restoreTranscript(id) {
+  try {
+    const { error } = await db()
+      .from('transcripts')
+      .update({ deleted_at: null })
+      .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    markSupabaseSuccess();
+  } catch (err) {
+    if (supabase) markSupabaseFailed(err);
+    const existing = lsGet(`transcript_${id}`);
+    if (existing) {
+      delete existing.deleted_at;
+      lsSet(`transcript_${id}`, existing);
+    }
+  }
+}
+
+export async function permanentlyDeleteTranscript(id) {
   try {
     const { error } = await db()
       .from('transcripts')
@@ -402,6 +442,23 @@ export async function deleteTranscript(id) {
     lsDelete(`transcript_${id}`);
     const index = lsGetIndex('transcripts').filter(i => i !== id);
     lsSaveIndex('transcripts', index);
+  }
+}
+
+export async function listDeletedTranscripts() {
+  try {
+    if (!isSupabaseAvailable()) throw new Error('skip');
+    const { data, error } = await supabase
+      .from('transcripts')
+      .select('id, name, step, created_at, updated_at, deleted_at, project_id, metadata')
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return data;
+  } catch (err) {
+    if (supabase) markSupabaseFailed(err);
+    const index = lsGetIndex('transcripts');
+    return index.map(id => lsGet(`transcript_${id}`)).filter(t => t && t.deleted_at);
   }
 }
 

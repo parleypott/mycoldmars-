@@ -3,7 +3,7 @@ import { parseJSON } from './json-parser.js';
 import { formatPreciseTimecode } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase } from './db.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
 import { mountTagSearch } from './tags/mount.js';
@@ -114,9 +114,13 @@ function showLibrary() {
 // ── Library ──
 async function fetchLibrary() {
   try {
-    projects = await listProjects();
-    const transcripts = await listTranscripts();
-    renderLibrary(transcripts, projects);
+    const [p, transcripts, deleted] = await Promise.all([
+      listProjects(),
+      listTranscripts(),
+      listDeletedTranscripts(),
+    ]);
+    projects = p;
+    renderLibrary(transcripts, projects, deleted);
   } catch (err) {
     libraryList.innerHTML = '';
     libraryEmpty.classList.remove('hidden');
@@ -124,8 +128,8 @@ async function fetchLibrary() {
   }
 }
 
-function renderLibrary(transcripts, projectsList) {
-  if ((!transcripts || transcripts.length === 0) && (!projectsList || projectsList.length === 0)) {
+function renderLibrary(transcripts, projectsList, deletedTranscripts) {
+  if ((!transcripts || transcripts.length === 0) && (!projectsList || projectsList.length === 0) && (!deletedTranscripts || deletedTranscripts.length === 0)) {
     libraryList.innerHTML = '';
     libraryEmpty.classList.remove('hidden');
     return;
@@ -174,6 +178,42 @@ function renderLibrary(transcripts, projectsList) {
     `;
   }
 
+  // Recently Deleted section
+  const deleted = (deletedTranscripts || []).filter(t => {
+    // Only show items deleted within the last 30 days
+    const deletedAt = new Date(t.deleted_at).getTime();
+    return Date.now() - deletedAt < 30 * 24 * 60 * 60 * 1000;
+  });
+  if (deleted.length > 0) {
+    html += `
+      <div class="library-deleted-section">
+        <button class="library-deleted-toggle" id="deleted-toggle">
+          <span class="np-eyebrow">Recently Deleted</span>
+          <span class="library-deleted-count">${deleted.length}</span>
+        </button>
+        <div class="library-deleted-list hidden" id="deleted-list">
+          ${deleted.map(t => {
+            const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(t.deleted_at).getTime()) / (24 * 60 * 60 * 1000)));
+            return `
+              <div class="library-item library-item--deleted" data-id="${t.id}">
+                <div class="library-item-info">
+                  <div class="library-item-name">${esc(t.name)}</div>
+                  <div class="library-item-meta">
+                    <span class="library-item-time">${daysLeft}d until permanent deletion</span>
+                  </div>
+                </div>
+                <div class="library-item-actions">
+                  <button class="header-btn library-restore-btn" data-id="${t.id}">Restore</button>
+                  <button class="header-btn library-permadelete-btn" data-id="${t.id}">&times;</button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   libraryList.innerHTML = html;
 
   // Wire up buttons
@@ -186,6 +226,31 @@ function renderLibrary(transcripts, projectsList) {
   libraryList.querySelectorAll('.library-delete-project-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       await deleteProject(btn.dataset.id);
+      fetchLibrary();
+    });
+  });
+
+  // Recently Deleted toggle
+  const deletedToggle = document.getElementById('deleted-toggle');
+  const deletedListEl = document.getElementById('deleted-list');
+  if (deletedToggle && deletedListEl) {
+    deletedToggle.addEventListener('click', () => {
+      deletedListEl.classList.toggle('hidden');
+    });
+  }
+
+  // Restore buttons
+  libraryList.querySelectorAll('.library-restore-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await restoreTranscript(btn.dataset.id);
+      fetchLibrary();
+    });
+  });
+
+  // Permanent delete buttons
+  libraryList.querySelectorAll('.library-permadelete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await permanentlyDeleteTranscript(btn.dataset.id);
       fetchLibrary();
     });
   });

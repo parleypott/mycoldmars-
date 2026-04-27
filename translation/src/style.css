@@ -670,6 +670,41 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   padding: var(--np-space-2) var(--np-space-4);
 }
 
+/* Recently Deleted */
+.library-deleted-section {
+  margin-top: var(--np-space-8);
+  border-top: 1px solid var(--np-cool-neutral);
+  padding-top: var(--np-space-4);
+}
+.library-deleted-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--np-space-3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--np-space-2) 0;
+}
+.library-deleted-toggle:hover .np-eyebrow {
+  color: var(--np-ink);
+}
+.library-deleted-count {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  background: var(--np-cool-neutral);
+  color: var(--np-sepia);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+.library-item--deleted .library-item-name {
+  color: var(--np-sepia);
+  text-decoration: line-through;
+}
+.library-item--deleted .library-item-meta {
+  color: var(--np-red);
+  opacity: 0.7;
+}
+
 /* ── Export menu ── */
 .export-header {
   display: flex;
