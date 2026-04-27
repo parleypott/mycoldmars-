@@ -432,7 +432,6 @@ export async function migrateLocalStorageToSupabase() {
   const results = { projects: 0, transcripts: 0, errors: [] };
 
   // Migrate projects first (transcripts may reference them)
-  const projectIndex = lsGetIndex('projects');
   const projectIdMap = {}; // old local id → new uuid
   for (const oldId of projectIndex) {
     const p = lsGet(`project_${oldId}`);
@@ -452,7 +451,6 @@ export async function migrateLocalStorageToSupabase() {
   }
 
   // Migrate transcripts
-  const transcriptIndex = lsGetIndex('transcripts');
   const transcriptIdMap = {}; // old local id → new uuid
   for (const oldId of transcriptIndex) {
     const t = lsGet(`transcript_${oldId}`);
