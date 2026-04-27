@@ -1,4 +1,11 @@
-export function SummaryView({ content, loading }) {
+import { useState, useRef, useEffect, useCallback } from 'preact/hooks';
+
+export function SummaryView({ content, loading, bullets, interestVotes, onVote }) {
+  const [popup, setPopup] = useState(null);
+  const [selectedBulletIds, setSelectedBulletIds] = useState([]);
+  const containerRef = useRef(null);
+  const popupRef = useRef(null);
+
   if (loading && !content) {
     return <div className="summary-loading">Generating summary...</div>;
   }
@@ -7,7 +14,134 @@ export function SummaryView({ content, loading }) {
     return <div className="summary-empty">No summary generated yet.</div>;
   }
 
-  // Simple markdown-ish rendering: headers, bold, lists
+  // Close popup on outside click
+  useEffect(() => {
+    if (!popup) return;
+    const handleClick = (e) => {
+      if (popupRef.current && !popupRef.current.contains(e.target)) {
+        setPopup(null);
+        setSelectedBulletIds([]);
+      }
+    };
+    document.addEventListener('mousedown', handleClick, true);
+    return () => document.removeEventListener('mousedown', handleClick, true);
+  }, [popup]);
+
+  const handleMouseUp = useCallback((e) => {
+    if (!bullets || bullets.length === 0) return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+
+    const range = sel.getRangeAt(0);
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Find which bullet <li> elements intersect the selection
+    const lis = container.querySelectorAll('li[data-bullet-id]');
+    const hitIds = [];
+    for (const li of lis) {
+      if (range.intersectsNode(li)) {
+        hitIds.push(parseInt(li.dataset.bulletId));
+      }
+    }
+
+    if (hitIds.length === 0) return;
+
+    setSelectedBulletIds(hitIds);
+
+    // Position popup near the end of selection
+    const rect = range.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    setPopup({
+      top: rect.bottom - containerRect.top + 4,
+      left: rect.left - containerRect.left,
+    });
+  }, [bullets]);
+
+  const handleVote = useCallback((type) => {
+    if (!bullets || selectedBulletIds.length === 0 || !onVote) return;
+
+    // Collect all segment numbers from selected bullets
+    const segNums = [];
+    for (const id of selectedBulletIds) {
+      const bullet = bullets.find(b => b.id === id);
+      if (bullet && bullet.segmentStart != null) {
+        for (let n = bullet.segmentStart; n <= bullet.segmentEnd; n++) {
+          if (!segNums.includes(n)) segNums.push(n);
+        }
+      }
+    }
+
+    if (segNums.length > 0) {
+      onVote(segNums, type);
+    }
+
+    setPopup(null);
+    setSelectedBulletIds([]);
+    window.getSelection()?.removeAllRanges();
+  }, [bullets, selectedBulletIds, onVote]);
+
+  // Determine vote status for a bullet
+  function getBulletVoteStatus(bullet) {
+    if (!interestVotes || bullet.segmentStart == null) return null;
+    let hasInterested = false;
+    let hasNotInterested = false;
+    for (let n = bullet.segmentStart; n <= bullet.segmentEnd; n++) {
+      const v = interestVotes[n];
+      if (v === 'interested') hasInterested = true;
+      if (v === 'not-interested') hasNotInterested = true;
+    }
+    if (hasInterested && !hasNotInterested) return 'interested';
+    if (hasNotInterested && !hasInterested) return 'not-interested';
+    if (hasInterested && hasNotInterested) return 'mixed';
+    return null;
+  }
+
+  // Structured bullet rendering
+  if (bullets && bullets.length > 0) {
+    return (
+      <div className="summary-content" ref={containerRef} onMouseUp={handleMouseUp} style={{ position: 'relative' }}>
+        <ul className="summary-bullet-list">
+          {bullets.map(bullet => {
+            const status = getBulletVoteStatus(bullet);
+            const cls = status ? `summary-bullet summary-bullet--${status}` : 'summary-bullet';
+            const text = bullet.enrichedText || bullet.rawText;
+            return (
+              <li
+                key={bullet.id}
+                className={cls}
+                data-bullet-id={bullet.id}
+                data-seg-start={bullet.segmentStart}
+                data-seg-end={bullet.segmentEnd}
+              >
+                <span dangerouslySetInnerHTML={{ __html: formatInline(text) }} />
+              </li>
+            );
+          })}
+        </ul>
+
+        {popup && (
+          <div
+            ref={popupRef}
+            className="interest-popup"
+            style={{ top: popup.top + 'px', left: popup.left + 'px' }}
+          >
+            <button className="interest-popup-btn interest-popup-btn--interested" onClick={() => handleVote('interested')}>
+              Interested
+            </button>
+            <button className="interest-popup-btn interest-popup-btn--not-interested" onClick={() => handleVote('not-interested')}>
+              Not interested
+            </button>
+            <button className="interest-popup-btn interest-popup-btn--clear" onClick={() => handleVote(null)}>
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Fallback: plain rendering when no structured bullets
   const lines = content.split('\n');
   const html = lines.map(line => {
     if (line.startsWith('## ')) return `<h3>${line.slice(3)}</h3>`;

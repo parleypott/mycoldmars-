@@ -5,12 +5,14 @@ import { SpeakerBlock } from './extensions/SpeakerBlock.js';
 import { Segment } from './extensions/Segment.js';
 import { DeletedMark } from './extensions/DeletedMark.js';
 import { HighlightMark } from './extensions/HighlightMark.js';
+import { InterestPlugin, interestPluginKey } from './extensions/InterestPlugin.js';
 import { EditorBubbleMenu } from './BubbleMenu.jsx';
 import { TagPicker } from './TagPicker.jsx';
+import { SummaryView } from '../copilot/SummaryView.jsx';
 import { extractSequenceBase } from '../csv-parser.js';
 import { formatPreciseTimecode } from '../timecode-utils.js';
 
-export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, onSequenceNameChange, editorDirty, summary, sequenceInfo, speakerColors, speakerMap, onSpeakerMapChange }) {
+export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, onSequenceNameChange, editorDirty, summary, summaryBullets, interestVotes, onInterestVote, sequenceInfo, speakerColors, speakerMap, onSpeakerMapChange }) {
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
@@ -44,6 +46,7 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
       Segment,
       DeletedMark,
       HighlightMark,
+      InterestPlugin,
     ],
     content: initialContent,
     editorProps: {
@@ -125,6 +128,13 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
       }
     }
   }, [initialContent]);
+
+  // Dispatch interest votes to ProseMirror plugin
+  useEffect(() => {
+    if (!editor || !interestVotes) return;
+    const tr = editor.state.tr.setMeta(interestPluginKey, interestVotes);
+    editor.view.dispatch(tr);
+  }, [editor, interestVotes]);
 
   // Toggle deleted content visibility
   useEffect(() => {
@@ -374,7 +384,13 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
             <span className="editor-summary-arrow">{summaryExpanded ? '−' : '+'}</span>
           </button>
           {summaryExpanded && (
-            <div className="editor-summary-content">{summary}</div>
+            <SummaryView
+              content={summary}
+              loading={false}
+              bullets={summaryBullets}
+              interestVotes={interestVotes}
+              onVote={onInterestVote}
+            />
           )}
         </div>
       )}

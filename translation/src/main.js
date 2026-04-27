@@ -35,6 +35,8 @@ let editorState = null;       // Tiptap JSON document
 let editorInstance = null;    // mounted editor reference
 let editorDirty = false;      // true when editor has unsaved changes not yet synced to translations[]
 let currentSummary = null;    // auto-generated chronological summary
+let summaryBullets = [];      // parsed bullet data: [{ id, rawText, enrichedText, segmentStart, segmentEnd }]
+let interestVotes = {};       // { segNum: 'interested' | 'not-interested' }
 let wordTimingsMap = null;    // JSON word-level timings: { segNum: { start, end } }
 
 const SPEAKER_PALETTE = [
@@ -260,6 +262,8 @@ async function handleLoad(id) {
       if (ef) ef.value = meta.editorialFocus;
     }
     currentSummary = meta.summary ? enrichSummaryWithTimecodes(meta.summary) : null;
+    summaryBullets = meta.summaryBullets || [];
+    interestVotes = meta.interestVotes || {};
 
     // Re-render based on step
     const step = t.step || 1;
@@ -410,6 +414,8 @@ function gatherState(name) {
       editorialFocus,
       clarifications,
       summary: currentSummary,
+      summaryBullets,
+      interestVotes,
     },
   };
 }
@@ -491,6 +497,57 @@ function debouncedAutoSave() {
 
 // ── Library button ──
 btnLibrary.addEventListener('click', showLibrary);
+
+// ── Interest vote handler ──
+function handleInterestVote(segNums, type) {
+  // type: 'interested' | 'not-interested' | null (clear)
+  const newVotes = { ...interestVotes };
+  for (const num of segNums) {
+    if (type === null) {
+      delete newVotes[num];
+    } else {
+      newVotes[num] = type;
+    }
+  }
+  interestVotes = newVotes;
+  if (editorInstance) updateEditorInstance();
+  debouncedAutoSave();
+}
+
+// ── Editor instance update helper (DRY) ──
+function updateEditorInstance() {
+  if (!editorInstance) return;
+  const seqMeta = getSeqMeta();
+  editorInstance.update({
+    initialContent: editorState,
+    projectId: currentProjectId,
+    summary: currentSummary,
+    summaryBullets,
+    interestVotes,
+    sequenceInfo: seqMeta,
+    speakerColors,
+    speakerMap,
+    editorDirty,
+    onSpeakerMapChange: (rawName, newCleanName) => {
+      speakerMap[rawName] = newCleanName;
+    },
+    onUpdate: (json) => {
+      editorState = json;
+      editorDirty = true;
+      debouncedAutoSave();
+    },
+    onSync: (segNums) => {
+      const count = syncEditorToTranslations(segNums);
+      showSyncFeedback(count, segNums);
+      autoSave();
+    },
+    onSequenceNameChange: handleSequenceNameChange,
+    onAskAI: (selection) => {
+      openCopilot(selection);
+    },
+    onInterestVote: handleInterestVote,
+  });
+}
 
 // ── Search button ──
 let searchMounted = false;
@@ -1026,6 +1083,8 @@ function switchView(view) {
         initialContent: editorState,
         projectId: currentProjectId,
         summary: currentSummary,
+        summaryBullets,
+        interestVotes,
         sequenceInfo: seqMeta,
         speakerColors,
         speakerMap,
@@ -1047,6 +1106,7 @@ function switchView(view) {
         onAskAI: (selection) => {
           openCopilot(selection);
         },
+        onInterestVote: handleInterestVote,
       });
 
       // Auto-generate summary on first entry if not already generated
@@ -1319,6 +1379,25 @@ if (btnExportMenu) {
 }
 
 // ── Auto Summary ──
+function parseSummaryBullets(rawText) {
+  if (!rawText) return [];
+  const lines = rawText.split('\n');
+  const bullets = [];
+  let id = 0;
+  for (const line of lines) {
+    // Match lines starting with "- " or "N. "
+    const bulletMatch = line.match(/^(?:-|\d+\.)\s+(.+)/);
+    if (!bulletMatch) continue;
+    const text = bulletMatch[1];
+    // Extract segment references like (Segments 15-18) or (Segment 5)
+    const segMatch = text.match(/\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)/i);
+    const segStart = segMatch ? parseInt(segMatch[1]) : null;
+    const segEnd = segMatch ? (segMatch[2] ? parseInt(segMatch[2]) : parseInt(segMatch[1])) : null;
+    bullets.push({ id: id++, rawText: text, enrichedText: '', segmentStart: segStart, segmentEnd: segEnd });
+  }
+  return bullets;
+}
+
 function enrichSummaryWithTimecodes(text) {
   if (!text || !segments.length) return text;
 
@@ -1408,37 +1487,24 @@ async function generateAutoSummary() {
       }
     }
 
+    // Parse bullets from raw text BEFORE enrichment
+    summaryBullets = parseSummaryBullets(text);
+
     currentSummary = enrichSummaryWithTimecodes(text);
+
+    // Attach enriched text to each bullet
+    const enrichedLines = currentSummary.split('\n');
+    let bulletIdx = 0;
+    for (const line of enrichedLines) {
+      if (line.match(/^(?:-|\d+\.)\s+/) && bulletIdx < summaryBullets.length) {
+        summaryBullets[bulletIdx].enrichedText = line.replace(/^(?:-|\d+\.)\s+/, '');
+        bulletIdx++;
+      }
+    }
 
     // Update editor with the summary
     if (editorInstance) {
-      const seqMeta = getSeqMeta();
-      editorInstance.update({
-        initialContent: editorState,
-        projectId: currentProjectId,
-        summary: currentSummary,
-        sequenceInfo: seqMeta,
-        speakerColors,
-        speakerMap,
-        editorDirty,
-        onSpeakerMapChange: (rawName, newCleanName) => {
-          speakerMap[rawName] = newCleanName;
-        },
-        onUpdate: (json) => {
-          editorState = json;
-          editorDirty = true;
-          debouncedAutoSave();
-        },
-        onSync: (segNums) => {
-          const count = syncEditorToTranslations(segNums);
-          showSyncFeedback(count, segNums);
-          autoSave();
-        },
-        onSequenceNameChange: handleSequenceNameChange,
-        onAskAI: (selection) => {
-          openCopilot(selection);
-        },
-      });
+      updateEditorInstance();
     }
 
     // Save summary in metadata
@@ -1517,33 +1583,7 @@ function showSyncFeedback(count, segNums) {
 
 function updateSyncDirtyIndicator() {
   if (editorInstance) {
-    const seqMeta = getSeqMeta();
-    editorInstance.update({
-      initialContent: editorState,
-      projectId: currentProjectId,
-      summary: currentSummary,
-      sequenceInfo: seqMeta,
-      speakerColors,
-      speakerMap,
-      editorDirty,
-      onSpeakerMapChange: (rawName, newCleanName) => {
-        speakerMap[rawName] = newCleanName;
-      },
-      onUpdate: (json) => {
-        editorState = json;
-        editorDirty = true;
-        debouncedAutoSave();
-      },
-      onSync: (segNums) => {
-        const count = syncEditorToTranslations(segNums);
-        showSyncFeedback(count, segNums);
-        autoSave();
-      },
-      onSequenceNameChange: handleSequenceNameChange,
-      onAskAI: (selection) => {
-        openCopilot(selection);
-      },
-    });
+    updateEditorInstance();
   }
 }
 
@@ -1634,33 +1674,7 @@ function commitTranslationToEditor(segmentNumbers, newText) {
 
   // Push to live editor
   if (editorInstance && editorState) {
-    const seqMeta = getSeqMeta();
-    editorInstance.update({
-      initialContent: editorState,
-      projectId: currentProjectId,
-      summary: currentSummary,
-      sequenceInfo: seqMeta,
-      speakerColors,
-      speakerMap,
-      editorDirty,
-      onSpeakerMapChange: (rawName, newCleanName) => {
-        speakerMap[rawName] = newCleanName;
-      },
-      onUpdate: (json) => {
-        editorState = json;
-        editorDirty = true;
-        debouncedAutoSave();
-      },
-      onSync: (segNums) => {
-        const count = syncEditorToTranslations(segNums);
-        showSyncFeedback(count, segNums);
-        autoSave();
-      },
-      onSequenceNameChange: handleSequenceNameChange,
-      onAskAI: (sel) => {
-        openCopilot(sel);
-      },
-    });
+    updateEditorInstance();
   }
 
   debouncedAutoSave();

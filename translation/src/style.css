@@ -951,7 +951,77 @@ tr.dimmed-speaker { opacity: 0.35; }
   border-top: 1px solid var(--np-cool-neutral);
   max-height: 300px;
   overflow-y: auto;
-  white-space: pre-wrap;
+}
+
+/* ── Summary Bullet Voting ── */
+.summary-bullet-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.summary-bullet {
+  padding: var(--np-space-2) var(--np-space-3);
+  border-left: 3px solid transparent;
+  transition: background var(--np-duration) var(--np-ease), border-color var(--np-duration) var(--np-ease), opacity var(--np-duration) var(--np-ease);
+  cursor: text;
+}
+.summary-bullet + .summary-bullet { margin-top: 2px; }
+.summary-bullet--interested {
+  border-left-color: var(--np-blue);
+  background: rgba(0, 76, 255, 0.06);
+}
+.summary-bullet--not-interested {
+  border-left-color: var(--np-red);
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.summary-bullet--mixed {
+  border-left-color: var(--np-yellow);
+  background: rgba(255, 191, 0, 0.06);
+}
+
+/* ── Interest Popup ── */
+.interest-popup {
+  position: absolute;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: var(--np-ink);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.interest-popup-btn {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 5px 10px;
+  text-align: left;
+  white-space: nowrap;
+  border-radius: 2px;
+  transition: background var(--np-duration) var(--np-ease);
+}
+.interest-popup-btn--interested { color: var(--np-blue); }
+.interest-popup-btn--interested:hover { background: rgba(0, 76, 255, 0.15); }
+.interest-popup-btn--not-interested { color: var(--np-red); }
+.interest-popup-btn--not-interested:hover { background: rgba(221, 44, 30, 0.15); }
+.interest-popup-btn--clear { color: var(--np-cool-neutral); }
+.interest-popup-btn--clear:hover { background: rgba(255,255,255,0.1); }
+
+/* ── Interest Decorations (in transcript editor) ── */
+.segment-interested {
+  text-decoration: underline dashed rgba(0, 76, 255, 0.5);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+.segment-not-interested {
+  text-decoration: line-through var(--np-red);
+  opacity: 0.45;
 }
 
 /* ── Editor Toolbar ── */
