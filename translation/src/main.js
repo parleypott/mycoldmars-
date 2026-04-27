@@ -681,6 +681,7 @@ function exitSequencer() {
   // Reset sequencer state
   seqSoundbites = [];
   $('#seq-arrange').classList.add('hidden');
+  $('#seq-confirm').classList.add('hidden');
   $('#seq-paste').classList.remove('hidden');
   $('#seq-input').value = '';
 }
@@ -706,6 +707,20 @@ function parseSoundbites(raw) {
 function extractSacredName(prefix) {
   // Strip "- SPEAKER" suffix: "Mars Study - JOHN" → "Mars Study"
   return prefix.replace(/\s*-\s*[A-Z][A-Z0-9 ]*$/i, '').trim() || prefix;
+}
+
+function detectSacredSequence(bites) {
+  // Count sequence names by frequency — the most common one is the sacred sequence
+  const counts = {};
+  for (const b of bites) {
+    const name = extractSacredName(b.prefix);
+    counts[name] = (counts[name] || 0) + 1;
+  }
+  let best = '', bestCount = 0;
+  for (const [name, count] of Object.entries(counts)) {
+    if (count > bestCount) { best = name; bestCount = count; }
+  }
+  return { name: best, count: bestCount, total: bites.length };
 }
 
 function formatDuration(bites) {
@@ -812,16 +827,38 @@ $('#seq-exit-btn').addEventListener('click', exitSequencer);
 
 $('#seq-parse-btn').addEventListener('click', () => {
   const raw = $('#seq-input').value;
+  const hint = $('#seq-parse-hint');
   seqSoundbites = parseSoundbites(raw);
-  if (seqSoundbites.length === 0) return;
 
-  // Auto-detect sacred sequence name
-  const sacredName = extractSacredName(seqSoundbites[0].prefix);
-  $('#seq-name').value = sacredName;
+  if (seqSoundbites.length === 0) {
+    hint.textContent = 'No soundbites found. Look for lines like [Name | 00:00:00 → 00:01:00] text...';
+    hint.classList.remove('hidden');
+    return;
+  }
+  hint.classList.add('hidden');
+
+  // Detect the sacred sequence and show confirmation
+  const detected = detectSacredSequence(seqSoundbites);
+  $('#seq-confirm-name').value = detected.name;
+  $('#seq-confirm-detail').textContent = `Found ${detected.total} soundbite${detected.total !== 1 ? 's' : ''} · ${detected.count} from "${detected.name}"`;
 
   $('#seq-paste').classList.add('hidden');
+  $('#seq-confirm').classList.remove('hidden');
+});
+
+$('#seq-confirm-yes').addEventListener('click', () => {
+  const confirmedName = $('#seq-confirm-name').value.trim();
+  $('#seq-name').value = confirmedName || 'Sacred Sequence';
+
+  $('#seq-confirm').classList.add('hidden');
   $('#seq-arrange').classList.remove('hidden');
   renderSeqBlocks();
+});
+
+$('#seq-confirm-back').addEventListener('click', () => {
+  $('#seq-confirm').classList.add('hidden');
+  $('#seq-paste').classList.remove('hidden');
+  seqSoundbites = [];
 });
 
 $('#seq-back-btn').addEventListener('click', () => {
