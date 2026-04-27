@@ -3,7 +3,7 @@ import { parseJSON } from './json-parser.js';
 import { formatPreciseTimecode } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase } from './db.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
 import { mountTagSearch } from './tags/mount.js';
@@ -1960,6 +1960,16 @@ if (btnShare) {
 
 // ── Init: load projects and auto-reload last transcript ──
 (async function init() {
+  // Migrate localStorage data to Supabase if tables are now available
+  try {
+    const migResult = await migrateLocalStorageToSupabase();
+    if (migResult.migrated) {
+      console.info(`Migrated ${migResult.transcripts} transcripts, ${migResult.projects} projects to Supabase`);
+    }
+  } catch (err) {
+    console.warn('Migration check failed:', err.message);
+  }
+
   try {
     projects = await listProjects();
     refreshProjectSelects();

@@ -404,3 +404,108 @@ export async function deleteTranscript(id) {
     lsSaveIndex('transcripts', index);
   }
 }
+
+// ── Migration: localStorage → Supabase ──
+
+const MIGRATION_KEY = LS_PREFIX + 'migrated_to_supabase';
+
+export async function migrateLocalStorageToSupabase() {
+  if (!supabase) return { migrated: false, reason: 'no supabase client' };
+  if (localStorage.getItem(MIGRATION_KEY)) return { migrated: false, reason: 'already migrated' };
+
+  // Quick check — can we reach Supabase at all?
+  try {
+    const { error } = await supabase.from('transcripts').select('id').limit(1);
+    if (error) throw error;
+  } catch (err) {
+    return { migrated: false, reason: 'supabase not reachable: ' + err.message };
+  }
+
+  const results = { projects: 0, transcripts: 0, errors: [] };
+
+  // Migrate projects first (transcripts may reference them)
+  const projectIndex = lsGetIndex('projects');
+  const projectIdMap = {}; // old local id → new uuid
+  for (const oldId of projectIndex) {
+    const p = lsGet(`project_${oldId}`);
+    if (!p) continue;
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({ name: p.name, description: p.description || null })
+        .select()
+        .single();
+      if (error) throw error;
+      projectIdMap[oldId] = data.id;
+      results.projects++;
+    } catch (err) {
+      results.errors.push(`project ${p.name}: ${err.message}`);
+    }
+  }
+
+  // Migrate transcripts
+  const transcriptIndex = lsGetIndex('transcripts');
+  const transcriptIdMap = {}; // old local id → new uuid
+  for (const oldId of transcriptIndex) {
+    const t = lsGet(`transcript_${oldId}`);
+    if (!t) continue;
+    try {
+      // Remap project_id if it was a local id
+      let projectId = t.project_id || null;
+      if (projectId && projectIdMap[projectId]) {
+        projectId = projectIdMap[projectId];
+      } else if (projectId && projectId.startsWith('local_')) {
+        projectId = null; // orphaned local project ref
+      }
+
+      const { data, error } = await supabase
+        .from('transcripts')
+        .insert({
+          name: t.name,
+          step: t.step || 1,
+          segments: t.segments || [],
+          analysis: t.analysis || null,
+          translations: t.translations || null,
+          srt_content: t.srt_content || null,
+          speaker_colors: t.speaker_colors || {},
+          annotations: t.annotations || {},
+          metadata: t.metadata || {},
+          project_id: projectId,
+          speaker_map: t.speaker_map || {},
+          hidden_speakers: t.hidden_speakers || [],
+          editor_state: t.editor_state || null,
+          custom_sequence_name: t.custom_sequence_name || '',
+          hide_unintelligible: t.hide_unintelligible ?? true,
+          word_timings: t.word_timings || null,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      transcriptIdMap[oldId] = data.id;
+      results.transcripts++;
+    } catch (err) {
+      results.errors.push(`transcript ${t.name}: ${err.message}`);
+    }
+  }
+
+  // Mark migration done (even if partial — don't re-run)
+  if (results.projects > 0 || results.transcripts > 0) {
+    localStorage.setItem(MIGRATION_KEY, JSON.stringify({
+      at: new Date().toISOString(),
+      ...results,
+    }));
+
+    // Clean up localStorage data now that it's in Supabase
+    for (const oldId of projectIndex) {
+      lsDelete(`project_${oldId}`);
+    }
+    lsDelete('index_projects');
+    for (const oldId of transcriptIndex) {
+      lsDelete(`transcript_${oldId}`);
+    }
+    lsDelete('index_transcripts');
+  }
+
+  console.info('Migration complete:', results);
+  return { migrated: true, ...results, projectIdMap, transcriptIdMap };
+}
