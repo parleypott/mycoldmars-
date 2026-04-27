@@ -30,8 +30,9 @@ function toLangCode(lang) {
   return first.length <= 3 ? first.toUpperCase() : first.slice(0, 2).toUpperCase();
 }
 
-export function buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, languageMap) {
+export function buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, languageMap, opts = {}) {
   const hasTranslations = translations && translations.length > 0;
+  const hideUnintelligible = opts.hideUnintelligible || false;
   const groups = [];
   let currentGroup = null;
 
@@ -40,6 +41,10 @@ export function buildEditorDocument(segments, translations, speakerColors, speak
     if (!seg) continue;
 
     const trans = hasTranslations ? translations[i] : null;
+
+    // Skip unintelligible segments entirely when hidden
+    if (hideUnintelligible && trans?.unintelligible) continue;
+
     const speaker = seg.speaker || 'Unknown';
 
     if (!currentGroup || currentGroup.speaker !== speaker) {
@@ -61,7 +66,7 @@ export function buildEditorDocument(segments, translations, speakerColors, speak
   }
 
   // Convert groups to Tiptap JSON nodes
-  const content = groups.map(group => {
+  const content = groups.filter(g => g.segments.length > 0).map(group => {
     const color = speakerColors[group.speaker] || '#DD2C1E';
     const isHidden = (hiddenSpeakers || []).includes(group.speaker);
 

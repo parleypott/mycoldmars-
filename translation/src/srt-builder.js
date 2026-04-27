@@ -11,6 +11,7 @@ export function buildSRT(translations, segments, opts = {}) {
   const maxWords = opts.maxWords || 16;
   const maxDuration = opts.maxDuration || 5;
   const dismissedSegments = opts.dismissedSegments || null;
+  const hideUnintelligible = opts.hideUnintelligible || false;
 
   // First pass: group segments into runs of "real", "unintelligible", and "chatter"
   const groups = [];
@@ -41,12 +42,16 @@ export function buildSRT(translations, segments, opts = {}) {
       while (i < translations.length && translations[i].unintelligible && !(dismissedSegments && segments[i] && dismissedSegments.has(segments[i].number))) {
         i++;
       }
-      const runEnd = i - 1;
-      groups.push({
-        type: 'unintelligible',
-        startSec: timeToSeconds(segments[runStart].start),
-        endSec: timeToSeconds(segments[runEnd].end),
-      });
+      if (hideUnintelligible) {
+        // Skip entirely — no subtitle entry
+      } else {
+        const runEnd = i - 1;
+        groups.push({
+          type: 'unintelligible',
+          startSec: timeToSeconds(segments[runStart].start),
+          endSec: timeToSeconds(segments[runEnd].end),
+        });
+      }
     } else {
       groups.push({
         type: 'real',

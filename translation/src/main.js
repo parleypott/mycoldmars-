@@ -27,6 +27,7 @@ let annotations = {};
 let speakerMap = {};          // { raw CSV name: clean display name }
 let hiddenSpeakers = [];      // raw speaker names hidden by default
 let showAllSpeakers = false;  // toggle for showing hidden speakers
+let hideUnintelligible = true; // hide unintelligible segments from SRT/editor/reader
 let currentProjectId = null;
 let projects = [];
 let editorState = null;       // Tiptap JSON document
@@ -237,6 +238,7 @@ async function handleLoad(id) {
     annotations = t.annotations || {};
     speakerMap = t.speaker_map || {};
     hiddenSpeakers = t.hidden_speakers || [];
+    hideUnintelligible = t.hide_unintelligible ?? true;
     currentProjectId = t.project_id || null;
     editorState = t.editor_state || null;
     wordTimingsMap = t.wordTimings || t.word_timings || null;
@@ -397,6 +399,7 @@ function gatherState(name) {
     annotations,
     speakerMap,
     hiddenSpeakers,
+    hideUnintelligible,
     projectId: currentProjectId,
     editorState,
     wordTimings: wordTimingsMap,
@@ -685,14 +688,26 @@ function renderAnalysis() {
   let noticeHtml = '';
 
   if (genericCount > 0) {
-    noticeHtml += `<p style="margin-top:0.5rem;color:var(--muted);font-family:var(--font-mono);font-size:0.75rem;">${genericCount} unlabeled segment${genericCount > 1 ? 's' : ''} will be marked [unintelligible]</p>`;
+    noticeHtml += `<p style="margin-top:0.5rem;font-family:var(--np-font-mono);font-size:12px;color:var(--np-sepia);">${genericCount} unlabeled segment${genericCount > 1 ? 's' : ''} will be marked [unintelligible]</p>`;
+    noticeHtml += `<label class="speaker-checkbox-row" style="margin-top:0.25rem;">
+      <input type="checkbox" id="chk-hide-unintelligible" ${hideUnintelligible ? 'checked' : ''}>
+      <span class="speaker-checkbox-label">Make unintelligible audio invisible</span>
+    </label>`;
   }
 
   if (qCount > 0) {
-    noticeHtml += `<p style="margin-top:0.5rem;color:var(--muted);font-family:var(--font-mono);font-size:0.75rem;">${qCount} clarification question${qCount > 1 ? 's' : ''}</p>`;
+    noticeHtml += `<p style="margin-top:0.5rem;font-family:var(--np-font-mono);font-size:12px;color:var(--np-sepia);">${qCount} clarification question${qCount > 1 ? 's' : ''}</p>`;
   }
 
   notice.innerHTML = noticeHtml;
+
+  // Wire up unintelligible checkbox
+  const chkUnintelligible = $('#chk-hide-unintelligible');
+  if (chkUnintelligible) {
+    chkUnintelligible.addEventListener('change', (e) => {
+      hideUnintelligible = e.target.checked;
+    });
+  }
   btnToClarify.innerHTML = 'Continue &rarr;';
 }
 
@@ -733,7 +748,7 @@ function gatherSpeakerSelections() {
 function skipToEditor() {
   gatherSpeakerSelections();
   // Build editor state directly from segments (no translations)
-  editorState = buildEditorDocument(segments, translations.length > 0 ? translations : null, speakerColors, speakerMap, hiddenSpeakers, analysis?.language_map);
+  editorState = buildEditorDocument(segments, translations.length > 0 ? translations : null, speakerColors, speakerMap, hiddenSpeakers, analysis?.language_map, { hideUnintelligible });
   editorInstance = null;
   goToStep(5);
   switchView('editor');
@@ -847,7 +862,7 @@ async function startTranslation() {
     });
 
     renderTranslations();
-    editorState = buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, analysis?.language_map);
+    editorState = buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, analysis?.language_map, { hideUnintelligible });
     editorInstance = null;
     const editorMount = $('#editor-mount');
     if (editorMount) editorMount.innerHTML = '';
@@ -904,7 +919,7 @@ function renderTranslations() {
 btnExport.addEventListener('click', () => {
   // Build editor state if not already present
   if (!editorState) {
-    editorState = buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, analysis?.language_map);
+    editorState = buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, analysis?.language_map, { hideUnintelligible });
     editorInstance = null;
     const editorMount = $('#editor-mount');
     if (editorMount) editorMount.innerHTML = '';
@@ -946,7 +961,7 @@ function regenerateSRT() {
   const maxWords = parseInt($('#max-words').value);
   const maxDuration = parseInt($('#max-duration').value);
   const dismissed = getDismissedSegmentNumbers(editorState);
-  srtContent = buildSRT(translations, segments, { maxWords, maxDuration, dismissedSegments: dismissed });
+  srtContent = buildSRT(translations, segments, { maxWords, maxDuration, dismissedSegments: dismissed, hideUnintelligible });
   $('#srt-preview').textContent = srtContent;
 }
 
@@ -967,7 +982,7 @@ function switchView(view) {
     const maxWords = parseInt($('#max-words')?.value || 16);
     const maxDuration = parseInt($('#max-duration')?.value || 5);
     const dismissed = getDismissedSegmentNumbers(editorState);
-    srtContent = buildSRT(translations, segments, { maxWords, maxDuration, dismissedSegments: dismissed });
+    srtContent = buildSRT(translations, segments, { maxWords, maxDuration, dismissedSegments: dismissed, hideUnintelligible });
     $('#srt-preview').textContent = srtContent;
   }
 
@@ -1047,6 +1062,9 @@ function buildReaderView() {
 
     // Skip hidden speakers unless toggled
     if (!showAllSpeakers && hiddenSpeakers.includes(speaker)) continue;
+
+    // Skip unintelligible segments when hidden
+    if (hideUnintelligible && t.unintelligible) continue;
 
     if (!currentGroup || currentGroup.speaker !== speaker) {
       currentGroup = { speaker, items: [], isGeneric: isGenericSpeaker(speaker) };
