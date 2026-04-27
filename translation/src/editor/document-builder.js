@@ -106,6 +106,38 @@ export function buildEditorDocument(segments, translations, speakerColors, speak
 }
 
 /**
+ * Walk editor JSON tree and collect segment numbers from dismissed speaker blocks.
+ * Returns a Set<number> of segment numbers that belong to dismissed blocks.
+ */
+export function getDismissedSegmentNumbers(editorState) {
+  const dismissed = new Set();
+  if (!editorState?.content) return dismissed;
+
+  for (const block of editorState.content) {
+    if (block.type === 'speakerBlock' && block.attrs?.dismissed) {
+      // Walk paragraphs inside the block to find segment marks
+      if (block.content) {
+        for (const para of block.content) {
+          if (para.content) {
+            for (const node of para.content) {
+              if (node.marks) {
+                for (const mark of node.marks) {
+                  if (mark.type === 'segment' && mark.attrs?.number != null) {
+                    dismissed.add(mark.attrs.number);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return dismissed;
+}
+
+/**
  * Extract highlights from editor state for saving to the highlights table.
  */
 export function extractHighlightsFromEditor(editorState) {

@@ -720,6 +720,26 @@ tr.dimmed-speaker { opacity: 0.35; }
   color: var(--np-sepia);
   opacity: 0.6;
 }
+.editor-dismiss-btn {
+  margin-left: auto;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--np-cool-neutral);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--np-duration) var(--np-ease), color var(--np-duration) var(--np-ease);
+  user-select: none;
+}
+.editor-speaker-name:hover .editor-dismiss-btn { opacity: 1; }
+.editor-dismiss-btn:hover { color: var(--np-red); }
+.editor-speaker-block.editor-speaker-dismissed { display: none; }
+.editor-content.show-dismissed .editor-speaker-block.editor-speaker-dismissed {
+  display: block;
+  opacity: 0.2;
+}
+.editor-content.show-dismissed .editor-speaker-block.editor-speaker-dismissed .editor-dismiss-btn {
+  opacity: 1;
+}
 .editor-speaker-content {
   color: var(--np-ink);
 }

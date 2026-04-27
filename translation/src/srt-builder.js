@@ -10,8 +10,9 @@
 export function buildSRT(translations, segments, opts = {}) {
   const maxWords = opts.maxWords || 16;
   const maxDuration = opts.maxDuration || 5;
+  const dismissedSegments = opts.dismissedSegments || null;
 
-  // First pass: group segments into runs of "real" and "unintelligible"
+  // First pass: group segments into runs of "real", "unintelligible", and "chatter"
   const groups = [];
   let i = 0;
 
@@ -20,10 +21,24 @@ export function buildSRT(translations, segments, opts = {}) {
     const seg = segments[i];
     if (!seg) { i++; continue; }
 
-    if (t.unintelligible) {
+    const isDismissed = dismissedSegments && dismissedSegments.has(seg.number);
+
+    if (isDismissed) {
+      // Start a chatter run — bundle consecutive dismissed
+      const runStart = i;
+      while (i < translations.length && segments[i] && dismissedSegments.has(segments[i].number)) {
+        i++;
+      }
+      const runEnd = i - 1;
+      groups.push({
+        type: 'chatter',
+        startSec: timeToSeconds(segments[runStart].start),
+        endSec: timeToSeconds(segments[runEnd].end),
+      });
+    } else if (t.unintelligible) {
       // Start an unintelligible run — bundle consecutive ones
       const runStart = i;
-      while (i < translations.length && translations[i].unintelligible) {
+      while (i < translations.length && translations[i].unintelligible && !(dismissedSegments && segments[i] && dismissedSegments.has(segments[i].number))) {
         i++;
       }
       const runEnd = i - 1;
@@ -47,6 +62,16 @@ export function buildSRT(translations, segments, opts = {}) {
   let counter = 1;
 
   for (const group of groups) {
+    if (group.type === 'chatter') {
+      subtitles.push({
+        index: counter++,
+        start: formatSRT(group.startSec),
+        end: formatSRT(group.endSec),
+        text: '[chatter]',
+      });
+      continue;
+    }
+
     if (group.type === 'unintelligible') {
       subtitles.push({
         index: counter++,

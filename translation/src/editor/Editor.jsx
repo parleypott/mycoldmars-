@@ -13,6 +13,7 @@ import { formatPreciseTimecode } from '../timecode-utils.js';
 export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, summary, sequenceInfo, speakerColors, speakerMap, onSpeakerMapChange }) {
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [showDismissed, setShowDismissed] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [editingSpeaker, setEditingSpeaker] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -123,6 +124,12 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
     const el = document.querySelector('.editor-content');
     if (el) el.classList.toggle('show-deleted', showDeleted);
   }, [showDeleted]);
+
+  // Toggle dismissed blocks visibility
+  useEffect(() => {
+    const el = document.querySelector('.editor-content');
+    if (el) el.classList.toggle('show-dismissed', showDismissed);
+  }, [showDismissed]);
 
   const handleHighlight = useCallback(() => {
     setShowTagPicker(true);
@@ -252,6 +259,14 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
             onChange={e => setShowDeleted(e.target.checked)}
           />
           <span>Show deleted</span>
+        </label>
+        <label className="editor-toolbar-toggle">
+          <input
+            type="checkbox"
+            checked={showDismissed}
+            onChange={e => setShowDismissed(e.target.checked)}
+          />
+          <span>Show dismissed</span>
         </label>
       </div>
 

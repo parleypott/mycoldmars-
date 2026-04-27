@@ -5,7 +5,7 @@ import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
 import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo } from './db.js';
 import { mountEditor } from './editor/mount.js';
-import { buildEditorDocument } from './editor/document-builder.js';
+import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
 import { mountTagSearch } from './tags/mount.js';
 import { mountCopilot } from './copilot/mount.js';
 import { buildPremiereXML } from './export/premiere-xml.js';
@@ -855,7 +855,8 @@ $('#max-duration').addEventListener('input', (e) => {
 function regenerateSRT() {
   const maxWords = parseInt($('#max-words').value);
   const maxDuration = parseInt($('#max-duration').value);
-  srtContent = buildSRT(translations, segments, { maxWords, maxDuration });
+  const dismissed = getDismissedSegmentNumbers(editorState);
+  srtContent = buildSRT(translations, segments, { maxWords, maxDuration, dismissedSegments: dismissed });
   $('#srt-preview').textContent = srtContent;
 }
 
@@ -874,7 +875,8 @@ function switchView(view) {
   if (view === 'srt' && !srtContent && translations.length > 0) {
     const maxWords = parseInt($('#max-words')?.value || 16);
     const maxDuration = parseInt($('#max-duration')?.value || 5);
-    srtContent = buildSRT(translations, segments, { maxWords, maxDuration });
+    const dismissed = getDismissedSegmentNumbers(editorState);
+    srtContent = buildSRT(translations, segments, { maxWords, maxDuration, dismissedSegments: dismissed });
     $('#srt-preview').textContent = srtContent;
   }
 
