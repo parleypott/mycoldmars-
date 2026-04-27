@@ -57,7 +57,7 @@
       </div>
       <div class="step" data-step="5">
         <span class="step-num">05</span>
-        <span class="step-label">Export</span>
+        <span class="step-label">Edit</span>
       </div>
     </nav>
 
@@ -151,18 +151,6 @@
         <div class="loading-bar"><div class="loading-bar-fill"></div></div>
       </div>
       <div id="translate-result" class="hidden">
-        <div class="controls-bar">
-          <label class="control">
-            <span class="np-eyebrow">Max words</span>
-            <input type="range" id="max-words" min="10" max="25" value="16">
-            <span id="max-words-val" class="control-val">16</span>
-          </label>
-          <label class="control">
-            <span class="np-eyebrow">Max duration</span>
-            <input type="range" id="max-duration" min="3" max="8" value="5">
-            <span id="max-duration-val" class="control-val">5s</span>
-          </label>
-        </div>
         <div class="table-wrap">
           <table id="translation-table">
             <thead>
@@ -171,7 +159,7 @@
             <tbody></tbody>
           </table>
         </div>
-        <button id="btn-export" class="np-button np-button--primary">Generate SRT</button>
+        <button id="btn-export" class="np-button np-button--primary">Continue</button>
       </div>
     </section>
 
@@ -179,8 +167,8 @@
     <section id="step-5" class="panel">
       <div class="export-header">
         <div>
-          <h2>Done.</h2>
-          <p class="section-desc">Your SRT is ready.</p>
+          <h2>Edit</h2>
+          <p class="section-desc">Review and refine your transcript.</p>
         </div>
         <div class="export-menu">
           <button id="btn-export-menu" class="np-button">Export</button>
@@ -205,6 +193,19 @@
       </div>
 
       <div id="srt-view" class="hidden">
+        <div class="controls-bar">
+          <label class="control">
+            <span class="np-eyebrow">Max words</span>
+            <input type="range" id="max-words" min="10" max="25" value="16">
+            <span id="max-words-val" class="control-val">16</span>
+          </label>
+          <label class="control">
+            <span class="np-eyebrow">Max duration</span>
+            <input type="range" id="max-duration" min="3" max="8" value="5">
+            <span id="max-duration-val" class="control-val">5s</span>
+          </label>
+          <button id="btn-regenerate-srt" class="np-button">Regenerate</button>
+        </div>
         <div id="srt-preview" class="srt-preview"></div>
         <div class="export-actions">
           <button id="btn-download" class="np-button np-button--red">Download .srt</button>

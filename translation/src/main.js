@@ -36,7 +36,7 @@ const SPEAKER_PALETTE = [
   '#520004', '#412C27', '#6B5CE7', '#E85D04'
 ];
 
-const STEP_LABELS = ['', 'Upload', 'Analyze', 'Clarify', 'Translate', 'Export'];
+const STEP_LABELS = ['', 'Upload', 'Analyze', 'Clarify', 'Translate', 'Edit'];
 
 // ── DOM refs ──
 const $ = (sel) => document.querySelector(sel);
@@ -741,6 +741,13 @@ async function startTranslation() {
 
     translations = result;
     renderTranslations();
+    editorState = buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, analysis?.language_map);
+    editorInstance = null;
+    const editorMount = $('#editor-mount');
+    if (editorMount) editorMount.innerHTML = '';
+    buildReaderView();
+    goToStep(5);
+    switchView('editor');
     autoSave();
   } catch (err) {
     $('#translate-loading').classList.add('hidden');
@@ -787,32 +794,17 @@ function renderTranslations() {
   });
 }
 
-// Slider controls
-$('#max-words').addEventListener('input', (e) => {
-  $('#max-words-val').textContent = e.target.value;
-});
-
-$('#max-duration').addEventListener('input', (e) => {
-  $('#max-duration-val').textContent = e.target.value + 's';
-});
-
-// ── Step 5: Export ──
+// ── Step 5: Edit ──
 btnExport.addEventListener('click', () => {
-  const maxWords = parseInt($('#max-words').value);
-  const maxDuration = parseInt($('#max-duration').value);
-
-  srtContent = buildSRT(translations, segments, { maxWords, maxDuration });
-  goToStep(5);
-
-  $('#srt-preview').textContent = srtContent;
-  buildReaderView();
-
   // Build editor state if not already present
   if (!editorState) {
     editorState = buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, analysis?.language_map);
+    editorInstance = null;
+    const editorMount = $('#editor-mount');
+    if (editorMount) editorMount.innerHTML = '';
   }
-
-  // Default to editor view
+  buildReaderView();
+  goToStep(5);
   switchView('editor');
   autoSave();
 });
@@ -834,6 +826,24 @@ btnCopy.addEventListener('click', async () => {
   setTimeout(() => fb.classList.add('hidden'), 2000);
 });
 
+// ── SRT controls (in Step 5 SRT view) ──
+$('#max-words').addEventListener('input', (e) => {
+  $('#max-words-val').textContent = e.target.value;
+});
+
+$('#max-duration').addEventListener('input', (e) => {
+  $('#max-duration-val').textContent = e.target.value + 's';
+});
+
+function regenerateSRT() {
+  const maxWords = parseInt($('#max-words').value);
+  const maxDuration = parseInt($('#max-duration').value);
+  srtContent = buildSRT(translations, segments, { maxWords, maxDuration });
+  $('#srt-preview').textContent = srtContent;
+}
+
+$('#btn-regenerate-srt').addEventListener('click', regenerateSRT);
+
 // ── View toggle (SRT / Reader / Editor) ──
 function switchView(view) {
   ['srt', 'reader', 'editor'].forEach(v => {
@@ -842,6 +852,14 @@ function switchView(view) {
     if (btn) btn.classList.toggle('active', v === view);
     if (el) el.classList.toggle('hidden', v !== view);
   });
+
+  // Lazy SRT generation on first switch to SRT view
+  if (view === 'srt' && !srtContent && translations.length > 0) {
+    const maxWords = parseInt($('#max-words')?.value || 16);
+    const maxDuration = parseInt($('#max-duration')?.value || 5);
+    srtContent = buildSRT(translations, segments, { maxWords, maxDuration });
+    $('#srt-preview').textContent = srtContent;
+  }
 
   // Mount editor on first switch to editor view
   if (view === 'editor' && editorState) {
@@ -1091,6 +1109,8 @@ if (btnExportMenu) {
     const format = btn.dataset.format;
     switch (format) {
       case 'srt': {
+        // Regenerate with current slider settings before exporting
+        if (translations.length > 0) regenerateSRT();
         const blob = new Blob([srtContent], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
