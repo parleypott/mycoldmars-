@@ -10,7 +10,7 @@ import { TagPicker } from './TagPicker.jsx';
 import { extractSequenceBase } from '../csv-parser.js';
 import { formatPreciseTimecode } from '../timecode-utils.js';
 
-export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, summary, sequenceInfo, speakerColors, speakerMap, onSpeakerMapChange }) {
+export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, editorDirty, summary, sequenceInfo, speakerColors, speakerMap, onSpeakerMapChange }) {
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
@@ -330,6 +330,16 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
           />
           <span>Show dismissed</span>
         </label>
+        {onSync && (
+          <button
+            className="editor-sync-btn"
+            data-dirty={editorDirty ? 'true' : 'false'}
+            onClick={onSync}
+            title="Sync editor text back to translations for SRT export"
+          >
+            Sync
+          </button>
+        )}
       </div>
 
       <EditorBubbleMenu

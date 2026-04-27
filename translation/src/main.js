@@ -31,6 +31,7 @@ let currentProjectId = null;
 let projects = [];
 let editorState = null;       // Tiptap JSON document
 let editorInstance = null;    // mounted editor reference
+let editorDirty = false;      // true when editor has unsaved changes not yet synced to translations[]
 let currentSummary = null;    // auto-generated chronological summary
 let wordTimingsMap = null;    // JSON word-level timings: { segNum: { start, end } }
 
@@ -941,6 +942,7 @@ $('#max-duration').addEventListener('input', (e) => {
 });
 
 function regenerateSRT() {
+  syncEditorToTranslations();
   const maxWords = parseInt($('#max-words').value);
   const maxDuration = parseInt($('#max-duration').value);
   const dismissed = getDismissedSegmentNumbers(editorState);
@@ -960,7 +962,8 @@ function switchView(view) {
   });
 
   // Lazy SRT generation on first switch to SRT view
-  if (view === 'srt' && !srtContent && translations.length > 0) {
+  if (view === 'srt' && translations.length > 0) {
+    syncEditorToTranslations();
     const maxWords = parseInt($('#max-words')?.value || 16);
     const maxDuration = parseInt($('#max-duration')?.value || 5);
     const dismissed = getDismissedSegmentNumbers(editorState);
@@ -981,12 +984,19 @@ function switchView(view) {
         sequenceInfo: seqMeta,
         speakerColors,
         speakerMap,
+        editorDirty,
         onSpeakerMapChange: (rawName, newCleanName) => {
           speakerMap[rawName] = newCleanName;
         },
         onUpdate: (json) => {
           editorState = json;
+          editorDirty = true;
           debouncedAutoSave();
+        },
+        onSync: () => {
+          const count = syncEditorToTranslations();
+          showSyncFeedback(count);
+          autoSave();
         },
         onAskAI: (selection) => {
           openCopilot(selection);
@@ -1315,12 +1325,19 @@ async function generateAutoSummary() {
         sequenceInfo: seqMeta,
         speakerColors,
         speakerMap,
+        editorDirty,
         onSpeakerMapChange: (rawName, newCleanName) => {
           speakerMap[rawName] = newCleanName;
         },
         onUpdate: (json) => {
           editorState = json;
+          editorDirty = true;
           debouncedAutoSave();
+        },
+        onSync: () => {
+          const count = syncEditorToTranslations();
+          showSyncFeedback(count);
+          autoSave();
         },
         onAskAI: (selection) => {
           openCopilot(selection);
@@ -1332,6 +1349,95 @@ async function generateAutoSummary() {
     autoSave();
   } catch (err) {
     console.error('Auto-summary generation failed:', err);
+  }
+}
+
+// ── Editor ↔ Translations sync ──
+
+function syncEditorToTranslations() {
+  if (!editorState?.content) return 0;
+
+  // Walk editor JSON, collect text per segment number
+  const segmentTexts = new Map();
+
+  function walk(node) {
+    if (node.type === 'text' && node.marks) {
+      const segMark = node.marks.find(m => m.type === 'segment');
+      if (segMark && segMark.attrs.number != null) {
+        const num = segMark.attrs.number;
+        const existing = segmentTexts.get(num) || '';
+        segmentTexts.set(num, existing + (node.text || ''));
+      }
+    }
+    if (node.content) {
+      for (const child of node.content) walk(child);
+    }
+  }
+  walk(editorState);
+
+  // Update translations array
+  let synced = 0;
+  for (const [num, text] of segmentTexts) {
+    const t = translations.find(t => t.number === num);
+    if (t) {
+      const trimmed = text.trim();
+      if (t.translated !== trimmed) {
+        t.translated = trimmed;
+        synced++;
+      }
+    }
+  }
+
+  // Clear cached SRT so it regenerates fresh
+  srtContent = '';
+  editorDirty = false;
+
+  // Update dirty indicator on sync button
+  updateSyncDirtyIndicator();
+
+  return synced;
+}
+
+function showSyncFeedback(count) {
+  const btn = document.querySelector('.editor-sync-btn');
+  if (!btn) return;
+  const original = btn.textContent;
+  btn.textContent = count > 0 ? `Synced ${count} segments` : 'Already in sync';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = 'Sync';
+    btn.disabled = false;
+  }, 2000);
+}
+
+function updateSyncDirtyIndicator() {
+  if (editorInstance) {
+    const seqMeta = getSequenceMetadata(segments);
+    editorInstance.update({
+      initialContent: editorState,
+      projectId: currentProjectId,
+      summary: currentSummary,
+      sequenceInfo: seqMeta,
+      speakerColors,
+      speakerMap,
+      editorDirty,
+      onSpeakerMapChange: (rawName, newCleanName) => {
+        speakerMap[rawName] = newCleanName;
+      },
+      onUpdate: (json) => {
+        editorState = json;
+        editorDirty = true;
+        debouncedAutoSave();
+      },
+      onSync: () => {
+        const count = syncEditorToTranslations();
+        showSyncFeedback(count);
+        autoSave();
+      },
+      onAskAI: (selection) => {
+        openCopilot(selection);
+      },
+    });
   }
 }
 
@@ -1430,12 +1536,19 @@ function commitTranslationToEditor(segmentNumbers, newText) {
       sequenceInfo: seqMeta,
       speakerColors,
       speakerMap,
+      editorDirty,
       onSpeakerMapChange: (rawName, newCleanName) => {
         speakerMap[rawName] = newCleanName;
       },
       onUpdate: (json) => {
         editorState = json;
+        editorDirty = true;
         debouncedAutoSave();
+      },
+      onSync: () => {
+        const count = syncEditorToTranslations();
+        showSyncFeedback(count);
+        autoSave();
       },
       onAskAI: (sel) => {
         openCopilot(sel);

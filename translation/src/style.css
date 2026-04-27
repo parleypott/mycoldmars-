@@ -947,6 +947,39 @@ tr.dimmed-speaker { opacity: 0.35; }
 }
 .editor-toolbar-toggle input { accent-color: var(--np-red); }
 
+.editor-sync-btn {
+  position: relative;
+  margin-left: auto;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: var(--np-space-1) var(--np-space-3);
+  border: 1px solid var(--np-cool-neutral);
+  background: transparent;
+  color: var(--np-sepia);
+  cursor: pointer;
+  transition: all var(--np-duration) var(--np-ease);
+}
+.editor-sync-btn:hover {
+  border-color: var(--np-ink);
+  color: var(--np-ink);
+}
+.editor-sync-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.editor-sync-btn[data-dirty="true"]::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--np-red);
+}
+
 /* ── Bubble Menu ── */
 .bubble-menu {
   display: flex;
