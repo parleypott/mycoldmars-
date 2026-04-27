@@ -241,6 +241,8 @@ async function handleLoad(id) {
     wordTimingsMap = t.wordTimings || t.word_timings || null;
     currentTranscriptId = t.id;
     currentTranscriptName = t.name;
+    // Sync editor colors with saved speaker colors
+    syncEditorColors();
     // Reset editor instance so it remounts with new state
     const editorMount = $('#editor-mount');
     if (editorMount) editorMount.innerHTML = '';
@@ -612,6 +614,7 @@ btnAnalyze.addEventListener('click', async () => {
   try {
     analysis = await analyzeTranscript(segments);
     assignSpeakerColors();
+    syncEditorColors();
     renderAnalysis();
     autoSave();
   } catch (err) {
@@ -628,6 +631,32 @@ function assignSpeakerColors() {
       speakerColors[speaker] = SPEAKER_PALETTE[i % SPEAKER_PALETTE.length];
     }
   });
+}
+
+/**
+ * Sync editor state JSON colors with the current speakerColors map.
+ * Handles the case where editor state was built before colors were assigned,
+ * or colors changed after the editor state was saved.
+ */
+function syncEditorColors() {
+  if (!editorState?.content || Object.keys(speakerColors).length === 0) return;
+
+  // Build reverse map: clean display name → raw CSV name
+  const cleanToRaw = {};
+  for (const [raw, clean] of Object.entries(speakerMap || {})) {
+    cleanToRaw[clean] = raw;
+  }
+
+  for (const block of editorState.content) {
+    if (block.type === 'speakerBlock' && block.attrs) {
+      const displayName = block.attrs.speaker;
+      const rawName = cleanToRaw[displayName] || displayName;
+      const color = speakerColors[rawName];
+      if (color) {
+        block.attrs.color = color;
+      }
+    }
+  }
 }
 
 function renderAnalysis() {
@@ -882,6 +911,7 @@ function switchView(view) {
 
   // Mount editor on first switch to editor view
   if (view === 'editor' && editorState) {
+    syncEditorColors();
     const container = $('#editor-mount');
     if (container && !editorInstance) {
       const seqMeta = getSequenceMetadata(segments);
