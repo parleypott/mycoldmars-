@@ -225,7 +225,7 @@ export async function listAiThreads(transcriptId) {
 
 // ── Transcripts ──
 
-export async function saveTranscript({ name, step, segments, analysis, translations, srtContent, speakerColors, annotations, metadata, projectId, speakerMap, hiddenSpeakers, editorState }) {
+export async function saveTranscript({ name, step, segments, analysis, translations, srtContent, speakerColors, annotations, metadata, projectId, speakerMap, hiddenSpeakers, editorState, customSequenceName, hideUnintelligible, wordTimings }) {
   try {
     const { data, error } = await db()
       .from('transcripts')
@@ -243,6 +243,9 @@ export async function saveTranscript({ name, step, segments, analysis, translati
         speaker_map: speakerMap || {},
         hidden_speakers: hiddenSpeakers || [],
         editor_state: editorState || null,
+        custom_sequence_name: customSequenceName || '',
+        hide_unintelligible: hideUnintelligible ?? true,
+        word_timings: wordTimings || null,
       })
       .select()
       .single();
@@ -263,6 +266,9 @@ export async function saveTranscript({ name, step, segments, analysis, translati
       speaker_map: speakerMap || {},
       hidden_speakers: hiddenSpeakers || [],
       editor_state: editorState || null,
+      custom_sequence_name: customSequenceName || '',
+      hide_unintelligible: hideUnintelligible ?? true,
+      word_timings: wordTimings || null,
       created_at: now,
       updated_at: now,
     };
@@ -290,6 +296,9 @@ export async function updateTranscript(id, fields) {
   if (fields.speakerMap !== undefined) update.speaker_map = fields.speakerMap;
   if (fields.hiddenSpeakers !== undefined) update.hidden_speakers = fields.hiddenSpeakers;
   if (fields.editorState !== undefined) update.editor_state = fields.editorState;
+  if (fields.customSequenceName !== undefined) update.custom_sequence_name = fields.customSequenceName;
+  if (fields.hideUnintelligible !== undefined) update.hide_unintelligible = fields.hideUnintelligible;
+  if (fields.wordTimings !== undefined) update.word_timings = fields.wordTimings;
 
   try {
     const { data, error } = await db()
