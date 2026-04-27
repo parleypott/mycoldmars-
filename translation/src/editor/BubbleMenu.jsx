@@ -52,6 +52,18 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
     editor.chain().focus().toggleDeleted().run();
   };
 
+  const toggleHighlight = () => {
+    if (editor.isActive('highlight', { tagId: null })) {
+      editor.chain().focus().unsetHighlightMark().run();
+    } else {
+      editor.chain().focus().setHighlightMark({
+        tagId: null,
+        tagName: '',
+        color: '#FFBF00',
+      }).run();
+    }
+  };
+
   return (
     <div
       ref={menuRef}
@@ -70,6 +82,13 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
         title="Soft delete (strikethrough)"
       >
         Del
+      </button>
+      <button
+        className={`bubble-btn bubble-btn--highlight ${editor.isActive('highlight', { tagId: null }) ? 'active' : ''}`}
+        onMouseDown={(e) => { e.preventDefault(); toggleHighlight(); }}
+        title="Highlight selection"
+      >
+        HL
       </button>
       {onHighlight && (
         <button

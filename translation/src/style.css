@@ -1075,6 +1075,9 @@ tr.dimmed-speaker { opacity: 0.35; }
 }
 .bubble-btn:hover { background: rgba(255,255,255,0.1); }
 .bubble-btn.active { background: var(--np-red); }
+.bubble-btn--highlight { color: var(--np-yellow); }
+.bubble-btn--highlight:hover { background: rgba(255, 191, 0, 0.15); }
+.bubble-btn--highlight.active { background: var(--np-yellow); color: var(--np-ink); }
 .bubble-btn--ai { color: var(--np-yellow); }
 .bubble-btn--ai:hover { background: rgba(255, 191, 0, 0.15); }
 
