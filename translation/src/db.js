@@ -1,14 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+let supabase = null;
+try {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (url && key) {
+    supabase = createClient(url, key);
+  }
+} catch (err) {
+  console.warn('Supabase init failed:', err.message);
+}
+
+const db = () => {
+  if (!supabase) throw new Error('Database not configured');
+  return supabase;
+};
 
 // ── Projects ──
 
 export async function createProject({ name, description }) {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('projects')
     .insert({ name, description: description || null })
     .select()
@@ -18,6 +29,7 @@ export async function createProject({ name, description }) {
 }
 
 export async function listProjects() {
+  if (!supabase) return [];
   const { data, error } = await supabase
     .from('projects')
     .select('id, name, description, created_at')
@@ -27,7 +39,7 @@ export async function listProjects() {
 }
 
 export async function deleteProject(id) {
-  const { error } = await supabase
+  const { error } = await db()
     .from('projects')
     .delete()
     .eq('id', id);
@@ -37,7 +49,7 @@ export async function deleteProject(id) {
 // ── Tags ──
 
 export async function createTag({ projectId, name, color }) {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('tags')
     .insert({ project_id: projectId, name, color: color || '#DD2C1E' })
     .select()
@@ -47,6 +59,7 @@ export async function createTag({ projectId, name, color }) {
 }
 
 export async function listTags(projectId) {
+  if (!supabase) return [];
   const { data, error } = await supabase
     .from('tags')
     .select('*')
@@ -57,7 +70,7 @@ export async function listTags(projectId) {
 }
 
 export async function deleteTag(id) {
-  const { error } = await supabase
+  const { error } = await db()
     .from('tags')
     .delete()
     .eq('id', id);
@@ -67,8 +80,7 @@ export async function deleteTag(id) {
 // ── Highlights ──
 
 export async function saveHighlights(transcriptId, highlights) {
-  // Delete existing highlights for transcript then re-insert
-  await supabase.from('highlights').delete().eq('transcript_id', transcriptId);
+  await db().from('highlights').delete().eq('transcript_id', transcriptId);
   if (!highlights || highlights.length === 0) return;
   const rows = highlights.map(h => ({
     transcript_id: transcriptId,
@@ -78,11 +90,12 @@ export async function saveHighlights(transcriptId, highlights) {
     original_text_preview: h.originalTextPreview || '',
     note: h.note || null,
   }));
-  const { error } = await supabase.from('highlights').insert(rows);
+  const { error } = await db().from('highlights').insert(rows);
   if (error) throw new Error(error.message);
 }
 
 export async function searchHighlights({ projectId, tagId }) {
+  if (!supabase) return [];
   let query = supabase
     .from('highlights')
     .select('*, transcripts!inner(id, name, project_id), tags(id, name, color)')
@@ -99,7 +112,7 @@ export async function searchHighlights({ projectId, tagId }) {
 // ── AI Threads ──
 
 export async function saveAiThread({ transcriptId, anchorText, anchorOriginalText, messages }) {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('ai_threads')
     .insert({
       transcript_id: transcriptId,
@@ -114,7 +127,7 @@ export async function saveAiThread({ transcriptId, anchorText, anchorOriginalTex
 }
 
 export async function updateAiThread(id, messages) {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('ai_threads')
     .update({ messages, updated_at: new Date().toISOString() })
     .eq('id', id)
@@ -125,6 +138,7 @@ export async function updateAiThread(id, messages) {
 }
 
 export async function listAiThreads(transcriptId) {
+  if (!supabase) return [];
   const { data, error } = await supabase
     .from('ai_threads')
     .select('*')
@@ -137,7 +151,7 @@ export async function listAiThreads(transcriptId) {
 // ── Transcripts ──
 
 export async function saveTranscript({ name, step, segments, analysis, translations, srtContent, speakerColors, annotations, metadata, projectId, speakerMap, hiddenSpeakers, editorState }) {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('transcripts')
     .insert({
       name,
@@ -178,7 +192,7 @@ export async function updateTranscript(id, fields) {
   if (fields.hiddenSpeakers !== undefined) update.hidden_speakers = fields.hiddenSpeakers;
   if (fields.editorState !== undefined) update.editor_state = fields.editorState;
 
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('transcripts')
     .update(update)
     .eq('id', id)
@@ -190,6 +204,7 @@ export async function updateTranscript(id, fields) {
 }
 
 export async function listTranscripts(projectId) {
+  if (!supabase) return [];
   let query = supabase
     .from('transcripts')
     .select('id, name, step, created_at, updated_at, project_id')
@@ -203,7 +218,7 @@ export async function listTranscripts(projectId) {
 }
 
 export async function loadTranscript(id) {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('transcripts')
     .select('*')
     .eq('id', id)
@@ -214,7 +229,7 @@ export async function loadTranscript(id) {
 }
 
 export async function deleteTranscript(id) {
-  const { error } = await supabase
+  const { error } = await db()
     .from('transcripts')
     .delete()
     .eq('id', id);
