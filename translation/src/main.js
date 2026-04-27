@@ -669,9 +669,20 @@ $('#btn-search').addEventListener('click', () => {
 let seqSoundbites = [];
 
 function showSequencer() {
-  $$('.panel').forEach(p => p.classList.remove('active'));
-  stepsNav.classList.add('hidden');
-  $('#sequencer-view').classList.add('active');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('sequencer-view').classList.remove('hidden');
+  document.body.style.background = '#0b0b2e';
+}
+
+function exitSequencer() {
+  document.getElementById('sequencer-view').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.body.style.background = '';
+  // Reset sequencer state
+  seqSoundbites = [];
+  $('#seq-arrange').classList.add('hidden');
+  $('#seq-paste').classList.remove('hidden');
+  $('#seq-input').value = '';
 }
 
 function parseSoundbites(raw) {
@@ -797,6 +808,7 @@ function getDragTarget(container, y) {
 }
 
 $('#btn-sequencer').addEventListener('click', showSequencer);
+$('#seq-exit-btn').addEventListener('click', exitSequencer);
 
 $('#seq-parse-btn').addEventListener('click', () => {
   const raw = $('#seq-input').value;
