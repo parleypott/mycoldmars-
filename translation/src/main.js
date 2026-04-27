@@ -1960,37 +1960,28 @@ if (btnShare) {
 
 // ── Init: load projects and auto-reload last transcript ──
 (async function init() {
-  // Migrate localStorage data to Supabase if tables are now available
-  try {
-    const migResult = await migrateLocalStorageToSupabase();
-    if (migResult.migrated) {
-      console.info(`Migrated ${migResult.transcripts} transcripts, ${migResult.projects} projects to Supabase`);
-    }
-  } catch (err) {
-    console.warn('Migration check failed:', err.message);
-  }
-
-  try {
-    projects = await listProjects();
-    refreshProjectSelects();
-  } catch {}
+  // Migrate localStorage → Supabase in background (non-blocking)
+  migrateLocalStorageToSupabase()
+    .then(r => { if (r.migrated) console.info(`Migrated ${r.transcripts} transcripts, ${r.projects} projects to Supabase`); })
+    .catch(err => console.warn('Migration check failed:', err.message));
 
   // Priority: URL permalink > localStorage last transcript
   const permalinkId = getPermalinkId();
   const loadId = permalinkId || getLastTranscript();
 
-  if (loadId) {
-    try {
-      await handleLoad(loadId);
-      setPermalinkHash(loadId);
-    } catch (err) {
-      console.warn('Auto-reload failed:', err.message);
-      clearPermalinkHash();
-      if (permalinkId) {
-        showError('Could not load shared transcript. It may have been deleted or the database is temporarily unavailable.');
-      } else {
-        clearLastTranscript();
-      }
-    }
-  }
+  // Load projects and transcript in parallel
+  const projectsPromise = listProjects().then(p => { projects = p; refreshProjectSelects(); }).catch(() => {});
+  const loadPromise = loadId
+    ? handleLoad(loadId).then(() => setPermalinkHash(loadId)).catch(err => {
+        console.warn('Auto-reload failed:', err.message);
+        clearPermalinkHash();
+        if (permalinkId) {
+          showError('Could not load shared transcript. It may have been deleted or the database is temporarily unavailable.');
+        } else {
+          clearLastTranscript();
+        }
+      })
+    : Promise.resolve();
+
+  await Promise.all([projectsPromise, loadPromise]);
 })();

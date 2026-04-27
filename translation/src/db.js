@@ -413,6 +413,14 @@ export async function migrateLocalStorageToSupabase() {
   if (!supabase) return { migrated: false, reason: 'no supabase client' };
   if (localStorage.getItem(MIGRATION_KEY)) return { migrated: false, reason: 'already migrated' };
 
+  // Nothing to migrate? Mark done immediately so we never check again.
+  const projectIndex = lsGetIndex('projects');
+  const transcriptIndex = lsGetIndex('transcripts');
+  if (projectIndex.length === 0 && transcriptIndex.length === 0) {
+    localStorage.setItem(MIGRATION_KEY, JSON.stringify({ at: new Date().toISOString(), skipped: true }));
+    return { migrated: false, reason: 'nothing to migrate' };
+  }
+
   // Quick check — can we reach Supabase at all?
   try {
     const { error } = await supabase.from('transcripts').select('id').limit(1);
