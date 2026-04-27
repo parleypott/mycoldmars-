@@ -667,6 +667,7 @@ $('#btn-search').addEventListener('click', () => {
 
 // ── Sacred Sequencer ──
 let seqSoundbites = [];
+let seqAddingMore = false;
 
 function showSequencer() {
   document.getElementById('app').classList.add('hidden');
@@ -680,6 +681,7 @@ function exitSequencer() {
   document.body.style.background = '';
   // Reset sequencer state
   seqSoundbites = [];
+  seqAddingMore = false;
   $('#seq-arrange').classList.add('hidden');
   $('#seq-confirm').classList.add('hidden');
   $('#seq-paste').classList.remove('hidden');
@@ -828,16 +830,28 @@ $('#seq-exit-btn').addEventListener('click', exitSequencer);
 $('#seq-parse-btn').addEventListener('click', () => {
   const raw = $('#seq-input').value;
   const hint = $('#seq-parse-hint');
-  seqSoundbites = parseSoundbites(raw);
+  const newBites = parseSoundbites(raw);
 
-  if (seqSoundbites.length === 0) {
+  if (newBites.length === 0) {
     hint.textContent = 'No soundbites found. Look for lines like [Name | 00:00:00 → 00:01:00] text...';
     hint.classList.remove('hidden');
     return;
   }
   hint.classList.add('hidden');
 
-  // Detect the sacred sequence and show confirmation
+  if (seqAddingMore) {
+    // Append to existing list, skip confirmation
+    seqSoundbites = seqSoundbites.concat(newBites);
+    seqAddingMore = false;
+    $('#seq-input').value = '';
+    $('#seq-paste').classList.add('hidden');
+    $('#seq-arrange').classList.remove('hidden');
+    renderSeqBlocks();
+    return;
+  }
+
+  // First parse — detect sacred sequence and show confirmation
+  seqSoundbites = newBites;
   const detected = detectSacredSequence(seqSoundbites);
   $('#seq-confirm-name').value = detected.name;
   $('#seq-confirm-detail').textContent = `Found ${detected.total} soundbite${detected.total !== 1 ? 's' : ''} · ${detected.count} from "${detected.name}"`;
@@ -861,11 +875,20 @@ $('#seq-confirm-back').addEventListener('click', () => {
   seqSoundbites = [];
 });
 
+$('#seq-add-more-btn').addEventListener('click', () => {
+  seqAddingMore = true;
+  $('#seq-arrange').classList.add('hidden');
+  $('#seq-paste').classList.remove('hidden');
+  $('#seq-input').value = '';
+  $('#seq-input').focus();
+});
+
 $('#seq-back-btn').addEventListener('click', () => {
   $('#seq-arrange').classList.add('hidden');
   $('#seq-paste').classList.remove('hidden');
   $('#seq-input').value = '';
   seqSoundbites = [];
+  seqAddingMore = false;
 });
 
 $('#seq-export-btn').addEventListener('click', () => {
