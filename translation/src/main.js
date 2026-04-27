@@ -35,6 +35,7 @@ let editorState = null;       // Tiptap JSON document
 let editorInstance = null;    // mounted editor reference
 let editorDirty = false;      // true when editor has unsaved changes not yet synced to translations[]
 let currentSummary = null;    // auto-generated chronological summary
+let rawSummary = null;        // raw AI output before timecode enrichment
 let summaryBullets = [];      // parsed bullet data: [{ id, rawText, enrichedText, segmentStart, segmentEnd }]
 let interestVotes = {};       // { segNum: 'interested' | 'not-interested' }
 let wordTimingsMap = null;    // JSON word-level timings: { segNum: { start, end } }
@@ -262,8 +263,18 @@ async function handleLoad(id) {
       if (ef) ef.value = meta.editorialFocus;
     }
     currentSummary = meta.summary ? enrichSummaryWithTimecodes(meta.summary) : null;
+    rawSummary = meta.rawSummary || null;
     summaryBullets = meta.summaryBullets || [];
     interestVotes = meta.interestVotes || {};
+
+    // Re-parse bullets for transcripts saved before voting feature
+    if (summaryBullets.length === 0 && rawSummary) {
+      summaryBullets = parseSummaryBullets(rawSummary);
+      attachEnrichedTextToBullets();
+    } else if (summaryBullets.length === 0 && currentSummary) {
+      // No raw summary stored — parse from enriched text with timecode reverse-mapping
+      summaryBullets = parseSummaryBulletsFromEnriched(currentSummary);
+    }
 
     // Re-render based on step
     const step = t.step || 1;
@@ -414,6 +425,7 @@ function gatherState(name) {
       editorialFocus,
       clarifications,
       summary: currentSummary,
+      rawSummary,
       summaryBullets,
       interestVotes,
     },
@@ -758,12 +770,13 @@ function renderAnalysis() {
     langDiv.textContent = 'Could not detect languages';
   }
 
-  // Populate sequence name input
+  // Populate sequence name input (remove old listener to avoid stacking)
   const seqInput = $('#sequence-name-input');
   seqInput.value = customSequenceName || getSequenceMetadata(segments).sequenceName || '';
-  seqInput.addEventListener('input', () => {
-    customSequenceName = seqInput.value.trim();
-  });
+  const seqInputHandler = () => { customSequenceName = seqInput.value.trim(); };
+  seqInput.removeEventListener('input', seqInput._seqHandler);
+  seqInput._seqHandler = seqInputHandler;
+  seqInput.addEventListener('input', seqInputHandler);
 
   // Populate speaker checkboxes
   renderSpeakerCheckboxes();
@@ -1384,18 +1397,144 @@ function parseSummaryBullets(rawText) {
   const lines = rawText.split('\n');
   const bullets = [];
   let id = 0;
+  // Track current section's segment range (from headers like **Title (Segments 15-18)**)
+  let sectionSegStart = null;
+  let sectionSegEnd = null;
+  let sectionTitle = null;
+  let sectionTitleEnriched = null;
+
   for (const line of lines) {
-    // Match lines starting with "- " or "N. "
+    // Check for section header (bold or markdown heading)
+    const isHeader = line.startsWith('**') || line.startsWith('## ') || line.startsWith('# ');
+    if (isHeader) {
+      // Clean header text: strip ** and ## prefixes
+      sectionTitle = line.replace(/^#+\s*/, '').replace(/^\*\*(.+?)\*\*$/, '$1').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+      sectionTitleEnriched = null; // will be set during enriched text pass
+
+      const headerSegMatch = line.match(/\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)/i);
+      if (headerSegMatch) {
+        sectionSegStart = parseInt(headerSegMatch[1]);
+        sectionSegEnd = headerSegMatch[2] ? parseInt(headerSegMatch[2]) : sectionSegStart;
+      }
+      continue;
+    }
+
+    // Match bullet lines starting with "- " or "N. "
     const bulletMatch = line.match(/^(?:-|\d+\.)\s+(.+)/);
     if (!bulletMatch) continue;
+
     const text = bulletMatch[1];
-    // Extract segment references like (Segments 15-18) or (Segment 5)
-    const segMatch = text.match(/\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)/i);
-    const segStart = segMatch ? parseInt(segMatch[1]) : null;
-    const segEnd = segMatch ? (segMatch[2] ? parseInt(segMatch[2]) : parseInt(segMatch[1])) : null;
-    bullets.push({ id: id++, rawText: text, enrichedText: '', segmentStart: segStart, segmentEnd: segEnd });
+    // Check for per-bullet segment refs first
+    const bulletSegMatch = text.match(/\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)/i);
+    let segStart, segEnd;
+    if (bulletSegMatch) {
+      segStart = parseInt(bulletSegMatch[1]);
+      segEnd = bulletSegMatch[2] ? parseInt(bulletSegMatch[2]) : segStart;
+    } else {
+      // Inherit from section header
+      segStart = sectionSegStart;
+      segEnd = sectionSegEnd;
+    }
+
+    bullets.push({ id: id++, rawText: text, enrichedText: '', sectionTitle, segmentStart: segStart, segmentEnd: segEnd });
   }
   return bullets;
+}
+
+function attachEnrichedTextToBullets() {
+  if (!currentSummary || !summaryBullets.length) return;
+  const enrichedLines = currentSummary.split('\n');
+  let bulletIdx = 0;
+  let currentEnrichedHeader = null;
+
+  for (const line of enrichedLines) {
+    const isHeader = line.startsWith('**') || line.startsWith('## ') || line.startsWith('# ');
+    if (isHeader) {
+      currentEnrichedHeader = line.replace(/^#+\s*/, '').replace(/^\*\*(.+?)\*\*$/, '$1').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+      continue;
+    }
+    if (line.match(/^(?:-|\d+\.)\s+/) && bulletIdx < summaryBullets.length) {
+      summaryBullets[bulletIdx].enrichedText = line.replace(/^(?:-|\d+\.)\s+/, '');
+      if (currentEnrichedHeader && summaryBullets[bulletIdx].sectionTitle) {
+        summaryBullets[bulletIdx].sectionTitleEnriched = currentEnrichedHeader;
+      }
+      bulletIdx++;
+    }
+  }
+}
+
+function parseSummaryBulletsFromEnriched(enrichedText) {
+  // For pre-existing transcripts with no raw summary — parse bullet structure from
+  // enriched text and reverse-map timecodes to segment numbers using the segments array.
+  if (!enrichedText) return [];
+
+  // Build reverse map: timecode short form → segment number
+  const tcToSeg = {};
+  for (const seg of segments) {
+    if (seg.number != null && seg.start) {
+      const short = fmtShortTimecode(seg.start);
+      tcToSeg[short] = seg.number;
+    }
+  }
+
+  const lines = enrichedText.split('\n');
+  const bullets = [];
+  let id = 0;
+  let sectionSegStart = null;
+  let sectionSegEnd = null;
+
+  let sectionTitle = null;
+
+  for (const line of lines) {
+    // Check for section header with timecodes like (0:38 – 6:00)
+    const isHeader = line.startsWith('**') || line.startsWith('## ') || line.startsWith('# ');
+    if (isHeader) {
+      sectionTitle = line.replace(/^#+\s*/, '').replace(/^\*\*(.+?)\*\*$/, '$1').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
+      const tcMatch = line.match(/\((\d+:\d+(?::\d+)?)\s*[–—-]\s*(\d+:\d+(?::\d+)?)\)/);
+      if (tcMatch) {
+        sectionSegStart = tcToSeg[tcMatch[1]] || null;
+        sectionSegEnd = tcToSeg[tcMatch[2]] || null;
+      } else {
+        const singleTcMatch = line.match(/\((\d+:\d+(?::\d+)?)\)/);
+        if (singleTcMatch) {
+          sectionSegStart = tcToSeg[singleTcMatch[1]] || null;
+          sectionSegEnd = sectionSegStart;
+        }
+      }
+      continue;
+    }
+
+    const bulletMatch = line.match(/^(?:-|\d+\.)\s+(.+)/);
+    if (!bulletMatch) continue;
+
+    const text = bulletMatch[1];
+    // Check for per-bullet timecodes
+    let segStart = sectionSegStart;
+    let segEnd = sectionSegEnd;
+    const bulletTcMatch = text.match(/\((\d+:\d+(?::\d+)?)\s*[–—-]\s*(\d+:\d+(?::\d+)?)\)/);
+    if (bulletTcMatch) {
+      segStart = tcToSeg[bulletTcMatch[1]] || segStart;
+      segEnd = tcToSeg[bulletTcMatch[2]] || segEnd;
+    }
+
+    bullets.push({ id: id++, rawText: text, enrichedText: text, sectionTitle, sectionTitleEnriched: sectionTitle, segmentStart: segStart, segmentEnd: segEnd });
+  }
+  return bullets;
+}
+
+function fmtShortTimecode(tc) {
+  let secs;
+  if (/^\d+(\.\d+)?$/.test(tc)) { secs = parseFloat(tc); }
+  else {
+    const m = tc.match(/(\d+):(\d+):(\d+)/);
+    if (m) secs = parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseInt(m[3]);
+    else { const m2 = tc.match(/(\d+):(\d+)/); secs = m2 ? parseInt(m2[1]) * 60 + parseInt(m2[2]) : 0; }
+  }
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  const pad = n => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
 function enrichSummaryWithTimecodes(text) {
@@ -1487,20 +1626,16 @@ async function generateAutoSummary() {
       }
     }
 
+    // Store raw text for re-parsing on reload
+    rawSummary = text;
+
     // Parse bullets from raw text BEFORE enrichment
     summaryBullets = parseSummaryBullets(text);
 
     currentSummary = enrichSummaryWithTimecodes(text);
 
     // Attach enriched text to each bullet
-    const enrichedLines = currentSummary.split('\n');
-    let bulletIdx = 0;
-    for (const line of enrichedLines) {
-      if (line.match(/^(?:-|\d+\.)\s+/) && bulletIdx < summaryBullets.length) {
-        summaryBullets[bulletIdx].enrichedText = line.replace(/^(?:-|\d+\.)\s+/, '');
-        bulletIdx++;
-      }
-    }
+    attachEnrichedTextToBullets();
 
     // Update editor with the summary
     if (editorInstance) {

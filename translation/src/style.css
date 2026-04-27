@@ -965,6 +965,17 @@ tr.dimmed-speaker { opacity: 0.35; }
   transition: background var(--np-duration) var(--np-ease), border-color var(--np-duration) var(--np-ease), opacity var(--np-duration) var(--np-ease);
   cursor: text;
 }
+.summary-section-header {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--np-sepia);
+  padding: var(--np-space-2) var(--np-space-3);
+  margin-top: var(--np-space-3);
+  list-style: none;
+}
+.summary-section-header:first-child { margin-top: 0; }
 .summary-bullet + .summary-bullet { margin-top: 2px; }
 .summary-bullet--interested {
   border-left-color: var(--np-blue);

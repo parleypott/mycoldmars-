@@ -99,25 +99,39 @@ export function SummaryView({ content, loading, bullets, interestVotes, onVote }
 
   // Structured bullet rendering
   if (bullets && bullets.length > 0) {
+    // Group bullets by section
+    let lastSection = null;
+    const elements = [];
+    for (const bullet of bullets) {
+      const sectionLabel = bullet.sectionTitleEnriched || bullet.sectionTitle;
+      if (sectionLabel && sectionLabel !== lastSection) {
+        elements.push(
+          <h4 key={`section-${bullet.id}`} className="summary-section-header">
+            {sectionLabel}
+          </h4>
+        );
+        lastSection = sectionLabel;
+      }
+      const status = getBulletVoteStatus(bullet);
+      const cls = status ? `summary-bullet summary-bullet--${status}` : 'summary-bullet';
+      const text = bullet.enrichedText || bullet.rawText;
+      elements.push(
+        <li
+          key={bullet.id}
+          className={cls}
+          data-bullet-id={bullet.id}
+          data-seg-start={bullet.segmentStart}
+          data-seg-end={bullet.segmentEnd}
+        >
+          <span dangerouslySetInnerHTML={{ __html: formatInline(text) }} />
+        </li>
+      );
+    }
+
     return (
       <div className="summary-content" ref={containerRef} onMouseUp={handleMouseUp} style={{ position: 'relative' }}>
         <ul className="summary-bullet-list">
-          {bullets.map(bullet => {
-            const status = getBulletVoteStatus(bullet);
-            const cls = status ? `summary-bullet summary-bullet--${status}` : 'summary-bullet';
-            const text = bullet.enrichedText || bullet.rawText;
-            return (
-              <li
-                key={bullet.id}
-                className={cls}
-                data-bullet-id={bullet.id}
-                data-seg-start={bullet.segmentStart}
-                data-seg-end={bullet.segmentEnd}
-              >
-                <span dangerouslySetInnerHTML={{ __html: formatInline(text) }} />
-              </li>
-            );
-          })}
+          {elements}
         </ul>
 
         {popup && (
