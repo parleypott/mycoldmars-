@@ -8,7 +8,7 @@ import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
 import { mountTagSearch } from './tags/mount.js';
 import { mountCopilot } from './copilot/mount.js';
-import { buildPremiereXML, buildPremiereSequenceXML } from './export/premiere-xml.js';
+import { buildPremiereXML, buildPremiereSequenceXML, buildSacredSequencerXML } from './export/premiere-xml.js';
 import { exportHighlightsPDF } from './export/pdf-export.js';
 import { exportSummaryText } from './export/summary-export.js';
 import { extractHighlightsFromEditor } from './editor/document-builder.js';
@@ -663,6 +663,183 @@ $('#btn-search').addEventListener('click', () => {
     });
     searchMounted = true;
   }
+});
+
+// ── Sacred Sequencer ──
+let seqSoundbites = [];
+
+function showSequencer() {
+  $$('.panel').forEach(p => p.classList.remove('active'));
+  stepsNav.classList.add('hidden');
+  $('#sequencer-view').classList.add('active');
+}
+
+function parseSoundbites(raw) {
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const bites = [];
+  const re = /^\[([^|]+?)\s*\|\s*([0-9:.,]+)\s*→\s*([0-9:.,]+)\]\s*(.+)/;
+  for (const line of lines) {
+    const m = line.match(re);
+    if (!m) continue;
+    bites.push({
+      id: crypto.randomUUID(),
+      prefix: m[1].trim(),
+      start: m[2].trim(),
+      end: m[3].trim(),
+      text: m[4].trim(),
+    });
+  }
+  return bites;
+}
+
+function extractSacredName(prefix) {
+  // Strip "- SPEAKER" suffix: "Mars Study - JOHN" → "Mars Study"
+  return prefix.replace(/\s*-\s*[A-Z][A-Z0-9 ]*$/i, '').trim() || prefix;
+}
+
+function formatDuration(bites) {
+  let totalSec = 0;
+  for (const b of bites) {
+    const parts = (tc) => {
+      const p = tc.replace(',', '.').split(':');
+      if (p.length === 3) return parseInt(p[0]) * 3600 + parseInt(p[1]) * 60 + parseFloat(p[2]);
+      if (p.length === 2) return parseInt(p[0]) * 60 + parseFloat(p[1]);
+      return parseFloat(p[0]) || 0;
+    };
+    totalSec += Math.max(0, parts(b.end) - parts(b.start));
+  }
+  const m = Math.floor(totalSec / 60);
+  const s = Math.floor(totalSec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function renderSeqBlocks() {
+  const container = $('#seq-blocks');
+  const status = $('#seq-status');
+  status.textContent = `${seqSoundbites.length} soundbite${seqSoundbites.length !== 1 ? 's' : ''} · ~${formatDuration(seqSoundbites)} total`;
+
+  container.innerHTML = seqSoundbites.map(b => `
+    <div class="seq-block" draggable="true" data-id="${b.id}">
+      <div class="seq-block-handle">⠿</div>
+      <div class="seq-block-body">
+        <div class="seq-block-time">${b.start} → ${b.end}</div>
+        <div class="seq-block-text">${b.text}</div>
+      </div>
+      <button class="seq-block-remove" data-id="${b.id}">×</button>
+    </div>
+  `).join('');
+
+  // Remove buttons
+  container.querySelectorAll('.seq-block-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      seqSoundbites = seqSoundbites.filter(b => b.id !== btn.dataset.id);
+      renderSeqBlocks();
+    });
+  });
+
+  // Drag and drop
+  let dragId = null;
+
+  container.querySelectorAll('.seq-block').forEach(block => {
+    block.addEventListener('dragstart', (e) => {
+      dragId = block.dataset.id;
+      block.classList.add('seq-block--dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    block.addEventListener('dragend', () => {
+      block.classList.remove('seq-block--dragging');
+      container.querySelectorAll('.seq-block').forEach(b => b.classList.remove('seq-block--drop-indicator'));
+      dragId = null;
+    });
+  });
+
+  container.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    container.querySelectorAll('.seq-block').forEach(b => b.classList.remove('seq-block--drop-indicator'));
+    const target = getDragTarget(container, e.clientY);
+    if (target && target.dataset.id !== dragId) {
+      target.classList.add('seq-block--drop-indicator');
+    }
+  });
+
+  container.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (!dragId) return;
+    const target = getDragTarget(container, e.clientY);
+    if (!target || target.dataset.id === dragId) return;
+
+    const fromIdx = seqSoundbites.findIndex(b => b.id === dragId);
+    const toIdx = seqSoundbites.findIndex(b => b.id === target.dataset.id);
+    if (fromIdx < 0 || toIdx < 0) return;
+
+    const [item] = seqSoundbites.splice(fromIdx, 1);
+    seqSoundbites.splice(toIdx, 0, item);
+    renderSeqBlocks();
+  });
+}
+
+function getDragTarget(container, y) {
+  const blocks = [...container.querySelectorAll('.seq-block:not(.seq-block--dragging)')];
+  let closest = null;
+  let closestDist = Infinity;
+  for (const block of blocks) {
+    const rect = block.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    const dist = Math.abs(y - mid);
+    if (dist < closestDist) {
+      closestDist = dist;
+      closest = block;
+    }
+  }
+  return closest;
+}
+
+$('#btn-sequencer').addEventListener('click', showSequencer);
+
+$('#seq-parse-btn').addEventListener('click', () => {
+  const raw = $('#seq-input').value;
+  seqSoundbites = parseSoundbites(raw);
+  if (seqSoundbites.length === 0) return;
+
+  // Auto-detect sacred sequence name
+  const sacredName = extractSacredName(seqSoundbites[0].prefix);
+  $('#seq-name').value = sacredName;
+
+  $('#seq-paste').classList.add('hidden');
+  $('#seq-arrange').classList.remove('hidden');
+  renderSeqBlocks();
+});
+
+$('#seq-back-btn').addEventListener('click', () => {
+  $('#seq-arrange').classList.add('hidden');
+  $('#seq-paste').classList.remove('hidden');
+  $('#seq-input').value = '';
+  seqSoundbites = [];
+});
+
+$('#seq-export-btn').addEventListener('click', () => {
+  if (seqSoundbites.length === 0) return;
+
+  const sacredSequenceName = $('#seq-name').value.trim() || 'Sacred Sequence';
+  const fps = parseFloat($('#seq-fps').value) || 23.976;
+  const gapFrames = parseInt($('#seq-gap').value) || 12;
+
+  const xml = buildSacredSequencerXML({
+    soundbites: seqSoundbites,
+    sacredSequenceName,
+    fps,
+    gapFrames,
+  });
+
+  const blob = new Blob([xml], { type: 'application/xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${sacredSequenceName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-sacred-selects.xml`;
+  a.click();
+  URL.revokeObjectURL(url);
 });
 
 // ── Step 1: Upload ──

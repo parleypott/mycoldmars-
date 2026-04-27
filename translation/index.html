@@ -32,6 +32,7 @@
           <button id="btn-start-new" class="header-btn" title="New">+ New</button>
           <button id="btn-search" class="header-btn" title="Search">Search</button>
           <button id="btn-library" class="header-btn" title="Library">Library</button>
+          <button id="btn-sequencer" class="header-btn" title="Sequencer">Sequencer</button>
           <button id="btn-share" class="header-btn" title="Share link">Share</button>
           <button id="btn-save" class="header-btn header-btn--primary" title="Save">Save</button>
           <span id="save-status" class="save-status"></span>
@@ -257,6 +258,49 @@
       <div id="library-list"></div>
       <div id="library-empty">
         <p>No saved transcripts yet.</p>
+      </div>
+    </section>
+
+    <!-- Sequencer view -->
+    <section id="sequencer-view" class="panel">
+      <div class="seq-container">
+        <div class="seq-header">
+          <h1 class="seq-title">THE SACRED SEQUENCER</h1>
+          <p class="seq-subtitle">paste. arrange. export.</p>
+        </div>
+
+        <!-- Step 1: Paste -->
+        <div id="seq-paste" class="seq-step">
+          <textarea id="seq-input" class="seq-textarea" placeholder="Paste your soundbites here..."></textarea>
+          <button id="seq-parse-btn" class="seq-btn seq-btn--primary">Parse Soundbites</button>
+        </div>
+
+        <!-- Step 2: Arrange (drag and drop) -->
+        <div id="seq-arrange" class="seq-step hidden">
+          <div class="seq-config">
+            <label class="seq-label">Sacred Sequence
+              <input id="seq-name" class="seq-input" type="text" placeholder="Sequence name">
+            </label>
+            <label class="seq-label">FPS
+              <select id="seq-fps" class="seq-select">
+                <option value="23.976" selected>23.976</option>
+                <option value="24">24</option>
+                <option value="25">25</option>
+                <option value="29.97">29.97</option>
+                <option value="30">30</option>
+              </select>
+            </label>
+            <label class="seq-label">Gap (frames)
+              <input id="seq-gap" class="seq-input" type="number" value="12" min="0" max="240">
+            </label>
+          </div>
+          <div id="seq-status" class="seq-status"></div>
+          <div id="seq-blocks" class="seq-blocks"></div>
+          <div class="seq-actions">
+            <button id="seq-back-btn" class="seq-btn">Back</button>
+            <button id="seq-export-btn" class="seq-btn seq-btn--primary">Export XML</button>
+          </div>
+        </div>
       </div>
     </section>
 

@@ -250,6 +250,124 @@ ${clipItems.map((clip, i) => `          <clipitem id="clip-audio-${i + 1}">
   return xml;
 }
 
+/**
+ * Build an FCP XML from Sacred Sequencer soundbites.
+ * Each soundbite becomes a clip on the timeline referencing the sacred sequence,
+ * with configurable gap frames between each clip.
+ */
+export function buildSacredSequencerXML({ soundbites, sacredSequenceName, fps = 23.976, gapFrames = 12 }) {
+  const timebase = Math.round(fps);
+  const isNtsc = (fps === 23.976 || fps === 29.97 || fps === 59.94);
+
+  // Find total sacred sequence duration (max of all clip out frames)
+  let maxOutFrame = 0;
+  const clips = [];
+
+  for (const bite of soundbites) {
+    const inFrames = timecodeToFrames(bite.start, fps);
+    const outFrames = timecodeToFrames(bite.end, fps);
+    if (outFrames > maxOutFrame) maxOutFrame = outFrames;
+    clips.push({ inFrames, outFrames, text: bite.text, prefix: bite.prefix });
+  }
+
+  const sacredDurationFrames = maxOutFrame;
+  const sacredId = 'sacred-seq-1';
+
+  // Place clips on timeline with gaps
+  let timelinePos = 0;
+  const clipItems = [];
+
+  for (const clip of clips) {
+    const duration = clip.outFrames - clip.inFrames;
+    if (duration <= 0) continue;
+
+    clipItems.push({
+      inFrame: clip.inFrames,
+      outFrame: clip.outFrames,
+      startFrame: timelinePos,
+      endFrame: timelinePos + duration,
+      duration,
+      text: clip.text,
+      prefix: clip.prefix,
+    });
+
+    timelinePos += duration + gapFrames;
+  }
+
+  const totalDuration = timelinePos > 0 ? timelinePos - gapFrames : 0;
+  const seqName = sacredSequenceName + ' — Sacred Selects';
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<xmeml version="5">
+  <sequence>
+    <name>${escapeXml(seqName)}</name>
+    <duration>${totalDuration}</duration>
+    <rate>
+      <timebase>${timebase}</timebase>
+      <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
+    </rate>
+    <media>
+      <video>
+        <format>
+          <samplecharacteristics>
+            <width>1920</width>
+            <height>1080</height>
+          </samplecharacteristics>
+        </format>
+        <track>
+${clipItems.map((clip, i) => `          <clipitem id="clip-${i + 1}">
+            <name>${escapeXml(clip.prefix)}</name>
+            <duration>${sacredDurationFrames}</duration>
+            <rate>
+              <timebase>${timebase}</timebase>
+              <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
+            </rate>
+            <start>${clip.startFrame}</start>
+            <end>${clip.endFrame}</end>
+            <in>${clip.inFrame}</in>
+            <out>${clip.outFrame}</out>
+            <file id="${sacredId}">
+              <name>${escapeXml(sacredSequenceName)}</name>
+              <duration>${sacredDurationFrames}</duration>
+              <rate>
+                <timebase>${timebase}</timebase>
+                <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
+              </rate>
+            </file>
+            <marker>
+              <name>Soundbite</name>
+              <comment>${escapeXml(clip.text.slice(0, 200))}</comment>
+              <in>0</in>
+              <out>${clip.duration}</out>
+            </marker>
+          </clipitem>`).join('\n')}
+        </track>
+      </video>
+      <audio>
+        <track>
+${clipItems.map((clip, i) => `          <clipitem id="clip-audio-${i + 1}">
+            <name>${escapeXml(clip.prefix)}</name>
+            <duration>${sacredDurationFrames}</duration>
+            <rate>
+              <timebase>${timebase}</timebase>
+              <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
+            </rate>
+            <start>${clip.startFrame}</start>
+            <end>${clip.endFrame}</end>
+            <in>${clip.inFrame}</in>
+            <out>${clip.outFrame}</out>
+            <file id="${sacredId}"/>
+          </clipitem>`).join('\n')}
+        </track>
+      </audio>
+    </media>
+  </sequence>
+</xmeml>`;
+
+  return xml;
+}
+
 function escapeXml(str) {
   if (!str) return '';
   return str

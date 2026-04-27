@@ -1907,6 +1907,298 @@ tr.dimmed-speaker { opacity: 0.35; }
   margin-bottom: var(--np-space-6);
 }
 
+/* ── Sacred Sequencer — Heavenly 80s Arcade ── */
+#sequencer-view {
+  background: #0b0b2e;
+  min-height: 100vh;
+  margin: calc(-1 * var(--np-space-16)) calc(-1 * var(--np-space-6)) calc(-1 * var(--np-space-24));
+  padding: var(--np-space-16) var(--np-space-6) var(--np-space-24);
+}
+
+.seq-container {
+  max-width: 800px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* CRT scanlines */
+.seq-container::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(200, 162, 255, 0.03) 0px,
+    rgba(200, 162, 255, 0.03) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Heavenly light source */
+.seq-container::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(ellipse at 50% 20%, rgba(200, 162, 255, 0.08) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.seq-header {
+  text-align: center;
+  padding: var(--np-space-12) 0 var(--np-space-8);
+  position: relative;
+  z-index: 2;
+}
+
+.seq-title {
+  font-family: var(--np-font-mono);
+  font-size: 36px;
+  font-weight: 600;
+  letter-spacing: 8px;
+  text-transform: uppercase;
+  color: #f0eaff;
+  text-shadow:
+    0 0 20px #c8a2ff,
+    0 0 60px #c8a2ff,
+    0 0 120px rgba(200, 162, 255, 0.3);
+  margin-bottom: var(--np-space-2);
+}
+
+.seq-subtitle {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+
+.seq-step {
+  position: relative;
+  z-index: 2;
+}
+
+/* Pixelated grid background */
+.seq-step::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    linear-gradient(rgba(200, 162, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(200, 162, 255, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.seq-textarea {
+  width: 100%;
+  min-height: 200px;
+  background: rgba(11, 11, 46, 0.8);
+  border: 1px solid rgba(200, 162, 255, 0.25);
+  border-radius: 4px;
+  color: #f0eaff;
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: var(--np-space-4);
+  resize: vertical;
+  transition: box-shadow 200ms ease, border-color 200ms ease;
+}
+
+.seq-textarea::placeholder {
+  color: rgba(200, 162, 255, 0.35);
+}
+
+.seq-textarea:focus {
+  outline: none;
+  border-color: rgba(200, 162, 255, 0.5);
+  box-shadow: 0 0 20px rgba(200, 162, 255, 0.3);
+}
+
+.seq-btn {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 10px 24px;
+  border: 1px solid rgba(200, 162, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(200, 162, 255, 0.06);
+  color: #f0eaff;
+  cursor: pointer;
+  transition: all 200ms ease;
+}
+
+.seq-btn:hover {
+  border-color: rgba(200, 162, 255, 0.5);
+  box-shadow: 0 0 10px rgba(200, 162, 255, 0.2);
+}
+
+.seq-btn--primary {
+  border-color: rgba(200, 162, 255, 0.5);
+  color: #ffe08a;
+  background: rgba(200, 162, 255, 0.1);
+}
+
+.seq-btn--primary:hover {
+  box-shadow: 0 0 15px rgba(200, 162, 255, 0.5);
+  background: rgba(200, 162, 255, 0.15);
+}
+
+#seq-paste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--np-space-4);
+  align-items: flex-start;
+}
+
+.seq-config {
+  display: flex;
+  gap: var(--np-space-6);
+  flex-wrap: wrap;
+  margin-bottom: var(--np-space-6);
+}
+
+.seq-label {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(200, 162, 255, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--np-space-2);
+}
+
+.seq-input,
+.seq-select {
+  background: rgba(11, 11, 46, 0.8);
+  border: 1px solid rgba(200, 162, 255, 0.25);
+  border-radius: 4px;
+  color: #f0eaff;
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  padding: 6px 10px;
+  transition: border-color 200ms ease;
+}
+
+.seq-input:focus,
+.seq-select:focus {
+  outline: none;
+  border-color: rgba(200, 162, 255, 0.5);
+}
+
+.seq-select {
+  cursor: pointer;
+}
+
+.seq-select option {
+  background: #0b0b2e;
+  color: #f0eaff;
+}
+
+.seq-status {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  color: #7df9ff;
+  letter-spacing: 1px;
+  margin-bottom: var(--np-space-4);
+}
+
+.seq-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--np-space-6);
+  min-height: 60px;
+}
+
+.seq-block {
+  display: flex;
+  align-items: center;
+  gap: var(--np-space-3);
+  padding: 10px 12px;
+  background: rgba(200, 162, 255, 0.06);
+  border: 1px solid rgba(200, 162, 255, 0.12);
+  border-left: 3px solid rgba(200, 162, 255, 0.4);
+  border-radius: 4px;
+  cursor: grab;
+  transition: opacity 200ms ease, transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+
+.seq-block:hover {
+  border-color: rgba(200, 162, 255, 0.25);
+  box-shadow: 0 0 8px rgba(200, 162, 255, 0.1);
+}
+
+.seq-block--dragging {
+  opacity: 0.3;
+  border-left-color: #c8a2ff;
+  box-shadow: 0 0 16px rgba(255, 224, 138, 0.2);
+}
+
+.seq-block--drop-indicator {
+  border-top: 2px solid #ffe08a;
+  box-shadow: 0 -4px 12px rgba(255, 224, 138, 0.3);
+}
+
+.seq-block-handle {
+  color: rgba(200, 162, 255, 0.4);
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.seq-block-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.seq-block-time {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  color: #7df9ff;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.seq-block-text {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  color: #f0eaff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+.seq-block-remove {
+  background: none;
+  border: none;
+  color: #ffe08a;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  opacity: 0.5;
+  transition: opacity 200ms ease;
+  flex-shrink: 0;
+}
+
+.seq-block-remove:hover {
+  opacity: 1;
+}
+
+.seq-actions {
+  display: flex;
+  gap: var(--np-space-4);
+  justify-content: space-between;
+}
+
 /* ── Responsive ── */
 @media (max-width: 640px) {
   #app { padding: var(--np-space-8) var(--np-space-4); }
