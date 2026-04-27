@@ -28,6 +28,7 @@ let speakerMap = {};          // { raw CSV name: clean display name }
 let hiddenSpeakers = [];      // raw speaker names hidden by default
 let showAllSpeakers = false;  // toggle for showing hidden speakers
 let hideUnintelligible = true; // hide unintelligible segments from SRT/editor/reader
+let customSequenceName = '';   // user-editable sequence name (overrides auto-detected)
 let currentProjectId = null;
 let projects = [];
 let editorState = null;       // Tiptap JSON document
@@ -239,6 +240,7 @@ async function handleLoad(id) {
     speakerMap = t.speaker_map || {};
     hiddenSpeakers = t.hidden_speakers || [];
     hideUnintelligible = t.hide_unintelligible ?? true;
+    customSequenceName = t.custom_sequence_name || '';
     currentProjectId = t.project_id || null;
     editorState = t.editor_state || null;
     wordTimingsMap = t.wordTimings || t.word_timings || null;
@@ -400,6 +402,7 @@ function gatherState(name) {
     speakerMap,
     hiddenSpeakers,
     hideUnintelligible,
+    customSequenceName,
     projectId: currentProjectId,
     editorState,
     wordTimings: wordTimingsMap,
@@ -433,8 +436,24 @@ function updateSaveStatus(state) {
   }
 }
 
+function getSeqMeta() {
+  const meta = getSequenceMetadata(segments);
+  if (customSequenceName) {
+    meta.sequenceName = customSequenceName;
+  }
+  return meta;
+}
+
+function handleSequenceNameChange(newName) {
+  customSequenceName = newName;
+  // Also update the step-2 input if visible
+  const seqInput = $('#sequence-name-input');
+  if (seqInput) seqInput.value = newName;
+  debouncedAutoSave();
+}
+
 function generateAutoName() {
-  const seqMeta = getSequenceMetadata(segments);
+  const seqMeta = getSeqMeta();
   const speaker = seqMeta.primarySpeaker || 'Untitled';
   const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   return `${speaker} — ${date}`;
@@ -541,6 +560,8 @@ function handleFile(file) {
         .filter(s => isGenericSpeaker(s))
         .filter((v, i, a) => a.indexOf(v) === i);
       showAllSpeakers = false;
+      // Pre-fill sequence name from filename (minus extension)
+      customSequenceName = file.name.replace(/\.(json|csv)$/i, '');
       renderTranscript();
 
       // Auto-create draft transcript in Supabase
@@ -677,6 +698,13 @@ function renderAnalysis() {
   } else {
     langDiv.textContent = 'Could not detect languages';
   }
+
+  // Populate sequence name input
+  const seqInput = $('#sequence-name-input');
+  seqInput.value = customSequenceName || getSequenceMetadata(segments).sequenceName || '';
+  seqInput.addEventListener('input', () => {
+    customSequenceName = seqInput.value.trim();
+  });
 
   // Populate speaker checkboxes
   renderSpeakerCheckboxes();
@@ -991,7 +1019,7 @@ function switchView(view) {
     syncEditorColors();
     const container = $('#editor-mount');
     if (container && !editorInstance) {
-      const seqMeta = getSequenceMetadata(segments);
+      const seqMeta = getSeqMeta();
       editorInstance = mountEditor(container, {
         initialContent: editorState,
         projectId: currentProjectId,
@@ -1013,6 +1041,7 @@ function switchView(view) {
           showSyncFeedback(count);
           autoSave();
         },
+        onSequenceNameChange: handleSequenceNameChange,
         onAskAI: (selection) => {
           openCopilot(selection);
         },
@@ -1215,7 +1244,7 @@ if (saveProjectSelect) {
     if (saveProjectSelect.value === '__new__') {
       saveNewProjectDiv.classList.remove('hidden');
       // Default project name to primary speaker
-      const seqMeta = getSequenceMetadata(segments);
+      const seqMeta = getSeqMeta();
       saveNewProjectInput.value = seqMeta.primarySpeaker || '';
       saveNewProjectInput.focus();
     } else {
@@ -1335,7 +1364,7 @@ async function generateAutoSummary() {
 
     // Update editor with the summary
     if (editorInstance) {
-      const seqMeta = getSequenceMetadata(segments);
+      const seqMeta = getSeqMeta();
       editorInstance.update({
         initialContent: editorState,
         projectId: currentProjectId,
@@ -1357,6 +1386,7 @@ async function generateAutoSummary() {
           showSyncFeedback(count);
           autoSave();
         },
+        onSequenceNameChange: handleSequenceNameChange,
         onAskAI: (selection) => {
           openCopilot(selection);
         },
@@ -1430,7 +1460,7 @@ function showSyncFeedback(count) {
 
 function updateSyncDirtyIndicator() {
   if (editorInstance) {
-    const seqMeta = getSequenceMetadata(segments);
+    const seqMeta = getSeqMeta();
     editorInstance.update({
       initialContent: editorState,
       projectId: currentProjectId,
@@ -1452,6 +1482,7 @@ function updateSyncDirtyIndicator() {
         showSyncFeedback(count);
         autoSave();
       },
+      onSequenceNameChange: handleSequenceNameChange,
       onAskAI: (selection) => {
         openCopilot(selection);
       },
@@ -1546,7 +1577,7 @@ function commitTranslationToEditor(segmentNumbers, newText) {
 
   // Push to live editor
   if (editorInstance && editorState) {
-    const seqMeta = getSequenceMetadata(segments);
+    const seqMeta = getSeqMeta();
     editorInstance.update({
       initialContent: editorState,
       projectId: currentProjectId,
@@ -1568,6 +1599,7 @@ function commitTranslationToEditor(segmentNumbers, newText) {
         showSyncFeedback(count);
         autoSave();
       },
+      onSequenceNameChange: handleSequenceNameChange,
       onAskAI: (sel) => {
         openCopilot(sel);
       },

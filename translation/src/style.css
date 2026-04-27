@@ -838,6 +838,34 @@ tr.dimmed-speaker { opacity: 0.35; }
 .editor-premiere-icon {
   flex-shrink: 0;
 }
+.editor-sequence-edit-btn {
+  border: none;
+  background: transparent;
+  color: var(--np-cool-neutral);
+  cursor: pointer;
+  padding: 2px 4px;
+  opacity: 0;
+  transition: opacity var(--np-duration) var(--np-ease), color var(--np-duration) var(--np-ease);
+}
+.editor-sequence-name:hover .editor-sequence-edit-btn {
+  opacity: 1;
+}
+.editor-sequence-edit-btn:hover {
+  color: var(--np-ink);
+}
+.editor-sequence-name-input {
+  font-family: var(--np-font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--np-ink);
+  border: 1px solid var(--np-ink);
+  padding: 2px 6px;
+  background: transparent;
+  flex: 1;
+}
+.editor-sequence-name-input:focus {
+  outline: none;
+}
 .editor-sequence-date {
   font-family: var(--np-font-mono);
   font-size: 11px;

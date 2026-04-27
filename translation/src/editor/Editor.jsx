@@ -10,17 +10,21 @@ import { TagPicker } from './TagPicker.jsx';
 import { extractSequenceBase } from '../csv-parser.js';
 import { formatPreciseTimecode } from '../timecode-utils.js';
 
-export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, editorDirty, summary, sequenceInfo, speakerColors, speakerMap, onSpeakerMapChange }) {
+export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, onSequenceNameChange, editorDirty, summary, sequenceInfo, speakerColors, speakerMap, onSpeakerMapChange }) {
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
+  const [editingSeqName, setEditingSeqName] = useState(false);
+  const [seqNameValue, setSeqNameValue] = useState('');
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [editingSpeaker, setEditingSpeaker] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [timecodeTooltip, setTimecodeTooltip] = useState(null);
 
-  const seqNameRef = sequenceInfo?.sequenceName || '';
-  const primarySpeakerRef = sequenceInfo?.primarySpeaker || '';
+  const seqNameLatest = useRef(sequenceInfo?.sequenceName || '');
+  const primarySpeakerLatest = useRef(sequenceInfo?.primarySpeaker || '');
+  seqNameLatest.current = sequenceInfo?.sequenceName || '';
+  primarySpeakerLatest.current = sequenceInfo?.primarySpeaker || '';
 
   const editor = useEditor({
     extensions: [
@@ -88,10 +92,10 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
           }
 
           // Build prefix: primary sequence base + speaker if non-primary
-          const seqName = seqNameRef;
+          const seqName = seqNameLatest.current;
           const primaryBase = extractSequenceBase(seqName);
           let clipPrefix = primaryBase || seqName;
-          if (blockSpeaker && primarySpeakerRef && blockSpeaker.toUpperCase() !== primarySpeakerRef.toUpperCase()) {
+          if (blockSpeaker && primarySpeakerLatest.current && blockSpeaker.toUpperCase() !== primarySpeakerLatest.current.toUpperCase()) {
             clipPrefix += ` - ${blockSpeaker.toUpperCase()}`;
           }
 
@@ -257,7 +261,37 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
               <rect width="16" height="16" rx="2" fill="#00005B"/>
               <text x="3" y="12" fill="white" fontSize="10" fontFamily="sans-serif" fontWeight="bold">Pr</text>
             </svg>
-            <span>{sequenceInfo.sequenceName}</span>
+            {editingSeqName ? (
+              <input
+                className="editor-sequence-name-input"
+                value={seqNameValue}
+                onInput={e => setSeqNameValue(e.target.value)}
+                onBlur={() => {
+                  setEditingSeqName(false);
+                  if (onSequenceNameChange) onSequenceNameChange(seqNameValue.trim());
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    setEditingSeqName(false);
+                    if (onSequenceNameChange) onSequenceNameChange(seqNameValue.trim());
+                  }
+                }}
+                autoFocus
+              />
+            ) : (
+              <>
+                <span>{sequenceInfo.sequenceName}</span>
+                <button
+                  className="editor-sequence-edit-btn"
+                  onClick={() => { setSeqNameValue(sequenceInfo.sequenceName); setEditingSeqName(true); }}
+                  title="Edit sequence name"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M8.5 1.5l2 2-7 7H1.5v-2l7-7z" stroke="currentColor" strokeWidth="1" fill="none"/>
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
           {dateStr && <div className="editor-sequence-date">{dateStr}</div>}
         </div>
