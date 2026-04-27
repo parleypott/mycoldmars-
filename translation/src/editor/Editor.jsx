@@ -8,6 +8,7 @@ import { HighlightMark } from './extensions/HighlightMark.js';
 import { EditorBubbleMenu } from './BubbleMenu.jsx';
 import { TagPicker } from './TagPicker.jsx';
 import { extractSequenceBase } from '../csv-parser.js';
+import { formatPreciseTimecode } from '../timecode-utils.js';
 
 export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, summary, sequenceInfo, speakerColors, speakerMap, onSpeakerMapChange }) {
   const [showTagPicker, setShowTagPicker] = useState(false);
@@ -46,15 +47,32 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
           const text = view.state.doc.textBetween(sel.from, sel.to, ' ');
           if (!text.trim()) return false;
 
-          // Find the first segment mark in the selection for timecode
-          let timecode = '';
+          // Find first start and last end timecodes in the selection
+          let firstStart = '';
+          let lastEnd = '';
           view.state.doc.nodesBetween(sel.from, sel.to, (node) => {
-            if (timecode) return false; // stop after first find
             if (node.isText && node.marks) {
               const segMark = node.marks.find(m => m.type.name === 'segment');
-              if (segMark?.attrs?.start) timecode = segMark.attrs.start;
+              if (segMark) {
+                if (!firstStart && segMark.attrs.start) firstStart = segMark.attrs.start;
+                if (segMark.attrs.end) lastEnd = segMark.attrs.end;
+              }
             }
           });
+
+          // Format timecodes — detect decimal seconds (from JSON) vs HH:MM:SS (from CSV)
+          const isDecimal = (tc) => tc && /^\d+(\.\d+)?$/.test(tc);
+
+          let timecode = '';
+          if (firstStart) {
+            const startFmt = isDecimal(firstStart) ? formatPreciseTimecode(parseFloat(firstStart)) : firstStart;
+            if (lastEnd && lastEnd !== firstStart) {
+              const endFmt = isDecimal(lastEnd) ? formatPreciseTimecode(parseFloat(lastEnd)) : lastEnd;
+              timecode = `${startFmt} → ${endFmt}`;
+            } else {
+              timecode = startFmt;
+            }
+          }
 
           // Find speaker of the selected block
           let blockSpeaker = '';

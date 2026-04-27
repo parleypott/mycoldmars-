@@ -1,4 +1,6 @@
 import { parseCSV, getStats, cleanSpeakerName, buildSpeakerMap, isGenericSpeaker, getSequenceMetadata } from './csv-parser.js';
+import { parseJSON } from './json-parser.js';
+import { formatPreciseTimecode } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
 import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo } from './db.js';
@@ -30,6 +32,7 @@ let projects = [];
 let editorState = null;       // Tiptap JSON document
 let editorInstance = null;    // mounted editor reference
 let currentSummary = null;    // auto-generated chronological summary
+let wordTimingsMap = null;    // JSON word-level timings: { segNum: { start, end } }
 
 const SPEAKER_PALETTE = [
   '#DD2C1E', '#004CFF', '#0D5921', '#FFBF00',
@@ -235,6 +238,7 @@ async function handleLoad(id) {
     hiddenSpeakers = t.hidden_speakers || [];
     currentProjectId = t.project_id || null;
     editorState = t.editor_state || null;
+    wordTimingsMap = t.wordTimings || t.word_timings || null;
     currentTranscriptId = t.id;
     currentTranscriptName = t.name;
     // Reset editor instance so it remounts with new state
@@ -392,6 +396,7 @@ function gatherState(name) {
     hiddenSpeakers,
     projectId: currentProjectId,
     editorState,
+    wordTimings: wordTimingsMap,
     metadata: {
       editorialFocus,
       clarifications,
@@ -492,15 +497,28 @@ $('#btn-search').addEventListener('click', () => {
 
 // ── Step 1: Upload ──
 function handleFile(file) {
-  if (!file || !file.name.endsWith('.csv')) {
-    showError('Please upload a .csv file');
+  const isJSON = file.name.endsWith('.json');
+  const isCSV = file.name.endsWith('.csv');
+
+  if (!file || (!isCSV && !isJSON)) {
+    showError('Please upload a .csv or .json file');
     return;
   }
 
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
-      segments = parseCSV(e.target.result);
+      const content = e.target.result;
+
+      if (isJSON || (!isCSV && content.trimStart().startsWith('['))) {
+        const result = parseJSON(content);
+        segments = result.segments;
+        wordTimingsMap = result.wordTimings;
+      } else {
+        segments = parseCSV(content);
+        wordTimingsMap = null;
+      }
+
       // Reset state for new file
       currentTranscriptId = null;
       currentTranscriptName = '';
@@ -905,6 +923,9 @@ function formatTimecodeShort(tc) {
   }
   const match2 = tc.match(/(\d+):(\d+)/);
   if (match2) return `${parseInt(match2[1])}:${match2[2]}`;
+  // Decimal seconds (from JSON parser) — format as precise timecode
+  const f = parseFloat(tc);
+  if (!isNaN(f)) return formatPreciseTimecode(f);
   return tc;
 }
 
