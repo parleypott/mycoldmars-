@@ -1917,56 +1917,60 @@ function clearLastTranscript() {
   try { localStorage.removeItem('mcm_last_transcript'); } catch {}
 }
 
-// ── "Start New Transcription" button ──
+// ── Reset to upload ──
+function resetToUpload() {
+  clearLastTranscript();
+  clearPermalinkHash();
+  clearTimeout(debouncedAutoSaveTimer);
+  segments = [];
+  analysis = null;
+  translations = [];
+  srtContent = '';
+  currentTranscriptId = null;
+  currentTranscriptName = '';
+  speakerColors = {};
+  annotations = {};
+  speakerMap = {};
+  hiddenSpeakers = [];
+  customSequenceName = '';
+  editorState = null;
+  editorDirty = false;
+  currentSummary = null;
+  rawSummary = null;
+  summaryBullets = [];
+  interestVotes = {};
+  wordTimingsMap = null;
+  const editorMount = document.getElementById('editor-mount');
+  if (editorMount) editorMount.innerHTML = '';
+  editorInstance = null;
+  const uploadPreview = document.getElementById('upload-preview');
+  if (uploadPreview) { uploadPreview.classList.add('hidden'); uploadPreview.querySelector('tbody').innerHTML = ''; }
+  const analyzeResult = document.getElementById('analyze-result');
+  if (analyzeResult) analyzeResult.classList.add('hidden');
+  const analyzeLoading = document.getElementById('analyze-loading');
+  if (analyzeLoading) analyzeLoading.classList.add('hidden');
+  const srtPreview = document.getElementById('srt-preview');
+  if (srtPreview) srtPreview.textContent = '';
+  const readerMount = document.getElementById('reader-mount');
+  if (readerMount) readerMount.innerHTML = '';
+  const searchView = document.getElementById('search-view');
+  if (searchView) searchView.classList.remove('active');
+  const copilotPanel = document.getElementById('copilot-panel');
+  if (copilotPanel) copilotPanel.classList.remove('open');
+  const fileInput = document.getElementById('file-input');
+  if (fileInput) fileInput.value = '';
+  stepsNav.classList.remove('hidden');
+  goToStep(1);
+}
+
 const btnStartNew = document.getElementById('btn-start-new');
-if (btnStartNew) {
-  btnStartNew.addEventListener('click', () => {
-    clearLastTranscript();
-    clearPermalinkHash();
-    clearTimeout(debouncedAutoSaveTimer);
-    // Reset state
-    segments = [];
-    analysis = null;
-    translations = [];
-    srtContent = '';
-    currentTranscriptId = null;
-    currentTranscriptName = '';
-    speakerColors = {};
-    annotations = {};
-    speakerMap = {};
-    hiddenSpeakers = [];
-    customSequenceName = '';
-    editorState = null;
-    editorDirty = false;
-    currentSummary = null;
-    rawSummary = null;
-    summaryBullets = [];
-    interestVotes = {};
-    wordTimingsMap = null;
-    const editorMount = document.getElementById('editor-mount');
-    if (editorMount) editorMount.innerHTML = '';
-    editorInstance = null;
-    // Clear rendered DOM from previous transcript
-    const uploadPreview = document.getElementById('upload-preview');
-    if (uploadPreview) { uploadPreview.classList.add('hidden'); uploadPreview.querySelector('tbody').innerHTML = ''; }
-    const analyzeResult = document.getElementById('analyze-result');
-    if (analyzeResult) analyzeResult.classList.add('hidden');
-    const analyzeLoading = document.getElementById('analyze-loading');
-    if (analyzeLoading) analyzeLoading.classList.add('hidden');
-    const srtPreview = document.getElementById('srt-preview');
-    if (srtPreview) srtPreview.textContent = '';
-    const readerMount = document.getElementById('reader-mount');
-    if (readerMount) readerMount.innerHTML = '';
-    // Hide search, copilot, and file input state
-    const searchView = document.getElementById('search-view');
-    if (searchView) searchView.classList.remove('active');
-    const copilotPanel = document.getElementById('copilot-panel');
-    if (copilotPanel) copilotPanel.classList.remove('open');
-    const fileInput = document.getElementById('file-input');
-    if (fileInput) fileInput.value = '';
-    // Show steps nav and go to upload
-    stepsNav.classList.remove('hidden');
-    goToStep(1);
+if (btnStartNew) btnStartNew.addEventListener('click', resetToUpload);
+
+const headerLogo = document.getElementById('header-logo');
+if (headerLogo) {
+  headerLogo.addEventListener('click', (e) => {
+    e.preventDefault();
+    resetToUpload();
   });
 }
 

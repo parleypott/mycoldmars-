@@ -123,45 +123,77 @@ body {
 
 /* ── Header ── */
 header {
-  margin-bottom: var(--np-space-16);
+  margin-bottom: var(--np-space-8);
+  border-bottom: 0.5px solid var(--np-cool-neutral);
+  padding-bottom: var(--np-space-4);
 }
 .header-row {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
 }
-.header-actions {
+.header-logo {
   display: flex;
+  align-items: baseline;
   gap: var(--np-space-3);
-  padding-bottom: var(--np-space-6);
+  text-decoration: none;
+  color: var(--np-ink);
+  cursor: pointer;
 }
-header .np-eyebrow {
-  margin-bottom: var(--np-space-8);
+.header-logo:hover .header-logo-mark {
+  color: var(--np-red);
 }
-header h1 {
+.header-logo-label {
+  font-family: var(--np-font-sans);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--np-red);
+}
+.header-logo-mark {
   font-family: var(--np-font-serif);
-  font-size: clamp(36px, 5vw, 52px);
+  font-size: 22px;
   font-weight: 300;
   letter-spacing: -0.01em;
-  line-height: 1.0;
-  margin-bottom: var(--np-space-4);
   color: var(--np-ink);
-  padding-bottom: var(--np-space-4);
-  border-bottom: 0.5px solid var(--np-cool-neutral);
+  transition: color var(--np-duration) var(--np-ease);
 }
 .wordmark-section {
   font-weight: 400;
-  font-size: 0.7em;
+  font-size: 0.85em;
   color: var(--np-red);
-  margin-right: 0.08em;
-  position: relative;
-  top: -0.05em;
+  margin-right: 0.04em;
 }
-.header-desc {
-  font-family: var(--np-font-mono);
-  font-size: 14px;
+.header-actions {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+.header-btn {
+  font-family: var(--np-font-sans);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border: none;
+  background: transparent;
   color: var(--np-sepia);
-  line-height: 1.6;
+  cursor: pointer;
+  transition: color var(--np-duration) var(--np-ease),
+              background var(--np-duration) var(--np-ease);
+  border-radius: 3px;
+}
+.header-btn:hover {
+  color: var(--np-ink);
+  background: rgba(0,0,0,0.04);
+}
+.header-btn--primary {
+  color: var(--np-warm-white);
+  background: var(--np-ink);
+  border-radius: 3px;
+}
+.header-btn--primary:hover {
+  background: var(--np-red);
 }
 
 /* ── Steps ── */
@@ -1844,8 +1876,8 @@ tr.dimmed-speaker { opacity: 0.35; }
 @media (max-width: 640px) {
   #app { padding: var(--np-space-8) var(--np-space-4); }
   header h1 { font-size: 32px; }
-  .header-row { flex-direction: column; align-items: flex-start; }
-  .header-actions { padding-bottom: 0; margin-top: var(--np-space-4); }
+  .header-row { flex-direction: column; align-items: flex-start; gap: var(--np-space-3); }
+  .header-actions { flex-wrap: wrap; }
   .result-grid { grid-template-columns: 1fr; }
   .steps { flex-wrap: wrap; }
   .controls-bar { flex-direction: column; gap: var(--np-space-4); }
