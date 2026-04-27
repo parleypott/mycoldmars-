@@ -1867,6 +1867,7 @@ function showError(msg, parentSel) {
 // ── Remember last transcript for auto-reload ──
 function rememberLastTranscript(id) {
   try { localStorage.setItem('mcm_last_transcript', id); } catch {}
+  setPermalinkHash(id);
 }
 function getLastTranscript() {
   try { return localStorage.getItem('mcm_last_transcript'); } catch { return null; }
@@ -1880,6 +1881,7 @@ const btnStartNew = document.getElementById('btn-start-new');
 if (btnStartNew) {
   btnStartNew.addEventListener('click', () => {
     clearLastTranscript();
+    clearPermalinkHash();
     // Reset state
     segments = [];
     analysis = null;
@@ -1917,6 +1919,39 @@ if (btnStartNew) {
   });
 }
 
+// ── Permalink support ──
+function getPermalinkId() {
+  const hash = window.location.hash;
+  const match = hash.match(/^#t=(.+)/);
+  return match ? match[1] : null;
+}
+
+function setPermalinkHash(id) {
+  if (id) {
+    history.replaceState(null, '', '#t=' + id);
+  }
+}
+
+function clearPermalinkHash() {
+  history.replaceState(null, '', window.location.pathname);
+}
+
+// ── Share / Copy Link button ──
+const btnShare = document.getElementById('btn-share');
+if (btnShare) {
+  btnShare.addEventListener('click', () => {
+    if (!currentTranscriptId) return;
+    setPermalinkHash(currentTranscriptId);
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      btnShare.textContent = 'Link Copied!';
+      setTimeout(() => { btnShare.textContent = 'Share Link'; }, 2000);
+    }).catch(() => {
+      prompt('Copy this link:', url);
+    });
+  });
+}
+
 // ── Init: load projects and auto-reload last transcript ──
 (async function init() {
   try {
@@ -1924,14 +1959,18 @@ if (btnStartNew) {
     refreshProjectSelects();
   } catch {}
 
-  // Auto-reload last transcript
-  const lastId = getLastTranscript();
-  if (lastId) {
+  // Priority: URL permalink > localStorage last transcript
+  const permalinkId = getPermalinkId();
+  const loadId = permalinkId || getLastTranscript();
+
+  if (loadId) {
     try {
-      await handleLoad(lastId);
+      await handleLoad(loadId);
+      setPermalinkHash(loadId);
     } catch (err) {
       console.warn('Auto-reload failed:', err.message);
-      clearLastTranscript();
+      clearPermalinkHash();
+      if (!permalinkId) clearLastTranscript();
     }
   }
 })();
