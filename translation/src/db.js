@@ -11,20 +11,44 @@ try {
   console.warn('Supabase init failed:', err.message);
 }
 
-// Once a Supabase call fails, skip it for the rest of the session
-let supabaseFailed = false;
+// Track consecutive Supabase failures — retry after cooldown instead of permanent kill
+let supabaseFailCount = 0;
+let supabaseFailedAt = 0;
+const SUPABASE_RETRY_COOLDOWN = 10000; // 10 seconds before retrying after failure
 
+function markSupabaseFailed(err) {
+  supabaseFailCount++;
+  supabaseFailedAt = Date.now();
+  console.warn(`Supabase failed (attempt ${supabaseFailCount}), using localStorage:`, err.message);
+}
+
+function markSupabaseSuccess() {
+  if (supabaseFailCount > 0) {
+    supabaseFailCount = 0;
+    console.info('Supabase connection restored');
+  }
+}
+
+function isSupabaseAvailable() {
+  if (!supabase) return false;
+  if (supabaseFailCount === 0) return true;
+  // Retry after cooldown
+  if (Date.now() - supabaseFailedAt > SUPABASE_RETRY_COOLDOWN) return true;
+  return false;
+}
+
+// Keep old export name for compat
 export function supabaseAvailable() {
   return true; // localStorage is always available as fallback
 }
 
 export function getStorageInfo() {
-  if (supabase && !supabaseFailed) return 'remote';
+  if (isSupabaseAvailable()) return 'remote';
   return 'local';
 }
 
 const db = () => {
-  if (!supabase || supabaseFailed) throw new Error('Database not configured');
+  if (!isSupabaseAvailable()) throw new Error('Database not configured');
   return supabase;
 };
 
@@ -78,7 +102,7 @@ export async function createProject({ name, description }) {
     if (error) throw new Error(error.message);
     return data;
   } catch (err) {
-    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    if (supabase) markSupabaseFailed(err);
     const id = generateId();
     const now = new Date().toISOString();
     const project = { id, name, description: description || null, created_at: now };
@@ -92,7 +116,7 @@ export async function createProject({ name, description }) {
 
 export async function listProjects() {
   try {
-    if (!supabase || supabaseFailed) throw new Error('skip');
+    if (!isSupabaseAvailable()) throw new Error('skip');
     const { data, error } = await supabase
       .from('projects')
       .select('id, name, description, created_at')
@@ -100,7 +124,7 @@ export async function listProjects() {
     if (error) throw new Error(error.message);
     return data;
   } catch (err) {
-    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    if (supabase) markSupabaseFailed(err);
     const index = lsGetIndex('projects');
     return index.map(id => lsGet(`project_${id}`)).filter(Boolean);
   }
@@ -114,7 +138,7 @@ export async function deleteProject(id) {
       .eq('id', id);
     if (error) throw new Error(error.message);
   } catch (err) {
-    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    if (supabase) markSupabaseFailed(err);
     lsDelete(`project_${id}`);
     const index = lsGetIndex('projects').filter(i => i !== id);
     lsSaveIndex('projects', index);
@@ -134,7 +158,7 @@ export async function createTag({ projectId, name, color }) {
 }
 
 export async function listTags(projectId) {
-  if (!supabase || supabaseFailed) return [];
+  if (!isSupabaseAvailable()) return [];
   const { data, error } = await supabase
     .from('tags')
     .select('*')
@@ -170,7 +194,7 @@ export async function saveHighlights(transcriptId, highlights) {
 }
 
 export async function searchHighlights({ projectId, tagId }) {
-  if (!supabase || supabaseFailed) return [];
+  if (!isSupabaseAvailable()) return [];
   let query = supabase
     .from('highlights')
     .select('*, transcripts!inner(id, name, project_id), tags(id, name, color)')
@@ -213,7 +237,7 @@ export async function updateAiThread(id, messages) {
 }
 
 export async function listAiThreads(transcriptId) {
-  if (!supabase || supabaseFailed) return [];
+  if (!isSupabaseAvailable()) return [];
   const { data, error } = await supabase
     .from('ai_threads')
     .select('*')
@@ -251,9 +275,10 @@ export async function saveTranscript({ name, step, segments, analysis, translati
       .single();
 
     if (error) throw new Error(error.message);
+    markSupabaseSuccess();
     return data;
   } catch (err) {
-    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    if (supabase) markSupabaseFailed(err);
     const id = generateId();
     const now = new Date().toISOString();
     const record = {
@@ -309,9 +334,10 @@ export async function updateTranscript(id, fields) {
       .single();
 
     if (error) throw new Error(error.message);
+    markSupabaseSuccess();
     return data;
   } catch (err) {
-    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    if (supabase) markSupabaseFailed(err);
     const existing = lsGet(`transcript_${id}`) || {};
     const merged = { ...existing, ...update };
     lsSet(`transcript_${id}`, merged);
@@ -321,7 +347,7 @@ export async function updateTranscript(id, fields) {
 
 export async function listTranscripts(projectId) {
   try {
-    if (!supabase || supabaseFailed) throw new Error('skip');
+    if (!isSupabaseAvailable()) throw new Error('skip');
     let query = supabase
       .from('transcripts')
       .select('id, name, step, created_at, updated_at, project_id, metadata')
@@ -333,7 +359,7 @@ export async function listTranscripts(projectId) {
     if (error) throw new Error(error.message);
     return data;
   } catch (err) {
-    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    if (supabase) markSupabaseFailed(err);
     const index = lsGetIndex('transcripts');
     let items = index.map(id => lsGet(`transcript_${id}`)).filter(Boolean);
     if (projectId) items = items.filter(t => t.project_id === projectId);
@@ -353,11 +379,12 @@ export async function loadTranscript(id) {
       .single();
 
     if (error) throw new Error(error.message);
+    markSupabaseSuccess();
     return data;
   } catch (err) {
-    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    if (supabase) markSupabaseFailed(err);
     const record = lsGet(`transcript_${id}`);
-    if (!record) throw new Error('Transcript not found in local storage');
+    if (!record) throw new Error('Transcript not found');
     return record;
   }
 }
@@ -371,7 +398,7 @@ export async function deleteTranscript(id) {
 
     if (error) throw new Error(error.message);
   } catch (err) {
-    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    if (supabase) markSupabaseFailed(err);
     lsDelete(`transcript_${id}`);
     const index = lsGetIndex('transcripts').filter(i => i !== id);
     lsSaveIndex('transcripts', index);

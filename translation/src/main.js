@@ -1976,7 +1976,11 @@ if (btnShare) {
     } catch (err) {
       console.warn('Auto-reload failed:', err.message);
       clearPermalinkHash();
-      if (!permalinkId) clearLastTranscript();
+      if (permalinkId) {
+        showError('Could not load shared transcript. It may have been deleted or the database is temporarily unavailable.');
+      } else {
+        clearLastTranscript();
+      }
     }
   }
 })();
