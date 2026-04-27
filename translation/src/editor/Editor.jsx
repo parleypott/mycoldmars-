@@ -7,6 +7,7 @@ import { DeletedMark } from './extensions/DeletedMark.js';
 import { HighlightMark } from './extensions/HighlightMark.js';
 import { EditorBubbleMenu } from './BubbleMenu.jsx';
 import { TagPicker } from './TagPicker.jsx';
+import { extractSequenceBase } from '../csv-parser.js';
 
 export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, summary, sequenceInfo, speakerColors, speakerMap, onSpeakerMapChange }) {
   const [showTagPicker, setShowTagPicker] = useState(false);
@@ -16,6 +17,7 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
   const [editValue, setEditValue] = useState('');
 
   const seqNameRef = sequenceInfo?.sequenceName || '';
+  const primarySpeakerRef = sequenceInfo?.primarySpeaker || '';
 
   const editor = useEditor({
     extensions: [
@@ -54,10 +56,28 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
             }
           });
 
+          // Find speaker of the selected block
+          let blockSpeaker = '';
+          const $pos = view.state.doc.resolve(sel.from);
+          for (let d = $pos.depth; d > 0; d--) {
+            const node = $pos.node(d);
+            if (node.type.name === 'speakerBlock') {
+              blockSpeaker = node.attrs.speaker || '';
+              break;
+            }
+          }
+
+          // Build prefix: primary sequence base + speaker if non-primary
           const seqName = seqNameRef;
-          if (seqName || timecode) {
+          const primaryBase = extractSequenceBase(seqName);
+          let clipPrefix = primaryBase || seqName;
+          if (blockSpeaker && primarySpeakerRef && blockSpeaker.toUpperCase() !== primarySpeakerRef.toUpperCase()) {
+            clipPrefix += ` - ${blockSpeaker.toUpperCase()}`;
+          }
+
+          if (clipPrefix || timecode) {
             event.preventDefault();
-            const prefix = [seqName, timecode].filter(Boolean).join(' | ');
+            const prefix = [clipPrefix, timecode].filter(Boolean).join(' | ');
             event.clipboardData.setData('text/plain', `[${prefix}] ${text.trim()}`);
             return true; // prevent ProseMirror default copy
           }

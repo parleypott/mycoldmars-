@@ -40,6 +40,21 @@ export function parseSequenceInfo(rawSpeakerName) {
   return { sequenceName: rawSpeakerName.trim(), dateFilmed };
 }
 
+/**
+ * Extract the sequence base prefix from a raw sequence name.
+ * Finds the first alphabetic word (2+ chars) — the primary speaker — and returns
+ * everything up to and including it.
+ * e.g. "260317'-04'-104'-JERRY - JOHNNY" → "260317'-04'-104'-JERRY"
+ */
+export function extractSequenceBase(seqName) {
+  if (!seqName) return seqName;
+  const match = seqName.match(/[a-zA-Z]{2,}/);
+  if (match) {
+    return seqName.slice(0, match.index + match[0].length);
+  }
+  return seqName;
+}
+
 /** Check if speaker is generic/unlabeled */
 export function isGenericSpeaker(name) {
   if (!name) return true;

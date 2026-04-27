@@ -1,7 +1,7 @@
 import { parseCSV, getStats, cleanSpeakerName, buildSpeakerMap, isGenericSpeaker, getSequenceMetadata } from './csv-parser.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript, createProject, listProjects, deleteProject, supabaseAvailable } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo } from './db.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument } from './editor/document-builder.js';
 import { mountTagSearch } from './tags/mount.js';
@@ -412,7 +412,7 @@ function updateSaveStatus(state) {
   if (state === 'saving') {
     saveStatusEl.textContent = 'Saving...';
   } else if (state === 'saved') {
-    saveStatusEl.textContent = 'Saved';
+    saveStatusEl.textContent = getStorageInfo() === 'local' ? 'Saved locally' : 'Saved';
     saveStatusTimer = setTimeout(() => {
       saveStatusEl.classList.add('save-status--fade');
     }, 2000);
@@ -430,7 +430,6 @@ function generateAutoName() {
 }
 
 async function autoSave() {
-  if (!supabaseAvailable()) return;
   updateSaveStatus('saving');
   try {
     const payload = gatherState();
@@ -1224,6 +1223,66 @@ async function generateAutoSummary() {
   }
 }
 
+// ── Copilot helpers ──
+
+function updateEditorStateJSON(doc, segmentNumber, newText) {
+  const updated = JSON.parse(JSON.stringify(doc));
+  function walk(node) {
+    if (node.marks) {
+      for (const mark of node.marks) {
+        if (mark.type === 'segment' && mark.attrs.number === segmentNumber) {
+          node.text = newText + ' ';
+          return true;
+        }
+      }
+    }
+    if (node.content) {
+      for (const child of node.content) {
+        if (walk(child)) return true;
+      }
+    }
+    return false;
+  }
+  walk(updated);
+  return updated;
+}
+
+function commitTranslationToEditor(segmentNumber, newText) {
+  // Update translations array
+  const t = translations.find(t => t.number === segmentNumber);
+  if (t) t.translated = newText;
+
+  // Update editor state JSON
+  if (editorState) {
+    editorState = updateEditorStateJSON(editorState, segmentNumber, newText);
+  }
+
+  // Push to live editor
+  if (editorInstance && editorState) {
+    const seqMeta = getSequenceMetadata(segments);
+    editorInstance.update({
+      initialContent: editorState,
+      projectId: currentProjectId,
+      summary: currentSummary,
+      sequenceInfo: seqMeta,
+      speakerColors,
+      speakerMap,
+      onSpeakerMapChange: (rawName, newCleanName) => {
+        speakerMap[rawName] = newCleanName;
+      },
+      onUpdate: (json) => {
+        editorState = json;
+        debouncedAutoSave();
+      },
+      onAskAI: (sel) => {
+        openCopilot(sel);
+      },
+    });
+  }
+
+  debouncedAutoSave();
+}
+
 // ── Copilot ──
 let copilotInstance = null;
 
@@ -1242,6 +1301,9 @@ function openCopilot(selection) {
     editorialFocus,
     onClose: () => {
       panel.classList.remove('active');
+    },
+    onCommitTranslation: (segmentNumber, newText) => {
+      commitTranslationToEditor(segmentNumber, newText);
     },
   };
 

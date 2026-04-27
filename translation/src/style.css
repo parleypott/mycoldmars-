@@ -1296,6 +1296,62 @@ tr.dimmed-speaker { opacity: 0.35; }
 }
 .copilot-deep-toggle input { accent-color: var(--np-red); }
 
+/* ── Copilot Suggestion Cards ── */
+.copilot-suggestions {
+  margin-top: var(--np-space-3);
+  padding-top: var(--np-space-3);
+  border-top: 1px solid var(--np-cool-neutral);
+  display: flex;
+  flex-direction: column;
+  gap: var(--np-space-2);
+}
+.copilot-suggestion-card {
+  border: 1px solid var(--np-cool-neutral);
+  padding: var(--np-space-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--np-space-3);
+  transition: border-color var(--np-duration) var(--np-ease);
+  cursor: default;
+}
+.copilot-suggestion-card:hover {
+  border-color: var(--np-green);
+}
+.copilot-suggestion-card.committed {
+  border-color: var(--np-green);
+  background: rgba(13, 89, 33, 0.04);
+}
+.copilot-suggestion-text {
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--np-ink);
+  flex: 1;
+}
+.copilot-suggestion-action {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: var(--np-space-1) var(--np-space-3);
+  border: 1px solid var(--np-green);
+  background: transparent;
+  color: var(--np-green);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all var(--np-duration) var(--np-ease);
+}
+.copilot-suggestion-action:hover:not(:disabled) {
+  background: var(--np-green);
+  color: var(--np-warm-white);
+}
+.copilot-suggestion-action:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* ── Summary View ── */
 .summary-loading,
 .summary-empty {

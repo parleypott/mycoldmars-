@@ -11,43 +11,114 @@ try {
   console.warn('Supabase init failed:', err.message);
 }
 
+// Once a Supabase call fails, skip it for the rest of the session
+let supabaseFailed = false;
+
 export function supabaseAvailable() {
-  return supabase !== null;
+  return true; // localStorage is always available as fallback
+}
+
+export function getStorageInfo() {
+  if (supabase && !supabaseFailed) return 'remote';
+  return 'local';
 }
 
 const db = () => {
-  if (!supabase) throw new Error('Database not configured');
+  if (!supabase || supabaseFailed) throw new Error('Database not configured');
   return supabase;
 };
+
+// ── localStorage helpers ──
+
+const LS_PREFIX = 'mcm_';
+
+function generateId() {
+  return 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+}
+
+function lsGet(key) {
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + key);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function lsSet(key, value) {
+  try {
+    localStorage.setItem(LS_PREFIX + key, JSON.stringify(value));
+  } catch (err) {
+    if (err.name === 'QuotaExceededError') {
+      console.warn('localStorage quota exceeded — data may not persist.');
+    }
+    throw err;
+  }
+}
+
+function lsDelete(key) {
+  localStorage.removeItem(LS_PREFIX + key);
+}
+
+function lsGetIndex(collection) {
+  return lsGet(`index_${collection}`) || [];
+}
+
+function lsSaveIndex(collection, index) {
+  lsSet(`index_${collection}`, index);
+}
 
 // ── Projects ──
 
 export async function createProject({ name, description }) {
-  const { data, error } = await db()
-    .from('projects')
-    .insert({ name, description: description || null })
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return data;
+  try {
+    const { data, error } = await db()
+      .from('projects')
+      .insert({ name, description: description || null })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return data;
+  } catch (err) {
+    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    const id = generateId();
+    const now = new Date().toISOString();
+    const project = { id, name, description: description || null, created_at: now };
+    lsSet(`project_${id}`, project);
+    const index = lsGetIndex('projects');
+    index.unshift(id);
+    lsSaveIndex('projects', index);
+    return project;
+  }
 }
 
 export async function listProjects() {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('projects')
-    .select('id, name, description, created_at')
-    .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
-  return data;
+  try {
+    if (!supabase || supabaseFailed) throw new Error('skip');
+    const { data, error } = await supabase
+      .from('projects')
+      .select('id, name, description, created_at')
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return data;
+  } catch (err) {
+    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    const index = lsGetIndex('projects');
+    return index.map(id => lsGet(`project_${id}`)).filter(Boolean);
+  }
 }
 
 export async function deleteProject(id) {
-  const { error } = await db()
-    .from('projects')
-    .delete()
-    .eq('id', id);
-  if (error) throw new Error(error.message);
+  try {
+    const { error } = await db()
+      .from('projects')
+      .delete()
+      .eq('id', id);
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    lsDelete(`project_${id}`);
+    const index = lsGetIndex('projects').filter(i => i !== id);
+    lsSaveIndex('projects', index);
+  }
 }
 
 // ── Tags ──
@@ -63,7 +134,7 @@ export async function createTag({ projectId, name, color }) {
 }
 
 export async function listTags(projectId) {
-  if (!supabase) return [];
+  if (!supabase || supabaseFailed) return [];
   const { data, error } = await supabase
     .from('tags')
     .select('*')
@@ -99,7 +170,7 @@ export async function saveHighlights(transcriptId, highlights) {
 }
 
 export async function searchHighlights({ projectId, tagId }) {
-  if (!supabase) return [];
+  if (!supabase || supabaseFailed) return [];
   let query = supabase
     .from('highlights')
     .select('*, transcripts!inner(id, name, project_id), tags(id, name, color)')
@@ -142,7 +213,7 @@ export async function updateAiThread(id, messages) {
 }
 
 export async function listAiThreads(transcriptId) {
-  if (!supabase) return [];
+  if (!supabase || supabaseFailed) return [];
   const { data, error } = await supabase
     .from('ai_threads')
     .select('*')
@@ -155,14 +226,35 @@ export async function listAiThreads(transcriptId) {
 // ── Transcripts ──
 
 export async function saveTranscript({ name, step, segments, analysis, translations, srtContent, speakerColors, annotations, metadata, projectId, speakerMap, hiddenSpeakers, editorState }) {
-  const { data, error } = await db()
-    .from('transcripts')
-    .insert({
-      name,
-      step,
-      segments,
-      analysis,
-      translations,
+  try {
+    const { data, error } = await db()
+      .from('transcripts')
+      .insert({
+        name,
+        step,
+        segments,
+        analysis,
+        translations,
+        srt_content: srtContent,
+        speaker_colors: speakerColors || {},
+        annotations: annotations || {},
+        metadata: metadata || {},
+        project_id: projectId || null,
+        speaker_map: speakerMap || {},
+        hidden_speakers: hiddenSpeakers || [],
+        editor_state: editorState || null,
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+  } catch (err) {
+    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    const id = generateId();
+    const now = new Date().toISOString();
+    const record = {
+      id, name, step, segments, analysis, translations,
       srt_content: srtContent,
       speaker_colors: speakerColors || {},
       annotations: annotations || {},
@@ -171,12 +263,15 @@ export async function saveTranscript({ name, step, segments, analysis, translati
       speaker_map: speakerMap || {},
       hidden_speakers: hiddenSpeakers || [],
       editor_state: editorState || null,
-    })
-    .select()
-    .single();
-
-  if (error) throw new Error(error.message);
-  return data;
+      created_at: now,
+      updated_at: now,
+    };
+    lsSet(`transcript_${id}`, record);
+    const index = lsGetIndex('transcripts');
+    index.unshift(id);
+    lsSaveIndex('transcripts', index);
+    return record;
+  }
 }
 
 export async function updateTranscript(id, fields) {
@@ -196,47 +291,80 @@ export async function updateTranscript(id, fields) {
   if (fields.hiddenSpeakers !== undefined) update.hidden_speakers = fields.hiddenSpeakers;
   if (fields.editorState !== undefined) update.editor_state = fields.editorState;
 
-  const { data, error } = await db()
-    .from('transcripts')
-    .update(update)
-    .eq('id', id)
-    .select()
-    .single();
+  try {
+    const { data, error } = await db()
+      .from('transcripts')
+      .update(update)
+      .eq('id', id)
+      .select()
+      .single();
 
-  if (error) throw new Error(error.message);
-  return data;
+    if (error) throw new Error(error.message);
+    return data;
+  } catch (err) {
+    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    const existing = lsGet(`transcript_${id}`) || {};
+    const merged = { ...existing, ...update };
+    lsSet(`transcript_${id}`, merged);
+    return merged;
+  }
 }
 
 export async function listTranscripts(projectId) {
-  if (!supabase) return [];
-  let query = supabase
-    .from('transcripts')
-    .select('id, name, step, created_at, updated_at, project_id, metadata')
-    .order('updated_at', { ascending: false });
+  try {
+    if (!supabase || supabaseFailed) throw new Error('skip');
+    let query = supabase
+      .from('transcripts')
+      .select('id, name, step, created_at, updated_at, project_id, metadata')
+      .order('updated_at', { ascending: false });
 
-  if (projectId) query = query.eq('project_id', projectId);
+    if (projectId) query = query.eq('project_id', projectId);
 
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  return data;
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data;
+  } catch (err) {
+    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    const index = lsGetIndex('transcripts');
+    let items = index.map(id => lsGet(`transcript_${id}`)).filter(Boolean);
+    if (projectId) items = items.filter(t => t.project_id === projectId);
+    // Return only list-level fields, sorted by updated_at desc
+    return items
+      .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
+      .map(t => ({ id: t.id, name: t.name, step: t.step, created_at: t.created_at, updated_at: t.updated_at, project_id: t.project_id, metadata: t.metadata }));
+  }
 }
 
 export async function loadTranscript(id) {
-  const { data, error } = await db()
-    .from('transcripts')
-    .select('*')
-    .eq('id', id)
-    .single();
+  try {
+    const { data, error } = await db()
+      .from('transcripts')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-  if (error) throw new Error(error.message);
-  return data;
+    if (error) throw new Error(error.message);
+    return data;
+  } catch (err) {
+    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    const record = lsGet(`transcript_${id}`);
+    if (!record) throw new Error('Transcript not found in local storage');
+    return record;
+  }
 }
 
 export async function deleteTranscript(id) {
-  const { error } = await db()
-    .from('transcripts')
-    .delete()
-    .eq('id', id);
+  try {
+    const { error } = await db()
+      .from('transcripts')
+      .delete()
+      .eq('id', id);
 
-  if (error) throw new Error(error.message);
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    if (supabase && !supabaseFailed) { supabaseFailed = true; console.warn('Supabase failed, using localStorage:', err.message); }
+    lsDelete(`transcript_${id}`);
+    const index = lsGetIndex('transcripts').filter(i => i !== id);
+    lsSaveIndex('transcripts', index);
+  }
 }

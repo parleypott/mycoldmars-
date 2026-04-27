@@ -2,13 +2,28 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { buildCopilotSystemPrompt, buildPassagePrompt, buildMultiHighlightPrompt, buildSummaryPrompt, QUICK_ACTIONS } from './copilot-prompts.js';
 import { SummaryView } from './SummaryView.jsx';
 
-export function CopilotPanel({ selection, segments, translations, speakerMap, highlights, editorialFocus, summary, onClose }) {
+function extractSuggestions(text) {
+  const suggestions = [];
+  const regex = /\[\[suggestion:\s*([\s\S]*?)\]\]/g;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    suggestions.push(match[1].trim());
+  }
+  return suggestions;
+}
+
+function stripSuggestionMarkers(text) {
+  return text.replace(/\[\[suggestion:\s*([\s\S]*?)\]\]/g, '"$1"');
+}
+
+export function CopilotPanel({ selection, segments, translations, speakerMap, highlights, editorialFocus, summary, onClose, onCommitTranslation }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [deepContext, setDeepContext] = useState(false);
   const [summaryContent, setSummaryContent] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [committed, setCommitted] = useState(new Set());
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -21,6 +36,7 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
   useEffect(() => {
     setMessages([]);
     setDeepContext(false);
+    setCommitted(new Set());
   }, [selection?.text]);
 
   async function sendMessage(question) {
@@ -168,11 +184,51 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
     }
   }
 
+  function handleCommit(suggestionText) {
+    if (!onCommitTranslation || !selection?.segmentNumber) return;
+    onCommitTranslation(selection.segmentNumber, suggestionText);
+    setCommitted(prev => new Set([...prev, suggestionText]));
+  }
+
   function handleKeyDown(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage(input);
     }
+  }
+
+  function renderMessageContent(content, role) {
+    if (role !== 'assistant') {
+      return <div className="copilot-msg-content">{content}</div>;
+    }
+
+    const suggestions = extractSuggestions(content);
+    const displayText = stripSuggestionMarkers(content);
+
+    return (
+      <div>
+        <div className="copilot-msg-content">{displayText}</div>
+        {suggestions.length > 0 && (
+          <div className="copilot-suggestions">
+            {suggestions.map((s, i) => {
+              const isCommitted = committed.has(s);
+              return (
+                <div key={i} className={`copilot-suggestion-card ${isCommitted ? 'committed' : ''}`}>
+                  <div className="copilot-suggestion-text">{s}</div>
+                  <button
+                    className="copilot-suggestion-action"
+                    onClick={() => handleCommit(s)}
+                    disabled={isCommitted || !selection?.segmentNumber}
+                  >
+                    {isCommitted ? 'Applied' : 'Use this'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
   }
 
   if (showSummary) {
@@ -228,7 +284,7 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
       <div className="copilot-messages">
         {messages.map((msg, i) => (
           <div key={i} className={`copilot-msg copilot-msg--${msg.role}`}>
-            <div className="copilot-msg-content">{msg.content}</div>
+            {renderMessageContent(msg.content, msg.role)}
           </div>
         ))}
         {loading && <div className="copilot-typing">Thinking...</div>}

@@ -25,7 +25,7 @@ export function buildCopilotSystemPrompt({ summary, segments, translations, spea
 ${summary ? `INTERVIEW SUMMARY:\n${summary}\n\n` : ''}${transcriptContext ? `TRANSCRIPT CONTEXT:\n${transcriptContext}\n\n` : ''}GUIDELINES:
 - Always reference both the original language and the translation when discussing specific passages.
 - Provide cultural context when relevant (Chinese idioms, historical references, regional expressions).
-- When suggesting alternative translations, explain the nuance each captures differently.
+- When suggesting alternative translations, explain the nuance each captures differently. Format each suggestion as [[suggestion: your suggested text here]] so it can be applied directly.
 - Be concise but thorough. The filmmaker needs practical, actionable insights.
 - When asked about themes, connect specific quotes to broader narrative arcs.`;
 }
@@ -191,6 +191,6 @@ ${transcriptText}`;
  */
 export const QUICK_ACTIONS = [
   { label: 'Cultural context', prompt: 'What cultural context should a Western audience know to understand this passage? Reference both the original language and the translation.' },
-  { label: 'Alternative translation', prompt: 'Suggest 2-3 alternative translations of this passage, explaining the nuance each captures differently.' },
+  { label: 'Alternative translation', prompt: 'Suggest 2-3 alternative translations of this passage, explaining the nuance each captures differently. Format each suggestion as [[suggestion: your translated text here]] so I can apply them directly.' },
   { label: 'Is this idiomatic?', prompt: 'Is the speaker using any idioms, proverbs, or culturally specific expressions? If so, explain their meaning and whether the translation captures them.' },
 ];
