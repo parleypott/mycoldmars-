@@ -200,24 +200,27 @@ header h1 em {
 
 /* ── Drop zone ── */
 .drop-zone {
-  border: 1px dashed var(--np-cool-neutral);
+  border: 2px dashed var(--np-red);
   cursor: pointer;
   padding: var(--np-space-16) var(--np-space-8);
   text-align: center;
+  background: rgba(221, 44, 30, 0.02);
   transition: border-color var(--np-duration) var(--np-ease),
               background var(--np-duration) var(--np-ease);
 }
 .drop-zone:hover {
-  border-color: var(--np-ink);
+  border-color: var(--np-red);
+  background: rgba(221, 44, 30, 0.05);
 }
 .drop-zone.drag-over {
-  border-color: var(--np-red);
   border-style: solid;
-  background: rgba(221, 44, 30, 0.03);
+  background: rgba(221, 44, 30, 0.08);
 }
 .drop-label {
   font-family: var(--np-font-mono);
   font-size: 14px;
+  color: var(--np-red);
+  font-weight: 500;
   margin-bottom: var(--np-space-1);
 }
 .drop-sub {
