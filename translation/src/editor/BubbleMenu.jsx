@@ -1,4 +1,30 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
+import { formatPreciseTimecode } from '../timecode-utils.js';
+
+/**
+ * Collect the timecode range (earliest start, latest end) from segment marks
+ * that overlap the current selection.
+ */
+function getSelectionTimecodes(editor) {
+  const { from, to } = editor.state.selection;
+  if (from === to) return null;
+
+  let earliest = Infinity;
+  let latest = -Infinity;
+
+  editor.state.doc.nodesBetween(from, to, (node) => {
+    if (!node.isText) return;
+    const seg = node.marks.find((m) => m.type.name === 'segment');
+    if (!seg) return;
+    const s = parseFloat(seg.attrs.start);
+    const e = parseFloat(seg.attrs.end);
+    if (isFinite(s) && s < earliest) earliest = s;
+    if (isFinite(e) && e > latest) latest = e;
+  });
+
+  if (!isFinite(earliest) || !isFinite(latest)) return null;
+  return { start: formatPreciseTimecode(earliest), end: formatPreciseTimecode(latest) };
+}
 
 /**
  * Custom bubble menu that positions itself near the text selection.
@@ -7,6 +33,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
+  const [timecodes, setTimecodes] = useState(null);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -16,6 +43,7 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
       const { from, to } = editor.state.selection;
       if (from === to) {
         setVisible(false);
+        setTimecodes(null);
         return;
       }
 
@@ -23,6 +51,7 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
       const coords = editor.view.coordsAtPos(from);
       if (!coords) {
         setVisible(false);
+        setTimecodes(null);
         return;
       }
 
@@ -35,6 +64,7 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
         top: coords.top,
         left: Math.max(8, leftEdge - 8),
       });
+      setTimecodes(getSelectionTimecodes(editor));
       setVisible(true);
     };
 
@@ -107,6 +137,11 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
         >
           AI
         </button>
+      )}
+      {timecodes && (
+        <div className="bubble-timecodes">
+          {timecodes.start} – {timecodes.end}
+        </div>
       )}
     </div>
   );
