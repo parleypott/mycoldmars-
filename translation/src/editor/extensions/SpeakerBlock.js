@@ -10,6 +10,7 @@ export const SpeakerBlock = Node.create({
       speaker: { default: '' },
       color: { default: '#DD2C1E' },
       visible: { default: true },
+      language: { default: '' },
     };
   },
 
@@ -24,6 +25,10 @@ export const SpeakerBlock = Node.create({
       'style': `--speaker-color: ${node.attrs.color}; ${node.attrs.visible ? '' : 'opacity: 0.35;'}`,
       'class': 'editor-speaker-block',
     });
-    return ['div', attrs, ['div', { class: 'editor-speaker-name', contenteditable: 'false' }, node.attrs.speaker], ['div', { class: 'editor-speaker-content' }, 0]];
+    const nameContent = [['span', { class: 'editor-speaker-label' }, node.attrs.speaker]];
+    if (node.attrs.language) {
+      nameContent.push(['span', { class: 'editor-lang-tag' }, node.attrs.language]);
+    }
+    return ['div', attrs, ['div', { class: 'editor-speaker-name', contenteditable: 'false' }, ...nameContent], ['div', { class: 'editor-speaker-content' }, 0]];
   },
 });

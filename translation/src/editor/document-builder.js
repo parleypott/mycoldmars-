@@ -3,7 +3,34 @@
  * Groups consecutive segments by speaker into speaker blocks.
  * If translations is null/empty (English-only), uses segment text directly.
  */
-export function buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers) {
+/**
+ * Map language names from Claude analysis to ISO 639-1 codes.
+ */
+function toLangCode(lang) {
+  if (!lang) return '';
+  const l = lang.toLowerCase();
+  if (l.includes('chinese') || l.includes('mandarin') || l.includes('cantonese')) return 'ZH';
+  if (l.includes('english')) return 'EN';
+  if (l.includes('japanese')) return 'JA';
+  if (l.includes('korean')) return 'KO';
+  if (l.includes('french')) return 'FR';
+  if (l.includes('spanish')) return 'ES';
+  if (l.includes('german')) return 'DE';
+  if (l.includes('portuguese')) return 'PT';
+  if (l.includes('italian')) return 'IT';
+  if (l.includes('russian')) return 'RU';
+  if (l.includes('arabic')) return 'AR';
+  if (l.includes('thai')) return 'TH';
+  if (l.includes('vietnamese')) return 'VI';
+  if (l.includes('indonesian') || l.includes('malay')) return 'ID';
+  if (l.includes('hindi')) return 'HI';
+  if (l.includes('mix')) return 'MIX';
+  // Return first 2 chars uppercased as fallback
+  const first = lang.trim().split(/\s/)[0];
+  return first.length <= 3 ? first.toUpperCase() : first.slice(0, 2).toUpperCase();
+}
+
+export function buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, languageMap) {
   const hasTranslations = translations && translations.length > 0;
   const groups = [];
   let currentGroup = null;
@@ -56,12 +83,17 @@ export function buildEditorDocument(segments, translations, speakerColors, speak
       };
     });
 
+    // Look up language for this raw speaker name
+    const langRaw = languageMap?.[group.speaker] || '';
+    const langCode = toLangCode(langRaw);
+
     return {
       type: 'speakerBlock',
       attrs: {
         speaker: speakerMap?.[group.speaker] || group.speaker,
         color,
         visible: !isHidden,
+        language: langCode,
       },
       content: [{
         type: 'paragraph',

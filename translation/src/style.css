@@ -710,6 +710,15 @@ tr.dimmed-speaker { opacity: 0.35; }
   color: var(--speaker-color, var(--np-red));
   margin-bottom: var(--np-space-2);
   user-select: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.editor-lang-tag {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--np-sepia);
+  opacity: 0.6;
 }
 .editor-speaker-content {
   color: var(--np-ink);

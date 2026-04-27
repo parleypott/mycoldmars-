@@ -15,6 +15,8 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
   const [editingSpeaker, setEditingSpeaker] = useState(null);
   const [editValue, setEditValue] = useState('');
 
+  const seqNameRef = sequenceInfo?.sequenceName || '';
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -33,6 +35,36 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
       HighlightMark,
     ],
     content: initialContent,
+    editorProps: {
+      handleDOMEvents: {
+        copy: (view, event) => {
+          const sel = view.state.selection;
+          if (sel.empty) return false;
+
+          const text = view.state.doc.textBetween(sel.from, sel.to, ' ');
+          if (!text.trim()) return false;
+
+          // Find the first segment mark in the selection for timecode
+          let timecode = '';
+          view.state.doc.nodesBetween(sel.from, sel.to, (node) => {
+            if (timecode) return false; // stop after first find
+            if (node.isText && node.marks) {
+              const segMark = node.marks.find(m => m.type.name === 'segment');
+              if (segMark?.attrs?.start) timecode = segMark.attrs.start;
+            }
+          });
+
+          const seqName = seqNameRef;
+          if (seqName || timecode) {
+            event.preventDefault();
+            const prefix = [seqName, timecode].filter(Boolean).join(' | ');
+            event.clipboardData.setData('text/plain', `[${prefix}] ${text.trim()}`);
+            return true; // prevent ProseMirror default copy
+          }
+          return false;
+        },
+      },
+    },
     onUpdate: ({ editor }) => {
       if (onUpdate) onUpdate(editor.getJSON());
     },
@@ -53,39 +85,6 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
     const el = document.querySelector('.editor-content');
     if (el) el.classList.toggle('show-deleted', showDeleted);
   }, [showDeleted]);
-
-  // Copy handler: inject sequence name + timecode
-  useEffect(() => {
-    const container = document.querySelector('.editor-content');
-    if (!container) return;
-
-    const handleCopy = (e) => {
-      const selection = window.getSelection();
-      if (!selection || selection.isCollapsed) return;
-      const selectedText = selection.toString().trim();
-      if (!selectedText) return;
-
-      // Find the nearest segment mark to get timecode
-      let node = selection.anchorNode;
-      while (node && node !== container) {
-        if (node.dataset?.start) break;
-        if (node.closest?.('[data-start]')) { node = node.closest('[data-start]'); break; }
-        node = node.parentElement;
-      }
-
-      const timecode = node?.dataset?.start || node?.getAttribute?.('data-start') || '';
-      const seqName = sequenceInfo?.sequenceName || '';
-
-      if (seqName || timecode) {
-        e.preventDefault();
-        const prefix = [seqName, timecode].filter(Boolean).join(' | ');
-        e.clipboardData.setData('text/plain', `[${prefix}] ${selectedText}`);
-      }
-    };
-
-    container.addEventListener('copy', handleCopy);
-    return () => container.removeEventListener('copy', handleCopy);
-  }, [sequenceInfo]);
 
   const handleHighlight = useCallback(() => {
     setShowTagPicker(true);

@@ -564,7 +564,7 @@ function renderAnalysis() {
 // ── Skip to Editor ──
 function skipToEditor() {
   // Build editor state directly from segments (no translations)
-  editorState = buildEditorDocument(segments, translations.length > 0 ? translations : null, speakerColors, speakerMap, hiddenSpeakers);
+  editorState = buildEditorDocument(segments, translations.length > 0 ? translations : null, speakerColors, speakerMap, hiddenSpeakers, analysis?.language_map);
   editorInstance = null;
   goToStep(5);
   switchView('editor');
@@ -723,7 +723,7 @@ btnExport.addEventListener('click', () => {
 
   // Build editor state if not already present
   if (!editorState) {
-    editorState = buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers);
+    editorState = buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, analysis?.language_map);
   }
 
   // Default to editor view
