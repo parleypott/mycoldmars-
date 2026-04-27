@@ -11,6 +11,10 @@ try {
   console.warn('Supabase init failed:', err.message);
 }
 
+export function supabaseAvailable() {
+  return supabase !== null;
+}
+
 const db = () => {
   if (!supabase) throw new Error('Database not configured');
   return supabase;
@@ -207,7 +211,7 @@ export async function listTranscripts(projectId) {
   if (!supabase) return [];
   let query = supabase
     .from('transcripts')
-    .select('id, name, step, created_at, updated_at, project_id')
+    .select('id, name, step, created_at, updated_at, project_id, metadata')
     .order('updated_at', { ascending: false });
 
   if (projectId) query = query.eq('project_id', projectId);

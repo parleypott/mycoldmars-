@@ -1444,6 +1444,40 @@ tr.dimmed-speaker { opacity: 0.35; }
   width: 100%;
 }
 
+/* ── Save Status Indicator ── */
+.save-status {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--np-sepia);
+  opacity: 0.6;
+  transition: opacity var(--np-duration) var(--np-ease);
+  align-self: center;
+}
+.save-status--error {
+  color: var(--np-red);
+  opacity: 1;
+}
+.save-status--fade {
+  opacity: 0;
+}
+
+/* ── Library card enhancements ── */
+.library-item-segments {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+}
+.library-item-time {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--np-cool-neutral);
+}
+
 /* ── Utility ── */
 .hidden { display: none !important; }
 

@@ -1,7 +1,7 @@
 import { parseCSV, getStats, cleanSpeakerName, buildSpeakerMap, isGenericSpeaker, getSequenceMetadata } from './csv-parser.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript, createProject, listProjects, deleteProject } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript, createProject, listProjects, deleteProject, supabaseAvailable } from './db.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument } from './editor/document-builder.js';
 import { mountTagSearch } from './tags/mount.js';
@@ -182,18 +182,34 @@ function renderLibrary(transcripts, projectsList) {
   });
 }
 
+function relativeTime(dateStr) {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = now - then;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 function renderLibraryItem(t) {
-  const date = new Date(t.updated_at).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric'
-  });
+  const timeAgo = relativeTime(t.updated_at);
   const stepLabel = STEP_LABELS[t.step] || 'Upload';
+  const meta = t.metadata || {};
+  const segCount = meta.segmentCount;
   return `
     <div class="library-item" data-id="${t.id}">
       <div class="library-item-info">
         <div class="library-item-name">${esc(t.name)}</div>
         <div class="library-item-meta">
-          <span>${date}</span>
+          <span class="library-item-time">${timeAgo}</span>
           <span class="library-item-step">Step ${t.step}: ${stepLabel}</span>
+          ${segCount ? `<span class="library-item-segments">${segCount} segments</span>` : ''}
         </div>
       </div>
       <div class="library-item-actions">
@@ -222,6 +238,8 @@ async function handleLoad(id) {
     currentTranscriptId = t.id;
     currentTranscriptName = t.name;
     // Reset editor instance so it remounts with new state
+    const editorMount = $('#editor-mount');
+    if (editorMount) editorMount.innerHTML = '';
     editorInstance = null;
 
     // Restore metadata
@@ -375,14 +393,62 @@ function gatherState(name) {
   };
 }
 
+// ── Save status indicator ──
+const saveStatusEl = document.getElementById('save-status');
+let saveStatusTimer = null;
+
+function updateSaveStatus(state) {
+  if (!saveStatusEl) return;
+  clearTimeout(saveStatusTimer);
+  saveStatusEl.classList.remove('save-status--error', 'save-status--fade');
+
+  if (state === 'saving') {
+    saveStatusEl.textContent = 'Saving...';
+  } else if (state === 'saved') {
+    saveStatusEl.textContent = 'Saved';
+    saveStatusTimer = setTimeout(() => {
+      saveStatusEl.classList.add('save-status--fade');
+    }, 2000);
+  } else if (state === 'error') {
+    saveStatusEl.textContent = 'Save failed';
+    saveStatusEl.classList.add('save-status--error');
+  }
+}
+
+function generateAutoName() {
+  const seqMeta = getSequenceMetadata(segments);
+  const speaker = seqMeta.primarySpeaker || 'Untitled';
+  const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${speaker} — ${date}`;
+}
+
 async function autoSave() {
-  if (!currentTranscriptId) return;
+  if (!supabaseAvailable()) return;
+  updateSaveStatus('saving');
   try {
     const payload = gatherState();
-    await updateTranscript(currentTranscriptId, payload);
+    payload.metadata = { ...payload.metadata, segmentCount: segments.length };
+    if (currentTranscriptId) {
+      await updateTranscript(currentTranscriptId, payload);
+    } else {
+      const name = currentTranscriptName || generateAutoName();
+      payload.name = name;
+      const row = await saveTranscript(payload);
+      currentTranscriptId = row.id;
+      currentTranscriptName = name;
+    }
+    updateSaveStatus('saved');
   } catch (err) {
     console.error('Auto-save failed:', err);
+    updateSaveStatus('error');
   }
+}
+
+// Debounced auto-save for editor changes (3s)
+let debouncedAutoSaveTimer = null;
+function debouncedAutoSave() {
+  clearTimeout(debouncedAutoSaveTimer);
+  debouncedAutoSaveTimer = setTimeout(() => autoSave(), 3000);
 }
 
 // ── Library button ──
@@ -437,6 +503,8 @@ function handleFile(file) {
       srtContent = '';
       speakerColors = {};
       annotations = {};
+      editorState = null;
+      editorInstance = null;
       speakerMap = buildSpeakerMap(segments);
       hiddenSpeakers = segments
         .map(s => s.speaker)
@@ -444,6 +512,9 @@ function handleFile(file) {
         .filter((v, i, a) => a.indexOf(v) === i);
       showAllSpeakers = false;
       renderTranscript();
+
+      // Auto-create draft transcript in Supabase
+      autoSave();
     } catch (err) {
       showError(err.message);
     }
@@ -585,6 +656,7 @@ $('#btn-skip-to-editor-upload').addEventListener('click', skipToEditor);
 btnToClarify.addEventListener('click', () => {
   goToStep(3);
   renderClarifyStep();
+  autoSave();
 });
 
 function renderClarifyStep() {
@@ -781,6 +853,7 @@ function switchView(view) {
         },
         onUpdate: (json) => {
           editorState = json;
+          debouncedAutoSave();
         },
         onAskAI: (selection) => {
           openCopilot(selection);
@@ -1100,6 +1173,7 @@ async function generateAutoSummary() {
         },
         onUpdate: (json) => {
           editorState = json;
+          debouncedAutoSave();
         },
         onAskAI: (selection) => {
           openCopilot(selection);
