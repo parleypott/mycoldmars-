@@ -449,6 +449,8 @@ function handleSequenceNameChange(newName) {
   // Also update the step-2 input if visible
   const seqInput = $('#sequence-name-input');
   if (seqInput) seqInput.value = newName;
+  // Immediately re-render editor with updated sequenceInfo
+  updateSyncDirtyIndicator();
   debouncedAutoSave();
 }
 
