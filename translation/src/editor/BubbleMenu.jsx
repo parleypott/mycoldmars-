@@ -55,7 +55,7 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
         return;
       }
 
-      // Position to the left of the text, vertically centered on selection start
+      // Position menu to the left of the text
       const editorEl = editor.view.dom.closest('.transcript-editor');
       const editorRect = editorEl?.getBoundingClientRect();
       const leftEdge = editorRect ? editorRect.left : coords.left;
@@ -63,6 +63,7 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
       setPosition({
         top: coords.top,
         left: Math.max(8, leftEdge - 8),
+        selLeft: coords.left,
       });
       setTimecodes(getSelectionTimecodes(editor));
       setVisible(true);
@@ -95,54 +96,65 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
   };
 
   return (
-    <div
-      ref={menuRef}
-      className="bubble-menu"
-      style={{
-        position: 'fixed',
-        top: `${position.top}px`,
-        left: `${position.left}px`,
-        transform: 'translate(-100%, -4px)',
-        zIndex: 100,
-      }}
-    >
-      <button
-        className={`bubble-btn ${editor.isActive('deleted') ? 'active' : ''}`}
-        onMouseDown={(e) => { e.preventDefault(); toggleDelete(); }}
-        title="Soft delete (strikethrough)"
-      >
-        Del
-      </button>
-      <button
-        className={`bubble-btn bubble-btn--highlight ${editor.isActive('highlight', { tagId: null }) ? 'active' : ''}`}
-        onMouseDown={(e) => { e.preventDefault(); toggleHighlight(); }}
-        title="Highlight selection"
-      >
-        HL
-      </button>
-      {onHighlight && (
-        <button
-          className="bubble-btn"
-          onMouseDown={(e) => { e.preventDefault(); onHighlight(); }}
-          title="Highlight with tag"
-        >
-          Tag
-        </button>
-      )}
-      {onAskAI && (
-        <button
-          className="bubble-btn bubble-btn--ai"
-          onMouseDown={(e) => { e.preventDefault(); onAskAI(); }}
-          title="Ask AI about selection"
-        >
-          AI
-        </button>
-      )}
+    <>
       {timecodes && (
-        <div className="bubble-timecodes">
+        <div
+          className="bubble-timecodes"
+          style={{
+            position: 'fixed',
+            top: `${position.top}px`,
+            left: `${position.selLeft}px`,
+            transform: 'translateY(calc(-100% - 4px))',
+            zIndex: 101,
+          }}
+        >
           {timecodes.start} – {timecodes.end}
         </div>
       )}
-    </div>
+      <div
+        ref={menuRef}
+        className="bubble-menu"
+        style={{
+          position: 'fixed',
+          top: `${position.top}px`,
+          left: `${position.left}px`,
+          transform: 'translate(-100%, -4px)',
+          zIndex: 100,
+        }}
+      >
+        <button
+          className={`bubble-btn ${editor.isActive('deleted') ? 'active' : ''}`}
+          onMouseDown={(e) => { e.preventDefault(); toggleDelete(); }}
+          title="Soft delete (strikethrough)"
+        >
+          Del
+        </button>
+        <button
+          className={`bubble-btn bubble-btn--highlight ${editor.isActive('highlight', { tagId: null }) ? 'active' : ''}`}
+          onMouseDown={(e) => { e.preventDefault(); toggleHighlight(); }}
+          title="Highlight selection"
+        >
+          HL
+        </button>
+        {onHighlight && (
+          <button
+            className="bubble-btn"
+            onMouseDown={(e) => { e.preventDefault(); onHighlight(); }}
+            title="Highlight with tag"
+          >
+            Tag
+          </button>
+        )}
+        {onAskAI && (
+          <button
+            className="bubble-btn bubble-btn--ai"
+            onMouseDown={(e) => { e.preventDefault(); onAskAI(); }}
+            title="Ask AI about selection"
+          >
+            AI
+          </button>
+        )}
+      </div>
+    </>
   );
 }

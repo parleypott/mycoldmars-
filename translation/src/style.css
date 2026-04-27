@@ -1082,14 +1082,14 @@ tr.dimmed-speaker { opacity: 0.35; }
 .bubble-btn--ai:hover { background: rgba(255, 191, 0, 0.15); }
 .bubble-timecodes {
   font-family: var(--np-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.05em;
-  color: rgba(255,255,255,0.5);
-  text-align: center;
-  padding: 2px 6px 2px;
-  border-top: 1px solid rgba(255,255,255,0.1);
-  margin-top: 2px;
+  color: var(--np-ink);
+  background: rgba(0,0,0,0.06);
+  padding: 2px 6px;
+  border-radius: 3px;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 /* ── Tag Picker ── */
