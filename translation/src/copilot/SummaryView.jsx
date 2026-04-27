@@ -161,7 +161,7 @@ export function SummaryView({ content, loading, bullets, interestVotes, onVote }
     if (line.startsWith('## ')) return `<h3>${line.slice(3)}</h3>`;
     if (line.startsWith('# ')) return `<h2>${line.slice(2)}</h2>`;
     if (line.startsWith('**') && line.endsWith('**')) return `<h4>${line.slice(2, -2)}</h4>`;
-    if (line.startsWith('- ')) return `<li>${formatInline(line.slice(2))}</li>`;
+    if (line.startsWith('- ') || line.startsWith('• ')) return `<li>${formatInline(line.slice(2))}</li>`;
     if (line.match(/^\d+\.\s/)) return `<li>${formatInline(line.replace(/^\d+\.\s/, ''))}</li>`;
     if (!line.trim()) return '<br/>';
     return `<p>${formatInline(line)}</p>`;

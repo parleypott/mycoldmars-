@@ -1421,25 +1421,25 @@ function parseSummaryBullets(rawText) {
       sectionTitle = line.replace(/^#+\s*/, '').replace(/^\*\*(.+?)\*\*$/, '$1').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
       sectionTitleEnriched = null; // will be set during enriched text pass
 
-      const headerSegMatch = line.match(/\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)/i);
+      const headerSegMatch = line.match(/(?:\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)|\[(\d+)(?:\s*[-–]\s*(\d+))?\])/i);
       if (headerSegMatch) {
-        sectionSegStart = parseInt(headerSegMatch[1]);
-        sectionSegEnd = headerSegMatch[2] ? parseInt(headerSegMatch[2]) : sectionSegStart;
+        sectionSegStart = parseInt(headerSegMatch[1] || headerSegMatch[3]);
+        sectionSegEnd = parseInt(headerSegMatch[2] || headerSegMatch[4] || headerSegMatch[1] || headerSegMatch[3]);
       }
       continue;
     }
 
-    // Match bullet lines starting with "- " or "N. "
-    const bulletMatch = line.match(/^(?:-|\d+\.)\s+(.+)/);
+    // Match bullet lines starting with "- ", "N. ", or "• "
+    const bulletMatch = line.match(/^(?:[-•]|\d+\.)\s+(.+)/);
     if (!bulletMatch) continue;
 
     const text = bulletMatch[1];
-    // Check for per-bullet segment refs first
-    const bulletSegMatch = text.match(/\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)/i);
+    // Check for per-bullet segment refs: (Segments X-Y), (Segment X), [X-Y], [X]
+    const bulletSegMatch = text.match(/(?:\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)|\[(\d+)(?:\s*[-–]\s*(\d+))?\])/i);
     let segStart, segEnd;
     if (bulletSegMatch) {
-      segStart = parseInt(bulletSegMatch[1]);
-      segEnd = bulletSegMatch[2] ? parseInt(bulletSegMatch[2]) : segStart;
+      segStart = parseInt(bulletSegMatch[1] || bulletSegMatch[3]);
+      segEnd = parseInt(bulletSegMatch[2] || bulletSegMatch[4] || bulletSegMatch[1] || bulletSegMatch[3]);
     } else {
       // Inherit from section header
       segStart = sectionSegStart;
@@ -1463,8 +1463,8 @@ function attachEnrichedTextToBullets() {
       currentEnrichedHeader = line.replace(/^#+\s*/, '').replace(/^\*\*(.+?)\*\*$/, '$1').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
       continue;
     }
-    if (line.match(/^(?:-|\d+\.)\s+/) && bulletIdx < summaryBullets.length) {
-      summaryBullets[bulletIdx].enrichedText = line.replace(/^(?:-|\d+\.)\s+/, '');
+    if (line.match(/^(?:[-•]|\d+\.)\s+/) && bulletIdx < summaryBullets.length) {
+      summaryBullets[bulletIdx].enrichedText = line.replace(/^(?:[-•]|\d+\.)\s+/, '');
       if (currentEnrichedHeader && summaryBullets[bulletIdx].sectionTitle) {
         summaryBullets[bulletIdx].sectionTitleEnriched = currentEnrichedHeader;
       }
@@ -1514,17 +1514,24 @@ function parseSummaryBulletsFromEnriched(enrichedText) {
       continue;
     }
 
-    const bulletMatch = line.match(/^(?:-|\d+\.)\s+(.+)/);
+    const bulletMatch = line.match(/^(?:[-•]|\d+\.)\s+(.+)/);
     if (!bulletMatch) continue;
 
     const text = bulletMatch[1];
-    // Check for per-bullet timecodes
+    // Check for per-bullet timecodes or [X-Y] segment refs
     let segStart = sectionSegStart;
     let segEnd = sectionSegEnd;
     const bulletTcMatch = text.match(/\((\d+:\d+(?::\d+)?)\s*[–—-]\s*(\d+:\d+(?::\d+)?)\)/);
     if (bulletTcMatch) {
       segStart = tcToSeg[bulletTcMatch[1]] || segStart;
       segEnd = tcToSeg[bulletTcMatch[2]] || segEnd;
+    } else {
+      // Also try [X-Y] segment number format
+      const bracketMatch = text.match(/\[(\d+)(?:\s*[-–]\s*(\d+))?\]/);
+      if (bracketMatch) {
+        segStart = parseInt(bracketMatch[1]);
+        segEnd = bracketMatch[2] ? parseInt(bracketMatch[2]) : segStart;
+      }
     }
 
     bullets.push({ id: id++, rawText: text, enrichedText: text, sectionTitle, sectionTitleEnriched: sectionTitle, segmentStart: segStart, segmentEnd: segEnd });
@@ -1578,8 +1585,8 @@ function enrichSummaryWithTimecodes(text) {
     return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
   }
 
-  // Replace (Segments X-Y) with (X:XX – Segments X-Y)
-  return text.replace(/\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)/gi, (match, startNum, endNum) => {
+  // Replace (Segments X-Y) or [X-Y] with (X:XX – Y:YY)
+  let result = text.replace(/\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)/gi, (match, startNum, endNum) => {
     const startTc = segTimecodes[parseInt(startNum)];
     if (!startTc) return match;
     const startFmt = fmtShort(startTc);
@@ -1591,6 +1598,22 @@ function enrichSummaryWithTimecodes(text) {
     }
     return `(${startFmt})`;
   });
+
+  // Also handle [X-Y] bracket format
+  result = result.replace(/\[(\d+)(?:\s*[-–]\s*(\d+))?\]/g, (match, startNum, endNum) => {
+    const startTc = segTimecodes[parseInt(startNum)];
+    if (!startTc) return match;
+    const startFmt = fmtShort(startTc);
+    if (endNum) {
+      const endTc = segTimecodes[parseInt(endNum)];
+      const endFmt = endTc ? fmtShort(endTc) : '';
+      const range = endFmt ? `${startFmt} – ${endFmt}` : startFmt;
+      return `[${range}]`;
+    }
+    return `[${startFmt}]`;
+  });
+
+  return result;
 }
 
 async function generateAutoSummary() {
