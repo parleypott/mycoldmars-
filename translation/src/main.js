@@ -1618,6 +1618,16 @@ function enrichSummaryWithTimecodes(text) {
 
 async function generateAutoSummary() {
   try {
+    if (!segments || segments.length === 0) {
+      console.warn('No segments to summarize');
+      return;
+    }
+
+    // Clear old bullets but keep summary text visible while regenerating
+    summaryBullets = [];
+    interestVotes = {};
+    if (editorInstance) updateEditorInstance();
+
     const userMessage = buildAutoSummaryPrompt(segments, translations, speakerMap);
     const res = await fetch('/api/claude', {
       method: 'POST',
@@ -1631,7 +1641,10 @@ async function generateAutoSummary() {
       }),
     });
 
-    if (!res.ok) return;
+    if (!res.ok) {
+      console.error('Summary API returned', res.status, await res.text().catch(() => ''));
+      return;
+    }
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -1944,6 +1957,15 @@ if (btnStartNew) {
     if (srtPreview) srtPreview.textContent = '';
     const readerMount = document.getElementById('reader-mount');
     if (readerMount) readerMount.innerHTML = '';
+    // Hide search, copilot, and file input state
+    const searchView = document.getElementById('search-view');
+    if (searchView) searchView.classList.remove('active');
+    const copilotPanel = document.getElementById('copilot-panel');
+    if (copilotPanel) copilotPanel.classList.remove('open');
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) fileInput.value = '';
+    // Show steps nav and go to upload
+    stepsNav.classList.remove('hidden');
     goToStep(1);
   });
 }

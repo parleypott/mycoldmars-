@@ -431,7 +431,7 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
           {summaryExpanded && (
             <SummaryView
               content={summary}
-              loading={false}
+              loading={!summary && !!onRegenerateSummary}
               bullets={summaryBullets}
               interestVotes={interestVotes}
               onVote={onInterestVote}
