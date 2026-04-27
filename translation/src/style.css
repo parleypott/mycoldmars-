@@ -1371,6 +1371,8 @@ tr.dimmed-speaker { opacity: 0.35; }
   gap: var(--np-space-2);
 }
 .save-modal-field .np-eyebrow { margin-bottom: 0; }
+.save-new-project { margin-top: var(--np-space-2); }
+.save-new-project input { width: 100%; }
 
 /* ── Library project groups ── */
 .library-header {

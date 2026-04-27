@@ -314,15 +314,22 @@ btnSaveConfirm.addEventListener('click', async () => {
   const name = saveNameInput.value.trim();
   if (!name) return;
 
-  // Read selected project from save modal
-  if (saveProjectSelect) {
-    currentProjectId = saveProjectSelect.value || null;
-  }
-
   btnSaveConfirm.textContent = 'Saving...';
   btnSaveConfirm.disabled = true;
 
   try {
+    // Create new project if selected
+    if (saveProjectSelect?.value === '__new__') {
+      const projName = saveNewProjectInput?.value?.trim();
+      if (projName) {
+        const proj = await createProject({ name: projName });
+        projects.push(proj);
+        currentProjectId = proj.id;
+      }
+    } else if (saveProjectSelect) {
+      currentProjectId = saveProjectSelect.value || null;
+    }
+
     const payload = gatherState(name);
 
     if (currentTranscriptId) {
@@ -943,13 +950,32 @@ btnProjectConfirm.addEventListener('click', async () => {
 });
 
 // Project select in save modal
+const saveNewProjectDiv = $('#save-new-project');
+const saveNewProjectInput = $('#save-new-project-name');
+
 async function refreshProjectSelects() {
   try {
     projects = await listProjects();
   } catch {}
   const opts = '<option value="">No project</option>' +
-    projects.map(p => `<option value="${p.id}" ${p.id === currentProjectId ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+    projects.map(p => `<option value="${p.id}" ${p.id === currentProjectId ? 'selected' : ''}>${esc(p.name)}</option>`) .join('') +
+    '<option value="__new__">+ New project</option>';
   if (saveProjectSelect) saveProjectSelect.innerHTML = opts;
+  if (saveNewProjectDiv) saveNewProjectDiv.classList.add('hidden');
+}
+
+if (saveProjectSelect) {
+  saveProjectSelect.addEventListener('change', () => {
+    if (saveProjectSelect.value === '__new__') {
+      saveNewProjectDiv.classList.remove('hidden');
+      // Default project name to primary speaker
+      const seqMeta = getSequenceMetadata(segments);
+      saveNewProjectInput.value = seqMeta.primarySpeaker || '';
+      saveNewProjectInput.focus();
+    } else {
+      saveNewProjectDiv.classList.add('hidden');
+    }
+  });
 }
 
 // ── Export menu ──
