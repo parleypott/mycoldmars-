@@ -24,6 +24,7 @@
     "world-atlas": "^2.0.2"
   },
   "devDependencies": {
+    "@xmldom/xmldom": "^0.9.10",
     "playwright": "^1.59.1",
     "vite": "^7.3.1"
   }
