@@ -1,0 +1,225 @@
+/* ============================================================
+   NEWPRESS — Colors & Type
+   ============================================================
+   Display: PP Editorial New Ultralight (local, provided).
+   Still needed: PP Editorial New Regular / Italic / Ultrabold +
+   GT Pressura Mono / GT Pressura Extended.
+   SUBSTITUTES until those arrive:
+     - GT Pressura Mono  →  JetBrains Mono
+     - GT Pressura       →  Instrument Sans
+   ============================================================ */
+
+@font-face {
+  font-family: 'PP Editorial New';
+  src: url('fonts/PPEditorialNew-Ultralight.otf') format('opentype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Instrument+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ---------- Core palette (from brand guide) ---------- */
+  --np-warm-white:     #F4F2E6;
+  --np-cool-neutral:   #D9D9D9;
+  --np-blue:           #004CFF;
+  --np-green:          #0D5921;
+  --np-ink:            #121118;
+  --np-yellow:         #FFBF00;
+  --np-burgundy:       #520004;
+  --np-red:            #DD2C1E;
+  --np-sepia:          #412C27;
+  --np-white:          #FFFFFF;
+
+  /* ---------- Semantic surfaces ---------- */
+  --np-bg:             var(--np-warm-white);   /* default page */
+  --np-bg-alt:         var(--np-cool-neutral); /* secondary panels */
+  --np-bg-inverse:     var(--np-ink);
+  --np-bg-accent:      var(--np-burgundy);
+  --np-bg-feature:     var(--np-red);          /* callout cards */
+
+  /* ---------- Foreground ---------- */
+  --np-fg:             var(--np-ink);          /* body on warm white */
+  --np-fg-muted:       #5b5850;                /* ~60% ink on warm */
+  --np-fg-subtle:      #8a877e;                /* ~40% */
+  --np-fg-inverse:     var(--np-warm-white);   /* text on ink */
+  --np-fg-link:        var(--np-blue);
+  --np-fg-accent:      var(--np-red);
+
+  /* ---------- Borders / rules ---------- */
+  --np-rule:           var(--np-ink);          /* editorial hairline */
+  --np-rule-muted:     rgba(18, 17, 24, 0.25);
+  --np-rule-faint:     rgba(18, 17, 24, 0.12);
+
+  /* ---------- Type families ---------- */
+  --np-font-display:   'PP Editorial New', 'Times New Roman', Georgia, serif;
+  --np-font-body:      'JetBrains Mono', 'GT Pressura Mono', ui-monospace, Menlo, monospace;
+  --np-font-ui:        'Instrument Sans', 'GT Pressura', 'Helvetica Neue', Arial, sans-serif;
+  --np-font-mono:      'JetBrains Mono', 'GT Pressura Mono', ui-monospace, Menlo, monospace;
+
+  /* ---------- Type scale ---------- */
+  --np-size-hero:      clamp(3.25rem, 6vw, 5.75rem);  /* 52–92 */
+  --np-size-h1:        clamp(2.25rem, 4vw, 3.5rem);   /* 36–56 */
+  --np-size-h2:        clamp(1.75rem, 3vw, 2.5rem);   /* 28–40 */
+  --np-size-h3:        1.5rem;   /* 24 */
+  --np-size-h4:        1.25rem;  /* 20 */
+  --np-size-body:      1rem;     /* 16 */
+  --np-size-small:     0.8125rem; /* 13 */
+  --np-size-micro:     0.6875rem; /* 11 — eyebrows, tags */
+
+  --np-lh-tight:       1.02;
+  --np-lh-snug:        1.15;
+  --np-lh-normal:      1.45;
+  --np-lh-loose:       1.6;
+
+  --np-tracking-tight:  -0.02em;
+  --np-tracking-normal: 0;
+  --np-tracking-wide:   0.08em;
+  --np-tracking-caps:   0.12em;
+
+  /* ---------- Spacing (4px base) ---------- */
+  --np-space-1:  4px;
+  --np-space-2:  8px;
+  --np-space-3:  12px;
+  --np-space-4:  16px;
+  --np-space-5:  24px;
+  --np-space-6:  32px;
+  --np-space-7:  48px;
+  --np-space-8:  64px;
+  --np-space-9:  96px;
+  --np-space-10: 128px;
+
+  /* ---------- Radii ---------- */
+  --np-radius-none: 0;
+  --np-radius-xs:   2px;
+  --np-radius-sm:   4px;
+  --np-radius-md:   8px;   /* used sparingly; editorial prefers sharp */
+  --np-radius-pill: 999px;
+
+  /* ---------- Shadows (sparse — newspaper avoids fluff) ---------- */
+  --np-shadow-none:    none;
+  --np-shadow-paper:   0 1px 0 rgba(18,17,24,0.08), 0 8px 24px rgba(18,17,24,0.06);
+  --np-shadow-lift:    0 2px 0 rgba(18,17,24,0.10), 0 18px 40px rgba(18,17,24,0.12);
+  --np-shadow-press:   inset 0 2px 0 rgba(18,17,24,0.15);
+
+  /* ---------- Motion ---------- */
+  --np-ease:           cubic-bezier(0.2, 0.6, 0.2, 1);
+  --np-ease-out:       cubic-bezier(0.16, 1, 0.3, 1);
+  --np-dur-fast:       120ms;
+  --np-dur:            220ms;
+  --np-dur-slow:       420ms;
+
+  /* ---------- Rule widths ---------- */
+  --np-rule-thin:   1px;
+  --np-rule-med:    2px;
+  --np-rule-thick:  4px;
+}
+
+/* ============================================================
+   Base / semantic type
+   ============================================================ */
+
+html, body {
+  background: var(--np-bg);
+  color: var(--np-fg);
+  font-family: var(--np-font-body);
+  font-size: var(--np-size-body);
+  line-height: var(--np-lh-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, .np-h1, h2, .np-h2, h3, .np-h3, h4, .np-h4, .np-hero {
+  font-family: var(--np-font-display);
+  font-weight: 400;
+  letter-spacing: var(--np-tracking-tight);
+  line-height: var(--np-lh-tight);
+  color: var(--np-fg);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.np-hero { font-size: var(--np-size-hero); line-height: 0.98; }
+h1, .np-h1 { font-size: var(--np-size-h1); }
+h2, .np-h2 { font-size: var(--np-size-h2); line-height: var(--np-lh-snug); }
+h3, .np-h3 { font-size: var(--np-size-h3); line-height: var(--np-lh-snug); }
+h4, .np-h4 { font-size: var(--np-size-h4); line-height: var(--np-lh-snug); }
+
+/* Italic display — PP Editorial New has gorgeous italic */
+.np-italic { font-style: italic; }
+
+/* Body is mono — inspired by Pressura */
+p, .np-body {
+  font-family: var(--np-font-body);
+  font-size: var(--np-size-body);
+  line-height: var(--np-lh-normal);
+  color: var(--np-fg);
+}
+
+.np-lead {
+  font-family: var(--np-font-body);
+  font-size: 1.0625rem;
+  line-height: var(--np-lh-loose);
+}
+
+.np-small { font-size: var(--np-size-small); line-height: var(--np-lh-normal); }
+.np-micro { font-size: var(--np-size-micro); line-height: 1.3; }
+
+/* Eyebrows / labels — all caps mono, wide tracking */
+.np-eyebrow, .np-label {
+  font-family: var(--np-font-body);
+  font-size: var(--np-size-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--np-tracking-caps);
+  color: var(--np-fg);
+  font-weight: 500;
+}
+
+.np-eyebrow--blue { color: var(--np-blue); }
+.np-eyebrow--red  { color: var(--np-red); }
+
+/* Callouts in extended sans — Pressura Extended stand-in */
+.np-callout {
+  font-family: var(--np-font-ui);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Links — editorial underline */
+a, .np-link {
+  color: var(--np-fg-link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color var(--np-dur-fast) var(--np-ease);
+}
+a:hover { color: var(--np-ink); text-decoration-thickness: 2px; }
+
+code, pre, .np-code {
+  font-family: var(--np-font-mono);
+  font-size: 0.9em;
+}
+
+/* Selection — ink on yellow, very newsprint */
+::selection { background: var(--np-yellow); color: var(--np-ink); }
+
+/* Horizontal rules — hairline ink */
+hr, .np-rule {
+  border: 0;
+  border-top: var(--np-rule-thin) solid var(--np-rule);
+  margin: var(--np-space-5) 0;
+}
+.np-rule--thick { border-top-width: var(--np-rule-thick); }
+
+/* Blockquote — editorial pull quote */
+blockquote, .np-pullquote {
+  font-family: var(--np-font-display);
+  font-size: 2rem;
+  line-height: 1.15;
+  font-style: italic;
+  margin: var(--np-space-6) 0;
+  padding-left: var(--np-space-5);
+  border-left: var(--np-rule-thick) solid var(--np-red);
+  color: var(--np-fg);
+}

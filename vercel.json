@@ -1,4 +1,9 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/deck-v2", "destination": "/newpress-deck/index.html" },
+    { "source": "/deck-v2/", "destination": "/newpress-deck/index.html" },
+    { "source": "/deck-v2/:path*", "destination": "/newpress-deck/:path*" }
+  ]
 }
