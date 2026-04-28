@@ -313,7 +313,7 @@ ${clipItems.map((clip, i) => `          <clipitem id="clip-audio-${i + 1}">
  * each clip is a nest referencing that sequence with in/out points.
  * Changes to the sacred sequence (captions, SRT, etc.) propagate into these nests.
  */
-export function buildSacredSequencerXML({ soundbites, sacredSequenceName, outputName, fps = 23.976, gapFrames = 12 }) {
+export function buildSacredSequencerXML({ soundbites, sacredSequenceName, outputName, fps = 23.976, gapFrames = 12, sourceSequenceXML = null }) {
   const timebase = Math.round(fps);
   const isNtsc = (fps === 23.976 || fps === 29.97 || fps === 59.94);
 
@@ -355,9 +355,21 @@ export function buildSacredSequencerXML({ soundbites, sacredSequenceName, output
   const totalDuration = timelinePos > 0 ? timelinePos - gapFrames : 0;
   const seqName = outputName || sacredSequenceName + '_Sacred Selects';
 
-  // The nested sequence element — first clipitem defines it fully, rest reference by id.
-  // Premiere matches by name to the existing sequence in the project.
-  const nestedSeqFull = `<sequence id="${sacredSeqId}">
+  // Build the nested sequence element for each clipitem.
+  // When sourceSequenceXML is provided (from Premiere FCP XML export),
+  // we inject the real sequence with all file/pathurl refs so Premiere resolves media.
+  // Otherwise, fall back to the hollow nested sequence (offline, manual relink).
+  let nestedSeqFull;
+
+  if (sourceSequenceXML) {
+    // Inject the full Premiere sequence XML, adding our reference id
+    // Replace the opening <sequence ...> tag to add our id attribute
+    nestedSeqFull = sourceSequenceXML.replace(
+      /^<sequence(\s|>)/,
+      `<sequence id="${sacredSeqId}"$1`
+    );
+  } else {
+    nestedSeqFull = `<sequence id="${sacredSeqId}">
               <name>${escapeXml(sacredSequenceName)}</name>
               <duration>${sacredDurationFrames}</duration>
               <rate>
@@ -385,6 +397,7 @@ export function buildSacredSequencerXML({ soundbites, sacredSequenceName, output
                 </audio>
               </media>
             </sequence>`;
+  }
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xmeml>

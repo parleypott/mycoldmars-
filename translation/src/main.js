@@ -915,6 +915,7 @@ $('#btn-search')?.addEventListener('click', () => {
 // ── Sacred Sequencer ──
 let seqSoundbites = [];
 let seqAddingMore = false;
+let seqSourceXML = null; // parsed Premiere XML for nested sequence with real media
 
 function showSequencer() {
   document.getElementById('app').classList.add('hidden');
@@ -930,6 +931,8 @@ function exitSequencer() {
   // Reset sequencer state
   seqSoundbites = [];
   seqAddingMore = false;
+  seqSourceXML = null;
+  $('#seq-xml-status').textContent = '';
   $('#seq-arrange').classList.add('hidden');
   $('#seq-confirm').classList.add('hidden');
   $('#seq-paste').classList.remove('hidden');
@@ -1020,6 +1023,24 @@ function tcToFrameNotation(tc, fps) {
 
   if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${ff}`;
   return `${m}:${s.toString().padStart(2, '0')}:${ff}`;
+}
+
+function parsePremiereXML(xmlString) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlString, 'application/xml');
+  const seqEl = doc.querySelector('sequence');
+  if (!seqEl) return null;
+
+  const sequenceName = seqEl.querySelector('name')?.textContent || '';
+  const duration = parseInt(seqEl.querySelector('duration')?.textContent) || 0;
+  const timebase = parseInt(seqEl.querySelector('rate > timebase')?.textContent) || 24;
+  const ntsc = (seqEl.querySelector('rate > ntsc')?.textContent || '').toUpperCase() === 'TRUE';
+
+  // Serialize the full <sequence> element back to raw XML string
+  const serializer = new XMLSerializer();
+  const sequenceXML = serializer.serializeToString(seqEl);
+
+  return { sequenceXML, sequenceName, duration, timebase, ntsc };
 }
 
 function renderSeqBlocks() {
@@ -1196,6 +1217,8 @@ $('#seq-back-btn').addEventListener('click', () => {
   $('#seq-input').value = '';
   seqSoundbites = [];
   seqAddingMore = false;
+  seqSourceXML = null;
+  $('#seq-xml-status').textContent = '';
 });
 
 $('#seq-export-btn').addEventListener('click', () => {
@@ -1212,6 +1235,7 @@ $('#seq-export-btn').addEventListener('click', () => {
     outputName,
     fps,
     gapFrames,
+    sourceSequenceXML: seqSourceXML?.sequenceXML || null,
   });
 
   const blob = new Blob([xml], { type: 'application/xml' });
@@ -1228,6 +1252,31 @@ $('#seq-fps')?.addEventListener('change', () => {
   if (seqSoundbites.length > 0 && !$('#seq-arrange').classList.contains('hidden')) {
     renderSeqBlocks();
   }
+});
+
+// Source XML upload for real media nesting
+$('#seq-xml-upload-btn').addEventListener('click', () => {
+  $('#seq-xml-input').click();
+});
+
+$('#seq-xml-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const parsed = parsePremiereXML(ev.target.result);
+    if (!parsed) {
+      $('#seq-xml-status').textContent = 'No sequence found in XML';
+      $('#seq-xml-status').style.color = '#ff4444';
+      seqSourceXML = null;
+      return;
+    }
+    seqSourceXML = parsed;
+    $('#seq-xml-status').textContent = `Linked: ${parsed.sequenceName}`;
+    $('#seq-xml-status').style.color = '#00e5ff';
+  };
+  reader.readAsText(file);
+  e.target.value = ''; // allow re-uploading same file
 });
 
 // ── Step 1: Upload ──

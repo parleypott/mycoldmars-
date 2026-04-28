@@ -339,6 +339,11 @@
           <label class="seq-label">Gap (frames)
             <input id="seq-gap" class="seq-input" type="number" value="12" min="0" max="240">
           </label>
+          <label class="seq-label">Source XML
+            <button id="seq-xml-upload-btn" class="seq-btn">Upload</button>
+            <input type="file" id="seq-xml-input" accept=".xml" hidden>
+          </label>
+          <span id="seq-xml-status" class="seq-hint"></span>
         </div>
         <div id="seq-status" class="seq-status"></div>
         <div id="seq-blocks" class="seq-blocks"></div>
