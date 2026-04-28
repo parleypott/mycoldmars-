@@ -308,8 +308,10 @@ ${clipItems.map((clip, i) => `          <clipitem id="clip-audio-${i + 1}">
 
 /**
  * Build an FCP XML from Sacred Sequencer soundbites.
- * Each soundbite becomes a clip on the timeline referencing the sacred sequence,
- * with configurable gap frames between each clip.
+ * Each soundbite becomes a NESTED SEQUENCE clip — a subclip of the sacred sequence.
+ * When imported into the Premiere project containing the sacred sequence,
+ * each clip is a nest referencing that sequence with in/out points.
+ * Changes to the sacred sequence (captions, SRT, etc.) propagate into these nests.
  */
 export function buildSacredSequencerXML({ soundbites, sacredSequenceName, outputName, fps = 23.976, gapFrames = 12 }) {
   const timebase = Math.round(fps);
@@ -327,8 +329,7 @@ export function buildSacredSequencerXML({ soundbites, sacredSequenceName, output
   }
 
   const sacredDurationFrames = maxOutFrame;
-  const sacredId = 'sacred-seq-1';
-  const masterClipId = 'masterclip-sacred';
+  const sacredSeqId = 'sacred-sequence-ref';
 
   // Place clips on timeline with gaps
   let timelinePos = 0;
@@ -354,8 +355,9 @@ export function buildSacredSequencerXML({ soundbites, sacredSequenceName, output
   const totalDuration = timelinePos > 0 ? timelinePos - gapFrames : 0;
   const seqName = outputName || sacredSequenceName + '_Sacred Selects';
 
-  // Build the file element with full media description (first occurrence only)
-  const fileElementFull = `<file id="${sacredId}">
+  // The nested sequence element — first clipitem defines it fully, rest reference by id.
+  // Premiere matches by name to the existing sequence in the project.
+  const nestedSeqFull = `<sequence id="${sacredSeqId}">
               <name>${escapeXml(sacredSequenceName)}</name>
               <duration>${sacredDurationFrames}</duration>
               <rate>
@@ -364,20 +366,25 @@ export function buildSacredSequencerXML({ soundbites, sacredSequenceName, output
               </rate>
               <media>
                 <video>
-                  <samplecharacteristics>
-                    <width>1920</width>
-                    <height>1080</height>
-                  </samplecharacteristics>
+                  <format>
+                    <samplecharacteristics>
+                      <width>1920</width>
+                      <height>1080</height>
+                    </samplecharacteristics>
+                  </format>
+                  <track/>
                 </video>
                 <audio>
-                  <samplecharacteristics>
-                    <depth>16</depth>
-                    <samplerate>48000</samplerate>
-                  </samplecharacteristics>
-                  <channelcount>2</channelcount>
+                  <format>
+                    <samplecharacteristics>
+                      <depth>16</depth>
+                      <samplerate>48000</samplerate>
+                    </samplecharacteristics>
+                  </format>
+                  <track/>
                 </audio>
               </media>
-            </file>`;
+            </sequence>`;
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xmeml>
@@ -398,8 +405,7 @@ export function buildSacredSequencerXML({ soundbites, sacredSequenceName, output
           </samplecharacteristics>
         </format>
         <track>
-${clipItems.map((clip, i) => `          <clipitem id="clip-${i + 1}">
-            <masterclipid>${masterClipId}</masterclipid>
+${clipItems.map((clip, i) => `          <clipitem id="nest-${i + 1}">
             <name>${escapeXml(clip.prefix)}</name>
             <duration>${sacredDurationFrames}</duration>
             <rate>
@@ -410,63 +416,10 @@ ${clipItems.map((clip, i) => `          <clipitem id="clip-${i + 1}">
             <end>${clip.endFrame}</end>
             <in>${clip.inFrame}</in>
             <out>${clip.outFrame}</out>
-            ${i === 0 ? fileElementFull : `<file id="${sacredId}"/>`}
-            <link>
-              <linkclipref>clip-${i + 1}</linkclipref>
-              <mediatype>video</mediatype>
-              <trackindex>1</trackindex>
-              <clipindex>${i + 1}</clipindex>
-            </link>
-            <link>
-              <linkclipref>clip-audio-${i + 1}</linkclipref>
-              <mediatype>audio</mediatype>
-              <trackindex>1</trackindex>
-              <clipindex>${i + 1}</clipindex>
-            </link>
+            ${i === 0 ? nestedSeqFull : `<sequence id="${sacredSeqId}"/>`}
           </clipitem>`).join('\n')}
         </track>
       </video>
-      <audio>
-        <numOutputChannels>2</numOutputChannels>
-        <format>
-          <samplecharacteristics>
-            <depth>16</depth>
-            <samplerate>48000</samplerate>
-          </samplecharacteristics>
-        </format>
-        <track>
-${clipItems.map((clip, i) => `          <clipitem id="clip-audio-${i + 1}">
-            <masterclipid>${masterClipId}</masterclipid>
-            <name>${escapeXml(clip.prefix)}</name>
-            <duration>${sacredDurationFrames}</duration>
-            <rate>
-              <timebase>${timebase}</timebase>
-              <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
-            </rate>
-            <start>${clip.startFrame}</start>
-            <end>${clip.endFrame}</end>
-            <in>${clip.inFrame}</in>
-            <out>${clip.outFrame}</out>
-            <file id="${sacredId}"/>
-            <sourcetrack>
-              <mediatype>audio</mediatype>
-              <trackindex>1</trackindex>
-            </sourcetrack>
-            <link>
-              <linkclipref>clip-${i + 1}</linkclipref>
-              <mediatype>video</mediatype>
-              <trackindex>1</trackindex>
-              <clipindex>${i + 1}</clipindex>
-            </link>
-            <link>
-              <linkclipref>clip-audio-${i + 1}</linkclipref>
-              <mediatype>audio</mediatype>
-              <trackindex>1</trackindex>
-              <clipindex>${i + 1}</clipindex>
-            </link>
-          </clipitem>`).join('\n')}
-        </track>
-      </audio>
     </media>
   </sequence>
 </xmeml>`;
