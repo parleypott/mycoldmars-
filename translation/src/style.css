@@ -145,14 +145,15 @@ header {
 }
 .header-logo-label {
   font-family: var(--np-font-sans);
-  font-size: 10px;
-  letter-spacing: 0.12em;
+  font-size: 13px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--np-red);
+  font-weight: 600;
 }
 .header-logo-mark {
   font-family: var(--np-font-serif);
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 300;
   letter-spacing: -0.01em;
   color: var(--np-ink);

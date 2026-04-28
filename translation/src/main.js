@@ -2308,6 +2308,11 @@ const headerLogo = document.getElementById('header-logo');
 if (headerLogo) {
   headerLogo.addEventListener('click', (e) => {
     e.preventDefault();
+    // Exit sequencer if it's open
+    const seqView = document.getElementById('sequencer-view');
+    if (seqView && !seqView.classList.contains('hidden')) {
+      exitSequencer();
+    }
     resetToUpload();
   });
 }
