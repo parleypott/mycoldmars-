@@ -391,10 +391,10 @@ function wireLibraryEvents() {
 function startInlineRename(el) {
   const id = el.dataset.id;
   const oldName = el.textContent;
+  let done = false;
   el.contentEditable = true;
   el.classList.add('lib-name--editing');
   el.focus();
-  // Select all text
   const range = document.createRange();
   range.selectNodeContents(el);
   const sel = window.getSelection();
@@ -402,6 +402,8 @@ function startInlineRename(el) {
   sel.addRange(range);
 
   function commit() {
+    if (done) return;
+    done = true;
     el.contentEditable = false;
     el.classList.remove('lib-name--editing');
     const newName = el.textContent.trim();
@@ -417,9 +419,17 @@ function startInlineRename(el) {
     }
   }
 
+  function cancel() {
+    if (done) return;
+    done = true;
+    el.textContent = oldName;
+    el.contentEditable = false;
+    el.classList.remove('lib-name--editing');
+  }
+
   el.addEventListener('keydown', function handler(e) {
     if (e.key === 'Enter') { e.preventDefault(); commit(); el.removeEventListener('keydown', handler); }
-    if (e.key === 'Escape') { el.textContent = oldName; el.contentEditable = false; el.classList.remove('lib-name--editing'); el.removeEventListener('keydown', handler); }
+    if (e.key === 'Escape') { cancel(); el.removeEventListener('keydown', handler); }
   });
   el.addEventListener('blur', commit, { once: true });
 }
@@ -511,6 +521,7 @@ function updateTranscriptTitle() {
 if (transcriptTitleEl) {
   transcriptTitleEl.addEventListener('dblclick', () => {
     if (!currentTranscriptId) return;
+    let done = false;
     transcriptTitleEl.contentEditable = true;
     transcriptTitleEl.classList.add('transcript-title--editing');
     transcriptTitleEl.focus();
@@ -521,6 +532,8 @@ if (transcriptTitleEl) {
     sel.addRange(range);
 
     function commitTitle() {
+      if (done) return;
+      done = true;
       transcriptTitleEl.contentEditable = false;
       transcriptTitleEl.classList.remove('transcript-title--editing');
       const newName = transcriptTitleEl.textContent.trim();
@@ -535,7 +548,7 @@ if (transcriptTitleEl) {
 
     transcriptTitleEl.addEventListener('keydown', function handler(e) {
       if (e.key === 'Enter') { e.preventDefault(); commitTitle(); transcriptTitleEl.removeEventListener('keydown', handler); }
-      if (e.key === 'Escape') { transcriptTitleEl.textContent = currentTranscriptName; transcriptTitleEl.contentEditable = false; transcriptTitleEl.classList.remove('transcript-title--editing'); transcriptTitleEl.removeEventListener('keydown', handler); }
+      if (e.key === 'Escape') { done = true; transcriptTitleEl.textContent = currentTranscriptName; transcriptTitleEl.contentEditable = false; transcriptTitleEl.classList.remove('transcript-title--editing'); transcriptTitleEl.removeEventListener('keydown', handler); }
     });
     transcriptTitleEl.addEventListener('blur', commitTitle, { once: true });
   });
@@ -1823,9 +1836,12 @@ btnNewProject.addEventListener('click', () => {
   const input = row.querySelector('.lib-new-folder-input');
   input.focus();
 
+  let committed = false;
   async function commitFolder() {
+    if (committed) return;
+    committed = true;
     const name = input.value.trim();
-    row.remove();
+    if (row.parentNode) row.remove();
     if (!name) return;
     try {
       const proj = await createProject({ name });
@@ -1838,8 +1854,8 @@ btnNewProject.addEventListener('click', () => {
   }
 
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') commitFolder();
-    if (e.key === 'Escape') row.remove();
+    if (e.key === 'Enter') { e.preventDefault(); commitFolder(); }
+    if (e.key === 'Escape') { committed = true; if (row.parentNode) row.remove(); }
   });
   input.addEventListener('blur', commitFolder);
 });
