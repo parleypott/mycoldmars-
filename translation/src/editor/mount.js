@@ -2,6 +2,7 @@ import { render, h } from 'preact';
 import { TranscriptEditor } from './Editor.jsx';
 
 let currentUnmount = null;
+let currentProps = null;
 
 /**
  * Mount the Tiptap editor into a DOM container.
@@ -13,7 +14,8 @@ export function mountEditor(container, props) {
     currentUnmount = null;
   }
 
-  render(h(TranscriptEditor, props), container);
+  currentProps = { ...props };
+  render(h(TranscriptEditor, currentProps), container);
 
   currentUnmount = () => render(null, container);
 
@@ -21,9 +23,12 @@ export function mountEditor(container, props) {
     unmount: () => {
       render(null, container);
       currentUnmount = null;
+      currentProps = null;
     },
     update: (newProps) => {
-      render(h(TranscriptEditor, newProps), container);
+      // Merge partial updates into existing props
+      currentProps = { ...currentProps, ...newProps };
+      render(h(TranscriptEditor, currentProps), container);
     },
   };
 }

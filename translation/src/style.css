@@ -1100,14 +1100,22 @@ tr.dimmed-speaker { opacity: 0.35; }
 }
 .summary-section-header:first-child { margin-top: 0; }
 .summary-bullet + .summary-bullet { margin-top: 2px; }
+.summary-bullet {
+  cursor: pointer;
+  transition: border-left-color var(--np-duration) var(--np-ease), background var(--np-duration) var(--np-ease), opacity var(--np-duration) var(--np-ease);
+}
+.summary-bullet:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
 .summary-bullet--interested {
-  border-left-color: var(--np-blue);
-  background: rgba(0, 76, 255, 0.06);
+  border-left-color: var(--np-green);
+  background: rgba(13, 89, 33, 0.08);
 }
 .summary-bullet--not-interested {
   border-left-color: var(--np-red);
-  opacity: 0.5;
+  opacity: 0.4;
   text-decoration: line-through;
+  text-decoration-color: var(--np-red);
 }
 .summary-bullet--mixed {
   border-left-color: var(--np-yellow);
@@ -1140,8 +1148,8 @@ tr.dimmed-speaker { opacity: 0.35; }
   border-radius: 2px;
   transition: background var(--np-duration) var(--np-ease);
 }
-.interest-popup-btn--interested { color: var(--np-blue); }
-.interest-popup-btn--interested:hover { background: rgba(0, 76, 255, 0.15); }
+.interest-popup-btn--interested { color: var(--np-green); }
+.interest-popup-btn--interested:hover { background: rgba(13, 89, 33, 0.15); }
 .interest-popup-btn--not-interested { color: var(--np-red); }
 .interest-popup-btn--not-interested:hover { background: rgba(221, 44, 30, 0.15); }
 .interest-popup-btn--clear { color: var(--np-cool-neutral); }
@@ -1149,13 +1157,15 @@ tr.dimmed-speaker { opacity: 0.35; }
 
 /* ── Interest Decorations (in transcript editor) ── */
 .segment-interested {
-  text-decoration: underline dashed rgba(0, 76, 255, 0.5);
-  text-decoration-thickness: 1.5px;
+  text-decoration: underline solid var(--np-green);
+  text-decoration-thickness: 2px;
   text-underline-offset: 3px;
+  background: rgba(13, 89, 33, 0.06);
 }
 .segment-not-interested {
   text-decoration: line-through var(--np-red);
-  opacity: 0.45;
+  text-decoration-thickness: 2px;
+  opacity: 0.35;
 }
 
 /* ── Editor Toolbar ── */

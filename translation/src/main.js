@@ -595,7 +595,14 @@ function handleInterestVote(segNums, type) {
     }
   }
   interestVotes = newVotes;
-  if (editorInstance) updateEditorInstance();
+
+  // Update just the interest votes without full re-render (preserves summary panel state)
+  if (editorInstance) {
+    editorInstance.update({
+      interestVotes,
+      summaryBullets,
+    });
+  }
   debouncedAutoSave();
 }
 

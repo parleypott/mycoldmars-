@@ -97,6 +97,27 @@ export function SummaryView({ content, loading, bullets, interestVotes, onVote }
     return null;
   }
 
+  // Click-to-toggle vote on a single bullet
+  const handleBulletClick = useCallback((bullet, e) => {
+    // Don't toggle if user is selecting text
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return;
+
+    if (!onVote || bullet.segmentStart == null) return;
+    const status = getBulletVoteStatus(bullet);
+    // Cycle: unvoted → interested → not-interested → unvoted
+    let nextType;
+    if (!status) nextType = 'interested';
+    else if (status === 'interested') nextType = 'not-interested';
+    else nextType = null; // clear
+
+    const segNums = [];
+    for (let n = bullet.segmentStart; n <= bullet.segmentEnd; n++) {
+      segNums.push(n);
+    }
+    if (segNums.length > 0) onVote(segNums, nextType);
+  }, [bullets, interestVotes, onVote]);
+
   // Structured bullet rendering
   if (bullets && bullets.length > 0) {
     // Group bullets by section
@@ -122,6 +143,7 @@ export function SummaryView({ content, loading, bullets, interestVotes, onVote }
           data-bullet-id={bullet.id}
           data-seg-start={bullet.segmentStart}
           data-seg-end={bullet.segmentEnd}
+          onClick={(e) => handleBulletClick(bullet, e)}
         >
           <span dangerouslySetInnerHTML={{ __html: formatInline(text) }} />
         </li>
