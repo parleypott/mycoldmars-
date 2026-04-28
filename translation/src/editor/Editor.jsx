@@ -376,8 +376,9 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
 
   if (!editor) return null;
 
-  // Get unique speakers from speakerMap
-  const speakers = Object.entries(speakerMap || {});
+  // Get unique speakers from speakerMap, excluding hidden (generic) speakers
+  const hiddenSet = new Set(hiddenSpeakers || []);
+  const speakers = Object.entries(speakerMap || {}).filter(([raw]) => !hiddenSet.has(raw));
   const dateStr = sequenceInfo?.dateFilmed
     ? sequenceInfo.dateFilmed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : null;
