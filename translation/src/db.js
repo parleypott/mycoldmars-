@@ -249,7 +249,7 @@ export async function listAiThreads(transcriptId) {
 
 // ── Transcripts ──
 
-export async function saveTranscript({ name, step, segments, analysis, translations, srtContent, speakerColors, annotations, metadata, projectId, speakerMap, hiddenSpeakers, editorState, customSequenceName, hideUnintelligible, wordTimings }) {
+export async function saveTranscript({ name, step, segments, analysis, translations, srtContent, speakerColors, annotations, metadata, projectId, speakerMap, hiddenSpeakers, editorState, customSequenceName, hideUnintelligible, wordTimings, slug }) {
   try {
     const { data, error } = await db()
       .from('transcripts')
@@ -270,6 +270,7 @@ export async function saveTranscript({ name, step, segments, analysis, translati
         custom_sequence_name: customSequenceName || '',
         hide_unintelligible: hideUnintelligible ?? true,
         word_timings: wordTimings || null,
+        slug: slug || null,
       })
       .select()
       .single();
@@ -294,6 +295,7 @@ export async function saveTranscript({ name, step, segments, analysis, translati
       custom_sequence_name: customSequenceName || '',
       hide_unintelligible: hideUnintelligible ?? true,
       word_timings: wordTimings || null,
+      slug: slug || null,
       created_at: now,
       updated_at: now,
     };
@@ -324,6 +326,7 @@ export async function updateTranscript(id, fields) {
   if (fields.customSequenceName !== undefined) update.custom_sequence_name = fields.customSequenceName;
   if (fields.hideUnintelligible !== undefined) update.hide_unintelligible = fields.hideUnintelligible;
   if (fields.wordTimings !== undefined) update.word_timings = fields.wordTimings;
+  if (fields.slug !== undefined) update.slug = fields.slug;
 
   try {
     const { data, error } = await db()
@@ -350,7 +353,7 @@ export async function listTranscripts(projectId) {
     if (!isSupabaseAvailable()) throw new Error('skip');
     let query = supabase
       .from('transcripts')
-      .select('id, name, step, created_at, updated_at, project_id, metadata')
+      .select('id, name, step, created_at, updated_at, project_id, metadata, slug')
       .is('deleted_at', null)
       .order('updated_at', { ascending: false });
 
@@ -367,7 +370,7 @@ export async function listTranscripts(projectId) {
     // Return only list-level fields, sorted by updated_at desc
     return items
       .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
-      .map(t => ({ id: t.id, name: t.name, step: t.step, created_at: t.created_at, updated_at: t.updated_at, project_id: t.project_id, metadata: t.metadata }));
+      .map(t => ({ id: t.id, name: t.name, step: t.step, created_at: t.created_at, updated_at: t.updated_at, project_id: t.project_id, metadata: t.metadata, slug: t.slug }));
   }
 }
 
@@ -387,6 +390,53 @@ export async function loadTranscript(id) {
     const record = lsGet(`transcript_${id}`);
     if (!record) throw new Error('Transcript not found');
     return record;
+  }
+}
+
+export async function loadTranscriptBySlug(slug) {
+  try {
+    const { data, error } = await db()
+      .from('transcripts')
+      .select('*')
+      .eq('slug', slug)
+      .is('deleted_at', null)
+      .single();
+
+    if (error) throw new Error(error.message);
+    markSupabaseSuccess();
+    return data;
+  } catch (err) {
+    if (supabase) markSupabaseFailed(err);
+    // Search localStorage
+    const index = lsGetIndex('transcripts');
+    for (const id of index) {
+      const record = lsGet(`transcript_${id}`);
+      if (record && record.slug === slug && !record.deleted_at) return record;
+    }
+    throw new Error('Transcript not found');
+  }
+}
+
+export async function isSlugTaken(slug, excludeId) {
+  try {
+    if (!isSupabaseAvailable()) throw new Error('skip');
+    let query = supabase
+      .from('transcripts')
+      .select('id')
+      .eq('slug', slug)
+      .is('deleted_at', null);
+    if (excludeId) query = query.neq('id', excludeId);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data && data.length > 0;
+  } catch {
+    const index = lsGetIndex('transcripts');
+    for (const id of index) {
+      if (id === excludeId) continue;
+      const record = lsGet(`transcript_${id}`);
+      if (record && record.slug === slug && !record.deleted_at) return true;
+    }
+    return false;
   }
 }
 

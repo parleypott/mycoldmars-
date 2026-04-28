@@ -3,7 +3,7 @@ import { parseJSON } from './json-parser.js';
 import { formatPreciseTimecode } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase } from './db.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
 import { mountTagSearch } from './tags/mount.js';
@@ -39,6 +39,7 @@ let rawSummary = null;        // raw AI output before timecode enrichment
 let summaryBullets = [];      // parsed bullet data: [{ id, rawText, enrichedText, segmentStart, segmentEnd }]
 let interestVotes = {};       // { segNum: 'interested' | 'not-interested' }
 let wordTimingsMap = null;    // JSON word-level timings: { segNum: { start, end } }
+let currentSlug = null;       // clean URL slug for permalink
 
 const SPEAKER_PALETTE = [
   '#DD2C1E', '#004CFF', '#0D5921', '#FFBF00',
@@ -314,6 +315,7 @@ async function handleLoad(id) {
     wordTimingsMap = t.wordTimings || t.word_timings || null;
     currentTranscriptId = t.id;
     currentTranscriptName = t.name;
+    currentSlug = t.slug || null;
     rememberLastTranscript(t.id);
     // Sync editor colors with saved speaker colors
     syncEditorColors();
@@ -448,12 +450,22 @@ btnSaveConfirm.addEventListener('click', async () => {
     const payload = gatherState(name);
 
     if (currentTranscriptId) {
+      // Generate slug if we don't have one yet
+      if (!currentSlug) {
+        const baseSlug = generateSlug(name);
+        payload.slug = await ensureUniqueSlug(baseSlug, currentTranscriptId);
+        currentSlug = payload.slug;
+      }
       await updateTranscript(currentTranscriptId, payload);
     } else {
+      const baseSlug = generateSlug(name);
+      payload.slug = await ensureUniqueSlug(baseSlug);
       const row = await saveTranscript(payload);
       currentTranscriptId = row.id;
+      currentSlug = row.slug || payload.slug;
       rememberLastTranscript(row.id);
     }
+    setPermalinkHash(currentSlug || currentTranscriptId);
 
     currentTranscriptName = name;
     saveModal.classList.add('hidden');
@@ -551,6 +563,24 @@ function generateAutoName() {
   return `${speaker} — ${date}`;
 }
 
+function generateSlug(name) {
+  return name
+    .toLowerCase()
+    .replace(/['']/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 60) || 'untitled';
+}
+
+async function ensureUniqueSlug(base, excludeId) {
+  let slug = base;
+  let i = 2;
+  while (await isSlugTaken(slug, excludeId)) {
+    slug = `${base}-${i++}`;
+  }
+  return slug;
+}
+
 async function autoSave() {
   updateSaveStatus('saving');
   try {
@@ -561,10 +591,15 @@ async function autoSave() {
     } else {
       const name = currentTranscriptName || generateAutoName();
       payload.name = name;
+      // Generate a clean slug for the permalink
+      const baseSlug = generateSlug(name);
+      payload.slug = await ensureUniqueSlug(baseSlug);
       const row = await saveTranscript(payload);
       currentTranscriptId = row.id;
       currentTranscriptName = name;
+      currentSlug = row.slug || payload.slug;
       rememberLastTranscript(row.id);
+      setPermalinkHash(currentSlug);
     }
     updateSaveStatus('saved');
   } catch (err) {
@@ -2274,6 +2309,7 @@ function resetToUpload() {
   srtContent = '';
   currentTranscriptId = null;
   currentTranscriptName = '';
+  currentSlug = null;
   speakerColors = {};
   annotations = {};
   speakerMap = {};
@@ -2334,14 +2370,22 @@ if (headerLogo) {
 
 // ── Permalink support ──
 function getPermalinkId() {
-  const hash = window.location.hash;
-  const match = hash.match(/^#t=(.+)/);
-  return match ? match[1] : null;
+  const hash = window.location.hash.slice(1); // strip #
+  if (!hash) return null;
+  // Legacy format: #t=UUID
+  const legacyMatch = hash.match(/^t=(.+)/);
+  if (legacyMatch) return legacyMatch[1];
+  // New format: #slug
+  return hash;
 }
 
-function setPermalinkHash(id) {
-  if (id) {
-    history.replaceState(null, '', '#t=' + id);
+function isUUID(str) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(str) || /^local_/.test(str);
+}
+
+function setPermalinkHash(slugOrId) {
+  if (slugOrId) {
+    history.replaceState(null, '', '#' + slugOrId);
   }
 }
 
@@ -2354,11 +2398,12 @@ const btnShare = document.getElementById('btn-share');
 if (btnShare) {
   btnShare.addEventListener('click', () => {
     if (!currentTranscriptId) return;
-    setPermalinkHash(currentTranscriptId);
+    const permalink = currentSlug || currentTranscriptId;
+    setPermalinkHash(permalink);
     const url = window.location.href;
     navigator.clipboard.writeText(url).then(() => {
-      btnShare.textContent = 'Link Copied!';
-      setTimeout(() => { btnShare.textContent = 'Share Link'; }, 2000);
+      btnShare.textContent = 'Copied!';
+      setTimeout(() => { btnShare.textContent = 'Share'; }, 2000);
     }).catch(() => {
       prompt('Copy this link:', url);
     });
@@ -2373,22 +2418,39 @@ if (btnShare) {
     .catch(err => console.warn('Migration check failed:', err.message));
 
   // Priority: URL permalink > localStorage last transcript
-  const permalinkId = getPermalinkId();
-  const loadId = permalinkId || getLastTranscript();
+  const permalink = getPermalinkId();
+  const lastSaved = getLastTranscript();
 
   // Load projects and transcript in parallel
   const projectsPromise = listProjects().then(p => { projects = p; refreshProjectSelects(); }).catch(() => {});
-  const loadPromise = loadId
-    ? handleLoad(loadId).then(() => setPermalinkHash(loadId)).catch(err => {
+
+  let loadPromise = Promise.resolve();
+  if (permalink) {
+    // Try loading by slug first, then by UUID
+    loadPromise = (async () => {
+      try {
+        if (isUUID(permalink)) {
+          await handleLoad(permalink);
+        } else {
+          const t = await loadTranscriptBySlug(permalink);
+          await handleLoad(t.id);
+        }
+        setPermalinkHash(currentSlug || currentTranscriptId);
+      } catch (err) {
+        console.warn('Permalink load failed:', err.message);
+        clearPermalinkHash();
+        showError('Could not load shared transcript. It may have been deleted or the database is temporarily unavailable.');
+      }
+    })();
+  } else if (lastSaved) {
+    loadPromise = handleLoad(lastSaved)
+      .then(() => setPermalinkHash(currentSlug || currentTranscriptId))
+      .catch(err => {
         console.warn('Auto-reload failed:', err.message);
         clearPermalinkHash();
-        if (permalinkId) {
-          showError('Could not load shared transcript. It may have been deleted or the database is temporarily unavailable.');
-        } else {
-          clearLastTranscript();
-        }
-      })
-    : Promise.resolve();
+        clearLastTranscript();
+      });
+  }
 
   await Promise.all([projectsPromise, loadPromise]);
 })();

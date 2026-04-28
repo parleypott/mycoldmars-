@@ -30,12 +30,14 @@ create table if not exists transcripts (
   custom_sequence_name  text default '',
   hide_unintelligible   boolean default true,
   word_timings          jsonb,
+  slug                  text unique,
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now()
 );
 
 create index if not exists idx_transcripts_project on transcripts(project_id);
 create index if not exists idx_transcripts_updated on transcripts(updated_at desc);
+create index if not exists idx_transcripts_slug on transcripts(slug);
 
 -- 3. Tags
 create table if not exists tags (
