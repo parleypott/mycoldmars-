@@ -40,12 +40,11 @@ export const SpeakerBlock = Node.create({
     }
     nameContent.push(['span', { class: 'editor-dismiss-btn', title: dismissed ? 'Restore block' : 'Dismiss block' }, '\u00d7']);
 
-    const headerChildren = [
-      ['div', { class: 'editor-speaker-name', contenteditable: 'false' }, ...nameContent],
-    ];
+    const headerChildren = [];
     if (node.attrs.startTime) {
-      headerChildren.push(['div', { class: 'editor-timecode-tag', contenteditable: 'false' }, '\u250C ' + node.attrs.startTime]);
+      headerChildren.push(['div', { class: 'editor-timecode-tag', contenteditable: 'false' }, node.attrs.startTime]);
     }
+    headerChildren.push(['div', { class: 'editor-speaker-name', contenteditable: 'false' }, ...nameContent]);
 
     return ['div', attrs, ...headerChildren, ['div', { class: 'editor-speaker-content' }, 0]];
   },

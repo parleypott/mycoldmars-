@@ -828,6 +828,24 @@ function handleInterestVote(segNums, type) {
   debouncedAutoSave();
 }
 
+// ── Backfill startTime for saved editor states missing timecodes ──
+function backfillStartTimes(state, segs) {
+  if (!state?.content || !segs?.length) return;
+  for (const block of state.content) {
+    if (block.type !== 'speakerBlock' || block.attrs?.startTime) continue;
+    // Find the first segment number in this block's paragraph content
+    const para = block.content?.[0];
+    if (!para?.content) continue;
+    for (const textNode of para.content) {
+      const segMark = textNode.marks?.find(m => m.type === 'segment');
+      if (segMark?.attrs?.start) {
+        block.attrs.startTime = segMark.attrs.start;
+        break;
+      }
+    }
+  }
+}
+
 // ── Editor instance update helper (DRY) ──
 function updateEditorInstance() {
   if (!editorInstance) return;
@@ -1709,6 +1727,7 @@ function switchView(view) {
 
   // Mount editor on first switch to editor view
   if (view === 'editor' && editorState) {
+    backfillStartTimes(editorState, segments);
     syncEditorColors();
     const container = $('#editor-mount');
     if (container && !editorInstance) {

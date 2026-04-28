@@ -1111,12 +1111,12 @@ tr.dimmed-speaker { opacity: 0.35; }
 }
 .editor-timecode-tag {
   font-family: var(--np-font-mono);
-  font-size: 11px;
+  font-size: 10px;
   font-style: normal;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: var(--np-sepia);
-  opacity: 0.5;
-  margin-bottom: var(--np-space-3);
+  opacity: 0.4;
+  margin-bottom: 2px;
   user-select: none;
 }
 .editor-dismiss-btn {
