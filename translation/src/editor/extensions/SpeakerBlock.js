@@ -13,6 +13,7 @@ export const SpeakerBlock = Node.create({
       visible: { default: true },
       language: { default: '' },
       dismissed: { default: false },
+      startTime: { default: '' },
     };
   },
 
@@ -38,7 +39,15 @@ export const SpeakerBlock = Node.create({
       nameContent.push(['span', { class: 'editor-lang-tag' }, node.attrs.language]);
     }
     nameContent.push(['span', { class: 'editor-dismiss-btn', title: dismissed ? 'Restore block' : 'Dismiss block' }, '\u00d7']);
-    return ['div', attrs, ['div', { class: 'editor-speaker-name', contenteditable: 'false' }, ...nameContent], ['div', { class: 'editor-speaker-content' }, 0]];
+
+    const headerChildren = [
+      ['div', { class: 'editor-speaker-name', contenteditable: 'false' }, ...nameContent],
+    ];
+    if (node.attrs.startTime) {
+      headerChildren.push(['div', { class: 'editor-timecode-tag', contenteditable: 'false' }, '\u250C ' + node.attrs.startTime]);
+    }
+
+    return ['div', attrs, ...headerChildren, ['div', { class: 'editor-speaker-content' }, 0]];
   },
 
   addProseMirrorPlugins() {

@@ -1069,41 +1069,60 @@ tr.dimmed-speaker { opacity: 0.35; }
 .editor-content .tiptap {
   outline: none;
   min-height: 400px;
-  max-height: 600px;
+  max-height: 700px;
   overflow-y: auto;
-  padding: var(--np-space-4);
-  font-family: var(--np-font-mono);
-  font-size: 14px;
-  line-height: 1.7;
+  padding: var(--np-space-6) var(--np-space-4);
+  font-family: var(--np-font-serif);
+  font-size: 18px;
+  line-height: 1.8;
 }
 .editor-content .tiptap:focus { outline: none; }
 
 .editor-speaker-block {
-  margin-bottom: var(--np-space-6);
-  padding-left: var(--np-space-4);
+  margin-bottom: var(--np-space-12);
+  padding: var(--np-space-6);
+  padding-left: var(--np-space-6);
   border-left: 3px solid var(--speaker-color, var(--np-red));
+  background: rgba(0, 0, 0, 0.015);
 }
 .editor-speaker-name {
-  font-family: var(--np-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
+  font-family: var(--np-font-serif);
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.02em;
   color: var(--speaker-color, var(--np-red));
-  margin-bottom: var(--np-space-2);
+  margin-bottom: var(--np-space-1);
   user-select: none;
   display: flex;
   align-items: baseline;
   gap: 8px;
 }
+.editor-speaker-label {
+  /* inherits italic from parent */
+}
 .editor-lang-tag {
+  font-family: var(--np-font-mono);
   font-size: 9px;
+  font-style: normal;
   letter-spacing: 0.08em;
   color: var(--np-sepia);
   opacity: 0.6;
 }
+.editor-timecode-tag {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  font-style: normal;
+  letter-spacing: 0.04em;
+  color: var(--np-sepia);
+  opacity: 0.5;
+  margin-bottom: var(--np-space-3);
+  user-select: none;
+}
 .editor-dismiss-btn {
   margin-left: auto;
   font-size: 14px;
+  font-style: normal;
   line-height: 1;
   color: var(--np-cool-neutral);
   cursor: pointer;
@@ -1126,7 +1145,9 @@ tr.dimmed-speaker { opacity: 0.35; }
 }
 .editor-speaker-content p {
   margin: 0;
-  line-height: 1.7;
+  line-height: 1.8;
+  font-family: var(--np-font-serif);
+  font-size: 18px;
 }
 
 .editor-timecode-tooltip {
@@ -1576,46 +1597,50 @@ tr.dimmed-speaker { opacity: 0.35; }
   border-top: 1px solid var(--np-cool-neutral);
 }
 
-/* ── Bubble Menu ── */
+/* ── Bubble Menu (horizontal, above selection) ── */
 .bubble-menu {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   gap: 2px;
-  background: var(--np-ink);
-  padding: 4px;
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  background: var(--np-warm-white);
+  padding: 4px 6px;
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06);
 }
 .bubble-btn {
   font-family: var(--np-font-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 6px 12px;
+  padding: 6px 10px;
   border: none;
   background: transparent;
-  color: var(--np-warm-white);
+  color: var(--np-sepia);
   cursor: pointer;
-  border-radius: 2px;
-  transition: background var(--np-duration) var(--np-ease);
+  border-radius: 4px;
+  transition: background var(--np-duration) var(--np-ease), color var(--np-duration) var(--np-ease);
 }
-.bubble-btn:hover { background: rgba(255,255,255,0.1); }
-.bubble-btn.active { background: var(--np-red); }
-.bubble-btn--highlight { color: var(--np-yellow); }
-.bubble-btn--highlight:hover { background: rgba(255, 191, 0, 0.15); }
+.bubble-btn:hover { background: rgba(0,0,0,0.06); color: var(--np-ink); }
+.bubble-btn.active { background: var(--np-red); color: var(--np-warm-white); }
+.bubble-btn--highlight { color: var(--np-sepia); }
+.bubble-btn--highlight:hover { background: rgba(255, 191, 0, 0.15); color: var(--np-ink); }
 .bubble-btn--highlight.active { background: var(--np-yellow); color: var(--np-ink); }
-.bubble-btn--ai { color: var(--np-yellow); }
-.bubble-btn--ai:hover { background: rgba(255, 191, 0, 0.15); }
+.bubble-btn--ai { color: var(--np-sepia); }
+.bubble-btn--ai:hover { background: rgba(255, 191, 0, 0.15); color: var(--np-ink); }
 .bubble-timecodes {
   font-family: var(--np-font-mono);
   font-size: 10px;
   letter-spacing: 0.05em;
-  color: var(--np-ink);
-  background: rgba(0,0,0,0.06);
-  padding: 2px 6px;
+  color: var(--np-sepia);
+  background: rgba(0,0,0,0.04);
+  padding: 3px 8px;
   border-radius: 3px;
   white-space: nowrap;
   pointer-events: none;
+  margin-left: 4px;
+  border-left: 1px solid var(--np-cool-neutral);
+  padding-left: 8px;
 }
 
 /* ── Tag Picker ── */

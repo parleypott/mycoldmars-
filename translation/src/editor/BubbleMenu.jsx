@@ -2,6 +2,21 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { formatPreciseTimecode } from '../timecode-utils.js';
 
 /**
+ * Parse a timecode string (HH:MM:SS, MM:SS, or raw seconds) to seconds.
+ */
+function tcToSeconds(tc) {
+  if (typeof tc === 'number') return tc;
+  if (!tc) return NaN;
+  const n = parseFloat(tc);
+  // If it doesn't contain ':', it's already seconds
+  if (!String(tc).includes(':')) return n;
+  const parts = String(tc).replace(',', '.').split(':');
+  if (parts.length === 3) return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2]);
+  if (parts.length === 2) return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
+  return n;
+}
+
+/**
  * Collect the timecode range (earliest start, latest end) from segment marks
  * that overlap the current selection.
  */
@@ -16,8 +31,8 @@ function getSelectionTimecodes(editor) {
     if (!node.isText) return;
     const seg = node.marks.find((m) => m.type.name === 'segment');
     if (!seg) return;
-    const s = parseFloat(seg.attrs.start);
-    const e = parseFloat(seg.attrs.end);
+    const s = tcToSeconds(seg.attrs.start);
+    const e = tcToSeconds(seg.attrs.end);
     if (isFinite(s) && s < earliest) earliest = s;
     if (isFinite(e) && e > latest) latest = e;
   });
@@ -27,8 +42,8 @@ function getSelectionTimecodes(editor) {
 }
 
 /**
- * Custom bubble menu that positions itself near the text selection.
- * Uses fixed positioning relative to the viewport for reliable placement.
+ * Bubble menu that appears ABOVE the text selection.
+ * Horizontal bar with action buttons + timecode range.
  */
 export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
   const [visible, setVisible] = useState(false);
@@ -47,23 +62,21 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
         return;
       }
 
-      // Get the editor's coordinate for the start of selection
-      const coords = editor.view.coordsAtPos(from);
-      if (!coords) {
+      // Get coords at start of selection for vertical position
+      const startCoords = editor.view.coordsAtPos(from);
+      const endCoords = editor.view.coordsAtPos(to);
+      if (!startCoords) {
         setVisible(false);
         setTimecodes(null);
         return;
       }
 
-      // Position menu to the left of the text
-      const editorEl = editor.view.dom.closest('.transcript-editor');
-      const editorRect = editorEl?.getBoundingClientRect();
-      const leftEdge = editorRect ? editorRect.left : coords.left;
+      // Horizontal center between start and end of selection
+      const centerX = (startCoords.left + endCoords.right) / 2;
 
       setPosition({
-        top: coords.top,
-        left: Math.max(8, leftEdge - 8),
-        selLeft: coords.left,
+        top: startCoords.top,
+        left: centerX,
       });
       setTimecodes(getSelectionTimecodes(editor));
       setVisible(true);
@@ -96,65 +109,54 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
   };
 
   return (
-    <>
-      {timecodes && (
-        <div
-          className="bubble-timecodes"
-          style={{
-            position: 'fixed',
-            top: `${position.top}px`,
-            left: `${position.selLeft}px`,
-            transform: 'translateY(calc(-100% - 4px))',
-            zIndex: 101,
-          }}
-        >
-          {timecodes.start} – {timecodes.end}
-        </div>
-      )}
-      <div
-        ref={menuRef}
-        className="bubble-menu"
-        style={{
-          position: 'fixed',
-          top: `${position.top}px`,
-          left: `${position.left}px`,
-          transform: 'translate(-100%, -4px)',
-          zIndex: 100,
-        }}
+    <div
+      ref={menuRef}
+      className="bubble-menu"
+      style={{
+        position: 'fixed',
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+        transform: 'translate(-50%, calc(-100% - 8px))',
+        zIndex: 100,
+      }}
+    >
+      <button
+        className={`bubble-btn bubble-btn--highlight ${editor.isActive('highlight', { tagId: null }) ? 'active' : ''}`}
+        onMouseDown={(e) => { e.preventDefault(); toggleHighlight(); }}
+        title="Highlight selection"
       >
+        HL
+      </button>
+      <button
+        className={`bubble-btn ${editor.isActive('deleted') ? 'active' : ''}`}
+        onMouseDown={(e) => { e.preventDefault(); toggleDelete(); }}
+        title="Soft delete (strikethrough)"
+      >
+        Del
+      </button>
+      {onHighlight && (
         <button
-          className={`bubble-btn ${editor.isActive('deleted') ? 'active' : ''}`}
-          onMouseDown={(e) => { e.preventDefault(); toggleDelete(); }}
-          title="Soft delete (strikethrough)"
+          className="bubble-btn"
+          onMouseDown={(e) => { e.preventDefault(); onHighlight(); }}
+          title="Highlight with tag"
         >
-          Del
+          Tag
         </button>
+      )}
+      {onAskAI && (
         <button
-          className={`bubble-btn bubble-btn--highlight ${editor.isActive('highlight', { tagId: null }) ? 'active' : ''}`}
-          onMouseDown={(e) => { e.preventDefault(); toggleHighlight(); }}
-          title="Highlight selection"
+          className="bubble-btn bubble-btn--ai"
+          onMouseDown={(e) => { e.preventDefault(); onAskAI(); }}
+          title="Ask AI about selection"
         >
-          HL
+          AI
         </button>
-        {onHighlight && (
-          <button
-            className="bubble-btn"
-            onMouseDown={(e) => { e.preventDefault(); onHighlight(); }}
-            title="Highlight with tag"
-          >
-            Tag
-          </button>
-        )}
-        {onAskAI && (
-          <button
-            className="bubble-btn bubble-btn--ai"
-            onMouseDown={(e) => { e.preventDefault(); onAskAI(); }}
-            title="Ask AI about selection"
-          >
-            AI
-          </button>
-        )}
-      </div>
-    </>
+      )}
+      {timecodes && (
+        <span className="bubble-timecodes">
+          {timecodes.start} – {timecodes.end}
+        </span>
+      )}
+    </div>
   );
 }

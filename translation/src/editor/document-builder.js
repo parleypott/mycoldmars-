@@ -30,6 +30,19 @@ function toLangCode(lang) {
   return first.length <= 3 ? first.toUpperCase() : first.slice(0, 2).toUpperCase();
 }
 
+function formatTimecodeForTag(tc) {
+  if (!tc) return '';
+  // If already HH:MM:SS or MM:SS format, return as-is
+  if (typeof tc === 'string' && tc.includes(':')) return tc;
+  // If numeric seconds, format as HH:MM:SS
+  const total = parseFloat(tc);
+  if (!isFinite(total)) return tc;
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = Math.floor(total % 60);
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
+
 export function buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, languageMap, opts = {}) {
   const hasTranslations = translations && translations.length > 0;
   const hideUnintelligible = opts.hideUnintelligible || false;
@@ -92,6 +105,10 @@ export function buildEditorDocument(segments, translations, speakerColors, speak
     const langRaw = languageMap?.[group.speaker] || '';
     const langCode = toLangCode(langRaw);
 
+    // Format start time of first segment for the timecode tag
+    const firstSeg = group.segments[0];
+    const startTime = firstSeg ? formatTimecodeForTag(firstSeg.start) : '';
+
     return {
       type: 'speakerBlock',
       attrs: {
@@ -100,6 +117,7 @@ export function buildEditorDocument(segments, translations, speakerColors, speak
         visible: !isHidden,
         dismissed: isHidden,
         language: langCode,
+        startTime,
       },
       content: [{
         type: 'paragraph',
