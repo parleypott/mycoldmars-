@@ -125,7 +125,7 @@ const Slide10_Expansion = ({ num, total }) => {
         {/* Footer line */}
         <div style={{borderTop:'1px solid var(--np-ink)', paddingTop: 24, paddingBottom: 40, paddingRight: 48, display:'flex', justifyContent:'flex-start', alignItems:'baseline', gap: 32}}>
           <div className="serif" style={{fontSize: 44, lineHeight: 1, letterSpacing:'-0.018em', color:'var(--np-ink)'}}>
-            <em className="italic" style={{color:'var(--np-red)'}}>8–16 creators.</em> 100M+ audience reach.
+            We want to grow to <em className="italic" style={{color:'var(--np-red)'}}>100M+</em> in reach.
           </div>
         </div>
       </div>
