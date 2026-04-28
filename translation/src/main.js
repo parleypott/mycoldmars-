@@ -2286,6 +2286,7 @@ function resetToUpload() {
   summaryBullets = [];
   interestVotes = {};
   wordTimingsMap = null;
+  libraryShowing = false;
   const editorMount = document.getElementById('editor-mount');
   if (editorMount) editorMount.innerHTML = '';
   editorInstance = null;
@@ -2302,9 +2303,15 @@ function resetToUpload() {
   const searchView = document.getElementById('search-view');
   if (searchView) searchView.classList.remove('active');
   const copilotPanel = document.getElementById('copilot-panel');
-  if (copilotPanel) copilotPanel.classList.remove('open');
+  if (copilotPanel) copilotPanel.classList.remove('open', 'active');
   const fileInput = document.getElementById('file-input');
   if (fileInput) fileInput.value = '';
+  // Ensure drop zone is visible
+  const dropZone = document.getElementById('drop-zone');
+  if (dropZone) dropZone.classList.remove('hidden');
+  // Hide all panels, library, search
+  $$('.panel').forEach(p => p.classList.remove('active'));
+  libraryView.classList.remove('active');
   stepsNav.classList.remove('hidden');
   goToStep(1);
 }
