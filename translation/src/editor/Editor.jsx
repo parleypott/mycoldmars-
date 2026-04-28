@@ -1,6 +1,6 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { useEffect, useState, useCallback, useRef } from 'preact/hooks';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'preact/hooks';
 import { SpeakerBlock } from './extensions/SpeakerBlock.js';
 import { Segment } from './extensions/Segment.js';
 import { DeletedMark } from './extensions/DeletedMark.js';
@@ -24,6 +24,9 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
   const [editingSpeaker, setEditingSpeaker] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [timecodeTooltip, setTimecodeTooltip] = useState(null);
+  const [showMarginNotes, setShowMarginNotes] = useState(false);
+  const [marginNotePositions, setMarginNotePositions] = useState([]);
+  const editorContentRef = useRef(null);
   const [filteredSpeakers, setFilteredSpeakers] = useState(() => {
     if (!hiddenSpeakers || hiddenSpeakers.length === 0) return new Set();
     return new Set(hiddenSpeakers.map(raw => speakerMap?.[raw] || raw));
@@ -230,6 +233,65 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
     editor.on('selectionUpdate', handleSelectionUpdate);
     return () => editor.off('selectionUpdate', handleSelectionUpdate);
   }, [editor]);
+
+  // Compute interested bullets for margin notes
+  const interestedBullets = useMemo(() => {
+    if (!showMarginNotes || !summaryBullets || !interestVotes) return [];
+    return summaryBullets.filter(b => {
+      if (b.segmentStart == null) return false;
+      for (let n = b.segmentStart; n <= b.segmentEnd; n++) {
+        if (interestVotes[n] === 'interested') return true;
+      }
+      return false;
+    });
+  }, [showMarginNotes, summaryBullets, interestVotes]);
+
+  // Measure margin note positions from DOM
+  useEffect(() => {
+    if (!showMarginNotes || !editor || interestedBullets.length === 0) {
+      setMarginNotePositions([]);
+      return;
+    }
+
+    const measure = () => {
+      const container = editorContentRef.current;
+      if (!container) return;
+      const editorEl = container.querySelector('.tiptap');
+      if (!editorEl) return;
+      const containerRect = container.getBoundingClientRect();
+
+      const notes = [];
+      for (const bullet of interestedBullets) {
+        // Find the first segment span matching this bullet's start segment
+        const segEl = editorEl.querySelector(`[data-number="${bullet.segmentStart}"]`);
+        if (!segEl) continue;
+        const blockEl = segEl.closest('[data-speaker-block]');
+        if (!blockEl) continue;
+
+        const blockRect = blockEl.getBoundingClientRect();
+        const text = (bullet.rawText || '').replace(/\[[\d:–\-\s]+\]\s*/g, '');
+        const short = text.length <= 50 ? text : text.slice(0, text.lastIndexOf(' ', 50) || 50) + '…';
+
+        notes.push({
+          id: bullet.id,
+          top: blockRect.top - containerRect.top,
+          text: short,
+        });
+      }
+      setMarginNotePositions(notes);
+    };
+
+    // Measure after render
+    requestAnimationFrame(measure);
+
+    // Re-measure on scroll within the editor
+    const container = editorContentRef.current;
+    const tiptap = container?.querySelector('.tiptap');
+    if (tiptap) {
+      tiptap.addEventListener('scroll', measure, { passive: true });
+      return () => tiptap.removeEventListener('scroll', measure);
+    }
+  }, [showMarginNotes, editor, interestedBullets]);
 
   const handleHighlight = useCallback(() => {
     setShowTagPicker(true);
@@ -461,6 +523,16 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
           />
           <span>Show dismissed</span>
         </label>
+        {summaryBullets && summaryBullets.length > 0 && (
+          <label className="editor-toolbar-toggle editor-toolbar-toggle--margin">
+            <input
+              type="checkbox"
+              checked={showMarginNotes}
+              onChange={e => setShowMarginNotes(e.target.checked)}
+            />
+            <span>Margin notes</span>
+          </label>
+        )}
         {onSync && (
           <div className="editor-sync-wrap" ref={syncMenuRef}>
             <button
@@ -504,7 +576,11 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
           onClose={() => setShowTagPicker(false)}
         />
       )}
-      <div className="editor-content" style={{ position: 'relative' }}>
+      <div
+        ref={editorContentRef}
+        className={`editor-content ${showMarginNotes ? 'has-margin-notes' : ''}`}
+        style={{ position: 'relative' }}
+      >
         {timecodeTooltip && (
           <div
             className="editor-timecode-tooltip"
@@ -513,6 +589,15 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
             {timecodeTooltip.label}
           </div>
         )}
+        {showMarginNotes && marginNotePositions.map(note => (
+          <div
+            key={note.id}
+            className="margin-note"
+            style={{ top: note.top + 'px' }}
+          >
+            {note.text}
+          </div>
+        ))}
         <EditorContent editor={editor} />
       </div>
     </div>

@@ -1188,6 +1188,30 @@ tr.dimmed-speaker { opacity: 0.35; }
   cursor: pointer;
 }
 .editor-toolbar-toggle input { accent-color: var(--np-red); }
+.editor-toolbar-toggle--margin input { accent-color: var(--np-green); }
+.editor-toolbar-toggle--margin span { color: var(--np-green); font-weight: 500; }
+
+/* ── Margin Notes ── */
+.editor-content.has-margin-notes {
+  padding-left: 190px;
+}
+.editor-content.has-margin-notes .tiptap {
+  max-height: none;
+}
+.margin-note {
+  position: absolute;
+  left: 0;
+  width: 170px;
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--np-green);
+  border-left: 2px solid var(--np-green);
+  padding: 4px 8px;
+  background: rgba(13, 89, 33, 0.04);
+  opacity: 0.8;
+  pointer-events: none;
+}
 
 .editor-sync-btn {
   position: relative;
