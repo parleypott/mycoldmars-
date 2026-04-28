@@ -362,12 +362,12 @@ export function buildSacredSequencerXML({ soundbites, sacredSequenceName, output
   let nestedSeqFull;
 
   if (sourceSequenceXML) {
-    // Inject the full Premiere sequence XML, adding our reference id
-    // Replace the opening <sequence ...> tag to add our id attribute
-    nestedSeqFull = sourceSequenceXML.replace(
-      /^<sequence(\s|>)/,
-      `<sequence id="${sacredSeqId}"$1`
-    );
+    // Inject the full Premiere sequence XML with our reference id.
+    // Strip any existing id attribute first to avoid duplicates, then add ours.
+    nestedSeqFull = sourceSequenceXML
+      .replace(/^<sequence(\s)/, '<sequence$1')
+      .replace(/^<sequence(\s[^>]*)?\bid="[^"]*"/, '<sequence$1')
+      .replace(/^<sequence(\s|>)/, `<sequence id="${sacredSeqId}"$1`);
   } else {
     nestedSeqFull = `<sequence id="${sacredSeqId}">
               <name>${escapeXml(sacredSequenceName)}</name>
@@ -430,9 +430,57 @@ ${clipItems.map((clip, i) => `          <clipitem id="nest-${i + 1}">
             <in>${clip.inFrame}</in>
             <out>${clip.outFrame}</out>
             ${i === 0 ? nestedSeqFull : `<sequence id="${sacredSeqId}"/>`}
+            <link>
+              <linkclipref>nest-${i + 1}</linkclipref>
+              <mediatype>video</mediatype>
+              <trackindex>1</trackindex>
+              <clipindex>${i + 1}</clipindex>
+            </link>
+            <link>
+              <linkclipref>nest-audio-${i + 1}</linkclipref>
+              <mediatype>audio</mediatype>
+              <trackindex>1</trackindex>
+              <clipindex>${i + 1}</clipindex>
+            </link>
           </clipitem>`).join('\n')}
         </track>
       </video>
+      <audio>
+        <numOutputChannels>2</numOutputChannels>
+        <format>
+          <samplecharacteristics>
+            <depth>16</depth>
+            <samplerate>48000</samplerate>
+          </samplecharacteristics>
+        </format>
+        <track>
+${clipItems.map((clip, i) => `          <clipitem id="nest-audio-${i + 1}">
+            <name>${escapeXml(clip.prefix)}</name>
+            <duration>${sacredDurationFrames}</duration>
+            <rate>
+              <timebase>${timebase}</timebase>
+              <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
+            </rate>
+            <start>${clip.startFrame}</start>
+            <end>${clip.endFrame}</end>
+            <in>${clip.inFrame}</in>
+            <out>${clip.outFrame}</out>
+            <sequence id="${sacredSeqId}"/>
+            <link>
+              <linkclipref>nest-${i + 1}</linkclipref>
+              <mediatype>video</mediatype>
+              <trackindex>1</trackindex>
+              <clipindex>${i + 1}</clipindex>
+            </link>
+            <link>
+              <linkclipref>nest-audio-${i + 1}</linkclipref>
+              <mediatype>audio</mediatype>
+              <trackindex>1</trackindex>
+              <clipindex>${i + 1}</clipindex>
+            </link>
+          </clipitem>`).join('\n')}
+        </track>
+      </audio>
     </media>
   </sequence>
 </xmeml>`;
