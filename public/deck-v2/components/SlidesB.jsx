@@ -92,12 +92,12 @@ const Slide09_Playbook = ({ num, total }) => {
 const Slide10_Expansion = ({ num, total }) => {
   const verticals = [
     { cat: "Finance",       color: "var(--np-green)",    note: "Where money and narrative meet." },
+    { cat: "Economics",     color: "var(--np-green)",    note: "The forces moving everything." },
     { cat: "Healthcare",    color: "var(--np-red)",      note: "The story every household needs." },
-    { cat: "Culture",       color: "var(--np-blue)",     note: "The beat that explains the others." },
     { cat: "Science",       color: "var(--np-sepia)",    note: "From lab bench to feed." },
     { cat: "Technology",    color: "var(--np-burgundy)", note: "The systems shaping everything else." },
+    { cat: "Culture",       color: "var(--np-blue)",     note: "The beat that explains the others." },
     { cat: "Entertainment", color: "var(--np-ink)",      note: "Where audiences live." },
-    { cat: "Economics",     color: "var(--np-green)",    note: "The forces moving everything." },
     { cat: "Sports",        color: "var(--np-red)",      note: "Where culture and competition meet." },
   ];
   return (
@@ -216,7 +216,7 @@ const Slide12_Market = ({ num, total }) => (
       <div style={{paddingTop: 40, borderBottom:'1px solid var(--np-ink)', paddingBottom: 28, maxWidth: 1750}}>
         <Eyebrow>Market & Timing</Eyebrow>
         <h2 className="serif" style={{fontSize: 80, lineHeight: 1.02, letterSpacing:'-0.02em', margin:'14px 0 0'}}>
-          We want to capture the <em className="italic" style={{color:'var(--np-red)'}}>massive market</em> of ad spend as it migrates from legacy to creator media.
+          We want to capture the <em className="italic" style={{color:'var(--np-red)'}}>massive market</em> of ad spend as it moves from legacy to creator media.
         </h2>
       </div>
 
@@ -263,7 +263,7 @@ const Slide12b_Opportunity = ({ num, total }) => {
     {
       tag: "01",
       title: "Talent is available",
-      body: "Top journalists are leaving institutions — opportunity to scale from 14M to 100M+ reach.",
+      body: "Top journalists are leaving institutions — opportunity to scale from 14M to 100M+ following.",
       color: "var(--np-red)",
     },
     {
@@ -432,7 +432,7 @@ const Slide14_TeamA = ({ num, total }) => {
     {
       name: "Iz Harris",
       role: "Co-Founder & CEO, Executive Producer",
-      bio: "Formerly Vox Media Producer. The operational architect.",
+      bio: "Former host with mass audience turned exec. The operational architect.",
       photo: "assets/team/iz-harris.png",
     },
     {
@@ -444,7 +444,7 @@ const Slide14_TeamA = ({ num, total }) => {
     {
       name: "Michael Letta",
       role: "Chief Operating Officer",
-      bio: "Experienced builder and operator. Inherently financial.",
+      bio: "A natural operator with deep finance instincts.",
       photo: "assets/team/michael-letta.jpg",
       objectPosition: "35% 30%",
     },

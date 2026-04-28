@@ -183,7 +183,7 @@ const Slide03_Impact = ({ num, total }) =>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 72, alignItems: 'start', borderTop: '1px solid var(--np-ink)', paddingTop: 56 }}>
         <div>
           <h2 className="serif" style={{ fontSize: 112, lineHeight: 0.95, letterSpacing: '-0.02em', margin: 0 }}>
-            The audience moved to <em className="italic" style={{ color: 'var(--np-red)' }}>creators.</em> Media hasn’t caught up.
+            The audience moved to <em className="italic" style={{ color: 'var(--np-red)' }}>creators.</em> Media hasn’t caught{' '}up.
           </h2>
           <div className="density-only-dense density-only-medium" style={{ marginTop: 40, borderTop: '1px solid var(--np-rule-faint)', paddingTop: 24 }}>
             <blockquote className="serif italic" style={{ fontSize: 32, lineHeight: 1.2, margin: 0, borderLeft: '4px solid var(--np-red)', paddingLeft: 24, maxWidth: 720 }}>
@@ -281,7 +281,7 @@ const Slide05_HowItWorks = ({ num, total }) => {
           <Eyebrow>How It Works</Eyebrow>
         </div>
         <h2 className="serif" style={{ fontSize: 92, lineHeight: 0.98, letterSpacing: '-0.02em', margin: 0, maxWidth: 1600 }}>
-          A new model for trusted media, built from four pillars.
+          A new model for trusted media, built on four pillars.
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 32, alignSelf: 'center' }}>
           {pillars.map((p, i) =>
@@ -340,7 +340,7 @@ const Slide06_Reimagining = ({ num, total }) => {
     name: "Christophe Haubursin",
     photo: "assets/creators/christophe.png",
     show: "Tunnel Vision",
-    topic: "Investigating the forces shaping the internet, culture, and technology.",
+    topic: "Investigating the forces shaping the Internet, culture, and technology.",
     audience: "330K",
     accent: "var(--np-burgundy)",
     icon: (s, c) =>
@@ -355,7 +355,7 @@ const Slide06_Reimagining = ({ num, total }) => {
     name: "Max Fisher",
     photo: "assets/creators/max-fisher.png",
     show: "The Bigger Picture",
-    topic: "Premium documentary, examining the systems that run our world through the voices most affected by them.",
+    topic: "Connecting the global forces — geopolitics, technology, and power — that shape the modern world.",
     audience: "250K",
     accent: "var(--np-green)",
     icon: (s, c) =>
