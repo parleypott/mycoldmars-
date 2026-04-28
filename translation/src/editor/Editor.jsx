@@ -12,7 +12,7 @@ import { SummaryView } from '../copilot/SummaryView.jsx';
 import { extractSequenceBase } from '../csv-parser.js';
 import { formatPreciseTimecode } from '../timecode-utils.js';
 
-export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, onSequenceNameChange, editorDirty, summary, summaryBullets, interestVotes, onInterestVote, onRegenerateSummary, sequenceInfo, speakerColors, speakerMap, onSpeakerMapChange }) {
+export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, onSequenceNameChange, editorDirty, summary, summaryBullets, interestVotes, onInterestVote, onRegenerateSummary, sequenceInfo, speakerColors, speakerMap, hiddenSpeakers, onSpeakerMapChange }) {
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
@@ -24,7 +24,10 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
   const [editingSpeaker, setEditingSpeaker] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [timecodeTooltip, setTimecodeTooltip] = useState(null);
-  const [filteredSpeakers, setFilteredSpeakers] = useState(new Set());
+  const [filteredSpeakers, setFilteredSpeakers] = useState(() => {
+    if (!hiddenSpeakers || hiddenSpeakers.length === 0) return new Set();
+    return new Set(hiddenSpeakers.map(raw => speakerMap?.[raw] || raw));
+  });
 
   const seqNameLatest = useRef(sequenceInfo?.sequenceName || '');
   const primarySpeakerLatest = useRef(sequenceInfo?.primarySpeaker || '');

@@ -1427,6 +1427,7 @@ function switchView(view) {
         sequenceInfo: seqMeta,
         speakerColors,
         speakerMap,
+        hiddenSpeakers,
         editorDirty,
         onSpeakerMapChange: (rawName, newCleanName) => {
           speakerMap[rawName] = newCleanName;
