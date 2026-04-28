@@ -2250,6 +2250,8 @@ function syncEditorToTranslations(onlySegmentNumbers) {
 
   function walk(node) {
     if (node.type === 'text' && node.marks) {
+      // Skip deleted text — it should not appear in SRT output
+      if (node.marks.some(m => m.type === 'deleted')) return;
       const segMark = node.marks.find(m => m.type === 'segment');
       if (segMark && segMark.attrs.number != null) {
         const num = segMark.attrs.number;
