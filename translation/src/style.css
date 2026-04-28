@@ -2480,6 +2480,53 @@ tr.dimmed-speaker { opacity: 0.35; }
   margin-top: var(--np-space-6);
 }
 
+.seq-sequence-list {
+  max-height: 240px;
+  overflow-y: auto;
+  margin: var(--np-space-4) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.seq-sequence-row {
+  display: flex;
+  align-items: center;
+  gap: var(--np-space-3);
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(11, 11, 46, 0.5);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.seq-sequence-row:hover {
+  background: rgba(200, 162, 255, 0.1);
+}
+
+.seq-sequence-row input[type="checkbox"] {
+  accent-color: #ffe08a;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.seq-sequence-name {
+  font-family: var(--np-font-mono);
+  font-size: 14px;
+  color: #ffe08a;
+  flex: 1;
+  text-align: left;
+}
+
+.seq-sequence-count {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  color: #7df9ff;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
 .seq-config {
   display: flex;
   gap: var(--np-space-6);

@@ -178,6 +178,32 @@ export function buildPremiereSequenceXML(opts) {
 
   // Generate a unique ID for the sacred sequence reference
   const sacredId = 'sacred-seq-1';
+  const masterClipId = 'masterclip-sacred';
+
+  // Build the file element with full media description (first occurrence only)
+  const fileElementFull = `<file id="${sacredId}">
+              <name>${escapeXml(sacredSequenceName)}</name>
+              <duration>${sacredDurationFrames}</duration>
+              <rate>
+                <timebase>${timebase}</timebase>
+                <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
+              </rate>
+              <media>
+                <video>
+                  <samplecharacteristics>
+                    <width>1920</width>
+                    <height>1080</height>
+                  </samplecharacteristics>
+                </video>
+                <audio>
+                  <samplecharacteristics>
+                    <depth>16</depth>
+                    <samplerate>48000</samplerate>
+                  </samplecharacteristics>
+                  <channelcount>2</channelcount>
+                </audio>
+              </media>
+            </file>`;
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xmeml>
@@ -199,6 +225,7 @@ export function buildPremiereSequenceXML(opts) {
         </format>
         <track>
 ${clipItems.map((clip, i) => `          <clipitem id="clip-${i + 1}">
+            <masterclipid>${masterClipId}</masterclipid>
             <name>${escapeXml(sacredSequenceName)} — Seg ${clip.segNumber}</name>
             <duration>${sacredDurationFrames}</duration>
             <rate>
@@ -209,14 +236,19 @@ ${clipItems.map((clip, i) => `          <clipitem id="clip-${i + 1}">
             <end>${clip.endFrame}</end>
             <in>${clip.inFrame}</in>
             <out>${clip.outFrame}</out>
-            <file id="${sacredId}">
-              <name>${escapeXml(sacredSequenceName)}</name>
-              <duration>${sacredDurationFrames}</duration>
-              <rate>
-                <timebase>${timebase}</timebase>
-                <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
-              </rate>
-            </file>
+            ${i === 0 ? fileElementFull : `<file id="${sacredId}"/>`}
+            <link>
+              <linkclipref>clip-${i + 1}</linkclipref>
+              <mediatype>video</mediatype>
+              <trackindex>1</trackindex>
+              <clipindex>${i + 1}</clipindex>
+            </link>
+            <link>
+              <linkclipref>clip-audio-${i + 1}</linkclipref>
+              <mediatype>audio</mediatype>
+              <trackindex>1</trackindex>
+              <clipindex>${i + 1}</clipindex>
+            </link>
             <marker>
               <name>${escapeXml(clip.speaker)}</name>
               <comment>${escapeXml(clip.comment.slice(0, 200))}</comment>
@@ -227,8 +259,16 @@ ${clipItems.map((clip, i) => `          <clipitem id="clip-${i + 1}">
         </track>
       </video>
       <audio>
+        <numOutputChannels>2</numOutputChannels>
+        <format>
+          <samplecharacteristics>
+            <depth>16</depth>
+            <samplerate>48000</samplerate>
+          </samplecharacteristics>
+        </format>
         <track>
 ${clipItems.map((clip, i) => `          <clipitem id="clip-audio-${i + 1}">
+            <masterclipid>${masterClipId}</masterclipid>
             <name>${escapeXml(sacredSequenceName)} — Seg ${clip.segNumber}</name>
             <duration>${sacredDurationFrames}</duration>
             <rate>
@@ -240,6 +280,22 @@ ${clipItems.map((clip, i) => `          <clipitem id="clip-audio-${i + 1}">
             <in>${clip.inFrame}</in>
             <out>${clip.outFrame}</out>
             <file id="${sacredId}"/>
+            <sourcetrack>
+              <mediatype>audio</mediatype>
+              <trackindex>1</trackindex>
+            </sourcetrack>
+            <link>
+              <linkclipref>clip-${i + 1}</linkclipref>
+              <mediatype>video</mediatype>
+              <trackindex>1</trackindex>
+              <clipindex>${i + 1}</clipindex>
+            </link>
+            <link>
+              <linkclipref>clip-audio-${i + 1}</linkclipref>
+              <mediatype>audio</mediatype>
+              <trackindex>1</trackindex>
+              <clipindex>${i + 1}</clipindex>
+            </link>
           </clipitem>`).join('\n')}
         </track>
       </audio>
@@ -272,6 +328,7 @@ export function buildSacredSequencerXML({ soundbites, sacredSequenceName, output
 
   const sacredDurationFrames = maxOutFrame;
   const sacredId = 'sacred-seq-1';
+  const masterClipId = 'masterclip-sacred';
 
   // Place clips on timeline with gaps
   let timelinePos = 0;
@@ -297,6 +354,31 @@ export function buildSacredSequencerXML({ soundbites, sacredSequenceName, output
   const totalDuration = timelinePos > 0 ? timelinePos - gapFrames : 0;
   const seqName = outputName || sacredSequenceName + '_Sacred Selects';
 
+  // Build the file element with full media description (first occurrence only)
+  const fileElementFull = `<file id="${sacredId}">
+              <name>${escapeXml(sacredSequenceName)}</name>
+              <duration>${sacredDurationFrames}</duration>
+              <rate>
+                <timebase>${timebase}</timebase>
+                <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
+              </rate>
+              <media>
+                <video>
+                  <samplecharacteristics>
+                    <width>1920</width>
+                    <height>1080</height>
+                  </samplecharacteristics>
+                </video>
+                <audio>
+                  <samplecharacteristics>
+                    <depth>16</depth>
+                    <samplerate>48000</samplerate>
+                  </samplecharacteristics>
+                  <channelcount>2</channelcount>
+                </audio>
+              </media>
+            </file>`;
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xmeml>
 <xmeml version="5">
@@ -317,6 +399,7 @@ export function buildSacredSequencerXML({ soundbites, sacredSequenceName, output
         </format>
         <track>
 ${clipItems.map((clip, i) => `          <clipitem id="clip-${i + 1}">
+            <masterclipid>${masterClipId}</masterclipid>
             <name>${escapeXml(clip.prefix)}</name>
             <duration>${sacredDurationFrames}</duration>
             <rate>
@@ -327,26 +410,33 @@ ${clipItems.map((clip, i) => `          <clipitem id="clip-${i + 1}">
             <end>${clip.endFrame}</end>
             <in>${clip.inFrame}</in>
             <out>${clip.outFrame}</out>
-            <file id="${sacredId}">
-              <name>${escapeXml(sacredSequenceName)}</name>
-              <duration>${sacredDurationFrames}</duration>
-              <rate>
-                <timebase>${timebase}</timebase>
-                <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
-              </rate>
-            </file>
-            <marker>
-              <name>Soundbite</name>
-              <comment>${escapeXml(clip.text.slice(0, 200))}</comment>
-              <in>0</in>
-              <out>${clip.duration}</out>
-            </marker>
+            ${i === 0 ? fileElementFull : `<file id="${sacredId}"/>`}
+            <link>
+              <linkclipref>clip-${i + 1}</linkclipref>
+              <mediatype>video</mediatype>
+              <trackindex>1</trackindex>
+              <clipindex>${i + 1}</clipindex>
+            </link>
+            <link>
+              <linkclipref>clip-audio-${i + 1}</linkclipref>
+              <mediatype>audio</mediatype>
+              <trackindex>1</trackindex>
+              <clipindex>${i + 1}</clipindex>
+            </link>
           </clipitem>`).join('\n')}
         </track>
       </video>
       <audio>
+        <numOutputChannels>2</numOutputChannels>
+        <format>
+          <samplecharacteristics>
+            <depth>16</depth>
+            <samplerate>48000</samplerate>
+          </samplecharacteristics>
+        </format>
         <track>
 ${clipItems.map((clip, i) => `          <clipitem id="clip-audio-${i + 1}">
+            <masterclipid>${masterClipId}</masterclipid>
             <name>${escapeXml(clip.prefix)}</name>
             <duration>${sacredDurationFrames}</duration>
             <rate>
@@ -358,6 +448,22 @@ ${clipItems.map((clip, i) => `          <clipitem id="clip-audio-${i + 1}">
             <in>${clip.inFrame}</in>
             <out>${clip.outFrame}</out>
             <file id="${sacredId}"/>
+            <sourcetrack>
+              <mediatype>audio</mediatype>
+              <trackindex>1</trackindex>
+            </sourcetrack>
+            <link>
+              <linkclipref>clip-${i + 1}</linkclipref>
+              <mediatype>video</mediatype>
+              <trackindex>1</trackindex>
+              <clipindex>${i + 1}</clipindex>
+            </link>
+            <link>
+              <linkclipref>clip-audio-${i + 1}</linkclipref>
+              <mediatype>audio</mediatype>
+              <trackindex>1</trackindex>
+              <clipindex>${i + 1}</clipindex>
+            </link>
           </clipitem>`).join('\n')}
         </track>
       </audio>

@@ -752,8 +752,10 @@ function generateSlug(name) {
     .slice(0, 60) || 'untitled';
 }
 
+const RESERVED_SLUGS = ['sequencer'];
+
 async function ensureUniqueSlug(base, excludeId) {
-  let slug = base;
+  let slug = RESERVED_SLUGS.includes(base) ? `${base}-1` : base;
   let i = 2;
   while (await isSlugTaken(slug, excludeId)) {
     slug = `${base}-${i++}`;
@@ -900,6 +902,7 @@ function showSequencer() {
   document.getElementById('app').classList.add('hidden');
   document.getElementById('sequencer-view').classList.remove('hidden');
   document.body.style.background = '#0b0b2e';
+  setPermalinkHash('sequencer');
 }
 
 function exitSequencer() {
@@ -913,6 +916,12 @@ function exitSequencer() {
   $('#seq-confirm').classList.add('hidden');
   $('#seq-paste').classList.remove('hidden');
   $('#seq-input').value = '';
+  // Restore transcript hash or clear
+  if (currentSlug || currentTranscriptId) {
+    setPermalinkHash(currentSlug || currentTranscriptId);
+  } else {
+    clearPermalinkHash();
+  }
 }
 
 function parseSoundbites(raw) {
@@ -952,6 +961,16 @@ function detectSacredSequence(bites) {
   return { name: best, count: bestCount, total: bites.length };
 }
 
+function detectAllSequences(bites) {
+  const map = {};
+  for (const b of bites) {
+    const name = extractSacredName(b.prefix);
+    if (!map[name]) map[name] = { name, count: 0 };
+    map[name].count++;
+  }
+  return Object.values(map).sort((a, b) => b.count - a.count);
+}
+
 function formatDuration(bites) {
   let totalSec = 0;
   for (const b of bites) {
@@ -968,16 +987,34 @@ function formatDuration(bites) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+function tcToFrameNotation(tc, fps) {
+  const parts = tc.replace(',', '.').split(':');
+  let h = 0, m = 0, secStr = '0';
+  if (parts.length === 3) { h = parseInt(parts[0]) || 0; m = parseInt(parts[1]) || 0; secStr = parts[2]; }
+  else if (parts.length === 2) { m = parseInt(parts[0]) || 0; secStr = parts[1]; }
+  else { secStr = parts[0]; }
+
+  const dotIdx = secStr.indexOf('.');
+  const s = parseInt(dotIdx >= 0 ? secStr.slice(0, dotIdx) : secStr) || 0;
+  const frac = dotIdx >= 0 ? parseFloat('0' + secStr.slice(dotIdx)) : 0;
+  const frames = Math.floor(frac * fps);
+  const ff = frames.toString().padStart(2, '0');
+
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${ff}`;
+  return `${m}:${s.toString().padStart(2, '0')}:${ff}`;
+}
+
 function renderSeqBlocks() {
   const container = $('#seq-blocks');
   const status = $('#seq-status');
   status.textContent = `${seqSoundbites.length} soundbite${seqSoundbites.length !== 1 ? 's' : ''} · ~${formatDuration(seqSoundbites)} total`;
 
+  const currentFps = parseFloat($('#seq-fps')?.value) || 23.976;
   container.innerHTML = seqSoundbites.map(b => `
     <div class="seq-block" draggable="true" data-id="${b.id}">
       <div class="seq-block-handle">⠿</div>
       <div class="seq-block-body">
-        <div class="seq-block-time">${b.start} → ${b.end}</div>
+        <div class="seq-block-time">${tcToFrameNotation(b.start, currentFps)} → ${tcToFrameNotation(b.end, currentFps)}</div>
         <div class="seq-block-text">${b.text}</div>
       </div>
       <button class="seq-block-remove" data-id="${b.id}">×</button>
@@ -1083,20 +1120,38 @@ $('#seq-parse-btn').addEventListener('click', () => {
     return;
   }
 
-  // First parse — detect sacred sequence and show confirmation
+  // First parse — detect all sequences and show checklist
   seqSoundbites = newBites;
-  const detected = detectSacredSequence(seqSoundbites);
-  $('#seq-confirm-name').value = detected.name;
-  $('#seq-confirm-detail').textContent = `Found ${detected.total} soundbite${detected.total !== 1 ? 's' : ''} · ${detected.count} from "${detected.name}"`;
+  const sequences = detectAllSequences(seqSoundbites);
+  const total = seqSoundbites.length;
+
+  $('#seq-confirm-detail').textContent = `Found ${total} soundbite${total !== 1 ? 's' : ''} across ${sequences.length} sequence${sequences.length !== 1 ? 's' : ''}`;
+
+  const listEl = $('#seq-sequence-list');
+  listEl.innerHTML = sequences.map((seq, i) => `
+    <label class="seq-sequence-row">
+      <input type="checkbox" value="${esc(seq.name)}" checked>
+      <span class="seq-sequence-name">${esc(seq.name)}</span>
+      <span class="seq-sequence-count">${seq.count} soundbite${seq.count !== 1 ? 's' : ''}</span>
+    </label>
+  `).join('');
 
   $('#seq-paste').classList.add('hidden');
   $('#seq-confirm').classList.remove('hidden');
 });
 
 $('#seq-confirm-yes').addEventListener('click', () => {
-  const confirmedName = $('#seq-confirm-name').value.trim() || 'Sacred Sequence';
-  $('#seq-name').value = confirmedName;
-  $('#seq-output-name').value = confirmedName + '_Sacred Selects';
+  // Read checked sequences from checklist
+  const checked = [...$$('#seq-sequence-list input[type="checkbox"]:checked')].map(cb => cb.value);
+  if (checked.length === 0) return;
+
+  // Filter soundbites to only include checked sequences
+  seqSoundbites = seqSoundbites.filter(b => checked.includes(extractSacredName(b.prefix)));
+
+  // Sacred name = most frequent checked sequence (first in list since sorted by count)
+  const sacredName = checked[0] || 'Sacred Sequence';
+  $('#seq-name').value = sacredName;
+  $('#seq-output-name').value = sacredName + '_Sacred Selects';
 
   $('#seq-confirm').classList.add('hidden');
   $('#seq-arrange').classList.remove('hidden');
@@ -1148,6 +1203,13 @@ $('#seq-export-btn').addEventListener('click', () => {
   a.download = `${outputName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.xml`;
   a.click();
   URL.revokeObjectURL(url);
+});
+
+// Re-render blocks when FPS changes (updates frame timecodes)
+$('#seq-fps')?.addEventListener('change', () => {
+  if (seqSoundbites.length > 0 && !$('#seq-arrange').classList.contains('hidden')) {
+    renderSeqBlocks();
+  }
 });
 
 // ── Step 1: Upload ──
@@ -2586,6 +2648,13 @@ if (btnShare) {
 
   // Load projects and transcript in parallel
   const projectsPromise = listProjects().then(p => { projects = p; }).catch(() => {});
+
+  // Handle #sequencer permalink directly
+  if (permalink === 'sequencer') {
+    await projectsPromise;
+    showSequencer();
+    return;
+  }
 
   let loadPromise = Promise.resolve();
   if (permalink) {
