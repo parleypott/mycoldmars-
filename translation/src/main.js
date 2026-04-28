@@ -851,7 +851,7 @@ function updateEditorInstance() {
 
 // ── Search button ──
 let searchMounted = false;
-$('#btn-search').addEventListener('click', () => {
+$('#btn-search')?.addEventListener('click', () => {
   // Toggle search view
   const searchView = $('#search-view');
   if (searchView.classList.contains('active')) {
