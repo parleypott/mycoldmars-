@@ -9,6 +9,7 @@ import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/docume
 import { mountTagSearch } from './tags/mount.js';
 import { mountCopilot } from './copilot/mount.js';
 import { buildPremiereXML, buildPremiereSequenceXML, buildSacredSequencerXML } from './export/premiere-xml.js';
+import { buildPremiereScript } from './export/premiere-script.js';
 import { exportHighlightsPDF } from './export/pdf-export.js';
 import { exportSummaryText } from './export/summary-export.js';
 import { extractHighlightsFromEditor } from './editor/document-builder.js';
@@ -1219,6 +1220,31 @@ $('#seq-back-btn').addEventListener('click', () => {
   seqAddingMore = false;
   seqSourceXML = null;
   $('#seq-xml-status').textContent = '';
+});
+
+$('#seq-export-jsx-btn').addEventListener('click', () => {
+  if (seqSoundbites.length === 0) return;
+
+  const sacredSequenceName = $('#seq-name').value.trim() || 'Sacred Sequence';
+  const outputName = $('#seq-output-name').value.trim() || sacredSequenceName + '_Sacred Selects';
+  const fps = parseFloat($('#seq-fps').value) || 23.976;
+  const gapFrames = parseInt($('#seq-gap').value) || 12;
+
+  const jsx = buildPremiereScript({
+    soundbites: seqSoundbites,
+    sacredSequenceName,
+    outputName,
+    fps,
+    gapFrames,
+  });
+
+  const blob = new Blob([jsx], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${outputName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.jsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 });
 
 $('#seq-export-btn').addEventListener('click', () => {
