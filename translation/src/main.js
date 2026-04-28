@@ -40,6 +40,11 @@ let summaryBullets = [];      // parsed bullet data: [{ id, rawText, enrichedTex
 let interestVotes = {};       // { segNum: 'interested' | 'not-interested' }
 let wordTimingsMap = null;    // JSON word-level timings: { segNum: { start, end } }
 let currentSlug = null;       // clean URL slug for permalink
+let libraryCurrentProject = null;  // null = root (show all projects + unsorted)
+let librarySortKey = 'updated_at';
+let librarySortAsc = false;
+let libraryCache = null;           // { transcripts, projects, deleted, ts }
+const LIBRARY_CACHE_TTL = 5000;
 
 const SPEAKER_PALETTE = [
   '#DD2C1E', '#004CFF', '#0D5921', '#FFBF00',
@@ -63,29 +68,20 @@ const btnExport = $('#btn-export');
 const btnDownload = $('#btn-download');
 const btnCopy = $('#btn-copy');
 const btnLibrary = $('#btn-library');
-const btnSave = $('#btn-save');
-const saveModal = $('#save-modal');
-const saveNameInput = $('#save-name');
-const btnSaveConfirm = $('#btn-save-confirm');
-const btnSaveCancel = $('#btn-save-cancel');
 const libraryView = $('#library-view');
 const libraryList = $('#library-list');
 const libraryEmpty = $('#library-empty');
 const stepsNav = $('.steps');
 const btnSpeakerToggle = $('#btn-speaker-toggle');
-const projectModal = $('#project-modal');
-const projectNameInput = $('#project-name');
-const btnProjectConfirm = $('#btn-project-confirm');
-const btnProjectCancel = $('#btn-project-cancel');
 const btnNewProject = $('#btn-new-project');
-const projectSelect = $('#project-select');
-const saveProjectSelect = $('#save-project-select');
+const transcriptTitleEl = $('#transcript-title');
 
 // ── Step navigation ──
 let libraryShowing = false;
 
 function goToStep(n) {
   currentStep = n;
+  if (segments.length > 0) debouncedAutoSave();
 
   // Hide library if showing
   if (libraryShowing) {
@@ -129,7 +125,12 @@ function showLibrary() {
 }
 
 // ── Library ──
-async function fetchLibrary() {
+async function fetchLibrary(forceRefresh) {
+  // Use cache if fresh
+  if (!forceRefresh && libraryCache && (Date.now() - libraryCache.ts < LIBRARY_CACHE_TTL)) {
+    renderLibrary(libraryCache.transcripts, libraryCache.projects, libraryCache.deleted);
+    return;
+  }
   try {
     const [p, transcripts, deleted] = await Promise.all([
       listProjects(),
@@ -137,12 +138,17 @@ async function fetchLibrary() {
       listDeletedTranscripts(),
     ]);
     projects = p;
+    libraryCache = { transcripts, projects, deleted, ts: Date.now() };
     renderLibrary(transcripts, projects, deleted);
   } catch (err) {
     libraryList.innerHTML = '';
     libraryEmpty.classList.remove('hidden');
     console.error('Failed to load library:', err);
   }
+}
+
+function invalidateLibraryCache() {
+  libraryCache = null;
 }
 
 function renderLibrary(transcripts, projectsList, deletedTranscripts) {
@@ -153,124 +159,331 @@ function renderLibrary(transcripts, projectsList, deletedTranscripts) {
   }
 
   libraryEmpty.classList.add('hidden');
+  renderBreadcrumb();
 
-  // Group transcripts by project
-  const byProject = {};
-  const unsorted = [];
-  for (const t of (transcripts || [])) {
-    if (t.project_id) {
-      if (!byProject[t.project_id]) byProject[t.project_id] = [];
-      byProject[t.project_id].push(t);
-    } else {
-      unsorted.push(t);
+  const rows = [];
+
+  if (!libraryCurrentProject) {
+    // ROOT VIEW: folders first, then unsorted transcripts
+    for (const proj of (projectsList || [])) {
+      const count = (transcripts || []).filter(t => t.project_id === proj.id).length;
+      rows.push(renderFolderRow(proj, count));
+    }
+    // Unsorted transcripts (no project)
+    const unsorted = (transcripts || []).filter(t => !t.project_id);
+    for (const t of sortTranscripts(unsorted)) {
+      rows.push(renderFileRow(t));
+    }
+  } else {
+    // PROJECT VIEW: transcripts in this project only
+    const items = (transcripts || []).filter(t => t.project_id === libraryCurrentProject);
+    for (const t of sortTranscripts(items)) {
+      rows.push(renderFileRow(t));
     }
   }
 
-  let html = '';
-
-  // Render each project group
-  for (const proj of (projectsList || [])) {
-    const items = byProject[proj.id] || [];
-    html += `
-      <div class="library-project-group">
-        <div class="library-project-header">
-          <span class="np-eyebrow np-eyebrow--red">${esc(proj.name)}</span>
-          <button class="np-button library-delete-project-btn" data-id="${proj.id}" title="Delete project">&times;</button>
-        </div>
-        ${items.length === 0 ? '<p class="library-project-empty">No transcripts</p>' : ''}
-        ${items.map(t => renderLibraryItem(t)).join('')}
-      </div>
-    `;
-  }
-
-  // Unsorted section
-  if (unsorted.length > 0) {
-    html += `
-      <div class="library-project-group">
-        <div class="library-project-header">
-          <span class="np-eyebrow">Unsorted</span>
-        </div>
-        ${unsorted.map(t => renderLibraryItem(t)).join('')}
-      </div>
-    `;
-  }
-
-  // Recently Deleted section
-  const deleted = (deletedTranscripts || []).filter(t => {
-    // Only show items deleted within the last 30 days
-    const deletedAt = new Date(t.deleted_at).getTime();
-    return Date.now() - deletedAt < 30 * 24 * 60 * 60 * 1000;
-  });
-  if (deleted.length > 0) {
-    html += `
-      <div class="library-deleted-section">
-        <button class="library-deleted-toggle" id="deleted-toggle">
+  // Recently Deleted section (only at root)
+  if (!libraryCurrentProject) {
+    const deleted = (deletedTranscripts || []).filter(t => {
+      const deletedAt = new Date(t.deleted_at).getTime();
+      return Date.now() - deletedAt < 30 * 24 * 60 * 60 * 1000;
+    });
+    if (deleted.length > 0) {
+      rows.push(`<div class="lib-deleted-section">
+        <button class="lib-deleted-toggle" id="deleted-toggle">
           <span class="np-eyebrow">Recently Deleted</span>
-          <span class="library-deleted-count">${deleted.length}</span>
+          <span class="lib-deleted-count">${deleted.length}</span>
         </button>
-        <div class="library-deleted-list hidden" id="deleted-list">
+        <div class="lib-deleted-list hidden" id="deleted-list">
           ${deleted.map(t => {
             const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(t.deleted_at).getTime()) / (24 * 60 * 60 * 1000)));
-            return `
-              <div class="library-item library-item--deleted" data-id="${t.id}">
-                <div class="library-item-info">
-                  <div class="library-item-name">${esc(t.name)}</div>
-                  <div class="library-item-meta">
-                    <span class="library-item-time">${daysLeft}d until permanent deletion</span>
-                  </div>
-                </div>
-                <div class="library-item-actions">
-                  <button class="header-btn library-restore-btn" data-id="${t.id}">Restore</button>
-                  <button class="header-btn library-permadelete-btn" data-id="${t.id}">&times;</button>
-                </div>
+            return `<div class="lib-row lib-row--deleted" data-id="${t.id}">
+              <div class="lib-col lib-col--name">
+                <span class="lib-icon">&#128220;</span>
+                <span class="lib-name lib-name--deleted">${esc(t.name)}</span>
+                <span class="lib-deleted-days">${daysLeft}d left</span>
               </div>
-            `;
+              <div class="lib-col lib-col--step"></div>
+              <div class="lib-col lib-col--date"></div>
+              <div class="lib-col lib-col--actions">
+                <button class="lib-restore-btn" data-id="${t.id}">Restore</button>
+                <button class="lib-row-delete" data-id="${t.id}">&times;</button>
+              </div>
+            </div>`;
           }).join('')}
         </div>
-      </div>
-    `;
+      </div>`);
+    }
   }
 
-  libraryList.innerHTML = html;
+  libraryList.innerHTML = rows.join('');
+  wireLibraryEvents();
+  wireLibraryDragAndDrop();
+}
 
-  // Wire up buttons
-  libraryList.querySelectorAll('.library-load-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleLoad(btn.dataset.id));
+function renderFolderRow(proj, count) {
+  return `
+    <div class="lib-row lib-row--folder" data-project-id="${proj.id}" data-droppable="true">
+      <div class="lib-col lib-col--name">
+        <span class="lib-icon">&#128193;</span>
+        <span class="lib-name">${esc(proj.name)}</span>
+        <span class="lib-count">${count}</span>
+      </div>
+      <div class="lib-col lib-col--step"></div>
+      <div class="lib-col lib-col--date">${relativeTime(proj.created_at)}</div>
+      <div class="lib-col lib-col--actions">
+        <button class="lib-row-delete" data-project-id="${proj.id}">&times;</button>
+      </div>
+    </div>`;
+}
+
+function renderFileRow(t) {
+  const isActive = t.id === currentTranscriptId;
+  const stepLabel = STEP_LABELS[t.step] || 'Upload';
+  return `
+    <div class="lib-row lib-row--file ${isActive ? 'lib-row--active' : ''}"
+         data-id="${t.id}" data-project-id="${t.project_id || ''}" draggable="true">
+      <div class="lib-col lib-col--name">
+        <span class="lib-icon">&#128220;</span>
+        <span class="lib-name" data-id="${t.id}">${esc(t.name)}</span>
+      </div>
+      <div class="lib-col lib-col--step">${stepLabel}</div>
+      <div class="lib-col lib-col--date">${relativeTime(t.updated_at)}</div>
+      <div class="lib-col lib-col--actions">
+        <button class="lib-row-delete" data-id="${t.id}">&times;</button>
+      </div>
+    </div>`;
+}
+
+function renderBreadcrumb() {
+  const crumbEl = document.querySelector('.lib-breadcrumb');
+  if (!crumbEl) return;
+  let html = `<button class="lib-crumb lib-crumb--root" data-id="">My Library</button>`;
+  if (libraryCurrentProject) {
+    const proj = projects.find(p => p.id === libraryCurrentProject);
+    if (proj) {
+      html += ` <span class="lib-crumb-sep">&rsaquo;</span> `;
+      html += `<span class="lib-crumb--current">${esc(proj.name)}</span>`;
+    }
+  }
+  crumbEl.innerHTML = html;
+  crumbEl.querySelector('.lib-crumb--root')?.addEventListener('click', () => {
+    libraryCurrentProject = null;
+    fetchLibrary(true);
   });
-  libraryList.querySelectorAll('.library-delete-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleDelete(btn.dataset.id));
+}
+
+function sortTranscripts(items) {
+  return [...items].sort((a, b) => {
+    let va = a[librarySortKey], vb = b[librarySortKey];
+    if (librarySortKey === 'name') { va = (va || '').toLowerCase(); vb = (vb || '').toLowerCase(); }
+    if (va < vb) return librarySortAsc ? -1 : 1;
+    if (va > vb) return librarySortAsc ? 1 : -1;
+    return 0;
   });
-  libraryList.querySelectorAll('.library-delete-project-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      await deleteProject(btn.dataset.id);
-      fetchLibrary();
+}
+
+function wireLibraryEvents() {
+  // Click file rows to load
+  libraryList.querySelectorAll('.lib-row--file').forEach(row => {
+    row.addEventListener('click', (e) => {
+      // Don't load if clicking delete or name (for inline rename)
+      if (e.target.closest('.lib-row-delete') || e.target.closest('.lib-name')) return;
+      handleLoad(row.dataset.id);
     });
   });
+
+  // Click file name to load (single click)
+  libraryList.querySelectorAll('.lib-row--file .lib-name').forEach(el => {
+    el.addEventListener('click', () => handleLoad(el.dataset.id));
+  });
+
+  // Double-click name for inline rename
+  libraryList.querySelectorAll('.lib-row--file .lib-name').forEach(el => {
+    el.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      startInlineRename(el);
+    });
+  });
+
+  // Click folder rows to enter
+  libraryList.querySelectorAll('.lib-row--folder').forEach(row => {
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.lib-row-delete')) return;
+      libraryCurrentProject = row.dataset.projectId;
+      fetchLibrary(true);
+    });
+  });
+
+  // Delete buttons — files
+  libraryList.querySelectorAll('.lib-row--file .lib-row-delete').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleDelete(btn.closest('.lib-row').dataset.id);
+    });
+  });
+
+  // Delete buttons — folders
+  libraryList.querySelectorAll('.lib-row--folder .lib-row-delete').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await deleteProject(btn.dataset.projectId);
+      invalidateLibraryCache();
+      fetchLibrary(true);
+    });
+  });
+
+  // Sortable column headers
+  document.querySelectorAll('.lib-table-header .lib-col[data-sort]').forEach(col => {
+    col.addEventListener('click', () => {
+      const key = col.dataset.sort;
+      if (librarySortKey === key) {
+        librarySortAsc = !librarySortAsc;
+      } else {
+        librarySortKey = key;
+        librarySortAsc = key === 'name'; // name ascending by default, dates descending
+      }
+      // Update sort indicator
+      document.querySelectorAll('.lib-table-header .lib-col').forEach(c => c.classList.remove('lib-col--sorted-asc', 'lib-col--sorted-desc'));
+      col.classList.add(librarySortAsc ? 'lib-col--sorted-asc' : 'lib-col--sorted-desc');
+      fetchLibrary(); // re-render with cache
+    });
+  });
+
+  // Search filter
+  const searchInput = $('#library-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.toLowerCase().trim();
+      libraryList.querySelectorAll('.lib-row').forEach(row => {
+        const name = row.querySelector('.lib-name')?.textContent?.toLowerCase() || '';
+        row.style.display = (!q || name.includes(q)) ? '' : 'none';
+      });
+    });
+  }
 
   // Recently Deleted toggle
   const deletedToggle = document.getElementById('deleted-toggle');
   const deletedListEl = document.getElementById('deleted-list');
   if (deletedToggle && deletedListEl) {
-    deletedToggle.addEventListener('click', () => {
-      deletedListEl.classList.toggle('hidden');
-    });
+    deletedToggle.addEventListener('click', () => deletedListEl.classList.toggle('hidden'));
   }
 
   // Restore buttons
-  libraryList.querySelectorAll('.library-restore-btn').forEach(btn => {
+  libraryList.querySelectorAll('.lib-restore-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       await restoreTranscript(btn.dataset.id);
-      fetchLibrary();
+      invalidateLibraryCache();
+      fetchLibrary(true);
     });
   });
 
-  // Permanent delete buttons
-  libraryList.querySelectorAll('.library-permadelete-btn').forEach(btn => {
+  // Permanent delete buttons (in deleted section)
+  libraryList.querySelectorAll('.lib-row--deleted .lib-row-delete').forEach(btn => {
     btn.addEventListener('click', async () => {
       await permanentlyDeleteTranscript(btn.dataset.id);
-      fetchLibrary();
+      invalidateLibraryCache();
+      fetchLibrary(true);
     });
   });
+}
+
+function startInlineRename(el) {
+  const id = el.dataset.id;
+  const oldName = el.textContent;
+  el.contentEditable = true;
+  el.classList.add('lib-name--editing');
+  el.focus();
+  // Select all text
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  function commit() {
+    el.contentEditable = false;
+    el.classList.remove('lib-name--editing');
+    const newName = el.textContent.trim();
+    if (newName && newName !== oldName) {
+      updateTranscript(id, { name: newName });
+      if (id === currentTranscriptId) {
+        currentTranscriptName = newName;
+        updateTranscriptTitle();
+      }
+      invalidateLibraryCache();
+    } else {
+      el.textContent = oldName;
+    }
+  }
+
+  el.addEventListener('keydown', function handler(e) {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); el.removeEventListener('keydown', handler); }
+    if (e.key === 'Escape') { el.textContent = oldName; el.contentEditable = false; el.classList.remove('lib-name--editing'); el.removeEventListener('keydown', handler); }
+  });
+  el.addEventListener('blur', commit, { once: true });
+}
+
+function wireLibraryDragAndDrop() {
+  let dragId = null;
+
+  libraryList.querySelectorAll('.lib-row--file[draggable]').forEach(row => {
+    row.addEventListener('dragstart', (e) => {
+      dragId = row.dataset.id;
+      row.classList.add('lib-row--dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', dragId);
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('lib-row--dragging');
+      libraryList.querySelectorAll('.lib-row--drop-target').forEach(r => r.classList.remove('lib-row--drop-target'));
+      dragId = null;
+    });
+  });
+
+  // Drop targets: folder rows
+  libraryList.querySelectorAll('.lib-row--folder[data-droppable]').forEach(folder => {
+    folder.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      folder.classList.add('lib-row--drop-target');
+    });
+    folder.addEventListener('dragleave', () => {
+      folder.classList.remove('lib-row--drop-target');
+    });
+    folder.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      folder.classList.remove('lib-row--drop-target');
+      const fileId = e.dataTransfer.getData('text/plain');
+      if (!fileId) return;
+      const projectId = folder.dataset.projectId;
+      await updateTranscript(fileId, { projectId });
+      invalidateLibraryCache();
+      fetchLibrary(true);
+    });
+  });
+
+  // Drop on breadcrumb root to un-assign from project
+  const rootCrumb = document.querySelector('.lib-crumb--root');
+  if (rootCrumb) {
+    rootCrumb.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      rootCrumb.classList.add('lib-crumb--drop-target');
+    });
+    rootCrumb.addEventListener('dragleave', () => {
+      rootCrumb.classList.remove('lib-crumb--drop-target');
+    });
+    rootCrumb.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      rootCrumb.classList.remove('lib-crumb--drop-target');
+      const fileId = e.dataTransfer.getData('text/plain');
+      if (!fileId) return;
+      await updateTranscript(fileId, { projectId: null });
+      invalidateLibraryCache();
+      fetchLibrary(true);
+    });
+  }
 }
 
 function relativeTime(dateStr) {
@@ -288,27 +501,44 @@ function relativeTime(dateStr) {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function renderLibraryItem(t) {
-  const timeAgo = relativeTime(t.updated_at);
-  const stepLabel = STEP_LABELS[t.step] || 'Upload';
-  const meta = t.metadata || {};
-  const segCount = meta.segmentCount;
-  return `
-    <div class="library-item" data-id="${t.id}">
-      <div class="library-item-info">
-        <div class="library-item-name">${esc(t.name)}</div>
-        <div class="library-item-meta">
-          <span class="library-item-time">${timeAgo}</span>
-          <span class="library-item-step">Step ${t.step}: ${stepLabel}</span>
-          ${segCount ? `<span class="library-item-segments">${segCount} segments</span>` : ''}
-        </div>
-      </div>
-      <div class="library-item-actions">
-        <button class="np-button library-load-btn" data-id="${t.id}">Load</button>
-        <button class="np-button library-delete-btn" data-id="${t.id}">&times;</button>
-      </div>
-    </div>
-  `;
+// ── Transcript title in header ──
+function updateTranscriptTitle() {
+  if (!transcriptTitleEl) return;
+  transcriptTitleEl.textContent = currentTranscriptName || '';
+  transcriptTitleEl.title = currentTranscriptName ? 'Double-click to rename' : '';
+}
+
+if (transcriptTitleEl) {
+  transcriptTitleEl.addEventListener('dblclick', () => {
+    if (!currentTranscriptId) return;
+    transcriptTitleEl.contentEditable = true;
+    transcriptTitleEl.classList.add('transcript-title--editing');
+    transcriptTitleEl.focus();
+    const range = document.createRange();
+    range.selectNodeContents(transcriptTitleEl);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    function commitTitle() {
+      transcriptTitleEl.contentEditable = false;
+      transcriptTitleEl.classList.remove('transcript-title--editing');
+      const newName = transcriptTitleEl.textContent.trim();
+      if (newName && newName !== currentTranscriptName) {
+        currentTranscriptName = newName;
+        updateTranscript(currentTranscriptId, { name: newName });
+        invalidateLibraryCache();
+      } else {
+        transcriptTitleEl.textContent = currentTranscriptName;
+      }
+    }
+
+    transcriptTitleEl.addEventListener('keydown', function handler(e) {
+      if (e.key === 'Enter') { e.preventDefault(); commitTitle(); transcriptTitleEl.removeEventListener('keydown', handler); }
+      if (e.key === 'Escape') { transcriptTitleEl.textContent = currentTranscriptName; transcriptTitleEl.contentEditable = false; transcriptTitleEl.classList.remove('transcript-title--editing'); transcriptTitleEl.removeEventListener('keydown', handler); }
+    });
+    transcriptTitleEl.addEventListener('blur', commitTitle, { once: true });
+  });
 }
 
 async function handleLoad(id) {
@@ -333,6 +563,7 @@ async function handleLoad(id) {
     currentTranscriptName = t.name;
     currentSlug = t.slug || null;
     rememberLastTranscript(t.id);
+    updateTranscriptTitle();
     // Sync editor colors with saved speaker colors
     syncEditorColors();
     // Reset editor instance so it remounts with new state
@@ -419,87 +650,7 @@ async function handleDelete(id) {
   }
 }
 
-// ── Save ──
-btnSave.addEventListener('click', () => {
-  // Pre-fill name
-  if (currentTranscriptName) {
-    saveNameInput.value = currentTranscriptName;
-  } else {
-    const firstSpeaker = segments[0]?.speaker || '';
-    const cleanName = speakerMap[firstSpeaker] || firstSpeaker;
-    const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    saveNameInput.value = cleanName ? `${cleanName} — ${date}` : '';
-  }
-  refreshProjectSelects();
-  saveModal.classList.remove('hidden');
-  saveNameInput.focus();
-});
-
-btnSaveCancel.addEventListener('click', () => {
-  saveModal.classList.add('hidden');
-});
-
-saveModal.addEventListener('click', (e) => {
-  if (e.target === saveModal) saveModal.classList.add('hidden');
-});
-
-btnSaveConfirm.addEventListener('click', async () => {
-  const name = saveNameInput.value.trim();
-  if (!name) return;
-
-  btnSaveConfirm.textContent = 'Saving...';
-  btnSaveConfirm.disabled = true;
-
-  try {
-    // Create new project if selected
-    if (saveProjectSelect?.value === '__new__') {
-      const projName = saveNewProjectInput?.value?.trim();
-      if (projName) {
-        const proj = await createProject({ name: projName });
-        projects.push(proj);
-        currentProjectId = proj.id;
-      }
-    } else if (saveProjectSelect) {
-      currentProjectId = saveProjectSelect.value || null;
-    }
-
-    const payload = gatherState(name);
-
-    if (currentTranscriptId) {
-      // Generate slug if we don't have one yet
-      if (!currentSlug) {
-        const baseSlug = generateSlug(name);
-        payload.slug = await ensureUniqueSlug(baseSlug, currentTranscriptId);
-        currentSlug = payload.slug;
-      }
-      await updateTranscript(currentTranscriptId, payload);
-    } else {
-      const baseSlug = generateSlug(name);
-      payload.slug = await ensureUniqueSlug(baseSlug);
-      const row = await saveTranscript(payload);
-      currentTranscriptId = row.id;
-      currentSlug = row.slug || payload.slug;
-      rememberLastTranscript(row.id);
-    }
-    setPermalinkHash(currentSlug || currentTranscriptId);
-
-    currentTranscriptName = name;
-    saveModal.classList.add('hidden');
-  } catch (err) {
-    console.error('Save failed:', err);
-    const inner = saveModal.querySelector('.save-modal-inner');
-    const existing = inner.querySelector('.error-msg');
-    if (existing) existing.remove();
-    const div = document.createElement('div');
-    div.className = 'error-msg';
-    div.textContent = 'Save failed: ' + err.message;
-    inner.appendChild(div);
-    setTimeout(() => div.remove(), 8000);
-  } finally {
-    btnSaveConfirm.textContent = 'Save';
-    btnSaveConfirm.disabled = false;
-  }
-});
+// ── Save (auto-save only, no manual save button) ──
 
 function gatherState(name) {
   const editorialFocus = $('#editorial-focus')?.value?.trim() || '';
@@ -616,8 +767,10 @@ async function autoSave() {
       currentSlug = row.slug || payload.slug;
       rememberLastTranscript(row.id);
       setPermalinkHash(currentSlug);
+      updateTranscriptTitle();
     }
     updateSaveStatus('saved');
+    invalidateLibraryCache();
   } catch (err) {
     console.error('Auto-save failed:', err);
     updateSaveStatus('error');
@@ -633,6 +786,9 @@ function debouncedAutoSave() {
 
 // ── Library button ──
 btnLibrary.addEventListener('click', showLibrary);
+
+// ── Editorial focus — save on blur ──
+$('#editorial-focus')?.addEventListener('blur', () => debouncedAutoSave());
 
 // ── Interest vote handler ──
 function handleInterestVote(segNums, type) {
@@ -1647,78 +1803,46 @@ btnSpeakerToggle.addEventListener('click', () => {
   if (translations.length > 0) buildReaderView();
 });
 
-// ── Projects ──
+// ── Inline project creation (+ Folder button) ──
 btnNewProject.addEventListener('click', () => {
-  projectNameInput.value = '';
-  projectModal.classList.remove('hidden');
-  projectNameInput.focus();
-});
+  // Insert an editable row at the top of the library list
+  const existing = libraryList.querySelector('.lib-row--new-folder');
+  if (existing) return; // already showing
+  const row = document.createElement('div');
+  row.className = 'lib-row lib-row--new-folder';
+  row.innerHTML = `
+    <div class="lib-col lib-col--name">
+      <span class="lib-icon">&#128193;</span>
+      <input class="lib-new-folder-input" type="text" placeholder="Folder name..." autofocus>
+    </div>
+    <div class="lib-col lib-col--step"></div>
+    <div class="lib-col lib-col--date"></div>
+    <div class="lib-col lib-col--actions"></div>
+  `;
+  libraryList.prepend(row);
+  const input = row.querySelector('.lib-new-folder-input');
+  input.focus();
 
-btnProjectCancel.addEventListener('click', () => {
-  projectModal.classList.add('hidden');
-});
-
-projectModal.addEventListener('click', (e) => {
-  if (e.target === projectModal) projectModal.classList.add('hidden');
-});
-
-btnProjectConfirm.addEventListener('click', async () => {
-  const name = projectNameInput.value.trim();
-  if (!name) return;
-  btnProjectConfirm.textContent = 'Creating...';
-  btnProjectConfirm.disabled = true;
-  try {
-    const proj = await createProject({ name });
-    projects.push(proj);
-    currentProjectId = proj.id;
-    projectModal.classList.add('hidden');
-    refreshProjectSelects();
-    if (libraryShowing) fetchLibrary();
-  } catch (err) {
-    console.error('Failed to create project:', err);
-    // Show error inside the modal so it's visible
-    const inner = projectModal.querySelector('.save-modal-inner');
-    const existing = inner.querySelector('.error-msg');
-    if (existing) existing.remove();
-    const div = document.createElement('div');
-    div.className = 'error-msg';
-    div.textContent = 'Failed to create project: ' + err.message;
-    inner.appendChild(div);
-    setTimeout(() => div.remove(), 8000);
-  } finally {
-    btnProjectConfirm.textContent = 'Create';
-    btnProjectConfirm.disabled = false;
-  }
-});
-
-// Project select in save modal
-const saveNewProjectDiv = $('#save-new-project');
-const saveNewProjectInput = $('#save-new-project-name');
-
-async function refreshProjectSelects() {
-  try {
-    projects = await listProjects();
-  } catch {}
-  const opts = '<option value="">No project</option>' +
-    projects.map(p => `<option value="${p.id}" ${p.id === currentProjectId ? 'selected' : ''}>${esc(p.name)}</option>`) .join('') +
-    '<option value="__new__">+ New project</option>';
-  if (saveProjectSelect) saveProjectSelect.innerHTML = opts;
-  if (saveNewProjectDiv) saveNewProjectDiv.classList.add('hidden');
-}
-
-if (saveProjectSelect) {
-  saveProjectSelect.addEventListener('change', () => {
-    if (saveProjectSelect.value === '__new__') {
-      saveNewProjectDiv.classList.remove('hidden');
-      // Default project name to primary speaker
-      const seqMeta = getSeqMeta();
-      saveNewProjectInput.value = seqMeta.primarySpeaker || '';
-      saveNewProjectInput.focus();
-    } else {
-      saveNewProjectDiv.classList.add('hidden');
+  async function commitFolder() {
+    const name = input.value.trim();
+    row.remove();
+    if (!name) return;
+    try {
+      const proj = await createProject({ name });
+      projects.push(proj);
+      invalidateLibraryCache();
+      fetchLibrary(true);
+    } catch (err) {
+      console.error('Failed to create folder:', err);
     }
+  }
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') commitFolder();
+    if (e.key === 'Escape') row.remove();
   });
-}
+  input.addEventListener('blur', commitFolder);
+});
 
 // ── Export menu ──
 const btnExportMenu = $('#btn-export-menu');
@@ -2443,7 +2567,7 @@ if (btnShare) {
   const lastSaved = getLastTranscript();
 
   // Load projects and transcript in parallel
-  const projectsPromise = listProjects().then(p => { projects = p; refreshProjectSelects(); }).catch(() => {});
+  const projectsPromise = listProjects().then(p => { projects = p; }).catch(() => {});
 
   let loadPromise = Promise.resolve();
   if (permalink) {

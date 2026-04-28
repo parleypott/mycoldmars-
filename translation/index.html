@@ -28,12 +28,12 @@
           <span class="header-logo-label">Newpress</span>
           <span class="header-logo-mark"><span class="wordmark-section">§</span> interpreter</span>
         </a>
+        <span id="transcript-title" class="transcript-title"></span>
         <div class="header-actions">
           <button id="btn-start-new" class="header-btn" title="New">+ New</button>
           <button id="btn-library" class="header-btn" title="Library">Library</button>
           <button id="btn-sequencer" class="header-btn" title="Sequencer">Sequencer</button>
           <button id="btn-share" class="header-btn" title="Share link">Share</button>
-          <button id="btn-save" class="header-btn header-btn--primary" title="Save">Save</button>
           <span id="save-status" class="save-status"></span>
         </div>
       </div>
@@ -255,52 +255,34 @@
 
     <!-- Library view -->
     <section id="library-view" class="panel">
-      <div class="library-header">
-        <div>
-          <h2>Library</h2>
-          <p class="section-desc">Your saved transcripts.</p>
+      <!-- Breadcrumb nav -->
+      <div class="lib-breadcrumb">
+        <button class="lib-crumb lib-crumb--root" data-id="">My Library</button>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="lib-toolbar">
+        <div class="lib-toolbar-left">
+          <button id="btn-new-project" class="lib-tool-btn" title="New folder">+ Folder</button>
         </div>
-        <button id="btn-new-project" class="np-button">New Project</button>
+        <div class="lib-toolbar-right">
+          <input id="library-search" class="lib-search" type="text" placeholder="Search...">
+        </div>
       </div>
-      <hr class="np-rule">
-      <div id="library-list"></div>
-      <div id="library-empty">
-        <p>No saved transcripts yet.</p>
+
+      <!-- Table header (sortable columns) -->
+      <div class="lib-table-header">
+        <div class="lib-col lib-col--name" data-sort="name">Name</div>
+        <div class="lib-col lib-col--step" data-sort="step">Status</div>
+        <div class="lib-col lib-col--date" data-sort="updated_at">Edited</div>
+        <div class="lib-col lib-col--actions"></div>
       </div>
+
+      <!-- Rows rendered by JS -->
+      <div id="library-list" class="lib-table-body"></div>
+      <div id="library-empty"><p>No saved transcripts yet.</p></div>
     </section>
 
-    <!-- Save modal -->
-    <div id="save-modal" class="save-modal hidden">
-      <div class="save-modal-inner">
-        <div class="np-eyebrow np-eyebrow--red">Save Transcript</div>
-        <input id="save-name" class="np-textarea" placeholder="e.g. Taiwan fishing village interview" style="min-height:auto">
-        <div class="save-modal-field">
-          <label class="np-eyebrow" for="save-project-select">Project</label>
-          <select id="save-project-select" class="np-select">
-            <option value="">No project</option>
-          </select>
-          <div id="save-new-project" class="save-new-project hidden">
-            <input id="save-new-project-name" class="np-textarea" placeholder="Project name" style="min-height:auto">
-          </div>
-        </div>
-        <div class="save-modal-actions">
-          <button id="btn-save-confirm" class="np-button np-button--primary">Save</button>
-          <button id="btn-save-cancel" class="np-button">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Project modal -->
-    <div id="project-modal" class="save-modal hidden">
-      <div class="save-modal-inner">
-        <div class="np-eyebrow np-eyebrow--red">New Project</div>
-        <input id="project-name" class="np-textarea" placeholder="e.g. Taiwan Documentary 2026" style="min-height:auto">
-        <div class="save-modal-actions">
-          <button id="btn-project-confirm" class="np-button np-button--primary">Create</button>
-          <button id="btn-project-cancel" class="np-button">Cancel</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- Sequencer — separate full-page view outside #app -->

@@ -677,90 +677,321 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   font-style: italic;
 }
 
-/* ── Save modal ── */
-.save-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(18, 17, 24, 0.5);
+/* ── Transcript Title in Header ── */
+.transcript-title {
+  font-family: var(--np-font-serif);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--np-ink);
+  flex: 1;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 var(--np-space-4);
+  cursor: default;
+  border-radius: 2px;
+  transition: background var(--np-duration) var(--np-ease);
 }
-.save-modal-inner {
-  background: var(--np-warm-white);
-  padding: var(--np-space-8);
-  width: 100%;
-  max-width: 480px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--np-space-6);
+.transcript-title:hover {
+  background: rgba(0,0,0,0.02);
 }
-.save-modal-inner .np-eyebrow {
-  margin-bottom: 0;
-}
-.save-modal-inner input.np-textarea {
-  min-height: auto;
-  padding: var(--np-space-3);
-}
-.save-modal-actions {
-  display: flex;
-  gap: var(--np-space-3);
+.transcript-title--editing {
+  background: rgba(0,0,0,0.04);
+  outline: 1px solid var(--np-cool-neutral);
+  cursor: text;
 }
 
-/* ── Library view ── */
-#library-empty {
-  padding: var(--np-space-12) 0;
+/* ── Save status (subtler) ── */
+.save-status {
   font-family: var(--np-font-mono);
-  font-size: 14px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--np-sepia);
+  opacity: 0.5;
+  transition: opacity 0.6s var(--np-ease);
 }
-.library-item {
+.save-status--fade {
+  opacity: 0;
+}
+.save-status--error {
+  color: var(--np-red);
+  opacity: 1;
+}
+
+/* ── Library: Drive-style ── */
+
+/* Breadcrumb */
+.lib-breadcrumb {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: var(--np-space-2);
+  margin-bottom: var(--np-space-4);
+}
+.lib-crumb--root {
+  cursor: pointer;
+  color: var(--np-red);
+  background: none;
+  border: none;
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: var(--np-space-1) var(--np-space-2);
+  border-radius: 2px;
+  transition: background var(--np-duration) var(--np-ease);
+}
+.lib-crumb--root:hover {
+  background: rgba(221, 44, 30, 0.06);
+}
+.lib-crumb--root.lib-crumb--drop-target {
+  background: rgba(221, 44, 30, 0.12);
+  outline: 1px dashed var(--np-red);
+}
+.lib-crumb-sep {
+  color: var(--np-cool-neutral);
+  font-size: 14px;
+}
+.lib-crumb--current {
+  color: var(--np-ink);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+/* Toolbar */
+.lib-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--np-space-4) 0;
-  border-bottom: 1px solid var(--np-cool-neutral);
-}
-.library-item-info {
-  flex: 1;
-  min-width: 0;
-}
-.library-item-name {
-  font-family: var(--np-font-mono);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--np-ink);
-  margin-bottom: var(--np-space-1);
-}
-.library-item-meta {
-  font-family: var(--np-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--np-sepia);
-  display: flex;
+  margin-bottom: var(--np-space-4);
   gap: var(--np-space-4);
 }
-.library-item-step {
-  color: var(--np-red);
-}
-.library-item-actions {
-  display: flex;
-  gap: var(--np-space-2);
-}
-.library-item-actions .np-button {
+.lib-tool-btn {
+  font-family: var(--np-font-mono);
   font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   padding: var(--np-space-2) var(--np-space-4);
+  border: 1px solid var(--np-cool-neutral);
+  background: transparent;
+  color: var(--np-sepia);
+  cursor: pointer;
+  transition: all var(--np-duration) var(--np-ease);
+}
+.lib-tool-btn:hover {
+  border-color: var(--np-ink);
+  color: var(--np-ink);
+}
+.lib-search {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  padding: var(--np-space-2) var(--np-space-3);
+  border: 1px solid var(--np-cool-neutral);
+  background: transparent;
+  color: var(--np-ink);
+  width: 200px;
+  transition: border-color var(--np-duration) var(--np-ease);
+}
+.lib-search:focus {
+  outline: none;
+  border-color: var(--np-ink);
+}
+.lib-search::placeholder {
+  color: var(--np-cool-neutral);
 }
 
-/* Recently Deleted */
-.library-deleted-section {
+/* Table header */
+.lib-table-header {
+  display: grid;
+  grid-template-columns: 1fr 100px 120px 40px;
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--np-sepia);
+  border-bottom: 1px solid var(--np-ink);
+  padding: var(--np-space-2) var(--np-space-2);
+}
+.lib-table-header .lib-col {
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--np-duration) var(--np-ease);
+}
+.lib-table-header .lib-col:hover {
+  color: var(--np-ink);
+}
+.lib-col--sorted-asc::after {
+  content: ' \2191';
+}
+.lib-col--sorted-desc::after {
+  content: ' \2193';
+}
+
+/* Rows */
+.lib-row {
+  display: grid;
+  grid-template-columns: 1fr 100px 120px 40px;
+  align-items: center;
+  padding: var(--np-space-3) var(--np-space-2);
+  border-bottom: 1px solid var(--np-cool-neutral);
+  cursor: pointer;
+  transition: background var(--np-duration) var(--np-ease);
+}
+.lib-row:hover {
+  background: rgba(0,0,0,0.02);
+}
+.lib-row--active {
+  border-left: 2px solid var(--np-red);
+  background: rgba(221,44,30,0.03);
+}
+
+/* Columns */
+.lib-col {
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lib-col--name {
+  display: flex;
+  align-items: center;
+  gap: var(--np-space-2);
+  min-width: 0;
+}
+.lib-col--step {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+}
+.lib-col--date {
+  font-size: 11px;
+  color: var(--np-sepia);
+}
+
+/* Icon */
+.lib-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* Name */
+.lib-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--np-ink);
+}
+.lib-name--editing {
+  background: rgba(0,0,0,0.04);
+  outline: 1px solid var(--np-cool-neutral);
+  padding: 1px 4px;
+  cursor: text;
+}
+.lib-name--deleted {
+  color: var(--np-sepia);
+  text-decoration: line-through;
+}
+
+/* Folder-specific */
+.lib-row--folder .lib-name {
+  font-weight: 600;
+}
+.lib-count {
+  font-size: 10px;
+  color: var(--np-sepia);
+  background: rgba(0,0,0,0.04);
+  padding: 1px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+/* Delete button — hidden until row hover */
+.lib-row-delete {
+  font-size: 16px;
+  line-height: 1;
+  border: none;
+  background: transparent;
+  color: var(--np-cool-neutral);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.2s;
+  padding: 2px 4px;
+}
+.lib-row:hover .lib-row-delete {
+  opacity: 1;
+}
+.lib-row-delete:hover {
+  color: var(--np-red);
+}
+
+/* Drag states */
+.lib-row--dragging {
+  opacity: 0.3;
+}
+.lib-row--drop-target {
+  background: rgba(221,44,30,0.06);
+  border-color: var(--np-red);
+}
+
+/* Inline new folder input */
+.lib-new-folder-input {
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--np-ink);
+  padding: 2px 6px;
+  background: transparent;
+  color: var(--np-ink);
+  flex: 1;
+}
+.lib-new-folder-input:focus {
+  outline: none;
+}
+
+/* Restore button */
+.lib-restore-btn {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+  background: transparent;
+  border: 1px solid var(--np-cool-neutral);
+  padding: 2px 8px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.2s;
+}
+.lib-row:hover .lib-restore-btn {
+  opacity: 1;
+}
+.lib-restore-btn:hover {
+  color: var(--np-ink);
+  border-color: var(--np-ink);
+}
+
+/* Deleted days indicator */
+.lib-deleted-days {
+  font-size: 10px;
+  color: var(--np-red);
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+/* Recently Deleted section */
+.lib-deleted-section {
   margin-top: var(--np-space-8);
   border-top: 1px solid var(--np-cool-neutral);
   padding-top: var(--np-space-4);
 }
-.library-deleted-toggle {
+.lib-deleted-toggle {
   display: flex;
   align-items: center;
   gap: var(--np-space-3);
@@ -769,10 +1000,10 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   cursor: pointer;
   padding: var(--np-space-2) 0;
 }
-.library-deleted-toggle:hover .np-eyebrow {
+.lib-deleted-toggle:hover .np-eyebrow {
   color: var(--np-ink);
 }
-.library-deleted-count {
+.lib-deleted-count {
   font-family: var(--np-font-mono);
   font-size: 10px;
   background: var(--np-cool-neutral);
@@ -780,13 +1011,12 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   padding: 1px 6px;
   border-radius: 8px;
 }
-.library-item--deleted .library-item-name {
+
+#library-empty {
+  padding: var(--np-space-12) 0;
+  font-family: var(--np-font-mono);
+  font-size: 14px;
   color: var(--np-sepia);
-  text-decoration: line-through;
-}
-.library-item--deleted .library-item-meta {
-  color: var(--np-red);
-  opacity: 0.7;
 }
 
 /* ── Export menu ── */
@@ -1878,39 +2108,7 @@ tr.dimmed-speaker { opacity: 0.35; }
 .save-new-project { margin-top: var(--np-space-2); }
 .save-new-project input { width: 100%; }
 
-/* ── Library project groups ── */
-.library-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-.library-project-group {
-  margin-bottom: var(--np-space-8);
-}
-.library-project-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--np-space-3);
-  padding-bottom: var(--np-space-2);
-  border-bottom: 1px solid var(--np-cool-neutral);
-}
-.library-project-header .np-button {
-  font-size: 11px;
-  padding: 2px 8px;
-  border: none;
-  color: var(--np-sepia);
-}
-.library-project-header .np-button:hover {
-  color: var(--np-red);
-  background: transparent;
-}
-.library-project-empty {
-  font-family: var(--np-font-mono);
-  font-size: 12px;
-  color: var(--np-cool-neutral);
-  padding: var(--np-space-2) 0;
-}
+/* (old library-project-group styles removed — replaced by lib-row/lib-table styles) */
 
 /* ── Step Actions ── */
 .step-actions {
@@ -1948,39 +2146,7 @@ tr.dimmed-speaker { opacity: 0.35; }
   width: 100%;
 }
 
-/* ── Save Status Indicator ── */
-.save-status {
-  font-family: var(--np-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--np-sepia);
-  opacity: 0.6;
-  transition: opacity var(--np-duration) var(--np-ease);
-  align-self: center;
-}
-.save-status--error {
-  color: var(--np-red);
-  opacity: 1;
-}
-.save-status--fade {
-  opacity: 0;
-}
-
-/* ── Library card enhancements ── */
-.library-item-segments {
-  font-family: var(--np-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--np-sepia);
-}
-.library-item-time {
-  font-family: var(--np-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--np-cool-neutral);
-}
+/* (save-status and library styles moved to main library section above) */
 
 /* ── Speaker Checkboxes (Step 2) ── */
 .speaker-checkbox-row {
