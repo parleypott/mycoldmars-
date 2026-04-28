@@ -22,7 +22,7 @@
 
   <div id="app" class="hidden">
 
-    <header>
+    <header class="hidden">
       <div class="header-row">
         <a id="header-logo" class="header-logo" href="#">
           <span class="header-logo-label">Newpress</span>
@@ -39,7 +39,7 @@
       </div>
     </header>
 
-    <nav class="steps">
+    <nav class="steps hidden">
       <div class="step active" data-step="1">
         <span class="step-num">01</span>
         <span class="step-label">Upload</span>
@@ -62,8 +62,17 @@
       </div>
     </nav>
 
-    <!-- Step 1: Upload -->
+    <!-- Step 1: Upload / Home -->
     <section id="step-1" class="panel active">
+      <div id="home-hero" class="home-hero">
+        <div class="home-logo-label">Newpress</div>
+        <h1 class="home-title"><span class="home-section">§</span> interpreter</h1>
+        <p class="home-subtitle">where sacred sequences find their voice</p>
+        <div class="home-links">
+          <button id="home-library-btn" class="home-link">Library</button>
+          <button id="home-sequencer-btn" class="home-link">Sequencer</button>
+        </div>
+      </div>
       <div id="drop-zone" class="drop-zone">
         <div class="drop-content">
           <div class="drop-label">Drop .csv or .json here</div>

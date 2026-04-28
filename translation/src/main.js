@@ -90,7 +90,6 @@ function goToStep(n) {
   // Hide library if showing
   if (libraryShowing) {
     libraryView.classList.remove('active');
-    stepsNav.classList.remove('hidden');
     libraryShowing = false;
   }
 
@@ -102,13 +101,30 @@ function goToStep(n) {
     s.classList.toggle('active', sn === n);
     s.classList.toggle('done', sn < n);
   });
+
+  // Home page (Step 1): hide header & steps nav, show home hero
+  const header = $('header');
+  const homeHero = $('#home-hero');
+  if (n === 1) {
+    if (header) header.classList.add('hidden');
+    stepsNav.classList.add('hidden');
+    if (homeHero) homeHero.classList.remove('hidden');
+  } else {
+    if (header) header.classList.remove('hidden');
+    stepsNav.classList.remove('hidden');
+    if (homeHero) homeHero.classList.add('hidden');
+  }
 }
 
 function showLibrary() {
   libraryShowing = true;
   $$('.panel').forEach(p => p.classList.remove('active'));
+  const header = $('header');
+  if (header) header.classList.remove('hidden');
   stepsNav.classList.add('hidden');
   libraryView.classList.add('active');
+  const homeHero = $('#home-hero');
+  if (homeHero) homeHero.classList.add('hidden');
   fetchLibrary();
 }
 
@@ -868,6 +884,12 @@ function getDragTarget(container, y) {
 
 $('#btn-sequencer').addEventListener('click', showSequencer);
 $('#seq-exit-btn').addEventListener('click', exitSequencer);
+
+// Home page quick-links
+const homeLibBtn = $('#home-library-btn');
+if (homeLibBtn) homeLibBtn.addEventListener('click', showLibrary);
+const homeSeqBtn = $('#home-sequencer-btn');
+if (homeSeqBtn) homeSeqBtn.addEventListener('click', showSequencer);
 
 $('#seq-parse-btn').addEventListener('click', () => {
   const raw = $('#seq-input').value;
@@ -2348,7 +2370,6 @@ function resetToUpload() {
   // Hide all panels, library, search
   $$('.panel').forEach(p => p.classList.remove('active'));
   libraryView.classList.remove('active');
-  stepsNav.classList.remove('hidden');
   goToStep(1);
 }
 
