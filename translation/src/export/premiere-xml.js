@@ -466,6 +466,10 @@ ${clipItems.map((clip, i) => `          <clipitem id="nest-audio-${i + 1}">
             <in>${clip.inFrame}</in>
             <out>${clip.outFrame}</out>
             <sequence id="${sacredSeqId}"/>
+            <sourcetrack>
+              <mediatype>audio</mediatype>
+              <trackindex>1</trackindex>
+            </sourcetrack>
             <link>
               <linkclipref>nest-${i + 1}</linkclipref>
               <mediatype>video</mediatype>
