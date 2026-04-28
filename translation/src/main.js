@@ -1229,20 +1229,32 @@ $('#seq-export-jsx-btn').addEventListener('click', () => {
   const outputName = $('#seq-output-name').value.trim() || sacredSequenceName + '_Sacred Selects';
   const fps = parseFloat($('#seq-fps').value) || 23.976;
   const gapFrames = parseInt($('#seq-gap').value) || 12;
+  const gapSeconds = gapFrames / fps;
 
-  const jsx = buildPremiereScript({
-    soundbites: seqSoundbites,
+  // Convert soundbites to seconds for the Premiere extension
+  const tcToSec = (tc) => {
+    const parts = tc.replace(',', '.').split(':');
+    if (parts.length === 3) return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2]);
+    if (parts.length === 2) return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
+    return parseFloat(parts[0]) || 0;
+  };
+
+  const payload = {
     sacredSequenceName,
     outputName,
-    fps,
-    gapFrames,
-  });
+    gapSeconds,
+    soundbites: seqSoundbites.map((b, i) => ({
+      inSec: tcToSec(b.start),
+      outSec: tcToSec(b.end),
+      name: b.prefix || 'Soundbite ' + (i + 1),
+    })),
+  };
 
-  const blob = new Blob([jsx], { type: 'application/javascript' });
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${outputName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.jsx`;
+  a.download = `${outputName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.json`;
   a.click();
   URL.revokeObjectURL(url);
 });

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Sacred Sequencer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    font-size: 12px;
+    color: #e0e0e0;
+    background: #232323;
+    padding: 16px;
+    user-select: none;
+  }
+  h1 { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #fff; }
+  .subtitle { font-size: 11px; color: #888; margin-bottom: 16px; }
+  .field { margin-bottom: 12px; }
+  label { display: block; font-size: 11px; color: #aaa; margin-bottom: 4px; }
+  input, select {
+    width: 100%; padding: 6px 8px; background: #1a1a1a; border: 1px solid #444;
+    border-radius: 4px; color: #e0e0e0; font-size: 12px;
+  }
+  input:focus, select:focus { outline: none; border-color: #0af; }
+  .btn {
+    width: 100%; padding: 8px; border: none; border-radius: 4px; font-size: 12px;
+    cursor: pointer; font-weight: 600; margin-bottom: 8px;
+  }
+  .btn-primary { background: #0af; color: #000; }
+  .btn-primary:hover { background: #0cf; }
+  .btn-primary:disabled { background: #555; color: #888; cursor: default; }
+  .btn-secondary { background: #333; color: #ddd; border: 1px solid #555; }
+  .btn-secondary:hover { background: #444; }
+  #status {
+    margin-top: 12px; padding: 8px; border-radius: 4px;
+    font-size: 11px; line-height: 1.5; display: none;
+  }
+  #status.ok { display: block; background: #1a2e1a; border: 1px solid #2a5; color: #8e8; }
+  #status.err { display: block; background: #2e1a1a; border: 1px solid #a33; color: #e88; }
+  #status.info { display: block; background: #1a1a2e; border: 1px solid #36a; color: #8ae; }
+  .bite-count { font-size: 11px; color: #888; margin-top: 4px; }
+  #sequences { max-height: 120px; overflow-y: auto; margin-bottom: 12px; }
+  .seq-item {
+    padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 11px;
+  }
+  .seq-item:hover { background: #333; }
+  .seq-item.selected { background: #0af; color: #000; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>Sacred Sequencer</h1>
+<p class="subtitle">nest &middot; arrange &middot; propagate</p>
+
+<div class="field">
+  <label>Sacred Sequence (click to select)</label>
+  <div id="sequences"><em style="color:#666">Loading sequences...</em></div>
+</div>
+
+<div class="field">
+  <label>Soundbites JSON</label>
+  <button class="btn btn-secondary" id="load-btn">Load JSON file</button>
+  <input type="file" id="file-input" accept=".json" hidden>
+  <div class="bite-count" id="bite-count"></div>
+</div>
+
+<button class="btn btn-primary" id="build-btn" disabled>Build Sacred Selects</button>
+
+<div id="status"></div>
+
+<script>
+// ── Minimal CSInterface ──
+// Adobe's CSInterface.js is large; we only need evalScript + getSystemPath.
+// This is the minimal implementation for CEP panels.
+
+function CSInterface() {}
+
+CSInterface.prototype.evalScript = function(script, callback) {
+  try {
+    var result = window.__adobe_cep__.evalScript(script);
+    if (callback) callback(result);
+  } catch (e) {
+    if (callback) callback('EvalScript error: ' + e.message);
+  }
+};
+
+CSInterface.prototype.getSystemPath = function(type) {
+  return window.__adobe_cep__.getSystemPath(type);
+};
+
+// ── App ──
+
+var cs = new CSInterface();
+var selectedSequence = null;
+var soundbiteData = null;
+
+// Load sequence list
+function refreshSequences() {
+  cs.evalScript('listSequences()', function(result) {
+    try {
+      var seqs = JSON.parse(result);
+      var el = document.getElementById('sequences');
+
+      if (seqs.length === 0) {
+        el.innerHTML = '<em style="color:#888">No sequences found. Open a project first.</em>';
+        return;
+      }
+
+      el.innerHTML = seqs.map(function(s) {
+        return '<div class="seq-item" data-name="' + escapeHtml(s.name) + '">' + escapeHtml(s.name) + '</div>';
+      }).join('');
+
+      el.querySelectorAll('.seq-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+          el.querySelectorAll('.seq-item').forEach(function(i) { i.classList.remove('selected'); });
+          item.classList.add('selected');
+          selectedSequence = item.getAttribute('data-name');
+          updateBuildBtn();
+        });
+      });
+    } catch (e) {
+      document.getElementById('sequences').innerHTML = '<em style="color:#e88">Error loading sequences</em>';
+    }
+  });
+}
+
+refreshSequences();
+
+// File input
+document.getElementById('load-btn').addEventListener('click', function() {
+  document.getElementById('file-input').click();
+});
+
+document.getElementById('file-input').addEventListener('change', function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      soundbiteData = JSON.parse(ev.target.result);
+
+      // Support both formats: direct array or { soundbites, sacredSequenceName, ... }
+      var bites = Array.isArray(soundbiteData) ? soundbiteData : soundbiteData.soundbites;
+      var count = bites ? bites.length : 0;
+
+      document.getElementById('bite-count').textContent = count + ' soundbite' + (count !== 1 ? 's' : '') + ' loaded';
+
+      // Auto-select matching sequence if name is in the data
+      if (soundbiteData.sacredSequenceName && !selectedSequence) {
+        var items = document.querySelectorAll('.seq-item');
+        items.forEach(function(item) {
+          if (item.getAttribute('data-name') === soundbiteData.sacredSequenceName) {
+            item.click();
+          }
+        });
+      }
+
+      updateBuildBtn();
+      showStatus('info', count + ' soundbites loaded from ' + file.name);
+    } catch (err) {
+      showStatus('err', 'Invalid JSON file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+// Build button
+document.getElementById('build-btn').addEventListener('click', function() {
+  if (!selectedSequence || !soundbiteData) return;
+
+  var btn = document.getElementById('build-btn');
+  btn.disabled = true;
+  btn.textContent = 'Building...';
+
+  var bites = Array.isArray(soundbiteData) ? soundbiteData : soundbiteData.soundbites;
+  var outputName = soundbiteData.outputName || selectedSequence + '_Sacred Selects';
+  var gapSeconds = soundbiteData.gapSeconds || 0.5;
+
+  var payload = JSON.stringify({
+    sacredSequenceName: selectedSequence,
+    outputName: outputName,
+    gapSeconds: gapSeconds,
+    soundbites: bites,
+  });
+
+  // Escape for ExtendScript string
+  var escaped = payload.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+
+  cs.evalScript("buildSacredSelects('" + escaped + "')", function(result) {
+    btn.disabled = false;
+    btn.textContent = 'Build Sacred Selects';
+
+    try {
+      var res = JSON.parse(result);
+      if (res.ok) {
+        var msg = 'Created "' + res.outputName + '"\n';
+        msg += res.inserted + '/' + res.total + ' soundbites inserted as nests of "' + res.sacredName + '"';
+        if (res.errors && res.errors.length > 0) {
+          msg += '\n\nWarnings:\n' + res.errors.join('\n');
+        }
+        showStatus('ok', msg);
+        refreshSequences();
+      } else {
+        showStatus('err', res.error || 'Unknown error');
+      }
+    } catch (e) {
+      showStatus('err', 'Script error: ' + (result || e.message));
+    }
+
+    updateBuildBtn();
+  });
+});
+
+function updateBuildBtn() {
+  var btn = document.getElementById('build-btn');
+  var bites = soundbiteData ? (Array.isArray(soundbiteData) ? soundbiteData : soundbiteData.soundbites) : null;
+  btn.disabled = !selectedSequence || !bites || bites.length === 0;
+}
+
+function showStatus(type, msg) {
+  var el = document.getElementById('status');
+  el.className = type;
+  el.textContent = msg;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>
