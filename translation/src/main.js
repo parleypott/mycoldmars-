@@ -932,11 +932,10 @@ function startSeqAurora() {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // Per-light state: target = where it wants to be; current = where it is now.
-  // Different stiffness (lower = laggier) per light — the lag is the magic.
+  // Soft, slow tracking — the cursor influence is gentle, not magnetic.
   const cfg = [
-    { stiffness: 0.045, damping: 0.78, idleAmp: 0.18, idleSpeed: 0.00018, idlePhase: 0 },
-    { stiffness: 0.028, damping: 0.82, idleAmp: 0.24, idleSpeed: 0.00012, idlePhase: 2.1 },
-    { stiffness: 0.018, damping: 0.86, idleAmp: 0.30, idleSpeed: 0.00008, idlePhase: 4.2 },
+    { stiffness: 0.012, damping: 0.88, idleAmp: 0.10, idleSpeed: 0.00010, idlePhase: 0,   mouseInfluence: 0.35 },
+    { stiffness: 0.008, damping: 0.90, idleAmp: 0.14, idleSpeed: 0.00006, idlePhase: 2.5, mouseInfluence: 0.25 },
   ];
   const state = Array.from(lights).map((el, i) => ({
     el,
@@ -982,21 +981,18 @@ function startSeqAurora() {
       : 0; // idleWeight: 1 right after a move, 0 after 2.2s still — blends mouse into idle
 
     state.forEach((s, i) => {
-      const { stiffness, damping, idleAmp, idleSpeed, idlePhase } = s.cfg;
+      const { stiffness, damping, idleAmp, idleSpeed, idlePhase, mouseInfluence } = s.cfg;
 
       // Idle Lissajous: each light traces its own slow loop centred near the sun
       const idleX = window.innerWidth  * (0.5 + idleAmp * Math.sin(t * idleSpeed + idlePhase));
       const idleY = window.innerHeight * (0.55 + idleAmp * 0.4 * Math.cos(t * idleSpeed * 1.3 + idlePhase));
 
-      // Each light gets a unique offset from the mouse so they form a triangle, not a stack
-      const offX = (i - 1) * 80;
-      const offY = (i === 1 ? -40 : 30);
-      const targetX = mouseSeen ? (mouseX + offX) : idleX;
-      const targetY = mouseSeen ? (mouseY + offY) : idleY;
+      // Pull only PARTIALLY toward the mouse — the cursor nudges the drift, doesn't own it
+      const pullX = mouseSeen ? (idleX + (mouseX - idleX) * mouseInfluence) : idleX;
+      const pullY = mouseSeen ? (idleY + (mouseY - idleY) * mouseInfluence) : idleY;
 
-      // Blend mouse target with idle drift so it never feels stuck to the cursor
-      s.tx = targetX * idleWeight + idleX * (1 - idleWeight);
-      s.ty = targetY * idleWeight + idleY * (1 - idleWeight);
+      s.tx = pullX * idleWeight + idleX * (1 - idleWeight);
+      s.ty = pullY * idleWeight + idleY * (1 - idleWeight);
 
       // Spring step: F = stiffness * (target - current); v += F; v *= damping; current += v
       const fx = (s.tx - s.cx) * stiffness;
