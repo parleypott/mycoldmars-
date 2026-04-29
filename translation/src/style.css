@@ -2278,17 +2278,19 @@ tr.dimmed-speaker { opacity: 0.35; }
    chrome chromatic title, neon outlined controls.
    ════════════════════════════════════════════════════════════ */
 :root {
-  --rw-night:    #07021a;
-  --rw-deep:     #1a0033;
-  --rw-pink:     #ff2bd1;
-  --rw-magenta:  #ff006e;
-  --rw-cyan:     #00f5ff;
-  --rw-purple:   #8338ec;
-  --rw-orange:   #fb5607;
-  --rw-gold:     #ffbe0b;
-  --rw-chrome:   #f0e6ff;
-  --rw-grid:     rgba(255, 43, 209, 0.32);
-  --rw-grid-faint: rgba(0, 245, 255, 0.18);
+  --rw-night:    #0a0526;
+  --rw-deep:     #1a0044;
+  --rw-pink:     #ff8fdc;       /* softer, lifted toward cream */
+  --rw-magenta:  #ff5cb1;
+  --rw-cyan:     #b8f4ff;       /* soft cyan, almost white */
+  --rw-purple:   #b388ff;       /* lavender */
+  --rw-orange:   #ffd29c;       /* peach */
+  --rw-gold:     #ffe7a3;       /* champagne gold */
+  --rw-cream:    #fff7e6;       /* divine cream */
+  --rw-halo:     #ffeec8;       /* halo gold */
+  --rw-chrome:   #fbf6ff;
+  --rw-grid:     rgba(255, 143, 220, 0.18);
+  --rw-grid-faint: rgba(184, 244, 255, 0.10);
   --rw-ease:     cubic-bezier(0.23, 1, 0.32, 1);
   --rw-ease-io:  cubic-bezier(0.77, 0, 0.175, 1);
 }
@@ -2302,66 +2304,127 @@ tr.dimmed-speaker { opacity: 0.35; }
   isolation: isolate;
 }
 
-/* ── Sky: deep midnight gradient with sunset glow at horizon ── */
+/* ── Sky: lifted indigo→lavender→peach with cream divine glow + god rays ── */
 #sequencer-view::before {
   content: '';
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 90% 55% at 50% 62%,
-      rgba(255, 43, 209, 0.22) 0%,
-      rgba(131, 56, 236, 0.14) 28%,
-      rgba(7, 2, 26, 0) 60%),
+    /* god rays — 12 alternating slivers of cream emanating from sun position */
+    conic-gradient(from 0deg at 50% 58%,
+      transparent 0deg,
+      rgba(255, 247, 230, 0.10) 8deg,
+      transparent 16deg,
+      transparent 30deg,
+      rgba(255, 247, 230, 0.07) 38deg,
+      transparent 46deg,
+      transparent 60deg,
+      rgba(255, 247, 230, 0.10) 68deg,
+      transparent 76deg,
+      transparent 90deg,
+      rgba(255, 247, 230, 0.07) 98deg,
+      transparent 106deg,
+      transparent 360deg),
+    /* cream halo right above the sun */
+    radial-gradient(ellipse 70% 22% at 50% 55%,
+      rgba(255, 247, 230, 0.32) 0%,
+      rgba(255, 220, 170, 0.12) 40%,
+      transparent 70%),
+    /* lavender bloom around the sun */
+    radial-gradient(ellipse 95% 65% at 50% 64%,
+      rgba(255, 143, 220, 0.18) 0%,
+      rgba(179, 136, 255, 0.16) 30%,
+      rgba(10, 5, 38, 0) 65%),
+    /* sky gradient: deep indigo → lavender → peach */
     linear-gradient(180deg,
-      var(--rw-night) 0%,
-      #0e0530 40%,
-      #1a0540 60%,
-      #2c0852 75%,
-      #4a0a72 100%);
+      #0a0526  0%,
+      #18103e 25%,
+      #2a1a5c 45%,
+      #5a3a8c 62%,
+      #b88fc8 78%,
+      #ffd6c2 92%,
+      #fff0d8 100%);
   pointer-events: none;
   z-index: 0;
 }
 
-/* ── The synthwave SUN: gradient orb with horizontal scanline cuts ── */
+/* ── Star field above the horizon ── */
+#sequencer-view {
+  background-image:
+    radial-gradient(1px 1px at 12% 8%,  rgba(255,255,255,0.85), transparent 50%),
+    radial-gradient(1px 1px at 22% 18%, rgba(255,247,230,0.7), transparent 50%),
+    radial-gradient(1.2px 1.2px at 38% 6%, rgba(255,255,255,0.9), transparent 50%),
+    radial-gradient(1px 1px at 47% 22%, rgba(184,244,255,0.6), transparent 50%),
+    radial-gradient(1.5px 1.5px at 62% 10%, rgba(255,255,255,0.95), transparent 50%),
+    radial-gradient(1px 1px at 71% 28%, rgba(255,231,163,0.7), transparent 50%),
+    radial-gradient(1px 1px at 84% 14%, rgba(255,255,255,0.8), transparent 50%),
+    radial-gradient(1.2px 1.2px at 92% 24%, rgba(255,247,230,0.7), transparent 50%),
+    radial-gradient(1px 1px at 8% 32%, rgba(255,255,255,0.6), transparent 50%),
+    radial-gradient(1px 1px at 30% 36%, rgba(255,255,255,0.5), transparent 50%);
+  background-attachment: fixed;
+  background-size: 100% 100%;
+  animation: rw-stars-twinkle 4s ease-in-out infinite;
+}
+
+@keyframes rw-stars-twinkle {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.7; }
+}
+
+/* ── The DIVINE SUN: white-cream core, peach→rose→lavender bloom ── */
 #sequencer-view::after {
   content: '';
   position: fixed;
   left: 50%;
   top: 58%;
-  width: 520px;
-  height: 520px;
-  margin-left: -260px;
-  margin-top: -260px;
+  width: 560px;
+  height: 560px;
+  margin-left: -280px;
+  margin-top: -280px;
   border-radius: 50%;
   background:
-    /* horizontal scanline gaps grow toward the bottom */
+    /* faint horizontal cuts for the synthwave-sun silhouette (now soft) */
     linear-gradient(180deg,
-      transparent 0%, transparent 40%,
-      rgba(7, 2, 26, 0.0) 42%, rgba(7, 2, 26, 0.0) 47%,
-      var(--rw-night) 49%, var(--rw-night) 51%,
-      rgba(7, 2, 26, 0.0) 53%, rgba(7, 2, 26, 0.0) 60%,
-      var(--rw-night) 62%, var(--rw-night) 65%,
-      rgba(7, 2, 26, 0.0) 67%, rgba(7, 2, 26, 0.0) 73%,
-      var(--rw-night) 75%, var(--rw-night) 79%,
-      rgba(7, 2, 26, 0.0) 81%, rgba(7, 2, 26, 0.0) 86%,
-      var(--rw-night) 88%, var(--rw-night) 100%),
+      transparent 0%, transparent 52%,
+      rgba(10, 5, 38, 0.0) 54%, rgba(10, 5, 38, 0.0) 58%,
+      rgba(10, 5, 38, 0.55) 60%, rgba(10, 5, 38, 0.55) 62%,
+      rgba(10, 5, 38, 0.0) 64%, rgba(10, 5, 38, 0.0) 70%,
+      rgba(10, 5, 38, 0.55) 72%, rgba(10, 5, 38, 0.55) 75%,
+      rgba(10, 5, 38, 0.0) 77%, rgba(10, 5, 38, 0.0) 82%,
+      rgba(10, 5, 38, 0.55) 84%, rgba(10, 5, 38, 0.55) 88%,
+      rgba(10, 5, 38, 0.0) 90%, rgba(10, 5, 38, 0.0) 100%),
+    /* core: blinding cream → champagne gold → peach → rose → lavender */
     radial-gradient(circle at 50% 50%,
-      var(--rw-gold) 0%,
-      var(--rw-orange) 28%,
-      var(--rw-magenta) 62%,
-      var(--rw-purple) 92%);
-  background-blend-mode: normal, normal;
-  filter: drop-shadow(0 0 60px rgba(255, 43, 209, 0.55))
-          drop-shadow(0 0 140px rgba(251, 86, 7, 0.35));
+      #ffffff 0%,
+      var(--rw-cream) 12%,
+      var(--rw-halo) 28%,
+      var(--rw-orange) 48%,
+      var(--rw-pink) 72%,
+      var(--rw-purple) 96%);
+  filter:
+    drop-shadow(0 0 40px rgba(255, 247, 230, 0.7))
+    drop-shadow(0 0 100px rgba(255, 207, 154, 0.55))
+    drop-shadow(0 0 200px rgba(255, 140, 200, 0.35));
   pointer-events: none;
   z-index: 0;
-  animation: rw-sun-pulse 6s var(--rw-ease-io) infinite;
+  animation: rw-sun-pulse 7s var(--rw-ease-io) infinite;
 }
 
 @keyframes rw-sun-pulse {
-  0%, 100% { filter: drop-shadow(0 0 60px rgba(255, 43, 209, 0.55)) drop-shadow(0 0 140px rgba(251, 86, 7, 0.35)); }
-  50%      { filter: drop-shadow(0 0 80px rgba(255, 43, 209, 0.75)) drop-shadow(0 0 180px rgba(251, 86, 7, 0.5)); }
+  0%, 100% {
+    filter:
+      drop-shadow(0 0 40px rgba(255, 247, 230, 0.7))
+      drop-shadow(0 0 100px rgba(255, 207, 154, 0.55))
+      drop-shadow(0 0 200px rgba(255, 140, 200, 0.35));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 60px rgba(255, 247, 230, 0.95))
+      drop-shadow(0 0 140px rgba(255, 207, 154, 0.7))
+      drop-shadow(0 0 260px rgba(255, 140, 200, 0.5));
+  }
 }
+
 
 .seq-container {
   max-width: 880px;
@@ -2370,7 +2433,7 @@ tr.dimmed-speaker { opacity: 0.35; }
   z-index: 3;
 }
 
-/* ── Perspective grid floor ── */
+/* ── Perspective grid floor: champagne-gold, fading to lavender mist ── */
 .seq-container::before {
   content: '';
   position: fixed;
@@ -2378,24 +2441,26 @@ tr.dimmed-speaker { opacity: 0.35; }
   bottom: -50vh;
   height: 100vh;
   background:
+    /* fade to nothing as it approaches the horizon */
     linear-gradient(180deg,
       transparent 0%,
-      rgba(7, 2, 26, 0.85) 70%,
-      var(--rw-night) 100%),
+      rgba(40, 20, 80, 0.55) 60%,
+      rgba(10, 5, 38, 0.75) 100%),
     repeating-linear-gradient(
       to right,
-      var(--rw-grid) 0 1px,
-      transparent 1px 64px),
+      rgba(255, 231, 163, 0.28) 0 1px,
+      transparent 1px 80px),
     repeating-linear-gradient(
       to bottom,
-      var(--rw-grid) 0 1px,
-      transparent 1px 48px);
+      rgba(255, 231, 163, 0.28) 0 1px,
+      transparent 1px 56px);
   background-size: 100% 100%, 100% 100%, 100% 100%;
-  transform: perspective(420px) rotateX(58deg);
+  transform: perspective(520px) rotateX(60deg);
   transform-origin: 50% 0%;
   pointer-events: none;
   z-index: 1;
-  animation: rw-grid-drift 1.4s linear infinite;
+  animation: rw-grid-drift 2.4s linear infinite;
+  filter: drop-shadow(0 -8px 20px rgba(255, 231, 163, 0.15));
 }
 
 @keyframes rw-grid-drift {
@@ -2403,15 +2468,15 @@ tr.dimmed-speaker { opacity: 0.35; }
   to   { background-position: 0 0, 0 0, 0 48px; }
 }
 
-/* ── CRT scanlines on top of everything ── */
+/* ── Soft scanlines: cream tint, very low opacity, ethereal ── */
 .seq-container::after {
   content: '';
   position: fixed;
   inset: 0;
   background: repeating-linear-gradient(
     0deg,
-    rgba(0, 245, 255, 0.04) 0 1px,
-    transparent 1px 3px);
+    rgba(255, 247, 230, 0.025) 0 1px,
+    transparent 1px 4px);
   mix-blend-mode: overlay;
   pointer-events: none;
   z-index: 2;
@@ -2430,7 +2495,7 @@ tr.dimmed-speaker { opacity: 0.35; }
   z-index: 4;
 }
 
-/* ── Title: chrome gradient text with magenta/cyan neon glow ── */
+/* ── Title: divine chrome — white→cream→champagne with cream halo ── */
 .seq-title {
   font-family: var(--np-font-mono);
   font-size: clamp(40px, 7vw, 78px);
@@ -2441,19 +2506,20 @@ tr.dimmed-speaker { opacity: 0.35; }
   color: var(--rw-chrome);
   background: linear-gradient(180deg,
     #ffffff 0%,
-    #ffd6f8 35%,
-    var(--rw-pink) 50%,
-    var(--rw-orange) 65%,
-    var(--rw-gold) 100%);
+    #fff7e6 30%,
+    var(--rw-halo) 55%,
+    var(--rw-orange) 78%,
+    var(--rw-pink) 100%);
+  background-size: 100% 200%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   filter:
-    drop-shadow(0 0 12px rgba(255, 43, 209, 0.7))
-    drop-shadow(0 0 32px rgba(255, 43, 209, 0.45))
-    drop-shadow(0 2px 0 rgba(0, 245, 255, 0.6));
+    drop-shadow(0 0 18px rgba(255, 247, 230, 0.85))
+    drop-shadow(0 0 48px rgba(255, 231, 163, 0.6))
+    drop-shadow(0 0 96px rgba(255, 207, 154, 0.4));
   margin-bottom: var(--np-space-4);
-  animation: rw-title-shimmer 5s var(--rw-ease-io) infinite;
+  animation: rw-title-shimmer 6s var(--rw-ease-io) infinite;
 }
 
 @keyframes rw-title-shimmer {
@@ -2466,9 +2532,11 @@ tr.dimmed-speaker { opacity: 0.35; }
   font-size: 13px;
   letter-spacing: 0.5em;
   text-transform: uppercase;
-  color: var(--rw-cyan);
-  text-shadow: 0 0 12px rgba(0, 245, 255, 0.55);
-  padding-left: 0.5em; /* visually balance the wide letter-spacing */
+  color: var(--rw-cream);
+  text-shadow:
+    0 0 14px rgba(255, 247, 230, 0.7),
+    0 0 32px rgba(255, 231, 163, 0.4);
+  padding-left: 0.5em;
 }
 
 .seq-step {
