@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>§ interpreter — Newpress</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,500;1,300;1,400&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,500;1,300;1,400&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&family=Monoton&family=Major+Mono+Display&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
@@ -290,6 +290,26 @@
     <!-- Mouse-reactive aurora glow (driven by JS) -->
     <div class="seq-aurora seq-aurora--a" aria-hidden="true"></div>
     <div class="seq-aurora seq-aurora--b" aria-hidden="true"></div>
+
+    <!-- Tiny line-art angel that drifts across the scene -->
+    <div class="seq-angel" aria-hidden="true">
+      <svg class="seq-angel-svg" viewBox="0 0 60 48" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Halo -->
+        <ellipse cx="30" cy="9" rx="6" ry="1.6" />
+        <!-- Head -->
+        <circle cx="30" cy="15.5" r="3.2" />
+        <!-- Body / robe -->
+        <path d="M30 18.8 C 27 24, 26 32, 27 40 L 33 40 C 34 32, 33 24, 30 18.8 Z" />
+        <!-- Left wing (animated) -->
+        <g class="seq-angel-wing seq-angel-wing--left">
+          <path d="M27 22 C 18 19, 10 22, 6 28 C 11 27, 17 27, 22 30 C 19 25, 23 23, 27 22 Z" />
+        </g>
+        <!-- Right wing (animated) -->
+        <g class="seq-angel-wing seq-angel-wing--right">
+          <path d="M33 22 C 42 19, 50 22, 54 28 C 49 27, 43 27, 38 30 C 41 25, 37 23, 33 22 Z" />
+        </g>
+      </svg>
+    </div>
     <div class="seq-container">
       <div class="seq-nav">
         <button id="seq-exit-btn" class="seq-btn">← Back to Interpreter</button>

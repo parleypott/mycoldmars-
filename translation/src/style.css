@@ -2449,6 +2449,83 @@ tr.dimmed-speaker { opacity: 0.35; }
   50%      { opacity: 0.55; }
 }
 
+/* ── Tiny angel ── */
+.seq-angel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 60px;
+  height: 48px;
+  pointer-events: none;
+  z-index: 3;
+  color: var(--rw-cream);
+  filter:
+    drop-shadow(0 0 6px rgba(255, 247, 230, 0.55))
+    drop-shadow(0 0 16px rgba(255, 231, 163, 0.35));
+  opacity: 0.78;
+  /* Slow Lissajous-like drift across the scene — figure-eight that traces
+     a path roughly above the horizon, never crossing the very centre. */
+  animation: seq-angel-drift 64s ease-in-out infinite;
+}
+
+.seq-angel-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* Subtle bob — vertical wobble independent of the drift, so the angel
+     never moves in a perfectly-straight line at any moment. */
+  animation: seq-angel-bob 4.2s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+
+.seq-angel-wing {
+  transform-origin: 30px 24px;
+  animation: seq-angel-flap 1.6s ease-in-out infinite;
+}
+.seq-angel-wing--right {
+  animation-delay: 0s;
+}
+.seq-angel-wing--left {
+  /* Mirror by negating scaleX so left wing flaps in opposite phase visually */
+  animation-name: seq-angel-flap-left;
+}
+
+@keyframes seq-angel-flap {
+  0%, 100% { transform: scaleY(1)   rotate(0deg); }
+  50%      { transform: scaleY(0.55) rotate(-4deg); }
+}
+@keyframes seq-angel-flap-left {
+  0%, 100% { transform: scaleY(1)   rotate(0deg); }
+  50%      { transform: scaleY(0.55) rotate(4deg); }
+}
+
+@keyframes seq-angel-bob {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50%      { transform: translateY(-3px) rotate(1deg); }
+}
+
+/* Drift: meanders across the upper third of the viewport. The 64s loop
+   is intentionally very slow — at any moment the motion is almost
+   imperceptible, only obvious if you stare. */
+@keyframes seq-angel-drift {
+  0%   { transform: translate3d(8vw,  18vh, 0); }
+  12%  { transform: translate3d(22vw, 12vh, 0); }
+  25%  { transform: translate3d(38vw, 22vh, 0) scaleX(1); }
+  38%  { transform: translate3d(56vw, 14vh, 0); }
+  50%  { transform: translate3d(74vw, 24vh, 0) scaleX(-1); }
+  62%  { transform: translate3d(86vw, 16vh, 0) scaleX(-1); }
+  75%  { transform: translate3d(70vw, 28vh, 0) scaleX(-1); }
+  88%  { transform: translate3d(40vw, 20vh, 0) scaleX(1); }
+  100% { transform: translate3d(8vw,  18vh, 0) scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seq-angel,
+  .seq-angel-svg,
+  .seq-angel-wing { animation: none !important; }
+  .seq-angel { transform: translate3d(15vw, 18vh, 0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .seq-aurora { animation: none !important; opacity: 0.7 !important; }
 }
@@ -2523,32 +2600,40 @@ tr.dimmed-speaker { opacity: 0.35; }
 }
 
 /* ── Title: divine chrome — white→cream→champagne with cream halo ── */
+/* Monoton: iconic 80s display face — built-in horizontal stripes echo
+   the synthwave sun's scanline cuts. Kept large + wide-tracked so the
+   single ornamental face stays tasteful, not noisy. */
 .seq-title {
-  font-family: var(--np-font-mono);
-  font-size: clamp(36px, 6vw, 64px);
-  font-weight: 600;
-  letter-spacing: 0.22em;
+  font-family: 'Monoton', 'Audiowide', 'Major Mono Display', var(--np-font-mono);
+  font-size: clamp(54px, 9vw, 104px);
+  font-weight: 400;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  line-height: 1;
+  line-height: 0.95;
   color: var(--rw-chrome);
   background: linear-gradient(180deg,
     #ffffff 0%,
-    #fff5e0 50%,
-    var(--rw-halo) 100%);
+    #fff5e0 38%,
+    var(--rw-halo) 70%,
+    #e8a890 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 14px rgba(255, 240, 210, 0.35));
-  margin-bottom: var(--np-space-4);
+  filter:
+    drop-shadow(0 0 18px rgba(255, 240, 210, 0.45))
+    drop-shadow(0 2px 0 rgba(120, 80, 140, 0.25));
+  margin-bottom: var(--np-space-6);
 }
 
+/* Major Mono Display: subtitle gets a softer sci-fi monospace —
+   echoes the title without competing. */
 .seq-subtitle {
-  font-family: var(--np-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.55em;
+  font-family: 'Major Mono Display', var(--np-font-mono);
+  font-size: 13px;
+  letter-spacing: 0.6em;
   text-transform: uppercase;
-  color: rgba(255, 235, 200, 0.7);
-  padding-left: 0.55em;
+  color: rgba(255, 235, 200, 0.78);
+  padding-left: 0.6em;
 }
 
 .seq-step {
