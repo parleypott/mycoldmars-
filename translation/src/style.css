@@ -2335,15 +2335,15 @@ tr.dimmed-speaker { opacity: 0.35; }
       rgba(255, 143, 220, 0.18) 0%,
       rgba(179, 136, 255, 0.16) 30%,
       rgba(10, 5, 38, 0) 65%),
-    /* sky gradient: deep indigo → lavender → peach */
+    /* sky gradient: rich indigo → deep lavender → muted rose (less washed out) */
     linear-gradient(180deg,
-      #0a0526  0%,
-      #18103e 25%,
-      #2a1a5c 45%,
-      #5a3a8c 62%,
-      #b88fc8 78%,
-      #ffd6c2 92%,
-      #fff0d8 100%);
+      #050019  0%,
+      #0d0530 22%,
+      #1a0d4a 42%,
+      #321870 60%,
+      #6a3a8e 76%,
+      #aa5a85 88%,
+      #c87a6e 100%);
   pointer-events: none;
   z-index: 0;
 }
@@ -2425,6 +2425,77 @@ tr.dimmed-speaker { opacity: 0.35; }
   }
 }
 
+
+/* ── Aurora: three gauzy radial blobs that follow the mouse with spring lag.
+   JS sets the transform; CSS controls the look + the gentle breathing pulse.
+   Each blob has its own size, color, blur, and pulse rhythm — the offset
+   timing is what makes them feel alive instead of mechanical. */
+.seq-aurora {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  filter: blur(60px);
+  will-change: transform, opacity;
+  z-index: 1; /* under the perspective grid (z:1) — wait, grid is z:1 too. Set above. */
+  z-index: 2;
+  /* Initial off-screen position; JS overrides immediately. */
+  transform: translate3d(-9999px, -9999px, 0);
+}
+
+.seq-aurora--a {
+  background: radial-gradient(circle at 50% 50%,
+    rgba(255, 247, 230, 0.55) 0%,
+    rgba(255, 220, 170, 0.32) 28%,
+    rgba(255, 180, 140, 0.12) 55%,
+    transparent 75%);
+  animation: rw-aurora-pulse-a 5.5s var(--rw-ease-io) infinite;
+}
+
+.seq-aurora--b {
+  width: 720px;
+  height: 720px;
+  filter: blur(80px);
+  background: radial-gradient(circle at 50% 50%,
+    rgba(255, 150, 200, 0.42) 0%,
+    rgba(255, 100, 170, 0.22) 30%,
+    rgba(180, 90, 200, 0.10) 58%,
+    transparent 76%);
+  animation: rw-aurora-pulse-b 7.3s var(--rw-ease-io) infinite;
+}
+
+.seq-aurora--c {
+  width: 520px;
+  height: 520px;
+  filter: blur(50px);
+  background: radial-gradient(circle at 50% 50%,
+    rgba(180, 230, 255, 0.38) 0%,
+    rgba(140, 180, 255, 0.20) 32%,
+    rgba(120, 100, 220, 0.08) 60%,
+    transparent 78%);
+  animation: rw-aurora-pulse-c 4.7s var(--rw-ease-io) infinite;
+}
+
+@keyframes rw-aurora-pulse-a {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 1; }
+}
+@keyframes rw-aurora-pulse-b {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 0.95; }
+}
+@keyframes rw-aurora-pulse-c {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.85; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seq-aurora { animation: none !important; opacity: 0.7 !important; }
+}
 
 .seq-container {
   max-width: 880px;

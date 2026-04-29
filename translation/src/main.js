@@ -918,10 +918,120 @@ let seqSoundbites = [];
 let seqAddingMore = false;
 let seqSourceXML = null; // parsed Premiere XML for nested sequence with real media
 
+/* ── Aurora: 3 spring-eased gauzy lights that follow the mouse, idle-drift when still.
+   Each light has its own stiffness/damping so they don't move in lockstep — that's
+   what makes it feel organic instead of like the cursor dragging a single blob. */
+let seqAuroraRAF = null;
+let seqAuroraOnMove = null;
+let seqAuroraOnLeave = null;
+
+function startSeqAurora() {
+  const view = document.getElementById('sequencer-view');
+  const lights = view.querySelectorAll('.seq-aurora');
+  if (!lights.length) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Per-light state: target = where it wants to be; current = where it is now.
+  // Different stiffness (lower = laggier) per light — the lag is the magic.
+  const cfg = [
+    { stiffness: 0.045, damping: 0.78, idleAmp: 0.18, idleSpeed: 0.00018, idlePhase: 0 },
+    { stiffness: 0.028, damping: 0.82, idleAmp: 0.24, idleSpeed: 0.00012, idlePhase: 2.1 },
+    { stiffness: 0.018, damping: 0.86, idleAmp: 0.30, idleSpeed: 0.00008, idlePhase: 4.2 },
+  ];
+  const state = Array.from(lights).map((el, i) => ({
+    el,
+    cfg: cfg[i] || cfg[0],
+    cx: window.innerWidth / 2,
+    cy: window.innerHeight * 0.58,
+    vx: 0, vy: 0,
+    tx: window.innerWidth / 2,
+    ty: window.innerHeight * 0.58,
+  }));
+
+  // Targets are the mouse — but each light gets a small offset so they don't stack.
+  let mouseX = window.innerWidth / 2;
+  let mouseY = window.innerHeight * 0.58;
+  let mouseSeen = false;
+  let lastMoveAt = 0;
+
+  seqAuroraOnMove = (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    mouseSeen = true;
+    lastMoveAt = performance.now();
+  };
+  seqAuroraOnLeave = () => { mouseSeen = false; };
+
+  view.addEventListener('pointermove', seqAuroraOnMove, { passive: true });
+  view.addEventListener('pointerleave', seqAuroraOnLeave, { passive: true });
+
+  if (reduce) {
+    // Reduced motion: pin lights to centred positions, no animation.
+    state.forEach((s, i) => {
+      const el = s.el;
+      el.style.transform = `translate3d(${s.cx - 300}px, ${s.cy - 300}px, 0)`;
+    });
+    return;
+  }
+
+  const start = performance.now();
+  function tick(now) {
+    const t = now - start;
+    const idleWeight = mouseSeen
+      ? Math.min(1, Math.max(0, 1 - (now - lastMoveAt) / 2200))
+      : 0; // idleWeight: 1 right after a move, 0 after 2.2s still — blends mouse into idle
+
+    state.forEach((s, i) => {
+      const { stiffness, damping, idleAmp, idleSpeed, idlePhase } = s.cfg;
+
+      // Idle Lissajous: each light traces its own slow loop centred near the sun
+      const idleX = window.innerWidth  * (0.5 + idleAmp * Math.sin(t * idleSpeed + idlePhase));
+      const idleY = window.innerHeight * (0.55 + idleAmp * 0.4 * Math.cos(t * idleSpeed * 1.3 + idlePhase));
+
+      // Each light gets a unique offset from the mouse so they form a triangle, not a stack
+      const offX = (i - 1) * 80;
+      const offY = (i === 1 ? -40 : 30);
+      const targetX = mouseSeen ? (mouseX + offX) : idleX;
+      const targetY = mouseSeen ? (mouseY + offY) : idleY;
+
+      // Blend mouse target with idle drift so it never feels stuck to the cursor
+      s.tx = targetX * idleWeight + idleX * (1 - idleWeight);
+      s.ty = targetY * idleWeight + idleY * (1 - idleWeight);
+
+      // Spring step: F = stiffness * (target - current); v += F; v *= damping; current += v
+      const fx = (s.tx - s.cx) * stiffness;
+      const fy = (s.ty - s.cy) * stiffness;
+      s.vx = (s.vx + fx) * damping;
+      s.vy = (s.vy + fy) * damping;
+      s.cx += s.vx;
+      s.cy += s.vy;
+
+      // translate3d nudges hardware acceleration; 600px box, so subtract 300 to centre
+      s.el.style.transform = `translate3d(${s.cx - 300}px, ${s.cy - 300}px, 0)`;
+    });
+
+    seqAuroraRAF = requestAnimationFrame(tick);
+  }
+  seqAuroraRAF = requestAnimationFrame(tick);
+}
+
+function stopSeqAurora() {
+  if (seqAuroraRAF) cancelAnimationFrame(seqAuroraRAF);
+  seqAuroraRAF = null;
+  const view = document.getElementById('sequencer-view');
+  if (view) {
+    if (seqAuroraOnMove) view.removeEventListener('pointermove', seqAuroraOnMove);
+    if (seqAuroraOnLeave) view.removeEventListener('pointerleave', seqAuroraOnLeave);
+  }
+  seqAuroraOnMove = null;
+  seqAuroraOnLeave = null;
+}
+
 function showSequencer() {
   document.getElementById('app').classList.add('hidden');
   document.getElementById('sequencer-view').classList.remove('hidden');
-  document.body.style.background = '#0b0b2e';
+  document.body.style.background = '#0a0526';
+  startSeqAurora();
   setPermalinkHash('sequencer');
 }
 
@@ -929,6 +1039,7 @@ function exitSequencer() {
   document.getElementById('sequencer-view').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.body.style.background = '';
+  stopSeqAurora();
   // Reset sequencer state
   seqSoundbites = [];
   seqAddingMore = false;
