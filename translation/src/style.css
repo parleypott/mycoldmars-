@@ -889,6 +889,30 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   cursor: pointer;
   transition: background var(--np-duration) var(--np-ease);
 }
+
+/* Skeleton placeholder for library cold load */
+.lib-row--skeleton {
+  cursor: default;
+  pointer-events: none;
+}
+.lib-skeleton-pill {
+  display: inline-block;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg,
+    rgba(18, 17, 24, 0.05) 0%,
+    rgba(18, 17, 24, 0.10) 50%,
+    rgba(18, 17, 24, 0.05) 100%);
+  background-size: 240% 100%;
+  animation: lib-skeleton-shimmer 1.4s var(--np-ease) infinite;
+}
+@keyframes lib-skeleton-shimmer {
+  from { background-position: 240% 0; }
+  to   { background-position: -40% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lib-skeleton-pill { animation: none; }
+}
 .lib-row:hover {
   background: rgba(0,0,0,0.02);
 }

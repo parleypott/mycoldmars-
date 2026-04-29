@@ -46,6 +46,35 @@ let librarySortKey = 'updated_at';
 let librarySortAsc = false;
 let libraryCache = null;           // { transcripts, projects, deleted, ts }
 const LIBRARY_CACHE_TTL = 5000;
+const LIBRARY_CACHE_LS_KEY = 'np_library_cache_v1';
+
+// Persist library snapshots to localStorage so a hard refresh shows the
+// previous list instantly (stale-while-revalidate). The freshness check
+// still runs against ts, just from disk instead of memory.
+function loadLibraryCacheFromDisk() {
+  try {
+    const raw = localStorage.getItem(LIBRARY_CACHE_LS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch { return null; }
+}
+
+function saveLibraryCacheToDisk(cache) {
+  try {
+    // Cap to 200 transcripts in the snapshot to keep localStorage small.
+    const trimmed = {
+      ts: cache.ts,
+      transcripts: (cache.transcripts || []).slice(0, 200),
+      projects: cache.projects || [],
+      deleted: (cache.deleted || []).slice(0, 50),
+    };
+    localStorage.setItem(LIBRARY_CACHE_LS_KEY, JSON.stringify(trimmed));
+  } catch {
+    // Ignore quota errors — cache is a perf nicety, not load-bearing.
+  }
+}
 
 const SPEAKER_PALETTE = [
   '#DD2C1E', '#004CFF', '#0D5921', '#FFBF00',
@@ -127,29 +156,82 @@ function showLibrary() {
 
 // ── Library ──
 async function fetchLibrary(forceRefresh) {
-  // Use cache if fresh
+  // 1. Memory cache hit (fresh) — return immediately
   if (!forceRefresh && libraryCache && (Date.now() - libraryCache.ts < LIBRARY_CACHE_TTL)) {
     renderLibrary(libraryCache.transcripts, libraryCache.projects, libraryCache.deleted);
     return;
   }
-  try {
-    const [p, transcripts, deleted] = await Promise.all([
-      listProjects(),
-      listTranscripts(),
-      listDeletedTranscripts(),
-    ]);
-    projects = p;
-    libraryCache = { transcripts, projects, deleted, ts: Date.now() };
-    renderLibrary(transcripts, projects, deleted);
-  } catch (err) {
-    libraryList.innerHTML = '';
-    libraryEmpty.classList.remove('hidden');
-    console.error('Failed to load library:', err);
+
+  // 2. Cold load: hydrate from localStorage (stale-while-revalidate) so the
+  // user sees something in <100ms even if the network is slow.
+  let renderedFromDisk = false;
+  if (!forceRefresh && !libraryCache) {
+    const disk = loadLibraryCacheFromDisk();
+    if (disk && (disk.transcripts?.length || disk.projects?.length)) {
+      libraryCache = disk;
+      projects = disk.projects || [];
+      renderLibrary(disk.transcripts, disk.projects, disk.deleted);
+      renderedFromDisk = true;
+    }
   }
+
+  // 3. If we still have nothing on screen, show a skeleton while we wait.
+  if (!renderedFromDisk) {
+    renderLibrarySkeleton();
+  }
+
+  // 4. Fetch transcripts+projects in parallel; render the second they're back.
+  // listDeletedTranscripts is the slowest and only matters at root view, so
+  // we fire it independently and patch in when it lands.
+  let transcripts = [];
+  let p = [];
+  try {
+    [p, transcripts] = await Promise.all([listProjects(), listTranscripts()]);
+    projects = p;
+    // Render with whatever deleted we have cached (probably stale or empty)
+    const deletedSoFar = libraryCache?.deleted || [];
+    libraryCache = {
+      transcripts,
+      projects,
+      deleted: deletedSoFar,
+      ts: Date.now(),
+    };
+    renderLibrary(transcripts, projects, deletedSoFar);
+    saveLibraryCacheToDisk(libraryCache);
+  } catch (err) {
+    if (!renderedFromDisk) {
+      libraryList.innerHTML = '';
+      libraryEmpty.classList.remove('hidden');
+    }
+    console.error('Failed to load library:', err);
+    return;
+  }
+
+  // 5. Fetch deleted in the background; only re-render if root view is
+  // still showing (deleted only appears there).
+  try {
+    const deleted = await listDeletedTranscripts();
+    libraryCache = { ...libraryCache, deleted, ts: Date.now() };
+    saveLibraryCacheToDisk(libraryCache);
+    if (libraryShowing && !libraryCurrentProject) {
+      renderLibrary(transcripts, projects, deleted);
+    }
+  } catch {
+    // Deleted is non-critical; ignore.
+  }
+}
+
+function renderLibrarySkeleton() {
+  libraryEmpty.classList.add('hidden');
+  const placeholder = `
+    <div class="lib-row lib-row--skeleton"><div class="lib-col lib-col--name"><span class="lib-skeleton-pill" style="width:62%"></span></div><div class="lib-col lib-col--step"><span class="lib-skeleton-pill" style="width:60%"></span></div><div class="lib-col lib-col--date"><span class="lib-skeleton-pill" style="width:70%"></span></div></div>
+  `;
+  libraryList.innerHTML = placeholder.repeat(6);
 }
 
 function invalidateLibraryCache() {
   libraryCache = null;
+  try { localStorage.removeItem(LIBRARY_CACHE_LS_KEY); } catch {}
 }
 
 function renderLibrary(transcripts, projectsList, deletedTranscripts) {
