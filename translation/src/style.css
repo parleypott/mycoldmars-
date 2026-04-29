@@ -24,8 +24,11 @@
   --np-radius-full: 9999px;
 
   --np-ease:        cubic-bezier(0.2, 0.0, 0.0, 1.0);
+  --np-ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
+  --np-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --np-duration:    200ms;
   --np-duration-lg: 400ms;
+  --np-duration-press: 140ms;
 
   --np-font-serif: 'Cormorant', 'PP Editorial New', 'Georgia', serif;
   --np-font-mono:  'JetBrains Mono', 'GT Pressura Mono', monospace;
@@ -34,6 +37,16 @@
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 ::selection { background: var(--np-red); color: var(--np-warm-white); }
+
+/* Respect reduced-motion: keep opacity transitions, drop position movement */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+  }
+  .home-hero > * { animation: none !important; opacity: 1 !important; transform: none !important; }
+}
 
 body {
   background: var(--np-warm-white);
@@ -79,11 +92,15 @@ body {
   cursor: pointer;
   transition: background var(--np-duration) var(--np-ease),
               color var(--np-duration) var(--np-ease),
-              border-color var(--np-duration) var(--np-ease);
+              border-color var(--np-duration) var(--np-ease),
+              transform var(--np-duration-press) var(--np-ease-out);
 }
 .np-button:hover {
   background: var(--np-ink);
   color: var(--np-warm-white);
+}
+.np-button:active {
+  transform: scale(0.98);
 }
 .np-button--primary {
   background: var(--np-ink);
@@ -314,11 +331,33 @@ header {
   text-transform: uppercase;
   padding: 8px 20px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color var(--np-duration) var(--np-ease),
+              color var(--np-duration) var(--np-ease),
+              transform var(--np-duration-press) var(--np-ease-out);
 }
 .home-link:hover {
   border-color: var(--np-red);
   color: var(--np-red);
+}
+.home-link:active {
+  transform: scale(0.98);
+}
+
+/* Hero entry: staggered, opacity + small Y only (transforms are GPU-cheap) */
+.home-hero > .home-logo-label,
+.home-hero > .home-title,
+.home-hero > .home-subtitle,
+.home-hero > .home-links {
+  animation: np-hero-in 520ms var(--np-ease-out) both;
+}
+.home-hero > .home-logo-label { animation-delay: 0ms; }
+.home-hero > .home-title      { animation-delay: 60ms; }
+.home-hero > .home-subtitle   { animation-delay: 120ms; }
+.home-hero > .home-links      { animation-delay: 180ms; }
+
+@keyframes np-hero-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ── Drop zone ── */
@@ -329,7 +368,11 @@ header {
   text-align: center;
   background: rgba(221, 44, 30, 0.02);
   transition: border-color var(--np-duration) var(--np-ease),
-              background var(--np-duration) var(--np-ease);
+              background var(--np-duration) var(--np-ease),
+              transform var(--np-duration-press) var(--np-ease-out);
+}
+.drop-zone:active {
+  transform: scale(0.995);
 }
 .drop-zone:hover {
   border-color: var(--np-red);
@@ -1038,6 +1081,17 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   z-index: 50;
   min-width: 220px;
+  transform-origin: top right;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 160ms var(--np-ease-out),
+              transform 160ms var(--np-ease-out);
+}
+@starting-style {
+  .export-dropdown:not(.hidden) {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 .export-dropdown-item {
   display: block;
