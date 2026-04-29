@@ -376,9 +376,24 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
 
   if (!editor) return null;
 
-  // Get unique speakers from speakerMap, excluding hidden (generic) speakers
+  // Get unique speakers from speakerMap, excluding hidden (generic) speakers.
+  // When multiple speakers share the same clean name (e.g. lots of generic
+  // "Speaker"), auto-number them so chips read Speaker 01, Speaker 02… —
+  // otherwise the editor shows a wall of identical pills.
   const hiddenSet = new Set(hiddenSpeakers || []);
-  const speakers = Object.entries(speakerMap || {}).filter(([raw]) => !hiddenSet.has(raw));
+  const rawSpeakers = Object.entries(speakerMap || {}).filter(([raw]) => !hiddenSet.has(raw));
+  const nameCounts = rawSpeakers.reduce((acc, [, clean]) => {
+    acc[clean] = (acc[clean] || 0) + 1;
+    return acc;
+  }, {});
+  const seenIndex = {};
+  const speakers = rawSpeakers.map(([raw, clean]) => {
+    if (nameCounts[clean] > 1) {
+      seenIndex[clean] = (seenIndex[clean] || 0) + 1;
+      return [raw, clean, `${clean} ${String(seenIndex[clean]).padStart(2, '0')}`];
+    }
+    return [raw, clean, clean];
+  });
   const dateStr = sequenceInfo?.dateFilmed
     ? sequenceInfo.dateFilmed.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : null;
@@ -432,28 +447,35 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
       {/* Speaker panel */}
       {speakers.length > 0 && (
         <div className="editor-speaker-panel">
-          {speakers.map(([raw, clean]) => {
+          {speakers.map(([raw, clean, display]) => {
             const color = speakerColors?.[raw] || '#DD2C1E';
             const isEditing = editingSpeaker === raw;
             const isFiltered = filteredSpeakers.has(clean);
+            const toggle = (e) => {
+              e.stopPropagation();
+              const next = new Set(filteredSpeakers);
+              if (isFiltered) next.delete(clean); else next.add(clean);
+              setFilteredSpeakers(next);
+            };
             return (
-              <div key={raw} className={`editor-speaker-chip ${isFiltered ? 'editor-speaker-chip--filtered' : ''}`}>
-                <input
-                  type="checkbox"
-                  className="editor-speaker-chip-check"
-                  checked={!isFiltered}
-                  onChange={() => {
-                    const next = new Set(filteredSpeakers);
-                    if (isFiltered) next.delete(clean); else next.add(clean);
-                    setFilteredSpeakers(next);
-                  }}
+              <button
+                type="button"
+                key={raw}
+                className={`editor-speaker-chip ${isFiltered ? 'editor-speaker-chip--filtered' : ''}`}
+                onClick={toggle}
+                title={isFiltered ? 'Show this speaker' : 'Hide this speaker'}
+                aria-pressed={!isFiltered}
+              >
+                <span
+                  className="editor-speaker-chip-dot"
+                  style={{ background: isFiltered ? 'transparent' : color, borderColor: color }}
                 />
-                <span className="editor-speaker-chip-dot" style={{ background: color }} />
                 {isEditing ? (
                   <input
                     className="editor-speaker-chip-input"
                     value={editValue}
                     onInput={e => setEditValue(e.target.value)}
+                    onClick={e => e.stopPropagation()}
                     onBlur={saveSpeakerEdit}
                     onKeyDown={e => { if (e.key === 'Enter') saveSpeakerEdit(); }}
                     autoFocus
@@ -461,13 +483,13 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
                 ) : (
                   <span
                     className="editor-speaker-chip-name"
-                    onClick={() => startEditSpeaker(raw)}
-                    title="Click to edit"
+                    onDoubleClick={(e) => { e.stopPropagation(); startEditSpeaker(raw); }}
+                    title="Double-click to rename"
                   >
-                    {clean}
+                    {display}
                   </span>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>

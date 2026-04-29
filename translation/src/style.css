@@ -489,8 +489,12 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
 
 /* ── Section desc ── */
 .section-desc {
-  font-family: var(--np-font-mono);
-  font-size: 14px;
+  font-family: var(--np-font-serif);
+  font-size: 18px;
+  font-style: italic;
+  font-weight: 300;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
   color: var(--np-sepia);
   margin-bottom: var(--np-space-4);
 }
@@ -659,20 +663,21 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
 /* ── View toggle ── */
 .view-toggle {
   display: flex;
-  gap: var(--np-space-6);
+  gap: var(--np-space-8);
   margin-bottom: var(--np-space-8);
 }
 .view-toggle-btn {
   font-family: var(--np-font-mono);
   font-size: 11px;
-  letter-spacing: 0.15em;
+  font-weight: 500;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  padding: var(--np-space-2) 0;
+  padding: var(--np-space-2) 2px var(--np-space-3);
   border: none;
   background: transparent;
-  color: var(--np-cool-neutral);
+  color: rgba(65, 44, 39, 0.5);
   cursor: pointer;
-  border-bottom: 2px solid transparent;
+  border-bottom: 1px solid transparent;
   transition: color var(--np-duration) var(--np-ease),
               border-color var(--np-duration) var(--np-ease);
 }
@@ -1331,61 +1336,82 @@ tr.dimmed-speaker { opacity: 0.35; }
   margin-left: 28px;
 }
 
-/* ── Editor Speaker Panel ── */
+/* ── Editor Speaker Panel ──
+   Chips: the colored DOT is the toggle. Filled = active, hollow = filtered.
+   No native checkbox, no heavy borders. The chip is itself a button. */
 .editor-speaker-panel {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--np-space-3);
-  padding: var(--np-space-3) 0;
+  gap: 6px 8px;
+  padding: var(--np-space-2) 0 var(--np-space-4);
   margin-bottom: var(--np-space-4);
   border-bottom: 1px solid var(--np-cool-neutral);
 }
 .editor-speaker-chip {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--np-space-2);
-  padding: var(--np-space-1) var(--np-space-3);
-  border: 1px solid var(--np-cool-neutral);
-  border-radius: 2px;
+  gap: 8px;
+  padding: 5px 10px 5px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--np-radius-full);
+  background: rgba(18, 17, 24, 0.04);
+  color: var(--np-ink);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background 180ms var(--np-ease),
+    border-color 180ms var(--np-ease),
+    color 180ms var(--np-ease),
+    transform var(--np-duration-press) var(--np-ease-out);
 }
+.editor-speaker-chip:hover {
+  background: rgba(18, 17, 24, 0.08);
+  border-color: rgba(18, 17, 24, 0.12);
+}
+.editor-speaker-chip:active { transform: scale(0.97); }
+
 .editor-speaker-chip-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   flex-shrink: 0;
+  border: 1.5px solid transparent;
+  box-sizing: border-box;
+  transition: background 180ms var(--np-ease), border-color 180ms var(--np-ease);
 }
 .editor-speaker-chip-name {
   font-family: var(--np-font-mono);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 500;
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 2px;
-  transition: background var(--np-duration) var(--np-ease);
-}
-.editor-speaker-chip-name:hover {
-  background: rgba(221, 44, 30, 0.06);
+  letter-spacing: 0.02em;
+  font-feature-settings: "tnum";
+  line-height: 1;
+  user-select: none;
 }
 .editor-speaker-chip-input {
   font-family: var(--np-font-mono);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 500;
-  border: 1px solid var(--np-ink);
-  padding: 2px 4px;
-  width: 80px;
+  border: 0;
+  border-bottom: 1px solid var(--np-ink);
+  padding: 1px 2px;
+  width: 96px;
   background: transparent;
+  color: var(--np-ink);
 }
 .editor-speaker-chip-input:focus { outline: none; }
-.editor-speaker-chip-check {
-  width: 12px;
-  height: 12px;
-  margin: 0;
-  cursor: pointer;
-  accent-color: var(--np-ink);
-}
+
 .editor-speaker-chip--filtered {
-  opacity: 0.4;
+  background: transparent;
+  color: var(--np-sepia);
+  opacity: 0.55;
 }
+.editor-speaker-chip--filtered .editor-speaker-chip-name {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(65, 44, 39, 0.4);
+}
+.editor-speaker-chip--filtered:hover { opacity: 0.85; }
 
 /* ── Editor Summary Panel ── */
 .editor-summary-panel {
