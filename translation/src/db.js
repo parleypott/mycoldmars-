@@ -351,9 +351,12 @@ export async function updateTranscript(id, fields) {
 export async function listTranscripts(projectId) {
   try {
     if (!isSupabaseAvailable()) throw new Error('skip');
+    // Intentionally omits `metadata` — it can be large (Workshop state, etc)
+    // and the library only needs id/name/step/dates. Metadata is fetched
+    // lazily by loadTranscript when the user opens a transcript.
     let query = supabase
       .from('transcripts')
-      .select('id, name, step, created_at, updated_at, project_id, metadata, slug')
+      .select('id, name, step, created_at, updated_at, project_id, slug')
       .is('deleted_at', null)
       .order('updated_at', { ascending: false });
 
@@ -367,10 +370,9 @@ export async function listTranscripts(projectId) {
     const index = lsGetIndex('transcripts');
     let items = index.map(id => lsGet(`transcript_${id}`)).filter(t => t && !t.deleted_at);
     if (projectId) items = items.filter(t => t.project_id === projectId);
-    // Return only list-level fields, sorted by updated_at desc
     return items
       .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
-      .map(t => ({ id: t.id, name: t.name, step: t.step, created_at: t.created_at, updated_at: t.updated_at, project_id: t.project_id, metadata: t.metadata, slug: t.slug }));
+      .map(t => ({ id: t.id, name: t.name, step: t.step, created_at: t.created_at, updated_at: t.updated_at, project_id: t.project_id, slug: t.slug }));
   }
 }
 
@@ -500,7 +502,7 @@ export async function listDeletedTranscripts() {
     if (!isSupabaseAvailable()) throw new Error('skip');
     const { data, error } = await supabase
       .from('transcripts')
-      .select('id, name, step, created_at, updated_at, deleted_at, project_id, metadata')
+      .select('id, name, step, created_at, updated_at, deleted_at, project_id')
       .not('deleted_at', 'is', null)
       .order('deleted_at', { ascending: false });
     if (error) throw new Error(error.message);
@@ -508,7 +510,9 @@ export async function listDeletedTranscripts() {
   } catch (err) {
     if (supabase) markSupabaseFailed(err);
     const index = lsGetIndex('transcripts');
-    return index.map(id => lsGet(`transcript_${id}`)).filter(t => t && t.deleted_at);
+    return index.map(id => lsGet(`transcript_${id}`))
+      .filter(t => t && t.deleted_at)
+      .map(t => ({ id: t.id, name: t.name, step: t.step, created_at: t.created_at, updated_at: t.updated_at, deleted_at: t.deleted_at, project_id: t.project_id }));
   }
 }
 
