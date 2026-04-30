@@ -796,6 +796,10 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   border-color: var(--np-red);
   background: rgba(221, 44, 30, 0.06);
   opacity: 1;
+  cursor: pointer;
+}
+.save-status--error:hover {
+  background: rgba(221, 44, 30, 0.12);
 }
 .save-status--error .save-dot {
   background: var(--np-red);
