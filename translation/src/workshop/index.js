@@ -1,5 +1,6 @@
 import { detectThemes, extractSoundbites } from '../api-client.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from '../timecode-utils.js';
+import { chattyStart, chattyUpdate, chattyEnd, THEME_DETECT_PHRASES, WORKSHOP_PROCESS_PHRASES } from '../chatty-loader.js';
 
 /**
  * Mount the Soundbite Workshop into a container.
@@ -138,6 +139,8 @@ export function mountWorkshop(container, opts) {
     state.detecting = true;
     state.error = null;
     render();
+    const loaderId = 'workshop-detect-' + rid();
+    chattyStart(loaderId, THEME_DETECT_PHRASES);
     try {
       const detected = await detectThemes(opts.segments, {
         editorialFocus: opts.editorialFocus,
@@ -147,6 +150,7 @@ export function mountWorkshop(container, opts) {
     } catch (e) {
       state.error = 'Theme detection failed: ' + e.message;
     } finally {
+      chattyEnd(loaderId);
       state.detecting = false;
       persist();
       render();
@@ -160,6 +164,8 @@ export function mountWorkshop(container, opts) {
     state.progress = { done: 0, total: 0 };
     state.error = null;
     render();
+    const loaderId = 'workshop-process-' + rid();
+    chattyStart(loaderId, WORKSHOP_PROCESS_PHRASES, { progress: 0 });
     try {
       const bites = await extractSoundbites({
         segments: opts.segments,
@@ -169,10 +175,10 @@ export function mountWorkshop(container, opts) {
         onProgress: (done, total) => {
           state.progress = { done, total };
           updateProgressBar();
+          chattyUpdate(loaderId, { progress: total > 0 ? done / total : 0 });
         },
       });
       state.soundbites = bites;
-      // Auto-open the most populated theme
       const counts = countByTheme(state.soundbites);
       const top = state.themes.map(t => t.name).sort((a, b) => (counts[b] || 0) - (counts[a] || 0))[0];
       if (top) state.openThemes = { [top]: true };
@@ -181,6 +187,7 @@ export function mountWorkshop(container, opts) {
       state.error = 'Soundbite extraction failed: ' + e.message;
       state.phase = 'bank';
     } finally {
+      chattyEnd(loaderId);
       state.processing = false;
       persist();
       render();

@@ -1,6 +1,7 @@
 import { parseCSV, getStats, cleanSpeakerName, buildSpeakerMap, isGenericSpeaker, getSequenceMetadata } from './csv-parser.js';
 import { parseJSON } from './json-parser.js';
 import { parseTrintHTML } from './trint-html-parser.js';
+import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
@@ -2635,11 +2636,14 @@ function enrichSummaryWithTimecodes(text) {
 }
 
 async function generateAutoSummary() {
+  const loaderId = 'auto-summary';
   try {
     if (!segments || segments.length === 0) {
       console.warn('No segments to summarize');
       return;
     }
+
+    chattyStart(loaderId, SUMMARY_PHRASES);
 
     // Clear old bullets but keep summary text visible while regenerating
     summaryBullets = [];
@@ -2710,6 +2714,8 @@ async function generateAutoSummary() {
     autoSave();
   } catch (err) {
     console.error('Auto-summary generation failed:', err);
+  } finally {
+    chattyEnd(loaderId);
   }
 }
 

@@ -3595,3 +3595,76 @@ tr.dimmed-speaker { opacity: 0.35; }
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+/* ──────────────────────────────────────────────────────────
+   Chatty floating loader (auto-summary, theme detection,
+   soundbite extraction). Bottom-right corner, pulses, rotates
+   through phrases.
+   ────────────────────────────────────────────────────────── */
+.chatty-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--np-ink);
+  color: var(--np-warm-white);
+  padding: 12px 18px;
+  padding-right: 22px;
+  border-radius: 2px;
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  max-width: 360px;
+  box-shadow: 0 12px 32px rgba(18, 17, 24, 0.22);
+  transition: opacity 240ms var(--np-ease), transform 240ms var(--np-ease);
+}
+.chatty-toast.hidden {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+.chatty-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--np-red);
+  flex-shrink: 0;
+  animation: chatty-pulse 1.4s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(221, 44, 30, 0.6);
+}
+
+@keyframes chatty-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(221, 44, 30, 0.5); }
+  50%      { transform: scale(1.18); box-shadow: 0 0 0 6px rgba(221, 44, 30, 0); }
+}
+
+.chatty-text {
+  opacity: 0;
+  transition: opacity 220ms ease;
+  flex: 1;
+  min-width: 0;
+}
+.chatty-text.show { opacity: 1; }
+
+.chatty-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(244, 242, 230, 0.12);
+  overflow: hidden;
+  border-radius: 0 0 2px 2px;
+  display: none;
+}
+.chatty-progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--np-red);
+  transition: width 320ms var(--np-ease);
+}
