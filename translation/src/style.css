@@ -2780,9 +2780,17 @@ tr.dimmed-speaker { opacity: 0.35; }
 .seq-hint {
   font-family: var(--np-font-mono);
   font-size: 12px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
+  line-height: 1.6;
   color: var(--rw-gold);
   text-shadow: 0 0 8px rgba(255, 190, 11, 0.4);
+  white-space: pre-wrap;
+  max-width: 720px;
+  margin-top: var(--np-space-3);
+  padding: var(--np-space-3) var(--np-space-4);
+  background: rgba(255, 191, 0, 0.06);
+  border: 1px solid rgba(255, 191, 0, 0.25);
+  border-radius: 2px;
 }
 
 /* ── Sacred sequence confirm card: quiet champagne stroke ── */

@@ -1137,22 +1137,103 @@ function exitSequencer() {
   }
 }
 
+/**
+ * Parse soundbites from pasted text. Tolerates several common formats:
+ *
+ *   F1 (canonical):
+ *     [SEQUENCE | 00:00:01 → 00:00:05] text...
+ *
+ *   F2 (transcription service, in/out + duration at end):
+ *     SEQUENCE - SPEAKER: [00:00:01] text... [00:00:05][4.0]
+ *     SEQUENCE: [00:00:01] text... [00:00:05][4.0]
+ *
+ *   F3 (single-timecode, no end — uncuttable, flagged):
+ *     SEQUENCE - SPEAKER: [00:00:01] text...
+ *
+ *   F4 (filename + Speaker N (TC), no end — uncuttable, flagged):
+ *     260316-04-102-FISHERMAN.mp4
+ *     FISHERMAN Speaker 6 (00:58:58.16) text...
+ *
+ * Returns { bites, skipped } — bites are cuttable; skipped is a list of
+ * { raw, reason } for lines we recognized but couldn't extract an end TC from.
+ */
 function parseSoundbites(raw) {
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
   const bites = [];
-  const re = /^\[([^|]+?)\s*\|\s*([0-9:.,]+)\s*→\s*([0-9:.,]+)\]\s*(.+)/;
+  const skipped = [];
+
+  // F1
+  const f1 = /^\[([^|]+?)\s*\|\s*([0-9:.,]+)\s*→\s*([0-9:.,]+)\]\s*(.+)/;
+  // F2: prefix: [start] text [end][duration?]
+  //   prefix can be "260304-0439-Chihhao Yu" or "01 MIKAEL ANTELL" or "Mars Study - JOHNNY"
+  const f2 = /^(.+?):\s*\[([0-9:.,]+)\]\s*(.+?)\s*\[([0-9:.,]+)\](?:\[[0-9.]+\])?\s*$/;
+  // F3: prefix: [start] text   (no end timecode at all)
+  const f3 = /^(.+?):\s*\[([0-9:.,]+)\]\s*(.+)$/;
+  // F4 header: "<sequence>.mp4"
+  const f4Header = /^(.+?\.mp4)$/i;
+  // F4 body: "SPEAKER Speaker N (TC)"
+  const f4Body = /^.+?\s+Speaker\s+\d+\s+\(([0-9:.,]+)\)/i;
+
+  // Track context for F4 (the .mp4 line precedes the speaker line).
+  let f4Prefix = null;
+
   for (const line of lines) {
-    const m = line.match(re);
-    if (!m) continue;
-    bites.push({
-      id: crypto.randomUUID(),
-      prefix: m[1].trim(),
-      start: m[2].trim(),
-      end: m[3].trim(),
-      text: m[4].trim(),
-    });
+    // F1
+    let m = line.match(f1);
+    if (m) {
+      bites.push({
+        id: crypto.randomUUID(),
+        prefix: m[1].trim(),
+        start: m[2].trim(),
+        end: m[3].trim(),
+        text: m[4].trim(),
+      });
+      f4Prefix = null;
+      continue;
+    }
+
+    // F2
+    m = line.match(f2);
+    if (m) {
+      bites.push({
+        id: crypto.randomUUID(),
+        prefix: m[1].trim(),
+        start: m[2].trim(),
+        end: m[4].trim(),
+        text: m[3].trim(),
+      });
+      f4Prefix = null;
+      continue;
+    }
+
+    // F4 — filename header, remember it for the next line
+    m = line.match(f4Header);
+    if (m) {
+      f4Prefix = m[1].replace(/\.mp4$/i, '').trim();
+      continue;
+    }
+
+    // F4 body
+    m = line.match(f4Body);
+    if (m && f4Prefix) {
+      skipped.push({ raw: line, reason: 'no end timecode — only a single timestamp', prefix: f4Prefix });
+      f4Prefix = null;
+      continue;
+    }
+
+    // F3 — single TC, no end
+    m = line.match(f3);
+    if (m) {
+      skipped.push({ raw: line, reason: 'no end timecode — only a single timestamp', prefix: m[1].trim() });
+      f4Prefix = null;
+      continue;
+    }
+
+    // Unrecognized — silent skip
+    f4Prefix = null;
   }
-  return bites;
+
+  return { bites, skipped };
 }
 
 function extractSacredName(prefix) {
@@ -1353,14 +1434,25 @@ if (homeSeqBtn) homeSeqBtn.addEventListener('click', showSequencer);
 $('#seq-parse-btn').addEventListener('click', () => {
   const raw = $('#seq-input').value;
   const hint = $('#seq-parse-hint');
-  const newBites = parseSoundbites(raw);
+  const { bites: newBites, skipped } = parseSoundbites(raw);
 
-  if (newBites.length === 0) {
+  if (newBites.length === 0 && skipped.length === 0) {
     hint.textContent = 'No soundbites found. Look for lines like [Name | 00:00:00 → 00:01:00] text...';
     hint.classList.remove('hidden');
     return;
   }
-  hint.classList.add('hidden');
+
+  if (skipped.length > 0) {
+    const sample = skipped.slice(0, 3).map(s => `• ${s.prefix || '(unknown)'} — ${s.reason}`).join('\n');
+    const more = skipped.length > 3 ? `\n…and ${skipped.length - 3} more` : '';
+    hint.textContent =
+      `Skipped ${skipped.length} line${skipped.length !== 1 ? 's' : ''} that have no end timecode (can't cut without an out-point):\n${sample}${more}`;
+    hint.classList.remove('hidden');
+  } else {
+    hint.classList.add('hidden');
+  }
+
+  if (newBites.length === 0) return;
 
   if (seqAddingMore) {
     // Append to existing list, skip confirmation
