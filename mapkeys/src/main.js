@@ -1,107 +1,23 @@
 import mapboxgl from 'mapbox-gl';
-import * as topojson from 'topojson-client';
-import worldTopo from 'world-atlas/countries-50m.json';
 import './style.css';
 
-// ─── Mapbox setup (matches pinglobe) ───
+// ─── Mapbox setup ───
 
 mapboxgl.accessToken = 'pk.eyJ1Ijoiam9obm55d2hhcnJpcyIsImEiOiJ3ck1DN2dnIn0.B-hCqwHxWQwTFGYWOfCLfg';
 
-const countriesGeo = topojson.feature(worldTopo, worldTopo.objects.countries);
-
-const mapStyle = {
-  version: 8,
-  name: 'MapKeys',
-  sources: {
-    'mapbox-streets': { type: 'vector', url: 'mapbox://mapbox.mapbox-streets-v8' },
-    'countries': { type: 'geojson', data: countriesGeo },
-    'route-full': { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
-    'route-drawn': { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
-  },
-  glyphs: 'mapbox://fonts/mapbox/{fontstack}/{range}.pbf',
-  layers: [
-    { id: 'background', type: 'background', paint: { 'background-color': '#f83500' } },
-    { id: 'water', type: 'fill', source: 'mapbox-streets', 'source-layer': 'water', paint: { 'fill-color': '#f83500' } },
-    {
-      id: 'country-outlines', type: 'line', source: 'countries',
-      paint: {
-        'line-color': '#fffbe6',
-        'line-width': ['interpolate', ['linear'], ['zoom'], 0, 0.5, 2, 0.8, 4, 1.2, 7, 1.5, 12, 1],
-      },
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-    },
-    {
-      id: 'admin-disputed', type: 'line', source: 'mapbox-streets', 'source-layer': 'admin',
-      filter: ['all', ['==', ['get', 'admin_level'], 0], ['==', ['get', 'disputed'], 'true']],
-      paint: {
-        'line-color': '#fffbe6',
-        'line-width': ['interpolate', ['linear'], ['zoom'], 0, 0.5, 4, 1, 7, 1.2],
-        'line-dasharray': [3, 2],
-      },
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-    },
-    {
-      id: 'country-label', type: 'symbol', source: 'mapbox-streets', 'source-layer': 'place_label',
-      filter: ['==', ['get', 'class'], 'country'], minzoom: 1,
-      layout: {
-        'text-field': ['get', 'name_en'],
-        'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
-        'text-size': ['interpolate', ['linear'], ['zoom'], 1, 0, 2, 6, 3, 9, 5, 13, 7, 18],
-        'text-transform': 'uppercase',
-        'text-letter-spacing': 0.18,
-        'text-max-width': 8,
-      },
-      paint: {
-        'text-color': ['interpolate', ['linear'], ['zoom'], 1, 'rgba(255,251,230,0)', 2, 'rgba(255,251,230,0.2)', 3, 'rgba(255,251,230,0.4)', 5, 'rgba(255,251,230,0.7)', 7, '#fffbe6'],
-        'text-halo-color': '#f83500',
-        'text-halo-width': 2,
-      },
-    },
-    {
-      id: 'capital-label', type: 'symbol', source: 'mapbox-streets', 'source-layer': 'place_label',
-      filter: ['all', ['==', ['get', 'class'], 'settlement'], ['any', ['==', ['get', 'capital'], 2], ['==', ['get', 'capital'], 3]]],
-      minzoom: 3,
-      layout: {
-        'text-field': ['concat', '★ ', ['get', 'name_en']],
-        'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
-        'text-size': ['interpolate', ['linear'], ['zoom'], 3, 7, 5, 9, 8, 12, 10, 13],
-        'text-transform': 'uppercase',
-        'text-letter-spacing': 0.06,
-      },
-      paint: {
-        'text-color': ['interpolate', ['linear'], ['zoom'], 3, 'rgba(255,251,230,0.3)', 5, 'rgba(255,251,230,0.6)', 7, 'rgba(255,251,230,0.85)'],
-        'text-halo-color': '#f83500',
-        'text-halo-width': 1.5,
-      },
-    },
-    // Route — full path (faint)
-    {
-      id: 'route-full-line', type: 'line', source: 'route-full',
-      paint: {
-        'line-color': '#fffbe6',
-        'line-opacity': 0.18,
-        'line-width': 2,
-        'line-dasharray': [2, 2],
-      },
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-    },
-    // Route — drawn portion (bold)
-    {
-      id: 'route-drawn-glow', type: 'line', source: 'route-drawn',
-      paint: { 'line-color': '#0a0a0a', 'line-width': 7, 'line-opacity': 0.4, 'line-blur': 1 },
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-    },
-    {
-      id: 'route-drawn-line', type: 'line', source: 'route-drawn',
-      paint: { 'line-color': '#fffbe6', 'line-width': 4 },
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-    },
-  ],
+// Warm-paper terrain palette — quiet, minimal, mountain-forward
+const PAL = {
+  paper: '#ece4d4',   // base land — warm off-white
+  ocean: '#cfd6da',   // muted slate-blue
+  ink:   '#2b2a26',   // deep ink for routes/labels
+  sage:  '#a8b59a',   // restrained green
+  shade: '#7c6a55',   // hillshade ridge tone
+  fog:   '#e9e2d2',
 };
 
 const map = new mapboxgl.Map({
   container: 'map',
-  style: mapStyle,
+  style: 'mapbox://styles/mapbox/outdoors-v12',
   projection: 'globe',
   center: [20, 20],
   zoom: 1.8,
@@ -110,14 +26,116 @@ const map = new mapboxgl.Map({
 });
 
 map.on('style.load', () => {
+  // ── Quiet, warm fog
   map.setFog({
-    color: '#f83500',
-    'high-color': '#f83500',
-    'space-color': '#f83500',
-    'horizon-blend': 0,
-    'star-intensity': 0,
-    range: [20, 20],
+    color: PAL.fog,
+    'high-color': '#d8cfbb',
+    'space-color': '#1a1916',
+    'horizon-blend': 0.04,
+    'star-intensity': 0.05,
   });
+
+  // ── 3D terrain (DEM)
+  if (!map.getSource('mapbox-dem')) {
+    map.addSource('mapbox-dem', {
+      type: 'raster-dem',
+      url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+      tileSize: 512,
+      maxzoom: 14,
+    });
+  }
+  map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.3 });
+
+  // ── Hillshade — subtle ridge emphasis
+  if (!map.getLayer('mk-hillshade')) {
+    // Insert under labels if possible
+    const layers = map.getStyle().layers;
+    const firstSymbol = layers.find(l => l.type === 'symbol')?.id;
+    map.addLayer({
+      id: 'mk-hillshade',
+      type: 'hillshade',
+      source: 'mapbox-dem',
+      paint: {
+        'hillshade-shadow-color': PAL.shade,
+        'hillshade-highlight-color': '#fffaf0',
+        'hillshade-accent-color': '#5e4d3a',
+        'hillshade-exaggeration': 0.55,
+      },
+    }, firstSymbol);
+  }
+
+  // ── Recolor base style toward warm-paper minimal
+  const recolor = [
+    // background / land surfaces
+    ['background', 'background-color', PAL.paper],
+    ['land', 'background-color', PAL.paper],
+    ['landcover', 'fill-color', PAL.paper],
+    ['national-park', 'fill-color', '#dfd8c3'],
+    ['landuse', 'fill-color', '#e3dccb'],
+    ['pitch', 'fill-color', '#e3dccb'],
+    ['pitch-line', 'line-color', '#cfc6b1'],
+    // water
+    ['water', 'fill-color', PAL.ocean],
+    ['water-shadow', 'fill-color', PAL.ocean],
+    ['waterway', 'line-color', '#b9c2c8'],
+    ['waterway-shadow', 'line-color', '#b9c2c8'],
+  ];
+  for (const [id, prop, val] of recolor) {
+    if (map.getLayer(id)) {
+      try { map.setPaintProperty(id, prop, val); } catch (_) {}
+    }
+  }
+
+  // Hide all road and transit clutter — keep it minimal
+  const noisyPrefixes = ['road', 'bridge', 'tunnel', 'aeroway', 'rail', 'ferry', 'transit', 'building'];
+  for (const layer of map.getStyle().layers) {
+    if (noisyPrefixes.some(p => layer.id.startsWith(p))) {
+      try { map.setLayoutProperty(layer.id, 'visibility', 'none'); } catch (_) {}
+    }
+  }
+
+  // Soften labels — ink color, gentle halos
+  for (const layer of map.getStyle().layers) {
+    if (layer.type !== 'symbol') continue;
+    try {
+      map.setPaintProperty(layer.id, 'text-color', PAL.ink);
+      map.setPaintProperty(layer.id, 'text-halo-color', PAL.paper);
+      map.setPaintProperty(layer.id, 'text-halo-width', 1.4);
+    } catch (_) {}
+  }
+
+  // ── Route sources + layers (added on top)
+  if (!map.getSource('route-full')) {
+    map.addSource('route-full', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addSource('route-drawn', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+
+    map.addLayer({
+      id: 'route-full-line',
+      type: 'line',
+      source: 'route-full',
+      paint: {
+        'line-color': PAL.ink,
+        'line-opacity': 0.25,
+        'line-width': 1.5,
+        'line-dasharray': [2, 2],
+      },
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+    });
+    map.addLayer({
+      id: 'route-drawn-glow',
+      type: 'line',
+      source: 'route-drawn',
+      paint: { 'line-color': '#ffffff', 'line-width': 7, 'line-opacity': 0.55, 'line-blur': 2 },
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+    });
+    map.addLayer({
+      id: 'route-drawn-line',
+      type: 'line',
+      source: 'route-drawn',
+      paint: { 'line-color': PAL.ink, 'line-width': 3 },
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+    });
+  }
 });
 
 // ─── State ───
