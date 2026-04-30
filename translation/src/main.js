@@ -853,10 +853,6 @@ function openSaveErrorModal() {
   });
 }
 
-function escapeHtmlSafe(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
 if (saveStatusEl) {
   saveStatusEl.addEventListener('click', () => {
     if (!saveStatusEl.classList.contains('save-status--error')) return;
