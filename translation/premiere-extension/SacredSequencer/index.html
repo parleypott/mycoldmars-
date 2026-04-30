@@ -308,6 +308,91 @@
     color: rgba(184, 244, 255, 0.55);
     letter-spacing: 0.12em;
   }
+  .pf-clickable { cursor: pointer; transition: background 140ms var(--rw-ease); }
+  .pf-clickable:hover { background: rgba(184, 244, 255, 0.04); }
+
+  .pf-picker {
+    border-top: 1px solid rgba(184, 244, 255, 0.10);
+    padding: 8px 8px 10px;
+    background: rgba(10, 5, 38, 0.55);
+  }
+  .pf-picker-label {
+    font-size: 9px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: rgba(184, 244, 255, 0.62);
+    margin-bottom: 6px;
+  }
+  .pf-search {
+    width: 100%;
+    padding: 6px 8px;
+    background: rgba(10, 5, 38, 0.7);
+    border: 1px solid rgba(184, 244, 255, 0.18);
+    border-radius: 2px;
+    color: var(--rw-chrome);
+    font-family: var(--mono);
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+  .pf-search:focus {
+    outline: none;
+    border-color: rgba(255, 231, 163, 0.55);
+  }
+  .pf-pick-list {
+    max-height: 160px;
+    overflow-y: auto;
+    border-radius: 2px;
+  }
+  .pf-pick-list::-webkit-scrollbar { width: 5px; }
+  .pf-pick-list::-webkit-scrollbar-thumb { background: rgba(184, 244, 255, 0.20); border-radius: 2px; }
+  .pf-pick {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    font-size: 11px;
+    color: rgba(255, 247, 230, 0.78);
+    cursor: pointer;
+    border-radius: 2px;
+    border: 1px solid transparent;
+    transition: background 140ms var(--rw-ease), border-color 140ms var(--rw-ease), color 140ms var(--rw-ease);
+  }
+  .pf-pick:hover {
+    background: rgba(255, 231, 163, 0.08);
+    border-color: rgba(255, 231, 163, 0.35);
+    color: var(--rw-halo);
+  }
+  .pf-suggest {
+    flex-shrink: 0;
+    font-size: 8px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--rw-cyan);
+    background: rgba(184, 244, 255, 0.08);
+    padding: 2px 6px;
+    border-radius: 2px;
+    margin-left: 8px;
+  }
+  .pf-clear {
+    margin-top: 8px;
+    width: 100%;
+    background: transparent;
+    border: 1px solid rgba(255, 140, 130, 0.35);
+    color: rgba(255, 200, 194, 0.85);
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 140ms var(--rw-ease), border-color 140ms var(--rw-ease), color 140ms var(--rw-ease);
+  }
+  .pf-clear:hover {
+    background: rgba(221, 44, 30, 0.12);
+    border-color: rgba(255, 140, 130, 0.7);
+    color: #ffd6d0;
+  }
 </style>
 </head>
 <body>
@@ -315,7 +400,7 @@
 <div class="wrap">
 
 <h1>Sacred Sequencer</h1>
-<p class="subtitle">nest &middot; arrange &middot; propagate <span class="version-tag">v2.0</span></p>
+<p class="subtitle">nest &middot; arrange &middot; propagate <span class="version-tag">v2.1</span></p>
 
 <div class="field">
   <label>Soundbites JSON</label>
@@ -362,6 +447,47 @@ var soundbiteData = null;
 var availableSequences = []; // names from the open Premiere project
 var sequenceListReady = false;
 var sequenceListError = null;
+var mappings = loadMappings();      // { jsonName: premiereName } — persisted
+var openPickerFor = null;           // which JSON name has its picker expanded
+
+function loadMappings() {
+  try {
+    var raw = localStorage.getItem('sacred-mappings');
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+function saveMappings() {
+  try { localStorage.setItem('sacred-mappings', JSON.stringify(mappings)); } catch (e) {}
+}
+
+// Pick the best Premiere sequence to suggest for a given JSON-side name.
+function suggestMatch(jsonName) {
+  if (!jsonName) return null;
+  // exact
+  for (var i = 0; i < availableSequences.length; i++) {
+    if (availableSequences[i] === jsonName) return availableSequences[i];
+  }
+  // Premiere name starts with JSON name — most common case (truncated speaker)
+  for (var j = 0; j < availableSequences.length; j++) {
+    if (availableSequences[j].indexOf(jsonName) === 0) return availableSequences[j];
+  }
+  // JSON name starts with Premiere name (other direction)
+  for (var k = 0; k < availableSequences.length; k++) {
+    if (jsonName.indexOf(availableSequences[k]) === 0) return availableSequences[k];
+  }
+  // contains
+  for (var m = 0; m < availableSequences.length; m++) {
+    if (availableSequences[m].indexOf(jsonName) !== -1 || jsonName.indexOf(availableSequences[m]) !== -1) return availableSequences[m];
+  }
+  return null;
+}
+
+// What sequence will the build actually use for this JSON name?
+function resolveName(jsonName) {
+  if (availableSequences.indexOf(jsonName) !== -1) return jsonName;
+  if (mappings[jsonName] && availableSequences.indexOf(mappings[jsonName]) !== -1) return mappings[jsonName];
+  return null;
+}
 // All-inline listSequences — no JSON (ES3). Two paths:
 //   A) app.project.sequences.numSequences
 //   B) walk projectItems via rootItem.children, test isSequence()
@@ -488,16 +614,115 @@ function renderPreflight() {
     return;
   }
 
-  el.innerHTML = rows.map(function(r) {
-    var found = availableSequences.indexOf(r.name) !== -1;
-    return '<div class="pf-row">' +
+  var html = rows.map(function(r) {
+    return renderPfRow(r);
+  }).join('') + '<div class="pf-row" style="justify-content:flex-end;">' + refreshBtnSmall() + '</div>';
+  el.innerHTML = html;
+  bindRefreshSmall();
+  bindPfRows();
+  updateBuildBtn();
+}
+
+function renderPfRow(r) {
+  var resolved = resolveName(r.name);
+  var isMapped = resolved && resolved !== r.name;
+  var isFound = resolved && !isMapped;
+  var pickerOpen = openPickerFor === r.name;
+
+  var statusHtml;
+  if (isFound) {
+    statusHtml = '<span class="pf-meta found">Found</span>';
+  } else if (isMapped) {
+    statusHtml = '<span class="pf-meta found" title="Mapped to ' + escapeHtml(resolved) + '">→ ' + escapeHtml(truncate(resolved, 22)) + '</span>';
+  } else {
+    statusHtml = '<span class="pf-meta missing">Missing</span>';
+  }
+
+  var rowHtml =
+    '<div class="pf-row pf-clickable" data-name="' + escapeHtml(r.name) + '">' +
       '<span class="pf-name">' + escapeHtml(r.name) + '</span>' +
       '<span class="pf-count">' + r.count + '×</span>' +
-      '<span class="pf-meta ' + (found ? 'found' : 'missing') + '">' + (found ? 'Found' : 'Missing') + '</span>' +
+      statusHtml +
+    '</div>';
+
+  if (pickerOpen) {
+    rowHtml += renderPicker(r.name);
+  }
+  return rowHtml;
+}
+
+function renderPicker(jsonName) {
+  var suggested = suggestMatch(jsonName);
+  var ordered = availableSequences.slice();
+  if (suggested) {
+    ordered = [suggested].concat(ordered.filter(function(n) { return n !== suggested; }));
+  }
+
+  var listHtml = ordered.map(function(n, idx) {
+    var isSuggested = idx === 0 && suggested === n;
+    return '<div class="pf-pick" data-pick="' + escapeHtml(n) + '" data-for="' + escapeHtml(jsonName) + '">' +
+      escapeHtml(n) +
+      (isSuggested ? '<span class="pf-suggest">suggested</span>' : '') +
       '</div>';
-  }).join('') + '<div class="pf-row" style="justify-content:flex-end;">' + refreshBtnSmall() + '</div>';
-  bindRefreshSmall();
-  updateBuildBtn();
+  }).join('');
+
+  var clearHtml = mappings[jsonName] ?
+    '<button class="pf-clear" data-clear="' + escapeHtml(jsonName) + '">Clear mapping</button>' : '';
+
+  return '<div class="pf-picker">' +
+    '<div class="pf-picker-label">Map "' + escapeHtml(jsonName) + '" to:</div>' +
+    '<input type="text" class="pf-search" data-search-for="' + escapeHtml(jsonName) + '" placeholder="Type to filter..." autofocus>' +
+    '<div class="pf-pick-list">' + listHtml + '</div>' +
+    clearHtml +
+    '</div>';
+}
+
+function bindPfRows() {
+  document.querySelectorAll('.pf-clickable').forEach(function(row) {
+    row.addEventListener('click', function(e) {
+      // Ignore clicks on inputs/buttons within an open picker
+      if (e.target.closest && e.target.closest('.pf-picker')) return;
+      var name = row.getAttribute('data-name');
+      openPickerFor = (openPickerFor === name) ? null : name;
+      renderPreflight();
+    });
+  });
+  document.querySelectorAll('.pf-pick').forEach(function(item) {
+    item.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var jsonName = item.getAttribute('data-for');
+      var pickName = item.getAttribute('data-pick');
+      mappings[jsonName] = pickName;
+      saveMappings();
+      openPickerFor = null;
+      renderPreflight();
+    });
+  });
+  document.querySelectorAll('.pf-clear').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var jsonName = btn.getAttribute('data-clear');
+      delete mappings[jsonName];
+      saveMappings();
+      renderPreflight();
+    });
+  });
+  document.querySelectorAll('.pf-search').forEach(function(input) {
+    input.addEventListener('click', function(e) { e.stopPropagation(); });
+    input.addEventListener('input', function() {
+      var q = input.value.toLowerCase();
+      var list = input.parentNode.querySelector('.pf-pick-list');
+      if (!list) return;
+      list.querySelectorAll('.pf-pick').forEach(function(p) {
+        var match = p.getAttribute('data-pick').toLowerCase().indexOf(q) !== -1;
+        p.style.display = match ? '' : 'none';
+      });
+    });
+  });
+}
+
+function truncate(s, n) {
+  return s.length > n ? s.slice(0, n - 1) + '…' : s;
 }
 
 function refreshBtnSmall() {
@@ -553,14 +778,14 @@ document.getElementById('build-btn').addEventListener('click', function() {
                    (defaultSeqName ? defaultSeqName + '_Sacred Selects' : 'Sacred Selects');
   var gapSeconds = (!Array.isArray(soundbiteData) && soundbiteData.gapSeconds) || 0.5;
 
-  // Preflight check — every referenced sequence must exist in the project.
+  // Preflight check — every referenced sequence must resolve (directly or via mapping).
   var rows = referencedSequences();
   var missing = [];
   for (var ri = 0; ri < rows.length; ri++) {
-    if (availableSequences.indexOf(rows[ri].name) === -1) missing.push(rows[ri].name);
+    if (!resolveName(rows[ri].name)) missing.push(rows[ri].name);
   }
   if (missing.length > 0) {
-    showStatus('err', 'Missing sequences in this project:\n' + missing.join('\n'));
+    showStatus('err', 'Missing or unmapped sequence(s):\n' + missing.join('\n') + '\n\nClick the missing rows above to map them.');
     return;
   }
 
@@ -576,7 +801,8 @@ document.getElementById('build-btn').addEventListener('click', function() {
     var b = bites[bi];
     var seqName = b.sequenceName || defaultSeqName;
     if (!seqName) continue;
-    biteParts.push(esc(seqName) + '~' + b.inSec + '~' + b.outSec);
+    var resolvedSeq = resolveName(seqName) || seqName;
+    biteParts.push(esc(resolvedSeq) + '~' + b.inSec + '~' + b.outSec);
   }
   var packed = header + '||' + biteParts.join('||');
 

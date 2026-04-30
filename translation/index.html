@@ -343,10 +343,12 @@
 
       <!-- Step 2: Arrange (drag and drop) -->
       <div id="seq-arrange" class="seq-step hidden">
+        <div class="seq-sources">
+          <div class="seq-sources-label">Source Sequences</div>
+          <div id="seq-source-list" class="seq-source-list"></div>
+          <p class="seq-sources-hint">Detected from soundbite prefixes. The Premiere panel handles name mismatches at build time.</p>
+        </div>
         <div class="seq-config">
-          <label class="seq-label">Sacred Sequence
-            <input id="seq-name" class="seq-input" type="text" placeholder="Sequence name">
-          </label>
           <label class="seq-label">Selects Sequence Name
             <input id="seq-output-name" class="seq-input" type="text" placeholder="Output sequence name">
           </label>
@@ -368,6 +370,7 @@
           </label>
           <span id="seq-xml-status" class="seq-hint"></span>
         </div>
+        <input id="seq-name" type="hidden">
         <div id="seq-status" class="seq-status"></div>
         <div id="seq-blocks" class="seq-blocks"></div>
         <div class="seq-actions">

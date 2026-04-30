@@ -1233,10 +1233,32 @@ function parsePremiereXML(xmlString) {
   return { sequenceXML, sequenceName, duration, timebase, ntsc };
 }
 
+function renderSeqSources() {
+  const list = $('#seq-source-list');
+  if (!list) return;
+  const sources = detectAllSequences(seqSoundbites);
+  if (sources.length === 0) {
+    list.innerHTML = '<span class="seq-source-empty">No sources detected.</span>';
+    return;
+  }
+  list.innerHTML = sources.map(s =>
+    `<span class="seq-source-chip"><span class="seq-source-name">${escapeHtmlSafe(s.name)}</span><span class="seq-source-count">${s.count}×</span></span>`
+  ).join('');
+}
+
+function escapeHtmlSafe(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function renderSeqBlocks() {
   const container = $('#seq-blocks');
   const status = $('#seq-status');
-  status.textContent = `${seqSoundbites.length} soundbite${seqSoundbites.length !== 1 ? 's' : ''} · ~${formatDuration(seqSoundbites)} total`;
+  const sources = detectAllSequences(seqSoundbites);
+  const seqLabel = sources.length === 1
+    ? `1 sequence`
+    : `${sources.length} sequences`;
+  status.textContent = `${seqSoundbites.length} soundbite${seqSoundbites.length !== 1 ? 's' : ''} · ${seqLabel} · ~${formatDuration(seqSoundbites)} total`;
+  renderSeqSources();
 
   const currentFps = parseFloat($('#seq-fps')?.value) || 23.976;
   container.innerHTML = seqSoundbites.map(b => `
