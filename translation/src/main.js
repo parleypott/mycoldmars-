@@ -2061,13 +2061,27 @@ btnExport.addEventListener('click', () => {
 });
 
 btnDownload.addEventListener('click', () => {
-  const blob = new Blob([srtContent], { type: 'text/plain' });
+  if (!srtContent) {
+    // Force a regenerate before download if user clicked before previewing
+    if (translations.length > 0) regenerateSRT();
+  }
+  if (!srtContent) {
+    showStatus?.('err', 'No subtitles to download yet.');
+    return;
+  }
+  const baseName = (currentTranscriptName || 'subtitles').replace(/[^a-z0-9 _-]+/gi, '').trim() || 'subtitles';
+  const blob = new Blob([srtContent], { type: 'application/x-subrip' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'subtitles.srt';
+  a.download = `${baseName}.srt`;
+  a.style.display = 'none';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 0);
 });
 
 btnCopy.addEventListener('click', async () => {
