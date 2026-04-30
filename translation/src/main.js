@@ -815,14 +815,52 @@ function updateSaveStatus(state, errMsg) {
   }
 }
 
+function openSaveErrorModal() {
+  const local = getStorageInfo() === 'local';
+  const errMsg = lastSaveError || '(no error message captured)';
+  let modal = document.getElementById('save-error-modal');
+  if (modal) modal.remove();
+
+  modal = document.createElement('div');
+  modal.id = 'save-error-modal';
+  modal.className = 'np-modal';
+  modal.innerHTML = `
+    <div class="np-modal-backdrop" data-close-save-err></div>
+    <div class="np-modal-card" style="max-width: 560px;">
+      <div class="np-modal-header">
+        <h3 class="np-modal-title" style="color: var(--np-red);">Save Failed</h3>
+        <button class="np-modal-close" data-close-save-err aria-label="Close">×</button>
+      </div>
+      <p style="font-family: var(--np-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--np-sepia); margin-bottom: 6px;">Storage mode</p>
+      <p style="margin-bottom: 18px; font-family: var(--np-font-mono); font-size: 13px;">${local ? 'localStorage (Supabase unreachable)' : 'Supabase'}</p>
+
+      <p style="font-family: var(--np-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--np-sepia); margin-bottom: 6px;">Error</p>
+      <pre style="background: rgba(221,44,30,0.06); border: 1px solid rgba(221,44,30,0.3); border-radius: 2px; padding: 12px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; color: var(--np-red); margin-bottom: 20px;">${escapeHtmlSafe(errMsg)}</pre>
+
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button class="np-button" data-close-save-err>Close</button>
+        <button class="np-button np-button--primary" id="save-retry-btn">Retry save</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelectorAll('[data-close-save-err]').forEach(el => {
+    el.addEventListener('click', () => modal.remove());
+  });
+  document.getElementById('save-retry-btn').addEventListener('click', () => {
+    modal.remove();
+    autoSave();
+  });
+}
+
+function escapeHtmlSafe(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 if (saveStatusEl) {
   saveStatusEl.addEventListener('click', () => {
     if (!saveStatusEl.classList.contains('save-status--error')) return;
-    const local = getStorageInfo() === 'local';
-    const detail = `Save failed.\n\n${lastSaveError || '(no message)'}\n\nStorage mode: ${local ? 'localStorage (Supabase unreachable)' : 'Supabase'}\n\nClick OK to retry the save.`;
-    if (window.confirm(detail)) {
-      autoSave();
-    }
+    openSaveErrorModal();
   });
 }
 
