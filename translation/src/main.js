@@ -1,5 +1,6 @@
 import { parseCSV, getStats, cleanSpeakerName, buildSpeakerMap, isGenericSpeaker, getSequenceMetadata } from './csv-parser.js';
 import { parseJSON } from './json-parser.js';
+import { parseTrintHTML } from './trint-html-parser.js';
 import { formatPreciseTimecode } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
@@ -1625,11 +1626,13 @@ $('#seq-xml-input').addEventListener('change', (e) => {
 
 // ── Step 1: Upload ──
 function handleFile(file) {
-  const isJSON = file.name.endsWith('.json');
-  const isCSV = file.name.endsWith('.csv');
+  const lower = file.name.toLowerCase();
+  const isJSON = lower.endsWith('.json');
+  const isCSV  = lower.endsWith('.csv');
+  const isHTML = lower.endsWith('.html') || lower.endsWith('.htm');
 
-  if (!file || (!isCSV && !isJSON)) {
-    showError('Please upload a .csv or .json file');
+  if (!file || (!isCSV && !isJSON && !isHTML)) {
+    showError('Please upload a .csv, .json, or Trint .html export.');
     return;
   }
 
@@ -1638,7 +1641,11 @@ function handleFile(file) {
     try {
       const content = e.target.result;
 
-      if (isJSON || (!isCSV && content.trimStart().startsWith('['))) {
+      if (isHTML || (!isJSON && !isCSV && content.trimStart().startsWith('<'))) {
+        const result = parseTrintHTML(content);
+        segments = result.segments;
+        wordTimingsMap = result.wordTimings;
+      } else if (isJSON || (!isCSV && content.trimStart().startsWith('['))) {
         const result = parseJSON(content);
         segments = result.segments;
         wordTimingsMap = result.wordTimings;
@@ -1664,7 +1671,7 @@ function handleFile(file) {
         .filter((v, i, a) => a.indexOf(v) === i);
       showAllSpeakers = false;
       // Pre-fill sequence name from filename (minus extension)
-      customSequenceName = file.name.replace(/\.(json|csv)$/i, '');
+      customSequenceName = file.name.replace(/\.(json|csv|html|htm)$/i, '');
       renderTranscript();
 
       // Auto-create draft transcript in Supabase
