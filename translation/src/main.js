@@ -787,8 +787,9 @@ function gatherState(name) {
 // ── Save status indicator ──
 const saveStatusEl = document.getElementById('save-status');
 let saveStatusTimer = null;
+let lastSaveError = null;
 
-function updateSaveStatus(state) {
+function updateSaveStatus(state, errMsg) {
   if (!saveStatusEl) return;
   clearTimeout(saveStatusTimer);
   saveStatusEl.classList.remove('save-status--error', 'save-status--fade', 'save-status--saving', 'save-status--saved');
@@ -806,9 +807,23 @@ function updateSaveStatus(state) {
       saveStatusEl.classList.add('save-status--fade');
     }, 4000);
   } else if (state === 'error') {
+    lastSaveError = errMsg || 'Unknown error';
     saveStatusEl.classList.add('save-status--error');
-    saveStatusEl.innerHTML = '<span class="save-dot"></span>Save failed — try again';
+    saveStatusEl.innerHTML = '<span class="save-dot"></span>Save failed · click for details';
+    saveStatusEl.style.cursor = 'pointer';
+    saveStatusEl.title = 'Click to see the error and retry';
   }
+}
+
+if (saveStatusEl) {
+  saveStatusEl.addEventListener('click', () => {
+    if (!saveStatusEl.classList.contains('save-status--error')) return;
+    const local = getStorageInfo() === 'local';
+    const detail = `Save failed.\n\n${lastSaveError || '(no message)'}\n\nStorage mode: ${local ? 'localStorage (Supabase unreachable)' : 'Supabase'}\n\nClick OK to retry the save.`;
+    if (window.confirm(detail)) {
+      autoSave();
+    }
+  });
 }
 
 function getSeqMeta() {
@@ -881,7 +896,7 @@ async function autoSave() {
     invalidateLibraryCache();
   } catch (err) {
     console.error('Auto-save failed:', err);
-    updateSaveStatus('error');
+    updateSaveStatus('error', err?.message || String(err));
   } finally {
     saveInFlight = false;
   }
