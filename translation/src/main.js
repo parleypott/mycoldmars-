@@ -1625,14 +1625,47 @@ $('#seq-xml-input').addEventListener('change', (e) => {
 });
 
 // ── Step 1: Upload ──
-function handleFile(file) {
+async function handleFile(file) {
   const lower = file.name.toLowerCase();
   const isJSON = lower.endsWith('.json');
   const isCSV  = lower.endsWith('.csv');
   const isHTML = lower.endsWith('.html') || lower.endsWith('.htm');
+  const isZIP  = lower.endsWith('.zip');
 
-  if (!file || (!isCSV && !isJSON && !isHTML)) {
-    showError('Please upload a .csv, .json, or Trint .html export.');
+  if (!file || (!isCSV && !isJSON && !isHTML && !isZIP)) {
+    showError('Please upload a .csv, .json, .html, or Trint .zip export.');
+    return;
+  }
+
+  // Trint export comes as a zip — unzip in-browser, find the index.html, parse it.
+  if (isZIP) {
+    try {
+      const buf = new Uint8Array(await file.arrayBuffer());
+      const { unzipSync, strFromU8 } = await import('fflate');
+      const entries = unzipSync(buf, {
+        // Skip non-HTML files to keep the unzip work small
+        filter: (f) => /\.html?$/i.test(f.name) && !f.name.startsWith('__MACOSX/'),
+      });
+      // Prefer a top-level index.html, otherwise any .html
+      let pick = Object.keys(entries).find(n => /(?:^|\/)index\.html?$/i.test(n))
+              || Object.keys(entries).find(n => /\.html?$/i.test(n));
+      if (!pick) {
+        showError('Zip did not contain an HTML file. Is this a Trint Interactive export?');
+        return;
+      }
+      const html = strFromU8(entries[pick]);
+      try {
+        const result = parseTrintHTML(html);
+        segments = result.segments;
+        wordTimingsMap = result.wordTimings;
+      } catch (err) {
+        showError('Could not parse the HTML inside this zip: ' + err.message);
+        return;
+      }
+      finishUploadParse(file);
+    } catch (err) {
+      showError('Could not unzip: ' + err.message);
+    }
     return;
   }
 
@@ -1654,33 +1687,37 @@ function handleFile(file) {
         wordTimingsMap = null;
       }
 
-      // Reset state for new file
-      currentTranscriptId = null;
-      currentTranscriptName = '';
-      analysis = null;
-      translations = [];
-      srtContent = '';
-      speakerColors = {};
-      annotations = {};
-      editorState = null;
-      editorInstance = null;
-      speakerMap = buildSpeakerMap(segments);
-      hiddenSpeakers = segments
-        .map(s => s.speaker)
-        .filter(s => isGenericSpeaker(s))
-        .filter((v, i, a) => a.indexOf(v) === i);
-      showAllSpeakers = false;
-      // Pre-fill sequence name from filename (minus extension)
-      customSequenceName = file.name.replace(/\.(json|csv|html|htm)$/i, '');
-      renderTranscript();
-
-      // Auto-create draft transcript in Supabase
-      autoSave();
+      finishUploadParse(file);
     } catch (err) {
       showError(err.message);
     }
   };
   reader.readAsText(file);
+}
+
+function finishUploadParse(file) {
+  // Reset state for new file
+  currentTranscriptId = null;
+  currentTranscriptName = '';
+  analysis = null;
+  translations = [];
+  srtContent = '';
+  speakerColors = {};
+  annotations = {};
+  editorState = null;
+  editorInstance = null;
+  speakerMap = buildSpeakerMap(segments);
+  hiddenSpeakers = segments
+    .map(s => s.speaker)
+    .filter(s => isGenericSpeaker(s))
+    .filter((v, i, a) => a.indexOf(v) === i);
+  showAllSpeakers = false;
+  // Pre-fill sequence name from filename (minus extension)
+  customSequenceName = (file?.name || '').replace(/\.(json|csv|html|htm|zip)$/i, '');
+  renderTranscript();
+
+  // Auto-create draft transcript in Supabase
+  autoSave();
 }
 
 function renderTranscript() {
