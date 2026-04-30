@@ -145,6 +145,7 @@ function goToStep(n) {
 }
 
 function showLibrary() {
+  flushPendingSave();
   libraryShowing = true;
   $$('.panel').forEach(p => p.classList.remove('active'));
   const header = $('header');
@@ -790,18 +791,23 @@ let saveStatusTimer = null;
 function updateSaveStatus(state) {
   if (!saveStatusEl) return;
   clearTimeout(saveStatusTimer);
-  saveStatusEl.classList.remove('save-status--error', 'save-status--fade');
+  saveStatusEl.classList.remove('save-status--error', 'save-status--fade', 'save-status--saving', 'save-status--saved');
 
   if (state === 'saving') {
-    saveStatusEl.textContent = 'Saving...';
+    saveStatusEl.classList.add('save-status--saving');
+    saveStatusEl.innerHTML = '<span class="save-dot"></span>Saving...';
   } else if (state === 'saved') {
-    saveStatusEl.textContent = getStorageInfo() === 'local' ? 'Saved locally' : 'Saved';
+    saveStatusEl.classList.add('save-status--saved');
+    const local = getStorageInfo() === 'local';
+    saveStatusEl.innerHTML = (local
+      ? '<span class="save-dot"></span>Saved locally'
+      : '<span class="save-dot"></span>Saved');
     saveStatusTimer = setTimeout(() => {
       saveStatusEl.classList.add('save-status--fade');
-    }, 2000);
+    }, 4000);
   } else if (state === 'error') {
-    saveStatusEl.textContent = 'Save failed';
     saveStatusEl.classList.add('save-status--error');
+    saveStatusEl.innerHTML = '<span class="save-dot"></span>Save failed — try again';
   }
 }
 
@@ -851,6 +857,7 @@ async function ensureUniqueSlug(base, excludeId) {
 }
 
 async function autoSave() {
+  saveInFlight = true;
   updateSaveStatus('saving');
   try {
     const payload = gatherState();
@@ -860,7 +867,6 @@ async function autoSave() {
     } else {
       const name = currentTranscriptName || generateAutoName();
       payload.name = name;
-      // Generate a clean slug for the permalink
       const baseSlug = generateSlug(name);
       payload.slug = await ensureUniqueSlug(baseSlug);
       const row = await saveTranscript(payload);
@@ -876,15 +882,45 @@ async function autoSave() {
   } catch (err) {
     console.error('Auto-save failed:', err);
     updateSaveStatus('error');
+  } finally {
+    saveInFlight = false;
   }
 }
 
 // Debounced auto-save for editor changes (3s)
 let debouncedAutoSaveTimer = null;
+let pendingSave = false;
+let saveInFlight = false;
 function debouncedAutoSave() {
   clearTimeout(debouncedAutoSaveTimer);
-  debouncedAutoSaveTimer = setTimeout(() => autoSave(), 3000);
+  pendingSave = true;
+  debouncedAutoSaveTimer = setTimeout(() => {
+    pendingSave = false;
+    autoSave();
+  }, 3000);
 }
+
+// Force any pending debounced save to fire NOW. Called before navigation
+// (Library / New / Sequencer / closing the tab) so the user never loses
+// a transcript because they clicked away during the 3s debounce window.
+function flushPendingSave() {
+  if (!pendingSave && !debouncedAutoSaveTimer) return;
+  clearTimeout(debouncedAutoSaveTimer);
+  debouncedAutoSaveTimer = null;
+  if (pendingSave) {
+    pendingSave = false;
+    autoSave();
+  }
+}
+
+// Warn before closing the tab if a save is still pending or in flight.
+window.addEventListener('beforeunload', (e) => {
+  if (pendingSave || saveInFlight) {
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
 
 // ── Library button ──
 btnLibrary.addEventListener('click', showLibrary);
@@ -1110,6 +1146,7 @@ function stopSeqAurora() {
 }
 
 function showSequencer() {
+  flushPendingSave();
   document.getElementById('app').classList.add('hidden');
   document.getElementById('sequencer-view').classList.remove('hidden');
   document.body.style.background = '#0a0526';
@@ -2945,6 +2982,7 @@ function clearLastTranscript() {
 
 // ── Reset to upload ──
 function resetToUpload() {
+  flushPendingSave();
   clearLastTranscript();
   clearPermalinkHash();
   clearTimeout(debouncedAutoSaveTimer);
