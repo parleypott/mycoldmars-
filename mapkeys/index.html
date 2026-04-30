@@ -20,6 +20,22 @@
     </label>
     <button class="btn ghost hidden" id="clear-route">Clear Route</button>
     <span id="route-info"></span>
+
+    <div id="route-style" class="hidden">
+      <label class="rs-field">
+        <span>Color</span>
+        <input type="color" id="rs-color" value="#2b2a26">
+      </label>
+      <label class="rs-field">
+        <span>Width</span>
+        <input type="range" id="rs-width" min="1" max="12" step="0.5" value="3">
+        <span class="rs-val" id="rs-width-val">3</span>
+      </label>
+      <label class="rs-field">
+        <span>Trail</span>
+        <input type="checkbox" id="rs-trail" checked>
+      </label>
+    </div>
   </div>
 
   <div id="timeline">
@@ -34,6 +50,7 @@
         <input type="file" id="import-file" accept=".json" hidden>
         Import JSON
       </label>
+      <button class="btn primary" id="gif-btn">Render GIF</button>
     </div>
 
     <div id="kf-row">
@@ -57,14 +74,55 @@
           </select>
         </label>
         <label class="field">
-          <span>Route progress</span>
+          <span>Route drawn at this kf</span>
           <input type="number" id="kf-progress" min="0" max="100" step="1" value="0">
           <span class="suffix">%</span>
         </label>
+        <div class="field-note">
+          Speed = Δprogress / duration · curved by easing.<br>
+          Camera + route share this segment, so they're synced.
+        </div>
         <div class="ed-actions">
           <button class="btn" id="kf-update-view">Re-capture View</button>
           <button class="btn ghost danger" id="kf-delete">Delete</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="gif-modal" class="hidden">
+    <div id="gif-card">
+      <div id="gif-title">RENDER GIF</div>
+      <div id="gif-rule"></div>
+
+      <label class="gif-field">
+        <span>Speed</span>
+        <input type="range" id="gif-speed" min="10" max="400" step="5" value="100">
+        <span class="gif-val"><span id="gif-speed-val">100</span>%</span>
+      </label>
+
+      <label class="gif-field">
+        <span>Frames / sec</span>
+        <input type="range" id="gif-fps" min="10" max="30" step="1" value="20">
+        <span class="gif-val"><span id="gif-fps-val">20</span> fps</span>
+      </label>
+
+      <label class="gif-field">
+        <span>Scale</span>
+        <input type="range" id="gif-scale" min="25" max="100" step="5" value="60">
+        <span class="gif-val"><span id="gif-scale-val">60</span>%</span>
+      </label>
+
+      <div class="gif-summary" id="gif-summary"></div>
+
+      <div id="gif-progress" class="hidden">
+        <div id="gif-progress-bar"><div id="gif-progress-fill"></div></div>
+        <div id="gif-progress-label">Capturing frames…</div>
+      </div>
+
+      <div class="gif-actions">
+        <button class="btn ghost" id="gif-cancel">Cancel</button>
+        <button class="btn primary" id="gif-go">Render</button>
       </div>
     </div>
   </div>

@@ -1,5 +1,7 @@
 import mapboxgl from 'mapbox-gl';
 import { unzipSync, strFromU8 } from 'fflate';
+import GIF from 'gif.js';
+import gifWorkerUrl from 'gif.js/dist/gif.worker.js?url';
 import './style.css';
 
 // ─── Mapbox setup ───
@@ -23,6 +25,7 @@ const map = new mapboxgl.Map({
   zoom: 1.8,
   maxPitch: 85,
   attributionControl: false,
+  preserveDrawingBuffer: true,
 });
 
 map.on('style.load', () => {
@@ -138,6 +141,7 @@ map.on('style.load', () => {
       layout: { 'line-join': 'round', 'line-cap': 'round' },
     });
   }
+  applyRouteStyle();
 });
 
 // ─── State ───
@@ -147,11 +151,28 @@ const state = {
   selectedId: null,
   nextId: 1,
   route: null,            // { coords: [[lng,lat]...], cumDist: [...], totalDist }
+  routeStyle: { color: '#2b2a26', width: 3, trail: true },
   playing: false,
   rafId: null,
-  playStart: 0,           // performance.now() when play started, accounting for offset
-  playOffset: 0,          // seconds into timeline at play start
+  playStart: 0,
+  playOffset: 0,
 };
+
+function applyRouteStyle() {
+  const { color, width, trail } = state.routeStyle;
+  if (map.getLayer('route-drawn-line')) {
+    map.setPaintProperty('route-drawn-line', 'line-color', color);
+    map.setPaintProperty('route-drawn-line', 'line-width', width);
+  }
+  if (map.getLayer('route-drawn-glow')) {
+    map.setPaintProperty('route-drawn-glow', 'line-width', width + 4);
+  }
+  if (map.getLayer('route-full-line')) {
+    map.setLayoutProperty('route-full-line', 'visibility', trail ? 'visible' : 'none');
+    map.setPaintProperty('route-full-line', 'line-color', color);
+    map.setPaintProperty('route-full-line', 'line-width', Math.max(1, width * 0.5));
+  }
+}
 
 const EASINGS = {
   linear: t => t,
@@ -522,6 +543,7 @@ document.getElementById('kml-file').addEventListener('change', async e => {
   }
   state.route = buildRoute(coords);
   document.getElementById('clear-route').classList.remove('hidden');
+  document.getElementById('route-style').classList.remove('hidden');
   document.getElementById('route-info').textContent =
     `${file.name} · ${coords.length} pts · ${state.route.totalDist.toFixed(0)} km`;
 
@@ -541,13 +563,39 @@ document.getElementById('kml-file').addEventListener('change', async e => {
 document.getElementById('clear-route').addEventListener('click', () => {
   state.route = null;
   document.getElementById('clear-route').classList.add('hidden');
+  document.getElementById('route-style').classList.add('hidden');
   document.getElementById('route-info').textContent = '';
   setRouteSources(0);
 });
 
+// Route style controls
+const rsColor = document.getElementById('rs-color');
+const rsWidth = document.getElementById('rs-width');
+const rsWidthVal = document.getElementById('rs-width-val');
+const rsTrail = document.getElementById('rs-trail');
+
+rsColor.value = state.routeStyle.color;
+rsWidth.value = state.routeStyle.width;
+rsWidthVal.textContent = state.routeStyle.width;
+rsTrail.checked = state.routeStyle.trail;
+
+rsColor.addEventListener('input', e => {
+  state.routeStyle.color = e.target.value;
+  applyRouteStyle();
+});
+rsWidth.addEventListener('input', e => {
+  state.routeStyle.width = parseFloat(e.target.value);
+  rsWidthVal.textContent = e.target.value;
+  applyRouteStyle();
+});
+rsTrail.addEventListener('change', e => {
+  state.routeStyle.trail = e.target.checked;
+  applyRouteStyle();
+});
+
 // Export / import
 document.getElementById('export-btn').addEventListener('click', () => {
-  const data = JSON.stringify({ keyframes: state.keyframes }, null, 2);
+  const data = JSON.stringify({ keyframes: state.keyframes, routeStyle: state.routeStyle }, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -567,6 +615,14 @@ document.getElementById('import-file').addEventListener('change', async e => {
       renderKeyframes();
       renderEditor();
       if (state.selectedId) selectKeyframe(state.selectedId, true);
+    }
+    if (data.routeStyle) {
+      Object.assign(state.routeStyle, data.routeStyle);
+      rsColor.value = state.routeStyle.color;
+      rsWidth.value = state.routeStyle.width;
+      rsWidthVal.textContent = state.routeStyle.width;
+      rsTrail.checked = state.routeStyle.trail;
+      applyRouteStyle();
     }
   } catch (err) {
     alert('Failed to parse JSON: ' + err.message);
@@ -588,6 +644,153 @@ window.addEventListener('keydown', e => {
     const i = state.keyframes.findIndex(k => k.id === state.selectedId);
     if (i >= 0 && i < state.keyframes.length - 1) selectKeyframe(state.keyframes[i + 1].id);
   }
+});
+
+// ─── GIF rendering ───
+
+const gifModal = document.getElementById('gif-modal');
+const gifSpeed = document.getElementById('gif-speed');
+const gifFps = document.getElementById('gif-fps');
+const gifScale = document.getElementById('gif-scale');
+const gifSpeedVal = document.getElementById('gif-speed-val');
+const gifFpsVal = document.getElementById('gif-fps-val');
+const gifScaleVal = document.getElementById('gif-scale-val');
+const gifSummary = document.getElementById('gif-summary');
+const gifProgress = document.getElementById('gif-progress');
+const gifProgressFill = document.getElementById('gif-progress-fill');
+const gifProgressLabel = document.getElementById('gif-progress-label');
+const gifGo = document.getElementById('gif-go');
+
+function gifSummaryUpdate() {
+  const total = totalDuration();
+  const speed = parseFloat(gifSpeed.value) / 100;
+  const fps = parseInt(gifFps.value, 10);
+  const outDur = speed > 0 ? total / speed : 0;
+  const frames = Math.max(0, Math.round(outDur * fps));
+  const canvas = map.getCanvas();
+  const w = Math.round(canvas.clientWidth * (parseInt(gifScale.value, 10) / 100));
+  const h = Math.round(canvas.clientHeight * (parseInt(gifScale.value, 10) / 100));
+  gifSummary.textContent = `${frames} frames · ${outDur.toFixed(1)}s · ${w}×${h}`;
+}
+
+function bindLive(input, valEl) {
+  input.addEventListener('input', () => {
+    valEl.textContent = input.value;
+    gifSummaryUpdate();
+  });
+}
+bindLive(gifSpeed, gifSpeedVal);
+bindLive(gifFps, gifFpsVal);
+bindLive(gifScale, gifScaleVal);
+
+document.getElementById('gif-btn').addEventListener('click', () => {
+  if (state.keyframes.length < 2) {
+    alert('Add at least 2 keyframes first.');
+    return;
+  }
+  gifProgress.classList.add('hidden');
+  gifGo.disabled = false;
+  gifGo.textContent = 'Render';
+  gifSummaryUpdate();
+  gifModal.classList.remove('hidden');
+});
+
+document.getElementById('gif-cancel').addEventListener('click', () => {
+  gifModal.classList.add('hidden');
+});
+
+async function captureFrame() {
+  // Force a render then read the canvas
+  map.triggerRepaint();
+  return new Promise(resolve => {
+    map.once('render', () => {
+      const canvas = map.getCanvas();
+      resolve(canvas);
+    });
+  });
+}
+
+gifGo.addEventListener('click', async () => {
+  stop();
+  const total = totalDuration();
+  const speedPct = parseFloat(gifSpeed.value);
+  const speed = speedPct / 100;            // 1.0 = same speed, 2.0 = 2x faster
+  const fps = parseInt(gifFps.value, 10);
+  const scalePct = parseInt(gifScale.value, 10) / 100;
+  const outDur = total / speed;
+  const totalFrames = Math.max(1, Math.round(outDur * fps));
+
+  const sourceCanvas = map.getCanvas();
+  const w = Math.round(sourceCanvas.clientWidth * scalePct);
+  const h = Math.round(sourceCanvas.clientHeight * scalePct);
+
+  // Resize down by drawing into an off-screen canvas
+  const off = document.createElement('canvas');
+  off.width = w;
+  off.height = h;
+  const offCtx = off.getContext('2d');
+
+  const gif = new GIF({
+    workers: 2,
+    quality: 10,
+    width: w,
+    height: h,
+    workerScript: gifWorkerUrl,
+    repeat: 0,
+  });
+
+  gif.on('progress', p => {
+    gifProgressFill.style.width = (50 + p * 50) + '%';
+    gifProgressLabel.textContent = `Encoding GIF · ${Math.round(p * 100)}%`;
+  });
+
+  gif.on('finished', blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mapkeys-${speedPct}pct-${fps}fps.gif`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    gifProgressLabel.textContent = 'Done.';
+    gifGo.disabled = false;
+    gifGo.textContent = 'Render';
+    gifSummaryUpdate();
+  });
+
+  gifProgress.classList.remove('hidden');
+  gifProgressFill.style.width = '0%';
+  gifProgressLabel.textContent = 'Capturing frames…';
+  gifGo.disabled = true;
+  gifGo.textContent = 'Rendering…';
+
+  // Each frame represents (1/fps) seconds of OUTPUT, which corresponds to
+  // (1/fps) * speed seconds of TIMELINE. So the timeline advance per frame:
+  const timelineStepPerFrame = (1 / fps) * speed;
+
+  for (let i = 0; i < totalFrames; i++) {
+    const t = Math.min(total, i * timelineStepPerFrame);
+    applyAtTime(t);
+
+    // Wait for the map to fully render (idle event covers tile loading)
+    await new Promise(resolve => {
+      if (map.areTilesLoaded()) {
+        map.once('render', resolve);
+        map.triggerRepaint();
+      } else {
+        map.once('idle', resolve);
+      }
+    });
+
+    const src = map.getCanvas();
+    offCtx.drawImage(src, 0, 0, w, h);
+    gif.addFrame(offCtx, { copy: true, delay: Math.round(1000 / fps) });
+
+    gifProgressFill.style.width = ((i + 1) / totalFrames * 50) + '%';
+    gifProgressLabel.textContent = `Capturing · frame ${i + 1} / ${totalFrames}`;
+  }
+
+  gifProgressLabel.textContent = 'Encoding GIF…';
+  gif.render();
 });
 
 // Initial render

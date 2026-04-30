@@ -67,6 +67,55 @@ html, body {
   backdrop-filter: blur(6px);
 }
 
+/* ─── Route style controls ─── */
+
+#route-style {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(246, 239, 222, 0.88);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 6px 12px;
+  backdrop-filter: blur(6px);
+}
+.rs-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+}
+.rs-field input[type="color"] {
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 3px;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+.rs-field input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.rs-field input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
+.rs-field input[type="range"] {
+  width: 90px;
+  accent-color: var(--ink);
+}
+.rs-field input[type="checkbox"] {
+  accent-color: var(--ink);
+}
+.rs-val {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--ink);
+  min-width: 22px;
+  text-align: right;
+}
+
 /* ─── Buttons ─── */
 
 .btn {
@@ -286,6 +335,16 @@ html, body {
   margin-left: auto;
 }
 
+.field-note {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  max-width: 240px;
+  padding-bottom: 4px;
+}
+
 /* ─── Hint ─── */
 
 #hint {
@@ -310,6 +369,99 @@ html, body {
   padding: 2px 5px;
   font-family: 'Space Mono', monospace;
   color: var(--ink);
+}
+
+/* ─── GIF render modal ─── */
+
+#gif-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 42, 38, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#gif-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  padding: 24px 28px;
+  width: 380px;
+  box-shadow: 0 8px 40px rgba(43, 42, 38, 0.25);
+}
+#gif-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  color: var(--ink);
+}
+#gif-rule {
+  height: 1px;
+  background: var(--panel-edge);
+  margin: 10px 0 18px;
+}
+.gif-field {
+  display: grid;
+  grid-template-columns: 110px 1fr 70px;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  padding: 6px 0;
+}
+.gif-field input[type="range"] {
+  width: 100%;
+  accent-color: var(--ink);
+}
+.gif-val {
+  font-size: 11px;
+  color: var(--ink);
+  text-align: right;
+}
+.gif-summary {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-soft);
+  letter-spacing: 0.05em;
+  padding: 12px 0 4px;
+  border-top: 1px solid var(--panel-edge);
+  margin-top: 10px;
+}
+.gif-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+#gif-progress {
+  margin-top: 12px;
+}
+#gif-progress-bar {
+  height: 4px;
+  background: rgba(43, 42, 38, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+#gif-progress-fill {
+  height: 100%;
+  background: var(--ink);
+  width: 0%;
+  transition: width 0.15s ease;
+}
+#gif-progress-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-soft);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 6px;
 }
 
 /* ─── Mapbox controls — hide ─── */
