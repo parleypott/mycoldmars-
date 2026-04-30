@@ -32,10 +32,25 @@
         <span class="rs-val" id="rs-width-val">3</span>
       </label>
       <label class="rs-field">
+        <span>Opacity</span>
+        <input type="range" id="rs-opacity" min="10" max="100" step="5" value="100">
+        <span class="rs-val"><span id="rs-opacity-val">100</span>%</span>
+      </label>
+      <label class="rs-field">
+        <span>Dashed</span>
+        <input type="checkbox" id="rs-dashed">
+      </label>
+      <label class="rs-field">
         <span>Trail</span>
         <input type="checkbox" id="rs-trail" checked>
       </label>
     </div>
+  </div>
+
+  <div id="draw-bar" class="hidden">
+    <span class="db-label">DRAW</span>
+    <input type="range" id="draw-slider" min="0" max="1000" step="1" value="0">
+    <span class="db-val"><span id="draw-val">0</span>%</span>
   </div>
 
   <div id="timeline">

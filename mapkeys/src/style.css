@@ -116,6 +116,44 @@ html, body {
   text-align: right;
 }
 
+/* ─── Draw-on scrub bar ─── */
+
+#draw-bar {
+  position: absolute;
+  top: 64px;
+  left: 16px;
+  right: 16px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(246, 239, 222, 0.92);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 8px 14px;
+  backdrop-filter: blur(8px);
+}
+.db-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+#draw-slider {
+  flex: 1;
+  accent-color: var(--ink);
+}
+.db-val {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--ink);
+  min-width: 48px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 /* ─── Buttons ─── */
 
 .btn {

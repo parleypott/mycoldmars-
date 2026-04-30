@@ -151,7 +151,8 @@ const state = {
   selectedId: null,
   nextId: 1,
   route: null,            // { coords: [[lng,lat]...], cumDist: [...], totalDist }
-  routeStyle: { color: '#2b2a26', width: 3, trail: true },
+  routeStyle: { color: '#2b2a26', width: 3, opacity: 1, dashed: false, trail: true },
+  previewProgress: 0,    // current scrub-bar position (0–1), what + Keyframe captures
   playing: false,
   rafId: null,
   playStart: 0,
@@ -159,18 +160,22 @@ const state = {
 };
 
 function applyRouteStyle() {
-  const { color, width, trail } = state.routeStyle;
+  const { color, width, opacity, dashed, trail } = state.routeStyle;
   if (map.getLayer('route-drawn-line')) {
     map.setPaintProperty('route-drawn-line', 'line-color', color);
     map.setPaintProperty('route-drawn-line', 'line-width', width);
+    map.setPaintProperty('route-drawn-line', 'line-opacity', opacity);
+    map.setPaintProperty('route-drawn-line', 'line-dasharray', dashed ? [2, 1.5] : [1, 0]);
   }
   if (map.getLayer('route-drawn-glow')) {
     map.setPaintProperty('route-drawn-glow', 'line-width', width + 4);
+    map.setPaintProperty('route-drawn-glow', 'line-opacity', opacity * 0.55);
   }
   if (map.getLayer('route-full-line')) {
     map.setLayoutProperty('route-full-line', 'visibility', trail ? 'visible' : 'none');
     map.setPaintProperty('route-full-line', 'line-color', color);
     map.setPaintProperty('route-full-line', 'line-width', Math.max(1, width * 0.5));
+    map.setPaintProperty('route-full-line', 'line-opacity', opacity * 0.3);
   }
 }
 
@@ -289,11 +294,10 @@ function captureView() {
 
 function addKeyframe() {
   const view = captureView();
-  const lastKf = state.keyframes[state.keyframes.length - 1];
   const kf = {
     id: 'k' + (state.nextId++),
     ...view,
-    progress: lastKf ? lastKf.progress : 0,
+    progress: state.previewProgress,
     duration: 2.0,
     easing: 'easeInOut',
   };
@@ -301,6 +305,7 @@ function addKeyframe() {
   state.selectedId = kf.id;
   renderKeyframes();
   renderEditor();
+  syncDrawSlider();
 }
 
 function deleteKeyframe(id) {
@@ -320,7 +325,9 @@ function selectKeyframe(id, jump = true) {
     const kf = state.keyframes.find(k => k.id === id);
     if (kf) {
       map.jumpTo({ center: kf.center, zoom: kf.zoom, bearing: kf.bearing, pitch: kf.pitch });
+      state.previewProgress = kf.progress;
       setRouteSources(kf.progress);
+      syncDrawSlider();
     }
   }
 }
@@ -356,7 +363,9 @@ function applyAtTime(timeSec) {
   if (kfs.length === 1) {
     const kf = kfs[0];
     map.jumpTo({ center: kf.center, zoom: kf.zoom, bearing: kf.bearing, pitch: kf.pitch });
+    state.previewProgress = kf.progress;
     setRouteSources(kf.progress);
+    syncDrawSlider();
     return;
   }
 
@@ -375,7 +384,9 @@ function applyAtTime(timeSec) {
       const pitch = lerp(a.pitch, b.pitch, eased);
       const progress = lerp(a.progress, b.progress, eased);
       map.jumpTo({ center: [lng, lat], zoom, bearing, pitch });
+      state.previewProgress = progress;
       setRouteSources(progress);
+      syncDrawSlider();
       return;
     }
     acc += dur;
@@ -510,8 +521,10 @@ document.getElementById('kf-progress').addEventListener('input', e => {
   const kf = state.keyframes.find(k => k.id === state.selectedId);
   if (kf) {
     kf.progress = Math.max(0, Math.min(1, (parseFloat(e.target.value) || 0) / 100));
+    state.previewProgress = kf.progress;
     renderKeyframes();
     setRouteSources(kf.progress);
+    syncDrawSlider();
   }
 });
 document.getElementById('kf-update-view').addEventListener('click', () => {
@@ -544,6 +557,7 @@ document.getElementById('kml-file').addEventListener('change', async e => {
   state.route = buildRoute(coords);
   document.getElementById('clear-route').classList.remove('hidden');
   document.getElementById('route-style').classList.remove('hidden');
+  document.getElementById('draw-bar').classList.remove('hidden');
   document.getElementById('route-info').textContent =
     `${file.name} · ${coords.length} pts · ${state.route.totalDist.toFixed(0)} km`;
 
@@ -564,6 +578,7 @@ document.getElementById('clear-route').addEventListener('click', () => {
   state.route = null;
   document.getElementById('clear-route').classList.add('hidden');
   document.getElementById('route-style').classList.add('hidden');
+  document.getElementById('draw-bar').classList.add('hidden');
   document.getElementById('route-info').textContent = '';
   setRouteSources(0);
 });
@@ -572,12 +587,21 @@ document.getElementById('clear-route').addEventListener('click', () => {
 const rsColor = document.getElementById('rs-color');
 const rsWidth = document.getElementById('rs-width');
 const rsWidthVal = document.getElementById('rs-width-val');
+const rsOpacity = document.getElementById('rs-opacity');
+const rsOpacityVal = document.getElementById('rs-opacity-val');
+const rsDashed = document.getElementById('rs-dashed');
 const rsTrail = document.getElementById('rs-trail');
 
-rsColor.value = state.routeStyle.color;
-rsWidth.value = state.routeStyle.width;
-rsWidthVal.textContent = state.routeStyle.width;
-rsTrail.checked = state.routeStyle.trail;
+function syncRouteStyleInputs() {
+  rsColor.value = state.routeStyle.color;
+  rsWidth.value = state.routeStyle.width;
+  rsWidthVal.textContent = state.routeStyle.width;
+  rsOpacity.value = Math.round(state.routeStyle.opacity * 100);
+  rsOpacityVal.textContent = Math.round(state.routeStyle.opacity * 100);
+  rsDashed.checked = state.routeStyle.dashed;
+  rsTrail.checked = state.routeStyle.trail;
+}
+syncRouteStyleInputs();
 
 rsColor.addEventListener('input', e => {
   state.routeStyle.color = e.target.value;
@@ -588,9 +612,41 @@ rsWidth.addEventListener('input', e => {
   rsWidthVal.textContent = e.target.value;
   applyRouteStyle();
 });
+rsOpacity.addEventListener('input', e => {
+  state.routeStyle.opacity = parseFloat(e.target.value) / 100;
+  rsOpacityVal.textContent = e.target.value;
+  applyRouteStyle();
+});
+rsDashed.addEventListener('change', e => {
+  state.routeStyle.dashed = e.target.checked;
+  applyRouteStyle();
+});
 rsTrail.addEventListener('change', e => {
   state.routeStyle.trail = e.target.checked;
   applyRouteStyle();
+});
+
+// Draw-on scrub slider
+const drawSlider = document.getElementById('draw-slider');
+const drawVal = document.getElementById('draw-val');
+
+function syncDrawSlider() {
+  drawSlider.value = Math.round(state.previewProgress * 1000);
+  drawVal.textContent = Math.round(state.previewProgress * 100);
+}
+
+drawSlider.addEventListener('input', e => {
+  const p = parseFloat(e.target.value) / 1000;
+  state.previewProgress = p;
+  drawVal.textContent = Math.round(p * 100);
+  setRouteSources(p);
+  // If a keyframe is selected, edit it in-place — slider IS the keyframe progress
+  const kf = state.keyframes.find(k => k.id === state.selectedId);
+  if (kf) {
+    kf.progress = p;
+    document.getElementById('kf-progress').value = Math.round(p * 100);
+    renderKeyframes();
+  }
 });
 
 // Export / import
@@ -618,10 +674,7 @@ document.getElementById('import-file').addEventListener('change', async e => {
     }
     if (data.routeStyle) {
       Object.assign(state.routeStyle, data.routeStyle);
-      rsColor.value = state.routeStyle.color;
-      rsWidth.value = state.routeStyle.width;
-      rsWidthVal.textContent = state.routeStyle.width;
-      rsTrail.checked = state.routeStyle.trail;
+      syncRouteStyleInputs();
       applyRouteStyle();
     }
   } catch (err) {
