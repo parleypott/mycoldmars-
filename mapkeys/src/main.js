@@ -636,17 +636,12 @@ function syncDrawSlider() {
 }
 
 drawSlider.addEventListener('input', e => {
+  // Slider is the staging value for the next + Keyframe; it does NOT
+  // edit any existing keyframe (use the kf editor's number input for that).
   const p = parseFloat(e.target.value) / 1000;
   state.previewProgress = p;
   drawVal.textContent = Math.round(p * 100);
   setRouteSources(p);
-  // If a keyframe is selected, edit it in-place — slider IS the keyframe progress
-  const kf = state.keyframes.find(k => k.id === state.selectedId);
-  if (kf) {
-    kf.progress = p;
-    document.getElementById('kf-progress').value = Math.round(p * 100);
-    renderKeyframes();
-  }
 });
 
 // Export / import
