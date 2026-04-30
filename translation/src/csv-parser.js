@@ -1,21 +1,33 @@
 /**
- * Extract the speaker name from a raw field like "260317-04-104-JERRY - JOHNNY"
- * Rule: take the last word that's all letters (min 2 chars). That's the speaker name.
+ * Extract the speaker name from a raw field.
+ *
+ * Two patterns to handle:
+ *   1. Sequence-prefixed speaker — e.g. "260317-04-104-JERRY - JOHNNY"
+ *      → strip the numeric prefix, return just the trailing speaker ("Johnny").
+ *   2. Plain multi-word speaker name — e.g. "ALL JH ONCAM", "Mikael Antell"
+ *      → return as-is, preserving casing. No digits means no prefix to strip.
+ *
+ * Heuristic: if the raw name contains digits, treat it as a sequence prefix
+ * and strip to the last alpha word. Otherwise the whole string is the name.
  */
 export function cleanSpeakerName(raw) {
   if (!raw) return '';
-  // Split on common delimiters: hyphens, spaces, underscores
-  const words = raw.split(/[\s\-_]+/);
-  // Find the last word that's purely alphabetic (min 2 chars)
+  const trimmed = String(raw).trim();
+  if (!trimmed) return '';
+
+  // No digits → assume the whole string is the speaker name. Preserve casing.
+  if (!/\d/.test(trimmed)) return trimmed;
+
+  // Has digits → likely a sequence prefix with trailing speaker. Walk backward
+  // for the last all-alpha word.
+  const words = trimmed.split(/[\s\-_]+/);
   for (let i = words.length - 1; i >= 0; i--) {
     const w = words[i].replace(/['']/g, ''); // strip apostrophes
     if (/^[a-zA-Z]{2,}$/i.test(w)) {
-      // Return with proper casing: first letter upper, rest as-is
       return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
     }
   }
-  // Fallback: return trimmed original
-  return raw.trim();
+  return trimmed;
 }
 
 /**
