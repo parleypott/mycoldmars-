@@ -1793,6 +1793,8 @@ function finishUploadParse(file) {
   annotations = {};
   editorState = null;
   editorInstance = null;
+  workshopState = null;
+  unmountWorkshop();
   speakerMap = buildSpeakerMap(segments);
   hiddenSpeakers = segments
     .map(s => s.speaker)
@@ -2316,18 +2318,27 @@ function mountWorkshop() {
     mount.innerHTML = '<div class="workshop-placeholder"><p>Load a transcript first.</p></div>';
     return;
   }
-  mount.innerHTML = '';
+  mount.innerHTML = '<div class="workshop-placeholder"><p>Loading Workshop…</p></div>';
   import('./workshop/index.js').then(({ mountWorkshop: mw }) => {
-    workshopInstance = mw(mount, {
-      segments,
-      editorialFocus: $('#editorial-focus')?.value || '',
-      narrativeSummary: currentSummary || '',
-      initialState: workshopState || {},
-      onUpdate: (newState) => {
-        workshopState = newState;
-        debouncedAutoSave();
-      },
-    });
+    try {
+      mount.innerHTML = '';
+      workshopInstance = mw(mount, {
+        segments,
+        editorialFocus: $('#editorial-focus')?.value || '',
+        narrativeSummary: currentSummary || '',
+        initialState: workshopState || {},
+        onUpdate: (newState) => {
+          workshopState = newState;
+          debouncedAutoSave();
+        },
+      });
+    } catch (err) {
+      console.error('Workshop mount failed:', err);
+      mount.innerHTML = `<div class="workshop-placeholder"><p style="color:var(--np-red);">Workshop failed to mount.</p><pre style="font-size:11px;color:var(--np-sepia);background:rgba(221,44,30,0.06);padding:12px;border:1px solid var(--np-red);border-radius:2px;text-align:left;max-width:600px;margin:12px auto;white-space:pre-wrap;">${escapeHtmlSafe(err?.stack || err?.message || String(err))}</pre></div>`;
+    }
+  }).catch(err => {
+    console.error('Workshop import failed:', err);
+    mount.innerHTML = `<div class="workshop-placeholder"><p style="color:var(--np-red);">Could not load Workshop module.</p><pre style="font-size:11px;color:var(--np-sepia);background:rgba(221,44,30,0.06);padding:12px;border:1px solid var(--np-red);border-radius:2px;text-align:left;max-width:600px;margin:12px auto;white-space:pre-wrap;">${escapeHtmlSafe(err?.message || String(err))}</pre></div>`;
   });
 }
 
