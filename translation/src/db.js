@@ -4,8 +4,14 @@ let supabase = null;
 try {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  // TEMPORARY DIAGNOSTIC — remove once cloud sync works
+  console.info('[supabase init] URL is:', url ? `set (${url.slice(0, 30)}...)` : 'MISSING');
+  console.info('[supabase init] KEY is:', key ? `set (length ${key.length})` : 'MISSING');
   if (url && key) {
     supabase = createClient(url, key);
+    console.info('[supabase init] client created');
+  } else {
+    console.warn('[supabase init] missing env vars — falling back to localStorage');
   }
 } catch (err) {
   console.warn('Supabase init failed:', err.message);
