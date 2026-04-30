@@ -1433,6 +1433,7 @@ $('#seq-export-jsx-btn').addEventListener('click', () => {
     outputName,
     gapSeconds,
     soundbites: seqSoundbites.map((b, i) => ({
+      sequenceName: extractSacredName(b.prefix) || sacredSequenceName,
       inSec: tcToSec(b.start),
       outSec: tcToSec(b.end),
       name: b.prefix || 'Soundbite ' + (i + 1),

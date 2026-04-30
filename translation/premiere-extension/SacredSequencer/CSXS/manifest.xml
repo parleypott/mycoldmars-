@@ -24,13 +24,18 @@
         <Lifecycle>
           <AutoVisible>true</AutoVisible>
         </Lifecycle>
+        <CEFCommandLine>
+          <Parameter>--allow-file-access-from-files</Parameter>
+          <Parameter>--enable-nodejs</Parameter>
+          <Parameter>--mixed-context</Parameter>
+        </CEFCommandLine>
         <UI>
           <Type>Panel</Type>
           <Menu>Sacred Sequencer</Menu>
           <Geometry>
             <Size>
-              <Height>400</Height>
-              <Width>320</Width>
+              <Height>520</Height>
+              <Width>340</Width>
             </Size>
           </Geometry>
         </UI>

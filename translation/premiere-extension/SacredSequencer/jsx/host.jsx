@@ -12,16 +12,89 @@ function secToTicks(sec) {
 }
 
 /**
+ * Diagnostic: confirm the host script is loaded and tell us what we have.
+ */
+function ssPing() {
+    try {
+        var info = {
+            hasApp: typeof app !== 'undefined',
+            hasProject: typeof app !== 'undefined' && !!app.project,
+            projectName: (typeof app !== 'undefined' && app.project && app.project.name) ? app.project.name : null,
+            hasSequences: typeof app !== 'undefined' && !!app.project && !!app.project.sequences,
+            numSequences: null,
+            keys: []
+        };
+        if (info.hasSequences) {
+            try { info.numSequences = app.project.sequences.numSequences; } catch (e1) { info.numSequences = 'err: ' + e1.message; }
+        }
+        return JSON.stringify(info);
+    } catch (e) {
+        return JSON.stringify({ error: e.message });
+    }
+}
+
+/**
  * List all sequences in the current project.
- * Returns JSON array of { name, index }.
+ * Returns JSON array of { name, index }, or { error } string.
  */
 function listSequences() {
-    var result = [];
-    for (var i = 0; i < app.project.sequences.numSequences; i++) {
-        var seq = app.project.sequences[i];
-        result.push({ name: seq.name, index: i });
+    try {
+        if (typeof app === 'undefined' || !app.project) {
+            return JSON.stringify({ error: 'No project open in Premiere.' });
+        }
+
+        var seqs = app.project.sequences;
+        var result = [];
+
+        // Path A: classic numSequences + numeric indexer
+        if (seqs && typeof seqs.numSequences === 'number') {
+            for (var i = 0; i < seqs.numSequences; i++) {
+                var s = seqs[i];
+                if (s && s.name) result.push({ name: s.name, index: i });
+            }
+            return JSON.stringify(result);
+        }
+
+        // Path B: array-like .length
+        if (seqs && typeof seqs.length === 'number') {
+            for (var j = 0; j < seqs.length; j++) {
+                var s2 = seqs[j];
+                if (s2 && s2.name) result.push({ name: s2.name, index: j });
+            }
+            return JSON.stringify(result);
+        }
+
+        // Path C: walk projectItems looking for sequences
+        if (app.project.rootItem) {
+            walkSequences(app.project.rootItem, result);
+            return JSON.stringify(result);
+        }
+
+        return JSON.stringify({ error: 'Could not enumerate sequences (unknown API shape).' });
+    } catch (e) {
+        return JSON.stringify({ error: 'listSequences threw: ' + e.message });
     }
-    return JSON.stringify(result);
+}
+
+function walkSequences(item, out) {
+    try {
+        if (!item || !item.children) return;
+        for (var i = 0; i < item.children.numItems; i++) {
+            var child = item.children[i];
+            if (!child) continue;
+            // SEQUENCE type detection: project items where .isSequence() is true (Premiere 14+)
+            try {
+                if (typeof child.isSequence === 'function' && child.isSequence()) {
+                    out.push({ name: child.name, index: out.length });
+                    continue;
+                }
+            } catch (e1) {}
+            // Recurse into bins
+            if (child.type === 2 /* BIN */ || (child.children && child.children.numItems > 0)) {
+                walkSequences(child, out);
+            }
+        }
+    } catch (e) {}
 }
 
 /**
@@ -72,7 +145,7 @@ function buildSacredSelects(jsonStr) {
     if (!sacredSeq || !sacredItem) {
         return JSON.stringify({
             ok: false,
-            error: 'Could not find sequence "' + sacredName + '" in this project.',
+            error: 'Could not find sequence "' + sacredName + '" in this project.'
         });
     }
 
@@ -130,6 +203,6 @@ function buildSacredSelects(jsonStr) {
         total: soundbites.length,
         errors: errors,
         outputName: outputName,
-        sacredName: sacredName,
+        sacredName: sacredName
     });
 }
