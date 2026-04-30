@@ -677,6 +677,8 @@ async function handleLoad(id) {
     rawSummary = meta.rawSummary || null;
     summaryBullets = meta.summaryBullets || [];
     interestVotes = meta.interestVotes || {};
+    workshopState = meta.workshop || null;
+    unmountWorkshop(); // force re-mount on next view switch with fresh transcript context
 
     // Re-parse bullets for transcripts saved before voting feature
     if (summaryBullets.length === 0 && rawSummary) {
@@ -718,7 +720,6 @@ async function handleLoad(id) {
 
     if (srtContent) {
       $('#srt-preview').textContent = srtContent;
-      buildReaderView();
     }
 
     goToStep(step);
@@ -775,6 +776,7 @@ function gatherState(name) {
       rawSummary,
       summaryBullets,
       interestVotes,
+      workshop: workshopState,
     },
   };
 }
@@ -1904,7 +1906,6 @@ async function startTranslation() {
     editorInstance = null;
     const editorMount = $('#editor-mount');
     if (editorMount) editorMount.innerHTML = '';
-    buildReaderView();
     goToStep(5);
     switchView('editor');
     autoSave();
@@ -1962,7 +1963,6 @@ btnExport.addEventListener('click', () => {
     const editorMount = $('#editor-mount');
     if (editorMount) editorMount.innerHTML = '';
   }
-  buildReaderView();
   goToStep(5);
   switchView('editor');
   autoSave();
@@ -2005,23 +2005,17 @@ function regenerateSRT() {
 
 $('#btn-regenerate-srt').addEventListener('click', regenerateSRT);
 
-// ── View toggle (SRT / Reader / Editor) ──
+// ── View toggle (Editor / Workshop) ──
 function switchView(view) {
-  ['srt', 'reader', 'editor'].forEach(v => {
+  ['editor', 'workshop'].forEach(v => {
     const btn = $(`#btn-view-${v}`);
     const el = $(`#${v}-view`);
     if (btn) btn.classList.toggle('active', v === view);
     if (el) el.classList.toggle('hidden', v !== view);
   });
 
-  // Lazy SRT generation on first switch to SRT view
-  if (view === 'srt' && translations.length > 0) {
-    syncEditorToTranslations();
-    const maxWords = parseInt($('#max-words')?.value || 16);
-    const maxDuration = parseInt($('#max-duration')?.value || 5);
-    const dismissed = getDismissedSegmentNumbers(editorState);
-    srtContent = buildSRT(translations, segments, { maxWords, maxDuration, dismissedSegments: dismissed, hideUnintelligible });
-    $('#srt-preview').textContent = srtContent;
+  if (view === 'workshop') {
+    mountWorkshop();
   }
 
   // Mount editor on first switch to editor view
@@ -2070,116 +2064,75 @@ function switchView(view) {
     }
   }
 }
-$('#btn-view-srt').addEventListener('click', () => switchView('srt'));
-$('#btn-view-reader').addEventListener('click', () => switchView('reader'));
 $('#btn-view-editor').addEventListener('click', () => switchView('editor'));
+$('#btn-view-workshop').addEventListener('click', () => switchView('workshop'));
 
-// ── Reader view ──
-function formatTimecodeShort(tc) {
-  if (!tc) return '0:00';
-  const match = tc.match(/(\d+):(\d+):(\d+)/);
-  if (match) {
-    const [, h, m, s] = match;
-    return parseInt(h) > 0 ? `${h}:${m}:${s}` : `${parseInt(m)}:${s}`;
+// Workshop instance + state lives on the transcript doc.
+let workshopInstance = null;
+let workshopState = null;
+
+function mountWorkshop() {
+  const mount = $('#workshop-mount');
+  if (!mount) return;
+  if (workshopInstance) return; // already mounted for this transcript
+  if (!segments || segments.length === 0) {
+    mount.innerHTML = '<div class="workshop-placeholder"><p>Load a transcript first.</p></div>';
+    return;
   }
-  const match2 = tc.match(/(\d+):(\d+)/);
-  if (match2) return `${parseInt(match2[1])}:${match2[2]}`;
-  // Decimal seconds (from JSON parser) — format as precise timecode
-  const f = parseFloat(tc);
-  if (!isNaN(f)) return formatPreciseTimecode(f);
-  return tc;
-}
-
-function buildReaderView() {
-  const container = $('#reader-content');
-  container.innerHTML = '';
-
-  // Group consecutive segments by speaker
-  const groups = [];
-  let currentGroup = null;
-
-  for (let i = 0; i < translations.length; i++) {
-    const t = translations[i];
-    const seg = segments[i];
-    if (!seg) continue;
-
-    const speaker = seg.speaker || 'Unknown';
-
-    // Skip hidden speakers unless toggled
-    if (!showAllSpeakers && hiddenSpeakers.includes(speaker)) continue;
-
-    // Skip unintelligible segments when hidden
-    if (hideUnintelligible && t.unintelligible) continue;
-
-    if (!currentGroup || currentGroup.speaker !== speaker) {
-      currentGroup = { speaker, items: [], isGeneric: isGenericSpeaker(speaker) };
-      groups.push(currentGroup);
-    }
-
-    currentGroup.items.push({
-      text: t.translated || t.original,
-      start: seg.start,
-      speaker,
-      unintelligible: t.unintelligible,
+  mount.innerHTML = '';
+  import('./workshop/index.js').then(({ mountWorkshop: mw }) => {
+    workshopInstance = mw(mount, {
+      segments,
+      editorialFocus: $('#editorial-focus')?.value || '',
+      narrativeSummary: currentSummary || '',
+      initialState: workshopState || {},
+      onUpdate: (newState) => {
+        workshopState = newState;
+        debouncedAutoSave();
+      },
     });
-  }
-
-  for (const group of groups) {
-    const block = document.createElement('div');
-    block.className = 'reader-speaker-block';
-    if (group.isGeneric) block.classList.add('dimmed-speaker');
-
-    const displayName = speakerMap[group.speaker] || group.speaker;
-    const color = speakerColors[group.speaker] || '#DD2C1E';
-    block.style.setProperty('--speaker-color', color);
-
-    const nameEl = document.createElement('div');
-    nameEl.className = 'reader-speaker-name';
-    nameEl.textContent = displayName;
-    block.appendChild(nameEl);
-
-    const para = document.createElement('p');
-    para.className = 'reader-para';
-
-    for (const item of group.items) {
-      const span = document.createElement('span');
-      span.className = item.unintelligible ? 'seg seg-unintelligible' : 'seg';
-      span.dataset.start = item.start;
-      span.dataset.speaker = item.speaker;
-      span.textContent = item.text + ' ';
-      para.appendChild(span);
-    }
-
-    block.appendChild(para);
-    container.appendChild(block);
-  }
+  });
 }
 
-// Intercept copy in reader — prepend [Speaker — TC]
-$('#reader-content').addEventListener('copy', (e) => {
-  const selection = window.getSelection();
-  if (!selection || selection.isCollapsed) return;
-
-  const selectedText = selection.toString().trim();
-  if (!selectedText) return;
-
-  let node = selection.anchorNode;
-  while (node && !(node.dataset && node.dataset.start)) {
-    node = node.parentElement;
+function unmountWorkshop() {
+  if (workshopInstance) {
+    workshopInstance.destroy();
+    workshopInstance = null;
   }
+  const mount = $('#workshop-mount');
+  if (mount) mount.innerHTML = '';
+}
 
-  if (!node) return;
-
-  const speaker = node.dataset.speaker;
-  const tc = formatTimecodeShort(node.dataset.start);
-
-  e.preventDefault();
-  e.clipboardData.setData('text/plain', `[${speaker} — ${tc}] ${selectedText}`);
-
-  const fb = $('#reader-copy-feedback');
-  fb.classList.remove('hidden');
-  setTimeout(() => fb.classList.add('hidden'), 2000);
+// ── SRT modal (opens from Export menu → Download SRT) ──
+function openSrtModal() {
+  const modal = $('#srt-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  if (translations.length > 0) {
+    syncEditorToTranslations();
+    const maxWords = parseInt($('#max-words')?.value || 16);
+    const maxDuration = parseInt($('#max-duration')?.value || 5);
+    const dismissed = getDismissedSegmentNumbers(editorState);
+    srtContent = buildSRT(translations, segments, { maxWords, maxDuration, dismissedSegments: dismissed, hideUnintelligible });
+    $('#srt-preview').textContent = srtContent;
+  }
+}
+function closeSrtModal() {
+  const modal = $('#srt-modal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+}
+document.addEventListener('click', (e) => {
+  const closeId = e.target?.dataset?.close;
+  if (closeId === 'srt-modal') closeSrtModal();
 });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !$('#srt-modal')?.classList.contains('hidden')) closeSrtModal();
+});
+
+// (Reader view removed — copy-with-timecode now lives in the editor and workshop only.)
 
 // ── Helpers ──
 function esc(str) {
@@ -2193,7 +2146,7 @@ function esc(str) {
 btnSpeakerToggle.addEventListener('click', () => {
   showAllSpeakers = !showAllSpeakers;
   renderTranscript();
-  if (translations.length > 0) buildReaderView();
+
 });
 
 // ── Inline project creation (+ Folder button) ──
@@ -2264,15 +2217,7 @@ if (btnExportMenu) {
     const format = btn.dataset.format;
     switch (format) {
       case 'srt': {
-        // Regenerate with current slider settings before exporting
-        if (translations.length > 0) regenerateSRT();
-        const blob = new Blob([srtContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'subtitles.srt';
-        a.click();
-        URL.revokeObjectURL(url);
+        openSrtModal();
         break;
       }
       case 'premiere': {
@@ -2865,6 +2810,8 @@ function resetToUpload() {
   rawSummary = null;
   summaryBullets = [];
   interestVotes = {};
+  workshopState = null;
+  unmountWorkshop();
   wordTimingsMap = null;
   libraryShowing = false;
   const editorMount = document.getElementById('editor-mount');

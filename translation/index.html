@@ -205,15 +205,26 @@
 
       <div class="view-toggle">
         <button id="btn-view-editor" class="view-toggle-btn active">Editor</button>
-        <button id="btn-view-srt" class="view-toggle-btn">SRT</button>
-        <button id="btn-view-reader" class="view-toggle-btn">Reader</button>
+        <button id="btn-view-workshop" class="view-toggle-btn">Soundbite Workshop</button>
       </div>
 
       <div id="editor-view">
         <div id="editor-mount"></div>
       </div>
 
-      <div id="srt-view" class="hidden">
+      <div id="workshop-view" class="hidden">
+        <div id="workshop-mount"></div>
+      </div>
+    </section>
+
+    <!-- SRT export modal (opens from export menu) -->
+    <div id="srt-modal" class="np-modal hidden" aria-hidden="true">
+      <div class="np-modal-backdrop" data-close="srt-modal"></div>
+      <div class="np-modal-card">
+        <div class="np-modal-header">
+          <h3 class="np-modal-title">Subtitles (SRT)</h3>
+          <button class="np-modal-close" data-close="srt-modal" aria-label="Close">×</button>
+        </div>
         <div class="controls-bar">
           <label class="control">
             <span class="np-eyebrow">Max words</span>
@@ -234,15 +245,7 @@
         </div>
         <p id="copy-feedback" class="hidden copy-feedback">Copied.</p>
       </div>
-
-      <div id="reader-view" class="reader hidden">
-        <div class="reader-hint">
-          <span class="np-eyebrow">Select text to copy with timecode</span>
-        </div>
-        <div id="reader-content" class="reader-content"></div>
-        <p id="reader-copy-feedback" class="hidden copy-feedback">Copied with timecode.</p>
-      </div>
-    </section>
+    </div>
     <!-- Search view -->
     <section id="search-view" class="panel">
       <div id="search-mount"></div>

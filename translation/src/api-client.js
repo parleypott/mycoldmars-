@@ -232,3 +232,124 @@ export async function translateSegments({ segments, languageMap, narrativeSummar
 
   return Array.from(results);
 }
+
+// ── Soundbite Workshop ──
+
+/**
+ * Auto-detect 8–12 broad recurring themes from the transcript.
+ * Themes can be topical ("ON JOINING NATO"), claim-shaped ("FINLAND IS SMALL"),
+ * or perspective-based ("US SOLDIER PERSPECTIVE"). Each gets a short description
+ * explaining what kind of soundbite belongs there.
+ */
+export async function detectThemes(segments, { editorialFocus, narrativeSummary } = {}) {
+  const labeled = segments.filter(s => !isGenericSpeaker(s.speaker));
+  const transcriptText = labeled
+    .map(s => `${s.number}. [${s.speaker}]: ${s.text}`)
+    .join('\n');
+
+  const systemPrompt = `You are an editorial assistant for a documentary video team.
+
+Your job: identify 8–12 broad recurring themes in this transcript that would make good organizing buckets for "soundbites" — short standalone quotes (typically 5–30 seconds) the editor will pull and arrange.
+
+Themes should be useful editorial buckets, not just topic labels. They can be:
+- TOPICAL: a subject area ("ON JOINING NATO", "RELATIONSHIP WITH RUSSIA")
+- CLAIM-SHAPED: a perspective or argument the speakers articulate ("FINLAND IS SMALL", "CHANGE OF OPINION")
+- EXPERIENTIAL: a vantage point ("US SOLDIER PERSPECTIVE", "STREET INTERVIEWS")
+
+Aim for themes the editor would actually want to organize their cut around — not generic ones like "general thoughts." Use ALL CAPS for theme names. Each theme should be distinct; avoid overlap.
+
+For each theme, write a short description (1–2 sentences) explaining what kind of quote belongs there.
+
+Respond with JSON only (no markdown fencing):
+{
+  "themes": [
+    { "name": "ON JOINING NATO", "description": "Reasons, motivations, and the political process around the decision to join NATO." },
+    { "name": "FINLAND IS SMALL", "description": "Quotes that frame Finland's identity through smallness — vulnerability, modesty, or punching above weight." }
+  ]
+}`;
+
+  const userMsg = [
+    narrativeSummary ? `NARRATIVE SUMMARY:\n${narrativeSummary}\n` : '',
+    editorialFocus ? `EDITORIAL FOCUS:\n${editorialFocus}\n` : '',
+    `TRANSCRIPT (${labeled.length} segments):\n\n${transcriptText}`,
+  ].filter(Boolean).join('\n');
+
+  const rawText = await callClaude(systemPrompt, userMsg, 2000);
+  const result = extractJSON(rawText);
+  return Array.isArray(result?.themes) ? result.themes : [];
+}
+
+/**
+ * Extract soundbites — short standalone quotes — and tag each with the themes it fits.
+ * A soundbite is a segment (or sometimes a few contiguous segments) that stands alone
+ * as a clear declarative point. Multi-label: one segment can belong to multiple themes.
+ *
+ * Returns: [{ segmentNumber, themes: [name, ...], label?: string }]
+ */
+export async function extractSoundbites({ segments, themes, editorialFocus, narrativeSummary, onProgress }) {
+  const labeled = segments.filter(s => !isGenericSpeaker(s.speaker));
+  if (labeled.length === 0 || themes.length === 0) return [];
+
+  // Chunk transcript so we don't blow out a single context. ~80 segments per chunk.
+  const CHUNK_SIZE = 80;
+  const chunks = [];
+  for (let i = 0; i < labeled.length; i += CHUNK_SIZE) {
+    chunks.push(labeled.slice(i, i + CHUNK_SIZE));
+  }
+
+  const themeList = themes.map(t => `- ${t.name}: ${t.description || '(no description)'}`).join('\n');
+
+  const systemPrompt = `You are an editorial assistant for a documentary video team. The editor has defined a set of THEMES and wants you to extract SOUNDBITES from the transcript that fit them.
+
+A SOUNDBITE is:
+- A short, standalone quote — typically 5–30 seconds.
+- A single declarative thought, not a multi-segment ramble.
+- Clear and self-contained — works without surrounding context.
+- Punchy, memorable, or emotionally resonant.
+
+THEMES (the editor's organizing buckets):
+${themeList}
+
+For EACH segment in the chunk, decide:
+1. Does it stand alone as a soundbite? (Skip if it's filler, mid-thought, an interviewer prompt, or only meaningful with neighboring segments.)
+2. If yes, which of the themes above does it fit? (Multi-label allowed — a quote can belong to multiple themes. Use the theme names EXACTLY as listed.)
+3. Optionally: a short label (5–10 words) summarizing the quote's point.
+
+Be selective. Most segments are NOT soundbites. A typical 80-segment chunk might yield 10–25 soundbites.
+
+Respond with JSON only (no markdown fencing):
+{
+  "soundbites": [
+    { "segmentNumber": 12, "themes": ["ON JOINING NATO"], "label": "Deterrence wasn't enough anymore" },
+    { "segmentNumber": 47, "themes": ["FINLAND IS SMALL", "RELATIONSHIP WITH RUSSIA"], "label": "Long border, careful neighbors" }
+  ]
+}`;
+
+  let completed = 0;
+  const chunkPromises = chunks.map(async (chunk) => {
+    const chunkText = chunk
+      .map(s => `${s.number}. [${s.speaker}]: ${s.text}`)
+      .join('\n');
+
+    const userMsg = [
+      narrativeSummary ? `NARRATIVE SUMMARY:\n${narrativeSummary}\n` : '',
+      editorialFocus ? `EDITORIAL FOCUS:\n${editorialFocus}\n` : '',
+      `TRANSCRIPT CHUNK (${chunk.length} segments):\n\n${chunkText}`,
+    ].filter(Boolean).join('\n');
+
+    const rawText = await callClaude(systemPrompt, userMsg, 4000);
+    let parsed;
+    try {
+      parsed = extractJSON(rawText);
+    } catch (e) {
+      console.error('Soundbite chunk parse failed:', rawText.slice(0, 400));
+      return [];
+    }
+    completed++;
+    if (onProgress) onProgress(completed, chunks.length);
+    return Array.isArray(parsed?.soundbites) ? parsed.soundbites : [];
+  });
+
+  const chunkResults = await Promise.all(chunkPromises);
+  return chunkResults.flat();
+}
