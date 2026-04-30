@@ -1,18 +1,18 @@
 import mapboxgl from 'mapbox-gl';
+import { unzipSync, strFromU8 } from 'fflate';
 import './style.css';
 
 // ─── Mapbox setup ───
 
 mapboxgl.accessToken = 'pk.eyJ1Ijoiam9obm55d2hhcnJpcyIsImEiOiJ3ck1DN2dnIn0.B-hCqwHxWQwTFGYWOfCLfg';
 
-// Warm-paper terrain palette — quiet, minimal, mountain-forward
+// Earthen terrain palette — quiet, mountain-forward, no clutter
 const PAL = {
-  paper: '#ece4d4',   // base land — warm off-white
-  ocean: '#cfd6da',   // muted slate-blue
-  ink:   '#2b2a26',   // deep ink for routes/labels
-  sage:  '#a8b59a',   // restrained green
-  shade: '#7c6a55',   // hillshade ridge tone
-  fog:   '#e9e2d2',
+  paper: '#e4d8be',   // warm sand land
+  ocean: '#bdb59a',   // muted dust-sage ocean (no bathymetry shading)
+  ink:   '#2b2a26',
+  shade: '#6b5640',   // umber ridge shadow
+  fog:   '#e0d4b8',
 };
 
 const map = new mapboxgl.Map({
@@ -57,28 +57,25 @@ map.on('style.load', () => {
       source: 'mapbox-dem',
       paint: {
         'hillshade-shadow-color': PAL.shade,
-        'hillshade-highlight-color': '#fffaf0',
-        'hillshade-accent-color': '#5e4d3a',
-        'hillshade-exaggeration': 0.55,
+        'hillshade-highlight-color': '#f4ead0',
+        'hillshade-accent-color': '#4d3d29',
+        'hillshade-exaggeration': 0.62,
       },
     }, firstSymbol);
   }
 
-  // ── Recolor base style toward warm-paper minimal
+  // ── Recolor base style toward earthen minimal
   const recolor = [
-    // background / land surfaces
     ['background', 'background-color', PAL.paper],
     ['land', 'background-color', PAL.paper],
     ['landcover', 'fill-color', PAL.paper],
-    ['national-park', 'fill-color', '#dfd8c3'],
-    ['landuse', 'fill-color', '#e3dccb'],
-    ['pitch', 'fill-color', '#e3dccb'],
-    ['pitch-line', 'line-color', '#cfc6b1'],
-    // water
+    ['national-park', 'fill-color', '#dac9a8'],
+    ['landuse', 'fill-color', '#dccdaf'],
+    ['pitch', 'fill-color', '#dccdaf'],
+    ['pitch-line', 'line-color', '#c6b596'],
+    // Water — flat earthen tone, no bathymetry depth shading
     ['water', 'fill-color', PAL.ocean],
-    ['water-shadow', 'fill-color', PAL.ocean],
-    ['waterway', 'line-color', '#b9c2c8'],
-    ['waterway-shadow', 'line-color', '#b9c2c8'],
+    ['waterway', 'line-color', '#a89e80'],
   ];
   for (const [id, prop, val] of recolor) {
     if (map.getLayer(id)) {
@@ -86,22 +83,27 @@ map.on('style.load', () => {
     }
   }
 
-  // Hide all road and transit clutter — keep it minimal
-  const noisyPrefixes = ['road', 'bridge', 'tunnel', 'aeroway', 'rail', 'ferry', 'transit', 'building'];
-  for (const layer of map.getStyle().layers) {
-    if (noisyPrefixes.some(p => layer.id.startsWith(p))) {
-      try { map.setLayoutProperty(layer.id, 'visibility', 'none'); } catch (_) {}
+  // ── Hide everything noisy: roads, transit, admin boundaries, bathymetry, ALL labels
+  const hideById = (id) => {
+    if (map.getLayer(id)) {
+      try { map.setLayoutProperty(id, 'visibility', 'none'); } catch (_) {}
     }
-  }
+  };
+  const hidePrefixes = [
+    'road', 'bridge', 'tunnel', 'aeroway', 'rail', 'ferry', 'transit', 'building',
+    'admin',                  // country / state / disputed boundaries
+    'boundary',
+    'water-depth', 'bathymetry', 'water-shadow',  // bathymetric shading
+  ];
+  const hideKeywords = ['label', 'place-', 'poi-', 'natural-point', 'water-point'];
 
-  // Soften labels — ink color, gentle halos
   for (const layer of map.getStyle().layers) {
-    if (layer.type !== 'symbol') continue;
-    try {
-      map.setPaintProperty(layer.id, 'text-color', PAL.ink);
-      map.setPaintProperty(layer.id, 'text-halo-color', PAL.paper);
-      map.setPaintProperty(layer.id, 'text-halo-width', 1.4);
-    } catch (_) {}
+    if (layer.id === 'mk-hillshade') continue;
+    if (layer.id.startsWith('route-')) continue;
+    const id = layer.id;
+    if (hidePrefixes.some(p => id.startsWith(p))) { hideById(id); continue; }
+    if (hideKeywords.some(k => id.includes(k))) { hideById(id); continue; }
+    if (layer.type === 'symbol') { hideById(id); }   // catch-all for labels
   }
 
   // ── Route sources + layers (added on top)
@@ -158,7 +160,21 @@ const EASINGS = {
   easeInOut: t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2,
 };
 
-// ─── KML parsing ───
+// ─── KML / KMZ parsing ───
+
+async function readRouteFile(file) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.kmz')) {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const files = unzipSync(buf);
+    // Prefer doc.kml, otherwise first .kml in the archive
+    let kmlEntry = Object.keys(files).find(k => k.toLowerCase() === 'doc.kml')
+                || Object.keys(files).find(k => k.toLowerCase().endsWith('.kml'));
+    if (!kmlEntry) throw new Error('No .kml found inside KMZ');
+    return strFromU8(files[kmlEntry]);
+  }
+  return await file.text();
+}
 
 function parseKML(text) {
   const doc = new DOMParser().parseFromString(text, 'text/xml');
@@ -488,11 +504,17 @@ document.getElementById('kf-delete').addEventListener('click', () => {
   if (state.selectedId) deleteKeyframe(state.selectedId);
 });
 
-// KML upload
+// KML / KMZ upload
 document.getElementById('kml-file').addEventListener('change', async e => {
   const file = e.target.files?.[0];
   if (!file) return;
-  const text = await file.text();
+  let text;
+  try {
+    text = await readRouteFile(file);
+  } catch (err) {
+    alert('Failed to read file: ' + err.message);
+    return;
+  }
   const coords = parseKML(text);
   if (coords.length < 2) {
     alert('No usable LineString coordinates found in this KML.');
