@@ -1661,6 +1661,18 @@ $('#seq-export-jsx-btn').addEventListener('click', () => {
 $('#seq-export-btn').addEventListener('click', () => {
   if (seqSoundbites.length === 0) return;
 
+  // FCP XML import in Premiere always creates a NEW sequence project item
+  // for every <sequence> element with a body — there's no XML mechanism to
+  // reference an existing sequence by name. So this path always duplicates
+  // the sacred sequence on import. Make the user opt in explicitly.
+  const confirmed = confirm(
+    'Heads up: importing this XML into Premiere will create a DUPLICATE of the sacred sequence in your project.\n\n' +
+    'This is a limitation of the FCP XML format — there is no way to reference an existing sequence by name.\n\n' +
+    'For nest-by-reference (single source of truth), cancel and use "Export for Premiere" with the Sacred Sequencer panel instead.\n\n' +
+    'Continue with XML export anyway?'
+  );
+  if (!confirmed) return;
+
   const sacredSequenceName = $('#seq-name').value.trim() || 'Sacred Sequence';
   const outputName = $('#seq-output-name').value.trim() || sacredSequenceName + '_Sacred Selects';
   const fps = parseFloat($('#seq-fps').value) || 23.976;

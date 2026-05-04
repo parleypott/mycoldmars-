@@ -126,7 +126,34 @@ export function buildPremiereScript({ soundbites, sacredSequenceName, outputName
         return;
     }
 
-    log('Created sequence: "' + newSeq.name + '"');
+    // Defensive: createNewSequence can silently clone the active sequence's
+    // contents into the new sequence. Scrub every track empty before nesting
+    // so we never end up with an unintended duplicate of the sacred sequence.
+    function scrubTracks(seq) {
+        try {
+            if (seq.videoTracks) {
+                for (var v = 0; v < seq.videoTracks.numTracks; v++) {
+                    var vt = seq.videoTracks[v];
+                    if (!vt || !vt.clips) continue;
+                    for (var ci = vt.clips.numItems - 1; ci >= 0; ci--) {
+                        try { vt.clips[ci].remove(false, false); } catch (e) {}
+                    }
+                }
+            }
+            if (seq.audioTracks) {
+                for (var a = 0; a < seq.audioTracks.numTracks; a++) {
+                    var at = seq.audioTracks[a];
+                    if (!at || !at.clips) continue;
+                    for (var cj = at.clips.numItems - 1; cj >= 0; cj--) {
+                        try { at.clips[cj].remove(false, false); } catch (e) {}
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+    scrubTracks(newSeq);
+
+    log('Created sequence: "' + newSeq.name + '" (scrubbed empty)');
 
     // ── Insert soundbites as nested clips ──
 

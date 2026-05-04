@@ -12,6 +12,35 @@ function secToTicks(sec) {
 }
 
 /**
+ * Remove every clip from every track in a sequence. Used right after
+ * createNewSequence() to neutralize Premiere's tendency to clone the
+ * active sequence's contents into the "empty" new sequence.
+ */
+function scrubSequence(seq) {
+    if (!seq) return;
+    try {
+        if (seq.videoTracks) {
+            for (var v = 0; v < seq.videoTracks.numTracks; v++) {
+                var vt = seq.videoTracks[v];
+                if (!vt || !vt.clips) continue;
+                for (var i = vt.clips.numItems - 1; i >= 0; i--) {
+                    try { vt.clips[i].remove(false, false); } catch (e) {}
+                }
+            }
+        }
+        if (seq.audioTracks) {
+            for (var a = 0; a < seq.audioTracks.numTracks; a++) {
+                var at = seq.audioTracks[a];
+                if (!at || !at.clips) continue;
+                for (var j = at.clips.numItems - 1; j >= 0; j--) {
+                    try { at.clips[j].remove(false, false); } catch (e) {}
+                }
+            }
+        }
+    } catch (e) {}
+}
+
+/**
  * Diagnostic: confirm the host script is loaded and tell us what we have.
  */
 function ssPing() {
@@ -150,6 +179,13 @@ function buildSacredSelects(jsonStr) {
     }
 
     // ── Create the output sequence ──
+    //
+    // createNewSequence() can silently clone the active sequence's contents
+    // when its preset arg isn't a real .sqpreset path. If the sacred sequence
+    // is currently active, that fallback effectively duplicates it into the
+    // new sequence — which is exactly the bug we're guarding against here.
+    // After creation we (a) assert the active sequence is the new one, and
+    // (b) scrub every clip off every track before inserting our nests.
 
     app.project.createNewSequence(outputName, 'sacred-selects-' + Date.now());
     var newSeq = app.project.activeSequence;
@@ -157,6 +193,13 @@ function buildSacredSelects(jsonStr) {
     if (!newSeq) {
         return JSON.stringify({ ok: false, error: 'Failed to create new sequence.' });
     }
+    if (newSeq.name !== outputName) {
+        return JSON.stringify({
+            ok: false,
+            error: 'createNewSequence did not switch active sequence (got: "' + newSeq.name + '"). Aborting to avoid editing the wrong sequence.'
+        });
+    }
+    scrubSequence(newSeq);
 
     // ── Insert soundbites as nested clips ──
 

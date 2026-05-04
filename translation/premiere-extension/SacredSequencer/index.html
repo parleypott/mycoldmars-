@@ -849,10 +849,37 @@ document.getElementById('build-btn').addEventListener('click', function() {
       'var missing="";' +
       'for(var nk in needed){if(!itemMap[nk]){missing=missing+(missing?", ":"")+nk;}}' +
       'if(missing){return "ERR|Missing sequence(s): "+missing;}' +
-      // Create output sequence
+      // Create output sequence. createNewSequence() can sometimes silently
+      // clone the active sequence's contents (footgun when the sacred sequence
+      // is the active sequence), so we scrub the new sequence empty first and
+      // assert it is actually a brand-new empty sequence before inserting.
       'app.project.createNewSequence(outputName,"sacred-selects-"+(new Date()).getTime());' +
       'var newSeq=app.project.activeSequence;' +
       'if(!newSeq){return "ERR|Failed to create new sequence.";}' +
+      'if(newSeq.name!==outputName){return "ERR|createNewSequence did not switch active sequence (got: "+newSeq.name+"). Aborting to avoid editing the wrong sequence.";}' +
+      // Scrub any clips the create call may have copied in.
+      'try{' +
+        'if(newSeq.videoTracks){' +
+          'for(var vt=0;vt<newSeq.videoTracks.numTracks;vt++){' +
+            'var vTrack=newSeq.videoTracks[vt];' +
+            'if(vTrack&&vTrack.clips){' +
+              'for(var vc=vTrack.clips.numItems-1;vc>=0;vc--){' +
+                'try{vTrack.clips[vc].remove(false,false);}catch(eRV){}' +
+              '}' +
+            '}' +
+          '}' +
+        '}' +
+        'if(newSeq.audioTracks){' +
+          'for(var at=0;at<newSeq.audioTracks.numTracks;at++){' +
+            'var aTrack=newSeq.audioTracks[at];' +
+            'if(aTrack&&aTrack.clips){' +
+              'for(var ac=aTrack.clips.numItems-1;ac>=0;ac--){' +
+                'try{aTrack.clips[ac].remove(false,false);}catch(eRA){}' +
+              '}' +
+            '}' +
+          '}' +
+        '}' +
+      '}catch(eScrub){}' +
       // Insert each soundbite from its own source
       'var insertSec=0,inserted=0,skipped=0,total=blocks.length-1;' +
       'var touched={};' +

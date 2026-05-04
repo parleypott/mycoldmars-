@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="6.0" ExtensionBundleId="com.newpress.sacredsequencer" ExtensionBundleVersion="1.0.0" ExtensionBundleName="Sacred Sequencer">
+<ExtensionManifest Version="6.0" ExtensionBundleId="com.newpress.sacredsequencer" ExtensionBundleVersion="2.2.0" ExtensionBundleName="Sacred Sequencer">
   <ExtensionList>
-    <Extension Id="com.newpress.sacredsequencer.panel" Version="1.0.0"/>
+    <Extension Id="com.newpress.sacredsequencer.panel" Version="2.2.0"/>
   </ExtensionList>
   <ExecutionEnvironment>
     <HostList>
