@@ -17,15 +17,48 @@ const PAL = {
   fog:   '#e0d4b8',
 };
 
+// Restore last camera position so a reload picks up where you left off.
+const CAMERA_LS_KEY = 'mapkeys_last_camera';
+function loadLastCamera() {
+  try {
+    const raw = localStorage.getItem(CAMERA_LS_KEY);
+    if (!raw) return null;
+    const c = JSON.parse(raw);
+    if (!c || !Array.isArray(c.center) || c.center.length !== 2) return null;
+    if (typeof c.zoom !== 'number') return null;
+    return c;
+  } catch { return null; }
+}
+const lastCam = loadLastCamera();
+
 const map = new mapboxgl.Map({
   container: 'map',
   style: 'mapbox://styles/mapbox/outdoors-v12',
   projection: 'globe',
-  center: [20, 20],
-  zoom: 1.8,
+  center: lastCam?.center ?? [20, 20],
+  zoom: lastCam?.zoom ?? 1.8,
+  bearing: lastCam?.bearing ?? 0,
+  pitch: lastCam?.pitch ?? 0,
   maxPitch: 85,
   attributionControl: false,
   preserveDrawingBuffer: true,
+});
+
+// Persist camera on every move (debounced via moveend, which already fires
+// once per gesture rather than per frame).
+map.on('moveend', () => {
+  // Don't persist while we're playing back keyframes — save the user's
+  // edit-time position, not a snapshot from the middle of an animation.
+  if (typeof state !== 'undefined' && state.playing) return;
+  try {
+    const c = map.getCenter();
+    localStorage.setItem(CAMERA_LS_KEY, JSON.stringify({
+      center: [c.lng, c.lat],
+      zoom: map.getZoom(),
+      bearing: map.getBearing(),
+      pitch: map.getPitch(),
+    }));
+  } catch {}
 });
 
 map.on('style.load', () => {
