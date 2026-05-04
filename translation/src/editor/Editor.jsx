@@ -374,6 +374,33 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
     setSyncMenuOpen(false);
   }, [editor, onSync]);
 
+  // Smart Sync — for when the user has pasted a polished rewrite over one or
+  // more segments. The paste destroys segment marks and Sync Selected would
+  // drop the new text. Smart Sync takes whatever's in the selection as the
+  // new content for the segment range it covers, and re-distributes the
+  // words across those segments by their original timing.
+  const handleSmartSyncSelected = useCallback(() => {
+    if (!editor || !onSync) return;
+    const { from, to } = editor.state.selection;
+    if (from === to) return;
+
+    const segNums = [];
+    editor.state.doc.nodesBetween(from, to, (node) => {
+      if (node.isText && node.marks) {
+        const seg = node.marks.find(m => m.type.name === 'segment');
+        if (seg && seg.attrs.number != null && !segNums.includes(seg.attrs.number)) {
+          segNums.push(seg.attrs.number);
+        }
+      }
+    });
+
+    const fullText = editor.state.doc.textBetween(from, to, ' ').trim();
+    if (segNums.length > 0 && fullText) {
+      onSync({ kind: 'smart', segNums, fullText });
+    }
+    setSyncMenuOpen(false);
+  }, [editor, onSync]);
+
   if (!editor) return null;
 
   // Get unique speakers from speakerMap, excluding hidden (generic) speakers.
@@ -580,6 +607,15 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
                   disabled={!editor || editor.state.selection.from === editor.state.selection.to}
                 >
                   Sync Selected
+                </button>
+                <button
+                  className="editor-sync-dropdown-item editor-sync-dropdown-item--smart"
+                  onClick={handleSmartSyncSelected}
+                  disabled={!editor || editor.state.selection.from === editor.state.selection.to}
+                  title="Replace covered segments with the selected text, distributing words by original timing. Use after pasting a clean rewrite."
+                >
+                  Smart Sync (rewrite)
+                  <span className="editor-sync-dropdown-sub">redistribute selection by timing</span>
                 </button>
               </div>
             )}

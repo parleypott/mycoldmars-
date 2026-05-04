@@ -2,7 +2,7 @@ import { parseCSV, getStats, cleanSpeakerName, buildSpeakerMap, isGenericSpeaker
 import { parseJSON } from './json-parser.js';
 import { parseTrintHTML } from './trint-html-parser.js';
 import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
-import { formatPreciseTimecode } from './timecode-utils.js';
+import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
 import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase } from './db.js';
@@ -1045,9 +1045,14 @@ function updateEditorInstance() {
       editorDirty = true;
       debouncedAutoSave();
     },
-    onSync: (segNums) => {
-      const count = syncEditorToTranslations(segNums);
-      showSyncFeedback(count, segNums);
+    onSync: (arg) => {
+      if (arg && typeof arg === 'object' && !Array.isArray(arg) && arg.kind === 'smart') {
+        const count = smartSyncSelection(arg.segNums, arg.fullText);
+        showSyncFeedback(count, arg.segNums);
+      } else {
+        const count = syncEditorToTranslations(arg);
+        showSyncFeedback(count, arg);
+      }
       autoSave();
     },
     onSequenceNameChange: handleSequenceNameChange,
@@ -2303,9 +2308,14 @@ function switchView(view) {
           editorDirty = true;
           debouncedAutoSave();
         },
-        onSync: (segNums) => {
-          const count = syncEditorToTranslations(segNums);
-          showSyncFeedback(count, segNums);
+        onSync: (arg) => {
+          if (arg && typeof arg === 'object' && !Array.isArray(arg) && arg.kind === 'smart') {
+            const count = smartSyncSelection(arg.segNums, arg.fullText);
+            showSyncFeedback(count, arg.segNums);
+          } else {
+            const count = syncEditorToTranslations(arg);
+            showSyncFeedback(count, arg);
+          }
           autoSave();
         },
         onSequenceNameChange: handleSequenceNameChange,
@@ -2889,6 +2899,67 @@ function syncEditorToTranslations(onlySegmentNumbers) {
   updateSyncDirtyIndicator();
 
   return synced;
+}
+
+// Replace the text of a segment range with `fullText`, distributing words
+// across the segments proportional to their original durations. Used when
+// the user pastes a polished rewrite over multiple segments — the paste
+// kills the segment marks, so a normal Sync would lose the new text. This
+// recovers it by treating the whole selection as the new content for the
+// covered segment range and re-attaching the timing.
+function smartSyncSelection(segNums, fullText) {
+  if (!Array.isArray(segNums) || segNums.length === 0) return 0;
+  const cleanText = (fullText || '').replace(/\s+/g, ' ').trim();
+  if (!cleanText) return 0;
+
+  const min = Math.min(...segNums);
+  const max = Math.max(...segNums);
+
+  const targetSegs = [];
+  for (let n = min; n <= max; n++) {
+    const seg = segments.find(s => s.number === n);
+    if (!seg) continue;
+    const startSec = parseTimecodeToSeconds(seg.start);
+    const endSec = parseTimecodeToSeconds(seg.end);
+    const dur = Math.max(0.001, endSec - startSec);
+    targetSegs.push({ number: n, duration: dur });
+  }
+  if (targetSegs.length === 0) return 0;
+
+  const totalDur = targetSegs.reduce((s, x) => s + x.duration, 0) || 1;
+  const words = cleanText.split(' ').filter(Boolean);
+
+  let cursor = 0;
+  for (let i = 0; i < targetSegs.length; i++) {
+    const isLast = i === targetSegs.length - 1;
+    const share = isLast
+      ? words.length - cursor
+      : Math.max(0, Math.round(words.length * (targetSegs[i].duration / totalDur)));
+    const portion = words.slice(cursor, cursor + share).join(' ');
+    cursor += share;
+
+    const t = translations.find(t => t.number === targetSegs[i].number);
+    if (t) {
+      t.translated = portion;
+      t.kept_original = false;
+    }
+  }
+
+  // Regenerate the editor doc so segment marks are re-attached to the
+  // new text. This wipes any in-flight edits inside the touched range,
+  // which is exactly what we want — the user just rewrote it.
+  editorState = buildEditorDocument(
+    segments, translations, speakerColors, speakerMap, hiddenSpeakers,
+    analysis?.language_map, { hideUnintelligible },
+  );
+  if (editorInstance) updateEditorInstance();
+
+  srtContent = '';
+  editorDirty = false;
+  updateSyncDirtyIndicator();
+  debouncedAutoSave();
+
+  return targetSegs.length;
 }
 
 function showSyncFeedback(count, segNums) {

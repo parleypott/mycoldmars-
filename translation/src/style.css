@@ -1745,6 +1745,18 @@ tr.dimmed-speaker { opacity: 0.35; }
 .editor-sync-dropdown-item + .editor-sync-dropdown-item {
   border-top: 1px solid var(--np-cool-neutral);
 }
+.editor-sync-dropdown-item--smart {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.editor-sync-dropdown-sub {
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--np-sepia);
+  font-style: italic;
+}
 
 /* ── Bubble Menu (horizontal, above selection) ── */
 .bubble-menu {
