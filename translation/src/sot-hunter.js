@@ -83,28 +83,48 @@ function buildTranscriptForPrompt(segments) {
   }).join('\n');
 }
 
+// Merge segments + translations so each segment's `text` is the English
+// translation. The hunter only ever shows English to the user, and matches
+// against English so the user can paste/think in English regardless of the
+// original language.
+function buildEnglishSegments(segments, translations) {
+  if (!translations || translations.length === 0) return segments;
+  const byNum = new Map();
+  for (const t of translations) {
+    if (t && t.number != null) byNum.set(t.number, t);
+  }
+  return segments.map(s => {
+    const t = byNum.get(s.number);
+    if (!t) return s;
+    if (t.unintelligible) return null;
+    const english = (t.translated && t.translated.trim()) || t.original || s.text;
+    return { ...s, text: english };
+  }).filter(Boolean);
+}
+
 async function callHunter({ pasted, segments }) {
   const transcript = buildTranscriptForPrompt(segments);
-  const system = `You are SOT HUNTER — an editor's assistant that finds the right soundbite in a transcript.
+  const system = `You are SOT HUNTER — an editor's assistant that finds the right soundbite in a transcript. The transcript is already in English. The user only ever wants to see clean, natural English.
 
 The user will paste a messy reference: maybe a rough timecode from another translation, maybe approximate text from an earlier transcription, maybe paraphrased editorial notes. Your job: find the SINGLE best matching span in the transcript below.
 
-Match by MEANING and ORDER, not just verbatim text. The transcript and the reference may use different translations or different word choices for the same content. Use the rough timecode (if present) as a strong locality hint, but trust meaning over timecode if they conflict.
+Match by MEANING and ORDER, not just verbatim text. Use any rough timecode as a strong locality hint, but trust meaning over timecode if they conflict.
 
 Return JSON only (no fencing):
 {
   "matchSegments": [12, 13, 14],     // segment numbers from the transcript, contiguous, in order
   "confidence": 0,                    // 0-100 how sure you are
   "label": "Brief 5-10 word label",
-  "reasoning": "Short why-this-matches explanation (1-2 sentences)"
+  "text": "The polished English text of the soundbite. Stitch the matched segments together, fix translation rough edges, drop filler, but DO NOT change meaning or invent content. Keep the speaker's voice. This is what the editor will read and hand to a producer."
 }
 
 Rules:
 - "confidence" 80-100 = very confident; 50-79 = probable; 20-49 = best guess only; 0-19 = no real match found.
-- If nothing plausibly matches, return matchSegments: [] and confidence: 0.
+- If nothing plausibly matches, return matchSegments: [] and confidence: 0 and text: "".
 - Prefer tight matches (1-5 segments) over sprawling ones. Only widen if the reference clearly spans more.
+- "text" must be natural English. No Chinese, no other languages, no ellipses for skipped filler — just the cleaned soundbite.
 
-TRANSCRIPT (numbered, with timecodes):
+TRANSCRIPT (numbered, with timecodes, English):
 ${transcript}`;
 
   const res = await fetch('/api/claude', {
@@ -150,7 +170,9 @@ ${transcript}`;
 
 async function callThemeHunter({ theme, segments }) {
   const transcript = buildTranscriptForPrompt(segments);
-  const system = `You are SOT HUNTER in THEME mode. Given an editorial theme or topic, extract the soundbites from the transcript that best fit it.
+  const system = `You are SOT HUNTER in THEME mode. The transcript is already in English. The user only ever wants clean, natural English back.
+
+Given an editorial theme or topic, extract the soundbites from the transcript that best fit it.
 
 A soundbite is:
 - A short, standalone quote — typically one or a few contiguous segments.
@@ -166,7 +188,7 @@ Return JSON only (no fencing):
       "matchSegments": [12, 13],
       "confidence": 0,
       "label": "Brief 5-10 word headline for this soundbite",
-      "reasoning": "1 short sentence on why it fits the theme"
+      "text": "The polished English text of the soundbite. Stitch the matched segments together, smooth out translation rough edges, drop filler, but DO NOT change meaning or invent content. Keep the speaker's voice. This is what the editor will read and hand to a producer."
     }
   ]
 }
@@ -176,9 +198,10 @@ Rules:
 - "confidence": 80-100 = strong fit; 50-79 = solid; 20-49 = thematically adjacent; below 20 = skip.
 - Skip filler, mid-thought fragments, and interviewer prompts.
 - Keep matchSegments tight (1-5 segments). Only widen for genuinely multi-segment quotes.
+- "text" must be natural English. No Chinese, no other languages, no ellipses for skipped filler — just the cleaned soundbite, ready to read aloud.
 - If nothing fits, return { "soundbites": [] }.
 
-TRANSCRIPT (numbered, with timecodes):
+TRANSCRIPT (numbered, with timecodes, English):
 ${transcript}`;
 
   const res = await fetch('/api/claude', {
@@ -283,12 +306,12 @@ function clearHighlights() {
 //   [260322-04-113-Matzu | 22:55.3 → 23:00.5]: TEXT
 // `seqMeta` comes from getSequenceMetadata(segments). When the soundbite's
 // speaker differs from the primary speaker we append ` - SPEAKER` to the base.
-function formatSoundbiteLine(segments, segNums, seqMeta) {
+function formatSoundbiteLine(segments, segNums, seqMeta, polishedText) {
   if (!segNums || segNums.length === 0) return '';
   const matched = segments.filter(s => segNums.includes(s.number));
   if (matched.length === 0) return '';
 
-  const text = matched.map(s => s.text || '').join(' ').trim();
+  const text = (polishedText && polishedText.trim()) || matched.map(s => s.text || '').join(' ').trim();
   const start = matched[0].start ? fmtTimecode(matched[0].start) : '';
   const end = matched[matched.length - 1].end ? fmtTimecode(matched[matched.length - 1].end) : '';
   const tc = start && end ? `${start} → ${end}` : start;
@@ -309,18 +332,18 @@ function formatSoundbiteLine(segments, segNums, seqMeta) {
   return head ? `[${head}]: ${text}` : text;
 }
 
-function buildMatchSnippet(segments, segNums) {
+function buildMatchSnippet(segments, segNums, polishedText) {
   if (!segNums || segNums.length === 0) return '';
   const matched = segments.filter(s => segNums.includes(s.number));
   if (matched.length === 0) return '';
-  const text = matched.map(s => s.text || '').join(' ').trim();
+  const text = (polishedText && polishedText.trim()) || matched.map(s => s.text || '').join(' ').trim();
   const start = matched[0].start ? fmtTimecode(matched[0].start) : '';
   const end = matched[matched.length - 1].end ? fmtTimecode(matched[matched.length - 1].end) : '';
   const tc = start && end ? `${start} – ${end}` : start || '';
   return { text, tc };
 }
 
-export function initSotHunter({ getSegments }) {
+export function initSotHunter({ getSegments, getTranslations }) {
   if (document.getElementById('sot-hunter-root')) return;
 
   const root = document.createElement('div');
@@ -414,9 +437,19 @@ export function initSotHunter({ getSegments }) {
       status.textContent = mode === 'theme' ? 'Name a theme first.' : 'Paste something first.';
       return;
     }
-    const segments = (getSegments?.() || []).filter(s => s && s.text);
-    if (segments.length === 0) {
+    const rawSegments = (getSegments?.() || []).filter(s => s && s.text);
+    if (rawSegments.length === 0) {
       status.textContent = 'No transcript loaded.';
+      return;
+    }
+    const translations = getTranslations?.() || [];
+    if (translations.length === 0) {
+      status.textContent = 'Translate the transcript first — the hunter only works in English.';
+      return;
+    }
+    const segments = buildEnglishSegments(rawSegments, translations);
+    if (segments.length === 0) {
+      status.textContent = 'No translated segments available to hunt through.';
       return;
     }
 
@@ -466,7 +499,7 @@ export function initSotHunter({ getSegments }) {
       const segNums = Array.isArray(sb.matchSegments) ? sb.matchSegments : [];
       const conf = Math.max(0, Math.min(100, Number(sb.confidence) || 0));
       const tone = conf >= 80 ? 'high' : conf >= 50 ? 'mid' : 'low';
-      const line = formatSoundbiteLine(segments, segNums, seqMeta);
+      const line = formatSoundbiteLine(segments, segNums, seqMeta, sb.text);
       allLines.push(line);
       return `
         <div class="sot-hunter-bite" data-i="${i}" data-segs="${segNums.join(',')}">
@@ -477,7 +510,6 @@ export function initSotHunter({ getSegments }) {
             </div>
           </div>
           <div class="sot-hunter-bite-line">${escapeHtml(line)}</div>
-          ${sb.reasoning ? `<div class="sot-hunter-bite-why">${escapeHtml(sb.reasoning)}</div>` : ''}
           <div class="sot-hunter-bite-actions">
             <button type="button" class="sot-hunter-bite-jump">Jump</button>
             <button type="button" class="sot-hunter-bite-copy">Copy</button>
@@ -549,8 +581,7 @@ export function initSotHunter({ getSegments }) {
     const segNums = Array.isArray(result?.matchSegments) ? result.matchSegments : [];
     const conf = Math.max(0, Math.min(100, Number(result?.confidence) || 0));
     const label = result?.label || '';
-    const reasoning = result?.reasoning || '';
-    const snippet = buildMatchSnippet(segments, segNums);
+    const snippet = buildMatchSnippet(segments, segNums, result?.text);
 
     resultBox.hidden = false;
 
@@ -559,7 +590,6 @@ export function initSotHunter({ getSegments }) {
         <div class="sot-hunter-conf sot-hunter-conf--miss">
           <div class="sot-hunter-conf-label">No clean match</div>
         </div>
-        <p class="sot-hunter-reasoning">${escapeHtml(reasoning) || 'The hunter found nothing it would stake an arrow on.'}</p>
       `;
       clearHighlights();
       return;
@@ -578,7 +608,6 @@ export function initSotHunter({ getSegments }) {
         ${snippet?.tc ? `<div class="sot-hunter-snippet-tc">${escapeHtml(snippet.tc)} &middot; segments ${segNums.join(', ')}</div>` : ''}
         <div class="sot-hunter-snippet-text">"${escapeHtml(snippet?.text || '')}"</div>
       </div>
-      <p class="sot-hunter-reasoning">${escapeHtml(reasoning)}</p>
       <div class="sot-hunter-feedback">
         <button type="button" class="sot-hunter-jump">Jump to it</button>
         <div class="sot-hunter-thumbs">

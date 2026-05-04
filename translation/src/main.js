@@ -3177,7 +3177,11 @@ if (btnShare) {
 // ── Init: load projects and auto-reload last transcript ──
 (async function init() {
   // SOT HUNTER — floating archer that finds soundbites from messy paste-ins.
-  initSotHunter({ getSegments: () => segments });
+  // It hunts and displays in English only, so it needs the translations too.
+  initSotHunter({
+    getSegments: () => segments,
+    getTranslations: () => translations,
+  });
   setSotHunterVisible(false);
 
   // Migrate localStorage → Supabase in background (non-blocking)
