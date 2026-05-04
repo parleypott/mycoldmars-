@@ -14,7 +14,54 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       -webkit-font-smoothing: antialiased;
     }
-    #c { position: fixed; inset: 0; display: block; }
+
+    /* Two stacked canvases — show one at a time based on mode */
+    canvas { position: fixed; inset: 0; display: block; width: 100% !important; height: 100% !important; }
+    #milkdrop { z-index: 1; }
+    #three    { z-index: 2; }
+    body[data-mode="0"] #three     { display: none; }
+    body[data-mode="1"] #milkdrop  { display: none; }
+    body[data-mode="2"] #milkdrop  { display: none; }
+    body[data-mode="3"] #milkdrop  { display: none; }
+    body[data-mode="4"] #milkdrop  { display: none; }
+
+    /* Ring shockwaves on every beat (DOM, overlay-blended on top of any canvas) */
+    #rings {
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      overflow: hidden;
+    }
+    .ring {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 0; height: 0;
+      border: 3px solid white;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0.95;
+      mix-blend-mode: screen;
+      will-change: width, height, opacity;
+    }
+    .ring.go {
+      width: 240vmax; height: 240vmax;
+      opacity: 0;
+      transition:
+        width 760ms cubic-bezier(0.16, 1, 0.3, 1),
+        height 760ms cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 760ms cubic-bezier(0.4, 0, 0.6, 1);
+    }
+
+    /* Beat-strobe full-screen flash */
+    #flash {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 4;
+      background: white;
+      opacity: 0;
+      mix-blend-mode: overlay;
+      transition: opacity 280ms ease-out;
+    }
+    #flash.hit { opacity: 0.18; transition: opacity 0ms; }
 
     /* Splash / source picker */
     #splash {
@@ -22,7 +69,7 @@
       display: flex; align-items: center; justify-content: center;
       flex-direction: column; gap: 28px;
       background: radial-gradient(ellipse at center, #0a0014 0%, #000 70%);
-      z-index: 10;
+      z-index: 30;
       transition: opacity 600ms ease;
     }
     #splash.hidden { opacity: 0; pointer-events: none; }
@@ -59,28 +106,17 @@
     #hud {
       position: fixed; top: 16px; left: 16px;
       font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
-      opacity: 0.6;
+      opacity: 0.85;
       pointer-events: none;
-      z-index: 5;
+      z-index: 10;
       mix-blend-mode: difference;
       line-height: 1.7;
     }
-    #hud b { font-weight: 600; opacity: 0.95; }
-
-    #help {
-      position: fixed; bottom: 16px; left: 16px;
-      font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
-      opacity: 0.45;
-      z-index: 5;
-      mix-blend-mode: difference;
-      line-height: 1.8;
-      pointer-events: none;
-    }
-
+    #hud b { font-weight: 700; opacity: 1; }
     .meter {
       display: inline-block;
-      width: 50px; height: 6px;
-      background: rgba(255,255,255,0.08);
+      width: 70px; height: 6px;
+      background: rgba(255,255,255,0.1);
       vertical-align: middle;
       margin-left: 6px;
       position: relative;
@@ -90,9 +126,46 @@
       position: absolute; left: 0; top: 0; bottom: 0;
       background: #fff;
       width: 0%;
+      transition: width 30ms linear;
+    }
+    .beat-dot {
+      display: inline-block;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      vertical-align: middle;
+      margin-left: 8px;
+      transition: all 60ms ease-out;
+    }
+    .beat-dot.hit {
+      background: #fff;
+      box-shadow: 0 0 14px #fff, 0 0 28px #fff;
+      transform: scale(1.7);
+      transition: all 0ms;
     }
 
-    body.ui-hidden #hud, body.ui-hidden #help { opacity: 0; }
+    #help {
+      position: fixed; bottom: 16px; left: 16px;
+      font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+      opacity: 0.45;
+      z-index: 10;
+      mix-blend-mode: difference;
+      line-height: 1.8;
+      pointer-events: none;
+    }
+    #preset-name {
+      position: fixed; bottom: 16px; right: 16px;
+      font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+      opacity: 0.45;
+      z-index: 10;
+      mix-blend-mode: difference;
+      max-width: 50vw;
+      text-align: right;
+      pointer-events: none;
+    }
+
+    body.ui-hidden #hud,
+    body.ui-hidden #help,
+    body.ui-hidden #preset-name { opacity: 0; }
 
     @keyframes hue {
       0% { background-position: 0% 50%; }
@@ -103,14 +176,18 @@
 
     .err {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-      background: rgba(255,0,80,0.9); padding: 10px 18px; border-radius: 2px;
+      background: rgba(255,0,80,0.92); padding: 10px 18px; border-radius: 2px;
       font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
-      z-index: 20;
+      z-index: 40;
     }
   </style>
 </head>
-<body>
-  <canvas id="c"></canvas>
+<body data-mode="0">
+  <canvas id="milkdrop"></canvas>
+  <canvas id="three"></canvas>
+
+  <div id="rings"></div>
+  <div id="flash"></div>
 
   <div id="splash">
     <h1>trippy</h1>
@@ -125,15 +202,18 @@
   </div>
 
   <div id="hud">
-    <div>mode <b id="mode-label">kaleido</b></div>
+    <div>mode <b id="mode-label">milkdrop</b></div>
+    <div>beat<span class="beat-dot" id="beat-dot"></span></div>
+    <div>bpm  <b id="bpm-label">—</b></div>
     <div>bass<span class="meter"><i id="m-bass"></i></span></div>
     <div>mid <span class="meter"><i id="m-mid"></i></span></div>
     <div>high<span class="meter"><i id="m-high"></i></span></div>
-    <div>bpm  <b id="bpm-label">—</b></div>
   </div>
 
+  <div id="preset-name"></div>
+
   <div id="help">
-    [1–4] mode &nbsp; [space] beat &nbsp; [h] hide ui &nbsp; [f] fullscreen &nbsp; [r] reset &nbsp; [s] new source
+    [1–5] mode &nbsp; [n] next preset &nbsp; [space] beat &nbsp; [h] hide ui &nbsp; [f] full &nbsp; [s] new source
   </div>
 
   <script type="module" src="./main.js"></script>
