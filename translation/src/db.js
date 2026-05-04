@@ -55,6 +55,32 @@ export function isSoftDeleteSupported() {
   return softDeleteSupported === true;
 }
 
+// Same pattern for `slug`. Permalinks are a feature added later; if the
+// column is absent the app should still save/load by id without crashing.
+let slugSupported = null;
+
+function isMissingSlugColumnError(err) {
+  if (!err) return false;
+  if (err.code === '42703') return true;
+  const msg = (err.message || '').toLowerCase();
+  return msg.includes('slug') && msg.includes('does not exist');
+}
+
+function markSlugUnsupported() {
+  if (slugSupported !== false) {
+    slugSupported = false;
+    console.warn('[schema] transcripts.slug column missing — permalinks disabled. Run supabase-add-missing-columns.sql to enable.');
+  }
+}
+
+function markSlugSupported() {
+  if (slugSupported === null) slugSupported = true;
+}
+
+export function isSlugSupported() {
+  return slugSupported === true;
+}
+
 function markSupabaseFailed(err) {
   supabaseFailCount++;
   supabaseFailedAt = Date.now();
@@ -290,9 +316,8 @@ export async function listAiThreads(transcriptId) {
 
 export async function saveTranscript({ name, step, segments, analysis, translations, srtContent, speakerColors, annotations, metadata, projectId, speakerMap, hiddenSpeakers, editorState, customSequenceName, hideUnintelligible, wordTimings, slug }) {
   try {
-    const { data, error } = await db()
-      .from('transcripts')
-      .insert({
+    const buildRow = (includeSlug) => {
+      const row = {
         name,
         step,
         segments,
@@ -309,12 +334,27 @@ export async function saveTranscript({ name, step, segments, analysis, translati
         custom_sequence_name: customSequenceName || '',
         hide_unintelligible: hideUnintelligible ?? true,
         word_timings: wordTimings || null,
-        slug: slug || null,
-      })
+      };
+      if (includeSlug) row.slug = slug || null;
+      return row;
+    };
+
+    let { data, error } = await db()
+      .from('transcripts')
+      .insert(buildRow(slugSupported !== false))
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error && isMissingSlugColumnError(error)) {
+      markSlugUnsupported();
+      const r = await db().from('transcripts').insert(buildRow(false)).select().single();
+      if (r.error) throw new Error(r.error.message);
+      data = r.data;
+    } else if (error) {
+      throw new Error(error.message);
+    } else if (slug !== undefined) {
+      markSlugSupported();
+    }
     markSupabaseSuccess();
     return data;
   } catch (err) {
@@ -365,17 +405,27 @@ export async function updateTranscript(id, fields) {
   if (fields.customSequenceName !== undefined) update.custom_sequence_name = fields.customSequenceName;
   if (fields.hideUnintelligible !== undefined) update.hide_unintelligible = fields.hideUnintelligible;
   if (fields.wordTimings !== undefined) update.word_timings = fields.wordTimings;
-  if (fields.slug !== undefined) update.slug = fields.slug;
+  if (fields.slug !== undefined && slugSupported !== false) update.slug = fields.slug;
 
   try {
-    const { data, error } = await db()
+    let { data, error } = await db()
       .from('transcripts')
       .update(update)
       .eq('id', id)
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error && isMissingSlugColumnError(error)) {
+      markSlugUnsupported();
+      const { slug: _omit, ...withoutSlug } = update;
+      const r = await db().from('transcripts').update(withoutSlug).eq('id', id).select().single();
+      if (r.error) throw new Error(r.error.message);
+      data = r.data;
+    } else if (error) {
+      throw new Error(error.message);
+    } else if ('slug' in update) {
+      markSlugSupported();
+    }
     markSupabaseSuccess();
     return data;
   } catch (err) {
@@ -393,40 +443,34 @@ export async function listTranscripts(projectId) {
     // Intentionally omits `metadata` — it can be large (Workshop state, etc)
     // and the library only needs id/name/step/dates. Metadata is fetched
     // lazily by loadTranscript when the user opens a transcript.
-    const cols = softDeleteSupported === false
-      ? 'id, name, step, created_at, updated_at, project_id, slug'
-      : 'id, name, step, created_at, updated_at, project_id, slug, deleted_at';
-    let query = supabase
-      .from('transcripts')
-      .select(cols)
-      .order('updated_at', { ascending: false });
+    const buildSelect = () => {
+      const cols = ['id', 'name', 'step', 'created_at', 'updated_at', 'project_id'];
+      if (slugSupported !== false) cols.push('slug');
+      if (softDeleteSupported !== false) cols.push('deleted_at');
+      return cols.join(', ');
+    };
+    const buildQuery = () => {
+      let q = supabase.from('transcripts').select(buildSelect()).order('updated_at', { ascending: false });
+      if (softDeleteSupported !== false) q = q.is('deleted_at', null);
+      if (projectId) q = q.eq('project_id', projectId);
+      return q;
+    };
 
-    if (softDeleteSupported !== false) query = query.is('deleted_at', null);
-    if (projectId) query = query.eq('project_id', projectId);
+    let { data, error } = await buildQuery();
 
-    let { data, error } = await query;
-    if (error) {
-      if (isMissingColumnError(error)) {
-        // Schema doesn't have deleted_at yet — retry without that filter so
-        // the user's data is visible. Mark the feature off so subsequent
-        // calls skip the filter immediately.
-        markSoftDeleteUnsupported();
-        let retry = supabase
-          .from('transcripts')
-          .select('id, name, step, created_at, updated_at, project_id, slug')
-          .order('updated_at', { ascending: false });
-        if (projectId) retry = retry.eq('project_id', projectId);
-        const r = await retry;
-        if (r.error) throw new Error(r.error.message);
-        data = r.data;
-      } else {
-        throw new Error(error.message);
-      }
-    } else {
-      markSoftDeleteSupported();
+    // Retry once if either deleted_at or slug column is missing.
+    let retried = 0;
+    while (error && retried < 2 && (isMissingColumnError(error) || isMissingSlugColumnError(error))) {
+      if (isMissingColumnError(error)) markSoftDeleteUnsupported();
+      if (isMissingSlugColumnError(error)) markSlugUnsupported();
+      const r = await buildQuery();
+      data = r.data; error = r.error;
+      retried++;
     }
+    if (error) throw new Error(error.message);
+    if (softDeleteSupported === null) markSoftDeleteSupported();
+    if (slugSupported === null) markSlugSupported();
     markSupabaseSuccess();
-    // Strip deleted_at from returned rows for caller consistency
     return (data || []).map(({ deleted_at, ...rest }) => rest);
   } catch (err) {
     if (supabase) markSupabaseFailed(err);
