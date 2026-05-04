@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>trippy — my cold mars</title>
+  <meta name="theme-color" content="#000000">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #000; color: #fff;
+      overflow: hidden;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      -webkit-font-smoothing: antialiased;
+    }
+    #c { position: fixed; inset: 0; display: block; }
+
+    /* Splash / source picker */
+    #splash {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 28px;
+      background: radial-gradient(ellipse at center, #0a0014 0%, #000 70%);
+      z-index: 10;
+      transition: opacity 600ms ease;
+    }
+    #splash.hidden { opacity: 0; pointer-events: none; }
+    #splash h1 {
+      font-size: clamp(48px, 12vw, 140px);
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      background: linear-gradient(90deg, #ff00aa, #00eaff, #aaff00, #ff00aa);
+      background-size: 300% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: hue 6s linear infinite;
+      text-transform: lowercase;
+    }
+    #splash p {
+      opacity: 0.55; font-size: 13px; letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    #sources { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 720px; padding: 0 20px; }
+    .src {
+      appearance: none; border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.03);
+      color: #fff; padding: 16px 24px;
+      font: inherit; font-size: 14px; letter-spacing: 0.04em;
+      cursor: pointer; border-radius: 2px;
+      transition: all 200ms ease;
+      backdrop-filter: blur(10px);
+    }
+    .src:hover { background: rgba(255,255,255,0.1); border-color: #fff; transform: translateY(-2px); }
+    .src small { display: block; opacity: 0.5; font-size: 11px; margin-top: 4px; letter-spacing: 0; text-transform: none; }
+
+    /* HUD */
+    #hud {
+      position: fixed; top: 16px; left: 16px;
+      font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+      opacity: 0.6;
+      pointer-events: none;
+      z-index: 5;
+      mix-blend-mode: difference;
+      line-height: 1.7;
+    }
+    #hud b { font-weight: 600; opacity: 0.95; }
+
+    #help {
+      position: fixed; bottom: 16px; left: 16px;
+      font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+      opacity: 0.45;
+      z-index: 5;
+      mix-blend-mode: difference;
+      line-height: 1.8;
+      pointer-events: none;
+    }
+
+    .meter {
+      display: inline-block;
+      width: 50px; height: 6px;
+      background: rgba(255,255,255,0.08);
+      vertical-align: middle;
+      margin-left: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+    .meter > i {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      background: #fff;
+      width: 0%;
+    }
+
+    body.ui-hidden #hud, body.ui-hidden #help { opacity: 0; }
+
+    @keyframes hue {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 300% 50%; }
+    }
+
+    #file-input { display: none; }
+
+    .err {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: rgba(255,0,80,0.9); padding: 10px 18px; border-radius: 2px;
+      font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+      z-index: 20;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="splash">
+    <h1>trippy</h1>
+    <p>choose an audio source</p>
+    <div id="sources">
+      <button class="src" data-src="mic">microphone<small>any sound in the room</small></button>
+      <button class="src" data-src="tab">tab / system audio<small>chrome: share a tab with audio</small></button>
+      <button class="src" data-src="file">audio file<small>mp3 / wav / flac</small></button>
+      <button class="src" data-src="demo">demo tone<small>just look at it</small></button>
+    </div>
+    <input id="file-input" type="file" accept="audio/*">
+  </div>
+
+  <div id="hud">
+    <div>mode <b id="mode-label">kaleido</b></div>
+    <div>bass<span class="meter"><i id="m-bass"></i></span></div>
+    <div>mid <span class="meter"><i id="m-mid"></i></span></div>
+    <div>high<span class="meter"><i id="m-high"></i></span></div>
+    <div>bpm  <b id="bpm-label">—</b></div>
+  </div>
+
+  <div id="help">
+    [1–4] mode &nbsp; [space] beat &nbsp; [h] hide ui &nbsp; [f] fullscreen &nbsp; [r] reset &nbsp; [s] new source
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

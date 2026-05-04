@@ -45,6 +45,7 @@ export default defineConfig({
         growth: resolve(__dirname, 'growth/index.html'),
         viewsGrowth: resolve(__dirname, 'views-growth/index.html'),
         translation: resolve(__dirname, 'translation/index.html'),
+        trippy: resolve(__dirname, 'trippy/index.html'),
       },
     },
   },
