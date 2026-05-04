@@ -116,7 +116,13 @@ function buildUserContent(text, images) {
 
 async function callHunter({ pasted, segments, images }) {
   const transcript = buildTranscriptForPrompt(segments);
-  const system = `You are SOT HUNTER — an editor's assistant that finds the right soundbite in a transcript. The transcript is already in English. The user only ever wants to see clean, natural English.
+  // System prompt is split into two blocks so the (large, repeating)
+  // transcript gets a prompt-cache hit on every hunt within the 5-min TTL —
+  // ~10% of normal input price for the cached portion.
+  const system = [
+    {
+      type: 'text',
+      text: `You are SOT HUNTER — an editor's assistant that finds the right soundbite in a transcript. The transcript is already in English. The user only ever wants to see clean, natural English.
 
 The user will provide a messy reference. It may be: a rough timecode from another translation, approximate text from an earlier transcription, paraphrased editorial notes, AND/OR a screenshot of a transcript or notes (in any language — read it visually). Your job: find the SINGLE best matching span in the transcript below.
 
@@ -134,10 +140,14 @@ Rules:
 - "confidence" 80-100 = very confident; 50-79 = probable; 20-49 = best guess only; 0-19 = no real match found.
 - If nothing plausibly matches, return matchSegments: [] and confidence: 0 and text: "".
 - Prefer tight matches (1-5 segments) over sprawling ones. Only widen if the reference clearly spans more.
-- "text" must be natural English. No Chinese, no other languages, no ellipses for skipped filler — just the cleaned soundbite.
-
-TRANSCRIPT (numbered, with timecodes, English):
-${transcript}`;
+- "text" must be natural English. No Chinese, no other languages, no ellipses for skipped filler — just the cleaned soundbite.`,
+    },
+    {
+      type: 'text',
+      text: `TRANSCRIPT (numbered, with timecodes, English):\n${transcript}`,
+      cache_control: { type: 'ephemeral' },
+    },
+  ];
 
   const res = await fetch('/api/claude', {
     method: 'POST',
@@ -192,7 +202,10 @@ ${transcript}`;
 
 async function callThemeHunter({ theme, segments, images }) {
   const transcript = buildTranscriptForPrompt(segments);
-  const system = `You are SOT HUNTER in THEME mode. The transcript is already in English. The user only ever wants clean, natural English back.
+  const system = [
+    {
+      type: 'text',
+      text: `You are SOT HUNTER in THEME mode. The transcript is already in English. The user only ever wants clean, natural English back.
 
 Given an editorial theme or topic, extract the soundbites from the transcript that best fit it.
 
@@ -221,10 +234,14 @@ Rules:
 - Skip filler, mid-thought fragments, and interviewer prompts.
 - Keep matchSegments tight (1-5 segments). Only widen for genuinely multi-segment quotes.
 - "text" must be natural English. No Chinese, no other languages, no ellipses for skipped filler — just the cleaned soundbite, ready to read aloud.
-- If nothing fits, return { "soundbites": [] }.
-
-TRANSCRIPT (numbered, with timecodes, English):
-${transcript}`;
+- If nothing fits, return { "soundbites": [] }.`,
+    },
+    {
+      type: 'text',
+      text: `TRANSCRIPT (numbered, with timecodes, English):\n${transcript}`,
+      cache_control: { type: 'ephemeral' },
+    },
+  ];
 
   const res = await fetch('/api/claude', {
     method: 'POST',

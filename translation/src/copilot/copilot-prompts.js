@@ -10,24 +10,34 @@
  * Includes the stored summary + a local window around the selection.
  */
 export function buildCopilotSystemPrompt({ summary, segments, translations, speakerMap, selection, deepContext }) {
-  let transcriptContext = '';
-
-  if (deepContext) {
-    // Full transcript
-    transcriptContext = buildFullTranscriptContext(segments, translations, speakerMap);
-  } else {
-    // Local window: 10 segments before and after the selection
-    transcriptContext = buildLocalWindow(segments, translations, speakerMap, selection);
-  }
-
-  return `You are an editorial assistant for a documentary filmmaker working with interview transcripts.
-
-${summary ? `INTERVIEW SUMMARY:\n${summary}\n\n` : ''}${transcriptContext ? `TRANSCRIPT CONTEXT:\n${transcriptContext}\n\n` : ''}GUIDELINES:
+  const intro = `You are an editorial assistant for a documentary filmmaker working with interview transcripts.`;
+  const guidelines = `GUIDELINES:
 - Always reference both the original language and the translation when discussing specific passages.
 - Provide cultural context when relevant (Chinese idioms, historical references, regional expressions).
 - When suggesting alternative translations, explain the nuance each captures differently. Format each suggestion as [[suggestion: your suggested text here]] so it can be applied directly.
 - Be concise but thorough. The filmmaker needs practical, actionable insights.
 - When asked about themes, connect specific quotes to broader narrative arcs.`;
+  const summaryBlock = summary ? `INTERVIEW SUMMARY:\n${summary}\n\n` : '';
+
+  if (deepContext) {
+    // Full transcript — same bytes every call, so split it into its own
+    // cacheable block and let prompt caching cut input cost ~10x on repeats.
+    const transcript = buildFullTranscriptContext(segments, translations, speakerMap);
+    return [
+      { type: 'text', text: `${intro}\n\n${summaryBlock}${guidelines}` },
+      {
+        type: 'text',
+        text: `TRANSCRIPT CONTEXT:\n${transcript}`,
+        cache_control: { type: 'ephemeral' },
+      },
+    ];
+  }
+
+  // Local window: changes per selection, so caching wouldn't hit. String is fine.
+  const transcriptContext = buildLocalWindow(segments, translations, speakerMap, selection);
+  return `${intro}
+
+${summaryBlock}${transcriptContext ? `TRANSCRIPT CONTEXT:\n${transcriptContext}\n\n` : ''}${guidelines}`;
 }
 
 /**
