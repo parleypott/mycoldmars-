@@ -3776,6 +3776,132 @@ tr.dimmed-speaker { opacity: 0.35; }
   overflow: auto;
 }
 .sot-hunter-panel.open { opacity: 1; transform: translateY(0); }
+.sot-hunter-panel.expanded {
+  width: min(640px, calc(100vw - 40px));
+  max-height: calc(100vh - 100px);
+}
+
+.sot-hunter-modes {
+  display: inline-flex;
+  background: rgba(18,17,24,0.05);
+  border-radius: 999px;
+  padding: 3px;
+  align-self: flex-start;
+}
+.sot-hunter-mode {
+  background: transparent;
+  border: none;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 999px;
+  color: var(--np-sepia);
+  cursor: pointer;
+  transition: background 160ms var(--np-ease), color 160ms var(--np-ease);
+}
+.sot-hunter-mode.active {
+  background: var(--np-ink);
+  color: var(--np-warm-white);
+}
+
+.sot-hunter-bites-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.sot-hunter-bites-count {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+}
+
+.sot-hunter-bites {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sot-hunter-bite {
+  background: #fff;
+  border: 1px solid rgba(18,17,24,0.12);
+  border-radius: 3px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sot-hunter-bite-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sot-hunter-bite-label {
+  font-family: var(--np-font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--np-ink);
+}
+.sot-hunter-bite-conf {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--np-sepia);
+}
+.sot-hunter-conf-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--np-green);
+  display: inline-block;
+}
+.sot-hunter-bite-conf.sot-hunter-conf--mid .sot-hunter-conf-dot { background: var(--np-yellow); }
+.sot-hunter-bite-conf.sot-hunter-conf--low .sot-hunter-conf-dot { background: var(--np-red); }
+
+.sot-hunter-bite-line {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--np-ink);
+  background: rgba(255,191,0,0.08);
+  border-left: 2px solid var(--np-yellow);
+  padding: 8px 10px;
+  border-radius: 0 3px 3px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.sot-hunter-bite-why {
+  font-size: 11.5px;
+  color: var(--np-sepia);
+  font-style: italic;
+  line-height: 1.4;
+}
+.sot-hunter-bite-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sot-hunter-bite-jump,
+.sot-hunter-bite-copy {
+  background: transparent;
+  border: 1px solid rgba(18,17,24,0.2);
+  color: var(--np-ink);
+  padding: 4px 10px;
+  font-family: var(--np-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.sot-hunter-bite-jump:hover,
+.sot-hunter-bite-copy:hover { background: var(--np-ink); color: var(--np-warm-white); }
+.sot-hunter-bite .sot-hunter-thumbs { margin-left: auto; }
 
 .sot-hunter-header {
   display: flex;

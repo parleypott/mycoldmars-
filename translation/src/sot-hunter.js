@@ -3,6 +3,7 @@
 // match in the editor and logs thumbs feedback to localStorage so we can audit
 // guess quality over time.
 import { formatPreciseTimecode } from './timecode-utils.js';
+import { extractSequenceBase, getSequenceMetadata, cleanSpeakerName } from './csv-parser.js';
 
 const FEEDBACK_KEY = 'np_sot_hunter_feedback_v1';
 
@@ -147,6 +148,81 @@ ${transcript}`;
   return parseHunterJSON(full);
 }
 
+async function callThemeHunter({ theme, segments }) {
+  const transcript = buildTranscriptForPrompt(segments);
+  const system = `You are SOT HUNTER in THEME mode. Given an editorial theme or topic, extract the soundbites from the transcript that best fit it.
+
+A soundbite is:
+- A short, standalone quote — typically one or a few contiguous segments.
+- Self-contained: makes sense without surrounding context.
+- Punchy, declarative, or emotionally resonant on the theme.
+
+Match by MEANING, not just keyword. Quotes may not contain the theme word verbatim.
+
+Return JSON only (no fencing):
+{
+  "soundbites": [
+    {
+      "matchSegments": [12, 13],
+      "confidence": 0,
+      "label": "Brief 5-10 word headline for this soundbite",
+      "reasoning": "1 short sentence on why it fits the theme"
+    }
+  ]
+}
+
+Rules:
+- Order soundbites by confidence (best first). Aim for 3-12 quality matches; quality > quantity.
+- "confidence": 80-100 = strong fit; 50-79 = solid; 20-49 = thematically adjacent; below 20 = skip.
+- Skip filler, mid-thought fragments, and interviewer prompts.
+- Keep matchSegments tight (1-5 segments). Only widen for genuinely multi-segment quotes.
+- If nothing fits, return { "soundbites": [] }.
+
+TRANSCRIPT (numbered, with timecodes):
+${transcript}`;
+
+  const res = await fetch('/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 3000,
+      stream: true,
+      system,
+      messages: [{ role: 'user', content: `Theme to find: ${theme}` }],
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Hunter API error ${res.status}: ${text.slice(0, 200)}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let full = '';
+  let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6);
+      if (data === '[DONE]') continue;
+      try {
+        const ev = JSON.parse(data);
+        if (ev.type === 'content_block_delta' && ev.delta?.text) full += ev.delta.text;
+      } catch {}
+    }
+  }
+
+  const parsed = parseHunterJSON(full);
+  return Array.isArray(parsed?.soundbites) ? parsed.soundbites : [];
+}
+
 function parseHunterJSON(text) {
   try { return JSON.parse(text.trim()); } catch {}
   const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
@@ -203,6 +279,36 @@ function clearHighlights() {
   });
 }
 
+// Build the standard soundbite prefix used elsewhere in the app:
+//   [260322-04-113-Matzu | 22:55.3 → 23:00.5]: TEXT
+// `seqMeta` comes from getSequenceMetadata(segments). When the soundbite's
+// speaker differs from the primary speaker we append ` - SPEAKER` to the base.
+function formatSoundbiteLine(segments, segNums, seqMeta) {
+  if (!segNums || segNums.length === 0) return '';
+  const matched = segments.filter(s => segNums.includes(s.number));
+  if (matched.length === 0) return '';
+
+  const text = matched.map(s => s.text || '').join(' ').trim();
+  const start = matched[0].start ? fmtTimecode(matched[0].start) : '';
+  const end = matched[matched.length - 1].end ? fmtTimecode(matched[matched.length - 1].end) : '';
+  const tc = start && end ? `${start} → ${end}` : start;
+
+  // Sequence base (e.g. "260322-04-113-Matzu") from the first labeled speaker.
+  const primaryBase = extractSequenceBase(seqMeta?.sequenceName || '');
+  let prefix = primaryBase || seqMeta?.sequenceName || '';
+
+  // If this soundbite's speaker differs from primary, append it.
+  const blockSpeakerRaw = matched[0].speaker || '';
+  const blockClean = cleanSpeakerName(blockSpeakerRaw);
+  const primary = seqMeta?.primarySpeaker || '';
+  if (prefix && blockClean && primary && blockClean.toUpperCase() !== primary.toUpperCase()) {
+    prefix += ` - ${blockClean.toUpperCase()}`;
+  }
+
+  const head = [prefix, tc].filter(Boolean).join(' | ');
+  return head ? `[${head}]: ${text}` : text;
+}
+
 function buildMatchSnippet(segments, segNums) {
   if (!segNums || segNums.length === 0) return '';
   const matched = segments.filter(s => segNums.includes(s.number));
@@ -230,10 +336,14 @@ export function initSotHunter({ getSegments }) {
           ${ROBIN_PIXELS}
           <div>
             <div class="sot-hunter-eyebrow">SOT&nbsp;HUNTER</div>
-            <div class="sot-hunter-tag">paste a messy reference. let the arrow fly.</div>
+            <div class="sot-hunter-tag" id="sot-hunter-tag">paste a messy reference. let the arrow fly.</div>
           </div>
         </div>
         <button class="sot-hunter-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="sot-hunter-modes" role="tablist">
+        <button type="button" class="sot-hunter-mode active" data-mode="paste" role="tab" aria-selected="true">Paste reference</button>
+        <button type="button" class="sot-hunter-mode" data-mode="theme" role="tab" aria-selected="false">By theme</button>
       </div>
       <textarea id="sot-hunter-input" class="sot-hunter-textarea" placeholder="Paste a soundbite or rough notes — old timecodes, approximate translations, editorial paraphrases. Anything goes."></textarea>
       <div class="sot-hunter-actions">
@@ -269,11 +379,39 @@ export function initSotHunter({ getSegments }) {
   closeBtn.addEventListener('click', closePanel);
 
   let lastResult = null;
+  let mode = 'paste';
+
+  const modeBtns = root.querySelectorAll('.sot-hunter-mode');
+  const tagEl = root.querySelector('#sot-hunter-tag');
+
+  function setMode(next) {
+    mode = next;
+    modeBtns.forEach(b => {
+      const on = b.dataset.mode === next;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    if (next === 'theme') {
+      input.placeholder = 'Describe a theme or topic — e.g. "moments of regret about joining NATO" or "anything where she talks about her father."';
+      fireBtn.textContent = 'Find soundbites';
+      tagEl.textContent = 'name a theme. the hunter brings back several quotes.';
+      panel.classList.add('mode-theme');
+    } else {
+      input.placeholder = 'Paste a soundbite or rough notes — old timecodes, approximate translations, editorial paraphrases. Anything goes.';
+      fireBtn.textContent = 'Hunt';
+      tagEl.textContent = 'paste a messy reference. let the arrow fly.';
+      panel.classList.remove('mode-theme');
+    }
+    resultBox.hidden = true;
+    resultBox.innerHTML = '';
+    panel.classList.remove('expanded');
+  }
+  modeBtns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
   async function hunt() {
-    const pasted = input.value.trim();
-    if (!pasted) {
-      status.textContent = 'Paste something first.';
+    const value = input.value.trim();
+    if (!value) {
+      status.textContent = mode === 'theme' ? 'Name a theme first.' : 'Paste something first.';
       return;
     }
     const segments = (getSegments?.() || []).filter(s => s && s.text);
@@ -283,14 +421,20 @@ export function initSotHunter({ getSegments }) {
     }
 
     fireBtn.disabled = true;
-    status.textContent = 'Drawing back the bow…';
+    status.textContent = mode === 'theme' ? 'Stalking the theme through the brush…' : 'Drawing back the bow…';
     resultBox.hidden = true;
     resultBox.innerHTML = '';
 
     try {
-      const result = await callHunter({ pasted, segments });
-      lastResult = { pasted, result };
-      renderResult(result, segments);
+      if (mode === 'theme') {
+        const soundbites = await callThemeHunter({ theme: value, segments });
+        lastResult = { mode, query: value, soundbites };
+        renderThemeResults(soundbites, segments);
+      } else {
+        const result = await callHunter({ pasted: value, segments });
+        lastResult = { mode, pasted: value, result };
+        renderResult(result, segments);
+      }
       status.textContent = '';
     } catch (err) {
       console.error('SOT Hunter failed:', err);
@@ -298,6 +442,107 @@ export function initSotHunter({ getSegments }) {
     } finally {
       fireBtn.disabled = false;
     }
+  }
+
+  function renderThemeResults(soundbites, segments) {
+    resultBox.hidden = false;
+    panel.classList.add('expanded');
+
+    if (!soundbites || soundbites.length === 0) {
+      resultBox.innerHTML = `
+        <div class="sot-hunter-conf sot-hunter-conf--miss">
+          <div class="sot-hunter-conf-label">No soundbites found for that theme</div>
+        </div>
+        <p class="sot-hunter-reasoning">The hunter combed the transcript and didn't find anything that fit.</p>
+      `;
+      clearHighlights();
+      return;
+    }
+
+    const seqMeta = getSequenceMetadata(segments);
+    const allLines = [];
+
+    const cardsHtml = soundbites.map((sb, i) => {
+      const segNums = Array.isArray(sb.matchSegments) ? sb.matchSegments : [];
+      const conf = Math.max(0, Math.min(100, Number(sb.confidence) || 0));
+      const tone = conf >= 80 ? 'high' : conf >= 50 ? 'mid' : 'low';
+      const line = formatSoundbiteLine(segments, segNums, seqMeta);
+      allLines.push(line);
+      return `
+        <div class="sot-hunter-bite" data-i="${i}" data-segs="${segNums.join(',')}">
+          <div class="sot-hunter-bite-head">
+            <div class="sot-hunter-bite-label">${escapeHtml(sb.label || 'Soundbite')}</div>
+            <div class="sot-hunter-bite-conf sot-hunter-conf--${tone}">
+              <span class="sot-hunter-conf-dot"></span>${conf}%
+            </div>
+          </div>
+          <div class="sot-hunter-bite-line">${escapeHtml(line)}</div>
+          ${sb.reasoning ? `<div class="sot-hunter-bite-why">${escapeHtml(sb.reasoning)}</div>` : ''}
+          <div class="sot-hunter-bite-actions">
+            <button type="button" class="sot-hunter-bite-jump">Jump</button>
+            <button type="button" class="sot-hunter-bite-copy">Copy</button>
+            <span class="sot-hunter-thumbs">
+              <button type="button" class="sot-hunter-thumb sot-hunter-thumb--up" title="Good find">👍</button>
+              <button type="button" class="sot-hunter-thumb sot-hunter-thumb--down" title="Bad fit">👎</button>
+            </span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    resultBox.innerHTML = `
+      <div class="sot-hunter-bites-head">
+        <div class="sot-hunter-bites-count">${soundbites.length} soundbite${soundbites.length === 1 ? '' : 's'}</div>
+        <button type="button" id="sot-hunter-copy-all" class="sot-hunter-jump">Copy all</button>
+      </div>
+      <div class="sot-hunter-bites">${cardsHtml}</div>
+    `;
+
+    // Highlight all matches and scroll to the first.
+    const allSegNums = soundbites.flatMap(sb => Array.isArray(sb.matchSegments) ? sb.matchSegments : []);
+    highlightSegmentsInEditor(allSegNums);
+
+    resultBox.querySelector('#sot-hunter-copy-all').addEventListener('click', () => {
+      const txt = allLines.filter(Boolean).join('\n\n');
+      navigator.clipboard?.writeText(txt);
+      flashCopy(resultBox.querySelector('#sot-hunter-copy-all'));
+    });
+
+    resultBox.querySelectorAll('.sot-hunter-bite').forEach((card) => {
+      const i = Number(card.dataset.i);
+      const segs = card.dataset.segs.split(',').filter(Boolean).map(Number);
+      const sb = soundbites[i];
+      const line = allLines[i];
+
+      card.querySelector('.sot-hunter-bite-jump').addEventListener('click', () => {
+        highlightSegmentsInEditor(segs);
+      });
+      card.querySelector('.sot-hunter-bite-copy').addEventListener('click', (e) => {
+        navigator.clipboard?.writeText(line);
+        flashCopy(e.currentTarget);
+      });
+      card.querySelector('.sot-hunter-thumb--up').addEventListener('click', () => {
+        logFeedback({ mode: 'theme', query: lastResult.query, soundbite: sb, verdict: 'hit' });
+        markBiteVerdict(card, 'up');
+      });
+      card.querySelector('.sot-hunter-thumb--down').addEventListener('click', () => {
+        logFeedback({ mode: 'theme', query: lastResult.query, soundbite: sb, verdict: 'miss' });
+        markBiteVerdict(card, 'down');
+      });
+    });
+  }
+
+  function flashCopy(btn) {
+    const orig = btn.textContent;
+    btn.textContent = 'Copied';
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1200);
+  }
+
+  function markBiteVerdict(card, kind) {
+    const thumbs = card.querySelector('.sot-hunter-thumbs');
+    if (!thumbs) return;
+    thumbs.innerHTML = `<span class="sot-hunter-feedback-msg">${kind === 'up' ? 'Logged 👍' : 'Logged 👎'}</span>`;
   }
 
   function renderResult(result, segments) {
