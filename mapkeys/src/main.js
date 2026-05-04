@@ -19,6 +19,8 @@ const PAL = {
 
 // Restore last camera position so a reload picks up where you left off.
 const CAMERA_LS_KEY = 'mapkeys_last_camera';
+let isPlayingBack = false;  // local flag (updated by play/stop). Avoids any
+                            // chance of touching `state` before it's defined.
 function loadLastCamera() {
   try {
     const raw = localStorage.getItem(CAMERA_LS_KEY);
@@ -30,6 +32,7 @@ function loadLastCamera() {
   } catch { return null; }
 }
 const lastCam = loadLastCamera();
+console.info('[mapkeys] loaded camera:', lastCam || '(none — using defaults)');
 
 const map = new mapboxgl.Map({
   container: 'map',
@@ -44,12 +47,8 @@ const map = new mapboxgl.Map({
   preserveDrawingBuffer: true,
 });
 
-// Persist camera on every move (debounced via moveend, which already fires
-// once per gesture rather than per frame).
-map.on('moveend', () => {
-  // Don't persist while we're playing back keyframes — save the user's
-  // edit-time position, not a snapshot from the middle of an animation.
-  if (typeof state !== 'undefined' && state.playing) return;
+function saveCurrentCamera() {
+  if (isPlayingBack) return;
   try {
     const c = map.getCenter();
     localStorage.setItem(CAMERA_LS_KEY, JSON.stringify({
@@ -57,9 +56,23 @@ map.on('moveend', () => {
       zoom: map.getZoom(),
       bearing: map.getBearing(),
       pitch: map.getPitch(),
+      savedAt: Date.now(),
     }));
   } catch {}
-});
+}
+
+// `moveend` is the natural fit but on globe projection it can be flaky;
+// `idle` fires when all motion + tile loading is fully settled, which is
+// strictly more reliable. Listen to both — saves are cheap and idempotent.
+map.on('moveend', saveCurrentCamera);
+map.on('zoomend', saveCurrentCamera);
+map.on('pitchend', saveCurrentCamera);
+map.on('rotateend', saveCurrentCamera);
+
+// Last-resort save: if the user reloads or closes the tab mid-gesture before
+// `idle` fires, capture position on unload.
+window.addEventListener('beforeunload', saveCurrentCamera);
+window.addEventListener('pagehide', saveCurrentCamera);
 
 map.on('style.load', () => {
   // ── Quiet, warm fog
@@ -436,6 +449,7 @@ function play() {
   let offset = state.playOffset;
   if (offset >= total) offset = 0;
   state.playing = true;
+  isPlayingBack = true;
   state.playStart = performance.now();
   state.playOffset = offset;
   document.getElementById('play-btn').textContent = '⏸ Pause';
@@ -460,6 +474,7 @@ function stop() {
   const elapsed = (performance.now() - state.playStart) / 1000 + state.playOffset;
   state.playOffset = Math.min(elapsed, totalDuration());
   state.playing = false;
+  isPlayingBack = false;
   cancelAnimationFrame(state.rafId);
   document.getElementById('play-btn').textContent = '▶ Play';
 }
