@@ -102,11 +102,23 @@ function buildEnglishSegments(segments, translations) {
   }).filter(Boolean);
 }
 
-async function callHunter({ pasted, segments }) {
+// Build the Anthropic-format `content` for a user message. If any images are
+// attached, emit an array of image+text blocks; otherwise a plain string.
+function buildUserContent(text, images) {
+  if (!images || images.length === 0) return text;
+  const blocks = images.map(img => ({
+    type: 'image',
+    source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
+  }));
+  blocks.push({ type: 'text', text });
+  return blocks;
+}
+
+async function callHunter({ pasted, segments, images }) {
   const transcript = buildTranscriptForPrompt(segments);
   const system = `You are SOT HUNTER — an editor's assistant that finds the right soundbite in a transcript. The transcript is already in English. The user only ever wants to see clean, natural English.
 
-The user will paste a messy reference: maybe a rough timecode from another translation, maybe approximate text from an earlier transcription, maybe paraphrased editorial notes. Your job: find the SINGLE best matching span in the transcript below.
+The user will provide a messy reference. It may be: a rough timecode from another translation, approximate text from an earlier transcription, paraphrased editorial notes, AND/OR a screenshot of a transcript or notes (in any language — read it visually). Your job: find the SINGLE best matching span in the transcript below.
 
 Match by MEANING and ORDER, not just verbatim text. Use any rough timecode as a strong locality hint, but trust meaning over timecode if they conflict.
 
@@ -135,7 +147,13 @@ ${transcript}`;
       max_tokens: 800,
       stream: true,
       system,
-      messages: [{ role: 'user', content: `Find the best match for this reference:\n\n${pasted}` }],
+      messages: [{
+        role: 'user',
+        content: buildUserContent(
+          `Find the best match for this reference${images?.length ? ' (text and/or attached image[s])' : ''}:\n\n${pasted || '(see attached image)'}`,
+          images,
+        ),
+      }],
     }),
   });
 
@@ -168,7 +186,7 @@ ${transcript}`;
   return parseHunterJSON(full);
 }
 
-async function callThemeHunter({ theme, segments }) {
+async function callThemeHunter({ theme, segments, images }) {
   const transcript = buildTranscriptForPrompt(segments);
   const system = `You are SOT HUNTER in THEME mode. The transcript is already in English. The user only ever wants clean, natural English back.
 
@@ -212,7 +230,13 @@ ${transcript}`;
       max_tokens: 3000,
       stream: true,
       system,
-      messages: [{ role: 'user', content: `Theme to find: ${theme}` }],
+      messages: [{
+        role: 'user',
+        content: buildUserContent(
+          `Theme to find${images?.length ? ' (text and/or attached image[s] for additional context)' : ''}: ${theme || '(see attached image)'}`,
+          images,
+        ),
+      }],
     }),
   });
 
@@ -368,9 +392,17 @@ export function initSotHunter({ getSegments, getTranslations }) {
         <button type="button" class="sot-hunter-mode active" data-mode="paste" role="tab" aria-selected="true">Paste reference</button>
         <button type="button" class="sot-hunter-mode" data-mode="theme" role="tab" aria-selected="false">By theme</button>
       </div>
-      <textarea id="sot-hunter-input" class="sot-hunter-textarea" placeholder="Paste a soundbite or rough notes — old timecodes, approximate translations, editorial paraphrases. Anything goes."></textarea>
+      <div id="sot-hunter-dropzone" class="sot-hunter-dropzone">
+        <textarea id="sot-hunter-input" class="sot-hunter-textarea" placeholder="Paste a soundbite or rough notes — old timecodes, approximate translations, editorial paraphrases. Or drop / paste a screenshot."></textarea>
+        <div class="sot-hunter-drop-overlay">
+          <div class="sot-hunter-drop-overlay-inner">drop screenshot to attach</div>
+        </div>
+      </div>
+      <div id="sot-hunter-attachments" class="sot-hunter-attachments" hidden></div>
       <div class="sot-hunter-actions">
         <button id="sot-hunter-fire" class="sot-hunter-fire" type="button">Hunt</button>
+        <button id="sot-hunter-attach" class="sot-hunter-attach" type="button" title="Attach an image">+ image</button>
+        <input type="file" id="sot-hunter-file" accept="image/*" multiple hidden>
         <span id="sot-hunter-status" class="sot-hunter-status"></span>
       </div>
       <div id="sot-hunter-result" class="sot-hunter-result" hidden></div>
@@ -385,6 +417,122 @@ export function initSotHunter({ getSegments, getTranslations }) {
   const input = root.querySelector('#sot-hunter-input');
   const status = root.querySelector('#sot-hunter-status');
   const resultBox = root.querySelector('#sot-hunter-result');
+  const dropZone = root.querySelector('#sot-hunter-dropzone');
+  const attachmentsBox = root.querySelector('#sot-hunter-attachments');
+  const attachBtn = root.querySelector('#sot-hunter-attach');
+  const fileInput = root.querySelector('#sot-hunter-file');
+
+  // Attached image state. Each entry: { id, dataUrl, mediaType, base64, name, size }.
+  const attachedImages = [];
+
+  function readImageFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result;
+        const m = String(dataUrl).match(/^data:([^;]+);base64,(.+)$/);
+        if (!m) return reject(new Error('Could not read image'));
+        resolve({
+          id: 'img_' + Math.random().toString(36).slice(2, 9),
+          dataUrl,
+          mediaType: m[1],
+          base64: m[2],
+          name: file.name || 'screenshot',
+          size: file.size,
+        });
+      };
+      reader.onerror = () => reject(reader.error || new Error('Read failed'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function attachFiles(files) {
+    const imgs = Array.from(files).filter(f => f && f.type && f.type.startsWith('image/'));
+    if (imgs.length === 0) return;
+    for (const f of imgs) {
+      try {
+        const img = await readImageFile(f);
+        attachedImages.push(img);
+      } catch (err) {
+        console.warn('Image read failed:', err);
+      }
+    }
+    renderAttachments();
+  }
+
+  function renderAttachments() {
+    if (attachedImages.length === 0) {
+      attachmentsBox.hidden = true;
+      attachmentsBox.innerHTML = '';
+      return;
+    }
+    attachmentsBox.hidden = false;
+    attachmentsBox.innerHTML = attachedImages.map(img => `
+      <div class="sot-hunter-thumb-wrap" data-id="${img.id}">
+        <img class="sot-hunter-thumb-img" src="${img.dataUrl}" alt="">
+        <button type="button" class="sot-hunter-thumb-x" title="Remove" aria-label="Remove">×</button>
+      </div>
+    `).join('');
+    attachmentsBox.querySelectorAll('.sot-hunter-thumb-x').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.sot-hunter-thumb-wrap')?.dataset.id;
+        const idx = attachedImages.findIndex(i => i.id === id);
+        if (idx >= 0) attachedImages.splice(idx, 1);
+        renderAttachments();
+      });
+    });
+  }
+
+  // Drag-and-drop on the panel itself.
+  let dragDepth = 0;
+  panel.addEventListener('dragenter', (e) => {
+    if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) {
+      e.preventDefault();
+      dragDepth++;
+      dropZone.classList.add('drag-active');
+    }
+  });
+  panel.addEventListener('dragover', (e) => {
+    if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) {
+      e.preventDefault();
+    }
+  });
+  panel.addEventListener('dragleave', () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) dropZone.classList.remove('drag-active');
+  });
+  panel.addEventListener('drop', (e) => {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      e.preventDefault();
+      dragDepth = 0;
+      dropZone.classList.remove('drag-active');
+      attachFiles(e.dataTransfer.files);
+    }
+  });
+
+  // Paste an image from clipboard (Cmd/Ctrl-V on the textarea or panel).
+  panel.addEventListener('paste', (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files = [];
+    for (const it of items) {
+      if (it.kind === 'file' && it.type.startsWith('image/')) {
+        const f = it.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length > 0) {
+      e.preventDefault();
+      attachFiles(files);
+    }
+  });
+
+  // "+ image" button → file picker.
+  attachBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length > 0) attachFiles(e.target.files);
+    fileInput.value = '';
+  });
 
   function openPanel() {
     panel.hidden = false;
@@ -433,8 +581,10 @@ export function initSotHunter({ getSegments, getTranslations }) {
 
   async function hunt() {
     const value = input.value.trim();
-    if (!value) {
-      status.textContent = mode === 'theme' ? 'Name a theme first.' : 'Paste something first.';
+    if (!value && attachedImages.length === 0) {
+      status.textContent = mode === 'theme'
+        ? 'Name a theme or attach an image first.'
+        : 'Paste something or attach an image first.';
       return;
     }
     const rawSegments = (getSegments?.() || []).filter(s => s && s.text);
@@ -459,13 +609,14 @@ export function initSotHunter({ getSegments, getTranslations }) {
     resultBox.innerHTML = '';
 
     try {
+      const images = attachedImages.slice();
       if (mode === 'theme') {
-        const soundbites = await callThemeHunter({ theme: value, segments });
-        lastResult = { mode, query: value, soundbites };
+        const soundbites = await callThemeHunter({ theme: value, segments, images });
+        lastResult = { mode, query: value, soundbites, imageCount: images.length };
         renderThemeResults(soundbites, segments);
       } else {
-        const result = await callHunter({ pasted: value, segments });
-        lastResult = { mode, pasted: value, result };
+        const result = await callHunter({ pasted: value, segments, images });
+        lastResult = { mode, pasted: value, result, imageCount: images.length };
         renderResult(result, segments);
       }
       status.textContent = '';
