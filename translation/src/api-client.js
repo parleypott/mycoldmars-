@@ -22,31 +22,38 @@ async function callClaude(systemPrompt, userMessage, maxTokens = 2000) {
     throw new Error(`Claude API error ${res.status}: ${text.slice(0, 200)}`);
   }
 
-  // Parse SSE stream in the browser
+  // Parse SSE stream in the browser. The reader MUST be cancelled in a
+  // finally block — leaving it dangling holds the underlying HTTP
+  // connection open, and browsers cap ~6 connections per origin, so a
+  // few leaks freeze every subsequent request.
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let fullText = '';
   let buffer = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop();
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
 
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      const data = line.slice(6);
-      if (data === '[DONE]') continue;
-      try {
-        const event = JSON.parse(data);
-        if (event.type === 'content_block_delta' && event.delta?.text) {
-          fullText += event.delta.text;
-        }
-      } catch {}
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const event = JSON.parse(data);
+          if (event.type === 'content_block_delta' && event.delta?.text) {
+            fullText += event.delta.text;
+          }
+        } catch {}
+      }
     }
+  } finally {
+    try { await reader.cancel(); } catch {}
   }
 
   return fullText;

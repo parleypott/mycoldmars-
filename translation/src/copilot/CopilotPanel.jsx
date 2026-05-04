@@ -94,26 +94,30 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
       let buffer = '';
       let assistantText = '';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
 
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6);
-          if (data === '[DONE]') continue;
-          try {
-            const event = JSON.parse(data);
-            if (event.type === 'content_block_delta' && event.delta?.text) {
-              assistantText += event.delta.text;
-              setMessages([...newMessages, { role: 'assistant', content: assistantText }]);
-            }
-          } catch {}
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            try {
+              const event = JSON.parse(data);
+              if (event.type === 'content_block_delta' && event.delta?.text) {
+                assistantText += event.delta.text;
+                setMessages([...newMessages, { role: 'assistant', content: assistantText }]);
+              }
+            } catch {}
+          }
         }
+      } finally {
+        try { await reader.cancel(); } catch {}
       }
 
       setMessages([...newMessages, { role: 'assistant', content: assistantText }]);
@@ -159,26 +163,30 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
       let buffer = '';
       let text = '';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
 
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6);
-          if (data === '[DONE]') continue;
-          try {
-            const event = JSON.parse(data);
-            if (event.type === 'content_block_delta' && event.delta?.text) {
-              text += event.delta.text;
-              setSummaryContent(text);
-            }
-          } catch {}
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            try {
+              const event = JSON.parse(data);
+              if (event.type === 'content_block_delta' && event.delta?.text) {
+                text += event.delta.text;
+                setSummaryContent(text);
+              }
+            } catch {}
+          }
         }
+      } finally {
+        try { await reader.cancel(); } catch {}
       }
 
       setSummaryContent(text);

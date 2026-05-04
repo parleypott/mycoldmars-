@@ -166,21 +166,25 @@ ${transcript}`;
   const decoder = new TextDecoder();
   let full = '';
   let buf = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop();
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      const data = line.slice(6);
-      if (data === '[DONE]') continue;
-      try {
-        const ev = JSON.parse(data);
-        if (ev.type === 'content_block_delta' && ev.delta?.text) full += ev.delta.text;
-      } catch {}
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const ev = JSON.parse(data);
+          if (ev.type === 'content_block_delta' && ev.delta?.text) full += ev.delta.text;
+        } catch {}
+      }
     }
+  } finally {
+    try { await reader.cancel(); } catch {}
   }
 
   return parseHunterJSON(full);
@@ -249,21 +253,25 @@ ${transcript}`;
   const decoder = new TextDecoder();
   let full = '';
   let buf = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop();
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      const data = line.slice(6);
-      if (data === '[DONE]') continue;
-      try {
-        const ev = JSON.parse(data);
-        if (ev.type === 'content_block_delta' && ev.delta?.text) full += ev.delta.text;
-      } catch {}
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const ev = JSON.parse(data);
+          if (ev.type === 'content_block_delta' && ev.delta?.text) full += ev.delta.text;
+        } catch {}
+      }
     }
+  } finally {
+    try { await reader.cancel(); } catch {}
   }
 
   const parsed = parseHunterJSON(full);
