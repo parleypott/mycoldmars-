@@ -527,13 +527,28 @@ document.getElementById('kf-progress').addEventListener('input', e => {
     syncDrawSlider();
   }
 });
-document.getElementById('kf-update-view').addEventListener('click', () => {
+function updateSelectedKeyframe() {
   const kf = state.keyframes.find(k => k.id === state.selectedId);
-  if (kf) {
-    Object.assign(kf, captureView());
-    renderKeyframes();
-  }
-});
+  if (!kf) return;
+  Object.assign(kf, captureView());
+  kf.progress = state.previewProgress;
+  renderKeyframes();
+  flashUpdateConfirmation();
+}
+
+function flashUpdateConfirmation() {
+  const btn = document.getElementById('kf-update-view');
+  if (!btn) return;
+  const original = btn.textContent;
+  btn.textContent = 'Updated ✓';
+  btn.classList.add('flash-ok');
+  setTimeout(() => {
+    btn.textContent = original;
+    btn.classList.remove('flash-ok');
+  }, 900);
+}
+
+document.getElementById('kf-update-view').addEventListener('click', updateSelectedKeyframe);
 document.getElementById('kf-delete').addEventListener('click', () => {
   if (state.selectedId) deleteKeyframe(state.selectedId);
 });
@@ -684,6 +699,12 @@ window.addEventListener('keydown', e => {
   if (e.target.matches('input, select, textarea')) return;
   if (e.code === 'Space') { e.preventDefault(); state.playing ? stop() : play(); }
   else if (e.key === 'k' || e.key === 'K') { e.preventDefault(); addKeyframe(); }
+  else if (e.key === 'u' || e.key === 'U') {
+    if (state.selectedId) { e.preventDefault(); updateSelectedKeyframe(); }
+  }
+  else if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (state.selectedId) { e.preventDefault(); deleteKeyframe(state.selectedId); }
+  }
   else if (e.key === 'ArrowLeft') {
     const i = state.keyframes.findIndex(k => k.id === state.selectedId);
     if (i > 0) selectKeyframe(state.keyframes[i - 1].id);
