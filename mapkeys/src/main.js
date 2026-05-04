@@ -155,49 +155,29 @@ map.on('style.load', () => {
     if (layer.type === 'symbol') { hideById(id); }   // catch-all for labels
   }
 
-  // ── Route sources + layers (added on top)
-  if (!map.getSource('route-full')) {
-    map.addSource('route-full', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-    map.addSource('route-drawn', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-
-    map.addLayer({
-      id: 'route-full-line',
-      type: 'line',
-      source: 'route-full',
-      paint: {
-        'line-color': PAL.ink,
-        'line-opacity': 0.25,
-        'line-width': 1.5,
-        'line-dasharray': [2, 2],
-      },
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-    });
-    map.addLayer({
-      id: 'route-drawn-glow',
-      type: 'line',
-      source: 'route-drawn',
-      paint: { 'line-color': '#ffffff', 'line-width': 7, 'line-opacity': 0.55, 'line-blur': 2 },
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-    });
-    map.addLayer({
-      id: 'route-drawn-line',
-      type: 'line',
-      source: 'route-drawn',
-      paint: { 'line-color': PAL.ink, 'line-width': 3 },
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-    });
+  // Route sources are now created per-layer when a KML is uploaded.
+  // After style.load (or restyle), recreate any persisted layer's
+  // sources/layers — they get blown away by Mapbox on style change.
+  for (const layer of state.layers) {
+    ensureLayerOnMap(layer);
   }
-  applyRouteStyle();
+  // Re-render with the current preview progress so a hard refresh shows
+  // the correct partial-draw state immediately.
+  setRouteSources(state.previewProgress);
 });
 
 // ─── State ───
+
+const DEFAULT_LAYER_STYLE = { color: '#2b2a26', width: 3, opacity: 1, dashed: false, trail: true };
+// Color cycle for new uploads so they're visually distinct by default.
+const LAYER_COLORS = ['#2b2a26', '#a8482b', '#3b6a4a', '#4a5e8a', '#8a4a6a', '#6a4a2b'];
 
 const state = {
   keyframes: [],          // { center: [lng, lat], zoom, bearing, pitch, progress, duration, easing }
   selectedId: null,
   nextId: 1,
-  route: null,            // { coords: [[lng,lat]...], cumDist: [...], totalDist }
-  routeStyle: { color: '#2b2a26', width: 3, opacity: 1, dashed: false, trail: true },
+  layers: [],             // [{ id, name, coords, cumDist, totalDist, style, visible }]
+  activeLayerId: null,    // which layer the route-style controls bind to
   previewProgress: 0,    // current scrub-bar position (0–1), what + Keyframe captures
   playing: false,
   rafId: null,
@@ -205,24 +185,124 @@ const state = {
   playOffset: 0,
 };
 
+// Backwards-compat shim: code that referenced state.route as "the current
+// route" now reads the active layer (or first visible layer).
+Object.defineProperty(state, 'route', {
+  get() {
+    const active = state.layers.find(l => l.id === state.activeLayerId);
+    if (active) return active;
+    return state.layers.find(l => l.visible) || null;
+  },
+});
+
+function activeLayer() {
+  return state.layers.find(l => l.id === state.activeLayerId)
+      || state.layers.find(l => l.visible)
+      || state.layers[0]
+      || null;
+}
+
+function layerSourceIds(id) {
+  return {
+    full: `route-full-${id}`,
+    drawn: `route-drawn-${id}`,
+    fullLine: `route-full-line-${id}`,
+    drawnGlow: `route-drawn-glow-${id}`,
+    drawnLine: `route-drawn-line-${id}`,
+  };
+}
+
+function ensureLayerOnMap(layer) {
+  const ids = layerSourceIds(layer.id);
+  if (!map.getSource(ids.full)) {
+    map.addSource(ids.full, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  }
+  if (!map.getSource(ids.drawn)) {
+    map.addSource(ids.drawn, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  }
+  if (!map.getLayer(ids.fullLine)) {
+    map.addLayer({
+      id: ids.fullLine,
+      type: 'line',
+      source: ids.full,
+      paint: {
+        'line-color': layer.style.color,
+        'line-opacity': 0.25,
+        'line-width': 1.5,
+        'line-dasharray': [2, 2],
+      },
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+    });
+  }
+  if (!map.getLayer(ids.drawnGlow)) {
+    map.addLayer({
+      id: ids.drawnGlow,
+      type: 'line',
+      source: ids.drawn,
+      paint: { 'line-color': '#ffffff', 'line-width': 7, 'line-opacity': 0.55, 'line-blur': 2 },
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+    });
+  }
+  if (!map.getLayer(ids.drawnLine)) {
+    map.addLayer({
+      id: ids.drawnLine,
+      type: 'line',
+      source: ids.drawn,
+      paint: { 'line-color': layer.style.color, 'line-width': layer.style.width },
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+    });
+  }
+  applyLayerStyle(layer);
+  applyLayerVisibility(layer);
+}
+
+function removeLayerFromMap(layer) {
+  const ids = layerSourceIds(layer.id);
+  for (const id of [ids.fullLine, ids.drawnGlow, ids.drawnLine]) {
+    if (map.getLayer(id)) map.removeLayer(id);
+  }
+  for (const id of [ids.full, ids.drawn]) {
+    if (map.getSource(id)) map.removeSource(id);
+  }
+}
+
+function applyLayerStyle(layer) {
+  const ids = layerSourceIds(layer.id);
+  const { color, width, opacity, dashed, trail } = layer.style;
+  if (map.getLayer(ids.drawnLine)) {
+    map.setPaintProperty(ids.drawnLine, 'line-color', color);
+    map.setPaintProperty(ids.drawnLine, 'line-width', width);
+    map.setPaintProperty(ids.drawnLine, 'line-opacity', opacity);
+    map.setPaintProperty(ids.drawnLine, 'line-dasharray', dashed ? [2, 1.5] : [1, 0]);
+  }
+  if (map.getLayer(ids.drawnGlow)) {
+    map.setPaintProperty(ids.drawnGlow, 'line-width', width + 4);
+    map.setPaintProperty(ids.drawnGlow, 'line-opacity', opacity * 0.55);
+  }
+  if (map.getLayer(ids.fullLine)) {
+    map.setLayoutProperty(ids.fullLine, 'visibility', (trail && layer.visible) ? 'visible' : 'none');
+    map.setPaintProperty(ids.fullLine, 'line-color', color);
+    map.setPaintProperty(ids.fullLine, 'line-width', Math.max(1, width * 0.5));
+    map.setPaintProperty(ids.fullLine, 'line-opacity', opacity * 0.3);
+  }
+}
+
+function applyLayerVisibility(layer) {
+  const ids = layerSourceIds(layer.id);
+  const vis = layer.visible ? 'visible' : 'none';
+  for (const id of [ids.drawnLine, ids.drawnGlow]) {
+    if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis);
+  }
+  if (map.getLayer(ids.fullLine)) {
+    map.setLayoutProperty(ids.fullLine, 'visibility', (layer.style.trail && layer.visible) ? 'visible' : 'none');
+  }
+}
+
+// Re-apply style/visibility to all layers (called when activeLayerId changes,
+// just in case any visual treatment depends on which is "active" — currently
+// none does, but keeps a single entry point.)
 function applyRouteStyle() {
-  const { color, width, opacity, dashed, trail } = state.routeStyle;
-  if (map.getLayer('route-drawn-line')) {
-    map.setPaintProperty('route-drawn-line', 'line-color', color);
-    map.setPaintProperty('route-drawn-line', 'line-width', width);
-    map.setPaintProperty('route-drawn-line', 'line-opacity', opacity);
-    map.setPaintProperty('route-drawn-line', 'line-dasharray', dashed ? [2, 1.5] : [1, 0]);
-  }
-  if (map.getLayer('route-drawn-glow')) {
-    map.setPaintProperty('route-drawn-glow', 'line-width', width + 4);
-    map.setPaintProperty('route-drawn-glow', 'line-opacity', opacity * 0.55);
-  }
-  if (map.getLayer('route-full-line')) {
-    map.setLayoutProperty('route-full-line', 'visibility', trail ? 'visible' : 'none');
-    map.setPaintProperty('route-full-line', 'line-color', color);
-    map.setPaintProperty('route-full-line', 'line-width', Math.max(1, width * 0.5));
-    map.setPaintProperty('route-full-line', 'line-opacity', opacity * 0.3);
-  }
+  for (const l of state.layers) applyLayerStyle(l);
 }
 
 const EASINGS = {
@@ -309,21 +389,21 @@ function sliceRoute(route, progress) {
 }
 
 function setRouteSources(progress) {
-  if (!map.getSource('route-full')) return;
-  if (!state.route) {
-    map.getSource('route-full').setData({ type: 'FeatureCollection', features: [] });
-    map.getSource('route-drawn').setData({ type: 'FeatureCollection', features: [] });
-    return;
+  for (const layer of state.layers) {
+    const ids = layerSourceIds(layer.id);
+    const fullSrc = map.getSource(ids.full);
+    const drawnSrc = map.getSource(ids.drawn);
+    if (!fullSrc || !drawnSrc) continue;
+    fullSrc.setData({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: layer.coords },
+    });
+    const drawn = sliceRoute(layer, progress);
+    drawnSrc.setData({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: drawn },
+    });
   }
-  map.getSource('route-full').setData({
-    type: 'Feature',
-    geometry: { type: 'LineString', coordinates: state.route.coords },
-  });
-  const drawn = sliceRoute(state.route, progress);
-  map.getSource('route-drawn').setData({
-    type: 'Feature',
-    geometry: { type: 'LineString', coordinates: drawn },
-  });
 }
 
 // ─── Keyframe operations ───
@@ -601,52 +681,189 @@ document.getElementById('kf-delete').addEventListener('click', () => {
   if (state.selectedId) deleteKeyframe(state.selectedId);
 });
 
-// KML / KMZ upload
-document.getElementById('kml-file').addEventListener('change', async e => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  let text;
-  try {
-    text = await readRouteFile(file);
-  } catch (err) {
-    alert('Failed to read file: ' + err.message);
-    return;
-  }
-  const coords = parseKML(text);
-  if (coords.length < 2) {
-    alert('No usable LineString coordinates found in this KML.');
-    return;
-  }
-  state.route = buildRoute(coords);
-  document.getElementById('clear-route').classList.remove('hidden');
-  document.getElementById('route-style').classList.remove('hidden');
-  document.getElementById('draw-bar').classList.remove('hidden');
-  document.getElementById('route-info').textContent =
-    `${file.name} · ${coords.length} pts · ${state.route.totalDist.toFixed(0)} km`;
+// ─── Layers (KML/KMZ) ───
 
+const LAYERS_LS_KEY = 'mapkeys_layers_v1';
+
+function saveLayers() {
+  try {
+    // Only persist what's needed; recompute cumDist on load.
+    const minimal = state.layers.map(l => ({
+      id: l.id,
+      name: l.name,
+      coords: l.coords,
+      style: l.style,
+      visible: l.visible,
+    }));
+    localStorage.setItem(LAYERS_LS_KEY, JSON.stringify({ layers: minimal, activeLayerId: state.activeLayerId }));
+  } catch (err) {
+    console.warn('[mapkeys] saveLayers failed (likely quota):', err.message);
+  }
+}
+
+function loadLayersFromLS() {
+  try {
+    const raw = localStorage.getItem(LAYERS_LS_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.layers)) return;
+    state.layers = parsed.layers
+      .filter(l => l && Array.isArray(l.coords) && l.coords.length >= 2)
+      .map(l => {
+        const route = buildRoute(l.coords);
+        return {
+          id: l.id || ('lyr_' + Math.random().toString(36).slice(2, 9)),
+          name: l.name || 'Untitled layer',
+          coords: route.coords,
+          cumDist: route.cumDist,
+          totalDist: route.totalDist,
+          style: { ...DEFAULT_LAYER_STYLE, ...(l.style || {}) },
+          visible: l.visible !== false,
+        };
+      });
+    state.activeLayerId = parsed.activeLayerId || state.layers[0]?.id || null;
+    console.info(`[mapkeys] restored ${state.layers.length} layer(s) from localStorage`);
+  } catch (err) {
+    console.warn('[mapkeys] loadLayers failed:', err.message);
+  }
+}
+loadLayersFromLS();
+
+function addLayerFromKML(file, coords) {
+  const route = buildRoute(coords);
+  const id = 'lyr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+  const colorIdx = state.layers.length % LAYER_COLORS.length;
+  const layer = {
+    id,
+    name: file.name.replace(/\.(kml|kmz|xml)$/i, ''),
+    coords: route.coords,
+    cumDist: route.cumDist,
+    totalDist: route.totalDist,
+    style: { ...DEFAULT_LAYER_STYLE, color: LAYER_COLORS[colorIdx] },
+    visible: true,
+  };
+  state.layers.push(layer);
+  state.activeLayerId = id;
+  ensureLayerOnMap(layer);
+  saveLayers();
+  renderLayersPanel();
+  syncRouteStyleInputs();
+  showRouteUI();
   // Fit map to route
-  const lngs = coords.map(c => c[0]), lats = coords.map(c => c[1]);
+  const lngs = layer.coords.map(c => c[0]), lats = layer.coords.map(c => c[1]);
   map.fitBounds([
     [Math.min(...lngs), Math.min(...lats)],
-    [Math.max(...lngs), Math.max(...lats)]
+    [Math.max(...lngs), Math.max(...lats)],
   ], { padding: 80, duration: 1000 });
+  setRouteSources(state.previewProgress);
+}
 
-  // Render route at current selected progress (or 0)
-  const kf = state.keyframes.find(k => k.id === state.selectedId);
-  setRouteSources(kf ? kf.progress : 0);
+function deleteLayer(id) {
+  const layer = state.layers.find(l => l.id === id);
+  if (!layer) return;
+  removeLayerFromMap(layer);
+  state.layers = state.layers.filter(l => l.id !== id);
+  if (state.activeLayerId === id) {
+    state.activeLayerId = state.layers[0]?.id ?? null;
+  }
+  saveLayers();
+  renderLayersPanel();
+  syncRouteStyleInputs();
+  showRouteUI();
+  setRouteSources(state.previewProgress);
+}
+
+function setLayerVisible(id, visible) {
+  const layer = state.layers.find(l => l.id === id);
+  if (!layer) return;
+  layer.visible = visible;
+  applyLayerVisibility(layer);
+  applyLayerStyle(layer);
+  saveLayers();
+  renderLayersPanel();
+}
+
+function selectLayer(id) {
+  state.activeLayerId = id;
+  saveLayers();
+  renderLayersPanel();
+  syncRouteStyleInputs();
+}
+
+function showRouteUI() {
+  const panel = document.getElementById('layers-panel');
+  const styleEl = document.getElementById('route-style');
+  const drawBar = document.getElementById('draw-bar');
+  const info = document.getElementById('route-info');
+  const has = state.layers.length > 0;
+  panel.classList.toggle('hidden', !has);
+  styleEl.classList.toggle('hidden', !has);
+  drawBar.classList.toggle('hidden', !has);
+  document.getElementById('layers-count').textContent = state.layers.length;
+  if (has) {
+    const a = activeLayer();
+    info.textContent = a ? `${a.coords.length} pts · ${Math.round(a.totalDist)} km` : '';
+  } else {
+    info.textContent = '';
+  }
+}
+
+function renderLayersPanel() {
+  const list = document.getElementById('layers-list');
+  list.innerHTML = '';
+  if (state.layers.length === 0) return;
+  for (const layer of state.layers) {
+    const row = document.createElement('div');
+    row.className = 'layer-row';
+    if (layer.id === state.activeLayerId) row.classList.add('active');
+    if (!layer.visible) row.classList.add('hidden-layer');
+    row.innerHTML = `
+      <input type="checkbox" class="layer-vis" ${layer.visible ? 'checked' : ''} title="Toggle visibility">
+      <span class="layer-swatch" style="background:${layer.style.color}"></span>
+      <div class="layer-meta">
+        <div class="layer-name" title="${layer.name}">${layer.name}</div>
+        <div class="layer-detail">${layer.coords.length} pts · ${Math.round(layer.totalDist)} km</div>
+      </div>
+      <div class="layer-actions">
+        <button class="layer-btn layer-btn-fit" title="Fit to layer">⊕</button>
+        <button class="layer-btn layer-btn-del" title="Delete layer">×</button>
+      </div>
+    `;
+    row.querySelector('.layer-vis').addEventListener('click', e => {
+      e.stopPropagation();
+      setLayerVisible(layer.id, e.target.checked);
+    });
+    row.querySelector('.layer-btn-del').addEventListener('click', e => {
+      e.stopPropagation();
+      if (confirm(`Delete "${layer.name}"?`)) deleteLayer(layer.id);
+    });
+    row.querySelector('.layer-btn-fit').addEventListener('click', e => {
+      e.stopPropagation();
+      const lngs = layer.coords.map(c => c[0]), lats = layer.coords.map(c => c[1]);
+      map.fitBounds([
+        [Math.min(...lngs), Math.min(...lats)],
+        [Math.max(...lngs), Math.max(...lats)],
+      ], { padding: 80, duration: 800 });
+    });
+    row.addEventListener('click', () => selectLayer(layer.id));
+    list.appendChild(row);
+  }
+}
+
+document.getElementById('kml-file').addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []);
+  for (const file of files) {
+    let text;
+    try { text = await readRouteFile(file); }
+    catch (err) { alert(`Failed to read ${file.name}: ${err.message}`); continue; }
+    const coords = parseKML(text);
+    if (coords.length < 2) { alert(`No usable LineString in ${file.name}.`); continue; }
+    addLayerFromKML(file, coords);
+  }
   e.target.value = '';
 });
 
-document.getElementById('clear-route').addEventListener('click', () => {
-  state.route = null;
-  document.getElementById('clear-route').classList.add('hidden');
-  document.getElementById('route-style').classList.add('hidden');
-  document.getElementById('draw-bar').classList.add('hidden');
-  document.getElementById('route-info').textContent = '';
-  setRouteSources(0);
-});
-
-// Route style controls
+// ─── Active-layer style controls ───
 const rsColor = document.getElementById('rs-color');
 const rsWidth = document.getElementById('rs-width');
 const rsWidthVal = document.getElementById('rs-width-val');
@@ -654,40 +871,46 @@ const rsOpacity = document.getElementById('rs-opacity');
 const rsOpacityVal = document.getElementById('rs-opacity-val');
 const rsDashed = document.getElementById('rs-dashed');
 const rsTrail = document.getElementById('rs-trail');
+const rsActiveName = document.getElementById('rs-active-name');
 
 function syncRouteStyleInputs() {
-  rsColor.value = state.routeStyle.color;
-  rsWidth.value = state.routeStyle.width;
-  rsWidthVal.textContent = state.routeStyle.width;
-  rsOpacity.value = Math.round(state.routeStyle.opacity * 100);
-  rsOpacityVal.textContent = Math.round(state.routeStyle.opacity * 100);
-  rsDashed.checked = state.routeStyle.dashed;
-  rsTrail.checked = state.routeStyle.trail;
+  const layer = activeLayer();
+  if (!layer) return;
+  rsColor.value = layer.style.color;
+  rsWidth.value = layer.style.width;
+  rsWidthVal.textContent = layer.style.width;
+  rsOpacity.value = Math.round(layer.style.opacity * 100);
+  rsOpacityVal.textContent = Math.round(layer.style.opacity * 100);
+  rsDashed.checked = layer.style.dashed;
+  rsTrail.checked = layer.style.trail;
+  if (rsActiveName) rsActiveName.textContent = layer.name;
 }
-syncRouteStyleInputs();
 
-rsColor.addEventListener('input', e => {
-  state.routeStyle.color = e.target.value;
-  applyRouteStyle();
-});
+function mutateActiveLayerStyle(fn) {
+  const layer = activeLayer();
+  if (!layer) return;
+  fn(layer.style);
+  applyLayerStyle(layer);
+  saveLayers();
+  renderLayersPanel();
+}
+
+rsColor.addEventListener('input', e => mutateActiveLayerStyle(s => { s.color = e.target.value; }));
 rsWidth.addEventListener('input', e => {
-  state.routeStyle.width = parseFloat(e.target.value);
   rsWidthVal.textContent = e.target.value;
-  applyRouteStyle();
+  mutateActiveLayerStyle(s => { s.width = parseFloat(e.target.value); });
 });
 rsOpacity.addEventListener('input', e => {
-  state.routeStyle.opacity = parseFloat(e.target.value) / 100;
   rsOpacityVal.textContent = e.target.value;
-  applyRouteStyle();
+  mutateActiveLayerStyle(s => { s.opacity = parseFloat(e.target.value) / 100; });
 });
-rsDashed.addEventListener('change', e => {
-  state.routeStyle.dashed = e.target.checked;
-  applyRouteStyle();
-});
-rsTrail.addEventListener('change', e => {
-  state.routeStyle.trail = e.target.checked;
-  applyRouteStyle();
-});
+rsDashed.addEventListener('change', e => mutateActiveLayerStyle(s => { s.dashed = e.target.checked; }));
+rsTrail.addEventListener('change', e => mutateActiveLayerStyle(s => { s.trail = e.target.checked; }));
+
+// Initial render
+renderLayersPanel();
+showRouteUI();
+syncRouteStyleInputs();
 
 // Draw-on scrub slider
 const drawSlider = document.getElementById('draw-slider');
@@ -707,9 +930,16 @@ drawSlider.addEventListener('input', e => {
   setRouteSources(p);
 });
 
-// Export / import
+// Export / import — bundles keyframes AND all uploaded layers (so a project
+// is portable across browsers/machines, not just keyframes).
 document.getElementById('export-btn').addEventListener('click', () => {
-  const data = JSON.stringify({ keyframes: state.keyframes, routeStyle: state.routeStyle }, null, 2);
+  const data = JSON.stringify({
+    keyframes: state.keyframes,
+    layers: state.layers.map(l => ({
+      id: l.id, name: l.name, coords: l.coords, style: l.style, visible: l.visible,
+    })),
+    activeLayerId: state.activeLayerId,
+  }, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -723,17 +953,37 @@ document.getElementById('import-file').addEventListener('change', async e => {
   if (!file) return;
   try {
     const data = JSON.parse(await file.text());
+    if (Array.isArray(data.layers)) {
+      // Replace layers — clear current map sources first.
+      for (const l of state.layers) removeLayerFromMap(l);
+      state.layers = data.layers
+        .filter(l => l && Array.isArray(l.coords) && l.coords.length >= 2)
+        .map(l => {
+          const route = buildRoute(l.coords);
+          return {
+            id: l.id || ('lyr_' + Math.random().toString(36).slice(2, 9)),
+            name: l.name || 'Untitled',
+            coords: route.coords,
+            cumDist: route.cumDist,
+            totalDist: route.totalDist,
+            style: { ...DEFAULT_LAYER_STYLE, ...(l.style || {}) },
+            visible: l.visible !== false,
+          };
+        });
+      state.activeLayerId = data.activeLayerId || state.layers[0]?.id || null;
+      for (const l of state.layers) ensureLayerOnMap(l);
+      saveLayers();
+      renderLayersPanel();
+      showRouteUI();
+      syncRouteStyleInputs();
+      setRouteSources(state.previewProgress);
+    }
     if (Array.isArray(data.keyframes)) {
       state.keyframes = data.keyframes.map(k => ({ ...k, id: 'k' + (state.nextId++) }));
       state.selectedId = state.keyframes[0]?.id ?? null;
       renderKeyframes();
       renderEditor();
       if (state.selectedId) selectKeyframe(state.selectedId, true);
-    }
-    if (data.routeStyle) {
-      Object.assign(state.routeStyle, data.routeStyle);
-      syncRouteStyleInputs();
-      applyRouteStyle();
     }
   } catch (err) {
     alert('Failed to parse JSON: ' + err.message);

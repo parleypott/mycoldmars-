@@ -15,13 +15,13 @@
   <div id="topbar">
     <div id="brand">MAPKEYS</div>
     <label class="btn upload-btn">
-      <input type="file" id="kml-file" accept=".kml,.kmz,.xml" hidden>
-      Upload KML / KMZ
+      <input type="file" id="kml-file" accept=".kml,.kmz,.xml" multiple hidden>
+      + Upload KML / KMZ
     </label>
-    <button class="btn ghost hidden" id="clear-route">Clear Route</button>
     <span id="route-info"></span>
 
     <div id="route-style" class="hidden">
+      <span class="rs-active-label" id="rs-active-name">—</span>
       <label class="rs-field">
         <span>Color</span>
         <input type="color" id="rs-color" value="#2b2a26">
@@ -47,6 +47,14 @@
     </div>
   </div>
 
+  <div id="layers-panel" class="hidden">
+    <div id="layers-header">
+      <span class="lp-title">LAYERS</span>
+      <span class="lp-count" id="layers-count">0</span>
+    </div>
+    <div id="layers-list"></div>
+  </div>
+
   <div id="draw-bar" class="hidden">
     <span class="db-label">DRAW</span>
     <input type="range" id="draw-slider" min="0" max="1000" step="1" value="0">
@@ -66,6 +74,9 @@
         Import JSON
       </label>
       <button class="btn primary" id="gif-btn">Render GIF</button>
+      <div id="hint-inline">
+        <kbd>Space</kbd> play &nbsp; <kbd>K</kbd> add &nbsp; <kbd>U</kbd> update &nbsp; <kbd>←</kbd>/<kbd>→</kbd> select &nbsp; <kbd>Del</kbd> remove
+      </div>
     </div>
 
     <div id="kf-row">
@@ -142,9 +153,6 @@
     </div>
   </div>
 
-  <div id="hint">
-    <kbd>Space</kbd> play/pause &nbsp; <kbd>K</kbd> add &nbsp; <kbd>U</kbd> update &nbsp; <kbd>←</kbd>/<kbd>→</kbd> select &nbsp; <kbd>Delete</kbd> remove
-  </div>
 
   <script type="module" src="./src/main.js"></script>
 </body>
