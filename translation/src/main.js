@@ -16,6 +16,7 @@ import { exportHighlightsPDF } from './export/pdf-export.js';
 import { exportSummaryText } from './export/summary-export.js';
 import { extractHighlightsFromEditor } from './editor/document-builder.js';
 import { buildAutoSummaryPrompt } from './copilot/copilot-prompts.js';
+import { initSotHunter, setSotHunterVisible } from './sot-hunter.js';
 
 // ── State ──
 let segments = [];
@@ -142,6 +143,9 @@ function goToStep(n) {
     stepsNav.classList.remove('hidden');
     if (homeHero) homeHero.classList.add('hidden');
   }
+
+  // SOT HUNTER lives on the editor (Step 5) where transcript + editor are live.
+  setSotHunterVisible(n === 5 && segments.length > 0);
 }
 
 function showLibrary() {
@@ -154,6 +158,7 @@ function showLibrary() {
   libraryView.classList.add('active');
   const homeHero = $('#home-hero');
   if (homeHero) homeHero.classList.add('hidden');
+  setSotHunterVisible(false);
   fetchLibrary();
 }
 
@@ -2253,6 +2258,9 @@ function switchView(view) {
     if (el) el.classList.toggle('hidden', v !== view);
   });
 
+  // Hunter only makes sense in editor mode (it highlights ProseMirror DOM).
+  setSotHunterVisible(view === 'editor' && currentStep === 5 && segments.length > 0);
+
   if (view === 'workshop') {
     mountWorkshop();
   }
@@ -3156,6 +3164,10 @@ if (btnShare) {
 
 // ── Init: load projects and auto-reload last transcript ──
 (async function init() {
+  // SOT HUNTER — floating archer that finds soundbites from messy paste-ins.
+  initSotHunter({ getSegments: () => segments });
+  setSotHunterVisible(false);
+
   // Migrate localStorage → Supabase in background (non-blocking)
   migrateLocalStorageToSupabase()
     .then(r => { if (r.migrated) console.info(`Migrated ${r.transcripts} transcripts, ${r.projects} projects to Supabase`); })
