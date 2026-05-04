@@ -22,6 +22,39 @@ let supabaseFailCount = 0;
 let supabaseFailedAt = 0;
 const SUPABASE_RETRY_COOLDOWN = 10000; // 10 seconds before retrying after failure
 
+// Schema feature detection. The `deleted_at` column was added in a later
+// migration (supabase-add-soft-delete.sql); if a Supabase project hasn't run
+// it yet, every query that filters on `deleted_at` returns 42703 and the
+// library appears empty. We probe once and remember the answer so the rest
+// of the app can degrade gracefully instead of throwing.
+//   true  → column confirmed present, soft-delete works
+//   false → column confirmed missing, treat all rows as "not deleted"
+//   null  → not yet probed
+let softDeleteSupported = null;
+
+function isMissingColumnError(err) {
+  if (!err) return false;
+  // supabase-js surfaces { code, message }; some paths only have message
+  if (err.code === '42703') return true;
+  const msg = (err.message || '').toLowerCase();
+  return msg.includes('deleted_at') && msg.includes('does not exist');
+}
+
+function markSoftDeleteUnsupported() {
+  if (softDeleteSupported !== false) {
+    softDeleteSupported = false;
+    console.warn('[schema] transcripts.deleted_at column missing — soft-delete disabled. Run supabase-add-soft-delete.sql to enable.');
+  }
+}
+
+function markSoftDeleteSupported() {
+  if (softDeleteSupported === null) softDeleteSupported = true;
+}
+
+export function isSoftDeleteSupported() {
+  return softDeleteSupported === true;
+}
+
 function markSupabaseFailed(err) {
   supabaseFailCount++;
   supabaseFailedAt = Date.now();
@@ -360,17 +393,41 @@ export async function listTranscripts(projectId) {
     // Intentionally omits `metadata` — it can be large (Workshop state, etc)
     // and the library only needs id/name/step/dates. Metadata is fetched
     // lazily by loadTranscript when the user opens a transcript.
+    const cols = softDeleteSupported === false
+      ? 'id, name, step, created_at, updated_at, project_id, slug'
+      : 'id, name, step, created_at, updated_at, project_id, slug, deleted_at';
     let query = supabase
       .from('transcripts')
-      .select('id, name, step, created_at, updated_at, project_id, slug')
-      .is('deleted_at', null)
+      .select(cols)
       .order('updated_at', { ascending: false });
 
+    if (softDeleteSupported !== false) query = query.is('deleted_at', null);
     if (projectId) query = query.eq('project_id', projectId);
 
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-    return data;
+    let { data, error } = await query;
+    if (error) {
+      if (isMissingColumnError(error)) {
+        // Schema doesn't have deleted_at yet — retry without that filter so
+        // the user's data is visible. Mark the feature off so subsequent
+        // calls skip the filter immediately.
+        markSoftDeleteUnsupported();
+        let retry = supabase
+          .from('transcripts')
+          .select('id, name, step, created_at, updated_at, project_id, slug')
+          .order('updated_at', { ascending: false });
+        if (projectId) retry = retry.eq('project_id', projectId);
+        const r = await retry;
+        if (r.error) throw new Error(r.error.message);
+        data = r.data;
+      } else {
+        throw new Error(error.message);
+      }
+    } else {
+      markSoftDeleteSupported();
+    }
+    markSupabaseSuccess();
+    // Strip deleted_at from returned rows for caller consistency
+    return (data || []).map(({ deleted_at, ...rest }) => rest);
   } catch (err) {
     if (supabase) markSupabaseFailed(err);
     const index = lsGetIndex('transcripts');
@@ -403,14 +460,23 @@ export async function loadTranscript(id) {
 
 export async function loadTranscriptBySlug(slug) {
   try {
-    const { data, error } = await db()
+    let query = db()
       .from('transcripts')
       .select('*')
-      .eq('slug', slug)
-      .is('deleted_at', null)
-      .single();
+      .eq('slug', slug);
+    if (softDeleteSupported !== false) query = query.is('deleted_at', null);
+    let { data, error } = await query.single();
 
-    if (error) throw new Error(error.message);
+    if (error && isMissingColumnError(error)) {
+      markSoftDeleteUnsupported();
+      const r = await db().from('transcripts').select('*').eq('slug', slug).single();
+      if (r.error) throw new Error(r.error.message);
+      data = r.data;
+    } else if (error) {
+      throw new Error(error.message);
+    } else {
+      markSoftDeleteSupported();
+    }
     markSupabaseSuccess();
     return data;
   } catch (err) {
@@ -431,11 +497,22 @@ export async function isSlugTaken(slug, excludeId) {
     let query = supabase
       .from('transcripts')
       .select('id')
-      .eq('slug', slug)
-      .is('deleted_at', null);
+      .eq('slug', slug);
+    if (softDeleteSupported !== false) query = query.is('deleted_at', null);
     if (excludeId) query = query.neq('id', excludeId);
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
+    let { data, error } = await query;
+    if (error && isMissingColumnError(error)) {
+      markSoftDeleteUnsupported();
+      let retry = supabase.from('transcripts').select('id').eq('slug', slug);
+      if (excludeId) retry = retry.neq('id', excludeId);
+      const r = await retry;
+      if (r.error) throw new Error(r.error.message);
+      data = r.data;
+    } else if (error) {
+      throw new Error(error.message);
+    } else {
+      markSoftDeleteSupported();
+    }
     return data && data.length > 0;
   } catch {
     const index = lsGetIndex('transcripts');
@@ -449,14 +526,31 @@ export async function isSlugTaken(slug, excludeId) {
 }
 
 export async function deleteTranscript(id) {
-  // Soft-delete: set deleted_at timestamp, auto-purge after 30 days
+  // Soft-delete when supported, else fall back to hard delete so the row
+  // disappears from the library (better than a silent no-op).
   try {
+    if (softDeleteSupported === false) {
+      const { error } = await db().from('transcripts').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+      markSupabaseSuccess();
+      return;
+    }
     const { error } = await db()
       .from('transcripts')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id);
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (isMissingColumnError(error)) {
+        markSoftDeleteUnsupported();
+        const r = await db().from('transcripts').delete().eq('id', id);
+        if (r.error) throw new Error(r.error.message);
+        markSupabaseSuccess();
+        return;
+      }
+      throw new Error(error.message);
+    }
+    markSoftDeleteSupported();
     markSupabaseSuccess();
   } catch (err) {
     if (supabase) markSupabaseFailed(err);
@@ -506,12 +600,20 @@ export async function permanentlyDeleteTranscript(id) {
 export async function listDeletedTranscripts() {
   try {
     if (!isSupabaseAvailable()) throw new Error('skip');
+    if (softDeleteSupported === false) return [];
     const { data, error } = await supabase
       .from('transcripts')
       .select('id, name, step, created_at, updated_at, deleted_at, project_id')
       .not('deleted_at', 'is', null)
       .order('deleted_at', { ascending: false });
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (isMissingColumnError(error)) {
+        markSoftDeleteUnsupported();
+        return [];
+      }
+      throw new Error(error.message);
+    }
+    markSoftDeleteSupported();
     return data;
   } catch (err) {
     if (supabase) markSupabaseFailed(err);

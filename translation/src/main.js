@@ -48,7 +48,7 @@ let librarySortKey = 'updated_at';
 let librarySortAsc = false;
 let libraryCache = null;           // { transcripts, projects, deleted, ts }
 const LIBRARY_CACHE_TTL = 5000;
-const LIBRARY_CACHE_LS_KEY = 'np_library_cache_v2';
+const LIBRARY_CACHE_LS_KEY = 'np_library_cache_v3';
 
 // Persist library snapshots to localStorage so a hard refresh shows the
 // previous list instantly (stale-while-revalidate). The freshness check
