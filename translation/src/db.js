@@ -379,6 +379,181 @@ export async function listDeletedTranscripts() {
 }
 
 // ============================================================
+// Transcript revisions (Phase 2/3 — version history)
+// ============================================================
+
+/**
+ * Record a revision snapshot for a transcript. Snapshot is the full
+ * payload that was just saved. The DB trigger trims to the most recent
+ * 50 per transcript automatically, so we don't need to manage that here.
+ */
+export async function insertRevision(transcriptId, snapshot, opts = {}) {
+  if (!supabase || !transcriptId) return null;
+  const row = {
+    transcript_id: transcriptId,
+    snapshot,
+    source: opts.source || 'autosave',
+    client_id: opts.clientId || null,
+    note: opts.note || null,
+  };
+  const { data, error } = await db().from('transcript_revisions')
+    .insert(row).select().single();
+  if (error) throw normalizeError(error, 'insertRevision');
+  return data;
+}
+
+export async function listRevisions(transcriptId, limit = 50) {
+  if (!supabase) return [];
+  const { data, error } = await db().from('transcript_revisions')
+    .select('id, source, client_id, note, created_at')
+    .eq('transcript_id', transcriptId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw normalizeError(error, 'listRevisions');
+  return data || [];
+}
+
+export async function loadRevision(revisionId) {
+  const { data, error } = await db().from('transcript_revisions')
+    .select('*').eq('id', revisionId).maybeSingle();
+  if (error) throw normalizeError(error, 'loadRevision');
+  if (!data) {
+    const e = new Error('Revision not found');
+    e.code = 'NOT_FOUND';
+    throw e;
+  }
+  return data;
+}
+
+// ============================================================
+// Editor locks (Phase 3 — soft "open elsewhere" advisory)
+// ============================================================
+
+/**
+ * Returns the current lock for a transcript if it exists AND is fresh
+ * (last_seen within `staleSeconds`, default 60s). Otherwise returns null.
+ */
+export async function checkLock(transcriptId, staleSeconds = 60) {
+  if (!supabase || !transcriptId) return null;
+  const { data, error } = await db().from('editor_locks')
+    .select('*').eq('transcript_id', transcriptId).maybeSingle();
+  if (error) throw normalizeError(error, 'checkLock');
+  if (!data) return null;
+  const age = (Date.now() - new Date(data.last_seen).getTime()) / 1000;
+  if (age > staleSeconds) return null;
+  return data;
+}
+
+/**
+ * Take or refresh the lock. Always succeeds (it's advisory, not enforced).
+ */
+export async function acquireLock(transcriptId, holderId, holderLabel) {
+  if (!supabase || !transcriptId) return null;
+  const { data, error } = await db().from('editor_locks')
+    .upsert({
+      transcript_id: transcriptId,
+      holder_id: holderId,
+      holder_label: holderLabel || null,
+      last_seen: new Date().toISOString(),
+    }, { onConflict: 'transcript_id' })
+    .select().single();
+  if (error) throw normalizeError(error, 'acquireLock');
+  return data;
+}
+
+/**
+ * Bump last_seen so other tabs see we're still here. No-op if we don't
+ * hold the lock anymore (someone else took over).
+ */
+export async function heartbeatLock(transcriptId, holderId) {
+  if (!supabase || !transcriptId) return;
+  await db().from('editor_locks')
+    .update({ last_seen: new Date().toISOString() })
+    .eq('transcript_id', transcriptId)
+    .eq('holder_id', holderId);
+}
+
+/**
+ * Release the lock. Only deletes the row if we're still the holder.
+ */
+export async function releaseLock(transcriptId, holderId) {
+  if (!supabase || !transcriptId) return;
+  await db().from('editor_locks')
+    .delete()
+    .eq('transcript_id', transcriptId)
+    .eq('holder_id', holderId);
+}
+
+// ============================================================
+// Realtime (Phase 3 — live sync between tabs)
+// ============================================================
+
+/**
+ * Subscribe to UPDATE events on the given transcript row. Returns an
+ * unsubscribe function. Callback receives the new row on each remote
+ * change. Use the row's updated_at to dedupe vs your own writes.
+ */
+export function subscribeToTranscript(transcriptId, onChange) {
+  if (!supabase || !transcriptId) return () => {};
+  const channel = supabase.channel(`transcript:${transcriptId}`)
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'transcripts',
+      filter: `id=eq.${transcriptId}`,
+    }, (payload) => {
+      try { onChange(payload.new); } catch (err) { console.warn('[realtime] handler threw:', err); }
+    })
+    .subscribe();
+  return () => {
+    try { supabase.removeChannel(channel); } catch {}
+  };
+}
+
+// ============================================================
+// Server-side search (Phase 2)
+// ============================================================
+
+/**
+ * Search transcripts by free-text query against name + custom_sequence_name + srt_content.
+ * Uses the search_text generated column with pg_trgm GIN index. Falls
+ * back to a name-only ILIKE if the search_text column is missing
+ * (pre-Phase-2 migration). Returns library-shaped rows.
+ */
+export async function searchTranscripts(query, projectId) {
+  if (!supabase) return [];
+  const q = (query || '').trim();
+  if (!q) return listTranscripts(projectId);
+
+  const cols = 'id, name, step, created_at, updated_at, project_id, slug';
+  const escaped = q.replace(/[%_]/g, ch => '\\' + ch);
+
+  // Preferred: search_text column.
+  let qb = db().from('transcripts').select(cols)
+    .is('deleted_at', null)
+    .ilike('search_text', `%${escaped}%`)
+    .order('updated_at', { ascending: false })
+    .limit(200);
+  if (projectId) qb = qb.eq('project_id', projectId);
+  let { data, error } = await qb;
+
+  if (error && error.code === '42703') {
+    // search_text column missing — fall back to name-only.
+    let fb = db().from('transcripts').select(cols)
+      .is('deleted_at', null)
+      .ilike('name', `%${escaped}%`)
+      .order('updated_at', { ascending: false })
+      .limit(200);
+    if (projectId) fb = fb.eq('project_id', projectId);
+    const r = await fb;
+    if (r.error) throw normalizeError(r.error, 'searchTranscripts(fallback)');
+    return r.data || [];
+  }
+  if (error) throw normalizeError(error, 'searchTranscripts');
+  return data || [];
+}
+
+// ============================================================
 // One-time migration of any leftover localStorage records to Supabase.
 // Phase 1 no longer writes to LS, but legacy users may still have
 // records there. This runs once at boot, surfaces results, then nukes

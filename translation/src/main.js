@@ -5,7 +5,7 @@ import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, subscribeToTranscript, searchTranscripts } from './db.js';
 import { saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan } from './snapshot.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
@@ -49,6 +49,7 @@ let lastServerUpdatedAt = null; // last updated_at the server confirmed for this
 let libraryCurrentProject = null;  // null = root (show all projects + unsorted)
 let librarySortKey = 'updated_at';
 let librarySortAsc = false;
+const librarySelected = new Set(); // ids of currently-selected transcripts (for bulk ops)
 let libraryCache = null;           // { transcripts, projects, deleted, ts }
 const LIBRARY_CACHE_TTL = 5000;
 const LIBRARY_CACHE_LS_KEY = 'np_library_cache_v3';
@@ -152,6 +153,7 @@ function goToStep(n) {
 
 function showLibrary() {
   flushPendingSave();
+  librarySelected.clear();
   libraryShowing = true;
   $$('.panel').forEach(p => p.classList.remove('active'));
   const header = $('header');
@@ -211,6 +213,65 @@ async function fetchLibrary() {
   } catch (err) {
     console.warn('Could not load deleted transcripts:', err);
   }
+}
+
+function updateBulkActionBar() {
+  let bar = document.getElementById('lib-bulk-bar');
+  if (librarySelected.size === 0) {
+    if (bar) bar.remove();
+    return;
+  }
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'lib-bulk-bar';
+    bar.className = 'lib-bulk-bar';
+    libraryView.insertBefore(bar, libraryView.firstChild);
+  }
+  const count = librarySelected.size;
+  const projectOptions = ['<option value="">— Move to —</option>',
+    '<option value="__unsorted">Unsorted (no folder)</option>',
+    ...projects.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`)].join('');
+  bar.innerHTML = `
+    <div class="lib-bulk-text">${count} selected</div>
+    <select id="lib-bulk-move">${projectOptions}</select>
+    <button class="np-button" id="lib-bulk-delete">Delete</button>
+    <button class="np-button" id="lib-bulk-clear">Clear</button>
+  `;
+  document.getElementById('lib-bulk-move').addEventListener('change', async (e) => {
+    const target = e.target.value;
+    if (!target) return;
+    const projectId = target === '__unsorted' ? null : target;
+    const ids = Array.from(librarySelected);
+    e.target.disabled = true;
+    try {
+      await Promise.all(ids.map(id => updateTranscript(id, { projectId })));
+      librarySelected.clear();
+      invalidateLibraryCache();
+      await fetchLibrary();
+    } catch (err) {
+      alert('Move failed: ' + (err.message || String(err)));
+    } finally {
+      e.target.disabled = false;
+    }
+  });
+  document.getElementById('lib-bulk-delete').addEventListener('click', async () => {
+    const ids = Array.from(librarySelected);
+    if (!confirm(`Delete ${ids.length} transcript${ids.length === 1 ? '' : 's'}? You can restore from Recently Deleted.`)) return;
+    try {
+      await Promise.all(ids.map(id => deleteTranscript(id)));
+      librarySelected.clear();
+      invalidateLibraryCache();
+      await fetchLibrary();
+    } catch (err) {
+      alert('Delete failed: ' + (err.message || String(err)));
+    }
+  });
+  document.getElementById('lib-bulk-clear').addEventListener('click', () => {
+    librarySelected.clear();
+    libraryList.querySelectorAll('.lib-row-check').forEach(b => { b.checked = false; });
+    libraryList.querySelectorAll('.lib-row--checked').forEach(r => r.classList.remove('lib-row--checked'));
+    updateBulkActionBar();
+  });
 }
 
 function showLibraryError(err, hasStaleData) {
@@ -342,10 +403,12 @@ function renderFolderRow(proj, count) {
 function renderFileRow(t) {
   const isActive = t.id === currentTranscriptId;
   const stepLabel = STEP_LABELS[t.step] || 'Upload';
+  const isChecked = librarySelected.has(t.id);
   return `
-    <div class="lib-row lib-row--file ${isActive ? 'lib-row--active' : ''}"
+    <div class="lib-row lib-row--file ${isActive ? 'lib-row--active' : ''} ${isChecked ? 'lib-row--checked' : ''}"
          data-id="${t.id}" data-project-id="${t.project_id || ''}" draggable="true">
       <div class="lib-col lib-col--name">
+        <input type="checkbox" class="lib-row-check" data-id="${t.id}" ${isChecked ? 'checked' : ''} aria-label="Select">
         <span class="lib-icon">&#128220;</span>
         <span class="lib-name" data-id="${t.id}">${esc(t.name)}</span>
       </div>
@@ -389,11 +452,26 @@ function wireLibraryEvents() {
   // Click file rows to load
   libraryList.querySelectorAll('.lib-row--file').forEach(row => {
     row.addEventListener('click', (e) => {
-      // Don't load if clicking delete or name (for inline rename)
-      if (e.target.closest('.lib-row-delete') || e.target.closest('.lib-name')) return;
+      // Don't load if clicking delete, checkbox, or name (for inline rename)
+      if (e.target.closest('.lib-row-delete') || e.target.closest('.lib-name') || e.target.closest('.lib-row-check')) return;
       handleLoad(row.dataset.id);
     });
   });
+
+  // Bulk-select checkboxes.
+  libraryList.querySelectorAll('.lib-row-check').forEach(box => {
+    box.addEventListener('click', (e) => e.stopPropagation());
+    box.addEventListener('change', (e) => {
+      const id = e.target.dataset.id;
+      if (e.target.checked) librarySelected.add(id);
+      else librarySelected.delete(id);
+      updateBulkActionBar();
+      // Just toggle the row class without re-rendering everything.
+      const row = e.target.closest('.lib-row--file');
+      if (row) row.classList.toggle('lib-row--checked', e.target.checked);
+    });
+  });
+  updateBulkActionBar();
 
   // Click file name to load (single click)
   libraryList.querySelectorAll('.lib-row--file .lib-name').forEach(el => {
@@ -452,15 +530,35 @@ function wireLibraryEvents() {
     });
   });
 
-  // Search filter
+  // Search filter — first does a fast client-side name filter for
+  // instant feedback, then debounces a server-side full-text search
+  // (matches transcript names + sequence names + SRT/translation text)
+  // and replaces the result list with the matches.
   const searchInput = $('#library-search');
   if (searchInput) {
+    let serverSearchTimer = null;
     searchInput.addEventListener('input', () => {
-      const q = searchInput.value.toLowerCase().trim();
+      const q = searchInput.value.trim();
+      // Instant client-side: hide rows whose name doesn't match.
+      const ql = q.toLowerCase();
       libraryList.querySelectorAll('.lib-row').forEach(row => {
         const name = row.querySelector('.lib-name')?.textContent?.toLowerCase() || '';
-        row.style.display = (!q || name.includes(q)) ? '' : 'none';
+        row.style.display = (!q || name.includes(ql)) ? '' : 'none';
       });
+      // Debounced server-side search.
+      clearTimeout(serverSearchTimer);
+      if (!q) return; // empty query → revert to full list (handled by next fetchLibrary)
+      serverSearchTimer = setTimeout(async () => {
+        try {
+          const matches = await searchTranscripts(q, libraryCurrentProject || undefined);
+          // Render only matches, preserving folder section so user keeps context.
+          libraryList.innerHTML = '';
+          for (const t of matches) libraryList.insertAdjacentHTML('beforeend', renderFileRow(t));
+          wireLibraryEvents();
+        } catch (err) {
+          console.warn('Search failed, keeping client-side filter:', err.message);
+        }
+      }, 250);
     });
   }
 
@@ -755,6 +853,9 @@ async function handleLoad(id) {
         lastServerUpdatedAt = t.updated_at; // server still on the older version
         rememberLastTranscript(t.id);
         finishLoadRender(t, /*step override*/ undefined);
+        teardownEditingSession();
+        ensureRealtimeSubscription();
+        maybeAcquireLock();
         markDirty();
         debouncedAutoSave();
         return;
@@ -766,6 +867,10 @@ async function handleLoad(id) {
     lastServerUpdatedAt = t.updated_at;
     rememberLastTranscript(t.id);
     finishLoadRender(t);
+    // Phase 3: subscribe to remote updates and try to acquire the editor lock.
+    teardownEditingSession();
+    ensureRealtimeSubscription();
+    maybeAcquireLock();
   } catch (err) {
     console.error('Failed to load transcript:', err);
     showError('Failed to load transcript: ' + err.message);
@@ -894,6 +999,8 @@ function gatherState(name) {
 
 const saveStatusEl = document.getElementById('save-status');
 let saveStatusTimer = null;
+let savedAgoTicker = null;
+let lastSavedAt = null;    // Date.now() of the last successful save
 let lastSaveError = null;
 let saveState = 'clean';   // clean | dirty | saving | saved | conflict | error
 let saveInFlight = false;  // is a save request currently awaiting response
@@ -901,11 +1008,53 @@ let pendingSave = false;   // is a debounce timer queued
 let nextSavePending = false; // is another save needed after the in-flight one finishes
 let debouncedAutoSaveTimer = null;
 const AUTOSAVE_DEBOUNCE_MS = 3000;
+const CLIENT_ID = (() => {
+  try {
+    let id = localStorage.getItem('mcm_client_id');
+    if (!id) {
+      id = 'tab_' + Math.random().toString(36).slice(2) + '_' + Date.now().toString(36);
+      localStorage.setItem('mcm_client_id', id);
+    }
+    return id;
+  } catch { return 'tab_' + Math.random().toString(36).slice(2); }
+})();
+const CLIENT_LABEL = (() => {
+  const ua = navigator.userAgent;
+  let browser = 'Browser';
+  if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) browser = 'Chrome';
+  else if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) browser = 'Safari';
+  else if (/Firefox\//.test(ua)) browser = 'Firefox';
+  else if (/Edg\//.test(ua)) browser = 'Edge';
+  let os = 'Mac';
+  if (/Win/.test(ua)) os = 'Windows';
+  else if (/Linux/.test(ua) && !/Android/.test(ua)) os = 'Linux';
+  else if (/Android/.test(ua)) os = 'Android';
+  else if (/iPhone|iPad/.test(ua)) os = 'iOS';
+  return `${browser} on ${os}`;
+})();
+
+function relativeAgo(ms) {
+  const sec = Math.round(ms / 1000);
+  if (sec < 5) return 'just now';
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min} min ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.round(hr / 24)}d ago`;
+}
+
+function refreshSavedLabel() {
+  if (saveState !== 'saved' || !saveStatusEl || lastSavedAt == null) return;
+  const elapsed = Date.now() - lastSavedAt;
+  saveStatusEl.innerHTML = `<span class="save-dot"></span>Saved ${relativeAgo(elapsed)}`;
+}
 
 function setSaveState(state, detail) {
   saveState = state;
   if (!saveStatusEl) return;
   clearTimeout(saveStatusTimer);
+  if (savedAgoTicker) { clearInterval(savedAgoTicker); savedAgoTicker = null; }
   saveStatusEl.classList.remove('save-status--error', 'save-status--fade', 'save-status--saving', 'save-status--saved', 'save-status--conflict', 'save-status--dirty');
   saveStatusEl.style.cursor = '';
   saveStatusEl.title = '';
@@ -921,8 +1070,10 @@ function setSaveState(state, detail) {
     saveStatusEl.innerHTML = '<span class="save-dot"></span>Saving…';
   } else if (state === 'saved') {
     saveStatusEl.classList.add('save-status--saved');
-    saveStatusEl.innerHTML = '<span class="save-dot"></span>Saved';
-    saveStatusTimer = setTimeout(() => saveStatusEl.classList.add('save-status--fade'), 4000);
+    lastSavedAt = Date.now();
+    refreshSavedLabel();
+    // Re-render the relative time every 15 seconds so "Saved 2 min ago" stays current.
+    savedAgoTicker = setInterval(refreshSavedLabel, 15000);
   } else if (state === 'conflict') {
     saveStatusEl.classList.add('save-status--error');
     saveStatusEl.innerHTML = '<span class="save-dot"></span>Conflict · click to resolve';
@@ -965,12 +1116,17 @@ async function flushPendingSave() {
   return runSaveOnce({ awaitInFlight: true });
 }
 
-// Manual save (Cmd-S / Ctrl-S). Same as flush.
+// Manual save (Cmd-S / Ctrl-S). Same as flush, but tagged so revisions
+// know it was an explicit user action (useful in the history UI).
 async function manualSave() {
-  return flushPendingSave();
+  clearTimeout(debouncedAutoSaveTimer);
+  debouncedAutoSaveTimer = null;
+  pendingSave = false;
+  return runSaveOnce({ source: 'manual', awaitInFlight: true });
 }
 
 async function runSaveOnce(opts = {}) {
+  if (viewOnly) return; // editor is locked elsewhere; we're not allowed to write
   // If something is already in flight, just mark that another save is
   // needed when it finishes. Latest state wins.
   if (saveInFlight) {
@@ -989,25 +1145,31 @@ async function runSaveOnce(opts = {}) {
     const payload = gatherState();
     payload.metadata = { ...payload.metadata, segmentCount: segments.length };
 
+    let savedRow;
     if (currentTranscriptId) {
-      const row = await updateTranscript(currentTranscriptId, payload, { expectedUpdatedAt: lastServerUpdatedAt });
-      lastServerUpdatedAt = row.updated_at;
-      saveSnapshot(currentTranscriptId, payload, row.updated_at);
+      savedRow = await updateTranscript(currentTranscriptId, payload, { expectedUpdatedAt: lastServerUpdatedAt });
+      lastServerUpdatedAt = savedRow.updated_at;
+      saveSnapshot(currentTranscriptId, payload, savedRow.updated_at);
     } else {
       const name = currentTranscriptName || generateAutoName();
       payload.name = name;
       const baseSlug = generateSlug(name);
       payload.slug = await ensureUniqueSlug(baseSlug);
-      const row = await saveTranscript(payload);
-      currentTranscriptId = row.id;
+      savedRow = await saveTranscript(payload);
+      currentTranscriptId = savedRow.id;
       currentTranscriptName = name;
-      currentSlug = row.slug || payload.slug;
-      lastServerUpdatedAt = row.updated_at;
-      rememberLastTranscript(row.id);
+      currentSlug = savedRow.slug || payload.slug;
+      lastServerUpdatedAt = savedRow.updated_at;
+      rememberLastTranscript(savedRow.id);
       setPermalinkHash(currentSlug);
       updateTranscriptTitle();
-      saveSnapshot(currentTranscriptId, payload, row.updated_at);
+      saveSnapshot(currentTranscriptId, payload, savedRow.updated_at);
+      // Subscribe to remote updates as soon as we have an id.
+      ensureRealtimeSubscription();
     }
+    // Cheap insurance: write a revision row. Trigger trims to last 50 per transcript.
+    insertRevision(currentTranscriptId, payload, { source: opts.source || 'autosave', clientId: CLIENT_ID })
+      .catch(err => console.warn('Could not write revision:', err.message));
     setSaveState('saved');
     invalidateLibraryCache();
   } catch (err) {
@@ -1277,6 +1439,7 @@ function updateEditorInstance() {
     },
     onInterestVote: handleInterestVote,
     onRegenerateSummary: () => generateAutoSummary(),
+    onOpenHistory: () => openRevisionHistory(),
   });
 }
 
@@ -2550,6 +2713,7 @@ function switchView(view) {
         },
         onInterestVote: handleInterestVote,
         onRegenerateSummary: () => generateAutoSummary(),
+        onOpenHistory: () => openRevisionHistory(),
       });
 
       // Auto-generate summary on first entry if not already generated
@@ -3364,6 +3528,7 @@ function clearLastTranscript() {
 // ── Reset to upload ──
 function resetToUpload() {
   flushPendingSave();
+  teardownEditingSession();
   clearLastTranscript();
   clearPermalinkHash();
   clearTimeout(debouncedAutoSaveTimer);
@@ -3432,6 +3597,294 @@ if (headerLogo) {
     resetToUpload();
   });
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Revision history (Phase 2/3)
+// ──────────────────────────────────────────────────────────────────────────
+async function openRevisionHistory() {
+  if (!currentTranscriptId) return;
+  let modal = document.getElementById('revision-history-modal');
+  if (modal) modal.remove();
+
+  modal = document.createElement('div');
+  modal.id = 'revision-history-modal';
+  modal.className = 'np-modal';
+  modal.innerHTML = `
+    <div class="np-modal-backdrop" data-close-history></div>
+    <div class="np-modal-card" style="max-width: 640px; max-height: 80vh; display: flex; flex-direction: column;">
+      <div class="np-modal-header">
+        <h3 class="np-modal-title">Version history</h3>
+        <button class="np-modal-close" data-close-history aria-label="Close">×</button>
+      </div>
+      <p style="font-family: var(--np-font-mono); font-size: 12px; color: var(--np-sepia); margin-bottom: 14px;">Each save writes a snapshot. The 50 most recent are kept. Restoring writes a new snapshot, so the action itself is undoable.</p>
+      <div id="revision-list" style="overflow-y: auto; flex: 1; min-height: 0;">
+        <div style="padding: 24px; text-align: center; font-family: var(--np-font-mono); font-size: 12px; color: var(--np-sepia);">Loading…</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelectorAll('[data-close-history]').forEach(el => {
+    el.addEventListener('click', () => modal.remove());
+  });
+
+  try {
+    const revisions = await listRevisions(currentTranscriptId, 50);
+    renderRevisionList(modal.querySelector('#revision-list'), revisions);
+  } catch (err) {
+    modal.querySelector('#revision-list').innerHTML = `<div style="padding: 16px; color: var(--np-red); font-family: var(--np-font-mono); font-size: 12px;">Could not load history: ${escapeHtmlSafe(err.message || String(err))}</div>`;
+  }
+}
+
+function renderRevisionList(container, revisions) {
+  if (!revisions || revisions.length === 0) {
+    container.innerHTML = '<div style="padding: 16px; font-family: var(--np-font-mono); font-size: 12px; color: var(--np-sepia);">No revisions yet. Make a save to start the history.</div>';
+    return;
+  }
+  container.innerHTML = revisions.map((r) => {
+    const when = new Date(r.created_at);
+    const label = `${when.toLocaleDateString()} ${when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    const sourceTag = r.source === 'manual' ? 'manual save'
+      : r.source === 'restore' ? 'restored from earlier'
+      : r.source === 'conflict-overwrite' ? 'conflict resolution'
+      : 'autosave';
+    const isThisTab = r.client_id === CLIENT_ID;
+    return `
+      <div class="revision-row" data-id="${r.id}">
+        <div class="revision-when">${escapeHtmlSafe(label)}</div>
+        <div class="revision-meta">${escapeHtmlSafe(sourceTag)}${isThisTab ? ' · this tab' : ''}</div>
+        <div class="revision-actions">
+          <button class="np-button revision-restore">Restore</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  container.querySelectorAll('.revision-row').forEach(row => {
+    row.querySelector('.revision-restore').addEventListener('click', async () => {
+      const id = row.dataset.id;
+      if (!confirm('Restore this version? Your current state will be saved as a new revision first.')) return;
+      try {
+        // Make sure current state is captured first.
+        if (saveState === 'dirty') await flushPendingSave();
+        const rev = await loadRevision(id);
+        applySnapshotPayload(rev.snapshot);
+        finishLoadRender({
+          ...rev.snapshot,
+          id: currentTranscriptId,
+          name: currentTranscriptName,
+          step: rev.snapshot.step,
+        });
+        markDirty();
+        await runSaveOnce({ source: 'restore' });
+        document.getElementById('revision-history-modal')?.remove();
+      } catch (err) {
+        alert('Restore failed: ' + (err.message || String(err)));
+      }
+    });
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Realtime sync (Phase 3)
+// ──────────────────────────────────────────────────────────────────────────
+let realtimeUnsubscribe = null;
+let realtimeBoundTranscriptId = null;
+
+function ensureRealtimeSubscription() {
+  if (!currentTranscriptId) return;
+  if (realtimeBoundTranscriptId === currentTranscriptId && realtimeUnsubscribe) return;
+  if (realtimeUnsubscribe) { try { realtimeUnsubscribe(); } catch {} realtimeUnsubscribe = null; }
+  realtimeBoundTranscriptId = currentTranscriptId;
+  try {
+    realtimeUnsubscribe = subscribeToTranscript(currentTranscriptId, handleRemoteUpdate);
+  } catch (err) {
+    console.warn('[realtime] subscribe failed:', err);
+  }
+}
+
+function teardownRealtime() {
+  if (realtimeUnsubscribe) { try { realtimeUnsubscribe(); } catch {} realtimeUnsubscribe = null; }
+  realtimeBoundTranscriptId = null;
+}
+
+function handleRemoteUpdate(newRow) {
+  if (!newRow || newRow.id !== currentTranscriptId) return;
+  // Ignore echoes of our own write.
+  if (lastServerUpdatedAt && newRow.updated_at === lastServerUpdatedAt) return;
+  // If we're in the middle of saving, also ignore (our reply will arrive shortly).
+  if (saveInFlight) return;
+
+  // If our local state is clean, silently fold in the remote version.
+  if (saveState === 'clean' || saveState === 'saved') {
+    applyTranscriptToState(newRow);
+    lastServerUpdatedAt = newRow.updated_at;
+    finishLoadRender(newRow);
+    setSaveState('saved');
+    return;
+  }
+
+  // We have unsaved local changes — show a banner letting the user choose.
+  showRemoteChangeBanner(newRow);
+}
+
+function showRemoteChangeBanner(newRow) {
+  let banner = document.getElementById('remote-change-banner');
+  if (banner) banner.remove();
+  banner = document.createElement('div');
+  banner.id = 'remote-change-banner';
+  banner.className = 'remote-change-banner';
+  const when = newRow.updated_at ? new Date(newRow.updated_at).toLocaleTimeString() : '';
+  banner.innerHTML = `
+    <div class="remote-change-text">
+      <strong>This transcript was updated elsewhere${when ? ' at ' + escapeHtmlSafe(when) : ''}.</strong>
+      Your unsaved changes are still here. Choose what to do.
+    </div>
+    <div class="remote-change-actions">
+      <button class="np-button" id="remote-keep-mine">Keep mine</button>
+      <button class="np-button np-button--primary" id="remote-reload">Reload theirs</button>
+      <button class="np-button" id="remote-dismiss">Dismiss</button>
+    </div>
+  `;
+  document.body.appendChild(banner);
+  document.getElementById('remote-keep-mine').addEventListener('click', () => {
+    lastServerUpdatedAt = newRow.updated_at; // accept their version as the new baseline
+    banner.remove();
+    runSaveOnce({ source: 'conflict-overwrite' });
+  });
+  document.getElementById('remote-reload').addEventListener('click', () => {
+    banner.remove();
+    handleLoad(currentTranscriptId);
+  });
+  document.getElementById('remote-dismiss').addEventListener('click', () => {
+    // Just hide it. Next save will hit a CONFLICT and the existing
+    // conflict modal will surface.
+    banner.remove();
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Tab lock (Phase 3)
+// ──────────────────────────────────────────────────────────────────────────
+let lockHeartbeatTimer = null;
+let lockBoundTranscriptId = null;
+let viewOnly = false;
+
+async function maybeAcquireLock() {
+  if (!currentTranscriptId) return;
+  // Already holding lock for this transcript?
+  if (lockBoundTranscriptId === currentTranscriptId) return;
+  // Release any prior lock.
+  if (lockBoundTranscriptId && lockHeartbeatTimer) {
+    clearInterval(lockHeartbeatTimer); lockHeartbeatTimer = null;
+    try { await releaseLock(lockBoundTranscriptId, CLIENT_ID); } catch {}
+  }
+  lockBoundTranscriptId = null;
+
+  let existing = null;
+  try { existing = await checkLock(currentTranscriptId); } catch (err) { console.warn('[lock] check failed:', err); }
+  if (existing && existing.holder_id !== CLIENT_ID) {
+    const decision = await promptLockConflict(existing);
+    if (decision === 'cancel') {
+      // Pull back to library — load was probably accidental.
+      teardownEditingSession();
+      showLibrary();
+      return;
+    }
+    if (decision === 'view-only') {
+      viewOnly = true;
+      showViewOnlyBanner(existing);
+      return;
+    }
+    // 'take-over' — fall through to upsert below.
+  }
+
+  try {
+    await acquireLock(currentTranscriptId, CLIENT_ID, CLIENT_LABEL);
+    lockBoundTranscriptId = currentTranscriptId;
+    lockHeartbeatTimer = setInterval(() => {
+      heartbeatLock(currentTranscriptId, CLIENT_ID).catch(() => {});
+    }, 30000);
+  } catch (err) {
+    console.warn('[lock] acquire failed:', err);
+  }
+}
+
+function teardownEditingSession() {
+  teardownRealtime();
+  if (lockHeartbeatTimer) { clearInterval(lockHeartbeatTimer); lockHeartbeatTimer = null; }
+  if (lockBoundTranscriptId) {
+    releaseLock(lockBoundTranscriptId, CLIENT_ID).catch(() => {});
+    lockBoundTranscriptId = null;
+  }
+  viewOnly = false;
+  const banner = document.getElementById('view-only-banner');
+  if (banner) banner.remove();
+  const remoteBanner = document.getElementById('remote-change-banner');
+  if (remoteBanner) remoteBanner.remove();
+}
+
+function promptLockConflict(lock) {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.className = 'np-modal';
+    const since = lock.last_seen ? new Date(lock.last_seen).toLocaleTimeString() : 'recently';
+    const label = lock.holder_label || 'another tab';
+    modal.innerHTML = `
+      <div class="np-modal-backdrop"></div>
+      <div class="np-modal-card" style="max-width: 520px;">
+        <div class="np-modal-header"><h3 class="np-modal-title">Open elsewhere</h3></div>
+        <p style="font-family: var(--np-font-mono); font-size: 13px; line-height: 1.5; margin-bottom: 14px;">This transcript is being edited from <b>${escapeHtmlSafe(label)}</b> (last active ${escapeHtmlSafe(since)}).</p>
+        <p style="font-family: var(--np-font-mono); font-size: 12px; color: var(--np-sepia); line-height: 1.5; margin-bottom: 22px;">Editing in two places at once can cause one tab's changes to overwrite the other's. Pick one:</p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
+          <button class="np-button" data-decision="cancel">Cancel</button>
+          <button class="np-button" data-decision="view-only">View only</button>
+          <button class="np-button np-button--primary" data-decision="take-over">Take over</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelectorAll('[data-decision]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const d = btn.dataset.decision;
+        modal.remove();
+        resolve(d);
+      });
+    });
+  });
+}
+
+function showViewOnlyBanner(lock) {
+  const existing = document.getElementById('view-only-banner');
+  if (existing) existing.remove();
+  const banner = document.createElement('div');
+  banner.id = 'view-only-banner';
+  banner.className = 'view-only-banner';
+  const label = lock.holder_label || 'another tab';
+  banner.innerHTML = `
+    <div class="view-only-text">
+      <strong>View only</strong> — this transcript is being edited in ${escapeHtmlSafe(label)}. Your edits will not be saved.
+    </div>
+    <button class="np-button" id="view-only-takeover">Take over</button>
+  `;
+  document.body.appendChild(banner);
+  document.getElementById('view-only-takeover').addEventListener('click', async () => {
+    viewOnly = false;
+    banner.remove();
+    try { await acquireLock(currentTranscriptId, CLIENT_ID, CLIENT_LABEL); } catch {}
+    lockBoundTranscriptId = currentTranscriptId;
+    if (!lockHeartbeatTimer) {
+      lockHeartbeatTimer = setInterval(() => heartbeatLock(currentTranscriptId, CLIENT_ID).catch(() => {}), 30000);
+    }
+  });
+}
+
+// Release the lock cleanly when the tab closes.
+window.addEventListener('beforeunload', () => {
+  if (lockBoundTranscriptId) {
+    // navigator.sendBeacon would be ideal but Supabase REST needs auth headers
+    // we can't easily replicate here. Best-effort fire-and-forget delete.
+    try { releaseLock(lockBoundTranscriptId, CLIENT_ID); } catch {}
+  }
+});
 
 // ── Permalink support ──
 function getPermalinkId() {

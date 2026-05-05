@@ -12,7 +12,7 @@ import { SummaryView } from '../copilot/SummaryView.jsx';
 import { extractSequenceBase } from '../csv-parser.js';
 import { formatPreciseTimecode } from '../timecode-utils.js';
 
-export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, onSequenceNameChange, editorDirty, summary, summaryBullets, interestVotes, onInterestVote, onRegenerateSummary, sequenceInfo, speakerColors, speakerMap, hiddenSpeakers, onSpeakerMapChange }) {
+export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, onSequenceNameChange, editorDirty, summary, summaryBullets, interestVotes, onInterestVote, onRegenerateSummary, sequenceInfo, speakerColors, speakerMap, hiddenSpeakers, onSpeakerMapChange, onOpenHistory }) {
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
@@ -582,6 +582,15 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
             />
             <span>Margin notes</span>
           </label>
+        )}
+        {onOpenHistory && (
+          <button
+            className="editor-toolbar-btn"
+            onClick={onOpenHistory}
+            title="Browse and restore previous saved versions"
+          >
+            History
+          </button>
         )}
         {onSync && (
           <div className="editor-sync-wrap" ref={syncMenuRef}>

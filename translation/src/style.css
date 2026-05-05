@@ -843,6 +843,128 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   word-break: break-word;
 }
 
+/* Bulk action bar in library */
+.lib-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--np-ink);
+  color: var(--np-warm-white);
+  padding: 10px 14px;
+  border-radius: 3px;
+  margin: 0 0 16px 0;
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+}
+.lib-bulk-text { font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.lib-bulk-bar select {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  padding: 5px 8px;
+  background: var(--np-warm-white);
+  color: var(--np-ink);
+  border: 1px solid var(--np-warm-white);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.lib-bulk-bar .np-button {
+  font-size: 11px;
+  padding: 5px 12px;
+}
+.lib-row-check {
+  margin-right: 8px;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.lib-row--checked { background: rgba(0, 76, 255, 0.06); }
+
+/* Remote change banner (realtime conflict) */
+.remote-change-banner {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--np-ink);
+  color: var(--np-warm-white);
+  padding: 14px 18px;
+  border-radius: 4px;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  z-index: 1100;
+  max-width: 720px;
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.remote-change-text strong { display: block; margin-bottom: 2px; }
+.remote-change-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.remote-change-actions .np-button {
+  font-size: 11px;
+  padding: 5px 12px;
+}
+
+/* View-only banner */
+.view-only-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  background: var(--np-yellow);
+  color: var(--np-ink);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  z-index: 1100;
+}
+.view-only-text strong { margin-right: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
+.view-only-banner .np-button { font-size: 11px; padding: 5px 12px; }
+
+/* History sidebar revision rows */
+.revision-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 2px 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(18,17,24,0.08);
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+}
+.revision-row:hover { background: rgba(0,0,0,0.02); }
+.revision-when { font-weight: 600; }
+.revision-meta {
+  font-size: 11px;
+  color: var(--np-sepia);
+}
+.revision-actions {
+  grid-row: span 2;
+  align-self: center;
+}
+.revision-actions .np-button {
+  font-size: 11px;
+  padding: 5px 12px;
+}
+
+/* History button in editor toolbar */
+.editor-toolbar-btn {
+  background: transparent;
+  border: 1px solid rgba(18,17,24,0.2);
+  color: var(--np-ink);
+  padding: 6px 12px;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  cursor: pointer;
+  margin-right: 6px;
+}
+.editor-toolbar-btn:hover { background: var(--np-ink); color: var(--np-warm-white); }
+
 /* ── Library: Drive-style ── */
 
 /* Breadcrumb */
