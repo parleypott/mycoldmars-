@@ -1145,9 +1145,11 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   justify-content: center;
   padding-top: 14vh;
   opacity: 0;
+  pointer-events: none; /* CRITICAL: don't eat clicks while closed */
   transition: opacity 140ms var(--np-ease);
 }
-.cmd-palette.open { opacity: 1; }
+.cmd-palette[hidden] { display: none; }
+.cmd-palette.open { opacity: 1; pointer-events: auto; }
 .cmd-palette-backdrop {
   position: absolute;
   inset: 0;
