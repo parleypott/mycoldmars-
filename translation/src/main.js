@@ -4142,46 +4142,58 @@ function exportFormat(format) {
 }
 
 // ── Init: load projects and auto-reload last transcript ──
+//
+// Every step is independently try/caught: a single failing init must
+// NEVER take down the rest of the app. Console-warns surface what broke
+// so we can debug without leaving the user with a frozen page.
+function safeInit(name, fn) {
+  try { fn(); }
+  catch (err) { console.warn(`[init] ${name} failed:`, err); }
+}
+
 (async function init() {
-  // SOT HUNTER — floating archer that finds soundbites from messy paste-ins.
-  // It hunts and displays in English only, so it needs the translations too.
-  initSotHunter({
-    getSegments: () => segments,
-    getTranslations: () => translations,
-  });
-  setSotHunterVisible(false);
-
-  // Command palette — ⌘K opens fuzzy search across actions and library.
-  initCommandPalette({
-    getActions: buildPaletteActions,
-    getTranscripts: () => libraryCache?.transcripts || [],
-    onJumpToTranscript: (id) => handleLoad(id),
+  safeInit('sot-hunter', () => {
+    initSotHunter({
+      getSegments: () => segments,
+      getTranslations: () => translations,
+    });
+    setSotHunterVisible(false);
   });
 
-  // Falling-glyph ambient effect on the home page. Bounces off the two
-  // path cards and the drop zone via getBoundingClientRect().
-  initFallingGlyphs({
-    getButtonRects: () => {
-      const rects = [];
-      const ids = ['home-library-btn', 'home-sequencer-btn', 'drop-zone'];
-      for (const id of ids) {
-        const el = document.getElementById(id);
-        if (!el) continue;
-        const r = el.getBoundingClientRect();
-        if (r.width > 0 && r.height > 0) rects.push(r);
-      }
-      return rects;
-    },
+  safeInit('command-palette', () => {
+    initCommandPalette({
+      getActions: buildPaletteActions,
+      getTranscripts: () => libraryCache?.transcripts || [],
+      onJumpToTranscript: (id) => handleLoad(id),
+    });
   });
-  if (currentStep === 1) startFallingGlyphs();
 
-  // Probe schema once at boot. The result gates optional features in db.js
-  // (slug, soft-delete, aliases, revisions, locks, search_text) so the app
-  // keeps working on a half-migrated DB. If anything is missing we show a
-  // dismissible banner pointing the user at the SQL files.
-  getSchemaStatus()
-    .then(status => { if (status?.missing?.length) showSchemaMigrationBanner(status); })
-    .catch(err => console.warn('Schema probe failed:', err.message));
+  safeInit('falling-glyphs', () => {
+    initFallingGlyphs({
+      getButtonRects: () => {
+        const rects = [];
+        const ids = ['home-library-btn', 'home-sequencer-btn', 'drop-zone'];
+        for (const id of ids) {
+          const el = document.getElementById(id);
+          if (!el) continue;
+          const r = el.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) rects.push(r);
+        }
+        return rects;
+      },
+    });
+    if (currentStep === 1) startFallingGlyphs();
+  });
+
+  // Probe schema once at boot. Optional features in db.js will gate
+  // themselves based on the result. Banner is shown only if something
+  // is missing.
+  try {
+    const status = await getSchemaStatus();
+    if (status?.missing?.length) showSchemaMigrationBanner(status);
+  } catch (err) {
+    console.warn('Schema probe failed:', err);
+  }
 
   // Migrate localStorage → Supabase in background (non-blocking)
   migrateLocalStorageToSupabase()

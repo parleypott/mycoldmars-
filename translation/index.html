@@ -518,5 +518,43 @@
     })();
   </script>
   <script type="module" src="src/main.js"></script>
+  <script>
+    // Failsafe home-button handlers — runs independently of the module.
+    // If main.js dies for any reason (boot exception, import error, etc),
+    // the home cards still navigate so the app is never a frozen brick.
+    // When main.js IS healthy, its own handlers will also fire — both
+    // paths are idempotent (toggling the same classes), so double-fire
+    // is harmless.
+    (function () {
+      function showLibraryFallback() {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        var lib = document.getElementById('library-view');
+        if (lib) lib.classList.add('active');
+        var hdr = document.querySelector('header');
+        if (hdr) hdr.classList.remove('hidden');
+        var steps = document.querySelector('.steps');
+        if (steps) steps.classList.add('hidden');
+        var hero = document.getElementById('home-hero');
+        if (hero) hero.classList.add('hidden');
+      }
+      function showSequencerFallback() {
+        var app = document.getElementById('app');
+        if (app) app.classList.add('hidden');
+        var seq = document.getElementById('sequencer-view');
+        if (seq) seq.classList.remove('hidden');
+        location.hash = '#sequencer';
+      }
+      document.addEventListener('click', function (e) {
+        var t = e.target;
+        if (t.closest && t.closest('#home-library-btn')) {
+          e.preventDefault();
+          showLibraryFallback();
+        } else if (t.closest && t.closest('#home-sequencer-btn')) {
+          e.preventDefault();
+          showSequencerFallback();
+        }
+      }, true); // capture phase, so even if a child eats bubbling we still fire
+    })();
+  </script>
 </body>
 </html>
