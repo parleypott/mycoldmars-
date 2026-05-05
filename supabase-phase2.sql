@@ -95,7 +95,7 @@ alter table editor_locks         enable row level security;
 do $$
 declare t text;
 begin
-  for t in select unnest(array['transcript_revisions','editor_locks']) loop
+  foreach t in array array['transcript_revisions','editor_locks'] loop
     execute format('drop policy if exists "%s_select" on %s', t, t);
     execute format('drop policy if exists "%s_insert" on %s', t, t);
     execute format('drop policy if exists "%s_update" on %s', t, t);

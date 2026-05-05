@@ -133,7 +133,7 @@ alter table ai_threads enable row level security;
 do $$
 declare t text;
 begin
-  for t in select unnest(array['projects','transcripts','transcript_aliases','tags','highlights','ai_threads']) loop
+  foreach t in array array['projects','transcripts','transcript_aliases','tags','highlights','ai_threads'] loop
     execute format('drop policy if exists "%s_select" on %s', t, t);
     execute format('drop policy if exists "%s_insert" on %s', t, t);
     execute format('drop policy if exists "%s_update" on %s', t, t);
