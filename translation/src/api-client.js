@@ -360,3 +360,52 @@ Respond with JSON only (no markdown fencing):
   const chunkResults = await Promise.all(chunkPromises);
   return chunkResults.flat();
 }
+
+/**
+ * Polish a single soundbite — propose strikethroughs to remove
+ * filler/repetition/asides, plus a final cleaned version. Meaning,
+ * voice, and ordering of remaining text are preserved.
+ *
+ * Returns: { chunks: [{ type: 'keep'|'strike', text }], polished: string }
+ */
+export async function polishSoundbite(text) {
+  if (!text || !text.trim()) return { chunks: [], polished: '' };
+
+  const systemPrompt = `You are an editor cleaning up a documentary soundbite for a producer's selects sequence. The speaker said something verbose; your job is to identify which words are filler / repetition / clarifying-tangents that can be cut, and which words are essential.
+
+You must:
+- Preserve meaning. Keep the speaker's voice.
+- Cut filler ("uh", "you know", "I mean"), repeated phrases, restated points, parenthetical clarifications that aren't load-bearing.
+- Keep the same ORDER of remaining text — do not rearrange (the original audio plays in order).
+- The cuts may produce a slightly choppier read than the original; that's fine.
+
+Return JSON only (no fencing). Two parallel views of the edit:
+
+{
+  "chunks": [
+    { "type": "keep",   "text": "I'm from Kinmen, born and raised. " },
+    { "type": "strike", "text": "I was born in 1984, " },
+    { "type": "keep",   "text": "when Kinmen was still under military rule." }
+  ],
+  "polished": "I'm from Kinmen, born and raised. When Kinmen was still under military rule."
+}
+
+Rules:
+- Concatenating all chunk text in order MUST equal the original text exactly (including spacing and punctuation).
+- "polished" is the cleaned version — concatenate the keep chunks, then lightly fix capitalization at sentence starts after a strike.
+- Aim to cut 20-50% of words. If the text is already tight, cut less.`;
+
+  const rawText = await callClaude(
+    systemPrompt,
+    `Soundbite to polish:\n\n${text}`,
+    1200,
+  );
+  const result = extractJSON(rawText);
+  if (!Array.isArray(result?.chunks)) {
+    throw new Error('Polish response missing chunks array');
+  }
+  return {
+    chunks: result.chunks,
+    polished: result.polished || result.chunks.filter(c => c.type === 'keep').map(c => c.text).join(''),
+  };
+}

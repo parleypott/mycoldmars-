@@ -1,4 +1,4 @@
-import { detectThemes, extractSoundbites } from '../api-client.js';
+import { detectThemes, extractSoundbites, polishSoundbite } from '../api-client.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from '../timecode-utils.js';
 import { chattyStart, chattyUpdate, chattyEnd, THEME_DETECT_PHRASES, WORKSHOP_PROCESS_PHRASES } from '../chatty-loader.js';
 
@@ -23,6 +23,10 @@ export function mountWorkshop(container, opts) {
     processing: false,
     progress: { done: 0, total: 0 },
     error: null,
+    // Per-bite ZAP state. Key = segmentNumber. Values:
+    //   { status: 'loading' | 'ready' | 'error', chunks?, polished?, error? }
+    // Not persisted — purely UI for the current session.
+    zaps: {},
   };
 
   const initial = opts.initialState || {};
@@ -323,16 +327,50 @@ export function mountWorkshop(container, opts) {
   function renderBite(bite, seg) {
     const tc = formatTcShort(seg.start);
     const speaker = seg.speaker || 'Unknown';
+    const zap = state.zaps[seg.number];
     return `
-      <div class="ws-bite" data-start="${escapeAttr(seg.start)}" data-speaker="${escapeAttr(speaker)}">
+      <div class="ws-bite" data-start="${escapeAttr(seg.start)}" data-speaker="${escapeAttr(speaker)}" data-segnum="${seg.number}">
         <div class="ws-bite-meta">
           <span class="ws-bite-tc">${tc}</span>
           <span class="ws-bite-speaker">${escapeHtml(speaker)}</span>
           ${bite.label ? `<span class="ws-bite-label">${escapeHtml(bite.label)}</span>` : ''}
+          <button class="ws-zap" data-act="zap" title="Propose a tighter cut" aria-label="Zap this soundbite">
+            ${zap?.status === 'loading'
+              ? `<span class="ws-zap-spin" aria-hidden="true"></span>`
+              : `<svg class="ws-zap-bolt" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                  <path d="M9.2 1 3 9h4l-1.2 6L13 7H8.6z" fill="currentColor"/>
+                </svg>`
+            }
+            <span class="ws-zap-label">${zap?.status === 'loading' ? 'Zapping…' : 'Zap'}</span>
+          </button>
         </div>
-        <div class="ws-bite-text">${escapeHtml(seg.text)}</div>
+        <div class="ws-bite-text">
+          ${zap?.status === 'ready'
+            ? renderZappedText(zap.chunks)
+            : escapeHtml(seg.text)}
+        </div>
+        ${zap?.status === 'ready' ? `
+          <div class="ws-bite-polished">
+            <div class="ws-bite-polished-head">
+              <span class="ws-bite-polished-eyebrow">Polished</span>
+              <div class="ws-bite-polished-actions">
+                <button class="ws-zap-action ws-zap-accept" data-act="zap-accept" title="Use this version everywhere it's copied">Use polished</button>
+                <button class="ws-zap-action ws-zap-undo" data-act="zap-undo" title="Discard the proposal">Discard</button>
+              </div>
+            </div>
+            <div class="ws-bite-polished-text">${escapeHtml(zap.polished)}</div>
+          </div>
+        ` : ''}
+        ${zap?.status === 'error' ? `<div class="ws-bite-zap-err">${escapeHtml(zap.error || 'Zap failed')}</div>` : ''}
       </div>
     `;
+  }
+
+  function renderZappedText(chunks) {
+    return (chunks || []).map(c => {
+      if (c.type === 'strike') return `<s class="ws-zap-strike">${escapeHtml(c.text)}</s>`;
+      return `<span>${escapeHtml(c.text)}</span>`;
+    }).join('');
   }
 
   function bindViewer() {
@@ -351,6 +389,28 @@ export function mountWorkshop(container, opts) {
           if (!state.openThemes[themeName]) delete state.openThemes[themeName];
           persist();
           render();
+        } else if (act === 'zap') {
+          const bite = btn.closest('.ws-bite');
+          const segNum = Number(bite.dataset.segnum);
+          runZap(segNum);
+        } else if (act === 'zap-accept') {
+          // Replace the bite text with the polished version so future
+          // copies pick it up. Keeps the original in zaps.* in case the
+          // user wants to undo by re-zapping.
+          const bite = btn.closest('.ws-bite');
+          const segNum = Number(bite.dataset.segnum);
+          const z = state.zaps[segNum];
+          const seg = opts.segments.find(s => s.number === segNum);
+          if (z && seg) {
+            seg.text = z.polished;
+            delete state.zaps[segNum];
+            render();
+          }
+        } else if (act === 'zap-undo') {
+          const bite = btn.closest('.ws-bite');
+          const segNum = Number(bite.dataset.segnum);
+          delete state.zaps[segNum];
+          render();
         }
       });
     });
@@ -359,6 +419,20 @@ export function mountWorkshop(container, opts) {
     container.querySelectorAll('[data-tc-copy]').forEach(body => {
       body.addEventListener('copy', handleCopyWithTimecode);
     });
+  }
+
+  async function runZap(segNum) {
+    const seg = opts.segments.find(s => s.number === segNum);
+    if (!seg) return;
+    state.zaps[segNum] = { status: 'loading' };
+    render();
+    try {
+      const result = await polishSoundbite(seg.text);
+      state.zaps[segNum] = { status: 'ready', chunks: result.chunks, polished: result.polished };
+    } catch (err) {
+      state.zaps[segNum] = { status: 'error', error: err.message || String(err) };
+    }
+    render();
   }
 
   function handleCopyWithTimecode(e) {

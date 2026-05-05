@@ -4278,6 +4278,116 @@ tr.dimmed-speaker { opacity: 0.35; }
   color: var(--np-ink);
 }
 
+/* ── ZAP — propose strikethroughs to tighten a soundbite ──────────── */
+.ws-zap {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid rgba(107, 45, 139, 0.30);
+  color: #6B2D8B;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  font-family: var(--np-font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-left: auto;          /* push to the far right of meta row */
+  transition: background 180ms var(--np-ease), border-color 180ms var(--np-ease), color 180ms var(--np-ease), transform 180ms var(--np-ease);
+}
+.ws-zap:hover {
+  background: rgba(107, 45, 139, 0.08);
+  border-color: #6B2D8B;
+  transform: translateY(-1px);
+}
+.ws-zap:active { transform: translateY(0); }
+.ws-zap-bolt {
+  display: block;
+  filter: drop-shadow(0 0 4px rgba(107,45,139,0.0));
+  transition: filter 200ms var(--np-ease), transform 200ms var(--np-ease);
+}
+.ws-zap:hover .ws-zap-bolt {
+  filter: drop-shadow(0 0 4px rgba(107,45,139,0.55));
+  transform: rotate(-8deg) scale(1.08);
+}
+.ws-zap-spin {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ws-zap-spin 700ms linear infinite;
+}
+@keyframes ws-zap-spin { to { transform: rotate(360deg); } }
+
+/* Strikethrough for cuts proposed by ZAP — purple ink line */
+.ws-zap-strike {
+  text-decoration: line-through;
+  text-decoration-color: rgba(107, 45, 139, 0.65);
+  text-decoration-thickness: 1.5px;
+  color: rgba(18, 17, 24, 0.42);
+  background: rgba(107, 45, 139, 0.04);
+}
+
+/* The "polished" preview block under the marked-up original */
+.ws-bite-polished {
+  margin-top: var(--np-space-3);
+  padding: 10px 14px;
+  background: rgba(107, 45, 139, 0.06);
+  border-left: 0;       /* no side-stripe — flat surface, purple wash */
+  border-radius: 3px;
+}
+.ws-bite-polished-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.ws-bite-polished-eyebrow {
+  font-family: var(--np-font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #6B2D8B;
+}
+.ws-bite-polished-actions { display: flex; gap: 6px; }
+.ws-zap-action {
+  background: transparent;
+  border: 1px solid rgba(107, 45, 139, 0.35);
+  color: #6B2D8B;
+  padding: 3px 9px;
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 180ms var(--np-ease);
+}
+.ws-zap-action:hover { background: rgba(107, 45, 139, 0.12); }
+.ws-zap-accept {
+  background: #6B2D8B;
+  color: #fff;
+  border-color: #6B2D8B;
+}
+.ws-zap-accept:hover { background: #4f2068; border-color: #4f2068; }
+.ws-bite-polished-text {
+  font-family: var(--np-font-serif);
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--np-ink);
+}
+.ws-bite-zap-err {
+  margin-top: 8px;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  color: var(--np-red);
+}
+
 .ws-section--unclassified .ws-section-name { color: var(--np-cool-neutral); font-style: italic; }
 .ws-section--unclassified.open .ws-section-name { color: var(--np-sepia); }
 
