@@ -93,6 +93,7 @@ alter table transcript_revisions enable row level security;
 alter table editor_locks         enable row level security;
 
 do $$
+declare t text;
 begin
   for t in select unnest(array['transcript_revisions','editor_locks']) loop
     execute format('drop policy if exists "%s_select" on %s', t, t);
