@@ -339,44 +339,49 @@ header {
   text-align: left;
   font-family: var(--np-font-mono);
   color: var(--np-ink);
-  box-shadow: 0 1px 0 rgba(18,17,24,0.04), 0 12px 28px -18px rgba(18,17,24,0.18);
+  box-shadow:
+    0 1px 0 rgba(18,17,24,0.04),
+    0 12px 28px -18px rgba(18,17,24,0.18);
   transition:
-    transform 220ms var(--np-ease-out),
-    box-shadow 220ms var(--np-ease-out),
-    border-color 220ms var(--np-ease-out),
-    background 220ms var(--np-ease-out);
+    transform 240ms var(--np-ease-out),
+    box-shadow 240ms var(--np-ease-out),
+    border-color 240ms var(--np-ease-out),
+    background-color 240ms var(--np-ease-out);
   position: relative;
   overflow: hidden;
+  will-change: transform, box-shadow;
 }
 .home-path::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(221,44,30,0.07), transparent 55%);
+  background: linear-gradient(135deg, rgba(221,44,30,0.10), transparent 60%);
   opacity: 0;
-  transition: opacity 220ms var(--np-ease-out);
+  transition: opacity 240ms var(--np-ease-out);
   pointer-events: none;
 }
-/* Slightly tilt the two cards toward each other so it reads as
-   "two paths departing from a center." Hover straightens + lifts. */
-.home-path--library   { transform: rotate(-0.6deg); }
-.home-path--sequencer { transform: rotate(0.6deg); }
+.home-path--sequencer::before {
+  background: linear-gradient(135deg, rgba(82, 0, 4, 0.10), transparent 60%);
+}
+/* Idle tilt: cards lean slightly toward each other so the pair reads
+   as "two roads from a center." Hover straightens, lifts, and pops. */
+.home-path--library   { transform: rotate(-1.4deg); }
+.home-path--sequencer { transform: rotate(1.4deg); }
 .home-path:hover {
-  transform: rotate(0) translateY(-3px);
-  border-color: rgba(18,17,24,0.45);
-  box-shadow: 0 2px 0 rgba(18,17,24,0.06), 0 24px 48px -18px rgba(18,17,24,0.32);
+  transform: rotate(0deg) translateY(-6px) scale(1.012);
+  border-color: var(--np-ink);
+  box-shadow:
+    0 2px 0 rgba(18,17,24,0.06),
+    0 32px 56px -18px rgba(18,17,24,0.38),
+    0 0 0 1px rgba(18,17,24,0.04);
 }
-.home-path--library:hover {
-  border-color: var(--np-red);
+.home-path:hover::before { opacity: 1; }
+.home-path--library:hover { border-color: var(--np-red); }
+.home-path--sequencer:hover { border-color: var(--np-burgundy); }
+.home-path:active {
+  transform: rotate(0deg) translateY(-2px) scale(0.998);
+  transition-duration: 100ms;
 }
-.home-path--library:hover::before {
-  opacity: 1;
-}
-.home-path--sequencer:hover {
-  border-color: var(--np-burgundy);
-  background: linear-gradient(135deg, #fff, #faf6ee);
-}
-.home-path:active { transform: rotate(0) translateY(-1px); }
 
 .home-path-glyph {
   display: inline-flex;
@@ -426,6 +431,9 @@ header {
   transition: transform 240ms var(--np-ease-out), color 240ms var(--np-ease-out);
   flex-shrink: 0;
 }
+/* Anything inside the button must NOT eat clicks — we want the button
+   itself to receive every pointer event so handleClick fires reliably. */
+.home-path > * { pointer-events: none; }
 .home-path:hover .home-path-arrow {
   transform: translateX(4px);
   color: var(--np-red);
@@ -454,18 +462,22 @@ header {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Drop zone (octagon w/ glowing dot tracing the perimeter) ── */
+/* ── Drop zone (true regular octagon w/ glowing dot tracing perimeter) ──
+   Constrained to a square aspect so the octagon's eight sides stay equal.
+   Centered in the available column width. */
 .drop-zone {
   position: relative;
   cursor: pointer;
-  padding: var(--np-space-16) var(--np-space-8);
   text-align: center;
-  min-height: 200px;
+  width: min(420px, 80vw);
+  aspect-ratio: 1 / 1;
+  margin: var(--np-space-8) auto 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
+  padding: 0;
   transition: transform var(--np-duration-press) var(--np-ease-out);
 }
 .drop-zone-frame {

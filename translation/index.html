@@ -98,10 +98,10 @@
         </div>
       </div>
       <div id="drop-zone" class="drop-zone">
-        <svg class="drop-zone-frame" viewBox="0 0 800 320" preserveAspectRatio="none" aria-hidden="true">
+        <svg class="drop-zone-frame" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
           <defs>
             <filter id="dz-glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="3.5" result="b"/>
+              <feGaussianBlur stdDeviation="1.2" result="b"/>
               <feMerge>
                 <feMergeNode in="b"/>
                 <feMergeNode in="SourceGraphic"/>
@@ -110,14 +110,14 @@
           </defs>
           <path id="dz-octagon-path"
                 class="drop-zone-shape"
-                d="M 80 0 L 720 0 L 800 80 L 800 240 L 720 320 L 80 320 L 0 240 L 0 80 Z"
+                d="M 29.29 0 L 70.71 0 L 100 29.29 L 100 70.71 L 70.71 100 L 29.29 100 L 0 70.71 L 0 29.29 Z"
                 fill="rgba(221,44,30,0.025)"
                 stroke="var(--np-red)"
-                stroke-width="1.6"
-                stroke-dasharray="9 7"
+                stroke-width="0.4"
+                stroke-dasharray="1.6 1.2"
                 vector-effect="non-scaling-stroke" />
-          <circle r="4.5" fill="var(--np-red)" filter="url(#dz-glow)">
-            <animateMotion dur="14s" repeatCount="indefinite" rotate="auto">
+          <circle r="0.9" fill="var(--np-red)" filter="url(#dz-glow)">
+            <animateMotion dur="45s" repeatCount="indefinite" rotate="auto">
               <mpath href="#dz-octagon-path"/>
             </animateMotion>
           </circle>
