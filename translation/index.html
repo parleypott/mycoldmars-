@@ -522,12 +522,11 @@
     // Failsafe home-button handlers — runs independently of the module.
     // If main.js dies for any reason (boot exception, import error, etc),
     // the home cards still navigate so the app is never a frozen brick.
-    // When main.js IS healthy, its own handlers will also fire — both
-    // paths are idempotent (toggling the same classes), so double-fire
-    // is harmless.
     (function () {
+      console.log('[np-failsafe] inline handler loaded');
       function showLibraryFallback() {
-        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        console.log('[np-failsafe] showLibraryFallback fired');
+        document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
         var lib = document.getElementById('library-view');
         if (lib) lib.classList.add('active');
         var hdr = document.querySelector('header');
@@ -538,22 +537,40 @@
         if (hero) hero.classList.add('hidden');
       }
       function showSequencerFallback() {
+        console.log('[np-failsafe] showSequencerFallback fired');
         var app = document.getElementById('app');
         if (app) app.classList.add('hidden');
         var seq = document.getElementById('sequencer-view');
         if (seq) seq.classList.remove('hidden');
         location.hash = '#sequencer';
       }
+      // Capture-phase listener so child elements eating bubbling can't defeat it.
       document.addEventListener('click', function (e) {
         var t = e.target;
-        if (t.closest && t.closest('#home-library-btn')) {
+        if (!t || !t.closest) return;
+        if (t.closest('#home-library-btn')) {
+          console.log('[np-failsafe] library click captured');
           e.preventDefault();
           showLibraryFallback();
-        } else if (t.closest && t.closest('#home-sequencer-btn')) {
+        } else if (t.closest('#home-sequencer-btn')) {
+          console.log('[np-failsafe] sequencer click captured');
           e.preventDefault();
           showSequencerFallback();
         }
-      }, true); // capture phase, so even if a child eats bubbling we still fire
+      }, true);
+      // Also bind direct click on the buttons after DOM is ready, as a third layer.
+      function bindDirect() {
+        var lib = document.getElementById('home-library-btn');
+        var seq = document.getElementById('home-sequencer-btn');
+        if (lib) lib.onclick = function(e){ e.preventDefault(); showLibraryFallback(); };
+        if (seq) seq.onclick = function(e){ e.preventDefault(); showSequencerFallback(); };
+        console.log('[np-failsafe] direct binds:', lib ? 'lib OK' : 'lib MISSING', '/', seq ? 'seq OK' : 'seq MISSING');
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindDirect);
+      } else {
+        bindDirect();
+      }
     })();
   </script>
 </body>
