@@ -1687,7 +1687,7 @@ tr.dimmed-speaker { opacity: 0.35; }
   overflow-y: auto;
   padding: var(--np-space-12) var(--np-space-8) var(--np-space-16);
   background: var(--np-warm-white);
-  font-family: var(--np-font-serif);
+  font-family: var(--np-body-font, var(--np-font-serif));
   font-size: 19px;
   line-height: 1.62;
   color: var(--np-ink);
@@ -1790,7 +1790,7 @@ tr.dimmed-speaker { opacity: 0.35; }
 }
 .editor-speaker-content p {
   margin: 0;
-  font-family: var(--np-font-serif);
+  font-family: var(--np-body-font, var(--np-font-serif));
   font-size: 19px;
   line-height: 1.62;
   letter-spacing: -0.005em;
@@ -4755,3 +4755,51 @@ tr.dimmed-speaker { opacity: 0.35; }
   background: rgba(255,191,0,0.22);
   border-radius: 2px;
 }
+
+/* ── Body-font cycler ──────────────────────────────────────────────
+   A circular button. The word "font" inside renders in whichever font
+   is currently chosen. Clicking cycles through 5 editorial body
+   options; a small red dot marches 1/5 around the perimeter per click,
+   landing back at top after a full cycle. */
+.font-cycler {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: var(--np-space-4);
+  border-radius: 50%;
+  transition: transform 180ms var(--np-ease-out);
+}
+.font-cycler:hover { transform: scale(1.04); }
+.font-cycler:active { transform: scale(0.97); }
+.font-cycler:focus-visible {
+  outline: 2px solid var(--np-blue);
+  outline-offset: 3px;
+}
+.font-cycler-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.font-cycler-label {
+  position: relative;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--np-ink);
+  font-style: italic;
+  letter-spacing: -0.01em;
+  transition: color 200ms var(--np-ease);
+  user-select: none;
+}
+.font-cycler:hover .font-cycler-label { color: var(--np-red); }

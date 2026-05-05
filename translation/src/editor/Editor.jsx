@@ -16,6 +16,27 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
+
+  // Body-font cycler. Five editorial body fonts; click cycles, dot
+  // marches 1/5 of the way around the perimeter per click. Choice
+  // persists across sessions.
+  const FONT_SETS = [
+    { stack: "'Cormorant', Georgia, serif" },
+    { stack: "'EB Garamond', Garamond, Georgia, serif" },
+    { stack: "'Lora', Georgia, serif" },
+    { stack: "'Spectral', 'Times New Roman', serif" },
+    { stack: "'Newsreader', Georgia, serif" },
+  ];
+  const [fontIndex, setFontIndex] = useState(() => {
+    try { return Number(localStorage.getItem('mcm_body_font_index')) || 0; }
+    catch { return 0; }
+  });
+  useEffect(() => {
+    document.documentElement.style.setProperty('--np-body-font', FONT_SETS[fontIndex].stack);
+    try { localStorage.setItem('mcm_body_font_index', String(fontIndex)); } catch {}
+  }, [fontIndex]);
+  function cycleFont() { setFontIndex(i => (i + 1) % FONT_SETS.length); }
+  const dotAngle = (fontIndex / FONT_SETS.length) * 360;
   const [editingSeqName, setEditingSeqName] = useState(false);
   const [seqNameValue, setSeqNameValue] = useState('');
   const [syncMenuOpen, setSyncMenuOpen] = useState(false);
@@ -557,6 +578,22 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
 
       {/* Editor toolbar */}
       <div className="editor-toolbar">
+        <button
+          type="button"
+          className="font-cycler"
+          onClick={cycleFont}
+          aria-label="Cycle body font"
+          title="Cycle body font"
+          style={{ fontFamily: FONT_SETS[fontIndex].stack }}
+        >
+          <svg className="font-cycler-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(18,17,24,0.12)" strokeWidth="1" />
+            <g style={{ transform: `rotate(${dotAngle}deg)`, transformOrigin: '50px 50px', transition: 'transform 420ms cubic-bezier(0.23,1,0.32,1)' }}>
+              <circle cx="50" cy="4" r="2.6" fill="var(--np-red)" />
+            </g>
+          </svg>
+          <span className="font-cycler-label">font</span>
+        </button>
         <label className="editor-toolbar-toggle">
           <input
             type="checkbox"
