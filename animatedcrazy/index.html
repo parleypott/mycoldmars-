@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ANIMATEDCRAZY</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik+Mono+One&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="memphis-bg"></div>
+
+  <!-- ─── Stage / SVG canvas ─── -->
+  <div id="stage">
+    <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="grid-pat" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M40 0H0V40" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+        </pattern>
+      </defs>
+      <rect id="grid" width="100%" height="100%" fill="url(#grid-pat)"/>
+      <g id="shapes-layer"></g>
+      <g id="overlay-layer"></g>
+    </svg>
+  </div>
+
+  <!-- ─── Top bar ─── -->
+  <div id="topbar">
+    <div id="brand">
+      <span class="brand-line-a">ANIMATED</span>
+      <span class="brand-line-b">CRAZY!!</span>
+    </div>
+    <div id="toolbar">
+      <button class="tool active" data-tool="select" title="Select / move (V)">
+        <svg viewBox="0 0 20 20" width="18" height="18"><path d="M3 2 L3 17 L7 13 L10 18 L12 17 L9 12 L15 12 Z" fill="currentColor"/></svg>
+      </button>
+      <button class="tool" data-tool="rect" title="Rectangle (R)">
+        <svg viewBox="0 0 20 20" width="18" height="18"><rect x="3" y="5" width="14" height="10" fill="currentColor"/></svg>
+      </button>
+      <button class="tool" data-tool="circle" title="Circle (C)">
+        <svg viewBox="0 0 20 20" width="18" height="18"><circle cx="10" cy="10" r="7" fill="currentColor"/></svg>
+      </button>
+      <button class="tool" data-tool="triangle" title="Triangle (T)">
+        <svg viewBox="0 0 20 20" width="18" height="18"><polygon points="10,3 17,17 3,17" fill="currentColor"/></svg>
+      </button>
+      <button class="tool" data-tool="star" title="Star (S)">
+        <svg viewBox="0 0 20 20" width="18" height="18"><polygon points="10,2 12.4,7.6 18.5,8.2 13.8,12.3 15.2,18.2 10,14.9 4.8,18.2 6.2,12.3 1.5,8.2 7.6,7.6" fill="currentColor"/></svg>
+      </button>
+      <button class="tool" data-tool="squiggly" title="Squiggly hand-draw (W)">
+        <svg viewBox="0 0 20 20" width="18" height="18">
+          <path d="M2 14 Q 5 8, 8 12 T 14 11 T 18 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <div id="palette">
+      <span class="palette-label">PALETTE</span>
+      <button class="swatch" data-color="#FF2E63" style="background:#FF2E63"></button>
+      <button class="swatch" data-color="#FFD93D" style="background:#FFD93D"></button>
+      <button class="swatch" data-color="#00D4FF" style="background:#00D4FF"></button>
+      <button class="swatch" data-color="#00F5A0" style="background:#00F5A0"></button>
+      <button class="swatch" data-color="#BC52FF" style="background:#BC52FF"></button>
+      <button class="swatch" data-color="#FF7A00" style="background:#FF7A00"></button>
+      <button class="swatch" data-color="#1A1A1A" style="background:#1A1A1A"></button>
+    </div>
+
+    <div class="spacer"></div>
+    <div id="hint-pill">
+      <kbd>V</kbd>sel <kbd>R</kbd>rect <kbd>C</kbd>circ <kbd>T</kbd>tri <kbd>S</kbd>star <kbd>W</kbd>squig
+    </div>
+  </div>
+
+  <!-- ─── Shapes panel (left) ─── -->
+  <div id="shapes-panel">
+    <div id="shapes-header">
+      <span class="lp-title">SHAPES</span>
+      <span class="lp-count" id="shapes-count">0</span>
+    </div>
+    <div id="shapes-list"></div>
+  </div>
+
+  <!-- ─── Floating inspector (per-shape, local) ─── -->
+  <div id="inspector" class="hidden">
+    <div id="ins-header">
+      <span id="ins-type">SHAPE</span>
+      <button id="ins-close" title="Close">×</button>
+    </div>
+    <div class="ins-row">
+      <label class="ins-field">
+        <span>X</span>
+        <input type="number" id="ins-x" step="1">
+      </label>
+      <label class="ins-field">
+        <span>Y</span>
+        <input type="number" id="ins-y" step="1">
+      </label>
+    </div>
+    <div class="ins-row">
+      <label class="ins-field">
+        <span>W</span>
+        <input type="number" id="ins-w" step="1" min="2">
+      </label>
+      <label class="ins-field">
+        <span>H</span>
+        <input type="number" id="ins-h" step="1" min="2">
+      </label>
+    </div>
+    <label class="ins-slider">
+      <span class="ins-slider-label">ROTATION</span>
+      <input type="range" id="ins-rot" min="-180" max="180" step="1" value="0">
+      <span class="ins-slider-val" id="ins-rot-val">0°</span>
+    </label>
+    <label class="ins-slider">
+      <span class="ins-slider-label">OPACITY</span>
+      <input type="range" id="ins-opacity" min="0" max="100" step="1" value="100">
+      <span class="ins-slider-val" id="ins-opacity-val">100%</span>
+    </label>
+
+    <!-- Squiggly only -->
+    <div id="ins-squiggly" class="hidden">
+      <label class="ins-slider">
+        <span class="ins-slider-label">DRAW ON</span>
+        <input type="range" id="ins-drawon" min="0" max="100" step="1" value="100">
+        <span class="ins-slider-val" id="ins-drawon-val">100%</span>
+      </label>
+      <label class="ins-slider">
+        <span class="ins-slider-label">STROKE</span>
+        <input type="range" id="ins-stroke" min="1" max="40" step="1" value="6">
+        <span class="ins-slider-val" id="ins-stroke-val">6</span>
+      </label>
+    </div>
+
+    <!-- Star only -->
+    <div id="ins-star" class="hidden">
+      <label class="ins-slider">
+        <span class="ins-slider-label">POINTS</span>
+        <input type="range" id="ins-points" min="3" max="12" step="1" value="5">
+        <span class="ins-slider-val" id="ins-points-val">5</span>
+      </label>
+    </div>
+
+    <div class="ins-row ins-color-row">
+      <span class="ins-color-label">COLOR</span>
+      <div id="ins-swatches">
+        <button class="ins-sw" data-c="#FF2E63" style="background:#FF2E63"></button>
+        <button class="ins-sw" data-c="#FFD93D" style="background:#FFD93D"></button>
+        <button class="ins-sw" data-c="#00D4FF" style="background:#00D4FF"></button>
+        <button class="ins-sw" data-c="#00F5A0" style="background:#00F5A0"></button>
+        <button class="ins-sw" data-c="#BC52FF" style="background:#BC52FF"></button>
+        <button class="ins-sw" data-c="#FF7A00" style="background:#FF7A00"></button>
+        <button class="ins-sw" data-c="#1A1A1A" style="background:#1A1A1A"></button>
+        <button class="ins-sw" data-c="#FFFFFF" style="background:#FFFFFF;border-color:#1a1a1a"></button>
+      </div>
+      <input type="color" id="ins-color" value="#FF2E63">
+    </div>
+
+    <div class="ins-actions">
+      <button class="btn-mini" id="ins-dup">Duplicate</button>
+      <button class="btn-mini danger" id="ins-del">Delete</button>
+    </div>
+  </div>
+
+  <!-- ─── Timeline ─── -->
+  <div id="timeline">
+    <div id="timeline-controls">
+      <button class="btn primary" id="add-kf">+ KEYFRAME</button>
+      <button class="btn" id="play-btn">▶ PLAY</button>
+      <button class="btn ghost" id="reset-btn">⏮</button>
+      <div id="time-display"><span id="time-cur">0.0</span> / <span id="time-total">0.0</span>s</div>
+      <div class="spacer"></div>
+      <button class="btn ghost" id="export-btn">Export JSON</button>
+      <label class="btn ghost">
+        <input type="file" id="import-file" accept=".json" hidden>
+        Import JSON
+      </label>
+      <button class="btn primary" id="gif-btn">Render GIF</button>
+      <button class="btn ghost danger" id="clear-btn">Clear All</button>
+    </div>
+
+    <div id="kf-row">
+      <div id="kf-list"></div>
+    </div>
+
+    <div id="kf-editor" class="hidden">
+      <div class="ed-row">
+        <label class="field">
+          <span>Duration to next</span>
+          <input type="number" id="kf-duration" min="0" step="0.1" value="2">
+          <span class="suffix">s</span>
+        </label>
+        <label class="field">
+          <span>Easing</span>
+          <select id="kf-easing">
+            <option value="linear">linear</option>
+            <option value="easeIn">ease in</option>
+            <option value="easeOut">ease out</option>
+            <option value="easeInOut">ease in-out</option>
+            <option value="bounce">bounce</option>
+            <option value="elastic">elastic</option>
+          </select>
+        </label>
+        <div class="field-note">
+          Each keyframe locks every shape's position, size, rotation, color &amp; draw-on.<br>
+          Edit the scene → hit + KEYFRAME again to record the next pose.
+        </div>
+        <div class="ed-actions">
+          <button class="btn primary" id="kf-update-view">Update Keyframe</button>
+          <button class="btn ghost danger" id="kf-delete">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── GIF render modal ─── -->
+  <div id="gif-modal" class="hidden">
+    <div id="gif-card">
+      <div id="gif-title">RENDER GIF</div>
+      <div id="gif-rule"></div>
+      <label class="gif-field">
+        <span>Speed</span>
+        <input type="range" id="gif-speed" min="10" max="400" step="5" value="100">
+        <span class="gif-val"><span id="gif-speed-val">100</span>%</span>
+      </label>
+      <label class="gif-field">
+        <span>FPS</span>
+        <input type="range" id="gif-fps" min="10" max="30" step="1" value="20">
+        <span class="gif-val"><span id="gif-fps-val">20</span> fps</span>
+      </label>
+      <label class="gif-field">
+        <span>Scale</span>
+        <input type="range" id="gif-scale" min="25" max="100" step="5" value="75">
+        <span class="gif-val"><span id="gif-scale-val">75</span>%</span>
+      </label>
+      <div class="gif-summary" id="gif-summary"></div>
+      <div id="gif-progress" class="hidden">
+        <div id="gif-progress-bar"><div id="gif-progress-fill"></div></div>
+        <div id="gif-progress-label">Capturing frames…</div>
+      </div>
+      <div class="gif-actions">
+        <button class="btn ghost" id="gif-cancel">Cancel</button>
+        <button class="btn primary" id="gif-go">Render</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

@@ -21,6 +21,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         pinglobe: resolve(__dirname, 'pinglobe/index.html'),
         mapkeys: resolve(__dirname, 'mapkeys/index.html'),
+        animatedcrazy: resolve(__dirname, 'animatedcrazy/index.html'),
 
         bedroom: resolve(__dirname, 'bedroom/index.html'),
         borderGuesser: resolve(__dirname, 'border-guesser/index.html'),
