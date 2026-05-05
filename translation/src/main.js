@@ -19,6 +19,7 @@ import { extractHighlightsFromEditor } from './editor/document-builder.js';
 import { buildAutoSummaryPrompt } from './copilot/copilot-prompts.js';
 import { initSotHunter, setSotHunterVisible } from './sot-hunter.js';
 import { initCommandPalette, openCommandPalette } from './command-palette.js';
+import { initFallingGlyphs, startFallingGlyphs, stopFallingGlyphs } from './falling-glyphs.js';
 
 // ── State ──
 let segments = [];
@@ -142,10 +143,12 @@ function goToStep(n) {
     if (header) header.classList.add('hidden');
     stepsNav.classList.add('hidden');
     if (homeHero) homeHero.classList.remove('hidden');
+    startFallingGlyphs();
   } else {
     if (header) header.classList.remove('hidden');
     stepsNav.classList.remove('hidden');
     if (homeHero) homeHero.classList.add('hidden');
+    stopFallingGlyphs();
   }
 
   // SOT HUNTER lives on the editor (Step 5) where transcript + editor are live.
@@ -154,6 +157,7 @@ function goToStep(n) {
 
 function showLibrary() {
   flushPendingSave();
+  stopFallingGlyphs();
   librarySelected.clear();
   libraryShowing = true;
   $$('.panel').forEach(p => p.classList.remove('active'));
@@ -1586,6 +1590,7 @@ function stopSeqAurora() {
 
 function showSequencer() {
   flushPendingSave();
+  stopFallingGlyphs();
   document.getElementById('app').classList.add('hidden');
   document.getElementById('sequencer-view').classList.remove('hidden');
   document.body.style.background = '#0a0526';
@@ -1903,11 +1908,17 @@ function getDragTarget(container, y) {
 $('#btn-sequencer').addEventListener('click', showSequencer);
 $('#seq-exit-btn').addEventListener('click', exitSequencer);
 
-// Home page quick-links
+// Home page quick-links — bound BOTH directly AND via document delegation
+// so they fire even if the direct binding misses (e.g. element re-rendered,
+// SVG child intercepts, etc).
 const homeLibBtn = $('#home-library-btn');
 if (homeLibBtn) homeLibBtn.addEventListener('click', showLibrary);
 const homeSeqBtn = $('#home-sequencer-btn');
 if (homeSeqBtn) homeSeqBtn.addEventListener('click', showSequencer);
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#home-library-btn')) { e.preventDefault(); showLibrary(); }
+  else if (e.target.closest('#home-sequencer-btn')) { e.preventDefault(); showSequencer(); }
+});
 
 $('#seq-parse-btn').addEventListener('click', () => {
   const raw = $('#seq-input').value;
@@ -4146,6 +4157,23 @@ function exportFormat(format) {
     getTranscripts: () => libraryCache?.transcripts || [],
     onJumpToTranscript: (id) => handleLoad(id),
   });
+
+  // Falling-glyph ambient effect on the home page. Bounces off the two
+  // path cards and the drop zone via getBoundingClientRect().
+  initFallingGlyphs({
+    getButtonRects: () => {
+      const rects = [];
+      const ids = ['home-library-btn', 'home-sequencer-btn', 'drop-zone'];
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) rects.push(r);
+      }
+      return rects;
+    },
+  });
+  if (currentStep === 1) startFallingGlyphs();
 
   // Probe schema once at boot. The result gates optional features in db.js
   // (slug, soft-delete, aliases, revisions, locks, search_text) so the app
