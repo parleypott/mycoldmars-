@@ -335,7 +335,8 @@ header {
   background: #fff;
   border: 1px solid rgba(18, 17, 24, 0.12);
   border-radius: 6px;
-  cursor: pointer;
+  cursor: pointer !important;
+  pointer-events: auto !important;
   text-align: left;
   font-family: var(--np-font-mono);
   color: var(--np-ink);
@@ -348,9 +349,14 @@ header {
     border-color 240ms var(--np-ease-out),
     background-color 240ms var(--np-ease-out);
   position: relative;
+  z-index: 20;            /* above the falling-glyph canvas (z-index 5) */
   overflow: hidden;
   will-change: transform, box-shadow;
 }
+/* Belt-and-suspenders: same for the drop zone. */
+.drop-zone { position: relative; z-index: 20; pointer-events: auto !important; cursor: pointer !important; }
+/* And the canvas overlay must NEVER catch pointer events. */
+#falling-glyphs { pointer-events: none !important; }
 .home-path::before {
   content: '';
   position: absolute;

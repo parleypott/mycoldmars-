@@ -33,11 +33,26 @@ function randomChar() {
 
 const GRAVITY = 760;          // px/s^2
 const AIR_DRAG = 0.998;       // per frame at 60fps
-const RESTITUTION = 0.62;     // bounciness on collision
+const RESTITUTION = 0.55;     // bounciness on collision
 const ROT_DRAG = 0.99;
+const SLEEP_VY = 95;          // |vy| below this on top-collision → start resting
+const GROUND_FRICTION = 1.6;  // per second, horizontal velocity decay while resting
 const FONT_PX = 22;
 const FONT_FAMILY = "'Cormorant', 'Hiragino Sans', 'Noto Sans', system-ui, serif";
-const COLOR = 'rgba(82, 0, 4, 0.55)'; // np-burgundy at 55%
+
+// Confetti palette — vibrant but on-brand. Each glyph picks one at spawn.
+const PALETTE = [
+  'rgba(221, 44, 30, 0.78)',   // np-red
+  'rgba(82, 0, 4, 0.78)',      // np-burgundy
+  'rgba(0, 76, 255, 0.74)',    // np-blue
+  'rgba(13, 89, 33, 0.78)',    // np-green
+  'rgba(180, 90, 0, 0.82)',    // burnt orange
+  'rgba(196, 77, 142, 0.78)',  // magenta
+  'rgba(0, 128, 138, 0.78)',   // teal
+  'rgba(107, 45, 139, 0.78)',  // purple
+  'rgba(218, 165, 32, 0.85)',  // gold
+  'rgba(65, 44, 39, 0.7)',     // np-sepia (subtle base)
+];
 
 let canvas, ctx, raf, glyphs = [];
 let getButtonRects = () => [];
@@ -110,6 +125,7 @@ function spawnGlyph(i, total) {
   const angVel = (Math.random() - 0.5) * 1.4;
   glyphs.push({
     char: randomChar(),
+    color: PALETTE[(Math.random() * PALETTE.length) | 0],
     x,
     y: -30 - Math.random() * 40,
     vx,
@@ -118,6 +134,8 @@ function spawnGlyph(i, total) {
     angVel,
     size: FONT_PX + (Math.random() * 6 - 3),
     age: 0,
+    restingOn: null,   // index into rects array, or null
+    restingY: 0,       // the y coord we sit at while resting
   });
 }
 
@@ -141,6 +159,33 @@ function step(dt) {
 
   for (let i = glyphs.length - 1; i >= 0; i--) {
     const g = glyphs[i];
+
+    // Resting state: glyph sits on a button surface. Apply only ground
+    // friction to vx, no gravity, no vy. When it slides off the edge
+    // of its support, gravity takes over.
+    if (g.restingOn !== null) {
+      const support = rects[g.restingOn];
+      // Check the support still exists and we're still on top of it.
+      if (!support || g.x < support.left - 2 || g.x > support.right + 2) {
+        g.restingOn = null;
+        // Fall away cleanly.
+      } else {
+        // Slide with friction. Decay vx exponentially toward zero.
+        const decay = Math.exp(-GROUND_FRICTION * dt);
+        g.vx *= decay;
+        g.angVel *= decay;
+        g.x += g.vx * dt;
+        g.y = support.top - 1;
+        g.rot += g.angVel * dt;
+        g.age += dt;
+        // Sit forever? No — drift off after a long while so we don't
+        // accumulate. Fade out via age cap below.
+        if (g.age > 14) glyphs.splice(i, 1);
+        continue;
+      }
+    }
+
+    // Free flight.
     g.vy += GRAVITY * dt;
     g.vx *= Math.pow(AIR_DRAG, dt * 60);
     g.angVel *= Math.pow(ROT_DRAG, dt * 60);
@@ -149,23 +194,31 @@ function step(dt) {
     g.rot += g.angVel * dt;
     g.age += dt;
 
-    // Collide with each button rect (treat as AABB, glyph as point).
-    for (const r of rects) {
+    // Collide with each button rect (AABB, glyph as point).
+    for (let ri = 0; ri < rects.length; ri++) {
+      const r = rects[ri];
       if (g.x < r.left || g.x > r.right) continue;
       if (g.y < r.top || g.y > r.bottom) continue;
-      // Determine which side of the rect we entered from. Because gravity
-      // dominates, almost all collisions are top hits — handle bottom
-      // and sides for completeness anyway.
+
       const dTop    = Math.abs(g.y - r.top);
       const dBottom = Math.abs(g.y - r.bottom);
       const dLeft   = Math.abs(g.x - r.left);
       const dRight  = Math.abs(g.x - r.right);
       const m = Math.min(dTop, dBottom, dLeft, dRight);
+
       if (m === dTop) {
+        // Top-hit: slow vy → start resting, fast vy → bounce.
+        if (Math.abs(g.vy) < SLEEP_VY) {
+          g.y = r.top - 1;
+          g.vy = 0;
+          g.angVel *= 0.5;
+          g.restingOn = ri;
+          break;
+        }
         g.y = r.top - 1;
         g.vy = -Math.abs(g.vy) * RESTITUTION;
-        g.vx += (Math.random() - 0.5) * 50;
-        g.angVel += (Math.random() - 0.5) * 2.5;
+        g.vx += (Math.random() - 0.5) * 40;
+        g.angVel += (Math.random() - 0.5) * 1.8;
       } else if (m === dBottom) {
         g.y = r.bottom + 1;
         g.vy = Math.abs(g.vy) * RESTITUTION;
@@ -179,7 +232,7 @@ function step(dt) {
     }
 
     // Remove if off-screen or stuck for too long.
-    if (g.y > h + 40 || g.x < -40 || g.x > w + 40 || g.age > 12) {
+    if (g.y > h + 40 || g.x < -40 || g.x > w + 40 || g.age > 14) {
       glyphs.splice(i, 1);
     }
   }
@@ -188,7 +241,6 @@ function step(dt) {
 function draw() {
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = COLOR;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   for (const g of glyphs) {
@@ -196,6 +248,7 @@ function draw() {
     ctx.translate(g.x, g.y);
     ctx.rotate(g.rot);
     ctx.font = `${g.size}px ${FONT_FAMILY}`;
+    ctx.fillStyle = g.color;
     ctx.fillText(g.char, 0, 0);
     ctx.restore();
   }
