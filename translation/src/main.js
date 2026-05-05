@@ -5,7 +5,7 @@ import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, subscribeToTranscript, searchTranscripts } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, subscribeToTranscript, searchTranscripts, getSchemaStatus } from './db.js';
 import { saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan } from './snapshot.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
@@ -3930,6 +3930,50 @@ if (btnShare) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Schema migration banner — shown once per session if optional schema
+// is missing. Offers a clear pointer to the SQL files instead of letting
+// the user discover the gap by running into a confusing error later.
+// ──────────────────────────────────────────────────────────────────────────
+const SCHEMA_BANNER_DISMISS_KEY = 'mcm_schema_banner_dismissed_v1';
+
+function showSchemaMigrationBanner(status) {
+  // If user dismissed at this exact set of missing items, stay quiet.
+  try {
+    const dismissed = localStorage.getItem(SCHEMA_BANNER_DISMISS_KEY);
+    if (dismissed === status.missing.join('|')) return;
+  } catch {}
+
+  if (document.getElementById('schema-migration-banner')) return;
+
+  const phase1Items = ['transcripts.slug column', 'transcripts.deleted_at column', 'transcript_aliases table'];
+  const phase2Items = ['transcripts.search_text column', 'transcript_revisions table', 'editor_locks table'];
+  const needsPhase1 = status.missing.some(m => phase1Items.includes(m));
+  const needsPhase2 = status.missing.some(m => phase2Items.includes(m));
+
+  const files = [];
+  if (needsPhase1) files.push('supabase-phase1.sql');
+  if (needsPhase2) files.push('supabase-phase2.sql');
+  const fileList = files.join(' then ');
+
+  const banner = document.createElement('div');
+  banner.id = 'schema-migration-banner';
+  banner.className = 'schema-migration-banner';
+  banner.innerHTML = `
+    <div class="schema-banner-text">
+      <strong>Database needs a one-time migration.</strong>
+      Run <code>${escapeHtmlSafe(fileList)}</code> in your Supabase SQL editor to enable: ${escapeHtmlSafe(status.missing.join(', '))}.
+      <span class="schema-banner-note">The app will still work without it — some features (permalinks, version history, locks, full-text search) will be disabled until you run it.</span>
+    </div>
+    <button class="np-button" id="schema-banner-dismiss">Dismiss</button>
+  `;
+  document.body.appendChild(banner);
+  document.getElementById('schema-banner-dismiss').addEventListener('click', () => {
+    try { localStorage.setItem(SCHEMA_BANNER_DISMISS_KEY, status.missing.join('|')); } catch {}
+    banner.remove();
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Command palette action set. Reads live state on every open so commands
 // appear/disappear based on what's actually possible right now (e.g.
 // "Translate" only when there's a transcript that hasn't been translated).
@@ -4102,6 +4146,14 @@ function exportFormat(format) {
     getTranscripts: () => libraryCache?.transcripts || [],
     onJumpToTranscript: (id) => handleLoad(id),
   });
+
+  // Probe schema once at boot. The result gates optional features in db.js
+  // (slug, soft-delete, aliases, revisions, locks, search_text) so the app
+  // keeps working on a half-migrated DB. If anything is missing we show a
+  // dismissible banner pointing the user at the SQL files.
+  getSchemaStatus()
+    .then(status => { if (status?.missing?.length) showSchemaMigrationBanner(status); })
+    .catch(err => console.warn('Schema probe failed:', err.message));
 
   // Migrate localStorage → Supabase in background (non-blocking)
   migrateLocalStorageToSupabase()

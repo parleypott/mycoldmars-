@@ -50,6 +50,69 @@ function db() {
 export function isConfigured() { return !!supabase; }
 export function getInitError() { return initError; }
 
+// ============================================================
+// Schema feature probe.
+//
+// Optional schema bits (slug, deleted_at, aliases table, revisions
+// table, locks table, search_text generated column) are probed once
+// at boot. Functions that depend on them check the flags and either
+// degrade or no-op so the library still works on a half-migrated DB.
+// ============================================================
+let schemaProbe = null; // { hasSlug, hasDeleted, hasAliases, hasRevisions, hasLocks, hasSearchText, missing }
+let schemaProbePromise = null;
+
+async function tryCol(table, col) {
+  if (!supabase) return false;
+  const { error } = await supabase.from(table).select(col).limit(1);
+  return !error;
+}
+
+async function probeSchemaInternal() {
+  const probe = {
+    hasSlug: false, hasDeleted: false, hasAliases: false,
+    hasRevisions: false, hasLocks: false, hasSearchText: false,
+    missing: [],
+  };
+  if (!supabase) return probe;
+  // Run probes in parallel — they're cheap and we want fast boot.
+  const results = await Promise.all([
+    tryCol('transcripts', 'slug'),
+    tryCol('transcripts', 'deleted_at'),
+    tryCol('transcripts', 'search_text'),
+    tryCol('transcript_aliases', 'slug'),
+    tryCol('transcript_revisions', 'id'),
+    tryCol('editor_locks', 'transcript_id'),
+  ]);
+  probe.hasSlug       = results[0];
+  probe.hasDeleted    = results[1];
+  probe.hasSearchText = results[2];
+  probe.hasAliases    = results[3];
+  probe.hasRevisions  = results[4];
+  probe.hasLocks      = results[5];
+  if (!probe.hasSlug)       probe.missing.push('transcripts.slug column');
+  if (!probe.hasDeleted)    probe.missing.push('transcripts.deleted_at column');
+  if (!probe.hasSearchText) probe.missing.push('transcripts.search_text column');
+  if (!probe.hasAliases)    probe.missing.push('transcript_aliases table');
+  if (!probe.hasRevisions)  probe.missing.push('transcript_revisions table');
+  if (!probe.hasLocks)      probe.missing.push('editor_locks table');
+  return probe;
+}
+
+export async function getSchemaStatus() {
+  if (schemaProbe) return schemaProbe;
+  if (!schemaProbePromise) schemaProbePromise = probeSchemaInternal().then(p => { schemaProbe = p; return p; });
+  return schemaProbePromise;
+}
+
+export function getSchemaStatusSync() { return schemaProbe; }
+
+// Helpers for the rest of the module — return safe defaults until the
+// probe finishes (i.e., before anyone has called getSchemaStatus()).
+function flag(name) {
+  if (!schemaProbe) return true; // optimistic — first call may surface error which we then handle
+  return !!schemaProbe[name];
+}
+
 // Back-compat shim — old call sites used these to gate UI behaviour.
 export function supabaseAvailable() { return !!supabase; }
 export function getStorageInfo() { return supabase ? 'remote' : 'unconfigured'; }
@@ -211,7 +274,7 @@ function fieldsToRow(fields) {
   if (fields.customSequenceName !== undefined) row.custom_sequence_name = fields.customSequenceName;
   if (fields.hideUnintelligible !== undefined) row.hide_unintelligible = fields.hideUnintelligible;
   if (fields.wordTimings !== undefined) row.word_timings = fields.wordTimings;
-  if (fields.slug !== undefined) row.slug = fields.slug || null;
+  if (fields.slug !== undefined && flag('hasSlug')) row.slug = fields.slug || null;
   return row;
 }
 
@@ -234,7 +297,7 @@ export async function saveTranscript(fields) {
   if (error) throw normalizeError(error, 'saveTranscript');
 
   // Mirror slug into the alias table for permalink resolution.
-  if (data.slug) {
+  if (data.slug && flag('hasAliases')) {
     await upsertAlias(data.slug, data.id);
   }
   return data;
@@ -276,7 +339,7 @@ export async function updateTranscript(id, fields, opts = {}) {
   }
 
   // Slug rename: add a new alias for the new slug. Old aliases stay alive.
-  if (fields.slug !== undefined && data.slug) {
+  if (fields.slug !== undefined && data.slug && flag('hasAliases')) {
     await upsertAlias(data.slug, data.id);
   }
   return data;
@@ -284,10 +347,12 @@ export async function updateTranscript(id, fields, opts = {}) {
 
 export async function listTranscripts(projectId) {
   if (!supabase) return [];
-  const cols = 'id, name, step, created_at, updated_at, project_id, slug';
-  let q = db().from('transcripts').select(cols)
-    .is('deleted_at', null)
+  await getSchemaStatus();
+  const colList = ['id', 'name', 'step', 'created_at', 'updated_at', 'project_id'];
+  if (flag('hasSlug')) colList.push('slug');
+  let q = db().from('transcripts').select(colList.join(', '))
     .order('updated_at', { ascending: false });
+  if (flag('hasDeleted')) q = q.is('deleted_at', null);
   if (projectId) q = q.eq('project_id', projectId);
   const { data, error } = await q;
   if (error) throw normalizeError(error, 'listTranscripts');
@@ -311,38 +376,54 @@ export async function loadTranscript(id) {
  * after rename), then by the transcripts.slug column as a fallback.
  */
 export async function loadTranscriptBySlug(slug) {
+  await getSchemaStatus();
   // 1. Alias table — handles both current and historical slugs.
-  const { data: alias } = await db().from('transcript_aliases')
-    .select('transcript_id').eq('slug', slug).maybeSingle();
-  if (alias) {
-    return loadTranscript(alias.transcript_id);
+  if (flag('hasAliases')) {
+    const { data: alias } = await db().from('transcript_aliases')
+      .select('transcript_id').eq('slug', slug).maybeSingle();
+    if (alias) return loadTranscript(alias.transcript_id);
   }
   // 2. Direct slug column on transcripts (legacy rows / pre-migration).
-  const { data, error } = await db().from('transcripts')
-    .select('*').eq('slug', slug).is('deleted_at', null).maybeSingle();
+  if (!flag('hasSlug')) {
+    const e = new Error('Transcript not found (slugs disabled — schema not migrated)');
+    e.code = 'NOT_FOUND';
+    throw e;
+  }
+  let q = db().from('transcripts').select('*').eq('slug', slug);
+  if (flag('hasDeleted')) q = q.is('deleted_at', null);
+  const { data, error } = await q.maybeSingle();
   if (error) throw normalizeError(error, 'loadTranscriptBySlug');
   if (!data) {
     const e = new Error('Transcript not found');
     e.code = 'NOT_FOUND';
     throw e;
   }
-  // Backfill the alias so future lookups are O(1) on the index.
-  upsertAlias(slug, data.id).catch(() => {});
+  // Backfill the alias so future lookups are O(1) on the index (no-op if disabled).
+  if (flag('hasAliases')) upsertAlias(slug, data.id).catch(() => {});
   return data;
 }
 
 export async function isSlugTaken(slug, excludeTranscriptId) {
-  // The alias table is the authority. A slug is "taken" if any alias maps
-  // to a different live transcript.
-  const { data } = await db().from('transcript_aliases')
-    .select('transcript_id').eq('slug', slug).maybeSingle();
-  if (!data) return false;
-  if (excludeTranscriptId && data.transcript_id === excludeTranscriptId) return false;
-  // Make sure the target transcript still exists & isn't deleted.
-  const { data: t } = await db().from('transcripts')
-    .select('id, deleted_at').eq('id', data.transcript_id).maybeSingle();
-  if (!t || t.deleted_at) return false;
-  return true;
+  await getSchemaStatus();
+  // No slug column means slugs aren't really "taken" — just say no.
+  if (!flag('hasSlug')) return false;
+  // Prefer the alias table when available.
+  if (flag('hasAliases')) {
+    const { data } = await db().from('transcript_aliases')
+      .select('transcript_id').eq('slug', slug).maybeSingle();
+    if (!data) return false;
+    if (excludeTranscriptId && data.transcript_id === excludeTranscriptId) return false;
+    let probe = db().from('transcripts').select('id' + (flag('hasDeleted') ? ', deleted_at' : '')).eq('id', data.transcript_id);
+    const { data: t } = await probe.maybeSingle();
+    if (!t || (flag('hasDeleted') && t.deleted_at)) return false;
+    return true;
+  }
+  // Fallback: query the slug column directly.
+  let q = db().from('transcripts').select('id').eq('slug', slug);
+  if (excludeTranscriptId) q = q.neq('id', excludeTranscriptId);
+  if (flag('hasDeleted')) q = q.is('deleted_at', null);
+  const { data } = await q.limit(1);
+  return !!(data && data.length > 0);
 }
 
 async function upsertAlias(slug, transcriptId) {
@@ -352,12 +433,21 @@ async function upsertAlias(slug, transcriptId) {
 }
 
 export async function deleteTranscript(id) {
+  await getSchemaStatus();
+  // If soft-delete isn't available, hard-delete so the row at least
+  // disappears from the library.
+  if (!flag('hasDeleted')) {
+    const { error } = await db().from('transcripts').delete().eq('id', id);
+    if (error) throw normalizeError(error, 'deleteTranscript(hard)');
+    return;
+  }
   const { error } = await db().from('transcripts')
     .update({ deleted_at: new Date().toISOString() }).eq('id', id);
   if (error) throw normalizeError(error, 'deleteTranscript');
 }
 
 export async function restoreTranscript(id) {
+  if (!flag('hasDeleted')) return; // nothing to restore — was hard-deleted
   const { error } = await db().from('transcripts')
     .update({ deleted_at: null }).eq('id', id);
   if (error) throw normalizeError(error, 'restoreTranscript');
@@ -370,6 +460,8 @@ export async function permanentlyDeleteTranscript(id) {
 
 export async function listDeletedTranscripts() {
   if (!supabase) return [];
+  await getSchemaStatus();
+  if (!flag('hasDeleted')) return []; // nothing soft-deleted exists
   const { data, error } = await db().from('transcripts')
     .select('id, name, step, created_at, updated_at, deleted_at, project_id')
     .not('deleted_at', 'is', null)
@@ -389,6 +481,7 @@ export async function listDeletedTranscripts() {
  */
 export async function insertRevision(transcriptId, snapshot, opts = {}) {
   if (!supabase || !transcriptId) return null;
+  if (!flag('hasRevisions')) return null;
   const row = {
     transcript_id: transcriptId,
     snapshot,
@@ -404,6 +497,7 @@ export async function insertRevision(transcriptId, snapshot, opts = {}) {
 
 export async function listRevisions(transcriptId, limit = 50) {
   if (!supabase) return [];
+  if (!flag('hasRevisions')) return [];
   const { data, error } = await db().from('transcript_revisions')
     .select('id, source, client_id, note, created_at')
     .eq('transcript_id', transcriptId)
@@ -435,6 +529,7 @@ export async function loadRevision(revisionId) {
  */
 export async function checkLock(transcriptId, staleSeconds = 60) {
   if (!supabase || !transcriptId) return null;
+  if (!flag('hasLocks')) return null;
   const { data, error } = await db().from('editor_locks')
     .select('*').eq('transcript_id', transcriptId).maybeSingle();
   if (error) throw normalizeError(error, 'checkLock');
@@ -449,6 +544,7 @@ export async function checkLock(transcriptId, staleSeconds = 60) {
  */
 export async function acquireLock(transcriptId, holderId, holderLabel) {
   if (!supabase || !transcriptId) return null;
+  if (!flag('hasLocks')) return null;
   const { data, error } = await db().from('editor_locks')
     .upsert({
       transcript_id: transcriptId,
@@ -467,6 +563,7 @@ export async function acquireLock(transcriptId, holderId, holderLabel) {
  */
 export async function heartbeatLock(transcriptId, holderId) {
   if (!supabase || !transcriptId) return;
+  if (!flag('hasLocks')) return;
   await db().from('editor_locks')
     .update({ last_seen: new Date().toISOString() })
     .eq('transcript_id', transcriptId)
@@ -478,6 +575,7 @@ export async function heartbeatLock(transcriptId, holderId) {
  */
 export async function releaseLock(transcriptId, holderId) {
   if (!supabase || !transcriptId) return;
+  if (!flag('hasLocks')) return;
   await db().from('editor_locks')
     .delete()
     .eq('transcript_id', transcriptId)
