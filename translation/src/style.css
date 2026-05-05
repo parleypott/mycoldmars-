@@ -314,73 +314,185 @@ header {
   color: var(--np-sepia);
   letter-spacing: 0.02em;
 }
-.home-links {
-  display: flex;
-  gap: var(--np-space-4);
-  justify-content: center;
-  margin-top: var(--np-space-8);
+/* Two juicy cards — Library on the left, Sequencer on the right.
+   Each card is its own little world: tilted slightly outward so the
+   pair reads as "two paths," and gets rich on hover with a colored
+   wash, drop shadow, and the arrow sliding right. */
+.home-paths {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  max-width: 720px;
+  margin: var(--np-space-8) auto 0;
+  padding: 0 var(--np-space-4);
 }
-.home-link {
-  background: none;
-  border: 1px solid var(--np-rule);
-  color: var(--np-sepia);
-  font-family: var(--np-font-sans);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 8px 20px;
+.home-path {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 22px;
+  background: #fff;
+  border: 1px solid rgba(18, 17, 24, 0.12);
+  border-radius: 6px;
   cursor: pointer;
-  transition: border-color var(--np-duration) var(--np-ease),
-              color var(--np-duration) var(--np-ease),
-              transform var(--np-duration-press) var(--np-ease-out);
+  text-align: left;
+  font-family: var(--np-font-mono);
+  color: var(--np-ink);
+  box-shadow: 0 1px 0 rgba(18,17,24,0.04), 0 12px 28px -18px rgba(18,17,24,0.18);
+  transition:
+    transform 220ms var(--np-ease-out),
+    box-shadow 220ms var(--np-ease-out),
+    border-color 220ms var(--np-ease-out),
+    background 220ms var(--np-ease-out);
+  position: relative;
+  overflow: hidden;
 }
-.home-link:hover {
+.home-path::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(221,44,30,0.07), transparent 55%);
+  opacity: 0;
+  transition: opacity 220ms var(--np-ease-out);
+  pointer-events: none;
+}
+/* Slightly tilt the two cards toward each other so it reads as
+   "two paths departing from a center." Hover straightens + lifts. */
+.home-path--library   { transform: rotate(-0.6deg); }
+.home-path--sequencer { transform: rotate(0.6deg); }
+.home-path:hover {
+  transform: rotate(0) translateY(-3px);
+  border-color: rgba(18,17,24,0.45);
+  box-shadow: 0 2px 0 rgba(18,17,24,0.06), 0 24px 48px -18px rgba(18,17,24,0.32);
+}
+.home-path--library:hover {
   border-color: var(--np-red);
+}
+.home-path--library:hover::before {
+  opacity: 1;
+}
+.home-path--sequencer:hover {
+  border-color: var(--np-burgundy);
+  background: linear-gradient(135deg, #fff, #faf6ee);
+}
+.home-path:active { transform: rotate(0) translateY(-1px); }
+
+.home-path-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: rgba(221, 44, 30, 0.08);
+  color: var(--np-red);
+  flex-shrink: 0;
+  transition: background 220ms var(--np-ease-out), transform 320ms var(--np-ease-out);
+}
+.home-path--sequencer .home-path-glyph {
+  background: rgba(82, 0, 4, 0.08);
+  color: var(--np-burgundy);
+}
+.home-path:hover .home-path-glyph {
+  transform: scale(1.06);
+}
+.home-path-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.home-path-title {
+  font-family: var(--np-font-serif);
+  font-size: 22px;
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: -0.005em;
+  color: var(--np-ink);
+  line-height: 1.05;
+}
+.home-path-sub {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+}
+.home-path-arrow {
+  font-family: var(--np-font-mono);
+  font-size: 22px;
+  color: var(--np-sepia);
+  transition: transform 240ms var(--np-ease-out), color 240ms var(--np-ease-out);
+  flex-shrink: 0;
+}
+.home-path:hover .home-path-arrow {
+  transform: translateX(4px);
   color: var(--np-red);
 }
-.home-link:active {
-  transform: scale(0.98);
+.home-path--sequencer:hover .home-path-arrow { color: var(--np-burgundy); }
+
+@media (max-width: 600px) {
+  .home-paths { grid-template-columns: 1fr; }
+  .home-path--library, .home-path--sequencer { transform: none; }
 }
 
 /* Hero entry: staggered, opacity + small Y only (transforms are GPU-cheap) */
 .home-hero > .home-logo-label,
 .home-hero > .home-title,
 .home-hero > .home-subtitle,
-.home-hero > .home-links {
+.home-hero > .home-paths {
   animation: np-hero-in 520ms var(--np-ease-out) both;
 }
 .home-hero > .home-logo-label { animation-delay: 0ms; }
 .home-hero > .home-title      { animation-delay: 60ms; }
 .home-hero > .home-subtitle   { animation-delay: 120ms; }
-.home-hero > .home-links      { animation-delay: 180ms; }
+.home-hero > .home-paths      { animation-delay: 180ms; }
 
 @keyframes np-hero-in {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Drop zone ── */
+/* ── Drop zone (octagon w/ glowing dot tracing the perimeter) ── */
 .drop-zone {
-  border: 2px dashed var(--np-red);
+  position: relative;
   cursor: pointer;
   padding: var(--np-space-16) var(--np-space-8);
   text-align: center;
-  background: rgba(221, 44, 30, 0.02);
-  transition: border-color var(--np-duration) var(--np-ease),
-              background var(--np-duration) var(--np-ease),
-              transform var(--np-duration-press) var(--np-ease-out);
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  transition: transform var(--np-duration-press) var(--np-ease-out);
 }
-.drop-zone:active {
-  transform: scale(0.995);
+.drop-zone-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
 }
-.drop-zone:hover {
-  border-color: var(--np-red);
-  background: rgba(221, 44, 30, 0.05);
+.drop-zone-shape {
+  transition: fill 200ms var(--np-ease),
+              stroke-width 200ms var(--np-ease);
 }
-.drop-zone.drag-over {
-  border-style: solid;
-  background: rgba(221, 44, 30, 0.08);
+.drop-zone:hover .drop-zone-shape {
+  fill: rgba(221, 44, 30, 0.05);
+  stroke-width: 1.8;
+}
+.drop-zone.drag-over .drop-zone-shape {
+  fill: rgba(221, 44, 30, 0.10);
+  stroke-dasharray: none;
+  stroke-width: 2.2;
+}
+.drop-zone:active { transform: scale(0.996); }
+.drop-zone .drop-content {
+  position: relative; /* keep above the SVG */
+  z-index: 1;
 }
 .drop-label {
   font-family: var(--np-font-mono);

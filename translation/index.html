@@ -68,14 +68,62 @@
         <div class="home-logo-label">Newpress</div>
         <h1 class="home-title"><span class="home-section">§</span> interpreter</h1>
         <p class="home-subtitle">where sacred sequences find their voice</p>
-        <div class="home-links">
-          <button id="home-library-btn" class="home-link">Library</button>
-          <button id="home-sequencer-btn" class="home-link">Sequencer</button>
+        <div class="home-paths">
+          <button id="home-library-btn" class="home-path home-path--library" type="button">
+            <span class="home-path-glyph" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 5h6a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4z"/>
+                <path d="M20 5h-6a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h6z"/>
+              </svg>
+            </span>
+            <span class="home-path-body">
+              <span class="home-path-title">Library</span>
+              <span class="home-path-sub">your saved sequences</span>
+            </span>
+            <span class="home-path-arrow" aria-hidden="true">→</span>
+          </button>
+          <button id="home-sequencer-btn" class="home-path home-path--sequencer" type="button">
+            <span class="home-path-glyph" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="14" rx="1.5"/>
+                <path d="M3 9h18M3 15h18M7 5v14M17 5v14"/>
+              </svg>
+            </span>
+            <span class="home-path-body">
+              <span class="home-path-title">Sacred Sequencer</span>
+              <span class="home-path-sub">arrange · build · export</span>
+            </span>
+            <span class="home-path-arrow" aria-hidden="true">→</span>
+          </button>
         </div>
       </div>
       <div id="drop-zone" class="drop-zone">
+        <svg class="drop-zone-frame" viewBox="0 0 800 320" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <filter id="dz-glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3.5" result="b"/>
+              <feMerge>
+                <feMergeNode in="b"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          <path id="dz-octagon-path"
+                class="drop-zone-shape"
+                d="M 80 0 L 720 0 L 800 80 L 800 240 L 720 320 L 80 320 L 0 240 L 0 80 Z"
+                fill="rgba(221,44,30,0.025)"
+                stroke="var(--np-red)"
+                stroke-width="1.6"
+                stroke-dasharray="9 7"
+                vector-effect="non-scaling-stroke" />
+          <circle r="4.5" fill="var(--np-red)" filter="url(#dz-glow)">
+            <animateMotion dur="14s" repeatCount="indefinite" rotate="auto">
+              <mpath href="#dz-octagon-path"/>
+            </animateMotion>
+          </circle>
+        </svg>
         <div class="drop-content">
-          <div class="drop-label">Drop .csv, .json, or Trint .zip / .html here</div>
+          <div class="drop-label">Drop .csv, .json, or Trint .zip / .html</div>
           <div class="drop-sub">or <label for="file-input" class="file-link">browse</label></div>
         </div>
         <input type="file" id="file-input" accept=".csv,.json,.html,.htm,.zip" hidden>
