@@ -1675,58 +1675,93 @@ tr.dimmed-speaker { opacity: 0.35; }
 .transcript-editor {
   position: relative;
 }
+/* ── Editor reading surface ──────────────────────────────────────────
+   Treat the editor like a printed page from a literary magazine. The
+   transcript IS the page; chrome retreats. Comfortable reading width,
+   serif body, marginalia-style timecode in a left gutter, generous
+   space between speakers. Designed for long sessions. */
 .editor-content .tiptap {
   outline: none;
   min-height: 400px;
-  max-height: 700px;
+  max-height: 78vh;
   overflow-y: auto;
-  padding: var(--np-space-6) var(--np-space-4);
+  padding: var(--np-space-12) var(--np-space-8) var(--np-space-16);
+  background: var(--np-warm-white);
   font-family: var(--np-font-serif);
-  font-size: 18px;
-  line-height: 1.8;
+  font-size: 19px;
+  line-height: 1.62;
+  color: var(--np-ink);
+  letter-spacing: -0.005em;
 }
 .editor-content .tiptap:focus { outline: none; }
 
+/* Each speaker block is a 2-column grid: timecode in the left margin,
+   speaker name + body in the reading column. The whole composition is
+   centered in the canvas with generous breathing room above and below.
+   No border, no background tint — whitespace separates speakers. */
 .editor-speaker-block {
-  margin-bottom: var(--np-space-12);
-  padding: var(--np-space-6);
-  padding-left: var(--np-space-6);
-  border-left: 3px solid var(--speaker-color, var(--np-red));
-  background: rgba(0, 0, 0, 0.015);
+  display: grid;
+  grid-template-columns: 72px minmax(0, 68ch);
+  grid-template-areas:
+    "tc    name"
+    "blank body";
+  column-gap: var(--np-space-6);
+  row-gap: 6px;
+  max-width: calc(72px + var(--np-space-6) + 68ch);
+  margin: 0 auto var(--np-space-16);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
-.editor-speaker-name {
-  font-family: var(--np-font-serif);
-  font-size: 15px;
-  font-style: italic;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--speaker-color, var(--np-red));
-  margin-bottom: var(--np-space-1);
+.editor-speaker-block + .editor-speaker-block { margin-top: 0; }
+
+/* Timecode — small mono numerals tucked in the left margin like
+   a footnote reference. Aligned to the baseline of the speaker name. */
+.editor-timecode-tag {
+  grid-area: tc;
+  align-self: start;
+  justify-self: end;
+  padding-top: 4px;
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--np-sepia);
+  opacity: 0.55;
   user-select: none;
+  font-weight: 500;
+}
+
+/* Speaker name — mono, uppercase, brand-colored. Reads as a slug, not
+   as part of the prose. The dismiss × is hidden until hover. */
+.editor-speaker-name {
+  grid-area: name;
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 10px;
+  margin: 0 0 4px 0;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--speaker-color, var(--np-red));
+  user-select: none;
 }
 .editor-speaker-label {
-  /* inherits italic from parent */
+  font-style: normal;
 }
 .editor-lang-tag {
   font-family: var(--np-font-mono);
   font-size: 9px;
+  font-weight: 500;
   font-style: normal;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--np-sepia);
-  opacity: 0.6;
-}
-.editor-timecode-tag {
-  font-family: var(--np-font-mono);
-  font-size: 10px;
-  font-style: normal;
-  letter-spacing: 0.06em;
-  color: var(--np-sepia);
-  opacity: 0.4;
-  margin-bottom: 2px;
-  user-select: none;
+  opacity: 0.55;
 }
 .editor-dismiss-btn {
   margin-left: auto;
@@ -1750,13 +1785,32 @@ tr.dimmed-speaker { opacity: 0.35; }
   opacity: 1;
 }
 .editor-speaker-content {
+  grid-area: body;
   color: var(--np-ink);
 }
 .editor-speaker-content p {
   margin: 0;
-  line-height: 1.8;
   font-family: var(--np-font-serif);
-  font-size: 18px;
+  font-size: 19px;
+  line-height: 1.62;
+  letter-spacing: -0.005em;
+  /* Avoid orphan/widow lines when possible */
+  text-wrap: pretty;
+}
+.editor-speaker-content p + p {
+  margin-top: 0.45em;
+  text-indent: 1.6em;
+}
+
+/* Highlight pad: replace the ink-loud red underline with a warm,
+   editorial highlighter rectangle. Color-tag is the highlight bg. */
+.editor-highlight {
+  cursor: pointer;
+  padding: 0.05em 0.18em;
+  border-radius: 2px;
+  /* The HighlightMark extension still injects per-tag color via inline
+     style; this just smooths how it sits within prose. */
+  text-underline-offset: 4px;
 }
 
 .editor-timecode-tooltip {
@@ -1829,22 +1883,31 @@ tr.dimmed-speaker { opacity: 0.35; }
   border-radius: 2px;
 }
 
-/* ── Editor Sequence Header ── */
+/* ── Editor Sequence Header ──
+   The sequence slug + date sit like a magazine masthead: a thin line
+   above the page, no boxed-in chrome. Keeps the reading area dominant. */
 .editor-sequence-header {
-  padding: var(--np-space-4);
-  margin-bottom: var(--np-space-4);
-  border: 1px solid var(--np-cool-neutral);
-  background: rgba(18, 17, 24, 0.02);
+  padding: 6px 0;
+  margin: 0 0 var(--np-space-6) 0;
+  border: 0;
+  background: transparent;
+  border-bottom: 1px solid rgba(18,17,24,0.08);
+  display: flex;
+  align-items: baseline;
+  gap: var(--np-space-4);
+  flex-wrap: wrap;
 }
 .editor-sequence-name {
   display: flex;
   align-items: center;
   gap: var(--np-space-3);
   font-family: var(--np-font-mono);
-  font-size: 14px;
+  font-size: 11.5px;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--np-ink);
-  margin-bottom: var(--np-space-1);
+  margin: 0;
 }
 .editor-premiere-icon {
   flex-shrink: 0;
@@ -1878,12 +1941,13 @@ tr.dimmed-speaker { opacity: 0.35; }
   outline: none;
 }
 .editor-sequence-date {
-  font-family: var(--np-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
+  font-family: var(--np-font-serif);
+  font-size: 14px;
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--np-sepia);
-  margin-left: 28px;
+  margin-left: auto;
 }
 
 /* ── Editor Speaker Panel ──
@@ -1893,9 +1957,9 @@ tr.dimmed-speaker { opacity: 0.35; }
   display: flex;
   flex-wrap: wrap;
   gap: 6px 8px;
-  padding: var(--np-space-2) 0 var(--np-space-4);
-  margin-bottom: var(--np-space-4);
-  border-bottom: 1px solid var(--np-cool-neutral);
+  padding: 0;
+  margin: 0 0 var(--np-space-6);
+  border: 0;
 }
 .editor-speaker-chip {
   display: inline-flex;
@@ -1963,22 +2027,28 @@ tr.dimmed-speaker { opacity: 0.35; }
 }
 .editor-speaker-chip--filtered:hover { opacity: 0.85; }
 
-/* ── Editor Summary Panel ── */
+/* ── Editor Summary Panel ──
+   A quiet drawer above the page. Closed: just a thin underline. Open:
+   a calm sub-panel with serif body so it reads like a sidebar essay. */
 .editor-summary-panel {
-  border: 1px solid var(--np-cool-neutral);
-  margin-bottom: var(--np-space-6);
+  border: 0;
+  border-top: 1px solid rgba(18,17,24,0.08);
+  border-bottom: 1px solid rgba(18,17,24,0.08);
+  margin: 0 0 var(--np-space-8);
+  background: transparent;
 }
 .editor-summary-toggle {
   display: flex;
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  padding: var(--np-space-3) var(--np-space-4);
+  padding: 10px 0;
   border: none;
-  background: rgba(18, 17, 24, 0.02);
+  background: transparent;
   cursor: pointer;
-  transition: background var(--np-duration) var(--np-ease);
+  transition: opacity var(--np-duration) var(--np-ease);
 }
+.editor-summary-toggle:hover { opacity: 0.7; }
 .editor-summary-header {
   display: flex;
   align-items: center;
@@ -2110,10 +2180,11 @@ tr.dimmed-speaker { opacity: 0.35; }
 /* ── Editor Toolbar ── */
 .editor-toolbar {
   display: flex;
-  gap: var(--np-space-4);
-  padding: var(--np-space-2) 0;
-  margin-bottom: var(--np-space-4);
-  border-bottom: 1px solid var(--np-cool-neutral);
+  gap: var(--np-space-6);
+  padding: 0;
+  margin: 0 0 var(--np-space-6);
+  border: 0;
+  align-items: center;
 }
 .editor-toolbar-toggle {
   display: flex;
