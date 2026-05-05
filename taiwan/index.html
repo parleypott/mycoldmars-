@@ -476,8 +476,8 @@
     // ── Speculative future scenario (NOT real data) ──
     // Chart extends 50% to the right. Lines drift to:
     //   Taiwanese (green)  62.0 → 50.0
-    //   Both      (pink)   31.7 → 40.0
-    //   Chinese   (blue)    2.5 → 10.0
+    //   Both      (pink)   31.7 → 30.0
+    //   Chinese   (blue)    2.5 → 20.0
     //   No-resp   (grey)    3.8 →  0.0  (forced to keep total at 100)
     // Drift years span ~17 ticks (~50% of 33 historical points).
     const FUTURE_TICKS = Math.round(HIST_YEARS.length * 0.5); // 17
@@ -515,11 +515,11 @@
 
     const FUTURE_TARGETS = {
       taiwanese: 50.0,
-      both:      40.0,
-      chinese:   10.0,
+      both:      30.0,
+      chinese:   20.0,
       none:       0.0,
     };
-    const FUTURE_AMPS = { taiwanese: 3.2, both: 2.6, chinese: 1.4, none: 0.6 };
+    const FUTURE_AMPS = { taiwanese: 3.2, both: 2.6, chinese: 1.8, none: 0.6 };
 
     const lines = [
       { key: 'taiwanese', name: 'Taiwanese',                 zh: '臺灣人', color: '#0D5921', col: 1, width: 3.5 },
