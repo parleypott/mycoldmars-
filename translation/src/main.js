@@ -3274,9 +3274,11 @@ if (btnShare) {
     .then(r => { if (r.migrated) console.info(`Migrated ${r.transcripts} transcripts, ${r.projects} projects to Supabase`); })
     .catch(err => console.warn('Migration check failed:', err.message));
 
-  // Priority: URL permalink > localStorage last transcript
+  // Only load a transcript if the URL explicitly asks for one. Visiting the
+  // bare URL lands on home — no auto-redirect to last-opened, no silent URL
+  // rewrite. Refresh-mid-edit still works because the URL already carries
+  // the slug/UUID once a transcript is loaded.
   const permalink = getPermalinkId();
-  const lastSaved = getLastTranscript();
 
   // Load projects and transcript in parallel
   const projectsPromise = listProjects().then(p => { projects = p; }).catch(() => {});
@@ -3306,14 +3308,6 @@ if (btnShare) {
         showError('Could not load shared transcript. It may have been deleted or the database is temporarily unavailable.');
       }
     })();
-  } else if (lastSaved) {
-    loadPromise = handleLoad(lastSaved)
-      .then(() => setPermalinkHash(currentSlug || currentTranscriptId))
-      .catch(err => {
-        console.warn('Auto-reload failed:', err.message);
-        clearPermalinkHash();
-        clearLastTranscript();
-      });
   }
 
   await Promise.all([projectsPromise, loadPromise]);
