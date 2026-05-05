@@ -58,12 +58,15 @@ export function mountWorkshop(container, opts) {
     container.innerHTML = `
       <div class="ws">
         <div class="ws-header">
-          <div>
+          <div class="ws-header-text">
             <div class="np-eyebrow np-eyebrow--red">Soundbite Workshop</div>
             <h2 class="ws-title">Theme Bank</h2>
             <p class="ws-desc">Define the buckets you want soundbites organized into. Edit the auto-detected themes, add your own, then process the transcript.</p>
           </div>
-          ${state.themes.length > 0 ? `<button class="np-button" data-act="redetect">Re-detect themes</button>` : ''}
+          ${state.themes.length > 0 ? `<button class="ws-redetect" data-act="redetect" title="Replace this list with a fresh AI pass">
+            <span class="ws-redetect-icon" aria-hidden="true">↻</span>
+            <span>Re-detect</span>
+          </button>` : ''}
         </div>
 
         ${state.error ? `<div class="ws-error">${escapeHtml(state.error)}</div>` : ''}
@@ -71,10 +74,15 @@ export function mountWorkshop(container, opts) {
         ${state.detecting
           ? `<div class="ws-loading"><div class="np-eyebrow">Detecting themes...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div></div>`
           : `
-            <div class="ws-themes" id="ws-themes">
-              ${state.themes.map(renderThemeCard).join('')}
-              <button class="ws-add-theme" data-act="add">+ Add theme</button>
-            </div>
+            <ol class="ws-themes" id="ws-themes">
+              ${state.themes.map((t, i) => renderThemeCard(t, i)).join('')}
+              <li class="ws-add-row">
+                <button class="ws-add-theme" data-act="add">
+                  <span class="ws-add-plus" aria-hidden="true">+</span>
+                  <span>Add a theme</span>
+                </button>
+              </li>
+            </ol>
             <div class="ws-bank-actions">
               <button class="np-button np-button--primary" data-act="process" ${state.themes.length === 0 ? 'disabled' : ''}>Process transcript</button>
             </div>
@@ -84,13 +92,21 @@ export function mountWorkshop(container, opts) {
     bindBank();
   }
 
-  function renderThemeCard(theme) {
+  function renderThemeCard(theme, idx) {
+    const num = String(idx + 1).padStart(2, '0');
+    const color = themeColor(theme.name || theme.id || '');
     return `
-      <div class="ws-theme" data-id="${theme.id}">
-        <input class="ws-theme-name" data-field="name" type="text" placeholder="Theme name" value="${escapeAttr(theme.name)}">
-        <textarea class="ws-theme-desc" data-field="description" placeholder="What kind of soundbite belongs here?">${escapeHtml(theme.description)}</textarea>
-        <button class="ws-theme-remove" data-act="remove" title="Remove theme">×</button>
-      </div>
+      <li class="ws-theme" data-id="${theme.id}" style="--theme-accent: ${color};">
+        <div class="ws-theme-gutter" aria-hidden="true">
+          <span class="ws-theme-num">${num}</span>
+          <span class="ws-theme-mark"></span>
+        </div>
+        <div class="ws-theme-fields">
+          <input class="ws-theme-name" data-field="name" type="text" placeholder="Theme name" value="${escapeAttr(theme.name)}">
+          <textarea class="ws-theme-desc" data-field="description" rows="2" placeholder="What kind of soundbite belongs here?">${escapeHtml(theme.description)}</textarea>
+        </div>
+        <button class="ws-theme-remove" data-act="remove" title="Remove theme" aria-label="Remove theme">×</button>
+      </li>
     `;
   }
 
@@ -410,6 +426,28 @@ function escapeHtml(str) {
 }
 function escapeAttr(str) {
   return String(str ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+// Stable per-theme accent color. Hash the theme name (or id fallback) so
+// reordering doesn't reshuffle the palette assignment. Colors mirror the
+// falling-glyphs palette for app-wide consistency.
+const THEME_PALETTE = [
+  '#DD2C1E', // red
+  '#520004', // burgundy
+  '#004CFF', // blue
+  '#0D5921', // green
+  '#B45A00', // burnt orange
+  '#C44D8E', // magenta
+  '#00808A', // teal
+  '#6B2D8B', // purple
+  '#DAA520', // gold
+  '#412C27', // sepia
+];
+function themeColor(seed) {
+  const s = String(seed || '');
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return THEME_PALETTE[Math.abs(h) % THEME_PALETTE.length];
 }
 
 let toastTimer = null;
