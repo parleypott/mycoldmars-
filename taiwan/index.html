@@ -7,7 +7,7 @@
   <meta name="description" content="A 33-year survey of Taiwanese identity. Each year since 1992, the National Chengchi University Election Study Center has asked the same question. The answers have changed everything.">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&family=Noto+Serif+TC:wght@400;700&display=swap');
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -201,6 +201,54 @@
       margin-top: 6px;
     }
 
+    .note {
+      max-width: 680px;
+      margin: 64px auto 0;
+      padding: 32px 32px 28px;
+      background: #EFEAD8;
+      border-left: 3px solid #C0392B;
+      border-radius: 2px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #2a2833;
+    }
+    .note-head {
+      font-family: 'Instrument Serif', serif;
+      font-style: italic;
+      font-size: 22px;
+      color: #C0392B;
+      margin-bottom: 14px;
+    }
+    .note p { margin-bottom: 14px; }
+    .note ul {
+      list-style: none;
+      padding: 8px 0 4px 0;
+      margin-bottom: 14px;
+      border-top: 1px solid rgba(18,17,24,0.08);
+      border-bottom: 1px solid rgba(18,17,24,0.08);
+    }
+    .note li {
+      padding: 10px 0;
+      border-bottom: 1px dotted rgba(18,17,24,0.08);
+    }
+    .note li:last-child { border-bottom: none; }
+    .note .zh {
+      font-family: 'Noto Serif TC', 'Instrument Serif', serif;
+      font-weight: 700;
+      font-size: 17px;
+      color: #121118;
+      margin-right: 4px;
+    }
+    .note em { color: #4a4756; }
+    .note strong { color: #121118; }
+    .note-foot {
+      font-size: 12px;
+      color: #6e6a78;
+      font-style: italic;
+      margin-top: 18px;
+      margin-bottom: 0;
+    }
+
     .footer {
       margin-top: 96px;
       padding-top: 24px;
@@ -280,6 +328,23 @@
     <div class="body-text">
       <p>
         Polls don't make a country. But they record what people who already live in one have started telling each other. The slope of the green line — patient, persistent, climbing for thirty-three years — is the answer Beijing keeps refusing to read.
+      </p>
+    </div>
+
+    <div class="note">
+      <div class="note-head">A note on the word "Chinese."</div>
+      <p>
+        The Mandarin word NCCU uses for "Chinese" in this survey is <span class="zh">中國人</span> <em>(Zhōngguó rén)</em> — literally <em>"person of the state of China."</em> It's a political-citizen word. It is <strong>not</strong> the same as:
+      </p>
+      <ul>
+        <li><span class="zh">華人</span> <em>(Huá rén)</em> — ethnic / cultural Chinese, including the global diaspora. A Singaporean or Malaysian Chinese is <span class="zh">華人</span> but not <span class="zh">中國人</span>.</li>
+        <li><span class="zh">漢人</span> <em>(Hàn rén)</em> — Han ethnicity. About 95 percent of Taiwan is Han by ancestry, so if NCCU asked this version, almost everyone would say yes.</li>
+      </ul>
+      <p>
+        That choice matters. The collapse of the blue line isn't a claim that Taiwanese have stopped being Chinese in any cultural sense — most still speak Mandarin or Hokkien, eat the same food, observe the same holidays. It is a claim about <em>which state</em> they belong to. The survey is asking a question about citizenship and political imagination, and the answer has shifted decisively away from the mainland.
+      </p>
+      <p class="note-foot">
+        Critics, mostly writing from Beijing, argue this framing forces a false binary. NCCU's response is that the binary is the one Taiwanese people themselves use when they argue about identity — the survey is reporting a vernacular, not inventing one.
       </p>
     </div>
 
