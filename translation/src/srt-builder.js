@@ -117,6 +117,10 @@ export function buildSRT(translations, segments, opts = {}) {
     for (let j = 0; j < chunks.length; j++) {
       const proportion = chunks[j].length / totalChars;
       let chunkDur = duration * proportion;
+      // Hard cap each chunk at maxDuration. Without this, if splitText
+      // returned fewer chunks than asked for, a single chunk could end up
+      // spanning the full segment — blowing past the slider's max.
+      chunkDur = Math.min(chunkDur, maxDuration);
       chunkDur = Math.max(chunkDur, 1);
       const chunkEnd = Math.min(cursor + chunkDur, endSec);
 
@@ -158,7 +162,11 @@ function splitText(text, n) {
     current.push(words[i]);
 
     if (chunks.length < n - 1 && current.length >= targetLen) {
-      const breakIdx = findBreakPoint(words, i, targetLen, { sentenceEnd, clauseBreak, conjunctions, prepositions });
+      // Don't let the break-point search jump so far ahead that it eats
+      // all the remaining words and starves the next chunks. Cap the
+      // look-ahead to roughly half of targetLen.
+      const lookahead = Math.max(1, Math.min(4, Math.ceil(targetLen / 2)));
+      const breakIdx = findBreakPoint(words, i, targetLen, lookahead, { sentenceEnd, clauseBreak, conjunctions, prepositions });
       if (breakIdx > i) {
         for (let j = i + 1; j <= breakIdx && j < words.length; j++) {
           current.push(words[j]);
@@ -177,8 +185,8 @@ function splitText(text, n) {
   return chunks;
 }
 
-function findBreakPoint(words, currentIdx, targetLen, patterns) {
-  const searchRange = Math.min(4, words.length - currentIdx - 1);
+function findBreakPoint(words, currentIdx, targetLen, lookahead, patterns) {
+  const searchRange = Math.min(lookahead, words.length - currentIdx - 1);
 
   for (let offset = 0; offset <= searchRange; offset++) {
     const idx = currentIdx + offset;

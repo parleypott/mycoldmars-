@@ -2247,12 +2247,22 @@ btnCopy.addEventListener('click', async () => {
 });
 
 // ── SRT controls (in Step 5 SRT view) ──
+let srtRegenTimer = null;
+function scheduleSrtRegen() {
+  clearTimeout(srtRegenTimer);
+  srtRegenTimer = setTimeout(() => {
+    if (translations.length > 0) regenerateSRT();
+  }, 60);
+}
+
 $('#max-words').addEventListener('input', (e) => {
   $('#max-words-val').textContent = e.target.value;
+  scheduleSrtRegen();
 });
 
 $('#max-duration').addEventListener('input', (e) => {
   $('#max-duration-val').textContent = e.target.value + 's';
+  scheduleSrtRegen();
 });
 
 function regenerateSRT() {
