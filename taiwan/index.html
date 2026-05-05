@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How Taiwanese Became Taiwanese — My Cold Mars</title>
+  <meta name="description" content="A 33-year survey of Taiwanese identity. Each year since 1992, the National Chengchi University Election Study Center has asked the same question. The answers have changed everything.">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Mono', monospace;
+      background: #F4F2E6;
+      color: #121118;
+      min-height: 100vh;
+      padding: 80px 24px 120px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 880px;
+      margin: 0 auto;
+    }
+
+    .kicker {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #C0392B;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      font-family: 'Instrument Serif', serif;
+      font-weight: 400;
+      font-size: clamp(40px, 6vw, 72px);
+      line-height: 1.05;
+      letter-spacing: -0.01em;
+      margin-bottom: 28px;
+    }
+    h1 em {
+      font-style: italic;
+      color: #0D5921;
+    }
+
+    .dek {
+      font-family: 'Instrument Serif', serif;
+      font-style: italic;
+      font-size: clamp(18px, 2.2vw, 24px);
+      line-height: 1.45;
+      color: #4a4756;
+      max-width: 680px;
+      margin-bottom: 64px;
+    }
+
+    .chart-block {
+      background: #FBF9EE;
+      border: 1px solid rgba(18,17,24,0.08);
+      border-radius: 6px;
+      padding: 36px 28px 28px;
+      margin-bottom: 56px;
+    }
+
+    .chart-title {
+      font-family: 'Instrument Serif', serif;
+      font-size: 26px;
+      line-height: 1.15;
+      margin-bottom: 6px;
+    }
+    .chart-sub {
+      font-size: 12px;
+      color: #888;
+      letter-spacing: 0.3px;
+      margin-bottom: 24px;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      width: 100%;
+      height: 540px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px 28px;
+      margin-top: 24px;
+      font-size: 12px;
+      letter-spacing: 0.3px;
+    }
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: opacity 0.2s;
+    }
+    .legend-item.muted { opacity: 0.3; }
+    .swatch {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .legend-item .label-zh {
+      font-family: 'Noto Serif TC', 'Instrument Serif', serif;
+      color: #555;
+      font-size: 11px;
+      margin-left: 4px;
+    }
+
+    .source {
+      font-size: 11px;
+      color: #999;
+      margin-top: 18px;
+      letter-spacing: 0.2px;
+    }
+    .source a {
+      color: #888;
+      text-decoration: underline;
+      text-decoration-color: rgba(0,0,0,0.2);
+      text-underline-offset: 2px;
+    }
+
+    .body-text {
+      max-width: 640px;
+      margin: 0 auto 32px;
+      font-size: 15px;
+      line-height: 1.75;
+      color: #1f1d29;
+    }
+    .body-text p { margin-bottom: 18px; }
+    .body-text p.lead::first-letter {
+      font-family: 'Instrument Serif', serif;
+      font-size: 64px;
+      float: left;
+      line-height: 0.85;
+      padding: 6px 10px 0 0;
+      color: #0D5921;
+    }
+
+    .pull {
+      font-family: 'Instrument Serif', serif;
+      font-style: italic;
+      font-size: clamp(22px, 3vw, 30px);
+      line-height: 1.3;
+      color: #121118;
+      max-width: 720px;
+      margin: 56px auto;
+      text-align: center;
+      padding: 0 20px;
+    }
+    .pull span {
+      color: #0D5921;
+      font-style: normal;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.55em;
+      letter-spacing: 2px;
+      display: block;
+      margin-top: 14px;
+      text-transform: uppercase;
+      color: #C0392B;
+    }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 24px;
+      margin: 48px 0;
+    }
+    .stat {
+      border-top: 1px solid rgba(18,17,24,0.15);
+      padding-top: 14px;
+    }
+    .stat .num {
+      font-family: 'Instrument Serif', serif;
+      font-size: 56px;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .stat .num.green { color: #0D5921; }
+    .stat .num.red { color: #C0392B; }
+    .stat .num.pink { color: #B83A8C; }
+    .stat .num small {
+      font-family: 'Space Mono', monospace;
+      font-size: 18px;
+      vertical-align: super;
+      margin-left: 2px;
+    }
+    .stat .lab {
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #888;
+      margin-top: 6px;
+    }
+
+    .footer {
+      margin-top: 96px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(18,17,24,0.15);
+      font-size: 11px;
+      color: #999;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .footer a { color: #999; text-decoration: none; }
+    .footer a:hover { color: #121118; }
+
+    @media (max-width: 600px) {
+      body { padding: 48px 16px 80px; }
+      .chart-block { padding: 20px 12px; }
+      .chart-wrapper { height: 420px; }
+      .stat .num { font-size: 40px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="kicker">My Cold Mars · Taiwan</div>
+    <h1>How Taiwanese Became <em>Taiwanese</em>.</h1>
+    <p class="dek">
+      Every year since 1992, researchers in Taipei have asked the same question: do you think of yourself as Taiwanese, Chinese, or both? The answers tell a quiet story of national becoming.
+    </p>
+
+    <div class="chart-block">
+      <div class="chart-title">Taiwanese / Chinese Identity, 1992&nbsp;–&nbsp;2025</div>
+      <div class="chart-sub">Share of respondents in Taiwan, by self-reported identity. Bi-annual surveys, n ≈ 1,000–1,200 each wave.</div>
+      <div class="chart-wrapper">
+        <canvas id="identityChart"></canvas>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="source">
+        Source: <a href="https://esc.nccu.edu.tw/PageDoc/Detail?fid=7800&id=6961" target="_blank" rel="noopener">Election Study Center, National Chengchi University</a>. Last updated December 2025.
+      </div>
+    </div>
+
+    <div class="body-text">
+      <p class="lead">
+        In 1992, when the Election Study Center at Taiwan's National Chengchi University began running its identity survey, only 17.6&nbsp;percent of people on the island called themselves Taiwanese. A quarter said they were Chinese. Almost half said they were both — a polite answer, perhaps, for a generation that had been told for forty years that the two were the same thing.
+      </p>
+      <p>
+        Then martial law receded into memory. Direct presidential elections began. A generation grew up that had never lived under Chiang Kai-shek and had never been told that Taipei was a temporary capital. The lines on the chart began to bend.
+      </p>
+      <p>
+        By 2008, more people called themselves Taiwanese than called themselves both. By 2014, it was nearly two-to-one. The "Chinese" line — once a quarter of the population — fell to a rounding error.
+      </p>
+    </div>
+
+    <div class="pull">
+      "Taiwanese" went from a minority answer to the modal answer in a single generation.
+      <span>+44.4 points · 1992 → 2025</span>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat">
+        <div class="num green">62.0<small>%</small></div>
+        <div class="lab">Taiwanese only<br>(2025)</div>
+      </div>
+      <div class="stat">
+        <div class="num pink">31.7<small>%</small></div>
+        <div class="lab">Both Taiwanese<br>and Chinese</div>
+      </div>
+      <div class="stat">
+        <div class="num red">2.5<small>%</small></div>
+        <div class="lab">Chinese only<br>(was 25.5% in 1992)</div>
+      </div>
+    </div>
+
+    <div class="body-text">
+      <p>
+        Polls don't make a country. But they record what people who already live in one have started telling each other. The slope of the green line — patient, persistent, climbing for thirty-three years — is the answer Beijing keeps refusing to read.
+      </p>
+    </div>
+
+    <div class="footer">
+      <span>Data via NCCU ESC · Visualization: My Cold Mars</span>
+      <a href="/">← mycoldmars.com</a>
+    </div>
+  </div>
+
+  <script>
+    // ── NCCU Election Study Center: Taiwanese/Chinese identity ──
+    // Each value is the share of respondents (%). Categories sum to 100.
+    // Source: https://esc.nccu.edu.tw/PageDoc/Detail?fid=7800&id=6961
+    const series = [
+      // [year, taiwanese, both, chinese, nonResponse]
+      [1992, 17.6, 46.4, 25.5, 10.5],
+      [1994, 20.2, 44.6, 26.2,  8.9],
+      [1995, 25.0, 47.0, 20.7,  7.3],
+      [1996, 24.1, 49.3, 17.6,  9.0],
+      [1997, 34.0, 41.4, 19.2,  5.3],
+      [1998, 36.2, 39.6, 16.3,  7.8],
+      [1999, 39.6, 42.5, 12.1,  5.8],
+      [2000, 36.9, 44.1, 12.5,  6.5],
+      [2001, 41.6, 43.1, 10.6,  4.7],
+      [2002, 41.2, 43.7,  9.2,  5.8],
+      [2003, 42.5, 43.3,  8.3,  5.9],
+      [2004, 41.1, 47.7,  6.2,  5.0],
+      [2005, 45.0, 43.4,  7.2,  4.4],
+      [2006, 44.2, 44.9,  6.3,  4.6],
+      [2007, 43.7, 44.7,  5.4,  6.2],
+      [2008, 48.4, 43.1,  4.0,  4.5],
+      [2009, 51.6, 39.8,  4.2,  4.4],
+      [2010, 52.7, 39.8,  3.7,  3.8],
+      [2011, 52.2, 40.3,  3.9,  3.6],
+      [2012, 54.3, 38.5,  3.6,  3.6],
+      [2013, 57.1, 35.8,  3.8,  3.3],
+      [2014, 60.6, 32.5,  3.5,  3.5],
+      [2015, 59.5, 33.3,  3.3,  4.0],
+      [2016, 58.2, 34.3,  3.4,  4.1],
+      [2017, 55.5, 37.0,  3.7,  3.7],
+      [2018, 54.5, 38.2,  3.6,  3.7],
+      [2019, 58.5, 34.7,  3.3,  3.5],
+      [2020, 64.3, 29.9,  2.6,  3.2],
+      [2021, 62.3, 31.7,  2.8,  3.2],
+      [2022, 63.3, 30.6,  2.5,  3.6],
+      [2023, 61.7, 32.0,  2.4,  3.9],
+      [2024, 63.4, 31.0,  2.4,  3.2],
+      [2025, 62.0, 31.7,  2.5,  3.8],
+    ];
+
+    const labels = series.map(r => r[0]);
+    const lines = [
+      { key: 'taiwanese', name: 'Taiwanese',                 zh: '臺灣人',       color: '#0D5921', col: 1, width: 3.5 },
+      { key: 'both',      name: 'Both Taiwanese and Chinese',zh: '都是',         color: '#B83A8C', col: 2, width: 2.5 },
+      { key: 'chinese',   name: 'Chinese',                   zh: '中國人',       color: '#1F4DB8', col: 3, width: 2.5 },
+      { key: 'none',      name: 'No response',               zh: '無反應',       color: '#7a7568', col: 4, width: 1.5, dashed: true },
+    ];
+
+    // Annotation plugin: vertical event markers + crossover note
+    const annotations = {
+      id: 'annotations',
+      afterDatasetsDraw(chart) {
+        const ctx = chart.ctx;
+        const xScale = chart.scales.x;
+        const yScale = chart.scales.y;
+
+        const events = [
+          { year: 1996, label: '1st direct\npresidential election' },
+          { year: 2008, label: 'Taiwanese > Both\n(crossover)' },
+          { year: 2020, label: 'Identity peaks\nat 64.3%' },
+        ];
+
+        ctx.save();
+        events.forEach(ev => {
+          const x = xScale.getPixelForValue(ev.year);
+          const yTop = yScale.getPixelForValue(70);
+          const yBot = yScale.getPixelForValue(0);
+
+          ctx.setLineDash([2, 4]);
+          ctx.strokeStyle = 'rgba(18,17,24,0.18)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x, yTop);
+          ctx.lineTo(x, yBot);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.font = "9px 'Space Mono', monospace";
+          ctx.fillStyle = '#999';
+          ctx.textAlign = 'center';
+          const lines = ev.label.split('\n');
+          lines.forEach((ln, i) => {
+            ctx.fillText(ln.toUpperCase(), x, yTop - 18 + i * 11);
+          });
+        });
+        ctx.restore();
+      }
+    };
+
+    // End-of-line label plugin
+    const endLabels = {
+      id: 'endLabels',
+      afterDatasetsDraw(chart) {
+        const ctx = chart.ctx;
+        chart.data.datasets.forEach((ds, i) => {
+          if (ds.hidden) return;
+          const meta = chart.getDatasetMeta(i);
+          if (!meta || !meta.data.length) return;
+          const last = meta.data[meta.data.length - 1];
+          const lastVal = ds.data[ds.data.length - 1];
+          if (!last) return;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(last.x, last.y, 4, 0, Math.PI * 2);
+          ctx.fillStyle = '#FBF9EE';
+          ctx.strokeStyle = ds.borderColor;
+          ctx.lineWidth = 2;
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.font = "bold 13px 'Space Mono', monospace";
+          ctx.fillStyle = ds.borderColor;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(lastVal.toFixed(1) + '%', last.x + 10, last.y);
+          ctx.restore();
+        });
+      }
+    };
+
+    const ctx = document.getElementById('identityChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: lines.map(l => ({
+          label: l.name,
+          data: series.map(r => r[l.col]),
+          borderColor: l.color,
+          backgroundColor: l.color + '14',
+          borderWidth: l.width,
+          borderDash: l.dashed ? [4, 4] : [],
+          tension: 0.25,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: l.color,
+          pointHoverBorderColor: '#FBF9EE',
+          pointHoverBorderWidth: 2,
+          fill: false,
+        }))
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 36, right: 60, bottom: 4, left: 4 } },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#FBF9EE',
+            titleColor: '#121118',
+            bodyColor: '#3a3845',
+            borderColor: 'rgba(18,17,24,0.15)',
+            borderWidth: 1,
+            padding: 12,
+            titleFont: { family: "'Space Mono', monospace", weight: '700', size: 12 },
+            bodyFont: { family: "'Space Mono', monospace", size: 12 },
+            displayColors: true,
+            boxWidth: 8, boxHeight: 8, boxPadding: 6,
+            callbacks: {
+              title: (items) => items[0].label,
+              label: (c) => ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}%`,
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              font: { family: "'Space Mono', monospace", size: 11 },
+              color: '#888',
+              maxRotation: 0,
+              autoSkip: true,
+              autoSkipPadding: 16,
+              callback: function(_, i) {
+                const y = labels[i];
+                return [1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020, 2025].includes(y)
+                  ? "'" + String(y).slice(2) : '';
+              }
+            },
+            border: { color: 'rgba(18,17,24,0.2)' }
+          },
+          y: {
+            beginAtZero: true,
+            max: 70,
+            grid: { color: 'rgba(18,17,24,0.06)' },
+            border: { display: false },
+            ticks: {
+              font: { family: "'Space Mono', monospace", size: 11 },
+              color: '#999',
+              stepSize: 10,
+              callback: (v) => v + '%'
+            }
+          }
+        },
+        animation: { duration: 1100, easing: 'easeOutQuart' }
+      },
+      plugins: [annotations, endLabels]
+    });
+
+    // Build legend
+    const legendEl = document.getElementById('legend');
+    lines.forEach((l, i) => {
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      item.innerHTML = `
+        <span class="swatch" style="background:${l.color}"></span>
+        <span>${l.name}</span>
+        <span class="label-zh">${l.zh}</span>
+      `;
+      item.onclick = () => {
+        const meta = chart.getDatasetMeta(i);
+        meta.hidden = !meta.hidden;
+        item.classList.toggle('muted', meta.hidden);
+        chart.update();
+      };
+      legendEl.appendChild(item);
+    });
+  </script>
+</body>
+</html>
