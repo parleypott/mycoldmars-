@@ -18,6 +18,7 @@ import { exportSummaryText } from './export/summary-export.js';
 import { extractHighlightsFromEditor } from './editor/document-builder.js';
 import { buildAutoSummaryPrompt } from './copilot/copilot-prompts.js';
 import { initSotHunter, setSotHunterVisible } from './sot-hunter.js';
+import { initCommandPalette, openCommandPalette } from './command-palette.js';
 
 // ── State ──
 let segments = [];
@@ -3928,6 +3929,163 @@ if (btnShare) {
   });
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// Command palette action set. Reads live state on every open so commands
+// appear/disappear based on what's actually possible right now (e.g.
+// "Translate" only when there's a transcript that hasn't been translated).
+// ──────────────────────────────────────────────────────────────────────────
+function buildPaletteActions() {
+  const has = segments.length > 0;
+  const translated = translations.length > 0;
+  const onEditor = currentStep === 5;
+  const inSequencer = !document.getElementById('sequencer-view')?.classList.contains('hidden');
+
+  const actions = [];
+
+  // ── Save & history ──────────────────────────────────────────────
+  if (currentTranscriptId || has) {
+    actions.push({
+      id: 'save', group: 'File', icon: '\u{1F4BE}', label: 'Save now',
+      hotkey: '⌘S', perform: () => manualSave(),
+    });
+  }
+  if (currentTranscriptId) {
+    actions.push({
+      id: 'history', group: 'File', icon: '\u{1F552}', label: 'Open version history',
+      perform: () => openRevisionHistory(),
+    });
+  }
+
+  // ── Navigation ──────────────────────────────────────────────────
+  actions.push({
+    id: 'home', group: 'Go', icon: '\u{1F3E0}', label: 'New transcript (home)',
+    perform: () => { if (inSequencer) exitSequencer(); resetToUpload(); },
+  });
+  actions.push({
+    id: 'library', group: 'Go', icon: '\u{1F4DA}', label: 'Open library',
+    perform: () => { if (inSequencer) exitSequencer(); showLibrary(); },
+  });
+  actions.push({
+    id: 'sequencer', group: 'Go', icon: '\u{1F3AC}', label: 'Open Sacred Sequencer',
+    perform: () => showSequencer(),
+  });
+  if (has && translated) {
+    actions.push({
+      id: 'go-editor', group: 'Go', icon: '\u{270E}', label: 'Go to Editor',
+      perform: () => { goToStep(5); switchView('editor'); },
+    });
+    actions.push({
+      id: 'go-workshop', group: 'Go', icon: '\u{1F527}', label: 'Go to Workshop',
+      perform: () => { goToStep(5); switchView('workshop'); },
+    });
+  }
+  for (let s = 1; s <= 5; s++) {
+    if (s === currentStep) continue;
+    if (s > 1 && !has) continue; // can't jump past upload without a transcript
+    const stepNames = ['', 'Upload', 'Analyze', 'Clarify', 'Translate', 'Edit'];
+    actions.push({
+      id: `step-${s}`, group: 'Go', icon: '·',
+      label: `Step ${s} — ${stepNames[s]}`,
+      perform: () => goToStep(s),
+    });
+  }
+
+  // ── Editorial actions ───────────────────────────────────────────
+  if (has && !analysis) {
+    actions.push({
+      id: 'analyze', group: 'Editorial', icon: '\u{1F50D}', label: 'Analyze transcript',
+      perform: () => $('#btn-analyze')?.click(),
+    });
+  }
+  if (has && analysis && !translated) {
+    actions.push({
+      id: 'translate', group: 'Editorial', icon: '\u{1F310}', label: 'Translate transcript',
+      perform: () => $('#btn-translate')?.click(),
+    });
+  }
+  if (translated) {
+    actions.push({
+      id: 'regen-summary', group: 'Editorial', icon: '\u{1F4DD}', label: 'Regenerate summary',
+      perform: () => generateAutoSummary(),
+    });
+  }
+
+  // ── Tools ───────────────────────────────────────────────────────
+  if (translated) {
+    actions.push({
+      id: 'sot-hunter', group: 'Tools', icon: '\u{1F3F9}', label: 'Open SOT Hunter',
+      perform: () => {
+        setSotHunterVisible(true);
+        // The hunter manages its own panel; trigger its toggle button.
+        document.getElementById('sot-hunter-toggle')?.click();
+      },
+    });
+  }
+  if (has) {
+    actions.push({
+      id: 'copilot', group: 'Tools', icon: '\u{1F916}', label: 'Open AI Copilot',
+      perform: () => openCopilot(null),
+    });
+  }
+
+  // ── Export ──────────────────────────────────────────────────────
+  if (translated) {
+    actions.push({
+      id: 'export-srt', group: 'Export', icon: '\u{1F4E5}', label: 'Export SRT subtitles',
+      perform: () => { goToStep(5); openSrtModal(); },
+    });
+    actions.push({
+      id: 'export-premiere', group: 'Export', icon: '\u{1F39E}', label: 'Export Premiere markers (XML)',
+      perform: () => exportFormat('premiere'),
+    });
+    actions.push({
+      id: 'export-premiere-seq', group: 'Export', icon: '\u{1F39E}', label: 'Export Premiere sequence cut (XML)',
+      perform: () => exportFormat('premiere-sequence'),
+    });
+    actions.push({
+      id: 'export-highlights', group: 'Export', icon: '\u{1F4C4}', label: 'Export highlights (PDF)',
+      perform: () => exportFormat('highlights'),
+    });
+    actions.push({
+      id: 'export-summary', group: 'Export', icon: '\u{1F4C4}', label: 'Export summary (text)',
+      perform: () => exportFormat('summary'),
+    });
+  }
+
+  // ── Library helpers (only useful inside library view) ───────────
+  if (libraryShowing) {
+    actions.push({
+      id: 'lib-refresh', group: 'Library', icon: '\u{21BB}', label: 'Refresh library',
+      perform: () => { invalidateLibraryCache(); fetchLibrary(); },
+    });
+  }
+
+  // ── Share ───────────────────────────────────────────────────────
+  if (currentTranscriptId) {
+    actions.push({
+      id: 'copy-link', group: 'Share', icon: '\u{1F517}', label: 'Copy share link',
+      perform: () => $('#btn-share')?.click(),
+    });
+  }
+
+  // ── Sequencer-specific ──────────────────────────────────────────
+  if (inSequencer) {
+    actions.push({
+      id: 'exit-sequencer', group: 'Go', icon: '«', label: 'Exit Sequencer',
+      perform: () => exitSequencer(),
+    });
+  }
+
+  return actions;
+}
+
+// Helper used by export commands above — calls the same handler that the
+// export menu items use, so behaviour stays single-sourced.
+function exportFormat(format) {
+  const item = document.querySelector(`.export-dropdown-item[data-format="${format}"]`);
+  if (item) item.click();
+}
+
 // ── Init: load projects and auto-reload last transcript ──
 (async function init() {
   // SOT HUNTER — floating archer that finds soundbites from messy paste-ins.
@@ -3937,6 +4095,13 @@ if (btnShare) {
     getTranslations: () => translations,
   });
   setSotHunterVisible(false);
+
+  // Command palette — ⌘K opens fuzzy search across actions and library.
+  initCommandPalette({
+    getActions: buildPaletteActions,
+    getTranscripts: () => libraryCache?.transcripts || [],
+    onJumpToTranscript: (id) => handleLoad(id),
+  });
 
   // Migrate localStorage → Supabase in background (non-blocking)
   migrateLocalStorageToSupabase()
