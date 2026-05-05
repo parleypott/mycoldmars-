@@ -26,6 +26,8 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
     { stack: "'Lora', Georgia, serif" },
     { stack: "'Spectral', 'Times New Roman', serif" },
     { stack: "'Newsreader', Georgia, serif" },
+    { stack: "'Atkinson Hyperlegible', system-ui, sans-serif" },
+    { stack: "'Courier Prime', 'Courier New', Courier, monospace" },
   ];
   const [fontIndex, setFontIndex] = useState(() => {
     try { return Number(localStorage.getItem('mcm_body_font_index')) || 0; }
