@@ -86,6 +86,69 @@
       height: 540px;
     }
 
+    .player {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 22px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(18,17,24,0.08);
+    }
+    .play-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: #121118;
+      color: #FBF9EE;
+      border: none;
+      padding: 11px 20px 11px 16px;
+      border-radius: 999px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .play-btn:hover { background: #0D5921; }
+    .play-btn:active { transform: scale(0.98); }
+    .play-btn[disabled] { opacity: 0.3; cursor: default; background: #555; }
+    .play-icon {
+      font-size: 10px;
+      display: inline-block;
+      width: 14px;
+      text-align: center;
+    }
+    .reset-btn {
+      background: none;
+      border: 1px solid rgba(18,17,24,0.2);
+      color: #555;
+      padding: 9px 14px;
+      border-radius: 999px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .reset-btn:hover { background: rgba(18,17,24,0.05); color: #121118; }
+    .phase-dots {
+      display: inline-flex;
+      gap: 7px;
+      margin-left: auto;
+    }
+    .phase-dots .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: rgba(18,17,24,0.15);
+      transition: background 0.3s;
+    }
+    .phase-dots .dot.active { background: #C0392B; }
+    .phase-dots .dot.done { background: #0D5921; }
+
     .legend {
       display: flex;
       flex-wrap: wrap;
@@ -287,6 +350,18 @@
       <div class="chart-wrapper">
         <canvas id="identityChart"></canvas>
       </div>
+      <div class="player">
+        <button class="play-btn" id="playBtn" aria-label="Play">
+          <span class="play-icon" id="playIcon">▶</span>
+          <span class="play-text" id="playText">Draw the trend</span>
+        </button>
+        <button class="reset-btn" id="resetBtn" aria-label="Reset">↺ Reset</button>
+        <div class="phase-dots" id="phaseDots">
+          <span class="dot" data-phase="0"></span>
+          <span class="dot" data-phase="1"></span>
+          <span class="dot" data-phase="2"></span>
+        </div>
+      </div>
       <div class="legend" id="legend"></div>
       <div class="source">
         Source: <a href="https://esc.nccu.edu.tw/PageDoc/Detail?fid=7800&id=6961" target="_blank" rel="noopener">Election Study Center, National Chengchi University</a>. Last updated December 2025.
@@ -395,18 +470,125 @@
       [2025, 62.0, 31.7,  2.5,  3.8],
     ];
 
-    const labels = series.map(r => r[0]);
+    const HIST_YEARS = series.map(r => r[0]);
+    const HIST_LAST = HIST_YEARS[HIST_YEARS.length - 1]; // 2025
+
+    // ── Speculative future scenario (NOT real data) ──
+    // Chart extends 50% to the right. Lines drift to:
+    //   Taiwanese (green)  62.0 → 50.0
+    //   Both      (pink)   31.7 → 40.0
+    //   Chinese   (blue)    2.5 → 10.0
+    //   No-resp   (grey)    3.8 →  0.0  (forced to keep total at 100)
+    // Drift years span ~17 ticks (~50% of 33 historical points).
+    const FUTURE_TICKS = Math.round(HIST_YEARS.length * 0.5); // 17
+    const futureLabels = Array.from({length: FUTURE_TICKS}, () => '');
+    const allLabels = [...HIST_YEARS.map(String), ...futureLabels];
+
+    // Deterministic pseudo-random wobble so lines look organic, not linear.
+    function mulberry32(a) {
+      return function() {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        let t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function buildFuturePath(startVal, endVal, seedSalt, amplitude) {
+      const rand = mulberry32(0xC0FFEE + seedSalt);
+      const out = [];
+      let smoothed = 0;
+      for (let i = 1; i <= FUTURE_TICKS; i++) {
+        const t = i / FUTURE_TICKS;
+        const baseline = startVal + (endVal - startVal) * t;
+        // 1st-order low-pass on noise so the wobble is organic, not jagged
+        const raw = (rand() - 0.5) * 2 * amplitude;
+        smoothed = smoothed * 0.55 + raw * 0.45;
+        // Damp wobble at the very end so the line lands cleanly on endVal
+        const damp = 1 - Math.pow(t, 2.2) * 0.85;
+        out.push(+(baseline + smoothed * damp).toFixed(2));
+      }
+      // Force terminal point to exact target
+      out[out.length - 1] = endVal;
+      return out;
+    }
+
+    const FUTURE_TARGETS = {
+      taiwanese: 50.0,
+      both:      40.0,
+      chinese:   10.0,
+      none:       0.0,
+    };
+    const FUTURE_AMPS = { taiwanese: 3.2, both: 2.6, chinese: 1.4, none: 0.6 };
+
     const lines = [
-      { key: 'taiwanese', name: 'Taiwanese',                 zh: '臺灣人',       color: '#0D5921', col: 1, width: 3.5 },
-      { key: 'both',      name: 'Both Taiwanese and Chinese',zh: '都是',         color: '#B83A8C', col: 2, width: 2.5 },
-      { key: 'chinese',   name: 'Chinese',                   zh: '中國人',       color: '#1F4DB8', col: 3, width: 2.5 },
-      { key: 'none',      name: 'No response',               zh: '無反應',       color: '#7a7568', col: 4, width: 1.5, dashed: true },
+      { key: 'taiwanese', name: 'Taiwanese',                 zh: '臺灣人', color: '#0D5921', col: 1, width: 3.5 },
+      { key: 'both',      name: 'Both Taiwanese and Chinese',zh: '都是',   color: '#B83A8C', col: 2, width: 2.5 },
+      { key: 'chinese',   name: 'Chinese',                   zh: '中國人', color: '#1F4DB8', col: 3, width: 2.5 },
+      { key: 'none',      name: 'No response',               zh: '無反應', color: '#7a7568', col: 4, width: 1.5, dashed: true },
     ];
 
-    // Annotation plugin: vertical event markers + crossover note
+    // Pre-compute historical + future arrays per line
+    lines.forEach((l, idx) => {
+      l.hist = series.map(r => r[l.col]);
+      l.future = buildFuturePath(
+        l.hist[l.hist.length - 1],
+        FUTURE_TARGETS[l.key],
+        idx * 17,
+        FUTURE_AMPS[l.key]
+      );
+      l.full = [...l.hist, ...l.future];
+    });
+
+    // State for animated reveal
+    const reveal = {
+      lineProgress: 0,    // 0 → HIST_YEARS.length-1 (historical draw-on)
+      futureProgress: 0,  // 0 → FUTURE_TICKS (speculative extension)
+      historyDone: false,
+      futureDone: false,
+    };
+
+    // Annotation plugin: vertical event markers + speculative-zone tint
     const annotations = {
       id: 'annotations',
+      beforeDatasetsDraw(chart) {
+        // Tint the speculative future zone
+        if (reveal.futureProgress <= 0) return;
+        const ctx = chart.ctx;
+        const xScale = chart.scales.x;
+        const area = chart.chartArea;
+        const xStart = xScale.getPixelForValue(HIST_YEARS.length - 1);
+        const xEnd   = xScale.getPixelForValue(HIST_YEARS.length - 1 + reveal.futureProgress);
+
+        ctx.save();
+        const grad = ctx.createLinearGradient(xStart, 0, xEnd, 0);
+        grad.addColorStop(0,    'rgba(192, 57, 43, 0.00)');
+        grad.addColorStop(0.15, 'rgba(192, 57, 43, 0.045)');
+        grad.addColorStop(1,    'rgba(192, 57, 43, 0.085)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(xStart, area.top, xEnd - xStart, area.bottom - area.top);
+
+        // Boundary line
+        ctx.strokeStyle = 'rgba(192, 57, 43, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 4]);
+        ctx.beginPath();
+        ctx.moveTo(xStart, area.top + 6);
+        ctx.lineTo(xStart, area.bottom);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // "Speculative" label
+        if (reveal.futureProgress > 1) {
+          ctx.font = "bold 9px 'Space Mono', monospace";
+          ctx.fillStyle = '#C0392B';
+          ctx.textAlign = 'left';
+          ctx.fillText('SPECULATIVE — NOT DATA', xStart + 8, area.top + 14);
+        }
+        ctx.restore();
+      },
       afterDatasetsDraw(chart) {
+        if (!reveal.historyDone) return;
         const ctx = chart.ctx;
         const xScale = chart.scales.x;
         const yScale = chart.scales.y;
@@ -419,7 +601,9 @@
 
         ctx.save();
         events.forEach(ev => {
-          const x = xScale.getPixelForValue(ev.year);
+          const idx = HIST_YEARS.indexOf(ev.year);
+          if (idx < 0) return;
+          const x = xScale.getPixelForValue(idx);
           const yTop = yScale.getPixelForValue(70);
           const yBot = yScale.getPixelForValue(0);
 
@@ -435,8 +619,8 @@
           ctx.font = "9px 'Space Mono', monospace";
           ctx.fillStyle = '#999';
           ctx.textAlign = 'center';
-          const lines = ev.label.split('\n');
-          lines.forEach((ln, i) => {
+          const lns = ev.label.split('\n');
+          lns.forEach((ln, i) => {
             ctx.fillText(ln.toUpperCase(), x, yTop - 18 + i * 11);
           });
         });
@@ -444,22 +628,29 @@
       }
     };
 
-    // End-of-line label plugin
+    // End-of-line label plugin — labels the LAST non-null point of each line
     const endLabels = {
       id: 'endLabels',
       afterDatasetsDraw(chart) {
+        if (reveal.lineProgress < 0.5) return;
         const ctx = chart.ctx;
         chart.data.datasets.forEach((ds, i) => {
           if (ds.hidden) return;
           const meta = chart.getDatasetMeta(i);
           if (!meta || !meta.data.length) return;
-          const last = meta.data[meta.data.length - 1];
-          const lastVal = ds.data[ds.data.length - 1];
-          if (!last) return;
+
+          let lastIdx = -1;
+          for (let j = ds.data.length - 1; j >= 0; j--) {
+            if (ds.data[j] !== null && ds.data[j] !== undefined) { lastIdx = j; break; }
+          }
+          if (lastIdx < 0) return;
+          const point = meta.data[lastIdx];
+          if (!point) return;
+          const val = ds.data[lastIdx];
 
           ctx.save();
           ctx.beginPath();
-          ctx.arc(last.x, last.y, 4, 0, Math.PI * 2);
+          ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
           ctx.fillStyle = '#FBF9EE';
           ctx.strokeStyle = ds.borderColor;
           ctx.lineWidth = 2;
@@ -470,20 +661,23 @@
           ctx.fillStyle = ds.borderColor;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.fillText(lastVal.toFixed(1) + '%', last.x + 10, last.y);
+          ctx.fillText(val.toFixed(1) + '%', point.x + 10, point.y);
           ctx.restore();
         });
       }
     };
 
-    const ctx = document.getElementById('identityChart').getContext('2d');
-    const chart = new Chart(ctx, {
+    // Build dataset arrays sized to full extent (history + future), all null initially.
+    function emptyArr() { return new Array(allLabels.length).fill(null); }
+
+    const ctxEl = document.getElementById('identityChart').getContext('2d');
+    const chart = new Chart(ctxEl, {
       type: 'line',
       data: {
-        labels,
+        labels: allLabels,
         datasets: lines.map(l => ({
           label: l.name,
-          data: series.map(r => r[l.col]),
+          data: emptyArr(),
           borderColor: l.color,
           backgroundColor: l.color + '14',
           borderWidth: l.width,
@@ -495,6 +689,7 @@
           pointHoverBorderColor: '#FBF9EE',
           pointHoverBorderWidth: 2,
           fill: false,
+          spanGaps: false,
         }))
       },
       options: {
@@ -515,23 +710,30 @@
             bodyFont: { family: "'Space Mono', monospace", size: 12 },
             displayColors: true,
             boxWidth: 8, boxHeight: 8, boxPadding: 6,
+            filter: (item) => item.parsed.y != null,
             callbacks: {
-              title: (items) => items[0].label,
+              title: (items) => {
+                const i = items[0].dataIndex;
+                if (i < HIST_YEARS.length) return String(HIST_YEARS[i]);
+                return 'speculative';
+              },
               label: (c) => ` ${c.dataset.label}: ${c.parsed.y.toFixed(1)}%`,
             }
           }
         },
         scales: {
           x: {
+            min: 0,
+            max: HIST_YEARS.length - 1,  // start showing only history
             grid: { display: false },
             ticks: {
               font: { family: "'Space Mono', monospace", size: 11 },
               color: '#888',
               maxRotation: 0,
-              autoSkip: true,
-              autoSkipPadding: 16,
+              autoSkip: false,
               callback: function(_, i) {
-                const y = labels[i];
+                if (i >= HIST_YEARS.length) return '';  // future = no labels
+                const y = HIST_YEARS[i];
                 return [1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020, 2025].includes(y)
                   ? "'" + String(y).slice(2) : '';
               }
@@ -551,10 +753,151 @@
             }
           }
         },
-        animation: { duration: 1100, easing: 'easeOutQuart' }
+        animation: false   // we drive animation manually
       },
       plugins: [annotations, endLabels]
     });
+
+    // ── Animation engine ──
+    // Phase 0: empty.   Phase 1: draw historical.   Phase 2: extend speculative.
+    let phase = 0;
+    let animating = false;
+    let animGen = 0;
+
+    const playBtn  = document.getElementById('playBtn');
+    const playIcon = document.getElementById('playIcon');
+    const playText = document.getElementById('playText');
+    const resetBtn = document.getElementById('resetBtn');
+    const dots = [...document.querySelectorAll('#phaseDots .dot')];
+
+    function setData(progressLine, progressFuture) {
+      // progressLine: float [0, HIST_YEARS.length-1]   how far through history
+      // progressFuture: float [0, FUTURE_TICKS]         how far into speculative
+      lines.forEach((l, di) => {
+        const arr = chart.data.datasets[di].data;
+        for (let i = 0; i < arr.length; i++) arr[i] = null;
+
+        // Historical portion
+        const histEnd = Math.min(progressLine, HIST_YEARS.length - 1);
+        const histFloor = Math.floor(histEnd);
+        for (let i = 0; i <= histFloor; i++) arr[i] = l.hist[i];
+        if (histFloor < HIST_YEARS.length - 1 && histEnd > histFloor) {
+          const frac = histEnd - histFloor;
+          arr[histFloor + 1] = l.hist[histFloor] + (l.hist[histFloor + 1] - l.hist[histFloor]) * frac;
+        }
+
+        // Future portion (only meaningful once history is fully drawn)
+        if (progressFuture > 0 && progressLine >= HIST_YEARS.length - 1) {
+          const fEnd = Math.min(progressFuture, FUTURE_TICKS);
+          const fFloor = Math.floor(fEnd);
+          for (let i = 0; i < fFloor; i++) arr[HIST_YEARS.length + i] = l.future[i];
+          if (fFloor < FUTURE_TICKS && fEnd > fFloor) {
+            const prev = fFloor === 0 ? l.hist[l.hist.length - 1] : l.future[fFloor - 1];
+            const next = l.future[fFloor];
+            const frac = fEnd - fFloor;
+            arr[HIST_YEARS.length + fFloor] = prev + (next - prev) * frac;
+          }
+        }
+      });
+    }
+
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+    function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
+
+    function setPhaseDots() {
+      dots.forEach((d, i) => {
+        d.classList.remove('active', 'done');
+        if (i < phase) d.classList.add('done');
+        else if (i === phase) d.classList.add('active');
+      });
+    }
+
+    function setBtnState() {
+      if (phase === 0) { playIcon.textContent = '▶'; playText.textContent = 'Draw the trend'; }
+      else if (phase === 1) { playIcon.textContent = '⤳'; playText.textContent = 'Imagine a future'; }
+      else { playIcon.textContent = '✓'; playText.textContent = 'End of sequence'; }
+      playBtn.disabled = phase >= 2 || animating;
+      resetBtn.disabled = animating;
+    }
+
+    function animateTo(targetLine, targetFuture, durationMs, ease, xMaxStart, xMaxEnd) {
+      return new Promise(resolve => {
+        const myGen = ++animGen;
+        animating = true;
+        setBtnState();
+        const t0 = performance.now();
+        const startLine = reveal.lineProgress;
+        const startFuture = reveal.futureProgress;
+
+        function tick(now) {
+          if (myGen !== animGen) { resolve(); return; }
+          const t = Math.min((now - t0) / durationMs, 1);
+          const e = ease(t);
+          reveal.lineProgress   = startLine   + (targetLine   - startLine)   * e;
+          reveal.futureProgress = startFuture + (targetFuture - startFuture) * e;
+          if (xMaxStart !== undefined && xMaxEnd !== undefined) {
+            chart.options.scales.x.max = xMaxStart + (xMaxEnd - xMaxStart) * e;
+          }
+          setData(reveal.lineProgress, reveal.futureProgress);
+          chart.update('none');
+          if (t < 1) requestAnimationFrame(tick);
+          else { animating = false; resolve(); }
+        }
+        requestAnimationFrame(tick);
+      });
+    }
+
+    async function playPhase1() {
+      // Draw history from blank → fully drawn
+      reveal.historyDone = false;
+      await animateTo(HIST_YEARS.length - 1, 0, 2400, easeOutCubic);
+      reveal.historyDone = true;
+      reveal.lineProgress = HIST_YEARS.length - 1;
+      setData(reveal.lineProgress, 0);
+      chart.update('none');
+      phase = 1;
+      setPhaseDots();
+      setBtnState();
+    }
+
+    async function playPhase2() {
+      // Extend chart 50% to the right + draw speculative wobble
+      const xMaxStart = HIST_YEARS.length - 1;
+      const xMaxEnd   = HIST_YEARS.length - 1 + FUTURE_TICKS;
+      await animateTo(HIST_YEARS.length - 1, FUTURE_TICKS, 3200, easeInOutCubic, xMaxStart, xMaxEnd);
+      reveal.futureDone = true;
+      phase = 2;
+      setPhaseDots();
+      setBtnState();
+    }
+
+    function reset() {
+      animGen++;          // cancel any in-flight animation
+      animating = false;
+      phase = 0;
+      reveal.lineProgress = 0;
+      reveal.futureProgress = 0;
+      reveal.historyDone = false;
+      reveal.futureDone = false;
+      chart.options.scales.x.max = HIST_YEARS.length - 1;
+      setData(0, 0);
+      chart.update('none');
+      setPhaseDots();
+      setBtnState();
+    }
+
+    playBtn.addEventListener('click', () => {
+      if (animating) return;
+      if (phase === 0) playPhase1();
+      else if (phase === 1) playPhase2();
+    });
+    resetBtn.addEventListener('click', reset);
+
+    // Initial state: empty chart, history range
+    setData(0, 0);
+    chart.update('none');
+    setPhaseDots();
+    setBtnState();
 
     // Build legend
     const legendEl = document.getElementById('legend');
