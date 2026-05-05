@@ -808,9 +808,39 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
 .save-status--fade {
   opacity: 0;
 }
+.save-status--dirty .save-dot { background: var(--np-yellow); }
+.save-status--conflict {
+  color: var(--np-red);
+  background: rgba(221, 44, 30, 0.06);
+}
+.save-status--conflict:hover { background: rgba(221, 44, 30, 0.12); }
+.save-status--conflict .save-dot {
+  background: var(--np-red);
+  animation: save-pulse 1s ease-in-out infinite;
+}
 @keyframes save-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%      { opacity: 0.4; transform: scale(0.8); }
+}
+
+.library-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: rgba(221, 44, 30, 0.08);
+  border: 1px solid var(--np-red);
+  border-radius: 3px;
+  padding: 12px 14px;
+  margin: 0 0 16px 0;
+}
+.library-error-banner-text { font-family: var(--np-font-mono); font-size: 12px; color: var(--np-ink); line-height: 1.5; }
+.library-error-banner-text strong { color: var(--np-red); }
+.library-error-banner-detail {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--np-sepia);
+  word-break: break-word;
 }
 
 /* ── Library: Drive-style ── */

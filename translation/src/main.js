@@ -5,7 +5,8 @@ import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError } from './db.js';
+import { saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan } from './snapshot.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
 import { mountTagSearch } from './tags/mount.js';
@@ -44,6 +45,7 @@ let summaryBullets = [];      // parsed bullet data: [{ id, rawText, enrichedTex
 let interestVotes = {};       // { segNum: 'interested' | 'not-interested' }
 let wordTimingsMap = null;    // JSON word-level timings: { segNum: { start, end } }
 let currentSlug = null;       // clean URL slug for permalink
+let lastServerUpdatedAt = null; // last updated_at the server confirmed for this transcript (optimistic concurrency)
 let libraryCurrentProject = null;  // null = root (show all projects + unsorted)
 let librarySortKey = 'updated_at';
 let librarySortAsc = false;
@@ -163,60 +165,42 @@ function showLibrary() {
 }
 
 // ── Library ──
-async function fetchLibrary(forceRefresh) {
-  // 1. Memory cache hit (fresh) — return immediately
-  if (!forceRefresh && libraryCache && (Date.now() - libraryCache.ts < LIBRARY_CACHE_TTL)) {
-    renderLibrary(libraryCache.transcripts, libraryCache.projects, libraryCache.deleted);
-    return;
-  }
-
-  // 2. Cold load: hydrate from localStorage (stale-while-revalidate) so the
-  // user sees something in <100ms even if the network is slow.
+//
+// Phase 1: always revalidate against Supabase when entering the library.
+// The disk cache is shown instantly while the fetch is in flight (so the
+// list pops up in <100ms), but it is NEVER trusted as the final answer.
+// If the fetch fails, we surface a visible error banner — no more silent
+// ghost rows that fail when clicked.
+async function fetchLibrary() {
+  // Stale-while-revalidate: paint the disk cache immediately if we have
+  // it, then always re-fetch from Supabase.
   let renderedFromDisk = false;
-  if (!forceRefresh && !libraryCache) {
-    const disk = loadLibraryCacheFromDisk();
-    if (disk && (disk.transcripts?.length || disk.projects?.length)) {
-      libraryCache = disk;
-      projects = disk.projects || [];
-      renderLibrary(disk.transcripts, disk.projects, disk.deleted);
-      renderedFromDisk = true;
-    }
-  }
-
-  // 3. If we still have nothing on screen, show a skeleton while we wait.
-  if (!renderedFromDisk) {
+  const disk = loadLibraryCacheFromDisk();
+  if (disk && (disk.transcripts?.length || disk.projects?.length)) {
+    projects = disk.projects || [];
+    renderLibrary(disk.transcripts, disk.projects, disk.deleted);
+    renderedFromDisk = true;
+  } else {
     renderLibrarySkeleton();
   }
 
-  // 4. Fetch transcripts+projects in parallel; render the second they're back.
-  // listDeletedTranscripts is the slowest and only matters at root view, so
-  // we fire it independently and patch in when it lands.
   let transcripts = [];
   let p = [];
   try {
     [p, transcripts] = await Promise.all([listProjects(), listTranscripts()]);
     projects = p;
-    // Render with whatever deleted we have cached (probably stale or empty)
-    const deletedSoFar = libraryCache?.deleted || [];
-    libraryCache = {
-      transcripts,
-      projects,
-      deleted: deletedSoFar,
-      ts: Date.now(),
-    };
+    const deletedSoFar = libraryCache?.deleted || disk?.deleted || [];
+    libraryCache = { transcripts, projects, deleted: deletedSoFar, ts: Date.now() };
     renderLibrary(transcripts, projects, deletedSoFar);
     saveLibraryCacheToDisk(libraryCache);
+    clearLibraryError();
   } catch (err) {
-    if (!renderedFromDisk) {
-      libraryList.innerHTML = '';
-      libraryEmpty.classList.remove('hidden');
-    }
     console.error('Failed to load library:', err);
+    showLibraryError(err, renderedFromDisk);
     return;
   }
 
-  // 5. Fetch deleted in the background; only re-render if root view is
-  // still showing (deleted only appears there).
+  // Fetch deleted transcripts in the background — only matters at root.
   try {
     const deleted = await listDeletedTranscripts();
     libraryCache = { ...libraryCache, deleted, ts: Date.now() };
@@ -224,9 +208,36 @@ async function fetchLibrary(forceRefresh) {
     if (libraryShowing && !libraryCurrentProject) {
       renderLibrary(transcripts, projects, deleted);
     }
-  } catch {
-    // Deleted is non-critical; ignore.
+  } catch (err) {
+    console.warn('Could not load deleted transcripts:', err);
   }
+}
+
+function showLibraryError(err, hasStaleData) {
+  let banner = document.getElementById('library-error-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'library-error-banner';
+    banner.className = 'library-error-banner';
+    libraryView.insertBefore(banner, libraryView.firstChild);
+  }
+  const detail = err?.message || String(err);
+  const stalenote = hasStaleData
+    ? 'Showing your last cached list — some items may be out of date or no longer exist.'
+    : 'Could not load your library.';
+  banner.innerHTML = `
+    <div class="library-error-banner-text">
+      <strong>Library refresh failed.</strong> ${escapeHtmlSafe(stalenote)}
+      <div class="library-error-banner-detail">${escapeHtmlSafe(detail)}</div>
+    </div>
+    <button class="np-button" id="library-error-retry">Retry</button>
+  `;
+  document.getElementById('library-error-retry').addEventListener('click', () => fetchLibrary());
+}
+
+function clearLibraryError() {
+  const banner = document.getElementById('library-error-banner');
+  if (banner) banner.remove();
 }
 
 function renderLibrarySkeleton() {
@@ -645,101 +656,175 @@ if (transcriptTitleEl) {
   });
 }
 
+// Apply a server transcript row to our global state vars. Used by both
+// the regular load path and the snapshot-restore path.
+function applyTranscriptToState(t) {
+  segments = t.segments || [];
+  analysis = t.analysis || null;
+  translations = t.translations || [];
+  srtContent = t.srt_content || '';
+  speakerColors = t.speaker_colors || {};
+  annotations = t.annotations || {};
+  speakerMap = t.speaker_map || {};
+  hiddenSpeakers = t.hidden_speakers || [];
+  hideUnintelligible = t.hide_unintelligible ?? true;
+  customSequenceName = t.custom_sequence_name || '';
+  currentProjectId = t.project_id || null;
+  editorState = t.editor_state || null;
+  wordTimingsMap = t.wordTimings || t.word_timings || null;
+  currentTranscriptId = t.id;
+  currentTranscriptName = t.name;
+  currentSlug = t.slug || null;
+}
+
+// Overlay a snapshot's gatherState()-shape payload onto our state vars.
+// Run this AFTER applyTranscriptToState(serverRow) so that id/slug/etc.
+// stay correct but the local content (which is newer) wins.
+function applySnapshotPayload(payload) {
+  if (!payload) return;
+  if (payload.segments !== undefined) segments = payload.segments;
+  if (payload.analysis !== undefined) analysis = payload.analysis;
+  if (payload.translations !== undefined) translations = payload.translations;
+  if (payload.srtContent !== undefined) srtContent = payload.srtContent;
+  if (payload.speakerColors !== undefined) speakerColors = payload.speakerColors;
+  if (payload.annotations !== undefined) annotations = payload.annotations;
+  if (payload.speakerMap !== undefined) speakerMap = payload.speakerMap;
+  if (payload.hiddenSpeakers !== undefined) hiddenSpeakers = payload.hiddenSpeakers;
+  if (payload.hideUnintelligible !== undefined) hideUnintelligible = payload.hideUnintelligible;
+  if (payload.customSequenceName !== undefined) customSequenceName = payload.customSequenceName;
+  if (payload.editorState !== undefined) editorState = payload.editorState;
+  if (payload.wordTimings !== undefined) wordTimingsMap = payload.wordTimings;
+  if (payload.metadata) {
+    if (payload.metadata.summary !== undefined) currentSummary = payload.metadata.summary ? enrichSummaryWithTimecodes(payload.metadata.summary) : null;
+    if (payload.metadata.rawSummary !== undefined) rawSummary = payload.metadata.rawSummary;
+    if (payload.metadata.summaryBullets !== undefined) summaryBullets = payload.metadata.summaryBullets;
+    if (payload.metadata.interestVotes !== undefined) interestVotes = payload.metadata.interestVotes;
+    if (payload.metadata.workshop !== undefined) workshopState = payload.metadata.workshop;
+  }
+}
+
+// Modal: ask the user whether to restore a local snapshot that's newer
+// than the server's copy. Resolves true if they want to restore.
+function promptSnapshotRestore(serverRow, snap) {
+  return new Promise((resolve) => {
+    const existing = document.getElementById('snapshot-restore-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'snapshot-restore-modal';
+    modal.className = 'np-modal';
+    const serverWhen = serverRow.updated_at ? new Date(serverRow.updated_at).toLocaleString() : 'unknown';
+    const snapWhen = snap.savedAt ? new Date(snap.savedAt).toLocaleString() : 'unknown';
+    modal.innerHTML = `
+      <div class="np-modal-backdrop"></div>
+      <div class="np-modal-card" style="max-width: 540px;">
+        <div class="np-modal-header">
+          <h3 class="np-modal-title">Newer local copy found</h3>
+        </div>
+        <p style="font-family: var(--np-font-mono); font-size: 13px; line-height: 1.5; margin-bottom: 14px;">Your browser has a newer snapshot of <b>${escapeHtmlSafe(serverRow.name)}</b> than the cloud. This usually means a previous save didn't reach the server.</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 22px; font-family: var(--np-font-mono); font-size: 12px;">
+          <div><div style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--np-sepia); margin-bottom: 4px;">Cloud</div><div>${escapeHtmlSafe(serverWhen)}</div></div>
+          <div><div style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--np-sepia); margin-bottom: 4px;">Local snapshot</div><div>${escapeHtmlSafe(snapWhen)}</div></div>
+        </div>
+        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+          <button class="np-button" id="snap-discard">Use cloud version</button>
+          <button class="np-button np-button--primary" id="snap-restore">Restore local</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    document.getElementById('snap-discard').addEventListener('click', () => { modal.remove(); resolve(false); });
+    document.getElementById('snap-restore').addEventListener('click', () => { modal.remove(); resolve(true); });
+  });
+}
+
 async function handleLoad(id) {
   try {
     const t = await loadTranscript(id);
 
-    // Restore state
-    segments = t.segments || [];
-    analysis = t.analysis || null;
-    translations = t.translations || [];
-    srtContent = t.srt_content || '';
-    speakerColors = t.speaker_colors || {};
-    annotations = t.annotations || {};
-    speakerMap = t.speaker_map || {};
-    hiddenSpeakers = t.hidden_speakers || [];
-    hideUnintelligible = t.hide_unintelligible ?? true;
-    customSequenceName = t.custom_sequence_name || '';
-    currentProjectId = t.project_id || null;
-    editorState = t.editor_state || null;
-    wordTimingsMap = t.wordTimings || t.word_timings || null;
-    currentTranscriptId = t.id;
-    currentTranscriptName = t.name;
-    currentSlug = t.slug || null;
-    rememberLastTranscript(t.id);
-    updateTranscriptTitle();
-    // Sync editor colors with saved speaker colors
-    syncEditorColors();
-    // Reset editor instance so it remounts with new state
-    const editorMount = $('#editor-mount');
-    if (editorMount) editorMount.innerHTML = '';
-    editorInstance = null;
-
-    // Restore metadata
-    const meta = t.metadata || {};
-    if (meta.editorialFocus) {
-      const ef = $('#editorial-focus');
-      if (ef) ef.value = meta.editorialFocus;
-    }
-    currentSummary = meta.summary ? enrichSummaryWithTimecodes(meta.summary) : null;
-    rawSummary = meta.rawSummary || null;
-    summaryBullets = meta.summaryBullets || [];
-    interestVotes = meta.interestVotes || {};
-    workshopState = meta.workshop || null;
-    unmountWorkshop(); // force re-mount on next view switch with fresh transcript context
-
-    // Re-parse bullets for transcripts saved before voting feature
-    if (summaryBullets.length === 0 && rawSummary) {
-      summaryBullets = parseSummaryBullets(rawSummary);
-      attachEnrichedTextToBullets();
-    } else if (summaryBullets.length === 0 && currentSummary) {
-      // No raw summary stored — parse from enriched text with timecode reverse-mapping
-      summaryBullets = parseSummaryBulletsFromEnriched(currentSummary);
-    }
-
-    // Re-render based on step
-    const step = t.step || 1;
-
-    if (segments.length > 0) {
-      renderTranscript();
-    }
-
-    if (analysis) {
-      renderAnalysis();
-      renderClarifyStep();
-
-      // Restore clarification answers
-      if (meta.clarifications && analysis.questions) {
-        const answers = meta.clarifications;
-        $$('#questions-list .question-card').forEach(card => {
-          const qid = card.dataset.qid;
-          const match = answers.find(a => a.id === qid);
-          if (match) {
-            const ta = card.querySelector('textarea');
-            if (ta) ta.value = match.answer;
-          }
-        });
+    // Snapshot recovery: if we have a newer local snapshot than what the
+    // server returned, ask the user whether to restore it. Common scenario:
+    // the previous save attempt failed (network blip, tab closed mid-save),
+    // and the server holds an older copy than what's in this browser.
+    const snap = loadSnapshot(t.id);
+    if (snap && isSnapshotNewerThan(snap, t.updated_at)) {
+      const restore = await promptSnapshotRestore(t, snap);
+      if (restore) {
+        applyTranscriptToState(t);
+        applySnapshotPayload(snap.payload);
+        lastServerUpdatedAt = t.updated_at; // server still on the older version
+        rememberLastTranscript(t.id);
+        finishLoadRender(t, /*step override*/ undefined);
+        markDirty();
+        debouncedAutoSave();
+        return;
       }
+      clearSnapshot(t.id);
     }
 
-    if (translations.length > 0) {
-      renderTranslations();
-    }
-
-    if (srtContent) {
-      $('#srt-preview').textContent = srtContent;
-    }
-
-    goToStep(step);
-
-    // If loaded into editor step, mount the editor view
-    if (step === 5) {
-      switchView('editor');
-    }
+    applyTranscriptToState(t);
+    lastServerUpdatedAt = t.updated_at;
+    rememberLastTranscript(t.id);
+    finishLoadRender(t);
   } catch (err) {
     console.error('Failed to load transcript:', err);
     showError('Failed to load transcript: ' + err.message);
   }
+}
+
+// Common post-load rendering: title, editor mount reset, metadata, step nav.
+// Used by both the regular load path and snapshot-restore path.
+function finishLoadRender(t) {
+  updateTranscriptTitle();
+  syncEditorColors();
+  const editorMount = $('#editor-mount');
+  if (editorMount) editorMount.innerHTML = '';
+  editorInstance = null;
+
+  const meta = t.metadata || {};
+  if (meta.editorialFocus) {
+    const ef = $('#editorial-focus');
+    if (ef) ef.value = meta.editorialFocus;
+  }
+  // Snapshot-restore path may have already populated these from the snapshot;
+  // only fall back to server metadata if they're empty.
+  if (currentSummary == null && meta.summary) currentSummary = enrichSummaryWithTimecodes(meta.summary);
+  if (rawSummary == null && meta.rawSummary) rawSummary = meta.rawSummary;
+  if ((!summaryBullets || summaryBullets.length === 0) && meta.summaryBullets) summaryBullets = meta.summaryBullets;
+  if (Object.keys(interestVotes || {}).length === 0 && meta.interestVotes) interestVotes = meta.interestVotes;
+  if (workshopState == null && meta.workshop) workshopState = meta.workshop;
+  unmountWorkshop();
+
+  if (summaryBullets.length === 0 && rawSummary) {
+    summaryBullets = parseSummaryBullets(rawSummary);
+    attachEnrichedTextToBullets();
+  } else if (summaryBullets.length === 0 && currentSummary) {
+    summaryBullets = parseSummaryBulletsFromEnriched(currentSummary);
+  }
+
+  const step = t.step || 1;
+
+  if (segments.length > 0) renderTranscript();
+  if (analysis) {
+    renderAnalysis();
+    renderClarifyStep();
+    if (meta.clarifications && analysis.questions) {
+      const answers = meta.clarifications;
+      $$('#questions-list .question-card').forEach(card => {
+        const qid = card.dataset.qid;
+        const match = answers.find(a => a.id === qid);
+        if (match) {
+          const ta = card.querySelector('textarea');
+          if (ta) ta.value = match.answer;
+        }
+      });
+    }
+  }
+  if (translations.length > 0) renderTranslations();
+  if (srtContent) $('#srt-preview').textContent = srtContent;
+
+  goToStep(step);
+  if (step === 5) switchView('editor');
 }
 
 async function handleDelete(id) {
@@ -789,30 +874,62 @@ function gatherState(name) {
   };
 }
 
-// ── Save status indicator ──
+// ──────────────────────────────────────────────────────────────────────────
+// Save state machine + queue (Phase 1)
+//
+// One transcript, one save in flight at a time. If a new save request
+// arrives while one is already going, it replaces the queued payload — so
+// the next save is always the latest state, never a stale one.
+//
+// Updates use optimistic concurrency: we track lastServerUpdatedAt and
+// pass it to updateTranscript. If the server's row was changed elsewhere
+// (other tab, another device), the save returns CONFLICT and we surface
+// a modal instead of clobbering.
+//
+// On every successful save, we mirror the payload to localStorage via
+// snapshot.js so we always have a recovery copy if the cloud loses one.
+//
+// States: clean → dirty → saving → saved | conflict | error
+// ──────────────────────────────────────────────────────────────────────────
+
 const saveStatusEl = document.getElementById('save-status');
 let saveStatusTimer = null;
 let lastSaveError = null;
+let saveState = 'clean';   // clean | dirty | saving | saved | conflict | error
+let saveInFlight = false;  // is a save request currently awaiting response
+let pendingSave = false;   // is a debounce timer queued
+let nextSavePending = false; // is another save needed after the in-flight one finishes
+let debouncedAutoSaveTimer = null;
+const AUTOSAVE_DEBOUNCE_MS = 3000;
 
-function updateSaveStatus(state, errMsg) {
+function setSaveState(state, detail) {
+  saveState = state;
   if (!saveStatusEl) return;
   clearTimeout(saveStatusTimer);
-  saveStatusEl.classList.remove('save-status--error', 'save-status--fade', 'save-status--saving', 'save-status--saved');
+  saveStatusEl.classList.remove('save-status--error', 'save-status--fade', 'save-status--saving', 'save-status--saved', 'save-status--conflict', 'save-status--dirty');
+  saveStatusEl.style.cursor = '';
+  saveStatusEl.title = '';
 
-  if (state === 'saving') {
+  if (state === 'clean') {
+    saveStatusEl.innerHTML = '';
+  } else if (state === 'dirty') {
+    saveStatusEl.classList.add('save-status--dirty');
+    saveStatusEl.innerHTML = '<span class="save-dot"></span>Unsaved';
+    saveStatusEl.title = 'Press ⌘S to save now';
+  } else if (state === 'saving') {
     saveStatusEl.classList.add('save-status--saving');
-    saveStatusEl.innerHTML = '<span class="save-dot"></span>Saving...';
+    saveStatusEl.innerHTML = '<span class="save-dot"></span>Saving…';
   } else if (state === 'saved') {
     saveStatusEl.classList.add('save-status--saved');
-    const local = getStorageInfo() === 'local';
-    saveStatusEl.innerHTML = (local
-      ? '<span class="save-dot"></span>Saved locally'
-      : '<span class="save-dot"></span>Saved');
-    saveStatusTimer = setTimeout(() => {
-      saveStatusEl.classList.add('save-status--fade');
-    }, 4000);
+    saveStatusEl.innerHTML = '<span class="save-dot"></span>Saved';
+    saveStatusTimer = setTimeout(() => saveStatusEl.classList.add('save-status--fade'), 4000);
+  } else if (state === 'conflict') {
+    saveStatusEl.classList.add('save-status--error');
+    saveStatusEl.innerHTML = '<span class="save-dot"></span>Conflict · click to resolve';
+    saveStatusEl.style.cursor = 'pointer';
+    saveStatusEl.title = 'This transcript was modified elsewhere — click to resolve';
   } else if (state === 'error') {
-    lastSaveError = errMsg || 'Unknown error';
+    lastSaveError = detail?.message || String(detail) || 'Unknown error';
     saveStatusEl.classList.add('save-status--error');
     saveStatusEl.innerHTML = '<span class="save-dot"></span>Save failed · click for details';
     saveStatusEl.style.cursor = 'pointer';
@@ -820,8 +937,108 @@ function updateSaveStatus(state, errMsg) {
   }
 }
 
+function markDirty() {
+  if (saveState !== 'saving' && saveState !== 'conflict' && saveState !== 'error') {
+    setSaveState('dirty');
+  }
+}
+
+// Public entry points used throughout the app.
+function debouncedAutoSave() {
+  if (!currentTranscriptId && segments.length === 0) return; // nothing to save
+  clearTimeout(debouncedAutoSaveTimer);
+  pendingSave = true;
+  markDirty();
+  debouncedAutoSaveTimer = setTimeout(() => {
+    pendingSave = false;
+    debouncedAutoSaveTimer = null;
+    runSaveOnce();
+  }, AUTOSAVE_DEBOUNCE_MS);
+}
+
+// Force any pending/queued save to fire immediately. Returns the save
+// promise so callers can await before navigating away.
+async function flushPendingSave() {
+  clearTimeout(debouncedAutoSaveTimer);
+  debouncedAutoSaveTimer = null;
+  pendingSave = false;
+  return runSaveOnce({ awaitInFlight: true });
+}
+
+// Manual save (Cmd-S / Ctrl-S). Same as flush.
+async function manualSave() {
+  return flushPendingSave();
+}
+
+async function runSaveOnce(opts = {}) {
+  // If something is already in flight, just mark that another save is
+  // needed when it finishes. Latest state wins.
+  if (saveInFlight) {
+    nextSavePending = true;
+    if (opts.awaitInFlight) {
+      // Wait until the chain settles.
+      while (saveInFlight || nextSavePending) {
+        await new Promise(r => setTimeout(r, 30));
+      }
+    }
+    return;
+  }
+  saveInFlight = true;
+  setSaveState('saving');
+  try {
+    const payload = gatherState();
+    payload.metadata = { ...payload.metadata, segmentCount: segments.length };
+
+    if (currentTranscriptId) {
+      const row = await updateTranscript(currentTranscriptId, payload, { expectedUpdatedAt: lastServerUpdatedAt });
+      lastServerUpdatedAt = row.updated_at;
+      saveSnapshot(currentTranscriptId, payload, row.updated_at);
+    } else {
+      const name = currentTranscriptName || generateAutoName();
+      payload.name = name;
+      const baseSlug = generateSlug(name);
+      payload.slug = await ensureUniqueSlug(baseSlug);
+      const row = await saveTranscript(payload);
+      currentTranscriptId = row.id;
+      currentTranscriptName = name;
+      currentSlug = row.slug || payload.slug;
+      lastServerUpdatedAt = row.updated_at;
+      rememberLastTranscript(row.id);
+      setPermalinkHash(currentSlug);
+      updateTranscriptTitle();
+      saveSnapshot(currentTranscriptId, payload, row.updated_at);
+    }
+    setSaveState('saved');
+    invalidateLibraryCache();
+  } catch (err) {
+    console.error('Save failed:', err);
+    if (err && err.code === 'CONFLICT') {
+      setSaveState('conflict', err);
+    } else {
+      setSaveState('error', err);
+    }
+  } finally {
+    saveInFlight = false;
+    if (nextSavePending) {
+      nextSavePending = false;
+      // Tail-call the next save — but only if we're not in an error state
+      // (don't auto-retry into the same failure).
+      if (saveState !== 'error' && saveState !== 'conflict') {
+        runSaveOnce();
+      }
+    }
+  }
+}
+
+// Click handler on the save status pill — opens conflict or error UI.
+if (saveStatusEl) {
+  saveStatusEl.addEventListener('click', () => {
+    if (saveState === 'conflict') openConflictModal();
+    else if (saveState === 'error') openSaveErrorModal();
+  });
+}
+
 function openSaveErrorModal() {
-  const local = getStorageInfo() === 'local';
   const errMsg = lastSaveError || '(no error message captured)';
   let modal = document.getElementById('save-error-modal');
   if (modal) modal.remove();
@@ -836,11 +1053,11 @@ function openSaveErrorModal() {
         <h3 class="np-modal-title" style="color: var(--np-red);">Save Failed</h3>
         <button class="np-modal-close" data-close-save-err aria-label="Close">×</button>
       </div>
-      <p style="font-family: var(--np-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--np-sepia); margin-bottom: 6px;">Storage mode</p>
-      <p style="margin-bottom: 18px; font-family: var(--np-font-mono); font-size: 13px;">${local ? 'localStorage (Supabase unreachable)' : 'Supabase'}</p>
-
       <p style="font-family: var(--np-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--np-sepia); margin-bottom: 6px;">Error</p>
       <pre style="background: rgba(221,44,30,0.06); border: 1px solid rgba(221,44,30,0.3); border-radius: 2px; padding: 12px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; color: var(--np-red); margin-bottom: 20px;">${escapeHtmlSafe(errMsg)}</pre>
+
+      <p style="font-family: var(--np-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--np-sepia); margin-bottom: 6px;">Recovery</p>
+      <p style="font-family: var(--np-font-mono); font-size: 12px; color: var(--np-sepia); margin-bottom: 20px; line-height: 1.5;">A local snapshot of your last successful save is kept in your browser. If retry fails, your work isn't lost.</p>
 
       <div style="display: flex; gap: 12px; justify-content: flex-end;">
         <button class="np-button" data-close-save-err>Close</button>
@@ -854,14 +1071,52 @@ function openSaveErrorModal() {
   });
   document.getElementById('save-retry-btn').addEventListener('click', () => {
     modal.remove();
-    autoSave();
+    runSaveOnce();
   });
 }
 
-if (saveStatusEl) {
-  saveStatusEl.addEventListener('click', () => {
-    if (!saveStatusEl.classList.contains('save-status--error')) return;
-    openSaveErrorModal();
+function openConflictModal() {
+  let modal = document.getElementById('save-conflict-modal');
+  if (modal) modal.remove();
+
+  modal = document.createElement('div');
+  modal.id = 'save-conflict-modal';
+  modal.className = 'np-modal';
+  modal.innerHTML = `
+    <div class="np-modal-backdrop" data-close-conflict></div>
+    <div class="np-modal-card" style="max-width: 560px;">
+      <div class="np-modal-header">
+        <h3 class="np-modal-title" style="color: var(--np-red);">Save Conflict</h3>
+        <button class="np-modal-close" data-close-conflict aria-label="Close">×</button>
+      </div>
+      <p style="font-family: var(--np-font-mono); font-size: 13px; line-height: 1.5; margin-bottom: 18px;">This transcript was modified somewhere else (another tab, another device, or a teammate). Your unsaved changes are still here in this tab.</p>
+      <p style="font-family: var(--np-font-mono); font-size: 12px; color: var(--np-sepia); margin-bottom: 20px; line-height: 1.5;"><b>Keep mine</b> overwrites the server with your version.<br/><b>Reload theirs</b> discards your local changes and pulls the latest from the cloud.</p>
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button class="np-button" data-close-conflict>Cancel</button>
+        <button class="np-button" id="conflict-reload-btn">Reload theirs</button>
+        <button class="np-button np-button--primary" id="conflict-overwrite-btn">Keep mine</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelectorAll('[data-close-conflict]').forEach(el => {
+    el.addEventListener('click', () => modal.remove());
+  });
+  // "Keep mine" — re-fetch server to learn its updated_at, then save with it.
+  document.getElementById('conflict-overwrite-btn').addEventListener('click', async () => {
+    modal.remove();
+    try {
+      const fresh = await loadTranscript(currentTranscriptId);
+      lastServerUpdatedAt = fresh.updated_at;
+      runSaveOnce();
+    } catch (err) {
+      setSaveState('error', err);
+    }
+  });
+  // "Reload theirs" — discard local edits and reload from server.
+  document.getElementById('conflict-reload-btn').addEventListener('click', () => {
+    modal.remove();
+    handleLoad(currentTranscriptId);
   });
 }
 
@@ -910,62 +1165,12 @@ async function ensureUniqueSlug(base, excludeId) {
   return slug;
 }
 
-async function autoSave() {
-  saveInFlight = true;
-  updateSaveStatus('saving');
-  try {
-    const payload = gatherState();
-    payload.metadata = { ...payload.metadata, segmentCount: segments.length };
-    if (currentTranscriptId) {
-      await updateTranscript(currentTranscriptId, payload);
-    } else {
-      const name = currentTranscriptName || generateAutoName();
-      payload.name = name;
-      const baseSlug = generateSlug(name);
-      payload.slug = await ensureUniqueSlug(baseSlug);
-      const row = await saveTranscript(payload);
-      currentTranscriptId = row.id;
-      currentTranscriptName = name;
-      currentSlug = row.slug || payload.slug;
-      rememberLastTranscript(row.id);
-      setPermalinkHash(currentSlug);
-      updateTranscriptTitle();
-    }
-    updateSaveStatus('saved');
-    invalidateLibraryCache();
-  } catch (err) {
-    console.error('Auto-save failed:', err);
-    updateSaveStatus('error', err?.message || String(err));
-  } finally {
-    saveInFlight = false;
-  }
-}
+// `autoSave`, `debouncedAutoSave`, and `flushPendingSave` are now defined
+// up in the save state machine block. The helpers below preserve the
+// only piece of behaviour that lived only here: the beforeunload warning.
 
-// Debounced auto-save for editor changes (3s)
-let debouncedAutoSaveTimer = null;
-let pendingSave = false;
-let saveInFlight = false;
-function debouncedAutoSave() {
-  clearTimeout(debouncedAutoSaveTimer);
-  pendingSave = true;
-  debouncedAutoSaveTimer = setTimeout(() => {
-    pendingSave = false;
-    autoSave();
-  }, 3000);
-}
-
-// Force any pending debounced save to fire NOW. Called before navigation
-// (Library / New / Sequencer / closing the tab) so the user never loses
-// a transcript because they clicked away during the 3s debounce window.
-function flushPendingSave() {
-  if (!pendingSave && !debouncedAutoSaveTimer) return;
-  clearTimeout(debouncedAutoSaveTimer);
-  debouncedAutoSaveTimer = null;
-  if (pendingSave) {
-    pendingSave = false;
-    autoSave();
-  }
-}
+// Compatibility alias for any older callers — equivalent to runSaveOnce.
+async function autoSave() { return runSaveOnce(); }
 
 // Warn before closing the tab if a save is still pending or in flight.
 window.addEventListener('beforeunload', (e) => {
@@ -973,6 +1178,17 @@ window.addEventListener('beforeunload', (e) => {
     e.preventDefault();
     e.returnValue = '';
     return '';
+  }
+});
+
+// Manual save shortcut: ⌘S / Ctrl-S. Catches the keystroke globally so
+// the user can save from anywhere — editor, library, modal — without
+// the browser's "Save Page As" dialog popping up.
+window.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
+    if (!currentTranscriptId && segments.length === 0) return; // nothing to save
+    e.preventDefault();
+    manualSave();
   }
 });
 

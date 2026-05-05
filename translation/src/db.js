@@ -1,248 +1,135 @@
+// Phase 1 storage layer.
+//
+// Design:
+//   - Supabase is the single source of truth for ALL persistence.
+//   - LocalStorage is no longer a parallel write target. It is used only
+//     by ./snapshot.js for crash/recovery snapshots.
+//   - Schema is strict: the SQL in supabase-phase1.sql must be applied.
+//     There is no runtime feature-detection — if a column is missing,
+//     errors surface immediately so they can be fixed once.
+//   - Updates use optimistic concurrency: callers pass `expectedUpdatedAt`
+//     and conflicts are reported as a typed error (err.code === 'CONFLICT').
+//   - Permalinks are UUID-canonical. Slugs are aliases stored in the
+//     transcript_aliases table. Renaming adds an alias; old links survive.
+//
+// Errors thrown by this module:
+//   { code: 'NO_DB' }      Supabase client not configured (env vars missing).
+//   { code: 'CONFLICT', serverUpdatedAt }  Optimistic concurrency miss.
+//   { code: 'NOT_FOUND' }  Row does not exist.
+//   { code: 'CONSTRAINT', message }  Unique constraint hit (e.g. slug).
+//   plain Error            Anything else.
+
 import { createClient } from '@supabase/supabase-js';
 
 let supabase = null;
+let initError = null;
+
 try {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  // TEMPORARY DIAGNOSTIC — remove once cloud sync works
-  console.info('[supabase init] URL is:', url ? `set (${url.slice(0, 30)}...)` : 'MISSING');
-  console.info('[supabase init] KEY is:', key ? `set (length ${key.length})` : 'MISSING');
   if (url && key) {
     supabase = createClient(url, key);
-    console.info('[supabase init] client created');
   } else {
-    console.warn('[supabase init] missing env vars — falling back to localStorage');
+    initError = 'Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY';
+    console.warn('[db] ' + initError);
   }
 } catch (err) {
-  console.warn('Supabase init failed:', err.message);
+  initError = err.message || String(err);
+  console.error('[db] init failed:', initError);
 }
 
-// Track consecutive Supabase failures — retry after cooldown instead of permanent kill
-let supabaseFailCount = 0;
-let supabaseFailedAt = 0;
-const SUPABASE_RETRY_COOLDOWN = 10000; // 10 seconds before retrying after failure
-
-// Schema feature detection. The `deleted_at` column was added in a later
-// migration (supabase-add-soft-delete.sql); if a Supabase project hasn't run
-// it yet, every query that filters on `deleted_at` returns 42703 and the
-// library appears empty. We probe once and remember the answer so the rest
-// of the app can degrade gracefully instead of throwing.
-//   true  → column confirmed present, soft-delete works
-//   false → column confirmed missing, treat all rows as "not deleted"
-//   null  → not yet probed
-let softDeleteSupported = null;
-
-function isMissingColumnError(err) {
-  if (!err) return false;
-  // supabase-js surfaces { code, message }; some paths only have message
-  if (err.code === '42703') return true;
-  const msg = (err.message || '').toLowerCase();
-  return msg.includes('deleted_at') && msg.includes('does not exist');
-}
-
-function markSoftDeleteUnsupported() {
-  if (softDeleteSupported !== false) {
-    softDeleteSupported = false;
-    console.warn('[schema] transcripts.deleted_at column missing — soft-delete disabled. Run supabase-add-soft-delete.sql to enable.');
+function db() {
+  if (!supabase) {
+    const e = new Error(initError || 'Supabase not configured');
+    e.code = 'NO_DB';
+    throw e;
   }
-}
-
-function markSoftDeleteSupported() {
-  if (softDeleteSupported === null) softDeleteSupported = true;
-}
-
-export function isSoftDeleteSupported() {
-  return softDeleteSupported === true;
-}
-
-// Same pattern for `slug`. Permalinks are a feature added later; if the
-// column is absent the app should still save/load by id without crashing.
-let slugSupported = null;
-
-function isMissingSlugColumnError(err) {
-  if (!err) return false;
-  if (err.code === '42703') return true;
-  const msg = (err.message || '').toLowerCase();
-  return msg.includes('slug') && msg.includes('does not exist');
-}
-
-function markSlugUnsupported() {
-  if (slugSupported !== false) {
-    slugSupported = false;
-    console.warn('[schema] transcripts.slug column missing — permalinks disabled. Run supabase-add-missing-columns.sql to enable.');
-  }
-}
-
-function markSlugSupported() {
-  if (slugSupported === null) slugSupported = true;
-}
-
-export function isSlugSupported() {
-  return slugSupported === true;
-}
-
-function markSupabaseFailed(err) {
-  supabaseFailCount++;
-  supabaseFailedAt = Date.now();
-  console.warn(`Supabase failed (attempt ${supabaseFailCount}), using localStorage:`, err.message);
-}
-
-function markSupabaseSuccess() {
-  if (supabaseFailCount > 0) {
-    supabaseFailCount = 0;
-    console.info('Supabase connection restored');
-  }
-}
-
-function isSupabaseAvailable() {
-  if (!supabase) return false;
-  if (supabaseFailCount === 0) return true;
-  // Retry after cooldown
-  if (Date.now() - supabaseFailedAt > SUPABASE_RETRY_COOLDOWN) return true;
-  return false;
-}
-
-// Keep old export name for compat
-export function supabaseAvailable() {
-  return true; // localStorage is always available as fallback
-}
-
-export function getStorageInfo() {
-  if (isSupabaseAvailable()) return 'remote';
-  return 'local';
-}
-
-const db = () => {
-  if (!isSupabaseAvailable()) throw new Error('Database not configured');
   return supabase;
-};
-
-// ── localStorage helpers ──
-
-const LS_PREFIX = 'mcm_';
-
-function generateId() {
-  return 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
 }
 
-function lsGet(key) {
-  try {
-    const raw = localStorage.getItem(LS_PREFIX + key);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
+export function isConfigured() { return !!supabase; }
+export function getInitError() { return initError; }
 
-function lsSet(key, value) {
-  try {
-    localStorage.setItem(LS_PREFIX + key, JSON.stringify(value));
-  } catch (err) {
-    if (err.name === 'QuotaExceededError') {
-      console.warn('localStorage quota exceeded — data may not persist.');
-    }
-    throw err;
+// Back-compat shim — old call sites used these to gate UI behaviour.
+export function supabaseAvailable() { return !!supabase; }
+export function getStorageInfo() { return supabase ? 'remote' : 'unconfigured'; }
+
+// ============================================================
+// Error normalization
+// ============================================================
+function normalizeError(err, context) {
+  if (!err) return new Error('Unknown error');
+  // Supabase unique-constraint violation
+  if (err.code === '23505') {
+    const e = new Error(`Already exists: ${err.message || err.details || ''}`);
+    e.code = 'CONSTRAINT';
+    e.context = context;
+    return e;
   }
+  // Postgres "no rows returned" from .single() — treat as NOT_FOUND
+  if (err.code === 'PGRST116') {
+    const e = new Error(context ? `${context}: not found` : 'Not found');
+    e.code = 'NOT_FOUND';
+    return e;
+  }
+  const e = new Error(err.message || String(err));
+  e.code = err.code;
+  return e;
 }
 
-function lsDelete(key) {
-  localStorage.removeItem(LS_PREFIX + key);
-}
-
-function lsGetIndex(collection) {
-  return lsGet(`index_${collection}`) || [];
-}
-
-function lsSaveIndex(collection, index) {
-  lsSet(`index_${collection}`, index);
-}
-
-// ── Projects ──
-
+// ============================================================
+// Projects
+// ============================================================
 export async function createProject({ name, description }) {
-  try {
-    const { data, error } = await db()
-      .from('projects')
-      .insert({ name, description: description || null })
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return data;
-  } catch (err) {
-    if (supabase) markSupabaseFailed(err);
-    const id = generateId();
-    const now = new Date().toISOString();
-    const project = { id, name, description: description || null, created_at: now };
-    lsSet(`project_${id}`, project);
-    const index = lsGetIndex('projects');
-    index.unshift(id);
-    lsSaveIndex('projects', index);
-    return project;
-  }
+  const { data, error } = await db().from('projects')
+    .insert({ name, description: description || null })
+    .select().single();
+  if (error) throw normalizeError(error, 'createProject');
+  return data;
 }
 
 export async function listProjects() {
-  try {
-    if (!isSupabaseAvailable()) throw new Error('skip');
-    const { data, error } = await supabase
-      .from('projects')
-      .select('id, name, description, created_at')
-      .order('created_at', { ascending: false });
-    if (error) throw new Error(error.message);
-    return data;
-  } catch (err) {
-    if (supabase) markSupabaseFailed(err);
-    const index = lsGetIndex('projects');
-    return index.map(id => lsGet(`project_${id}`)).filter(Boolean);
-  }
+  if (!supabase) return [];
+  const { data, error } = await db().from('projects')
+    .select('id, name, description, created_at')
+    .order('created_at', { ascending: false });
+  if (error) throw normalizeError(error, 'listProjects');
+  return data;
 }
 
 export async function deleteProject(id) {
-  try {
-    const { error } = await db()
-      .from('projects')
-      .delete()
-      .eq('id', id);
-    if (error) throw new Error(error.message);
-  } catch (err) {
-    if (supabase) markSupabaseFailed(err);
-    lsDelete(`project_${id}`);
-    const index = lsGetIndex('projects').filter(i => i !== id);
-    lsSaveIndex('projects', index);
-  }
+  const { error } = await db().from('projects').delete().eq('id', id);
+  if (error) throw normalizeError(error, 'deleteProject');
 }
 
-// ── Tags ──
-
+// ============================================================
+// Tags
+// ============================================================
 export async function createTag({ projectId, name, color }) {
-  const { data, error } = await db()
-    .from('tags')
+  const { data, error } = await db().from('tags')
     .insert({ project_id: projectId, name, color: color || '#DD2C1E' })
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
+    .select().single();
+  if (error) throw normalizeError(error, 'createTag');
   return data;
 }
 
 export async function listTags(projectId) {
-  if (!isSupabaseAvailable()) return [];
-  const { data, error } = await supabase
-    .from('tags')
-    .select('*')
-    .eq('project_id', projectId)
+  if (!supabase) return [];
+  const { data, error } = await db().from('tags')
+    .select('*').eq('project_id', projectId)
     .order('created_at', { ascending: true });
-  if (error) throw new Error(error.message);
+  if (error) throw normalizeError(error, 'listTags');
   return data;
 }
 
 export async function deleteTag(id) {
-  const { error } = await db()
-    .from('tags')
-    .delete()
-    .eq('id', id);
-  if (error) throw new Error(error.message);
+  const { error } = await db().from('tags').delete().eq('id', id);
+  if (error) throw normalizeError(error, 'deleteTag');
 }
 
-// ── Highlights ──
-
+// ============================================================
+// Highlights
+// ============================================================
 export async function saveHighlights(transcriptId, highlights) {
   await db().from('highlights').delete().eq('transcript_id', transcriptId);
   if (!highlights || highlights.length === 0) return;
@@ -255,428 +142,264 @@ export async function saveHighlights(transcriptId, highlights) {
     note: h.note || null,
   }));
   const { error } = await db().from('highlights').insert(rows);
-  if (error) throw new Error(error.message);
+  if (error) throw normalizeError(error, 'saveHighlights');
 }
 
 export async function searchHighlights({ projectId, tagId }) {
-  if (!isSupabaseAvailable()) return [];
-  let query = supabase
-    .from('highlights')
+  if (!supabase) return [];
+  let query = db().from('highlights')
     .select('*, transcripts!inner(id, name, project_id), tags(id, name, color)')
     .order('created_at', { ascending: false });
-
   if (projectId) query = query.eq('transcripts.project_id', projectId);
   if (tagId) query = query.eq('tag_id', tagId);
-
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  if (error) throw normalizeError(error, 'searchHighlights');
   return data;
 }
 
-// ── AI Threads ──
-
+// ============================================================
+// AI Threads
+// ============================================================
 export async function saveAiThread({ transcriptId, anchorText, anchorOriginalText, messages }) {
-  const { data, error } = await db()
-    .from('ai_threads')
+  const { data, error } = await db().from('ai_threads')
     .insert({
       transcript_id: transcriptId,
       anchor_text: anchorText,
       anchor_original_text: anchorOriginalText,
       messages: messages || [],
     })
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
+    .select().single();
+  if (error) throw normalizeError(error, 'saveAiThread');
   return data;
 }
 
 export async function updateAiThread(id, messages) {
-  const { data, error } = await db()
-    .from('ai_threads')
+  const { data, error } = await db().from('ai_threads')
     .update({ messages, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
+    .eq('id', id).select().single();
+  if (error) throw normalizeError(error, 'updateAiThread');
   return data;
 }
 
 export async function listAiThreads(transcriptId) {
-  if (!isSupabaseAvailable()) return [];
-  const { data, error } = await supabase
-    .from('ai_threads')
-    .select('*')
-    .eq('transcript_id', transcriptId)
+  if (!supabase) return [];
+  const { data, error } = await db().from('ai_threads')
+    .select('*').eq('transcript_id', transcriptId)
     .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) throw normalizeError(error, 'listAiThreads');
   return data;
 }
 
-// ── Transcripts ──
-
-export async function saveTranscript({ name, step, segments, analysis, translations, srtContent, speakerColors, annotations, metadata, projectId, speakerMap, hiddenSpeakers, editorState, customSequenceName, hideUnintelligible, wordTimings, slug }) {
-  try {
-    const buildRow = (includeSlug) => {
-      const row = {
-        name,
-        step,
-        segments,
-        analysis,
-        translations,
-        srt_content: srtContent,
-        speaker_colors: speakerColors || {},
-        annotations: annotations || {},
-        metadata: metadata || {},
-        project_id: projectId || null,
-        speaker_map: speakerMap || {},
-        hidden_speakers: hiddenSpeakers || [],
-        editor_state: editorState || null,
-        custom_sequence_name: customSequenceName || '',
-        hide_unintelligible: hideUnintelligible ?? true,
-        word_timings: wordTimings || null,
-      };
-      if (includeSlug) row.slug = slug || null;
-      return row;
-    };
-
-    let { data, error } = await db()
-      .from('transcripts')
-      .insert(buildRow(slugSupported !== false))
-      .select()
-      .single();
-
-    if (error && isMissingSlugColumnError(error)) {
-      markSlugUnsupported();
-      const r = await db().from('transcripts').insert(buildRow(false)).select().single();
-      if (r.error) throw new Error(r.error.message);
-      data = r.data;
-    } else if (error) {
-      throw new Error(error.message);
-    } else if (slug !== undefined) {
-      markSlugSupported();
-    }
-    markSupabaseSuccess();
-    return data;
-  } catch (err) {
-    if (supabase) markSupabaseFailed(err);
-    const id = generateId();
-    const now = new Date().toISOString();
-    const record = {
-      id, name, step, segments, analysis, translations,
-      srt_content: srtContent,
-      speaker_colors: speakerColors || {},
-      annotations: annotations || {},
-      metadata: metadata || {},
-      project_id: projectId || null,
-      speaker_map: speakerMap || {},
-      hidden_speakers: hiddenSpeakers || [],
-      editor_state: editorState || null,
-      custom_sequence_name: customSequenceName || '',
-      hide_unintelligible: hideUnintelligible ?? true,
-      word_timings: wordTimings || null,
-      slug: slug || null,
-      created_at: now,
-      updated_at: now,
-    };
-    lsSet(`transcript_${id}`, record);
-    const index = lsGetIndex('transcripts');
-    index.unshift(id);
-    lsSaveIndex('transcripts', index);
-    return record;
-  }
+// ============================================================
+// Transcript field mapping (camelCase ↔ snake_case)
+// ============================================================
+function fieldsToRow(fields) {
+  const row = {};
+  if (fields.name !== undefined) row.name = fields.name;
+  if (fields.step !== undefined) row.step = fields.step;
+  if (fields.segments !== undefined) row.segments = fields.segments;
+  if (fields.analysis !== undefined) row.analysis = fields.analysis;
+  if (fields.translations !== undefined) row.translations = fields.translations;
+  if (fields.srtContent !== undefined) row.srt_content = fields.srtContent;
+  if (fields.speakerColors !== undefined) row.speaker_colors = fields.speakerColors;
+  if (fields.annotations !== undefined) row.annotations = fields.annotations;
+  if (fields.metadata !== undefined) row.metadata = fields.metadata;
+  if (fields.projectId !== undefined) row.project_id = fields.projectId;
+  if (fields.speakerMap !== undefined) row.speaker_map = fields.speakerMap;
+  if (fields.hiddenSpeakers !== undefined) row.hidden_speakers = fields.hiddenSpeakers;
+  if (fields.editorState !== undefined) row.editor_state = fields.editorState;
+  if (fields.customSequenceName !== undefined) row.custom_sequence_name = fields.customSequenceName;
+  if (fields.hideUnintelligible !== undefined) row.hide_unintelligible = fields.hideUnintelligible;
+  if (fields.wordTimings !== undefined) row.word_timings = fields.wordTimings;
+  if (fields.slug !== undefined) row.slug = fields.slug || null;
+  return row;
 }
 
-export async function updateTranscript(id, fields) {
-  const update = { updated_at: new Date().toISOString() };
+// ============================================================
+// Transcripts
+// ============================================================
 
-  if (fields.name !== undefined) update.name = fields.name;
-  if (fields.step !== undefined) update.step = fields.step;
-  if (fields.segments !== undefined) update.segments = fields.segments;
-  if (fields.analysis !== undefined) update.analysis = fields.analysis;
-  if (fields.translations !== undefined) update.translations = fields.translations;
-  if (fields.srtContent !== undefined) update.srt_content = fields.srtContent;
-  if (fields.speakerColors !== undefined) update.speaker_colors = fields.speakerColors;
-  if (fields.annotations !== undefined) update.annotations = fields.annotations;
-  if (fields.metadata !== undefined) update.metadata = fields.metadata;
-  if (fields.projectId !== undefined) update.project_id = fields.projectId;
-  if (fields.speakerMap !== undefined) update.speaker_map = fields.speakerMap;
-  if (fields.hiddenSpeakers !== undefined) update.hidden_speakers = fields.hiddenSpeakers;
-  if (fields.editorState !== undefined) update.editor_state = fields.editorState;
-  if (fields.customSequenceName !== undefined) update.custom_sequence_name = fields.customSequenceName;
-  if (fields.hideUnintelligible !== undefined) update.hide_unintelligible = fields.hideUnintelligible;
-  if (fields.wordTimings !== undefined) update.word_timings = fields.wordTimings;
-  if (fields.slug !== undefined && slugSupported !== false) update.slug = fields.slug;
+/**
+ * Create a transcript. Returns the inserted row (with id, slug, updated_at).
+ * Atomically also inserts a transcript_aliases row when slug is provided.
+ */
+export async function saveTranscript(fields) {
+  const row = fieldsToRow(fields);
+  // Defaults for first-save
+  if (row.name === undefined) row.name = 'Untitled';
+  if (row.step === undefined) row.step = 1;
 
-  try {
-    let { data, error } = await db()
-      .from('transcripts')
-      .update(update)
-      .eq('id', id)
-      .select()
-      .single();
+  const { data, error } = await db().from('transcripts')
+    .insert(row).select().single();
+  if (error) throw normalizeError(error, 'saveTranscript');
 
-    if (error && isMissingSlugColumnError(error)) {
-      markSlugUnsupported();
-      const { slug: _omit, ...withoutSlug } = update;
-      const r = await db().from('transcripts').update(withoutSlug).eq('id', id).select().single();
-      if (r.error) throw new Error(r.error.message);
-      data = r.data;
-    } else if (error) {
-      throw new Error(error.message);
-    } else if ('slug' in update) {
-      markSlugSupported();
-    }
-    markSupabaseSuccess();
-    return data;
-  } catch (err) {
-    if (supabase) markSupabaseFailed(err);
-    const existing = lsGet(`transcript_${id}`) || {};
-    const merged = { ...existing, ...update };
-    lsSet(`transcript_${id}`, merged);
-    return merged;
+  // Mirror slug into the alias table for permalink resolution.
+  if (data.slug) {
+    await upsertAlias(data.slug, data.id);
   }
+  return data;
+}
+
+/**
+ * Update a transcript. Pass `expectedUpdatedAt` (the server's last-known
+ * updated_at for this row) to enable optimistic concurrency: if the row
+ * has been modified elsewhere, throws { code: 'CONFLICT', serverUpdatedAt }.
+ *
+ * Also keeps transcript_aliases in sync when the slug field changes.
+ */
+export async function updateTranscript(id, fields, opts = {}) {
+  const { expectedUpdatedAt } = opts;
+  const row = fieldsToRow(fields);
+  row.updated_at = new Date().toISOString();
+
+  let q = db().from('transcripts').update(row).eq('id', id);
+  if (expectedUpdatedAt) q = q.eq('updated_at', expectedUpdatedAt);
+  const { data, error } = await q.select().single();
+
+  if (error) {
+    // PGRST116 = no rows matched. With an expectedUpdatedAt guard, this
+    // means either the id is wrong or the row was changed elsewhere.
+    if (error.code === 'PGRST116' && expectedUpdatedAt) {
+      const { data: probe } = await db().from('transcripts')
+        .select('updated_at').eq('id', id).maybeSingle();
+      if (probe) {
+        const e = new Error('Transcript was modified elsewhere');
+        e.code = 'CONFLICT';
+        e.serverUpdatedAt = probe.updated_at;
+        throw e;
+      }
+      const e = new Error('Transcript not found');
+      e.code = 'NOT_FOUND';
+      throw e;
+    }
+    throw normalizeError(error, 'updateTranscript');
+  }
+
+  // Slug rename: add a new alias for the new slug. Old aliases stay alive.
+  if (fields.slug !== undefined && data.slug) {
+    await upsertAlias(data.slug, data.id);
+  }
+  return data;
 }
 
 export async function listTranscripts(projectId) {
-  try {
-    if (!isSupabaseAvailable()) throw new Error('skip');
-    // Intentionally omits `metadata` — it can be large (Workshop state, etc)
-    // and the library only needs id/name/step/dates. Metadata is fetched
-    // lazily by loadTranscript when the user opens a transcript.
-    const buildSelect = () => {
-      const cols = ['id', 'name', 'step', 'created_at', 'updated_at', 'project_id'];
-      if (slugSupported !== false) cols.push('slug');
-      if (softDeleteSupported !== false) cols.push('deleted_at');
-      return cols.join(', ');
-    };
-    const buildQuery = () => {
-      let q = supabase.from('transcripts').select(buildSelect()).order('updated_at', { ascending: false });
-      if (softDeleteSupported !== false) q = q.is('deleted_at', null);
-      if (projectId) q = q.eq('project_id', projectId);
-      return q;
-    };
-
-    let { data, error } = await buildQuery();
-
-    // Retry once if either deleted_at or slug column is missing.
-    let retried = 0;
-    while (error && retried < 2 && (isMissingColumnError(error) || isMissingSlugColumnError(error))) {
-      if (isMissingColumnError(error)) markSoftDeleteUnsupported();
-      if (isMissingSlugColumnError(error)) markSlugUnsupported();
-      const r = await buildQuery();
-      data = r.data; error = r.error;
-      retried++;
-    }
-    if (error) throw new Error(error.message);
-    if (softDeleteSupported === null) markSoftDeleteSupported();
-    if (slugSupported === null) markSlugSupported();
-    markSupabaseSuccess();
-    return (data || []).map(({ deleted_at, ...rest }) => rest);
-  } catch (err) {
-    if (supabase) markSupabaseFailed(err);
-    const index = lsGetIndex('transcripts');
-    let items = index.map(id => lsGet(`transcript_${id}`)).filter(t => t && !t.deleted_at);
-    if (projectId) items = items.filter(t => t.project_id === projectId);
-    return items
-      .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
-      .map(t => ({ id: t.id, name: t.name, step: t.step, created_at: t.created_at, updated_at: t.updated_at, project_id: t.project_id, slug: t.slug }));
-  }
+  if (!supabase) return [];
+  const cols = 'id, name, step, created_at, updated_at, project_id, slug';
+  let q = db().from('transcripts').select(cols)
+    .is('deleted_at', null)
+    .order('updated_at', { ascending: false });
+  if (projectId) q = q.eq('project_id', projectId);
+  const { data, error } = await q;
+  if (error) throw normalizeError(error, 'listTranscripts');
+  return data || [];
 }
 
 export async function loadTranscript(id) {
-  try {
-    const { data, error } = await db()
-      .from('transcripts')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) throw new Error(error.message);
-    markSupabaseSuccess();
-    return data;
-  } catch (err) {
-    if (supabase) markSupabaseFailed(err);
-    const record = lsGet(`transcript_${id}`);
-    if (!record) throw new Error('Transcript not found');
-    return record;
+  const { data, error } = await db().from('transcripts')
+    .select('*').eq('id', id).maybeSingle();
+  if (error) throw normalizeError(error, 'loadTranscript');
+  if (!data) {
+    const e = new Error('Transcript not found');
+    e.code = 'NOT_FOUND';
+    throw e;
   }
+  return data;
 }
 
+/**
+ * Resolve a slug to a transcript via the aliases table (supports old links
+ * after rename), then by the transcripts.slug column as a fallback.
+ */
 export async function loadTranscriptBySlug(slug) {
-  try {
-    let query = db()
-      .from('transcripts')
-      .select('*')
-      .eq('slug', slug);
-    if (softDeleteSupported !== false) query = query.is('deleted_at', null);
-    let { data, error } = await query.single();
-
-    if (error && isMissingColumnError(error)) {
-      markSoftDeleteUnsupported();
-      const r = await db().from('transcripts').select('*').eq('slug', slug).single();
-      if (r.error) throw new Error(r.error.message);
-      data = r.data;
-    } else if (error) {
-      throw new Error(error.message);
-    } else {
-      markSoftDeleteSupported();
-    }
-    markSupabaseSuccess();
-    return data;
-  } catch (err) {
-    if (supabase) markSupabaseFailed(err);
-    // Search localStorage
-    const index = lsGetIndex('transcripts');
-    for (const id of index) {
-      const record = lsGet(`transcript_${id}`);
-      if (record && record.slug === slug && !record.deleted_at) return record;
-    }
-    throw new Error('Transcript not found');
+  // 1. Alias table — handles both current and historical slugs.
+  const { data: alias } = await db().from('transcript_aliases')
+    .select('transcript_id').eq('slug', slug).maybeSingle();
+  if (alias) {
+    return loadTranscript(alias.transcript_id);
   }
+  // 2. Direct slug column on transcripts (legacy rows / pre-migration).
+  const { data, error } = await db().from('transcripts')
+    .select('*').eq('slug', slug).is('deleted_at', null).maybeSingle();
+  if (error) throw normalizeError(error, 'loadTranscriptBySlug');
+  if (!data) {
+    const e = new Error('Transcript not found');
+    e.code = 'NOT_FOUND';
+    throw e;
+  }
+  // Backfill the alias so future lookups are O(1) on the index.
+  upsertAlias(slug, data.id).catch(() => {});
+  return data;
 }
 
-export async function isSlugTaken(slug, excludeId) {
-  try {
-    if (!isSupabaseAvailable()) throw new Error('skip');
-    let query = supabase
-      .from('transcripts')
-      .select('id')
-      .eq('slug', slug);
-    if (softDeleteSupported !== false) query = query.is('deleted_at', null);
-    if (excludeId) query = query.neq('id', excludeId);
-    let { data, error } = await query;
-    if (error && isMissingColumnError(error)) {
-      markSoftDeleteUnsupported();
-      let retry = supabase.from('transcripts').select('id').eq('slug', slug);
-      if (excludeId) retry = retry.neq('id', excludeId);
-      const r = await retry;
-      if (r.error) throw new Error(r.error.message);
-      data = r.data;
-    } else if (error) {
-      throw new Error(error.message);
-    } else {
-      markSoftDeleteSupported();
-    }
-    return data && data.length > 0;
-  } catch {
-    const index = lsGetIndex('transcripts');
-    for (const id of index) {
-      if (id === excludeId) continue;
-      const record = lsGet(`transcript_${id}`);
-      if (record && record.slug === slug && !record.deleted_at) return true;
-    }
-    return false;
-  }
+export async function isSlugTaken(slug, excludeTranscriptId) {
+  // The alias table is the authority. A slug is "taken" if any alias maps
+  // to a different live transcript.
+  const { data } = await db().from('transcript_aliases')
+    .select('transcript_id').eq('slug', slug).maybeSingle();
+  if (!data) return false;
+  if (excludeTranscriptId && data.transcript_id === excludeTranscriptId) return false;
+  // Make sure the target transcript still exists & isn't deleted.
+  const { data: t } = await db().from('transcripts')
+    .select('id, deleted_at').eq('id', data.transcript_id).maybeSingle();
+  if (!t || t.deleted_at) return false;
+  return true;
+}
+
+async function upsertAlias(slug, transcriptId) {
+  const { error } = await db().from('transcript_aliases')
+    .upsert({ slug, transcript_id: transcriptId }, { onConflict: 'slug' });
+  if (error) throw normalizeError(error, 'upsertAlias');
 }
 
 export async function deleteTranscript(id) {
-  // Soft-delete when supported, else fall back to hard delete so the row
-  // disappears from the library (better than a silent no-op).
-  try {
-    if (softDeleteSupported === false) {
-      const { error } = await db().from('transcripts').delete().eq('id', id);
-      if (error) throw new Error(error.message);
-      markSupabaseSuccess();
-      return;
-    }
-    const { error } = await db()
-      .from('transcripts')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', id);
-
-    if (error) {
-      if (isMissingColumnError(error)) {
-        markSoftDeleteUnsupported();
-        const r = await db().from('transcripts').delete().eq('id', id);
-        if (r.error) throw new Error(r.error.message);
-        markSupabaseSuccess();
-        return;
-      }
-      throw new Error(error.message);
-    }
-    markSoftDeleteSupported();
-    markSupabaseSuccess();
-  } catch (err) {
-    if (supabase) markSupabaseFailed(err);
-    const existing = lsGet(`transcript_${id}`);
-    if (existing) {
-      existing.deleted_at = new Date().toISOString();
-      lsSet(`transcript_${id}`, existing);
-    }
-  }
+  const { error } = await db().from('transcripts')
+    .update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  if (error) throw normalizeError(error, 'deleteTranscript');
 }
 
 export async function restoreTranscript(id) {
-  try {
-    const { error } = await db()
-      .from('transcripts')
-      .update({ deleted_at: null })
-      .eq('id', id);
-
-    if (error) throw new Error(error.message);
-    markSupabaseSuccess();
-  } catch (err) {
-    if (supabase) markSupabaseFailed(err);
-    const existing = lsGet(`transcript_${id}`);
-    if (existing) {
-      delete existing.deleted_at;
-      lsSet(`transcript_${id}`, existing);
-    }
-  }
+  const { error } = await db().from('transcripts')
+    .update({ deleted_at: null }).eq('id', id);
+  if (error) throw normalizeError(error, 'restoreTranscript');
 }
 
 export async function permanentlyDeleteTranscript(id) {
-  try {
-    const { error } = await db()
-      .from('transcripts')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw new Error(error.message);
-  } catch (err) {
-    if (supabase) markSupabaseFailed(err);
-    lsDelete(`transcript_${id}`);
-    const index = lsGetIndex('transcripts').filter(i => i !== id);
-    lsSaveIndex('transcripts', index);
-  }
+  const { error } = await db().from('transcripts').delete().eq('id', id);
+  if (error) throw normalizeError(error, 'permanentlyDeleteTranscript');
 }
 
 export async function listDeletedTranscripts() {
-  try {
-    if (!isSupabaseAvailable()) throw new Error('skip');
-    if (softDeleteSupported === false) return [];
-    const { data, error } = await supabase
-      .from('transcripts')
-      .select('id, name, step, created_at, updated_at, deleted_at, project_id')
-      .not('deleted_at', 'is', null)
-      .order('deleted_at', { ascending: false });
-    if (error) {
-      if (isMissingColumnError(error)) {
-        markSoftDeleteUnsupported();
-        return [];
-      }
-      throw new Error(error.message);
-    }
-    markSoftDeleteSupported();
-    return data;
-  } catch (err) {
-    if (supabase) markSupabaseFailed(err);
-    const index = lsGetIndex('transcripts');
-    return index.map(id => lsGet(`transcript_${id}`))
-      .filter(t => t && t.deleted_at)
-      .map(t => ({ id: t.id, name: t.name, step: t.step, created_at: t.created_at, updated_at: t.updated_at, deleted_at: t.deleted_at, project_id: t.project_id }));
-  }
+  if (!supabase) return [];
+  const { data, error } = await db().from('transcripts')
+    .select('id, name, step, created_at, updated_at, deleted_at, project_id')
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false });
+  if (error) throw normalizeError(error, 'listDeletedTranscripts');
+  return data || [];
 }
 
-// ── Migration: localStorage → Supabase ──
+// ============================================================
+// One-time migration of any leftover localStorage records to Supabase.
+// Phase 1 no longer writes to LS, but legacy users may still have
+// records there. This runs once at boot, surfaces results, then nukes
+// the LS data so we never have to think about it again.
+// ============================================================
+const MIGRATION_KEY = 'mcm_migrated_to_supabase';
+const LS_PREFIX = 'mcm_';
 
-const MIGRATION_KEY = LS_PREFIX + 'migrated_to_supabase';
+function lsGet(key) {
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + key);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+function lsDelete(key) { try { localStorage.removeItem(LS_PREFIX + key); } catch {} }
+function lsGetIndex(collection) { return lsGet(`index_${collection}`) || []; }
 
 export async function migrateLocalStorageToSupabase() {
   if (!supabase) return { migrated: false, reason: 'no supabase client' };
   if (localStorage.getItem(MIGRATION_KEY)) return { migrated: false, reason: 'already migrated' };
 
-  // Nothing to migrate? Mark done immediately so we never check again.
   const projectIndex = lsGetIndex('projects');
   const transcriptIndex = lsGetIndex('transcripts');
   if (projectIndex.length === 0 && transcriptIndex.length === 0) {
@@ -684,9 +407,9 @@ export async function migrateLocalStorageToSupabase() {
     return { migrated: false, reason: 'nothing to migrate' };
   }
 
-  // Quick check — can we reach Supabase at all?
+  // Reachability probe.
   try {
-    const { error } = await supabase.from('transcripts').select('id').limit(1);
+    const { error } = await db().from('transcripts').select('id').limit(1);
     if (error) throw error;
   } catch (err) {
     return { migrated: false, reason: 'supabase not reachable: ' + err.message };
@@ -694,17 +417,15 @@ export async function migrateLocalStorageToSupabase() {
 
   const results = { projects: 0, transcripts: 0, errors: [] };
 
-  // Migrate projects first (transcripts may reference them)
-  const projectIdMap = {}; // old local id → new uuid
+  // Migrate projects first so transcripts can reference them.
+  const projectIdMap = {};
   for (const oldId of projectIndex) {
     const p = lsGet(`project_${oldId}`);
     if (!p) continue;
     try {
-      const { data, error } = await supabase
-        .from('projects')
+      const { data, error } = await db().from('projects')
         .insert({ name: p.name, description: p.description || null })
-        .select()
-        .single();
+        .select().single();
       if (error) throw error;
       projectIdMap[oldId] = data.id;
       results.projects++;
@@ -713,68 +434,46 @@ export async function migrateLocalStorageToSupabase() {
     }
   }
 
-  // Migrate transcripts
-  const transcriptIdMap = {}; // old local id → new uuid
   for (const oldId of transcriptIndex) {
     const t = lsGet(`transcript_${oldId}`);
     if (!t) continue;
     try {
-      // Remap project_id if it was a local id
       let projectId = t.project_id || null;
-      if (projectId && projectIdMap[projectId]) {
-        projectId = projectIdMap[projectId];
-      } else if (projectId && projectId.startsWith('local_')) {
-        projectId = null; // orphaned local project ref
-      }
-
-      const { data, error } = await supabase
-        .from('transcripts')
-        .insert({
-          name: t.name,
-          step: t.step || 1,
-          segments: t.segments || [],
-          analysis: t.analysis || null,
-          translations: t.translations || null,
-          srt_content: t.srt_content || null,
-          speaker_colors: t.speaker_colors || {},
-          annotations: t.annotations || {},
-          metadata: t.metadata || {},
-          project_id: projectId,
-          speaker_map: t.speaker_map || {},
-          hidden_speakers: t.hidden_speakers || [],
-          editor_state: t.editor_state || null,
-          custom_sequence_name: t.custom_sequence_name || '',
-          hide_unintelligible: t.hide_unintelligible ?? true,
-          word_timings: t.word_timings || null,
-        })
-        .select()
-        .single();
+      if (projectId && projectIdMap[projectId]) projectId = projectIdMap[projectId];
+      else if (projectId && projectId.startsWith && projectId.startsWith('local_')) projectId = null;
+      const { error } = await db().from('transcripts').insert({
+        name: t.name,
+        step: t.step || 1,
+        segments: t.segments || [],
+        analysis: t.analysis || null,
+        translations: t.translations || null,
+        srt_content: t.srt_content || null,
+        speaker_colors: t.speaker_colors || {},
+        annotations: t.annotations || {},
+        metadata: t.metadata || {},
+        project_id: projectId,
+        speaker_map: t.speaker_map || {},
+        hidden_speakers: t.hidden_speakers || [],
+        editor_state: t.editor_state || null,
+        custom_sequence_name: t.custom_sequence_name || '',
+        hide_unintelligible: t.hide_unintelligible ?? true,
+        word_timings: t.word_timings || null,
+      });
       if (error) throw error;
-      transcriptIdMap[oldId] = data.id;
       results.transcripts++;
     } catch (err) {
       results.errors.push(`transcript ${t.name}: ${err.message}`);
     }
   }
 
-  // Mark migration done (even if partial — don't re-run)
   if (results.projects > 0 || results.transcripts > 0) {
-    localStorage.setItem(MIGRATION_KEY, JSON.stringify({
-      at: new Date().toISOString(),
-      ...results,
-    }));
-
-    // Clean up localStorage data now that it's in Supabase
-    for (const oldId of projectIndex) {
-      lsDelete(`project_${oldId}`);
-    }
+    localStorage.setItem(MIGRATION_KEY, JSON.stringify({ at: new Date().toISOString(), ...results }));
+    for (const oldId of projectIndex) lsDelete(`project_${oldId}`);
     lsDelete('index_projects');
-    for (const oldId of transcriptIndex) {
-      lsDelete(`transcript_${oldId}`);
-    }
+    for (const oldId of transcriptIndex) lsDelete(`transcript_${oldId}`);
     lsDelete('index_transcripts');
   }
 
-  console.info('Migration complete:', results);
-  return { migrated: true, ...results, projectIdMap, transcriptIdMap };
+  console.info('[db] migration complete:', results);
+  return { migrated: true, ...results };
 }
