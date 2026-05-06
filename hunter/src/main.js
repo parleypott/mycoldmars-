@@ -163,9 +163,12 @@ async function openProject(id) {
     const el = document.getElementById(`tier-${tier}-source`);
     const tierAssets = assets.filter(a => a.tier === tier);
     if (tierAssets.length > 0) {
-      el.innerHTML = tierAssets.map(a =>
-        `<div class="tier-asset">${escHtml(a.source_ref)} <span class="np-eyebrow">${a.queue_status}</span></div>`
-      ).join('');
+      el.innerHTML = tierAssets.map(a => {
+        const classification = a.metadata?.classification;
+        const badge = classification ? `<span class="np-eyebrow np-eyebrow--classification">${classification}</span> ` : '';
+        const unitCount = a.metadata?.unitCount ? ` · ${a.metadata.unitCount} cuts` : '';
+        return `<div class="tier-asset">${badge}${escHtml(a.source_ref)}${unitCount} <span class="np-eyebrow">${a.queue_status}</span></div>`;
+      }).join('');
     } else {
       el.innerHTML = '';
     }
@@ -331,39 +334,61 @@ async function promptYoutubeUrl() {
 
 document.querySelectorAll('.tier-file-input').forEach(input => {
   input.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
     const tier = input.dataset.tier;
 
-    // If it's an XML/EDL file for selects, parse it for cut points
-    if (tier === 'selects' && /\.(xml|edl)$/i.test(file.name)) {
+    // Multiple XML/EDL upload for selects tier
+    if (tier === 'selects' && files.some(f => /\.(xml|edl)$/i.test(f.name))) {
       try {
-        const text = await file.text();
         const { parseFCP7XML, extractCorpusUnits, extractSourceClips } = await import('./xml-parser.js');
-        const sequences = parseFCP7XML(text);
-        const units = extractCorpusUnits(sequences);
-        const sourceClips = extractSourceClips(sequences);
+        const allResults = [];
 
-        console.log(`[hunter] Parsed ${sequences.length} sequences, ${units.length} units, ${sourceClips.length} source clips`);
-        console.log('[hunter] Source clips:', sourceClips.map(c => c.name).join(', '));
-        console.log('[hunter] Units:', units.map(u => `${u.sourceClipName} ${u.startSeconds}–${u.endSeconds}s`).join(', '));
+        for (const file of files) {
+          if (!/\.(xml|edl)$/i.test(file.name)) continue;
+          const text = await file.text();
+          const sequences = parseFCP7XML(text);
+          const units = extractCorpusUnits(sequences);
+          const sourceClips = extractSourceClips(sequences);
 
-        // Store parsed data in memory for display (will be saved to DB when connected)
+          // Classify each sequence based on name + structure
+          for (const seq of sequences) {
+            const classification = classifySequence(seq);
+            allResults.push({
+              fileName: file.name,
+              sequenceName: seq.name,
+              classification,
+              sequences: [seq],
+              units: units.filter(u => u.sequenceName === seq.name),
+              sourceClips,
+            });
+          }
+        }
+
+        console.log(`[hunter] Batch parsed ${allResults.length} sequences from ${files.length} files:`);
+        for (const r of allResults) {
+          console.log(`  [${r.classification}] "${r.sequenceName}" — ${r.units.length} cuts (from ${r.fileName})`);
+        }
+
+        // Save each classified sequence as a media asset
         if (!isDemo) {
           const { createMediaAsset } = await import('./db.js');
-          const asset = await createMediaAsset({
-            projectId: currentProjectId,
-            tier,
-            sourceKind: 'local',
-            sourceRef: file.name,
-            format: 'xml',
-            metadata: {
-              sequenceCount: sequences.length,
-              unitCount: units.length,
-              sourceClips: sourceClips.map(c => c.name),
-              parsedUnits: units,
-            },
-          });
+          for (const r of allResults) {
+            await createMediaAsset({
+              projectId: currentProjectId,
+              tier: 'selects',
+              sourceKind: 'local',
+              sourceRef: `${r.fileName} → ${r.sequenceName}`,
+              format: 'xml',
+              metadata: {
+                classification: r.classification,
+                sequenceName: r.sequenceName,
+                unitCount: r.units.length,
+                sourceClips: r.sourceClips.map(c => c.name),
+                parsedUnits: r.units,
+              },
+            });
+          }
         }
       } catch (err) {
         console.error('[hunter] XML parse error:', err);
@@ -371,17 +396,60 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
       }
     } else if (!isDemo) {
       const { createMediaAsset } = await import('./db.js');
-      await createMediaAsset({
-        projectId: currentProjectId,
-        tier,
-        sourceKind: 'local',
-        sourceRef: file.name,
-        format: file.name.split('.').pop(),
-      });
+      for (const file of files) {
+        await createMediaAsset({
+          projectId: currentProjectId,
+          tier,
+          sourceKind: 'local',
+          sourceRef: file.name,
+          format: file.name.split('.').pop(),
+        });
+      }
     }
+    input.value = ''; // reset so same files can be re-selected
     openProject(currentProjectId);
   });
 });
+
+/**
+ * Classify a sequence based on its name and structure.
+ * Returns: 'on-cam' | 'selects' | 'master' | 'stringout' | 'unknown'
+ *
+ * Heuristics:
+ * - "on cam" / "OC" / "a-cam" / "talking head" → on-cam
+ * - "selects" / "sel" / "picks" / "favorites" → selects
+ * - "master" / "final" / "v1" / "edit" / "assembly" → master
+ * - "stringout" / "string out" / "all clips" → stringout
+ * - Many short clips (avg < 10s) with same source → stringout
+ * - Fewer clips, longer duration, multiple sources → master/selects
+ */
+function classifySequence(seq) {
+  const name = (seq.name || '').toLowerCase();
+
+  // Name-based classification (strong signals)
+  if (/\bon.?cam\b|\boc\b|\ba.?cam\b|\btalking.?head\b|\binterview\b|\bpresenter\b/.test(name)) return 'on-cam';
+  if (/\bselect\b|\bsel\b|\bpick\b|\bfavorite\b|\bfav\b|\bbest\b|\bhighlight\b/.test(name)) return 'selects';
+  if (/\bmaster\b|\bfinal\b|\bedit\b|\bassembly\b|\bcut\b|\bv\d\b|\brough\b|\bfine\b/.test(name)) return 'master';
+  if (/\bstring.?out\b|\ball.?clip\b|\bdump\b|\bfull\b/.test(name)) return 'stringout';
+
+  // Structure-based classification (weaker signals)
+  const allClips = seq.videoTracks.flatMap(t => t.clips);
+  if (allClips.length === 0) return 'unknown';
+
+  const avgDuration = allClips.reduce((sum, c) => sum + (c.endSeconds - c.startSeconds), 0) / allClips.length;
+  const uniqueSources = new Set(allClips.map(c => c.sourceFile?.name).filter(Boolean));
+
+  // Single source + many clips = on-cam or stringout
+  if (uniqueSources.size <= 2 && allClips.length > 20) return 'stringout';
+  // Few sources + short clips = on-cam
+  if (uniqueSources.size <= 3 && avgDuration < 15 && allClips.length > 5) return 'on-cam';
+  // Many sources + moderate clips = selects
+  if (uniqueSources.size > 5 && allClips.length > 3) return 'selects';
+  // Long average duration + multiple sources = master
+  if (avgDuration > 30 && uniqueSources.size > 3) return 'master';
+
+  return 'selects'; // default to selects for unclassified
+}
 
 // ── "What do you see?" button ──
 

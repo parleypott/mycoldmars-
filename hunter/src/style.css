@@ -853,6 +853,16 @@ header {
   z-index: 50;
 }
 
+/* ── Classification badges ── */
+.np-eyebrow--classification {
+  background: var(--np-sepia);
+  color: var(--np-warm-white);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
 /* ── Ingest Status Bar ── */
 .ingest-status {
   margin-top: var(--np-space-8);
