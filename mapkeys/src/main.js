@@ -2,7 +2,42 @@ import mapboxgl from 'mapbox-gl';
 import { unzipSync, strFromU8 } from 'fflate';
 import GIF from 'gif.js';
 import gifWorkerUrl from 'gif.js/dist/gif.worker.js?url';
+import { feature as topoFeature } from 'topojson-client';
+import countries110m from 'world-atlas/countries-110m.json';
 import './style.css';
+
+// ─── Country data (loaded once at startup) ───
+// world-atlas/countries-110m exposes Natural Earth country borders as
+// TopoJSON. We turn it into a flat array of { id, name, geometry } and a
+// lookup by id so country shapes can resolve their geometry at hydration.
+const COUNTRIES = (() => {
+  const fc = topoFeature(countries110m, countries110m.objects.countries);
+  return fc.features
+    .map(f => ({
+      id: String(f.id),
+      name: f.properties && f.properties.name ? f.properties.name : 'Unknown',
+      geometry: f.geometry,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+})();
+const COUNTRY_BY_ID = new Map(COUNTRIES.map(c => [c.id, c]));
+const COUNTRY_BY_NAME = new Map(COUNTRIES.map(c => [c.name.toLowerCase(), c]));
+
+function searchCountries(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return COUNTRIES.slice(0, 60);
+  // Score: prefix > word-prefix > substring; cap results.
+  const scored = [];
+  for (const c of COUNTRIES) {
+    const lower = c.name.toLowerCase();
+    if (lower === q) scored.push([c, 0]);
+    else if (lower.startsWith(q)) scored.push([c, 1]);
+    else if (lower.includes(' ' + q)) scored.push([c, 2]);
+    else if (lower.includes(q)) scored.push([c, 3]);
+  }
+  scored.sort((a, b) => a[1] - b[1] || a[0].name.localeCompare(b[0].name));
+  return scored.slice(0, 60).map(s => s[0]);
+}
 
 // ─── Mapbox setup ───
 
@@ -571,6 +606,37 @@ function defaultShapePreview(type, atCenter) {
 
 function ensureShapeOnMap(shape) {
   const ids = shapeSourceIds(shape.id);
+  if (shape.type === 'country') {
+    if (!map.getSource(ids.fill)) {
+      map.addSource(ids.fill, { type: 'geojson', data: emptyFC() });
+    }
+    if (!map.getLayer(ids.fillLayer)) {
+      map.addLayer({
+        id: ids.fillLayer,
+        type: 'fill',
+        source: ids.fill,
+        paint: {
+          'fill-color': shape.fill,
+          'fill-opacity': shape.fillOpacity,
+        },
+      });
+    }
+    if (!map.getLayer(ids.lineLayer)) {
+      map.addLayer({
+        id: ids.lineLayer,
+        type: 'line',
+        source: ids.fill,
+        paint: {
+          'line-color': shape.stroke,
+          'line-width': shape.strokeWidth,
+        },
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+      });
+    }
+    applyShapeStyle(shape);
+    applyShapeVisibility(shape);
+    return;
+  }
   if (shape.type === 'polygon') {
     if (!map.getSource(ids.fill)) {
       map.addSource(ids.fill, { type: 'geojson', data: emptyFC() });
@@ -658,7 +724,8 @@ function removeShapeFromMap(shape) {
 
 function applyShapeStyle(shape) {
   const ids = shapeSourceIds(shape.id);
-  if (map.getLayer(ids.fillLayer) && shape.type === 'polygon') {
+  const hasFill = shape.type === 'polygon' || shape.type === 'country';
+  if (map.getLayer(ids.fillLayer) && hasFill) {
     map.setPaintProperty(ids.fillLayer, 'fill-color', shape.fill);
     map.setPaintProperty(ids.fillLayer, 'fill-opacity', shape.visible ? shape.fillOpacity : 0);
   }
@@ -683,6 +750,14 @@ function applyShapeVisibility(shape) {
 // Render the shape using its current preview state.
 function redrawShape(shape) {
   const ids = shapeSourceIds(shape.id);
+  if (shape.type === 'country') {
+    const src = map.getSource(ids.fill);
+    if (!src) return;
+    const geom = shape._geometry || resolveCountryGeometry(shape);
+    if (!geom) return;
+    src.setData({ type: 'Feature', properties: {}, geometry: geom });
+    return;
+  }
   if (shape.type === 'polygon') {
     const src = map.getSource(ids.fill);
     if (!src) return;
@@ -807,6 +882,51 @@ function addOctagon() {
   showRouteUI();
 }
 
+function resolveCountryGeometry(shape) {
+  // Geometry isn't persisted (would bloat localStorage). Resolve from the
+  // shared COUNTRIES table by id, then by name as a fallback.
+  if (shape._geometry) return shape._geometry;
+  let c = null;
+  if (shape.countryId) c = COUNTRY_BY_ID.get(String(shape.countryId)) || null;
+  if (!c && shape.countryName) c = COUNTRY_BY_NAME.get(shape.countryName.toLowerCase()) || null;
+  if (c) shape._geometry = c.geometry;
+  return shape._geometry || null;
+}
+
+function addCountry(country) {
+  // country: { id, name, geometry } from the COUNTRIES list
+  if (!country) return;
+  // Don't double-add the same country
+  const exists = state.shapes.find(s => s.type === 'country' && String(s.countryId) === String(country.id));
+  if (exists) {
+    selectShape(exists.id);
+    return;
+  }
+  snapshotForUndo('add country');
+  const id = newShapeId();
+  const shape = {
+    id,
+    type: 'country',
+    name: country.name,
+    countryId: String(country.id),
+    countryName: country.name,
+    _geometry: country.geometry,
+    stroke: SHAPE_DEFAULTS.stroke,
+    fill: pickShapeFill(),
+    strokeWidth: 1.5,
+    fillOpacity: 0.35,
+    visible: true,
+    preview: {},  // unused but kept for compatibility with the rest of the system
+  };
+  state.shapes.push(shape);
+  backfillShapeIntoKeyframes(shape);
+  ensureShapeOnMap(shape);
+  redrawShape(shape);
+  saveLayers();
+  renderShapesPanel();
+  showRouteUI();
+}
+
 function addLineFromCoords(coords) {
   if (!coords || coords.length < 2) return;
   snapshotForUndo('add line');
@@ -923,6 +1043,10 @@ function snapshotShapePreview(shape) {
     strokeWidth: shape.strokeWidth,
     fillOpacity: shape.fillOpacity,
   };
+  if (shape.type === 'country') {
+    // Country geometry is fixed; only style props are keyframeable.
+    return { ...common };
+  }
   if (shape.type === 'polygon') {
     return {
       ...common,
@@ -944,7 +1068,9 @@ function applyShapeKfState(shape, st) {
   if (!st) return;
   if (typeof st.strokeWidth === 'number') shape.strokeWidth = st.strokeWidth;
   if (typeof st.fillOpacity === 'number') shape.fillOpacity = st.fillOpacity;
-  if (shape.type === 'polygon') {
+  if (shape.type === 'country') {
+    // Geometry is fixed; nothing else to apply.
+  } else if (shape.type === 'polygon') {
     if (Array.isArray(st.center)) shape.preview.center = [st.center[0], st.center[1]];
     if (typeof st.radiusKm === 'number') shape.preview.radiusKm = st.radiusKm;
     if (typeof st.rotation === 'number') shape.preview.rotation = st.rotation;
@@ -981,7 +1107,9 @@ function interpolateShapesAtTime(a, b, eased) {
     if (!sa && !sb) continue;
     if (!sa) { applyShapeKfState(shape, sb); redrawShape(shape); continue; }
     if (!sb) { applyShapeKfState(shape, sa); redrawShape(shape); continue; }
-    if (shape.type === 'polygon') {
+    if (shape.type === 'country') {
+      // Only style props animate. Skip geometry transforms.
+    } else if (shape.type === 'polygon') {
       shape.preview.center = [
         lerpLng(sa.center[0], sb.center[0], eased),
         lerp(sa.center[1], sb.center[1], eased),
@@ -1397,6 +1525,8 @@ function serializeShape(s) {
     sides: s.sides,
     label: s.label,
     baseCoords: s.baseCoords,
+    countryId: s.countryId,
+    countryName: s.countryName,
     stroke: s.stroke,
     fill: s.fill,
     strokeWidth: s.strokeWidth,
@@ -1408,21 +1538,33 @@ function serializeShape(s) {
 
 function hydrateShape(raw) {
   if (!raw || !raw.type || !raw.id) return null;
+  const baseName =
+    raw.type === 'polygon' ? 'Polygon' :
+    raw.type === 'line'    ? 'Line' :
+    raw.type === 'country' ? (raw.countryName || 'Country') :
+                             'Shape';
   const base = {
     id: raw.id,
     type: raw.type,
-    name: raw.name || (raw.type === 'polygon' ? 'Polygon' : 'Line'),
+    name: raw.name || baseName,
     sides: typeof raw.sides === 'number' ? raw.sides : 8,
     label: typeof raw.label === 'string' ? raw.label : '',
     baseCoords: Array.isArray(raw.baseCoords) ? raw.baseCoords : [],
+    countryId: raw.countryId,
+    countryName: raw.countryName,
     stroke: raw.stroke || SHAPE_DEFAULTS.stroke,
     fill: raw.fill || SHAPE_DEFAULTS.fill,
     strokeWidth: typeof raw.strokeWidth === 'number' ? raw.strokeWidth : SHAPE_DEFAULTS.strokeWidth,
     fillOpacity: typeof raw.fillOpacity === 'number' ? raw.fillOpacity : SHAPE_DEFAULTS.fillOpacity,
     visible: raw.visible !== false,
-    preview: raw.preview || defaultShapePreview(raw.type, [0, 0]),
+    preview: raw.preview || (raw.type === 'country' ? {} : defaultShapePreview(raw.type, [0, 0])),
   };
   if (base.type === 'line' && base.baseCoords.length < 2) return null;
+  if (base.type === 'country') {
+    // Resolve geometry now so subsequent renders just read from _geometry.
+    resolveCountryGeometry(base);
+    if (!base._geometry) return null;
+  }
   return base;
 }
 
@@ -1701,10 +1843,15 @@ function renderShapesPanel() {
     row.className = 'shape-row';
     if (shape.id === state.activeShapeId) row.classList.add('active');
     if (!shape.visible) row.classList.add('hidden-layer');
-    const glyph = shape.type === 'polygon' ? '⬡' : '╱';
-    const stat = shape.type === 'polygon'
-      ? `n=${shape.sides} · ${Math.round(shape.preview.radiusKm)} km`
-      : `${shape.baseCoords.length} pts · scale ${shape.preview.scale.toFixed(2)}`;
+    const glyph =
+      shape.type === 'polygon' ? '⬡' :
+      shape.type === 'line'    ? '╱' :
+      shape.type === 'country' ? '◇' : '?';
+    const stat =
+      shape.type === 'polygon' ? `n=${shape.sides} · ${Math.round(shape.preview.radiusKm)} km` :
+      shape.type === 'line'    ? `${shape.baseCoords.length} pts · scale ${shape.preview.scale.toFixed(2)}` :
+      shape.type === 'country' ? `α ${Math.round(shape.fillOpacity * 100)}% · sw ${shape.strokeWidth}` :
+                                 '';
     row.innerHTML = `
       <input type="checkbox" class="layer-vis" ${shape.visible ? 'checked' : ''} title="Toggle visibility">
       <span class="shape-swatch" style="background:${shape.type === 'polygon' ? shape.fill : shape.stroke}; border-color:${shape.stroke};"></span>
@@ -1796,7 +1943,16 @@ function syncShapeStyleInputs() {
   reconfigureSlidersFor(shape);
 
   const suffix = document.getElementById('ss-scale-suffix');
-  if (shape.type === 'polygon') {
+  if (shape.type === 'country') {
+    ssFill.value = shape.fill;
+    ssFillOpacity.value = Math.round(shape.fillOpacity * 100);
+    ssFillOpacityVal.value = Math.round(shape.fillOpacity * 100);
+    ssFillOpacityField.classList.remove('hidden');
+    ssSidesField.classList.add('hidden');
+    ssScaleField.classList.add('hidden');
+    ssRotationField.classList.add('hidden');
+    ssDrawField.classList.add('hidden');
+  } else if (shape.type === 'polygon') {
     ssFill.value = shape.fill;
     ssFillOpacity.value = Math.round(shape.fillOpacity * 100);
     ssFillOpacityVal.value = Math.round(shape.fillOpacity * 100);
@@ -1922,6 +2078,65 @@ document.getElementById('add-octagon-btn').addEventListener('click', () => {
   addOctagon();
 });
 
+// ─── Country picker ───
+const cpModal = document.getElementById('country-picker');
+const cpSearch = document.getElementById('cp-search');
+const cpList = document.getElementById('cp-list');
+
+function openCountryPicker() {
+  cpModal.classList.remove('hidden');
+  cpSearch.value = '';
+  renderCountryPickerList('');
+  setTimeout(() => cpSearch.focus(), 0);
+}
+
+function closeCountryPicker() {
+  cpModal.classList.add('hidden');
+}
+
+function renderCountryPickerList(query) {
+  const matches = searchCountries(query);
+  cpList.innerHTML = '';
+  matches.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'cp-row' + (i === 0 ? ' cp-active' : '');
+    row.textContent = c.name;
+    row.dataset.id = c.id;
+    row.addEventListener('click', () => {
+      addCountry(c);
+      closeCountryPicker();
+    });
+    cpList.appendChild(row);
+  });
+}
+
+document.getElementById('add-country-btn').addEventListener('click', openCountryPicker);
+
+cpSearch.addEventListener('input', () => renderCountryPickerList(cpSearch.value));
+cpSearch.addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'Escape') { e.preventDefault(); closeCountryPicker(); }
+  else if (e.key === 'Enter') {
+    e.preventDefault();
+    const active = cpList.querySelector('.cp-row.cp-active') || cpList.querySelector('.cp-row');
+    if (active) active.click();
+  } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const rows = Array.from(cpList.querySelectorAll('.cp-row'));
+    if (rows.length === 0) return;
+    let idx = rows.findIndex(r => r.classList.contains('cp-active'));
+    rows.forEach(r => r.classList.remove('cp-active'));
+    if (e.key === 'ArrowDown') idx = Math.min(rows.length - 1, idx + 1);
+    else idx = Math.max(0, idx - 1);
+    rows[idx].classList.add('cp-active');
+    rows[idx].scrollIntoView({ block: 'nearest' });
+  }
+});
+
+cpModal.addEventListener('click', (e) => {
+  if (e.target === cpModal) closeCountryPicker();
+});
+
 document.getElementById('add-line-btn').addEventListener('click', () => {
   if (state.drawingLine) {
     finalizeLineDrawing();
@@ -1969,7 +2184,7 @@ map.on('mousemove', (e) => {
 
 function shapeFillLayerIds() {
   return state.shapes
-    .filter(s => s.type === 'polygon')
+    .filter(s => s.type === 'polygon' || s.type === 'country')
     .map(s => shapeSourceIds(s.id).fillLayer)
     .filter(id => map.getLayer(id));
 }
@@ -2127,6 +2342,11 @@ map.on('mousedown', (e) => {
   if (state.drawingLine) return;
   const hit = findShapeAtPoint(e.point);
   if (!hit) return;
+  // Country shapes have fixed geometry — clicking just selects, drag still pans the map.
+  if (hit.type === 'country') {
+    selectShape(hit.id);
+    return;
+  }
   // Begin drag — pin selection to this shape, prevent map pan
   e.preventDefault();
   selectShape(hit.id);

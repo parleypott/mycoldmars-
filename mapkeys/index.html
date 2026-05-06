@@ -20,6 +20,7 @@
     </label>
     <button class="btn" id="add-octagon-btn">+ Octagon</button>
     <button class="btn" id="add-line-btn">+ Line</button>
+    <button class="btn" id="add-country-btn">+ Country</button>
     <span id="route-info"></span>
     <span id="draw-mode-hint" class="hidden">DRAWING — click to add points · double-click or <kbd>Enter</kbd> to finish · <kbd>Esc</kbd> cancel</span>
 
@@ -149,6 +150,15 @@
       <div id="kf-list"></div>
     </div>
 
+  </div>
+
+  <div id="country-picker" class="hidden">
+    <div id="cp-card">
+      <div id="cp-title">ADD COUNTRY</div>
+      <input id="cp-search" type="text" placeholder="Search countries…" autocomplete="off" spellcheck="false">
+      <div id="cp-list"></div>
+      <div id="cp-hint">↵ add top match · esc close</div>
+    </div>
   </div>
 
   <div id="render-queue" class="hidden">

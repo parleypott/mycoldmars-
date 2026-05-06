@@ -227,6 +227,78 @@ html, body {
 }
 #shape-label-edit::placeholder { color: var(--ink-faint); }
 
+/* ─── Country picker modal ─── */
+#country-picker {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 42, 38, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14vh;
+}
+#cp-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  padding: 18px 18px 12px;
+  width: 360px;
+  box-shadow: 0 8px 40px rgba(43, 42, 38, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 70vh;
+}
+#cp-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  color: var(--ink);
+}
+#cp-search {
+  appearance: none;
+  background: #fffaf0;
+  border: 1.5px solid var(--ink);
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-family: 'Space Mono', monospace;
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+}
+#cp-search::placeholder { color: var(--ink-faint); }
+#cp-list {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  background: rgba(255, 250, 240, 0.6);
+  min-height: 200px;
+}
+.cp-row {
+  padding: 8px 12px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  border-bottom: 1px solid rgba(43, 42, 38, 0.05);
+}
+.cp-row:hover, .cp-row.cp-active {
+  background: var(--ink);
+  color: var(--paper);
+}
+#cp-hint {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  text-align: right;
+}
+
 /* ─── Render queue panel ─── */
 #render-queue {
   position: absolute;
