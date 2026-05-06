@@ -279,7 +279,8 @@ html, body {
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
-body.editing-country .mapboxgl-canvas { cursor: crosshair !important; }
+body.editing-country .mapboxgl-canvas { cursor: crosshair; }
+body.dragging-shape .mapboxgl-canvas { cursor: grabbing !important; }
 
 /* ─── Country picker modal ─── */
 #country-picker {
