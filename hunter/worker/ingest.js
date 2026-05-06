@@ -11,7 +11,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { listFolder, downloadFile } from './dropbox-client.js';
-import { uploadFile, createCache, analyzeUnit, generateEmbedding } from './gemini-client.js';
+import { uploadFile, createCache, analyzeUnit, analyzeScript, generateEmbedding } from './gemini-client.js';
 import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
@@ -104,6 +104,11 @@ async function processAsset(asset) {
       localPath = await fetchFromYoutube(asset);
     } else if (asset.source_kind === 'local') {
       localPath = asset.source_ref;
+    } else if (asset.source_kind === 'google_docs') {
+      await processGoogleDoc(asset, projectContext);
+      await updateAsset(asset.id, { queue_status: 'done' });
+      console.log(`[worker] ✓ ${asset.id} done (google_docs)`);
+      return;
     }
 
     if (!localPath) {
@@ -302,6 +307,154 @@ async function analyzeVideo(assetId, localPath, projectContext) {
       console.error(`[worker] analysis failed for unit ${unit.id}:`, err.message);
     }
   }
+}
+
+// ── Google Docs script ingestion ──
+
+function extractDocId(url) {
+  const match = url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+  if (!match) throw new Error(`Can't extract doc ID from: ${url}`);
+  return match[1];
+}
+
+async function fetchGoogleDocText(sourceRef) {
+  const docId = extractDocId(sourceRef);
+  const exportUrl = `https://docs.google.com/document/d/${docId}/export?format=txt`;
+  console.log(`[worker] fetching Google Doc ${docId} as plain text...`);
+
+  const resp = await fetch(exportUrl);
+  if (!resp.ok) {
+    throw new Error(`Google Docs export failed (${resp.status}): ${resp.statusText}. Make sure the doc is publicly accessible or "anyone with link".`);
+  }
+
+  const text = await resp.text();
+  console.log(`[worker] fetched ${text.length} chars from Google Doc`);
+  return text;
+}
+
+/**
+ * Split a script into chunks by scene headings (INT./EXT./SCENE) or by size.
+ * Each chunk gets a title derived from the heading or position.
+ */
+function chunkScript(text, maxChars = 4000) {
+  const lines = text.split('\n');
+  const chunks = [];
+  let current = { title: 'Opening', lines: [] };
+
+  for (const line of lines) {
+    // Scene heading patterns: INT., EXT., SCENE, ACT, CHAPTER, or all-caps lines > 10 chars that look like headings
+    const isHeading = /^\s*(INT\.|EXT\.|SCENE\s|ACT\s|CHAPTER\s)/i.test(line)
+      || (/^[A-Z][A-Z\s\d:—–-]{10,}$/.test(line.trim()) && line.trim().length < 80);
+
+    if (isHeading && current.lines.length > 0) {
+      chunks.push({ title: current.title, text: current.lines.join('\n') });
+      current = { title: line.trim().slice(0, 80), lines: [line] };
+    } else {
+      current.lines.push(line);
+      // Also split on size if a section gets too long
+      if (current.lines.join('\n').length > maxChars) {
+        chunks.push({ title: current.title, text: current.lines.join('\n') });
+        current = { title: `${current.title} (cont.)`, lines: [] };
+      }
+    }
+  }
+
+  if (current.lines.length > 0) {
+    chunks.push({ title: current.title, text: current.lines.join('\n') });
+  }
+
+  // Filter out tiny chunks (whitespace-only, etc.)
+  return chunks.filter(c => c.text.trim().length > 50);
+}
+
+async function processGoogleDoc(asset, projectContext) {
+  await updateAsset(asset.id, { queue_status: 'fetching' });
+
+  const fullText = await fetchGoogleDocText(asset.source_ref);
+
+  // Save full text to cache
+  const projectDir = join(CACHE_DIR, asset.project_id);
+  mkdirSync(projectDir, { recursive: true });
+  const cachePath = join(projectDir, `script-${asset.id.slice(0, 8)}.txt`);
+  const { writeFileSync } = await import('node:fs');
+  writeFileSync(cachePath, fullText);
+  await updateAsset(asset.id, { cache_path: cachePath });
+
+  // Chunk the script
+  const chunks = chunkScript(fullText);
+  console.log(`[worker] script chunked into ${chunks.length} sections`);
+
+  await updateAsset(asset.id, { queue_status: 'analyzing' });
+
+  // Batch-check which sections already have corpus units
+  const { data: existingUnits } = await supabase.from('corpus_units')
+    .select('source_clip_name')
+    .eq('media_asset_id', asset.id);
+  const existingNames = new Set((existingUnits || []).map(u => u.source_clip_name));
+
+  const limit = createPool(CONCURRENCY);
+  let processed = 0;
+  const total = chunks.length;
+
+  await Promise.allSettled(chunks.map((chunk, i) => limit(async () => {
+    const sectionName = `section-${String(i + 1).padStart(3, '0')}`;
+
+    if (existingNames.has(sectionName)) {
+      processed++;
+      return; // already done
+    }
+
+    try {
+      // Create corpus unit (start_seconds/end_seconds represent char offsets for scripts)
+      const charOffset = fullText.indexOf(chunk.text);
+      const { data: unit, error } = await supabase.from('corpus_units')
+        .insert({
+          media_asset_id: asset.id,
+          start_seconds: charOffset,
+          end_seconds: charOffset + chunk.text.length,
+          source_clip_name: sectionName,
+        })
+        .select().single();
+
+      if (error) {
+        console.error(`[worker] corpus unit error for ${sectionName}:`, error.message);
+        return;
+      }
+
+      // Analyze with script-specific prompt (with rate limit retry)
+      const result = await retryWithBackoff(
+        () => analyzeScript({ text: chunk.text, sectionTitle: chunk.title, projectContext }),
+        sectionName
+      );
+
+      // Save analysis
+      await supabase.from('analyses').insert({
+        corpus_unit_id: unit.id,
+        model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+        prompt_version: 'v1-script-training',
+        output_text: result.text,
+        output_json: null,
+        cost_usd: 0,
+      });
+
+      // Generate embedding
+      const embedding = await generateEmbedding(result.text);
+      await supabase.from('embeddings').insert({
+        corpus_unit_id: unit.id,
+        model: 'text-embedding-004',
+        embedding: embedding,
+      });
+
+      processed++;
+      lastProgressAt = Date.now();
+      console.log(`[worker] ✓ script ${sectionName} "${chunk.title}" (${processed}/${total}): ${result.text.slice(0, 60)}...`);
+    } catch (err) {
+      processed++;
+      console.error(`[worker] ✗ script ${sectionName}:`, err.message);
+    }
+  })));
+
+  console.log(`[worker] ✓ script ingestion complete: ${processed}/${total} sections`);
 }
 
 function getDuration(filePath) {

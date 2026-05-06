@@ -17,8 +17,8 @@ create table if not exists hunter_projects (
 create table if not exists media_assets (
   id uuid primary key default gen_random_uuid(),
   project_id uuid references hunter_projects(id) on delete cascade,
-  tier text not null check (tier in ('raw', 'script', 'selects', 'finished')),
-  source_kind text not null check (source_kind in ('dropbox', 'youtube', 'local')),
+  tier text not null check (tier in ('raw', 'script', 'selects', 'finished', 'google_docs')),
+  source_kind text not null check (source_kind in ('dropbox', 'youtube', 'local', 'google_docs')),
   source_ref text not null,
   cache_path text,
   duration_seconds integer,

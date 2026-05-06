@@ -175,6 +175,47 @@ ${corpus}`
 }
 
 /**
+ * Analyze a script section in training mode.
+ * Captures editorial intent so it can be compared against footage analysis.
+ */
+export async function analyzeScript({ text, sectionTitle, projectContext }) {
+  const genai = getAI();
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+  const contextBlock = projectContext
+    ? `PROJECT CONTEXT:\n${projectContext}\n\n`
+    : '';
+
+  const prompt = `${contextBlock}You are analyzing a documentary filmmaker's SCRIPT in TRAINING MODE. This script represents the filmmaker's original editorial intent — what they planned to say, show, and convey before entering the edit room.
+
+The goal is to build a detailed record so that later — when comparing against raw footage, selected cuts, and the finished piece — an AI can learn HOW editorial intent translates into footage selection, what gets kept vs. cut, and where the final story diverges from or fulfills the original vision.
+
+${sectionTitle ? `SECTION: "${sectionTitle}"\n\n` : ''}SCRIPT TEXT:
+${text}
+
+Analyze this section. Cover:
+
+- **Story beat**: What narrative function does this section serve? (setup, conflict, revelation, transition, climax, resolution, aside, context-setting)
+- **Intended footage**: What kind of footage would illustrate this? Be specific — interview clips, B-roll type, establishing shots, archival, graphics.
+- **Emotional register**: What feeling is the writer trying to create? (wonder, tension, intimacy, humor, gravity, urgency)
+- **Voice & structure**: Is this narration, interview setup, scene description, or data/context? How does the writing style signal the intended pacing?
+- **Visual cues**: Any explicit or implicit references to specific shots, locations, people, or moments?
+- **Edit room prediction**: When this section meets the raw footage, what's likely to survive intact, what will be rewritten in the edit, and what might be cut entirely?
+
+Write naturally and specifically. This analysis will be compared against footage-level analysis to understand the gap between script intent and editorial reality.`;
+
+  const result = await genai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+  });
+
+  return {
+    text: result.text,
+    usage: result.usageMetadata,
+  };
+}
+
+/**
  * Generate an embedding for a text description.
  */
 export async function generateEmbedding(text) {
