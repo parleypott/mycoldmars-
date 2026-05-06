@@ -129,6 +129,65 @@ html, body {
   white-space: nowrap;
 }
 
+/* ─── Shape style panel (mirrors route-style, separate when shape selected) ─── */
+
+#shape-style {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(246, 239, 222, 0.88);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 6px 12px;
+  backdrop-filter: blur(6px);
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+#shape-style .rs-field input[type="number"] {
+  width: 52px;
+  appearance: none;
+  background: #fffaf0;
+  border: 1px solid var(--panel-edge);
+  color: var(--ink);
+  padding: 4px 6px;
+  border-radius: 3px;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  outline: none;
+}
+
+#draw-mode-hint {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--paper);
+  background: var(--accent);
+  padding: 6px 10px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+#draw-mode-hint kbd {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 10px;
+  font-family: 'Space Mono', monospace;
+  color: var(--paper);
+}
+
+body.drawing-line #map,
+body.drawing-line .mapboxgl-canvas {
+  cursor: crosshair !important;
+}
+body.dragging-shape #map,
+body.dragging-shape .mapboxgl-canvas {
+  cursor: grabbing !important;
+}
+
 /* ─── Layers panel (left rail) ─── */
 
 #layers-panel {
@@ -249,6 +308,51 @@ html, body {
 .layer-btn:hover {
   color: var(--accent);
   background: rgba(43, 42, 38, 0.06);
+}
+
+/* Shapes section inside layers panel */
+#shapes-divider {
+  height: 1px;
+  background: var(--panel-edge);
+  margin: 8px 0;
+}
+#shapes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px 8px;
+  border-bottom: 1px solid var(--panel-edge);
+  margin-bottom: 6px;
+}
+.shape-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+}
+.shape-row:hover { background: rgba(43, 42, 38, 0.04); }
+.shape-row.active {
+  border-left-color: var(--ink);
+  background: rgba(43, 42, 38, 0.06);
+}
+.shape-row.hidden-layer .layer-name { opacity: 0.4; }
+.shape-glyph {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: var(--ink);
+}
+.shape-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px solid var(--panel-edge);
 }
 
 /* ─── Draw-on scrub bar ─── */
