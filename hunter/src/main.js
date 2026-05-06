@@ -77,18 +77,22 @@ const DEMO_PATTERNS = [
   { id: 'p2', observation_text: 'Geometric patience shots as emotional reset. Wide symmetrical compositions (the desert highway, architectural doorways, empty corridors) consistently appear at transition points between scenes. These are not B-roll — they function as editorial breathing room, giving the viewer permission to process what came before. The filmmaker instinctively uses negative space as punctuation.', example_unit_ids: [], status: 'surfaced' },
 ];
 
-const isDemo = !isConfigured();
+let isDemo = !isConfigured();
 
 async function loadProjects() {
-  if (isDemo) {
-    projects = DEMO_PROJECTS;
-  } else {
+  if (!isDemo) {
     try {
       projects = await listProjects();
     } catch (err) {
       console.error('[hunter] loadProjects:', err);
       projects = [];
     }
+  }
+
+  // Fall back to demo data if no real projects
+  if (projects.length === 0) {
+    isDemo = true;
+    projects = DEMO_PROJECTS;
   }
 
   if (projects.length === 0) {
