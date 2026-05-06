@@ -412,40 +412,34 @@ body.dragging-shape .mapboxgl-canvas {
   border: 1px solid var(--panel-edge);
 }
 
-/* ─── Draw-on scrub bar ─── */
+/* ─── Draw-on scrub bar — now nested inside the layers panel ─── */
 
 #draw-bar {
-  position: absolute;
-  top: 64px;
-  left: 16px;
-  right: 16px;
-  z-index: 10;
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: rgba(246, 239, 222, 0.92);
-  border: 1px solid var(--panel-edge);
-  border-radius: 4px;
-  padding: 8px 14px;
-  backdrop-filter: blur(8px);
+  gap: 8px;
+  margin: 8px 12px 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--panel-edge);
 }
 .db-label {
   font-family: 'Space Mono', monospace;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.25em;
+  letter-spacing: 0.22em;
   color: var(--ink);
   flex-shrink: 0;
 }
 #draw-slider {
   flex: 1;
+  min-width: 0;
   accent-color: var(--ink);
 }
 .db-val {
   font-family: 'Space Mono', monospace;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--ink);
-  min-width: 48px;
+  min-width: 36px;
   text-align: right;
   flex-shrink: 0;
 }
