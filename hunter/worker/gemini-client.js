@@ -75,7 +75,7 @@ export async function createCache(fileUri, systemInstruction, ttlSeconds = 3600)
  */
 export async function analyzeUnit({ fileUri, startSeconds, endSeconds, cacheName, prompt }) {
   const genai = getAI();
-  const model = cacheName ? 'gemini-2.5-flash' : 'gemini-2.5-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   const parts = [];
 

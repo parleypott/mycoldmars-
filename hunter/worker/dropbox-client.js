@@ -1,7 +1,7 @@
 /**
  * Dropbox API client for Hunter.
  * Uses Dropbox HTTP API directly — no SDK dependency.
- * Requires DROPBOX_ACCESS_TOKEN in env (long-lived or refreshed).
+ * Auto-refreshes access token using DROPBOX_REFRESH_TOKEN.
  */
 
 const BASE = 'https://api.dropboxapi.com/2';
@@ -10,15 +10,55 @@ const CONTENT_BASE = 'https://content.dropboxapi.com/2';
 // Team namespace ID for accessing full Dropbox Business folder structure
 const NAMESPACE_ID = process.env.DROPBOX_NAMESPACE_ID || '3229197859';
 
-function getToken() {
+// Token state — auto-refreshes when expired
+let cachedAccessToken = null;
+let tokenExpiresAt = 0;
+
+async function getToken() {
+  // If we have a valid cached token, use it
+  if (cachedAccessToken && Date.now() < tokenExpiresAt - 60_000) {
+    return cachedAccessToken;
+  }
+
+  const refreshToken = process.env.DROPBOX_REFRESH_TOKEN;
+  const appKey = process.env.DROPBOX_APP_KEY;
+  const appSecret = process.env.DROPBOX_APP_SECRET;
+
+  if (refreshToken && appKey && appSecret) {
+    // Auto-refresh using refresh token
+    console.log('[dropbox] refreshing access token...');
+    const res = await fetch('https://api.dropboxapi.com/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: appKey,
+        client_secret: appSecret,
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Dropbox token refresh failed ${res.status}: ${text.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    cachedAccessToken = data.access_token;
+    tokenExpiresAt = Date.now() + (data.expires_in * 1000);
+    console.log(`[dropbox] token refreshed, expires in ${data.expires_in}s`);
+    return cachedAccessToken;
+  }
+
+  // Fallback to static token from env
   const token = process.env.DROPBOX_ACCESS_TOKEN;
-  if (!token) throw new Error('DROPBOX_ACCESS_TOKEN not set');
+  if (!token) throw new Error('No Dropbox credentials configured (need DROPBOX_REFRESH_TOKEN or DROPBOX_ACCESS_TOKEN)');
   return token;
 }
 
-function headers() {
+async function headers() {
   return {
-    Authorization: `Bearer ${getToken()}`,
+    Authorization: `Bearer ${await getToken()}`,
     'Content-Type': 'application/json',
     'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'namespace_id', namespace_id: NAMESPACE_ID }),
   };
@@ -31,7 +71,7 @@ function headers() {
 export async function listFolder(path, recursive = false) {
   const res = await fetch(`${BASE}/files/list_folder`, {
     method: 'POST',
-    headers: headers(),
+    headers: await headers(),
     body: JSON.stringify({
       path: path === '/' ? '' : path,
       recursive,
@@ -54,7 +94,7 @@ export async function listFolder(path, recursive = false) {
   while (hasMore) {
     const more = await fetch(`${BASE}/files/list_folder/continue`, {
       method: 'POST',
-      headers: headers(),
+      headers: await headers(),
       body: JSON.stringify({ cursor }),
     });
     if (!more.ok) break;
@@ -78,10 +118,11 @@ export async function downloadFile(dropboxPath, localPath) {
 
   await mkdir(dirname(localPath), { recursive: true });
 
+  const token = await getToken();
   const res = await fetch(`${CONTENT_BASE}/files/download`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${getToken()}`,
+      Authorization: `Bearer ${token}`,
       'Dropbox-API-Arg': JSON.stringify({ path: dropboxPath }),
       'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'namespace_id', namespace_id: NAMESPACE_ID }),
     },
@@ -117,7 +158,7 @@ export async function downloadFile(dropboxPath, localPath) {
 export async function getMetadata(path) {
   const res = await fetch(`${BASE}/files/get_metadata`, {
     method: 'POST',
-    headers: headers(),
+    headers: await headers(),
     body: JSON.stringify({
       path,
       include_media_info: true,

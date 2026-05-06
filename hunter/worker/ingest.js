@@ -34,19 +34,18 @@ const POLL_INTERVAL = 10_000;
  * Retry a function with exponential backoff on 429 rate limit errors.
  * Waits the retryDelay from the error response if available.
  */
-async function retryWithBackoff(fn, label, maxRetries = 5) {
+async function retryWithBackoff(fn, label, maxRetries = 6) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (err) {
       const msg = err.message || '';
-      const is429 = msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota');
-      if (!is429 || attempt === maxRetries) throw err;
+      const isRetryable = msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota') || msg.includes('503') || msg.includes('UNAVAILABLE') || msg.includes('high demand');
+      if (!isRetryable || attempt === maxRetries) throw err;
 
-      // Extract retry delay from error message if available
       const delayMatch = msg.match(/retryDelay["\s:]+(\d+)/i) || msg.match(/retry in (\d+)/i);
-      const waitSec = delayMatch ? parseInt(delayMatch[1]) + 5 : Math.pow(2, attempt + 1) * 30;
-      console.log(`[worker] rate limited on ${label}, waiting ${waitSec}s (attempt ${attempt + 1}/${maxRetries})...`);
+      const waitSec = delayMatch ? parseInt(delayMatch[1]) + 5 : Math.min(Math.pow(2, attempt + 1) * 5, 120);
+      console.log(`[worker] retryable error on ${label}, waiting ${waitSec}s (attempt ${attempt + 1}/${maxRetries})...`);
       await new Promise(r => setTimeout(r, waitSec * 1000));
     }
   }
@@ -158,7 +157,7 @@ async function fetchFromDropbox(asset) {
 
         await supabase.from('analyses').insert({
           corpus_unit_id: unit.id,
-          model: 'gemini-2.5-flash',
+          model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
           prompt_version: 'v1',
           output_text: result.text,
           output_json: null,
