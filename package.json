@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@google/genai": "^1.52.0",
     "@preact/preset-vite": "^2.10.5",
     "@supabase/supabase-js": "^2.104.1",
     "@tiptap/core": "^3.22.4",

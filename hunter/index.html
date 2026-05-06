@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>↟ hunter — Newpress</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,500;1,300;1,400&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+  <!-- Access gate -->
+  <div id="gate" class="gate">
+    <div class="gate-inner">
+      <div class="np-eyebrow np-eyebrow--red">Newpress</div>
+      <h1 class="gate-title">hunter</h1>
+      <input id="gate-code" class="np-textarea" type="password" placeholder="Access code" style="min-height:auto;text-align:center;">
+      <button id="gate-submit" class="np-button np-button--primary" style="width:100%">Enter</button>
+      <p id="gate-error" class="hidden" style="color:var(--np-red);font-size:12px;text-align:center;margin-top:8px;">Wrong code</p>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+
+    <header>
+      <div class="header-row">
+        <a id="header-logo" class="header-logo" href="#">
+          <span class="header-logo-label">Newpress</span>
+          <span class="header-logo-mark"><span class="wordmark-glyph">↟</span> hunter</span>
+        </a>
+        <div class="header-actions">
+          <button id="btn-projects" class="header-btn active" data-view="projects">Projects</button>
+          <button id="btn-corpus" class="header-btn" data-view="corpus">Corpus</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Projects view -->
+    <section id="projects-view" class="panel active">
+      <div class="projects-header">
+        <h2 class="section-title">projects</h2>
+        <button id="btn-new-project" class="np-button np-button--primary">+ New Project</button>
+      </div>
+      <div id="projects-list" class="projects-list"></div>
+      <div id="projects-empty" class="empty-state">
+        <p>no projects yet</p>
+        <p class="empty-sub">create one to start ingesting footage</p>
+      </div>
+    </section>
+
+    <!-- Project detail view -->
+    <section id="project-view" class="panel">
+      <button id="btn-back-projects" class="back-btn">← projects</button>
+      <div id="project-header" class="project-header"></div>
+
+      <div class="tiers-grid">
+        <div class="tier-card" data-tier="raw">
+          <div class="np-eyebrow">Raw</div>
+          <p class="tier-desc">unfiltered footage from a shoot</p>
+          <div class="tier-source" id="tier-raw-source"></div>
+          <button class="np-button tier-add-btn" data-tier="raw">+ Add Dropbox folder</button>
+        </div>
+        <div class="tier-card" data-tier="script">
+          <div class="np-eyebrow">Script</div>
+          <p class="tier-desc">original written intent</p>
+          <div class="tier-source" id="tier-script-source"></div>
+          <button class="np-button tier-add-btn" data-tier="script">+ Upload file</button>
+          <input type="file" class="tier-file-input" data-tier="script" accept=".pdf,.docx,.txt,.md" hidden>
+        </div>
+        <div class="tier-card" data-tier="selects">
+          <div class="np-eyebrow">Selects</div>
+          <p class="tier-desc">curated sequences from Premiere</p>
+          <div class="tier-source" id="tier-selects-source"></div>
+          <button class="np-button tier-add-btn" data-tier="selects">+ Add XML/EDL + folder</button>
+          <input type="file" class="tier-file-input" data-tier="selects" accept=".xml,.edl" hidden>
+        </div>
+        <div class="tier-card" data-tier="finished">
+          <div class="np-eyebrow">Finished</div>
+          <p class="tier-desc">published cut from YouTube</p>
+          <div class="tier-source" id="tier-finished-source"></div>
+          <button class="np-button tier-add-btn" data-tier="finished">+ Add YouTube URL</button>
+        </div>
+      </div>
+
+      <!-- Corpus units for this project -->
+      <div id="project-corpus" class="project-corpus">
+        <div class="np-eyebrow" style="margin-top:var(--np-space-8)">Analyzed units</div>
+        <div id="corpus-units-list" class="corpus-units-list"></div>
+      </div>
+
+      <!-- Pattern observations -->
+      <div id="project-patterns" class="project-patterns">
+        <button id="btn-what-do-you-see" class="np-button np-button--red" style="margin-top:var(--np-space-8)">what do you see?</button>
+        <div id="patterns-list" class="patterns-list"></div>
+      </div>
+    </section>
+
+    <!-- Corpus browser (all projects) -->
+    <section id="corpus-view" class="panel">
+      <h2 class="section-title">corpus</h2>
+      <div id="corpus-browser" class="corpus-browser"></div>
+    </section>
+
+  </div>
+
+  <script>
+    (async function() {
+      const COOKIE_NAME = 'np_access';
+      const gate = document.getElementById('gate');
+      const app = document.getElementById('app');
+
+      function getCookie(name) {
+        const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+        return match ? decodeURIComponent(match[1]) : null;
+      }
+
+      function setCookie(name, value) {
+        document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=' + (60*60*24*90);
+      }
+
+      if (getCookie(COOKIE_NAME) === 'granted') {
+        gate.classList.add('hidden');
+        app.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const probe = await fetch('/api/access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: '' }),
+        });
+        if (probe.status === 404 || probe.ok) { unlock(); return; }
+      } catch { unlock(); return; }
+
+      const codeInput = document.getElementById('gate-code');
+      const submitBtn = document.getElementById('gate-submit');
+      const errorMsg = document.getElementById('gate-error');
+
+      function unlock() {
+        setCookie(COOKIE_NAME, 'granted');
+        gate.classList.add('hidden');
+        app.classList.remove('hidden');
+      }
+
+      async function checkCode() {
+        const code = codeInput.value.trim();
+        if (!code) return;
+        try {
+          const res = await fetch('/api/access', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code }),
+          });
+          if (res.ok || res.status === 404) unlock();
+          else {
+            errorMsg.classList.remove('hidden');
+            codeInput.value = '';
+            codeInput.focus();
+          }
+        } catch { unlock(); }
+      }
+
+      submitBtn.addEventListener('click', checkCode);
+      codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') checkCode(); });
+    })();
+  </script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

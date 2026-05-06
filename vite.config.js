@@ -46,6 +46,7 @@ export default defineConfig({
         growth: resolve(__dirname, 'growth/index.html'),
         viewsGrowth: resolve(__dirname, 'views-growth/index.html'),
         translation: resolve(__dirname, 'translation/index.html'),
+        hunter: resolve(__dirname, 'hunter/index.html'),
         trippy: resolve(__dirname, 'trippy/index.html'),
         taiwan: resolve(__dirname, 'taiwan/index.html'),
       },
