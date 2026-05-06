@@ -188,6 +188,15 @@ export async function analyzeScript({ text, sectionTitle, projectContext }) {
 
   const prompt = `${contextBlock}You are analyzing a documentary filmmaker's SCRIPT in TRAINING MODE. This script represents the filmmaker's original editorial intent — what they planned to say, show, and convey before entering the edit room.
 
+This is a TWO-COLUMN SCRIPT format used by documentary filmmakers. The original document has two columns side-by-side — one for VOICE (narration, voiceover, dialogue, interview SOTs) and one for VISUAL (shot descriptions, camera directions, what should be on screen).
+
+In this text, paired cells from the table are marked as:
+- "COL_A:" and "COL_B:" — these represent the two columns of a single script beat
+- "---BEAT---" separates each row/beat
+- Determine which column is voice and which is visual BY READING THE CONTENT — one column will contain narration/dialogue, the other will contain shot descriptions and camera instructions
+- When both appear together, the filmmaker intended that voice and visual to play SIMULTANEOUSLY
+- Non-prefixed lines are headings, notes, production metadata, or content that wasn't in the table
+
 The goal is to build a detailed record so that later — when comparing against raw footage, selected cuts, and the finished piece — an AI can learn HOW editorial intent translates into footage selection, what gets kept vs. cut, and where the final story diverges from or fulfills the original vision.
 
 ${sectionTitle ? `SECTION: "${sectionTitle}"\n\n` : ''}SCRIPT TEXT:
@@ -196,11 +205,11 @@ ${text}
 Analyze this section. Cover:
 
 - **Story beat**: What narrative function does this section serve? (setup, conflict, revelation, transition, climax, resolution, aside, context-setting)
-- **Intended footage**: What kind of footage would illustrate this? Be specific — interview clips, B-roll type, establishing shots, archival, graphics.
-- **Emotional register**: What feeling is the writer trying to create? (wonder, tension, intimacy, humor, gravity, urgency)
-- **Voice & structure**: Is this narration, interview setup, scene description, or data/context? How does the writing style signal the intended pacing?
-- **Visual cues**: Any explicit or implicit references to specific shots, locations, people, or moments?
-- **Edit room prediction**: When this section meets the raw footage, what's likely to survive intact, what will be rewritten in the edit, and what might be cut entirely?
+- **Voice/visual pairing**: For each beat, what is the relationship between what's being SAID and what's being SHOWN? Is the visual illustrating the voice literally, counterpointing it, or adding subtext?
+- **Intended footage**: What specific footage would this require? Interview clips, B-roll type, establishing shots, archival, graphics, animations. Note when the visual column names specific shots or files.
+- **Emotional register**: What feeling is the filmmaker trying to create? (wonder, tension, intimacy, humor, gravity, urgency)
+- **Pacing signals**: How does the density of voice/visual pairs signal the intended rhythm? Rapid cuts? Lingering shots? Voice-heavy exposition vs. visual-driven moments?
+- **Edit room prediction**: When this section meets the raw footage, what's likely to survive intact, what will be rewritten in the edit, and what might be cut entirely? Which visual directions are specific enough to match real footage vs. aspirational?
 
 Write naturally and specifically. This analysis will be compared against footage-level analysis to understand the gap between script intent and editorial reality.`;
 

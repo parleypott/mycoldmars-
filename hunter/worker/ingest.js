@@ -333,10 +333,103 @@ async function fetchGoogleDocText(sourceRef) {
 }
 
 /**
- * Split a script into chunks by scene headings (INT./EXT./SCENE) or by size.
- * Each chunk gets a title derived from the heading or position.
+ * Pre-process a Google Docs two-column script export.
+ *
+ * Google Docs tables export to plain text with tab-prefixed lines for cell content.
+ * Rather than trying to perfectly parse the inconsistent cell boundaries, we mark
+ * tab-prefixed lines as table cells and add a structural header so the AI understands
+ * this is a two-column script with voice/visual pairing.
  */
-function chunkScript(text, maxChars = 4000) {
+function parseTwoColumnScript(text) {
+  const lines = text.split('\n');
+  const output = [];
+  let inTableSection = false;
+  let cellBuffer = [];
+
+  function flushBuffer() {
+    if (cellBuffer.length === 0) return;
+    // Group consecutive cells into pairs (voice, visual)
+    // In Google Docs export, cells alternate: left col (voice), right col (visual)
+    for (let i = 0; i < cellBuffer.length; i += 2) {
+      const a = cellBuffer[i]?.trim();
+      const b = cellBuffer[i + 1]?.trim();
+      if (!a && !b) continue;
+      output.push('---BEAT---');
+      if (a) output.push(`COL_A: ${a}`);
+      if (b) output.push(`COL_B: ${b}`);
+    }
+    cellBuffer = [];
+  }
+
+  let currentCell = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const isTab = line.startsWith('\t');
+    const content = isTab ? line.slice(1).trim() : '';
+
+    if (isTab) {
+      if (!inTableSection) {
+        inTableSection = true;
+        currentCell = [];
+      }
+
+      if (content === '') {
+        // Empty tab line = cell boundary
+        if (currentCell.length > 0) {
+          cellBuffer.push(currentCell.join(' '));
+          currentCell = [];
+        }
+      } else {
+        currentCell.push(content);
+      }
+    } else {
+      // Non-tab line
+      if (inTableSection) {
+        // Could be content overflow from a cell
+        if (currentCell.length > 0 && line.trim() !== '') {
+          currentCell.push(line.trim());
+        } else {
+          // End of cell / row
+          if (currentCell.length > 0) {
+            cellBuffer.push(currentCell.join(' '));
+            currentCell = [];
+          }
+          if (line.trim() === '') {
+            // Blank line after tab section — could be row boundary, continue looking
+          } else {
+            // Real non-table content
+            flushBuffer();
+            inTableSection = false;
+            output.push(line);
+          }
+        }
+      } else {
+        output.push(line);
+      }
+    }
+  }
+
+  // Flush remaining
+  if (currentCell.length > 0) cellBuffer.push(currentCell.join(' '));
+  flushBuffer();
+
+  return output.join('\n');
+}
+
+/**
+ * Split a script into chunks by scene headings or by size.
+ * First parses two-column table structure if present, then chunks.
+ */
+function chunkScript(rawText, maxChars = 4000) {
+  // Detect and parse two-column script format (tab-prefixed table cells)
+  const hasTableStructure = rawText.split('\n').filter(l => l.startsWith('\t')).length > 20;
+  const text = hasTableStructure ? parseTwoColumnScript(rawText) : rawText;
+
+  if (hasTableStructure) {
+    console.log(`[worker] detected two-column script format, reconstructed ${text.length} chars`);
+  }
+
   const lines = text.split('\n');
   const chunks = [];
   let current = { title: 'Opening', lines: [] };
