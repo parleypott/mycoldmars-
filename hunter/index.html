@@ -50,67 +50,85 @@
 
     <!-- Project detail view -->
     <section id="project-view" class="panel">
-      <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="project-nav">
         <button id="btn-back-projects" class="back-btn">← projects</button>
-        <button id="btn-delete-project" class="np-button np-button--ghost" style="font-size:10px;color:var(--np-red);">Delete project</button>
+        <button id="btn-delete-project" class="np-button np-button--ghost" style="font-size:10px;color:var(--np-red);">Delete</button>
       </div>
       <div id="project-header" class="project-header"></div>
 
-      <div class="tiers-grid">
-        <div class="tier-card" data-tier="raw">
-          <div class="np-eyebrow">Raw</div>
-          <p class="tier-desc">unfiltered footage from a shoot</p>
-          <div class="tier-source" id="tier-raw-source"></div>
-          <button class="np-button tier-add-btn" data-tier="raw">+ Add Dropbox folder</button>
+      <!-- Source Layers — each tier is its own world -->
+      <div class="source-layers">
+        <div class="source-layer source-layer--raw" data-tier="raw">
+          <div class="source-layer-header">
+            <div class="source-layer-label">Raw</div>
+            <span class="source-layer-desc">unfiltered footage from a shoot</span>
+          </div>
+          <div class="source-layer-content" id="tier-raw-source"></div>
+          <button class="np-button tier-add-btn" data-tier="raw">+ Dropbox folder</button>
         </div>
-        <div class="tier-card" data-tier="script">
-          <div class="np-eyebrow">Script</div>
-          <p class="tier-desc">original written intent</p>
-          <div class="tier-source" id="tier-script-source"></div>
+
+        <div class="source-layer source-layer--script" data-tier="script">
+          <div class="source-layer-header">
+            <div class="source-layer-label">Script</div>
+            <span class="source-layer-desc">original written intent</span>
+          </div>
+          <div class="source-layer-content" id="tier-script-source"></div>
           <button class="np-button tier-add-btn" data-tier="script">+ Upload file</button>
           <input type="file" class="tier-file-input" data-tier="script" accept=".pdf,.docx,.txt,.md" hidden>
         </div>
-        <div class="tier-card" data-tier="selects">
-          <div class="np-eyebrow">Selects</div>
-          <p class="tier-desc">curated sequences from Premiere</p>
-          <div class="tier-source" id="tier-selects-source"></div>
-          <button class="np-button tier-add-btn" data-tier="selects">+ Add XML/EDL files</button>
+
+        <div class="source-layer source-layer--selects" data-tier="selects">
+          <div class="source-layer-header">
+            <div class="source-layer-label">Selects</div>
+            <span class="source-layer-desc">curated sequences from Premiere</span>
+          </div>
+          <div class="source-layer-content" id="tier-selects-source"></div>
+          <button class="np-button tier-add-btn" data-tier="selects">+ XML / EDL</button>
           <input type="file" class="tier-file-input" data-tier="selects" accept=".xml,.edl" multiple hidden>
         </div>
-        <div class="tier-card" data-tier="finished">
-          <div class="np-eyebrow">Finished</div>
-          <p class="tier-desc">published cut from YouTube</p>
-          <div class="tier-source" id="tier-finished-source"></div>
-          <button class="np-button tier-add-btn" data-tier="finished">+ Add YouTube URL</button>
+
+        <div class="source-layer source-layer--finished" data-tier="finished">
+          <div class="source-layer-header">
+            <div class="source-layer-label">Finished</div>
+            <span class="source-layer-desc">published cut from YouTube</span>
+          </div>
+          <div class="source-layer-content" id="tier-finished-source"></div>
+          <button class="np-button tier-add-btn" data-tier="finished">+ YouTube URL</button>
         </div>
       </div>
 
-      <!-- Ingest status bar -->
-      <div id="ingest-status" class="ingest-status hidden">
-        <div class="ingest-status-header">
-          <div class="ingest-pulse"></div>
-          <span class="ingest-status-label">hunter is watching</span>
-          <span class="ingest-status-count" id="ingest-count"></span>
+      <!-- Hunter's Eye — ingest feed -->
+      <div id="ingest-status" class="hunters-eye hidden">
+        <div class="hunters-eye-header">
+          <div class="hunters-eye-pulse"></div>
+          <span class="hunters-eye-title">hunter is watching</span>
+          <span class="hunters-eye-count" id="ingest-count"></span>
         </div>
-        <div class="ingest-progress-bar">
-          <div class="ingest-progress-fill" id="ingest-progress-fill"></div>
+        <div class="hunters-eye-bar">
+          <div class="hunters-eye-bar-fill" id="ingest-progress-fill"></div>
         </div>
-        <div class="ingest-feed" id="ingest-feed"></div>
+        <div class="hunters-eye-feed" id="ingest-feed"></div>
       </div>
 
-      <!-- Corpus units for this project -->
-      <div id="project-corpus" class="project-corpus">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:var(--np-space-8)">
-          <div class="np-eyebrow">Analyzed units</div>
+      <!-- Corpus Observatory -->
+      <div id="project-corpus" class="observatory">
+        <div class="observatory-header">
+          <div class="observatory-title">
+            <span class="observatory-glyph">&#x25C9;</span>
+            Corpus
+          </div>
           <button id="btn-export-xml" class="np-button np-button--ghost" style="font-size:10px;padding:4px 12px;">Export XML</button>
         </div>
-        <div id="corpus-units-list" class="corpus-units-list"></div>
+        <div id="corpus-units-list" class="observatory-units"></div>
       </div>
 
-      <!-- Pattern observations -->
-      <div id="project-patterns" class="project-patterns">
-        <button id="btn-what-do-you-see" class="np-button np-button--red" style="margin-top:var(--np-space-8)">what do you see?</button>
-        <div id="patterns-list" class="patterns-list"></div>
+      <!-- Pattern Revelations -->
+      <div id="project-patterns" class="revelations">
+        <div class="revelations-header">
+          <div class="revelations-title">Observations</div>
+          <button id="btn-what-do-you-see" class="np-button np-button--red">what do you see?</button>
+        </div>
+        <div id="patterns-list" class="revelations-list"></div>
       </div>
     </section>
 

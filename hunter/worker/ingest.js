@@ -30,6 +30,28 @@ if (existsSync(envPath)) {
 const CACHE_DIR = join(process.env.HOME, 'hunter-cache');
 const POLL_INTERVAL = 10_000;
 
+/**
+ * Retry a function with exponential backoff on 429 rate limit errors.
+ * Waits the retryDelay from the error response if available.
+ */
+async function retryWithBackoff(fn, label, maxRetries = 5) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const msg = err.message || '';
+      const is429 = msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota');
+      if (!is429 || attempt === maxRetries) throw err;
+
+      // Extract retry delay from error message if available
+      const delayMatch = msg.match(/retryDelay["\s:]+(\d+)/i) || msg.match(/retry in (\d+)/i);
+      const waitSec = delayMatch ? parseInt(delayMatch[1]) + 5 : Math.pow(2, attempt + 1) * 30;
+      console.log(`[worker] rate limited on ${label}, waiting ${waitSec}s (attempt ${attempt + 1}/${maxRetries})...`);
+      await new Promise(r => setTimeout(r, waitSec * 1000));
+    }
+  }
+}
+
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY,
@@ -126,10 +148,13 @@ async function fetchFromDropbox(asset) {
         continue;
       }
 
-      // Immediately analyze this clip
+      // Immediately analyze this clip (with rate limit retry)
       try {
         const file = await uploadFile(localPath);
-        const result = await analyzeUnit({ fileUri: file.uri, startSeconds: 0, endSeconds: duration });
+        const result = await retryWithBackoff(
+          () => analyzeUnit({ fileUri: file.uri, startSeconds: 0, endSeconds: duration }),
+          video.name
+        );
 
         await supabase.from('analyses').insert({
           corpus_unit_id: unit.id,

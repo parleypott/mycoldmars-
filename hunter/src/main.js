@@ -156,9 +156,12 @@ async function openProject(id) {
   }
 
   const header = document.getElementById('project-header');
-  header.innerHTML = `<h2>${escHtml(project.name)}</h2>`;
+  const totalUnits = units.length;
+  const analyzedUnits = units.filter(u => u.analyses?.length > 0).length;
+  const statsLine = totalUnits > 0 ? `${analyzedUnits} analyzed · ${assets.length} sources` : `${assets.length} sources`;
+  header.innerHTML = `<h2>${escHtml(project.name)}</h2><div class="project-stats">${statsLine}</div>`;
 
-  // Render tiers
+  // Render source layers
   for (const tier of ['raw', 'script', 'selects', 'finished']) {
     const el = document.getElementById(`tier-${tier}-source`);
     const tierAssets = assets.filter(a => a.tier === tier);
@@ -166,8 +169,11 @@ async function openProject(id) {
       el.innerHTML = tierAssets.map(a => {
         const classification = a.metadata?.classification;
         const badge = classification ? `<span class="np-eyebrow np-eyebrow--classification">${classification}</span> ` : '';
-        const unitCount = a.metadata?.unitCount ? ` · ${a.metadata.unitCount} cuts` : '';
-        return `<div class="tier-asset">${badge}${escHtml(a.source_ref)}${unitCount} <span class="np-eyebrow">${a.queue_status}</span></div>`;
+        const unitCount = a.metadata?.unitCount ? `<span style="opacity:0.6"> · ${a.metadata.unitCount} cuts</span>` : '';
+        const statusBadge = a.queue_status !== 'done'
+          ? `<span class="np-eyebrow" style="margin-left:auto;">${a.queue_status}</span>`
+          : '';
+        return `<div class="tier-asset">${badge}<span>${escHtml(a.source_ref)}</span>${unitCount}${statusBadge}</div>`;
       }).join('');
     } else {
       el.innerHTML = '';
@@ -285,9 +291,9 @@ document.querySelectorAll('.tier-add-btn').forEach(btn => {
     if (tier === 'raw') {
       promptDropboxFolder('raw');
     } else if (tier === 'script') {
-      btn.closest('.tier-card').querySelector('.tier-file-input').click();
+      btn.closest('.source-layer').querySelector('.tier-file-input').click();
     } else if (tier === 'selects') {
-      btn.closest('.tier-card').querySelector('.tier-file-input').click();
+      btn.closest('.source-layer').querySelector('.tier-file-input').click();
     } else if (tier === 'finished') {
       promptYoutubeUrl();
     }
@@ -337,7 +343,7 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
     const tier = input.dataset.tier;
-    const btn = input.closest('.tier-card').querySelector('.tier-add-btn');
+    const btn = input.closest('.source-layer').querySelector('.tier-add-btn');
     const tierSource = document.getElementById(`tier-${tier}-source`);
 
     // Show loading state
@@ -770,13 +776,11 @@ async function pollIngestStatus() {
     if (!el) return;
 
     if (!status || !status.active) {
-      // Ingest done or not started — hide if we have no recent analyses
       if (status?.analyzedCount > 0 && status.recentAnalyses?.length > 0) {
-        // Show completed state briefly
         el.classList.remove('hidden');
-        el.querySelector('.ingest-status-label').textContent = 'hunter finished watching';
-        el.querySelector('.ingest-pulse').style.animation = 'none';
-        el.querySelector('.ingest-pulse').style.background = 'var(--np-green)';
+        el.querySelector('.hunters-eye-title').textContent = 'hunter finished watching';
+        el.querySelector('.hunters-eye-pulse').style.animation = 'none';
+        el.querySelector('.hunters-eye-pulse').style.background = 'var(--np-green)';
         document.getElementById('ingest-count').textContent = `${status.analyzedCount} clips analyzed`;
         document.getElementById('ingest-progress-fill').style.width = '100%';
       } else {
@@ -792,7 +796,6 @@ async function pollIngestStatus() {
     document.getElementById('ingest-count').textContent = `${count} / ~${TOTAL_CLIPS_ESTIMATE} clips`;
     document.getElementById('ingest-progress-fill').style.width = `${pct}%`;
 
-    // Render feed with quips
     const feed = document.getElementById('ingest-feed');
     if (status.recentAnalyses?.length > 0) {
       feed.innerHTML = status.recentAnalyses.map(a => {

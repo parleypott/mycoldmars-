@@ -21,23 +21,30 @@ export function parseFCP7XML(xmlString) {
   // Only grab TOP-LEVEL sequences — not nested ones inside <clipitem>.
   // Premiere FCP7 XML nests sequences inside clip items as references;
   // those are internal constructs, not user-built sequences.
+  //
+  // Real sequences live at paths like:
+  //   xmeml > sequence
+  //   xmeml > project > children > sequence
+  //   xmeml > project > children > bin > children > sequence
+  //
+  // Nested (skip) sequences live at:
+  //   ... > clipitem > sequence
   const sequences = [];
   const allSeqElements = doc.querySelectorAll('sequence');
 
   for (const seqEl of allSeqElements) {
-    // Skip if this sequence is nested inside a <clipitem>
-    if (seqEl.parentElement?.tagName === 'clipitem' ||
-        seqEl.closest('clipitem')) {
-      continue;
-    }
+    // Walk up the parent chain — if any ancestor is a <clipitem>, skip
+    if (isNestedInClipItem(seqEl)) continue;
 
     const seq = parseSequence(seqEl);
     if (!seq) continue;
 
-    // Skip empty sequences and auto-generated "Nested Sequence N" entries
+    // Skip empty sequences
     const totalClips = seq.videoTracks.reduce((sum, t) => sum + t.clips.length, 0);
     if (totalClips === 0) continue;
-    if (/^Nested Sequence \d+$/i.test(seq.name)) continue;
+
+    // Skip auto-generated "Nested Sequence N" names (Premiere creates these)
+    if (/^Nested Sequence\s*\d*$/i.test(seq.name)) continue;
 
     sequences.push(seq);
   }
@@ -216,6 +223,15 @@ export function extractSourceClips(sequences) {
 }
 
 // ── Helpers ──
+
+function isNestedInClipItem(el) {
+  let node = el.parentElement;
+  while (node) {
+    if (node.tagName === 'clipitem' || node.nodeName === 'clipitem') return true;
+    node = node.parentElement;
+  }
+  return false;
+}
 
 function getText(el, selector) {
   const child = el.querySelector(selector);
