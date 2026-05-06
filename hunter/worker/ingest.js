@@ -173,6 +173,9 @@ async function fetchFromDropbox(asset) {
       try { (await import('node:fs/promises')).unlink(localPath); } catch {}
 
       processed++;
+
+      // Pace requests to avoid 503 overload
+      await new Promise(r => setTimeout(r, 5000));
       // Log progress every 10 clips
       if (processed % 10 === 0) {
         console.log(`[worker] progress: ${processed}/${videos.length} clips processed`);

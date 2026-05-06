@@ -749,34 +749,27 @@ const TOTAL_CLIPS_ESTIMATE = 1199; // Saudi Arabia known count
 
 // Generate a casual Hunter-voice quip from analysis text
 function generateQuip(text) {
-  const lower = text.toLowerCase();
+  // Extract the actual first sentence from the analysis — it's always specific
+  const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
+  if (!sentences.length) return text.slice(0, 80);
 
-  // Pattern match for fun commentary
-  if (/camel|dromedary/.test(lower)) return 'ooo nice — camels';
-  if (/driving|car |vehicle|highway|road trip/.test(lower)) return 'more driving footage, love the rhythm of these';
-  if (/eating|food|meal|restaurant|dining|coffee|tea/.test(lower)) return 'food moment — these build intimacy';
-  if (/desert|sand dune|arid/.test(lower)) return 'the desert keeps appearing — it\'s a character';
-  if (/mosque|prayer|minaret|islamic/.test(lower)) return 'sacred architecture — stunning compositions';
-  if (/sunset|sunrise|golden hour|twilight/.test(lower)) return 'golden light, of course';
-  if (/market|souk|vendor|shop/.test(lower)) return 'souk energy — chaotic and alive';
-  if (/mountain|cliff|rock formation/.test(lower)) return 'dramatic geology';
-  if (/drone|aerial|overhead|bird.s.eye/.test(lower)) return 'aerial perspective shift';
-  if (/interview|talking|speaking|conversation/.test(lower)) return 'conversation — watching the body language';
-  if (/dark|night|shadow|silhouette/.test(lower)) return 'moody shadow work';
-  if (/crowd|people|group|gathering/.test(lower)) return 'crowd dynamics, lots of energy';
-  if (/ocean|sea|water|coast|beach/.test(lower)) return 'water moment';
-  if (/child|kid|boy|girl/.test(lower)) return 'kids in frame — always adds life';
-  if (/empty|lonely|alone|solitude/.test(lower)) return 'quiet isolation — powerful';
-  if (/b-roll|establishing|wide shot/.test(lower)) return 'classic establishing shot';
-  if (/close.up|detail|macro/.test(lower)) return 'intimate detail work';
-  if (/walk|stroll|moving through/.test(lower)) return 'movement through space';
-  if (/construction|building|scaffolding/.test(lower)) return 'construction — texture of a place changing';
-  if (/animal|bird|goat|sheep/.test(lower)) return 'animals — adds unpredictability';
+  // Skip generic openers like "The video opens with..." — grab the meat
+  let pick = sentences[0];
+  if (sentences.length > 1 && /^(The (video|shot|scene|clip|moment|frame) (opens|begins|starts|shows))/i.test(pick)) {
+    // Take the second sentence or trim the first to the interesting part
+    const afterWith = pick.match(/with (.+)/i);
+    if (afterWith) {
+      pick = afterWith[1].replace(/^(a |an |the )/i, '');
+      // Capitalize first letter
+      pick = pick.charAt(0).toUpperCase() + pick.slice(1);
+    } else {
+      pick = sentences[1];
+    }
+  }
 
-  // Default: extract the first vivid noun phrase
-  const firstSentence = text.split(/[.!]/).shift() || '';
-  if (firstSentence.length > 80) return firstSentence.slice(0, 75) + '...';
-  return firstSentence;
+  // Trim to a readable length
+  if (pick.length > 120) pick = pick.slice(0, 115) + '...';
+  return pick;
 }
 
 async function pollIngestStatus() {
@@ -812,11 +805,11 @@ async function pollIngestStatus() {
     if (status.recentAnalyses?.length > 0) {
       feed.innerHTML = status.recentAnalyses.map(a => {
         const quip = generateQuip(a.text);
-        const clipShort = a.clipName.replace(/_Proxy\.MP4$/i, '').slice(-10);
+        const clipShort = a.clipName.replace(/_Proxy\.MP4$/i, '').replace(/^\d{8}-\d{4}-/, '');
         return `
           <div class="ingest-feed-item">
             <span class="ingest-feed-clip">${escHtml(clipShort)}</span>
-            <span class="ingest-feed-quip"><span class="hunter-voice">${escHtml(quip)}</span></span>
+            <span class="ingest-feed-quip">${escHtml(quip)}</span>
           </div>
         `;
       }).join('');
