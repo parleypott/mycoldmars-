@@ -67,17 +67,46 @@ html, body {
   backdrop-filter: blur(6px);
 }
 
-/* ─── Route style controls ─── */
+/* ─── Route style panel — floats like shape-style; only visible when a route is actively clicked ─── */
 
 #route-style {
+  position: absolute;
+  top: 64px;
+  right: 16px;
+  z-index: 11;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  background: rgba(246, 239, 222, 0.94);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  padding: 12px 14px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 20px -10px rgba(43, 42, 38, 0.35);
+}
+#rs-header {
   display: flex;
   align-items: center;
-  gap: 14px;
-  background: rgba(246, 239, 222, 0.88);
-  border: 1px solid var(--panel-edge);
-  border-radius: 4px;
-  padding: 6px 12px;
-  backdrop-filter: blur(6px);
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--panel-edge);
+}
+#rs-header .rs-active-label {
+  border-right: none;
+  padding-right: 0;
+  flex: 1;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--ink);
+}
+#route-style .rs-field {
+  width: 100%;
+  justify-content: space-between;
+}
+#route-style .rs-field input[type="range"] {
+  width: 110px;
 }
 .rs-field {
   display: flex;
@@ -122,24 +151,25 @@ html, body {
   appearance: none;
   -moz-appearance: textfield;
   background: transparent;
-  border: 1px solid transparent;
-  border-bottom: 1px dotted var(--ink-faint);
-  width: 36px;
-  padding: 1px 2px;
+  border: none;
+  width: 40px;
+  padding: 0;
   font-family: 'Space Mono', monospace;
   font-size: 11px;
   color: var(--ink);
   text-align: right;
   outline: none;
+  caret-color: transparent;
   border-radius: 2px;
 }
 .rs-num::-webkit-outer-spin-button,
 .rs-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.rs-num:hover { border-color: var(--panel-edge); border-bottom-style: solid; }
 .rs-num:focus {
-  border-color: var(--ink);
-  background: #fffaf0;
-  border-bottom-style: solid;
+  background: rgba(43, 42, 38, 0.08);
+}
+.rs-num::selection {
+  background: var(--ink);
+  color: var(--paper);
 }
 .rs-active-label {
   font-family: 'Space Mono', monospace;
@@ -226,6 +256,30 @@ html, body {
   box-shadow: 0 4px 14px -6px rgba(43, 42, 38, 0.45);
 }
 #shape-label-edit::placeholder { color: var(--ink-faint); }
+
+/* ─── Country edit bar ─── */
+#country-edit-bar {
+  position: absolute;
+  bottom: 220px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px -8px rgba(0,0,0,0.4);
+}
+.ce-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+body.editing-country .mapboxgl-canvas { cursor: crosshair !important; }
 
 /* ─── Country picker modal ─── */
 #country-picker {
@@ -876,24 +930,25 @@ body.dragging-shape .mapboxgl-canvas {
   appearance: none;
   -moz-appearance: textfield;
   background: transparent;
-  border: 1px solid transparent;
-  border-bottom: 1px dotted var(--ink-faint);
+  border: none;
   border-radius: 2px;
   width: 36px;
-  padding: 1px 2px;
+  padding: 0;
   font-family: 'Space Mono', monospace;
   font-size: 12px;
   color: var(--ink);
   text-align: right;
   outline: none;
+  caret-color: transparent;
 }
 .kf-gap .kfg-dur::-webkit-outer-spin-button,
 .kf-gap .kfg-dur::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.kf-gap .kfg-dur:hover { border-color: var(--panel-edge); border-bottom-style: solid; }
 .kf-gap .kfg-dur:focus {
-  border-color: var(--ink);
-  background: #fffaf0;
-  border-bottom-style: solid;
+  background: rgba(43, 42, 38, 0.08);
+}
+.kf-gap .kfg-dur::selection {
+  background: var(--ink);
+  color: var(--paper);
 }
 .kf-gap .kfg-unit {
   color: var(--ink-faint);

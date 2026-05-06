@@ -201,6 +201,9 @@ map.on('style.load', () => {
     redrawShape(shape);
   }
   ensureDrawPreviewOnMap();
+  ensureSelectionLayers();
+  ensureCountryEditLayers();
+  updateSelectionIndicator();
   // Re-render with the current preview progress so a hard refresh shows
   // the correct partial-draw state immediately.
   setRouteSources(state.previewProgress);
@@ -221,6 +224,7 @@ const state = {
   previewProgress: 0,    // current scrub-bar position (0–1), what + Keyframe captures
   shapes: [],             // [{ id, type, sides?, baseCoords?, stroke, fill, strokeWidth, fillOpacity, visible, preview: {...} }]
   activeShapeId: null,    // selected shape (or null)
+  editingShapeId: null,   // shape currently in geometry-edit mode (countries only, for now)
   lastFocus: null,        // 'shape' | 'keyframe' — drives Backspace target when both are selected
   drawingLine: null,      // when drawing a line: { coords: [[lng,lat], ...], cursor: [lng,lat] | null }
   draggingShape: null,    // when dragging: { shapeId, type, anchor: [lng,lat], origin: {...preview} }
@@ -749,12 +753,21 @@ function applyShapeVisibility(shape) {
 
 // Render the shape using its current preview state.
 function redrawShape(shape) {
+  redrawShapeImpl(shape);
+  // Keep the selection indicator pinned to the active shape as it moves
+  // (drag, slider edits, playback interpolation).
+  if (state.activeShapeId === shape.id && state.lastFocus === 'shape') {
+    updateSelectionIndicator();
+  }
+}
+
+function redrawShapeImpl(shape) {
   const ids = shapeSourceIds(shape.id);
   if (shape.type === 'country') {
     const src = map.getSource(ids.fill);
     if (!src) return;
-    const geom = shape._geometry || resolveCountryGeometry(shape);
-    if (!geom) return;
+    const geom = effectiveCountryGeometry(shape);
+    if (!geom) { src.setData(emptyFC()); return; }
     src.setData({ type: 'Feature', properties: {}, geometry: geom });
     return;
   }
@@ -1025,11 +1038,10 @@ function setShapeVisible(id, visible) {
 function selectShape(id) {
   state.activeShapeId = id;
   state.lastFocus = 'shape';
-  // Selecting a shape also implies you don't want a KML layer "active" for the
-  // style panel — but we leave KML active state alone so swapping back works.
   renderShapesPanel();
   renderLayersPanel();
   syncShapeStyleInputs();
+  showRouteUI();
 }
 
 function activeShape() {
@@ -1141,6 +1153,184 @@ function applyShapeStateAtKeyframe(kf) {
     if (st) applyShapeKfState(shape, st);
     redrawShape(shape);
   }
+}
+
+// ─── Selection indicator (visual highlight on the active shape/route) ───
+const SEL_SRC = 'mk-sel-src';
+const SEL_HALO = 'mk-sel-halo';
+const SEL_LINE = 'mk-sel-line';
+
+function ensureSelectionLayers() {
+  if (!map.isStyleLoaded()) return false;
+  if (!map.getSource(SEL_SRC)) {
+    map.addSource(SEL_SRC, { type: 'geojson', data: emptyFC() });
+  }
+  if (!map.getLayer(SEL_HALO)) {
+    map.addLayer({
+      id: SEL_HALO,
+      type: 'line',
+      source: SEL_SRC,
+      paint: {
+        'line-color': '#fffaf0',
+        'line-width': 9,
+        'line-blur': 4,
+        'line-opacity': 0.85,
+      },
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+    });
+  }
+  if (!map.getLayer(SEL_LINE)) {
+    map.addLayer({
+      id: SEL_LINE,
+      type: 'line',
+      source: SEL_SRC,
+      paint: {
+        'line-color': '#b85c3c',
+        'line-width': 2,
+        'line-dasharray': [2, 2],
+      },
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+    });
+  }
+}
+
+function effectiveCountryGeometry(shape) {
+  const geom = resolveCountryGeometry(shape);
+  if (!geom) return null;
+  if (geom.type !== 'MultiPolygon') return geom;
+  const excluded = new Set(shape.excludedPolygonIndices || []);
+  if (excluded.size === 0) return geom;
+  const filtered = geom.coordinates.filter((_, idx) => !excluded.has(idx));
+  if (filtered.length === 0) return null;
+  if (filtered.length === 1) return { type: 'Polygon', coordinates: filtered[0] };
+  return { type: 'MultiPolygon', coordinates: filtered };
+}
+
+function updateSelectionIndicator() {
+  if (!map.isStyleLoaded()) return;
+  ensureSelectionLayers();
+  const src = map.getSource(SEL_SRC);
+  if (!src) return;
+  // Hide selection indicator while editing — the edit overlay is the focus.
+  if (state.editingShapeId) { src.setData(emptyFC()); return; }
+  let geometry = null;
+  if (state.lastFocus === 'shape' && state.activeShapeId) {
+    const shape = state.shapes.find(s => s.id === state.activeShapeId);
+    if (!shape || !shape.visible) { src.setData(emptyFC()); return; }
+    if (shape.type === 'polygon') {
+      const ring = regularPolygonCoords(
+        shape.preview.center, shape.sides, shape.preview.radiusKm, shape.preview.rotation,
+      );
+      geometry = { type: 'LineString', coordinates: ring };
+    } else if (shape.type === 'line') {
+      const transformed = transformLineCoords(
+        shape.baseCoords, shape.preview.offsetLng, shape.preview.offsetLat, shape.preview.scale,
+      );
+      const drawn = sliceLineCoords(transformed, shape.preview.drawProgress);
+      if (drawn.length < 2) { src.setData(emptyFC()); return; }
+      geometry = { type: 'LineString', coordinates: drawn };
+    } else if (shape.type === 'country') {
+      const geom = effectiveCountryGeometry(shape);
+      if (!geom) { src.setData(emptyFC()); return; }
+      const polyRings = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+      const allRings = [];
+      for (const polyR of polyRings) for (const ring of polyR) allRings.push(ring);
+      geometry = { type: 'MultiLineString', coordinates: allRings };
+    }
+  } else if (state.lastFocus === 'layer' && state.activeLayerId) {
+    const layer = state.layers.find(l => l.id === state.activeLayerId);
+    if (!layer || !layer.visible) { src.setData(emptyFC()); return; }
+    geometry = { type: 'LineString', coordinates: layer.coords };
+  }
+  if (!geometry) { src.setData(emptyFC()); return; }
+  src.setData({ type: 'Feature', geometry, properties: {} });
+}
+
+// ─── Country edit overlay (per-subpolygon click-to-toggle exclusion) ───
+const CE_SRC = 'mk-ce-src';
+const CE_FILL = 'mk-ce-fill';
+const CE_LINE = 'mk-ce-line';
+
+function ensureCountryEditLayers() {
+  if (!map.isStyleLoaded()) return false;
+  if (!map.getSource(CE_SRC)) {
+    map.addSource(CE_SRC, { type: 'geojson', data: emptyFC() });
+  }
+  if (!map.getLayer(CE_FILL)) {
+    map.addLayer({
+      id: CE_FILL,
+      type: 'fill',
+      source: CE_SRC,
+      paint: {
+        'fill-color': ['case', ['get', 'excluded'], '#b85c3c', '#3b6a4a'],
+        'fill-opacity': ['case', ['get', 'excluded'], 0.55, 0.35],
+      },
+    });
+  }
+  if (!map.getLayer(CE_LINE)) {
+    map.addLayer({
+      id: CE_LINE,
+      type: 'line',
+      source: CE_SRC,
+      paint: {
+        'line-color': ['case', ['get', 'excluded'], '#7a3d28', '#1f3a28'],
+        'line-width': 1.5,
+      },
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+    });
+  }
+}
+
+function updateCountryEditOverlay(shape) {
+  ensureCountryEditLayers();
+  const src = map.getSource(CE_SRC);
+  if (!src) return;
+  if (!shape || shape.type !== 'country') { src.setData(emptyFC()); return; }
+  const geom = resolveCountryGeometry(shape);
+  if (!geom) { src.setData(emptyFC()); return; }
+  const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+  const excluded = new Set(shape.excludedPolygonIndices || []);
+  const features = polys.map((rings, idx) => ({
+    type: 'Feature',
+    properties: { idx, excluded: excluded.has(idx) },
+    geometry: { type: 'Polygon', coordinates: rings },
+  }));
+  src.setData({ type: 'FeatureCollection', features });
+}
+
+function clearCountryEditOverlay() {
+  const src = map.getSource(CE_SRC);
+  if (src) src.setData(emptyFC());
+}
+
+function startCountryEdit(shape) {
+  state.editingShapeId = shape.id;
+  document.body.classList.add('editing-country');
+  // Hide the live render of this country so the overlay is the only visible
+  // representation; click parts to toggle them.
+  const ids = shapeSourceIds(shape.id);
+  if (map.getLayer(ids.fillLayer)) map.setLayoutProperty(ids.fillLayer, 'visibility', 'none');
+  if (map.getLayer(ids.lineLayer)) map.setLayoutProperty(ids.lineLayer, 'visibility', 'none');
+  ensureCountryEditLayers();
+  updateCountryEditOverlay(shape);
+  updateSelectionIndicator();  // hides while editing
+  document.getElementById('country-edit-bar').classList.remove('hidden');
+}
+
+function exitCountryEdit() {
+  const id = state.editingShapeId;
+  state.editingShapeId = null;
+  document.body.classList.remove('editing-country');
+  const shape = id ? state.shapes.find(s => s.id === id) : null;
+  if (shape) {
+    const ids = shapeSourceIds(shape.id);
+    if (map.getLayer(ids.fillLayer)) map.setLayoutProperty(ids.fillLayer, 'visibility', shape.visible ? 'visible' : 'none');
+    if (map.getLayer(ids.lineLayer)) map.setLayoutProperty(ids.lineLayer, 'visibility', shape.visible ? 'visible' : 'none');
+    redrawShape(shape);
+  }
+  clearCountryEditOverlay();
+  updateSelectionIndicator();
+  document.getElementById('country-edit-bar').classList.add('hidden');
 }
 
 // ─── Line-drawing preview source ───
@@ -1527,6 +1717,7 @@ function serializeShape(s) {
     baseCoords: s.baseCoords,
     countryId: s.countryId,
     countryName: s.countryName,
+    excludedPolygonIndices: Array.isArray(s.excludedPolygonIndices) ? s.excludedPolygonIndices.slice() : [],
     stroke: s.stroke,
     fill: s.fill,
     strokeWidth: s.strokeWidth,
@@ -1552,6 +1743,7 @@ function hydrateShape(raw) {
     baseCoords: Array.isArray(raw.baseCoords) ? raw.baseCoords : [],
     countryId: raw.countryId,
     countryName: raw.countryName,
+    excludedPolygonIndices: Array.isArray(raw.excludedPolygonIndices) ? raw.excludedPolygonIndices.slice() : [],
     stroke: raw.stroke || SHAPE_DEFAULTS.stroke,
     fill: raw.fill || SHAPE_DEFAULTS.fill,
     strokeWidth: typeof raw.strokeWidth === 'number' ? raw.strokeWidth : SHAPE_DEFAULTS.strokeWidth,
@@ -1697,9 +1889,14 @@ function setLayerVisible(id, visible) {
 
 function selectLayer(id) {
   state.activeLayerId = id;
+  state.lastFocus = 'layer';
+  // Clear shape focus so the shape-style panel hides.
+  state.activeShapeId = null;
   saveLayers();
   renderLayersPanel();
+  renderShapesPanel();
   syncRouteStyleInputs();
+  showRouteUI();
 }
 
 function showRouteUI() {
@@ -1710,8 +1907,6 @@ function showRouteUI() {
   const hasLayers = state.layers.length > 0;
   const hasShapes = state.shapes.length > 0;
   panel.classList.toggle('hidden', !hasLayers && !hasShapes);
-  // Route-style only relevant when at least one KML layer exists.
-  styleEl.classList.toggle('hidden', !hasLayers);
   drawBar.classList.toggle('hidden', !hasLayers);
   document.getElementById('layers-count').textContent = state.layers.length;
   document.getElementById('shapes-count').textContent = state.shapes.length;
@@ -1723,9 +1918,13 @@ function showRouteUI() {
   } else {
     info.textContent = '';
   }
-  // Shape style panel only when a shape is selected.
-  const ss = document.getElementById('shape-style');
-  ss.classList.toggle('hidden', !activeShape());
+  // Route-style panel only when a route is the current focus AND there's an active layer.
+  const showRouteStyle = state.lastFocus === 'layer' && !!activeLayer();
+  styleEl.classList.toggle('hidden', !showRouteStyle);
+  // Shape style panel only when a shape is the current focus.
+  const showShapeStyle = state.lastFocus === 'shape' && !!activeShape();
+  document.getElementById('shape-style').classList.toggle('hidden', !showShapeStyle);
+  updateSelectionIndicator();
 }
 
 function renderLayersPanel() {
@@ -1803,9 +2002,9 @@ function syncRouteStyleInputs() {
   if (!layer) return;
   rsColor.value = layer.style.color;
   rsWidth.value = layer.style.width;
-  rsWidthVal.textContent = layer.style.width;
+  rsWidthVal.value = layer.style.width;
   rsOpacity.value = Math.round(layer.style.opacity * 100);
-  rsOpacityVal.textContent = Math.round(layer.style.opacity * 100);
+  rsOpacityVal.value = Math.round(layer.style.opacity * 100);
   rsDashed.checked = layer.style.dashed;
   rsTrail.checked = layer.style.trail;
   if (rsActiveName) rsActiveName.textContent = layer.name;
@@ -1821,16 +2020,19 @@ function mutateActiveLayerStyle(fn) {
 }
 
 rsColor.addEventListener('input', e => mutateActiveLayerStyle(s => { s.color = e.target.value; }));
-rsWidth.addEventListener('input', e => {
-  rsWidthVal.textContent = e.target.value;
-  mutateActiveLayerStyle(s => { s.width = parseFloat(e.target.value); });
+pairSliderNum(rsWidth, rsWidthVal, (v) => {
+  mutateActiveLayerStyle(s => { s.width = v; });
 });
-rsOpacity.addEventListener('input', e => {
-  rsOpacityVal.textContent = e.target.value;
-  mutateActiveLayerStyle(s => { s.opacity = parseFloat(e.target.value) / 100; });
+pairSliderNum(rsOpacity, rsOpacityVal, (v) => {
+  mutateActiveLayerStyle(s => { s.opacity = v / 100; });
 });
 rsDashed.addEventListener('change', e => mutateActiveLayerStyle(s => { s.dashed = e.target.checked; }));
 rsTrail.addEventListener('change', e => mutateActiveLayerStyle(s => { s.trail = e.target.checked; }));
+
+document.getElementById('rs-close').addEventListener('click', () => {
+  state.lastFocus = null;
+  showRouteUI();
+});
 
 // ─── Shape panel rendering ───
 
@@ -1946,6 +2148,10 @@ function syncShapeStyleInputs() {
   ssStrokeW.value = shape.strokeWidth;
   ssStrokeWVal.value = shape.strokeWidth;
   reconfigureSlidersFor(shape);
+
+  // "Edit parts" button is country-only.
+  const editBtn = document.getElementById('ss-edit-country');
+  if (editBtn) editBtn.classList.toggle('hidden', shape.type !== 'country');
 
   const suffix = document.getElementById('ss-scale-suffix');
   if (shape.type === 'country') {
@@ -2068,6 +2274,12 @@ ssDelete.addEventListener('click', () => {
   if (!shape) return;
   if (confirm(`Delete "${shape.name}"?`)) deleteShape(shape.id);
 });
+
+document.getElementById('ss-edit-country').addEventListener('click', () => {
+  const shape = activeShape();
+  if (shape && shape.type === 'country') startCountryEdit(shape);
+});
+document.getElementById('ce-done').addEventListener('click', exitCountryEdit);
 
 document.getElementById('ss-close').addEventListener('click', () => {
   state.activeShapeId = null;
@@ -2219,6 +2431,32 @@ function findShapeAtPoint(point) {
   return null;
 }
 
+// KML route hit-testing — returns the route layer under the cursor, if any.
+function findRouteLayerAtPoint(point) {
+  const lineIds = state.layers
+    .filter(l => l.visible)
+    .flatMap(l => {
+      const ids = layerSourceIds(l.id);
+      const out = [];
+      if (map.getLayer(ids.drawnLine)) out.push(ids.drawnLine);
+      if (l.style.trail && map.getLayer(ids.fullLine)) out.push(ids.fullLine);
+      return out;
+    });
+  if (lineIds.length === 0) return null;
+  const bbox = [
+    [point.x - 8, point.y - 8],
+    [point.x + 8, point.y + 8],
+  ];
+  const features = map.queryRenderedFeatures(bbox, { layers: lineIds });
+  if (!features.length) return null;
+  const layerId = features[0].layer.id;
+  for (const l of state.layers) {
+    const ids = layerSourceIds(l.id);
+    if (ids.drawnLine === layerId || ids.fullLine === layerId) return l;
+  }
+  return null;
+}
+
 map.on('click', (e) => {
   // Drawing mode — click adds a point
   if (state.drawingLine) {
@@ -2226,18 +2464,43 @@ map.on('click', (e) => {
     setDrawPreviewData();
     return;
   }
-  // Select shape if clicked
-  const hit = findShapeAtPoint(e.point);
-  if (hit) {
-    selectShape(hit.id);
-  } else {
-    // Click on empty map deselects
-    if (state.activeShapeId) {
-      state.activeShapeId = null;
-      renderShapesPanel();
-      syncShapeStyleInputs();
-      showRouteUI();
+  // Country edit mode — click toggles a sub-polygon's exclusion
+  if (state.editingShapeId) {
+    const features = map.queryRenderedFeatures(e.point, { layers: [CE_FILL] });
+    if (features.length) {
+      const idx = features[0].properties.idx;
+      const shape = state.shapes.find(s => s.id === state.editingShapeId);
+      if (shape) {
+        const set = new Set(shape.excludedPolygonIndices || []);
+        if (set.has(idx)) set.delete(idx); else set.add(idx);
+        shape.excludedPolygonIndices = Array.from(set).sort((a, b) => a - b);
+        updateCountryEditOverlay(shape);
+        redrawShape(shape);
+        updateSelectionIndicator();
+        saveLayers();
+      }
     }
+    return;
+  }
+  // Selection priority: shapes (top), then routes
+  const shapeHit = findShapeAtPoint(e.point);
+  if (shapeHit) {
+    selectShape(shapeHit.id);
+    return;
+  }
+  const routeHit = findRouteLayerAtPoint(e.point);
+  if (routeHit) {
+    selectLayer(routeHit.id);
+    return;
+  }
+  // Click on empty map deselects
+  if (state.activeShapeId || state.lastFocus === 'layer') {
+    state.activeShapeId = null;
+    state.lastFocus = null;
+    renderShapesPanel();
+    renderLayersPanel();
+    syncShapeStyleInputs();
+    showRouteUI();
   }
 });
 
@@ -2334,10 +2597,10 @@ function closeLabelEditor() {
   if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
 }
 
-// Hover cursor over selectable shapes
+// Hover cursor over selectable shapes / routes
 map.on('mousemove', (e) => {
-  if (state.drawingLine || state.draggingShape) return;
-  const hit = findShapeAtPoint(e.point);
+  if (state.drawingLine || state.draggingShape || state.editingShapeId) return;
+  const hit = findShapeAtPoint(e.point) || findRouteLayerAtPoint(e.point);
   map.getCanvas().style.cursor = hit ? 'pointer' : '';
 });
 
@@ -2398,12 +2661,17 @@ window.addEventListener('mouseup', endShapeDrag);
 // Esc handles cancel-line + clear-selection
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    if (state.drawingLine) {
+    if (state.editingShapeId) {
+      e.preventDefault();
+      exitCountryEdit();
+    } else if (state.drawingLine) {
       e.preventDefault();
       cancelLineDrawing();
-    } else if (state.activeShapeId) {
+    } else if (state.activeShapeId || state.lastFocus === 'layer') {
       state.activeShapeId = null;
+      state.lastFocus = null;
       renderShapesPanel();
+      renderLayersPanel();
       syncShapeStyleInputs();
       showRouteUI();
     }

@@ -24,32 +24,35 @@
     <span id="route-info"></span>
     <span id="draw-mode-hint" class="hidden">DRAWING — click to add points · double-click or <kbd>Enter</kbd> to finish · <kbd>Esc</kbd> cancel</span>
 
-    <div id="route-style" class="hidden">
-      <span class="rs-active-label" id="rs-active-name">—</span>
-      <label class="rs-field">
-        <span>Color</span>
-        <input type="color" id="rs-color" value="#2b2a26">
-      </label>
-      <label class="rs-field">
-        <span>Width</span>
-        <input type="range" id="rs-width" min="1" max="12" step="0.5" value="3">
-        <span class="rs-val" id="rs-width-val">3</span>
-      </label>
-      <label class="rs-field">
-        <span>Opacity</span>
-        <input type="range" id="rs-opacity" min="10" max="100" step="5" value="100">
-        <span class="rs-val"><span id="rs-opacity-val">100</span>%</span>
-      </label>
-      <label class="rs-field">
-        <span>Dashed</span>
-        <input type="checkbox" id="rs-dashed">
-      </label>
-      <label class="rs-field">
-        <span>Trail</span>
-        <input type="checkbox" id="rs-trail" checked>
-      </label>
-    </div>
+  </div>
 
+  <div id="route-style" class="hidden">
+    <div id="rs-header">
+      <span class="rs-active-label" id="rs-active-name">—</span>
+      <button class="ss-close" id="rs-close" title="Close (Esc)">×</button>
+    </div>
+    <label class="rs-field">
+      <span>Color</span>
+      <input type="color" id="rs-color" value="#2b2a26">
+    </label>
+    <label class="rs-field">
+      <span>Width</span>
+      <input type="range" id="rs-width" min="1" max="12" step="0.5" value="3">
+      <span class="rs-val"><input class="rs-num" type="number" id="rs-width-val" min="1" max="12" step="0.5" value="3"></span>
+    </label>
+    <label class="rs-field">
+      <span>Opacity</span>
+      <input type="range" id="rs-opacity" min="10" max="100" step="1" value="100">
+      <span class="rs-val"><input class="rs-num" type="number" id="rs-opacity-val" min="0" max="100" step="1" value="100">%</span>
+    </label>
+    <label class="rs-field">
+      <span>Dashed</span>
+      <input type="checkbox" id="rs-dashed">
+    </label>
+    <label class="rs-field">
+      <span>Trail</span>
+      <input type="checkbox" id="rs-trail" checked>
+    </label>
   </div>
 
   <div id="shape-style" class="hidden">
@@ -94,6 +97,7 @@
       <input type="range" id="ss-draw" min="0" max="1000" step="1" value="1000">
       <span class="rs-val"><input class="rs-num" type="number" id="ss-draw-val" min="0" max="100" step="0.1" value="100">%</span>
     </label>
+    <button class="btn ghost" id="ss-edit-country" title="Edit geometry — click parts to drop them">Edit parts</button>
     <button class="btn ghost danger" id="ss-delete">Delete</button>
   </div>
 
@@ -150,6 +154,11 @@
       <div id="kf-list"></div>
     </div>
 
+  </div>
+
+  <div id="country-edit-bar" class="hidden">
+    <span class="ce-label">EDITING — click parts to drop them · click again to restore</span>
+    <button class="btn primary" id="ce-done">Done</button>
   </div>
 
   <div id="country-picker" class="hidden">
