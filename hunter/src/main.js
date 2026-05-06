@@ -183,8 +183,9 @@ async function openProject(id) {
     }
   }
 
-  document.getElementById('hub-status').textContent = `${connectedCount}/5 connected`;
-  document.querySelector('.training-hub').style.setProperty('--hub-progress', connectedCount / 5);
+  document.getElementById('hub-status').textContent = `${connectedCount}/5`;
+  // Render node diagram SVG + waveform after layout settles
+  setTimeout(() => { renderHubSVG(); renderWaveform(); }, 100);
 
   // Render corpus units with expandable text
   const unitsList = document.getElementById('corpus-units-list');
@@ -613,8 +614,10 @@ function renderSpokePreview(tier, tierAssets) {
   switch (tier) {
     case 'raw': {
       const ref = tierAssets[0].source_ref || '';
+      const parts = ref.split('/').filter(Boolean);
+      const shortRef = parts.length > 1 ? parts.slice(-2).join('/') : ref;
       const clipCount = tierAssets.reduce((sum, a) => sum + (a.metadata?.clipCount || 1), 0);
-      return `<div class="spoke-card-ref">${escHtml(ref)}</div>
+      return `<div class="spoke-card-ref">${escHtml(shortRef)}</div>
               <div class="spoke-card-meta">${clipCount} clip${clipCount !== 1 ? 's' : ''}</div>`;
     }
     case 'script': {
@@ -908,6 +911,79 @@ function stopIngestPolling() {
     ingestPollTimer = null;
   }
 }
+
+// ── Node diagram SVG ──
+
+function renderHubSVG() {
+  const container = document.querySelector('.training-hub-container');
+  if (!container) return;
+
+  // Remove existing SVG
+  container.querySelector('.hub-svg-overlay')?.remove();
+
+  // Don't render on mobile (flexbox layout)
+  if (window.innerWidth <= 600) return;
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('hub-svg-overlay');
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('height', '100%');
+
+  const containerRect = container.getBoundingClientRect();
+
+  // Hub center — the ::before circle is 48px, sits at top of flex column
+  const hub = container.querySelector('.training-hub');
+  const hubRect = hub.getBoundingClientRect();
+  const hubCx = hubRect.left + hubRect.width / 2 - containerRect.left;
+  const hubCy = hubRect.top + 24 - containerRect.top; // 24 = half of 48px circle
+
+  // Draw lines to each spoke's dot (::before, 12px)
+  container.querySelectorAll('.spoke').forEach(spoke => {
+    const spokeRect = spoke.getBoundingClientRect();
+    const sx = spokeRect.left + spokeRect.width / 2 - containerRect.left;
+    const sy = spokeRect.top + 6 - containerRect.top; // 6 = half of 12px dot
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', hubCx);
+    line.setAttribute('y1', hubCy);
+    line.setAttribute('x2', sx);
+    line.setAttribute('y2', sy);
+
+    const isConnected = spoke.classList.contains('spoke--connected');
+    line.setAttribute('stroke', isConnected ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)');
+    line.setAttribute('stroke-width', '1');
+    if (!isConnected) {
+      line.setAttribute('stroke-dasharray', '4 4');
+    }
+
+    svg.appendChild(line);
+  });
+
+  container.insertBefore(svg, container.firstChild);
+}
+
+function renderWaveform() {
+  const container = document.querySelector('.training-hub-container');
+  if (!container || container.querySelector('.hub-waveform')) return;
+
+  const waveform = document.createElement('div');
+  waveform.className = 'hub-waveform';
+
+  const barCount = 60;
+  for (let i = 0; i < barCount; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'hub-waveform-bar';
+    const height = 4 + Math.sin(i * 0.3) * 8 + Math.random() * 6;
+    bar.style.height = `${height}px`;
+    waveform.appendChild(bar);
+  }
+
+  container.appendChild(waveform);
+}
+
+window.addEventListener('resize', () => {
+  if (currentProjectId) renderHubSVG();
+});
 
 // ── Boot ──
 
