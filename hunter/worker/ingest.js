@@ -30,6 +30,9 @@ if (existsSync(envPath)) {
 const CACHE_DIR = join(process.env.HOME, 'hunter-cache');
 const POLL_INTERVAL = 10_000;
 const CONCURRENCY = parseInt(process.env.HUNTER_CONCURRENCY || '5');
+const WATCHDOG_INTERVAL = 10 * 60 * 1000; // 10 minutes
+const STUCK_THRESHOLD = 15 * 60 * 1000;   // 15 minutes
+let lastProgressAt = Date.now();
 
 /** Simple concurrency pool — runs up to N async tasks in parallel. */
 function createPool(concurrency) {
@@ -194,6 +197,7 @@ async function fetchFromDropbox(asset, projectContext) {
         });
 
         processed++;
+        lastProgressAt = Date.now();
         console.log(`[worker] ✓ ${video.name} (${processed}/${total}): ${result.text.slice(0, 60)}...`);
       } catch (err) {
         processed++;
@@ -312,6 +316,50 @@ function getDuration(filePath) {
   }
 }
 
+// ── Watchdog — self-healing for stuck assets ──
+
+async function watchdog() {
+  try {
+    // Find assets stuck in intermediate states for too long
+    const { data: stuck } = await supabase.from('media_assets')
+      .select('id, queue_status, updated_at')
+      .in('queue_status', ['fetching', 'analyzing', 'cached']);
+
+    if (stuck?.length) {
+      const now = Date.now();
+      let resetCount = 0;
+
+      for (const asset of stuck) {
+        const age = now - new Date(asset.updated_at).getTime();
+        if (age > STUCK_THRESHOLD) {
+          console.log(`[watchdog] resetting stuck asset ${asset.id} (${asset.queue_status} for ${Math.round(age / 60000)}min)`);
+          await updateAsset(asset.id, { queue_status: 'pending' });
+          resetCount++;
+        }
+      }
+
+      if (resetCount > 0) console.log(`[watchdog] reset ${resetCount} stuck asset(s) → pending`);
+    }
+
+    // Warn if no clips have completed in a while
+    const silent = Date.now() - lastProgressAt;
+    if (silent > WATCHDOG_INTERVAL) {
+      console.log(`[watchdog] ⚠ no successful analysis in ${Math.round(silent / 60000)} minutes — may be stalled`);
+    }
+  } catch (err) {
+    console.error('[watchdog] error:', err.message);
+  }
+}
+
+// ── Global error handlers — keep the process alive ──
+
+process.on('uncaughtException', (err) => {
+  console.error('[worker] uncaught exception (continuing):', err.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[worker] unhandled rejection (continuing):', reason?.message || reason);
+});
+
 // ── Poll loop ──
 
 async function poll() {
@@ -334,9 +382,13 @@ async function poll() {
   }
 }
 
-console.log('[hunter worker] starting, cache dir:', CACHE_DIR);
+console.log('[hunter worker] starting, cache dir:', CACHE_DIR, `concurrency=${CONCURRENCY}`);
 mkdirSync(CACHE_DIR, { recursive: true });
+
+// Run watchdog immediately on startup (recovers from previous crash)
+watchdog();
 
 // Run immediately, then poll
 poll();
 setInterval(poll, POLL_INTERVAL);
+setInterval(watchdog, WATCHDOG_INTERVAL);
