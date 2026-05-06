@@ -337,6 +337,13 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
     const tier = input.dataset.tier;
+    const btn = input.closest('.tier-card').querySelector('.tier-add-btn');
+    const tierSource = document.getElementById(`tier-${tier}-source`);
+
+    // Show loading state
+    const originalBtnText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'parsing...';
 
     // Multiple XML/EDL upload for selects tier
     if (tier === 'selects' && files.some(f => /\.(xml|edl)$/i.test(f.name))) {
@@ -370,6 +377,12 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
           console.log(`  [${r.classification}] "${r.sequenceName}" — ${r.units.length} cuts (from ${r.fileName})`);
         }
 
+        // Show immediate visual feedback of what was parsed
+        btn.textContent = `saving ${allResults.length} sequences...`;
+        tierSource.innerHTML = allResults.map(r =>
+          `<div class="tier-asset tier-asset--new"><span class="np-eyebrow np-eyebrow--classification">${r.classification}</span> ${escHtml(r.sequenceName)} · ${r.units.length} cuts</div>`
+        ).join('');
+
         // Save each classified sequence as a media asset
         if (!isDemo) {
           const { createMediaAsset } = await import('./db.js');
@@ -384,15 +397,28 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
                 classification: r.classification,
                 sequenceName: r.sequenceName,
                 unitCount: r.units.length,
-                sourceClips: r.sourceClips.map(c => c.name),
-                parsedUnits: r.units,
+                sourceClips: r.sourceClips.map(c => c.name).slice(0, 50),
+                parsedUnits: r.units.slice(0, 200),
               },
             });
           }
         }
+
+        // Success feedback
+        btn.textContent = `✓ ${allResults.length} sequences added`;
+        setTimeout(() => {
+          btn.textContent = originalBtnText;
+          btn.disabled = false;
+        }, 2000);
+
+        // Show toast
+        showToast(`Parsed ${files.length} file${files.length > 1 ? 's' : ''} → ${allResults.length} sequences classified`);
+
       } catch (err) {
         console.error('[hunter] XML parse error:', err);
-        alert('Failed to parse XML: ' + err.message);
+        btn.textContent = originalBtnText;
+        btn.disabled = false;
+        showToast(`Error: ${err.message}`, true);
       }
     } else if (!isDemo) {
       const { createMediaAsset } = await import('./db.js');
@@ -405,9 +431,19 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
           format: file.name.split('.').pop(),
         });
       }
+      btn.textContent = `✓ ${files.length} file${files.length > 1 ? 's' : ''} added`;
+      setTimeout(() => {
+        btn.textContent = originalBtnText;
+        btn.disabled = false;
+      }, 2000);
+    } else {
+      btn.textContent = originalBtnText;
+      btn.disabled = false;
     }
+
     input.value = ''; // reset so same files can be re-selected
-    openProject(currentProjectId);
+    // Refresh the project view after a beat
+    setTimeout(() => openProject(currentProjectId), 2200);
   });
 });
 
@@ -541,6 +577,22 @@ async function loadCorpusBrowser() {
 }
 
 // ── Utilities ──
+
+function showToast(message, isError = false) {
+  const existing = document.querySelector('.hunter-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = 'hunter-toast' + (isError ? ' hunter-toast--error' : '');
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  requestAnimationFrame(() => toast.classList.add('visible'));
+  setTimeout(() => {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
 
 function escHtml(str) {
   const div = document.createElement('div');

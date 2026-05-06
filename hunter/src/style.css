@@ -853,6 +853,47 @@ header {
   z-index: 50;
 }
 
+/* ── Toast notifications ── */
+.hunter-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--np-ink);
+  color: var(--np-warm-white);
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  padding: 10px 20px;
+  border-radius: 6px;
+  z-index: 200;
+  opacity: 0;
+  transition: opacity 0.3s var(--np-ease), transform 0.3s var(--np-ease);
+  pointer-events: none;
+  max-width: 90vw;
+  text-align: center;
+}
+.hunter-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.hunter-toast--error {
+  background: var(--np-red);
+}
+
+/* ── Tier asset new-upload highlight ── */
+.tier-asset--new {
+  animation: tier-flash 0.4s var(--np-ease-out);
+  background: rgba(221, 44, 30, 0.06);
+  padding: 4px 6px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+@keyframes tier-flash {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ── Classification badges ── */
 .np-eyebrow--classification {
   background: var(--np-sepia);

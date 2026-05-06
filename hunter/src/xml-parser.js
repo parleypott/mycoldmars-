@@ -18,12 +18,28 @@ export function parseFCP7XML(xmlString) {
     throw new Error('Invalid XML: ' + parseError.textContent.slice(0, 200));
   }
 
+  // Only grab TOP-LEVEL sequences — not nested ones inside <clipitem>.
+  // Premiere FCP7 XML nests sequences inside clip items as references;
+  // those are internal constructs, not user-built sequences.
   const sequences = [];
-  const seqElements = doc.querySelectorAll('sequence');
+  const allSeqElements = doc.querySelectorAll('sequence');
 
-  for (const seqEl of seqElements) {
+  for (const seqEl of allSeqElements) {
+    // Skip if this sequence is nested inside a <clipitem>
+    if (seqEl.parentElement?.tagName === 'clipitem' ||
+        seqEl.closest('clipitem')) {
+      continue;
+    }
+
     const seq = parseSequence(seqEl);
-    if (seq) sequences.push(seq);
+    if (!seq) continue;
+
+    // Skip empty sequences and auto-generated "Nested Sequence N" entries
+    const totalClips = seq.videoTracks.reduce((sum, t) => sum + t.clips.length, 0);
+    if (totalClips === 0) continue;
+    if (/^Nested Sequence \d+$/i.test(seq.name)) continue;
+
+    sequences.push(seq);
   }
 
   return sequences;
