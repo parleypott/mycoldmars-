@@ -433,8 +433,10 @@ function shapeSourceIds(id) {
   return {
     fill: `shape-fill-src-${id}`,
     line: `shape-line-src-${id}`,
+    label: `shape-label-src-${id}`,
     fillLayer: `shape-fill-${id}`,
     lineLayer: `shape-line-${id}`,
+    labelLayer: `shape-label-${id}`,
   };
 }
 
@@ -512,6 +514,9 @@ function ensureShapeOnMap(shape) {
     if (!map.getSource(ids.fill)) {
       map.addSource(ids.fill, { type: 'geojson', data: emptyFC() });
     }
+    if (!map.getSource(ids.label)) {
+      map.addSource(ids.label, { type: 'geojson', data: emptyFC() });
+    }
     if (!map.getLayer(ids.fillLayer)) {
       map.addLayer({
         id: ids.fillLayer,
@@ -533,6 +538,27 @@ function ensureShapeOnMap(shape) {
           'line-width': shape.strokeWidth,
         },
         layout: { 'line-join': 'round', 'line-cap': 'round' },
+      });
+    }
+    if (!map.getLayer(ids.labelLayer)) {
+      map.addLayer({
+        id: ids.labelLayer,
+        type: 'symbol',
+        source: ids.label,
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-size': 16,
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          'text-anchor': 'center',
+          'text-justify': 'center',
+        },
+        paint: {
+          'text-color': shape.stroke,
+          'text-halo-color': '#fffaf0',
+          'text-halo-width': 1.2,
+        },
       });
     }
   } else {
@@ -561,10 +587,10 @@ function emptyFC() { return { type: 'FeatureCollection', features: [] }; }
 
 function removeShapeFromMap(shape) {
   const ids = shapeSourceIds(shape.id);
-  for (const id of [ids.fillLayer, ids.lineLayer]) {
+  for (const id of [ids.fillLayer, ids.lineLayer, ids.labelLayer]) {
     if (map.getLayer(id)) map.removeLayer(id);
   }
-  for (const id of [ids.fill, ids.line]) {
+  for (const id of [ids.fill, ids.line, ids.label]) {
     if (map.getSource(id)) map.removeSource(id);
   }
 }
@@ -580,6 +606,9 @@ function applyShapeStyle(shape) {
     map.setPaintProperty(ids.lineLayer, 'line-width', shape.strokeWidth);
     map.setPaintProperty(ids.lineLayer, 'line-opacity', shape.visible ? 1 : 0);
   }
+  if (map.getLayer(ids.labelLayer)) {
+    map.setPaintProperty(ids.labelLayer, 'text-color', shape.stroke);
+  }
 }
 
 function applyShapeVisibility(shape) {
@@ -587,6 +616,7 @@ function applyShapeVisibility(shape) {
   const vis = shape.visible ? 'visible' : 'none';
   if (map.getLayer(ids.fillLayer)) map.setLayoutProperty(ids.fillLayer, 'visibility', vis);
   if (map.getLayer(ids.lineLayer)) map.setLayoutProperty(ids.lineLayer, 'visibility', vis);
+  if (map.getLayer(ids.labelLayer)) map.setLayoutProperty(ids.labelLayer, 'visibility', vis);
 }
 
 // Render the shape using its current preview state.
@@ -605,6 +635,20 @@ function redrawShape(shape) {
       type: 'Feature',
       geometry: { type: 'Polygon', coordinates: [ring] },
     });
+    // Label point + auto-fit text size
+    const labelSrc = map.getSource(ids.label);
+    if (labelSrc) {
+      const label = shape.label || '';
+      labelSrc.setData({
+        type: 'Feature',
+        properties: { label },
+        geometry: { type: 'Point', coordinates: shape.preview.center },
+      });
+      if (map.getLayer(ids.labelLayer)) {
+        const size = computePolygonLabelSize(shape);
+        map.setLayoutProperty(ids.labelLayer, 'text-size', size);
+      }
+    }
   } else {
     const src = map.getSource(ids.line);
     if (!src) return;
@@ -619,6 +663,40 @@ function redrawShape(shape) {
       type: 'Feature',
       geometry: { type: 'LineString', coordinates: drawn },
     });
+  }
+}
+
+// Auto-fit text size: pick the largest pixel size where the rendered text
+// width fits within ~80% of the polygon's on-screen diameter, capped by ~70%
+// of the polygon height. Recomputed on every redraw and on map zoom.
+function computePolygonLabelSize(shape) {
+  const label = shape.label || '';
+  if (!label) return 1; // hidden by empty text-field anyway
+  const center = shape.preview.center;
+  // Project center and a point on the polygon's bounding extent to get pixel
+  // dimensions at the current zoom/pitch.
+  const cp = map.project(center);
+  const dLatDeg = shape.preview.radiusKm / KM_PER_DEG_LAT;
+  const ep = map.project([center[0], center[1] + dLatDeg]);
+  const radiusPx = Math.max(8, Math.hypot(cp.x - ep.x, cp.y - ep.y));
+  // Effective interior width across an n-gon ≈ 2 * radius * cos(π/n) for even n.
+  // Use a slightly conservative 1.5×radius diameter target.
+  const widthBudget = radiusPx * 1.55;
+  const heightBudget = radiusPx * 1.35;
+  // Approx font width per char. Bold sans averages ~0.58 of font size at most weights.
+  const widthRatio = 0.58;
+  const fromWidth = widthBudget / Math.max(1, label.length) / widthRatio;
+  const fromHeight = heightBudget;
+  const px = Math.max(8, Math.min(160, Math.min(fromWidth, fromHeight)));
+  return px;
+}
+
+function refreshAllPolygonLabelSizes() {
+  for (const shape of state.shapes) {
+    if (shape.type !== 'polygon') continue;
+    const ids = shapeSourceIds(shape.id);
+    if (!map.getLayer(ids.labelLayer)) continue;
+    map.setLayoutProperty(ids.labelLayer, 'text-size', computePolygonLabelSize(shape));
   }
 }
 
@@ -646,6 +724,7 @@ function addOctagon() {
     type: 'polygon',
     name: nextShapeName('polygon'),
     sides: 8,
+    label: '',
     stroke: SHAPE_DEFAULTS.stroke,
     fill: pickShapeFill(),
     strokeWidth: SHAPE_DEFAULTS.strokeWidth,
@@ -659,12 +738,11 @@ function addOctagon() {
   backfillShapeIntoKeyframes(shape);
   ensureShapeOnMap(shape);
   redrawShape(shape);
-  state.activeShapeId = id;
+  // Don't auto-open the style panel — let the user click the shape to do that.
   saveLayers();
   renderShapesPanel();
   renderLayersPanel();
   showRouteUI();
-  syncShapeStyleInputs();
 }
 
 function addLineFromCoords(coords) {
@@ -686,12 +764,11 @@ function addLineFromCoords(coords) {
   backfillShapeIntoKeyframes(shape);
   ensureShapeOnMap(shape);
   redrawShape(shape);
-  state.activeShapeId = id;
+  // Don't auto-open the style panel — let the user click the line to do that.
   saveLayers();
   renderShapesPanel();
   renderLayersPanel();
   showRouteUI();
-  syncShapeStyleInputs();
 }
 
 function deleteShape(id) {
@@ -1190,6 +1267,7 @@ function serializeShape(s) {
     type: s.type,
     name: s.name,
     sides: s.sides,
+    label: s.label,
     baseCoords: s.baseCoords,
     stroke: s.stroke,
     fill: s.fill,
@@ -1207,6 +1285,7 @@ function hydrateShape(raw) {
     type: raw.type,
     name: raw.name || (raw.type === 'polygon' ? 'Polygon' : 'Line'),
     sides: typeof raw.sides === 'number' ? raw.sides : 8,
+    label: typeof raw.label === 'string' ? raw.label : '',
     baseCoords: Array.isArray(raw.baseCoords) ? raw.baseCoords : [],
     stroke: raw.stroke || SHAPE_DEFAULTS.stroke,
     fill: raw.fill || SHAPE_DEFAULTS.fill,
@@ -1643,6 +1722,13 @@ ssDelete.addEventListener('click', () => {
   if (confirm(`Delete "${shape.name}"?`)) deleteShape(shape.id);
 });
 
+document.getElementById('ss-close').addEventListener('click', () => {
+  state.activeShapeId = null;
+  renderShapesPanel();
+  syncShapeStyleInputs();
+  showRouteUI();
+});
+
 // ─── Add-shape buttons ───
 
 document.getElementById('add-octagon-btn').addEventListener('click', () => {
@@ -1749,9 +1835,98 @@ map.on('click', (e) => {
   }
 });
 
-map.on('dblclick', () => {
-  if (state.drawingLine) finalizeLineDrawing();
+map.on('dblclick', (e) => {
+  if (state.drawingLine) {
+    finalizeLineDrawing();
+    return;
+  }
+  // Double-click a polygon → open the inline label editor
+  const hit = findShapeAtPoint(e.point);
+  if (hit && hit.type === 'polygon') {
+    e.preventDefault();
+    openLabelEditor(hit);
+  }
 });
+
+// Recompute polygon label sizes whenever the camera changes — keeps text
+// visually fitted regardless of zoom or pitch.
+map.on('zoom', refreshAllPolygonLabelSizes);
+map.on('move', refreshAllPolygonLabelSizes);
+map.on('pitch', refreshAllPolygonLabelSizes);
+
+// ─── Inline polygon label editor ───
+
+function openLabelEditor(shape) {
+  closeLabelEditor();
+  const overlay = document.createElement('input');
+  overlay.type = 'text';
+  overlay.id = 'shape-label-edit';
+  overlay.value = shape.label || '';
+  overlay.placeholder = 'label';
+  overlay.dataset.shapeId = shape.id;
+  document.body.appendChild(overlay);
+
+  const placeOverlay = () => {
+    const cp = map.project(shape.preview.center);
+    const dLatDeg = shape.preview.radiusKm / KM_PER_DEG_LAT;
+    const ep = map.project([shape.preview.center[0], shape.preview.center[1] + dLatDeg]);
+    const radiusPx = Math.max(40, Math.hypot(cp.x - ep.x, cp.y - ep.y));
+    overlay.style.left = `${cp.x - radiusPx}px`;
+    overlay.style.top = `${cp.y - 14}px`;
+    overlay.style.width = `${radiusPx * 2}px`;
+  };
+  placeOverlay();
+  const reposition = () => placeOverlay();
+  map.on('move', reposition);
+  map.on('zoom', reposition);
+  overlay._reposition = reposition;
+  // Hide the rendered label while editing so it doesn't sit behind the input
+  const ids = shapeSourceIds(shape.id);
+  if (map.getLayer(ids.labelLayer)) {
+    map.setLayoutProperty(ids.labelLayer, 'visibility', 'none');
+  }
+
+  let done = false;
+  const commit = () => {
+    if (done) return;
+    done = true;
+    shape.label = overlay.value.trim();
+    redrawShape(shape);
+    if (map.getLayer(ids.labelLayer)) {
+      map.setLayoutProperty(ids.labelLayer, 'visibility', shape.visible ? 'visible' : 'none');
+    }
+    saveLayers();
+    closeLabelEditor();
+  };
+  const cancel = () => {
+    if (done) return;
+    done = true;
+    if (map.getLayer(ids.labelLayer)) {
+      map.setLayoutProperty(ids.labelLayer, 'visibility', shape.visible ? 'visible' : 'none');
+    }
+    closeLabelEditor();
+  };
+  overlay.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+  });
+  overlay.addEventListener('blur', commit);
+  setTimeout(() => {
+    overlay.focus();
+    overlay.select();
+  }, 0);
+}
+
+function closeLabelEditor() {
+  const overlay = document.getElementById('shape-label-edit');
+  if (!overlay) return;
+  if (overlay._reposition) {
+    map.off('move', overlay._reposition);
+    map.off('zoom', overlay._reposition);
+  }
+  if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+}
 
 // Hover cursor over selectable shapes
 map.on('mousemove', (e) => {

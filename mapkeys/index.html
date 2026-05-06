@@ -49,47 +49,51 @@
       </label>
     </div>
 
-    <div id="shape-style" class="hidden">
+  </div>
+
+  <div id="shape-style" class="hidden">
+    <div id="ss-header">
       <span class="rs-active-label" id="ss-active-name">—</span>
-      <label class="rs-field">
-        <span>Stroke</span>
-        <input type="color" id="ss-stroke" value="#2b2a26">
-      </label>
-      <label class="rs-field">
-        <span>Fill</span>
-        <input type="color" id="ss-fill" value="#a8482b">
-      </label>
-      <label class="rs-field" id="ss-fill-opacity-field">
-        <span>Fill α</span>
-        <input type="range" id="ss-fill-opacity" min="0" max="100" step="5" value="35">
-        <span class="rs-val"><span id="ss-fill-opacity-val">35</span>%</span>
-      </label>
-      <label class="rs-field">
-        <span>Stroke W</span>
-        <input type="range" id="ss-stroke-w" min="0" max="10" step="0.5" value="2">
-        <span class="rs-val" id="ss-stroke-w-val">2</span>
-      </label>
-      <label class="rs-field" id="ss-sides-field">
-        <span>Sides</span>
-        <input type="number" id="ss-sides" min="3" max="24" step="1" value="8">
-      </label>
-      <label class="rs-field" id="ss-scale-field">
-        <span>Scale</span>
-        <input type="range" id="ss-scale" min="5" max="500" step="1" value="100">
-        <span class="rs-val"><span id="ss-scale-val">100</span><span id="ss-scale-suffix">%</span></span>
-      </label>
-      <label class="rs-field" id="ss-rotation-field">
-        <span>Rot</span>
-        <input type="range" id="ss-rotation" min="-180" max="180" step="1" value="0">
-        <span class="rs-val"><span id="ss-rotation-val">0</span>°</span>
-      </label>
-      <label class="rs-field hidden" id="ss-draw-field">
-        <span>Draw</span>
-        <input type="range" id="ss-draw" min="0" max="1000" step="1" value="1000">
-        <span class="rs-val"><span id="ss-draw-val">100</span>%</span>
-      </label>
-      <button class="btn ghost danger" id="ss-delete">Delete</button>
+      <button class="ss-close" id="ss-close" title="Close (Esc)">×</button>
     </div>
+    <label class="rs-field">
+      <span>Stroke</span>
+      <input type="color" id="ss-stroke" value="#2b2a26">
+    </label>
+    <label class="rs-field">
+      <span>Fill</span>
+      <input type="color" id="ss-fill" value="#a8482b">
+    </label>
+    <label class="rs-field" id="ss-fill-opacity-field">
+      <span>Fill α</span>
+      <input type="range" id="ss-fill-opacity" min="0" max="100" step="5" value="35">
+      <span class="rs-val"><span id="ss-fill-opacity-val">35</span>%</span>
+    </label>
+    <label class="rs-field">
+      <span>Stroke W</span>
+      <input type="range" id="ss-stroke-w" min="0" max="10" step="0.5" value="2">
+      <span class="rs-val" id="ss-stroke-w-val">2</span>
+    </label>
+    <label class="rs-field" id="ss-sides-field">
+      <span>Sides</span>
+      <input type="number" id="ss-sides" min="3" max="24" step="1" value="8">
+    </label>
+    <label class="rs-field" id="ss-scale-field">
+      <span>Scale</span>
+      <input type="range" id="ss-scale" min="5" max="500" step="1" value="100">
+      <span class="rs-val"><span id="ss-scale-val">100</span><span id="ss-scale-suffix">%</span></span>
+    </label>
+    <label class="rs-field" id="ss-rotation-field">
+      <span>Rot</span>
+      <input type="range" id="ss-rotation" min="-180" max="180" step="1" value="0">
+      <span class="rs-val"><span id="ss-rotation-val">0</span>°</span>
+    </label>
+    <label class="rs-field hidden" id="ss-draw-field">
+      <span>Draw</span>
+      <input type="range" id="ss-draw" min="0" max="1000" step="1" value="1000">
+      <span class="rs-val"><span id="ss-draw-val">100</span>%</span>
+    </label>
+    <button class="btn ghost danger" id="ss-delete">Delete</button>
   </div>
 
   <div id="layers-panel" class="hidden">

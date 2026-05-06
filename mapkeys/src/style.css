@@ -129,20 +129,77 @@ html, body {
   white-space: nowrap;
 }
 
-/* ─── Shape style panel (mirrors route-style, separate when shape selected) ─── */
+/* ─── Shape style panel — floats in its own corner, only visible when a
+       shape is actively selected (click the shape on the map or its row). ─── */
 
 #shape-style {
+  position: absolute;
+  top: 64px;
+  right: 16px;
+  z-index: 11;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  background: rgba(246, 239, 222, 0.94);
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  padding: 12px 14px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 20px -10px rgba(43, 42, 38, 0.35);
+}
+#shape-style .rs-field {
+  width: 100%;
+  justify-content: space-between;
+}
+#shape-style .rs-field input[type="range"] {
+  width: 110px;
+}
+#ss-header {
   display: flex;
   align-items: center;
-  gap: 14px;
-  background: rgba(246, 239, 222, 0.88);
-  border: 1px solid var(--panel-edge);
-  border-radius: 4px;
-  padding: 6px 12px;
-  backdrop-filter: blur(6px);
-  flex-wrap: wrap;
-  max-width: 100%;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--panel-edge);
 }
+#ss-header .rs-active-label {
+  border-right: none;
+  padding-right: 0;
+  flex: 1;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--ink);
+}
+.ss-close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.ss-close:hover { color: var(--accent); }
+
+/* ─── Inline polygon label editor ─── */
+#shape-label-edit {
+  position: absolute;
+  z-index: 25;
+  appearance: none;
+  background: rgba(255, 250, 240, 0.96);
+  border: 1.5px solid var(--ink);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  color: var(--ink);
+  text-align: center;
+  outline: none;
+  box-shadow: 0 4px 14px -6px rgba(43, 42, 38, 0.45);
+}
+#shape-label-edit::placeholder { color: var(--ink-faint); }
 #shape-style .rs-field input[type="number"] {
   width: 52px;
   appearance: none;
