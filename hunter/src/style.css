@@ -446,8 +446,60 @@ header {
 @media (max-width: 900px) {
   .tiers-grid { grid-template-columns: repeat(2, 1fr); }
 }
-@media (max-width: 520px) {
+@media (max-width: 600px) {
+  #app {
+    padding: var(--np-space-8) var(--np-space-4) var(--np-space-16);
+  }
+  .header-row {
+    flex-direction: column;
+    gap: var(--np-space-3);
+    align-items: flex-start;
+  }
+  .header-actions {
+    align-self: stretch;
+  }
+  .header-btn {
+    flex: 1;
+    text-align: center;
+  }
+  .projects-header {
+    flex-direction: column;
+    gap: var(--np-space-4);
+    align-items: flex-start;
+  }
+  .projects-header .np-button {
+    width: 100%;
+  }
+  .section-title {
+    font-size: 28px;
+  }
+  .project-header h2 {
+    font-size: 32px;
+  }
   .tiers-grid { grid-template-columns: 1fr; }
+  .corpus-unit {
+    grid-template-columns: 1fr;
+    gap: var(--np-space-2);
+  }
+  .corpus-grid {
+    grid-template-columns: 1fr;
+  }
+  .modal-card {
+    padding: var(--np-space-8);
+    width: 95%;
+  }
+  .gate-title {
+    font-size: 42px;
+  }
+  .pattern-text {
+    font-size: 16px;
+  }
+  .project-row-name {
+    font-size: 18px;
+  }
+  .project-row {
+    padding: var(--np-space-4) var(--np-space-6);
+  }
 }
 
 .tier-card {
