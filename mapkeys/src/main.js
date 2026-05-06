@@ -3,15 +3,15 @@ import { unzipSync, strFromU8 } from 'fflate';
 import GIF from 'gif.js';
 import gifWorkerUrl from 'gif.js/dist/gif.worker.js?url';
 import { feature as topoFeature } from 'topojson-client';
-import countries110m from 'world-atlas/countries-110m.json';
+// 10m is Natural Earth's highest resolution — ~3.5MB, but borders look real
+// (coastlines, archipelagos, peninsulas all detailed) instead of low-poly
+// 110m blocks. Worth the payload for a video/animation tool.
+import countriesTopo from 'world-atlas/countries-10m.json';
 import './style.css';
 
 // ─── Country data (loaded once at startup) ───
-// world-atlas/countries-110m exposes Natural Earth country borders as
-// TopoJSON. We turn it into a flat array of { id, name, geometry } and a
-// lookup by id so country shapes can resolve their geometry at hydration.
 const COUNTRIES = (() => {
-  const fc = topoFeature(countries110m, countries110m.objects.countries);
+  const fc = topoFeature(countriesTopo, countriesTopo.objects.countries);
   return fc.features
     .map(f => ({
       id: String(f.id),
@@ -1888,21 +1888,26 @@ function renderShapesPanel() {
 }
 
 function fitToShape(shape) {
+  let lngs = [], lats = [];
   if (shape.type === 'polygon') {
     const ring = regularPolygonCoords(shape.preview.center, shape.sides, shape.preview.radiusKm, shape.preview.rotation);
-    const lngs = ring.map(c => c[0]), lats = ring.map(c => c[1]);
-    map.fitBounds([
-      [Math.min(...lngs), Math.min(...lats)],
-      [Math.max(...lngs), Math.max(...lats)],
-    ], { padding: 120, duration: 800 });
-  } else {
+    lngs = ring.map(c => c[0]); lats = ring.map(c => c[1]);
+  } else if (shape.type === 'line') {
     const coords = transformLineCoords(shape.baseCoords, shape.preview.offsetLng, shape.preview.offsetLat, shape.preview.scale);
-    const lngs = coords.map(c => c[0]), lats = coords.map(c => c[1]);
-    map.fitBounds([
-      [Math.min(...lngs), Math.min(...lats)],
-      [Math.max(...lngs), Math.max(...lats)],
-    ], { padding: 120, duration: 800 });
+    lngs = coords.map(c => c[0]); lats = coords.map(c => c[1]);
+  } else if (shape.type === 'country') {
+    const geom = resolveCountryGeometry(shape);
+    if (!geom) return;
+    const rings = geom.type === 'Polygon' ? geom.coordinates : geom.coordinates.flat();
+    for (const ring of rings) {
+      for (const [lng, lat] of ring) { lngs.push(lng); lats.push(lat); }
+    }
   }
+  if (lngs.length === 0) return;
+  map.fitBounds([
+    [Math.min(...lngs), Math.min(...lats)],
+    [Math.max(...lngs), Math.max(...lats)],
+  ], { padding: 120, duration: 800 });
 }
 
 // ─── Shape style panel ───
