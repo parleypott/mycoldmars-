@@ -64,8 +64,9 @@ async function processAsset(asset) {
 
     await updateAsset(asset.id, { cache_path: localPath, queue_status: 'cached' });
 
-    // For video files, run analysis
-    if (['mp4', 'mov', 'mxf'].includes(asset.format?.toLowerCase())) {
+    // For raw tier, analysis is done inline during download pipeline above
+    // For other tiers with single files, run analysis separately
+    if (asset.tier !== 'raw' && ['mp4', 'mov', 'mxf'].includes(asset.format?.toLowerCase())) {
       await updateAsset(asset.id, { queue_status: 'analyzing' });
       await analyzeVideo(asset.id, localPath);
     }
@@ -88,17 +89,30 @@ async function fetchFromDropbox(asset) {
     const projectDir = join(CACHE_DIR, asset.project_id);
     mkdirSync(projectDir, { recursive: true });
 
-    // Create corpus units for each video
+    // Pipeline: download → analyze → next (one at a time to avoid filling disk)
+    let processed = 0;
     for (const video of videos) {
       const localPath = join(projectDir, video.name);
+
+      // Check if corpus unit already exists (resume support)
+      const { data: existing } = await supabase.from('corpus_units')
+        .select('id').eq('media_asset_id', asset.id)
+        .eq('source_clip_name', video.name).limit(1);
+      if (existing?.length > 0) {
+        processed++;
+        continue;
+      }
+
+      // Download
       if (!existsSync(localPath)) {
+        console.log(`[worker] downloading ${video.name} (${processed + 1}/${videos.length})`);
         await downloadFile(video.path, localPath);
       }
 
       // Get duration via ffprobe
       const duration = getDuration(localPath);
 
-      // Create a corpus unit for the whole file
+      // Create corpus unit
       const { data: unit, error } = await supabase.from('corpus_units')
         .insert({
           media_asset_id: asset.id,
@@ -107,10 +121,42 @@ async function fetchFromDropbox(asset) {
           source_clip_name: video.name,
         })
         .select().single();
-      if (error) console.error('[worker] createCorpusUnit error:', error.message);
+      if (error) {
+        console.error('[worker] createCorpusUnit error:', error.message);
+        continue;
+      }
+
+      // Immediately analyze this clip
+      try {
+        const file = await uploadFile(localPath);
+        const result = await analyzeUnit({ fileUri: file.uri, startSeconds: 0, endSeconds: duration });
+
+        await supabase.from('analyses').insert({
+          corpus_unit_id: unit.id,
+          model: 'gemini-2.5-flash',
+          prompt_version: 'v1',
+          output_text: result.text,
+          output_json: null,
+          cost_usd: 0,
+        });
+
+        console.log(`[worker] ✓ ${video.name} analyzed (${processed + 1}/${videos.length}): ${result.text.slice(0, 60)}...`);
+      } catch (err) {
+        console.error(`[worker] ✗ analysis failed for ${video.name}:`, err.message);
+      }
+
+      // Clean up local file to save disk space (already uploaded to Gemini)
+      try { (await import('node:fs/promises')).unlink(localPath); } catch {}
+
+      processed++;
+      // Log progress every 10 clips
+      if (processed % 10 === 0) {
+        console.log(`[worker] progress: ${processed}/${videos.length} clips processed`);
+      }
     }
 
-    return join(projectDir);
+    console.log(`[worker] ✓ all ${processed}/${videos.length} clips processed for ${asset.source_ref}`);
+    return projectDir;
   }
 
   // Single file download

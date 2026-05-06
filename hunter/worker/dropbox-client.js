@@ -7,6 +7,9 @@
 const BASE = 'https://api.dropboxapi.com/2';
 const CONTENT_BASE = 'https://content.dropboxapi.com/2';
 
+// Team namespace ID for accessing full Dropbox Business folder structure
+const NAMESPACE_ID = process.env.DROPBOX_NAMESPACE_ID || '3229197859';
+
 function getToken() {
   const token = process.env.DROPBOX_ACCESS_TOKEN;
   if (!token) throw new Error('DROPBOX_ACCESS_TOKEN not set');
@@ -17,6 +20,7 @@ function headers() {
   return {
     Authorization: `Bearer ${getToken()}`,
     'Content-Type': 'application/json',
+    'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'namespace_id', namespace_id: NAMESPACE_ID }),
   };
 }
 
@@ -79,6 +83,7 @@ export async function downloadFile(dropboxPath, localPath) {
     headers: {
       Authorization: `Bearer ${getToken()}`,
       'Dropbox-API-Arg': JSON.stringify({ path: dropboxPath }),
+      'Dropbox-API-Path-Root': JSON.stringify({ '.tag': 'namespace_id', namespace_id: NAMESPACE_ID }),
     },
   });
 
