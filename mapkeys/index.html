@@ -66,13 +66,13 @@
     </label>
     <label class="rs-field" id="ss-fill-opacity-field">
       <span>Fill α</span>
-      <input type="range" id="ss-fill-opacity" min="0" max="100" step="5" value="35">
-      <span class="rs-val"><span id="ss-fill-opacity-val">35</span>%</span>
+      <input type="range" id="ss-fill-opacity" min="0" max="100" step="1" value="35">
+      <span class="rs-val"><input class="rs-num" type="number" id="ss-fill-opacity-val" min="0" max="100" step="1" value="35">%</span>
     </label>
     <label class="rs-field">
       <span>Stroke W</span>
       <input type="range" id="ss-stroke-w" min="0" max="10" step="0.5" value="2">
-      <span class="rs-val" id="ss-stroke-w-val">2</span>
+      <span class="rs-val"><input class="rs-num" type="number" id="ss-stroke-w-val" min="0" max="10" step="0.5" value="2"></span>
     </label>
     <label class="rs-field" id="ss-sides-field">
       <span>Sides</span>
@@ -81,17 +81,17 @@
     <label class="rs-field" id="ss-scale-field">
       <span>Scale</span>
       <input type="range" id="ss-scale" min="5" max="500" step="1" value="100">
-      <span class="rs-val"><span id="ss-scale-val">100</span><span id="ss-scale-suffix">%</span></span>
+      <span class="rs-val"><input class="rs-num" type="number" id="ss-scale-val" min="0" step="1" value="100"><span id="ss-scale-suffix">%</span></span>
     </label>
     <label class="rs-field" id="ss-rotation-field">
       <span>Rot</span>
       <input type="range" id="ss-rotation" min="-180" max="180" step="1" value="0">
-      <span class="rs-val"><span id="ss-rotation-val">0</span>°</span>
+      <span class="rs-val"><input class="rs-num" type="number" id="ss-rotation-val" min="-180" max="180" step="1" value="0">°</span>
     </label>
     <label class="rs-field hidden" id="ss-draw-field">
       <span>Draw</span>
       <input type="range" id="ss-draw" min="0" max="1000" step="1" value="1000">
-      <span class="rs-val"><span id="ss-draw-val">100</span>%</span>
+      <span class="rs-val"><input class="rs-num" type="number" id="ss-draw-val" min="0" max="100" step="0.1" value="100">%</span>
     </label>
     <button class="btn ghost danger" id="ss-delete">Delete</button>
   </div>
@@ -129,7 +129,7 @@
       </label>
       <button class="btn primary" id="gif-btn">Render GIF</button>
       <div id="hint-inline">
-        <kbd>Space</kbd> play &nbsp; <kbd>K</kbd> add &nbsp; <kbd>U</kbd> update &nbsp; <kbd>←</kbd>/<kbd>→</kbd> select &nbsp; <kbd>Del</kbd> remove
+        <kbd>Space</kbd> play &nbsp; <kbd>K</kbd> add &nbsp; <kbd>U</kbd> update &nbsp; <kbd>←</kbd>/<kbd>→</kbd> select &nbsp; <kbd>Del</kbd> remove &nbsp; <kbd>⌘Z</kbd> undo
       </div>
     </div>
 
@@ -139,28 +139,9 @@
 
     <div id="kf-editor" class="hidden">
       <div class="ed-row">
-        <label class="field">
-          <span>Duration to next</span>
-          <input type="number" id="kf-duration" min="0" step="0.1" value="2">
-          <span class="suffix">s</span>
-        </label>
-        <label class="field">
-          <span>Easing</span>
-          <select id="kf-easing">
-            <option value="linear">linear</option>
-            <option value="easeIn">ease in</option>
-            <option value="easeOut">ease out</option>
-            <option value="easeInOut">ease in-out</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Route drawn at this kf</span>
-          <input type="number" id="kf-progress" min="0" max="100" step="1" value="0">
-          <span class="suffix">%</span>
-        </label>
         <div class="field-note">
-          Speed = Δprogress / duration · curved by easing.<br>
-          Camera + route share this segment, so they're synced.
+          Tweak segment duration and easing right between keyframe boxes above.
+          Route progress is set on each route layer like any other shape.
         </div>
         <div class="ed-actions">
           <button class="btn primary" id="kf-update-view">Update Keyframe</button>
@@ -170,10 +151,30 @@
     </div>
   </div>
 
+  <div id="render-queue" class="hidden">
+    <div id="rq-header">
+      <span class="rq-title">RENDERS</span>
+      <button id="rq-clear" title="Clear finished">×</button>
+    </div>
+    <div id="rq-list"></div>
+  </div>
+
   <div id="gif-modal" class="hidden">
     <div id="gif-card">
       <div id="gif-title">RENDER GIF</div>
       <div id="gif-rule"></div>
+
+      <label class="gif-field">
+        <span>From keyframe</span>
+        <select id="gif-from"></select>
+        <span class="gif-val">—</span>
+      </label>
+
+      <label class="gif-field">
+        <span>To keyframe</span>
+        <select id="gif-to"></select>
+        <span class="gif-val">—</span>
+      </label>
 
       <label class="gif-field">
         <span>Speed</span>
@@ -202,7 +203,7 @@
 
       <div class="gif-actions">
         <button class="btn ghost" id="gif-cancel">Cancel</button>
-        <button class="btn primary" id="gif-go">Render</button>
+        <button class="btn primary" id="gif-go">Queue Render</button>
       </div>
     </div>
   </div>

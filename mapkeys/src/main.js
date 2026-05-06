@@ -186,6 +186,7 @@ const state = {
   previewProgress: 0,    // current scrub-bar position (0–1), what + Keyframe captures
   shapes: [],             // [{ id, type, sides?, baseCoords?, stroke, fill, strokeWidth, fillOpacity, visible, preview: {...} }]
   activeShapeId: null,    // selected shape (or null)
+  lastFocus: null,        // 'shape' | 'keyframe' — drives Backspace target when both are selected
   drawingLine: null,      // when drawing a line: { coords: [[lng,lat], ...], cursor: [lng,lat] | null }
   draggingShape: null,    // when dragging: { shapeId, type, anchor: [lng,lat], origin: {...preview} }
   playing: false,
@@ -312,6 +313,66 @@ function applyLayerVisibility(layer) {
 // none does, but keeps a single entry point.)
 function applyRouteStyle() {
   for (const l of state.layers) applyLayerStyle(l);
+}
+
+// ─── Undo stack (deletes + adds) ───
+// Snapshots are intentionally lightweight: shapes/layers/keyframes only.
+// Style edits, slider drags, and camera moves do NOT push snapshots.
+const undoStack = [];
+const UNDO_MAX = 30;
+
+function snapshotForUndo(label) {
+  const snap = {
+    label,
+    shapes: state.shapes.map(serializeShape),
+    layers: state.layers.map(l => ({
+      id: l.id, name: l.name, coords: l.coords.map(c => [c[0], c[1]]),
+      style: { ...l.style }, visible: l.visible,
+    })),
+    keyframes: JSON.parse(JSON.stringify(state.keyframes)),
+    activeShapeId: state.activeShapeId,
+    activeLayerId: state.activeLayerId,
+    selectedId: state.selectedId,
+  };
+  undoStack.push(snap);
+  if (undoStack.length > UNDO_MAX) undoStack.shift();
+}
+
+function undo() {
+  const snap = undoStack.pop();
+  if (!snap) return;
+  closeLabelEditor();
+  // Tear down current map artifacts
+  for (const s of state.shapes) removeShapeFromMap(s);
+  for (const l of state.layers) removeLayerFromMap(l);
+  // Rebuild state from snapshot
+  state.shapes = snap.shapes.map(hydrateShape).filter(Boolean);
+  state.layers = snap.layers.map(l => {
+    const route = buildRoute(l.coords);
+    return {
+      id: l.id, name: l.name,
+      coords: route.coords, cumDist: route.cumDist, totalDist: route.totalDist,
+      style: { ...DEFAULT_LAYER_STYLE, ...l.style }, visible: l.visible,
+    };
+  });
+  state.keyframes = snap.keyframes;
+  state.activeShapeId = snap.activeShapeId;
+  state.activeLayerId = snap.activeLayerId;
+  state.selectedId = snap.selectedId;
+  // Re-attach to map
+  for (const l of state.layers) ensureLayerOnMap(l);
+  for (const s of state.shapes) { ensureShapeOnMap(s); redrawShape(s); }
+  setRouteSources(state.previewProgress);
+  // Re-render UI
+  saveLayers();
+  renderLayersPanel();
+  renderShapesPanel();
+  renderKeyframes();
+  renderEditor();
+  showRouteUI();
+  syncShapeStyleInputs();
+  syncRouteStyleInputs();
+  syncDrawSlider();
 }
 
 const EASINGS = {
@@ -717,6 +778,7 @@ function pickShapeFill() {
 }
 
 function addOctagon() {
+  snapshotForUndo('add octagon');
   const c = map.getCenter();
   const id = newShapeId();
   const shape = {
@@ -747,6 +809,7 @@ function addOctagon() {
 
 function addLineFromCoords(coords) {
   if (!coords || coords.length < 2) return;
+  snapshotForUndo('add line');
   const id = newShapeId();
   const shape = {
     id,
@@ -771,9 +834,51 @@ function addLineFromCoords(coords) {
   showRouteUI();
 }
 
+function duplicateShape(id) {
+  const orig = state.shapes.find(s => s.id === id);
+  if (!orig) return;
+  snapshotForUndo('duplicate shape');
+  const newId = newShapeId();
+  // Copy with offset so user can see it. ~10% of polygon radius or default 5km.
+  const offsetDeg = orig.type === 'polygon'
+    ? (orig.preview.radiusKm * 0.4) / KM_PER_DEG_LAT
+    : 0.5;
+  const dup = JSON.parse(JSON.stringify(orig));
+  dup.id = newId;
+  dup.name = orig.name + ' copy';
+  if (dup.type === 'polygon') {
+    dup.preview.center = [orig.preview.center[0] + offsetDeg, orig.preview.center[1] + offsetDeg];
+  } else {
+    dup.preview.offsetLng = orig.preview.offsetLng + offsetDeg;
+    dup.preview.offsetLat = orig.preview.offsetLat + offsetDeg;
+  }
+  state.shapes.push(dup);
+  // Copy per-keyframe state from original to duplicate.
+  for (const kf of state.keyframes) {
+    if (!kf.shapes) kf.shapes = {};
+    if (kf.shapes[id]) {
+      const cloned = JSON.parse(JSON.stringify(kf.shapes[id]));
+      // Apply same offset to keyframed positions so the copy stays separated
+      if (cloned.center) cloned.center = [cloned.center[0] + offsetDeg, cloned.center[1] + offsetDeg];
+      if (typeof cloned.offsetLng === 'number') cloned.offsetLng += offsetDeg;
+      if (typeof cloned.offsetLat === 'number') cloned.offsetLat += offsetDeg;
+      kf.shapes[newId] = cloned;
+    }
+  }
+  ensureShapeOnMap(dup);
+  redrawShape(dup);
+  state.activeShapeId = newId;
+  state.lastFocus = 'shape';
+  saveLayers();
+  renderShapesPanel();
+  syncShapeStyleInputs();
+  showRouteUI();
+}
+
 function deleteShape(id) {
   const shape = state.shapes.find(s => s.id === id);
   if (!shape) return;
+  snapshotForUndo('delete shape');
   removeShapeFromMap(shape);
   state.shapes = state.shapes.filter(s => s.id !== id);
   // Strip from all keyframes
@@ -799,6 +904,7 @@ function setShapeVisible(id, visible) {
 
 function selectShape(id) {
   state.activeShapeId = id;
+  state.lastFocus = 'shape';
   // Selecting a shape also implies you don't want a KML layer "active" for the
   // style panel — but we leave KML active state alone so swapping back works.
   renderShapesPanel();
@@ -811,15 +917,22 @@ function activeShape() {
 }
 
 function snapshotShapePreview(shape) {
-  // Returns a plain object copy of the shape's keyframe-relevant preview state.
+  // Returns a plain object copy of the shape's keyframe-relevant state.
+  // Also captures stroke width + fill opacity so they animate between kfs.
+  const common = {
+    strokeWidth: shape.strokeWidth,
+    fillOpacity: shape.fillOpacity,
+  };
   if (shape.type === 'polygon') {
     return {
+      ...common,
       center: [shape.preview.center[0], shape.preview.center[1]],
       radiusKm: shape.preview.radiusKm,
       rotation: shape.preview.rotation,
     };
   }
   return {
+    ...common,
     offsetLng: shape.preview.offsetLng,
     offsetLat: shape.preview.offsetLat,
     scale: shape.preview.scale,
@@ -829,6 +942,8 @@ function snapshotShapePreview(shape) {
 
 function applyShapeKfState(shape, st) {
   if (!st) return;
+  if (typeof st.strokeWidth === 'number') shape.strokeWidth = st.strokeWidth;
+  if (typeof st.fillOpacity === 'number') shape.fillOpacity = st.fillOpacity;
   if (shape.type === 'polygon') {
     if (Array.isArray(st.center)) shape.preview.center = [st.center[0], st.center[1]];
     if (typeof st.radiusKm === 'number') shape.preview.radiusKm = st.radiusKm;
@@ -839,6 +954,8 @@ function applyShapeKfState(shape, st) {
     if (typeof st.scale === 'number') shape.preview.scale = st.scale;
     if (typeof st.drawProgress === 'number') shape.preview.drawProgress = st.drawProgress;
   }
+  // Re-apply paint props after style changes
+  applyShapeStyle(shape);
 }
 
 function backfillShapeIntoKeyframes(shape) {
@@ -877,6 +994,13 @@ function interpolateShapesAtTime(a, b, eased) {
       shape.preview.scale = lerp(sa.scale, sb.scale, eased);
       shape.preview.drawProgress = lerp(sa.drawProgress, sb.drawProgress, eased);
     }
+    if (typeof sa.strokeWidth === 'number' && typeof sb.strokeWidth === 'number') {
+      shape.strokeWidth = lerp(sa.strokeWidth, sb.strokeWidth, eased);
+    }
+    if (typeof sa.fillOpacity === 'number' && typeof sb.fillOpacity === 'number') {
+      shape.fillOpacity = lerp(sa.fillOpacity, sb.fillOpacity, eased);
+    }
+    applyShapeStyle(shape);
     redrawShape(shape);
   }
 }
@@ -966,23 +1090,26 @@ function captureView() {
 }
 
 function addKeyframe() {
+  snapshotForUndo('add keyframe');
   const view = captureView();
   const kf = {
     id: 'k' + (state.nextId++),
     ...view,
     progress: state.previewProgress,
-    duration: 2.0,
+    duration: 4.0,
     easing: 'easeInOut',
     shapes: captureShapesForKeyframe(),
   };
   state.keyframes.push(kf);
   state.selectedId = kf.id;
+  state.lastFocus = 'keyframe';
   renderKeyframes();
   renderEditor();
   syncDrawSlider();
 }
 
 function deleteKeyframe(id) {
+  snapshotForUndo('delete keyframe');
   state.keyframes = state.keyframes.filter(k => k.id !== id);
   if (state.selectedId === id) {
     state.selectedId = state.keyframes[0]?.id ?? null;
@@ -993,6 +1120,7 @@ function deleteKeyframe(id) {
 
 function selectKeyframe(id, jump = true) {
   state.selectedId = id;
+  state.lastFocus = 'keyframe';
   renderKeyframes();
   renderEditor();
   if (jump) {
@@ -1122,6 +1250,12 @@ function reset() {
 
 // ─── Rendering ───
 
+// SVG icons for easing toggle. Linear = 45° line, Ease (in-out) = S-curve.
+const EASE_ICONS = {
+  linear: '<svg class="kfg-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14 L14 2" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>',
+  easeInOut: '<svg class="kfg-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14 C 8 14, 8 2, 14 2" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>',
+};
+
 function renderKeyframes() {
   const list = document.getElementById('kf-list');
   list.innerHTML = '';
@@ -1139,7 +1273,7 @@ function renderKeyframes() {
     tile.innerHTML = `
       <div class="kf-num">K${String(i + 1).padStart(2, '0')}</div>
       <div class="kf-meta">
-        Z <b>${kf.zoom.toFixed(1)}</b> · ${Math.round(kf.progress * 100)}%
+        Z <b>${kf.zoom.toFixed(1)}</b>
       </div>
     `;
     tile.addEventListener('click', () => selectKeyframe(kf.id));
@@ -1148,7 +1282,29 @@ function renderKeyframes() {
     if (i < state.keyframes.length - 1) {
       const gap = document.createElement('div');
       gap.className = 'kf-gap';
-      gap.textContent = `→ ${kf.duration}s · ${kf.easing}`;
+      const easing = (kf.easing === 'linear') ? 'linear' : 'easeInOut';
+      gap.innerHTML = `
+        <input class="kfg-dur" type="number" min="0" step="0.1" value="${kf.duration}" title="Duration to next (s)">
+        <span class="kfg-unit">s</span>
+        <button class="kfg-ease" title="Click to toggle easing">${EASE_ICONS[easing]}</button>
+      `;
+      const durIn = gap.querySelector('.kfg-dur');
+      durIn.addEventListener('input', () => {
+        const v = parseFloat(durIn.value);
+        if (isFinite(v) && v >= 0) {
+          kf.duration = v;
+          document.getElementById('time-total').textContent = totalDuration().toFixed(1);
+          saveLayers();
+        }
+      });
+      durIn.addEventListener('keydown', e => e.stopPropagation());
+      const easeBtn = gap.querySelector('.kfg-ease');
+      easeBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        kf.easing = (kf.easing === 'linear') ? 'easeInOut' : 'linear';
+        easeBtn.innerHTML = EASE_ICONS[kf.easing === 'linear' ? 'linear' : 'easeInOut'];
+        saveLayers();
+      });
       list.appendChild(gap);
     }
   });
@@ -1168,9 +1324,6 @@ function renderEditor() {
     return;
   }
   editor.classList.remove('hidden');
-  document.getElementById('kf-duration').value = kf.duration;
-  document.getElementById('kf-easing').value = kf.easing;
-  document.getElementById('kf-progress').value = Math.round(kf.progress * 100);
 }
 
 function updateTimeDisplay(t) {
@@ -1183,30 +1336,8 @@ document.getElementById('add-kf').addEventListener('click', addKeyframe);
 document.getElementById('play-btn').addEventListener('click', () => state.playing ? stop() : play());
 document.getElementById('reset-btn').addEventListener('click', reset);
 
-document.getElementById('kf-duration').addEventListener('input', e => {
-  const kf = state.keyframes.find(k => k.id === state.selectedId);
-  if (kf) {
-    kf.duration = Math.max(0, parseFloat(e.target.value) || 0);
-    renderKeyframes();
-  }
-});
-document.getElementById('kf-easing').addEventListener('change', e => {
-  const kf = state.keyframes.find(k => k.id === state.selectedId);
-  if (kf) {
-    kf.easing = e.target.value;
-    renderKeyframes();
-  }
-});
-document.getElementById('kf-progress').addEventListener('input', e => {
-  const kf = state.keyframes.find(k => k.id === state.selectedId);
-  if (kf) {
-    kf.progress = Math.max(0, Math.min(1, (parseFloat(e.target.value) || 0) / 100));
-    state.previewProgress = kf.progress;
-    renderKeyframes();
-    setRouteSources(kf.progress);
-    syncDrawSlider();
-  }
-});
+// Duration + easing now edited inline between keyframe boxes (see renderKeyframes).
+// Route progress is set per-route layer via the DRAW slider in the layers panel.
 function updateSelectedKeyframe() {
   const kf = state.keyframes.find(k => k.id === state.selectedId);
   if (!kf) return;
@@ -1345,6 +1476,7 @@ function loadLayersFromLS() {
 loadLayersFromLS();
 
 function addLayerFromKML(file, coords) {
+  snapshotForUndo('add layer');
   const route = buildRoute(coords);
   const id = 'lyr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
   const colorIdx = state.layers.length % LAYER_COLORS.length;
@@ -1373,9 +1505,35 @@ function addLayerFromKML(file, coords) {
   setRouteSources(state.previewProgress);
 }
 
+function duplicateLayer(id) {
+  const orig = state.layers.find(l => l.id === id);
+  if (!orig) return;
+  snapshotForUndo('duplicate layer');
+  const newId = 'lyr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+  const route = buildRoute(orig.coords.map(c => [c[0], c[1]]));
+  const dup = {
+    id: newId,
+    name: orig.name + ' copy',
+    coords: route.coords,
+    cumDist: route.cumDist,
+    totalDist: route.totalDist,
+    style: { ...orig.style },
+    visible: true,
+  };
+  state.layers.push(dup);
+  state.activeLayerId = newId;
+  ensureLayerOnMap(dup);
+  setRouteSources(state.previewProgress);
+  saveLayers();
+  renderLayersPanel();
+  syncRouteStyleInputs();
+  showRouteUI();
+}
+
 function deleteLayer(id) {
   const layer = state.layers.find(l => l.id === id);
   if (!layer) return;
+  snapshotForUndo('delete layer');
   removeLayerFromMap(layer);
   state.layers = state.layers.filter(l => l.id !== id);
   if (state.activeLayerId === id) {
@@ -1449,6 +1607,7 @@ function renderLayersPanel() {
       </div>
       <div class="layer-actions">
         <button class="layer-btn layer-btn-fit" title="Fit to layer">⊕</button>
+        <button class="layer-btn layer-btn-dup" title="Duplicate layer">⎘</button>
         <button class="layer-btn layer-btn-del" title="Delete layer">×</button>
       </div>
     `;
@@ -1459,6 +1618,10 @@ function renderLayersPanel() {
     row.querySelector('.layer-btn-del').addEventListener('click', e => {
       e.stopPropagation();
       if (confirm(`Delete "${layer.name}"?`)) deleteLayer(layer.id);
+    });
+    row.querySelector('.layer-btn-dup').addEventListener('click', e => {
+      e.stopPropagation();
+      duplicateLayer(layer.id);
     });
     row.querySelector('.layer-btn-fit').addEventListener('click', e => {
       e.stopPropagation();
@@ -1555,6 +1718,7 @@ function renderShapesPanel() {
       </div>
       <div class="layer-actions">
         <button class="layer-btn shape-btn-fit" title="Fit to shape">⊕</button>
+        <button class="layer-btn shape-btn-dup" title="Duplicate shape">⎘</button>
         <button class="layer-btn shape-btn-del" title="Delete shape">×</button>
       </div>
     `;
@@ -1565,6 +1729,10 @@ function renderShapesPanel() {
     row.querySelector('.shape-btn-del').addEventListener('click', e => {
       e.stopPropagation();
       if (confirm(`Delete "${shape.name}"?`)) deleteShape(shape.id);
+    });
+    row.querySelector('.shape-btn-dup').addEventListener('click', e => {
+      e.stopPropagation();
+      duplicateShape(shape.id);
     });
     row.querySelector('.shape-btn-fit').addEventListener('click', e => {
       e.stopPropagation();
@@ -1627,20 +1795,20 @@ function syncShapeStyleInputs() {
   ssActiveName.textContent = shape.name;
   ssStroke.value = shape.stroke;
   ssStrokeW.value = shape.strokeWidth;
-  ssStrokeWVal.textContent = shape.strokeWidth;
+  ssStrokeWVal.value = shape.strokeWidth;
   reconfigureSlidersFor(shape);
 
   const suffix = document.getElementById('ss-scale-suffix');
   if (shape.type === 'polygon') {
     ssFill.value = shape.fill;
     ssFillOpacity.value = Math.round(shape.fillOpacity * 100);
-    ssFillOpacityVal.textContent = Math.round(shape.fillOpacity * 100);
+    ssFillOpacityVal.value = Math.round(shape.fillOpacity * 100);
     ssSides.value = shape.sides;
     ssScale.value = Math.round(shape.preview.radiusKm);
-    ssScaleVal.textContent = Math.round(shape.preview.radiusKm);
+    ssScaleVal.value = Math.round(shape.preview.radiusKm);
     if (suffix) suffix.textContent = ' km';
     ssRotation.value = Math.round(shape.preview.rotation);
-    ssRotationVal.textContent = Math.round(shape.preview.rotation);
+    ssRotationVal.value = Math.round(shape.preview.rotation);
     ssFillOpacityField.classList.remove('hidden');
     ssSidesField.classList.remove('hidden');
     ssScaleField.classList.remove('hidden');
@@ -1648,10 +1816,10 @@ function syncShapeStyleInputs() {
     ssDrawField.classList.add('hidden');
   } else {
     ssScale.value = Math.round(shape.preview.scale * 100);
-    ssScaleVal.textContent = Math.round(shape.preview.scale * 100);
+    ssScaleVal.value = Math.round(shape.preview.scale * 100);
     if (suffix) suffix.textContent = '%';
     ssDraw.value = Math.round(shape.preview.drawProgress * 1000);
-    ssDrawVal.textContent = Math.round(shape.preview.drawProgress * 100);
+    ssDrawVal.value = (shape.preview.drawProgress * 100).toFixed(1).replace(/\.0$/, '');
     ssFillOpacityField.classList.add('hidden');
     ssSidesField.classList.add('hidden');
     ssScaleField.classList.remove('hidden');
@@ -1684,37 +1852,58 @@ function mutateActiveShape(fn) {
   renderShapesPanel();
 }
 
+// Bidirectional pair: slider ↔ number input. `numToSliderRatio` is multiplied
+// by num to get slider value (used by ss-draw where slider is 0-1000 and num
+// is 0-100).
+function pairSliderNum(slider, num, onCommit, opts = {}) {
+  const numToSlider = opts.numToSlider || ((v) => v);
+  const sliderToNum = opts.sliderToNum || ((v) => v);
+  slider.addEventListener('input', () => {
+    const sv = parseFloat(slider.value);
+    num.value = sliderToNum(sv);
+    onCommit(sv);
+  });
+  num.addEventListener('input', () => {
+    const nv = parseFloat(num.value);
+    if (!isFinite(nv)) return;
+    const sv = numToSlider(nv);
+    const lo = slider.min !== '' ? parseFloat(slider.min) : -Infinity;
+    const hi = slider.max !== '' ? parseFloat(slider.max) : Infinity;
+    const clamped = Math.max(lo, Math.min(hi, sv));
+    slider.value = String(clamped);
+    onCommit(clamped);
+  });
+}
+
 ssStroke.addEventListener('input', e => mutateActiveShape(s => { s.stroke = e.target.value; }));
 ssFill.addEventListener('input', e => mutateActiveShape(s => { s.fill = e.target.value; }));
-ssFillOpacity.addEventListener('input', e => {
-  ssFillOpacityVal.textContent = e.target.value;
-  mutateActiveShape(s => { s.fillOpacity = parseFloat(e.target.value) / 100; });
+
+pairSliderNum(ssFillOpacity, ssFillOpacityVal, (v) => {
+  mutateActiveShape(s => { s.fillOpacity = v / 100; });
 });
-ssStrokeW.addEventListener('input', e => {
-  ssStrokeWVal.textContent = e.target.value;
-  mutateActiveShape(s => { s.strokeWidth = parseFloat(e.target.value); });
+pairSliderNum(ssStrokeW, ssStrokeWVal, (v) => {
+  mutateActiveShape(s => { s.strokeWidth = v; });
 });
 ssSides.addEventListener('input', e => {
   const n = Math.max(3, Math.min(24, parseInt(e.target.value, 10) || 8));
   mutateActiveShape(s => { if (s.type === 'polygon') s.sides = n; });
 });
-ssScale.addEventListener('input', e => {
-  ssScaleVal.textContent = e.target.value;
-  const v = parseFloat(e.target.value);
+pairSliderNum(ssScale, ssScaleVal, (v) => {
   mutateActiveShape(s => {
     if (s.type === 'polygon') s.preview.radiusKm = v;
     else s.preview.scale = v / 100;
   });
 });
-ssRotation.addEventListener('input', e => {
-  ssRotationVal.textContent = e.target.value;
-  const v = parseFloat(e.target.value);
+pairSliderNum(ssRotation, ssRotationVal, (v) => {
   mutateActiveShape(s => { if (s.type === 'polygon') s.preview.rotation = v; });
 });
-ssDraw.addEventListener('input', e => {
-  const v = parseFloat(e.target.value) / 1000;
-  ssDrawVal.textContent = Math.round(v * 100);
-  mutateActiveShape(s => { if (s.type === 'line') s.preview.drawProgress = v; });
+// ss-draw: slider 0-1000 (fine resolution), num 0-100 (percent).
+pairSliderNum(ssDraw, ssDrawVal, (sv) => {
+  const progress = sv / 1000;
+  mutateActiveShape(s => { if (s.type === 'line') s.preview.drawProgress = progress; });
+}, {
+  numToSlider: (n) => n * 10,    // 0-100 → 0-1000
+  sliderToNum: (s) => +(s / 10).toFixed(1),
 });
 ssDelete.addEventListener('click', () => {
   const shape = activeShape();
@@ -2111,6 +2300,33 @@ document.getElementById('import-file').addEventListener('change', async e => {
   e.target.value = '';
 });
 
+// Cmd+Z / Ctrl+Z — undo. Bound separately so it works even when an input is
+// focused (typing in an input + cmd+z still undoes the action, mimicking native).
+window.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+    // Skip when actively typing — let the input's native undo win.
+    if (e.target.matches('input, textarea')) return;
+    e.preventDefault();
+    if (undoStack.length === 0) return;
+    const next = undoStack[undoStack.length - 1];
+    undo();
+    flashToast(`Undo: ${next.label}`);
+  }
+});
+
+function flashToast(msg) {
+  let el = document.getElementById('mk-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'mk-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('visible');
+  clearTimeout(flashToast._t);
+  flashToast._t = setTimeout(() => el.classList.remove('visible'), 1200);
+}
+
 // Keyboard
 window.addEventListener('keydown', e => {
   // Ignore typing in inputs
@@ -2121,14 +2337,19 @@ window.addEventListener('keydown', e => {
     if (state.selectedId) { e.preventDefault(); updateSelectedKeyframe(); }
   }
   else if (e.key === 'Delete' || e.key === 'Backspace') {
-    // Selected shape takes priority over selected keyframe
-    if (state.activeShapeId) {
+    // Whichever was last actively focused (shape vs keyframe) is the target.
+    if (state.lastFocus === 'shape' && state.activeShapeId) {
       e.preventDefault();
       const s = activeShape();
       if (s && confirm(`Delete "${s.name}"?`)) deleteShape(s.id);
     } else if (state.selectedId) {
       e.preventDefault();
       deleteKeyframe(state.selectedId);
+    } else if (state.activeShapeId) {
+      // Fallback for older sessions (no lastFocus yet)
+      e.preventDefault();
+      const s = activeShape();
+      if (s && confirm(`Delete "${s.name}"?`)) deleteShape(s.id);
     }
   }
   else if (e.key === 'ArrowLeft') {
@@ -2156,16 +2377,51 @@ const gifProgressFill = document.getElementById('gif-progress-fill');
 const gifProgressLabel = document.getElementById('gif-progress-label');
 const gifGo = document.getElementById('gif-go');
 
+function gifRange() {
+  const fromSel = document.getElementById('gif-from');
+  const toSel = document.getElementById('gif-to');
+  const n = state.keyframes.length;
+  if (n === 0) return { tStart: 0, tEnd: 0, fromIdx: 0, toIdx: 0 };
+  const fromIdx = Math.min(n - 1, Math.max(0, parseInt(fromSel.value, 10) || 0));
+  const toIdx = Math.min(n - 1, Math.max(0, parseInt(toSel.value, 10) || (n - 1)));
+  const a = Math.min(fromIdx, toIdx);
+  const b = Math.max(fromIdx, toIdx);
+  let tStart = 0, tEnd = 0;
+  for (let i = 0; i < a; i++) tStart += state.keyframes[i].duration;
+  for (let i = 0; i < b; i++) tEnd += state.keyframes[i].duration;
+  return { tStart, tEnd, fromIdx: a, toIdx: b };
+}
+
+function populateGifRange() {
+  const fromSel = document.getElementById('gif-from');
+  const toSel = document.getElementById('gif-to');
+  const prevFrom = fromSel.value;
+  const prevTo = toSel.value;
+  fromSel.innerHTML = '';
+  toSel.innerHTML = '';
+  state.keyframes.forEach((kf, i) => {
+    const label = `K${String(i + 1).padStart(2, '0')}`;
+    fromSel.appendChild(new Option(label, String(i)));
+    toSel.appendChild(new Option(label, String(i)));
+  });
+  const n = state.keyframes.length;
+  // Restore prior selection if still valid, else default to first/last
+  fromSel.value = (prevFrom !== '' && parseInt(prevFrom, 10) < n) ? prevFrom : '0';
+  toSel.value = (prevTo !== '' && parseInt(prevTo, 10) < n) ? prevTo : String(Math.max(0, n - 1));
+}
+
 function gifSummaryUpdate() {
-  const total = totalDuration();
+  const { tStart, tEnd, fromIdx, toIdx } = gifRange();
+  const total = Math.max(0, tEnd - tStart);
   const speed = parseFloat(gifSpeed.value) / 100;
   const fps = parseInt(gifFps.value, 10);
   const outDur = speed > 0 ? total / speed : 0;
-  const frames = Math.max(0, Math.round(outDur * fps));
+  const frames = Math.max(1, Math.round(outDur * fps));
   const canvas = map.getCanvas();
   const w = Math.round(canvas.clientWidth * (parseInt(gifScale.value, 10) / 100));
   const h = Math.round(canvas.clientHeight * (parseInt(gifScale.value, 10) / 100));
-  gifSummary.textContent = `${frames} frames · ${outDur.toFixed(1)}s · ${w}×${h}`;
+  const rangeLabel = `K${String(fromIdx + 1).padStart(2, '0')}→K${String(toIdx + 1).padStart(2, '0')}`;
+  gifSummary.textContent = `${rangeLabel} · ${frames} frames · ${outDur.toFixed(1)}s · ${w}×${h}`;
 }
 
 function bindLive(input, valEl) {
@@ -2178,14 +2434,18 @@ bindLive(gifSpeed, gifSpeedVal);
 bindLive(gifFps, gifFpsVal);
 bindLive(gifScale, gifScaleVal);
 
+document.getElementById('gif-from').addEventListener('change', gifSummaryUpdate);
+document.getElementById('gif-to').addEventListener('change', gifSummaryUpdate);
+
 document.getElementById('gif-btn').addEventListener('click', () => {
   if (state.keyframes.length < 2) {
     alert('Add at least 2 keyframes first.');
     return;
   }
+  populateGifRange();
   gifProgress.classList.add('hidden');
   gifGo.disabled = false;
-  gifGo.textContent = 'Render';
+  gifGo.textContent = 'Queue Render';
   gifSummaryUpdate();
   gifModal.classList.remove('hidden');
 });
@@ -2205,24 +2465,97 @@ async function captureFrame() {
   });
 }
 
-gifGo.addEventListener('click', async () => {
-  stop();
-  const total = totalDuration();
-  const speedPct = parseFloat(gifSpeed.value);
-  const speed = speedPct / 100;            // 1.0 = same speed, 2.0 = 2x faster
-  const fps = parseInt(gifFps.value, 10);
-  const scalePct = parseInt(gifScale.value, 10) / 100;
-  const outDur = total / speed;
-  const totalFrames = Math.max(1, Math.round(outDur * fps));
+// Render queue — multiple GIFs queue up and process one at a time.
+// Note: jobs use the visible map and current state at render time. While a
+// job is rendering, scrubbing the timeline conflicts with the renderer; safer
+// to leave the timeline alone until the queue drains. Editing colors/strokes/
+// shape positions is fine.
+const renderQueue = [];
+let renderProcessing = false;
 
+function enqueueRender(opts) {
+  const job = {
+    id: 'job_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 5),
+    status: 'queued',
+    progress: 0,
+    label: `K${String(opts.fromIdx + 1).padStart(2, '0')}–K${String(opts.toIdx + 1).padStart(2, '0')} · ${opts.fps}fps · ${opts.speedPct}%`,
+    error: null,
+    opts,
+  };
+  renderQueue.push(job);
+  renderQueuePanelUpdate();
+  drainRenderQueue();
+  return job;
+}
+
+async function drainRenderQueue() {
+  if (renderProcessing) return;
+  const next = renderQueue.find(j => j.status === 'queued');
+  if (!next) return;
+  renderProcessing = true;
+  next.status = 'rendering';
+  renderQueuePanelUpdate();
+  try {
+    await runRenderJob(next);
+    next.status = 'done';
+    next.progress = 1;
+  } catch (err) {
+    next.status = 'error';
+    next.error = (err && err.message) || String(err);
+  }
+  renderProcessing = false;
+  renderQueuePanelUpdate();
+  drainRenderQueue();
+}
+
+function renderQueuePanelUpdate() {
+  const panel = document.getElementById('render-queue');
+  const list = document.getElementById('rq-list');
+  if (renderQueue.length === 0) {
+    panel.classList.add('hidden');
+    return;
+  }
+  panel.classList.remove('hidden');
+  list.innerHTML = '';
+  for (const job of renderQueue) {
+    const row = document.createElement('div');
+    row.className = 'rq-row rq-' + job.status;
+    const pct = Math.round(job.progress * 100);
+    const statusLabel = job.status === 'rendering' ? `Rendering · ${pct}%` :
+                        job.status === 'done'      ? 'Done — downloaded' :
+                        job.status === 'error'     ? `Error: ${job.error}` :
+                                                     'Queued';
+    row.innerHTML = `
+      <div class="rq-label">${job.label}</div>
+      <div class="rq-status">${statusLabel}</div>
+      <div class="rq-bar"><div class="rq-fill" style="width:${pct}%"></div></div>
+    `;
+    list.appendChild(row);
+  }
+}
+
+document.getElementById('rq-clear').addEventListener('click', () => {
+  for (let i = renderQueue.length - 1; i >= 0; i--) {
+    if (renderQueue[i].status === 'done' || renderQueue[i].status === 'error') {
+      renderQueue.splice(i, 1);
+    }
+  }
+  renderQueuePanelUpdate();
+});
+
+async function runRenderJob(job) {
+  stop();
+  const { tStart, tEnd, fromIdx, toIdx, speedPct, fps, scalePct } = job.opts;
+  const total = Math.max(0, tEnd - tStart);
+  const speed = speedPct / 100;
+  const outDur = speed > 0 ? total / speed : 0;
+  const totalFrames = Math.max(1, Math.round(outDur * fps));
   const sourceCanvas = map.getCanvas();
   const w = Math.round(sourceCanvas.clientWidth * scalePct);
   const h = Math.round(sourceCanvas.clientHeight * scalePct);
 
-  // Resize down by drawing into an off-screen canvas
   const off = document.createElement('canvas');
-  off.width = w;
-  off.height = h;
+  off.width = w; off.height = h;
   const offCtx = off.getContext('2d');
 
   const gif = new GIF({
@@ -2234,39 +2567,12 @@ gifGo.addEventListener('click', async () => {
     repeat: 0,
   });
 
-  gif.on('progress', p => {
-    gifProgressFill.style.width = (50 + p * 50) + '%';
-    gifProgressLabel.textContent = `Encoding GIF · ${Math.round(p * 100)}%`;
-  });
+  const stepPerFrame = (1 / fps) * speed;
 
-  gif.on('finished', blob => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `mapkeys-${speedPct}pct-${fps}fps.gif`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    gifProgressLabel.textContent = 'Done.';
-    gifGo.disabled = false;
-    gifGo.textContent = 'Render';
-    gifSummaryUpdate();
-  });
-
-  gifProgress.classList.remove('hidden');
-  gifProgressFill.style.width = '0%';
-  gifProgressLabel.textContent = 'Capturing frames…';
-  gifGo.disabled = true;
-  gifGo.textContent = 'Rendering…';
-
-  // Each frame represents (1/fps) seconds of OUTPUT, which corresponds to
-  // (1/fps) * speed seconds of TIMELINE. So the timeline advance per frame:
-  const timelineStepPerFrame = (1 / fps) * speed;
-
+  // Capture phase: 0 → 0.5 of progress
   for (let i = 0; i < totalFrames; i++) {
-    const t = Math.min(total, i * timelineStepPerFrame);
+    const t = tStart + Math.min(total, i * stepPerFrame);
     applyAtTime(t);
-
-    // Wait for the map to fully render (idle event covers tile loading)
     await new Promise(resolve => {
       if (map.areTilesLoaded()) {
         map.once('render', resolve);
@@ -2275,17 +2581,46 @@ gifGo.addEventListener('click', async () => {
         map.once('idle', resolve);
       }
     });
-
     const src = map.getCanvas();
     offCtx.drawImage(src, 0, 0, w, h);
     gif.addFrame(offCtx, { copy: true, delay: Math.round(1000 / fps) });
-
-    gifProgressFill.style.width = ((i + 1) / totalFrames * 50) + '%';
-    gifProgressLabel.textContent = `Capturing · frame ${i + 1} / ${totalFrames}`;
+    job.progress = 0.5 * (i + 1) / totalFrames;
+    renderQueuePanelUpdate();
   }
 
-  gifProgressLabel.textContent = 'Encoding GIF…';
-  gif.render();
+  // Encoding phase: 0.5 → 1.0 of progress
+  await new Promise((resolve, reject) => {
+    gif.on('progress', p => {
+      job.progress = 0.5 + p * 0.5;
+      renderQueuePanelUpdate();
+    });
+    gif.on('finished', blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const rangeTag = `K${String(fromIdx + 1).padStart(2, '0')}-K${String(toIdx + 1).padStart(2, '0')}`;
+      a.download = `mapkeys-${rangeTag}-${speedPct}pct-${fps}fps.gif`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      resolve();
+    });
+    try { gif.render(); } catch (e) { reject(e); }
+  });
+}
+
+gifGo.addEventListener('click', () => {
+  const { tStart, tEnd, fromIdx, toIdx } = gifRange();
+  const total = Math.max(0, tEnd - tStart);
+  if (total <= 0) {
+    alert('Pick a From keyframe earlier than the To keyframe.');
+    return;
+  }
+  const speedPct = parseFloat(gifSpeed.value);
+  const fps = parseInt(gifFps.value, 10);
+  const scalePct = parseInt(gifScale.value, 10) / 100;
+  enqueueRender({ tStart, tEnd, fromIdx, toIdx, speedPct, fps, scalePct });
+  // Close modal — the queue panel takes over from here.
+  gifModal.classList.add('hidden');
 });
 
 // Initial render
