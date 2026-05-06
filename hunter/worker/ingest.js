@@ -200,7 +200,7 @@ async function fetchFromDropbox(asset, projectContext) {
         console.error(`[worker] ✗ ${video.name}:`, err.message);
       } finally {
         // Clean up local file to save disk space
-        try { (await import('node:fs/promises')).unlink(localPath); } catch {}
+        try { const { rm } = await import('node:fs/promises'); await rm(localPath, { force: true }); } catch {}
       }
     })));
 
