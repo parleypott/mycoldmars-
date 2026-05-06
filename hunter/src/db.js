@@ -242,6 +242,18 @@ export async function updatePatternStatus(id, status, userNotes) {
   return data;
 }
 
+// ── All corpus units (for browser) ──
+
+export async function listAllCorpusUnits(limit = 200) {
+  if (!supabase) return [];
+  const { data, error } = await db().from('corpus_units')
+    .select('*, media_assets!inner(project_id, tier, hunter_projects!inner(name)), analyses(*)')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw normalizeError(error, 'listAllCorpusUnits');
+  return data;
+}
+
 // ── Pending queue (used by worker) ──
 
 export async function getPendingAssets(limit = 10) {

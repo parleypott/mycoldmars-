@@ -12,11 +12,11 @@
   <!-- Access gate -->
   <div id="gate" class="gate">
     <div class="gate-inner">
-      <div class="np-eyebrow np-eyebrow--red">Newpress</div>
+      <div class="np-eyebrow np-eyebrow--red">Newpress Tools</div>
       <h1 class="gate-title">hunter</h1>
-      <input id="gate-code" class="np-textarea" type="password" placeholder="Access code" style="min-height:auto;text-align:center;">
+      <input id="gate-code" class="np-textarea" type="password" placeholder="access code" style="min-height:auto;">
       <button id="gate-submit" class="np-button np-button--primary" style="width:100%">Enter</button>
-      <p id="gate-error" class="hidden" style="color:var(--np-red);font-size:12px;text-align:center;margin-top:8px;">Wrong code</p>
+      <p id="gate-error" class="hidden" style="color:var(--np-red);font-size:11px;text-align:center;margin-top:4px;font-family:var(--np-font-mono);letter-spacing:0.05em;">wrong code</p>
     </div>
   </div>
 
@@ -104,8 +104,9 @@
   </div>
 
   <script>
-    (async function() {
-      const COOKIE_NAME = 'np_access';
+    (function() {
+      const COOKIE_NAME = 'np_hunter_access';
+      const PASSWORD = 'newpress';
       const gate = document.getElementById('gate');
       const app = document.getElementById('app');
 
@@ -124,15 +125,6 @@
         return;
       }
 
-      try {
-        const probe = await fetch('/api/access', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: '' }),
-        });
-        if (probe.status === 404 || probe.ok) { unlock(); return; }
-      } catch { unlock(); return; }
-
       const codeInput = document.getElementById('gate-code');
       const submitBtn = document.getElementById('gate-submit');
       const errorMsg = document.getElementById('gate-error');
@@ -143,22 +135,16 @@
         app.classList.remove('hidden');
       }
 
-      async function checkCode() {
-        const code = codeInput.value.trim();
+      function checkCode() {
+        const code = codeInput.value.trim().toLowerCase();
         if (!code) return;
-        try {
-          const res = await fetch('/api/access', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code }),
-          });
-          if (res.ok || res.status === 404) unlock();
-          else {
-            errorMsg.classList.remove('hidden');
-            codeInput.value = '';
-            codeInput.focus();
-          }
-        } catch { unlock(); }
+        if (code === PASSWORD) {
+          unlock();
+        } else {
+          errorMsg.classList.remove('hidden');
+          codeInput.value = '';
+          codeInput.focus();
+        }
       }
 
       submitBtn.addEventListener('click', checkCode);
