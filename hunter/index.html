@@ -56,44 +56,63 @@
       </div>
       <div id="project-header" class="project-header"></div>
 
-      <!-- Source Layers — each tier is its own world -->
-      <div class="source-layers">
-        <div class="source-layer source-layer--raw" data-tier="raw">
-          <div class="source-layer-header">
-            <div class="source-layer-label">Raw</div>
-            <span class="source-layer-desc">unfiltered footage from a shoot</span>
-          </div>
-          <div class="source-layer-content" id="tier-raw-source"></div>
-          <button class="np-button tier-add-btn" data-tier="raw">+ Dropbox folder</button>
+      <!-- Training Hub — radial source interface -->
+      <div class="training-hub-container">
+        <div class="training-hub">
+          <div class="training-hub-name" id="hub-project-name"></div>
+          <div class="training-hub-status" id="hub-status">0/5 connected</div>
         </div>
 
-        <div class="source-layer source-layer--script" data-tier="script">
-          <div class="source-layer-header">
-            <div class="source-layer-label">Script</div>
-            <span class="source-layer-desc">original written intent</span>
+        <div class="spoke spoke--raw" data-tier="raw">
+          <div class="spoke-line"></div>
+          <div class="spoke-card">
+            <div class="spoke-card-label">RAW</div>
+            <div class="spoke-card-desc">unfiltered footage</div>
+            <div class="spoke-card-content" id="spoke-raw-content"></div>
+            <button class="np-button tier-add-btn" data-tier="raw">+ Dropbox folder</button>
           </div>
-          <div class="source-layer-content" id="tier-script-source"></div>
-          <button class="np-button tier-add-btn" data-tier="script">+ Upload file</button>
-          <input type="file" class="tier-file-input" data-tier="script" accept=".pdf,.docx,.txt,.md" hidden>
         </div>
 
-        <div class="source-layer source-layer--selects" data-tier="selects">
-          <div class="source-layer-header">
-            <div class="source-layer-label">Selects</div>
-            <span class="source-layer-desc">curated sequences from Premiere</span>
+        <div class="spoke spoke--script" data-tier="script">
+          <div class="spoke-line"></div>
+          <div class="spoke-card">
+            <div class="spoke-card-label">SCRIPT</div>
+            <div class="spoke-card-desc">original written intent</div>
+            <div class="spoke-card-content" id="spoke-script-content"></div>
+            <button class="np-button tier-add-btn" data-tier="script">+ Upload file</button>
+            <input type="file" class="tier-file-input" data-tier="script" accept=".pdf,.docx,.txt,.md" hidden>
           </div>
-          <div class="source-layer-content" id="tier-selects-source"></div>
-          <button class="np-button tier-add-btn" data-tier="selects">+ XML / EDL</button>
-          <input type="file" class="tier-file-input" data-tier="selects" accept=".xml,.edl" multiple hidden>
         </div>
 
-        <div class="source-layer source-layer--finished" data-tier="finished">
-          <div class="source-layer-header">
-            <div class="source-layer-label">Finished</div>
-            <span class="source-layer-desc">published cut from YouTube</span>
+        <div class="spoke spoke--selects" data-tier="selects">
+          <div class="spoke-line"></div>
+          <div class="spoke-card">
+            <div class="spoke-card-label">SELECTS</div>
+            <div class="spoke-card-desc">curated sequences</div>
+            <div class="spoke-card-content" id="spoke-selects-content"></div>
+            <button class="np-button tier-add-btn" data-tier="selects">+ XML / EDL</button>
+            <input type="file" class="tier-file-input" data-tier="selects" accept=".xml,.edl" multiple hidden>
           </div>
-          <div class="source-layer-content" id="tier-finished-source"></div>
-          <button class="np-button tier-add-btn" data-tier="finished">+ YouTube URL</button>
+        </div>
+
+        <div class="spoke spoke--finished" data-tier="finished">
+          <div class="spoke-line"></div>
+          <div class="spoke-card">
+            <div class="spoke-card-label">FINISHED</div>
+            <div class="spoke-card-desc">published cut</div>
+            <div class="spoke-card-content" id="spoke-finished-content"></div>
+            <button class="np-button tier-add-btn" data-tier="finished">+ YouTube URL</button>
+          </div>
+        </div>
+
+        <div class="spoke spoke--docs" data-tier="google_docs">
+          <div class="spoke-line"></div>
+          <div class="spoke-card">
+            <div class="spoke-card-label">GOOGLE DOCS</div>
+            <div class="spoke-card-desc">linked document</div>
+            <div class="spoke-card-content" id="spoke-docs-content"></div>
+            <button class="np-button tier-add-btn" data-tier="google_docs">+ Link doc</button>
+          </div>
         </div>
       </div>
 

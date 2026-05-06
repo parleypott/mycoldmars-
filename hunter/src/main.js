@@ -161,24 +161,29 @@ async function openProject(id) {
   const statsLine = totalUnits > 0 ? `${analyzedUnits} analyzed · ${assets.length} sources` : `${assets.length} sources`;
   header.innerHTML = `<h2>${escHtml(project.name)}</h2><div class="project-stats">${statsLine}</div>`;
 
-  // Render source layers
-  for (const tier of ['raw', 'script', 'selects', 'finished']) {
-    const el = document.getElementById(`tier-${tier}-source`);
+  // Update training hub
+  document.getElementById('hub-project-name').textContent = project.name;
+
+  // Render spoke content + connection state
+  const TIER_SPOKE = { raw: 'raw', script: 'script', selects: 'selects', finished: 'finished', google_docs: 'docs' };
+  let connectedCount = 0;
+
+  for (const [tier, spokeId] of Object.entries(TIER_SPOKE)) {
+    const spoke = document.querySelector(`.spoke--${spokeId}`);
+    const content = document.getElementById(`spoke-${spokeId}-content`);
     const tierAssets = assets.filter(a => a.tier === tier);
+
     if (tierAssets.length > 0) {
-      el.innerHTML = tierAssets.map(a => {
-        const classification = a.metadata?.classification;
-        const badge = classification ? `<span class="np-eyebrow np-eyebrow--classification">${classification}</span> ` : '';
-        const unitCount = a.metadata?.unitCount ? `<span style="opacity:0.6"> · ${a.metadata.unitCount} cuts</span>` : '';
-        const statusBadge = a.queue_status !== 'done'
-          ? `<span class="np-eyebrow" style="margin-left:auto;">${a.queue_status}</span>`
-          : '';
-        return `<div class="tier-asset">${badge}<span>${escHtml(a.source_ref)}</span>${unitCount}${statusBadge}</div>`;
-      }).join('');
+      spoke.classList.add('spoke--connected');
+      connectedCount++;
+      content.innerHTML = renderSpokePreview(tier, tierAssets);
     } else {
-      el.innerHTML = '';
+      spoke.classList.remove('spoke--connected');
+      content.innerHTML = '';
     }
   }
+
+  document.getElementById('hub-status').textContent = `${connectedCount}/5 connected`;
 
   // Render corpus units with expandable text
   const unitsList = document.getElementById('corpus-units-list');
@@ -291,11 +296,13 @@ document.querySelectorAll('.tier-add-btn').forEach(btn => {
     if (tier === 'raw') {
       promptDropboxFolder('raw');
     } else if (tier === 'script') {
-      btn.closest('.source-layer').querySelector('.tier-file-input').click();
+      btn.closest('.spoke').querySelector('.tier-file-input').click();
     } else if (tier === 'selects') {
-      btn.closest('.source-layer').querySelector('.tier-file-input').click();
+      btn.closest('.spoke').querySelector('.tier-file-input').click();
     } else if (tier === 'finished') {
       promptYoutubeUrl();
+    } else if (tier === 'google_docs') {
+      promptGoogleDocsUrl();
     }
   });
 });
@@ -343,15 +350,16 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
     const tier = input.dataset.tier;
-    const btn = input.closest('.source-layer').querySelector('.tier-add-btn');
-    const tierSource = document.getElementById(`tier-${tier}-source`);
+    const btn = input.closest('.spoke').querySelector('.tier-add-btn');
+    const spokeId = tier === 'google_docs' ? 'docs' : tier;
+    const tierSource = document.getElementById(`spoke-${spokeId}-content`);
 
-    // Show loading state — pulse the entire layer
+    // Show loading state — pulse the spoke card
     const originalBtnText = btn.textContent;
-    const layer = btn.closest('.source-layer');
+    const spoke = input.closest('.spoke');
     btn.disabled = true;
     btn.textContent = 'parsing...';
-    layer?.classList.add('source-layer--processing');
+    spoke?.classList.add('spoke--processing');
 
     // Multiple XML/EDL upload for selects tier
     if (tier === 'selects' && files.some(f => /\.(xml|edl)$/i.test(f.name))) {
@@ -414,21 +422,20 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
           }
         }
 
-        // Success feedback — flash the layer green
-        layer?.classList.remove('source-layer--processing');
-        layer?.classList.add('source-layer--success');
-        btn.textContent = `✓ ${allResults.length} sequences`;
+        // Success feedback — mark spoke as connected
+        spoke?.classList.remove('spoke--processing');
+        spoke?.classList.add('spoke--connected');
+        btn.textContent = `\u2713 ${allResults.length} sequences`;
         setTimeout(() => {
           btn.textContent = originalBtnText;
           btn.disabled = false;
-          layer?.classList.remove('source-layer--success');
         }, 3000);
 
         showToast(`${files.length} XML${files.length > 1 ? 's' : ''} → ${allResults.length} sequences · ${totalCuts} cuts`);
 
       } catch (err) {
         console.error('[hunter] XML parse error:', err);
-        layer?.classList.remove('source-layer--processing');
+        spoke?.classList.remove('spoke--processing');
         btn.textContent = originalBtnText;
         btn.disabled = false;
         showToast(`Error: ${err.message}`, true);
@@ -444,17 +451,16 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
           format: file.name.split('.').pop(),
         });
       }
-      layer?.classList.remove('source-layer--processing');
-      layer?.classList.add('source-layer--success');
-      btn.textContent = `✓ ${files.length} file${files.length > 1 ? 's' : ''} added`;
+      spoke?.classList.remove('spoke--processing');
+      spoke?.classList.add('spoke--connected');
+      btn.textContent = `\u2713 ${files.length} file${files.length > 1 ? 's' : ''} added`;
       showToast(`${files.length} file${files.length > 1 ? 's' : ''} uploaded`);
       setTimeout(() => {
         btn.textContent = originalBtnText;
         btn.disabled = false;
-        layer?.classList.remove('source-layer--success');
       }, 3000);
     } else {
-      layer?.classList.remove('source-layer--processing');
+      spoke?.classList.remove('spoke--processing');
       btn.textContent = originalBtnText;
       btn.disabled = false;
     }
@@ -592,6 +598,76 @@ async function loadCorpusBrowser() {
       if (pid) openProject(pid);
     });
   });
+}
+
+// ── YouTube + Google Docs helpers ──
+
+function extractYoutubeId(url) {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+}
+
+function renderSpokePreview(tier, tierAssets) {
+  switch (tier) {
+    case 'raw': {
+      const ref = tierAssets[0].source_ref || '';
+      const clipCount = tierAssets.reduce((sum, a) => sum + (a.metadata?.clipCount || 1), 0);
+      return `<div class="spoke-card-ref">${escHtml(ref)}</div>
+              <div class="spoke-card-meta">${clipCount} clip${clipCount !== 1 ? 's' : ''}</div>`;
+    }
+    case 'script': {
+      const ref = tierAssets[0].source_ref || '';
+      const name = ref.replace(/\.[^.]+$/, '');
+      return `<div class="spoke-card-ref">${escHtml(name)}</div>`;
+    }
+    case 'selects': {
+      let seqCount = 0, cutCount = 0;
+      tierAssets.forEach(a => {
+        seqCount++;
+        cutCount += a.metadata?.unitCount || 0;
+      });
+      return `<div class="spoke-card-meta">${seqCount} sequence${seqCount !== 1 ? 's' : ''} \u00b7 ${cutCount} cuts</div>`;
+    }
+    case 'finished': {
+      const url = tierAssets[0].source_ref || '';
+      const videoId = extractYoutubeId(url);
+      let html = '';
+      if (videoId) {
+        html += `<img src="https://img.youtube.com/vi/${escHtml(videoId)}/mqdefault.jpg" class="spoke-card-thumb" alt="thumbnail">`;
+      }
+      html += `<div class="spoke-card-ref">${escHtml(url)}</div>`;
+      return html;
+    }
+    case 'google_docs': {
+      const url = tierAssets[0].source_ref || '';
+      const display = url.length > 35 ? url.slice(0, 35) + '\u2026' : url;
+      return `<a href="${escHtml(url)}" target="_blank" rel="noopener" class="spoke-card-link">${escHtml(display)} \u2197</a>`;
+    }
+    default:
+      return tierAssets.map(a => `<div class="spoke-card-ref">${escHtml(a.source_ref)}</div>`).join('');
+  }
+}
+
+async function promptGoogleDocsUrl() {
+  const url = await showInputModal({
+    title: 'link google doc',
+    label: 'google docs url',
+    placeholder: 'https://docs.google.com/document/d/...',
+    buttonText: 'Link',
+  });
+  if (!url) return;
+  if (!isDemo) {
+    const { createMediaAsset } = await import('./db.js');
+    await createMediaAsset({
+      projectId: currentProjectId,
+      tier: 'google_docs',
+      sourceKind: 'google_docs',
+      sourceRef: url,
+      format: 'url',
+    });
+  }
+  openProject(currentProjectId);
 }
 
 // ── Utilities ──
