@@ -294,14 +294,51 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
     const file = e.target.files[0];
     if (!file) return;
     const tier = input.dataset.tier;
-    const { createMediaAsset } = await import('./db.js');
-    await createMediaAsset({
-      projectId: currentProjectId,
-      tier,
-      sourceKind: 'local',
-      sourceRef: file.name,
-      format: file.name.split('.').pop(),
-    });
+
+    // If it's an XML/EDL file for selects, parse it for cut points
+    if (tier === 'selects' && /\.(xml|edl)$/i.test(file.name)) {
+      try {
+        const text = await file.text();
+        const { parseFCP7XML, extractCorpusUnits, extractSourceClips } = await import('./xml-parser.js');
+        const sequences = parseFCP7XML(text);
+        const units = extractCorpusUnits(sequences);
+        const sourceClips = extractSourceClips(sequences);
+
+        console.log(`[hunter] Parsed ${sequences.length} sequences, ${units.length} units, ${sourceClips.length} source clips`);
+        console.log('[hunter] Source clips:', sourceClips.map(c => c.name).join(', '));
+        console.log('[hunter] Units:', units.map(u => `${u.sourceClipName} ${u.startSeconds}–${u.endSeconds}s`).join(', '));
+
+        // Store parsed data in memory for display (will be saved to DB when connected)
+        if (!isDemo) {
+          const { createMediaAsset } = await import('./db.js');
+          const asset = await createMediaAsset({
+            projectId: currentProjectId,
+            tier,
+            sourceKind: 'local',
+            sourceRef: file.name,
+            format: 'xml',
+            metadata: {
+              sequenceCount: sequences.length,
+              unitCount: units.length,
+              sourceClips: sourceClips.map(c => c.name),
+              parsedUnits: units,
+            },
+          });
+        }
+      } catch (err) {
+        console.error('[hunter] XML parse error:', err);
+        alert('Failed to parse XML: ' + err.message);
+      }
+    } else if (!isDemo) {
+      const { createMediaAsset } = await import('./db.js');
+      await createMediaAsset({
+        projectId: currentProjectId,
+        tier,
+        sourceKind: 'local',
+        sourceRef: file.name,
+        format: file.name.split('.').pop(),
+      });
+    }
     openProject(currentProjectId);
   });
 });
@@ -402,6 +439,46 @@ function formatTc(seconds) {
   const s = Math.floor(seconds % 60);
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
+
+// ── Export XML ──
+
+document.getElementById('btn-export-xml').addEventListener('click', async () => {
+  const { buildHunterSequenceXML, downloadXML } = await import('./xml-writer.js');
+
+  // Get current project's units (demo or real)
+  let units;
+  if (isDemo && currentProjectId === 'demo-1') {
+    units = DEMO_UNITS;
+  } else if (!isDemo) {
+    units = await listCorpusUnitsForProject(currentProjectId);
+  } else {
+    units = [];
+  }
+
+  if (!units.length) {
+    alert('No analyzed units to export.');
+    return;
+  }
+
+  const project = projects.find(p => p.id === currentProjectId);
+  const projectName = project?.name || 'Hunter Export';
+
+  const exportUnits = units.map(u => ({
+    sourceClipName: u.source_clip_name || u.source_clip_name || u.sourceClipName || 'clip',
+    startSeconds: u.start_seconds ?? u.startSeconds ?? 0,
+    endSeconds: u.end_seconds ?? u.endSeconds ?? 0,
+    analysisText: u.analyses?.[0]?.output_text || '',
+  }));
+
+  const xml = buildHunterSequenceXML({
+    sequenceName: `${projectName} — Hunter Selects`,
+    units: exportUnits,
+    fps: 23.976,
+    label: 'Hunter Analysis',
+  });
+
+  downloadXML(xml, `${projectName.toLowerCase().replace(/\s+/g, '-')}-hunter-export.xml`);
+});
 
 // ── Reusable input modal ──
 
