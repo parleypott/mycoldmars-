@@ -101,6 +101,32 @@
       <div id="corpus-browser" class="corpus-browser"></div>
     </section>
 
+    <!-- Demo mode banner -->
+    <div id="demo-banner" class="demo-banner hidden">
+      <span>preview mode — connect supabase to use real data</span>
+    </div>
+
+    <!-- Footer -->
+    <footer class="np-footer">
+      <span class="np-footer-mark">↟</span>
+      <span class="np-footer-text">Newpress Tools</span>
+    </footer>
+
+  </div>
+
+  <!-- Input modal (reusable for Dropbox path / YouTube URL) -->
+  <div id="input-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h3 id="input-modal-title">input</h3>
+      <div class="input-dialog">
+        <label id="input-modal-label">value</label>
+        <input id="input-modal-input" type="text" placeholder="">
+      </div>
+      <div class="modal-actions">
+        <button class="np-button" id="input-modal-cancel">Cancel</button>
+        <button class="np-button np-button--primary" id="input-modal-submit">Add</button>
+      </div>
+    </div>
   </div>
 
   <script>

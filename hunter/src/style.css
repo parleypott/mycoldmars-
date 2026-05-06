@@ -503,6 +503,11 @@ header {
 .tier-add-btn:hover {
   border-color: var(--np-ink);
 }
+.tier-file-input {
+  display: none !important;
+  position: absolute;
+  visibility: hidden;
+}
 
 /* ── Corpus units list ── */
 .project-corpus {
@@ -754,6 +759,47 @@ header {
 }
 .thinking-indicator span:nth-child(2) { animation-delay: 0.2s; }
 .thinking-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── Demo banner ── */
+.demo-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(18, 17, 24, 0.03);
+  border-top: 1px solid rgba(18, 17, 24, 0.06);
+  padding: 8px;
+  text-align: center;
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+  z-index: 50;
+}
+
+/* ── Footer ── */
+.np-footer {
+  margin-top: var(--np-space-24);
+  padding: var(--np-space-12) 0;
+  border-top: 1px solid rgba(18, 17, 24, 0.06);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.np-footer-mark {
+  color: var(--np-red);
+  font-size: 16px;
+}
+.np-footer-text {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+}
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; }

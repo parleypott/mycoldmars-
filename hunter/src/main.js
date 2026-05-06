@@ -251,32 +251,42 @@ document.querySelectorAll('.tier-add-btn').forEach(btn => {
   });
 });
 
-function promptDropboxFolder(tier) {
-  const path = prompt('Dropbox folder path (e.g. /Projects/Saudi Arabia/Proxies):');
-  if (!path) return;
-  import('./db.js').then(({ createMediaAsset }) => {
-    createMediaAsset({
-      projectId: currentProjectId,
-      tier,
-      sourceKind: 'dropbox',
-      sourceRef: path,
-      format: 'mp4',
-    }).then(() => openProject(currentProjectId));
+async function promptDropboxFolder(tier) {
+  const path = await showInputModal({
+    title: 'add dropbox folder',
+    label: 'folder path',
+    placeholder: '/Projects/Saudi Arabia/Proxies',
+    buttonText: 'Add',
   });
+  if (!path) return;
+  const { createMediaAsset } = await import('./db.js');
+  await createMediaAsset({
+    projectId: currentProjectId,
+    tier,
+    sourceKind: 'dropbox',
+    sourceRef: path,
+    format: 'mp4',
+  });
+  openProject(currentProjectId);
 }
 
-function promptYoutubeUrl() {
-  const url = prompt('YouTube URL of finished video:');
-  if (!url) return;
-  import('./db.js').then(({ createMediaAsset }) => {
-    createMediaAsset({
-      projectId: currentProjectId,
-      tier: 'finished',
-      sourceKind: 'youtube',
-      sourceRef: url,
-      format: 'mp4',
-    }).then(() => openProject(currentProjectId));
+async function promptYoutubeUrl() {
+  const url = await showInputModal({
+    title: 'add youtube video',
+    label: 'youtube url',
+    placeholder: 'https://youtube.com/watch?v=...',
+    buttonText: 'Add',
   });
+  if (!url) return;
+  const { createMediaAsset } = await import('./db.js');
+  await createMediaAsset({
+    projectId: currentProjectId,
+    tier: 'finished',
+    sourceKind: 'youtube',
+    sourceRef: url,
+    format: 'mp4',
+  });
+  openProject(currentProjectId);
 }
 
 document.querySelectorAll('.tier-file-input').forEach(input => {
@@ -393,7 +403,69 @@ function formatTc(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+// ── Reusable input modal ──
+
+function showInputModal({ title, label, placeholder, buttonText }) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('input-modal');
+    const input = document.getElementById('input-modal-input');
+    const titleEl = document.getElementById('input-modal-title');
+    const labelEl = document.getElementById('input-modal-label');
+    const submitBtn = document.getElementById('input-modal-submit');
+    const cancelBtn = document.getElementById('input-modal-cancel');
+
+    titleEl.textContent = title || 'input';
+    labelEl.textContent = label || 'value';
+    input.placeholder = placeholder || '';
+    submitBtn.textContent = buttonText || 'Add';
+    input.value = '';
+
+    modal.classList.remove('hidden');
+    input.focus();
+
+    function cleanup() {
+      modal.classList.add('hidden');
+      submitBtn.removeEventListener('click', onSubmit);
+      cancelBtn.removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onOverlay);
+      input.removeEventListener('keydown', onKey);
+    }
+
+    function onSubmit() {
+      const val = input.value.trim();
+      cleanup();
+      resolve(val || null);
+    }
+
+    function onCancel() {
+      cleanup();
+      resolve(null);
+    }
+
+    function onOverlay(e) {
+      if (e.target === modal) onCancel();
+    }
+
+    function onKey(e) {
+      if (e.key === 'Enter') onSubmit();
+      if (e.key === 'Escape') onCancel();
+    }
+
+    submitBtn.addEventListener('click', onSubmit);
+    cancelBtn.addEventListener('click', onCancel);
+    modal.addEventListener('click', onOverlay);
+    input.addEventListener('keydown', onKey);
+  });
+}
+
 // ── Boot ──
 
 showView('projects');
-console.log('[hunter] booted', isConfigured() ? '(db connected)' : '(no db)');
+
+// Show demo banner if in demo mode
+if (isDemo) {
+  const banner = document.getElementById('demo-banner');
+  if (banner) banner.classList.remove('hidden');
+}
+
+console.log('[hunter] booted', isConfigured() ? '(db connected)' : '(no db)', isDemo ? '(demo mode)' : '');
