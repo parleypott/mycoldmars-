@@ -346,7 +346,6 @@ header {
   color: var(--np-sepia);
   cursor: pointer;
   padding: 0;
-  margin-bottom: var(--np-space-8);
   transition: color var(--np-duration) var(--np-ease);
 }
 .back-btn:hover { color: var(--np-ink); }
@@ -531,6 +530,11 @@ header {
   text-transform: uppercase;
   color: var(--np-ink);
 }
+/* Pipeline step counters */
+.source-layer--raw .source-layer-label::before { content: '01 '; opacity: 0.3; }
+.source-layer--script .source-layer-label::before { content: '02 '; opacity: 0.3; }
+.source-layer--selects .source-layer-label::before { content: '03 '; opacity: 0.3; }
+.source-layer--finished .source-layer-label::before { content: '04 '; opacity: 0.3; }
 .source-layer-desc {
   font-family: var(--np-font-serif);
   font-size: 13px;
@@ -922,7 +926,7 @@ header {
 }
 .corpus-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1px;
   background: rgba(18, 17, 24, 0.04);
 }
@@ -930,27 +934,33 @@ header {
   background: var(--np-warm-white);
   padding: var(--np-space-6);
   cursor: pointer;
-  transition: all var(--np-duration) var(--np-ease);
+  transition: all var(--np-duration-lg) var(--np-ease);
+  position: relative;
+  border-left: 2px solid transparent;
 }
 .corpus-grid-item:hover {
-  background: rgba(244, 242, 230, 0.6);
+  background: rgba(18,17,24,0.015);
+  border-left-color: var(--np-red);
+  transform: translateX(2px);
 }
 .corpus-grid-item-project {
+  font-family: var(--np-font-mono);
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--np-red);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 .corpus-grid-item-tc {
   font-family: var(--np-font-mono);
   font-size: 10px;
   color: var(--np-sepia);
+  letter-spacing: 0.03em;
 }
 .corpus-grid-item-text {
   font-family: var(--np-font-sans);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.6;
   color: var(--np-ink);
   margin-top: 8px;
   display: -webkit-box;
