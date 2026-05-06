@@ -221,8 +221,9 @@ Write naturally and specifically. This analysis will be compared against footage
 export async function generateEmbedding(text) {
   const genai = getAI();
   const result = await genai.models.embedContent({
-    model: 'text-embedding-004',
+    model: 'gemini-embedding-001',
     contents: [{ parts: [{ text }] }],
+    config: { outputDimensionality: 768 },
   });
   return result.embeddings[0].values;
 }

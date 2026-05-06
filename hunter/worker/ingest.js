@@ -298,7 +298,7 @@ async function analyzeVideo(assetId, localPath, projectContext) {
       const embedding = await generateEmbedding(result.text);
       await supabase.from('embeddings').insert({
         corpus_unit_id: unit.id,
-        model: 'text-embedding-004',
+        model: 'gemini-embedding-001',
         embedding: embedding,
       });
 
@@ -441,7 +441,7 @@ async function processGoogleDoc(asset, projectContext) {
       const embedding = await generateEmbedding(result.text);
       await supabase.from('embeddings').insert({
         corpus_unit_id: unit.id,
-        model: 'text-embedding-004',
+        model: 'gemini-embedding-001',
         embedding: embedding,
       });
 
