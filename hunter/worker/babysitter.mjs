@@ -179,11 +179,22 @@ async function check() {
       consecutiveQuotaErrors = 0;
     }
 
-    // 5. Check if all work is done
+    // 5. Auto-retry errored assets with transient failures
+    const errored = (progress.assets || []).filter(a => a.queue_status === 'error');
+    if (errored.length > 0) {
+      for (const a of errored) {
+        log(`auto-retrying errored asset ${a.id} (${a.tier})`);
+        await supabase.from('media_assets')
+          .update({ queue_status: 'pending', metadata: {}, updated_at: new Date().toISOString() })
+          .eq('id', a.id);
+      }
+    }
+
+    // 6. Check if all work is done
     const pending = progress.statusCounts['pending'] || 0;
     const fetching = progress.statusCounts['fetching'] || 0;
     const analyzing = progress.statusCounts['analyzing'] || 0;
-    if (pending === 0 && fetching === 0 && analyzing === 0) {
+    if (pending === 0 && fetching === 0 && analyzing === 0 && errored.length === 0) {
       log('all assets done — worker idle');
     }
 
