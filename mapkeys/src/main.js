@@ -3088,6 +3088,28 @@ window.addEventListener('keydown', e => {
     if (state.selectedId) { e.preventDefault(); updateSelectedKeyframe(); }
   }
   else if (e.key === 'Delete' || e.key === 'Backspace') {
+    // In country-edit mode: Delete permanently splices marked parts out of geometry.
+    if (state.editingShapeId) {
+      const shape = state.shapes.find(s => s.id === state.editingShapeId);
+      const marked = new Set(shape && shape.excludedPolygonIndices || []);
+      if (shape && marked.size > 0) {
+        e.preventDefault();
+        const geom = ensureCustomGeometry(shape);
+        if (geom) {
+          const remaining = geom.coordinates.filter((_, idx) => !marked.has(idx));
+          if (remaining.length === 0) {
+            flashToast("can't delete every part");
+          } else {
+            geom.coordinates = remaining;
+            shape.excludedPolygonIndices = [];
+            updateCountryEditOverlay(shape);
+            redrawShape(shape);
+            saveLayers();
+          }
+        }
+        return;
+      }
+    }
     // Whichever was last actively focused (shape vs keyframe) is the target.
     if (state.lastFocus === 'shape' && state.activeShapeId) {
       e.preventDefault();
