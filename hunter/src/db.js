@@ -254,6 +254,50 @@ export async function listAllCorpusUnits(limit = 200) {
   return data;
 }
 
+// ── Ingest status (for live status bar) ──
+
+export async function getIngestStatus(projectId) {
+  if (!supabase) return null;
+
+  // Get media assets for this project to check queue status
+  const { data: assets } = await db().from('media_assets')
+    .select('id, queue_status, source_ref')
+    .eq('project_id', projectId);
+
+  const activeAsset = assets?.find(a => !['done', 'error'].includes(a.queue_status));
+  if (!activeAsset && assets?.every(a => a.queue_status === 'done')) {
+    return { active: false };
+  }
+
+  // Count analyzed corpus units
+  const { count: analyzedCount } = await db().from('corpus_units')
+    .select('id', { count: 'exact', head: true })
+    .eq('media_asset_id', activeAsset?.id || assets?.[0]?.id);
+
+  // Get the 5 most recent analyses
+  const { data: recentAnalyses } = await db().from('analyses')
+    .select('output_text, created_at, corpus_units!inner(source_clip_name, media_asset_id)')
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  // Filter to just this project's analyses
+  const projectAssetIds = new Set((assets || []).map(a => a.id));
+  const relevant = (recentAnalyses || []).filter(a =>
+    projectAssetIds.has(a.corpus_units?.media_asset_id)
+  );
+
+  return {
+    active: !!activeAsset,
+    queueStatus: activeAsset?.queue_status || 'done',
+    analyzedCount: analyzedCount || 0,
+    recentAnalyses: relevant.map(a => ({
+      clipName: a.corpus_units?.source_clip_name || '',
+      text: a.output_text,
+      createdAt: a.created_at,
+    })),
+  };
+}
+
 // ── Pending queue (used by worker) ──
 
 export async function getPendingAssets(limit = 10) {

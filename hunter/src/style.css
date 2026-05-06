@@ -853,6 +853,99 @@ header {
   z-index: 50;
 }
 
+/* ── Ingest Status Bar ── */
+.ingest-status {
+  margin-top: var(--np-space-8);
+  padding: var(--np-space-4) var(--np-space-6);
+  background: var(--np-ink);
+  border-radius: 8px;
+  color: var(--np-warm-white);
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  overflow: hidden;
+  transition: opacity 0.3s var(--np-ease);
+}
+.ingest-status.hidden { display: none; }
+
+.ingest-status-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ingest-pulse {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--np-red);
+  animation: ingest-pulse 1.5s ease-in-out infinite;
+}
+@keyframes ingest-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+.ingest-status-label {
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+}
+.ingest-status-count {
+  margin-left: auto;
+  color: rgba(244, 242, 230, 0.6);
+}
+.ingest-progress-bar {
+  height: 3px;
+  background: rgba(244, 242, 230, 0.1);
+  border-radius: 2px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.ingest-progress-fill {
+  height: 100%;
+  background: var(--np-red);
+  border-radius: 2px;
+  transition: width 0.8s var(--np-ease-out);
+  width: 0%;
+}
+.ingest-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.ingest-feed-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  opacity: 0;
+  animation: feed-in 0.4s var(--np-ease-out) forwards;
+}
+.ingest-feed-item:nth-child(1) { animation-delay: 0s; }
+.ingest-feed-item:nth-child(2) { animation-delay: 0.05s; }
+.ingest-feed-item:nth-child(3) { animation-delay: 0.1s; }
+.ingest-feed-item:nth-child(4) { animation-delay: 0.15s; }
+.ingest-feed-item:nth-child(5) { animation-delay: 0.2s; }
+@keyframes feed-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ingest-feed-clip {
+  color: rgba(244, 242, 230, 0.4);
+  white-space: nowrap;
+  min-width: 80px;
+  font-size: 10px;
+  padding-top: 2px;
+}
+.ingest-feed-quip {
+  color: var(--np-warm-white);
+  line-height: 1.5;
+  font-size: 12px;
+}
+.ingest-feed-quip .hunter-voice {
+  color: var(--np-red);
+  font-style: italic;
+}
+
 /* ── Footer ── */
 .np-footer {
   margin-top: var(--np-space-24);

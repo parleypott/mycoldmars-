@@ -1,4 +1,4 @@
-import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits } from './db.js';
+import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus } from './db.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -37,6 +37,7 @@ navBtns.forEach(btn => {
 
 document.getElementById('btn-back-projects').addEventListener('click', () => {
   currentProjectId = null;
+  stopIngestPolling();
   showView('projects');
 });
 
@@ -138,6 +139,7 @@ async function loadProjects() {
 async function openProject(id) {
   currentProjectId = id;
   showView('project');
+  startIngestPolling();
 
   let project, assets, units, patterns;
 
@@ -600,6 +602,106 @@ function showInputModal({ title, label, placeholder, buttonText }) {
     modal.addEventListener('click', onOverlay);
     input.addEventListener('keydown', onKey);
   });
+}
+
+// ── Ingest status bar ──
+
+let ingestPollTimer = null;
+const TOTAL_CLIPS_ESTIMATE = 1199; // Saudi Arabia known count
+
+// Generate a casual Hunter-voice quip from analysis text
+function generateQuip(text) {
+  const lower = text.toLowerCase();
+
+  // Pattern match for fun commentary
+  if (/camel|dromedary/.test(lower)) return 'ooo nice — camels';
+  if (/driving|car |vehicle|highway|road trip/.test(lower)) return 'more driving footage, love the rhythm of these';
+  if (/eating|food|meal|restaurant|dining|coffee|tea/.test(lower)) return 'food moment — these build intimacy';
+  if (/desert|sand dune|arid/.test(lower)) return 'the desert keeps appearing — it\'s a character';
+  if (/mosque|prayer|minaret|islamic/.test(lower)) return 'sacred architecture — stunning compositions';
+  if (/sunset|sunrise|golden hour|twilight/.test(lower)) return 'golden light, of course';
+  if (/market|souk|vendor|shop/.test(lower)) return 'souk energy — chaotic and alive';
+  if (/mountain|cliff|rock formation/.test(lower)) return 'dramatic geology';
+  if (/drone|aerial|overhead|bird.s.eye/.test(lower)) return 'aerial perspective shift';
+  if (/interview|talking|speaking|conversation/.test(lower)) return 'conversation — watching the body language';
+  if (/dark|night|shadow|silhouette/.test(lower)) return 'moody shadow work';
+  if (/crowd|people|group|gathering/.test(lower)) return 'crowd dynamics, lots of energy';
+  if (/ocean|sea|water|coast|beach/.test(lower)) return 'water moment';
+  if (/child|kid|boy|girl/.test(lower)) return 'kids in frame — always adds life';
+  if (/empty|lonely|alone|solitude/.test(lower)) return 'quiet isolation — powerful';
+  if (/b-roll|establishing|wide shot/.test(lower)) return 'classic establishing shot';
+  if (/close.up|detail|macro/.test(lower)) return 'intimate detail work';
+  if (/walk|stroll|moving through/.test(lower)) return 'movement through space';
+  if (/construction|building|scaffolding/.test(lower)) return 'construction — texture of a place changing';
+  if (/animal|bird|goat|sheep/.test(lower)) return 'animals — adds unpredictability';
+
+  // Default: extract the first vivid noun phrase
+  const firstSentence = text.split(/[.!]/).shift() || '';
+  if (firstSentence.length > 80) return firstSentence.slice(0, 75) + '...';
+  return firstSentence;
+}
+
+async function pollIngestStatus() {
+  if (!currentProjectId || isDemo) return;
+
+  try {
+    const status = await getIngestStatus(currentProjectId);
+    const el = document.getElementById('ingest-status');
+    if (!el) return;
+
+    if (!status || !status.active) {
+      // Ingest done or not started — hide if we have no recent analyses
+      if (status?.analyzedCount > 0 && status.recentAnalyses?.length > 0) {
+        // Show completed state briefly
+        el.classList.remove('hidden');
+        el.querySelector('.ingest-status-label').textContent = 'hunter finished watching';
+        el.querySelector('.ingest-pulse').style.animation = 'none';
+        el.querySelector('.ingest-pulse').style.background = 'var(--np-green)';
+        document.getElementById('ingest-count').textContent = `${status.analyzedCount} clips analyzed`;
+        document.getElementById('ingest-progress-fill').style.width = '100%';
+      } else {
+        el.classList.add('hidden');
+      }
+      return;
+    }
+
+    el.classList.remove('hidden');
+    const count = status.analyzedCount;
+    const pct = Math.min((count / TOTAL_CLIPS_ESTIMATE) * 100, 99).toFixed(1);
+
+    document.getElementById('ingest-count').textContent = `${count} / ~${TOTAL_CLIPS_ESTIMATE} clips`;
+    document.getElementById('ingest-progress-fill').style.width = `${pct}%`;
+
+    // Render feed with quips
+    const feed = document.getElementById('ingest-feed');
+    if (status.recentAnalyses?.length > 0) {
+      feed.innerHTML = status.recentAnalyses.map(a => {
+        const quip = generateQuip(a.text);
+        const clipShort = a.clipName.replace(/_Proxy\.MP4$/i, '').slice(-10);
+        return `
+          <div class="ingest-feed-item">
+            <span class="ingest-feed-clip">${escHtml(clipShort)}</span>
+            <span class="ingest-feed-quip"><span class="hunter-voice">${escHtml(quip)}</span></span>
+          </div>
+        `;
+      }).join('');
+    }
+  } catch (err) {
+    console.error('[hunter] ingest poll error:', err);
+  }
+}
+
+function startIngestPolling() {
+  if (ingestPollTimer) clearInterval(ingestPollTimer);
+  pollIngestStatus();
+  ingestPollTimer = setInterval(pollIngestStatus, 6000);
+}
+
+function stopIngestPolling() {
+  if (ingestPollTimer) {
+    clearInterval(ingestPollTimer);
+    ingestPollTimer = null;
+  }
 }
 
 // ── Boot ──
