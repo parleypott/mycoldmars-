@@ -67,11 +67,21 @@ async function processAsset(asset) {
   console.log(`[worker] processing ${asset.id} (${asset.tier} / ${asset.source_kind})`);
   await updateAsset(asset.id, { queue_status: 'fetching' });
 
+  // Fetch project context for grounded analysis prompts
+  const { data: project } = await supabase.from('hunter_projects')
+    .select('name, metadata').eq('id', asset.project_id).single();
+  const projectContext = project?.metadata?.context || null;
+  if (projectContext) {
+    console.log(`[worker] project context loaded (${projectContext.length} chars)`);
+  } else {
+    console.log(`[worker] ⚠ no project context set — analyses will lack grounding`);
+  }
+
   try {
     let localPath;
 
     if (asset.source_kind === 'dropbox') {
-      localPath = await fetchFromDropbox(asset);
+      localPath = await fetchFromDropbox(asset, projectContext);
     } else if (asset.source_kind === 'youtube') {
       localPath = await fetchFromYoutube(asset);
     } else if (asset.source_kind === 'local') {
@@ -89,7 +99,7 @@ async function processAsset(asset) {
     // For other tiers with single files, run analysis separately
     if (asset.tier !== 'raw' && ['mp4', 'mov', 'mxf'].includes(asset.format?.toLowerCase())) {
       await updateAsset(asset.id, { queue_status: 'analyzing' });
-      await analyzeVideo(asset.id, localPath);
+      await analyzeVideo(asset.id, localPath, projectContext);
     }
 
     await updateAsset(asset.id, { queue_status: 'done' });
@@ -100,7 +110,7 @@ async function processAsset(asset) {
   }
 }
 
-async function fetchFromDropbox(asset) {
+async function fetchFromDropbox(asset, projectContext) {
   if (asset.tier === 'raw') {
     // List folder, download all video files
     const entries = await listFolder(asset.source_ref);
@@ -151,14 +161,14 @@ async function fetchFromDropbox(asset) {
       try {
         const file = await uploadFile(localPath);
         const result = await retryWithBackoff(
-          () => analyzeUnit({ fileUri: file.uri, startSeconds: 0, endSeconds: duration }),
+          () => analyzeUnit({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext }),
           video.name
         );
 
         await supabase.from('analyses').insert({
           corpus_unit_id: unit.id,
           model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-          prompt_version: 'v1',
+          prompt_version: 'v2-training',
           output_text: result.text,
           output_json: null,
           cost_usd: 0,
@@ -223,7 +233,7 @@ async function fetchFromYoutube(asset) {
   return outPath;
 }
 
-async function analyzeVideo(assetId, localPath) {
+async function analyzeVideo(assetId, localPath, projectContext) {
   // Get all corpus units for this asset
   const { data: units, error } = await supabase.from('corpus_units')
     .select('*').eq('media_asset_id', assetId)
@@ -250,13 +260,14 @@ async function analyzeVideo(assetId, localPath) {
         fileUri: file.uri,
         startSeconds: unit.start_seconds,
         endSeconds: unit.end_seconds,
+        projectContext,
       });
 
       // Save analysis
       await supabase.from('analyses').insert({
         corpus_unit_id: unit.id,
         model: 'gemini-2.5-flash',
-        prompt_version: 'v1',
+        prompt_version: 'v2-training',
         output_text: result.text,
         output_json: null,
         cost_usd: 0,

@@ -72,8 +72,9 @@ export async function createCache(fileUri, systemInstruction, ttlSeconds = 3600)
 /**
  * Run a Flash analysis pass on a corpus unit.
  * Uses cached context if available.
+ * projectContext: optional string with project-level context for grounding.
  */
-export async function analyzeUnit({ fileUri, startSeconds, endSeconds, cacheName, prompt }) {
+export async function analyzeUnit({ fileUri, startSeconds, endSeconds, cacheName, prompt, projectContext }) {
   const genai = getAI();
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -83,22 +84,9 @@ export async function analyzeUnit({ fileUri, startSeconds, endSeconds, cacheName
     parts.push({ fileData: { fileUri, mimeType: 'video/mp4' } });
   }
 
-  const timeContext = startSeconds != null
-    ? `Focus on the segment from ${formatTime(startSeconds)} to ${formatTime(endSeconds)}.`
-    : '';
+  const defaultPrompt = buildAnalysisPrompt(startSeconds, endSeconds, projectContext);
 
-  parts.push({
-    text: prompt || `${timeContext}
-
-Describe what you see in this moment. Write a rich, free-text observation covering:
-- What is happening visually (action, setting, composition, lighting, movement)
-- Who is present and what they are doing
-- The emotional register or tone of the moment
-- Any notable audio elements if perceivable (speech, music, ambient sound)
-- How this moment might function in an edited sequence (establishing, transitional, climactic, intimate, etc.)
-
-Write naturally and specifically. Avoid generic descriptions. Name what makes this moment distinct.`
-  });
+  parts.push({ text: prompt || defaultPrompt });
 
   const config = {
     model,
@@ -114,6 +102,36 @@ Write naturally and specifically. Avoid generic descriptions. Name what makes th
     text: result.text,
     usage: result.usageMetadata,
   };
+}
+
+/**
+ * Build the training-mode analysis prompt.
+ * Designed to produce descriptions rich enough for cross-tier comparison:
+ * when raw is compared against selects and finished cuts, the AI can learn
+ * WHY certain moments were kept and how they were used.
+ */
+function buildAnalysisPrompt(startSeconds, endSeconds, projectContext) {
+  const timeContext = startSeconds != null
+    ? `Focus on the segment from ${formatTime(startSeconds)} to ${formatTime(endSeconds)}.\n\n`
+    : '';
+
+  const contextBlock = projectContext
+    ? `PROJECT CONTEXT:\n${projectContext}\n\n`
+    : '';
+
+  return `${contextBlock}${timeContext}You are analyzing documentary footage in TRAINING MODE. The goal is to build a detailed record of this footage so that later — when comparing raw footage against the editor's selected cuts and the final published piece — an AI can learn WHY certain moments were kept, how they were reordered, and what editorial instincts drove those decisions.
+
+Describe this moment with enough specificity to uniquely identify it across edit tiers. Cover:
+
+- **What is physically happening**: Action, setting, subjects, objects. Be concrete — "a man in a white thobe gestures toward a construction crane" not "a person near a building."
+- **Composition & camera craft**: Movement, framing, lens feel, lighting, depth of field. What would a cinematographer notice about this shot?
+- **Who is present**: Describe every person visible. Body language, emotional state, what they're doing. If the filmmaker is on camera, note it explicitly.
+- **Audio**: Dialogue (paraphrase key lines), ambient sound, music, silence. Note whether audio is clean and usable.
+- **Emotional register**: The honest energy of the moment — tension, wonder, intimacy, awkwardness, joy, loneliness, boredom, revelation. Don't flatter; name the actual feeling.
+- **Editorial potential**: How might this function in a cut? Establishing, transitional, climactic, intimate, expository, comedic, contemplative? Could it open or close a scene?
+- **What makes this keepable or expendable**: If an editor had 1000 clips and needed 100, why would this one survive — or why wouldn't it?
+
+Write naturally and specifically. Avoid generic descriptions. Name what you actually see.`;
 }
 
 /**
