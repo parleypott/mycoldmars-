@@ -148,18 +148,35 @@ async function openProject(id) {
     }
   }
 
-  // Render corpus units
+  // Render corpus units with expandable text
   const unitsList = document.getElementById('corpus-units-list');
   if (units.length > 0) {
-    unitsList.innerHTML = units.map(u => {
+    unitsList.innerHTML = units.map((u, i) => {
       const analysis = u.analyses?.[0];
+      const fullText = analysis ? analysis.output_text : '';
+      const isTruncatable = fullText.length > 200;
+      const startSec = u.start_seconds ?? u.startSeconds ?? 0;
+      const endSec = u.end_seconds ?? u.endSeconds ?? 0;
+      const clipName = u.source_clip_name || u.sourceClipName || '';
       return `
         <div class="corpus-unit">
-          <span class="corpus-unit-tc">${formatTc(u.start_seconds)} – ${formatTc(u.end_seconds)}</span>
-          <span class="corpus-unit-desc">${analysis ? escHtml(analysis.output_text.slice(0, 200)) : '<em>pending analysis</em>'}</span>
+          <span class="corpus-unit-tc">${formatTc(startSec)} – ${formatTc(endSec)}${clipName ? '<br>' + escHtml(clipName) : ''}</span>
+          <div>
+            <span class="corpus-unit-desc${isTruncatable ? ' truncated' : ''}" data-unit="${i}">${fullText ? escHtml(fullText) : '<em>pending analysis</em>'}</span>
+            ${isTruncatable ? `<button class="corpus-unit-expand" data-unit="${i}">read more</button>` : ''}
+          </div>
         </div>
       `;
     }).join('');
+
+    unitsList.querySelectorAll('.corpus-unit-expand').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const desc = unitsList.querySelector(`.corpus-unit-desc[data-unit="${btn.dataset.unit}"]`);
+        const isExpanded = desc.classList.toggle('expanded');
+        desc.classList.toggle('truncated', !isExpanded);
+        btn.textContent = isExpanded ? 'collapse' : 'read more';
+      });
+    });
   } else {
     unitsList.innerHTML = '<p class="empty-sub">no units analyzed yet</p>';
   }
@@ -439,6 +456,28 @@ function formatTc(seconds) {
   const s = Math.floor(seconds % 60);
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
+
+// ── Delete project ──
+
+document.getElementById('btn-delete-project').addEventListener('click', async () => {
+  const project = projects.find(p => p.id === currentProjectId);
+  const name = project?.name || 'this project';
+
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+
+  if (!isDemo) {
+    const { deleteProject } = await import('./db.js');
+    await deleteProject(currentProjectId);
+  } else {
+    // Remove from demo data
+    const idx = projects.findIndex(p => p.id === currentProjectId);
+    if (idx >= 0) projects.splice(idx, 1);
+    delete DEMO_ASSETS[currentProjectId];
+  }
+
+  currentProjectId = null;
+  showView('projects');
+});
 
 // ── Export XML ──
 

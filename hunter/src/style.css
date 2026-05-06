@@ -601,7 +601,30 @@ header {
   line-height: 1.6;
   font-family: var(--np-font-sans);
   font-size: 13px;
+  cursor: pointer;
 }
+.corpus-unit-desc.truncated {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.corpus-unit-desc.expanded {
+  -webkit-line-clamp: unset;
+}
+.corpus-unit-expand {
+  font-family: var(--np-font-mono);
+  font-size: 9px;
+  color: var(--np-sepia);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 4px 0;
+  transition: color var(--np-duration) var(--np-ease);
+}
+.corpus-unit-expand:hover { color: var(--np-ink); }
 
 /* ── Patterns ── */
 .project-patterns {
