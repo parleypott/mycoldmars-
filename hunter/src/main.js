@@ -612,4 +612,29 @@ if (isDemo) {
   if (banner) banner.classList.remove('hidden');
 }
 
+// ── Global keyboard shortcuts ──
+
+document.addEventListener('keydown', (e) => {
+  // Escape closes modals and goes back
+  if (e.key === 'Escape') {
+    const inputModal = document.getElementById('input-modal');
+    const newProjectModal = document.getElementById('new-project-modal');
+    if (inputModal && !inputModal.classList.contains('hidden')) {
+      document.getElementById('input-modal-cancel')?.click();
+    } else if (newProjectModal && !newProjectModal.classList.contains('hidden')) {
+      document.getElementById('cancel-project')?.click();
+    } else if (currentView === 'project') {
+      document.getElementById('btn-back-projects')?.click();
+    }
+  }
+
+  // Keyboard nav: 1 = projects, 2 = corpus
+  if (e.key === '1' && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== 'INPUT') {
+    showView('projects');
+  }
+  if (e.key === '2' && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== 'INPUT') {
+    showView('corpus');
+  }
+});
+
 console.log('[hunter] booted', isConfigured() ? '(db connected)' : '(no db)', isDemo ? '(demo mode)' : '');

@@ -876,6 +876,22 @@ header {
   color: var(--np-sepia);
 }
 
+/* ── Focus states ── */
+.np-button:focus-visible,
+.header-btn:focus-visible,
+.back-btn:focus-visible,
+.project-row:focus-visible,
+.corpus-grid-item:focus-visible {
+  outline: 2px solid var(--np-red);
+  outline-offset: 2px;
+}
+
+.np-textarea:focus-visible,
+.input-dialog input:focus-visible {
+  outline: none;
+  border-color: var(--np-red);
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
