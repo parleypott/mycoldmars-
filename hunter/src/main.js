@@ -184,6 +184,7 @@ async function openProject(id) {
   }
 
   document.getElementById('hub-status').textContent = `${connectedCount}/5 connected`;
+  document.querySelector('.training-hub').style.setProperty('--hub-progress', connectedCount / 5);
 
   // Render corpus units with expandable text
   const unitsList = document.getElementById('corpus-units-list');

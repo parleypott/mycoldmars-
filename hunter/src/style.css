@@ -451,20 +451,45 @@ header {
 /* ── Training Hub ── */
 .training-hub-container {
   position: relative;
-  min-height: 700px;
+  min-height: 820px;
   margin-bottom: var(--np-space-16);
+  background: var(--np-ink);
+  padding: var(--np-space-12) var(--np-space-8);
+  overflow: hidden;
 }
 
+/* Subtle radial glow behind hub */
+.training-hub-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(244,242,230,0.04) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Faint grid texture — control room */
+.training-hub-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(244,242,230,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(244,242,230,0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+}
+
+/* ── Central hub ── */
 .training-hub {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 180px;
-  height: 180px;
+  width: 220px;
+  height: 220px;
   border-radius: 50%;
   background: var(--np-ink);
-  background-image: radial-gradient(circle at 30% 30%, rgba(244,242,230,0.06) 0%, transparent 60%);
+  background-image: radial-gradient(circle at 35% 35%, rgba(244,242,230,0.08) 0%, transparent 50%);
   color: var(--np-warm-white);
   display: flex;
   flex-direction: column;
@@ -473,22 +498,52 @@ header {
   gap: var(--np-space-2);
   z-index: 2;
   animation: hub-breathe 4s ease-in-out infinite;
-  box-shadow: 0 0 40px rgba(18,17,24,0.15);
+  border: 2px solid rgba(244,242,230,0.08);
+  box-shadow:
+    0 0 80px rgba(0,0,0,0.4),
+    0 0 30px rgba(0,0,0,0.2),
+    inset 0 0 40px rgba(0,0,0,0.3);
+}
+
+/* Progress ring around hub */
+.training-hub::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--np-green) 0deg calc(var(--hub-progress, 0) * 360deg),
+    rgba(244,242,230,0.06) calc(var(--hub-progress, 0) * 360deg) 360deg
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), black calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), black calc(100% - 2px));
+  z-index: -1;
+  transition: background 0.6s var(--np-ease);
+}
+
+/* Outer decorative ring */
+.training-hub::after {
+  content: '';
+  position: absolute;
+  inset: -16px;
+  border-radius: 50%;
+  border: 1px solid rgba(244,242,230,0.04);
+  pointer-events: none;
 }
 
 @keyframes hub-breathe {
   0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  50% { transform: translate(-50%, -50%) scale(1.02); }
+  50% { transform: translate(-50%, -50%) scale(1.015); }
 }
 
 .training-hub-name {
   font-family: var(--np-font-serif);
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 300;
   letter-spacing: 0.02em;
   text-align: center;
   line-height: 1.2;
-  padding: 0 var(--np-space-3);
+  padding: 0 var(--np-space-4);
 }
 
 .training-hub-status {
@@ -496,77 +551,83 @@ header {
   font-size: 9px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: rgba(244,242,230,0.5);
+  color: rgba(244,242,230,0.4);
+  margin-top: 2px;
 }
 
 /* ── Spoke system ── */
-/* Spoke position variables — angles from vertical, clockwise */
-.spoke--raw     { --line-angle: 198deg; --card-x: -209px; --card-y: -68px; }
-.spoke--script  { --line-angle: 126deg; --card-x: -129px; --card-y: 178px; }
-.spoke--selects { --line-angle: 54deg;  --card-x: 129px;  --card-y: 178px; }
-.spoke--finished{ --line-angle: -18deg; --card-x: 209px;  --card-y: -68px; }
-.spoke--docs    { --line-angle: -90deg; --card-x: 0px;    --card-y: -220px; }
+/* r=280, hub r=110. Positions from center. */
+.spoke--raw     { --line-angle: 198deg; --card-x: -266px; --card-y: -87px; }
+.spoke--script  { --line-angle: 126deg; --card-x: -165px; --card-y: 227px; }
+.spoke--selects { --line-angle: 54deg;  --card-x: 165px;  --card-y: 227px; }
+.spoke--finished{ --line-angle: -18deg; --card-x: 266px;  --card-y: -87px; }
+.spoke--docs    { --line-angle: -90deg; --card-x: 0px;    --card-y: -280px; }
 
-/* Spoke lines — connect hub to card */
+/* ── Spoke lines ── */
 .spoke-line {
   position: absolute;
   left: 50%;
   top: calc(50% - 1px);
-  width: 220px;
+  width: 280px;
   height: 2px;
   transform-origin: 0 50%;
   transform: rotate(var(--line-angle));
   z-index: 1;
   background: repeating-linear-gradient(
     90deg,
-    rgba(18,17,24,0.12) 0px, rgba(18,17,24,0.12) 6px,
-    transparent 6px, transparent 12px
+    rgba(244,242,230,0.1) 0px, rgba(244,242,230,0.1) 8px,
+    transparent 8px, transparent 16px
   );
-  animation: spoke-draw 0.6s var(--np-ease-out) both;
+  animation: spoke-draw 0.7s var(--np-ease-out) both;
 }
 
-.spoke--docs .spoke-line     { animation-delay: 0s; }
-.spoke--finished .spoke-line { animation-delay: 0.1s; }
-.spoke--selects .spoke-line  { animation-delay: 0.2s; }
-.spoke--script .spoke-line   { animation-delay: 0.3s; }
-.spoke--raw .spoke-line      { animation-delay: 0.4s; }
+.spoke--docs .spoke-line     { animation-delay: 0.15s; }
+.spoke--finished .spoke-line { animation-delay: 0.25s; }
+.spoke--selects .spoke-line  { animation-delay: 0.35s; }
+.spoke--script .spoke-line   { animation-delay: 0.45s; }
+.spoke--raw .spoke-line      { animation-delay: 0.55s; }
 
 @keyframes spoke-draw {
   from { width: 0; }
-  to { width: 220px; }
+  to { width: 280px; }
 }
 
-/* Node dot at hub edge — pseudo-element on line */
+/* Node dot at hub edge (110px from center) */
 .spoke-line::after {
   content: '';
   position: absolute;
-  left: 83px;
-  top: -6px;
-  width: 14px;
-  height: 14px;
+  left: 103px;
+  top: -7px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: var(--np-cool-neutral);
+  background: rgba(244,242,230,0.08);
+  border: 2px solid rgba(244,242,230,0.15);
   transition: all 0.4s var(--np-ease);
   z-index: 4;
 }
 
-/* Connected spoke — solid green line + check node */
+/* ── Connected spoke ── */
 .spoke--connected .spoke-line {
-  background: var(--np-green);
-  box-shadow: 0 0 6px rgba(13,89,33,0.2);
+  background: linear-gradient(90deg, rgba(13,89,33,0.3) 0%, var(--np-green) 100%);
+  box-shadow: 0 0 8px rgba(13,89,33,0.25);
+  height: 3px;
+  top: calc(50% - 1.5px);
 }
 
 .spoke--connected .spoke-line::after {
   background: var(--np-green);
-  box-shadow: 0 0 8px rgba(13,89,33,0.3);
+  border-color: rgba(13,89,33,0.6);
+  box-shadow: 0 0 12px rgba(13,89,33,0.4);
   content: '\2713';
   color: var(--np-warm-white);
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
+  top: -6.5px;
 }
 
 /* ── Spoke cards ── */
@@ -575,29 +636,44 @@ header {
   left: calc(50% + var(--card-x));
   top: calc(50% + var(--card-y));
   transform: translate(-50%, -50%);
-  width: 180px;
+  width: 200px;
   z-index: 3;
-  padding: var(--np-space-4);
+  padding: var(--np-space-4) var(--np-space-4) var(--np-space-3);
   background: var(--np-warm-white);
-  border: 1px solid rgba(18,17,24,0.08);
+  border: 1px solid rgba(244,242,230,0.15);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.25),
+    0 2px 8px rgba(0,0,0,0.15);
   transition: all var(--np-duration-lg) var(--np-ease);
   animation: fadeUp 0.5s var(--np-ease-out) both;
 }
 
-.spoke--docs .spoke-card     { animation-delay: 0.1s; }
-.spoke--finished .spoke-card { animation-delay: 0.2s; }
-.spoke--selects .spoke-card  { animation-delay: 0.3s; }
-.spoke--script .spoke-card   { animation-delay: 0.4s; }
-.spoke--raw .spoke-card      { animation-delay: 0.5s; }
+/* Accent left border per type */
+.spoke--raw .spoke-card      { border-left: 3px solid var(--np-red); }
+.spoke--script .spoke-card   { border-left: 3px solid var(--np-sepia); }
+.spoke--selects .spoke-card  { border-left: 3px solid var(--np-blue); }
+.spoke--finished .spoke-card { border-left: 3px solid var(--np-red); }
+.spoke--docs .spoke-card     { border-left: 3px solid var(--np-yellow); }
+
+.spoke--docs .spoke-card     { animation-delay: 0.2s; }
+.spoke--finished .spoke-card { animation-delay: 0.3s; }
+.spoke--selects .spoke-card  { animation-delay: 0.4s; }
+.spoke--script .spoke-card   { animation-delay: 0.5s; }
+.spoke--raw .spoke-card      { animation-delay: 0.6s; }
 
 .spoke-card:hover {
-  border-color: rgba(18,17,24,0.2);
-  box-shadow: 0 4px 16px rgba(18,17,24,0.06);
-  transform: translate(-50%, -50%) translateY(-2px);
+  box-shadow:
+    0 12px 48px rgba(0,0,0,0.35),
+    0 4px 12px rgba(0,0,0,0.2);
+  transform: translate(-50%, -50%) translateY(-4px);
 }
 
+/* Connected cards — green accent */
 .spoke--connected .spoke-card {
-  border-color: rgba(13,89,33,0.15);
+  border-left-color: var(--np-green);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.25),
+    0 0 16px rgba(13,89,33,0.08);
 }
 
 .spoke-card-label {
@@ -607,7 +683,7 @@ header {
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--np-ink);
-  margin-bottom: 2px;
+  margin-bottom: 3px;
 }
 
 .spoke-card-desc {
@@ -636,7 +712,6 @@ header {
   height: auto;
   display: block;
   margin-bottom: var(--np-space-2);
-  opacity: 0.9;
 }
 
 .spoke-card-ref {
@@ -663,11 +738,14 @@ header {
 }
 .spoke-card-link:hover { color: var(--np-red); }
 
-/* Spoke hover — brighten line */
-.spoke:hover .spoke-line { opacity: 0.8; }
-.spoke--connected:hover .spoke-line { opacity: 1; box-shadow: 0 0 10px rgba(13,89,33,0.3); }
+/* Spoke hover */
+.spoke:hover .spoke-line { filter: brightness(1.4); }
+.spoke--connected:hover .spoke-line {
+  filter: brightness(1.2);
+  box-shadow: 0 0 14px rgba(13,89,33,0.4);
+}
 
-/* Processing state for spoke */
+/* Processing state */
 .spoke--processing .spoke-card {
   animation: layer-pulse 1.2s ease-in-out infinite;
 }
@@ -676,7 +754,7 @@ header {
 .spoke-card .tier-add-btn {
   font-size: 9px;
   padding: 5px 10px;
-  border-color: rgba(18, 17, 24, 0.12);
+  border-color: rgba(18, 17, 24, 0.1);
   margin-top: var(--np-space-2);
   width: 100%;
   text-align: center;
@@ -1009,21 +1087,22 @@ header {
     flex-direction: column;
     align-items: center;
     gap: var(--np-space-4);
-    padding: var(--np-space-6) 0;
+    padding: var(--np-space-8) var(--np-space-4);
   }
+  .training-hub-container::after { display: none; }
   .training-hub {
     position: relative;
     left: auto;
     top: auto;
     transform: none;
-    width: 120px;
-    height: 120px;
+    width: 140px;
+    height: 140px;
   }
   @keyframes hub-breathe {
     0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.02); }
+    50% { transform: scale(1.015); }
   }
-  .training-hub-name { font-size: 15px; }
+  .training-hub-name { font-size: 16px; }
   .spoke-line { display: none; }
   .spoke-card {
     position: relative;
@@ -1031,13 +1110,14 @@ header {
     top: auto;
     transform: none;
     width: 100%;
-    max-width: 320px;
+    max-width: 340px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
   }
   .spoke-card:hover {
     transform: translateY(-2px);
   }
   .spoke--connected .spoke-card {
-    border-left: 3px solid var(--np-green);
+    border-left-color: var(--np-green);
   }
   .revelations-title { font-size: 22px; }
 }
