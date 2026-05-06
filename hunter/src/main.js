@@ -346,10 +346,12 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
     const btn = input.closest('.source-layer').querySelector('.tier-add-btn');
     const tierSource = document.getElementById(`tier-${tier}-source`);
 
-    // Show loading state
+    // Show loading state — pulse the entire layer
     const originalBtnText = btn.textContent;
+    const layer = btn.closest('.source-layer');
     btn.disabled = true;
     btn.textContent = 'parsing...';
+    layer?.classList.add('source-layer--processing');
 
     // Multiple XML/EDL upload for selects tier
     if (tier === 'selects' && files.some(f => /\.(xml|edl)$/i.test(f.name))) {
@@ -359,12 +361,12 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
 
         for (const file of files) {
           if (!/\.(xml|edl)$/i.test(file.name)) continue;
+          btn.textContent = `reading ${file.name}...`;
           const text = await file.text();
           const sequences = parseFCP7XML(text);
           const units = extractCorpusUnits(sequences);
           const sourceClips = extractSourceClips(sequences);
 
-          // Classify each sequence based on name + structure
           for (const seq of sequences) {
             const classification = classifySequence(seq);
             allResults.push({
@@ -383,11 +385,13 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
           console.log(`  [${r.classification}] "${r.sequenceName}" — ${r.units.length} cuts (from ${r.fileName})`);
         }
 
-        // Show immediate visual feedback of what was parsed
+        // Show immediate visual feedback of parsed sequences
         btn.textContent = `saving ${allResults.length} sequences...`;
-        tierSource.innerHTML = allResults.map(r =>
-          `<div class="tier-asset tier-asset--new"><span class="np-eyebrow np-eyebrow--classification">${r.classification}</span> ${escHtml(r.sequenceName)} · ${r.units.length} cuts</div>`
-        ).join('');
+        const totalCuts = allResults.reduce((sum, r) => sum + r.units.length, 0);
+        tierSource.innerHTML = `<div class="upload-summary">${allResults.length} sequences · ${totalCuts} cuts</div>` +
+          allResults.map((r, i) =>
+            `<div class="tier-asset tier-asset--new" style="animation-delay:${i * 0.05}s"><span class="np-eyebrow np-eyebrow--classification">${r.classification}</span> <span>${escHtml(r.sequenceName)}</span> <span style="opacity:0.5;font-size:10px">${r.units.length} cuts</span></div>`
+          ).join('');
 
         // Save each classified sequence as a media asset
         if (!isDemo) {
@@ -410,18 +414,21 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
           }
         }
 
-        // Success feedback
-        btn.textContent = `✓ ${allResults.length} sequences added`;
+        // Success feedback — flash the layer green
+        layer?.classList.remove('source-layer--processing');
+        layer?.classList.add('source-layer--success');
+        btn.textContent = `✓ ${allResults.length} sequences`;
         setTimeout(() => {
           btn.textContent = originalBtnText;
           btn.disabled = false;
-        }, 2000);
+          layer?.classList.remove('source-layer--success');
+        }, 3000);
 
-        // Show toast
-        showToast(`Parsed ${files.length} file${files.length > 1 ? 's' : ''} → ${allResults.length} sequences classified`);
+        showToast(`${files.length} XML${files.length > 1 ? 's' : ''} → ${allResults.length} sequences · ${totalCuts} cuts`);
 
       } catch (err) {
         console.error('[hunter] XML parse error:', err);
+        layer?.classList.remove('source-layer--processing');
         btn.textContent = originalBtnText;
         btn.disabled = false;
         showToast(`Error: ${err.message}`, true);
@@ -437,12 +444,17 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
           format: file.name.split('.').pop(),
         });
       }
+      layer?.classList.remove('source-layer--processing');
+      layer?.classList.add('source-layer--success');
       btn.textContent = `✓ ${files.length} file${files.length > 1 ? 's' : ''} added`;
+      showToast(`${files.length} file${files.length > 1 ? 's' : ''} uploaded`);
       setTimeout(() => {
         btn.textContent = originalBtnText;
         btn.disabled = false;
-      }, 2000);
+        layer?.classList.remove('source-layer--success');
+      }, 3000);
     } else {
+      layer?.classList.remove('source-layer--processing');
       btn.textContent = originalBtnText;
       btn.disabled = false;
     }
