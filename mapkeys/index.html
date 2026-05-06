@@ -117,19 +117,31 @@
 
   <div id="timeline">
     <div id="timeline-controls">
-      <button class="btn primary" id="add-kf">+ Keyframe</button>
-      <button class="btn" id="play-btn">▶ Play</button>
-      <button class="btn ghost" id="reset-btn">⏮</button>
-      <div id="time-display"><span id="time-cur">0.0</span> / <span id="time-total">0.0</span>s</div>
+      <div class="ctrl-group" id="kf-controls">
+        <button class="btn primary" id="add-kf">+ Keyframe</button>
+        <button class="btn" id="kf-update-view" title="Update selected (U)">Update</button>
+        <button class="btn ghost danger" id="kf-delete" title="Delete selected (Del)">Delete</button>
+      </div>
+
+      <div class="ctrl-group" id="play-controls">
+        <button class="btn ghost" id="reset-btn" title="Reset (⏮)">⏮</button>
+        <button class="btn" id="play-btn">▶ Play</button>
+        <div id="time-display"><span id="time-cur">0.0</span> / <span id="time-total">0.0</span>s</div>
+      </div>
+
       <div class="spacer"></div>
-      <button class="btn ghost" id="export-btn">Export JSON</button>
-      <label class="btn ghost">
-        <input type="file" id="import-file" accept=".json" hidden>
-        Import JSON
-      </label>
-      <button class="btn primary" id="gif-btn">Render GIF</button>
-      <div id="hint-inline">
-        <kbd>Space</kbd> play &nbsp; <kbd>K</kbd> add &nbsp; <kbd>U</kbd> update &nbsp; <kbd>←</kbd>/<kbd>→</kbd> select &nbsp; <kbd>Del</kbd> remove &nbsp; <kbd>⌘Z</kbd> undo
+
+      <button class="btn big render-cta" id="gif-btn">Render GIF</button>
+
+      <div class="overflow-menu">
+        <button class="btn ghost icon-only" id="overflow-btn" title="More">⋯</button>
+        <div class="overflow-content hidden">
+          <button class="om-item" id="export-btn">Export JSON</button>
+          <label class="om-item">
+            <input type="file" id="import-file" accept=".json" hidden>
+            Import JSON
+          </label>
+        </div>
       </div>
     </div>
 
@@ -137,18 +149,6 @@
       <div id="kf-list"></div>
     </div>
 
-    <div id="kf-editor" class="hidden">
-      <div class="ed-row">
-        <div class="field-note">
-          Tweak segment duration and easing right between keyframe boxes above.
-          Route progress is set on each route layer like any other shape.
-        </div>
-        <div class="ed-actions">
-          <button class="btn primary" id="kf-update-view">Update Keyframe</button>
-          <button class="btn ghost danger" id="kf-delete">Delete</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div id="render-queue" class="hidden">

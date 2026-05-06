@@ -1313,17 +1313,14 @@ function renderKeyframes() {
 }
 
 function renderEditor() {
-  const editor = document.getElementById('kf-editor');
-  if (!state.selectedId) {
-    editor.classList.add('hidden');
-    return;
-  }
-  const kf = state.keyframes.find(k => k.id === state.selectedId);
-  if (!kf) {
-    editor.classList.add('hidden');
-    return;
-  }
-  editor.classList.remove('hidden');
+  // Editor was merged into the top control row — Update/Delete buttons now
+  // act on the currently-selected keyframe directly. Toggle their disabled
+  // state to make it clear when nothing is selected.
+  const hasSelection = !!state.selectedId && !!state.keyframes.find(k => k.id === state.selectedId);
+  const update = document.getElementById('kf-update-view');
+  const del = document.getElementById('kf-delete');
+  if (update) update.disabled = !hasSelection;
+  if (del) del.disabled = !hasSelection;
 }
 
 function updateTimeDisplay(t) {
@@ -2298,6 +2295,37 @@ document.getElementById('import-file').addEventListener('change', async e => {
     alert('Failed to parse JSON: ' + err.message);
   }
   e.target.value = '';
+});
+
+// Auto-select-all on first click into any number input — so typing immediately
+// replaces the value (no cursor positioning, no manual delete). On subsequent
+// clicks while already focused, default cursor positioning still works.
+document.addEventListener('mousedown', (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLInputElement)) return;
+  if (t.type !== 'number') return;
+  if (document.activeElement === t) return;
+  e.preventDefault();
+  t.focus();
+  setTimeout(() => t.select(), 0);
+});
+// Tab-into also gets the same treatment
+document.addEventListener('focusin', (e) => {
+  const t = e.target;
+  if (t instanceof HTMLInputElement && t.type === 'number') {
+    setTimeout(() => { if (document.activeElement === t) t.select(); }, 0);
+  }
+});
+
+// Overflow menu (Export/Import) toggle
+document.getElementById('overflow-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.querySelector('.overflow-content').classList.toggle('hidden');
+});
+document.addEventListener('click', (e) => {
+  const menu = document.querySelector('.overflow-content');
+  if (!menu || menu.classList.contains('hidden')) return;
+  if (!e.target.closest('.overflow-menu')) menu.classList.add('hidden');
 });
 
 // Cmd+Z / Ctrl+Z — undo. Bound separately so it works even when an input is

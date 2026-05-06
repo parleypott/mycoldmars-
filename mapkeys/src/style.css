@@ -23,7 +23,7 @@ html, body {
 
 #map {
   position: absolute;
-  inset: 0 0 220px 0;
+  inset: 0 0 200px 0;
 }
 
 .hidden { display: none !important; }
@@ -636,19 +636,81 @@ body.dragging-shape .mapboxgl-canvas {
   display: flex;
   flex-direction: column;
   z-index: 9;
-  padding: 0 14px 24px;
-  /* Bottom padding gives the editor card breathing room above the viewport
-     edge — without it the inputs feel jammed against the screen bottom. */
+  padding: 0 14px 8px;
 }
 
 #timeline-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   padding: 14px 10px;
   border-bottom: 1px solid var(--panel-edge);
 }
 .spacer { flex: 1; }
+
+.ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 14px;
+  border-right: 1px solid var(--panel-edge);
+}
+.ctrl-group:last-of-type { border-right: none; padding-right: 0; }
+
+.btn.big {
+  padding: 12px 22px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.btn.render-cta {
+  background: var(--accent);
+  color: #fffaf0;
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px -6px rgba(184, 92, 60, 0.6);
+}
+.btn.render-cta:hover {
+  background: #a04f33;
+  border-color: #a04f33;
+}
+.btn.icon-only {
+  width: 38px;
+  padding: 8px 0;
+  justify-content: center;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.overflow-menu { position: relative; }
+.overflow-content {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 6px;
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  padding: 4px 0;
+  min-width: 160px;
+  z-index: 30;
+  box-shadow: 0 -4px 14px -6px rgba(43, 42, 38, 0.25);
+}
+.om-item {
+  display: block;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.om-item:hover {
+  background: rgba(43, 42, 38, 0.06);
+}
 
 #time-display {
   font-family: 'Space Mono', monospace;
