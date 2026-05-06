@@ -66,16 +66,37 @@ const DEMO_ASSETS = {
   ],
 };
 
-const DEMO_UNITS = [
-  { id: 'u1', start_seconds: 0, end_seconds: 45, source_clip_name: 'A001_C003.mp4', analyses: [{ output_text: 'Wide establishing shot of empty desert highway at golden hour. The road cuts through undulating sand dunes, perfectly straight to the vanishing point. No vehicles, no people — just the geometry of human infrastructure against geological time. Warm amber light catches the rippled texture of sand. The composition is symmetrical, almost devotional. This is a patience shot — it teaches the viewer to slow down before the story begins.' }] },
-  { id: 'u2', start_seconds: 45, end_seconds: 112, source_clip_name: 'A001_C007.mp4', analyses: [{ output_text: 'Johnny walks through a narrow souk corridor, camera following from behind at shoulder height. Vendors call out in Arabic. The light shifts dramatically every few steps — blazing sun through gaps in corrugated roofing, then deep shadow. Johnny pauses at a spice stall, reaches toward a mound of saffron. His hand hesitates. This moment of almost-touching is deeply characteristic — the camera catches curiosity in the body before words arrive.' }] },
-  { id: 'u3', start_seconds: 112, end_seconds: 180, source_clip_name: 'A001_C012.mp4', analyses: [{ output_text: 'Close-up on weathered hands pouring Arabic coffee from a brass dallah into tiny ceramic cups. The pour is ceremonial, unhurried. Steam rises into late-afternoon light. The camera holds on the hands alone for 15 seconds before pulling back to reveal the face of the elderly host. This patience with detail before context is a recurring editorial instinct.' }] },
-];
+const DEMO_UNITS = {
+  'demo-1': [
+    { id: 'u1', start_seconds: 0, end_seconds: 45, source_clip_name: 'A001_C003.mp4', analyses: [{ output_text: 'Wide establishing shot of empty desert highway at golden hour. The road cuts through undulating sand dunes, perfectly straight to the vanishing point. No vehicles, no people — just the geometry of human infrastructure against geological time. Warm amber light catches the rippled texture of sand. The composition is symmetrical, almost devotional. This is a patience shot — it teaches the viewer to slow down before the story begins.' }] },
+    { id: 'u2', start_seconds: 45, end_seconds: 112, source_clip_name: 'A001_C007.mp4', analyses: [{ output_text: 'Johnny walks through a narrow souk corridor, camera following from behind at shoulder height. Vendors call out in Arabic. The light shifts dramatically every few steps — blazing sun through gaps in corrugated roofing, then deep shadow. Johnny pauses at a spice stall, reaches toward a mound of saffron. His hand hesitates. This moment of almost-touching is deeply characteristic — the camera catches curiosity in the body before words arrive.' }] },
+    { id: 'u3', start_seconds: 112, end_seconds: 180, source_clip_name: 'A001_C012.mp4', analyses: [{ output_text: 'Close-up on weathered hands pouring Arabic coffee from a brass dallah into tiny ceramic cups. The pour is ceremonial, unhurried. Steam rises into late-afternoon light. The camera holds on the hands alone for 15 seconds before pulling back to reveal the face of the elderly host. This patience with detail before context is a recurring editorial instinct.' }] },
+  ],
+  'demo-2': [
+    { id: 'u4', start_seconds: 0, end_seconds: 38, source_clip_name: 'B002_C001.mp4', analyses: [{ output_text: 'Underwater wide shot. The camera descends through turquoise water toward a coral shelf. Visibility is extraordinary — perhaps 40 meters. Small fish scatter as a manta ray enters from the upper right, its wingspan filling the frame. The filmmaker lets the ray dominate the composition entirely, not chasing it. There is a philosophical patience here: the camera trusts the subject will be interesting if given room.' }] },
+    { id: 'u5', start_seconds: 38, end_seconds: 94, source_clip_name: 'B002_C005.mp4', analyses: [{ output_text: 'Johnny sits in a traditional Palauan bai (meeting house), the camera at a low angle looking up. Carved storyboard reliefs cover the walls behind him. He listens to an elder speaking in Palauan. The filmmaker captures a rare vulnerability — Johnny is out of his depth linguistically, and his body language shifts from interviewer to student. The carved histories on the wall dwarf both figures.' }] },
+    { id: 'u6', start_seconds: 94, end_seconds: 142, source_clip_name: 'B002_C009.mp4', analyses: [{ output_text: 'Slow tracking shot along a deserted beach at dawn. Debris line — coconut husks, plastic bottles, driftwood. The camera follows the debris line like a text, reading it left to right. A single hermit crab navigates the refuse. The shot holds on the crab for an almost uncomfortable duration (22 seconds). This is habitat as character: the beach tells its own story about human impact without a single word.' }] },
+  ],
+  'demo-3': [
+    { id: 'u7', start_seconds: 0, end_seconds: 52, source_clip_name: 'C003_C001.mp4', analyses: [{ output_text: 'Overhead drone shot pulling back from a single night market stall. Neon signs in Mandarin. Steam rises from a grill in organized columns. The pullback reveals the market as a dense grid of light — hundreds of stalls creating a galaxy-like pattern when seen from above. The transition from intimate (one stall) to vast (entire market) happens in a single unbroken move. A signature scale shift.' }] },
+    { id: 'u8', start_seconds: 52, end_seconds: 118, source_clip_name: 'C003_C004.mp4', analyses: [{ output_text: 'Handheld at eye level, moving through the crowd. The camera is in the stream of people, not observing from outside. Focus racks between faces — a child eating shaved ice, a vendor counting change, teenagers taking selfies. The audio is dense: sizzling oil, Mandarin pop music, motorbike engines. No attempt to isolate a single story thread. This is immersion as editorial technique: the chaos IS the subject.' }] },
+    { id: 'u9', start_seconds: 118, end_seconds: 165, source_clip_name: 'C003_C008.mp4', analyses: [{ output_text: 'Close-up: a hand operates a traditional Taiwanese puppet, carved and painted. The puppet casts a shadow on a backlit screen. Another hand enters with a second puppet. The shadows tell a story the camera cannot fully follow (it is in Hokkien). The filmmaker stays on the shadow play rather than cutting to the puppeteer — choosing the imagined world over the real one. A sophisticated editorial instinct about where meaning lives.' }] },
+  ],
+};
 
-const DEMO_PATTERNS = [
-  { id: 'p1', observation_text: 'Threshold moments before connection. Across the Saudi Arabia corpus, there is a consistent pattern of capturing the instant before human interaction begins — the pause at the spice stall, the moment before a handshake, the breath before speaking. These liminal seconds carry enormous emotional weight and suggest an editorial philosophy: the anticipation of connection is more cinematic than the connection itself.', example_unit_ids: [], status: 'surfaced' },
-  { id: 'p2', observation_text: 'Geometric patience shots as emotional reset. Wide symmetrical compositions (the desert highway, architectural doorways, empty corridors) consistently appear at transition points between scenes. These are not B-roll — they function as editorial breathing room, giving the viewer permission to process what came before. The filmmaker instinctively uses negative space as punctuation.', example_unit_ids: [], status: 'surfaced' },
-];
+const DEMO_PATTERNS = {
+  'demo-1': [
+    { id: 'p1', observation_text: 'Threshold moments before connection. Across the Saudi Arabia corpus, there is a consistent pattern of capturing the instant before human interaction begins — the pause at the spice stall, the moment before a handshake, the breath before speaking. These liminal seconds carry enormous emotional weight and suggest an editorial philosophy: the anticipation of connection is more cinematic than the connection itself.', example_unit_ids: [], status: 'surfaced' },
+    { id: 'p2', observation_text: 'Geometric patience shots as emotional reset. Wide symmetrical compositions (the desert highway, architectural doorways, empty corridors) consistently appear at transition points between scenes. These are not B-roll — they function as editorial breathing room, giving the viewer permission to process what came before. The filmmaker instinctively uses negative space as punctuation.', example_unit_ids: [], status: 'surfaced' },
+  ],
+  'demo-2': [
+    { id: 'p3', observation_text: 'Subject as student, not authority. In the Palau footage, the filmmaker consistently positions himself in receiving postures — listening in the bai, floating below the manta ray, watching the hermit crab. The camera mirrors this humility: low angles looking up, long holds without intervention. The editorial instinct is to earn the story by being small within it.', example_unit_ids: [], status: 'surfaced' },
+    { id: 'p4', observation_text: 'Environmental storytelling through debris and detail. Objects tell stories before people do. The debris line on the beach, the carved histories on the bai walls, the coral shelf — the camera reads environments like texts before introducing human subjects. This creates a layered editorial rhythm: place, then person, then tension between the two.', example_unit_ids: [], status: 'surfaced' },
+  ],
+  'demo-3': [
+    { id: 'p5', observation_text: 'Scale shifts as emotional punctuation. The Taiwan footage consistently uses dramatic scale changes — drone pulling back from one stall to reveal hundreds, close-up puppet shadows opening into the crowd. These transitions between intimate and vast create the feeling of discovery, as if the viewer is seeing the larger pattern that contains the small moment they just witnessed.', example_unit_ids: [], status: 'surfaced' },
+  ],
+};
 
 let isDemo = !isConfigured();
 
@@ -123,8 +144,8 @@ async function openProject(id) {
   if (isDemo) {
     project = DEMO_PROJECTS.find(p => p.id === id) || { name: 'Unknown' };
     assets = DEMO_ASSETS[id] || [];
-    units = id === 'demo-1' ? DEMO_UNITS : [];
-    patterns = id === 'demo-1' ? DEMO_PATTERNS : [];
+    units = DEMO_UNITS[id] || [];
+    patterns = DEMO_PATTERNS[id] || [];
   } else {
     project = await getProject(id);
     assets = await listMediaAssets(id);
@@ -398,10 +419,17 @@ async function loadCorpusBrowser() {
   let units;
 
   if (isDemo) {
-    units = DEMO_UNITS.map(u => ({
-      ...u,
-      media_assets: { project_id: 'demo-1', tier: 'raw', hunter_projects: { name: 'Saudi Arabia' } },
-    }));
+    // Merge all demo units across all projects
+    units = [];
+    for (const [pid, projectUnits] of Object.entries(DEMO_UNITS)) {
+      const proj = DEMO_PROJECTS.find(p => p.id === pid);
+      for (const u of projectUnits) {
+        units.push({
+          ...u,
+          media_assets: { project_id: pid, tier: 'raw', hunter_projects: { name: proj?.name || 'unknown' } },
+        });
+      }
+    }
   } else {
     try {
       units = await listAllCorpusUnits();
@@ -486,8 +514,8 @@ document.getElementById('btn-export-xml').addEventListener('click', async () => 
 
   // Get current project's units (demo or real)
   let units;
-  if (isDemo && currentProjectId === 'demo-1') {
-    units = DEMO_UNITS;
+  if (isDemo && DEMO_UNITS[currentProjectId]) {
+    units = DEMO_UNITS[currentProjectId];
   } else if (!isDemo) {
     units = await listCorpusUnitsForProject(currentProjectId);
   } else {
