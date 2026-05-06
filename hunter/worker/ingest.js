@@ -318,9 +318,9 @@ function getDuration(filePath) {
 
 // ── Watchdog — self-healing for stuck assets ──
 
-async function watchdog() {
+async function watchdog(isStartup = false) {
   try {
-    // Find assets stuck in intermediate states for too long
+    // Find assets stuck in intermediate states
     const { data: stuck } = await supabase.from('media_assets')
       .select('id, queue_status, updated_at')
       .in('queue_status', ['fetching', 'analyzing', 'cached']);
@@ -331,8 +331,10 @@ async function watchdog() {
 
       for (const asset of stuck) {
         const age = now - new Date(asset.updated_at).getTime();
-        if (age > STUCK_THRESHOLD) {
-          console.log(`[watchdog] resetting stuck asset ${asset.id} (${asset.queue_status} for ${Math.round(age / 60000)}min)`);
+        // On startup: reset everything (no other worker is running)
+        // On interval: only reset if stuck > 15 min
+        if (isStartup || age > STUCK_THRESHOLD) {
+          console.log(`[watchdog] resetting stuck asset ${asset.id} (${asset.queue_status}${isStartup ? ', startup recovery' : ` for ${Math.round(age / 60000)}min`})`);
           await updateAsset(asset.id, { queue_status: 'pending' });
           resetCount++;
         }
@@ -341,10 +343,12 @@ async function watchdog() {
       if (resetCount > 0) console.log(`[watchdog] reset ${resetCount} stuck asset(s) → pending`);
     }
 
-    // Warn if no clips have completed in a while
-    const silent = Date.now() - lastProgressAt;
-    if (silent > WATCHDOG_INTERVAL) {
-      console.log(`[watchdog] ⚠ no successful analysis in ${Math.round(silent / 60000)} minutes — may be stalled`);
+    // Warn if no clips have completed in a while (skip on startup)
+    if (!isStartup) {
+      const silent = Date.now() - lastProgressAt;
+      if (silent > WATCHDOG_INTERVAL) {
+        console.log(`[watchdog] ⚠ no successful analysis in ${Math.round(silent / 60000)} minutes — may be stalled`);
+      }
     }
   } catch (err) {
     console.error('[watchdog] error:', err.message);
@@ -385,8 +389,8 @@ async function poll() {
 console.log('[hunter worker] starting, cache dir:', CACHE_DIR, `concurrency=${CONCURRENCY}`);
 mkdirSync(CACHE_DIR, { recursive: true });
 
-// Run watchdog immediately on startup (recovers from previous crash)
-watchdog();
+// Run watchdog immediately on startup — aggressively reset anything stuck from previous crash
+await watchdog(true);
 
 // Run immediately, then poll
 poll();
