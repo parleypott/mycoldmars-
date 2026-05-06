@@ -11,7 +11,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { listFolder, downloadFile } from './dropbox-client.js';
-import { uploadFile, createCache, analyzeUnit, analyzeScript, generateEmbedding } from './gemini-client.js';
+import { uploadFile, deleteFile, purgeAllFiles, createCache, analyzeUnit, analyzeScript, generateEmbedding } from './gemini-client.js';
 import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
@@ -185,12 +185,13 @@ async function fetchFromDropbox(asset, projectContext) {
           return;
         }
 
-        // Upload + analyze (with rate limit retry)
+        // Upload + analyze (with rate limit retry), then delete to free quota
         const file = await uploadFile(localPath);
         const result = await retryWithBackoff(
           () => analyzeUnit({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext }),
           video.name
         );
+        await deleteFile(file.name);
 
         await supabase.from('analyses').insert({
           corpus_unit_id: unit.id,
@@ -283,6 +284,7 @@ async function analyzeVideo(assetId, localPath, projectContext) {
         endSeconds: unit.end_seconds,
         projectContext,
       });
+      await deleteFile(file.name);
 
       // Save analysis
       await supabase.from('analyses').insert({
@@ -634,6 +636,9 @@ async function poll() {
 
 console.log('[hunter worker] starting, cache dir:', CACHE_DIR, `concurrency=${CONCURRENCY}`);
 mkdirSync(CACHE_DIR, { recursive: true });
+
+// Purge stale Gemini files in background to reclaim storage quota
+purgeAllFiles().then(n => console.log(`[worker] purged ${n} stale Gemini files`)).catch(() => {});
 
 // Run watchdog immediately on startup — aggressively reset anything stuck from previous crash
 await watchdog(true);

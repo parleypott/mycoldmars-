@@ -50,6 +50,38 @@ export async function uploadFile(filePath, mimeType = 'video/mp4') {
 }
 
 /**
+ * Delete a file from Gemini File API to free storage quota.
+ * Call after analysis is complete — files are only needed during generation.
+ */
+export async function deleteFile(fileName) {
+  try {
+    const genai = getAI();
+    await genai.files.delete({ name: fileName });
+  } catch (err) {
+    // Non-fatal — file may already be expired
+    console.log(`[gemini] delete ${fileName}: ${err.message?.slice(0, 60)}`);
+  }
+}
+
+/**
+ * Delete ALL files in the project to reclaim storage quota.
+ */
+export async function purgeAllFiles() {
+  const genai = getAI();
+  let deleted = 0;
+  try {
+    const files = await genai.files.list();
+    for await (const file of files) {
+      await genai.files.delete({ name: file.name });
+      deleted++;
+    }
+  } catch (err) {
+    console.log(`[gemini] purge error after ${deleted} files: ${err.message?.slice(0, 60)}`);
+  }
+  return deleted;
+}
+
+/**
  * Create a context cache for a file (cost savings for multiple queries).
  */
 export async function createCache(fileUri, systemInstruction, ttlSeconds = 3600) {
