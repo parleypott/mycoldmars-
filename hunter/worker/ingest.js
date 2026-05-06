@@ -29,6 +29,21 @@ if (existsSync(envPath)) {
 
 const CACHE_DIR = join(process.env.HOME, 'hunter-cache');
 const POLL_INTERVAL = 10_000;
+const CONCURRENCY = parseInt(process.env.HUNTER_CONCURRENCY || '5');
+
+/** Simple concurrency pool — runs up to N async tasks in parallel. */
+function createPool(concurrency) {
+  let active = 0;
+  const queue = [];
+  function run() {
+    while (active < concurrency && queue.length > 0) {
+      active++;
+      const { fn, resolve, reject } = queue.shift();
+      fn().then(resolve, reject).finally(() => { active--; run(); });
+    }
+  }
+  return (fn) => new Promise((resolve, reject) => { queue.push({ fn, resolve, reject }); run(); });
+}
 
 /**
  * Retry a function with exponential backoff on 429 rate limit errors.
@@ -120,45 +135,49 @@ async function fetchFromDropbox(asset, projectContext) {
     const projectDir = join(CACHE_DIR, asset.project_id);
     mkdirSync(projectDir, { recursive: true });
 
-    // Pipeline: download → analyze → next (one at a time to avoid filling disk)
-    let processed = 0;
-    for (const video of videos) {
+    // Batch-check which clips already have corpus units (instead of per-clip query)
+    const { data: existingUnits } = await supabase.from('corpus_units')
+      .select('source_clip_name')
+      .eq('media_asset_id', asset.id);
+    const existingNames = new Set((existingUnits || []).map(u => u.source_clip_name));
+
+    const remaining = videos.filter(v => !existingNames.has(v.name));
+    const skipped = videos.length - remaining.length;
+    if (skipped > 0) console.log(`[worker] skipping ${skipped} already-processed clips`);
+
+    let processed = skipped;
+    const total = videos.length;
+    const limit = createPool(CONCURRENCY);
+
+    console.log(`[worker] processing ${remaining.length} clips with concurrency=${CONCURRENCY}`);
+
+    // Process clips concurrently — N at a time via pool
+    await Promise.allSettled(remaining.map(video => limit(async () => {
       const localPath = join(projectDir, video.name);
-
-      // Check if corpus unit already exists (resume support)
-      const { data: existing } = await supabase.from('corpus_units')
-        .select('id').eq('media_asset_id', asset.id)
-        .eq('source_clip_name', video.name).limit(1);
-      if (existing?.length > 0) {
-        processed++;
-        continue;
-      }
-
-      // Download
-      if (!existsSync(localPath)) {
-        console.log(`[worker] downloading ${video.name} (${processed + 1}/${videos.length})`);
-        await downloadFile(video.path, localPath);
-      }
-
-      // Get duration via ffprobe
-      const duration = getDuration(localPath);
-
-      // Create corpus unit
-      const { data: unit, error } = await supabase.from('corpus_units')
-        .insert({
-          media_asset_id: asset.id,
-          start_seconds: 0,
-          end_seconds: duration,
-          source_clip_name: video.name,
-        })
-        .select().single();
-      if (error) {
-        console.error('[worker] createCorpusUnit error:', error.message);
-        continue;
-      }
-
-      // Immediately analyze this clip (with rate limit retry)
       try {
+        // Download
+        if (!existsSync(localPath)) {
+          await downloadFile(video.path, localPath);
+        }
+
+        // Get duration via ffprobe
+        const duration = getDuration(localPath);
+
+        // Create corpus unit
+        const { data: unit, error } = await supabase.from('corpus_units')
+          .insert({
+            media_asset_id: asset.id,
+            start_seconds: 0,
+            end_seconds: duration,
+            source_clip_name: video.name,
+          })
+          .select().single();
+        if (error) {
+          console.error(`[worker] createCorpusUnit error for ${video.name}:`, error.message);
+          return;
+        }
+
+        // Upload + analyze (with rate limit retry)
         const file = await uploadFile(localPath);
         const result = await retryWithBackoff(
           () => analyzeUnit({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext }),
@@ -174,25 +193,18 @@ async function fetchFromDropbox(asset, projectContext) {
           cost_usd: 0,
         });
 
-        console.log(`[worker] ✓ ${video.name} analyzed (${processed + 1}/${videos.length}): ${result.text.slice(0, 60)}...`);
+        processed++;
+        console.log(`[worker] ✓ ${video.name} (${processed}/${total}): ${result.text.slice(0, 60)}...`);
       } catch (err) {
-        console.error(`[worker] ✗ analysis failed for ${video.name}:`, err.message);
+        processed++;
+        console.error(`[worker] ✗ ${video.name}:`, err.message);
+      } finally {
+        // Clean up local file to save disk space
+        try { (await import('node:fs/promises')).unlink(localPath); } catch {}
       }
+    })));
 
-      // Clean up local file to save disk space (already uploaded to Gemini)
-      try { (await import('node:fs/promises')).unlink(localPath); } catch {}
-
-      processed++;
-
-      // Pace requests to avoid 503 overload
-      await new Promise(r => setTimeout(r, 5000));
-      // Log progress every 10 clips
-      if (processed % 10 === 0) {
-        console.log(`[worker] progress: ${processed}/${videos.length} clips processed`);
-      }
-    }
-
-    console.log(`[worker] ✓ all ${processed}/${videos.length} clips processed for ${asset.source_ref}`);
+    console.log(`[worker] ✓ all ${processed}/${total} clips processed for ${asset.source_ref}`);
     return projectDir;
   }
 
