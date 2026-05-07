@@ -737,6 +737,11 @@ body.dragging-shape .mapboxgl-canvas {
 .btn.ghost:hover {
   background: rgba(43, 42, 38, 0.05);
 }
+.btn.ghost.active {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
 .btn.danger:hover {
   color: var(--accent);
   border-color: var(--accent);
