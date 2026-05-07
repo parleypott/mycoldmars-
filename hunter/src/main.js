@@ -636,6 +636,8 @@ document.getElementById('btn-what-do-you-see').addEventListener('click', async (
 
 let allCorpusUnits = [];
 let corpusFilter = '';
+let corpusKeepFilter = '';
+let corpusSort = 'default';
 let corpusPage = 0;
 const CORPUS_PAGE_SIZE = 60;
 
@@ -668,14 +670,32 @@ async function loadCorpusBrowser() {
     return;
   }
 
-  // Init filter tabs
-  document.querySelectorAll('.corpus-filter-tab').forEach(tab => {
+  // Init tier filter tabs
+  document.querySelectorAll('.corpus-filter-tab[data-filter]').forEach(tab => {
     tab.addEventListener('click', () => {
       corpusFilter = tab.dataset.filter;
       corpusPage = 0;
-      document.querySelectorAll('.corpus-filter-tab').forEach(t => t.classList.toggle('active', t === tab));
+      document.querySelectorAll('.corpus-filter-tab[data-filter]').forEach(t => t.classList.toggle('active', t === tab));
       renderCorpusPage();
     });
+  });
+
+  // Init keepability filter tabs
+  document.querySelectorAll('.corpus-keep-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      corpusKeepFilter = tab.dataset.keep;
+      corpusPage = 0;
+      document.querySelectorAll('.corpus-keep-tab').forEach(t => t.classList.toggle('active', t.dataset.keep === corpusKeepFilter));
+      renderCorpusPage();
+    });
+  });
+
+  // Init sort selector
+  const sortSelect = document.getElementById('corpus-sort');
+  sortSelect.addEventListener('change', () => {
+    corpusSort = sortSelect.value;
+    corpusPage = 0;
+    renderCorpusPage();
   });
 
   renderCorpusPage();
@@ -687,6 +707,23 @@ function getFilteredCorpus() {
   filtered = filtered.filter(u => u.analyses?.length > 0 && u.analyses[0]?.output_text);
   if (corpusFilter) {
     filtered = filtered.filter(u => (u.media_assets?.tier || '') === corpusFilter);
+  }
+  // Keepability filter
+  if (corpusKeepFilter) {
+    filtered = filtered.filter(u => {
+      const score = u.analyses?.[0]?.output_json?.keepability_score;
+      if (score == null) return false;
+      if (corpusKeepFilter === 'high') return score >= 7;
+      if (corpusKeepFilter === 'mid') return score >= 4 && score <= 6;
+      if (corpusKeepFilter === 'low') return score <= 3;
+      return true;
+    });
+  }
+  // Sort
+  if (corpusSort === 'keep-desc') {
+    filtered.sort((a, b) => (b.analyses?.[0]?.output_json?.keepability_score ?? -1) - (a.analyses?.[0]?.output_json?.keepability_score ?? -1));
+  } else if (corpusSort === 'keep-asc') {
+    filtered.sort((a, b) => (a.analyses?.[0]?.output_json?.keepability_score ?? 99) - (b.analyses?.[0]?.output_json?.keepability_score ?? 99));
   }
   return filtered;
 }
