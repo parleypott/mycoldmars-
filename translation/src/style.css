@@ -5317,3 +5317,185 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
 /* Collapsed state: hide the video, keep controls + waveform */
 .media-deck-video--collapsed video { display: none; }
 .media-deck-video--collapsed { width: 220px; }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Pre-transcribe dialog (after upload, before transcription)
+────────────────────────────────────────────────────────────────────── */
+.pretranscribe-card {
+  max-width: 640px;
+  width: calc(100vw - 48px);
+}
+.pretranscribe-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px 24px;
+  padding: 18px 0 22px;
+  border-bottom: 1px solid rgba(65, 44, 39, 0.18);
+  margin-bottom: 22px;
+  font-family: var(--np-font-mono);
+}
+.pretranscribe-stat-label {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+  margin-bottom: 4px;
+}
+.pretranscribe-stat-value {
+  font-size: 13px;
+  color: var(--np-ink);
+  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pretranscribe-fields { display: flex; flex-direction: column; gap: 16px; }
+.pretranscribe-field { display: flex; flex-direction: column; gap: 6px; }
+.pretranscribe-field-label {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+}
+.pretranscribe-select { width: 100%; }
+.pretranscribe-input {
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  padding: 10px 12px;
+  min-height: auto;
+  background: var(--np-cream);
+  border: 1px solid var(--np-sepia);
+  border-radius: 2px;
+  color: var(--np-ink);
+}
+.pretranscribe-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+.pretranscribe-go {
+  padding: 12px 28px;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.pretranscribe-footnote {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--np-sepia);
+  text-align: right;
+  margin-top: 12px;
+  opacity: 0.75;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   Speaker labeling dialog (after transcription, before editor)
+────────────────────────────────────────────────────────────────────── */
+.speaker-label-card {
+  max-width: 640px;
+  width: calc(100vw - 48px);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.speaker-label-intro {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--np-sepia);
+  margin: 0 0 18px;
+}
+.speaker-label-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 4px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.speaker-label-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px;
+  background: rgba(65, 44, 39, 0.04);
+  border: 1px solid rgba(65, 44, 39, 0.15);
+  border-radius: 2px;
+}
+.speaker-sample-btn {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--np-red);
+  color: #fff;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.speaker-sample-btn:hover { background: #b8231a; }
+.speaker-sample-btn.is-playing { background: var(--np-ink); }
+.speaker-label-fields {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.speaker-label-original {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+}
+.speaker-label-segcount {
+  font-size: 9px;
+  margin-left: 6px;
+  opacity: 0.6;
+}
+.speaker-label-input {
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  padding: 8px 10px;
+  background: var(--np-cream);
+  border: 1px solid var(--np-sepia);
+  border-radius: 2px;
+  color: var(--np-ink);
+}
+.speaker-label-quote {
+  font-family: var(--np-font-serif, Georgia, serif);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--np-ink);
+  line-height: 1.4;
+  opacity: 0.75;
+}
+.speaker-label-ignore {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+  cursor: pointer;
+  flex: 0 0 auto;
+  padding-top: 8px;
+}
+.speaker-label-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(65, 44, 39, 0.18);
+}

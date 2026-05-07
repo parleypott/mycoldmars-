@@ -20,7 +20,8 @@ import { buildAutoSummaryPrompt } from './copilot/copilot-prompts.js';
 import { initSotHunter, setSotHunterVisible } from './sot-hunter.js';
 import { initCommandPalette, openCommandPalette } from './command-palette.js';
 import { initFallingGlyphs, startFallingGlyphs, stopFallingGlyphs } from './falling-glyphs.js';
-import { isMediaFile, uploadAndTranscribe } from './upload/media-flow.js';
+import { isMediaFile, uploadMedia, runTranscription } from './upload/media-flow.js';
+import { openPreTranscribeDialog, openSpeakerLabelDialog } from './upload/dialogs.js';
 import { mountMediaDeck } from './edit/media-deck.js';
 
 // ── State ──
@@ -2341,48 +2342,105 @@ async function handleFile(file) {
 let pendingMediaUploadId = null; // surfaced into the saved transcript row
 
 async function handleMediaUpload(file) {
+  // STEP 1: upload to Storage (no transcription yet)
   showMediaProgress({ stage: 'starting', message: `Preparing ${file.name}…` });
+  let upload;
   try {
-    const result = await uploadAndTranscribe(file, {
-      onProgress: (stage, percent) => {
+    upload = await uploadMedia(file, {
+      projectId: currentProjectId,
+      onProgress: (percent) => {
         const pct = Math.round((percent || 0) * 100);
-        if (stage === 'upload') {
-          showMediaProgress({ stage: 'upload', message: `Uploading ${file.name} — ${pct}%`, percent });
-        } else if (stage === 'transcribe') {
-          // Estimate based on file size: Deepgram batch ~ 10x real-time.
-          // ~25MB ≈ 30s. ~100MB ≈ 2min. ~500MB ≈ 8min.
-          const sizeMb = file.size / 1024 / 1024;
-          const estMin = Math.max(0.5, Math.ceil(sizeMb / 60));
-          showMediaProgress({
-            stage: 'transcribe',
-            message: percent < 1
-              ? `Transcribing — typically ${estMin === 1 ? 'under a minute' : `${estMin} minute${estMin > 1 ? 's' : ''}`} for a file this size…`
-              : `Transcription complete. Wrapping up…`,
-            percent,
-          });
-        } else if (stage === 'normalize') {
-          showMediaProgress({ stage: 'normalize', message: 'Building transcript…', percent });
-        }
+        showMediaProgress({ stage: 'upload', message: `Uploading ${file.name} — ${pct}%`, percent });
       },
     });
-
-    // Stash for the next save so the transcript row points at the media_uploads row.
-    pendingMediaUploadId = result.mediaUploadId;
-
-    // Populate state the same way an import would.
-    segments = result.segments;
-    // wordTimings shape from the transcribe endpoint is a flat array
-    // [{ word, start, end, speaker? }] — we keep that shape and the
-    // editor's per-word click-to-seek interprets it accordingly.
-    wordTimingsMap = result.wordTimings || null;
-
-    hideMediaProgress();
-    finishUploadParse({ name: file.name });
   } catch (err) {
-    console.error('Media upload/transcribe failed:', err);
+    console.error('Upload failed:', err);
+    hideMediaProgress();
+    showError(err?.message || 'Upload failed.');
+    return;
+  }
+
+  // STEP 2: pre-transcribe dialog — show stats + language pickers, wait for TRANSCRIBE
+  hideMediaProgress();
+  let prefs;
+  try {
+    prefs = await openPreTranscribeDialog({
+      filename: file.name,
+      sizeBytes: file.size,
+      durationSeconds: upload.durationSeconds,
+      mimeType: upload.mimeType,
+    });
+  } catch (cancelled) {
+    // User dismissed the dialog. Leave the upload row in 'pending' so
+    // they can come back later (Library will show it as un-transcribed).
+    return;
+  }
+  if (!prefs) return;
+
+  // STEP 3: run transcription with the user's language choices
+  showMediaProgress({
+    stage: 'transcribe',
+    message: `Transcribing in ${prefs.sourceLanguageLabel || 'auto-detected language'}…`,
+  });
+  let result;
+  try {
+    result = await runTranscription({
+      mediaUploadId: upload.mediaUploadId,
+      signedUrl: upload.signedUrl,
+      sizeBytes: upload.sizeBytes,
+      language: prefs.sourceLanguage || undefined,
+      prompt: prefs.prompt || undefined,
+    });
+  } catch (err) {
+    console.error('Transcription failed:', err);
     hideMediaProgress();
     showError(err?.message || 'Transcription failed.');
+    return;
   }
+  hideMediaProgress();
+
+  // Populate state — segments from the transcription, word timings flat.
+  segments = result.segments;
+  wordTimingsMap = result.wordTimings || null;
+  pendingMediaUploadId = upload.mediaUploadId;
+  pendingTargetLanguage = prefs.targetLanguage || null;
+  pendingTranslationEnabled = !!prefs.targetLanguage;
+
+  // STEP 4: speaker-labeling dialog — for each detected speaker show an
+  // inline audio sample player, a label input, and an "ignore" toggle.
+  // Pass through if there's only "Speaker 1" and the user wants to skip.
+  const speakerLabels = await openSpeakerLabelDialog({
+    segments,
+    signedUrl: upload.signedUrl,
+  }).catch(() => null);
+
+  if (speakerLabels) {
+    speakerMap = { ...speakerMap, ...speakerLabels.renames };
+    hiddenSpeakers = speakerLabels.hidden;
+    // Apply the speakerMap to the segments themselves so the editor
+    // renders the new names. The original speaker key stays intact in
+    // speakerMap, so subsequent edits can still reach it.
+    segments = segments.map(s => ({
+      ...s,
+      speaker: speakerMap[s.speaker] || s.speaker,
+    }));
+  } else {
+    // User skipped — keep all speakers visible by default (this is the
+    // bugfix for the "everything-hidden" empty-editor regression: we no
+    // longer auto-add 'Speaker N' to hiddenSpeakers).
+    hiddenSpeakers = [];
+  }
+
+  // For media uploads we've already set speakerMap/hiddenSpeakers via the
+  // speaker-labeling dialog — tell finishUploadParse not to overwrite.
+  finishUploadParse({ name: file.name }, { preserveSpeakerState: true });
+
+  // Also auto-skip into the editor — for media uploads there's no need
+  // to go through the analyze step (we already handled language + speakers).
+  // Wait one tick for autoSave to register so the editor has an id.
+  setTimeout(() => {
+    try { skipToEditor(); } catch (err) { console.warn('Skip-to-editor failed:', err); }
+  }, 50);
 }
 
 function showMediaProgress({ stage, message, percent }) {
@@ -2527,7 +2585,7 @@ function refreshMediaDeckHighlights() {
   try { mediaDeck.setHighlights(currentEditorHighlights()); } catch {}
 }
 
-function finishUploadParse(file) {
+function finishUploadParse(file, opts = {}) {
   // Reset state for new file
   currentTranscriptId = null;
   currentTranscriptName = '';
@@ -2540,14 +2598,19 @@ function finishUploadParse(file) {
   editorInstance = null;
   workshopState = null;
   unmountWorkshop();
-  speakerMap = buildSpeakerMap(segments);
-  hiddenSpeakers = segments
-    .map(s => s.speaker)
-    .filter(s => isGenericSpeaker(s))
-    .filter((v, i, a) => a.indexOf(v) === i);
+  // Speaker state: media uploads pass preserveSpeakerState=true because
+  // the speaker-labeling dialog already set speakerMap + hiddenSpeakers
+  // explicitly. CSV/JSON/Trint imports get the auto-derived defaults.
+  if (!opts.preserveSpeakerState) {
+    speakerMap = buildSpeakerMap(segments);
+    hiddenSpeakers = segments
+      .map(s => s.speaker)
+      .filter(s => isGenericSpeaker(s))
+      .filter((v, i, a) => a.indexOf(v) === i);
+  }
   showAllSpeakers = false;
   // Pre-fill sequence name from filename (minus extension)
-  customSequenceName = (file?.name || '').replace(/\.(json|csv|html|htm|zip)$/i, '');
+  customSequenceName = (file?.name || '').replace(/\.(json|csv|html|htm|zip|mp4|mov|webm|mkv|mp3|m4a|wav|ogg|flac)$/i, '');
   renderTranscript();
 
   // Auto-create draft transcript in Supabase

@@ -45,19 +45,16 @@ export function isMediaFile(file) {
 }
 
 /**
- * Run the upload + transcribe flow.
+ * STEP 1 — Upload a media file to Supabase Storage and create the
+ * media_uploads row. Returns the row + a freshly-generated signed URL
+ * the caller can use for previewing/probing/transcription.
  *
- * @param {File} file
- * @param {object} opts
- * @param {string} [opts.language] — ISO 639-1 source language hint
- * @param {string} [opts.prompt] — names/jargon hints for Whisper
- * @param {string} [opts.projectId] — attach upload to project
- * @param {function} [opts.onProgress] — (stage, percent) => void
- *   stages: 'upload' | 'transcribe' | 'normalize'
- * @returns {Promise<{ segments, wordTimings, mediaUploadId, sourceLanguage, durationSeconds, displayName }>}
+ * Does NOT trigger transcription. The caller is expected to show the
+ * pre-transcribe dialog (file stats, language picker) and only then
+ * call runTranscription() with the user's choices.
  */
-export async function uploadAndTranscribe(file, opts = {}) {
-  const { language, prompt, projectId, onProgress = () => {} } = opts;
+export async function uploadMedia(file, opts = {}) {
+  const { projectId, onProgress = () => {} } = opts;
 
   if (!file) throw new Error('No file');
   if (!isMediaFile(file)) {
@@ -65,36 +62,31 @@ export async function uploadAndTranscribe(file, opts = {}) {
   }
   if (file.size > HARD_LIMIT_BYTES) {
     const gb = (file.size / 1024 / 1024 / 1024).toFixed(2);
-    throw new Error(
-      `File is ${gb} GB — over the 2 GB hard limit. ` +
-      `Trim or compress before uploading.`
-    );
+    throw new Error(`File is ${gb} GB — over the 2 GB hard limit. Trim or compress before uploading.`);
   }
-  // For files >25 MB the server will route to Deepgram. If Deepgram isn't
-  // configured the endpoint returns a 413 with an actionable message — we
-  // surface that as-is. No client-side hard error.
 
-  // Build a deterministic but unique storage path: {projectOrUnattached}/{timestamp}-{filename}
+  // Storage path: {projectOrUnattached}/{timestamp}-{filename}
   const safeName = sanitizeFilename(file.name);
   const folder = projectId || 'unattached';
   const stamp = Date.now().toString(36);
   const storagePath = `${folder}/${stamp}-${safeName}`;
 
-  // Stage 1: upload to Supabase Storage
-  onProgress('upload', 0);
+  onProgress(0);
   await uploadMediaFile({
     file,
     bucket: 'media',
     path: storagePath,
-    onProgress: (p) => onProgress('upload', p),
+    onProgress,
   });
-  onProgress('upload', 1);
+  onProgress(1);
 
-  // Stage 1b: probe duration on the client (cheap, fills in a useful field)
+  // Probe duration via a hidden HTMLMediaElement (cheap, useful in the
+  // pre-transcribe dialog so the user sees actual file duration).
   let durationSeconds = null;
   try { durationSeconds = await probeDurationSeconds(file); } catch {}
 
-  // Stage 2: create the media_uploads row
+  // Insert media_uploads row in 'pending' state — transcription_status
+  // moves to 'in_progress' when the user actually clicks TRANSCRIBE.
   const upload = await createMediaUpload({
     projectId: projectId || null,
     filename: file.name,
@@ -104,37 +96,63 @@ export async function uploadAndTranscribe(file, opts = {}) {
     durationSeconds,
     storageBucket: 'media',
     storagePath,
-    transcriptionStatus: 'in_progress',
-    transcriptionProvider: 'whisper',
-    transcriptionStartedAt: new Date().toISOString(),
+    transcriptionStatus: 'pending',
   });
 
-  // Stage 3: generate a short-lived signed URL for the transcription endpoint
-  const signedUrl = await getMediaSignedUrl(storagePath, { bucket: 'media', expiresInSeconds: 1800 });
-  if (!signedUrl) throw new Error('Could not generate signed URL for transcription');
+  // Long-lived signed URL so the same one can power preview, the
+  // transcription request, and the speaker-sample player without
+  // having to refresh mid-flow.
+  const signedUrl = await getMediaSignedUrl(storagePath, {
+    bucket: 'media',
+    expiresInSeconds: 4 * 60 * 60,
+  });
 
-  // Stage 4: call Whisper. This is sync from the client's perspective —
-  // a 25MB audio file at Whisper's typical throughput takes ~30-90s.
-  onProgress('transcribe', 0);
+  return {
+    mediaUploadId: upload.id,
+    storagePath,
+    durationSeconds,
+    sizeBytes: file.size,
+    mimeType: file.type || guessMimeFromExt(file.name),
+    filename: file.name,
+    signedUrl,
+  };
+}
+
+/**
+ * STEP 2 — Run transcription against an already-uploaded media_uploads
+ * row. Returns the normalized segments + word_timings so the caller can
+ * stash them in editor state.
+ *
+ * The signed URL passed in should be the long-lived one returned by
+ * uploadMedia() so we don't have to mint a new one here.
+ */
+export async function runTranscription({ mediaUploadId, signedUrl, sizeBytes, language, prompt }) {
+  if (!mediaUploadId) throw new Error('mediaUploadId required');
+  if (!signedUrl)     throw new Error('signedUrl required');
+
+  // Mark in_progress so the row reflects pipeline state if the page is closed.
+  await updateMediaUpload(mediaUploadId, {
+    transcriptionStatus: 'in_progress',
+    transcriptionProvider: 'auto',
+    transcriptionStartedAt: new Date().toISOString(),
+  }).catch(() => {});
+
   let whisper;
   try {
     whisper = await transcribeMedia({
       mediaUrl: signedUrl,
-      mediaSizeBytes: file.size,
+      mediaSizeBytes: sizeBytes,
       language,
       prompt,
     });
   } catch (err) {
-    await updateMediaUpload(upload.id, {
+    await updateMediaUpload(mediaUploadId, {
       transcriptionStatus: 'error',
       transcriptionError: err.message || String(err),
     }).catch(() => {});
     throw err;
   }
-  onProgress('transcribe', 1);
 
-  // Stage 5: normalize Whisper segments into the Interpreter's shape.
-  onProgress('normalize', 0);
   const segments = (whisper.segments || []).map((s, i) => ({
     number: i + 1,
     speaker: s.speaker || 'Speaker 1',
@@ -151,20 +169,44 @@ export async function uploadAndTranscribe(file, opts = {}) {
     end: w.end,
   }));
 
-  await updateMediaUpload(upload.id, {
+  await updateMediaUpload(mediaUploadId, {
     transcriptionStatus: 'done',
     transcriptionCompletedAt: new Date().toISOString(),
+    transcriptionProvider: whisper.provider || 'auto',
     sourceLanguage: whisper.language || null,
-    durationSeconds: whisper.duration_seconds || durationSeconds,
+    durationSeconds: whisper.duration_seconds || undefined,
   }).catch(() => {});
-  onProgress('normalize', 1);
 
   return {
     segments,
     wordTimings,
-    mediaUploadId: upload.id,
     sourceLanguage: whisper.language || language || null,
-    durationSeconds: whisper.duration_seconds || durationSeconds,
+    durationSeconds: whisper.duration_seconds || null,
+    provider: whisper.provider || null,
+  };
+}
+
+// Back-compat shim: the old combined helper still works for any caller
+// that hasn't been updated to the two-step flow.
+export async function uploadAndTranscribe(file, opts = {}) {
+  const { language, prompt, projectId, onProgress = () => {} } = opts;
+  const up = await uploadMedia(file, {
+    projectId,
+    onProgress: (p) => onProgress('upload', p),
+  });
+  onProgress('transcribe', 0);
+  const result = await runTranscription({
+    mediaUploadId: up.mediaUploadId,
+    signedUrl: up.signedUrl,
+    sizeBytes: up.sizeBytes,
+    language, prompt,
+  });
+  onProgress('transcribe', 1);
+  onProgress('normalize', 1);
+  return {
+    ...result,
+    mediaUploadId: up.mediaUploadId,
+    durationSeconds: result.durationSeconds || up.durationSeconds,
     displayName: file.name,
   };
 }
