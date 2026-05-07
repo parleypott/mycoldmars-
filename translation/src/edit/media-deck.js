@@ -51,11 +51,13 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   root.className = 'media-deck';
   root.innerHTML = `
     <div class="media-deck-video" data-deck-video>
+      <div class="media-deck-grip" data-deck-grip title="Drag to move">⋮⋮</div>
+      <button type="button" class="media-deck-collapse" data-deck-collapse aria-label="Collapse" title="Collapse">−</button>
       <video data-deck-videoel preload="metadata" playsinline></video>
       <div class="media-deck-controls">
-        <button type="button" class="media-deck-btn" data-deck-playpause aria-label="Play/Pause">▶</button>
+        <button type="button" class="media-deck-btn" data-deck-playpause aria-label="Play/Pause" title="Space">▶</button>
         <span class="media-deck-time" data-deck-time>0:00 / 0:00</span>
-        <select class="media-deck-rate" data-deck-rate>
+        <select class="media-deck-rate" data-deck-rate title="Playback speed">
           <option value="0.5">0.5×</option>
           <option value="0.75">0.75×</option>
           <option value="1" selected>1×</option>
@@ -70,11 +72,77 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   document.body.appendChild(root);
   document.body.classList.add('has-media-deck');
 
+  const videoFrame = root.querySelector('[data-deck-video]');
   const video = root.querySelector('[data-deck-videoel]');
   const playPauseBtn = root.querySelector('[data-deck-playpause]');
   const timeEl = root.querySelector('[data-deck-time]');
   const rateSelect = root.querySelector('[data-deck-rate]');
   const waveformMount = root.querySelector('[data-deck-waveform]');
+  const grip = root.querySelector('[data-deck-grip]');
+  const collapseBtn = root.querySelector('[data-deck-collapse]');
+
+  // ── Restore saved position + collapsed state ────────────────────
+  try {
+    const saved = JSON.parse(localStorage.getItem('mcm_media_deck_pos') || 'null');
+    if (saved && typeof saved.left === 'number' && typeof saved.bottom === 'number') {
+      videoFrame.style.left = `${saved.left}px`;
+      videoFrame.style.bottom = `${saved.bottom}px`;
+      videoFrame.style.right = 'auto';
+    }
+    if (saved && saved.collapsed) {
+      videoFrame.classList.add('media-deck-video--collapsed');
+      collapseBtn.textContent = '+';
+      collapseBtn.title = 'Expand';
+    }
+  } catch {}
+
+  // ── Drag-to-move via the grip handle ───────────────────────────
+  let dragState = null;
+  grip.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const rect = videoFrame.getBoundingClientRect();
+    dragState = {
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+    document.body.classList.add('media-deck-dragging');
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragState) return;
+    e.preventDefault();
+    const left = Math.max(0, Math.min(window.innerWidth - dragState.width, e.clientX - dragState.offsetX));
+    const top  = Math.max(0, Math.min(window.innerHeight - dragState.height, e.clientY - dragState.offsetY));
+    // Convert top → bottom so resizes don't push the player off-screen.
+    const bottom = window.innerHeight - top - dragState.height;
+    videoFrame.style.left = `${left}px`;
+    videoFrame.style.bottom = `${bottom}px`;
+    videoFrame.style.right = 'auto';
+  });
+  window.addEventListener('mouseup', () => {
+    if (!dragState) return;
+    dragState = null;
+    document.body.classList.remove('media-deck-dragging');
+    // Persist the final position
+    try {
+      const left = parseFloat(videoFrame.style.left) || 16;
+      const bottom = parseFloat(videoFrame.style.bottom) || 86;
+      const collapsed = videoFrame.classList.contains('media-deck-video--collapsed');
+      localStorage.setItem('mcm_media_deck_pos', JSON.stringify({ left, bottom, collapsed }));
+    } catch {}
+  });
+
+  // ── Collapse / expand the video frame (controls + waveform stay) ─
+  collapseBtn.addEventListener('click', () => {
+    const isCollapsed = videoFrame.classList.toggle('media-deck-video--collapsed');
+    collapseBtn.textContent = isCollapsed ? '+' : '−';
+    collapseBtn.title = isCollapsed ? 'Expand' : 'Collapse';
+    try {
+      const cur = JSON.parse(localStorage.getItem('mcm_media_deck_pos') || '{}');
+      localStorage.setItem('mcm_media_deck_pos', JSON.stringify({ ...cur, collapsed: isCollapsed }));
+    } catch {}
+  });
 
   const isVideoMime = !mimeType || mimeType.startsWith('video/');
   if (!isVideoMime) {
@@ -304,10 +372,57 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     onSeek(seconds);
   }
 
+  // ── Keyboard shortcuts (Final Cut J/K/L + space + arrows) ──────
+  // Gated so they don't fire when the user is typing in the editor or
+  // any input — we check the active element, contentEditable state,
+  // and whether the focus is inside ProseMirror's editor surface.
+  function isTyping() {
+    const a = document.activeElement;
+    if (!a) return false;
+    const tag = a.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (a.isContentEditable) return true;
+    if (a.closest && a.closest('.ProseMirror')) return true;
+    return false;
+  }
+  function onKeydown(e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return; // don't shadow OS shortcuts
+    if (isTyping()) return;
+    const k = e.key;
+    let handled = true;
+    if (k === ' ' || k === 'Spacebar') {
+      if (video.paused) video.play().catch(() => {});
+      else video.pause();
+    } else if (k === 'k' || k === 'K') {
+      video.pause();
+    } else if (k === 'l' || k === 'L') {
+      // L: play; pressing repeatedly bumps the rate up toward 2x like Final Cut
+      if (video.paused) { video.playbackRate = 1; video.play().catch(() => {}); }
+      else { video.playbackRate = Math.min(2, (video.playbackRate || 1) * 1.5); }
+      rateSelect.value = String(closestRate(video.playbackRate));
+    } else if (k === 'j' || k === 'J') {
+      // J: rewind; toggles into "play backward" by stepping back if unsupported
+      // Most browsers don't support negative playbackRate, so we do step-back at 5s.
+      seekTo((video.currentTime || 0) - 5);
+    } else if (k === 'ArrowLeft')  { seekTo((video.currentTime || 0) - 5); }
+    else if  (k === 'ArrowRight') { seekTo((video.currentTime || 0) + 5); }
+    else if  (k === 'ArrowDown')  { video.playbackRate = Math.max(0.25, (video.playbackRate || 1) - 0.25); rateSelect.value = String(closestRate(video.playbackRate)); }
+    else if  (k === 'ArrowUp')    { video.playbackRate = Math.min(2,    (video.playbackRate || 1) + 0.25); rateSelect.value = String(closestRate(video.playbackRate)); }
+    else handled = false;
+    if (handled) e.preventDefault();
+  }
+  window.addEventListener('keydown', onKeydown);
+
+  function closestRate(r) {
+    const choices = [0.5, 0.75, 1, 1.25, 1.5, 2];
+    return choices.reduce((best, c) => Math.abs(c - r) < Math.abs(best - r) ? c : best, 1);
+  }
+
   function destroy() {
     try { video.pause(); } catch {}
     try { wavesurfer.destroy(); } catch {}
     if (editorContainer) editorContainer.removeEventListener('click', onEditorClick);
+    window.removeEventListener('keydown', onKeydown);
     if (root.parentNode) root.parentNode.removeChild(root);
     document.body.classList.remove('has-media-deck');
   }
