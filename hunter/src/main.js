@@ -146,9 +146,9 @@ async function openProject(id) {
   showView('project');
   startIngestPolling();
 
-  // Show loading state
+  // Show loading state (v2 shell handles its own loading via plate)
   const header = document.getElementById('project-header');
-  header.innerHTML = '<div class="project-loading">loading project...</div>';
+  if (header) header.innerHTML = '<div class="project-loading">loading project...</div>';
 
   let project, assets, units, patterns;
 
@@ -1697,7 +1697,7 @@ function renderInsightsHub(units, assets) {
 
 // ── "What do you see?" button ──
 
-document.getElementById('btn-what-do-you-see').addEventListener('click', async () => {
+document.getElementById('btn-what-do-you-see')?.addEventListener('click', async () => {
   const btn = document.getElementById('btn-what-do-you-see');
   btn.disabled = true;
   btn.innerHTML = 'observing<span class="thinking-indicator"><span></span><span></span><span></span></span>';
@@ -2193,7 +2193,7 @@ document.getElementById('btn-delete-project').addEventListener('click', async ()
 
 // ── Export XML ──
 
-document.getElementById('btn-export-xml').addEventListener('click', async () => {
+document.getElementById('btn-export-xml')?.addEventListener('click', async () => {
   const { buildHunterSequenceXML, downloadXML } = await import('./xml-writer.js');
 
   // Get current project's units (demo or real)
