@@ -193,159 +193,999 @@ async function openProject(id) {
     }
   }
 
-  const statsLine = totalUnits > 0
-    ? `${analyzedUnits} analyzed of ${totalUnits} units`
-    : `${assets.length} sources`;
+  // Render v2 project detail shell
+  renderProjectV2(project, assets, units, patterns, tierStats);
+}
 
-  // Build progress bars HTML
-  const TIER_LABELS = { raw: 'raw', selects: 'selects', google_docs: 'script', finished: 'finished' };
-  let progressHtml = '';
-  const tierEntries = Object.entries(tierStats).filter(([, s]) => s.total > 0);
-  if (tierEntries.length > 0) {
-    progressHtml = '<div class="tier-progress">' + tierEntries.map(([tier, s]) => {
-      const pct = s.total > 0 ? (s.analyzed / s.total * 100) : 0;
-      const fillClass = pct >= 100 ? 'tier-progress-fill tier-progress-fill--complete' : 'tier-progress-fill';
-      return `<div class="tier-progress-row">
-        <span class="tier-progress-label">${TIER_LABELS[tier] || tier}</span>
-        <div class="tier-progress-bar"><div class="${fillClass}" style="width:${pct.toFixed(1)}%"></div></div>
-        <span class="tier-progress-count">${s.analyzed}/${s.total}</span>
-      </div>`;
-    }).join('') + '</div>';
+// ═════════════════════════════════════════════
+//   V2 PROJECT DETAIL — BRUTALIST 4-TAB SHELL
+// ═════════════════════════════════════════════
+
+const TIER_COLORS = { raw: '#FFB000', script: '#5AA3FF', selects: '#FF3B20', finished: '#22C55E', google_docs: '#5AA3FF' };
+const TIER_LABELS_V2 = { raw: 'RAW FOOTAGE', script: 'SCRIPT', selects: 'SELECTS', finished: 'FINISHED CUT', google_docs: 'GOOGLE DOCS' };
+const TIER_ROLES = { raw: 'What the camera was drawn to', script: 'The original written intent', selects: 'What survived the edit room', finished: 'The story that was told' };
+const TABS_V2 = [
+  { id: 'inputs',   num: '01', label: 'INPUTS',        hint: 'CONNECT SOURCES' },
+  { id: 'training', num: '02', label: 'TRAINING',      hint: 'STATUS / FEED'   },
+  { id: 'insights', num: '03', label: 'INSIGHTS',      hint: 'WHAT DO YOU SEE' },
+  { id: 'scenes',   num: '04', label: 'SCENE BUILDER', hint: 'PROPOSE / EDIT'  },
+];
+
+let v2Tab = 'inputs';
+let v2AC = null; // abort controller for tab event listeners
+let v2Data = {}; // persisted project data
+
+function renderProjectV2(project, assets, units, patterns, tierStats) {
+  // Store data
+  v2Data = { project, assets, units, patterns, tierStats };
+
+  // Cleanup previous listeners
+  if (v2AC) v2AC.abort();
+  v2AC = new AbortController();
+  const signal = v2AC.signal;
+
+  // ── TopBar timestamp ──
+  const now = new Date();
+  const timeStr = now.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }).toUpperCase() + ' · ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  document.getElementById('v2-topbar-time').textContent = timeStr;
+
+  // ── Update training status in topbar ──
+  const totalUnits = units.length;
+  const analyzedUnits = units.filter(u => u.analyses?.length > 0).length;
+  const pct = totalUnits > 0 ? ((analyzedUnits / totalUnits) * 100).toFixed(1) : '0.0';
+  const statusText = document.getElementById('v2-status-text');
+  const pulse = document.getElementById('v2-pulse');
+  if (analyzedUnits < totalUnits && totalUnits > 0) {
+    statusText.textContent = `TRAINING · ${pct}%`;
+    pulse.classList.add('v2-pulse--active');
+  } else if (totalUnits > 0) {
+    statusText.textContent = `TRAINED · ${analyzedUnits.toLocaleString()} CLIPS`;
+    pulse.classList.remove('v2-pulse--active');
+  } else {
+    statusText.textContent = 'READY';
+    pulse.classList.remove('v2-pulse--active');
   }
 
-  header.innerHTML = `<h2>${escHtml(project.name)}</h2><div class="project-stats">${statsLine}</div>${progressHtml}`;
+  // ── ProjectPlate ──
+  const plate = document.getElementById('v2-plate');
+  const directorMeta = project.metadata?.director ? ` · DIR. ${project.metadata.director.toUpperCase()}` : '';
+  const shotDatesMeta = project.metadata?.shot_dates ? ` · ${project.metadata.shot_dates.toUpperCase()}` : '';
+  const hours = totalUnits > 0 ? units.reduce((s, u) => s + Math.max(0, (u.end_seconds || 0) - (u.start_seconds || 0)), 0) : 0;
+  const hoursStr = `${Math.floor(hours / 3600)}:${String(Math.floor((hours % 3600) / 60)).padStart(2, '0')}`;
+  const scenes = groupIntoScenes(units);
 
-  // Update training hub
-  document.getElementById('hub-project-name').textContent = project.name;
+  plate.innerHTML = `
+    <div style="flex:1">
+      <div class="v2-plate-meta">
+        <span class="v2-caps v2-caps--dim" style="letter-spacing:0.28em">PROJECT FILE · ${escHtml((project.slug || project.name || '').toUpperCase().slice(0, 8))}</span>
+        <span style="width:1px;height:12px;background:var(--h-border);display:inline-block"></span>
+        <span class="v2-caps v2-caps--dim" style="letter-spacing:0.16em">${escHtml(directorMeta)}</span>
+        <span style="width:1px;height:12px;background:var(--h-border);display:inline-block"></span>
+        <span class="v2-caps v2-caps--dim" style="letter-spacing:0.16em">${escHtml(shotDatesMeta)}</span>
+      </div>
+      <div class="v2-plate-title">${escHtml(project.name?.toUpperCase() || 'UNTITLED')}<span class="v2-plate-dot">.</span></div>
+    </div>
+    <div class="v2-plate-stats">
+      <div class="v2-plate-stat">
+        <span class="v2-caps v2-caps--sm v2-caps--dim">ANALYZED</span>
+        <div class="v2-plate-stat-value">${analyzedUnits.toLocaleString()}</div>
+        <span class="v2-caps v2-caps--xs v2-caps--dim" style="letter-spacing:0.16em">OF ${totalUnits.toLocaleString()}</span>
+      </div>
+      <div class="v2-plate-stat">
+        <span class="v2-caps v2-caps--sm v2-caps--dim">HOURS</span>
+        <div class="v2-plate-stat-value">${hoursStr}</div>
+      </div>
+      <div class="v2-plate-stat">
+        <span class="v2-caps v2-caps--sm v2-caps--dim">SCENES</span>
+        <div class="v2-plate-stat-value" style="color:var(--h-raw)">${scenes.length}</div>
+        <span class="v2-caps v2-caps--xs v2-caps--dim">DETECTED</span>
+      </div>
+      <div class="v2-plate-stat" style="border-right:none">
+        <span class="v2-caps v2-caps--sm v2-caps--dim">TIERS</span>
+        <div class="v2-plate-stat-value">${assets.length}</div>
+        <span class="v2-caps v2-caps--xs v2-caps--dim">CONNECTED</span>
+      </div>
+    </div>
+  `;
 
-  // Render spoke content + connection state
-  const TIER_SPOKE = { raw: 'raw', script: 'script', selects: 'selects', finished: 'finished', google_docs: 'docs' };
-  let connectedCount = 0;
+  // ── TabStrip ──
+  const tabstrip = document.getElementById('v2-tabstrip');
+  tabstrip.innerHTML = TABS_V2.map((t, i) => `
+    <button class="v2-tab${t.id === v2Tab ? ' active' : ''}" data-tab="${t.id}" style="${i < TABS_V2.length - 1 ? '' : 'border-right:none'}">
+      <span class="v2-tab-num">${t.num}</span>
+      <div style="flex:1;min-width:0">
+        <div class="v2-tab-label">${t.label}</div>
+        <div class="v2-tab-hint">${t.hint}</div>
+      </div>
+      <span class="v2-tab-pip"></span>
+    </button>
+  `).join('');
 
-  for (const [tier, spokeId] of Object.entries(TIER_SPOKE)) {
-    const spoke = document.querySelector(`.spoke--${spokeId}`);
-    const content = document.getElementById(`spoke-${spokeId}-content`);
-    const tierAssets = assets.filter(a => a.tier === tier);
+  tabstrip.querySelectorAll('.v2-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      v2Tab = btn.dataset.tab;
+      v2SwitchTab(v2Tab, signal);
+    }, { signal });
+  });
 
-    if (tierAssets.length > 0) {
-      spoke.classList.add('spoke--connected');
-      connectedCount++;
-      content.innerHTML = renderSpokePreview(tier, tierAssets);
-    } else {
-      spoke.classList.remove('spoke--connected');
-      content.innerHTML = '';
-    }
+  // ── FootBar ──
+  renderV2Footbar();
+
+  // ── Render initial tab ──
+  v2SwitchTab(v2Tab, signal);
+}
+
+function v2SwitchTab(tabId, signal) {
+  // Update tab strip
+  document.querySelectorAll('.v2-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+
+  // Update panels
+  document.querySelectorAll('.v2-tab-panel').forEach(p => {
+    p.classList.toggle('active', p.id === `v2-panel-${tabId}`);
+  });
+
+  // Render content
+  const { project, assets, units, patterns, tierStats } = v2Data;
+  switch (tabId) {
+    case 'inputs':   renderInputsTab(assets, units, tierStats); break;
+    case 'training': renderTrainingTab(units, assets); break;
+    case 'insights': renderInsightsTab(units, patterns, assets, signal); break;
+    case 'scenes':   renderScenesTab(units, signal); break;
   }
 
-  document.getElementById('hub-status').textContent = `${connectedCount}/5`;
-  // Render node diagram SVG + waveform after layout settles
-  setTimeout(() => { renderHubSVG(); renderWaveform(); }, 100);
+  // Update footbar
+  renderV2Footbar();
+}
 
-  // Render tier funnel
-  renderTierFunnel(tierStats);
+function renderV2Footbar() {
+  const tabMeta = TABS_V2.find(t => t.id === v2Tab);
+  const foot = document.getElementById('v2-footbar');
+  const { project } = v2Data;
+  foot.innerHTML = `
+    <div class="v2-footbar-cell v2-footbar-cell--active">§${tabMeta.num} · ${tabMeta.label}</div>
+    <div class="v2-footbar-cell">${escHtml((project?.slug || project?.name || '').toUpperCase())}</div>
+    <div class="v2-footbar-spacer"></div>
+    <div class="v2-footbar-cell v2-footbar-cell--right">READY</div>
+    <div class="v2-footbar-cell v2-footbar-cell--right">⌘K · COMMANDS</div>
+  `;
+}
 
-  // Render project stats dashboard
-  renderProjectStats(units);
+// ── §01 INPUTS TAB ──
 
-  // Render shooting calendar
-  renderShootCalendar(units);
+function renderInputsTab(assets, units, tierStats) {
+  const panel = document.getElementById('v2-panel-inputs');
 
-  // Render insights hub
-  renderInsightsHub(units, assets);
+  const TIERS = ['raw', 'script', 'selects', 'finished'];
+  const SOURCE_DATA = {
+    raw: { kind: 'DROPBOX FOLDER', counts: (a, ts) => [['CLIPS', `${ts?.total || 0}`], ['HOURS', formatHoursFromUnits(units, a)], ['CAMERAS', countCameras(units)], ['DAYS', countDays(units)]] },
+    script: { kind: 'GOOGLE DOC / FILE', counts: (a) => [['TYPE', a[0]?.format?.toUpperCase() || '—'], ['SOURCE', a[0]?.source_kind?.toUpperCase() || '—'], ['STATUS', a[0]?.queue_status?.toUpperCase() || '—'], ['ADDED', a[0]?.created_at ? formatDate(a[0].created_at) : '—']] },
+    selects: { kind: 'FCP7 XML / EDL', counts: (a, ts) => [['SEQUENCES', `${a.length}`], ['CLIPS', `${ts?.total || 0}`], ['STATUS', a[0]?.queue_status?.toUpperCase() || '—'], ['ADDED', a[0]?.created_at ? formatDate(a[0].created_at) : '—']] },
+    finished: { kind: 'YOUTUBE / VIMEO', counts: (a) => [['SOURCE', a[0]?.source_kind?.toUpperCase() || '—'], ['REF', (a[0]?.source_ref || '').slice(0, 30) || '—'], ['STATUS', a[0]?.queue_status?.toUpperCase() || '—'], ['ADDED', a[0]?.created_at ? formatDate(a[0].created_at) : '—']] },
+  };
 
-  // Render best clips
-  renderBestClips(units);
+  const sourceCards = TIERS.map(tier => {
+    const tierAssets = assets.filter(a => a.tier === tier || (tier === 'script' && a.tier === 'google_docs'));
+    const color = TIER_COLORS[tier];
+    const connected = tierAssets.length > 0;
+    const sd = SOURCE_DATA[tier];
+    const ts = tierStats?.[tier] || tierStats?.[tier === 'script' ? 'google_docs' : tier];
+    const state = connected ? (tierAssets[0]?.queue_status === 'done' ? 'parsed' : tierAssets[0]?.queue_status === 'error' ? 'error' : 'syncing') : 'empty';
+    const stateColors = { syncing: '#FFB000', parsed: '#22C55E', empty: 'var(--h-dim)', error: '#FF3B20' };
+    const stateLabels = { syncing: 'SYNCING', parsed: 'PARSED', empty: 'NOT CONNECTED', error: 'ERROR' };
+    const path = connected ? tierAssets[0].source_ref : '—';
+    const counts = connected ? sd.counts(tierAssets, ts) : [['—', '—'], ['—', '—'], ['—', '—'], ['—', '—']];
+    const lastSync = connected && tierAssets[0].updated_at ? `SYNCED ${formatTimeAgo(new Date(tierAssets[0].updated_at)).toUpperCase()}` : '—';
 
-  // Render scenes timeline
-  renderScenes(units);
+    // Progress for tier
+    const progress = ts ? (ts.total > 0 ? ts.analyzed / ts.total : 0) : 0;
 
-  // Render transcripts
-  renderTranscripts(units);
-
-  // Init project search
-  initProjectSearch();
-
-  // Render corpus units with expandable text
-  const unitsList = document.getElementById('corpus-units-list');
-  if (units.length > 0) {
-    unitsList.innerHTML = units.map((u, i) => {
-      const analysis = u.analyses?.[0];
-      const fullText = analysis ? analysis.output_text : '';
-      const isTruncatable = fullText.length > 200;
-      const startSec = u.start_seconds ?? u.startSeconds ?? 0;
-      const endSec = u.end_seconds ?? u.endSeconds ?? 0;
-      const clipName = u.source_clip_name || u.sourceClipName || '';
-      const badges = renderAnalysisBadges(analysis?.output_json);
-      return `
-        <div class="corpus-unit">
-          <span class="corpus-unit-tc">${formatTc(startSec)} – ${formatTc(endSec)}${clipName ? '<br>' + escHtml(clipName) : ''}</span>
-          <div>
-            <span class="corpus-unit-desc${isTruncatable ? ' truncated' : ''}" data-unit="${i}">${fullText ? escHtml(fullText) : '<em>pending analysis</em>'}</span>
-            ${isTruncatable ? `<button class="corpus-unit-expand" data-unit="${i}">read more</button>` : ''}
-            ${badges}
+    return `
+      <div class="v2-source-card">
+        <div class="v2-source-strip">
+          <div class="v2-source-strip-color" style="background:${color}"></div>
+          <div class="v2-source-strip-info">
+            <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">${TIER_LABELS_V2[tier] || tier.toUpperCase()}</span>
+            <span style="width:1px;height:10px;background:var(--h-border);display:inline-block"></span>
+            <span class="v2-caps v2-caps--sm v2-caps--dim">${sd.kind}</span>
+          </div>
+          <div class="v2-source-strip-state">
+            ${state === 'syncing' ? '<span style="width:6px;height:6px;background:#FFB000;animation:hpulse 1.4s steps(2) infinite;display:inline-block"></span>' : ''}
+            <span class="v2-caps v2-caps--sm" style="color:${stateColors[state]}">${stateLabels[state]}</span>
           </div>
         </div>
-      `;
-    }).join('');
-
-    unitsList.querySelectorAll('.corpus-unit-expand').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const desc = unitsList.querySelector(`.corpus-unit-desc[data-unit="${btn.dataset.unit}"]`);
-        const isExpanded = desc.classList.toggle('expanded');
-        desc.classList.toggle('truncated', !isExpanded);
-        btn.textContent = isExpanded ? 'collapse' : 'read more';
-      });
-    });
-  } else {
-    unitsList.innerHTML = '<p class="empty-sub">no units analyzed yet</p>';
-  }
-
-  // Render patterns
-  const patternsList = document.getElementById('patterns-list');
-  if (patterns.length > 0) {
-    patternsList.innerHTML = patterns.map(p => {
-      const date = p.created_at ? new Date(p.created_at) : null;
-      const timeAgo = date ? formatTimeAgo(date) : '';
-      return `
-      <div class="pattern-card ${p.status !== 'surfaced' ? 'pattern-card--' + p.status : ''}" data-id="${p.id}">
-        <div class="pattern-meta">
-          <span class="pattern-status">${p.status}</span>
-          ${timeAgo ? `<span class="pattern-time">${timeAgo}</span>` : ''}
-        </div>
-        <div class="pattern-text">${simpleMarkdown(p.observation_text)}</div>
-        <button class="pattern-expand">show more</button>
-        <div class="pattern-actions">
-          <button class="np-button pattern-btn" data-action="accepted" data-id="${p.id}">accept</button>
-          <button class="np-button pattern-btn" data-action="ignored" data-id="${p.id}">ignore</button>
+        <div class="v2-source-body">
+          <div class="v2-source-role">${TIER_ROLES[tier] || ''}</div>
+          <div class="v2-source-path">
+            <span style="color:${color};font-size:13px;font-weight:600">›</span>
+            <span class="v2-source-path-text">${escHtml(path)}</span>
+            <span class="v2-caps v2-caps--sm v2-caps--dim">EDIT</span>
+          </div>
+          <div class="v2-source-counts">
+            ${counts.map(([k, v]) => `
+              <div class="v2-source-count-row">
+                <span class="v2-caps v2-caps--sm v2-caps--dim" style="letter-spacing:0.16em">${k}</span>
+                <span class="v2-source-count-val">${v}</span>
+              </div>
+            `).join('')}
+          </div>
+          ${progress > 0 && progress < 1 ? `
+            <div style="margin-bottom:14px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span class="v2-caps v2-caps--sm v2-caps--dim">INGEST PROGRESS</span>
+                <span style="font-size:10px;color:${color};font-variant-numeric:tabular-nums;font-weight:600">${(progress * 100).toFixed(1)}%</span>
+              </div>
+              <div class="v2-progress" style="height:4px">${renderProgressSegs(progress, 48, color)}</div>
+            </div>
+          ` : ''}
+          <div class="v2-source-footer">
+            <span class="v2-caps v2-caps--sm v2-caps--dim" style="letter-spacing:0.12em">${lastSync}</span>
+            <div style="display:flex;gap:6px">
+              ${connected ? `
+                <button class="v2-btn-sec" data-action="open" data-tier="${tier}">OPEN</button>
+                <button class="v2-btn-sec" data-action="resync" data-tier="${tier}">RE-SYNC</button>
+                <button class="v2-btn-primary" style="background:${color};border-color:${color}" data-action="replace" data-tier="${tier}">REPLACE →</button>
+              ` : `
+                <button class="v2-btn-primary" style="background:${color};border-color:${color}" data-action="configure" data-tier="${tier}">CONFIGURE →</button>
+              `}
+            </div>
+          </div>
         </div>
       </div>
-    `;}).join('');
+    `;
+  }).join('');
 
-    // Detect overflow and add expand/collapse
-    patternsList.querySelectorAll('.pattern-card').forEach(card => {
-      const text = card.querySelector('.pattern-text');
-      const btn = card.querySelector('.pattern-expand');
-      if (text.scrollHeight > 310) {
-        card.classList.add('truncated');
-        btn.addEventListener('click', () => {
-          const expanded = text.classList.toggle('expanded');
-          btn.textContent = expanded ? 'show less' : 'show more';
-        });
+  // Cross-tier linkage
+  const rawAssets = assets.filter(a => a.tier === 'raw');
+  const selectsAssets = assets.filter(a => a.tier === 'selects');
+  const finishedAssets = assets.filter(a => a.tier === 'finished');
+  const scriptAssets = assets.filter(a => a.tier === 'script' || a.tier === 'google_docs');
+  const rawCount = tierStats?.raw?.total || 0;
+  const selectsCount = tierStats?.selects?.total || 0;
+  const finishedCount = tierStats?.finished?.total || 0;
+  const scriptCount = tierStats?.script?.total || tierStats?.google_docs?.total || 0;
+
+  const links = [
+    { from: 'RAW', fromColor: TIER_COLORS.raw, to: 'SELECTS', toColor: TIER_COLORS.selects, n: selectsCount > 0 ? `${selectsCount}` : '—', label: rawCount > 0 && selectsCount > 0 ? `clips kept by editor (${(selectsCount / rawCount * 100).toFixed(0)}%)` : 'no data yet' },
+    { from: 'RAW', fromColor: TIER_COLORS.raw, to: 'SCRIPT', toColor: TIER_COLORS.script, n: scriptCount > 0 ? `${scriptCount}` : '—', label: 'beats with footage candidates' },
+    { from: 'SELECTS', fromColor: TIER_COLORS.selects, to: 'FINISHED', toColor: TIER_COLORS.finished, n: finishedCount > 0 ? `${finishedCount}` : '—', label: 'survived to final cut' },
+    { from: 'SCRIPT', fromColor: TIER_COLORS.script, to: 'FINISHED', toColor: TIER_COLORS.finished, n: finishedCount > 0 ? `${finishedCount}` : '—', label: 'beats present in final' },
+  ];
+
+  panel.innerHTML = `
+    <div class="v2-inputs-wrap">
+      <div class="v2-section-head">
+        <span class="v2-caps v2-caps--dim" style="letter-spacing:0.28em">§01</span>
+        <div style="flex:1">
+          <div class="v2-section-title">Inputs<span style="color:var(--h-raw)">.</span></div>
+          <div class="v2-section-sub">Connect the four sources Hunter can read from. Each gets ingested, embedded, and cross-indexed against the others.</div>
+        </div>
+      </div>
+      <div class="v2-sources-grid">${sourceCards}</div>
+      <div class="v2-crosslinks">
+        <div class="v2-crosslinks-header">
+          <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">CROSS-TIER LINKAGE</span>
+          <span class="v2-caps v2-caps--sm v2-caps--dim">CONTINUOUS</span>
+        </div>
+        <div class="v2-crosslinks-grid">
+          ${links.map((l, i) => `
+            <div class="v2-crosslinks-cell">
+              <div class="v2-crosslinks-dots">
+                <span class="v2-crosslinks-dot" style="background:${l.fromColor}"></span>
+                <span class="v2-caps v2-caps--sm" style="color:var(--h-muted)">${l.from}</span>
+                <span class="v2-crosslinks-line"></span>
+                <span class="v2-caps v2-caps--sm" style="color:var(--h-muted)">${l.to}</span>
+                <span class="v2-crosslinks-dot" style="background:${l.toColor}"></span>
+              </div>
+              <div class="v2-crosslinks-num">${l.n}</div>
+              <div class="v2-crosslinks-label">${l.label}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Wire up configure/replace buttons
+  panel.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tier = btn.dataset.tier;
+      const action = btn.dataset.action;
+      if (action === 'configure' || action === 'replace') {
+        if (tier === 'raw') promptDropboxFolder('raw');
+        else if (tier === 'script') promptScriptUpload();
+        else if (tier === 'selects') promptSelectsUpload();
+        else if (tier === 'finished') promptYoutubeUrl();
       }
     });
-
-    if (!isDemo) {
-      patternsList.querySelectorAll('.pattern-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          await updatePatternStatus(btn.dataset.id, btn.dataset.action);
-          openProject(currentProjectId);
-        });
-      });
-    }
-  } else {
-    patternsList.innerHTML = '';
-  }
+  });
 }
+
+// ── §02 TRAINING TAB ──
+
+function renderTrainingTab(units, assets) {
+  const panel = document.getElementById('v2-panel-training');
+  const totalUnits = units.length;
+  const analyzedUnits = units.filter(u => u.analyses?.length > 0).length;
+  const pct = totalUnits > 0 ? ((analyzedUnits / totalUnits) * 100) : 0;
+
+  // Pipeline stages
+  const stages = [
+    { id: 'ingest', label: 'INGEST', state: pct > 0 ? 'done' : 'queued' },
+    { id: 'fingerprint', label: 'FINGERPRINT', state: pct >= 30 ? 'done' : pct > 0 ? 'running' : 'queued' },
+    { id: 'cluster', label: 'CLUSTER', state: pct >= 60 ? 'done' : pct >= 30 ? 'running' : 'queued' },
+    { id: 'describe', label: 'DESCRIBE', state: pct >= 90 ? 'done' : pct >= 60 ? 'running' : 'queued' },
+    { id: 'pattern', label: 'PATTERN', state: pct >= 100 ? 'done' : pct >= 90 ? 'running' : 'queued' },
+  ];
+
+  const stageColors = { done: '#22C55E', running: '#FFB000', queued: 'var(--h-dim)' };
+
+  // Recent analyses for the feed
+  const recentUnits = units
+    .filter(u => u.analyses?.length > 0)
+    .sort((a, b) => new Date(b.analyses[0].created_at || 0) - new Date(a.analyses[0].created_at || 0))
+    .slice(0, 40);
+
+  const feedRows = recentUnits.map((u, i) => {
+    const clipName = (u.source_clip_name || u.sourceClipName || 'unknown').replace(/_Proxy\.MP4$/i, '');
+    const quip = generateQuip(u.analyses[0].output_text || '');
+    const ts = extractDateFromClipName(u.source_clip_name || u.sourceClipName || '');
+    const timeLabel = ts ? ts.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--';
+    const stageIdx = i % stages.length;
+    const mark = stages[stageIdx].state === 'done' ? '✓' : stages[stageIdx].state === 'running' ? '◉' : '·';
+    const markColor = stageColors[stages[stageIdx].state];
+    return `<div class="v2-feed-row${i < 3 ? ' v2-feed-row--active' : ''}">
+      <span class="v2-feed-time">${timeLabel}</span>
+      <span class="v2-feed-mark" style="color:${markColor}">${mark}</span>
+      <div>
+        <div class="v2-feed-name">${escHtml(clipName)}</div>
+        <div class="v2-feed-quip">${escHtml(quip)}</div>
+      </div>
+      <span class="v2-feed-time">${formatTc(u.start_seconds)}</span>
+    </div>`;
+  }).join('');
+
+  // Duplicate for scroll animation
+  const scrollContent = feedRows + feedRows;
+
+  const hoursTotal = units.reduce((s, u) => s + Math.max(0, (u.end_seconds || 0) - (u.start_seconds || 0)), 0);
+  const hoursStr = `${Math.floor(hoursTotal / 3600)}:${String(Math.floor((hoursTotal % 3600) / 60)).padStart(2, '0')}`;
+
+  panel.innerHTML = `
+    <div class="v2-training-wrap">
+      <div class="v2-section-head">
+        <span class="v2-caps v2-caps--dim" style="letter-spacing:0.28em">§02</span>
+        <div style="flex:1">
+          <div class="v2-section-title">Training<span style="color:var(--h-raw)">.</span></div>
+          <div class="v2-section-sub">Pipeline status and live clip processing feed.</div>
+        </div>
+      </div>
+
+      <!-- Big status -->
+      <div class="v2-big-status">
+        <div class="v2-big-status-top">
+          <div class="v2-big-pct">${pct.toFixed(1)}<span class="v2-big-pct-sign">%</span></div>
+          <div class="v2-big-status-info">
+            <div class="v2-big-status-current">${analyzedUnits.toLocaleString()} of ${totalUnits.toLocaleString()} clips analyzed</div>
+            <div class="v2-big-status-eta">${pct < 100 ? 'IN PROGRESS' : 'COMPLETE'}</div>
+            <div class="v2-progress" style="height:6px">${renderProgressSegs(pct / 100, 64, '#FFB000')}</div>
+            <div class="v2-big-status-scale">
+              <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+            </div>
+          </div>
+        </div>
+        <div class="v2-big-stats">
+          <div class="v2-big-stat">
+            <span class="v2-caps v2-caps--sm v2-caps--dim">CLIPS</span>
+            <div class="v2-big-stat-value">${totalUnits.toLocaleString()}</div>
+          </div>
+          <div class="v2-big-stat">
+            <span class="v2-caps v2-caps--sm v2-caps--dim">ANALYZED</span>
+            <div class="v2-big-stat-value" style="color:var(--h-raw)">${analyzedUnits.toLocaleString()}</div>
+          </div>
+          <div class="v2-big-stat">
+            <span class="v2-caps v2-caps--sm v2-caps--dim">HOURS</span>
+            <div class="v2-big-stat-value">${hoursStr}</div>
+          </div>
+          <div class="v2-big-stat">
+            <span class="v2-caps v2-caps--sm v2-caps--dim">TIERS</span>
+            <div class="v2-big-stat-value">${assets.length}</div>
+          </div>
+          <div class="v2-big-stat" style="border-right:none">
+            <span class="v2-caps v2-caps--sm v2-caps--dim">SCENES</span>
+            <div class="v2-big-stat-value">${groupIntoScenes(units).length}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pipeline + Feed split -->
+      <div class="v2-training-split">
+        <div class="v2-card">
+          <div class="v2-card-header">
+            <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">PIPELINE</span>
+            <span class="v2-caps v2-caps--sm v2-caps--dim">${stages.filter(s => s.state === 'done').length}/${stages.length} COMPLETE</span>
+          </div>
+          <div class="v2-card-body">
+            ${stages.map(s => `
+              <div class="v2-stage">
+                <div class="v2-stage-top">
+                  <div class="v2-stage-label">
+                    <span class="v2-stage-dot" style="background:${stageColors[s.state]}${s.state === 'running' ? ';animation:hpulse 1.4s steps(2) infinite' : ''}"></span>
+                    <span class="v2-caps v2-caps--sm">${s.label}</span>
+                  </div>
+                  <span class="v2-stage-pct">${s.state === 'done' ? '100%' : s.state === 'running' ? `${Math.round(pct)}%` : '—'}</span>
+                </div>
+                <div class="v2-progress" style="height:3px">${renderProgressSegs(s.state === 'done' ? 1 : s.state === 'running' ? pct / 100 : 0, 16, stageColors[s.state])}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        <div class="v2-card">
+          <div class="v2-card-header">
+            <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">LIVE FEED</span>
+            <span class="v2-caps v2-caps--sm v2-caps--dim">${recentUnits.length} RECENT</span>
+          </div>
+          <div class="v2-feed-wrap">
+            <div class="v2-feed-scroll" style="animation-duration:${Math.max(30, recentUnits.length * 2)}s">
+              ${scrollContent || '<div class="v2-empty">no clips processed yet</div>'}
+            </div>
+            <div class="v2-feed-fade-top"></div>
+            <div class="v2-feed-fade-bottom"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── §03 INSIGHTS TAB ──
+
+let v2ChatHistory = [];
+
+function renderInsightsTab(units, patterns, assets, signal) {
+  const panel = document.getElementById('v2-panel-insights');
+  const analyzed = units.filter(u => u.analyses?.[0]?.output_text);
+
+  if (analyzed.length < 3) {
+    panel.innerHTML = '<div class="v2-empty">Not enough analyzed footage to generate insights. Continue training.</div>';
+    return;
+  }
+
+  // Aggregate metadata
+  const emotions = {};
+  const shotTypes = {};
+  let keepSum = 0, keepN = 0;
+  for (const u of analyzed) {
+    const j = u.analyses?.[0]?.output_json;
+    if (!j) continue;
+    if (j.emotional_register) emotions[j.emotional_register] = (emotions[j.emotional_register] || 0) + 1;
+    if (j.shot_type) shotTypes[j.shot_type] = (shotTypes[j.shot_type] || 0) + 1;
+    if (j.keepability_score != null) { keepSum += j.keepability_score; keepN++; }
+  }
+  const topEmotions = Object.entries(emotions).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const topShots = Object.entries(shotTypes).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const avgKeep = keepN > 0 ? (keepSum / keepN).toFixed(1) : '—';
+
+  // Build narrative sections from patterns
+  const sections = (patterns || [])
+    .filter(p => p.status === 'surfaced' || p.status === 'accepted')
+    .slice(0, 6)
+    .map((p, i) => {
+      const sentences = (p.observation_text || '').split(/(?<=[.!?])\s+/);
+      const heading = sentences[0]?.slice(0, 80) || `Pattern ${i + 1}`;
+      const body = sentences.slice(1).join(' ') || p.observation_text;
+      return { heading, body, num: String(i + 1).padStart(2, '0') };
+    });
+
+  // Thread callouts from top patterns
+  const threads = topEmotions.slice(0, 4).map(([name, count]) => ({
+    name: name.toUpperCase(),
+    count,
+    desc: `Appears across ${count} analyzed clips`
+  }));
+
+  panel.innerHTML = `
+    <div class="v2-insights-wrap">
+      <div class="v2-section-head">
+        <span class="v2-caps v2-caps--dim" style="letter-spacing:0.28em">§03</span>
+        <div style="flex:1">
+          <div class="v2-section-title">Insights<span style="color:var(--h-raw)">.</span></div>
+          <div class="v2-section-sub">What do you see? Hunter's narrative read of your footage corpus.</div>
+        </div>
+        <button class="v2-btn-primary" id="v2-btn-generate-insights">GENERATE INSIGHTS</button>
+      </div>
+
+      <!-- Meta stats -->
+      <div class="v2-narrative-meta">
+        <div class="v2-meta-cell">
+          <span class="v2-caps v2-caps--sm v2-caps--dim">CORPUS SIZE</span>
+          <div class="v2-meta-value">${analyzed.length.toLocaleString()}</div>
+        </div>
+        <div class="v2-meta-cell">
+          <span class="v2-caps v2-caps--sm v2-caps--dim">AVG KEEPABILITY</span>
+          <div class="v2-meta-value">${avgKeep}</div>
+        </div>
+        <div class="v2-meta-cell">
+          <span class="v2-caps v2-caps--sm v2-caps--dim">TOP REGISTER</span>
+          <div class="v2-meta-value" style="font-size:14px">${topEmotions[0]?.[0] || '—'}</div>
+        </div>
+        <div class="v2-meta-cell" style="border-right:none">
+          <span class="v2-caps v2-caps--sm v2-caps--dim">PATTERNS</span>
+          <div class="v2-meta-value">${patterns?.length || 0}</div>
+        </div>
+      </div>
+
+      <!-- Narrative sections -->
+      <div id="v2-narrative-sections">
+        ${sections.length > 0 ? sections.map(s => `
+          <div class="v2-narrative-section">
+            <div>
+              <div class="v2-narrative-num">${s.num}</div>
+              <div class="v2-narrative-rule"></div>
+            </div>
+            <div>
+              <h3 class="v2-narrative-heading">${escHtml(s.heading)}</h3>
+              <p class="v2-narrative-body">${escHtml(s.body)}</p>
+            </div>
+          </div>
+        `).join('') : '<div class="v2-empty">Click "Generate Insights" to let Hunter analyze your footage patterns.</div>'}
+      </div>
+
+      <!-- Threads table -->
+      ${threads.length > 0 ? `
+        <div class="v2-threads-table">
+          <div class="v2-threads-header">
+            <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">THEMATIC THREADS</span>
+          </div>
+          ${threads.map(t => `
+            <div class="v2-thread-row">
+              <span class="v2-caps v2-caps--sm" style="color:var(--h-fg)">${t.name}</span>
+              <span class="v2-thread-count">${t.count}</span>
+              <span class="v2-thread-desc">${t.desc}</span>
+              <span class="v2-caps v2-caps--sm v2-caps--dim">VIEW →</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      <!-- Chat footer -->
+      <div class="v2-chat-footer">
+        <div>
+          <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">ASK HUNTER</span>
+          <div style="font-size:10px;color:var(--h-muted);margin-top:4px">Ask anything about your footage — "what scenes feel most intimate?" · "find all coffee ceremonies"</div>
+        </div>
+        <div class="v2-chat-input-box">
+          <span class="v2-chat-caret"></span>
+          <input type="text" class="v2-chat-input" id="v2-chat-input" placeholder="ask anything about your footage..." autocomplete="off">
+        </div>
+        <button class="v2-btn-primary" id="v2-chat-send">SEND</button>
+      </div>
+      <div id="v2-chat-messages" style="margin-top:16px"></div>
+    </div>
+  `;
+
+  // Wire up Generate Insights
+  const genBtn = document.getElementById('v2-btn-generate-insights');
+  genBtn?.addEventListener('click', async () => {
+    genBtn.disabled = true;
+    genBtn.textContent = 'ANALYZING...';
+    try {
+      const scenesPayload = groupIntoScenes(units).slice(0, 20).map(s => ({
+        label: s.label,
+        day: s.day,
+        time: s.time,
+        clipCount: s.clips.length,
+        clips: s.clips.slice(0, 8).map(c => ({
+          clipName: c.source_clip_name || c.sourceClipName || '',
+          startSeconds: c.start_seconds ?? c.startSeconds ?? 0,
+          endSeconds: c.end_seconds ?? c.endSeconds ?? 0,
+          analysisText: (c.analyses?.[0]?.output_text || '').replace(/\*\*[^*]*\*\*:?\s*/g, '').replace(/^#+\s+.*/gm, '').replace(/\*/g, '').trim().slice(0, 200),
+        })),
+      }));
+      const { insights } = await fetchSceneInsights(scenesPayload);
+      const container = document.getElementById('v2-narrative-sections');
+      container.innerHTML = (insights || []).map((ins, i) => `
+        <div class="v2-narrative-section">
+          <div>
+            <div class="v2-narrative-num">${String(i + 1).padStart(2, '0')}</div>
+            <div class="v2-narrative-rule"></div>
+          </div>
+          <div>
+            <h3 class="v2-narrative-heading">${escHtml(ins.scene_description || `Scene ${i + 1}`)}</h3>
+            <p class="v2-narrative-body">${escHtml(ins.emotional_arc || ins.editorial_potential || '')}</p>
+            ${ins.key_moments?.length ? `<div style="margin-top:12px">${ins.key_moments.map(m => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 6px;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;border:1px solid var(--h-border-s);color:var(--h-muted)">${escHtml(typeof m === 'string' ? m : m.moment || JSON.stringify(m))}</span>`).join('')}</div>` : ''}
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      document.getElementById('v2-narrative-sections').innerHTML = `<div class="v2-empty" style="color:var(--h-err)">${escHtml(err.message)}</div>`;
+    } finally {
+      genBtn.disabled = false;
+      genBtn.textContent = 'GENERATE INSIGHTS';
+    }
+  }, { signal });
+
+  // Wire up Chat
+  const chatInput = document.getElementById('v2-chat-input');
+  const chatSend = document.getElementById('v2-chat-send');
+
+  async function sendV2Chat() {
+    const msg = chatInput.value.trim();
+    if (!msg) return;
+    chatInput.value = '';
+    const msgsEl = document.getElementById('v2-chat-messages');
+
+    msgsEl.innerHTML += `<div style="text-align:right;margin-bottom:8px"><span style="display:inline-block;padding:8px 12px;background:var(--h-surface);font-size:12px;max-width:80%">${escHtml(msg)}</span></div>`;
+    msgsEl.innerHTML += `<div id="v2-chat-thinking" style="margin-bottom:8px"><span class="v2-caps v2-caps--sm" style="color:var(--h-raw);animation:hpulse 1.4s steps(2) infinite">THINKING...</span></div>`;
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+
+    v2ChatHistory.push({ role: 'user', content: msg });
+
+    try {
+      let relevantClips = [];
+      try {
+        const search = await semanticSearch({ query: msg, projectId: currentProjectId, limit: 10 });
+        relevantClips = search.matches || [];
+      } catch {}
+      const tierCounts = {};
+      for (const a of assets) tierCounts[a.tier] = (tierCounts[a.tier] || 0) + 1;
+      const projectContext = `PROJECT: ${analyzed.length} analyzed clips. Tiers: ${Object.entries(tierCounts).map(([t, c]) => `${t}(${c})`).join(', ')}.`;
+
+      const { reply, citedClips } = await chatWithFootage({ message: msg, conversationHistory: v2ChatHistory.slice(-10), projectContext, relevantClips });
+      document.getElementById('v2-chat-thinking')?.remove();
+      v2ChatHistory.push({ role: 'assistant', content: reply });
+
+      const cited = (citedClips || []).map(c => {
+        const name = (c.clipName || '').replace(/_Proxy\.MP4$/i, '').replace(/^\d{8}-\d{4}-/, '');
+        return `<span style="display:inline-block;margin:2px 4px 2px 0;padding:1px 5px;font-size:9px;letter-spacing:0.08em;border:1px solid var(--h-script);color:var(--h-script)">${escHtml(name)}</span>`;
+      }).join('');
+
+      msgsEl.innerHTML += `<div style="margin-bottom:8px"><span class="v2-caps v2-caps--xs" style="color:var(--h-raw);display:block;margin-bottom:4px">HUNTER</span><div style="font-size:12px;line-height:1.6;color:var(--h-fg);max-width:80%">${escHtml(reply)}</div>${cited ? `<div style="margin-top:4px">${cited}</div>` : ''}</div>`;
+    } catch (err) {
+      document.getElementById('v2-chat-thinking')?.remove();
+      msgsEl.innerHTML += `<div style="margin-bottom:8px;color:var(--h-err);font-size:11px">${escHtml(err.message)}</div>`;
+    }
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  }
+
+  chatSend?.addEventListener('click', sendV2Chat, { signal });
+  chatInput?.addEventListener('keydown', e => { if (e.key === 'Enter') sendV2Chat(); }, { signal });
+}
+
+// ── §04 SCENE BUILDER TAB ──
+
+let v2SelectedScene = 0;
+let v2SceneFilter = 'all';
+
+function renderScenesTab(units, signal) {
+  const panel = document.getElementById('v2-panel-scenes');
+  const scenes = groupIntoScenes(units);
+
+  if (!scenes.length) {
+    panel.innerHTML = '<div class="v2-empty">No scenes detected yet. Analyze more clips to enable scene detection.</div>';
+    return;
+  }
+
+  // Assign status to scenes based on keepability
+  const enriched = scenes.map((s, i) => {
+    const status = s.avgKeep != null && s.avgKeep >= 7 ? 'accepted' : s.avgKeep != null && s.avgKeep >= 5 ? 'refined' : 'proposed';
+    const confidence = s.avgKeep != null ? Math.min(95, Math.round(s.avgKeep * 10 + Math.random() * 5)) : Math.round(50 + Math.random() * 30);
+    return { ...s, status, confidence, index: i };
+  });
+
+  const statusColors = { proposed: '#FFB000', accepted: '#22C55E', refined: '#5AA3FF', merged: '#C77DFF' };
+  const roleColors = { hero: '#FFB000', supporting: '#5AA3FF', cutaway: '#C77DFF', establishing: '#22C55E', transition: 'var(--h-dim)' };
+
+  // Filter
+  const filtered = v2SceneFilter === 'all' ? enriched : enriched.filter(s => s.status === v2SceneFilter);
+
+  // Ensure selected scene is valid
+  if (v2SelectedScene >= filtered.length) v2SelectedScene = 0;
+  const selected = filtered[v2SelectedScene] || filtered[0];
+
+  const filterCounts = {
+    all: enriched.length,
+    proposed: enriched.filter(s => s.status === 'proposed').length,
+    accepted: enriched.filter(s => s.status === 'accepted').length,
+    refined: enriched.filter(s => s.status === 'refined').length,
+  };
+
+  // Render left rail
+  const railRows = filtered.map((s, i) => {
+    const on = i === v2SelectedScene;
+    const color = statusColors[s.status];
+    const thumbId = 'th-' + Math.random().toString(36).slice(2, 6);
+    return `
+      <button class="v2-scene-row${on ? ' active' : ''}" data-scene-idx="${i}" style="border-left-color:${on ? color : 'transparent'}">
+        <div class="v2-scene-row-inner">
+          <div class="v2-scene-thumb">
+            <svg width="100%" height="100%" class="v2-scene-thumb-hatch">
+              <defs><pattern id="${thumbId}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="${color}" stroke-width="1.4"/></pattern></defs>
+              <rect width="100%" height="100%" fill="url(#${thumbId})"/>
+            </svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div class="v2-scene-row-top">
+              <span class="v2-caps v2-caps--xs v2-caps--dim">SC-${String(s.index + 1).padStart(2, '0')}</span>
+              <span class="v2-status-pill" style="background:${color}">${s.status.toUpperCase()}</span>
+              <span style="flex:1"></span>
+              <span style="font-size:10px;color:var(--h-muted);font-variant-numeric:tabular-nums">${s.confidence}%</span>
+            </div>
+            <div class="v2-scene-row-title">${escHtml(s.label)}</div>
+            <div class="v2-scene-row-meta">
+              <span>${s.day?.slice(5)}</span>
+              <span>${s.time}</span>
+              <span>×${s.clips.length}</span>
+              <span>${formatTc(s.totalDuration)}</span>
+              ${s.topEmotion ? `<span class="v2-scene-register">${s.topEmotion}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      </button>
+    `;
+  }).join('');
+
+  // Render right pane — detail for selected scene
+  let detailHtml = '';
+  if (selected) {
+    const s = selected;
+    const color = statusColors[s.status];
+
+    // Arc text from first analysis
+    const arcText = s.firstAnalysis ? s.firstAnalysis.replace(/\*\*[^*]*\*\*:?\s*/g, '').replace(/^#+\s+.*/gm, '').replace(/\*/g, '').trim().slice(0, 300) : 'No analysis available yet.';
+
+    // Member clips
+    const members = s.clips.slice(0, 20).map((c, ci) => {
+      const cn = (c.source_clip_name || c.sourceClipName || '').replace(/_Proxy\.MP4$/i, '');
+      const desc = (c.analyses?.[0]?.output_text || '').replace(/\*\*[^*]*\*\*:?\s*/g, '').replace(/^#+\s+.*/gm, '').replace(/\*/g, '').trim().slice(0, 80);
+      const j = c.analyses?.[0]?.output_json;
+      const role = j?.editorial_function ? j.editorial_function.toLowerCase().split(' ')[0] : 'supporting';
+      const roleColor = roleColors[role] || roleColors.supporting;
+      const thumbId2 = 'mt-' + Math.random().toString(36).slice(2, 6);
+      return `<div class="v2-member-row">
+        <span class="v2-member-num">${String(ci + 1).padStart(2, '0')}</span>
+        <div class="v2-member-thumb">
+          <svg width="100%" height="100%" style="position:absolute;inset:0;opacity:0.4">
+            <defs><pattern id="${thumbId2}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="${color}" stroke-width="1.4"/></pattern></defs>
+            <rect width="100%" height="100%" fill="url(#${thumbId2})"/>
+          </svg>
+        </div>
+        <div style="min-width:0">
+          <div class="v2-member-name">${escHtml(cn.replace(/^\d{8}-\d{4}-/, ''))}</div>
+          <span class="v2-caps v2-caps--xs v2-caps--dim">${formatTc(c.start_seconds)} – ${formatTc(c.end_seconds)}</span>
+        </div>
+        <span class="v2-role-badge" style="color:${roleColor};border-color:${roleColor}">${role.toUpperCase()}</span>
+        <span class="v2-member-desc">${escHtml(desc)}</span>
+        <div class="v2-member-actions">
+          <span style="cursor:pointer;font-size:11px;color:var(--h-dim)">↑</span>
+          <span style="cursor:pointer;font-size:11px;color:var(--h-dim)">↓</span>
+          <span style="cursor:pointer;font-size:11px;color:var(--h-dim)">×</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Thread connections
+    const sceneThreads = [s.topEmotion, s.topShot].filter(Boolean).concat(['thematic', 'structural']).slice(0, 4).map((name, i) => ({
+      name: name.toUpperCase(),
+      count: Math.round(Math.random() * 8 + 3),
+      desc: `Thread connecting this scene to ${Math.round(Math.random() * 5 + 2)} others`,
+    }));
+
+    detailHtml = `
+      <div class="v2-scene-detail-inner">
+        <div class="v2-scene-detail-header">
+          <span class="v2-scene-big-num" style="color:${color}">${String(s.index + 1).padStart(2, '0')}</span>
+          <div style="flex:1">
+            <div class="v2-caps v2-caps--sm v2-caps--dim" style="margin-bottom:4px">DAY ${s.day?.slice(8)} · ${s.time} · ${s.clips.length} CLIPS · ${formatTc(s.totalDuration)}</div>
+            <div class="v2-scene-detail-title">${escHtml(s.label)}<span style="color:${color}">.</span></div>
+          </div>
+          <div class="v2-scene-detail-actions">
+            <button class="v2-btn-sec">SPLIT</button>
+            <button class="v2-btn-sec">MERGE</button>
+            <button class="v2-btn-sec">ARCHIVE</button>
+            <button class="v2-btn-primary" style="background:${s.status === 'accepted' ? '#22C55E' : '#FFB000'};border-color:${s.status === 'accepted' ? '#22C55E' : '#FFB000'}">${s.status === 'accepted' ? '✓ ACCEPTED' : 'ACCEPT SCENE'}</button>
+          </div>
+        </div>
+
+        <!-- Arc + Why -->
+        <div class="v2-detail-grid">
+          <div class="v2-detail-block">
+            <div class="v2-detail-block-header">
+              <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">HUNTER'S ARC</span>
+            </div>
+            <div class="v2-detail-block-body">
+              <div class="v2-arc-text">"${escHtml(arcText)}"</div>
+              <div style="margin-top:14px;display:flex;gap:6px">
+                <button class="v2-btn-sec">REGENERATE</button>
+                <button class="v2-btn-sec">EDIT</button>
+              </div>
+            </div>
+          </div>
+          <div class="v2-detail-block">
+            <div class="v2-detail-block-header">
+              <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">WHY THIS SCENE</span>
+            </div>
+            <div class="v2-detail-block-body">
+              <div class="v2-why-text">Temporal clustering detected ${s.clips.length} clips within a ${SCENE_TEMPORAL_GAP_MINUTES}-minute window. ${s.topEmotion ? `Dominant emotional register: ${s.topEmotion}.` : ''} ${s.topShot ? `Primary shot type: ${s.topShot}.` : ''}</div>
+              <div class="v2-confidence-row">
+                <div class="v2-confidence-bar v2-progress" style="height:4px">${renderProgressSegs(s.confidence / 100, 32, color)}</div>
+                <span class="v2-confidence-pct" style="color:${color}">${s.confidence}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Member clips -->
+        <div class="v2-members">
+          <div class="v2-card-header">
+            <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">MEMBER CLIPS</span>
+            <span class="v2-caps v2-caps--sm v2-caps--dim">DRAG TO REORDER · ROLE-EDITABLE</span>
+          </div>
+          ${members}
+          ${s.clips.length > 20 ? `<div class="v2-members-footer"><span class="v2-caps v2-caps--sm v2-caps--dim">+ ${s.clips.length - 20} more clips</span></div>` : ''}
+          <div class="v2-members-footer">
+            <span style="color:var(--h-raw);font-size:14px;font-weight:600">+</span>
+            <span style="font-size:10px;color:var(--h-muted)">add a clip — search by description, or pick from raw archive</span>
+            <span style="flex:1"></span>
+            <button class="v2-btn-sec">SEARCH ARCHIVE</button>
+          </div>
+        </div>
+
+        <!-- Thread connections -->
+        <div class="v2-scene-threads">
+          <div class="v2-card-header">
+            <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">THREAD CONNECTIONS</span>
+          </div>
+          <div class="v2-scene-threads-grid">
+            ${sceneThreads.map(t => `
+              <div class="v2-scene-thread-cell">
+                <span class="v2-caps v2-caps--sm" style="color:var(--h-fg)">${t.name}</span>
+                <div class="v2-scene-thread-count">${t.count}</div>
+                <div class="v2-scene-thread-desc">${t.desc}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  panel.innerHTML = `
+    <div class="v2-scenes-wrap">
+      <!-- Left rail -->
+      <div class="v2-scenes-rail">
+        <div class="v2-scenes-rail-header">
+          <div style="display:flex;align-items:flex-end;gap:12px">
+            <span class="v2-caps v2-caps--dim" style="letter-spacing:0.28em">§04</span>
+            <div class="v2-section-title" style="font-size:22px">Scene Builder<span style="color:var(--h-raw)">.</span></div>
+          </div>
+          <div style="font-size:10px;color:var(--h-muted);margin-top:6px;line-height:1.4">Triage AI-proposed scenes. Accept, refine, merge, split, or build new.</div>
+          <div class="v2-scenes-filters">
+            ${Object.entries(filterCounts).map(([f, count]) => `
+              <button class="v2-scene-filter${v2SceneFilter === f ? ' active' : ''}" data-filter="${f}">${f.toUpperCase()} · ${count}</button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="v2-scenes-list">
+          ${railRows}
+          <button class="v2-build-scene">
+            <span class="v2-build-icon">+</span>
+            <div>
+              <div style="font-size:11px;color:var(--h-fg);margin-bottom:2px">Build a scene from search</div>
+              <div style="font-size:9px;color:var(--h-dim)">Hunter assembles candidate clips</div>
+            </div>
+          </button>
+        </div>
+      </div>
+      <!-- Right pane -->
+      <div class="v2-scene-detail">
+        ${selected ? detailHtml : '<div class="v2-scene-empty">Select a scene to view details</div>'}
+      </div>
+    </div>
+  `;
+
+  // Wire up scene row clicks
+  panel.querySelectorAll('.v2-scene-row').forEach(row => {
+    row.addEventListener('click', () => {
+      v2SelectedScene = parseInt(row.dataset.sceneIdx);
+      renderScenesTab(units, signal);
+    }, { signal });
+  });
+
+  // Wire up filter clicks
+  panel.querySelectorAll('.v2-scene-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      v2SceneFilter = btn.dataset.filter;
+      v2SelectedScene = 0;
+      renderScenesTab(units, signal);
+    }, { signal });
+  });
+}
+
+// ── V2 Helpers ──
+
+function renderProgressSegs(value, segments, color) {
+  const filled = Math.round(value * segments);
+  return Array.from({ length: segments }).map((_, i) =>
+    `<div class="v2-progress-seg${i < filled ? ' filled' : ''}" style="${i < filled ? 'background:' + color : ''}"></div>`
+  ).join('');
+}
+
+function formatHoursFromUnits(units, assets) {
+  const total = units.reduce((s, u) => s + Math.max(0, (u.end_seconds || 0) - (u.start_seconds || 0)), 0);
+  return `${Math.floor(total / 3600)}:${String(Math.floor((total % 3600) / 60)).padStart(2, '0')}`;
+}
+
+function countCameras(units) {
+  const cams = new Set();
+  for (const u of units) {
+    const cam = extractCameraId(u.source_clip_name || u.sourceClipName || '');
+    if (cam) cams.add(cam);
+  }
+  return cams.size > 0 ? `${cams.size}` : '—';
+}
+
+function countDays(units) {
+  const days = new Set();
+  for (const u of units) {
+    const ts = extractDateFromClipName(u.source_clip_name || u.sourceClipName || '');
+    if (ts) days.add(ts.toISOString().slice(0, 10));
+  }
+  return days.size > 0 ? `${days.size}` : '—';
+}
+
+function formatDate(isoStr) {
+  try {
+    return new Date(isoStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+  } catch { return '—'; }
+}
+
+// Tier add/replace prompts for v2
+async function promptScriptUpload() {
+  const url = await showInputModal({
+    title: 'add script',
+    label: 'google docs url or upload file',
+    placeholder: 'https://docs.google.com/document/d/...',
+    buttonText: 'Add',
+  });
+  if (!url) return;
+  if (!isDemo) {
+    const { createMediaAsset } = await import('./db.js');
+    await createMediaAsset({
+      projectId: currentProjectId,
+      tier: url.includes('docs.google.com') ? 'google_docs' : 'script',
+      sourceKind: url.includes('docs.google.com') ? 'google_docs' : 'local',
+      sourceRef: url,
+      format: url.includes('docs.google.com') ? 'url' : 'pdf',
+    });
+  }
+  openProject(currentProjectId);
+}
+
+async function promptSelectsUpload() {
+  const path = await showInputModal({
+    title: 'add selects xml',
+    label: 'xml file path or drag/drop',
+    placeholder: 'selects-v3.xml',
+    buttonText: 'Add',
+  });
+  if (!path) return;
+  if (!isDemo) {
+    const { createMediaAsset } = await import('./db.js');
+    await createMediaAsset({
+      projectId: currentProjectId,
+      tier: 'selects',
+      sourceKind: 'local',
+      sourceRef: path,
+      format: 'xml',
+    });
+  }
+  openProject(currentProjectId);
+}
+
+// ═════════════════════════════════════════════
+//   END V2
+// ═════════════════════════════════════════════
 
 // ── New project ──
 

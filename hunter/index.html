@@ -54,211 +54,45 @@
       </div>
     </section>
 
-    <!-- Project detail view -->
+    <!-- Project detail view — v2 shell -->
     <section id="project-view" class="panel">
-      <div class="project-nav">
-        <button id="btn-back-projects" class="back-btn">← projects</button>
-        <button id="btn-delete-project" class="np-button np-button--ghost" style="font-size:10px;color:var(--np-red);">Delete</button>
-      </div>
-      <div id="project-header" class="project-header"></div>
-
-      <!-- Training Hub — radial source interface -->
-      <div class="training-hub-container">
-        <div class="training-hub">
-          <div class="training-hub-name" id="hub-project-name"></div>
-          <div class="training-hub-status" id="hub-status">0/5</div>
-        </div>
-
-        <div class="spoke spoke--raw" data-tier="raw">
-          <div class="spoke-line"></div>
-          <div class="spoke-card">
-            <div class="spoke-card-label">RAW</div>
-            <div class="spoke-card-desc">unfiltered footage</div>
-            <div class="spoke-card-content" id="spoke-raw-content"></div>
-            <button class="np-button tier-add-btn" data-tier="raw">+ Dropbox folder</button>
+      <div class="v2" id="v2-shell">
+        <!-- TopBar -->
+        <div class="v2-topbar">
+          <div class="v2-topbar-cell v2-topbar-brand">
+            <span class="v2-mark"></span>
+            <span class="v2-topbar-name">HUNTER</span>
           </div>
-        </div>
-
-        <div class="spoke spoke--script" data-tier="script">
-          <div class="spoke-line"></div>
-          <div class="spoke-card">
-            <div class="spoke-card-label">SCRIPT</div>
-            <div class="spoke-card-desc">original written intent</div>
-            <div class="spoke-card-content" id="spoke-script-content"></div>
-            <button class="np-button tier-add-btn" data-tier="script">+ Upload file</button>
-            <input type="file" class="tier-file-input" data-tier="script" accept=".pdf,.docx,.txt,.md" hidden>
+          <div class="v2-topbar-cell">v0.4.1</div>
+          <div class="v2-topbar-cell">
+            <button id="btn-back-projects" class="v2-topbar-link">← PROJECTS</button>
+            <span class="v2-topbar-sep"></span>
+            <button id="btn-delete-project" class="v2-topbar-link v2-topbar-link--danger">DELETE</button>
           </div>
-        </div>
-
-        <div class="spoke spoke--selects" data-tier="selects">
-          <div class="spoke-line"></div>
-          <div class="spoke-card">
-            <div class="spoke-card-label">SELECTS</div>
-            <div class="spoke-card-desc">curated sequences</div>
-            <div class="spoke-card-content" id="spoke-selects-content"></div>
-            <button class="np-button tier-add-btn" data-tier="selects">+ XML / EDL</button>
-            <input type="file" class="tier-file-input" data-tier="selects" accept=".xml,.edl" multiple hidden>
+          <div class="v2-topbar-spacer"></div>
+          <div class="v2-topbar-cell v2-topbar-status" id="v2-topbar-status">
+            <span class="v2-pulse" id="v2-pulse"></span>
+            <span id="v2-status-text">READY</span>
           </div>
+          <div class="v2-topbar-cell" id="v2-topbar-time"></div>
         </div>
 
-        <div class="spoke spoke--finished" data-tier="finished">
-          <div class="spoke-line"></div>
-          <div class="spoke-card">
-            <div class="spoke-card-label">FINISHED</div>
-            <div class="spoke-card-desc">published cut</div>
-            <div class="spoke-card-content" id="spoke-finished-content"></div>
-            <button class="np-button tier-add-btn" data-tier="finished">+ YouTube URL</button>
-          </div>
-        </div>
+        <!-- ProjectPlate -->
+        <div class="v2-plate" id="v2-plate"></div>
 
-        <div class="spoke spoke--docs" data-tier="google_docs">
-          <div class="spoke-line"></div>
-          <div class="spoke-card">
-            <div class="spoke-card-label">GOOGLE DOCS</div>
-            <div class="spoke-card-desc">linked document</div>
-            <div class="spoke-card-content" id="spoke-docs-content"></div>
-            <button class="np-button tier-add-btn" data-tier="google_docs">+ Link doc</button>
-          </div>
-        </div>
-      </div>
+        <!-- TabStrip -->
+        <div class="v2-tabstrip" id="v2-tabstrip"></div>
 
-      <!-- Tier funnel -->
-      <div id="tier-funnel" class="tier-funnel hidden">
-        <div class="tier-funnel-header">
-          <span class="tier-funnel-title">editorial funnel</span>
-        </div>
-        <div class="tier-funnel-bar" id="tier-funnel-bar"></div>
-      </div>
+        <!-- Main content area -->
+        <main class="v2-main" id="v2-main">
+          <div class="v2-tab-panel active" id="v2-panel-inputs"></div>
+          <div class="v2-tab-panel" id="v2-panel-training"></div>
+          <div class="v2-tab-panel" id="v2-panel-insights"></div>
+          <div class="v2-tab-panel" id="v2-panel-scenes"></div>
+        </main>
 
-      <!-- Project stats dashboard -->
-      <div id="project-stats" class="project-stats-dashboard hidden">
-        <div class="stats-header">
-          <span class="stats-glyph">◉</span>
-          <span class="stats-title">Footage Breakdown</span>
-        </div>
-        <div class="stats-grid" id="stats-grid"></div>
-      </div>
-
-      <!-- Shooting calendar -->
-      <div id="shoot-calendar" class="shoot-calendar hidden">
-        <div class="shoot-calendar-header">
-          <span class="shoot-calendar-glyph">▦</span>
-          <span class="shoot-calendar-title">Shooting Days</span>
-          <span class="shoot-calendar-count" id="shoot-calendar-count"></span>
-        </div>
-        <div class="shoot-calendar-grid" id="shoot-calendar-grid"></div>
-      </div>
-
-      <!-- Insights Hub -->
-      <div id="insights-hub" class="insights-hub hidden">
-        <div class="insights-hub-header">
-          <span class="insights-hub-glyph">◆</span>
-          <span class="insights-hub-title">Insights Hub</span>
-        </div>
-        <div class="insights-hub-tabs">
-          <button class="insights-tab active" data-tab="scene-insights">Scene Insights</button>
-          <button class="insights-tab" data-tab="chat">Chat</button>
-          <button class="insights-tab" data-tab="tier-comparison">Tier Comparison</button>
-        </div>
-
-        <!-- Tab 1: Scene Insights -->
-        <div class="insights-panel active" id="panel-scene-insights">
-          <button class="np-button np-button--primary insights-action-btn" id="btn-generate-insights">generate scene insights</button>
-          <div class="insights-list" id="scene-insights-list"></div>
-        </div>
-
-        <!-- Tab 2: Chat -->
-        <div class="insights-panel" id="panel-chat">
-          <div class="chat-messages" id="chat-messages"></div>
-          <div class="chat-input-row">
-            <input type="text" class="chat-input" id="chat-input" placeholder="ask anything about your footage..." autocomplete="off">
-            <button class="np-button np-button--primary chat-send-btn" id="chat-send-btn">send</button>
-          </div>
-        </div>
-
-        <!-- Tab 3: Tier Comparison -->
-        <div class="insights-panel" id="panel-tier-comparison">
-          <button class="np-button np-button--primary insights-action-btn" id="btn-compare-tiers">compare tiers</button>
-          <div class="tier-comparison-results" id="tier-comparison-results"></div>
-        </div>
-      </div>
-
-      <!-- Best clips -->
-      <div id="best-clips" class="best-clips-section hidden">
-        <div class="best-clips-header">
-          <span class="best-clips-glyph">★</span>
-          <span class="best-clips-title">Best Clips</span>
-          <span class="best-clips-count" id="best-clips-count"></span>
-        </div>
-        <div class="best-clips-grid" id="best-clips-grid"></div>
-      </div>
-
-      <!-- Scenes timeline -->
-      <div id="project-scenes" class="scenes-section hidden">
-        <div class="scenes-header">
-          <div class="scenes-title">
-            <span class="scenes-glyph">◈</span>
-            Scenes
-          </div>
-          <span class="scenes-count" id="scenes-count"></span>
-        </div>
-        <div id="scenes-timeline" class="scenes-timeline"></div>
-      </div>
-
-      <!-- Hunter's Eye — ingest feed -->
-      <div id="ingest-status" class="hunters-eye hidden">
-        <div class="hunters-eye-header">
-          <div class="hunters-eye-pulse"></div>
-          <span class="hunters-eye-title">hunter is watching</span>
-          <span class="hunters-eye-count" id="ingest-count"></span>
-        </div>
-        <div class="hunters-eye-bar">
-          <div class="hunters-eye-bar-fill" id="ingest-progress-fill"></div>
-        </div>
-        <div class="hunters-eye-feed" id="ingest-feed"></div>
-      </div>
-
-      <!-- Transcript browser -->
-      <div id="transcript-browser" class="transcript-section hidden">
-        <div class="transcript-header">
-          <div class="transcript-title-row">
-            <span class="transcript-glyph">¶</span>
-            <span class="transcript-title">Transcripts</span>
-            <span class="transcript-count" id="transcript-count"></span>
-          </div>
-          <input type="text" class="transcript-filter" id="transcript-filter" placeholder="filter transcripts..." autocomplete="off">
-        </div>
-        <div class="transcript-list" id="transcript-list"></div>
-      </div>
-
-      <!-- Corpus Observatory -->
-      <div id="project-corpus" class="observatory">
-        <div class="observatory-header">
-          <div class="observatory-title">
-            <span class="observatory-glyph">&#x25C9;</span>
-            Corpus
-          </div>
-          <button id="btn-export-xml" class="np-button np-button--ghost" style="font-size:10px;padding:4px 12px;">Export XML</button>
-        </div>
-        <div id="corpus-units-list" class="observatory-units"></div>
-      </div>
-
-      <!-- Project search -->
-      <div class="project-search">
-        <div class="project-search-row">
-          <input type="text" id="project-search-input" class="project-search-input" placeholder="search this project's footage...">
-          <button class="np-button np-button--primary project-search-btn" id="project-search-btn">search</button>
-        </div>
-        <div id="project-search-results" class="project-search-results"></div>
-      </div>
-
-      <!-- Pattern Revelations -->
-      <div id="project-patterns" class="revelations">
-        <div class="revelations-header">
-          <div class="revelations-title">Observations</div>
-          <button id="btn-what-do-you-see" class="np-button np-button--red">what do you see?</button>
-        </div>
-        <div id="patterns-list" class="revelations-list"></div>
+        <!-- FootBar -->
+        <div class="v2-footbar" id="v2-footbar"></div>
       </div>
     </section>
 
