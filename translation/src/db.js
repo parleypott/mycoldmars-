@@ -852,12 +852,26 @@ async function uploadViaTus({ file, bucket, path, onProgress }) {
         cacheControl: '3600',
       },
       onError: (err) => {
-        // Surface the underlying response body when present — Supabase's
-        // error JSON has the actual reason (auth, mime, quota, etc.)
         let detail = err?.message || String(err);
+        let bodyText = '';
         if (err?.originalResponse) {
-          try { detail += ' — ' + err.originalResponse.getBody(); } catch {}
+          try { bodyText = err.originalResponse.getBody() || ''; } catch {}
         }
+        // Detect the free-tier 50MB platform cap and surface a clean
+        // actionable message instead of the raw TUS bytes.
+        const is413 = /response code: 413|Maximum size exceeded/i.test(detail) ||
+                      /Maximum size exceeded/i.test(bodyText);
+        if (is413) {
+          const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+          const e = new Error(
+            `File is ${sizeMb} MB — Supabase Storage rejected it (free-tier per-file cap is 50 MB). ` +
+            `Upgrade the project to Supabase Pro ($25/mo) for a 50 GB per-file limit, or compress this file under 50 MB to test.`
+          );
+          e.code = 'STORAGE_QUOTA_EXCEEDED';
+          reject(e);
+          return;
+        }
+        if (bodyText) detail += ' — ' + bodyText;
         const e = new Error(`Resumable upload failed: ${detail}`);
         e.code = 'TUS_ERROR';
         reject(e);
