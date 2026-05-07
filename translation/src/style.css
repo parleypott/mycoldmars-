@@ -5072,3 +5072,122 @@ tr.dimmed-speaker { opacity: 0.35; }
   color: var(--np-sepia);
   opacity: 0.75;
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Trint-style media deck for the editor view.
+   Pinned video player (bottom-left) + full-width waveform (bottom).
+   Editor scroll area gets bottom-padding so content isn't hidden behind
+   the deck. The deck itself is fixed-position; the editor's parent gets
+   the padding via the .has-media-deck class added when the deck mounts.
+────────────────────────────────────────────────────────────────────── */
+.media-deck {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 90;
+  background: var(--np-cream);
+  border-top: 1px solid var(--np-sepia);
+  font-family: var(--np-font-mono);
+  pointer-events: none; /* let inner pieces opt-in so editor stays clickable behind */
+}
+
+.media-deck-video {
+  position: absolute;
+  left: 16px;
+  bottom: calc(72px + 14px); /* clear the waveform */
+  width: 320px;
+  background: #000;
+  border: 1px solid var(--np-sepia);
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  pointer-events: auto;
+}
+.media-deck--audio-only .media-deck-video {
+  width: 320px;
+  background: var(--np-cream);
+}
+.media-deck--audio-only video {
+  display: none;
+}
+.media-deck-video video {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000;
+}
+.media-deck-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--np-cream);
+  border-top: 1px solid var(--np-sepia);
+}
+.media-deck-btn {
+  background: transparent;
+  border: 1px solid var(--np-sepia);
+  border-radius: 2px;
+  width: 30px;
+  height: 26px;
+  color: var(--np-ink);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--np-font-mono);
+}
+.media-deck-btn:hover { background: var(--np-red); color: #fff; border-color: var(--np-red); }
+.media-deck-time {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--np-sepia);
+  flex: 1;
+}
+.media-deck-rate {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid var(--np-sepia);
+  border-radius: 2px;
+  padding: 3px 6px;
+  color: var(--np-ink);
+  cursor: pointer;
+}
+
+.media-deck-waveform {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 72px;
+  background: var(--np-cream);
+  border-top: 1px solid rgba(65, 44, 39, 0.25);
+  pointer-events: auto;
+}
+
+/* Push editor content above the deck. */
+body.has-media-deck #editor-mount,
+body.has-media-deck #workshop-mount {
+  padding-bottom: 320px;
+}
+
+/* "Currently playing" segment highlight in the transcript. */
+span[data-segment].is-playing {
+  background: linear-gradient(
+    to bottom,
+    rgba(221, 200, 30, 0.20) 0%,
+    rgba(221, 200, 30, 0.32) 100%
+  );
+  box-shadow: inset 0 -2px 0 rgba(221, 44, 30, 0.5);
+  transition: background 200ms ease-out;
+}
+
+/* Hover affordance: cmd/shift-click hint */
+span[data-segment]:hover {
+  cursor: pointer;
+  background: rgba(221, 44, 30, 0.04);
+}

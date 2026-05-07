@@ -5,7 +5,7 @@ import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, subscribeToTranscript, searchTranscripts, getSchemaStatus } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, subscribeToTranscript, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl } from './db.js';
 import { saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan } from './snapshot.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
@@ -21,6 +21,7 @@ import { initSotHunter, setSotHunterVisible } from './sot-hunter.js';
 import { initCommandPalette, openCommandPalette } from './command-palette.js';
 import { initFallingGlyphs, startFallingGlyphs, stopFallingGlyphs } from './falling-glyphs.js';
 import { isMediaFile, uploadAndTranscribe } from './upload/media-flow.js';
+import { mountMediaDeck } from './edit/media-deck.js';
 
 // ── State ──
 let segments = [];
@@ -41,6 +42,8 @@ let currentProjectId = null;
 let projects = [];
 let editorState = null;       // Tiptap JSON document
 let editorInstance = null;    // mounted editor reference
+let mediaDeck = null;         // mounted Trint-style video+waveform deck (when transcript has media)
+let currentMediaUploadId = null; // hydrated from transcripts.media_upload_id on load
 let editorDirty = false;      // true when editor has unsaved changes not yet synced to translations[]
 let currentSummary = null;    // auto-generated chronological summary
 let rawSummary = null;        // raw AI output before timecode enrichment
@@ -779,6 +782,9 @@ function applyTranscriptToState(t) {
   currentTranscriptId = t.id;
   currentTranscriptName = t.name;
   currentSlug = t.slug || null;
+  currentMediaUploadId = t.media_upload_id || null;
+  // Reset pendingMediaUploadId — that's only set during a fresh upload.
+  pendingMediaUploadId = null;
 }
 
 // Overlay a snapshot's gatherState()-shape payload onto our state vars.
@@ -978,8 +984,8 @@ function gatherState(name) {
     projectId: currentProjectId,
     editorState,
     wordTimings: wordTimingsMap,
-    mediaUploadId: pendingMediaUploadId || undefined,
-    source: pendingMediaUploadId ? 'transcribed' : undefined,
+    mediaUploadId: pendingMediaUploadId || currentMediaUploadId || undefined,
+    source: (pendingMediaUploadId || currentMediaUploadId) ? 'transcribed' : undefined,
     metadata: {
       editorialFocus,
       clarifications,
@@ -2396,6 +2402,69 @@ function stageLabel(stage) {
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// Trint-style media deck mounting (editor view only).
+//
+// If the current transcript has a media_upload_id, fetch the media row,
+// generate a 4-hour signed URL (long enough for an editing session), and
+// mount the pinned video player + waveform alongside the editor. The deck
+// also wires click-to-seek into the editor and renders highlights as
+// regions on the waveform.
+// ──────────────────────────────────────────────────────────────────────────
+async function mountMediaDeckForCurrent(editorContainer) {
+  if (!currentMediaUploadId) return;
+  if (mediaDeck) { try { mediaDeck.destroy(); } catch {} mediaDeck = null; }
+
+  let media;
+  try { media = await getMediaUpload(currentMediaUploadId); }
+  catch (err) {
+    console.warn('[media-deck] could not load media row:', err);
+    return;
+  }
+  if (!media || !media.storage_path) return;
+
+  const signedUrl = await getMediaSignedUrl(media.storage_path, {
+    bucket: media.storage_bucket || 'media',
+    expiresInSeconds: 4 * 60 * 60, // 4h editing session
+  });
+  if (!signedUrl) return;
+
+  mediaDeck = mountMediaDeck(editorContainer, {
+    signedUrl,
+    mimeType: media.mime_type || '',
+    segments,
+    highlights: currentEditorHighlights(),
+    onSeek: () => {},
+    onTimeUpdate: () => {},
+  });
+}
+
+// Pull current highlights from the editor's in-memory state. The editor's
+// document is the source of truth for highlights — the highlights table
+// is only persisted on export. So we extract from editorState directly,
+// which keeps the waveform regions in lockstep with what the editor shows.
+function currentEditorHighlights() {
+  if (!editorState) return [];
+  try {
+    const raw = extractHighlightsFromEditor(editorState) || [];
+    // Normalize to the shape media-deck expects: { segmentNumbers, color? }
+    return raw.map(h => ({
+      segmentNumbers: h.segmentNumbers || h.segment_numbers || [],
+      color: h.color || 'rgba(221, 200, 30, 0.35)',
+    }));
+  } catch (err) {
+    console.warn('[media-deck] highlight extract failed:', err);
+    return [];
+  }
+}
+
+// Refresh the waveform regions when highlights change in the editor.
+// Cheap (no DB roundtrip), safe to call on every editor update.
+function refreshMediaDeckHighlights() {
+  if (!mediaDeck) return;
+  try { mediaDeck.setHighlights(currentEditorHighlights()); } catch {}
+}
+
 function finishUploadParse(file) {
   // Reset state for new file
   currentTranscriptId = null;
@@ -2884,12 +2953,21 @@ function switchView(view) {
     mountWorkshop();
   }
 
+  // Tear down media deck whenever we leave the editor view.
+  if (view !== 'editor' && mediaDeck) {
+    try { mediaDeck.destroy(); } catch {}
+    mediaDeck = null;
+  }
+
   // Mount editor on first switch to editor view
   if (view === 'editor' && editorState) {
     backfillStartTimes(editorState, segments);
     syncEditorColors();
     const container = $('#editor-mount');
     if (container && !editorInstance) {
+      // Mount the Trint-style media deck if this transcript has a linked media upload.
+      // Fire-and-forget — failures are non-fatal (editor still works without media).
+      mountMediaDeckForCurrent(container).catch(err => console.warn('[media-deck] mount failed:', err));
       const seqMeta = getSeqMeta();
       editorInstance = mountEditor(container, {
         initialContent: editorState,
@@ -2909,6 +2987,7 @@ function switchView(view) {
           editorState = json;
           editorDirty = true;
           debouncedAutoSave();
+          refreshMediaDeckHighlights();
         },
         onSync: (arg) => {
           if (arg && typeof arg === 'object' && !Array.isArray(arg) && arg.kind === 'smart') {
