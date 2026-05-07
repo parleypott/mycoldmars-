@@ -159,11 +159,17 @@ export function openPreTranscribeDialog({ filename, sizeBytes, durationSeconds, 
     `;
     document.body.appendChild(modal);
 
-    const dismiss = () => { modal.remove(); reject(new Error('cancelled')); };
+    // Press Escape to dismiss. The listener is on `window`, so we MUST
+    // detach it on every exit path (close X, cancel button, escape key,
+    // and the happy-path go button) — otherwise each opened-and-dismissed
+    // dialog leaves a dead handler on window forever.
+    const onKey = (e) => { if (e.key === 'Escape') dismiss(); };
+    const dismiss = () => {
+      window.removeEventListener('keydown', onKey);
+      modal.remove();
+      reject(new Error('cancelled'));
+    };
     modal.querySelectorAll('[data-close], [data-cancel]').forEach(el => el.addEventListener('click', dismiss));
-
-    // Press Escape to dismiss.
-    const onKey = (e) => { if (e.key === 'Escape') { window.removeEventListener('keydown', onKey); dismiss(); } };
     window.addEventListener('keydown', onKey);
 
     modal.querySelector('[data-go]').addEventListener('click', () => {
