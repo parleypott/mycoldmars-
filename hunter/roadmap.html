@@ -287,23 +287,19 @@
 
   <!-- Next Steps Callout -->
   <div class="callout">
-    <h2>Your Next Steps (in order)</h2>
+    <h2>What's Left</h2>
     <ol>
       <li>
-        <strong>Deploy the search function to Supabase.</strong><br>
-        <span>Open the Supabase dashboard, go to SQL Editor, paste the contents of <code>supabase-vector-search.sql</code> and run it. This creates the server-side search function that makes semantic search fast instead of falling back to slow client-side matching.</span>
+        <strong>Let the backfill finish.</strong><br>
+        <span>It's running now and grinding toward 100%. For hands-free operation: <code>node hunter/worker/backfill-continuous.mjs</code> — it auto-restarts batches with a 30s cooldown until every clip is analyzed.</span>
       </li>
       <li>
-        <strong>Test local dev with the new proxy.</strong><br>
-        <span>Run <code>npx vite</code> in the <code>hunter/</code> folder, plus <code>vercel dev</code> in the project root (in a second terminal). The Vite proxy now forwards <code>/api/*</code> calls to Vercel dev. Search, "what do you see?", and synthesis should all work locally now.</span>
+        <strong>Fix zero-duration clips (after backfill).</strong><br>
+        <span>Run <code>node hunter/worker/fix-durations.mjs</code> to re-probe durations for already-analyzed clips that have 0s recorded. This improves scene timeline accuracy.</span>
       </li>
       <li>
-        <strong>Resume the backfill to push past 63%.</strong><br>
-        <span>Run <code>node hunter/worker/backfill-analyses.mjs</code>. It now cleans up temp files automatically, handles Ctrl+C gracefully, and won't leak cache. Let it grind — it'll keep retrying through 503 storms.</span>
-      </li>
-      <li>
-        <strong>Once backfill finishes, re-run scene detection.</strong><br>
-        <span>More data means better scene groupings. Open any project — scenes auto-detect from clip timestamps and embeddings.</span>
+        <strong>Dark redesign pass (when ready).</strong><br>
+        <span>The existing design plan needs updating for new sections (scenes, funnel, search, shortcuts). Visual-only — no functionality changes.</span>
       </li>
     </ol>
   </div>
@@ -383,22 +379,32 @@
     </div>
   </div>
 
-  <!-- Phase 1.5: Manual step -->
+  <!-- Phase 1.5: Done -->
   <div class="phase">
     <div class="phase-header">
-      <span class="phase-badge phase-badge--action">Action Needed</span>
-      <h2>Deploy Search RPC to Supabase</h2>
+      <span class="phase-badge phase-badge--done">Done</span>
+      <h2>Search RPC + Pattern Surfacing</h2>
     </div>
     <div class="tasks">
-      <div class="task" style="border-color: var(--yellow);">
-        <div class="task-icon task-icon--todo">!</div>
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
         <div>
-          <div class="task-title">Run the vector search SQL migration</div>
-          <div class="task-desc">
-            The file <code>supabase-vector-search.sql</code> exists in the repo but was never executed against Supabase. Without it, semantic search falls back to downloading all 6,210 embeddings client-side and doing cosine similarity in the browser — slow and wasteful.<br><br>
-            <strong>How:</strong> Open Supabase dashboard &rarr; SQL Editor &rarr; paste the file contents &rarr; Run.
-          </div>
-          <span class="task-file">supabase-vector-search.sql</span>
+          <div class="task-title">Server-side semantic search deployed</div>
+          <div class="task-desc">The <code>search_corpus_embeddings</code> RPC and IVFFlat index are live in Supabase. Search now runs server-side instead of downloading 6,000+ embeddings to the browser.</div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">"What do you see?" works on production</div>
+          <div class="task-desc">Switched from Gemini Pro to Flash, capped corpus to 150 sampled analyses, extended edge timeout to 60s. Pattern surfacing now returns 200 OK instead of timing out.</div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">Live corpus health bar in Hunter header</div>
+          <div class="task-desc">A thin green progress bar under the header shows analyzed/total counts, auto-refreshes every 60s.</div>
         </div>
       </div>
     </div>
@@ -444,17 +450,17 @@
   <!-- Phase 3: Complete the Corpus -->
   <div class="phase">
     <div class="phase-header">
-      <span class="phase-badge phase-badge--action">Up Next</span>
+      <span class="phase-badge phase-badge--action">In Progress</span>
       <h2>Phase 3 — Complete the Corpus</h2>
     </div>
-    <p class="hero-sub" style="margin-bottom: 24px;">The backfill script is now reliable. Let it run to finish analyzing the remaining ~3,600 clips.</p>
+    <p class="hero-sub" style="margin-bottom: 24px;">Backfill is actively running. Use <code>node hunter/worker/backfill-continuous.mjs</code> for hands-free operation.</p>
     <div class="tasks">
 
-      <div class="task">
+      <div class="task" style="border-color: var(--green);">
         <div class="task-icon task-icon--todo">&#9654;</div>
         <div>
-          <div class="task-title">Run backfill to 100% coverage</div>
-          <div class="task-desc">Currently at 63.1% (6,199 of 9,813 units). The Gemini API throws 503s in waves — the script handles this with exponential backoff. Just let it run.</div>
+          <div class="task-title">Backfill running toward 100%</div>
+          <div class="task-desc">Check the live stats above for current coverage. 248 clips analyzed this session alone, 98%+ success rate. The continuous wrapper auto-restarts batches.</div>
         </div>
       </div>
 
