@@ -34,6 +34,7 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     signedUrl,
     mimeType = '',
     segments = [],
+    wordTimings = null,   // flat array [{ word, start, end }] from Whisper/Deepgram
     highlights = [],
     onSeek = () => {},
     onTimeUpdate = () => {},
@@ -140,20 +141,38 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   // ── Click-to-seek wiring on the editor ────────────────────────────
   // The TipTap editor renders each segment as a <span data-segment data-start="HH:MM:SS.mmm">
   // (see src/editor/extensions/Segment.js). Capture clicks at the
-  // editor container level and seek to whichever segment was clicked.
+  // editor container level and seek either to the segment start (no
+  // word_timings) or to the precise word-level position (when
+  // word_timings is provided).
+  //
+  // Word-level: we compute the [segStart, segEnd] window from data-start
+  // and data-end, find the words from the flat word_timings array whose
+  // [start, end] fall inside that window, then pick the word at the
+  // proportional click position within the segment text. That's "good
+  // enough" precision without re-rendering each word as its own span.
   function onEditorClick(e) {
     const segEl = e.target?.closest?.('span[data-segment]');
     if (!segEl) return;
-    const startStr = segEl.getAttribute('data-start');
-    const seconds = parseTimecodeToSeconds(startStr);
-    if (!isFinite(seconds)) return;
-    // Cmd/Ctrl-click: seek and play. Plain click: seek only (don't disrupt editing).
+    const segStart = parseTimecodeToSeconds(segEl.getAttribute('data-start'));
+    const segEnd   = parseTimecodeToSeconds(segEl.getAttribute('data-end'));
+    if (!isFinite(segStart)) return;
+
+    let seconds = segStart;
+
+    // Word-level seek: if we have word_timings AND a precise click,
+    // map the click to the closest word inside this segment's window.
+    if (wordTimings && Array.isArray(wordTimings) && isFinite(segEnd) && segEnd > segStart) {
+      const wordSeconds = wordTimeFromClick(e, segEl, segStart, segEnd, wordTimings);
+      if (isFinite(wordSeconds)) seconds = wordSeconds;
+    }
+
+    // Cmd/Ctrl/Alt-click: seek and play. Shift-click: seek only.
+    // Plain click stays out of the way so text editing/selection works.
     if (e.metaKey || e.ctrlKey || e.altKey) {
       e.preventDefault();
       seekTo(seconds);
       video.play().catch(() => {});
     } else if (e.shiftKey) {
-      // shift-click: seek only, no play
       e.preventDefault();
       seekTo(seconds);
     }
@@ -241,6 +260,74 @@ function mountInert() {
     destroy() {},
     root: null,
   };
+}
+
+// Map a click within a segment span to a precise word timestamp.
+//
+// Strategy:
+//   1. Get the words from the flat word_timings array whose [start, end]
+//      falls inside this segment's [segStart, segEnd] window.
+//   2. Use Range/getBoundingClientRect to find the offset inside the
+//      segment's text where the click landed.
+//   3. Pick the word at that proportional offset and return its start.
+//
+// If anything goes wrong (no words match, bad geometry), return NaN
+// and the caller falls back to segStart.
+function wordTimeFromClick(e, segEl, segStart, segEnd, wordTimings) {
+  const wordsInSeg = wordTimings.filter(w =>
+    typeof w.start === 'number' && typeof w.end === 'number' &&
+    w.start >= segStart - 0.05 && w.end <= segEnd + 0.05
+  );
+  if (wordsInSeg.length === 0) return NaN;
+
+  const text = segEl.textContent || '';
+  const len = text.length;
+  if (len === 0) return wordsInSeg[0].start;
+
+  // Use a Range to translate clientX/Y to a character offset in the segment text.
+  let offset = NaN;
+  try {
+    if (document.caretRangeFromPoint) {
+      const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+      if (range && segEl.contains(range.startContainer)) {
+        offset = caretOffsetWithin(segEl, range.startContainer, range.startOffset);
+      }
+    } else if (document.caretPositionFromPoint) {
+      const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+      if (pos && segEl.contains(pos.offsetNode)) {
+        offset = caretOffsetWithin(segEl, pos.offsetNode, pos.offset);
+      }
+    }
+  } catch {}
+  if (!isFinite(offset)) {
+    // Fallback: proportional position from clientX vs segment bounding box.
+    const rect = segEl.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    offset = Math.floor(ratio * len);
+  }
+
+  // Translate character offset → word index within the segment's text.
+  // We approximate by counting how many word boundaries we've crossed.
+  const upTo = text.slice(0, Math.max(0, Math.min(len, offset)));
+  // Word count = number of non-empty whitespace-delimited tokens
+  const wordsBefore = (upTo.match(/\S+/g) || []).length;
+  // Index into wordsInSeg: clamp so we never go past the last word
+  const idx = Math.max(0, Math.min(wordsInSeg.length - 1, wordsBefore));
+  const target = wordsInSeg[idx];
+  return target?.start ?? segStart;
+}
+
+// Compute the character offset from segEl.textContent up to (node, offset).
+function caretOffsetWithin(segEl, node, offset) {
+  let count = 0;
+  const walker = document.createTreeWalker(segEl, NodeFilter.SHOW_TEXT, null);
+  let cur;
+  // eslint-disable-next-line no-cond-assign
+  while ((cur = walker.nextNode())) {
+    if (cur === node) return count + offset;
+    count += cur.textContent?.length || 0;
+  }
+  return count;
 }
 
 // Resolve a highlight to a {start, end} time span by looking up its

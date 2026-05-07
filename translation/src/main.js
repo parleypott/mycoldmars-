@@ -2364,7 +2364,10 @@ async function handleMediaUpload(file) {
 
     // Populate state the same way an import would.
     segments = result.segments;
-    wordTimingsMap = null; // Whisper's flat word_timings stays in DB; segment-level timing already in segments
+    // wordTimings shape from the transcribe endpoint is a flat array
+    // [{ word, start, end, speaker? }] — we keep that shape and the
+    // editor's per-word click-to-seek interprets it accordingly.
+    wordTimingsMap = result.wordTimings || null;
 
     hideMediaProgress();
     finishUploadParse({ name: file.name });
@@ -2450,10 +2453,20 @@ async function mountMediaDeckForCurrent(editorContainer) {
     signedUrl,
     mimeType: media.mime_type || '',
     segments,
+    wordTimings: wordTimingsArray(),
     highlights: currentEditorHighlights(),
     onSeek: () => {},
     onTimeUpdate: () => {},
   });
+}
+
+// wordTimingsMap can hold one of two shapes:
+//   • flat array from Whisper/Deepgram: [{ word, start, end, speaker? }]
+//   • legacy segment-keyed object: { segNum: { start, end } }
+// This helper returns the flat array if available, else null.
+function wordTimingsArray() {
+  if (Array.isArray(wordTimingsMap) && wordTimingsMap.length > 0) return wordTimingsMap;
+  return null;
 }
 
 // Pull current highlights from the editor's in-memory state. The editor's
