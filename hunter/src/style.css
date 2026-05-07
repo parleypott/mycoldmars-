@@ -1350,6 +1350,56 @@ header {
   margin-top: 2px;
 }
 
+/* ── Keyboard shortcut overlay ── */
+.shortcut-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+.shortcut-card {
+  background: var(--np-surface);
+  border: 1px solid var(--np-border);
+  border-radius: var(--np-radius-lg);
+  padding: var(--np-space-8);
+  min-width: 280px;
+}
+.shortcut-title {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--np-ink);
+  margin-bottom: var(--np-space-6);
+}
+.shortcut-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  align-items: center;
+}
+.shortcut-grid kbd {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--np-border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  color: var(--np-ink);
+  text-align: center;
+  min-width: 32px;
+}
+.shortcut-grid span {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  color: var(--np-text-dim);
+}
+
 /* ── Responsive ── */
 @media (max-width: 600px) {
   #app {

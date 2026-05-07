@@ -1455,11 +1455,16 @@ if (isDemo) {
 // ── Global keyboard shortcuts ──
 
 document.addEventListener('keydown', (e) => {
+  const isInput = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
+
   // Escape closes modals and goes back
   if (e.key === 'Escape') {
     const inputModal = document.getElementById('input-modal');
     const newProjectModal = document.getElementById('new-project-modal');
-    if (inputModal && !inputModal.classList.contains('hidden')) {
+    const shortcutOverlay = document.getElementById('shortcut-overlay');
+    if (shortcutOverlay && !shortcutOverlay.classList.contains('hidden')) {
+      shortcutOverlay.classList.add('hidden');
+    } else if (inputModal && !inputModal.classList.contains('hidden')) {
       document.getElementById('input-modal-cancel')?.click();
     } else if (newProjectModal && !newProjectModal.classList.contains('hidden')) {
       document.getElementById('cancel-project')?.click();
@@ -1468,13 +1473,72 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  // Keyboard nav: 1 = projects, 2 = corpus
-  if (e.key === '1' && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== 'INPUT') {
-    showView('projects');
+  if (isInput) return;
+
+  // ? = show keyboard shortcuts
+  if (e.key === '?') {
+    toggleShortcutOverlay();
   }
-  if (e.key === '2' && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== 'INPUT') {
-    showView('corpus');
+
+  // / = focus search (project or corpus)
+  if (e.key === '/') {
+    e.preventDefault();
+    const projectSearch = document.getElementById('project-search-input');
+    const corpusSearch = document.getElementById('corpus-search-input');
+    if (currentView === 'project' && projectSearch) {
+      projectSearch.focus();
+      projectSearch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else if (currentView === 'corpus' && corpusSearch) {
+      corpusSearch.focus();
+    }
+  }
+
+  // Keyboard nav: 1 = projects, 2 = corpus
+  if (e.key === '1' && !e.ctrlKey && !e.metaKey) showView('projects');
+  if (e.key === '2' && !e.ctrlKey && !e.metaKey) showView('corpus');
+
+  // s = jump to scenes section
+  if (e.key === 's' && currentView === 'project') {
+    document.getElementById('project-scenes')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  // o = jump to observations
+  if (e.key === 'o' && currentView === 'project') {
+    document.getElementById('project-patterns')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  // c = jump to corpus
+  if (e.key === 'c' && currentView === 'project') {
+    document.getElementById('project-corpus')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 });
+
+function toggleShortcutOverlay() {
+  let overlay = document.getElementById('shortcut-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'shortcut-overlay';
+    overlay.className = 'shortcut-overlay';
+    overlay.innerHTML = `
+      <div class="shortcut-card">
+        <div class="shortcut-title">keyboard shortcuts</div>
+        <div class="shortcut-grid">
+          <kbd>?</kbd><span>show shortcuts</span>
+          <kbd>/</kbd><span>focus search</span>
+          <kbd>1</kbd><span>projects view</span>
+          <kbd>2</kbd><span>corpus view</span>
+          <kbd>s</kbd><span>jump to scenes</span>
+          <kbd>c</kbd><span>jump to corpus</span>
+          <kbd>o</kbd><span>jump to observations</span>
+          <kbd>esc</kbd><span>back / close</span>
+        </div>
+      </div>
+    `;
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.add('hidden');
+    });
+    document.body.appendChild(overlay);
+  } else {
+    overlay.classList.toggle('hidden');
+  }
+}
 
 console.log('[hunter] booted', isConfigured() ? '(db connected)' : '(no db)', isDemo ? '(demo mode)' : '');
