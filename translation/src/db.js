@@ -587,6 +587,34 @@ export async function releaseLock(transcriptId, holderId) {
     .eq('holder_id', holderId);
 }
 
+/**
+ * Beacon-style lock release for tab-close paths (beforeunload). Uses
+ * fetch with keepalive:true so the browser doesn't kill the request when
+ * the tab unloads. Supabase JS client doesn't expose keepalive, so this
+ * goes direct to the PostgREST endpoint with the same auth headers.
+ *
+ * Returns synchronously — fire-and-forget. The browser handles delivery.
+ */
+export function releaseLockBeacon(transcriptId, holderId) {
+  if (!supabase || !transcriptId) return;
+  if (!flag('hasLocks')) return;
+  try {
+    const url = (supabase?.supabaseUrl || '').replace(/\/+$/, '');
+    const anonKey = supabase?.supabaseKey || '';
+    if (!url || !anonKey) return;
+    const target = `${url}/rest/v1/editor_locks?transcript_id=eq.${encodeURIComponent(transcriptId)}&holder_id=eq.${encodeURIComponent(holderId)}`;
+    fetch(target, {
+      method: 'DELETE',
+      keepalive: true,
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+        'Content-Type': 'application/json',
+      },
+    }).catch(() => {});
+  } catch {}
+}
+
 // ============================================================
 // Realtime (Phase 3 — live sync between tabs)
 // ============================================================

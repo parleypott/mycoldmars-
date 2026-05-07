@@ -79,7 +79,7 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-6',
           max_tokens: 2000,
           stream: true,
           system: systemPrompt,
@@ -148,7 +148,7 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-6',
           max_tokens: 4000,
           stream: true,
           system: systemPrompt,

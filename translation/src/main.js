@@ -5,7 +5,7 @@ import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, subscribeToTranscript, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, releaseLockBeacon, subscribeToTranscript, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload } from './db.js';
 import { saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan, saveDraftSnapshot, loadDraftSnapshot, clearDraftSnapshot } from './snapshot.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
@@ -2645,10 +2645,18 @@ function currentEditorHighlights() {
 }
 
 // Refresh the waveform regions when highlights change in the editor.
-// Cheap (no DB roundtrip), safe to call on every editor update.
+// Throttled because it's wired to onUpdate (every keystroke) and walking
+// the editor doc to extract highlights + recreating wavesurfer regions on
+// every keypress is wasteful — even with no highlights it's a tree walk.
+let highlightRefreshTimer = null;
 function refreshMediaDeckHighlights() {
   if (!mediaDeck) return;
-  try { mediaDeck.setHighlights(currentEditorHighlights()); } catch {}
+  if (highlightRefreshTimer) return; // already scheduled
+  highlightRefreshTimer = setTimeout(() => {
+    highlightRefreshTimer = null;
+    if (!mediaDeck) return;
+    try { mediaDeck.setHighlights(currentEditorHighlights()); } catch {}
+  }, 250);
 }
 
 function finishUploadParse(file, opts = {}) {
@@ -3816,7 +3824,7 @@ async function generateAutoSummary() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 3000,
         stream: true,
         system: 'You are an editorial assistant. Generate a concise chronological summary of this interview transcript.',
@@ -4559,12 +4567,19 @@ function showViewOnlyBanner(lock) {
   });
 }
 
-// Release the lock cleanly when the tab closes.
+// Release the lock cleanly when the tab closes. Uses fetch keepalive:true
+// so the request actually survives the tab unload — the previous best-effort
+// async releaseLock() call routinely got killed by the browser before the
+// network round-trip completed, leaving stale locks that triggered "another
+// tab is editing" warnings on the next session.
 window.addEventListener('beforeunload', () => {
   if (lockBoundTranscriptId) {
-    // navigator.sendBeacon would be ideal but Supabase REST needs auth headers
-    // we can't easily replicate here. Best-effort fire-and-forget delete.
-    try { releaseLock(lockBoundTranscriptId, CLIENT_ID); } catch {}
+    try { releaseLockBeacon(lockBoundTranscriptId, CLIENT_ID); } catch {}
+  }
+});
+window.addEventListener('pagehide', () => {
+  if (lockBoundTranscriptId) {
+    try { releaseLockBeacon(lockBoundTranscriptId, CLIENT_ID); } catch {}
   }
 });
 
