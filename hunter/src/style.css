@@ -25,12 +25,14 @@
 
   --np-radius-sm: 6px;
   --np-radius-md: 8px;
+  --np-radius-lg: 12px;
   --np-radius-full: 9999px;
 
   --np-ease:        cubic-bezier(0.2, 0.0, 0.0, 1.0);
   --np-ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
   --np-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --np-duration:    200ms;
+  --np-duration-md: 300ms;
   --np-duration-lg: 400ms;
   --np-duration-press: 140ms;
 
@@ -1026,16 +1028,6 @@ header {
 }
 .pattern-card.truncated .pattern-expand {
   display: inline-block;
-}
-.pattern-examples {
-  margin-top: var(--np-space-4);
-  font-family: var(--np-font-mono);
-  font-size: 10px;
-  color: var(--np-text-dim);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  position: relative;
-  z-index: 1;
 }
 .pattern-actions {
   margin-top: var(--np-space-6);

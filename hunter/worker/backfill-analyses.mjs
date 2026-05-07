@@ -105,7 +105,35 @@ function getDuration(filePath) {
   }
 }
 
+// ── Graceful shutdown ──
+
+let shuttingDown = false;
+
+function setupShutdownHandler() {
+  const handler = async (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`\n[backfill] Received ${signal}, cleaning up...`);
+    // Clean up cache directory
+    try {
+      const { readdir } = await import('node:fs/promises');
+      const projectDir = join(CACHE_DIR, PROJECT_ID);
+      const files = await readdir(projectDir).catch(() => []);
+      for (const f of files) {
+        await rm(join(projectDir, f), { force: true }).catch(() => {});
+      }
+      console.log(`[backfill] Cleaned ${files.length} cached files`);
+    } catch {}
+    console.log('[backfill] Shutdown complete');
+    process.exit(0);
+  };
+  process.on('SIGINT', () => handler('SIGINT'));
+  process.on('SIGTERM', () => handler('SIGTERM'));
+}
+
 async function main() {
+  setupShutdownHandler();
+
   console.log('╔══════════════════════════════════════╗');
   console.log('║  HUNTER RAW ANALYSIS BACKFILL        ║');
   console.log('╚══════════════════════════════════════╝\n');
@@ -163,14 +191,11 @@ async function main() {
     console.log(`[backfill] ── PROGRESS: ${success} ok, ${failed} fail, ${success + failed}/${missing.length} total, ${elapsed}min elapsed, ${rate}min/clip ──`);
   }, 120000); // Every 2 min
 
-  // Use concurrency=1 during 503 storms, scale up when API recovers
-  function getEffectiveConcurrency() {
-    return consecutive503s > 5 ? 1 : CONCURRENCY;
-  }
-
   const limit = createPool(CONCURRENCY);
 
   await Promise.allSettled(missing.map(unit => limit(async () => {
+    // Bail out if shutdown requested
+    if (shuttingDown) return;
     // Pause if in sustained outage — don't pile up more requests
     if (consecutive503s > 15) {
       const cooldown = 120;
@@ -283,6 +308,17 @@ async function main() {
   })));
 
   clearInterval(progressInterval);
+
+  // Clean up cache directory
+  try {
+    const { readdir } = await import('node:fs/promises');
+    const files = await readdir(projectDir).catch(() => []);
+    for (const f of files) {
+      await rm(join(projectDir, f), { force: true }).catch(() => {});
+    }
+    if (files.length > 0) console.log(`[backfill] Cleaned ${files.length} cached files`);
+  } catch {}
+
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
   console.log(`\n╔══════════════════════════════════════╗`);
   console.log(`║  BACKFILL COMPLETE                    ║`);

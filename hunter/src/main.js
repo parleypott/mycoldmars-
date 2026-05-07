@@ -1,4 +1,4 @@
-import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, getCrossTierStats } from './db.js';
+import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch } from './db.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -116,8 +116,8 @@ async function loadProjects() {
     }
   }
 
-  // Fall back to demo data if no real projects
-  if (projects.length === 0) {
+  // Fall back to demo data ONLY if DB is not configured
+  if (projects.length === 0 && !isConfigured()) {
     isDemo = true;
     projects = DEMO_PROJECTS;
   }
@@ -154,10 +154,16 @@ async function openProject(id) {
     units = DEMO_UNITS[id] || [];
     patterns = DEMO_PATTERNS[id] || [];
   } else {
-    project = await getProject(id);
-    assets = await listMediaAssets(id);
-    units = await listCorpusUnitsForProject(id);
-    patterns = await listPatternObservations(id);
+    try {
+      project = await getProject(id);
+      assets = await listMediaAssets(id);
+      units = await listCorpusUnitsForProject(id);
+      patterns = await listPatternObservations(id);
+    } catch (err) {
+      console.error('[hunter] openProject failed:', err);
+      showToast(`Failed to load project: ${err.message}`, true);
+      return;
+    }
   }
 
   const header = document.getElementById('project-header');
@@ -758,7 +764,13 @@ function renderAnalysisBadges(structured) {
 
 // ── Corpus search ──
 
+let _corpusSearchAC = null;
+
 function initCorpusSearch() {
+  if (_corpusSearchAC) _corpusSearchAC.abort();
+  _corpusSearchAC = new AbortController();
+  const signal = _corpusSearchAC.signal;
+
   const input = document.getElementById('corpus-search-input');
   const tierSelect = document.getElementById('corpus-search-tier');
   const btn = document.getElementById('corpus-search-btn');
@@ -810,8 +822,8 @@ function initCorpusSearch() {
     }
   }
 
-  btn.addEventListener('click', doSearch);
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  btn.addEventListener('click', doSearch, { signal });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); }, { signal });
 }
 
 // ── YouTube + Google Docs helpers ──
@@ -1152,7 +1164,13 @@ function stopIngestPolling() {
 
 // ── Project-level search ──
 
+let _projectSearchAC = null;
+
 function initProjectSearch() {
+  if (_projectSearchAC) _projectSearchAC.abort();
+  _projectSearchAC = new AbortController();
+  const signal = _projectSearchAC.signal;
+
   const input = document.getElementById('project-search-input');
   const btn = document.getElementById('project-search-btn');
   const results = document.getElementById('project-search-results');
@@ -1192,8 +1210,8 @@ function initProjectSearch() {
     }
   }
 
-  btn.addEventListener('click', doProjectSearch);
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') doProjectSearch(); });
+  btn.addEventListener('click', doProjectSearch, { signal });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') doProjectSearch(); }, { signal });
 }
 
 // ── Tier funnel visualization ──
@@ -1465,14 +1483,14 @@ document.addEventListener('keydown', (e) => {
   // Escape closes modals and goes back
   if (e.key === 'Escape') {
     const inputModal = document.getElementById('input-modal');
-    const newProjectModal = document.getElementById('new-project-modal');
+    const newProjectModal = document.querySelector('.modal-overlay');
     const shortcutOverlay = document.getElementById('shortcut-overlay');
     if (shortcutOverlay && !shortcutOverlay.classList.contains('hidden')) {
       shortcutOverlay.classList.add('hidden');
     } else if (inputModal && !inputModal.classList.contains('hidden')) {
       document.getElementById('input-modal-cancel')?.click();
-    } else if (newProjectModal && !newProjectModal.classList.contains('hidden')) {
-      document.getElementById('cancel-project')?.click();
+    } else if (newProjectModal) {
+      newProjectModal.remove();
     } else if (currentView === 'project') {
       document.getElementById('btn-back-projects')?.click();
     }

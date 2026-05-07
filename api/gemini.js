@@ -79,6 +79,8 @@ async function handlePatternSurfacing(body, apiKey) {
     },
   });
 
+  let analysesSource = analysesRes;
+
   if (!analysesRes.ok) {
     // Fallback: try a simpler query approach
     const simpleUrl = `${supabaseUrl}/rest/v1/rpc/get_project_analyses`;
@@ -93,16 +95,17 @@ async function handlePatternSurfacing(body, apiKey) {
     });
 
     if (!rpcRes.ok) {
-      return new Response(JSON.stringify({ error: 'Failed to fetch analyses', detail: await analysesRes.text() }), {
+      return new Response(JSON.stringify({ error: 'Failed to fetch analyses', detail: await rpcRes.text() }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       });
     }
+    analysesSource = rpcRes;
   }
 
   let analyses = [];
   try {
-    analyses = await analysesRes.json();
+    analyses = await analysesSource.json();
   } catch {
     return new Response(JSON.stringify({ error: 'No analyses found for this project' }), {
       status: 404,
