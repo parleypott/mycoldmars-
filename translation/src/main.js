@@ -823,6 +823,14 @@ function applySnapshotPayload(payload) {
   if (payload.customSequenceName !== undefined) customSequenceName = payload.customSequenceName;
   if (payload.editorState !== undefined) editorState = payload.editorState;
   if (payload.wordTimings !== undefined) wordTimingsMap = payload.wordTimings;
+  // Media link + project + translate prefs — without these, snapshot recovery
+  // silently drops the media file association (no video deck) and the user's
+  // language/project picks. Critical for the mid-upload-save-failure path.
+  if (payload.mediaUploadId !== undefined) currentMediaUploadId = payload.mediaUploadId || null;
+  if (payload.projectId !== undefined) currentProjectId = payload.projectId || null;
+  if (payload.targetLanguage !== undefined) currentTargetLanguage = payload.targetLanguage || null;
+  if (payload.translationEnabled !== undefined) currentTranslationEnabled = !!payload.translationEnabled;
+  if (payload.step !== undefined && Number.isFinite(payload.step)) currentStep = payload.step;
   if (payload.metadata) {
     if (payload.metadata.summary !== undefined) currentSummary = payload.metadata.summary ? enrichSummaryWithTimecodes(payload.metadata.summary) : null;
     if (payload.metadata.rawSummary !== undefined) rawSummary = payload.metadata.rawSummary;
@@ -1547,7 +1555,15 @@ function updateEditorInstance() {
     speakerMap,
     editorDirty,
     onSpeakerMapChange: (rawName, newCleanName) => {
-      speakerMap[rawName] = newCleanName;
+      // Route through the same code path as body click-to-rename so segments,
+      // hiddenSpeakers, and the editor doc all stay consistent and the
+      // change actually autosaves.
+      const from = speakerMap[rawName] || rawName;
+      const to = (newCleanName || '').trim();
+      if (!to || to === from) return;
+      window.dispatchEvent(new CustomEvent('np-speaker-rename', {
+        detail: { from, to },
+      }));
     },
     onUpdate: (json) => {
       editorState = json;
