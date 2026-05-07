@@ -180,9 +180,9 @@ export function SummaryView({ content, loading, bullets, interestVotes, onVote }
   // Fallback: plain rendering when no structured bullets
   const lines = content.split('\n');
   const html = lines.map(line => {
-    if (line.startsWith('## ')) return `<h3>${line.slice(3)}</h3>`;
-    if (line.startsWith('# ')) return `<h2>${line.slice(2)}</h2>`;
-    if (line.startsWith('**') && line.endsWith('**')) return `<h4>${line.slice(2, -2)}</h4>`;
+    if (line.startsWith('## ')) return `<h3>${escapeHtml(line.slice(3))}</h3>`;
+    if (line.startsWith('# ')) return `<h2>${escapeHtml(line.slice(2))}</h2>`;
+    if (line.startsWith('**') && line.endsWith('**')) return `<h4>${escapeHtml(line.slice(2, -2))}</h4>`;
     if (line.startsWith('- ') || line.startsWith('• ')) return `<li>${formatInline(line.slice(2))}</li>`;
     if (line.match(/^\d+\.\s/)) return `<li>${formatInline(line.replace(/^\d+\.\s/, ''))}</li>`;
     if (!line.trim()) return '<br/>';
@@ -194,9 +194,25 @@ export function SummaryView({ content, loading, bullets, interestVotes, onVote }
   );
 }
 
+// Escape HTML entities so AI-generated summary content can't smuggle script
+// tags or break out of the surrounding markup. The single-user threat model
+// is low (you'd need Claude itself to emit malicious HTML, which it doesn't),
+// but escaping is cheap defense-in-depth and also fixes accidental rendering
+// of literal `<` / `>` in transcript text.
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function formatInline(text) {
-  return text
+  // Escape FIRST, then apply markdown — that way the markdown tags we
+  // introduce don't get re-escaped, but any user/AI-supplied HTML does.
+  return escapeHtml(text)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/"(.+?)"/g, '<q>$1</q>');
+    .replace(/&quot;(.+?)&quot;/g, '<q>$1</q>');
 }

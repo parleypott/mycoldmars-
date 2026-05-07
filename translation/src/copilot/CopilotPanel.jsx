@@ -26,6 +26,24 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
   const [committed, setCommitted] = useState(new Set());
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  // Track mount state so streaming setState calls bail out if the panel
+  // unmounted mid-fetch (e.g. user closed copilot while Claude was still
+  // streaming). Without this we get "setState on unmounted" warnings and
+  // memory pressure as the closure holds the unmounted component alive.
+  const isMountedRef = useRef(true);
+  // AbortController for in-flight fetches — cancelled on unmount so the
+  // server stops generating once we don't need the response anymore.
+  const abortRef = useRef(null);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (abortRef.current) {
+        try { abortRef.current.abort(); } catch {}
+        abortRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -75,9 +93,15 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
         allMessages[0].content = userMessage;
       }
 
+      // Cancel any prior in-flight request so two sends in quick succession
+      // don't race each other (the second wins; the first stops generating).
+      if (abortRef.current) { try { abortRef.current.abort(); } catch {} }
+      abortRef.current = new AbortController();
+
       const res = await fetch('/api/claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortRef.current.signal,
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 2000,
@@ -98,6 +122,8 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          // Bail if the panel unmounted mid-stream — no point parsing more.
+          if (!isMountedRef.current) break;
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
@@ -111,7 +137,9 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
               const event = JSON.parse(data);
               if (event.type === 'content_block_delta' && event.delta?.text) {
                 assistantText += event.delta.text;
-                setMessages([...newMessages, { role: 'assistant', content: assistantText }]);
+                if (isMountedRef.current) {
+                  setMessages([...newMessages, { role: 'assistant', content: assistantText }]);
+                }
               }
             } catch {}
           }
@@ -120,11 +148,17 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
         try { await reader.cancel(); } catch {}
       }
 
-      setMessages([...newMessages, { role: 'assistant', content: assistantText }]);
+      if (isMountedRef.current) {
+        setMessages([...newMessages, { role: 'assistant', content: assistantText }]);
+      }
     } catch (err) {
-      setMessages([...newMessages, { role: 'assistant', content: `Error: ${err.message}` }]);
+      // AbortError is expected when the user closes the panel — don't surface.
+      if (err?.name === 'AbortError') return;
+      if (isMountedRef.current) {
+        setMessages([...newMessages, { role: 'assistant', content: `Error: ${err.message}` }]);
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }
 
@@ -144,9 +178,12 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
     const userMessage = buildSummaryPrompt(highlights || [], editorialFocus);
 
     try {
+      if (abortRef.current) { try { abortRef.current.abort(); } catch {} }
+      abortRef.current = new AbortController();
       const res = await fetch('/api/claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortRef.current.signal,
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 4000,
@@ -167,6 +204,7 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          if (!isMountedRef.current) break;
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
@@ -180,7 +218,7 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
               const event = JSON.parse(data);
               if (event.type === 'content_block_delta' && event.delta?.text) {
                 text += event.delta.text;
-                setSummaryContent(text);
+                if (isMountedRef.current) setSummaryContent(text);
               }
             } catch {}
           }
@@ -189,11 +227,12 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
         try { await reader.cancel(); } catch {}
       }
 
-      setSummaryContent(text);
+      if (isMountedRef.current) setSummaryContent(text);
     } catch (err) {
-      setSummaryContent(`Error generating summary: ${err.message}`);
+      if (err?.name === 'AbortError') return;
+      if (isMountedRef.current) setSummaryContent(`Error generating summary: ${err.message}`);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }
 

@@ -1430,6 +1430,13 @@ function openConflictModal() {
   });
 }
 
+// Best-guess source frame rate for export. Newpress shoots 23.976 by
+// default. Single place to flip later (or to plumb a real probed value
+// from media_uploads.metadata once we extract that on upload).
+function getExportFps() {
+  return 23.976;
+}
+
 function getSeqMeta() {
   const meta = getSequenceMetadata(segments);
   if (customSequenceName) {
@@ -3542,7 +3549,7 @@ if (btnExportMenu) {
       }
       case 'premiere': {
         const highlights = editorState ? extractHighlightsFromEditor(editorState) : [];
-        const xml = buildPremiereXML(highlights, segments, currentTranscriptName);
+        const xml = buildPremiereXML(highlights, segments, currentTranscriptName, { fps: getExportFps() });
         const blob = new Blob([xml], { type: 'application/xml' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -3562,7 +3569,7 @@ if (btnExportMenu) {
           translations,
           interestVotes,
           dismissedSegments: dismissed,
-          fps: 23.976,
+          fps: getExportFps(),
         });
         const blob = new Blob([xml], { type: 'application/xml' });
         const url = URL.createObjectURL(blob);

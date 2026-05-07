@@ -1,8 +1,23 @@
 /**
  * Generate Premiere Pro marker XML from highlights.
  * Each highlight becomes a marker at its timecode position, tagged with the tag name.
+ *
+ * @param {Array}  highlights — [{ segmentNumbers, tagName, textPreview, color }]
+ * @param {Array}  segments   — transcript segments
+ * @param {string} transcriptName
+ * @param {Object} [opts]
+ * @param {number} [opts.fps=23.976] — frame rate. 23.976 (Newpress default),
+ *                                     24, 25, 29.97, 30, 59.94, 60 supported.
  */
-export function buildPremiereXML(highlights, segments, transcriptName) {
+export function buildPremiereXML(highlights, segments, transcriptName, opts = {}) {
+  const fps = opts.fps || 23.976;
+  // Premiere/FCP XML rate: timebase = ceiling integer fps; ntsc = TRUE for
+  // drop-frame fractional rates (23.976, 29.97, 59.94), FALSE for integer.
+  const timebase = Math.round(fps);
+  const isNtsc = (Math.abs(fps - 23.976) < 0.01) ||
+                 (Math.abs(fps - 29.97)  < 0.01) ||
+                 (Math.abs(fps - 59.94)  < 0.01);
+
   const markers = [];
 
   for (const h of highlights) {
@@ -13,9 +28,9 @@ export function buildPremiereXML(highlights, segments, transcriptName) {
     const seg = segments.find(s => s.number === segNum);
     if (!seg) continue;
 
-    const startFrames = timecodeToFrames(seg.start);
+    const startFrames = timecodeToFrames(seg.start, fps);
     const endSeg = segments.find(s => s.number === h.segmentNumbers[h.segmentNumbers.length - 1]);
-    const endFrames = endSeg ? timecodeToFrames(endSeg.end) : startFrames + 30;
+    const endFrames = endSeg ? timecodeToFrames(endSeg.end, fps) : startFrames + Math.round(fps);
 
     markers.push({
       name: h.tagName || 'Highlight',
@@ -32,8 +47,8 @@ export function buildPremiereXML(highlights, segments, transcriptName) {
   <sequence>
     <name>${escapeXml(transcriptName || 'Transcript')}</name>
     <rate>
-      <timebase>24</timebase>
-      <ntsc>FALSE</ntsc>
+      <timebase>${timebase}</timebase>
+      <ntsc>${isNtsc ? 'TRUE' : 'FALSE'}</ntsc>
     </rate>
     <media>
       <video>
@@ -251,7 +266,7 @@ ${clipItems.map((clip, i) => `          <clipitem id="clip-${i + 1}">
             </link>
             <marker>
               <name>${escapeXml(clip.speaker)}</name>
-              <comment>${escapeXml(clip.comment.slice(0, 200))}</comment>
+              <comment>${escapeXml(truncateForMarker(clip.comment))}</comment>
               <in>0</in>
               <out>${clip.duration}</out>
             </marker>
@@ -500,4 +515,13 @@ function escapeXml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+// Premiere marker comments cap around 256 chars in older versions; trim to
+// 200 to be safe but make the truncation visible with an ellipsis so the
+// user can see something was dropped instead of silently losing context.
+function truncateForMarker(text) {
+  const s = String(text || '');
+  if (s.length <= 200) return s;
+  return s.slice(0, 197).trimEnd() + '…';
 }
