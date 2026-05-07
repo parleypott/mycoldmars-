@@ -264,25 +264,26 @@
     <p class="hero-sub">A clear picture of what's working, what just got fixed, and what's next. Updated May 7, 2026.</p>
   </div>
 
-  <!-- Stats -->
+  <!-- Stats (live from Supabase) -->
   <div class="stats-bar">
     <div class="stat-card">
-      <div class="stat-number stat-number--green">6,199</div>
+      <div class="stat-number stat-number--green" id="stat-analyzed">--</div>
       <div class="stat-label">Videos analyzed by Gemini</div>
     </div>
     <div class="stat-card">
-      <div class="stat-number stat-number--green">6,210</div>
+      <div class="stat-number stat-number--green" id="stat-embeddings">--</div>
       <div class="stat-label">Embeddings in Supabase</div>
     </div>
     <div class="stat-card">
-      <div class="stat-number stat-number--yellow">63%</div>
+      <div class="stat-number stat-number--yellow" id="stat-coverage">--</div>
       <div class="stat-label">Corpus coverage</div>
     </div>
     <div class="stat-card">
-      <div class="stat-number stat-number--red">~3,600</div>
+      <div class="stat-number stat-number--red" id="stat-remaining">--</div>
       <div class="stat-label">Clips still to analyze</div>
     </div>
   </div>
+  <div style="text-align:right; margin-top:-56px; margin-bottom:56px; font-size:11px; color:var(--dim);" id="stat-updated"></div>
 
   <!-- Next Steps Callout -->
   <div class="callout">
@@ -538,6 +539,62 @@
   </div>
 
 </div>
+
+<script>
+(async function loadLiveStats() {
+  const SUPABASE_URL = 'https://ukqimqkifkhdavveopdm.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_p099iZ5OJ7oejh2sXLqgEg_11KCnpom';
+  const headers = {
+    apikey: SUPABASE_KEY,
+    Authorization: `Bearer ${SUPABASE_KEY}`,
+    Prefer: 'count=exact',
+  };
+
+  try {
+    const [unitsRes, analysesRes, embeddingsRes] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/corpus_units?select=id&limit=1`, { headers }),
+      fetch(`${SUPABASE_URL}/rest/v1/analyses?select=id&limit=1`, { headers }),
+      fetch(`${SUPABASE_URL}/rest/v1/embeddings?select=id&limit=1`, { headers }),
+    ]);
+
+    const parse = (res) => {
+      const range = res.headers.get('content-range') || '';
+      const m = range.match(/\/(\d+)/);
+      return m ? parseInt(m[1]) : null;
+    };
+
+    const total = parse(unitsRes);
+    const analyzed = parse(analysesRes);
+    const embeddings = parse(embeddingsRes);
+
+    if (total && analyzed) {
+      const remaining = total - analyzed;
+      const pct = ((analyzed / total) * 100).toFixed(1);
+
+      document.getElementById('stat-analyzed').textContent = analyzed.toLocaleString();
+      document.getElementById('stat-embeddings').textContent = (embeddings || 0).toLocaleString();
+      document.getElementById('stat-coverage').textContent = pct + '%';
+      document.getElementById('stat-remaining').textContent = '~' + remaining.toLocaleString();
+
+      // Color the coverage stat dynamically
+      const covEl = document.getElementById('stat-coverage');
+      if (parseFloat(pct) >= 90) {
+        covEl.classList.remove('stat-number--yellow');
+        covEl.classList.add('stat-number--green');
+      }
+
+      document.getElementById('stat-updated').textContent = 'live from supabase · ' + new Date().toLocaleTimeString();
+    }
+  } catch (err) {
+    console.warn('Could not load live stats:', err);
+    // Fall back to static values
+    document.getElementById('stat-analyzed').textContent = '6,199';
+    document.getElementById('stat-embeddings').textContent = '6,210';
+    document.getElementById('stat-coverage').textContent = '63%';
+    document.getElementById('stat-remaining').textContent = '~3,600';
+  }
+})();
+</script>
 
 </body>
 </html>

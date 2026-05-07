@@ -66,8 +66,9 @@ async function handlePatternSurfacing(body, apiKey) {
 
   const projectId = body.projectId;
 
-  // Fetch all analyses for this project's corpus units
-  let analysesUrl = `${supabaseUrl}/rest/v1/analyses?select=output_text,corpus_unit_id,corpus_units!inner(media_asset_id,media_assets!inner(project_id))`;
+  // Fetch analyses for this project's corpus units (capped to avoid timeout)
+  const MAX_ANALYSES = 200;
+  let analysesUrl = `${supabaseUrl}/rest/v1/analyses?select=output_text,corpus_unit_id,corpus_units!inner(media_asset_id,media_assets!inner(project_id))&limit=${MAX_ANALYSES}`;
   if (projectId) {
     analysesUrl += `&corpus_units.media_assets.project_id=eq.${projectId}`;
   }
@@ -120,13 +121,19 @@ async function handlePatternSurfacing(body, apiKey) {
     });
   }
 
-  // Build corpus text
-  const corpus = analyses.map((a, i) =>
-    `[Unit ${i + 1}]\n${a.output_text}`
-  ).join('\n\n---\n\n');
+  // Build corpus text — truncate each analysis to keep total size manageable
+  const MAX_PER_UNIT = 600;
+  const sampled = analyses.length > 150
+    ? analyses.filter((_, i) => i % Math.ceil(analyses.length / 150) === 0).slice(0, 150)
+    : analyses;
 
-  // Send to Gemini Pro for synthesis
-  const model = 'gemini-2.5-pro';
+  const corpus = sampled.map((a, i) => {
+    const text = (a.output_text || '').slice(0, MAX_PER_UNIT);
+    return `[Unit ${i + 1}]\n${text}`;
+  }).join('\n\n---\n\n');
+
+  // Send to Gemini Flash for synthesis (Pro times out on Vercel Edge)
+  const model = 'gemini-2.5-flash';
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const geminiRes = await fetch(geminiUrl, {
