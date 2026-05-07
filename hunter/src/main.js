@@ -1,4 +1,4 @@
-import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison } from './db.js';
+import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights } from './db.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -663,26 +663,8 @@ function renderInsightsTab(units, patterns, assets, signal) {
     if (j.keepability_score != null) { keepSum += j.keepability_score; keepN++; }
   }
   const topEmotions = Object.entries(emotions).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const topShots = Object.entries(shotTypes).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const avgKeep = keepN > 0 ? (keepSum / keepN).toFixed(1) : '—';
-
-  // Build narrative sections from patterns
-  const sections = (patterns || [])
-    .filter(p => p.status === 'surfaced' || p.status === 'accepted')
-    .slice(0, 6)
-    .map((p, i) => {
-      const sentences = (p.observation_text || '').split(/(?<=[.!?])\s+/);
-      const heading = sentences[0]?.slice(0, 80) || `Pattern ${i + 1}`;
-      const body = sentences.slice(1).join(' ') || p.observation_text;
-      return { heading, body, num: String(i + 1).padStart(2, '0') };
-    });
-
-  // Thread callouts from top patterns
-  const threads = topEmotions.slice(0, 4).map(([name, count]) => ({
-    name: name.toUpperCase(),
-    count,
-    desc: `Appears across ${count} analyzed clips`
-  }));
+  const scenes = groupIntoScenes(units);
 
   panel.innerHTML = `
     <div class="v2-insights-wrap">
@@ -690,63 +672,38 @@ function renderInsightsTab(units, patterns, assets, signal) {
         <span class="v2-caps v2-caps--dim" style="letter-spacing:0.28em">§03</span>
         <div style="flex:1">
           <div class="v2-section-title">Insights<span style="color:var(--h-raw)">.</span></div>
-          <div class="v2-section-sub">What do you see? Hunter's narrative read of your footage corpus.</div>
+          <div class="v2-section-sub">Hunter's narrative intelligence — master arc, scene breakdowns, thematic threads.</div>
         </div>
-        <button class="v2-btn-primary" id="v2-btn-generate-insights">GENERATE INSIGHTS</button>
+        <button class="v2-btn-primary" id="v2-btn-generate-insights">GENERATE NARRATIVE</button>
       </div>
 
       <!-- Meta stats -->
       <div class="v2-narrative-meta">
         <div class="v2-meta-cell">
-          <span class="v2-caps v2-caps--sm v2-caps--dim">CORPUS SIZE</span>
+          <span class="v2-caps v2-caps--sm v2-caps--dim">CORPUS</span>
           <div class="v2-meta-value">${analyzed.length.toLocaleString()}</div>
         </div>
         <div class="v2-meta-cell">
-          <span class="v2-caps v2-caps--sm v2-caps--dim">AVG KEEPABILITY</span>
-          <div class="v2-meta-value">${avgKeep}</div>
+          <span class="v2-caps v2-caps--sm v2-caps--dim">SCENES</span>
+          <div class="v2-meta-value">${scenes.length}</div>
         </div>
         <div class="v2-meta-cell">
+          <span class="v2-caps v2-caps--sm v2-caps--dim">AVG KEEP</span>
+          <div class="v2-meta-value">${avgKeep}</div>
+        </div>
+        <div class="v2-meta-cell" style="border-right:none">
           <span class="v2-caps v2-caps--sm v2-caps--dim">TOP REGISTER</span>
           <div class="v2-meta-value" style="font-size:14px">${topEmotions[0]?.[0] || '—'}</div>
         </div>
-        <div class="v2-meta-cell" style="border-right:none">
-          <span class="v2-caps v2-caps--sm v2-caps--dim">PATTERNS</span>
-          <div class="v2-meta-value">${patterns?.length || 0}</div>
-        </div>
       </div>
 
-      <!-- Narrative sections -->
-      <div id="v2-narrative-sections">
-        ${sections.length > 0 ? sections.map(s => `
-          <div class="v2-narrative-section">
-            <div>
-              <div class="v2-narrative-num">${s.num}</div>
-              <div class="v2-narrative-rule"></div>
-            </div>
-            <div>
-              <h3 class="v2-narrative-heading">${escHtml(s.heading)}</h3>
-              <p class="v2-narrative-body">${escHtml(s.body)}</p>
-            </div>
-          </div>
-        `).join('') : '<div class="v2-empty">Click "Generate Insights" to let Hunter analyze your footage patterns.</div>'}
-      </div>
+      <!-- Master Narrative (populated after generate) -->
+      <div id="v2-master-narrative"></div>
 
-      <!-- Threads table -->
-      ${threads.length > 0 ? `
-        <div class="v2-threads-table">
-          <div class="v2-threads-header">
-            <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">THEMATIC THREADS</span>
-          </div>
-          ${threads.map(t => `
-            <div class="v2-thread-row">
-              <span class="v2-caps v2-caps--sm" style="color:var(--h-fg)">${t.name}</span>
-              <span class="v2-thread-count">${t.count}</span>
-              <span class="v2-thread-desc">${t.desc}</span>
-              <span class="v2-caps v2-caps--sm v2-caps--dim">VIEW →</span>
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
+      <!-- Scene Breakdowns (populated after generate) -->
+      <div id="v2-scene-breakdowns">
+        <div class="v2-empty">Click "Generate Narrative" — Hunter will watch your ${analyzed.length} clips and tell you what story lives in them.</div>
+      </div>
 
       <!-- Chat footer -->
       <div class="v2-chat-footer">
@@ -764,44 +721,110 @@ function renderInsightsTab(units, patterns, assets, signal) {
     </div>
   `;
 
-  // Wire up Generate Insights
+  // Wire up Generate Narrative
   const genBtn = document.getElementById('v2-btn-generate-insights');
   genBtn?.addEventListener('click', async () => {
     genBtn.disabled = true;
-    genBtn.textContent = 'ANALYZING...';
+    genBtn.textContent = 'ANALYZING FOOTAGE...';
+    const narrativeEl = document.getElementById('v2-master-narrative');
+    const breakdownsEl = document.getElementById('v2-scene-breakdowns');
+    narrativeEl.innerHTML = '<div style="padding:24px;text-align:center"><span class="v2-caps v2-caps--sm" style="color:var(--h-raw);animation:hpulse 1.4s steps(2) infinite">HUNTER IS WATCHING YOUR FOOTAGE...</span></div>';
+    breakdownsEl.innerHTML = '';
+
     try {
-      const scenesPayload = groupIntoScenes(units).slice(0, 20).map(s => ({
-        label: s.label,
-        day: s.day,
-        time: s.time,
-        clipCount: s.clips.length,
-        clips: s.clips.slice(0, 8).map(c => ({
-          clipName: c.source_clip_name || c.sourceClipName || '',
-          startSeconds: c.start_seconds ?? c.startSeconds ?? 0,
-          endSeconds: c.end_seconds ?? c.endSeconds ?? 0,
-          analysisText: (c.analyses?.[0]?.output_text || '').replace(/\*\*[^*]*\*\*:?\s*/g, '').replace(/^#+\s+.*/gm, '').replace(/\*/g, '').trim().slice(0, 200),
-        })),
-      }));
-      const { insights } = await fetchSceneInsights(scenesPayload);
-      const container = document.getElementById('v2-narrative-sections');
-      container.innerHTML = (insights || []).map((ins, i) => `
-        <div class="v2-narrative-section">
-          <div>
-            <div class="v2-narrative-num">${String(i + 1).padStart(2, '0')}</div>
-            <div class="v2-narrative-rule"></div>
+      const projectName = v2Data?.project?.name || '';
+      const scenesPayload = scenes.slice(0, 30).map(s => {
+        const durMin = Math.floor(s.totalDuration / 60);
+        const durSec = Math.floor(s.totalDuration % 60);
+        return {
+          label: s.label,
+          day: s.day,
+          time: s.time,
+          clipCount: s.clips.length,
+          durationStr: `${durMin}m${durSec}s`,
+          topEmotion: s.topEmotion,
+          topShot: s.topShot,
+          avgKeep: s.avgKeep,
+          cameras: s.cameras.join(', ') || '?',
+          clips: s.clips.slice(0, 10).map(c => ({
+            clipName: c.source_clip_name || c.sourceClipName || '',
+            startSeconds: c.start_seconds ?? c.startSeconds ?? 0,
+            endSeconds: c.end_seconds ?? c.endSeconds ?? 0,
+            analysisText: (c.analyses?.[0]?.output_text || '').replace(/\*\*[^*]*\*\*:?\s*/g, '').replace(/^#+\s+.*/gm, '').replace(/\*/g, '').trim().slice(0, 250),
+          })),
+        };
+      });
+
+      const result = await fetchNarrativeInsights(scenesPayload, projectName);
+      const mn = result.master_narrative || {};
+      const breakdowns = result.scene_breakdowns || [];
+
+      // Render Master Narrative
+      const arcParagraphs = (mn.arc || '').split(/\n\n+/).filter(Boolean);
+      const themes = mn.themes || [];
+
+      narrativeEl.innerHTML = `
+        <div class="v2-master-narrative">
+          ${mn.title ? `<h2 class="v2-narrative-title">${escHtml(mn.title)}</h2>` : ''}
+          ${mn.lede ? `<p class="v2-narrative-lede">${escHtml(mn.lede)}</p>` : ''}
+          <div class="v2-narrative-arc">
+            ${arcParagraphs.map(p => `<p class="v2-narrative-arc-p">${escHtml(p)}</p>`).join('')}
           </div>
-          <div>
-            <h3 class="v2-narrative-heading">${escHtml(ins.scene_description || `Scene ${i + 1}`)}</h3>
-            <p class="v2-narrative-body">${escHtml(ins.emotional_arc || ins.editorial_potential || '')}</p>
-            ${ins.key_moments?.length ? `<div style="margin-top:12px">${ins.key_moments.map(m => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 6px;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;border:1px solid var(--h-border-s);color:var(--h-muted)">${escHtml(typeof m === 'string' ? m : m.moment || JSON.stringify(m))}</span>`).join('')}</div>` : ''}
-          </div>
+          ${themes.length ? `
+            <div class="v2-narrative-themes">
+              <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em;display:block;margin-bottom:12px">THEMATIC THREADS</span>
+              ${themes.map(t => `
+                <div class="v2-theme-row">
+                  <span class="v2-theme-name">${escHtml(t.name || '')}</span>
+                  ${t.count ? `<span class="v2-theme-count">${t.count}</span>` : ''}
+                  <span class="v2-theme-desc">${escHtml(t.description || '')}</span>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
         </div>
-      `).join('');
+      `;
+
+      // Render Scene Breakdowns
+      const verdictColors = { ESSENTIAL: 'var(--h-finished)', STRONG: 'var(--h-script)', USEFUL: 'var(--h-raw)', CUT: 'var(--h-selects)' };
+      breakdownsEl.innerHTML = `
+        <div class="v2-scene-breakdowns">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--h-border)">
+            <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">SCENE BREAKDOWNS</span>
+            <span class="v2-caps v2-caps--dim" style="margin-left:8px">${breakdowns.length} SCENES</span>
+          </div>
+          ${breakdowns.map((bd, i) => {
+            const scene = scenes[bd.scene_index ?? i];
+            const day = scene?.day || '';
+            const time = scene?.time || '';
+            const vc = verdictColors[bd.editorial_verdict] || 'var(--h-muted)';
+            return `
+              <div class="v2-breakdown-card">
+                <div class="v2-breakdown-header">
+                  <span class="v2-breakdown-num">${String(i + 1).padStart(2, '0')}</span>
+                  <div style="flex:1;min-width:0">
+                    <div class="v2-breakdown-title">${escHtml(bd.title || `Scene ${i + 1}`)}</div>
+                    <div class="v2-breakdown-meta">
+                      ${day ? `<span>${day}</span>` : ''}
+                      ${bd.time_of_day ? `<span>${bd.time_of_day}</span>` : ''}
+                      ${scene ? `<span>${scene.clips.length} clips</span>` : ''}
+                    </div>
+                  </div>
+                  <span class="v2-breakdown-verdict" style="color:${vc};border-color:${vc}">${bd.editorial_verdict || ''}</span>
+                </div>
+                <p class="v2-breakdown-desc">${escHtml(bd.narrative_description || '')}</p>
+                ${bd.key_clip ? `<div class="v2-breakdown-keyclip"><span class="v2-caps v2-caps--sm v2-caps--dim">KEY CLIP</span> <span style="color:var(--h-script);font-size:11px">${escHtml(bd.key_clip)}</span></div>` : ''}
+                ${bd.connections ? `<div class="v2-breakdown-connections"><span class="v2-caps v2-caps--sm v2-caps--dim">CONNECTS TO</span> <span style="color:var(--h-muted);font-size:11px">${escHtml(bd.connections)}</span></div>` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
     } catch (err) {
-      document.getElementById('v2-narrative-sections').innerHTML = `<div class="v2-empty" style="color:var(--h-err)">${escHtml(err.message)}</div>`;
+      narrativeEl.innerHTML = `<div class="v2-empty" style="color:var(--h-err)">${escHtml(err.message)}</div>`;
     } finally {
       genBtn.disabled = false;
-      genBtn.textContent = 'GENERATE INSIGHTS';
+      genBtn.textContent = 'GENERATE NARRATIVE';
     }
   }, { signal });
 
