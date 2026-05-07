@@ -404,6 +404,11 @@ export function mountWorkshop(container, opts) {
           if (z && seg) {
             seg.text = z.polished;
             delete state.zaps[segNum];
+            // Notify the host so the segment mutation gets autosaved.
+            // Without this the polished text vanishes on reload.
+            if (typeof opts.onSegmentsMutated === 'function') {
+              try { opts.onSegmentsMutated(); } catch {}
+            }
             render();
           }
         } else if (act === 'zap-undo') {

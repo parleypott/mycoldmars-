@@ -804,6 +804,15 @@ function applyTranscriptToState(t) {
   pendingTargetLanguage = null;
   pendingSourceLanguage = null;
   pendingTranslationEnabled = null;
+  // Reset metadata-derived globals so transcript-A's summary/votes/workshop
+  // can't bleed into transcript-B and get autosaved into B's row. The
+  // 'fall back to server metadata' logic in finishLoadRender will repopulate
+  // them from t.metadata if present.
+  currentSummary = null;
+  rawSummary = null;
+  summaryBullets = [];
+  interestVotes = {};
+  workshopState = null;
 }
 
 // Overlay a snapshot's gatherState()-shape payload onto our state vars.
@@ -2456,18 +2465,24 @@ async function handleMediaUpload(file) {
   // speaker-labeling dialog — tell finishUploadParse not to overwrite.
   finishUploadParse({ name: file.name }, { preserveSpeakerState: true });
 
+  // Wait for the first save to land so currentTranscriptId exists before
+  // the next step. Without this, translateSegments / skipToEditor can run
+  // against state with no transcript row, and any failure leaves the work
+  // un-snapshottable to localStorage (snapshotDirtyState requires an id).
+  try { await flushPendingSave(); } catch (err) {
+    console.warn('[upload] first-save flush failed; continuing anyway:', err);
+  }
+
   // If the user picked a translate target in the pre-transcribe dialog,
   // run the translate step so we get bilingual segments before entering
   // the editor. Otherwise jump straight to the editor.
-  setTimeout(() => {
-    try {
-      if (pendingTargetLanguage) startTranslation();
-      else skipToEditor();
-    } catch (err) {
-      console.warn('Post-transcribe step failed:', err);
-      try { skipToEditor(); } catch {}
-    }
-  }, 50);
+  try {
+    if (pendingTargetLanguage) startTranslation();
+    else skipToEditor();
+  } catch (err) {
+    console.warn('Post-transcribe step failed:', err);
+    try { skipToEditor(); } catch {}
+  }
 }
 
 function showMediaProgress({ stage, message, percent }) {
@@ -3341,6 +3356,14 @@ function mountWorkshop() {
           workshopState = newState;
           debouncedAutoSave();
         },
+        // Fires when "Use polished" mutates a segment.text in place. Without
+        // this the edit only lives in memory and vanishes on reload — the
+        // workshop was mutating the global `segments` array directly with
+        // no autosave hook.
+        onSegmentsMutated: () => {
+          markDirty();
+          debouncedAutoSave();
+        },
       });
     } catch (err) {
       console.error('Workshop mount failed:', err);
@@ -4116,8 +4139,11 @@ function clearLastTranscript() {
 }
 
 // ── Reset to upload ──
-function resetToUpload() {
-  flushPendingSave();
+async function resetToUpload() {
+  // Wait for any in-flight save to land BEFORE clearing local state, otherwise
+  // the in-flight runSaveOnce() may finish after the reset, see nextSavePending,
+  // and write a half-empty payload (no segments/no editorState) to the server.
+  try { await flushPendingSave(); } catch {}
   teardownEditingSession();
   clearLastTranscript();
   clearPermalinkHash();
