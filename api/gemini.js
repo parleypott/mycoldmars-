@@ -30,6 +30,10 @@ export default async function handler(req) {
     return handleSceneInsights(body, apiKey);
   }
 
+  if (action === 'narrative_insights') {
+    return handleNarrativeInsights(body, apiKey);
+  }
+
   if (action === 'chat') {
     return handleChat(body, apiKey);
   }
@@ -608,6 +612,80 @@ ${corpus}`;
   }
 
   return jsonResponse({ comparison, tierCounts: { raw: tierData.raw.length, selects: tierData.selects.length, finished: tierData.finished.length } });
+}
+
+// ── Narrative Insights (Master Arc + Scene Breakdowns) ──
+
+async function handleNarrativeInsights(body, apiKey) {
+  const { scenes, projectName } = body;
+  if (!scenes?.length) return jsonResponse({ error: 'scenes array is required' }, 400);
+
+  // Build a rich chronological scene corpus
+  // Each scene has: day, time, clips with analysis text, emotional register, shot type
+  const sceneSummaries = scenes.slice(0, 30).map((scene, i) => {
+    const clipDetails = (scene.clips || []).slice(0, 10).map(c => {
+      const text = (c.analysisText || '').slice(0, 250);
+      return `    - ${c.clipName || 'clip'} (${c.startSeconds || 0}s–${c.endSeconds || 0}s): ${text}`;
+    }).join('\n');
+
+    return `SCENE ${i + 1}: Day ${scene.day || '?'}, ${scene.time || '?'} — "${scene.label || 'Untitled'}"
+  ${scene.clipCount || 0} clips, ${scene.durationStr || '?'} total
+  Dominant emotion: ${scene.topEmotion || 'unknown'} | Shot type: ${scene.topShot || 'mixed'} | Keep: ${scene.avgKeep != null ? scene.avgKeep.toFixed(1) : '?'}/10
+  Cameras: ${scene.cameras || '?'}
+${clipDetails}`;
+  });
+
+  const prompt = `You are Hunter — a brilliant documentary editor's AI assistant who can read footage at a glance. You've watched every clip. Now synthesize what you've seen.
+
+PROJECT: "${projectName || 'Untitled'}"
+${sceneSummaries.length} scenes detected chronologically from filenames (date + time of day).
+
+${sceneSummaries.join('\n\n---\n\n')}
+
+Now produce a comprehensive editorial intelligence report. Return JSON with these fields:
+
+1. "master_narrative" — object with:
+   - "title": string — A bold, evocative headline for this project's story (not the project name, the STORY you see)
+   - "lede": string — One provocative, insight-laden sentence that captures the whole thing (28-32px pull-quote energy)
+   - "arc": string — 3-5 paragraphs describing the complete arc of the trip/shoot. Tell it chronologically. What happened on day 1 vs day 5 vs the last day? What shifted? What obsession emerged? What got abandoned? Write like a filmmaker's trusted editorial advisor, not a database.
+   - "themes": array of { "name": string, "count": number, "description": string } — 3-6 thematic threads running through the footage. Not shot types — NARRATIVE threads. "Hospitality as time", "Hands as protagonists", "Thresholds between worlds", etc.
+
+2. "scene_breakdowns" — array of objects (one per scene), each with:
+   - "scene_index": number (0-based)
+   - "title": string — A cinematic scene title (not the filename)
+   - "time_of_day": string — "dawn", "morning", "midday", "afternoon", "golden hour", "evening", "night" (infer from the timestamp)
+   - "narrative_description": string — 2-3 sentences: what happens in this scene, what makes it editorially interesting, how it connects to the larger story
+   - "editorial_verdict": "ESSENTIAL" | "STRONG" | "USEFUL" | "CUT" — honest editorial assessment
+   - "connections": string — How this scene connects to other scenes (reference by scene number)
+   - "key_clip": string — The single most important clip name in this scene and why
+
+Be specific. Cite clip names. Surprise the filmmaker. Be opinionated. If the footage is mediocre, say so. If something is extraordinary, champion it.`;
+
+  const model = 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 12000, responseMimeType: 'application/json' },
+    }),
+  });
+
+  if (!res.ok) {
+    return jsonResponse({ error: 'Narrative insights failed', detail: (await res.text()).slice(0, 500) }, 502);
+  }
+
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+  let result = {};
+  try { result = JSON.parse(text); } catch {
+    result = { master_narrative: { title: 'Analysis', lede: '', arc: text, themes: [] }, scene_breakdowns: [] };
+  }
+
+  return jsonResponse(result);
 }
 
 function formatSeconds(s) {
