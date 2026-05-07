@@ -140,8 +140,11 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   } catch {}
 
   // ── Drag-to-move via the grip handle ───────────────────────────
+  // Listener refs are captured so destroy() can detach them — without this
+  // every transcript switch leaves a dead mousemove handler running on
+  // window, which compounds on long sessions.
   let dragState = null;
-  grip.addEventListener('mousedown', (e) => {
+  function onGripMousedown(e) {
     e.preventDefault();
     const rect = videoFrame.getBoundingClientRect();
     dragState = {
@@ -151,30 +154,31 @@ export function mountMediaDeck(editorContainer, opts = {}) {
       height: rect.height,
     };
     document.body.classList.add('media-deck-dragging');
-  });
-  window.addEventListener('mousemove', (e) => {
+  }
+  function onWindowMousemove(e) {
     if (!dragState) return;
     e.preventDefault();
     const left = Math.max(0, Math.min(window.innerWidth - dragState.width, e.clientX - dragState.offsetX));
     const top  = Math.max(0, Math.min(window.innerHeight - dragState.height, e.clientY - dragState.offsetY));
-    // Convert top → bottom so resizes don't push the player off-screen.
     const bottom = window.innerHeight - top - dragState.height;
     videoFrame.style.left = `${left}px`;
     videoFrame.style.bottom = `${bottom}px`;
     videoFrame.style.right = 'auto';
-  });
-  window.addEventListener('mouseup', () => {
+  }
+  function onWindowMouseup() {
     if (!dragState) return;
     dragState = null;
     document.body.classList.remove('media-deck-dragging');
-    // Persist the final position
     try {
       const left = parseFloat(videoFrame.style.left) || 16;
       const bottom = parseFloat(videoFrame.style.bottom) || 86;
       const collapsed = videoFrame.classList.contains('media-deck-video--collapsed');
       localStorage.setItem('mcm_media_deck_pos', JSON.stringify({ left, bottom, collapsed }));
     } catch {}
-  });
+  }
+  grip.addEventListener('mousedown', onGripMousedown);
+  window.addEventListener('mousemove', onWindowMousemove);
+  window.addEventListener('mouseup', onWindowMouseup);
 
   // ── Collapse / expand the video frame (controls + waveform stay) ─
   collapseBtn.addEventListener('click', () => {
@@ -398,16 +402,17 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   let lastUserScrollAt = 0;
   const USER_SCROLL_GRACE_MS = 3000;
 
+  // Capture refs so destroy() can detach.
+  const noteUserScroll = () => { lastUserScrollAt = Date.now(); };
+  const noteUserScrollKey = (e) => {
+    if (['PageUp','PageDown','Home','End','ArrowUp','ArrowDown'].includes(e.key)) {
+      lastUserScrollAt = Date.now();
+    }
+  };
   if (editorContainer) {
-    const noteUserScroll = () => { lastUserScrollAt = Date.now(); };
     editorContainer.addEventListener('wheel',     noteUserScroll, { passive: true });
     editorContainer.addEventListener('touchmove', noteUserScroll, { passive: true });
-    editorContainer.addEventListener('keydown', (e) => {
-      // Page-Up/Down, Home/End, Arrow keys → user is navigating manually
-      if (['PageUp','PageDown','Home','End','ArrowUp','ArrowDown'].includes(e.key)) {
-        lastUserScrollAt = Date.now();
-      }
-    });
+    editorContainer.addEventListener('keydown',   noteUserScrollKey);
   }
 
   function highlightCurrentSegment(currentTime) {
@@ -530,8 +535,18 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   function destroy() {
     try { video.pause(); } catch {}
     try { wavesurfer.destroy(); } catch {}
-    if (editorContainer) editorContainer.removeEventListener('click', onEditorClick);
-    window.removeEventListener('keydown', onKeydown);
+    // Window-level listeners — these survive the DOM removal otherwise
+    // and accumulate every transcript switch.
+    window.removeEventListener('mousemove', onWindowMousemove);
+    window.removeEventListener('mouseup',   onWindowMouseup);
+    window.removeEventListener('keydown',   onKeydown);
+    // Editor-container listeners — same risk.
+    if (editorContainer) {
+      editorContainer.removeEventListener('click',     onEditorClick);
+      editorContainer.removeEventListener('wheel',     noteUserScroll);
+      editorContainer.removeEventListener('touchmove', noteUserScroll);
+      editorContainer.removeEventListener('keydown',   noteUserScrollKey);
+    }
     if (root.parentNode) root.parentNode.removeChild(root);
     document.body.classList.remove('has-media-deck');
   }

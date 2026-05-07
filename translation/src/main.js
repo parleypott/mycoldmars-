@@ -1467,7 +1467,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     if (
       pendingSave || saveInFlight ||
-      saveState === 'dirty' || saveState === 'error'
+      saveState === 'dirty' || saveState === 'error' || saveState === 'conflict'
     ) {
       try { runSaveOnce(); } catch {}
     }
@@ -2933,7 +2933,8 @@ window.addEventListener('np-speaker-rename', (e) => {
   // 3) Update hiddenSpeakers if needed.
   hiddenSpeakers = (hiddenSpeakers || []).map(s => s === from ? to : s);
 
-  // 4) Rebuild + autosave.
+  // 4) Rebuild + mark dirty + autosave. markDirty() runs the snapshot
+  //    capture so a failed save still recovers the rename on reload.
   editorState = buildEditorDocument(
     segments,
     translations.length > 0 ? translations : null,
@@ -2945,6 +2946,7 @@ window.addEventListener('np-speaker-rename', (e) => {
   );
   editorInstance = null;
   switchView('editor');
+  markDirty();
   autoSave();
 });
 
