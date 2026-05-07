@@ -82,11 +82,13 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
       setVisible(true);
     };
 
+    const onBlur = () => setVisible(false);
     editor.on('selectionUpdate', updateMenu);
-    editor.on('blur', () => setVisible(false));
+    editor.on('blur', onBlur);
 
     return () => {
       editor.off('selectionUpdate', updateMenu);
+      editor.off('blur', onBlur);
     };
   }, [editor]);
 
