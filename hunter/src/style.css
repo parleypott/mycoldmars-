@@ -1246,6 +1246,146 @@ header {
   overflow: hidden;
 }
 
+/* ── Corpus filter bar ── */
+.corpus-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: var(--np-space-4);
+  padding: 2px;
+  background: var(--np-surface);
+  border-radius: var(--np-radius-md);
+  width: fit-content;
+}
+.corpus-filter-tab {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  color: var(--np-text-dim);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all var(--np-duration) var(--np-ease);
+}
+.corpus-filter-tab:hover { color: var(--np-ink); }
+.corpus-filter-tab.active {
+  background: var(--np-surface-2);
+  color: var(--np-ink);
+}
+.corpus-count {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  color: var(--np-text-dim);
+  margin-left: 12px;
+  letter-spacing: 0.05em;
+}
+.corpus-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--np-space-2);
+  margin-top: var(--np-space-6);
+  padding: var(--np-space-4) 0;
+}
+.corpus-page-btn {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  padding: 6px 14px;
+  border: 1px solid var(--np-border);
+  background: transparent;
+  color: var(--np-text-dim);
+  cursor: pointer;
+  border-radius: var(--np-radius-sm);
+  transition: all var(--np-duration) var(--np-ease);
+}
+.corpus-page-btn:hover { border-color: var(--np-border-hover); color: var(--np-ink); }
+.corpus-page-btn.active { background: var(--np-surface-2); color: var(--np-ink); border-color: var(--np-border-hover); }
+.corpus-page-btn:disabled { opacity: 0.3; cursor: default; }
+.corpus-page-info {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  color: var(--np-text-dim);
+  padding: 0 8px;
+}
+
+/* ── Analysis badges ── */
+.analysis-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.analysis-badge {
+  font-family: var(--np-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: var(--np-radius-full);
+  border: 1px solid var(--np-border);
+  color: var(--np-text-dim);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.analysis-badge--keep {
+  border-color: rgba(34, 197, 94, 0.3);
+  color: var(--np-green);
+}
+.analysis-badge--cut {
+  border-color: rgba(255, 59, 32, 0.2);
+  color: var(--np-red);
+}
+
+/* ── Tier progress bars ── */
+.tier-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: var(--np-space-4);
+  padding: var(--np-space-4);
+  background: var(--np-surface);
+  border-radius: var(--np-radius-md);
+  border: 1px solid var(--np-border);
+}
+.tier-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tier-progress-label {
+  font-family: var(--np-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--np-text-dim);
+  width: 60px;
+  flex-shrink: 0;
+}
+.tier-progress-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.tier-progress-fill {
+  height: 100%;
+  background: var(--np-red);
+  border-radius: 2px;
+  transition: width 0.6s var(--np-ease-out);
+}
+.tier-progress-fill--complete { background: var(--np-green); }
+.tier-progress-count {
+  font-family: var(--np-font-mono);
+  font-size: 9px;
+  color: var(--np-text-dim);
+  width: 70px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 /* ── Input dialogs ── */
 .input-dialog {
   display: flex;

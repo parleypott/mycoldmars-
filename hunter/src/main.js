@@ -160,21 +160,38 @@ async function openProject(id) {
   const totalUnits = units.length;
   const analyzedUnits = units.filter(u => u.analyses?.length > 0).length;
 
-  // Build per-tier stats
-  const tierCounts = {};
+  // Build per-tier stats with analysis progress
+  const tierStats = {};
   for (const a of assets) {
     const tierUnits = units.filter(u => u.media_assets?.tier === a.tier || u.media_asset_id === a.id);
-    tierCounts[a.tier] = (tierCounts[a.tier] || 0) + tierUnits.length;
+    const analyzed = tierUnits.filter(u => u.analyses?.length > 0).length;
+    const tierKey = a.tier;
+    if (!tierStats[tierKey]) tierStats[tierKey] = { total: 0, analyzed: 0 };
+    tierStats[tierKey].total += tierUnits.length;
+    tierStats[tierKey].analyzed += analyzed;
   }
-  const tierParts = Object.entries(tierCounts)
-    .filter(([, c]) => c > 0)
-    .map(([tier, count]) => `${tier}: ${count}`)
-    .join(' · ');
 
   const statsLine = totalUnits > 0
-    ? `${analyzedUnits} analyzed · ${tierParts}`
+    ? `${analyzedUnits} analyzed of ${totalUnits} units`
     : `${assets.length} sources`;
-  header.innerHTML = `<h2>${escHtml(project.name)}</h2><div class="project-stats">${statsLine}</div>`;
+
+  // Build progress bars HTML
+  const TIER_LABELS = { raw: 'raw', selects: 'selects', google_docs: 'script', finished: 'finished' };
+  let progressHtml = '';
+  const tierEntries = Object.entries(tierStats).filter(([, s]) => s.total > 0);
+  if (tierEntries.length > 0) {
+    progressHtml = '<div class="tier-progress">' + tierEntries.map(([tier, s]) => {
+      const pct = s.total > 0 ? (s.analyzed / s.total * 100) : 0;
+      const fillClass = pct >= 100 ? 'tier-progress-fill tier-progress-fill--complete' : 'tier-progress-fill';
+      return `<div class="tier-progress-row">
+        <span class="tier-progress-label">${TIER_LABELS[tier] || tier}</span>
+        <div class="tier-progress-bar"><div class="${fillClass}" style="width:${pct.toFixed(1)}%"></div></div>
+        <span class="tier-progress-count">${s.analyzed}/${s.total}</span>
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  header.innerHTML = `<h2>${escHtml(project.name)}</h2><div class="project-stats">${statsLine}</div>${progressHtml}`;
 
   // Update training hub
   document.getElementById('hub-project-name').textContent = project.name;
@@ -212,12 +229,14 @@ async function openProject(id) {
       const startSec = u.start_seconds ?? u.startSeconds ?? 0;
       const endSec = u.end_seconds ?? u.endSeconds ?? 0;
       const clipName = u.source_clip_name || u.sourceClipName || '';
+      const badges = renderAnalysisBadges(analysis?.output_json);
       return `
         <div class="corpus-unit">
           <span class="corpus-unit-tc">${formatTc(startSec)} – ${formatTc(endSec)}${clipName ? '<br>' + escHtml(clipName) : ''}</span>
           <div>
             <span class="corpus-unit-desc${isTruncatable ? ' truncated' : ''}" data-unit="${i}">${fullText ? escHtml(fullText) : '<em>pending analysis</em>'}</span>
             ${isTruncatable ? `<button class="corpus-unit-expand" data-unit="${i}">read more</button>` : ''}
+            ${badges}
           </div>
         </div>
       `;
@@ -574,18 +593,20 @@ document.getElementById('btn-what-do-you-see').addEventListener('click', async (
 
 // ── Corpus browser ──
 
+let allCorpusUnits = [];
+let corpusFilter = '';
+let corpusPage = 0;
+const CORPUS_PAGE_SIZE = 60;
+
 async function loadCorpusBrowser() {
   const browser = document.getElementById('corpus-browser');
 
-  let units;
-
   if (isDemo) {
-    // Merge all demo units across all projects
-    units = [];
+    allCorpusUnits = [];
     for (const [pid, projectUnits] of Object.entries(DEMO_UNITS)) {
       const proj = DEMO_PROJECTS.find(p => p.id === pid);
       for (const u of projectUnits) {
-        units.push({
+        allCorpusUnits.push({
           ...u,
           media_assets: { project_id: pid, tier: 'raw', hunter_projects: { name: proj?.name || 'unknown' } },
         });
@@ -593,7 +614,7 @@ async function loadCorpusBrowser() {
     }
   } else {
     try {
-      units = await listAllCorpusUnits();
+      allCorpusUnits = await listAllCorpusUnits(2000);
     } catch (err) {
       console.error('[hunter] loadCorpusBrowser:', err);
       browser.innerHTML = '<p class="corpus-browser-empty">failed to load corpus</p>';
@@ -601,27 +622,80 @@ async function loadCorpusBrowser() {
     }
   }
 
-  if (!units.length) {
+  if (!allCorpusUnits.length) {
     browser.innerHTML = '<p class="corpus-browser-empty">no analyzed footage yet — ingest a project to build the corpus</p>';
     return;
   }
 
+  // Init filter tabs
+  document.querySelectorAll('.corpus-filter-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      corpusFilter = tab.dataset.filter;
+      corpusPage = 0;
+      document.querySelectorAll('.corpus-filter-tab').forEach(t => t.classList.toggle('active', t === tab));
+      renderCorpusPage();
+    });
+  });
+
+  renderCorpusPage();
+}
+
+function getFilteredCorpus() {
+  if (!corpusFilter) return allCorpusUnits;
+  return allCorpusUnits.filter(u => (u.media_assets?.tier || '') === corpusFilter);
+}
+
+function renderCorpusPage() {
+  const browser = document.getElementById('corpus-browser');
+  const pagination = document.getElementById('corpus-pagination');
+  const countEl = document.getElementById('corpus-count');
+
+  const filtered = getFilteredCorpus();
+  const totalPages = Math.ceil(filtered.length / CORPUS_PAGE_SIZE);
+  const page = Math.min(corpusPage, totalPages - 1);
+  const start = page * CORPUS_PAGE_SIZE;
+  const pageUnits = filtered.slice(start, start + CORPUS_PAGE_SIZE);
+
+  countEl.textContent = `${filtered.length} units`;
+
   browser.innerHTML = `
     <div class="corpus-grid">
-      ${units.map(u => {
+      ${pageUnits.map(u => {
         const analysis = u.analyses?.[0];
         const projectName = u.media_assets?.hunter_projects?.name || 'unknown';
         const tier = u.media_assets?.tier || '';
+        const structured = analysis?.output_json;
+        const badges = renderAnalysisBadges(structured);
         return `
           <div class="corpus-grid-item" data-project-id="${u.media_assets?.project_id || ''}">
             <div class="corpus-grid-item-project">${escHtml(projectName)} / ${tier}</div>
             <div class="corpus-grid-item-tc">${formatTc(u.start_seconds)} – ${formatTc(u.end_seconds)}${u.source_clip_name ? ' · ' + escHtml(u.source_clip_name) : ''}</div>
-            <div class="corpus-grid-item-text">${analysis ? escHtml(analysis.output_text.slice(0, 200)) : '<em style="color:var(--np-sepia)">pending analysis</em>'}</div>
+            <div class="corpus-grid-item-text">${analysis ? escHtml(analysis.output_text.slice(0, 200)) : '<em style="color:var(--np-text-dim)">pending analysis</em>'}</div>
+            ${badges}
           </div>
         `;
       }).join('')}
     </div>
   `;
+
+  // Pagination
+  if (totalPages > 1) {
+    let paginationHtml = '';
+    paginationHtml += `<button class="corpus-page-btn" data-page="${page - 1}" ${page === 0 ? 'disabled' : ''}>←</button>`;
+    paginationHtml += `<span class="corpus-page-info">${page + 1} / ${totalPages}</span>`;
+    paginationHtml += `<button class="corpus-page-btn" data-page="${page + 1}" ${page >= totalPages - 1 ? 'disabled' : ''}>→</button>`;
+    pagination.innerHTML = paginationHtml;
+
+    pagination.querySelectorAll('.corpus-page-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        corpusPage = parseInt(btn.dataset.page);
+        renderCorpusPage();
+        browser.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  } else {
+    pagination.innerHTML = '';
+  }
 
   browser.querySelectorAll('.corpus-grid-item').forEach(item => {
     item.addEventListener('click', () => {
@@ -629,6 +703,23 @@ async function loadCorpusBrowser() {
       if (pid) openProject(pid);
     });
   });
+}
+
+function renderAnalysisBadges(structured) {
+  if (!structured) return '';
+  const badges = [];
+  if (structured.shot_type) badges.push(structured.shot_type);
+  if (structured.camera_movement && structured.camera_movement !== 'static') badges.push(structured.camera_movement);
+  if (structured.keepability_score != null) {
+    const score = structured.keepability_score;
+    const cls = score >= 7 ? 'analysis-badge--keep' : score <= 3 ? 'analysis-badge--cut' : '';
+    badges.push(`<span class="analysis-badge ${cls}">keep: ${score}/10</span>`);
+  }
+  if (structured.editorial_function) badges.push(structured.editorial_function);
+  if (!badges.length) return '';
+  return `<div class="analysis-badges">${badges.map(b =>
+    b.startsWith('<span') ? b : `<span class="analysis-badge">${escHtml(b)}</span>`
+  ).join('')}</div>`;
 }
 
 // ── Corpus search ──

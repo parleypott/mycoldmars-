@@ -246,12 +246,30 @@ export async function updatePatternStatus(id, status, userNotes) {
 
 export async function listAllCorpusUnits(limit = 200) {
   if (!supabase) return [];
-  const { data, error } = await db().from('corpus_units')
-    .select('*, media_assets!inner(project_id, tier, hunter_projects!inner(name)), analyses(*)')
-    .order('created_at', { ascending: false })
-    .limit(limit);
-  if (error) throw normalizeError(error, 'listAllCorpusUnits');
-  return data;
+  // Paginate if limit > 1000 (Supabase max per request)
+  if (limit <= 1000) {
+    const { data, error } = await db().from('corpus_units')
+      .select('*, media_assets!inner(project_id, tier, hunter_projects!inner(name)), analyses(output_text, output_json)')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw normalizeError(error, 'listAllCorpusUnits');
+    return data;
+  }
+  let all = [];
+  let offset = 0;
+  while (all.length < limit) {
+    const batchSize = Math.min(1000, limit - all.length);
+    const { data, error } = await db().from('corpus_units')
+      .select('*, media_assets!inner(project_id, tier, hunter_projects!inner(name)), analyses(output_text, output_json)')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + batchSize - 1);
+    if (error) throw normalizeError(error, 'listAllCorpusUnits');
+    if (!data?.length) break;
+    all = all.concat(data);
+    if (data.length < batchSize) break;
+    offset += batchSize;
+  }
+  return all;
 }
 
 // ── Ingest status (for live status bar) ──

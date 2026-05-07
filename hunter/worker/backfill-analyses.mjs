@@ -69,15 +69,25 @@ async function fetchAllPaginated(table, select, filters = {}) {
   return all;
 }
 
-async function retryWithBackoff(fn, label, maxRetries = 3) {
+// Track consecutive 503s globally to detect sustained outage
+let consecutive503s = 0;
+
+async function retryWithBackoff(fn, label, maxRetries = 5) {
   for (let i = 0; i <= maxRetries; i++) {
     try {
-      return await fn();
+      const result = await fn();
+      consecutive503s = 0; // Reset on success
+      return result;
     } catch (err) {
       const msg = err.message || '';
       if (i < maxRetries && (msg.includes('429') || msg.includes('503') || msg.includes('RESOURCE_EXHAUSTED'))) {
-        const wait = Math.pow(2, i + 1) * 5;
-        console.log(`[backfill] ${label} retry ${i + 1}/${maxRetries} in ${wait}s: ${msg.slice(0, 60)}`);
+        consecutive503s++;
+        // Base wait: 15s, 30s, 60s, 120s, 240s — much more patient
+        const baseWait = Math.pow(2, i) * 15;
+        // If sustained outage (many consecutive 503s), add extra cooldown
+        const extraWait = consecutive503s > 10 ? 60 : 0;
+        const wait = baseWait + extraWait;
+        console.log(`[backfill] ${label} retry ${i + 1}/${maxRetries} in ${wait}s (503 streak: ${consecutive503s})`);
         await new Promise(r => setTimeout(r, wait * 1000));
       } else {
         throw err;
@@ -144,10 +154,29 @@ async function main() {
 
   let success = 0;
   let failed = 0;
-  const limit = createPool(CONCURRENCY);
   const startTime = Date.now();
 
+  // Progress reporter
+  const progressInterval = setInterval(() => {
+    const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
+    const rate = success > 0 ? (elapsed / success).toFixed(1) : '?';
+    console.log(`[backfill] ── PROGRESS: ${success} ok, ${failed} fail, ${success + failed}/${missing.length} total, ${elapsed}min elapsed, ${rate}min/clip ──`);
+  }, 120000); // Every 2 min
+
+  // Use concurrency=1 during 503 storms, scale up when API recovers
+  function getEffectiveConcurrency() {
+    return consecutive503s > 5 ? 1 : CONCURRENCY;
+  }
+
+  const limit = createPool(CONCURRENCY);
+
   await Promise.allSettled(missing.map(unit => limit(async () => {
+    // Pause if in sustained outage — don't pile up more requests
+    if (consecutive503s > 15) {
+      const cooldown = 120;
+      console.log(`[backfill] ${unit.source_clip_name}: sustained outage, cooling down ${cooldown}s...`);
+      await new Promise(r => setTimeout(r, cooldown * 1000));
+    }
     const localPath = join(projectDir, unit.source_clip_name);
     try {
       // Download from Dropbox with size verification
@@ -242,6 +271,7 @@ async function main() {
     }
   })));
 
+  clearInterval(progressInterval);
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
   console.log(`\n╔══════════════════════════════════════╗`);
   console.log(`║  BACKFILL COMPLETE                    ║`);
