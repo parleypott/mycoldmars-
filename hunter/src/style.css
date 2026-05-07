@@ -2101,6 +2101,112 @@ header {
   text-align: right;
 }
 
+/* ── Best Clips ── */
+
+.best-clips-section {
+  margin: var(--np-space-6) 0;
+}
+
+.best-clips-header {
+  display: flex;
+  align-items: center;
+  gap: var(--np-space-2);
+  margin-bottom: var(--np-space-3);
+}
+
+.best-clips-glyph {
+  font-size: 13px;
+  color: var(--np-yellow);
+}
+
+.best-clips-title {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--np-text-dim);
+}
+
+.best-clips-count {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  color: var(--np-text-dim);
+  margin-left: auto;
+}
+
+.best-clips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--np-space-2);
+}
+
+.best-clip-card {
+  background: var(--np-surface);
+  border: 1px solid var(--np-border);
+  border-radius: var(--np-radius-md);
+  padding: var(--np-space-3);
+  transition: border-color 0.2s;
+}
+
+.best-clip-card:hover {
+  border-color: var(--np-border-hover);
+}
+
+.best-clip-top {
+  display: flex;
+  align-items: center;
+  gap: var(--np-space-2);
+  margin-bottom: var(--np-space-1);
+}
+
+.best-clip-score {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--np-green);
+  background: rgba(34, 197, 94, 0.1);
+  padding: 1px 6px;
+  border-radius: var(--np-radius-sm);
+}
+
+.best-clip-score--high {
+  color: var(--np-yellow);
+  background: rgba(255, 191, 0, 0.12);
+}
+
+.best-clip-name {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  color: var(--np-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.best-clip-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: var(--np-space-1) 0;
+}
+
+.best-clip-tag {
+  font-family: var(--np-font-mono);
+  font-size: 9px;
+  padding: 1px 5px;
+  border: 1px solid var(--np-border);
+  border-radius: var(--np-radius-full);
+  color: var(--np-text-dim);
+}
+
+.best-clip-text {
+  font-family: var(--np-font-sans);
+  font-size: 11px;
+  color: var(--np-text-dim);
+  line-height: 1.4;
+  margin-top: var(--np-space-1);
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -245,6 +245,9 @@ async function openProject(id) {
   // Render project stats dashboard
   renderProjectStats(units);
 
+  // Render best clips
+  renderBestClips(units);
+
   // Render scenes timeline
   renderScenes(units);
 
@@ -1336,6 +1339,49 @@ function renderProjectStats(units) {
 
   grid.innerHTML = html;
   section.classList.remove('hidden');
+}
+
+// ── Best Clips ──
+
+function renderBestClips(units) {
+  const section = document.getElementById('best-clips');
+  const grid = document.getElementById('best-clips-grid');
+  const countEl = document.getElementById('best-clips-count');
+
+  // Filter to units with keepability scores >= 6
+  const scored = units
+    .filter(u => u.analyses?.[0]?.output_json?.keepability_score >= 6)
+    .sort((a, b) => (b.analyses[0].output_json.keepability_score) - (a.analyses[0].output_json.keepability_score))
+    .slice(0, 20);
+
+  if (scored.length < 1) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  section.classList.remove('hidden');
+  countEl.textContent = `top ${scored.length}`;
+
+  grid.innerHTML = scored.map(u => {
+    const j = u.analyses[0].output_json;
+    const text = u.analyses[0].output_text || '';
+    const clipName = (u.source_clip_name || u.sourceClipName || '').replace(/_Proxy\.MP4$/i, '');
+    const score = j.keepability_score;
+    const scoreClass = score >= 8 ? 'best-clip-score--high' : '';
+
+    return `<div class="best-clip-card">
+      <div class="best-clip-top">
+        <span class="best-clip-score ${scoreClass}">${score}/10</span>
+        <span class="best-clip-name">${escHtml(clipName.replace(/^\d{8}-\d{4}-/, ''))}</span>
+      </div>
+      <div class="best-clip-tags">
+        ${j.shot_type ? `<span class="best-clip-tag">${escHtml(j.shot_type)}</span>` : ''}
+        ${j.emotional_register ? `<span class="best-clip-tag">${escHtml(j.emotional_register)}</span>` : ''}
+        ${j.editorial_function ? `<span class="best-clip-tag">${escHtml(j.editorial_function)}</span>` : ''}
+      </div>
+      ${text ? `<div class="best-clip-text">${escHtml(text.slice(0, 150))}</div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 // ── Scene detection (client-side temporal grouping) ──
