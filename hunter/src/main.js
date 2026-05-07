@@ -146,6 +146,10 @@ async function openProject(id) {
   showView('project');
   startIngestPolling();
 
+  // Show loading state
+  const header = document.getElementById('project-header');
+  header.innerHTML = '<div class="project-loading">loading project...</div>';
+
   let project, assets, units, patterns;
 
   if (isDemo) {
@@ -649,6 +653,7 @@ const CORPUS_PAGE_SIZE = 60;
 
 async function loadCorpusBrowser() {
   const browser = document.getElementById('corpus-browser');
+  browser.innerHTML = '<p class="corpus-browser-loading">loading corpus...</p>';
 
   if (isDemo) {
     allCorpusUnits = [];

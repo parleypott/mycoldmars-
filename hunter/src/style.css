@@ -2646,6 +2646,21 @@ header {
   padding: var(--np-space-3);
 }
 
+/* ── Loading States ── */
+.corpus-browser-loading,
+.project-loading {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  color: var(--np-text-dim);
+  padding: var(--np-space-6) 0;
+  text-align: center;
+  animation: pulse-dim 1.5s ease-in-out infinite;
+}
+@keyframes pulse-dim {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
