@@ -664,16 +664,16 @@ function renderInsightsHub(units, assets) {
     insightsBtn.innerHTML = 'analyzing scenes<span class="thinking-indicator"><span></span><span></span><span></span></span>';
 
     try {
-      const scenesPayload = scenes.map(s => ({
+      const scenesPayload = scenes.slice(0, 20).map(s => ({
         label: s.label,
         day: s.day,
         time: s.time,
         clipCount: s.clips.length,
-        clips: s.clips.map(c => ({
+        clips: s.clips.slice(0, 8).map(c => ({
           clipName: c.source_clip_name || c.sourceClipName || '',
           startSeconds: c.start_seconds ?? c.startSeconds ?? 0,
           endSeconds: c.end_seconds ?? c.endSeconds ?? 0,
-          analysisText: c.analyses?.[0]?.output_text || '',
+          analysisText: (c.analyses?.[0]?.output_text || '').slice(0, 200),
         })),
       }));
 

@@ -390,7 +390,7 @@ export async function fetchSceneInsights(scenes) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || 'Scene insights failed');
+    throw new Error(err.detail ? `${err.error}: ${err.detail}` : (err.error || 'Scene insights failed'));
   }
   return res.json();
 }

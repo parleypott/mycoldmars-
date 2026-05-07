@@ -415,9 +415,9 @@ async function handleSceneInsights(body, apiKey) {
   const { scenes } = body;
   if (!scenes?.length) return jsonResponse({ error: 'scenes array is required' }, 400);
 
-  const capped = scenes.slice(0, 30).map(scene => {
-    const clips = (scene.clips || []).slice(0, 15).map(c => {
-      const text = (c.analysisText || '').slice(0, 400);
+  const capped = scenes.slice(0, 20).map(scene => {
+    const clips = (scene.clips || []).slice(0, 8).map(c => {
+      const text = (c.analysisText || '').slice(0, 200);
       return `  - ${c.clipName || 'clip'} (${c.startSeconds || 0}s–${c.endSeconds || 0}s): ${text}`;
     }).join('\n');
     return `SCENE: ${scene.label || 'Untitled'} (${scene.day || ''} ${scene.time || ''}, ${scene.clipCount || 0} clips)\n${clips}`;
