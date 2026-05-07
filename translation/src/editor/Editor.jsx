@@ -150,15 +150,27 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
     },
   });
 
+  // Track the last applied initialContent reference so we don't re-serialize
+  // the editor doc on every prop change. The double JSON.stringify on long
+  // transcripts (10k+ words) was a real frame-budget hit on every edit
+  // because the parent re-renders on summary toggles, sync-dirty changes, etc.
+  // Comparing references is enough — the parent only assigns a new editorState
+  // object when the content actually changed (in main.js's onUpdate).
+  const lastAppliedContentRef = useRef(null);
   useEffect(() => {
-    if (editor && initialContent) {
-      const current = JSON.stringify(editor.getJSON());
-      const incoming = JSON.stringify(initialContent);
-      if (current !== incoming) {
-        editor.commands.setContent(initialContent);
-      }
+    if (!editor || !initialContent) return;
+    if (lastAppliedContentRef.current === initialContent) return;
+    lastAppliedContentRef.current = initialContent;
+    // Keep the same defensive equality check, but only when references differ —
+    // catches the rare case where main.js cloned the same content into a new
+    // reference. JSON.stringify is the cheapest deep compare we have for
+    // arbitrary doc shapes.
+    const current = JSON.stringify(editor.getJSON());
+    const incoming = JSON.stringify(initialContent);
+    if (current !== incoming) {
+      editor.commands.setContent(initialContent);
     }
-  }, [initialContent]);
+  }, [editor, initialContent]);
 
   // Reflect viewOnly changes — when the lock decision flips us into view-only
   // mode after mount (another tab grabbed the lock), disable input so edits

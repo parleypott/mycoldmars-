@@ -9,22 +9,15 @@ export function TagPicker({ projectId, onSelect, onClose }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (projectId) {
-      setLoading(true);
-      loadTags();
-    }
+    if (!projectId) return;
+    setLoading(true);
+    let cancelled = false;
+    listTags(projectId)
+      .then(data => { if (!cancelled) setTags(data || []); })
+      .catch(err => { if (!cancelled) console.error('Failed to load tags:', err); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [projectId]);
-
-  async function loadTags() {
-    try {
-      const data = await listTags(projectId);
-      setTags(data || []);
-    } catch (err) {
-      console.error('Failed to load tags:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function handleCreate() {
     const name = newTagName.trim();
@@ -62,8 +55,11 @@ export function TagPicker({ projectId, onSelect, onClose }) {
   }
 
   return (
-    <div className="tag-picker-overlay" onClick={onClose}>
-      <div className="tag-picker" onClick={e => e.stopPropagation()}>
+    <div
+      className="tag-picker-overlay"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="tag-picker" onMouseDown={e => e.stopPropagation()}>
         <div className="tag-picker-header">
           <span className="np-eyebrow">Tag</span>
           <button className="tag-picker-close" onClick={onClose}>&times;</button>
