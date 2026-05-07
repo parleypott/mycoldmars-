@@ -656,25 +656,25 @@ export async function searchTranscripts(query, projectId) {
 // ============================================================
 
 /**
- * Create a media_assets row. Call this AFTER the file has been uploaded
+ * Create a media_uploads row. Call this AFTER the file has been uploaded
  * to Supabase Storage. Returns the inserted row (with id, created_at).
  */
-export async function createMediaAsset(fields) {
+export async function createMediaUpload(fields) {
   const row = mediaFieldsToRow(fields);
-  if (!row.filename) throw new Error('createMediaAsset: filename required');
-  if (!row.mime_type) throw new Error('createMediaAsset: mime_type required');
-  if (!row.size_bytes) throw new Error('createMediaAsset: size_bytes required');
-  if (!row.storage_path) throw new Error('createMediaAsset: storage_path required');
-  const { data, error } = await db().from('media_assets')
+  if (!row.filename) throw new Error('createMediaUpload: filename required');
+  if (!row.mime_type) throw new Error('createMediaUpload: mime_type required');
+  if (!row.size_bytes) throw new Error('createMediaUpload: size_bytes required');
+  if (!row.storage_path) throw new Error('createMediaUpload: storage_path required');
+  const { data, error } = await db().from('media_uploads')
     .insert(row).select().single();
-  if (error) throw normalizeError(error, 'createMediaAsset');
+  if (error) throw normalizeError(error, 'createMediaUpload');
   return data;
 }
 
-export async function getMediaAsset(id) {
-  const { data, error } = await db().from('media_assets')
+export async function getMediaUpload(id) {
+  const { data, error } = await db().from('media_uploads')
     .select('*').eq('id', id).maybeSingle();
-  if (error) throw normalizeError(error, 'getMediaAsset');
+  if (error) throw normalizeError(error, 'getMediaUpload');
   if (!data) {
     const e = new Error('Media asset not found');
     e.code = 'NOT_FOUND';
@@ -683,35 +683,35 @@ export async function getMediaAsset(id) {
   return data;
 }
 
-export async function listMediaAssets(projectId) {
+export async function listMediaUploads(projectId) {
   if (!supabase) return [];
-  let q = db().from('media_assets')
+  let q = db().from('media_uploads')
     .select('id, filename, display_name, mime_type, size_bytes, duration_seconds, transcription_status, source_language, created_at, project_id')
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
   if (projectId) q = q.eq('project_id', projectId);
   const { data, error } = await q;
-  if (error) throw normalizeError(error, 'listMediaAssets');
+  if (error) throw normalizeError(error, 'listMediaUploads');
   return data || [];
 }
 
-export async function updateMediaAsset(id, fields) {
+export async function updateMediaUpload(id, fields) {
   const row = mediaFieldsToRow(fields);
-  const { data, error } = await db().from('media_assets')
+  const { data, error } = await db().from('media_uploads')
     .update(row).eq('id', id).select().single();
-  if (error) throw normalizeError(error, 'updateMediaAsset');
+  if (error) throw normalizeError(error, 'updateMediaUpload');
   return data;
 }
 
-export async function deleteMediaAsset(id, opts = {}) {
+export async function deleteMediaUpload(id, opts = {}) {
   if (opts.hard) {
-    const { error } = await db().from('media_assets').delete().eq('id', id);
-    if (error) throw normalizeError(error, 'deleteMediaAsset(hard)');
+    const { error } = await db().from('media_uploads').delete().eq('id', id);
+    if (error) throw normalizeError(error, 'deleteMediaUpload(hard)');
     return;
   }
-  const { error } = await db().from('media_assets')
+  const { error } = await db().from('media_uploads')
     .update({ deleted_at: new Date().toISOString() }).eq('id', id);
-  if (error) throw normalizeError(error, 'deleteMediaAsset');
+  if (error) throw normalizeError(error, 'deleteMediaUpload');
 }
 
 function mediaFieldsToRow(fields) {
@@ -747,7 +747,7 @@ function mediaFieldsToRow(fields) {
 /**
  * Upload a File or Blob to Supabase Storage with progress callbacks.
  * Returns { path, publicUrl }. The path is what to store in
- * media_assets.storage_path.
+ * media_uploads.storage_path.
  *
  * Uses the resumable TUS protocol when available (files >6MB) so that
  * a network blip doesn't force a restart. Big interview videos can run
@@ -815,7 +815,7 @@ export async function getMediaSignedUrl(path, { bucket = 'media', expiresInSecon
 
 /**
  * Delete a file from storage. Caller is responsible for also clearing
- * the media_assets row that referenced it.
+ * the media_uploads row that referenced it.
  */
 export async function deleteMediaFile(path, { bucket = 'media' } = {}) {
   if (!supabase) return;
