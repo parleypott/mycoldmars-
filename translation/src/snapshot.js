@@ -28,13 +28,22 @@ function snapKey(id) { return PREFIX + id; }
 
 /**
  * Save a snapshot for a transcript.
- * @param {string} transcriptId
+ *
+ * @param {string} transcriptId — required for cloud-tracked transcripts
  * @param {object} payload — same shape gatherState() returns
- * @param {string} updatedAt — server's updated_at after save succeeded
+ * @param {string|null} updatedAt — server's updated_at after save succeeded.
+ *   Pass `null` to mark this snapshot as "dirty" (unsaved work that never
+ *   made it to the cloud — used for crash recovery when autosave is failing).
  */
 export function saveSnapshot(transcriptId, payload, updatedAt) {
   if (!transcriptId) return;
-  const record = { transcriptId, payload, updatedAt, savedAt: new Date().toISOString() };
+  const record = {
+    transcriptId,
+    payload,
+    updatedAt,
+    savedAt: new Date().toISOString(),
+    dirty: !updatedAt, // true = local edits not confirmed by server
+  };
   const json = JSON.stringify(record);
 
   // If too big to fit at all, skip — better than crashing the app.
@@ -96,12 +105,19 @@ export function clearSnapshot(transcriptId) {
 }
 
 /**
- * Compare a snapshot's updatedAt to the server's. Returns true if the
- * local snapshot is strictly newer (browser saved more recently than the
- * server received), which is the trigger for a recovery prompt.
+ * Should we offer to restore this snapshot?
+ *
+ * Returns true when:
+ *   - The snapshot is dirty (`snap.dirty === true`) — by definition it
+ *     contains edits that never made it to the server, so always offer.
+ *   - The snapshot's updatedAt is strictly newer than the server's.
+ *
+ * Returns false otherwise (snapshot is stale or matches the server).
  */
 export function isSnapshotNewerThan(snap, serverUpdatedAt) {
-  if (!snap || !snap.updatedAt) return false;
+  if (!snap) return false;
+  if (snap.dirty) return true; // unsaved local work — always offer to restore
+  if (!snap.updatedAt) return false;
   if (!serverUpdatedAt) return true;
   return new Date(snap.updatedAt).getTime() > new Date(serverUpdatedAt).getTime();
 }

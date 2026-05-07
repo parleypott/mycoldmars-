@@ -818,13 +818,18 @@ function promptSnapshotRestore(serverRow, snap) {
     modal.className = 'np-modal';
     const serverWhen = serverRow.updated_at ? new Date(serverRow.updated_at).toLocaleString() : 'unknown';
     const snapWhen = snap.savedAt ? new Date(snap.savedAt).toLocaleString() : 'unknown';
+    const isDirty = !!snap.dirty;
+    const heading = isDirty ? 'Unsaved work recovered' : 'Newer local copy found';
+    const explanation = isDirty
+      ? `Your browser has unsaved work for <b>${escapeHtmlSafe(serverRow.name)}</b> that never reached the cloud — likely because the last save attempt failed or the tab closed before it finished. Restore to recover the work.`
+      : `Your browser has a newer snapshot of <b>${escapeHtmlSafe(serverRow.name)}</b> than the cloud. This usually means a previous save didn't reach the server.`;
     modal.innerHTML = `
       <div class="np-modal-backdrop"></div>
       <div class="np-modal-card" style="max-width: 540px;">
         <div class="np-modal-header">
-          <h3 class="np-modal-title">Newer local copy found</h3>
+          <h3 class="np-modal-title">${heading}</h3>
         </div>
-        <p style="font-family: var(--np-font-mono); font-size: 13px; line-height: 1.5; margin-bottom: 14px;">Your browser has a newer snapshot of <b>${escapeHtmlSafe(serverRow.name)}</b> than the cloud. This usually means a previous save didn't reach the server.</p>
+        <p style="font-family: var(--np-font-mono); font-size: 13px; line-height: 1.5; margin-bottom: 14px;">${explanation}</p>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 22px; font-family: var(--np-font-mono); font-size: 12px;">
           <div><div style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--np-sepia); margin-bottom: 4px;">Cloud</div><div>${escapeHtmlSafe(serverWhen)}</div></div>
           <div><div style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--np-sepia); margin-bottom: 4px;">Local snapshot</div><div>${escapeHtmlSafe(snapWhen)}</div></div>
@@ -1064,6 +1069,13 @@ function setSaveState(state, detail) {
   saveStatusEl.style.cursor = '';
   saveStatusEl.title = '';
 
+  if (state === 'clean' || state === 'saved') {
+    // Reset the error-retry backoff whenever we recover. Defined later in
+    // this file; check for existence in case of init order (it's hoisted
+    // anyway as a function declaration).
+    if (typeof cancelErrorRetry === 'function') cancelErrorRetry();
+  }
+
   if (state === 'clean') {
     saveStatusEl.innerHTML = '';
   } else if (state === 'dirty') {
@@ -1094,8 +1106,32 @@ function setSaveState(state, detail) {
 }
 
 function markDirty() {
-  if (saveState !== 'saving' && saveState !== 'conflict' && saveState !== 'error') {
-    setSaveState('dirty');
+  // Allow dirty marking from any state EXCEPT mid-save (which will end in
+  // saved/error/conflict and re-evaluate). Previously, error/conflict states
+  // suppressed dirty marking, so subsequent edits after a save failure
+  // weren't tracked at all — that was the lost-work bug.
+  if (saveState === 'saving') return;
+  // In error/conflict, don't downgrade the visible status to "dirty" — the
+  // user needs to keep seeing the failure. But DO snapshot the new content
+  // to LS so it survives a tab close.
+  if (saveState === 'error' || saveState === 'conflict') {
+    snapshotDirtyState();
+    return;
+  }
+  setSaveState('dirty');
+  snapshotDirtyState();
+}
+
+// Mirror current in-memory state to localStorage immediately, with no
+// server updatedAt (marks the snapshot as dirty). This is the safety net
+// that catches work even when the cloud save path is broken.
+function snapshotDirtyState() {
+  if (!currentTranscriptId) return; // pre-first-save snapshots not yet supported
+  try {
+    const payload = gatherState();
+    saveSnapshot(currentTranscriptId, payload, null);
+  } catch (err) {
+    console.warn('[autosave] dirty snapshot failed:', err);
   }
 }
 
@@ -1105,11 +1141,15 @@ function debouncedAutoSave() {
   clearTimeout(debouncedAutoSaveTimer);
   pendingSave = true;
   markDirty();
+  // First save (no id yet) fires fast — we want to establish currentTranscriptId
+  // ASAP so subsequent edits are protected by the dirty-snapshot recovery path.
+  // Without this, a fresh-import-then-tab-close-within-3s loses work entirely.
+  const delay = currentTranscriptId ? AUTOSAVE_DEBOUNCE_MS : 500;
   debouncedAutoSaveTimer = setTimeout(() => {
     pendingSave = false;
     debouncedAutoSaveTimer = null;
     runSaveOnce();
-  }, AUTOSAVE_DEBOUNCE_MS);
+  }, delay);
 }
 
 // Force any pending/queued save to fire immediately. Returns the save
@@ -1183,19 +1223,51 @@ async function runSaveOnce(opts = {}) {
       setSaveState('conflict', err);
     } else {
       setSaveState('error', err);
+      scheduleErrorRetry();
     }
   } finally {
     saveInFlight = false;
     if (nextSavePending) {
       nextSavePending = false;
       // Tail-call the next save — but only if we're not in an error state
-      // (don't auto-retry into the same failure).
+      // (don't auto-retry into the same failure synchronously).
       if (saveState !== 'error' && saveState !== 'conflict') {
         runSaveOnce();
       }
     }
   }
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Error retry with exponential backoff. Without this, a single transient
+// failure (network blip, brief outage) leaves the editor permanently stuck
+// in 'error' state — exactly the bug that lost a session of work.
+// Backoff: 5s, 15s, 30s, 60s, 2min, 5min, then steady at 5min.
+// ──────────────────────────────────────────────────────────────────────────
+let errorRetryTimer = null;
+let errorRetryAttempt = 0;
+const ERROR_RETRY_DELAYS_MS = [5000, 15000, 30000, 60000, 120000, 300000];
+
+function scheduleErrorRetry() {
+  if (errorRetryTimer) return; // already scheduled
+  const delay = ERROR_RETRY_DELAYS_MS[Math.min(errorRetryAttempt, ERROR_RETRY_DELAYS_MS.length - 1)];
+  errorRetryAttempt++;
+  errorRetryTimer = setTimeout(() => {
+    errorRetryTimer = null;
+    if (saveState === 'error') {
+      console.info(`[autosave] retrying after error (attempt ${errorRetryAttempt})`);
+      runSaveOnce();
+    }
+  }, delay);
+}
+
+function cancelErrorRetry() {
+  if (errorRetryTimer) { clearTimeout(errorRetryTimer); errorRetryTimer = null; }
+  errorRetryAttempt = 0;
+}
+
+// Note: setSaveState resets errorRetryAttempt directly when entering
+// 'saved' or 'clean' (see edit in setSaveState body).
 
 // Click handler on the save status pill — opens conflict or error UI.
 if (saveStatusEl) {
@@ -1339,12 +1411,36 @@ async function ensureUniqueSlug(base, excludeId) {
 // Compatibility alias for any older callers — equivalent to runSaveOnce.
 async function autoSave() { return runSaveOnce(); }
 
-// Warn before closing the tab if a save is still pending or in flight.
+// Warn before closing the tab if there is ANY unsaved work — pending,
+// in-flight, dirty (debounce window), error (retry pending), or conflict.
+// Previously, only pending/in-flight triggered the warning, so a tab
+// close after a stuck "Save failed" state would silently lose the work.
+// One-shot final flush attempt also fires on hidden visibility (mobile,
+// tab swap), since beforeunload is unreliable on mobile browsers.
 window.addEventListener('beforeunload', (e) => {
-  if (pendingSave || saveInFlight) {
+  if (
+    pendingSave || saveInFlight ||
+    saveState === 'dirty' || saveState === 'error' || saveState === 'conflict'
+  ) {
+    // Best-effort: kick off a final save (fire-and-forget — the browser
+    // may not actually wait for it, but on desktop it usually does).
+    try { runSaveOnce(); } catch {}
     e.preventDefault();
     e.returnValue = '';
     return '';
+  }
+});
+
+// Mobile / tab-swap final flush. visibilitychange fires more reliably
+// than beforeunload on iOS Safari and Android Chrome.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    if (
+      pendingSave || saveInFlight ||
+      saveState === 'dirty' || saveState === 'error'
+    ) {
+      try { runSaveOnce(); } catch {}
+    }
   }
 });
 
