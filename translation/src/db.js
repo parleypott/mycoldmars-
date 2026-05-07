@@ -275,6 +275,11 @@ function fieldsToRow(fields) {
   if (fields.hideUnintelligible !== undefined) row.hide_unintelligible = fields.hideUnintelligible;
   if (fields.wordTimings !== undefined) row.word_timings = fields.wordTimings;
   if (fields.slug !== undefined && flag('hasSlug')) row.slug = fields.slug || null;
+  // Phase 3: link to media_uploads + new flow fields
+  if (fields.mediaUploadId !== undefined)     row.media_upload_id = fields.mediaUploadId;
+  if (fields.source !== undefined)             row.source = fields.source;
+  if (fields.targetLanguage !== undefined)     row.target_language = fields.targetLanguage;
+  if (fields.translationEnabled !== undefined) row.translation_enabled = fields.translationEnabled;
   return row;
 }
 

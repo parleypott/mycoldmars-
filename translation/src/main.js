@@ -20,6 +20,7 @@ import { buildAutoSummaryPrompt } from './copilot/copilot-prompts.js';
 import { initSotHunter, setSotHunterVisible } from './sot-hunter.js';
 import { initCommandPalette, openCommandPalette } from './command-palette.js';
 import { initFallingGlyphs, startFallingGlyphs, stopFallingGlyphs } from './falling-glyphs.js';
+import { isMediaFile, uploadAndTranscribe } from './upload/media-flow.js';
 
 // ── State ──
 let segments = [];
@@ -977,6 +978,8 @@ function gatherState(name) {
     projectId: currentProjectId,
     editorState,
     wordTimings: wordTimingsMap,
+    mediaUploadId: pendingMediaUploadId || undefined,
+    source: pendingMediaUploadId ? 'transcribed' : undefined,
     metadata: {
       editorialFocus,
       clarifications,
@@ -2228,8 +2231,14 @@ async function handleFile(file) {
   const isHTML = lower.endsWith('.html') || lower.endsWith('.htm');
   const isZIP  = lower.endsWith('.zip');
 
+  // Video / audio: upload to Storage, transcribe via Whisper, populate segments.
+  if (file && isMediaFile(file)) {
+    await handleMediaUpload(file);
+    return;
+  }
+
   if (!file || (!isCSV && !isJSON && !isHTML && !isZIP)) {
-    showError('Please upload a .csv, .json, .html, or Trint .zip export.');
+    showError('Please upload a .csv, .json, .html, .zip — or a video/audio file (mp4, mov, mp3, wav, m4a, webm).');
     return;
   }
 
@@ -2289,6 +2298,102 @@ async function handleFile(file) {
     }
   };
   reader.readAsText(file);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Media upload + Whisper transcription flow.
+//
+// User drops a video/audio file → we upload to Supabase Storage → create
+// a media_uploads row → call /api/transcribe (Whisper) → normalize the
+// response into the segment shape the rest of the app expects → hand off
+// to finishUploadParse.
+//
+// Progress is surfaced in the existing drop-zone area so the user sees
+// what's happening at each stage. For files >25MB we surface a clear
+// error pointing at the large-file roadmap (task #8).
+// ──────────────────────────────────────────────────────────────────────────
+let pendingMediaUploadId = null; // surfaced into the saved transcript row
+
+async function handleMediaUpload(file) {
+  showMediaProgress({ stage: 'starting', message: `Preparing ${file.name}…` });
+  try {
+    const result = await uploadAndTranscribe(file, {
+      onProgress: (stage, percent) => {
+        const pct = Math.round((percent || 0) * 100);
+        if (stage === 'upload') {
+          showMediaProgress({ stage: 'upload', message: `Uploading ${file.name} — ${pct}%`, percent });
+        } else if (stage === 'transcribe') {
+          showMediaProgress({
+            stage: 'transcribe',
+            message: percent < 1
+              ? `Transcribing with Whisper — this can take 30s to a few minutes…`
+              : `Transcription complete. Wrapping up…`,
+            percent,
+          });
+        } else if (stage === 'normalize') {
+          showMediaProgress({ stage: 'normalize', message: 'Building transcript…', percent });
+        }
+      },
+    });
+
+    // Stash for the next save so the transcript row points at the media_uploads row.
+    pendingMediaUploadId = result.mediaUploadId;
+
+    // Populate state the same way an import would.
+    segments = result.segments;
+    wordTimingsMap = null; // Whisper's flat word_timings stays in DB; segment-level timing already in segments
+
+    hideMediaProgress();
+    finishUploadParse({ name: file.name });
+  } catch (err) {
+    console.error('Media upload/transcribe failed:', err);
+    hideMediaProgress();
+    showError(err?.message || 'Transcription failed.');
+  }
+}
+
+function showMediaProgress({ stage, message, percent }) {
+  let overlay = document.getElementById('media-progress-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'media-progress-overlay';
+    overlay.className = 'media-progress-overlay';
+    overlay.innerHTML = `
+      <div class="media-progress-card">
+        <div class="media-progress-stage" data-progress-stage></div>
+        <div class="media-progress-message" data-progress-message></div>
+        <div class="media-progress-bar"><div class="media-progress-fill" data-progress-fill></div></div>
+        <div class="media-progress-hint" data-progress-hint>large files (over 25 MB) are not yet supported — see roadmap</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.querySelector('[data-progress-stage]').textContent = stageLabel(stage);
+  overlay.querySelector('[data-progress-message]').textContent = message || '';
+  const fill = overlay.querySelector('[data-progress-fill]');
+  if (typeof percent === 'number' && isFinite(percent)) {
+    fill.style.width = Math.round(Math.max(0, Math.min(1, percent)) * 100) + '%';
+    fill.style.opacity = '1';
+  } else {
+    // Indeterminate
+    fill.style.width = '40%';
+    fill.style.opacity = '0.6';
+  }
+}
+
+function hideMediaProgress() {
+  const overlay = document.getElementById('media-progress-overlay');
+  if (overlay) overlay.remove();
+}
+
+function stageLabel(stage) {
+  switch (stage) {
+    case 'starting':   return '01 · prepare';
+    case 'upload':     return '02 · upload';
+    case 'transcribe': return '03 · transcribe';
+    case 'normalize':  return '04 · finalize';
+    default:           return '· · ·';
+  }
 }
 
 function finishUploadParse(file) {

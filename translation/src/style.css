@@ -5012,3 +5012,63 @@ tr.dimmed-speaker { opacity: 0.35; }
   user-select: none;
 }
 .font-cycler:hover .font-cycler-label { color: var(--np-red); }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Media upload progress overlay
+   Centered card with stage label, message, indeterminate/determinate bar.
+────────────────────────────────────────────────────────────────────── */
+.media-progress-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(18, 17, 24, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.media-progress-card {
+  background: var(--np-cream);
+  border: 1px solid var(--np-sepia);
+  border-radius: 4px;
+  padding: 32px 36px;
+  min-width: 420px;
+  max-width: 540px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  font-family: var(--np-font-mono);
+}
+.media-progress-stage {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--np-red);
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+.media-progress-message {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--np-ink);
+  margin-bottom: 22px;
+}
+.media-progress-bar {
+  position: relative;
+  height: 3px;
+  background: rgba(65, 44, 39, 0.15);
+  border-radius: 0;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.media-progress-fill {
+  height: 100%;
+  background: var(--np-red);
+  transition: width 240ms ease-out, opacity 240ms ease-out;
+  width: 0;
+}
+.media-progress-hint {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--np-sepia);
+  opacity: 0.75;
+}
