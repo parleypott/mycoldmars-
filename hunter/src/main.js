@@ -788,6 +788,43 @@ function renderCorpusPage() {
   });
 }
 
+// ── CSV export ──
+
+document.getElementById('corpus-export-csv')?.addEventListener('click', () => {
+  const filtered = getFilteredCorpus();
+  if (!filtered.length) return;
+
+  const headers = ['clip_name', 'project', 'tier', 'start', 'end', 'keepability', 'shot_type', 'camera_movement', 'editorial_function', 'emotional_register', 'analysis_preview'];
+  const csvEscape = (s) => `"${String(s || '').replace(/"/g, '""')}"`;
+
+  const rows = filtered.map(u => {
+    const j = u.analyses?.[0]?.output_json || {};
+    const text = (u.analyses?.[0]?.output_text || '').slice(0, 200).replace(/\n/g, ' ');
+    return [
+      u.source_clip_name || '',
+      u.media_assets?.hunter_projects?.name || '',
+      u.media_assets?.tier || '',
+      formatTc(u.start_seconds),
+      formatTc(u.end_seconds),
+      j.keepability_score ?? '',
+      j.shot_type || '',
+      j.camera_movement || '',
+      j.editorial_function || '',
+      j.emotional_register || '',
+      text,
+    ].map(csvEscape).join(',');
+  });
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hunter-corpus-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
 function renderAnalysisBadges(structured) {
   if (!structured) return '';
   const badges = [];

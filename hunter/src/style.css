@@ -1704,6 +1704,16 @@ header {
   outline: none;
   border-color: var(--np-red);
 }
+.corpus-export-btn {
+  font-size: 10px !important;
+  padding: 3px 8px !important;
+  margin-left: 4px;
+  color: var(--np-text-dim);
+  border: 1px solid var(--np-border);
+}
+.corpus-export-btn:hover {
+  color: var(--np-ink);
+}
 .corpus-filter-tab {
   font-family: var(--np-font-mono);
   font-size: 10px;
