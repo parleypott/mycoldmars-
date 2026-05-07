@@ -952,7 +952,7 @@ function addCountry(country) {
     _geometry: country.geometry,
     stroke: SHAPE_DEFAULTS.stroke,
     fill: pickShapeFill(),
-    strokeWidth: 1.5,
+    strokeWidth: 0,  // basemap coastline does the visual edge; polygon stroke would be chunky
     fillOpacity: 0.35,
     visible: true,
     preview: {},  // unused but kept for compatibility with the rest of the system
@@ -1869,6 +1869,17 @@ function loadLayersFromLS() {
   }
 }
 loadLayersFromLS();
+
+// One-shot migration: zero out country stroke width since the basemap now
+// provides the coastline edge. Existing chunky polygon outlines were noise.
+if (!localStorage.getItem('mk-mig-country-stroke-zero')) {
+  let migrated = 0;
+  for (const s of state.shapes) {
+    if (s.type === 'country' && s.strokeWidth > 0) { s.strokeWidth = 0; migrated++; }
+  }
+  if (migrated) saveLayers();
+  localStorage.setItem('mk-mig-country-stroke-zero', '1');
+}
 
 function addLayerFromKML(file, coords) {
   snapshotForUndo('add layer');
