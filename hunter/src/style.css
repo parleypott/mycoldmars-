@@ -1317,6 +1317,21 @@ header {
   border-radius: var(--np-radius-full);
   letter-spacing: 0.08em;
 }
+.scene-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 2px;
+}
+.scene-meta-tag {
+  font-family: var(--np-font-mono);
+  font-size: 9px;
+  padding: 1px 5px;
+  border: 1px solid var(--np-border);
+  border-radius: var(--np-radius-full);
+  color: var(--np-text-dim);
+  letter-spacing: 0.05em;
+}
 .scene-card-preview {
   font-family: var(--np-font-sans);
   font-size: 11px;
