@@ -179,8 +179,13 @@ map.on('style.load', () => {
     'admin',                  // country / state / disputed boundaries
     'boundary',
     'water-depth', 'bathymetry', 'water-shadow',  // bathymetric shading
+    'contour',                // topo contour lines that read as noise at our zooms
+    'land-structure',         // piers, breakwaters, jetties — appear as offshore lines
+    'cliff',                  // coastal cliff dashes
+    'golf', 'aerialway',      // niche features that look like noise
+    'wetland',                // mottled marsh fills along coasts
   ];
-  const hideKeywords = ['label', 'place-', 'poi-', 'natural-point', 'water-point'];
+  const hideKeywords = ['label', 'place-', 'poi-', 'natural-point', 'water-point', 'gate-fence-hedge'];
 
   for (const layer of map.getStyle().layers) {
     if (layer.id === 'mk-hillshade') continue;
