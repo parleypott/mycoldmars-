@@ -239,12 +239,19 @@ async function handleSemanticSearch(body, apiKey) {
   const queryEmbedding = embData.embedding?.values;
   if (!queryEmbedding) return jsonResponse({ error: 'No embedding returned' }, 502);
 
-  // 2. Fetch all embeddings from Supabase (paginated)
   const headers = {
     apikey: supabaseKey,
     Authorization: `Bearer ${supabaseKey}`,
+    'Content-Type': 'application/json',
   };
 
+  // Try server-side pgvector RPC first (instant), fall back to client-side
+  const rpcResult = await tryRpcSearch(supabaseUrl, headers, queryEmbedding, { limit, tier, projectId });
+  if (rpcResult) {
+    return jsonResponse({ matches: rpcResult, total: rpcResult.length, query, method: 'rpc' });
+  }
+
+  // Fallback: client-side cosine similarity
   let allEmbeddings = [];
   let offset = 0;
   const PAGE = 1000;
@@ -259,7 +266,6 @@ async function handleSemanticSearch(body, apiKey) {
     offset += PAGE;
   }
 
-  // 3. Compute cosine similarity
   const results = [];
   for (const row of allEmbeddings) {
     const emb = parseEmbedding(row.embedding);
@@ -269,13 +275,11 @@ async function handleSemanticSearch(body, apiKey) {
   }
 
   results.sort((a, b) => b.similarity - a.similarity);
-  const topIds = results.slice(0, Math.min(limit * 3, 100)); // Fetch extra for filtering
+  const topIds = results.slice(0, Math.min(limit * 3, 100));
 
-  // 4. Fetch corpus unit details + analysis text for top matches
   const unitIds = topIds.map(r => r.corpus_unit_id);
   const simMap = new Map(topIds.map(r => [r.corpus_unit_id, r.similarity]));
 
-  // Fetch in batches of 50 to avoid URL length limits
   let units = [];
   for (let i = 0; i < unitIds.length; i += 50) {
     const batch = unitIds.slice(i, i + 50);
@@ -288,12 +292,10 @@ async function handleSemanticSearch(body, apiKey) {
     }
   }
 
-  // Filter by tier/project if specified
   let filtered = units;
   if (tier) filtered = filtered.filter(u => u.media_assets?.tier === tier);
   if (projectId) filtered = filtered.filter(u => u.media_assets?.project_id === projectId);
 
-  // Fetch analyses for filtered units
   const filteredIds = filtered.map(u => u.id);
   let analyses = [];
   for (let i = 0; i < filteredIds.length; i += 50) {
@@ -308,7 +310,6 @@ async function handleSemanticSearch(body, apiKey) {
   }
   const analysisMap = new Map(analyses.map(a => [a.corpus_unit_id, a.output_text]));
 
-  // Build response
   const matches = filtered
     .map(u => ({
       id: u.id,
@@ -317,13 +318,52 @@ async function handleSemanticSearch(body, apiKey) {
       endSeconds: u.end_seconds,
       tier: u.media_assets?.tier,
       projectName: u.media_assets?.hunter_projects?.name,
+      projectId: u.media_assets?.project_id,
       similarity: simMap.get(u.id) || 0,
       analysisPreview: (analysisMap.get(u.id) || '').slice(0, 400),
     }))
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, limit);
 
-  return jsonResponse({ matches, total: allEmbeddings.length, query });
+  return jsonResponse({ matches, total: allEmbeddings.length, query, method: 'client' });
+}
+
+async function tryRpcSearch(supabaseUrl, headers, queryEmbedding, { limit, tier, projectId }) {
+  try {
+    const rpcUrl = `${supabaseUrl}/rest/v1/rpc/search_corpus_embeddings`;
+    const rpcBody = {
+      query_embedding: `[${queryEmbedding.join(',')}]`,
+      match_count: limit,
+      match_threshold: 0.3,
+    };
+    if (tier) rpcBody.filter_tier = tier;
+    if (projectId) rpcBody.filter_project_id = projectId;
+
+    const res = await fetch(rpcUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(rpcBody),
+    });
+
+    if (!res.ok) return null; // RPC not available, fall back
+
+    const data = await res.json();
+    if (!Array.isArray(data)) return null;
+
+    return data.map(r => ({
+      id: r.corpus_unit_id,
+      clipName: r.clip_name,
+      startSeconds: r.start_seconds,
+      endSeconds: r.end_seconds,
+      tier: r.tier,
+      projectName: r.project_name,
+      projectId: r.project_id,
+      similarity: r.similarity,
+      analysisPreview: r.analysis_preview || '',
+    }));
+  } catch {
+    return null; // Any error = fall back to client-side
+  }
 }
 
 function parseEmbedding(emb) {
