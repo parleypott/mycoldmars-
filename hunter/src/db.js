@@ -353,6 +353,33 @@ export async function semanticSearch({ query, projectId, limit = 20, tier }) {
   return res.json();
 }
 
+// ── Find Similar Clips ──
+
+export async function findSimilarClips(corpusUnitId, limit = 10) {
+  // 1. Get the embedding for this unit
+  const { data: embRow, error: embErr } = await db().from('embeddings')
+    .select('embedding')
+    .eq('corpus_unit_id', corpusUnitId)
+    .limit(1)
+    .single();
+
+  if (embErr || !embRow?.embedding) {
+    throw new Error('No embedding found for this clip');
+  }
+
+  // 2. Call the search RPC with this embedding
+  const { data, error } = await db().rpc('search_corpus_embeddings', {
+    query_embedding: embRow.embedding,
+    match_threshold: 0.3,
+    match_count: limit + 1, // +1 because the clip itself will be in results
+  });
+
+  if (error) throw new Error(error.message);
+
+  // Filter out the source clip itself
+  return (data || []).filter(r => r.corpus_unit_id !== corpusUnitId).slice(0, limit);
+}
+
 // ── Pending queue (used by worker) ──
 
 export async function getPendingAssets(limit = 10) {

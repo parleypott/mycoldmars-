@@ -1,4 +1,4 @@
-import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch } from './db.js';
+import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips } from './db.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -1751,8 +1751,43 @@ function renderReviewCard(filtered) {
       ${text ? `<div class="review-text">${escHtml(text)}</div>` : ''}
       ${j.visual_description ? `<div class="review-visual"><strong>visual:</strong> ${escHtml(j.visual_description)}</div>` : ''}
       ${j.transcript_summary ? `<div class="review-transcript"><strong>transcript:</strong> ${escHtml(j.transcript_summary)}</div>` : ''}
+      <button class="np-button np-button--ghost review-similar-btn" id="review-find-similar" data-unit-id="${u.id}">find similar clips</button>
+      <div class="review-similar-results" id="review-similar-results"></div>
     </div>
   `;
+
+  // Wire up find similar button
+  document.getElementById('review-find-similar')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const unitId = btn.dataset.unitId;
+    const resultsEl = document.getElementById('review-similar-results');
+    btn.textContent = 'searching...';
+    btn.disabled = true;
+    try {
+      const similar = await findSimilarClips(unitId, 8);
+      if (!similar.length) {
+        resultsEl.innerHTML = '<div class="review-similar-empty">no similar clips found</div>';
+        return;
+      }
+      resultsEl.innerHTML = similar.map(s => {
+        const cn = (s.clip_name || '').replace(/_Proxy\.MP4$/i, '').replace(/^\d{8}-\d{4}-/, '');
+        const simPct = (s.similarity * 100).toFixed(0);
+        return `<div class="review-similar-item">
+          <span class="review-similar-score">${simPct}%</span>
+          <div class="review-similar-info">
+            <span class="review-similar-name">${escHtml(cn)}</span>
+            <span class="review-similar-meta">${escHtml(s.project_name || '')} / ${s.tier || ''}</span>
+            ${s.analysis_preview ? `<span class="review-similar-preview">${escHtml(s.analysis_preview.slice(0, 120))}</span>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      resultsEl.innerHTML = `<div class="review-similar-empty">${escHtml(err.message)}</div>`;
+    } finally {
+      btn.textContent = 'find similar clips';
+      btn.disabled = false;
+    }
+  });
 
   // Highlight current item in the grid
   document.querySelectorAll('.corpus-grid-item').forEach((el, i) => {
