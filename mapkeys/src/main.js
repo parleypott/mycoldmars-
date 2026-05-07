@@ -2327,21 +2327,50 @@ document.getElementById('ss-edit-country').addEventListener('click', () => {
   if (shape && shape.type === 'country') startCountryEdit(shape);
 });
 
-// Hi-res / "Granular" — swap Natural Earth 10m geometry for OSM-quality
-// coastline via Nominatim. Per-country localStorage cache. Click again to
-// revert. Only useful when zoomed in tight; skip when wide.
-async function fetchHiResBoundary(name) {
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&polygon_geojson=1&format=jsonv2&limit=8`;
-  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-  if (!res.ok) throw new Error('http ' + res.status);
-  const arr = await res.json();
-  // Prefer relations with admin_level=2 (country borders); fall back to any geometry.
-  const pick = arr.find(r => r.osm_type === 'relation' && r.geojson && (r.geojson.type === 'Polygon' || r.geojson.type === 'MultiPolygon'))
-            || arr.find(r => r.geojson && (r.geojson.type === 'Polygon' || r.geojson.type === 'MultiPolygon'));
-  if (!pick) throw new Error('no boundary found');
-  let g = pick.geojson;
-  if (g.type === 'Polygon') g = { type: 'MultiPolygon', coordinates: [g.coordinates] };
-  return g;
+// Hi-res / "Granular" — swap Natural Earth 10m geometry for high-res LAND-ONLY
+// coastline from geoBoundaries (gbOpen ADM0). Their boundaries explicitly
+// exclude EEZ/maritime claims, so we get the actual coastline rather than a
+// territorial-water polygon. ISO-3 is resolved once per country via Nominatim
+// (cached). Both lookups persisted in localStorage; click Granular again to
+// revert to the chunky 10m data.
+async function resolveISO3(name) {
+  const key = 'mk-iso3-' + name.toLowerCase();
+  const cached = localStorage.getItem(key);
+  if (cached) return cached;
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=jsonv2&limit=5&extratags=1`;
+  const arr = await (await fetch(url, { headers: { 'Accept': 'application/json' } })).json();
+  const pick = arr.find(r => r.osm_type === 'relation' && r.extratags && r.extratags['ISO3166-1:alpha3'])
+            || arr.find(r => r.extratags && r.extratags['ISO3166-1:alpha3']);
+  if (!pick) throw new Error('iso3 not found for ' + name);
+  const iso3 = pick.extratags['ISO3166-1:alpha3'].toUpperCase();
+  try { localStorage.setItem(key, iso3); } catch {}
+  return iso3;
+}
+
+// geoBoundaries hosts geojson on github.com/.../raw/... but those URLs are
+// Git-LFS pointers and CORS-blocked. media.githubusercontent.com resolves
+// LFS content AND sends `access-control-allow-origin: *`.
+function ghRawToMedia(url) {
+  return url.replace(
+    /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/raw\/([^/]+)\/(.+)$/,
+    'https://media.githubusercontent.com/media/$1/$2/$3/$4'
+  );
+}
+
+async function fetchHiResBoundary(shape) {
+  const name = shape.countryName || shape.name;
+  const iso3 = await resolveISO3(name);
+  const meta = await (await fetch(`https://www.geoboundaries.org/api/current/gbOpen/${iso3}/ADM0/`)).json();
+  const gjUrl = ghRawToMedia(meta.simplifiedGeometryGeoJSON || meta.gjDownloadURL || '');
+  if (!gjUrl) throw new Error('no GeoJSON URL for ' + iso3);
+  const gj = await (await fetch(gjUrl)).json();
+  let geom = null;
+  if (gj.type === 'FeatureCollection' && gj.features && gj.features[0]) geom = gj.features[0].geometry;
+  else if (gj.type === 'Feature') geom = gj.geometry;
+  else if (gj.type === 'Polygon' || gj.type === 'MultiPolygon') geom = gj;
+  if (!geom) throw new Error('unexpected geojson shape');
+  if (geom.type === 'Polygon') geom = { type: 'MultiPolygon', coordinates: [geom.coordinates] };
+  return geom;
 }
 
 document.getElementById('ss-granular').addEventListener('click', async () => {
@@ -2360,19 +2389,20 @@ document.getElementById('ss-granular').addEventListener('click', async () => {
     flashToast('Coarse borders');
     return;
   }
-  const cacheKey = 'mk-hires-' + (shape.countryId || shape.countryName || shape.name);
+  // v2 = land-only geoBoundaries (v1 was OSM admin which included maritime claims)
+  const cacheKey = 'mk-hires-v2-' + (shape.countryId || shape.countryName || shape.name);
   let geom = null;
   try {
     const cached = localStorage.getItem(cacheKey);
     if (cached) geom = JSON.parse(cached);
   } catch {}
   if (!geom) {
-    flashToast('Fetching high-res border…');
+    flashToast('Fetching coastline…');
     try {
-      geom = await fetchHiResBoundary(shape.countryName || shape.name);
+      geom = await fetchHiResBoundary(shape);
       try { localStorage.setItem(cacheKey, JSON.stringify(geom)); } catch {}
     } catch (err) {
-      flashToast('High-res fetch failed');
+      flashToast('Coastline fetch failed');
       console.warn('hi-res fetch', err);
       return;
     }
