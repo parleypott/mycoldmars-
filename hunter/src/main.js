@@ -254,6 +254,9 @@ async function openProject(id) {
   // Render scenes timeline
   renderScenes(units);
 
+  // Render transcripts
+  renderTranscripts(units);
+
   // Init project search
   initProjectSearch();
 
@@ -1569,6 +1572,56 @@ function renderBestClips(units) {
   }).join('');
 }
 
+// ── Transcript Browser ──
+
+let _transcriptFilterAC = null;
+
+function renderTranscripts(units) {
+  const section = document.getElementById('transcript-browser');
+  const list = document.getElementById('transcript-list');
+  const countEl = document.getElementById('transcript-count');
+  const filterInput = document.getElementById('transcript-filter');
+
+  if (_transcriptFilterAC) _transcriptFilterAC.abort();
+  _transcriptFilterAC = new AbortController();
+
+  const withTranscript = units.filter(u => u.analyses?.[0]?.output_json?.transcript_summary);
+  if (withTranscript.length < 1) { section.classList.add('hidden'); return; }
+
+  section.classList.remove('hidden');
+  countEl.textContent = `${withTranscript.length} clips`;
+
+  function renderList(filter) {
+    const filtered = filter
+      ? withTranscript.filter(u => u.analyses[0].output_json.transcript_summary.toLowerCase().includes(filter))
+      : withTranscript;
+
+    if (!filtered.length) {
+      list.innerHTML = '<div class="transcript-empty">no matches</div>';
+      return;
+    }
+
+    list.innerHTML = filtered.slice(0, 100).map(u => {
+      const j = u.analyses[0].output_json;
+      const clipName = (u.source_clip_name || '').replace(/_Proxy\.MP4$/i, '').replace(/^\d{8}-\d{4}-/, '');
+      const transcript = j.transcript_summary;
+      return `<div class="transcript-entry">
+        <div class="transcript-entry-meta">
+          <span class="transcript-entry-clip">${escHtml(clipName)}</span>
+          <span class="transcript-entry-tc">${formatTc(u.start_seconds)} – ${formatTc(u.end_seconds)}</span>
+        </div>
+        <div class="transcript-entry-text">${escHtml(transcript)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  renderList('');
+
+  filterInput.addEventListener('input', () => {
+    renderList(filterInput.value.trim().toLowerCase());
+  }, { signal: _transcriptFilterAC.signal });
+}
+
 // ── Scene detection (client-side temporal grouping) ──
 
 const SCENE_TEMPORAL_GAP_MINUTES = 30;
@@ -2014,6 +2067,10 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 's' && currentView === 'project') {
     document.getElementById('project-scenes')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+  // t = jump to transcripts
+  if (e.key === 't' && currentView === 'project') {
+    document.getElementById('transcript-browser')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
   // o = jump to observations
   if (e.key === 'o' && currentView === 'project') {
     document.getElementById('project-patterns')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2043,6 +2100,7 @@ function toggleShortcutOverlay() {
           <kbd>1</kbd><span>projects view</span>
           <kbd>2</kbd><span>corpus view</span>
           <kbd>s</kbd><span>jump to scenes</span>
+          <kbd>t</kbd><span>jump to transcripts</span>
           <kbd>c</kbd><span>jump to corpus</span>
           <kbd>o</kbd><span>jump to observations</span>
           <kbd>r</kbd><span>review clips (corpus)</span>
