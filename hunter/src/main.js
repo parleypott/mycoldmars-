@@ -175,6 +175,16 @@ async function openProject(id) {
     tierStats[tierKey].analyzed += analyzed;
   }
 
+  // For demo mode, inject realistic tier counts if we have multi-tier assets
+  if (isDemo && assets.length > 1) {
+    const demoTierCounts = { raw: 7616, selects: 2168, google_docs: 28, finished: 1 };
+    for (const a of assets) {
+      if (demoTierCounts[a.tier] && (!tierStats[a.tier] || tierStats[a.tier].total < 10)) {
+        tierStats[a.tier] = { total: demoTierCounts[a.tier], analyzed: demoTierCounts[a.tier] };
+      }
+    }
+  }
+
   const statsLine = totalUnits > 0
     ? `${analyzedUnits} analyzed of ${totalUnits} units`
     : `${assets.length} sources`;
@@ -222,6 +232,9 @@ async function openProject(id) {
   document.getElementById('hub-status').textContent = `${connectedCount}/5`;
   // Render node diagram SVG + waveform after layout settles
   setTimeout(() => { renderHubSVG(); renderWaveform(); }, 100);
+
+  // Render tier funnel
+  renderTierFunnel(tierStats);
 
   // Render scenes timeline
   renderScenes(units);
@@ -1132,6 +1145,48 @@ function stopIngestPolling() {
     clearInterval(ingestPollTimer);
     ingestPollTimer = null;
   }
+}
+
+// ── Tier funnel visualization ──
+
+function renderTierFunnel(tierStats) {
+  const funnel = document.getElementById('tier-funnel');
+  const bar = document.getElementById('tier-funnel-bar');
+
+  // Editorial flow: raw → selects → finished (script is parallel, not sequential)
+  const flowTiers = ['raw', 'selects', 'finished'].filter(t => tierStats[t]?.total > 0);
+  const scriptCount = tierStats['google_docs']?.total || 0;
+
+  if (flowTiers.length < 2) {
+    funnel.classList.add('hidden');
+    return;
+  }
+
+  funnel.classList.remove('hidden');
+
+  const maxCount = Math.max(...flowTiers.map(t => tierStats[t].total));
+  const segments = [];
+
+  for (let i = 0; i < flowTiers.length; i++) {
+    const tier = flowTiers[i];
+    const count = tierStats[tier].total;
+    const pct = Math.max((count / maxCount) * 100, 12);
+
+    segments.push(`<div class="funnel-segment funnel-segment--${tier}" style="width:${pct.toFixed(1)}%">${tier} ${count.toLocaleString()}</div>`);
+
+    if (i < flowTiers.length - 1) {
+      const nextCount = tierStats[flowTiers[i + 1]].total;
+      const retention = ((nextCount / count) * 100).toFixed(1);
+      segments.push(`<div class="funnel-arrow">→${retention}%</div>`);
+    }
+  }
+
+  // Script as a parallel note if present
+  if (scriptCount > 0) {
+    segments.push(`<div class="funnel-segment funnel-segment--script" style="width:12%">script ${scriptCount}</div>`);
+  }
+
+  bar.innerHTML = segments.join('');
 }
 
 // ── Scene detection (client-side temporal grouping) ──
