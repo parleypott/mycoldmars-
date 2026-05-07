@@ -3,35 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mycoldmars · tools</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300;1,6..72,400&display=swap" rel="stylesheet">
+  <title>mycoldmars</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
       --red: #d42e05;
-      --red-deep: #a8230a;
-      --orange: #ff5206;
       --ivory: #f5f0e8;
       --ivory-bright: #faf7f2;
-      --ivory-mid: rgba(245, 240, 232, 0.55);
       --ivory-faint: rgba(245, 240, 232, 0.18);
-      --ink: #1f1410;
+      --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
     }
 
     html { background: var(--red); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
     body {
       min-height: 100vh;
-      font-family: 'DM Sans', sans-serif;
+      font-family: var(--mono);
       color: var(--ivory-bright);
-      padding: clamp(28px, 4vw, 56px);
-      padding-bottom: clamp(48px, 8vh, 120px);
+      overflow: hidden;
+      position: relative;
     }
 
-    /* Grain */
     body::after {
       content: '';
       position: fixed; inset: 0;
@@ -41,263 +34,169 @@
       mix-blend-mode: multiply;
     }
 
-    /* ── Header ── */
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 24px;
-      margin-bottom: clamp(48px, 12vh, 140px);
-      opacity: 0;
-      animation: fadeIn 0.7s ease 0.1s forwards;
+    /* ── Corner meta ── */
+    .meta {
+      position: fixed;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ivory-bright);
+      z-index: 5;
     }
-    .brand {
-      font-weight: 500;
-      font-size: 14px;
+    .meta.tl { top: 24px; left: 24px; }
+    .meta.tr { top: 24px; right: 24px; }
+    .meta.bl { bottom: 24px; left: 24px; }
+    .meta.br { bottom: 24px; right: 24px; color: rgba(245,240,232,0.5); }
+
+    /* ── Center stage ── */
+    main {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .dots {
+      display: flex;
+      gap: clamp(20px, 3vw, 40px);
+      align-items: center;
+      z-index: 4;
+      position: relative;
+    }
+
+    .dot {
+      width: clamp(48px, 5vw, 64px);
+      height: clamp(48px, 5vw, 64px);
+      border: 1.5px solid var(--ivory-bright);
+      border-radius: 50%;
+      background: transparent;
+      position: relative;
+      cursor: pointer;
+      text-decoration: none;
+      display: block;
+      transition: background 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .dot:hover { background: var(--ivory-bright); transform: scale(1.06); }
+
+    .dot-label {
+      position: absolute;
+      top: calc(100% + 18px);
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-family: var(--mono);
+      font-size: 11px;
       letter-spacing: 0.18em;
       text-transform: uppercase;
       color: var(--ivory-bright);
-    }
-    .topbar .meta {
-      font-size: 11px;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      color: var(--ivory-mid);
-    }
-
-    /* ── Hero ── */
-    .hero {
-      max-width: 920px;
-      margin-bottom: clamp(40px, 8vh, 96px);
       opacity: 0;
-      animation: fadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.25s forwards;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
     }
-    .eyebrow {
-      font-size: 11px;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      color: var(--ivory-mid);
-      margin-bottom: 18px;
-    }
-    .hero h1 {
-      font-family: 'Newsreader', serif;
-      font-style: italic;
-      font-weight: 300;
-      font-size: clamp(48px, 10vw, 132px);
-      line-height: 0.92;
-      letter-spacing: -0.02em;
-      color: var(--ivory-bright);
-      margin-bottom: clamp(16px, 2vh, 28px);
-    }
-    .hero p {
-      font-size: clamp(15px, 1.4vw, 18px);
-      line-height: 1.55;
-      color: var(--ivory-mid);
-      max-width: 540px;
-    }
+    .dot:hover .dot-label { opacity: 1; }
 
-    /* ── Tool grid ── */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 1px;
-      background: var(--ivory-faint);
-      border: 1px solid var(--ivory-faint);
+    /* ── Bouncing globe ── */
+    .globe-wrap {
+      position: fixed;
+      top: 0; left: 0;
+      width: 88px; height: 88px;
+      pointer-events: none;
+      z-index: 2;
+      will-change: transform;
     }
+    .globe {
+      width: 100%; height: 100%;
+      animation: spin 6s linear infinite;
+    }
+    .globe path, .globe ellipse, .globe line { stroke: var(--ivory-bright); fill: none; stroke-width: 0.9; }
+    .globe path.land { fill: var(--ivory-bright); stroke: none; }
 
-    .tool {
-      position: relative;
-      display: block;
-      padding: clamp(28px, 3vw, 44px);
-      background: var(--red);
-      color: var(--ivory-bright);
-      text-decoration: none;
-      min-height: clamp(220px, 32vh, 320px);
-      transition: background 0.45s ease, color 0.45s ease;
-      opacity: 0;
-      animation: fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-      overflow: hidden;
-      isolation: isolate;
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
     }
-    .tool:nth-child(1) { animation-delay: 0.45s; }
-    .tool:nth-child(2) { animation-delay: 0.55s; }
-    .tool:nth-child(3) { animation-delay: 0.65s; }
-    .tool:nth-child(4) { animation-delay: 0.75s; }
-    .tool:nth-child(5) { animation-delay: 0.85s; }
-    .tool:nth-child(6) { animation-delay: 0.95s; }
-
-    .tool::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: var(--ivory-bright);
-      transform: translateY(101%);
-      transition: transform 0.55s cubic-bezier(0.65, 0, 0.35, 1);
-      z-index: -1;
-    }
-    .tool:hover::before { transform: translateY(0); }
-    .tool:hover { color: var(--ink); }
-
-    .tool-num {
-      font-family: 'Newsreader', serif;
-      font-style: italic;
-      font-weight: 300;
-      font-size: 14px;
-      letter-spacing: 0.04em;
-      color: var(--ivory-mid);
-      transition: color 0.45s ease;
-    }
-    .tool:hover .tool-num { color: var(--red); }
-
-    .tool-name {
-      font-family: 'Newsreader', serif;
-      font-weight: 400;
-      font-style: italic;
-      font-size: clamp(34px, 4vw, 52px);
-      line-height: 1;
-      letter-spacing: -0.02em;
-      margin-top: clamp(48px, 8vh, 96px);
-      margin-bottom: 14px;
-    }
-
-    .tool-tag {
-      font-size: 14px;
-      line-height: 1.5;
-      max-width: 32ch;
-      color: var(--ivory-mid);
-      transition: color 0.45s ease;
-    }
-    .tool:hover .tool-tag { color: var(--ink); opacity: 0.7; }
-
-    .tool-arrow {
-      position: absolute;
-      bottom: clamp(20px, 2.5vw, 30px);
-      right: clamp(20px, 2.5vw, 30px);
-      font-size: 22px;
-      line-height: 1;
-      transform: translate(0, 0);
-      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-    .tool:hover .tool-arrow { transform: translate(4px, -4px); }
-
-    .tool.coming-soon { pointer-events: none; opacity: 0.42; }
-    .tool.coming-soon .tool-tag::after {
-      content: ' · soon';
-      color: var(--ivory-mid);
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-size: 10px;
-    }
-
-    /* ── Footer / experiments ── */
-    .experiments {
-      margin-top: clamp(48px, 8vh, 96px);
-      padding-top: clamp(20px, 3vh, 32px);
-      border-top: 1px solid var(--ivory-faint);
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      gap: 24px 36px;
-      opacity: 0;
-      animation: fadeIn 0.6s ease 1.1s forwards;
-    }
-    .experiments-label {
-      font-size: 11px;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      color: var(--ivory-mid);
-      margin-right: 12px;
-    }
-    .experiments a {
-      font-family: 'Newsreader', serif;
-      font-style: italic;
-      font-weight: 300;
-      font-size: 18px;
-      color: var(--ivory-bright);
-      text-decoration: none;
-      transition: color 0.3s ease;
-    }
-    .experiments a:hover { color: var(--ivory); text-decoration: underline; text-underline-offset: 4px; }
-
-    /* ── Animations ── */
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
     @media (max-width: 600px) {
-      body { padding: 24px; }
-      .topbar { margin-bottom: 48px; }
-      .hero { margin-bottom: 32px; }
-      .tool { min-height: 200px; }
-      .tool-name { margin-top: 56px; }
+      .meta { font-size: 10px; }
+      .dots { flex-wrap: wrap; justify-content: center; gap: 18px; max-width: 320px; }
+      .globe-wrap { width: 64px; height: 64px; }
     }
   </style>
 </head>
 <body>
 
-  <header class="topbar">
-    <div class="brand">mycoldmars</div>
-    <div class="meta">tools · 2026</div>
-  </header>
+  <div class="meta tl">mycoldmars</div>
+  <div class="meta tr">tools</div>
+  <div class="meta bl">2026</div>
+  <div class="meta br">↗</div>
 
-  <section class="hero">
-    <div class="eyebrow">studio toolkit</div>
-    <h1>the tools<br>i build with.</h1>
-    <p>first-party software for documentary work — transcription, footage search, animated maps, and frame-by-frame motion. all built to close the gap between vision and finished cut.</p>
-  </section>
+  <main>
+    <nav class="dots">
+      <a href="/translation/" class="dot"><span class="dot-label">interpreter</span></a>
+      <a href="/hunter/" class="dot"><span class="dot-label">hunter</span></a>
+      <a href="/mapkeys/" class="dot"><span class="dot-label">mapkeys</span></a>
+      <a href="/animatedcrazy/" class="dot"><span class="dot-label">animatedcrazy</span></a>
+    </nav>
+  </main>
 
-  <nav class="grid">
-    <a href="/translation/" class="tool">
-      <div class="tool-num">01</div>
-      <div class="tool-name">interpreter</div>
-      <div class="tool-tag">transcribe and translate hour-long interviews. word-level timestamps, speaker diarization, click-to-seek editor.</div>
-      <div class="tool-arrow">↗</div>
-    </a>
+  <!-- DVD-screensaver globe -->
+  <div class="globe-wrap" id="globe">
+    <svg class="globe" viewBox="0 0 100 100">
+      <ellipse cx="50" cy="50" rx="48" ry="48"/>
+      <ellipse cx="50" cy="50" rx="22" ry="48"/>
+      <line x1="2" y1="50" x2="98" y2="50"/>
+      <!-- continents (loose stylized blobs) -->
+      <path class="land" d="M14 28 C18 22, 28 20, 36 22 C40 24, 44 27, 44 31 C44 35, 40 39, 34 41 C28 42, 22 40, 18 36 C15 32, 14 30, 14 28Z"/>
+      <path class="land" d="M28 54 C32 52, 38 53, 40 57 C42 62, 41 70, 38 75 C35 78, 32 76, 30 71 C28 64, 27 58, 28 54Z"/>
+      <path class="land" d="M52 24 C56 22, 60 24, 60 28 C60 32, 56 33, 53 31 C51 29, 51 26, 52 24Z"/>
+      <path class="land" d="M55 38 C60 36, 66 39, 68 44 C70 50, 68 58, 64 62 C60 65, 56 62, 55 56 C54 50, 54 42, 55 38Z"/>
+      <path class="land" d="M68 22 C73 20, 80 22, 82 26 C84 30, 80 34, 75 34 C70 33, 67 28, 68 22Z"/>
+      <path class="land" d="M76 60 C80 58, 84 60, 84 64 C84 68, 80 70, 76 68 C73 66, 73 62, 76 60Z"/>
+    </svg>
+  </div>
 
-    <a href="/hunter/" class="tool">
-      <div class="tool-num">02</div>
-      <div class="tool-name">the hunter</div>
-      <div class="tool-tag">find any moment across hundreds of hours of raw footage. multimodal search across the corpus.</div>
-      <div class="tool-arrow">↗</div>
-    </a>
+  <script>
+    // DVD-screensaver bounce. Random angle on load. Color flash on edge hits.
+    (function() {
+      const el = document.getElementById('globe');
+      let x, y, vx, vy, w, h, size = 88;
 
-    <a href="/mapkeys/" class="tool">
-      <div class="tool-num">03</div>
-      <div class="tool-name">mapkeys</div>
-      <div class="tool-tag">animated keyframe maps for documentary cuts. countries, routes, octagons, gif export.</div>
-      <div class="tool-arrow">↗</div>
-    </a>
+      function reset() {
+        const rect = el.getBoundingClientRect();
+        size = rect.width || 88;
+        w = window.innerWidth - size;
+        h = window.innerHeight - size;
+        x = Math.random() * w;
+        y = Math.random() * h;
+        const speed = 1.4;                     // px/frame; whimsical-but-not-frantic
+        const angle = (Math.random() * 0.7 + 0.15) * Math.PI; // 27-153° to avoid pure horizontal
+        vx = Math.cos(angle) * speed * (Math.random() < 0.5 ? -1 : 1);
+        vy = Math.sin(angle) * speed * (Math.random() < 0.5 ? -1 : 1);
+      }
 
-    <a href="/animatedcrazy/" class="tool">
-      <div class="tool-num">04</div>
-      <div class="tool-name">animatedcrazy</div>
-      <div class="tool-tag">frame-by-frame animation in the browser. shapes, onion skin, scrub, export.</div>
-      <div class="tool-arrow">↗</div>
-    </a>
+      function tick() {
+        x += vx; y += vy;
+        let hit = false;
+        if (x <= 0)      { x = 0;     vx = -vx; hit = true; }
+        else if (x >= w) { x = w;     vx = -vx; hit = true; }
+        if (y <= 0)      { y = 0;     vy = -vy; hit = true; }
+        else if (y >= h) { y = h;     vy = -vy; hit = true; }
+        el.style.transform = `translate(${x}px, ${y}px)`;
+        if (hit) {
+          // Tiny "blip" — slight scale pulse on edge hit, like the satisfying corner-tease
+          el.animate(
+            [{ filter: 'brightness(1)' }, { filter: 'brightness(1.4)' }, { filter: 'brightness(1)' }],
+            { duration: 220, easing: 'ease-out' }
+          );
+        }
+        requestAnimationFrame(tick);
+      }
 
-    <a href="/growth/" class="tool">
-      <div class="tool-num">05</div>
-      <div class="tool-name">channel growth</div>
-      <div class="tool-tag">newpress youtube data, all in one dashboard. subscriber curves, show splits, signal vs noise.</div>
-      <div class="tool-arrow">↗</div>
-    </a>
-
-    <a href="/newpress-deck/" class="tool">
-      <div class="tool-num">06</div>
-      <div class="tool-name">newpress deck</div>
-      <div class="tool-tag">the live investor pitch. always current, always rendered, always one link.</div>
-      <div class="tool-arrow">↗</div>
-    </a>
-  </nav>
-
-  <footer class="experiments">
-    <span class="experiments-label">experiments</span>
-    <a href="/pinglobe/">pinglobe</a>
-    <a href="/border-guesser/">border guesser</a>
-    <a href="/zanyplans/">zany plans</a>
-    <a href="/spin/">spin</a>
-    <a href="/trippy/">trippy</a>
-    <a href="/night-market/">night market</a>
-  </footer>
+      window.addEventListener('resize', () => { w = window.innerWidth - size; h = window.innerHeight - size; });
+      reset();
+      tick();
+    })();
+  </script>
 
 </body>
 </html>
