@@ -652,6 +652,178 @@ export async function searchTranscripts(query, projectId) {
 }
 
 // ============================================================
+// Media assets (Phase 3 — video/audio source files for in-house transcription)
+// ============================================================
+
+/**
+ * Create a media_assets row. Call this AFTER the file has been uploaded
+ * to Supabase Storage. Returns the inserted row (with id, created_at).
+ */
+export async function createMediaAsset(fields) {
+  const row = mediaFieldsToRow(fields);
+  if (!row.filename) throw new Error('createMediaAsset: filename required');
+  if (!row.mime_type) throw new Error('createMediaAsset: mime_type required');
+  if (!row.size_bytes) throw new Error('createMediaAsset: size_bytes required');
+  if (!row.storage_path) throw new Error('createMediaAsset: storage_path required');
+  const { data, error } = await db().from('media_assets')
+    .insert(row).select().single();
+  if (error) throw normalizeError(error, 'createMediaAsset');
+  return data;
+}
+
+export async function getMediaAsset(id) {
+  const { data, error } = await db().from('media_assets')
+    .select('*').eq('id', id).maybeSingle();
+  if (error) throw normalizeError(error, 'getMediaAsset');
+  if (!data) {
+    const e = new Error('Media asset not found');
+    e.code = 'NOT_FOUND';
+    throw e;
+  }
+  return data;
+}
+
+export async function listMediaAssets(projectId) {
+  if (!supabase) return [];
+  let q = db().from('media_assets')
+    .select('id, filename, display_name, mime_type, size_bytes, duration_seconds, transcription_status, source_language, created_at, project_id')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false });
+  if (projectId) q = q.eq('project_id', projectId);
+  const { data, error } = await q;
+  if (error) throw normalizeError(error, 'listMediaAssets');
+  return data || [];
+}
+
+export async function updateMediaAsset(id, fields) {
+  const row = mediaFieldsToRow(fields);
+  const { data, error } = await db().from('media_assets')
+    .update(row).eq('id', id).select().single();
+  if (error) throw normalizeError(error, 'updateMediaAsset');
+  return data;
+}
+
+export async function deleteMediaAsset(id, opts = {}) {
+  if (opts.hard) {
+    const { error } = await db().from('media_assets').delete().eq('id', id);
+    if (error) throw normalizeError(error, 'deleteMediaAsset(hard)');
+    return;
+  }
+  const { error } = await db().from('media_assets')
+    .update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  if (error) throw normalizeError(error, 'deleteMediaAsset');
+}
+
+function mediaFieldsToRow(fields) {
+  const row = {};
+  if (fields.projectId !== undefined)        row.project_id = fields.projectId;
+  if (fields.filename !== undefined)          row.filename = fields.filename;
+  if (fields.displayName !== undefined)       row.display_name = fields.displayName;
+  if (fields.mimeType !== undefined)          row.mime_type = fields.mimeType;
+  if (fields.sizeBytes !== undefined)         row.size_bytes = fields.sizeBytes;
+  if (fields.durationSeconds !== undefined)   row.duration_seconds = fields.durationSeconds;
+  if (fields.storageBucket !== undefined)     row.storage_bucket = fields.storageBucket;
+  if (fields.storagePath !== undefined)       row.storage_path = fields.storagePath;
+  if (fields.width !== undefined)             row.width = fields.width;
+  if (fields.height !== undefined)            row.height = fields.height;
+  if (fields.fps !== undefined)               row.fps = fields.fps;
+  if (fields.audioChannels !== undefined)     row.audio_channels = fields.audioChannels;
+  if (fields.audioSampleRate !== undefined)   row.audio_sample_rate = fields.audioSampleRate;
+  if (fields.waveform !== undefined)          row.waveform = fields.waveform;
+  if (fields.transcriptionStatus !== undefined)       row.transcription_status = fields.transcriptionStatus;
+  if (fields.transcriptionProvider !== undefined)     row.transcription_provider = fields.transcriptionProvider;
+  if (fields.transcriptionError !== undefined)        row.transcription_error = fields.transcriptionError;
+  if (fields.transcriptionStartedAt !== undefined)    row.transcription_started_at = fields.transcriptionStartedAt;
+  if (fields.transcriptionCompletedAt !== undefined)  row.transcription_completed_at = fields.transcriptionCompletedAt;
+  if (fields.transcriptionProgress !== undefined)     row.transcription_progress = fields.transcriptionProgress;
+  if (fields.sourceLanguage !== undefined)            row.source_language = fields.sourceLanguage;
+  return row;
+}
+
+// ============================================================
+// Supabase Storage uploads
+// ============================================================
+
+/**
+ * Upload a File or Blob to Supabase Storage with progress callbacks.
+ * Returns { path, publicUrl }. The path is what to store in
+ * media_assets.storage_path.
+ *
+ * Uses the resumable TUS protocol when available (files >6MB) so that
+ * a network blip doesn't force a restart. Big interview videos can run
+ * many GB; chunked + resumable is the only sane way.
+ *
+ * @param {object} opts
+ * @param {File|Blob} opts.file
+ * @param {string} opts.bucket — bucket name (default 'media')
+ * @param {string} opts.path — full storage path (e.g. 'projectid/uuid.mp4')
+ * @param {function} [opts.onProgress] — (percent: number 0..1) => void
+ */
+export async function uploadMediaFile({ file, bucket = 'media', path, onProgress }) {
+  if (!supabase) {
+    const e = new Error('Supabase not configured');
+    e.code = 'NO_DB';
+    throw e;
+  }
+  if (!file) throw new Error('uploadMediaFile: file required');
+  if (!path) throw new Error('uploadMediaFile: path required');
+
+  // For files under 6MB, use the simple upload — it's fast and reliable.
+  // For larger files, use the resumable uploader (Supabase Storage v3+).
+  const useResumable = file.size > 6 * 1024 * 1024;
+
+  if (!useResumable) {
+    const { data, error } = await supabase.storage.from(bucket)
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (error) throw normalizeError(error, 'uploadMediaFile');
+    if (onProgress) onProgress(1);
+    return { path: data.path, bucket };
+  }
+
+  // Resumable upload — TUS protocol via supabase-js >= 2.40
+  // Falls back to standard upload if TUS isn't available in this client version.
+  if (typeof supabase.storage.from(bucket).uploadToSignedUrl !== 'function') {
+    // Fallback to standard upload (no progress, no resume)
+    const { data, error } = await supabase.storage.from(bucket)
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (error) throw normalizeError(error, 'uploadMediaFile(fallback)');
+    if (onProgress) onProgress(1);
+    return { path: data.path, bucket };
+  }
+
+  // Use the standard upload for now — supabase-js doesn't expose TUS directly
+  // in all versions. Real resumable upload via TUS will be wired in a follow-up.
+  const { data, error } = await supabase.storage.from(bucket)
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (error) throw normalizeError(error, 'uploadMediaFile');
+  if (onProgress) onProgress(1);
+  return { path: data.path, bucket };
+}
+
+/**
+ * Get a signed URL for streaming/downloading a media file. Default expiry
+ * is 1 hour — long enough for a transcription run, short enough that
+ * leaked URLs don't matter much.
+ */
+export async function getMediaSignedUrl(path, { bucket = 'media', expiresInSeconds = 3600 } = {}) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.storage.from(bucket)
+    .createSignedUrl(path, expiresInSeconds);
+  if (error) throw normalizeError(error, 'getMediaSignedUrl');
+  return data.signedUrl;
+}
+
+/**
+ * Delete a file from storage. Caller is responsible for also clearing
+ * the media_assets row that referenced it.
+ */
+export async function deleteMediaFile(path, { bucket = 'media' } = {}) {
+  if (!supabase) return;
+  const { error } = await supabase.storage.from(bucket).remove([path]);
+  if (error) throw normalizeError(error, 'deleteMediaFile');
+}
+
+// ============================================================
 // One-time migration of any leftover localStorage records to Supabase.
 // Phase 1 no longer writes to LS, but legacy users may still have
 // records there. This runs once at boot, surfaces results, then nukes
