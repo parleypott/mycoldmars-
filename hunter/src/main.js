@@ -673,7 +673,7 @@ function renderInsightsHub(units, assets) {
           clipName: c.source_clip_name || c.sourceClipName || '',
           startSeconds: c.start_seconds ?? c.startSeconds ?? 0,
           endSeconds: c.end_seconds ?? c.endSeconds ?? 0,
-          analysisText: (c.analyses?.[0]?.output_text || '').slice(0, 200),
+          analysisText: (c.analyses?.[0]?.output_text || '').replace(/\*\*[^*]*\*\*:?\s*/g, '').replace(/^#+\s+.*/gm, '').replace(/\*/g, '').trim().slice(0, 200),
         })),
       }));
 
@@ -1849,7 +1849,7 @@ function renderTranscripts(units) {
 
 // ── Scene detection (client-side temporal grouping) ──
 
-const SCENE_TEMPORAL_GAP_MINUTES = 30;
+const SCENE_TEMPORAL_GAP_MINUTES = 10;
 
 function extractDateFromClipName(name) {
   const m = name?.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/);
@@ -1914,8 +1914,22 @@ function groupIntoScenes(units) {
     const topShot = Object.entries(shotTypes).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
     const avgKeep = keepN > 0 ? (keepSum / keepN) : null;
 
-    // Richer label: use first analysis sentence, or fallback to metadata
-    let label = firstAnalysis.split(/[.!?]/)[0]?.slice(0, 60) || '';
+    // Extract a usable label — skip markdown headers/preamble, find actual content
+    let label = '';
+    if (firstAnalysis) {
+      // Strip markdown formatting and headers
+      const cleaned = firstAnalysis
+        .replace(/^#+\s+.*/gm, '')           // remove ## headers
+        .replace(/\*\*[^*]*\*\*:?\s*/g, '')   // remove **bold labels**:
+        .replace(/\*[^*]*\*\s*/g, '')         // remove *italic*
+        .replace(/^(Here'?s|This|The (video|shot|scene|clip) (opens|begins|starts|shows|is))[^.]*\.\s*/i, '') // skip generic openers
+        .trim();
+      // Grab first real sentence
+      const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(s => s.length > 15);
+      label = (sentences[0] || cleaned.slice(0, 70)).slice(0, 70);
+      // If still looks like a label/header, bail
+      if (/^(what|how|why|analysis|description|shot|physical)/i.test(label)) label = '';
+    }
     if (!label && topEmotion) label = `${topEmotion} · ${topShot || 'mixed'}`;
     if (!label) label = `Scene at ${time}`;
 
@@ -1924,7 +1938,7 @@ function groupIntoScenes(units) {
       return sum + (dur > 0 ? dur : 0);
     }, 0);
 
-    return { clips, day, time, cameras, label, firstAnalysis, totalDuration, topEmotion, topShot, avgKeep };
+    return { clips, day, time, cameras: cameras.slice(0, 3), label, firstAnalysis, totalDuration, topEmotion, topShot, avgKeep };
   });
 }
 
@@ -1961,25 +1975,35 @@ function renderScenes(units) {
         </div>
         <div class="scenes-day-strip">
           ${dayScenes.map((scene, si) => {
-            const clipNames = scene.clips.map(c => (c.source_clip_name || c.sourceClipName || '').replace(/_Proxy\.MP4$/i, ''));
             const sceneId = `scene-${day}-${si}`;
+            // Normalize keepability: if < 1 it's 0-1 scale, multiply by 10
+            const keepDisplay = scene.avgKeep != null
+              ? (scene.avgKeep <= 1 ? (scene.avgKeep * 10).toFixed(1) : scene.avgKeep.toFixed(1))
+              : null;
+            // Clean preview: strip markdown formatting
+            const cleanPreview = scene.firstAnalysis
+              ? scene.firstAnalysis.replace(/\*\*[^*]*\*\*:?\s*/g, '').replace(/^#+\s+.*/gm, '').replace(/\*/g, '').trim().slice(0, 120)
+              : '';
+            // Only show emotion + shot type tags, skip camera IDs
+            const metaTags = [scene.topEmotion, scene.topShot].filter(Boolean);
             return `
               <div class="scene-card" data-scene-id="${sceneId}">
                 <div class="scene-card-time">${scene.time}</div>
                 <div class="scene-card-label">${escHtml(scene.label)}</div>
-                <div class="scene-card-clips">${scene.clips.length} clip${scene.clips.length > 1 ? 's' : ''}${scene.totalDuration > 0 ? ' · ' + formatTc(scene.totalDuration) : ''}${scene.avgKeep != null ? ` · keep ${scene.avgKeep.toFixed(1)}` : ''}</div>
-                <div class="scene-card-meta">${[scene.topEmotion, scene.topShot, ...scene.cameras].filter(Boolean).map(t => `<span class="scene-meta-tag">${escHtml(t)}</span>`).join('')}</div>
-                ${scene.firstAnalysis ? `<div class="scene-card-preview">${escHtml(scene.firstAnalysis.slice(0, 120))}</div>` : ''}
+                <div class="scene-card-clips">${scene.clips.length} clip${scene.clips.length > 1 ? 's' : ''}${scene.totalDuration > 0 ? ' · ' + formatTc(scene.totalDuration) : ''}${keepDisplay != null ? ` · keep ${keepDisplay}` : ''}</div>
+                <div class="scene-card-meta">${metaTags.map(t => `<span class="scene-meta-tag">${escHtml(t)}</span>`).join('')}</div>
+                ${cleanPreview ? `<div class="scene-card-preview">${escHtml(cleanPreview)}</div>` : ''}
                 <div class="scene-card-detail hidden" id="${sceneId}-detail">
-                  ${scene.clips.map(c => {
+                  ${scene.clips.slice(0, 30).map(c => {
                     const cn = (c.source_clip_name || c.sourceClipName || '').replace(/_Proxy\.MP4$/i, '');
-                    const analysis = c.analyses?.[0]?.output_text || '';
+                    const analysis = (c.analyses?.[0]?.output_text || '').replace(/\*\*[^*]*\*\*:?\s*/g, '').replace(/^#+\s+.*/gm, '').replace(/\*/g, '').trim();
                     return `<div class="scene-clip-row">
                       <span class="scene-clip-name">${escHtml(cn.replace(/^\d{8}-\d{4}-/, ''))}</span>
                       <span class="scene-clip-tc">${formatTc(c.start_seconds)} – ${formatTc(c.end_seconds)}</span>
                       ${analysis ? `<p class="scene-clip-analysis">${escHtml(analysis.slice(0, 150))}</p>` : ''}
                     </div>`;
                   }).join('')}
+                  ${scene.clips.length > 30 ? `<div class="scene-clip-row" style="color:var(--np-text-dim);font-style:italic">+ ${scene.clips.length - 30} more clips</div>` : ''}
                 </div>
               </div>
             `;
