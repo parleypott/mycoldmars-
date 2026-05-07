@@ -362,6 +362,38 @@ Respond with JSON only (no markdown fencing):
 }
 
 /**
+/**
+ * Transcribe a media file via the Whisper proxy at /api/transcribe.
+ *
+ * @param {object} opts
+ * @param {string} opts.mediaUrl — short-lived signed URL to the file in storage
+ * @param {number} opts.mediaSizeBytes — size guard for Whisper's 25MB limit
+ * @param {string} [opts.language] — ISO 639-1 source language (auto-detect if omitted)
+ * @param {string} [opts.prompt] — bias hint (proper nouns, jargon)
+ * @returns {Promise<{ language, duration_seconds, full_text, segments, word_timings }>}
+ */
+export async function transcribeMedia({ mediaUrl, mediaSizeBytes, language, prompt }) {
+  const res = await fetch('/api/transcribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mediaUrl, mediaSizeBytes, language, prompt }),
+  });
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const j = await res.json();
+      detail = j?.error?.message || j?.error?.code || '';
+    } catch {
+      detail = await res.text().catch(() => '');
+    }
+    const err = new Error(`Transcription failed (${res.status}): ${detail || res.statusText}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+/**
  * Polish a single soundbite — propose strikethroughs to remove
  * filler/repetition/asides, plus a final cleaned version. Meaning,
  * voice, and ordering of remaining text are preserved.
