@@ -257,17 +257,23 @@ async function openProject(id) {
   // Render patterns
   const patternsList = document.getElementById('patterns-list');
   if (patterns.length > 0) {
-    patternsList.innerHTML = patterns.map(p => `
-      <div class="pattern-card" data-id="${p.id}">
+    patternsList.innerHTML = patterns.map(p => {
+      const date = p.created_at ? new Date(p.created_at) : null;
+      const timeAgo = date ? formatTimeAgo(date) : '';
+      return `
+      <div class="pattern-card ${p.status !== 'surfaced' ? 'pattern-card--' + p.status : ''}" data-id="${p.id}">
+        <div class="pattern-meta">
+          <span class="pattern-status">${p.status}</span>
+          ${timeAgo ? `<span class="pattern-time">${timeAgo}</span>` : ''}
+        </div>
         <div class="pattern-text">${simpleMarkdown(p.observation_text)}</div>
         <button class="pattern-expand">show more</button>
-        <div class="pattern-examples">${(p.example_unit_ids || []).length} example units</div>
         <div class="pattern-actions">
           <button class="np-button pattern-btn" data-action="accepted" data-id="${p.id}">accept</button>
           <button class="np-button pattern-btn" data-action="ignored" data-id="${p.id}">ignore</button>
         </div>
       </div>
-    `).join('');
+    `;}).join('');
 
     // Detect overflow and add expand/collapse
     patternsList.querySelectorAll('.pattern-card').forEach(card => {
@@ -875,8 +881,24 @@ function simpleMarkdown(str) {
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^(\d+)\.\s+/gm, '<span class="md-list-num">$1.</span> ')
+    .replace(/^-\s+/gm, '<span class="md-list-bullet">·</span> ')
+    .replace(/---/g, '<hr class="md-hr">')
     .replace(/\n\n/g, '</p><p>')
     .replace(/\n/g, '<br>');
+}
+
+function formatTimeAgo(date) {
+  const now = new Date();
+  const diffMs = now - date;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
 }
 
 function formatTc(seconds) {
