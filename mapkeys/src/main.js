@@ -81,6 +81,7 @@ const map = new mapboxgl.Map({
   attributionControl: false,
   preserveDrawingBuffer: true,
 });
+if (typeof window !== 'undefined') window.__mk_map = map;  // dev/test introspection
 
 function saveCurrentCamera() {
   if (isPlayingBack) return;
@@ -609,12 +610,27 @@ function defaultShapePreview(type, atCenter) {
   return { offsetLng: 0, offsetLat: 0, scale: 1, drawProgress: 1 };
 }
 
+// Find the topmost water-fill layer in the basemap. Country fills are
+// inserted just BELOW it so the basemap's OSM-resolution coastline clips
+// our chunky country polygon to land — perfectly aligned with what the
+// user sees rendered, no extra data fetches.
+function firstWaterLayerId() {
+  try {
+    const layers = map.getStyle().layers || [];
+    for (const l of layers) {
+      if (l.type === 'fill' && (l.id === 'water' || l.id.startsWith('water-'))) return l.id;
+    }
+  } catch (_) {}
+  return undefined;
+}
+
 function ensureShapeOnMap(shape) {
   const ids = shapeSourceIds(shape.id);
   if (shape.type === 'country') {
     if (!map.getSource(ids.fill)) {
       map.addSource(ids.fill, { type: 'geojson', data: emptyFC() });
     }
+    const waterId = firstWaterLayerId();
     if (!map.getLayer(ids.fillLayer)) {
       map.addLayer({
         id: ids.fillLayer,
@@ -624,7 +640,7 @@ function ensureShapeOnMap(shape) {
           'fill-color': shape.fill,
           'fill-opacity': shape.fillOpacity,
         },
-      });
+      }, waterId);  // beforeId → fill sits under water; ocean masks the spillover
     }
     if (!map.getLayer(ids.lineLayer)) {
       map.addLayer({
@@ -636,7 +652,7 @@ function ensureShapeOnMap(shape) {
           'line-width': shape.strokeWidth,
         },
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-      });
+      }, waterId);  // line under water too — visible only where polygon is on land
     }
     applyShapeStyle(shape);
     applyShapeVisibility(shape);
