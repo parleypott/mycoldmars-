@@ -796,18 +796,40 @@ export async function uploadMediaFile({ file, bucket = 'media', path, onProgress
  * Resumable upload via TUS. Required for files >50MB on Supabase's
  * free tier and recommended for anything >6MB. Chunks the file in
  * 6MB pieces and reports progress through the onProgress callback.
+ *
+ * Auth pattern matches Supabase's documented requirements for the
+ * /storage/v1/upload/resumable endpoint:
+ *   - Authorization: Bearer <token>   (session JWT or anon key)
+ *   - apikey: <anon key>              (project identifier)
+ *   - x-upsert: 'true'
+ *
+ * We pull both values from the live supabase client (`.supabaseKey` and
+ * any active session's access token) so they're guaranteed to match
+ * whatever the rest of the app is using — avoids env-var drift between
+ * the build-time and runtime values.
  */
 async function uploadViaTus({ file, bucket, path, onProgress }) {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  // Pull the key from the live supabase client so it matches whatever
+  // the rest of the app uses (avoids divergence with import.meta.env).
+  // Trim because pasted keys often arrive with stray whitespace.
+  const anonKey = (supabase?.supabaseKey || import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+  const url     = (supabase?.supabaseUrl || import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
   if (!url || !anonKey) {
     const e = new Error('Supabase URL or anon key missing — cannot upload');
     e.code = 'NO_DB';
     throw e;
   }
 
-  // Lazy-load tus-js-client to keep it out of the cold-start bundle for
-  // small-file uploads.
+  // If the user is authenticated (currently we're not — anon access only),
+  // prefer their access token. Otherwise fall back to the anon key, which
+  // Supabase's TUS endpoint accepts as a bearer.
+  let bearer = anonKey;
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (data?.session?.access_token) bearer = data.session.access_token;
+  } catch {}
+
+  // Lazy-load tus-js-client to keep it out of the cold-start bundle.
   const tusMod = await import('tus-js-client');
   const tus = tusMod.default || tusMod;
 
@@ -816,12 +838,13 @@ async function uploadViaTus({ file, bucket, path, onProgress }) {
       endpoint: `${url}/storage/v1/upload/resumable`,
       retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
       headers: {
-        authorization: `Bearer ${anonKey}`,
+        Authorization: `Bearer ${bearer}`,
+        apikey: anonKey,
         'x-upsert': 'true',
       },
       uploadDataDuringCreation: true,
       removeFingerprintOnSuccess: true,
-      chunkSize: 6 * 1024 * 1024, // Supabase REQUIRES 6MB chunks
+      chunkSize: 6 * 1024 * 1024, // Supabase REQUIRES 6MB chunks (no smaller, no larger except final)
       metadata: {
         bucketName: bucket,
         objectName: path,
@@ -829,7 +852,13 @@ async function uploadViaTus({ file, bucket, path, onProgress }) {
         cacheControl: '3600',
       },
       onError: (err) => {
-        const e = new Error(`Resumable upload failed: ${err?.message || err}`);
+        // Surface the underlying response body when present — Supabase's
+        // error JSON has the actual reason (auth, mime, quota, etc.)
+        let detail = err?.message || String(err);
+        if (err?.originalResponse) {
+          try { detail += ' — ' + err.originalResponse.getBody(); } catch {}
+        }
+        const e = new Error(`Resumable upload failed: ${detail}`);
         e.code = 'TUS_ERROR';
         reject(e);
       },
@@ -849,7 +878,7 @@ async function uploadViaTus({ file, bucket, path, onProgress }) {
       }
       upload.start();
     }).catch(() => {
-      // findPreviousUploads can fail in private-mode storage etc — fall back to fresh start.
+      // findPreviousUploads can fail in private-mode storage; fall back.
       upload.start();
     });
   });
