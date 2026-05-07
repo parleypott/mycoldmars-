@@ -26,6 +26,18 @@ export default async function handler(req) {
     return handleSemanticSearch(body, apiKey);
   }
 
+  if (action === 'scene_insights') {
+    return handleSceneInsights(body, apiKey);
+  }
+
+  if (action === 'chat') {
+    return handleChat(body, apiKey);
+  }
+
+  if (action === 'tier_comparison') {
+    return handleTierComparison(body, apiKey);
+  }
+
   // Default: proxy to Gemini
   const model = body.model || 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -395,6 +407,214 @@ function cosineSim(a, b) {
   }
   const d = Math.sqrt(nA) * Math.sqrt(nB);
   return d > 0 ? dot / d : 0;
+}
+
+// ── Scene Insights ──
+
+async function handleSceneInsights(body, apiKey) {
+  const { scenes } = body;
+  if (!scenes?.length) return jsonResponse({ error: 'scenes array is required' }, 400);
+
+  const capped = scenes.slice(0, 30).map(scene => {
+    const clips = (scene.clips || []).slice(0, 15).map(c => {
+      const text = (c.analysisText || '').slice(0, 400);
+      return `  - ${c.clipName || 'clip'} (${c.startSeconds || 0}s–${c.endSeconds || 0}s): ${text}`;
+    }).join('\n');
+    return `SCENE: ${scene.label || 'Untitled'} (${scene.day || ''} ${scene.time || ''}, ${scene.clipCount || 0} clips)\n${clips}`;
+  });
+
+  const prompt = `You are Hunter's editorial intelligence — a perceptive documentary editor's assistant.
+
+Below are ${capped.length} detected scenes from a filmmaker's project, each with clip analyses. For each scene, provide:
+
+1. scene_description: A vivid 2-3 sentence editorial description of what this scene captures
+2. editorial_potential: Rate LOW / MEDIUM / HIGH and explain why in one sentence
+3. key_moments: Array of 1-3 specific moments worth noting (clip name + what makes it special)
+4. emotional_arc: One sentence describing the emotional movement across the scene's clips
+5. connections: Any thematic links to other scenes (reference by scene number)
+
+Return JSON array of objects, one per scene, with fields: scene_index (0-based), scene_description, editorial_potential, key_moments, emotional_arc, connections.
+
+SCENES:
+${capped.join('\n\n---\n\n')}`;
+
+  const model = 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 8000, responseMimeType: 'application/json' },
+    }),
+  });
+
+  if (!res.ok) {
+    return jsonResponse({ error: 'Gemini scene insights failed', detail: (await res.text()).slice(0, 500) }, 502);
+  }
+
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+  let insights = [];
+  try { insights = JSON.parse(text); } catch {
+    insights = [{ scene_description: text, editorial_potential: 'UNKNOWN', key_moments: [], emotional_arc: '', connections: '' }];
+  }
+
+  return jsonResponse({ insights });
+}
+
+// ── Chat ──
+
+async function handleChat(body, apiKey) {
+  const { message, conversationHistory, projectContext, relevantClips } = body;
+  if (!message) return jsonResponse({ error: 'message is required' }, 400);
+
+  // Build context from relevant clips
+  let clipsContext = '';
+  if (relevantClips?.length) {
+    clipsContext = '\n\nRELEVANT CLIPS (found via semantic search):\n' +
+      relevantClips.slice(0, 10).map((c, i) => {
+        return `[${i + 1}] ${c.clipName || 'clip'} (${c.tier || ''}, ${formatSeconds(c.startSeconds)}–${formatSeconds(c.endSeconds)}, similarity: ${((c.similarity || 0) * 100).toFixed(0)}%)\n${(c.analysisPreview || '').slice(0, 300)}`;
+      }).join('\n\n');
+  }
+
+  // Build conversation history
+  const historyParts = (conversationHistory || []).slice(-10).map(m => ({
+    role: m.role === 'user' ? 'user' : 'model',
+    parts: [{ text: m.content }],
+  }));
+
+  const systemText = `You are Hunter's editorial intelligence — a perceptive documentary editor's assistant who has deep familiarity with the filmmaker's footage archive.
+
+When you reference footage, always cite the clip name and timecode. Be specific, editorial, and insightful. Write as a creative collaborator, not a database.
+
+${projectContext || ''}${clipsContext}`;
+
+  const model = 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const contents = [
+    ...historyParts,
+    { role: 'user', parts: [{ text: message }] },
+  ];
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents,
+      systemInstruction: { parts: [{ text: systemText }] },
+      generationConfig: { maxOutputTokens: 2000 },
+    }),
+  });
+
+  if (!res.ok) {
+    return jsonResponse({ error: 'Chat failed', detail: (await res.text()).slice(0, 500) }, 502);
+  }
+
+  const data = await res.json();
+  const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
+
+  // Extract cited clips from the response
+  const citedClips = (relevantClips || []).filter(c =>
+    reply.includes(c.clipName) || reply.includes(c.clipName?.replace(/_Proxy\.MP4$/i, ''))
+  );
+
+  return jsonResponse({ reply, citedClips });
+}
+
+// ── Tier Comparison ──
+
+async function handleTierComparison(body, apiKey) {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return jsonResponse({ error: 'Supabase not configured' }, 500);
+  }
+
+  const { projectId } = body;
+  if (!projectId) return jsonResponse({ error: 'projectId is required' }, 400);
+
+  const headers = {
+    apikey: supabaseKey,
+    Authorization: `Bearer ${supabaseKey}`,
+  };
+
+  // Fetch analyses per tier
+  const tiers = ['raw', 'selects', 'finished'];
+  const tierData = {};
+
+  for (const tier of tiers) {
+    const url = `${supabaseUrl}/rest/v1/analyses?select=output_text,corpus_units!inner(media_asset_id,media_assets!inner(tier,project_id))&corpus_units.media_assets.project_id=eq.${projectId}&corpus_units.media_assets.tier=eq.${tier}&limit=50`;
+    const res = await fetch(url, { headers });
+    if (res.ok) {
+      const data = await res.json();
+      tierData[tier] = data.map(a => (a.output_text || '').slice(0, 300));
+    } else {
+      tierData[tier] = [];
+    }
+  }
+
+  const totalAnalyses = Object.values(tierData).reduce((s, arr) => s + arr.length, 0);
+  if (totalAnalyses === 0) {
+    return jsonResponse({ error: 'No analyses found across tiers. Ingest footage first.' }, 404);
+  }
+
+  // Build corpus for comparison
+  const corpus = tiers.map(tier => {
+    if (!tierData[tier].length) return `[${tier.toUpperCase()}]: No footage in this tier.`;
+    const sampled = tierData[tier].slice(0, 30);
+    return `[${tier.toUpperCase()}] (${tierData[tier].length} clips sampled):\n${sampled.map((t, i) => `  ${i + 1}. ${t}`).join('\n')}`;
+  }).join('\n\n---\n\n');
+
+  const prompt = `You are a perceptive documentary editor comparing the editorial evolution from raw footage → selects → finished cut.
+
+Analyze these three tiers of a filmmaker's project and return JSON with:
+- raw_character: string (2-3 sentences describing the raw footage's character — what the camera was drawn to, instinctive patterns)
+- selects_philosophy: string (2-3 sentences on what the editor chose to keep and why — what survived the first filter)
+- finished_focus: string (2-3 sentences on the finished cut's thesis — what story emerged from the material)
+- editorial_drift: string (2-3 sentences on what changed from raw → finished — what was gained, what was lost, what surprised you)
+- hidden_gems: string[] (3-5 specific clips from raw/selects that didn't make the cut but deserve another look, with reasons)
+- recommendations: string[] (2-4 editorial recommendations based on the comparison)
+
+CORPUS:
+${corpus}`;
+
+  const model = 'gemini-2.5-flash';
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const res = await fetch(geminiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 4000, responseMimeType: 'application/json' },
+    }),
+  });
+
+  if (!res.ok) {
+    return jsonResponse({ error: 'Tier comparison failed', detail: (await res.text()).slice(0, 500) }, 502);
+  }
+
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+  let comparison = {};
+  try { comparison = JSON.parse(text); } catch {
+    comparison = { raw_character: text, selects_philosophy: '', finished_focus: '', editorial_drift: '', hidden_gems: [], recommendations: [] };
+  }
+
+  return jsonResponse({ comparison, tierCounts: { raw: tierData.raw.length, selects: tierData.selects.length, finished: tierData.finished.length } });
+}
+
+function formatSeconds(s) {
+  if (s == null) return '--:--';
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
 function jsonResponse(data, status = 200) {

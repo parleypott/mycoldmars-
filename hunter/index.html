@@ -149,6 +149,40 @@
         <div class="shoot-calendar-grid" id="shoot-calendar-grid"></div>
       </div>
 
+      <!-- Insights Hub -->
+      <div id="insights-hub" class="insights-hub hidden">
+        <div class="insights-hub-header">
+          <span class="insights-hub-glyph">◆</span>
+          <span class="insights-hub-title">Insights Hub</span>
+        </div>
+        <div class="insights-hub-tabs">
+          <button class="insights-tab active" data-tab="scene-insights">Scene Insights</button>
+          <button class="insights-tab" data-tab="chat">Chat</button>
+          <button class="insights-tab" data-tab="tier-comparison">Tier Comparison</button>
+        </div>
+
+        <!-- Tab 1: Scene Insights -->
+        <div class="insights-panel active" id="panel-scene-insights">
+          <button class="np-button np-button--primary insights-action-btn" id="btn-generate-insights">generate scene insights</button>
+          <div class="insights-list" id="scene-insights-list"></div>
+        </div>
+
+        <!-- Tab 2: Chat -->
+        <div class="insights-panel" id="panel-chat">
+          <div class="chat-messages" id="chat-messages"></div>
+          <div class="chat-input-row">
+            <input type="text" class="chat-input" id="chat-input" placeholder="ask anything about your footage..." autocomplete="off">
+            <button class="np-button np-button--primary chat-send-btn" id="chat-send-btn">send</button>
+          </div>
+        </div>
+
+        <!-- Tab 3: Tier Comparison -->
+        <div class="insights-panel" id="panel-tier-comparison">
+          <button class="np-button np-button--primary insights-action-btn" id="btn-compare-tiers">compare tiers</button>
+          <div class="tier-comparison-results" id="tier-comparison-results"></div>
+        </div>
+      </div>
+
       <!-- Best clips -->
       <div id="best-clips" class="best-clips-section hidden">
         <div class="best-clips-header">

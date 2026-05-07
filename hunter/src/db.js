@@ -380,6 +380,47 @@ export async function findSimilarClips(corpusUnitId, limit = 10) {
   return (data || []).filter(r => r.corpus_unit_id !== corpusUnitId).slice(0, limit);
 }
 
+// ── Insights Hub API ──
+
+export async function fetchSceneInsights(scenes) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'scene_insights', scenes }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Scene insights failed');
+  }
+  return res.json();
+}
+
+export async function chatWithFootage({ message, conversationHistory, projectContext, relevantClips }) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'chat', message, conversationHistory, projectContext, relevantClips }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Chat failed');
+  }
+  return res.json();
+}
+
+export async function fetchTierComparison(projectId) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'tier_comparison', projectId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Tier comparison failed');
+  }
+  return res.json();
+}
+
 // ── Pending queue (used by worker) ──
 
 export async function getPendingAssets(limit = 10) {

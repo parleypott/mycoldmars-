@@ -1,4 +1,4 @@
-import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips } from './db.js';
+import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison } from './db.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -169,8 +169,6 @@ async function openProject(id) {
       return;
     }
   }
-
-  const header = document.getElementById('project-header');
   const totalUnits = units.length;
   const analyzedUnits = units.filter(u => u.analyses?.length > 0).length;
 
@@ -251,6 +249,9 @@ async function openProject(id) {
 
   // Render shooting calendar
   renderShootCalendar(units);
+
+  // Render insights hub
+  renderInsightsHub(units, assets);
 
   // Render best clips
   renderBestClips(units);
@@ -610,6 +611,225 @@ function classifySequence(seq) {
   if (avgDuration > 30 && uniqueSources.size > 3) return 'master';
 
   return 'selects'; // default to selects for unclassified
+}
+
+// ── Insights Hub ──
+
+let chatHistory = [];
+let insightsHubAC = null;
+
+function renderInsightsHub(units, assets) {
+  const section = document.getElementById('insights-hub');
+  const analyzed = units.filter(u => u.analyses?.[0]?.output_text);
+
+  if (analyzed.length < 3) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  section.classList.remove('hidden');
+
+  // Reset chat on project change
+  chatHistory = [];
+  const chatMessages = document.getElementById('chat-messages');
+  chatMessages.innerHTML = '<div class="chat-empty">ask anything about your footage</div>';
+
+  // Reset other panels
+  document.getElementById('scene-insights-list').innerHTML = '';
+  document.getElementById('tier-comparison-results').innerHTML = '';
+
+  // Cleanup previous listeners
+  if (insightsHubAC) insightsHubAC.abort();
+  insightsHubAC = new AbortController();
+  const signal = insightsHubAC.signal;
+
+  // Tab switching
+  document.querySelectorAll('.insights-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.insights-tab').forEach(t => t.classList.toggle('active', t === tab));
+      document.querySelectorAll('.insights-panel').forEach(p => p.classList.toggle('active', p.id === `panel-${tab.dataset.tab}`));
+    }, { signal });
+  });
+
+  // Scene Insights button
+  const insightsBtn = document.getElementById('btn-generate-insights');
+  insightsBtn.addEventListener('click', async () => {
+    const scenes = groupIntoScenes(units);
+    if (!scenes.length) {
+      document.getElementById('scene-insights-list').innerHTML = '<p class="empty-sub">no scenes detected</p>';
+      return;
+    }
+
+    insightsBtn.disabled = true;
+    insightsBtn.innerHTML = 'analyzing scenes<span class="thinking-indicator"><span></span><span></span><span></span></span>';
+
+    try {
+      const scenesPayload = scenes.map(s => ({
+        label: s.label,
+        day: s.day,
+        time: s.time,
+        clipCount: s.clips.length,
+        clips: s.clips.map(c => ({
+          clipName: c.source_clip_name || c.sourceClipName || '',
+          startSeconds: c.start_seconds ?? c.startSeconds ?? 0,
+          endSeconds: c.end_seconds ?? c.endSeconds ?? 0,
+          analysisText: c.analyses?.[0]?.output_text || '',
+        })),
+      }));
+
+      const { insights } = await fetchSceneInsights(scenesPayload);
+      const list = document.getElementById('scene-insights-list');
+      list.innerHTML = (insights || []).map((ins, i) => {
+        const scene = scenes[ins.scene_index ?? i];
+        const potentialLevel = (ins.editorial_potential || '').split(' ')[0] || 'MEDIUM';
+        const moments = Array.isArray(ins.key_moments) ? ins.key_moments : [];
+        return `
+          <div class="insight-card" style="animation-delay:${i * 0.05}s">
+            <div class="insight-card-scene">Scene ${(ins.scene_index ?? i) + 1}: ${escHtml(scene?.label || '')}</div>
+            <div class="insight-card-desc">${escHtml(ins.scene_description || '')}</div>
+            <span class="insight-card-potential insight-card-potential--${escHtml(potentialLevel)}">${escHtml(ins.editorial_potential || '')}</span>
+            ${moments.length ? `<div class="insight-card-moments">${moments.map(m => `<div class="insight-card-moment">${escHtml(typeof m === 'string' ? m : m.moment || m.description || JSON.stringify(m))}</div>`).join('')}</div>` : ''}
+            ${ins.emotional_arc ? `<div class="insight-card-arc">${escHtml(ins.emotional_arc)}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      document.getElementById('scene-insights-list').innerHTML = `<p class="empty-sub" style="color:var(--np-red)">${escHtml(err.message)}</p>`;
+    } finally {
+      insightsBtn.disabled = false;
+      insightsBtn.textContent = 'generate scene insights';
+    }
+  }, { signal });
+
+  // Chat
+  const chatInput = document.getElementById('chat-input');
+  const chatSendBtn = document.getElementById('chat-send-btn');
+
+  async function sendChat() {
+    const msg = chatInput.value.trim();
+    if (!msg) return;
+
+    chatInput.value = '';
+
+    // Remove empty placeholder
+    const empty = chatMessages.querySelector('.chat-empty');
+    if (empty) empty.remove();
+
+    // Render user message
+    chatMessages.innerHTML += `<div class="chat-message chat-message--user"><div class="chat-message-text">${escHtml(msg)}</div></div>`;
+
+    // Show thinking indicator
+    chatMessages.innerHTML += `<div class="chat-thinking" id="chat-thinking"><div class="chat-thinking-dot"></div><div class="chat-thinking-dot"></div><div class="chat-thinking-dot"></div></div>`;
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    chatHistory.push({ role: 'user', content: msg });
+
+    try {
+      // Semantic search for relevant clips
+      let relevantClips = [];
+      try {
+        const search = await semanticSearch({ query: msg, projectId: currentProjectId, limit: 10 });
+        relevantClips = search.matches || [];
+      } catch { /* search unavailable, proceed without */ }
+
+      // Build project context
+      const tierCounts = {};
+      for (const a of assets) {
+        tierCounts[a.tier] = (tierCounts[a.tier] || 0) + 1;
+      }
+      const projectContext = `PROJECT: ${analyzed.length} analyzed clips. Tiers: ${Object.entries(tierCounts).map(([t, c]) => `${t}(${c})`).join(', ')}.`;
+
+      const { reply, citedClips } = await chatWithFootage({
+        message: msg,
+        conversationHistory: chatHistory.slice(-10),
+        projectContext,
+        relevantClips,
+      });
+
+      // Remove thinking indicator
+      document.getElementById('chat-thinking')?.remove();
+
+      chatHistory.push({ role: 'assistant', content: reply });
+
+      // Render assistant message
+      const cited = (citedClips || []).map(c => {
+        const name = (c.clipName || '').replace(/_Proxy\.MP4$/i, '').replace(/^\d{8}-\d{4}-/, '');
+        return `<span class="chat-cited-clip">${escHtml(name)}</span>`;
+      }).join('');
+
+      chatMessages.innerHTML += `
+        <div class="chat-message chat-message--assistant">
+          <div class="chat-message-label">hunter</div>
+          <div class="chat-message-text">${escHtml(reply)}</div>
+          ${cited ? `<div class="chat-cited-clips">${cited}</div>` : ''}
+        </div>
+      `;
+    } catch (err) {
+      document.getElementById('chat-thinking')?.remove();
+      chatMessages.innerHTML += `<div class="chat-message chat-message--assistant"><div class="chat-message-label">hunter</div><div class="chat-message-text" style="color:var(--np-red)">${escHtml(err.message)}</div></div>`;
+    }
+
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  chatSendBtn.addEventListener('click', sendChat, { signal });
+  chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); }, { signal });
+
+  // Tier Comparison button
+  const tierBtn = document.getElementById('btn-compare-tiers');
+  tierBtn.addEventListener('click', async () => {
+    tierBtn.disabled = true;
+    tierBtn.innerHTML = 'comparing tiers<span class="thinking-indicator"><span></span><span></span><span></span></span>';
+
+    try {
+      const { comparison, tierCounts } = await fetchTierComparison(currentProjectId);
+      const results = document.getElementById('tier-comparison-results');
+
+      const cols = [
+        { key: 'raw_character', label: 'raw', cls: 'raw', count: tierCounts?.raw },
+        { key: 'selects_philosophy', label: 'selects', cls: 'selects', count: tierCounts?.selects },
+        { key: 'finished_focus', label: 'finished', cls: 'finished', count: tierCounts?.finished },
+      ];
+
+      results.innerHTML = `
+        <div class="tier-comparison-grid">
+          ${cols.map(c => `
+            <div class="tier-col">
+              <div class="tier-col-label tier-col-label--${c.cls}">${c.label}${c.count ? ` (${c.count})` : ''}</div>
+              <div class="tier-col-text">${escHtml(comparison[c.key] || 'No data for this tier.')}</div>
+            </div>
+          `).join('')}
+        </div>
+        ${comparison.editorial_drift ? `
+          <div class="tier-section">
+            <div class="tier-section-title">editorial drift</div>
+            <div class="tier-section-text">${escHtml(comparison.editorial_drift)}</div>
+          </div>
+        ` : ''}
+        ${comparison.hidden_gems?.length ? `
+          <div class="tier-section">
+            <div class="tier-section-title">hidden gems</div>
+            <ul class="tier-section-list">
+              ${comparison.hidden_gems.map(g => `<li>${escHtml(typeof g === 'string' ? g : g.description || JSON.stringify(g))}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+        ${comparison.recommendations?.length ? `
+          <div class="tier-section">
+            <div class="tier-section-title">recommendations</div>
+            <ul class="tier-section-list">
+              ${comparison.recommendations.map(r => `<li>${escHtml(typeof r === 'string' ? r : r.description || JSON.stringify(r))}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+      `;
+    } catch (err) {
+      document.getElementById('tier-comparison-results').innerHTML = `<p class="empty-sub" style="color:var(--np-red)">${escHtml(err.message)}</p>`;
+    } finally {
+      tierBtn.disabled = false;
+      tierBtn.textContent = 'compare tiers';
+    }
+  }, { signal });
 }
 
 // ── "What do you see?" button ──
@@ -2068,6 +2288,10 @@ document.addEventListener('keydown', (e) => {
   if (e.key === '1' && !e.ctrlKey && !e.metaKey) showView('projects');
   if (e.key === '2' && !e.ctrlKey && !e.metaKey) showView('corpus');
 
+  // i = jump to insights hub
+  if (e.key === 'i' && currentView === 'project') {
+    document.getElementById('insights-hub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
   // s = jump to scenes section
   if (e.key === 's' && currentView === 'project') {
     document.getElementById('project-scenes')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2104,6 +2328,7 @@ function toggleShortcutOverlay() {
           <kbd>/</kbd><span>focus search</span>
           <kbd>1</kbd><span>projects view</span>
           <kbd>2</kbd><span>corpus view</span>
+          <kbd>i</kbd><span>jump to insights hub</span>
           <kbd>s</kbd><span>jump to scenes</span>
           <kbd>t</kbd><span>jump to transcripts</span>
           <kbd>c</kbd><span>jump to corpus</span>
