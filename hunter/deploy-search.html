@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Deploy Search RPC</title>
+<style>
+  body { background: #0a0a0a; color: #e5e5e5; font-family: 'Inter', -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .card { max-width: 600px; text-align: center; }
+  h1 { font-size: 32px; margin-bottom: 12px; }
+  p { color: rgba(255,255,255,0.5); font-size: 16px; margin-bottom: 32px; line-height: 1.6; }
+  .btn { display: inline-block; padding: 16px 32px; font-size: 18px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; margin: 8px; text-decoration: none; }
+  .btn-yellow { background: #FFBF00; color: #000; }
+  .btn-blue { background: #3B82F6; color: #fff; }
+  .btn:hover { opacity: 0.9; transform: scale(1.02); }
+  .status { margin-top: 24px; font-size: 14px; color: #22C55E; min-height: 24px; }
+  pre { text-align: left; background: #141414; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 16px; font-size: 12px; overflow-x: auto; margin: 20px 0; max-height: 300px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Deploy Search RPC</h1>
+  <p>This creates the <code>search_corpus_embeddings</code> function in Supabase so semantic search runs server-side instead of downloading all 6,210 embeddings to the browser.</p>
+  <button class="btn btn-yellow" onclick="copySQL()">Copy SQL to Clipboard</button>
+  <a class="btn btn-blue" href="https://supabase.com/dashboard/project/ukqimqkifkhdavveopdm/sql/new" target="_blank">Open SQL Editor</a>
+  <div class="status" id="status"></div>
+  <p style="font-size:14px; margin-top:24px;">Click "Copy SQL" → click "Open SQL Editor" → paste → click Run</p>
+  <details>
+    <summary style="cursor:pointer; color: rgba(255,255,255,0.4); font-size:13px;">Show SQL</summary>
+    <pre id="sql-preview"></pre>
+  </details>
+</div>
+<script>
+const SQL = `-- Hunter: Server-side semantic search via pgvector cosine similarity
+
+create or replace function search_corpus_embeddings(
+  query_embedding vector(768),
+  match_threshold float default 0.3,
+  match_count int default 20,
+  filter_tier text default null,
+  filter_project_id uuid default null
+)
+returns table (
+  corpus_unit_id uuid,
+  similarity float,
+  clip_name text,
+  start_seconds numeric,
+  end_seconds numeric,
+  tier text,
+  project_id uuid,
+  project_name text,
+  analysis_preview text
+)
+language plpgsql
+as $$
+begin
+  return query
+  select
+    e.corpus_unit_id,
+    1 - (e.embedding <=> query_embedding) as similarity,
+    cu.source_clip_name as clip_name,
+    cu.start_seconds,
+    cu.end_seconds,
+    ma.tier,
+    ma.project_id,
+    hp.name as project_name,
+    left(a.output_text, 400) as analysis_preview
+  from embeddings e
+  join corpus_units cu on cu.id = e.corpus_unit_id
+  join media_assets ma on ma.id = cu.media_asset_id
+  join hunter_projects hp on hp.id = ma.project_id
+  left join lateral (
+    select output_text from analyses
+    where analyses.corpus_unit_id = e.corpus_unit_id
+    order by created_at desc
+    limit 1
+  ) a on true
+  where 1 - (e.embedding <=> query_embedding) > match_threshold
+    and (filter_tier is null or ma.tier = filter_tier)
+    and (filter_project_id is null or ma.project_id = filter_project_id)
+  order by e.embedding <=> query_embedding
+  limit match_count;
+end;
+$$;
+
+-- IVFFlat index for faster similarity search
+create index if not exists idx_embeddings_ivfflat
+  on embeddings using ivfflat (embedding vector_cosine_ops)
+  with (lists = 50);
+
+-- Grant access
+grant execute on function search_corpus_embeddings to anon;
+grant execute on function search_corpus_embeddings to authenticated;`;
+
+document.getElementById('sql-preview').textContent = SQL;
+
+function copySQL() {
+  navigator.clipboard.writeText(SQL).then(() => {
+    document.getElementById('status').textContent = 'Copied! Now open the SQL Editor and paste it.';
+  });
+}
+</script>
+</body>
+</html>
