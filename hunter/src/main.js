@@ -647,8 +647,13 @@ async function loadCorpusBrowser() {
 }
 
 function getFilteredCorpus() {
-  if (!corpusFilter) return allCorpusUnits;
-  return allCorpusUnits.filter(u => (u.media_assets?.tier || '') === corpusFilter);
+  let filtered = allCorpusUnits;
+  // Only show analyzed units (skip noise from pending analysis)
+  filtered = filtered.filter(u => u.analyses?.length > 0 && u.analyses[0]?.output_text);
+  if (corpusFilter) {
+    filtered = filtered.filter(u => (u.media_assets?.tier || '') === corpusFilter);
+  }
+  return filtered;
 }
 
 function renderCorpusPage() {
@@ -757,7 +762,7 @@ function initCorpusSearch() {
       results.innerHTML = `
         <p class="corpus-search-status">${data.matches.length} matches across ${data.total} embeddings</p>
         ${data.matches.map(m => `
-          <div class="corpus-search-match" data-project-id="${m.projectId || ''}">
+          <div class="corpus-search-match" data-project-id="${m.projectId || ''}" style="cursor:pointer">
             <div class="corpus-search-match-header">
               <span class="corpus-search-match-clip">${escHtml(m.clipName || 'unknown')}</span>
               <span class="corpus-search-match-score">${(m.similarity * 100).toFixed(1)}%</span>
@@ -767,6 +772,13 @@ function initCorpusSearch() {
           </div>
         `).join('')}
       `;
+      // Click search results to navigate to project
+      results.querySelectorAll('.corpus-search-match').forEach(el => {
+        el.addEventListener('click', () => {
+          const pid = el.dataset.projectId;
+          if (pid) openProject(pid);
+        });
+      });
     } catch (err) {
       results.innerHTML = `<p class="corpus-search-status">error: ${escHtml(err.message)}</p>`;
     } finally {
