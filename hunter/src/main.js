@@ -1694,10 +1694,98 @@ if (isDemo) {
   if (banner) banner.classList.remove('hidden');
 }
 
+// ── Clip review mode ──
+
+let reviewMode = false;
+let reviewIndex = 0;
+
+function enterReviewMode() {
+  const filtered = getFilteredCorpus();
+  if (!filtered.length) return;
+
+  reviewMode = true;
+  reviewIndex = 0;
+
+  let overlay = document.getElementById('review-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'review-overlay';
+    overlay.className = 'review-overlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.classList.remove('hidden');
+  renderReviewCard(filtered);
+}
+
+function exitReviewMode() {
+  reviewMode = false;
+  const overlay = document.getElementById('review-overlay');
+  if (overlay) overlay.classList.add('hidden');
+}
+
+function renderReviewCard(filtered) {
+  const overlay = document.getElementById('review-overlay');
+  if (!overlay || !filtered.length) return;
+
+  const u = filtered[reviewIndex];
+  const analysis = u.analyses?.[0];
+  const j = analysis?.output_json || {};
+  const clipName = (u.source_clip_name || '').replace(/_Proxy\.MP4$/i, '');
+  const projectName = u.media_assets?.hunter_projects?.name || '';
+  const tier = u.media_assets?.tier || '';
+  const text = analysis?.output_text || '';
+  const score = j.keepability_score;
+
+  const tags = [j.shot_type, j.camera_movement, j.editorial_function, j.emotional_register, j.lighting, j.audio_quality].filter(Boolean);
+
+  overlay.innerHTML = `
+    <div class="review-card">
+      <div class="review-nav">
+        <span class="review-pos">${reviewIndex + 1} / ${filtered.length}</span>
+        <span class="review-hint">← → navigate · esc close</span>
+      </div>
+      <div class="review-clip-name">${escHtml(clipName)}</div>
+      <div class="review-meta">${escHtml(projectName)} / ${tier} · ${formatTc(u.start_seconds)} – ${formatTc(u.end_seconds)}</div>
+      ${score != null ? `<div class="review-score ${score >= 7 ? 'review-score--high' : score <= 3 ? 'review-score--low' : ''}">keepability: ${score}/10</div>` : ''}
+      <div class="review-tags">${tags.map(t => `<span class="review-tag">${escHtml(t)}</span>`).join('')}</div>
+      ${text ? `<div class="review-text">${escHtml(text)}</div>` : ''}
+      ${j.visual_description ? `<div class="review-visual"><strong>visual:</strong> ${escHtml(j.visual_description)}</div>` : ''}
+      ${j.transcript_summary ? `<div class="review-transcript"><strong>transcript:</strong> ${escHtml(j.transcript_summary)}</div>` : ''}
+    </div>
+  `;
+
+  // Highlight current item in the grid
+  document.querySelectorAll('.corpus-grid-item').forEach((el, i) => {
+    el.classList.toggle('corpus-grid-item--active', i === reviewIndex % CORPUS_PAGE_SIZE);
+  });
+}
+
 // ── Global keyboard shortcuts ──
 
 document.addEventListener('keydown', (e) => {
   const isInput = document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA';
+
+  // Review mode navigation
+  if (reviewMode) {
+    const filtered = getFilteredCorpus();
+    if (e.key === 'Escape') { exitReviewMode(); return; }
+    if (e.key === 'ArrowRight' || e.key === 'j') {
+      reviewIndex = Math.min(reviewIndex + 1, filtered.length - 1);
+      // Auto-paginate if needed
+      const neededPage = Math.floor(reviewIndex / CORPUS_PAGE_SIZE);
+      if (neededPage !== corpusPage) { corpusPage = neededPage; renderCorpusPage(); }
+      renderReviewCard(filtered);
+      return;
+    }
+    if (e.key === 'ArrowLeft' || e.key === 'k') {
+      reviewIndex = Math.max(reviewIndex - 1, 0);
+      const neededPage = Math.floor(reviewIndex / CORPUS_PAGE_SIZE);
+      if (neededPage !== corpusPage) { corpusPage = neededPage; renderCorpusPage(); }
+      renderReviewCard(filtered);
+      return;
+    }
+    return;
+  }
 
   // Escape closes modals and goes back
   if (e.key === 'Escape') {
@@ -1751,6 +1839,10 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'c' && currentView === 'project') {
     document.getElementById('project-corpus')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+  // r = enter review mode (corpus view)
+  if (e.key === 'r' && currentView === 'corpus' && !reviewMode) {
+    enterReviewMode();
+  }
 });
 
 function toggleShortcutOverlay() {
@@ -1770,6 +1862,7 @@ function toggleShortcutOverlay() {
           <kbd>s</kbd><span>jump to scenes</span>
           <kbd>c</kbd><span>jump to corpus</span>
           <kbd>o</kbd><span>jump to observations</span>
+          <kbd>r</kbd><span>review clips (corpus)</span>
           <kbd>esc</kbd><span>back / close</span>
         </div>
       </div>
