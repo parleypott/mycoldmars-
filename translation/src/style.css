@@ -790,6 +790,23 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   margin-top: var(--np-space-4);
 }
 
+/* ── Edit page toolbar (replaces the old fat header) ── */
+.edit-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--np-space-6);
+  padding-top: var(--np-space-4);
+  margin-bottom: var(--np-space-5);
+  border-bottom: 1px solid rgba(65, 44, 39, 0.15);
+}
+.edit-toolbar .view-toggle {
+  margin-bottom: 0;
+}
+.edit-toolbar .export-menu {
+  margin-left: auto;
+}
+
 /* ── View toggle ── */
 .view-toggle {
   display: flex;
@@ -1835,6 +1852,27 @@ tr.dimmed-speaker { opacity: 0.35; }
 }
 .editor-segment:hover {
   background: rgba(221, 44, 30, 0.04);
+}
+
+/* Bilingual rendering — when a segment has an `originalText` (i.e. the
+   transcript was translated from another language), each segment becomes
+   its own block and the original-language text renders underneath in a
+   smaller serif italic. When no translation exists, segments stay inline
+   (default flowing-paragraph behaviour) and this rule does nothing. */
+.editor-segment[data-original]:not([data-original=""]) {
+  display: block;
+  margin-top: var(--np-space-3);
+}
+.editor-segment[data-original]:not([data-original=""])::after {
+  content: attr(data-original);
+  display: block;
+  margin-top: 4px;
+  font-family: 'Newsreader', 'Cormorant', 'EB Garamond', serif;
+  font-size: 0.82em;
+  line-height: 1.45;
+  color: var(--np-sepia);
+  opacity: 0.7;
+  font-style: italic;
 }
 
 .editor-deleted {
@@ -5129,6 +5167,44 @@ tr.dimmed-speaker { opacity: 0.35; }
   padding: 6px 10px;
   text-align: center;
 }
+
+/* Audio-only fallback when the browser can't decode the video track
+   (e.g. Premiere ProRes proxies). Replaces the dead black video box. */
+.media-deck-novideo {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(221, 44, 30, 0.18), transparent 60%),
+    #1a1714;
+  color: rgba(244, 242, 230, 0.85);
+  text-align: center;
+  padding: 16px;
+  pointer-events: none; /* never block clicks/keys */
+}
+.media-deck-novideo-eye {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--np-red);
+}
+.media-deck-novideo-sub {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(244, 242, 230, 0.6);
+  max-width: 260px;
+}
+/* When in audio-only fallback the <video> element is invisible but kept
+   in the DOM so audio + currentTime keep flowing. Give the frame a
+   minimum height so the toolbar doesn't slam against the top. */
+.media-deck-video--audioonly { min-height: 220px; position: relative; }
+.media-deck-video--audioonly video { visibility: hidden; height: 220px; }
 
 /* Trint-style toolbar: centered transport, time on left, speed on right.
    Grid keeps the play group perfectly centered regardless of side widths. */

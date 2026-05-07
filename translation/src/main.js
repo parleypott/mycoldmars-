@@ -2440,11 +2440,17 @@ async function handleMediaUpload(file) {
   // speaker-labeling dialog — tell finishUploadParse not to overwrite.
   finishUploadParse({ name: file.name }, { preserveSpeakerState: true });
 
-  // Also auto-skip into the editor — for media uploads there's no need
-  // to go through the analyze step (we already handled language + speakers).
-  // Wait one tick for autoSave to register so the editor has an id.
+  // If the user picked a translate target in the pre-transcribe dialog,
+  // run the translate step so we get bilingual segments before entering
+  // the editor. Otherwise jump straight to the editor.
   setTimeout(() => {
-    try { skipToEditor(); } catch (err) { console.warn('Skip-to-editor failed:', err); }
+    try {
+      if (pendingTargetLanguage) startTranslation();
+      else skipToEditor();
+    } catch (err) {
+      console.warn('Post-transcribe step failed:', err);
+      try { skipToEditor(); } catch {}
+    }
   }, 50);
 }
 

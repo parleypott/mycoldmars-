@@ -75,8 +75,12 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     <div class="media-deck-video" data-deck-video>
       <div class="media-deck-grip" data-deck-grip title="Drag to move">⋮⋮</div>
       <button type="button" class="media-deck-collapse" data-deck-collapse aria-label="Collapse" title="Collapse">−</button>
-      <video data-deck-videoel preload="metadata" playsinline crossorigin="anonymous"></video>
+      <video data-deck-videoel preload="metadata" playsinline></video>
       <div class="media-deck-error" data-deck-error hidden></div>
+      <div class="media-deck-novideo" data-deck-novideo hidden>
+        <span class="media-deck-novideo-eye">audio only</span>
+        <span class="media-deck-novideo-sub">browser can't decode this video format (likely a Premiere ProRes proxy). Audio + transcript still work.</span>
+      </div>
       <div class="media-deck-controls">
         <div class="media-deck-controls-center">
           <button type="button" class="media-deck-btn media-deck-btn--skip" data-deck-skipback aria-label="Skip back 10 seconds" title="← 10s">
@@ -118,6 +122,7 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   const grip = root.querySelector('[data-deck-grip]');
   const collapseBtn = root.querySelector('[data-deck-collapse]');
   const errorEl = root.querySelector('[data-deck-error]');
+  const noVideoEl = root.querySelector('[data-deck-novideo]');
 
   // ── Restore saved position + collapsed state ────────────────────
   try {
@@ -300,6 +305,18 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   }
   video.addEventListener('playing', clearError);
   video.addEventListener('loadeddata', clearError);
+
+  // Codec sniff: when metadata loads, if videoWidth is 0 the browser
+  // can't decode the visual track (very common for Premiere ProRes
+  // proxies, which Chrome won't render). Fall back to an "audio only"
+  // panel — audio + waveform + transcript still all work.
+  video.addEventListener('loadedmetadata', () => {
+    if (!noVideoEl) return;
+    if (video.videoWidth === 0 && (video.duration || 0) > 0) {
+      noVideoEl.hidden = false;
+      videoFrame.classList.add('media-deck-video--audioonly');
+    }
+  });
 
   playPauseBtn.addEventListener('click', () => {
     if (video.paused) tryPlay();
