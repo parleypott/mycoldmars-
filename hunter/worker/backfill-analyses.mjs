@@ -21,8 +21,9 @@ if (existsSync(envPath)) {
 }
 
 import { createClient } from '@supabase/supabase-js';
-import { downloadFile } from './dropbox-client.js';
+import { downloadFile, getMetadata } from './dropbox-client.js';
 import { uploadFile, deleteFile, analyzeUnit, analyzeUnitStructured, transcribeVideo, generateEmbedding } from './gemini-client.js';
+import { stat } from 'node:fs/promises';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
@@ -149,10 +150,23 @@ async function main() {
   await Promise.allSettled(missing.map(unit => limit(async () => {
     const localPath = join(projectDir, unit.source_clip_name);
     try {
-      // Download from Dropbox if not cached
+      // Download from Dropbox with size verification
+      const dropboxPath = `${DROPBOX_FOLDER}/${unit.source_clip_name}`;
       if (!existsSync(localPath)) {
-        const dropboxPath = `${DROPBOX_FOLDER}/${unit.source_clip_name}`;
-        await downloadFile(dropboxPath, localPath);
+        for (let dl = 0; dl < 2; dl++) {
+          await downloadFile(dropboxPath, localPath);
+          // Verify file size matches Dropbox metadata
+          try {
+            const meta = await getMetadata(dropboxPath);
+            const local = await stat(localPath);
+            if (meta.size && local.size < meta.size * 0.95) {
+              console.log(`[backfill] ${unit.source_clip_name}: incomplete download (${local.size}/${meta.size}), retrying...`);
+              await rm(localPath, { force: true });
+              continue;
+            }
+          } catch {}
+          break;
+        }
       }
 
       // Re-probe duration if it was 0
