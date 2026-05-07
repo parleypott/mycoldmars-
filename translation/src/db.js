@@ -751,12 +751,17 @@ function mediaFieldsToRow(fields) {
 
 /**
  * Upload a File or Blob to Supabase Storage with progress callbacks.
- * Returns { path, publicUrl }. The path is what to store in
- * media_uploads.storage_path.
+ * Returns { path, bucket }.
  *
- * Uses the resumable TUS protocol when available (files >6MB) so that
- * a network blip doesn't force a restart. Big interview videos can run
- * many GB; chunked + resumable is the only sane way.
+ * Strategy:
+ *   • Files <= 6 MB: simple .upload() PUT — fast, single request.
+ *   • Files >  6 MB: TUS resumable upload via tus-js-client. Required
+ *     because Supabase rejects single-request uploads above 50 MB on
+ *     the free tier (and the failure mode is a confusing
+ *     "object exceeded the maximum allowed size" error). TUS chunks
+ *     the upload in 6 MB pieces and supports resume across network
+ *     blips, which is also what you actually want for multi-GB
+ *     interview files.
  *
  * @param {object} opts
  * @param {File|Blob} opts.file
@@ -773,11 +778,9 @@ export async function uploadMediaFile({ file, bucket = 'media', path, onProgress
   if (!file) throw new Error('uploadMediaFile: file required');
   if (!path) throw new Error('uploadMediaFile: path required');
 
-  // For files under 6MB, use the simple upload — it's fast and reliable.
-  // For larger files, use the resumable uploader (Supabase Storage v3+).
-  const useResumable = file.size > 6 * 1024 * 1024;
+  const SIMPLE_LIMIT = 6 * 1024 * 1024; // 6 MB — TUS chunk size + Supabase recommendation
 
-  if (!useResumable) {
+  if (file.size <= SIMPLE_LIMIT) {
     const { data, error } = await supabase.storage.from(bucket)
       .upload(path, file, { contentType: file.type, upsert: false });
     if (error) throw normalizeError(error, 'uploadMediaFile');
@@ -785,24 +788,71 @@ export async function uploadMediaFile({ file, bucket = 'media', path, onProgress
     return { path: data.path, bucket };
   }
 
-  // Resumable upload — TUS protocol via supabase-js >= 2.40
-  // Falls back to standard upload if TUS isn't available in this client version.
-  if (typeof supabase.storage.from(bucket).uploadToSignedUrl !== 'function') {
-    // Fallback to standard upload (no progress, no resume)
-    const { data, error } = await supabase.storage.from(bucket)
-      .upload(path, file, { contentType: file.type, upsert: false });
-    if (error) throw normalizeError(error, 'uploadMediaFile(fallback)');
-    if (onProgress) onProgress(1);
-    return { path: data.path, bucket };
+  // Resumable TUS upload for anything bigger.
+  return uploadViaTus({ file, bucket, path, onProgress });
+}
+
+/**
+ * Resumable upload via TUS. Required for files >50MB on Supabase's
+ * free tier and recommended for anything >6MB. Chunks the file in
+ * 6MB pieces and reports progress through the onProgress callback.
+ */
+async function uploadViaTus({ file, bucket, path, onProgress }) {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) {
+    const e = new Error('Supabase URL or anon key missing — cannot upload');
+    e.code = 'NO_DB';
+    throw e;
   }
 
-  // Use the standard upload for now — supabase-js doesn't expose TUS directly
-  // in all versions. Real resumable upload via TUS will be wired in a follow-up.
-  const { data, error } = await supabase.storage.from(bucket)
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (error) throw normalizeError(error, 'uploadMediaFile');
-  if (onProgress) onProgress(1);
-  return { path: data.path, bucket };
+  // Lazy-load tus-js-client to keep it out of the cold-start bundle for
+  // small-file uploads.
+  const tusMod = await import('tus-js-client');
+  const tus = tusMod.default || tusMod;
+
+  return new Promise((resolve, reject) => {
+    const upload = new tus.Upload(file, {
+      endpoint: `${url}/storage/v1/upload/resumable`,
+      retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
+      headers: {
+        authorization: `Bearer ${anonKey}`,
+        'x-upsert': 'true',
+      },
+      uploadDataDuringCreation: true,
+      removeFingerprintOnSuccess: true,
+      chunkSize: 6 * 1024 * 1024, // Supabase REQUIRES 6MB chunks
+      metadata: {
+        bucketName: bucket,
+        objectName: path,
+        contentType: file.type || 'application/octet-stream',
+        cacheControl: '3600',
+      },
+      onError: (err) => {
+        const e = new Error(`Resumable upload failed: ${err?.message || err}`);
+        e.code = 'TUS_ERROR';
+        reject(e);
+      },
+      onProgress: (bytesUploaded, bytesTotal) => {
+        if (onProgress && bytesTotal > 0) onProgress(bytesUploaded / bytesTotal);
+      },
+      onSuccess: () => {
+        if (onProgress) onProgress(1);
+        resolve({ path, bucket });
+      },
+    });
+
+    // Honor any in-progress upload so a refresh resumes instead of restarts.
+    upload.findPreviousUploads().then((previous) => {
+      if (previous.length > 0) {
+        upload.resumeFromPreviousUpload(previous[0]);
+      }
+      upload.start();
+    }).catch(() => {
+      // findPreviousUploads can fail in private-mode storage etc — fall back to fresh start.
+      upload.start();
+    });
+  });
 }
 
 /**
