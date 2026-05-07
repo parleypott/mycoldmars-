@@ -30,17 +30,31 @@ function toLangCode(lang) {
   return first.length <= 3 ? first.toUpperCase() : first.slice(0, 2).toUpperCase();
 }
 
+// Normalize any timecode (string "HH:MM:SS.mmm", string "MM:SS", or numeric
+// seconds) into a compact MM:SS or H:MM:SS — drops the hours when zero and
+// drops sub-second precision (the editor margin tag is for orientation, not
+// frame accuracy; the bubble menu still shows the precise version).
 function formatTimecodeForTag(tc) {
-  if (!tc) return '';
-  // If already HH:MM:SS or MM:SS format, return as-is
-  if (typeof tc === 'string' && tc.includes(':')) return tc;
-  // If numeric seconds, format as HH:MM:SS
-  const total = parseFloat(tc);
-  if (!isFinite(total)) return tc;
+  if (tc == null || tc === '') return '';
+
+  // Parse to absolute seconds first, regardless of input shape.
+  let total = NaN;
+  if (typeof tc === 'string') {
+    const m3 = tc.match(/^(\d+):(\d{1,2}):(\d{1,2})/);
+    const m2 = tc.match(/^(\d+):(\d{1,2})$/);
+    if (m3) total = (+m3[1]) * 3600 + (+m3[2]) * 60 + (+m3[3]);
+    else if (m2) total = (+m2[1]) * 60 + (+m2[2]);
+    else total = parseFloat(tc);
+  } else {
+    total = Number(tc);
+  }
+  if (!isFinite(total)) return String(tc);
+
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = Math.floor(total % 60);
-  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+  const pad = n => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
 export function buildEditorDocument(segments, translations, speakerColors, speakerMap, hiddenSpeakers, languageMap, opts = {}) {

@@ -3271,7 +3271,15 @@ function switchView(view) {
         hiddenSpeakers,
         editorDirty,
         onSpeakerMapChange: (rawName, newCleanName) => {
-          speakerMap[rawName] = newCleanName;
+          // Route through np-speaker-rename — same code path as body
+          // click-to-rename. Without this, the rename never autosaves
+          // and segments stay stale until reload.
+          const from = speakerMap[rawName] || rawName;
+          const to = (newCleanName || '').trim();
+          if (!to || to === from) return;
+          window.dispatchEvent(new CustomEvent('np-speaker-rename', {
+            detail: { from, to },
+          }));
         },
         onUpdate: (json) => {
           editorState = json;
