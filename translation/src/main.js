@@ -2907,6 +2907,47 @@ function skipToEditor() {
   autoSave();
 }
 
+// ── Click-to-rename a speaker from the editor body ──
+// SpeakerBlock.js dispatches `np-speaker-rename` { from, to } when the
+// user clicks a speaker label and confirms a new name. We update segments,
+// speakerMap, and the hidden-speakers list so the new name sticks
+// everywhere; rebuild the editor doc; autosave.
+window.addEventListener('np-speaker-rename', (e) => {
+  const { from, to } = e.detail || {};
+  if (!from || !to || from === to) return;
+
+  // 1) Rewrite every segment's speaker field that matches the old name.
+  segments = segments.map(s => s.speaker === from ? { ...s, speaker: to } : s);
+
+  // 2) Rewrite the speakerMap so future loads stay consistent. Two cases:
+  //    a) `from` is a value in speakerMap (we previously renamed) → update value
+  //    b) `from` is the raw key (no prior rename) → set raw → to
+  let touched = false;
+  const next = { ...speakerMap };
+  for (const k of Object.keys(next)) {
+    if (next[k] === from) { next[k] = to; touched = true; }
+  }
+  if (!touched) next[from] = to;
+  speakerMap = next;
+
+  // 3) Update hiddenSpeakers if needed.
+  hiddenSpeakers = (hiddenSpeakers || []).map(s => s === from ? to : s);
+
+  // 4) Rebuild + autosave.
+  editorState = buildEditorDocument(
+    segments,
+    translations.length > 0 ? translations : null,
+    speakerColors,
+    speakerMap,
+    hiddenSpeakers,
+    analysis?.language_map,
+    { hideUnintelligible },
+  );
+  editorInstance = null;
+  switchView('editor');
+  autoSave();
+});
+
 $('#btn-skip-to-editor').addEventListener('click', skipToEditor);
 $('#btn-skip-to-editor-upload').addEventListener('click', skipToEditor);
 

@@ -55,32 +55,54 @@ export const SpeakerBlock = Node.create({
         props: {
           handleDOMEvents: {
             mousedown: (view, event) => {
-              const btn = event.target.closest('.editor-dismiss-btn');
-              if (!btn) return false;
-
-              event.preventDefault();
-              event.stopPropagation();
-
-              // Find the speakerBlock node that contains this button
-              const blockEl = btn.closest('[data-speaker-block]');
-              if (!blockEl) return false;
-
-              const pos = view.posAtDOM(blockEl, 0);
-              const resolved = view.state.doc.resolve(pos);
-
-              // Walk up to find the speakerBlock node
-              for (let d = resolved.depth; d >= 0; d--) {
-                const node = resolved.node(d);
-                if (node.type.name === 'speakerBlock') {
-                  const startPos = resolved.before(d);
-                  const tr = view.state.tr.setNodeMarkup(startPos, undefined, {
-                    ...node.attrs,
-                    dismissed: !node.attrs.dismissed,
-                  });
-                  view.dispatch(tr);
-                  return true;
+              // Click on the dismiss button: toggle dismissed state.
+              const dismissBtn = event.target.closest('.editor-dismiss-btn');
+              if (dismissBtn) {
+                event.preventDefault();
+                event.stopPropagation();
+                const blockEl = dismissBtn.closest('[data-speaker-block]');
+                if (!blockEl) return false;
+                const pos = view.posAtDOM(blockEl, 0);
+                const resolved = view.state.doc.resolve(pos);
+                for (let d = resolved.depth; d >= 0; d--) {
+                  const node = resolved.node(d);
+                  if (node.type.name === 'speakerBlock') {
+                    const startPos = resolved.before(d);
+                    const tr = view.state.tr.setNodeMarkup(startPos, undefined, {
+                      ...node.attrs,
+                      dismissed: !node.attrs.dismissed,
+                    });
+                    view.dispatch(tr);
+                    return true;
+                  }
                 }
+                return false;
               }
+
+              // Click on the speaker label: prompt to rename. Renames every
+              // occurrence of this speaker across the whole transcript by
+              // dispatching an event the main app listens for. The app owns
+              // speakerMap + segments and rebuilds the editor doc.
+              const labelEl = event.target.closest('.editor-speaker-label');
+              if (labelEl) {
+                event.preventDefault();
+                event.stopPropagation();
+                const blockEl = labelEl.closest('[data-speaker-block]');
+                if (!blockEl) return false;
+                const currentName = blockEl.getAttribute('data-speaker') || '';
+                const next = window.prompt(
+                  `Rename "${currentName}" — applies everywhere in this transcript:`,
+                  currentName,
+                );
+                if (next == null) return true; // user cancelled
+                const trimmed = next.trim();
+                if (!trimmed || trimmed === currentName) return true;
+                window.dispatchEvent(new CustomEvent('np-speaker-rename', {
+                  detail: { from: currentName, to: trimmed },
+                }));
+                return true;
+              }
+
               return false;
             },
           },

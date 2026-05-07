@@ -5316,21 +5316,56 @@ body.has-media-deck #workshop-mount {
   padding-bottom: 320px;
 }
 
-/* "Currently playing" segment highlight in the transcript. */
+/* "Currently playing" segment highlight in the transcript.
+   Inline-segment style (no translation) — keeps the underline-style
+   marker so flowing paragraph text isn't visually broken up. */
 span[data-segment].is-playing {
   background: linear-gradient(
     to bottom,
-    rgba(221, 200, 30, 0.20) 0%,
-    rgba(221, 200, 30, 0.32) 100%
+    rgba(221, 200, 30, 0.30) 0%,
+    rgba(221, 200, 30, 0.55) 100%
   );
-  box-shadow: inset 0 -2px 0 rgba(221, 44, 30, 0.5);
-  transition: background 200ms ease-out;
+  box-shadow: inset 0 -3px 0 rgba(221, 44, 30, 0.9);
+  transition: background 120ms ease-out;
 }
 
-/* Hover affordance: cmd/shift-click hint */
+/* Block-segment style (bilingual mode where each segment is its own
+   block) — promote the highlight to a left rule + soft fill so the
+   moving marker reads at a glance. */
+span[data-segment][data-original]:not([data-original=""]).is-playing {
+  position: relative;
+  background: rgba(221, 200, 30, 0.18);
+  box-shadow: inset 3px 0 0 var(--np-red);
+  padding-left: 12px;
+  margin-left: -15px;
+  border-radius: 2px;
+}
+span[data-segment][data-original]:not([data-original=""]).is-playing::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  background: var(--np-red);
+  border-radius: 2px;
+}
+
+/* Hover affordance: subtle pointer + tint to advertise click-to-seek. */
 span[data-segment]:hover {
   cursor: pointer;
-  background: rgba(221, 44, 30, 0.04);
+  background: rgba(221, 44, 30, 0.05);
+}
+
+/* Speaker label is now click-to-rename — make it look interactive. */
+.editor-speaker-label {
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+  transition: border-color 120ms ease-out, color 120ms ease-out;
+}
+.editor-speaker-label:hover {
+  border-bottom-color: currentColor;
+  color: var(--np-red);
 }
 
 /* ──────────────────────────────────────────────────────────────────────

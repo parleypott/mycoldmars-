@@ -367,14 +367,21 @@ export function mountMediaDeck(editorContainer, opts = {}) {
       if (isFinite(wordSeconds)) seconds = wordSeconds;
     }
 
-    // Cmd/Ctrl/Alt-click: seek and play. Shift-click: seek only.
-    // Plain click stays out of the way so text editing/selection works.
+    // Trint parity: plain click snaps the playhead to that word's time
+    // AND lets the cursor land there for editing. Cmd/Ctrl/Alt-click also
+    // starts playback. We skip the seek when the click was actually the
+    // end of a drag-select (selection has range) so highlighting text
+    // doesn't yank the playhead around.
+    const sel = window.getSelection?.();
+    const isDragSelect = sel && !sel.isCollapsed;
+    if (isDragSelect) return;
+
     if (e.metaKey || e.ctrlKey || e.altKey) {
       e.preventDefault();
       seekTo(seconds);
       tryPlay();
-    } else if (e.shiftKey) {
-      e.preventDefault();
+    } else {
+      // Don't preventDefault — the cursor still positions at the click.
       seekTo(seconds);
     }
   }
