@@ -58,15 +58,27 @@
 
     .dots {
       display: flex;
-      gap: clamp(20px, 3vw, 40px);
+      gap: clamp(14px, 1.6vw, 22px);
       align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      max-width: 92vw;
       z-index: 4;
       position: relative;
     }
+    .sep {
+      width: 1.5px;
+      height: clamp(36px, 4vw, 48px);
+      background: var(--ivory-faint);
+      margin: 0 clamp(4px, 0.6vw, 10px);
+    }
 
     .dot {
-      width: clamp(48px, 5vw, 64px);
-      height: clamp(48px, 5vw, 64px);
+      width: clamp(44px, 4.4vw, 56px);
+      height: clamp(44px, 4.4vw, 56px);
+    }
+
+    .dot {
       border: 1.5px solid var(--ivory-bright);
       border-radius: 50%;
       background: transparent;
@@ -136,6 +148,13 @@
       <a href="/hunter/" class="dot"><span class="dot-label">hunter</span></a>
       <a href="/mapkeys/" class="dot"><span class="dot-label">mapkeys</span></a>
       <a href="/animatedcrazy/" class="dot"><span class="dot-label">animatedcrazy</span></a>
+      <span class="sep" aria-hidden="true"></span>
+      <a href="/pinglobe/" class="dot"><span class="dot-label">pinglobe</span></a>
+      <a href="/fascism/" class="dot"><span class="dot-label">fascism</span></a>
+      <a href="/flyingmoney/" class="dot"><span class="dot-label">flying money</span></a>
+      <a href="/modern-middle-east/" class="dot"><span class="dot-label">modern middle east</span></a>
+      <a href="/hakka/" class="dot"><span class="dot-label">hakka</span></a>
+      <a href="/night-market/" class="dot"><span class="dot-label">night market</span></a>
     </nav>
   </main>
 
