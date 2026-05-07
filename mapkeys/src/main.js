@@ -81,7 +81,6 @@ const map = new mapboxgl.Map({
   attributionControl: false,
   preserveDrawingBuffer: true,
 });
-if (typeof window !== 'undefined') window.__mk_map = map;  // dev/test introspection
 
 function saveCurrentCamera() {
   if (isPlayingBack) return;
@@ -178,17 +177,9 @@ map.on('style.load', () => {
     'road', 'bridge', 'tunnel', 'aeroway', 'rail', 'ferry', 'transit', 'building',
     'admin',                  // country / state / disputed boundaries
     'boundary',
-    'water-depth', 'bathymetry', 'water-shadow', 'waterway-shadow',  // water cruft
-    'contour',                // topo contour lines that read as noise at our zooms
-    'land-structure',         // piers, breakwaters, jetties — appear as offshore lines
-    'cliff',                  // coastal cliff dashes
-    'golf', 'aerialway',      // niche features that look like noise
-    'wetland',                // mottled marsh fills along coasts
-    'national-park',          // green park overlays + tint bands
-    'pitch',                  // sports pitch fills + outlines
-    'turning-feature',        // road-turn circles surviving 'road' prefix hide
+    'water-depth', 'bathymetry', 'water-shadow',  // bathymetric shading
   ];
-  const hideKeywords = ['label', 'place-', 'poi-', 'natural-point', 'water-point', 'gate-fence-hedge'];
+  const hideKeywords = ['label', 'place-', 'poi-', 'natural-point', 'water-point'];
 
   for (const layer of map.getStyle().layers) {
     if (layer.id === 'mk-hillshade') continue;
@@ -233,8 +224,8 @@ const state = {
   previewProgress: 0,    // current scrub-bar position (0–1), what + Keyframe captures
   shapes: [],             // [{ id, type, sides?, baseCoords?, stroke, fill, strokeWidth, fillOpacity, visible, preview: {...} }]
   activeShapeId: null,    // selected shape (or null)
-  editingShapeId: null,   // shape currently in part-edit mode (countries only)
-  selectedPartIdx: null,  // selected sub-polygon index inside the editing country
+  editingShapeId: null,   // shape currently in geometry-edit mode (countries only, for now)
+  draggingVertex: null,   // when dragging a vertex in country-edit mode: { shapeId, polyIdx, ringIdx, vertIdx }
   lastFocus: null,        // 'shape' | 'keyframe' — drives Backspace target when both are selected
   drawingLine: null,      // when drawing a line: { coords: [[lng,lat], ...], cursor: [lng,lat] | null }
   draggingShape: null,    // when dragging: { shapeId, type, anchor: [lng,lat], origin: {...preview} }
@@ -618,27 +609,12 @@ function defaultShapePreview(type, atCenter) {
   return { offsetLng: 0, offsetLat: 0, scale: 1, drawProgress: 1 };
 }
 
-// Find the topmost water-fill layer in the basemap. Country fills are
-// inserted just BELOW it so the basemap's OSM-resolution coastline clips
-// our chunky country polygon to land — perfectly aligned with what the
-// user sees rendered, no extra data fetches.
-function firstWaterLayerId() {
-  try {
-    const layers = map.getStyle().layers || [];
-    for (const l of layers) {
-      if (l.type === 'fill' && (l.id === 'water' || l.id.startsWith('water-'))) return l.id;
-    }
-  } catch (_) {}
-  return undefined;
-}
-
 function ensureShapeOnMap(shape) {
   const ids = shapeSourceIds(shape.id);
   if (shape.type === 'country') {
     if (!map.getSource(ids.fill)) {
       map.addSource(ids.fill, { type: 'geojson', data: emptyFC() });
     }
-    const waterId = firstWaterLayerId();
     if (!map.getLayer(ids.fillLayer)) {
       map.addLayer({
         id: ids.fillLayer,
@@ -648,7 +624,7 @@ function ensureShapeOnMap(shape) {
           'fill-color': shape.fill,
           'fill-opacity': shape.fillOpacity,
         },
-      }, waterId);  // beforeId → fill sits under water; ocean masks the spillover
+      });
     }
     if (!map.getLayer(ids.lineLayer)) {
       map.addLayer({
@@ -660,7 +636,7 @@ function ensureShapeOnMap(shape) {
           'line-width': shape.strokeWidth,
         },
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-      }, waterId);  // line under water too — visible only where polygon is on land
+      });
     }
     applyShapeStyle(shape);
     applyShapeVisibility(shape);
@@ -952,7 +928,7 @@ function addCountry(country) {
     _geometry: country.geometry,
     stroke: SHAPE_DEFAULTS.stroke,
     fill: pickShapeFill(),
-    strokeWidth: 0,  // basemap coastline does the visual edge; polygon stroke would be chunky
+    strokeWidth: 1.5,
     fillOpacity: 0.35,
     visible: true,
     preview: {},  // unused but kept for compatibility with the rest of the system
@@ -1272,10 +1248,12 @@ function updateSelectionIndicator() {
   src.setData({ type: 'Feature', geometry, properties: {} });
 }
 
-// ─── Country edit overlay (click a sub-polygon → select; Delete → remove) ───
+// ─── Country edit overlay (per-subpolygon click-to-toggle exclusion) ───
 const CE_SRC = 'mk-ce-src';
 const CE_FILL = 'mk-ce-fill';
 const CE_LINE = 'mk-ce-line';
+const CE_VERT_SRC = 'mk-ce-vert-src';
+const CE_VERT = 'mk-ce-vert';
 
 function ensureCountryEditLayers() {
   if (!map.isStyleLoaded()) return false;
@@ -1288,8 +1266,8 @@ function ensureCountryEditLayers() {
       type: 'fill',
       source: CE_SRC,
       paint: {
-        'fill-color': ['case', ['get', 'selected'], '#cf6a3a', '#3b6a4a'],
-        'fill-opacity': ['case', ['get', 'selected'], 0.6, 0.3],
+        'fill-color': ['case', ['get', 'excluded'], '#b85c3c', '#3b6a4a'],
+        'fill-opacity': ['case', ['get', 'excluded'], 0.55, 0.35],
       },
     });
   }
@@ -1299,10 +1277,26 @@ function ensureCountryEditLayers() {
       type: 'line',
       source: CE_SRC,
       paint: {
-        'line-color': ['case', ['get', 'selected'], '#a8482b', '#1f3a28'],
-        'line-width': ['case', ['get', 'selected'], 2.5, 1.5],
+        'line-color': ['case', ['get', 'excluded'], '#7a3d28', '#1f3a28'],
+        'line-width': 1.5,
       },
       layout: { 'line-join': 'round', 'line-cap': 'round' },
+    });
+  }
+  if (!map.getSource(CE_VERT_SRC)) {
+    map.addSource(CE_VERT_SRC, { type: 'geojson', data: emptyFC() });
+  }
+  if (!map.getLayer(CE_VERT)) {
+    map.addLayer({
+      id: CE_VERT,
+      type: 'circle',
+      source: CE_VERT_SRC,
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 2.5, 6, 4, 10, 5],
+        'circle-color': '#fffaf0',
+        'circle-stroke-color': '#1f3a28',
+        'circle-stroke-width': 1.5,
+      },
     });
   }
 }
@@ -1330,43 +1324,104 @@ function ensureCustomGeometry(shape) {
   return shape.customGeometry;
 }
 
+// Distance from point P to segment AB, in screen-space pixels.
+function pointToSegmentDistPx(p, a, b) {
+  const vx = b.x - a.x, vy = b.y - a.y;
+  const wx = p.x - a.x, wy = p.y - a.y;
+  const c1 = vx * wx + vy * wy;
+  if (c1 <= 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  const c2 = vx * vx + vy * vy;
+  if (c2 <= c1) return Math.hypot(p.x - b.x, p.y - b.y);
+  const t = c1 / c2;
+  return Math.hypot(p.x - (a.x + t * vx), p.y - (a.y + t * vy));
+}
+
+// Find the nearest non-excluded ring segment to a screen point. Returns the
+// insertion index (where the new vertex would be spliced in) or null if none
+// is within the threshold.
+function findNearestEdgeForInsertion(shape, screenPoint, thresholdPx = 14) {
+  const geom = ensureCustomGeometry(shape);
+  if (!geom) return null;
+  const excluded = new Set(shape.excludedPolygonIndices || []);
+  let best = null;
+  for (let pi = 0; pi < geom.coordinates.length; pi++) {
+    if (excluded.has(pi)) continue;
+    const rings = geom.coordinates[pi];
+    for (let ri = 0; ri < rings.length; ri++) {
+      const ring = rings[ri];
+      for (let i = 0; i < ring.length - 1; i++) {
+        const a = map.project(ring[i]);
+        const b = map.project(ring[i + 1]);
+        const d = pointToSegmentDistPx(screenPoint, a, b);
+        if (!best || d < best.dist) {
+          best = { dist: d, polyIdx: pi, ringIdx: ri, vertIdx: i + 1 };
+        }
+      }
+    }
+  }
+  if (!best || best.dist > thresholdPx) return null;
+  return best;
+}
+
 function updateCountryEditOverlay(shape) {
   ensureCountryEditLayers();
   const src = map.getSource(CE_SRC);
+  const vsrc = map.getSource(CE_VERT_SRC);
   if (!src) return;
   if (!shape || shape.type !== 'country') {
     src.setData(emptyFC());
+    if (vsrc) vsrc.setData(emptyFC());
     return;
   }
   const geom = resolveCountryGeometry(shape);
   if (!geom) {
     src.setData(emptyFC());
+    if (vsrc) vsrc.setData(emptyFC());
     return;
   }
   const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
   const excluded = new Set(shape.excludedPolygonIndices || []);
-  const sel = state.selectedPartIdx;
-  const features = polys
-    .map((rings, idx) => ({
-      type: 'Feature',
-      properties: { idx, selected: idx === sel },
-      geometry: { type: 'Polygon', coordinates: rings },
-    }))
-    .filter(f => !excluded.has(f.properties.idx));
+  const features = polys.map((rings, idx) => ({
+    type: 'Feature',
+    properties: { idx, excluded: excluded.has(idx) },
+    geometry: { type: 'Polygon', coordinates: rings },
+  }));
   src.setData({ type: 'FeatureCollection', features });
+
+  // Vertex circles — only for non-excluded polys, skip the closing duplicate
+  // vertex (last === first in a GeoJSON ring).
+  if (vsrc) {
+    const verts = [];
+    for (let pi = 0; pi < polys.length; pi++) {
+      if (excluded.has(pi)) continue;
+      const rings = polys[pi];
+      for (let ri = 0; ri < rings.length; ri++) {
+        const ring = rings[ri];
+        for (let vi = 0; vi < ring.length - 1; vi++) {
+          verts.push({
+            type: 'Feature',
+            properties: { polyIdx: pi, ringIdx: ri, vertIdx: vi },
+            geometry: { type: 'Point', coordinates: ring[vi] },
+          });
+        }
+      }
+    }
+    vsrc.setData({ type: 'FeatureCollection', features: verts });
+  }
 }
 
 function clearCountryEditOverlay() {
   const src = map.getSource(CE_SRC);
   if (src) src.setData(emptyFC());
+  const vsrc = map.getSource(CE_VERT_SRC);
+  if (vsrc) vsrc.setData(emptyFC());
 }
 
 function startCountryEdit(shape) {
   state.editingShapeId = shape.id;
-  state.selectedPartIdx = null;
   document.body.classList.add('editing-country');
   // Hide the live render of this country so the overlay is the only visible
-  // representation; click a part to select it, Delete to remove.
+  // representation; click parts to toggle them.
   const ids = shapeSourceIds(shape.id);
   if (map.getLayer(ids.fillLayer)) map.setLayoutProperty(ids.fillLayer, 'visibility', 'none');
   if (map.getLayer(ids.lineLayer)) map.setLayoutProperty(ids.lineLayer, 'visibility', 'none');
@@ -1379,7 +1434,6 @@ function startCountryEdit(shape) {
 function exitCountryEdit() {
   const id = state.editingShapeId;
   state.editingShapeId = null;
-  state.selectedPartIdx = null;
   document.body.classList.remove('editing-country');
   const shape = id ? state.shapes.find(s => s.id === id) : null;
   if (shape) {
@@ -1870,17 +1924,6 @@ function loadLayersFromLS() {
 }
 loadLayersFromLS();
 
-// One-shot migration: zero out country stroke width since the basemap now
-// provides the coastline edge. Existing chunky polygon outlines were noise.
-if (!localStorage.getItem('mk-mig-country-stroke-zero')) {
-  let migrated = 0;
-  for (const s of state.shapes) {
-    if (s.type === 'country' && s.strokeWidth > 0) { s.strokeWidth = 0; migrated++; }
-  }
-  if (migrated) saveLayers();
-  localStorage.setItem('mk-mig-country-stroke-zero', '1');
-}
-
 function addLayerFromKML(file, coords) {
   snapshotForUndo('add layer');
   const route = buildRoute(coords);
@@ -2354,8 +2397,19 @@ document.getElementById('ss-edit-country').addEventListener('click', () => {
   const shape = activeShape();
   if (shape && shape.type === 'country') startCountryEdit(shape);
 });
-
 document.getElementById('ce-done').addEventListener('click', exitCountryEdit);
+document.getElementById('ce-reset').addEventListener('click', () => {
+  const id = state.editingShapeId;
+  if (!id) return;
+  const shape = state.shapes.find(s => s.id === id);
+  if (!shape) return;
+  if (!shape.customGeometry) return;
+  if (!confirm(`Discard all vertex edits to "${shape.name}"?`)) return;
+  shape.customGeometry = null;
+  updateCountryEditOverlay(shape);
+  redrawShape(shape);
+  saveLayers();
+});
 
 document.getElementById('ss-close').addEventListener('click', () => {
   state.activeShapeId = null;
@@ -2540,13 +2594,59 @@ map.on('click', (e) => {
     setDrawPreviewData();
     return;
   }
-  // Country edit mode — single-click selects a sub-polygon; Delete removes it.
+  // Country edit mode — vertex/edge ops, then fall through to part-toggle
   if (state.editingShapeId) {
     const shape = state.shapes.find(s => s.id === state.editingShapeId);
     if (!shape) return;
+
+    // Alt+click on a vertex → delete it (drag handled in mousedown)
+    if (e.originalEvent && e.originalEvent.altKey) {
+      const vhits = map.queryRenderedFeatures(e.point, { layers: [CE_VERT] });
+      if (vhits.length) {
+        const { polyIdx, ringIdx, vertIdx } = vhits[0].properties;
+        const geom = ensureCustomGeometry(shape);
+        const ring = geom.coordinates[polyIdx][ringIdx];
+        // Need at least 4 points (3 unique + closing duplicate) to stay valid
+        if (ring.length <= 4) return;
+        ring.splice(vertIdx, 1);
+        // If we removed the first vertex, mirror new first into the closing slot
+        if (vertIdx === 0) ring[ring.length - 1] = ring[0].slice();
+        updateCountryEditOverlay(shape);
+        redrawShape(shape);
+        saveLayers();
+        return;
+      }
+    }
+
+    // Shift+click on or near an edge → insert a new vertex at the click point
+    if (e.originalEvent && e.originalEvent.shiftKey) {
+      const hit = findNearestEdgeForInsertion(shape, e.point);
+      if (hit) {
+        const geom = ensureCustomGeometry(shape);
+        const ring = geom.coordinates[hit.polyIdx][hit.ringIdx];
+        ring.splice(hit.vertIdx, 0, [e.lngLat.lng, e.lngLat.lat]);
+        updateCountryEditOverlay(shape);
+        redrawShape(shape);
+        saveLayers();
+        return;
+      }
+    }
+
+    // Otherwise: clicking a vertex is a no-op (drag handles move), and
+    // clicking the polygon body toggles part exclusion as before.
+    const vhits = map.queryRenderedFeatures(e.point, { layers: [CE_VERT] });
+    if (vhits.length) return;
     const features = map.queryRenderedFeatures(e.point, { layers: [CE_FILL] });
-    state.selectedPartIdx = features.length ? features[0].properties.idx : null;
-    updateCountryEditOverlay(shape);
+    if (features.length) {
+      const idx = features[0].properties.idx;
+      const set = new Set(shape.excludedPolygonIndices || []);
+      if (set.has(idx)) set.delete(idx); else set.add(idx);
+      shape.excludedPolygonIndices = Array.from(set).sort((a, b) => a - b);
+      updateCountryEditOverlay(shape);
+      redrawShape(shape);
+      updateSelectionIndicator();
+      saveLayers();
+    }
     return;
   }
   // Selection priority: shapes (top), then routes
@@ -2664,10 +2764,24 @@ function closeLabelEditor() {
   if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
 }
 
-// Hover cursor — pointer over selectable shapes / parts / routes
+// Hover cursor over selectable shapes / routes (and vertices in edit mode)
 map.on('mousemove', (e) => {
-  if (state.drawingLine || state.draggingShape) return;
+  if (state.drawingLine || state.draggingShape || state.draggingVertex) return;
   if (state.editingShapeId) {
+    const vhits = map.queryRenderedFeatures(e.point, { layers: [CE_VERT] });
+    if (vhits.length) {
+      const ev = e.originalEvent;
+      map.getCanvas().style.cursor = ev && ev.altKey ? 'crosshair' : 'move';
+      return;
+    }
+    if (e.originalEvent && e.originalEvent.shiftKey) {
+      const shape = state.shapes.find(s => s.id === state.editingShapeId);
+      if (shape) {
+        const near = findNearestEdgeForInsertion(shape, e.point);
+        map.getCanvas().style.cursor = near ? 'copy' : '';
+        return;
+      }
+    }
     const fillHits = map.queryRenderedFeatures(e.point, { layers: [CE_FILL] });
     map.getCanvas().style.cursor = fillHits.length ? 'pointer' : '';
     return;
@@ -2680,8 +2794,23 @@ map.on('mousemove', (e) => {
 
 map.on('mousedown', (e) => {
   if (state.drawingLine) return;
-  // In country edit mode, clicks are handled in map.on('click') — no drag.
-  if (state.editingShapeId) return;
+
+  // In country-edit mode: mousedown on a vertex starts a vertex drag.
+  // Modifier keys (alt/shift) are routed by the click handler instead.
+  if (state.editingShapeId && !(e.originalEvent && (e.originalEvent.altKey || e.originalEvent.shiftKey))) {
+    const vhits = map.queryRenderedFeatures(e.point, { layers: [CE_VERT] });
+    if (vhits.length) {
+      const { polyIdx, ringIdx, vertIdx } = vhits[0].properties;
+      e.preventDefault();
+      state.draggingVertex = {
+        shapeId: state.editingShapeId,
+        polyIdx, ringIdx, vertIdx,
+      };
+      map.dragPan.disable();
+      document.body.classList.add('dragging-shape');
+      return;
+    }
+  }
 
   const hit = findShapeAtPoint(e.point);
   if (!hit) return;
@@ -2706,6 +2835,23 @@ map.on('mousedown', (e) => {
 });
 
 map.on('mousemove', (e) => {
+  // Vertex drag in country-edit mode
+  if (state.draggingVertex) {
+    const dv = state.draggingVertex;
+    const shape = state.shapes.find(s => s.id === dv.shapeId);
+    if (!shape) return;
+    const geom = ensureCustomGeometry(shape);
+    if (!geom) return;
+    const ring = geom.coordinates[dv.polyIdx][dv.ringIdx];
+    const next = [e.lngLat.lng, e.lngLat.lat];
+    ring[dv.vertIdx] = next;
+    // Mirror first→last to keep the ring closed
+    if (dv.vertIdx === 0) ring[ring.length - 1] = next.slice();
+    updateCountryEditOverlay(shape);
+    redrawShape(shape);
+    return;
+  }
+
   if (!state.draggingShape) return;
   const drag = state.draggingShape;
   const shape = state.shapes.find(s => s.id === drag.shapeId);
@@ -2721,7 +2867,16 @@ map.on('mousemove', (e) => {
   redrawShape(shape);
 });
 
+function endVertexDrag() {
+  if (!state.draggingVertex) return;
+  state.draggingVertex = null;
+  map.dragPan.enable();
+  document.body.classList.remove('dragging-shape');
+  saveLayers();
+}
+
 function endShapeDrag() {
+  if (state.draggingVertex) endVertexDrag();
   if (!state.draggingShape) return;
   state.draggingShape = null;
   map.dragPan.enable();
@@ -2933,23 +3088,20 @@ window.addEventListener('keydown', e => {
     if (state.selectedId) { e.preventDefault(); updateSelectedKeyframe(); }
   }
   else if (e.key === 'Delete' || e.key === 'Backspace') {
-    // In country-edit mode: Delete removes the selected sub-polygon.
+    // In country-edit mode: Delete permanently splices marked parts out of geometry.
     if (state.editingShapeId) {
       const shape = state.shapes.find(s => s.id === state.editingShapeId);
-      if (shape && state.selectedPartIdx != null) {
+      const marked = new Set(shape && shape.excludedPolygonIndices || []);
+      if (shape && marked.size > 0) {
         e.preventDefault();
         const geom = ensureCustomGeometry(shape);
         if (geom) {
-          const drop = new Set(shape.excludedPolygonIndices || []);
-          drop.add(state.selectedPartIdx);
-          const remaining = geom.coordinates.filter((_, idx) => !drop.has(idx));
+          const remaining = geom.coordinates.filter((_, idx) => !marked.has(idx));
           if (remaining.length === 0) {
             flashToast("can't delete every part");
           } else {
-            snapshotForUndo('delete part');
             geom.coordinates = remaining;
             shape.excludedPolygonIndices = [];
-            state.selectedPartIdx = null;
             updateCountryEditOverlay(shape);
             redrawShape(shape);
             saveLayers();
