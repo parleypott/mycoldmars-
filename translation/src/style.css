@@ -5252,3 +5252,23 @@ span[data-segment]:hover {
 /* Hidden step in the top navigation. Skipped from new flows but kept
    in the DOM for legacy transcripts that landed mid-flow. */
 .steps .step--hidden { display: none !important; }
+
+/* Library: media badge for transcripts that came from video/audio uploads */
+.lib-media-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 8px;
+  border-radius: 2px;
+  background: rgba(221, 44, 30, 0.10);
+  color: var(--np-red);
+  font-size: 9px;
+  line-height: 1;
+  flex-shrink: 0;
+  border: 1px solid rgba(221, 44, 30, 0.25);
+}
+.lib-row--media .lib-name {
+  font-weight: 500; /* tiny visual lift for media-backed rows */
+}

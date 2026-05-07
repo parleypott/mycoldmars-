@@ -353,7 +353,7 @@ export async function updateTranscript(id, fields, opts = {}) {
 export async function listTranscripts(projectId) {
   if (!supabase) return [];
   await getSchemaStatus();
-  const colList = ['id', 'name', 'step', 'created_at', 'updated_at', 'project_id'];
+  const colList = ['id', 'name', 'step', 'created_at', 'updated_at', 'project_id', 'media_upload_id', 'source'];
   if (flag('hasSlug')) colList.push('slug');
   let q = db().from('transcripts').select(colList.join(', '))
     .order('updated_at', { ascending: false });

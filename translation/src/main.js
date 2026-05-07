@@ -5,7 +5,7 @@ import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, subscribeToTranscript, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, subscribeToTranscript, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload } from './db.js';
 import { saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan } from './snapshot.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
@@ -419,13 +419,20 @@ function renderFileRow(t) {
   const isActive = t.id === currentTranscriptId;
   const stepLabel = STEP_LABELS[t.step] || 'Upload';
   const isChecked = librarySelected.has(t.id);
+  const hasMedia  = !!t.media_upload_id;
+  // Show a small media badge for transcripts that came from a video/audio upload.
+  // Filmstrip glyph for transcribed; nothing extra for legacy CSV/JSON imports.
+  const mediaBadge = hasMedia
+    ? `<span class="lib-media-badge" title="Has video/audio">&#9658;</span>`
+    : '';
   return `
-    <div class="lib-row lib-row--file ${isActive ? 'lib-row--active' : ''} ${isChecked ? 'lib-row--checked' : ''}"
+    <div class="lib-row lib-row--file ${isActive ? 'lib-row--active' : ''} ${isChecked ? 'lib-row--checked' : ''} ${hasMedia ? 'lib-row--media' : ''}"
          data-id="${t.id}" data-project-id="${t.project_id || ''}" draggable="true">
       <div class="lib-col lib-col--name">
         <input type="checkbox" class="lib-row-check" data-id="${t.id}" ${isChecked ? 'checked' : ''} aria-label="Select">
         <span class="lib-icon">&#128220;</span>
         <span class="lib-name" data-id="${t.id}">${esc(t.name)}</span>
+        ${mediaBadge}
       </div>
       <div class="lib-col lib-col--step">${stepLabel}</div>
       <div class="lib-col lib-col--date">${relativeTime(t.updated_at)}</div>
@@ -2449,14 +2456,39 @@ async function mountMediaDeckForCurrent(editorContainer) {
   });
   if (!signedUrl) return;
 
+  // Pull cached waveform peaks from the media row when present. First-load
+  // for this media will be slow (Wavesurfer downloads + decodes the audio
+  // to compute peaks); we cache those peaks so subsequent loads paint
+  // instantly without waiting for the full audio buffer.
+  const cachedPeaks    = media.waveform?.peaks || null;
+  const cachedDuration = media.waveform?.duration || media.duration_seconds || null;
+
   mediaDeck = mountMediaDeck(editorContainer, {
     signedUrl,
     mimeType: media.mime_type || '',
     segments,
     wordTimings: wordTimingsArray(),
     highlights: currentEditorHighlights(),
+    cachedPeaks,
+    cachedDuration,
     onSeek: () => {},
     onTimeUpdate: () => {},
+    onPeaksReady: ({ peaks, duration }) => {
+      // Fire-and-forget persist. Failures are non-fatal — peaks will
+      // just be re-computed on the next load.
+      updateMediaUpload(media.id, {
+        waveform: {
+          peaks,
+          duration,
+          generated_at: new Date().toISOString(),
+          // Store enough metadata that we know what produced these peaks
+          // and can invalidate later (e.g. if we ever re-encode the file).
+          source: 'wavesurfer-export-v7',
+          channels: 1,
+          maxLength: 4000,
+        },
+      }).catch(err => console.warn('[media-deck] could not persist peaks:', err));
+    },
   });
 }
 

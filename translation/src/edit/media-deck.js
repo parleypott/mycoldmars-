@@ -36,8 +36,10 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     segments = [],
     wordTimings = null,   // flat array [{ word, start, end }] from Whisper/Deepgram
     highlights = [],
+    cachedPeaks = null,   // [[number,...]] from media_uploads.waveform — skips peak compute when present
     onSeek = () => {},
     onTimeUpdate = () => {},
+    onPeaksReady = null,  // (peaks) => void — fires once after the first decode so caller can persist
   } = opts;
 
   if (!signedUrl) {
@@ -83,7 +85,7 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   video.src = signedUrl;
   // The waveform pulls its audio from the same media element so the two
   // are inherently in sync — no manual time-pushing required.
-  const wavesurfer = WaveSurfer.create({
+  const wavesurferConfig = {
     container: waveformMount,
     height: WAVEFORM_HEIGHT,
     waveColor: 'rgba(65, 44, 39, 0.45)',     // np-sepia
@@ -97,7 +99,36 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     normalize: true,
     interact: true,
     dragToSeek: true,
-  });
+  };
+  // If we have cached peaks (from a previous decode of this same media),
+  // hand them to Wavesurfer so the waveform renders instantly without
+  // waiting for the audio buffer to download + decode. Still needs the
+  // media to load for playback, but the visual is up-front.
+  if (Array.isArray(cachedPeaks) && cachedPeaks.length > 0) {
+    wavesurferConfig.peaks = cachedPeaks;
+    // duration helps Wavesurfer scale the cached peaks correctly before
+    // the media element reports its own duration.
+    if (typeof opts.cachedDuration === 'number' && opts.cachedDuration > 0) {
+      wavesurferConfig.duration = opts.cachedDuration;
+    }
+  }
+  const wavesurfer = WaveSurfer.create(wavesurferConfig);
+
+  // First-decode peak export: when Wavesurfer finishes its initial decode,
+  // pull the peaks out and hand them to the caller for persistence. Only
+  // runs when there were no cached peaks to begin with — no point
+  // re-exporting what we already had.
+  if (!wavesurferConfig.peaks && typeof onPeaksReady === 'function') {
+    wavesurfer.once('ready', () => {
+      try {
+        const peaks = wavesurfer.exportPeaks({ channels: 1, maxLength: 4000, precision: 1000 });
+        const duration = video.duration || 0;
+        onPeaksReady({ peaks, duration });
+      } catch (err) {
+        console.warn('[media-deck] peak export failed:', err);
+      }
+    });
+  }
 
   const regionsPlugin = wavesurfer.registerPlugin(RegionsPlugin.create());
 
