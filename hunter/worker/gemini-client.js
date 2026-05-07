@@ -102,11 +102,38 @@ export async function createCache(fileUri, systemInstruction, ttlSeconds = 3600)
 }
 
 /**
+ * Transcribe a video file using Flash (cheap, fast).
+ * Returns a transcript string that can be fed into the analysis prompt
+ * as a grounding anchor to improve visual description quality.
+ */
+export async function transcribeVideo({ fileUri }) {
+  const genai = getAI();
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+  const result = await genai.models.generateContent({
+    model,
+    contents: [{
+      role: 'user',
+      parts: [
+        { fileData: { fileUri, mimeType: 'video/mp4' } },
+        { text: `Transcribe all spoken dialogue in this video. Include timestamps in MM:SS format. If multiple speakers, label them (Speaker 1, Speaker 2, etc.). If there is no dialogue, write "NO DIALOGUE" and briefly describe the ambient audio (wind, traffic, music, silence, etc.). Be accurate and concise.` },
+      ],
+    }],
+    config: {
+      mediaResolution: 'MEDIA_RESOLUTION_LOW',
+    },
+  });
+
+  return result.text;
+}
+
+/**
  * Run a Flash analysis pass on a corpus unit.
  * Uses cached context if available.
  * projectContext: optional string with project-level context for grounding.
+ * transcript: optional pre-generated transcript for grounding.
  */
-export async function analyzeUnit({ fileUri, startSeconds, endSeconds, cacheName, prompt, projectContext }) {
+export async function analyzeUnit({ fileUri, startSeconds, endSeconds, cacheName, prompt, projectContext, transcript }) {
   const genai = getAI();
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -116,7 +143,7 @@ export async function analyzeUnit({ fileUri, startSeconds, endSeconds, cacheName
     parts.push({ fileData: { fileUri, mimeType: 'video/mp4' } });
   }
 
-  const defaultPrompt = buildAnalysisPrompt(startSeconds, endSeconds, projectContext);
+  const defaultPrompt = buildAnalysisPrompt(startSeconds, endSeconds, projectContext, transcript);
 
   parts.push({ text: prompt || defaultPrompt });
 
@@ -137,12 +164,68 @@ export async function analyzeUnit({ fileUri, startSeconds, endSeconds, cacheName
 }
 
 /**
+ * Run a structured analysis pass that returns JSON.
+ * Builds on the narrative analysis but produces machine-readable output
+ * for cross-tier comparison.
+ */
+export async function analyzeUnitStructured({ fileUri, startSeconds, endSeconds, projectContext, transcript }) {
+  const genai = getAI();
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+  const contextBlock = projectContext ? `PROJECT CONTEXT:\n${projectContext}\n\n` : '';
+  const transcriptBlock = transcript ? `TRANSCRIPT (pre-generated):\n${transcript}\n\n` : '';
+  const timeContext = startSeconds != null
+    ? `Focus on the segment from ${formatTime(startSeconds)} to ${formatTime(endSeconds)}.\n\n`
+    : '';
+
+  const prompt = `${contextBlock}${transcriptBlock}${timeContext}Analyze this documentary footage and return a JSON object with the following fields:
+
+{
+  "transcript_summary": "Brief summary of dialogue/audio (2-3 sentences max)",
+  "visual_description": "Detailed description of what's physically happening, setting, subjects, objects (3-5 sentences)",
+  "subjects": [{"description": "person description", "action": "what they're doing", "emotion": "emotional state"}],
+  "shot_type": "one of: wide|medium|close-up|extreme-close-up|aerial|pov|handheld|locked-off|tracking|pan|tilt",
+  "camera_movement": "one of: static|pan-left|pan-right|tilt-up|tilt-down|dolly|handheld|crane|aerial|rack-focus|zoom",
+  "lighting": "one of: natural-daylight|golden-hour|overcast|interior-natural|interior-artificial|mixed|low-key|high-key|silhouette",
+  "audio_quality": "one of: clean-dialogue|noisy-dialogue|ambient-only|music|silence|unusable",
+  "emotional_register": "the honest energy: tension|wonder|intimacy|awkwardness|joy|loneliness|boredom|revelation|contemplation|urgency|humor|gravity",
+  "editorial_function": "one of: establishing|transitional|climactic|intimate|expository|comedic|contemplative|action|reaction|cutaway",
+  "keepability_score": 0.0-1.0,
+  "keepability_reason": "Why this would or wouldn't survive an edit (1-2 sentences)",
+  "unique_identifiers": ["specific visual/audio details that make this moment findable across tiers"]
+}
+
+Return ONLY valid JSON, no markdown formatting.`;
+
+  const result = await genai.models.generateContent({
+    model,
+    contents: [{
+      role: 'user',
+      parts: [
+        { fileData: { fileUri, mimeType: 'video/mp4' } },
+        { text: prompt },
+      ],
+    }],
+    config: {
+      responseMimeType: 'application/json',
+    },
+  });
+
+  try {
+    return JSON.parse(result.text);
+  } catch {
+    // If JSON parsing fails, return the raw text wrapped
+    return { raw_text: result.text, parse_error: true };
+  }
+}
+
+/**
  * Build the training-mode analysis prompt.
  * Designed to produce descriptions rich enough for cross-tier comparison:
  * when raw is compared against selects and finished cuts, the AI can learn
  * WHY certain moments were kept and how they were used.
  */
-function buildAnalysisPrompt(startSeconds, endSeconds, projectContext) {
+function buildAnalysisPrompt(startSeconds, endSeconds, projectContext, transcript) {
   const timeContext = startSeconds != null
     ? `Focus on the segment from ${formatTime(startSeconds)} to ${formatTime(endSeconds)}.\n\n`
     : '';
@@ -151,7 +234,11 @@ function buildAnalysisPrompt(startSeconds, endSeconds, projectContext) {
     ? `PROJECT CONTEXT:\n${projectContext}\n\n`
     : '';
 
-  return `${contextBlock}${timeContext}You are analyzing documentary footage in TRAINING MODE. The goal is to build a detailed record of this footage so that later — when comparing raw footage against the editor's selected cuts and the final published piece — an AI can learn WHY certain moments were kept, how they were reordered, and what editorial instincts drove those decisions.
+  const transcriptBlock = transcript
+    ? `TRANSCRIPT (pre-generated — use as grounding for your visual analysis):\n${transcript}\n\n`
+    : '';
+
+  return `${contextBlock}${transcriptBlock}${timeContext}You are analyzing documentary footage in TRAINING MODE. The goal is to build a detailed record of this footage so that later — when comparing raw footage against the editor's selected cuts and the final published piece — an AI can learn WHY certain moments were kept, how they were reordered, and what editorial instincts drove those decisions.
 
 Describe this moment with enough specificity to uniquely identify it across edit tiers. Cover:
 

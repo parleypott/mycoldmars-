@@ -11,7 +11,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { listFolder, downloadFile } from './dropbox-client.js';
-import { uploadFile, deleteFile, purgeAllFiles, createCache, analyzeUnit, analyzeScript, generateEmbedding } from './gemini-client.js';
+import { uploadFile, deleteFile, purgeAllFiles, createCache, analyzeUnit, analyzeUnitStructured, transcribeVideo, analyzeScript, generateEmbedding } from './gemini-client.js';
 import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
@@ -185,22 +185,59 @@ async function fetchFromDropbox(asset, projectContext) {
           return;
         }
 
-        // Upload + analyze (with rate limit retry), then delete to free quota
+        // Upload + transcribe + analyze (with rate limit retry), then delete to free quota
         const file = await uploadFile(localPath);
+
+        // Transcription-first pass: cheap grounding anchor for visual analysis
+        let transcript = null;
+        try {
+          transcript = await retryWithBackoff(
+            () => transcribeVideo({ fileUri: file.uri }),
+            `${video.name}-transcript`
+          );
+        } catch (txErr) {
+          console.log(`[worker] transcript skipped for ${video.name}: ${txErr.message?.slice(0, 60)}`);
+        }
+
+        // Narrative analysis (grounded by transcript if available)
         const result = await retryWithBackoff(
-          () => analyzeUnit({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext }),
+          () => analyzeUnit({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext, transcript }),
           video.name
         );
+
+        // Structured analysis (machine-readable JSON for cross-tier comparison)
+        let structured = null;
+        try {
+          structured = await retryWithBackoff(
+            () => analyzeUnitStructured({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext, transcript }),
+            `${video.name}-structured`
+          );
+        } catch (structErr) {
+          console.log(`[worker] structured analysis skipped for ${video.name}: ${structErr.message?.slice(0, 60)}`);
+        }
+
         await deleteFile(file.name);
 
         await supabase.from('analyses').insert({
           corpus_unit_id: unit.id,
           model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-          prompt_version: 'v2-training',
+          prompt_version: 'v3-training-grounded',
           output_text: result.text,
-          output_json: null,
+          output_json: structured,
           cost_usd: 0,
         });
+
+        // Generate embedding for cross-tier similarity search
+        try {
+          const embedding = await generateEmbedding(result.text);
+          await supabase.from('embeddings').insert({
+            corpus_unit_id: unit.id,
+            model: 'gemini-embedding-001',
+            embedding: embedding,
+          });
+        } catch (embErr) {
+          console.error(`[worker] embedding failed for ${video.name}: ${embErr.message}`);
+        }
 
         processed++;
         lastProgressAt = Date.now();
@@ -277,22 +314,46 @@ async function analyzeVideo(assetId, localPath, projectContext) {
       // Upload to Gemini File API
       const file = await uploadFile(clipPath);
 
-      // Run Flash analysis
+      // Transcription-first pass
+      let transcript = null;
+      try {
+        transcript = await transcribeVideo({ fileUri: file.uri });
+      } catch (txErr) {
+        console.log(`[worker] transcript skipped for unit ${unit.id}: ${txErr.message?.slice(0, 60)}`);
+      }
+
+      // Run Flash analysis (grounded by transcript)
       const result = await analyzeUnit({
         fileUri: file.uri,
         startSeconds: unit.start_seconds,
         endSeconds: unit.end_seconds,
         projectContext,
+        transcript,
       });
+
+      // Structured analysis
+      let structured = null;
+      try {
+        structured = await analyzeUnitStructured({
+          fileUri: file.uri,
+          startSeconds: unit.start_seconds,
+          endSeconds: unit.end_seconds,
+          projectContext,
+          transcript,
+        });
+      } catch (structErr) {
+        console.log(`[worker] structured skipped for unit ${unit.id}: ${structErr.message?.slice(0, 60)}`);
+      }
+
       await deleteFile(file.name);
 
       // Save analysis
       await supabase.from('analyses').insert({
         corpus_unit_id: unit.id,
-        model: 'gemini-2.5-flash',
-        prompt_version: 'v2-training',
+        model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+        prompt_version: 'v3-training-grounded',
         output_text: result.text,
-        output_json: null,
+        output_json: structured,
         cost_usd: 0,
       });
 
