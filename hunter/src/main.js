@@ -1292,7 +1292,12 @@ function groupIntoScenes(units) {
     // Quick label from first analysis
     const label = firstAnalysis.split(/[.!?]/)[0]?.slice(0, 60) || `Scene at ${time}`;
 
-    return { clips, day, time, cameras, label, firstAnalysis };
+    const totalDuration = clips.reduce((sum, c) => {
+      const dur = (c.end_seconds || 0) - (c.start_seconds || 0);
+      return sum + (dur > 0 ? dur : 0);
+    }, 0);
+
+    return { clips, day, time, cameras, label, firstAnalysis, totalDuration };
   });
 }
 
@@ -1335,7 +1340,7 @@ function renderScenes(units) {
               <div class="scene-card" data-scene-id="${sceneId}">
                 <div class="scene-card-time">${scene.time}</div>
                 <div class="scene-card-label">${escHtml(scene.label)}</div>
-                <div class="scene-card-clips">${scene.clips.length} clip${scene.clips.length > 1 ? 's' : ''}${clipNames[0] ? ' · ' + escHtml(clipNames[0].replace(/^\d{8}-\d{4}-/, '')) : ''}</div>
+                <div class="scene-card-clips">${scene.clips.length} clip${scene.clips.length > 1 ? 's' : ''}${scene.totalDuration > 0 ? ' · ' + formatTc(scene.totalDuration) : ''}${clipNames[0] ? ' · ' + escHtml(clipNames[0].replace(/^\d{8}-\d{4}-/, '')) : ''}</div>
                 ${scene.cameras.length > 1 ? `<div class="scene-card-cameras">${scene.cameras.map(c => `<span class="scene-camera-tag">${c}</span>`).join('')}</div>` : ''}
                 ${scene.firstAnalysis ? `<div class="scene-card-preview">${escHtml(scene.firstAnalysis.slice(0, 120))}</div>` : ''}
                 <div class="scene-card-detail hidden" id="${sceneId}-detail">
