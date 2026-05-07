@@ -178,12 +178,15 @@ map.on('style.load', () => {
     'road', 'bridge', 'tunnel', 'aeroway', 'rail', 'ferry', 'transit', 'building',
     'admin',                  // country / state / disputed boundaries
     'boundary',
-    'water-depth', 'bathymetry', 'water-shadow',  // bathymetric shading
+    'water-depth', 'bathymetry', 'water-shadow', 'waterway-shadow',  // water cruft
     'contour',                // topo contour lines that read as noise at our zooms
     'land-structure',         // piers, breakwaters, jetties — appear as offshore lines
     'cliff',                  // coastal cliff dashes
     'golf', 'aerialway',      // niche features that look like noise
     'wetland',                // mottled marsh fills along coasts
+    'national-park',          // green park overlays + tint bands
+    'pitch',                  // sports pitch fills + outlines
+    'turning-feature',        // road-turn circles surviving 'road' prefix hide
   ];
   const hideKeywords = ['label', 'place-', 'poi-', 'natural-point', 'water-point', 'gate-fence-hedge'];
 
