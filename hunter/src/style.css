@@ -1049,6 +1049,137 @@ header {
   padding: 6px 14px;
 }
 
+/* ── Scenes timeline ── */
+.scenes-section {
+  margin-bottom: var(--np-space-16);
+  padding-top: var(--np-space-8);
+}
+.scenes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--np-space-6);
+  padding-bottom: var(--np-space-4);
+  border-bottom: 1px solid var(--np-border);
+}
+.scenes-title {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--np-ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.scenes-glyph {
+  color: var(--np-red);
+  font-size: 14px;
+}
+.scenes-count {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  color: var(--np-text-dim);
+  letter-spacing: 0.05em;
+}
+.scenes-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--np-space-8);
+}
+.scenes-day {
+  position: relative;
+}
+.scenes-day-label {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--np-text-dim);
+  margin-bottom: var(--np-space-3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.scenes-day-count {
+  font-weight: 400;
+  color: var(--np-text-dim);
+  opacity: 0.6;
+}
+.scenes-day-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: var(--np-space-2);
+  scrollbar-width: thin;
+}
+.scene-card {
+  flex: 0 0 auto;
+  width: 220px;
+  padding: var(--np-space-4);
+  background: var(--np-surface);
+  border: 1px solid var(--np-border);
+  border-radius: var(--np-radius-md);
+  transition: all var(--np-duration-lg) var(--np-ease);
+  cursor: default;
+  position: relative;
+}
+.scene-card:hover {
+  border-color: var(--np-border-hover);
+  background: var(--np-surface-2);
+}
+.scene-card-time {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  color: var(--np-red);
+  letter-spacing: 0.1em;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.scene-card-label {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--np-ink);
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+.scene-card-clips {
+  font-family: var(--np-font-mono);
+  font-size: 9px;
+  color: var(--np-text-dim);
+  letter-spacing: 0.05em;
+  line-height: 1.5;
+}
+.scene-card-cameras {
+  font-family: var(--np-font-mono);
+  font-size: 9px;
+  color: var(--np-text-dim);
+  margin-top: 4px;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.scene-camera-tag {
+  padding: 1px 6px;
+  border: 1px solid var(--np-border);
+  border-radius: var(--np-radius-full);
+  letter-spacing: 0.08em;
+}
+.scene-card-preview {
+  font-family: var(--np-font-sans);
+  font-size: 11px;
+  color: var(--np-text-dim);
+  line-height: 1.5;
+  margin-top: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* ── Responsive ── */
 @media (max-width: 600px) {
   #app {
@@ -1095,6 +1226,8 @@ header {
     max-width: 340px;
   }
   .revelations-title { font-size: 18px; }
+  .scene-card { width: 180px; }
+  .scenes-day-strip { gap: 4px; }
 }
 
 /* ── New project modal ── */

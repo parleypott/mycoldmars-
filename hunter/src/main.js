@@ -70,19 +70,23 @@ const DEMO_ASSETS = {
 
 const DEMO_UNITS = {
   'demo-1': [
-    { id: 'u1', start_seconds: 0, end_seconds: 45, source_clip_name: 'A001_C003.mp4', analyses: [{ output_text: 'Wide establishing shot of empty desert highway at golden hour. The road cuts through undulating sand dunes, perfectly straight to the vanishing point. No vehicles, no people — just the geometry of human infrastructure against geological time. Warm amber light catches the rippled texture of sand. The composition is symmetrical, almost devotional. This is a patience shot — it teaches the viewer to slow down before the story begins.' }] },
-    { id: 'u2', start_seconds: 45, end_seconds: 112, source_clip_name: 'A001_C007.mp4', analyses: [{ output_text: 'Johnny walks through a narrow souk corridor, camera following from behind at shoulder height. Vendors call out in Arabic. The light shifts dramatically every few steps — blazing sun through gaps in corrugated roofing, then deep shadow. Johnny pauses at a spice stall, reaches toward a mound of saffron. His hand hesitates. This moment of almost-touching is deeply characteristic — the camera catches curiosity in the body before words arrive.' }] },
-    { id: 'u3', start_seconds: 112, end_seconds: 180, source_clip_name: 'A001_C012.mp4', analyses: [{ output_text: 'Close-up on weathered hands pouring Arabic coffee from a brass dallah into tiny ceramic cups. The pour is ceremonial, unhurried. Steam rises into late-afternoon light. The camera holds on the hands alone for 15 seconds before pulling back to reveal the face of the elderly host. This patience with detail before context is a recurring editorial instinct.' }] },
+    { id: 'u1', start_seconds: 0, end_seconds: 45, source_clip_name: '20241004-0730-C8100_Proxy.MP4', analyses: [{ output_text: 'Wide establishing shot of empty desert highway at golden hour. The road cuts through undulating sand dunes, perfectly straight to the vanishing point. No vehicles, no people — just the geometry of human infrastructure against geological time. Warm amber light catches the rippled texture of sand. The composition is symmetrical, almost devotional. This is a patience shot — it teaches the viewer to slow down before the story begins.' }] },
+    { id: 'u2', start_seconds: 45, end_seconds: 112, source_clip_name: '20241004-0742-C8101_Proxy.MP4', analyses: [{ output_text: 'Johnny walks through a narrow souk corridor, camera following from behind at shoulder height. Vendors call out in Arabic. The light shifts dramatically every few steps — blazing sun through gaps in corrugated roofing, then deep shadow. Johnny pauses at a spice stall, reaches toward a mound of saffron. His hand hesitates. This moment of almost-touching is deeply characteristic — the camera catches curiosity in the body before words arrive.' }] },
+    { id: 'u3', start_seconds: 112, end_seconds: 180, source_clip_name: '20241004-1415-C8200_Proxy.MP4', analyses: [{ output_text: 'Close-up on weathered hands pouring Arabic coffee from a brass dallah into tiny ceramic cups. The pour is ceremonial, unhurried. Steam rises into late-afternoon light. The camera holds on the hands alone for 15 seconds before pulling back to reveal the face of the elderly host. This patience with detail before context is a recurring editorial instinct.' }] },
+    { id: 'u1b', start_seconds: 0, end_seconds: 38, source_clip_name: '20241005-0915-C8300_Proxy.MP4', analyses: [{ output_text: 'Aerial drone shot rising over a cluster of traditional mud-brick buildings at dawn. Long shadows stretch across the empty streets. A single figure emerges from a doorway, walks toward a well. The scale of the landscape dwarfs human presence — a recurring visual motif in this project.' }] },
+    { id: 'u1c', start_seconds: 0, end_seconds: 55, source_clip_name: '20241005-0928-C8301_Proxy.MP4', analyses: [{ output_text: 'Medium close-up of Johnny interviewing a local craftsman shaping metal in a workshop. Sparks catch the morning light. The craftsman explains his process in Arabic while Johnny listens, his body language open and attentive. Two cameras capture different angles simultaneously.' }] },
+    { id: 'u1d', start_seconds: 0, end_seconds: 42, source_clip_name: '20241005-0932-C8302_Proxy.MP4', analyses: [{ output_text: 'B-camera coverage of the metalworking interview. Tighter framing on the craftsman\'s hands as they work the heated metal. The hammer strikes create a rhythmic soundtrack. Focus pulls between the glowing metal and the craftsman\'s concentrated expression.' }] },
+    { id: 'u1e', start_seconds: 0, end_seconds: 65, source_clip_name: '20241005-1640-C8400_Proxy.MP4', analyses: [{ output_text: 'Golden hour establishing shot of an ancient stone fortress silhouetted against the setting sun. The camera slowly zooms in to reveal architectural details — arched windows, carved stone patterns. Wind noise on the audio suggests an exposed rooftop position.' }] },
   ],
   'demo-2': [
-    { id: 'u4', start_seconds: 0, end_seconds: 38, source_clip_name: 'B002_C001.mp4', analyses: [{ output_text: 'Underwater wide shot. The camera descends through turquoise water toward a coral shelf. Visibility is extraordinary — perhaps 40 meters. Small fish scatter as a manta ray enters from the upper right, its wingspan filling the frame. The filmmaker lets the ray dominate the composition entirely, not chasing it. There is a philosophical patience here: the camera trusts the subject will be interesting if given room.' }] },
-    { id: 'u5', start_seconds: 38, end_seconds: 94, source_clip_name: 'B002_C005.mp4', analyses: [{ output_text: 'Johnny sits in a traditional Palauan bai (meeting house), the camera at a low angle looking up. Carved storyboard reliefs cover the walls behind him. He listens to an elder speaking in Palauan. The filmmaker captures a rare vulnerability — Johnny is out of his depth linguistically, and his body language shifts from interviewer to student. The carved histories on the wall dwarf both figures.' }] },
-    { id: 'u6', start_seconds: 94, end_seconds: 142, source_clip_name: 'B002_C009.mp4', analyses: [{ output_text: 'Slow tracking shot along a deserted beach at dawn. Debris line — coconut husks, plastic bottles, driftwood. The camera follows the debris line like a text, reading it left to right. A single hermit crab navigates the refuse. The shot holds on the crab for an almost uncomfortable duration (22 seconds). This is habitat as character: the beach tells its own story about human impact without a single word.' }] },
+    { id: 'u4', start_seconds: 0, end_seconds: 38, source_clip_name: '20241012-0830-C9001_Proxy.MP4', analyses: [{ output_text: 'Underwater wide shot. The camera descends through turquoise water toward a coral shelf. Visibility is extraordinary — perhaps 40 meters. Small fish scatter as a manta ray enters from the upper right, its wingspan filling the frame. The filmmaker lets the ray dominate the composition entirely, not chasing it. There is a philosophical patience here: the camera trusts the subject will be interesting if given room.' }] },
+    { id: 'u5', start_seconds: 38, end_seconds: 94, source_clip_name: '20241012-1415-C9002_Proxy.MP4', analyses: [{ output_text: 'Johnny sits in a traditional Palauan bai (meeting house), the camera at a low angle looking up. Carved storyboard reliefs cover the walls behind him. He listens to an elder speaking in Palauan. The filmmaker captures a rare vulnerability — Johnny is out of his depth linguistically, and his body language shifts from interviewer to student. The carved histories on the wall dwarf both figures.' }] },
+    { id: 'u6', start_seconds: 94, end_seconds: 142, source_clip_name: '20241013-0615-C9010_Proxy.MP4', analyses: [{ output_text: 'Slow tracking shot along a deserted beach at dawn. Debris line — coconut husks, plastic bottles, driftwood. The camera follows the debris line like a text, reading it left to right. A single hermit crab navigates the refuse. The shot holds on the crab for an almost uncomfortable duration (22 seconds). This is habitat as character: the beach tells its own story about human impact without a single word.' }] },
   ],
   'demo-3': [
-    { id: 'u7', start_seconds: 0, end_seconds: 52, source_clip_name: 'C003_C001.mp4', analyses: [{ output_text: 'Overhead drone shot pulling back from a single night market stall. Neon signs in Mandarin. Steam rises from a grill in organized columns. The pullback reveals the market as a dense grid of light — hundreds of stalls creating a galaxy-like pattern when seen from above. The transition from intimate (one stall) to vast (entire market) happens in a single unbroken move. A signature scale shift.' }] },
-    { id: 'u8', start_seconds: 52, end_seconds: 118, source_clip_name: 'C003_C004.mp4', analyses: [{ output_text: 'Handheld at eye level, moving through the crowd. The camera is in the stream of people, not observing from outside. Focus racks between faces — a child eating shaved ice, a vendor counting change, teenagers taking selfies. The audio is dense: sizzling oil, Mandarin pop music, motorbike engines. No attempt to isolate a single story thread. This is immersion as editorial technique: the chaos IS the subject.' }] },
-    { id: 'u9', start_seconds: 118, end_seconds: 165, source_clip_name: 'C003_C008.mp4', analyses: [{ output_text: 'Close-up: a hand operates a traditional Taiwanese puppet, carved and painted. The puppet casts a shadow on a backlit screen. Another hand enters with a second puppet. The shadows tell a story the camera cannot fully follow (it is in Hokkien). The filmmaker stays on the shadow play rather than cutting to the puppeteer — choosing the imagined world over the real one. A sophisticated editorial instinct about where meaning lives.' }] },
+    { id: 'u7', start_seconds: 0, end_seconds: 52, source_clip_name: '20241020-2015-C9500_Proxy.MP4', analyses: [{ output_text: 'Overhead drone shot pulling back from a single night market stall. Neon signs in Mandarin. Steam rises from a grill in organized columns. The pullback reveals the market as a dense grid of light — hundreds of stalls creating a galaxy-like pattern when seen from above. The transition from intimate (one stall) to vast (entire market) happens in a single unbroken move. A signature scale shift.' }] },
+    { id: 'u8', start_seconds: 52, end_seconds: 118, source_clip_name: '20241020-2030-C9501_Proxy.MP4', analyses: [{ output_text: 'Handheld at eye level, moving through the crowd. The camera is in the stream of people, not observing from outside. Focus racks between faces — a child eating shaved ice, a vendor counting change, teenagers taking selfies. The audio is dense: sizzling oil, Mandarin pop music, motorbike engines. No attempt to isolate a single story thread. This is immersion as editorial technique: the chaos IS the subject.' }] },
+    { id: 'u9', start_seconds: 118, end_seconds: 165, source_clip_name: '20241020-2105-C9502_Proxy.MP4', analyses: [{ output_text: 'Close-up: a hand operates a traditional Taiwanese puppet, carved and painted. The puppet casts a shadow on a backlit screen. Another hand enters with a second puppet. The shadows tell a story the camera cannot fully follow (it is in Hokkien). The filmmaker stays on the shadow play rather than cutting to the puppeteer — choosing the imagined world over the real one. A sophisticated editorial instinct about where meaning lives.' }] },
   ],
 };
 
@@ -218,6 +222,9 @@ async function openProject(id) {
   document.getElementById('hub-status').textContent = `${connectedCount}/5`;
   // Render node diagram SVG + waveform after layout settles
   setTimeout(() => { renderHubSVG(); renderWaveform(); }, 100);
+
+  // Render scenes timeline
+  renderScenes(units);
 
   // Render corpus units with expandable text
   const unitsList = document.getElementById('corpus-units-list');
@@ -1125,6 +1132,114 @@ function stopIngestPolling() {
     clearInterval(ingestPollTimer);
     ingestPollTimer = null;
   }
+}
+
+// ── Scene detection (client-side temporal grouping) ──
+
+const SCENE_TEMPORAL_GAP_MINUTES = 30;
+
+function extractDateFromClipName(name) {
+  const m = name?.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/);
+  if (!m) return null;
+  return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]), parseInt(m[4]), parseInt(m[5]));
+}
+
+function extractCameraId(name) {
+  const m = name?.match(/C(\d+)/);
+  return m ? 'C' + m[1] : null;
+}
+
+function groupIntoScenes(units) {
+  // Parse timestamps and sort
+  const timed = units
+    .map(u => ({
+      ...u,
+      timestamp: extractDateFromClipName(u.source_clip_name || u.sourceClipName),
+      cameraId: extractCameraId(u.source_clip_name || u.sourceClipName),
+    }))
+    .filter(u => u.timestamp)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  if (!timed.length) return [];
+
+  // Temporal grouping
+  const scenes = [];
+  let current = [timed[0]];
+
+  for (let i = 1; i < timed.length; i++) {
+    const gap = (timed[i].timestamp - current[current.length - 1].timestamp) / (1000 * 60);
+    if (gap <= SCENE_TEMPORAL_GAP_MINUTES) {
+      current.push(timed[i]);
+    } else {
+      scenes.push(current);
+      current = [timed[i]];
+    }
+  }
+  if (current.length) scenes.push(current);
+
+  // Build scene objects
+  return scenes.map(clips => {
+    const start = clips[0].timestamp;
+    const day = start.toISOString().slice(0, 10);
+    const time = start.toISOString().slice(11, 16);
+    const cameras = [...new Set(clips.map(c => c.cameraId).filter(Boolean))];
+    const firstAnalysis = clips.find(c => c.analyses?.[0]?.output_text)?.analyses[0].output_text || '';
+
+    // Quick label from first analysis
+    const label = firstAnalysis.split(/[.!?]/)[0]?.slice(0, 60) || `Scene at ${time}`;
+
+    return { clips, day, time, cameras, label, firstAnalysis };
+  });
+}
+
+function renderScenes(units) {
+  const section = document.getElementById('project-scenes');
+  const timeline = document.getElementById('scenes-timeline');
+  const countEl = document.getElementById('scenes-count');
+
+  const scenes = groupIntoScenes(units);
+  if (!scenes.length) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  section.classList.remove('hidden');
+  countEl.textContent = `${scenes.length} scenes`;
+
+  // Group by day
+  const byDay = {};
+  for (const scene of scenes) {
+    if (!byDay[scene.day]) byDay[scene.day] = [];
+    byDay[scene.day].push(scene);
+  }
+
+  timeline.innerHTML = Object.entries(byDay).sort().map(([day, dayScenes]) => {
+    const totalClips = dayScenes.reduce((s, sc) => s + sc.clips.length, 0);
+    const dayLabel = new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+    return `
+      <div class="scenes-day">
+        <div class="scenes-day-label">
+          ${dayLabel}
+          <span class="scenes-day-count">${dayScenes.length} scenes · ${totalClips} clips</span>
+        </div>
+        <div class="scenes-day-strip">
+          ${dayScenes.map(scene => {
+            const clipNames = scene.clips.map(c => (c.source_clip_name || c.sourceClipName || '').replace(/_Proxy\.MP4$/i, ''));
+            return `
+              <div class="scene-card">
+                <div class="scene-card-time">${scene.time}</div>
+                <div class="scene-card-label">${escHtml(scene.label)}</div>
+                <div class="scene-card-clips">${scene.clips.length} clip${scene.clips.length > 1 ? 's' : ''}${clipNames[0] ? ' · ' + escHtml(clipNames[0].replace(/^\d{8}-\d{4}-/, '')) : ''}</div>
+                ${scene.cameras.length > 1 ? `<div class="scene-card-cameras">${scene.cameras.map(c => `<span class="scene-camera-tag">${c}</span>`).join('')}</div>` : ''}
+                ${scene.firstAnalysis ? `<div class="scene-card-preview">${escHtml(scene.firstAnalysis.slice(0, 120))}</div>` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 // ── Node diagram SVG ──
