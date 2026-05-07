@@ -2403,6 +2403,11 @@ async function handleMediaUpload(file) {
   segments = result.segments;
   wordTimingsMap = result.wordTimings || null;
   pendingMediaUploadId = upload.mediaUploadId;
+  // Also set currentMediaUploadId immediately so mountMediaDeckForCurrent
+  // can find the media on the FIRST entry to the editor view. (Before this,
+  // the deck only appeared after a page reload because currentMediaUploadId
+  // was only hydrated by applyTranscriptToState during a fresh DB load.)
+  currentMediaUploadId = upload.mediaUploadId;
   pendingTargetLanguage = prefs.targetLanguage || null;
   pendingTranslationEnabled = !!prefs.targetLanguage;
 
