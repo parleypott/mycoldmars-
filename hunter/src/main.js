@@ -1465,9 +1465,45 @@ window.addEventListener('resize', () => {
   if (currentProjectId) renderHubSVG();
 });
 
+// ── Corpus health bar ──
+
+async function loadCorpusHealth() {
+  if (isDemo) return;
+  try {
+    const { listAllCorpusUnits } = await import('./db.js');
+    // Use the supabase client to get counts via HEAD requests
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) return;
+
+    const headers = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}`, Prefer: 'count=exact' };
+    const [unitsRes, analysesRes] = await Promise.all([
+      fetch(`${supabaseUrl}/rest/v1/corpus_units?select=id&limit=1`, { headers }),
+      fetch(`${supabaseUrl}/rest/v1/analyses?select=id&limit=1`, { headers }),
+    ]);
+
+    const parse = (res) => { const m = (res.headers.get('content-range') || '').match(/\/(\d+)/); return m ? parseInt(m[1]) : 0; };
+    const total = parse(unitsRes);
+    const analyzed = parse(analysesRes);
+    if (!total) return;
+
+    const pct = ((analyzed / total) * 100).toFixed(1);
+    const el = document.getElementById('corpus-health');
+    if (el) {
+      el.classList.remove('hidden');
+      document.getElementById('corpus-health-fill').style.width = pct + '%';
+      document.getElementById('corpus-health-label').textContent = `${analyzed.toLocaleString()} / ${total.toLocaleString()} analyzed (${pct}%)`;
+    }
+  } catch (err) {
+    console.warn('[hunter] corpus health:', err);
+  }
+}
+
 // ── Boot ──
 
 showView('projects');
+loadCorpusHealth();
+setInterval(loadCorpusHealth, 60000);
 
 // Show demo banner if in demo mode
 if (isDemo) {
