@@ -587,13 +587,13 @@
     }
   } catch (err) {
     console.warn('Could not load live stats:', err);
-    // Fall back to static values
-    document.getElementById('stat-analyzed').textContent = '6,199';
-    document.getElementById('stat-embeddings').textContent = '6,210';
-    document.getElementById('stat-coverage').textContent = '63%';
-    document.getElementById('stat-remaining').textContent = '~3,600';
+    document.getElementById('stat-updated').textContent = 'offline — using cached values';
   }
-})();
+}
+
+// Load immediately + auto-refresh every 30s
+loadLiveStats();
+setInterval(loadLiveStats, 30000);
 </script>
 
 </body>
