@@ -1714,6 +1714,37 @@ header {
 .corpus-export-btn:hover {
   color: var(--np-ink);
 }
+
+/* ── Corpus Summary ── */
+.corpus-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--np-space-4);
+  padding: var(--np-space-3) var(--np-space-4);
+  margin-top: var(--np-space-3);
+  background: var(--np-surface);
+  border: 1px solid var(--np-border);
+  border-radius: var(--np-radius-md);
+}
+.corpus-summary.hidden { display: none; }
+.corpus-summary-stat {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  color: var(--np-text-dim);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.corpus-summary-num {
+  font-weight: 600;
+  color: var(--np-ink);
+}
+.corpus-summary-tag {
+  padding: 1px 5px;
+  border: 1px solid var(--np-border);
+  border-radius: var(--np-radius-full);
+  font-size: 9px;
+}
 .corpus-filter-tab {
   font-family: var(--np-font-mono);
   font-size: 10px;

@@ -670,6 +670,9 @@ async function loadCorpusBrowser() {
     return;
   }
 
+  // Render corpus summary
+  renderCorpusSummary();
+
   // Init tier filter tabs
   document.querySelectorAll('.corpus-filter-tab[data-filter]').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -726,6 +729,43 @@ function getFilteredCorpus() {
     filtered.sort((a, b) => (a.analyses?.[0]?.output_json?.keepability_score ?? 99) - (b.analyses?.[0]?.output_json?.keepability_score ?? 99));
   }
   return filtered;
+}
+
+function renderCorpusSummary() {
+  const el = document.getElementById('corpus-summary');
+  const analyzed = allCorpusUnits.filter(u => u.analyses?.length > 0 && u.analyses[0]?.output_text);
+  if (analyzed.length < 5) { el.classList.add('hidden'); return; }
+
+  // Total duration
+  let totalDur = 0;
+  for (const u of analyzed) {
+    const dur = (u.end_seconds || 0) - (u.start_seconds || 0);
+    if (dur > 0) totalDur += dur;
+  }
+
+  // Keepability
+  let keepSum = 0, keepN = 0;
+  const shotTypes = {};
+  for (const u of analyzed) {
+    const j = u.analyses[0]?.output_json;
+    if (!j) continue;
+    if (j.keepability_score != null) { keepSum += j.keepability_score; keepN++; }
+    if (j.shot_type) shotTypes[j.shot_type] = (shotTypes[j.shot_type] || 0) + 1;
+  }
+
+  const avgKeep = keepN > 0 ? (keepSum / keepN).toFixed(1) : '—';
+  const topShots = Object.entries(shotTypes).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
+  const hours = Math.floor(totalDur / 3600);
+  const mins = Math.floor((totalDur % 3600) / 60);
+  const durStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+  el.innerHTML = `
+    <div class="corpus-summary-stat"><span class="corpus-summary-num">${analyzed.length.toLocaleString()}</span> analyzed clips</div>
+    <div class="corpus-summary-stat"><span class="corpus-summary-num">${durStr}</span> footage</div>
+    <div class="corpus-summary-stat"><span class="corpus-summary-num">${avgKeep}</span> avg keepability</div>
+    ${topShots.length ? `<div class="corpus-summary-stat">top: ${topShots.map(t => `<span class="corpus-summary-tag">${escHtml(t)}</span>`).join(' ')}</div>` : ''}
+  `;
+  el.classList.remove('hidden');
 }
 
 function renderCorpusPage() {
