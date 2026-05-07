@@ -326,6 +326,115 @@ async function rawToSelectsAnalysis(projectId) {
   return { kept, discarded, keptTexts, discardedTexts, heavilyUsed };
 }
 
+// ── Selects → Finished: How did the final cut use the selected material? ──
+
+async function selectsToFinishedAnalysis(projectId) {
+  console.log('\n═══════════════════════════════════');
+  console.log('SELECTS → FINISHED: The Final Cut');
+  console.log('═══════════════════════════════════\n');
+
+  const { data: assets } = await supabase.from('media_assets')
+    .select('id, tier')
+    .eq('project_id', projectId)
+    .in('tier', ['selects', 'finished']);
+
+  const selectsAssetIds = assets.filter(a => a.tier === 'selects').map(a => a.id);
+  const finishedAssetIds = assets.filter(a => a.tier === 'finished').map(a => a.id);
+
+  if (!selectsAssetIds.length || !finishedAssetIds.length) {
+    console.log('Need both selects and finished tiers.');
+    return null;
+  }
+
+  // Fetch finished analysis (single unit covering the whole video)
+  let finishedUnits = [];
+  for (const id of finishedAssetIds) {
+    finishedUnits = finishedUnits.concat(
+      await fetchAllPaginated('corpus_units', 'id, source_clip_name, start_seconds, end_seconds', { media_asset_id: id })
+    );
+  }
+
+  // Get finished analysis text
+  const finishedAnalyses = [];
+  for (const u of finishedUnits) {
+    const { data } = await supabase.from('analyses').select('output_text').eq('corpus_unit_id', u.id).limit(1);
+    if (data?.[0]?.output_text) finishedAnalyses.push(data[0].output_text);
+  }
+
+  if (!finishedAnalyses.length) {
+    console.log('No finished tier analysis found.');
+    return null;
+  }
+
+  const finishedText = finishedAnalyses.join('\n\n');
+  console.log(`Finished analysis: ${finishedText.length} chars`);
+
+  // Fetch selects units and embeddings for embedding comparison
+  let selectsUnits = [];
+  for (const id of selectsAssetIds) {
+    selectsUnits = selectsUnits.concat(
+      await fetchAllPaginated('corpus_units', 'id, source_clip_name, start_seconds, end_seconds', { media_asset_id: id })
+    );
+  }
+
+  // Get finished embedding for similarity comparison
+  const finishedEmbeddings = [];
+  for (const u of finishedUnits) {
+    const { data } = await supabase.from('embeddings').select('corpus_unit_id, embedding').eq('corpus_unit_id', u.id).limit(1);
+    if (data?.[0]) finishedEmbeddings.push(data[0]);
+  }
+
+  // Compare selects embeddings against finished embedding
+  if (finishedEmbeddings.length > 0) {
+    const allEmbeddings = await fetchAllPaginated('embeddings', 'corpus_unit_id, embedding');
+    const embMap = new Map();
+    for (const e of allEmbeddings) embMap.set(e.corpus_unit_id, e.embedding);
+
+    // Find selects units most similar to the finished piece
+    const selectsWithSim = [];
+    for (const su of selectsUnits) {
+      const selEmb = embMap.get(su.id);
+      if (!selEmb) continue;
+
+      // Compare against each finished embedding
+      let maxSim = 0;
+      for (const fe of finishedEmbeddings) {
+        const sim = cosineSimilarity(selEmb, fe.embedding);
+        if (sim > maxSim) maxSim = sim;
+      }
+      selectsWithSim.push({ ...su, similarity: maxSim });
+    }
+
+    selectsWithSim.sort((a, b) => b.similarity - a.similarity);
+
+    console.log(`\n── SELECTS CLOSEST TO FINISHED PIECE ──\n`);
+    for (const s of selectsWithSim.slice(0, 15)) {
+      console.log(`  ${s.source_clip_name} (${s.start_seconds.toFixed(1)}s-${s.end_seconds.toFixed(1)}s): sim ${s.similarity.toFixed(3)}`);
+    }
+
+    console.log(`\n── SELECTS MOST DISTANT FROM FINISHED ──\n`);
+    for (const s of selectsWithSim.slice(-10)) {
+      console.log(`  ${s.source_clip_name}: sim ${s.similarity.toFixed(3)}`);
+    }
+
+    // Count unique clips near finished vs far
+    const CLOSE_THRESHOLD = 0.7;
+    const close = selectsWithSim.filter(s => s.similarity >= CLOSE_THRESHOLD);
+    const far = selectsWithSim.filter(s => s.similarity < CLOSE_THRESHOLD);
+    console.log(`\nClose to finished (>=${CLOSE_THRESHOLD}): ${close.length}/${selectsWithSim.length}`);
+    console.log(`Distant from finished (<${CLOSE_THRESHOLD}): ${far.length}/${selectsWithSim.length}`);
+  }
+
+  // Get selects analyses for Pro synthesis
+  const allAnalyses = await fetchAllPaginated('analyses', 'corpus_unit_id, output_text');
+  const analysisMap = new Map();
+  for (const a of allAnalyses) analysisMap.set(a.corpus_unit_id, a.output_text);
+
+  const selectsTexts = selectsUnits.slice(0, 40).map(u => analysisMap.get(u.id)).filter(Boolean);
+
+  return { finishedText, selectsTexts, selectsUnits, finishedUnits };
+}
+
 // ── Pro Synthesis: What patterns emerge? ──
 
 async function synthesizeCrossTierPatterns(projectId, rawToSelects, scriptToRaw) {
@@ -384,29 +493,41 @@ Analyze the editor's taste. Write 5-8 observations about:
 
 Be specific. Cite clip names. Surprise the filmmaker with insights they might not have noticed.`;
 
-  console.log('Running Pro synthesis (this may take a minute)...');
-
   let result;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      result = await genai.models.generateContent({
-        model: 'gemini-2.5-pro',
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        config: { maxOutputTokens: 6000 },
-      });
-      break;
-    } catch (err) {
-      const msg = err.message || '';
-      if ((msg.includes('503') || msg.includes('UNAVAILABLE') || msg.includes('high demand')) && attempt < 4) {
-        const wait = Math.pow(2, attempt + 1) * 10;
-        console.log(`Pro synthesis 503, retrying in ${wait}s (attempt ${attempt + 1}/5)...`);
-        await new Promise(r => setTimeout(r, wait * 1000));
-      } else {
-        throw err;
+  let modelUsed = 'gemini-2.5-pro';
+
+  // Try Pro first, fall back to Flash if Pro is overloaded
+  for (const model of ['gemini-2.5-pro', 'gemini-2.5-flash']) {
+    console.log(`Running ${model} synthesis...`);
+    let succeeded = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        result = await genai.models.generateContent({
+          model,
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          config: { maxOutputTokens: 6000 },
+        });
+        modelUsed = model;
+        succeeded = true;
+        break;
+      } catch (err) {
+        const msg = err.message || '';
+        if ((msg.includes('503') || msg.includes('UNAVAILABLE') || msg.includes('high demand')) && attempt < 2) {
+          const wait = Math.pow(2, attempt + 1) * 10;
+          console.log(`${model} 503, retrying in ${wait}s (attempt ${attempt + 1}/3)...`);
+          await new Promise(r => setTimeout(r, wait * 1000));
+        } else if (msg.includes('503') || msg.includes('UNAVAILABLE')) {
+          console.log(`${model} unavailable, trying fallback...`);
+          break; // Try next model
+        } else {
+          throw err;
+        }
       }
     }
+    if (succeeded) break;
   }
-  if (!result) throw new Error('Pro synthesis failed after 5 retries');
+  if (!result) throw new Error('Synthesis failed on all models');
+  console.log(`Using model: ${modelUsed}`);
 
   const synthesis = result.text;
   console.log('\n── CROSS-TIER SYNTHESIS ──\n');
@@ -430,6 +551,144 @@ Be specific. Cite clip names. Surprise the filmmaker with insights they might no
   return synthesis;
 }
 
+// ── Four-Tier Synthesis: Script → Raw → Selects → Finished ──
+
+async function fourTierSynthesis(projectId, scriptToRaw, rawToSelects, selectsToFinished) {
+  console.log('\n═══════════════════════════════════');
+  console.log('FOUR-TIER SYNTHESIS (Gemini Pro)');
+  console.log('═══════════════════════════════════\n');
+
+  if (!selectsToFinished?.finishedText) {
+    console.log('Need finished tier data for four-tier synthesis.');
+    return;
+  }
+
+  const { GoogleGenAI } = await import('@google/genai');
+  const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+  // Build the four-tier context
+  const scriptGaps = scriptToRaw
+    ? scriptToRaw.filter(r => r.coverageScore < 0.5).map(r => `${r.scriptUnit} (score: ${r.coverageScore.toFixed(2)}): ${r.sectionPreview.slice(0, 80)}`).join('\n')
+    : 'No script data.';
+
+  const scriptHighMatches = scriptToRaw
+    ? scriptToRaw.filter(r => r.coverageScore >= 0.7).map(r => `${r.scriptUnit} (score: ${r.coverageScore.toFixed(2)}): best match → ${r.topMatches[0]?.clipName}`).join('\n')
+    : '';
+
+  const rawStats = rawToSelects
+    ? `Total raw: ${rawToSelects.kept.length + rawToSelects.discarded.length}, Kept: ${rawToSelects.kept.length} (${(rawToSelects.kept.length / (rawToSelects.kept.length + rawToSelects.discarded.length) * 100).toFixed(1)}%)`
+    : '';
+
+  const topReused = rawToSelects?.heavilyUsed?.slice(0, 10)
+    .map(([name, count]) => `${name}: ${count} uses`).join('\n') || '';
+
+  const selectsSample = selectsToFinished.selectsTexts.slice(0, 15)
+    .map((t, i) => `[SELECT ${i+1}] ${t.slice(0, 200)}`).join('\n\n');
+
+  // Truncate finished text to fit in context
+  const finishedExcerpt = selectsToFinished.finishedText.slice(0, 6000);
+
+  const prompt = `You are the most perceptive documentary editor alive. You have access to ALL FOUR TIERS of a documentary project — from original script through to final published piece. Your job: trace the complete editorial journey and reveal what this filmmaker's decision-making reveals about their craft.
+
+## TIER 1: SCRIPT (Original Intent)
+The filmmaker wrote a two-column script before shooting. ${scriptToRaw?.length || 0} sections total.
+
+HIGH-COVERAGE sections (script intent well-matched by raw footage):
+${scriptHighMatches || 'None analyzed.'}
+
+COVERAGE GAPS (script intent NOT well-matched by raw footage):
+${scriptGaps || 'None.'}
+
+## TIER 2: RAW FOOTAGE
+${rawStats}
+
+## TIER 3: SELECTS (Editor's Choices)
+What the editor pulled from raw into the Premiere timeline. ${selectsToFinished.selectsUnits.length} edit decisions total.
+
+MOST REUSED clips:
+${topReused}
+
+SAMPLE selects analyses:
+${selectsSample}
+
+## TIER 4: FINISHED PIECE (Published Documentary)
+The final 34-minute published YouTube documentary.
+
+ANALYSIS:
+${finishedExcerpt}
+
+---
+
+Now synthesize across ALL FOUR TIERS. Write 6-10 observations covering:
+
+1. **SCRIPT → FINISHED: Intention vs Reality** — What survived from the original script? What was abandoned? Where did the final piece diverge most dramatically from the plan?
+
+2. **The Funnel** — ${rawToSelects ? rawToSelects.kept.length + rawToSelects.discarded.length : '?'} raw clips → ${selectsToFinished.selectsUnits.length} selects → 1 finished piece. What does this compression ratio reveal? Where was material lost most aggressively?
+
+3. **The Reuse Pattern** — The most-reused clips are editorial anchors. What do they have in common? What does heavy reuse vs. one-time use tell us about the editor's structural thinking?
+
+4. **Coverage Gap Resolution** — For script sections with weak raw footage matches, how did the finished piece handle those gaps? Were they cut entirely, rewritten in voiceover, or addressed with different footage?
+
+5. **Signature Moves** — What are this filmmaker's distinctive editorial choices? Things like: cutting patterns, interview-to-B-roll ratios, use of silence, pacing rhythms, visual metaphors that recur.
+
+6. **The Taste Profile** — If you had to predict what this filmmaker would keep vs cut from a NEW batch of raw footage, what rules would you encode? Be specific enough that these rules could actually be applied programmatically.
+
+7. **Surprise Insights** — What did you notice that the filmmaker probably hasn't consciously articulated about their own process?
+
+Be fearlessly specific. Name clips. Quote the analysis. This is for a filmmaker who wants to understand their own craft better.`;
+
+  let result;
+  let modelUsed = 'gemini-2.5-pro';
+
+  for (const model of ['gemini-2.5-pro', 'gemini-2.5-flash']) {
+    console.log(`Running four-tier ${model} synthesis...`);
+    let succeeded = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        result = await genai.models.generateContent({
+          model,
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          config: { maxOutputTokens: 8000 },
+        });
+        modelUsed = model;
+        succeeded = true;
+        break;
+      } catch (err) {
+        const msg = err.message || '';
+        if ((msg.includes('503') || msg.includes('UNAVAILABLE') || msg.includes('high demand')) && attempt < 2) {
+          const wait = Math.pow(2, attempt + 1) * 10;
+          console.log(`${model} 503, retrying in ${wait}s (attempt ${attempt + 1}/3)...`);
+          await new Promise(r => setTimeout(r, wait * 1000));
+        } else if (msg.includes('503') || msg.includes('UNAVAILABLE')) {
+          console.log(`${model} unavailable, trying fallback...`);
+          break;
+        } else {
+          throw err;
+        }
+      }
+    }
+    if (succeeded) break;
+  }
+  if (!result) throw new Error('Four-tier synthesis failed on all models');
+  console.log(`Using model: ${modelUsed}`);
+
+  const synthesis = result.text;
+  console.log('\n── FOUR-TIER SYNTHESIS ──\n');
+  console.log(synthesis);
+
+  // Save
+  await supabase.from('pattern_observations').insert({
+    project_id: projectId,
+    observation_text: synthesis,
+    example_unit_ids: selectsToFinished.finishedUnits.map(u => u.id),
+    status: 'surfaced',
+    user_notes: null,
+  });
+  console.log('\nFour-tier synthesis saved as pattern observation.');
+
+  return synthesis;
+}
+
 // ── Main ──
 
 async function main() {
@@ -445,9 +704,17 @@ async function main() {
   // 2. Raw → Selects analysis
   const rawToSelects = await rawToSelectsAnalysis(projectId);
 
-  // 3. Pro synthesis of cross-tier patterns
+  // 3. Selects → Finished analysis
+  const selectsFinished = await selectsToFinishedAnalysis(projectId);
+
+  // 4. Three-tier synthesis (backward compat)
   if (rawToSelects) {
     await synthesizeCrossTierPatterns(projectId, rawToSelects, scriptResults);
+  }
+
+  // 5. Four-tier synthesis (the main event)
+  if (rawToSelects && selectsFinished) {
+    await fourTierSynthesis(projectId, scriptResults, rawToSelects, selectsFinished);
   }
 
   console.log('\n✓ Cross-tier matching complete.');

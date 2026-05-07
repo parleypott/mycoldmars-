@@ -22,6 +22,10 @@ export default async function handler(req) {
     return handlePatternSurfacing(body, apiKey);
   }
 
+  if (action === 'semantic_search') {
+    return handleSemanticSearch(body, apiKey);
+  }
+
   // Default: proxy to Gemini
   const model = body.model || 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -199,6 +203,153 @@ ${corpus}`
 
   return new Response(JSON.stringify({ success: true, count: observations.length }), {
     status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+// ── Semantic Search ──
+
+async function handleSemanticSearch(body, apiKey) {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return jsonResponse({ error: 'Supabase not configured' }, 500);
+  }
+
+  const { query, projectId, limit = 20, tier } = body;
+  if (!query) return jsonResponse({ error: 'query is required' }, 400);
+
+  // 1. Generate query embedding via Gemini
+  const embUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`;
+  const embRes = await fetch(embUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      content: { parts: [{ text: query }] },
+      outputDimensionality: 768,
+    }),
+  });
+
+  if (!embRes.ok) {
+    return jsonResponse({ error: 'Embedding generation failed' }, 502);
+  }
+
+  const embData = await embRes.json();
+  const queryEmbedding = embData.embedding?.values;
+  if (!queryEmbedding) return jsonResponse({ error: 'No embedding returned' }, 502);
+
+  // 2. Fetch all embeddings from Supabase (paginated)
+  const headers = {
+    apikey: supabaseKey,
+    Authorization: `Bearer ${supabaseKey}`,
+  };
+
+  let allEmbeddings = [];
+  let offset = 0;
+  const PAGE = 1000;
+  while (true) {
+    const url = `${supabaseUrl}/rest/v1/embeddings?select=corpus_unit_id,embedding&order=created_at.asc&offset=${offset}&limit=${PAGE}`;
+    const res = await fetch(url, { headers });
+    if (!res.ok) break;
+    const data = await res.json();
+    if (!data?.length) break;
+    allEmbeddings = allEmbeddings.concat(data);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+
+  // 3. Compute cosine similarity
+  const results = [];
+  for (const row of allEmbeddings) {
+    const emb = parseEmbedding(row.embedding);
+    if (!emb) continue;
+    const sim = cosineSim(queryEmbedding, emb);
+    results.push({ corpus_unit_id: row.corpus_unit_id, similarity: sim });
+  }
+
+  results.sort((a, b) => b.similarity - a.similarity);
+  const topIds = results.slice(0, Math.min(limit * 3, 100)); // Fetch extra for filtering
+
+  // 4. Fetch corpus unit details + analysis text for top matches
+  const unitIds = topIds.map(r => r.corpus_unit_id);
+  const simMap = new Map(topIds.map(r => [r.corpus_unit_id, r.similarity]));
+
+  // Fetch in batches of 50 to avoid URL length limits
+  let units = [];
+  for (let i = 0; i < unitIds.length; i += 50) {
+    const batch = unitIds.slice(i, i + 50);
+    const idsParam = `in.(${batch.join(',')})`;
+    const url = `${supabaseUrl}/rest/v1/corpus_units?select=id,source_clip_name,start_seconds,end_seconds,media_asset_id,media_assets!inner(tier,project_id,hunter_projects!inner(name))&id=${idsParam}`;
+    const res = await fetch(url, { headers });
+    if (res.ok) {
+      const data = await res.json();
+      units = units.concat(data);
+    }
+  }
+
+  // Filter by tier/project if specified
+  let filtered = units;
+  if (tier) filtered = filtered.filter(u => u.media_assets?.tier === tier);
+  if (projectId) filtered = filtered.filter(u => u.media_assets?.project_id === projectId);
+
+  // Fetch analyses for filtered units
+  const filteredIds = filtered.map(u => u.id);
+  let analyses = [];
+  for (let i = 0; i < filteredIds.length; i += 50) {
+    const batch = filteredIds.slice(i, i + 50);
+    const idsParam = `in.(${batch.join(',')})`;
+    const url = `${supabaseUrl}/rest/v1/analyses?select=corpus_unit_id,output_text&corpus_unit_id=${idsParam}&limit=100`;
+    const res = await fetch(url, { headers });
+    if (res.ok) {
+      const data = await res.json();
+      analyses = analyses.concat(data);
+    }
+  }
+  const analysisMap = new Map(analyses.map(a => [a.corpus_unit_id, a.output_text]));
+
+  // Build response
+  const matches = filtered
+    .map(u => ({
+      id: u.id,
+      clipName: u.source_clip_name,
+      startSeconds: u.start_seconds,
+      endSeconds: u.end_seconds,
+      tier: u.media_assets?.tier,
+      projectName: u.media_assets?.hunter_projects?.name,
+      similarity: simMap.get(u.id) || 0,
+      analysisPreview: (analysisMap.get(u.id) || '').slice(0, 400),
+    }))
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, limit);
+
+  return jsonResponse({ matches, total: allEmbeddings.length, query });
+}
+
+function parseEmbedding(emb) {
+  if (Array.isArray(emb)) return emb;
+  if (typeof emb === 'string') {
+    try { return JSON.parse(emb); } catch {}
+    return emb.replace(/[[\]()]/g, '').split(',').map(Number);
+  }
+  return null;
+}
+
+function cosineSim(a, b) {
+  if (!a || !b || a.length !== b.length) return 0;
+  let dot = 0, nA = 0, nB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    nA += a[i] * a[i];
+    nB += b[i] * b[i];
+  }
+  const d = Math.sqrt(nA) * Math.sqrt(nB);
+  return d > 0 ? dot / d : 0;
+}
+
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
     headers: { 'Content-Type': 'application/json' },
   });
 }

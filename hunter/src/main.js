@@ -1,4 +1,4 @@
-import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus } from './db.js';
+import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch } from './db.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -28,6 +28,7 @@ function showView(view) {
   } else if (view === 'corpus') {
     corpusView.classList.add('active');
     loadCorpusBrowser();
+    initCorpusSearch();
   }
 }
 
@@ -600,6 +601,57 @@ async function loadCorpusBrowser() {
       if (pid) openProject(pid);
     });
   });
+}
+
+// ── Corpus search ──
+
+function initCorpusSearch() {
+  const input = document.getElementById('corpus-search-input');
+  const tierSelect = document.getElementById('corpus-search-tier');
+  const btn = document.getElementById('corpus-search-btn');
+  const results = document.getElementById('corpus-search-results');
+
+  if (!input || !btn) return;
+
+  async function doSearch() {
+    const query = input.value.trim();
+    if (!query) return;
+
+    const tier = tierSelect.value || undefined;
+    btn.disabled = true;
+    btn.textContent = '...';
+    results.innerHTML = '<p class="corpus-search-status">searching corpus...</p>';
+
+    try {
+      const data = await semanticSearch({ query, tier, limit: 20 });
+      if (!data.matches?.length) {
+        results.innerHTML = '<p class="corpus-search-status">no matches found</p>';
+        return;
+      }
+
+      results.innerHTML = `
+        <p class="corpus-search-status">${data.matches.length} matches across ${data.total} embeddings</p>
+        ${data.matches.map(m => `
+          <div class="corpus-search-match" data-project-id="${m.projectId || ''}">
+            <div class="corpus-search-match-header">
+              <span class="corpus-search-match-clip">${escHtml(m.clipName || 'unknown')}</span>
+              <span class="corpus-search-match-score">${(m.similarity * 100).toFixed(1)}%</span>
+            </div>
+            <div class="corpus-search-match-meta">${escHtml(m.projectName || '')} / ${m.tier || ''} · ${formatTc(m.startSeconds)} – ${formatTc(m.endSeconds)}</div>
+            <div class="corpus-search-match-text">${escHtml(m.analysisPreview || '')}</div>
+          </div>
+        `).join('')}
+      `;
+    } catch (err) {
+      results.innerHTML = `<p class="corpus-search-status">error: ${escHtml(err.message)}</p>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'search';
+    }
+  }
+
+  btn.addEventListener('click', doSearch);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
 }
 
 // ── YouTube + Google Docs helpers ──

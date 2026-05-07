@@ -298,6 +298,21 @@ export async function getIngestStatus(projectId) {
   };
 }
 
+// ── Semantic Search ──
+
+export async function semanticSearch({ query, projectId, limit = 20, tier }) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'semantic_search', query, projectId, limit, tier }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Search failed');
+  }
+  return res.json();
+}
+
 // ── Pending queue (used by worker) ──
 
 export async function getPendingAssets(limit = 10) {

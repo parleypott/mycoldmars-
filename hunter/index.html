@@ -154,6 +154,18 @@
     <!-- Corpus browser (all projects) -->
     <section id="corpus-view" class="panel">
       <h2 class="section-title">corpus</h2>
+      <div class="corpus-search-bar">
+        <input type="text" id="corpus-search-input" placeholder="search footage — &quot;construction at sunset&quot;, &quot;interview with locals&quot;..." autocomplete="off" />
+        <select id="corpus-search-tier">
+          <option value="">all tiers</option>
+          <option value="raw">raw</option>
+          <option value="selects">selects</option>
+          <option value="google_docs">script</option>
+          <option value="finished">finished</option>
+        </select>
+        <button id="corpus-search-btn" class="btn btn-sm">search</button>
+      </div>
+      <div id="corpus-search-results"></div>
       <div id="corpus-browser" class="corpus-browser"></div>
     </section>
 

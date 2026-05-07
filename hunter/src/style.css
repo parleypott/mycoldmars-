@@ -1059,6 +1059,101 @@ header {
   margin-top: var(--np-space-4);
 }
 
+/* ── Corpus search ── */
+.corpus-search-bar {
+  display: flex;
+  gap: 8px;
+  margin-top: var(--np-space-8);
+  margin-bottom: var(--np-space-8);
+}
+.corpus-search-bar input {
+  flex: 1;
+  padding: 10px 14px;
+  background: var(--np-surface);
+  border: 1px solid var(--np-border);
+  border-radius: var(--np-radius-md);
+  color: var(--np-ink);
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--np-duration-md) var(--np-ease);
+}
+.corpus-search-bar input:focus {
+  border-color: var(--np-red);
+}
+.corpus-search-bar input::placeholder {
+  color: var(--np-text-dim);
+}
+.corpus-search-bar select {
+  padding: 10px 12px;
+  background: var(--np-surface);
+  border: 1px solid var(--np-border);
+  border-radius: var(--np-radius-md);
+  color: var(--np-ink);
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+#corpus-search-results {
+  margin-bottom: var(--np-space-8);
+}
+.corpus-search-status {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  color: var(--np-text-dim);
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+.corpus-search-match {
+  background: var(--np-surface);
+  border: 1px solid var(--np-border);
+  border-radius: var(--np-radius-md);
+  padding: var(--np-space-6);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all var(--np-duration-md) var(--np-ease);
+  position: relative;
+}
+.corpus-search-match:hover {
+  border-color: var(--np-border-hover);
+  background: var(--np-surface-2);
+}
+.corpus-search-match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.corpus-search-match-clip {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  color: var(--np-ink);
+}
+.corpus-search-match-score {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  color: var(--np-text-dim);
+  background: rgba(255,255,255,0.04);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.corpus-search-match-meta {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  color: var(--np-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+.corpus-search-match-text {
+  font-family: var(--np-font-sans);
+  font-size: 13px;
+  color: var(--np-ink);
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
 /* ── Corpus browser ── */
 .corpus-browser {
   margin-top: var(--np-space-8);
