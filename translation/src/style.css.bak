@@ -5029,7 +5029,7 @@ tr.dimmed-speaker { opacity: 0.35; }
   -webkit-backdrop-filter: blur(6px);
 }
 .media-progress-card {
-  background: var(--np-warm-white);
+  background: var(--np-cream);
   border: 1px solid var(--np-sepia);
   border-radius: 4px;
   padding: 32px 36px;
@@ -5086,7 +5086,7 @@ tr.dimmed-speaker { opacity: 0.35; }
   right: 0;
   bottom: 0;
   z-index: 90;
-  background: var(--np-warm-white);
+  background: var(--np-cream);
   border-top: 1px solid var(--np-sepia);
   font-family: var(--np-font-mono);
   pointer-events: none; /* let inner pieces opt-in so editor stays clickable behind */
@@ -5096,17 +5096,17 @@ tr.dimmed-speaker { opacity: 0.35; }
   position: absolute;
   left: 16px;
   bottom: calc(72px + 14px); /* clear the waveform */
-  width: 420px;
+  width: 320px;
   background: #000;
   border: 1px solid var(--np-sepia);
-  border-radius: 3px;
+  border-radius: 2px;
   overflow: hidden;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
   pointer-events: auto;
 }
 .media-deck--audio-only .media-deck-video {
-  width: 420px;
-  background: var(--np-warm-white);
+  width: 320px;
+  background: var(--np-cream);
 }
 .media-deck--audio-only video {
   display: none;
@@ -5116,112 +5116,47 @@ tr.dimmed-speaker { opacity: 0.35; }
   width: 100%;
   height: auto;
   background: #000;
-  cursor: pointer;
 }
-
-/* Inline error banner inside the video frame — only visible on load failure. */
-.media-deck-error {
-  font-family: var(--np-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: #fff;
-  background: rgba(221, 44, 30, 0.92);
-  padding: 6px 10px;
-  text-align: center;
-}
-
-/* Trint-style toolbar: centered transport, time on left, speed on right.
-   Grid keeps the play group perfectly centered regardless of side widths. */
 .media-deck-controls {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  background: var(--np-warm-white);
+  padding: 8px 10px;
+  background: var(--np-cream);
   border-top: 1px solid var(--np-sepia);
 }
-.media-deck-controls-center {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  grid-column: 2;
-}
-
 .media-deck-btn {
   background: transparent;
   border: 1px solid var(--np-sepia);
-  border-radius: 3px;
+  border-radius: 2px;
+  width: 30px;
+  height: 26px;
   color: var(--np-ink);
   cursor: pointer;
+  font-size: 12px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-family: var(--np-font-mono);
-  padding: 0;
-  transition: background 120ms ease-out, color 120ms ease-out, border-color 120ms ease-out;
 }
-.media-deck-btn:hover {
-  background: var(--np-red);
-  color: #fff;
-  border-color: var(--np-red);
-}
-.media-deck-btn:active { transform: translateY(1px); }
-.media-deck-btn:focus-visible { outline: 2px solid var(--np-red); outline-offset: 2px; }
-
-/* Skip-back / skip-forward buttons: icon + tiny "10" label on the inside. */
-.media-deck-btn--skip {
-  width: 44px;
-  height: 36px;
-  gap: 3px;
-  padding: 0 6px;
-}
-.media-deck-skip-label {
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  font-weight: 500;
-}
-
-/* Big play/pause — visual center of the toolbar. */
-.media-deck-btn--play {
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  background: var(--np-ink);
-  color: #fff;
-  border-color: var(--np-ink);
-}
-.media-deck-btn--play:hover {
-  background: var(--np-red);
-  border-color: var(--np-red);
-  color: #fff;
-}
-.media-deck-btn--play svg { transform: translateX(1px); /* optical center the play triangle */ }
-.media-deck-btn--play[aria-label="Pause"] svg { transform: none; }
-
+.media-deck-btn:hover { background: var(--np-red); color: #fff; border-color: var(--np-red); }
 .media-deck-time {
   font-size: 11px;
   letter-spacing: 0.06em;
   color: var(--np-sepia);
-  grid-column: 1;
-  justify-self: start;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+  flex: 1;
 }
 .media-deck-rate {
   font-family: var(--np-font-mono);
   font-size: 11px;
-  background: var(--np-warm-white);
+  background: transparent;
   border: 1px solid var(--np-sepia);
-  border-radius: 3px;
-  padding: 4px 8px;
+  border-radius: 2px;
+  padding: 3px 6px;
   color: var(--np-ink);
   cursor: pointer;
-  grid-column: 3;
-  justify-self: end;
 }
-.media-deck-rate:hover { border-color: var(--np-red); }
 
 .media-deck-waveform {
   position: absolute;
@@ -5229,7 +5164,7 @@ tr.dimmed-speaker { opacity: 0.35; }
   right: 0;
   bottom: 0;
   height: 72px;
-  background: var(--np-warm-white);
+  background: var(--np-cream);
   border-top: 1px solid rgba(65, 44, 39, 0.25);
   pointer-events: auto;
 }
@@ -5285,7 +5220,7 @@ span[data-segment]:hover {
   font-family: var(--np-font-mono);
   font-size: 13px;
   padding: 8px 10px;
-  background: var(--np-warm-white);
+  background: var(--np-cream);
   border: 1px solid var(--np-sepia);
   border-radius: 2px;
   color: var(--np-ink);
@@ -5381,7 +5316,7 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
 
 /* Collapsed state: hide the video, keep controls + waveform */
 .media-deck-video--collapsed video { display: none; }
-.media-deck-video--collapsed { width: 320px; }
+.media-deck-video--collapsed { width: 220px; }
 
 /* ──────────────────────────────────────────────────────────────────────
    Pre-transcribe dialog (after upload, before transcription)
@@ -5429,7 +5364,7 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   font-size: 13px;
   padding: 10px 12px;
   min-height: auto;
-  background: var(--np-warm-white);
+  background: var(--np-cream);
   border: 1px solid var(--np-sepia);
   border-radius: 2px;
   color: var(--np-ink);
@@ -5530,7 +5465,7 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   font-family: var(--np-font-mono);
   font-size: 13px;
   padding: 8px 10px;
-  background: var(--np-warm-white);
+  background: var(--np-cream);
   border: 1px solid var(--np-sepia);
   border-radius: 2px;
   color: var(--np-ink);
@@ -5579,7 +5514,7 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   width: calc(100vw - 64px);
   padding: 36px 44px 32px;
   position: relative;
-  background: var(--np-warm-white);
+  background: var(--np-cream);
   border: 1px solid var(--np-sepia);
   border-radius: 3px;
   box-shadow: 0 16px 60px rgba(0, 0, 0, 0.22);
@@ -5761,7 +5696,7 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   font-size: 13px;
   width: 100%;
   padding: 10px 12px;
-  background: var(--np-warm-white);
+  background: var(--np-cream);
   border: 1px solid var(--np-sepia);
   border-radius: 2px;
   color: var(--np-ink);
@@ -5882,7 +5817,7 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   font-family: var(--np-font-mono);
   font-size: 14px;
   padding: 10px 12px;
-  background: var(--np-warm-white);
+  background: var(--np-cream);
   border: 1px solid var(--np-sepia);
   border-radius: 2px;
   color: var(--np-ink);

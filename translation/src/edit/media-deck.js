@@ -49,13 +49,48 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   // ── DOM scaffolding ────────────────────────────────────────────────
   const root = document.createElement('div');
   root.className = 'media-deck';
+  // SVG icons inline so we don't need an icon font. Stroke uses currentColor
+  // so hover states can recolor with CSS.
+  const ICON_SKIP_BACK = `
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+        d="M11 6 L4 12 L11 18 M20 6 L13 12 L20 18"/>
+    </svg>`;
+  const ICON_SKIP_FWD = `
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+        d="M4 6 L11 12 L4 18 M13 6 L20 12 L13 18"/>
+    </svg>`;
+  const ICON_PLAY = `
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path fill="currentColor" d="M7 5 L19 12 L7 19 Z"/>
+    </svg>`;
+  const ICON_PAUSE = `
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <rect x="6" y="5" width="4" height="14" fill="currentColor"/>
+      <rect x="14" y="5" width="4" height="14" fill="currentColor"/>
+    </svg>`;
+
   root.innerHTML = `
     <div class="media-deck-video" data-deck-video>
       <div class="media-deck-grip" data-deck-grip title="Drag to move">⋮⋮</div>
       <button type="button" class="media-deck-collapse" data-deck-collapse aria-label="Collapse" title="Collapse">−</button>
-      <video data-deck-videoel preload="metadata" playsinline></video>
+      <video data-deck-videoel preload="metadata" playsinline crossorigin="anonymous"></video>
+      <div class="media-deck-error" data-deck-error hidden></div>
       <div class="media-deck-controls">
-        <button type="button" class="media-deck-btn" data-deck-playpause aria-label="Play/Pause" title="Space">▶</button>
+        <div class="media-deck-controls-center">
+          <button type="button" class="media-deck-btn media-deck-btn--skip" data-deck-skipback aria-label="Skip back 10 seconds" title="← 10s">
+            ${ICON_SKIP_BACK}
+            <span class="media-deck-skip-label">10</span>
+          </button>
+          <button type="button" class="media-deck-btn media-deck-btn--play" data-deck-playpause aria-label="Play/Pause" title="Space">
+            ${ICON_PLAY}
+          </button>
+          <button type="button" class="media-deck-btn media-deck-btn--skip" data-deck-skipfwd aria-label="Skip forward 10 seconds" title="10s →">
+            <span class="media-deck-skip-label">10</span>
+            ${ICON_SKIP_FWD}
+          </button>
+        </div>
         <span class="media-deck-time" data-deck-time>0:00 / 0:00</span>
         <select class="media-deck-rate" data-deck-rate title="Playback speed">
           <option value="0.5">0.5×</option>
@@ -75,11 +110,14 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   const videoFrame = root.querySelector('[data-deck-video]');
   const video = root.querySelector('[data-deck-videoel]');
   const playPauseBtn = root.querySelector('[data-deck-playpause]');
+  const skipBackBtn = root.querySelector('[data-deck-skipback]');
+  const skipFwdBtn = root.querySelector('[data-deck-skipfwd]');
   const timeEl = root.querySelector('[data-deck-time]');
   const rateSelect = root.querySelector('[data-deck-rate]');
   const waveformMount = root.querySelector('[data-deck-waveform]');
   const grip = root.querySelector('[data-deck-grip]');
   const collapseBtn = root.querySelector('[data-deck-collapse]');
+  const errorEl = root.querySelector('[data-deck-error]');
 
   // ── Restore saved position + collapsed state ────────────────────
   try {
@@ -220,17 +258,64 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   });
   video.addEventListener('loadedmetadata', refreshTimeLabel);
   video.addEventListener('play', () => {
-    playPauseBtn.textContent = '❚❚';
+    playPauseBtn.innerHTML = ICON_PAUSE;
     playPauseBtn.setAttribute('aria-label', 'Pause');
   });
   video.addEventListener('pause', () => {
-    playPauseBtn.textContent = '▶';
+    playPauseBtn.innerHTML = ICON_PLAY;
     playPauseBtn.setAttribute('aria-label', 'Play');
   });
 
+  // Surface load errors instead of silently failing. CORS, 403, or media
+  // codec issues all show up here. Without this we'd just see a dead player.
+  video.addEventListener('error', () => {
+    const err = video.error;
+    const code = err ? err.code : 'unknown';
+    const msg = err ? err.message : '';
+    console.error('[media-deck] video error', { code, msg, src: video.currentSrc || video.src });
+    showError(`Couldn't load video (code ${code}). Check console for details.`);
+  });
+
+  function tryPlay() {
+    const p = video.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch((err) => {
+        console.error('[media-deck] play() rejected:', err?.name, err?.message || err);
+        // NotAllowedError = autoplay policy. AbortError = source still loading.
+        if (err && err.name === 'NotAllowedError') {
+          showError('Click the video to start playback (browser blocked autoplay).');
+        }
+      });
+    }
+  }
+  function showError(msg) {
+    if (!errorEl) return;
+    errorEl.textContent = msg;
+    errorEl.hidden = false;
+  }
+  function clearError() {
+    if (!errorEl) return;
+    errorEl.hidden = true;
+    errorEl.textContent = '';
+  }
+  video.addEventListener('playing', clearError);
+  video.addEventListener('loadeddata', clearError);
+
   playPauseBtn.addEventListener('click', () => {
-    if (video.paused) video.play().catch(() => {});
+    if (video.paused) tryPlay();
     else video.pause();
+  });
+  // Click the video itself to play/pause too — important when the controls
+  // bar is small and the video is the obvious target.
+  video.addEventListener('click', () => {
+    if (video.paused) tryPlay();
+    else video.pause();
+  });
+  skipBackBtn.addEventListener('click', () => {
+    seekTo((video.currentTime || 0) - 10);
+  });
+  skipFwdBtn.addEventListener('click', () => {
+    seekTo((video.currentTime || 0) + 10);
   });
   rateSelect.addEventListener('change', () => {
     const r = parseFloat(rateSelect.value);
@@ -270,7 +355,7 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     if (e.metaKey || e.ctrlKey || e.altKey) {
       e.preventDefault();
       seekTo(seconds);
-      video.play().catch(() => {});
+      tryPlay();
     } else if (e.shiftKey) {
       e.preventDefault();
       seekTo(seconds);
@@ -360,7 +445,7 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   regionsPlugin.on('region-clicked', (region, e) => {
     e.stopPropagation();
     seekTo(region.start);
-    video.play().catch(() => {});
+    tryPlay();
     onSeek(region.start);
   });
 
@@ -391,21 +476,21 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     const k = e.key;
     let handled = true;
     if (k === ' ' || k === 'Spacebar') {
-      if (video.paused) video.play().catch(() => {});
+      if (video.paused) tryPlay();
       else video.pause();
     } else if (k === 'k' || k === 'K') {
       video.pause();
     } else if (k === 'l' || k === 'L') {
       // L: play; pressing repeatedly bumps the rate up toward 2x like Final Cut
-      if (video.paused) { video.playbackRate = 1; video.play().catch(() => {}); }
+      if (video.paused) { video.playbackRate = 1; tryPlay(); }
       else { video.playbackRate = Math.min(2, (video.playbackRate || 1) * 1.5); }
       rateSelect.value = String(closestRate(video.playbackRate));
     } else if (k === 'j' || k === 'J') {
       // J: rewind; toggles into "play backward" by stepping back if unsupported
       // Most browsers don't support negative playbackRate, so we do step-back at 5s.
       seekTo((video.currentTime || 0) - 5);
-    } else if (k === 'ArrowLeft')  { seekTo((video.currentTime || 0) - 5); }
-    else if  (k === 'ArrowRight') { seekTo((video.currentTime || 0) + 5); }
+    } else if (k === 'ArrowLeft')  { seekTo((video.currentTime || 0) - 10); }
+    else if  (k === 'ArrowRight') { seekTo((video.currentTime || 0) + 10); }
     else if  (k === 'ArrowDown')  { video.playbackRate = Math.max(0.25, (video.playbackRate || 1) - 0.25); rateSelect.value = String(closestRate(video.playbackRate)); }
     else if  (k === 'ArrowUp')    { video.playbackRate = Math.min(2,    (video.playbackRate || 1) + 0.25); rateSelect.value = String(closestRate(video.playbackRate)); }
     else handled = false;

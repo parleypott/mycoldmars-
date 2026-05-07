@@ -1,0 +1,11 @@
+Wizard's running — `node install.js` is alive (PID 82455). Probably opened a GUI window or is waiting at a terminal prompt somewhere. Drive it through whatever it's asking (DA name/identity, voice, Pulse setup).
+
+When it's fully done, tell me and I'll do the merge:
+1. Save PAI's `CLAUDE.md` as `~/.claude/CLAUDE.PAI.md`
+2. Restore your operating-posture `CLAUDE.md` (with a one-liner pointing at PAI's so the framework still works)
+3. `rsync` your 14 skills back into `~/.claude/skills/` alongside PAI's
+4. Restore your auto-memory dir under `projects/`
+5. Re-install claude-mem plugin
+6. Diff both `settings.json` files and merge your custom permissions back
+
+You may need to also tell me whether you want PAI's CLAUDE.md to override yours when they conflict, or vice versa. My default: yours wins (operating posture is doing real work for you), with PAI's appended below as reference.
