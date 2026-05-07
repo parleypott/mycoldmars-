@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hunter — Roadmap</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface-2: #1c1c1c;
+    --border: rgba(255,255,255,0.08);
+    --border-hover: rgba(255,255,255,0.15);
+    --ink: #e8e8e8;
+    --dim: rgba(255,255,255,0.4);
+    --red: #FF3B20;
+    --green: #22C55E;
+    --yellow: #FFBF00;
+    --blue: #3B82F6;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 80px 32px 120px;
+  }
+
+  /* ── Header ── */
+  .hero {
+    margin-bottom: 72px;
+  }
+  .hero-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--red);
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: 48px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 20px;
+  }
+  .hero-sub {
+    font-size: 18px;
+    color: var(--dim);
+    max-width: 600px;
+    line-height: 1.7;
+  }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 72px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .stat-number {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .stat-number--green { color: var(--green); }
+  .stat-number--yellow { color: var(--yellow); }
+  .stat-number--red { color: var(--red); }
+  .stat-number--blue { color: var(--blue); }
+  .stat-label {
+    font-size: 13px;
+    color: var(--dim);
+    font-weight: 500;
+  }
+
+  /* ── Phase sections ── */
+  .phase {
+    margin-bottom: 64px;
+  }
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .phase-badge {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+  .phase-badge--done {
+    background: rgba(34,197,94,0.15);
+    color: var(--green);
+  }
+  .phase-badge--action {
+    background: rgba(255,191,0,0.15);
+    color: var(--yellow);
+  }
+  .phase-badge--later {
+    background: rgba(255,255,255,0.06);
+    color: var(--dim);
+  }
+  .phase h2 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /* ── Task list ── */
+  .tasks {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .task {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 16px;
+    align-items: start;
+    padding: 20px 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition: border-color 0.2s;
+  }
+  .task:hover {
+    border-color: var(--border-hover);
+  }
+  .task-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .task-icon--done {
+    background: rgba(34,197,94,0.15);
+    color: var(--green);
+  }
+  .task-icon--todo {
+    background: rgba(255,191,0,0.12);
+    color: var(--yellow);
+  }
+  .task-icon--wait {
+    background: rgba(255,255,255,0.06);
+    color: var(--dim);
+  }
+  .task-title {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .task-desc {
+    font-size: 14px;
+    color: var(--dim);
+    line-height: 1.6;
+  }
+  .task-file {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--blue);
+    background: rgba(59,130,246,0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 48px 0;
+  }
+
+  /* ── Next steps callout ── */
+  .callout {
+    background: var(--surface);
+    border: 2px solid var(--yellow);
+    border-radius: 16px;
+    padding: 36px;
+    margin-bottom: 64px;
+  }
+  .callout h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--yellow);
+    margin-bottom: 20px;
+  }
+  .callout ol {
+    padding-left: 24px;
+  }
+  .callout li {
+    font-size: 18px;
+    margin-bottom: 14px;
+    line-height: 1.6;
+  }
+  .callout li strong {
+    color: var(--ink);
+  }
+  .callout li span {
+    color: var(--dim);
+  }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    padding-top: 48px;
+    border-top: 1px solid var(--border);
+    color: var(--dim);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 600px) {
+    .page { padding: 48px 20px 80px; }
+    .hero h1 { font-size: 32px; }
+    .stat-number { font-size: 28px; }
+    .phase h2 { font-size: 22px; }
+    .callout li { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-eyebrow">Hunter Roadmap</div>
+    <h1>Where We Are &<br>Where We're Going</h1>
+    <p class="hero-sub">A clear picture of what's working, what just got fixed, and what's next. Updated May 7, 2026.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-number stat-number--green">6,199</div>
+      <div class="stat-label">Videos analyzed by Gemini</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number stat-number--green">6,210</div>
+      <div class="stat-label">Embeddings in Supabase</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number stat-number--yellow">63%</div>
+      <div class="stat-label">Corpus coverage</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number stat-number--red">~3,600</div>
+      <div class="stat-label">Clips still to analyze</div>
+    </div>
+  </div>
+
+  <!-- Next Steps Callout -->
+  <div class="callout">
+    <h2>Your Next Steps (in order)</h2>
+    <ol>
+      <li>
+        <strong>Deploy the search function to Supabase.</strong><br>
+        <span>Open the Supabase dashboard, go to SQL Editor, paste the contents of <code>supabase-vector-search.sql</code> and run it. This creates the server-side search function that makes semantic search fast instead of falling back to slow client-side matching.</span>
+      </li>
+      <li>
+        <strong>Test local dev with the new proxy.</strong><br>
+        <span>Run <code>npx vite</code> in the <code>hunter/</code> folder, plus <code>vercel dev</code> in the project root (in a second terminal). The Vite proxy now forwards <code>/api/*</code> calls to Vercel dev. Search, "what do you see?", and synthesis should all work locally now.</span>
+      </li>
+      <li>
+        <strong>Resume the backfill to push past 63%.</strong><br>
+        <span>Run <code>node hunter/worker/backfill-analyses.mjs</code>. It now cleans up temp files automatically, handles Ctrl+C gracefully, and won't leak cache. Let it grind — it'll keep retrying through 503 storms.</span>
+      </li>
+      <li>
+        <strong>Once backfill finishes, re-run scene detection.</strong><br>
+        <span>More data means better scene groupings. Open any project — scenes auto-detect from clip timestamps and embeddings.</span>
+      </li>
+    </ol>
+  </div>
+
+  <!-- Phase 1: Just Fixed -->
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-badge phase-badge--done">Done</span>
+      <h2>Phase 1 — Stability Fixes</h2>
+    </div>
+    <p class="hero-sub" style="margin-bottom: 24px;">These were bugs making existing features silently fail. All fixed and pushed to main.</p>
+    <div class="tasks">
+
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">Vite proxy for local dev</div>
+          <div class="task-desc">Search, synthesis, and "what do you see?" were returning 404 in local dev because Vite had no way to reach the API routes. Now <code>/api/*</code> proxies to Vercel dev.</div>
+          <span class="task-file">vite.config.js</span>
+        </div>
+      </div>
+
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">Fixed the RPC fallback bug</div>
+          <div class="task-desc">When the main Supabase query failed and the RPC fallback succeeded, the code was still reading the failed response. Now it correctly tracks which response to use.</div>
+          <span class="task-file">api/gemini.js</span>
+        </div>
+      </div>
+
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">Search no longer fires multiple times</div>
+          <div class="task-desc">Every view switch was adding duplicate click handlers. After 5 switches, one search fired 5 times. Now old handlers are cleaned up automatically with AbortControllers.</div>
+          <span class="task-file">hunter/src/main.js</span>
+        </div>
+      </div>
+
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">Project loading shows errors now</div>
+          <div class="task-desc">If Supabase fails when opening a project, you now see a red toast instead of the UI silently breaking.</div>
+          <span class="task-file">hunter/src/main.js</span>
+        </div>
+      </div>
+
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">Missing CSS variables defined</div>
+          <div class="task-desc"><code>--np-radius-lg</code> and <code>--np-duration-md</code> were used but never defined. Now they actually do something.</div>
+          <span class="task-file">hunter/src/style.css</span>
+        </div>
+      </div>
+
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">Escape key closes the new-project modal</div>
+          <div class="task-desc">Was checking for a DOM ID that didn't exist. Now finds the modal by its class name.</div>
+          <span class="task-file">hunter/src/main.js</span>
+        </div>
+      </div>
+
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">Demo mode doesn't hijack real projects</div>
+          <div class="task-desc">Creating a new project with zero sources was triggering demo mode. Now demo only activates when the database isn't configured at all.</div>
+          <span class="task-file">hunter/src/main.js</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Phase 1.5: Manual step -->
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-badge phase-badge--action">Action Needed</span>
+      <h2>Deploy Search RPC to Supabase</h2>
+    </div>
+    <div class="tasks">
+      <div class="task" style="border-color: var(--yellow);">
+        <div class="task-icon task-icon--todo">!</div>
+        <div>
+          <div class="task-title">Run the vector search SQL migration</div>
+          <div class="task-desc">
+            The file <code>supabase-vector-search.sql</code> exists in the repo but was never executed against Supabase. Without it, semantic search falls back to downloading all 6,210 embeddings client-side and doing cosine similarity in the browser — slow and wasteful.<br><br>
+            <strong>How:</strong> Open Supabase dashboard &rarr; SQL Editor &rarr; paste the file contents &rarr; Run.
+          </div>
+          <span class="task-file">supabase-vector-search.sql</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 2: Backfill Hardening -->
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-badge phase-badge--done">Done</span>
+      <h2>Phase 2 — Backfill Hardening</h2>
+    </div>
+    <div class="tasks">
+
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">Ctrl+C now cleans up gracefully</div>
+          <div class="task-desc">SIGINT/SIGTERM handler deletes cached video files and prints a clean shutdown message instead of leaving orphaned uploads.</div>
+          <span class="task-file">backfill-analyses.mjs</span>
+        </div>
+      </div>
+
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">Cache directory auto-cleans after runs</div>
+          <div class="task-desc">No more 1.6 GB of orphaned video files accumulating in the temp cache.</div>
+          <span class="task-file">backfill-analyses.mjs</span>
+        </div>
+      </div>
+
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">Removed dead code</div>
+          <div class="task-desc"><code>getEffectiveConcurrency()</code> was defined but never called. Deleted. Unused <code>getCrossTierStats</code> import removed. Dead <code>.pattern-examples</code> CSS removed.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Phase 3: Complete the Corpus -->
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-badge phase-badge--action">Up Next</span>
+      <h2>Phase 3 — Complete the Corpus</h2>
+    </div>
+    <p class="hero-sub" style="margin-bottom: 24px;">The backfill script is now reliable. Let it run to finish analyzing the remaining ~3,600 clips.</p>
+    <div class="tasks">
+
+      <div class="task">
+        <div class="task-icon task-icon--todo">&#9654;</div>
+        <div>
+          <div class="task-title">Run backfill to 100% coverage</div>
+          <div class="task-desc">Currently at 63.1% (6,199 of 9,813 units). The Gemini API throws 503s in waves — the script handles this with exponential backoff. Just let it run.</div>
+        </div>
+      </div>
+
+      <div class="task">
+        <div class="task-icon task-icon--wait">&#8230;</div>
+        <div>
+          <div class="task-title">Re-run scene detection after backfill</div>
+          <div class="task-desc">More analyzed clips = better temporal grouping. Scenes auto-detect from clip timestamps — just open any project after backfill completes.</div>
+        </div>
+      </div>
+
+      <div class="task">
+        <div class="task-icon task-icon--wait">&#8230;</div>
+        <div>
+          <div class="task-title">Run four-tier synthesis per project</div>
+          <div class="task-desc">Already proven to work (7-observation editorial analysis of Saudi Arabia). Click "what do you see?" on any project with enough data.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Phase 4: Dark Redesign -->
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-badge phase-badge--later">Later</span>
+      <h2>Phase 4 — Dark Redesign</h2>
+    </div>
+    <div class="tasks">
+      <div class="task">
+        <div class="task-icon task-icon--wait">&#8230;</div>
+        <div>
+          <div class="task-title">Visual-only reskin of all Hunter UI</div>
+          <div class="task-desc">A design plan exists but needs updating to include the new sections (scenes timeline, editorial funnel, project search, keyboard shortcuts overlay). This is purely cosmetic — no functionality changes. Do this after stability fixes so we're reskinning features that actually work.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- What's working well -->
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-badge phase-badge--done">Solid</span>
+      <h2>What's Working Well</h2>
+    </div>
+    <div class="tasks">
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">The data pipeline</div>
+          <div class="task-desc">6,199 analyses and 6,210 embeddings in Supabase. 95.3% backfill success rate. This is the core value of Hunter.</div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">Four-tier synthesis</div>
+          <div class="task-desc">Gemini 2.5 Pro produced a 7-observation editorial analysis of Saudi Arabia by cross-referencing raw footage, scripts, selects, and finished cuts.</div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">Scene auto-detection</div>
+          <div class="task-desc">21 scenes detected across 3,886 clips using temporal grouping + embedding similarity. No extra API calls — pure reuse of existing data.</div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-icon task-icon--done">&#10003;</div>
+        <div>
+          <div class="task-title">All the UI features</div>
+          <div class="task-desc">Scenes timeline, editorial funnel, project search, corpus browser, keyboard shortcuts — all built and verified.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Hunter &mdash; Newpress &mdash; May 2026
+  </div>
+
+</div>
+
+</body>
+</html>
