@@ -44,6 +44,11 @@ let editorState = null;       // Tiptap JSON document
 let editorInstance = null;    // mounted editor reference
 let mediaDeck = null;         // mounted Trint-style video+waveform deck (when transcript has media)
 let currentMediaUploadId = null; // hydrated from transcripts.media_upload_id on load
+let pendingTargetLanguage = null;     // user pick from Step 2 language card
+let pendingSourceLanguage = null;     // user pick from Step 2 language card
+let pendingTranslationEnabled = null; // tri-state: null=unknown, true/false=user chose
+let currentTargetLanguage = null;     // hydrated from transcripts.target_language
+let currentTranslationEnabled = null; // hydrated from transcripts.translation_enabled
 let editorDirty = false;      // true when editor has unsaved changes not yet synced to translations[]
 let currentSummary = null;    // auto-generated chronological summary
 let rawSummary = null;        // raw AI output before timecode enrichment
@@ -93,6 +98,7 @@ const SPEAKER_PALETTE = [
   '#520004', '#412C27', '#6B5CE7', '#E85D04'
 ];
 
+// Step 3 (Clarify) is hidden — kept in the array for legacy step IDs.
 const STEP_LABELS = ['', 'Upload', 'Analyze', 'Clarify', 'Translate', 'Edit'];
 
 // ── DOM refs ──
@@ -783,8 +789,13 @@ function applyTranscriptToState(t) {
   currentTranscriptName = t.name;
   currentSlug = t.slug || null;
   currentMediaUploadId = t.media_upload_id || null;
-  // Reset pendingMediaUploadId — that's only set during a fresh upload.
+  currentTargetLanguage = t.target_language || null;
+  currentTranslationEnabled = (typeof t.translation_enabled === 'boolean') ? t.translation_enabled : null;
+  // Reset pending* — they're only set during the current session's flow.
   pendingMediaUploadId = null;
+  pendingTargetLanguage = null;
+  pendingSourceLanguage = null;
+  pendingTranslationEnabled = null;
 }
 
 // Overlay a snapshot's gatherState()-shape payload onto our state vars.
@@ -986,6 +997,8 @@ function gatherState(name) {
     wordTimings: wordTimingsMap,
     mediaUploadId: pendingMediaUploadId || currentMediaUploadId || undefined,
     source: (pendingMediaUploadId || currentMediaUploadId) ? 'transcribed' : undefined,
+    targetLanguage: pendingTargetLanguage ?? currentTargetLanguage ?? undefined,
+    translationEnabled: pendingTranslationEnabled ?? currentTranslationEnabled ?? undefined,
     metadata: {
       editorialFocus,
       clarifications,
@@ -2656,7 +2669,75 @@ function renderAnalysis() {
       hideUnintelligible = e.target.checked;
     });
   }
-  btnToClarify.innerHTML = 'Continue &rarr;';
+  if (btnToClarify) btnToClarify.innerHTML = 'Continue &rarr;';
+  populateLanguagePickers();
+}
+
+// Populate the source-language dropdown from the analysis (detected
+// languages per speaker → flattened set), and pre-select the most
+// common source. Also default the target dropdown to the user's
+// previously-saved choice when re-entering an existing transcript.
+const ISO_LANG_NAMES = {
+  en: 'English', es: 'Spanish', fr: 'French', de: 'German',
+  pt: 'Portuguese', it: 'Italian', zh: 'Chinese (Simplified)',
+  ja: 'Japanese', ko: 'Korean', ar: 'Arabic', hi: 'Hindi', ru: 'Russian',
+  nl: 'Dutch', sv: 'Swedish', no: 'Norwegian', da: 'Danish', fi: 'Finnish',
+  pl: 'Polish', tr: 'Turkish', he: 'Hebrew', th: 'Thai', vi: 'Vietnamese',
+  id: 'Indonesian', uk: 'Ukrainian', cs: 'Czech', el: 'Greek', ro: 'Romanian',
+  hu: 'Hungarian', bn: 'Bengali', ur: 'Urdu', fa: 'Persian',
+};
+
+function populateLanguagePickers() {
+  const sourceSel = document.getElementById('source-language');
+  const targetSel = document.getElementById('target-language');
+  if (!sourceSel || !targetSel) return;
+
+  // Build the source list: union of (a) the detected languages from
+  // analysis.language_map, (b) common ISO-639-1 codes, ordered with
+  // detected langs first.
+  const detected = new Set();
+  if (analysis?.language_map && typeof analysis.language_map === 'object') {
+    for (const lang of Object.values(analysis.language_map)) {
+      const code = isoCodeFromName(lang);
+      if (code) detected.add(code);
+    }
+  }
+  const all = [...detected, ...Object.keys(ISO_LANG_NAMES).filter(c => !detected.has(c))];
+  sourceSel.innerHTML = ['<option value="">Auto-detect</option>']
+    .concat(all.map(code => `<option value="${code}">${ISO_LANG_NAMES[code] || code}${detected.has(code) ? ' (detected)' : ''}</option>`))
+    .join('');
+
+  // Pick the most common detected language as the default source.
+  if (detected.size > 0) sourceSel.value = [...detected][0];
+
+  // Honor user's previous target choice on this transcript; otherwise
+  // default to "no translation" if source was English (most common case
+  // for Johnny — interviews shot in English don't need translation).
+  if (currentTargetLanguage) {
+    targetSel.value = currentTargetLanguage;
+  } else if (currentTranslationEnabled === false) {
+    targetSel.value = '';
+  } else if (sourceSel.value === 'en') {
+    targetSel.value = ''; // English source → default to no translation
+  }
+}
+
+// Map "English", "Spanish", etc. (whatever the analysis returns) to ISO codes.
+function isoCodeFromName(name) {
+  if (!name) return null;
+  const lower = String(name).toLowerCase().trim();
+  // Direct ISO code passthrough
+  if (ISO_LANG_NAMES[lower]) return lower;
+  // Name lookup
+  for (const [code, n] of Object.entries(ISO_LANG_NAMES)) {
+    if (n.toLowerCase() === lower) return code;
+    if (lower.startsWith(n.toLowerCase())) return code;
+  }
+  // Common aliases
+  if (/^chinese/.test(lower) || /^mandarin/.test(lower) || lower === 'cantonese') return 'zh';
+  if (/^spanish/.test(lower)) return 'es';
+  if (/^english/.test(lower)) return 'en';
+  return null;
 }
 
 function renderSpeakerCheckboxes() {
@@ -2706,8 +2787,35 @@ function skipToEditor() {
 $('#btn-skip-to-editor').addEventListener('click', skipToEditor);
 $('#btn-skip-to-editor-upload').addEventListener('click', skipToEditor);
 
-// ── Step 3: Clarify ──
-btnToClarify.addEventListener('click', () => {
+// ── New 3-step flow: Analyze → Translate (optional) → Edit ──
+// The legacy Clarify step is kept in the DOM for backwards compatibility
+// (so old saved transcripts mid-flow still load), but new flows skip it
+// entirely. Editorial Focus moved into Step 2 alongside the language
+// pickers; per-question clarifications are no longer collected.
+const btnContinueFromAnalyze = document.getElementById('btn-continue-from-analyze');
+if (btnContinueFromAnalyze) {
+  btnContinueFromAnalyze.addEventListener('click', () => {
+    gatherSpeakerSelections();
+    const targetLang = (document.getElementById('target-language')?.value || '').trim();
+    const sourceLang = (document.getElementById('source-language')?.value || '').trim();
+    pendingTargetLanguage = targetLang || null;
+    pendingSourceLanguage = sourceLang || null;
+    pendingTranslationEnabled = !!targetLang;
+
+    if (!targetLang) {
+      // No translation requested — go straight to the editor with the
+      // original transcript. Build editor state from segments only.
+      skipToEditor();
+      return;
+    }
+    // Translation requested — kick off Step 4 directly. Clarify is dead.
+    startTranslation();
+  });
+}
+
+// Legacy Clarify button still wired so old saved transcripts can load
+// into Step 3 without breaking. New uploads never touch this path.
+btnToClarify?.addEventListener('click', () => {
   goToStep(3);
   renderClarifyStep();
   autoSave();

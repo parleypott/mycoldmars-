@@ -5191,3 +5191,64 @@ span[data-segment]:hover {
   cursor: pointer;
   background: rgba(221, 44, 30, 0.04);
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Language picker on Step 2 (Analyze)
+────────────────────────────────────────────────────────────────────── */
+.language-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--np-space-4);
+  margin-top: var(--np-space-3);
+  flex-wrap: wrap;
+}
+.lang-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 200px;
+  min-width: 180px;
+}
+.lang-label {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+}
+.np-select {
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  padding: 8px 10px;
+  background: var(--np-cream);
+  border: 1px solid var(--np-sepia);
+  border-radius: 2px;
+  color: var(--np-ink);
+  cursor: pointer;
+  min-width: 180px;
+}
+.np-select:focus {
+  outline: 2px solid var(--np-red);
+  outline-offset: 1px;
+}
+.lang-arrow {
+  font-family: var(--np-font-mono);
+  color: var(--np-red);
+  font-size: 18px;
+  margin-bottom: 8px;
+  flex: 0 0 auto;
+}
+.optional-tag {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+  font-weight: 400;
+  margin-left: var(--np-space-2);
+  opacity: 0.8;
+}
+
+/* Hidden step in the top navigation. Skipped from new flows but kept
+   in the DOM for legacy transcripts that landed mid-flow. */
+.steps .step--hidden { display: none !important; }
