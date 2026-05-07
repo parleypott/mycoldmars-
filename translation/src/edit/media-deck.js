@@ -277,12 +277,20 @@ export function mountMediaDeck(editorContainer, opts = {}) {
 
   // Surface load errors instead of silently failing. CORS, 403, or media
   // codec issues all show up here. Without this we'd just see a dead player.
+  // MediaError codes: 1=aborted, 2=network, 3=decode, 4=src not supported.
+  // Codes 3 and 4 are codec/format failures (most ProRes proxies) — flip
+  // straight to the audio-only fallback panel instead of a generic error.
   video.addEventListener('error', () => {
     const err = video.error;
     const code = err ? err.code : 'unknown';
     const msg = err ? err.message : '';
     console.error('[media-deck] video error', { code, msg, src: video.currentSrc || video.src });
-    showError(`Couldn't load video (code ${code}). Check console for details.`);
+    if ((code === 3 || code === 4) && noVideoEl) {
+      noVideoEl.hidden = false;
+      videoFrame.classList.add('media-deck-video--audioonly');
+    } else {
+      showError(`Couldn't load video (code ${code}). Check console for details.`);
+    }
   });
 
   function tryPlay() {
@@ -534,7 +542,13 @@ export function mountMediaDeck(editorContainer, opts = {}) {
 
   function destroy() {
     try { video.pause(); } catch {}
+    // Cancel any in-flight media fetch so we're not still downloading a
+    // 2 GB ProRes proxy after the user navigated away.
+    try { video.removeAttribute('src'); video.load(); } catch {}
     try { wavesurfer.destroy(); } catch {}
+    // If we're destroyed mid-drag, the body class would otherwise stick
+    // and leave the cursor in grabbing mode forever.
+    document.body.classList.remove('media-deck-dragging');
     // Window-level listeners — these survive the DOM removal otherwise
     // and accumulate every transcript switch.
     window.removeEventListener('mousemove', onWindowMousemove);

@@ -12,7 +12,7 @@ import { SummaryView } from '../copilot/SummaryView.jsx';
 import { extractSequenceBase } from '../csv-parser.js';
 import { formatPreciseTimecode } from '../timecode-utils.js';
 
-export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, onSequenceNameChange, editorDirty, summary, summaryBullets, interestVotes, onInterestVote, onRegenerateSummary, sequenceInfo, speakerColors, speakerMap, hiddenSpeakers, onSpeakerMapChange, onOpenHistory }) {
+export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, onSequenceNameChange, editorDirty, summary, summaryBullets, interestVotes, onInterestVote, onRegenerateSummary, sequenceInfo, speakerColors, speakerMap, hiddenSpeakers, onSpeakerMapChange, onOpenHistory, viewOnly = false }) {
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
@@ -61,6 +61,7 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
   primarySpeakerLatest.current = sequenceInfo?.primarySpeaker || '';
 
   const editor = useEditor({
+    editable: !viewOnly,
     extensions: [
       StarterKit.configure({
         heading: false,
@@ -158,6 +159,13 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
       }
     }
   }, [initialContent]);
+
+  // Reflect viewOnly changes — when the lock decision flips us into view-only
+  // mode after mount (another tab grabbed the lock), disable input so edits
+  // can't silently disappear into a save path that's been short-circuited.
+  useEffect(() => {
+    if (editor) editor.setEditable(!viewOnly);
+  }, [editor, viewOnly]);
 
   // Dispatch interest votes to ProseMirror plugin
   useEffect(() => {

@@ -122,6 +122,39 @@ export function isSnapshotNewerThan(snap, serverUpdatedAt) {
   return new Date(snap.updatedAt).getTime() > new Date(serverUpdatedAt).getTime();
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// Draft snapshot — for the pre-id window between a media upload + the first
+// successful save. Until the server returns a transcript id, we have no key
+// to use for the regular indexed snapshots, so we'd silently drop the work
+// on tab close if the first save fails. Draft snapshot fills that gap with
+// a single fixed key. Cleared as soon as a real id exists.
+// ──────────────────────────────────────────────────────────────────────────
+const DRAFT_KEY = 'mcm_draft_snapshot';
+
+export function saveDraftSnapshot(payload) {
+  const record = {
+    payload,
+    savedAt: new Date().toISOString(),
+  };
+  try {
+    const json = JSON.stringify(record);
+    if (json.length > MAX_BYTES) return;
+    localStorage.setItem(DRAFT_KEY, json);
+  } catch {}
+}
+
+export function loadDraftSnapshot() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+export function clearDraftSnapshot() {
+  try { localStorage.removeItem(DRAFT_KEY); } catch {}
+}
+
 /**
  * Diagnostic: how many snapshots and roughly how much storage they use.
  */

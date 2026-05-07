@@ -320,14 +320,22 @@ export function openSpeakerLabelDialog({ segments, signedUrl }) {
       return { renames, hidden };
     }
 
-    const dismiss = () => { stopPlayback(); modal.remove(); reject(new Error('cancelled')); };
+    // Tear down audio: stop playback, drop the src so the browser cancels
+    // any pending fetch (the signed URL can be a 2 GB file — leaving it
+    // resolving in the background is a real bandwidth hit).
+    function tearDownAudio() {
+      try { stopPlayback(); } catch {}
+      try { audio.removeAttribute('src'); audio.load(); } catch {}
+    }
+
+    const dismiss = () => { tearDownAudio(); modal.remove(); reject(new Error('cancelled')); };
     modal.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', dismiss));
     modal.querySelector('[data-skip]').addEventListener('click', () => {
-      stopPlayback(); modal.remove(); resolve({ renames: {}, hidden: [] });
+      tearDownAudio(); modal.remove(); resolve({ renames: {}, hidden: [] });
     });
     modal.querySelector('[data-done]').addEventListener('click', () => {
       const choices = readChoices();
-      stopPlayback(); modal.remove(); resolve(choices);
+      tearDownAudio(); modal.remove(); resolve(choices);
     });
   });
 }

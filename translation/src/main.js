@@ -6,7 +6,7 @@ import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
 import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, subscribeToTranscript, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload } from './db.js';
-import { saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan } from './snapshot.js';
+import { saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan, saveDraftSnapshot, loadDraftSnapshot, clearDraftSnapshot } from './snapshot.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
 import { mountTagSearch } from './tags/mount.js';
@@ -1172,13 +1172,27 @@ function markDirty() {
 // Mirror current in-memory state to localStorage immediately, with no
 // server updatedAt (marks the snapshot as dirty). This is the safety net
 // that catches work even when the cloud save path is broken.
+//
+// Two paths:
+//   • currentTranscriptId set → indexed snapshot under mcm_snap_{id}.
+//   • currentTranscriptId not set yet (the gap between first upload and
+//     the first successful save) → draft snapshot under a fixed key.
+//     Recovered on next session start if the user closed the tab before
+//     the first save landed.
 function snapshotDirtyState() {
-  if (!currentTranscriptId) return; // pre-first-save snapshots not yet supported
-  try {
-    const payload = gatherState();
-    saveSnapshot(currentTranscriptId, payload, null);
-  } catch (err) {
-    console.warn('[autosave] dirty snapshot failed:', err);
+  let payload;
+  try { payload = gatherState(); }
+  catch (err) {
+    console.warn('[autosave] gatherState failed:', err);
+    return;
+  }
+  if (currentTranscriptId) {
+    try { saveSnapshot(currentTranscriptId, payload, null); }
+    catch (err) { console.warn('[autosave] dirty snapshot failed:', err); }
+  } else if ((payload.segments || []).length > 0) {
+    // Only worth a draft if there's actual content to lose.
+    try { saveDraftSnapshot(payload); }
+    catch (err) { console.warn('[autosave] draft snapshot failed:', err); }
   }
 }
 
@@ -1256,6 +1270,16 @@ async function runSaveOnce(opts = {}) {
       setPermalinkHash(currentSlug);
       updateTranscriptTitle();
       saveSnapshot(currentTranscriptId, payload, savedRow.updated_at);
+      // First save landed — clear the pre-id draft snapshot so we don't
+      // offer to recover it on the next session.
+      try { clearDraftSnapshot(); } catch {}
+      // pending* values were just persisted as part of the new row. Clear
+      // them so subsequent autosaves don't keep re-asserting the same
+      // mediaUploadId / targetLanguage / etc on every save (P1-11).
+      pendingMediaUploadId = null;
+      pendingTargetLanguage = null;
+      pendingSourceLanguage = null;
+      pendingTranslationEnabled = null;
       // Subscribe to remote updates as soon as we have an id.
       ensureRealtimeSubscription();
     }
@@ -3258,11 +3282,15 @@ function switchView(view) {
     mountWorkshop();
   }
 
-  // Tear down media deck whenever we leave the editor view.
-  if (view !== 'editor' && mediaDeck) {
-    try { mediaDeck.destroy(); } catch {}
-    mediaDeck = null;
+  // Hide the media deck visually when not in editor view, but DON'T destroy
+  // it — destroying triggers a fresh signed-URL fetch + waveform decode every
+  // time the user toggles editor↔workshop, which is wasteful and slow.
+  // The deck is torn down for real on transcript change (resetToUpload /
+  // teardownEditingSession) so playback state actually persists across views.
+  if (mediaDeck?.root) {
+    mediaDeck.root.style.display = (view === 'editor') ? '' : 'none';
   }
+  document.body.classList.toggle('has-media-deck', view === 'editor' && !!mediaDeck);
 
   // Mount editor on first switch to editor view
   if (view === 'editor' && editorState) {
@@ -3270,9 +3298,11 @@ function switchView(view) {
     syncEditorColors();
     const container = $('#editor-mount');
     if (container && !editorInstance) {
-      // Mount the Trint-style media deck if this transcript has a linked media upload.
-      // Fire-and-forget — failures are non-fatal (editor still works without media).
-      mountMediaDeckForCurrent(container).catch(err => console.warn('[media-deck] mount failed:', err));
+      // Mount the Trint-style media deck only if we don't already have one
+      // for this transcript. Re-mount on view-toggle is what made it slow.
+      if (!mediaDeck) {
+        mountMediaDeckForCurrent(container).catch(err => console.warn('[media-deck] mount failed:', err));
+      }
       const seqMeta = getSeqMeta();
       editorInstance = mountEditor(container, {
         initialContent: editorState,
@@ -3285,6 +3315,7 @@ function switchView(view) {
         speakerMap,
         hiddenSpeakers,
         editorDirty,
+        viewOnly,
         onSpeakerMapChange: (rawName, newCleanName) => {
           // Route through np-speaker-rename — same code path as body
           // click-to-rename. Without this, the rename never autosaves
@@ -4280,8 +4311,34 @@ function renderRevisionList(container, revisions) {
       if (!confirm('Restore this version? Your current state will be saved as a new revision first.')) return;
       try {
         // Make sure current state is captured first.
-        if (saveState === 'dirty') await flushPendingSave();
+        if (saveState === 'dirty' || saveState === 'error' || saveState === 'conflict') {
+          await flushPendingSave();
+        }
         const rev = await loadRevision(id);
+        // applySnapshotPayload is additive — it only writes fields present in
+        // the payload. Old revisions predate fields like wordTimings,
+        // mediaUploadId, target_language, etc., so without an explicit reset
+        // those fields would bleed through from the live in-memory state and
+        // the "restored" version would be a hybrid of old + new. Zero out
+        // first so the restore is true to what was actually saved.
+        segments = [];
+        analysis = null;
+        translations = [];
+        srtContent = '';
+        speakerColors = {};
+        annotations = {};
+        speakerMap = {};
+        hiddenSpeakers = [];
+        editorState = null;
+        wordTimingsMap = null;
+        currentMediaUploadId = null;
+        currentTargetLanguage = null;
+        currentTranslationEnabled = null;
+        currentSummary = null;
+        rawSummary = null;
+        summaryBullets = [];
+        interestVotes = {};
+        workshopState = null;
         applySnapshotPayload(rev.snapshot);
         finishLoadRender({
           ...rev.snapshot,
@@ -4408,6 +4465,9 @@ async function maybeAcquireLock() {
     if (decision === 'view-only') {
       viewOnly = true;
       showViewOnlyBanner(existing);
+      // Push viewOnly into a mounted editor so input is actually disabled,
+      // not just silently dropped by runSaveOnce.
+      if (editorInstance) editorInstance.update({ viewOnly: true });
       return;
     }
     // 'take-over' — fall through to upsert below.
@@ -4436,6 +4496,12 @@ function teardownEditingSession() {
   if (banner) banner.remove();
   const remoteBanner = document.getElementById('remote-change-banner');
   if (remoteBanner) remoteBanner.remove();
+  // Tear down media deck on transcript change. View-toggle no longer destroys
+  // it (just hides), so this is the single owner of deck destruction.
+  if (mediaDeck) {
+    try { mediaDeck.destroy(); } catch {}
+    mediaDeck = null;
+  }
 }
 
 function promptLockConflict(lock) {
@@ -4803,6 +4869,42 @@ function safeInit(name, fn) {
   migrateLocalStorageToSupabase()
     .then(r => { if (r.migrated) console.info(`Migrated ${r.transcripts} transcripts, ${r.projects} projects to Supabase`); })
     .catch(err => console.warn('Migration check failed:', err.message));
+
+  // Pre-id draft recovery — if the previous session uploaded + transcribed
+  // but never made it through the first save (network failure, tab close
+  // before save landed, etc.), the in-memory state is stranded in
+  // localStorage under the draft key. Offer to restore so the work isn't lost.
+  // Only triggers when no permalink is set (so we don't trample over an
+  // explicitly-loaded transcript) and only when the draft has segments.
+  try {
+    const draft = loadDraftSnapshot();
+    if (draft?.payload && (draft.payload.segments || []).length > 0 && !getPermalinkId()) {
+      const segCount = draft.payload.segments.length;
+      const when = draft.savedAt ? new Date(draft.savedAt).toLocaleString() : 'recently';
+      const recover = window.confirm(
+        `Recover unsaved work?\n\n` +
+        `${segCount} segments from a previous session were never saved to the cloud (${when}).\n\n` +
+        `OK to recover, Cancel to discard.`
+      );
+      if (recover) {
+        applySnapshotPayload(draft.payload);
+        // Force first-save now so a real id gets minted and the indexed
+        // snapshot path takes over.
+        markDirty();
+        await runSaveOnce({ awaitInFlight: true }).catch(err => {
+          console.warn('[draft-recover] save failed; data is still in memory:', err);
+        });
+        clearDraftSnapshot();
+        // Render whatever step we ended up at.
+        if (segments.length > 0 && editorState) { goToStep(5); switchView('editor'); }
+        else if (segments.length > 0) goToStep(2);
+        return;
+      }
+      clearDraftSnapshot();
+    }
+  } catch (err) {
+    console.warn('[draft-recover] failed:', err);
+  }
 
   // Only load a transcript if the URL explicitly asks for one. Visiting the
   // bare URL lands on home — no auto-redirect to last-opened, no silent URL
