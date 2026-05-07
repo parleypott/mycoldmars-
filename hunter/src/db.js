@@ -298,6 +298,28 @@ export async function getIngestStatus(projectId) {
   };
 }
 
+// ── Cross-Tier Stats ──
+
+export async function getCrossTierStats(projectId) {
+  if (!supabase) return null;
+
+  const { data: assets } = await db().from('media_assets')
+    .select('id, tier')
+    .eq('project_id', projectId);
+
+  if (!assets?.length) return null;
+
+  const stats = {};
+  for (const a of assets) {
+    const { count } = await db().from('corpus_units')
+      .select('id', { count: 'exact', head: true })
+      .eq('media_asset_id', a.id);
+    stats[a.tier] = { unitCount: count || 0 };
+  }
+
+  return stats;
+}
+
 // ── Semantic Search ──
 
 export async function semanticSearch({ query, projectId, limit = 20, tier }) {

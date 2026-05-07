@@ -1,4 +1,4 @@
-import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch } from './db.js';
+import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, getCrossTierStats } from './db.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -159,7 +159,21 @@ async function openProject(id) {
   const header = document.getElementById('project-header');
   const totalUnits = units.length;
   const analyzedUnits = units.filter(u => u.analyses?.length > 0).length;
-  const statsLine = totalUnits > 0 ? `${analyzedUnits} analyzed · ${assets.length} sources` : `${assets.length} sources`;
+
+  // Build per-tier stats
+  const tierCounts = {};
+  for (const a of assets) {
+    const tierUnits = units.filter(u => u.media_assets?.tier === a.tier || u.media_asset_id === a.id);
+    tierCounts[a.tier] = (tierCounts[a.tier] || 0) + tierUnits.length;
+  }
+  const tierParts = Object.entries(tierCounts)
+    .filter(([, c]) => c > 0)
+    .map(([tier, count]) => `${tier}: ${count}`)
+    .join(' · ');
+
+  const statsLine = totalUnits > 0
+    ? `${analyzedUnits} analyzed · ${tierParts}`
+    : `${assets.length} sources`;
   header.innerHTML = `<h2>${escHtml(project.name)}</h2><div class="project-stats">${statsLine}</div>`;
 
   // Update training hub
