@@ -239,6 +239,9 @@ async function openProject(id) {
   // Render scenes timeline
   renderScenes(units);
 
+  // Init project search
+  initProjectSearch();
+
   // Render corpus units with expandable text
   const unitsList = document.getElementById('corpus-units-list');
   if (units.length > 0) {
@@ -1145,6 +1148,52 @@ function stopIngestPolling() {
     clearInterval(ingestPollTimer);
     ingestPollTimer = null;
   }
+}
+
+// ── Project-level search ──
+
+function initProjectSearch() {
+  const input = document.getElementById('project-search-input');
+  const btn = document.getElementById('project-search-btn');
+  const results = document.getElementById('project-search-results');
+
+  if (!input || !btn) return;
+
+  async function doProjectSearch() {
+    const query = input.value.trim();
+    if (!query || !currentProjectId) return;
+
+    btn.disabled = true;
+    btn.textContent = '...';
+    results.innerHTML = '<p class="project-search-status">searching...</p>';
+
+    try {
+      const data = await semanticSearch({ query, projectId: currentProjectId, limit: 10 });
+      if (!data.matches?.length) {
+        results.innerHTML = '<p class="project-search-status">no matches found</p>';
+        return;
+      }
+
+      results.innerHTML = data.matches.map(m => `
+        <div class="project-search-result">
+          <div class="project-search-result-header">
+            <span class="project-search-result-clip">${escHtml(m.clipName || 'unknown')}</span>
+            <span class="project-search-result-score">${(m.similarity * 100).toFixed(1)}%</span>
+          </div>
+          <div class="project-search-result-meta">${m.tier || ''} · ${formatTc(m.startSeconds)} – ${formatTc(m.endSeconds)}</div>
+          <div class="project-search-result-text">${escHtml(m.analysisPreview || '')}</div>
+        </div>
+      `).join('');
+    } catch (err) {
+      results.innerHTML = `<p class="project-search-status" style="color:var(--np-red)">${escHtml(err.message)}</p>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'search';
+    }
+  }
+
+  btn.addEventListener('click', doProjectSearch);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') doProjectSearch(); });
 }
 
 // ── Tier funnel visualization ──
