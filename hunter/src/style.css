@@ -1180,6 +1180,45 @@ header {
   overflow: hidden;
 }
 
+/* Expanded scene card */
+.scene-card--expanded {
+  width: 360px;
+  border-color: rgba(255,59,32,0.25);
+}
+.scene-card--expanded .scene-card-preview { display: none; }
+.scene-card-detail {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--np-border);
+  padding-top: 8px;
+}
+.scene-clip-row {
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.scene-clip-row:last-child { border-bottom: none; }
+.scene-clip-name {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  color: var(--np-ink);
+  font-weight: 500;
+}
+.scene-clip-tc {
+  font-family: var(--np-font-mono);
+  font-size: 9px;
+  color: var(--np-text-dim);
+  margin-left: 8px;
+}
+.scene-clip-analysis {
+  font-family: var(--np-font-sans);
+  font-size: 11px;
+  color: var(--np-text-dim);
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
 /* ── Responsive ── */
 @media (max-width: 600px) {
   #app {

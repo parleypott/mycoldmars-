@@ -182,8 +182,15 @@ async function main() {
       // Download from Dropbox with size verification
       const dropboxPath = `${DROPBOX_FOLDER}/${unit.source_clip_name}`;
       if (!existsSync(localPath)) {
-        for (let dl = 0; dl < 2; dl++) {
-          await downloadFile(dropboxPath, localPath);
+        let downloadOk = false;
+        for (let dl = 0; dl < 3; dl++) {
+          try {
+            await downloadFile(dropboxPath, localPath);
+          } catch (dlErr) {
+            console.log(`[backfill] ${unit.source_clip_name}: download error: ${dlErr.message?.slice(0, 80)}`);
+            await rm(localPath, { force: true });
+            continue;
+          }
           // Verify file size matches Dropbox metadata
           try {
             const meta = await getMetadata(dropboxPath);
@@ -194,7 +201,11 @@ async function main() {
               continue;
             }
           } catch {}
+          downloadOk = true;
           break;
+        }
+        if (!downloadOk || !existsSync(localPath)) {
+          throw new Error(`Download failed after 3 attempts`);
         }
       }
 

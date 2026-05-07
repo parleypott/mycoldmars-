@@ -1224,15 +1224,27 @@ function renderScenes(units) {
           <span class="scenes-day-count">${dayScenes.length} scenes · ${totalClips} clips</span>
         </div>
         <div class="scenes-day-strip">
-          ${dayScenes.map(scene => {
+          ${dayScenes.map((scene, si) => {
             const clipNames = scene.clips.map(c => (c.source_clip_name || c.sourceClipName || '').replace(/_Proxy\.MP4$/i, ''));
+            const sceneId = `scene-${day}-${si}`;
             return `
-              <div class="scene-card">
+              <div class="scene-card" data-scene-id="${sceneId}">
                 <div class="scene-card-time">${scene.time}</div>
                 <div class="scene-card-label">${escHtml(scene.label)}</div>
                 <div class="scene-card-clips">${scene.clips.length} clip${scene.clips.length > 1 ? 's' : ''}${clipNames[0] ? ' · ' + escHtml(clipNames[0].replace(/^\d{8}-\d{4}-/, '')) : ''}</div>
                 ${scene.cameras.length > 1 ? `<div class="scene-card-cameras">${scene.cameras.map(c => `<span class="scene-camera-tag">${c}</span>`).join('')}</div>` : ''}
                 ${scene.firstAnalysis ? `<div class="scene-card-preview">${escHtml(scene.firstAnalysis.slice(0, 120))}</div>` : ''}
+                <div class="scene-card-detail hidden" id="${sceneId}-detail">
+                  ${scene.clips.map(c => {
+                    const cn = (c.source_clip_name || c.sourceClipName || '').replace(/_Proxy\.MP4$/i, '');
+                    const analysis = c.analyses?.[0]?.output_text || '';
+                    return `<div class="scene-clip-row">
+                      <span class="scene-clip-name">${escHtml(cn.replace(/^\d{8}-\d{4}-/, ''))}</span>
+                      <span class="scene-clip-tc">${formatTc(c.start_seconds)} – ${formatTc(c.end_seconds)}</span>
+                      ${analysis ? `<p class="scene-clip-analysis">${escHtml(analysis.slice(0, 150))}</p>` : ''}
+                    </div>`;
+                  }).join('')}
+                </div>
               </div>
             `;
           }).join('')}
@@ -1240,6 +1252,17 @@ function renderScenes(units) {
       </div>
     `;
   }).join('');
+
+  // Wire up scene card click-to-expand
+  timeline.querySelectorAll('.scene-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const detail = card.querySelector('.scene-card-detail');
+      if (detail) {
+        detail.classList.toggle('hidden');
+        card.classList.toggle('scene-card--expanded');
+      }
+    });
+  });
 }
 
 // ── Node diagram SVG ──
