@@ -408,6 +408,19 @@ export async function chatWithFootage({ message, conversationHistory, projectCon
   return res.json();
 }
 
+export async function fetchNarrativeInsights(scenes, projectName) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'narrative_insights', scenes, projectName }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.detail ? `${err.error}: ${err.detail}` : (err.error || 'Narrative insights failed'));
+  }
+  return res.json();
+}
+
 export async function fetchTierComparison(projectId) {
   const res = await fetch('/api/gemini', {
     method: 'POST',
