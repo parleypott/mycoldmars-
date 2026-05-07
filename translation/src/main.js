@@ -2342,10 +2342,14 @@ async function handleMediaUpload(file) {
         if (stage === 'upload') {
           showMediaProgress({ stage: 'upload', message: `Uploading ${file.name} — ${pct}%`, percent });
         } else if (stage === 'transcribe') {
+          // Estimate based on file size: Deepgram batch ~ 10x real-time.
+          // ~25MB ≈ 30s. ~100MB ≈ 2min. ~500MB ≈ 8min.
+          const sizeMb = file.size / 1024 / 1024;
+          const estMin = Math.max(0.5, Math.ceil(sizeMb / 60));
           showMediaProgress({
             stage: 'transcribe',
             message: percent < 1
-              ? `Transcribing with Whisper — this can take 30s to a few minutes…`
+              ? `Transcribing — typically ${estMin === 1 ? 'under a minute' : `${estMin} minute${estMin > 1 ? 's' : ''}`} for a file this size…`
               : `Transcription complete. Wrapping up…`,
             percent,
           });
@@ -2382,7 +2386,7 @@ function showMediaProgress({ stage, message, percent }) {
         <div class="media-progress-stage" data-progress-stage></div>
         <div class="media-progress-message" data-progress-message></div>
         <div class="media-progress-bar"><div class="media-progress-fill" data-progress-fill></div></div>
-        <div class="media-progress-hint" data-progress-hint>large files (over 25 MB) are not yet supported — see roadmap</div>
+        <div class="media-progress-hint" data-progress-hint>safe to keep this tab open in the background — work auto-saves when done</div>
       </div>
     `;
     document.body.appendChild(overlay);

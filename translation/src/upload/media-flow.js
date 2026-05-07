@@ -17,7 +17,14 @@
 import { uploadMediaFile, createMediaUpload, updateMediaUpload, getMediaSignedUrl } from '../db.js';
 import { transcribeMedia } from '../api-client.js';
 
-const WHISPER_LIMIT_BYTES = 25 * 1024 * 1024;
+// Soft warning threshold — over this we tell the user "this'll take a few minutes"
+// because Deepgram is fast but a 1hr file still takes ~5–10 min end-to-end.
+// Hard size enforcement is now server-side: if Deepgram isn't configured AND
+// file is over 25 MB, the /api/transcribe endpoint returns 413 with a clear
+// message that DEEPGRAM_API_KEY needs to be set.
+const LARGE_FILE_THRESHOLD = 25 * 1024 * 1024;
+// Absolute ceiling — Deepgram supports up to 2 GB.
+const HARD_LIMIT_BYTES = 2 * 1024 * 1024 * 1024;
 
 const SUPPORTED_MIMES = new Set([
   'video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska',
@@ -56,14 +63,16 @@ export async function uploadAndTranscribe(file, opts = {}) {
   if (!isMediaFile(file)) {
     throw new Error('Unsupported media type. Use mp4, mov, webm, mkv, mp3, m4a, wav, ogg, or flac.');
   }
-  if (file.size > WHISPER_LIMIT_BYTES) {
-    const mb = (file.size / 1024 / 1024).toFixed(1);
+  if (file.size > HARD_LIMIT_BYTES) {
+    const gb = (file.size / 1024 / 1024 / 1024).toFixed(2);
     throw new Error(
-      `File is ${mb} MB — over the current 25 MB transcription limit. ` +
-      `Large-file support (audio extraction + chunking) is on the roadmap. ` +
-      `For now, extract the audio and trim/compress to under 25 MB.`
+      `File is ${gb} GB — over the 2 GB hard limit. ` +
+      `Trim or compress before uploading.`
     );
   }
+  // For files >25 MB the server will route to Deepgram. If Deepgram isn't
+  // configured the endpoint returns a 413 with an actionable message — we
+  // surface that as-is. No client-side hard error.
 
   // Build a deterministic but unique storage path: {projectOrUnattached}/{timestamp}-{filename}
   const safeName = sanitizeFilename(file.name);
