@@ -179,15 +179,32 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   }
   if (editorContainer) editorContainer.addEventListener('click', onEditorClick);
 
-  // ── "Current segment" highlight that follows playback ─────────────
+  // ── "Current segment" highlight + auto-scroll to follow playback ──
   // We mark the segment whose [start, end] window contains currentTime.
-  // Implemented as a CSS class that the editor's stylesheet should
-  // visually treat (see media-deck.css).
+  // While the video plays, the transcript auto-scrolls so the current
+  // segment stays in view — but only when the user hasn't scrolled
+  // manually in the last few seconds (so manual exploration isn't
+  // hijacked by the playhead). Manual scroll is detected via wheel/
+  // touchmove on the editor container.
   let lastHighlightedNumber = null;
+  let lastUserScrollAt = 0;
+  const USER_SCROLL_GRACE_MS = 3000;
+
+  if (editorContainer) {
+    const noteUserScroll = () => { lastUserScrollAt = Date.now(); };
+    editorContainer.addEventListener('wheel',     noteUserScroll, { passive: true });
+    editorContainer.addEventListener('touchmove', noteUserScroll, { passive: true });
+    editorContainer.addEventListener('keydown', (e) => {
+      // Page-Up/Down, Home/End, Arrow keys → user is navigating manually
+      if (['PageUp','PageDown','Home','End','ArrowUp','ArrowDown'].includes(e.key)) {
+        lastUserScrollAt = Date.now();
+      }
+    });
+  }
+
   function highlightCurrentSegment(currentTime) {
     if (!editorContainer) return;
     // Find the matching segment by linear scan of the segment list.
-    // Segments are typically ordered, so this is O(n) once per timeupdate.
     let match = null;
     for (const s of segments) {
       const startSec = typeof s.startSec === 'number' ? s.startSec : parseTimecodeToSeconds(s.start);
@@ -200,8 +217,23 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     lastHighlightedNumber = num;
     editorContainer.querySelectorAll('span[data-segment].is-playing')
       .forEach(el => el.classList.remove('is-playing'));
-    editorContainer.querySelectorAll(`span[data-segment][data-number="${num}"]`)
-      .forEach(el => el.classList.add('is-playing'));
+    const targets = editorContainer.querySelectorAll(`span[data-segment][data-number="${num}"]`);
+    targets.forEach(el => el.classList.add('is-playing'));
+
+    // Auto-scroll: only if the video is actually playing AND the user
+    // hasn't manually scrolled recently. Use the FIRST element of the
+    // segment (a segment can span multiple lines/spans) as the anchor.
+    if (video.paused) return;
+    if (Date.now() - lastUserScrollAt < USER_SCROLL_GRACE_MS) return;
+    const anchor = targets[0];
+    if (!anchor) return;
+    if (!isInViewportFairly(anchor)) {
+      try {
+        anchor.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      } catch {
+        anchor.scrollIntoView();
+      }
+    }
   }
 
   // ── Highlights → waveform regions ─────────────────────────────────
@@ -260,6 +292,19 @@ function mountInert() {
     destroy() {},
     root: null,
   };
+}
+
+// Returns true if the element is mostly already visible — within a 25%
+// vertical buffer above the deck (the bottom ~320px is occupied by the
+// video player + waveform). Avoids scrolling the page on every tiny tick.
+function isInViewportFairly(el) {
+  const rect = el.getBoundingClientRect();
+  const h = window.innerHeight || document.documentElement.clientHeight;
+  // Viewport "comfort zone": 15% from top to (h - 320 - 80px). The
+  // 320 reserves space for the deck; 80 gives breathing room above it.
+  const topComfort = h * 0.15;
+  const bottomComfort = h - 320 - 80;
+  return rect.top >= topComfort && rect.bottom <= bottomComfort;
 }
 
 // Map a click within a segment span to a precise word timestamp.
