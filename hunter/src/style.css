@@ -2163,6 +2163,95 @@ header {
   text-align: right;
 }
 
+/* ── Shooting Calendar ── */
+
+.shoot-calendar {
+  margin: var(--np-space-6) 0;
+}
+
+.shoot-calendar-header {
+  display: flex;
+  align-items: center;
+  gap: var(--np-space-2);
+  margin-bottom: var(--np-space-3);
+}
+
+.shoot-calendar-glyph {
+  font-size: 13px;
+  color: var(--np-blue);
+}
+
+.shoot-calendar-title {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--np-text-dim);
+}
+
+.shoot-calendar-count {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  color: var(--np-text-dim);
+  margin-left: auto;
+}
+
+.shoot-calendar-grid {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.shoot-day {
+  background: rgba(255, 59, 32, calc(var(--intensity) * 0.6));
+  border: 1px solid rgba(255, 59, 32, calc(var(--intensity) * 0.3));
+  border-radius: var(--np-radius-sm);
+  padding: var(--np-space-2) var(--np-space-2);
+  min-width: 60px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.shoot-day:hover {
+  transform: translateY(-2px);
+  border-color: var(--np-red);
+}
+
+.shoot-day-label {
+  font-family: var(--np-font-mono);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--np-text-dim);
+}
+
+.shoot-day-date {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--np-ink);
+}
+
+.shoot-day-clips {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  color: var(--np-ink);
+  opacity: 0.8;
+}
+
+.shoot-day-dur {
+  font-family: var(--np-font-mono);
+  font-size: 9px;
+  color: var(--np-text-dim);
+}
+
+.scenes-day--highlight {
+  background: rgba(255, 59, 32, 0.08);
+  border-radius: var(--np-radius-md);
+  transition: background 0.3s;
+}
+
 /* ── Best Clips ── */
 
 .best-clips-section {

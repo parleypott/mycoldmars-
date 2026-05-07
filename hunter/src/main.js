@@ -245,6 +245,9 @@ async function openProject(id) {
   // Render project stats dashboard
   renderProjectStats(units);
 
+  // Render shooting calendar
+  renderShootCalendar(units);
+
   // Render best clips
   renderBestClips(units);
 
@@ -1453,6 +1456,74 @@ function renderProjectStats(units) {
 
   grid.innerHTML = html;
   section.classList.remove('hidden');
+}
+
+// ── Shooting Calendar ──
+
+function renderShootCalendar(units) {
+  const section = document.getElementById('shoot-calendar');
+  const grid = document.getElementById('shoot-calendar-grid');
+  const countEl = document.getElementById('shoot-calendar-count');
+
+  // Group clips by day using the timestamp extractor from scene detection
+  const byDay = {};
+  for (const u of units) {
+    const ts = extractDateFromClipName(u.source_clip_name || u.sourceClipName);
+    if (!ts) continue;
+    const day = ts.toISOString().slice(0, 10);
+    if (!byDay[day]) byDay[day] = { clips: 0, duration: 0, analyzed: 0 };
+    byDay[day].clips++;
+    const dur = (u.end_seconds || 0) - (u.start_seconds || 0);
+    if (dur > 0) byDay[day].duration += dur;
+    if (u.analyses?.[0]) byDay[day].analyzed++;
+  }
+
+  const days = Object.keys(byDay).sort();
+  if (days.length < 2) { section.classList.add('hidden'); return; }
+
+  section.classList.remove('hidden');
+  countEl.textContent = `${days.length} days`;
+
+  const maxClips = Math.max(...Object.values(byDay).map(d => d.clips));
+
+  grid.innerHTML = days.map(day => {
+    const d = byDay[day];
+    const intensity = Math.max(0.15, d.clips / maxClips);
+    const hours = Math.floor(d.duration / 3600);
+    const mins = Math.floor((d.duration % 3600) / 60);
+    const durStr = hours > 0 ? `${hours}h${mins}m` : `${mins}m`;
+    const label = new Date(day + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const weekday = new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' });
+
+    return `<div class="shoot-day" style="--intensity: ${intensity}" data-day="${day}" title="${day}: ${d.clips} clips, ${durStr}">
+      <div class="shoot-day-label">${weekday}</div>
+      <div class="shoot-day-date">${label}</div>
+      <div class="shoot-day-clips">${d.clips}</div>
+      <div class="shoot-day-dur">${durStr}</div>
+    </div>`;
+  }).join('');
+
+  // Click to scroll to that day's scenes
+  grid.querySelectorAll('.shoot-day').forEach(el => {
+    el.addEventListener('click', () => {
+      const day = el.dataset.day;
+      const sceneDay = document.querySelector(`.scenes-day-label`);
+      // Find the scenes-day that matches this date
+      const allDays = document.querySelectorAll('.scenes-day');
+      for (const sd of allDays) {
+        const labelText = sd.querySelector('.scenes-day-label')?.textContent || '';
+        // Match by scrolling to the scenes section and hoping the day is visible
+        if (labelText.includes(new Date(day + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))) {
+          sd.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          sd.classList.add('scenes-day--highlight');
+          setTimeout(() => sd.classList.remove('scenes-day--highlight'), 2000);
+          return;
+        }
+      }
+      // Fallback: just scroll to scenes section
+      document.getElementById('project-scenes')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
 }
 
 // ── Best Clips ──
