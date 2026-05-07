@@ -242,6 +242,9 @@ async function openProject(id) {
   // Render tier funnel
   renderTierFunnel(tierStats);
 
+  // Render project stats dashboard
+  renderProjectStats(units);
+
   // Render scenes timeline
   renderScenes(units);
 
@@ -1254,6 +1257,85 @@ function renderTierFunnel(tierStats) {
   }
 
   bar.innerHTML = segments.join('');
+}
+
+// ── Project stats dashboard ──
+
+function renderProjectStats(units) {
+  const section = document.getElementById('project-stats');
+  const grid = document.getElementById('stats-grid');
+
+  // Collect structured analysis data
+  const analyzed = units.filter(u => u.analyses?.[0]?.output_json);
+  if (analyzed.length < 3) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  const shotTypes = {};
+  const cameraMovements = {};
+  const editorialFunctions = {};
+  const emotionalRegisters = {};
+  let keepTotal = 0;
+  let keepCount = 0;
+
+  for (const u of analyzed) {
+    const j = u.analyses[0].output_json;
+    if (j.shot_type) shotTypes[j.shot_type] = (shotTypes[j.shot_type] || 0) + 1;
+    if (j.camera_movement) cameraMovements[j.camera_movement] = (cameraMovements[j.camera_movement] || 0) + 1;
+    if (j.editorial_function) editorialFunctions[j.editorial_function] = (editorialFunctions[j.editorial_function] || 0) + 1;
+    if (j.emotional_register) emotionalRegisters[j.emotional_register] = (emotionalRegisters[j.emotional_register] || 0) + 1;
+    if (j.keepability_score != null) { keepTotal += j.keepability_score; keepCount++; }
+  }
+
+  const sorted = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]);
+
+  function renderDistribution(title, data, maxItems = 6) {
+    const entries = sorted(data).slice(0, maxItems);
+    if (!entries.length) return '';
+    const max = entries[0][1];
+    return `<div class="stats-card">
+      <div class="stats-card-title">${title}</div>
+      ${entries.map(([label, count]) => {
+        const pct = (count / max * 100).toFixed(0);
+        return `<div class="stats-bar-row">
+          <span class="stats-bar-label">${escHtml(label)}</span>
+          <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%"></div></div>
+          <span class="stats-bar-count">${count}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  let html = '';
+
+  // Keepability score overview
+  if (keepCount > 0) {
+    const avg = (keepTotal / keepCount).toFixed(1);
+    const highKeep = analyzed.filter(u => (u.analyses[0].output_json.keepability_score || 0) >= 7).length;
+    const lowKeep = analyzed.filter(u => {
+      const s = u.analyses[0].output_json.keepability_score;
+      return s != null && s <= 3;
+    }).length;
+    html += `<div class="stats-card stats-card--highlight">
+      <div class="stats-card-title">keepability</div>
+      <div class="stats-score">${avg}<span class="stats-score-max">/10</span></div>
+      <div class="stats-score-detail">${highKeep} keepers · ${lowKeep} cuts · ${keepCount} scored</div>
+    </div>`;
+  }
+
+  html += renderDistribution('shot types', shotTypes);
+  html += renderDistribution('camera movement', cameraMovements);
+  html += renderDistribution('editorial function', editorialFunctions);
+  html += renderDistribution('emotional register', emotionalRegisters, 8);
+
+  if (!html) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  grid.innerHTML = html;
+  section.classList.remove('hidden');
 }
 
 // ── Scene detection (client-side temporal grouping) ──
