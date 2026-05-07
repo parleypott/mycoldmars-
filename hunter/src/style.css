@@ -951,6 +951,41 @@ header {
   color: var(--np-ink);
   position: relative;
   z-index: 1;
+  max-height: 300px;
+  overflow: hidden;
+  transition: max-height 0.4s ease;
+}
+.pattern-text.expanded {
+  max-height: none;
+}
+.pattern-text strong {
+  color: var(--np-red);
+  font-weight: 600;
+}
+.pattern-text code {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  background: rgba(255,255,255,0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.pattern-text p {
+  margin-bottom: 0.8em;
+}
+.pattern-expand {
+  display: none;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  color: var(--np-red);
+  cursor: pointer;
+  margin-top: 6px;
+  letter-spacing: 0.05em;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.pattern-card.truncated .pattern-expand {
+  display: inline-block;
 }
 .pattern-examples {
   margin-top: var(--np-space-4);

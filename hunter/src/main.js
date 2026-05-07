@@ -226,7 +226,8 @@ async function openProject(id) {
   if (patterns.length > 0) {
     patternsList.innerHTML = patterns.map(p => `
       <div class="pattern-card" data-id="${p.id}">
-        <div class="pattern-text">${escHtml(p.observation_text)}</div>
+        <div class="pattern-text">${simpleMarkdown(p.observation_text)}</div>
+        <button class="pattern-expand">show more</button>
         <div class="pattern-examples">${(p.example_unit_ids || []).length} example units</div>
         <div class="pattern-actions">
           <button class="np-button pattern-btn" data-action="accepted" data-id="${p.id}">accept</button>
@@ -234,6 +235,19 @@ async function openProject(id) {
         </div>
       </div>
     `).join('');
+
+    // Detect overflow and add expand/collapse
+    patternsList.querySelectorAll('.pattern-card').forEach(card => {
+      const text = card.querySelector('.pattern-text');
+      const btn = card.querySelector('.pattern-expand');
+      if (text.scrollHeight > 310) {
+        card.classList.add('truncated');
+        btn.addEventListener('click', () => {
+          const expanded = text.classList.toggle('expanded');
+          btn.textContent = expanded ? 'show less' : 'show more';
+        });
+      }
+    });
 
     if (!isDemo) {
       patternsList.querySelectorAll('.pattern-btn').forEach(btn => {
@@ -748,6 +762,16 @@ function escHtml(str) {
   const div = document.createElement('div');
   div.textContent = str || '';
   return div.innerHTML;
+}
+
+function simpleMarkdown(str) {
+  if (!str) return '';
+  return escHtml(str)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
 }
 
 function formatTc(seconds) {
