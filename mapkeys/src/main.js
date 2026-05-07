@@ -1776,7 +1776,6 @@ function serializeShape(s) {
     countryName: s.countryName,
     excludedPolygonIndices: Array.isArray(s.excludedPolygonIndices) ? s.excludedPolygonIndices.slice() : [],
     customGeometry: s.customGeometry || null,
-    hiRes: !!s.hiRes,
     stroke: s.stroke,
     fill: s.fill,
     strokeWidth: s.strokeWidth,
@@ -1806,7 +1805,6 @@ function hydrateShape(raw) {
     customGeometry: raw.customGeometry && (raw.customGeometry.type === 'Polygon' || raw.customGeometry.type === 'MultiPolygon')
       ? raw.customGeometry
       : null,
-    hiRes: !!raw.hiRes,
     stroke: raw.stroke || SHAPE_DEFAULTS.stroke,
     fill: raw.fill || SHAPE_DEFAULTS.fill,
     strokeWidth: typeof raw.strokeWidth === 'number' ? raw.strokeWidth : SHAPE_DEFAULTS.strokeWidth,
@@ -2212,14 +2210,9 @@ function syncShapeStyleInputs() {
   ssStrokeWVal.value = shape.strokeWidth;
   reconfigureSlidersFor(shape);
 
-  // "Edit parts" + "Granular" buttons are country-only.
+  // "Edit parts" button is country-only.
   const editBtn = document.getElementById('ss-edit-country');
   if (editBtn) editBtn.classList.toggle('hidden', shape.type !== 'country');
-  const granBtn = document.getElementById('ss-granular');
-  if (granBtn) {
-    granBtn.classList.toggle('hidden', shape.type !== 'country');
-    granBtn.classList.toggle('active', shape.type === 'country' && !!shape.hiRes);
-  }
 
   const suffix = document.getElementById('ss-scale-suffix');
   if (shape.type === 'country') {
@@ -2346,97 +2339,6 @@ ssDelete.addEventListener('click', () => {
 document.getElementById('ss-edit-country').addEventListener('click', () => {
   const shape = activeShape();
   if (shape && shape.type === 'country') startCountryEdit(shape);
-});
-
-// Hi-res / "Granular" — swap Natural Earth 10m geometry for high-res LAND-ONLY
-// coastline from geoBoundaries (gbOpen ADM0). Their boundaries explicitly
-// exclude EEZ/maritime claims, so we get the actual coastline rather than a
-// territorial-water polygon. ISO-3 is resolved once per country via Nominatim
-// (cached). Both lookups persisted in localStorage; click Granular again to
-// revert to the chunky 10m data.
-async function resolveISO3(name) {
-  const key = 'mk-iso3-' + name.toLowerCase();
-  const cached = localStorage.getItem(key);
-  if (cached) return cached;
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=jsonv2&limit=5&extratags=1`;
-  const arr = await (await fetch(url, { headers: { 'Accept': 'application/json' } })).json();
-  const pick = arr.find(r => r.osm_type === 'relation' && r.extratags && r.extratags['ISO3166-1:alpha3'])
-            || arr.find(r => r.extratags && r.extratags['ISO3166-1:alpha3']);
-  if (!pick) throw new Error('iso3 not found for ' + name);
-  const iso3 = pick.extratags['ISO3166-1:alpha3'].toUpperCase();
-  try { localStorage.setItem(key, iso3); } catch {}
-  return iso3;
-}
-
-// geoBoundaries hosts geojson on github.com/.../raw/... but those URLs are
-// Git-LFS pointers and CORS-blocked. media.githubusercontent.com resolves
-// LFS content AND sends `access-control-allow-origin: *`.
-function ghRawToMedia(url) {
-  return url.replace(
-    /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/raw\/([^/]+)\/(.+)$/,
-    'https://media.githubusercontent.com/media/$1/$2/$3/$4'
-  );
-}
-
-async function fetchHiResBoundary(shape) {
-  const name = shape.countryName || shape.name;
-  const iso3 = await resolveISO3(name);
-  const meta = await (await fetch(`https://www.geoboundaries.org/api/current/gbOpen/${iso3}/ADM0/`)).json();
-  const gjUrl = ghRawToMedia(meta.simplifiedGeometryGeoJSON || meta.gjDownloadURL || '');
-  if (!gjUrl) throw new Error('no GeoJSON URL for ' + iso3);
-  const gj = await (await fetch(gjUrl)).json();
-  let geom = null;
-  if (gj.type === 'FeatureCollection' && gj.features && gj.features[0]) geom = gj.features[0].geometry;
-  else if (gj.type === 'Feature') geom = gj.geometry;
-  else if (gj.type === 'Polygon' || gj.type === 'MultiPolygon') geom = gj;
-  if (!geom) throw new Error('unexpected geojson shape');
-  if (geom.type === 'Polygon') geom = { type: 'MultiPolygon', coordinates: [geom.coordinates] };
-  return geom;
-}
-
-document.getElementById('ss-granular').addEventListener('click', async () => {
-  const shape = activeShape();
-  if (!shape || shape.type !== 'country') return;
-  // Toggle off → revert to Natural Earth 10m
-  if (shape.hiRes) {
-    snapshotForUndo('coarse ' + shape.name);
-    shape.customGeometry = null;
-    shape.hiRes = false;
-    shape.excludedPolygonIndices = [];
-    redrawShape(shape);
-    if (state.editingShapeId === shape.id) updateCountryEditOverlay(shape);
-    saveLayers();
-    syncShapeStyleInputs();
-    flashToast('Coarse borders');
-    return;
-  }
-  // v2 = land-only geoBoundaries (v1 was OSM admin which included maritime claims)
-  const cacheKey = 'mk-hires-v2-' + (shape.countryId || shape.countryName || shape.name);
-  let geom = null;
-  try {
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) geom = JSON.parse(cached);
-  } catch {}
-  if (!geom) {
-    flashToast('Fetching coastline…');
-    try {
-      geom = await fetchHiResBoundary(shape);
-      try { localStorage.setItem(cacheKey, JSON.stringify(geom)); } catch {}
-    } catch (err) {
-      flashToast('Coastline fetch failed');
-      console.warn('hi-res fetch', err);
-      return;
-    }
-  }
-  snapshotForUndo('granular ' + shape.name);
-  shape.customGeometry = geom;
-  shape.hiRes = true;
-  shape.excludedPolygonIndices = [];
-  redrawShape(shape);
-  if (state.editingShapeId === shape.id) updateCountryEditOverlay(shape);
-  saveLayers();
-  syncShapeStyleInputs();
-  flashToast('Granular borders');
 });
 
 document.getElementById('ce-done').addEventListener('click', exitCountryEdit);
