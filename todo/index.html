@@ -18,10 +18,10 @@
       --card: #fbf7ee;
       --shadow: 0 1px 0 rgba(0,0,0,0.04), 0 8px 24px -12px rgba(60,40,20,0.18);
       --shadow-lift: 0 2px 0 rgba(0,0,0,0.04), 0 16px 36px -16px rgba(60,40,20,0.28);
-      --hour-h: 56px; /* height of one hour row */
-      --quarter-h: 14px; /* one 15-min cell */
+      --hour-h: 56px;
+      --quarter-h: 14px;
+      --now: #d36a4f;
 
-      /* color palette — muted, earthy, jewel-edge */
       --c-sage:       #9bb39a;
       --c-terracotta: #c98a72;
       --c-dustyblue:  #8aa2b8;
@@ -56,7 +56,7 @@
     /* ───────────── header ───────────── */
     header {
       position: fixed; top: 0; left: 0; right: 0; height: 64px;
-      display: flex; align-items: center; gap: 24px;
+      display: flex; align-items: center; gap: 20px;
       padding: 0 28px;
       background: linear-gradient(to bottom, rgba(243,239,230,0.96), rgba(243,239,230,0.88));
       backdrop-filter: blur(8px);
@@ -109,6 +109,35 @@
       background: var(--ink); color: var(--paper); border-color: var(--ink);
     }
     .btn-primary:hover { background: #1a1612; }
+    .btn-icon {
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+    .menu-wrap { position: relative; }
+    .menu {
+      position: absolute; top: calc(100% + 6px); right: 0;
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      box-shadow: var(--shadow-lift);
+      padding: 6px;
+      min-width: 180px;
+      z-index: 300;
+      display: none;
+    }
+    .menu.open { display: block; }
+    .menu button {
+      display: block; width: 100%;
+      text-align: left;
+      font: inherit; font-size: 13px;
+      color: var(--ink);
+      padding: 8px 10px;
+      border: none; background: transparent;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .menu button:hover { background: var(--paper-deep); }
+    .menu hr { border: none; border-top: 1px solid var(--rule-soft); margin: 4px 0; }
 
     /* ───────────── canvas ───────────── */
     main {
@@ -139,10 +168,12 @@
       display: flex; flex-direction: column;
       max-height: 100%;
       overflow: hidden;
+      position: relative;
       transition: box-shadow 0.18s ease, transform 0.12s ease;
     }
     .column.dragging { opacity: 0.55; transform: scale(0.985); }
     .column.drop-target { box-shadow: var(--shadow-lift), inset 0 0 0 2px var(--c-dustyblue); }
+    .column.cross-drop { box-shadow: var(--shadow-lift), inset 0 0 0 2px var(--c-sage); }
 
     .col-header {
       display: flex; align-items: center; gap: 8px;
@@ -160,6 +191,7 @@
       border-radius: 4px;
       letter-spacing: -0.005em;
       cursor: text;
+      min-width: 30px;
     }
     .col-title:focus { background: rgba(0,0,0,0.04); }
     .col-title:empty::before { content: 'untitled'; color: var(--ink-faint); }
@@ -188,16 +220,27 @@
       color: var(--ink);
       box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
-    .col-x {
+    .col-mini-btn {
       width: 22px; height: 22px;
       border: none; background: transparent;
       color: var(--ink-faint);
       cursor: pointer;
       border-radius: 4px;
-      font-size: 16px; line-height: 1;
+      font-size: 14px; line-height: 1;
       display: flex; align-items: center; justify-content: center;
     }
-    .col-x:hover { background: rgba(0,0,0,0.05); color: var(--c-terracotta); }
+    .col-mini-btn:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
+    .col-x:hover { color: var(--c-terracotta) !important; }
+
+    /* column resize handle */
+    .col-resize {
+      position: absolute;
+      top: 0; right: -3px; bottom: 0;
+      width: 6px;
+      cursor: col-resize;
+      z-index: 10;
+    }
+    .col-resize:hover { background: linear-gradient(to right, transparent, rgba(138,162,184,0.3), transparent); }
 
     .col-body {
       flex: 1;
@@ -312,24 +355,48 @@
 
     /* ───────────── day mode ───────────── */
     .day-body { padding: 0; position: relative; }
+    .day-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px 10px;
+      border-bottom: 1px solid var(--rule-soft);
+    }
     .day-date {
-      padding: 8px 14px 10px;
+      flex: 1;
       font-family: 'Share Tech Mono', monospace;
       font-size: 11px;
       letter-spacing: 0.12em;
-      color: var(--ink-soft);
+      color: var(--ink);
       text-transform: uppercase;
-      border-bottom: 1px solid var(--rule-soft);
-      cursor: text;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 4px 6px;
+      cursor: pointer;
+      font-family: 'Share Tech Mono', monospace;
+    }
+    .day-date:hover, .day-date:focus {
+      background: var(--paper-deep);
+      border-color: var(--rule);
       outline: none;
     }
+    .day-now-btn {
+      font: inherit; font-size: 10.5px;
+      font-family: 'Share Tech Mono', monospace;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--c-terracotta);
+      background: transparent;
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    .day-now-btn:hover { background: var(--paper-deep); }
+
     .day-grid {
       position: relative;
       display: grid;
       grid-template-columns: 44px 1fr;
-    }
-    .hour-row {
-      display: contents;
     }
     .hour-label {
       grid-column: 1;
@@ -351,14 +418,12 @@
       height: var(--hour-h);
       position: relative;
     }
-    .hour-cell::before,
-    .hour-cell::after,
-    .hour-cell > .quarter-line {
+    .hour-cell::after {
       content: '';
       position: absolute;
-      left: 0; right: 0;
-      height: 0;
-      border-top: 1px dashed transparent;
+      left: 0; right: 0; top: 50%;
+      border-top: 1px dashed var(--rule-soft);
+      opacity: 0.6;
     }
     .day-canvas {
       position: absolute;
@@ -369,10 +434,28 @@
       cursor: crosshair;
     }
 
+    /* now line */
+    .now-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 0;
+      border-top: 1px solid var(--now);
+      pointer-events: none;
+      z-index: 30;
+    }
+    .now-line::before {
+      content: '';
+      position: absolute;
+      left: -4px; top: -4px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--now);
+      box-shadow: 0 0 0 3px rgba(211,106,79,0.18);
+    }
+
     /* time blocks */
     .block {
       position: absolute;
-      left: 6px; right: 6px;
       border-radius: 5px;
       padding: 5px 8px;
       font-size: 12px;
@@ -387,6 +470,10 @@
     }
     .block:hover { box-shadow: 0 1px 2px rgba(0,0,0,0.18), 0 8px 18px -8px rgba(60,40,20,0.4); }
     .block.dragging { cursor: grabbing; opacity: 0.85; z-index: 50; }
+    .block.selected {
+      box-shadow: 0 0 0 2px var(--ink), 0 1px 2px rgba(0,0,0,0.2), 0 8px 22px -8px rgba(60,40,20,0.45);
+      z-index: 40;
+    }
     .block.ghost {
       cursor: crosshair;
       opacity: 0.55;
@@ -407,6 +494,17 @@
       word-break: break-word;
     }
     .block-label:empty::before { content: 'untitled'; opacity: 0.7; }
+    .block-note {
+      font-size: 11px;
+      opacity: 0.85;
+      outline: none;
+      cursor: text;
+      font-weight: 300;
+      word-break: break-word;
+      letter-spacing: 0.005em;
+      margin-top: 2px;
+    }
+    .block-note:empty { display: none; }
     .block-resize {
       position: absolute;
       left: 0; right: 0;
@@ -416,7 +514,46 @@
     .block-resize.top { top: -3px; }
     .block-resize.bottom { bottom: -3px; }
 
-    /* color palette popover */
+    /* selection toolbar */
+    .block-toolbar {
+      position: absolute;
+      z-index: 200;
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 6px;
+      box-shadow: var(--shadow-lift);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      max-width: 240px;
+    }
+    .block-toolbar .swatch {
+      width: 20px; height: 20px;
+      border: 1.5px solid rgba(0,0,0,0.08);
+      border-radius: 50%;
+      cursor: pointer;
+      padding: 0;
+      transition: transform 0.1s ease;
+    }
+    .block-toolbar .swatch:hover { transform: scale(1.15); }
+    .block-toolbar .swatch.active { box-shadow: 0 0 0 2px var(--ink); }
+    .block-toolbar .sep { width: 1px; height: 18px; background: var(--rule); margin: 0 2px; }
+    .block-toolbar .tb-btn {
+      font: inherit; font-size: 12px;
+      padding: 4px 8px;
+      border: none;
+      background: transparent;
+      color: var(--ink-soft);
+      border-radius: 4px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+    }
+    .block-toolbar .tb-btn:hover { background: var(--paper-deep); color: var(--ink); }
+    .block-toolbar .tb-btn.danger:hover { color: var(--c-terracotta); }
+
+    /* color palette popover for items */
     .palette {
       position: absolute;
       z-index: 200;
@@ -439,23 +576,6 @@
     }
     .palette button:hover { transform: scale(1.15); }
     .palette button.active { box-shadow: 0 0 0 2px var(--ink); }
-
-    /* delete affordance on block hover */
-    .block-x {
-      position: absolute;
-      top: 4px; right: 4px;
-      width: 16px; height: 16px;
-      border: none; background: rgba(255,255,255,0.18);
-      color: rgba(255,255,255,0.95);
-      border-radius: 50%;
-      font-size: 11px; line-height: 1;
-      cursor: pointer;
-      opacity: 0;
-      transition: opacity 0.12s ease;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .block:hover .block-x { opacity: 1; }
-    .block-x:hover { background: rgba(255,255,255,0.35); }
 
     /* empty state */
     .empty-state {
@@ -481,6 +601,20 @@
       pointer-events: none;
       z-index: 50;
     }
+    .toast {
+      position: fixed;
+      bottom: 14px; left: 50%; transform: translateX(-50%);
+      background: var(--ink); color: var(--paper);
+      padding: 8px 14px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      border-radius: 20px;
+      z-index: 500;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.18s ease;
+    }
+    .toast.show { opacity: 1; }
   </style>
 </head>
 <body>
@@ -494,6 +628,17 @@
       <span>→</span>
       <input id="hour-end" type="number" min="1" max="24" value="23">
     </div>
+    <div class="menu-wrap">
+      <button class="btn btn-icon" id="menu-toggle" title="more">⋯</button>
+      <div class="menu" id="menu">
+        <button id="m-export">export json</button>
+        <button id="m-import">import json…</button>
+        <hr>
+        <button id="m-undo">undo (⌘z)</button>
+        <hr>
+        <button id="m-clear" style="color:var(--c-terracotta)">clear all…</button>
+      </div>
+    </div>
     <button class="btn btn-primary" id="add-column">+ add column</button>
   </header>
 
@@ -501,7 +646,9 @@
     <div class="canvas" id="canvas"></div>
   </main>
 
-  <div class="hint">drag empty grid → block · click block → label · drag header → reorder</div>
+  <div class="hint">drag empty grid → block · click block → toolbar · drag header → reorder · ⌘z to undo</div>
+  <div class="toast" id="toast"></div>
+  <input type="file" id="import-file" accept="application/json,.json" style="display:none">
 
 <script>
 'use strict';
@@ -527,8 +674,12 @@ const DEFAULT_STATE = {
 };
 
 let state = load();
+let history = [];           // undo stack — JSON snapshots
+const HISTORY_LIMIT = 40;
+let selectedBlock = null;   // { colId, blockId } | null
 const canvas = document.getElementById('canvas');
 const main = document.getElementById('main');
+let firstRenderDone = false;
 
 function load() {
   try {
@@ -544,11 +695,37 @@ function load() {
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
+function pushHistory() {
+  history.push(JSON.stringify(state));
+  if (history.length > HISTORY_LIMIT) history.shift();
+}
+function undo() {
+  if (history.length === 0) { toast('nothing to undo'); return; }
+  const prev = history.pop();
+  try {
+    state = JSON.parse(prev);
+    save();
+    selectedBlock = null;
+    render();
+    toast('undid');
+  } catch (e) {
+    toast('undo failed');
+  }
+}
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
+function toast(msg, ms = 1400) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), ms);
+}
+
 // ───────────── render ─────────────
 function render() {
+  closeAllPopovers();
   canvas.innerHTML = '';
   if (state.columns.length === 0) {
     canvas.innerHTML = '<div class="empty-state"><span>add a column to begin. each column is either a list of things or a day broken into hours you can fill with blocks of time.</span></div>';
@@ -557,14 +734,20 @@ function render() {
   for (const col of state.columns) {
     canvas.appendChild(renderColumn(col));
   }
+  if (selectedBlock) renderToolbarFor(selectedBlock);
+
+  if (!firstRenderDone) {
+    firstRenderDone = true;
+    requestAnimationFrame(scrollDayColumnsToNow);
+  }
 }
 
 function renderColumn(col) {
   const el = document.createElement('div');
   el.className = 'column';
   el.dataset.colId = col.id;
+  if (col.width) el.style.flex = `0 0 ${col.width}px`;
 
-  // header
   const head = document.createElement('div');
   head.className = 'col-header';
   head.innerHTML = `
@@ -573,42 +756,60 @@ function renderColumn(col) {
       <button data-mode="list" class="${col.mode === 'list' ? 'active' : ''}">list</button>
       <button data-mode="day"  class="${col.mode === 'day'  ? 'active' : ''}">day</button>
     </div>
-    <button class="col-x" title="delete column">×</button>
+    <button class="col-mini-btn col-dup" title="duplicate column">⎘</button>
+    <button class="col-mini-btn col-x" title="delete column">×</button>
   `;
   el.appendChild(head);
 
-  // title editing
   const titleEl = head.querySelector('.col-title');
+  titleEl.addEventListener('focus', pushHistory);
   titleEl.addEventListener('input', () => { col.title = titleEl.textContent; save(); });
   titleEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); } });
 
-  // mode toggle
   head.querySelectorAll('.mode-toggle button').forEach(b => {
     b.addEventListener('click', () => {
+      pushHistory();
       col.mode = b.dataset.mode;
       save();
       render();
     });
   });
 
-  // delete column
+  head.querySelector('.col-dup').addEventListener('click', () => {
+    pushHistory();
+    const clone = JSON.parse(JSON.stringify(col));
+    clone.id = uid();
+    clone.title = (col.title || 'untitled') + ' copy';
+    if (clone.items) clone.items.forEach(i => i.id = uid());
+    if (clone.blocks) clone.blocks.forEach(b => b.id = uid());
+    const idx = state.columns.findIndex(c => c.id === col.id);
+    state.columns.splice(idx + 1, 0, clone);
+    save();
+    render();
+  });
+
   head.querySelector('.col-x').addEventListener('click', () => {
     if (confirm(`delete "${col.title || 'untitled'}"?`)) {
+      pushHistory();
       state.columns = state.columns.filter(c => c.id !== col.id);
       save();
       render();
     }
   });
 
-  // column reorder via header drag
   attachColumnReorder(el, head, col);
 
-  // body
   const body = document.createElement('div');
   body.className = 'col-body';
   if (col.mode === 'list') body.appendChild(renderListBody(col));
   else                     body.appendChild(renderDayBody(col));
   el.appendChild(body);
+
+  // resize handle
+  const resize = document.createElement('div');
+  resize.className = 'col-resize';
+  resize.addEventListener('pointerdown', e => attachColumnResize(e, el, col));
+  el.appendChild(resize);
 
   return el;
 }
@@ -627,11 +828,11 @@ function renderListBody(col) {
   add.className = 'add-item';
   add.textContent = '+ add item';
   add.addEventListener('click', () => {
+    pushHistory();
     const it = { id: uid(), text: '', done: false, color: null };
     col.items.push(it);
     save();
     render();
-    // focus newly added
     requestAnimationFrame(() => {
       const newest = canvas.querySelector(`[data-item-id="${it.id}"] .item-text`);
       if (newest) {
@@ -658,19 +859,22 @@ function renderItem(col, item) {
     <button class="item-x" title="delete">×</button>
   `;
 
-  // check toggle
   el.querySelector('.item-check').addEventListener('click', () => {
+    pushHistory();
     item.done = !item.done;
     save();
     el.classList.toggle('done', item.done);
   });
 
-  // text editing
   const txt = el.querySelector('.item-text');
+  let pristine = true;
+  txt.addEventListener('focus', () => { if (pristine) pushHistory(); pristine = false; });
+  txt.addEventListener('blur', () => { pristine = true; });
   txt.addEventListener('input', () => { item.text = txt.textContent; save(); });
   txt.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      pushHistory();
       const idx = col.items.indexOf(item);
       const it = { id: uid(), text: '', done: false, color: null };
       col.items.splice(idx + 1, 0, it);
@@ -683,6 +887,7 @@ function renderItem(col, item) {
     }
     if (e.key === 'Backspace' && txt.textContent === '') {
       e.preventDefault();
+      pushHistory();
       const idx = col.items.indexOf(item);
       col.items.splice(idx, 1);
       save();
@@ -692,25 +897,24 @@ function renderItem(col, item) {
     }
   });
 
-  // color picker
   const dot = el.querySelector('.item-color-dot');
   dot.addEventListener('click', e => {
     e.stopPropagation();
     showPalette(dot, item.color, c => {
+      pushHistory();
       item.color = c;
       save();
       render();
     });
   });
 
-  // delete
   el.querySelector('.item-x').addEventListener('click', () => {
+    pushHistory();
     col.items = col.items.filter(i => i.id !== item.id);
     save();
     render();
   });
 
-  // drag to reorder
   attachItemReorder(el, col, item);
   return el;
 }
@@ -718,18 +922,45 @@ function renderItem(col, item) {
 // ───────────── day mode ─────────────
 function renderDayBody(col) {
   if (!col.blocks) col.blocks = [];
-  if (!col.date) col.date = todayStr();
+  if (!col.date) col.date = isoDateToday();
 
   const wrap = document.createElement('div');
   wrap.className = 'day-body';
 
-  const dateEl = document.createElement('div');
-  dateEl.className = 'day-date';
-  dateEl.contentEditable = 'true';
-  dateEl.spellcheck = false;
-  dateEl.textContent = col.date;
-  dateEl.addEventListener('input', () => { col.date = dateEl.textContent; save(); });
-  wrap.appendChild(dateEl);
+  const head = document.createElement('div');
+  head.className = 'day-head';
+  head.innerHTML = `
+    <input type="date" class="day-date" value="${col.date}">
+    <button class="day-now-btn" title="add a 30-min block at now">+ now</button>
+  `;
+  wrap.appendChild(head);
+
+  const dateInput = head.querySelector('.day-date');
+  dateInput.addEventListener('change', () => {
+    pushHistory();
+    col.date = dateInput.value;
+    save();
+    render();
+  });
+
+  head.querySelector('.day-now-btn').addEventListener('click', () => {
+    pushHistory();
+    const now = new Date();
+    let startMin = now.getHours() * 60 + Math.floor(now.getMinutes() / 15) * 15;
+    let endMin = startMin + 30;
+    const minB = state.hourStart * 60, maxB = state.hourEnd * 60;
+    startMin = Math.max(minB, Math.min(maxB - 30, startMin));
+    endMin = startMin + 30;
+    const blk = { id: uid(), startMin, endMin, label: '', note: '', color: COLORS[2].value };
+    col.blocks.push(blk);
+    save();
+    render();
+    requestAnimationFrame(() => {
+      selectBlock(col.id, blk.id);
+      const lab = canvas.querySelector(`[data-block-id="${blk.id}"] .block-label`);
+      if (lab) { lab.focus(); placeCaretAtEnd(lab); }
+    });
+  });
 
   const grid = document.createElement('div');
   grid.className = 'day-grid';
@@ -749,31 +980,39 @@ function renderDayBody(col) {
     grid.appendChild(cell);
   }
 
-  // overlay canvas for blocks (positioned absolute over grid column 2)
-  const dayCanvas = document.createElement('div');
-  dayCanvas.className = 'day-canvas';
-  // height matches grid total
   const totalHours = endH - startH;
   const totalH = totalHours * cssVarPx('--hour-h');
+
+  const dayCanvas = document.createElement('div');
+  dayCanvas.className = 'day-canvas';
+  dayCanvas.dataset.colId = col.id;
   dayCanvas.style.height = totalH + 'px';
 
-  // render blocks
+  // lane layout for overlaps
+  const laneMap = computeLanes(col.blocks);
   for (const blk of col.blocks) {
-    dayCanvas.appendChild(renderBlock(col, blk));
+    dayCanvas.appendChild(renderBlock(col, blk, laneMap.get(blk.id)));
   }
 
-  // ensure relative parent height matches
+  // now-line (only if date matches today and now is within window)
+  if (isToday(col.date)) {
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    if (nowMin >= startH * 60 && nowMin <= endH * 60) {
+      const nowEl = document.createElement('div');
+      nowEl.className = 'now-line';
+      nowEl.style.top = minToPx(nowMin - startH * 60) + 'px';
+      dayCanvas.appendChild(nowEl);
+    }
+  }
+
   grid.style.minHeight = totalH + 'px';
-  // dayCanvas sits absolutely inside .day-body; align its top with grid start (after date)
-  // Achieve by appending dayCanvas inside a relative wrapper with grid:
   const gridWrap = document.createElement('div');
   gridWrap.style.position = 'relative';
   gridWrap.appendChild(grid);
   gridWrap.appendChild(dayCanvas);
   wrap.appendChild(gridWrap);
 
-  // position dayCanvas to align with the hour cells column
-  // grid template col 1 is 44px → set left to 44
   dayCanvas.style.left = '44px';
   dayCanvas.style.top = '0';
   dayCanvas.style.right = '0';
@@ -784,72 +1023,242 @@ function renderDayBody(col) {
   return wrap;
 }
 
-function renderBlock(col, blk) {
+// compute lanes for overlapping blocks
+function computeLanes(blocks) {
+  const map = new Map();
+  if (!blocks || blocks.length === 0) return map;
+  const sorted = [...blocks].sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+  // group connected overlap clusters
+  const clusters = [];
+  for (const b of sorted) {
+    let placed = false;
+    for (const c of clusters) {
+      if (c.some(x => x.startMin < b.endMin && x.endMin > b.startMin)) {
+        c.push(b);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) clusters.push([b]);
+  }
+  // merge clusters that became connected via newly added blocks
+  let merged = true;
+  while (merged) {
+    merged = false;
+    outer: for (let i = 0; i < clusters.length; i++) {
+      for (let j = i + 1; j < clusters.length; j++) {
+        if (clusters[i].some(a => clusters[j].some(b => a.startMin < b.endMin && a.endMin > b.startMin))) {
+          clusters[i] = clusters[i].concat(clusters[j]);
+          clusters.splice(j, 1);
+          merged = true;
+          break outer;
+        }
+      }
+    }
+  }
+  // assign lane greedily within each cluster
+  for (const c of clusters) {
+    const sortedC = c.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+    const lanes = []; // each lane = array of blocks
+    for (const b of sortedC) {
+      let placed = false;
+      for (let li = 0; li < lanes.length; li++) {
+        const lane = lanes[li];
+        const last = lane[lane.length - 1];
+        if (last.endMin <= b.startMin) {
+          lane.push(b);
+          map.set(b.id, { lane: li, total: 0 });
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        lanes.push([b]);
+        map.set(b.id, { lane: lanes.length - 1, total: 0 });
+      }
+    }
+    for (const b of sortedC) {
+      const m = map.get(b.id);
+      m.total = lanes.length;
+    }
+  }
+  return map;
+}
+
+function renderBlock(col, blk, laneInfo) {
   const el = document.createElement('div');
   el.className = 'block';
   el.dataset.blockId = blk.id;
+  if (selectedBlock && selectedBlock.colId === col.id && selectedBlock.blockId === blk.id) {
+    el.classList.add('selected');
+  }
   const startH = state.hourStart;
   const top = minToPx(blk.startMin - startH * 60);
-  const height = minToPx(blk.endMin - blk.startMin);
+  const height = Math.max(18, minToPx(blk.endMin - blk.startMin));
   el.style.top = top + 'px';
   el.style.height = height + 'px';
   el.style.background = blk.color || COLORS[2].value;
 
+  const lane = laneInfo ? laneInfo.lane : 0;
+  const total = laneInfo ? laneInfo.total : 1;
+  const widthPct = 100 / total;
+  el.style.left = `calc(${lane * widthPct}% + 4px)`;
+  el.style.width = `calc(${widthPct}% - 8px)`;
+
   el.innerHTML = `
     <div class="block-time">${minToTimeStr(blk.startMin)}–${minToTimeStr(blk.endMin)}</div>
     <div class="block-label" contenteditable="true" spellcheck="false">${escapeHtml(blk.label || '')}</div>
+    <div class="block-note" contenteditable="true" spellcheck="false" data-placeholder="">${escapeHtml(blk.note || '')}</div>
     <div class="block-resize top"></div>
     <div class="block-resize bottom"></div>
-    <button class="block-x" title="delete">×</button>
   `;
 
-  // label edit
   const lab = el.querySelector('.block-label');
+  let labPristine = true;
+  lab.addEventListener('focus', () => { if (labPristine) pushHistory(); labPristine = false; });
+  lab.addEventListener('blur', () => { labPristine = true; });
   lab.addEventListener('input', () => { blk.label = lab.textContent; save(); });
-  lab.addEventListener('mousedown', e => e.stopPropagation()); // don't start drag on label
+  lab.addEventListener('mousedown', e => e.stopPropagation());
+  lab.addEventListener('click', e => e.stopPropagation());
 
-  // delete
-  el.querySelector('.block-x').addEventListener('click', e => {
+  const note = el.querySelector('.block-note');
+  let notePristine = true;
+  note.addEventListener('focus', () => { if (notePristine) pushHistory(); notePristine = false; });
+  note.addEventListener('blur', () => { notePristine = true; });
+  note.addEventListener('input', () => { blk.note = note.textContent; save(); });
+  note.addEventListener('mousedown', e => e.stopPropagation());
+  note.addEventListener('click', e => e.stopPropagation());
+
+  el.addEventListener('click', e => {
+    if (e.target.closest('.block-label') || e.target.closest('.block-note') || e.target.closest('.block-resize')) return;
     e.stopPropagation();
-    col.blocks = col.blocks.filter(b => b.id !== blk.id);
-    save();
-    render();
+    selectBlock(col.id, blk.id);
   });
-
-  // color picker — right click or alt+click
   el.addEventListener('contextmenu', e => {
     e.preventDefault();
-    showPalette(el, blk.color, c => {
-      blk.color = c;
-      save();
-      render();
-    });
+    selectBlock(col.id, blk.id);
   });
 
-  // drag to move
   attachBlockMove(el, col, blk);
-  // resize handles
   el.querySelector('.block-resize.top').addEventListener('pointerdown', e => attachBlockResize(e, col, blk, 'top', el));
   el.querySelector('.block-resize.bottom').addEventListener('pointerdown', e => attachBlockResize(e, col, blk, 'bottom', el));
 
   return el;
 }
 
-// ───────────── interactions ─────────────
+// ───────────── selection toolbar ─────────────
+let toolbarEl = null;
+function selectBlock(colId, blockId) {
+  selectedBlock = { colId, blockId };
+  document.querySelectorAll('.block').forEach(b => b.classList.remove('selected'));
+  const el = canvas.querySelector(`[data-block-id="${blockId}"]`);
+  if (el) el.classList.add('selected');
+  renderToolbarFor(selectedBlock);
+}
+function deselectBlock() {
+  selectedBlock = null;
+  document.querySelectorAll('.block').forEach(b => b.classList.remove('selected'));
+  if (toolbarEl) { toolbarEl.remove(); toolbarEl = null; }
+}
+function renderToolbarFor(sel) {
+  if (toolbarEl) toolbarEl.remove();
+  const col = state.columns.find(c => c.id === sel.colId);
+  if (!col) return;
+  const blk = col.blocks?.find(b => b.id === sel.blockId);
+  if (!blk) return;
+  const blockEl = canvas.querySelector(`[data-block-id="${sel.blockId}"]`);
+  if (!blockEl) return;
 
+  const tb = document.createElement('div');
+  tb.className = 'block-toolbar';
+
+  for (const c of COLORS) {
+    const sw = document.createElement('button');
+    sw.className = 'swatch';
+    sw.style.background = c.value;
+    sw.title = c.name;
+    if (blk.color === c.value) sw.classList.add('active');
+    sw.addEventListener('click', () => {
+      pushHistory();
+      blk.color = c.value;
+      save();
+      render();
+    });
+    tb.appendChild(sw);
+  }
+
+  const sep = document.createElement('div');
+  sep.className = 'sep';
+  tb.appendChild(sep);
+
+  const dup = document.createElement('button');
+  dup.className = 'tb-btn';
+  dup.textContent = 'duplicate';
+  dup.addEventListener('click', () => {
+    pushHistory();
+    const dur = blk.endMin - blk.startMin;
+    const newStart = Math.min(state.hourEnd * 60 - dur, blk.endMin);
+    const clone = { ...blk, id: uid(), startMin: newStart, endMin: newStart + dur };
+    col.blocks.push(clone);
+    save();
+    render();
+    selectBlock(col.id, clone.id);
+  });
+  tb.appendChild(dup);
+
+  const noteBtn = document.createElement('button');
+  noteBtn.className = 'tb-btn';
+  noteBtn.textContent = blk.note ? 'edit note' : '+ note';
+  noteBtn.addEventListener('click', () => {
+    if (!blk.note) { pushHistory(); blk.note = ''; save(); render(); }
+    requestAnimationFrame(() => {
+      const n = canvas.querySelector(`[data-block-id="${sel.blockId}"] .block-note`);
+      if (n) {
+        n.style.display = 'block';
+        n.focus(); placeCaretAtEnd(n);
+      }
+    });
+  });
+  tb.appendChild(noteBtn);
+
+  const del = document.createElement('button');
+  del.className = 'tb-btn danger';
+  del.textContent = 'delete';
+  del.addEventListener('click', () => {
+    pushHistory();
+    col.blocks = col.blocks.filter(b => b.id !== sel.blockId);
+    save();
+    deselectBlock();
+    render();
+  });
+  tb.appendChild(del);
+
+  document.body.appendChild(tb);
+  // position above block, fall back to below if no room
+  const r = blockEl.getBoundingClientRect();
+  const tbR = tb.getBoundingClientRect();
+  let top = r.top - tbR.height - 8;
+  if (top < 70) top = r.bottom + 8;
+  let left = r.left + r.width / 2 - tbR.width / 2;
+  left = Math.max(12, Math.min(window.innerWidth - tbR.width - 12, left));
+  tb.style.top = top + 'px';
+  tb.style.left = left + 'px';
+  toolbarEl = tb;
+}
+
+// ───────────── interactions ─────────────
 function attachColumnReorder(colEl, headEl, col) {
   let dragging = false;
   let pointerStart = null;
-  let placeholder = null;
 
   headEl.addEventListener('pointerdown', e => {
-    // ignore if clicking on title, mode toggle, or close button
-    if (e.target.closest('.col-title') || e.target.closest('.mode-toggle') || e.target.closest('.col-x')) return;
+    if (e.target.closest('.col-title') || e.target.closest('.mode-toggle') || e.target.closest('.col-mini-btn')) return;
     pointerStart = { x: e.clientX, y: e.clientY };
 
     const onMove = ev => {
       if (!dragging && Math.hypot(ev.clientX - pointerStart.x, ev.clientY - pointerStart.y) > 6) {
         dragging = true;
+        pushHistory();
         colEl.classList.add('dragging');
       }
       if (!dragging) return;
@@ -890,6 +1299,27 @@ function elementUnderForColumn(x, y, ownId) {
   return col;
 }
 
+function attachColumnResize(e, colEl, col) {
+  e.stopPropagation();
+  e.preventDefault();
+  const startX = e.clientX;
+  const startW = colEl.getBoundingClientRect().width;
+  pushHistory();
+  const onMove = ev => {
+    const w = clamp(startW + (ev.clientX - startX), 220, 700);
+    col.width = Math.round(w);
+    colEl.style.flex = `0 0 ${col.width}px`;
+  };
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    save();
+    if (selectedBlock) renderToolbarFor(selectedBlock);
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+}
+
 function attachItemReorder(itemEl, col, item) {
   const grip = itemEl.querySelector('.item-grip');
   grip.addEventListener('pointerdown', e => {
@@ -899,6 +1329,7 @@ function attachItemReorder(itemEl, col, item) {
     const onMove = ev => {
       if (!dragging && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 4) {
         dragging = true;
+        pushHistory();
         itemEl.classList.add('dragging');
       }
       if (!dragging) return;
@@ -924,13 +1355,13 @@ function attachItemReorder(itemEl, col, item) {
       itemEl.classList.remove('dragging');
       if (dragging && target) {
         const fromIdx = col.items.findIndex(i => i.id === item.id);
-        let toIdx = col.items.findIndex(i => i.id === target.dataset.itemId);
-        const above = target.classList.contains('drop-above') || (target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2 > ev.clientY);
-        if (fromIdx >= 0 && toIdx >= 0) {
+        const above = target.classList.contains('drop-above');
+        const targetId = target.dataset.itemId;
+        if (fromIdx >= 0) {
           const [moved] = col.items.splice(fromIdx, 1);
-          let newIdx = col.items.findIndex(i => i.id === target.dataset.itemId);
-          if (newIdx < 0) newIdx = toIdx;
-          col.items.splice(above ? newIdx : newIdx + 1, 0, moved);
+          let toIdx = col.items.findIndex(i => i.id === targetId);
+          if (toIdx < 0) toIdx = col.items.length;
+          col.items.splice(above ? toIdx : toIdx + 1, 0, moved);
           save();
           render();
         }
@@ -941,24 +1372,31 @@ function attachItemReorder(itemEl, col, item) {
   });
 }
 
-// drag-to-create on empty day grid
+// drag-to-create or click-to-create on day grid
 function attachBlockCreation(dayCanvas, col, startH) {
   dayCanvas.addEventListener('pointerdown', e => {
-    if (e.target !== dayCanvas) return; // only on empty space
+    if (e.target !== dayCanvas) return;
     const rect = dayCanvas.getBoundingClientRect();
     const startY = e.clientY - rect.top;
     const startMinAbs = startH * 60 + snap15(pxToMin(startY));
-    let endMinAbs = startMinAbs + 15;
+    let dragged = false;
+    let endMinAbs = startMinAbs + 30;
+    pushHistory();
 
     const ghost = document.createElement('div');
     ghost.className = 'block ghost';
     ghost.style.background = COLORS[0].value;
+    ghost.style.left = '4px';
+    ghost.style.right = '4px';
+    ghost.style.width = 'calc(100% - 8px)';
     ghost.style.top = minToPx(startMinAbs - startH * 60) + 'px';
     ghost.style.height = '14px';
     ghost.innerHTML = `<div class="block-time">${minToTimeStr(startMinAbs)}–${minToTimeStr(endMinAbs)}</div><div class="block-label">new</div>`;
     dayCanvas.appendChild(ghost);
 
     const onMove = ev => {
+      const dy = Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY);
+      if (!dragged && dy > 4) dragged = true;
       const y = ev.clientY - rect.top;
       const cur = startH * 60 + snap15(pxToMin(y));
       const a = Math.min(startMinAbs, cur);
@@ -972,23 +1410,34 @@ function attachBlockCreation(dayCanvas, col, startH) {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       ghost.remove();
-      const y = ev.clientY - rect.top;
-      const cur = startH * 60 + snap15(pxToMin(y));
-      let a = Math.min(startMinAbs, cur);
-      let b = Math.max(startMinAbs, cur);
-      if (b - a < 15) b = a + 15;
+      let a, b;
+      if (!dragged) {
+        // click → 30min default block
+        a = startMinAbs;
+        b = startMinAbs + 30;
+      } else {
+        const y = ev.clientY - rect.top;
+        const cur = startH * 60 + snap15(pxToMin(y));
+        a = Math.min(startMinAbs, cur);
+        b = Math.max(startMinAbs, cur);
+        if (b - a < 15) b = a + 15;
+      }
+      const minB = state.hourStart * 60, maxB = state.hourEnd * 60;
+      a = clamp(a, minB, maxB - 15);
+      b = clamp(b, a + 15, maxB);
       const blk = {
         id: uid(),
         startMin: a,
         endMin: b,
         label: '',
+        note: '',
         color: COLORS[Math.floor(Math.random() * 4)].value,
       };
       col.blocks.push(blk);
       save();
       render();
-      // focus its label
       requestAnimationFrame(() => {
+        selectBlock(col.id, blk.id);
         const lab = canvas.querySelector(`[data-block-id="${blk.id}"] .block-label`);
         if (lab) { lab.focus(); placeCaretAtEnd(lab); }
       });
@@ -1002,17 +1451,23 @@ function attachBlockMove(blockEl, col, blk) {
   blockEl.addEventListener('pointerdown', e => {
     if (e.target.closest('.block-resize')) return;
     if (e.target.closest('.block-label')) return;
-    if (e.target.closest('.block-x')) return;
+    if (e.target.closest('.block-note')) return;
     e.stopPropagation();
+
     const dayCanvas = blockEl.parentElement;
     const rect = dayCanvas.getBoundingClientRect();
     const startY = e.clientY;
     const origStart = blk.startMin;
     const origEnd = blk.endMin;
+    let movedFar = false;
+    pushHistory();
     blockEl.classList.add('dragging');
+
+    let crossTargetCol = null;
 
     const onMove = ev => {
       const dy = ev.clientY - startY;
+      if (!movedFar && Math.abs(dy) > 3) movedFar = true;
       const dMin = snap15(pxToMin(dy));
       let newStart = origStart + dMin;
       let newEnd = origEnd + dMin;
@@ -1024,12 +1479,53 @@ function attachBlockMove(blockEl, col, blk) {
       blk.endMin = newEnd;
       blockEl.style.top = minToPx(blk.startMin - state.hourStart * 60) + 'px';
       blockEl.querySelector('.block-time').textContent = `${minToTimeStr(blk.startMin)}–${minToTimeStr(blk.endMin)}`;
+
+      // cross-column targeting
+      const overEl = document.elementFromPoint(ev.clientX, ev.clientY);
+      let dc = overEl?.closest('.day-canvas');
+      // ignore own
+      if (dc && dc.dataset.colId === col.id) dc = null;
+      canvas.querySelectorAll('.column').forEach(c => c.classList.remove('cross-drop'));
+      if (dc) {
+        const targetCol = state.columns.find(c => c.id === dc.dataset.colId);
+        if (targetCol && targetCol.mode === 'day') {
+          dc.closest('.column').classList.add('cross-drop');
+          crossTargetCol = { col: targetCol, dayCanvas: dc };
+        } else {
+          crossTargetCol = null;
+        }
+      } else {
+        crossTargetCol = null;
+      }
     };
-    const onUp = () => {
+    const onUp = ev => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       blockEl.classList.remove('dragging');
+      canvas.querySelectorAll('.column').forEach(c => c.classList.remove('cross-drop'));
+
+      if (crossTargetCol && movedFar) {
+        // transfer block to target column at cursor y
+        const tRect = crossTargetCol.dayCanvas.getBoundingClientRect();
+        const yy = ev.clientY - tRect.top;
+        const dur = blk.endMin - blk.startMin;
+        let newStart = state.hourStart * 60 + snap15(pxToMin(yy));
+        const minB = state.hourStart * 60, maxB = state.hourEnd * 60;
+        newStart = clamp(newStart, minB, maxB - dur);
+        blk.startMin = newStart;
+        blk.endMin = newStart + dur;
+        col.blocks = col.blocks.filter(b => b.id !== blk.id);
+        if (!crossTargetCol.col.blocks) crossTargetCol.col.blocks = [];
+        crossTargetCol.col.blocks.push(blk);
+        save();
+        const newColId = crossTargetCol.col.id;
+        render();
+        selectBlock(newColId, blk.id);
+        return;
+      }
+
       save();
+      if (selectedBlock?.blockId === blk.id) renderToolbarFor(selectedBlock);
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
@@ -1042,6 +1538,7 @@ function attachBlockResize(e, col, blk, edge, blockEl) {
   const startY = e.clientY;
   const origStart = blk.startMin;
   const origEnd = blk.endMin;
+  pushHistory();
   blockEl.classList.add('dragging');
 
   const onMove = ev => {
@@ -1057,7 +1554,7 @@ function attachBlockResize(e, col, blk, edge, blockEl) {
       blk.endMin = newEnd;
     }
     blockEl.style.top = minToPx(blk.startMin - state.hourStart * 60) + 'px';
-    blockEl.style.height = minToPx(blk.endMin - blk.startMin) + 'px';
+    blockEl.style.height = Math.max(18, minToPx(blk.endMin - blk.startMin)) + 'px';
     blockEl.querySelector('.block-time').textContent = `${minToTimeStr(blk.startMin)}–${minToTimeStr(blk.endMin)}`;
   };
   const onUp = () => {
@@ -1065,18 +1562,18 @@ function attachBlockResize(e, col, blk, edge, blockEl) {
     window.removeEventListener('pointerup', onUp);
     blockEl.classList.remove('dragging');
     save();
+    if (selectedBlock?.blockId === blk.id) renderToolbarFor(selectedBlock);
   };
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
 }
 
-// ───────────── palette popover ─────────────
+// ───────────── palette popover (for list items) ─────────────
 let openPalette = null;
 function showPalette(anchor, current, onPick) {
   closePalette();
   const pal = document.createElement('div');
   pal.className = 'palette';
-  // include "no color" option as first
   const opts = [{ name: 'none', value: null }, ...COLORS];
   for (const c of opts) {
     const b = document.createElement('button');
@@ -1106,6 +1603,18 @@ function closePaletteOnOutside(e) {
 function closePalette() {
   if (openPalette) { openPalette.remove(); openPalette = null; }
 }
+function closeAllPopovers() {
+  closePalette();
+  document.getElementById('menu')?.classList.remove('open');
+}
+
+// click outside selected block deselects
+document.addEventListener('pointerdown', e => {
+  if (!selectedBlock) return;
+  if (e.target.closest('.block')) return;
+  if (e.target.closest('.block-toolbar')) return;
+  deselectBlock();
+});
 
 // ───────────── helpers ─────────────
 function escapeHtml(s) {
@@ -1139,15 +1648,21 @@ function formatHour(h) {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12} ${ampm}`;
 }
-function todayStr() {
+function isoDateToday() {
   const d = new Date();
-  const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
-  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  return `${days[d.getDay()]} · ${months[d.getMonth()]} ${d.getDate()}`;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
+function isToday(iso) {
+  return iso === isoDateToday();
+}
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
 // ───────────── add column ─────────────
 document.getElementById('add-column').addEventListener('click', () => {
+  pushHistory();
   const isFirst = state.columns.length === 0;
   const col = {
     id: uid(),
@@ -1155,17 +1670,75 @@ document.getElementById('add-column').addEventListener('click', () => {
     mode: isFirst ? 'list' : (state.columns[state.columns.length - 1].mode === 'list' ? 'day' : 'list'),
     items: [],
     blocks: [],
-    date: todayStr(),
+    date: isoDateToday(),
   };
   state.columns.push(col);
   save();
   render();
-  // scroll to new column + focus title
   requestAnimationFrame(() => {
     main.scrollTo({ left: main.scrollWidth, behavior: 'smooth' });
     const titleEl = canvas.querySelector(`[data-col-id="${col.id}"] .col-title`);
     if (titleEl) titleEl.focus();
   });
+});
+
+// ───────────── menu ─────────────
+const menu = document.getElementById('menu');
+document.getElementById('menu-toggle').addEventListener('click', e => {
+  e.stopPropagation();
+  menu.classList.toggle('open');
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('.menu-wrap')) menu.classList.remove('open');
+});
+
+document.getElementById('m-export').addEventListener('click', () => {
+  menu.classList.remove('open');
+  const data = JSON.stringify(state, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mycoldmars-todo-${isoDateToday()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('exported');
+});
+
+document.getElementById('m-import').addEventListener('click', () => {
+  menu.classList.remove('open');
+  document.getElementById('import-file').click();
+});
+document.getElementById('import-file').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    const text = await f.text();
+    const incoming = JSON.parse(text);
+    if (!incoming.columns) throw new Error('not a todo export');
+    pushHistory();
+    state = { ...DEFAULT_STATE, ...incoming };
+    save();
+    render();
+    toast('imported');
+  } catch (err) {
+    toast('import failed: ' + err.message);
+  }
+  e.target.value = '';
+});
+
+document.getElementById('m-undo').addEventListener('click', () => {
+  menu.classList.remove('open');
+  undo();
+});
+
+document.getElementById('m-clear').addEventListener('click', () => {
+  menu.classList.remove('open');
+  if (!confirm('clear all columns? (you can undo)')) return;
+  pushHistory();
+  state = structuredClone(DEFAULT_STATE);
+  save();
+  render();
 });
 
 // ───────────── hour controls ─────────────
@@ -1174,6 +1747,7 @@ const hEnd   = document.getElementById('hour-end');
 hStart.value = state.hourStart;
 hEnd.value   = state.hourEnd;
 hStart.addEventListener('change', () => {
+  pushHistory();
   const v = clamp(parseInt(hStart.value, 10) || 0, 0, 23);
   state.hourStart = Math.min(v, state.hourEnd - 1);
   hStart.value = state.hourStart;
@@ -1181,13 +1755,64 @@ hStart.addEventListener('change', () => {
   render();
 });
 hEnd.addEventListener('change', () => {
+  pushHistory();
   const v = clamp(parseInt(hEnd.value, 10) || 24, 1, 24);
   state.hourEnd = Math.max(v, state.hourStart + 1);
   hEnd.value = state.hourEnd;
   save();
   render();
 });
-function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// ───────────── keyboard ─────────────
+window.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+    if (document.activeElement && document.activeElement.matches('[contenteditable="true"], input, textarea')) {
+      // let native undo work in editable fields
+      return;
+    }
+    e.preventDefault();
+    undo();
+  }
+  if (e.key === 'Escape') {
+    deselectBlock();
+    closeAllPopovers();
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  }
+  if (selectedBlock && (e.key === 'Backspace' || e.key === 'Delete')) {
+    if (document.activeElement && document.activeElement.matches('[contenteditable="true"], input, textarea')) return;
+    e.preventDefault();
+    const col = state.columns.find(c => c.id === selectedBlock.colId);
+    if (col) {
+      pushHistory();
+      col.blocks = col.blocks.filter(b => b.id !== selectedBlock.blockId);
+      save();
+      deselectBlock();
+      render();
+    }
+  }
+});
+
+// ───────────── now line tick ─────────────
+setInterval(() => {
+  // re-render only day columns that show today
+  const hasToday = state.columns.some(c => c.mode === 'day' && isToday(c.date));
+  if (hasToday) render();
+}, 60_000);
+
+// scroll day columns to current time on first paint
+function scrollDayColumnsToNow() {
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  if (nowMin < state.hourStart * 60 || nowMin > state.hourEnd * 60) return;
+  const offset = minToPx(nowMin - state.hourStart * 60) - 80;
+  document.querySelectorAll('.column').forEach(colEl => {
+    const colId = colEl.dataset.colId;
+    const col = state.columns.find(c => c.id === colId);
+    if (!col || col.mode !== 'day' || !isToday(col.date)) return;
+    const body = colEl.querySelector('.col-body');
+    if (body) body.scrollTop = Math.max(0, offset);
+  });
+}
 
 // ───────────── seed if empty ─────────────
 if (state.columns.length === 0) {
@@ -1200,9 +1825,11 @@ if (state.columns.length === 0) {
         { id: uid(), text: 'open the canvas, see if it sings', done: false, color: '#9bb39a' },
         { id: uid(), text: 'edit a column title — try this one', done: false, color: null },
         { id: uid(), text: 'switch this column to day, then back', done: false, color: null },
+        { id: uid(), text: 'click the ⋯ menu — try export/import', done: false, color: null },
+        { id: uid(), text: 'undo with ⌘z', done: false, color: null },
       ],
       blocks: [],
-      date: todayStr(),
+      date: isoDateToday(),
     },
     {
       id: uid(),
@@ -1210,12 +1837,12 @@ if (state.columns.length === 0) {
       mode: 'day',
       items: [],
       blocks: [
-        { id: uid(), startMin: 9 * 60,        endMin: 10 * 60 + 30, label: 'morning making', color: '#c8a973' },
-        { id: uid(), startMin: 11 * 60,       endMin: 12 * 60,      label: 'human element edit', color: '#8aa2b8' },
-        { id: uid(), startMin: 14 * 60,       endMin: 15 * 60 + 30, label: 'newpress call',     color: '#a08099' },
-        { id: uid(), startMin: 17 * 60 + 30,  endMin: 19 * 60,      label: 'with the kids',     color: '#c98a72' },
+        { id: uid(), startMin: 9 * 60,        endMin: 10 * 60 + 30, label: 'morning making', note: '', color: '#c8a973' },
+        { id: uid(), startMin: 11 * 60,       endMin: 12 * 60,      label: 'human element edit', note: '', color: '#8aa2b8' },
+        { id: uid(), startMin: 14 * 60,       endMin: 15 * 60 + 30, label: 'newpress call', note: '', color: '#a08099' },
+        { id: uid(), startMin: 17 * 60 + 30,  endMin: 19 * 60,      label: 'with the kids', note: '', color: '#c98a72' },
       ],
-      date: todayStr(),
+      date: isoDateToday(),
     },
   ];
   save();
@@ -1224,9 +1851,11 @@ if (state.columns.length === 0) {
 // ───────────── go ─────────────
 render();
 
-// keep palette closed on resize/scroll
 window.addEventListener('scroll', closePalette, true);
-window.addEventListener('resize', closePalette);
+window.addEventListener('resize', () => {
+  closePalette();
+  if (selectedBlock) renderToolbarFor(selectedBlock);
+});
 </script>
 </body>
 </html>
