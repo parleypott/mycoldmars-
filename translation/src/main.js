@@ -1380,6 +1380,7 @@ async function handleLoad(id) {
         applySnapshotPayload(snap.payload);
         lastServerUpdatedAt = t.updated_at; // server still on the older version
         rememberLastTranscript(t.id);
+        setPermalinkHash(currentSlug || t.id);
         finishLoadRender(t, /*step override*/ undefined);
         ensureRealtimeSubscription();
         maybeAcquireLock();
@@ -1396,6 +1397,10 @@ async function handleLoad(id) {
     applyTranscriptToState(t);
     lastServerUpdatedAt = t.updated_at;
     rememberLastTranscript(t.id);
+    // Prefer the slug for the URL (shareable + readable). currentSlug was
+    // populated by applyTranscriptToState above. Falls back to id if the
+    // transcript has no slug yet.
+    setPermalinkHash(currentSlug || t.id);
     finishLoadRender(t);
     ensureRealtimeSubscription();
     maybeAcquireLock();
@@ -2454,12 +2459,20 @@ function stopSeqAurora() {
 function showSequencer() {
   flushPendingSave();
   stopFallingGlyphs();
+  // Remember where we came from so exitSequencer can put us back where we
+  // expect to land (library if user opened it from library; transcript if
+  // user opened it from a transcript; home otherwise).
+  if (libraryShowing) sequencerEntryRoute = { kind: 'library' };
+  else if (currentTranscriptId) sequencerEntryRoute = { kind: 'transcript', id: currentSlug || currentTranscriptId };
+  else sequencerEntryRoute = { kind: 'home' };
   document.getElementById('app').classList.add('hidden');
   document.getElementById('sequencer-view').classList.remove('hidden');
   document.body.style.background = '#0a0526';
   startSeqAurora();
   setPermalinkHash('sequencer');
 }
+
+let sequencerEntryRoute = null;
 
 function exitSequencer() {
   document.getElementById('sequencer-view').classList.add('hidden');
@@ -2475,9 +2488,19 @@ function exitSequencer() {
   $('#seq-confirm').classList.add('hidden');
   $('#seq-paste').classList.remove('hidden');
   $('#seq-input').value = '';
-  // Restore transcript hash or clear
-  if (currentSlug || currentTranscriptId) {
-    setPermalinkHash(currentSlug || currentTranscriptId);
+  // Return to wherever the user opened the sequencer from. Defaults to
+  // home if we never tracked an entry route (e.g. first session, refreshed
+  // directly into #sequencer).
+  const entry = sequencerEntryRoute || { kind: 'home' };
+  sequencerEntryRoute = null;
+  if (entry.kind === 'library') {
+    setRoute({ kind: 'library' });
+    showLibrary();
+  } else if (entry.kind === 'transcript' && entry.id) {
+    setRoute({ kind: 'transcript', id: entry.id });
+    // The transcript view is already mounted (we never tore it down on
+    // entering sequencer); just make sure the editor panel is visible.
+    if (currentTranscriptId && editorState) { goToStep(5); switchView('editor'); }
   } else {
     clearPermalinkHash();
   }
