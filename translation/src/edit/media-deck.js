@@ -78,8 +78,8 @@ export function mountMediaDeck(editorContainer, opts = {}) {
       <video data-deck-videoel preload="metadata" playsinline></video>
       <div class="media-deck-error" data-deck-error hidden></div>
       <div class="media-deck-novideo" data-deck-novideo hidden>
-        <span class="media-deck-novideo-eye">audio only</span>
-        <span class="media-deck-novideo-sub">browser can't decode this video format (likely a Premiere ProRes proxy). Audio + transcript still work.</span>
+        <span class="media-deck-novideo-eye">no preview</span>
+        <span class="media-deck-novideo-sub">browser can't play this codec (likely a Premiere ProRes proxy). Re-export as H.264 MP4 for playback. Transcript editing still works.</span>
       </div>
       <div class="media-deck-controls">
         <div class="media-deck-controls-center">

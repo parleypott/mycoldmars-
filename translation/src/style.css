@@ -5139,12 +5139,16 @@ tr.dimmed-speaker { opacity: 0.35; }
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
   pointer-events: auto;
 }
-.media-deck--audio-only .media-deck-video {
-  width: 420px;
+/* Audio-only mode: collapse the frame entirely. No black video box. The
+   slim "preview unavailable" badge + the controls bar are all that's left.
+   Specificity bumped via the .media-deck-video & combination so it actually
+   wins over .media-deck-video video below. */
+.media-deck-video.media-deck-video--audioonly {
+  width: 380px;
   background: var(--np-warm-white);
 }
-.media-deck--audio-only video {
-  display: none;
+.media-deck-video.media-deck-video--audioonly video {
+  display: none !important;
 }
 .media-deck-video video {
   display: block;
@@ -5166,42 +5170,33 @@ tr.dimmed-speaker { opacity: 0.35; }
 }
 
 /* Audio-only fallback when the browser can't decode the video track
-   (e.g. Premiere ProRes proxies). Sits where the <video> would, but
-   only takes the video area's vertical space — controls + waveform
-   stay visible underneath. */
+   (e.g. Premiere ProRes proxies). Slim warning bar above the controls —
+   no big black box. Pure mono-text, fits in the existing chrome. */
 .media-deck-novideo {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
-  background:
-    radial-gradient(circle at 12% 50%, rgba(221, 44, 30, 0.22), transparent 50%),
-    #1a1714;
-  color: rgba(244, 242, 230, 0.85);
-  padding: 10px 14px;
+  gap: 8px;
+  background: rgba(221, 44, 30, 0.06);
+  color: var(--np-ink);
+  padding: 8px 12px;
   pointer-events: none;
-  height: 56px;
+  border-bottom: 1px solid rgba(221, 44, 30, 0.15);
   flex-shrink: 0;
 }
 .media-deck-novideo-eye {
   font-family: var(--np-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.22em;
+  font-size: 9px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--np-red);
   flex-shrink: 0;
+  font-weight: 500;
 }
 .media-deck-novideo-sub {
   font-family: var(--np-font-mono);
   font-size: 10.5px;
   line-height: 1.35;
-  color: rgba(244, 242, 230, 0.65);
-}
-/* In audio-only mode the <video> stays in the DOM so audio + currentTime
-   keep flowing, but it's collapsed to zero height so the slim
-   "audio only" badge replaces it. */
-.media-deck-video--audioonly video {
-  display: none;
+  color: var(--np-sepia);
 }
 
 /* Trint-style toolbar: centered transport, time on left, speed on right.
