@@ -212,7 +212,9 @@ const TABS_V2 = [
   { id: 'script',   num: '05', label: 'SCRIPT',        hint: 'COPILOT'         },
 ];
 
-let v2Tab = 'inputs';
+const validTabs = new Set(TABS_V2.map(t => t.id));
+const hashTab = window.location.hash.replace('#', '');
+let v2Tab = validTabs.has(hashTab) ? hashTab : 'inputs';
 let v2AC = null; // abort controller for tab event listeners
 let v2Data = {}; // persisted project data
 
@@ -317,6 +319,9 @@ function renderProjectV2(project, assets, units, patterns, tierStats) {
 }
 
 function v2SwitchTab(tabId, signal) {
+  // Sync URL hash
+  history.replaceState(null, '', `#${tabId}`);
+
   // Update tab strip
   document.querySelectorAll('.v2-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
 
