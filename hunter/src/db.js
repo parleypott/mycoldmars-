@@ -434,6 +434,41 @@ export async function fetchTierComparison(projectId) {
   return res.json();
 }
 
+// ── Scenes & Arc Summaries (pre-computed corpus context) ──
+
+export async function listScenes(projectId) {
+  if (!supabase) return [];
+  const { data, error } = await db().from('scenes')
+    .select('*, scene_units(corpus_unit_id, position, role)')
+    .eq('project_id', projectId)
+    .order('chronological_order', { ascending: true });
+  if (error) throw normalizeError(error, 'listScenes');
+  return data;
+}
+
+export async function listArcSummaries(projectId) {
+  if (!supabase) return [];
+  const { data, error } = await db().from('arc_summaries')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: true });
+  if (error) throw normalizeError(error, 'listArcSummaries');
+  return data;
+}
+
+export async function fetchCorpusContext(projectId) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'get_corpus_context', projectId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Corpus context fetch failed');
+  }
+  return res.json();
+}
+
 // ── Pending queue (used by worker) ──
 
 export async function getPendingAssets(limit = 10) {

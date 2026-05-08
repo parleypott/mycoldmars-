@@ -356,6 +356,204 @@ export async function generateEmbedding(text) {
   return result.embeddings[0].values;
 }
 
+/**
+ * Synthesize a single scene from its constituent clip analyses.
+ * Model: Flash — each scene is ~30 clips × 270 tokens = ~8K input.
+ */
+export async function synthesizeScene({ clipAnalyses, clipNames, sceneContext }) {
+  const genai = getAI();
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+  const corpus = clipAnalyses.map((text, i) =>
+    `[Clip ${i + 1}: ${clipNames[i] || 'unknown'}]\n${text}`
+  ).join('\n\n---\n\n');
+
+  const contextBlock = sceneContext ? `SCENE CONTEXT:\n${sceneContext}\n\n` : '';
+
+  const prompt = `${contextBlock}You are a documentary editor's assistant synthesizing a single SCENE from its constituent clips. Below are ${clipAnalyses.length} clip analyses from one continuous shooting session.
+
+Synthesize them into a unified scene understanding. Return a JSON object with:
+
+{
+  "name": "A cinematic scene title (not a filename)",
+  "scene_type": "one of: interview|broll|establishing|transition|action|ceremony|conversation|observational|travel|meal|work|performance",
+  "arc_summary": "3-5 paragraph narrative of what happens in this scene, what makes it editorially compelling, and how it could function in a cut",
+  "emotional_curve": "One sentence describing the emotional movement across the scene (e.g. 'Opens with nervous energy, settles into intimacy, closes with quiet contemplation')",
+  "editorial_notes": "2-3 sentences of honest editorial advice — is this scene essential? What's the strongest moment? What would you cut?",
+  "location": "Best description of where this takes place",
+  "time_of_day": "dawn|morning|midday|afternoon|golden-hour|evening|night",
+  "subjects": ["list of people who appear, using the most specific name/description available"],
+  "hero_clips": ["clip names that carry the scene — the moments you'd build around"],
+  "supporting_clips": ["clip names that provide context, texture, or coverage"],
+  "cutaway_clips": ["clip names useful as cutaways or insert shots"],
+  "connections": "Thematic or narrative connections this scene might have to other parts of the project",
+  "keepability": 0.0-1.0
+}
+
+Return ONLY valid JSON.
+
+CLIPS:
+${corpus}`;
+
+  const result = await genai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: { responseMimeType: 'application/json', maxOutputTokens: 4000 },
+  });
+
+  try {
+    return JSON.parse(result.text);
+  } catch {
+    return { raw_text: result.text, parse_error: true };
+  }
+}
+
+/**
+ * Synthesize a day's worth of scenes into a day-level narrative.
+ * Model: Flash — ~10 scene summaries × 500 tokens = ~5K input.
+ */
+export async function synthesizeDay({ sceneSummaries, dayLabel, projectContext }) {
+  const genai = getAI();
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+  const contextBlock = projectContext ? `PROJECT CONTEXT:\n${projectContext}\n\n` : '';
+
+  const corpus = sceneSummaries.map((s, i) =>
+    `[Scene ${i + 1}: ${s.name || 'Untitled'}]\nType: ${s.scene_type || '?'} | Location: ${s.location || '?'} | Time: ${s.time_of_day || '?'}\nKeepability: ${s.keepability ?? '?'}\n\n${s.arc_summary || ''}\n\nEmotional curve: ${s.emotional_curve || ''}\nEditorial notes: ${s.editorial_notes || ''}`
+  ).join('\n\n---\n\n');
+
+  const prompt = `${contextBlock}You are a documentary editor's assistant synthesizing a full SHOOTING DAY from its scenes.
+
+DAY: ${dayLabel}
+${sceneSummaries.length} scenes captured this day.
+
+${corpus}
+
+Synthesize into a day-level editorial intelligence report. Return JSON:
+
+{
+  "day_narrative": "3-5 paragraphs telling the story of this shooting day — what happened, what the filmmaker was drawn to, what surprises emerged, how the day's energy shifted",
+  "dominant_themes": ["3-5 thematic threads that ran through this day"],
+  "emotional_arc": "One sentence describing the day's emotional trajectory",
+  "strongest_scene": "Name of the strongest scene and why (1-2 sentences)",
+  "weakest_scene": "Name of the weakest scene and why (1-2 sentences)",
+  "day_character": "One bold sentence capturing this day's identity (e.g. 'The day the filmmaker stopped being a tourist and started listening')"
+}
+
+Return ONLY valid JSON.`;
+
+  const result = await genai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: { responseMimeType: 'application/json', maxOutputTokens: 4000 },
+  });
+
+  try {
+    return JSON.parse(result.text);
+  } catch {
+    return { raw_text: result.text, parse_error: true };
+  }
+}
+
+/**
+ * Synthesize the entire project from day-level summaries.
+ * Model: Pro — the one big token spend (~16K input).
+ */
+export async function synthesizeProject({ daySummaries, projectName, stats }) {
+  const genai = getAI();
+
+  const corpus = daySummaries.map((d, i) =>
+    `[Day ${i + 1}: ${d.dayLabel || '?'}]\nCharacter: ${d.day_character || ''}\nEmotional arc: ${d.emotional_arc || ''}\nStrongest scene: ${d.strongest_scene || ''}\nThemes: ${(d.dominant_themes || []).join(', ')}\n\n${d.day_narrative || ''}`
+  ).join('\n\n---\n\n');
+
+  const statsBlock = stats
+    ? `\nSTATS: ${stats.totalClips || 0} clips, ${stats.totalScenes || 0} scenes, ${stats.totalDays || 0} shooting days, ${stats.totalDuration || '?'} total footage\n`
+    : '';
+
+  const prompt = `You are Hunter — a brilliant documentary editor's AI who has watched every frame of this project. Now synthesize everything into a master editorial intelligence report.
+
+PROJECT: "${projectName || 'Untitled'}"${statsBlock}
+
+${corpus}
+
+Produce the definitive project synthesis. Return JSON:
+
+{
+  "title": "A bold, evocative headline for this project's STORY (not the project name)",
+  "lede": "One provocative, insight-laden sentence capturing the whole thing — pull-quote energy",
+  "master_arc": "5-8 paragraphs describing the complete narrative arc. Tell it chronologically. What happened day 1 vs the last day? What shifted? What obsession emerged? What got abandoned? Write like a filmmaker's trusted editorial advisor.",
+  "themes": [{"name": "thematic thread name", "description": "2-3 sentences on how this theme manifests across the project"}],
+  "subject_arcs": [{"name": "person/subject", "arc": "How this subject's presence/role evolves across the project"}],
+  "editorial_recommendations": ["3-5 specific, opinionated editorial recommendations — sequences to build, scenes to cut, juxtapositions to try"],
+  "project_context_string": "3-4 dense paragraphs for injection into per-clip analysis prompts. Cover: who the key subjects are, what locations appear, what the project's themes and narrative arc are, what the filmmaker's visual and editorial instincts tend toward. This context will help future clip analyses understand where each clip fits in the larger story."
+}
+
+Be specific. Be opinionated. Surprise the filmmaker. Return ONLY valid JSON.`;
+
+  const result = await genai.models.generateContent({
+    model: 'gemini-2.5-pro',
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: { responseMimeType: 'application/json', maxOutputTokens: 8000 },
+  });
+
+  try {
+    return JSON.parse(result.text);
+  } catch {
+    return { raw_text: result.text, parse_error: true };
+  }
+}
+
+/**
+ * Extract and consolidate subjects from a batch of clip analyses.
+ * Model: Flash — processes in batches of 200 clips.
+ */
+export async function extractSubjectsFromAnalyses(clipAnalyses) {
+  const genai = getAI();
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+  const corpus = clipAnalyses.map((a, i) => {
+    const subjects = a.output_json?.subjects || [];
+    const visual = a.output_json?.visual_description || '';
+    const subjectStr = subjects.map(s => `${s.description || ''} — ${s.action || ''} (${s.emotion || ''})`).join('; ');
+    return `[Clip ${i + 1}: ${a.clipName || 'unknown'}]\nSubjects: ${subjectStr || 'none detected'}\nVisual: ${visual}`;
+  }).join('\n\n');
+
+  const prompt = `You are analyzing documentary footage to build a comprehensive SUBJECT DATABASE. Below are subject descriptions and visual descriptions from ${clipAnalyses.length} clips.
+
+Your job: identify every distinct PERSON who appears and consolidate all references to the same person under one canonical name. Be aggressive about merging — "the filmmaker", "Johnny", "a man with a camera", "the narrator" are likely the same person. "A local guide", "Mohammed", "the man in the white thobe" might also be the same person if descriptions match.
+
+Return JSON:
+
+{
+  "subjects": [
+    {
+      "canonical_name": "The most specific name available (real name > role > description)",
+      "description": "2-3 sentences: who this person is, how they typically appear, their role in the footage",
+      "aliases": ["all other ways this person is referred to across clips"],
+      "clip_appearances": [clip numbers where this person appears],
+      "confidence": 0.0-1.0
+    }
+  ]
+}
+
+Err on the side of merging. It's better to have 15 well-consolidated subjects than 80 fragments. Return ONLY valid JSON.
+
+CLIPS:
+${corpus}`;
+
+  const result = await genai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: { responseMimeType: 'application/json', maxOutputTokens: 4000 },
+  });
+
+  try {
+    return JSON.parse(result.text);
+  } catch {
+    return { subjects: [], parse_error: true };
+  }
+}
+
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);

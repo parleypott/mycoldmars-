@@ -42,6 +42,10 @@ export default async function handler(req) {
     return handleTierComparison(body, apiKey);
   }
 
+  if (action === 'get_corpus_context') {
+    return handleGetCorpusContext(body);
+  }
+
   // Default: proxy to Gemini
   const model = body.model || 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -686,6 +690,66 @@ Be specific. Cite clip names. Surprise the filmmaker. Be opinionated. If the foo
   }
 
   return jsonResponse(result);
+}
+
+// ── Corpus Context (pre-computed, DB reads only) ──
+
+async function handleGetCorpusContext(body) {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return jsonResponse({ error: 'Supabase not configured' }, 500);
+  }
+
+  const { projectId } = body;
+  if (!projectId) return jsonResponse({ error: 'projectId is required' }, 400);
+
+  const headers = {
+    apikey: supabaseKey,
+    Authorization: `Bearer ${supabaseKey}`,
+  };
+
+  // Fetch project-level arc summary
+  const arcUrl = `${supabaseUrl}/rest/v1/arc_summaries?project_id=eq.${projectId}&level=eq.project&limit=1`;
+  const arcRes = await fetch(arcUrl, { headers });
+  let masterNarrative = null;
+  if (arcRes.ok) {
+    const arcs = await arcRes.json();
+    if (arcs?.[0]) {
+      try { masterNarrative = JSON.parse(arcs[0].summary_text); } catch {
+        masterNarrative = { raw: arcs[0].summary_text };
+      }
+    }
+  }
+
+  // Fetch day summaries
+  const dayUrl = `${supabaseUrl}/rest/v1/arc_summaries?project_id=eq.${projectId}&level=eq.day&order=scope_ref.asc`;
+  const dayRes = await fetch(dayUrl, { headers });
+  let daySummaries = [];
+  if (dayRes.ok) {
+    const days = await dayRes.json();
+    daySummaries = (days || []).map(d => {
+      let parsed = {};
+      try { parsed = JSON.parse(d.summary_text); } catch {}
+      return { dayLabel: d.scope_ref, ...parsed };
+    });
+  }
+
+  // Fetch scenes with arc summaries
+  const scenesUrl = `${supabaseUrl}/rest/v1/scenes?project_id=eq.${projectId}&order=chronological_order.asc&select=id,name,scene_type,shoot_day,location,time_of_day,chronological_order,arc_summary,emotional_curve,editorial_notes,clip_count,total_duration_seconds,status`;
+  const scenesRes = await fetch(scenesUrl, { headers });
+  let scenes = [];
+  if (scenesRes.ok) {
+    scenes = await scenesRes.json() || [];
+  }
+
+  return jsonResponse({
+    hasData: !!masterNarrative,
+    masterNarrative,
+    daySummaries,
+    scenes,
+  });
 }
 
 function formatSeconds(s) {
