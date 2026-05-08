@@ -1851,16 +1851,16 @@ tr.dimmed-speaker { opacity: 0.35; }
   background: rgba(221, 44, 30, 0.04);
 }
 
-/* Bilingual rendering — when a segment has an `originalText` (i.e. the
-   transcript was translated from another language), each segment becomes
-   its own block and the original-language text renders underneath in a
-   smaller serif italic. When no translation exists, segments stay inline
-   (default flowing-paragraph behaviour) and this rule does nothing. */
-.editor-segment[data-original]:not([data-original=""]) {
+/* Bilingual rendering — opt-in via the "Show original" toggle in the
+   editor toolbar (sets .show-original on .editor-content). When ON, each
+   segment with originalText becomes its own block and the source-language
+   text renders underneath in a smaller serif italic. Default OFF: the
+   transcript reads as flowing paragraphs. */
+.editor-content.show-original .editor-segment[data-original]:not([data-original=""]) {
   display: block;
   margin-top: var(--np-space-3);
 }
-.editor-segment[data-original]:not([data-original=""])::after {
+.editor-content.show-original .editor-segment[data-original]:not([data-original=""])::after {
   content: attr(data-original);
   display: block;
   margin-top: 4px;
@@ -5325,7 +5325,7 @@ span[data-segment].is-playing {
 /* Block-segment style (bilingual mode where each segment is its own
    block) — promote the highlight to a left rule + soft fill so the
    moving marker reads at a glance. */
-span[data-segment][data-original]:not([data-original=""]).is-playing {
+.editor-content.show-original span[data-segment][data-original]:not([data-original=""]).is-playing {
   position: relative;
   background: rgba(221, 200, 30, 0.18);
   box-shadow: inset 3px 0 0 var(--np-red);
@@ -5333,7 +5333,7 @@ span[data-segment][data-original]:not([data-original=""]).is-playing {
   margin-left: -15px;
   border-radius: 2px;
 }
-span[data-segment][data-original]:not([data-original=""]).is-playing::before {
+.editor-content.show-original span[data-segment][data-original]:not([data-original=""]).is-playing::before {
   content: '';
   position: absolute;
   left: -2px;

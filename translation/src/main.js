@@ -4522,13 +4522,16 @@ async function maybeAcquireLock() {
   lockBoundTranscriptId = null;
 
   let existing = null;
-  try { existing = await checkLock(currentTranscriptId); } catch (err) { console.warn('[lock] check failed:', err); }
+  // 5 min staleness — matches an active heartbeat (every 30s) with plenty of
+  // margin for network blips, sleep/wake, etc. Old 60s was too aggressive
+  // and caused stale-lock false positives every time a browser tab restarted.
+  try { existing = await checkLock(currentTranscriptId, 5 * 60); } catch (err) { console.warn('[lock] check failed:', err); }
   if (existing && existing.holder_id !== CLIENT_ID) {
     const decision = await promptLockConflict(existing);
     if (decision === 'cancel') {
-      // Pull back to library — load was probably accidental.
-      teardownEditingSession();
-      showLibrary();
+      // Cancel means "I changed my mind" — just dismiss, leave the user
+      // in whatever step the load already rendered. Previously this bounced
+      // back to the library which felt like a navigation bug.
       return;
     }
     if (decision === 'view-only') {

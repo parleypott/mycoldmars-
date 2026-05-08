@@ -16,6 +16,18 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
+  // Bilingual rendering — when ON, the source-language text renders under
+  // each translated segment in a smaller serif italic. Default OFF because
+  // the dual-language stack feels heavy when you're just reading. Persists.
+  const [showOriginal, setShowOriginal] = useState(() => {
+    try { return localStorage.getItem('mcm_show_original') === '1'; }
+    catch { return false; }
+  });
+  useEffect(() => {
+    const el = document.querySelector('.editor-content');
+    if (el) el.classList.toggle('show-original', showOriginal);
+    try { localStorage.setItem('mcm_show_original', showOriginal ? '1' : '0'); } catch {}
+  }, [showOriginal]);
 
   // Body-font cycler. Five editorial body fonts; click cycles, dot
   // marches 1/5 of the way around the perimeter per click. Choice
@@ -631,6 +643,14 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
             onChange={e => setShowDismissed(e.target.checked)}
           />
           <span>Show dismissed</span>
+        </label>
+        <label className="editor-toolbar-toggle">
+          <input
+            type="checkbox"
+            checked={showOriginal}
+            onChange={e => setShowOriginal(e.target.checked)}
+          />
+          <span>Show original</span>
         </label>
         {summaryBullets && summaryBullets.length > 0 && (
           <label className="editor-toolbar-toggle editor-toolbar-toggle--margin">
