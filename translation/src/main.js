@@ -179,6 +179,9 @@ function showLibrary() {
   const homeHero = $('#home-hero');
   if (homeHero) homeHero.classList.add('hidden');
   setSotHunterVisible(false);
+  // URL is the source of truth — make refresh stay on library, not boomerang
+  // back into the previously-loaded transcript via its hash.
+  setRoute({ kind: 'library' });
   fetchLibrary();
 }
 
@@ -5537,30 +5540,142 @@ window.addEventListener('pagehide', () => {
   }
 });
 
-// ── Permalink support ──
-function getPermalinkId() {
-  const hash = window.location.hash.slice(1); // strip #
-  if (!hash) return null;
-  // Legacy format: #t=UUID
+// ── Permalink / router ─────────────────────────────────────────────
+//
+// The URL hash is the source of truth for which view we're on. Refresh,
+// back/forward, deep links, and programmatic navigation all flow through
+// here so behaviour stays consistent.
+//
+// Route shapes:
+//   {kind:'home'}                — bare URL (no hash)
+//   {kind:'library'}             — #library
+//   {kind:'sequencer'}           — #sequencer
+//   {kind:'transcript', id:slug} — #<slug-or-uuid>
+//
+// Reserved keywords (library/sequencer/search/trash) are checked first
+// when parsing so a transcript slug accidentally named 'library' wouldn't
+// clobber routing — we just won't generate slugs that collide (slug
+// generator strips to alphanum and prefixes if needed).
+
+const RESERVED_ROUTE_KEYWORDS = new Set(['library', 'sequencer', 'search', 'trash', 'home']);
+
+function parseRoute() {
+  const hash = window.location.hash.slice(1).trim();
+  if (!hash || hash === '/' || hash === 'home') return { kind: 'home' };
+  // Legacy `#t=UUID` format from older sessions — still accepted on read.
   const legacyMatch = hash.match(/^t=(.+)/);
-  if (legacyMatch) return legacyMatch[1];
-  // New format: #slug
-  return hash;
+  if (legacyMatch) return { kind: 'transcript', id: legacyMatch[1] };
+  if (hash === 'library') return { kind: 'library' };
+  if (hash === 'sequencer') return { kind: 'sequencer' };
+  // Anything else — treat as a transcript slug or UUID.
+  return { kind: 'transcript', id: hash };
+}
+
+// Back-compat shim — code still calls getPermalinkId() in a few spots.
+function getPermalinkId() {
+  const r = parseRoute();
+  return r.kind === 'transcript' ? r.id : null;
 }
 
 function isUUID(str) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(str) || /^local_/.test(str);
 }
 
+// Suppress the next hashchange event when we change the URL programmatically.
+// replaceState does NOT fire hashchange in modern browsers, but
+// window.location.hash = ... DOES, and we want to be defensive in case any
+// third-party plugin still uses the latter. The flag is consumed once.
+let suppressNextHashChange = false;
+
+function setRoute(route, opts = {}) {
+  const path = window.location.pathname;
+  let target = path;
+  if (route.kind === 'library') target = path + '#library';
+  else if (route.kind === 'sequencer') target = path + '#sequencer';
+  else if (route.kind === 'transcript' && route.id) target = path + '#' + route.id;
+  // Already on this URL? Skip — avoids redundant history entries + spurious
+  // hashchange events.
+  const currentFull = window.location.pathname + window.location.hash;
+  if (currentFull === target) return;
+  suppressNextHashChange = true;
+  if (opts.push) history.pushState(null, '', target);
+  else history.replaceState(null, '', target);
+}
+
+// Back-compat shims used widely below — keep them but route through setRoute.
 function setPermalinkHash(slugOrId) {
-  if (slugOrId) {
-    history.replaceState(null, '', '#' + slugOrId);
+  if (!slugOrId) { setRoute({ kind: 'home' }); return; }
+  if (slugOrId === 'library')   { setRoute({ kind: 'library' }); return; }
+  if (slugOrId === 'sequencer') { setRoute({ kind: 'sequencer' }); return; }
+  setRoute({ kind: 'transcript', id: slugOrId });
+}
+function clearPermalinkHash() { setRoute({ kind: 'home' }); }
+
+// React to URL changes that didn't originate from our own setRoute calls
+// (browser back/forward, manual hash edit, opening a deep link). The
+// suppressNextHashChange flag short-circuits the loop where our own
+// programmatic changes would otherwise re-trigger this.
+async function applyRouteFromUrl() {
+  if (suppressNextHashChange) { suppressNextHashChange = false; return; }
+  const route = parseRoute();
+
+  if (route.kind === 'home') {
+    // Don't tear down current edits silently — if the user has unsaved work,
+    // resetToUpload will flush first. Safe.
+    if (currentStep !== 1 && !libraryShowing) {
+      try { await resetToUpload(); } catch {}
+    } else if (libraryShowing) {
+      libraryShowing = false;
+      libraryView.classList.remove('active');
+      goToStep(1);
+    }
+    return;
+  }
+
+  if (route.kind === 'library') {
+    if (!libraryShowing) showLibrary();
+    return;
+  }
+
+  if (route.kind === 'sequencer') {
+    if (!document.getElementById('sequencer-view')?.classList.contains('hidden')) return;
+    showSequencer();
+    return;
+  }
+
+  if (route.kind === 'transcript') {
+    // Already loaded? No-op.
+    if (currentTranscriptId === route.id || currentSlug === route.id) {
+      // Make sure we're actually showing the editor view; URL says we should be.
+      if (libraryShowing || currentStep !== 5) {
+        libraryShowing = false;
+        libraryView.classList.remove('active');
+        if (editorState) { goToStep(5); switchView('editor'); }
+      }
+      return;
+    }
+    // Different transcript — load it.
+    try {
+      if (isUUID(route.id)) {
+        await handleLoad(route.id);
+      } else {
+        const t = await loadTranscriptBySlug(route.id);
+        await handleLoad(t.id);
+      }
+    } catch (err) {
+      console.warn('[router] load failed:', err.message);
+      showErrorToast('Could not load that transcript.');
+      // Bad route — push user to library so they can pick something else.
+      setRoute({ kind: 'library' });
+      showLibrary();
+    }
   }
 }
 
-function clearPermalinkHash() {
-  history.replaceState(null, '', window.location.pathname);
-}
+// Wire the listeners once at module load. popstate covers back/forward;
+// hashchange covers manual URL edits + a few rare browser cases.
+window.addEventListener('hashchange', () => { applyRouteFromUrl(); });
+window.addEventListener('popstate',   () => { applyRouteFromUrl(); });
 
 // ── Share / Copy Link button ──
 const btnShare = document.getElementById('btn-share');
@@ -5875,25 +5990,30 @@ function safeInit(name, fn) {
     console.warn('[draft-recover] failed:', err);
   }
 
-  // Only load a transcript if the URL explicitly asks for one. Visiting the
-  // bare URL lands on home — no auto-redirect to last-opened, no silent URL
-  // rewrite. Refresh-mid-edit still works because the URL already carries
-  // the slug/UUID once a transcript is loaded.
-  const permalink = getPermalinkId();
+  // URL is the source of truth — route to whatever the hash says. Bare
+  // URL → home; #library → library; #sequencer → sequencer; #<slug> →
+  // transcript. Refresh stays where you were instead of boomeranging back
+  // to a stale transcript.
+  const route = parseRoute();
 
-  // Load projects and transcript in parallel
+  // Load projects and (optional) transcript in parallel
   const projectsPromise = listProjects().then(p => { projects = p; }).catch(() => {});
 
-  // Handle #sequencer permalink directly
-  if (permalink === 'sequencer') {
+  if (route.kind === 'sequencer') {
     await projectsPromise;
     showSequencer();
     return;
   }
 
+  if (route.kind === 'library') {
+    await projectsPromise;
+    showLibrary();
+    return;
+  }
+
   let loadPromise = Promise.resolve();
-  if (permalink) {
-    // Try loading by slug first, then by UUID
+  if (route.kind === 'transcript') {
+    const permalink = route.id;
     loadPromise = (async () => {
       try {
         if (isUUID(permalink)) {
