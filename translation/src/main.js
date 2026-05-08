@@ -631,12 +631,24 @@ function startInlineRename(el) {
     el.classList.remove('lib-name--editing');
     const newName = el.textContent.trim();
     if (newName && newName !== oldName) {
-      updateTranscript(id, { name: newName });
+      // Was fire-and-forget — silently lost the rename if the network blipped
+      // and reverted on next load. Now: optimistic UI, but revert + toast on
+      // failure so the user sees what happened.
+      updateTranscript(id, { name: newName })
+        .then(() => { invalidateLibraryCache(); })
+        .catch((err) => {
+          console.error('rename failed:', err);
+          el.textContent = oldName;
+          if (id === currentTranscriptId) {
+            currentTranscriptName = oldName;
+            updateTranscriptTitle();
+          }
+          showError(`Rename failed: ${err?.message || 'Unknown error'}`);
+        });
       if (id === currentTranscriptId) {
         currentTranscriptName = newName;
         updateTranscriptTitle();
       }
-      invalidateLibraryCache();
     } else {
       el.textContent = oldName;
     }
@@ -690,9 +702,14 @@ function wireLibraryDragAndDrop() {
       const fileId = e.dataTransfer.getData('text/plain');
       if (!fileId) return;
       const projectId = folder.dataset.projectId;
-      await updateTranscript(fileId, { projectId });
-      invalidateLibraryCache();
-      fetchLibrary(true);
+      try {
+        await updateTranscript(fileId, { projectId });
+        invalidateLibraryCache();
+        fetchLibrary();
+      } catch (err) {
+        console.error('move failed:', err);
+        showError(`Move to folder failed: ${err?.message || 'Unknown error'}`);
+      }
     });
   });
 
@@ -712,9 +729,14 @@ function wireLibraryDragAndDrop() {
       rootCrumb.classList.remove('lib-crumb--drop-target');
       const fileId = e.dataTransfer.getData('text/plain');
       if (!fileId) return;
-      await updateTranscript(fileId, { projectId: null });
-      invalidateLibraryCache();
-      fetchLibrary(true);
+      try {
+        await updateTranscript(fileId, { projectId: null });
+        invalidateLibraryCache();
+        fetchLibrary();
+      } catch (err) {
+        console.error('un-assign failed:', err);
+        showError(`Move to root failed: ${err?.message || 'Unknown error'}`);
+      }
     });
   }
 }
