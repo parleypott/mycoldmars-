@@ -244,50 +244,17 @@ function updateBulkActionBar() {
     libraryView.insertBefore(bar, libraryView.firstChild);
   }
   const count = librarySelected.size;
-  const projectOptions = ['<option value="">— Move to —</option>',
-    '<option value="__unsorted">Unsorted (no folder)</option>',
-    ...projects.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`)].join('');
   bar.innerHTML = `
     <div class="lib-bulk-text">${count} selected</div>
-    <select id="lib-bulk-move">${projectOptions}</select>
+    <button class="np-button" id="lib-bulk-move-btn">Move to…</button>
     <button class="np-button" id="lib-bulk-delete">Delete</button>
     <button class="np-button" id="lib-bulk-clear">Clear</button>
   `;
-  document.getElementById('lib-bulk-move').addEventListener('change', async (e) => {
-    const target = e.target.value;
-    if (!target) return;
-    const projectId = target === '__unsorted' ? null : target;
-    const ids = Array.from(librarySelected);
-    e.target.disabled = true;
-    try {
-      await Promise.all(ids.map(id => updateTranscript(id, { projectId })));
-      librarySelected.clear();
-      invalidateLibraryCache();
-      await fetchLibrary();
-    } catch (err) {
-      alert('Move failed: ' + (err.message || String(err)));
-    } finally {
-      e.target.disabled = false;
-    }
+  document.getElementById('lib-bulk-move-btn').addEventListener('click', () => {
+    openMoveToDialog(Array.from(librarySelected));
   });
-  document.getElementById('lib-bulk-delete').addEventListener('click', async () => {
-    const ids = Array.from(librarySelected);
-    if (!confirm(`Delete ${ids.length} transcript${ids.length === 1 ? '' : 's'}? You can restore from Recently Deleted.`)) return;
-    try {
-      await Promise.all(ids.map(id => deleteTranscript(id)));
-      librarySelected.clear();
-      invalidateLibraryCache();
-      await fetchLibrary();
-    } catch (err) {
-      alert('Delete failed: ' + (err.message || String(err)));
-    }
-  });
-  document.getElementById('lib-bulk-clear').addEventListener('click', () => {
-    librarySelected.clear();
-    libraryList.querySelectorAll('.lib-row-check').forEach(b => { b.checked = false; });
-    libraryList.querySelectorAll('.lib-row--checked').forEach(r => r.classList.remove('lib-row--checked'));
-    updateBulkActionBar();
-  });
+  document.getElementById('lib-bulk-delete').addEventListener('click', () => bulkDeleteSelected());
+  document.getElementById('lib-bulk-clear').addEventListener('click', clearLibrarySelection);
 }
 
 function showLibraryError(err, hasStaleData) {
