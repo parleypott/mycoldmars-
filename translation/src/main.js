@@ -901,12 +901,15 @@ async function handleLoad(id) {
     if (snap && isSnapshotNewerThan(snap, t.updated_at)) {
       const restore = await promptSnapshotRestore(t, snap);
       if (restore) {
+        // Tear down BEFORE rendering — finishLoadRender may mount a new
+        // media deck via switchView('editor'), and the old teardown order
+        // was destroying that fresh deck right after it was created.
+        teardownEditingSession();
         applyTranscriptToState(t);
         applySnapshotPayload(snap.payload);
         lastServerUpdatedAt = t.updated_at; // server still on the older version
         rememberLastTranscript(t.id);
         finishLoadRender(t, /*step override*/ undefined);
-        teardownEditingSession();
         ensureRealtimeSubscription();
         maybeAcquireLock();
         markDirty();
@@ -916,12 +919,13 @@ async function handleLoad(id) {
       clearSnapshot(t.id);
     }
 
+    // Same ordering fix on the regular load path: teardown old session first
+    // so the freshly-mounted deck/editor in finishLoadRender survive.
+    teardownEditingSession();
     applyTranscriptToState(t);
     lastServerUpdatedAt = t.updated_at;
     rememberLastTranscript(t.id);
     finishLoadRender(t);
-    // Phase 3: subscribe to remote updates and try to acquire the editor lock.
-    teardownEditingSession();
     ensureRealtimeSubscription();
     maybeAcquireLock();
   } catch (err) {
@@ -2495,6 +2499,14 @@ async function handleMediaUpload(file) {
   // For media uploads we've already set speakerMap/hiddenSpeakers via the
   // speaker-labeling dialog — tell finishUploadParse not to overwrite.
   finishUploadParse({ name: file.name }, { preserveSpeakerState: true });
+
+  // Pre-set the destination step BEFORE the first save lands. For media
+  // uploads we know we're going to the editor; setting currentStep here
+  // ensures the row is persisted with step=5 on the very first save. Without
+  // this, the first save baked in step=1 (the initial state), and a tab
+  // close before the second debounced save would land the user back on the
+  // upload home page on next reload — confusing and felt like a bounce.
+  currentStep = pendingTargetLanguage ? 4 : 5;
 
   // Wait for the first save to land so currentTranscriptId exists before
   // the next step. Without this, translateSegments / skipToEditor can run
