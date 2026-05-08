@@ -11,7 +11,21 @@ export function exportSummaryText(summaryContent, transcriptName) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${(transcriptName || 'summary').replace(/[^a-z0-9]/gi, '-').toLowerCase()}-summary.txt`;
+  a.download = `${safeFilename(transcriptName || 'summary')}-summary.txt`;
   a.click();
-  URL.revokeObjectURL(url);
+  // Revoke after a tick — some browsers (Safari especially) need the URL to
+  // outlive the click() call for the download to actually start.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Compact filename sanitizer — preserves dots, dashes, underscores; collapses
+// runs of replacement chars; drops leading/trailing dashes. Replaces the
+// /[^a-z0-9]/gi pattern that produced dash bloat ("My___File" → "my---file").
+export function safeFilename(name) {
+  return String(name || 'untitled')
+    .replace(/[^a-z0-9._-]+/gi, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
+    .toLowerCase()
+    .slice(0, 120) || 'untitled';
 }

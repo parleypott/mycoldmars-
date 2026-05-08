@@ -14,7 +14,7 @@ import { mountCopilot } from './copilot/mount.js';
 import { buildPremiereXML, buildPremiereSequenceXML, buildSacredSequencerXML } from './export/premiere-xml.js';
 import { buildPremiereScript } from './export/premiere-script.js';
 import { exportHighlightsPDF } from './export/pdf-export.js';
-import { exportSummaryText } from './export/summary-export.js';
+import { exportSummaryText, safeFilename } from './export/summary-export.js';
 import { extractHighlightsFromEditor } from './editor/document-builder.js';
 import { buildAutoSummaryPrompt } from './copilot/copilot-prompts.js';
 import { initSotHunter, setSotHunterVisible } from './sot-hunter.js';
@@ -2235,9 +2235,9 @@ $('#seq-export-jsx-btn').addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${outputName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.json`;
+  a.download = `${safeFilename(outputName)}.json`;
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
 $('#seq-export-btn').addEventListener('click', () => {
@@ -2273,9 +2273,9 @@ $('#seq-export-btn').addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${outputName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.xml`;
+  a.download = `${safeFilename(outputName)}.xml`;
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
 // Re-render blocks when FPS changes (updates frame timecodes)
@@ -2312,6 +2312,10 @@ $('#seq-xml-input').addEventListener('change', (e) => {
 
 // ── Step 1: Upload ──
 async function handleFile(file) {
+  // Guard first — handleFile(undefined) used to throw on file.name when the
+  // user cancelled a file picker (input change fires with empty FileList).
+  if (!file) return;
+
   const lower = file.name.toLowerCase();
   const isJSON = lower.endsWith('.json');
   const isCSV  = lower.endsWith('.csv');
@@ -2319,12 +2323,12 @@ async function handleFile(file) {
   const isZIP  = lower.endsWith('.zip');
 
   // Video / audio: upload to Storage, transcribe via Whisper, populate segments.
-  if (file && isMediaFile(file)) {
+  if (isMediaFile(file)) {
     await handleMediaUpload(file);
     return;
   }
 
-  if (!file || (!isCSV && !isJSON && !isHTML && !isZIP)) {
+  if (!isCSV && !isJSON && !isHTML && !isZIP) {
     showError('Please upload a .csv, .json, .html, .zip — or a video/audio file (mp4, mov, mp3, wav, m4a, webm).');
     return;
   }
@@ -2812,13 +2816,22 @@ dropZone.addEventListener('dragleave', () => {
 dropZone.addEventListener('drop', (e) => {
   e.preventDefault();
   dropZone.classList.remove('drag-over');
-  handleFile(e.dataTransfer.files[0]);
+  const files = Array.from(e.dataTransfer.files || []);
+  if (files.length === 0) return;
+  if (files.length > 1) {
+    showError(`Drop one file at a time. Got ${files.length}; using the first.`);
+  }
+  handleFile(files[0]);
 });
 
 dropZone.addEventListener('click', () => fileInput.click());
 
 fileInput.addEventListener('change', () => {
-  handleFile(fileInput.files[0]);
+  const f = fileInput.files[0];
+  // Reset value so picking the SAME file twice in a row still fires change
+  // — without this, re-selecting (e.g., after fixing a parse error) is a no-op.
+  fileInput.value = '';
+  if (f) handleFile(f);
 });
 
 // ── Step 2: Analyze ──
@@ -3620,9 +3633,9 @@ if (btnExportMenu) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${(currentTranscriptName || 'markers').replace(/[^a-z0-9]/gi, '-').toLowerCase()}.xml`;
+        a.download = `${safeFilename(currentTranscriptName || 'markers')}.xml`;
         a.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
         break;
       }
       case 'premiere-sequence': {
@@ -3641,9 +3654,9 @@ if (btnExportMenu) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${(currentTranscriptName || 'sequence-cut').replace(/[^a-z0-9]/gi, '-').toLowerCase()}.xml`;
+        a.download = `${safeFilename(currentTranscriptName || 'sequence-cut')}.xml`;
         a.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
         break;
       }
       case 'highlights': {
