@@ -158,15 +158,16 @@
     main {
       position: fixed; top: 64px; left: 0; right: 0; bottom: 0;
       overflow: hidden;
-      cursor: grab;
+      cursor: default;
       background:
         radial-gradient(1200px 700px at 75% -10%, rgba(255,240,210,0.4), transparent 60%),
         radial-gradient(1000px 600px at 5% 110%, rgba(220,200,170,0.32), transparent 55%),
         var(--paper);
     }
-    main.panning { cursor: grabbing; }
     main.space-down { cursor: grab; }
     main.space-down.panning { cursor: grabbing; }
+    /* middle-mouse pan also shows grabbing only while active */
+    main.panning:not(.space-down) { cursor: grabbing; }
     main::after {
       content: '';
       position: absolute; inset: 0;
@@ -215,9 +216,8 @@
       display: flex; align-items: center; gap: 8px;
       padding: 12px 12px 10px;
       border-bottom: 1px solid var(--rule-soft);
-      cursor: grab;
+      cursor: default;
     }
-    .col-header:active { cursor: grabbing; }
     .col-title {
       flex: 1;
       font-size: 14.5px; font-weight: 500;
