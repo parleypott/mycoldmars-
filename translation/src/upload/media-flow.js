@@ -14,7 +14,7 @@
 //   6. Normalize the response into segments + wordTimings shape
 //   7. Hand back to caller (which calls finishUploadParse)
 
-import { uploadMediaFile, createMediaUpload, updateMediaUpload, getMediaSignedUrl } from '../db.js';
+import { uploadMediaFile, createMediaUpload, updateMediaUpload, getMediaSignedUrl, needsTranscode } from '../db.js';
 import { transcribeMedia } from '../api-client.js';
 
 // Soft warning threshold — over this we tell the user "this'll take a few minutes"
@@ -85,18 +85,27 @@ export async function uploadMedia(file, opts = {}) {
   let durationSeconds = null;
   try { durationSeconds = await probeDurationSeconds(file); } catch {}
 
+  // Decide if the worker needs to transcode this for browser playback.
+  // ProRes/MOV/MXF and similar Premiere proxy codecs don't decode in Chrome;
+  // the worker on the workhorse Mac picks up 'pending' rows, ffmpegs them
+  // to H.264 MP4, writes transcode_path back, and the editor swaps the
+  // playback URL when 'done'.
+  const mimeType = file.type || guessMimeFromExt(file.name);
+  const transcodeStatus = needsTranscode({ mimeType, filename: file.name }) ? 'pending' : 'not_needed';
+
   // Insert media_uploads row in 'pending' state — transcription_status
   // moves to 'in_progress' when the user actually clicks TRANSCRIBE.
   const upload = await createMediaUpload({
     projectId: projectId || null,
     filename: file.name,
     displayName: file.name,
-    mimeType: file.type || guessMimeFromExt(file.name),
+    mimeType,
     sizeBytes: file.size,
     durationSeconds,
     storageBucket: 'media',
     storagePath,
     transcriptionStatus: 'pending',
+    transcodeStatus,
   });
 
   // Long-lived signed URL so the same one can power preview, the

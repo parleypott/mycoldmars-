@@ -770,7 +770,28 @@ function mediaFieldsToRow(fields) {
   if (fields.transcriptionCompletedAt !== undefined)  row.transcription_completed_at = fields.transcriptionCompletedAt;
   if (fields.transcriptionProgress !== undefined)     row.transcription_progress = fields.transcriptionProgress;
   if (fields.sourceLanguage !== undefined)            row.source_language = fields.sourceLanguage;
+  if (fields.transcodeStatus !== undefined)           row.transcode_status = fields.transcodeStatus;
+  if (fields.transcodePath !== undefined)             row.transcode_path = fields.transcodePath;
   return row;
+}
+
+// Decide whether a freshly-uploaded file needs server-side transcode to
+// be playable in the browser. ProRes/DNxHR/MXF and other Premiere-export
+// codecs typically don't decode in Chrome. mp4/mov-with-h264/m4a/mp3/wav
+// are fine. We're conservative: anything we know plays gets 'not_needed',
+// everything else gets 'pending' and the worker decides.
+export function needsTranscode({ mimeType, filename }) {
+  const ext = (filename || '').split('.').pop()?.toLowerCase() || '';
+  const m = (mimeType || '').toLowerCase();
+  // Web-friendly: skip transcoding.
+  if (m === 'video/mp4' || m === 'video/webm') return false;
+  if (m.startsWith('audio/') && (m.includes('mp3') || m.includes('mpeg') || m.includes('mp4') || m.includes('aac') || m.includes('wav'))) return false;
+  if (['mp4', 'm4a', 'mp3', 'wav', 'webm'].includes(ext)) return false;
+  // Premiere proxies + everything else → transcode.
+  if (['mov', 'mxf', 'mkv', 'avi', 'flv', 'mts', 'm2ts', 'wmv', 'prores'].includes(ext)) return true;
+  if (m.startsWith('video/quicktime')) return true;
+  if (m.startsWith('video/')) return true;
+  return false;
 }
 
 // ============================================================

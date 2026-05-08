@@ -33,6 +33,7 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   const {
     signedUrl,
     mimeType = '',
+    transcodeStatus = 'not_needed',   // 'not_needed' | 'pending' | 'processing' | 'done' | 'error'
     segments = [],
     wordTimings = null,   // flat array [{ word, start, end }] from Whisper/Deepgram
     highlights = [],
@@ -123,6 +124,18 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   const collapseBtn = root.querySelector('[data-deck-collapse]');
   const errorEl = root.querySelector('[data-deck-error]');
   const noVideoEl = root.querySelector('[data-deck-novideo]');
+  const noVideoEye = noVideoEl?.querySelector('.media-deck-novideo-eye');
+  const noVideoSub = noVideoEl?.querySelector('.media-deck-novideo-sub');
+
+  // If the worker is still transcoding, surface that state up-front so the
+  // user knows playback is coming, instead of seeing a generic "no preview"
+  // hint that suggests something's broken.
+  if ((transcodeStatus === 'pending' || transcodeStatus === 'processing') && noVideoEl) {
+    noVideoEl.hidden = false;
+    videoFrame.classList.add('media-deck-video--audioonly');
+    if (noVideoEye) noVideoEye.textContent = 'transcoding';
+    if (noVideoSub) noVideoSub.textContent = 'preview will appear automatically once the worker finishes converting this file to H.264. Transcript editing works now.';
+  }
 
   // ── Restore saved position + collapsed state ────────────────────
   try {

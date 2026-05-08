@@ -2581,11 +2581,25 @@ async function mountMediaDeckForCurrent(editorContainer) {
   }
   if (!media || !media.storage_path) return;
 
-  const signedUrl = await getMediaSignedUrl(media.storage_path, {
+  // Prefer the worker-produced H.264 transcode when ready — Chrome can
+  // decode it where the original ProRes/MOV/MXF can't. While it's still
+  // pending/processing the deck falls back to the original (which usually
+  // means audio-only fallback kicks in until the transcode lands).
+  const useTranscoded = media.transcode_status === 'done' && media.transcode_path;
+  const playbackPath = useTranscoded ? media.transcode_path : media.storage_path;
+  const playbackMime = useTranscoded ? 'video/mp4' : (media.mime_type || '');
+
+  const signedUrl = await getMediaSignedUrl(playbackPath, {
     bucket: media.storage_bucket || 'media',
     expiresInSeconds: 4 * 60 * 60, // 4h editing session
   });
   if (!signedUrl) return;
+
+  // If the transcode is still in flight, kick off a poll so the deck swaps
+  // to the H.264 version as soon as it lands without needing a page reload.
+  if (media.transcode_status === 'pending' || media.transcode_status === 'processing') {
+    schedulePostTranscodeRemount(media.id, editorContainer);
+  }
 
   // Pull cached waveform peaks from the media row when present. First-load
   // for this media will be slow (Wavesurfer downloads + decodes the audio
@@ -2596,7 +2610,8 @@ async function mountMediaDeckForCurrent(editorContainer) {
 
   mediaDeck = mountMediaDeck(editorContainer, {
     signedUrl,
-    mimeType: media.mime_type || '',
+    mimeType: playbackMime,
+    transcodeStatus: media.transcode_status || 'not_needed',
     segments,
     wordTimings: wordTimingsArray(),
     highlights: currentEditorHighlights(),
@@ -2621,6 +2636,45 @@ async function mountMediaDeckForCurrent(editorContainer) {
       }).catch(err => console.warn('[media-deck] could not persist peaks:', err));
     },
   });
+}
+
+// Poll the media row until transcode_status flips to 'done' (or 'error'),
+// then re-mount the deck so playback swaps to the H.264 version. Backs off
+// after 20 minutes (a runaway worker shouldn't keep polling forever).
+let transcodePollTimer = null;
+function schedulePostTranscodeRemount(mediaId, editorContainer) {
+  if (transcodePollTimer) { clearInterval(transcodePollTimer); transcodePollTimer = null; }
+  const startedAt = Date.now();
+  const POLL_MS = 5000;
+  const GIVE_UP_MS = 20 * 60 * 1000;
+  transcodePollTimer = setInterval(async () => {
+    if (Date.now() - startedAt > GIVE_UP_MS) {
+      clearInterval(transcodePollTimer); transcodePollTimer = null;
+      return;
+    }
+    if (currentMediaUploadId !== mediaId || !mediaDeck) {
+      clearInterval(transcodePollTimer); transcodePollTimer = null;
+      return;
+    }
+    try {
+      const fresh = await getMediaUpload(mediaId);
+      if (!fresh) return;
+      if (fresh.transcode_status === 'done' && fresh.transcode_path) {
+        clearInterval(transcodePollTimer); transcodePollTimer = null;
+        // Re-mount the deck against the new playable URL.
+        try { mediaDeck.destroy(); } catch {}
+        mediaDeck = null;
+        mountMediaDeckForCurrent(editorContainer).catch(err =>
+          console.warn('[transcode-poll] remount failed:', err)
+        );
+      } else if (fresh.transcode_status === 'error') {
+        clearInterval(transcodePollTimer); transcodePollTimer = null;
+        console.warn('[transcode-poll] worker reported error:', fresh.transcode_error);
+      }
+    } catch (err) {
+      console.warn('[transcode-poll] check failed:', err);
+    }
+  }, POLL_MS);
 }
 
 // wordTimingsMap can hold one of two shapes:
