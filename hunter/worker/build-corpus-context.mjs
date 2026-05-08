@@ -468,13 +468,25 @@ async function step3SceneSynthesis(scenes, allUnits) {
       return;
     }
 
-    // Gather full analysis texts for all clips
+    // Gather full analysis texts for all clips, enriched with structured metadata
     const clipAnalyses = [];
     const clipNames = [];
     for (const su of sceneUnits) {
       const unit = unitById.get(su.corpus_unit_id);
       if (unit?.analyses?.[0]?.output_text) {
-        clipAnalyses.push(unit.analyses[0].output_text);
+        // Enrich narrative text with structured metadata for denser signal
+        let text = unit.analyses[0].output_text;
+        const j = unit.analyses[0].output_json;
+        if (j) {
+          const meta = [];
+          if (j.emotional_register) meta.push(`Emotion: ${j.emotional_register}`);
+          if (j.shot_type) meta.push(`Shot: ${j.shot_type}`);
+          if (j.keepability_score != null) meta.push(`Keep: ${j.keepability_score}`);
+          if (j.keepability_reason) meta.push(`Why: ${j.keepability_reason}`);
+          if (j.subjects?.length) meta.push(`Subjects: ${j.subjects.map(s => s.description || s.action || '').join('; ')}`);
+          if (meta.length) text += `\n[METADATA] ${meta.join(' | ')}`;
+        }
+        clipAnalyses.push(text);
         clipNames.push(unit.source_clip_name || 'unknown');
       }
     }
@@ -485,10 +497,38 @@ async function step3SceneSynthesis(scenes, allUnits) {
     }
 
     try {
-      const result = await retryWithBackoff(
-        () => synthesizeScene({ clipAnalyses, clipNames }),
-        `scene-${scene.chronological_order}`
-      );
+      // For mega-scenes (60+ clips), synthesize in chunks then merge
+      const MAX_CLIPS_PER_CALL = 60;
+      let result;
+      if (clipAnalyses.length > MAX_CLIPS_PER_CALL) {
+        const chunkResults = [];
+        for (let ci = 0; ci < clipAnalyses.length; ci += MAX_CLIPS_PER_CALL) {
+          const chunkAnalyses = clipAnalyses.slice(ci, ci + MAX_CLIPS_PER_CALL);
+          const chunkNames = clipNames.slice(ci, ci + MAX_CLIPS_PER_CALL);
+          const chunkResult = await retryWithBackoff(
+            () => synthesizeScene({ clipAnalyses: chunkAnalyses, clipNames: chunkNames, sceneContext: `This is part ${Math.floor(ci / MAX_CLIPS_PER_CALL) + 1} of ${Math.ceil(clipAnalyses.length / MAX_CLIPS_PER_CALL)} chunks from a large scene with ${clipAnalyses.length} total clips.` }),
+            `scene-${scene.chronological_order}-chunk-${ci}`
+          );
+          if (!chunkResult.parse_error) chunkResults.push(chunkResult);
+        }
+        // Merge chunks: use first chunk as base, aggregate hero/supporting/cutaway lists
+        result = chunkResults[0] || { parse_error: true };
+        if (chunkResults.length > 1 && !result.parse_error) {
+          for (let cr = 1; cr < chunkResults.length; cr++) {
+            const c = chunkResults[cr];
+            result.arc_summary = (result.arc_summary || '') + '\n\n' + (c.arc_summary || '');
+            result.hero_clips = [...(result.hero_clips || []), ...(c.hero_clips || [])];
+            result.supporting_clips = [...(result.supporting_clips || []), ...(c.supporting_clips || [])];
+            result.cutaway_clips = [...(result.cutaway_clips || []), ...(c.cutaway_clips || [])];
+            result.subjects = [...new Set([...(result.subjects || []), ...(c.subjects || [])])];
+          }
+        }
+      } else {
+        result = await retryWithBackoff(
+          () => synthesizeScene({ clipAnalyses, clipNames }),
+          `scene-${scene.chronological_order}`
+        );
+      }
 
       if (result.parse_error) {
         console.log(`  Warning: scene ${scene.chronological_order} returned unparseable JSON`);

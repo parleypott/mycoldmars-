@@ -398,7 +398,7 @@ ${corpus}`;
   const result = await genai.models.generateContent({
     model,
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config: { responseMimeType: 'application/json', maxOutputTokens: 4000 },
+    config: { responseMimeType: 'application/json', maxOutputTokens: 8000 },
   });
 
   try {

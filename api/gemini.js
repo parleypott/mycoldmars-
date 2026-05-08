@@ -508,18 +508,29 @@ ${projectContext || ''}${clipsContext}`;
     { role: 'user', parts: [{ text: message }] },
   ];
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents,
-      systemInstruction: { parts: [{ text: systemText }] },
-      generationConfig: { maxOutputTokens: 2000 },
-    }),
-  });
+  const geminiPayload = {
+    contents,
+    systemInstruction: { parts: [{ text: systemText }] },
+    generationConfig: { maxOutputTokens: 2000 },
+  };
+
+  // Retry with backoff for 429/503
+  let res;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(geminiPayload),
+    });
+    if (res.ok || (res.status !== 429 && res.status !== 503)) break;
+    if (attempt < 2) await new Promise(r => setTimeout(r, (attempt + 1) * 5000));
+  }
 
   if (!res.ok) {
-    return jsonResponse({ error: 'Chat failed', detail: (await res.text()).slice(0, 500) }, 502);
+    const errBody = await res.text();
+    const isQuota = errBody.includes('RESOURCE_EXHAUSTED') || errBody.includes('429');
+    const errMsg = isQuota ? 'Gemini API quota exhausted — wait a few minutes and try again' : 'Chat failed';
+    return jsonResponse({ error: errMsg, detail: errBody.slice(0, 500) }, isQuota ? 429 : 502);
   }
 
   const data = await res.json();
