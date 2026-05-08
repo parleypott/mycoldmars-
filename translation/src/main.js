@@ -530,9 +530,18 @@ function wireLibraryEvents() {
   libraryList.querySelectorAll('.lib-row--folder .lib-row-delete').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      await deleteProject(btn.dataset.projectId);
-      invalidateLibraryCache();
-      fetchLibrary(true);
+      const projectId = btn.dataset.projectId;
+      const proj = projects.find(p => p.id === projectId);
+      const projName = proj?.name || 'this folder';
+      if (!confirm(`Delete folder "${projName}"? Transcripts inside it will move to Unsorted (they aren't deleted).`)) return;
+      try {
+        await deleteProject(projectId);
+        invalidateLibraryCache();
+        fetchLibrary();
+      } catch (err) {
+        console.error('delete project failed:', err);
+        showError(`Couldn't delete folder: ${err?.message || 'Unknown error'}`);
+      }
     });
   });
 
@@ -595,18 +604,29 @@ function wireLibraryEvents() {
   // Restore buttons
   libraryList.querySelectorAll('.lib-restore-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      await restoreTranscript(btn.dataset.id);
-      invalidateLibraryCache();
-      fetchLibrary(true);
+      try {
+        await restoreTranscript(btn.dataset.id);
+        invalidateLibraryCache();
+        fetchLibrary();
+      } catch (err) {
+        console.error('restore failed:', err);
+        showError(`Couldn't restore transcript: ${err?.message || 'Unknown error'}`);
+      }
     });
   });
 
   // Permanent delete buttons (in deleted section)
   libraryList.querySelectorAll('.lib-row--deleted .lib-row-delete').forEach(btn => {
     btn.addEventListener('click', async () => {
-      await permanentlyDeleteTranscript(btn.dataset.id);
-      invalidateLibraryCache();
-      fetchLibrary(true);
+      if (!confirm('Permanently delete this transcript? This cannot be undone.')) return;
+      try {
+        await permanentlyDeleteTranscript(btn.dataset.id);
+        invalidateLibraryCache();
+        fetchLibrary();
+      } catch (err) {
+        console.error('permanent delete failed:', err);
+        showError(`Couldn't permanently delete: ${err?.message || 'Unknown error'}`);
+      }
     });
   });
 }
