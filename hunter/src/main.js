@@ -1,4 +1,4 @@
-import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights, listScenes, listArcSummaries, fetchCorpusContext, getScriptSnapshot, listScriptPasses, runScriptPass, chatWithScript } from './db.js';
+import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights, listScenes, listArcSummaries, fetchCorpusContext, getScriptSnapshot, listScriptPasses, runScriptPass, chatWithScript, listAllScriptSnapshots, getScriptTrainingStatus } from './db.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -9,6 +9,7 @@ let projects = [];
 const projectsView = document.getElementById('projects-view');
 const projectView = document.getElementById('project-view');
 const corpusView = document.getElementById('corpus-view');
+const scriptCopilotView = document.getElementById('script-copilot-view');
 const projectsList = document.getElementById('projects-list');
 const projectsEmpty = document.getElementById('projects-empty');
 const navBtns = document.querySelectorAll('.header-btn[data-view]');
@@ -17,7 +18,7 @@ const navBtns = document.querySelectorAll('.header-btn[data-view]');
 
 function showView(view) {
   currentView = view;
-  [projectsView, projectView, corpusView].forEach(el => el.classList.remove('active'));
+  [projectsView, projectView, corpusView, scriptCopilotView].forEach(el => el.classList.remove('active'));
   navBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
 
   if (view === 'projects') {
@@ -29,6 +30,14 @@ function showView(view) {
     corpusView.classList.add('active');
     loadCorpusBrowser();
     initCorpusSearch();
+  } else if (view === 'script-copilot') {
+    scriptCopilotView.classList.add('active');
+    renderScriptCopilotHub();
+  }
+
+  // Sync URL hash for top-level views
+  if (view !== 'project') {
+    history.replaceState(null, '', view === 'projects' ? '#' : `#${view}`);
   }
 }
 
@@ -212,9 +221,7 @@ const TABS_V2 = [
   { id: 'script',   num: '05', label: 'SCRIPT',        hint: 'COPILOT'         },
 ];
 
-const validTabs = new Set(TABS_V2.map(t => t.id));
-const hashTab = window.location.hash.replace('#', '');
-let v2Tab = validTabs.has(hashTab) ? hashTab : 'inputs';
+let v2Tab = 'inputs';
 let v2AC = null; // abort controller for tab event listeners
 let v2Data = {}; // persisted project data
 
@@ -319,9 +326,6 @@ function renderProjectV2(project, assets, units, patterns, tierStats) {
 }
 
 function v2SwitchTab(tabId, signal) {
-  // Sync URL hash
-  history.replaceState(null, '', `#${tabId}`);
-
   // Update tab strip
   document.querySelectorAll('.v2-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
 
@@ -1616,6 +1620,205 @@ function renderPassResults() {
       btn.style.background = 'var(--h-surface)';
     }
   });
+}
+
+// ── SCRIPT COPILOT TRAINING HUB (top-level view) ──
+
+let scriptHubState = { snapshots: null, trainedProjects: null, loading: false };
+
+async function renderScriptCopilotHub() {
+  const hub = document.getElementById('script-copilot-hub');
+
+  // Show loading state
+  if (!scriptHubState.snapshots && !scriptHubState.loading) {
+    scriptHubState.loading = true;
+    hub.innerHTML = `
+      <div style="padding:3rem;text-align:center">
+        <div style="font-size:1.2rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:1rem">LOADING SCRIPT COPILOT...</div>
+      </div>`;
+
+    try {
+      const [snapshots, trainedProjects] = await Promise.all([
+        listAllScriptSnapshots().catch(() => []),
+        getScriptTrainingStatus().catch(() => []),
+      ]);
+      scriptHubState.snapshots = snapshots;
+      scriptHubState.trainedProjects = trainedProjects;
+    } catch (err) {
+      console.error('[script-hub]', err);
+      scriptHubState.snapshots = [];
+      scriptHubState.trainedProjects = [];
+    }
+    scriptHubState.loading = false;
+  }
+
+  const snapshots = scriptHubState.snapshots || [];
+  const trainedProjects = scriptHubState.trainedProjects || [];
+
+  // Aggregate stats
+  const totalScripts = snapshots.length;
+  const totalBeats = snapshots.reduce((s, snap) => s + (snap.beat_count || 0), 0);
+  const totalWords = snapshots.reduce((s, snap) => s + (snap.word_count || 0), 0);
+
+  // Aggregate color profile across all snapshots
+  const allColors = {};
+  for (const snap of snapshots) {
+    for (const [color, data] of Object.entries(snap.color_profile || {})) {
+      if (!allColors[color]) allColors[color] = { count: 0, scripts: 0, sampleTexts: [] };
+      allColors[color].count += data.count;
+      allColors[color].scripts++;
+      if (allColors[color].sampleTexts.length < 3 && data.sampleTexts?.length) {
+        allColors[color].sampleTexts.push(...data.sampleTexts.slice(0, 1));
+      }
+    }
+  }
+  const sortedColors = Object.entries(allColors).sort((a, b) => b[1].count - a[1].count);
+
+  // Group snapshots by project
+  const byProject = {};
+  for (const snap of snapshots) {
+    const proj = snap.media_assets?.hunter_projects;
+    const projName = proj?.name || 'Unknown';
+    const projId = proj?.id || 'unknown';
+    if (!byProject[projId]) byProject[projId] = { name: projName, project: proj, snapshots: [] };
+    byProject[projId].snapshots.push(snap);
+  }
+
+  // Get training context from first trained project
+  const trainedProject = trainedProjects[0];
+  const scriptContext = trainedProject?.metadata?.script_context;
+  const colorRules = trainedProject?.metadata?.script_color_rules || [];
+  const sloppinessPatterns = trainedProject?.metadata?.script_sloppiness_patterns || [];
+  const styleSignature = trainedProject?.metadata?.script_style_signature;
+  const trainingStats = trainedProject?.metadata?.script_training_stats;
+
+  hub.innerHTML = `
+    <div style="max-width:1100px;margin:0 auto;padding:2rem 1.5rem">
+      <!-- Header -->
+      <div style="margin-bottom:2.5rem">
+        <div style="font-size:0.7rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--np-dim,#888);margin-bottom:0.4rem">NEWPRESS TOOLS</div>
+        <div style="font-size:2rem;letter-spacing:0.06em;font-weight:300">Script Copilot</div>
+        <div style="font-size:0.8rem;color:var(--np-dim,#888);margin-top:0.3rem;letter-spacing:0.04em">Training hub — teach the system how you write</div>
+      </div>
+
+      <!-- Stats row -->
+      <div style="display:flex;gap:2px;margin-bottom:2rem">
+        ${[
+          { label: 'SCRIPTS', value: totalScripts },
+          { label: 'BEATS', value: totalBeats.toLocaleString() },
+          { label: 'WORDS', value: totalWords.toLocaleString() },
+          { label: 'COLORS', value: sortedColors.length },
+          { label: 'TRAINING', value: trainingStats ? 'DONE' : 'NOT RUN' },
+        ].map(s => `
+          <div style="flex:1;background:var(--np-surface,#1a1a1a);padding:1rem;border:1px solid var(--np-border,#333)">
+            <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.3rem">${s.label}</div>
+            <div style="font-size:1.6rem;letter-spacing:0.04em">${s.value}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      ${styleSignature ? `
+      <!-- Style Signature -->
+      <div style="border-left:3px solid var(--np-red,#d42e05);padding:0.8rem 1.2rem;margin-bottom:2rem;font-size:0.9rem;font-style:italic;color:var(--np-fg,#eee);letter-spacing:0.02em">
+        "${escHtml(styleSignature)}"
+      </div>` : ''}
+
+      ${scriptContext ? `
+      <!-- Training Context -->
+      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:2rem">
+        <div style="font-size:0.7rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.8rem">LEARNED SCRIPT CONTEXT ${trainingStats ? `<span style="color:var(--np-dim,#666)">(${trainingStats.scripts_analyzed} scripts, ${new Date(trainingStats.trained_at).toLocaleDateString()})</span>` : ''}</div>
+        <div style="font-size:0.8rem;line-height:1.7;color:var(--np-fg,#ddd);white-space:pre-wrap">${escHtml(scriptContext)}</div>
+      </div>` : ''}
+
+      ${colorRules.length > 0 ? `
+      <!-- Color Rules -->
+      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:2rem">
+        <div style="font-size:0.7rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.8rem">COLOR CONVENTIONS (learned)</div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem">
+          ${colorRules.map(rule => `
+            <div style="display:flex;align-items:center;gap:0.8rem;padding:0.5rem 0;border-bottom:1px solid var(--np-border,#222)">
+              <span style="width:22px;height:22px;background:${rule.color};display:inline-block;border-radius:3px;flex-shrink:0"></span>
+              <span style="font-size:0.8rem;min-width:100px;color:var(--np-fg,#eee)">${escHtml(rule.meaning || '')}</span>
+              <span style="font-size:0.7rem;color:var(--np-dim,#888)">${rule.consistency || ''}</span>
+              <span style="font-size:0.7rem;color:var(--np-dim,#666);margin-left:auto">${Math.round((rule.confidence || 0) * 100)}%</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : `
+      <!-- Color Profile (raw, pre-training) -->
+      ${sortedColors.length > 0 ? `
+      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:2rem">
+        <div style="font-size:0.7rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.8rem">COLOR PROFILE (${totalScripts} scripts)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.6rem">
+          ${sortedColors.map(([color, data]) => `
+            <div style="display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.7rem;border:1px solid var(--np-border,#333);font-size:0.75rem">
+              <span style="width:14px;height:14px;background:${color};display:inline-block;border-radius:2px"></span>
+              <span>${escHtml(color)}</span>
+              <span style="color:var(--np-dim,#888)">${data.count}x in ${data.scripts} scripts</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : ''}
+      `}
+
+      ${sloppinessPatterns.length > 0 ? `
+      <!-- Sloppiness Patterns -->
+      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:2rem">
+        <div style="font-size:0.7rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.8rem">SLOPPINESS PATTERNS (detected)</div>
+        <div style="display:flex;flex-direction:column;gap:0.6rem">
+          ${sloppinessPatterns.map(p => `
+            <div style="padding:0.5rem 0;border-bottom:1px solid var(--np-border,#222)">
+              <div style="font-size:0.8rem;color:var(--np-fg,#eee)">${escHtml(p.pattern || '')}</div>
+              <div style="font-size:0.7rem;color:var(--np-dim,#888);margin-top:0.2rem">
+                <span style="color:var(--np-red,#d42e05)">${p.frequency || ''}</span>
+                ${p.workaround ? ` — ${escHtml(p.workaround)}` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- Scripts by Project -->
+      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:2rem">
+        <div style="font-size:0.7rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.8rem">INGESTED SCRIPTS (${totalScripts})</div>
+        ${Object.entries(byProject).length > 0 ? Object.entries(byProject).map(([projId, group]) => `
+          <div style="margin-bottom:1rem">
+            <div style="font-size:0.75rem;letter-spacing:0.12em;color:var(--np-fg,#eee);margin-bottom:0.4rem">${escHtml(group.name.toUpperCase())}</div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              ${group.snapshots.map(snap => {
+                const doc = snap.parsed_doc || {};
+                return `
+                <div style="display:flex;align-items:center;gap:1rem;padding:0.4rem 0.6rem;background:var(--np-surface,#1a1a1a);font-size:0.75rem">
+                  <span style="color:var(--np-fg,#eee);flex:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(doc.title || snap.media_assets?.filename || 'Untitled')}</span>
+                  <span style="color:var(--np-dim,#888);flex-shrink:0">${snap.beat_count || 0} beats</span>
+                  <span style="color:var(--np-dim,#888);flex-shrink:0">${(snap.word_count || 0).toLocaleString()} words</span>
+                  <span style="color:var(--np-dim,#666);flex-shrink:0">v${snap.version_number || 1}</span>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>
+        `).join('') : `
+          <div style="font-size:0.8rem;color:var(--np-dim,#888);padding:1rem;text-align:center">
+            No scripts ingested yet.<br>
+            <span style="font-size:0.7rem;margin-top:0.4rem;display:block">Add Google Docs in a project's INPUTS tab, or run bulk-ingest-scripts.mjs</span>
+          </div>
+        `}
+      </div>
+
+      <!-- How to use -->
+      ${totalScripts === 0 ? `
+      <div style="border:1px solid var(--np-border,#333);padding:1.5rem;background:var(--np-surface,#1a1a1a)">
+        <div style="font-size:0.7rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.8rem">GETTING STARTED</div>
+        <div style="font-size:0.8rem;line-height:1.8;color:var(--np-dim,#aaa)">
+          <strong style="color:var(--np-fg,#eee)">1.</strong> Create a project in Hunter and add Google Docs scripts in the INPUTS tab<br>
+          <strong style="color:var(--np-fg,#eee)">2.</strong> Or bulk ingest from the command line:<br>
+          <code style="display:block;background:#111;padding:0.6rem 0.8rem;margin:0.4rem 0 0.6rem;font-size:0.7rem;border-radius:3px;color:var(--np-fg,#eee)">cat urls.txt | node hunter/worker/bulk-ingest-scripts.mjs &lt;project-id&gt; --train</code>
+          <strong style="color:var(--np-fg,#eee)">3.</strong> Run training to learn your color conventions, structural habits, and editorial voice<br>
+          <strong style="color:var(--np-fg,#eee)">4.</strong> The system gets smarter with every script you feed it
+        </div>
+      </div>` : ''}
+    </div>
+  `;
 }
 
 // ── V2 Helpers ──
@@ -3490,7 +3693,17 @@ async function loadCorpusHealth() {
 
 // ── Boot ──
 
-showView('projects');
+// Route based on URL hash
+const bootHash = window.location.hash.replace('#', '');
+const topLevelViews = ['projects', 'corpus', 'script-copilot'];
+if (topLevelViews.includes(bootHash)) {
+  showView(bootHash);
+} else if (bootHash === 'script') {
+  // Alias: #script → script-copilot
+  showView('script-copilot');
+} else {
+  showView('projects');
+}
 loadCorpusHealth();
 setInterval(loadCorpusHealth, 60000);
 

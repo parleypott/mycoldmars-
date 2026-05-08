@@ -523,6 +523,24 @@ export async function chatWithScript({ message, conversationHistory, snapshotId,
   return res.json();
 }
 
+// ── Script Copilot Training Hub ──
+
+export async function listAllScriptSnapshots() {
+  const { data, error } = await db().from('script_snapshots')
+    .select('*, media_assets!inner(id, project_id, source_ref, filename, metadata, hunter_projects:project_id(id, name, metadata))')
+    .order('created_at', { ascending: false });
+  if (error) throw normalizeError(error, 'listAllScriptSnapshots');
+  return data;
+}
+
+export async function getScriptTrainingStatus() {
+  const { data: projects, error } = await db().from('hunter_projects')
+    .select('id, name, metadata')
+    .not('metadata->script_context', 'is', null);
+  if (error) throw normalizeError(error, 'getScriptTrainingStatus');
+  return projects;
+}
+
 // ── Pending queue (used by worker) ──
 
 export async function getPendingAssets(limit = 10) {
