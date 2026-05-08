@@ -663,11 +663,23 @@ function renderInsightsTab(units, patterns, assets, signal) {
     if (j.keepability_score != null) { keepSum += j.keepability_score; keepN++; }
   }
   const topEmotions = Object.entries(emotions).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const avgKeep = keepN > 0 ? (keepSum / keepN).toFixed(1) : '—';
+  const topShots = Object.entries(shotTypes).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const avgKeep = keepN > 0 ? (keepSum / keepN).toFixed(2) : '—';
   const scenes = groupIntoScenes(units);
 
   // Read rich project context from metadata if available
   const richContext = v2Data?.project?.metadata?.context || '';
+  const ctxStatus = v2Data?.project?.metadata?.corpus_context_status;
+
+  // Phase labels for status display
+  const phaseLabels = {
+    subjects: 'EXTRACTING SUBJECTS',
+    scenes: 'MATERIALIZING SCENES',
+    scene_synthesis: 'SYNTHESIZING SCENES',
+    day_synthesis: 'SYNTHESIZING DAYS',
+    project_synthesis: 'MASTER SYNTHESIS',
+    complete: 'COMPLETE',
+  };
 
   panel.innerHTML = `
     <div class="v2-insights-wrap">
@@ -679,6 +691,9 @@ function renderInsightsTab(units, patterns, assets, signal) {
         </div>
         <button class="v2-btn-primary" id="v2-btn-generate-insights">GENERATE NARRATIVE</button>
       </div>
+
+      <!-- Context engine status banner -->
+      <div id="v2-context-status"></div>
 
       <!-- Meta stats -->
       <div class="v2-narrative-meta">
@@ -694,16 +709,20 @@ function renderInsightsTab(units, patterns, assets, signal) {
           <span class="v2-caps v2-caps--sm v2-caps--dim">AVG KEEP</span>
           <div class="v2-meta-value">${avgKeep}</div>
         </div>
-        <div class="v2-meta-cell" style="border-right:none">
+        <div class="v2-meta-cell">
           <span class="v2-caps v2-caps--sm v2-caps--dim">TOP REGISTER</span>
           <div class="v2-meta-value" style="font-size:14px">${topEmotions[0]?.[0] || '—'}</div>
         </div>
+        <div class="v2-meta-cell" style="border-right:none">
+          <span class="v2-caps v2-caps--sm v2-caps--dim">EMOTIONAL PALETTE</span>
+          <div class="v2-meta-value" style="font-size:10px">${topEmotions.slice(0, 4).map(([e, n]) => `${e}(${n})`).join(' · ')}</div>
+        </div>
       </div>
 
-      <!-- Master Narrative (populated from pre-computed data or after generate) -->
+      <!-- Master Narrative -->
       <div id="v2-master-narrative"><div style="padding:24px;text-align:center"><span class="v2-caps v2-caps--sm" style="color:var(--h-muted)">LOADING...</span></div></div>
 
-      <!-- Scene Breakdowns (populated from pre-computed data or after generate) -->
+      <!-- Scene Breakdowns / Day Timeline -->
       <div id="v2-scene-breakdowns"></div>
 
       <!-- Chat footer -->
@@ -722,7 +741,65 @@ function renderInsightsTab(units, patterns, assets, signal) {
     </div>
   `;
 
-  // Check for pre-computed corpus context data
+  // ── Status polling for context engine ──
+  function renderStatus(status) {
+    const el = document.getElementById('v2-context-status');
+    if (!el) return;
+    if (!status || status.phase === 'complete') {
+      el.innerHTML = '';
+      return;
+    }
+    const label = phaseLabels[status.phase] || status.phase.toUpperCase();
+    el.innerHTML = `
+      <div style="padding:12px 16px;background:linear-gradient(90deg, rgba(255,107,53,0.08) 0%, rgba(255,107,53,0.02) 100%);border:1px solid rgba(255,107,53,0.15);margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <span class="v2-caps v2-caps--sm" style="color:var(--h-raw);animation:hpulse 1.4s steps(2) infinite;letter-spacing:0.18em">CONTEXT ENGINE RUNNING</span>
+          <span style="font-size:11px;color:var(--h-muted)">${label}</span>
+        </div>
+        <div style="height:3px;background:var(--h-border);overflow:hidden">
+          <div style="height:100%;width:${status.pct || 0}%;background:var(--h-raw);transition:width 0.5s"></div>
+        </div>
+        <div style="font-size:10px;color:var(--h-muted);margin-top:4px">${escHtml(status.message || '')}</div>
+      </div>
+    `;
+  }
+
+  // Show initial status if engine is running
+  if (ctxStatus && ctxStatus.phase !== 'complete') {
+    renderStatus(ctxStatus);
+  }
+
+  // Poll for status updates every 10s while engine is running
+  let statusPollId = null;
+  if (ctxStatus && ctxStatus.phase !== 'complete') {
+    statusPollId = setInterval(async () => {
+      try {
+        const proj = await getProject(currentProjectId);
+        const s = proj?.metadata?.corpus_context_status;
+        if (s) {
+          renderStatus(s);
+          if (s.phase === 'complete') {
+            clearInterval(statusPollId);
+            // Reload the insights tab to show the new data
+            setTimeout(() => {
+              const { project, assets, units, patterns, tierStats } = v2Data;
+              // Refresh project metadata
+              getProject(currentProjectId).then(p => {
+                v2Data.project = p;
+                renderInsightsTab(units, patterns, assets, signal);
+              });
+            }, 2000);
+          }
+        } else {
+          clearInterval(statusPollId);
+          renderStatus(null);
+        }
+      } catch {}
+    }, 10000);
+    signal?.addEventListener('abort', () => clearInterval(statusPollId));
+  }
+
+  // ── Load pre-computed data or show generate button ──
   (async () => {
     const narrativeEl = document.getElementById('v2-master-narrative');
     const breakdownsEl = document.getElementById('v2-scene-breakdowns');
@@ -733,11 +810,10 @@ function renderInsightsTab(units, patterns, assets, signal) {
       const projectArc = arcs.find(a => a.level === 'project');
 
       if (projectArc) {
-        // Pre-computed data exists — render immediately
+        // ── PRE-COMPUTED DATA EXISTS — full render ──
         const result = JSON.parse(projectArc.summary_text);
         genBtn.textContent = 'REGENERATE';
 
-        // Render master narrative
         const arcParagraphs = (result.master_arc || '').split(/\n\n+/).filter(Boolean);
         const themes = result.themes || [];
         const subjectArcs = result.subject_arcs || [];
@@ -762,7 +838,7 @@ function renderInsightsTab(units, patterns, assets, signal) {
               </div>
             ` : ''}
             ${subjectArcs.length ? `
-              <div class="v2-narrative-themes" style="margin-top:16px">
+              <div class="v2-narrative-themes" style="margin-top:20px">
                 <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em;display:block;margin-bottom:12px">SUBJECT ARCS</span>
                 ${subjectArcs.map(s => `
                   <div class="v2-theme-row">
@@ -773,10 +849,11 @@ function renderInsightsTab(units, patterns, assets, signal) {
               </div>
             ` : ''}
             ${recommendations.length ? `
-              <div class="v2-narrative-themes" style="margin-top:16px">
+              <div class="v2-narrative-themes" style="margin-top:20px">
                 <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em;display:block;margin-bottom:12px">EDITORIAL RECOMMENDATIONS</span>
-                ${recommendations.map(r => `
+                ${recommendations.map((r, ri) => `
                   <div class="v2-theme-row">
+                    <span class="v2-theme-name" style="min-width:16px">${ri + 1}.</span>
                     <span class="v2-theme-desc">${escHtml(r)}</span>
                   </div>
                 `).join('')}
@@ -785,15 +862,54 @@ function renderInsightsTab(units, patterns, assets, signal) {
           </div>
         `;
 
-        // Render scene breakdowns from pre-computed scenes
+        // ── SCENE BREAKDOWNS from DB ──
         const dbScenes = await listScenes(currentProjectId);
         const sceneArcs = arcs.filter(a => a.level === 'scene');
         const sceneArcMap = new Map(sceneArcs.map(a => [a.scope_ref, a]));
 
-        if (dbScenes.length) {
-          const verdictColors = { ESSENTIAL: 'var(--h-finished)', STRONG: 'var(--h-script)', USEFUL: 'var(--h-raw)', CUT: 'var(--h-selects)' };
-          breakdownsEl.innerHTML = `
+        // ── DAY SUMMARIES ──
+        const dayArcs = arcs.filter(a => a.level === 'day').sort((a, b) => a.scope_ref.localeCompare(b.scope_ref));
+
+        let breakdownHtml = '';
+
+        // Day-by-day timeline first (higher-level view)
+        if (dayArcs.length) {
+          breakdownHtml += `
             <div class="v2-scene-breakdowns">
+              <div style="padding:12px 16px;border-bottom:1px solid var(--h-border)">
+                <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">DAY-BY-DAY TIMELINE</span>
+                <span class="v2-caps v2-caps--dim" style="margin-left:8px">${dayArcs.length} SHOOTING DAYS</span>
+              </div>
+              ${dayArcs.map((da, i) => {
+                let dayData = {};
+                try { dayData = JSON.parse(da.summary_text); } catch {}
+                const dayScenes = dbScenes.filter(s => s.shoot_day === da.scope_ref);
+                return `
+                  <div class="v2-breakdown-card">
+                    <div class="v2-breakdown-header">
+                      <span class="v2-breakdown-num">${escHtml(da.scope_ref || `Day ${i + 1}`)}</span>
+                      <div style="flex:1;min-width:0">
+                        <div class="v2-breakdown-title" style="font-size:14px;font-weight:600">${escHtml(dayData.day_character || '')}</div>
+                        <div class="v2-breakdown-meta">
+                          <span>${dayScenes.length} scenes</span>
+                          ${dayData.strongest_scene ? `<span style="color:var(--h-finished)">Best: ${escHtml((dayData.strongest_scene || '').slice(0, 40))}</span>` : ''}
+                        </div>
+                      </div>
+                    </div>
+                    ${dayData.emotional_arc ? `<div style="font-size:11px;color:var(--h-script);margin:4px 0 8px 0;padding-left:32px;font-style:italic">${escHtml(dayData.emotional_arc)}</div>` : ''}
+                    ${dayData.day_narrative ? `<p class="v2-breakdown-desc" style="line-height:1.65">${escHtml(dayData.day_narrative.slice(0, 800))}</p>` : ''}
+                    ${dayData.dominant_themes?.length ? `<div style="padding-left:32px;margin-top:6px">${dayData.dominant_themes.map(t => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 7px;font-size:9px;letter-spacing:0.08em;border:1px solid var(--h-border);color:var(--h-muted)">${escHtml(t)}</span>`).join('')}</div>` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `;
+        }
+
+        // Scene breakdowns
+        if (dbScenes.length) {
+          breakdownHtml += `
+            <div class="v2-scene-breakdowns" style="margin-top:16px">
               <div style="padding:12px 16px;border-bottom:1px solid var(--h-border)">
                 <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">SCENE BREAKDOWNS</span>
                 <span class="v2-caps v2-caps--dim" style="margin-left:8px">${dbScenes.length} SCENES</span>
@@ -802,7 +918,10 @@ function renderInsightsTab(units, patterns, assets, signal) {
                 let scData = {};
                 const arc = sceneArcMap.get(sc.id);
                 if (arc) try { scData = JSON.parse(arc.summary_text); } catch {}
-                const keep = scData.keepability != null ? (scData.keepability * 10).toFixed(1) : '';
+                const keep = scData.keepability != null ? scData.keepability : null;
+                const keepPct = keep != null ? Math.round(keep * 100) : null;
+                const keepColor = keep != null ? (keep >= 0.7 ? 'var(--h-finished)' : keep >= 0.4 ? 'var(--h-script)' : 'var(--h-muted)') : '';
+                const heroClips = (scData.hero_clips || []).slice(0, 3);
                 return `
                   <div class="v2-breakdown-card">
                     <div class="v2-breakdown-header">
@@ -812,59 +931,36 @@ function renderInsightsTab(units, patterns, assets, signal) {
                         <div class="v2-breakdown-meta">
                           ${sc.shoot_day ? `<span>${sc.shoot_day}</span>` : ''}
                           ${sc.time_of_day ? `<span>${sc.time_of_day}</span>` : ''}
-                          <span>${sc.clip_count || sc.scene_units?.length || 0} clips</span>
+                          <span>${sc.clip_count || 0} clips</span>
                           ${sc.scene_type ? `<span>${sc.scene_type}</span>` : ''}
-                          ${keep ? `<span>keep: ${keep}</span>` : ''}
+                          ${sc.location ? `<span>${escHtml(sc.location)}</span>` : ''}
                         </div>
                       </div>
-                      ${sc.location ? `<span style="color:var(--h-muted);font-size:10px">${escHtml(sc.location)}</span>` : ''}
+                      ${keepPct != null ? `<span style="color:${keepColor};font-size:11px;font-weight:600">${keepPct}%</span>` : ''}
                     </div>
-                    ${sc.arc_summary ? `<p class="v2-breakdown-desc">${escHtml(sc.arc_summary.slice(0, 500))}</p>` : ''}
-                    ${sc.emotional_curve ? `<div class="v2-breakdown-keyclip"><span class="v2-caps v2-caps--sm v2-caps--dim">EMOTIONAL CURVE</span> <span style="color:var(--h-script);font-size:11px">${escHtml(sc.emotional_curve)}</span></div>` : ''}
+                    ${sc.arc_summary ? `<p class="v2-breakdown-desc" style="line-height:1.6">${escHtml(sc.arc_summary.slice(0, 600))}</p>` : ''}
+                    ${sc.emotional_curve ? `<div class="v2-breakdown-keyclip"><span class="v2-caps v2-caps--sm v2-caps--dim">CURVE</span> <span style="color:var(--h-script);font-size:11px;font-style:italic">${escHtml(sc.emotional_curve)}</span></div>` : ''}
                     ${sc.editorial_notes ? `<div class="v2-breakdown-connections"><span class="v2-caps v2-caps--sm v2-caps--dim">EDITORIAL</span> <span style="color:var(--h-muted);font-size:11px">${escHtml(sc.editorial_notes)}</span></div>` : ''}
+                    ${heroClips.length ? `<div class="v2-breakdown-connections"><span class="v2-caps v2-caps--sm v2-caps--dim">HERO CLIPS</span> ${heroClips.map(c => `<span style="display:inline-block;margin:1px 3px;padding:1px 5px;font-size:9px;letter-spacing:0.06em;border:1px solid var(--h-finished);color:var(--h-finished)">${escHtml((c || '').replace(/_Proxy\.MP4$/i, '').slice(-25))}</span>`).join('')}</div>` : ''}
                   </div>
                 `;
               }).join('')}
             </div>
           `;
-
-          // Render day summaries
-          const dayArcs = arcs.filter(a => a.level === 'day').sort((a, b) => a.scope_ref.localeCompare(b.scope_ref));
-          if (dayArcs.length) {
-            breakdownsEl.innerHTML += `
-              <div class="v2-scene-breakdowns" style="margin-top:16px">
-                <div style="padding:12px 16px;border-bottom:1px solid var(--h-border)">
-                  <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em">DAY-BY-DAY TIMELINE</span>
-                  <span class="v2-caps v2-caps--dim" style="margin-left:8px">${dayArcs.length} DAYS</span>
-                </div>
-                ${dayArcs.map((da, i) => {
-                  let dayData = {};
-                  try { dayData = JSON.parse(da.summary_text); } catch {}
-                  return `
-                    <div class="v2-breakdown-card">
-                      <div class="v2-breakdown-header">
-                        <span class="v2-breakdown-num">${escHtml(da.scope_ref || `Day ${i + 1}`)}</span>
-                        <div style="flex:1;min-width:0">
-                          <div class="v2-breakdown-title" style="font-size:13px">${escHtml(dayData.day_character || '')}</div>
-                        </div>
-                      </div>
-                      ${dayData.emotional_arc ? `<div style="font-size:11px;color:var(--h-script);margin:4px 0 8px 0;padding-left:32px">${escHtml(dayData.emotional_arc)}</div>` : ''}
-                      ${dayData.day_narrative ? `<p class="v2-breakdown-desc">${escHtml(dayData.day_narrative.slice(0, 600))}</p>` : ''}
-                      ${dayData.dominant_themes?.length ? `<div style="padding-left:32px;margin-top:4px">${dayData.dominant_themes.map(t => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:1px 5px;font-size:9px;letter-spacing:0.08em;border:1px solid var(--h-border);color:var(--h-muted)">${escHtml(t)}</span>`).join('')}</div>` : ''}
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-            `;
-          }
         }
-      } else {
-        // No pre-computed data — show original generate button prompt
+
+        breakdownsEl.innerHTML = breakdownHtml;
+
+      } else if (ctxStatus && ctxStatus.phase !== 'complete') {
+        // Engine is running but no data yet
         narrativeEl.innerHTML = '';
-        breakdownsEl.innerHTML = `<div class="v2-empty">Click "Generate Narrative" for a quick on-the-fly synthesis, or run <code>node hunter/worker/build-corpus-context.mjs --project-id ${currentProjectId}</code> on the Mac for full-corpus deep synthesis.</div>`;
+        breakdownsEl.innerHTML = `<div class="v2-empty" style="color:var(--h-muted)">Context engine is building the narrative layer — insights will appear here when complete.</div>`;
+      } else {
+        // No pre-computed data, no engine running
+        narrativeEl.innerHTML = '';
+        breakdownsEl.innerHTML = `<div class="v2-empty">Click "Generate Narrative" for a quick on-the-fly synthesis from a sample of scenes.</div>`;
       }
     } catch {
-      // If arc fetch fails, fall back to original generate button
       narrativeEl.innerHTML = '';
       breakdownsEl.innerHTML = `<div class="v2-empty">Click "Generate Narrative" — Hunter will watch your ${analyzed.length} clips and tell you what story lives in them.</div>`;
     }
@@ -908,7 +1004,6 @@ function renderInsightsTab(units, patterns, assets, signal) {
       const mn = result.master_narrative || {};
       const breakdowns = result.scene_breakdowns || [];
 
-      // Render Master Narrative
       const arcParagraphs = (mn.arc || '').split(/\n\n+/).filter(Boolean);
       const themes = mn.themes || [];
 
@@ -934,7 +1029,6 @@ function renderInsightsTab(units, patterns, assets, signal) {
         </div>
       `;
 
-      // Render Scene Breakdowns
       const verdictColors = { ESSENTIAL: 'var(--h-finished)', STRONG: 'var(--h-script)', USEFUL: 'var(--h-raw)', CUT: 'var(--h-selects)' };
       breakdownsEl.innerHTML = `
         <div class="v2-scene-breakdowns">
@@ -944,8 +1038,6 @@ function renderInsightsTab(units, patterns, assets, signal) {
           </div>
           ${breakdowns.map((bd, i) => {
             const scene = scenes[bd.scene_index ?? i];
-            const day = scene?.day || '';
-            const time = scene?.time || '';
             const vc = verdictColors[bd.editorial_verdict] || 'var(--h-muted)';
             return `
               <div class="v2-breakdown-card">
@@ -954,7 +1046,7 @@ function renderInsightsTab(units, patterns, assets, signal) {
                   <div style="flex:1;min-width:0">
                     <div class="v2-breakdown-title">${escHtml(bd.title || `Scene ${i + 1}`)}</div>
                     <div class="v2-breakdown-meta">
-                      ${day ? `<span>${day}</span>` : ''}
+                      ${scene?.day ? `<span>${scene.day}</span>` : ''}
                       ${bd.time_of_day ? `<span>${bd.time_of_day}</span>` : ''}
                       ${scene ? `<span>${scene.clips.length} clips</span>` : ''}
                     </div>
@@ -999,7 +1091,7 @@ function renderInsightsTab(units, patterns, assets, signal) {
         const search = await semanticSearch({ query: msg, projectId: currentProjectId, limit: 10 });
         relevantClips = search.matches || [];
       } catch {}
-      // Use rich project context from metadata.context if available, otherwise fall back to thin context
+      // Use rich project context from metadata.context if available
       let projectContext;
       if (richContext) {
         projectContext = richContext;

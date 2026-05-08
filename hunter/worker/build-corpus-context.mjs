@@ -105,6 +105,31 @@ async function retryWithBackoff(fn, label, maxRetries = 5) {
   }
 }
 
+// ── Progress reporting (writes to DB so frontend can show live status) ──
+
+async function reportProgress(phase, step, total, message) {
+  const pct = total > 0 ? Math.round((step / total) * 100) : 0;
+  const status = { phase, step, total, pct, message, updatedAt: new Date().toISOString() };
+  console.log(`  [${phase}] ${pct}% — ${message}`);
+  try {
+    const { data: proj } = await supabase.from('hunter_projects')
+      .select('metadata').eq('id', PROJECT_ID).single();
+    const meta = proj?.metadata || {};
+    meta.corpus_context_status = status;
+    await supabase.from('hunter_projects').update({ metadata: meta }).eq('id', PROJECT_ID);
+  } catch {}
+}
+
+async function clearProgress() {
+  try {
+    const { data: proj } = await supabase.from('hunter_projects')
+      .select('metadata').eq('id', PROJECT_ID).single();
+    const meta = proj?.metadata || {};
+    delete meta.corpus_context_status;
+    await supabase.from('hunter_projects').update({ metadata: meta }).eq('id', PROJECT_ID);
+  } catch {}
+}
+
 // ── Graceful shutdown ──
 
 let shuttingDown = false;
@@ -164,7 +189,7 @@ async function step1SubjectExtraction(allUnits) {
   for (let b = 0; b < batches.length; b++) {
     if (shuttingDown) return;
     const batch = batches[b];
-    console.log(`  Batch ${b + 1}/${batches.length} (${batch.length} clips)...`);
+    await reportProgress('subjects', b, batches.length, `Extracting subjects — batch ${b + 1}/${batches.length} (${batch.length} clips)`);
 
     const clipAnalyses = batch.map(u => ({
       clipName: u.source_clip_name,
@@ -350,6 +375,7 @@ async function step2SceneMaterialization(allUnits) {
   if (current.length) sceneGroups.push(current);
 
   console.log(`  ${sceneGroups.length} scenes detected (${SCENE_GAP_MINUTES}min gap threshold)`);
+  await reportProgress('scenes', 0, sceneGroups.length, `Materializing ${sceneGroups.length} scenes from temporal clustering`);
 
   // Write each scene to DB
   const sceneRows = [];
@@ -574,8 +600,8 @@ async function step3SceneSynthesis(scenes, allUnits) {
       });
 
       success++;
-      if (success % 10 === 0) {
-        console.log(`  ✓ ${success} scenes synthesized...`);
+      if (success % 5 === 0 || success === scenes.length) {
+        await reportProgress('scene_synthesis', success, scenes.length, `Synthesized ${success}/${scenes.length} scenes — "${(result.name || '').slice(0, 40)}"`);
       }
     } catch (err) {
       failed++;
@@ -703,7 +729,7 @@ async function step4DaySynthesis(scenes) {
 
       result.dayLabel = dayLabel;
       dayResults.push(result);
-      console.log(`  ✓ Day ${dayLabel} synthesized`);
+      await reportProgress('day_synthesis', dayResults.length, dayGroups.size, `Day ${dayLabel}: "${(result.day_character || '').slice(0, 50)}"`);
     } catch (err) {
       console.error(`  ✗ Day ${dayLabel}: ${err.message?.slice(0, 80)}`);
     }
@@ -787,7 +813,7 @@ async function step5ProjectSynthesis(dayResults) {
   };
 
   console.log(`  Stats: ${stats.totalClips} clips, ${stats.totalScenes} scenes, ${stats.totalDays} days`);
-  console.log('  Calling Gemini Pro for master synthesis...');
+  await reportProgress('project_synthesis', 0, 1, `Synthesizing master narrative with Gemini Pro — ${stats.totalClips} clips, ${stats.totalScenes} scenes, ${stats.totalDays} days`);
 
   try {
     const result = await retryWithBackoff(
@@ -909,6 +935,9 @@ async function main() {
   await step5ProjectSynthesis(dayResults);
 
   const totalElapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
+  await reportProgress('complete', 1, 1, `Corpus context engine complete — ${totalElapsed} minutes`);
+  // Clear progress status after a short delay so frontend sees 'complete' before it disappears
+  setTimeout(() => clearProgress(), 30000);
   console.log(`\n╔══════════════════════════════════════════════╗`);
   console.log(`║  CORPUS CONTEXT ENGINE COMPLETE              ║`);
   console.log(`╚══════════════════════════════════════════════╝`);
