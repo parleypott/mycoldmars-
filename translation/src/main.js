@@ -5,7 +5,7 @@ import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, releaseLockBeacon, subscribeToTranscript, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, releaseLockBeacon, subscribeToTranscript, subscribePresence, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload } from './db.js';
 import { saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan, saveDraftSnapshot, loadDraftSnapshot, clearDraftSnapshot } from './snapshot.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
@@ -371,18 +371,49 @@ function renderLibrary(transcripts, projectsList, deletedTranscripts) {
   if (emptyEl) emptyEl.classList.toggle('hidden', rows.length > 0);
 }
 
+// ── Library row icons (SVG, brand-aligned, no emojis) ──
+const ICON_FOLDER = `
+  <svg class="lib-icon-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+  </svg>`;
+const ICON_FILE = `
+  <svg class="lib-icon-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+    <path d="M14 3v6h6"/>
+    <path d="M8 13h8M8 17h6"/>
+  </svg>`;
+const ICON_FILE_MEDIA = `
+  <svg class="lib-icon-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+    <path d="M14 3v6h6"/>
+    <path d="M10 13.5v4l3.5-2z" fill="currentColor"/>
+  </svg>`;
+const ICON_KEBAB = `
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+    <circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>
+  </svg>`;
+const ICON_X = `
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+    <path d="M6 6l12 12M18 6l-12 12"/>
+  </svg>`;
+const ICON_CHEVRON_RIGHT = `
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M9 6l6 6-6 6"/>
+  </svg>`;
+
 function renderFolderRow(proj, count) {
   return `
-    <div class="lib-row lib-row--folder" data-project-id="${proj.id}" data-droppable="true">
+    <div class="lib-row lib-row--folder" data-project-id="${proj.id}" data-droppable="true" tabindex="-1">
       <div class="lib-col lib-col--name">
-        <span class="lib-icon">&#128193;</span>
+        <span class="lib-row-check-spacer"></span>
+        <span class="lib-icon lib-icon--folder">${ICON_FOLDER}</span>
         <span class="lib-name">${esc(proj.name)}</span>
         <span class="lib-count">${count}</span>
       </div>
       <div class="lib-col lib-col--step"></div>
       <div class="lib-col lib-col--date">${relativeTime(proj.created_at)}</div>
       <div class="lib-col lib-col--actions">
-        <button class="lib-row-delete" data-project-id="${proj.id}">&times;</button>
+        <button class="lib-row-kebab" data-project-id="${proj.id}" title="Folder actions" aria-label="Folder actions">${ICON_KEBAB}</button>
       </div>
     </div>`;
 }
@@ -392,25 +423,19 @@ function renderFileRow(t) {
   const stepLabel = STEP_LABELS[t.step] || 'Upload';
   const isChecked = librarySelected.has(t.id);
   const hasMedia  = !!t.media_upload_id;
-  // Show a small media badge for transcripts that came from a video/audio upload.
-  // Filmstrip glyph for transcribed; nothing extra for legacy CSV/JSON imports.
-  const mediaBadge = hasMedia
-    ? `<span class="lib-media-badge" title="Has video/audio">&#9658;</span>`
-    : '';
+  const icon = hasMedia ? ICON_FILE_MEDIA : ICON_FILE;
   return `
     <div class="lib-row lib-row--file ${isActive ? 'lib-row--active' : ''} ${isChecked ? 'lib-row--checked' : ''} ${hasMedia ? 'lib-row--media' : ''}"
          data-id="${t.id}" data-project-id="${t.project_id || ''}" draggable="true" tabindex="-1">
       <div class="lib-col lib-col--name">
         <input type="checkbox" class="lib-row-check" data-id="${t.id}" ${isChecked ? 'checked' : ''} aria-label="Select">
-        <span class="lib-icon">&#128220;</span>
+        <span class="lib-icon lib-icon--file ${hasMedia ? 'lib-icon--media' : ''}">${icon}</span>
         <span class="lib-name" data-id="${t.id}">${esc(t.name)}</span>
-        ${mediaBadge}
       </div>
-      <div class="lib-col lib-col--step">${stepLabel}</div>
+      <div class="lib-col lib-col--step"><span class="lib-step-tag">${stepLabel}</span></div>
       <div class="lib-col lib-col--date">${relativeTime(t.updated_at)}</div>
       <div class="lib-col lib-col--actions">
-        <button class="lib-row-kebab" data-id="${t.id}" title="More actions" aria-label="More actions">⋯</button>
-        <button class="lib-row-delete" data-id="${t.id}" title="Delete">&times;</button>
+        <button class="lib-row-kebab" data-id="${t.id}" title="More actions" aria-label="More actions">${ICON_KEBAB}</button>
       </div>
     </div>`;
 }
@@ -471,18 +496,25 @@ function getVisibleFileRows() {
 }
 
 function wireLibraryEvents() {
-  // Kebab buttons → open the file context menu (same as right-click).
-  // Discoverable for users who don't know about right-click.
+  // Kebab buttons → open the appropriate context menu (file or folder).
+  // Discoverable alternative to right-click for users who don't know about it.
   libraryList.querySelectorAll('.lib-row-kebab').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const id = btn.dataset.id;
-      if (!librarySelected.has(id)) {
-        clearLibrarySelection();
-        toggleRowSelection(id, true);
-      }
       const rect = btn.getBoundingClientRect();
-      openFileContextMenu(rect.right, rect.bottom + 4);
+      const x = rect.right;
+      const y = rect.bottom + 4;
+      // Folder kebab (data-project-id set) vs file kebab (data-id set).
+      if (btn.dataset.projectId) {
+        openFolderContextMenu(x, y, btn.dataset.projectId);
+      } else if (btn.dataset.id) {
+        const id = btn.dataset.id;
+        if (!librarySelected.has(id)) {
+          clearLibrarySelection();
+          toggleRowSelection(id, true);
+        }
+        openFileContextMenu(x, y);
+      }
     });
   });
 
@@ -1515,7 +1547,10 @@ const CLIENT_ID = (() => {
     return id;
   } catch { return 'tab_' + Math.random().toString(36).slice(2); }
 })();
-const CLIENT_LABEL = (() => {
+
+// Auto-derived browser/OS string — used as a fallback subtitle when we
+// have a user-provided name (e.g. "Brad · Chrome on Mac" in lock prompts).
+const CLIENT_DEVICE = (() => {
   const ua = navigator.userAgent;
   let browser = 'Browser';
   if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) browser = 'Chrome';
@@ -1529,6 +1564,69 @@ const CLIENT_LABEL = (() => {
   else if (/iPhone|iPad/.test(ua)) os = 'iOS';
   return `${browser} on ${os}`;
 })();
+
+// User identity — self-attested name persisted in localStorage. Asked
+// once on first session; the user can change it any time via the avatar
+// in the header. Written through to every revision, lock, and presence
+// broadcast so audit trails read naturally instead of showing opaque
+// client_ids. No real auth yet (single-user app) — when auth lands this
+// gets replaced with the auth user.
+const NAME_PALETTE = [
+  '#dd2c1e', '#004cff', '#0d5921', '#ffbf00',
+  '#6b5ce7', '#e85d04', '#412c27', '#a83279',
+];
+function pickColorForName(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return NAME_PALETTE[Math.abs(h) % NAME_PALETTE.length];
+}
+function getStoredUserName() {
+  try { return localStorage.getItem('mcm_user_name') || ''; } catch { return ''; }
+}
+function setStoredUserName(name) {
+  try { localStorage.setItem('mcm_user_name', name); } catch {}
+  CLIENT_NAME  = name;
+  CLIENT_COLOR = pickColorForName(name);
+  CLIENT_LABEL = name ? name : CLIENT_DEVICE;
+  // If a presence channel is live, re-broadcast with the new identity.
+  if (presenceChannel) broadcastPresence();
+  // Update the header avatar.
+  renderHeaderIdentity();
+}
+let CLIENT_NAME  = getStoredUserName();
+let CLIENT_COLOR = pickColorForName(CLIENT_NAME || CLIENT_ID);
+let CLIENT_LABEL = CLIENT_NAME ? CLIENT_NAME : CLIENT_DEVICE;
+
+// Forward declaration — defined later in the file.
+let presenceChannel = null;
+
+// Render the user's identity badge in the editor header (avatar + name).
+// Click to edit the name. Lazy-mounted into #header-actions when present.
+function renderHeaderIdentity() {
+  let host = document.getElementById('header-identity');
+  const headerActions = document.querySelector('.header-actions');
+  if (!headerActions) return;
+  if (!host) {
+    host = document.createElement('button');
+    host.id = 'header-identity';
+    host.className = 'header-identity';
+    host.title = 'Click to change your name (used in audit history + presence)';
+    host.addEventListener('click', () => {
+      const next = window.prompt('Your name (shown in history + to anyone editing alongside you):', CLIENT_NAME);
+      if (next == null) return;
+      const trimmed = next.trim();
+      if (!trimmed) return;
+      setStoredUserName(trimmed);
+      showSuccess(`Identity set to "${trimmed}"`);
+    });
+    headerActions.insertBefore(host, headerActions.firstChild);
+  }
+  const initials = (CLIENT_NAME || 'A').split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase();
+  host.innerHTML = `
+    <span class="header-identity-avatar" style="background:${CLIENT_COLOR}">${initials}</span>
+    <span class="header-identity-name">${CLIENT_NAME || 'Anonymous'}</span>
+  `;
+}
 
 function relativeAgo(ms) {
   const sec = Math.round(ms / 1000);
@@ -1724,7 +1822,12 @@ async function runSaveOnce(opts = {}) {
       ensureRealtimeSubscription();
     }
     // Cheap insurance: write a revision row. Trigger trims to last 50 per transcript.
-    insertRevision(currentTranscriptId, payload, { source: opts.source || 'autosave', clientId: CLIENT_ID })
+    insertRevision(currentTranscriptId, payload, {
+      source: opts.source || 'autosave',
+      clientId: CLIENT_ID,
+      clientLabel: CLIENT_LABEL,
+      clientColor: CLIENT_COLOR,
+    })
       .catch(err => console.warn('Could not write revision:', err.message));
     setSaveState('saved');
     invalidateLibraryCache();
@@ -5036,10 +5139,18 @@ function renderRevisionList(container, revisions) {
       : r.source === 'conflict-overwrite' ? 'conflict resolution'
       : 'autosave';
     const isThisTab = r.client_id === CLIENT_ID;
+    // Audit attribution: show who made each revision. Falls back gracefully
+    // if the migration hasn't run (no client_label) or for old rows.
+    const who = r.client_label || (isThisTab ? 'You' : 'anonymous');
+    const color = r.client_color || (isThisTab ? CLIENT_COLOR : 'rgba(65,44,39,0.45)');
+    const initials = who.split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase() || '?';
     return `
       <div class="revision-row" data-id="${r.id}">
-        <div class="revision-when">${escapeHtmlSafe(label)}</div>
-        <div class="revision-meta">${escapeHtmlSafe(sourceTag)}${isThisTab ? ' · this tab' : ''}</div>
+        <div class="revision-avatar" style="background:${escapeHtmlSafe(color)}">${escapeHtmlSafe(initials)}</div>
+        <div class="revision-body">
+          <div class="revision-when"><b>${escapeHtmlSafe(who)}</b> · ${escapeHtmlSafe(label)}</div>
+          <div class="revision-meta">${escapeHtmlSafe(sourceTag)}${isThisTab ? ' · this tab' : ''}</div>
+        </div>
         <div class="revision-actions">
           <button class="np-button revision-restore">Restore</button>
         </div>
@@ -5113,11 +5224,99 @@ function ensureRealtimeSubscription() {
   } catch (err) {
     console.warn('[realtime] subscribe failed:', err);
   }
+  // Stand up the presence channel alongside the data channel.
+  ensurePresence();
 }
 
 function teardownRealtime() {
   if (realtimeUnsubscribe) { try { realtimeUnsubscribe(); } catch {} realtimeUnsubscribe = null; }
   realtimeBoundTranscriptId = null;
+  teardownPresence();
+}
+
+// ── Presence: who's looking at this transcript right now ────────────
+let presenceBoundTranscriptId = null;
+let presenceHeartbeatTimer = null;
+let lastPresencePeers = [];
+
+function ensurePresence() {
+  if (!currentTranscriptId) return;
+  if (presenceBoundTranscriptId === currentTranscriptId && presenceChannel) return;
+  teardownPresence();
+  presenceBoundTranscriptId = currentTranscriptId;
+  try {
+    presenceChannel = subscribePresence(currentTranscriptId, (peers) => {
+      lastPresencePeers = peers;
+      renderPresence(peers);
+    });
+    // Initial broadcast — Supabase Realtime presence buffers until subscribe
+    // completes, but track() before the SUBSCRIBED event is harmless; the
+    // join event lands once the socket settles.
+    broadcastPresence();
+    // Heartbeat every 25s so peers know we're still here even if state
+    // doesn't change. Without this, a tab that goes idle but never closes
+    // (e.g. switched away) eventually times out of the channel.
+    presenceHeartbeatTimer = setInterval(broadcastPresence, 25000);
+  } catch (err) {
+    console.warn('[presence] subscribe failed:', err);
+  }
+}
+
+function teardownPresence() {
+  if (presenceHeartbeatTimer) { clearInterval(presenceHeartbeatTimer); presenceHeartbeatTimer = null; }
+  if (presenceChannel) {
+    try { presenceChannel.untrack(); } catch {}
+    try { presenceChannel.unsubscribe(); } catch {}
+    presenceChannel = null;
+  }
+  presenceBoundTranscriptId = null;
+  renderPresence([]);
+}
+
+function broadcastPresence() {
+  if (!presenceChannel) return;
+  presenceChannel.track({
+    clientId: CLIENT_ID,
+    name: CLIENT_NAME || 'anonymous',
+    color: CLIENT_COLOR,
+    device: CLIENT_DEVICE,
+    transcriptId: currentTranscriptId,
+    at: new Date().toISOString(),
+  });
+}
+
+function renderPresence(peers) {
+  let host = document.getElementById('presence-stack');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'presence-stack';
+    host.className = 'presence-stack';
+    document.body.appendChild(host);
+  }
+  // Filter out self by clientId.
+  const others = (peers || []).filter(p => p && p.clientId && p.clientId !== CLIENT_ID);
+  if (others.length === 0) {
+    host.innerHTML = '';
+    host.style.display = 'none';
+    return;
+  }
+  host.style.display = '';
+  // Dedupe by clientId so the same person in two tabs only shows once.
+  const seen = new Set();
+  const unique = [];
+  for (const p of others) {
+    if (seen.has(p.clientId)) continue;
+    seen.add(p.clientId);
+    unique.push(p);
+  }
+  host.innerHTML = unique.map(p => {
+    const name = p.name || 'anonymous';
+    const initials = name.split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase() || '?';
+    const tooltip = `${name}${p.device ? ' · ' + p.device : ''}`;
+    return `
+      <div class="presence-pill" title="${escapeHtmlSafe(tooltip)}" style="background:${escapeHtmlSafe(p.color || '#412C27')}">${escapeHtmlSafe(initials)}</div>
+    `;
+  }).join('');
 }
 
 function handleRemoteUpdate(newRow) {
@@ -5126,6 +5325,25 @@ function handleRemoteUpdate(newRow) {
   if (lastServerUpdatedAt && newRow.updated_at === lastServerUpdatedAt) return;
   // If we're in the middle of saving, also ignore (our reply will arrive shortly).
   if (saveInFlight) return;
+
+  // If the user has navigated AWAY from the editor (library, home, sequencer,
+  // search), do NOT auto-render the editor view. Just update in-memory state
+  // so it's fresh when they return. Previously this re-ran finishLoadRender
+  // which forced switchView('editor') and yanked the user out of wherever
+  // they actually were — the "click library and bounce into the transcript"
+  // bug.
+  if (libraryShowing || currentStep !== 5) {
+    if (saveState === 'clean' || saveState === 'saved') {
+      applyTranscriptToState(newRow);
+      lastServerUpdatedAt = newRow.updated_at;
+      setSaveState('saved');
+    } else {
+      // User has unsaved local edits AND has navigated away — keep their
+      // edits, surface the banner so they decide on next return.
+      showRemoteChangeBanner(newRow);
+    }
+    return;
+  }
 
   // If our local state is clean, silently fold in the remote version.
   if (saveState === 'clean' || saveState === 'saved') {

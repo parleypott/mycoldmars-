@@ -505,20 +505,45 @@ export async function insertRevision(transcriptId, snapshot, opts = {}) {
     client_id: opts.clientId || null,
     note: opts.note || null,
   };
+  // client_label / client_color are only filled when the supabase-presence.sql
+  // migration has run. flag('hasRevisionAttribution') gates them so the insert
+  // doesn't 42703 on un-migrated installs.
+  if (opts.clientLabel) row.client_label = opts.clientLabel;
+  if (opts.clientColor) row.client_color = opts.clientColor;
   const { data, error } = await db().from('transcript_revisions')
     .insert(row).select().single();
-  if (error) throw normalizeError(error, 'insertRevision');
+  if (error) {
+    // 42703 = column doesn't exist — migration hasn't run. Strip and retry.
+    if (error.code === '42703') {
+      delete row.client_label;
+      delete row.client_color;
+      const retry = await db().from('transcript_revisions').insert(row).select().single();
+      if (retry.error) throw normalizeError(retry.error, 'insertRevision');
+      return retry.data;
+    }
+    throw normalizeError(error, 'insertRevision');
+  }
   return data;
 }
 
 export async function listRevisions(transcriptId, limit = 50) {
   if (!supabase) return [];
   if (!flag('hasRevisions')) return [];
-  const { data, error } = await db().from('transcript_revisions')
-    .select('id, source, client_id, note, created_at')
+  let { data, error } = await db().from('transcript_revisions')
+    .select('id, source, client_id, client_label, client_color, note, created_at')
     .eq('transcript_id', transcriptId)
     .order('created_at', { ascending: false })
     .limit(limit);
+  // Schema-not-yet-migrated fallback: re-fetch without the new cols.
+  if (error && error.code === '42703') {
+    const retry = await db().from('transcript_revisions')
+      .select('id, source, client_id, note, created_at')
+      .eq('transcript_id', transcriptId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (retry.error) throw normalizeError(retry.error, 'listRevisions');
+    return retry.data || [];
+  }
   if (error) throw normalizeError(error, 'listRevisions');
   return data || [];
 }
@@ -649,6 +674,48 @@ export function subscribeToTranscript(transcriptId, onChange) {
     .subscribe();
   return () => {
     try { supabase.removeChannel(channel); } catch {}
+  };
+}
+
+/**
+ * Realtime presence: every tab viewing this transcript broadcasts itself
+ * and gets notified when others join/leave. Returns the channel + a
+ * `track(state)` helper to publish the local presence state.
+ *
+ * Usage:
+ *   const ch = subscribePresence(transcriptId, (peers) => render(peers));
+ *   ch.track({ clientId, name, color });
+ *   // later:
+ *   ch.untrack(); ch.unsubscribe();
+ *
+ * `peers` is the full presence state on every change, keyed by clientId.
+ * The local client is included — caller filters self by clientId.
+ */
+export function subscribePresence(transcriptId, onChange) {
+  if (!supabase || !transcriptId) {
+    return { track: () => {}, untrack: () => {}, unsubscribe: () => {} };
+  }
+  const channel = supabase.channel(`presence:${transcriptId}`, {
+    config: { presence: { key: '' } }, // key set per-track call below
+  });
+  channel.on('presence', { event: 'sync' }, () => {
+    try {
+      const state = channel.presenceState();
+      const peers = [];
+      for (const key of Object.keys(state)) {
+        const slots = state[key];
+        if (Array.isArray(slots)) {
+          for (const slot of slots) peers.push(slot);
+        }
+      }
+      onChange(peers);
+    } catch (err) { console.warn('[presence] sync handler threw:', err); }
+  });
+  channel.subscribe();
+  return {
+    track: (state) => { try { channel.track(state); } catch (err) { console.warn('[presence] track failed:', err); } },
+    untrack: () => { try { channel.untrack(); } catch {} },
+    unsubscribe: () => { try { supabase.removeChannel(channel); } catch {} },
   };
 }
 
