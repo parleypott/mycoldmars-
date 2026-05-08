@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html><head><title>JOHNNY PLEASE DO THIS</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#111; color:#eee; font-family:ui-monospace,'SF Mono',monospace; padding:3rem; max-width:800px; margin:0 auto; }
+  h1 { font-size:2.5rem; color:#FF3B20; margin-bottom:1rem; }
+  .step { margin:1.5rem 0; padding:1rem; border:1px solid #333; }
+  .step-num { color:#FF3B20; font-size:1.2rem; font-weight:bold; }
+  code { background:#222; padding:0.2rem 0.4rem; border-radius:3px; font-size:0.85rem; }
+  pre { background:#0a0a0a; padding:1rem; margin:0.5rem 0; overflow-x:auto; font-size:0.8rem; line-height:1.5; border-radius:4px; }
+  .copy-btn { background:#FF3B20; color:#fff; border:none; padding:0.4rem 0.8rem; cursor:pointer; font-family:inherit; font-size:0.75rem; margin-top:0.5rem; }
+  a { color:#5AA3FF; }
+</style></head>
+<body>
+<h1>JOHNNY PLEASE DO THIS</h1>
+<p style="color:#888;margin-bottom:2rem">Run this SQL in Supabase to create the global script training table</p>
+
+<div class="step">
+  <span class="step-num">1</span> Go to <a href="https://supabase.com/dashboard/project/_/sql/new" target="_blank">Supabase SQL Editor</a>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span> Paste and run this SQL:
+  <pre id="sql">create table if not exists script_training (
+  id uuid primary key default gen_random_uuid(),
+  doc_count integer not null default 0,
+  doc_titles jsonb default '[]',
+  color_rules jsonb default '[]',
+  sloppiness_patterns jsonb default '[]',
+  structural_patterns jsonb,
+  voice_style jsonb,
+  visual_direction_style jsonb,
+  script_context text,
+  style_signature text,
+  model text not null default 'gemini-2.5-flash',
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_script_training_created
+  on script_training(created_at desc);</pre>
+  <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('sql').textContent)">COPY SQL</button>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span> Click <strong>Run</strong>. Should say "Success. No rows returned."
+</div>
+
+<div class="step">
+  <span class="step-num">4</span> Done! Go to <a href="/hunter/#script">Script Copilot</a>
+</div>
+</body></html>

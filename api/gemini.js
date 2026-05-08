@@ -62,6 +62,18 @@ export default async function handler(req) {
     return handleScriptCopilotChat(body, apiKey);
   }
 
+  if (action === 'fetch_parse_doc') {
+    return handleFetchParseDoc(body);
+  }
+
+  if (action === 'run_global_training') {
+    return handleRunGlobalTraining(body, apiKey);
+  }
+
+  if (action === 'get_global_training') {
+    return handleGetGlobalTraining();
+  }
+
   // Default: proxy to Gemini
   const model = body.model || 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -1052,6 +1064,380 @@ When discussing the script, reference specific beats, sections, and formatting. 
   const data = await res.json();
   const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
   return jsonResponse({ reply });
+}
+
+// ── Global Script Training (projectless) ──
+
+async function handleFetchParseDoc(body) {
+  const { docUrl } = body;
+  if (!docUrl) return jsonResponse({ error: 'docUrl is required' }, 400);
+
+  // Extract doc ID
+  let docId;
+  if (docUrl.includes('/document/d/')) {
+    const match = docUrl.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+    if (!match) return jsonResponse({ error: 'Cannot extract doc ID from URL' }, 400);
+    docId = match[1];
+  } else if (docUrl.match(/^[a-zA-Z0-9_-]{20,}$/)) {
+    docId = docUrl; // bare doc ID
+  } else {
+    return jsonResponse({ error: 'Invalid Google Doc URL or ID' }, 400);
+  }
+
+  // Get Google access token
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    return jsonResponse({ error: 'Google OAuth not configured' }, 500);
+  }
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+
+  if (!tokenRes.ok) {
+    return jsonResponse({ error: 'Google token refresh failed' }, 502);
+  }
+
+  const { access_token } = await tokenRes.json();
+
+  // Fetch the doc (all tabs)
+  const docsRes = await fetch(
+    `https://docs.googleapis.com/v1/documents/${docId}?includeTabsContent=true`,
+    { headers: { Authorization: `Bearer ${access_token}` } }
+  );
+
+  if (!docsRes.ok) {
+    const errText = await docsRes.text();
+    return jsonResponse({ error: `Docs API error ${docsRes.status}`, detail: errText.slice(0, 200) }, 502);
+  }
+
+  const doc = await docsRes.json();
+  const tabs = doc.tabs || [];
+
+  // Parse tab 0 only (the script tab)
+  const tab0 = tabs[0];
+  if (!tab0) {
+    return jsonResponse({ error: 'No tabs found in document' }, 400);
+  }
+
+  const tabBody = tab0.documentTab?.body?.content || [];
+  const title = doc.title || docId;
+
+  // Parse elements
+  const elements = [];
+  let totalBeats = 0;
+  let wordCount = 0;
+  let coloredRunCount = 0;
+  const colorCounts = {};
+
+  for (const el of tabBody) {
+    if (el.paragraph) {
+      const para = el.paragraph;
+      const runs = [];
+      let text = '';
+
+      for (const pe of para.elements || []) {
+        if (pe.textRun) {
+          const t = pe.textRun.content || '';
+          text += t;
+          const bg = pe.textRun.textStyle?.backgroundColor?.color?.rgbColor;
+          if (bg) {
+            const r = Math.round((bg.red || 0) * 255);
+            const g = Math.round((bg.green || 0) * 255);
+            const b = Math.round((bg.blue || 0) * 255);
+            const hex = '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase();
+            colorCounts[hex] = (colorCounts[hex] || 0) + 1;
+            coloredRunCount++;
+            runs.push({ text: t.trim().slice(0, 80), highlight: hex, bold: !!pe.textRun.textStyle?.bold });
+          } else if (pe.textRun.textStyle?.bold && t.trim()) {
+            runs.push({ text: t.trim().slice(0, 80), bold: true });
+          }
+        }
+      }
+
+      if (text.trim()) {
+        wordCount += text.trim().split(/\s+/).length;
+        const namedStyle = para.paragraphStyle?.namedStyleType || '';
+        if (namedStyle.match(/HEADING_/)) {
+          elements.push({ type: 'heading', text: text.trim() });
+        }
+      }
+    } else if (el.table) {
+      const rows = el.table.tableRows || [];
+      for (const row of rows) {
+        const cells = row.tableCells || [];
+        if (cells.length < 2) continue;
+
+        // Extract cell text + colors
+        const cellData = cells.map(cell => {
+          let text = '';
+          const runs = [];
+          for (const ce of cell.content || []) {
+            for (const pe of ce.paragraph?.elements || []) {
+              if (pe.textRun) {
+                const t = pe.textRun.content || '';
+                text += t;
+                const bg = pe.textRun.textStyle?.backgroundColor?.color?.rgbColor;
+                if (bg) {
+                  const r = Math.round((bg.red || 0) * 255);
+                  const g = Math.round((bg.green || 0) * 255);
+                  const b = Math.round((bg.blue || 0) * 255);
+                  const hex = '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase();
+                  colorCounts[hex] = (colorCounts[hex] || 0) + 1;
+                  coloredRunCount++;
+                  runs.push({ text: t.trim().slice(0, 80), highlight: hex });
+                }
+              }
+            }
+          }
+          return { text: text.trim(), runs };
+        });
+
+        // Skip empty rows and likely header rows
+        const hasContent = cellData.some(c => c.text.length > 5);
+        if (!hasContent) continue;
+
+        // Find the two columns with most content
+        const sorted = cellData.map((c, i) => ({ ...c, idx: i })).sort((a, b) => b.text.length - a.text.length);
+        const voice = sorted[0] || { text: '', runs: [] };
+        const visual = sorted[1] || { text: '', runs: [] };
+
+        totalBeats++;
+        wordCount += voice.text.split(/\s+/).length + visual.text.split(/\s+/).length;
+      }
+    }
+  }
+
+  // Build color profile
+  const colorProfile = {};
+  for (const [hex, count] of Object.entries(colorCounts).sort((a, b) => b[1] - a[1])) {
+    colorProfile[hex] = { count };
+  }
+
+  // Build sample beats for training (first 20 table rows with colored content)
+  const sampleBeats = [];
+  for (const el of tabBody) {
+    if (sampleBeats.length >= 20) break;
+    if (!el.table) continue;
+    for (const row of el.table.tableRows || []) {
+      if (sampleBeats.length >= 20) break;
+      const cells = row.tableCells || [];
+      if (cells.length < 2) continue;
+
+      const cellTexts = cells.map(cell => {
+        const runs = [];
+        let text = '';
+        for (const ce of cell.content || []) {
+          for (const pe of ce.paragraph?.elements || []) {
+            if (pe.textRun) {
+              const t = pe.textRun.content || '';
+              text += t;
+              const bg = pe.textRun.textStyle?.backgroundColor?.color?.rgbColor;
+              if (bg) {
+                const r = Math.round((bg.red || 0) * 255);
+                const g = Math.round((bg.green || 0) * 255);
+                const b = Math.round((bg.blue || 0) * 255);
+                const hex = '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('').toUpperCase();
+                runs.push(`[${hex}: ${t.trim().slice(0, 60)}]`);
+              } else if (pe.textRun.textStyle?.bold && t.trim()) {
+                runs.push(`[BOLD: ${t.trim().slice(0, 60)}]`);
+              } else if (t.trim()) {
+                runs.push(t.trim().slice(0, 60));
+              }
+            }
+          }
+        }
+        return { text: text.trim(), annotated: runs.join(' ') };
+      });
+
+      if (cellTexts.some(c => c.text.length > 5)) {
+        const sorted = cellTexts.sort((a, b) => b.text.length - a.text.length);
+        sampleBeats.push({ voice: sorted[0]?.annotated || '', visual: sorted[1]?.annotated || '' });
+      }
+    }
+  }
+
+  return jsonResponse({
+    docId,
+    title,
+    stats: { totalBeats, wordCount, coloredRunCount },
+    colorProfile,
+    headings: elements.filter(e => e.type === 'heading').map(e => e.text),
+    sampleBeats,
+  });
+}
+
+async function handleRunGlobalTraining(body, apiKey) {
+  const { docs } = body;
+  if (!docs?.length) return jsonResponse({ error: 'docs array is required' }, 400);
+
+  // Build corpus from parsed doc summaries
+  const corpus = docs.map((doc, i) => {
+    const colorSummary = Object.entries(doc.colorProfile || {})
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([hex, data]) => `  ${hex}: ${data.count}x`)
+      .join('\n');
+
+    const headings = (doc.headings || []).join(' → ');
+
+    const beats = (doc.sampleBeats || []).map((b, j) =>
+      `  Beat ${j + 1}:\n    VOICE: ${b.voice || '(empty)'}\n    VISUAL: ${b.visual || '(empty)'}`
+    ).join('\n');
+
+    return `=== SCRIPT ${i + 1}: "${doc.title}" ===
+Stats: ${doc.stats?.totalBeats || 0} beats, ${doc.stats?.wordCount || 0} words, ${doc.stats?.coloredRunCount || 0} colored runs
+Headings: ${headings || '(none)'}
+Colors:
+${colorSummary || '  (none)'}
+Sample beats:
+${beats || '  (none)'}`;
+  }).join('\n\n' + '='.repeat(50) + '\n\n');
+
+  // Run Gemini analysis
+  const model = 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        role: 'user',
+        parts: [{
+          text: `You are analyzing ${docs.length} documentary scripts by the SAME FILMMAKER. All formatting has been preserved — highlight colors (as hex values in brackets), bold text, and the two-column voice/visual table structure.
+
+Your job: learn this filmmaker's script conventions, habits, and style. Pay special attention to:
+1. INCONSISTENCIES and SLOPPINESS — where do formatting rules break down?
+2. INFERRED INTENT — when formatting is messy, what was likely intended?
+3. PATTERNS that emerge ACROSS scripts, not just within one.
+
+${corpus}
+
+Return a JSON object:
+
+{
+  "color_rules": [
+    {
+      "color": "#HEX",
+      "meaning": "what this color means",
+      "confidence": 0.0-1.0,
+      "consistency": "always/usually/sometimes/rarely",
+      "exceptions": "notable exceptions"
+    }
+  ],
+  "structural_patterns": {
+    "typical_act_count": number or null,
+    "avg_beats_per_section": number,
+    "heading_conventions": "description",
+    "beat_structure": "description"
+  },
+  "sloppiness_patterns": [
+    {
+      "pattern": "description",
+      "frequency": "rare/occasional/common",
+      "workaround": "how to handle it"
+    }
+  ],
+  "voice_style": {
+    "tone": "description",
+    "person": "first/second/third",
+    "typical_beat_length": "description",
+    "distinctive_habits": "description"
+  },
+  "visual_direction_style": {
+    "detail_level": "minimal/moderate/detailed",
+    "common_shot_types": [],
+    "animation_frequency": "description",
+    "archive_frequency": "description"
+  },
+  "script_context": "3-4 DENSE paragraphs briefing a new editor on this filmmaker's script language. Cover color conventions (including inconsistencies), structural habits, voice/visual relationship, and editorial personality. Be specific — cite examples from the scripts. Write as if the reader will use this to correctly interpret any new script by this filmmaker.",
+  "style_signature": "One bold sentence capturing this filmmaker's script personality"
+}
+
+Return ONLY valid JSON.`
+        }],
+      }],
+      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 10000 },
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    return jsonResponse({ error: 'Gemini training failed', detail: errText.slice(0, 500) }, 502);
+  }
+
+  const geminiData = await res.json();
+  const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+  let analysis;
+  try {
+    analysis = JSON.parse(rawText);
+  } catch {
+    analysis = { script_context: rawText, color_rules: [], sloppiness_patterns: [] };
+  }
+
+  // Store in Supabase
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (supabaseUrl && supabaseKey) {
+    const docTitles = docs.map(d => ({ docId: d.docId, title: d.title, beats: d.stats?.totalBeats, words: d.stats?.wordCount }));
+
+    await fetch(`${supabaseUrl}/rest/v1/script_training`, {
+      method: 'POST',
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        doc_count: docs.length,
+        doc_titles: docTitles,
+        color_rules: analysis.color_rules || [],
+        sloppiness_patterns: analysis.sloppiness_patterns || [],
+        structural_patterns: analysis.structural_patterns || null,
+        voice_style: analysis.voice_style || null,
+        visual_direction_style: analysis.visual_direction_style || null,
+        script_context: analysis.script_context || '',
+        style_signature: analysis.style_signature || '',
+        model,
+      }),
+    });
+  }
+
+  return jsonResponse({ analysis });
+}
+
+async function handleGetGlobalTraining() {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return jsonResponse({ error: 'Supabase not configured' }, 500);
+  }
+
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/script_training?order=created_at.desc&limit=1`,
+    { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+  );
+
+  if (!res.ok) {
+    return jsonResponse({ error: 'Failed to fetch training' }, 502);
+  }
+
+  const data = await res.json();
+  return jsonResponse({ training: data?.[0] || null });
 }
 
 function formatSeconds(s) {

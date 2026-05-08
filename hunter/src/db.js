@@ -523,22 +523,45 @@ export async function chatWithScript({ message, conversationHistory, snapshotId,
   return res.json();
 }
 
-// ── Script Copilot Training Hub ──
+// ── Global Script Training (projectless) ──
 
-export async function listAllScriptSnapshots() {
-  const { data, error } = await db().from('script_snapshots')
-    .select('*, media_assets!inner(id, project_id, source_ref, filename, metadata, hunter_projects:project_id(id, name, metadata))')
-    .order('created_at', { ascending: false });
-  if (error) throw normalizeError(error, 'listAllScriptSnapshots');
-  return data;
+export async function fetchParseDoc(docUrl) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'fetch_parse_doc', docUrl }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Failed to fetch doc');
+  }
+  return res.json();
 }
 
-export async function getScriptTrainingStatus() {
-  const { data: projects, error } = await db().from('hunter_projects')
-    .select('id, name, metadata')
-    .not('metadata->script_context', 'is', null);
-  if (error) throw normalizeError(error, 'getScriptTrainingStatus');
-  return projects;
+export async function runGlobalTraining(docs) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'run_global_training', docs }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Training failed');
+  }
+  return res.json();
+}
+
+export async function getGlobalTraining() {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'get_global_training' }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Failed to fetch training');
+  }
+  return res.json();
 }
 
 // ── Pending queue (used by worker) ──

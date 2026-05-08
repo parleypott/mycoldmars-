@@ -1,4 +1,4 @@
-import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights, listScenes, listArcSummaries, fetchCorpusContext, getScriptSnapshot, listScriptPasses, runScriptPass, chatWithScript, listAllScriptSnapshots, getScriptTrainingStatus } from './db.js';
+import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights, listScenes, listArcSummaries, fetchCorpusContext, getScriptSnapshot, listScriptPasses, runScriptPass, chatWithScript, fetchParseDoc, runGlobalTraining, getGlobalTraining } from './db.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -1624,201 +1624,210 @@ function renderPassResults() {
 
 // ── SCRIPT COPILOT TRAINING HUB (top-level view) ──
 
-let scriptHubState = { snapshots: null, trainedProjects: null, loading: false };
+let scriptHubState = {
+  parsedDocs: [],       // docs parsed in this session
+  training: null,       // latest training result from DB
+  fetching: false,      // currently fetching docs
+  training_running: false,
+  loaded: false,
+};
 
 async function renderScriptCopilotHub() {
   const hub = document.getElementById('script-copilot-hub');
 
-  // Show loading state
-  if (!scriptHubState.snapshots && !scriptHubState.loading) {
-    scriptHubState.loading = true;
-    hub.innerHTML = `
-      <div style="padding:3rem;text-align:center">
-        <div style="font-size:1.2rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:1rem">LOADING SCRIPT COPILOT...</div>
-      </div>`;
-
+  // Load existing training on first render
+  if (!scriptHubState.loaded) {
+    scriptHubState.loaded = true;
+    hub.innerHTML = `<div style="padding:3rem;text-align:center"><div style="font-size:1rem;letter-spacing:0.2em;color:var(--np-text-dim,#888)">LOADING...</div></div>`;
     try {
-      const [snapshots, trainedProjects] = await Promise.all([
-        listAllScriptSnapshots().catch(() => []),
-        getScriptTrainingStatus().catch(() => []),
-      ]);
-      scriptHubState.snapshots = snapshots;
-      scriptHubState.trainedProjects = trainedProjects;
-    } catch (err) {
-      console.error('[script-hub]', err);
-      scriptHubState.snapshots = [];
-      scriptHubState.trainedProjects = [];
-    }
-    scriptHubState.loading = false;
+      const { training } = await getGlobalTraining();
+      scriptHubState.training = training;
+    } catch {}
+    // Re-render with data
+    return renderScriptCopilotHub();
   }
 
-  const snapshots = scriptHubState.snapshots || [];
-  const trainedProjects = scriptHubState.trainedProjects || [];
+  const t = scriptHubState.training;
+  const docs = scriptHubState.parsedDocs;
 
-  // Aggregate stats
-  const totalScripts = snapshots.length;
-  const totalBeats = snapshots.reduce((s, snap) => s + (snap.beat_count || 0), 0);
-  const totalWords = snapshots.reduce((s, snap) => s + (snap.word_count || 0), 0);
-
-  // Aggregate color profile across all snapshots
-  const allColors = {};
-  for (const snap of snapshots) {
-    for (const [color, data] of Object.entries(snap.color_profile || {})) {
-      if (!allColors[color]) allColors[color] = { count: 0, scripts: 0, sampleTexts: [] };
-      allColors[color].count += data.count;
-      allColors[color].scripts++;
-      if (allColors[color].sampleTexts.length < 3 && data.sampleTexts?.length) {
-        allColors[color].sampleTexts.push(...data.sampleTexts.slice(0, 1));
-      }
-    }
-  }
-  const sortedColors = Object.entries(allColors).sort((a, b) => b[1].count - a[1].count);
-
-  // Group snapshots by project
-  const byProject = {};
-  for (const snap of snapshots) {
-    const proj = snap.media_assets?.hunter_projects;
-    const projName = proj?.name || 'Unknown';
-    const projId = proj?.id || 'unknown';
-    if (!byProject[projId]) byProject[projId] = { name: projName, project: proj, snapshots: [] };
-    byProject[projId].snapshots.push(snap);
-  }
-
-  // Get training context from first trained project
-  const trainedProject = trainedProjects[0];
-  const scriptContext = trainedProject?.metadata?.script_context;
-  const colorRules = trainedProject?.metadata?.script_color_rules || [];
-  const sloppinessPatterns = trainedProject?.metadata?.script_sloppiness_patterns || [];
-  const styleSignature = trainedProject?.metadata?.script_style_signature;
-  const trainingStats = trainedProject?.metadata?.script_training_stats;
+  const totalBeats = docs.reduce((s, d) => s + (d.stats?.totalBeats || 0), 0);
+  const totalWords = docs.reduce((s, d) => s + (d.stats?.wordCount || 0), 0);
 
   hub.innerHTML = `
     <div style="max-width:1100px;margin:0 auto;padding:2rem 1.5rem">
       <!-- Header -->
-      <div style="margin-bottom:2.5rem">
-        <div style="font-size:0.7rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--np-dim,#888);margin-bottom:0.4rem">NEWPRESS TOOLS</div>
+      <div style="margin-bottom:2rem">
+        <div style="font-size:0.65rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--np-text-dim,#888);margin-bottom:0.3rem">NEWPRESS TOOLS</div>
         <div style="font-size:2rem;letter-spacing:0.06em;font-weight:300">Script Copilot</div>
-        <div style="font-size:0.8rem;color:var(--np-dim,#888);margin-top:0.3rem;letter-spacing:0.04em">Training hub — teach the system how you write</div>
+        <div style="font-size:0.8rem;color:var(--np-text-dim,#888);margin-top:0.3rem">Training hub — teach the system how you write</div>
       </div>
 
-      <!-- Stats row -->
-      <div style="display:flex;gap:2px;margin-bottom:2rem">
-        ${[
-          { label: 'SCRIPTS', value: totalScripts },
-          { label: 'BEATS', value: totalBeats.toLocaleString() },
-          { label: 'WORDS', value: totalWords.toLocaleString() },
-          { label: 'COLORS', value: sortedColors.length },
-          { label: 'TRAINING', value: trainingStats ? 'DONE' : 'NOT RUN' },
-        ].map(s => `
-          <div style="flex:1;background:var(--np-surface,#1a1a1a);padding:1rem;border:1px solid var(--np-border,#333)">
-            <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.3rem">${s.label}</div>
-            <div style="font-size:1.6rem;letter-spacing:0.04em">${s.value}</div>
+      <!-- URL Input -->
+      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:1.5rem">
+        <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-text-dim,#888);margin-bottom:0.6rem">PASTE GOOGLE DOC URLS (one per line)</div>
+        <textarea id="sc-url-input" rows="6" placeholder="https://docs.google.com/document/d/.../edit
+https://docs.google.com/document/d/.../edit
+..." style="width:100%;background:#0a0a0a;border:1px solid var(--np-border,#333);color:#eee;padding:0.7rem;font-family:inherit;font-size:0.8rem;resize:vertical;box-sizing:border-box"></textarea>
+        <div style="display:flex;gap:0.6rem;margin-top:0.6rem;align-items:center">
+          <button id="sc-fetch-btn" style="background:var(--np-red,#d42e05);color:#fff;border:none;padding:0.5rem 1.2rem;font-family:inherit;font-size:0.75rem;letter-spacing:0.12em;cursor:pointer">${scriptHubState.fetching ? 'FETCHING...' : 'FETCH + PARSE'}</button>
+          <button id="sc-train-btn" style="background:${docs.length > 0 ? '#eee' : '#333'};color:${docs.length > 0 ? '#000' : '#666'};border:none;padding:0.5rem 1.2rem;font-family:inherit;font-size:0.75rem;letter-spacing:0.12em;cursor:${docs.length > 0 ? 'pointer' : 'default'}" ${docs.length === 0 ? 'disabled' : ''}>${scriptHubState.training_running ? 'TRAINING...' : 'RUN TRAINING'}</button>
+          <div id="sc-status" style="font-size:0.75rem;color:var(--np-text-dim,#888);margin-left:0.5rem"></div>
+        </div>
+      </div>
+
+      <!-- Parsed docs queue -->
+      ${docs.length > 0 ? `
+      <div style="border:1px solid var(--np-border,#333);padding:1rem;margin-bottom:1.5rem">
+        <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-text-dim,#888);margin-bottom:0.6rem">PARSED SCRIPTS (${docs.length} docs, ${totalBeats.toLocaleString()} beats, ${totalWords.toLocaleString()} words)</div>
+        <div style="display:flex;flex-direction:column;gap:2px;max-height:300px;overflow-y:auto">
+          ${docs.map((d, i) => {
+            const colors = Object.entries(d.colorProfile || {}).sort((a, b) => b[1].count - a[1].count);
+            const colorDots = colors.slice(0, 6).map(([hex]) => `<span style="width:10px;height:10px;background:${hex};display:inline-block;border-radius:2px"></span>`).join('');
+            return `
+            <div style="display:flex;align-items:center;gap:0.8rem;padding:0.4rem 0.6rem;background:var(--np-surface,#141414);font-size:0.75rem">
+              <span style="color:var(--np-text-dim,#666);width:20px;text-align:right;flex-shrink:0">${i + 1}</span>
+              <span style="color:#eee;flex:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.title)}</span>
+              <span style="color:var(--np-text-dim,#888);flex-shrink:0">${d.stats?.totalBeats || 0} beats</span>
+              <span style="color:var(--np-text-dim,#888);flex-shrink:0">${(d.stats?.wordCount || 0).toLocaleString()} w</span>
+              <span style="display:flex;gap:2px;flex-shrink:0">${colorDots}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- Fetch progress -->
+      <div id="sc-progress" style="margin-bottom:1.5rem"></div>
+
+      <!-- Training Results -->
+      ${t ? `
+      ${t.style_signature ? `
+      <div style="border-left:3px solid var(--np-red,#d42e05);padding:0.8rem 1.2rem;margin-bottom:1.5rem;font-size:0.9rem;font-style:italic;color:#eee;letter-spacing:0.02em">
+        "${escHtml(t.style_signature)}"
+      </div>` : ''}
+
+      ${t.script_context ? `
+      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:1.5rem">
+        <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-text-dim,#888);margin-bottom:0.6rem">LEARNED SCRIPT CONTEXT <span style="color:#666">(${t.doc_count} scripts, ${new Date(t.created_at).toLocaleDateString()})</span></div>
+        <div style="font-size:0.8rem;line-height:1.7;color:#ddd;white-space:pre-wrap">${escHtml(t.script_context)}</div>
+      </div>` : ''}
+
+      ${(t.color_rules || []).length > 0 ? `
+      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:1.5rem">
+        <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-text-dim,#888);margin-bottom:0.6rem">COLOR CONVENTIONS</div>
+        <div style="display:flex;flex-direction:column;gap:0.4rem">
+          ${t.color_rules.map(rule => `
+            <div style="display:flex;align-items:center;gap:0.8rem;padding:0.4rem 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+              <span style="width:20px;height:20px;background:${rule.color};display:inline-block;border-radius:3px;flex-shrink:0"></span>
+              <span style="font-size:0.8rem;color:#eee;flex:1">${escHtml(rule.meaning || '')}</span>
+              <span style="font-size:0.7rem;color:#888">${rule.consistency || ''}</span>
+              <span style="font-size:0.7rem;color:#666">${Math.round((rule.confidence || 0) * 100)}%</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : ''}
+
+      ${(t.sloppiness_patterns || []).length > 0 ? `
+      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:1.5rem">
+        <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-text-dim,#888);margin-bottom:0.6rem">SLOPPINESS PATTERNS</div>
+        ${t.sloppiness_patterns.map(p => `
+          <div style="padding:0.4rem 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+            <div style="font-size:0.8rem;color:#eee">${escHtml(p.pattern || '')}</div>
+            <div style="font-size:0.7rem;color:#888;margin-top:0.2rem"><span style="color:var(--np-red,#d42e05)">${p.frequency || ''}</span>${p.workaround ? ` — ${escHtml(p.workaround)}` : ''}</div>
           </div>
         `).join('')}
+      </div>` : ''}
+
+      ${t.doc_titles?.length ? `
+      <div style="border:1px solid var(--np-border,#333);padding:1rem;margin-bottom:1.5rem">
+        <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-text-dim,#888);margin-bottom:0.6rem">TRAINED ON (${t.doc_count} scripts)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.4rem">
+          ${t.doc_titles.map(d => `<span style="font-size:0.7rem;padding:0.2rem 0.5rem;background:var(--np-surface,#141414);border:1px solid rgba(255,255,255,0.06);color:#aaa">${escHtml(d.title || d.docId)}</span>`).join('')}
+        </div>
+      </div>` : ''}
+      ` : `
+      <div style="border:1px solid var(--np-border,#333);padding:2rem;text-align:center;color:var(--np-text-dim,#888);margin-bottom:1.5rem">
+        <div style="font-size:1rem;letter-spacing:0.15em;margin-bottom:0.5rem">NO TRAINING DATA YET</div>
+        <div style="font-size:0.8rem">Paste Google Doc URLs above, fetch them, then run training.</div>
       </div>
-
-      ${styleSignature ? `
-      <!-- Style Signature -->
-      <div style="border-left:3px solid var(--np-red,#d42e05);padding:0.8rem 1.2rem;margin-bottom:2rem;font-size:0.9rem;font-style:italic;color:var(--np-fg,#eee);letter-spacing:0.02em">
-        "${escHtml(styleSignature)}"
-      </div>` : ''}
-
-      ${scriptContext ? `
-      <!-- Training Context -->
-      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:2rem">
-        <div style="font-size:0.7rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.8rem">LEARNED SCRIPT CONTEXT ${trainingStats ? `<span style="color:var(--np-dim,#666)">(${trainingStats.scripts_analyzed} scripts, ${new Date(trainingStats.trained_at).toLocaleDateString()})</span>` : ''}</div>
-        <div style="font-size:0.8rem;line-height:1.7;color:var(--np-fg,#ddd);white-space:pre-wrap">${escHtml(scriptContext)}</div>
-      </div>` : ''}
-
-      ${colorRules.length > 0 ? `
-      <!-- Color Rules -->
-      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:2rem">
-        <div style="font-size:0.7rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.8rem">COLOR CONVENTIONS (learned)</div>
-        <div style="display:flex;flex-direction:column;gap:0.5rem">
-          ${colorRules.map(rule => `
-            <div style="display:flex;align-items:center;gap:0.8rem;padding:0.5rem 0;border-bottom:1px solid var(--np-border,#222)">
-              <span style="width:22px;height:22px;background:${rule.color};display:inline-block;border-radius:3px;flex-shrink:0"></span>
-              <span style="font-size:0.8rem;min-width:100px;color:var(--np-fg,#eee)">${escHtml(rule.meaning || '')}</span>
-              <span style="font-size:0.7rem;color:var(--np-dim,#888)">${rule.consistency || ''}</span>
-              <span style="font-size:0.7rem;color:var(--np-dim,#666);margin-left:auto">${Math.round((rule.confidence || 0) * 100)}%</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>` : `
-      <!-- Color Profile (raw, pre-training) -->
-      ${sortedColors.length > 0 ? `
-      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:2rem">
-        <div style="font-size:0.7rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.8rem">COLOR PROFILE (${totalScripts} scripts)</div>
-        <div style="display:flex;flex-wrap:wrap;gap:0.6rem">
-          ${sortedColors.map(([color, data]) => `
-            <div style="display:flex;align-items:center;gap:0.4rem;padding:0.4rem 0.7rem;border:1px solid var(--np-border,#333);font-size:0.75rem">
-              <span style="width:14px;height:14px;background:${color};display:inline-block;border-radius:2px"></span>
-              <span>${escHtml(color)}</span>
-              <span style="color:var(--np-dim,#888)">${data.count}x in ${data.scripts} scripts</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>` : ''}
       `}
-
-      ${sloppinessPatterns.length > 0 ? `
-      <!-- Sloppiness Patterns -->
-      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:2rem">
-        <div style="font-size:0.7rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.8rem">SLOPPINESS PATTERNS (detected)</div>
-        <div style="display:flex;flex-direction:column;gap:0.6rem">
-          ${sloppinessPatterns.map(p => `
-            <div style="padding:0.5rem 0;border-bottom:1px solid var(--np-border,#222)">
-              <div style="font-size:0.8rem;color:var(--np-fg,#eee)">${escHtml(p.pattern || '')}</div>
-              <div style="font-size:0.7rem;color:var(--np-dim,#888);margin-top:0.2rem">
-                <span style="color:var(--np-red,#d42e05)">${p.frequency || ''}</span>
-                ${p.workaround ? ` — ${escHtml(p.workaround)}` : ''}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>` : ''}
-
-      <!-- Scripts by Project -->
-      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:2rem">
-        <div style="font-size:0.7rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.8rem">INGESTED SCRIPTS (${totalScripts})</div>
-        ${Object.entries(byProject).length > 0 ? Object.entries(byProject).map(([projId, group]) => `
-          <div style="margin-bottom:1rem">
-            <div style="font-size:0.75rem;letter-spacing:0.12em;color:var(--np-fg,#eee);margin-bottom:0.4rem">${escHtml(group.name.toUpperCase())}</div>
-            <div style="display:flex;flex-direction:column;gap:2px">
-              ${group.snapshots.map(snap => {
-                const doc = snap.parsed_doc || {};
-                return `
-                <div style="display:flex;align-items:center;gap:1rem;padding:0.4rem 0.6rem;background:var(--np-surface,#1a1a1a);font-size:0.75rem">
-                  <span style="color:var(--np-fg,#eee);flex:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(doc.title || snap.media_assets?.filename || 'Untitled')}</span>
-                  <span style="color:var(--np-dim,#888);flex-shrink:0">${snap.beat_count || 0} beats</span>
-                  <span style="color:var(--np-dim,#888);flex-shrink:0">${(snap.word_count || 0).toLocaleString()} words</span>
-                  <span style="color:var(--np-dim,#666);flex-shrink:0">v${snap.version_number || 1}</span>
-                </div>`;
-              }).join('')}
-            </div>
-          </div>
-        `).join('') : `
-          <div style="font-size:0.8rem;color:var(--np-dim,#888);padding:1rem;text-align:center">
-            No scripts ingested yet.<br>
-            <span style="font-size:0.7rem;margin-top:0.4rem;display:block">Add Google Docs in a project's INPUTS tab, or run bulk-ingest-scripts.mjs</span>
-          </div>
-        `}
-      </div>
-
-      <!-- How to use -->
-      ${totalScripts === 0 ? `
-      <div style="border:1px solid var(--np-border,#333);padding:1.5rem;background:var(--np-surface,#1a1a1a)">
-        <div style="font-size:0.7rem;letter-spacing:0.2em;color:var(--np-dim,#888);margin-bottom:0.8rem">GETTING STARTED</div>
-        <div style="font-size:0.8rem;line-height:1.8;color:var(--np-dim,#aaa)">
-          <strong style="color:var(--np-fg,#eee)">1.</strong> Create a project in Hunter and add Google Docs scripts in the INPUTS tab<br>
-          <strong style="color:var(--np-fg,#eee)">2.</strong> Or bulk ingest from the command line:<br>
-          <code style="display:block;background:#111;padding:0.6rem 0.8rem;margin:0.4rem 0 0.6rem;font-size:0.7rem;border-radius:3px;color:var(--np-fg,#eee)">cat urls.txt | node hunter/worker/bulk-ingest-scripts.mjs &lt;project-id&gt; --train</code>
-          <strong style="color:var(--np-fg,#eee)">3.</strong> Run training to learn your color conventions, structural habits, and editorial voice<br>
-          <strong style="color:var(--np-fg,#eee)">4.</strong> The system gets smarter with every script you feed it
-        </div>
-      </div>` : ''}
     </div>
   `;
+
+  // Wire up buttons
+  const fetchBtn = document.getElementById('sc-fetch-btn');
+  const trainBtn = document.getElementById('sc-train-btn');
+  const urlInput = document.getElementById('sc-url-input');
+  const status = document.getElementById('sc-status');
+  const progress = document.getElementById('sc-progress');
+
+  fetchBtn?.addEventListener('click', async () => {
+    const raw = urlInput.value.trim();
+    if (!raw) return;
+
+    const urls = raw.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    if (!urls.length) return;
+
+    scriptHubState.fetching = true;
+    fetchBtn.textContent = 'FETCHING...';
+    fetchBtn.disabled = true;
+    status.textContent = `0 / ${urls.length}`;
+
+    let done = 0;
+    let errors = 0;
+
+    for (const url of urls) {
+      try {
+        status.textContent = `${done} / ${urls.length} — fetching...`;
+        const doc = await fetchParseDoc(url);
+        scriptHubState.parsedDocs.push(doc);
+        done++;
+        status.textContent = `${done} / ${urls.length}`;
+
+        // Update progress inline
+        progress.innerHTML = scriptHubState.parsedDocs.map((d, i) =>
+          `<div style="font-size:0.7rem;color:#888;padding:0.1rem 0">${i + 1}. ${escHtml(d.title)} — ${d.stats?.totalBeats || 0} beats, ${d.stats?.coloredRunCount || 0} colors</div>`
+        ).join('');
+      } catch (err) {
+        errors++;
+        done++;
+        status.textContent = `${done} / ${urls.length} (${errors} errors)`;
+        progress.innerHTML += `<div style="font-size:0.7rem;color:var(--np-red,#d42e05);padding:0.1rem 0">ERROR: ${escHtml(url.slice(0, 60))} — ${escHtml(err.message)}</div>`;
+      }
+    }
+
+    scriptHubState.fetching = false;
+    status.textContent = `Done — ${scriptHubState.parsedDocs.length} scripts parsed`;
+
+    // Re-render to show parsed docs + enable train button
+    renderScriptCopilotHub();
+  });
+
+  trainBtn?.addEventListener('click', async () => {
+    if (!scriptHubState.parsedDocs.length || scriptHubState.training_running) return;
+
+    scriptHubState.training_running = true;
+    trainBtn.textContent = 'TRAINING...';
+    trainBtn.disabled = true;
+    status.textContent = 'Running cross-script analysis with Gemini...';
+
+    try {
+      const { analysis } = await runGlobalTraining(scriptHubState.parsedDocs);
+
+      // Reload training from DB
+      const { training } = await getGlobalTraining();
+      scriptHubState.training = training;
+      scriptHubState.training_running = false;
+      status.textContent = 'Training complete!';
+
+      // Re-render to show results
+      renderScriptCopilotHub();
+    } catch (err) {
+      scriptHubState.training_running = false;
+      trainBtn.textContent = 'RUN TRAINING';
+      trainBtn.disabled = false;
+      status.textContent = `Training error: ${err.message}`;
+    }
+  });
 }
 
 // ── V2 Helpers ──
