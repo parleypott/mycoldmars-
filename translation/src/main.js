@@ -432,7 +432,7 @@ function renderFileRow(t) {
     : '';
   return `
     <div class="lib-row lib-row--file ${isActive ? 'lib-row--active' : ''} ${isChecked ? 'lib-row--checked' : ''} ${hasMedia ? 'lib-row--media' : ''}"
-         data-id="${t.id}" data-project-id="${t.project_id || ''}" draggable="true">
+         data-id="${t.id}" data-project-id="${t.project_id || ''}" draggable="true" tabindex="-1">
       <div class="lib-col lib-col--name">
         <input type="checkbox" class="lib-row-check" data-id="${t.id}" ${isChecked ? 'checked' : ''} aria-label="Select">
         <span class="lib-icon">&#128220;</span>
@@ -907,17 +907,36 @@ function openFileContextMenu(x, y) {
   const ids = Array.from(librarySelected);
   const single = ids.length === 1;
   const focusId = ids[0];
+  // Resolve permalink for the focused row (slug if available, falls back to id).
+  const focusedRow = single ? (libraryCache?.transcripts || []).find(t => t.id === focusId) : null;
+  const permalinkPart = focusedRow?.slug || focusedRow?.id || focusId;
   openContextMenu(x, y, [
     { label: single ? 'Open' : `Open (${ids.length})`, icon: '↗', shortcut: 'Enter',
       onClick: () => single && handleLoad(focusId) },
+    { label: 'Open in new tab', icon: '↗', disabled: !single,
+      onClick: () => {
+        if (!single) return;
+        const href = `${window.location.pathname}#${permalinkPart}`;
+        window.open(href, '_blank', 'noopener');
+      } },
     { separator: true },
     { label: 'Rename', icon: '✎', shortcut: 'F2', disabled: !single,
       onClick: () => {
         const nameEl = libraryList.querySelector(`.lib-row--file[data-id="${focusId}"] .lib-name`);
         if (nameEl) startInlineRename(nameEl);
       } },
-    { label: `Move to…`, icon: '⇨',
+    { label: `Move to…`, icon: '⇨', shortcut: 'M',
       onClick: () => openMoveToDialog(ids) },
+    { label: 'Copy link', icon: '🔗', disabled: !single,
+      onClick: async () => {
+        try {
+          const url = `${window.location.origin}${window.location.pathname}#${permalinkPart}`;
+          await navigator.clipboard.writeText(url);
+          showSuccess('Link copied');
+        } catch (err) {
+          showErrorToast(`Couldn't copy link: ${err?.message || 'Unknown error'}`);
+        }
+      } },
     { separator: true },
     { label: ids.length > 1 ? `Delete ${ids.length} transcripts` : 'Delete', icon: '🗑', danger: true, shortcut: 'Del',
       onClick: () => bulkDeleteSelected() },
@@ -1960,6 +1979,71 @@ $('#btn-new-upload')?.addEventListener('click', () => {
   goToStep(1);
 });
 
+// ── Type-ahead jump (Drive-style): when library is showing and no input
+// is focused, typing letters jumps to the first row whose name starts with
+// the buffer. Buffer resets after 900 ms of inactivity. ──
+let typeAheadBuffer = '';
+let typeAheadTimer = null;
+function typeAheadJump(ch) {
+  if (typeAheadTimer) clearTimeout(typeAheadTimer);
+  typeAheadBuffer = (typeAheadBuffer + ch).toLowerCase();
+  typeAheadTimer = setTimeout(() => { typeAheadBuffer = ''; }, 900);
+  const rows = getVisibleFileRows();
+  const match = rows.find(row => {
+    const name = (row.querySelector('.lib-name')?.textContent || '').toLowerCase();
+    return name.startsWith(typeAheadBuffer);
+  });
+  if (match) {
+    clearLibrarySelection();
+    toggleRowSelection(match.dataset.id, true);
+    libraryLastClickedId = match.dataset.id;
+    match.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    match.focus({ preventScroll: true });
+  }
+}
+
+// ── Desktop drag-and-drop directly into the library view: drop a file
+// anywhere on the library and we jump to step-1 with that file already
+// in the upload pipeline. Saves the user from having to navigate to home
+// just to upload. ──
+let libraryDragDepth = 0;
+function isExternalFileDrag(e) {
+  const types = e.dataTransfer?.types;
+  if (!types) return false;
+  // Browsers expose 'Files' on external file drags; internal drags have
+  // 'text/plain' (set in wireLibraryDragAndDrop). We only want external.
+  return Array.from(types).includes('Files');
+}
+libraryView.addEventListener('dragenter', (e) => {
+  if (!libraryShowing || !isExternalFileDrag(e)) return;
+  e.preventDefault();
+  libraryDragDepth++;
+  libraryView.classList.add('lib-view--drop-target');
+});
+libraryView.addEventListener('dragover', (e) => {
+  if (!libraryShowing || !isExternalFileDrag(e)) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+});
+libraryView.addEventListener('dragleave', () => {
+  libraryDragDepth = Math.max(0, libraryDragDepth - 1);
+  if (libraryDragDepth === 0) libraryView.classList.remove('lib-view--drop-target');
+});
+libraryView.addEventListener('drop', async (e) => {
+  if (!libraryShowing || !isExternalFileDrag(e)) return;
+  e.preventDefault();
+  libraryDragDepth = 0;
+  libraryView.classList.remove('lib-view--drop-target');
+  const files = Array.from(e.dataTransfer.files || []);
+  if (files.length === 0) return;
+  if (files.length > 1) {
+    showInfo(`Got ${files.length} files. Uploading the first; drop them one at a time.`);
+  }
+  // Hop to step-1 so the upload UI is mounted, then route through handleFile.
+  goToStep(1);
+  await handleFile(files[0]);
+});
+
 // ── Library-scoped keyboard shortcuts (only fire when library is showing) ──
 window.addEventListener('keydown', (e) => {
   if (!libraryShowing) return;
@@ -2007,6 +2091,20 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     btnNewProject?.click();
     return;
+  }
+
+  // Enter on a focused row: open the focused selection.
+  if (e.key === 'Enter' && librarySelected.size === 1) {
+    e.preventDefault();
+    const id = Array.from(librarySelected)[0];
+    handleLoad(id);
+    return;
+  }
+
+  // Type-ahead jump: any single printable character (no modifiers) routes
+  // to the type-ahead buffer.
+  if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    typeAheadJump(e.key);
   }
 });
 

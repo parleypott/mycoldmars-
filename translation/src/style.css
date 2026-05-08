@@ -6327,3 +6327,28 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   font-size: 11px;
   background: rgba(65, 44, 39, 0.04);
 }
+
+/* Library view becomes a giant drop-target when an external file is
+   dragged over it — the whole panel gets a dashed red border + tint to
+   make it obvious you can drop here, not just on the upload page. */
+#library-view.lib-view--drop-target {
+  position: relative;
+}
+#library-view.lib-view--drop-target::after {
+  content: 'drop to upload';
+  position: fixed;
+  inset: 0;
+  z-index: 8000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(221, 44, 30, 0.06);
+  border: 3px dashed var(--np-red);
+  pointer-events: none;
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--np-red);
+  font-weight: 500;
+}
