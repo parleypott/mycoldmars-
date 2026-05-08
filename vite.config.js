@@ -58,6 +58,7 @@ export default defineConfig({
         hunter: resolve(__dirname, 'hunter/index.html'),
         trippy: resolve(__dirname, 'trippy/index.html'),
         taiwan: resolve(__dirname, 'taiwan/index.html'),
+        todo: resolve(__dirname, 'todo/index.html'),
       },
     },
   },

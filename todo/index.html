@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>todo · my cold mars</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Share+Tech+Mono&display=swap');
+
+    :root {
+      --paper: #f3efe6;
+      --paper-deep: #ebe5d8;
+      --ink: #2a2620;
+      --ink-soft: #6b6358;
+      --ink-faint: #a39a8c;
+      --rule: #d8d0c0;
+      --rule-soft: #e6dfd0;
+      --card: #fbf7ee;
+      --shadow: 0 1px 0 rgba(0,0,0,0.04), 0 8px 24px -12px rgba(60,40,20,0.18);
+      --shadow-lift: 0 2px 0 rgba(0,0,0,0.04), 0 16px 36px -16px rgba(60,40,20,0.28);
+      --hour-h: 56px; /* height of one hour row */
+      --quarter-h: 14px; /* one 15-min cell */
+
+      /* color palette — muted, earthy, jewel-edge */
+      --c-sage:       #9bb39a;
+      --c-terracotta: #c98a72;
+      --c-dustyblue:  #8aa2b8;
+      --c-warmgray:   #a89e91;
+      --c-plum:       #a08099;
+      --c-ochre:      #c8a973;
+      --c-slate:      #7a8590;
+      --c-coral:      #d39d8e;
+      --c-neutral:    #e0d6c2;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+    body {
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 700px at 75% -10%, rgba(255,240,210,0.45), transparent 60%),
+        radial-gradient(1000px 600px at 5% 110%, rgba(220,200,170,0.35), transparent 55%),
+        var(--paper);
+      letter-spacing: 0.01em;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+    body::after {
+      content: '';
+      position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      mix-blend-mode: multiply;
+    }
+
+    /* ───────────── header ───────────── */
+    header {
+      position: fixed; top: 0; left: 0; right: 0; height: 64px;
+      display: flex; align-items: center; gap: 24px;
+      padding: 0 28px;
+      background: linear-gradient(to bottom, rgba(243,239,230,0.96), rgba(243,239,230,0.88));
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--rule-soft);
+      z-index: 100;
+    }
+    .brand {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 0.18em;
+      text-transform: lowercase;
+      color: var(--ink-soft);
+    }
+    .brand .dot { color: var(--c-terracotta); }
+    .title {
+      font-size: 19px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+    .grow { flex: 1; }
+    .hours-control {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 12px; color: var(--ink-soft);
+      letter-spacing: 0.04em;
+    }
+    .hours-control input {
+      width: 44px; padding: 4px 6px;
+      font: inherit; font-family: 'Share Tech Mono', monospace; font-size: 12px;
+      text-align: center;
+      background: rgba(255,255,255,0.5);
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      color: var(--ink);
+    }
+    .btn {
+      font: inherit; font-size: 13px; font-weight: 500;
+      padding: 8px 14px;
+      border: 1px solid var(--rule);
+      background: var(--card);
+      color: var(--ink);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.08s ease, box-shadow 0.12s ease, background 0.12s ease;
+      letter-spacing: 0.01em;
+    }
+    .btn:hover { background: #fff; box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 4px 10px -4px rgba(60,40,20,0.15); }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary {
+      background: var(--ink); color: var(--paper); border-color: var(--ink);
+    }
+    .btn-primary:hover { background: #1a1612; }
+
+    /* ───────────── canvas ───────────── */
+    main {
+      position: fixed; top: 64px; left: 0; right: 0; bottom: 0;
+      overflow-x: auto; overflow-y: hidden;
+      padding: 28px 28px 40px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--rule) transparent;
+    }
+    main::-webkit-scrollbar { height: 8px; }
+    main::-webkit-scrollbar-track { background: transparent; }
+    main::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 4px; }
+
+    .canvas {
+      display: flex; gap: 16px;
+      height: 100%;
+      min-width: max-content;
+      align-items: flex-start;
+    }
+
+    /* ───────────── column ───────────── */
+    .column {
+      flex: 0 0 320px;
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      display: flex; flex-direction: column;
+      max-height: 100%;
+      overflow: hidden;
+      transition: box-shadow 0.18s ease, transform 0.12s ease;
+    }
+    .column.dragging { opacity: 0.55; transform: scale(0.985); }
+    .column.drop-target { box-shadow: var(--shadow-lift), inset 0 0 0 2px var(--c-dustyblue); }
+
+    .col-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 12px 10px;
+      border-bottom: 1px solid var(--rule-soft);
+      cursor: grab;
+    }
+    .col-header:active { cursor: grabbing; }
+    .col-title {
+      flex: 1;
+      font-size: 14.5px; font-weight: 500;
+      color: var(--ink);
+      outline: none;
+      padding: 2px 4px;
+      border-radius: 4px;
+      letter-spacing: -0.005em;
+      cursor: text;
+    }
+    .col-title:focus { background: rgba(0,0,0,0.04); }
+    .col-title:empty::before { content: 'untitled'; color: var(--ink-faint); }
+
+    .mode-toggle {
+      display: inline-flex;
+      background: var(--paper-deep);
+      border-radius: 5px;
+      padding: 2px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+    }
+    .mode-toggle button {
+      font: inherit; font-size: 11px;
+      padding: 4px 9px;
+      background: transparent;
+      border: none;
+      color: var(--ink-soft);
+      border-radius: 3px;
+      cursor: pointer;
+      text-transform: lowercase;
+    }
+    .mode-toggle button.active {
+      background: var(--card);
+      color: var(--ink);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .col-x {
+      width: 22px; height: 22px;
+      border: none; background: transparent;
+      color: var(--ink-faint);
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 16px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .col-x:hover { background: rgba(0,0,0,0.05); color: var(--c-terracotta); }
+
+    .col-body {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: var(--rule) transparent;
+    }
+    .col-body::-webkit-scrollbar { width: 6px; }
+    .col-body::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+
+    /* ───────────── list mode ───────────── */
+    .list-body { padding: 8px 8px 12px; }
+    .item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 8px 8px;
+      border-radius: 6px;
+      cursor: default;
+      position: relative;
+      transition: background 0.12s ease;
+    }
+    .item:hover { background: rgba(0,0,0,0.025); }
+    .item.dragging { opacity: 0.4; }
+    .item.drop-above { border-top: 2px solid var(--c-dustyblue); padding-top: 6px; }
+    .item.drop-below { border-bottom: 2px solid var(--c-dustyblue); padding-bottom: 6px; }
+    .item-grip {
+      width: 12px; padding-top: 4px;
+      color: var(--ink-faint);
+      font-size: 11px; line-height: 1;
+      cursor: grab;
+      opacity: 0;
+      transition: opacity 0.12s ease;
+      flex-shrink: 0;
+    }
+    .item:hover .item-grip { opacity: 1; }
+    .item-grip:active { cursor: grabbing; }
+    .item-check {
+      width: 14px; height: 14px;
+      margin-top: 4px;
+      border: 1.5px solid var(--ink-faint);
+      border-radius: 3px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+    .item.done .item-check {
+      background: var(--ink-soft);
+      border-color: var(--ink-soft);
+    }
+    .item.done .item-check::after {
+      content: '';
+      position: absolute;
+      left: 3px; top: 0px;
+      width: 4px; height: 8px;
+      border: solid var(--card);
+      border-width: 0 1.5px 1.5px 0;
+      transform: rotate(45deg);
+    }
+    .item-text {
+      flex: 1;
+      font-size: 14px;
+      line-height: 1.45;
+      color: var(--ink);
+      outline: none;
+      cursor: text;
+      word-break: break-word;
+      padding: 2px 0;
+    }
+    .item-text:empty::before { content: 'new item'; color: var(--ink-faint); }
+    .item.done .item-text {
+      color: var(--ink-faint);
+      text-decoration: line-through;
+      text-decoration-color: var(--ink-faint);
+    }
+    .item-color-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+      background: transparent;
+      cursor: pointer;
+      border: 1px solid var(--rule);
+    }
+    .item-x {
+      width: 18px; height: 18px;
+      border: none; background: transparent;
+      color: var(--ink-faint);
+      cursor: pointer;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity 0.12s ease;
+      flex-shrink: 0;
+    }
+    .item:hover .item-x { opacity: 1; }
+    .item-x:hover { color: var(--c-terracotta); }
+
+    .add-item {
+      margin: 4px 8px 8px;
+      padding: 8px 8px;
+      font: inherit; font-size: 13px;
+      color: var(--ink-faint);
+      background: transparent;
+      border: 1px dashed var(--rule);
+      border-radius: 6px;
+      cursor: pointer;
+      width: calc(100% - 16px);
+      text-align: left;
+      transition: all 0.12s ease;
+    }
+    .add-item:hover { color: var(--ink-soft); border-color: var(--ink-faint); background: rgba(0,0,0,0.02); }
+
+    /* ───────────── day mode ───────────── */
+    .day-body { padding: 0; position: relative; }
+    .day-date {
+      padding: 8px 14px 10px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      color: var(--ink-soft);
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--rule-soft);
+      cursor: text;
+      outline: none;
+    }
+    .day-grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: 44px 1fr;
+    }
+    .hour-row {
+      display: contents;
+    }
+    .hour-label {
+      grid-column: 1;
+      padding: 0 8px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10.5px;
+      letter-spacing: 0.06em;
+      color: var(--ink-faint);
+      border-right: 1px solid var(--rule-soft);
+      border-top: 1px solid var(--rule-soft);
+      height: var(--hour-h);
+      display: flex; align-items: flex-start;
+      padding-top: 4px;
+      text-transform: uppercase;
+    }
+    .hour-cell {
+      grid-column: 2;
+      border-top: 1px solid var(--rule-soft);
+      height: var(--hour-h);
+      position: relative;
+    }
+    .hour-cell::before,
+    .hour-cell::after,
+    .hour-cell > .quarter-line {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      height: 0;
+      border-top: 1px dashed transparent;
+    }
+    .day-canvas {
+      position: absolute;
+      left: 44px;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      cursor: crosshair;
+    }
+
+    /* time blocks */
+    .block {
+      position: absolute;
+      left: 6px; right: 6px;
+      border-radius: 5px;
+      padding: 5px 8px;
+      font-size: 12px;
+      line-height: 1.25;
+      color: rgba(255,255,255,0.97);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.12), 0 4px 12px -6px rgba(60,40,20,0.3);
+      cursor: grab;
+      overflow: hidden;
+      display: flex; flex-direction: column; gap: 1px;
+      transition: box-shadow 0.12s ease;
+      min-height: 18px;
+    }
+    .block:hover { box-shadow: 0 1px 2px rgba(0,0,0,0.18), 0 8px 18px -8px rgba(60,40,20,0.4); }
+    .block.dragging { cursor: grabbing; opacity: 0.85; z-index: 50; }
+    .block.ghost {
+      cursor: crosshair;
+      opacity: 0.55;
+      pointer-events: none;
+      border: 1px dashed rgba(255,255,255,0.6);
+    }
+    .block-time {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      opacity: 0.85;
+    }
+    .block-label {
+      font-weight: 500;
+      letter-spacing: -0.005em;
+      outline: none;
+      cursor: text;
+      word-break: break-word;
+    }
+    .block-label:empty::before { content: 'untitled'; opacity: 0.7; }
+    .block-resize {
+      position: absolute;
+      left: 0; right: 0;
+      height: 6px;
+      cursor: ns-resize;
+    }
+    .block-resize.top { top: -3px; }
+    .block-resize.bottom { bottom: -3px; }
+
+    /* color palette popover */
+    .palette {
+      position: absolute;
+      z-index: 200;
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 8px;
+      box-shadow: var(--shadow-lift);
+      display: grid;
+      grid-template-columns: repeat(5, 22px);
+      gap: 6px;
+    }
+    .palette button {
+      width: 22px; height: 22px;
+      border: 1.5px solid rgba(0,0,0,0.08);
+      border-radius: 50%;
+      cursor: pointer;
+      padding: 0;
+      transition: transform 0.1s ease;
+    }
+    .palette button:hover { transform: scale(1.15); }
+    .palette button.active { box-shadow: 0 0 0 2px var(--ink); }
+
+    /* delete affordance on block hover */
+    .block-x {
+      position: absolute;
+      top: 4px; right: 4px;
+      width: 16px; height: 16px;
+      border: none; background: rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.95);
+      border-radius: 50%;
+      font-size: 11px; line-height: 1;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.12s ease;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .block:hover .block-x { opacity: 1; }
+    .block-x:hover { background: rgba(255,255,255,0.35); }
+
+    /* empty state */
+    .empty-state {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; height: 100%;
+      color: var(--ink-faint);
+      font-size: 14px;
+      letter-spacing: 0.02em;
+    }
+    .empty-state span {
+      max-width: 320px; text-align: center;
+      line-height: 1.6;
+    }
+
+    /* footer hint */
+    .hint {
+      position: fixed; bottom: 12px; right: 16px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--ink-faint);
+      text-transform: uppercase;
+      pointer-events: none;
+      z-index: 50;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">my cold mars <span class="dot">·</span> <span style="color:var(--ink)">todo</span></div>
+    <div class="title">canvas</div>
+    <div class="grow"></div>
+    <div class="hours-control">
+      <span>day window</span>
+      <input id="hour-start" type="number" min="0" max="23" value="6">
+      <span>→</span>
+      <input id="hour-end" type="number" min="1" max="24" value="23">
+    </div>
+    <button class="btn btn-primary" id="add-column">+ add column</button>
+  </header>
+
+  <main id="main">
+    <div class="canvas" id="canvas"></div>
+  </main>
+
+  <div class="hint">drag empty grid → block · click block → label · drag header → reorder</div>
+
+<script>
+'use strict';
+
+// ───────────── state ─────────────
+const STORAGE_KEY = 'mycoldmars.todo.v1';
+const COLORS = [
+  { name: 'sage',       value: '#9bb39a' },
+  { name: 'terracotta', value: '#c98a72' },
+  { name: 'dustyblue',  value: '#8aa2b8' },
+  { name: 'plum',       value: '#a08099' },
+  { name: 'ochre',      value: '#c8a973' },
+  { name: 'slate',      value: '#7a8590' },
+  { name: 'coral',      value: '#d39d8e' },
+  { name: 'warmgray',   value: '#a89e91' },
+  { name: 'neutral',    value: '#8a7e6c' },
+];
+
+const DEFAULT_STATE = {
+  columns: [],
+  hourStart: 6,
+  hourEnd: 23,
+};
+
+let state = load();
+const canvas = document.getElementById('canvas');
+const main = document.getElementById('main');
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return structuredClone(DEFAULT_STATE);
+    const parsed = JSON.parse(raw);
+    return { ...DEFAULT_STATE, ...parsed };
+  } catch (e) {
+    console.warn('todo: load failed, using defaults', e);
+    return structuredClone(DEFAULT_STATE);
+  }
+}
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+// ───────────── render ─────────────
+function render() {
+  canvas.innerHTML = '';
+  if (state.columns.length === 0) {
+    canvas.innerHTML = '<div class="empty-state"><span>add a column to begin. each column is either a list of things or a day broken into hours you can fill with blocks of time.</span></div>';
+    return;
+  }
+  for (const col of state.columns) {
+    canvas.appendChild(renderColumn(col));
+  }
+}
+
+function renderColumn(col) {
+  const el = document.createElement('div');
+  el.className = 'column';
+  el.dataset.colId = col.id;
+
+  // header
+  const head = document.createElement('div');
+  head.className = 'col-header';
+  head.innerHTML = `
+    <div class="col-title" contenteditable="true" spellcheck="false">${escapeHtml(col.title || '')}</div>
+    <div class="mode-toggle">
+      <button data-mode="list" class="${col.mode === 'list' ? 'active' : ''}">list</button>
+      <button data-mode="day"  class="${col.mode === 'day'  ? 'active' : ''}">day</button>
+    </div>
+    <button class="col-x" title="delete column">×</button>
+  `;
+  el.appendChild(head);
+
+  // title editing
+  const titleEl = head.querySelector('.col-title');
+  titleEl.addEventListener('input', () => { col.title = titleEl.textContent; save(); });
+  titleEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); } });
+
+  // mode toggle
+  head.querySelectorAll('.mode-toggle button').forEach(b => {
+    b.addEventListener('click', () => {
+      col.mode = b.dataset.mode;
+      save();
+      render();
+    });
+  });
+
+  // delete column
+  head.querySelector('.col-x').addEventListener('click', () => {
+    if (confirm(`delete "${col.title || 'untitled'}"?`)) {
+      state.columns = state.columns.filter(c => c.id !== col.id);
+      save();
+      render();
+    }
+  });
+
+  // column reorder via header drag
+  attachColumnReorder(el, head, col);
+
+  // body
+  const body = document.createElement('div');
+  body.className = 'col-body';
+  if (col.mode === 'list') body.appendChild(renderListBody(col));
+  else                     body.appendChild(renderDayBody(col));
+  el.appendChild(body);
+
+  return el;
+}
+
+// ───────────── list mode ─────────────
+function renderListBody(col) {
+  const wrap = document.createElement('div');
+  wrap.className = 'list-body';
+  if (!col.items) col.items = [];
+
+  for (const item of col.items) {
+    wrap.appendChild(renderItem(col, item));
+  }
+
+  const add = document.createElement('button');
+  add.className = 'add-item';
+  add.textContent = '+ add item';
+  add.addEventListener('click', () => {
+    const it = { id: uid(), text: '', done: false, color: null };
+    col.items.push(it);
+    save();
+    render();
+    // focus newly added
+    requestAnimationFrame(() => {
+      const newest = canvas.querySelector(`[data-item-id="${it.id}"] .item-text`);
+      if (newest) {
+        newest.focus();
+        placeCaretAtEnd(newest);
+      }
+    });
+  });
+  wrap.appendChild(add);
+  return wrap;
+}
+
+function renderItem(col, item) {
+  const el = document.createElement('div');
+  el.className = 'item' + (item.done ? ' done' : '');
+  el.dataset.itemId = item.id;
+  if (item.color) el.style.borderLeft = `3px solid ${item.color}`;
+
+  el.innerHTML = `
+    <div class="item-grip">⋮⋮</div>
+    <div class="item-check"></div>
+    <div class="item-text" contenteditable="true" spellcheck="false">${escapeHtml(item.text || '')}</div>
+    <div class="item-color-dot" style="${item.color ? `background:${item.color};border-color:${item.color}` : ''}"></div>
+    <button class="item-x" title="delete">×</button>
+  `;
+
+  // check toggle
+  el.querySelector('.item-check').addEventListener('click', () => {
+    item.done = !item.done;
+    save();
+    el.classList.toggle('done', item.done);
+  });
+
+  // text editing
+  const txt = el.querySelector('.item-text');
+  txt.addEventListener('input', () => { item.text = txt.textContent; save(); });
+  txt.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const idx = col.items.indexOf(item);
+      const it = { id: uid(), text: '', done: false, color: null };
+      col.items.splice(idx + 1, 0, it);
+      save();
+      render();
+      requestAnimationFrame(() => {
+        const newest = canvas.querySelector(`[data-item-id="${it.id}"] .item-text`);
+        if (newest) { newest.focus(); placeCaretAtEnd(newest); }
+      });
+    }
+    if (e.key === 'Backspace' && txt.textContent === '') {
+      e.preventDefault();
+      const idx = col.items.indexOf(item);
+      col.items.splice(idx, 1);
+      save();
+      render();
+      const target = canvas.querySelector(`.column[data-col-id="${col.id}"] .item:nth-child(${idx}) .item-text`);
+      if (target) { target.focus(); placeCaretAtEnd(target); }
+    }
+  });
+
+  // color picker
+  const dot = el.querySelector('.item-color-dot');
+  dot.addEventListener('click', e => {
+    e.stopPropagation();
+    showPalette(dot, item.color, c => {
+      item.color = c;
+      save();
+      render();
+    });
+  });
+
+  // delete
+  el.querySelector('.item-x').addEventListener('click', () => {
+    col.items = col.items.filter(i => i.id !== item.id);
+    save();
+    render();
+  });
+
+  // drag to reorder
+  attachItemReorder(el, col, item);
+  return el;
+}
+
+// ───────────── day mode ─────────────
+function renderDayBody(col) {
+  if (!col.blocks) col.blocks = [];
+  if (!col.date) col.date = todayStr();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'day-body';
+
+  const dateEl = document.createElement('div');
+  dateEl.className = 'day-date';
+  dateEl.contentEditable = 'true';
+  dateEl.spellcheck = false;
+  dateEl.textContent = col.date;
+  dateEl.addEventListener('input', () => { col.date = dateEl.textContent; save(); });
+  wrap.appendChild(dateEl);
+
+  const grid = document.createElement('div');
+  grid.className = 'day-grid';
+
+  const startH = state.hourStart;
+  const endH   = state.hourEnd;
+
+  for (let h = startH; h < endH; h++) {
+    const lab = document.createElement('div');
+    lab.className = 'hour-label';
+    lab.textContent = formatHour(h);
+    grid.appendChild(lab);
+
+    const cell = document.createElement('div');
+    cell.className = 'hour-cell';
+    cell.dataset.hour = h;
+    grid.appendChild(cell);
+  }
+
+  // overlay canvas for blocks (positioned absolute over grid column 2)
+  const dayCanvas = document.createElement('div');
+  dayCanvas.className = 'day-canvas';
+  // height matches grid total
+  const totalHours = endH - startH;
+  const totalH = totalHours * cssVarPx('--hour-h');
+  dayCanvas.style.height = totalH + 'px';
+
+  // render blocks
+  for (const blk of col.blocks) {
+    dayCanvas.appendChild(renderBlock(col, blk));
+  }
+
+  // ensure relative parent height matches
+  grid.style.minHeight = totalH + 'px';
+  // dayCanvas sits absolutely inside .day-body; align its top with grid start (after date)
+  // Achieve by appending dayCanvas inside a relative wrapper with grid:
+  const gridWrap = document.createElement('div');
+  gridWrap.style.position = 'relative';
+  gridWrap.appendChild(grid);
+  gridWrap.appendChild(dayCanvas);
+  wrap.appendChild(gridWrap);
+
+  // position dayCanvas to align with the hour cells column
+  // grid template col 1 is 44px → set left to 44
+  dayCanvas.style.left = '44px';
+  dayCanvas.style.top = '0';
+  dayCanvas.style.right = '0';
+  dayCanvas.style.bottom = '0';
+  dayCanvas.style.position = 'absolute';
+
+  attachBlockCreation(dayCanvas, col, startH);
+  return wrap;
+}
+
+function renderBlock(col, blk) {
+  const el = document.createElement('div');
+  el.className = 'block';
+  el.dataset.blockId = blk.id;
+  const startH = state.hourStart;
+  const top = minToPx(blk.startMin - startH * 60);
+  const height = minToPx(blk.endMin - blk.startMin);
+  el.style.top = top + 'px';
+  el.style.height = height + 'px';
+  el.style.background = blk.color || COLORS[2].value;
+
+  el.innerHTML = `
+    <div class="block-time">${minToTimeStr(blk.startMin)}–${minToTimeStr(blk.endMin)}</div>
+    <div class="block-label" contenteditable="true" spellcheck="false">${escapeHtml(blk.label || '')}</div>
+    <div class="block-resize top"></div>
+    <div class="block-resize bottom"></div>
+    <button class="block-x" title="delete">×</button>
+  `;
+
+  // label edit
+  const lab = el.querySelector('.block-label');
+  lab.addEventListener('input', () => { blk.label = lab.textContent; save(); });
+  lab.addEventListener('mousedown', e => e.stopPropagation()); // don't start drag on label
+
+  // delete
+  el.querySelector('.block-x').addEventListener('click', e => {
+    e.stopPropagation();
+    col.blocks = col.blocks.filter(b => b.id !== blk.id);
+    save();
+    render();
+  });
+
+  // color picker — right click or alt+click
+  el.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    showPalette(el, blk.color, c => {
+      blk.color = c;
+      save();
+      render();
+    });
+  });
+
+  // drag to move
+  attachBlockMove(el, col, blk);
+  // resize handles
+  el.querySelector('.block-resize.top').addEventListener('pointerdown', e => attachBlockResize(e, col, blk, 'top', el));
+  el.querySelector('.block-resize.bottom').addEventListener('pointerdown', e => attachBlockResize(e, col, blk, 'bottom', el));
+
+  return el;
+}
+
+// ───────────── interactions ─────────────
+
+function attachColumnReorder(colEl, headEl, col) {
+  let dragging = false;
+  let pointerStart = null;
+  let placeholder = null;
+
+  headEl.addEventListener('pointerdown', e => {
+    // ignore if clicking on title, mode toggle, or close button
+    if (e.target.closest('.col-title') || e.target.closest('.mode-toggle') || e.target.closest('.col-x')) return;
+    pointerStart = { x: e.clientX, y: e.clientY };
+
+    const onMove = ev => {
+      if (!dragging && Math.hypot(ev.clientX - pointerStart.x, ev.clientY - pointerStart.y) > 6) {
+        dragging = true;
+        colEl.classList.add('dragging');
+      }
+      if (!dragging) return;
+      const target = elementUnderForColumn(ev.clientX, ev.clientY, col.id);
+      canvas.querySelectorAll('.column').forEach(c => c.classList.remove('drop-target'));
+      if (target) target.classList.add('drop-target');
+    };
+    const onUp = ev => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      colEl.classList.remove('dragging');
+      canvas.querySelectorAll('.column').forEach(c => c.classList.remove('drop-target'));
+      if (dragging) {
+        const target = elementUnderForColumn(ev.clientX, ev.clientY, col.id);
+        if (target) {
+          const fromIdx = state.columns.findIndex(c => c.id === col.id);
+          const toIdx = state.columns.findIndex(c => c.id === target.dataset.colId);
+          if (fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx) {
+            const [moved] = state.columns.splice(fromIdx, 1);
+            state.columns.splice(toIdx, 0, moved);
+            save();
+            render();
+          }
+        }
+      }
+      dragging = false;
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+}
+
+function elementUnderForColumn(x, y, ownId) {
+  const el = document.elementFromPoint(x, y);
+  if (!el) return null;
+  const col = el.closest('.column');
+  if (!col || col.dataset.colId === ownId) return null;
+  return col;
+}
+
+function attachItemReorder(itemEl, col, item) {
+  const grip = itemEl.querySelector('.item-grip');
+  grip.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    let dragging = false;
+    const start = { x: e.clientX, y: e.clientY };
+    const onMove = ev => {
+      if (!dragging && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 4) {
+        dragging = true;
+        itemEl.classList.add('dragging');
+      }
+      if (!dragging) return;
+      const items = [...itemEl.parentElement.querySelectorAll('.item')];
+      items.forEach(i => i.classList.remove('drop-above', 'drop-below'));
+      const target = items.find(i => {
+        if (i === itemEl) return false;
+        const r = i.getBoundingClientRect();
+        return ev.clientY >= r.top && ev.clientY <= r.bottom;
+      });
+      if (target) {
+        const r = target.getBoundingClientRect();
+        const above = ev.clientY < r.top + r.height / 2;
+        target.classList.add(above ? 'drop-above' : 'drop-below');
+      }
+    };
+    const onUp = ev => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      const items = [...itemEl.parentElement.querySelectorAll('.item')];
+      const target = items.find(i => i.classList.contains('drop-above') || i.classList.contains('drop-below'));
+      items.forEach(i => i.classList.remove('drop-above', 'drop-below'));
+      itemEl.classList.remove('dragging');
+      if (dragging && target) {
+        const fromIdx = col.items.findIndex(i => i.id === item.id);
+        let toIdx = col.items.findIndex(i => i.id === target.dataset.itemId);
+        const above = target.classList.contains('drop-above') || (target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2 > ev.clientY);
+        if (fromIdx >= 0 && toIdx >= 0) {
+          const [moved] = col.items.splice(fromIdx, 1);
+          let newIdx = col.items.findIndex(i => i.id === target.dataset.itemId);
+          if (newIdx < 0) newIdx = toIdx;
+          col.items.splice(above ? newIdx : newIdx + 1, 0, moved);
+          save();
+          render();
+        }
+      }
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+}
+
+// drag-to-create on empty day grid
+function attachBlockCreation(dayCanvas, col, startH) {
+  dayCanvas.addEventListener('pointerdown', e => {
+    if (e.target !== dayCanvas) return; // only on empty space
+    const rect = dayCanvas.getBoundingClientRect();
+    const startY = e.clientY - rect.top;
+    const startMinAbs = startH * 60 + snap15(pxToMin(startY));
+    let endMinAbs = startMinAbs + 15;
+
+    const ghost = document.createElement('div');
+    ghost.className = 'block ghost';
+    ghost.style.background = COLORS[0].value;
+    ghost.style.top = minToPx(startMinAbs - startH * 60) + 'px';
+    ghost.style.height = '14px';
+    ghost.innerHTML = `<div class="block-time">${minToTimeStr(startMinAbs)}–${minToTimeStr(endMinAbs)}</div><div class="block-label">new</div>`;
+    dayCanvas.appendChild(ghost);
+
+    const onMove = ev => {
+      const y = ev.clientY - rect.top;
+      const cur = startH * 60 + snap15(pxToMin(y));
+      const a = Math.min(startMinAbs, cur);
+      const b = Math.max(startMinAbs, cur === a ? cur + 15 : cur);
+      ghost.style.top = minToPx(a - startH * 60) + 'px';
+      ghost.style.height = Math.max(14, minToPx(b - a)) + 'px';
+      ghost.querySelector('.block-time').textContent = `${minToTimeStr(a)}–${minToTimeStr(b)}`;
+      endMinAbs = b;
+    };
+    const onUp = ev => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      ghost.remove();
+      const y = ev.clientY - rect.top;
+      const cur = startH * 60 + snap15(pxToMin(y));
+      let a = Math.min(startMinAbs, cur);
+      let b = Math.max(startMinAbs, cur);
+      if (b - a < 15) b = a + 15;
+      const blk = {
+        id: uid(),
+        startMin: a,
+        endMin: b,
+        label: '',
+        color: COLORS[Math.floor(Math.random() * 4)].value,
+      };
+      col.blocks.push(blk);
+      save();
+      render();
+      // focus its label
+      requestAnimationFrame(() => {
+        const lab = canvas.querySelector(`[data-block-id="${blk.id}"] .block-label`);
+        if (lab) { lab.focus(); placeCaretAtEnd(lab); }
+      });
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+}
+
+function attachBlockMove(blockEl, col, blk) {
+  blockEl.addEventListener('pointerdown', e => {
+    if (e.target.closest('.block-resize')) return;
+    if (e.target.closest('.block-label')) return;
+    if (e.target.closest('.block-x')) return;
+    e.stopPropagation();
+    const dayCanvas = blockEl.parentElement;
+    const rect = dayCanvas.getBoundingClientRect();
+    const startY = e.clientY;
+    const origStart = blk.startMin;
+    const origEnd = blk.endMin;
+    blockEl.classList.add('dragging');
+
+    const onMove = ev => {
+      const dy = ev.clientY - startY;
+      const dMin = snap15(pxToMin(dy));
+      let newStart = origStart + dMin;
+      let newEnd = origEnd + dMin;
+      const minBound = state.hourStart * 60;
+      const maxBound = state.hourEnd * 60;
+      if (newStart < minBound) { newEnd += minBound - newStart; newStart = minBound; }
+      if (newEnd > maxBound)   { newStart -= newEnd - maxBound; newEnd = maxBound; }
+      blk.startMin = newStart;
+      blk.endMin = newEnd;
+      blockEl.style.top = minToPx(blk.startMin - state.hourStart * 60) + 'px';
+      blockEl.querySelector('.block-time').textContent = `${minToTimeStr(blk.startMin)}–${minToTimeStr(blk.endMin)}`;
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      blockEl.classList.remove('dragging');
+      save();
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+}
+
+function attachBlockResize(e, col, blk, edge, blockEl) {
+  e.stopPropagation();
+  e.preventDefault();
+  const startY = e.clientY;
+  const origStart = blk.startMin;
+  const origEnd = blk.endMin;
+  blockEl.classList.add('dragging');
+
+  const onMove = ev => {
+    const dy = ev.clientY - startY;
+    const dMin = snap15(pxToMin(dy));
+    if (edge === 'top') {
+      let newStart = origStart + dMin;
+      newStart = Math.max(state.hourStart * 60, Math.min(blk.endMin - 15, newStart));
+      blk.startMin = newStart;
+    } else {
+      let newEnd = origEnd + dMin;
+      newEnd = Math.min(state.hourEnd * 60, Math.max(blk.startMin + 15, newEnd));
+      blk.endMin = newEnd;
+    }
+    blockEl.style.top = minToPx(blk.startMin - state.hourStart * 60) + 'px';
+    blockEl.style.height = minToPx(blk.endMin - blk.startMin) + 'px';
+    blockEl.querySelector('.block-time').textContent = `${minToTimeStr(blk.startMin)}–${minToTimeStr(blk.endMin)}`;
+  };
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    blockEl.classList.remove('dragging');
+    save();
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+}
+
+// ───────────── palette popover ─────────────
+let openPalette = null;
+function showPalette(anchor, current, onPick) {
+  closePalette();
+  const pal = document.createElement('div');
+  pal.className = 'palette';
+  // include "no color" option as first
+  const opts = [{ name: 'none', value: null }, ...COLORS];
+  for (const c of opts) {
+    const b = document.createElement('button');
+    b.style.background = c.value || 'transparent';
+    if (!c.value) {
+      b.style.borderStyle = 'dashed';
+      b.style.background = 'var(--paper)';
+    }
+    if ((current || null) === (c.value || null)) b.classList.add('active');
+    b.title = c.name;
+    b.addEventListener('click', () => { onPick(c.value); closePalette(); });
+    pal.appendChild(b);
+  }
+  document.body.appendChild(pal);
+  const r = anchor.getBoundingClientRect();
+  pal.style.left = Math.min(window.innerWidth - 160, r.left) + 'px';
+  pal.style.top  = (r.bottom + 6) + 'px';
+  openPalette = pal;
+  setTimeout(() => {
+    document.addEventListener('pointerdown', closePaletteOnOutside, { once: true });
+  }, 0);
+}
+function closePaletteOnOutside(e) {
+  if (openPalette && !openPalette.contains(e.target)) closePalette();
+  else if (openPalette) document.addEventListener('pointerdown', closePaletteOnOutside, { once: true });
+}
+function closePalette() {
+  if (openPalette) { openPalette.remove(); openPalette = null; }
+}
+
+// ───────────── helpers ─────────────
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+function placeCaretAtEnd(el) {
+  el.focus();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+function cssVarPx(name) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return parseFloat(v) || 0;
+}
+function snap15(min) { return Math.round(min / 15) * 15; }
+function pxToMin(px) { return (px / cssVarPx('--hour-h')) * 60; }
+function minToPx(min) { return (min / 60) * cssVarPx('--hour-h'); }
+function minToTimeStr(absMin) {
+  const h = Math.floor(absMin / 60) % 24;
+  const m = absMin % 60;
+  const ampm = h < 12 ? 'a' : 'p';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2,'0')}${ampm}`;
+}
+function formatHour(h) {
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12} ${ampm}`;
+}
+function todayStr() {
+  const d = new Date();
+  const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  return `${days[d.getDay()]} · ${months[d.getMonth()]} ${d.getDate()}`;
+}
+
+// ───────────── add column ─────────────
+document.getElementById('add-column').addEventListener('click', () => {
+  const isFirst = state.columns.length === 0;
+  const col = {
+    id: uid(),
+    title: '',
+    mode: isFirst ? 'list' : (state.columns[state.columns.length - 1].mode === 'list' ? 'day' : 'list'),
+    items: [],
+    blocks: [],
+    date: todayStr(),
+  };
+  state.columns.push(col);
+  save();
+  render();
+  // scroll to new column + focus title
+  requestAnimationFrame(() => {
+    main.scrollTo({ left: main.scrollWidth, behavior: 'smooth' });
+    const titleEl = canvas.querySelector(`[data-col-id="${col.id}"] .col-title`);
+    if (titleEl) titleEl.focus();
+  });
+});
+
+// ───────────── hour controls ─────────────
+const hStart = document.getElementById('hour-start');
+const hEnd   = document.getElementById('hour-end');
+hStart.value = state.hourStart;
+hEnd.value   = state.hourEnd;
+hStart.addEventListener('change', () => {
+  const v = clamp(parseInt(hStart.value, 10) || 0, 0, 23);
+  state.hourStart = Math.min(v, state.hourEnd - 1);
+  hStart.value = state.hourStart;
+  save();
+  render();
+});
+hEnd.addEventListener('change', () => {
+  const v = clamp(parseInt(hEnd.value, 10) || 24, 1, 24);
+  state.hourEnd = Math.max(v, state.hourStart + 1);
+  hEnd.value = state.hourEnd;
+  save();
+  render();
+});
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// ───────────── seed if empty ─────────────
+if (state.columns.length === 0) {
+  state.columns = [
+    {
+      id: uid(),
+      title: 'today',
+      mode: 'list',
+      items: [
+        { id: uid(), text: 'open the canvas, see if it sings', done: false, color: '#9bb39a' },
+        { id: uid(), text: 'edit a column title — try this one', done: false, color: null },
+        { id: uid(), text: 'switch this column to day, then back', done: false, color: null },
+      ],
+      blocks: [],
+      date: todayStr(),
+    },
+    {
+      id: uid(),
+      title: 'today / hours',
+      mode: 'day',
+      items: [],
+      blocks: [
+        { id: uid(), startMin: 9 * 60,        endMin: 10 * 60 + 30, label: 'morning making', color: '#c8a973' },
+        { id: uid(), startMin: 11 * 60,       endMin: 12 * 60,      label: 'human element edit', color: '#8aa2b8' },
+        { id: uid(), startMin: 14 * 60,       endMin: 15 * 60 + 30, label: 'newpress call',     color: '#a08099' },
+        { id: uid(), startMin: 17 * 60 + 30,  endMin: 19 * 60,      label: 'with the kids',     color: '#c98a72' },
+      ],
+      date: todayStr(),
+    },
+  ];
+  save();
+}
+
+// ───────────── go ─────────────
+render();
+
+// keep palette closed on resize/scroll
+window.addEventListener('scroll', closePalette, true);
+window.addEventListener('resize', closePalette);
+</script>
+</body>
+</html>
