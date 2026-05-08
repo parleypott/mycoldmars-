@@ -1625,12 +1625,47 @@ function renderPassResults() {
 // ── SCRIPT COPILOT TRAINING HUB (top-level view) ──
 
 let scriptHubState = {
-  parsedDocs: [],       // docs parsed in this session
-  training: null,       // latest training result from DB
-  fetching: false,      // currently fetching docs
+  parsedDocs: [],
+  training: null,
+  fetchingCount: 0,     // how many are currently in-flight
   training_running: false,
   loaded: false,
 };
+
+// Extract all Google Doc URLs/IDs from any pasted text
+function extractDocUrls(text) {
+  const urlPattern = /https?:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/g;
+  const found = new Set();
+  let match;
+  while ((match = urlPattern.exec(text)) !== null) found.add(match[1]);
+  // Also catch bare doc IDs (44-char alphanumeric strings on their own line)
+  for (const line of text.split(/[\n,\s]+/)) {
+    const trimmed = line.trim();
+    if (trimmed.match(/^[a-zA-Z0-9_-]{20,}$/) && !trimmed.includes('.')) found.add(trimmed);
+  }
+  return [...found];
+}
+
+function renderDocCard(d, i) {
+  const colors = Object.entries(d.colorProfile || {}).sort((a, b) => b[1].count - a[1].count);
+  const colorDots = colors.slice(0, 8).map(([hex, data]) =>
+    `<span title="${hex}: ${data.count}x" style="width:12px;height:12px;background:${hex};display:inline-block;border-radius:2px"></span>`
+  ).join('');
+  return `
+    <div class="sc-doc-card" data-idx="${i}">
+      <div class="sc-doc-card-num">${String(i + 1).padStart(2, '0')}</div>
+      <div class="sc-doc-card-body">
+        <div class="sc-doc-card-title">${escHtml(d.title)}</div>
+        <div class="sc-doc-card-meta">
+          <span>${d.stats?.totalBeats || 0} beats</span>
+          <span>${(d.stats?.wordCount || 0).toLocaleString()} words</span>
+          <span>${d.stats?.coloredRunCount || 0} colored</span>
+        </div>
+      </div>
+      <div class="sc-doc-card-colors">${colorDots}</div>
+      <button class="sc-doc-card-remove" data-remove="${i}" title="Remove">&times;</button>
+    </div>`;
+}
 
 async function renderScriptCopilotHub() {
   const hub = document.getElementById('script-copilot-hub');
@@ -1638,194 +1673,390 @@ async function renderScriptCopilotHub() {
   // Load existing training on first render
   if (!scriptHubState.loaded) {
     scriptHubState.loaded = true;
-    hub.innerHTML = `<div style="padding:3rem;text-align:center"><div style="font-size:1rem;letter-spacing:0.2em;color:var(--np-text-dim,#888)">LOADING...</div></div>`;
+    hub.innerHTML = `<div style="padding:4rem;text-align:center"><div class="sc-loader"></div></div>`;
     try {
       const { training } = await getGlobalTraining();
       scriptHubState.training = training;
     } catch {}
-    // Re-render with data
     return renderScriptCopilotHub();
   }
 
   const t = scriptHubState.training;
   const docs = scriptHubState.parsedDocs;
-
   const totalBeats = docs.reduce((s, d) => s + (d.stats?.totalBeats || 0), 0);
   const totalWords = docs.reduce((s, d) => s + (d.stats?.wordCount || 0), 0);
+  const isFetching = scriptHubState.fetchingCount > 0;
+  const isTraining = scriptHubState.training_running;
 
   hub.innerHTML = `
-    <div style="max-width:1100px;margin:0 auto;padding:2rem 1.5rem">
+    <div class="sc-hub">
+      <style>
+        .sc-hub { max-width:900px; margin:0 auto; padding:2.5rem 1.5rem; }
+        .sc-header { margin-bottom:2.5rem; }
+        .sc-header-eyebrow { font-size:0.6rem; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.3); margin-bottom:0.5rem; }
+        .sc-header-title { font-size:2.2rem; letter-spacing:0.03em; font-weight:200; color:#fff; }
+        .sc-header-sub { font-size:0.8rem; color:rgba(255,255,255,0.35); margin-top:0.4rem; letter-spacing:0.03em; }
+
+        .sc-drop-zone {
+          border:2px dashed rgba(255,255,255,0.1);
+          border-radius:12px;
+          padding:2.5rem 2rem;
+          text-align:center;
+          cursor:pointer;
+          transition:all 0.2s ease;
+          margin-bottom:2rem;
+          position:relative;
+        }
+        .sc-drop-zone:hover, .sc-drop-zone.drag-over {
+          border-color:rgba(255,255,255,0.25);
+          background:rgba(255,255,255,0.02);
+        }
+        .sc-drop-zone.has-docs { padding:1.2rem 1.5rem; text-align:left; }
+        .sc-drop-icon { font-size:2rem; margin-bottom:0.8rem; opacity:0.2; }
+        .sc-drop-text { font-size:0.85rem; color:rgba(255,255,255,0.4); letter-spacing:0.03em; }
+        .sc-drop-text strong { color:rgba(255,255,255,0.7); }
+        .sc-drop-hint { font-size:0.7rem; color:rgba(255,255,255,0.2); margin-top:0.4rem; }
+        .sc-drop-input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+
+        .sc-url-bar {
+          display:flex; gap:0; margin-bottom:1.5rem; border-radius:8px; overflow:hidden;
+          border:1px solid rgba(255,255,255,0.08);
+        }
+        .sc-url-bar input {
+          flex:1; background:rgba(255,255,255,0.03); border:none; color:#fff;
+          padding:0.7rem 1rem; font-family:inherit; font-size:0.8rem; outline:none;
+        }
+        .sc-url-bar input::placeholder { color:rgba(255,255,255,0.2); }
+        .sc-url-bar button {
+          background:rgba(255,255,255,0.06); border:none; color:rgba(255,255,255,0.5);
+          padding:0.7rem 1.2rem; font-family:inherit; font-size:0.75rem; letter-spacing:0.1em;
+          cursor:pointer; transition:all 0.15s;
+        }
+        .sc-url-bar button:hover { background:rgba(255,255,255,0.1); color:#fff; }
+
+        .sc-doc-list { display:flex; flex-direction:column; gap:1px; margin-bottom:2rem; }
+        .sc-doc-card {
+          display:flex; align-items:center; gap:0.8rem; padding:0.6rem 0.8rem;
+          background:rgba(255,255,255,0.025); border-radius:6px;
+          transition:background 0.15s;
+        }
+        .sc-doc-card:hover { background:rgba(255,255,255,0.05); }
+        .sc-doc-card-num { font-size:0.7rem; color:rgba(255,255,255,0.2); width:22px; text-align:right; flex-shrink:0; }
+        .sc-doc-card-body { flex:1; min-width:0; }
+        .sc-doc-card-title { font-size:0.8rem; color:#eee; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sc-doc-card-meta { display:flex; gap:0.8rem; font-size:0.65rem; color:rgba(255,255,255,0.3); margin-top:0.15rem; }
+        .sc-doc-card-colors { display:flex; gap:3px; flex-shrink:0; }
+        .sc-doc-card-remove {
+          width:24px; height:24px; border:none; background:none; color:rgba(255,255,255,0.15);
+          font-size:1.1rem; cursor:pointer; border-radius:4px; display:flex; align-items:center;
+          justify-content:center; transition:all 0.15s; flex-shrink:0;
+        }
+        .sc-doc-card-remove:hover { color:#FF3B20; background:rgba(255,59,32,0.1); }
+
+        .sc-doc-card.loading {
+          opacity:0.5;
+        }
+        .sc-doc-card.loading .sc-doc-card-title::after {
+          content:''; display:inline-block; width:12px; height:12px; border:2px solid rgba(255,255,255,0.1);
+          border-top-color:rgba(255,255,255,0.4); border-radius:50%; margin-left:0.5rem;
+          animation:sc-spin 0.6s linear infinite; vertical-align:middle;
+        }
+        @keyframes sc-spin { to { transform:rotate(360deg); } }
+
+        .sc-doc-card.error .sc-doc-card-title { color:#FF3B20; }
+
+        .sc-stats { display:flex; gap:1px; margin-bottom:2rem; border-radius:8px; overflow:hidden; }
+        .sc-stat { flex:1; background:rgba(255,255,255,0.025); padding:0.8rem 1rem; }
+        .sc-stat-label { font-size:0.6rem; letter-spacing:0.2em; color:rgba(255,255,255,0.25); margin-bottom:0.2rem; }
+        .sc-stat-value { font-size:1.4rem; color:#fff; font-weight:300; }
+
+        .sc-train-btn {
+          width:100%; padding:1rem; border:none; border-radius:8px; font-family:inherit;
+          font-size:0.85rem; letter-spacing:0.15em; cursor:pointer; transition:all 0.2s;
+          margin-bottom:2rem;
+        }
+        .sc-train-btn.ready { background:#fff; color:#000; }
+        .sc-train-btn.ready:hover { background:#eee; transform:translateY(-1px); }
+        .sc-train-btn.disabled { background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.2); cursor:default; }
+        .sc-train-btn.running { background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.5); cursor:wait; }
+
+        .sc-section { margin-bottom:2rem; }
+        .sc-section-label { font-size:0.6rem; letter-spacing:0.25em; color:rgba(255,255,255,0.25); margin-bottom:0.8rem; text-transform:uppercase; }
+
+        .sc-signature {
+          border-left:3px solid #FF3B20; padding:1rem 1.5rem; margin-bottom:2rem;
+          font-size:0.95rem; font-style:italic; color:rgba(255,255,255,0.85); line-height:1.5;
+        }
+
+        .sc-context-text { font-size:0.8rem; line-height:1.8; color:rgba(255,255,255,0.65); white-space:pre-wrap; }
+
+        .sc-color-rule {
+          display:flex; align-items:center; gap:1rem; padding:0.5rem 0;
+          border-bottom:1px solid rgba(255,255,255,0.04);
+        }
+        .sc-color-swatch { width:24px; height:24px; border-radius:4px; flex-shrink:0; }
+        .sc-color-meaning { font-size:0.8rem; color:#eee; flex:1; }
+        .sc-color-badge { font-size:0.65rem; padding:0.15rem 0.5rem; border-radius:10px; background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.4); }
+        .sc-color-conf { font-size:0.7rem; color:rgba(255,255,255,0.25); }
+
+        .sc-slop { padding:0.5rem 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+        .sc-slop-text { font-size:0.8rem; color:rgba(255,255,255,0.7); }
+        .sc-slop-meta { font-size:0.7rem; color:rgba(255,255,255,0.3); margin-top:0.2rem; }
+        .sc-slop-freq { color:#FF3B20; }
+
+        .sc-trained-chips { display:flex; flex-wrap:wrap; gap:0.4rem; }
+        .sc-trained-chip {
+          font-size:0.65rem; padding:0.25rem 0.6rem; border-radius:4px;
+          background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+          color:rgba(255,255,255,0.45);
+        }
+
+        .sc-empty { text-align:center; padding:3rem 2rem; color:rgba(255,255,255,0.25); }
+        .sc-empty-title { font-size:1.1rem; letter-spacing:0.1em; margin-bottom:0.5rem; }
+
+        .sc-loader { width:20px; height:20px; border:2px solid rgba(255,255,255,0.1); border-top-color:rgba(255,255,255,0.4); border-radius:50%; animation:sc-spin 0.6s linear infinite; margin:0 auto; }
+
+        .sc-progress-bar { height:2px; background:rgba(255,255,255,0.06); border-radius:1px; margin-bottom:1rem; overflow:hidden; }
+        .sc-progress-fill { height:100%; background:#FF3B20; transition:width 0.3s ease; border-radius:1px; }
+      </style>
+
       <!-- Header -->
-      <div style="margin-bottom:2rem">
-        <div style="font-size:0.65rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--np-text-dim,#888);margin-bottom:0.3rem">NEWPRESS TOOLS</div>
-        <div style="font-size:2rem;letter-spacing:0.06em;font-weight:300">Script Copilot</div>
-        <div style="font-size:0.8rem;color:var(--np-text-dim,#888);margin-top:0.3rem">Training hub — teach the system how you write</div>
+      <div class="sc-header">
+        <div class="sc-header-eyebrow">Newpress</div>
+        <div class="sc-header-title">Script Copilot</div>
+        <div class="sc-header-sub">Feed it your scripts. It learns how you write.</div>
       </div>
 
-      <!-- URL Input -->
-      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:1.5rem">
-        <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-text-dim,#888);margin-bottom:0.6rem">PASTE GOOGLE DOC URLS (one per line)</div>
-        <textarea id="sc-url-input" rows="6" placeholder="https://docs.google.com/document/d/.../edit
-https://docs.google.com/document/d/.../edit
-..." style="width:100%;background:#0a0a0a;border:1px solid var(--np-border,#333);color:#eee;padding:0.7rem;font-family:inherit;font-size:0.8rem;resize:vertical;box-sizing:border-box"></textarea>
-        <div style="display:flex;gap:0.6rem;margin-top:0.6rem;align-items:center">
-          <button id="sc-fetch-btn" style="background:var(--np-red,#d42e05);color:#fff;border:none;padding:0.5rem 1.2rem;font-family:inherit;font-size:0.75rem;letter-spacing:0.12em;cursor:pointer">${scriptHubState.fetching ? 'FETCHING...' : 'FETCH + PARSE'}</button>
-          <button id="sc-train-btn" style="background:${docs.length > 0 ? '#eee' : '#333'};color:${docs.length > 0 ? '#000' : '#666'};border:none;padding:0.5rem 1.2rem;font-family:inherit;font-size:0.75rem;letter-spacing:0.12em;cursor:${docs.length > 0 ? 'pointer' : 'default'}" ${docs.length === 0 ? 'disabled' : ''}>${scriptHubState.training_running ? 'TRAINING...' : 'RUN TRAINING'}</button>
-          <div id="sc-status" style="font-size:0.75rem;color:var(--np-text-dim,#888);margin-left:0.5rem"></div>
-        </div>
+      <!-- URL Input Bar -->
+      <div class="sc-url-bar">
+        <input type="text" id="sc-url-input" placeholder="Paste a Google Doc link or drop a bunch at once..." autocomplete="off">
+        <button id="sc-add-btn">ADD</button>
       </div>
 
-      <!-- Parsed docs queue -->
+      <!-- Drop zone / doc list -->
+      <div id="sc-drop-zone" class="sc-drop-zone ${docs.length > 0 ? 'has-docs' : ''}">
+        ${docs.length === 0 && !isFetching ? `
+          <div class="sc-drop-icon">+</div>
+          <div class="sc-drop-text">Paste links here — from emails, spreadsheets, anywhere.<br><strong>Google Doc URLs are auto-detected.</strong></div>
+          <div class="sc-drop-hint">Or paste directly into the bar above</div>
+        ` : ''}
+        ${docs.length > 0 || isFetching ? `
+          <div class="sc-doc-list" id="sc-doc-list">
+            ${docs.map((d, i) => renderDocCard(d, i)).join('')}
+            <div id="sc-loading-cards"></div>
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- Progress bar (during fetch) -->
+      <div id="sc-progress-wrap" style="display:${isFetching ? 'block' : 'none'}">
+        <div class="sc-progress-bar"><div class="sc-progress-fill" id="sc-progress-fill" style="width:0%"></div></div>
+      </div>
+
+      <!-- Stats -->
       ${docs.length > 0 ? `
-      <div style="border:1px solid var(--np-border,#333);padding:1rem;margin-bottom:1.5rem">
-        <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-text-dim,#888);margin-bottom:0.6rem">PARSED SCRIPTS (${docs.length} docs, ${totalBeats.toLocaleString()} beats, ${totalWords.toLocaleString()} words)</div>
-        <div style="display:flex;flex-direction:column;gap:2px;max-height:300px;overflow-y:auto">
-          ${docs.map((d, i) => {
-            const colors = Object.entries(d.colorProfile || {}).sort((a, b) => b[1].count - a[1].count);
-            const colorDots = colors.slice(0, 6).map(([hex]) => `<span style="width:10px;height:10px;background:${hex};display:inline-block;border-radius:2px"></span>`).join('');
-            return `
-            <div style="display:flex;align-items:center;gap:0.8rem;padding:0.4rem 0.6rem;background:var(--np-surface,#141414);font-size:0.75rem">
-              <span style="color:var(--np-text-dim,#666);width:20px;text-align:right;flex-shrink:0">${i + 1}</span>
-              <span style="color:#eee;flex:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.title)}</span>
-              <span style="color:var(--np-text-dim,#888);flex-shrink:0">${d.stats?.totalBeats || 0} beats</span>
-              <span style="color:var(--np-text-dim,#888);flex-shrink:0">${(d.stats?.wordCount || 0).toLocaleString()} w</span>
-              <span style="display:flex;gap:2px;flex-shrink:0">${colorDots}</span>
-            </div>`;
-          }).join('')}
-        </div>
+      <div class="sc-stats">
+        <div class="sc-stat"><div class="sc-stat-label">SCRIPTS</div><div class="sc-stat-value">${docs.length}</div></div>
+        <div class="sc-stat"><div class="sc-stat-label">BEATS</div><div class="sc-stat-value">${totalBeats.toLocaleString()}</div></div>
+        <div class="sc-stat"><div class="sc-stat-label">WORDS</div><div class="sc-stat-value">${totalWords.toLocaleString()}</div></div>
+        <div class="sc-stat"><div class="sc-stat-label">COLORS</div><div class="sc-stat-value">${new Set(docs.flatMap(d => Object.keys(d.colorProfile || {}))).size}</div></div>
       </div>` : ''}
 
-      <!-- Fetch progress -->
-      <div id="sc-progress" style="margin-bottom:1.5rem"></div>
+      <!-- Train button -->
+      <button id="sc-train-btn" class="sc-train-btn ${isTraining ? 'running' : docs.length > 0 ? 'ready' : 'disabled'}" ${docs.length === 0 || isTraining ? 'disabled' : ''}>
+        ${isTraining ? 'ANALYZING SCRIPTS...' : docs.length > 0 ? `TRAIN ON ${docs.length} SCRIPT${docs.length !== 1 ? 'S' : ''}` : 'ADD SCRIPTS TO BEGIN'}
+      </button>
 
       <!-- Training Results -->
-      ${t ? `
-      ${t.style_signature ? `
-      <div style="border-left:3px solid var(--np-red,#d42e05);padding:0.8rem 1.2rem;margin-bottom:1.5rem;font-size:0.9rem;font-style:italic;color:#eee;letter-spacing:0.02em">
-        "${escHtml(t.style_signature)}"
+      ${t?.style_signature ? `<div class="sc-signature">"${escHtml(t.style_signature)}"</div>` : ''}
+
+      ${t?.script_context ? `
+      <div class="sc-section">
+        <div class="sc-section-label">LEARNED CONTEXT <span style="color:rgba(255,255,255,0.15)">${t.doc_count} scripts / ${new Date(t.created_at).toLocaleDateString()}</span></div>
+        <div class="sc-context-text">${escHtml(t.script_context)}</div>
       </div>` : ''}
 
-      ${t.script_context ? `
-      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:1.5rem">
-        <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-text-dim,#888);margin-bottom:0.6rem">LEARNED SCRIPT CONTEXT <span style="color:#666">(${t.doc_count} scripts, ${new Date(t.created_at).toLocaleDateString()})</span></div>
-        <div style="font-size:0.8rem;line-height:1.7;color:#ddd;white-space:pre-wrap">${escHtml(t.script_context)}</div>
-      </div>` : ''}
-
-      ${(t.color_rules || []).length > 0 ? `
-      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:1.5rem">
-        <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-text-dim,#888);margin-bottom:0.6rem">COLOR CONVENTIONS</div>
-        <div style="display:flex;flex-direction:column;gap:0.4rem">
-          ${t.color_rules.map(rule => `
-            <div style="display:flex;align-items:center;gap:0.8rem;padding:0.4rem 0;border-bottom:1px solid rgba(255,255,255,0.04)">
-              <span style="width:20px;height:20px;background:${rule.color};display:inline-block;border-radius:3px;flex-shrink:0"></span>
-              <span style="font-size:0.8rem;color:#eee;flex:1">${escHtml(rule.meaning || '')}</span>
-              <span style="font-size:0.7rem;color:#888">${rule.consistency || ''}</span>
-              <span style="font-size:0.7rem;color:#666">${Math.round((rule.confidence || 0) * 100)}%</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>` : ''}
-
-      ${(t.sloppiness_patterns || []).length > 0 ? `
-      <div style="border:1px solid var(--np-border,#333);padding:1.2rem;margin-bottom:1.5rem">
-        <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-text-dim,#888);margin-bottom:0.6rem">SLOPPINESS PATTERNS</div>
-        ${t.sloppiness_patterns.map(p => `
-          <div style="padding:0.4rem 0;border-bottom:1px solid rgba(255,255,255,0.04)">
-            <div style="font-size:0.8rem;color:#eee">${escHtml(p.pattern || '')}</div>
-            <div style="font-size:0.7rem;color:#888;margin-top:0.2rem"><span style="color:var(--np-red,#d42e05)">${p.frequency || ''}</span>${p.workaround ? ` — ${escHtml(p.workaround)}` : ''}</div>
+      ${(t?.color_rules || []).length > 0 ? `
+      <div class="sc-section">
+        <div class="sc-section-label">COLOR LANGUAGE</div>
+        ${t.color_rules.map(r => `
+          <div class="sc-color-rule">
+            <div class="sc-color-swatch" style="background:${r.color}"></div>
+            <div class="sc-color-meaning">${escHtml(r.meaning || '')}</div>
+            <div class="sc-color-badge">${r.consistency || ''}</div>
+            <div class="sc-color-conf">${Math.round((r.confidence || 0) * 100)}%</div>
           </div>
         `).join('')}
       </div>` : ''}
 
-      ${t.doc_titles?.length ? `
-      <div style="border:1px solid var(--np-border,#333);padding:1rem;margin-bottom:1.5rem">
-        <div style="font-size:0.65rem;letter-spacing:0.2em;color:var(--np-text-dim,#888);margin-bottom:0.6rem">TRAINED ON (${t.doc_count} scripts)</div>
-        <div style="display:flex;flex-wrap:wrap;gap:0.4rem">
-          ${t.doc_titles.map(d => `<span style="font-size:0.7rem;padding:0.2rem 0.5rem;background:var(--np-surface,#141414);border:1px solid rgba(255,255,255,0.06);color:#aaa">${escHtml(d.title || d.docId)}</span>`).join('')}
+      ${(t?.sloppiness_patterns || []).length > 0 ? `
+      <div class="sc-section">
+        <div class="sc-section-label">SLOPPINESS PATTERNS</div>
+        ${t.sloppiness_patterns.map(p => `
+          <div class="sc-slop">
+            <div class="sc-slop-text">${escHtml(p.pattern || '')}</div>
+            <div class="sc-slop-meta"><span class="sc-slop-freq">${p.frequency || ''}</span>${p.workaround ? ` — ${escHtml(p.workaround)}` : ''}</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+
+      ${t?.doc_titles?.length ? `
+      <div class="sc-section">
+        <div class="sc-section-label">TRAINED ON</div>
+        <div class="sc-trained-chips">
+          ${t.doc_titles.map(d => `<span class="sc-trained-chip">${escHtml(d.title || d.docId)}</span>`).join('')}
         </div>
       </div>` : ''}
-      ` : `
-      <div style="border:1px solid var(--np-border,#333);padding:2rem;text-align:center;color:var(--np-text-dim,#888);margin-bottom:1.5rem">
-        <div style="font-size:1rem;letter-spacing:0.15em;margin-bottom:0.5rem">NO TRAINING DATA YET</div>
-        <div style="font-size:0.8rem">Paste Google Doc URLs above, fetch them, then run training.</div>
-      </div>
-      `}
+
+      ${!t && docs.length === 0 ? `
+      <div class="sc-empty">
+        <div class="sc-empty-title">No training yet</div>
+        <div>Add your scripts and the system learns your color language, structure, and voice.</div>
+      </div>` : ''}
     </div>
   `;
 
-  // Wire up buttons
-  const fetchBtn = document.getElementById('sc-fetch-btn');
-  const trainBtn = document.getElementById('sc-train-btn');
+  // ── Wire interactions ──
+
   const urlInput = document.getElementById('sc-url-input');
-  const status = document.getElementById('sc-status');
-  const progress = document.getElementById('sc-progress');
+  const addBtn = document.getElementById('sc-add-btn');
+  const dropZone = document.getElementById('sc-drop-zone');
+  const trainBtn = document.getElementById('sc-train-btn');
 
-  fetchBtn?.addEventListener('click', async () => {
-    const raw = urlInput.value.trim();
-    if (!raw) return;
+  // Smart paste — intercept paste anywhere in the hub to extract URLs
+  async function addUrls(text) {
+    const docIds = extractDocUrls(text);
+    // Dedupe against already-parsed docs
+    const existingIds = new Set(docs.map(d => d.docId));
+    const newIds = docIds.filter(id => !existingIds.has(id));
+    if (!newIds.length) return;
 
-    const urls = raw.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-    if (!urls.length) return;
+    // Show loading cards immediately
+    const loadingEl = document.getElementById('sc-loading-cards');
+    const progressWrap = document.getElementById('sc-progress-wrap');
+    const progressFill = document.getElementById('sc-progress-fill');
+    if (progressWrap) progressWrap.style.display = 'block';
 
-    scriptHubState.fetching = true;
-    fetchBtn.textContent = 'FETCHING...';
-    fetchBtn.disabled = true;
-    status.textContent = `0 / ${urls.length}`;
+    // Make drop zone switch to list mode
+    dropZone?.classList.add('has-docs');
 
-    let done = 0;
-    let errors = 0;
+    let completed = 0;
+    scriptHubState.fetchingCount += newIds.length;
 
-    for (const url of urls) {
-      try {
-        status.textContent = `${done} / ${urls.length} — fetching...`;
-        const doc = await fetchParseDoc(url);
-        scriptHubState.parsedDocs.push(doc);
-        done++;
-        status.textContent = `${done} / ${urls.length}`;
-
-        // Update progress inline
-        progress.innerHTML = scriptHubState.parsedDocs.map((d, i) =>
-          `<div style="font-size:0.7rem;color:#888;padding:0.1rem 0">${i + 1}. ${escHtml(d.title)} — ${d.stats?.totalBeats || 0} beats, ${d.stats?.coloredRunCount || 0} colors</div>`
-        ).join('');
-      } catch (err) {
-        errors++;
-        done++;
-        status.textContent = `${done} / ${urls.length} (${errors} errors)`;
-        progress.innerHTML += `<div style="font-size:0.7rem;color:var(--np-red,#d42e05);padding:0.1rem 0">ERROR: ${escHtml(url.slice(0, 60))} — ${escHtml(err.message)}</div>`;
+    for (const id of newIds) {
+      // Add placeholder loading card
+      if (loadingEl) {
+        loadingEl.innerHTML += `
+          <div class="sc-doc-card loading" id="sc-loading-${id}">
+            <div class="sc-doc-card-num" style="color:rgba(255,255,255,0.1)">--</div>
+            <div class="sc-doc-card-body">
+              <div class="sc-doc-card-title">Loading...</div>
+              <div class="sc-doc-card-meta"><span>${id.slice(0, 20)}...</span></div>
+            </div>
+          </div>`;
       }
     }
 
-    scriptHubState.fetching = false;
-    status.textContent = `Done — ${scriptHubState.parsedDocs.length} scripts parsed`;
+    for (const id of newIds) {
+      try {
+        const url = `https://docs.google.com/document/d/${id}/edit`;
+        const doc = await fetchParseDoc(url);
+        scriptHubState.parsedDocs.push(doc);
 
-    // Re-render to show parsed docs + enable train button
+        // Replace loading card with real card
+        const loadingCard = document.getElementById(`sc-loading-${id}`);
+        if (loadingCard) {
+          loadingCard.outerHTML = renderDocCard(doc, scriptHubState.parsedDocs.length - 1);
+        }
+      } catch (err) {
+        // Show error card
+        const loadingCard = document.getElementById(`sc-loading-${id}`);
+        if (loadingCard) {
+          loadingCard.className = 'sc-doc-card error';
+          loadingCard.querySelector('.sc-doc-card-title').textContent = `Failed: ${id.slice(0, 30)}...`;
+          loadingCard.querySelector('.sc-doc-card-meta').innerHTML = `<span>${escHtml(err.message)}</span>`;
+        }
+      }
+      completed++;
+      scriptHubState.fetchingCount--;
+      if (progressFill) progressFill.style.width = `${(completed / newIds.length) * 100}%`;
+    }
+
+    // Re-render when all done
     renderScriptCopilotHub();
+  }
+
+  // URL bar — add button
+  addBtn?.addEventListener('click', () => {
+    const val = urlInput?.value?.trim();
+    if (val) { addUrls(val); urlInput.value = ''; }
   });
 
+  // URL bar — enter key
+  urlInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const val = urlInput.value.trim();
+      if (val) { addUrls(val); urlInput.value = ''; }
+    }
+  });
+
+  // Smart paste — detect paste event on the input and the whole hub
+  urlInput?.addEventListener('paste', (e) => {
+    // Let the browser paste into input first, then check
+    setTimeout(() => {
+      const val = urlInput.value.trim();
+      const docIds = extractDocUrls(val);
+      if (docIds.length > 0) {
+        urlInput.value = '';
+        addUrls(val);
+      }
+    }, 50);
+  });
+
+  // Drop zone paste handler — if user pastes on the drop zone directly
+  hub.addEventListener('paste', (e) => {
+    if (e.target === urlInput) return; // handled above
+    const text = e.clipboardData?.getData('text') || '';
+    if (text) addUrls(text);
+  });
+
+  // Drag and drop
+  dropZone?.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone?.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone?.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const text = e.dataTransfer?.getData('text') || '';
+    if (text) addUrls(text);
+  });
+
+  // Remove doc cards
+  hub.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.remove);
+      scriptHubState.parsedDocs.splice(idx, 1);
+      renderScriptCopilotHub();
+    });
+  });
+
+  // Train button
   trainBtn?.addEventListener('click', async () => {
     if (!scriptHubState.parsedDocs.length || scriptHubState.training_running) return;
 
     scriptHubState.training_running = true;
-    trainBtn.textContent = 'TRAINING...';
-    trainBtn.disabled = true;
-    status.textContent = 'Running cross-script analysis with Gemini...';
+    renderScriptCopilotHub();
 
     try {
-      const { analysis } = await runGlobalTraining(scriptHubState.parsedDocs);
-
-      // Reload training from DB
+      await runGlobalTraining(scriptHubState.parsedDocs);
       const { training } = await getGlobalTraining();
       scriptHubState.training = training;
       scriptHubState.training_running = false;
-      status.textContent = 'Training complete!';
-
-      // Re-render to show results
       renderScriptCopilotHub();
     } catch (err) {
       scriptHubState.training_running = false;
-      trainBtn.textContent = 'RUN TRAINING';
-      trainBtn.disabled = false;
-      status.textContent = `Training error: ${err.message}`;
+      renderScriptCopilotHub();
+      alert('Training failed: ' + err.message);
     }
   });
 }
