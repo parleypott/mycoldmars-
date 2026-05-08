@@ -38,26 +38,17 @@
     body {
       font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       color: var(--ink);
-      background:
-        radial-gradient(1200px 700px at 75% -10%, rgba(255,240,210,0.45), transparent 60%),
-        radial-gradient(1000px 600px at 5% 110%, rgba(220,200,170,0.35), transparent 55%),
-        var(--paper);
+      background: var(--paper);
       letter-spacing: 0.01em;
       -webkit-font-smoothing: antialiased;
       user-select: none;
-    }
-    body::after {
-      content: '';
-      position: fixed; inset: 0; pointer-events: none; z-index: 9999;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-      mix-blend-mode: multiply;
     }
 
     /* ───────────── header ───────────── */
     header {
       position: fixed; top: 0; left: 0; right: 0; height: 64px;
-      display: flex; align-items: center; gap: 20px;
-      padding: 0 28px;
+      display: flex; align-items: center; gap: 16px;
+      padding: 0 24px;
       background: linear-gradient(to bottom, rgba(243,239,230,0.96), rgba(243,239,230,0.88));
       backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--rule-soft);
@@ -78,13 +69,41 @@
       color: var(--ink);
     }
     .grow { flex: 1; }
+
+    .zoom-control {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--paper-deep);
+      border-radius: 6px;
+      padding: 2px;
+    }
+    .zoom-control button {
+      font: inherit;
+      width: 26px; height: 26px;
+      border: none; background: transparent;
+      color: var(--ink-soft);
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .zoom-control button:hover { background: var(--card); color: var(--ink); }
+    .zoom-readout {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+      min-width: 44px;
+      text-align: center;
+      cursor: pointer;
+    }
+    .zoom-readout:hover { color: var(--ink); }
+
     .hours-control {
-      display: flex; align-items: center; gap: 10px;
+      display: flex; align-items: center; gap: 8px;
       font-size: 12px; color: var(--ink-soft);
       letter-spacing: 0.04em;
     }
     .hours-control input {
-      width: 44px; padding: 4px 6px;
+      width: 40px; padding: 4px 6px;
       font: inherit; font-family: 'Share Tech Mono', monospace; font-size: 12px;
       text-align: center;
       background: rgba(255,255,255,0.5);
@@ -105,14 +124,10 @@
     }
     .btn:hover { background: #fff; box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 4px 10px -4px rgba(60,40,20,0.15); }
     .btn:active { transform: translateY(1px); }
-    .btn-primary {
-      background: var(--ink); color: var(--paper); border-color: var(--ink);
-    }
+    .btn-primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
     .btn-primary:hover { background: #1a1612; }
-    .btn-icon {
-      padding: 8px 10px;
-      font-size: 13px;
-    }
+    .btn-icon { padding: 8px 10px; font-size: 13px; }
+
     .menu-wrap { position: relative; }
     .menu {
       position: absolute; top: calc(100% + 6px); right: 0;
@@ -139,40 +154,61 @@
     .menu button:hover { background: var(--paper-deep); }
     .menu hr { border: none; border-top: 1px solid var(--rule-soft); margin: 4px 0; }
 
-    /* ───────────── canvas ───────────── */
+    /* ───────────── viewport + world ───────────── */
     main {
       position: fixed; top: 64px; left: 0; right: 0; bottom: 0;
-      overflow-x: auto; overflow-y: hidden;
-      padding: 28px 28px 40px;
-      scrollbar-width: thin;
-      scrollbar-color: var(--rule) transparent;
+      overflow: hidden;
+      cursor: grab;
+      background:
+        radial-gradient(1200px 700px at 75% -10%, rgba(255,240,210,0.4), transparent 60%),
+        radial-gradient(1000px 600px at 5% 110%, rgba(220,200,170,0.32), transparent 55%),
+        var(--paper);
     }
-    main::-webkit-scrollbar { height: 8px; }
-    main::-webkit-scrollbar-track { background: transparent; }
-    main::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 4px; }
+    main.panning { cursor: grabbing; }
+    main.space-down { cursor: grab; }
+    main.space-down.panning { cursor: grabbing; }
+    main::after {
+      content: '';
+      position: absolute; inset: 0;
+      pointer-events: none;
+      background-image:
+        radial-gradient(circle, rgba(60,40,20,0.18) 1px, transparent 1.4px);
+      background-size: var(--grid-size, 24px) var(--grid-size, 24px);
+      background-position: var(--grid-x, 0) var(--grid-y, 0);
+      opacity: 0.55;
+    }
+    main::before {
+      content: '';
+      position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      mix-blend-mode: multiply;
+    }
 
-    .canvas {
-      display: flex; gap: 16px;
-      height: 100%;
-      min-width: max-content;
-      align-items: flex-start;
+    .world {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1px; height: 1px;
+      transform-origin: 0 0;
+      will-change: transform;
     }
 
     /* ───────────── column ───────────── */
     .column {
-      flex: 0 0 320px;
+      position: absolute;
+      width: 320px;
       background: var(--card);
       border: 1px solid var(--rule);
       border-radius: 10px;
       box-shadow: var(--shadow);
       display: flex; flex-direction: column;
-      max-height: 100%;
+      max-height: 80vh;
       overflow: hidden;
-      position: relative;
-      transition: box-shadow 0.18s ease, transform 0.12s ease;
+      transition: box-shadow 0.18s ease;
     }
-    .column.dragging { opacity: 0.55; transform: scale(0.985); }
-    .column.drop-target { box-shadow: var(--shadow-lift), inset 0 0 0 2px var(--c-dustyblue); }
+    .column.dragging {
+      box-shadow: var(--shadow-lift);
+      transition: none;
+    }
     .column.cross-drop { box-shadow: var(--shadow-lift), inset 0 0 0 2px var(--c-sage); }
 
     .col-header {
@@ -232,7 +268,6 @@
     .col-mini-btn:hover { background: rgba(0,0,0,0.05); color: var(--ink); }
     .col-x:hover { color: var(--c-terracotta) !important; }
 
-    /* column resize handle */
     .col-resize {
       position: absolute;
       top: 0; right: -3px; bottom: 0;
@@ -276,7 +311,6 @@
       flex-shrink: 0;
     }
     .item:hover .item-grip { opacity: 1; }
-    .item-grip:active { cursor: grabbing; }
     .item-check {
       width: 14px; height: 14px;
       margin-top: 4px;
@@ -287,15 +321,10 @@
       transition: all 0.15s ease;
       position: relative;
     }
-    .item.done .item-check {
-      background: var(--ink-soft);
-      border-color: var(--ink-soft);
-    }
+    .item.done .item-check { background: var(--ink-soft); border-color: var(--ink-soft); }
     .item.done .item-check::after {
-      content: '';
-      position: absolute;
-      left: 3px; top: 0px;
-      width: 4px; height: 8px;
+      content: ''; position: absolute;
+      left: 3px; top: 0px; width: 4px; height: 8px;
       border: solid var(--card);
       border-width: 0 1.5px 1.5px 0;
       transform: rotate(45deg);
@@ -311,11 +340,7 @@
       padding: 2px 0;
     }
     .item-text:empty::before { content: 'new item'; color: var(--ink-faint); }
-    .item.done .item-text {
-      color: var(--ink-faint);
-      text-decoration: line-through;
-      text-decoration-color: var(--ink-faint);
-    }
+    .item.done .item-text { color: var(--ink-faint); text-decoration: line-through; text-decoration-color: var(--ink-faint); }
     .item-color-dot {
       width: 8px; height: 8px;
       border-radius: 50%;
@@ -362,6 +387,7 @@
     }
     .day-date {
       flex: 1;
+      font: inherit;
       font-family: 'Share Tech Mono', monospace;
       font-size: 11px;
       letter-spacing: 0.12em;
@@ -372,7 +398,6 @@
       border-radius: 4px;
       padding: 4px 6px;
       cursor: pointer;
-      font-family: 'Share Tech Mono', monospace;
     }
     .day-date:hover, .day-date:focus {
       background: var(--paper-deep);
@@ -434,7 +459,6 @@
       cursor: crosshair;
     }
 
-    /* now line */
     .now-line {
       position: absolute;
       left: 0; right: 0;
@@ -453,7 +477,6 @@
       box-shadow: 0 0 0 3px rgba(211,106,79,0.18);
     }
 
-    /* time blocks */
     .block {
       position: absolute;
       border-radius: 5px;
@@ -514,9 +537,9 @@
     .block-resize.top { top: -3px; }
     .block-resize.bottom { bottom: -3px; }
 
-    /* selection toolbar */
+    /* ───────────── selection toolbar (screen-fixed) ───────────── */
     .block-toolbar {
-      position: absolute;
+      position: fixed;
       z-index: 200;
       background: var(--card);
       border: 1px solid var(--rule);
@@ -553,9 +576,8 @@
     .block-toolbar .tb-btn:hover { background: var(--paper-deep); color: var(--ink); }
     .block-toolbar .tb-btn.danger:hover { color: var(--c-terracotta); }
 
-    /* color palette popover for items */
     .palette {
-      position: absolute;
+      position: fixed;
       z-index: 200;
       background: var(--card);
       border: 1px solid var(--rule);
@@ -577,22 +599,17 @@
     .palette button:hover { transform: scale(1.15); }
     .palette button.active { box-shadow: 0 0 0 2px var(--ink); }
 
-    /* empty state */
     .empty-state {
+      position: fixed; inset: 64px 0 0 0;
       display: flex; align-items: center; justify-content: center;
-      width: 100%; height: 100%;
+      pointer-events: none;
       color: var(--ink-faint);
       font-size: 14px;
-      letter-spacing: 0.02em;
     }
-    .empty-state span {
-      max-width: 320px; text-align: center;
-      line-height: 1.6;
-    }
+    .empty-state span { max-width: 360px; text-align: center; line-height: 1.6; pointer-events: auto; }
 
-    /* footer hint */
     .hint {
-      position: fixed; bottom: 12px; right: 16px;
+      position: fixed; bottom: 12px; left: 16px;
       font-family: 'Share Tech Mono', monospace;
       font-size: 10px;
       letter-spacing: 0.1em;
@@ -615,6 +632,27 @@
       transition: opacity 0.18s ease;
     }
     .toast.show { opacity: 1; }
+
+    .minimap {
+      position: fixed;
+      bottom: 14px; right: 14px;
+      width: 160px; height: 110px;
+      background: rgba(251,247,238,0.9);
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      z-index: 80;
+      backdrop-filter: blur(6px);
+    }
+    .minimap-content { position: absolute; inset: 0; }
+    .minimap-block { position: absolute; background: var(--ink-soft); border-radius: 1px; }
+    .minimap-view {
+      position: absolute;
+      border: 1.5px solid var(--c-terracotta);
+      background: rgba(211,106,79,0.06);
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -628,6 +666,12 @@
       <span>→</span>
       <input id="hour-end" type="number" min="1" max="24" value="23">
     </div>
+    <div class="zoom-control">
+      <button id="zoom-out" title="zoom out (⌘-)">−</button>
+      <div class="zoom-readout" id="zoom-readout" title="reset to 100%">100%</div>
+      <button id="zoom-in" title="zoom in (⌘+)">+</button>
+      <button id="zoom-fit" title="fit all (⌘0)">◇</button>
+    </div>
     <div class="menu-wrap">
       <button class="btn btn-icon" id="menu-toggle" title="more">⋯</button>
       <div class="menu" id="menu">
@@ -635,6 +679,8 @@
         <button id="m-import">import json…</button>
         <hr>
         <button id="m-undo">undo (⌘z)</button>
+        <button id="m-fit">fit all (⌘0)</button>
+        <button id="m-reset">reset view</button>
         <hr>
         <button id="m-clear" style="color:var(--c-terracotta)">clear all…</button>
       </div>
@@ -643,18 +689,20 @@
   </header>
 
   <main id="main">
-    <div class="canvas" id="canvas"></div>
+    <div class="world" id="world"></div>
   </main>
 
-  <div class="hint">drag empty grid → block · click block → toolbar · drag header → reorder · ⌘z to undo</div>
+  <div class="hint">space + drag to pan · ⌘ + scroll to zoom · drag header to move column · ⌘z to undo</div>
   <div class="toast" id="toast"></div>
+  <div class="minimap" id="minimap"><div class="minimap-content" id="minimap-content"></div></div>
   <input type="file" id="import-file" accept="application/json,.json" style="display:none">
 
 <script>
 'use strict';
 
 // ───────────── state ─────────────
-const STORAGE_KEY = 'mycoldmars.todo.v1';
+const STORAGE_KEY = 'mycoldmars.todo.v2';
+const LEGACY_KEY  = 'mycoldmars.todo.v1';
 const COLORS = [
   { name: 'sage',       value: '#9bb39a' },
   { name: 'terracotta', value: '#c98a72' },
@@ -671,22 +719,38 @@ const DEFAULT_STATE = {
   columns: [],
   hourStart: 6,
   hourEnd: 23,
+  view: { tx: 0, ty: 0, scale: 1 },
 };
 
 let state = load();
-let history = [];           // undo stack — JSON snapshots
-const HISTORY_LIMIT = 40;
-let selectedBlock = null;   // { colId, blockId } | null
-const canvas = document.getElementById('canvas');
+let history = [];
+const HISTORY_LIMIT = 50;
+let selectedBlock = null;
 const main = document.getElementById('main');
+const world = document.getElementById('world');
 let firstRenderDone = false;
 
 function load() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return structuredClone(DEFAULT_STATE);
+    let raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      // migrate from v1 if present
+      raw = localStorage.getItem(LEGACY_KEY);
+      if (!raw) return structuredClone(DEFAULT_STATE);
+      console.log('todo: migrating from v1');
+    }
     const parsed = JSON.parse(raw);
-    return { ...DEFAULT_STATE, ...parsed };
+    const merged = { ...structuredClone(DEFAULT_STATE), ...parsed };
+    if (!merged.view) merged.view = { tx: 0, ty: 0, scale: 1 };
+    // assign x/y to any column missing them (legacy)
+    let nextX = 40, nextY = 40;
+    for (const c of merged.columns) {
+      if (typeof c.x !== 'number' || typeof c.y !== 'number') {
+        c.x = nextX; c.y = nextY;
+        nextX += (c.width || 320) + 24;
+      }
+    }
+    return merged;
   } catch (e) {
     console.warn('todo: load failed, using defaults', e);
     return structuredClone(DEFAULT_STATE);
@@ -723,17 +787,100 @@ function toast(msg, ms = 1400) {
   toast._t = setTimeout(() => t.classList.remove('show'), ms);
 }
 
+// ───────────── world transform ─────────────
+function applyTransform() {
+  const v = state.view;
+  world.style.transform = `translate(${v.tx}px, ${v.ty}px) scale(${v.scale})`;
+  const gridSize = 24 * v.scale;
+  main.style.setProperty('--grid-size', gridSize + 'px');
+  main.style.setProperty('--grid-x', (v.tx % gridSize) + 'px');
+  main.style.setProperty('--grid-y', (v.ty % gridSize) + 'px');
+  document.getElementById('zoom-readout').textContent = Math.round(v.scale * 100) + '%';
+  if (selectedBlock) renderToolbarFor(selectedBlock);
+  renderMinimap();
+}
+
+// screen → world
+function screenToWorld(sx, sy) {
+  const r = main.getBoundingClientRect();
+  const v = state.view;
+  return {
+    x: (sx - r.left - v.tx) / v.scale,
+    y: (sy - r.top  - v.ty) / v.scale,
+  };
+}
+
+function setZoom(newScale, anchorScreenX, anchorScreenY) {
+  const v = state.view;
+  const old = v.scale;
+  newScale = clamp(newScale, 0.2, 3);
+  if (newScale === old) return;
+  // keep the world point under the anchor stationary
+  const r = main.getBoundingClientRect();
+  const sx = anchorScreenX - r.left;
+  const sy = anchorScreenY - r.top;
+  const wx = (sx - v.tx) / old;
+  const wy = (sy - v.ty) / old;
+  v.scale = newScale;
+  v.tx = sx - wx * newScale;
+  v.ty = sy - wy * newScale;
+  applyTransform();
+  save();
+}
+
+function fitAll() {
+  if (state.columns.length === 0) {
+    state.view = { tx: 0, ty: 0, scale: 1 };
+    applyTransform();
+    save();
+    return;
+  }
+  // compute world bbox of columns (using rendered DOM heights)
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const c of state.columns) {
+    const w = c.width || 320;
+    // estimate column height — we'll grab actual from DOM if available
+    const el = world.querySelector(`[data-col-id="${c.id}"]`);
+    const h = el ? el.getBoundingClientRect().height / state.view.scale : 400;
+    minX = Math.min(minX, c.x);
+    minY = Math.min(minY, c.y);
+    maxX = Math.max(maxX, c.x + w);
+    maxY = Math.max(maxY, c.y + h);
+  }
+  const pad = 60;
+  const r = main.getBoundingClientRect();
+  const bw = maxX - minX + pad * 2;
+  const bh = maxY - minY + pad * 2;
+  const scale = clamp(Math.min(r.width / bw, r.height / bh), 0.2, 1);
+  state.view.scale = scale;
+  state.view.tx = (r.width  - (maxX - minX) * scale) / 2 - minX * scale;
+  state.view.ty = (r.height - (maxY - minY) * scale) / 2 - minY * scale;
+  applyTransform();
+  save();
+}
+
+function resetView() {
+  state.view = { tx: 0, ty: 0, scale: 1 };
+  applyTransform();
+  save();
+}
+
 // ───────────── render ─────────────
 function render() {
   closeAllPopovers();
-  canvas.innerHTML = '';
+  world.innerHTML = '';
+  document.querySelector('.empty-state')?.remove();
   if (state.columns.length === 0) {
-    canvas.innerHTML = '<div class="empty-state"><span>add a column to begin. each column is either a list of things or a day broken into hours you can fill with blocks of time.</span></div>';
-    return;
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.innerHTML = '<span>add a column to begin. each column is either a list of things or a day broken into hours. drop them anywhere on the canvas.</span>';
+    document.body.appendChild(empty);
+  } else {
+    for (const col of state.columns) {
+      world.appendChild(renderColumn(col));
+    }
   }
-  for (const col of state.columns) {
-    canvas.appendChild(renderColumn(col));
-  }
+  applyTransform();
   if (selectedBlock) renderToolbarFor(selectedBlock);
 
   if (!firstRenderDone) {
@@ -746,7 +893,9 @@ function renderColumn(col) {
   const el = document.createElement('div');
   el.className = 'column';
   el.dataset.colId = col.id;
-  if (col.width) el.style.flex = `0 0 ${col.width}px`;
+  el.style.left = col.x + 'px';
+  el.style.top  = col.y + 'px';
+  el.style.width = (col.width || 320) + 'px';
 
   const head = document.createElement('div');
   head.className = 'col-header';
@@ -762,9 +911,12 @@ function renderColumn(col) {
   el.appendChild(head);
 
   const titleEl = head.querySelector('.col-title');
-  titleEl.addEventListener('focus', pushHistory);
+  let titlePristine = true;
+  titleEl.addEventListener('focus', () => { if (titlePristine) pushHistory(); titlePristine = false; });
+  titleEl.addEventListener('blur', () => { titlePristine = true; });
   titleEl.addEventListener('input', () => { col.title = titleEl.textContent; save(); });
   titleEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); } });
+  titleEl.addEventListener('pointerdown', e => e.stopPropagation()); // don't start column drag
 
   head.querySelectorAll('.mode-toggle button').forEach(b => {
     b.addEventListener('click', () => {
@@ -773,6 +925,7 @@ function renderColumn(col) {
       save();
       render();
     });
+    b.addEventListener('pointerdown', e => e.stopPropagation());
   });
 
   head.querySelector('.col-dup').addEventListener('click', () => {
@@ -780,13 +933,15 @@ function renderColumn(col) {
     const clone = JSON.parse(JSON.stringify(col));
     clone.id = uid();
     clone.title = (col.title || 'untitled') + ' copy';
+    clone.x = col.x + (col.width || 320) + 24;
+    clone.y = col.y;
     if (clone.items) clone.items.forEach(i => i.id = uid());
     if (clone.blocks) clone.blocks.forEach(b => b.id = uid());
-    const idx = state.columns.findIndex(c => c.id === col.id);
-    state.columns.splice(idx + 1, 0, clone);
+    state.columns.push(clone);
     save();
     render();
   });
+  head.querySelector('.col-dup').addEventListener('pointerdown', e => e.stopPropagation());
 
   head.querySelector('.col-x').addEventListener('click', () => {
     if (confirm(`delete "${col.title || 'untitled'}"?`)) {
@@ -796,8 +951,9 @@ function renderColumn(col) {
       render();
     }
   });
+  head.querySelector('.col-x').addEventListener('pointerdown', e => e.stopPropagation());
 
-  attachColumnReorder(el, head, col);
+  attachColumnDrag(el, head, col);
 
   const body = document.createElement('div');
   body.className = 'col-body';
@@ -805,7 +961,6 @@ function renderColumn(col) {
   else                     body.appendChild(renderDayBody(col));
   el.appendChild(body);
 
-  // resize handle
   const resize = document.createElement('div');
   resize.className = 'col-resize';
   resize.addEventListener('pointerdown', e => attachColumnResize(e, el, col));
@@ -834,7 +989,7 @@ function renderListBody(col) {
     save();
     render();
     requestAnimationFrame(() => {
-      const newest = canvas.querySelector(`[data-item-id="${it.id}"] .item-text`);
+      const newest = world.querySelector(`[data-item-id="${it.id}"] .item-text`);
       if (newest) {
         newest.focus();
         placeCaretAtEnd(newest);
@@ -881,7 +1036,7 @@ function renderItem(col, item) {
       save();
       render();
       requestAnimationFrame(() => {
-        const newest = canvas.querySelector(`[data-item-id="${it.id}"] .item-text`);
+        const newest = world.querySelector(`[data-item-id="${it.id}"] .item-text`);
         if (newest) { newest.focus(); placeCaretAtEnd(newest); }
       });
     }
@@ -892,7 +1047,7 @@ function renderItem(col, item) {
       col.items.splice(idx, 1);
       save();
       render();
-      const target = canvas.querySelector(`.column[data-col-id="${col.id}"] .item:nth-child(${idx}) .item-text`);
+      const target = world.querySelector(`.column[data-col-id="${col.id}"] .item:nth-child(${idx}) .item-text`);
       if (target) { target.focus(); placeCaretAtEnd(target); }
     }
   });
@@ -957,7 +1112,7 @@ function renderDayBody(col) {
     render();
     requestAnimationFrame(() => {
       selectBlock(col.id, blk.id);
-      const lab = canvas.querySelector(`[data-block-id="${blk.id}"] .block-label`);
+      const lab = world.querySelector(`[data-block-id="${blk.id}"] .block-label`);
       if (lab) { lab.focus(); placeCaretAtEnd(lab); }
     });
   });
@@ -988,13 +1143,11 @@ function renderDayBody(col) {
   dayCanvas.dataset.colId = col.id;
   dayCanvas.style.height = totalH + 'px';
 
-  // lane layout for overlaps
   const laneMap = computeLanes(col.blocks);
   for (const blk of col.blocks) {
     dayCanvas.appendChild(renderBlock(col, blk, laneMap.get(blk.id)));
   }
 
-  // now-line (only if date matches today and now is within window)
   if (isToday(col.date)) {
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -1023,25 +1176,20 @@ function renderDayBody(col) {
   return wrap;
 }
 
-// compute lanes for overlapping blocks
 function computeLanes(blocks) {
   const map = new Map();
   if (!blocks || blocks.length === 0) return map;
   const sorted = [...blocks].sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
-  // group connected overlap clusters
   const clusters = [];
   for (const b of sorted) {
     let placed = false;
     for (const c of clusters) {
       if (c.some(x => x.startMin < b.endMin && x.endMin > b.startMin)) {
-        c.push(b);
-        placed = true;
-        break;
+        c.push(b); placed = true; break;
       }
     }
     if (!placed) clusters.push([b]);
   }
-  // merge clusters that became connected via newly added blocks
   let merged = true;
   while (merged) {
     merged = false;
@@ -1050,16 +1198,14 @@ function computeLanes(blocks) {
         if (clusters[i].some(a => clusters[j].some(b => a.startMin < b.endMin && a.endMin > b.startMin))) {
           clusters[i] = clusters[i].concat(clusters[j]);
           clusters.splice(j, 1);
-          merged = true;
-          break outer;
+          merged = true; break outer;
         }
       }
     }
   }
-  // assign lane greedily within each cluster
   for (const c of clusters) {
     const sortedC = c.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
-    const lanes = []; // each lane = array of blocks
+    const lanes = [];
     for (const b of sortedC) {
       let placed = false;
       for (let li = 0; li < lanes.length; li++) {
@@ -1068,8 +1214,7 @@ function computeLanes(blocks) {
         if (last.endMin <= b.startMin) {
           lane.push(b);
           map.set(b.id, { lane: li, total: 0 });
-          placed = true;
-          break;
+          placed = true; break;
         }
       }
       if (!placed) {
@@ -1077,10 +1222,7 @@ function computeLanes(blocks) {
         map.set(b.id, { lane: lanes.length - 1, total: 0 });
       }
     }
-    for (const b of sortedC) {
-      const m = map.get(b.id);
-      m.total = lanes.length;
-    }
+    for (const b of sortedC) map.get(b.id).total = lanes.length;
   }
   return map;
 }
@@ -1108,7 +1250,7 @@ function renderBlock(col, blk, laneInfo) {
   el.innerHTML = `
     <div class="block-time">${minToTimeStr(blk.startMin)}–${minToTimeStr(blk.endMin)}</div>
     <div class="block-label" contenteditable="true" spellcheck="false">${escapeHtml(blk.label || '')}</div>
-    <div class="block-note" contenteditable="true" spellcheck="false" data-placeholder="">${escapeHtml(blk.note || '')}</div>
+    <div class="block-note" contenteditable="true" spellcheck="false">${escapeHtml(blk.note || '')}</div>
     <div class="block-resize top"></div>
     <div class="block-resize bottom"></div>
   `;
@@ -1151,7 +1293,7 @@ let toolbarEl = null;
 function selectBlock(colId, blockId) {
   selectedBlock = { colId, blockId };
   document.querySelectorAll('.block').forEach(b => b.classList.remove('selected'));
-  const el = canvas.querySelector(`[data-block-id="${blockId}"]`);
+  const el = world.querySelector(`[data-block-id="${blockId}"]`);
   if (el) el.classList.add('selected');
   renderToolbarFor(selectedBlock);
 }
@@ -1166,7 +1308,7 @@ function renderToolbarFor(sel) {
   if (!col) return;
   const blk = col.blocks?.find(b => b.id === sel.blockId);
   if (!blk) return;
-  const blockEl = canvas.querySelector(`[data-block-id="${sel.blockId}"]`);
+  const blockEl = world.querySelector(`[data-block-id="${sel.blockId}"]`);
   if (!blockEl) return;
 
   const tb = document.createElement('div');
@@ -1212,7 +1354,7 @@ function renderToolbarFor(sel) {
   noteBtn.addEventListener('click', () => {
     if (!blk.note) { pushHistory(); blk.note = ''; save(); render(); }
     requestAnimationFrame(() => {
-      const n = canvas.querySelector(`[data-block-id="${sel.blockId}"] .block-note`);
+      const n = world.querySelector(`[data-block-id="${sel.blockId}"] .block-note`);
       if (n) {
         n.style.display = 'block';
         n.focus(); placeCaretAtEnd(n);
@@ -1234,7 +1376,7 @@ function renderToolbarFor(sel) {
   tb.appendChild(del);
 
   document.body.appendChild(tb);
-  // position above block, fall back to below if no room
+  // position above block in screen coords (block rect already includes world transform)
   const r = blockEl.getBoundingClientRect();
   const tbR = tb.getBoundingClientRect();
   let top = r.top - tbR.height - 8;
@@ -1247,68 +1389,51 @@ function renderToolbarFor(sel) {
 }
 
 // ───────────── interactions ─────────────
-function attachColumnReorder(colEl, headEl, col) {
-  let dragging = false;
-  let pointerStart = null;
-
+function attachColumnDrag(colEl, headEl, col) {
   headEl.addEventListener('pointerdown', e => {
     if (e.target.closest('.col-title') || e.target.closest('.mode-toggle') || e.target.closest('.col-mini-btn')) return;
-    pointerStart = { x: e.clientX, y: e.clientY };
+    if (e.button !== 0) return;
+    let dragging = false;
+    const startScreen = { x: e.clientX, y: e.clientY };
+    const origPos = { x: col.x, y: col.y };
+    e.stopPropagation();
 
     const onMove = ev => {
-      if (!dragging && Math.hypot(ev.clientX - pointerStart.x, ev.clientY - pointerStart.y) > 6) {
+      const dx = (ev.clientX - startScreen.x) / state.view.scale;
+      const dy = (ev.clientY - startScreen.y) / state.view.scale;
+      if (!dragging && Math.hypot(dx, dy) * state.view.scale > 4) {
         dragging = true;
         pushHistory();
         colEl.classList.add('dragging');
       }
       if (!dragging) return;
-      const target = elementUnderForColumn(ev.clientX, ev.clientY, col.id);
-      canvas.querySelectorAll('.column').forEach(c => c.classList.remove('drop-target'));
-      if (target) target.classList.add('drop-target');
+      col.x = origPos.x + dx;
+      col.y = origPos.y + dy;
+      colEl.style.left = col.x + 'px';
+      colEl.style.top  = col.y + 'px';
+      if (selectedBlock?.colId === col.id) renderToolbarFor(selectedBlock);
     };
-    const onUp = ev => {
+    const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       colEl.classList.remove('dragging');
-      canvas.querySelectorAll('.column').forEach(c => c.classList.remove('drop-target'));
-      if (dragging) {
-        const target = elementUnderForColumn(ev.clientX, ev.clientY, col.id);
-        if (target) {
-          const fromIdx = state.columns.findIndex(c => c.id === col.id);
-          const toIdx = state.columns.findIndex(c => c.id === target.dataset.colId);
-          if (fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx) {
-            const [moved] = state.columns.splice(fromIdx, 1);
-            state.columns.splice(toIdx, 0, moved);
-            save();
-            render();
-          }
-        }
-      }
-      dragging = false;
+      if (dragging) save();
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
   });
 }
 
-function elementUnderForColumn(x, y, ownId) {
-  const el = document.elementFromPoint(x, y);
-  if (!el) return null;
-  const col = el.closest('.column');
-  if (!col || col.dataset.colId === ownId) return null;
-  return col;
-}
-
 function attachColumnResize(e, colEl, col) {
   e.stopPropagation();
   e.preventDefault();
   const startX = e.clientX;
-  const startW = colEl.getBoundingClientRect().width;
+  const startW = col.width || 320;
   pushHistory();
   const onMove = ev => {
-    const w = clamp(startW + (ev.clientX - startX), 220, 700);
-    col.width = Math.round(w);
-    colEl.style.flex = `0 0 ${col.width}px`;
+    const dx = (ev.clientX - startX) / state.view.scale;
+    col.width = clamp(Math.round(startW + dx), 220, 700);
+    colEl.style.width = col.width + 'px';
   };
   const onUp = () => {
     window.removeEventListener('pointermove', onMove);
@@ -1324,6 +1449,7 @@ function attachItemReorder(itemEl, col, item) {
   const grip = itemEl.querySelector('.item-grip');
   grip.addEventListener('pointerdown', e => {
     e.preventDefault();
+    e.stopPropagation();
     let dragging = false;
     const start = { x: e.clientX, y: e.clientY };
     const onMove = ev => {
@@ -1372,12 +1498,13 @@ function attachItemReorder(itemEl, col, item) {
   });
 }
 
-// drag-to-create or click-to-create on day grid
 function attachBlockCreation(dayCanvas, col, startH) {
   dayCanvas.addEventListener('pointerdown', e => {
     if (e.target !== dayCanvas) return;
+    if (e.button !== 0) return;
+    e.stopPropagation();
     const rect = dayCanvas.getBoundingClientRect();
-    const startY = e.clientY - rect.top;
+    const startY = (e.clientY - rect.top) / state.view.scale;
     const startMinAbs = startH * 60 + snap15(pxToMin(startY));
     let dragged = false;
     let endMinAbs = startMinAbs + 30;
@@ -1395,9 +1522,8 @@ function attachBlockCreation(dayCanvas, col, startH) {
     dayCanvas.appendChild(ghost);
 
     const onMove = ev => {
-      const dy = Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY);
-      if (!dragged && dy > 4) dragged = true;
-      const y = ev.clientY - rect.top;
+      if (!dragged && Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) > 4) dragged = true;
+      const y = (ev.clientY - rect.top) / state.view.scale;
       const cur = startH * 60 + snap15(pxToMin(y));
       const a = Math.min(startMinAbs, cur);
       const b = Math.max(startMinAbs, cur === a ? cur + 15 : cur);
@@ -1412,11 +1538,10 @@ function attachBlockCreation(dayCanvas, col, startH) {
       ghost.remove();
       let a, b;
       if (!dragged) {
-        // click → 30min default block
         a = startMinAbs;
         b = startMinAbs + 30;
       } else {
-        const y = ev.clientY - rect.top;
+        const y = (ev.clientY - rect.top) / state.view.scale;
         const cur = startH * 60 + snap15(pxToMin(y));
         a = Math.min(startMinAbs, cur);
         b = Math.max(startMinAbs, cur);
@@ -1438,7 +1563,7 @@ function attachBlockCreation(dayCanvas, col, startH) {
       render();
       requestAnimationFrame(() => {
         selectBlock(col.id, blk.id);
-        const lab = canvas.querySelector(`[data-block-id="${blk.id}"] .block-label`);
+        const lab = world.querySelector(`[data-block-id="${blk.id}"] .block-label`);
         if (lab) { lab.focus(); placeCaretAtEnd(lab); }
       });
     };
@@ -1452,10 +1577,9 @@ function attachBlockMove(blockEl, col, blk) {
     if (e.target.closest('.block-resize')) return;
     if (e.target.closest('.block-label')) return;
     if (e.target.closest('.block-note')) return;
+    if (e.button !== 0) return;
     e.stopPropagation();
 
-    const dayCanvas = blockEl.parentElement;
-    const rect = dayCanvas.getBoundingClientRect();
     const startY = e.clientY;
     const origStart = blk.startMin;
     const origEnd = blk.endMin;
@@ -1466,8 +1590,8 @@ function attachBlockMove(blockEl, col, blk) {
     let crossTargetCol = null;
 
     const onMove = ev => {
-      const dy = ev.clientY - startY;
-      if (!movedFar && Math.abs(dy) > 3) movedFar = true;
+      const dy = (ev.clientY - startY) / state.view.scale;
+      if (!movedFar && Math.abs(dy * state.view.scale) > 3) movedFar = true;
       const dMin = snap15(pxToMin(dy));
       let newStart = origStart + dMin;
       let newEnd = origEnd + dMin;
@@ -1480,34 +1604,27 @@ function attachBlockMove(blockEl, col, blk) {
       blockEl.style.top = minToPx(blk.startMin - state.hourStart * 60) + 'px';
       blockEl.querySelector('.block-time').textContent = `${minToTimeStr(blk.startMin)}–${minToTimeStr(blk.endMin)}`;
 
-      // cross-column targeting
       const overEl = document.elementFromPoint(ev.clientX, ev.clientY);
       let dc = overEl?.closest('.day-canvas');
-      // ignore own
       if (dc && dc.dataset.colId === col.id) dc = null;
-      canvas.querySelectorAll('.column').forEach(c => c.classList.remove('cross-drop'));
+      world.querySelectorAll('.column').forEach(c => c.classList.remove('cross-drop'));
       if (dc) {
         const targetCol = state.columns.find(c => c.id === dc.dataset.colId);
         if (targetCol && targetCol.mode === 'day') {
           dc.closest('.column').classList.add('cross-drop');
           crossTargetCol = { col: targetCol, dayCanvas: dc };
-        } else {
-          crossTargetCol = null;
-        }
-      } else {
-        crossTargetCol = null;
-      }
+        } else { crossTargetCol = null; }
+      } else { crossTargetCol = null; }
     };
     const onUp = ev => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       blockEl.classList.remove('dragging');
-      canvas.querySelectorAll('.column').forEach(c => c.classList.remove('cross-drop'));
+      world.querySelectorAll('.column').forEach(c => c.classList.remove('cross-drop'));
 
       if (crossTargetCol && movedFar) {
-        // transfer block to target column at cursor y
         const tRect = crossTargetCol.dayCanvas.getBoundingClientRect();
-        const yy = ev.clientY - tRect.top;
+        const yy = (ev.clientY - tRect.top) / state.view.scale;
         const dur = blk.endMin - blk.startMin;
         let newStart = state.hourStart * 60 + snap15(pxToMin(yy));
         const minB = state.hourStart * 60, maxB = state.hourEnd * 60;
@@ -1542,7 +1659,7 @@ function attachBlockResize(e, col, blk, edge, blockEl) {
   blockEl.classList.add('dragging');
 
   const onMove = ev => {
-    const dy = ev.clientY - startY;
+    const dy = (ev.clientY - startY) / state.view.scale;
     const dMin = snap15(pxToMin(dy));
     if (edge === 'top') {
       let newStart = origStart + dMin;
@@ -1568,7 +1685,83 @@ function attachBlockResize(e, col, blk, edge, blockEl) {
   window.addEventListener('pointerup', onUp);
 }
 
-// ───────────── palette popover (for list items) ─────────────
+// ───────────── pan + zoom on main ─────────────
+let spaceDown = false;
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !e.repeat && !inEditable()) {
+    spaceDown = true;
+    main.classList.add('space-down');
+    e.preventDefault();
+  }
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space') {
+    spaceDown = false;
+    main.classList.remove('space-down');
+  }
+});
+function inEditable() {
+  const a = document.activeElement;
+  return a && (a.matches('[contenteditable="true"], input, textarea'));
+}
+
+main.addEventListener('pointerdown', e => {
+  // pan if: middle mouse, or space+left, or background plain-left (i.e., not clicking a column / day-canvas / etc)
+  const onColumn = e.target.closest('.column');
+  const onWorld  = e.target === world || e.target === main;
+  const wantsPan = e.button === 1 || (spaceDown && e.button === 0) || (!onColumn && (onWorld || e.target.classList?.contains('empty-state') || e.target.tagName === 'SPAN' && e.target.parentElement?.classList?.contains('empty-state')));
+  if (!wantsPan) return;
+  e.preventDefault();
+  main.classList.add('panning');
+  const startX = e.clientX, startY = e.clientY;
+  const startTx = state.view.tx, startTy = state.view.ty;
+  const onMove = ev => {
+    state.view.tx = startTx + (ev.clientX - startX);
+    state.view.ty = startTy + (ev.clientY - startY);
+    applyTransform();
+  };
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    main.classList.remove('panning');
+    save();
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+});
+
+// wheel: ⌘/ctrl + scroll = zoom; trackpad pinch arrives as wheel + ctrlKey
+main.addEventListener('wheel', e => {
+  if (e.ctrlKey || e.metaKey) {
+    e.preventDefault();
+    const factor = Math.pow(1.0015, -e.deltaY);
+    setZoom(state.view.scale * factor, e.clientX, e.clientY);
+    return;
+  }
+  // plain wheel = pan
+  e.preventDefault();
+  state.view.tx -= e.deltaX;
+  state.view.ty -= e.deltaY;
+  applyTransform();
+  save();
+}, { passive: false });
+
+// ───────────── zoom controls ─────────────
+document.getElementById('zoom-in').addEventListener('click', () => {
+  const r = main.getBoundingClientRect();
+  setZoom(state.view.scale * 1.2, r.left + r.width/2, r.top + r.height/2);
+});
+document.getElementById('zoom-out').addEventListener('click', () => {
+  const r = main.getBoundingClientRect();
+  setZoom(state.view.scale / 1.2, r.left + r.width/2, r.top + r.height/2);
+});
+document.getElementById('zoom-readout').addEventListener('click', () => {
+  const r = main.getBoundingClientRect();
+  setZoom(1, r.left + r.width/2, r.top + r.height/2);
+});
+document.getElementById('zoom-fit').addEventListener('click', fitAll);
+
+// ───────────── palette popover ─────────────
 let openPalette = null;
 function showPalette(anchor, current, onPick) {
   closePalette();
@@ -1608,7 +1801,6 @@ function closeAllPopovers() {
   document.getElementById('menu')?.classList.remove('open');
 }
 
-// click outside selected block deselects
 document.addEventListener('pointerdown', e => {
   if (!selectedBlock) return;
   if (e.target.closest('.block')) return;
@@ -1650,19 +1842,17 @@ function formatHour(h) {
 }
 function isoDateToday() {
   const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-function isToday(iso) {
-  return iso === isoDateToday();
-}
+function isToday(iso) { return iso === isoDateToday(); }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
 // ───────────── add column ─────────────
 document.getElementById('add-column').addEventListener('click', () => {
   pushHistory();
+  // place new column near current viewport center in world coords
+  const r = main.getBoundingClientRect();
+  const w = screenToWorld(r.left + r.width / 2, r.top + 120);
   const isFirst = state.columns.length === 0;
   const col = {
     id: uid(),
@@ -1671,13 +1861,14 @@ document.getElementById('add-column').addEventListener('click', () => {
     items: [],
     blocks: [],
     date: isoDateToday(),
+    x: Math.round(w.x - 160),
+    y: Math.round(w.y),
   };
   state.columns.push(col);
   save();
   render();
   requestAnimationFrame(() => {
-    main.scrollTo({ left: main.scrollWidth, behavior: 'smooth' });
-    const titleEl = canvas.querySelector(`[data-col-id="${col.id}"] .col-title`);
+    const titleEl = world.querySelector(`[data-col-id="${col.id}"] .col-title`);
     if (titleEl) titleEl.focus();
   });
 });
@@ -1691,7 +1882,6 @@ document.getElementById('menu-toggle').addEventListener('click', e => {
 document.addEventListener('click', e => {
   if (!e.target.closest('.menu-wrap')) menu.classList.remove('open');
 });
-
 document.getElementById('m-export').addEventListener('click', () => {
   menu.classList.remove('open');
   const data = JSON.stringify(state, null, 2);
@@ -1704,7 +1894,6 @@ document.getElementById('m-export').addEventListener('click', () => {
   URL.revokeObjectURL(url);
   toast('exported');
 });
-
 document.getElementById('m-import').addEventListener('click', () => {
   menu.classList.remove('open');
   document.getElementById('import-file').click();
@@ -1717,7 +1906,8 @@ document.getElementById('import-file').addEventListener('change', async e => {
     const incoming = JSON.parse(text);
     if (!incoming.columns) throw new Error('not a todo export');
     pushHistory();
-    state = { ...DEFAULT_STATE, ...incoming };
+    state = { ...structuredClone(DEFAULT_STATE), ...incoming };
+    if (!state.view) state.view = { tx: 0, ty: 0, scale: 1 };
     save();
     render();
     toast('imported');
@@ -1726,12 +1916,9 @@ document.getElementById('import-file').addEventListener('change', async e => {
   }
   e.target.value = '';
 });
-
-document.getElementById('m-undo').addEventListener('click', () => {
-  menu.classList.remove('open');
-  undo();
-});
-
+document.getElementById('m-undo').addEventListener('click', () => { menu.classList.remove('open'); undo(); });
+document.getElementById('m-fit').addEventListener('click', () => { menu.classList.remove('open'); fitAll(); });
+document.getElementById('m-reset').addEventListener('click', () => { menu.classList.remove('open'); resetView(); });
 document.getElementById('m-clear').addEventListener('click', () => {
   menu.classList.remove('open');
   if (!confirm('clear all columns? (you can undo)')) return;
@@ -1766,20 +1953,31 @@ hEnd.addEventListener('change', () => {
 // ───────────── keyboard ─────────────
 window.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-    if (document.activeElement && document.activeElement.matches('[contenteditable="true"], input, textarea')) {
-      // let native undo work in editable fields
-      return;
-    }
+    if (inEditable()) return;
     e.preventDefault();
     undo();
+  }
+  if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
+    e.preventDefault();
+    const r = main.getBoundingClientRect();
+    setZoom(state.view.scale * 1.2, r.left + r.width/2, r.top + r.height/2);
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === '-') {
+    e.preventDefault();
+    const r = main.getBoundingClientRect();
+    setZoom(state.view.scale / 1.2, r.left + r.width/2, r.top + r.height/2);
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === '0') {
+    e.preventDefault();
+    fitAll();
   }
   if (e.key === 'Escape') {
     deselectBlock();
     closeAllPopovers();
-    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    if (inEditable() && document.activeElement.blur) document.activeElement.blur();
   }
   if (selectedBlock && (e.key === 'Backspace' || e.key === 'Delete')) {
-    if (document.activeElement && document.activeElement.matches('[contenteditable="true"], input, textarea')) return;
+    if (inEditable()) return;
     e.preventDefault();
     const col = state.columns.find(c => c.id === selectedBlock.colId);
     if (col) {
@@ -1794,12 +1992,10 @@ window.addEventListener('keydown', e => {
 
 // ───────────── now line tick ─────────────
 setInterval(() => {
-  // re-render only day columns that show today
   const hasToday = state.columns.some(c => c.mode === 'day' && isToday(c.date));
   if (hasToday) render();
 }, 60_000);
 
-// scroll day columns to current time on first paint
 function scrollDayColumnsToNow() {
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -1814,6 +2010,93 @@ function scrollDayColumnsToNow() {
   });
 }
 
+// ───────────── minimap ─────────────
+function renderMinimap() {
+  const mc = document.getElementById('minimap-content');
+  if (!mc) return;
+  mc.innerHTML = '';
+  if (state.columns.length === 0) return;
+  // bbox of all columns
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const c of state.columns) {
+    const w = c.width || 320;
+    const el = world.querySelector(`[data-col-id="${c.id}"]`);
+    const h = el ? el.getBoundingClientRect().height / state.view.scale : 400;
+    minX = Math.min(minX, c.x);
+    minY = Math.min(minY, c.y);
+    maxX = Math.max(maxX, c.x + w);
+    maxY = Math.max(maxY, c.y + h);
+  }
+  // include current viewport in bbox so the view rect always stays inside
+  const r = main.getBoundingClientRect();
+  const vw = r.width / state.view.scale;
+  const vh = r.height / state.view.scale;
+  const vx = -state.view.tx / state.view.scale;
+  const vy = -state.view.ty / state.view.scale;
+  minX = Math.min(minX, vx); minY = Math.min(minY, vy);
+  maxX = Math.max(maxX, vx + vw); maxY = Math.max(maxY, vy + vh);
+
+  const pad = 40;
+  const bw = maxX - minX + pad * 2;
+  const bh = maxY - minY + pad * 2;
+  const mr = mc.getBoundingClientRect();
+  const s = Math.min(mr.width / bw, mr.height / bh);
+  const ox = -minX + pad;
+  const oy = -minY + pad;
+
+  for (const c of state.columns) {
+    const el = world.querySelector(`[data-col-id="${c.id}"]`);
+    const h = el ? el.getBoundingClientRect().height / state.view.scale : 400;
+    const w = c.width || 320;
+    const m = document.createElement('div');
+    m.className = 'minimap-block';
+    m.style.left = ((c.x + ox) * s) + 'px';
+    m.style.top  = ((c.y + oy) * s) + 'px';
+    m.style.width  = (w * s) + 'px';
+    m.style.height = (h * s) + 'px';
+    m.style.background = c.mode === 'day' ? 'var(--c-dustyblue)' : 'var(--ink-soft)';
+    m.style.opacity = '0.6';
+    mc.appendChild(m);
+  }
+  const view = document.createElement('div');
+  view.className = 'minimap-view';
+  view.style.left = ((vx + ox) * s) + 'px';
+  view.style.top  = ((vy + oy) * s) + 'px';
+  view.style.width  = (vw * s) + 'px';
+  view.style.height = (vh * s) + 'px';
+  mc.appendChild(view);
+}
+
+// click minimap to teleport
+document.getElementById('minimap').addEventListener('click', e => {
+  const mr = document.getElementById('minimap-content').getBoundingClientRect();
+  const fx = (e.clientX - mr.left) / mr.width;
+  const fy = (e.clientY - mr.top)  / mr.height;
+  if (state.columns.length === 0) return;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const c of state.columns) {
+    const w = c.width || 320;
+    const el = world.querySelector(`[data-col-id="${c.id}"]`);
+    const h = el ? el.getBoundingClientRect().height / state.view.scale : 400;
+    minX = Math.min(minX, c.x); minY = Math.min(minY, c.y);
+    maxX = Math.max(maxX, c.x + w); maxY = Math.max(maxY, c.y + h);
+  }
+  const r = main.getBoundingClientRect();
+  const vw = r.width / state.view.scale;
+  const vh = r.height / state.view.scale;
+  const vx = -state.view.tx / state.view.scale;
+  const vy = -state.view.ty / state.view.scale;
+  minX = Math.min(minX, vx); minY = Math.min(minY, vy);
+  maxX = Math.max(maxX, vx + vw); maxY = Math.max(maxY, vy + vh);
+  const pad = 40;
+  const wx = (minX - pad) + fx * (maxX - minX + pad * 2);
+  const wy = (minY - pad) + fy * (maxY - minY + pad * 2);
+  state.view.tx = r.width / 2 - wx * state.view.scale;
+  state.view.ty = r.height / 2 - wy * state.view.scale;
+  applyTransform();
+  save();
+});
+
 // ───────────── seed if empty ─────────────
 if (state.columns.length === 0) {
   state.columns = [
@@ -1821,12 +2104,13 @@ if (state.columns.length === 0) {
       id: uid(),
       title: 'today',
       mode: 'list',
+      x: 60, y: 40,
       items: [
-        { id: uid(), text: 'open the canvas, see if it sings', done: false, color: '#9bb39a' },
-        { id: uid(), text: 'edit a column title — try this one', done: false, color: null },
-        { id: uid(), text: 'switch this column to day, then back', done: false, color: null },
-        { id: uid(), text: 'click the ⋯ menu — try export/import', done: false, color: null },
-        { id: uid(), text: 'undo with ⌘z', done: false, color: null },
+        { id: uid(), text: 'space + drag to pan the canvas', done: false, color: '#9bb39a' },
+        { id: uid(), text: '⌘ + scroll (or pinch) to zoom', done: false, color: null },
+        { id: uid(), text: 'drag a column header to move it', done: false, color: null },
+        { id: uid(), text: '⌘0 to fit everything in view', done: false, color: null },
+        { id: uid(), text: '⌘z to undo', done: false, color: null },
       ],
       blocks: [],
       date: isoDateToday(),
@@ -1835,6 +2119,7 @@ if (state.columns.length === 0) {
       id: uid(),
       title: 'today / hours',
       mode: 'day',
+      x: 420, y: 40,
       items: [],
       blocks: [
         { id: uid(), startMin: 9 * 60,        endMin: 10 * 60 + 30, label: 'morning making', note: '', color: '#c8a973' },
@@ -1844,6 +2129,18 @@ if (state.columns.length === 0) {
       ],
       date: isoDateToday(),
     },
+    {
+      id: uid(),
+      title: 'someday',
+      mode: 'list',
+      x: 780, y: 40,
+      items: [
+        { id: uid(), text: 'drop columns anywhere — this is a canvas now', done: false, color: '#a08099' },
+        { id: uid(), text: 'cluster by project, sketch by week, whatever', done: false, color: null },
+      ],
+      blocks: [],
+      date: isoDateToday(),
+    },
   ];
   save();
 }
@@ -1851,10 +2148,9 @@ if (state.columns.length === 0) {
 // ───────────── go ─────────────
 render();
 
-window.addEventListener('scroll', closePalette, true);
 window.addEventListener('resize', () => {
   closePalette();
-  if (selectedBlock) renderToolbarFor(selectedBlock);
+  applyTransform();
 });
 </script>
 </body>
