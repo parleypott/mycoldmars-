@@ -345,10 +345,12 @@
       <!-- Toolbar -->
       <div class="lib-toolbar">
         <div class="lib-toolbar-left">
-          <button id="btn-new-project" class="lib-tool-btn" title="New folder">+ Folder</button>
+          <button id="btn-new-project" class="lib-tool-btn" title="New folder (N)">+ Folder</button>
+          <button id="btn-new-upload" class="lib-tool-btn" title="Upload a file">+ Upload</button>
         </div>
         <div class="lib-toolbar-right">
-          <input id="library-search" class="lib-search" type="text" placeholder="Search...">
+          <input id="library-search" class="lib-search" type="text" placeholder="Search…  (⌘F)">
+          <span class="lib-toolbar-hint">⇧-click to range select · ⌘-click to multi-select · right-click for menu</span>
         </div>
       </div>
 
@@ -362,7 +364,13 @@
 
       <!-- Rows rendered by JS -->
       <div id="library-list" class="lib-table-body"></div>
-      <div id="library-empty"><p>No saved transcripts yet.</p></div>
+      <div id="library-empty" class="hidden">
+        <div class="lib-empty-state">
+          <div class="lib-empty-icon">📁</div>
+          <h3 class="lib-empty-title">Nothing here yet.</h3>
+          <p class="lib-empty-sub">Drop a file anywhere on the library to start a new transcript, or hit <kbd>N</kbd> to create a folder.</p>
+        </div>
+      </div>
     </section>
 
   </div>

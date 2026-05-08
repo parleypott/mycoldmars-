@@ -165,6 +165,17 @@ export async function deleteProject(id) {
   if (error) throw normalizeError(error, 'deleteProject');
 }
 
+export async function updateProject(id, fields) {
+  const row = {};
+  if (fields.name !== undefined) row.name = fields.name;
+  if (fields.description !== undefined) row.description = fields.description;
+  const { data, error } = await db().from('projects')
+    .update(row).eq('id', id)
+    .select().single();
+  if (error) throw normalizeError(error, 'updateProject');
+  return data;
+}
+
 // ============================================================
 // Tags
 // ============================================================

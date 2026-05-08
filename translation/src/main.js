@@ -398,6 +398,10 @@ function renderLibrary(transcripts, projectsList, deletedTranscripts) {
   libraryList.innerHTML = rows.join('');
   wireLibraryEvents();
   wireLibraryDragAndDrop();
+
+  // Toggle empty-state placeholder based on whether anything renders.
+  const emptyEl = document.getElementById('library-empty');
+  if (emptyEl) emptyEl.classList.toggle('hidden', rows.length > 0);
 }
 
 function renderFolderRow(proj, count) {
@@ -471,13 +475,68 @@ function sortTranscripts(items) {
   });
 }
 
+// Track last-clicked row id for shift-click range selection.
+let libraryLastClickedId = null;
+
+function getVisibleFileRows() {
+  return Array.from(libraryList.querySelectorAll('.lib-row--file'))
+    .filter(r => r.style.display !== 'none');
+}
+
 function wireLibraryEvents() {
-  // Click file rows to load
+  // ── File row click — opens the transcript by default. Cmd/Ctrl-click
+  //    toggles selection without opening. Shift-click extends a range
+  //    selection from the last clicked row. Like Drive / Finder. ──
   libraryList.querySelectorAll('.lib-row--file').forEach(row => {
     row.addEventListener('click', (e) => {
-      // Don't load if clicking delete, checkbox, or name (for inline rename)
-      if (e.target.closest('.lib-row-delete') || e.target.closest('.lib-name') || e.target.closest('.lib-row-check')) return;
-      handleLoad(row.dataset.id);
+      if (e.target.closest('.lib-row-delete') ||
+          e.target.closest('.lib-name') ||
+          e.target.closest('.lib-row-check')) return;
+
+      const id = row.dataset.id;
+
+      // Cmd/Ctrl-click: toggle this row's selection (don't open).
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        toggleRowSelection(id, !librarySelected.has(id));
+        libraryLastClickedId = id;
+        return;
+      }
+
+      // Shift-click: extend range from last clicked.
+      if (e.shiftKey) {
+        e.preventDefault();
+        applyRangeSelection(libraryLastClickedId || id, id);
+        return;
+      }
+
+      // Plain click: open. Set as last-clicked for subsequent shift-clicks.
+      libraryLastClickedId = id;
+      handleLoad(id);
+    });
+
+    // Right-click → context menu. We attach to file rows (folders get
+    // their own menu in the wiring further down).
+    row.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const id = row.dataset.id;
+      // If the row isn't already part of the selection, treat the
+      // right-click as a single-row action and clear other selections.
+      if (!librarySelected.has(id)) {
+        clearLibrarySelection();
+        toggleRowSelection(id, true);
+      }
+      openFileContextMenu(e.clientX, e.clientY);
+    });
+  });
+
+  // Folder row right-click → folder context menu.
+  libraryList.querySelectorAll('.lib-row--folder').forEach(row => {
+    row.addEventListener('contextmenu', (e) => {
+      // Skip the new-folder edit row.
+      if (row.classList.contains('lib-row--new-folder')) return;
+      e.preventDefault();
+      openFolderContextMenu(e.clientX, e.clientY, row.dataset.projectId);
     });
   });
 
@@ -486,12 +545,8 @@ function wireLibraryEvents() {
     box.addEventListener('click', (e) => e.stopPropagation());
     box.addEventListener('change', (e) => {
       const id = e.target.dataset.id;
-      if (e.target.checked) librarySelected.add(id);
-      else librarySelected.delete(id);
-      updateBulkActionBar();
-      // Just toggle the row class without re-rendering everything.
-      const row = e.target.closest('.lib-row--file');
-      if (row) row.classList.toggle('lib-row--checked', e.target.checked);
+      toggleRowSelection(id, e.target.checked);
+      libraryLastClickedId = id;
     });
   });
   updateBulkActionBar();
@@ -758,6 +813,323 @@ function wireLibraryDragAndDrop() {
         showError(`Move to root failed: ${err?.message || 'Unknown error'}`);
       }
     });
+  }
+}
+
+// ── Selection helpers ────────────────────────────────────────────────
+function toggleRowSelection(id, selected) {
+  if (selected) librarySelected.add(id);
+  else librarySelected.delete(id);
+  // Update DOM without re-rendering.
+  const row = libraryList.querySelector(`.lib-row--file[data-id="${id}"]`);
+  if (row) {
+    row.classList.toggle('lib-row--checked', selected);
+    const check = row.querySelector('.lib-row-check');
+    if (check) check.checked = selected;
+  }
+  updateBulkActionBar();
+}
+
+function clearLibrarySelection() {
+  librarySelected.clear();
+  libraryList.querySelectorAll('.lib-row--checked').forEach(r => r.classList.remove('lib-row--checked'));
+  libraryList.querySelectorAll('.lib-row-check').forEach(b => { b.checked = false; });
+  updateBulkActionBar();
+}
+
+function applyRangeSelection(fromId, toId) {
+  const rows = getVisibleFileRows();
+  const ids = rows.map(r => r.dataset.id);
+  const a = ids.indexOf(fromId);
+  const b = ids.indexOf(toId);
+  if (a === -1 || b === -1) {
+    toggleRowSelection(toId, true);
+    return;
+  }
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  for (let i = lo; i <= hi; i++) toggleRowSelection(ids[i], true);
+}
+
+// ── Context menus ────────────────────────────────────────────────────
+let openContextMenuEl = null;
+function closeContextMenu() {
+  if (openContextMenuEl && openContextMenuEl.parentNode) {
+    openContextMenuEl.parentNode.removeChild(openContextMenuEl);
+  }
+  openContextMenuEl = null;
+}
+// Universal close-on-anything-else.
+document.addEventListener('mousedown', (e) => {
+  if (!openContextMenuEl) return;
+  if (!e.target.closest('.context-menu')) closeContextMenu();
+}, true);
+document.addEventListener('keydown', (e) => {
+  if (openContextMenuEl && e.key === 'Escape') closeContextMenu();
+});
+window.addEventListener('blur', closeContextMenu);
+
+function openContextMenu(x, y, items) {
+  closeContextMenu();
+  const menu = document.createElement('div');
+  menu.className = 'context-menu';
+  for (const item of items) {
+    if (item.separator) {
+      const sep = document.createElement('div');
+      sep.className = 'context-menu-sep';
+      menu.appendChild(sep);
+      continue;
+    }
+    const btn = document.createElement('button');
+    btn.className = 'context-menu-item' + (item.danger ? ' context-menu-item--danger' : '');
+    btn.disabled = !!item.disabled;
+    btn.innerHTML = `
+      <span class="context-menu-icon">${item.icon || ''}</span>
+      <span>${esc(item.label)}</span>
+      ${item.shortcut ? `<span class="context-menu-shortcut">${esc(item.shortcut)}</span>` : ''}
+    `;
+    btn.addEventListener('click', () => {
+      closeContextMenu();
+      try { item.onClick && item.onClick(); } catch (err) { console.error('[ctx-menu]', err); }
+    });
+    menu.appendChild(btn);
+  }
+  document.body.appendChild(menu);
+  // Position with viewport clamping.
+  const rect = menu.getBoundingClientRect();
+  const px = Math.min(x, window.innerWidth - rect.width - 8);
+  const py = Math.min(y, window.innerHeight - rect.height - 8);
+  menu.style.left = `${Math.max(8, px)}px`;
+  menu.style.top = `${Math.max(8, py)}px`;
+  openContextMenuEl = menu;
+}
+
+function openFileContextMenu(x, y) {
+  const ids = Array.from(librarySelected);
+  const single = ids.length === 1;
+  const focusId = ids[0];
+  openContextMenu(x, y, [
+    { label: single ? 'Open' : `Open (${ids.length})`, icon: '↗', shortcut: 'Enter',
+      onClick: () => single && handleLoad(focusId) },
+    { separator: true },
+    { label: 'Rename', icon: '✎', shortcut: 'F2', disabled: !single,
+      onClick: () => {
+        const nameEl = libraryList.querySelector(`.lib-row--file[data-id="${focusId}"] .lib-name`);
+        if (nameEl) startInlineRename(nameEl);
+      } },
+    { label: `Move to…`, icon: '⇨',
+      onClick: () => openMoveToDialog(ids) },
+    { separator: true },
+    { label: ids.length > 1 ? `Delete ${ids.length} transcripts` : 'Delete', icon: '🗑', danger: true, shortcut: 'Del',
+      onClick: () => bulkDeleteSelected() },
+  ]);
+}
+
+function openFolderContextMenu(x, y, projectId) {
+  const proj = projects.find(p => p.id === projectId);
+  if (!proj) return;
+  openContextMenu(x, y, [
+    { label: 'Open folder', icon: '📁',
+      onClick: () => { libraryCurrentProject = projectId; fetchLibrary(); } },
+    { separator: true },
+    { label: 'Rename folder', icon: '✎',
+      onClick: () => promptRenameFolder(projectId) },
+    { separator: true },
+    { label: 'Delete folder', icon: '🗑', danger: true,
+      onClick: async () => {
+        if (!confirm(`Delete folder "${proj.name}"? Transcripts inside it will move to Unsorted (they aren't deleted).`)) return;
+        try {
+          await deleteProject(projectId);
+          showSuccess(`Folder "${proj.name}" deleted`);
+          invalidateLibraryCache();
+          fetchLibrary();
+        } catch (err) {
+          showErrorToast(`Couldn't delete folder: ${err?.message || 'Unknown error'}`);
+        }
+      } },
+  ]);
+}
+
+async function promptRenameFolder(projectId) {
+  const proj = projects.find(p => p.id === projectId);
+  if (!proj) return;
+  const next = window.prompt(`Rename folder "${proj.name}":`, proj.name);
+  if (next == null) return;
+  const trimmed = next.trim();
+  if (!trimmed || trimmed === proj.name) return;
+  try {
+    // Inline import — keep DB layer stable.
+    const { updateProject } = await import('./db.js');
+    await updateProject(projectId, { name: trimmed });
+    proj.name = trimmed;
+    invalidateLibraryCache();
+    fetchLibrary();
+    showSuccess(`Renamed to "${trimmed}"`);
+  } catch (err) {
+    console.error('rename folder failed:', err);
+    showErrorToast(`Couldn't rename folder: ${err?.message || 'Unknown error'}`);
+  }
+}
+
+async function bulkDeleteSelected() {
+  const ids = Array.from(librarySelected);
+  if (ids.length === 0) return;
+  if (!confirm(`Delete ${ids.length} transcript${ids.length === 1 ? '' : 's'}? You can restore from Recently Deleted.`)) return;
+  try {
+    await Promise.all(ids.map(id => deleteTranscript(id)));
+    showSuccess(`Deleted ${ids.length} transcript${ids.length === 1 ? '' : 's'}`, {
+      action: 'Undo',
+      onAction: async () => {
+        try {
+          await Promise.all(ids.map(id => restoreTranscript(id)));
+          invalidateLibraryCache();
+          fetchLibrary();
+          showSuccess('Restored');
+        } catch (err) {
+          showErrorToast(`Restore failed: ${err?.message || 'Unknown error'}`);
+        }
+      },
+    });
+    librarySelected.clear();
+    invalidateLibraryCache();
+    await fetchLibrary();
+  } catch (err) {
+    showErrorToast(`Delete failed: ${err?.message || 'Unknown error'}`);
+  }
+}
+
+// ── Move-to dialog ───────────────────────────────────────────────────
+function openMoveToDialog(ids) {
+  if (!ids || ids.length === 0) return;
+  closeContextMenu();
+  document.getElementById('move-to-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'move-to-modal';
+  modal.className = 'np-modal';
+  modal.innerHTML = `
+    <div class="np-modal-backdrop" data-close></div>
+    <div class="np-modal-card move-to-card">
+      <div class="np-modal-header">
+        <h3 class="np-modal-title">Move ${ids.length} transcript${ids.length === 1 ? '' : 's'} to…</h3>
+        <button class="np-modal-close" data-close aria-label="Close">×</button>
+      </div>
+      <input type="text" class="move-to-search" placeholder="Search folders…" autofocus>
+      <div class="move-to-list" data-list></div>
+      <div class="move-to-new">
+        <input type="text" data-new-folder placeholder="Or create a new folder…">
+        <button class="np-button" data-create-folder>+ Create</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const listEl = modal.querySelector('[data-list]');
+  const searchEl = modal.querySelector('.move-to-search');
+
+  function dismiss() { modal.remove(); }
+  modal.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', dismiss));
+  modal.querySelector('[data-close]')?.addEventListener('click', dismiss);
+
+  function paint(filter = '') {
+    const f = filter.trim().toLowerCase();
+    const all = [
+      { id: null, name: 'Unsorted' },
+      ...projects,
+    ];
+    // Detect each transcript's CURRENT project so we can mark it.
+    const currentProjectIds = new Set(ids.map(id => {
+      const t = (libraryCache?.transcripts || []).find(x => x.id === id);
+      return t?.project_id ?? null;
+    }));
+    const filtered = all.filter(p => !f || (p.name || '').toLowerCase().includes(f));
+    if (filtered.length === 0) {
+      listEl.innerHTML = `<div class="move-to-empty">No folders match "${esc(filter)}"</div>`;
+      return;
+    }
+    listEl.innerHTML = filtered.map(p => {
+      const allCurrent = currentProjectIds.size === 1 && currentProjectIds.has(p.id);
+      return `
+        <button class="move-to-item ${allCurrent ? 'move-to-item--current' : ''}"
+                data-target="${p.id == null ? '__unsorted' : esc(p.id)}"
+                ${allCurrent ? 'disabled' : ''}>
+          <span>${p.id == null ? '🗂' : '📁'}</span>
+          <span>${esc(p.name)}</span>
+          ${allCurrent ? '<span style="margin-left:auto;font-size:11px;color:var(--np-sepia);">already here</span>' : ''}
+        </button>
+      `;
+    }).join('');
+    listEl.querySelectorAll('.move-to-item').forEach(btn => {
+      if (btn.disabled) return;
+      btn.addEventListener('click', async () => {
+        const target = btn.dataset.target;
+        const projectId = target === '__unsorted' ? null : target;
+        await applyMove(ids, projectId);
+        dismiss();
+      });
+    });
+  }
+  paint('');
+  searchEl.addEventListener('input', () => paint(searchEl.value));
+
+  // Create-new-folder inline.
+  const newFolderInput = modal.querySelector('[data-new-folder]');
+  const createBtn = modal.querySelector('[data-create-folder]');
+  async function commitNewFolder() {
+    const name = newFolderInput.value.trim();
+    if (!name) return;
+    try {
+      const proj = await createProject({ name });
+      projects.push(proj);
+      await applyMove(ids, proj.id);
+      dismiss();
+    } catch (err) {
+      showErrorToast(`Couldn't create folder: ${err?.message || 'Unknown error'}`);
+    }
+  }
+  createBtn.addEventListener('click', commitNewFolder);
+  newFolderInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commitNewFolder(); }
+  });
+}
+
+async function applyMove(ids, projectId) {
+  // Optimistic: update the local cache first so the row appears in the new
+  // folder immediately; revert on failure.
+  const prior = new Map();
+  if (libraryCache?.transcripts) {
+    for (const t of libraryCache.transcripts) {
+      if (ids.includes(t.id)) {
+        prior.set(t.id, t.project_id ?? null);
+        t.project_id = projectId;
+      }
+    }
+  }
+  try {
+    await Promise.all(ids.map(id => updateTranscript(id, { projectId })));
+    invalidateLibraryCache();
+    await fetchLibrary();
+    librarySelected.clear();
+    const folderName = projectId ? (projects.find(p => p.id === projectId)?.name || 'folder') : 'Unsorted';
+    showSuccess(`Moved ${ids.length} to ${folderName}`, {
+      action: 'Undo',
+      onAction: async () => {
+        try {
+          await Promise.all([...prior.entries()].map(([id, pid]) => updateTranscript(id, { projectId: pid })));
+          invalidateLibraryCache();
+          fetchLibrary();
+          showSuccess('Move undone');
+        } catch (err) {
+          showErrorToast(`Undo failed: ${err?.message || 'Unknown error'}`);
+        }
+      },
+    });
+  } catch (err) {
+    // Revert local cache.
+    if (libraryCache?.transcripts) {
+      for (const t of libraryCache.transcripts) {
+        if (prior.has(t.id)) t.project_id = prior.get(t.id);
+      }
+    }
+    showErrorToast(`Move failed: ${err?.message || 'Unknown error'}`);
   }
 }
 
@@ -1581,6 +1953,62 @@ window.addEventListener('keydown', (e) => {
 
 // ── Library button ──
 btnLibrary.addEventListener('click', showLibrary);
+
+// "+ Upload" toolbar button — exits to the upload step where the drop
+// zone + file picker live. Faster than navigating via the home button.
+$('#btn-new-upload')?.addEventListener('click', () => {
+  goToStep(1);
+});
+
+// ── Library-scoped keyboard shortcuts (only fire when library is showing) ──
+window.addEventListener('keydown', (e) => {
+  if (!libraryShowing) return;
+  // Ignore when typing in inputs / textareas / contentEditable.
+  const a = document.activeElement;
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) return;
+
+  // Cmd/Ctrl-A: select all visible files.
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
+    e.preventDefault();
+    getVisibleFileRows().forEach(row => toggleRowSelection(row.dataset.id, true));
+    return;
+  }
+
+  // Escape: clear selection.
+  if (e.key === 'Escape' && librarySelected.size > 0) {
+    e.preventDefault();
+    clearLibrarySelection();
+    return;
+  }
+
+  // Delete / Backspace: delete selection.
+  if ((e.key === 'Delete' || e.key === 'Backspace') && librarySelected.size > 0) {
+    e.preventDefault();
+    bulkDeleteSelected();
+    return;
+  }
+
+  // Cmd/Ctrl-/ or ⌘F: focus search.
+  if ((e.metaKey || e.ctrlKey) && (e.key === '/' || e.key === 'f' || e.key === 'F')) {
+    e.preventDefault();
+    document.getElementById('library-search')?.focus();
+    return;
+  }
+
+  // M: open Move-to dialog for the current selection.
+  if (e.key === 'm' && librarySelected.size > 0 && !e.metaKey && !e.ctrlKey) {
+    e.preventDefault();
+    openMoveToDialog(Array.from(librarySelected));
+    return;
+  }
+
+  // N: new folder.
+  if (e.key === 'n' && !e.metaKey && !e.ctrlKey) {
+    e.preventDefault();
+    btnNewProject?.click();
+    return;
+  }
+});
 
 // ── Editorial focus — save on blur ──
 $('#editorial-focus')?.addEventListener('blur', () => debouncedAutoSave());
@@ -4280,8 +4708,15 @@ function openCopilot(selection) {
   }
 }
 
+// Legacy in-place error (used by step-1 upload errors). Kept for that one
+// callsite; everything else uses the toast system below.
 function showError(msg, parentSel) {
   const parent = parentSel ? $(parentSel) : $('#step-1');
+  // If we're not on step-1, use a toast instead — the inline error would
+  // never be seen otherwise.
+  if (!parent || (!parentSel && currentStep !== 1)) {
+    return showToast(msg, 'error');
+  }
   const existing = parent.querySelector('.error-msg');
   if (existing) existing.remove();
 
@@ -4292,6 +4727,75 @@ function showError(msg, parentSel) {
 
   setTimeout(() => div.remove(), 8000);
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Toast notifications — replaces showError's prepend pattern. Stacks in
+// the bottom-right corner. Variants: error (red), success (green), info.
+// Click to dismiss; auto-dismiss after a kind-specific delay.
+// ──────────────────────────────────────────────────────────────────────
+function ensureToastHost() {
+  let host = document.getElementById('toast-host');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'toast-host';
+    host.className = 'toast-host';
+    document.body.appendChild(host);
+  }
+  return host;
+}
+
+function showToast(message, kind = 'info', opts = {}) {
+  const host = ensureToastHost();
+  const el = document.createElement('div');
+  el.className = `toast toast--${kind}`;
+  el.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+
+  const text = document.createElement('div');
+  text.className = 'toast-msg';
+  text.textContent = String(message);
+  el.appendChild(text);
+
+  if (opts.action && opts.onAction) {
+    const btn = document.createElement('button');
+    btn.className = 'toast-action';
+    btn.textContent = opts.action;
+    btn.addEventListener('click', () => {
+      try { opts.onAction(); } finally { dismiss(); }
+    });
+    el.appendChild(btn);
+  }
+
+  const close = document.createElement('button');
+  close.className = 'toast-close';
+  close.setAttribute('aria-label', 'Dismiss');
+  close.innerHTML = '&times;';
+  close.addEventListener('click', dismiss);
+  el.appendChild(close);
+
+  host.appendChild(el);
+
+  // Trigger enter animation
+  requestAnimationFrame(() => el.classList.add('toast--in'));
+
+  const timeoutMs = opts.duration ?? (kind === 'error' ? 7000 : 3500);
+  let timer = setTimeout(dismiss, timeoutMs);
+
+  function dismiss() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    if (!el.parentNode) return;
+    el.classList.remove('toast--in');
+    el.classList.add('toast--out');
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 220);
+  }
+
+  return { dismiss };
+}
+
+const showSuccess = (msg, opts) => showToast(msg, 'success', opts);
+const showInfo    = (msg, opts) => showToast(msg, 'info', opts);
+// Toast-only error (always corner toast, never inline). Use this from
+// non-step-1 contexts where prepending to step-1 makes no sense.
+const showErrorToast = (msg, opts) => showToast(msg, 'error', opts);
 
 // ── Remember last transcript for auto-reload ──
 function rememberLastTranscript(id) {
