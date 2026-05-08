@@ -61,8 +61,9 @@ async function headers() {
  * Returns the raw JSON with body.content[], headers, footers, tables, etc.
  */
 export async function fetchDocStructured(docId) {
-  const url = `${DOCS_BASE}/documents/${docId}`;
-  console.log(`[google] fetching structured doc ${docId}...`);
+  // Use includeTabsContent=true to get ALL tabs, not just the default body
+  const url = `${DOCS_BASE}/documents/${docId}?includeTabsContent=true`;
+  console.log(`[google] fetching structured doc ${docId} (all tabs)...`);
 
   const res = await fetch(url, { headers: await headers() });
   if (!res.ok) {
@@ -71,7 +72,24 @@ export async function fetchDocStructured(docId) {
   }
 
   const doc = await res.json();
-  console.log(`[google] fetched doc "${doc.title}" (${doc.body?.content?.length || 0} elements)`);
+  const tabs = doc.tabs || [];
+  const tabCount = tabs.length;
+
+  // Merge all tab content into body.content for backward compatibility,
+  // but also expose the full tabs structure
+  if (tabCount > 0 && !doc.body?.content?.length) {
+    // Build merged body from all tabs
+    const mergedContent = [];
+    for (const tab of tabs) {
+      const tabBody = tab.documentTab?.body?.content || [];
+      if (tabBody.length > 0) mergedContent.push(...tabBody);
+    }
+    doc.body = doc.body || {};
+    doc.body.content = mergedContent;
+  }
+
+  const elementCount = doc.body?.content?.length || 0;
+  console.log(`[google] fetched doc "${doc.title}" (${tabCount} tabs, ${elementCount} elements)`);
   return doc;
 }
 

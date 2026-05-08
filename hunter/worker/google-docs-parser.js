@@ -14,22 +14,50 @@
  */
 export function parseDocStructured(docJson) {
   const elements = [];
-  const body = docJson.body?.content || [];
+  const tabs = docJson.tabs || [];
 
-  for (const element of body) {
-    if (element.paragraph) {
-      const parsed = parseParagraph(element.paragraph);
-      if (parsed) elements.push(parsed);
-    } else if (element.table) {
-      const beats = extractTableBeats(element.table);
-      elements.push(...beats);
-    } else if (element.sectionBreak) {
-      elements.push({ type: 'section_break' });
+  if (tabs.length > 0) {
+    // Multi-tab document — parse each tab with a tab heading
+    for (const tab of tabs) {
+      const tabTitle = tab.tabProperties?.title || 'Untitled Tab';
+      const tabBody = tab.documentTab?.body?.content || [];
+
+      if (tabBody.length === 0) continue;
+
+      // Add a tab separator heading
+      elements.push({ type: 'heading', level: 1, text: `[TAB: ${tabTitle}]`, runs: [], isTab: true });
+
+      for (const element of tabBody) {
+        if (element.paragraph) {
+          const parsed = parseParagraph(element.paragraph);
+          if (parsed) elements.push(parsed);
+        } else if (element.table) {
+          const beats = extractTableBeats(element.table);
+          elements.push(...beats);
+        } else if (element.sectionBreak) {
+          elements.push({ type: 'section_break' });
+        }
+      }
+    }
+  } else {
+    // Single-tab / legacy body
+    const body = docJson.body?.content || [];
+    for (const element of body) {
+      if (element.paragraph) {
+        const parsed = parseParagraph(element.paragraph);
+        if (parsed) elements.push(parsed);
+      } else if (element.table) {
+        const beats = extractTableBeats(element.table);
+        elements.push(...beats);
+      } else if (element.sectionBreak) {
+        elements.push({ type: 'section_break' });
+      }
     }
   }
 
   const colorProfile = buildColorProfile(elements);
   const stats = computeStats(elements);
+  stats.tabCount = tabs.length || 1;
 
   return {
     docId: docJson.documentId,
