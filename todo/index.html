@@ -456,7 +456,7 @@
       top: 0;
       right: 0;
       bottom: 0;
-      cursor: crosshair;
+      cursor: default;
     }
 
     .now-line {
@@ -477,65 +477,70 @@
       box-shadow: 0 0 0 3px rgba(211,106,79,0.18);
     }
 
+    /* Apple Calendar–style blocks: tinted bg, saturated left bar, dark text in same hue */
     .block {
+      --bc: #8aa2b8;
       position: absolute;
-      border-radius: 5px;
-      padding: 5px 8px;
+      border-radius: 4px;
+      padding: 3px 6px 3px 8px;
       font-size: 12px;
-      line-height: 1.25;
-      color: rgba(255,255,255,0.97);
-      box-shadow: 0 1px 2px rgba(0,0,0,0.12), 0 4px 12px -6px rgba(60,40,20,0.3);
-      cursor: grab;
+      line-height: 1.3;
+      background: color-mix(in srgb, var(--bc) 22%, var(--card));
+      color: color-mix(in srgb, var(--bc) 60%, #1a1612);
+      border-left: 3px solid var(--bc);
+      box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--bc) 30%, transparent);
+      cursor: default;
       overflow: hidden;
       display: flex; flex-direction: column; gap: 1px;
-      transition: box-shadow 0.12s ease;
+      transition: background 0.1s ease;
       min-height: 18px;
     }
-    .block:hover { box-shadow: 0 1px 2px rgba(0,0,0,0.18), 0 8px 18px -8px rgba(60,40,20,0.4); }
-    .block.dragging { cursor: grabbing; opacity: 0.85; z-index: 50; }
+    .block:hover { background: color-mix(in srgb, var(--bc) 30%, var(--card)); }
+    .block.dragging { z-index: 50; }
     .block.selected {
-      box-shadow: 0 0 0 2px var(--ink), 0 1px 2px rgba(0,0,0,0.2), 0 8px 22px -8px rgba(60,40,20,0.45);
+      background: color-mix(in srgb, var(--bc) 30%, var(--card));
+      box-shadow: 0 0 0 1.5px var(--bc), 0 1px 0 rgba(0,0,0,0.04);
       z-index: 40;
     }
     .block.ghost {
-      cursor: crosshair;
-      opacity: 0.55;
       pointer-events: none;
-      border: 1px dashed rgba(255,255,255,0.6);
-    }
-    .block-time {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 10px;
-      letter-spacing: 0.06em;
       opacity: 0.85;
     }
     .block-label {
-      font-weight: 500;
+      font-weight: 600;
+      font-size: 12px;
       letter-spacing: -0.005em;
       outline: none;
       cursor: text;
       word-break: break-word;
+      color: color-mix(in srgb, var(--bc) 75%, #1a1612);
     }
-    .block-label:empty::before { content: 'untitled'; opacity: 0.7; }
+    .block-label:empty::before { content: 'untitled'; opacity: 0.55; font-weight: 500; }
+    .block-time {
+      font-size: 11px;
+      letter-spacing: 0;
+      opacity: 0.7;
+      font-weight: 400;
+    }
     .block-note {
       font-size: 11px;
-      opacity: 0.85;
+      opacity: 0.78;
       outline: none;
       cursor: text;
-      font-weight: 300;
+      font-weight: 400;
       word-break: break-word;
-      letter-spacing: 0.005em;
+      letter-spacing: 0;
       margin-top: 2px;
     }
     .block-note:empty { display: none; }
     .block-resize {
       position: absolute;
       left: 0; right: 0;
-      height: 6px;
+      height: 5px;
       cursor: ns-resize;
     }
-    .block-resize.top { top: -3px; }
-    .block-resize.bottom { bottom: -3px; }
+    .block-resize.top { top: -2px; }
+    .block-resize.bottom { bottom: -2px; }
 
     /* ───────────── selection toolbar (screen-fixed) ───────────── */
     .block-toolbar {
@@ -692,7 +697,7 @@
     <div class="world" id="world"></div>
   </main>
 
-  <div class="hint">space + drag to pan · ⌘ + scroll to zoom · drag header to move column · ⌘z to undo</div>
+  <div class="hint">double-click to create · drag to size · drag block to move · space + drag to pan · ⌘ + scroll to zoom</div>
   <div class="toast" id="toast"></div>
   <div class="minimap" id="minimap"><div class="minimap-content" id="minimap-content"></div></div>
   <input type="file" id="import-file" accept="application/json,.json" style="display:none">
@@ -1244,12 +1249,13 @@ function renderBlock(col, blk, laneInfo) {
   const lane = laneInfo ? laneInfo.lane : 0;
   const total = laneInfo ? laneInfo.total : 1;
   const widthPct = 100 / total;
-  el.style.left = `calc(${lane * widthPct}% + 4px)`;
-  el.style.width = `calc(${widthPct}% - 8px)`;
+  el.style.left = `calc(${lane * widthPct}% + 2px)`;
+  el.style.width = `calc(${widthPct}% - 4px)`;
+  el.style.setProperty('--bc', blk.color || COLORS[2].value);
 
   el.innerHTML = `
-    <div class="block-time">${minToTimeStr(blk.startMin)}–${minToTimeStr(blk.endMin)}</div>
     <div class="block-label" contenteditable="true" spellcheck="false">${escapeHtml(blk.label || '')}</div>
+    <div class="block-time">${minToTimeStr(blk.startMin)}–${minToTimeStr(blk.endMin)}</div>
     <div class="block-note" contenteditable="true" spellcheck="false">${escapeHtml(blk.note || '')}</div>
     <div class="block-resize top"></div>
     <div class="block-resize bottom"></div>
@@ -1499,6 +1505,7 @@ function attachItemReorder(itemEl, col, item) {
 }
 
 function attachBlockCreation(dayCanvas, col, startH) {
+  // Apple Calendar pattern: drag to create a sized block; double-click to create a 1-hour default; single click does nothing.
   dayCanvas.addEventListener('pointerdown', e => {
     if (e.target !== dayCanvas) return;
     if (e.button !== 0) return;
@@ -1508,21 +1515,30 @@ function attachBlockCreation(dayCanvas, col, startH) {
     const startMinAbs = startH * 60 + snap15(pxToMin(startY));
     let dragged = false;
     let endMinAbs = startMinAbs + 30;
-    pushHistory();
+    let historyPushed = false;
+    let ghost = null;
 
-    const ghost = document.createElement('div');
-    ghost.className = 'block ghost';
-    ghost.style.background = COLORS[0].value;
-    ghost.style.left = '4px';
-    ghost.style.right = '4px';
-    ghost.style.width = 'calc(100% - 8px)';
-    ghost.style.top = minToPx(startMinAbs - startH * 60) + 'px';
-    ghost.style.height = '14px';
-    ghost.innerHTML = `<div class="block-time">${minToTimeStr(startMinAbs)}–${minToTimeStr(endMinAbs)}</div><div class="block-label">new</div>`;
-    dayCanvas.appendChild(ghost);
+    const startGhost = () => {
+      historyPushed = true;
+      pushHistory();
+      ghost = document.createElement('div');
+      ghost.className = 'block ghost';
+      ghost.style.setProperty('--bc', COLORS[2].value);
+      ghost.style.left = '2px';
+      ghost.style.right = '2px';
+      ghost.style.width = 'calc(100% - 4px)';
+      ghost.style.top = minToPx(startMinAbs - startH * 60) + 'px';
+      ghost.style.height = '14px';
+      ghost.innerHTML = `<div class="block-label">new event</div><div class="block-time">${minToTimeStr(startMinAbs)}–${minToTimeStr(endMinAbs)}</div>`;
+      dayCanvas.appendChild(ghost);
+    };
 
     const onMove = ev => {
-      if (!dragged && Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) > 4) dragged = true;
+      if (!dragged && Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) > 4) {
+        dragged = true;
+        startGhost();
+      }
+      if (!dragged) return;
       const y = (ev.clientY - rect.top) / state.view.scale;
       const cur = startH * 60 + snap15(pxToMin(y));
       const a = Math.min(startMinAbs, cur);
@@ -1535,18 +1551,13 @@ function attachBlockCreation(dayCanvas, col, startH) {
     const onUp = ev => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
-      ghost.remove();
-      let a, b;
-      if (!dragged) {
-        a = startMinAbs;
-        b = startMinAbs + 30;
-      } else {
-        const y = (ev.clientY - rect.top) / state.view.scale;
-        const cur = startH * 60 + snap15(pxToMin(y));
-        a = Math.min(startMinAbs, cur);
-        b = Math.max(startMinAbs, cur);
-        if (b - a < 15) b = a + 15;
-      }
+      if (!dragged) return; // single click does nothing — Apple Cal feel
+      if (ghost) ghost.remove();
+      const y = (ev.clientY - rect.top) / state.view.scale;
+      const cur = startH * 60 + snap15(pxToMin(y));
+      let a = Math.min(startMinAbs, cur);
+      let b = Math.max(startMinAbs, cur);
+      if (b - a < 15) b = a + 15;
       const minB = state.hourStart * 60, maxB = state.hourEnd * 60;
       a = clamp(a, minB, maxB - 15);
       b = clamp(b, a + 15, maxB);
@@ -1569,6 +1580,35 @@ function attachBlockCreation(dayCanvas, col, startH) {
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+  });
+
+  dayCanvas.addEventListener('dblclick', e => {
+    if (e.target !== dayCanvas) return;
+    e.stopPropagation();
+    const rect = dayCanvas.getBoundingClientRect();
+    const y = (e.clientY - rect.top) / state.view.scale;
+    let a = startH * 60 + snap15(pxToMin(y));
+    let b = a + 60; // 1-hour default like Apple Cal
+    const minB = state.hourStart * 60, maxB = state.hourEnd * 60;
+    a = clamp(a, minB, maxB - 30);
+    b = Math.min(maxB, a + 60);
+    pushHistory();
+    const blk = {
+      id: uid(),
+      startMin: a,
+      endMin: b,
+      label: '',
+      note: '',
+      color: COLORS[Math.floor(Math.random() * 4)].value,
+    };
+    col.blocks.push(blk);
+    save();
+    render();
+    requestAnimationFrame(() => {
+      selectBlock(col.id, blk.id);
+      const lab = world.querySelector(`[data-block-id="${blk.id}"] .block-label`);
+      if (lab) { lab.focus(); placeCaretAtEnd(lab); }
+    });
   });
 }
 
