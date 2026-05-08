@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Roboto Mono', 'SF Mono', monospace;
+      font-size: 12px;
+      background: #0a0a0a;
+      color: #b0b0b0;
+      padding: 12px;
+      min-height: 100vh;
+    }
+    .header {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: #555;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .doc-title {
+      font-size: 13px;
+      color: #e0e0e0;
+      margin-bottom: 16px;
+      letter-spacing: 0.05em;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      color: #b0b0b0;
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      text-align: left;
+      margin-bottom: 6px;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #222; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn--primary { background: #1a2a3a; border-color: #2a4a6a; color: #7ab4ff; }
+    .section-label {
+      font-size: 9px;
+      letter-spacing: 0.25em;
+      color: #444;
+      margin: 16px 0 8px;
+    }
+    .chat-log {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #1a1a1a;
+      padding: 8px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .chat-user { color: #FFB000; }
+    .chat-bot { color: #7ab4ff; }
+    .chat-input-row { display: flex; gap: 4px; }
+    .chat-input {
+      flex: 1;
+      background: #111;
+      border: 1px solid #2a2a2a;
+      color: #e0e0e0;
+      padding: 6px 8px;
+      font-family: inherit;
+      font-size: 11px;
+    }
+    .chat-send {
+      background: #2a4a6a;
+      border: 1px solid #3a6a9a;
+      color: #7ab4ff;
+      padding: 6px 10px;
+      font-family: inherit;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+    }
+    .status {
+      font-size: 10px;
+      color: #555;
+      margin-top: 8px;
+      font-style: italic;
+    }
+    .pass-result {
+      border: 1px solid #1a1a1a;
+      padding: 8px;
+      margin-top: 8px;
+      font-size: 10px;
+      max-height: 150px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">HUNTER SCRIPT COPILOT</div>
+  <div class="doc-title" id="doc-title">Loading...</div>
+
+  <!-- Sync -->
+  <button class="btn btn--primary" id="btn-sync" onclick="syncNow()">SYNC NOW</button>
+  <div class="status" id="sync-status"></div>
+
+  <!-- Quick Actions -->
+  <div class="section-label">QUICK ACTIONS</div>
+  <button class="btn" onclick="runPass('animation_audit')">AUDIT ANIMATIONS</button>
+  <button class="btn" onclick="runPass('archive_audit')">AUDIT ARCHIVE</button>
+  <button class="btn" onclick="runPass('fact_check')">FACT-CHECK</button>
+  <button class="btn" onclick="runPass('pacing_analysis')">PACING ANALYSIS</button>
+  <button class="btn" onclick="runPass('coherence_check')">COHERENCE CHECK</button>
+
+  <div id="pass-result" class="pass-result" style="display:none"></div>
+
+  <!-- Selection Chat -->
+  <div class="section-label">ASK ABOUT SELECTION</div>
+  <div class="chat-log" id="chat-log"></div>
+  <div class="chat-input-row">
+    <input type="text" class="chat-input" id="chat-input" placeholder="Ask a question..." onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="chat-send" onclick="sendChat()">ASK</button>
+  </div>
+
+  <script>
+    // Load doc info on open
+    google.script.run.withSuccessHandler(function(info) {
+      document.getElementById('doc-title').textContent = info.title || 'Untitled';
+    }).getDocInfo();
+
+    function syncNow() {
+      var btn = document.getElementById('btn-sync');
+      var status = document.getElementById('sync-status');
+      btn.disabled = true;
+      btn.textContent = 'SYNCING...';
+      status.textContent = '';
+
+      google.script.run.withSuccessHandler(function(result) {
+        btn.disabled = false;
+        btn.textContent = 'SYNC NOW';
+        status.textContent = result.success ? 'Synced successfully' : 'Error: ' + result.error;
+      }).withFailureHandler(function(err) {
+        btn.disabled = false;
+        btn.textContent = 'SYNC NOW';
+        status.textContent = 'Error: ' + err.message;
+      }).syncDoc();
+    }
+
+    function runPass(passType) {
+      var resultDiv = document.getElementById('pass-result');
+      resultDiv.style.display = 'block';
+      resultDiv.textContent = 'Running ' + passType + '...';
+
+      google.script.run.withSuccessHandler(function(result) {
+        if (result.success && result.pass) {
+          var output = result.pass.output_json || {};
+          resultDiv.textContent = JSON.stringify(output, null, 2).slice(0, 2000);
+        } else {
+          resultDiv.textContent = 'Error: ' + (result.error || 'Unknown');
+        }
+      }).withFailureHandler(function(err) {
+        resultDiv.textContent = 'Error: ' + err.message;
+      }).runQuickPass(passType);
+    }
+
+    function sendChat() {
+      var input = document.getElementById('chat-input');
+      var log = document.getElementById('chat-log');
+      var msg = input.value.trim();
+      if (!msg) return;
+
+      input.value = '';
+      log.innerHTML += '<div class="chat-user">YOU: ' + escHtml(msg) + '</div>';
+
+      // Get selected text first
+      google.script.run.withSuccessHandler(function(selectedText) {
+        google.script.run.withSuccessHandler(function(result) {
+          if (result.success) {
+            log.innerHTML += '<div class="chat-bot">COPILOT: ' + result.reply.replace(/\n/g, '<br>') + '</div>';
+          } else {
+            log.innerHTML += '<div style="color:#ff4444">Error: ' + (result.error || 'Unknown') + '</div>';
+          }
+          log.scrollTop = log.scrollHeight;
+        }).withFailureHandler(function(err) {
+          log.innerHTML += '<div style="color:#ff4444">Error: ' + err.message + '</div>';
+        }).chatWithCopilot(msg, selectedText);
+      }).getSelectedText();
+    }
+
+    function escHtml(s) {
+      var div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

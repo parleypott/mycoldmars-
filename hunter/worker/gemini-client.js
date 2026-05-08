@@ -344,6 +344,320 @@ Write naturally and specifically. This analysis will be compared against footage
 }
 
 /**
+ * Analyze a rich script section with full formatting awareness.
+ * Uses the parsed document structure with colors, bold/italic, table beats.
+ */
+export async function analyzeScriptRich({ beats, annotatedText, sectionTitle, projectContext, scriptContext, colorProfile }) {
+  const genai = getAI();
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+  const contextBlock = projectContext ? `PROJECT CONTEXT:\n${projectContext}\n\n` : '';
+  const scriptContextBlock = scriptContext ? `SCRIPT TRAINING CONTEXT (learned from this filmmaker's scripts):\n${scriptContext}\n\n` : '';
+
+  const colorBlock = colorProfile && Object.keys(colorProfile).length > 0
+    ? `COLOR PROFILE (observed highlight colors in this document):\n${Object.entries(colorProfile).map(([color, data]) => `  ${color}: ${data.count} occurrences. Samples: ${data.sampleTexts.slice(0, 3).map(s => `"${s}"`).join(', ')}`).join('\n')}\n\n`
+    : '';
+
+  const prompt = `${contextBlock}${scriptContextBlock}${colorBlock}You are analyzing a documentary filmmaker's SCRIPT with FULL FORMATTING AWARENESS. Unlike plain text analysis, you can see:
+- Highlight colors (e.g., [PURPLE: ...], [RED: ...]) — these encode editorial meaning
+- Bold/italic formatting — structural emphasis signals
+- Voice/visual column pairing — what's being SAID alongside what should be SHOWN
+
+This is a TWO-COLUMN SCRIPT. Each "BEAT" pairs:
+- VOICE: narration, voiceover, dialogue, interview SOTs
+- VISUAL: shot descriptions, camera directions, what should be on screen
+
+Formatting annotations appear inline:
+- [PURPLE: text] — purple-highlighted text
+- [RED: text] — red-highlighted text
+- [BOLD: text] — bold text
+- Other colors appear by name or hex code
+
+${sectionTitle ? `SECTION: "${sectionTitle}"\n\n` : ''}ANNOTATED SCRIPT:
+${annotatedText}
+
+Analyze this section. Cover:
+
+- **Story beat**: Narrative function (setup, conflict, revelation, transition, climax, resolution, aside)
+- **Voice/visual pairing**: For each beat, relationship between SAID and SHOWN (literal illustration, counterpoint, subtext, complementary)
+- **Color-coded elements**: What's highlighted and why? What editorial signal do the colors carry? List all colored items with their likely purpose
+- **Animation requirements**: Any elements marked for animation — what's needed? Complexity? Style? Dependencies on other assets?
+- **Archive/stock needs**: Any elements marked for archive footage — what's needed? Source suggestions? Rights considerations?
+- **Intended footage**: What specific footage would this require? Interview clips, B-roll, establishing shots, archival, graphics
+- **Emotional register**: What feeling is the filmmaker creating? (wonder, tension, intimacy, humor, gravity, urgency)
+- **Pacing signals**: Beat density, voice/visual ratio, rhythm indicators
+- **Edit room prediction**: What survives intact vs. gets rewritten in the edit?
+
+Write naturally and specifically. This analysis grounds all future script intelligence.`;
+
+  const result = await genai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+  });
+
+  return {
+    text: result.text,
+    usage: result.usageMetadata,
+    structured: null, // future: parse structured items from response
+  };
+}
+
+// ── Intelligence Pass Functions ──
+
+/**
+ * Animation Audit pass — identifies all animation cues from a script snapshot.
+ * Uses learned color conventions + explicit visual column references.
+ */
+export async function animationAudit({ annotatedText, scriptContext, colorProfile }) {
+  const genai = getAI();
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+  const contextBlock = scriptContext ? `SCRIPT CONTEXT (learned from training):\n${scriptContext}\n\n` : '';
+  const colorBlock = colorProfile ? `COLOR PROFILE:\n${JSON.stringify(colorProfile, null, 2)}\n\n` : '';
+
+  const prompt = `${contextBlock}${colorBlock}You are auditing a documentary script for ANIMATION REQUIREMENTS. Using the color coding and visual column descriptions, identify every element that requires animation or motion graphics.
+
+SCRIPT:
+${annotatedText}
+
+Return JSON:
+{
+  "animation_items": [
+    {
+      "beat_context": "Which section/beat this appears in",
+      "description": "What needs to be animated",
+      "source_text": "The exact text from the script",
+      "complexity": "simple|moderate|complex|hero",
+      "estimated_hours": number,
+      "style_notes": "Inferred style based on context (2D, 3D, data viz, map, diagram, etc.)",
+      "dependencies": ["Any assets, data, or approvals needed"],
+      "priority": "essential|important|nice-to-have"
+    }
+  ],
+  "summary": {
+    "total_items": number,
+    "total_estimated_hours": number,
+    "complexity_breakdown": { "simple": n, "moderate": n, "complex": n, "hero": n },
+    "style_recommendations": "Overall animation style suggestions based on the script's tone"
+  }
+}
+
+Be thorough — catch animated maps, data visualizations, text treatments, motion graphics, illustrated sequences, and anything that isn't live-action footage. Return ONLY valid JSON.`;
+
+  const result = await genai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: { responseMimeType: 'application/json', maxOutputTokens: 8000 },
+  });
+
+  try { return JSON.parse(result.text); }
+  catch { return { raw_text: result.text, parse_error: true }; }
+}
+
+/**
+ * Archive Audit pass — identifies all archive/stock footage requests.
+ */
+export async function archiveAudit({ annotatedText, scriptContext, colorProfile }) {
+  const genai = getAI();
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+  const contextBlock = scriptContext ? `SCRIPT CONTEXT:\n${scriptContext}\n\n` : '';
+  const colorBlock = colorProfile ? `COLOR PROFILE:\n${JSON.stringify(colorProfile, null, 2)}\n\n` : '';
+
+  const prompt = `${contextBlock}${colorBlock}You are auditing a documentary script for ARCHIVE AND STOCK FOOTAGE REQUIREMENTS. Identify every element that requires archival footage, stock footage, historical imagery, or pre-existing media.
+
+SCRIPT:
+${annotatedText}
+
+Return JSON:
+{
+  "archive_items": [
+    {
+      "beat_context": "Section/beat reference",
+      "description": "What archive/stock footage is needed",
+      "source_text": "Exact text from the script",
+      "type": "archive|stock|historical|news|photo|document|map",
+      "era": "Time period if applicable",
+      "search_terms": ["Suggested search queries for finding this"],
+      "source_suggestions": ["Potential archives, stock libraries, or sources"],
+      "rights_notes": "Licensing considerations (public domain, editorial use, etc.)",
+      "priority": "essential|important|nice-to-have"
+    }
+  ],
+  "summary": {
+    "total_items": number,
+    "type_breakdown": {},
+    "major_research_tasks": ["Top 3-5 items requiring significant research effort"]
+  }
+}
+
+Return ONLY valid JSON.`;
+
+  const result = await genai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: { responseMimeType: 'application/json', maxOutputTokens: 8000 },
+  });
+
+  try { return JSON.parse(result.text); }
+  catch { return { raw_text: result.text, parse_error: true }; }
+}
+
+/**
+ * Fact-Check pass — identifies factual claims and verifies them.
+ */
+export async function factCheck({ annotatedText, scriptContext }) {
+  const genai = getAI();
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+  const contextBlock = scriptContext ? `SCRIPT CONTEXT:\n${scriptContext}\n\n` : '';
+
+  const prompt = `${contextBlock}You are fact-checking a documentary script. Identify every factual claim — dates, statistics, historical events, scientific claims, geographic facts, named individuals and their roles, cause-and-effect assertions.
+
+SCRIPT:
+${annotatedText}
+
+Return JSON:
+{
+  "claims": [
+    {
+      "claim_text": "The exact factual claim from the script",
+      "beat_context": "Section/beat reference",
+      "category": "date|statistic|historical|scientific|geographic|biographical|causal",
+      "status": "verified|likely_correct|needs_verification|likely_incorrect|incorrect",
+      "verification_notes": "What you know about this claim's accuracy",
+      "correction": "If incorrect, the correct information (or null)",
+      "source_needed": true/false,
+      "suggested_sources": ["Where to verify this"]
+    }
+  ],
+  "summary": {
+    "total_claims": number,
+    "verified": number,
+    "needs_verification": number,
+    "flagged": number,
+    "high_priority_checks": ["Top claims that absolutely must be verified before broadcast"]
+  }
+}
+
+Be honest about uncertainty. If you're not sure, mark as needs_verification. Return ONLY valid JSON.`;
+
+  const result = await genai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: { responseMimeType: 'application/json', maxOutputTokens: 8000 },
+  });
+
+  try { return JSON.parse(result.text); }
+  catch { return { raw_text: result.text, parse_error: true }; }
+}
+
+/**
+ * Pacing Analysis pass — word counts, timing estimates, density analysis.
+ * Mostly computational with some LLM insight.
+ */
+export async function pacingAnalysis({ parsedDoc, annotatedText }) {
+  const genai = getAI();
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+  const prompt = `You are analyzing the PACING of a documentary script. This is both a computational and editorial analysis.
+
+Assumptions:
+- Voice narration: ~150 words per minute
+- Typical visual beat: 5-10 seconds screen time
+- Interview SOT: variable, estimate from word count at 120 wpm
+
+SCRIPT:
+${annotatedText}
+
+Return JSON:
+{
+  "sections": [
+    {
+      "title": "Section name",
+      "beat_count": number,
+      "voice_word_count": number,
+      "visual_word_count": number,
+      "estimated_duration_seconds": number,
+      "voice_density": "voice-heavy|balanced|visual-heavy|rapid-fire|sparse",
+      "pacing_notes": "1-2 sentences on the rhythm of this section"
+    }
+  ],
+  "overall": {
+    "total_beats": number,
+    "total_voice_words": number,
+    "total_visual_words": number,
+    "estimated_total_minutes": number,
+    "voice_visual_ratio": number,
+    "pacing_curve": "Description of how pacing changes across the script — where it's dense, where it breathes",
+    "bloat_warnings": ["Sections that seem overlong or could be tightened"],
+    "thin_spots": ["Sections that may need more material"],
+    "recommended_cuts": ["Specific suggestions for tightening"]
+  }
+}
+
+Return ONLY valid JSON.`;
+
+  const result = await genai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: { responseMimeType: 'application/json', maxOutputTokens: 6000 },
+  });
+
+  try { return JSON.parse(result.text); }
+  catch { return { raw_text: result.text, parse_error: true }; }
+}
+
+/**
+ * Coherence Check pass — analyzes voice/visual relationship for each beat.
+ */
+export async function coherenceCheck({ annotatedText, scriptContext }) {
+  const genai = getAI();
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+  const contextBlock = scriptContext ? `SCRIPT CONTEXT:\n${scriptContext}\n\n` : '';
+
+  const prompt = `${contextBlock}You are checking VOICE/VISUAL COHERENCE in a documentary script. For each beat (voice + visual pair), analyze the relationship.
+
+SCRIPT:
+${annotatedText}
+
+Return JSON:
+{
+  "beats": [
+    {
+      "beat_index": number,
+      "voice_summary": "Brief summary of voice content",
+      "visual_summary": "Brief summary of visual content",
+      "relationship": "illustration|counterpoint|complementary|disconnected|missing_pair",
+      "coherence_score": 0.0-1.0,
+      "notes": "Explanation of the voice/visual relationship"
+    }
+  ],
+  "summary": {
+    "total_beats": number,
+    "coherent_beats": number,
+    "disconnected_beats": number,
+    "missing_pairs": number,
+    "strongest_pairings": ["2-3 beats where voice/visual work together brilliantly"],
+    "weakest_pairings": ["2-3 beats where voice/visual are disconnected or contradictory"],
+    "overall_assessment": "2-3 sentences on the script's voice/visual strategy"
+  }
+}
+
+Return ONLY valid JSON.`;
+
+  const result = await genai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: { responseMimeType: 'application/json', maxOutputTokens: 8000 },
+  });
+
+  try { return JSON.parse(result.text); }
+  catch { return { raw_text: result.text, parse_error: true }; }
+}
+
+/**
  * Generate an embedding for a text description.
  */
 export async function generateEmbedding(text) {

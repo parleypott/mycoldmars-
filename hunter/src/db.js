@@ -469,6 +469,60 @@ export async function fetchCorpusContext(projectId) {
   return res.json();
 }
 
+// ── Script Copilot ──
+
+export async function getScriptSnapshot(mediaAssetId) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'get_script_snapshot', mediaAssetId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Failed to fetch script snapshot');
+  }
+  return (await res.json()).snapshot;
+}
+
+export async function listScriptPasses(snapshotId, passType) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'get_script_passes', snapshotId, passType }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Failed to fetch script passes');
+  }
+  return (await res.json()).passes;
+}
+
+export async function runScriptPass({ snapshotId, passType, projectId }) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'run_script_pass', snapshotId, passType, projectId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Script pass failed');
+  }
+  return res.json();
+}
+
+export async function chatWithScript({ message, conversationHistory, snapshotId, projectId }) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'script_copilot_chat', message, conversationHistory, snapshotId, projectId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Script chat failed');
+  }
+  return res.json();
+}
+
 // ── Pending queue (used by worker) ──
 
 export async function getPendingAssets(limit = 10) {

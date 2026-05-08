@@ -1,4 +1,4 @@
-import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights, listScenes, listArcSummaries, fetchCorpusContext } from './db.js';
+import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights, listScenes, listArcSummaries, fetchCorpusContext, getScriptSnapshot, listScriptPasses, runScriptPass, chatWithScript } from './db.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -209,6 +209,7 @@ const TABS_V2 = [
   { id: 'training', num: '02', label: 'TRAINING',      hint: 'STATUS / FEED'   },
   { id: 'insights', num: '03', label: 'INSIGHTS',      hint: 'WHAT DO YOU SEE' },
   { id: 'scenes',   num: '04', label: 'SCENE BUILDER', hint: 'PROPOSE / EDIT'  },
+  { id: 'script',   num: '05', label: 'SCRIPT',        hint: 'COPILOT'         },
 ];
 
 let v2Tab = 'inputs';
@@ -331,6 +332,7 @@ function v2SwitchTab(tabId, signal) {
     case 'training': renderTrainingTab(units, assets); break;
     case 'insights': renderInsightsTab(units, patterns, assets, signal); break;
     case 'scenes':   renderScenesTab(units, signal); break;
+    case 'script':   renderScriptTab(project, assets, signal); break;
   }
 
   // Update footbar
@@ -1369,6 +1371,245 @@ function renderScenesTab(units, signal) {
       v2SelectedScene = 0;
       renderScenesTab(units, signal);
     }, { signal });
+  });
+}
+
+// ── §05 SCRIPT COPILOT TAB ──
+
+let scriptCopilotState = {
+  snapshot: null,
+  passes: {},
+  chatHistory: [],
+  loadingPass: null,
+};
+
+async function renderScriptTab(project, assets, signal) {
+  const panel = document.getElementById('v2-panel-script');
+
+  // Find Google Docs assets
+  const scriptAssets = assets.filter(a => a.source_kind === 'google_docs' || a.tier === 'google_docs');
+
+  if (!scriptAssets.length) {
+    panel.innerHTML = `
+      <div style="padding:2rem;text-align:center;color:var(--h-dim)">
+        <div style="font-size:1.4rem;margin-bottom:0.5rem;letter-spacing:0.2em">NO SCRIPTS CONNECTED</div>
+        <div style="font-size:0.8rem;letter-spacing:0.12em">Add a Google Doc in the INPUTS tab to enable Script Copilot</div>
+      </div>`;
+    return;
+  }
+
+  // Load the latest snapshot for the first script asset
+  let snapshot = scriptCopilotState.snapshot;
+  if (!snapshot || snapshot.media_asset_id !== scriptAssets[0].id) {
+    try {
+      snapshot = await getScriptSnapshot(scriptAssets[0].id);
+      scriptCopilotState.snapshot = snapshot;
+    } catch (err) {
+      panel.innerHTML = `
+        <div style="padding:2rem;text-align:center;color:var(--h-dim)">
+          <div style="font-size:1.4rem;margin-bottom:0.5rem;letter-spacing:0.2em">NO SCRIPT SNAPSHOT</div>
+          <div style="font-size:0.8rem;letter-spacing:0.12em">Run rich ingestion with Google OAuth to create a script snapshot.<br>Error: ${escHtml(err.message)}</div>
+        </div>`;
+      return;
+    }
+  }
+
+  if (!snapshot) {
+    panel.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--h-dim)"><div style="font-size:1rem;letter-spacing:0.15em">SCRIPT SNAPSHOT NOT FOUND</div></div>`;
+    return;
+  }
+
+  const doc = snapshot.parsed_doc;
+  const stats = doc?.stats || {};
+  const colorProfile = snapshot.color_profile || {};
+  const hasContext = !!project.metadata?.script_context;
+
+  // Build the panel
+  panel.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:1.5rem;padding:1rem 0">
+      <!-- Overview Card -->
+      <div style="border:1px solid var(--h-border);padding:1.2rem">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="v2-caps v2-caps--dim" style="letter-spacing:0.2em;margin-bottom:0.3rem">SCRIPT COPILOT</div>
+            <div style="font-size:1.3rem;letter-spacing:0.08em;color:var(--h-fg)">${escHtml(doc?.title || 'Untitled Script')}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="v2-caps v2-caps--dim" style="letter-spacing:0.12em">v${snapshot.version_number || 1}</div>
+            <div class="v2-caps v2-caps--xs v2-caps--dim">${snapshot.created_at ? new Date(snapshot.created_at).toLocaleDateString() : ''}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:2rem;margin-top:1rem">
+          <div><span class="v2-caps v2-caps--xs v2-caps--dim">BEATS</span><div style="font-size:1.5rem;color:var(--h-fg)">${stats.totalBeats || 0}</div></div>
+          <div><span class="v2-caps v2-caps--xs v2-caps--dim">WORDS</span><div style="font-size:1.5rem;color:var(--h-fg)">${(stats.wordCount || 0).toLocaleString()}</div></div>
+          <div><span class="v2-caps v2-caps--xs v2-caps--dim">COLORED RUNS</span><div style="font-size:1.5rem;color:var(--h-fg)">${stats.coloredRunCount || 0}</div></div>
+          <div><span class="v2-caps v2-caps--xs v2-caps--dim">CONTEXT</span><div style="font-size:1.5rem;color:${hasContext ? 'var(--h-selects)' : 'var(--h-dim)'}">${hasContext ? 'TRAINED' : 'NONE'}</div></div>
+        </div>
+      </div>
+
+      <!-- Color Legend -->
+      ${Object.keys(colorProfile).length > 0 ? `
+      <div style="border:1px solid var(--h-border);padding:1rem">
+        <div class="v2-caps v2-caps--dim" style="letter-spacing:0.2em;margin-bottom:0.8rem">COLOR PROFILE</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.6rem">
+          ${Object.entries(colorProfile).map(([color, data]) => `
+            <div style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0.6rem;border:1px solid var(--h-border);font-size:0.75rem">
+              <span style="width:14px;height:14px;background:${color};display:inline-block;border-radius:2px"></span>
+              <span style="color:var(--h-fg);letter-spacing:0.08em">${color}</span>
+              <span style="color:var(--h-dim)">${data.count}x</span>
+              ${data.sampleTexts?.[0] ? `<span style="color:var(--h-dim);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"${escHtml(data.sampleTexts[0])}"</span>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- Intelligence Passes -->
+      <div style="border:1px solid var(--h-border);padding:1rem">
+        <div class="v2-caps v2-caps--dim" style="letter-spacing:0.2em;margin-bottom:0.8rem">INTELLIGENCE PASSES</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.6rem" id="script-passes-grid">
+          ${renderPassCards(snapshot.id, project.id, signal)}
+        </div>
+      </div>
+
+      <!-- Beat Timeline -->
+      <div style="border:1px solid var(--h-border);padding:1rem;max-height:500px;overflow-y:auto" id="script-beat-timeline">
+        <div class="v2-caps v2-caps--dim" style="letter-spacing:0.2em;margin-bottom:0.8rem">BEAT FLOW (${stats.totalBeats || 0} beats)</div>
+        ${renderBeatTimeline(doc?.elements || [])}
+      </div>
+
+      <!-- Script Chat -->
+      <div style="border:1px solid var(--h-border);padding:1rem" id="script-chat-section">
+        <div class="v2-caps v2-caps--dim" style="letter-spacing:0.2em;margin-bottom:0.8rem">SCRIPT COPILOT CHAT</div>
+        <div id="script-chat-log" style="max-height:300px;overflow-y:auto;margin-bottom:0.8rem;font-size:0.8rem;color:var(--h-fg)"></div>
+        <div style="display:flex;gap:0.5rem">
+          <input type="text" id="script-chat-input" placeholder="Ask about the script..." style="flex:1;background:var(--h-bg);border:1px solid var(--h-border);color:var(--h-fg);padding:0.5rem 0.8rem;font-size:0.8rem;font-family:inherit">
+          <button id="script-chat-send" style="background:var(--h-border);color:var(--h-fg);border:none;padding:0.5rem 1rem;font-family:inherit;font-size:0.75rem;letter-spacing:0.12em;cursor:pointer">SEND</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Wire up pass buttons
+  panel.querySelectorAll('[data-pass-type]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const passType = btn.dataset.passType;
+      btn.textContent = 'RUNNING...';
+      btn.disabled = true;
+      try {
+        const result = await runScriptPass({ snapshotId: snapshot.id, passType, projectId: project.id });
+        scriptCopilotState.passes[passType] = result.pass;
+        renderScriptTab(project, assets, signal);
+      } catch (err) {
+        btn.textContent = 'ERROR';
+        console.error(`[script] pass ${passType} failed:`, err);
+      }
+    }, { signal });
+  });
+
+  // Wire up chat
+  const chatInput = document.getElementById('script-chat-input');
+  const chatSend = document.getElementById('script-chat-send');
+  const chatLog = document.getElementById('script-chat-log');
+
+  async function sendChat() {
+    const msg = chatInput.value.trim();
+    if (!msg) return;
+
+    chatInput.value = '';
+    scriptCopilotState.chatHistory.push({ role: 'user', content: msg });
+    chatLog.innerHTML += `<div style="margin-bottom:0.5rem"><span style="color:var(--h-raw);letter-spacing:0.08em">YOU:</span> ${escHtml(msg)}</div>`;
+
+    chatSend.textContent = '...';
+    try {
+      const { reply } = await chatWithScript({
+        message: msg,
+        conversationHistory: scriptCopilotState.chatHistory,
+        snapshotId: snapshot.id,
+        projectId: project.id,
+      });
+      scriptCopilotState.chatHistory.push({ role: 'model', content: reply });
+      chatLog.innerHTML += `<div style="margin-bottom:0.5rem"><span style="color:var(--h-script);letter-spacing:0.08em">COPILOT:</span> ${reply.replace(/\n/g, '<br>')}</div>`;
+      chatLog.scrollTop = chatLog.scrollHeight;
+    } catch (err) {
+      chatLog.innerHTML += `<div style="color:var(--h-error);margin-bottom:0.5rem">Error: ${escHtml(err.message)}</div>`;
+    }
+    chatSend.textContent = 'SEND';
+  }
+
+  chatSend.addEventListener('click', sendChat, { signal });
+  chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); }, { signal });
+
+  // Load existing passes
+  try {
+    const passes = await listScriptPasses(snapshot.id);
+    for (const pass of passes) {
+      if (!scriptCopilotState.passes[pass.pass_type]) {
+        scriptCopilotState.passes[pass.pass_type] = pass;
+      }
+    }
+    renderPassResults();
+  } catch {}
+}
+
+function renderPassCards(snapshotId, projectId, signal) {
+  const PASSES = [
+    { type: 'animation_audit', label: 'ANIMATION', icon: 'A', color: '#9900FF' },
+    { type: 'archive_audit',   label: 'ARCHIVE',   icon: 'R', color: '#FF0000' },
+    { type: 'fact_check',      label: 'FACT CHECK', icon: 'F', color: '#FFB000' },
+    { type: 'pacing_analysis', label: 'PACING',     icon: 'P', color: '#22C55E' },
+    { type: 'coherence_check', label: 'COHERENCE',  icon: 'C', color: '#5AA3FF' },
+  ];
+
+  return PASSES.map(p => {
+    const existing = scriptCopilotState.passes[p.type];
+    return `
+      <button data-pass-type="${p.type}" style="background:${existing ? 'var(--h-surface)' : 'transparent'};border:1px solid var(--h-border);padding:0.8rem;cursor:pointer;text-align:left;font-family:inherit">
+        <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.3rem">
+          <span style="width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;background:${p.color};color:#000;font-size:0.7rem;font-weight:bold;border-radius:2px">${p.icon}</span>
+          <span style="font-size:0.75rem;letter-spacing:0.12em;color:var(--h-fg)">${p.label}</span>
+        </div>
+        <div style="font-size:0.7rem;color:var(--h-dim)">${existing ? 'COMPLETED' : 'RUN'}</div>
+      </button>`;
+  }).join('');
+}
+
+function renderBeatTimeline(elements) {
+  const beats = elements.filter(e => e.type === 'beat');
+  if (!beats.length) return '<div style="color:var(--h-dim);font-size:0.8rem">No beats found</div>';
+
+  return beats.slice(0, 50).map((beat, i) => {
+    const voiceText = (beat.voice?.text || '').slice(0, 80);
+    const visualText = (beat.visual?.text || '').slice(0, 80);
+
+    // Check for colored runs
+    const colors = [];
+    for (const run of (beat.visual?.runs || [])) {
+      if (run.style?.highlight && !colors.includes(run.style.highlight)) {
+        colors.push(run.style.highlight);
+      }
+    }
+
+    const colorDots = colors.map(c => `<span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block"></span>`).join('');
+
+    return `
+      <div style="display:flex;border-bottom:1px solid var(--h-border);padding:0.4rem 0;gap:1rem;font-size:0.75rem">
+        <div style="width:30px;color:var(--h-dim);text-align:right;flex-shrink:0">${i + 1}</div>
+        <div style="flex:1;color:var(--h-fg);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(voiceText) || '<span style="color:var(--h-dim)">—</span>'}</div>
+        <div style="flex:1;color:var(--h-dim);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:0.3rem">${colorDots}${escHtml(visualText) || '—'}</div>
+      </div>`;
+  }).join('') + (beats.length > 50 ? `<div style="color:var(--h-dim);font-size:0.7rem;padding:0.5rem 0;text-align:center">+ ${beats.length - 50} more beats</div>` : '');
+}
+
+function renderPassResults() {
+  // Update pass cards to show results
+  document.querySelectorAll('[data-pass-type]').forEach(btn => {
+    const passType = btn.dataset.passType;
+    const pass = scriptCopilotState.passes[passType];
+    if (pass) {
+      const statusEl = btn.querySelector('div:last-child');
+      if (statusEl) statusEl.textContent = 'COMPLETED';
+      btn.style.background = 'var(--h-surface)';
+    }
   });
 }
 

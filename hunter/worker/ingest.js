@@ -11,7 +11,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { listFolder, downloadFile } from './dropbox-client.js';
-import { uploadFile, deleteFile, purgeAllFiles, createCache, analyzeUnit, analyzeUnitStructured, transcribeVideo, analyzeScript, generateEmbedding } from './gemini-client.js';
+import { uploadFile, deleteFile, purgeAllFiles, createCache, analyzeUnit, analyzeUnitStructured, transcribeVideo, analyzeScript, analyzeScriptRich, generateEmbedding } from './gemini-client.js';
+import { fetchDocStructured, extractDocId, getLatestRevisionId } from './google-docs-client.js';
+import { parseDocStructured, chunkParsedDoc, buildAnnotatedText } from './google-docs-parser.js';
 import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
@@ -105,7 +107,14 @@ async function processAsset(asset) {
     } else if (asset.source_kind === 'local') {
       localPath = asset.source_ref;
     } else if (asset.source_kind === 'google_docs') {
-      await processGoogleDoc(asset, projectContext);
+      // Try rich parsing (Docs API with formatting) first, fall back to plain text
+      const hasGoogleOAuth = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_REFRESH_TOKEN);
+      if (hasGoogleOAuth) {
+        await processGoogleDocRich(asset, projectContext);
+      } else {
+        console.log('[worker] no Google OAuth configured — using plain text fallback');
+        await processGoogleDoc(asset, projectContext);
+      }
       await updateAsset(asset.id, { queue_status: 'done' });
       console.log(`[worker] ✓ ${asset.id} done (google_docs)`);
       return;
@@ -611,6 +620,146 @@ async function processGoogleDoc(asset, projectContext) {
   })));
 
   console.log(`[worker] ✓ script ingestion complete: ${processed}/${total} sections`);
+}
+
+/**
+ * Rich Google Doc ingestion — uses Docs API for full formatting awareness.
+ * Replaces processGoogleDoc when Google OAuth is configured.
+ * Preserves highlight colors, table structure, bold/italic — all formatting signals.
+ */
+async function processGoogleDocRich(asset, projectContext) {
+  await updateAsset(asset.id, { queue_status: 'fetching' });
+
+  const docId = extractDocId(asset.source_ref);
+  const docJson = await fetchDocStructured(docId);
+  const revisionId = await getLatestRevisionId(docId).catch(() => null);
+
+  // Parse into rich intermediate format
+  const parsedDoc = parseDocStructured(docJson);
+  console.log(`[worker] parsed rich doc: ${parsedDoc.stats.totalBeats} beats, ${parsedDoc.stats.wordCount} words, ${parsedDoc.stats.coloredRunCount} colored runs`);
+  console.log(`[worker] color profile:`, Object.entries(parsedDoc.colorProfile).map(([c, v]) => `${c}(${v.count})`).join(', '));
+
+  // Determine version number
+  const { data: existingSnapshots } = await supabase.from('script_snapshots')
+    .select('version_number')
+    .eq('media_asset_id', asset.id)
+    .order('version_number', { ascending: false })
+    .limit(1);
+  const versionNumber = (existingSnapshots?.[0]?.version_number || 0) + 1;
+
+  // Store script snapshot
+  const { data: snapshot, error: snapError } = await supabase.from('script_snapshots')
+    .insert({
+      media_asset_id: asset.id,
+      revision_id: revisionId,
+      version_number: versionNumber,
+      parsed_doc: parsedDoc,
+      color_profile: parsedDoc.colorProfile,
+      beat_count: parsedDoc.stats.totalBeats,
+      word_count: parsedDoc.stats.wordCount,
+    })
+    .select().single();
+
+  if (snapError) {
+    console.error(`[worker] script snapshot error:`, snapError.message);
+    // Non-fatal — continue with analysis even if snapshot storage fails
+  } else {
+    console.log(`[worker] stored script snapshot v${versionNumber} (${snapshot.id})`);
+  }
+
+  // Load script context from project metadata (from training)
+  const { data: project } = await supabase.from('hunter_projects')
+    .select('metadata').eq('id', asset.project_id).single();
+  const scriptContext = project?.metadata?.script_context || null;
+
+  // Save full parsed doc to cache
+  const projectDir = join(CACHE_DIR, asset.project_id);
+  mkdirSync(projectDir, { recursive: true });
+  const cachePath = join(projectDir, `script-rich-${asset.id.slice(0, 8)}.json`);
+  const { writeFileSync } = await import('node:fs');
+  writeFileSync(cachePath, JSON.stringify(parsedDoc, null, 2));
+  await updateAsset(asset.id, { cache_path: cachePath });
+
+  // Chunk by headings (preserving formatting)
+  const chunks = chunkParsedDoc(parsedDoc);
+  console.log(`[worker] script chunked into ${chunks.length} rich sections`);
+
+  await updateAsset(asset.id, { queue_status: 'analyzing' });
+
+  // Batch-check which sections already have corpus units
+  const { data: existingUnits } = await supabase.from('corpus_units')
+    .select('source_clip_name')
+    .eq('media_asset_id', asset.id);
+  const existingNames = new Set((existingUnits || []).map(u => u.source_clip_name));
+
+  const limit = createPool(CONCURRENCY);
+  let processed = 0;
+  const total = chunks.length;
+
+  await Promise.allSettled(chunks.map((chunk, i) => limit(async () => {
+    const sectionName = `section-${String(i + 1).padStart(3, '0')}`;
+
+    if (existingNames.has(sectionName)) {
+      processed++;
+      return;
+    }
+
+    try {
+      const { data: unit, error } = await supabase.from('corpus_units')
+        .insert({
+          media_asset_id: asset.id,
+          start_seconds: i,
+          end_seconds: i + 1,
+          source_clip_name: sectionName,
+        })
+        .select().single();
+
+      if (error) {
+        console.error(`[worker] corpus unit error for ${sectionName}:`, error.message);
+        return;
+      }
+
+      // Analyze with rich formatting-aware prompt
+      const result = await retryWithBackoff(
+        () => analyzeScriptRich({
+          beats: chunk.elements,
+          annotatedText: chunk.text,
+          sectionTitle: chunk.title,
+          projectContext,
+          scriptContext,
+          colorProfile: parsedDoc.colorProfile,
+        }),
+        sectionName
+      );
+
+      // Save analysis
+      await supabase.from('analyses').insert({
+        corpus_unit_id: unit.id,
+        model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+        prompt_version: 'v2-script-rich',
+        output_text: result.text,
+        output_json: result.structured || null,
+        cost_usd: 0,
+      });
+
+      // Generate embedding
+      const embedding = await generateEmbedding(result.text);
+      await supabase.from('embeddings').insert({
+        corpus_unit_id: unit.id,
+        model: 'gemini-embedding-001',
+        embedding: embedding,
+      });
+
+      processed++;
+      lastProgressAt = Date.now();
+      console.log(`[worker] ✓ rich script ${sectionName} "${chunk.title}" (${processed}/${total}): ${result.text.slice(0, 60)}...`);
+    } catch (err) {
+      processed++;
+      console.error(`[worker] ✗ rich script ${sectionName}:`, err.message);
+    }
+  })));
+
+  console.log(`[worker] ✓ rich script ingestion complete: ${processed}/${total} sections`);
 }
 
 function getDuration(filePath) {

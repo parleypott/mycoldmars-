@@ -46,6 +46,22 @@ export default async function handler(req) {
     return handleGetCorpusContext(body);
   }
 
+  if (action === 'run_script_pass') {
+    return handleRunScriptPass(body, apiKey);
+  }
+
+  if (action === 'get_script_passes') {
+    return handleGetScriptPasses(body);
+  }
+
+  if (action === 'get_script_snapshot') {
+    return handleGetScriptSnapshot(body);
+  }
+
+  if (action === 'script_copilot_chat') {
+    return handleScriptCopilotChat(body, apiKey);
+  }
+
   // Default: proxy to Gemini
   const model = body.model || 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -761,6 +777,281 @@ async function handleGetCorpusContext(body) {
     daySummaries,
     scenes,
   });
+}
+
+// ── Script Copilot Handlers ──
+
+async function handleRunScriptPass(body, apiKey) {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return jsonResponse({ error: 'Supabase not configured' }, 500);
+
+  const { snapshotId, passType, projectId } = body;
+  if (!snapshotId || !passType) return jsonResponse({ error: 'snapshotId and passType required' }, 400);
+
+  const headers = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` };
+
+  // Fetch the snapshot
+  const snapUrl = `${supabaseUrl}/rest/v1/script_snapshots?id=eq.${snapshotId}&select=*&limit=1`;
+  const snapRes = await fetch(snapUrl, { headers });
+  if (!snapRes.ok) return jsonResponse({ error: 'Snapshot not found' }, 404);
+  const snapshots = await snapRes.json();
+  if (!snapshots?.length) return jsonResponse({ error: 'Snapshot not found' }, 404);
+  const snapshot = snapshots[0];
+
+  // Fetch script context from project
+  let scriptContext = '';
+  if (projectId) {
+    const projUrl = `${supabaseUrl}/rest/v1/hunter_projects?id=eq.${projectId}&select=metadata&limit=1`;
+    const projRes = await fetch(projUrl, { headers });
+    if (projRes.ok) {
+      const projects = await projRes.json();
+      scriptContext = projects?.[0]?.metadata?.script_context || '';
+    }
+  }
+
+  // Build annotated text from parsed_doc for the LLM prompt
+  const parsedDoc = snapshot.parsed_doc;
+  const elements = parsedDoc?.elements || [];
+  const annotatedText = elements.map(el => {
+    if (el.type === 'heading') return `\n## ${el.text}\n`;
+    if (el.type === 'beat') {
+      let out = '---BEAT---\n';
+      if (el.voice?.text) out += `VOICE: ${el.voice.text}\n`;
+      if (el.visual?.text) out += `VISUAL: ${el.visual.text}\n`;
+      return out;
+    }
+    if (el.type === 'paragraph') return el.text;
+    return '';
+  }).join('\n');
+
+  // Build the pass-specific prompt
+  const passPrompts = {
+    animation_audit: buildAnimationAuditPrompt(annotatedText, scriptContext, snapshot.color_profile),
+    archive_audit: buildArchiveAuditPrompt(annotatedText, scriptContext, snapshot.color_profile),
+    fact_check: buildFactCheckPrompt(annotatedText, scriptContext),
+    pacing_analysis: buildPacingPrompt(annotatedText, snapshot),
+    coherence_check: buildCoherencePrompt(annotatedText, scriptContext),
+  };
+
+  const prompt = passPrompts[passType];
+  if (!prompt) return jsonResponse({ error: `Unknown pass type: ${passType}` }, 400);
+
+  // Call Gemini
+  const model = 'gemini-2.5-flash';
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const geminiRes = await fetch(geminiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 8000, responseMimeType: 'application/json' },
+    }),
+  });
+
+  if (!geminiRes.ok) {
+    return jsonResponse({ error: 'Gemini analysis failed', detail: (await geminiRes.text()).slice(0, 500) }, 502);
+  }
+
+  const geminiData = await geminiRes.json();
+  const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+  let outputJson = {};
+  try { outputJson = JSON.parse(responseText); }
+  catch { outputJson = { raw_text: responseText, parse_error: true }; }
+
+  // Save the pass result
+  const saveRes = await fetch(`${supabaseUrl}/rest/v1/script_passes`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    body: JSON.stringify({
+      snapshot_id: snapshotId,
+      pass_type: passType,
+      output_json: outputJson,
+      output_text: responseText,
+      model,
+    }),
+  });
+
+  if (!saveRes.ok) {
+    return jsonResponse({ error: 'Failed to save pass result', detail: (await saveRes.text()).slice(0, 200) }, 500);
+  }
+
+  const saved = await saveRes.json();
+  return jsonResponse({ success: true, pass: saved[0] || saved });
+}
+
+function buildAnimationAuditPrompt(text, context, colorProfile) {
+  const ctx = context ? `SCRIPT CONTEXT:\n${context}\n\n` : '';
+  const colors = colorProfile ? `COLOR PROFILE:\n${JSON.stringify(colorProfile)}\n\n` : '';
+  return `${ctx}${colors}Audit this documentary script for ANIMATION REQUIREMENTS. Identify every element requiring animation/motion graphics.
+
+SCRIPT:
+${text}
+
+Return JSON: { "animation_items": [{ "beat_context", "description", "source_text", "complexity": "simple|moderate|complex|hero", "estimated_hours", "style_notes", "priority": "essential|important|nice-to-have" }], "summary": { "total_items", "total_estimated_hours", "complexity_breakdown", "style_recommendations" } }`;
+}
+
+function buildArchiveAuditPrompt(text, context, colorProfile) {
+  const ctx = context ? `SCRIPT CONTEXT:\n${context}\n\n` : '';
+  const colors = colorProfile ? `COLOR PROFILE:\n${JSON.stringify(colorProfile)}\n\n` : '';
+  return `${ctx}${colors}Audit this documentary script for ARCHIVE/STOCK FOOTAGE requirements.
+
+SCRIPT:
+${text}
+
+Return JSON: { "archive_items": [{ "beat_context", "description", "source_text", "type": "archive|stock|historical|news|photo", "search_terms": [], "source_suggestions": [], "rights_notes", "priority" }], "summary": { "total_items", "type_breakdown", "major_research_tasks": [] } }`;
+}
+
+function buildFactCheckPrompt(text, context) {
+  const ctx = context ? `SCRIPT CONTEXT:\n${context}\n\n` : '';
+  return `${ctx}Fact-check this documentary script. Identify every factual claim.
+
+SCRIPT:
+${text}
+
+Return JSON: { "claims": [{ "claim_text", "category": "date|statistic|historical|scientific|geographic|biographical", "status": "verified|likely_correct|needs_verification|likely_incorrect", "verification_notes", "correction" }], "summary": { "total_claims", "verified", "needs_verification", "flagged", "high_priority_checks": [] } }`;
+}
+
+function buildPacingPrompt(text, snapshot) {
+  return `Analyze PACING of this documentary script. Voice narration ~150 wpm, typical visual beat 5-10s.
+
+Stats: ${snapshot.beat_count || '?'} beats, ${snapshot.word_count || '?'} words.
+
+SCRIPT:
+${text}
+
+Return JSON: { "sections": [{ "title", "beat_count", "voice_word_count", "estimated_duration_seconds", "voice_density": "voice-heavy|balanced|visual-heavy", "pacing_notes" }], "overall": { "total_beats", "estimated_total_minutes", "pacing_curve", "bloat_warnings": [], "thin_spots": [], "recommended_cuts": [] } }`;
+}
+
+function buildCoherencePrompt(text, context) {
+  const ctx = context ? `SCRIPT CONTEXT:\n${context}\n\n` : '';
+  return `${ctx}Check VOICE/VISUAL COHERENCE for each beat in this documentary script.
+
+SCRIPT:
+${text}
+
+Return JSON: { "beats": [{ "beat_index", "voice_summary", "visual_summary", "relationship": "illustration|counterpoint|complementary|disconnected|missing_pair", "coherence_score": 0.0-1.0 }], "summary": { "total_beats", "coherent_beats", "disconnected_beats", "strongest_pairings": [], "weakest_pairings": [], "overall_assessment" } }`;
+}
+
+async function handleGetScriptPasses(body) {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return jsonResponse({ error: 'Supabase not configured' }, 500);
+
+  const { snapshotId, passType } = body;
+  if (!snapshotId) return jsonResponse({ error: 'snapshotId required' }, 400);
+
+  let url = `${supabaseUrl}/rest/v1/script_passes?snapshot_id=eq.${snapshotId}&order=created_at.desc`;
+  if (passType) url += `&pass_type=eq.${passType}`;
+
+  const res = await fetch(url, {
+    headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+  });
+
+  if (!res.ok) return jsonResponse({ error: 'Failed to fetch passes' }, 500);
+  const passes = await res.json();
+  return jsonResponse({ passes });
+}
+
+async function handleGetScriptSnapshot(body) {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return jsonResponse({ error: 'Supabase not configured' }, 500);
+
+  const { mediaAssetId, snapshotId } = body;
+  if (!mediaAssetId && !snapshotId) return jsonResponse({ error: 'mediaAssetId or snapshotId required' }, 400);
+
+  let url;
+  if (snapshotId) {
+    url = `${supabaseUrl}/rest/v1/script_snapshots?id=eq.${snapshotId}&limit=1`;
+  } else {
+    url = `${supabaseUrl}/rest/v1/script_snapshots?media_asset_id=eq.${mediaAssetId}&order=version_number.desc&limit=1`;
+  }
+
+  const res = await fetch(url, {
+    headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+  });
+
+  if (!res.ok) return jsonResponse({ error: 'Failed to fetch snapshot' }, 500);
+  const snapshots = await res.json();
+  if (!snapshots?.length) return jsonResponse({ error: 'No snapshot found' }, 404);
+  return jsonResponse({ snapshot: snapshots[0] });
+}
+
+async function handleScriptCopilotChat(body, apiKey) {
+  const { message, conversationHistory, snapshotId, projectId } = body;
+  if (!message) return jsonResponse({ error: 'message is required' }, 400);
+
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  const headers = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` };
+
+  // Fetch script context + snapshot
+  let scriptContext = '';
+  let snapshotContext = '';
+
+  if (projectId) {
+    const projUrl = `${supabaseUrl}/rest/v1/hunter_projects?id=eq.${projectId}&select=metadata&limit=1`;
+    const projRes = await fetch(projUrl, { headers });
+    if (projRes.ok) {
+      const projects = await projRes.json();
+      scriptContext = projects?.[0]?.metadata?.script_context || '';
+    }
+  }
+
+  if (snapshotId) {
+    const snapUrl = `${supabaseUrl}/rest/v1/script_snapshots?id=eq.${snapshotId}&select=parsed_doc,color_profile,beat_count,word_count&limit=1`;
+    const snapRes = await fetch(snapUrl, { headers });
+    if (snapRes.ok) {
+      const snaps = await snapRes.json();
+      if (snaps?.[0]) {
+        const doc = snaps[0].parsed_doc;
+        const title = doc?.title || 'Untitled';
+        const beatCount = snaps[0].beat_count || 0;
+        const wordCount = snaps[0].word_count || 0;
+        snapshotContext = `\nCURRENT SCRIPT: "${title}" (${beatCount} beats, ${wordCount} words)\n`;
+      }
+    }
+  }
+
+  const historyParts = (conversationHistory || []).slice(-10).map(m => ({
+    role: m.role === 'user' ? 'user' : 'model',
+    parts: [{ text: m.content }],
+  }));
+
+  const systemText = `You are Hunter's Script Copilot — an intelligent editorial assistant with deep understanding of documentary scripts.
+
+You understand two-column script format (voice + visual), color coding (highlight colors carry editorial meaning), and how scripts translate to finished films.
+
+${scriptContext ? `SCRIPT TRAINING CONTEXT:\n${scriptContext}\n` : ''}${snapshotContext}
+
+When discussing the script, reference specific beats, sections, and formatting. Be editorial and specific. Help the filmmaker think through their script like a trusted collaborator.`;
+
+  const model = 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const contents = [...historyParts, { role: 'user', parts: [{ text: message }] }];
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents,
+      systemInstruction: { parts: [{ text: systemText }] },
+      generationConfig: { maxOutputTokens: 2000 },
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    return jsonResponse({ error: 'Script chat failed', detail: errBody.slice(0, 500) }, 502);
+  }
+
+  const data = await res.json();
+  const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
+  return jsonResponse({ reply });
 }
 
 function formatSeconds(s) {

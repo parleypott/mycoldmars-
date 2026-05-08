@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JOHNNY PLEASE DO THIS — Google OAuth Setup</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'SF Mono', 'Roboto Mono', monospace;
+      background: #0a0a0a;
+      color: #b0b0b0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    h1 {
+      font-size: 3rem;
+      color: #FF3B20;
+      letter-spacing: 0.15em;
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+    .subtitle {
+      font-size: 1rem;
+      color: #555;
+      letter-spacing: 0.2em;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    .card {
+      background: #111;
+      border: 1px solid #222;
+      max-width: 700px;
+      width: 100%;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+    }
+    .step-num {
+      font-size: 2rem;
+      color: #FFB000;
+      margin-bottom: 0.3rem;
+    }
+    .step-title {
+      font-size: 1.1rem;
+      color: #e0e0e0;
+      margin-bottom: 0.8rem;
+      letter-spacing: 0.08em;
+    }
+    .step-body {
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: #888;
+    }
+    a {
+      color: #5AA3FF;
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+    .copy-btn {
+      display: inline-block;
+      background: #1a2a3a;
+      border: 1px solid #2a4a6a;
+      color: #7ab4ff;
+      padding: 4px 12px;
+      font-family: inherit;
+      font-size: 0.75rem;
+      cursor: pointer;
+      margin-left: 8px;
+      letter-spacing: 0.1em;
+    }
+    .copy-btn:hover { background: #2a3a5a; }
+    code {
+      background: #1a1a1a;
+      padding: 2px 6px;
+      border-radius: 2px;
+      color: #e0e0e0;
+      font-size: 0.82rem;
+    }
+    .cmd-block {
+      background: #111;
+      border: 1px solid #222;
+      padding: 12px 16px;
+      margin: 8px 0;
+      font-size: 0.82rem;
+      color: #e0e0e0;
+      position: relative;
+      overflow-x: auto;
+    }
+    .done-btn {
+      display: block;
+      width: 100%;
+      max-width: 700px;
+      padding: 16px;
+      background: #1a3a1a;
+      border: 2px solid #22C55E;
+      color: #22C55E;
+      font-family: inherit;
+      font-size: 1.2rem;
+      letter-spacing: 0.15em;
+      cursor: pointer;
+      text-align: center;
+      margin-top: 1rem;
+    }
+    .done-btn:hover { background: #2a4a2a; }
+  </style>
+</head>
+<body>
+  <h1>JOHNNY PLEASE DO THIS</h1>
+  <div class="subtitle">GOOGLE OAUTH SETUP FOR SCRIPT COPILOT</div>
+
+  <div class="card">
+    <div class="step-num">01</div>
+    <div class="step-title">Create a Google Cloud Project</div>
+    <div class="step-body">
+      Go to <a href="https://console.cloud.google.com/projectcreate" target="_blank">Google Cloud Console → New Project</a><br>
+      Name it something like <code>Hunter Script Copilot</code><br>
+      Wait for it to create, then make sure it's selected.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="step-num">02</div>
+    <div class="step-title">Enable the APIs</div>
+    <div class="step-body">
+      Enable these two APIs:<br><br>
+      <a href="https://console.cloud.google.com/apis/library/docs.googleapis.com" target="_blank">Google Docs API</a> — click ENABLE<br>
+      <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank">Google Drive API</a> — click ENABLE
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="step-num">03</div>
+    <div class="step-title">Configure OAuth Consent Screen</div>
+    <div class="step-body">
+      Go to <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank">OAuth consent screen</a><br>
+      Choose "External" user type, click Create<br>
+      Fill in app name (<code>Hunter</code>), your email, and save<br>
+      Under "Test users" add your Google account email
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="step-num">04</div>
+    <div class="step-title">Create OAuth Credentials</div>
+    <div class="step-body">
+      Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Credentials</a><br>
+      Click "+ CREATE CREDENTIALS" → "OAuth client ID"<br>
+      Application type: <strong>Desktop app</strong><br>
+      Name: <code>Hunter CLI</code><br>
+      Click Create<br><br>
+      Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> — you'll need them next.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="step-num">05</div>
+    <div class="step-title">Run the Setup Script</div>
+    <div class="step-body">
+      In your terminal, run:
+      <div class="cmd-block">
+        node hunter/worker/google-auth-setup.mjs
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('node hunter/worker/google-auth-setup.mjs')">COPY</button>
+      </div>
+      Paste your Client ID and Secret when prompted.<br>
+      The browser will open for Google consent — approve it.<br>
+      The script will print your <code>GOOGLE_REFRESH_TOKEN</code>.<br><br>
+      Add all three values to <code>.env</code>:
+      <div class="cmd-block">
+        GOOGLE_CLIENT_ID=your-client-id<br>
+        GOOGLE_CLIENT_SECRET=your-client-secret<br>
+        GOOGLE_REFRESH_TOKEN=your-refresh-token
+      </div>
+    </div>
+  </div>
+
+  <button class="done-btn" onclick="window.close()">DONE — CLOSE THIS TAB</button>
+</body>
+</html>

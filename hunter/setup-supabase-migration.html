@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JOHNNY PLEASE DO THIS — Supabase Migration</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'SF Mono', 'Roboto Mono', monospace;
+      background: #0a0a0a;
+      color: #b0b0b0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    h1 {
+      font-size: 3rem;
+      color: #FF3B20;
+      letter-spacing: 0.15em;
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+    .subtitle {
+      font-size: 1rem;
+      color: #555;
+      letter-spacing: 0.2em;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    .card {
+      background: #111;
+      border: 1px solid #222;
+      max-width: 700px;
+      width: 100%;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+    }
+    .step-num {
+      font-size: 2rem;
+      color: #FFB000;
+      margin-bottom: 0.3rem;
+    }
+    .step-title {
+      font-size: 1.1rem;
+      color: #e0e0e0;
+      margin-bottom: 0.8rem;
+      letter-spacing: 0.08em;
+    }
+    .step-body {
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: #888;
+    }
+    a {
+      color: #5AA3FF;
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+    .copy-btn {
+      display: inline-block;
+      background: #1a2a3a;
+      border: 1px solid #2a4a6a;
+      color: #7ab4ff;
+      padding: 6px 16px;
+      font-family: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      margin-top: 8px;
+    }
+    .copy-btn:hover { background: #2a3a5a; }
+    .sql-block {
+      background: #0d0d0d;
+      border: 1px solid #222;
+      padding: 16px;
+      margin: 12px 0;
+      font-size: 0.78rem;
+      color: #7ab4ff;
+      white-space: pre;
+      overflow-x: auto;
+      line-height: 1.6;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .done-btn {
+      display: block;
+      width: 100%;
+      max-width: 700px;
+      padding: 16px;
+      background: #1a3a1a;
+      border: 2px solid #22C55E;
+      color: #22C55E;
+      font-family: inherit;
+      font-size: 1.2rem;
+      letter-spacing: 0.15em;
+      cursor: pointer;
+      text-align: center;
+      margin-top: 1rem;
+    }
+    .done-btn:hover { background: #2a4a2a; }
+  </style>
+</head>
+<body>
+  <h1>JOHNNY PLEASE DO THIS</h1>
+  <div class="subtitle">SUPABASE MIGRATION — SCRIPT COPILOT TABLES</div>
+
+  <div class="card">
+    <div class="step-num">01</div>
+    <div class="step-title">Open the Supabase SQL Editor</div>
+    <div class="step-body">
+      Go to your Supabase project's SQL editor:<br><br>
+      <a href="https://supabase.com/dashboard/project/ukqimqkifkhdavveopdm/sql/new" target="_blank">Open SQL Editor (ukqimqkifkhdavveopdm)</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="step-num">02</div>
+    <div class="step-title">Paste and Run This SQL</div>
+    <div class="step-body">
+      Copy the SQL below and paste it into the editor, then click "Run".
+      <button class="copy-btn" id="copy-sql">COPY SQL TO CLIPBOARD</button>
+      <div class="sql-block" id="sql-content">-- Script Copilot tables for Hunter
+-- Versioned rich document snapshots + specialized analysis passes
+
+-- Versioned rich document snapshots
+create table if not exists script_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  media_asset_id uuid not null references media_assets(id) on delete cascade,
+  revision_id text,
+  version_number integer not null,
+  parsed_doc jsonb not null,
+  color_profile jsonb,
+  beat_count integer default 0,
+  word_count integer default 0,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_script_snapshots_asset
+  on script_snapshots(media_asset_id);
+
+create unique index if not exists idx_script_snapshots_version
+  on script_snapshots(media_asset_id, version_number);
+
+-- Specialized analysis pass results
+create table if not exists script_passes (
+  id uuid primary key default gen_random_uuid(),
+  snapshot_id uuid not null references script_snapshots(id) on delete cascade,
+  pass_type text not null check (pass_type in (
+    'animation_audit',
+    'archive_audit',
+    'fact_check',
+    'pacing_analysis',
+    'coherence_check',
+    'full_synthesis',
+    'script_training'
+  )),
+  output_json jsonb not null,
+  output_text text,
+  model text not null,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_script_passes_snapshot
+  on script_passes(snapshot_id);
+
+create index if not exists idx_script_passes_type
+  on script_passes(pass_type);</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="step-num">03</div>
+    <div class="step-title">Verify</div>
+    <div class="step-body">
+      After running, check that these tables appear in the Table Editor:<br>
+      &bull; <code>script_snapshots</code><br>
+      &bull; <code>script_passes</code><br><br>
+      If you see them, you're done!
+    </div>
+  </div>
+
+  <button class="done-btn" onclick="window.close()">DONE — CLOSE THIS TAB</button>
+
+  <script>
+    document.getElementById('copy-sql').addEventListener('click', function() {
+      var sql = document.getElementById('sql-content').textContent;
+      navigator.clipboard.writeText(sql).then(function() {
+        document.getElementById('copy-sql').textContent = 'COPIED!';
+        setTimeout(function() {
+          document.getElementById('copy-sql').textContent = 'COPY SQL TO CLIPBOARD';
+        }, 2000);
+      });
+    });
+  </script>
+</body>
+</html>
