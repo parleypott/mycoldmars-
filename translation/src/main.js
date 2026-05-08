@@ -418,6 +418,14 @@ function renderFileRow(t) {
 function renderBreadcrumb() {
   const crumbEl = document.querySelector('.lib-breadcrumb');
   if (!crumbEl) return;
+  // Total count for the current view — shown as a quiet right-aligned badge.
+  // Folder counts in their own renderFolderRow; this is the toolbar-level
+  // 'X transcripts in this view' indicator.
+  const transcripts = libraryCache?.transcripts || [];
+  const inView = libraryCurrentProject
+    ? transcripts.filter(t => t.project_id === libraryCurrentProject).length
+    : transcripts.length;
+
   let html = `<button class="lib-crumb lib-crumb--root" data-id="">My Library</button>`;
   if (libraryCurrentProject) {
     const proj = projects.find(p => p.id === libraryCurrentProject);
@@ -426,11 +434,22 @@ function renderBreadcrumb() {
       html += `<span class="lib-crumb--current">${esc(proj.name)}</span>`;
     }
   }
+  if (inView > 0) {
+    html += `<span class="lib-crumb-count">${inView} transcript${inView === 1 ? '' : 's'}</span>`;
+  }
   crumbEl.innerHTML = html;
   crumbEl.querySelector('.lib-crumb--root')?.addEventListener('click', () => {
     libraryCurrentProject = null;
     fetchLibrary(true);
   });
+  // Right-click on the current-folder crumb → quick rename / delete.
+  const currentCrumb = crumbEl.querySelector('.lib-crumb--current');
+  if (currentCrumb && libraryCurrentProject) {
+    currentCrumb.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      openFolderContextMenu(e.clientX, e.clientY, libraryCurrentProject);
+    });
+  }
 }
 
 function sortTranscripts(items) {

@@ -6419,3 +6419,21 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   opacity: 0.85;
   color: var(--np-red);
 }
+
+/* Breadcrumb count badge */
+.lib-crumb-count {
+  margin-left: auto;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--np-sepia);
+  opacity: 0.7;
+}
+.lib-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lib-crumb--current {
+  cursor: context-menu;
+}
