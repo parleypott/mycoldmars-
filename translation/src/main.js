@@ -442,7 +442,8 @@ function renderFileRow(t) {
       <div class="lib-col lib-col--step">${stepLabel}</div>
       <div class="lib-col lib-col--date">${relativeTime(t.updated_at)}</div>
       <div class="lib-col lib-col--actions">
-        <button class="lib-row-delete" data-id="${t.id}">&times;</button>
+        <button class="lib-row-kebab" data-id="${t.id}" title="More actions" aria-label="More actions">⋯</button>
+        <button class="lib-row-delete" data-id="${t.id}" title="Delete">&times;</button>
       </div>
     </div>`;
 }
@@ -484,12 +485,28 @@ function getVisibleFileRows() {
 }
 
 function wireLibraryEvents() {
+  // Kebab buttons → open the file context menu (same as right-click).
+  // Discoverable for users who don't know about right-click.
+  libraryList.querySelectorAll('.lib-row-kebab').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      if (!librarySelected.has(id)) {
+        clearLibrarySelection();
+        toggleRowSelection(id, true);
+      }
+      const rect = btn.getBoundingClientRect();
+      openFileContextMenu(rect.right, rect.bottom + 4);
+    });
+  });
+
   // ── File row click — opens the transcript by default. Cmd/Ctrl-click
   //    toggles selection without opening. Shift-click extends a range
   //    selection from the last clicked row. Like Drive / Finder. ──
   libraryList.querySelectorAll('.lib-row--file').forEach(row => {
     row.addEventListener('click', (e) => {
       if (e.target.closest('.lib-row-delete') ||
+          e.target.closest('.lib-row-kebab') ||
           e.target.closest('.lib-name') ||
           e.target.closest('.lib-row-check')) return;
 

@@ -6352,3 +6352,70 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   color: var(--np-red);
   font-weight: 500;
 }
+
+/* Kebab "⋯" button — shows on row hover, always visible when row is
+   selected. Opens the same context menu as right-click for discoverability. */
+.lib-row-kebab {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--np-sepia);
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 80ms ease-out, background 80ms ease-out;
+  padding: 0;
+}
+.lib-row:hover .lib-row-kebab,
+.lib-row--checked .lib-row-kebab,
+.lib-row--active .lib-row-kebab,
+.lib-row-kebab:focus-visible {
+  opacity: 1;
+}
+.lib-row-kebab:hover {
+  background: rgba(65, 44, 39, 0.10);
+  color: var(--np-ink);
+}
+
+/* Hide the legacy red X by default — the kebab covers Delete now —
+   and only show it when explicitly hovering the row, behind the kebab. */
+.lib-row-delete { opacity: 0.55; }
+.lib-row:hover .lib-row-delete { opacity: 1; }
+
+/* Sort indicators on column headers. The JS adds .lib-col--sorted-asc /
+   .lib-col--sorted-desc; we render an arrow inline. */
+.lib-table-header .lib-col[data-sort] {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 18px;
+}
+.lib-table-header .lib-col[data-sort]:hover {
+  color: var(--np-ink);
+}
+.lib-table-header .lib-col[data-sort]::after {
+  content: '↕';
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  opacity: 0.25;
+  transition: opacity 80ms;
+}
+.lib-table-header .lib-col[data-sort]:hover::after {
+  opacity: 0.55;
+}
+.lib-table-header .lib-col--sorted-asc::after {
+  content: '↑';
+  opacity: 0.85;
+  color: var(--np-red);
+}
+.lib-table-header .lib-col--sorted-desc::after {
+  content: '↓';
+  opacity: 0.85;
+  color: var(--np-red);
+}
