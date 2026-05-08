@@ -59,8 +59,12 @@ async function headers() {
 /**
  * Fetch full structured document from Google Docs API.
  * Returns the raw JSON with body.content[], headers, footers, tables, etc.
+ *
+ * @param {string} docId - Google Doc ID
+ * @param {object} [opts] - Options
+ * @param {number} [opts.tabIndex] - If set, only include this tab (0-based). Default: all tabs.
  */
-export async function fetchDocStructured(docId) {
+export async function fetchDocStructured(docId, opts = {}) {
   // Use includeTabsContent=true to get ALL tabs, not just the default body
   const url = `${DOCS_BASE}/documents/${docId}?includeTabsContent=true`;
   console.log(`[google] fetching structured doc ${docId} (all tabs)...`);
@@ -72,13 +76,23 @@ export async function fetchDocStructured(docId) {
   }
 
   const doc = await res.json();
-  const tabs = doc.tabs || [];
-  const tabCount = tabs.length;
+  let tabs = doc.tabs || [];
+  const totalTabCount = tabs.length;
 
-  // Merge all tab content into body.content for backward compatibility,
-  // but also expose the full tabs structure
-  if (tabCount > 0 && !doc.body?.content?.length) {
-    // Build merged body from all tabs
+  // Tab filtering — keep only the requested tab
+  if (opts.tabIndex != null && totalTabCount > 0) {
+    const idx = opts.tabIndex;
+    if (idx >= 0 && idx < totalTabCount) {
+      tabs = [tabs[idx]];
+      doc.tabs = tabs;
+      console.log(`[google] filtered to tab ${idx}: "${tabs[0].tabProperties?.title || 'Untitled'}"`);
+    } else {
+      console.log(`[google] tabIndex ${idx} out of range (${totalTabCount} tabs), using all`);
+    }
+  }
+
+  // Merge tab content into body.content for backward compatibility
+  if (tabs.length > 0 && !doc.body?.content?.length) {
     const mergedContent = [];
     for (const tab of tabs) {
       const tabBody = tab.documentTab?.body?.content || [];
@@ -89,7 +103,7 @@ export async function fetchDocStructured(docId) {
   }
 
   const elementCount = doc.body?.content?.length || 0;
-  console.log(`[google] fetched doc "${doc.title}" (${tabCount} tabs, ${elementCount} elements)`);
+  console.log(`[google] fetched doc "${doc.title}" (${totalTabCount} tabs total, ${tabs.length} selected, ${elementCount} elements)`);
   return doc;
 }
 

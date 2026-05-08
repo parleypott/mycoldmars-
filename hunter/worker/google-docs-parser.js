@@ -10,49 +10,41 @@
  * Main entry point. Parses Docs API JSON into a structured intermediate format.
  *
  * @param {object} docJson - Full Google Docs API response (documents.get)
+ * @param {object} [opts] - Options
+ * @param {number} [opts.tabIndex] - If set, only parse this tab (0-based). Default: all tabs.
  * @returns {{ docId, title, revisionId, fetchedAt, elements[], colorProfile, stats }}
  */
-export function parseDocStructured(docJson) {
+export function parseDocStructured(docJson, opts = {}) {
   const elements = [];
-  const tabs = docJson.tabs || [];
+  let tabs = docJson.tabs || [];
+
+  // Tab filtering at parse time (in case fetchDocStructured wasn't filtered)
+  if (opts.tabIndex != null && tabs.length > 0) {
+    const idx = opts.tabIndex;
+    if (idx >= 0 && idx < tabs.length) {
+      tabs = [tabs[idx]];
+    }
+  }
 
   if (tabs.length > 0) {
-    // Multi-tab document — parse each tab with a tab heading
+    // Parse tab(s)
     for (const tab of tabs) {
       const tabTitle = tab.tabProperties?.title || 'Untitled Tab';
       const tabBody = tab.documentTab?.body?.content || [];
 
       if (tabBody.length === 0) continue;
 
-      // Add a tab separator heading
-      elements.push({ type: 'heading', level: 1, text: `[TAB: ${tabTitle}]`, runs: [], isTab: true });
-
-      for (const element of tabBody) {
-        if (element.paragraph) {
-          const parsed = parseParagraph(element.paragraph);
-          if (parsed) elements.push(parsed);
-        } else if (element.table) {
-          const beats = extractTableBeats(element.table);
-          elements.push(...beats);
-        } else if (element.sectionBreak) {
-          elements.push({ type: 'section_break' });
-        }
+      // Only add tab heading if multiple tabs
+      if (tabs.length > 1) {
+        elements.push({ type: 'heading', level: 1, text: `[TAB: ${tabTitle}]`, runs: [], isTab: true });
       }
+
+      parseBodyContent(tabBody, elements);
     }
   } else {
     // Single-tab / legacy body
     const body = docJson.body?.content || [];
-    for (const element of body) {
-      if (element.paragraph) {
-        const parsed = parseParagraph(element.paragraph);
-        if (parsed) elements.push(parsed);
-      } else if (element.table) {
-        const beats = extractTableBeats(element.table);
-        elements.push(...beats);
-      } else if (element.sectionBreak) {
-        elements.push({ type: 'section_break' });
-      }
-    }
+    parseBodyContent(body, elements);
   }
 
   const colorProfile = buildColorProfile(elements);
@@ -68,6 +60,23 @@ export function parseDocStructured(docJson) {
     colorProfile,
     stats,
   };
+}
+
+/**
+ * Parse body content elements into our intermediate element array.
+ */
+function parseBodyContent(bodyContent, elements) {
+  for (const element of bodyContent) {
+    if (element.paragraph) {
+      const parsed = parseParagraph(element.paragraph);
+      if (parsed) elements.push(parsed);
+    } else if (element.table) {
+      const beats = extractTableBeats(element.table);
+      elements.push(...beats);
+    } else if (element.sectionBreak) {
+      elements.push({ type: 'section_break' });
+    }
+  }
 }
 
 /**
@@ -188,19 +197,31 @@ export function extractTableBeats(tableElement) {
     const cells = row.tableCells || [];
     if (cells.length < 2) continue;
 
-    const col0 = parseCellContent(cells[0]);
-    const col1 = parseCellContent(cells[1]);
+    // For 3+ column tables, find the two most content-rich columns
+    // (some scripts use an empty first column for numbering/spacing)
+    let voiceIdx = columnRoles.voiceColumn;
+    let visualIdx = columnRoles.visualColumn;
 
-    // Skip header rows (both cells are bold headings like "VOICE" / "VISUAL")
-    if (isHeaderRow(col0, col1)) continue;
+    const parsedCells = cells.map(c => parseCellContent(c));
+
+    // Skip header rows
+    if (isHeaderRow(parsedCells[voiceIdx] || [], parsedCells[visualIdx] || [])) continue;
+
+    const voiceCol = parsedCells[voiceIdx] || [];
+    const visualCol = parsedCells[visualIdx] || [];
 
     // Skip empty rows
-    if (!hasContent(col0) && !hasContent(col1)) continue;
+    if (!hasContent(voiceCol) && !hasContent(visualCol)) continue;
 
-    const voiceCol = columnRoles.voiceColumn === 0 ? col0 : col1;
-    const visualCol = columnRoles.voiceColumn === 0 ? col1 : col0;
+    // Collect any extra columns as supplementary content
+    const extras = [];
+    for (let i = 0; i < parsedCells.length; i++) {
+      if (i !== voiceIdx && i !== visualIdx && hasContent(parsedCells[i])) {
+        extras.push(...parsedCells[i]);
+      }
+    }
 
-    beats.push({
+    const beat = {
       type: 'beat',
       voice: {
         text: elementsToText(voiceCol),
@@ -210,7 +231,17 @@ export function extractTableBeats(tableElement) {
         text: elementsToText(visualCol),
         runs: elementsToRuns(visualCol),
       },
-    });
+    };
+
+    // Attach extra column content if present
+    if (extras.length > 0) {
+      beat.extra = {
+        text: elementsToText(extras),
+        runs: elementsToRuns(extras),
+      };
+    }
+
+    beats.push(beat);
   }
 
   return beats;
@@ -239,47 +270,74 @@ function parseCellContent(cell) {
  * mentions of cameras/shots, shorter fragmentary sentences.
  */
 export function detectColumnRoles(tableRows) {
-  let col0VisualScore = 0;
-  let col1VisualScore = 0;
-
+  const numCols = tableRows[0]?.tableCells?.length || 2;
   const visualKeywords = /\b(shot|b-?roll|wide|close|aerial|animation|animated|archive|stock|footage|camera|pov|establishing|cutaway|montage|graphic|map|diagram|photo|image|video)\b/i;
   const voiceKeywords = /\b(narrator|voiceover|v\.?o\.?|dialogue|interview|sot|sound bite|we hear|i say|says)\b/i;
 
+  // Score each column
+  const colScores = Array.from({ length: numCols }, () => ({ visual: 0, voice: 0, charCount: 0 }));
   const sampleRows = tableRows.slice(0, Math.min(10, tableRows.length));
 
   for (const row of sampleRows) {
     const cells = row.tableCells || [];
-    if (cells.length < 2) continue;
+    for (let i = 0; i < Math.min(cells.length, numCols); i++) {
+      const text = cellToPlainText(cells[i]);
+      colScores[i].charCount += text.length;
 
-    const text0 = cellToPlainText(cells[0]);
-    const text1 = cellToPlainText(cells[1]);
+      if (visualKeywords.test(text)) colScores[i].visual += 2;
+      if (voiceKeywords.test(text)) colScores[i].voice += 2;
 
-    // Check for visual keywords
-    if (visualKeywords.test(text0)) col0VisualScore += 2;
-    if (visualKeywords.test(text1)) col1VisualScore += 2;
-
-    // Check for voice keywords
-    if (voiceKeywords.test(text0)) col1VisualScore += 1; // col0 is voice → col1 is visual
-    if (voiceKeywords.test(text1)) col0VisualScore += 1; // col1 is voice → col0 is visual
-
-    // Check for highlight colors (visual columns tend to be more colorful)
-    const colors0 = countHighlights(cells[0]);
-    const colors1 = countHighlights(cells[1]);
-    if (colors0 > colors1) col0VisualScore += 1;
-    if (colors1 > colors0) col1VisualScore += 1;
-
-    // Longer prose tends to be voice, fragmentary notes tend to be visual
-    if (text0.length > text1.length * 1.5) col1VisualScore += 0.5;
-    if (text1.length > text0.length * 1.5) col0VisualScore += 0.5;
+      // Highlight colors suggest visual direction
+      const hlCount = countHighlights(cells[i]);
+      if (hlCount > 0) colScores[i].visual += hlCount;
+    }
   }
 
-  // Default: left column is voice (most common in TV/doc scripts)
-  const voiceColumn = col1VisualScore >= col0VisualScore ? 0 : 1;
+  // Filter out empty/numbering columns (very low char count)
+  const avgChars = colScores.reduce((s, c) => s + c.charCount, 0) / numCols;
+  const contentCols = colScores
+    .map((s, i) => ({ ...s, idx: i }))
+    .filter(s => s.charCount > avgChars * 0.15); // must have >15% of average content
 
+  // If we filtered down to fewer than 2, fall back to the two with most content
+  if (contentCols.length < 2) {
+    const sorted = colScores.map((s, i) => ({ ...s, idx: i })).sort((a, b) => b.charCount - a.charCount);
+    contentCols.length = 0;
+    contentCols.push(sorted[0], sorted[1]);
+  }
+
+  // Among content columns, pick voice and visual
+  // Voice = highest voice score or longest prose; Visual = highest visual score or most highlights
+  let bestVoice = contentCols[0];
+  let bestVisual = contentCols[1] || contentCols[0];
+
+  for (const col of contentCols) {
+    if (col.voice > bestVoice.voice || (col.voice === bestVoice.voice && col.charCount > bestVoice.charCount)) {
+      bestVoice = col;
+    }
+    if (col.visual > bestVisual.visual) {
+      bestVisual = col;
+    }
+  }
+
+  // If both picked the same column, use the two highest-content columns
+  if (bestVoice.idx === bestVisual.idx) {
+    const sorted = contentCols.sort((a, b) => b.charCount - a.charCount);
+    bestVoice = sorted[0];
+    bestVisual = sorted[1] || sorted[0];
+    // Longer prose is usually voice
+    if (bestVisual.charCount > bestVoice.charCount) {
+      [bestVoice, bestVisual] = [bestVisual, bestVoice];
+    }
+  }
+
+  const totalScore = contentCols.reduce((s, c) => s + c.visual + c.voice, 0) || 1;
   return {
-    voiceColumn,
-    visualColumn: voiceColumn === 0 ? 1 : 0,
-    confidence: Math.abs(col0VisualScore - col1VisualScore) / Math.max(col0VisualScore + col1VisualScore, 1),
+    voiceColumn: bestVoice.idx,
+    visualColumn: bestVisual.idx,
+    totalColumns: numCols,
+    contentColumns: contentCols.map(c => c.idx),
+    confidence: Math.abs(bestVoice.voice + bestVisual.visual) / totalScore,
   };
 }
 
@@ -401,8 +459,17 @@ function countHighlights(cell) {
 function isHeaderRow(col0Elements, col1Elements) {
   const text0 = elementsToText(col0Elements).toLowerCase();
   const text1 = elementsToText(col1Elements).toLowerCase();
-  const headerTerms = ['voice', 'visual', 'audio', 'video', 'narration', 'picture', 'column a', 'column b', 'col a', 'col b'];
-  return headerTerms.some(t => text0.includes(t)) && headerTerms.some(t => text1.includes(t));
+  const headerTerms = [
+    'voice', 'visual', 'audio', 'video', 'narration', 'picture',
+    'column a', 'column b', 'col a', 'col b',
+    'words', 'direction', 'v.o.', 'vo ', 'oncam', 'on cam',
+    'script', 'action', 'description', 'general direction',
+    'archive needed', 'archive found', 'animation', 'b roll',
+  ];
+  // Header if both columns match header terms, OR if either column has 3+ header-like terms (legend row)
+  const matches0 = headerTerms.filter(t => text0.includes(t)).length;
+  const matches1 = headerTerms.filter(t => text1.includes(t)).length;
+  return (matches0 >= 1 && matches1 >= 1) || matches0 >= 3 || matches1 >= 3;
 }
 
 function hasContent(elements) {
