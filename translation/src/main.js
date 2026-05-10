@@ -304,66 +304,86 @@ function renderLibrary(transcripts, projectsList, deletedTranscripts) {
   if ((!transcripts || transcripts.length === 0) && (!projectsList || projectsList.length === 0) && (!deletedTranscripts || deletedTranscripts.length === 0)) {
     libraryList.innerHTML = '';
     libraryEmpty.classList.remove('hidden');
+    renderSidebarFolders(projectsList || []);
+    updateSidebarCounts();
     return;
   }
 
   libraryEmpty.classList.add('hidden');
   renderBreadcrumb();
+  renderSidebarFolders(projectsList || []);
+  updateSidebarCounts();
 
   const rows = [];
 
-  if (!libraryCurrentProject) {
-    // ROOT VIEW: folders first, then unsorted transcripts
-    for (const proj of (projectsList || [])) {
-      const count = (transcripts || []).filter(t => t.project_id === proj.id).length;
-      rows.push(renderFolderRow(proj, count));
+  // Sidebar virtual views take precedence over folder navigation.
+  if (libraryActiveView === 'starred') {
+    const items = (transcripts || []).filter(t => starredSet.has(t.id));
+    if (items.length === 0) {
+      libraryList.innerHTML = '';
+      const emptyEl = document.getElementById('library-empty');
+      if (emptyEl) {
+        emptyEl.classList.remove('hidden');
+        emptyEl.querySelector('.lib-empty-title').textContent = 'No starred transcripts.';
+        emptyEl.querySelector('.lib-empty-sub').innerHTML = 'Star a transcript via right-click → <kbd>Star</kbd>, or click the outline star on any row.';
+      }
+      return;
     }
-    // Unsorted transcripts (no project)
-    const unsorted = (transcripts || []).filter(t => !t.project_id);
-    for (const t of sortTranscripts(unsorted)) {
-      rows.push(renderFileRow(t));
-    }
-  } else {
-    // PROJECT VIEW: transcripts in this project only
-    const items = (transcripts || []).filter(t => t.project_id === libraryCurrentProject);
-    for (const t of sortTranscripts(items)) {
-      rows.push(renderFileRow(t));
-    }
-  }
-
-  // Recently Deleted section (only at root)
-  if (!libraryCurrentProject) {
+    for (const t of sortTranscripts(items)) rows.push(renderFileRow(t));
+  } else if (libraryActiveView === 'recent') {
+    const items = [...(transcripts || [])]
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .slice(0, 25);
+    for (const t of items) rows.push(renderFileRow(t));
+  } else if (libraryActiveView === 'trash') {
+    // Show ONLY deleted items in trash view.
     const deleted = (deletedTranscripts || []).filter(t => {
       const deletedAt = new Date(t.deleted_at).getTime();
       return Date.now() - deletedAt < 30 * 24 * 60 * 60 * 1000;
     });
-    if (deleted.length > 0) {
-      rows.push(`<div class="lib-deleted-section">
-        <button class="lib-deleted-toggle" id="deleted-toggle">
-          <span class="np-eyebrow">Recently Deleted</span>
-          <span class="lib-deleted-count">${deleted.length}</span>
-        </button>
-        <div class="lib-deleted-list hidden" id="deleted-list">
-          ${deleted.map(t => {
-            const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(t.deleted_at).getTime()) / (24 * 60 * 60 * 1000)));
-            return `<div class="lib-row lib-row--deleted" data-id="${t.id}">
-              <div class="lib-col lib-col--name">
-                <span class="lib-icon">&#128220;</span>
-                <span class="lib-name lib-name--deleted">${esc(t.name)}</span>
-                <span class="lib-deleted-days">${daysLeft}d left</span>
-              </div>
-              <div class="lib-col lib-col--step"></div>
-              <div class="lib-col lib-col--date"></div>
-              <div class="lib-col lib-col--actions">
-                <button class="lib-restore-btn" data-id="${t.id}">Restore</button>
-                <button class="lib-row-delete" data-id="${t.id}">&times;</button>
-              </div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`);
+    if (deleted.length === 0) {
+      libraryList.innerHTML = '';
+      const emptyEl = document.getElementById('library-empty');
+      if (emptyEl) {
+        emptyEl.classList.remove('hidden');
+        emptyEl.querySelector('.lib-empty-title').textContent = 'Trash is empty.';
+        emptyEl.querySelector('.lib-empty-sub').textContent = 'Deleted transcripts appear here for 30 days.';
+      }
+      return;
     }
+    rows.push(...deleted.map(t => {
+      const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(t.deleted_at).getTime()) / (24 * 60 * 60 * 1000)));
+      return `<div class="lib-row lib-row--deleted" data-id="${t.id}" tabindex="-1">
+        <div class="lib-col lib-col--name">
+          <span class="lib-row-check-spacer"></span>
+          <span class="lib-icon">${ICON_FILE}</span>
+          <span class="lib-name lib-name--deleted">${esc(t.name)}</span>
+          <span class="lib-deleted-days">${daysLeft}d left</span>
+        </div>
+        <div class="lib-col lib-col--step"></div>
+        <div class="lib-col lib-col--date">${relativeTime(t.deleted_at)}</div>
+        <div class="lib-col lib-col--actions">
+          <button class="lib-restore-btn" data-id="${t.id}">Restore</button>
+          <button class="lib-row-delete" data-id="${t.id}" title="Delete forever">${ICON_X}</button>
+        </div>
+      </div>`;
+    }));
+  } else if (!libraryCurrentProject) {
+    // ROOT 'all' VIEW: folders first, then unsorted transcripts
+    for (const proj of (projectsList || [])) {
+      const count = (transcripts || []).filter(t => t.project_id === proj.id).length;
+      rows.push(renderFolderRow(proj, count));
+    }
+    const unsorted = (transcripts || []).filter(t => !t.project_id);
+    for (const t of sortTranscripts(unsorted)) rows.push(renderFileRow(t));
+  } else {
+    // PROJECT 'all' VIEW: transcripts in this project only
+    const items = (transcripts || []).filter(t => t.project_id === libraryCurrentProject);
+    for (const t of sortTranscripts(items)) rows.push(renderFileRow(t));
   }
+
+  // Recently-deleted is now its own sidebar view ('Trash'); no inline
+  // section needed in the All / project / starred / recent views.
 
   libraryList.innerHTML = rows.join('');
   wireLibraryEvents();
@@ -421,21 +441,39 @@ function renderFolderRow(proj, count) {
     </div>`;
 }
 
+// Star icon — outline by default, filled when starred. We just toggle a
+// modifier class instead of swapping SVGs.
+const ICON_STAR = `
+  <svg viewBox="0 0 24 24" width="14" height="14" stroke-width="1.6" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 2l3 7 7 .8-5 4.6 1.5 7L12 17.8 5.5 21.4 7 14.4 2 9.8 9 9z"/>
+  </svg>`;
+
+// Map step number to a status color band so the user can scan a long list
+// at a glance: green = ready (Edit/done), amber = in-progress, red = error.
+function statusToneForTranscript(t) {
+  if (t.step === 5) return 'ready';
+  if (t.step === 4 || t.step === 3 || t.step === 2) return 'progress';
+  return 'fresh';
+}
+
 function renderFileRow(t) {
   const isActive = t.id === currentTranscriptId;
   const stepLabel = STEP_LABELS[t.step] || 'Upload';
+  const tone = statusToneForTranscript(t);
   const isChecked = librarySelected.has(t.id);
   const hasMedia  = !!t.media_upload_id;
   const icon = hasMedia ? ICON_FILE_MEDIA : ICON_FILE;
+  const starred = isStarred(t.id);
   return `
-    <div class="lib-row lib-row--file ${isActive ? 'lib-row--active' : ''} ${isChecked ? 'lib-row--checked' : ''} ${hasMedia ? 'lib-row--media' : ''}"
+    <div class="lib-row lib-row--file ${isActive ? 'lib-row--active' : ''} ${isChecked ? 'lib-row--checked' : ''} ${hasMedia ? 'lib-row--media' : ''} ${starred ? 'lib-row--starred' : ''}"
          data-id="${t.id}" data-project-id="${t.project_id || ''}" draggable="true" tabindex="-1">
       <div class="lib-col lib-col--name">
         <input type="checkbox" class="lib-row-check" data-id="${t.id}" ${isChecked ? 'checked' : ''} aria-label="Select">
+        <button class="lib-row-star ${starred ? 'lib-row-star--on' : ''}" data-id="${t.id}" title="${starred ? 'Unstar' : 'Star'}" aria-label="Toggle star">${ICON_STAR}</button>
         <span class="lib-icon lib-icon--file ${hasMedia ? 'lib-icon--media' : ''}">${icon}</span>
         <span class="lib-name" data-id="${t.id}">${esc(t.name)}</span>
       </div>
-      <div class="lib-col lib-col--step"><span class="lib-step-tag">${stepLabel}</span></div>
+      <div class="lib-col lib-col--step"><span class="lib-status-dot lib-status-dot--${tone}"></span><span class="lib-step-tag">${stepLabel}</span></div>
       <div class="lib-col lib-col--date">${relativeTime(t.updated_at)}</div>
       <div class="lib-col lib-col--actions">
         <button class="lib-row-kebab" data-id="${t.id}" title="More actions" aria-label="More actions">${ICON_KEBAB}</button>
@@ -493,12 +531,144 @@ function sortTranscripts(items) {
 // Track last-clicked row id for shift-click range selection.
 let libraryLastClickedId = null;
 
+// ── Virtual library views (sidebar) ──
+// 'all'     — root shows folders + unsorted; entering a folder shows its files
+// 'starred' — only transcripts the user has starred (localStorage)
+// 'recent'  — top 25 by updated_at (across all folders)
+// 'trash'   — recently-deleted transcripts (already cached as libraryCache.deleted)
+let libraryActiveView = 'all';
+
+const STARRED_KEY = 'mcm_starred_v1';
+function loadStarred() {
+  try { return new Set(JSON.parse(localStorage.getItem(STARRED_KEY) || '[]')); }
+  catch { return new Set(); }
+}
+function saveStarred(set) {
+  try { localStorage.setItem(STARRED_KEY, JSON.stringify(Array.from(set))); } catch {}
+}
+let starredSet = loadStarred();
+
+function isStarred(id) { return starredSet.has(id); }
+function toggleStar(id) {
+  if (starredSet.has(id)) starredSet.delete(id);
+  else starredSet.add(id);
+  saveStarred(starredSet);
+  // Refresh just this row's star icon — or repaint if we're in the Starred view.
+  if (libraryActiveView === 'starred') fetchLibrary();
+  else {
+    const row = libraryList.querySelector(`.lib-row--file[data-id="${id}"]`);
+    row?.classList.toggle('lib-row--starred', starredSet.has(id));
+    const star = row?.querySelector('.lib-row-star');
+    if (star) star.classList.toggle('lib-row-star--on', starredSet.has(id));
+    updateSidebarCounts();
+  }
+}
+
+function updateSidebarCounts() {
+  const starredCount = starredSet.size;
+  const trashCount = (libraryCache?.deleted || []).length;
+  document.querySelectorAll('.lib-nav-count[data-count="starred"]').forEach(el => {
+    el.textContent = starredCount > 0 ? String(starredCount) : '';
+  });
+  document.querySelectorAll('.lib-nav-count[data-count="trash"]').forEach(el => {
+    el.textContent = trashCount > 0 ? String(trashCount) : '';
+  });
+}
+
+// Render the folder list in the sidebar — same data as the inline folder
+// rows in the main view, but as a quick-jump nav surface.
+function renderSidebarFolders(projectsList) {
+  const host = document.querySelector('[data-sidebar-folders]');
+  if (!host) return;
+  if (!projectsList || projectsList.length === 0) {
+    host.innerHTML = '<div class="lib-sidebar-empty">no folders yet</div>';
+    return;
+  }
+  host.innerHTML = projectsList.map(p => {
+    const count = (libraryCache?.transcripts || []).filter(t => t.project_id === p.id).length;
+    const isCurrent = libraryCurrentProject === p.id && libraryActiveView === 'all';
+    return `
+      <button class="lib-sidebar-folder ${isCurrent ? 'lib-sidebar-folder--active' : ''}" data-side-folder="${esc(p.id)}" data-droppable="side">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+        <span class="lib-sidebar-folder-name">${esc(p.name)}</span>
+        <span class="lib-sidebar-folder-count">${count}</span>
+      </button>
+    `;
+  }).join('');
+  host.querySelectorAll('[data-side-folder]').forEach(el => {
+    el.addEventListener('click', () => {
+      libraryActiveView = 'all';
+      libraryCurrentProject = el.dataset.sideFolder;
+      updateSidebarActive();
+      fetchLibrary();
+    });
+    // Allow drag-drop transcripts onto sidebar folders too — same handler
+    // pattern as the main folder rows.
+    el.addEventListener('dragover', (e) => {
+      const types = e.dataTransfer?.types;
+      if (!types || !Array.from(types).includes('text/plain')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      el.classList.add('lib-sidebar-folder--drop');
+    });
+    el.addEventListener('dragleave', () => el.classList.remove('lib-sidebar-folder--drop'));
+    el.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      el.classList.remove('lib-sidebar-folder--drop');
+      const fileId = e.dataTransfer.getData('text/plain');
+      if (!fileId) return;
+      try {
+        await updateTranscript(fileId, { projectId: el.dataset.sideFolder });
+        invalidateLibraryCache();
+        fetchLibrary();
+        showSuccess('Moved');
+      } catch (err) { showErrorToast(`Move failed: ${err?.message || 'Unknown error'}`); }
+    });
+  });
+}
+
+function updateSidebarActive() {
+  document.querySelectorAll('.lib-nav-item').forEach(el => {
+    el.classList.toggle('lib-nav-item--active', el.dataset.view === libraryActiveView);
+  });
+  document.querySelectorAll('.lib-sidebar-folder').forEach(el => {
+    const isActive = libraryActiveView === 'all' && libraryCurrentProject === el.dataset.sideFolder;
+    el.classList.toggle('lib-sidebar-folder--active', isActive);
+  });
+}
+
+// Wire sidebar nav-item clicks once at module load (the elements are
+// static in index.html so we don't need to re-bind on every render).
+function wireSidebarOnce() {
+  document.querySelectorAll('.lib-nav-item').forEach(el => {
+    el.addEventListener('click', () => {
+      libraryActiveView = el.dataset.view || 'all';
+      // Switching to a virtual view exits any folder-drilldown.
+      if (libraryActiveView !== 'all') libraryCurrentProject = null;
+      updateSidebarActive();
+      fetchLibrary();
+    });
+  });
+  // Sidebar "+ folder" → forward to the existing toolbar handler.
+  document.getElementById('btn-new-project-side')?.addEventListener('click', () => {
+    document.getElementById('btn-new-project')?.click();
+  });
+}
+
 function getVisibleFileRows() {
   return Array.from(libraryList.querySelectorAll('.lib-row--file'))
     .filter(r => r.style.display !== 'none');
 }
 
 function wireLibraryEvents() {
+  // Star toggles
+  libraryList.querySelectorAll('.lib-row-star').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleStar(btn.dataset.id);
+    });
+  });
+
   // Kebab buttons → open the appropriate context menu (file or folder).
   // Discoverable alternative to right-click for users who don't know about it.
   libraryList.querySelectorAll('.lib-row-kebab').forEach(btn => {
@@ -528,6 +698,7 @@ function wireLibraryEvents() {
     row.addEventListener('click', (e) => {
       if (e.target.closest('.lib-row-delete') ||
           e.target.closest('.lib-row-kebab') ||
+          e.target.closest('.lib-row-star') ||
           e.target.closest('.lib-name') ||
           e.target.closest('.lib-row-check')) return;
 
@@ -948,6 +1119,7 @@ function openFileContextMenu(x, y) {
   // Resolve permalink for the focused row (slug if available, falls back to id).
   const focusedRow = single ? (libraryCache?.transcripts || []).find(t => t.id === focusId) : null;
   const permalinkPart = focusedRow?.slug || focusedRow?.id || focusId;
+  const allStarred = ids.every(id => starredSet.has(id));
   openContextMenu(x, y, [
     { label: single ? 'Open' : `Open (${ids.length})`, icon: '↗', shortcut: 'Enter',
       onClick: () => single && handleLoad(focusId) },
@@ -956,6 +1128,24 @@ function openFileContextMenu(x, y) {
         if (!single) return;
         const href = `${window.location.pathname}#${permalinkPart}`;
         window.open(href, '_blank', 'noopener');
+      } },
+    { separator: true },
+    { label: allStarred ? `Unstar${ids.length > 1 ? ` (${ids.length})` : ''}` : `Star${ids.length > 1 ? ` (${ids.length})` : ''}`,
+      icon: allStarred ? '★' : '☆',
+      onClick: () => {
+        if (allStarred) ids.forEach(id => { starredSet.delete(id); });
+        else ids.forEach(id => { starredSet.add(id); });
+        saveStarred(starredSet);
+        if (libraryActiveView === 'starred') fetchLibrary();
+        else {
+          ids.forEach(id => {
+            const row = libraryList.querySelector(`.lib-row--file[data-id="${id}"]`);
+            row?.classList.toggle('lib-row--starred', starredSet.has(id));
+            const star = row?.querySelector('.lib-row-star');
+            if (star) star.classList.toggle('lib-row-star--on', starredSet.has(id));
+          });
+          updateSidebarCounts();
+        }
       } },
     { separator: true },
     { label: 'Rename', icon: '✎', shortcut: 'F2', disabled: !single,
@@ -6341,6 +6531,8 @@ function safeInit(name, fn) {
 }
 
 (async function init() {
+  safeInit('sidebar', wireSidebarOnce);
+
   safeInit('sot-hunter', () => {
     initSotHunter({
       getSegments: () => segments,

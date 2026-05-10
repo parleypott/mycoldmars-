@@ -337,38 +337,75 @@
 
     <!-- Library view -->
     <section id="library-view" class="panel">
-      <!-- Breadcrumb nav -->
-      <div class="lib-breadcrumb">
-        <button class="lib-crumb lib-crumb--root" data-id="">My Library</button>
-      </div>
+      <div class="lib-shell">
+        <!-- Sidebar nav: virtual views (All / Starred / Recent / Trash) -->
+        <aside class="lib-sidebar">
+          <div class="lib-sidebar-section">
+            <button class="lib-nav-item lib-nav-item--active" data-view="all">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              <span>All transcripts</span>
+            </button>
+            <button class="lib-nav-item" data-view="starred">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7 7 .8-5 4.6 1.5 7L12 17.8 5.5 21.4 7 14.4 2 9.8 9 9z"/></svg>
+              <span>Starred</span>
+              <span class="lib-nav-count" data-count="starred"></span>
+            </button>
+            <button class="lib-nav-item" data-view="recent">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              <span>Recent</span>
+            </button>
+            <button class="lib-nav-item" data-view="trash">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+              <span>Trash</span>
+              <span class="lib-nav-count" data-count="trash"></span>
+            </button>
+          </div>
+          <div class="lib-sidebar-section lib-sidebar-section--folders">
+            <div class="lib-sidebar-heading">
+              <span>Folders</span>
+              <button id="btn-new-project-side" class="lib-sidebar-add" title="New folder (N)">+</button>
+            </div>
+            <div class="lib-sidebar-folders" data-sidebar-folders></div>
+          </div>
+        </aside>
 
-      <!-- Toolbar -->
-      <div class="lib-toolbar">
-        <div class="lib-toolbar-left">
-          <button id="btn-new-project" class="lib-tool-btn" title="New folder (N)">+ Folder</button>
-          <button id="btn-new-upload" class="lib-tool-btn" title="Upload a file">+ Upload</button>
-        </div>
-        <div class="lib-toolbar-right">
-          <input id="library-search" class="lib-search" type="text" placeholder="Search…  (⌘F)">
-          <span class="lib-toolbar-hint">⇧-click to range select · ⌘-click to multi-select · right-click for menu</span>
-        </div>
-      </div>
+        <div class="lib-main">
+          <!-- Breadcrumb nav -->
+          <div class="lib-breadcrumb">
+            <button class="lib-crumb lib-crumb--root" data-id="">My Library</button>
+          </div>
 
-      <!-- Table header (sortable columns) -->
-      <div class="lib-table-header">
-        <div class="lib-col lib-col--name" data-sort="name">Name</div>
-        <div class="lib-col lib-col--step" data-sort="step">Status</div>
-        <div class="lib-col lib-col--date" data-sort="updated_at">Edited</div>
-        <div class="lib-col lib-col--actions"></div>
-      </div>
+          <!-- Toolbar -->
+          <div class="lib-toolbar">
+            <div class="lib-toolbar-left">
+              <button id="btn-new-project" class="lib-tool-btn" title="New folder (N)">+ Folder</button>
+              <button id="btn-new-upload" class="lib-tool-btn" title="Upload a file">+ Upload</button>
+            </div>
+            <div class="lib-toolbar-right">
+              <input id="library-search" class="lib-search" type="text" placeholder="Search…  (⌘F)">
+              <span class="lib-toolbar-hint">⇧-click to range select · ⌘-click to multi-select · right-click for menu</span>
+            </div>
+          </div>
 
-      <!-- Rows rendered by JS -->
-      <div id="library-list" class="lib-table-body"></div>
-      <div id="library-empty" class="hidden">
-        <div class="lib-empty-state">
-          <div class="lib-empty-icon">📁</div>
-          <h3 class="lib-empty-title">Nothing here yet.</h3>
-          <p class="lib-empty-sub">Drop a file anywhere on the library to start a new transcript, or hit <kbd>N</kbd> to create a folder.</p>
+          <!-- Table header (sortable columns) — sticky while scrolling -->
+          <div class="lib-table-header">
+            <div class="lib-col lib-col--name" data-sort="name">Name</div>
+            <div class="lib-col lib-col--step" data-sort="step">Status</div>
+            <div class="lib-col lib-col--date" data-sort="updated_at">Edited</div>
+            <div class="lib-col lib-col--actions"></div>
+          </div>
+
+          <!-- Rows rendered by JS -->
+          <div id="library-list" class="lib-table-body"></div>
+          <div id="library-empty" class="hidden">
+            <div class="lib-empty-state">
+              <div class="lib-empty-icon">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+              </div>
+              <h3 class="lib-empty-title">Nothing here yet.</h3>
+              <p class="lib-empty-sub">Drop a file anywhere on the library to start a new transcript, or hit <kbd>N</kbd> to create a folder.</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
