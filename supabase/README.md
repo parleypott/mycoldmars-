@@ -24,6 +24,8 @@ done
 | `005_phase3_media_uploads.sql` | `media_uploads` table for video/audio source files, `media` Storage bucket (5 GB), columns for transcription status + waveform peaks. |
 | `006_transcode_pipeline.sql` | `media_uploads.transcode_status` / `transcode_path` / `transcode_started_at` / `transcode_completed_at` / `transcode_error` for the worker that ffmpeg-converts ProRes to H.264. Index on pending status. |
 | `007_presence_attribution.sql` | `transcript_revisions.client_label` + `client_color` so the History modal attributes edits to a self-attested user name (foundation for real auth later — see SECURITY.md "What I'd change to go multi-tenant"). |
+| `008_lock_cleanup.sql` | `prune_stale_locks()` function + (if pg_cron available) a 15-min schedule that drops `editor_locks` rows older than 1 hour. |
+| `009_media_orphan_cleanup.sql` | `prune_orphaned_media_uploads()` function + (if pg_cron available) a daily schedule. Drops `media_uploads` rows older than 24h that no transcript references — recovers from tab-close mid-upload. Storage objects are not auto-removed; sweep separately. |
 
 ## Why these are loose `.sql` files instead of a Supabase CLI migration set
 
