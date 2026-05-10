@@ -1,4 +1,4 @@
-import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights, listScenes, listArcSummaries, fetchCorpusContext, getScriptSnapshot, listScriptPasses, runScriptPass, chatWithScript, fetchParseDoc, runGlobalTraining, getGlobalTraining } from './db.js';
+import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights, listScenes, listArcSummaries, fetchCorpusContext, getScriptSnapshot, listScriptPasses, runScriptPass, chatWithScript, fetchParseDoc, runGlobalTraining, getGlobalTraining, persistEditorialDecisions, runTasteTraining, getTasteProfile } from './db.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -1628,6 +1628,11 @@ let scriptHubState = {
   parsedDocs: [],
   training: null,
   fetchingCount: 0,     // how many are currently in-flight
+  // Footage taste
+  tasteProfile: null,
+  tasteLoaded: false,
+  tastePersisting: null,  // projectId currently persisting, or null
+  tasteTraining: false,
   training_running: false,
   loaded: false,
 };
@@ -1675,8 +1680,13 @@ async function renderScriptCopilotHub() {
     scriptHubState.loaded = true;
     hub.innerHTML = `<div style="padding:4rem;text-align:center"><div class="sc-loader"></div></div>`;
     try {
-      const { training } = await getGlobalTraining();
-      scriptHubState.training = training;
+      const [trainingRes, tasteRes] = await Promise.allSettled([
+        getGlobalTraining(),
+        getTasteProfile(),
+      ]);
+      if (trainingRes.status === 'fulfilled') scriptHubState.training = trainingRes.value.training;
+      if (tasteRes.status === 'fulfilled') scriptHubState.tasteProfile = tasteRes.value.profile;
+      scriptHubState.tasteLoaded = true;
     } catch {}
     return renderScriptCopilotHub();
   }
@@ -1913,6 +1923,8 @@ async function renderScriptCopilotHub() {
         <div class="sc-empty-title">No training yet</div>
         <div>Add your scripts and the system learns your color language, structure, and voice.</div>
       </div>` : ''}
+
+      ${renderFootageTasteSection()}
     </div>
   `;
 
@@ -2059,6 +2071,169 @@ async function renderScriptCopilotHub() {
       alert('Training failed: ' + err.message);
     }
   });
+
+  // Taste train button
+  const tasteTrainBtn = document.getElementById('sc-taste-train-btn');
+  tasteTrainBtn?.addEventListener('click', async () => {
+    if (scriptHubState.tasteTraining) return;
+    scriptHubState.tasteTraining = true;
+    renderScriptCopilotHub();
+
+    try {
+      const { profile } = await runTasteTraining();
+      scriptHubState.tasteProfile = profile;
+      scriptHubState.tasteTraining = false;
+      renderScriptCopilotHub();
+    } catch (err) {
+      scriptHubState.tasteTraining = false;
+      renderScriptCopilotHub();
+      alert('Taste training failed: ' + err.message);
+    }
+  });
+}
+
+// ── Footage Taste Section ──
+
+function renderFootageTasteSection() {
+  const tp = scriptHubState.tasteProfile;
+  const isTraining = scriptHubState.tasteTraining;
+  const persistingId = scriptHubState.tastePersisting;
+
+  // Shot preferences bar chart
+  const shotBars = tp?.shot_preferences ? Object.entries(tp.shot_preferences)
+    .sort((a, b) => b[1] - a[1])
+    .map(([type, rate]) => `
+      <div class="sc-taste-bar-row">
+        <span class="sc-taste-bar-label">${escHtml(type)}</span>
+        <div class="sc-taste-bar-track">
+          <div class="sc-taste-bar-fill" style="width:${Math.round(rate * 100)}%"></div>
+        </div>
+        <span class="sc-taste-bar-pct">${Math.round(rate * 100)}%</span>
+      </div>
+    `).join('') : '';
+
+  // Editorial rules
+  const rules = (tp?.editorial_rules || []).map(r => `
+    <div class="sc-taste-rule">
+      <span class="sc-taste-rule-text">${escHtml(r.rule)}</span>
+      <span class="sc-color-badge">${Math.round((r.confidence || 0) * 100)}%</span>
+      <span class="sc-color-conf">${r.evidence_count || 0} clips</span>
+    </div>
+  `).join('');
+
+  // Mismatch insights
+  const mismatches = (tp?.mismatch_insights || []).map(m => `
+    <div class="sc-slop">
+      <div class="sc-slop-text">${escHtml(m.description)}</div>
+      <div class="sc-slop-meta"><span class="sc-slop-freq">${escHtml(m.type?.replace(/_/g, ' '))}</span> — ${m.count || 0} clips</div>
+    </div>
+  `).join('');
+
+  // Negative patterns
+  const negatives = (tp?.negative_patterns || []).map(p => `
+    <div class="sc-slop">
+      <div class="sc-slop-text">${escHtml(p.pattern)}</div>
+      <div class="sc-slop-meta">keep rate: <span class="sc-slop-freq">${Math.round((p.keep_rate || 0) * 100)}%</span> — ${p.sample_count || 0} clips</div>
+    </div>
+  `).join('');
+
+  // Calibration stats
+  const cal = tp?.keepability_calibration || {};
+
+  return `
+    <style>
+      .sc-taste-divider { border:none; border-top:1px solid rgba(255,255,255,0.06); margin:3rem 0 2.5rem; }
+      .sc-taste-bar-row { display:flex; align-items:center; gap:0.6rem; padding:0.3rem 0; }
+      .sc-taste-bar-label { font-size:0.7rem; color:rgba(255,255,255,0.5); width:110px; text-align:right; flex-shrink:0; }
+      .sc-taste-bar-track { flex:1; height:6px; background:rgba(255,255,255,0.04); border-radius:3px; overflow:hidden; }
+      .sc-taste-bar-fill { height:100%; background:#FF3B20; border-radius:3px; transition:width 0.3s; }
+      .sc-taste-bar-pct { font-size:0.65rem; color:rgba(255,255,255,0.3); width:35px; }
+      .sc-taste-rule { display:flex; align-items:center; gap:0.8rem; padding:0.5rem 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+      .sc-taste-rule-text { flex:1; font-size:0.8rem; color:rgba(255,255,255,0.7); }
+      .sc-taste-cal { display:flex; gap:1px; border-radius:8px; overflow:hidden; margin-bottom:1.5rem; }
+      .sc-taste-cal-cell { flex:1; background:rgba(255,255,255,0.025); padding:0.6rem 0.8rem; }
+      .sc-taste-cal-label { font-size:0.55rem; letter-spacing:0.15em; color:rgba(255,255,255,0.2); }
+      .sc-taste-cal-val { font-size:1.1rem; color:#fff; font-weight:300; margin-top:0.15rem; }
+      .sc-taste-persist-btn {
+        background:none; border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.5);
+        padding:0.3rem 0.6rem; font-family:inherit; font-size:0.65rem; letter-spacing:0.1em;
+        cursor:pointer; border-radius:4px; transition:all 0.15s;
+      }
+      .sc-taste-persist-btn:hover { border-color:rgba(255,255,255,0.3); color:#fff; }
+      .sc-taste-persist-btn.running { cursor:wait; opacity:0.5; }
+    </style>
+
+    <hr class="sc-taste-divider">
+
+    <div class="sc-header" style="margin-bottom:2rem">
+      <div class="sc-header-eyebrow">Footage</div>
+      <div class="sc-header-title" style="font-size:1.8rem">Editorial Taste</div>
+      <div class="sc-header-sub">Learn from your editing decisions. Calibrate keepability scores to your taste.</div>
+    </div>
+
+    ${tp ? `
+      <!-- Stats bar -->
+      <div class="sc-stats">
+        <div class="sc-stat"><div class="sc-stat-label">PROJECTS</div><div class="sc-stat-value">${tp.project_count || 0}</div></div>
+        <div class="sc-stat"><div class="sc-stat-label">CLIPS</div><div class="sc-stat-value">${(tp.clip_count || 0).toLocaleString()}</div></div>
+        <div class="sc-stat"><div class="sc-stat-label">KEPT</div><div class="sc-stat-value">${cal.avg_kept_score != null ? cal.avg_kept_score.toFixed(2) : '—'}</div></div>
+        <div class="sc-stat"><div class="sc-stat-label">DISCARDED</div><div class="sc-stat-value">${cal.avg_discarded_score != null ? cal.avg_discarded_score.toFixed(2) : '—'}</div></div>
+      </div>
+    ` : ''}
+
+    <!-- Train button -->
+    <button id="sc-taste-train-btn" class="sc-train-btn ${isTraining ? 'running' : 'ready'}" ${isTraining ? 'disabled' : ''}>
+      ${isTraining ? 'TRAINING TASTE PROFILE...' : tp ? 'RETRAIN TASTE PROFILE' : 'TRAIN TASTE PROFILE'}
+    </button>
+
+    ${tp?.taste_signature ? `<div class="sc-signature">"${escHtml(tp.taste_signature)}"</div>` : ''}
+
+    ${tp?.taste_context ? `
+    <div class="sc-section">
+      <div class="sc-section-label">TASTE CONTEXT <span style="color:rgba(255,255,255,0.15)">${tp.project_count} projects / ${new Date(tp.created_at).toLocaleDateString()}</span></div>
+      <div class="sc-context-text">${escHtml(tp.taste_context)}</div>
+    </div>` : ''}
+
+    ${shotBars ? `
+    <div class="sc-section">
+      <div class="sc-section-label">SHOT PREFERENCES</div>
+      ${shotBars}
+    </div>` : ''}
+
+    ${cal.avg_kept_score != null ? `
+    <div class="sc-section">
+      <div class="sc-section-label">KEEPABILITY CALIBRATION</div>
+      <div class="sc-taste-cal">
+        <div class="sc-taste-cal-cell"><div class="sc-taste-cal-label">AVG KEPT SCORE</div><div class="sc-taste-cal-val">${cal.avg_kept_score?.toFixed(3) ?? '—'}</div></div>
+        <div class="sc-taste-cal-cell"><div class="sc-taste-cal-label">AVG DISCARDED</div><div class="sc-taste-cal-val">${cal.avg_discarded_score?.toFixed(3) ?? '—'}</div></div>
+        <div class="sc-taste-cal-cell"><div class="sc-taste-cal-label">CORRELATION</div><div class="sc-taste-cal-val">${cal.correlation != null ? Math.round(cal.correlation * 100) + '%' : '—'}</div></div>
+      </div>
+    </div>` : ''}
+
+    ${rules ? `
+    <div class="sc-section">
+      <div class="sc-section-label">EDITORIAL RULES</div>
+      ${rules}
+    </div>` : ''}
+
+    ${mismatches ? `
+    <div class="sc-section">
+      <div class="sc-section-label">MISMATCH INSIGHTS</div>
+      ${mismatches}
+    </div>` : ''}
+
+    ${negatives ? `
+    <div class="sc-section">
+      <div class="sc-section-label">NEGATIVE PATTERNS</div>
+      ${negatives}
+    </div>` : ''}
+
+    ${!tp ? `
+    <div class="sc-empty" style="margin-top:1rem">
+      <div class="sc-empty-title">No taste profile yet</div>
+      <div>Run cross-tier matching on projects with raw + selects tiers, then train to learn your editing preferences.</div>
+    </div>` : ''}
+  `;
 }
 
 // ── V2 Helpers ──

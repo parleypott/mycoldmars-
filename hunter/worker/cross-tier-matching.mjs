@@ -319,11 +319,132 @@ async function rawToSelectsAnalysis(projectId) {
     }
   }
 
+  // Persist editorial decisions to database
+  await persistEditorialDecisions(projectId, kept, discarded, usageCount, analysisMap);
+
   // Prepare data for Pro synthesis
   const keptTexts = kept.slice(0, 50).map(u => analysisMap.get(u.id)?.output_text).filter(Boolean);
   const discardedTexts = discarded.slice(0, 50).map(u => analysisMap.get(u.id)?.output_text).filter(Boolean);
 
   return { kept, discarded, keptTexts, discardedTexts, heavilyUsed };
+}
+
+// ── Persist editorial decisions to database ──
+
+async function persistEditorialDecisions(projectId, kept, discarded, usageCount, analysisMap) {
+  const rows = [];
+
+  for (const unit of kept) {
+    const json = analysisMap.get(unit.id)?.output_json;
+    rows.push({
+      project_id: projectId,
+      corpus_unit_id: unit.id,
+      kept: true,
+      usage_count: usageCount.get(unit.source_clip_name) || usageCount.get(unit.source_clip_name?.replace(/\.[^.]+$/, '')) || 1,
+      shot_type: json?.shot_type || null,
+      camera_movement: json?.camera_movement || null,
+      lighting: json?.lighting || null,
+      audio_quality: json?.audio_quality || null,
+      emotional_register: json?.emotional_register || null,
+      editorial_function: json?.editorial_function || null,
+      keepability_score: json?.keepability_score ?? null,
+      keepability_reason: json?.keepability_reason || null,
+      source_clip_name: unit.source_clip_name,
+    });
+  }
+
+  for (const unit of discarded) {
+    const json = analysisMap.get(unit.id)?.output_json;
+    rows.push({
+      project_id: projectId,
+      corpus_unit_id: unit.id,
+      kept: false,
+      usage_count: 0,
+      shot_type: json?.shot_type || null,
+      camera_movement: json?.camera_movement || null,
+      lighting: json?.lighting || null,
+      audio_quality: json?.audio_quality || null,
+      emotional_register: json?.emotional_register || null,
+      editorial_function: json?.editorial_function || null,
+      keepability_score: json?.keepability_score ?? null,
+      keepability_reason: json?.keepability_reason || null,
+      source_clip_name: unit.source_clip_name,
+    });
+  }
+
+  if (!rows.length) return;
+
+  // Upsert in batches of 100
+  for (let i = 0; i < rows.length; i += 100) {
+    const batch = rows.slice(i, i + 100);
+    const { error } = await supabase.from('editorial_decisions')
+      .upsert(batch, { onConflict: 'project_id,corpus_unit_id' });
+    if (error) {
+      console.error(`[taste] Failed to persist editorial decisions batch ${i}: ${error.message}`);
+    }
+  }
+
+  console.log(`[taste] Persisted ${rows.length} editorial decisions (${kept.length} kept, ${discarded.length} discarded)`);
+}
+
+/**
+ * Standalone: compute and persist editorial decisions for a project.
+ * Use from API without running full cross-tier pipeline.
+ */
+export async function computeAndPersistDecisions(projectId) {
+  const { data: assets } = await supabase.from('media_assets')
+    .select('id, tier')
+    .eq('project_id', projectId)
+    .in('tier', ['raw', 'selects']);
+
+  const rawAssetIds = assets?.filter(a => a.tier === 'raw').map(a => a.id) || [];
+  const selectsAssetIds = assets?.filter(a => a.tier === 'selects').map(a => a.id) || [];
+
+  if (!rawAssetIds.length || !selectsAssetIds.length) {
+    return { kept: 0, discarded: 0, error: 'Need both raw and selects tiers' };
+  }
+
+  let rawUnits = [];
+  for (const id of rawAssetIds) {
+    rawUnits = rawUnits.concat(await fetchAllPaginated('corpus_units', 'id, source_clip_name, start_seconds, end_seconds', { media_asset_id: id }));
+  }
+
+  let selectsUnits = [];
+  for (const id of selectsAssetIds) {
+    selectsUnits = selectsUnits.concat(await fetchAllPaginated('corpus_units', 'id, source_clip_name, start_seconds, end_seconds', { media_asset_id: id }));
+  }
+
+  const selectsClipNames = new Set();
+  for (const u of selectsUnits) {
+    selectsClipNames.add(u.source_clip_name);
+    selectsClipNames.add(u.source_clip_name.replace(/\.[^.]+$/, ''));
+  }
+
+  const kept = [];
+  const discarded = [];
+  for (const raw of rawUnits) {
+    const name = raw.source_clip_name;
+    const nameNoProxy = name.replace(/_Proxy/i, '');
+    const nameNoExt = nameNoProxy.replace(/\.[^.]+$/, '');
+    if (selectsClipNames.has(nameNoProxy) || selectsClipNames.has(nameNoExt)) {
+      kept.push(raw);
+    } else {
+      discarded.push(raw);
+    }
+  }
+
+  const usageCount = new Map();
+  for (const u of selectsUnits) {
+    usageCount.set(u.source_clip_name, (usageCount.get(u.source_clip_name) || 0) + 1);
+  }
+
+  const allAnalyses = await fetchAllPaginated('analyses', 'corpus_unit_id, output_json');
+  const analysisMap = new Map();
+  for (const a of allAnalyses) analysisMap.set(a.corpus_unit_id, a);
+
+  await persistEditorialDecisions(projectId, kept, discarded, usageCount, analysisMap);
+
+  return { kept: kept.length, discarded: discarded.length, total: rawUnits.length };
 }
 
 // ── Selects → Finished: How did the final cut use the selected material? ──

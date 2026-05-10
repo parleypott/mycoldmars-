@@ -74,6 +74,18 @@ export default async function handler(req) {
     return handleGetGlobalTraining();
   }
 
+  if (action === 'persist_editorial_decisions') {
+    return handlePersistEditorialDecisions(body);
+  }
+
+  if (action === 'run_taste_training') {
+    return handleRunTasteTraining(apiKey);
+  }
+
+  if (action === 'get_taste_profile') {
+    return handleGetTasteProfile();
+  }
+
   // Default: proxy to Gemini
   const model = body.model || 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -1438,6 +1450,327 @@ async function handleGetGlobalTraining() {
 
   const data = await res.json();
   return jsonResponse({ training: data?.[0] || null });
+}
+
+// ── Editorial Taste Profile Handlers ──
+
+async function handlePersistEditorialDecisions(body) {
+  const { projectId } = body;
+  if (!projectId) return jsonResponse({ error: 'projectId is required' }, 400);
+
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return jsonResponse({ error: 'Supabase not configured' }, 500);
+
+  const headers = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` };
+
+  // Fetch raw and selects assets for this project
+  const assetsRes = await fetch(
+    `${supabaseUrl}/rest/v1/media_assets?project_id=eq.${projectId}&tier=in.(raw,selects)&select=id,tier`,
+    { headers }
+  );
+  const assets = await assetsRes.json();
+  const rawAssetIds = assets.filter(a => a.tier === 'raw').map(a => a.id);
+  const selectsAssetIds = assets.filter(a => a.tier === 'selects').map(a => a.id);
+
+  if (!rawAssetIds.length || !selectsAssetIds.length) {
+    return jsonResponse({ error: 'Need both raw and selects tiers', kept: 0, discarded: 0 });
+  }
+
+  // Fetch raw units
+  let rawUnits = [];
+  for (const id of rawAssetIds) {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/corpus_units?media_asset_id=eq.${id}&select=id,source_clip_name&order=created_at.asc`,
+      { headers }
+    );
+    rawUnits = rawUnits.concat(await res.json());
+  }
+
+  // Fetch selects units
+  let selectsUnits = [];
+  for (const id of selectsAssetIds) {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/corpus_units?media_asset_id=eq.${id}&select=id,source_clip_name&order=created_at.asc`,
+      { headers }
+    );
+    selectsUnits = selectsUnits.concat(await res.json());
+  }
+
+  // Cross-reference
+  const selectsClipNames = new Set();
+  for (const u of selectsUnits) {
+    selectsClipNames.add(u.source_clip_name);
+    selectsClipNames.add(u.source_clip_name.replace(/\.[^.]+$/, ''));
+  }
+
+  const kept = [];
+  const discarded = [];
+  for (const raw of rawUnits) {
+    const name = raw.source_clip_name;
+    const nameNoProxy = name.replace(/_Proxy/i, '');
+    const nameNoExt = nameNoProxy.replace(/\.[^.]+$/, '');
+    if (selectsClipNames.has(nameNoProxy) || selectsClipNames.has(nameNoExt)) {
+      kept.push(raw);
+    } else {
+      discarded.push(raw);
+    }
+  }
+
+  // Usage count
+  const usageCount = {};
+  for (const u of selectsUnits) {
+    usageCount[u.source_clip_name] = (usageCount[u.source_clip_name] || 0) + 1;
+  }
+
+  // Fetch analyses for structured fields
+  const allUnitIds = rawUnits.map(u => u.id);
+  const analysisMap = {};
+  for (let i = 0; i < allUnitIds.length; i += 200) {
+    const batch = allUnitIds.slice(i, i + 200);
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/analyses?corpus_unit_id=in.(${batch.join(',')})&select=corpus_unit_id,output_json`,
+      { headers }
+    );
+    const data = await res.json();
+    for (const a of data) analysisMap[a.corpus_unit_id] = a;
+  }
+
+  // Build rows
+  const rows = [];
+  for (const unit of kept) {
+    const json = analysisMap[unit.id]?.output_json;
+    rows.push({
+      project_id: projectId, corpus_unit_id: unit.id, kept: true,
+      usage_count: usageCount[unit.source_clip_name] || usageCount[unit.source_clip_name?.replace(/\.[^.]+$/, '')] || 1,
+      shot_type: json?.shot_type || null, camera_movement: json?.camera_movement || null,
+      lighting: json?.lighting || null, audio_quality: json?.audio_quality || null,
+      emotional_register: json?.emotional_register || null, editorial_function: json?.editorial_function || null,
+      keepability_score: json?.keepability_score ?? null, keepability_reason: json?.keepability_reason || null,
+      source_clip_name: unit.source_clip_name,
+    });
+  }
+  for (const unit of discarded) {
+    const json = analysisMap[unit.id]?.output_json;
+    rows.push({
+      project_id: projectId, corpus_unit_id: unit.id, kept: false, usage_count: 0,
+      shot_type: json?.shot_type || null, camera_movement: json?.camera_movement || null,
+      lighting: json?.lighting || null, audio_quality: json?.audio_quality || null,
+      emotional_register: json?.emotional_register || null, editorial_function: json?.editorial_function || null,
+      keepability_score: json?.keepability_score ?? null, keepability_reason: json?.keepability_reason || null,
+      source_clip_name: unit.source_clip_name,
+    });
+  }
+
+  // Upsert in batches
+  for (let i = 0; i < rows.length; i += 100) {
+    const batch = rows.slice(i, i + 100);
+    await fetch(`${supabaseUrl}/rest/v1/editorial_decisions`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify(batch),
+    });
+  }
+
+  return jsonResponse({ kept: kept.length, discarded: discarded.length, total: rawUnits.length });
+}
+
+async function handleRunTasteTraining(apiKey) {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return jsonResponse({ error: 'Supabase not configured' }, 500);
+
+  const headers = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` };
+
+  // Fetch all editorial decisions
+  const decRes = await fetch(
+    `${supabaseUrl}/rest/v1/editorial_decisions?select=*&order=created_at.asc`,
+    { headers }
+  );
+  const decisions = await decRes.json();
+
+  if (!decisions?.length) {
+    return jsonResponse({ error: 'No editorial decisions found. Persist decisions for at least one project first.' }, 400);
+  }
+
+  const projectIds = [...new Set(decisions.map(d => d.project_id))];
+
+  // Aggregate stats
+  const shotStats = {};
+  const emotionStats = {};
+  const functionStats = {};
+  const mismatches = [];
+
+  for (const d of decisions) {
+    if (d.shot_type) {
+      if (!shotStats[d.shot_type]) shotStats[d.shot_type] = { kept: 0, total: 0 };
+      shotStats[d.shot_type].total++;
+      if (d.kept) shotStats[d.shot_type].kept++;
+    }
+    if (d.emotional_register) {
+      if (!emotionStats[d.emotional_register]) emotionStats[d.emotional_register] = { kept: 0, total: 0 };
+      emotionStats[d.emotional_register].total++;
+      if (d.kept) emotionStats[d.emotional_register].kept++;
+    }
+    if (d.editorial_function) {
+      if (!functionStats[d.editorial_function]) functionStats[d.editorial_function] = { kept: 0, total: 0 };
+      functionStats[d.editorial_function].total++;
+      if (d.kept) functionStats[d.editorial_function].kept++;
+    }
+    if (d.keepability_score != null) {
+      if (d.keepability_score > 0.7 && !d.kept) mismatches.push({ type: 'high_score_discarded', d });
+      else if (d.keepability_score < 0.4 && d.kept) mismatches.push({ type: 'low_score_kept', d });
+    }
+  }
+
+  const keptScores = decisions.filter(d => d.kept && d.keepability_score != null).map(d => d.keepability_score);
+  const discardedScores = decisions.filter(d => !d.kept && d.keepability_score != null).map(d => d.keepability_score);
+  const avgKeptScore = keptScores.length > 0 ? keptScores.reduce((a, b) => a + b, 0) / keptScores.length : null;
+  const avgDiscardedScore = discardedScores.length > 0 ? discardedScores.reduce((a, b) => a + b, 0) / discardedScores.length : null;
+  const highScoreClips = decisions.filter(d => d.keepability_score != null && d.keepability_score > 0.7);
+  const correlation = highScoreClips.length > 0 ? highScoreClips.filter(d => d.kept).length / highScoreClips.length : null;
+  const overallKeptRate = decisions.filter(d => d.kept).length / decisions.length;
+
+  // Format for Gemini prompt
+  const shotSummary = Object.entries(shotStats)
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([type, s]) => `  ${type}: ${s.kept}/${s.total} kept (${Math.round(s.kept / s.total * 100)}%)`)
+    .join('\n');
+  const emotionSummary = Object.entries(emotionStats)
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([reg, s]) => `  ${reg}: ${s.kept}/${s.total} kept (${Math.round(s.kept / s.total * 100)}%)`)
+    .join('\n');
+  const functionSummary = Object.entries(functionStats)
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([fn, s]) => `  ${fn}: ${s.kept}/${s.total} kept (${Math.round(s.kept / s.total * 100)}%)`)
+    .join('\n');
+  const mismatchExamples = mismatches.slice(0, 30).map(m => {
+    const d = m.d;
+    return `[${m.type}] "${d.source_clip_name}" — score: ${d.keepability_score}, kept: ${d.kept}\n  shot: ${d.shot_type}, emotion: ${d.emotional_register}, function: ${d.editorial_function}\n  reason: ${d.keepability_reason || '(none)'}`;
+  }).join('\n\n');
+
+  const prompt = `You are analyzing the editorial decisions of a documentary filmmaker across ${projectIds.length} project(s) and ${decisions.length} clips. Your job: extract rules specific enough to calibrate future keepability scoring for THIS editor's taste.
+
+=== OVERALL STATS ===
+Keep rate: ${(overallKeptRate * 100).toFixed(1)}%
+
+=== KEEPABILITY SCORE CALIBRATION ===
+Avg keepability score for KEPT clips: ${avgKeptScore?.toFixed(3) ?? 'N/A'}
+Avg keepability score for DISCARDED clips: ${avgDiscardedScore?.toFixed(3) ?? 'N/A'}
+High-score (>0.7) clips that were actually kept: ${correlation != null ? (correlation * 100).toFixed(0) + '%' : 'N/A'}
+
+=== SHOT TYPE PREFERENCES ===
+${shotSummary || '(no data)'}
+
+=== EMOTIONAL REGISTER PREFERENCES ===
+${emotionSummary || '(no data)'}
+
+=== EDITORIAL FUNCTION PREFERENCES ===
+${functionSummary || '(no data)'}
+
+=== MISMATCHES ===
+${mismatchExamples || '(none)'}
+
+Return a JSON object:
+
+{
+  "editorial_rules": [
+    { "rule": "description of a specific editorial preference", "confidence": 0.0-1.0, "evidence_count": number }
+  ],
+  "negative_patterns": [
+    { "pattern": "what this editor consistently discards", "keep_rate": 0.0-1.0, "sample_count": number }
+  ],
+  "mismatch_insights": [
+    { "type": "high_score_discarded|low_score_kept", "description": "what the AI scoring missed about this editor's taste", "count": number }
+  ],
+  "taste_context": "3-4 DENSE paragraphs briefing a future AI on this editor's footage taste. Cover shot types, emotional registers, where generic keepability scores fail, and calibration rules. Be specific — cite numbers.",
+  "taste_signature": "One bold sentence capturing this editor's footage taste personality"
+}
+
+Return ONLY valid JSON.`;
+
+  // Run Gemini (try Pro, fallback to Flash)
+  let model = 'gemini-2.5-pro';
+  let url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  let res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 10000 },
+    }),
+  });
+
+  if (!res.ok) {
+    model = 'gemini-2.5-flash';
+    url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 10000 },
+      }),
+    });
+  }
+
+  if (!res.ok) {
+    const errText = await res.text();
+    return jsonResponse({ error: 'Gemini taste training failed', detail: errText.slice(0, 500) }, 502);
+  }
+
+  const geminiData = await res.json();
+  const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  let analysis;
+  try {
+    analysis = JSON.parse(rawText);
+  } catch {
+    analysis = { taste_context: rawText, editorial_rules: [], negative_patterns: [], mismatch_insights: [] };
+  }
+
+  // Build shot preferences
+  const shotPreferences = {};
+  for (const [type, s] of Object.entries(shotStats)) {
+    shotPreferences[type] = s.total > 0 ? s.kept / s.total : 0;
+  }
+
+  // Store in taste_profile
+  const profileRow = {
+    project_count: projectIds.length,
+    clip_count: decisions.length,
+    project_ids: projectIds,
+    shot_preferences: shotPreferences,
+    keepability_calibration: { avg_kept_score: avgKeptScore, avg_discarded_score: avgDiscardedScore, correlation },
+    editorial_rules: analysis.editorial_rules || [],
+    negative_patterns: analysis.negative_patterns || [],
+    mismatch_insights: analysis.mismatch_insights || [],
+    taste_context: analysis.taste_context || '',
+    taste_signature: analysis.taste_signature || '',
+    model,
+  };
+
+  await fetch(`${supabaseUrl}/rest/v1/taste_profile`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify(profileRow),
+  });
+
+  return jsonResponse({ profile: profileRow });
+}
+
+async function handleGetTasteProfile() {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return jsonResponse({ error: 'Supabase not configured' }, 500);
+
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/taste_profile?order=created_at.desc&limit=1`,
+    { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+  );
+  if (!res.ok) return jsonResponse({ error: 'Failed to fetch taste profile' }, 502);
+  const data = await res.json();
+  return jsonResponse({ profile: data?.[0] || null });
 }
 
 function formatSeconds(s) {

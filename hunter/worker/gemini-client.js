@@ -133,7 +133,7 @@ export async function transcribeVideo({ fileUri }) {
  * projectContext: optional string with project-level context for grounding.
  * transcript: optional pre-generated transcript for grounding.
  */
-export async function analyzeUnit({ fileUri, startSeconds, endSeconds, cacheName, prompt, projectContext, transcript }) {
+export async function analyzeUnit({ fileUri, startSeconds, endSeconds, cacheName, prompt, projectContext, transcript, tasteContext }) {
   const genai = getAI();
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -143,7 +143,7 @@ export async function analyzeUnit({ fileUri, startSeconds, endSeconds, cacheName
     parts.push({ fileData: { fileUri, mimeType: 'video/mp4' } });
   }
 
-  const defaultPrompt = buildAnalysisPrompt(startSeconds, endSeconds, projectContext, transcript);
+  const defaultPrompt = buildAnalysisPrompt(startSeconds, endSeconds, projectContext, transcript, tasteContext);
 
   parts.push({ text: prompt || defaultPrompt });
 
@@ -168,17 +168,18 @@ export async function analyzeUnit({ fileUri, startSeconds, endSeconds, cacheName
  * Builds on the narrative analysis but produces machine-readable output
  * for cross-tier comparison.
  */
-export async function analyzeUnitStructured({ fileUri, startSeconds, endSeconds, projectContext, transcript }) {
+export async function analyzeUnitStructured({ fileUri, startSeconds, endSeconds, projectContext, transcript, tasteContext }) {
   const genai = getAI();
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   const contextBlock = projectContext ? `PROJECT CONTEXT:\n${projectContext}\n\n` : '';
   const transcriptBlock = transcript ? `TRANSCRIPT (pre-generated):\n${transcript}\n\n` : '';
+  const tasteBlock = tasteContext ? `EDITORIAL TASTE PROFILE:\n${tasteContext}\n\nUse this taste profile to calibrate your keepability scoring. This editor's actual preferences may differ from generic film conventions.\n\n` : '';
   const timeContext = startSeconds != null
     ? `Focus on the segment from ${formatTime(startSeconds)} to ${formatTime(endSeconds)}.\n\n`
     : '';
 
-  const prompt = `${contextBlock}${transcriptBlock}${timeContext}Analyze this documentary footage and return a JSON object with the following fields:
+  const prompt = `${contextBlock}${transcriptBlock}${tasteBlock}${timeContext}Analyze this documentary footage and return a JSON object with the following fields:
 
 {
   "transcript_summary": "Brief summary of dialogue/audio (2-3 sentences max)",
@@ -225,7 +226,7 @@ Return ONLY valid JSON, no markdown formatting.`;
  * when raw is compared against selects and finished cuts, the AI can learn
  * WHY certain moments were kept and how they were used.
  */
-function buildAnalysisPrompt(startSeconds, endSeconds, projectContext, transcript) {
+function buildAnalysisPrompt(startSeconds, endSeconds, projectContext, transcript, tasteContext) {
   const timeContext = startSeconds != null
     ? `Focus on the segment from ${formatTime(startSeconds)} to ${formatTime(endSeconds)}.\n\n`
     : '';
@@ -238,7 +239,11 @@ function buildAnalysisPrompt(startSeconds, endSeconds, projectContext, transcrip
     ? `TRANSCRIPT (pre-generated — use as grounding for your visual analysis):\n${transcript}\n\n`
     : '';
 
-  return `${contextBlock}${transcriptBlock}${timeContext}You are analyzing documentary footage in TRAINING MODE. The goal is to build a detailed record of this footage so that later — when comparing raw footage against the editor's selected cuts and the final published piece — an AI can learn WHY certain moments were kept, how they were reordered, and what editorial instincts drove those decisions.
+  const tasteBlock = tasteContext
+    ? `EDITORIAL TASTE PROFILE:\n${tasteContext}\n\nUse this taste profile to inform your assessment of what makes footage keepable or expendable for THIS filmmaker.\n\n`
+    : '';
+
+  return `${contextBlock}${transcriptBlock}${tasteBlock}${timeContext}You are analyzing documentary footage in TRAINING MODE. The goal is to build a detailed record of this footage so that later — when comparing raw footage against the editor's selected cuts and the final published piece — an AI can learn WHY certain moments were kept, how they were reordered, and what editorial instincts drove those decisions.
 
 Describe this moment with enough specificity to uniquely identify it across edit tiers. Cover:
 

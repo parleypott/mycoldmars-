@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html><head><title>JOHNNY PLEASE DO THIS</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#111; color:#eee; font-family:ui-monospace,'SF Mono',monospace; padding:3rem; max-width:800px; margin:0 auto; }
+  h1 { font-size:2.5rem; color:#FF3B20; margin-bottom:1rem; }
+  .step { margin:1.5rem 0; padding:1rem; border:1px solid #333; }
+  .step-num { color:#FF3B20; font-size:1.2rem; font-weight:bold; }
+  code { background:#222; padding:0.2rem 0.4rem; border-radius:3px; font-size:0.85rem; }
+  pre { background:#0a0a0a; padding:1rem; margin:0.5rem 0; overflow-x:auto; font-size:0.8rem; line-height:1.5; border-radius:4px; }
+  .copy-btn { background:#FF3B20; color:#fff; border:none; padding:0.4rem 0.8rem; cursor:pointer; font-family:inherit; font-size:0.75rem; margin-top:0.5rem; }
+  a { color:#5AA3FF; }
+</style></head>
+<body>
+<h1>JOHNNY PLEASE DO THIS</h1>
+<p style="color:#888;margin-bottom:2rem">Run this SQL in Supabase to create the editorial taste profile tables</p>
+
+<div class="step">
+  <span class="step-num">1</span> Go to <a href="https://supabase.com/dashboard/project/_/sql/new" target="_blank">Supabase SQL Editor</a>
+</div>
+
+<div class="step">
+  <span class="step-num">2</span> Paste and run this SQL:
+  <pre id="sql">create table if not exists editorial_decisions (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references hunter_projects(id) on delete cascade,
+  corpus_unit_id uuid not null references corpus_units(id) on delete cascade,
+  kept boolean not null,
+  usage_count integer not null default 0,
+  shot_type text,
+  camera_movement text,
+  lighting text,
+  audio_quality text,
+  emotional_register text,
+  editorial_function text,
+  keepability_score real,
+  keepability_reason text,
+  source_clip_name text,
+  created_at timestamptz default now(),
+  unique(project_id, corpus_unit_id)
+);
+
+create index if not exists idx_editorial_decisions_project
+  on editorial_decisions(project_id);
+create index if not exists idx_editorial_decisions_kept
+  on editorial_decisions(kept);
+
+create table if not exists taste_profile (
+  id uuid primary key default gen_random_uuid(),
+  project_count integer not null default 0,
+  clip_count integer not null default 0,
+  project_ids jsonb default '[]',
+  shot_preferences jsonb default '{}',
+  keepability_calibration jsonb default '{}',
+  editorial_rules jsonb default '[]',
+  negative_patterns jsonb default '[]',
+  mismatch_insights jsonb default '[]',
+  taste_context text,
+  taste_signature text,
+  model text not null default 'gemini-2.5-flash',
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_taste_profile_created
+  on taste_profile(created_at desc);</pre>
+  <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('sql').textContent)">COPY SQL</button>
+</div>
+
+<div class="step">
+  <span class="step-num">3</span> Click <strong>Run</strong>. Should say "Success. No rows returned."
+</div>
+
+<div class="step">
+  <span class="step-num">4</span> Done! Go to <a href="/hunter/#script-copilot">Script Copilot</a> — the Footage Taste section will appear below Script Training.
+</div>
+</body></html>

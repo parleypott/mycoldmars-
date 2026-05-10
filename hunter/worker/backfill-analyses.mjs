@@ -143,6 +143,21 @@ async function main() {
     .select('metadata').eq('id', PROJECT_ID).single();
   const projectContext = project?.metadata?.context || null;
 
+  // Load editorial taste profile for calibrated keepability scoring
+  let tasteContext = null;
+  try {
+    const { data: tasteRows } = await supabase.from('taste_profile')
+      .select('taste_context')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (tasteRows?.[0]?.taste_context) {
+      tasteContext = tasteRows[0].taste_context;
+      console.log(`Taste profile loaded (${tasteContext.length} chars)`);
+    }
+  } catch {
+    console.log('Taste profile not available (table may not exist yet)');
+  }
+
   // Find raw units without analyses
   console.log('Scanning for missing analyses...');
 
@@ -261,7 +276,7 @@ async function main() {
 
       // Narrative analysis
       const result = await retryWithBackoff(
-        () => analyzeUnit({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext, transcript }),
+        () => analyzeUnit({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext, transcript, tasteContext }),
         unit.source_clip_name
       );
 
@@ -269,7 +284,7 @@ async function main() {
       let structured = null;
       try {
         structured = await retryWithBackoff(
-          () => analyzeUnitStructured({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext, transcript }),
+          () => analyzeUnitStructured({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext, transcript, tasteContext }),
           `${unit.source_clip_name}-structured`
         );
       } catch {}

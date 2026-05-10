@@ -210,7 +210,7 @@ async function fetchFromDropbox(asset, projectContext) {
 
         // Narrative analysis (grounded by transcript if available)
         const result = await retryWithBackoff(
-          () => analyzeUnit({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext, transcript }),
+          () => analyzeUnit({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext, transcript, tasteContext }),
           video.name
         );
 
@@ -218,7 +218,7 @@ async function fetchFromDropbox(asset, projectContext) {
         let structured = null;
         try {
           structured = await retryWithBackoff(
-            () => analyzeUnitStructured({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext, transcript }),
+            () => analyzeUnitStructured({ fileUri: file.uri, startSeconds: 0, endSeconds: duration, projectContext, transcript, tasteContext }),
             `${video.name}-structured`
           );
         } catch (structErr) {
@@ -338,6 +338,7 @@ async function analyzeVideo(assetId, localPath, projectContext) {
         endSeconds: unit.end_seconds,
         projectContext,
         transcript,
+        tasteContext,
       });
 
       // Structured analysis
@@ -349,6 +350,7 @@ async function analyzeVideo(assetId, localPath, projectContext) {
           endSeconds: unit.end_seconds,
           projectContext,
           transcript,
+          tasteContext,
         });
       } catch (structErr) {
         console.log(`[worker] structured skipped for unit ${unit.id}: ${structErr.message?.slice(0, 60)}`);
@@ -846,6 +848,21 @@ async function poll() {
 
 console.log('[hunter worker] starting, cache dir:', CACHE_DIR, `concurrency=${CONCURRENCY}`);
 mkdirSync(CACHE_DIR, { recursive: true });
+
+// Load editorial taste profile for calibrated keepability scoring
+let tasteContext = null;
+try {
+  const { data: tasteRows } = await supabase.from('taste_profile')
+    .select('taste_context')
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (tasteRows?.[0]?.taste_context) {
+    tasteContext = tasteRows[0].taste_context;
+    console.log(`[worker] taste profile loaded (${tasteContext.length} chars)`);
+  }
+} catch (e) {
+  console.log('[worker] taste profile not available (table may not exist yet)');
+}
 
 // Purge stale Gemini files in background to reclaim storage quota
 purgeAllFiles().then(n => console.log(`[worker] purged ${n} stale Gemini files`)).catch(() => {});
