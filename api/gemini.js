@@ -1,14 +1,32 @@
+import { checkAccess } from './access.js';
+
 export const config = { runtime: 'edge', maxDuration: 60 };
+
+// PostgREST filter values must be URL-encoded. Bare interpolation of a
+// caller-supplied id lets a request inject extra filters or traverse rows
+// (e.g. `&tier=eq.premium` gets appended verbatim). Use this on every
+// interpolated value going into a PostgREST URL.
+function pgrEscape(v) {
+  if (v === null || v === undefined) return '';
+  return encodeURIComponent(String(v));
+}
 
 /**
  * Gemini API proxy for Hunter + general use.
  * Handles pattern_surfacing by querying Supabase for analyses,
  * sending corpus to Gemini Pro, and saving observations back.
+ *
+ * Gated by checkAccess(): clients must send x-access-code matching
+ * ACCESS_CODE env var. Without this, anyone could hit /api/gemini directly
+ * and consume Johnny's Gemini quota or read the Supabase data the proxy
+ * exposes via service-role queries.
  */
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
+  const denied = checkAccess(req);
+  if (denied) return denied;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -130,7 +148,7 @@ async function handlePatternSurfacing(body, apiKey) {
   const MAX_ANALYSES = 200;
   let analysesUrl = `${supabaseUrl}/rest/v1/analyses?select=output_text,corpus_unit_id,corpus_units!inner(media_asset_id,media_assets!inner(project_id))&limit=${MAX_ANALYSES}`;
   if (projectId) {
-    analysesUrl += `&corpus_units.media_assets.project_id=eq.${projectId}`;
+    analysesUrl += `&corpus_units.media_assets.project_id=eq.${pgrEscape(projectId)}`;
   }
 
   const analysesRes = await fetch(analysesUrl, {
@@ -607,7 +625,7 @@ async function handleTierComparison(body, apiKey) {
   const tierData = {};
 
   for (const tier of tiers) {
-    const url = `${supabaseUrl}/rest/v1/analyses?select=output_text,corpus_units!inner(media_asset_id,media_assets!inner(tier,project_id))&corpus_units.media_assets.project_id=eq.${projectId}&corpus_units.media_assets.tier=eq.${tier}&limit=50`;
+    const url = `${supabaseUrl}/rest/v1/analyses?select=output_text,corpus_units!inner(media_asset_id,media_assets!inner(tier,project_id))&corpus_units.media_assets.project_id=eq.${pgrEscape(projectId)}&corpus_units.media_assets.tier=eq.${pgrEscape(tier)}&limit=50`;
     const res = await fetch(url, { headers });
     if (res.ok) {
       const data = await res.json();
@@ -762,7 +780,7 @@ async function handleGetCorpusContext(body) {
   };
 
   // Fetch project-level arc summary
-  const arcUrl = `${supabaseUrl}/rest/v1/arc_summaries?project_id=eq.${projectId}&level=eq.project&limit=1`;
+  const arcUrl = `${supabaseUrl}/rest/v1/arc_summaries?project_id=eq.${pgrEscape(projectId)}&level=eq.project&limit=1`;
   const arcRes = await fetch(arcUrl, { headers });
   let masterNarrative = null;
   if (arcRes.ok) {
@@ -775,7 +793,7 @@ async function handleGetCorpusContext(body) {
   }
 
   // Fetch day summaries
-  const dayUrl = `${supabaseUrl}/rest/v1/arc_summaries?project_id=eq.${projectId}&level=eq.day&order=scope_ref.asc`;
+  const dayUrl = `${supabaseUrl}/rest/v1/arc_summaries?project_id=eq.${pgrEscape(projectId)}&level=eq.day&order=scope_ref.asc`;
   const dayRes = await fetch(dayUrl, { headers });
   let daySummaries = [];
   if (dayRes.ok) {
@@ -788,7 +806,7 @@ async function handleGetCorpusContext(body) {
   }
 
   // Fetch scenes with arc summaries
-  const scenesUrl = `${supabaseUrl}/rest/v1/scenes?project_id=eq.${projectId}&order=chronological_order.asc&select=id,name,scene_type,shoot_day,location,time_of_day,chronological_order,arc_summary,emotional_curve,editorial_notes,clip_count,total_duration_seconds,status`;
+  const scenesUrl = `${supabaseUrl}/rest/v1/scenes?project_id=eq.${pgrEscape(projectId)}&order=chronological_order.asc&select=id,name,scene_type,shoot_day,location,time_of_day,chronological_order,arc_summary,emotional_curve,editorial_notes,clip_count,total_duration_seconds,status`;
   const scenesRes = await fetch(scenesUrl, { headers });
   let scenes = [];
   if (scenesRes.ok) {
@@ -816,7 +834,7 @@ async function handleRunScriptPass(body, apiKey) {
   const headers = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` };
 
   // Fetch the snapshot
-  const snapUrl = `${supabaseUrl}/rest/v1/script_snapshots?id=eq.${snapshotId}&select=*&limit=1`;
+  const snapUrl = `${supabaseUrl}/rest/v1/script_snapshots?id=eq.${pgrEscape(snapshotId)}&select=*&limit=1`;
   const snapRes = await fetch(snapUrl, { headers });
   if (!snapRes.ok) return jsonResponse({ error: 'Snapshot not found' }, 404);
   const snapshots = await snapRes.json();
@@ -826,7 +844,7 @@ async function handleRunScriptPass(body, apiKey) {
   // Fetch script context from project
   let scriptContext = '';
   if (projectId) {
-    const projUrl = `${supabaseUrl}/rest/v1/hunter_projects?id=eq.${projectId}&select=metadata&limit=1`;
+    const projUrl = `${supabaseUrl}/rest/v1/hunter_projects?id=eq.${pgrEscape(projectId)}&select=metadata&limit=1`;
     const projRes = await fetch(projUrl, { headers });
     if (projRes.ok) {
       const projects = await projRes.json();
@@ -967,8 +985,8 @@ async function handleGetScriptPasses(body) {
   const { snapshotId, passType } = body;
   if (!snapshotId) return jsonResponse({ error: 'snapshotId required' }, 400);
 
-  let url = `${supabaseUrl}/rest/v1/script_passes?snapshot_id=eq.${snapshotId}&order=created_at.desc`;
-  if (passType) url += `&pass_type=eq.${passType}`;
+  let url = `${supabaseUrl}/rest/v1/script_passes?snapshot_id=eq.${pgrEscape(snapshotId)}&order=created_at.desc`;
+  if (passType) url += `&pass_type=eq.${pgrEscape(passType)}`;
 
   const res = await fetch(url, {
     headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
@@ -989,9 +1007,9 @@ async function handleGetScriptSnapshot(body) {
 
   let url;
   if (snapshotId) {
-    url = `${supabaseUrl}/rest/v1/script_snapshots?id=eq.${snapshotId}&limit=1`;
+    url = `${supabaseUrl}/rest/v1/script_snapshots?id=eq.${pgrEscape(snapshotId)}&limit=1`;
   } else {
-    url = `${supabaseUrl}/rest/v1/script_snapshots?media_asset_id=eq.${mediaAssetId}&order=version_number.desc&limit=1`;
+    url = `${supabaseUrl}/rest/v1/script_snapshots?media_asset_id=eq.${pgrEscape(mediaAssetId)}&order=version_number.desc&limit=1`;
   }
 
   const res = await fetch(url, {
@@ -1017,7 +1035,7 @@ async function handleScriptCopilotChat(body, apiKey) {
   let snapshotContext = '';
 
   if (projectId) {
-    const projUrl = `${supabaseUrl}/rest/v1/hunter_projects?id=eq.${projectId}&select=metadata&limit=1`;
+    const projUrl = `${supabaseUrl}/rest/v1/hunter_projects?id=eq.${pgrEscape(projectId)}&select=metadata&limit=1`;
     const projRes = await fetch(projUrl, { headers });
     if (projRes.ok) {
       const projects = await projRes.json();
@@ -1026,7 +1044,7 @@ async function handleScriptCopilotChat(body, apiKey) {
   }
 
   if (snapshotId) {
-    const snapUrl = `${supabaseUrl}/rest/v1/script_snapshots?id=eq.${snapshotId}&select=parsed_doc,color_profile,beat_count,word_count&limit=1`;
+    const snapUrl = `${supabaseUrl}/rest/v1/script_snapshots?id=eq.${pgrEscape(snapshotId)}&select=parsed_doc,color_profile,beat_count,word_count&limit=1`;
     const snapRes = await fetch(snapUrl, { headers });
     if (snapRes.ok) {
       const snaps = await snapRes.json();
@@ -1466,7 +1484,7 @@ async function handlePersistEditorialDecisions(body) {
 
   // Fetch raw and selects assets for this project
   const assetsRes = await fetch(
-    `${supabaseUrl}/rest/v1/media_assets?project_id=eq.${projectId}&tier=in.(raw,selects)&select=id,tier`,
+    `${supabaseUrl}/rest/v1/media_assets?project_id=eq.${pgrEscape(projectId)}&tier=in.(raw,selects)&select=id,tier`,
     { headers }
   );
   const assets = await assetsRes.json();
@@ -1481,7 +1499,7 @@ async function handlePersistEditorialDecisions(body) {
   let rawUnits = [];
   for (const id of rawAssetIds) {
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/corpus_units?media_asset_id=eq.${id}&select=id,source_clip_name&order=created_at.asc`,
+      `${supabaseUrl}/rest/v1/corpus_units?media_asset_id=eq.${pgrEscape(id)}&select=id,source_clip_name&order=created_at.asc`,
       { headers }
     );
     rawUnits = rawUnits.concat(await res.json());
@@ -1491,7 +1509,7 @@ async function handlePersistEditorialDecisions(body) {
   let selectsUnits = [];
   for (const id of selectsAssetIds) {
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/corpus_units?media_asset_id=eq.${id}&select=id,source_clip_name&order=created_at.asc`,
+      `${supabaseUrl}/rest/v1/corpus_units?media_asset_id=eq.${pgrEscape(id)}&select=id,source_clip_name&order=created_at.asc`,
       { headers }
     );
     selectsUnits = selectsUnits.concat(await res.json());

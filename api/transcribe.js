@@ -16,6 +16,8 @@
 // Response (both providers normalized to the same shape):
 //   { language, duration_seconds, full_text, segments[], word_timings[], provider }
 
+import { checkAccess } from './access.js';
+
 export const config = {
   runtime: 'edge',
   maxDuration: 300,
@@ -41,6 +43,8 @@ export default async function handler(req) {
   if (req.method !== 'POST') {
     return jsonError(405, 'method_not_allowed', 'POST only');
   }
+  const denied = checkAccess(req);
+  if (denied) return denied;
 
   let body;
   try { body = await req.json(); }
@@ -49,6 +53,11 @@ export default async function handler(req) {
   const { mediaUrl, mediaSizeBytes, language, prompt, provider = 'auto' } = body || {};
   if (!mediaUrl) {
     return jsonError(400, 'missing_media_url', 'mediaUrl is required (signed URL to the media file)');
+  }
+  // Reject anything that isn't an http(s) URL — closes SSRF angles like
+  // file:// and arbitrary internal URLs that the audit flagged.
+  if (!/^https?:\/\//i.test(mediaUrl)) {
+    return jsonError(400, 'bad_media_url', 'mediaUrl must be an http(s) URL.');
   }
 
   const deepgramKey = process.env.DEEPGRAM_API_KEY;
@@ -109,7 +118,7 @@ async function runDeepgram({ mediaUrl, language, prompt, apiKey }) {
   if (!dgRes.ok) {
     const errText = await dgRes.text().catch(() => '');
     return jsonError(dgRes.status, 'deepgram_api_error',
-      `Deepgram: ${dgRes.status} ${dgRes.statusText}${errText ? ' — ' + errText.slice(0, 400) : ''}`);
+      `Deepgram: ${dgRes.status} ${dgRes.statusText}${errText ? ' — ' + redactApiErrorText(errText).slice(0, 400) : ''}`);
   }
 
   let dg;
@@ -227,7 +236,7 @@ async function runWhisper({ mediaUrl, language, prompt, apiKey }) {
   if (!whisperRes.ok) {
     const errText = await whisperRes.text().catch(() => '');
     return jsonError(whisperRes.status, 'whisper_api_error',
-      `Whisper API: ${whisperRes.status} ${whisperRes.statusText}${errText ? ' — ' + errText : ''}`);
+      `Whisper API: ${whisperRes.status} ${whisperRes.statusText}${errText ? ' — ' + redactApiErrorText(errText).slice(0, 400) : ''}`);
   }
 
   let whisperJson;
@@ -264,6 +273,23 @@ function extractFilenameFromUrl(url) {
     const u = new URL(url);
     return u.pathname.split('/').pop() || null;
   } catch { return null; }
+}
+
+// Some provider error bodies echo the API key back at us (e.g. "Invalid API
+// key sk-proj-XYZ..."). Strip anything that looks like a credential before
+// surfacing to the client. Defense-in-depth: errors should be informative,
+// never authenticating.
+function redactApiErrorText(text) {
+  if (!text) return '';
+  return String(text)
+    // OpenAI-style keys
+    .replace(/sk-[A-Za-z0-9_-]{16,}/g, 'sk-***REDACTED***')
+    // Generic Bearer tokens
+    .replace(/Bearer\s+[A-Za-z0-9._-]{16,}/gi, 'Bearer ***REDACTED***')
+    // Deepgram-style hex tokens (40+ hex chars)
+    .replace(/\b[a-f0-9]{40,}\b/g, '***REDACTED***')
+    // Supabase JWTs
+    .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '***JWT***');
 }
 
 function jsonError(status, code, message) {

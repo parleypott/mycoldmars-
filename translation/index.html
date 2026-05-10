@@ -555,10 +555,39 @@
       const submitBtn = document.getElementById('gate-submit');
       const errorMsg = document.getElementById('gate-error');
 
-      function unlock() {
+      function unlock(code) {
         setCookie(COOKIE_NAME, 'granted');
+        // Stash the access code so /api/* fetches can attach it as a header.
+        // Server-side endpoints (transcribe, claude, gemini) gate on this so
+        // bypassing the client-side modal alone doesn't grant API access.
+        try { if (code) sessionStorage.setItem('mcm_access_code', code); } catch {}
+        installApiFetchInterceptor();
         gate.classList.add('hidden');
         app.classList.remove('hidden');
+      }
+
+      // Wrap window.fetch so every request to /api/* automatically carries
+      // x-access-code. Idempotent — no-ops if already installed. Cheap +
+      // surgical compared to refactoring every call site.
+      function installApiFetchInterceptor() {
+        if (window.__mcmApiFetchPatched) return;
+        window.__mcmApiFetchPatched = true;
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = (input, init) => {
+          try {
+            const url = typeof input === 'string' ? input : (input && input.url) || '';
+            if (url && /^(\/|https?:\/\/)?[^\s]*\/api\//.test(url)) {
+              const code = sessionStorage.getItem('mcm_access_code') || '';
+              if (code) {
+                init = init || {};
+                const headers = new Headers(init.headers || (typeof input === 'object' ? input.headers : undefined) || {});
+                if (!headers.has('x-access-code')) headers.set('x-access-code', code);
+                init.headers = headers;
+              }
+            }
+          } catch {}
+          return originalFetch(input, init);
+        };
       }
 
       async function checkCode() {
@@ -572,7 +601,7 @@
             body: JSON.stringify({ code }),
           });
           if (res.ok) {
-            unlock();
+            unlock(code);
           } else if (res.status === 404) {
             // Endpoint doesn't exist (dev mode) — skip gate
             unlock();
@@ -585,6 +614,12 @@
           // Network error (dev mode) — skip gate
           unlock();
         }
+      }
+
+      // If the user already has the cookie from a previous session, install
+      // the fetch interceptor immediately on load (gate flow won't run).
+      if (getCookie(COOKIE_NAME) === 'granted') {
+        installApiFetchInterceptor();
       }
 
       submitBtn.addEventListener('click', checkCode);
