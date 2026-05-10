@@ -2150,12 +2150,10 @@ libraryView.addEventListener('drop', async (e) => {
   libraryView.classList.remove('lib-view--drop-target');
   const files = Array.from(e.dataTransfer.files || []);
   if (files.length === 0) return;
-  if (files.length > 1) {
-    showInfo(`Got ${files.length} files. Uploading the first; drop them one at a time.`);
-  }
-  // Hop to step-1 so the upload UI is mounted, then route through handleFile.
-  goToStep(1);
-  await handleFile(files[0]);
+  // Bulk-friendly: queue everything in the background. The user stays on
+  // the library — no forced jump into an upload page or editor — and the
+  // floating UploadPanel shows progress per file with cancel/retry/open.
+  enqueueFilesForUpload(files);
 });
 
 // ── Library-scoped keyboard shortcuts (only fire when library is showing) ──
@@ -3266,6 +3264,396 @@ function hideMediaProgress() {
   if (overlay) overlay.remove();
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// BULK UPLOAD QUEUE
+//
+// Drop one file or twenty — they all flow through here. Items run serially
+// (one upload + one transcribe at a time) to avoid hammering Storage and
+// the transcription API. The user can keep editing other transcripts or
+// click around the library while the queue churns in the background; the
+// floating UploadPanel surfaces progress + per-file cancel/retry/open.
+//
+// Settings for bulk: auto-detect language, no translation, no speaker
+// dialog. Defaults that work for the 90% case. The user can tweak language
+// per transcript inside the editor afterward.
+//
+// Each queue item shape:
+//   { id, file, status, progress, error?, transcriptId?, transcriptSlug?,
+//     mediaUploadId?, abortController? }
+//
+// status: 'queued' | 'uploading' | 'transcribing' | 'saving' | 'done' | 'error' | 'cancelled'
+// ─────────────────────────────────────────────────────────────────────
+
+const uploadQueue = [];
+let uploadWorkerActive = false;
+
+function enqueueUpload(file) {
+  if (!file) return null;
+  // Deduplicate within the current queue by name+size+lastModified —
+  // dragging the same batch twice shouldn't duplicate work.
+  const dupe = uploadQueue.find(u =>
+    u.file && u.file.name === file.name &&
+    u.file.size === file.size &&
+    u.file.lastModified === file.lastModified &&
+    (u.status === 'queued' || u.status === 'uploading' || u.status === 'transcribing' || u.status === 'saving')
+  );
+  if (dupe) {
+    showInfo(`${file.name} is already in the queue.`);
+    return dupe.id;
+  }
+  const id = 'up_' + Math.random().toString(36).slice(2, 10);
+  uploadQueue.push({
+    id, file,
+    status: 'queued',
+    progress: 0,
+    addedAt: Date.now(),
+  });
+  renderUploadPanel();
+  if (!uploadWorkerActive) runUploadWorker().catch(err => {
+    console.error('[upload-worker] crashed:', err);
+    uploadWorkerActive = false;
+  });
+  return id;
+}
+
+async function runUploadWorker() {
+  uploadWorkerActive = true;
+  while (true) {
+    const next = uploadQueue.find(u => u.status === 'queued');
+    if (!next) break;
+    next.status = 'uploading';
+    next.progress = 0;
+    next.error = null;
+    renderUploadPanel();
+    try {
+      await processBulkUpload(next);
+    } catch (err) {
+      console.error('[upload-worker] item failed:', next.file?.name, err);
+      // Cancellation isn't an error — leave the status set by cancelUpload.
+      if (next.status !== 'cancelled') {
+        next.status = 'error';
+        next.error = err?.message || String(err);
+      }
+      renderUploadPanel();
+    }
+  }
+  uploadWorkerActive = false;
+}
+
+async function processBulkUpload(item) {
+  // Non-media files (CSV/JSON/Trint zip): use the existing readText pipeline
+  // but route through bulk save so we don't mutate globals.
+  if (!isMediaFile(item.file)) {
+    item.status = 'transcribing'; // semantically "processing"; reuse the same UI state
+    renderUploadPanel();
+    await processBulkParseFile(item);
+    return;
+  }
+
+  // 1) Upload to Storage with progress.
+  const upload = await uploadMedia(item.file, {
+    projectId: currentProjectId,
+    onProgress: (percent) => {
+      // Map upload progress to 0–55% of the overall bar.
+      item.progress = Math.min(0.55, (percent || 0) * 0.55);
+      renderUploadPanel();
+    },
+  });
+  if (item.status === 'cancelled') return;
+  item.mediaUploadId = upload.mediaUploadId;
+  item.signedUrl = upload.signedUrl;
+  item.progress = 0.55;
+  item.status = 'transcribing';
+  renderUploadPanel();
+
+  // 2) Transcribe — auto-detect language, no translation, no prompt.
+  const result = await runTranscription({
+    mediaUploadId: upload.mediaUploadId,
+    signedUrl: upload.signedUrl,
+    sizeBytes: upload.sizeBytes,
+    language: undefined,
+  });
+  if (item.status === 'cancelled') return;
+  item.progress = 0.92;
+  item.status = 'saving';
+  renderUploadPanel();
+
+  // 3) Persist as a fresh transcript row WITHOUT mutating global editor state.
+  const row = await bulkSaveTranscript({
+    file: item.file,
+    upload,
+    segments: result.segments || [],
+    wordTimings: result.wordTimings || null,
+    sourceLanguage: result.sourceLanguage || null,
+  });
+  item.transcriptId = row.id;
+  item.transcriptSlug = row.slug || row.id;
+  item.progress = 1;
+  item.status = 'done';
+  renderUploadPanel();
+  invalidateLibraryCache();
+
+  // Surface a toast with an Open button so the user can jump in when ready.
+  showSuccess(`${shortName(item.file.name)} transcribed`, {
+    duration: 8000,
+    action: 'Open',
+    onAction: () => handleLoad(row.id),
+  });
+}
+
+async function processBulkParseFile(item) {
+  // Read text + parse via the same parsers used by handleFile, but build the
+  // transcript row directly instead of routing through finishUploadParse.
+  const file = item.file;
+  const lower = file.name.toLowerCase();
+  const isZIP  = lower.endsWith('.zip');
+  const isHTML = lower.endsWith('.html') || lower.endsWith('.htm');
+  const isJSON = lower.endsWith('.json');
+  const isCSV  = lower.endsWith('.csv');
+
+  let parsedSegments = [];
+  let parsedWordTimings = null;
+
+  if (isZIP) {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const { unzipSync, strFromU8 } = await import('fflate');
+    const entries = unzipSync(buf, { filter: (f) => /\.html?$/i.test(f.name) && !f.name.startsWith('__MACOSX/') });
+    const pick = Object.keys(entries).find(n => /(?:^|\/)index\.html?$/i.test(n))
+              || Object.keys(entries).find(n => /\.html?$/i.test(n));
+    if (!pick) throw new Error('Zip did not contain an HTML file (Trint Interactive export expected).');
+    const html = strFromU8(entries[pick]);
+    const result = parseTrintHTML(html);
+    parsedSegments = result.segments;
+    parsedWordTimings = result.wordTimings;
+  } else {
+    const content = await file.text();
+    if (isHTML || (!isJSON && !isCSV && content.trimStart().startsWith('<'))) {
+      const result = parseTrintHTML(content);
+      parsedSegments = result.segments;
+      parsedWordTimings = result.wordTimings;
+    } else if (isJSON || (!isCSV && content.trimStart().startsWith('['))) {
+      const result = parseJSON(content);
+      parsedSegments = result.segments;
+      parsedWordTimings = result.wordTimings;
+    } else if (isCSV) {
+      parsedSegments = parseCSV(content);
+    } else {
+      throw new Error('Unsupported file type.');
+    }
+  }
+  item.progress = 0.6;
+  renderUploadPanel();
+
+  if (item.status === 'cancelled') return;
+  item.status = 'saving';
+  renderUploadPanel();
+
+  const row = await bulkSaveTranscript({
+    file: item.file,
+    upload: null,
+    segments: parsedSegments,
+    wordTimings: parsedWordTimings,
+    sourceLanguage: null,
+  });
+  item.transcriptId = row.id;
+  item.transcriptSlug = row.slug || row.id;
+  item.progress = 1;
+  item.status = 'done';
+  renderUploadPanel();
+  invalidateLibraryCache();
+  showSuccess(`${shortName(item.file.name)} imported`, {
+    duration: 8000,
+    action: 'Open',
+    onAction: () => handleLoad(row.id),
+  });
+}
+
+// Build + persist a fresh transcript row from a bulk-uploaded file. Does
+// NOT touch any global editor state (segments, speakerMap, currentTranscriptId
+// etc.) so multiple bulk uploads don't clobber each other or the current
+// open transcript.
+async function bulkSaveTranscript({ file, upload, segments: segs, wordTimings, sourceLanguage }) {
+  const safeName = (file.name || 'Untitled').replace(/\.[^.]+$/, '').slice(0, 200) || 'Untitled';
+  const baseSlug = generateSlug(safeName);
+  const slug = await ensureUniqueSlug(baseSlug);
+
+  // Speaker setup using existing helpers, scoped locally.
+  const speakerMap = buildSpeakerMap(segs);
+  const hiddenSpeakers = []; // keep all visible by default for bulk
+  const speakerColors = {};   // editor will fill defaults
+
+  const editorDoc = buildEditorDocument(segs, null, speakerColors, speakerMap, hiddenSpeakers, null, {});
+
+  const payload = {
+    name: safeName,
+    slug,
+    step: 5,
+    segments: segs,
+    analysis: null,
+    translations: [],
+    srtContent: '',
+    speakerColors,
+    annotations: {},
+    speakerMap,
+    hiddenSpeakers,
+    hideUnintelligible: true,
+    customSequenceName: safeName,
+    projectId: libraryCurrentProject || currentProjectId || null,
+    editorState: editorDoc,
+    wordTimings: wordTimings || null,
+    mediaUploadId: upload?.mediaUploadId || undefined,
+    source: upload ? 'transcribed' : 'imported',
+    targetLanguage: undefined,
+    translationEnabled: false,
+    metadata: {},
+  };
+  return await saveTranscript(payload);
+}
+
+function cancelUpload(id) {
+  const item = uploadQueue.find(u => u.id === id);
+  if (!item) return;
+  if (item.status === 'done' || item.status === 'error' || item.status === 'cancelled') {
+    // Just remove finished items from the panel.
+    const idx = uploadQueue.indexOf(item);
+    if (idx >= 0) uploadQueue.splice(idx, 1);
+    renderUploadPanel();
+    return;
+  }
+  item.status = 'cancelled';
+  renderUploadPanel();
+  // Note: we don't actively abort an in-flight Supabase storage upload —
+  // the SDK doesn't expose that cleanly. The status flip prevents the
+  // worker from saving a transcript row when the upload eventually finishes,
+  // and the panel reflects the user's intent immediately.
+}
+
+function retryUpload(id) {
+  const item = uploadQueue.find(u => u.id === id);
+  if (!item) return;
+  item.status = 'queued';
+  item.progress = 0;
+  item.error = null;
+  renderUploadPanel();
+  if (!uploadWorkerActive) runUploadWorker().catch(err => {
+    console.error('[upload-worker] crashed:', err);
+    uploadWorkerActive = false;
+  });
+}
+
+function clearFinishedUploads() {
+  for (let i = uploadQueue.length - 1; i >= 0; i--) {
+    const s = uploadQueue[i].status;
+    if (s === 'done' || s === 'error' || s === 'cancelled') uploadQueue.splice(i, 1);
+  }
+  renderUploadPanel();
+}
+
+function shortName(name, max = 36) {
+  if (!name) return '';
+  if (name.length <= max) return name;
+  const ext = name.lastIndexOf('.');
+  const base = ext > 0 ? name.slice(0, ext) : name;
+  const suffix = ext > 0 ? name.slice(ext) : '';
+  const keep = max - suffix.length - 1;
+  return base.slice(0, Math.max(8, keep)) + '…' + suffix;
+}
+
+function statusLabel(s) {
+  switch (s) {
+    case 'queued': return 'queued';
+    case 'uploading': return 'uploading';
+    case 'transcribing': return 'transcribing';
+    case 'saving': return 'saving';
+    case 'done': return 'ready';
+    case 'error': return 'error';
+    case 'cancelled': return 'cancelled';
+    default: return s;
+  }
+}
+
+// ── UploadPanel UI: floating card bottom-left, collapsible. ──
+let uploadPanelCollapsed = false;
+function renderUploadPanel() {
+  let host = document.getElementById('upload-panel');
+  if (uploadQueue.length === 0) {
+    if (host) host.remove();
+    return;
+  }
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'upload-panel';
+    host.className = 'upload-panel';
+    document.body.appendChild(host);
+  }
+  const inFlight = uploadQueue.filter(u => u.status === 'uploading' || u.status === 'transcribing' || u.status === 'saving' || u.status === 'queued');
+  const done = uploadQueue.filter(u => u.status === 'done').length;
+  const total = uploadQueue.length;
+  const headerLabel = inFlight.length > 0
+    ? `Uploading ${total - inFlight.length + 1} of ${total}`
+    : `${done} ready · ${total - done} other`;
+
+  host.innerHTML = `
+    <div class="upload-panel-header">
+      <span class="upload-panel-title">${esc(headerLabel)}</span>
+      <div class="upload-panel-header-actions">
+        ${(uploadQueue.some(u => u.status === 'done' || u.status === 'error' || u.status === 'cancelled'))
+          ? `<button class="upload-panel-clear" data-act="clear" title="Clear finished">Clear</button>` : ''}
+        <button class="upload-panel-collapse" data-act="collapse" title="${uploadPanelCollapsed ? 'Expand' : 'Collapse'}">
+          ${uploadPanelCollapsed ? '+' : '–'}
+        </button>
+      </div>
+    </div>
+    <div class="upload-panel-body" ${uploadPanelCollapsed ? 'hidden' : ''}>
+      ${uploadQueue.map(renderUploadRow).join('')}
+    </div>
+  `;
+  // Wire panel-level controls.
+  host.querySelector('[data-act="collapse"]').addEventListener('click', () => {
+    uploadPanelCollapsed = !uploadPanelCollapsed;
+    renderUploadPanel();
+  });
+  host.querySelector('[data-act="clear"]')?.addEventListener('click', clearFinishedUploads);
+  // Per-row actions.
+  host.querySelectorAll('[data-upload-row]').forEach(el => {
+    const id = el.dataset.uploadRow;
+    el.querySelector('[data-act="cancel"]')?.addEventListener('click', () => cancelUpload(id));
+    el.querySelector('[data-act="retry"]')?.addEventListener('click', () => retryUpload(id));
+    el.querySelector('[data-act="open"]')?.addEventListener('click', () => {
+      const item = uploadQueue.find(u => u.id === id);
+      if (item?.transcriptId) handleLoad(item.transcriptId);
+    });
+    el.querySelector('[data-act="dismiss"]')?.addEventListener('click', () => cancelUpload(id));
+  });
+}
+
+function renderUploadRow(item) {
+  const pct = Math.round((item.progress || 0) * 100);
+  const isActive = item.status === 'uploading' || item.status === 'transcribing' || item.status === 'saving';
+  const isError = item.status === 'error';
+  const isDone = item.status === 'done';
+  const isCancelled = item.status === 'cancelled';
+  const fillStyle = isActive
+    ? `width:${pct}%;`
+    : isDone ? 'width:100%;' : 'width:0%;';
+  return `
+    <div class="upload-row upload-row--${item.status}" data-upload-row="${item.id}">
+      <div class="upload-row-top">
+        <span class="upload-row-name" title="${esc(item.file.name)}">${esc(shortName(item.file.name))}</span>
+        <span class="upload-row-status">${esc(statusLabel(item.status))}${isActive ? ' · ' + pct + '%' : ''}</span>
+      </div>
+      <div class="upload-row-bar"><div class="upload-row-bar-fill" style="${fillStyle}"></div></div>
+      ${isError ? `<div class="upload-row-error" title="${esc(item.error || '')}">${esc(item.error || 'Failed.')}</div>` : ''}
+      <div class="upload-row-actions">
+        ${isDone ? '<button class="upload-row-btn upload-row-btn--primary" data-act="open">Open</button>' : ''}
+        ${isError ? '<button class="upload-row-btn" data-act="retry">Retry</button>' : ''}
+        ${isActive || item.status === 'queued' ? '<button class="upload-row-btn" data-act="cancel">Cancel</button>' : ''}
+        ${(isDone || isError || isCancelled) ? '<button class="upload-row-btn" data-act="dismiss">Dismiss</button>' : ''}
+      </div>
+    </div>
+  `;
+}
+
 function stageLabel(stage) {
   switch (stage) {
     case 'starting':   return '01 · prepare';
@@ -3517,22 +3905,46 @@ dropZone.addEventListener('drop', (e) => {
   e.preventDefault();
   dropZone.classList.remove('drag-over');
   const files = Array.from(e.dataTransfer.files || []);
-  if (files.length === 0) return;
-  if (files.length > 1) {
-    showError(`Drop one file at a time. Got ${files.length}; using the first.`);
-  }
-  handleFile(files[0]);
+  enqueueFilesForUpload(files);
 });
 
 dropZone.addEventListener('click', () => fileInput.click());
 
 fileInput.addEventListener('change', () => {
-  const f = fileInput.files[0];
-  // Reset value so picking the SAME file twice in a row still fires change
+  const files = Array.from(fileInput.files || []);
+  // Reset value so picking the SAME file(s) twice in a row still fires change
   // — without this, re-selecting (e.g., after fixing a parse error) is a no-op.
   fileInput.value = '';
-  if (f) handleFile(f);
+  enqueueFilesForUpload(files);
 });
+
+// Bulk-friendly entry point: send N files into the queue. The queue worker
+// runs serially in the background; the UploadPanel surfaces progress + per-
+// file cancel/retry/open. Skips the language picker dialog (defaults to
+// auto-detect) so dropping 8 files doesn't blast 8 modals at the user.
+function enqueueFilesForUpload(files) {
+  if (!files || files.length === 0) return;
+  // Filter to recognized types; toast for anything we can't handle so the
+  // user gets explicit feedback instead of silent drops.
+  const accepted = [];
+  const rejected = [];
+  for (const f of files) {
+    if (!f) continue;
+    const lower = (f.name || '').toLowerCase();
+    const isParseable = lower.endsWith('.csv') || lower.endsWith('.json') ||
+                        lower.endsWith('.html') || lower.endsWith('.htm') ||
+                        lower.endsWith('.zip');
+    if (isMediaFile(f) || isParseable) accepted.push(f);
+    else rejected.push(f);
+  }
+  if (rejected.length > 0) {
+    showInfo(`Skipped ${rejected.length} unsupported file${rejected.length === 1 ? '' : 's'} (${shortName(rejected[0].name)}${rejected.length > 1 ? ' …' : ''}).`);
+  }
+  for (const f of accepted) enqueueUpload(f);
+  if (accepted.length > 1) {
+    showInfo(`Queued ${accepted.length} files. They'll process in the background — keep working.`);
+  }
+}
 
 // ── Step 2: Analyze ──
 btnAnalyze.addEventListener('click', async () => {

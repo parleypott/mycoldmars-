@@ -6547,3 +6547,169 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
 .lib-crumb--current {
   cursor: context-menu;
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   Upload queue panel — floating, bottom-left, sits above the toast stack.
+   Shows in-flight bulk uploads with per-file progress + cancel/retry/open.
+   ───────────────────────────────────────────────────────────────────── */
+.upload-panel {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 9500;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  background: var(--np-warm-white);
+  border: 1px solid var(--np-sepia);
+  border-radius: 4px;
+  box-shadow: 0 12px 32px rgba(18, 17, 24, 0.18);
+  font-family: var(--np-font-mono);
+  overflow: hidden;
+}
+.upload-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(65, 44, 39, 0.10);
+  background: rgba(65, 44, 39, 0.04);
+}
+.upload-panel-title {
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--np-ink);
+}
+.upload-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.upload-panel-clear,
+.upload-panel-collapse {
+  background: transparent;
+  border: none;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--np-sepia);
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 3px;
+  transition: background 100ms, color 100ms;
+}
+.upload-panel-clear:hover,
+.upload-panel-collapse:hover {
+  background: rgba(65, 44, 39, 0.10);
+  color: var(--np-ink);
+}
+.upload-panel-collapse {
+  font-size: 16px;
+  line-height: 1;
+  width: 24px;
+  padding: 0;
+}
+.upload-panel-body {
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.upload-row {
+  padding: 12px;
+  border-bottom: 1px solid rgba(65, 44, 39, 0.08);
+}
+.upload-row:last-child { border-bottom: none; }
+.upload-row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.upload-row-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--np-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.upload-row-status {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--np-sepia);
+  flex-shrink: 0;
+  text-transform: lowercase;
+  font-variant-numeric: tabular-nums;
+}
+.upload-row-bar {
+  height: 3px;
+  background: rgba(65, 44, 39, 0.10);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.upload-row-bar-fill {
+  height: 100%;
+  background: var(--np-red);
+  transition: width 240ms ease-out;
+}
+.upload-row--done .upload-row-bar-fill {
+  background: var(--np-green, #0d5921);
+}
+.upload-row--error .upload-row-bar-fill {
+  background: var(--np-red);
+  width: 100%;
+  opacity: 0.4;
+}
+.upload-row--cancelled .upload-row-bar-fill {
+  background: var(--np-sepia);
+  width: 100%;
+  opacity: 0.3;
+}
+.upload-row-error {
+  font-size: 11px;
+  color: var(--np-red);
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: rgba(221, 44, 30, 0.06);
+  border-radius: 3px;
+  word-break: break-word;
+}
+.upload-row-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+.upload-row-actions:empty { display: none; }
+.upload-row-btn {
+  font-family: var(--np-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--np-sepia);
+  color: var(--np-ink);
+  padding: 4px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 100ms, color 100ms, border-color 100ms;
+}
+.upload-row-btn:hover {
+  background: var(--np-ink);
+  color: var(--np-warm-white);
+  border-color: var(--np-ink);
+}
+.upload-row-btn--primary {
+  background: var(--np-red);
+  color: #fff;
+  border-color: var(--np-red);
+}
+.upload-row-btn--primary:hover {
+  background: var(--np-ink);
+  border-color: var(--np-ink);
+}
