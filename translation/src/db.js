@@ -361,13 +361,19 @@ export async function updateTranscript(id, fields, opts = {}) {
   return data;
 }
 
-export async function listTranscripts(projectId) {
+export async function listTranscripts(projectId, opts = {}) {
   if (!supabase) return [];
   await getSchemaStatus();
   const colList = ['id', 'name', 'step', 'created_at', 'updated_at', 'project_id', 'media_upload_id', 'source'];
   if (flag('hasSlug')) colList.push('slug');
+  // Hard cap so a runaway library (10k+ rows) doesn't ship megabytes of
+  // metadata to the browser on every library open. Caller can override via
+  // opts.limit but we still cap at 1000 to be defensive. Pagination via
+  // explicit cursor will land alongside auth.
+  const limit = Math.min(Math.max(1, opts.limit || 500), 1000);
   let q = db().from('transcripts').select(colList.join(', '))
-    .order('updated_at', { ascending: false });
+    .order('updated_at', { ascending: false })
+    .limit(limit);
   if (flag('hasDeleted')) q = q.is('deleted_at', null);
   if (projectId) q = q.eq('project_id', projectId);
   const { data, error } = await q;

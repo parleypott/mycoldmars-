@@ -2237,9 +2237,16 @@ async function autoSave() { return runSaveOnce(); }
 // One-shot final flush attempt also fires on hidden visibility (mobile,
 // tab swap), since beforeunload is unreliable on mobile browsers.
 window.addEventListener('beforeunload', (e) => {
+  // Active uploads in the queue: warn before tab close. Closing mid-upload
+  // orphans bytes in Storage (no transcript row gets created) and silently
+  // wastes the user's bandwidth.
+  const activeUploads = uploadQueue && uploadQueue.some(u =>
+    u.status === 'uploading' || u.status === 'transcribing' || u.status === 'saving'
+  );
   if (
     pendingSave || saveInFlight ||
-    saveState === 'dirty' || saveState === 'error' || saveState === 'conflict'
+    saveState === 'dirty' || saveState === 'error' || saveState === 'conflict' ||
+    activeUploads
   ) {
     // Best-effort: kick off a final save (fire-and-forget — the browser
     // may not actually wait for it, but on desktop it usually does).
