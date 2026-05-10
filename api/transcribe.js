@@ -16,7 +16,7 @@
 // Response (both providers normalized to the same shape):
 //   { language, duration_seconds, full_text, segments[], word_timings[], provider }
 
-import { checkAccess } from './access.js';
+import { checkAccess } from './_lib/access.js';
 
 export const config = {
   runtime: 'edge',

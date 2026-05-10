@@ -1,4 +1,4 @@
-import { checkAccess } from './access.js';
+import { checkAccess } from './_lib/access.js';
 
 export const config = { runtime: 'edge' };
 
