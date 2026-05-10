@@ -6348,8 +6348,8 @@ function showSchemaMigrationBanner(status) {
   const needsPhase2 = status.missing.some(m => phase2Items.includes(m));
 
   const files = [];
-  if (needsPhase1) files.push('supabase-phase1.sql');
-  if (needsPhase2) files.push('supabase-phase2.sql');
+  if (needsPhase1) files.push('supabase/migrations/001_phase1_core.sql');
+  if (needsPhase2) files.push('supabase/migrations/004_phase2_revisions_locks.sql');
   const fileList = files.join(' then ');
 
   const banner = document.createElement('div');

@@ -36,7 +36,7 @@ Newpress's first-party software repo. Multiple sibling apps live under one Verce
 │   │                          uploads and ffmpeg-transcodes them to H.264
 │   └── README-transcode-worker.md
 │
-├── supabase-*.sql             Schema migrations (apply in numerical order)
+├── supabase/migrations/       Numbered SQL migrations — apply in order (see supabase/README.md)
 └── INTERPRETER_DEBUG_REPORT.md Snapshot of architectural decisions + audit
 ```
 
@@ -79,7 +79,7 @@ This app is **single-user** by design: one filmmaker (Johnny Harris) editing his
 ## Where to start reading
 
 - New to the codebase? Open `INTERPRETER_DEBUG_REPORT.md` for a high-level map + recent architectural decisions.
-- Reviewing the database? `supabase-phase1.sql` first (core schema), then `phase2`/`phase3`/`presence`/`transcode` for the layered additions, then `db.js` for the query surface.
+- Reviewing the database? Open `supabase/README.md` for the migration order + per-file purpose, then `supabase/migrations/001_phase1_core.sql` for the core schema, then `translation/src/db.js` for the query surface.
 - Reviewing the upload pipeline? `translation/src/upload/media-flow.js` (single-file path) and the `uploadQueue` block in `main.js` (bulk path).
 - Reviewing the editor? `translation/src/editor/Editor.jsx` (React wrapper) and `translation/src/editor/extensions/` (TipTap nodes/marks).
 

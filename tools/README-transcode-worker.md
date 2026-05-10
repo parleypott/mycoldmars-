@@ -4,10 +4,11 @@ Server-side ProRes/MOV/MXF → H.264 MP4 transcoder. Runs on the workhorse Mac, 
 
 ## One-time setup
 
-1. **Apply the schema migration.** The repo root has `supabase-transcode.sql`. Easiest: open the Supabase SQL editor → paste → run. Or via `psql` if your network can reach the DB directly:
+1. **Apply the schema migration.** Path: `supabase/migrations/006_transcode_pipeline.sql`. Easiest: open the Supabase SQL editor → paste → run. Or via `psql`:
    ```
-   psql "$SUPABASE_DB_URL" -f supabase-transcode.sql
+   psql "$SUPABASE_DB_URL" -f supabase/migrations/006_transcode_pipeline.sql
    ```
+   See `supabase/README.md` if you're applying to a fresh project (run all migrations in numeric order first).
 
 2. **Install ffmpeg if it's not already on the Mac:**
    ```

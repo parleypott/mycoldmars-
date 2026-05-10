@@ -16,7 +16,7 @@
 //   - ffmpeg is local, fast, and free.
 //
 // Usage:
-//   1. Apply the schema: psql $SUPABASE_DB_URL -f supabase-transcode.sql
+//   1. Apply the schema: psql $SUPABASE_DB_URL -f supabase/migrations/006_transcode_pipeline.sql
 //      (or paste into the Supabase SQL editor)
 //   2. Install ffmpeg if missing: brew install ffmpeg
 //   3. Set env: SUPABASE_URL, SUPABASE_SERVICE_KEY (already in .env.local)
