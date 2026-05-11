@@ -7280,3 +7280,106 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   background: rgba(221, 44, 30, 0.08);
   color: var(--np-red);
 }
+
+/* ─── Sequencer: panel download ───────────────────────────────────── */
+.seq-panel-download {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px dashed var(--np-line);
+  border-radius: 4px;
+  background: var(--np-cream);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+.seq-panel-download-link {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--np-ink);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+}
+.seq-panel-download-link:hover { color: var(--np-red); text-decoration: underline; }
+.seq-panel-download-note {
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  color: var(--np-sepia);
+}
+
+/* ─── Admin console ────────────────────────────────────────────────── */
+.admin-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.admin-add-input {
+  flex: 1;
+  min-height: auto !important;
+  font-size: 13px;
+  padding: 8px 10px;
+}
+.admin-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.admin-loading {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  color: var(--np-sepia);
+  padding: 14px 6px;
+  text-align: center;
+}
+.admin-user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--np-line);
+}
+.admin-user-row:last-child { border-bottom: none; }
+.admin-user-body { flex: 1; min-width: 0; }
+.admin-user-email {
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  color: var(--np-ink);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-user-sub {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  color: var(--np-sepia);
+  margin-top: 2px;
+}
+.admin-pill {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: var(--np-cream);
+  color: var(--np-sepia);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+.admin-user-act {
+  background: var(--np-warm-white);
+  border: 1px solid var(--np-line);
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--np-ink);
+  cursor: pointer;
+}
+.admin-user-act:hover { background: var(--np-cream); }
+.admin-user-act--danger { color: var(--np-red); border-color: rgba(221, 44, 30, 0.4); }
+.admin-user-act--danger:hover { background: rgba(221, 44, 30, 0.06); }

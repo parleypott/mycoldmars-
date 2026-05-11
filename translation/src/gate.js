@@ -8,7 +8,7 @@
 // every subsequent server call carries the right credentials regardless
 // of which gate path won.
 
-import { bootstrap, sendMagicLink, currentUser, currentProfile, onAuthChange } from './auth.js';
+import { bootstrap, sendMagicLink, signInWithPassword, currentUser, currentProfile, onAuthChange } from './auth.js';
 
 const COOKIE_NAME = 'np_access';
 const gate = document.getElementById('gate');
@@ -135,9 +135,9 @@ function isPublicRoute() {
     return;
   }
 
-  // We're in production-with-auth mode. Wire the magic-link form + the
-  // access-code fallback (for users with the legacy code who haven't
-  // registered an email yet).
+  // We're in production-with-auth mode. Wire the password form (primary),
+  // the magic-link form (recovery), and the access-code fallback (legacy).
+  wirePasswordForm();
   wireMagicLinkForm();
   wireAccessCodeFallback();
 
@@ -146,22 +146,19 @@ function isPublicRoute() {
   onAuthChange((user) => { if (user) unlock(); });
 })();
 
-function wireMagicLinkForm() {
-  const emailInput = document.getElementById('gate-email');
-  const submitBtn  = document.getElementById('gate-submit');
-  const errorMsg   = document.getElementById('gate-error');
-  const successMsg = document.getElementById('gate-success');
-  if (!emailInput || !submitBtn) return;
+// ─── Primary path: email + password ───────────────────────────────────
+function wirePasswordForm() {
+  const emailInput  = document.getElementById('gate-email');
+  const passInput   = document.getElementById('gate-password');
+  const submitBtn   = document.getElementById('gate-submit');
+  const errorMsg    = document.getElementById('gate-error');
+  const successMsg  = document.getElementById('gate-success');
+  if (!emailInput || !passInput || !submitBtn) return;
 
   function showError(msg) {
     errorMsg.textContent = msg;
     errorMsg.classList.remove('hidden');
     successMsg.classList.add('hidden');
-  }
-  function showSuccess(msg) {
-    successMsg.textContent = msg;
-    successMsg.classList.remove('hidden');
-    errorMsg.classList.add('hidden');
   }
   function clearMessages() {
     errorMsg.classList.add('hidden');
@@ -171,24 +168,55 @@ function wireMagicLinkForm() {
   async function send() {
     clearMessages();
     const email = emailInput.value.trim();
-    if (!email) { showError('Enter your email.'); emailInput.focus(); return; }
+    const password = passInput.value;
+    if (!email || !password) { showError('Email and password required.'); return; }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Signing in…';
+    const res = await signInWithPassword(email, password);
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Sign in';
+    if (res.ok) {
+      // onAuthChange listener calls unlock() automatically.
+    } else {
+      showError(res.error || 'Wrong email or password.');
+    }
+  }
+
+  submitBtn.addEventListener('click', (e) => { e.preventDefault(); send(); });
+  emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); passInput.focus(); } });
+  passInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
+  [emailInput, passInput].forEach(el => el.addEventListener('input', clearMessages));
+  emailInput.focus();
+}
+
+// ─── Fallback path: magic-link recovery ───────────────────────────────
+function wireMagicLinkForm() {
+  const emailInput = document.getElementById('gate-magic-email');
+  const submitBtn  = document.getElementById('gate-magic-submit');
+  const successMsg = document.getElementById('gate-success');
+  const errorMsg   = document.getElementById('gate-error');
+  if (!emailInput || !submitBtn) return;
+
+  async function send() {
+    const email = emailInput.value.trim();
+    if (!email) return;
     submitBtn.disabled = true;
     submitBtn.textContent = 'Sending…';
     const res = await sendMagicLink(email);
     submitBtn.disabled = false;
     submitBtn.textContent = 'Send sign-in link';
     if (res.ok) {
-      showSuccess(`Link sent to ${email}. Open it on this device — you'll come right back here.`);
-      emailInput.disabled = true;
+      successMsg.textContent = `Link sent to ${email}. Open it on this device.`;
+      successMsg.classList.remove('hidden');
+      errorMsg.classList.add('hidden');
     } else {
-      showError(res.error || 'Could not send the link. Check your email and try again.');
+      errorMsg.textContent = res.error || 'Could not send the link.';
+      errorMsg.classList.remove('hidden');
     }
   }
 
   submitBtn.addEventListener('click', (e) => { e.preventDefault(); send(); });
   emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
-  emailInput.addEventListener('input', clearMessages);
-  emailInput.focus();
 }
 
 function wireAccessCodeFallback() {

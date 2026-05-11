@@ -68,6 +68,58 @@ async function loadProfile(userId) {
   }
 }
 
+/**
+ * Email + password sign-in (preferred). The magic-link path stays as a
+ * fallback / forgot-password recovery. New accounts default to password
+ * 'newpress' — they're prompted to change it later from the dropdown.
+ */
+export async function signInWithPassword(email, password) {
+  if (!supabase) return { ok: false, error: 'Supabase not configured' };
+  if (!email || !password) return { ok: false, error: 'Email and password required.' };
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, user: data?.user || null };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+}
+
+/**
+ * Lets the signed-in user change their own password. The admin
+ * console can reset other users via the /api/admin-set-password
+ * endpoint — this one is for self-service.
+ */
+export async function updatePassword(newPassword) {
+  if (!supabase) return { ok: false, error: 'Supabase not configured' };
+  if (!_user) return { ok: false, error: 'Not signed in' };
+  if (!newPassword || newPassword.length < 4) {
+    return { ok: false, error: 'Password must be at least 4 characters.' };
+  }
+  try {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+}
+
+/**
+ * Returns the current Supabase access JWT (or null) so admin-only API
+ * endpoints can verify the caller server-side via Authorization: Bearer.
+ */
+export async function getAccessToken() {
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token || null;
+  } catch { return null; }
+}
+
 export async function sendMagicLink(email) {
   if (!supabase) return { ok: false, error: 'Supabase not configured' };
   if (!email || !/.+@.+\..+/.test(email)) return { ok: false, error: 'Enter a valid email address.' };

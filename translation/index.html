@@ -9,18 +9,29 @@
   <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
-  <!-- Sign-in gate (magic link) -->
+  <!-- Sign-in gate (email + password) -->
   <div id="gate" class="gate">
     <div class="gate-inner">
       <div class="np-eyebrow np-eyebrow--red">Newpress</div>
       <h1 class="gate-title">interpreter</h1>
-      <p class="gate-sub">Sign in with your work email — we'll send a one-tap link.</p>
-      <input id="gate-email" class="np-textarea" type="email" placeholder="you@newpress.press"
+      <p class="gate-sub">Sign in with your email and password.</p>
+      <input id="gate-email" class="np-textarea" type="email" placeholder="you@newpress.com"
              autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false"
              style="min-height:auto;text-align:center;">
-      <button id="gate-submit" class="np-button np-button--primary" style="width:100%">Send sign-in link</button>
+      <input id="gate-password" class="np-textarea" type="password" placeholder="Password"
+             autocomplete="current-password"
+             style="min-height:auto;text-align:center;margin-top:8px;">
+      <button id="gate-submit" class="np-button np-button--primary" style="width:100%;margin-top:10px;">Sign in</button>
       <p id="gate-error" class="hidden gate-msg gate-msg--error"></p>
       <p id="gate-success" class="hidden gate-msg gate-msg--success"></p>
+      <p style="font-family:var(--np-font-mono);font-size:11px;color:var(--np-sepia);margin-top:14px;text-align:center;">
+        New users default to password <code>newpress</code>. Change it from your avatar menu after signing in.
+      </p>
+      <details class="gate-fallback">
+        <summary>Forgot password? Use a magic link instead</summary>
+        <input id="gate-magic-email" class="np-textarea" type="email" placeholder="Email for magic link" style="min-height:auto;text-align:center;margin-top:10px;">
+        <button id="gate-magic-submit" class="np-button" style="width:100%;margin-top:8px;">Send sign-in link</button>
+      </details>
       <details class="gate-fallback">
         <summary>Have a temporary access code?</summary>
         <input id="gate-code" class="np-textarea" type="password" placeholder="Access code" style="min-height:auto;text-align:center;margin-top:10px;">
@@ -514,6 +525,12 @@
           <button id="seq-add-more-btn" class="seq-btn">+ Add More</button>
           <button id="seq-export-jsx-btn" class="seq-btn seq-btn--primary" title="Downloads a JSON manifest with timecode ranges only (no media references). Open the Sacred Sequencer panel in Premiere, load this file, and pick a mode: Nested Selects (insert source as nest) or Original Media (resolve to underlying source clips).">Export for Premiere</button>
           <button id="seq-export-btn" class="seq-btn" title="WARNING: importing this XML into Premiere creates a DUPLICATE of the sacred sequence (FCP XML limitation). Use Export for Premiere instead unless you know what you're doing.">Export XML (duplicates source ⚠)</button>
+        </div>
+        <div class="seq-panel-download">
+          <a href="/SacredSequencer.zip" download="SacredSequencer.zip" class="seq-panel-download-link">
+            ↓ Download latest Premiere panel (Sacred Sequencer)
+          </a>
+          <span class="seq-panel-download-note">unzip + run install.sh inside, then restart Premiere</span>
         </div>
       </div>
     </div>

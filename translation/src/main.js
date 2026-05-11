@@ -1864,7 +1864,8 @@ function renderHeaderIdentity() {
       </div>
       <button class="header-identity-menu-item" data-act="rename">Change display name</button>
       <button class="header-identity-menu-item" data-act="color">Change color</button>
-      ${signedIn ? '<button class="header-identity-menu-item" data-act="invite">Invite collaborator…</button>' : ''}
+      ${signedIn ? '<button class="header-identity-menu-item" data-act="password">Change password…</button>' : ''}
+      ${signedIn ? '<button class="header-identity-menu-item" data-act="admin">Admin console…</button>' : ''}
       ${signedIn
         ? '<button class="header-identity-menu-item header-identity-menu-item--danger" data-act="signout">Sign out</button>'
         : '<button class="header-identity-menu-item" data-act="signin">Sign in</button>'
@@ -1911,83 +1912,186 @@ function renderHeaderIdentity() {
     if (window.showGate) window.showGate();
   });
 
-  host.querySelector('[data-act="invite"]')?.addEventListener('click', async () => {
+  host.querySelector('[data-act="password"]')?.addEventListener('click', () => {
     menu.classList.add('hidden');
-    openInviteDialog();
+    openChangePasswordDialog();
+  });
+  host.querySelector('[data-act="admin"]')?.addEventListener('click', () => {
+    menu.classList.add('hidden');
+    openAdminConsole();
   });
 }
 
-function openInviteDialog() {
-  document.getElementById('invite-modal')?.remove();
+// ─── Self-service: change my own password ────────────────────────────
+async function openChangePasswordDialog() {
+  document.getElementById('password-modal')?.remove();
   const modal = document.createElement('div');
-  modal.id = 'invite-modal';
+  modal.id = 'password-modal';
   modal.className = 'np-modal';
   modal.innerHTML = `
     <div class="np-modal-backdrop" data-close></div>
-    <div class="np-modal-card" style="max-width:420px;">
+    <div class="np-modal-card" style="max-width:380px;">
       <div class="np-modal-header">
-        <h3 class="np-modal-title">Invite a collaborator</h3>
+        <h3 class="np-modal-title">Change password</h3>
         <button class="np-modal-close" data-close aria-label="Close">×</button>
       </div>
-      <p style="font-family:var(--np-font-mono);font-size:12px;color:var(--np-sepia);margin-bottom:14px;">
-        Sends a one-tap magic-link invite. They click it, get an account, land in the workspace.
-      </p>
-      <input id="invite-email" class="np-textarea" type="email" placeholder="email@example.com"
-             autocomplete="off" inputmode="email" autocapitalize="off" spellcheck="false"
-             style="min-height:auto;margin-bottom:10px;">
-      <button id="invite-submit" class="np-button np-button--primary" style="width:100%;">Send invite</button>
-      <p id="invite-msg" class="hidden" style="font-family:var(--np-font-mono);font-size:11px;margin-top:10px;padding:6px 10px;border-radius:4px;"></p>
+      <input id="pw-new" class="np-textarea" type="password" placeholder="New password"
+             autocomplete="new-password" style="min-height:auto;margin-bottom:8px;">
+      <input id="pw-confirm" class="np-textarea" type="password" placeholder="Confirm new password"
+             autocomplete="new-password" style="min-height:auto;margin-bottom:10px;">
+      <button id="pw-submit" class="np-button np-button--primary" style="width:100%;">Update password</button>
+      <p id="pw-msg" class="hidden" style="font-family:var(--np-font-mono);font-size:11px;margin-top:10px;padding:6px 10px;border-radius:4px;"></p>
     </div>
   `;
   document.body.appendChild(modal);
   modal.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => modal.remove()));
-  const input = document.getElementById('invite-email');
-  const btn = document.getElementById('invite-submit');
-  const msg = document.getElementById('invite-msg');
-  input.focus();
-
-  async function send() {
-    const email = input.value.trim();
-    if (!email) return;
-    btn.disabled = true;
-    btn.textContent = 'Sending…';
-    msg.classList.add('hidden');
-    try {
-      const session = (await import('./auth.js')).getSession?.() || null;
-      const headers = { 'Content-Type': 'application/json' };
-      const accessToken = session?.access_token || (await import('./db.js')).supabase?.auth?.getSession
-        ? (await (await import('./db.js')).supabase.auth.getSession())?.data?.session?.access_token
-        : null;
-      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-      const res = await fetch('/api/admin-invite', {
-        method: 'POST', headers,
-        body: JSON.stringify({ email }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok || body.error) {
-        msg.style.background = 'rgba(221, 44, 30, 0.08)';
-        msg.style.color = 'var(--np-red)';
-        msg.textContent = body.error || `HTTP ${res.status}`;
-        msg.classList.remove('hidden');
-      } else {
-        msg.style.background = 'rgba(13, 89, 33, 0.08)';
-        msg.style.color = 'var(--np-green, #0d5921)';
-        msg.textContent = `Invite sent to ${body.invitedEmail}.`;
-        msg.classList.remove('hidden');
-        input.value = '';
-      }
-    } catch (err) {
-      msg.style.background = 'rgba(221, 44, 30, 0.08)';
-      msg.style.color = 'var(--np-red)';
-      msg.textContent = err?.message || String(err);
-      msg.classList.remove('hidden');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Send invite';
-    }
+  const auth = await import('./auth.js');
+  const newEl = document.getElementById('pw-new');
+  const conEl = document.getElementById('pw-confirm');
+  const btn   = document.getElementById('pw-submit');
+  const msg   = document.getElementById('pw-msg');
+  newEl.focus();
+  function err(text) {
+    msg.style.background = 'rgba(221, 44, 30, 0.08)';
+    msg.style.color = 'var(--np-red)';
+    msg.textContent = text; msg.classList.remove('hidden');
   }
-  btn.addEventListener('click', (e) => { e.preventDefault(); send(); });
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
+  function ok(text) {
+    msg.style.background = 'rgba(13, 89, 33, 0.08)';
+    msg.style.color = 'var(--np-green, #0d5921)';
+    msg.textContent = text; msg.classList.remove('hidden');
+  }
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (newEl.value !== conEl.value) { err('Passwords do not match.'); return; }
+    if (newEl.value.length < 4) { err('Password must be at least 4 characters.'); return; }
+    btn.disabled = true; btn.textContent = 'Updating…';
+    const res = await auth.updatePassword(newEl.value);
+    btn.disabled = false; btn.textContent = 'Update password';
+    if (res.ok) { ok('Password updated.'); setTimeout(() => modal.remove(), 1200); }
+    else err(res.error || 'Could not update.');
+  });
+}
+
+// ─── Admin Console: list/create/delete/set_password for users ────────
+async function openAdminConsole() {
+  document.getElementById('admin-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'admin-modal';
+  modal.className = 'np-modal';
+  modal.innerHTML = `
+    <div class="np-modal-backdrop" data-close></div>
+    <div class="np-modal-card" style="max-width:620px;">
+      <div class="np-modal-header">
+        <h3 class="np-modal-title">Admin console — users</h3>
+        <button class="np-modal-close" data-close aria-label="Close">×</button>
+      </div>
+      <div class="admin-add-row">
+        <input id="admin-add-email" class="np-textarea admin-add-input" type="email"
+               placeholder="email@example.com" style="min-height:auto;flex:1;">
+        <button id="admin-add-btn" class="np-button np-button--primary">Add user</button>
+      </div>
+      <p style="font-family:var(--np-font-mono);font-size:11px;color:var(--np-sepia);margin:6px 2px 14px;">
+        New users are created with password <code>newpress</code>. They can change it from the avatar menu after signing in.
+      </p>
+      <div id="admin-users-list" class="admin-users-list">
+        <div class="admin-loading">Loading users…</div>
+      </div>
+      <p id="admin-msg" class="hidden" style="font-family:var(--np-font-mono);font-size:11px;margin-top:12px;padding:6px 10px;border-radius:4px;"></p>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => modal.remove()));
+
+  const msg = document.getElementById('admin-msg');
+  function err(text) {
+    msg.style.background = 'rgba(221, 44, 30, 0.08)';
+    msg.style.color = 'var(--np-red)';
+    msg.textContent = text; msg.classList.remove('hidden');
+  }
+  function ok(text) {
+    msg.style.background = 'rgba(13, 89, 33, 0.08)';
+    msg.style.color = 'var(--np-green, #0d5921)';
+    msg.textContent = text; msg.classList.remove('hidden');
+  }
+
+  async function adminCall(action, payload = {}) {
+    const auth = await import('./auth.js');
+    const token = await auth.getAccessToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const r = await fetch('/api/admin-users', {
+      method: 'POST', headers,
+      body: JSON.stringify({ action, ...payload }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok || body.error) throw new Error(body.error || `HTTP ${r.status}`);
+    return body;
+  }
+
+  async function refresh() {
+    const list = document.getElementById('admin-users-list');
+    list.innerHTML = '<div class="admin-loading">Loading users…</div>';
+    try {
+      const out = await adminCall('list');
+      const users = out.users || [];
+      const meId = currentUserId();
+      list.innerHTML = users.map(u => {
+        const isMe = u.id === meId;
+        const last = u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : '—';
+        return `
+          <div class="admin-user-row">
+            <div class="admin-user-body">
+              <div class="admin-user-email">${esc(u.email || '(no email)')}${isMe ? ' <span class="admin-pill">you</span>' : ''}</div>
+              <div class="admin-user-sub">last seen ${esc(last)}</div>
+            </div>
+            <button class="admin-user-act" data-pw-for="${esc(u.id)}" title="Reset password">reset pw</button>
+            ${isMe ? '' : `<button class="admin-user-act admin-user-act--danger" data-del-for="${esc(u.id)}" title="Delete user">delete</button>`}
+          </div>
+        `;
+      }).join('') || '<div class="admin-loading">No users.</div>';
+
+      list.querySelectorAll('[data-pw-for]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const userId = btn.dataset.pwFor;
+          const pw = window.prompt('New password (default: newpress):', 'newpress');
+          if (pw == null) return;
+          try {
+            await adminCall('set_password', { userId, password: pw });
+            ok(`Password reset.`);
+          } catch (e) { err(e.message); }
+        });
+      });
+      list.querySelectorAll('[data-del-for]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const userId = btn.dataset.delFor;
+          if (!confirm('Delete this user permanently?')) return;
+          try {
+            await adminCall('delete', { userId });
+            ok('User deleted.');
+            refresh();
+          } catch (e) { err(e.message); }
+        });
+      });
+    } catch (e) { err(e.message); }
+  }
+
+  document.getElementById('admin-add-btn').addEventListener('click', async () => {
+    const inputEl = document.getElementById('admin-add-email');
+    const email = inputEl.value.trim();
+    if (!email) return;
+    try {
+      const out = await adminCall('create', { email });
+      ok(`Created ${out.user.email}. Password: ${out.defaultPassword || '(custom)'}`);
+      inputEl.value = '';
+      refresh();
+    } catch (e) { err(e.message); }
+  });
+  document.getElementById('admin-add-email').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('admin-add-btn').click(); }
+  });
+
+  await refresh();
 }
 
 // Color picker popup — palette-based for brand consistency.
