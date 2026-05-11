@@ -229,16 +229,16 @@ async function startNewThread(opts = {}) {
     await loadThread(thread.id, { fresh: true });
     panelEl?.querySelector('#devchat-input')?.focus();
   } else {
-    // Silent mode (called from sendCurrentMessage on first send) — no
-    // empty greeting, no thread-list refresh; the message about to be
-    // inserted will trigger render via the realtime subscription.
+    // Silent mode (called from sendCurrentMessage on first send) — set
+    // up realtime for the assistant reply but DON'T clear the host yet.
+    // The user message will be painted optimistically by sendCurrentMessage.
     tearDownSubscription();
     activeUnsubscribe = subscribeToDevchatThread(thread.id, (row) => {
+      if (document.querySelector(`[data-msg-id="${row.id}"]`)) return;
+      if (row.sender !== 'user') hideTypingIndicator();
       appendMessage(row);
       renderThreadList();
     });
-    const host = panelEl?.querySelector('#devchat-thread');
-    if (host) host.innerHTML = '';
   }
 }
 
@@ -261,6 +261,8 @@ async function loadThread(threadId, opts = {}) {
   renderMessages(messages);
   await renderThreadList();
   activeUnsubscribe = subscribeToDevchatThread(threadId, (row) => {
+    if (document.querySelector(`[data-msg-id="${row.id}"]`)) return;
+    if (row.sender !== 'user') hideTypingIndicator();
     appendMessage(row);
     renderThreadList();
   });
@@ -302,12 +304,58 @@ function messageToHtml(m) {
   ` : '';
   const bodyHtml = m.body ? `<div class="devchat-msg-body">${escDc(m.body).replace(/\n/g, '<br>')}</div>` : '';
   return `
-    <div class="devchat-msg devchat-msg--${escDc(m.sender)}">
+    <div class="devchat-msg devchat-msg--${escDc(m.sender)}" data-msg-id="${escDc(m.id || '')}">
       <div class="devchat-msg-sender">${escDc(senderLabel(m.sender))}</div>
       ${imagesHtml}
       ${bodyHtml}
     </div>
   `;
+}
+
+function showTypingIndicator() {
+  hideTypingIndicator();
+  const host = panelEl?.querySelector('#devchat-thread');
+  if (!host) return;
+  host.insertAdjacentHTML('beforeend', `
+    <div class="devchat-msg devchat-msg--assistant" id="devchat-typing">
+      <div class="devchat-msg-sender">parley</div>
+      <div class="devchat-msg-body devchat-typing">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  `);
+  scrollMessagesToBottom();
+}
+
+function hideTypingIndicator() {
+  document.getElementById('devchat-typing')?.remove();
+}
+
+// Poll for the assistant reply for up to 30s — failsafe for when
+// Supabase Realtime isn't enabled on devchat_messages. Stops as soon
+// as we see a message newer than the user's send timestamp from a
+// non-user sender (assistant/system/agent).
+async function pollAssistantReply(threadId, sinceIso) {
+  const start = Date.now();
+  while (Date.now() - start < 30000) {
+    await new Promise(r => setTimeout(r, 1500));
+    if (!panelEl) return;
+    if (activeThreadId !== threadId) return;   // user navigated away
+    try {
+      const messages = await listDevchatMessages(threadId);
+      const newer = messages.filter(m =>
+        m.sender !== 'user' && new Date(m.created_at) > new Date(sinceIso)
+      );
+      for (const m of newer) {
+        if (document.querySelector(`[data-msg-id="${m.id}"]`)) continue;
+        hideTypingIndicator();
+        appendMessage(m);
+      }
+      if (newer.length) return;
+    } catch {}
+  }
+  // Timed out — leave the typing indicator off and let the user retry.
+  hideTypingIndicator();
 }
 
 function addPendingAttachment(file) {
@@ -400,16 +448,24 @@ async function sendCurrentMessage() {
     }
 
     // 2. Insert the message with image refs in metadata.
-    sendBtn.textContent = 'sending…';
     input.value = '';
     clearPendingAttachments();
-    await addDevchatMessage(activeThreadId, {
+    const insertedRow = await addDevchatMessage(activeThreadId, {
       sender: 'user',
       body: text,
       metadata: uploadedImages.length ? { images: uploadedImages } : null,
     });
 
-    // 3. Kick the assistant reply (fire-and-forget; realtime paints it).
+    // 3. Paint the user message immediately — don't depend on realtime
+    // (which may not be enabled yet, or may be slow). The realtime
+    // subscription dedupes by data-msg-id so we never double-paint.
+    appendMessage(insertedRow);
+    renderThreadList();
+
+    // 4. Kick the assistant reply. Show a typing indicator until either
+    // a reply lands via realtime/poll OR the API surfaces an error.
+    showTypingIndicator();
+    pollAssistantReply(activeThreadId, insertedRow.created_at).catch(() => {});
     fetch('/api/devchat-respond', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

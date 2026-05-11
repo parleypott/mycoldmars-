@@ -8287,3 +8287,27 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   background: rgba(255, 247, 230, 0.6);
   z-index: 1;
 }
+
+/* Devchat typing indicator (three dots) */
+.devchat-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 14px;
+}
+.devchat-typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dc-faint);
+  animation: dc-typing 1.2s ease-in-out infinite;
+}
+.devchat-typing span:nth-child(2) { animation-delay: 0.15s; }
+.devchat-typing span:nth-child(3) { animation-delay: 0.30s; }
+@keyframes dc-typing {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50%      { opacity: 1;    transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .devchat-typing span { animation: none; }
+}
