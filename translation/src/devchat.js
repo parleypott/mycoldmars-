@@ -65,32 +65,43 @@ async function togglePanel() {
   panelEl.id = 'devchat-panel';
   panelEl.className = 'devchat-panel';
   panelEl.innerHTML = `
-    <div class="devchat-head">
+    <header class="devchat-head">
+      <button class="devchat-head-history" data-act="history" title="Thread history">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
       <div class="devchat-head-title">devchat</div>
       <div class="devchat-head-actions">
-        <button class="devchat-head-btn" data-act="new" title="New thread">+ new</button>
+        <button class="devchat-head-btn" data-act="new" title="New thread">＋</button>
         <button class="devchat-head-btn" data-act="close" title="Close">×</button>
       </div>
-    </div>
-    <div class="devchat-body">
-      <div class="devchat-threads" id="devchat-threads"></div>
-      <div class="devchat-thread" id="devchat-thread"></div>
-    </div>
+    </header>
+    <aside class="devchat-history hidden" id="devchat-history">
+      <div class="devchat-history-head">recent threads</div>
+      <div class="devchat-history-list" id="devchat-threads"></div>
+    </aside>
+    <main class="devchat-thread" id="devchat-thread"></main>
     <div class="devchat-compose hidden" id="devchat-compose">
       <div class="devchat-attachments" id="devchat-attachments"></div>
       <div class="devchat-compose-row">
-        <textarea id="devchat-input" placeholder="What's broken? Paste a screenshot, drag an image, or just describe it." rows="3"></textarea>
-        <div class="devchat-compose-actions">
-          <input type="file" id="devchat-file" accept="image/*" multiple hidden>
-          <button class="devchat-attach-btn" id="devchat-attach" title="Attach image">📎</button>
-          <button class="devchat-send" id="devchat-send">Send</button>
-        </div>
+        <textarea id="devchat-input" placeholder="what's broken? paste a screenshot or describe it." rows="1"></textarea>
+        <input type="file" id="devchat-file" accept="image/*" multiple hidden>
+        <button class="devchat-icon-btn" id="devchat-attach" title="Attach image">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        </button>
+        <button class="devchat-send" id="devchat-send" title="Send (⌘↵)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
       </div>
+      <div class="devchat-compose-hint">⌘↵ to send · paste images · drag to drop</div>
     </div>
   `;
   document.body.appendChild(panelEl);
   panelEl.querySelector('[data-act="close"]').addEventListener('click', togglePanel);
   panelEl.querySelector('[data-act="new"]').addEventListener('click', startNewThread);
+  panelEl.querySelector('[data-act="history"]').addEventListener('click', () => {
+    panelEl.querySelector('#devchat-history').classList.toggle('hidden');
+    renderThreadList();
+  });
   panelEl.querySelector('#devchat-send').addEventListener('click', sendCurrentMessage);
   panelEl.querySelector('#devchat-attach').addEventListener('click', () => {
     panelEl.querySelector('#devchat-file').click();
@@ -99,11 +110,16 @@ async function togglePanel() {
     for (const f of e.target.files || []) addPendingAttachment(f);
     e.target.value = '';
   });
-  panelEl.querySelector('#devchat-input').addEventListener('keydown', (e) => {
+  const inputEl = panelEl.querySelector('#devchat-input');
+  inputEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendCurrentMessage(); }
   });
-  // Paste-from-clipboard image support — same UX as our chat.
-  panelEl.querySelector('#devchat-input').addEventListener('paste', (e) => {
+  // Auto-grow textarea as the user types.
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
+  });
+  inputEl.addEventListener('paste', (e) => {
     const items = e.clipboardData?.items || [];
     for (const it of items) {
       if (it.type?.startsWith('image/')) {
@@ -112,7 +128,6 @@ async function togglePanel() {
       }
     }
   });
-  // Drag-drop onto the entire panel.
   ;['dragover','dragleave','drop'].forEach(ev => {
     panelEl.addEventListener(ev, (e) => {
       e.preventDefault();
@@ -124,10 +139,26 @@ async function togglePanel() {
     });
   });
 
-  await renderThreadList();
-  // No thread selected yet → start a fresh one immediately so the user
-  // can just type and go.
-  await startNewThread();
+  // Don't auto-create a thread on open — show a clean greeting first
+  // so opening the panel is cheap and doesn't pollute the thread list.
+  await showGreeting();
+}
+
+async function showGreeting() {
+  const host = panelEl?.querySelector('#devchat-thread');
+  const compose = panelEl?.querySelector('#devchat-compose');
+  if (!host) return;
+  compose?.classList.remove('hidden');
+  host.innerHTML = `
+    <div class="devchat-welcome">
+      <div class="devchat-welcome-mark">✦</div>
+      <div class="devchat-welcome-title">what's on your mind?</div>
+      <div class="devchat-welcome-sub">
+        type below — your first message starts a new thread.
+      </div>
+    </div>
+  `;
+  panelEl?.querySelector('#devchat-input')?.focus();
 }
 
 async function renderThreadList() {
@@ -142,27 +173,34 @@ async function renderThreadList() {
     return;
   }
   if (!threads.length) {
-    host.innerHTML = `<div class="devchat-empty">No threads yet.</div>`;
+    host.innerHTML = `<div class="devchat-history-empty">no threads yet</div>`;
     return;
   }
-  host.innerHTML = threads.map(t => `
-    <button class="devchat-thread-item ${t.id === activeThreadId ? 'active' : ''}" data-thread="${escDc(t.id)}">
-      <span class="devchat-thread-status devchat-thread-status--${escDc(t.status)}"></span>
-      <span class="devchat-thread-title">${escDc(t.title || (t.page_url || 'Thread').split('/').pop() || 'Thread')}</span>
-      <span class="devchat-thread-when">${escDc(relAgo(t.updated_at))}</span>
-    </button>
-  `).join('');
+  host.innerHTML = threads.map(t => {
+    const title = (t.title && t.title.trim()) || (t.page_url || '').replace(/^https?:\/\/[^/]+/, '').replace(/^\/+/, '').slice(0, 40) || 'thread';
+    return `
+      <button class="devchat-thread-item ${t.id === activeThreadId ? 'active' : ''}" data-thread="${escDc(t.id)}">
+        <span class="devchat-thread-status devchat-thread-status--${escDc(t.status)}"></span>
+        <span class="devchat-thread-title">${escDc(title)}</span>
+        <span class="devchat-thread-when">${escDc(relAgo(t.updated_at))}</span>
+      </button>
+    `;
+  }).join('');
   host.querySelectorAll('[data-thread]').forEach(el => {
-    el.addEventListener('click', () => loadThread(el.dataset.thread));
+    el.addEventListener('click', () => {
+      loadThread(el.dataset.thread);
+      panelEl?.querySelector('#devchat-history')?.classList.add('hidden');
+    });
   });
 }
 
-async function startNewThread() {
+async function startNewThread(opts = {}) {
   let thread;
   try {
     thread = await createDevchatThread({
       pageUrl: window.location.href,
       transcriptId: context.getTranscriptId?.() || null,
+      title: opts.title || null,
       pageState: {
         view: context.getCurrentView?.() || null,
         ...context.getPageState?.(),
@@ -174,22 +212,34 @@ async function startNewThread() {
       if (isSchemaMissing(err)) {
         host.innerHTML = renderSchemaMissingPrompt();
         bindSetupCta(host);
-        return;
+        throw err;
       }
       if (isPermissionError(err)) {
         host.innerHTML = renderPermissionPrompt(err);
         bindSetupCta(host);
-        return;
+        throw err;
       }
     }
     showError(err?.message || 'Could not start a thread.');
     console.warn('[devchat] startNewThread error:', err);
-    return;
+    throw err;
   }
   activeThreadId = thread.id;
-  await renderThreadList();
-  await loadThread(thread.id, { fresh: true });
-  panelEl?.querySelector('#devchat-input')?.focus();
+  if (!opts.silent) {
+    await loadThread(thread.id, { fresh: true });
+    panelEl?.querySelector('#devchat-input')?.focus();
+  } else {
+    // Silent mode (called from sendCurrentMessage on first send) — no
+    // empty greeting, no thread-list refresh; the message about to be
+    // inserted will trigger render via the realtime subscription.
+    tearDownSubscription();
+    activeUnsubscribe = subscribeToDevchatThread(thread.id, (row) => {
+      appendMessage(row);
+      renderThreadList();
+    });
+    const host = panelEl?.querySelector('#devchat-thread');
+    if (host) host.innerHTML = '';
+  }
 }
 
 async function loadThread(threadId, opts = {}) {
@@ -220,8 +270,9 @@ function renderMessages(messages) {
   const host = panelEl?.querySelector('#devchat-thread');
   if (!host) return;
   if (!messages.length) {
-    host.innerHTML = `<div class="devchat-greeting">
-      Type what's broken or what you want changed. I'll triage; the fix lands later.
+    host.innerHTML = `<div class="devchat-welcome devchat-welcome--small">
+      <div class="devchat-welcome-mark">✦</div>
+      <div class="devchat-welcome-sub">empty thread — type below to start.</div>
     </div>`;
     return;
   }
@@ -233,7 +284,7 @@ function appendMessage(row) {
   const host = panelEl?.querySelector('#devchat-thread');
   if (!host) return;
   // Remove the greeting placeholder if present.
-  host.querySelector('.devchat-greeting')?.remove();
+  host.querySelector('.devchat-welcome')?.remove();
   host.insertAdjacentHTML('beforeend', messageToHtml(row));
   scrollMessagesToBottom();
 }
@@ -316,15 +367,27 @@ function scrollMessagesToBottom() {
 }
 
 async function sendCurrentMessage() {
-  if (!activeThreadId) return;
   const input = panelEl?.querySelector('#devchat-input');
   const sendBtn = panelEl?.querySelector('#devchat-send');
   const text = (input?.value || '').trim();
   const attachments = pendingAttachments.slice();
   if (!text && !attachments.length) return;
 
+  // Lazy-create the thread on first send so opening the panel doesn't
+  // pollute the thread list with empty stubs.
+  if (!activeThreadId) {
+    sendBtn.disabled = true;
+    try {
+      await startNewThread({ silent: true, title: text.slice(0, 60) || null });
+    } catch {
+      sendBtn.disabled = false;
+      return; // startNewThread already surfaced the error
+    }
+    if (!activeThreadId) { sendBtn.disabled = false; return; }
+  }
+
   sendBtn.disabled = true;
-  const originalLabel = sendBtn.textContent;
+  const originalLabel = sendBtn.innerHTML;
 
   try {
     // 1. Upload every pending attachment first so we have public URLs.
@@ -357,8 +420,10 @@ async function sendCurrentMessage() {
     console.warn('[devchat] send failed:', err);
   } finally {
     sendBtn.disabled = false;
-    sendBtn.textContent = originalLabel;
+    sendBtn.innerHTML = originalLabel;
     input?.focus();
+    // Reset textarea height after send.
+    if (input) input.style.height = 'auto';
   }
 }
 
