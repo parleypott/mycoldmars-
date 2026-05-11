@@ -7596,3 +7596,77 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   padding-bottom: 1px;
 }
 .seq-header-panel-link:hover { color: var(--rw-halo, #ffeec8); }
+
+/* ─── Manual setup steps modal ─────────────────────────────────────── */
+.ms-list { display: flex; flex-direction: column; gap: 12px; }
+.ms-step {
+  border: 1px solid var(--np-line);
+  border-radius: 6px;
+  background: var(--np-warm-white);
+  padding: 12px 14px;
+  transition: opacity 180ms ease;
+}
+.ms-step--done { opacity: 0.55; }
+.ms-step--done .ms-step-title { text-decoration: line-through; }
+.ms-step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.ms-step-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+.ms-step-checkbox input { margin: 0; }
+.ms-step-title {
+  font-family: var(--np-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--np-ink);
+}
+.ms-step-kind {
+  font-family: var(--np-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.ms-step-kind--sql { background: rgba(0, 76, 255, 0.08); color: #004cff; }
+.ms-step-kind--env { background: rgba(232, 93, 4, 0.10); color: #e85d04; }
+.ms-step-kind--dashboard { background: rgba(13, 89, 33, 0.10); color: #0d5921; }
+.ms-step-desc {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  color: var(--np-sepia);
+  margin: 4px 0 10px;
+  line-height: 1.5;
+}
+.ms-step-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ms-act {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--np-line);
+  background: var(--np-cream);
+  color: var(--np-ink);
+  cursor: pointer;
+  text-decoration: none;
+}
+.ms-act:hover { background: var(--np-warm-white); border-color: var(--np-ink); }
+.ms-act--link { color: var(--np-ink); }
+.ms-act--copy { font-weight: 600; }
+.ms-act--ok { background: rgba(13, 89, 33, 0.12); border-color: rgba(13, 89, 33, 0.45); color: #0d5921; }

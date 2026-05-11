@@ -1866,6 +1866,7 @@ function renderHeaderIdentity() {
       <button class="header-identity-menu-item" data-act="color">Change color</button>
       ${signedIn ? '<button class="header-identity-menu-item" data-act="password">Change password…</button>' : ''}
       ${signedIn ? '<button class="header-identity-menu-item" data-act="admin">Admin console…</button>' : ''}
+      <button class="header-identity-menu-item" data-act="manual-steps">Manual setup steps…</button>
       ${signedIn
         ? '<button class="header-identity-menu-item header-identity-menu-item--danger" data-act="signout">Sign out</button>'
         : '<button class="header-identity-menu-item" data-act="signin">Sign in</button>'
@@ -1919,6 +1920,11 @@ function renderHeaderIdentity() {
   host.querySelector('[data-act="admin"]')?.addEventListener('click', () => {
     menu.classList.add('hidden');
     openAdminConsole();
+  });
+  host.querySelector('[data-act="manual-steps"]')?.addEventListener('click', async () => {
+    menu.classList.add('hidden');
+    const { openManualStepsModal } = await import('./manual-steps.js');
+    openManualStepsModal();
   });
 }
 
