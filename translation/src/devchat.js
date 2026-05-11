@@ -24,6 +24,7 @@ import {
   listDevchatMessages,
   addDevchatMessage,
   subscribeToDevchatThread,
+  uploadDevchatImage,
 } from './db.js';
 import { currentUser } from './auth.js';
 
@@ -32,6 +33,7 @@ let buttonEl = null;
 let activeThreadId = null;
 let activeUnsubscribe = null;
 let context = {};   // { getTranscriptId, getPageState, getCurrentView }
+let pendingAttachments = [];   // [{file, previewUrl}] before send
 
 export function initDevchat({ getTranscriptId, getPageState, getCurrentView } = {}) {
   context = { getTranscriptId, getPageState, getCurrentView };
@@ -75,16 +77,51 @@ async function togglePanel() {
       <div class="devchat-thread" id="devchat-thread"></div>
     </div>
     <div class="devchat-compose hidden" id="devchat-compose">
-      <textarea id="devchat-input" placeholder="What's broken? What do you want to change?" rows="3"></textarea>
-      <button class="devchat-send" id="devchat-send">Send</button>
+      <div class="devchat-attachments" id="devchat-attachments"></div>
+      <div class="devchat-compose-row">
+        <textarea id="devchat-input" placeholder="What's broken? Paste a screenshot, drag an image, or just describe it." rows="3"></textarea>
+        <div class="devchat-compose-actions">
+          <input type="file" id="devchat-file" accept="image/*" multiple hidden>
+          <button class="devchat-attach-btn" id="devchat-attach" title="Attach image">📎</button>
+          <button class="devchat-send" id="devchat-send">Send</button>
+        </div>
+      </div>
     </div>
   `;
   document.body.appendChild(panelEl);
   panelEl.querySelector('[data-act="close"]').addEventListener('click', togglePanel);
   panelEl.querySelector('[data-act="new"]').addEventListener('click', startNewThread);
   panelEl.querySelector('#devchat-send').addEventListener('click', sendCurrentMessage);
+  panelEl.querySelector('#devchat-attach').addEventListener('click', () => {
+    panelEl.querySelector('#devchat-file').click();
+  });
+  panelEl.querySelector('#devchat-file').addEventListener('change', (e) => {
+    for (const f of e.target.files || []) addPendingAttachment(f);
+    e.target.value = '';
+  });
   panelEl.querySelector('#devchat-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendCurrentMessage(); }
+  });
+  // Paste-from-clipboard image support — same UX as our chat.
+  panelEl.querySelector('#devchat-input').addEventListener('paste', (e) => {
+    const items = e.clipboardData?.items || [];
+    for (const it of items) {
+      if (it.type?.startsWith('image/')) {
+        const f = it.getAsFile();
+        if (f) addPendingAttachment(f);
+      }
+    }
+  });
+  // Drag-drop onto the entire panel.
+  ;['dragover','dragleave','drop'].forEach(ev => {
+    panelEl.addEventListener(ev, (e) => {
+      e.preventDefault();
+      panelEl.classList.toggle('devchat--dragging', ev === 'dragover');
+      if (ev === 'drop') {
+        const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('image/'));
+        files.forEach(addPendingAttachment);
+      }
+    });
   });
 
   await renderThreadList();
@@ -132,15 +169,21 @@ async function startNewThread() {
       },
     });
   } catch (err) {
-    if (isSchemaMissing(err)) {
-      const host = panelEl?.querySelector('#devchat-thread');
-      if (host) {
+    const host = panelEl?.querySelector('#devchat-thread');
+    if (host) {
+      if (isSchemaMissing(err)) {
         host.innerHTML = renderSchemaMissingPrompt();
         bindSetupCta(host);
+        return;
       }
-      return;
+      if (isPermissionError(err)) {
+        host.innerHTML = renderPermissionPrompt(err);
+        bindSetupCta(host);
+        return;
+      }
     }
     showError(err?.message || 'Could not start a thread.');
+    console.warn('[devchat] startNewThread error:', err);
     return;
   }
   activeThreadId = thread.id;
@@ -196,12 +239,68 @@ function appendMessage(row) {
 }
 
 function messageToHtml(m) {
+  const images = m.metadata?.images || [];
+  const imagesHtml = images.length ? `
+    <div class="devchat-msg-images">
+      ${images.map(img => `
+        <a class="devchat-msg-image" href="${escDc(img.url)}" target="_blank" rel="noopener">
+          <img src="${escDc(img.url)}" alt="attachment" loading="lazy">
+        </a>
+      `).join('')}
+    </div>
+  ` : '';
+  const bodyHtml = m.body ? `<div class="devchat-msg-body">${escDc(m.body).replace(/\n/g, '<br>')}</div>` : '';
   return `
     <div class="devchat-msg devchat-msg--${escDc(m.sender)}">
       <div class="devchat-msg-sender">${escDc(senderLabel(m.sender))}</div>
-      <div class="devchat-msg-body">${escDc(m.body).replace(/\n/g, '<br>')}</div>
+      ${imagesHtml}
+      ${bodyHtml}
     </div>
   `;
+}
+
+function addPendingAttachment(file) {
+  if (!file || !file.type?.startsWith('image/')) return;
+  if (file.size > 10 * 1024 * 1024) {
+    showError(`Image too big (${Math.round(file.size/1024/1024)}MB) — keep under 10MB.`);
+    return;
+  }
+  const previewUrl = URL.createObjectURL(file);
+  pendingAttachments.push({ file, previewUrl });
+  renderPendingAttachments();
+}
+
+function removePendingAttachment(idx) {
+  const att = pendingAttachments[idx];
+  if (att) try { URL.revokeObjectURL(att.previewUrl); } catch {}
+  pendingAttachments.splice(idx, 1);
+  renderPendingAttachments();
+}
+
+function renderPendingAttachments() {
+  const host = panelEl?.querySelector('#devchat-attachments');
+  if (!host) return;
+  if (!pendingAttachments.length) { host.innerHTML = ''; return; }
+  host.innerHTML = pendingAttachments.map((a, i) => `
+    <div class="devchat-attach-thumb" data-idx="${i}">
+      <img src="${escDc(a.previewUrl)}" alt="">
+      <button class="devchat-attach-remove" data-remove="${i}">×</button>
+    </div>
+  `).join('');
+  host.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removePendingAttachment(parseInt(btn.dataset.remove, 10));
+    });
+  });
+}
+
+function clearPendingAttachments() {
+  for (const a of pendingAttachments) {
+    try { URL.revokeObjectURL(a.previewUrl); } catch {}
+  }
+  pendingAttachments = [];
+  renderPendingAttachments();
 }
 
 function senderLabel(s) {
@@ -221,12 +320,33 @@ async function sendCurrentMessage() {
   const input = panelEl?.querySelector('#devchat-input');
   const sendBtn = panelEl?.querySelector('#devchat-send');
   const text = (input?.value || '').trim();
-  if (!text) return;
-  input.value = '';
+  const attachments = pendingAttachments.slice();
+  if (!text && !attachments.length) return;
+
   sendBtn.disabled = true;
+  const originalLabel = sendBtn.textContent;
+
   try {
-    await addDevchatMessage(activeThreadId, { sender: 'user', body: text });
-    // Kick the assistant reply (fire-and-forget; realtime will paint it).
+    // 1. Upload every pending attachment first so we have public URLs.
+    let uploadedImages = [];
+    if (attachments.length) {
+      sendBtn.textContent = 'uploading…';
+      uploadedImages = await Promise.all(
+        attachments.map(a => uploadDevchatImage(a.file))
+      );
+    }
+
+    // 2. Insert the message with image refs in metadata.
+    sendBtn.textContent = 'sending…';
+    input.value = '';
+    clearPendingAttachments();
+    await addDevchatMessage(activeThreadId, {
+      sender: 'user',
+      body: text,
+      metadata: uploadedImages.length ? { images: uploadedImages } : null,
+    });
+
+    // 3. Kick the assistant reply (fire-and-forget; realtime paints it).
     fetch('/api/devchat-respond', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -234,8 +354,10 @@ async function sendCurrentMessage() {
     }).catch(() => {});
   } catch (err) {
     showError(err?.message || 'Send failed.');
+    console.warn('[devchat] send failed:', err);
   } finally {
     sendBtn.disabled = false;
+    sendBtn.textContent = originalLabel;
     input?.focus();
   }
 }
@@ -253,11 +375,24 @@ function showError(msg) {
 }
 
 function isSchemaMissing(err) {
+  // Be precise — match table-missing, NOT generic table-name mentions
+  // (RLS errors include the table name and used to false-positive into
+  // a "needs setup" prompt that hid the actual permission issue).
+  const code = err?.code || err?.cause?.code;
+  if (code === '42P01') return true;
   const msg = String(err?.message || err || '').toLowerCase();
-  return msg.includes('devchat_threads')
-      || msg.includes('devchat_messages')
+  return msg.includes('does not exist')
       || msg.includes('schema cache')
       || msg.includes('migration 012');
+}
+
+function isPermissionError(err) {
+  const code = err?.code || err?.cause?.code;
+  if (code === '42501') return true;
+  const msg = String(err?.message || err || '').toLowerCase();
+  return msg.includes('row-level security')
+      || msg.includes('rls')
+      || msg.includes('permission denied');
 }
 
 function renderThreadListError(err) {
@@ -276,7 +411,18 @@ function renderThreadListError(err) {
 function renderSchemaMissingPrompt() {
   return `
     <div class="devchat-greeting devchat-greeting--setup">
-      <p style="margin-bottom:10px;">Devchat needs a one-time setup before threads can land.</p>
+      <p style="margin-bottom:10px;">Devchat tables don't exist yet — migration 012 needs to run.</p>
+      <button class="devchat-setup-btn" data-act="open-setup">Set up devchat →</button>
+    </div>
+  `;
+}
+
+function renderPermissionPrompt(err) {
+  const msg = escDc(err?.message || err?.code || 'permission denied');
+  return `
+    <div class="devchat-greeting devchat-greeting--setup">
+      <p style="margin-bottom:6px;"><strong>Database said no.</strong></p>
+      <p style="margin-bottom:10px;font-size:11px;color:var(--np-sepia);">Likely migration 013 (public RLS) hasn't run yet.<br><span style="opacity:.7;">${msg}</span></p>
       <button class="devchat-setup-btn" data-act="open-setup">Set up devchat →</button>
     </div>
   `;

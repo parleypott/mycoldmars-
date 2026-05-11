@@ -90,6 +90,15 @@ const STEPS = () => ([
     categories: ['devchat'],
   },
   {
+    id: 'mig-014',
+    kind: 'sql',
+    title: 'Migration 014 — devchat attachments bucket',
+    description: 'Creates the public Storage bucket so screenshots you paste/drop into the chat box land somewhere Claude can read them.',
+    where: { label: 'Open Supabase SQL Editor', url: supabaseSqlEditorUrl() },
+    payloadUrl: '/migrations/014_devchat_attachments.sql',
+    categories: ['devchat'],
+  },
+  {
     id: 'realtime-devchat',
     kind: 'sql',
     title: 'Enable Realtime on devchat tables',
@@ -143,6 +152,7 @@ const FLOWS = {
 // the read; failure tells the user exactly what's still missing.
 async function verifyDevchat() {
   if (!supabase) return { ok: false, reason: 'Supabase client not configured. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.' };
+  // 1. Tables exist?
   try {
     const { error } = await supabase.from('devchat_threads').select('id').limit(1);
     if (error) {
@@ -153,6 +163,27 @@ async function verifyDevchat() {
   } catch (err) {
     return { ok: false, reason: err?.message || String(err) };
   }
+  // 2. Can anon insert? (Tests RLS for the actual write path.)
+  try {
+    const { data, error } = await supabase.from('devchat_threads')
+      .insert({ page_url: '__verify__', title: '__verify__' })
+      .select('id').single();
+    if (error) {
+      if (error.code === '42501') return { ok: false, reason: 'Insert blocked by RLS — migration 013 hasn\'t run.' };
+      return { ok: false, reason: 'Insert failed: ' + (error.message || error.code) };
+    }
+    // Clean up the probe row.
+    if (data?.id) supabase.from('devchat_threads').delete().eq('id', data.id).then(() => {});
+  } catch (err) {
+    return { ok: false, reason: 'Insert probe threw: ' + (err?.message || err) };
+  }
+  // 3. Attachments bucket exists?
+  try {
+    const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/bucket/devchat-attachments`, {
+      headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY || '' },
+    });
+    if (r.status === 404) return { ok: false, reason: 'Attachments bucket missing — migration 014 needs to run (image upload won\'t work without it).' };
+  } catch {} // bucket check is best-effort; not fatal
   // Endpoint check — just hit /api/devchat-respond with a bogus thread to
   // confirm it's deployed and not 404ing. We expect a 400 or 404 from a
   // missing thread, NOT 500 (which would mean a server-side env issue).

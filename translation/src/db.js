@@ -1045,6 +1045,40 @@ export async function updateDevchatThreadStatus(threadId, status, opts = {}) {
 }
 
 /**
+ * Upload an image (screenshot, paste, drag-drop) to the devchat
+ * attachments bucket. Returns the public URL + the storage path.
+ * The caller passes the URL into addDevchatMessage's metadata.images.
+ */
+export async function uploadDevchatImage(file) {
+  if (!supabase) throw new Error('Supabase not configured');
+  if (!file) throw new Error('file required');
+  const ext = (file.name || '').split('.').pop()?.toLowerCase() || guessExtFromMime(file.type);
+  const path = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage.from('devchat-attachments')
+    .upload(path, file, {
+      contentType: file.type || 'application/octet-stream',
+      cacheControl: '3600',
+      upsert: false,
+    });
+  if (error) {
+    if (error.message?.includes('Bucket not found')) {
+      throw new Error('Attachments bucket missing — run migration 014.');
+    }
+    throw normalizeError(error, 'uploadDevchatImage');
+  }
+  const { data } = supabase.storage.from('devchat-attachments').getPublicUrl(path);
+  return { url: data.publicUrl, path, mimeType: file.type || 'image/png' };
+}
+
+function guessExtFromMime(mime) {
+  if (!mime) return 'png';
+  if (mime.includes('jpeg')) return 'jpg';
+  if (mime.includes('webp')) return 'webp';
+  if (mime.includes('gif')) return 'gif';
+  return 'png';
+}
+
+/**
  * Realtime subscribe to a single thread's messages. Returns an
  * unsubscribe function. New rows arrive via onMessage(row).
  */

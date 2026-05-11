@@ -95,9 +95,29 @@ export default async function handler(req) {
   // Build the Anthropic messages array. Map our 'system' rows to context
   // injected at the top; map 'user'/'assistant' rows directly. Skip prior
   // 'agent' rows (those are worker logs, not conversational).
+  //
+  // For user messages with metadata.images, build a multi-block content
+  // array so Claude's vision can read the screenshots inline.
   const historyMessages = messages
     .filter(m => m.sender === 'user' || m.sender === 'assistant')
-    .map(m => ({ role: m.sender === 'assistant' ? 'assistant' : 'user', content: m.body }));
+    .map(m => {
+      const role = m.sender === 'assistant' ? 'assistant' : 'user';
+      const images = (m.metadata && Array.isArray(m.metadata.images)) ? m.metadata.images : [];
+      if (role === 'user' && images.length) {
+        const content = [];
+        for (const img of images) {
+          if (!img?.url) continue;
+          content.push({
+            type: 'image',
+            source: { type: 'url', url: img.url },
+          });
+        }
+        if (m.body) content.push({ type: 'text', text: m.body });
+        else if (content.length) content.push({ type: 'text', text: '(image)' });
+        return { role, content };
+      }
+      return { role, content: m.body || '(empty)' };
+    });
 
   if (historyMessages.length === 0) {
     return json({ error: 'No user messages to reply to.' }, 400);
