@@ -98,6 +98,22 @@ async function logErrorToThread(threadId, errMsg) {
 }
 
 export default async function handler(req) {
+  // Top-level guard so any unhandled throw returns a real JSON body
+  // instead of a bare Vercel 500 with no message.
+  try {
+    return await handleInner(req);
+  } catch (err) {
+    const reason = `Unhandled: ${err?.message || String(err)}${err?.stack ? '\n' + err.stack.split('\n').slice(0, 3).join('\n') : ''}`;
+    console.error('[devchat-respond]', reason);
+    try {
+      const body = await req.clone().json().catch(() => ({}));
+      if (body?.threadId) await logErrorToThread(body.threadId, reason);
+    } catch {}
+    return json({ error: reason }, 500);
+  }
+}
+
+async function handleInner(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
   const denied = checkAccess(req);
   if (denied) return denied;
@@ -106,6 +122,15 @@ export default async function handler(req) {
   try { body = await req.json(); } catch {}
   const threadId = body.threadId;
   if (!threadId) return json({ error: 'threadId required' }, 400);
+
+  // Diagnostics — what env vars do we actually see at runtime?
+  console.log('[devchat-respond] threadId:', threadId);
+  console.log('[devchat-respond] env present:', {
+    SUPABASE_URL: !!process.env.SUPABASE_URL,
+    VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
+  });
 
   const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
