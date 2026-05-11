@@ -43,9 +43,9 @@ function supabaseAuthProvidersUrl() {
   const ref = projectRef();
   return ref ? `https://supabase.com/dashboard/project/${ref}/auth/providers` : 'https://supabase.com/dashboard';
 }
-function supabaseRealtimeUrl() {
+function supabasePublicationsUrl() {
   const ref = projectRef();
-  return ref ? `https://supabase.com/dashboard/project/${ref}/database/replication` : 'https://supabase.com/dashboard';
+  return ref ? `https://supabase.com/dashboard/project/${ref}/database/publications` : 'https://supabase.com/dashboard';
 }
 
 // ── Catalog ───────────────────────────────────────────────────────────
@@ -91,11 +91,11 @@ const STEPS = () => ([
   },
   {
     id: 'realtime-devchat',
-    kind: 'dashboard',
-    title: 'Enable Realtime on devchat_messages',
-    description: 'So new messages from Claude paint into the chat panel the instant they land. Toggle the switch next to devchat_messages (and devchat_threads while you\'re there).',
-    where: { label: 'Open Supabase Replication', url: supabaseRealtimeUrl() },
-    payload: null,
+    kind: 'sql',
+    title: 'Enable Realtime on devchat tables',
+    description: 'So Claude\'s replies paint into the chat panel the instant they land. One line of SQL — adds devchat_threads + devchat_messages to the supabase_realtime publication. (You can also do it in the dashboard via Database → Publications, but SQL is faster and exact.)',
+    where: { label: 'Open Supabase SQL Editor', url: supabaseSqlEditorUrl() },
+    payload: 'alter publication supabase_realtime add table devchat_threads, devchat_messages;',
     categories: ['devchat'],
   },
   {
