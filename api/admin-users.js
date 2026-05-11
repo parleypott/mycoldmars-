@@ -84,8 +84,8 @@ export default async function handler(req) {
   if (!action) return json({ error: 'action required (list|create|delete|set_password)' }, 400);
 
   const supaUrl    = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supaUrl || !serviceKey) return json({ error: 'Server is missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.' }, 500);
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+  if (!supaUrl || !serviceKey) return json({ error: 'Server is missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY).' }, 500);
 
   const me = await whoAmI(req);
   const localDev = isLocalhost(req) && !process.env.ADMIN_EMAILS;

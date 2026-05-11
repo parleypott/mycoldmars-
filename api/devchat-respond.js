@@ -78,7 +78,7 @@ async function insertAssistantMessage(supaUrl, serviceKey, threadId, body, metad
 async function logErrorToThread(threadId, errMsg) {
   if (!threadId) return;
   const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
   if (!supaUrl || !serviceKey) return;
   try {
     await fetch(`${supaUrl}/rest/v1/devchat_messages`, {
@@ -127,14 +127,15 @@ async function handleInner(req) {
     SUPABASE_URL: !!process.env.SUPABASE_URL,
     VITE_SUPABASE_URL: !!process.env.VITE_SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_SERVICE_KEY: !!process.env.SUPABASE_SERVICE_KEY,
     ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
   });
 
   const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!supaUrl || !serviceKey) {
-    const reason = 'Server is missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.';
+    const reason = 'Server is missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY).';
     await logErrorToThread(threadId, reason);
     return json({ error: reason }, 500);
   }
