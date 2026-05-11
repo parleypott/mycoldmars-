@@ -467,6 +467,46 @@
         <a href="/SacredSequencer.zip" download="SacredSequencer.zip" class="seq-header-panel-link">
           ↓ download latest Premiere panel
         </a>
+        <details class="seq-magic">
+          <summary class="seq-magic-summary">How the magic works ▾</summary>
+          <div class="seq-magic-body">
+            <p>
+              You give the sequencer a list of soundbites. Each soundbite is just a time range
+              on a sequence in your Premiere project — like <em>14.5s → 23.7s on "Interview Sam"</em>.
+              No filenames, no source timecodes. The JSON literally doesn't know what media is
+              under those times.
+            </p>
+            <p>
+              When you load that JSON into the Premiere panel and pick <strong>Original Media</strong> mode,
+              the panel doesn't try to <em>find</em> the source media. It asks Premiere directly: <em>"hey,
+              walk every track of the Interview sequence and hand me back every clip object."</em>
+              Premiere already knows everything about every clip — its source file, its source timecode,
+              where it sits on the timeline, what audio's linked to it. It hands all that back.
+            </p>
+            <p>
+              For each soundbite range, the panel finds the clips on every track that overlap that
+              range, then does the math:
+            </p>
+            <ul>
+              <li>A clip sits at <em>12.0s → 30.0s</em> on the master timeline.</li>
+              <li>Its source media starts at, say, <em>02:14:08:00</em> (in the original file's own timecode).</li>
+              <li>Your soundbite starts at <em>14.5s</em> on the master — that's <em>2.5s</em> into the clip.</li>
+              <li>So the slice from the source media is <em>02:14:10:12 → 02:14:19:18</em>.</li>
+            </ul>
+            <p>
+              The panel sets those in/out points on the source clip and inserts it into a fresh sequence —
+              on the same video and audio tracks it lived on originally. B-roll on V2 stays on V2.
+              Dual-system audio on A2 stays on A2. You get a real, editable, full-resolution sequence
+              made of the actual source clips, not a nest.
+            </p>
+            <p class="seq-magic-aside">
+              Why this matters: the JSON has no media references, so it can't leak any source paths or
+              filenames. The translation only resolves inside <em>your</em> Premiere project, where the
+              original media lives. Send the JSON to someone without your project — they get nothing.
+              That's intentional.
+            </p>
+          </div>
+        </details>
       </div>
 
       <!-- Step 1: Paste -->

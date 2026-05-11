@@ -7670,3 +7670,55 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
 .ms-act--link { color: var(--np-ink); }
 .ms-act--copy { font-weight: 600; }
 .ms-act--ok { background: rgba(13, 89, 33, 0.12); border-color: rgba(13, 89, 33, 0.45); color: #0d5921; }
+
+/* Sacred Sequencer — "How the magic works" expandable */
+.seq-magic {
+  margin-top: 14px;
+  border-top: 1px dashed rgba(255, 247, 230, 0.18);
+  padding-top: 10px;
+}
+.seq-magic-summary {
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 235, 200, 0.7);
+  padding: 4px 0;
+  user-select: none;
+}
+.seq-magic-summary::-webkit-details-marker { display: none; }
+.seq-magic-summary:hover { color: var(--rw-halo, #ffeec8); }
+.seq-magic[open] .seq-magic-summary { color: var(--rw-halo, #ffeec8); }
+.seq-magic-body {
+  margin-top: 10px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 247, 230, 0.18);
+  border-radius: 4px;
+  background: rgba(10, 5, 38, 0.35);
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  line-height: 1.65;
+  color: rgba(255, 247, 230, 0.85);
+  max-width: 720px;
+}
+.seq-magic-body p { margin: 0 0 10px; }
+.seq-magic-body p:last-child { margin-bottom: 0; }
+.seq-magic-body ul { margin: 6px 0 12px 18px; padding: 0; }
+.seq-magic-body li { margin-bottom: 4px; }
+.seq-magic-body em {
+  font-style: italic;
+  color: var(--rw-halo, #ffeec8);
+}
+.seq-magic-body strong {
+  color: var(--rw-cyan, #b8f4ff);
+  font-weight: 600;
+}
+.seq-magic-aside {
+  margin-top: 12px !important;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 247, 230, 0.15);
+  color: rgba(255, 247, 230, 0.6);
+  font-size: 11px;
+}
