@@ -7582,3 +7582,17 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
 }
 .devchat-send:hover { background: var(--np-red); }
 .devchat-send:disabled { opacity: 0.5; cursor: default; }
+
+/* Always-visible panel download in the sequencer header */
+.seq-header-panel-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--np-cyan, #b8f4ff);
+  text-decoration: none;
+  border-bottom: 1px dashed currentColor;
+  padding-bottom: 1px;
+}
+.seq-header-panel-link:hover { color: var(--rw-halo, #ffeec8); }
