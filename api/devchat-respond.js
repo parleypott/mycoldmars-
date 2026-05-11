@@ -11,7 +11,10 @@
 // who acknowledges the bug, asks clarifying questions, and summarizes
 // what to fix. The autonomous code-fixing worker is a separate v2 path.
 
-import { checkAccess } from './_lib/access.js';
+// Intentionally NOT gated by checkAccess — devchat is open to anonymous
+// visitors on the public sequencer route so they can flag bugs without
+// signing in. Per-call cost is bounded (one Anthropic message per user
+// turn); add IP rate-limiting here if abuse ever surfaces.
 
 export const config = { runtime: 'edge' };
 

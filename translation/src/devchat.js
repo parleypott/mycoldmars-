@@ -44,14 +44,9 @@ export function initDevchat({ getTranscriptId, getPageState, getCurrentView } = 
 }
 
 function ensureButton() {
-  // Only show for signed-in users — the public sequencer route shouldn't
-  // see it, and we don't want anonymous strangers feeding the inbox.
-  const signedIn = !!currentUser();
-  if (!signedIn) {
-    buttonEl?.remove(); buttonEl = null;
-    panelEl?.remove(); panelEl = null;
-    return;
-  }
+  // Always-on. Devchat is open to anyone who can reach the app —
+  // including anonymous visitors on the public sequencer route — so
+  // collaborators can flag bugs without needing an account first.
   if (buttonEl) return;
   buttonEl = document.createElement('button');
   buttonEl.id = 'devchat-fab';
