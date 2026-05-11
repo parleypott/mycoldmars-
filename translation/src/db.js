@@ -832,6 +832,133 @@ export async function searchTranscripts(query, projectId) {
 }
 
 // ============================================================
+// Sharing — explicit collaborator lists per transcript
+// ============================================================
+//
+// Workspace mode means everyone signed in already sees everything; this
+// is the explicit-collaborators data model that powers the Share dialog,
+// the activity feed, and (later) per-user RLS scoping. All helpers
+// degrade silently if the transcript_shares table doesn't exist yet —
+// the Share dialog just shows "set up sharing" until migration 011 runs.
+
+const SHARES_MISSING_CODES = new Set(['42P01', '42703']);
+
+function decorateShareRows(rows, profilesById) {
+  for (const r of rows) {
+    r.user_profile = r.user_id ? profilesById[r.user_id] || null : null;
+  }
+  return rows;
+}
+
+export async function listShares(transcriptId) {
+  if (!supabase || !transcriptId) return [];
+  try {
+    const { data, error } = await db().from('transcript_shares')
+      .select('id, transcript_id, user_id, email, role, status, created_by, created_at, updated_at, last_seen_at')
+      .eq('transcript_id', transcriptId)
+      .order('created_at', { ascending: true });
+    if (error) {
+      if (SHARES_MISSING_CODES.has(error.code)) return [];
+      throw normalizeError(error, 'listShares');
+    }
+    const rows = data || [];
+    const ids = Array.from(new Set(rows.map(r => r.user_id).filter(Boolean)));
+    let byId = {};
+    if (ids.length) {
+      try {
+        const { data: profiles } = await db().from('user_profiles')
+          .select('user_id, display_name, color, avatar_url, email')
+          .in('user_id', ids);
+        if (profiles) byId = Object.fromEntries(profiles.map(p => [p.user_id, p]));
+      } catch {}
+    }
+    return decorateShareRows(rows, byId);
+  } catch (err) {
+    if (SHARES_MISSING_CODES.has(err?.code)) return [];
+    throw err;
+  }
+}
+
+/**
+ * Add a collaborator to a transcript. Pass either userId (existing user)
+ * or email (pending invite — gets promoted to a real share when the
+ * email recipient signs up via the auth trigger).
+ */
+export async function addShare(transcriptId, { userId, email, role = 'editor', createdBy } = {}) {
+  if (!supabase) throw new Error('Supabase not configured');
+  if (!transcriptId) throw new Error('transcriptId required');
+  if (!userId && !email) throw new Error('Either userId or email required');
+  const row = {
+    transcript_id: transcriptId,
+    user_id: userId || null,
+    email: email ? email.trim().toLowerCase() : null,
+    role,
+    status: userId ? 'active' : 'pending',
+    created_by: createdBy || null,
+  };
+  const { data, error } = await db().from('transcript_shares')
+    .insert(row).select().single();
+  if (error) {
+    if (SHARES_MISSING_CODES.has(error.code)) {
+      throw new Error('Sharing not set up — run migration 011_sharing.sql');
+    }
+    // Unique violation: collaborator already exists.
+    if (error.code === '23505') {
+      throw new Error('Already shared with that person');
+    }
+    throw normalizeError(error, 'addShare');
+  }
+  return data;
+}
+
+export async function removeShare(shareId) {
+  if (!supabase || !shareId) return;
+  const { error } = await db().from('transcript_shares').delete().eq('id', shareId);
+  if (error && !SHARES_MISSING_CODES.has(error.code)) {
+    throw normalizeError(error, 'removeShare');
+  }
+}
+
+export async function updateShareRole(shareId, role) {
+  if (!supabase || !shareId) return;
+  if (!['owner', 'editor', 'viewer'].includes(role)) {
+    throw new Error(`Invalid role: ${role}`);
+  }
+  const { data, error } = await db().from('transcript_shares')
+    .update({ role }).eq('id', shareId).select().single();
+  if (error) {
+    if (SHARES_MISSING_CODES.has(error.code)) return null;
+    throw normalizeError(error, 'updateShareRole');
+  }
+  return data;
+}
+
+/**
+ * Search workspace users by display name or email. Used by the Share
+ * dialog's add-collaborator picker. Returns up to `limit` profiles.
+ */
+export async function searchUserProfiles(query, { limit = 8 } = {}) {
+  if (!supabase) return [];
+  const q = (query || '').trim();
+  if (!q) return [];
+  const escaped = q.replace(/[%_]/g, ch => '\\' + ch);
+  try {
+    const { data, error } = await db().from('user_profiles')
+      .select('user_id, display_name, color, avatar_url, email')
+      .or(`display_name.ilike.%${escaped}%,email.ilike.%${escaped}%`)
+      .limit(limit);
+    if (error) {
+      if (SHARES_MISSING_CODES.has(error.code)) return [];
+      throw normalizeError(error, 'searchUserProfiles');
+    }
+    return data || [];
+  } catch (err) {
+    if (SHARES_MISSING_CODES.has(err?.code)) return [];
+    throw err;
+  }
+}
+
+// ============================================================
 // Media assets (Phase 3 — video/audio source files for in-house transcription)
 // ============================================================
 

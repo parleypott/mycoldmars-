@@ -5,7 +5,7 @@ import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, releaseLockBeacon, subscribeToTranscript, subscribePresence, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, releaseLockBeacon, subscribeToTranscript, subscribePresence, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload, listShares, addShare, removeShare, updateShareRole, searchUserProfiles } from './db.js';
 import { saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan, saveDraftSnapshot, loadDraftSnapshot, clearDraftSnapshot } from './snapshot.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
@@ -6464,21 +6464,208 @@ async function applyRouteFromUrl() {
 window.addEventListener('hashchange', () => { applyRouteFromUrl(); });
 window.addEventListener('popstate',   () => { applyRouteFromUrl(); });
 
-// ── Share / Copy Link button ──
+// ── Share button — opens full Share dialog (collaborators + permalink) ──
 const btnShare = document.getElementById('btn-share');
 if (btnShare) {
   btnShare.addEventListener('click', () => {
     if (!currentTranscriptId) return;
-    const permalink = currentSlug || currentTranscriptId;
-    setPermalinkHash(permalink);
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
-      btnShare.textContent = 'Copied!';
-      setTimeout(() => { btnShare.textContent = 'Share'; }, 2000);
-    }).catch(() => {
-      prompt('Copy this link:', url);
-    });
+    openShareDialog();
   });
+}
+
+const ROLE_LABELS = { owner: 'Owner', editor: 'Editor', viewer: 'Viewer' };
+const ROLE_HINTS = {
+  owner: 'Can edit, share, and delete',
+  editor: 'Can edit and comment',
+  viewer: 'Can read and comment',
+};
+
+async function openShareDialog() {
+  if (!currentTranscriptId) return;
+  document.getElementById('share-modal')?.remove();
+
+  const permalink = currentSlug || currentTranscriptId;
+  setPermalinkHash(permalink);
+  const shareUrl = window.location.href;
+
+  const modal = document.createElement('div');
+  modal.id = 'share-modal';
+  modal.className = 'np-modal';
+  modal.innerHTML = `
+    <div class="np-modal-backdrop" data-close></div>
+    <div class="np-modal-card share-card" style="max-width:520px;">
+      <div class="np-modal-header">
+        <h3 class="np-modal-title">Share this transcript</h3>
+        <button class="np-modal-close" data-close aria-label="Close">×</button>
+      </div>
+      <div class="share-link-row">
+        <input class="share-link-input" id="share-link-input" type="text" readonly value="${esc(shareUrl)}">
+        <button class="np-button" id="share-link-copy">Copy link</button>
+      </div>
+      <p class="share-link-hint">Anyone signed in to this workspace with the link can open it.</p>
+      <div class="share-add-row">
+        <input class="np-textarea share-add-input" id="share-add-input"
+               placeholder="Add by email or name…" autocomplete="off"
+               style="min-height:auto;">
+        <select class="share-role-select" id="share-add-role">
+          <option value="editor">Editor</option>
+          <option value="viewer">Viewer</option>
+          <option value="owner">Owner</option>
+        </select>
+        <button class="np-button np-button--primary" id="share-add-btn">Add</button>
+      </div>
+      <div class="share-suggest" id="share-suggest"></div>
+      <div class="share-list" id="share-list">
+        <div class="share-loading">Loading collaborators…</div>
+      </div>
+      <p id="share-msg" class="share-msg hidden"></p>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => modal.remove()));
+
+  document.getElementById('share-link-copy').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      const btn = document.getElementById('share-link-copy');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy link'; }, 1800);
+    } catch {
+      document.getElementById('share-link-input').select();
+    }
+  });
+
+  // Add-collaborator field — search-as-you-type for existing users.
+  const input = document.getElementById('share-add-input');
+  const suggest = document.getElementById('share-suggest');
+  let suggestTimer = null;
+  let pickedUser = null;
+  input.addEventListener('input', () => {
+    pickedUser = null;
+    if (suggestTimer) clearTimeout(suggestTimer);
+    const q = input.value.trim();
+    if (q.length < 2) { suggest.innerHTML = ''; return; }
+    suggestTimer = setTimeout(async () => {
+      try {
+        const matches = await searchUserProfiles(q, { limit: 6 });
+        if (!matches.length) { suggest.innerHTML = ''; return; }
+        suggest.innerHTML = matches.map(p => `
+          <button class="share-suggest-item" data-user-id="${esc(p.user_id)}"
+                  data-display="${esc(p.display_name || p.email || 'User')}"
+                  data-color="${esc(p.color || '#412c27')}">
+            <span class="share-avatar share-avatar--sm" style="background:${esc(p.color || '#412c27')}">
+              ${esc((p.display_name || p.email || '?').slice(0, 1).toUpperCase())}
+            </span>
+            <span class="share-suggest-name">${esc(p.display_name || 'User')}</span>
+            <span class="share-suggest-email">${esc(p.email || '')}</span>
+          </button>
+        `).join('');
+        suggest.querySelectorAll('.share-suggest-item').forEach(el => {
+          el.addEventListener('click', () => {
+            pickedUser = { id: el.dataset.userId, name: el.dataset.display };
+            input.value = el.dataset.display;
+            suggest.innerHTML = '';
+          });
+        });
+      } catch {}
+    }, 180);
+  });
+
+  document.getElementById('share-add-btn').addEventListener('click', async () => {
+    const raw = input.value.trim();
+    if (!raw) return;
+    const role = document.getElementById('share-add-role').value;
+    const msg = document.getElementById('share-msg');
+    msg.classList.add('hidden');
+    msg.classList.remove('share-msg--error');
+    try {
+      if (pickedUser) {
+        await addShare(currentTranscriptId, {
+          userId: pickedUser.id, role,
+          createdBy: currentUserId() || undefined,
+        });
+      } else if (raw.includes('@')) {
+        await addShare(currentTranscriptId, {
+          email: raw, role,
+          createdBy: currentUserId() || undefined,
+        });
+      } else {
+        msg.textContent = 'Type an email or pick a user from the suggestions.';
+        msg.classList.remove('hidden');
+        msg.classList.add('share-msg--error');
+        return;
+      }
+      input.value = '';
+      pickedUser = null;
+      suggest.innerHTML = '';
+      await renderShareList();
+    } catch (err) {
+      msg.textContent = err?.message || 'Could not add collaborator.';
+      msg.classList.remove('hidden');
+      msg.classList.add('share-msg--error');
+    }
+  });
+
+  await renderShareList();
+
+  async function renderShareList() {
+    const host = document.getElementById('share-list');
+    if (!host) return;
+    host.innerHTML = `<div class="share-loading">Loading collaborators…</div>`;
+    let shares = [];
+    try {
+      shares = await listShares(currentTranscriptId);
+    } catch (err) {
+      host.innerHTML = `<div class="share-empty">${esc(err?.message || 'Could not load collaborators.')}</div>`;
+      return;
+    }
+    if (!shares.length) {
+      host.innerHTML = `<div class="share-empty">No explicit collaborators yet. Anyone in this workspace can already open this link.</div>`;
+      return;
+    }
+    host.innerHTML = shares.map(s => {
+      const profile = s.user_profile;
+      const name = profile?.display_name || s.email || 'Pending invite';
+      const color = profile?.color || '#412c27';
+      const initials = (name || '?').split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase() || '?';
+      const subtitle = profile?.email || (s.email ? 'Pending — invite sent' : '');
+      return `
+        <div class="share-row" data-share-id="${esc(s.id)}">
+          <span class="share-avatar" style="background:${esc(color)}">${esc(initials)}</span>
+          <div class="share-row-body">
+            <div class="share-row-name">${esc(name)}${s.status === 'pending' ? ' <span class="share-pill">pending</span>' : ''}</div>
+            <div class="share-row-sub">${esc(subtitle)}</div>
+          </div>
+          <select class="share-role-select" data-role-for="${esc(s.id)}">
+            ${Object.entries(ROLE_LABELS).map(([k, lbl]) =>
+              `<option value="${k}" ${k === s.role ? 'selected' : ''}>${esc(lbl)}</option>`
+            ).join('')}
+          </select>
+          <button class="share-remove" data-remove-share="${esc(s.id)}" title="Remove">×</button>
+        </div>
+      `;
+    }).join('');
+    host.querySelectorAll('[data-role-for]').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        try {
+          await updateShareRole(sel.dataset.roleFor, sel.value);
+        } catch (err) {
+          showErrorToast(`Couldn't update role: ${err?.message || 'unknown'}`);
+        }
+      });
+    });
+    host.querySelectorAll('[data-remove-share]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.removeShare;
+        try {
+          await removeShare(id);
+          await renderShareList();
+        } catch (err) {
+          showErrorToast(`Couldn't remove: ${err?.message || 'unknown'}`);
+        }
+      });
+    });
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────────
