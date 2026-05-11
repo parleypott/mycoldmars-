@@ -69,8 +69,30 @@ export function showGate() {
 }
 window.showGate = showGate;
 
+// Public routes — never gated. Anyone can land here without signing in.
+// The Sacred Sequencer is paste-and-export only; it doesn't load any
+// account data. Useful for sharing the sequencer URL with collaborators
+// (Sam, etc) who shouldn't need to register an email to use it.
+const PUBLIC_HASHES = new Set(['#sequencer', '#sequencer-public']);
+
+function isPublicRoute() {
+  const h = (window.location.hash || '').trim();
+  if (PUBLIC_HASHES.has(h)) return true;
+  // Also support ?public=1 for explicit override.
+  if (window.location.search.includes('public=1')) return true;
+  return false;
+}
+
 (async function gateBootstrap() {
   installApiFetchInterceptor();
+
+  // Public-route bypass: no auth required. Unlock immediately so the
+  // app boots and the URL-router can land on the sequencer.
+  if (isPublicRoute()) {
+    unlock({ cookie: false });
+    // If the user later signs in via the avatar menu, that still works.
+    return;
+  }
 
   // Bring auth state online ASAP so the redirect-from-magic-link handshake
   // can complete on URL load. supabase-js auto-detects ?access_token=... in
