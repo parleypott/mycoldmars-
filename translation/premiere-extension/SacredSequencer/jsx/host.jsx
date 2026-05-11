@@ -249,3 +249,229 @@ function buildSacredSelects(jsonStr) {
         sacredName: sacredName
     });
 }
+
+/**
+ * ORIGINAL MEDIA mode (v2.5).
+ *
+ * Same inputs as buildSacredSelects, but instead of inserting the sacred
+ * sequence as a NEST, walks the sacred sequence's tracks at each [inSec,
+ * outSec] range, resolves the underlying source projectItems for each
+ * overlapping clip, computes the matching source-TC slice, and inserts
+ * those source clips into the new sequence.
+ *
+ * Why: a nest hides the source media. The result is editable but only at
+ * the cut level. Original-media mode hands the editor real source clips
+ * with proper in/out marks — Premiere will relink to the same media bins
+ * the sacred sequence references, dual-system audio comes along on its
+ * own audio tracks, and the editor can trim/replace cleanly.
+ *
+ * Intentional limits in v1:
+ *   • No effects, transitions, or speed ramps are preserved (cuts only).
+ *   • Track structure is preserved per-bite (V1 stays V1, A2 stays A2).
+ *   • Linked A/V is inserted by walking the video track and letting the
+ *     audio come along automatically; the audio walk dedupes against
+ *     projectItems already inserted in this bite to avoid doubles.
+ */
+function buildOriginalMediaSelects(jsonStr) {
+    try {
+        var data = JSON.parse(jsonStr);
+    } catch (e) {
+        return JSON.stringify({ ok: false, error: 'Invalid JSON: ' + e.message });
+    }
+
+    var sacredName = data.sacredSequenceName;
+    var outputName = data.outputName;
+    var gapSeconds = (typeof data.gapSeconds === 'number') ? data.gapSeconds : 0.5;
+    var soundbites = data.soundbites || [];
+
+    if (!sacredName) return JSON.stringify({ ok: false, error: 'No sacred sequence name provided.' });
+    if (soundbites.length === 0) return JSON.stringify({ ok: false, error: 'No soundbites provided.' });
+
+    // ── Find the sacred sequence ──
+    var sacredSeq = null;
+    for (var i = 0; i < app.project.sequences.numSequences; i++) {
+        if (app.project.sequences[i].name === sacredName) {
+            sacredSeq = app.project.sequences[i];
+            break;
+        }
+    }
+    if (!sacredSeq) {
+        return JSON.stringify({ ok: false, error: 'Could not find sequence "' + sacredName + '" in this project.' });
+    }
+
+    // ── Create the output sequence (same scrub-empty pattern as nest mode) ──
+    app.project.createNewSequence(outputName, 'original-media-' + Date.now());
+    var newSeq = app.project.activeSequence;
+    if (!newSeq) return JSON.stringify({ ok: false, error: 'Failed to create new sequence.' });
+    if (newSeq.name !== outputName) {
+        return JSON.stringify({
+            ok: false,
+            error: 'createNewSequence did not switch active sequence (got: "' + newSeq.name + '").'
+        });
+    }
+    scrubSequence(newSeq);
+
+    // ── Resolve + insert each soundbite ──
+    var insertSec = 0;
+    var inserted = 0;
+    var skippedBites = 0;
+    var clipsInserted = 0;
+    var errors = [];
+    var touched = {};   // projectItem nodeId → projectItem (so we can clear in/out marks at the end)
+
+    for (var bi = 0; bi < soundbites.length; bi++) {
+        var bite = soundbites[bi];
+        var biteIn  = bite.inSec;
+        var biteOut = bite.outSec;
+        var biteDur = biteOut - biteIn;
+        if (biteDur <= 0) {
+            errors.push('Soundbite ' + (bi + 1) + ': zero/negative duration.');
+            skippedBites++;
+            continue;
+        }
+
+        var insertedThisBite = 0;
+        var seenInBite = {};   // projectItem nodeId → true (dedupe linked A/V across video + audio walks)
+
+        var pieces = collectClipPieces(sacredSeq, biteIn, biteOut);
+        for (var pi = 0; pi < pieces.length; pi++) {
+            var piece = pieces[pi];
+
+            // Skip if the same source projectItem already inserted in this bite
+            // at the same timeline offset (linked A/V case — the video walk
+            // already brought the audio with it).
+            var dedupeKey = piece.itemNodeId + '@' + piece.localOffset.toFixed(4);
+            if (seenInBite[dedupeKey]) continue;
+
+            try {
+                piece.item.setInPoint(piece.sourceIn, 4);
+                piece.item.setOutPoint(piece.sourceOut, 4);
+                var timelinePosSec = insertSec + piece.localOffset;
+                newSeq.insertClip(
+                    piece.item,
+                    secToTicks(timelinePosSec),
+                    piece.vTrackIdx,
+                    piece.aTrackIdx
+                );
+                seenInBite[dedupeKey] = true;
+                touched[piece.itemNodeId] = piece.item;
+                insertedThisBite++;
+                clipsInserted++;
+            } catch (e) {
+                errors.push('Soundbite ' + (bi + 1) + ' / track ' + piece.label + ': ' + e.message);
+            }
+        }
+
+        if (insertedThisBite === 0) {
+            // No underlying clips found at this TC range — sequence may be empty here.
+            errors.push('Soundbite ' + (bi + 1) + ' (' + biteIn.toFixed(2) + '→' + biteOut.toFixed(2) + 's): no source clips overlap this range.');
+            skippedBites++;
+            continue;
+        }
+
+        insertSec += biteDur + gapSeconds;
+        inserted++;
+    }
+
+    // ── Clear in/out marks on every projectItem we touched ──
+    for (var tk in touched) {
+        if (Object.prototype.hasOwnProperty.call(touched, tk)) {
+            try { touched[tk].clearInPoint(4);  } catch (e) {}
+            try { touched[tk].clearOutPoint(4); } catch (e) {}
+        }
+    }
+
+    return JSON.stringify({
+        ok: true,
+        mode: 'original-media',
+        inserted: inserted,
+        skipped: skippedBites,
+        total: soundbites.length,
+        clipsInserted: clipsInserted,
+        errors: errors,
+        outputName: outputName,
+        sacredName: sacredName
+    });
+}
+
+/**
+ * For a given [biteIn, biteOut] range on `sacredSeq`, walk every video
+ * track and audio track and return the list of "pieces" — one per clip
+ * that overlaps the range. Each piece carries the source projectItem,
+ * the source-TC in/out for the slice, the timeline offset relative to
+ * the start of the bite (so multi-clip bites stay sync'd), and the
+ * track indices for re-insertion.
+ */
+function collectClipPieces(sacredSeq, biteIn, biteOut) {
+    var pieces = [];
+    var trk, t, ci, c, cStart, cEnd, overlapStart, overlapEnd, offIntoClip, sourceIn, sourceOut, item;
+
+    function pushPiece(c, vIdx, aIdx, label) {
+        cStart = c.start.seconds;
+        cEnd   = c.end.seconds;
+        // Only clips that actually overlap the bite.
+        if (cEnd <= biteIn) return;
+        if (cStart >= biteOut) return;
+
+        overlapStart = (cStart > biteIn)  ? cStart : biteIn;
+        overlapEnd   = (cEnd   < biteOut) ? cEnd   : biteOut;
+        if (overlapEnd <= overlapStart) return;
+
+        offIntoClip = overlapStart - cStart;                 // master-timeline seconds into the clip
+        sourceIn    = c.inPoint.seconds + offIntoClip;
+        sourceOut   = sourceIn + (overlapEnd - overlapStart);
+
+        item = c.projectItem;
+        if (!item) return;
+        var nodeId;
+        try { nodeId = item.nodeId; } catch (eId) { nodeId = item.name + ':' + sourceIn; }
+
+        pieces.push({
+            item: item,
+            itemNodeId: nodeId,
+            sourceIn: sourceIn,
+            sourceOut: sourceOut,
+            localOffset: overlapStart - biteIn,   // where this slice lands within the bite
+            vTrackIdx: vIdx,
+            aTrackIdx: aIdx,
+            label: label
+        });
+    }
+
+    // Walk video tracks. Pass aTrackIdx=0 by default so linked audio lands on A1.
+    if (sacredSeq.videoTracks) {
+        for (t = 0; t < sacredSeq.videoTracks.numTracks; t++) {
+            trk = sacredSeq.videoTracks[t];
+            if (!trk || !trk.clips) continue;
+            for (ci = 0; ci < trk.clips.numItems; ci++) {
+                c = trk.clips[ci];
+                if (!c) continue;
+                pushPiece(c, t, 0, 'V' + (t + 1));
+            }
+        }
+    }
+
+    // Walk audio tracks. The dedupe step in the caller will skip ones
+    // already inserted via linked-from-video; standalone dual-system
+    // audio (no linked video) lands here.
+    if (sacredSeq.audioTracks) {
+        for (t = 0; t < sacredSeq.audioTracks.numTracks; t++) {
+            trk = sacredSeq.audioTracks[t];
+            if (!trk || !trk.clips) continue;
+            for (ci = 0; ci < trk.clips.numItems; ci++) {
+                c = trk.clips[ci];
+                if (!c) continue;
+                pushPiece(c, 0, t, 'A' + (t + 1));
+            }
+        }
+    }
+
+    // Order pieces by their local offset so insertion is left-to-right
+    // along the timeline (helps Premiere place cleanly when multi-clip).
+    pieces.sort(function(a, b) {
+        if (a.localOffset !== b.localOffset) return a.localOffset - b.localOffset;
+        return a.vTrackIdx - b.vTrackIdx;
+    });
+
+    return pieces;
+}

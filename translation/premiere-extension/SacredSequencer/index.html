@@ -272,6 +272,54 @@
     margin: 18px 0;
   }
 
+  /* Mode toggle (Nest vs Original Media) */
+  .mode-toggle {
+    display: flex;
+    gap: 6px;
+    border: 1px solid rgba(184, 244, 255, 0.14);
+    background: rgba(10, 5, 38, 0.45);
+    border-radius: 2px;
+    padding: 4px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .mode-opt {
+    flex: 1;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    padding: 8px 10px;
+    cursor: pointer;
+    text-align: left;
+    color: rgba(255, 247, 230, 0.7);
+    font-family: var(--mono);
+    transition: background 180ms var(--rw-ease), border-color 180ms var(--rw-ease), color 180ms var(--rw-ease);
+  }
+  .mode-opt:hover {
+    background: rgba(184, 244, 255, 0.04);
+    color: #fff;
+  }
+  .mode-opt.selected {
+    background: rgba(255, 231, 163, 0.10);
+    border-color: rgba(255, 231, 163, 0.55);
+    color: var(--rw-halo);
+  }
+  .mode-opt-name {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .mode-opt-sub {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: rgba(255, 247, 230, 0.45);
+  }
+  .mode-opt.selected .mode-opt-sub { color: rgba(255, 231, 163, 0.65); }
+
   .preflight {
     border: 1px solid rgba(184, 244, 255, 0.12);
     background: rgba(10, 5, 38, 0.45);
@@ -400,13 +448,27 @@
 <div class="wrap">
 
 <h1>Sacred Sequencer</h1>
-<p class="subtitle">nest &middot; arrange &middot; propagate <span class="version-tag">v2.1</span></p>
+<p class="subtitle">nest &middot; arrange &middot; propagate <span class="version-tag">v2.5</span></p>
 
 <div class="field">
   <label>Soundbites JSON</label>
   <button class="btn btn-secondary" id="load-btn">Load JSON file</button>
   <input type="file" id="file-input" accept=".json" hidden>
   <div class="bite-count" id="bite-count"></div>
+</div>
+
+<div class="field">
+  <label>Output Mode</label>
+  <div class="mode-toggle" id="mode-toggle">
+    <button type="button" class="mode-opt selected" data-mode="nest">
+      <span class="mode-opt-name">Nested Selects</span>
+      <span class="mode-opt-sub">insert sequence as nest</span>
+    </button>
+    <button type="button" class="mode-opt" data-mode="original">
+      <span class="mode-opt-name">Original Media</span>
+      <span class="mode-opt-sub">resolve to underlying clips</span>
+    </button>
+  </div>
 </div>
 
 <div class="field" id="preflight-field" style="display:none;">
@@ -449,6 +511,38 @@ var sequenceListReady = false;
 var sequenceListError = null;
 var mappings = loadMappings();      // { jsonName: premiereName } — persisted
 var openPickerFor = null;           // which JSON name has its picker expanded
+var buildMode = loadBuildMode();    // 'nest' | 'original' — persisted
+
+function loadBuildMode() {
+  try {
+    var v = localStorage.getItem('sacred-build-mode');
+    return (v === 'original') ? 'original' : 'nest';
+  } catch (e) { return 'nest'; }
+}
+function saveBuildMode() {
+  try { localStorage.setItem('sacred-build-mode', buildMode); } catch (e) {}
+}
+
+function applyBuildModeUI() {
+  var btn = document.getElementById('build-btn');
+  if (btn) {
+    btn.textContent = (buildMode === 'original') ? 'Build Original Media Selects' : 'Build Sacred Selects';
+  }
+  document.querySelectorAll('.mode-opt').forEach(function(el) {
+    if (el.getAttribute('data-mode') === buildMode) el.classList.add('selected');
+    else el.classList.remove('selected');
+  });
+}
+
+document.querySelectorAll('.mode-opt').forEach(function(el) {
+  el.addEventListener('click', function() {
+    buildMode = el.getAttribute('data-mode') || 'nest';
+    saveBuildMode();
+    applyBuildModeUI();
+  });
+});
+
+applyBuildModeUI();
 
 function loadMappings() {
   try {
@@ -774,8 +868,11 @@ document.getElementById('build-btn').addEventListener('click', function() {
   if (!bites || bites.length === 0) return;
 
   var defaultSeqName = (!Array.isArray(soundbiteData) && soundbiteData.sacredSequenceName) || '';
-  var outputName = (!Array.isArray(soundbiteData) && soundbiteData.outputName) ||
+  var outputBase = (!Array.isArray(soundbiteData) && soundbiteData.outputName) ||
                    (defaultSeqName ? defaultSeqName + '_Sacred Selects' : 'Sacred Selects');
+  var outputName = (buildMode === 'original')
+    ? outputBase.replace(/Sacred Selects$/, 'Original Media Selects')
+    : outputBase;
   var gapSeconds = (!Array.isArray(soundbiteData) && soundbiteData.gapSeconds) || 0.5;
 
   // Preflight check — every referenced sequence must resolve (directly or via mapping).
@@ -792,6 +889,81 @@ document.getElementById('build-btn').addEventListener('click', function() {
   var btn = document.getElementById('build-btn');
   btn.disabled = true;
   btn.textContent = 'Building...';
+
+  // ── Original Media mode: dispatch to host.jsx buildOriginalMediaSelects ──
+  // v1 supports a single source sequence (most common: one interview).
+  // Multi-sequence builds keep using nest mode for now.
+  if (buildMode === 'original') {
+    var resolvedSeqs = {};
+    for (var oi = 0; oi < bites.length; oi++) {
+      var nm = bites[oi].sequenceName || defaultSeqName;
+      var rn = resolveName(nm) || nm;
+      if (rn) resolvedSeqs[rn] = true;
+    }
+    var resolvedKeys = [];
+    for (var rk in resolvedSeqs) if (Object.prototype.hasOwnProperty.call(resolvedSeqs, rk)) resolvedKeys.push(rk);
+    if (resolvedKeys.length === 0) {
+      btn.disabled = false;
+      applyBuildModeUI();
+      showStatus('err', 'No sequence to resolve — check the JSON.');
+      return;
+    }
+    if (resolvedKeys.length > 1) {
+      btn.disabled = false;
+      applyBuildModeUI();
+      showStatus('err',
+        'Original Media mode supports a single source sequence per build (v1).\n' +
+        'This JSON references ' + resolvedKeys.length + ' sequences:\n  ' +
+        resolvedKeys.join('\n  ') + '\n\nUse Nested Selects mode, or split the JSON.'
+      );
+      return;
+    }
+
+    // Build the payload for buildOriginalMediaSelects: one sequence, all bites.
+    var payload = {
+      sacredSequenceName: resolvedKeys[0],
+      outputName: outputName,
+      gapSeconds: gapSeconds,
+      soundbites: bites.map(function(b) {
+        return { inSec: Number(b.inSec), outSec: Number(b.outSec) };
+      })
+    };
+    var jsonArg = JSON.stringify(payload).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+    var script = 'buildOriginalMediaSelects("' + jsonArg + '")';
+
+    cs.evalScript(script, function(result) {
+      btn.disabled = false;
+      applyBuildModeUI();
+      if (!result || String(result).indexOf('EvalScript error') !== -1) {
+        showStatus('err', 'Script error: ' + result);
+        updateBuildBtn();
+        return;
+      }
+      var parsed;
+      try { parsed = JSON.parse(result); } catch (e) {
+        showStatus('err', 'Bad host response: ' + result);
+        updateBuildBtn();
+        return;
+      }
+      if (!parsed.ok) {
+        showStatus('err', parsed.error || 'Unknown error');
+      } else {
+        var msg = 'Created "' + parsed.outputName + '"\n' +
+                  parsed.inserted + '/' + parsed.total + ' soundbites resolved' +
+                  ' (' + parsed.clipsInserted + ' source clips inserted)';
+        if (parsed.skipped) msg += '\n' + parsed.skipped + ' bite(s) skipped';
+        if (parsed.errors && parsed.errors.length) {
+          msg += '\n\nNotes:\n' + parsed.errors.slice(0, 6).join('\n');
+          if (parsed.errors.length > 6) msg += '\n…and ' + (parsed.errors.length - 6) + ' more';
+        }
+        showStatus('ok', msg);
+        refreshSequences();
+      }
+      updateBuildBtn();
+    });
+    return;
+  }
+  // ── End Original Media branch ──
 
   // Pack as: OUTPUT~GAP||seqName~inSec~outSec||seqName~inSec~outSec||...
   function esc(s) { return String(s).replace(/[~|\\]/g, '_'); }
@@ -908,7 +1080,7 @@ document.getElementById('build-btn').addEventListener('click', function() {
 
   cs.evalScript(BUILD_SCRIPT, function(result) {
     btn.disabled = false;
-    btn.textContent = 'Build Sacred Selects';
+    applyBuildModeUI();
 
     if (!result || String(result).indexOf('EvalScript error') !== -1) {
       showStatus('err', 'Script error: ' + result);
