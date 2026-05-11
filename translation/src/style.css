@@ -3159,16 +3159,19 @@ tr.dimmed-speaker { opacity: 0.35; }
   background-size: 100% 100%;
 }
 
-/* ── The DIVINE SUN: white-cream core, peach→rose→lavender bloom ── */
+/* ── The DIVINE SUN: white-cream core, peach→rose→lavender bloom ──
+   Pushed down + dimmed so it stays atmospheric instead of blowing out
+   the text content sitting on top of it. */
 #sequencer-view::after {
   content: '';
   position: fixed;
   left: 50%;
-  top: 58%;
-  width: 560px;
-  height: 560px;
-  margin-left: -280px;
-  margin-top: -280px;
+  top: 78%;
+  width: 480px;
+  height: 480px;
+  margin-left: -240px;
+  margin-top: -240px;
+  opacity: 0.6;
   border-radius: 50%;
   background:
     /* faint horizontal cuts for the synthwave-sun silhouette (now soft) */
@@ -3413,36 +3416,57 @@ tr.dimmed-speaker { opacity: 0.35; }
    single ornamental face stays tasteful, not noisy. */
 .seq-title {
   font-family: 'Monoton', 'Audiowide', 'Major Mono Display', var(--np-font-mono);
-  font-size: clamp(54px, 9vw, 104px);
+  font-size: clamp(40px, 6vw, 72px);
   font-weight: 400;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  line-height: 0.95;
+  line-height: 1;
   color: var(--rw-chrome);
   background: linear-gradient(180deg,
     #ffffff 0%,
-    #fff5e0 38%,
-    var(--rw-halo) 70%,
+    #fff5e0 45%,
+    var(--rw-halo) 78%,
     #e8a890 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   filter:
-    drop-shadow(0 0 18px rgba(255, 240, 210, 0.45))
-    drop-shadow(0 2px 0 rgba(120, 80, 140, 0.25));
-  margin-bottom: var(--np-space-6);
+    drop-shadow(0 0 10px rgba(255, 240, 210, 0.32))
+    drop-shadow(0 2px 0 rgba(120, 80, 140, 0.18));
+  margin-bottom: var(--np-space-3);
+  white-space: nowrap;
 }
 
 /* Major Mono Display: subtitle gets a softer sci-fi monospace —
    echoes the title without competing. */
 .seq-subtitle {
   font-family: 'Major Mono Display', var(--np-font-mono);
-  font-size: 13px;
-  letter-spacing: 0.6em;
+  font-size: 11px;
+  letter-spacing: 0.42em;
   text-transform: uppercase;
-  color: rgba(255, 235, 200, 0.78);
-  padding-left: 0.6em;
+  color: rgba(255, 235, 200, 0.62);
+  padding-left: 0.42em;
+  margin-bottom: var(--np-space-8);
 }
+
+/* Action rail under the subtitle — download CTA and 'how the magic works'
+   sit side-by-side instead of stacking vertically. Centers gracefully on
+   narrow viewports. */
+.seq-header {
+  text-align: center;
+  padding: var(--np-space-12) 0 var(--np-space-10);
+  position: relative;
+  z-index: 4;
+  max-width: 880px;
+  margin: 0 auto;
+}
+.seq-header > .seq-panel-cta,
+.seq-header > .seq-magic {
+  display: inline-flex;
+  vertical-align: middle;
+  margin: 6px 8px;
+}
+.seq-header > .seq-magic { display: inline-block; }
 
 .seq-step {
   position: relative;
@@ -3452,23 +3476,26 @@ tr.dimmed-speaker { opacity: 0.35; }
 /* ── Textarea: neon framed terminal ── */
 .seq-textarea {
   width: 100%;
-  min-height: 220px;
-  background: rgba(10, 5, 38, 0.55);
-  border: 1px solid rgba(184, 244, 255, 0.18);
-  border-radius: 2px;
+  min-height: 240px;
+  background: rgba(10, 5, 38, 0.78);
+  border: 1px solid rgba(184, 244, 255, 0.22);
+  border-radius: 4px;
   color: var(--rw-chrome);
   font-family: var(--np-font-mono);
   font-size: 14px;
   line-height: 1.7;
   padding: var(--np-space-4);
   resize: vertical;
-  transition: border-color 220ms var(--rw-ease);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  transition: border-color 220ms var(--rw-ease), background 220ms var(--rw-ease);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 32px rgba(0, 0, 0, 0.35);
 }
 
 .seq-textarea::placeholder {
-  color: rgba(255, 247, 230, 0.32);
+  color: rgba(255, 247, 230, 0.55);
   font-style: italic;
 }
 
@@ -7583,57 +7610,57 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
 .devchat-send:hover { background: var(--np-red); }
 .devchat-send:disabled { opacity: 0.5; cursor: default; }
 
-/* Always-visible panel download in the sequencer header — chunky CTA */
+/* Always-visible panel download in the sequencer header — refined card */
 .seq-panel-cta {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
-  margin-top: 14px;
-  padding: 14px 22px;
+  gap: 12px;
+  padding: 10px 16px;
   background:
-    radial-gradient(140% 120% at 0% 0%, rgba(184, 244, 255, 0.18) 0%, transparent 60%),
-    linear-gradient(135deg, rgba(255, 231, 163, 0.18) 0%, rgba(184, 244, 255, 0.10) 100%);
-  border: 1.5px solid rgba(255, 231, 163, 0.45);
-  border-radius: 10px;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 60%),
+    rgba(10, 5, 38, 0.55);
+  border: 1px solid rgba(255, 231, 163, 0.32);
+  border-radius: 8px;
   color: var(--rw-cream, #fff7e6);
   text-decoration: none;
   font-family: var(--np-font-mono);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 6px 20px rgba(255, 231, 163, 0.12),
-    0 0 0 0 rgba(255, 231, 163, 0.0);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 4px 14px rgba(0, 0, 0, 0.35);
   transition:
-    transform 180ms ease,
-    box-shadow 220ms ease,
-    border-color 220ms ease;
+    transform 160ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease;
   cursor: pointer;
-  max-width: 560px;
+  text-align: left;
 }
 .seq-panel-cta:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   border-color: var(--rw-halo, #ffeec8);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    0 10px 28px rgba(255, 231, 163, 0.22),
-    0 0 0 4px rgba(255, 231, 163, 0.10);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 22px rgba(255, 231, 163, 0.16);
 }
 .seq-panel-cta:active { transform: translateY(0); }
 .seq-panel-cta-glyph {
   flex-shrink: 0;
-  width: 46px;
-  height: 46px;
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
-  background: rgba(10, 5, 38, 0.4);
-  border: 1px solid rgba(255, 231, 163, 0.35);
+  border-radius: 6px;
+  background: rgba(255, 231, 163, 0.10);
+  border: 1px solid rgba(255, 231, 163, 0.28);
   color: var(--rw-halo, #ffeec8);
 }
+.seq-panel-cta-glyph svg { width: 22px; height: 22px; }
 .seq-panel-cta-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   flex: 1;
   min-width: 0;
 }
@@ -7641,44 +7668,45 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   font-size: 9px;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: rgba(184, 244, 255, 0.75);
+  color: rgba(184, 244, 255, 0.7);
 }
 .seq-panel-cta-title {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: #fff;
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
+  margin-top: 2px;
 }
 .seq-panel-cta-version {
-  font-size: 11px;
-  letter-spacing: 0.18em;
+  font-size: 10px;
+  letter-spacing: 0.16em;
   color: var(--rw-halo, #ffeec8);
-  background: rgba(255, 231, 163, 0.14);
-  padding: 2px 7px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 231, 163, 0.35);
+  background: rgba(255, 231, 163, 0.12);
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 231, 163, 0.28);
   font-weight: 500;
 }
 .seq-panel-cta-sub {
   font-size: 10px;
-  letter-spacing: 0.06em;
-  color: rgba(255, 247, 230, 0.6);
+  letter-spacing: 0.04em;
+  color: rgba(255, 247, 230, 0.5);
   margin-top: 3px;
 }
 .seq-panel-cta-arrow {
   flex-shrink: 0;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--rw-halo, #ffeec8);
-  margin-left: 6px;
+  margin-left: 4px;
   animation: seq-cta-bob 2.4s ease-in-out infinite;
 }
 @keyframes seq-cta-bob {
   0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(3px); }
+  50%      { transform: translateY(2px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .seq-panel-cta-arrow { animation: none; }
@@ -7767,64 +7795,103 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
 .seq-magic-summary {
   cursor: pointer;
   list-style: none;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-family: var(--np-font-mono);
-  font-size: 18px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: #fff;
-  background: linear-gradient(135deg, #ff8a00 0%, #e85d04 50%, #ff8a00 100%);
-  background-size: 200% 200%;
-  padding: 14px 28px;
+  color: #fff7e6;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, transparent 60%),
+    linear-gradient(135deg, #ff8a3d 0%, #e36414 60%, #c54a08 100%);
+  padding: 12px 22px;
   border-radius: 999px;
-  border: 2px solid #ffb84d;
+  border: 1px solid rgba(255, 184, 77, 0.7);
   user-select: none;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-  animation: seq-magic-pulse 1.6s ease-in-out infinite, seq-magic-shift 4s ease-in-out infinite;
-  transition: transform 140ms ease;
+  text-shadow: 0 1px 0 rgba(80, 30, 0, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 6px 16px rgba(227, 100, 20, 0.35),
+    0 0 0 0 rgba(255, 138, 60, 0.55);
+  animation: seq-magic-pulse 2.2s ease-in-out infinite;
+  transition:
+    transform 160ms ease,
+    box-shadow 220ms ease,
+    background 220ms ease;
 }
+.seq-magic-summary::before {
+  content: '✦';
+  font-size: 12px;
+  line-height: 1;
+  color: #fff7e6;
+  opacity: 0.85;
+}
+.seq-magic-summary::after {
+  content: '›';
+  font-size: 18px;
+  line-height: 1;
+  color: rgba(255, 247, 230, 0.9);
+  margin-left: 2px;
+  transform: rotate(90deg);
+  transition: transform 220ms ease;
+}
+.seq-magic[open] .seq-magic-summary::after { transform: rotate(-90deg); }
 .seq-magic-summary::-webkit-details-marker { display: none; }
-.seq-magic-summary:hover { transform: translateY(-1px) scale(1.02); }
+.seq-magic-summary:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 10px 22px rgba(227, 100, 20, 0.45),
+    0 0 0 6px rgba(255, 138, 60, 0.18);
+}
+.seq-magic-summary:active { transform: translateY(0); }
 .seq-magic[open] .seq-magic-summary {
   animation: none;
-  background: linear-gradient(135deg, #e85d04 0%, #c44600 100%);
-  box-shadow: 0 4px 14px rgba(232, 93, 4, 0.35);
+  background: linear-gradient(180deg, #c54a08 0%, #a23a05 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 4px 10px rgba(165, 60, 8, 0.35);
 }
 
 @keyframes seq-magic-pulse {
   0%, 100% {
     box-shadow:
-      0 0 0 0 rgba(255, 138, 0, 0.55),
-      0 0 18px rgba(255, 138, 0, 0.45);
-    transform: scale(1);
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 6px 16px rgba(227, 100, 20, 0.35),
+      0 0 0 0 rgba(255, 138, 60, 0.55);
   }
   50% {
     box-shadow:
-      0 0 0 14px rgba(255, 138, 0, 0),
-      0 0 28px rgba(255, 138, 0, 0.7);
-    transform: scale(1.04);
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 8px 22px rgba(227, 100, 20, 0.5),
+      0 0 0 10px rgba(255, 138, 60, 0);
   }
-}
-@keyframes seq-magic-shift {
-  0%, 100% { background-position:   0% 50%; }
-  50%      { background-position: 100% 50%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .seq-magic-summary { animation: none; }
 }
 .seq-magic-body {
-  margin-top: 10px;
-  padding: 14px 16px;
+  margin-top: 14px;
+  padding: 22px 26px;
   border: 1px solid rgba(255, 247, 230, 0.18);
-  border-radius: 4px;
-  background: rgba(10, 5, 38, 0.35);
-  font-family: var(--np-font-mono);
-  font-size: 12px;
-  line-height: 1.65;
-  color: rgba(255, 247, 230, 0.85);
+  border-radius: 6px;
+  background: rgba(10, 5, 38, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font-family: var(--np-font-serif, 'Newsreader', Georgia, serif);
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(255, 247, 230, 0.92);
   max-width: 720px;
+  text-align: left;
+  margin-left: auto;
+  margin-right: auto;
+  letter-spacing: 0.005em;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
 .seq-magic-body p { margin: 0 0 10px; }
 .seq-magic-body p:last-child { margin-bottom: 0; }
