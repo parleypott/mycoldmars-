@@ -11,7 +11,7 @@
 
 create table if not exists devchat_threads (
   id              uuid primary key default gen_random_uuid(),
-  transcript_id   text references transcripts(id) on delete set null,
+  transcript_id   uuid references transcripts(id) on delete set null,
   page_url        text not null,
   page_state      jsonb,                       -- viewport, current step, etc.
   screenshot_path text,                        -- supabase storage path, optional

@@ -13,7 +13,7 @@
 
 create table if not exists transcript_shares (
   id              uuid primary key default gen_random_uuid(),
-  transcript_id   text not null references transcripts(id) on delete cascade,
+  transcript_id   uuid not null references transcripts(id) on delete cascade,
   -- Either user_id (existing user) OR email (pending invite for someone
   -- who hasn't signed in yet). Exactly one of the two should be set.
   user_id         uuid references auth.users(id) on delete cascade,
