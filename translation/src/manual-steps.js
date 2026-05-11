@@ -184,15 +184,18 @@ export async function openManualStepsModal(opts = {}) {
 
   const flow  = opts.flow ? FLOWS[opts.flow] : null;
   const cat   = opts.category || flow?.category || null;
-  const title = opts.title || flow?.title || 'Manual setup steps';
+  const title = opts.title || flow?.title || 'Setup checklist';
   const intro = opts.intro || flow?.intro ||
-    'Each step you can knock out in a few seconds: click open, click copy, paste, run. Tick when done so it stops nagging.';
+    'Every one-time manual step in one place. Click open, click copy, paste, run. Tick when done — your progress sticks across sessions.';
 
   const done = loadDone();
   const all  = STEPS();
   const steps = cat ? all.filter(s => s.categories?.includes(cat)) : all;
 
-  const numbered = !!cat;   // numbered steps for focused flows
+  // Master view (no category) is now numbered + progress-tracked too —
+  // Johnny needs ONE place that shows everything pending without a focused
+  // flow accidentally hiding work.
+  const numbered = true;
   const allDone  = steps.every(s => done.has(s.id));
 
   const modal = document.createElement('div');
