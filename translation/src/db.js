@@ -959,6 +959,107 @@ export async function searchUserProfiles(query, { limit = 8 } = {}) {
 }
 
 // ============================================================
+// Devchat — in-product feedback + chat threads (migration 012)
+// ============================================================
+
+const DEVCHAT_MISSING_CODES = new Set(['42P01', '42703']);
+
+export async function createDevchatThread({ pageUrl, pageState, transcriptId, screenshotPath, title } = {}) {
+  if (!supabase) throw new Error('Supabase not configured');
+  const row = {
+    page_url: pageUrl || (typeof window !== 'undefined' ? window.location.href : ''),
+    page_state: pageState || null,
+    transcript_id: transcriptId || null,
+    screenshot_path: screenshotPath || null,
+    title: title || null,
+    created_by: null,
+  };
+  try {
+    const me = (await supabase.auth.getUser()).data?.user;
+    if (me?.id) row.created_by = me.id;
+  } catch {}
+  const { data, error } = await db().from('devchat_threads').insert(row).select().single();
+  if (error) {
+    if (DEVCHAT_MISSING_CODES.has(error.code)) {
+      throw new Error('Devchat not set up — run migration 012_devchat.sql');
+    }
+    throw normalizeError(error, 'createDevchatThread');
+  }
+  return data;
+}
+
+export async function listDevchatThreads({ limit = 50 } = {}) {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await db().from('devchat_threads')
+      .select('id, page_url, transcript_id, title, status, created_by, created_at, updated_at, commit_sha')
+      .order('updated_at', { ascending: false })
+      .limit(limit);
+    if (error) {
+      if (DEVCHAT_MISSING_CODES.has(error.code)) return [];
+      throw normalizeError(error, 'listDevchatThreads');
+    }
+    return data || [];
+  } catch (err) {
+    if (DEVCHAT_MISSING_CODES.has(err?.code)) return [];
+    throw err;
+  }
+}
+
+export async function listDevchatMessages(threadId) {
+  if (!supabase || !threadId) return [];
+  try {
+    const { data, error } = await db().from('devchat_messages')
+      .select('id, thread_id, sender, body, metadata, created_at')
+      .eq('thread_id', threadId)
+      .order('created_at', { ascending: true });
+    if (error) {
+      if (DEVCHAT_MISSING_CODES.has(error.code)) return [];
+      throw normalizeError(error, 'listDevchatMessages');
+    }
+    return data || [];
+  } catch (err) {
+    if (DEVCHAT_MISSING_CODES.has(err?.code)) return [];
+    throw err;
+  }
+}
+
+export async function addDevchatMessage(threadId, { sender = 'user', body, metadata } = {}) {
+  if (!supabase) throw new Error('Supabase not configured');
+  if (!threadId || !body) throw new Error('threadId + body required');
+  const { data, error } = await db().from('devchat_messages')
+    .insert({ thread_id: threadId, sender, body, metadata: metadata || null })
+    .select().single();
+  if (error) throw normalizeError(error, 'addDevchatMessage');
+  return data;
+}
+
+export async function updateDevchatThreadStatus(threadId, status, opts = {}) {
+  if (!supabase || !threadId) return null;
+  const patch = { status };
+  if (opts.commitSha) patch.commit_sha = opts.commitSha;
+  const { data, error } = await db().from('devchat_threads')
+    .update(patch).eq('id', threadId).select().single();
+  if (error) throw normalizeError(error, 'updateDevchatThreadStatus');
+  return data;
+}
+
+/**
+ * Realtime subscribe to a single thread's messages. Returns an
+ * unsubscribe function. New rows arrive via onMessage(row).
+ */
+export function subscribeToDevchatThread(threadId, onMessage) {
+  if (!supabase || !threadId) return () => {};
+  const channel = supabase.channel(`devchat-${threadId}`)
+    .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'devchat_messages', filter: `thread_id=eq.${threadId}` },
+      (payload) => { try { onMessage(payload.new); } catch {} }
+    )
+    .subscribe();
+  return () => { try { supabase.removeChannel(channel); } catch {} };
+}
+
+// ============================================================
 // Media assets (Phase 3 — video/audio source files for in-house transcription)
 // ============================================================
 

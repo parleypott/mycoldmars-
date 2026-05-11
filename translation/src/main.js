@@ -7065,6 +7065,23 @@ function safeInit(name, fn) {
 (async function init() {
   safeInit('sidebar', wireSidebarOnce);
 
+  safeInit('devchat', async () => {
+    const { initDevchat } = await import('./devchat.js');
+    initDevchat({
+      getTranscriptId: () => currentTranscriptId,
+      getCurrentView: () => {
+        if (!document.getElementById('sequencer-view')?.classList.contains('hidden')) return 'sequencer';
+        if (!document.getElementById('library-view')?.classList.contains('hidden')) return 'library';
+        return `step-${currentStep}`;
+      },
+      getPageState: () => ({
+        currentSlug,
+        segmentsCount: segments?.length || 0,
+        translationsCount: translations?.length || 0,
+      }),
+    });
+  });
+
   safeInit('sot-hunter', () => {
     initSotHunter({
       getSegments: () => segments,
