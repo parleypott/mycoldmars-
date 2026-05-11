@@ -7583,19 +7583,106 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
 .devchat-send:hover { background: var(--np-red); }
 .devchat-send:disabled { opacity: 0.5; cursor: default; }
 
-/* Always-visible panel download in the sequencer header */
-.seq-header-panel-link {
-  display: inline-block;
-  margin-top: 8px;
-  font-family: var(--np-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  color: var(--np-cyan, #b8f4ff);
+/* Always-visible panel download in the sequencer header — chunky CTA */
+.seq-panel-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 14px 22px;
+  background:
+    radial-gradient(140% 120% at 0% 0%, rgba(184, 244, 255, 0.18) 0%, transparent 60%),
+    linear-gradient(135deg, rgba(255, 231, 163, 0.18) 0%, rgba(184, 244, 255, 0.10) 100%);
+  border: 1.5px solid rgba(255, 231, 163, 0.45);
+  border-radius: 10px;
+  color: var(--rw-cream, #fff7e6);
   text-decoration: none;
-  border-bottom: 1px dashed currentColor;
-  padding-bottom: 1px;
+  font-family: var(--np-font-mono);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 6px 20px rgba(255, 231, 163, 0.12),
+    0 0 0 0 rgba(255, 231, 163, 0.0);
+  transition:
+    transform 180ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+  cursor: pointer;
+  max-width: 560px;
 }
-.seq-header-panel-link:hover { color: var(--rw-halo, #ffeec8); }
+.seq-panel-cta:hover {
+  transform: translateY(-2px);
+  border-color: var(--rw-halo, #ffeec8);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 10px 28px rgba(255, 231, 163, 0.22),
+    0 0 0 4px rgba(255, 231, 163, 0.10);
+}
+.seq-panel-cta:active { transform: translateY(0); }
+.seq-panel-cta-glyph {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(10, 5, 38, 0.4);
+  border: 1px solid rgba(255, 231, 163, 0.35);
+  color: var(--rw-halo, #ffeec8);
+}
+.seq-panel-cta-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.seq-panel-cta-eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(184, 244, 255, 0.75);
+}
+.seq-panel-cta-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #fff;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.seq-panel-cta-version {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--rw-halo, #ffeec8);
+  background: rgba(255, 231, 163, 0.14);
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 231, 163, 0.35);
+  font-weight: 500;
+}
+.seq-panel-cta-sub {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 247, 230, 0.6);
+  margin-top: 3px;
+}
+.seq-panel-cta-arrow {
+  flex-shrink: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--rw-halo, #ffeec8);
+  margin-left: 6px;
+  animation: seq-cta-bob 2.4s ease-in-out infinite;
+}
+@keyframes seq-cta-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .seq-panel-cta-arrow { animation: none; }
+}
 
 /* ─── Manual setup steps modal ─────────────────────────────────────── */
 .ms-list { display: flex; flex-direction: column; gap: 12px; }
