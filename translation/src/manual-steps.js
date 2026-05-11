@@ -108,6 +108,16 @@ const STEPS = () => ([
     categories: ['devchat'],
   },
   {
+    id: 'env-supa-url',
+    kind: 'env',
+    title: 'Vercel env: SUPABASE_URL',
+    description: 'Your Supabase project URL — VITE_SUPABASE_URL is build-time only, the serverless functions need a separate runtime var. Open Vercel env vars → Add New → name SUPABASE_URL → value https://YOUR_PROJECT_REF.supabase.co (you can also copy your existing VITE_SUPABASE_URL value). Tick all three environments → Save → redeploy.',
+    where: { label: 'Open Supabase API settings', url: supabaseProjectSettingsUrl() },
+    where2: { label: 'Open Vercel env vars', url: 'https://vercel.com/dashboard' },
+    payload: 'SUPABASE_URL',
+    categories: ['devchat', 'admin'],
+  },
+  {
     id: 'env-service',
     kind: 'env',
     title: 'Vercel env: SUPABASE_SERVICE_ROLE_KEY',
