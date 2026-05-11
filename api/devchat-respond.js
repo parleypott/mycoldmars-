@@ -73,6 +73,30 @@ async function insertAssistantMessage(supaUrl, serviceKey, threadId, body, metad
   return r.ok ? (await r.json())[0] : null;
 }
 
+// Write an error directly into the thread as a 'system' message so the
+// failure is visible in the chat UI itself — saves DevTools spelunking.
+async function logErrorToThread(threadId, errMsg) {
+  if (!threadId) return;
+  const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supaUrl || !serviceKey) return;
+  try {
+    await fetch(`${supaUrl}/rest/v1/devchat_messages`, {
+      method: 'POST',
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify([{
+        thread_id: threadId,
+        sender: 'system',
+        body: `⚠ /api/devchat-respond failed: ${errMsg}`,
+      }]),
+    });
+  } catch {} // best effort — if even this fails, at least we returned the JSON error
+}
+
 export default async function handler(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
   const denied = checkAccess(req);
@@ -86,8 +110,16 @@ export default async function handler(req) {
   const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!supaUrl || !serviceKey) return json({ error: 'Server is missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.' }, 500);
-  if (!anthropicKey)           return json({ error: 'Server is missing ANTHROPIC_API_KEY.' }, 500);
+  if (!supaUrl || !serviceKey) {
+    const reason = 'Server is missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.';
+    await logErrorToThread(threadId, reason);
+    return json({ error: reason }, 500);
+  }
+  if (!anthropicKey) {
+    const reason = 'Server is missing ANTHROPIC_API_KEY.';
+    await logErrorToThread(threadId, reason);
+    return json({ error: reason }, 500);
+  }
 
   const { thread, messages } = await fetchThreadAndMessages(supaUrl, serviceKey, threadId);
   if (!thread) return json({ error: 'Thread not found' }, 404);
@@ -149,12 +181,16 @@ export default async function handler(req) {
     });
     const data = await ar.json();
     if (!ar.ok) {
-      return json({ error: data?.error?.message || `Anthropic ${ar.status}` }, 502);
+      const reason = data?.error?.message || `Anthropic ${ar.status}`;
+      await logErrorToThread(threadId, reason);
+      return json({ error: reason }, 502);
     }
     replyText = (data?.content || []).map(c => c.text || '').join('').trim();
     if (!replyText) replyText = '(no reply text — model returned an empty turn)';
   } catch (err) {
-    return json({ error: 'Anthropic request failed: ' + (err?.message || String(err)) }, 502);
+    const reason = 'Anthropic request failed: ' + (err?.message || String(err));
+    await logErrorToThread(threadId, reason);
+    return json({ error: reason }, 502);
   }
 
   const inserted = await insertAssistantMessage(supaUrl, serviceKey, threadId, replyText, {
