@@ -1763,12 +1763,19 @@ const CLIENT_DEVICE = (() => {
   return `${browser} on ${os}`;
 })();
 
-// User identity — self-attested name persisted in localStorage. Asked
-// once on first session; the user can change it any time via the avatar
-// in the header. Written through to every revision, lock, and presence
-// broadcast so audit trails read naturally instead of showing opaque
-// client_ids. No real auth yet (single-user app) — when auth lands this
-// gets replaced with the auth user.
+// User identity. Two layers:
+//   1. CLIENT_ID — stable per-tab id used to dedupe a user across multiple
+//      tabs they might have open. Persists in localStorage.
+//   2. Display name + color — sourced from the signed-in user (auth.js
+//      currentProfile()). Falls back to a self-attested localStorage name
+//      for the dev-mode / pre-auth path (so the existing identity flow
+//      still works on local dev with no Supabase Auth provider).
+//
+// All consumers (insertRevision, presence, locks, speaker rename) call the
+// `currentClient*()` helpers below so they always pick up the latest auth
+// state without each having to subscribe themselves.
+import { currentUser, currentProfile, onAuthChange, signOut as authSignOut, updateDisplayName as authUpdateName } from './auth.js';
+
 const NAME_PALETTE = [
   '#dd2c1e', '#004cff', '#0d5921', '#ffbf00',
   '#6b5ce7', '#e85d04', '#412c27', '#a83279',
@@ -1783,47 +1790,167 @@ function getStoredUserName() {
 }
 function setStoredUserName(name) {
   try { localStorage.setItem('mcm_user_name', name); } catch {}
-  CLIENT_NAME  = name;
-  CLIENT_COLOR = pickColorForName(name);
-  CLIENT_LABEL = name ? name : CLIENT_DEVICE;
-  // If a presence channel is live, re-broadcast with the new identity.
   if (presenceChannel) broadcastPresence();
-  // Update the header avatar.
   renderHeaderIdentity();
 }
-let CLIENT_NAME  = getStoredUserName();
-let CLIENT_COLOR = pickColorForName(CLIENT_NAME || CLIENT_ID);
-let CLIENT_LABEL = CLIENT_NAME ? CLIENT_NAME : CLIENT_DEVICE;
+
+function currentClientName() {
+  const prof = currentProfile();
+  if (prof?.display_name) return prof.display_name;
+  return getStoredUserName();
+}
+function currentClientLabel() {
+  return currentClientName() || CLIENT_DEVICE;
+}
+function currentClientColor() {
+  const prof = currentProfile();
+  if (prof?.color) return prof.color;
+  const n = currentClientName();
+  if (n) return pickColorForName(n);
+  return pickColorForName(CLIENT_ID);
+}
+function currentUserId() {
+  return currentUser()?.id || null;
+}
+
+// Re-broadcast presence + redraw identity badge whenever auth state shifts.
+onAuthChange(() => {
+  renderHeaderIdentity();
+  if (presenceChannel) broadcastPresence();
+});
 
 // Forward declaration — defined later in the file.
 let presenceChannel = null;
 
-// Render the user's identity badge in the editor header (avatar + name).
-// Click to edit the name. Lazy-mounted into #header-actions when present.
+// Render the user's identity badge in the editor header. Click to open
+// dropdown: change display name, change color, sign out.
 function renderHeaderIdentity() {
-  let host = document.getElementById('header-identity');
   const headerActions = document.querySelector('.header-actions');
   if (!headerActions) return;
+  let host = document.getElementById('header-identity');
   if (!host) {
-    host = document.createElement('button');
+    host = document.createElement('div');
     host.id = 'header-identity';
     host.className = 'header-identity';
-    host.title = 'Click to change your name (used in audit history + presence)';
-    host.addEventListener('click', () => {
-      const next = window.prompt('Your name (shown in history + to anyone editing alongside you):', CLIENT_NAME);
-      if (next == null) return;
-      const trimmed = next.trim();
-      if (!trimmed) return;
-      setStoredUserName(trimmed);
-      showSuccess(`Identity set to "${trimmed}"`);
-    });
     headerActions.insertBefore(host, headerActions.firstChild);
   }
-  const initials = (CLIENT_NAME || 'A').split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase();
+  const name = currentClientName() || 'Anonymous';
+  const color = currentClientColor();
+  const initials = name.split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase() || '?';
+  const signedIn = !!currentUser();
+  const email = currentUser()?.email || '';
   host.innerHTML = `
-    <span class="header-identity-avatar" style="background:${CLIENT_COLOR}">${initials}</span>
-    <span class="header-identity-name">${CLIENT_NAME || 'Anonymous'}</span>
+    <button class="header-identity-trigger" title="${esc(signedIn ? email : 'Local identity (sign in to sync)')}">
+      <span class="header-identity-avatar" style="background:${esc(color)}">${esc(initials)}</span>
+      <span class="header-identity-name">${esc(name)}</span>
+    </button>
+    <div class="header-identity-menu hidden" data-menu>
+      <div class="header-identity-menu-head">
+        <div class="header-identity-menu-name">${esc(name)}</div>
+        ${signedIn ? `<div class="header-identity-menu-email">${esc(email)}</div>` : '<div class="header-identity-menu-email">Local only</div>'}
+      </div>
+      <button class="header-identity-menu-item" data-act="rename">Change display name</button>
+      <button class="header-identity-menu-item" data-act="color">Change color</button>
+      ${signedIn
+        ? '<button class="header-identity-menu-item header-identity-menu-item--danger" data-act="signout">Sign out</button>'
+        : '<button class="header-identity-menu-item" data-act="signin">Sign in</button>'
+      }
+    </div>
   `;
+  const trigger = host.querySelector('.header-identity-trigger');
+  const menu = host.querySelector('[data-menu]');
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.classList.toggle('hidden');
+  });
+  // Close on outside click.
+  document.addEventListener('click', () => menu.classList.add('hidden'), { once: true });
+
+  host.querySelector('[data-act="rename"]')?.addEventListener('click', async () => {
+    menu.classList.add('hidden');
+    const next = window.prompt('Display name:', currentClientName());
+    if (next == null) return;
+    const trimmed = next.trim();
+    if (!trimmed) return;
+    if (signedIn) {
+      const res = await authUpdateName(trimmed);
+      if (res.ok) showSuccess(`Name set to "${trimmed}"`);
+      else showErrorToast(res.error || 'Could not update name.');
+    } else {
+      setStoredUserName(trimmed);
+      showSuccess(`Local name set to "${trimmed}"`);
+    }
+  });
+
+  host.querySelector('[data-act="color"]')?.addEventListener('click', () => {
+    menu.classList.add('hidden');
+    openColorPicker();
+  });
+
+  host.querySelector('[data-act="signout"]')?.addEventListener('click', async () => {
+    menu.classList.add('hidden');
+    await authSignOut();
+    if (window.showGate) window.showGate();
+  });
+  host.querySelector('[data-act="signin"]')?.addEventListener('click', () => {
+    menu.classList.add('hidden');
+    if (window.showGate) window.showGate();
+  });
+}
+
+// Color picker popup — palette-based for brand consistency.
+function openColorPicker() {
+  document.getElementById('color-picker-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'color-picker-modal';
+  modal.className = 'np-modal';
+  const current = currentClientColor();
+  modal.innerHTML = `
+    <div class="np-modal-backdrop" data-close></div>
+    <div class="np-modal-card" style="max-width:380px;">
+      <div class="np-modal-header">
+        <h3 class="np-modal-title">Pick your color</h3>
+        <button class="np-modal-close" data-close aria-label="Close">×</button>
+      </div>
+      <p style="font-family:var(--np-font-mono);font-size:12px;color:var(--np-sepia);margin-bottom:14px;">Used for your avatar, your edits in revision history, and your presence cursor.</p>
+      <div class="color-picker-grid">
+        ${NAME_PALETTE.map(c => `
+          <button class="color-picker-swatch ${c === current ? 'color-picker-swatch--active' : ''}" data-color="${c}" style="background:${c}" title="${c}"></button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => modal.remove()));
+  modal.querySelectorAll('[data-color]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const color = btn.dataset.color;
+      modal.remove();
+      if (currentUser()) {
+        try {
+          const { supabase } = await import('./db.js');
+          const { error } = await supabase.from('user_profiles')
+            .update({ color, updated_at: new Date().toISOString() })
+            .eq('user_id', currentUser().id);
+          if (error) throw error;
+          // Refresh profile via auth bootstrap.
+          const auth = await import('./auth.js');
+          // Crude: re-bootstrap to refetch profile.
+          await auth.bootstrap();
+          renderHeaderIdentity();
+          if (presenceChannel) broadcastPresence();
+          showSuccess('Color updated');
+        } catch (err) {
+          showErrorToast(`Couldn't save color: ${err?.message || 'Unknown error'}`);
+        }
+      } else {
+        // Local-only: store color preference in localStorage.
+        try { localStorage.setItem('mcm_user_color', color); } catch {}
+        renderHeaderIdentity();
+        showSuccess('Color updated locally');
+      }
+    });
+  });
 }
 
 function relativeAgo(ms) {
@@ -1987,8 +2114,14 @@ async function runSaveOnce(opts = {}) {
     const payload = gatherState();
     payload.metadata = { ...payload.metadata, segmentCount: segments.length };
 
+    // Multi-user attribution. Stamp every write with the current auth
+    // user. Pre-auth rows keep created_by=NULL; new rows pick up an
+    // owner. last_edited_by changes on every save so the library can
+    // show "edited by X 2h ago".
+    const me = currentUserId();
     let savedRow;
     if (currentTranscriptId) {
+      if (me) payload.lastEditedBy = me;
       savedRow = await updateTranscript(currentTranscriptId, payload, { expectedUpdatedAt: lastServerUpdatedAt });
       lastServerUpdatedAt = savedRow.updated_at;
       saveSnapshot(currentTranscriptId, payload, savedRow.updated_at);
@@ -1997,6 +2130,10 @@ async function runSaveOnce(opts = {}) {
       payload.name = name;
       const baseSlug = generateSlug(name);
       payload.slug = await ensureUniqueSlug(baseSlug);
+      if (me) {
+        payload.createdBy = me;
+        payload.lastEditedBy = me;
+      }
       savedRow = await saveTranscript(payload);
       currentTranscriptId = savedRow.id;
       currentTranscriptName = name;
@@ -2023,8 +2160,9 @@ async function runSaveOnce(opts = {}) {
     insertRevision(currentTranscriptId, payload, {
       source: opts.source || 'autosave',
       clientId: CLIENT_ID,
-      clientLabel: CLIENT_LABEL,
-      clientColor: CLIENT_COLOR,
+      clientLabel: currentClientLabel(),
+      clientColor: currentClientColor(),
+      userId: currentUserId(),
     })
       .catch(err => console.warn('Could not write revision:', err.message));
     setSaveState('saved');
@@ -3681,6 +3819,7 @@ async function bulkSaveTranscript({ file, upload, segments: segs, wordTimings, s
 
   const editorDoc = buildEditorDocument(segs, null, speakerColors, speakerMap, hiddenSpeakers, null, {});
 
+  const me = currentUserId();
   const payload = {
     name: safeName,
     slug,
@@ -3703,6 +3842,8 @@ async function bulkSaveTranscript({ file, upload, segments: segs, wordTimings, s
     targetLanguage: undefined,
     translationEnabled: false,
     metadata: {},
+    createdBy: me || undefined,
+    lastEditedBy: me || undefined,
   };
   return await saveTranscript(payload);
 }
@@ -5912,7 +6053,7 @@ function broadcastPresence() {
   if (!presenceChannel) return;
   presenceChannel.track({
     clientId: CLIENT_ID,
-    name: CLIENT_NAME || 'anonymous',
+    name: currentClientName() || "anonymous",
     color: CLIENT_COLOR,
     device: CLIENT_DEVICE,
     transcriptId: currentTranscriptId,

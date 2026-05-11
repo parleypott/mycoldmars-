@@ -49,6 +49,10 @@ function db() {
 
 export function isConfigured() { return !!supabase; }
 export function getInitError() { return initError; }
+// Exposed so the auth module can call supabase.auth.* directly without
+// duplicating client construction. Treat as read-only — every other module
+// should use the named query helpers below.
+export { supabase };
 
 // ============================================================
 // Schema feature probe.
@@ -291,6 +295,10 @@ function fieldsToRow(fields) {
   if (fields.source !== undefined)             row.source = fields.source;
   if (fields.targetLanguage !== undefined)     row.target_language = fields.targetLanguage;
   if (fields.translationEnabled !== undefined) row.translation_enabled = fields.translationEnabled;
+  // Multi-user attribution. Nullable on the schema so pre-auth rows stay
+  // valid; new inserts/updates write the current auth user.
+  if (fields.createdBy !== undefined)    row.created_by = fields.createdBy;
+  if (fields.lastEditedBy !== undefined) row.last_edited_by = fields.lastEditedBy;
   return row;
 }
 
@@ -308,11 +316,18 @@ export async function saveTranscript(fields) {
   if (row.name === undefined) row.name = 'Untitled';
   if (row.step === undefined) row.step = 1;
 
-  const { data, error } = await db().from('transcripts')
-    .insert(row).select().single();
+  // Insert with retry-on-42703 to gracefully degrade when the auth-attribution
+  // migration (010) hasn't been applied. The retry strips created_by / last_edited_by
+  // so the row still saves; user attribution is unavailable until migrate.
+  let { data, error } = await db().from('transcripts').insert(row).select().single();
+  if (error?.code === '42703') {
+    const stripped = { ...row };
+    delete stripped.created_by;
+    delete stripped.last_edited_by;
+    ({ data, error } = await db().from('transcripts').insert(stripped).select().single());
+  }
   if (error) throw normalizeError(error, 'saveTranscript');
 
-  // Mirror slug into the alias table for permalink resolution.
   if (data.slug && flag('hasAliases')) {
     await upsertAlias(data.slug, data.id);
   }
@@ -331,9 +346,22 @@ export async function updateTranscript(id, fields, opts = {}) {
   const row = fieldsToRow(fields);
   row.updated_at = new Date().toISOString();
 
-  let q = db().from('transcripts').update(row).eq('id', id);
-  if (expectedUpdatedAt) q = q.eq('updated_at', expectedUpdatedAt);
-  const { data, error } = await q.select().single();
+  const runUpdate = async (payload) => {
+    let q = db().from('transcripts').update(payload).eq('id', id);
+    if (expectedUpdatedAt) q = q.eq('updated_at', expectedUpdatedAt);
+    const { data, error } = await q.select().single();
+    return { data, error };
+  };
+
+  let { data, error } = await runUpdate(row);
+  // 42703: pre-migration schema. Strip the auth-attribution columns and
+  // retry once so saves still succeed before migration 010 lands.
+  if (error?.code === '42703') {
+    const stripped = { ...row };
+    delete stripped.last_edited_by;
+    delete stripped.created_by;
+    ({ data, error } = await runUpdate(stripped));
+  }
 
   if (error) {
     // PGRST116 = no rows matched. With an expectedUpdatedAt guard, this
@@ -511,24 +539,26 @@ export async function insertRevision(transcriptId, snapshot, opts = {}) {
     client_id: opts.clientId || null,
     note: opts.note || null,
   };
-  // client_label / client_color are only filled when the supabase-presence.sql
-  // migration has run. flag('hasRevisionAttribution') gates them so the insert
-  // doesn't 42703 on un-migrated installs.
   if (opts.clientLabel) row.client_label = opts.clientLabel;
   if (opts.clientColor) row.client_color = opts.clientColor;
-  const { data, error } = await db().from('transcript_revisions')
-    .insert(row).select().single();
-  if (error) {
-    // 42703 = column doesn't exist — migration hasn't run. Strip and retry.
-    if (error.code === '42703') {
-      delete row.client_label;
-      delete row.client_color;
-      const retry = await db().from('transcript_revisions').insert(row).select().single();
-      if (retry.error) throw normalizeError(retry.error, 'insertRevision');
-      return retry.data;
-    }
-    throw normalizeError(error, 'insertRevision');
+  if (opts.userId)      row.user_id      = opts.userId;
+  // Strip optional cols + retry once if the schema hasn't been migrated.
+  // 42703 = "column does not exist". Lets the app keep working before a
+  // newly-rolled-out migration is applied.
+  const tryInsert = async (payload) => {
+    const { data, error } = await db().from('transcript_revisions')
+      .insert(payload).select().single();
+    return { data, error };
+  };
+  let { data, error } = await tryInsert(row);
+  if (error?.code === '42703') {
+    const stripped = { ...row };
+    delete stripped.user_id;
+    delete stripped.client_label;
+    delete stripped.client_color;
+    ({ data, error } = await tryInsert(stripped));
   }
+  if (error) throw normalizeError(error, 'insertRevision');
   return data;
 }
 
@@ -536,7 +566,7 @@ export async function listRevisions(transcriptId, limit = 50) {
   if (!supabase) return [];
   if (!flag('hasRevisions')) return [];
   let { data, error } = await db().from('transcript_revisions')
-    .select('id, source, client_id, client_label, client_color, note, created_at')
+    .select('id, source, client_id, client_label, client_color, user_id, note, created_at')
     .eq('transcript_id', transcriptId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -782,8 +812,12 @@ export async function createMediaUpload(fields) {
   if (!row.mime_type) throw new Error('createMediaUpload: mime_type required');
   if (!row.size_bytes) throw new Error('createMediaUpload: size_bytes required');
   if (!row.storage_path) throw new Error('createMediaUpload: storage_path required');
-  const { data, error } = await db().from('media_uploads')
-    .insert(row).select().single();
+  let { data, error } = await db().from('media_uploads').insert(row).select().single();
+  if (error?.code === '42703') {
+    const stripped = { ...row };
+    delete stripped.uploaded_by;
+    ({ data, error } = await db().from('media_uploads').insert(stripped).select().single());
+  }
   if (error) throw normalizeError(error, 'createMediaUpload');
   return data;
 }
@@ -856,6 +890,7 @@ function mediaFieldsToRow(fields) {
   if (fields.sourceLanguage !== undefined)            row.source_language = fields.sourceLanguage;
   if (fields.transcodeStatus !== undefined)           row.transcode_status = fields.transcodeStatus;
   if (fields.transcodePath !== undefined)             row.transcode_path = fields.transcodePath;
+  if (fields.uploadedBy !== undefined)                row.uploaded_by = fields.uploadedBy;
   return row;
 }
 

@@ -6911,3 +6911,192 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
 .lib-status-dot--ready    { background: var(--np-green, #0d5921); opacity: 0.85; }
 .lib-status-dot--progress { background: #ffbf00; opacity: 0.95; }
 .lib-status-dot--fresh    { background: rgba(65, 44, 39, 0.4); }
+
+/* ─── Gate (sign-in) — magic-link form refinements ────────────────── */
+.gate-sub {
+  margin: 0 0 18px;
+  font-family: var(--np-font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  color: var(--np-sepia);
+  text-align: center;
+}
+.gate-msg {
+  margin: 12px 0 0;
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+  padding: 8px 12px;
+  border-radius: 3px;
+}
+.gate-msg--error {
+  color: var(--np-red);
+  background: rgba(221, 44, 30, 0.06);
+  border: 1px solid rgba(221, 44, 30, 0.18);
+}
+.gate-msg--success {
+  color: var(--np-green, #0d5921);
+  background: rgba(13, 89, 33, 0.07);
+  border: 1px solid rgba(13, 89, 33, 0.20);
+}
+.gate-fallback {
+  margin-top: 22px;
+  border-top: 1px solid rgba(65, 44, 39, 0.10);
+  padding-top: 18px;
+}
+.gate-fallback summary {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--np-sepia);
+  cursor: pointer;
+  text-align: center;
+  list-style: none;
+  user-select: none;
+}
+.gate-fallback summary::-webkit-details-marker { display: none; }
+.gate-fallback summary:hover { color: var(--np-ink); }
+.gate-fallback[open] summary { color: var(--np-ink); }
+
+/* ─── Header identity (avatar + dropdown) ──────────────────────────── */
+.header-identity {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+}
+.header-identity-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid rgba(65, 44, 39, 0.10);
+  border-radius: 999px;
+  padding: 3px 11px 3px 3px;
+  cursor: pointer;
+  font-family: var(--np-font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--np-ink);
+  transition: background 100ms, border-color 100ms;
+  height: 28px;
+}
+.header-identity-trigger:hover {
+  background: rgba(65, 44, 39, 0.04);
+  border-color: rgba(65, 44, 39, 0.22);
+}
+.header-identity-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: white;
+  font-family: var(--np-font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+.header-identity-name {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header-identity-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  background: var(--np-warm-white);
+  border: 1px solid rgba(65, 44, 39, 0.16);
+  border-radius: 4px;
+  box-shadow: 0 10px 30px rgba(65, 44, 39, 0.14);
+  z-index: 1000;
+  overflow: hidden;
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  padding: 4px 0;
+}
+.header-identity-menu.hidden { display: none; }
+.header-identity-menu-head {
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid rgba(65, 44, 39, 0.08);
+  margin-bottom: 4px;
+}
+.header-identity-menu-name {
+  font-weight: 600;
+  color: var(--np-ink);
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  margin-bottom: 2px;
+}
+.header-identity-menu-email {
+  font-size: 10.5px;
+  color: var(--np-sepia);
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header-identity-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px 14px;
+  font: inherit;
+  color: var(--np-ink);
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: background 80ms;
+}
+.header-identity-menu-item:hover {
+  background: rgba(65, 44, 39, 0.06);
+}
+.header-identity-menu-item--danger { color: var(--np-red); }
+.header-identity-menu-item--danger:hover { background: rgba(221, 44, 30, 0.07); }
+
+/* ─── Color picker (palette swatches) ─────────────────────────────── */
+.color-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 4px 0 6px;
+}
+.color-picker-swatch {
+  position: relative;
+  aspect-ratio: 1;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 100ms, border-color 100ms;
+  padding: 0;
+  outline: none;
+}
+.color-picker-swatch:hover {
+  transform: scale(1.08);
+  border-color: rgba(65, 44, 39, 0.25);
+}
+.color-picker-swatch--active {
+  border-color: var(--np-ink);
+  box-shadow: 0 0 0 2px var(--np-warm-white) inset;
+}
+.color-picker-swatch--active::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}

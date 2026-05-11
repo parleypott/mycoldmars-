@@ -15,6 +15,7 @@
 //   7. Hand back to caller (which calls finishUploadParse)
 
 import { uploadMediaFile, createMediaUpload, updateMediaUpload, getMediaSignedUrl, needsTranscode } from '../db.js';
+import { currentUser } from '../auth.js';
 import { transcribeMedia } from '../api-client.js';
 
 // Soft warning threshold — over this we tell the user "this'll take a few minutes"
@@ -106,6 +107,7 @@ export async function uploadMedia(file, opts = {}) {
     storagePath,
     transcriptionStatus: 'pending',
     transcodeStatus,
+    uploadedBy: currentUser()?.id || undefined,
   });
 
   // Long-lived signed URL so the same one can power preview, the

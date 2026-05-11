@@ -9,14 +9,23 @@
   <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
-  <!-- Access gate -->
+  <!-- Sign-in gate (magic link) -->
   <div id="gate" class="gate">
     <div class="gate-inner">
       <div class="np-eyebrow np-eyebrow--red">Newpress</div>
       <h1 class="gate-title">interpreter</h1>
-      <input id="gate-code" class="np-textarea" type="password" placeholder="Access code" style="min-height:auto;text-align:center;">
-      <button id="gate-submit" class="np-button np-button--primary" style="width:100%">Enter</button>
-      <p id="gate-error" class="hidden" style="color:var(--np-red);font-size:12px;text-align:center;margin-top:8px;">Wrong code</p>
+      <p class="gate-sub">Sign in with your work email — we'll send a one-tap link.</p>
+      <input id="gate-email" class="np-textarea" type="email" placeholder="you@newpress.press"
+             autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false"
+             style="min-height:auto;text-align:center;">
+      <button id="gate-submit" class="np-button np-button--primary" style="width:100%">Send sign-in link</button>
+      <p id="gate-error" class="hidden gate-msg gate-msg--error"></p>
+      <p id="gate-success" class="hidden gate-msg gate-msg--success"></p>
+      <details class="gate-fallback">
+        <summary>Have a temporary access code?</summary>
+        <input id="gate-code" class="np-textarea" type="password" placeholder="Access code" style="min-height:auto;text-align:center;margin-top:10px;">
+        <button id="gate-code-submit" class="np-button" style="width:100%;margin-top:8px;">Use code instead</button>
+      </details>
     </div>
   </div>
 
@@ -510,124 +519,8 @@
     </div>
   </div>
 
-  <script>
-    // Simple access code gate — checks cookie or prompts for code
-    (async function() {
-      const COOKIE_NAME = 'np_access';
-      const gate = document.getElementById('gate');
-      const app = document.getElementById('app');
-
-      function getCookie(name) {
-        const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
-        return match ? decodeURIComponent(match[1]) : null;
-      }
-
-      function setCookie(name, value) {
-        document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=' + (60*60*24*90); // 90 days
-      }
-
-      // If cookie exists, skip gate
-      if (getCookie(COOKIE_NAME) === 'granted') {
-        gate.classList.add('hidden');
-        app.classList.remove('hidden');
-        return;
-      }
-
-      // Check if gate is even needed (dev mode or no ACCESS_CODE set)
-      try {
-        const probe = await fetch('/api/access', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: '' }),
-        });
-        if (probe.status === 404 || probe.ok) {
-          // No gate configured or endpoint missing — skip
-          unlock();
-          return;
-        }
-      } catch {
-        // Network error — no API available, skip gate
-        unlock();
-        return;
-      }
-
-      const codeInput = document.getElementById('gate-code');
-      const submitBtn = document.getElementById('gate-submit');
-      const errorMsg = document.getElementById('gate-error');
-
-      function unlock(code) {
-        setCookie(COOKIE_NAME, 'granted');
-        // Stash the access code so /api/* fetches can attach it as a header.
-        // Server-side endpoints (transcribe, claude, gemini) gate on this so
-        // bypassing the client-side modal alone doesn't grant API access.
-        try { if (code) sessionStorage.setItem('mcm_access_code', code); } catch {}
-        installApiFetchInterceptor();
-        gate.classList.add('hidden');
-        app.classList.remove('hidden');
-      }
-
-      // Wrap window.fetch so every request to /api/* automatically carries
-      // x-access-code. Idempotent — no-ops if already installed. Cheap +
-      // surgical compared to refactoring every call site.
-      function installApiFetchInterceptor() {
-        if (window.__mcmApiFetchPatched) return;
-        window.__mcmApiFetchPatched = true;
-        const originalFetch = window.fetch.bind(window);
-        window.fetch = (input, init) => {
-          try {
-            const url = typeof input === 'string' ? input : (input && input.url) || '';
-            if (url && /^(\/|https?:\/\/)?[^\s]*\/api\//.test(url)) {
-              const code = sessionStorage.getItem('mcm_access_code') || '';
-              if (code) {
-                init = init || {};
-                const headers = new Headers(init.headers || (typeof input === 'object' ? input.headers : undefined) || {});
-                if (!headers.has('x-access-code')) headers.set('x-access-code', code);
-                init.headers = headers;
-              }
-            }
-          } catch {}
-          return originalFetch(input, init);
-        };
-      }
-
-      async function checkCode() {
-        const code = codeInput.value.trim();
-        if (!code) return;
-
-        try {
-          const res = await fetch('/api/access', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code }),
-          });
-          if (res.ok) {
-            unlock(code);
-          } else if (res.status === 404) {
-            // Endpoint doesn't exist (dev mode) — skip gate
-            unlock();
-          } else {
-            errorMsg.classList.remove('hidden');
-            codeInput.value = '';
-            codeInput.focus();
-          }
-        } catch {
-          // Network error (dev mode) — skip gate
-          unlock();
-        }
-      }
-
-      // If the user already has the cookie from a previous session, install
-      // the fetch interceptor immediately on load (gate flow won't run).
-      if (getCookie(COOKIE_NAME) === 'granted') {
-        installApiFetchInterceptor();
-      }
-
-      submitBtn.addEventListener('click', checkCode);
-      codeInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') checkCode();
-      });
-    })();
-  </script>
+  <!-- Gate bootstrap loads first so auth state is settled before main.js runs. -->
+  <script type="module" src="src/gate.js"></script>
   <script type="module" src="src/main.js"></script>
   <script>
     // Failsafe home-button handlers — runs independently of the module.
