@@ -100,7 +100,8 @@ async function renderThreadList() {
   let threads = [];
   try { threads = await listDevchatThreads({ limit: 30 }); }
   catch (err) {
-    host.innerHTML = `<div class="devchat-empty">${escDc(err?.message || 'Could not load threads.')}</div>`;
+    host.innerHTML = renderThreadListError(err);
+    bindSetupCta(host);
     return;
   }
   if (!threads.length) {
@@ -131,6 +132,14 @@ async function startNewThread() {
       },
     });
   } catch (err) {
+    if (isSchemaMissing(err)) {
+      const host = panelEl?.querySelector('#devchat-thread');
+      if (host) {
+        host.innerHTML = renderSchemaMissingPrompt();
+        bindSetupCta(host);
+      }
+      return;
+    }
     showError(err?.message || 'Could not start a thread.');
     return;
   }
@@ -241,6 +250,45 @@ function showError(msg) {
   if (!host) return;
   host.insertAdjacentHTML('beforeend',
     `<div class="devchat-msg devchat-msg--error"><div class="devchat-msg-body">${escDc(msg)}</div></div>`);
+}
+
+function isSchemaMissing(err) {
+  const msg = String(err?.message || err || '').toLowerCase();
+  return msg.includes('devchat_threads')
+      || msg.includes('devchat_messages')
+      || msg.includes('schema cache')
+      || msg.includes('migration 012');
+}
+
+function renderThreadListError(err) {
+  if (isSchemaMissing(err)) {
+    return `
+      <div class="devchat-empty devchat-empty--setup">
+        <div class="devchat-empty-title">Devchat isn't set up yet</div>
+        <div class="devchat-empty-sub">The database tables haven't been created.</div>
+        <button class="devchat-setup-btn" data-act="open-setup">Set up devchat →</button>
+      </div>
+    `;
+  }
+  return `<div class="devchat-empty">${escDc(err?.message || 'Could not load threads.')}</div>`;
+}
+
+function renderSchemaMissingPrompt() {
+  return `
+    <div class="devchat-greeting devchat-greeting--setup">
+      <p style="margin-bottom:10px;">Devchat needs a one-time setup before threads can land.</p>
+      <button class="devchat-setup-btn" data-act="open-setup">Set up devchat →</button>
+    </div>
+  `;
+}
+
+function bindSetupCta(scope) {
+  scope.querySelectorAll('[data-act="open-setup"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const { openManualStepsModal } = await import('./manual-steps.js');
+      openManualStepsModal({ flow: 'devchat' });
+    });
+  });
 }
 
 function escDc(str) {

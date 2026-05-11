@@ -7912,3 +7912,120 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   color: rgba(255, 247, 230, 0.6);
   font-size: 11px;
 }
+
+/* ─── Manual steps: focused-flow extras ─────────────────────────────── */
+.ms-card--focused .ms-list { gap: 14px; }
+.ms-intro {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  color: var(--np-sepia);
+  margin: 6px 2px 16px;
+  line-height: 1.55;
+}
+.ms-progress {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--np-cream);
+  overflow: hidden;
+  margin: 4px 0 14px;
+}
+.ms-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, var(--np-red, #dd2c1e), #ff7a55);
+  border-radius: 999px;
+  transition: width 320ms ease;
+}
+.ms-progress-label {
+  position: absolute;
+  right: 8px;
+  top: -22px;
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+}
+.ms-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--np-ink);
+  color: var(--np-warm-white);
+  font-family: var(--np-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.ms-step--done .ms-step-num { background: var(--np-sepia); }
+
+.ms-verify {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--np-line);
+  text-align: center;
+}
+.ms-verify-btn {
+  background: var(--np-ink);
+  color: var(--np-warm-white);
+  border: none;
+  padding: 10px 22px;
+  border-radius: 4px;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.ms-verify-btn:hover { background: var(--np-red); }
+.ms-verify-btn:disabled { opacity: 0.6; cursor: default; }
+.ms-verify-msg {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  margin-top: 10px;
+  padding: 0;
+  color: var(--np-sepia);
+  line-height: 1.5;
+}
+.ms-verify-msg--ok { color: #0d5921; }
+.ms-verify-msg--err { color: var(--np-red); }
+
+/* ─── Devchat: schema-missing inline setup CTA ──────────────────────── */
+.devchat-empty--setup {
+  text-align: center;
+  padding: 24px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+.devchat-empty-title {
+  font-family: var(--np-font-mono);
+  font-size: 12px;
+  color: var(--np-ink);
+  font-weight: 600;
+}
+.devchat-empty-sub {
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  color: var(--np-sepia);
+}
+.devchat-greeting--setup { padding: 14px; text-align: center; }
+.devchat-setup-btn {
+  background: var(--np-ink);
+  color: var(--np-warm-white);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-family: var(--np-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-top: 6px;
+}
+.devchat-setup-btn:hover { background: var(--np-red); }
