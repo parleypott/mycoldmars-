@@ -42,7 +42,8 @@ const pidIdx = args.indexOf('--project-id');
 const PROJECT_ID = pidIdx >= 0 ? args[pidIdx + 1] : null;
 const FORCE = args.includes('--force');
 const SKIP_SUBJECTS = args.includes('--skip-subjects');
-const CONCURRENCY = parseInt(process.env.HUNTER_CONCURRENCY || '3');
+const CONCURRENCY = parseInt(process.env.HUNTER_CONCURRENCY || '1'); // 1 to respect free-tier RPM
+const MIN_DELAY_MS = parseInt(process.env.HUNTER_DELAY_MS || '12000'); // 12s between calls = ~5 RPM
 const SCENE_GAP_MINUTES = 30; // wider gap than client-side (10min) for more coherent scenes
 
 if (!PROJECT_ID) {
@@ -82,10 +83,20 @@ async function fetchAllPaginated(table, select, filters = {}) {
 }
 
 let consecutive503s = 0;
+let lastCallTime = 0;
 
-async function retryWithBackoff(fn, label, maxRetries = 5) {
+async function throttle() {
+  const elapsed = Date.now() - lastCallTime;
+  if (elapsed < MIN_DELAY_MS) {
+    await new Promise(r => setTimeout(r, MIN_DELAY_MS - elapsed));
+  }
+  lastCallTime = Date.now();
+}
+
+async function retryWithBackoff(fn, label, maxRetries = 8) {
   for (let i = 0; i <= maxRetries; i++) {
     try {
+      await throttle();
       const result = await fn();
       consecutive503s = 0;
       return result;
@@ -93,9 +104,8 @@ async function retryWithBackoff(fn, label, maxRetries = 5) {
       const msg = err.message || '';
       if (i < maxRetries && (msg.includes('429') || msg.includes('503') || msg.includes('RESOURCE_EXHAUSTED'))) {
         consecutive503s++;
-        const baseWait = Math.pow(2, i) * 15;
-        const extraWait = consecutive503s > 10 ? 60 : 0;
-        const wait = baseWait + extraWait;
+        // Aggressive backoff: 30s, 60s, 120s, 300s, 300s, 300s...
+        const wait = Math.min(300, Math.pow(2, i) * 30);
         console.log(`  [retry] ${label} retry ${i + 1}/${maxRetries} in ${wait}s (streak: ${consecutive503s})`);
         await new Promise(r => setTimeout(r, wait * 1000));
       } else {
@@ -176,8 +186,8 @@ async function step1SubjectExtraction(allUnits) {
   const unitsWithJson = allUnits.filter(u => u.analyses?.[0]?.output_json);
   console.log(`  ${unitsWithJson.length} clips with structured analyses`);
 
-  // Batch into groups of 200
-  const BATCH_SIZE = 200;
+  // Batch into groups of 50 (smaller to stay within per-minute token limits)
+  const BATCH_SIZE = 50;
   const batches = [];
   for (let i = 0; i < unitsWithJson.length; i += BATCH_SIZE) {
     batches.push(unitsWithJson.slice(i, i + BATCH_SIZE));
