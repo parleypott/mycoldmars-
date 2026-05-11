@@ -456,6 +456,19 @@ function statusToneForTranscript(t) {
   return 'fresh';
 }
 
+// Tiny avatar dot for the library row — shows who last edited (or who
+// created if there's no edit attribution yet). Falls back to nothing when
+// the row predates the auth migration.
+function renderEditorBadge(t) {
+  const editor = t.last_edited_by_profile || t.created_by_profile;
+  if (!editor) return '';
+  const name = editor.display_name || 'User';
+  const color = editor.color || '#412c27';
+  const initials = name.split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase() || '?';
+  const verb = t.last_edited_by_profile ? 'edited by' : 'created by';
+  return `<span class="lib-row-editor" title="${esc(verb)} ${esc(name)}" style="background:${esc(color)}">${esc(initials)}</span>`;
+}
+
 function renderFileRow(t) {
   const isActive = t.id === currentTranscriptId;
   const stepLabel = STEP_LABELS[t.step] || 'Upload';
@@ -474,7 +487,7 @@ function renderFileRow(t) {
         <span class="lib-name" data-id="${t.id}">${esc(t.name)}</span>
       </div>
       <div class="lib-col lib-col--step"><span class="lib-status-dot lib-status-dot--${tone}"></span><span class="lib-step-tag">${stepLabel}</span></div>
-      <div class="lib-col lib-col--date">${relativeTime(t.updated_at)}</div>
+      <div class="lib-col lib-col--date">${renderEditorBadge(t)}${relativeTime(t.updated_at)}</div>
       <div class="lib-col lib-col--actions">
         <button class="lib-row-kebab" data-id="${t.id}" title="More actions" aria-label="More actions">${ICON_KEBAB}</button>
       </div>
@@ -5918,7 +5931,7 @@ function renderRevisionList(container, revisions) {
     // Audit attribution: show who made each revision. Falls back gracefully
     // if the migration hasn't run (no client_label) or for old rows.
     const who = r.client_label || (isThisTab ? 'You' : 'anonymous');
-    const color = r.client_color || (isThisTab ? CLIENT_COLOR : 'rgba(65,44,39,0.45)');
+    const color = r.client_color || (isThisTab ? currentClientColor() : 'rgba(65,44,39,0.45)');
     const initials = who.split(/\s+/).map(s => s[0]).join('').slice(0, 2).toUpperCase() || '?';
     return `
       <div class="revision-row" data-id="${r.id}">
@@ -6053,8 +6066,9 @@ function broadcastPresence() {
   if (!presenceChannel) return;
   presenceChannel.track({
     clientId: CLIENT_ID,
+    userId: currentUserId() || null,
     name: currentClientName() || "anonymous",
-    color: CLIENT_COLOR,
+    color: currentClientColor(),
     device: CLIENT_DEVICE,
     transcriptId: currentTranscriptId,
     at: new Date().toISOString(),
@@ -6212,7 +6226,7 @@ async function maybeAcquireLock() {
   }
 
   try {
-    await acquireLock(currentTranscriptId, CLIENT_ID, CLIENT_LABEL);
+    await acquireLock(currentTranscriptId, CLIENT_ID, currentClientLabel());
     lockBoundTranscriptId = currentTranscriptId;
     lockHeartbeatTimer = setInterval(() => {
       heartbeatLock(currentTranscriptId, CLIENT_ID).catch(() => {});
@@ -6289,7 +6303,7 @@ function showViewOnlyBanner(lock) {
   document.getElementById('view-only-takeover').addEventListener('click', async () => {
     viewOnly = false;
     banner.remove();
-    try { await acquireLock(currentTranscriptId, CLIENT_ID, CLIENT_LABEL); } catch {}
+    try { await acquireLock(currentTranscriptId, CLIENT_ID, currentClientLabel()); } catch {}
     lockBoundTranscriptId = currentTranscriptId;
     if (!lockHeartbeatTimer) {
       lockHeartbeatTimer = setInterval(() => heartbeatLock(currentTranscriptId, CLIENT_ID).catch(() => {}), 30000);

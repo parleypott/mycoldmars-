@@ -394,19 +394,52 @@ export async function listTranscripts(projectId, opts = {}) {
   await getSchemaStatus();
   const colList = ['id', 'name', 'step', 'created_at', 'updated_at', 'project_id', 'media_upload_id', 'source'];
   if (flag('hasSlug')) colList.push('slug');
-  // Hard cap so a runaway library (10k+ rows) doesn't ship megabytes of
-  // metadata to the browser on every library open. Caller can override via
-  // opts.limit but we still cap at 1000 to be defensive. Pagination via
-  // explicit cursor will land alongside auth.
+  // Multi-user attribution. Gracefully strip via 42703 retry below if the
+  // migration hasn't landed yet.
+  colList.push('created_by', 'last_edited_by');
   const limit = Math.min(Math.max(1, opts.limit || 500), 1000);
-  let q = db().from('transcripts').select(colList.join(', '))
-    .order('updated_at', { ascending: false })
-    .limit(limit);
-  if (flag('hasDeleted')) q = q.is('deleted_at', null);
-  if (projectId) q = q.eq('project_id', projectId);
-  const { data, error } = await q;
+
+  const runQuery = async (cols) => {
+    let q = db().from('transcripts').select(cols.join(', '))
+      .order('updated_at', { ascending: false })
+      .limit(limit);
+    if (flag('hasDeleted')) q = q.is('deleted_at', null);
+    if (projectId) q = q.eq('project_id', projectId);
+    return await q;
+  };
+
+  let { data, error } = await runQuery(colList);
+  if (error?.code === '42703') {
+    // Migration 010 not applied — strip the new cols and retry.
+    const stripped = colList.filter(c => c !== 'created_by' && c !== 'last_edited_by');
+    ({ data, error } = await runQuery(stripped));
+  }
   if (error) throw normalizeError(error, 'listTranscripts');
-  return data || [];
+
+  // Decorate with profile lookups in one batched call. Skip if the
+  // user_profiles table isn't yet provisioned — we just leave the rows
+  // un-decorated and the UI falls back to "—".
+  const rows = data || [];
+  const ids = new Set();
+  for (const r of rows) {
+    if (r.created_by) ids.add(r.created_by);
+    if (r.last_edited_by) ids.add(r.last_edited_by);
+  }
+  if (ids.size > 0) {
+    try {
+      const { data: profiles } = await db().from('user_profiles')
+        .select('user_id, display_name, color, avatar_url')
+        .in('user_id', Array.from(ids));
+      if (profiles) {
+        const byId = Object.fromEntries(profiles.map(p => [p.user_id, p]));
+        for (const r of rows) {
+          r.created_by_profile = r.created_by ? byId[r.created_by] || null : null;
+          r.last_edited_by_profile = r.last_edited_by ? byId[r.last_edited_by] || null : null;
+        }
+      }
+    } catch { /* table missing — leave undecorated */ }
+  }
+  return rows;
 }
 
 export async function loadTranscript(id) {
