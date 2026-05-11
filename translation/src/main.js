@@ -2292,6 +2292,16 @@ async function manualSave() {
 
 async function runSaveOnce(opts = {}) {
   if (viewOnly) return; // editor is locked elsewhere; we're not allowed to write
+  // Hard guard: NEVER create a row when there's nothing to save. This
+  // sits outside debouncedAutoSave because manual saves, error retries,
+  // conflict-overwrites, draft recovery, and various edge paths all call
+  // runSaveOnce directly and used to bypass the empty-state check —
+  // which was the source of stray "Untitled — May 11" rows that polluted
+  // the library and stuck the URL hash.
+  if (!currentTranscriptId && segments.length === 0) {
+    setSaveState('clean');
+    return;
+  }
   // If something is already in flight, just mark that another save is
   // needed when it finishes. Latest state wins.
   if (saveInFlight) {

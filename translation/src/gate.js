@@ -59,13 +59,20 @@ function unlock(opts = {}) {
 }
 
 // Re-lock and show the gate (used by signOut from the header dropdown).
+// Also clears any sticky URL hash — without this, signing out and back
+// in would auto-route to whatever transcript was last in the URL,
+// including stale "untitled-*" rows from old sessions.
 export function showGate() {
   gate.classList.remove('hidden');
   app.classList.add('hidden');
-  // Reset the magic-link form state.
   document.getElementById('gate-success')?.classList.add('hidden');
   document.getElementById('gate-error')?.classList.add('hidden');
   document.getElementById('gate-email')?.focus();
+  if (window.location.hash) {
+    try {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    } catch {}
+  }
 }
 window.showGate = showGate;
 
