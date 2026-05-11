@@ -689,23 +689,23 @@ export async function synthesizeScene({ clipAnalyses, clipNames, sceneContext })
 
   const contextBlock = sceneContext ? `SCENE CONTEXT:\n${sceneContext}\n\n` : '';
 
-  const prompt = `${contextBlock}You are a documentary editor's assistant synthesizing a single SCENE from its constituent clips. Below are ${clipAnalyses.length} clip analyses from one continuous shooting session.
+  const prompt = `${contextBlock}You are a working documentary editor reviewing footage from one shooting session. Below are ${clipAnalyses.length} clip analyses. Be direct and specific — describe what was actually shot, not what it could symbolize.
 
-Synthesize them into a unified scene understanding. Return a JSON object with:
+Synthesize into a JSON object:
 
 {
-  "name": "A cinematic scene title (not a filename)",
+  "name": "Short, descriptive scene name based on what actually happens (e.g. 'Coffee ceremony with host family', 'Driving through NEOM construction zone', 'Johnny standup at the Red Sea')",
   "scene_type": "one of: interview|broll|establishing|transition|action|ceremony|conversation|observational|travel|meal|work|performance",
-  "arc_summary": "3-5 paragraph narrative of what happens in this scene, what makes it editorially compelling, and how it could function in a cut",
-  "emotional_curve": "One sentence describing the emotional movement across the scene (e.g. 'Opens with nervous energy, settles into intimacy, closes with quiet contemplation')",
-  "editorial_notes": "2-3 sentences of honest editorial advice — is this scene essential? What's the strongest moment? What would you cut?",
-  "location": "Best description of where this takes place",
+  "arc_summary": "2-3 paragraphs. What was shot, who appears, what happens, what's the strongest material. Write like log notes for an editor who hasn't seen the footage.",
+  "emotional_curve": "One sentence: how the energy shifts across the scene",
+  "editorial_notes": "2-3 sentences of blunt editorial assessment. Is this scene essential? What's the best moment? What's filler?",
+  "location": "Where this takes place — be specific if the clips tell you",
   "time_of_day": "dawn|morning|midday|afternoon|golden-hour|evening|night",
-  "subjects": ["list of people who appear, using the most specific name/description available"],
-  "hero_clips": ["clip names that carry the scene — the moments you'd build around"],
-  "supporting_clips": ["clip names that provide context, texture, or coverage"],
-  "cutaway_clips": ["clip names useful as cutaways or insert shots"],
-  "connections": "Thematic or narrative connections this scene might have to other parts of the project",
+  "subjects": ["people who appear — use names when available, otherwise brief descriptions"],
+  "hero_clips": ["clip names with the strongest material — what you'd build the scene around"],
+  "supporting_clips": ["clip names that provide coverage or context"],
+  "cutaway_clips": ["clip names useful as cutaways or inserts"],
+  "connections": "How this scene might connect to other parts of the project",
   "keepability": 0.0-1.0
 }
 
@@ -741,22 +741,22 @@ export async function synthesizeDay({ sceneSummaries, dayLabel, projectContext }
     `[Scene ${i + 1}: ${s.name || 'Untitled'}]\nType: ${s.scene_type || '?'} | Location: ${s.location || '?'} | Time: ${s.time_of_day || '?'}\nKeepability: ${s.keepability ?? '?'}\n\n${s.arc_summary || ''}\n\nEmotional curve: ${s.emotional_curve || ''}\nEditorial notes: ${s.editorial_notes || ''}`
   ).join('\n\n---\n\n');
 
-  const prompt = `${contextBlock}You are a documentary editor's assistant synthesizing a full SHOOTING DAY from its scenes.
+  const prompt = `${contextBlock}You are a working documentary editor reviewing a full shooting day. Be factual and specific about what was actually captured.
 
 DAY: ${dayLabel}
 ${sceneSummaries.length} scenes captured this day.
 
 ${corpus}
 
-Synthesize into a day-level editorial intelligence report. Return JSON:
+Summarize this shooting day for an editor. Return JSON:
 
 {
-  "day_narrative": "3-5 paragraphs telling the story of this shooting day — what happened, what the filmmaker was drawn to, what surprises emerged, how the day's energy shifted",
-  "dominant_themes": ["3-5 thematic threads that ran through this day"],
-  "emotional_arc": "One sentence describing the day's emotional trajectory",
-  "strongest_scene": "Name of the strongest scene and why (1-2 sentences)",
-  "weakest_scene": "Name of the weakest scene and why (1-2 sentences)",
-  "day_character": "One bold sentence capturing this day's identity (e.g. 'The day the filmmaker stopped being a tourist and started listening')"
+  "day_narrative": "2-3 paragraphs. What locations were visited, who was filmed, what happened, what's the strongest footage. Write like production notes — factual, useful, grounded in what was actually shot.",
+  "dominant_themes": ["3-5 topics or subjects covered this day"],
+  "emotional_arc": "One sentence: how the day's energy and content shifted",
+  "strongest_scene": "Name of the best scene and why — be specific about what makes the footage strong",
+  "weakest_scene": "Name of the weakest scene and why",
+  "day_character": "One sentence summary of what this day was about (e.g. 'First day in Jeddah — old town walkthrough and initial interviews')"
 }
 
 Return ONLY valid JSON.`;
@@ -789,25 +789,25 @@ export async function synthesizeProject({ daySummaries, projectName, stats }) {
     ? `\nSTATS: ${stats.totalClips || 0} clips, ${stats.totalScenes || 0} scenes, ${stats.totalDays || 0} shooting days, ${stats.totalDuration || '?'} total footage\n`
     : '';
 
-  const prompt = `You are Hunter — a brilliant documentary editor's AI who has watched every frame of this project. Now synthesize everything into a master editorial intelligence report.
+  const prompt = `You are a senior documentary editor reviewing all the footage from this project. Summarize what was shot and what's there to work with. Be direct, specific, and grounded in the actual footage — not poetic.
 
 PROJECT: "${projectName || 'Untitled'}"${statsBlock}
 
 ${corpus}
 
-Produce the definitive project synthesis. Return JSON:
+Return JSON:
 
 {
-  "title": "A bold, evocative headline for this project's STORY (not the project name)",
-  "lede": "One provocative, insight-laden sentence capturing the whole thing — pull-quote energy",
-  "master_arc": "5-8 paragraphs describing the complete narrative arc. Tell it chronologically. What happened day 1 vs the last day? What shifted? What obsession emerged? What got abandoned? Write like a filmmaker's trusted editorial advisor.",
-  "themes": [{"name": "thematic thread name", "description": "2-3 sentences on how this theme manifests across the project"}],
-  "subject_arcs": [{"name": "person/subject", "arc": "How this subject's presence/role evolves across the project"}],
-  "editorial_recommendations": ["3-5 specific, opinionated editorial recommendations — sequences to build, scenes to cut, juxtapositions to try"],
-  "project_context_string": "3-4 dense paragraphs for injection into per-clip analysis prompts. Cover: who the key subjects are, what locations appear, what the project's themes and narrative arc are, what the filmmaker's visual and editorial instincts tend toward. This context will help future clip analyses understand where each clip fits in the larger story."
+  "title": "A clear working title that reflects what the project is actually about",
+  "lede": "One sentence summary of the project — what's the story, who's involved, where does it take place",
+  "master_arc": "4-6 paragraphs describing what was shot across the whole project. Go chronologically — what happened each day, how the story evolved, what subjects emerged, what locations were covered. Write like production notes for an editor inheriting this project.",
+  "themes": [{"name": "theme name", "description": "1-2 sentences on how this theme shows up in the footage"}],
+  "subject_arcs": [{"name": "person/subject", "arc": "Where and how this person appears across the shoot"}],
+  "editorial_recommendations": ["3-5 specific editorial suggestions — sequences to build, scenes that pair well, footage gaps, strongest material to lead with"],
+  "project_context_string": "3-4 paragraphs for use as context in future clip analysis. Cover: key subjects and their roles, locations visited, the project's story and themes, the filmmaker's shooting patterns. Help future analysis understand where each clip fits."
 }
 
-Be specific. Be opinionated. Surprise the filmmaker. Return ONLY valid JSON.`;
+Return ONLY valid JSON.`;
 
   const result = await genai.models.generateContent({
     model: 'gemini-2.5-pro',
