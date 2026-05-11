@@ -335,6 +335,33 @@ function hideTypingIndicator() {
 // Supabase Realtime isn't enabled on devchat_messages. Stops as soon
 // as we see a message newer than the user's send timestamp from a
 // non-user sender (assistant/system/agent).
+async function callDevchatRespond(threadId) {
+  console.log('[devchat] calling /api/devchat-respond for thread', threadId);
+  let r;
+  try {
+    r = await fetch('/api/devchat-respond', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ threadId }),
+    });
+  } catch (err) {
+    console.warn('[devchat] /api/devchat-respond network error:', err);
+    hideTypingIndicator();
+    showError(`Network error reaching /api/devchat-respond: ${err?.message || err}`);
+    return;
+  }
+  console.log('[devchat] /api/devchat-respond status:', r.status);
+  let body = null;
+  try { body = await r.json(); } catch {}
+  if (!r.ok) {
+    hideTypingIndicator();
+    showError(`/api/devchat-respond returned ${r.status}: ${body?.error || '(no error body)'}`);
+    return;
+  }
+  console.log('[devchat] /api/devchat-respond ok:', body);
+  // Reply is now in DB; polling/realtime will paint it.
+}
+
 async function pollAssistantReply(threadId, sinceIso) {
   const start = Date.now();
   while (Date.now() - start < 30000) {
@@ -466,11 +493,7 @@ async function sendCurrentMessage() {
     // a reply lands via realtime/poll OR the API surfaces an error.
     showTypingIndicator();
     pollAssistantReply(activeThreadId, insertedRow.created_at).catch(() => {});
-    fetch('/api/devchat-respond', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ threadId: activeThreadId }),
-    }).catch(() => {});
+    callDevchatRespond(activeThreadId);
   } catch (err) {
     showError(err?.message || 'Send failed.');
     console.warn('[devchat] send failed:', err);
@@ -491,8 +514,10 @@ function tearDownSubscription() {
 function showError(msg) {
   const host = panelEl?.querySelector('#devchat-thread');
   if (!host) return;
+  hideTypingIndicator();
   host.insertAdjacentHTML('beforeend',
-    `<div class="devchat-msg devchat-msg--error"><div class="devchat-msg-body">${escDc(msg)}</div></div>`);
+    `<div class="devchat-msg devchat-msg--error"><div class="devchat-msg-sender">error</div><div class="devchat-msg-body">${escDc(msg)}</div></div>`);
+  scrollMessagesToBottom();
 }
 
 function isSchemaMissing(err) {
