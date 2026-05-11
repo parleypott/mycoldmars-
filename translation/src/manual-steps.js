@@ -102,9 +102,10 @@ const STEPS = () => ([
     id: 'env-service',
     kind: 'env',
     title: 'Vercel env: SUPABASE_SERVICE_ROLE_KEY',
-    description: 'Required for /api/devchat-respond and /api/admin-users to call Supabase Admin API. Find it in Supabase → Project Settings → API → service_role secret. Treat as a secret.',
+    description: 'A secret password from Supabase that lets the server write Claude\'s replies back to your database. (1) Open Supabase API settings → scroll to "service_role" → copy the long eyJ… string. (2) Open Vercel env vars → Add New → name it SUPABASE_SERVICE_ROLE_KEY → paste the value → tick Production/Preview/Development → Save. Vercel will auto-redeploy in ~1 min.',
     where: { label: 'Open Supabase API settings', url: supabaseProjectSettingsUrl() },
-    payload: 'SUPABASE_SERVICE_ROLE_KEY=(paste from Supabase Project Settings → API → service_role)',
+    where2: { label: 'Open Vercel env vars', url: 'https://vercel.com/dashboard' },
+    payload: 'SUPABASE_SERVICE_ROLE_KEY',
     categories: ['devchat', 'admin'],
   },
   {
@@ -320,7 +321,8 @@ function renderStep(step, isDone, number) {
       <p class="ms-step-desc">${esc(step.description)}</p>
       <div class="ms-step-actions">
         ${step.where ? `<a class="ms-act ms-act--link" href="${esc(step.where.url)}" target="_blank" rel="noopener">→ ${esc(step.where.label)}</a>` : ''}
-        ${(step.payload || step.payloadUrl) ? `<button class="ms-act ms-act--copy" data-act="copy">copy${step.kind === 'sql' ? ' SQL' : step.kind === 'env' ? ' env line' : ''}</button>` : ''}
+        ${step.where2 ? `<a class="ms-act ms-act--link" href="${esc(step.where2.url)}" target="_blank" rel="noopener">→ ${esc(step.where2.label)}</a>` : ''}
+        ${(step.payload || step.payloadUrl) ? `<button class="ms-act ms-act--copy" data-act="copy">copy${step.kind === 'sql' ? ' SQL' : step.kind === 'env' ? ' env name' : ''}</button>` : ''}
       </div>
     </div>
   `;
