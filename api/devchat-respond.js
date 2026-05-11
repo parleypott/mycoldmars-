@@ -115,8 +115,6 @@ export default async function handler(req) {
 
 async function handleInner(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-  const denied = checkAccess(req);
-  if (denied) return denied;
 
   let body = {};
   try { body = await req.json(); } catch {}
