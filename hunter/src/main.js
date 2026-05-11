@@ -895,21 +895,30 @@ function renderInsightsTab(units, patterns, assets, signal) {
                 let dayData = {};
                 try { dayData = JSON.parse(da.summary_text); } catch {}
                 const dayScenes = dbScenes.filter(s => s.shoot_day === da.scope_ref);
+                // Format date nicely — "Oct 4" or "Day N" for bad dates
+                let dayLabel = `Day ${i + 1}`;
+                try {
+                  const d = new Date(da.scope_ref + 'T12:00:00');
+                  if (d.getFullYear() >= 2020) dayLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                } catch {}
                 return `
                   <div class="v2-breakdown-card">
                     <div class="v2-breakdown-header">
-                      <span class="v2-breakdown-num">${escHtml(da.scope_ref || `Day ${i + 1}`)}</span>
+                      <div class="v2-day-badge">
+                        <span class="v2-day-badge-num">${i + 1}</span>
+                        <span class="v2-day-badge-date">${escHtml(dayLabel)}</span>
+                      </div>
                       <div style="flex:1;min-width:0">
                         <div class="v2-breakdown-title" style="font-size:14px;font-weight:600">${escHtml(dayData.day_character || '')}</div>
                         <div class="v2-breakdown-meta">
                           <span>${dayScenes.length} scenes</span>
-                          ${dayData.strongest_scene ? `<span style="color:var(--h-finished)">Best: ${escHtml((dayData.strongest_scene || '').slice(0, 40))}</span>` : ''}
+                          ${dayData.strongest_scene ? `<span style="color:var(--h-finished)">Best: ${escHtml((dayData.strongest_scene || '').slice(0, 50))}</span>` : ''}
                         </div>
                       </div>
                     </div>
-                    ${dayData.emotional_arc ? `<div style="font-size:11px;color:var(--h-script);margin:4px 0 8px 0;padding-left:32px;font-style:italic">${escHtml(dayData.emotional_arc)}</div>` : ''}
-                    ${dayData.day_narrative ? `<p class="v2-breakdown-desc" style="line-height:1.65">${escHtml(dayData.day_narrative.slice(0, 800))}</p>` : ''}
-                    ${dayData.dominant_themes?.length ? `<div style="padding-left:32px;margin-top:6px">${dayData.dominant_themes.map(t => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 7px;font-size:9px;letter-spacing:0.08em;border:1px solid var(--h-border);color:var(--h-muted)">${escHtml(t)}</span>`).join('')}</div>` : ''}
+                    ${dayData.emotional_arc ? `<div style="font-size:11px;color:var(--h-script);margin:4px 0 8px 0;font-style:italic">${escHtml(dayData.emotional_arc)}</div>` : ''}
+                    ${dayData.day_narrative ? `<p class="v2-breakdown-desc" style="line-height:1.65">${escHtml(dayData.day_narrative.slice(0, 400))}</p>` : ''}
+                    ${dayData.dominant_themes?.length ? `<div style="margin-top:8px">${dayData.dominant_themes.map(t => `<span style="display:inline-block;margin:2px 4px 2px 0;padding:2px 7px;font-size:9px;letter-spacing:0.08em;border:1px solid var(--h-border);color:var(--h-muted)">${escHtml(t)}</span>`).join('')}</div>` : ''}
                   </div>
                 `;
               }).join('')}
@@ -1029,7 +1038,7 @@ function renderInsightsTab(units, patterns, assets, signal) {
             <div class="v2-narrative-themes">
               <span class="v2-caps v2-caps--fg" style="letter-spacing:0.18em;display:block;margin-bottom:12px">THEMATIC THREADS</span>
               ${themes.map(t => `
-                <div class="v2-theme-row">
+                <div class="v2-theme-row${t.count ? ' v2-theme-row--3col' : ''}">
                   <span class="v2-theme-name">${escHtml(t.name || '')}</span>
                   ${t.count ? `<span class="v2-theme-count">${t.count}</span>` : ''}
                   <span class="v2-theme-desc">${escHtml(t.description || '')}</span>
