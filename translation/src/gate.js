@@ -148,6 +148,9 @@ function isPublicRoute() {
   wireMagicLinkForm();
   wireAccessCodeFallback();
   wireSetupLink();
+  // Eye-toggle on both password-style fields on the gate.
+  attachPasswordEye(document.getElementById('gate-password'));
+  attachPasswordEye(document.getElementById('gate-code'));
 
   // Best-effort: ask the server to seed any ADMIN_EMAILS users that don't
   // exist yet. Idempotent — runs every page load but only creates missing
@@ -240,6 +243,55 @@ function wireMagicLinkForm() {
   submitBtn.addEventListener('click', (e) => { e.preventDefault(); send(); });
   emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
 }
+
+// Wraps a password input with a small eye-toggle that flips type between
+// 'password' and 'text'. Idempotent — safe to call multiple times on the
+// same input. Exported so other modules (change-password modal, admin
+// console add-user form) can decorate their own fields the same way.
+const EYE_OPEN_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF_SVG  = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-6.5 0-10-7-10-7a19.66 19.66 0 0 1 5.06-5.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c6.5 0 10 7 10 7a19.42 19.42 0 0 1-2.13 3.34"/><path d="M3 3l18 18"/><path d="M9.5 9.5a3 3 0 0 0 4.24 4.24"/></svg>';
+
+export function attachPasswordEye(input) {
+  if (!input || input.type !== 'password') return;
+  if (input.dataset.pwEyeAttached === '1') return;
+  input.dataset.pwEyeAttached = '1';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'np-pw-wrap';
+  // Preserve any layout styles (like margin-top) the input was carrying.
+  if (input.style.marginTop)    wrap.style.marginTop    = input.style.marginTop;
+  if (input.style.marginBottom) wrap.style.marginBottom = input.style.marginBottom;
+  input.style.marginTop = '';
+  input.style.marginBottom = '';
+
+  input.parentNode.insertBefore(wrap, input);
+  wrap.appendChild(input);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'np-pw-eye';
+  btn.setAttribute('aria-label', 'Show password');
+  btn.title = 'Show password';
+  btn.innerHTML = EYE_OFF_SVG;
+
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    btn.innerHTML = showing ? EYE_OFF_SVG : EYE_OPEN_SVG;
+    btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    btn.title = showing ? 'Show password' : 'Hide password';
+    btn.dataset.shown = showing ? '0' : '1';
+    // Keep focus on the field so typing isn't interrupted.
+    input.focus();
+  });
+
+  wrap.appendChild(btn);
+}
+// Expose globally so dynamically-built forms (change-password modal, admin
+// add-user dialog) can decorate password inputs without import gymnastics.
+if (typeof window !== 'undefined') window.attachPasswordEye = attachPasswordEye;
 
 // Lets you reach the setup checklist before signing in for the first time.
 // Without this you'd have a chicken-and-egg problem: the menu items that

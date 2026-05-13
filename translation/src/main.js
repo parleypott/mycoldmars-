@@ -1968,6 +1968,10 @@ async function openChangePasswordDialog() {
   const conEl = document.getElementById('pw-confirm');
   const btn   = document.getElementById('pw-submit');
   const msg   = document.getElementById('pw-msg');
+  if (window.attachPasswordEye) {
+    window.attachPasswordEye(newEl);
+    window.attachPasswordEye(conEl);
+  }
   newEl.focus();
   function err(text) {
     msg.style.background = 'rgba(221, 44, 30, 0.08)';

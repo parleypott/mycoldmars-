@@ -8311,3 +8311,44 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
 @media (prefers-reduced-motion: reduce) {
   .devchat-typing span { animation: none; }
 }
+
+/* ── Password reveal eye ─────────────────────────────────────────────
+ * Wraps a password input + small toggle button absolutely positioned
+ * inside the right edge. The wrap is added at runtime by the gate's
+ * attachPasswordEye() helper so any input[type=password] can opt in
+ * without HTML changes. */
+.np-pw-wrap {
+  position: relative;
+  display: block;
+}
+.np-pw-wrap .np-textarea {
+  /* leave room for the icon button on the right */
+  padding-right: 38px !important;
+}
+.np-pw-eye {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--np-sepia, #888);
+  opacity: 0.7;
+  transition: opacity 120ms ease, color 120ms ease, background 120ms ease;
+}
+.np-pw-eye:hover { opacity: 1; background: rgba(255,255,255,0.06); }
+.np-pw-eye:focus-visible {
+  outline: 2px solid var(--np-orange, #f57c00);
+  outline-offset: 1px;
+}
+.np-pw-eye svg { width: 18px; height: 18px; }
+.np-pw-eye[data-shown="1"] { color: var(--np-orange, #f57c00); opacity: 1; }
