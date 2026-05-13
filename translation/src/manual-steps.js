@@ -131,9 +131,9 @@ const STEPS = () => ([
     id: 'env-admin',
     kind: 'env',
     title: 'Vercel env: ADMIN_EMAILS',
-    description: 'Without this, the Admin Console refuses to create or delete users (the JWT email check has no list to match against).',
-    where: { label: 'Open Vercel project settings', url: 'https://vercel.com/dashboard' },
-    payload: 'ADMIN_EMAILS=johnny@newpress.com',
+    description: 'The one missing piece. Open Vercel env vars → Add New → Name: ADMIN_EMAILS · Value: johnny@newpress.com (the copy button below copies the value) → tick Production/Preview/Development → Save. Vercel auto-redeploys in ~1 min. Without this, the gate cannot auto-seed your admin account and the admin console refuses writes.',
+    where: { label: 'Open Vercel env vars', url: 'https://vercel.com/dashboard' },
+    payload: 'johnny@newpress.com',
     categories: ['admin'],
   },
   {
