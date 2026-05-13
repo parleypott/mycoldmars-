@@ -147,6 +147,21 @@ function isPublicRoute() {
   wirePasswordForm();
   wireMagicLinkForm();
   wireAccessCodeFallback();
+  wireSetupLink();
+
+  // Best-effort: ask the server to seed any ADMIN_EMAILS users that don't
+  // exist yet. Idempotent — runs every page load but only creates missing
+  // accounts. This is how the very first admin appears without any manual
+  // user-management step. Fire-and-forget; failures are silent.
+  fetch('/api/admin-users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'bootstrap' }),
+  }).then(r => r.json()).then(out => {
+    if (out?.created?.length) {
+      console.log('[gate] seeded admin users:', out.created.map(c => c.email).join(', '));
+    }
+  }).catch(() => {});
 
   // If auth state changes mid-session (magic-link callback completes,
   // sign-in from another tab), unlock automatically.
@@ -224,6 +239,19 @@ function wireMagicLinkForm() {
 
   submitBtn.addEventListener('click', (e) => { e.preventDefault(); send(); });
   emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
+}
+
+// Lets you reach the setup checklist before signing in for the first time.
+// Without this you'd have a chicken-and-egg problem: the menu items that
+// open the checklist live behind the avatar, which lives behind sign-in.
+function wireSetupLink() {
+  const link = document.getElementById('gate-setup-link');
+  if (!link) return;
+  link.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const { openManualStepsModal } = await import('./manual-steps.js');
+    openManualStepsModal({ flow: 'admin' });
+  });
 }
 
 function wireAccessCodeFallback() {

@@ -81,11 +81,46 @@ export default async function handler(req) {
   let body = {};
   try { body = await req.json(); } catch {}
   const action = body.action;
-  if (!action) return json({ error: 'action required (list|create|delete|set_password)' }, 400);
+  if (!action) return json({ error: 'action required (list|create|delete|set_password|bootstrap)' }, 400);
 
   const supaUrl    = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
   if (!supaUrl || !serviceKey) return json({ error: 'Server is missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY).' }, 500);
+
+  // ── Bootstrap: idempotent seed of ADMIN_EMAILS users with default password.
+  // No JWT required — chicken-and-egg: there's no admin yet to auth as. Safe
+  // because it only ever creates emails that the server itself listed in
+  // ADMIN_EMAILS, and only if they don't already exist.
+  if (action === 'bootstrap') {
+    const adminEmails = (process.env.ADMIN_EMAILS || '')
+      .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    if (!adminEmails.length) {
+      return json({ error: 'ADMIN_EMAILS env var not set on the server.' }, 400);
+    }
+    // Find which already exist.
+    const listR = await adminFetch(supaUrl, serviceKey, '/auth/v1/admin/users?per_page=200', { method: 'GET' });
+    const listOut = await listR.json().catch(() => ({}));
+    if (!listR.ok) return json({ error: listOut?.msg || `list failed: HTTP ${listR.status}` }, 502);
+    const existingEmails = new Set((listOut?.users || []).map(u => String(u.email || '').toLowerCase()));
+
+    const created = [], skipped = [], failed = [];
+    for (const email of adminEmails) {
+      if (existingEmails.has(email)) { skipped.push(email); continue; }
+      const r = await adminFetch(supaUrl, serviceKey, '/auth/v1/admin/users', {
+        method: 'POST',
+        body: JSON.stringify({ email, password: DEFAULT_PASSWORD, email_confirm: true }),
+      });
+      const out = await r.json().catch(() => ({}));
+      if (r.ok) created.push({ email, id: out?.id });
+      else failed.push({ email, error: out?.msg || out?.error_description || `HTTP ${r.status}` });
+    }
+    return json({
+      ok: true,
+      defaultPassword: DEFAULT_PASSWORD,
+      adminEmails,
+      created, skipped, failed,
+    });
+  }
 
   const me = await whoAmI(req);
   const localDev = isLocalhost(req) && !process.env.ADMIN_EMAILS;

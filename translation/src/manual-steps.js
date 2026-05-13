@@ -121,7 +121,7 @@ const STEPS = () => ([
     id: 'env-service',
     kind: 'env',
     title: 'Vercel env: SUPABASE_SERVICE_ROLE_KEY',
-    description: 'A secret password from Supabase that lets the server write Claude\'s replies back to your database. (1) Open Supabase API settings → scroll to "service_role" → copy the long eyJ… string. (2) Open Vercel env vars → Add New → name it SUPABASE_SERVICE_ROLE_KEY → paste the value → tick Production/Preview/Development → Save. Vercel will auto-redeploy in ~1 min.',
+    description: 'A secret password from Supabase that lets the server write Claude\'s replies back to your database. (1) Open Supabase API settings → scroll to "service_role" → copy the long eyJ… string. (2) Open Vercel env vars → Add New → name it SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY — the server accepts either) → paste the value → tick Production/Preview/Development → Save. Vercel will auto-redeploy in ~1 min.',
     where: { label: 'Open Supabase API settings', url: supabaseProjectSettingsUrl() },
     where2: { label: 'Open Vercel env vars', url: 'https://vercel.com/dashboard' },
     payload: 'SUPABASE_SERVICE_ROLE_KEY',
@@ -154,6 +154,12 @@ const FLOWS = {
     intro: 'Three steps to bring the in-product chat box live: create the tables, enable realtime so replies paint instantly, and confirm the service-role key is set in Vercel so Claude can write back.',
     category: 'devchat',
     verify: verifyDevchat,
+  },
+  admin: {
+    title: 'Get multi-user logins working',
+    intro: 'Two env vars and one toggle: tell Vercel which Supabase project to talk to, give it the service-role key so it can manage users, name yourself the admin, and turn off open signups so only the admin console can add accounts. The admin user (johnny@newpress.com / newpress) gets seeded automatically on first page load once ADMIN_EMAILS is set — no manual create needed.',
+    category: 'admin',
+    verify: verifyAdmin,
   },
 };
 
@@ -218,6 +224,40 @@ async function verifyDevchat() {
     return { ok: false, reason: 'Could not reach /api/devchat-respond: ' + (err?.message || err) };
   }
   return { ok: true };
+}
+
+// Verify admin/auth: call the idempotent bootstrap and report what happened.
+// Server reads ADMIN_EMAILS, seeds missing users with password 'newpress'.
+async function verifyAdmin() {
+  try {
+    const r = await fetch('/api/admin-users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'bootstrap' }),
+    });
+    const out = await r.json().catch(() => ({}));
+    if (r.status === 404) return { ok: false, reason: '/api/admin-users not deployed yet — Vercel still building?' };
+    if (r.status === 500 && (out.error || '').includes('SUPABASE_URL')) {
+      return { ok: false, reason: 'Server: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY) missing in Vercel.' };
+    }
+    if (r.status === 400 && (out.error || '').includes('ADMIN_EMAILS')) {
+      return { ok: false, reason: 'Server: ADMIN_EMAILS env var not set in Vercel. Set it to johnny@newpress.com and redeploy.' };
+    }
+    if (!r.ok) return { ok: false, reason: out.error || `HTTP ${r.status}` };
+    const created = (out.created || []).map(c => c.email);
+    const skipped = (out.skipped || []);
+    const failed  = (out.failed  || []);
+    if (failed.length) {
+      return { ok: false, reason: 'Some users failed to seed: ' + failed.map(f => `${f.email}: ${f.error}`).join('; ') };
+    }
+    const parts = [];
+    if (created.length) parts.push(`created ${created.join(', ')}`);
+    if (skipped.length) parts.push(`already existed: ${skipped.join(', ')}`);
+    const summary = parts.length ? parts.join(' · ') : 'no admin emails configured';
+    return { ok: true, detail: `${summary}. Sign in with password "newpress" and change it from the avatar menu.` };
+  } catch (err) {
+    return { ok: false, reason: 'Could not reach /api/admin-users: ' + (err?.message || err) };
+  }
 }
 
 // ── Public entry ──────────────────────────────────────────────────────
@@ -322,7 +362,7 @@ export async function openManualStepsModal(opts = {}) {
         const result = await flow.verify();
         if (result.ok) {
           msg.classList.add('ms-verify-msg--ok');
-          msg.textContent = '✓ All set. Devchat is wired up — close this and try sending a message.';
+          msg.textContent = '✓ ' + (result.detail || 'All set — close this and try it.');
           btn.textContent = 'verified ✓';
         } else {
           msg.classList.add('ms-verify-msg--err');

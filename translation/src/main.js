@@ -1867,6 +1867,7 @@ function renderHeaderIdentity() {
       ${signedIn ? '<button class="header-identity-menu-item" data-act="password">Change password…</button>' : ''}
       ${signedIn ? '<button class="header-identity-menu-item" data-act="admin">Admin console…</button>' : ''}
       <button class="header-identity-menu-item" data-act="manual-steps">Setup checklist…</button>
+      <button class="header-identity-menu-item" data-act="setup-admin">— Just multi-user logins…</button>
       <button class="header-identity-menu-item" data-act="setup-devchat">— Just devchat setup…</button>
       ${signedIn
         ? '<button class="header-identity-menu-item header-identity-menu-item--danger" data-act="signout">Sign out</button>'
@@ -1931,6 +1932,11 @@ function renderHeaderIdentity() {
     menu.classList.add('hidden');
     const { openManualStepsModal } = await import('./manual-steps.js');
     openManualStepsModal({ flow: 'devchat' });
+  });
+  host.querySelector('[data-act="setup-admin"]')?.addEventListener('click', async () => {
+    menu.classList.add('hidden');
+    const { openManualStepsModal } = await import('./manual-steps.js');
+    openManualStepsModal({ flow: 'admin' });
   });
 }
 
