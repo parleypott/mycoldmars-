@@ -75,13 +75,20 @@ async function adminFetch(supaUrl, serviceKey, path, init = {}) {
 
 export default async function handler(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-  const denied = checkAccess(req);
-  if (denied) return denied;
 
   let body = {};
   try { body = await req.json(); } catch {}
   const action = body.action;
   if (!action) return json({ error: 'action required (list|create|delete|set_password|bootstrap)' }, 400);
+
+  // Bootstrap is the one action that bypasses ACCESS_CODE — first-time
+  // setup needs to work before anyone has the code. Still safe: it only
+  // ever creates emails from the server-controlled ADMIN_EMAILS list and
+  // is idempotent (existing users are skipped, never modified).
+  if (action !== 'bootstrap') {
+    const denied = checkAccess(req);
+    if (denied) return denied;
+  }
 
   const supaUrl    = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
