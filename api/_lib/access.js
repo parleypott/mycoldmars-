@@ -11,11 +11,19 @@
 export function checkAccess(req) {
   const validCode = process.env.ACCESS_CODE;
   if (!validCode) return null; // dev mode
+  // Two ways past the gate:
+  // 1) The legacy x-access-code header (single shared secret).
+  // 2) Any Authorization: Bearer <jwt> — i.e., the caller is a signed-in
+  //    Supabase user. Endpoint-level auth (whoAmI + isAdminEmail in
+  //    admin-users.js, etc.) is the real check; the access code is just a
+  //    perimeter. Don't double-gate signed-in users.
+  const auth = req.headers.get('authorization') || '';
+  if (/^Bearer\s+\S/i.test(auth)) return null;
   const supplied = req.headers.get('x-access-code') || '';
   if (supplied === validCode) return null;
   return new Response(JSON.stringify({
     error: 'unauthorized',
-    message: 'Missing or invalid x-access-code header.',
+    message: 'Missing or invalid x-access-code header (or sign in).',
   }), {
     status: 401,
     headers: { 'Content-Type': 'application/json' },

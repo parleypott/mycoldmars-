@@ -1862,10 +1862,9 @@ function renderHeaderIdentity() {
         <div class="header-identity-menu-name">${esc(name)}</div>
         ${signedIn ? `<div class="header-identity-menu-email">${esc(email)}</div>` : '<div class="header-identity-menu-email">Local only</div>'}
       </div>
+      ${signedIn ? '<button class="header-identity-menu-item header-identity-menu-item--primary" data-act="account">Account &amp; users…</button>' : ''}
       <button class="header-identity-menu-item" data-act="rename">Change display name</button>
       <button class="header-identity-menu-item" data-act="color">Change color</button>
-      ${signedIn ? '<button class="header-identity-menu-item" data-act="password">Change password…</button>' : ''}
-      ${signedIn ? '<button class="header-identity-menu-item" data-act="admin">Admin console…</button>' : ''}
       <button class="header-identity-menu-item" data-act="manual-steps">Setup checklist…</button>
       <button class="header-identity-menu-item" data-act="setup-admin">— Just multi-user logins…</button>
       <button class="header-identity-menu-item" data-act="setup-devchat">— Just devchat setup…</button>
@@ -1915,13 +1914,9 @@ function renderHeaderIdentity() {
     if (window.showGate) window.showGate();
   });
 
-  host.querySelector('[data-act="password"]')?.addEventListener('click', () => {
+  host.querySelector('[data-act="account"]')?.addEventListener('click', () => {
     menu.classList.add('hidden');
-    openChangePasswordDialog();
-  });
-  host.querySelector('[data-act="admin"]')?.addEventListener('click', () => {
-    menu.classList.add('hidden');
-    openAdminConsole();
+    openAccountModal();
   });
   host.querySelector('[data-act="manual-steps"]')?.addEventListener('click', async () => {
     menu.classList.add('hidden');
@@ -1939,6 +1934,275 @@ function renderHeaderIdentity() {
     openManualStepsModal({ flow: 'admin' });
   });
 }
+
+// ─── Account: unified modal — Profile / Password / Users (admin) ────
+// One stop for everything personal. Tabbed view so it stays calm even
+// when the admin Users section is heavy. The avatar menu now points
+// here as the primary entry; openChangePasswordDialog and
+// openAdminConsole stay around as direct-link helpers.
+async function openAccountModal(opts = {}) {
+  document.getElementById('account-modal')?.remove();
+  const me = currentUser();
+  if (!me) { showErrorToast('Sign in first.'); return; }
+
+  // Detect admin-ness optimistically by trying to list users; if it
+  // succeeds we render the Users tab, otherwise we hide it. Faster than
+  // round-tripping a "is admin" probe up front.
+  let isAdmin = false;
+  try {
+    const auth = await import('./auth.js');
+    const token = await auth.getAccessToken();
+    if (token) {
+      const probe = await fetch('/api/admin-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'list' }),
+      });
+      isAdmin = probe.ok;
+    }
+  } catch {}
+
+  const tabs = [
+    { id: 'profile',  label: 'Profile' },
+    { id: 'password', label: 'Password' },
+    ...(isAdmin ? [{ id: 'users', label: 'Users' }] : []),
+  ];
+  const initialTab = opts.tab && tabs.some(t => t.id === opts.tab) ? opts.tab : 'profile';
+
+  const modal = document.createElement('div');
+  modal.id = 'account-modal';
+  modal.className = 'np-modal';
+  modal.innerHTML = `
+    <div class="np-modal-backdrop" data-close></div>
+    <div class="np-modal-card account-card">
+      <div class="np-modal-header">
+        <h3 class="np-modal-title">Account</h3>
+        <button class="np-modal-close" data-close aria-label="Close">×</button>
+      </div>
+      <div class="account-meta">
+        <span class="account-meta-email">${esc(me.email)}</span>
+        ${isAdmin ? '<span class="account-meta-pill">admin</span>' : ''}
+      </div>
+      <div class="account-tabs" role="tablist">
+        ${tabs.map(t => `
+          <button class="account-tab" role="tab" data-tab="${t.id}" aria-selected="${t.id === initialTab}">${esc(t.label)}</button>
+        `).join('')}
+      </div>
+      <div class="account-body">
+        <section class="account-section" data-section="profile" ${initialTab !== 'profile' ? 'hidden' : ''}>
+          <div class="account-row">
+            <div class="account-row-label">Display name</div>
+            <div class="account-row-value">
+              <span id="acct-name">${esc(currentClientName() || 'Anonymous')}</span>
+              <button id="acct-name-edit" class="account-row-act">edit</button>
+            </div>
+          </div>
+          <div class="account-row">
+            <div class="account-row-label">Color</div>
+            <div class="account-row-value">
+              <span id="acct-color-swatch" class="account-color-dot" style="background:${esc(currentClientColor())}"></span>
+              <button id="acct-color-edit" class="account-row-act">change</button>
+            </div>
+          </div>
+          <div class="account-row">
+            <div class="account-row-label">Email</div>
+            <div class="account-row-value account-row-value--mono">${esc(me.email)}</div>
+          </div>
+          <button id="acct-signout" class="np-button account-signout">Sign out</button>
+        </section>
+
+        <section class="account-section" data-section="password" ${initialTab !== 'password' ? 'hidden' : ''}>
+          <p class="account-help">Pick a new password. Minimum 4 characters. The eye icon reveals what you typed.</p>
+          <input id="acct-pw-new" class="np-textarea" type="password" placeholder="New password" autocomplete="new-password" style="min-height:auto;margin-bottom:8px;">
+          <input id="acct-pw-confirm" class="np-textarea" type="password" placeholder="Confirm new password" autocomplete="new-password" style="min-height:auto;margin-bottom:12px;">
+          <button id="acct-pw-submit" class="np-button np-button--primary" style="width:100%;">Update password</button>
+          <p id="acct-pw-msg" class="account-msg hidden"></p>
+        </section>
+
+        ${isAdmin ? `
+        <section class="account-section" data-section="users" ${initialTab !== 'users' ? 'hidden' : ''}>
+          <div class="account-add-row">
+            <input id="acct-add-email" class="np-textarea account-add-input" type="email" placeholder="email@example.com" style="min-height:auto;flex:1;">
+            <button id="acct-add-btn" class="np-button np-button--primary">Add user</button>
+          </div>
+          <p class="account-help">New users start with password <code>newpress</code>. Tell them — they can change it from their own Account → Password tab after signing in.</p>
+          <div id="acct-users-list" class="account-users-list">
+            <div class="account-loading">Loading users…</div>
+          </div>
+          <p id="acct-users-msg" class="account-msg hidden"></p>
+        </section>
+        ` : ''}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => modal.remove()));
+
+  // ── Tab switching ────────────────────────────────────────────────
+  modal.querySelectorAll('.account-tab').forEach(tabBtn => {
+    tabBtn.addEventListener('click', () => {
+      const id = tabBtn.dataset.tab;
+      modal.querySelectorAll('.account-tab').forEach(t => t.setAttribute('aria-selected', t === tabBtn ? 'true' : 'false'));
+      modal.querySelectorAll('.account-section').forEach(s => {
+        if (s.dataset.section === id) s.removeAttribute('hidden'); else s.setAttribute('hidden', '');
+      });
+    });
+  });
+
+  // ── Profile section ──────────────────────────────────────────────
+  modal.querySelector('#acct-name-edit')?.addEventListener('click', async () => {
+    const next = window.prompt('Display name:', currentClientName());
+    if (next == null) return;
+    const trimmed = next.trim();
+    if (!trimmed) return;
+    const res = await authUpdateName(trimmed);
+    if (res.ok) {
+      modal.querySelector('#acct-name').textContent = trimmed;
+      showSuccess(`Name set to "${trimmed}"`);
+    } else {
+      showErrorToast(res.error || 'Could not update name.');
+    }
+  });
+  modal.querySelector('#acct-color-edit')?.addEventListener('click', () => {
+    openColorPicker();
+    // Repaint swatch shortly after picker closes (cheap polling).
+    setTimeout(() => {
+      const sw = modal.querySelector('#acct-color-swatch');
+      if (sw) sw.style.background = currentClientColor();
+    }, 200);
+  });
+  modal.querySelector('#acct-signout')?.addEventListener('click', async () => {
+    modal.remove();
+    await authSignOut();
+    if (window.showGate) window.showGate();
+  });
+
+  // ── Password section ─────────────────────────────────────────────
+  const pwNew = modal.querySelector('#acct-pw-new');
+  const pwCon = modal.querySelector('#acct-pw-confirm');
+  const pwBtn = modal.querySelector('#acct-pw-submit');
+  const pwMsg = modal.querySelector('#acct-pw-msg');
+  if (window.attachPasswordEye) {
+    window.attachPasswordEye(pwNew);
+    window.attachPasswordEye(pwCon);
+  }
+  function pwError(text) {
+    pwMsg.classList.remove('hidden', 'account-msg--ok');
+    pwMsg.classList.add('account-msg--err');
+    pwMsg.textContent = text;
+  }
+  function pwOk(text) {
+    pwMsg.classList.remove('hidden', 'account-msg--err');
+    pwMsg.classList.add('account-msg--ok');
+    pwMsg.textContent = text;
+  }
+  pwBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (pwNew.value !== pwCon.value) { pwError('Passwords do not match.'); return; }
+    if (pwNew.value.length < 4) { pwError('Password must be at least 4 characters.'); return; }
+    pwBtn.disabled = true; pwBtn.textContent = 'Updating…';
+    const auth = await import('./auth.js');
+    const res = await auth.updatePassword(pwNew.value);
+    pwBtn.disabled = false; pwBtn.textContent = 'Update password';
+    if (res.ok) { pwOk('Password updated.'); pwNew.value = ''; pwCon.value = ''; }
+    else pwError(res.error || 'Could not update.');
+  });
+
+  // ── Users section (admin only) ───────────────────────────────────
+  if (!isAdmin) return;
+  const usersListEl = modal.querySelector('#acct-users-list');
+  const usersMsg    = modal.querySelector('#acct-users-msg');
+  function usersError(text) {
+    usersMsg.classList.remove('hidden', 'account-msg--ok');
+    usersMsg.classList.add('account-msg--err');
+    usersMsg.textContent = text;
+  }
+  function usersOk(text) {
+    usersMsg.classList.remove('hidden', 'account-msg--err');
+    usersMsg.classList.add('account-msg--ok');
+    usersMsg.textContent = text;
+  }
+  async function adminCall(action, payload = {}) {
+    const auth = await import('./auth.js');
+    const token = await auth.getAccessToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const r = await fetch('/api/admin-users', {
+      method: 'POST', headers,
+      body: JSON.stringify({ action, ...payload }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok || body.error) throw new Error(body.error || `HTTP ${r.status}`);
+    return body;
+  }
+  async function refreshUsers() {
+    usersListEl.innerHTML = '<div class="account-loading">Loading users…</div>';
+    try {
+      const out = await adminCall('list');
+      const users = out.users || [];
+      const meId = currentUserId();
+      usersListEl.innerHTML = users.map(u => {
+        const isMe = u.id === meId;
+        const last = u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : 'never';
+        const created = u.created_at ? new Date(u.created_at).toLocaleDateString() : '';
+        return `
+          <div class="account-user-row">
+            <div class="account-user-body">
+              <div class="account-user-email">${esc(u.email || '(no email)')}${isMe ? ' <span class="account-meta-pill">you</span>' : ''}</div>
+              <div class="account-user-sub">added ${esc(created)} · last seen ${esc(last)}</div>
+            </div>
+            <div class="account-user-acts">
+              <button class="account-user-act" data-pw-for="${esc(u.id)}" title="Reset password to a value you choose">reset pw</button>
+              ${isMe ? '' : `<button class="account-user-act account-user-act--danger" data-del-for="${esc(u.id)}" title="Delete user permanently">delete</button>`}
+            </div>
+          </div>
+        `;
+      }).join('') || '<div class="account-loading">No users yet.</div>';
+
+      usersListEl.querySelectorAll('[data-pw-for]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const userId = btn.dataset.pwFor;
+          const pw = window.prompt('New password (default: newpress):', 'newpress');
+          if (pw == null) return;
+          try {
+            await adminCall('set_password', { userId, password: pw });
+            usersOk(`Password reset.`);
+          } catch (e) { usersError(e.message); }
+        });
+      });
+      usersListEl.querySelectorAll('[data-del-for]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const userId = btn.dataset.delFor;
+          if (!confirm('Delete this user permanently?')) return;
+          try {
+            await adminCall('delete', { userId });
+            usersOk('User deleted.');
+            refreshUsers();
+          } catch (e) { usersError(e.message); }
+        });
+      });
+    } catch (e) {
+      usersListEl.innerHTML = '';
+      usersError(e.message);
+    }
+  }
+  modal.querySelector('#acct-add-btn').addEventListener('click', async () => {
+    const inputEl = modal.querySelector('#acct-add-email');
+    const email = inputEl.value.trim();
+    if (!email) return;
+    try {
+      const out = await adminCall('create', { email });
+      usersOk(`Created ${out.user.email}. Default password: ${out.defaultPassword || '(custom)'}`);
+      inputEl.value = '';
+      refreshUsers();
+    } catch (e) { usersError(e.message); }
+  });
+  modal.querySelector('#acct-add-email').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); modal.querySelector('#acct-add-btn').click(); }
+  });
+  await refreshUsers();
+}
+window.openAccountModal = openAccountModal;
 
 // ─── Self-service: change my own password ────────────────────────────
 async function openChangePasswordDialog() {
