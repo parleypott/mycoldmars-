@@ -3626,9 +3626,19 @@ const homeLibBtn = $('#home-library-btn');
 if (homeLibBtn) homeLibBtn.addEventListener('click', showLibrary);
 const homeSeqBtn = $('#home-sequencer-btn');
 if (homeSeqBtn) homeSeqBtn.addEventListener('click', showSequencer);
+const homeAccountBtn = $('#home-account-btn');
+if (homeAccountBtn) homeAccountBtn.addEventListener('click', () => {
+  if (!currentUser()) { if (window.showGate) window.showGate(); return; }
+  openAccountModal();
+});
 document.addEventListener('click', (e) => {
   if (e.target.closest('#home-library-btn')) { e.preventDefault(); showLibrary(); }
   else if (e.target.closest('#home-sequencer-btn')) { e.preventDefault(); showSequencer(); }
+  else if (e.target.closest('#home-account-btn')) {
+    e.preventDefault();
+    if (!currentUser()) { if (window.showGate) window.showGate(); return; }
+    openAccountModal();
+  }
 });
 
 $('#seq-parse-btn').addEventListener('click', () => {
@@ -7394,22 +7404,11 @@ function safeInit(name, fn) {
     });
   });
 
-  safeInit('falling-glyphs', () => {
-    initFallingGlyphs({
-      getButtonRects: () => {
-        const rects = [];
-        const ids = ['home-library-btn', 'home-sequencer-btn', 'drop-zone'];
-        for (const id of ids) {
-          const el = document.getElementById(id);
-          if (!el) continue;
-          const r = el.getBoundingClientRect();
-          if (r.width > 0 && r.height > 0) rects.push(r);
-        }
-        return rects;
-      },
-    });
-    if (currentStep === 1) startFallingGlyphs();
-  });
+  // Falling glyphs disabled in the brutalist redesign — Johnny asked to
+  // remove the floating Asian characters animation entirely. Kept the
+  // import so we can rip the module file later in a dedicated cleanup
+  // pass; calling stop is a no-op in case anything else triggered it.
+  try { stopFallingGlyphs?.(); } catch {}
 
   // Probe schema once at boot. Optional features in db.js will gate
   // themselves based on the result. Banner is shown only if something

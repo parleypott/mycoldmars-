@@ -8544,3 +8544,323 @@ body.media-deck-dragging .media-deck-grip { cursor: grabbing !important; }
   color: var(--np-ink, #111);
 }
 .header-identity-menu-item--primary:hover { background: rgba(245, 124, 0, 0.08); }
+
+/* ═════════════════════════════════════════════════════════════════════
+ * BRUTALIST HOME THEME
+ *
+ * Scope: scoped to .home--brutalist on the step-1 panel only — other
+ * pages stay on the editorial cream/red palette until Johnny approves
+ * the propagation.
+ *
+ * Direction: deep midnight ground, bone type, single-accent SIGNAL
+ * orange + tactical lime micro-accent. Asymmetric. Hard edges. No
+ * rounded corners. Mono captions. Massive serif for the wordmark.
+ *
+ * Anti-slop discipline (per taste-skill SKILL.md):
+ *   • Max 1 dominant accent (orange), saturation pulled below 80%
+ *   • No "AI purple/blue" glows, no soft drop shadows
+ *   • Asymmetric two-column; centered hero is banned
+ *   • Hardware-accelerated only (transform/opacity)
+ * ═══════════════════════════════════════════════════════════════════ */
+
+.home--brutalist {
+  /* Local theme tokens — keep namespaced so the rest of the app's
+   * --np-* vars are untouched. */
+  --br-bg:        #0d0e12;
+  --br-bg-grain:  #14151b;
+  --br-ink:       #f1ead8;
+  --br-dim:       rgba(241, 234, 216, 0.55);
+  --br-faint:     rgba(241, 234, 216, 0.18);
+  --br-line:      rgba(241, 234, 216, 0.14);
+  --br-accent:    #ff6a3d;            /* signal orange — < 80% saturation */
+  --br-accent-2:  #c4ff5d;            /* tactical lime — used sparingly */
+  --br-mono: 'JetBrains Mono', 'Courier Prime', ui-monospace, monospace;
+  --br-serif: 'Cormorant', 'Newsreader', 'EB Garamond', ui-serif, serif;
+  --br-display: 'Cormorant', 'Newsreader', ui-serif, serif;
+
+  position: relative;
+  min-height: 100dvh;
+  background: var(--br-bg);
+  color: var(--br-ink);
+  padding: clamp(28px, 5vw, 64px) clamp(24px, 5vw, 80px);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Subtle grain — fixed, pointer-events:none so it never blocks input
+ * and never repaints during scroll. SVG noise feTurbulence ~ tiny GPU
+ * tax compared to gif/png alternatives. */
+.home--brutalist::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95 0 0 0 0 0.91 0 0 0 0 0.84 0 0 0 0.07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  opacity: 0.55;
+  mix-blend-mode: screen;
+}
+
+/* Diagonal accent stripe — flat color block top-right, brutalist
+ * geometric anchor that breaks the symmetry of the hero. */
+.home--brutalist::after {
+  content: "";
+  position: absolute;
+  top: 0; right: 0;
+  width: clamp(140px, 24vw, 360px);
+  height: clamp(140px, 24vw, 360px);
+  background: var(--br-accent);
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.92;
+}
+
+/* Account button — top-left, brutalist pill that absolutely demands
+ * notice before the hero loads. */
+.home-account-btn {
+  position: absolute;
+  top: clamp(20px, 3vw, 32px);
+  left: clamp(24px, 3vw, 40px);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 18px 9px 14px;
+  background: transparent;
+  color: var(--br-ink);
+  border: 1.5px solid var(--br-ink);
+  border-radius: 0;
+  font-family: var(--br-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.home-account-btn:hover { background: var(--br-ink); color: var(--br-bg); }
+.home-account-btn:hover .home-account-dot { background: var(--br-bg); }
+.home-account-btn:active { transform: translateY(1px); }
+.home-account-dot {
+  display: inline-block;
+  width: 9px; height: 9px;
+  background: var(--br-accent);
+  border-radius: 0;
+}
+.home-account-label { line-height: 1; }
+
+/* Hero — left-aligned, asymmetric, anti-center. */
+.home--brutalist #home-hero,
+.home--brutalist .home-hero {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  align-items: end;
+  gap: clamp(32px, 6vw, 80px);
+  padding-top: clamp(80px, 14vw, 180px);
+  margin: 0;
+  max-width: 1480px;
+  background: transparent;
+  /* Override the cascade-fade animation from the cream theme */
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+.home--brutalist .home-logo-label {
+  grid-column: 1 / -1;
+  font-family: var(--br-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--br-dim);
+  margin-bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.home-logo-mark {
+  color: var(--br-accent);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.home--brutalist .home-title {
+  grid-column: 1;
+  margin: 0;
+  font-family: var(--br-display);
+  font-weight: 400;
+  font-style: italic;
+  font-size: clamp(72px, 13vw, 220px);
+  line-height: 0.86;
+  letter-spacing: -0.045em;
+  color: var(--br-ink);
+  text-transform: lowercase;
+}
+.home--brutalist .home-section {
+  font-style: italic;
+  color: var(--br-accent);
+  font-size: 0.62em;
+  margin-right: 0.06em;
+  vertical-align: 0.28em;
+  display: inline-block;
+}
+
+.home--brutalist .home-subtitle {
+  grid-column: 1;
+  margin: 24px 0 0;
+  font-family: var(--br-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--br-dim);
+  font-style: normal;
+}
+
+/* Path tiles — hard-edged, stack vertically in the right column. */
+.home--brutalist .home-paths {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-top: 0;
+}
+.home--brutalist .home-path {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 18px;
+  padding: 22px 22px;
+  background: transparent;
+  border: 1.5px solid var(--br-line);
+  border-radius: 0;
+  color: var(--br-ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+  font-family: var(--br-mono);
+}
+.home--brutalist .home-path:hover {
+  background: var(--br-ink);
+  color: var(--br-bg);
+  border-color: var(--br-ink);
+}
+.home--brutalist .home-path:hover .home-path-glyph,
+.home--brutalist .home-path:hover .home-path-arrow,
+.home--brutalist .home-path:hover .home-path-sub { color: var(--br-bg); }
+.home--brutalist .home-path:active { transform: translate(0, 1px); }
+.home--brutalist .home-path-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  background: transparent;
+  border: 1.5px solid currentColor;
+  border-radius: 0;
+  color: var(--br-ink);
+  transition: color 140ms ease;
+}
+.home--brutalist .home-path-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.home--brutalist .home-path-title {
+  font-family: var(--br-serif);
+  font-style: italic;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: inherit;
+}
+.home--brutalist .home-path-sub {
+  font-family: var(--br-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--br-dim);
+}
+.home--brutalist .home-path-arrow {
+  font-family: var(--br-mono);
+  font-size: 18px;
+  color: var(--br-ink);
+  transition: transform 160ms ease, color 140ms ease;
+}
+.home--brutalist .home-path:hover .home-path-arrow { transform: translateX(4px); }
+
+/* Drop zone — full-width brutalist outline, replaces the dotted octagon. */
+.home--brutalist #drop-zone,
+.home--brutalist .drop-zone {
+  position: relative;
+  z-index: 2;
+  margin: clamp(48px, 8vw, 96px) auto 0;
+  max-width: 1480px;
+  width: 100%;
+  background: transparent;
+  border: 1.5px dashed var(--br-faint);
+  border-radius: 0;
+  min-height: clamp(220px, 28vw, 360px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.home--brutalist #drop-zone:hover,
+.home--brutalist .drop-zone:hover {
+  border-color: var(--br-accent);
+  background: rgba(255, 106, 61, 0.04);
+}
+.home--brutalist .drop-zone.drag-over {
+  border-color: var(--br-accent);
+  background: rgba(255, 106, 61, 0.08);
+}
+.home--brutalist .drop-zone-frame { display: none; }
+.home--brutalist .drop-content { text-align: center; padding: 32px; }
+.home--brutalist .drop-label {
+  font-family: var(--br-mono);
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--br-ink);
+  margin-bottom: 10px;
+}
+.home--brutalist .drop-sub {
+  font-family: var(--br-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--br-dim);
+  text-transform: uppercase;
+}
+.home--brutalist .drop-sub .file-link {
+  color: var(--br-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.home--brutalist .drop-sub .file-link:hover { color: var(--br-accent-2); }
+
+/* Devchat floating button override — make it brutalist on the home page. */
+.home--brutalist ~ #devchat-fab,
+body:has(.home--brutalist.active) #devchat-fab {
+  background: var(--br-ink, #f1ead8);
+  color: var(--br-bg, #0d0e12);
+  border-radius: 0;
+  border: 1.5px solid var(--br-ink, #f1ead8);
+  font-family: var(--br-mono, 'JetBrains Mono'), ui-monospace, monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* Mobile: collapse the asymmetric grid into a stack. */
+@media (max-width: 760px) {
+  .home--brutalist #home-hero,
+  .home--brutalist .home-hero {
+    grid-template-columns: 1fr;
+    padding-top: clamp(96px, 22vw, 160px);
+  }
+  .home--brutalist .home-paths { grid-column: 1; }
+  .home--brutalist::after {
+    width: clamp(96px, 32vw, 200px);
+    height: clamp(96px, 32vw, 200px);
+  }
+}
