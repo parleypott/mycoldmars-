@@ -2261,7 +2261,7 @@ async function renderOpsTab(project, signal) {
   try {
     const [statusRes, jobsRes] = await Promise.allSettled([
       getWorkerStatus(),
-      listJobs(project.id, 30),
+      listJobs(null, 30),
     ]);
     opsState.workerOnline = statusRes.status === 'fulfilled' && statusRes.value?.online;
     opsState.jobs = jobsRes.status === 'fulfilled' ? (jobsRes.value || []) : [];
@@ -2276,7 +2276,7 @@ async function renderOpsTab(project, signal) {
     try {
       const [s, j] = await Promise.allSettled([
         getWorkerStatus(),
-        listJobs(project.id, 30),
+        listJobs(null, 30),
       ]);
       opsState.workerOnline = s.status === 'fulfilled' && s.value?.online;
       opsState.jobs = j.status === 'fulfilled' ? (j.value || []) : opsState.jobs;
