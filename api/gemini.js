@@ -104,6 +104,24 @@ export default async function handler(req) {
     return handleGetTasteProfile();
   }
 
+  // ── Job queue operations ──
+
+  if (action === 'create_job') {
+    return handleCreateJob(body);
+  }
+
+  if (action === 'list_jobs') {
+    return handleListJobs(body);
+  }
+
+  if (action === 'get_worker_status') {
+    return handleGetWorkerStatus();
+  }
+
+  if (action === 'get_upload_url') {
+    return handleGetUploadUrl(body);
+  }
+
   // Default: proxy to Gemini
   const model = body.model || 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -1796,6 +1814,67 @@ function formatSeconds(s) {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+// ── Job queue handlers ──
+
+async function handleCreateJob(body) {
+  const { jobType, projectId, params } = body;
+  const validTypes = ['ingest_selects', 'compute_decisions', 'train_taste', 'run_synthesis', 'backfill_analyses'];
+  if (!validTypes.includes(jobType)) {
+    return jsonResponse({ error: `Invalid job type: ${jobType}` }, 400);
+  }
+
+  const row = {
+    type: jobType,
+    status: 'pending',
+    project_id: projectId || null,
+    params: params || {},
+  };
+
+  const { data, error } = await supabase.from('hunter_jobs').insert(row).select().single();
+  if (error) return jsonResponse({ error: error.message }, 500);
+  return jsonResponse(data);
+}
+
+async function handleListJobs(body) {
+  const { projectId, limit: lim } = body;
+  let query = supabase.from('hunter_jobs')
+    .select('*')
+    .neq('type', '_heartbeat')
+    .order('created_at', { ascending: false })
+    .limit(lim || 20);
+
+  if (projectId) query = query.eq('project_id', projectId);
+
+  const { data, error } = await query;
+  if (error) return jsonResponse({ error: error.message }, 500);
+  return jsonResponse(data);
+}
+
+async function handleGetWorkerStatus() {
+  const { data } = await supabase.from('hunter_jobs')
+    .select('progress, started_at')
+    .eq('id', '00000000-0000-0000-0000-000000000000')
+    .single();
+
+  if (!data) return jsonResponse({ online: false });
+
+  const ts = data.progress?.timestamp;
+  const online = ts && (Date.now() - new Date(ts).getTime() < 60000);
+  return jsonResponse({ online, ...data.progress });
+}
+
+async function handleGetUploadUrl(body) {
+  const { fileName } = body;
+  const path = `selects/${Date.now()}-${fileName || 'upload.xml'}`;
+
+  // Create signed upload URL
+  const { data, error } = await supabase.storage.from('hunter-uploads')
+    .createSignedUploadUrl(path);
+
+  if (error) return jsonResponse({ error: error.message }, 500);
+  return jsonResponse({ path, signedUrl: data.signedUrl, token: data.token });
 }
 
 function jsonResponse(data, status = 200) {

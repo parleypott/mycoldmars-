@@ -1,4 +1,4 @@
-import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights, listScenes, listArcSummaries, fetchCorpusContext, getScriptSnapshot, listScriptPasses, runScriptPass, chatWithScript, fetchParseDoc, runGlobalTraining, getGlobalTraining, persistEditorialDecisions, runTasteTraining, getTasteProfile } from './db.js';
+import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights, listScenes, listArcSummaries, fetchCorpusContext, getScriptSnapshot, listScriptPasses, runScriptPass, chatWithScript, fetchParseDoc, runGlobalTraining, getGlobalTraining, persistEditorialDecisions, runTasteTraining, getTasteProfile, createJob, listJobs, getWorkerStatus, getUploadUrl, getSupabaseClient } from './db.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -219,6 +219,7 @@ const TABS_V2 = [
   { id: 'insights', num: '03', label: 'INSIGHTS',      hint: 'WHAT DO YOU SEE' },
   { id: 'scenes',   num: '04', label: 'SCENE BUILDER', hint: 'PROPOSE / EDIT'  },
   { id: 'script',   num: '05', label: 'SCRIPT',        hint: 'COPILOT'         },
+  { id: 'ops',      num: '06', label: 'OPS',           hint: 'COMMAND CENTER'  },
 ];
 
 let v2Tab = 'inputs';
@@ -342,6 +343,7 @@ function v2SwitchTab(tabId, signal) {
     case 'insights': renderInsightsTab(units, patterns, assets, signal); break;
     case 'scenes':   renderScenesTab(units, signal); break;
     case 'script':   renderScriptTab(project, assets, signal); break;
+    case 'ops':      renderOpsTab(project, signal); break;
   }
 
   // Update footbar
@@ -2243,6 +2245,305 @@ function renderFootageTasteSection() {
       <div>Run cross-tier matching on projects with raw + selects tiers, then train to learn your editing preferences.</div>
     </div>` : ''}
   `;
+}
+
+// ── §06 OPS TAB — COMMAND CENTER ──
+
+let opsState = { jobs: [], workerOnline: false, pollTimer: null, uploading: false };
+
+async function renderOpsTab(project, signal) {
+  const panel = document.getElementById('v2-panel-ops');
+  if (!panel) return;
+
+  // Initial load
+  panel.innerHTML = `<div style="padding:3rem;text-align:center;color:rgba(255,255,255,0.3)">Loading ops...</div>`;
+
+  try {
+    const [statusRes, jobsRes] = await Promise.allSettled([
+      getWorkerStatus(),
+      listJobs(project.id, 30),
+    ]);
+    opsState.workerOnline = statusRes.status === 'fulfilled' && statusRes.value?.online;
+    opsState.jobs = jobsRes.status === 'fulfilled' ? (jobsRes.value || []) : [];
+  } catch {}
+
+  renderOpsPanel(project, signal);
+
+  // Poll for updates every 5s
+  if (opsState.pollTimer) clearInterval(opsState.pollTimer);
+  opsState.pollTimer = setInterval(async () => {
+    if (signal.aborted) { clearInterval(opsState.pollTimer); return; }
+    try {
+      const [s, j] = await Promise.allSettled([
+        getWorkerStatus(),
+        listJobs(project.id, 30),
+      ]);
+      opsState.workerOnline = s.status === 'fulfilled' && s.value?.online;
+      opsState.jobs = j.status === 'fulfilled' ? (j.value || []) : opsState.jobs;
+      renderOpsPanel(project, signal);
+    } catch {}
+  }, 5000);
+
+  signal.addEventListener('abort', () => {
+    if (opsState.pollTimer) clearInterval(opsState.pollTimer);
+  });
+}
+
+function renderOpsPanel(project, signal) {
+  const panel = document.getElementById('v2-panel-ops');
+  if (!panel) return;
+
+  const online = opsState.workerOnline;
+  const jobs = opsState.jobs;
+  const running = jobs.filter(j => j.status === 'running');
+  const pending = jobs.filter(j => j.status === 'pending');
+  const completed = jobs.filter(j => j.status === 'completed');
+  const failed = jobs.filter(j => j.status === 'failed');
+
+  panel.innerHTML = `
+    <style>
+      .ops-wrap { max-width:900px; margin:0 auto; padding:2rem 1.5rem; }
+      .ops-header { margin-bottom:2rem; }
+      .ops-eyebrow { font-size:0.6rem; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.3); margin-bottom:0.5rem; }
+      .ops-title { font-size:2rem; letter-spacing:0.03em; font-weight:200; color:#fff; }
+      .ops-sub { font-size:0.8rem; color:rgba(255,255,255,0.3); margin-top:0.3rem; }
+
+      .ops-worker {
+        display:flex; align-items:center; gap:0.8rem; padding:0.8rem 1rem;
+        border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06);
+        margin-bottom:2rem;
+      }
+      .ops-worker-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+      .ops-worker-dot.online { background:#34D399; box-shadow:0 0 6px rgba(52,211,153,0.4); }
+      .ops-worker-dot.offline { background:#EF4444; box-shadow:0 0 6px rgba(239,68,68,0.3); }
+      .ops-worker-label { font-size:0.75rem; letter-spacing:0.1em; color:rgba(255,255,255,0.6); }
+      .ops-worker-hint { font-size:0.65rem; color:rgba(255,255,255,0.2); margin-left:auto; }
+
+      .ops-actions { display:grid; grid-template-columns:1fr 1fr; gap:0.8rem; margin-bottom:2rem; }
+      .ops-action-btn {
+        display:flex; flex-direction:column; align-items:flex-start; gap:0.3rem;
+        padding:1rem 1.2rem; border-radius:8px;
+        background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.08);
+        cursor:pointer; transition:all 0.15s; font-family:inherit; color:#fff; text-align:left;
+      }
+      .ops-action-btn:hover { border-color:rgba(255,255,255,0.2); background:rgba(255,255,255,0.04); }
+      .ops-action-btn:disabled { opacity:0.4; cursor:not-allowed; }
+      .ops-action-btn .ops-btn-title { font-size:0.8rem; font-weight:500; letter-spacing:0.05em; }
+      .ops-action-btn .ops-btn-desc { font-size:0.65rem; color:rgba(255,255,255,0.3); }
+
+      .ops-upload-zone {
+        border:2px dashed rgba(255,255,255,0.08); border-radius:10px;
+        padding:1.5rem; text-align:center; cursor:pointer; transition:all 0.2s;
+        margin-bottom:2rem; position:relative;
+      }
+      .ops-upload-zone:hover, .ops-upload-zone.drag-over { border-color:rgba(255,255,255,0.25); background:rgba(255,255,255,0.02); }
+      .ops-upload-zone .ops-upload-icon { font-size:1.5rem; opacity:0.15; margin-bottom:0.5rem; }
+      .ops-upload-zone .ops-upload-text { font-size:0.8rem; color:rgba(255,255,255,0.4); }
+      .ops-upload-zone .ops-upload-hint { font-size:0.65rem; color:rgba(255,255,255,0.15); margin-top:0.3rem; }
+      .ops-upload-input { position:absolute; inset:0; opacity:0; cursor:pointer; }
+
+      .ops-section-label { font-size:0.6rem; letter-spacing:0.25em; text-transform:uppercase; color:rgba(255,255,255,0.25); margin-bottom:0.8rem; margin-top:2rem; }
+
+      .ops-job {
+        display:grid; grid-template-columns:90px 120px 1fr 80px; gap:0.8rem; align-items:center;
+        padding:0.6rem 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.75rem;
+      }
+      .ops-job-type { color:rgba(255,255,255,0.6); font-family:var(--np-font-mono); font-size:0.65rem; letter-spacing:0.05em; }
+      .ops-job-status { display:flex; align-items:center; gap:0.4rem; }
+      .ops-job-badge {
+        display:inline-block; padding:0.15rem 0.5rem; border-radius:3px;
+        font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase; font-family:var(--np-font-mono);
+      }
+      .ops-job-badge.pending { background:rgba(251,191,36,0.1); color:#FCD34D; }
+      .ops-job-badge.running { background:rgba(96,165,250,0.1); color:#93C5FD; }
+      .ops-job-badge.completed { background:rgba(52,211,153,0.1); color:#6EE7B7; }
+      .ops-job-badge.failed { background:rgba(239,68,68,0.1); color:#FCA5A5; }
+      .ops-job-message { color:rgba(255,255,255,0.4); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .ops-job-time { color:rgba(255,255,255,0.2); font-size:0.65rem; text-align:right; }
+
+      .ops-progress-bar { width:100%; height:4px; background:rgba(255,255,255,0.04); border-radius:2px; overflow:hidden; margin-top:0.3rem; }
+      .ops-progress-fill { height:100%; background:#60A5FA; border-radius:2px; transition:width 0.5s; }
+
+      .ops-empty { text-align:center; padding:2rem; color:rgba(255,255,255,0.15); font-size:0.8rem; }
+    </style>
+
+    <div class="ops-wrap">
+      <div class="ops-header">
+        <div class="ops-eyebrow">Operations</div>
+        <div class="ops-title">Command Center</div>
+        <div class="ops-sub">Trigger and monitor all Hunter operations from here.</div>
+      </div>
+
+      <!-- Worker status -->
+      <div class="ops-worker">
+        <div class="ops-worker-dot ${online ? 'online' : 'offline'}"></div>
+        <div class="ops-worker-label">${online ? 'WORKER ONLINE' : 'WORKER OFFLINE'}</div>
+        <div class="ops-worker-hint">${online ? 'Polling for jobs every 5s' : 'Start job-runner.mjs on your Mac'}</div>
+      </div>
+
+      <!-- Upload selects XML -->
+      <div class="ops-upload-zone" id="ops-upload-zone">
+        <div class="ops-upload-icon">↑</div>
+        <div class="ops-upload-text">Drop a <strong>selects XML</strong> here to ingest</div>
+        <div class="ops-upload-hint">FCP7 XML — will upload to Supabase storage and create an ingest job</div>
+        <input type="file" accept=".xml,.fcpxml" class="ops-upload-input" id="ops-upload-input">
+      </div>
+
+      <!-- Action buttons -->
+      <div class="ops-actions">
+        <button class="ops-action-btn" id="ops-btn-synthesis" ${!online ? 'disabled' : ''}>
+          <span class="ops-btn-title">RUN SYNTHESIS</span>
+          <span class="ops-btn-desc">Build corpus context — scenes, days, project summary</span>
+        </button>
+        <button class="ops-action-btn" id="ops-btn-decisions" ${!online ? 'disabled' : ''}>
+          <span class="ops-btn-title">COMPUTE DECISIONS</span>
+          <span class="ops-btn-desc">Cross-reference raw vs selects — kept/discarded</span>
+        </button>
+        <button class="ops-action-btn" id="ops-btn-taste" ${!online ? 'disabled' : ''}>
+          <span class="ops-btn-title">TRAIN TASTE</span>
+          <span class="ops-btn-desc">Learn editing preferences from editorial decisions</span>
+        </button>
+        <button class="ops-action-btn" id="ops-btn-backfill" ${!online ? 'disabled' : ''}>
+          <span class="ops-btn-title">BACKFILL ANALYSES</span>
+          <span class="ops-btn-desc">Re-analyze clips with latest taste profile</span>
+        </button>
+      </div>
+
+      <!-- Running jobs -->
+      ${running.length > 0 ? `
+        <div class="ops-section-label">RUNNING</div>
+        ${running.map(j => renderOpsJob(j)).join('')}
+      ` : ''}
+
+      <!-- Pending jobs -->
+      ${pending.length > 0 ? `
+        <div class="ops-section-label">QUEUED</div>
+        ${pending.map(j => renderOpsJob(j)).join('')}
+      ` : ''}
+
+      <!-- History -->
+      <div class="ops-section-label">HISTORY${jobs.length > 0 ? ` (${jobs.length})` : ''}</div>
+      ${jobs.length > 0 ? jobs.slice(0, 20).map(j => renderOpsJob(j)).join('') : '<div class="ops-empty">No jobs yet</div>'}
+    </div>
+  `;
+
+  // Wire up events
+  wireOpsEvents(project, signal);
+}
+
+function renderOpsJob(job) {
+  const p = job.progress || {};
+  const pct = p.pct || 0;
+  const msg = p.message || '';
+  const type = (job.type || '').replace(/_/g, ' ');
+  const status = job.status || 'pending';
+  const time = job.created_at ? formatTimeAgo(new Date(job.created_at)) : '';
+
+  return `
+    <div class="ops-job">
+      <div class="ops-job-type">${escHtml(type)}</div>
+      <div class="ops-job-status">
+        <span class="ops-job-badge ${status}">${status}</span>
+        ${status === 'running' ? `<span style="font-size:0.6rem;color:rgba(255,255,255,0.2)">${pct}%</span>` : ''}
+      </div>
+      <div class="ops-job-message">${escHtml(msg || (job.error ? job.error.slice(0, 100) : ''))}</div>
+      <div class="ops-job-time">${time}</div>
+    </div>
+    ${status === 'running' ? `<div class="ops-progress-bar"><div class="ops-progress-fill" style="width:${pct}%"></div></div>` : ''}
+  `;
+}
+
+function formatTimeAgo(date) {
+  const s = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
+function wireOpsEvents(project, signal) {
+  const opts = { signal };
+
+  // Synthesis
+  document.getElementById('ops-btn-synthesis')?.addEventListener('click', async () => {
+    try {
+      await createJob('run_synthesis', project.id, { projectId: project.id, force: true, skipSubjects: true });
+    } catch (err) { alert('Failed: ' + err.message); }
+  }, opts);
+
+  // Compute decisions
+  document.getElementById('ops-btn-decisions')?.addEventListener('click', async () => {
+    try {
+      await createJob('compute_decisions', project.id, { projectId: project.id });
+    } catch (err) { alert('Failed: ' + err.message); }
+  }, opts);
+
+  // Train taste
+  document.getElementById('ops-btn-taste')?.addEventListener('click', async () => {
+    try {
+      await createJob('train_taste', project.id, {});
+    } catch (err) { alert('Failed: ' + err.message); }
+  }, opts);
+
+  // Backfill
+  document.getElementById('ops-btn-backfill')?.addEventListener('click', async () => {
+    try {
+      await createJob('backfill_analyses', project.id, { projectId: project.id });
+    } catch (err) { alert('Failed: ' + err.message); }
+  }, opts);
+
+  // File upload
+  const uploadZone = document.getElementById('ops-upload-zone');
+  const uploadInput = document.getElementById('ops-upload-input');
+
+  if (uploadZone && uploadInput) {
+    uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('drag-over'); }, opts);
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'), opts);
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('drag-over');
+      const file = e.dataTransfer?.files?.[0];
+      if (file) handleOpsUpload(file, project);
+    }, opts);
+    uploadInput.addEventListener('change', () => {
+      const file = uploadInput.files?.[0];
+      if (file) handleOpsUpload(file, project);
+    }, opts);
+  }
+}
+
+async function handleOpsUpload(file, project) {
+  if (opsState.uploading) return;
+  opsState.uploading = true;
+
+  const zone = document.getElementById('ops-upload-zone');
+  if (zone) zone.innerHTML = `<div class="ops-upload-text" style="color:rgba(255,255,255,0.6)">Uploading ${escHtml(file.name)}...</div>`;
+
+  try {
+    // Get signed upload URL
+    const { path, signedUrl, token } = await getUploadUrl(file.name);
+
+    // Upload directly to Supabase storage
+    const uploadRes = await fetch(signedUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/xml' },
+      body: file,
+    });
+    if (!uploadRes.ok) throw new Error('Upload failed: ' + uploadRes.statusText);
+
+    // Create ingest job
+    await createJob('ingest_selects', project.id, {
+      projectId: project.id,
+      storagePath: path,
+      fileName: file.name,
+    });
+
+    if (zone) zone.innerHTML = `<div class="ops-upload-text" style="color:#6EE7B7">Uploaded! Ingest job queued.</div>`;
+  } catch (err) {
+    if (zone) zone.innerHTML = `<div class="ops-upload-text" style="color:#FCA5A5">Upload failed: ${escHtml(err.message)}</div>`;
+  } finally {
+    opsState.uploading = false;
+  }
 }
 
 // ── V2 Helpers ──

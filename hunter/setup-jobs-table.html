@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Setup Jobs Table</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0a0a0a; color:#e0e0e0; font-family:'SF Mono',Menlo,monospace; padding:3rem; }
+  h1 { font-size:2.5rem; color:#FF3B20; margin-bottom:0.5rem; font-weight:700; }
+  .sub { color:#666; font-size:0.9rem; margin-bottom:2rem; }
+  .step { margin-bottom:2rem; padding:1.5rem; background:#111; border:1px solid #222; border-radius:8px; }
+  .step-num { font-size:0.7rem; color:#FF3B20; letter-spacing:0.2em; margin-bottom:0.5rem; }
+  .step-title { font-size:1.1rem; font-weight:600; margin-bottom:0.8rem; }
+  .step-desc { color:#888; font-size:0.85rem; margin-bottom:0.8rem; line-height:1.5; }
+  pre { background:#0d0d0d; padding:1rem; border-radius:6px; overflow-x:auto; font-size:0.8rem; line-height:1.6; color:#a0ffa0; border:1px solid #1a1a1a; position:relative; }
+  .copy-btn { position:absolute; top:0.5rem; right:0.5rem; background:#222; border:1px solid #333; color:#aaa; padding:0.3rem 0.7rem; border-radius:4px; cursor:pointer; font-family:inherit; font-size:0.7rem; }
+  .copy-btn:hover { background:#333; color:#fff; }
+  a { color:#60A5FA; }
+  .link-btn { display:inline-block; background:#1a1a2e; border:1px solid #333; color:#60A5FA; padding:0.5rem 1rem; border-radius:6px; text-decoration:none; font-size:0.85rem; margin-top:0.5rem; }
+  .link-btn:hover { background:#222; }
+</style>
+</head>
+<body>
+  <h1>JOHNNY PLEASE DO THIS</h1>
+  <p class="sub">Create the hunter_jobs table + hunter-uploads storage bucket in Supabase</p>
+
+  <div class="step">
+    <div class="step-num">STEP 1</div>
+    <div class="step-title">Run this SQL in the Supabase SQL Editor</div>
+    <div class="step-desc">Go to your Supabase dashboard → SQL Editor → New query → paste and run:</div>
+    <a class="link-btn" href="https://supabase.com/dashboard/project/_/sql" target="_blank">Open SQL Editor →</a>
+    <pre id="sql-code">-- Job queue for Hunter operations
+create table if not exists hunter_jobs (
+  id uuid primary key default gen_random_uuid(),
+  type text not null,
+  status text not null default 'pending',
+  project_id uuid references hunter_projects(id) on delete cascade,
+  params jsonb default '{}',
+  progress jsonb default '{}',
+  result jsonb default '{}',
+  error text,
+  created_at timestamptz default now(),
+  started_at timestamptz,
+  completed_at timestamptz
+);
+
+create index if not exists idx_hunter_jobs_status on hunter_jobs(status);
+create index if not exists idx_hunter_jobs_created on hunter_jobs(created_at desc);
+
+alter table hunter_jobs enable row level security;
+create policy "anon_all" on hunter_jobs for all using (true) with check (true);
+<button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('sql-code').textContent.replace(/Copy/,'').trim())">Copy</button></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-num">STEP 2</div>
+    <div class="step-title">Create the "hunter-uploads" storage bucket</div>
+    <div class="step-desc">Go to Storage → New Bucket → name it <strong>hunter-uploads</strong> → make it public.</div>
+    <a class="link-btn" href="https://supabase.com/dashboard/project/_/storage/buckets" target="_blank">Open Storage →</a>
+  </div>
+
+  <div class="step">
+    <div class="step-num">STEP 3</div>
+    <div class="step-title">Add storage policy (allow uploads)</div>
+    <div class="step-desc">In Storage → Policies → hunter-uploads bucket → add this policy via SQL:</div>
+    <pre id="storage-sql">-- Allow all operations on hunter-uploads bucket
+create policy "allow_all_hunter_uploads"
+on storage.objects for all
+using (bucket_id = 'hunter-uploads')
+with check (bucket_id = 'hunter-uploads');
+<button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('storage-sql').textContent.replace(/Copy/,'').trim())">Copy</button></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-num">STEP 4</div>
+    <div class="step-title">Start the job runner on your Mac</div>
+    <div class="step-desc">In a terminal on your workhorse Mac:</div>
+    <pre id="runner-cmd">cd /Users/orangejacket/playground/mycoldmars && node hunter/worker/job-runner.mjs
+<button class="copy-btn" onclick="navigator.clipboard.writeText('cd /Users/orangejacket/playground/mycoldmars && node hunter/worker/job-runner.mjs')">Copy</button></pre>
+    <div class="step-desc" style="margin-top:0.5rem">Or with pm2 for auto-restart: <code>pm2 start hunter/worker/job-runner.mjs --name hunter-jobs</code></div>
+  </div>
+
+  <script>
+    // Auto-replace Supabase project URL if available
+    const url = localStorage.getItem('supabase_url') || '';
+    if (url) {
+      const projectRef = url.match(/https:\/\/([^.]+)/)?.[1];
+      if (projectRef) {
+        document.querySelectorAll('a.link-btn').forEach(a => {
+          a.href = a.href.replace('/project/_/', `/project/${projectRef}/`);
+        });
+      }
+    }
+  </script>
+</body>
+</html>

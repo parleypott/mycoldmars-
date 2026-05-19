@@ -605,6 +605,41 @@ export async function getTasteProfile() {
   return res.json();
 }
 
+// ── Job queue (operations panel) ──
+
+async function apiCall(action, body = {}) {
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...body }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `API call ${action} failed`);
+  }
+  return res.json();
+}
+
+export function createJob(jobType, projectId, params = {}) {
+  return apiCall('create_job', { jobType, projectId, params });
+}
+
+export function listJobs(projectId, limit = 20) {
+  return apiCall('list_jobs', { projectId, limit });
+}
+
+export function getWorkerStatus() {
+  return apiCall('get_worker_status');
+}
+
+export function getUploadUrl(fileName) {
+  return apiCall('get_upload_url', { fileName });
+}
+
+export function getSupabaseClient() {
+  return supabase;
+}
+
 // ── Pending queue (used by worker) ──
 
 export async function getPendingAssets(limit = 10) {
