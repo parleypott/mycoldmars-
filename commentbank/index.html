@@ -1113,19 +1113,21 @@ select.sort {
 .code-head .spacer { flex: 1; }
 .code-head button {
   font-family: var(--font-body);
-  font-size: 10px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  padding: 7px 12px;
-  border: 1px solid var(--line);
-  color: var(--cream-dim);
+  padding: 10px 16px;
+  border: 1px solid var(--he-orange);
+  color: var(--he-orange);
+  background: transparent;
 }
-.code-head button:hover { color: var(--he-orange); border-color: var(--he-orange); }
+.code-head button:hover { background: var(--he-orange); color: var(--he-night); }
 .code-head button.primary {
   background: var(--he-orange); color: var(--he-night);
-  border-color: var(--he-orange); font-weight: 700;
+  border-color: var(--he-orange);
 }
+.code-head button.primary:hover { background: var(--he-orange-bright); border-color: var(--he-orange-bright); }
 .code-block {
   background: var(--he-night);
   border: 1px solid var(--line);
@@ -1402,7 +1404,7 @@ select.sort {
             <div class="avatar-controls">
               <div class="preview-thumb" id="avatarPreview"></div>
               <div class="sliders">
-                <div class="slider-row"><label>Zoom</label><input type="range" id="avZoom" min="100" max="500" value="200" /><span class="val" id="avZoomVal">200%</span></div>
+                <div class="slider-row"><label>Zoom</label><input type="range" id="avZoom" min="100" max="2500" value="200" /><span class="val" id="avZoomVal">200%</span></div>
                 <div class="slider-row"><label>X</label><input type="range" id="avX" min="0" max="100" value="6" /><span class="val" id="avXVal">6%</span></div>
                 <div class="slider-row"><label>Y</label><input type="range" id="avY" min="0" max="100" value="6" /><span class="val" id="avYVal">6%</span></div>
               </div>
@@ -1600,12 +1602,14 @@ function render() {
       <img src="${asset(c.local_path)}" alt="" loading="lazy" />
       <div class="tag-corner"><span class="accent">●</span> ${sent}</div>
       <div class="card-actions">
-        <button class="select-btn" data-role="select">${selected.has(c.id) ? "✓ Selected" : "Select"}</button>
-        <button data-role="similar">More like this</button>
+        <button class="select-btn" data-role="select">${selected.has(c.id) ? "✓" : "Select"}</button>
+        <button data-role="stylize">✦ Stylize</button>
+        <button data-role="similar">More like</button>
         <a href="${asset(c.local_path)}" download="${c.id}.${c.ext}" onclick="event.stopPropagation()">↓</a>
       </div>
     `;
     card.querySelector('[data-role="select"]').addEventListener("click", e => { e.stopPropagation(); toggleSelected(c.id); });
+    card.querySelector('[data-role="stylize"]').addEventListener("click", e => { e.stopPropagation(); startStylize([c]); });
     card.querySelector('[data-role="similar"]').addEventListener("click", e => { e.stopPropagation(); findSimilar(c); });
     card.querySelector("img").addEventListener("click", () => openModal(c));
     grid.appendChild(card);
@@ -1627,10 +1631,15 @@ function openModal(c) {
   if (c.slack_permalink) { slack.href = c.slack_permalink; slack.style.display = "inline-block"; }
   else { slack.style.display = "none"; }
   $("#modal").classList.add("open");
+  if (!suppressHashUpdate) history.replaceState(null, "", `#comment/${c.id}`);
 }
-$("#closeX").onclick = () => $("#modal").classList.remove("open");
-$("#modal").onclick = e => { if (e.target.id === "modal") $("#modal").classList.remove("open"); };
-document.addEventListener("keydown", e => { if (e.key === "Escape") $("#modal").classList.remove("open"); });
+function closeModal() {
+  $("#modal").classList.remove("open");
+  if (!suppressHashUpdate) updateHash();
+}
+$("#closeX").onclick = closeModal;
+$("#modal").onclick = e => { if (e.target.id === "modal") closeModal(); };
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 
 $("#search").addEventListener("input", render);
 $("#sort").addEventListener("change", render);
@@ -1664,9 +1673,13 @@ $("#downloadSelected").onclick = async () => {
   await zipAndDownload(comments.filter(c => selected.has(c.id)), "comment-bank", $("#downloadSelected"));
 };
 
-/* ── MODES ── */
+/* ── MODES + URL ROUTING ── */
 let browseRendered = false;
-function setMode(name) {
+let currentMode = "gallery";
+let suppressHashUpdate = false;
+
+function setMode(name, opts = {}) {
+  currentMode = name;
   for (const tab of document.querySelectorAll(".tab")) tab.classList.toggle("on", tab.dataset.mode === name);
   $("#gallery").style.display = name === "gallery" ? "block" : "none";
   $("#galleryControls").style.display = name === "gallery" ? "flex" : "none";
@@ -1674,9 +1687,62 @@ function setMode(name) {
   $("#browse").style.display = name === "browse" ? "block" : "none";
   $("#ask").style.display = name === "ask" ? "block" : "none";
   if (name === "browse" && !browseRendered) renderBrowse();
-  window.scrollTo({ top: 0, behavior: "instant" });
+  if (!opts.keepScroll) window.scrollTo({ top: 0, behavior: "instant" });
+  if (!opts.fromHash) updateHash();
 }
 for (const tab of document.querySelectorAll(".tab")) tab.onclick = () => setMode(tab.dataset.mode);
+
+function updateHash() {
+  if (suppressHashUpdate) return;
+  let hash = `#${currentMode}`;
+  if (currentMode === "ask") {
+    const q = $("#askInput") && $("#askInput").value.trim();
+    if (q) hash += "/" + encodeURIComponent(q.slice(0, 200));
+  }
+  if (location.hash !== hash) {
+    history.replaceState(null, "", hash);
+  }
+}
+
+function applyHash() {
+  const raw = location.hash.replace(/^#/, "");
+  if (!raw) { setMode("gallery", { fromHash: true }); return; }
+  const [modePart, ...rest] = raw.split("/");
+  const detail = rest.join("/");
+
+  if (modePart === "comment" && detail) {
+    const c = comments.find(x => x.id === detail);
+    if (c) { setMode("gallery", { fromHash: true }); openModal(c); return; }
+  }
+  if (modePart === "browse") {
+    setMode("browse", { fromHash: true });
+    if (detail) {
+      // scroll to the item with this id
+      setTimeout(() => {
+        const el = document.querySelector(`#browseStream [data-id="${CSS.escape(detail)}"]`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    }
+    return;
+  }
+  if (modePart === "ask") {
+    setMode("ask", { fromHash: true });
+    if (detail) {
+      const q = decodeURIComponent(detail);
+      $("#askInput").value = q;
+      runAsk();
+    }
+    return;
+  }
+  // default
+  setMode("gallery", { fromHash: true });
+}
+
+window.addEventListener("hashchange", () => {
+  suppressHashUpdate = true;
+  applyHash();
+  suppressHashUpdate = false;
+});
 
 /* ── BROWSE ── */
 function renderBrowse() {
@@ -1701,6 +1767,7 @@ function renderBrowse() {
     const sent = (a.sentiment || "").replace("_", " ");
     const item = document.createElement("div");
     item.className = "browse-item";
+    item.dataset.id = c.id;
     item.innerHTML = `
       <img src="${asset(c.local_path)}" alt="" loading="lazy" />
       <div class="browse-item-meta">
@@ -1710,11 +1777,13 @@ function renderBrowse() {
         <span class="sep">·</span>
         <span>${dateStr}</span>
         <span class="spacer"></span>
-        <button data-role="similar">More like this</button>
+        <button data-role="stylize">✦ Stylize</button>
+        <button data-role="similar">More like</button>
         <a href="${asset(c.local_path)}" download="${c.id}.${c.ext}">↓ Download</a>
       </div>
     `;
     item.querySelector("img").onclick = () => openModal(c);
+    item.querySelector('[data-role="stylize"]').onclick = () => startStylize([c]);
     item.querySelector('[data-role="similar"]').onclick = () => findSimilar(c);
     stream.appendChild(item);
   });
@@ -1810,12 +1879,14 @@ async function runAskWithQuery(question) {
             <span class="sent">${(a.sentiment || "").replace("_", " ")}</span>
             ${(a.themes || []).slice(0, 4).map(t => `<span class="sep">·</span><span>${escapeHtml(t)}</span>`).join("")}
             <span class="spacer"></span>
+            <button data-role="stylize-one" class="dl-icon" title="stylize this one">✦</button>
             <a class="dl-icon" href="${asset(c.local_path)}" download="${c.id}.${c.ext}" title="download original">↓</a>
           </div>
         </div>
       `;
       card.querySelector("img").onclick = () => openModal(c);
       card.querySelector('[data-role="check"]').onclick = () => toggleAskSelected(c.id);
+      card.querySelector('[data-role="stylize-one"]').onclick = () => startStylize([c]);
       results.appendChild(card);
     }
   } catch (err) {
@@ -2355,7 +2426,10 @@ async function finishStylize() {
   closeStylize();
 }
 
-load();
+// Boot
+(async () => {
+  await   applyHash();
+})();
 </script>
 </body>
 </html>
