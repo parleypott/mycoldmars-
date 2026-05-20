@@ -941,6 +941,83 @@ select.sort {
 .stylize-fields input:focus,
 .stylize-fields textarea:focus { outline: none; border-color: var(--he-orange); }
 .stylize-fields textarea { min-height: 160px; }
+
+.rich-text {
+  background: transparent;
+  border: 1px solid var(--line);
+  padding: 12px 14px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--he-cream);
+  min-height: 160px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  cursor: text;
+}
+.rich-text:focus { outline: none; border-color: var(--he-orange); }
+.rich-text mark {
+  background: rgba(244, 67, 21, 0.28);
+  color: var(--he-cream);
+  padding: 0 2px;
+  border-radius: 1px;
+}
+.rich-text-toolbar {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.rich-text-toolbar button {
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  color: var(--cream-dim);
+}
+.rich-text-toolbar button:hover { color: var(--he-orange); border-color: var(--he-orange); }
+.rich-text-toolbar button.primary {
+  background: rgba(244, 67, 21, 0.18);
+  color: var(--he-orange);
+  border-color: var(--he-orange);
+}
+
+.avatar-controls {
+  display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  padding: 10px 0;
+}
+.avatar-controls .preview-thumb {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background-repeat: no-repeat;
+  flex-shrink: 0;
+}
+.avatar-controls .sliders {
+  display: flex; flex-direction: column; gap: 6px;
+  flex: 1; min-width: 200px;
+}
+.avatar-controls .slider-row {
+  display: flex; gap: 8px; align-items: center;
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cream-faint);
+}
+.avatar-controls .slider-row label { width: 38px; }
+.avatar-controls .slider-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--he-orange);
+  background: transparent;
+}
+.avatar-controls .slider-row .val {
+  width: 38px; text-align: right;
+  color: var(--cream-dim);
+  font-variant-numeric: tabular-nums;
+}
 .stylize-fields .quick-actions {
   display: flex; gap: 6px; flex-wrap: wrap;
   margin-top: 4px;
@@ -976,7 +1053,25 @@ select.sort {
   background: var(--he-orange); color: var(--he-night); border-color: var(--he-orange);
 }
 
-/* PREVIEW + the actual YouTube-style comment renderer */
+/* Preview + code tabs */
+.preview-tabs {
+  display: flex; gap: 0; border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+}
+.preview-tab {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--cream-faint);
+  padding: 10px 18px 12px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.preview-tab:hover { color: var(--cream-soft); }
+.preview-tab.on { color: var(--he-orange); border-bottom-color: var(--he-orange); }
+
 .stylize-preview-wrap {
   background: var(--he-coal);
   border: 1px solid var(--line);
@@ -995,6 +1090,59 @@ select.sort {
   display: flex; justify-content: center;
   overflow: hidden;
 }
+
+.code-pane {
+  display: none;
+  background: var(--he-coal);
+  border: 1px solid var(--line);
+  padding: 18px;
+  display: none;
+}
+.code-pane.on { display: flex; flex-direction: column; gap: 12px; }
+.code-head {
+  display: flex; gap: 10px; align-items: center;
+}
+.code-head .label {
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--cream-faint);
+}
+.code-head .spacer { flex: 1; }
+.code-head button {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  color: var(--cream-dim);
+}
+.code-head button:hover { color: var(--he-orange); border-color: var(--he-orange); }
+.code-head button.primary {
+  background: var(--he-orange); color: var(--he-night);
+  border-color: var(--he-orange); font-weight: 700;
+}
+.code-block {
+  background: var(--he-night);
+  border: 1px solid var(--line);
+  padding: 16px;
+  font-family: "SF Mono", "Roboto Mono", monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--cream-soft);
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 60vh;
+  user-select: text;
+}
+.code-block .tag { color: #ff9466; }
+.code-block .attr { color: #ffd089; }
+.code-block .str { color: #95E1D3; }
+.code-block .mark { background: rgba(244, 67, 21, 0.32); color: var(--he-cream); }
 
 /* The element html2canvas captures — fixed width for consistent output */
 .yt-comment {
@@ -1019,6 +1167,10 @@ select.sort {
   font-weight: 500;
   color: #FFFFFF;
   text-transform: uppercase;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
 }
 .yt-body { flex: 1; min-width: 0; }
 .yt-line1 {
@@ -1239,9 +1391,29 @@ select.sort {
             <span class="label-row">Timestamp <span class="hint">/ e.g. 2 weeks ago</span></span>
             <input id="fieldTime" type="text" placeholder="3 weeks ago" />
           </label>
+          <div>
+            <span class="label-row" style="margin-bottom: 6px;">Avatar <span class="hint">/ cropped from source image</span></span>
+            <div class="avatar-controls">
+              <div class="preview-thumb" id="avatarPreview"></div>
+              <div class="sliders">
+                <div class="slider-row"><label>Zoom</label><input type="range" id="avZoom" min="100" max="500" value="200" /><span class="val" id="avZoomVal">200%</span></div>
+                <div class="slider-row"><label>X</label><input type="range" id="avX" min="0" max="100" value="6" /><span class="val" id="avXVal">6%</span></div>
+                <div class="slider-row"><label>Y</label><input type="range" id="avY" min="0" max="100" value="6" /><span class="val" id="avYVal">6%</span></div>
+              </div>
+            </div>
+            <div class="quick-actions">
+              <button data-avtoggle="image" class="on">From source</button>
+              <button data-avtoggle="letter">Letter only</button>
+            </div>
+          </div>
           <label>
-            <span class="label-row">Comment text <span class="hint">/ trim to the part you want</span></span>
-            <textarea id="fieldText" rows="7"></textarea>
+            <span class="label-row">Comment text <span class="hint">/ select &amp; mark phrases to highlight</span></span>
+            <div class="rich-text-toolbar">
+              <button id="rtHighlight" class="primary">✦ Highlight selection</button>
+              <button id="rtUnhighlight">Remove highlight</button>
+              <button id="rtClear">Clear all highlights</button>
+            </div>
+            <div id="fieldText" class="rich-text" contenteditable="true" spellcheck="false"></div>
             <div class="quick-actions">
               <button data-act="restore">Restore full</button>
               <button data-act="first-sentence">First sentence only</button>
@@ -1258,10 +1430,22 @@ select.sort {
         </div>
       </div>
       <div class="stylize-side">
-        <h3>Preview <span style="color: var(--cream-faint);">/</span> This is what downloads</h3>
-        <div class="stylize-preview-wrap">
+        <div class="preview-tabs">
+          <button class="preview-tab on" data-pane="preview">Image preview</button>
+          <button class="preview-tab" data-pane="code">HTML code</button>
+        </div>
+        <div class="stylize-preview-wrap" id="previewPane">
           <span class="preview-label">PNG preview · 720 × auto</span>
           <div id="stylizePreviewStage"></div>
+        </div>
+        <div class="code-pane" id="codePane">
+          <div class="code-head">
+            <span class="label">Single comment HTML</span>
+            <span class="spacer"></span>
+            <button id="copyCodeOne">Copy this</button>
+            <button id="copyCodeAll" class="primary">Copy ALL (in queue)</button>
+          </div>
+          <pre class="code-block" id="codeBlock"></pre>
         </div>
       </div>
     </div>
@@ -1688,9 +1872,15 @@ function avatarForHandle(handle) {
   return { bg: HSL_PALETTE[idx][0], fg: HSL_PALETTE[idx][1], letter: h[0]?.toUpperCase() || "?" };
 }
 
+function absoluteAssetUrl(rel) {
+  const path = asset(rel);
+  if (path.startsWith("http")) return path;
+  return location.origin + path;
+}
+
 const YT_ICONS = {
-  thumbUp: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11"/><path d="M21 11l-2.5 8a2 2 0 0 1-2 1.5H7"/><path d="M3 22h4V11H3z"/><path d="M7 11l6-8c1.4 0 2.5.6 2.5 2v4h5.5a2 2 0 0 1 2 2.3l-.3 2"/></svg>`,
-  thumbDown: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11"/><path d="M3 13l2.5-8a2 2 0 0 1 2-1.5H17"/><path d="M21 2h-4v11h4z"/><path d="M17 13l-6 8c-1.4 0-2.5-.6-2.5-2v-4H3a2 2 0 0 1-2-2.3l.3-2"/></svg>`,
+  thumbUp: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 4a3.13 3.13 0 0 1 3 3.88Z"/></svg>`,
+  thumbDown: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg>`,
 };
 
 const stylizeState = {
@@ -1736,10 +1926,14 @@ function buildEditFor(c) {
     : `${Math.round(daysAgo/365)} year${Math.round(daysAgo/365) === 1 ? "" : "s"} ago`;
   const handle = a.commenter ? (a.commenter.startsWith("@") ? a.commenter : "@" + a.commenter) : "@viewer";
   const edit = {
-    text: a.comment_text || "",
+    textHtml: escapeHtml(a.comment_text || ""),
     handle: handle,
     time: timeStr,
     theme: "dark",
+    avMode: "image",   // "image" or "letter"
+    avZoom: 200,       // %
+    avX: 6,            // %
+    avY: 6,            // %
   };
   stylizeState.edits.set(c.id, edit);
   return edit;
@@ -1761,9 +1955,20 @@ function renderStylizeStep() {
 
   $("#fieldHandle").value = edit.handle;
   $("#fieldTime").value = edit.time;
-  $("#fieldText").value = edit.text;
+  $("#fieldText").innerHTML = edit.textHtml;
+
+  $("#avZoom").value = edit.avZoom;
+  $("#avX").value = edit.avX;
+  $("#avY").value = edit.avY;
+  $("#avZoomVal").textContent = edit.avZoom + "%";
+  $("#avXVal").textContent = edit.avX + "%";
+  $("#avYVal").textContent = edit.avY + "%";
+
   for (const b of document.querySelectorAll("#stylizeTheme button")) {
     b.classList.toggle("on", b.dataset.theme === edit.theme);
+  }
+  for (const b of document.querySelectorAll("[data-avtoggle]")) {
+    b.classList.toggle("on", b.dataset.avtoggle === edit.avMode);
   }
   renderPreview();
 
@@ -1773,27 +1978,40 @@ function renderStylizeStep() {
   $("#stylizeSaveNext").textContent = isLast ? (total > 1 ? "Save & finish →" : "Save & download →") : "Save & next →";
 }
 
+function currentComment() {
+  return stylizeState.queue[stylizeState.idx] || null;
+}
 function currentEdit() {
-  const c = stylizeState.queue[stylizeState.idx];
+  const c = currentComment();
   if (!c) return null;
   const edit = stylizeState.edits.get(c.id);
   edit.handle = $("#fieldHandle").value;
   edit.time = $("#fieldTime").value;
-  edit.text = $("#fieldText").value;
+  edit.textHtml = $("#fieldText").innerHTML;
   return edit;
 }
 
-function ytCommentMarkup(edit) {
+function avatarStyleFor(edit, c) {
+  if (edit.avMode === "letter") {
+    const av = avatarForHandle(edit.handle);
+    return `background:${av.bg}; color:${av.fg};`;
+  }
+  const url = asset(c.local_path);
+  return `background-image: url("${url}"); background-color: #333; background-size: ${edit.avZoom}%; background-position: ${edit.avX}% ${edit.avY}%; color: transparent;`;
+}
+
+function ytCommentMarkup(edit, c) {
   const av = avatarForHandle(edit.handle);
+  const letter = edit.avMode === "letter" ? escapeHtml(av.letter) : "";
   return `
     <div class="yt-comment theme-${edit.theme}">
-      <div class="yt-avatar" style="background:${av.bg}; color:${av.fg};">${escapeHtml(av.letter)}</div>
+      <div class="yt-avatar" style="${avatarStyleFor(edit, c)}">${letter}</div>
       <div class="yt-body">
         <div class="yt-line1">
           <span class="yt-handle">${escapeHtml(edit.handle)}</span>
           <span class="yt-time">${escapeHtml(edit.time)}</span>
         </div>
-        <div class="yt-text">${escapeHtml(edit.text)}</div>
+        <div class="yt-text">${edit.textHtml}</div>
         <div class="yt-actions">
           <span class="yt-action"><span class="yt-icon">${YT_ICONS.thumbUp}</span></span>
           <span class="yt-action"><span class="yt-icon">${YT_ICONS.thumbDown}</span></span>
@@ -1806,14 +2024,99 @@ function ytCommentMarkup(edit) {
 
 function renderPreview() {
   const edit = currentEdit();
-  if (!edit) return;
-  $("#stylizePreviewStage").innerHTML = ytCommentMarkup(edit);
+  const c = currentComment();
+  if (!edit || !c) return;
+  $("#stylizePreviewStage").innerHTML = ytCommentMarkup(edit, c);
+  // avatar preview thumbnail
+  $("#avatarPreview").style.cssText = avatarStyleFor(edit, c) + "; width: 48px; height: 48px;";
+  renderCode();
+}
+
+function renderCode() {
+  const c = currentComment();
+  if (!c) return;
+  const html = generateCodeFor(c, stylizeState.edits.get(c.id));
+  $("#codeBlock").innerHTML = syntaxHighlight(html);
+}
+
+function generateCodeFor(c, edit) {
+  const a = c.analysis;
+  const avatarUrl = absoluteAssetUrl(c.local_path);
+  // Clean up textHtml: extract only mark + plain text
+  const cleaned = sanitizeRichHtml(edit.textHtml);
+  return `<article class="yt-comment" data-sentiment="${escapeAttr(a.sentiment || "other")}" data-id="${escapeAttr(c.id)}">
+  <img class="yt-avatar" src="${escapeAttr(avatarUrl)}" alt="" data-zoom="${edit.avZoom}" data-x="${edit.avX}" data-y="${edit.avY}" />
+  <div class="yt-body">
+    <header class="yt-meta">
+      <span class="yt-handle">${escapeHtml(edit.handle)}</span>
+      <time class="yt-time">${escapeHtml(edit.time)}</time>
+    </header>
+    <p class="yt-text">${cleaned}</p>
+  </div>
+</article>`;
+}
+
+function sanitizeRichHtml(html) {
+  // Allow <mark> and <br>, strip everything else
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  // Convert div/p line breaks to \n
+  for (const div of tmp.querySelectorAll("div, p")) {
+    div.replaceWith(...Array.from(div.childNodes), document.createTextNode("\n"));
+  }
+  for (const br of tmp.querySelectorAll("br")) {
+    br.replaceWith(document.createTextNode("\n"));
+  }
+  // Strip any tags except <mark>
+  for (const el of tmp.querySelectorAll("*")) {
+    if (el.tagName !== "MARK") {
+      el.replaceWith(...Array.from(el.childNodes));
+    }
+  }
+  return tmp.innerHTML.replace(/\n{3,}/g, "\n\n");
+}
+
+function escapeAttr(s) {
+  return (s || "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+}
+
+function syntaxHighlight(code) {
+  // Simple token-based highlighter for the code block
+  return escapeHtml(code)
+    .replace(/(&lt;\/?)([a-zA-Z][\w-]*)/g, '$1<span class="tag">$2</span>')
+    .replace(/([\w-]+)=(&quot;[^&]*?&quot;)/g, '<span class="attr">$1</span>=<span class="str">$2</span>')
+    .replace(/(&lt;<span class="tag">mark<\/span>&gt;)(.*?)(&lt;\/<span class="tag">mark<\/span>&gt;)/g,
+      '<span class="mark">$1$2$3</span>');
 }
 
 // re-render on input
-for (const id of ["fieldHandle", "fieldTime", "fieldText"]) {
+for (const id of ["fieldHandle", "fieldTime"]) {
   $("#" + id).addEventListener("input", renderPreview);
 }
+$("#fieldText").addEventListener("input", renderPreview);
+$("#fieldText").addEventListener("blur", renderPreview);
+
+for (const sl of ["avZoom", "avX", "avY"]) {
+  $("#" + sl).addEventListener("input", () => {
+    const edit = currentEdit();
+    edit.avZoom = parseInt($("#avZoom").value, 10);
+    edit.avX = parseInt($("#avX").value, 10);
+    edit.avY = parseInt($("#avY").value, 10);
+    $("#avZoomVal").textContent = edit.avZoom + "%";
+    $("#avXVal").textContent = edit.avX + "%";
+    $("#avYVal").textContent = edit.avY + "%";
+    renderPreview();
+  });
+}
+for (const b of document.querySelectorAll("[data-avtoggle]")) {
+  b.addEventListener("click", () => {
+    const edit = currentEdit();
+    edit.avMode = b.dataset.avtoggle;
+    for (const x of document.querySelectorAll("[data-avtoggle]")) x.classList.toggle("on", x === b);
+    renderPreview();
+  });
+}
+
 for (const b of document.querySelectorAll("#stylizeTheme button")) {
   b.addEventListener("click", () => {
     const edit = currentEdit();
@@ -1822,26 +2125,117 @@ for (const b of document.querySelectorAll("#stylizeTheme button")) {
     for (const x of document.querySelectorAll("#stylizeTheme button")) x.classList.toggle("on", x === b);
   });
 }
-for (const b of document.querySelectorAll(".quick-actions button")) {
+
+// Quick actions on the rich text
+for (const b of document.querySelectorAll(".stylize-fields .quick-actions button[data-act]")) {
   b.addEventListener("click", () => {
-    const c = stylizeState.queue[stylizeState.idx];
+    const c = currentComment();
     const orig = c.analysis.comment_text || "";
     const ta = $("#fieldText");
-    if (b.dataset.act === "restore") ta.value = orig;
+    if (b.dataset.act === "restore") ta.innerHTML = escapeHtml(orig);
     if (b.dataset.act === "first-sentence") {
-      const m = ta.value.match(/^[^.!?\n]+[.!?]/);
-      if (m) ta.value = m[0];
+      const txt = ta.textContent;
+      const m = txt.match(/^[^.!?\n]+[.!?]/);
+      if (m) ta.innerHTML = escapeHtml(m[0]);
     }
-    if (b.dataset.act === "trim") ta.value = ta.value.trim().replace(/\n{3,}/g, "\n\n");
+    if (b.dataset.act === "trim") {
+      ta.innerHTML = escapeHtml(ta.textContent.trim().replace(/\n{3,}/g, "\n\n"));
+    }
     renderPreview();
   });
 }
 
+// Rich text: highlight / unhighlight
+function wrapSelectionInMark() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  if (range.collapsed) return;
+  // Must be inside the rich-text field
+  const ft = $("#fieldText");
+  if (!ft.contains(range.commonAncestorContainer)) return;
+  try {
+    const mark = document.createElement("mark");
+    range.surroundContents(mark);
+  } catch {
+    const frag = range.extractContents();
+    const mark = document.createElement("mark");
+    mark.appendChild(frag);
+    range.insertNode(mark);
+  }
+  sel.removeAllRanges();
+  renderPreview();
+}
+function unwrapMarksInSelection() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  const ft = $("#fieldText");
+  if (!ft.contains(range.commonAncestorContainer)) return;
+  const marks = ft.querySelectorAll("mark");
+  for (const m of marks) {
+    if (range.intersectsNode(m)) {
+      while (m.firstChild) m.parentNode.insertBefore(m.firstChild, m);
+      m.remove();
+    }
+  }
+  renderPreview();
+}
+function clearAllMarks() {
+  for (const m of $("#fieldText").querySelectorAll("mark")) {
+    while (m.firstChild) m.parentNode.insertBefore(m.firstChild, m);
+    m.remove();
+  }
+  renderPreview();
+}
+$("#rtHighlight").onclick = wrapSelectionInMark;
+$("#rtUnhighlight").onclick = unwrapMarksInSelection;
+$("#rtClear").onclick = clearAllMarks;
+
+// Preview <-> code tabs
+for (const t of document.querySelectorAll(".preview-tab")) {
+  t.addEventListener("click", () => {
+    for (const x of document.querySelectorAll(".preview-tab")) x.classList.toggle("on", x === t);
+    $("#previewPane").style.display = t.dataset.pane === "preview" ? "flex" : "none";
+    $("#codePane").classList.toggle("on", t.dataset.pane === "code");
+  });
+}
+
+async function copyText(text, btn) {
+  try {
+    await navigator.clipboard.writeText(text);
+    const orig = btn.textContent;
+    btn.textContent = "✓ Copied";
+    setTimeout(() => btn.textContent = orig, 1200);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy");
+    ta.remove();
+    btn.textContent = "✓ Copied";
+  }
+}
+
+$("#copyCodeOne").onclick = () => {
+  const c = currentComment();
+  if (!c) return;
+  // Refresh edit state from current inputs
+  currentEdit();
+  copyText(generateCodeFor(c, stylizeState.edits.get(c.id)), $("#copyCodeOne"));
+};
+$("#copyCodeAll").onclick = () => {
+  currentEdit(); // save current edits
+  const all = stylizeState.queue.map(c => generateCodeFor(c, stylizeState.edits.get(c.id) || buildEditFor(c)));
+  const wrapped = `<div class="comment-stack">\n${all.join("\n\n")}\n</div>`;
+  copyText(wrapped, $("#copyCodeAll"));
+};
+
 async function captureCurrent() {
   const edit = currentEdit();
-  if (!edit) return null;
+  const c = currentComment();
+  if (!edit || !c) return null;
   const stage = $("#renderStage");
-  stage.innerHTML = ytCommentMarkup(edit);
+  stage.innerHTML = ytCommentMarkup(edit, c);
   const node = stage.querySelector(".yt-comment");
   // Wait two frames to let fonts settle
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
