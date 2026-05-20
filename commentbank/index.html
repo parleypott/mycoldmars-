@@ -11,14 +11,14 @@
 <style>
 :root {
   --ink: #121118;
+  --ink-2: #1a1923;
   --warm: #f4f2e6;
-  --warm-soft: rgba(244, 242, 230, 0.85);
-  --warm-dim: rgba(244, 242, 230, 0.5);
-  --warm-faint: rgba(244, 242, 230, 0.25);
-  --line: rgba(244, 242, 230, 0.12);
-  --line-strong: rgba(244, 242, 230, 0.3);
+  --warm-soft: rgba(244, 242, 230, 0.78);
+  --warm-dim: rgba(244, 242, 230, 0.42);
+  --warm-faint: rgba(244, 242, 230, 0.18);
+  --warm-ghost: rgba(244, 242, 230, 0.08);
+  --line: rgba(244, 242, 230, 0.08);
   --accent: #ffbf00;
-  --burgundy: #520004;
   --font-head: "Instrument Serif", Georgia, serif;
   --font-body: "Space Mono", "Courier New", monospace;
 }
@@ -29,7 +29,7 @@ html, body {
   background: var(--ink);
   color: var(--warm);
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -41,525 +41,566 @@ input, select { font: inherit; color: inherit; }
 /* ── HEADER ── */
 header {
   position: sticky; top: 0; z-index: 50;
-  background: rgba(18, 17, 24, 0.94);
-  backdrop-filter: blur(12px);
+  background: rgba(18, 17, 24, 0.96);
+  backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
 }
 
-.brand {
-  display: flex; align-items: baseline; gap: 14px;
-  padding: 22px 40px 8px;
+.bar {
+  display: flex; align-items: baseline; gap: 24px;
+  padding: 28px 56px 14px;
+  flex-wrap: wrap;
 }
-.brand .logo {
+.logo {
   font-family: var(--font-head);
-  font-size: 32px; font-style: italic;
-  letter-spacing: -0.01em;
+  font-size: 38px;
+  font-style: italic;
+  letter-spacing: -0.015em;
+  line-height: 1;
   color: var(--warm);
 }
-.brand .sub {
+.tag {
   font-family: var(--font-body);
-  font-size: 11px; letter-spacing: 0.16em;
-  color: var(--warm-dim);
+  font-size: 10px;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
+  color: var(--warm-faint);
+  align-self: center;
 }
-.brand .stats {
+.count {
   margin-left: auto;
-  font-size: 11px; letter-spacing: 0.1em;
+  font-family: var(--font-head);
+  font-style: italic;
+  font-size: 18px;
   color: var(--warm-dim);
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  align-self: center;
 }
 
-.tabs {
-  display: flex; gap: 28px;
-  padding: 4px 40px 0;
+.nav {
+  display: flex; align-items: center;
+  padding: 0 56px;
+  border-bottom: 1px solid var(--line);
+  gap: 0;
 }
+.nav-spacer { flex: 1; }
 .tab {
   font-family: var(--font-body);
-  font-size: 12px; letter-spacing: 0.18em;
+  font-size: 10px;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: var(--warm-dim);
-  padding: 12px 0 14px;
+  color: var(--warm-faint);
+  padding: 14px 18px 16px;
   border-bottom: 1px solid transparent;
+  margin-bottom: -1px;
   transition: color 0.2s, border-color 0.2s;
-  cursor: pointer;
 }
+.tab:first-child { padding-left: 0; }
 .tab:hover { color: var(--warm-soft); }
-.tab.on { color: var(--warm); border-bottom-color: var(--accent); }
+.tab.on { color: var(--warm); border-bottom-color: var(--warm); }
 
-/* ── GALLERY MODE ── */
-.controls {
-  padding: 22px 40px 12px;
-  display: flex; flex-direction: column; gap: 12px;
+/* ── CONTROLS ── */
+.controls-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 56px;
   border-bottom: 1px solid var(--line);
 }
-.row {
-  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
-}
 .search-wrap {
-  flex: 1; min-width: 260px;
+  flex: 1;
   position: relative;
 }
 .search-wrap input {
   width: 100%;
   background: transparent;
-  border: 1px solid var(--line);
-  padding: 10px 14px;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 0;
+  font-family: var(--font-head);
+  font-style: italic;
+  font-size: 18px;
+  letter-spacing: 0.01em;
+  color: var(--warm);
 }
-.search-wrap input:focus { outline: none; border-color: var(--warm-dim); }
-.search-wrap input::placeholder { color: var(--warm-faint); }
+.search-wrap input:focus { outline: none; border-bottom-color: var(--warm-soft); }
+.search-wrap input::placeholder { color: var(--warm-faint); font-style: italic; }
+
+.icon-btn {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--warm-dim);
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.icon-btn:hover { color: var(--warm); border-color: var(--warm-dim); }
+.icon-btn.on { color: var(--ink); background: var(--accent); border-color: var(--accent); }
+.icon-btn .ct { font-variant-numeric: tabular-nums; opacity: 0.55; margin-left: 8px; }
+.icon-btn .arrow { margin-left: 6px; font-size: 9px; opacity: 0.6; }
 
 select.sort {
   background: transparent;
   border: 1px solid var(--line);
-  padding: 10px 14px;
-  font-size: 13px;
-  letter-spacing: 0.02em;
+  padding: 8px 24px 8px 12px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--warm-dim);
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--warm-dim) 50%), linear-gradient(135deg, var(--warm-dim) 50%, transparent 50%);
+  background-position: calc(100% - 14px) center, calc(100% - 9px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
 }
 
-.chips {
-  display: flex; gap: 6px; flex-wrap: wrap;
+/* ── FILTER DRAWER ── */
+.filter-drawer {
+  display: none;
+  padding: 22px 56px 26px;
+  border-bottom: 1px solid var(--line);
+  background: var(--ink-2);
 }
-.chip-label {
-  font-size: 10px; letter-spacing: 0.18em;
+.filter-drawer.open { display: block; }
+.filter-group {
+  display: flex; align-items: flex-start; gap: 14px;
+  margin-bottom: 18px;
+}
+.filter-group:last-child { margin-bottom: 0; }
+.filter-label {
+  font-size: 10px;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--warm-faint);
-  align-self: center;
-  margin-right: 6px;
+  padding-top: 7px;
+  min-width: 78px;
+}
+.chips {
+  display: flex; gap: 6px; flex-wrap: wrap; flex: 1;
 }
 .chip {
-  font-size: 11px; letter-spacing: 0.08em;
+  font-size: 10px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  padding: 5px 10px;
+  padding: 5px 11px;
   border: 1px solid var(--line);
-  color: var(--warm-soft);
+  color: var(--warm-dim);
   background: transparent;
-  border-radius: 0;
   transition: all 0.15s;
-  user-select: none;
 }
-.chip:hover { border-color: var(--warm-dim); }
+.chip:hover { color: var(--warm); border-color: var(--warm-dim); }
 .chip.on {
-  background: var(--accent);
+  background: var(--warm);
   color: var(--ink);
-  border-color: var(--accent);
+  border-color: var(--warm);
   font-weight: 700;
 }
 .chip .ct {
-  margin-left: 6px;
-  color: var(--warm-faint);
+  margin-left: 6px; opacity: 0.5;
   font-variant-numeric: tabular-nums;
 }
-.chip.on .ct { color: rgba(18,17,24,0.55); }
 
-.toolbar {
-  display: flex; gap: 12px; align-items: center;
+/* ── SELECTION TOOLBAR ── */
+.sel-bar {
+  display: none;
+  padding: 12px 56px;
+  background: var(--accent);
+  color: var(--ink);
+  align-items: center; gap: 14px;
+  position: sticky; top: 0; z-index: 60;
 }
-.btn-primary {
-  background: var(--accent); color: var(--ink);
-  padding: 8px 14px;
-  font-size: 11px; letter-spacing: 0.14em;
+.sel-bar.on { display: flex; }
+.sel-bar .label {
+  font-size: 11px; letter-spacing: 0.16em;
   text-transform: uppercase; font-weight: 700;
 }
-.btn-primary:disabled {
-  background: transparent; color: var(--warm-faint);
-  border: 1px solid var(--line); cursor: not-allowed;
+.sel-bar .label span { font-variant-numeric: tabular-nums; }
+.sel-bar button {
+  font-size: 10px; letter-spacing: 0.18em;
+  text-transform: uppercase; font-weight: 700;
+  padding: 7px 14px;
+  border: 1px solid rgba(18,17,24,0.4);
 }
-.btn-ghost {
-  padding: 8px 14px;
-  font-size: 11px; letter-spacing: 0.14em;
-  text-transform: uppercase;
-  border: 1px solid var(--line);
-  color: var(--warm-soft);
-}
-.btn-ghost:hover { border-color: var(--warm-dim); }
-.visible-count {
-  margin-left: auto;
-  font-size: 11px; letter-spacing: 0.1em;
-  color: var(--warm-faint);
-  text-transform: uppercase;
-}
+.sel-bar button:hover { background: var(--ink); color: var(--accent); border-color: var(--ink); }
+.sel-bar .spacer { flex: 1; }
 
-/* gallery grid */
+/* ── GALLERY ── */
 #gallery {
-  padding: 24px 40px 100px;
+  padding: 32px 56px 120px;
   column-count: 4;
-  column-gap: 20px;
+  column-gap: 28px;
 }
-@media (max-width: 1400px) { #gallery { column-count: 3; } }
-@media (max-width: 960px) { #gallery { column-count: 2; padding: 18px 22px 100px; } }
-@media (max-width: 600px) { #gallery { column-count: 1; padding: 14px 16px 100px; } }
+@media (max-width: 1500px) { #gallery { column-count: 3; column-gap: 24px; } }
+@media (max-width: 1000px) { #gallery { column-count: 2; padding: 22px 28px 100px; column-gap: 18px; } }
+@media (max-width: 640px) { #gallery { column-count: 1; padding: 16px 18px 100px; } }
 
 .card {
   break-inside: avoid;
-  margin-bottom: 20px;
+  margin-bottom: 28px;
   position: relative;
-  background: rgba(244,242,230,0.02);
+  cursor: zoom-in;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.card img {
+  display: block; width: 100%; height: auto;
   border: 1px solid var(--line);
   transition: border-color 0.15s;
 }
-.card:hover { border-color: var(--line-strong); }
-.card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.card img {
-  display: block; width: 100%; height: auto;
-  cursor: zoom-in;
-}
-.card .meta {
-  padding: 12px 14px 14px;
-}
-.card .text {
-  font-size: 12px; line-height: 1.5;
-  color: var(--warm-soft);
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.card .tags {
-  margin-top: 10px;
-  display: flex; gap: 6px; flex-wrap: wrap;
-  font-size: 10px; letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.card .tag {
-  color: var(--warm-faint);
-  padding: 2px 0;
-}
-.card .tag.sent {
-  color: var(--accent);
-}
-.card .select-box {
-  position: absolute; top: 10px; left: 10px;
-  width: 22px; height: 22px;
-  background: rgba(18,17,24,0.85);
-  border: 1px solid var(--line-strong);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700;
-  backdrop-filter: blur(4px);
-}
-.card.selected .select-box {
-  background: var(--accent); color: var(--ink);
-  border-color: var(--accent);
-}
-.card .quick-dl {
-  position: absolute; top: 10px; right: 10px;
-  padding: 4px 9px;
-  font-size: 10px; letter-spacing: 0.14em;
+.card:hover img { border-color: rgba(244,242,230,0.18); }
+.card.selected img { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+.card .sentiment-tag {
+  position: absolute;
+  bottom: 10px; left: 10px;
+  font-size: 9px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   background: rgba(18,17,24,0.85);
-  border: 1px solid var(--line-strong);
-  color: var(--warm-soft);
+  color: var(--warm);
+  padding: 4px 8px;
+  backdrop-filter: blur(6px);
+  font-weight: 700;
   opacity: 0;
   transition: opacity 0.15s;
-  backdrop-filter: blur(4px);
 }
-.card:hover .quick-dl { opacity: 1; }
-.card .quick-dl:hover { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+.card:hover .sentiment-tag,
+.card.selected .sentiment-tag { opacity: 1; }
+.card .sentiment-tag.praise { color: var(--accent); }
 
-/* ── BROWSE MODE ── */
+.card .card-actions {
+  position: absolute;
+  top: 10px; right: 10px;
+  display: flex; gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.card:hover .card-actions,
+.card.selected .card-actions { opacity: 1; }
+.card .card-actions button,
+.card .card-actions a {
+  background: rgba(18,17,24,0.85);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(244,242,230,0.2);
+  color: var(--warm);
+  padding: 5px 10px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.card .card-actions button:hover,
+.card .card-actions a:hover { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+.card.selected .select-btn { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+
+/* ── BROWSE (vertical scroll feed) ── */
 #browse {
   display: none;
-  padding: 40px 40px 100px;
-  flex-direction: column; align-items: center; gap: 24px;
-  min-height: 70vh;
+  padding: 48px 56px 160px;
 }
-.browse-frame {
-  width: 100%; max-width: 880px;
-  display: flex; flex-direction: column; align-items: center; gap: 18px;
-}
-.browse-counter {
-  font-size: 11px; letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--warm-dim);
-  font-variant-numeric: tabular-nums;
-}
-.browse-img-wrap {
-  width: 100%;
-  background: rgba(244,242,230,0.03);
-  border: 1px solid var(--line);
-  padding: 20px;
-  display: flex; justify-content: center;
-}
-.browse-img-wrap img {
-  max-width: 100%; max-height: 60vh;
-  object-fit: contain;
-  cursor: zoom-in;
-}
-.browse-info {
-  width: 100%;
-  text-align: center;
-  display: flex; flex-direction: column; gap: 14px;
-}
-.browse-text {
-  font-family: var(--font-head);
-  font-size: 22px; font-style: italic;
-  line-height: 1.4;
-  color: var(--warm);
-  max-width: 720px;
+.browse-stream {
+  max-width: 760px;
   margin: 0 auto;
+  display: flex; flex-direction: column;
+  gap: 64px;
 }
-.browse-tags {
-  display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;
-  font-size: 10px; letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-.browse-tags .t { color: var(--warm-faint); }
-.browse-tags .t.sent { color: var(--accent); }
-.browse-date {
-  font-size: 10px; letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--warm-faint);
-}
-.browse-nav {
-  display: flex; gap: 12px; align-items: center; justify-content: center;
-  margin-top: 8px;
-}
-.browse-nav button {
-  border: 1px solid var(--line);
-  padding: 10px 18px;
-  font-size: 11px; letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-.browse-nav button:hover { border-color: var(--warm-dim); }
-.browse-nav .keys {
-  margin-left: 12px;
-  font-size: 10px; letter-spacing: 0.16em;
-  color: var(--warm-faint);
-  text-transform: uppercase;
-}
-
-/* ── ASK MODE ── */
-#ask {
-  display: none;
-  padding: 40px 40px 100px;
-}
-.ask-frame {
-  max-width: 880px;
-  margin: 0 auto;
-}
-.ask-intro {
+.browse-month {
   font-family: var(--font-head);
   font-style: italic;
-  font-size: 26px;
+  font-size: 32px;
+  color: var(--warm-dim);
+  letter-spacing: -0.01em;
+  margin: 32px 0 -28px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.browse-month:first-child { margin-top: 0; }
+.browse-item {
+  display: flex; flex-direction: column;
+  gap: 14px;
+  position: relative;
+}
+.browse-item img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  cursor: zoom-in;
+  transition: border-color 0.2s;
+}
+.browse-item:hover img { border-color: rgba(244,242,230,0.18); }
+.browse-item-meta {
+  display: flex; gap: 14px; align-items: center;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--warm-faint);
+  font-variant-numeric: tabular-nums;
+}
+.browse-item-meta .num { color: var(--warm-dim); }
+.browse-item-meta .sentiment { color: var(--accent); }
+.browse-item-meta .sep { opacity: 0.5; }
+.browse-item-meta .spacer { flex: 1; }
+.browse-item-meta a, .browse-item-meta button {
+  color: var(--warm-dim);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 9px;
+}
+.browse-item-meta a:hover, .browse-item-meta button:hover { color: var(--warm); }
+.scroll-top {
+  position: fixed;
+  bottom: 28px; right: 36px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  color: var(--warm-dim);
+  padding: 11px 18px;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 40;
+}
+.scroll-top.on { opacity: 1; }
+.scroll-top:hover { color: var(--warm); border-color: var(--warm-dim); }
+
+/* ── ASK ── */
+#ask {
+  display: none;
+  padding: 56px 56px 120px;
+}
+.ask-frame {
+  max-width: 920px;
+  margin: 0 auto;
+}
+.ask-headline {
+  font-family: var(--font-head);
+  font-style: italic;
+  font-size: 48px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
   color: var(--warm);
-  margin-bottom: 6px;
+  margin-bottom: 14px;
 }
 .ask-sub {
-  font-size: 12px; letter-spacing: 0.04em;
+  font-size: 12px;
+  letter-spacing: 0.04em;
   color: var(--warm-dim);
-  margin-bottom: 28px;
+  margin-bottom: 36px;
+  max-width: 540px;
 }
-.ask-examples {
-  display: flex; gap: 8px; flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-.ask-example {
-  font-size: 11px;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  color: var(--warm-soft);
-  letter-spacing: 0.02em;
-}
-.ask-example:hover { border-color: var(--warm-dim); }
 .ask-input-wrap {
-  display: flex; gap: 10px;
-  border: 1px solid var(--line-strong);
-  padding: 4px;
-  margin-bottom: 28px;
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--warm-dim);
+  margin-bottom: 14px;
 }
 .ask-input-wrap input {
   flex: 1;
   background: transparent;
   border: none;
-  padding: 10px 14px;
-  font-size: 14px;
+  padding: 14px 0;
+  font-family: var(--font-head);
+  font-style: italic;
+  font-size: 24px;
+  color: var(--warm);
 }
 .ask-input-wrap input:focus { outline: none; }
+.ask-input-wrap input::placeholder { color: var(--warm-faint); font-style: italic; }
 .ask-input-wrap button {
-  background: var(--accent); color: var(--ink);
-  padding: 8px 18px;
-  font-size: 11px; letter-spacing: 0.16em;
-  text-transform: uppercase; font-weight: 700;
-}
-.ask-input-wrap button:disabled {
-  background: transparent; color: var(--warm-faint);
-}
-.ask-status {
-  font-size: 11px; letter-spacing: 0.14em;
-  text-transform: uppercase;
+  background: transparent;
   color: var(--warm-dim);
-  margin-bottom: 14px;
+  padding: 14px 4px 14px 22px;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.ask-input-wrap button:hover { color: var(--warm); }
+.ask-input-wrap button:disabled { color: var(--warm-faint); cursor: not-allowed; }
+
+.ask-examples {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+.ask-example {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  color: var(--warm-dim);
+}
+.ask-example:hover { color: var(--warm); border-color: var(--warm-dim); }
+
+.ask-status {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--warm-faint);
   min-height: 14px;
+  margin-bottom: 18px;
 }
 .ask-summary {
   font-family: var(--font-head);
   font-style: italic;
-  font-size: 18px;
+  font-size: 22px;
+  line-height: 1.4;
   color: var(--warm);
-  border-left: 2px solid var(--accent);
-  padding: 4px 0 4px 18px;
-  margin-bottom: 28px;
-  line-height: 1.5;
+  border-left: 1px solid var(--accent);
+  padding: 4px 0 4px 22px;
+  margin-bottom: 36px;
+  max-width: 720px;
 }
 .ask-results {
-  display: flex; flex-direction: column; gap: 18px;
+  display: flex; flex-direction: column; gap: 24px;
 }
 .ask-result {
   display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 18px;
-  border: 1px solid var(--line);
-  padding: 14px;
-  background: rgba(244,242,230,0.02);
+  grid-template-columns: 320px 1fr;
+  gap: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
 }
-@media (max-width: 700px) { .ask-result { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .ask-result { grid-template-columns: 1fr; } }
 .ask-result img {
   width: 100%; height: auto;
   border: 1px solid var(--line);
   cursor: zoom-in;
 }
 .ask-result .why {
-  font-size: 12px; color: var(--warm-soft);
-  margin-bottom: 8px;
-  line-height: 1.5;
-}
-.ask-result .quote {
-  font-family: var(--font-head); font-style: italic;
-  font-size: 16px; line-height: 1.4;
+  font-family: var(--font-head);
+  font-style: italic;
+  font-size: 18px;
+  line-height: 1.45;
   color: var(--warm);
-  margin-bottom: 8px;
+  margin-bottom: 14px;
 }
-.ask-result .row-mini {
-  display: flex; gap: 12px; align-items: center;
-  font-size: 10px; letter-spacing: 0.14em;
+.ask-result .mini {
+  display: flex; gap: 14px; align-items: center;
+  font-size: 9px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--warm-faint);
 }
-.ask-result .row-mini .sent { color: var(--accent); }
+.ask-result .mini .sent { color: var(--accent); }
+.ask-result .mini a:hover { color: var(--warm); }
+.ask-result .mini .spacer { flex: 1; }
 
 /* ── MODAL ── */
 .modal {
   position: fixed; inset: 0; z-index: 200;
-  background: rgba(18,17,24,0.96);
+  background: rgba(12, 11, 16, 0.97);
   display: none; align-items: center; justify-content: center;
-  padding: 40px;
+  padding: 56px;
 }
 .modal.open { display: flex; }
 .modal-inner {
-  display: flex; flex-direction: column; align-items: center; gap: 18px;
+  display: flex; flex-direction: column; align-items: center; gap: 24px;
   max-width: 90vw;
 }
 .modal img {
-  max-width: 100%; max-height: 78vh;
+  max-width: 100%; max-height: 80vh;
   object-fit: contain;
 }
-.modal-text {
-  max-width: 720px; text-align: center;
-  font-family: var(--font-head); font-style: italic;
-  font-size: 18px; line-height: 1.5;
-  color: var(--warm);
-}
-.modal-actions { display: flex; gap: 12px; }
-.modal-actions a {
-  padding: 9px 16px;
-  font-size: 11px; letter-spacing: 0.14em;
+.modal-actions {
+  display: flex; gap: 10px;
+  font-size: 10px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  font-weight: 700;
 }
-.modal-actions .primary {
-  background: var(--accent); color: var(--ink);
+.modal-actions a {
+  padding: 9px 18px;
+  border: 1px solid var(--line);
+  color: var(--warm-dim);
 }
-.modal-actions .secondary {
-  border: 1px solid var(--line-strong);
-  color: var(--warm-soft);
-}
+.modal-actions a:hover { color: var(--warm); border-color: var(--warm-dim); }
+.modal-actions a.primary { background: var(--accent); color: var(--ink); border-color: var(--accent); font-weight: 700; }
+.modal-actions a.primary:hover { color: var(--ink); }
 .close-x {
-  position: absolute; top: 22px; right: 28px;
-  font-size: 30px; color: var(--warm); cursor: pointer;
+  position: absolute; top: 28px; right: 36px;
+  font-size: 36px; color: var(--warm-dim);
   font-family: var(--font-head);
+  font-style: italic;
 }
+.close-x:hover { color: var(--warm); }
 
-/* ── EMPTY STATES ── */
+/* ── EMPTY ── */
 .empty {
-  text-align: center; padding: 80px 20px;
-  font-family: var(--font-head); font-style: italic;
-  font-size: 20px; color: var(--warm-dim);
+  font-family: var(--font-head);
+  font-style: italic;
+  font-size: 24px;
+  color: var(--warm-faint);
+  padding: 80px 20px;
+  text-align: center;
 }
 
-/* hide gallery elements when not active */
-.mode-hidden { display: none !important; }
+@media (max-width: 700px) {
+  .bar, .nav, .controls-row, .filter-drawer, .sel-bar, #ask { padding-left: 22px; padding-right: 22px; }
+  .logo { font-size: 30px; }
+  .ask-headline { font-size: 36px; }
+}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="brand">
+  <div class="bar">
     <span class="logo">comment bank</span>
-    <span class="sub">newpress / youtube reception</span>
-    <span class="stats" id="totalCount"></span>
+    <span class="tag">an archive of reception</span>
+    <span class="count" id="totalCount">—</span>
   </div>
-  <div class="tabs">
+  <div class="nav">
     <div class="tab on" data-mode="gallery">gallery</div>
     <div class="tab" data-mode="browse">browse</div>
     <div class="tab" data-mode="ask">ask</div>
+    <div class="nav-spacer"></div>
   </div>
-  <div class="controls" id="galleryControls">
-    <div class="row">
-      <div class="search-wrap">
-        <input type="search" id="search" placeholder="search comments, usernames, themes…" />
-      </div>
-      <select class="sort" id="sort">
-        <option value="newest">newest first</option>
-        <option value="oldest">oldest first</option>
-        <option value="sentiment">by sentiment</option>
-      </select>
+  <div class="controls-row" id="galleryControls">
+    <div class="search-wrap">
+      <input type="search" id="search" placeholder="search…" />
     </div>
-    <div class="row">
-      <span class="chip-label">sentiment</span>
+    <button class="icon-btn" id="filterToggle">filter <span class="ct" id="filterCount">0</span><span class="arrow">▾</span></button>
+    <select class="sort" id="sort">
+      <option value="newest">newest first</option>
+      <option value="oldest">oldest first</option>
+      <option value="sentiment">by sentiment</option>
+    </select>
+  </div>
+  <div class="filter-drawer" id="filterDrawer">
+    <div class="filter-group">
+      <span class="filter-label">sentiment</span>
       <div class="chips" id="sentimentChips"></div>
     </div>
-    <div class="row">
-      <span class="chip-label">themes</span>
+    <div class="filter-group">
+      <span class="filter-label">themes</span>
       <div class="chips" id="themeChips"></div>
     </div>
-    <div class="row toolbar">
-      <button class="btn-primary" id="downloadSelected" disabled>download selected (0)</button>
-      <button class="btn-ghost" id="selectAll">select all visible</button>
-      <button class="btn-ghost" id="clearSelection">clear</button>
-      <span class="visible-count" id="visibleCount"></span>
-    </div>
+  </div>
+  <div class="sel-bar" id="selBar">
+    <span class="label"><span id="selCount">0</span> selected</span>
+    <span class="spacer"></span>
+    <button id="downloadSelected">download zip</button>
+    <button id="selectAll">select all visible</button>
+    <button id="clearSelection">clear</button>
   </div>
 </header>
 
 <main id="gallery"></main>
 
 <section id="browse">
-  <div class="browse-frame">
-    <div class="browse-counter" id="browseCounter">— / —</div>
-    <div class="browse-img-wrap"><img id="browseImg" alt="" /></div>
-    <div class="browse-info">
-      <div class="browse-text" id="browseText"></div>
-      <div class="browse-tags" id="browseTags"></div>
-      <div class="browse-date" id="browseDate"></div>
-    </div>
-    <div class="browse-nav">
-      <button id="browsePrev">← prev</button>
-      <button id="browseNext">next →</button>
-      <button id="browseDownload">download original</button>
-      <span class="keys">← / → / space</span>
-    </div>
-  </div>
+  <div class="browse-stream" id="browseStream"></div>
 </section>
+<button class="scroll-top" id="scrollTop">↑ top</button>
 
 <section id="ask">
   <div class="ask-frame">
-    <h2 class="ask-intro">ask the comments</h2>
-    <p class="ask-sub">natural-language search across every comment. ask for sentiments, vibes, topics, episodes — whatever.</p>
-    <div class="ask-examples" id="askExamples"></div>
+    <h2 class="ask-headline">ask the audience.</h2>
+    <p class="ask-sub">natural-language search across every comment. ask for sentiments, vibes, topics, episodes — whatever you're hunting.</p>
     <div class="ask-input-wrap">
       <input id="askInput" type="text" placeholder="what are people saying about…" />
-      <button id="askGo">ask</button>
+      <button id="askGo">ask →</button>
     </div>
+    <div class="ask-examples" id="askExamples"></div>
     <div class="ask-status" id="askStatus"></div>
     <div class="ask-summary" id="askSummary" style="display:none"></div>
     <div class="ask-results" id="askResults"></div>
@@ -570,10 +611,9 @@ select.sort {
   <button class="close-x" id="closeX">×</button>
   <div class="modal-inner">
     <img id="modalImg" alt="" />
-    <div class="modal-text" id="modalText"></div>
     <div class="modal-actions">
-      <a class="primary" id="modalDownload" download>download original</a>
-      <a class="secondary" id="modalSlack" target="_blank" rel="noopener">open in slack</a>
+      <a class="primary" id="modalDownload" download>↓ download original</a>
+      <a id="modalSlack" target="_blank" rel="noopener">open in slack</a>
     </div>
   </div>
 </div>
@@ -587,37 +627,37 @@ const EXAMPLES = [
   "people who said they cried",
   "comments about cinematography",
   "questions about taiwan",
-  "personal stories from viewers",
   "criticism of pacing",
   "moments people loved",
+  "music compliments",
 ];
 
-// Auto-detect base path so this file works at localhost:5454/ AND newpress.press/commentbank/
 const BASE = location.pathname.replace(/\/index\.html$/, "").replace(/\/$/, "") || "";
 const PREFIX = BASE.endsWith("/commentbank") ? BASE : "";
 const ASK_ENDPOINT = PREFIX ? "/api/commentbank-ask" : "/api/ask";
 function asset(rel) { return `${PREFIX}/${rel.replace(/^\//, "")}`; }
 
 let comments = [];
-let chrono = []; // sorted oldest → newest
+let chrono = [];
 let activeSents = new Set();
 let activeThemes = new Set();
 let selected = new Set();
 let topThemes = [];
 let browseIdx = 0;
+let filterOpen = false;
 
 const $ = sel => document.querySelector(sel);
 
 async function load() {
   const res = await fetch(asset("comments.json"));
   if (!res.ok) {
-    $("#gallery").innerHTML = '<div class="empty">no comments.json yet — run <code>bun analyze.ts</code> first</div>';
+    $("#gallery").innerHTML = '<div class="empty">no data yet — run analyze first</div>';
     return;
   }
   const arr = await res.json();
   comments = arr.filter(c => c.analysis && !c.analysis.skip);
   chrono = [...comments].sort((a, b) => parseFloat(a.slack_ts) - parseFloat(b.slack_ts));
-  $("#totalCount").textContent = comments.length + " comments";
+  $("#totalCount").textContent = comments.length.toLocaleString() + " comments";
   computeTopThemes();
   renderChips();
   render();
@@ -628,13 +668,11 @@ async function load() {
 function computeTopThemes() {
   const counts = {};
   for (const c of comments) {
-    for (const t of (c.analysis.themes || [])) {
-      counts[t] = (counts[t] || 0) + 1;
-    }
+    for (const t of (c.analysis.themes || [])) counts[t] = (counts[t] || 0) + 1;
   }
   topThemes = Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 20)
+    .slice(0, 18)
     .map(([t, n]) => ({ theme: t, count: n }));
 }
 
@@ -648,11 +686,10 @@ function renderChips() {
     chip.innerHTML = `${s.replace("_", " ")}<span class="ct">${count}</span>`;
     chip.onclick = () => {
       activeSents.has(s) ? activeSents.delete(s) : activeSents.add(s);
-      renderChips(); render();
+      renderChips(); render(); updateFilterCount();
     };
     sc.appendChild(chip);
   }
-
   const tc = $("#themeChips"); tc.innerHTML = "";
   for (const { theme, count } of topThemes) {
     const chip = document.createElement("button");
@@ -660,10 +697,15 @@ function renderChips() {
     chip.innerHTML = `${theme}<span class="ct">${count}</span>`;
     chip.onclick = () => {
       activeThemes.has(theme) ? activeThemes.delete(theme) : activeThemes.add(theme);
-      renderChips(); render();
+      renderChips(); render(); updateFilterCount();
     };
     tc.appendChild(chip);
   }
+  updateFilterCount();
+}
+
+function updateFilterCount() {
+  $("#filterCount").textContent = activeSents.size + activeThemes.size;
 }
 
 function filtered() {
@@ -671,10 +713,7 @@ function filtered() {
   let out = comments.filter(c => {
     const a = c.analysis;
     if (activeSents.size && !activeSents.has(a.sentiment)) return false;
-    if (activeThemes.size) {
-      const hits = (a.themes || []).some(t => activeThemes.has(t));
-      if (!hits) return false;
-    }
+    if (activeThemes.size && !(a.themes || []).some(t => activeThemes.has(t))) return false;
     if (q) {
       const hay = [a.comment_text, a.commenter, a.video_hint, ...(a.themes || [])]
         .filter(Boolean).join(" ").toLowerCase();
@@ -695,7 +734,6 @@ function escapeHtml(s) {
 
 function render() {
   const items = filtered();
-  $("#visibleCount").textContent = items.length + " showing";
   const grid = $("#gallery");
   grid.innerHTML = "";
   if (!items.length) {
@@ -707,42 +745,38 @@ function render() {
     card.className = "card" + (selected.has(c.id) ? " selected" : "");
     card.dataset.id = c.id;
     const a = c.analysis;
-    const text = a.comment_text || "(no text extracted)";
-    const tags = [
-      `<span class="tag sent">${(a.sentiment || "").replace("_", " ")}</span>`,
-      ...(a.themes || []).slice(0, 3).map(t => `<span class="tag">· ${t}</span>`),
-    ].join("");
+    const sent = (a.sentiment || "").replace("_", " ");
+    const sentClass = (a.sentiment === "praise") ? " praise" : "";
 
     card.innerHTML = `
-      <div class="select-box" data-role="select">${selected.has(c.id) ? "✓" : ""}</div>
-      <a class="quick-dl" href="${asset(c.local_path)}" download="${c.id}.${c.ext}" onclick="event.stopPropagation()">↓ orig</a>
-      <img src="${asset(c.local_path)}" alt="" loading="lazy" data-role="open" />
-      <div class="meta">
-        <div class="text">${escapeHtml(text)}</div>
-        <div class="tags">${tags}</div>
+      <img src="${asset(c.local_path)}" alt="" loading="lazy" />
+      <div class="sentiment-tag${sentClass}">${sent}</div>
+      <div class="card-actions">
+        <button class="select-btn" data-role="select">${selected.has(c.id) ? "✓ selected" : "select"}</button>
+        <button data-role="similar">more like this</button>
+        <a href="${asset(c.local_path)}" download="${c.id}.${c.ext}" onclick="event.stopPropagation()">↓</a>
       </div>
     `;
     card.querySelector('[data-role="select"]').addEventListener("click", e => {
       e.stopPropagation(); toggleSelected(c.id);
     });
-    card.querySelector('[data-role="open"]').addEventListener("click", () => openModal(c));
+    card.querySelector('[data-role="similar"]').addEventListener("click", e => {
+      e.stopPropagation(); findSimilar(c);
+    });
+    card.querySelector("img").addEventListener("click", () => openModal(c));
     grid.appendChild(card);
   }
 }
 
 function toggleSelected(id) {
   selected.has(id) ? selected.delete(id) : selected.add(id);
-  refreshDownloadBtn(); render();
-}
-function refreshDownloadBtn() {
-  $("#downloadSelected").textContent = `download selected (${selected.size})`;
-  $("#downloadSelected").disabled = selected.size === 0;
+  $("#selCount").textContent = selected.size;
+  $("#selBar").classList.toggle("on", selected.size > 0);
+  render();
 }
 
 function openModal(c) {
-  const a = c.analysis;
   $("#modalImg").src = asset(c.local_path);
-  $("#modalText").textContent = a.comment_text || "(no text extracted)";
   $("#modalDownload").href = asset(c.local_path);
   $("#modalDownload").download = `${c.id}.${c.ext}`;
   const slack = $("#modalSlack");
@@ -753,147 +787,173 @@ function openModal(c) {
 
 $("#closeX").onclick = () => $("#modal").classList.remove("open");
 $("#modal").onclick = e => { if (e.target.id === "modal") $("#modal").classList.remove("open"); };
-document.addEventListener("keydown", e => {
-  if (e.key === "Escape") $("#modal").classList.remove("open");
-});
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("#modal").classList.remove("open"); });
 
 $("#search").addEventListener("input", render);
 $("#sort").addEventListener("change", render);
-$("#selectAll").onclick = () => { for (const c of filtered()) selected.add(c.id); refreshDownloadBtn(); render(); };
-$("#clearSelection").onclick = () => { selected.clear(); refreshDownloadBtn(); render(); };
-
+$("#filterToggle").onclick = () => {
+  filterOpen = !filterOpen;
+  $("#filterDrawer").classList.toggle("open", filterOpen);
+  $("#filterToggle").classList.toggle("on", filterOpen);
+};
+$("#selectAll").onclick = () => {
+  for (const c of filtered()) selected.add(c.id);
+  $("#selCount").textContent = selected.size;
+  $("#selBar").classList.toggle("on", selected.size > 0);
+  render();
+};
+$("#clearSelection").onclick = () => {
+  selected.clear();
+  $("#selCount").textContent = 0;
+  $("#selBar").classList.remove("on");
+  render();
+};
 $("#downloadSelected").onclick = async () => {
   if (!selected.size) return;
   const zip = new JSZip();
   const picks = comments.filter(c => selected.has(c.id));
   const btn = $("#downloadSelected");
-  const origText = btn.textContent;
+  const orig = btn.textContent;
   let i = 0;
   for (const c of picks) {
     i++;
     btn.textContent = `zipping ${i}/${picks.length}`;
     const res = await fetch(asset(c.local_path));
-    const buf = await res.arrayBuffer();
-    zip.file(`${c.id}.${c.ext}`, buf);
+    zip.file(`${c.id}.${c.ext}`, await res.arrayBuffer());
   }
   const blob = await zip.generateAsync({ type: "blob" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url;
-  a.download = `comment-bank-${new Date().toISOString().slice(0,10)}.zip`;
-  a.click();
+  a.href = url; a.download = `comment-bank-${new Date().toISOString().slice(0,10)}.zip`; a.click();
   URL.revokeObjectURL(url);
-  btn.textContent = origText;
-  refreshDownloadBtn();
+  btn.textContent = orig;
 };
 
-/* ── MODE SWITCHING ── */
-const modes = { gallery: ["#gallery", "#galleryControls"], browse: ["#browse"], ask: ["#ask"] };
+/* ── MODES ── */
 function setMode(name) {
-  for (const tab of document.querySelectorAll(".tab")) {
-    tab.classList.toggle("on", tab.dataset.mode === name);
-  }
-  $("#gallery").style.display = name === "gallery" ? "" : "none";
-  $("#galleryControls").style.display = name === "gallery" ? "" : "none";
-  $("#browse").style.display = name === "browse" ? "flex" : "none";
-  $("#ask").style.display = name === "ask" ? "" : "none";
+  for (const tab of document.querySelectorAll(".tab")) tab.classList.toggle("on", tab.dataset.mode === name);
+  $("#gallery").style.display = name === "gallery" ? "block" : "none";
+  $("#galleryControls").style.display = name === "gallery" ? "flex" : "none";
+  $("#filterDrawer").style.display = name === "gallery" && filterOpen ? "block" : "none";
+  $("#browse").style.display = name === "browse" ? "block" : "none";
+  $("#ask").style.display = name === "ask" ? "block" : "none";
   if (name === "browse") renderBrowse();
+  window.scrollTo({ top: 0, behavior: "instant" });
 }
-for (const tab of document.querySelectorAll(".tab")) {
-  tab.onclick = () => setMode(tab.dataset.mode);
-}
+for (const tab of document.querySelectorAll(".tab")) tab.onclick = () => setMode(tab.dataset.mode);
 
-/* ── BROWSE MODE ── */
+/* ── BROWSE — vertical scroll feed, chronological, grouped by month ── */
+let browseRendered = false;
 function renderBrowse() {
-  if (!chrono.length) return;
-  if (browseIdx < 0) browseIdx = 0;
-  if (browseIdx >= chrono.length) browseIdx = chrono.length - 1;
-  const c = chrono[browseIdx];
-  const a = c.analysis;
-  $("#browseCounter").textContent = `${browseIdx + 1} / ${chrono.length}`;
-  $("#browseImg").src = asset(c.local_path);
-  $("#browseImg").onclick = () => openModal(c);
-  $("#browseText").textContent = a.comment_text || "(no text extracted)";
-  const tags = [`<span class="t sent">${(a.sentiment || "").replace("_", " ")}</span>`]
-    .concat((a.themes || []).map(t => `<span class="t">· ${t}</span>`))
-    .join("");
-  $("#browseTags").innerHTML = tags;
-  const d = new Date(parseFloat(c.slack_ts) * 1000);
-  $("#browseDate").textContent = d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-  $("#browseDownload").onclick = () => {
-    const a2 = document.createElement("a");
-    a2.href = asset(c.local_path); a2.download = `${c.id}.${c.ext}`; a2.click();
-  };
+  if (browseRendered) return;
+  const stream = $("#browseStream");
+  stream.innerHTML = "";
+  if (!chrono.length) { stream.innerHTML = '<div class="empty">no comments yet</div>'; return; }
+  // newest first so scrolling down goes back in time
+  const ordered = [...chrono].reverse();
+  let lastMonth = "";
+  ordered.forEach((c, i) => {
+    const d = new Date(parseFloat(c.slack_ts) * 1000);
+    const monthKey = d.toLocaleDateString("en-US", { year: "numeric", month: "long" });
+    if (monthKey !== lastMonth) {
+      lastMonth = monthKey;
+      const h = document.createElement("div");
+      h.className = "browse-month";
+      h.textContent = monthKey.toLowerCase();
+      stream.appendChild(h);
+    }
+    const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const a = c.analysis;
+    const num = String(ordered.length - i).padStart(3, "0");
+    const sent = (a.sentiment || "").replace("_", " ");
+    const item = document.createElement("div");
+    item.className = "browse-item";
+    item.innerHTML = `
+      <img src="${asset(c.local_path)}" alt="" loading="lazy" />
+      <div class="browse-item-meta">
+        <span class="num">№ ${num}</span>
+        <span class="sep">·</span>
+        <span class="sentiment">${sent}</span>
+        <span class="sep">·</span>
+        <span>${dateStr}</span>
+        <span class="spacer"></span>
+        <button data-role="similar">more like this</button>
+        <a href="${asset(c.local_path)}" download="${c.id}.${c.ext}">↓ download</a>
+      </div>
+    `;
+    item.querySelector("img").onclick = () => openModal(c);
+    item.querySelector('[data-role="similar"]').onclick = () => findSimilar(c);
+    stream.appendChild(item);
+  });
+  browseRendered = true;
 }
-$("#browsePrev").onclick = () => { browseIdx--; renderBrowse(); };
-$("#browseNext").onclick = () => { browseIdx++; renderBrowse(); };
 
-document.addEventListener("keydown", e => {
-  const inBrowse = $("#browse").style.display === "flex";
-  if (!inBrowse) return;
-  if (document.activeElement && ["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName)) return;
-  if (e.key === "ArrowLeft") { browseIdx--; renderBrowse(); e.preventDefault(); }
-  if (e.key === "ArrowRight" || e.key === " ") { browseIdx++; renderBrowse(); e.preventDefault(); }
+$("#scrollTop").onclick = () => window.scrollTo({ top: 0, behavior: "smooth" });
+window.addEventListener("scroll", () => {
+  $("#scrollTop").classList.toggle("on", window.scrollY > 800);
 });
 
-/* ── ASK MODE ── */
+/* ── MORE LIKE THIS ── */
+function findSimilar(source) {
+  const text = source.analysis.comment_text || "(no text)";
+  const snippet = text.length > 80 ? text.slice(0, 80) + "…" : text;
+  setMode("ask");
+  $("#askInput").value = `more like: "${snippet}"`;
+  const question = `Find comments in the corpus that are most similar in tone, sentiment, and subject matter to this source comment.
+
+SOURCE:
+text: "${text}"
+sentiment: ${source.analysis.sentiment}
+themes: ${(source.analysis.themes || []).join(", ")}
+
+Return up to 12 of the closest matches (do not include the source itself, id ${source.id}). For each, "why" should explain in one short sentence what makes it similar to the source.`;
+  runAskWithQuery(question, `comments similar to "${snippet}"`);
+}
+
+/* ── ASK ── */
 function renderExamples() {
-  const el = $("#askExamples");
-  el.innerHTML = "";
+  const el = $("#askExamples"); el.innerHTML = "";
   for (const ex of EXAMPLES) {
     const b = document.createElement("button");
-    b.className = "ask-example";
-    b.textContent = ex;
+    b.className = "ask-example"; b.textContent = ex;
     b.onclick = () => { $("#askInput").value = ex; runAsk(); };
     el.appendChild(b);
   }
 }
-
 $("#askGo").onclick = () => runAsk();
 $("#askInput").addEventListener("keydown", e => { if (e.key === "Enter") runAsk(); });
-
 async function runAsk() {
   const q = $("#askInput").value.trim();
   if (!q) return;
+  await runAskWithQuery(q, q);
+}
+async function runAskWithQuery(question, displayLabel) {
   const status = $("#askStatus");
   const summary = $("#askSummary");
   const results = $("#askResults");
-  status.textContent = "asking claude…";
+  status.textContent = "asking…";
   summary.style.display = "none"; summary.textContent = "";
   results.innerHTML = "";
   $("#askGo").disabled = true;
-
   try {
     const payload = {
-      question: q,
+      question: question,
       comments: comments.map(c => ({
-        id: c.id,
-        text: c.analysis.comment_text,
-        commenter: c.analysis.commenter,
-        sentiment: c.analysis.sentiment,
-        themes: c.analysis.themes,
-        video_hint: c.analysis.video_hint,
+        id: c.id, text: c.analysis.comment_text, commenter: c.analysis.commenter,
+        sentiment: c.analysis.sentiment, themes: c.analysis.themes, video_hint: c.analysis.video_hint,
       })),
     };
     const res = await fetch(ASK_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error(`server returned ${res.status}`);
+    if (!res.ok) throw new Error(`server ${res.status}`);
     const data = await res.json();
-
-    if (data.summary) {
-      summary.textContent = data.summary;
-      summary.style.display = "block";
-    }
+    if (data.summary) { summary.textContent = data.summary; summary.style.display = "block"; }
     const matches = (data.matches || []).map(m => {
       const c = comments.find(x => x.id === m.id);
       return c ? { c, why: m.why } : null;
     }).filter(Boolean);
-    status.textContent = matches.length
-      ? `${matches.length} match${matches.length === 1 ? "" : "es"}`
-      : "no matches";
+    status.textContent = matches.length ? `${matches.length} match${matches.length === 1 ? "" : "es"}` : "no matches";
     for (const { c, why } of matches) {
       const a = c.analysis;
       const card = document.createElement("div");
@@ -901,12 +961,12 @@ async function runAsk() {
       card.innerHTML = `
         <img src="${asset(c.local_path)}" alt="" loading="lazy" />
         <div>
-          <div class="why">${escapeHtml(why || "")}</div>
-          <div class="quote">"${escapeHtml(a.comment_text || "")}"</div>
-          <div class="row-mini">
+          <div class="why">"${escapeHtml(why || "")}"</div>
+          <div class="mini">
             <span class="sent">${(a.sentiment || "").replace("_", " ")}</span>
-            ${(a.themes || []).map(t => `<span>· ${escapeHtml(t)}</span>`).join("")}
-            <span style="margin-left:auto"><a href="${asset(c.local_path)}" download="${c.id}.${c.ext}">↓ download</a></span>
+            ${(a.themes || []).slice(0, 3).map(t => `<span>· ${escapeHtml(t)}</span>`).join("")}
+            <span class="spacer"></span>
+            <a href="${asset(c.local_path)}" download="${c.id}.${c.ext}">↓ download</a>
           </div>
         </div>
       `;
