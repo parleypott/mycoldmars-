@@ -162,43 +162,82 @@ header {
   color: var(--cream-faint);
 }
 
-/* ── NAV ── */
+/* ── NAV — primary actions, substantial ── */
 .nav {
-  display: flex; align-items: center;
-  padding: 0 56px;
-  gap: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 0;
+  border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
-.nav-spacer { flex: 1; }
+.nav-spacer { display: none; }
 .tab {
   font-family: var(--font-body);
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: var(--cream-faint);
-  padding: 16px 0;
-  margin-right: 36px;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color 0.2s, border-color 0.2s;
+  color: var(--cream-soft);
+  padding: 28px 36px;
+  border: none;
+  border-right: 1px solid var(--line);
+  transition: all 0.2s ease;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
 }
-.tab::after {
-  content: "";
-  position: absolute;
-  right: -18px; top: 50%;
-  width: 4px; height: 4px;
-  background: var(--cream-faint);
-  border-radius: 50%;
-  transform: translateY(-50%);
-  opacity: 0.3;
-}
-.tab:last-of-type::after { display: none; }
-.tab:hover { color: var(--cream-soft); }
-.tab.on {
+.tab:last-child { border-right: none; }
+.tab::before {
+  content: attr(data-num);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
   color: var(--he-orange);
-  border-bottom-color: var(--he-orange);
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.tab .tab-sub {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: none;
+  color: var(--cream-faint);
+  margin-top: 4px;
+  display: block;
+  transition: color 0.2s;
+}
+.tab:hover {
+  background: rgba(244, 67, 21, 0.04);
+  color: var(--he-cream);
+}
+.tab:hover::before { opacity: 1; }
+.tab:hover .tab-sub { color: var(--cream-dim); }
+.tab.on {
+  background: var(--he-orange);
+  color: var(--he-night);
+}
+.tab.on::before { color: var(--he-night); opacity: 0.7; }
+.tab.on .tab-sub { color: var(--he-night); opacity: 0.7; }
+.tab.on::after {
+  content: "→";
+  position: absolute;
+  top: 24px; right: 28px;
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--he-night);
+}
+@media (max-width: 760px) {
+  .nav { grid-template-columns: 1fr; }
+  .tab { border-right: none; border-bottom: 1px solid var(--line); padding: 20px 28px; }
+  .tab.on::after { top: 18px; right: 24px; }
 }
 
 /* ── CONTROLS ── */
@@ -820,10 +859,9 @@ select.sort {
     </div>
   </div>
   <nav class="nav">
-    <div class="tab on" data-mode="gallery">Gallery</div>
-    <div class="tab" data-mode="browse">Browse</div>
-    <div class="tab" data-mode="ask">Ask</div>
-    <div class="nav-spacer"></div>
+    <button class="tab on" data-mode="gallery" data-num="01">Gallery<span class="tab-sub">The whole wall</span></button>
+    <button class="tab" data-mode="browse" data-num="02">Browse<span class="tab-sub">Scroll chronologically</span></button>
+    <button class="tab" data-mode="ask" data-num="03">Ask<span class="tab-sub">Search with Claude</span></button>
   </nav>
   <div class="controls-row" id="galleryControls">
     <div class="search-wrap">
