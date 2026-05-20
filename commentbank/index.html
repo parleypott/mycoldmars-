@@ -4,268 +4,388 @@
 <meta charset="utf-8" />
 <title>comment bank — newpress</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
+/* ── FONTS ── */
+@font-face { font-family: "Sailing Club"; src: url("fonts/SailingClub-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Sailing Club"; src: url("fonts/SailingClub-Italic.ttf") format("truetype"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "Sohne Breit"; src: url("fonts/SohneBreit-Dreiviertelfett.otf") format("opentype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Roboto Mono"; src: url("fonts/RobotoMono-Light.ttf") format("truetype"); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: "Roboto Mono"; src: url("fonts/RobotoMono-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Roboto Mono"; src: url("fonts/RobotoMono-Italic.ttf") format("truetype"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "Roboto Mono"; src: url("fonts/RobotoMono-Medium.ttf") format("truetype"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Roboto Mono"; src: url("fonts/RobotoMono-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+
+/* ── BRAND TOKENS ── */
 :root {
-  --ink: #121118;
-  --ink-2: #1a1923;
-  --warm: #f4f2e6;
-  --warm-soft: rgba(244, 242, 230, 0.78);
-  --warm-dim: rgba(244, 242, 230, 0.42);
-  --warm-faint: rgba(244, 242, 230, 0.18);
-  --warm-ghost: rgba(244, 242, 230, 0.08);
-  --line: rgba(244, 242, 230, 0.08);
-  --accent: #ffbf00;
-  --font-head: "Instrument Serif", Georgia, serif;
-  --font-body: "Space Mono", "Courier New", monospace;
+  --he-orange: #F44315;
+  --he-orange-bright: #FF5526;
+  --he-orange-deep: #C9320A;
+  --he-cream: #E8E4DA;
+  --he-paper: #F2EEE5;
+  --he-ink: #0E0E0E;
+  --he-coal: #1A1817;
+  --he-night: #11141A;
+  --he-shadow: #2A2522;
+  --cream-soft: rgba(232, 228, 218, 0.85);
+  --cream-dim: rgba(232, 228, 218, 0.55);
+  --cream-faint: rgba(232, 228, 218, 0.28);
+  --cream-ghost: rgba(232, 228, 218, 0.1);
+  --line: rgba(232, 228, 218, 0.1);
+  --font-display: "Sailing Club", "Playfair Display", Georgia, serif;
+  --font-wordmark: "Sohne Breit", "Helvetica Neue", sans-serif;
+  --font-body: "Roboto Mono", "SF Mono", monospace;
+  --font-script: "Sailing Club", cursive;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
-  background: var(--ink);
-  color: var(--warm);
+  background: var(--he-night);
+  color: var(--he-cream);
   font-family: var(--font-body);
   font-size: 13px;
-  line-height: 1.5;
+  font-weight: 400;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 a { color: inherit; text-decoration: none; }
 button { font: inherit; cursor: pointer; background: none; border: none; color: inherit; }
 input, select { font: inherit; color: inherit; }
+img { display: block; }
 
-/* ── HEADER ── */
+/* ── PAGE CHROME (registration marks, stamps) ── */
+.chrome-mark {
+  position: fixed; z-index: 200;
+  color: var(--he-orange);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  pointer-events: none;
+  opacity: 0.92;
+}
+.chrome-mark.tl { top: 60px; left: 18px; }
+.chrome-mark.tr { top: 60px; right: 18px; }
+.chrome-mark.bl { bottom: 18px; left: 18px; }
+.chrome-mark.br { bottom: 18px; right: 18px; }
+
+.stamp-newpress {
+  position: fixed; z-index: 200;
+  top: 22px; left: 56px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--he-cream);
+  pointer-events: none;
+}
+.stamp-newpress .sl { color: var(--he-orange); padding: 0 0.15em; }
+
+.stamp-conf {
+  position: fixed; z-index: 200;
+  bottom: 56px; right: 56px;
+  font-family: var(--font-body);
+  font-size: 8px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--he-orange);
+  opacity: 0.65;
+  text-align: right;
+  line-height: 1.45;
+  pointer-events: none;
+}
+
+/* ── MASTHEAD ── */
 header {
   position: sticky; top: 0; z-index: 50;
-  background: rgba(18, 17, 24, 0.96);
+  background: rgba(17, 20, 26, 0.96);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
 }
-
-.bar {
-  display: flex; align-items: baseline; gap: 24px;
-  padding: 28px 56px 14px;
+.masthead {
+  display: flex; align-items: baseline;
+  padding: 78px 56px 24px;
+  gap: 28px;
   flex-wrap: wrap;
 }
-.logo {
-  font-family: var(--font-head);
-  font-size: 38px;
-  font-style: italic;
-  letter-spacing: -0.015em;
-  line-height: 1;
-  color: var(--warm);
+.headline-block {
+  display: flex; flex-direction: column;
+  gap: 6px;
 }
-.tag {
+.eyebrow {
   font-family: var(--font-body);
   font-size: 10px;
-  letter-spacing: 0.22em;
+  font-weight: 500;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: var(--warm-faint);
-  align-self: center;
+  color: var(--he-orange);
 }
-.count {
-  margin-left: auto;
-  font-family: var(--font-head);
+.eyebrow .sl { color: var(--cream-faint); padding: 0 0.15em; }
+.h-display {
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: 400;
+  font-size: clamp(48px, 6.4vw, 96px);
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+  color: var(--he-cream);
+  text-wrap: balance;
+}
+.h-display em {
   font-style: italic;
-  font-size: 18px;
-  color: var(--warm-dim);
-  letter-spacing: 0.01em;
-  align-self: center;
+  color: var(--he-orange-bright);
+  font-family: var(--font-script);
+  font-weight: 400;
+}
+.count-block {
+  margin-left: auto;
+  text-align: right;
+  align-self: flex-end;
+  display: flex; flex-direction: column;
+  gap: 4px;
+}
+.count-num {
+  font-family: var(--font-display);
+  font-size: 56px;
+  line-height: 0.9;
+  color: var(--he-cream);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.count-label {
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--cream-faint);
 }
 
+/* ── NAV ── */
 .nav {
   display: flex; align-items: center;
   padding: 0 56px;
-  border-bottom: 1px solid var(--line);
   gap: 0;
+  border-bottom: 1px solid var(--line);
 }
 .nav-spacer { flex: 1; }
 .tab {
   font-family: var(--font-body);
   font-size: 10px;
-  letter-spacing: 0.24em;
+  font-weight: 500;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: var(--warm-faint);
-  padding: 14px 18px 16px;
-  border-bottom: 1px solid transparent;
+  color: var(--cream-faint);
+  padding: 16px 0;
+  margin-right: 36px;
+  border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   transition: color 0.2s, border-color 0.2s;
+  position: relative;
 }
-.tab:first-child { padding-left: 0; }
-.tab:hover { color: var(--warm-soft); }
-.tab.on { color: var(--warm); border-bottom-color: var(--warm); }
+.tab::after {
+  content: "";
+  position: absolute;
+  right: -18px; top: 50%;
+  width: 4px; height: 4px;
+  background: var(--cream-faint);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  opacity: 0.3;
+}
+.tab:last-of-type::after { display: none; }
+.tab:hover { color: var(--cream-soft); }
+.tab.on {
+  color: var(--he-orange);
+  border-bottom-color: var(--he-orange);
+}
 
 /* ── CONTROLS ── */
 .controls-row {
-  display: flex; align-items: center; gap: 14px;
-  padding: 16px 56px;
+  display: flex; align-items: center; gap: 16px;
+  padding: 18px 56px;
   border-bottom: 1px solid var(--line);
 }
 .search-wrap {
   flex: 1;
   position: relative;
 }
+.search-wrap::before {
+  content: "/";
+  position: absolute; left: 0; top: 50%;
+  transform: translateY(-50%);
+  color: var(--he-orange);
+  font-family: var(--font-body);
+  font-size: 16px;
+  pointer-events: none;
+}
 .search-wrap input {
   width: 100%;
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--line);
-  padding: 8px 0;
-  font-family: var(--font-head);
-  font-style: italic;
-  font-size: 18px;
-  letter-spacing: 0.01em;
-  color: var(--warm);
+  padding: 10px 0 10px 22px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  color: var(--he-cream);
 }
-.search-wrap input:focus { outline: none; border-bottom-color: var(--warm-soft); }
-.search-wrap input::placeholder { color: var(--warm-faint); font-style: italic; }
+.search-wrap input:focus { outline: none; border-bottom-color: var(--he-orange); }
+.search-wrap input::placeholder { color: var(--cream-faint); letter-spacing: 0.06em; }
 
-.icon-btn {
+.btn-meta {
+  font-family: var(--font-body);
   font-size: 10px;
-  letter-spacing: 0.18em;
+  font-weight: 500;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: var(--warm-dim);
-  padding: 8px 12px;
+  color: var(--cream-dim);
+  padding: 9px 14px;
   border: 1px solid var(--line);
-  transition: color 0.15s, border-color 0.15s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
   white-space: nowrap;
 }
-.icon-btn:hover { color: var(--warm); border-color: var(--warm-dim); }
-.icon-btn.on { color: var(--ink); background: var(--accent); border-color: var(--accent); }
-.icon-btn .ct { font-variant-numeric: tabular-nums; opacity: 0.55; margin-left: 8px; }
-.icon-btn .arrow { margin-left: 6px; font-size: 9px; opacity: 0.6; }
+.btn-meta:hover { color: var(--he-cream); border-color: var(--cream-dim); }
+.btn-meta.on { color: var(--he-night); background: var(--he-orange); border-color: var(--he-orange); }
+.btn-meta .ct { opacity: 0.5; margin-left: 8px; font-variant-numeric: tabular-nums; }
+.btn-meta.on .ct { opacity: 0.65; }
 
 select.sort {
   background: transparent;
   border: 1px solid var(--line);
-  padding: 8px 24px 8px 12px;
+  padding: 9px 28px 9px 14px;
+  font-family: var(--font-body);
   font-size: 10px;
-  letter-spacing: 0.16em;
+  font-weight: 500;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--warm-dim);
+  color: var(--cream-dim);
   appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, var(--warm-dim) 50%), linear-gradient(135deg, var(--warm-dim) 50%, transparent 50%);
+  background-image: linear-gradient(45deg, transparent 50%, var(--cream-dim) 50%), linear-gradient(135deg, var(--cream-dim) 50%, transparent 50%);
   background-position: calc(100% - 14px) center, calc(100% - 9px) center;
   background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
+  cursor: pointer;
 }
 
 /* ── FILTER DRAWER ── */
 .filter-drawer {
   display: none;
-  padding: 22px 56px 26px;
+  padding: 24px 56px 28px;
   border-bottom: 1px solid var(--line);
-  background: var(--ink-2);
+  background: var(--he-coal);
 }
 .filter-drawer.open { display: block; }
 .filter-group {
-  display: flex; align-items: flex-start; gap: 14px;
-  margin-bottom: 18px;
+  display: flex; align-items: flex-start; gap: 18px;
+  margin-bottom: 20px;
 }
 .filter-group:last-child { margin-bottom: 0; }
 .filter-label {
+  font-family: var(--font-body);
   font-size: 10px;
-  letter-spacing: 0.22em;
+  font-weight: 500;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: var(--warm-faint);
+  color: var(--he-orange);
   padding-top: 7px;
-  min-width: 78px;
+  min-width: 92px;
 }
-.chips {
-  display: flex; gap: 6px; flex-wrap: wrap; flex: 1;
-}
+.chips { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
 .chip {
+  font-family: var(--font-body);
   font-size: 10px;
-  letter-spacing: 0.12em;
+  font-weight: 500;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  padding: 5px 11px;
+  padding: 6px 12px;
   border: 1px solid var(--line);
-  color: var(--warm-dim);
+  color: var(--cream-dim);
   background: transparent;
   transition: all 0.15s;
 }
-.chip:hover { color: var(--warm); border-color: var(--warm-dim); }
+.chip:hover { color: var(--he-cream); border-color: var(--cream-dim); }
 .chip.on {
-  background: var(--warm);
-  color: var(--ink);
-  border-color: var(--warm);
-  font-weight: 700;
+  background: var(--he-cream);
+  color: var(--he-night);
+  border-color: var(--he-cream);
 }
-.chip .ct {
-  margin-left: 6px; opacity: 0.5;
-  font-variant-numeric: tabular-nums;
-}
+.chip .ct { margin-left: 7px; opacity: 0.55; font-variant-numeric: tabular-nums; }
 
-/* ── SELECTION TOOLBAR ── */
+/* ── SELECTION BAR ── */
 .sel-bar {
   display: none;
-  padding: 12px 56px;
-  background: var(--accent);
-  color: var(--ink);
-  align-items: center; gap: 14px;
+  padding: 14px 56px;
+  background: var(--he-orange);
+  color: var(--he-night);
+  align-items: center; gap: 16px;
   position: sticky; top: 0; z-index: 60;
 }
 .sel-bar.on { display: flex; }
 .sel-bar .label {
-  font-size: 11px; letter-spacing: 0.16em;
-  text-transform: uppercase; font-weight: 700;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
 }
-.sel-bar .label span { font-variant-numeric: tabular-nums; }
+.sel-bar .label .n { font-variant-numeric: tabular-nums; }
 .sel-bar button {
-  font-size: 10px; letter-spacing: 0.18em;
-  text-transform: uppercase; font-weight: 700;
-  padding: 7px 14px;
-  border: 1px solid rgba(18,17,24,0.4);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  border: 1px solid rgba(14, 14, 14, 0.4);
+  color: var(--he-night);
 }
-.sel-bar button:hover { background: var(--ink); color: var(--accent); border-color: var(--ink); }
+.sel-bar button:hover { background: var(--he-night); color: var(--he-orange); border-color: var(--he-night); }
 .sel-bar .spacer { flex: 1; }
 
 /* ── GALLERY ── */
 #gallery {
-  padding: 32px 56px 120px;
+  padding: 36px 56px 140px;
   column-count: 4;
-  column-gap: 28px;
+  column-gap: 30px;
 }
 @media (max-width: 1500px) { #gallery { column-count: 3; column-gap: 24px; } }
-@media (max-width: 1000px) { #gallery { column-count: 2; padding: 22px 28px 100px; column-gap: 18px; } }
+@media (max-width: 1000px) { #gallery { column-count: 2; padding: 24px 28px 100px; column-gap: 18px; } }
 @media (max-width: 640px) { #gallery { column-count: 1; padding: 16px 18px 100px; } }
 
 .card {
   break-inside: avoid;
-  margin-bottom: 28px;
+  margin-bottom: 30px;
   position: relative;
   cursor: zoom-in;
-  transition: opacity 0.15s, transform 0.15s;
 }
 .card img {
-  display: block; width: 100%; height: auto;
+  width: 100%; height: auto;
   border: 1px solid var(--line);
-  transition: border-color 0.15s;
+  transition: border-color 0.2s;
 }
-.card:hover img { border-color: rgba(244,242,230,0.18); }
-.card.selected img { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.card:hover img { border-color: rgba(232, 228, 218, 0.2); }
+.card.selected img { border-color: var(--he-orange); box-shadow: 0 0 0 1px var(--he-orange); }
 
-.card .sentiment-tag {
+.card .tag-corner {
   position: absolute;
   bottom: 10px; left: 10px;
+  font-family: var(--font-body);
   font-size: 9px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  background: rgba(18,17,24,0.85);
-  color: var(--warm);
-  padding: 4px 8px;
-  backdrop-filter: blur(6px);
   font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  background: rgba(17, 20, 26, 0.9);
+  color: var(--he-cream);
+  padding: 5px 9px;
+  backdrop-filter: blur(6px);
   opacity: 0;
   transition: opacity 0.15s;
 }
-.card:hover .sentiment-tag,
-.card.selected .sentiment-tag { opacity: 1; }
-.card .sentiment-tag.praise { color: var(--accent); }
+.card:hover .tag-corner,
+.card.selected .tag-corner { opacity: 1; }
+.card .tag-corner .accent { color: var(--he-orange); }
 
 .card .card-actions {
   position: absolute;
@@ -278,84 +398,97 @@ select.sort {
 .card.selected .card-actions { opacity: 1; }
 .card .card-actions button,
 .card .card-actions a {
-  background: rgba(18,17,24,0.85);
+  background: rgba(17, 20, 26, 0.9);
   backdrop-filter: blur(6px);
-  border: 1px solid rgba(244,242,230,0.2);
-  color: var(--warm);
-  padding: 5px 10px;
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  border: 1px solid rgba(232, 228, 218, 0.22);
+  color: var(--he-cream);
+  padding: 6px 10px;
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  cursor: pointer;
 }
 .card .card-actions button:hover,
-.card .card-actions a:hover { background: var(--accent); color: var(--ink); border-color: var(--accent); }
-.card.selected .select-btn { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+.card .card-actions a:hover { background: var(--he-orange); color: var(--he-night); border-color: var(--he-orange); }
+.card.selected .select-btn { background: var(--he-orange); color: var(--he-night); border-color: var(--he-orange); }
 
-/* ── BROWSE (vertical scroll feed) ── */
+/* ── BROWSE ── */
 #browse {
   display: none;
-  padding: 48px 56px 160px;
+  padding: 56px 56px 160px;
 }
 .browse-stream {
-  max-width: 760px;
+  max-width: 780px;
   margin: 0 auto;
   display: flex; flex-direction: column;
-  gap: 64px;
+  gap: 56px;
 }
 .browse-month {
-  font-family: var(--font-head);
-  font-style: italic;
-  font-size: 32px;
-  color: var(--warm-dim);
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 1;
   letter-spacing: -0.01em;
-  margin: 32px 0 -28px;
-  padding-bottom: 16px;
+  color: var(--he-cream);
+  margin: 36px 0 -22px;
+  padding-bottom: 18px;
   border-bottom: 1px solid var(--line);
+  display: flex; align-items: baseline; gap: 14px;
 }
 .browse-month:first-child { margin-top: 0; }
+.browse-month .marker {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--he-orange);
+}
 .browse-item {
   display: flex; flex-direction: column;
   gap: 14px;
   position: relative;
 }
 .browse-item img {
-  display: block;
-  width: 100%;
-  height: auto;
+  width: 100%; height: auto;
   border: 1px solid var(--line);
   cursor: zoom-in;
   transition: border-color 0.2s;
 }
-.browse-item:hover img { border-color: rgba(244,242,230,0.18); }
+.browse-item:hover img { border-color: rgba(232, 228, 218, 0.2); }
 .browse-item-meta {
   display: flex; gap: 14px; align-items: center;
+  font-family: var(--font-body);
   font-size: 9px;
-  letter-spacing: 0.22em;
+  font-weight: 500;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
-  color: var(--warm-faint);
+  color: var(--cream-faint);
   font-variant-numeric: tabular-nums;
 }
-.browse-item-meta .num { color: var(--warm-dim); }
-.browse-item-meta .sentiment { color: var(--accent); }
+.browse-item-meta .num { color: var(--he-orange); }
+.browse-item-meta .sentiment { color: var(--cream-soft); }
 .browse-item-meta .sep { opacity: 0.5; }
 .browse-item-meta .spacer { flex: 1; }
 .browse-item-meta a, .browse-item-meta button {
-  color: var(--warm-dim);
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
+  color: var(--cream-dim);
   font-size: 9px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
 }
-.browse-item-meta a:hover, .browse-item-meta button:hover { color: var(--warm); }
+.browse-item-meta a:hover, .browse-item-meta button:hover { color: var(--he-orange); }
+
 .scroll-top {
   position: fixed;
-  bottom: 28px; right: 36px;
-  background: var(--ink-2);
+  bottom: 28px; right: 80px;
+  background: var(--he-coal);
   border: 1px solid var(--line);
-  color: var(--warm-dim);
+  color: var(--cream-dim);
   padding: 11px 18px;
+  font-family: var(--font-body);
   font-size: 10px;
-  letter-spacing: 0.22em;
+  font-weight: 500;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
   cursor: pointer;
   opacity: 0;
@@ -363,225 +496,362 @@ select.sort {
   z-index: 40;
 }
 .scroll-top.on { opacity: 1; }
-.scroll-top:hover { color: var(--warm); border-color: var(--warm-dim); }
+.scroll-top:hover { color: var(--he-orange); border-color: var(--he-orange); }
 
 /* ── ASK ── */
 #ask {
   display: none;
-  padding: 56px 56px 120px;
+  padding: 56px 56px 140px;
 }
 .ask-frame {
-  max-width: 920px;
+  max-width: 1080px;
   margin: 0 auto;
 }
-.ask-headline {
-  font-family: var(--font-head);
-  font-style: italic;
-  font-size: 48px;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
-  color: var(--warm);
+.ask-eyebrow {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--he-orange);
   margin-bottom: 14px;
+}
+.ask-headline {
+  font-family: var(--font-display);
+  font-size: clamp(54px, 6vw, 88px);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  color: var(--he-cream);
+  margin-bottom: 20px;
+  text-wrap: balance;
+}
+.ask-headline em {
+  font-style: italic;
+  color: var(--he-orange-bright);
+  font-family: var(--font-script);
 }
 .ask-sub {
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--warm-dim);
-  margin-bottom: 36px;
-  max-width: 540px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: var(--cream-soft);
+  margin-bottom: 48px;
+  max-width: 56ch;
 }
 .ask-input-wrap {
-  display: flex; gap: 0;
-  border-bottom: 1px solid var(--warm-dim);
+  display: flex; gap: 0; align-items: center;
+  border-bottom: 1px solid var(--cream-dim);
   margin-bottom: 14px;
+  padding: 4px 0;
+}
+.ask-input-wrap::before {
+  content: "?";
+  font-family: var(--font-display);
+  font-size: 36px;
+  color: var(--he-orange);
+  padding-right: 18px;
+  line-height: 1;
 }
 .ask-input-wrap input {
   flex: 1;
   background: transparent;
   border: none;
-  padding: 14px 0;
-  font-family: var(--font-head);
-  font-style: italic;
-  font-size: 24px;
-  color: var(--warm);
+  padding: 12px 0;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 2.4vw, 30px);
+  letter-spacing: -0.005em;
+  color: var(--he-cream);
 }
 .ask-input-wrap input:focus { outline: none; }
-.ask-input-wrap input::placeholder { color: var(--warm-faint); font-style: italic; }
+.ask-input-wrap input::placeholder { color: var(--cream-faint); }
 .ask-input-wrap button {
   background: transparent;
-  color: var(--warm-dim);
-  padding: 14px 4px 14px 22px;
+  color: var(--he-orange);
+  padding: 12px 4px 12px 22px;
+  font-family: var(--font-body);
   font-size: 11px;
-  letter-spacing: 0.22em;
+  font-weight: 700;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
 }
-.ask-input-wrap button:hover { color: var(--warm); }
-.ask-input-wrap button:disabled { color: var(--warm-faint); cursor: not-allowed; }
+.ask-input-wrap button:hover { color: var(--he-orange-bright); }
+.ask-input-wrap button:disabled { color: var(--cream-faint); cursor: not-allowed; }
 
 .ask-examples {
   display: flex; gap: 8px; flex-wrap: wrap;
-  margin-bottom: 36px;
+  margin-bottom: 48px;
 }
 .ask-example {
+  font-family: var(--font-body);
   font-size: 10px;
-  letter-spacing: 0.14em;
+  font-weight: 500;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  padding: 6px 12px;
+  padding: 7px 13px;
   border: 1px solid var(--line);
-  color: var(--warm-dim);
+  color: var(--cream-dim);
 }
-.ask-example:hover { color: var(--warm); border-color: var(--warm-dim); }
+.ask-example:hover { color: var(--he-orange); border-color: var(--he-orange); }
 
 .ask-status {
+  font-family: var(--font-body);
   font-size: 10px;
-  letter-spacing: 0.22em;
+  font-weight: 500;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: var(--warm-faint);
+  color: var(--he-orange);
   min-height: 14px;
-  margin-bottom: 18px;
+  margin-bottom: 24px;
 }
-.ask-summary {
-  font-family: var(--font-head);
-  font-style: italic;
-  font-size: 22px;
-  line-height: 1.4;
-  color: var(--warm);
-  border-left: 1px solid var(--accent);
-  padding: 4px 0 4px 22px;
-  margin-bottom: 36px;
-  max-width: 720px;
+.ask-status.loading::after {
+  content: " · loading";
+  color: var(--cream-faint);
 }
-.ask-results {
-  display: flex; flex-direction: column; gap: 24px;
+
+/* Ask results toolbar */
+.ask-toolbar {
+  display: none;
+  align-items: center; gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 24px;
 }
+.ask-toolbar.on { display: flex; }
+.ask-toolbar .pad {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--cream-dim);
+}
+.ask-toolbar .pad .n { color: var(--he-orange); font-variant-numeric: tabular-nums; }
+.ask-toolbar .spacer { flex: 1; }
+.ask-toolbar button {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  color: var(--cream-dim);
+}
+.ask-toolbar button:hover { color: var(--he-orange); border-color: var(--he-orange); }
+.ask-toolbar button.primary {
+  background: var(--he-orange);
+  color: var(--he-night);
+  border-color: var(--he-orange);
+  font-weight: 700;
+}
+.ask-toolbar button.primary:hover { background: var(--he-orange-bright); border-color: var(--he-orange-bright); color: var(--he-night); }
+.ask-toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Ask results */
+.ask-results { display: flex; flex-direction: column; gap: 28px; }
 .ask-result {
   display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 24px;
-  padding-bottom: 24px;
+  grid-template-columns: 42px 320px 1fr;
+  gap: 22px;
+  padding-bottom: 28px;
   border-bottom: 1px solid var(--line);
+  align-items: start;
 }
-@media (max-width: 760px) { .ask-result { grid-template-columns: 1fr; } }
-.ask-result img {
+@media (max-width: 880px) {
+  .ask-result { grid-template-columns: 42px 1fr; }
+  .ask-result .ask-thumb-wrap { grid-column: 2; }
+}
+.ask-checkbox-wrap {
+  display: flex; align-items: center; justify-content: center;
+  padding-top: 6px;
+}
+.ask-checkbox {
+  width: 22px; height: 22px;
+  border: 1px solid var(--cream-dim);
+  background: transparent;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-body);
+  font-weight: 700;
+  color: transparent;
+  transition: all 0.15s;
+}
+.ask-checkbox:hover { border-color: var(--he-orange); }
+.ask-result.selected .ask-checkbox {
+  background: var(--he-orange);
+  border-color: var(--he-orange);
+  color: var(--he-night);
+}
+.ask-thumb-wrap img {
   width: 100%; height: auto;
   border: 1px solid var(--line);
   cursor: zoom-in;
+  transition: border-color 0.15s;
 }
+.ask-thumb-wrap img:hover { border-color: var(--cream-dim); }
+.ask-result.selected .ask-thumb-wrap img { border-color: var(--he-orange); }
+.ask-text {
+  display: flex; flex-direction: column;
+  gap: 14px;
+}
+.ask-quote {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+  color: var(--he-cream);
+}
+.ask-quote::before { content: "\201C"; color: var(--he-orange); padding-right: 2px; }
+.ask-quote::after { content: "\201D"; color: var(--he-orange); padding-left: 2px; }
 .ask-result .why {
-  font-family: var(--font-head);
+  font-family: var(--font-body);
+  font-size: 11px;
   font-style: italic;
-  font-size: 18px;
-  line-height: 1.45;
-  color: var(--warm);
-  margin-bottom: 14px;
+  line-height: 1.55;
+  color: var(--cream-dim);
+  border-left: 2px solid var(--he-orange);
+  padding-left: 12px;
 }
-.ask-result .mini {
-  display: flex; gap: 14px; align-items: center;
+.ask-mini {
+  display: flex; gap: 12px; align-items: center;
+  font-family: var(--font-body);
   font-size: 9px;
-  letter-spacing: 0.2em;
+  font-weight: 500;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: var(--warm-faint);
+  color: var(--cream-faint);
 }
-.ask-result .mini .sent { color: var(--accent); }
-.ask-result .mini a:hover { color: var(--warm); }
-.ask-result .mini .spacer { flex: 1; }
+.ask-mini .sent { color: var(--he-orange); }
+.ask-mini .sep { opacity: 0.5; }
+.ask-mini .spacer { flex: 1; }
+.ask-mini .dl-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  border: 1px solid var(--line);
+  color: var(--cream-dim);
+  font-size: 14px;
+  letter-spacing: 0;
+  transition: all 0.15s;
+}
+.ask-mini .dl-icon:hover { color: var(--he-orange); border-color: var(--he-orange); }
 
 /* ── MODAL ── */
 .modal {
-  position: fixed; inset: 0; z-index: 200;
-  background: rgba(12, 11, 16, 0.97);
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(14, 14, 14, 0.97);
   display: none; align-items: center; justify-content: center;
   padding: 56px;
 }
 .modal.open { display: flex; }
 .modal-inner {
-  display: flex; flex-direction: column; align-items: center; gap: 24px;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 24px;
   max-width: 90vw;
 }
 .modal img {
-  max-width: 100%; max-height: 80vh;
+  max-width: 100%; max-height: 78vh;
   object-fit: contain;
 }
 .modal-actions {
   display: flex; gap: 10px;
+  font-family: var(--font-body);
   font-size: 10px;
-  letter-spacing: 0.2em;
+  font-weight: 500;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
 }
 .modal-actions a {
-  padding: 9px 18px;
+  padding: 10px 18px;
   border: 1px solid var(--line);
-  color: var(--warm-dim);
+  color: var(--cream-dim);
 }
-.modal-actions a:hover { color: var(--warm); border-color: var(--warm-dim); }
-.modal-actions a.primary { background: var(--accent); color: var(--ink); border-color: var(--accent); font-weight: 700; }
-.modal-actions a.primary:hover { color: var(--ink); }
+.modal-actions a:hover { color: var(--he-orange); border-color: var(--he-orange); }
+.modal-actions a.primary {
+  background: var(--he-orange); color: var(--he-night);
+  border-color: var(--he-orange); font-weight: 700;
+}
 .close-x {
   position: absolute; top: 28px; right: 36px;
-  font-size: 36px; color: var(--warm-dim);
-  font-family: var(--font-head);
-  font-style: italic;
+  font-family: var(--font-display);
+  font-size: 42px;
+  color: var(--cream-dim);
 }
-.close-x:hover { color: var(--warm); }
+.close-x:hover { color: var(--he-orange); }
 
 /* ── EMPTY ── */
 .empty {
-  font-family: var(--font-head);
-  font-style: italic;
-  font-size: 24px;
-  color: var(--warm-faint);
+  font-family: var(--font-display);
+  font-size: 28px;
+  color: var(--cream-faint);
   padding: 80px 20px;
   text-align: center;
 }
 
 @media (max-width: 700px) {
-  .bar, .nav, .controls-row, .filter-drawer, .sel-bar, #ask { padding-left: 22px; padding-right: 22px; }
-  .logo { font-size: 30px; }
-  .ask-headline { font-size: 36px; }
+  .stamp-newpress { left: 22px; }
+  .stamp-conf { right: 22px; }
+  .masthead, .nav, .controls-row, .filter-drawer, .sel-bar, #ask, #browse { padding-left: 22px; padding-right: 22px; }
+  .h-display { font-size: 44px; }
+  .count-num { font-size: 36px; }
+  .ask-headline { font-size: 40px; }
 }
 </style>
 </head>
 <body>
 
+<div class="stamp-newpress">Newpress <span class="sl">/</span> 2026</div>
+<div class="stamp-conf">Internal archive<br/>Reception capture</div>
+<div class="chrome-mark tl">+</div>
+<div class="chrome-mark tr">+</div>
+<div class="chrome-mark bl">+</div>
+<div class="chrome-mark br">+</div>
+
 <header>
-  <div class="bar">
-    <span class="logo">comment bank</span>
-    <span class="tag">an archive of reception</span>
-    <span class="count" id="totalCount">—</span>
+  <div class="masthead">
+    <div class="headline-block">
+      <div class="eyebrow">An archive <span class="sl">/</span> Of audience reception</div>
+      <h1 class="h-display">Comment <em>bank</em>.</h1>
+    </div>
+    <div class="count-block">
+      <div class="count-num" id="totalCount">—</div>
+      <div class="count-label">comments cataloged</div>
+    </div>
   </div>
-  <div class="nav">
-    <div class="tab on" data-mode="gallery">gallery</div>
-    <div class="tab" data-mode="browse">browse</div>
-    <div class="tab" data-mode="ask">ask</div>
+  <nav class="nav">
+    <div class="tab on" data-mode="gallery">Gallery</div>
+    <div class="tab" data-mode="browse">Browse</div>
+    <div class="tab" data-mode="ask">Ask</div>
     <div class="nav-spacer"></div>
-  </div>
+  </nav>
   <div class="controls-row" id="galleryControls">
     <div class="search-wrap">
-      <input type="search" id="search" placeholder="search…" />
+      <input type="search" id="search" placeholder="search the archive" />
     </div>
-    <button class="icon-btn" id="filterToggle">filter <span class="ct" id="filterCount">0</span><span class="arrow">▾</span></button>
+    <button class="btn-meta" id="filterToggle">Filter <span class="ct" id="filterCount">0</span></button>
     <select class="sort" id="sort">
-      <option value="newest">newest first</option>
-      <option value="oldest">oldest first</option>
-      <option value="sentiment">by sentiment</option>
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="sentiment">By sentiment</option>
     </select>
   </div>
   <div class="filter-drawer" id="filterDrawer">
     <div class="filter-group">
-      <span class="filter-label">sentiment</span>
+      <span class="filter-label">Sentiment</span>
       <div class="chips" id="sentimentChips"></div>
     </div>
     <div class="filter-group">
-      <span class="filter-label">themes</span>
+      <span class="filter-label">Themes</span>
       <div class="chips" id="themeChips"></div>
     </div>
   </div>
   <div class="sel-bar" id="selBar">
-    <span class="label"><span id="selCount">0</span> selected</span>
+    <span class="label"><span class="n" id="selCount">0</span> selected</span>
     <span class="spacer"></span>
-    <button id="downloadSelected">download zip</button>
-    <button id="selectAll">select all visible</button>
-    <button id="clearSelection">clear</button>
+    <button id="downloadSelected">↓ Download zip</button>
+    <button id="selectAll">Select all visible</button>
+    <button id="clearSelection">Clear</button>
   </div>
 </header>
 
@@ -590,19 +860,26 @@ select.sort {
 <section id="browse">
   <div class="browse-stream" id="browseStream"></div>
 </section>
-<button class="scroll-top" id="scrollTop">↑ top</button>
+<button class="scroll-top" id="scrollTop">↑ Top</button>
 
 <section id="ask">
   <div class="ask-frame">
-    <h2 class="ask-headline">ask the audience.</h2>
-    <p class="ask-sub">natural-language search across every comment. ask for sentiments, vibes, topics, episodes — whatever you're hunting.</p>
+    <div class="ask-eyebrow">Natural-language search <span style="color: var(--cream-faint);">/</span> Powered by Claude</div>
+    <h2 class="ask-headline">Ask the <em>audience</em>.</h2>
+    <p class="ask-sub">Hunt the archive in plain English. Ask for sentiments, vibes, episode-specific reactions, recurring themes — whatever you're looking for. The model returns matches with the comment verbatim.</p>
     <div class="ask-input-wrap">
       <input id="askInput" type="text" placeholder="what are people saying about…" />
-      <button id="askGo">ask →</button>
+      <button id="askGo">Ask →</button>
     </div>
     <div class="ask-examples" id="askExamples"></div>
     <div class="ask-status" id="askStatus"></div>
-    <div class="ask-summary" id="askSummary" style="display:none"></div>
+    <div class="ask-toolbar" id="askToolbar">
+      <span class="pad"><span class="n" id="askSelCount">0</span> of <span id="askTotalCount">0</span> selected</span>
+      <span class="spacer"></span>
+      <button id="askSelectAll">Select all matches</button>
+      <button id="askClearSel">Clear</button>
+      <button class="primary" id="askDownload" disabled>↓ Download zip</button>
+    </div>
     <div class="ask-results" id="askResults"></div>
   </div>
 </section>
@@ -612,8 +889,8 @@ select.sort {
   <div class="modal-inner">
     <img id="modalImg" alt="" />
     <div class="modal-actions">
-      <a class="primary" id="modalDownload" download>↓ download original</a>
-      <a id="modalSlack" target="_blank" rel="noopener">open in slack</a>
+      <a class="primary" id="modalDownload" download>↓ Download original</a>
+      <a id="modalSlack" target="_blank" rel="noopener">Open in slack</a>
     </div>
   </div>
 </div>
@@ -642,8 +919,9 @@ let chrono = [];
 let activeSents = new Set();
 let activeThemes = new Set();
 let selected = new Set();
+let askSelected = new Set();
+let askMatches = []; // [{c, why}]
 let topThemes = [];
-let browseIdx = 0;
 let filterOpen = false;
 
 const $ = sel => document.querySelector(sel);
@@ -651,29 +929,23 @@ const $ = sel => document.querySelector(sel);
 async function load() {
   const res = await fetch(asset("comments.json"));
   if (!res.ok) {
-    $("#gallery").innerHTML = '<div class="empty">no data yet — run analyze first</div>';
+    $("#gallery").innerHTML = '<div class="empty">no data yet</div>';
     return;
   }
   const arr = await res.json();
   comments = arr.filter(c => c.analysis && !c.analysis.skip);
   chrono = [...comments].sort((a, b) => parseFloat(a.slack_ts) - parseFloat(b.slack_ts));
-  $("#totalCount").textContent = comments.length.toLocaleString() + " comments";
+  $("#totalCount").textContent = comments.length.toLocaleString();
   computeTopThemes();
   renderChips();
   render();
-  renderBrowse();
   renderExamples();
 }
 
 function computeTopThemes() {
   const counts = {};
-  for (const c of comments) {
-    for (const t of (c.analysis.themes || [])) counts[t] = (counts[t] || 0) + 1;
-  }
-  topThemes = Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 18)
-    .map(([t, n]) => ({ theme: t, count: n }));
+  for (const c of comments) for (const t of (c.analysis.themes || [])) counts[t] = (counts[t] || 0) + 1;
+  topThemes = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 18).map(([t, n]) => ({ theme: t, count: n }));
 }
 
 function renderChips() {
@@ -703,10 +975,7 @@ function renderChips() {
   }
   updateFilterCount();
 }
-
-function updateFilterCount() {
-  $("#filterCount").textContent = activeSents.size + activeThemes.size;
-}
+function updateFilterCount() { $("#filterCount").textContent = activeSents.size + activeThemes.size; }
 
 function filtered() {
   const q = $("#search").value.trim().toLowerCase();
@@ -736,33 +1005,24 @@ function render() {
   const items = filtered();
   const grid = $("#gallery");
   grid.innerHTML = "";
-  if (!items.length) {
-    grid.innerHTML = '<div class="empty">no matches</div>';
-    return;
-  }
+  if (!items.length) { grid.innerHTML = '<div class="empty">no matches</div>'; return; }
   for (const c of items) {
     const card = document.createElement("div");
     card.className = "card" + (selected.has(c.id) ? " selected" : "");
     card.dataset.id = c.id;
     const a = c.analysis;
     const sent = (a.sentiment || "").replace("_", " ");
-    const sentClass = (a.sentiment === "praise") ? " praise" : "";
-
     card.innerHTML = `
       <img src="${asset(c.local_path)}" alt="" loading="lazy" />
-      <div class="sentiment-tag${sentClass}">${sent}</div>
+      <div class="tag-corner"><span class="accent">●</span> ${sent}</div>
       <div class="card-actions">
-        <button class="select-btn" data-role="select">${selected.has(c.id) ? "✓ selected" : "select"}</button>
-        <button data-role="similar">more like this</button>
+        <button class="select-btn" data-role="select">${selected.has(c.id) ? "✓ Selected" : "Select"}</button>
+        <button data-role="similar">More like this</button>
         <a href="${asset(c.local_path)}" download="${c.id}.${c.ext}" onclick="event.stopPropagation()">↓</a>
       </div>
     `;
-    card.querySelector('[data-role="select"]').addEventListener("click", e => {
-      e.stopPropagation(); toggleSelected(c.id);
-    });
-    card.querySelector('[data-role="similar"]').addEventListener("click", e => {
-      e.stopPropagation(); findSimilar(c);
-    });
+    card.querySelector('[data-role="select"]').addEventListener("click", e => { e.stopPropagation(); toggleSelected(c.id); });
+    card.querySelector('[data-role="similar"]').addEventListener("click", e => { e.stopPropagation(); findSimilar(c); });
     card.querySelector("img").addEventListener("click", () => openModal(c));
     grid.appendChild(card);
   }
@@ -784,7 +1044,6 @@ function openModal(c) {
   else { slack.style.display = "none"; }
   $("#modal").classList.add("open");
 }
-
 $("#closeX").onclick = () => $("#modal").classList.remove("open");
 $("#modal").onclick = e => { if (e.target.id === "modal") $("#modal").classList.remove("open"); };
 document.addEventListener("keydown", e => { if (e.key === "Escape") $("#modal").classList.remove("open"); });
@@ -796,40 +1055,33 @@ $("#filterToggle").onclick = () => {
   $("#filterDrawer").classList.toggle("open", filterOpen);
   $("#filterToggle").classList.toggle("on", filterOpen);
 };
-$("#selectAll").onclick = () => {
-  for (const c of filtered()) selected.add(c.id);
-  $("#selCount").textContent = selected.size;
-  $("#selBar").classList.toggle("on", selected.size > 0);
-  render();
-};
-$("#clearSelection").onclick = () => {
-  selected.clear();
-  $("#selCount").textContent = 0;
-  $("#selBar").classList.remove("on");
-  render();
-};
-$("#downloadSelected").onclick = async () => {
-  if (!selected.size) return;
+$("#selectAll").onclick = () => { for (const c of filtered()) selected.add(c.id); $("#selCount").textContent = selected.size; $("#selBar").classList.toggle("on", selected.size > 0); render(); };
+$("#clearSelection").onclick = () => { selected.clear(); $("#selCount").textContent = 0; $("#selBar").classList.remove("on"); render(); };
+
+async function zipAndDownload(picks, baseName, btn) {
   const zip = new JSZip();
-  const picks = comments.filter(c => selected.has(c.id));
-  const btn = $("#downloadSelected");
-  const orig = btn.textContent;
+  const origText = btn.textContent;
   let i = 0;
   for (const c of picks) {
-    i++;
-    btn.textContent = `zipping ${i}/${picks.length}`;
+    i++; btn.textContent = `Zipping ${i}/${picks.length}`;
     const res = await fetch(asset(c.local_path));
     zip.file(`${c.id}.${c.ext}`, await res.arrayBuffer());
   }
   const blob = await zip.generateAsync({ type: "blob" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = `comment-bank-${new Date().toISOString().slice(0,10)}.zip`; a.click();
+  a.href = url; a.download = `${baseName}-${new Date().toISOString().slice(0,10)}.zip`; a.click();
   URL.revokeObjectURL(url);
-  btn.textContent = orig;
+  btn.textContent = origText;
+}
+
+$("#downloadSelected").onclick = async () => {
+  if (!selected.size) return;
+  await zipAndDownload(comments.filter(c => selected.has(c.id)), "comment-bank", $("#downloadSelected"));
 };
 
 /* ── MODES ── */
+let browseRendered = false;
 function setMode(name) {
   for (const tab of document.querySelectorAll(".tab")) tab.classList.toggle("on", tab.dataset.mode === name);
   $("#gallery").style.display = name === "gallery" ? "block" : "none";
@@ -837,19 +1089,16 @@ function setMode(name) {
   $("#filterDrawer").style.display = name === "gallery" && filterOpen ? "block" : "none";
   $("#browse").style.display = name === "browse" ? "block" : "none";
   $("#ask").style.display = name === "ask" ? "block" : "none";
-  if (name === "browse") renderBrowse();
+  if (name === "browse" && !browseRendered) renderBrowse();
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 for (const tab of document.querySelectorAll(".tab")) tab.onclick = () => setMode(tab.dataset.mode);
 
-/* ── BROWSE — vertical scroll feed, chronological, grouped by month ── */
-let browseRendered = false;
+/* ── BROWSE ── */
 function renderBrowse() {
-  if (browseRendered) return;
   const stream = $("#browseStream");
   stream.innerHTML = "";
   if (!chrono.length) { stream.innerHTML = '<div class="empty">no comments yet</div>'; return; }
-  // newest first so scrolling down goes back in time
   const ordered = [...chrono].reverse();
   let lastMonth = "";
   ordered.forEach((c, i) => {
@@ -859,7 +1108,7 @@ function renderBrowse() {
       lastMonth = monthKey;
       const h = document.createElement("div");
       h.className = "browse-month";
-      h.textContent = monthKey.toLowerCase();
+      h.innerHTML = `${monthKey} <span class="marker">/ entries</span>`;
       stream.appendChild(h);
     }
     const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -877,8 +1126,8 @@ function renderBrowse() {
         <span class="sep">·</span>
         <span>${dateStr}</span>
         <span class="spacer"></span>
-        <button data-role="similar">more like this</button>
-        <a href="${asset(c.local_path)}" download="${c.id}.${c.ext}">↓ download</a>
+        <button data-role="similar">More like this</button>
+        <a href="${asset(c.local_path)}" download="${c.id}.${c.ext}">↓ Download</a>
       </div>
     `;
     item.querySelector("img").onclick = () => openModal(c);
@@ -889,9 +1138,7 @@ function renderBrowse() {
 }
 
 $("#scrollTop").onclick = () => window.scrollTo({ top: 0, behavior: "smooth" });
-window.addEventListener("scroll", () => {
-  $("#scrollTop").classList.toggle("on", window.scrollY > 800);
-});
+window.addEventListener("scroll", () => $("#scrollTop").classList.toggle("on", window.scrollY > 800));
 
 /* ── MORE LIKE THIS ── */
 function findSimilar(source) {
@@ -906,8 +1153,8 @@ text: "${text}"
 sentiment: ${source.analysis.sentiment}
 themes: ${(source.analysis.themes || []).join(", ")}
 
-Return up to 12 of the closest matches (do not include the source itself, id ${source.id}). For each, "why" should explain in one short sentence what makes it similar to the source.`;
-  runAskWithQuery(question, `comments similar to "${snippet}"`);
+Return up to 12 of the closest matches (do not include the source itself, id ${source.id}). For each "why", explain in one short sentence what makes it similar to the source.`;
+  runAskWithQuery(question);
 }
 
 /* ── ASK ── */
@@ -925,15 +1172,18 @@ $("#askInput").addEventListener("keydown", e => { if (e.key === "Enter") runAsk(
 async function runAsk() {
   const q = $("#askInput").value.trim();
   if (!q) return;
-  await runAskWithQuery(q, q);
+  await runAskWithQuery(q);
 }
-async function runAskWithQuery(question, displayLabel) {
+async function runAskWithQuery(question) {
   const status = $("#askStatus");
-  const summary = $("#askSummary");
   const results = $("#askResults");
-  status.textContent = "asking…";
-  summary.style.display = "none"; summary.textContent = "";
+  const toolbar = $("#askToolbar");
+  status.textContent = "Reading every comment";
+  status.classList.add("loading");
   results.innerHTML = "";
+  toolbar.classList.remove("on");
+  askMatches = []; askSelected.clear();
+  refreshAskToolbar();
   $("#askGo").disabled = true;
   try {
     const payload = {
@@ -948,37 +1198,76 @@ async function runAskWithQuery(question, displayLabel) {
     });
     if (!res.ok) throw new Error(`server ${res.status}`);
     const data = await res.json();
-    if (data.summary) { summary.textContent = data.summary; summary.style.display = "block"; }
     const matches = (data.matches || []).map(m => {
       const c = comments.find(x => x.id === m.id);
       return c ? { c, why: m.why } : null;
     }).filter(Boolean);
+    askMatches = matches;
+    status.classList.remove("loading");
     status.textContent = matches.length ? `${matches.length} match${matches.length === 1 ? "" : "es"}` : "no matches";
+    if (matches.length) {
+      toolbar.classList.add("on");
+      $("#askTotalCount").textContent = matches.length;
+      refreshAskToolbar();
+    }
     for (const { c, why } of matches) {
       const a = c.analysis;
+      const text = a.comment_text || "(no text extracted)";
       const card = document.createElement("div");
       card.className = "ask-result";
+      card.dataset.id = c.id;
       card.innerHTML = `
-        <img src="${asset(c.local_path)}" alt="" loading="lazy" />
-        <div>
-          <div class="why">"${escapeHtml(why || "")}"</div>
-          <div class="mini">
+        <div class="ask-checkbox-wrap"><button class="ask-checkbox" data-role="check">✓</button></div>
+        <div class="ask-thumb-wrap"><img src="${asset(c.local_path)}" alt="" loading="lazy" /></div>
+        <div class="ask-text">
+          <div class="ask-quote">${escapeHtml(text)}</div>
+          ${why ? `<div class="why">${escapeHtml(why)}</div>` : ""}
+          <div class="ask-mini">
             <span class="sent">${(a.sentiment || "").replace("_", " ")}</span>
-            ${(a.themes || []).slice(0, 3).map(t => `<span>· ${escapeHtml(t)}</span>`).join("")}
+            ${(a.themes || []).slice(0, 4).map(t => `<span class="sep">·</span><span>${escapeHtml(t)}</span>`).join("")}
             <span class="spacer"></span>
-            <a href="${asset(c.local_path)}" download="${c.id}.${c.ext}">↓ download</a>
+            <a class="dl-icon" href="${asset(c.local_path)}" download="${c.id}.${c.ext}" title="download original">↓</a>
           </div>
         </div>
       `;
       card.querySelector("img").onclick = () => openModal(c);
+      card.querySelector('[data-role="check"]').onclick = () => toggleAskSelected(c.id);
       results.appendChild(card);
     }
   } catch (err) {
+    status.classList.remove("loading");
     status.textContent = `error: ${err.message}`;
   } finally {
     $("#askGo").disabled = false;
   }
 }
+
+function toggleAskSelected(id) {
+  askSelected.has(id) ? askSelected.delete(id) : askSelected.add(id);
+  refreshAskToolbar();
+  for (const el of document.querySelectorAll(".ask-result")) {
+    el.classList.toggle("selected", askSelected.has(el.dataset.id));
+  }
+}
+function refreshAskToolbar() {
+  $("#askSelCount").textContent = askSelected.size;
+  $("#askDownload").disabled = askSelected.size === 0;
+}
+$("#askSelectAll").onclick = () => {
+  for (const { c } of askMatches) askSelected.add(c.id);
+  refreshAskToolbar();
+  for (const el of document.querySelectorAll(".ask-result")) el.classList.add("selected");
+};
+$("#askClearSel").onclick = () => {
+  askSelected.clear();
+  refreshAskToolbar();
+  for (const el of document.querySelectorAll(".ask-result")) el.classList.remove("selected");
+};
+$("#askDownload").onclick = async () => {
+  if (!askSelected.size) return;
+  const picks = askMatches.filter(m => askSelected.has(m.c.id)).map(m => m.c);
+  await zipAndDownload(picks, "ask-results", $("#askDownload"));
+};
 
 load();
 </script>
