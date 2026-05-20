@@ -42,6 +42,7 @@ export default defineConfig({
         borders: resolve(__dirname, 'borders/index.html'),
         nightMarket: resolve(__dirname, 'night-market/index.html'),
         newpressDeck: resolve(__dirname, 'newpress-deck/index.html'),
+        commentbank: resolve(__dirname, 'commentbank/index.html'),
         pinglobeFeedback: resolve(__dirname, 'pinglobe-feedback/index.html'),
         zanyplans: resolve(__dirname, 'zanyplans/index.html'),
         spin: resolve(__dirname, 'spin/index.html'),
