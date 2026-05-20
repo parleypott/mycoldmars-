@@ -2428,7 +2428,8 @@ async function finishStylize() {
 
 // Boot
 (async () => {
-  await   applyHash();
+  await load();
+  applyHash();
 })();
 </script>
 </body>
