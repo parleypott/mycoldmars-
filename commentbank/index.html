@@ -1161,16 +1161,22 @@ select.sort {
   flex-shrink: 0;
   width: 40px; height: 40px;
   border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+  background: #333;
   display: flex; align-items: center; justify-content: center;
   font-family: "Roboto", sans-serif;
   font-size: 18px;
   font-weight: 500;
   color: #FFFFFF;
   text-transform: uppercase;
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-  overflow: hidden;
+}
+.yt-avatar img.av-source {
+  position: absolute;
+  top: 0; left: 0;
+  display: block;
+  transform-origin: 0 0;
+  pointer-events: none;
 }
 .yt-body { flex: 1; min-width: 0; }
 .yt-line1 {
@@ -1991,21 +1997,19 @@ function currentEdit() {
   return edit;
 }
 
-function avatarStyleFor(edit, c) {
+function avatarInnerMarkup(edit, c) {
   if (edit.avMode === "letter") {
     const av = avatarForHandle(edit.handle);
-    return `background:${av.bg}; color:${av.fg};`;
+    return `<div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:${av.bg};color:${av.fg};font-family:Roboto,sans-serif;font-size:18px;font-weight:500;text-transform:uppercase;">${escapeHtml(av.letter)}</div>`;
   }
   const url = asset(c.local_path);
-  return `background-image: url("${url}"); background-color: #333; background-size: ${edit.avZoom}%; background-position: ${edit.avX}% ${edit.avY}%; color: transparent;`;
+  return `<img class="av-source" src="${escapeAttr(url)}" crossorigin="anonymous" alt="" style="width:40px;height:40px;object-fit:cover;object-position:${edit.avX}% ${edit.avY}%;transform:scale(${edit.avZoom/100});transform-origin:${edit.avX}% ${edit.avY}%;" />`;
 }
 
 function ytCommentMarkup(edit, c) {
-  const av = avatarForHandle(edit.handle);
-  const letter = edit.avMode === "letter" ? escapeHtml(av.letter) : "";
   return `
     <div class="yt-comment theme-${edit.theme}">
-      <div class="yt-avatar" style="${avatarStyleFor(edit, c)}">${letter}</div>
+      <div class="yt-avatar">${avatarInnerMarkup(edit, c)}</div>
       <div class="yt-body">
         <div class="yt-line1">
           <span class="yt-handle">${escapeHtml(edit.handle)}</span>
@@ -2022,13 +2026,24 @@ function ytCommentMarkup(edit, c) {
   `;
 }
 
+function avatarThumbMarkup(edit, c) {
+  // 48px version for the editor preview thumbnail
+  if (edit.avMode === "letter") {
+    const av = avatarForHandle(edit.handle);
+    return `<div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${av.bg};color:${av.fg};font-family:Roboto,sans-serif;font-size:20px;font-weight:500;text-transform:uppercase;">${escapeHtml(av.letter)}</div>`;
+  }
+  const url = asset(c.local_path);
+  return `<div style="width:48px;height:48px;border-radius:50%;overflow:hidden;background:#333;"><img src="${escapeAttr(url)}" alt="" style="width:48px;height:48px;object-fit:cover;object-position:${edit.avX}% ${edit.avY}%;transform:scale(${edit.avZoom/100});transform-origin:${edit.avX}% ${edit.avY}%;display:block;" /></div>`;
+}
+
 function renderPreview() {
   const edit = currentEdit();
   const c = currentComment();
   if (!edit || !c) return;
   $("#stylizePreviewStage").innerHTML = ytCommentMarkup(edit, c);
   // avatar preview thumbnail
-  $("#avatarPreview").style.cssText = avatarStyleFor(edit, c) + "; width: 48px; height: 48px;";
+  $("#avatarPreview").innerHTML = avatarThumbMarkup(edit, c);
+  $("#avatarPreview").style.cssText = "width:48px;height:48px;flex-shrink:0;";
   renderCode();
 }
 
@@ -2168,17 +2183,27 @@ function wrapSelectionInMark() {
 }
 function unwrapMarksInSelection() {
   const sel = window.getSelection();
-  if (!sel.rangeCount) return;
-  const range = sel.getRangeAt(0);
   const ft = $("#fieldText");
+  // If nothing selected OR selection is outside the field, unwrap ALL marks
+  // (so user can wipe highlights without a selection)
+  if (!sel.rangeCount || sel.isCollapsed) {
+    for (const m of ft.querySelectorAll("mark")) {
+      while (m.firstChild) m.parentNode.insertBefore(m.firstChild, m);
+      m.remove();
+    }
+    renderPreview();
+    return;
+  }
+  const range = sel.getRangeAt(0);
   if (!ft.contains(range.commonAncestorContainer)) return;
-  const marks = ft.querySelectorAll("mark");
-  for (const m of marks) {
+  // Unwrap any mark that intersects the selection
+  for (const m of Array.from(ft.querySelectorAll("mark"))) {
     if (range.intersectsNode(m)) {
       while (m.firstChild) m.parentNode.insertBefore(m.firstChild, m);
       m.remove();
     }
   }
+  sel.removeAllRanges();
   renderPreview();
 }
 function clearAllMarks() {
@@ -2188,9 +2213,15 @@ function clearAllMarks() {
   }
   renderPreview();
 }
-$("#rtHighlight").onclick = wrapSelectionInMark;
-$("#rtUnhighlight").onclick = unwrapMarksInSelection;
-$("#rtClear").onclick = clearAllMarks;
+// Preserve the contenteditable selection when clicking these buttons.
+// Without preventDefault on mousedown, the click steals focus and collapses the selection.
+function bindRichTextBtn(btn, fn) {
+  btn.addEventListener("mousedown", e => e.preventDefault());
+  btn.addEventListener("click", e => { e.preventDefault(); fn(); });
+}
+bindRichTextBtn($("#rtHighlight"), wrapSelectionInMark);
+bindRichTextBtn($("#rtUnhighlight"), unwrapMarksInSelection);
+bindRichTextBtn($("#rtClear"), clearAllMarks);
 
 // Preview <-> code tabs
 for (const t of document.querySelectorAll(".preview-tab")) {

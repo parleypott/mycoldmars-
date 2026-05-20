@@ -1,10 +1,10 @@
 // Public, unauthenticated chatbot endpoint for /commentbank.
-// Public YouTube comments — no auth needed.
-// Takes { question, comments[] } and returns { summary, matches[{id, why}] }.
+// Uses Anthropic prompt caching so the corpus (~500KB) only gets processed once
+// per cache window (1 hour) instead of on every query — 5-10x faster, ~10% of cost.
 
 export const config = { runtime: 'edge' };
 
-const ASK_PROMPT = `You're searching a corpus of YouTube comments for a documentary filmmaker.
+const SYSTEM_PROMPT = `You're searching a corpus of YouTube comments for a documentary filmmaker.
 
 Given the user's question and a JSON list of comments, return strict JSON with:
 - "summary": one short sentence summarizing what the matches show (or null if no matches).
@@ -38,7 +38,10 @@ export default async function handler(req) {
     themes: c.themes,
     video: c.video_hint,
   }));
-  const userContent = `QUESTION: ${question}\n\nCORPUS (${corpus.length} comments):\n${JSON.stringify(corpus)}`;
+
+  // Stable corpus block (cached) + dynamic question block (not cached)
+  const corpusBlock = `CORPUS (${corpus.length} comments):\n${JSON.stringify(corpus)}`;
+  const questionBlock = `QUESTION: ${question}`;
 
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -51,8 +54,21 @@ export default async function handler(req) {
       model: 'claude-sonnet-4-5',
       max_tokens: 2048,
       temperature: 0.3,
-      system: ASK_PROMPT,
-      messages: [{ role: 'user', content: userContent }],
+      system: SYSTEM_PROMPT,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: corpusBlock,
+            cache_control: { type: 'ephemeral', ttl: '1h' },
+          },
+          {
+            type: 'text',
+            text: questionBlock,
+          },
+        ],
+      }],
     }),
   });
 
@@ -66,13 +82,24 @@ export default async function handler(req) {
   const data = await resp.json();
   const text = data.content?.find(b => b.type === 'text')?.text || '';
   const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '');
+
+  // Cache usage telemetry (visible to caller — useful for tuning)
+  const usage = data.usage || {};
+  const cacheStats = {
+    cache_creation_input_tokens: usage.cache_creation_input_tokens || 0,
+    cache_read_input_tokens: usage.cache_read_input_tokens || 0,
+    input_tokens: usage.input_tokens || 0,
+    output_tokens: usage.output_tokens || 0,
+  };
+
   try {
     const parsed = JSON.parse(cleaned);
+    parsed._cache = cacheStats;
     return new Response(JSON.stringify(parsed), {
       status: 200, headers: { 'Content-Type': 'application/json' },
     });
   } catch {
-    return new Response(JSON.stringify({ error: 'claude returned non-JSON', raw: cleaned.slice(0, 400) }), {
+    return new Response(JSON.stringify({ error: 'claude returned non-JSON', raw: cleaned.slice(0, 400), _cache: cacheStats }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     });
   }
