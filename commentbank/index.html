@@ -5,6 +5,8 @@
 <title>comment bank — newpress</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 /* ── FONTS ── */
 @font-face { font-family: "Sailing Club"; src: url("fonts/SailingClub-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
@@ -819,6 +821,294 @@ select.sort {
 }
 .close-x:hover { color: var(--he-orange); }
 
+/* ── STYLIZE MODAL ── */
+.stylize {
+  position: fixed; inset: 0; z-index: 400;
+  background: rgba(14, 14, 14, 0.98);
+  display: none;
+  padding: 32px 48px;
+  overflow-y: auto;
+}
+.stylize.open { display: block; }
+.stylize-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex; flex-direction: column;
+  gap: 24px;
+}
+.stylize-head {
+  display: flex; align-items: baseline; gap: 24px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 18px;
+}
+.stylize-head .h-display {
+  font-size: clamp(36px, 4vw, 52px);
+  line-height: 1;
+}
+.stylize-head .progress {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--he-orange);
+}
+.stylize-head .progress .n { color: var(--he-cream); font-variant-numeric: tabular-nums; }
+.stylize-head .spacer { flex: 1; }
+.stylize-head .close-stylize {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--cream-dim);
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+}
+.stylize-head .close-stylize:hover { color: var(--he-orange); border-color: var(--he-orange); }
+
+.stylize-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px;
+}
+@media (max-width: 980px) { .stylize-body { grid-template-columns: 1fr; } }
+
+.stylize-side h3 {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--he-orange);
+  margin-bottom: 14px;
+}
+.stylize-side .original-row {
+  display: flex; gap: 14px;
+  margin-bottom: 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.stylize-side .original-row img {
+  width: 100%; max-width: 280px; height: auto;
+  border: 1px solid var(--line);
+  cursor: zoom-in;
+}
+.stylize-side .meta-mini {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--cream-dim);
+  margin-top: 8px;
+}
+.stylize-side .meta-mini .sent { color: var(--he-orange); }
+.stylize-side .meta-mini .sep { opacity: 0.5; }
+
+.stylize-fields {
+  display: flex; flex-direction: column;
+  gap: 16px;
+}
+.stylize-fields label {
+  display: flex; flex-direction: column;
+  gap: 6px;
+}
+.stylize-fields .label-row {
+  display: flex; align-items: baseline; gap: 12px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--cream-dim);
+}
+.stylize-fields .label-row .hint {
+  color: var(--cream-faint);
+  letter-spacing: 0.12em;
+}
+.stylize-fields input,
+.stylize-fields textarea {
+  background: transparent;
+  border: 1px solid var(--line);
+  padding: 12px 14px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--he-cream);
+  resize: vertical;
+}
+.stylize-fields input:focus,
+.stylize-fields textarea:focus { outline: none; border-color: var(--he-orange); }
+.stylize-fields textarea { min-height: 160px; }
+.stylize-fields .quick-actions {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-top: 4px;
+}
+.stylize-fields .quick-actions button {
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  color: var(--cream-dim);
+}
+.stylize-fields .quick-actions button:hover { color: var(--he-orange); border-color: var(--he-orange); }
+
+.stylize-options {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-top: 6px;
+}
+.stylize-options button {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  color: var(--cream-dim);
+}
+.stylize-options button:hover { color: var(--he-cream); border-color: var(--cream-dim); }
+.stylize-options button.on {
+  background: var(--he-orange); color: var(--he-night); border-color: var(--he-orange);
+}
+
+/* PREVIEW + the actual YouTube-style comment renderer */
+.stylize-preview-wrap {
+  background: var(--he-coal);
+  border: 1px solid var(--line);
+  padding: 24px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.stylize-preview-wrap .preview-label {
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--cream-faint);
+}
+#stylizePreviewStage {
+  display: flex; justify-content: center;
+  overflow: hidden;
+}
+
+/* The element html2canvas captures — fixed width for consistent output */
+.yt-comment {
+  font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+  width: 720px;
+  padding: 36px 40px;
+  display: flex;
+  gap: 16px;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+.yt-comment.theme-dark { background: #0F0F0F; color: #F1F1F1; }
+.yt-comment.theme-light { background: #FFFFFF; color: #0F0F0F; }
+
+.yt-avatar {
+  flex-shrink: 0;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "Roboto", sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  color: #FFFFFF;
+  text-transform: uppercase;
+}
+.yt-body { flex: 1; min-width: 0; }
+.yt-line1 {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 4px;
+}
+.yt-handle {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.yt-comment.theme-dark .yt-handle { color: #F1F1F1; }
+.yt-comment.theme-light .yt-handle { color: #0F0F0F; }
+.yt-time {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+.yt-comment.theme-dark .yt-time { color: #AAAAAA; }
+.yt-comment.theme-light .yt-time { color: #606060; }
+.yt-text {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.yt-comment.theme-dark .yt-text { color: #F1F1F1; }
+.yt-comment.theme-light .yt-text { color: #0F0F0F; }
+.yt-actions {
+  display: flex; align-items: center; gap: 16px;
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.yt-action {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.yt-comment.theme-dark .yt-action { color: #AAAAAA; }
+.yt-comment.theme-light .yt-action { color: #606060; }
+.yt-icon {
+  display: inline-block;
+  width: 16px; height: 16px;
+}
+.yt-icon svg { width: 100%; height: 100%; display: block; }
+.yt-comment.theme-dark .yt-icon svg { fill: none; stroke: #AAAAAA; }
+.yt-comment.theme-light .yt-icon svg { fill: none; stroke: #606060; }
+.yt-reply {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: none;
+}
+.yt-comment.theme-dark .yt-reply { color: #AAAAAA; }
+.yt-comment.theme-light .yt-reply { color: #606060; }
+
+/* Off-screen render stage for consistent capture */
+.render-stage {
+  position: fixed;
+  top: -100000px; left: -100000px;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.stylize-footer {
+  display: flex; gap: 10px; align-items: center;
+  border-top: 1px solid var(--line);
+  padding-top: 22px;
+}
+.stylize-footer .spacer { flex: 1; }
+.stylize-footer button {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  padding: 12px 18px;
+  border: 1px solid var(--line);
+  color: var(--cream-soft);
+}
+.stylize-footer button:hover { color: var(--he-cream); border-color: var(--cream-dim); }
+.stylize-footer button.primary {
+  background: var(--he-orange);
+  color: var(--he-night);
+  border-color: var(--he-orange);
+  font-weight: 700;
+}
+.stylize-footer button.primary:hover { background: var(--he-orange-bright); border-color: var(--he-orange-bright); color: var(--he-night); }
+.stylize-footer button:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* ── EMPTY ── */
 .empty {
   font-family: var(--font-display);
@@ -887,7 +1177,8 @@ select.sort {
   <div class="sel-bar" id="selBar">
     <span class="label"><span class="n" id="selCount">0</span> selected</span>
     <span class="spacer"></span>
-    <button id="downloadSelected">↓ Download zip</button>
+    <button id="stylizeSelected">✦ Stylize &amp; download</button>
+    <button id="downloadSelected">↓ Download originals zip</button>
     <button id="selectAll">Select all visible</button>
     <button id="clearSelection">Clear</button>
   </div>
@@ -916,11 +1207,76 @@ select.sort {
       <span class="spacer"></span>
       <button id="askSelectAll">Select all matches</button>
       <button id="askClearSel">Clear</button>
-      <button class="primary" id="askDownload" disabled>↓ Download zip</button>
+      <button id="askDownload" disabled>↓ Download originals</button>
+      <button class="primary" id="askStylize" disabled>✦ Stylize &amp; download</button>
     </div>
     <div class="ask-results" id="askResults"></div>
   </div>
 </section>
+
+<!-- Stylize → designed-comment editor -->
+<div class="stylize" id="stylize">
+  <div class="stylize-shell">
+    <div class="stylize-head">
+      <h2 class="h-display">Stylize <em>&amp;</em> download.</h2>
+      <span class="progress">Editing <span class="n" id="stylizeProgress">1 / 1</span></span>
+      <span class="spacer"></span>
+      <button class="close-stylize" id="stylizeClose">× Close</button>
+    </div>
+    <div class="stylize-body">
+      <div class="stylize-side">
+        <h3>Source <span style="color: var(--cream-faint);">/</span> Edit text</h3>
+        <div class="original-row">
+          <img id="stylizeOriginal" alt="" />
+        </div>
+        <div class="meta-mini" id="stylizeMeta"></div>
+        <div class="stylize-fields">
+          <label>
+            <span class="label-row">Channel handle <span class="hint">/ as posted</span></span>
+            <input id="fieldHandle" type="text" />
+          </label>
+          <label>
+            <span class="label-row">Timestamp <span class="hint">/ e.g. 2 weeks ago</span></span>
+            <input id="fieldTime" type="text" placeholder="3 weeks ago" />
+          </label>
+          <label>
+            <span class="label-row">Comment text <span class="hint">/ trim to the part you want</span></span>
+            <textarea id="fieldText" rows="7"></textarea>
+            <div class="quick-actions">
+              <button data-act="restore">Restore full</button>
+              <button data-act="first-sentence">First sentence only</button>
+              <button data-act="trim">Trim whitespace</button>
+            </div>
+          </label>
+          <div>
+            <span class="label-row" style="margin-bottom: 6px;">Theme</span>
+            <div class="stylize-options" id="stylizeTheme">
+              <button data-theme="dark" class="on">Dark mode</button>
+              <button data-theme="light">Light mode</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="stylize-side">
+        <h3>Preview <span style="color: var(--cream-faint);">/</span> This is what downloads</h3>
+        <div class="stylize-preview-wrap">
+          <span class="preview-label">PNG preview · 720 × auto</span>
+          <div id="stylizePreviewStage"></div>
+        </div>
+      </div>
+    </div>
+    <div class="stylize-footer">
+      <button id="stylizePrev">← Prev</button>
+      <button id="stylizeSkip">Skip</button>
+      <span class="spacer"></span>
+      <button class="primary" id="stylizeSaveNext">Save &amp; next →</button>
+      <button class="primary" id="stylizeFinish" style="display:none">Finish &amp; download zip</button>
+    </div>
+  </div>
+</div>
+
+<!-- off-screen render target for html2canvas -->
+<div class="render-stage" id="renderStage"></div>
 
 <div class="modal" id="modal">
   <button class="close-x" id="closeX">×</button>
@@ -1290,6 +1646,7 @@ function toggleAskSelected(id) {
 function refreshAskToolbar() {
   $("#askSelCount").textContent = askSelected.size;
   $("#askDownload").disabled = askSelected.size === 0;
+  $("#askStylize").disabled = askSelected.size === 0;
 }
 $("#askSelectAll").onclick = () => {
   for (const { c } of askMatches) askSelected.add(c.id);
@@ -1306,6 +1663,272 @@ $("#askDownload").onclick = async () => {
   const picks = askMatches.filter(m => askSelected.has(m.c.id)).map(m => m.c);
   await zipAndDownload(picks, "ask-results", $("#askDownload"));
 };
+$("#askStylize").onclick = () => {
+  if (!askSelected.size) return;
+  const picks = askMatches.filter(m => askSelected.has(m.c.id)).map(m => m.c);
+  startStylize(picks);
+};
+$("#stylizeSelected").onclick = () => {
+  if (!selected.size) return;
+  startStylize(comments.filter(c => selected.has(c.id)));
+};
+
+/* ── STYLIZE FLOW ── */
+const HSL_PALETTE = [
+  ["#FF6B6B", "#FFFFFF"], ["#4ECDC4", "#FFFFFF"], ["#FFD93D", "#0F0F0F"],
+  ["#95E1D3", "#0F0F0F"], ["#F38181", "#FFFFFF"], ["#AA96DA", "#FFFFFF"],
+  ["#FCBAD3", "#0F0F0F"], ["#A8E6CF", "#0F0F0F"], ["#FF8B94", "#FFFFFF"],
+  ["#6C5CE7", "#FFFFFF"], ["#00B894", "#FFFFFF"], ["#FDCB6E", "#0F0F0F"],
+];
+function avatarForHandle(handle) {
+  const h = (handle || "?").replace(/^@/, "");
+  let hash = 0;
+  for (const ch of h) hash = ((hash << 5) - hash + ch.charCodeAt(0)) | 0;
+  const idx = Math.abs(hash) % HSL_PALETTE.length;
+  return { bg: HSL_PALETTE[idx][0], fg: HSL_PALETTE[idx][1], letter: h[0]?.toUpperCase() || "?" };
+}
+
+const YT_ICONS = {
+  thumbUp: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11"/><path d="M21 11l-2.5 8a2 2 0 0 1-2 1.5H7"/><path d="M3 22h4V11H3z"/><path d="M7 11l6-8c1.4 0 2.5.6 2.5 2v4h5.5a2 2 0 0 1 2 2.3l-.3 2"/></svg>`,
+  thumbDown: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11"/><path d="M3 13l2.5-8a2 2 0 0 1 2-1.5H17"/><path d="M21 2h-4v11h4z"/><path d="M17 13l-6 8c-1.4 0-2.5-.6-2.5-2v-4H3a2 2 0 0 1-2-2.3l.3-2"/></svg>`,
+};
+
+const stylizeState = {
+  queue: [],
+  idx: 0,
+  edits: new Map(), // id → { text, handle, time, theme }
+  generated: new Map(), // id → blob
+  origin: null, // "gallery" | "ask"
+};
+
+function startStylize(picks) {
+  if (!picks.length) return;
+  stylizeState.queue = picks;
+  stylizeState.idx = 0;
+  stylizeState.edits = new Map();
+  stylizeState.generated = new Map();
+  $("#stylize").classList.add("open");
+  document.body.style.overflow = "hidden";
+  renderStylizeStep();
+}
+
+function closeStylize() {
+  $("#stylize").classList.remove("open");
+  document.body.style.overflow = "";
+  stylizeState.queue = [];
+  stylizeState.edits.clear();
+  stylizeState.generated.clear();
+}
+
+$("#stylizeClose").onclick = () => {
+  if (stylizeState.generated.size && !confirm("Discard generated images?")) return;
+  closeStylize();
+};
+
+function buildEditFor(c) {
+  if (stylizeState.edits.has(c.id)) return stylizeState.edits.get(c.id);
+  const a = c.analysis;
+  const d = new Date(parseFloat(c.slack_ts) * 1000);
+  const daysAgo = Math.max(1, Math.round((Date.now() - d.getTime()) / 86400000));
+  const timeStr = daysAgo < 7 ? `${daysAgo} day${daysAgo === 1 ? "" : "s"} ago`
+    : daysAgo < 30 ? `${Math.round(daysAgo/7)} week${Math.round(daysAgo/7) === 1 ? "" : "s"} ago`
+    : daysAgo < 365 ? `${Math.round(daysAgo/30)} month${Math.round(daysAgo/30) === 1 ? "" : "s"} ago`
+    : `${Math.round(daysAgo/365)} year${Math.round(daysAgo/365) === 1 ? "" : "s"} ago`;
+  const handle = a.commenter ? (a.commenter.startsWith("@") ? a.commenter : "@" + a.commenter) : "@viewer";
+  const edit = {
+    text: a.comment_text || "",
+    handle: handle,
+    time: timeStr,
+    theme: "dark",
+  };
+  stylizeState.edits.set(c.id, edit);
+  return edit;
+}
+
+function renderStylizeStep() {
+  const total = stylizeState.queue.length;
+  const i = stylizeState.idx;
+  const c = stylizeState.queue[i];
+  if (!c) return;
+  const edit = buildEditFor(c);
+  $("#stylizeProgress").textContent = `${i + 1} / ${total}`;
+  $("#stylizeOriginal").src = asset(c.local_path);
+  $("#stylizeOriginal").onclick = () => openModal(c);
+  const a = c.analysis;
+  const sent = (a.sentiment || "").replace("_", " ");
+  const themes = (a.themes || []).slice(0, 3).map(t => `<span class="sep">·</span><span>${escapeHtml(t)}</span>`).join("");
+  $("#stylizeMeta").innerHTML = `<span class="sent">${sent}</span>${themes}`;
+
+  $("#fieldHandle").value = edit.handle;
+  $("#fieldTime").value = edit.time;
+  $("#fieldText").value = edit.text;
+  for (const b of document.querySelectorAll("#stylizeTheme button")) {
+    b.classList.toggle("on", b.dataset.theme === edit.theme);
+  }
+  renderPreview();
+
+  $("#stylizePrev").style.display = i === 0 ? "none" : "inline-flex";
+  $("#stylizeSkip").style.display = total > 1 ? "inline-flex" : "none";
+  const isLast = i === total - 1;
+  $("#stylizeSaveNext").textContent = isLast ? (total > 1 ? "Save & finish →" : "Save & download →") : "Save & next →";
+}
+
+function currentEdit() {
+  const c = stylizeState.queue[stylizeState.idx];
+  if (!c) return null;
+  const edit = stylizeState.edits.get(c.id);
+  edit.handle = $("#fieldHandle").value;
+  edit.time = $("#fieldTime").value;
+  edit.text = $("#fieldText").value;
+  return edit;
+}
+
+function ytCommentMarkup(edit) {
+  const av = avatarForHandle(edit.handle);
+  return `
+    <div class="yt-comment theme-${edit.theme}">
+      <div class="yt-avatar" style="background:${av.bg}; color:${av.fg};">${escapeHtml(av.letter)}</div>
+      <div class="yt-body">
+        <div class="yt-line1">
+          <span class="yt-handle">${escapeHtml(edit.handle)}</span>
+          <span class="yt-time">${escapeHtml(edit.time)}</span>
+        </div>
+        <div class="yt-text">${escapeHtml(edit.text)}</div>
+        <div class="yt-actions">
+          <span class="yt-action"><span class="yt-icon">${YT_ICONS.thumbUp}</span></span>
+          <span class="yt-action"><span class="yt-icon">${YT_ICONS.thumbDown}</span></span>
+          <span class="yt-reply">Reply</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPreview() {
+  const edit = currentEdit();
+  if (!edit) return;
+  $("#stylizePreviewStage").innerHTML = ytCommentMarkup(edit);
+}
+
+// re-render on input
+for (const id of ["fieldHandle", "fieldTime", "fieldText"]) {
+  $("#" + id).addEventListener("input", renderPreview);
+}
+for (const b of document.querySelectorAll("#stylizeTheme button")) {
+  b.addEventListener("click", () => {
+    const edit = currentEdit();
+    edit.theme = b.dataset.theme;
+    renderPreview();
+    for (const x of document.querySelectorAll("#stylizeTheme button")) x.classList.toggle("on", x === b);
+  });
+}
+for (const b of document.querySelectorAll(".quick-actions button")) {
+  b.addEventListener("click", () => {
+    const c = stylizeState.queue[stylizeState.idx];
+    const orig = c.analysis.comment_text || "";
+    const ta = $("#fieldText");
+    if (b.dataset.act === "restore") ta.value = orig;
+    if (b.dataset.act === "first-sentence") {
+      const m = ta.value.match(/^[^.!?\n]+[.!?]/);
+      if (m) ta.value = m[0];
+    }
+    if (b.dataset.act === "trim") ta.value = ta.value.trim().replace(/\n{3,}/g, "\n\n");
+    renderPreview();
+  });
+}
+
+async function captureCurrent() {
+  const edit = currentEdit();
+  if (!edit) return null;
+  const stage = $("#renderStage");
+  stage.innerHTML = ytCommentMarkup(edit);
+  const node = stage.querySelector(".yt-comment");
+  // Wait two frames to let fonts settle
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const canvas = await html2canvas(node, {
+    backgroundColor: null,
+    scale: 2,
+    useCORS: true,
+    logging: false,
+  });
+  stage.innerHTML = "";
+  return new Promise(resolve => canvas.toBlob(resolve, "image/png", 0.95));
+}
+
+async function saveAndAdvance(downloadNow) {
+  const c = stylizeState.queue[stylizeState.idx];
+  if (!c) return;
+  const btn = $("#stylizeSaveNext");
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Rendering…";
+  try {
+    const blob = await captureCurrent();
+    if (blob) stylizeState.generated.set(c.id, blob);
+    if (downloadNow) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${c.id}-stylized.png`; a.click();
+      URL.revokeObjectURL(url);
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Render failed: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+$("#stylizeSaveNext").onclick = async () => {
+  const total = stylizeState.queue.length;
+  const isLast = stylizeState.idx === total - 1;
+  if (total === 1) {
+    await saveAndAdvance(true);
+    setTimeout(() => closeStylize(), 300);
+    return;
+  }
+  await saveAndAdvance(false);
+  if (isLast) {
+    await finishStylize();
+  } else {
+    stylizeState.idx++;
+    renderStylizeStep();
+  }
+};
+$("#stylizePrev").onclick = () => {
+  if (stylizeState.idx === 0) return;
+  stylizeState.idx--;
+  renderStylizeStep();
+};
+$("#stylizeSkip").onclick = () => {
+  if (stylizeState.idx === stylizeState.queue.length - 1) {
+    finishStylize();
+  } else {
+    stylizeState.idx++;
+    renderStylizeStep();
+  }
+};
+
+async function finishStylize() {
+  const btn = $("#stylizeSaveNext");
+  btn.disabled = true; btn.textContent = "Bundling zip…";
+  const zip = new JSZip();
+  for (const [id, blob] of stylizeState.generated.entries()) {
+    zip.file(`${id}-stylized.png`, blob);
+  }
+  if (zip.files && Object.keys(zip.files).length === 0) {
+    alert("No images were generated."); btn.disabled = false; btn.textContent = "Save & finish →";
+    return;
+  }
+  const out = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(out);
+  const a = document.createElement("a");
+  a.href = url; a.download = `comment-bank-stylized-${new Date().toISOString().slice(0,10)}.zip`; a.click();
+  URL.revokeObjectURL(url);
+  btn.disabled = false;
+  closeStylize();
+}
 
 load();
 </script>
