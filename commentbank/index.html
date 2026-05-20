@@ -99,7 +99,7 @@ img { display: block; }
   pointer-events: none;
 }
 
-/* ── MASTHEAD ── */
+/* ── MASTHEAD (compact) ── */
 header {
   position: sticky; top: 0; z-index: 50;
   background: rgba(17, 20, 26, 0.96);
@@ -107,33 +107,32 @@ header {
   border-bottom: 1px solid var(--line);
 }
 .masthead {
-  display: flex; align-items: baseline;
-  padding: 78px 56px 24px;
-  gap: 28px;
-  flex-wrap: wrap;
+  display: flex; align-items: center;
+  padding: 14px 56px 12px;
+  gap: 20px;
 }
 .headline-block {
-  display: flex; flex-direction: column;
-  gap: 6px;
+  display: flex; align-items: baseline; gap: 16px;
+  min-width: 0;
 }
 .eyebrow {
   font-family: var(--font-body);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
   color: var(--he-orange);
+  white-space: nowrap;
 }
 .eyebrow .sl { color: var(--cream-faint); padding: 0 0.15em; }
 .h-display {
   font-family: var(--font-display);
   font-style: normal;
   font-weight: 400;
-  font-size: clamp(48px, 6.4vw, 96px);
-  line-height: 0.92;
-  letter-spacing: -0.02em;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -0.015em;
   color: var(--he-cream);
-  text-wrap: balance;
 }
 .h-display em {
   font-style: italic;
@@ -144,27 +143,25 @@ header {
 .count-block {
   margin-left: auto;
   text-align: right;
-  align-self: flex-end;
-  display: flex; flex-direction: column;
-  gap: 4px;
+  display: flex; align-items: baseline; gap: 8px;
 }
 .count-num {
   font-family: var(--font-display);
-  font-size: 56px;
-  line-height: 0.9;
+  font-size: 22px;
+  line-height: 1;
   color: var(--he-cream);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 .count-label {
   font-family: var(--font-body);
-  font-size: 10px;
-  letter-spacing: 0.26em;
+  font-size: 9px;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--cream-faint);
 }
 
-/* ── NAV — primary actions, substantial ── */
+/* ── NAV — slim, primary ── */
 .nav {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -175,20 +172,19 @@ header {
 .nav-spacer { display: none; }
 .tab {
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
   color: var(--cream-soft);
-  padding: 28px 36px;
+  padding: 12px 22px;
   border: none;
   border-right: 1px solid var(--line);
   transition: all 0.2s ease;
   position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  align-items: center;
+  gap: 10px;
   text-align: left;
   background: transparent;
   cursor: pointer;
@@ -197,49 +193,32 @@ header {
 .tab::before {
   content: attr(data-num);
   font-family: var(--font-body);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.24em;
   color: var(--he-orange);
   opacity: 0.6;
-  transition: opacity 0.2s;
 }
 .tab .tab-sub {
   font-family: var(--font-body);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 400;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: none;
   color: var(--cream-faint);
-  margin-top: 4px;
-  display: block;
-  transition: color 0.2s;
 }
-.tab:hover {
-  background: rgba(244, 67, 21, 0.04);
-  color: var(--he-cream);
-}
+.tab:hover { background: rgba(244, 67, 21, 0.06); color: var(--he-cream); }
 .tab:hover::before { opacity: 1; }
-.tab:hover .tab-sub { color: var(--cream-dim); }
 .tab.on {
   background: var(--he-orange);
   color: var(--he-night);
 }
 .tab.on::before { color: var(--he-night); opacity: 0.7; }
 .tab.on .tab-sub { color: var(--he-night); opacity: 0.7; }
-.tab.on::after {
-  content: "→";
-  position: absolute;
-  top: 24px; right: 28px;
-  font-family: var(--font-body);
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--he-night);
-}
 @media (max-width: 760px) {
   .nav { grid-template-columns: 1fr; }
-  .tab { border-right: none; border-bottom: 1px solid var(--line); padding: 20px 28px; }
-  .tab.on::after { top: 18px; right: 24px; }
+  .tab { border-right: none; border-bottom: 1px solid var(--line); padding: 12px 20px; }
+  .tab .tab-sub { display: none; }
 }
 
 /* ── CONTROLS ── */
@@ -650,16 +629,24 @@ select.sort {
   color: var(--cream-faint);
 }
 
-/* Ask results toolbar */
+/* Ask results toolbar — sticks below the header as you scroll */
 .ask-toolbar {
   display: none;
   align-items: center; gap: 12px;
-  padding: 14px 0;
+  padding: 12px 56px;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  margin-bottom: 24px;
+  margin: 0 -56px 24px;
+  background: rgba(17, 20, 26, 0.96);
+  backdrop-filter: blur(14px);
+  position: sticky;
+  top: var(--header-h, 80px);
+  z-index: 40;
 }
 .ask-toolbar.on { display: flex; }
+@media (max-width: 700px) {
+  .ask-toolbar { padding: 10px 22px; margin: 0 -22px 18px; }
+}
 .ask-toolbar .pad {
   font-family: var(--font-body);
   font-size: 10px;
@@ -2426,10 +2413,20 @@ async function finishStylize() {
   closeStylize();
 }
 
+function syncHeaderHeight() {
+  const h = document.querySelector("header")?.offsetHeight || 80;
+  document.documentElement.style.setProperty("--header-h", h + "px");
+}
+window.addEventListener("resize", syncHeaderHeight);
+const headerObserver = new MutationObserver(syncHeaderHeight);
+headerObserver.observe(document.querySelector("header"), { subtree: true, childList: true, attributes: true });
+
 // Boot
 (async () => {
   await load();
   applyHash();
+  syncHeaderHeight();
+  setTimeout(syncHeaderHeight, 50);
 })();
 </script>
 </body>
