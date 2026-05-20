@@ -1,0 +1,73 @@
+name: Sync comment bank
+
+on:
+  schedule:
+    # Every 30 minutes
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-comment-bank
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DATA_DIR: public/commentbank
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # full history so we can push
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install scripts deps
+        run: |
+          cd scripts/commentbank
+          if [ ! -f package.json ]; then
+            cat > package.json <<EOF
+          { "name": "commentbank-scripts", "type": "module", "private": true, "dependencies": { "@anthropic-ai/sdk": "^0.97.1" } }
+          EOF
+          fi
+          bun install --frozen-lockfile || bun install
+
+      - name: Pull new images from Slack
+        run: bun scripts/commentbank/pull.ts
+
+      - name: Analyze new images with Claude
+        run: bun scripts/commentbank/analyze.ts
+
+      - name: Detect changes
+        id: changes
+        run: |
+          if [ -n "$(git status --porcelain public/commentbank)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            NEW=$(git status --porcelain public/commentbank/images 2>/dev/null | wc -l | tr -d ' ')
+            echo "new_count=$NEW" >> $GITHUB_OUTPUT
+            echo "Found $NEW changes in public/commentbank"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes — nothing to commit"
+          fi
+
+      - name: Commit and push
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "comment-bank-bot"
+          git config user.email "comment-bank-bot@users.noreply.github.com"
+          git add public/commentbank
+          git commit -m "Comment bank: sync ${{ steps.changes.outputs.new_count }} change(s) from #comment-bank"
+          git push
