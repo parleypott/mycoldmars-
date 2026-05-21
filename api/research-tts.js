@@ -65,7 +65,7 @@ export default async function handler(req) {
   const chunks = chunkText(text);
   const pieces = [];
   for (let i = 0; i < chunks.length; i++) {
-    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_192`, {
       method: 'POST',
       headers: {
         'xi-api-key': process.env.ELEVENLABS_API_KEY,
@@ -74,8 +74,13 @@ export default async function handler(req) {
       },
       body: JSON.stringify({
         text: chunks[i],
-        model_id: 'eleven_turbo_v2_5',
-        voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.2, use_speaker_boost: true },
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: {
+          stability: 0.38,
+          similarity_boost: 0.88,
+          style: 0.45,
+          use_speaker_boost: true,
+        },
       }),
     });
     if (!res.ok) {
