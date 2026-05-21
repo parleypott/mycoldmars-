@@ -71,7 +71,7 @@ export default async function handler(req) {
   } catch (e) {
     // Map Supabase missing-table to NO_DB so client can show "apply migration" hint.
     const msg = e?.message || String(e);
-    if (e?.code === '42P01' || /relation .* does not exist/i.test(msg)) {
+    if (e?.code === '42P01' || e?.code === 'PGRST205' || /relation .* does not exist/i.test(msg) || /Could not find the table/i.test(msg) || /schema cache/i.test(msg)) {
       return jsonError(503, 'MIGRATION_PENDING',
         'The qss_stories table does not exist yet. Apply supabase/migrations/015_qss_stories.sql in the Supabase SQL editor.');
     }
