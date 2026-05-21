@@ -8920,3 +8920,121 @@ body:has(#step-1.home--brutalist.active) #devchat-fab {
   }
   .home--brutalist.active .home-title { font-size: clamp(56px, 18vw, 100px); }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+ * Gate (sign-in) — cream paper override
+ * ───────────────────────────────────────────────────────────────────
+ * The brutalist home theme paints the body dark via :has() on step-1.
+ * When the gate is the only thing the user can see (signed-out state),
+ * we re-paint cream so the sign-in surface reads as the editorial
+ * Newpress masthead it's supposed to be, not a black terminal.
+ * ═══════════════════════════════════════════════════════════════════ */
+body:has(#gate:not(.hidden)) {
+  background: var(--np-warm-white) !important;
+  color: var(--np-ink) !important;
+}
+body:has(#gate:not(.hidden))::before,
+body:has(#gate:not(.hidden))::after { display: none !important; }
+
+#gate.gate {
+  background: var(--np-warm-white);
+  color: var(--np-ink);
+  padding: var(--np-space-8);
+}
+
+#gate .gate-inner {
+  max-width: 380px;
+  gap: var(--np-space-4);
+}
+
+#gate .np-eyebrow {
+  margin-bottom: var(--np-space-3);
+  letter-spacing: 0.32em;
+  font-size: 10.5px;
+}
+
+#gate .gate-title {
+  font-family: var(--np-font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 56px;
+  line-height: 0.95;
+  letter-spacing: -0.015em;
+  color: var(--np-ink);
+  padding-bottom: var(--np-space-5, 20px);
+  border-bottom: 1px solid var(--np-sepia);
+  border-bottom-width: 0.5px;
+  width: 100%;
+  margin-bottom: var(--np-space-2);
+}
+
+#gate .gate-sub {
+  color: var(--np-sepia);
+  font-size: 12px;
+  margin-bottom: var(--np-space-4);
+}
+
+#gate .np-textarea {
+  background: rgba(65, 44, 39, 0.04);
+  border: 1px solid rgba(65, 44, 39, 0.18);
+  border-radius: 2px;
+  color: var(--np-ink);
+  font-family: var(--np-font-mono);
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  padding: 12px 14px;
+  transition: border-color 160ms var(--np-ease),
+              background 160ms var(--np-ease);
+}
+#gate .np-textarea::placeholder { color: rgba(65, 44, 39, 0.42); }
+#gate .np-textarea:focus {
+  outline: none;
+  border-color: var(--np-ink);
+  background: var(--np-warm-white);
+}
+
+#gate .np-button {
+  border-radius: 2px;
+  padding: 12px var(--np-space-6);
+  font-size: 12.5px;
+  letter-spacing: 0.18em;
+  transition: background 160ms var(--np-ease),
+              color 160ms var(--np-ease),
+              border-color 160ms var(--np-ease);
+}
+#gate .np-button--primary {
+  background: var(--np-ink);
+  color: var(--np-warm-white);
+  border-color: var(--np-ink);
+}
+#gate .np-button--primary:hover {
+  background: var(--np-red);
+  border-color: var(--np-red);
+}
+
+#gate .gate-fallback {
+  width: 100%;
+  margin-top: var(--np-space-3);
+  padding-top: var(--np-space-3);
+  border-top: 0.5px solid rgba(65, 44, 39, 0.16);
+}
+#gate .gate-fallback summary {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--np-sepia);
+}
+#gate .gate-fallback[open] summary { color: var(--np-ink); }
+
+#gate .np-pw-wrap .np-pw-eye { color: rgba(65, 44, 39, 0.55); }
+#gate .np-pw-wrap .np-pw-eye:hover { color: var(--np-ink); }
+
+#gate p:has(#gate-setup-link) a,
+#gate-setup-link {
+  color: var(--np-sepia) !important;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  letter-spacing: 0.04em;
+}
+#gate-setup-link:hover { color: var(--np-red) !important; }
+
