@@ -742,15 +742,15 @@
             <div class="num-pair">
               <input id="rule-min" type="number" min="3" max="40" value="8" />
               <span>to</span>
-              <input id="rule-max" type="number" min="3" max="40" value="12" />
+              <input id="rule-max" type="number" min="3" max="40" value="14" />
             </div>
           </div>
           <div class="modal-row" style="gap:6px;">
             <label>Sentences per block</label>
             <div class="num-pair">
-              <input id="rule-smin" type="number" min="1" max="8" value="1" />
+              <input id="rule-smin" type="number" min="1" max="20" value="5" />
               <span>to</span>
-              <input id="rule-smax" type="number" min="1" max="8" value="3" />
+              <input id="rule-smax" type="number" min="1" max="20" value="12" />
             </div>
           </div>
         </div>
@@ -859,13 +859,13 @@
     const LS_LIST = 'qss:stories';
 
     const DEFAULT_RULES = {
-      goal: '',
+      goal: 'a kid-written satirical chapter in the Queen Scarlet\'s Academy world — a school day where something escalates, the legal department hides, Benny is in the background, Kevin sighs.',
       bible: '',
-      style: 'kid-friendly declarative sentences. short. concrete and visual. funny when it can be.',
-      offLimits: 'no real-world violence, no scary monsters, no swearing.',
-      structure: '',
-      blockCount: { min: 8, max: 12 },
-      sentenceCount: { min: 1, max: 3 },
+      style: 'KID-WRITTEN SATIRE. Each block is a tiny SCENE (a vignette), not a sentence. 5–10 short lines with paragraph breaks and dialogue. Declarative voice, plain language, punchy. Concrete props always — banner, sash, cart, helmet, scooter, fern, microwave, blueprint. Each block ends on a comic landing — a quote, a reveal, or a deadpan beat. Land a running gag when there\'s room (beans surviving governments, Benny on the forklift, "things you shouldn\'t hug," lightning on a sunny day, Scarlet bursting through walls, calculator helmet kid Kevin). Sincerity beats are allowed — but always undercut by Scarlet doing something stupid on her tiny scooter.',
+      offLimits: 'no real-world brands (except Mark Rober if in the bible). no actual violence. no scary monsters. no swearing. no graphic descriptions of nukes — only goofy, scoff-able versions ("not uranium (probably)"). no breaking the fourth wall.',
+      structure: 'opening (set the world) → setup (introduce the moment) → escalation (something gets weirder) → optional sincerity beat ("that\'s actually… reasonable") → undercut (Scarlet ruins it) → deadpan landing (a kid mutters something resigned).',
+      blockCount: { min: 8, max: 14 },
+      sentenceCount: { min: 5, max: 12 },
     };
 
     const state = {
