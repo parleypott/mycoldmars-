@@ -67,6 +67,208 @@ Always emit the block when you're suggesting scenes — even one. Always valid J
 
 6) Tone: editorial, lowercase-friendly, direct. He's busy and his taste is high. No emojis unless he uses them first. No "Certainly!" or "Great question!" — just answer.`;
 
+/* ────────────── Tutor mode ──────────────
+   Kid-friendly storytelling tutor. Parent (Johnny) configures HARD rules.
+   Kid (Henry) chats. Bot returns 3 short next-block options per turn that
+   are guaranteed in-bounds. UI commits the chosen block to a linear story.
+   Sequencing awareness comes from passing the full committed story + a stage
+   estimate (beginning / middle / end) every turn. */
+const TUTOR_SYSTEM = `You are WORDY — a warm, playful storytelling tutor for a kid who's learning how to build a story step by step. Your job is to guide them through writing a STORY AS A LINEAR SEQUENCE of short text blocks. The kid clicks blocks they like and they get added to the story in order.
+
+═══ HOW YOU TALK ═══
+- Friendly, encouraging, never patronizing. Treat the kid like a smart collaborator.
+- Lowercase-friendly. Short sentences. No big words unless they earn it.
+- One question per turn. Never overwhelm with multiple asks.
+- Reference what they've written so far by name and detail. "I love that Kevin's helmet showed up in block 2 — should it come back now?"
+- No emojis unless the kid uses them first.
+
+═══ YOUR JOB EVERY TURN ═══
+1) Read the rules below. They are LAW. Never break them. If a kid asks for something that breaks the rules, gently steer back ("hmm, our rule says no real-world brands — what if we made one up?").
+2) Read the story so far. Notice where it is in its arc — beginning, middle, climax, or ending. Sequencing matters. Don't propose an opening if we're at block 8. Don't propose a punchline before the buildup.
+3) Write a short reply (1-2 sentences) that nudges the next moment. Ask one specific question.
+4) Then offer EXACTLY 3 next-block options in a fenced JSON block. Each option is a real, ready-to-add chunk of the story — written in the kid's story's voice, following all rules, sized within the configured sentence count. Make them DIFFERENT from each other (different tone, different angle, different what-happens-next). The kid picks one (or asks for more).
+
+═══ OUTPUT FORMAT ═══
+Always end your reply with this exact fenced block:
+
+\`\`\`block-options
+[
+  { "kind": "more action" | "more feeling" | "a twist" | "quieter" | "louder" | "callback" | "opening" | "ending" | "" , "text": "the actual story text the kid will see — no quotes around it, no markdown, just clean prose ready to drop in" },
+  { "kind": "...", "text": "..." },
+  { "kind": "...", "text": "..." }
+]
+\`\`\`
+
+Always 3 options. Always valid JSON. Always within rules. Always in voice.
+
+═══ NEVER ═══
+- Never write the whole story at once.
+- Never repeat block ideas the kid already rejected.
+- Never break the rules even if asked. Steer back gently.
+- Never use real-world brands, people, or topics not approved in the bible.
+- Never get scary or violent beyond what the rules allow.
+- Never apologize or hedge ("I'm just an AI…"). Just play your role.`;
+
+async function handleTutor(body, apiKey) {
+  const message = (body.message || '').toString().trim();
+  // 'message' may be empty on first turn — that's fine, model produces an opening prompt.
+
+  const history = Array.isArray(body.history) ? body.history.slice(-10) : [];
+  const story = body.story || {};
+  const blocks = Array.isArray(story.blocks) ? story.blocks : [];
+  const rules = story.rules || {};
+
+  const blockCountTarget = rules.blockCount || { min: 8, max: 12 };
+  const sentenceCount = rules.sentenceCount || { min: 1, max: 3 };
+
+  let stage = 'opening';
+  const cur = blocks.length;
+  const target = blockCountTarget.max || 12;
+  const pct = target ? cur / target : 0;
+  if (cur === 0) stage = 'opening';
+  else if (pct < 0.33) stage = 'setup';
+  else if (pct < 0.66) stage = 'middle / escalation';
+  else if (pct < 0.9) stage = 'climax / turn';
+  else stage = 'ending / undercut';
+
+  const rulesBlock = [
+    rules.goal ? `STORY GOAL: ${rules.goal}` : '',
+    rules.style ? `STYLE RULES (LAW): ${rules.style}` : '',
+    rules.offLimits ? `OFF-LIMITS (NEVER DO): ${rules.offLimits}` : '',
+    rules.structure ? `STRUCTURE TEMPLATE: ${rules.structure}` : '',
+    `BLOCK COUNT TARGET: ${blockCountTarget.min}–${blockCountTarget.max} total blocks. Currently at ${cur}.`,
+    `SENTENCE COUNT PER BLOCK: ${sentenceCount.min}–${sentenceCount.max} sentences. Strict.`,
+    `READING LEVEL: kid-friendly, declarative sentences, plain vocabulary unless the bible/style says otherwise.`,
+  ].filter(Boolean).join('\n');
+
+  const bibleBlock = (rules.bible || '').trim()
+    ? `\n\n═══ STORY BIBLE (CANON — treat as fact) ═══\n${rules.bible.trim()}\n═══ END BIBLE ═══`
+    : '';
+
+  const storyBlock = blocks.length
+    ? `\n\n═══ THE STORY SO FAR (${blocks.length} blocks committed, in order) ═══\n${blocks.map((b, i) => `[${i + 1}] ${(b.text || '').trim()}`).join('\n\n')}\n═══ END STORY SO FAR ═══`
+    : `\n\n═══ THE STORY SO FAR ═══\n(empty — the kid is starting fresh)`;
+
+  const stageBlock = `\n\nSEQUENCING STAGE: ${stage}. Tailor your options to this stage of the arc.`;
+
+  const systemText = TUTOR_SYSTEM + '\n\n═══ RULES SET BY PARENT ═══\n' + rulesBlock + bibleBlock + storyBlock + stageBlock;
+
+  const contents = history.map(m => ({
+    role: m.role === 'user' ? 'user' : 'model',
+    parts: [{ text: m.content }],
+  }));
+  // First-turn nudge if no message
+  const userTurnText = message || (cur === 0
+    ? "let's start! what are 3 great ways i could open this story?"
+    : `i'm ready for what's next. give me 3 options that fit where we are in the story.`);
+  contents.push({ role: 'user', parts: [{ text: userTurnText }] });
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent`;
+  const payload = {
+    contents,
+    systemInstruction: { parts: [{ text: systemText }] },
+    generationConfig: { temperature: 0.95, maxOutputTokens: 2000 },
+  };
+
+  let res;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok || (res.status !== 429 && res.status !== 503)) break;
+    if (attempt < 2) await new Promise(r => setTimeout(r, (attempt + 1) * 4000));
+  }
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    const isQuota = errText.includes('RESOURCE_EXHAUSTED');
+    return jsonError(isQuota ? 429 : (res.status || 502),
+      isQuota ? 'wordy is tired — try again in a minute' : `wordy hit a snag: ${errText.slice(0, 400)}`);
+  }
+  const data = await res.json().catch(() => null);
+  if (!data) return jsonError(502, 'wordy gave a weird answer — try again');
+
+  const reply = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+  const { cleanReply, blockOptions } = extractBlockOptions(reply);
+
+  return jsonResponse({
+    reply: cleanReply,
+    blockOptions,
+    stage,
+    blocksCommitted: cur,
+    targetMin: blockCountTarget.min,
+    targetMax: blockCountTarget.max,
+    model: TEXT_MODEL,
+  });
+}
+
+function extractBlockOptions(reply) {
+  const closedRe = /```block-?options\s*\n([\s\S]*?)\n```/gi;
+  let cleanReply = reply;
+  const collected = [];
+  const ranges = [];
+  let m;
+  while ((m = closedRe.exec(reply)) !== null) {
+    const items = tryParseBlockArray(m[1].trim());
+    if (items.length) { collected.push(...items); ranges.push([m.index, m.index + m[0].length]); }
+  }
+  for (const [s, e] of ranges.reverse()) cleanReply = cleanReply.slice(0, s) + cleanReply.slice(e);
+
+  if (!collected.length) {
+    // Tolerate truncation: a final unterminated block-options fence.
+    const openRe = /```block-?options\s*\n([\s\S]+)$/i;
+    const open = openRe.exec(cleanReply);
+    if (open) {
+      const items = tryParseBlockArray(open[1].trim());
+      if (items.length) {
+        collected.push(...items);
+        cleanReply = cleanReply.slice(0, open.index).trim();
+      }
+    }
+  }
+
+  return { cleanReply: cleanReply.replace(/\n{3,}/g, '\n\n').trim(), blockOptions: collected };
+}
+
+function tryParseBlockArray(raw) {
+  try {
+    const p = JSON.parse(raw);
+    const arr = Array.isArray(p) ? p : [p];
+    return normalizeBlocks(arr);
+  } catch {}
+  // Truncation repair — close at last full object.
+  let s = raw.trim();
+  if (s.startsWith('[')) {
+    let depth = 0, lastEnd = -1, inStr = false, esc = false;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (esc) { esc = false; continue; }
+      if (c === '\\') { esc = true; continue; }
+      if (c === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c === '{') depth++;
+      else if (c === '}') { depth--; if (depth === 0) lastEnd = i; }
+    }
+    if (lastEnd > 0) {
+      try { return normalizeBlocks(JSON.parse(s.slice(0, lastEnd + 1) + ']')); } catch {}
+    }
+  }
+  return [];
+}
+function normalizeBlocks(arr) {
+  const out = [];
+  for (const item of arr) {
+    if (item && item.text && typeof item.text === 'string' && item.text.trim()) {
+      out.push({
+        kind: String(item.kind || '').trim().toLowerCase(),
+        text: item.text.trim(),
+      });
+    }
+  }
+  return out;
+}
+
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -81,10 +283,14 @@ export default async function handler(req) {
   try { body = await req.json(); }
   catch { return jsonError(400, 'Invalid JSON body'); }
 
-  const mode = body.mode === 'image' ? 'image' : body.mode === 'scribe' ? 'scribe' : 'text';
+  const mode = body.mode === 'image' ? 'image'
+    : body.mode === 'scribe' ? 'scribe'
+    : body.mode === 'tutor' ? 'tutor'
+    : 'text';
 
   if (mode === 'image') return handleImage(body, apiKey);
   if (mode === 'scribe') return handleScribe(body, apiKey);
+  if (mode === 'tutor') return handleTutor(body, apiKey);
   return handleText(body, apiKey);
 }
 
