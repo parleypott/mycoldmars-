@@ -337,6 +337,71 @@
       color: var(--gold);
     }
 
+    /* ──────────── Story Bible ──────────── */
+
+    .bible-panel {
+      border-bottom: 1px solid var(--line-soft);
+      background: #100d09;
+      flex-shrink: 0;
+    }
+    .bible-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 22px;
+      background: transparent;
+      border: none;
+      color: var(--ivory-dim);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-align: left;
+      transition: background .15s, color .15s;
+    }
+    .bible-toggle:hover { color: var(--ivory); background: #15110b; }
+    .bible-chevron {
+      display: inline-block;
+      transition: transform .18s;
+      font-size: 11px;
+      color: var(--gold);
+    }
+    .bible-panel.open .bible-chevron { transform: rotate(90deg); }
+    .bible-title { color: var(--gold); letter-spacing: 0.18em; }
+    .bible-meta { margin-left: auto; font-size: 9px; color: var(--ivory-faint); }
+    .bible-body {
+      display: none;
+      padding: 4px 22px 14px;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .bible-panel.open .bible-body { display: flex; }
+    .bible-body textarea {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--ivory-bright);
+      font-family: var(--serif);
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 10px 12px;
+      resize: vertical;
+      outline: none;
+      border-radius: 2px;
+      min-height: 90px;
+      max-height: 320px;
+      transition: border-color .15s;
+    }
+    .bible-body textarea:focus { border-color: var(--gold); }
+    .bible-hint {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ivory-faint);
+    }
+
     .chat-context {
       padding: 9px 22px;
       border-bottom: 1px solid var(--line-soft);
@@ -787,6 +852,18 @@
         </div>
       </div>
 
+      <div class="bible-panel" id="bible-panel">
+        <button class="bible-toggle" id="bible-toggle" type="button">
+          <span class="bible-chevron">▸</span>
+          <span class="bible-title">Story Bible</span>
+          <span class="bible-meta" id="bible-meta">empty</span>
+        </button>
+        <div class="bible-body" id="bible-body">
+          <textarea id="bible" placeholder="World, characters, running gags, established rules — paste it here once and every chat will know it. Persists per storyboard."></textarea>
+          <div class="bible-hint">sent as canon with every story-mode prompt · saved with this storyboard</div>
+        </div>
+      </div>
+
       <div class="chat-context">
         <span id="mode-hint" class="pill gold">story</span>
         Active scene <span id="active-pill" class="pill">—</span>
@@ -883,6 +960,8 @@
       thinking: false,
       refs: [],       // image refs for next image gen
       mode: 'story',  // 'story' | 'image'
+      bible: '',      // story bible / world context, sent with every story-mode prompt
+      bibleOpen: false,
     };
 
     function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -904,6 +983,7 @@
           scenes: state.scenes,
           chat: state.chat,
           activeSceneId: state.activeSceneId,
+          bible: state.bible,
           updatedAt: Date.now(),
         }));
         const list = loadBoardList();
@@ -917,7 +997,7 @@
           pruneChatHistory();
           try { localStorage.setItem(LS_BOARD(state.name), JSON.stringify({
             name: state.name, scenes: state.scenes, chat: state.chat,
-            activeSceneId: state.activeSceneId, updatedAt: Date.now(),
+            activeSceneId: state.activeSceneId, bible: state.bible, updatedAt: Date.now(),
           })); } catch {}
         }
       }
@@ -1052,6 +1132,7 @@
             history: trimmedHistory,
             storyboard: {
               name: state.name,
+              bible: state.bible,
               scenes: state.scenes.map(s => ({
                 visual: s.visual,
                 audio: s.audio,
@@ -1154,7 +1235,10 @@
       state.chat = [];
       state.activeSceneId = null;
       state.refs = [];
+      state.bible = '';
       document.getElementById('board-name').value = name;
+      document.getElementById('bible').value = '';
+      updateBibleMeta();
       addScene();
     }
 
@@ -1167,7 +1251,11 @@
           state.scenes = b.scenes || [];
           state.chat = b.chat || [];
           state.activeSceneId = b.activeSceneId || state.scenes[0]?.id || null;
+          state.bible = b.bible || '';
           document.getElementById('board-name').value = state.name;
+          document.getElementById('bible').value = state.bible;
+          updateBibleMeta();
+          if (state.bible) setBibleOpen(true);
           if (!state.scenes.length) addScene();
           else render();
           return;
@@ -1472,6 +1560,28 @@
       tab.addEventListener('click', () => setMode(tab.dataset.mode));
     });
     document.getElementById('clear-history').addEventListener('click', clearHistory);
+
+    // Story Bible wiring
+    function setBibleOpen(open) {
+      state.bibleOpen = !!open;
+      const panel = document.getElementById('bible-panel');
+      panel.classList.toggle('open', state.bibleOpen);
+    }
+    function updateBibleMeta() {
+      const chars = (state.bible || '').length;
+      const meta = document.getElementById('bible-meta');
+      if (!chars) { meta.textContent = 'empty'; meta.style.color = ''; return; }
+      meta.textContent = chars > 1000 ? `${(chars/1000).toFixed(1)}k chars · canon` : `${chars} chars · canon`;
+      meta.style.color = 'var(--gold)';
+    }
+    document.getElementById('bible-toggle').addEventListener('click', () => setBibleOpen(!state.bibleOpen));
+    document.getElementById('bible').addEventListener('input', (e) => {
+      state.bible = e.target.value;
+      updateBibleMeta();
+      // debounce persistence — bibles can be big, don't write on every keystroke
+      clearTimeout(window.__qssBibleTimer);
+      window.__qssBibleTimer = setTimeout(persist, 400);
+    });
 
     document.getElementById('btn-add-scene').addEventListener('click', () => addScene());
     document.getElementById('scene-add-btn').addEventListener('click', () => addScene());
