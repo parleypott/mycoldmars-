@@ -1,9 +1,10 @@
 import { checkAccess } from './_lib/access.js';
 
-// Node.js runtime, not edge. Edge has a hard ~25s cap on Hobby tier (the
-// maxDuration field is ignored for edge). Gemini image-gen routinely takes
-// 20–30s, causing ~50% 504 rate on edge. Node serverless honors maxDuration.
-export const config = { runtime: 'nodejs', maxDuration: 60 };
+// Edge runtime. Vercel's Node serverless adapter wasn't reliably passing the
+// request shape this handler expects — switched back. To mitigate the ~25s
+// hard cap on image-mode, the CLIENT retries 504s up to 2x (see index.html
+// generateForScene). 2 retries get effective success rate >90%.
+export const config = { runtime: 'edge', maxDuration: 30 };
 
 /**
  * Queen Scarlet's School backend. Two modes:
@@ -348,23 +349,6 @@ function normalizeBlocks(arr) {
   return out;
 }
 
-// Runtime-agnostic body reader. Edge passes a Web Request (await req.json()),
-// Node passes IncomingMessage (must read stream chunks). Handle both.
-async function readJsonBody(req) {
-  if (typeof req.json === 'function') {
-    return await req.json();
-  }
-  return await new Promise((resolve, reject) => {
-    let buf = '';
-    req.on('data', (chunk) => { buf += chunk; });
-    req.on('end', () => {
-      if (!buf) { resolve({}); return; }
-      try { resolve(JSON.parse(buf)); } catch (e) { reject(e); }
-    });
-    req.on('error', reject);
-  });
-}
-
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -376,7 +360,7 @@ export default async function handler(req) {
   if (!apiKey) return jsonError(500, 'GEMINI_API_KEY not configured');
 
   let body;
-  try { body = await readJsonBody(req); }
+  try { body = await req.json(); }
   catch { return jsonError(400, 'Invalid JSON body'); }
 
   const mode = body.mode === 'image' ? 'image'
