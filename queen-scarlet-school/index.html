@@ -566,7 +566,16 @@
     .sugg-card:nth-child(4n+4) .sugg-num { background: var(--yolk); }
 
     .sugg-body { display: flex; flex-direction: column; gap: 12px; }
-    .sugg-line { display: flex; flex-direction: column; gap: 4px; }
+    .sugg-line {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      column-gap: 10px;
+      row-gap: 4px;
+      align-items: start;
+    }
+    .sugg-line .sugg-label { grid-column: 1 / -1; }
+    .sugg-line .sugg-text { grid-column: 1; min-width: 0; }
+    .sugg-line .tts-btn { grid-column: 2; align-self: start; margin-top: 2px; }
     .sugg-label {
       font-family: var(--ui);
       font-size: 11px;
@@ -749,6 +758,7 @@
       min-width: 0;
     }
     .field-block { display: flex; flex-direction: column; gap: 4px; }
+    .field-head { display: flex; align-items: center; gap: 2px; }
     .field-block label {
       font-family: var(--ui);
       font-size: 11px;
@@ -845,6 +855,96 @@
       transform: translate(-1px, -1px) rotate(-0.5deg);
       box-shadow: 4px 4px 0 var(--ink-bright);
     }
+
+    /* ──────────────── Text-to-speech ──────────────── */
+    .tts-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px; height: 28px;
+      background: var(--paper-card);
+      border: 2px solid var(--ink-bright);
+      border-radius: 50%;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer;
+      transition: transform 140ms var(--ease), background 140ms var(--ease);
+      flex-shrink: 0;
+      color: var(--ink-bright);
+      padding: 0;
+    }
+    .tts-btn svg { width: 14px; height: 14px; pointer-events: none; }
+    .tts-btn:hover { background: var(--yolk); transform: translate(-1px, -1px) rotate(-4deg); box-shadow: 3px 3px 0 var(--ink-bright); }
+    .tts-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink-bright); }
+    .tts-btn.playing { background: var(--red); color: var(--paper-card); animation: ttsPulse 1s ease-in-out infinite; }
+    @keyframes ttsPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+    .tts-btn.inline-label {
+      margin-left: 6px;
+      width: 22px; height: 22px;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+    }
+    .tts-btn.inline-label svg { width: 12px; height: 12px; }
+
+    /* line-level tts button — sits to the right of the text */
+    .tts-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .tts-line .tts-btn { margin-top: 2px; }
+    .tts-line .sugg-text,
+    .tts-line .sugg-rationale { flex: 1; min-width: 0; }
+
+    /* card-level tts (placed in card corner) */
+    .tts-corner {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+    }
+    .tts-corner-tag {
+      position: absolute;
+      top: 18px;
+      right: 50px;
+      font-family: var(--ui);
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--ink-soft);
+      letter-spacing: 0.06em;
+      opacity: 0;
+      transition: opacity .15s;
+      background: var(--paper-card);
+      padding: 2px 8px;
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      transform: rotate(-3deg);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .tts-corner:hover + .tts-corner-tag { opacity: 1; }
+
+    /* Floating selection speaker */
+    .tts-float {
+      position: fixed;
+      display: none;
+      z-index: 200;
+      transform: translate(-50%, -100%);
+      margin-top: -8px;
+      pointer-events: auto;
+    }
+    .tts-float.visible { display: block; animation: floatPop 180ms var(--ease); }
+    @keyframes floatPop {
+      from { opacity: 0; transform: translate(-50%, -100%) scale(0.6); }
+      to { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+    }
+    .tts-float .tts-btn {
+      background: var(--yolk);
+      width: 36px; height: 36px;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+    }
+    .tts-float .tts-btn svg { width: 18px; height: 18px; }
 
     /* ──────────────── Gate ──────────────── */
     .gate {
@@ -953,6 +1053,16 @@
 </head>
 <body>
 
+  <div id="tts-float" class="tts-float" role="button" aria-label="Read selected text aloud">
+    <button class="tts-btn" id="tts-float-btn" title="Read the highlighted text">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+        <path d="M15.54 8.46a5 5 0 010 7.07"/>
+        <path d="M19.07 4.93a10 10 0 010 14.14"/>
+      </svg>
+    </button>
+  </div>
+
   <div id="gate" class="gate">
     <div class="gate-inner">
       <div class="mascot"></div>
@@ -993,10 +1103,11 @@
 
         <div class="hello-card">
           <div class="mascot"><span class="mouth"></span></div>
-          <div class="copy">
+          <div class="copy" id="hello-copy">
             <h2>Hi! Drop your story here.</h2>
             <p><strong>Paste a chapter, a script, or some research</strong> — anything with characters and action. I'll break it into <strong>scenes</strong> you can drag straight into the storyboard.</p>
           </div>
+          <button class="tts-btn" id="hello-tts" title="Read this out loud" aria-label="Read this out loud" style="margin-left:auto;align-self:flex-start;"></button>
         </div>
 
         <div class="bible-card" id="bible-card">
@@ -1088,6 +1199,159 @@
       sub.addEventListener('click', check);
       inp.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
       inp.focus();
+    })();
+  </script>
+
+  <script>
+    // ─────── Text-to-speech engine ───────
+    // window.qssTTS exposes: speak(text, btnEl?), stop(), iconFor(state),
+    // and hooks up the floating selection bubble.
+    (function() {
+      const synth = window.speechSynthesis;
+      if (!synth) {
+        window.qssTTS = { speak: () => alert('Speech not supported in this browser.'), stop: () => {}, ICON_PLAY: '', ICON_STOP: '' };
+        return;
+      }
+
+      let voices = [];
+      let preferred = null;
+      function pickVoice() {
+        voices = synth.getVoices() || [];
+        // Prefer a clear, friendly English voice. macOS has Samantha; Chrome has Google US English.
+        const ranked = [
+          /Samantha/i, /Karen/i, /Allison/i, /Victoria/i, /Susan/i,
+          /Google US English/i, /Google UK English Female/i,
+          /Daniel/i, /Alex/i, /Microsoft Aria/i, /Microsoft Jenny/i,
+        ];
+        for (const re of ranked) {
+          const v = voices.find(x => re.test(x.name) && /en/i.test(x.lang));
+          if (v) { preferred = v; return; }
+        }
+        preferred = voices.find(v => /en/i.test(v.lang)) || voices[0] || null;
+      }
+      pickVoice();
+      if (typeof synth.onvoiceschanged !== 'undefined') {
+        synth.onvoiceschanged = pickVoice;
+      }
+
+      const ICON_PLAY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg>';
+      const ICON_STOP = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>';
+
+      let activeBtn = null;
+      let currentUtter = null;
+
+      function clearActive() {
+        if (activeBtn) {
+          activeBtn.classList.remove('playing');
+          activeBtn.innerHTML = ICON_PLAY;
+          activeBtn = null;
+        }
+        currentUtter = null;
+      }
+
+      function stop() {
+        try { synth.cancel(); } catch {}
+        clearActive();
+      }
+
+      function speak(text, btnEl) {
+        if (!text || !text.trim()) return;
+        // Toggle off if same button is already playing
+        if (btnEl && activeBtn === btnEl) { stop(); return; }
+        stop();
+
+        const utter = new SpeechSynthesisUtterance(text);
+        if (preferred) utter.voice = preferred;
+        utter.rate = 0.95;
+        utter.pitch = 1.05;
+        utter.volume = 1.0;
+        utter.onend = () => { clearActive(); };
+        utter.onerror = () => { clearActive(); };
+        currentUtter = utter;
+
+        if (btnEl) {
+          activeBtn = btnEl;
+          btnEl.classList.add('playing');
+          btnEl.innerHTML = ICON_STOP;
+        }
+        try { synth.speak(utter); }
+        catch (e) { clearActive(); }
+      }
+
+      // Build an inline TTS button DOM element
+      function buildBtn(opts = {}) {
+        const b = document.createElement('button');
+        b.className = 'tts-btn' + (opts.extra ? ' ' + opts.extra : '');
+        b.type = 'button';
+        b.title = opts.title || 'Read aloud';
+        b.setAttribute('aria-label', opts.title || 'Read aloud');
+        b.innerHTML = ICON_PLAY;
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const text = (typeof opts.text === 'function') ? opts.text() : opts.text;
+          speak(text, b);
+        });
+        return b;
+      }
+
+      // Floating selection bubble
+      const floatEl = document.getElementById('tts-float');
+      const floatBtn = document.getElementById('tts-float-btn');
+      let pendingSelectionText = '';
+
+      function updateFloat() {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) { hideFloat(); return; }
+        const text = sel.toString().trim();
+        if (!text || text.length < 2) { hideFloat(); return; }
+
+        const range = sel.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        if (!rect || (rect.width === 0 && rect.height === 0)) { hideFloat(); return; }
+
+        // Don't show inside the float button itself
+        if (floatEl.contains(sel.anchorNode) || floatEl.contains(sel.focusNode)) return;
+
+        pendingSelectionText = text;
+        floatEl.style.left = (rect.left + rect.width / 2) + 'px';
+        floatEl.style.top = (rect.top) + 'px';
+        if (!floatEl.classList.contains('visible')) {
+          floatEl.classList.add('visible');
+          // Reset icon in case it was mid-play
+          if (!floatBtn.classList.contains('playing')) floatBtn.innerHTML = ICON_PLAY;
+        }
+      }
+      function hideFloat() {
+        if (floatBtn.classList.contains('playing')) return; // keep visible while reading
+        floatEl.classList.remove('visible');
+        pendingSelectionText = '';
+      }
+      floatBtn.addEventListener('mousedown', e => e.preventDefault()); // don't kill the selection
+      floatBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!pendingSelectionText) return;
+        speak(pendingSelectionText, floatBtn);
+      });
+
+      document.addEventListener('selectionchange', () => {
+        // tiny debounce to avoid flicker during drag
+        clearTimeout(window.__ttsSelT);
+        window.__ttsSelT = setTimeout(updateFloat, 80);
+      });
+      document.addEventListener('mousedown', (e) => {
+        if (!floatEl.contains(e.target)) {
+          // wait for selection to update; if cleared, hide
+          setTimeout(() => {
+            const sel = window.getSelection();
+            if (!sel || sel.toString().trim().length < 2) hideFloat();
+          }, 60);
+        }
+      });
+
+      // Stop any speech when the page is hidden
+      document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
+
+      window.qssTTS = { speak, stop, buildBtn, ICON_PLAY, ICON_STOP };
     })();
   </script>
 
@@ -1242,21 +1506,24 @@
       if (!state.suggestions.length) { wrap.style.display = 'none'; return; }
       wrap.style.display = 'block';
       replyEl.textContent = state.lastReply || '';
-      list.innerHTML = state.suggestions.map((s, i) => `
+      list.innerHTML = state.suggestions.map((s, i) => {
+        const readAll = [s.visual && `Scene ${i+1}.`, s.visual && `Visual: ${s.visual}`, s.audio && `Audio: ${s.audio}`, s.rationale].filter(Boolean).join(' ');
+        return `
         <div class="sugg-card ${s.added ? 'added' : ''}" data-sugg="${s.id}">
           <div class="sugg-num">${i + 1}</div>
+          <button class="tts-btn tts-corner" data-tts-text="${esc(readAll)}" title="Read whole scene aloud" aria-label="Read whole scene aloud">${window.qssTTS.ICON_PLAY}</button>
           <div class="sugg-body">
-            ${s.visual ? `<div class="sugg-line"><div class="sugg-label">Visual</div><div class="sugg-text">${esc(s.visual)}</div></div>` : ''}
-            ${s.audio ? `<div class="sugg-line"><div class="sugg-label">Audio · VO · SFX</div><div class="sugg-text">${esc(s.audio)}</div></div>` : ''}
-            ${s.rationale ? `<div class="sugg-rationale">${esc(s.rationale)}</div>` : ''}
+            ${s.visual ? `<div class="sugg-line"><div class="sugg-label">Visual</div><div class="sugg-text">${esc(s.visual)}</div><button class="tts-btn" data-tts-text="${esc(s.visual)}" title="Read visual aloud">${window.qssTTS.ICON_PLAY}</button></div>` : ''}
+            ${s.audio ? `<div class="sugg-line"><div class="sugg-label">Audio · VO · SFX</div><div class="sugg-text">${esc(s.audio)}</div><button class="tts-btn" data-tts-text="${esc(s.audio)}" title="Read audio aloud">${window.qssTTS.ICON_PLAY}</button></div>` : ''}
+            ${s.rationale ? `<div class="tts-line"><div class="sugg-rationale">${esc(s.rationale)}</div><button class="tts-btn" data-tts-text="${esc(s.rationale)}" title="Read aloud">${window.qssTTS.ICON_PLAY}</button></div>` : ''}
             <div class="added-tag">✓ in storyboard</div>
             <div class="sugg-actions">
               <button class="btn primary" data-action="add" data-id="${s.id}">+ Add to storyboard</button>
               <button class="btn sky show-added" data-action="goto-board" data-id="${s.id}">See it →</button>
             </div>
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     }
 
     function addSuggestionToBoard(suggId) {
@@ -1378,9 +1645,11 @@
         } else {
           thumbContent = `<span>no picture yet</span>`;
         }
+        const readWhole = [`Scene ${i+1}.`, s.visual && `Visual: ${s.visual}`, s.audio && `Audio: ${s.audio}`].filter(Boolean).join(' ');
         return `
           <div class="scene-card ${s.image ? 'has-image' : ''}" data-scene="${s.id}">
             <div class="scene-num">${i + 1}</div>
+            <button class="tts-btn tts-corner" data-tts-text="${esc(readWhole)}" title="Read whole scene aloud" aria-label="Read whole scene aloud">${window.qssTTS.ICON_PLAY}</button>
             <div class="scene-toolbar">
               <button class="cb-btn" data-action="up" data-id="${s.id}" ${i === 0 ? 'disabled' : ''} title="Move up">↑</button>
               <button class="cb-btn" data-action="down" data-id="${s.id}" ${i === state.scenes.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
@@ -1388,11 +1657,11 @@
             </div>
             <div class="scene-script">
               <div class="field-block">
-                <label>Visual</label>
+                <div class="field-head"><label>Visual</label><button class="tts-btn inline-label" data-tts-source="visual" data-id="${s.id}" title="Read visual aloud">${window.qssTTS.ICON_PLAY}</button></div>
                 <textarea data-id="${s.id}" data-field="visual" rows="1" placeholder="What we see on screen…">${esc(s.visual)}</textarea>
               </div>
               <div class="field-block">
-                <label>Audio · VO · SFX</label>
+                <div class="field-head"><label>Audio · VO · SFX</label><button class="tts-btn inline-label" data-tts-source="audio" data-id="${s.id}" title="Read audio aloud">${window.qssTTS.ICON_PLAY}</button></div>
                 <textarea data-id="${s.id}" data-field="audio" rows="1" placeholder="What we hear — narration, dialogue, sound effects…">${esc(s.audio)}</textarea>
               </div>
             </div>
@@ -1477,14 +1746,46 @@
       } catch {}
     });
     document.getElementById('suggestions').addEventListener('click', (e) => {
+      // Delegated TTS: any .tts-btn with data-tts-text → speak it
+      const ttsBtn = e.target.closest('.tts-btn[data-tts-text]');
+      if (ttsBtn) {
+        e.stopPropagation();
+        window.qssTTS.speak(ttsBtn.dataset.ttsText, ttsBtn);
+        return;
+      }
       const action = e.target.dataset.action;
       if (!action) return;
       const id = e.target.dataset.id;
       if (action === 'add') addSuggestionToBoard(id);
       else if (action === 'goto-board') setStage('board');
     });
+
+    // Hello-card TTS
+    (function() {
+      const btn = document.getElementById('hello-tts');
+      if (!btn) return;
+      btn.innerHTML = window.qssTTS.ICON_PLAY;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const copy = document.getElementById('hello-copy').textContent.replace(/\s+/g, ' ').trim();
+        window.qssTTS.speak(copy, btn);
+      });
+    })();
     const board = document.getElementById('board-grid');
     board.addEventListener('click', (e) => {
+      // Delegated TTS: data-tts-text (static) or data-tts-source (live field read)
+      const ttsBtn = e.target.closest('.tts-btn');
+      if (ttsBtn) {
+        e.stopPropagation();
+        let text = ttsBtn.dataset.ttsText;
+        if (!text && ttsBtn.dataset.ttsSource) {
+          const sceneId = ttsBtn.dataset.id;
+          const scene = state.scenes.find(x => x.id === sceneId);
+          text = (scene?.[ttsBtn.dataset.ttsSource] || '').trim() || `(${ttsBtn.dataset.ttsSource} is empty)`;
+        }
+        if (text) window.qssTTS.speak(text, ttsBtn);
+        return;
+      }
       const action = e.target.dataset.action;
       if (!action) return;
       const id = e.target.dataset.id;
