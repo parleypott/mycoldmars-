@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Queen Scarlet School — storyboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0c0a;
+      --panel: #16130f;
+      --panel-2: #1d1916;
+      --line: #2a2622;
+      --line-soft: #1f1c18;
+      --ivory: #ece6d8;
+      --ivory-bright: #f6efde;
+      --ivory-dim: rgba(236, 230, 216, 0.55);
+      --ivory-faint: rgba(236, 230, 216, 0.18);
+      --red: #d42e05;
+      --red-soft: rgba(212, 46, 5, 0.18);
+      --gold: #e0b75a;
+      --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+      --serif: 'Iowan Old Style', 'Palatino', Georgia, serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--ivory);
+      font-family: var(--mono);
+      font-size: 13px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow: hidden;
+    }
+
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 200;
+      mix-blend-mode: overlay;
+    }
+
+    /* ──────────── Top bar ──────────── */
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      height: 56px;
+      position: relative;
+      z-index: 4;
+    }
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+    }
+    .brand .home {
+      color: var(--ivory-dim);
+      text-decoration: none;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      transition: color .15s;
+    }
+    .brand .home:hover { color: var(--ivory-bright); }
+    .brand .title {
+      font-family: var(--serif);
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--ivory-bright);
+    }
+    .brand .sub {
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--gold);
+      opacity: 0.8;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .topbar-input {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--ivory-bright);
+      padding: 7px 10px;
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      min-width: 240px;
+      border-radius: 2px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .topbar-input:focus { border-color: var(--gold); }
+    .btn {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--ivory);
+      padding: 7px 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all .15s;
+    }
+    .btn:hover { border-color: var(--gold); color: var(--ivory-bright); }
+    .btn.primary {
+      background: var(--red-soft);
+      border-color: var(--red);
+      color: var(--ivory-bright);
+    }
+    .btn.primary:hover { background: var(--red); }
+    .btn.ghost { border-color: var(--line-soft); color: var(--ivory-dim); }
+    .btn.ghost:hover { color: var(--ivory); border-color: var(--line); }
+
+    /* ──────────── Main two-column ──────────── */
+
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+      height: calc(100vh - 56px);
+      position: relative;
+    }
+    .col {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      min-width: 0;
+    }
+    .col-left { border-right: 1px solid var(--line); }
+    .col-header {
+      padding: 12px 22px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--panel);
+      flex-shrink: 0;
+    }
+    .col-header h2 {
+      font-family: var(--serif);
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.02em;
+      color: var(--ivory-bright);
+    }
+    .col-header .meta {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ivory-dim);
+    }
+    .col-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 22px 80px;
+    }
+
+    /* ──────────── Scene cards ──────────── */
+
+    .scene-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .scene {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      padding: 14px 14px 14px 16px;
+      display: grid;
+      grid-template-columns: 110px 1fr 160px;
+      gap: 14px;
+      align-items: stretch;
+      transition: border-color .15s, background .15s;
+      cursor: pointer;
+      position: relative;
+    }
+    .scene:hover { border-color: var(--line); background: #181410; }
+    .scene.active {
+      border-color: var(--gold);
+      background: #1a1611;
+    }
+    .scene.active::before {
+      content: '';
+      position: absolute;
+      left: -1px; top: -1px; bottom: -1px;
+      width: 3px;
+      background: var(--gold);
+      border-radius: 3px 0 0 3px;
+    }
+
+    .scene-num {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      color: var(--gold);
+    }
+    .scene-num .label {
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ivory-dim);
+    }
+    .scene-num .num {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 600;
+      line-height: 1;
+    }
+    .scene-actions {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .icon-btn {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--ivory-dim);
+      width: 20px; height: 20px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      border-radius: 2px;
+      font-size: 11px;
+      line-height: 1;
+      padding: 0;
+      transition: all .15s;
+    }
+    .icon-btn:hover { border-color: var(--red); color: var(--red); }
+
+    .scene-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .field-label {
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ivory-dim);
+    }
+    .field textarea {
+      background: transparent;
+      border: none;
+      border-bottom: 1px dashed var(--line);
+      color: var(--ivory-bright);
+      font-family: var(--serif);
+      font-size: 14px;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+      padding: 4px 0;
+      min-height: 22px;
+      transition: border-color .15s;
+    }
+    .field textarea:focus { border-bottom-color: var(--gold); }
+    .field.visual textarea::placeholder,
+    .field.audio textarea::placeholder {
+      color: var(--ivory-faint);
+      font-style: italic;
+    }
+
+    .scene-image {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #0a0907;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ivory-faint);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      align-self: start;
+    }
+    .scene-image img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .scene-image .placeholder { padding: 8px; text-align: center; line-height: 1.4; }
+    .scene-image .clear {
+      position: absolute;
+      top: 4px; right: 4px;
+      background: rgba(14,12,10,0.85);
+      border: 1px solid var(--line);
+      color: var(--ivory-dim);
+      width: 18px; height: 18px;
+      display: none;
+      align-items: center; justify-content: center;
+      cursor: pointer;
+      font-size: 11px;
+      border-radius: 2px;
+    }
+    .scene-image:has(img) .clear { display: flex; }
+    .scene-image .clear:hover { color: var(--red); border-color: var(--red); }
+
+    .scene-add {
+      background: transparent;
+      border: 1px dashed var(--line);
+      color: var(--ivory-dim);
+      padding: 14px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all .15s;
+    }
+    .scene-add:hover { border-color: var(--gold); color: var(--gold); border-style: solid; }
+
+    /* ──────────── Right column (chat) ──────────── */
+
+    .chat-active {
+      padding: 10px 22px;
+      border-bottom: 1px solid var(--line-soft);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ivory-dim);
+      background: #131009;
+      display: flex; align-items: center; gap: 10px;
+      flex-shrink: 0;
+    }
+    .chat-active .pill {
+      background: var(--red-soft);
+      color: var(--ivory-bright);
+      padding: 2px 8px;
+      border-radius: 2px;
+      letter-spacing: 0.16em;
+    }
+
+    .chat-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 22px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 0;
+    }
+    .empty {
+      margin: auto;
+      text-align: center;
+      color: var(--ivory-faint);
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 15px;
+      max-width: 320px;
+      line-height: 1.5;
+    }
+
+    .turn {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .turn.user .bubble {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: 9px 12px;
+      color: var(--ivory-bright);
+      font-family: var(--serif);
+      font-size: 14px;
+      line-height: 1.45;
+      border-radius: 2px;
+      align-self: flex-end;
+      max-width: 88%;
+    }
+    .turn.banana .bubble-meta {
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--gold);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .turn.banana .bubble-meta .dot {
+      width: 6px; height: 6px; background: var(--gold); border-radius: 50%;
+    }
+    .gen-image-wrap {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: 8px;
+      border-radius: 3px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .gen-image {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #0a0907;
+      border-radius: 2px;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .gen-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .gen-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .gen-actions .btn { font-size: 10px; padding: 6px 10px; letter-spacing: 0.14em; }
+    .gen-text {
+      color: var(--ivory-dim);
+      font-family: var(--serif);
+      font-size: 13px;
+      line-height: 1.45;
+      font-style: italic;
+    }
+
+    .thinking {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ivory-dim);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .thinking .blip {
+      width: 8px; height: 8px; background: var(--gold); border-radius: 50%;
+      animation: pulse 1.1s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.35; transform: scale(0.85); }
+      50% { opacity: 1; transform: scale(1); }
+    }
+
+    /* ──────────── Composer ──────────── */
+
+    .composer {
+      border-top: 1px solid var(--line);
+      padding: 12px 22px 14px;
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .composer-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+    .composer textarea {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--ivory-bright);
+      font-family: var(--serif);
+      font-size: 14px;
+      line-height: 1.45;
+      padding: 9px 11px;
+      resize: none;
+      outline: none;
+      border-radius: 2px;
+      min-height: 44px;
+      max-height: 160px;
+      transition: border-color .15s;
+    }
+    .composer textarea:focus { border-color: var(--gold); }
+    .composer-options {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ivory-dim);
+    }
+    .composer-options label {
+      display: flex; align-items: center; gap: 6px; cursor: pointer;
+    }
+    .composer-options select {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--ivory);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 4px 6px;
+      border-radius: 2px;
+      outline: none;
+    }
+    .ref-pile {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .ref-chip {
+      width: 36px; height: 36px;
+      border-radius: 2px; overflow: hidden;
+      border: 1px solid var(--line);
+      position: relative;
+      background: #0a0907;
+    }
+    .ref-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ref-chip .x {
+      position: absolute; top: -4px; right: -4px;
+      width: 14px; height: 14px;
+      background: var(--red); color: var(--ivory-bright);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px;
+      cursor: pointer; border: none;
+    }
+
+    /* ──────────── Scrollbars ──────────── */
+    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+    *::-webkit-scrollbar-thumb:hover { background: #3a3530; }
+
+    @media (max-width: 1100px) {
+      .scene { grid-template-columns: 80px 1fr 130px; }
+      .scene-num .num { font-size: 22px; }
+    }
+    @media (max-width: 900px) {
+      .stage { grid-template-columns: 1fr; }
+      .col-left { border-right: none; border-bottom: 1px solid var(--line); }
+      .col-body { padding-bottom: 24px; }
+      .col { height: auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <a class="home" href="/">← mycoldmars</a>
+      <span class="title">Queen Scarlet's School</span>
+      <span class="sub">storyboard · nano banana</span>
+    </div>
+    <div class="topbar-right">
+      <input id="board-name" class="topbar-input" type="text" placeholder="untitled storyboard" autocomplete="off" />
+      <button id="btn-new" class="btn ghost" title="New storyboard">New</button>
+      <button id="btn-export" class="btn ghost" title="Download JSON">Export</button>
+      <button id="btn-add-scene" class="btn primary">+ Scene</button>
+    </div>
+  </header>
+
+  <main class="stage">
+
+    <section class="col col-left">
+      <div class="col-header">
+        <h2>Audiovisual Script</h2>
+        <span class="meta" id="scene-count">0 scenes</span>
+      </div>
+      <div class="col-body">
+        <div id="scenes" class="scene-list"></div>
+        <button id="scene-add-btn" class="scene-add" style="margin-top: 16px; width: 100%;">+ Add scene</button>
+      </div>
+    </section>
+
+    <section class="col col-right">
+      <div class="col-header">
+        <h2>Nano Banana</h2>
+        <span class="meta">imagery</span>
+      </div>
+      <div class="chat-active">
+        Active scene <span id="active-pill" class="pill">—</span>
+      </div>
+      <div class="chat-body" id="chat-body">
+        <div class="empty" id="empty-state">
+          Pick a scene on the left. Describe what you want to see. Generate, swap, iterate.
+        </div>
+      </div>
+      <div class="composer">
+        <div class="ref-pile" id="ref-pile" style="display:none;"></div>
+        <div class="composer-row">
+          <textarea id="prompt" placeholder="Cinematic wide shot of a small village under green twilight, paper lanterns, fog…" rows="2"></textarea>
+        </div>
+        <div class="composer-options">
+          <label>
+            model
+            <select id="model">
+              <option value="nano-banana">nano-banana · 3.1</option>
+              <option value="nano-banana-2.5">nano-banana · 2.5</option>
+              <option value="nano-banana-pro">nano-banana pro</option>
+            </select>
+          </label>
+          <label title="Use the active scene's current image as a style/character reference">
+            <input type="checkbox" id="use-active-as-ref" /> reference active image
+          </label>
+          <div style="flex:1"></div>
+          <button id="btn-generate" class="btn primary">Generate ↵</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module">
+    // ─────────── State ───────────
+
+    const LS_BOARD_LIST = 'qss:boards';
+    const LS_BOARD = (name) => `qss:board:${name}`;
+    const LS_LAST = 'qss:last';
+
+    const state = {
+      name: '',
+      scenes: [],     // { id, visual, audio, image: { mimeType, dataBase64 } | null }
+      chat: [],       // { id, role: 'user'|'banana', prompt?, images?, text?, sceneId? }
+      activeSceneId: null,
+      thinking: false,
+      refs: [],       // { mimeType, dataBase64 }
+    };
+
+    function uid() { return Math.random().toString(36).slice(2, 10); }
+
+    // ─────────── Persistence ───────────
+
+    function loadBoardList() {
+      try { return JSON.parse(localStorage.getItem(LS_BOARD_LIST) || '[]'); }
+      catch { return []; }
+    }
+    function saveBoardList(list) {
+      localStorage.setItem(LS_BOARD_LIST, JSON.stringify(list));
+    }
+    function persist() {
+      if (!state.name) return;
+      try {
+        localStorage.setItem(LS_BOARD(state.name), JSON.stringify({
+          name: state.name,
+          scenes: state.scenes,
+          chat: state.chat,
+          activeSceneId: state.activeSceneId,
+          updatedAt: Date.now(),
+        }));
+        const list = loadBoardList();
+        if (!list.includes(state.name)) {
+          list.push(state.name);
+          saveBoardList(list);
+        }
+        localStorage.setItem(LS_LAST, state.name);
+      } catch (e) {
+        // Likely quota — chat images can balloon. Drop oldest banana turns.
+        if (e?.name === 'QuotaExceededError') {
+          pruneChatHistory();
+          try { localStorage.setItem(LS_BOARD(state.name), JSON.stringify({
+            name: state.name, scenes: state.scenes, chat: state.chat,
+            activeSceneId: state.activeSceneId, updatedAt: Date.now(),
+          })); } catch { /* give up silently */ }
+        }
+      }
+    }
+    function pruneChatHistory() {
+      // Keep last 10 banana turns and all user turns.
+      const bananaIdx = state.chat
+        .map((t, i) => t.role === 'banana' ? i : -1)
+        .filter(i => i >= 0);
+      if (bananaIdx.length > 10) {
+        const dropBefore = bananaIdx[bananaIdx.length - 10];
+        state.chat = state.chat.filter((_, i) => i >= dropBefore);
+      }
+    }
+    function loadBoard(name) {
+      try {
+        const raw = localStorage.getItem(LS_BOARD(name));
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch { return null; }
+    }
+
+    // ─────────── Scenes ───────────
+
+    function addScene() {
+      const scene = { id: uid(), visual: '', audio: '', image: null };
+      state.scenes.push(scene);
+      state.activeSceneId = scene.id;
+      persist();
+      render();
+      // Focus the new scene's visual textarea
+      requestAnimationFrame(() => {
+        const ta = document.querySelector(`[data-scene-id="${scene.id}"] textarea.visual`);
+        ta?.focus();
+      });
+    }
+    function deleteScene(id) {
+      state.scenes = state.scenes.filter(s => s.id !== id);
+      if (state.activeSceneId === id) state.activeSceneId = state.scenes[0]?.id || null;
+      persist();
+      render();
+    }
+    function setSceneField(id, field, value) {
+      const s = state.scenes.find(x => x.id === id);
+      if (!s) return;
+      s[field] = value;
+      persist();
+    }
+    function attachImageToScene(sceneId, image) {
+      const s = state.scenes.find(x => x.id === sceneId);
+      if (!s) return;
+      s.image = image;
+      persist();
+      render();
+    }
+    function clearSceneImage(sceneId) {
+      const s = state.scenes.find(x => x.id === sceneId);
+      if (!s) return;
+      s.image = null;
+      persist();
+      render();
+    }
+
+    // ─────────── Chat ───────────
+
+    async function generate() {
+      const promptEl = document.getElementById('prompt');
+      const prompt = promptEl.value.trim();
+      if (!prompt) {
+        promptEl.focus();
+        return;
+      }
+      const model = document.getElementById('model').value;
+      const useActiveAsRef = document.getElementById('use-active-as-ref').checked;
+
+      const refs = [...state.refs];
+      if (useActiveAsRef && state.activeSceneId) {
+        const active = state.scenes.find(s => s.id === state.activeSceneId);
+        if (active?.image) refs.unshift(active.image);
+      }
+
+      const sceneId = state.activeSceneId;
+
+      state.chat.push({ id: uid(), role: 'user', prompt, sceneId });
+      state.thinking = true;
+      promptEl.value = '';
+      render();
+      scrollChatToEnd();
+
+      try {
+        const accessCode = sessionStorage.getItem('mcm_access_code') || '';
+        const headers = { 'Content-Type': 'application/json' };
+        if (accessCode) headers['x-access-code'] = accessCode;
+
+        const res = await fetch('/api/nano-banana', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            prompt,
+            model,
+            referenceImages: refs,
+          }),
+        });
+
+        if (!res.ok) {
+          let msg = `${res.status}`;
+          try { const j = await res.json(); msg = j.error || msg; } catch {}
+          throw new Error(msg);
+        }
+        const data = await res.json();
+        state.chat.push({
+          id: uid(),
+          role: 'banana',
+          images: data.images || [],
+          text: data.text || '',
+          sceneId,
+        });
+        state.refs = []; // clear refs after a successful gen
+      } catch (e) {
+        state.chat.push({
+          id: uid(),
+          role: 'banana',
+          text: `⚠ ${e.message}`,
+          sceneId,
+        });
+      } finally {
+        state.thinking = false;
+        persist();
+        render();
+        scrollChatToEnd();
+      }
+    }
+
+    function scrollChatToEnd() {
+      const el = document.getElementById('chat-body');
+      requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    }
+
+    // ─────────── Boards ───────────
+
+    function newBoard(promptName = true) {
+      const def = `board-${new Date().toISOString().slice(0,16).replace(/[-:T]/g,'')}`;
+      const name = promptName ? (window.prompt('Storyboard name?', def) || def) : def;
+      state.name = name;
+      state.scenes = [];
+      state.chat = [];
+      state.activeSceneId = null;
+      state.refs = [];
+      document.getElementById('board-name').value = name;
+      addScene(); // start with one blank scene
+    }
+
+    function loadOrInit() {
+      const last = localStorage.getItem(LS_LAST);
+      if (last) {
+        const b = loadBoard(last);
+        if (b) {
+          state.name = b.name;
+          state.scenes = b.scenes || [];
+          state.chat = b.chat || [];
+          state.activeSceneId = b.activeSceneId || state.scenes[0]?.id || null;
+          document.getElementById('board-name').value = state.name;
+          if (!state.scenes.length) addScene();
+          else render();
+          return;
+        }
+      }
+      newBoard(false);
+    }
+
+    function exportJson() {
+      const blob = new Blob([JSON.stringify({
+        name: state.name,
+        scenes: state.scenes.map(s => ({
+          visual: s.visual, audio: s.audio,
+          image: s.image ? { mimeType: s.image.mimeType, dataBase64: s.image.dataBase64 } : null,
+        })),
+        exportedAt: new Date().toISOString(),
+      }, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${state.name || 'storyboard'}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ─────────── Render ───────────
+
+    function escapeHtml(s) {
+      return (s || '').replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      })[c]);
+    }
+
+    function render() {
+      // Scenes
+      const list = document.getElementById('scenes');
+      list.innerHTML = state.scenes.map((s, i) => `
+        <div class="scene ${s.id === state.activeSceneId ? 'active' : ''}" data-scene-id="${s.id}">
+          <div class="scene-num">
+            <span class="label">Scene</span>
+            <span class="num">${String(i + 1).padStart(2, '0')}</span>
+            <div class="scene-actions">
+              <button class="icon-btn" data-action="delete" data-id="${s.id}" title="Delete scene">×</button>
+            </div>
+          </div>
+          <div class="scene-fields">
+            <div class="field visual">
+              <span class="field-label">Visual</span>
+              <textarea class="visual" rows="1" data-id="${s.id}" data-field="visual"
+                placeholder="What's on screen…">${escapeHtml(s.visual)}</textarea>
+            </div>
+            <div class="field audio">
+              <span class="field-label">Audio · VO · SFX</span>
+              <textarea class="audio" rows="1" data-id="${s.id}" data-field="audio"
+                placeholder="Narration, sound, dialogue…">${escapeHtml(s.audio)}</textarea>
+            </div>
+          </div>
+          <div class="scene-image" data-id="${s.id}">
+            ${s.image
+              ? `<img src="data:${s.image.mimeType};base64,${s.image.dataBase64}" />
+                 <button class="clear" data-action="clear-image" data-id="${s.id}" title="Remove image">×</button>`
+              : `<span class="placeholder">no image yet · click to make active</span>`}
+          </div>
+        </div>
+      `).join('');
+
+      // Scene count
+      document.getElementById('scene-count').textContent =
+        `${state.scenes.length} scene${state.scenes.length === 1 ? '' : 's'}`;
+
+      // Active pill
+      const idx = state.scenes.findIndex(s => s.id === state.activeSceneId);
+      document.getElementById('active-pill').textContent =
+        idx >= 0 ? `scene ${String(idx + 1).padStart(2, '0')}` : '—';
+
+      // Auto-grow textareas
+      list.querySelectorAll('textarea').forEach(autoGrow);
+
+      // Chat
+      renderChat();
+
+      // Refs
+      renderRefs();
+    }
+
+    function renderChat() {
+      const body = document.getElementById('chat-body');
+      const empty = document.getElementById('empty-state');
+      if (!state.chat.length && !state.thinking) {
+        body.innerHTML = '';
+        body.appendChild(empty);
+        return;
+      }
+      const sceneIdxById = new Map(state.scenes.map((s, i) => [s.id, i]));
+      body.innerHTML = state.chat.map(t => {
+        if (t.role === 'user') {
+          return `<div class="turn user">
+            <div class="bubble">${escapeHtml(t.prompt)}</div>
+          </div>`;
+        }
+        const sceneIdx = sceneIdxById.get(t.sceneId);
+        const sceneLabel = sceneIdx != null ? `scene ${String(sceneIdx + 1).padStart(2, '0')}` : 'no scene';
+        const imgs = (t.images || []).map((img, i) => `
+          <div class="gen-image-wrap">
+            <div class="gen-image">
+              <img src="data:${img.mimeType};base64,${img.dataBase64}" />
+            </div>
+            <div class="gen-actions">
+              <button class="btn primary" data-action="use-image" data-turn="${t.id}" data-img="${i}">
+                Use for ${sceneLabel}
+              </button>
+              <button class="btn" data-action="ref-image" data-turn="${t.id}" data-img="${i}">
+                Reference
+              </button>
+              <button class="btn ghost" data-action="download-image" data-turn="${t.id}" data-img="${i}">
+                Download
+              </button>
+            </div>
+          </div>`).join('');
+        return `<div class="turn banana">
+          <div class="bubble-meta"><span class="dot"></span> nano banana · ${sceneLabel}</div>
+          ${imgs}
+          ${t.text ? `<div class="gen-text">${escapeHtml(t.text)}</div>` : ''}
+        </div>`;
+      }).join('');
+      if (state.thinking) {
+        body.insertAdjacentHTML('beforeend', `
+          <div class="turn banana">
+            <div class="thinking"><span class="blip"></span> generating</div>
+          </div>`);
+      }
+    }
+
+    function renderRefs() {
+      const pile = document.getElementById('ref-pile');
+      if (!state.refs.length) { pile.style.display = 'none'; pile.innerHTML = ''; return; }
+      pile.style.display = 'flex';
+      pile.innerHTML = state.refs.map((r, i) => `
+        <div class="ref-chip">
+          <img src="data:${r.mimeType};base64,${r.dataBase64}" />
+          <button class="x" data-action="remove-ref" data-idx="${i}" title="Remove reference">×</button>
+        </div>
+      `).join('');
+    }
+
+    function autoGrow(ta) {
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
+    }
+
+    // ─────────── Event delegation ───────────
+
+    document.getElementById('scenes').addEventListener('input', (e) => {
+      const ta = e.target.closest('textarea');
+      if (!ta) return;
+      setSceneField(ta.dataset.id, ta.dataset.field, ta.value);
+      autoGrow(ta);
+    });
+    document.getElementById('scenes').addEventListener('click', (e) => {
+      const card = e.target.closest('.scene');
+      if (!card) return;
+      const id = card.dataset.sceneId;
+
+      const action = e.target.dataset.action;
+      if (action === 'delete') {
+        e.stopPropagation();
+        if (confirm('Delete this scene?')) deleteScene(id);
+        return;
+      }
+      if (action === 'clear-image') {
+        e.stopPropagation();
+        clearSceneImage(id);
+        return;
+      }
+      if (e.target.closest('textarea')) return; // don't steal focus from textareas
+      state.activeSceneId = id;
+      persist();
+      render();
+    });
+
+    document.getElementById('chat-body').addEventListener('click', (e) => {
+      const action = e.target.dataset.action;
+      if (!action) return;
+      const turnId = e.target.dataset.turn;
+      const imgIdx = parseInt(e.target.dataset.img, 10);
+      const turn = state.chat.find(t => t.id === turnId);
+      if (!turn) return;
+      const img = turn.images?.[imgIdx];
+      if (!img) return;
+
+      if (action === 'use-image') {
+        const sceneId = turn.sceneId || state.activeSceneId;
+        if (!sceneId) {
+          alert('No active scene. Click a scene on the left first.');
+          return;
+        }
+        attachImageToScene(sceneId, img);
+      } else if (action === 'ref-image') {
+        state.refs.push(img);
+        renderRefs();
+      } else if (action === 'download-image') {
+        const a = document.createElement('a');
+        a.href = `data:${img.mimeType};base64,${img.dataBase64}`;
+        a.download = `nano-banana-${Date.now()}.png`;
+        a.click();
+      }
+    });
+
+    document.getElementById('ref-pile').addEventListener('click', (e) => {
+      if (e.target.dataset.action === 'remove-ref') {
+        const i = parseInt(e.target.dataset.idx, 10);
+        state.refs.splice(i, 1);
+        renderRefs();
+      }
+    });
+
+    document.getElementById('btn-generate').addEventListener('click', generate);
+    document.getElementById('prompt').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        generate();
+      } else if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        generate();
+      }
+    });
+
+    document.getElementById('btn-add-scene').addEventListener('click', addScene);
+    document.getElementById('scene-add-btn').addEventListener('click', addScene);
+    document.getElementById('btn-new').addEventListener('click', () => {
+      if (state.scenes.length > 1 || state.scenes[0]?.visual || state.scenes[0]?.audio || state.chat.length) {
+        if (!confirm('Start a new storyboard? Your current one stays saved under its name.')) return;
+      }
+      newBoard(true);
+    });
+    document.getElementById('btn-export').addEventListener('click', exportJson);
+    document.getElementById('board-name').addEventListener('change', (e) => {
+      const newName = e.target.value.trim();
+      if (!newName || newName === state.name) {
+        e.target.value = state.name;
+        return;
+      }
+      const old = state.name;
+      state.name = newName;
+      persist();
+      // Drop old key + list entry
+      try {
+        localStorage.removeItem(LS_BOARD(old));
+        const list = loadBoardList().filter(n => n !== old);
+        saveBoardList(list);
+      } catch {}
+    });
+
+    // ─────────── Boot ───────────
+
+    loadOrInit();
+  </script>
+</body>
+</html>
