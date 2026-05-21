@@ -185,11 +185,28 @@
             </div>
           </div>
 
-          <button id="audio-go" class="cassette-btn" disabled>
-            <span class="cassette-reel"></span>
-            <span class="cassette-text">RENDER<br />AUDIO ▸</span>
-            <span class="cassette-reel"></span>
-          </button>
+          <div class="audio-controls">
+            <label class="audio-mini-label hand">voice:</label>
+            <select id="voice-pick" class="voice-pick">
+              <option value="ZF6FPAbjXT4488VcRRnw" selected>Parley (default)</option>
+              <option value="nPczCjzI2devNBz1zQrb">Brian — warm documentary narrator</option>
+              <option value="onwK4e9ZLuTAKqWW03F9">Daniel — BBC-style british male</option>
+              <option value="pNInz6obpgDQGcFmaJgB">Adam — deep, authoritative</option>
+              <option value="ErXwobaYiN019PkySvjV">Antoni — classy, mid-american</option>
+              <option value="CwhRBWXzGAHq8TQ4Fs17">Roger — measured, mature male</option>
+              <option value="XB0fDUnXU5powFXDhCwa">Charlotte — calm british female</option>
+              <option value="21m00Tcm4TlvDq8ikWAM">Rachel — bright american female</option>
+              <option value="EXAVITQu4vr4xnSDxMAi">Bella — soft, intimate female</option>
+              <option value="custom">↳ custom voice id…</option>
+            </select>
+            <input id="voice-custom" class="voice-pick voice-custom" placeholder="paste voice_id…" style="display:none" />
+
+            <button id="audio-go" class="cassette-btn" disabled>
+              <span class="cassette-reel"></span>
+              <span class="cassette-text">RENDER<br />AUDIO ▸</span>
+              <span class="cassette-reel"></span>
+            </button>
+          </div>
         </div>
 
         <div id="audio-bar" class="audio-player hidden">

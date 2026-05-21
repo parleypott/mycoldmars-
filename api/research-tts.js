@@ -55,12 +55,13 @@ export default async function handler(req) {
   const denied = checkAccess(req);
   if (denied) return denied;
 
-  let { text, voice, stripMarkdown } = await req.json();
+  let { text, voice, model, stripMarkdown } = await req.json();
   if (!text || !text.trim()) {
     return new Response(JSON.stringify({ error: 'text required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
   if (stripMarkdown) text = strip(text);
   const voiceId = voice || VOICE_DEFAULT;
+  const modelId = model || 'eleven_v3';
 
   const chunks = chunkText(text);
   const pieces = [];
@@ -74,16 +75,36 @@ export default async function handler(req) {
       },
       body: JSON.stringify({
         text: chunks[i],
-        model_id: 'eleven_multilingual_v2',
+        model_id: modelId,
         voice_settings: {
-          stability: 0.38,
-          similarity_boost: 0.88,
-          style: 0.45,
+          stability: 0.4,
+          similarity_boost: 0.85,
+          style: 0.55,
           use_speaker_boost: true,
         },
       }),
     });
     if (!res.ok) {
+      // If the requested model is unavailable on this account, fall back once to the proven flagship.
+      if (modelId !== 'eleven_multilingual_v2' && (res.status === 400 || res.status === 403 || res.status === 404)) {
+        const retry = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_192`, {
+          method: 'POST',
+          headers: {
+            'xi-api-key': process.env.ELEVENLABS_API_KEY,
+            'Content-Type': 'application/json',
+            Accept: 'audio/mpeg',
+          },
+          body: JSON.stringify({
+            text: chunks[i],
+            model_id: 'eleven_multilingual_v2',
+            voice_settings: { stability: 0.4, similarity_boost: 0.88, style: 0.5, use_speaker_boost: true },
+          }),
+        });
+        if (retry.ok) {
+          pieces.push(new Uint8Array(await retry.arrayBuffer()));
+          continue;
+        }
+      }
       const t = await res.text();
       return new Response(JSON.stringify({ error: `elevenlabs ${res.status} on chunk ${i + 1}: ${t.slice(0, 300)}` }), {
         status: 502,

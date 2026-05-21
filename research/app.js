@@ -355,10 +355,12 @@ async function renderAudio() {
     }
     if (!text.trim()) throw new Error(`${source} has no content yet`);
 
+    const voiceSel = $("#voice-pick").value;
+    const voice = voiceSel === "custom" ? ($("#voice-custom").value.trim() || undefined) : voiceSel;
     const res = await fetch("/api/research-tts", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, stripMarkdown: source !== "synthesis" }),
+      body: JSON.stringify({ text, voice, stripMarkdown: source !== "synthesis" }),
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
@@ -430,6 +432,10 @@ $("#audio-go").addEventListener("click", renderAudio);
 $("#synth-now").addEventListener("click", makeSynthesis);
 $("#prompt").addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") runResearch();
+});
+$("#voice-pick").addEventListener("change", (e) => {
+  $("#voice-custom").style.display = e.target.value === "custom" ? "block" : "none";
+  if (e.target.value === "custom") $("#voice-custom").focus();
 });
 
 setStamp();
