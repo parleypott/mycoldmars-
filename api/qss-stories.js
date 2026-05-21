@@ -1,0 +1,307 @@
+import { checkAccess } from './_lib/access.js';
+
+export const config = { runtime: 'edge', maxDuration: 30 };
+
+/**
+ * Queen Scarlet's School — story library API.
+ *
+ * Reuses the interpreter's reliability playbook:
+ *   - Supabase is the source of truth.
+ *   - Optimistic concurrency on update — caller passes expectedUpdatedAt;
+ *     server enforces it. On miss, returns 409 with serverUpdatedAt so the
+ *     client can resync.
+ *   - Soft delete via deleted_at.
+ *   - Typed errors: NO_DB / CONFLICT / NOT_FOUND / NAME_TAKEN.
+ *   - Idempotent operations where possible.
+ *
+ * Endpoints (single function, action dispatched by ?action= and method):
+ *   GET  /api/qss-stories?action=list[&trash=1]    → { stories: [...] }
+ *   GET  /api/qss-stories?action=get&id=...        → { story: {...} }
+ *   POST /api/qss-stories?action=save              → { story: {...} }
+ *     body: { id?, name, bible?, rules?, blocks?, chat?, suggestions?,
+ *             cover_image?, expectedUpdatedAt? }
+ *   POST /api/qss-stories?action=rename            → { story: {...} }
+ *     body: { id, name, expectedUpdatedAt? }
+ *   POST /api/qss-stories?action=duplicate         → { story: {...} }
+ *     body: { id, newName? }
+ *   POST /api/qss-stories?action=delete            → { ok: true }
+ *     body: { id }      (soft delete)
+ *   POST /api/qss-stories?action=restore           → { story: {...} }
+ *     body: { id }
+ *   POST /api/qss-stories?action=hard-delete       → { ok: true }
+ *     body: { id }      (purge — soft-deleted rows only, for safety)
+ */
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// Columns we want back from a story select. Order matters for stable diffs.
+const SELECT_COLS = 'id,name,bible,rules,blocks,chat,suggestions,cover_image,deleted_at,created_at,updated_at';
+
+export default async function handler(req) {
+  const denied = checkAccess(req);
+  if (denied) return denied;
+
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    return jsonError(500, 'NO_DB', 'Supabase env vars not configured on the server');
+  }
+
+  const url = new URL(req.url);
+  const action = url.searchParams.get('action') || (req.method === 'GET' ? 'list' : '');
+
+  try {
+    if (req.method === 'GET') {
+      if (action === 'list') return await handleList(url);
+      if (action === 'get')  return await handleGet(url);
+      return jsonError(400, 'BAD_ACTION', `Unknown GET action: ${action}`);
+    }
+    if (req.method === 'POST') {
+      const body = await req.json().catch(() => ({}));
+      switch (action) {
+        case 'save':        return await handleSave(body);
+        case 'rename':      return await handleRename(body);
+        case 'duplicate':   return await handleDuplicate(body);
+        case 'delete':      return await handleSoftDelete(body);
+        case 'restore':     return await handleRestore(body);
+        case 'hard-delete': return await handleHardDelete(body);
+        default: return jsonError(400, 'BAD_ACTION', `Unknown POST action: ${action}`);
+      }
+    }
+    return new Response('Method not allowed', { status: 405 });
+  } catch (e) {
+    // Map Supabase missing-table to NO_DB so client can show "apply migration" hint.
+    const msg = e?.message || String(e);
+    if (e?.code === '42P01' || /relation .* does not exist/i.test(msg)) {
+      return jsonError(503, 'MIGRATION_PENDING',
+        'The qss_stories table does not exist yet. Apply supabase/migrations/015_qss_stories.sql in the Supabase SQL editor.');
+    }
+    if (e?.code === '23505') {
+      return jsonError(409, 'NAME_TAKEN', 'Another story already uses that name. Pick a different one.');
+    }
+    console.error('[qss-stories]', e);
+    return jsonError(500, 'INTERNAL', msg.slice(0, 400));
+  }
+}
+
+// ────────────────────── handlers ──────────────────────
+
+async function handleList(url) {
+  const includeTrash = url.searchParams.get('trash') === '1';
+  // List view — DON'T include big payloads (blocks, chat) so the library
+  // loads instantly even with many stories. Client pulls the full story
+  // via ?action=get when one is opened.
+  const cols = 'id,name,deleted_at,created_at,updated_at,cover_image';
+  const filter = includeTrash ? 'deleted_at=not.is.null' : 'deleted_at=is.null';
+  // Block count via a JSON length expression — Supabase REST supports
+  // computed columns via the ?select syntax: blocks->>... Limited; use
+  // a small payload instead and let the client count if it needs to.
+  const params = new URLSearchParams({
+    select: cols + ',blocks',  // include blocks just to count length client-side
+    [filter.split('=')[0]]: filter.split('=').slice(1).join('='),
+    order: 'updated_at.desc',
+    limit: '500',
+  });
+
+  const data = await sb('GET', `qss_stories?${params}`);
+  const stories = (data || []).map(r => ({
+    id: r.id,
+    name: r.name,
+    deleted_at: r.deleted_at,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    cover_image: r.cover_image || null,
+    block_count: Array.isArray(r.blocks) ? r.blocks.length : 0,
+  }));
+  return jsonOk({ stories });
+}
+
+async function handleGet(url) {
+  const id = url.searchParams.get('id');
+  if (!id) return jsonError(400, 'BAD_REQUEST', 'Missing id');
+  const rows = await sb('GET', `qss_stories?id=eq.${encodeURIComponent(id)}&select=${SELECT_COLS}&limit=1`);
+  if (!rows?.length) return jsonError(404, 'NOT_FOUND', 'Story not found');
+  return jsonOk({ story: rows[0] });
+}
+
+async function handleSave(body) {
+  const name = (body.name || '').toString().trim();
+  if (!name) return jsonError(400, 'BAD_REQUEST', 'name is required');
+
+  const payload = {
+    name,
+    bible: typeof body.bible === 'string' ? body.bible : undefined,
+    rules: body.rules ?? undefined,
+    blocks: Array.isArray(body.blocks) ? sanitizeBlocks(body.blocks) : undefined,
+    chat: Array.isArray(body.chat) ? sanitizeChat(body.chat) : undefined,
+    suggestions: Array.isArray(body.suggestions) ? body.suggestions : undefined,
+    cover_image: body.cover_image === null ? null : (typeof body.cover_image === 'string' ? body.cover_image : undefined),
+  };
+  // Drop undefineds so we send a partial update.
+  for (const k of Object.keys(payload)) if (payload[k] === undefined) delete payload[k];
+
+  if (body.id) {
+    // UPDATE with optimistic concurrency.
+    const id = body.id;
+    const expected = body.expectedUpdatedAt;
+    let query = `qss_stories?id=eq.${encodeURIComponent(id)}&select=${SELECT_COLS}`;
+    if (expected) query += `&updated_at=eq.${encodeURIComponent(expected)}`;
+    const rows = await sb('PATCH', query, payload, { returnRepresentation: true });
+    if (!rows?.length) {
+      // Either id is wrong or row changed elsewhere. Probe to disambiguate.
+      const probe = await sb('GET', `qss_stories?id=eq.${encodeURIComponent(id)}&select=id,updated_at,deleted_at&limit=1`);
+      if (!probe?.length) return jsonError(404, 'NOT_FOUND', 'Story not found');
+      return jsonError(409, 'CONFLICT', 'Story was modified elsewhere', { serverUpdatedAt: probe[0].updated_at });
+    }
+    return jsonOk({ story: rows[0] });
+  }
+
+  // INSERT (new story).
+  const rows = await sb('POST', `qss_stories?select=${SELECT_COLS}`, payload, { returnRepresentation: true });
+  return jsonOk({ story: rows[0] });
+}
+
+async function handleRename(body) {
+  const id = body.id;
+  const name = (body.name || '').toString().trim();
+  if (!id || !name) return jsonError(400, 'BAD_REQUEST', 'id and name are required');
+  let q = `qss_stories?id=eq.${encodeURIComponent(id)}&select=${SELECT_COLS}`;
+  if (body.expectedUpdatedAt) q += `&updated_at=eq.${encodeURIComponent(body.expectedUpdatedAt)}`;
+  const rows = await sb('PATCH', q, { name }, { returnRepresentation: true });
+  if (!rows?.length) {
+    const probe = await sb('GET', `qss_stories?id=eq.${encodeURIComponent(id)}&select=id,updated_at&limit=1`);
+    if (!probe?.length) return jsonError(404, 'NOT_FOUND', 'Story not found');
+    return jsonError(409, 'CONFLICT', 'Story was modified elsewhere', { serverUpdatedAt: probe[0].updated_at });
+  }
+  return jsonOk({ story: rows[0] });
+}
+
+async function handleDuplicate(body) {
+  const id = body.id;
+  if (!id) return jsonError(400, 'BAD_REQUEST', 'id is required');
+  const source = await sb('GET', `qss_stories?id=eq.${encodeURIComponent(id)}&select=${SELECT_COLS}&limit=1`);
+  if (!source?.length) return jsonError(404, 'NOT_FOUND', 'Story not found');
+  const src = source[0];
+  const baseName = (body.newName || `${src.name} (copy)`).toString().trim();
+  // Try the requested name, then escalate with (2), (3), ... if taken.
+  for (let n = 0; n < 50; n++) {
+    const candidate = n === 0 ? baseName : `${baseName} (${n + 1})`;
+    const payload = {
+      name: candidate,
+      bible: src.bible || '',
+      rules: src.rules || {},
+      blocks: src.blocks || [],
+      chat: src.chat || [],
+      suggestions: src.suggestions || [],
+      cover_image: src.cover_image || null,
+    };
+    try {
+      const rows = await sb('POST', `qss_stories?select=${SELECT_COLS}`, payload, { returnRepresentation: true });
+      return jsonOk({ story: rows[0] });
+    } catch (e) {
+      if (e?.code === '23505') continue;
+      throw e;
+    }
+  }
+  return jsonError(409, 'NAME_TAKEN', 'Couldn\'t find an available name after 50 tries');
+}
+
+async function handleSoftDelete(body) {
+  if (!body.id) return jsonError(400, 'BAD_REQUEST', 'id is required');
+  await sb('PATCH', `qss_stories?id=eq.${encodeURIComponent(body.id)}`, { deleted_at: new Date().toISOString() });
+  return jsonOk({ ok: true });
+}
+
+async function handleRestore(body) {
+  if (!body.id) return jsonError(400, 'BAD_REQUEST', 'id is required');
+  const rows = await sb('PATCH', `qss_stories?id=eq.${encodeURIComponent(body.id)}&select=${SELECT_COLS}`, { deleted_at: null }, { returnRepresentation: true });
+  if (!rows?.length) return jsonError(404, 'NOT_FOUND', 'Story not found');
+  return jsonOk({ story: rows[0] });
+}
+
+async function handleHardDelete(body) {
+  if (!body.id) return jsonError(400, 'BAD_REQUEST', 'id is required');
+  // Only allow hard-delete on rows already soft-deleted — guards against
+  // accidental purges from a stale client.
+  const probe = await sb('GET', `qss_stories?id=eq.${encodeURIComponent(body.id)}&select=id,deleted_at&limit=1`);
+  if (!probe?.length) return jsonError(404, 'NOT_FOUND', 'Story not found');
+  if (!probe[0].deleted_at) return jsonError(409, 'NOT_TRASH', 'Soft-delete the story first');
+  await sb('DELETE', `qss_stories?id=eq.${encodeURIComponent(body.id)}`);
+  return jsonOk({ ok: true });
+}
+
+// ────────────────────── supabase REST helper ──────────────────────
+
+async function sb(method, path, payload, opts = {}) {
+  const headers = {
+    apikey: SUPABASE_KEY,
+    Authorization: `Bearer ${SUPABASE_KEY}`,
+  };
+  if (payload !== undefined) headers['Content-Type'] = 'application/json';
+  // Ask PostgREST to return the modified row(s) when we want them.
+  if (opts.returnRepresentation) headers['Prefer'] = 'return=representation';
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method,
+    headers,
+    body: payload !== undefined ? JSON.stringify(payload) : undefined,
+  });
+  const text = await res.text();
+  let data = null;
+  if (text) {
+    try { data = JSON.parse(text); } catch { /* non-JSON; keep null */ }
+  }
+  if (!res.ok) {
+    const err = new Error(data?.message || text || `Supabase ${res.status}`);
+    err.code = data?.code || `HTTP_${res.status}`;
+    err.details = data?.details;
+    err.hint = data?.hint;
+    throw err;
+  }
+  return data;
+}
+
+// ────────────────────── sanitizers ──────────────────────
+
+// Strip per-block images (they live in localStorage as base64 — too big
+// for cloud rows). Keep block ids + text + small metadata.
+function sanitizeBlocks(blocks) {
+  return blocks.map(b => ({
+    id: b.id,
+    text: typeof b.text === 'string' ? b.text : '',
+    has_image: !!(b.__image && b.__image.dataBase64),
+  }));
+}
+
+// Strip image bytes from chat turns (options with their text are kept;
+// any embedded image payloads are dropped).
+function sanitizeChat(chat) {
+  return chat.map(t => {
+    const out = { id: t.id, role: t.role };
+    if (typeof t.content === 'string') out.content = t.content;
+    if (t.kind) out.kind = t.kind;
+    if (t.sceneId) out.sceneId = t.sceneId;
+    if (Array.isArray(t.options)) {
+      out.options = t.options.map(o => ({
+        id: o.id,
+        kind: o.kind || '',
+        text: typeof o.text === 'string' ? o.text : '',
+        added: !!o.added,
+      }));
+    }
+    return out;
+  });
+}
+
+// ────────────────────── response helpers ──────────────────────
+
+function jsonOk(payload, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+function jsonError(status, code, message, extra = null) {
+  return new Response(JSON.stringify({ error: code, message, ...(extra || {}) }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}

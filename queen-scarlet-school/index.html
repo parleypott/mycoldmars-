@@ -516,6 +516,140 @@
     .scene-image-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .scene-image-actions .btn { font-size: 13px; padding: 7px 12px; }
 
+    /* ──────────── Save-status pill (topbar) ──────────── */
+    .save-pill {
+      font-family: var(--ui);
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 2px solid var(--ink-bright);
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      background: var(--grass);
+      color: var(--ink-bright);
+      transform: rotate(-2deg);
+      transition: background 180ms var(--ease-soft);
+      white-space: nowrap;
+      cursor: default;
+      user-select: none;
+    }
+    .save-pill[data-state="saving"]   { background: var(--yolk); }
+    .save-pill[data-state="dirty"]    { background: var(--yolk); }
+    .save-pill[data-state="offline"]  { background: var(--bubblegum); }
+    .save-pill[data-state="conflict"] { background: var(--red); color: white; }
+    .save-pill[data-state="error"]    { background: var(--red); color: white; cursor: pointer; }
+    .save-pill[data-state="local"]    { background: var(--paper-card); color: var(--ink-soft); }
+    .save-pill[data-state="saving"]   { animation: savingPulse 1.1s ease-in-out infinite; }
+    @keyframes savingPulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+
+    /* ──────────── Library modal ──────────── */
+    .lib-veil {
+      position: fixed; inset: 0; background: rgba(31,31,35,0.55);
+      z-index: 320; display: none; align-items: center; justify-content: center; padding: 24px;
+    }
+    .lib-veil.open { display: flex; }
+    .lib-modal {
+      background: var(--paper); border: 3px solid var(--ink-bright);
+      border-radius: 22px; box-shadow: 8px 8px 0 var(--ink-bright);
+      max-width: 1000px; width: 100%; max-height: 88vh;
+      display: flex; flex-direction: column;
+      transform: rotate(-0.2deg);
+    }
+    .lib-head {
+      padding: 18px 24px; border-bottom: 2.5px solid var(--ink-bright);
+      display: flex; align-items: center; gap: 12px;
+      background: var(--paper-deep);
+    }
+    .lib-head h2 { font-family: var(--display); font-size: 36px; font-weight: 700; flex: 1; line-height: 1; }
+    .lib-head .lib-state {
+      font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--ink-soft);
+      background: var(--paper-card); border: 2px solid var(--ink-bright); border-radius: 999px;
+      padding: 3px 10px; box-shadow: 1.5px 1.5px 0 var(--ink-bright); transform: rotate(2deg);
+    }
+    .lib-body {
+      padding: 22px 24px; overflow-y: auto; flex: 1;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .lib-empty {
+      text-align: center; padding: 40px 20px; color: var(--ink-faint);
+      font-family: var(--display); font-size: 24px; line-height: 1.3;
+    }
+    .lib-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 18px;
+    }
+    .lib-card {
+      position: relative;
+      background: var(--paper-card); border: 2.5px solid var(--ink-bright);
+      border-radius: 16px; box-shadow: 4px 4px 0 var(--ink-bright);
+      padding: 12px; cursor: pointer;
+      transition: transform .18s var(--ease), box-shadow .18s var(--ease);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .lib-card:nth-child(3n+1) { transform: rotate(-0.4deg); }
+    .lib-card:nth-child(3n+2) { transform: rotate(0.4deg); }
+    .lib-card:nth-child(3n+3) { transform: rotate(-0.1deg); }
+    .lib-card:hover { transform: translate(-2px, -2px) rotate(0); box-shadow: 6px 6px 0 var(--ink-bright); }
+    .lib-card.active { background: #FFFEF5; box-shadow: 6px 6px 0 var(--yolk), 6px 6px 0 2.5px var(--ink-bright); }
+    .lib-card .cover {
+      width: 100%; aspect-ratio: 16 / 10;
+      background: var(--paper-deep);
+      border: 2px solid var(--ink-bright); border-radius: 10px;
+      overflow: hidden; display: flex; align-items: center; justify-content: center;
+      font-family: var(--display); font-size: 22px; color: var(--ink-faint);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+    }
+    .lib-card .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .lib-card .lib-title {
+      font-family: var(--display); font-size: 22px; font-weight: 700; line-height: 1.1;
+      color: var(--ink-bright);
+      word-break: break-word;
+    }
+    .lib-card .lib-meta {
+      font-family: var(--ui); font-size: 11px; font-weight: 600; color: var(--ink-soft);
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .lib-card .lib-meta .chip {
+      background: var(--sky); border: 1.5px solid var(--ink-bright); border-radius: 999px;
+      padding: 1px 7px; box-shadow: 1px 1px 0 var(--ink-bright); transform: rotate(-2deg);
+    }
+    .lib-card .lib-actions {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px;
+    }
+    .lib-card .lib-actions .cb-btn { font-size: 11px; padding: 3px 9px; }
+    .lib-card.deleted { opacity: 0.7; background: var(--paper-deep); }
+    .lib-card.deleted .lib-title { text-decoration: line-through; color: var(--ink-soft); }
+
+    .lib-section-title {
+      font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--ink-soft);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .lib-section-title::after { content: ''; flex: 1; height: 2px; background: var(--ink-bright); opacity: 0.2; }
+    .lib-trash-toggle {
+      font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--ink-soft);
+      background: transparent; border: 2px dashed var(--ink-bright); border-radius: 999px;
+      padding: 4px 10px; cursor: pointer;
+    }
+    .lib-trash-toggle:hover { background: var(--paper-card); }
+    .lib-foot {
+      padding: 14px 24px; border-top: 2.5px solid var(--ink-bright);
+      display: flex; gap: 10px; justify-content: space-between; background: var(--paper-deep);
+      flex-wrap: wrap;
+    }
+    .lib-foot .left, .lib-foot .right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    .lib-banner {
+      background: var(--bubblegum); border: 2.5px solid var(--ink-bright); border-radius: 12px;
+      padding: 12px 16px;
+      font-family: var(--serif); font-size: 14px; color: var(--ink-bright); line-height: 1.45;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+    }
+    .lib-banner code {
+      background: var(--paper-card); border: 1.5px solid var(--ink-bright); border-radius: 6px;
+      padding: 1px 6px; font-size: 13px;
+    }
+
     /* ──────────── Parent Settings modal ──────────── */
     .modal-veil {
       position: fixed; inset: 0; background: rgba(31,31,35,0.55);
@@ -732,9 +866,11 @@
       <h1 class="topbar-title">Queen Scarlet's School</h1>
       <div class="topbar-right">
         <input id="board-name" class="story-name" type="text" placeholder="my story" autocomplete="off" />
+        <span id="save-pill" class="save-pill" title="auto-save status">saved</span>
+        <button id="btn-library" class="btn gold" title="Open the story library">📚 library</button>
         <button id="btn-rules" class="btn ghost" title="Parent settings — story rules and goals">⚙ rules</button>
         <button id="btn-new" class="btn ghost" title="Start a new story">+ new</button>
-        <button id="btn-export" class="btn ghost" title="Download story as JSON">save</button>
+        <button id="btn-export" class="btn ghost" title="Download story as JSON">⬇ export</button>
       </div>
     </header>
 
@@ -826,6 +962,42 @@
     </section>
 
   </div><!-- /app -->
+
+  <!-- ════════ Library Modal ════════ -->
+  <div class="lib-veil" id="library-modal">
+    <div class="lib-modal">
+      <div class="lib-head">
+        <span class="dragon md" id="lib-dragon"></span>
+        <h2>Library</h2>
+        <span class="lib-state" id="lib-state">—</span>
+        <button id="lib-close" class="btn ghost">Done</button>
+      </div>
+      <div class="lib-body">
+        <div id="lib-banner" style="display:none;"></div>
+        <div class="lib-section-title">
+          <span>Your stories</span>
+          <button id="lib-refresh" class="lib-trash-toggle">refresh</button>
+        </div>
+        <div id="lib-grid" class="lib-grid"></div>
+        <div id="lib-empty" class="lib-empty" style="display:none;">No stories yet — the one you're working on will land here.</div>
+
+        <div id="lib-trash-section" style="display:none;">
+          <div class="lib-section-title">
+            <span>Trash</span>
+          </div>
+          <div id="lib-trash-grid" class="lib-grid"></div>
+        </div>
+      </div>
+      <div class="lib-foot">
+        <div class="left">
+          <button id="lib-toggle-trash" class="lib-trash-toggle">show trash</button>
+        </div>
+        <div class="right">
+          <button id="lib-new" class="btn primary">+ New story</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ════════ Parent Settings Modal ════════ -->
   <div class="modal-veil" id="rules-modal">
@@ -1032,6 +1204,10 @@
       stage: 'write',
       thinking: false,
       latestOptions: null,        // { turnId, items: [{id, kind, text, added}] }
+      serverId: null,             // qss_stories.id (UUID) once first remote save succeeds
+      serverUpdatedAt: null,      // last server-confirmed updated_at — used for optimistic concurrency
+      saveStatus: 'local',        // 'local' | 'dirty' | 'saving' | 'saved' | 'offline' | 'conflict' | 'error' | 'migration-pending'
+      saveError: null,
     };
 
     const uid = () => Math.random().toString(36).slice(2, 10);
@@ -1045,6 +1221,7 @@
         localStorage.setItem(LS_KEY(state.name), JSON.stringify({
           name: state.name, rules: state.rules,
           blocks: state.blocks, chat: state.chat,
+          serverId: state.serverId, serverUpdatedAt: state.serverUpdatedAt,
           updatedAt: Date.now(),
         }));
         const l = loadList();
@@ -1054,9 +1231,11 @@
         if (e.name === 'QuotaExceededError') {
           // drop oldest chat turns
           state.chat = state.chat.slice(-12);
-          try { localStorage.setItem(LS_KEY(state.name), JSON.stringify({ name: state.name, rules: state.rules, blocks: state.blocks, chat: state.chat, updatedAt: Date.now() })); } catch {}
+          try { localStorage.setItem(LS_KEY(state.name), JSON.stringify({ name: state.name, rules: state.rules, blocks: state.blocks, chat: state.chat, serverId: state.serverId, serverUpdatedAt: state.serverUpdatedAt, updatedAt: Date.now() })); } catch {}
         }
       }
+      // After every local persist, queue a cloud save (debounced).
+      window.Lib?.queueSave();
     }
     function loadStory(name) { try { return JSON.parse(localStorage.getItem(LS_KEY(name)) || 'null'); } catch { return null; } }
 
@@ -1065,6 +1244,8 @@
       state.rules = { ...DEFAULT_RULES, ...(data?.rules || {}) };
       state.blocks = data?.blocks || [];
       state.chat = data?.chat || [];
+      state.serverId = data?.serverId || null;
+      state.serverUpdatedAt = data?.serverUpdatedAt || null;
       state.latestOptions = null;
       // rebuild latestOptions pointer from the last wordy turn that has options
       for (let i = state.chat.length - 1; i >= 0; i--) {
@@ -1076,18 +1257,24 @@
       document.getElementById('board-name').value = state.name;
       pushRulesToForm();
       renderAll();
+      window.Lib?.setStatus(state.serverId ? 'saved' : 'local');
     }
     function newStory(ask) {
       const def = `story-${Date.now().toString(36)}`;
       const name = ask ? (window.prompt('What\'s the name of this story?', def) || def) : def;
+      // Cancel any in-flight save against the previous story.
+      window.Lib?.cancelPending();
       state.name = name;
       state.rules = { ...DEFAULT_RULES };
       state.blocks = [];
       state.chat = [];
       state.latestOptions = null;
+      state.serverId = null;
+      state.serverUpdatedAt = null;
       document.getElementById('board-name').value = name;
       pushRulesToForm();
       renderAll();
+      window.Lib?.setStatus('local');
       persist();
     }
     function init() {
@@ -1639,6 +1826,463 @@
     document.querySelectorAll('.dragon').forEach(el => {
       if (!el.innerHTML.trim()) el.innerHTML = window.DRAGON_SVG;
     });
+
+    // ─────────── Library (cloud sync) ───────────
+    // Patterns lifted from Newpress Interpreter:
+    //   - Supabase is source of truth via /api/qss-stories
+    //   - Local snapshot is crash-recovery only (via existing persist())
+    //   - Optimistic concurrency via expectedUpdatedAt
+    //   - Typed errors: CONFLICT / NOT_FOUND / NAME_TAKEN / MIGRATION_PENDING / NO_DB
+    //   - Debounced auto-save with backoff retry on transient errors
+    //   - Save-status pill always reflects reality
+    window.Lib = (function() {
+      const DEBOUNCE_MS = 1400;
+      const PILL = document.getElementById('save-pill');
+      let pendingTimer = null;
+      let inflight = null;       // promise of current save request
+      let queuedAfterFlight = false;
+      let retryDelay = 0;        // exponential backoff for transient errors
+
+      // ─ status pill ─
+      const STATUS_TEXT = {
+        local: 'local only',
+        dirty: 'unsaved',
+        saving: 'saving…',
+        saved: 'saved',
+        offline: 'offline · will retry',
+        conflict: 'newer copy elsewhere',
+        error: 'save failed — click to retry',
+        'migration-pending': 'set up the library to save',
+      };
+      function setStatus(s, err = null) {
+        state.saveStatus = s;
+        state.saveError = err;
+        PILL.dataset.state = s;
+        PILL.textContent = STATUS_TEXT[s] || s;
+      }
+      PILL.addEventListener('click', () => {
+        if (state.saveStatus === 'error') flush(true);
+        else if (state.saveStatus === 'migration-pending') showMigrationBanner();
+      });
+
+      // ─ has any content worth saving? avoid empty rows ─
+      function hasContent() {
+        if (state.blocks.length) return true;
+        if (state.chat.length) return true;
+        const r = state.rules || {};
+        if (r.bible && r.bible.trim()) return true;
+        if (r.goal && r.goal.trim() && r.goal !== DEFAULT_RULES.goal) return true;
+        return false;
+      }
+
+      // ─ snapshot the current state ─
+      function snapshot() {
+        return {
+          id: state.serverId || undefined,
+          name: state.name,
+          bible: state.rules.bible || '',
+          rules: state.rules,
+          blocks: state.blocks,
+          chat: state.chat,
+          suggestions: [],   // (kept client-side; not worth syncing)
+          expectedUpdatedAt: state.serverUpdatedAt || undefined,
+        };
+      }
+
+      // ─ queue (debounced) ─
+      function queueSave() {
+        if (!hasContent()) {
+          // Nothing meaningful yet — stay 'local'.
+          setStatus('local');
+          return;
+        }
+        setStatus('dirty');
+        clearTimeout(pendingTimer);
+        pendingTimer = setTimeout(flush, DEBOUNCE_MS);
+      }
+      function cancelPending() {
+        clearTimeout(pendingTimer);
+        pendingTimer = null;
+      }
+
+      // ─ flush (the actual POST) ─
+      async function flush(forceRetry = false) {
+        if (inflight) { queuedAfterFlight = true; return; }
+        if (!hasContent()) return;
+        cancelPending();
+        setStatus('saving');
+        const payload = snapshot();
+        inflight = (async () => {
+          try {
+            const res = await fetch('/api/qss-stories?action=save', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+              body: JSON.stringify(payload),
+            });
+            if (res.status === 503) {
+              const j = await res.json().catch(() => ({}));
+              if (j.error === 'MIGRATION_PENDING') {
+                setStatus('migration-pending');
+                showMigrationBanner();
+                return;
+              }
+            }
+            if (res.status === 409) {
+              const j = await res.json().catch(() => ({}));
+              if (j.error === 'CONFLICT') {
+                setStatus('conflict');
+                if (confirm('Another tab or device saved this story more recently. Want to reload that version? (your local edits will be replaced)')) {
+                  await reloadFromServer();
+                }
+                return;
+              }
+              if (j.error === 'NAME_TAKEN') {
+                setStatus('error', 'name taken');
+                alert('That story name is taken. Rename this one (top bar) and I\'ll keep saving.');
+                return;
+              }
+            }
+            if (!res.ok) {
+              const j = await res.json().catch(() => ({}));
+              throw new Error(j.message || `HTTP ${res.status}`);
+            }
+            const { story } = await res.json();
+            state.serverId = story.id;
+            state.serverUpdatedAt = story.updated_at;
+            // mirror server id into the local snapshot so reloads keep the link
+            try { persistLocalIdOnly(); } catch {}
+            retryDelay = 0;
+            setStatus('saved');
+          } catch (e) {
+            // Network / 5xx — back off and retry.
+            const isNetwork = /Failed to fetch|NetworkError|TypeError: Load failed/i.test(e?.message || '');
+            setStatus(isNetwork ? 'offline' : 'error', e?.message || 'save failed');
+            retryDelay = Math.min((retryDelay || 1500) * 1.6, 30000);
+            setTimeout(() => { if (state.saveStatus === 'offline' || (forceRetry && state.saveStatus === 'error')) flush(true); }, retryDelay);
+          } finally {
+            inflight = null;
+            if (queuedAfterFlight) {
+              queuedAfterFlight = false;
+              queueSave();
+            }
+          }
+        })();
+        return inflight;
+      }
+
+      function persistLocalIdOnly() {
+        // Avoid a recursive queueSave by writing localStorage directly.
+        if (!state.name) return;
+        const raw = localStorage.getItem(LS_KEY(state.name));
+        if (!raw) return;
+        const obj = JSON.parse(raw);
+        obj.serverId = state.serverId;
+        obj.serverUpdatedAt = state.serverUpdatedAt;
+        localStorage.setItem(LS_KEY(state.name), JSON.stringify(obj));
+      }
+
+      // Page-unload safety: try a sync beacon save if dirty.
+      window.addEventListener('pagehide', () => {
+        if (state.saveStatus === 'dirty' || state.saveStatus === 'saving') {
+          try {
+            const data = new Blob([JSON.stringify(snapshot())], { type: 'application/json' });
+            navigator.sendBeacon('/api/qss-stories?action=save', data);
+          } catch {}
+        }
+      });
+      // Tab regains focus — if we were offline, try again now.
+      window.addEventListener('online', () => { if (state.saveStatus === 'offline' || state.saveStatus === 'error') flush(true); });
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && (state.saveStatus === 'dirty' || state.saveStatus === 'offline')) flush(true);
+      });
+
+      // ─ migration banner inside the library modal ─
+      function showMigrationBanner() {
+        const banner = document.getElementById('lib-banner');
+        banner.innerHTML = `<strong>The library needs a one-time setup.</strong><br>
+          In the Supabase SQL editor, run <code>supabase/migrations/015_qss_stories.sql</code>.
+          Until then your stories are saved locally and survive on this device.`;
+        banner.style.display = 'block';
+      }
+      function hideMigrationBanner() {
+        document.getElementById('lib-banner').style.display = 'none';
+      }
+
+      // ─ load & list ─
+      async function reloadFromServer() {
+        if (!state.serverId) return;
+        const res = await fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(state.serverId)}`, {
+          headers: { 'Authorization': 'Bearer qss' },
+        });
+        if (!res.ok) return;
+        const { story } = await res.json();
+        loadFromRow(story);
+      }
+
+      function loadFromRow(row) {
+        cancelPending();
+        state.name = row.name;
+        state.rules = { ...DEFAULT_RULES, ...(row.rules || {}) };
+        if (typeof row.bible === 'string' && (!state.rules.bible || row.bible)) state.rules.bible = row.bible;
+        state.blocks = (row.blocks || []).map(b => ({ id: b.id, text: b.text, __image: null }));
+        state.chat = (row.chat || []).map(t => ({ ...t, options: t.options?.map(o => ({ ...o })) }));
+        state.serverId = row.id;
+        state.serverUpdatedAt = row.updated_at;
+        state.latestOptions = null;
+        for (let i = state.chat.length - 1; i >= 0; i--) {
+          if (state.chat[i].role === 'wordy' && state.chat[i].options?.length) {
+            state.latestOptions = { turnId: state.chat[i].id, items: state.chat[i].options };
+            break;
+          }
+        }
+        document.getElementById('board-name').value = state.name;
+        pushRulesToForm();
+        renderAll();
+        persist();          // mirrors id into localStorage
+        setStatus('saved');
+      }
+
+      async function fetchList(includeTrash = false) {
+        const q = includeTrash ? '?action=list&trash=1' : '?action=list';
+        const res = await fetch(`/api/qss-stories${q}`, { headers: { 'Authorization': 'Bearer qss' } });
+        if (res.status === 503) {
+          const j = await res.json().catch(() => ({}));
+          if (j.error === 'MIGRATION_PENDING') {
+            setStatus('migration-pending');
+            return { stories: [], migrationPending: true };
+          }
+        }
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.message || `HTTP ${res.status}`);
+        }
+        const { stories } = await res.json();
+        return { stories, migrationPending: false };
+      }
+
+      // ─ library UI ─
+      async function openLibrary() {
+        document.getElementById('library-modal').classList.add('open');
+        await renderLibrary();
+      }
+      function closeLibrary() {
+        document.getElementById('library-modal').classList.remove('open');
+      }
+
+      async function renderLibrary() {
+        const grid = document.getElementById('lib-grid');
+        const empty = document.getElementById('lib-empty');
+        const stateEl = document.getElementById('lib-state');
+        stateEl.textContent = 'loading…';
+        grid.innerHTML = '';
+        empty.style.display = 'none';
+        try {
+          const { stories, migrationPending } = await fetchList(false);
+          if (migrationPending) {
+            showMigrationBanner();
+            empty.style.display = 'block';
+            empty.textContent = 'Set up the library to start saving to the cloud.';
+            stateEl.textContent = 'setup needed';
+            return;
+          }
+          hideMigrationBanner();
+          stateEl.textContent = `${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`;
+          if (!stories.length) {
+            empty.style.display = 'block';
+            empty.textContent = 'No stories yet — the one you\'re working on will land here.';
+            return;
+          }
+          grid.innerHTML = stories.map(s => libCardHtml(s, false)).join('');
+        } catch (e) {
+          stateEl.textContent = 'error';
+          empty.style.display = 'block';
+          empty.textContent = `Couldn't load library: ${e.message}`;
+        }
+        // Trash section (always rendered into its own grid; visibility toggled by button)
+        const trashSection = document.getElementById('lib-trash-section');
+        if (trashSection.style.display === 'block') await renderTrash();
+      }
+
+      async function renderTrash() {
+        const tg = document.getElementById('lib-trash-grid');
+        tg.innerHTML = '';
+        try {
+          const { stories } = await fetchList(true);
+          if (!stories.length) { tg.innerHTML = '<div class="lib-empty" style="grid-column: 1 / -1;">Trash is empty.</div>'; return; }
+          tg.innerHTML = stories.map(s => libCardHtml(s, true)).join('');
+        } catch (e) { tg.innerHTML = `<div class="lib-empty">Error: ${e.message}</div>`; }
+      }
+
+      function libCardHtml(s, isTrash) {
+        const isOpen = s.id === state.serverId;
+        const when = relTime(s.updated_at);
+        const cover = s.cover_image
+          ? `<img src="${s.cover_image}" alt="cover" />`
+          : `<span>📖</span>`;
+        const actions = isTrash
+          ? `<button class="cb-btn" data-lib-action="restore" data-id="${s.id}">restore</button>
+             <button class="cb-btn danger" data-lib-action="purge" data-id="${s.id}">forever delete</button>`
+          : `<button class="cb-btn" data-lib-action="open" data-id="${s.id}">open</button>
+             <button class="cb-btn" data-lib-action="rename" data-id="${s.id}">rename</button>
+             <button class="cb-btn" data-lib-action="duplicate" data-id="${s.id}">duplicate</button>
+             <button class="cb-btn danger" data-lib-action="delete" data-id="${s.id}">delete</button>`;
+        return `
+          <div class="lib-card ${isOpen ? 'active' : ''} ${isTrash ? 'deleted' : ''}" data-id="${s.id}">
+            <div class="cover">${cover}</div>
+            <div class="lib-title">${esc(s.name || 'untitled')}${isOpen ? ' <span style="font-family:var(--ui);font-size:10px;color:var(--grass-deep);">· open</span>' : ''}</div>
+            <div class="lib-meta">
+              <span class="chip">${s.block_count || 0} block${s.block_count === 1 ? '' : 's'}</span>
+              <span>${when}</span>
+            </div>
+            <div class="lib-actions">${actions}</div>
+          </div>`;
+      }
+
+      function relTime(iso) {
+        if (!iso) return 'just now';
+        const ms = Date.now() - new Date(iso).getTime();
+        const s = Math.floor(ms / 1000);
+        if (s < 60) return 'just now';
+        const m = Math.floor(s / 60);
+        if (m < 60) return `${m} min${m === 1 ? '' : 's'} ago`;
+        const h = Math.floor(m / 60);
+        if (h < 24) return `${h} hour${h === 1 ? '' : 's'} ago`;
+        const d = Math.floor(h / 24);
+        if (d < 30) return `${d} day${d === 1 ? '' : 's'} ago`;
+        return new Date(iso).toLocaleDateString();
+      }
+
+      async function loadStory(id) {
+        // Flush any pending save against the current story first.
+        await flush().catch(() => {});
+        const res = await fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(id)}`, { headers: { 'Authorization': 'Bearer qss' } });
+        if (!res.ok) { alert('Couldn\'t open: ' + (await res.text()).slice(0, 200)); return; }
+        const { story } = await res.json();
+        loadFromRow(story);
+        closeLibrary();
+      }
+
+      async function renameStory(id, currentName) {
+        const next = window.prompt('New name?', currentName);
+        if (!next || !next.trim() || next === currentName) return;
+        const res = await fetch('/api/qss-stories?action=rename', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          body: JSON.stringify({ id, name: next.trim() }),
+        });
+        if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.message || 'rename failed'); return; }
+        const { story } = await res.json();
+        if (id === state.serverId) {
+          state.name = story.name;
+          state.serverUpdatedAt = story.updated_at;
+          document.getElementById('board-name').value = story.name;
+        }
+        await renderLibrary();
+      }
+
+      async function duplicateStory(id) {
+        const res = await fetch('/api/qss-stories?action=duplicate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          body: JSON.stringify({ id }),
+        });
+        if (!res.ok) { alert('Duplicate failed'); return; }
+        await renderLibrary();
+      }
+
+      async function deleteStory(id) {
+        if (!confirm('Move this story to trash? You can restore it later.')) return;
+        const res = await fetch('/api/qss-stories?action=delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          body: JSON.stringify({ id }),
+        });
+        if (!res.ok) { alert('Delete failed'); return; }
+        if (id === state.serverId) {
+          // The one currently open just got trashed — clear server linkage so
+          // saving a new edit creates a fresh row.
+          state.serverId = null;
+          state.serverUpdatedAt = null;
+          setStatus('local');
+        }
+        await renderLibrary();
+        if (document.getElementById('lib-trash-section').style.display === 'block') await renderTrash();
+      }
+
+      async function restoreStory(id) {
+        const res = await fetch('/api/qss-stories?action=restore', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          body: JSON.stringify({ id }),
+        });
+        if (!res.ok) { alert('Restore failed'); return; }
+        await renderLibrary();
+        await renderTrash();
+      }
+
+      async function purgeStory(id) {
+        if (!confirm('Delete this story FOREVER? This can\'t be undone.')) return;
+        const res = await fetch('/api/qss-stories?action=hard-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          body: JSON.stringify({ id }),
+        });
+        if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.message || 'Purge failed'); return; }
+        await renderTrash();
+      }
+
+      // Wire up modal events
+      document.getElementById('btn-library').addEventListener('click', openLibrary);
+      document.getElementById('lib-close').addEventListener('click', closeLibrary);
+      document.getElementById('lib-refresh').addEventListener('click', renderLibrary);
+      document.getElementById('library-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'library-modal') closeLibrary();
+      });
+      document.getElementById('lib-new').addEventListener('click', () => {
+        closeLibrary();
+        newStory(true);
+      });
+      document.getElementById('lib-toggle-trash').addEventListener('click', async () => {
+        const sec = document.getElementById('lib-trash-section');
+        const btn = document.getElementById('lib-toggle-trash');
+        const showing = sec.style.display === 'block';
+        sec.style.display = showing ? 'none' : 'block';
+        btn.textContent = showing ? 'show trash' : 'hide trash';
+        if (!showing) await renderTrash();
+      });
+      document.getElementById('lib-grid').addEventListener('click', (e) => {
+        const action = e.target.dataset.libAction;
+        if (!action) return;
+        const id = e.target.dataset.id;
+        const card = e.target.closest('.lib-card');
+        const name = card?.querySelector('.lib-title')?.textContent?.trim()?.replace(/\s·\sopen$/, '') || '';
+        if (action === 'open') loadStory(id);
+        else if (action === 'rename') renameStory(id, name);
+        else if (action === 'duplicate') duplicateStory(id);
+        else if (action === 'delete') deleteStory(id);
+      });
+      document.getElementById('lib-trash-grid').addEventListener('click', (e) => {
+        const action = e.target.dataset.libAction;
+        if (!action) return;
+        const id = e.target.dataset.id;
+        if (action === 'restore') restoreStory(id);
+        else if (action === 'purge') purgeStory(id);
+      });
+
+      // On boot, set initial pill. queueSave() will be called naturally on
+      // first content change.
+      setStatus('local');
+
+      return {
+        queueSave,
+        cancelPending,
+        flush,
+        setStatus,
+        openLibrary,
+        loadStory,
+        reloadFromServer,
+      };
+    })();
 
     // ─────────── Boot ───────────
     init();
