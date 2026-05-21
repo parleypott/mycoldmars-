@@ -38,9 +38,22 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SE
 // Columns we want back from a story select. Order matters for stable diffs.
 const SELECT_COLS = 'id,name,bible,rules,blocks,chat,suggestions,cover_image,deleted_at,created_at,updated_at';
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-access-code',
+  'Access-Control-Max-Age': '86400',
+};
+
 export default async function handler(req) {
+  // Preflight — allow Desktop / file:// checklist page + any other origin
+  // to reach the api. The bearer guard still enforces actual access.
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
   const denied = checkAccess(req);
-  if (denied) return denied;
+  if (denied) return withCors(denied);
 
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     return jsonError(500, 'NO_DB', 'Supabase env vars not configured on the server');
@@ -296,12 +309,18 @@ function sanitizeChat(chat) {
 function jsonOk(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
   });
 }
 function jsonError(status, code, message, extra = null) {
   return new Response(JSON.stringify({ error: code, message, ...(extra || {}) }), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
   });
+}
+// Wrap a pre-built Response (e.g. the access-denied one) with CORS headers
+function withCors(res) {
+  const h = new Headers(res.headers);
+  for (const [k, v] of Object.entries(CORS_HEADERS)) h.set(k, v);
+  return new Response(res.body, { status: res.status, headers: h });
 }
