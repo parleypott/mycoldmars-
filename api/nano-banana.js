@@ -106,7 +106,7 @@ async function handleText(body, apiKey) {
   const payload = {
     contents,
     systemInstruction: { parts: [{ text: systemText }] },
-    generationConfig: { temperature: 0.85, maxOutputTokens: 3000 },
+    generationConfig: { temperature: 0.85, maxOutputTokens: 8000 },
   };
 
   let res;
@@ -144,34 +144,95 @@ async function handleText(body, apiKey) {
 }
 
 function extractSceneSuggestions(reply) {
-  // Match ```scene-suggestions … ``` OR ```json scene-suggestions``` patterns.
-  const fenceRe = /```(?:scene-?suggestions|json)\s*\n([\s\S]*?)\n```/gi;
+  // Match ```scene-suggestions … ``` (closed) or open-ended (truncation).
+  // Closed fences first — they're unambiguous and we strip them cleanly.
+  const closedRe = /```(?:scene-?suggestions|json)\s*\n([\s\S]*?)\n```/gi;
   let cleanReply = reply;
   const all = [];
+  const consumedRanges = [];
 
   let match;
-  while ((match = fenceRe.exec(reply)) !== null) {
+  while ((match = closedRe.exec(reply)) !== null) {
     const raw = match[1].trim();
-    try {
-      const parsed = JSON.parse(raw);
-      const arr = Array.isArray(parsed) ? parsed : [parsed];
-      for (const item of arr) {
-        if (item && (item.visual || item.audio)) {
-          all.push({
-            visual: String(item.visual || '').trim(),
-            audio: String(item.audio || '').trim(),
-            rationale: String(item.rationale || '').trim(),
-          });
-        }
-      }
-      // Strip the fence from the reply so the UI doesn't render raw JSON.
-      cleanReply = cleanReply.replace(match[0], '').trim();
-    } catch {
-      // Leave broken fences in the reply for debugging.
+    const items = tryParseSuggestionArray(raw);
+    if (items.length) {
+      all.push(...items);
+      consumedRanges.push([match.index, match.index + match[0].length]);
     }
   }
 
-  return { cleanReply: cleanReply.replace(/\n{3,}/g, '\n\n').trim(), sceneSuggestions: all };
+  // Strip closed fences from the reply.
+  for (const [start, end] of consumedRanges.reverse()) {
+    cleanReply = cleanReply.slice(0, start) + cleanReply.slice(end);
+  }
+
+  // If still nothing found, try open-ended fence (truncated output).
+  if (!all.length) {
+    const openRe = /```(?:scene-?suggestions|json)\s*\n([\s\S]+)$/i;
+    const m = openRe.exec(cleanReply);
+    if (m) {
+      const items = tryParseSuggestionArray(m[1].trim());
+      if (items.length) {
+        all.push(...items);
+        cleanReply = cleanReply.slice(0, m.index).trim() + '\n\n_(output truncated — partial suggestions parsed)_';
+      }
+    }
+  }
+
+  return {
+    cleanReply: cleanReply.replace(/\n{3,}/g, '\n\n').trim(),
+    sceneSuggestions: all,
+  };
+}
+
+function tryParseSuggestionArray(raw) {
+  // First, try strict JSON.
+  try {
+    const parsed = JSON.parse(raw);
+    return normalizeSuggestions(Array.isArray(parsed) ? parsed : [parsed]);
+  } catch {}
+
+  // Truncation: try to repair by closing the array. Find the last complete
+  // object and synthesize a closing bracket.
+  let s = raw.trim();
+  if (s.startsWith('[')) {
+    // Find last properly-closed object.
+    let depth = 0, lastGoodEnd = -1, inStr = false, esc = false;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (esc) { esc = false; continue; }
+      if (c === '\\') { esc = true; continue; }
+      if (c === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c === '{') depth++;
+      else if (c === '}') {
+        depth--;
+        if (depth === 0) lastGoodEnd = i;
+      }
+    }
+    if (lastGoodEnd > 0) {
+      const repaired = s.slice(0, lastGoodEnd + 1) + ']';
+      try {
+        const parsed = JSON.parse(repaired);
+        return normalizeSuggestions(Array.isArray(parsed) ? parsed : [parsed]);
+      } catch {}
+    }
+  }
+  return [];
+}
+
+function normalizeSuggestions(arr) {
+  const out = [];
+  for (const item of arr) {
+    if (item && (item.visual || item.audio)) {
+      out.push({
+        visual: String(item.visual || '').trim(),
+        audio: String(item.audio || '').trim(),
+        rationale: String(item.rationale || '').trim(),
+      });
+    }
+  }
+  return out;
 }
 
 // ──────────────── Image / nano-banana ────────────────
