@@ -1,7 +1,8 @@
 import { checkAccess } from './_lib/access.js';
 
-// Edge runtime. Single short clip per call (no chunking needed for QSS —
-// blocks are 1-3 sentences, options are 5-12 lines). Streams MP3.
+// Edge runtime — streaming straight through ElevenLabs's stream endpoint
+// so the browser starts receiving MP3 bytes within ~300-500ms instead of
+// waiting 3-5s for the full file.
 export const config = { runtime: 'edge', maxDuration: 60 };
 
 // Voice presets — warm, kid-friendly, storyteller-y. Matilda is the
@@ -16,6 +17,17 @@ const VOICES = {
 };
 
 const DEFAULT_VOICE = VOICES.matilda;
+
+// Speed presets — model + bitrate combo
+//   'fast'  → flash_v2_5 + 64kbps  (latency ~400ms, smaller file)
+//   'mid'   → turbo_v2_5 + 128kbps (latency ~1s, better quality)
+//   'rich'  → multilingual_v2 + 192kbps (latency ~2-3s, premium)
+const SPEED = {
+  fast: { model: 'eleven_flash_v2_5',     fmt: 'mp3_44100_64'  },
+  mid:  { model: 'eleven_turbo_v2_5',     fmt: 'mp3_44100_128' },
+  rich: { model: 'eleven_multilingual_v2', fmt: 'mp3_44100_192' },
+};
+const DEFAULT_SPEED = 'fast';
 
 export default async function handler(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
@@ -35,27 +47,33 @@ export default async function handler(req) {
 
   let text = (body.text || '').toString().trim();
   if (!text) return new Response(JSON.stringify({ error: 'text required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-  // Cap to a reasonable length — single chunk, no streaming concat
   if (text.length > 4800) text = text.slice(0, 4800);
 
-  // Voice resolution: short alias name OR full voice id
   let voiceId = (body.voice || '').toString().trim();
   if (VOICES[voiceId]) voiceId = VOICES[voiceId];
   if (!voiceId) voiceId = DEFAULT_VOICE;
 
-  // Model — prefer v3 (most expressive), fall back to multilingual_v2 (most reliable)
-  const requestedModel = (body.model || 'eleven_v3').toString();
-  // Voice settings — warm + expressive, dialed for a kid-storytelling vibe
+  // Speed tier — default to 'fast' (flash) for snappy QSS playback.
+  // Caller can override: { speed: 'mid' } or { speed: 'rich' }.
+  const speed = SPEED[body.speed] || SPEED[DEFAULT_SPEED];
+  // If caller passes model_id explicitly that wins (advanced use).
+  const modelId = (body.model || '').toString() || speed.model;
+  const outputFormat = (body.format || '').toString() || speed.fmt;
+
+  // Voice settings: tuned per model. Flash is faster but flatter — bump
+  // expressivity. Multilingual and turbo handle style well at lower numbers.
+  const styleByModel = modelId.includes('flash') ? 0.55 : 0.5;
   const voiceSettings = {
-    stability: 0.42,        // some variation, doesn't drone
-    similarity_boost: 0.85, // stays in-voice
-    style: 0.6,             // expressive but not theatrical
+    stability: 0.42,
+    similarity_boost: 0.85,
+    style: styleByModel,
     use_speaker_boost: true,
   };
 
-  async function tryModel(modelId) {
-    const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_192`;
-    const res = await fetch(url, {
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=${outputFormat}`;
+
+  async function callEleven(mid) {
+    return fetch(url, {
       method: 'POST',
       headers: {
         'xi-api-key': apiKey,
@@ -64,18 +82,20 @@ export default async function handler(req) {
       },
       body: JSON.stringify({
         text,
-        model_id: modelId,
+        model_id: mid,
         voice_settings: voiceSettings,
+        // optimize_streaming_latency: 3 reduces first-byte time at a tiny
+        // quality cost. ElevenLabs' own recommendation for live UI.
+        optimize_streaming_latency: 3,
       }),
     });
-    return res;
   }
 
-  let res = await tryModel(requestedModel);
-  if (!res.ok && (res.status === 400 || res.status === 403 || res.status === 404) && requestedModel !== 'eleven_multilingual_v2') {
-    res = await tryModel('eleven_multilingual_v2');
+  let res = await callEleven(modelId);
+  // Fall back to multilingual_v2 if the requested model isn't available
+  if (!res.ok && (res.status === 400 || res.status === 403 || res.status === 404) && modelId !== 'eleven_multilingual_v2') {
+    res = await callEleven('eleven_multilingual_v2');
   }
-
   if (!res.ok) {
     const t = await res.text();
     return new Response(JSON.stringify({ error: `elevenlabs ${res.status}: ${t.slice(0, 300)}` }), {
@@ -83,12 +103,15 @@ export default async function handler(req) {
     });
   }
 
-  const audio = new Uint8Array(await res.arrayBuffer());
-  return new Response(audio, {
+  // Stream the upstream MP3 body straight through — no buffering. The
+  // browser starts playback as soon as enough bytes arrive.
+  return new Response(res.body, {
+    status: 200,
     headers: {
       'Content-Type': 'audio/mpeg',
-      'Content-Length': String(audio.length),
       'Cache-Control': 'public, max-age=604800, immutable',
+      // Hint to clients/CDNs that this is a streamed response.
+      'Transfer-Encoding': 'chunked',
     },
   });
 }

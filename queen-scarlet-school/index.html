@@ -1353,20 +1353,54 @@
         });
       }
 
+      // In-flight dedup — if the same text+voice is already fetching, wait
+      // on the existing promise instead of firing a duplicate request.
+      const inflight = new Map();
       async function fetchEleven(text, voice, reqId) {
-        const res = await fetch('/api/qss-tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
-          body: JSON.stringify({ text, voice }),
-        });
-        if (reqId !== activeRequestId) return null;  // canceled while in flight
-        if (!res.ok) {
-          const errText = await res.text().catch(() => '');
-          throw new Error(`tts ${res.status}: ${errText.slice(0, 200)}`);
+        const key = cacheKey(voice, text);
+        if (inflight.has(key)) {
+          // Share the existing fetch
+          const url = await inflight.get(key);
+          if (reqId != null && reqId !== activeRequestId) return null;
+          return url;
         }
-        const blob = await res.blob();
-        return URL.createObjectURL(blob);
+        const promise = (async () => {
+          const res = await fetch('/api/qss-tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+            // 'fast' = flash_v2_5 + 64kbps streaming. First byte ~400ms.
+            body: JSON.stringify({ text, voice, speed: 'fast' }),
+          });
+          if (!res.ok) {
+            const errText = await res.text().catch(() => '');
+            throw new Error(`tts ${res.status}: ${errText.slice(0, 200)}`);
+          }
+          const blob = await res.blob();
+          return URL.createObjectURL(blob);
+        })();
+        inflight.set(key, promise);
+        try {
+          const url = await promise;
+          if (reqId != null && reqId !== activeRequestId) return null;
+          return url;
+        } finally {
+          inflight.delete(key);
+        }
       }
+
+      // Prefetch — fire-and-forget, cache the audio, never play
+      async function prefetch(text) {
+        if (!text || !text.trim()) return;
+        const voice = getVoice();
+        const key = cacheKey(voice, text);
+        if (cache.has(key) || inflight.has(key)) return;
+        try {
+          const url = await fetchEleven(text, voice, null);
+          if (url) cacheStore(key, url);
+        } catch { /* silent — we'll retry on actual click */ }
+      }
+      // Expose for callers (e.g. when wordy returns new options)
+      window.qssTtsPrefetch = prefetch;
 
       async function speak(text, btn) {
         if (!text || !text.trim()) return;
@@ -1440,7 +1474,20 @@
       });
       document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
 
-      window.qssTTS = { speak, stop, buildBtn, ICON_PLAY, ICON_STOP, setVoice };
+      window.qssTTS = { speak, stop, buildBtn, prefetch, ICON_PLAY, ICON_STOP, setVoice };
+
+      // ─── Prefetch on hover — most clicks should be cache hits ───
+      // Single delegated listener over the whole document. Uses pointerenter
+      // so it fires for both mouse & pen, but not for touch (touch is
+      // already "click" the moment it lands, so prefetching is too late).
+      document.addEventListener('pointerenter', (e) => {
+        if (e.pointerType === 'touch') return;
+        const btn = e.target.closest?.('.tts-btn');
+        if (!btn) return;
+        // Find the text this button would speak
+        const t = btn.dataset.tts || btn.dataset.ttsText;
+        if (t) prefetch(t);
+      }, true);
     })();
   </script>
 
@@ -1610,8 +1657,12 @@
       if (!state.latestOptions) return;
       const opt = state.latestOptions.items.find(o => o.id === optId);
       if (!opt || opt.added) return;
-      state.blocks.push({ id: uid(), text: opt.text });
+      const blockId = uid();
+      state.blocks.push({ id: blockId, text: opt.text });
       opt.added = true;
+      // Link the chat option back to the block it created so deleteBlock()
+      // can find this option and re-activate it.
+      opt.blockId = blockId;
       // Push a kid msg saying "picked this one" and clear options from prior turns
       state.chat.push({ id: uid(), role: 'kid', content: `i picked: "${opt.text.slice(0, 80)}${opt.text.length > 80 ? '…' : ''}"`, kind: 'pick' });
       persist();
@@ -1627,6 +1678,14 @@
     }
     function deleteBlock(id) {
       state.blocks = state.blocks.filter(b => b.id !== id);
+      // Re-activate any chat option that originally created this block,
+      // so it shows up as picky-able again. Walk every turn's options.
+      for (const turn of state.chat) {
+        if (!turn.options) continue;
+        for (const o of turn.options) {
+          if (o.blockId === id) { o.added = false; o.blockId = null; }
+        }
+      }
       persist();
       renderAll();
     }
@@ -1690,6 +1749,13 @@
         };
         state.chat.push(turn);
         if (options.length) state.latestOptions = { turnId: turn.id, items: options };
+
+        // Pre-warm the TTS for wordy's bubble + every option, so when the
+        // kid hits the speaker the audio is already cached. fire-and-forget.
+        if (window.qssTtsPrefetch) {
+          if (turn.content) window.qssTtsPrefetch(turn.content);
+          for (const o of options) window.qssTtsPrefetch(o.text);
+        }
       } catch (e) {
         state.chat.push({
           id: uid(), role: 'wordy',
