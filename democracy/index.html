@@ -75,7 +75,35 @@
     .brand .blob { width: 28px; height: 28px; background: var(--yolk); border: 2.5px solid var(--ink-bright); border-radius: 50%; position: relative; box-shadow: 2px 2px 0 var(--ink-bright); flex-shrink: 0; }
     .brand .blob::before, .brand .blob::after { content: ''; position: absolute; background: var(--ink-bright); border-radius: 50%; width: 4px; height: 4px; top: 9px; }
     .brand .blob::before { left: 7px; } .brand .blob::after { right: 7px; }
-    .pagetitle { flex: 1; font-family: var(--display); font-size: clamp(34px, 4.4vw, 56px); font-weight: 700; line-height: 1; color: var(--ink-bright); text-align: center; }
+    .pagetitle {
+      font-family: var(--display);
+      font-size: clamp(42px, 6.2vw, 96px);
+      font-weight: 700;
+      line-height: 0.98;
+      color: var(--ink-bright);
+      text-align: center;
+      margin: 8px auto 6px;
+      max-width: 1100px;
+      transform: rotate(-1deg);
+      text-shadow: 4px 4px 0 var(--yolk);
+    }
+    .cows {
+      display: flex; gap: 6px; justify-content: center; align-items: flex-end;
+      font-size: clamp(20px, 2.4vw, 32px);
+      margin-bottom: 18px;
+      letter-spacing: 0;
+      animation: cowDrift 14s linear infinite;
+    }
+    .cows span { display: inline-block; }
+    .cows span:nth-child(1) { transform: rotate(-2deg) translateY(-2px); }
+    .cows span:nth-child(2) { transform: rotate(1deg)  translateY(0); }
+    .cows span:nth-child(3) { transform: rotate(-1deg) translateY(-3px); }
+    .cows span:nth-child(4) { transform: rotate(2deg)  translateY(1px); }
+    .cows span:nth-child(5) { transform: rotate(-1deg) translateY(-2px); }
+    @keyframes cowDrift {
+      0%, 100% { transform: translateX(0); }
+      50%      { transform: translateX(20px); }
+    }
     .tag {
       font-family: var(--ui); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
       background: var(--sky); color: var(--ink-bright);
@@ -307,9 +335,13 @@
 
   <header class="topbar">
     <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
-    <h1 class="pagetitle">The Democracy Sandbox</h1>
     <span class="tag">v-dem method</span>
   </header>
+
+  <h1 class="pagetitle">we can have electoins til the cows come home</h1>
+  <div class="cows" aria-hidden="true">
+    <span>🐄</span><span>🐄</span><span>🐄</span><span>🐄</span><span>🐄</span>
+  </div>
 
   <p class="intro">
     Real political scientists measure democracy on <span class="pull">five sliders</span>,
