@@ -779,16 +779,36 @@
     }
     .scrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
-    /* Specific decoration placements — each one is hand-placed for personality. */
-    .scrap.s-fierce  { top: 64px;  right: -38px; width: clamp(120px, 14vw, 200px); transform: rotate(12deg); }
-    .scrap.s-chill   { bottom: 24px; left: 12px; width: clamp(120px, 13vw, 180px); transform: rotate(-8deg); opacity: 0.95; }
-    .scrap.s-school  { top: 72px; left: -52px; width: clamp(140px, 16vw, 240px); transform: rotate(-10deg); opacity: 0.86; }
-    .scrap.s-bunker  { bottom: 40px; right: -60px; width: clamp(160px, 19vw, 280px); transform: rotate(8deg); opacity: 0.78; }
-    .scrap.s-benny   { bottom: 96px; right: 30px; width: clamp(110px, 12vw, 170px); transform: rotate(6deg); }
-    .scrap.s-bolt    { top: 80px; left: 38vw; width: clamp(70px, 7vw, 110px); transform: rotate(-14deg); opacity: 0.88; }
-    .scrap.s-kevin   { top: 30vh; left: -36px; width: clamp(110px, 12vw, 170px); transform: rotate(8deg); }
-    .scrap.s-chart   { bottom: 24px; left: 38vw; width: clamp(110px, 12vw, 170px); transform: rotate(-7deg); opacity: 0.88; }
-    .scrap.s-uranium { top: 38vh; right: -48px; width: clamp(120px, 13vw, 180px); transform: rotate(11deg); }
+    /* BIGGER + more chaotic. The page should feel like a kid's spread
+       with stickers slapped on top of each other. Drop shadows give the
+       sticker-peel sense of layering. */
+    .scrap                 { filter: drop-shadow(4px 6px 0 rgba(0,0,0,0.22)); opacity: 0.96; }
+
+    /* === Headline tier — the biggest pieces frame the screen === */
+    .scrap.s-fierce        { top: -22px; right: -52px; width: clamp(220px, 24vw, 360px); transform: rotate(12deg); }
+    .scrap.s-school        { top: 56px; left: -64px;   width: clamp(220px, 26vw, 380px); transform: rotate(-10deg); opacity: 0.92; }
+    .scrap.s-bunker        { bottom: -32px; right: -64px; width: clamp(240px, 30vw, 460px); transform: rotate(8deg); opacity: 0.82; }
+    .scrap.s-bunker-2      { top: -48px; left: 42vw; width: clamp(180px, 22vw, 320px); transform: rotate(-16deg); opacity: 0.7; }
+    .scrap.s-chill         { bottom: -34px; left: -36px; width: clamp(220px, 24vw, 340px); transform: rotate(-8deg); }
+    .scrap.s-chill-2       { top: 42vh; right: -64px;  width: clamp(180px, 20vw, 300px); transform: rotate(14deg); opacity: 0.9; }
+
+    /* === Mid tier — supporting characters and props === */
+    .scrap.s-benny         { bottom: 80px; right: 6vw;  width: clamp(160px, 16vw, 240px); transform: rotate(6deg); }
+    .scrap.s-benny-2       { top: 16vh; left: 30vw;    width: clamp(140px, 14vw, 200px); transform: rotate(-9deg); opacity: 0.88; }
+    .scrap.s-kevin         { top: 30vh; left: -42px;   width: clamp(160px, 16vw, 240px); transform: rotate(8deg); }
+    .scrap.s-kevin-2       { bottom: 18vh; right: 28vw; width: clamp(140px, 14vw, 220px); transform: rotate(-12deg); opacity: 0.92; }
+    .scrap.s-chart         { bottom: 18px; left: 32vw; width: clamp(160px, 16vw, 240px); transform: rotate(-7deg); }
+    .scrap.s-chart-2       { top: 8vh; right: 28vw;    width: clamp(140px, 14vw, 220px); transform: rotate(14deg); opacity: 0.85; }
+    .scrap.s-uranium       { top: 38vh; right: -56px;  width: clamp(170px, 17vw, 260px); transform: rotate(11deg); }
+    .scrap.s-uranium-2     { bottom: 28vh; left: 8vw;  width: clamp(140px, 14vw, 220px); transform: rotate(-6deg); opacity: 0.86; }
+
+    /* === Sparkle tier — small accents scattered through the gaps === */
+    .scrap.s-bolt          { top: 52px; left: 38vw;     width: clamp(80px,  8vw, 140px); transform: rotate(-14deg); }
+    .scrap.s-bolt-2        { top: 26vh; left: 46vw;     width: clamp(70px,  7vw, 110px); transform: rotate(18deg); opacity: 0.85; }
+    .scrap.s-bolt-3        { bottom: 22vh; left: 22vw;  width: clamp(80px,  8vw, 130px); transform: rotate(-22deg); opacity: 0.92; }
+    .scrap.s-bolt-4        { top: 12vh; right: 12vw;    width: clamp(70px,  7vw, 110px); transform: rotate(28deg); opacity: 0.78; }
+    .scrap.s-school-2      { bottom: 26vh; right: -36px; width: clamp(180px, 20vw, 300px); transform: rotate(7deg); opacity: 0.7; }
+    .scrap.s-fierce-2      { bottom: 28vh; left: 32vw; width: clamp(160px, 16vw, 240px); transform: rotate(-18deg); opacity: 0.78; }
 
     /* Embedded decorations — anchored inside specific UI cards rather than floating. */
     .scrap-inline { position: absolute; pointer-events: none; opacity: 0.95; filter: drop-shadow(3px 3px 0 rgba(0,0,0,0.18)); }
@@ -814,8 +834,13 @@
     .lib-card .cover.deco-dragon img { padding: 8px; }
 
     /* Don't let scraps creep too close on small screens */
+    @media (max-width: 1100px) {
+      .scrap.s-bunker-2, .scrap.s-chill-2, .scrap.s-school-2, .scrap.s-fierce-2,
+      .scrap.s-benny-2, .scrap.s-kevin-2, .scrap.s-chart-2, .scrap.s-uranium-2,
+      .scrap.s-bolt-3, .scrap.s-bolt-4 { display: none; }
+    }
     @media (max-width: 900px) {
-      .scrap.s-fierce, .scrap.s-bunker, .scrap.s-uranium { display: none; }
+      .scrap.s-fierce, .scrap.s-bunker, .scrap.s-uranium, .scrap.s-bolt-2 { display: none; }
     }
     @media (max-width: 700px) {
       .scrap-layer { display: none; }
@@ -904,15 +929,29 @@
 
   <!-- Scrapbook decoration layer — fixed, behind content. Hidden behind gate. -->
   <div class="scrap-layer" id="scrap-layer" aria-hidden="true">
+    <!-- headliners (huge framing pieces) -->
     <div class="scrap s-fierce"><img src="decor/dragon-fierce.jpg" alt="" /></div>
     <div class="scrap s-school"><img src="decor/school-building.jpg" alt="" /></div>
-    <div class="scrap s-bolt"><img src="decor/lightning-bolt.jpg" alt="" /></div>
-    <div class="scrap s-chill"><img src="decor/dragon-chill.jpg" alt="" /></div>
     <div class="scrap s-bunker"><img src="decor/bunker-blueprint.jpg" alt="" /></div>
+    <div class="scrap s-bunker-2"><img src="decor/bunker-blueprint.jpg" alt="" /></div>
+    <div class="scrap s-chill"><img src="decor/dragon-chill.jpg" alt="" /></div>
+    <div class="scrap s-chill-2"><img src="decor/dragon-chill.jpg" alt="" /></div>
+    <!-- supporting characters -->
     <div class="scrap s-benny"><img src="decor/benny-beaver.jpg" alt="" /></div>
+    <div class="scrap s-benny-2"><img src="decor/benny-beaver.jpg" alt="" /></div>
     <div class="scrap s-kevin"><img src="decor/kevin-helmet.jpg" alt="" /></div>
+    <div class="scrap s-kevin-2"><img src="decor/kevin-helmet.jpg" alt="" /></div>
     <div class="scrap s-chart"><img src="decor/not-to-hug-chart.jpg" alt="" /></div>
+    <div class="scrap s-chart-2"><img src="decor/not-to-hug-chart.jpg" alt="" /></div>
     <div class="scrap s-uranium"><img src="decor/uranium-cart.jpg" alt="" /></div>
+    <div class="scrap s-uranium-2"><img src="decor/uranium-cart.jpg" alt="" /></div>
+    <div class="scrap s-school-2"><img src="decor/school-building.jpg" alt="" /></div>
+    <div class="scrap s-fierce-2"><img src="decor/dragon-fierce.jpg" alt="" /></div>
+    <!-- sparkle layer (small accents) -->
+    <div class="scrap s-bolt"><img src="decor/lightning-bolt.jpg" alt="" /></div>
+    <div class="scrap s-bolt-2"><img src="decor/lightning-bolt.jpg" alt="" /></div>
+    <div class="scrap s-bolt-3"><img src="decor/lightning-bolt.jpg" alt="" /></div>
+    <div class="scrap s-bolt-4"><img src="decor/lightning-bolt.jpg" alt="" /></div>
   </div>
 
   <div id="tts-float" class="tts-float">
