@@ -283,6 +283,80 @@ async function runOpenAI(prompt) {
   appendPhase("chatgpt", "openai job exceeded 30 minute polling deadline", true);
 }
 
+// ----- clarification step (Anthropic deep-research pattern) -----
+// Returns { enrichedPrompt } once user answers (or skips).
+async function clarifyPhase(prompt) {
+  const panel = $("#clarify-panel");
+  panel.classList.remove("hidden");
+  panel.innerHTML = `<div class="clarify-thinking"><span class="dot-pulse"></span> thinking about what would sharpen this research…</div>`;
+  $("#run").disabled = true;
+  $(".stamp-btn-inner").textContent = "…";
+
+  let data;
+  try {
+    const res = await fetch("/api/research-clarify", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+    if (!res.ok) {
+      // Fall through silently — if clarifier fails, dispatch original prompt.
+      panel.classList.add("hidden");
+      return { enrichedPrompt: prompt, skipped: true };
+    }
+    data = await res.json();
+  } catch {
+    panel.classList.add("hidden");
+    return { enrichedPrompt: prompt, skipped: true };
+  }
+
+  const questions = data?.questions ?? [];
+  const summary = data?.summary ?? "";
+
+  return new Promise((resolve) => {
+    panel.innerHTML = `
+      <div class="clarify-head">
+        <div class="clarify-eyebrow">scope · before we dispatch</div>
+        <div class="clarify-summary">${escapeHtml(summary)}</div>
+      </div>
+      <div class="clarify-questions">
+        ${questions.map((q, i) => `
+          <div class="clarify-q">
+            <label class="clarify-q-label">${escapeHtml(q.question)}</label>
+            <input class="clarify-q-input" data-qid="${q.id ?? `q${i}`}" data-question="${escapeHtml(q.question)}" placeholder="${(q.examples ?? []).join(' · ') || 'optional'}" autocomplete="off" spellcheck="false" />
+          </div>
+        `).join("")}
+      </div>
+      <div class="clarify-actions">
+        <button id="clarify-skip" class="ghost-btn">skip — just research it</button>
+        <button id="clarify-go" class="primary-btn">dispatch with my answers →</button>
+      </div>
+    `;
+
+    const finish = (useAnswers) => {
+      let enrichedPrompt = prompt;
+      if (useAnswers) {
+        const answered = Array.from(panel.querySelectorAll(".clarify-q-input"))
+          .map((el) => ({ q: el.dataset.question, a: el.value.trim() }))
+          .filter((x) => x.a);
+        if (answered.length) {
+          enrichedPrompt = `${prompt}\n\n---\nAdditional context the researcher provided:\n${answered.map((x) => `• ${x.q}\n   → ${x.a}`).join("\n")}`;
+        }
+      }
+      panel.classList.add("hidden");
+      resolve({ enrichedPrompt, skipped: !useAnswers });
+    };
+
+    panel.querySelector("#clarify-skip").addEventListener("click", () => finish(false));
+    panel.querySelector("#clarify-go").addEventListener("click", () => finish(true));
+    panel.querySelector(".clarify-q-input")?.focus();
+  });
+}
+
+function escapeHtml(s) {
+  return (s ?? "").toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 // ----- master "run" -----
 async function runResearch() {
   const prompt = $("#prompt").value.trim();
@@ -291,7 +365,12 @@ async function runResearch() {
   $("#run").disabled = true;
   $(".stamp-btn-inner").textContent = "GO…";
 
-  current = newSession(prompt);
+  // 1. Clarify phase
+  const { enrichedPrompt } = await clarifyPhase(prompt);
+
+  // 2. Create session using ENRICHED prompt (so history reflects what actually ran)
+  current = newSession(enrichedPrompt);
+  current.originalPrompt = prompt;
 
   for (const p of ["claude", "chatgpt", "gemini", "synthesis"]) {
     const pane = $(`#pane-${p}`);
@@ -302,7 +381,7 @@ async function runResearch() {
   switchTab("claude");
   renderHistory();
 
-  await Promise.allSettled([runClaude(prompt), runGemini(prompt), runOpenAI(prompt)]);
+  await Promise.allSettled([runClaude(enrichedPrompt), runGemini(enrichedPrompt), runOpenAI(enrichedPrompt)]);
 
   $("#run").disabled = false;
   $(".stamp-btn-inner").textContent = "GO.";
