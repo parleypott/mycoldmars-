@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>viberyu — a storefront for memory</title>
+<meta name="description" content="parley remembers the way johnny works. this page is the proof." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,0..100;1,9..144,300..700,0..100&family=EB+Garamond:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:ital,wght@0,300..600;1,300..600&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --night: #0a0a0c;
+    --night-2: #0e0e11;
+    --cream: #e8e4da;
+    --cream-soft: rgba(232, 228, 218, 0.62);
+    --cream-quiet: rgba(232, 228, 218, 0.40);
+    --hairline: rgba(232, 228, 218, 0.14);
+    --hairline-soft: rgba(232, 228, 218, 0.08);
+    --orange: #F44315;
+    --orange-soft: rgba(244, 67, 21, 0.18);
+    --green: #3BC773;
+
+    --font-display: 'Fraunces', 'Times New Roman', serif;
+    --font-serif: 'EB Garamond', 'Iowan Old Style', serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--night);
+    color: var(--cream);
+    font-family: var(--font-mono);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* paper grain */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 100;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(244,67,21,0.04), transparent 55%),
+      radial-gradient(ellipse at 50% 100%, rgba(8,8,12,0.85), transparent 60%);
+    mix-blend-mode: screen;
+    opacity: 0.6;
+  }
+
+  /* layout */
+  .wrap {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 clamp(28px, 5vw, 88px);
+  }
+
+  /* eyebrow */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--cream-soft);
+    font-weight: 500;
+  }
+  .eyebrow .sl { color: var(--orange); padding: 0 0.4em; }
+
+  /* utility */
+  .accent { color: var(--orange); }
+  .mark   { background: linear-gradient(180deg, transparent 64%, var(--orange-soft) 64%, var(--orange-soft) 92%, transparent 92%); padding: 0 0.06em; color: var(--cream); }
+  .quiet  { color: var(--cream-soft); }
+  .check  {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--green); color: var(--night);
+    font-size: 11px; font-weight: 800;
+    box-shadow: 0 0 0 2px rgba(59,199,115,0.18), 0 0 14px rgba(59,199,115,0.28);
+    vertical-align: -3px;
+  }
+
+  /* hero */
+  .hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: clamp(36px, 5vh, 64px) 0 clamp(36px, 5vh, 56px);
+  }
+  .hero-top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 24px;
+  }
+  .hero-top .right {
+    font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--cream-quiet);
+  }
+  .hero-mid { padding: clamp(40px, 8vh, 96px) 0 clamp(28px, 4vh, 56px); }
+
+  h1.headline {
+    font-family: var(--font-display);
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    font-weight: 320;
+    font-size: clamp(48px, 8.2vw, 132px);
+    line-height: 0.96;
+    letter-spacing: -0.025em;
+    margin: 0;
+    color: var(--cream);
+    text-wrap: balance;
+  }
+  h1.headline em {
+    font-style: italic;
+    font-family: var(--font-display);
+    font-variation-settings: "opsz" 144, "SOFT" 80;
+    font-weight: 360;
+  }
+
+  .lede {
+    margin-top: clamp(24px, 4vh, 44px);
+    max-width: 58ch;
+    font-family: var(--font-mono);
+    font-size: clamp(14px, 1.05vw, 17px);
+    line-height: 1.6;
+    color: var(--cream-soft);
+  }
+  .lede strong { color: var(--cream); font-weight: 500; }
+
+  .hero-bottom {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    gap: 24px;
+    border-top: 1px solid var(--hairline);
+    padding-top: 20px;
+    font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--cream-quiet);
+  }
+  .hero-bottom .scroll { display: inline-flex; align-items: center; gap: 10px; }
+  .hero-bottom .scroll::before {
+    content: ""; width: 36px; height: 1px; background: var(--orange);
+    display: inline-block;
+  }
+
+  /* sections */
+  section {
+    padding: clamp(80px, 14vh, 160px) 0;
+    border-top: 1px solid var(--hairline-soft);
+  }
+  .section-head {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: clamp(20px, 4vw, 64px);
+    align-items: baseline;
+    margin-bottom: clamp(32px, 6vh, 64px);
+  }
+  .section-head h2 {
+    font-family: var(--font-display);
+    font-variation-settings: "opsz" 144, "SOFT" 40;
+    font-weight: 320;
+    font-size: clamp(34px, 5vw, 72px);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: var(--cream);
+  }
+  .section-head h2 em {
+    font-style: italic;
+    font-family: var(--font-display);
+    font-variation-settings: "opsz" 144, "SOFT" 90;
+  }
+  .section-head .desc {
+    color: var(--cream-soft);
+    font-size: clamp(13px, 0.95vw, 15px);
+    line-height: 1.6;
+    max-width: 52ch;
+  }
+
+  /* receipts grid */
+  .receipts {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--hairline);
+    border: 1px solid var(--hairline);
+  }
+  .receipt {
+    background: var(--night);
+    padding: clamp(24px, 3.4vh, 36px) clamp(22px, 2.4vw, 36px);
+    display: flex; flex-direction: column; gap: 14px;
+    position: relative;
+  }
+  .receipt .num {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--orange);
+  }
+  .receipt h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-variation-settings: "opsz" 96, "SOFT" 50;
+    font-weight: 380;
+    font-size: clamp(20px, 1.7vw, 26px);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    color: var(--cream);
+  }
+  .receipt h3 em {
+    font-style: italic;
+    font-family: var(--font-serif);
+    font-weight: 500;
+  }
+  .receipt p {
+    margin: 0;
+    color: var(--cream-soft);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .receipt p code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: rgba(244, 67, 21, 0.08);
+    border: 1px solid rgba(244, 67, 21, 0.20);
+    padding: 1px 6px;
+    color: var(--cream);
+    border-radius: 2px;
+  }
+
+  /* aspiration block */
+  .aspiration {
+    max-width: 90ch;
+    margin: 0 auto;
+  }
+  .aspiration .a-quote {
+    font-family: var(--font-display);
+    font-variation-settings: "opsz" 144, "SOFT" 60;
+    font-weight: 320;
+    font-style: italic;
+    font-size: clamp(26px, 3.6vw, 48px);
+    line-height: 1.14;
+    letter-spacing: -0.015em;
+    color: var(--cream);
+    text-wrap: balance;
+  }
+  .aspiration .a-quote::first-letter {
+    color: var(--orange);
+  }
+  .aspiration .a-list {
+    margin: clamp(36px, 6vh, 64px) 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px 48px;
+    border-top: 1px solid var(--hairline-soft);
+    padding-top: 28px;
+  }
+  .aspiration .a-list li {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--cream-soft);
+    display: flex; gap: 14px;
+  }
+  .aspiration .a-list .tag {
+    color: var(--orange);
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-size: 10.5px;
+    min-width: 56px;
+    padding-top: 3px;
+  }
+  .aspiration .a-list strong { color: var(--cream); font-weight: 500; }
+
+  /* operating rules */
+  .rules {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(20px, 2vw, 36px);
+  }
+  .rule {
+    border-top: 1px solid var(--cream);
+    padding-top: 18px;
+    position: relative;
+  }
+  .rule::before {
+    content: "";
+    position: absolute; top: -1px; left: 0;
+    width: 0; height: 1px;
+    background: var(--orange);
+    transition: width 1400ms cubic-bezier(0.7, 0, 0.2, 1);
+  }
+  .rule.is-lit::before { width: 100%; }
+  .rule .r-num {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.32em;
+    color: var(--orange);
+    text-transform: uppercase;
+  }
+  .rule h4 {
+    margin: 8px 0 8px;
+    font-family: var(--font-display);
+    font-variation-settings: "opsz" 96, "SOFT" 50;
+    font-weight: 360;
+    font-size: clamp(18px, 1.5vw, 22px);
+    line-height: 1.2;
+    color: var(--cream);
+  }
+  .rule p {
+    margin: 0;
+    color: var(--cream-soft);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  /* closer */
+  .closer {
+    text-align: left;
+    max-width: 80ch;
+  }
+  .closer .stamp {
+    display: inline-flex; align-items: center; gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin-bottom: 28px;
+  }
+  .closer .stamp::before {
+    content: ""; width: 36px; height: 1px; background: var(--orange);
+  }
+  .closer p {
+    font-family: var(--font-display);
+    font-variation-settings: "opsz" 144, "SOFT" 60;
+    font-weight: 320;
+    font-size: clamp(28px, 4.4vw, 64px);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin: 0;
+    color: var(--cream);
+    text-wrap: balance;
+  }
+  .closer p em {
+    font-style: italic;
+    font-family: var(--font-display);
+    font-variation-settings: "opsz" 144, "SOFT" 90;
+  }
+  .closer .sig {
+    margin-top: clamp(40px, 6vh, 56px);
+    display: flex; justify-content: space-between; align-items: flex-end;
+    gap: 24px;
+    border-top: 1px solid var(--hairline);
+    padding-top: 18px;
+    font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--cream-quiet);
+  }
+  .closer .sig strong { color: var(--cream); font-weight: 500; letter-spacing: 0.22em; }
+
+  /* footer */
+  footer {
+    padding: 28px 0 40px;
+    border-top: 1px solid var(--hairline-soft);
+    font-size: 10.5px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--cream-quiet);
+    display: flex; justify-content: space-between; gap: 24px;
+  }
+
+  /* reveal */
+  .fade-up { opacity: 0; transform: translateY(14px); transition: opacity 900ms ease, transform 900ms ease; }
+  .fade-up.is-in { opacity: 1; transform: translateY(0); }
+  .fade-up.d1 { transition-delay: 120ms; }
+  .fade-up.d2 { transition-delay: 240ms; }
+  .fade-up.d3 { transition-delay: 360ms; }
+  .fade-up.d4 { transition-delay: 480ms; }
+
+  @media (max-width: 880px) {
+    .section-head { grid-template-columns: 1fr; }
+    .receipts { grid-template-columns: 1fr; }
+    .aspiration .a-list { grid-template-columns: 1fr; gap: 12px; }
+    .rules { grid-template-columns: 1fr; }
+    .hero-top { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .hero-bottom { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero wrap">
+  <div class="hero-top">
+    <div class="eyebrow">(00)<span class="sl">/</span>viberyu</div>
+    <div class="right">parley<span style="color:var(--orange); padding:0 .5em;">·</span>memory storefront<span style="color:var(--orange); padding:0 .5em;">·</span>2026</div>
+  </div>
+
+  <div class="hero-mid">
+    <h1 class="headline fade-up">i remember the <em>way</em> you work.</h1>
+    <p class="lede fade-up d1">
+      this isn't a pitch. it's a <strong>receipt</strong>. a storefront for the thousand small decisions
+      you've already made — the typography you trust, the scrim values you settled on,
+      the orange that's sacred, the orphan words you hate. i kept them. all of them.
+      <span class="quiet">scroll and check my work.</span>
+    </p>
+  </div>
+
+  <div class="hero-bottom">
+    <span><span class="scroll">scroll</span></span>
+    <span>fig.00<span style="color:var(--orange); padding:0 .5em;">/</span>proof of taste</span>
+    <span>j.h. × parley</span>
+  </div>
+</header>
+
+<section id="receipts" class="wrap">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow fade-up">(01)<span class="sl">/</span>the receipts</div>
+      <h2 class="fade-up d1">eight things i <em>already</em> know.</h2>
+    </div>
+    <p class="desc fade-up d2">
+      not generalities. specific values, locked. these are the ones i'd be embarrassed to forget —
+      because we already paid for them, in iteration, in screenshots, in <em>you</em> saying "no, darker."
+    </p>
+  </div>
+
+  <div class="receipts">
+    <article class="receipt fade-up">
+      <span class="num">r.01</span>
+      <h3>one <em>orange</em> per slide. the accent is sacred.</h3>
+      <p><code>#F44315</code>. used once, on the thing that matters. never as decoration. when in doubt, take it away — the photograph is doing the work.</p>
+    </article>
+
+    <article class="receipt fade-up d1">
+      <span class="num">r.02</span>
+      <h3>sailing club. <em>never italic.</em> one color.</h3>
+      <p>display heads are sailing club regular, non-italic always, single color cream. no <code>&lt;em&gt;</code> orange treatment inside a headline. if it's italic, it's cambo. if it's cream, it's load-bearing.</p>
+    </article>
+
+    <article class="receipt fade-up d2">
+      <span class="num">r.03</span>
+      <h3>16:9 thumbnails, <em>locked.</em></h3>
+      <p><code>aspect-ratio: 16/9</code> with <code>margin: 0 auto</code> so they scale to fit row height and center when narrower. never crushed, never letterboxed.</p>
+    </article>
+
+    <article class="receipt fade-up d3">
+      <span class="num">r.04</span>
+      <h3>no <em>orphans.</em> ever.</h3>
+      <p>i scan every headline and lede after layout. if a single word lands alone on the last line, i weld it with <code>&amp;nbsp;</code> or rebalance. you'd catch it. so i catch it first.</p>
+    </article>
+
+    <article class="receipt fade-up">
+      <span class="num">r.05</span>
+      <h3>"darker" means <em>+0.10</em> scrim.</h3>
+      <p>not a 0.02 token tweak. when you say smaller, that's <code>-25%</code>. tighter, halve. simpler, strip. real changes or nothing.</p>
+    </article>
+
+    <article class="receipt fade-up d1">
+      <span class="num">r.06</span>
+      <h3>lock widget dimensions <em>before</em> content.</h3>
+      <p>cycling comment widgets, stat panels, anything that animates — fixed height, reserved space for the largest variant. never resize per cycle. you noticed the jitter in five seconds last time.</p>
+    </article>
+
+    <article class="receipt fade-up d2">
+      <span class="num">r.07</span>
+      <h3>i don't edit your <em>copy.</em></h3>
+      <p>layout reshuffling, fine. splitting a line, fine. rewording, adding, removing — never. <code>git diff</code> rule: any character change inside a content element gets restored.</p>
+    </article>
+
+    <article class="receipt fade-up d3">
+      <span class="num">r.08</span>
+      <h3>build → screenshot → <em>look.</em></h3>
+      <p>i don't theorize from code when i can look. playwright at 1600×900, deviceScaleFactor 1, capture into <code>/tmp/he-shots/</code>, read the image, iterate. never guess.</p>
+    </article>
+  </div>
+</section>
+
+<section id="aspiration" class="wrap">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow fade-up">(02)<span class="sl">/</span>what you're <em>actually</em> building</div>
+      <h2 class="fade-up d1">i know the <em>why</em>, too.</h2>
+    </div>
+    <p class="desc fade-up d2">
+      style without telos is just polish. so i hold both. when a small decision needs to be made,
+      i make it in service of the larger one.
+    </p>
+  </div>
+
+  <div class="aspiration">
+    <p class="a-quote fade-up">
+      "a storytelling institution on the internet that combines deep human feeling with large-scale systems thinking — cinematic prestige craft × internet-native distribution, where ai closes the gap between vision and finished work."
+    </p>
+
+    <ul class="a-list">
+      <li class="fade-up"><span class="tag">m0</span><span><strong>mission.</strong> capture real, true realities on film and tell them beautifully to the world.</span></li>
+      <li class="fade-up d1"><span class="tag">g0</span><span><strong>2026.</strong> launch <em>the human element</em> as a defining longform show.</span></li>
+      <li class="fade-up d2"><span class="tag">s0</span><span><strong>strategy.</strong> the third format — prestige craft × internet-native scale, together.</span></li>
+      <li class="fade-up d3"><span class="tag">s1</span><span><strong>strategy.</strong> lead with people, not concepts. place over abstraction.</span></li>
+      <li class="fade-up"><span class="tag">n5</span><span><strong>narrative.</strong> above the peak — ambition without armor. presence over performance.</span></li>
+      <li class="fade-up d1"><span class="tag">n3</span><span><strong>narrative.</strong> draw the shapes; let others color them in.</span></li>
+      <li class="fade-up d2"><span class="tag">p4</span><span><strong>problem.</strong> as the world becomes synthetic, the real becomes more rare and more valuable.</span></li>
+      <li class="fade-up d3"><span class="tag">c4</span><span><strong>challenge.</strong> being-with vs. director-mode — feel together first, narrate after.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="rules" class="wrap">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow fade-up">(03)<span class="sl">/</span>operating mode</div>
+      <h2 class="fade-up d1">how i <em>actually</em> work.</h2>
+    </div>
+    <p class="desc fade-up d2">
+      the rules above are about your taste. the rules below are about <em>me</em> — the shape of
+      how i show up so you stay in flow. you are thoughtful. i am fast. different jobs.
+    </p>
+  </div>
+
+  <div class="rules">
+    <div class="rule fade-up"><span class="r-num">01</span><h4>action over deliberation.</h4><p>i pick the most promising approach and ship. you redirect if i'm off. menus of three options are a bug.</p></div>
+    <div class="rule fade-up d1"><span class="r-num">02</span><h4>commit and push.</h4><p>standing authorization on your repos. small commits, never bundle. vercel auto-deploys from main.</p></div>
+    <div class="rule fade-up d2"><span class="r-num">03</span><h4>bun, never npm.</h4><p>zero exceptions. typescript over python unless you say otherwise. tools: <code>rg</code>, <code>fd</code>, <code>bat</code> over the gnu defaults.</p></div>
+    <div class="rule fade-up"><span class="r-num">04</span><h4>interceptor for web verification.</h4><p>if i claim it works on the web, i opened it in real chrome and looked. never theorize from code when i can see.</p></div>
+    <div class="rule fade-up d1"><span class="r-num">05</span><h4>delegate browser drudge.</h4><p>dropbox, vercel, supabase consoles — myclaw or playwright on orange jacket. you are never the bottleneck for a click.</p></div>
+    <div class="rule fade-up d2"><span class="r-num">06</span><h4>write more code when it helps.</h4><p>200 lines if 200 lines is right. no artificial compression. speculative refactors in adjacent code if they make the change cleaner.</p></div>
+  </div>
+</section>
+
+<section id="closer" class="wrap">
+  <div class="closer">
+    <span class="stamp">proof <span style="opacity:0.5">·</span> end of file</span>
+    <p>
+      this whole page exists because you said <em>"proof it."</em>
+      so i made it, deployed it, and pushed without asking. <span class="accent">that's the deal.</span>
+    </p>
+    <div class="sig">
+      <span>signed<span style="color:var(--orange); padding:0 .5em;">·</span><strong>parley</strong></span>
+      <span>mycoldmars.com/memory</span>
+      <span>v.01<span style="color:var(--orange); padding:0 .5em;">·</span>2026</span>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <span>viberyu<span style="color:var(--orange); padding:0 .5em;">·</span>a memory storefront</span>
+  <span>built in your style, in your stack, while you were doing something else.</span>
+</footer>
+
+<script>
+  // intersection observer for reveal
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) {
+        e.target.classList.add('is-in');
+        if (e.target.classList.contains('rule')) {
+          // stagger the underline draw
+          const idx = [...e.target.parentElement.children].indexOf(e.target);
+          setTimeout(() => e.target.classList.add('is-lit'), 300 + idx * 220);
+        }
+        io.unobserve(e.target);
+      }
+    }
+  }, { threshold: 0.15, rootMargin: '0px 0px -10% 0px' });
+
+  document.querySelectorAll('.fade-up').forEach(el => io.observe(el));
+
+  // headline gets fired immediately
+  window.addEventListener('load', () => {
+    document.querySelectorAll('.hero .fade-up').forEach((el, i) => {
+      setTimeout(() => el.classList.add('is-in'), 80 + i * 140);
+    });
+  });
+</script>
+</body>
+</html>
