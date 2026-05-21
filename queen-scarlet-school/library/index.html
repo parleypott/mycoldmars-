@@ -251,13 +251,13 @@
 <body>
 
   <div class="scrap-layer" aria-hidden="true">
-    <div class="scrap s-fierce"><img src="../decor/dragon-fierce.jpg" alt="" /></div>
-    <div class="scrap s-school"><img src="../decor/school-building.jpg" alt="" /></div>
-    <div class="scrap s-bunker"><img src="../decor/bunker-blueprint.jpg" alt="" /></div>
-    <div class="scrap s-chill"><img src="../decor/dragon-chill.jpg" alt="" /></div>
-    <div class="scrap s-benny"><img src="../decor/benny-beaver.jpg" alt="" /></div>
-    <div class="scrap s-bolt"><img src="../decor/lightning-bolt.jpg" alt="" /></div>
-    <div class="scrap s-bolt-2"><img src="../decor/lightning-bolt.jpg" alt="" /></div>
+    <div class="scrap s-fierce"><img src="/decor/dragon-fierce.jpg" alt="" /></div>
+    <div class="scrap s-school"><img src="/decor/school-building.jpg" alt="" /></div>
+    <div class="scrap s-bunker"><img src="/decor/bunker-blueprint.jpg" alt="" /></div>
+    <div class="scrap s-chill"><img src="/decor/dragon-chill.jpg" alt="" /></div>
+    <div class="scrap s-benny"><img src="/decor/benny-beaver.jpg" alt="" /></div>
+    <div class="scrap s-bolt"><img src="/decor/lightning-bolt.jpg" alt="" /></div>
+    <div class="scrap s-bolt-2"><img src="/decor/lightning-bolt.jpg" alt="" /></div>
   </div>
 
   <div id="gate" class="gate">
@@ -359,7 +359,7 @@
     document.querySelectorAll('.dragon').forEach(el => { if (!el.innerHTML.trim()) el.innerHTML = DRAGON_SVG; });
 
     // ─── Library data layer ───
-    const DECOR = ['../decor/dragon-fierce.jpg', '../decor/school-building.jpg', '../decor/bunker-blueprint.jpg', '../decor/dragon-chill.jpg', '../decor/benny-beaver.jpg', '../decor/kevin-helmet.jpg', '../decor/not-to-hug-chart.jpg', '../decor/uranium-cart.jpg'];
+    const DECOR = ['/decor/dragon-fierce.jpg', '/decor/school-building.jpg', '/decor/bunker-blueprint.jpg', '/decor/dragon-chill.jpg', '/decor/benny-beaver.jpg', '/decor/kevin-helmet.jpg', '/decor/not-to-hug-chart.jpg', '/decor/uranium-cart.jpg'];
     function decorFor(id) {
       // deterministic decor pick by id hash so each card stays consistent
       let h = 0; for (const c of (id || '')) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
