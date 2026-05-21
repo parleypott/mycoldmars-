@@ -371,13 +371,17 @@
     display: flex; justify-content: space-between; gap: 24px;
   }
 
-  /* reveal */
-  .fade-up { opacity: 0; transform: translateY(14px); transition: opacity 900ms ease, transform 900ms ease; }
-  .fade-up.is-in { opacity: 1; transform: translateY(0); }
+  /* reveal — content is visible by default; JS adds .pre-reveal for users with JS+motion, then .is-in reveals */
+  .fade-up { transition: opacity 900ms ease, transform 900ms ease; }
+  .pre-reveal .fade-up:not(.is-in) { opacity: 0; transform: translateY(14px); }
   .fade-up.d1 { transition-delay: 120ms; }
   .fade-up.d2 { transition-delay: 240ms; }
   .fade-up.d3 { transition-delay: 360ms; }
   .fade-up.d4 { transition-delay: 480ms; }
+  @media (prefers-reduced-motion: reduce) {
+    .pre-reveal .fade-up:not(.is-in) { opacity: 1; transform: none; }
+    .fade-up { transition: none; }
+  }
 
   @media (max-width: 880px) {
     .section-head { grid-template-columns: 1fr; }
@@ -550,6 +554,12 @@
 </footer>
 
 <script>
+  // only gate visibility on JS if we can run it — adds class that hides .fade-up until observed
+  document.documentElement.classList.add('pre-reveal');
+
+  // safety net: if observer never fires (e.g. headless capture without scroll), reveal all after 2.5s
+  setTimeout(() => document.querySelectorAll('.fade-up:not(.is-in)').forEach(el => el.classList.add('is-in')), 2500);
+
   // intersection observer for reveal
   const io = new IntersectionObserver((entries) => {
     for (const e of entries) {
