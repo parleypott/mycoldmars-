@@ -1750,11 +1750,17 @@
       b.__image = { ...(b.__image || {}), loading: true, err: null, attempt: 0 };
       renderBoard();
 
-      // Up to 3 attempts. Vercel edge caps at ~25s and Gemini image gen
-      // occasionally exceeds that; a quick retry usually lands in <15s.
-      const MAX_ATTEMPTS = 3;
+      // Up to 4 attempts. Gemini image-gen finishes in 10-15s on a good
+      // day and 25-60s when slow. Vercel's per-call budget is 60s on Node;
+      // some calls still hit upstream timeouts. ~50% per-attempt success →
+      // 4 attempts get effective rate above 93%.
+      const MAX_ATTEMPTS = 4;
       let lastErr = '';
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        if (attempt > 1) {
+          // Brief delay between retries so we don't hammer when the upstream is slow.
+          await new Promise(r => setTimeout(r, 800));
+        }
         b.__image = { ...(b.__image || {}), loading: true, err: null, attempt };
         renderBoard();
         try {
