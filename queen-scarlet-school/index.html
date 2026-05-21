@@ -758,6 +758,69 @@
       padding-bottom: 32px; /* room for mic label */
     }
 
+    /* ──────────── Scrapbook decorations ──────────── */
+    /* Floating, rotated, low-key. Sit behind content (z-index 0) and
+       don't catch pointer events. Sized via clamp so they scale with the
+       viewport without dominating it. */
+    .scrap-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .scrap {
+      position: absolute;
+      pointer-events: none;
+      user-select: none;
+      filter: drop-shadow(3px 4px 0 rgba(0,0,0,0.18));
+      transition: transform 600ms var(--ease);
+      opacity: 0.92;
+    }
+    .scrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+    /* Specific decoration placements — each one is hand-placed for personality. */
+    .scrap.s-fierce  { top: 64px;  right: -38px; width: clamp(120px, 14vw, 200px); transform: rotate(12deg); }
+    .scrap.s-chill   { bottom: 24px; left: 12px; width: clamp(120px, 13vw, 180px); transform: rotate(-8deg); opacity: 0.95; }
+    .scrap.s-school  { top: 72px; left: -52px; width: clamp(140px, 16vw, 240px); transform: rotate(-10deg); opacity: 0.86; }
+    .scrap.s-bunker  { bottom: 40px; right: -60px; width: clamp(160px, 19vw, 280px); transform: rotate(8deg); opacity: 0.78; }
+    .scrap.s-benny   { bottom: 96px; right: 30px; width: clamp(110px, 12vw, 170px); transform: rotate(6deg); }
+    .scrap.s-bolt    { top: 80px; left: 38vw; width: clamp(70px, 7vw, 110px); transform: rotate(-14deg); opacity: 0.88; }
+    .scrap.s-kevin   { top: 30vh; left: -36px; width: clamp(110px, 12vw, 170px); transform: rotate(8deg); }
+    .scrap.s-chart   { bottom: 24px; left: 38vw; width: clamp(110px, 12vw, 170px); transform: rotate(-7deg); opacity: 0.88; }
+    .scrap.s-uranium { top: 38vh; right: -48px; width: clamp(120px, 13vw, 180px); transform: rotate(11deg); }
+
+    /* Embedded decorations — anchored inside specific UI cards rather than floating. */
+    .scrap-inline { position: absolute; pointer-events: none; opacity: 0.95; filter: drop-shadow(3px 3px 0 rgba(0,0,0,0.18)); }
+    .scrap-inline img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+    /* Gate — small embellishments around the card */
+    .gate-inner { position: relative; overflow: visible; }
+    .gate .scrap-inline.s-gate-bolt   { width: 64px; top: -36px; right: -32px; transform: rotate(20deg); }
+    .gate .scrap-inline.s-gate-bunker { width: 110px; bottom: -50px; left: -60px; transform: rotate(-12deg); opacity: 0.85; }
+
+    /* Hello / empty states */
+    .story-empty { position: relative; }
+    .story-empty .scrap-inline.s-empty-benny { width: 110px; bottom: -22px; right: 8%; transform: rotate(6deg); }
+    .story-empty .scrap-inline.s-empty-bolt  { width: 50px; top: -14px; right: 18%; transform: rotate(-12deg); }
+
+    .board-empty { position: relative; }
+    .board-empty .scrap-inline.s-board-school { width: 130px; top: -28px; left: -20px; transform: rotate(-9deg); }
+    .board-empty .scrap-inline.s-board-bunker { width: 130px; bottom: -28px; right: -22px; transform: rotate(8deg); opacity: 0.86; }
+
+    /* Library cover fallback uses these images */
+    .lib-card .cover.deco-school img,
+    .lib-card .cover.deco-bunker img,
+    .lib-card .cover.deco-dragon img { padding: 8px; }
+
+    /* Don't let scraps creep too close on small screens */
+    @media (max-width: 900px) {
+      .scrap.s-fierce, .scrap.s-bunker, .scrap.s-uranium { display: none; }
+    }
+    @media (max-width: 700px) {
+      .scrap-layer { display: none; }
+    }
+
     /* ──────────── TTS button + floating ──────────── */
     .tts-btn {
       display: inline-flex; align-items: center; justify-content: center;
@@ -839,6 +902,19 @@
 </head>
 <body>
 
+  <!-- Scrapbook decoration layer — fixed, behind content. Hidden behind gate. -->
+  <div class="scrap-layer" id="scrap-layer" aria-hidden="true">
+    <div class="scrap s-fierce"><img src="decor/dragon-fierce.jpg" alt="" /></div>
+    <div class="scrap s-school"><img src="decor/school-building.jpg" alt="" /></div>
+    <div class="scrap s-bolt"><img src="decor/lightning-bolt.jpg" alt="" /></div>
+    <div class="scrap s-chill"><img src="decor/dragon-chill.jpg" alt="" /></div>
+    <div class="scrap s-bunker"><img src="decor/bunker-blueprint.jpg" alt="" /></div>
+    <div class="scrap s-benny"><img src="decor/benny-beaver.jpg" alt="" /></div>
+    <div class="scrap s-kevin"><img src="decor/kevin-helmet.jpg" alt="" /></div>
+    <div class="scrap s-chart"><img src="decor/not-to-hug-chart.jpg" alt="" /></div>
+    <div class="scrap s-uranium"><img src="decor/uranium-cart.jpg" alt="" /></div>
+  </div>
+
   <div id="tts-float" class="tts-float">
     <button class="tts-btn" id="tts-float-btn" title="Read the highlighted text">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -851,6 +927,8 @@
 
   <div id="gate" class="gate">
     <div class="gate-inner">
+      <div class="scrap-inline s-gate-bolt"><img src="decor/lightning-bolt.jpg" alt="" /></div>
+      <div class="scrap-inline s-gate-bunker"><img src="decor/bunker-blueprint.jpg" alt="" /></div>
       <span class="dragon lg" id="gate-dragon"></span>
       <h1>Queen Scarlet's<br>School</h1>
       <input id="gate-code" type="password" placeholder="password" autocomplete="off" />
@@ -898,6 +976,8 @@
               <span class="meta" id="story-meta">0 blocks</span>
             </div>
             <div id="story-blocks-empty" class="story-empty">
+              <div class="scrap-inline s-empty-bolt"><img src="decor/lightning-bolt.jpg" alt="" /></div>
+              <div class="scrap-inline s-empty-benny"><img src="decor/benny-beaver.jpg" alt="" /></div>
               <span class="dragon lg" id="story-empty-dragon"></span>
               <div>Your story will appear here.</div>
               <span class="little">pick blocks from wordy on the right to build it up</span>
@@ -952,6 +1032,8 @@
     <section class="stage" id="stage-board">
       <div class="board-wrap">
         <div id="board-empty" class="board-empty">
+          <div class="scrap-inline s-board-school"><img src="decor/school-building.jpg" alt="" /></div>
+          <div class="scrap-inline s-board-bunker"><img src="decor/bunker-blueprint.jpg" alt="" /></div>
           <span class="dragon lg" id="board-empty-dragon"></span>
           <h2>No scenes yet!</h2>
           <p>Build your story with wordy first, then come back here to make pictures for each block.</p>
