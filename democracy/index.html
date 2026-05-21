@@ -7,7 +7,7 @@
   <meta name="description" content="Slide the five flavors of democracy and see what kind of regime you get. Built on the V-Dem (Varieties of Democracy) framework.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Andika:wght@400;700&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Andika:wght@400;700&family=Fredoka:wght@400;500;600;700&family=IM+Fell+English+SC&family=IM+Fell+DW+Pica:ital@0;1&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --paper:      #FFF6E0;
@@ -329,6 +329,431 @@
       font-family: var(--ui); font-size: 12px; color: var(--ink-faint); text-align: center;
     }
     footer a { color: var(--red-deep); }
+
+    /* ════════════════════════════════════════════════════════════ */
+    /* ───────────  NEWPRESS  EDITORIAL  VIBE   ─────────────────── */
+    /* ════════════════════════════════════════════════════════════ */
+    /* When body[data-vibe="newpress"] is set, this whole block         */
+    /* overrides the kid sticker styling with a calm, light-mode,       */
+    /* editorial layout — deep ink on warm cream, hairline borders,     */
+    /* IM Fell display, JetBrains Mono body, single orange accent.     */
+    /* ════════════════════════════════════════════════════════════ */
+
+    body[data-vibe="newpress"] {
+      --paper:      #F2EDE3;
+      --paper-deep: #E5DDCB;
+      --paper-soft: #F8F4EB;
+      --paper-card: #FFFFFE;
+      --ink:        #1A1614;
+      --ink-bright: #100D0B;
+      --ink-soft:   #3D332D;
+      --ink-faint:  #837567;
+
+      --np-orange:  #F44315;
+      --np-orange-soft: rgba(244, 67, 21, 0.08);
+      --np-green:   #3BC773;
+      --np-rule:    rgba(26, 22, 20, 0.14);
+      --np-rule-strong: rgba(26, 22, 20, 0.32);
+
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 15px;
+      line-height: 1.62;
+      letter-spacing: 0.005em;
+      background-image: none;
+    }
+
+    /* ─── topbar / header ─── */
+    body[data-vibe="newpress"] .topbar {
+      border-bottom: 1px solid var(--np-rule);
+      padding-bottom: 18px;
+      margin-bottom: 32px;
+    }
+    body[data-vibe="newpress"] .brand {
+      font-family: 'IM Fell English SC', serif;
+      font-size: 20px; font-weight: 400; letter-spacing: 0.08em;
+      color: var(--ink-bright);
+      transform: none;
+      text-decoration: none;
+      gap: 12px;
+    }
+    body[data-vibe="newpress"] .brand:hover { transform: none; color: var(--np-orange); }
+    body[data-vibe="newpress"] .brand .blob {
+      width: 10px; height: 10px;
+      background: var(--np-orange);
+      border: none;
+      box-shadow: none;
+    }
+    body[data-vibe="newpress"] .brand .blob::before,
+    body[data-vibe="newpress"] .brand .blob::after { display: none; }
+    body[data-vibe="newpress"] .tag {
+      background: transparent;
+      color: var(--ink-faint);
+      border: 1px solid var(--np-rule);
+      box-shadow: none;
+      transform: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 400;
+      letter-spacing: 0.24em;
+      font-size: 10px;
+      padding: 5px 12px;
+    }
+
+    /* ─── newpress wordmark (replaces the kid headline) ─── */
+    body[data-vibe="newpress"] .pagetitle {
+      font-family: 'IM Fell English SC', serif;
+      font-size: clamp(34px, 4.6vw, 64px);
+      font-weight: 400;
+      line-height: 1.05;
+      letter-spacing: 0.005em;
+      color: var(--ink-bright);
+      text-align: center;
+      transform: none;
+      text-shadow: none;
+      margin: 18px auto 4px;
+      max-width: 980px;
+    }
+    body[data-vibe="newpress"] .cows {
+      font-size: 12px;
+      letter-spacing: 0.32em;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--np-orange);
+      font-weight: 500;
+      text-transform: uppercase;
+      gap: 8px;
+      margin-bottom: 28px;
+      animation: none;
+    }
+    body[data-vibe="newpress"] .cows::before {
+      content: 'a newpress experiment';
+      color: var(--ink-faint);
+      letter-spacing: 0.18em;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    body[data-vibe="newpress"] .cows span { display: none; }
+
+    /* ─── intro paragraph ─── */
+    body[data-vibe="newpress"] .intro {
+      font-family: 'IM Fell DW Pica', 'Iowan Old Style', Georgia, serif;
+      font-style: italic;
+      font-size: 18px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+      max-width: 600px;
+      margin: 0 auto 32px;
+      letter-spacing: 0.005em;
+    }
+    body[data-vibe="newpress"] .intro .pull {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      transform: none;
+      font-family: 'IM Fell English SC', serif;
+      font-style: normal;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      color: var(--np-orange);
+      padding: 0 2px;
+    }
+    body[data-vibe="newpress"] .intro strong {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-style: normal;
+      color: var(--ink-bright);
+      letter-spacing: 0.005em;
+    }
+
+    /* ─── country card ─── */
+    body[data-vibe="newpress"] .country-card {
+      background: var(--paper-card);
+      border: 1px solid var(--np-rule-strong);
+      border-radius: 0;
+      box-shadow: none;
+      transform: none;
+      padding: 28px 30px;
+    }
+    body[data-vibe="newpress"] .country-card::before {
+      height: 3px;
+      background: var(--accent, var(--np-orange));
+    }
+    body[data-vibe="newpress"] .country-input {
+      font-family: 'IM Fell English SC', serif;
+      font-size: 32px;
+      letter-spacing: 0.02em;
+      border-bottom: 1px solid var(--np-rule);
+      color: var(--ink-bright);
+    }
+    body[data-vibe="newpress"] .country-input::placeholder {
+      color: var(--ink-faint);
+      font-style: italic;
+      font-family: 'IM Fell DW Pica', serif;
+    }
+    body[data-vibe="newpress"] .country-input:hover,
+    body[data-vibe="newpress"] .country-input:focus { border-bottom-color: var(--ink-bright); }
+    body[data-vibe="newpress"] .regime-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.24em;
+      color: var(--ink-faint);
+    }
+    body[data-vibe="newpress"] .regime-name {
+      font-family: 'IM Fell English SC', serif;
+      font-size: 28px;
+      font-weight: 400;
+      letter-spacing: 0.005em;
+      color: var(--ink-bright);
+    }
+    body[data-vibe="newpress"] .regime-badge {
+      background: transparent;
+      color: var(--accent, var(--np-orange));
+      border: 1px solid var(--accent, var(--np-orange));
+      box-shadow: none;
+      transform: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 4px 11px;
+      border-radius: 0;
+    }
+    body[data-vibe="newpress"] .regime-blurb {
+      font-family: 'IM Fell DW Pica', Georgia, serif;
+      font-size: 16px;
+      line-height: 1.62;
+      color: var(--ink-soft);
+    }
+    body[data-vibe="newpress"] .regime-examples {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-style: normal;
+      color: var(--ink-faint);
+      border-top: 1px solid var(--np-rule);
+      padding-top: 10px;
+      letter-spacing: 0.005em;
+    }
+    body[data-vibe="newpress"] .score-num {
+      font-family: 'IM Fell English SC', serif;
+      font-size: 56px;
+      color: var(--accent, var(--np-orange));
+      letter-spacing: 0.01em;
+    }
+    body[data-vibe="newpress"] .score-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.24em;
+      color: var(--ink-faint);
+    }
+
+    /* ─── sliders ─── */
+    body[data-vibe="newpress"] .sliders {
+      background: var(--paper-card);
+      border: 1px solid var(--np-rule-strong);
+      border-radius: 0;
+      box-shadow: none;
+    }
+    body[data-vibe="newpress"] .slider-row {
+      border-bottom: 1px solid var(--np-rule);
+      padding: 18px 4px;
+    }
+    body[data-vibe="newpress"] .axis-name {
+      font-family: 'IM Fell English SC', serif;
+      font-size: 22px;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      color: var(--ink-bright);
+    }
+    body[data-vibe="newpress"] .axis-desc {
+      font-family: 'IM Fell DW Pica', Georgia, serif;
+      font-style: italic;
+      font-size: 13px;
+      color: var(--ink-faint);
+    }
+    body[data-vibe="newpress"] .pole {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      transform: none !important;
+      padding: 4px 2px;
+    }
+    body[data-vibe="newpress"] .pole.lit {
+      color: var(--np-orange);
+      background: transparent !important;
+      border-bottom: 1px solid var(--np-orange) !important;
+    }
+    /* Single grayscale slider track — orange marks the current value */
+    body[data-vibe="newpress"] .slide-track {
+      background: linear-gradient(90deg, #DDD3BD 0%, #BFB4A0 100%) !important;
+      border: 1px solid var(--np-rule-strong);
+      border-radius: 0;
+      box-shadow: none;
+      height: 6px;
+    }
+    body[data-vibe="newpress"] .slide-track::after { display: none; }
+    body[data-vibe="newpress"] input[type=range].slider::-webkit-slider-thumb {
+      width: 18px; height: 18px;
+      background: var(--np-orange);
+      border: 2px solid var(--ink-bright);
+      border-radius: 50%;
+      box-shadow: none;
+    }
+    body[data-vibe="newpress"] input[type=range].slider::-moz-range-thumb {
+      width: 18px; height: 18px;
+      background: var(--np-orange);
+      border: 2px solid var(--ink-bright);
+      border-radius: 50%;
+      box-shadow: none;
+    }
+    body[data-vibe="newpress"] input[type=range].slider:hover::-webkit-slider-thumb { transform: scale(1.12); }
+
+    /* ─── buttons + presets ─── */
+    body[data-vibe="newpress"] .btn {
+      background: var(--paper-card);
+      border: 1px solid var(--ink-bright);
+      border-radius: 999px;
+      box-shadow: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      font-weight: 500;
+      color: var(--ink-bright);
+      transform: none;
+      text-transform: lowercase;
+    }
+    body[data-vibe="newpress"] .btn:hover { background: var(--ink-bright); color: var(--paper-card); transform: none; }
+    body[data-vibe="newpress"] .btn.primary { background: var(--np-orange); border-color: var(--np-orange); color: var(--paper-card); }
+    body[data-vibe="newpress"] .btn.primary:hover { background: var(--ink-bright); border-color: var(--ink-bright); transform: none; }
+
+    body[data-vibe="newpress"] .presets-title {
+      font-family: 'IM Fell English SC', serif;
+      font-size: 22px;
+      font-weight: 400;
+      letter-spacing: 0.05em;
+      color: var(--ink-soft);
+    }
+    body[data-vibe="newpress"] .presets-title::after { background: var(--np-rule); opacity: 1; height: 1px; }
+    body[data-vibe="newpress"] .preset {
+      background: var(--paper-card);
+      border: 1px solid var(--np-rule);
+      border-radius: 0;
+      box-shadow: none;
+      transform: none !important;
+      padding: 14px 16px;
+    }
+    body[data-vibe="newpress"] .preset:hover {
+      transform: none !important;
+      background: var(--paper-deep);
+      box-shadow: none;
+      border-color: var(--ink-bright);
+    }
+    body[data-vibe="newpress"] .preset .flag {
+      font-size: 28px;
+      filter: grayscale(0.15) contrast(0.95);
+    }
+    body[data-vibe="newpress"] .preset .name {
+      font-family: 'IM Fell English SC', serif;
+      font-size: 18px;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      color: var(--ink-bright);
+    }
+    body[data-vibe="newpress"] .preset .hint {
+      font-family: 'JetBrains Mono', monospace;
+      font-style: normal;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--ink-faint);
+    }
+
+    /* ─── about + footer ─── */
+    body[data-vibe="newpress"] .about {
+      background: transparent;
+      border: 1px solid var(--np-rule);
+      border-left: 3px solid var(--np-orange);
+      border-radius: 0;
+      box-shadow: none;
+      padding: 22px 26px;
+    }
+    body[data-vibe="newpress"] .about h2 {
+      font-family: 'IM Fell English SC', serif;
+      font-size: 22px;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      color: var(--ink-bright);
+    }
+    body[data-vibe="newpress"] .about p {
+      font-family: 'IM Fell DW Pica', Georgia, serif;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--ink-soft);
+    }
+    body[data-vibe="newpress"] .about strong {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-style: normal;
+      font-size: 13.5px;
+      letter-spacing: 0.01em;
+      color: var(--ink-bright);
+    }
+    body[data-vibe="newpress"] .about a { color: var(--np-orange); }
+    body[data-vibe="newpress"] footer {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+    }
+    body[data-vibe="newpress"] footer a { color: var(--np-orange); }
+
+    /* ─── vibe toggle button itself ─── */
+    .vibe-toggle {
+      font-family: var(--ui);
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      background: var(--paper-card);
+      color: var(--ink-bright);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 999px;
+      padding: 7px 14px 7px 8px;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 140ms var(--ease), background 140ms var(--ease), box-shadow 140ms var(--ease);
+    }
+    .vibe-toggle:hover { transform: translate(-1px, -1px) rotate(-1deg); background: var(--yolk); box-shadow: 5px 5px 0 var(--ink-bright); }
+    .vibe-toggle .pip {
+      width: 18px; height: 18px;
+      background: var(--yolk);
+      border: 2px solid var(--ink-bright);
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: background 200ms;
+    }
+    body[data-vibe="newpress"] .vibe-toggle {
+      background: var(--paper-card);
+      color: var(--ink-bright);
+      border: 1px solid var(--ink-bright);
+      border-radius: 999px;
+      box-shadow: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: lowercase;
+      padding: 7px 14px 7px 9px;
+    }
+    body[data-vibe="newpress"] .vibe-toggle:hover { transform: none; background: var(--ink-bright); color: var(--paper-card); box-shadow: none; }
+    body[data-vibe="newpress"] .vibe-toggle .pip {
+      width: 10px; height: 10px;
+      background: var(--np-orange);
+      border: none;
+    }
   </style>
 </head>
 <body>
@@ -336,6 +761,10 @@
   <header class="topbar">
     <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
     <span class="tag">v-dem method</span>
+    <button id="vibe-toggle" class="vibe-toggle" type="button" title="Switch vibes">
+      <span class="pip"></span>
+      <span class="vibe-label">vibe: kids</span>
+    </button>
   </header>
 
   <h1 class="pagetitle">we can have electoins til the cows come home</h1>
@@ -722,6 +1151,21 @@
       applyState(Object.fromEntries(AXES.map(a => [a, 50])));
       nameInput.value = '';
       history.replaceState(null, '', location.pathname);
+    });
+
+    // ───────── Vibe toggle (kids ↔ newpress) ─────────
+    const VIBES = ['kids', 'newpress'];
+    const LABELS = { kids: 'vibe: kids', newpress: 'vibe: newpress' };
+    function applyVibe(v) {
+      document.body.dataset.vibe = v;
+      document.querySelector('.vibe-label').textContent = LABELS[v];
+      try { localStorage.setItem('democracy:vibe', v); } catch {}
+    }
+    const stored = (() => { try { return localStorage.getItem('democracy:vibe'); } catch { return null; } })();
+    applyVibe(stored && VIBES.includes(stored) ? stored : 'kids');
+    document.getElementById('vibe-toggle').addEventListener('click', () => {
+      const cur = document.body.dataset.vibe || 'kids';
+      applyVibe(cur === 'kids' ? 'newpress' : 'kids');
     });
 
     // ───────── Boot ─────────
