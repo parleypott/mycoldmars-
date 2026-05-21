@@ -4,363 +4,517 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Queen Scarlet's School</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Andika:wght@400;700&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* ──────────────────────────────────────────────────────────
+       Queen Scarlet's School — kids mode
+       cream-paper notebook · thick black ink · sticker buttons
+       ────────────────────────────────────────────────────────── */
 
     :root {
-      --paper: #faf6ec;
-      --paper-2: #ffffff;
-      --paper-3: #f3ecd9;
-      --ink: #1c1815;
-      --ink-soft: #4a4338;
-      --ink-faint: #8a8169;
-      --line: #e1d5b8;
-      --line-soft: #ebe2c9;
-      --red: #d42e05;
-      --red-deep: #b32604;
-      --gold: #f0b400;
-      --gold-deep: #cf9800;
-      --serif: 'Iowan Old Style', 'Palatino', Georgia, serif;
-      --sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+      --paper:       #FFF6E0;
+      --paper-deep:  #FCEDC4;
+      --paper-soft:  #FFFAEC;
+      --paper-card:  #FFFFFF;
+      --ink:         #1F1F23;
+      --ink-bright:  #000000;
+      --ink-soft:    #353540;
+      --ink-faint:   #6B6B7A;
+      --ink-ghost:   #D5C9A0;
+
+      --red:         #E84545;
+      --red-deep:    #C32626;
+      --yolk:        #FFD93D;
+      --yolk-deep:   #F0B900;
+      --sky:         #4DB8E8;
+      --sky-deep:    #2596C7;
+      --grass:       #6BCB77;
+      --grass-deep:  #44A856;
+      --bubblegum:   #FF6FAA;
+      --bubblegum-deep: #E04E89;
+      --grape:       #9F7AE0;
+
+      --display: 'Caveat', 'Schoolbell', 'Comic Sans MS', cursive;
+      --serif:   'Andika', 'Schoolbell', Georgia, serif;
+      --ui:      'Fredoka', 'Andika', system-ui, sans-serif;
+
+      --ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-soft: cubic-bezier(0.2, 0.6, 0.2, 1);
     }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
       height: 100%;
       background: var(--paper);
       color: var(--ink);
       font-family: var(--serif);
-      font-size: 18px;
-      line-height: 1.5;
+      font-size: 17px;
+      line-height: 1.55;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
-
     body {
-      background-image:
-        radial-gradient(circle at 12% 8%, rgba(212,46,5,0.04), transparent 30%),
-        radial-gradient(circle at 88% 92%, rgba(240,180,0,0.05), transparent 35%);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      position: relative;
     }
+    /* notebook dot pattern */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.5;
+      background-image: radial-gradient(circle at 12px 12px, rgba(0,0,0,0.06) 1.5px, transparent 1.6px);
+      background-size: 24px 24px;
+    }
+    ::selection { background: var(--yolk); color: var(--ink-bright); }
 
-    /* ──────────── Header ──────────── */
+    button { font-family: var(--ui); cursor: pointer; border: none; background: none; color: inherit; padding: 0; }
+    input, textarea { font-family: inherit; color: inherit; }
 
-    .topbar {
-      padding: 20px 32px 0;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      flex-shrink: 0;
-    }
-    .top-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-    .brand { display: flex; align-items: center; gap: 18px; }
-    .home-link {
-      color: var(--ink-faint);
-      text-decoration: none;
-      font-family: var(--sans);
-      font-size: 13px;
-      letter-spacing: 0.04em;
-      transition: color .15s;
-    }
-    .home-link:hover { color: var(--red); }
-    .brand h1 {
-      font-family: var(--serif);
-      font-size: 32px;
-      font-weight: 700;
-      letter-spacing: -0.01em;
-      color: var(--ink);
-      line-height: 1;
-    }
-
-    .right-tools { display: flex; gap: 10px; align-items: center; }
-    .board-input {
-      background: transparent;
-      border: none;
-      border-bottom: 2px dotted var(--line);
-      color: var(--ink);
-      padding: 4px 6px;
-      font-family: var(--serif);
-      font-size: 17px;
-      font-style: italic;
-      min-width: 220px;
-      outline: none;
-      transition: border-color .15s;
-    }
-    .board-input:focus { border-bottom-color: var(--gold); }
-    .board-input::placeholder { color: var(--ink-faint); }
-
+    /* ──────────────── Sticker buttons ──────────────── */
     .btn {
-      background: var(--paper-2);
-      border: 2px solid var(--ink);
-      color: var(--ink);
-      padding: 9px 16px;
-      font-family: var(--sans);
-      font-size: 14px;
+      font-family: var(--ui);
       font-weight: 600;
-      cursor: pointer;
-      border-radius: 999px;
-      transition: all .15s;
+      font-size: 15px;
       letter-spacing: 0.01em;
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 12px;
+      padding: 8px 14px;
+      background: var(--paper-card);
+      color: var(--ink-bright);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      transition: transform 140ms var(--ease), box-shadow 140ms var(--ease), background 140ms var(--ease);
       display: inline-flex;
       align-items: center;
       gap: 6px;
       white-space: nowrap;
-    }
-    .btn:hover { background: var(--ink); color: var(--paper-2); transform: translateY(-1px); }
-    .btn.primary {
-      background: var(--red);
-      border-color: var(--red);
-      color: white;
-    }
-    .btn.primary:hover { background: var(--red-deep); border-color: var(--red-deep); }
-    .btn.gold {
-      background: var(--gold);
-      border-color: var(--gold-deep);
-      color: var(--ink);
-    }
-    .btn.gold:hover { background: var(--gold-deep); }
-    .btn.ghost {
-      background: transparent;
-      border-color: var(--line);
-      color: var(--ink-soft);
-    }
-    .btn.ghost:hover { background: var(--paper-3); color: var(--ink); }
-    .btn:disabled { opacity: 0.45; cursor: wait; transform: none; }
-    .btn.big {
-      font-size: 17px;
-      padding: 14px 28px;
-      font-weight: 700;
-    }
-
-    /* ──────────── Tabs ──────────── */
-
-    .tabs {
-      display: flex;
-      gap: 4px;
-      padding: 0 32px;
-      border-bottom: 2px solid var(--line);
-      flex-shrink: 0;
-    }
-    .tab {
-      background: transparent;
-      border: none;
-      padding: 14px 22px 16px;
-      font-family: var(--serif);
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--ink-faint);
       cursor: pointer;
-      border-bottom: 4px solid transparent;
-      margin-bottom: -2px;
-      transition: all .15s;
+    }
+    .btn:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink-bright); }
+    .btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink-bright); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: 3px 3px 0 var(--ink-bright); }
+    .btn.primary { background: var(--red); color: var(--ink-bright); font-weight: 700; }
+    .btn.primary:hover { background: var(--yolk); transform: translate(-1px, -1px) rotate(-1deg); }
+    .btn.gold { background: var(--yolk); }
+    .btn.gold:hover { background: var(--yolk-deep); }
+    .btn.sky { background: var(--sky); }
+    .btn.sky:hover { background: var(--sky-deep); color: white; }
+    .btn.grass { background: var(--grass); }
+    .btn.grass:hover { background: var(--grass-deep); color: white; }
+    .btn.ghost { box-shadow: 2px 2px 0 var(--ink-bright); padding: 7px 12px; font-size: 14px; }
+    .btn.ghost:hover { background: var(--yolk); }
+    .btn.big { font-size: 22px; padding: 14px 26px; font-weight: 700; border-radius: 16px; box-shadow: 5px 5px 0 var(--ink-bright); }
+    .btn.big:hover { box-shadow: 7px 7px 0 var(--ink-bright); }
+    .btn.big:active { box-shadow: 2px 2px 0 var(--ink-bright); }
+    .btn .arrow { font-size: 18px; line-height: 1; }
+    .btn .emoji { font-size: 18px; line-height: 1; }
+
+    /* ──────────────── Topbar ──────────────── */
+    .topbar {
       display: flex;
       align-items: center;
-      gap: 10px;
+      padding: 14px 24px;
+      gap: 16px;
+      border-bottom: 3px solid var(--ink-bright);
+      background: var(--paper);
+      position: relative;
+      z-index: 10;
+      flex-shrink: 0;
     }
-    .tab .step-num {
-      background: var(--line);
+    .brand {
+      font-family: var(--display);
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--ink-bright);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      transform: rotate(-2deg);
+      transition: transform 180ms var(--ease);
+    }
+    .brand:hover { transform: rotate(-3deg) scale(1.05); }
+    .brand .blob {
+      display: inline-block;
+      width: 32px; height: 32px;
+      background: var(--yolk);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 50%;
+      position: relative;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      flex-shrink: 0;
+    }
+    .brand .blob::before, .brand .blob::after {
+      content: '';
+      position: absolute;
+      width: 4px; height: 4px;
+      background: var(--ink-bright);
+      border-radius: 50%;
+      top: 10px;
+    }
+    .brand .blob::before { left: 8px; }
+    .brand .blob::after { right: 8px; }
+
+    .topbar-title {
+      flex: 1;
+      text-align: center;
+      font-family: var(--display);
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--ink-bright);
+      line-height: 1;
+      padding: 0 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+
+    .story-name {
+      font-family: var(--display);
+      font-size: 22px;
+      font-weight: 700;
+      background: transparent;
+      border: none;
+      border-bottom: 3px dashed transparent;
+      outline: none;
+      color: var(--ink-bright);
+      padding: 2px 8px;
+      width: 200px;
+      transition: border-color 180ms var(--ease-soft);
+    }
+    .story-name:hover, .story-name:focus { border-bottom-color: var(--ink-bright); }
+    .story-name::placeholder { color: var(--ink-faint); }
+
+    .home-link {
+      font-family: var(--ui);
+      font-size: 14px;
       color: var(--ink-soft);
-      width: 26px; height: 26px;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .home-link:hover { color: var(--red-deep); }
+
+    /* ──────────────── Tabs ──────────────── */
+    .tabs {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 24px 24px 14px;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 5;
+    }
+    .tab {
+      font-family: var(--ui);
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--ink-bright);
+      padding: 10px 18px;
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 999px;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      transition: transform 140ms var(--ease), background 140ms var(--ease), box-shadow 140ms var(--ease);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .tab:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink-bright); }
+    .tab.active { background: var(--yolk); transform: rotate(-1deg); }
+    .tab.active:hover { transform: translate(-1px, -1px) rotate(-1deg); }
+    .tab .step-num {
+      width: 28px; height: 28px;
+      background: var(--paper);
+      border: 2px solid var(--ink-bright);
       border-radius: 50%;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .tab.active .step-num { background: var(--red); color: var(--ink-bright); }
+    .tab .count-pill {
       font-size: 13px;
       font-weight: 700;
-      transition: all .15s;
-    }
-    .tab:hover { color: var(--ink); }
-    .tab.active {
-      color: var(--ink);
-      border-bottom-color: var(--red);
-    }
-    .tab.active .step-num {
-      background: var(--red);
-      color: white;
-    }
-    .tab .count {
-      font-family: var(--sans);
-      font-size: 12px;
-      color: var(--ink-faint);
-      background: var(--paper-3);
-      padding: 1px 8px;
+      background: var(--sky);
+      border: 2px solid var(--ink-bright);
       border-radius: 999px;
+      padding: 1px 9px;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      transform: rotate(3deg);
+      color: var(--ink-bright);
     }
 
-    /* ──────────── Stages ──────────── */
-
+    /* ──────────────── Stages ──────────────── */
     .stage {
       flex: 1;
       overflow-y: auto;
-      padding: 32px;
+      padding: 8px 24px 80px;
       display: none;
+      position: relative;
+      z-index: 1;
     }
     .stage.active { display: block; }
 
-    /* ──────────── STAGE 1 — Paste ──────────── */
-
+    /* ──────────────── STAGE 1 — Paste ──────────────── */
     .paste-wrap {
-      max-width: 920px;
+      max-width: 980px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
       gap: 24px;
     }
-    .paste-hello {
-      display: flex;
-      align-items: flex-start;
-      gap: 16px;
-      padding: 18px 22px;
-      background: var(--paper-2);
-      border: 2px solid var(--line);
-      border-radius: 14px;
-    }
-    .paste-hello .emoji { font-size: 32px; line-height: 1; }
-    .paste-hello .copy { font-family: var(--serif); font-size: 17px; line-height: 1.5; color: var(--ink-soft); }
-    .paste-hello .copy strong { color: var(--ink); }
 
+    .hello-card {
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 18px;
+      box-shadow: 5px 5px 0 var(--ink-bright);
+      padding: 22px 26px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      transform: rotate(-0.4deg);
+    }
+    .hello-card .mascot {
+      width: 56px; height: 56px;
+      background: var(--yolk);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 50%;
+      position: relative;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      flex-shrink: 0;
+      transform: rotate(-6deg);
+    }
+    .hello-card .mascot::before, .hello-card .mascot::after {
+      content: '';
+      position: absolute;
+      width: 6px; height: 6px;
+      background: var(--ink-bright);
+      border-radius: 50%;
+      top: 18px;
+    }
+    .hello-card .mascot::before { left: 14px; }
+    .hello-card .mascot::after { right: 14px; }
+    .hello-card .mascot .mouth {
+      position: absolute;
+      bottom: 14px; left: 50%;
+      width: 14px; height: 7px;
+      transform: translateX(-50%);
+      border: 2.5px solid var(--ink-bright);
+      border-top: none;
+      border-radius: 0 0 14px 14px;
+    }
+    .hello-card .copy { font-family: var(--serif); font-size: 17px; line-height: 1.55; }
+    .hello-card .copy h2 {
+      font-family: var(--display);
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .hello-card .copy strong { font-weight: 700; }
+
+    /* Bible card */
     .bible-card {
-      background: var(--paper-2);
-      border: 2px solid var(--line);
-      border-radius: 14px;
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 16px;
+      box-shadow: 4px 4px 0 var(--ink-bright);
       overflow: hidden;
+      transform: rotate(0.3deg);
     }
     .bible-head {
       width: 100%;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       padding: 14px 20px;
       background: transparent;
       border: none;
-      color: var(--ink);
-      font-family: var(--serif);
-      font-size: 17px;
-      font-weight: 600;
+      color: var(--ink-bright);
+      font-family: var(--ui);
+      font-size: 16px;
+      font-weight: 700;
       cursor: pointer;
       text-align: left;
-      transition: background .15s;
     }
-    .bible-head:hover { background: var(--paper-3); }
+    .bible-head .icon {
+      width: 30px; height: 30px;
+      background: var(--grape);
+      border: 2px solid var(--ink-bright);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      font-family: var(--ui);
+      font-weight: 800;
+      font-size: 16px;
+      color: white;
+      transform: rotate(-4deg);
+    }
     .bible-head .chev {
-      color: var(--gold-deep);
+      color: var(--ink-faint);
       display: inline-block;
       transition: transform .18s;
       font-size: 14px;
-      width: 14px;
     }
     .bible-card.open .bible-head .chev { transform: rotate(90deg); }
     .bible-head .right {
       margin-left: auto;
-      font-family: var(--sans);
-      font-size: 12px;
+      font-family: var(--ui);
+      font-size: 13px;
       color: var(--ink-faint);
-      font-weight: 400;
+      font-weight: 600;
     }
-    .bible-body { display: none; padding: 0 20px 18px; }
+    .bible-card.open .bible-head .right { color: var(--grass-deep); }
+    .bible-card.open .bible-head .right .canon-pill {
+      background: var(--grass);
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      padding: 1px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--ink-bright);
+      letter-spacing: 0.08em;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      transform: rotate(-2deg);
+      display: inline-block;
+      margin-left: 6px;
+    }
+    .bible-body { display: none; padding: 4px 20px 18px; }
     .bible-card.open .bible-body { display: block; }
     .bible-body textarea {
       width: 100%;
-      background: var(--paper);
-      border: 2px solid var(--line);
-      border-radius: 8px;
-      padding: 12px 14px;
+      background: var(--paper-soft);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 12px;
+      padding: 14px 16px;
       font-family: var(--serif);
       font-size: 15px;
       line-height: 1.55;
       color: var(--ink);
-      min-height: 120px;
+      min-height: 130px;
       max-height: 320px;
       resize: vertical;
       outline: none;
-      transition: border-color .15s;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      transition: box-shadow .18s var(--ease), transform .18s var(--ease);
     }
-    .bible-body textarea:focus { border-color: var(--gold); }
-    .bible-hint { margin-top: 8px; font-size: 13px; color: var(--ink-faint); font-style: italic; }
+    .bible-body textarea:focus { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink-bright); }
+    .bible-hint {
+      margin-top: 10px;
+      font-family: var(--ui);
+      font-size: 13px;
+      color: var(--ink-faint);
+      font-weight: 500;
+    }
 
+    /* Big paste box */
     .paste-box {
-      background: var(--paper-2);
-      border: 2px solid var(--ink);
-      border-radius: 14px;
+      background: var(--paper-card);
+      border: 3px solid var(--ink-bright);
+      border-radius: 18px;
       padding: 4px;
-      box-shadow: 4px 4px 0 var(--gold);
-      transition: box-shadow .15s;
+      box-shadow: 6px 6px 0 var(--yolk), 6px 6px 0 3px var(--ink-bright);
+      transition: box-shadow .15s var(--ease), transform .15s var(--ease);
     }
-    .paste-box:focus-within { box-shadow: 4px 4px 0 var(--red); }
+    .paste-box:focus-within {
+      box-shadow: 8px 8px 0 var(--red), 8px 8px 0 3px var(--ink-bright);
+      transform: translate(-2px, -2px);
+    }
     .paste-box textarea {
       width: 100%;
       background: transparent;
       border: none;
-      padding: 20px 22px;
+      padding: 22px 24px;
       font-family: var(--serif);
       font-size: 18px;
-      line-height: 1.6;
+      line-height: 1.65;
       color: var(--ink);
       min-height: 280px;
       max-height: 60vh;
       resize: vertical;
       outline: none;
     }
-    .paste-box textarea::placeholder { color: var(--ink-faint); font-style: italic; }
+    .paste-box textarea::placeholder { color: var(--ink-faint); }
 
     .paste-actions {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 12px;
+      gap: 16px;
       flex-wrap: wrap;
     }
     .paste-actions .hint {
-      font-family: var(--serif);
-      font-style: italic;
-      color: var(--ink-faint);
-      font-size: 15px;
+      font-family: var(--display);
+      font-size: 20px;
+      color: var(--ink-soft);
+    }
+    .paste-actions .hint kbd {
+      font-family: var(--ui);
+      font-weight: 700;
+      font-size: 12px;
+      background: var(--paper-card);
+      border: 2px solid var(--ink-bright);
+      border-radius: 6px;
+      padding: 2px 6px;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      vertical-align: middle;
     }
 
     .processing {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 12px;
+      gap: 14px;
       padding: 40px;
+      font-family: var(--display);
+      font-size: 28px;
       color: var(--ink-soft);
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 18px;
     }
     .processing .dot {
-      width: 12px; height: 12px;
+      width: 14px; height: 14px;
       background: var(--red);
+      border: 2.5px solid var(--ink-bright);
       border-radius: 50%;
+      box-shadow: 2px 2px 0 var(--ink-bright);
       animation: bounce 0.9s ease-in-out infinite;
     }
-    .processing .dot:nth-child(2) { animation-delay: 0.15s; background: var(--gold); }
-    .processing .dot:nth-child(3) { animation-delay: 0.3s; background: var(--ink); }
+    .processing .dot:nth-child(2) { animation-delay: 0.15s; background: var(--yolk); }
+    .processing .dot:nth-child(3) { animation-delay: 0.3s; background: var(--sky); }
     @keyframes bounce {
-      0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
-      40% { transform: scale(1); opacity: 1; }
+      0%, 80%, 100% { transform: scale(0.6) translateY(0); opacity: 0.5; }
+      40% { transform: scale(1) translateY(-8px); opacity: 1; }
     }
 
+    /* Results header */
     .results-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-end;
       gap: 16px;
-      padding-top: 18px;
-      margin-top: 8px;
-      border-top: 2px dashed var(--line);
+      padding-top: 22px;
+      margin-top: 10px;
+      border-top: 3px dashed var(--ink-bright);
     }
     .results-header h2 {
-      font-family: var(--serif);
-      font-size: 24px;
+      font-family: var(--display);
+      font-size: 40px;
       font-weight: 700;
+      line-height: 1;
+      transform: rotate(-1deg);
     }
     .results-header .reply {
       font-family: var(--serif);
@@ -372,66 +526,89 @@
       line-height: 1.5;
     }
 
-    .suggestions { display: flex; flex-direction: column; gap: 14px; }
+    /* Suggestion cards */
+    .suggestions { display: flex; flex-direction: column; gap: 26px; padding-top: 12px; }
     .sugg-card {
-      background: var(--paper-2);
-      border: 2px solid var(--line);
-      border-radius: 14px;
-      padding: 18px 22px;
-      display: grid;
-      grid-template-columns: 64px 1fr auto;
-      gap: 16px;
-      align-items: start;
-      transition: all .15s;
+      position: relative;
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 18px;
+      box-shadow: 5px 5px 0 var(--ink-bright);
+      padding: 22px 26px 22px 60px;
+      transition: transform .18s var(--ease), box-shadow .18s var(--ease);
+      margin-left: 28px;
     }
-    .sugg-card:hover { border-color: var(--ink); transform: translateY(-1px); }
-    .sugg-card.added {
-      background: var(--paper-3);
-      opacity: 0.7;
-      border-style: dashed;
-    }
+    .sugg-card:nth-child(3n+1) { transform: rotate(-0.4deg); }
+    .sugg-card:nth-child(3n+2) { transform: rotate(0.5deg); }
+    .sugg-card:nth-child(3n+3) { transform: rotate(-0.2deg); }
+    .sugg-card:hover { transform: translate(-1px, -2px) rotate(0deg); box-shadow: 7px 7px 0 var(--ink-bright); }
+
     .sugg-num {
-      font-family: var(--serif);
-      font-size: 36px;
+      position: absolute;
+      left: -28px; top: -20px;
+      width: 56px; height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 50%;
+      font-family: var(--display);
+      font-size: 28px;
       font-weight: 700;
-      line-height: 1;
-      color: var(--red);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      transform: rotate(-6deg);
+      color: var(--ink-bright);
+      z-index: 2;
     }
-    .sugg-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-    .sugg-line { display: flex; flex-direction: column; gap: 2px; }
+    .sugg-card:nth-child(4n+1) .sugg-num { background: var(--sky); }
+    .sugg-card:nth-child(4n+2) .sugg-num { background: var(--bubblegum); }
+    .sugg-card:nth-child(4n+3) .sugg-num { background: var(--grass); }
+    .sugg-card:nth-child(4n+4) .sugg-num { background: var(--yolk); }
+
+    .sugg-body { display: flex; flex-direction: column; gap: 12px; }
+    .sugg-line { display: flex; flex-direction: column; gap: 4px; }
     .sugg-label {
-      font-family: var(--sans);
+      font-family: var(--ui);
       font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
+      font-weight: 800;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: var(--gold-deep);
+      color: var(--ink-soft);
     }
     .sugg-text {
       font-family: var(--serif);
-      font-size: 16px;
-      line-height: 1.45;
+      font-size: 17px;
+      line-height: 1.5;
       color: var(--ink);
     }
     .sugg-rationale {
-      font-family: var(--serif);
-      font-style: italic;
-      color: var(--ink-faint);
-      font-size: 14px;
+      font-family: var(--display);
+      color: var(--ink-soft);
+      font-size: 19px;
       padding-top: 4px;
+      line-height: 1.25;
     }
-    .sugg-actions { display: flex; flex-direction: column; gap: 8px; }
-    .sugg-actions .btn { padding: 8px 14px; font-size: 13px; }
+    .sugg-actions { display: flex; gap: 10px; flex-wrap: wrap; padding-top: 6px; }
+
     .added-tag {
       display: none;
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
+      font-family: var(--ui);
+      font-size: 12px;
+      font-weight: 800;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: var(--gold-deep);
+      color: var(--grass-deep);
+      background: var(--grass);
+      padding: 4px 10px;
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      transform: rotate(-3deg);
+      width: max-content;
+      color: var(--ink-bright);
     }
-    .sugg-card.added .added-tag { display: block; }
+    .sugg-card.added { opacity: 0.65; }
+    .sugg-card.added .added-tag { display: inline-flex; }
     .sugg-card.added .sugg-actions .btn:not(.show-added) { display: none; }
 
     .next-step {
@@ -439,108 +616,152 @@
       bottom: 16px;
       display: flex;
       justify-content: center;
-      margin-top: 20px;
+      margin-top: 24px;
+      z-index: 6;
     }
-    .next-step .btn { box-shadow: 0 8px 24px rgba(212,46,5,0.3); }
 
-    /* ──────────── STAGE 2 — Storyboard ──────────── */
-
+    /* ──────────────── STAGE 2 — Storyboard ──────────────── */
     .board-wrap {
       max-width: 1100px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 22px;
     }
     .board-empty {
       text-align: center;
-      padding: 80px 40px;
-      color: var(--ink-faint);
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 18px;
-      background: var(--paper-2);
-      border: 2px dashed var(--line);
-      border-radius: 14px;
+      padding: 60px 40px;
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 18px;
+      box-shadow: 5px 5px 0 var(--ink-bright);
+      transform: rotate(-0.4deg);
     }
-    .board-empty .emoji { font-size: 48px; display: block; margin-bottom: 14px; }
-    .board-empty .btn { margin-top: 18px; font-style: normal; }
+    .board-empty .big-mascot {
+      width: 80px; height: 80px;
+      background: var(--bubblegum);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      position: relative;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      transform: rotate(-8deg);
+    }
+    .board-empty .big-mascot::before, .board-empty .big-mascot::after {
+      content: '';
+      position: absolute;
+      width: 8px; height: 8px;
+      background: var(--ink-bright);
+      border-radius: 50%;
+      top: 28px;
+    }
+    .board-empty .big-mascot::before { left: 22px; }
+    .board-empty .big-mascot::after { right: 22px; }
+    .board-empty h2 {
+      font-family: var(--display);
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1.15;
+      margin-bottom: 6px;
+    }
+    .board-empty p {
+      font-family: var(--serif);
+      font-size: 16px;
+      color: var(--ink-soft);
+      margin-bottom: 18px;
+    }
 
-    .board-grid { display: flex; flex-direction: column; gap: 20px; }
+    .board-grid { display: flex; flex-direction: column; gap: 28px; }
 
     .scene-card {
-      background: var(--paper-2);
-      border: 2px solid var(--line);
-      border-radius: 16px;
+      position: relative;
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 20px;
+      box-shadow: 5px 5px 0 var(--ink-bright);
       padding: 0;
       overflow: hidden;
       display: grid;
-      grid-template-columns: 64px 1fr 320px;
-      transition: all .15s;
+      grid-template-columns: 1fr 360px;
+      transition: transform .22s var(--ease), box-shadow .22s var(--ease);
+      margin-left: 28px;
+      margin-top: 18px;
     }
-    .scene-card:hover { border-color: var(--ink); }
-    .scene-card.has-image .scene-image-zone { background: transparent; }
+    .scene-card:nth-child(odd) { transform: rotate(-0.3deg); }
+    .scene-card:nth-child(even) { transform: rotate(0.3deg); }
+    .scene-card:hover { transform: translate(-1px, -2px); box-shadow: 7px 7px 0 var(--ink-bright); }
 
-    .scene-card .num-rail {
-      background: var(--paper-3);
-      padding: 16px 12px;
+    .scene-card .scene-num {
+      position: absolute;
+      left: -28px; top: -20px;
+      width: 62px; height: 62px;
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-      border-right: 2px solid var(--line);
-    }
-    .scene-card .num-rail .n {
-      font-family: var(--serif);
-      font-size: 32px;
-      font-weight: 700;
-      color: var(--red);
-      line-height: 1;
-    }
-    .scene-card .num-rail .nm {
-      font-family: var(--sans);
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--ink-faint);
-    }
-    .num-rail .reorder { display: flex; flex-direction: column; gap: 2px; margin-top: auto; }
-    .num-rail .reorder button {
-      background: transparent;
-      border: 1px solid var(--line);
-      color: var(--ink-faint);
-      width: 24px; height: 22px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      line-height: 1;
-      display: inline-flex;
       align-items: center;
       justify-content: center;
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 50%;
+      font-family: var(--display);
+      font-size: 32px;
+      font-weight: 700;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      transform: rotate(-6deg);
+      color: var(--ink-bright);
+      z-index: 3;
     }
-    .num-rail .reorder button:hover { background: var(--ink); color: var(--paper-2); border-color: var(--ink); }
+    .scene-card:nth-child(4n+1) .scene-num { background: var(--sky); }
+    .scene-card:nth-child(4n+2) .scene-num { background: var(--bubblegum); }
+    .scene-card:nth-child(4n+3) .scene-num { background: var(--grass); }
+    .scene-card:nth-child(4n+4) .scene-num { background: var(--yolk); }
 
-    .scene-card .script-zone {
-      padding: 18px 22px;
+    .scene-toolbar {
+      position: absolute;
+      top: -16px;
+      right: 18px;
+      display: flex;
+      gap: 6px;
+      opacity: 0;
+      transition: opacity .18s var(--ease-soft);
+      z-index: 4;
+    }
+    .scene-card:hover .scene-toolbar { opacity: 1; }
+    .scene-toolbar .cb-btn {
+      font-family: var(--ui);
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--ink-bright);
+      padding: 4px 10px;
+      background: var(--paper-card);
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer;
+      transition: transform 140ms var(--ease), background 140ms var(--ease);
+    }
+    .scene-toolbar .cb-btn:hover { background: var(--yolk); transform: translateY(-1px); }
+    .scene-toolbar .cb-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .scene-toolbar .cb-btn.danger:hover { background: var(--red); color: var(--ink-bright); }
+
+    .scene-script {
+      padding: 28px 30px 22px 50px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 16px;
+      min-width: 0;
     }
     .field-block { display: flex; flex-direction: column; gap: 4px; }
     .field-block label {
-      font-family: var(--sans);
+      font-family: var(--ui);
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: var(--gold-deep);
+      color: var(--ink-soft);
     }
     .field-block textarea {
       width: 100%;
       background: transparent;
       border: none;
-      border-bottom: 1px dashed var(--line);
+      border-bottom: 2px dashed var(--ink-ghost);
       padding: 4px 0 6px;
       font-family: var(--serif);
       font-size: 17px;
@@ -551,42 +772,42 @@
       min-height: 28px;
       transition: border-color .15s;
     }
-    .field-block textarea:focus { border-bottom-color: var(--gold); }
-    .field-block textarea::placeholder { color: var(--ink-faint); font-style: italic; }
+    .field-block textarea:focus { border-bottom-color: var(--yolk-deep); }
+    .field-block textarea::placeholder { color: var(--ink-faint); }
 
     .scene-image-zone {
-      background: var(--paper-3);
-      border-left: 2px solid var(--line);
-      padding: 16px;
+      background: var(--paper-soft);
+      border-left: 2.5px solid var(--ink-bright);
+      padding: 22px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      align-items: stretch;
+      gap: 12px;
     }
     .scene-thumb {
       width: 100%;
       aspect-ratio: 16 / 9;
-      background: var(--paper);
-      border: 2px dashed var(--line);
-      border-radius: 8px;
+      background: var(--paper-deep);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 12px;
+      box-shadow: 3px 3px 0 var(--ink-bright);
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
       position: relative;
-      color: var(--ink-faint);
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 14px;
+      color: var(--ink-soft);
+      font-family: var(--display);
+      font-size: 20px;
       text-align: center;
-      padding: 10px;
+      padding: 12px;
+      transform: rotate(-1deg);
     }
     .scene-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .scene-thumb.loading { background: var(--paper-3); }
+    .scene-thumb.loading { background: var(--yolk); }
     .scene-thumb.loading::after {
       content: '';
       position: absolute; inset: 0;
-      background: linear-gradient(90deg, transparent, rgba(240,180,0,0.25), transparent);
+      background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%);
       animation: shimmer 1.4s linear infinite;
     }
     @keyframes shimmer {
@@ -594,46 +815,38 @@
       to { transform: translateX(100%); }
     }
     .scene-thumb .err {
-      color: var(--red);
+      font-family: var(--serif);
       font-size: 13px;
-      padding: 8px;
+      color: var(--red-deep);
+      line-height: 1.4;
     }
 
-    .scene-image-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-    .scene-image-actions .btn { font-size: 12px; padding: 7px 12px; }
+    .scene-image-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .scene-image-actions .btn { font-size: 13px; padding: 7px 12px; }
 
+    /* Add-scene CTA */
     .add-scene-btn {
       background: var(--paper);
-      border: 2px dashed var(--line);
-      color: var(--ink-faint);
-      padding: 20px;
-      font-family: var(--serif);
-      font-size: 18px;
-      font-weight: 600;
+      border: 3px dashed var(--ink-bright);
+      color: var(--ink-soft);
+      padding: 22px;
+      font-family: var(--display);
+      font-size: 26px;
+      font-weight: 700;
       cursor: pointer;
-      border-radius: 14px;
-      transition: all .15s;
+      border-radius: 18px;
+      transition: all .15s var(--ease);
+      margin-top: 8px;
     }
-    .add-scene-btn:hover { border-color: var(--ink); color: var(--ink); border-style: solid; background: var(--paper-2); }
-
-    .delete-scene {
-      background: transparent;
-      border: 1px solid var(--line);
-      color: var(--ink-faint);
-      width: 24px; height: 24px;
-      border-radius: 50%;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      line-height: 1;
-      padding: 0;
+    .add-scene-btn:hover {
+      border-style: solid;
+      background: var(--yolk);
+      color: var(--ink-bright);
+      transform: translate(-1px, -1px) rotate(-0.5deg);
+      box-shadow: 4px 4px 0 var(--ink-bright);
     }
-    .delete-scene:hover { background: var(--red); color: white; border-color: var(--red); }
 
-    /* ──────────── Gate ──────────── */
-
+    /* ──────────────── Gate ──────────────── */
     .gate {
       position: fixed; inset: 0;
       background: var(--paper);
@@ -651,65 +864,90 @@
       gap: 18px;
       align-items: stretch;
       padding: 40px;
-      background: var(--paper-2);
-      border: 2px solid var(--ink);
-      border-radius: 18px;
-      box-shadow: 6px 6px 0 var(--gold);
+      background: var(--paper-card);
+      border: 3px solid var(--ink-bright);
+      border-radius: 22px;
+      box-shadow: 8px 8px 0 var(--yolk), 8px 8px 0 3px var(--ink-bright);
+      transform: rotate(-1deg);
     }
+    .gate .mascot {
+      width: 64px; height: 64px;
+      background: var(--yolk);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 50%;
+      margin: 0 auto;
+      position: relative;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      transform: rotate(-8deg);
+    }
+    .gate .mascot::before, .gate .mascot::after {
+      content: '';
+      position: absolute;
+      width: 6px; height: 6px;
+      background: var(--ink-bright);
+      border-radius: 50%;
+      top: 22px;
+    }
+    .gate .mascot::before { left: 18px; }
+    .gate .mascot::after { right: 18px; }
     .gate h1 {
-      font-family: var(--serif);
-      font-size: 28px;
+      font-family: var(--display);
+      font-size: 36px;
       font-weight: 700;
       text-align: center;
-      line-height: 1.1;
-    }
-    .gate .sub {
-      font-family: var(--sans);
-      font-size: 12px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      text-align: center;
-      color: var(--ink-faint);
+      line-height: 1;
     }
     .gate input {
       width: 100%;
-      background: var(--paper);
-      border: 2px solid var(--line);
+      background: var(--paper-soft);
+      border: 2.5px solid var(--ink-bright);
       color: var(--ink);
-      font-family: var(--serif);
+      font-family: var(--ui);
       font-size: 16px;
-      padding: 12px 14px;
+      padding: 12px 16px;
       outline: none;
-      border-radius: 999px;
+      border-radius: 12px;
       text-align: center;
+      box-shadow: 2px 2px 0 var(--ink-bright);
     }
-    .gate input:focus { border-color: var(--gold); }
-    .gate-error { color: var(--red); font-size: 14px; text-align: center; display: none; }
+    .gate input:focus { box-shadow: 3px 3px 0 var(--ink-bright); transform: translate(-1px, -1px); }
+    .gate-error { color: var(--red-deep); font-family: var(--display); font-size: 18px; text-align: center; display: none; }
     .gate-error.show { display: block; }
 
     .app.hidden { display: none; }
     .app { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
-    /* ──────────── Scrollbars ──────────── */
-    *::-webkit-scrollbar { width: 10px; height: 10px; }
+    /* ──────────────── Scrollbars ──────────────── */
+    *::-webkit-scrollbar { width: 14px; height: 14px; }
     *::-webkit-scrollbar-track { background: transparent; }
-    *::-webkit-scrollbar-thumb { background: var(--line); border-radius: 999px; }
-    *::-webkit-scrollbar-thumb:hover { background: var(--gold-deep); }
-
-    /* ──────────── Responsive ──────────── */
-    @media (max-width: 900px) {
-      .scene-card { grid-template-columns: 52px 1fr; }
-      .scene-image-zone { grid-column: 1 / -1; border-left: none; border-top: 2px solid var(--line); }
-      .brand h1 { font-size: 24px; }
-      body { font-size: 16px; }
-      .stage { padding: 20px 16px; }
-      .topbar { padding: 14px 16px 0; }
-      .tabs { padding: 0 16px; }
+    *::-webkit-scrollbar-thumb {
+      background: var(--ink-bright);
+      border-radius: 999px;
+      border: 3px solid var(--paper);
     }
-    @media (max-width: 600px) {
-      .top-row { flex-direction: column; align-items: flex-start; }
-      .right-tools { width: 100%; }
-      .board-input { flex: 1; min-width: 0; }
+
+    /* ──────────────── Responsive ──────────────── */
+    @media (max-width: 900px) {
+      .scene-card { grid-template-columns: 1fr; }
+      .scene-image-zone { border-left: none; border-top: 2.5px solid var(--ink-bright); }
+      .topbar-title { font-size: 22px; }
+      .tabs { padding: 16px 16px 10px; flex-wrap: wrap; gap: 10px; }
+      .tab { font-size: 14px; padding: 8px 14px; }
+      .stage { padding: 8px 16px 60px; }
+      .hello-card { flex-direction: column; align-items: flex-start; }
+      .results-header { flex-direction: column; align-items: flex-start; }
+      .results-header .reply { text-align: left; max-width: 100%; }
+    }
+    @media (max-width: 700px) {
+      .brand { font-size: 22px; }
+      .brand .blob { width: 26px; height: 26px; }
+      .brand .blob::before, .brand .blob::after { top: 8px; }
+      .brand .blob::before { left: 6px; }
+      .brand .blob::after { right: 6px; }
+      .topbar-title { display: none; }
+      .story-name { width: 130px; font-size: 18px; }
+      .paste-box textarea { font-size: 16px; min-height: 220px; }
+      .btn.big { font-size: 18px; padding: 12px 20px; }
     }
   </style>
 </head>
@@ -717,27 +955,23 @@
 
   <div id="gate" class="gate">
     <div class="gate-inner">
-      <div class="sub">mycoldmars</div>
+      <div class="mascot"></div>
       <h1>Queen Scarlet's<br>School</h1>
       <input id="gate-code" type="password" placeholder="password" autocomplete="off" />
-      <button id="gate-submit" class="btn primary big">Enter</button>
-      <div id="gate-error" class="gate-error">try again</div>
+      <button id="gate-submit" class="btn primary big">Let me in!</button>
+      <div id="gate-error" class="gate-error">try again!</div>
     </div>
   </div>
 
   <div id="app" class="app hidden">
 
     <header class="topbar">
-      <div class="top-row">
-        <div class="brand">
-          <a class="home-link" href="/">← mycoldmars</a>
-          <h1>Queen Scarlet's School</h1>
-        </div>
-        <div class="right-tools">
-          <input id="board-name" class="board-input" type="text" placeholder="untitled story" autocomplete="off" />
-          <button id="btn-new" class="btn ghost" title="Start a new story">+ New</button>
-          <button id="btn-export" class="btn ghost" title="Download as JSON">Export</button>
-        </div>
+      <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
+      <h1 class="topbar-title">Queen Scarlet's School</h1>
+      <div class="topbar-right">
+        <input id="board-name" class="story-name" type="text" placeholder="my story" autocomplete="off" />
+        <button id="btn-new" class="btn ghost" title="Start a new story">+ new</button>
+        <button id="btn-export" class="btn ghost" title="Download as JSON">save</button>
       </div>
     </header>
 
@@ -749,7 +983,7 @@
       <button class="tab" data-stage="board" role="tab">
         <span class="step-num">2</span>
         <span>Storyboard</span>
-        <span class="count" id="scene-count">0</span>
+        <span class="count-pill" id="scene-count">0</span>
       </button>
     </nav>
 
@@ -757,22 +991,24 @@
     <section class="stage active" id="stage-paste">
       <div class="paste-wrap">
 
-        <div class="paste-hello">
-          <div class="emoji">📖</div>
+        <div class="hello-card">
+          <div class="mascot"><span class="mouth"></span></div>
           <div class="copy">
-            <strong>Drop your story here.</strong> Paste a chapter, a script, or research notes — any kind of writing. I'll break it into scenes you can drag straight into the storyboard.
+            <h2>Hi! Drop your story here.</h2>
+            <p><strong>Paste a chapter, a script, or some research</strong> — anything with characters and action. I'll break it into <strong>scenes</strong> you can drag straight into the storyboard.</p>
           </div>
         </div>
 
         <div class="bible-card" id="bible-card">
           <button class="bible-head" id="bible-toggle" type="button">
+            <span class="icon">!</span>
+            <span>Story Rules <span style="color: var(--ink-faint); font-weight: 500;">— optional</span></span>
             <span class="chev">▸</span>
-            <span>Story World <span style="color: var(--ink-faint); font-weight: 400;">— optional</span></span>
             <span class="right" id="bible-meta">add later</span>
           </button>
           <div class="bible-body">
-            <textarea id="bible" placeholder="Who are the characters? What's the world like? Any running jokes? Paste it here once and I'll remember it for every scene."></textarea>
-            <div class="bible-hint">i'll use this every time you paste a story — like a cheat sheet.</div>
+            <textarea id="bible" placeholder="Who are the characters? What's the world like? Any running jokes? Paste it here once — I'll remember it forever."></textarea>
+            <div class="bible-hint">i'll use this every time you paste a story. like a cheat sheet for our world.</div>
           </div>
         </div>
 
@@ -781,8 +1017,8 @@
         </div>
 
         <div class="paste-actions">
-          <button id="btn-process" class="btn primary big">✨ Turn into scenes</button>
-          <span class="hint">or press <strong>⌘↵</strong></span>
+          <button id="btn-process" class="btn primary big">Make scenes<span class="arrow">→</span></button>
+          <span class="hint">or press <kbd>⌘↵</kbd></span>
         </div>
 
         <div id="processing" class="processing" style="display:none;">
@@ -792,12 +1028,12 @@
 
         <div id="results-wrap" style="display:none;">
           <div class="results-header">
-            <h2 id="results-title">Scene ideas</h2>
+            <h2>Scene ideas</h2>
             <div class="reply" id="results-reply"></div>
           </div>
           <div id="suggestions" class="suggestions"></div>
           <div class="next-step">
-            <button class="btn gold big" id="btn-goto-board">Go to storyboard →</button>
+            <button class="btn primary big" id="btn-goto-board">Go to storyboard<span class="arrow">→</span></button>
           </div>
         </div>
 
@@ -809,11 +1045,10 @@
       <div class="board-wrap">
 
         <div id="board-empty" class="board-empty">
-          <span class="emoji">🎬</span>
-          No scenes yet.<br>
-          Paste a story first — or add a blank scene.
-          <br>
-          <button id="board-empty-add" class="btn primary">+ Add blank scene</button>
+          <div class="big-mascot"></div>
+          <h2>No scenes yet!</h2>
+          <p>Paste a story first, or add a blank scene to begin.</p>
+          <button id="board-empty-add" class="btn primary big">+ Add a scene</button>
         </div>
 
         <div id="board-grid" class="board-grid" style="display:none;"></div>
@@ -826,7 +1061,7 @@
   </div><!-- /app -->
 
   <script>
-    // ──────── Gate ────────
+    // ─────── Cosmetic access gate ───────
     (function() {
       const COOKIE = 'qss_access';
       const PASS = 'newpress';
@@ -857,8 +1092,6 @@
   </script>
 
   <script type="module">
-    // ──────── State ────────
-
     const LS_LAST = 'qss:last';
     const LS_KEY = name => `qss:board:${name}`;
     const LS_LIST = 'qss:boards';
@@ -867,56 +1100,38 @@
       name: '',
       bible: '',
       bibleOpen: false,
-      scenes: [],            // { id, visual, audio, image, imageLoading, imageError }
-      suggestions: [],       // last generated batch from paste step
+      scenes: [],
+      suggestions: [],
       lastReply: '',
-      stage: 'paste',        // 'paste' | 'board'
+      stage: 'paste',
       processing: false,
     };
 
     const uid = () => Math.random().toString(36).slice(2, 10);
 
-    // ──────── Persistence ────────
-
-    function loadList() {
-      try { return JSON.parse(localStorage.getItem(LS_LIST) || '[]'); }
-      catch { return []; }
-    }
+    function loadList() { try { return JSON.parse(localStorage.getItem(LS_LIST) || '[]'); } catch { return []; } }
     function saveList(l) { localStorage.setItem(LS_LIST, JSON.stringify(l)); }
 
     function persist() {
       if (!state.name) return;
       const stripped = state.scenes.map(s => ({
-        id: s.id, visual: s.visual, audio: s.audio,
-        image: s.image || null,
+        id: s.id, visual: s.visual, audio: s.audio, image: s.image || null,
       }));
       try {
         localStorage.setItem(LS_KEY(state.name), JSON.stringify({
-          name: state.name,
-          bible: state.bible,
-          scenes: stripped,
-          suggestions: state.suggestions,
-          lastReply: state.lastReply,
-          updatedAt: Date.now(),
+          name: state.name, bible: state.bible, scenes: stripped,
+          suggestions: state.suggestions, lastReply: state.lastReply, updatedAt: Date.now(),
         }));
         const l = loadList();
         if (!l.includes(state.name)) { l.push(state.name); saveList(l); }
         localStorage.setItem(LS_LAST, state.name);
       } catch (e) {
         if (e.name === 'QuotaExceededError') {
-          // Drop oldest scene images
-          for (const s of state.scenes) {
-            if (s.image) { s.image = null; break; }
-          }
+          for (const s of state.scenes) { if (s.image) { s.image = null; break; } }
         }
       }
     }
-    function loadBoard(name) {
-      try { return JSON.parse(localStorage.getItem(LS_KEY(name)) || 'null'); }
-      catch { return null; }
-    }
-
-    // ──────── Setup ────────
+    function loadBoard(name) { try { return JSON.parse(localStorage.getItem(LS_KEY(name)) || 'null'); } catch { return null; } }
 
     function bootBoard(name, data) {
       state.name = name;
@@ -935,7 +1150,7 @@
 
     function newStory(askName) {
       const def = `story-${Date.now().toString(36)}`;
-      const name = askName ? (window.prompt('What\'s the name of this story?', def) || def) : def;
+      const name = askName ? (window.prompt('Story name?', def) || def) : def;
       state.name = name;
       state.bible = '';
       state.scenes = [];
@@ -960,19 +1175,11 @@
       newStory(false);
     }
 
-    // ──────── Tabs ────────
-
     function setStage(s) {
       state.stage = s;
-      document.querySelectorAll('.tab').forEach(t => {
-        t.classList.toggle('active', t.dataset.stage === s);
-      });
-      document.querySelectorAll('.stage').forEach(el => {
-        el.classList.toggle('active', el.id === `stage-${s}`);
-      });
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.stage === s));
+      document.querySelectorAll('.stage').forEach(el => el.classList.toggle('active', el.id === `stage-${s}`));
     }
-
-    // ──────── Bible ────────
 
     function toggleBible(open) {
       state.bibleOpen = open == null ? !state.bibleOpen : !!open;
@@ -981,25 +1188,19 @@
     function updateBibleMeta() {
       const n = (state.bible || '').length;
       const m = document.getElementById('bible-meta');
-      if (!n) { m.textContent = 'add later'; m.style.color = ''; return; }
-      m.textContent = n > 1000 ? `${(n/1000).toFixed(1)}k characters · saved` : `${n} chars · saved`;
-      m.style.color = 'var(--gold-deep)';
+      if (!n) { m.innerHTML = 'add later'; return; }
+      const chars = n > 1000 ? `${(n/1000).toFixed(1)}k chars` : `${n} chars`;
+      m.innerHTML = `${chars} <span class="canon-pill">CANON</span>`;
     }
-
-    // ──────── Process story → scenes ────────
 
     async function processStory() {
       if (state.processing) return;
       const text = document.getElementById('paste').value.trim();
-      if (!text) {
-        document.getElementById('paste').focus();
-        return;
-      }
+      if (!text) { document.getElementById('paste').focus(); return; }
       state.processing = true;
       document.getElementById('processing').style.display = 'flex';
       document.getElementById('results-wrap').style.display = 'none';
       document.getElementById('btn-process').disabled = true;
-
       try {
         const res = await fetch('/api/nano-banana', {
           method: 'POST',
@@ -1020,15 +1221,9 @@
           throw new Error(msg);
         }
         const data = await res.json();
-        state.suggestions = (data.sceneSuggestions || []).map(s => ({
-          ...s,
-          id: uid(),
-          added: false,
-        }));
+        state.suggestions = (data.sceneSuggestions || []).map(s => ({ ...s, id: uid(), added: false }));
         state.lastReply = (data.reply || '').slice(0, 280);
-        if (!state.suggestions.length) {
-          alert("I couldn't find clear scenes in that. Try a longer story, or add some story-world context up top.");
-        }
+        if (!state.suggestions.length) alert("I couldn't find clear scenes. Try a longer story or add story rules up top.");
         persist();
         renderSuggestions();
       } catch (e) {
@@ -1044,42 +1239,30 @@
       const wrap = document.getElementById('results-wrap');
       const list = document.getElementById('suggestions');
       const replyEl = document.getElementById('results-reply');
-      if (!state.suggestions.length) {
-        wrap.style.display = 'none';
-        return;
-      }
+      if (!state.suggestions.length) { wrap.style.display = 'none'; return; }
       wrap.style.display = 'block';
       replyEl.textContent = state.lastReply || '';
       list.innerHTML = state.suggestions.map((s, i) => `
         <div class="sugg-card ${s.added ? 'added' : ''}" data-sugg="${s.id}">
-          <div class="sugg-num">${String(i + 1).padStart(2, '0')}</div>
+          <div class="sugg-num">${i + 1}</div>
           <div class="sugg-body">
             ${s.visual ? `<div class="sugg-line"><div class="sugg-label">Visual</div><div class="sugg-text">${esc(s.visual)}</div></div>` : ''}
             ${s.audio ? `<div class="sugg-line"><div class="sugg-label">Audio · VO · SFX</div><div class="sugg-text">${esc(s.audio)}</div></div>` : ''}
             ${s.rationale ? `<div class="sugg-rationale">${esc(s.rationale)}</div>` : ''}
-            <div class="added-tag">✓ added to storyboard</div>
-          </div>
-          <div class="sugg-actions">
-            <button class="btn primary" data-action="add" data-id="${s.id}">+ Add to storyboard</button>
-            <button class="btn ghost show-added" data-action="goto-board" data-id="${s.id}">Go to scene →</button>
+            <div class="added-tag">✓ in storyboard</div>
+            <div class="sugg-actions">
+              <button class="btn primary" data-action="add" data-id="${s.id}">+ Add to storyboard</button>
+              <button class="btn sky show-added" data-action="goto-board" data-id="${s.id}">See it →</button>
+            </div>
           </div>
         </div>
       `).join('');
     }
 
-    // ──────── Scenes ────────
-
     function addSuggestionToBoard(suggId) {
       const s = state.suggestions.find(x => x.id === suggId);
       if (!s || s.added) return;
-      const scene = {
-        id: uid(),
-        visual: s.visual || '',
-        audio: s.audio || '',
-        image: null,
-        imageLoading: false,
-        imageError: null,
-      };
+      const scene = { id: uid(), visual: s.visual || '', audio: s.audio || '', image: null, imageLoading: false, imageError: null };
       state.scenes.push(scene);
       s.added = true;
       s.sceneId = scene.id;
@@ -1090,9 +1273,7 @@
     }
 
     function addBlankScene() {
-      state.scenes.push({
-        id: uid(), visual: '', audio: '', image: null, imageLoading: false, imageError: null,
-      });
+      state.scenes.push({ id: uid(), visual: '', audio: '', image: null, imageLoading: false, imageError: null });
       persist();
       renderBoard();
       updateSceneCount();
@@ -1100,7 +1281,6 @@
 
     function deleteScene(id) {
       state.scenes = state.scenes.filter(s => s.id !== id);
-      // Un-mark suggestions that pointed to this scene
       for (const sg of state.suggestions) if (sg.sceneId === id) { sg.added = false; sg.sceneId = null; }
       persist();
       renderSuggestions();
@@ -1128,29 +1308,19 @@
       document.getElementById('scene-count').textContent = state.scenes.length;
     }
 
-    // ──────── Image gen per scene ────────
-
     async function generateForScene(id) {
       const s = state.scenes.find(x => x.id === id);
       if (!s || s.imageLoading) return;
       const visual = (s.visual || '').trim();
-      if (!visual) {
-        alert('Write something in the Visual line first — that\'s what I\'ll draw.');
-        return;
-      }
+      if (!visual) { alert('Write something in the Visual line first — that\'s what I\'ll draw.'); return; }
       s.imageLoading = true;
       s.imageError = null;
       renderBoard();
-
       try {
         const res = await fetch('/api/nano-banana', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
-          body: JSON.stringify({
-            mode: 'image',
-            prompt: `Cinematic, photoreal, 16:9 ratio. ${visual}`,
-            model: 'nano-banana',
-          }),
+          body: JSON.stringify({ mode: 'image', prompt: `Cinematic, photoreal, 16:9 ratio. ${visual}`, model: 'nano-banana' }),
         });
         if (!res.ok) {
           let msg = `${res.status}`;
@@ -1188,30 +1358,21 @@
       a.click();
     }
 
-    // ──────── Board render ────────
-
     function renderBoard() {
       const empty = document.getElementById('board-empty');
       const grid = document.getElementById('board-grid');
       const addBtm = document.getElementById('add-scene-bottom');
-
-      if (!state.scenes.length) {
-        empty.style.display = 'block';
-        grid.style.display = 'none';
-        addBtm.style.display = 'none';
-        return;
-      }
+      if (!state.scenes.length) { empty.style.display = 'block'; grid.style.display = 'none'; addBtm.style.display = 'none'; return; }
       empty.style.display = 'none';
       grid.style.display = 'flex';
       addBtm.style.display = 'block';
 
       grid.innerHTML = state.scenes.map((s, i) => {
-        const n = String(i + 1).padStart(2, '0');
         let thumbContent;
         if (s.image) {
-          thumbContent = `<img src="data:${s.image.mimeType};base64,${s.image.dataBase64}" alt="Scene ${n}" />`;
+          thumbContent = `<img src="data:${s.image.mimeType};base64,${s.image.dataBase64}" alt="Scene ${i+1}" />`;
         } else if (s.imageLoading) {
-          thumbContent = `<span>drawing scene ${n}…</span>`;
+          thumbContent = `<span>drawing…</span>`;
         } else if (s.imageError) {
           thumbContent = `<span class="err">${esc(s.imageError)}</span>`;
         } else {
@@ -1219,45 +1380,38 @@
         }
         return `
           <div class="scene-card ${s.image ? 'has-image' : ''}" data-scene="${s.id}">
-            <div class="num-rail">
-              <div class="nm">Scene</div>
-              <div class="n">${n}</div>
-              <div class="reorder">
-                <button data-action="up" data-id="${s.id}" title="Move up">▲</button>
-                <button data-action="down" data-id="${s.id}" title="Move down">▼</button>
-              </div>
-              <button class="delete-scene" data-action="delete" data-id="${s.id}" title="Delete scene">×</button>
+            <div class="scene-num">${i + 1}</div>
+            <div class="scene-toolbar">
+              <button class="cb-btn" data-action="up" data-id="${s.id}" ${i === 0 ? 'disabled' : ''} title="Move up">↑</button>
+              <button class="cb-btn" data-action="down" data-id="${s.id}" ${i === state.scenes.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
+              <button class="cb-btn danger" data-action="delete" data-id="${s.id}" title="Delete scene">delete</button>
             </div>
-            <div class="script-zone">
+            <div class="scene-script">
               <div class="field-block">
                 <label>Visual</label>
-                <textarea data-id="${s.id}" data-field="visual" rows="1"
-                  placeholder="What we see on screen…">${esc(s.visual)}</textarea>
+                <textarea data-id="${s.id}" data-field="visual" rows="1" placeholder="What we see on screen…">${esc(s.visual)}</textarea>
               </div>
               <div class="field-block">
                 <label>Audio · VO · SFX</label>
-                <textarea data-id="${s.id}" data-field="audio" rows="1"
-                  placeholder="What we hear — narration, dialogue, sound effects…">${esc(s.audio)}</textarea>
+                <textarea data-id="${s.id}" data-field="audio" rows="1" placeholder="What we hear — narration, dialogue, sound effects…">${esc(s.audio)}</textarea>
               </div>
             </div>
             <div class="scene-image-zone">
               <div class="scene-thumb ${s.imageLoading ? 'loading' : ''}">${thumbContent}</div>
               <div class="scene-image-actions">
                 ${s.image
-                  ? `<button class="btn gold" data-action="regenerate" data-id="${s.id}">🔄 New picture</button>
-                     <button class="btn ghost" data-action="download" data-id="${s.id}">⬇</button>
-                     <button class="btn ghost" data-action="clear" data-id="${s.id}">×</button>`
+                  ? `<button class="btn primary" data-action="regenerate" data-id="${s.id}">↻ New picture</button>
+                     <button class="btn sky" data-action="download" data-id="${s.id}">save</button>
+                     <button class="btn ghost" data-action="clear" data-id="${s.id}">clear</button>`
                   : `<button class="btn primary" data-action="generate" data-id="${s.id}" ${s.imageLoading ? 'disabled' : ''}>
-                       ${s.imageLoading ? '⏳ drawing…' : '🎨 Generate picture'}
+                       ${s.imageLoading ? 'drawing…' : 'Make picture →'}
                      </button>`
                 }
               </div>
             </div>
-          </div>
-        `;
+          </div>`;
       }).join('');
 
-      // Auto-grow textareas
       grid.querySelectorAll('textarea').forEach(autoGrow);
     }
 
@@ -1269,8 +1423,6 @@
     function esc(s) {
       return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
     }
-
-    // ──────── Export ────────
 
     function exportJson() {
       const blob = new Blob([JSON.stringify({
@@ -1290,11 +1442,7 @@
       URL.revokeObjectURL(url);
     }
 
-    // ──────── Wiring ────────
-
-    document.querySelectorAll('.tab').forEach(t => {
-      t.addEventListener('click', () => setStage(t.dataset.stage));
-    });
+    document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setStage(t.dataset.stage)));
     document.getElementById('btn-process').addEventListener('click', processStory);
     document.getElementById('btn-goto-board').addEventListener('click', () => setStage('board'));
     document.getElementById('board-empty-add').addEventListener('click', addBlankScene);
@@ -1306,14 +1454,9 @@
       newStory(true);
     });
     document.getElementById('btn-export').addEventListener('click', exportJson);
-
     document.getElementById('paste').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        processStory();
-      }
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); processStory(); }
     });
-
     document.getElementById('bible-toggle').addEventListener('click', () => toggleBible());
     document.getElementById('bible').addEventListener('input', (e) => {
       state.bible = e.target.value;
@@ -1321,7 +1464,6 @@
       clearTimeout(window.__qssBibleT);
       window.__qssBibleT = setTimeout(persist, 400);
     });
-
     document.getElementById('board-name').addEventListener('change', (e) => {
       const n = e.target.value.trim();
       if (!n || n === state.name) { e.target.value = state.name; return; }
@@ -1334,8 +1476,6 @@
         saveList(l);
       } catch {}
     });
-
-    // Suggestion clicks
     document.getElementById('suggestions').addEventListener('click', (e) => {
       const action = e.target.dataset.action;
       if (!action) return;
@@ -1343,16 +1483,13 @@
       if (action === 'add') addSuggestionToBoard(id);
       else if (action === 'goto-board') setStage('board');
     });
-
-    // Board grid clicks + edits
     const board = document.getElementById('board-grid');
     board.addEventListener('click', (e) => {
       const action = e.target.dataset.action;
       if (!action) return;
       const id = e.target.dataset.id;
-      if (action === 'delete') {
-        if (confirm('Delete this scene?')) deleteScene(id);
-      } else if (action === 'up') moveScene(id, -1);
+      if (action === 'delete') { if (confirm('Delete this scene?')) deleteScene(id); }
+      else if (action === 'up') moveScene(id, -1);
       else if (action === 'down') moveScene(id, 1);
       else if (action === 'generate' || action === 'regenerate') generateForScene(id);
       else if (action === 'clear') clearSceneImage(id);
@@ -1365,7 +1502,6 @@
       autoGrow(ta);
     });
 
-    // ──────── Boot ────────
     init();
   </script>
 </body>
