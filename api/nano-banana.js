@@ -348,6 +348,23 @@ function normalizeBlocks(arr) {
   return out;
 }
 
+// Runtime-agnostic body reader. Edge passes a Web Request (await req.json()),
+// Node passes IncomingMessage (must read stream chunks). Handle both.
+async function readJsonBody(req) {
+  if (typeof req.json === 'function') {
+    return await req.json();
+  }
+  return await new Promise((resolve, reject) => {
+    let buf = '';
+    req.on('data', (chunk) => { buf += chunk; });
+    req.on('end', () => {
+      if (!buf) { resolve({}); return; }
+      try { resolve(JSON.parse(buf)); } catch (e) { reject(e); }
+    });
+    req.on('error', reject);
+  });
+}
+
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -359,7 +376,7 @@ export default async function handler(req) {
   if (!apiKey) return jsonError(500, 'GEMINI_API_KEY not configured');
 
   let body;
-  try { body = await req.json(); }
+  try { body = await readJsonBody(req); }
   catch { return jsonError(400, 'Invalid JSON body'); }
 
   const mode = body.mode === 'image' ? 'image'

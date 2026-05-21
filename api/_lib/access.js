@@ -1,5 +1,6 @@
-// Shared gate helper used by every /api/* edge function. Keeping this
-// out of `api/` proper so Vercel doesn't treat it as a route.
+// Shared gate helper. Works in BOTH the Edge runtime (req.headers is a
+// Web Headers object with .get()) and the Node serverless runtime
+// (req.headers is a plain object with lowercase keys). Don't assume either.
 //
 // The shared secret lives in ACCESS_CODE. Clients send it via the
 // `x-access-code` header — index.html installs a window.fetch wrapper
@@ -7,6 +8,17 @@
 //
 // If ACCESS_CODE is unset, the gate runs in dev mode (open). Set it in
 // production — see /SECURITY.md for the full posture.
+
+function readHeader(req, name) {
+  const h = req?.headers;
+  if (!h) return '';
+  // Web Request / Headers
+  if (typeof h.get === 'function') return h.get(name) || '';
+  // Node IncomingMessage — plain object, lowercase keys
+  const v = h[name.toLowerCase()];
+  if (v == null) return '';
+  return Array.isArray(v) ? v.join(', ') : String(v);
+}
 
 export function checkAccess(req) {
   const validCode = process.env.ACCESS_CODE;
@@ -17,9 +29,9 @@ export function checkAccess(req) {
   //    Supabase user. Endpoint-level auth (whoAmI + isAdminEmail in
   //    admin-users.js, etc.) is the real check; the access code is just a
   //    perimeter. Don't double-gate signed-in users.
-  const auth = req.headers.get('authorization') || '';
+  const auth = readHeader(req, 'authorization');
   if (/^Bearer\s+\S/i.test(auth)) return null;
-  const supplied = req.headers.get('x-access-code') || '';
+  const supplied = readHeader(req, 'x-access-code');
   if (supplied === validCode) return null;
   return new Response(JSON.stringify({
     error: 'unauthorized',
