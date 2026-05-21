@@ -1,4 +1,3 @@
-import { checkAccess } from './_lib/access.js';
 
 export const config = { runtime: 'edge', maxDuration: 300 };
 
@@ -22,8 +21,6 @@ Requirements:
 
 export default async function handler(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-  const denied = checkAccess(req);
-  if (denied) return denied;
 
   const { prompt } = await req.json();
   if (!prompt) return new Response(JSON.stringify({ error: 'prompt required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });

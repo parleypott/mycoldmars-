@@ -1,11 +1,8 @@
-import { checkAccess } from './_lib/access.js';
 
 export const config = { runtime: 'edge', maxDuration: 30 };
 
 export default async function handler(req) {
   if (req.method !== 'GET') return new Response('Method not allowed', { status: 405 });
-  const denied = checkAccess(req);
-  if (denied) return denied;
 
   const url = new URL(req.url);
   const id = url.searchParams.get('id');

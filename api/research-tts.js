@@ -1,4 +1,3 @@
-import { checkAccess } from './_lib/access.js';
 
 export const config = { runtime: 'edge', maxDuration: 120 };
 
@@ -52,8 +51,6 @@ function strip(md) {
 
 export default async function handler(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-  const denied = checkAccess(req);
-  if (denied) return denied;
 
   let { text, voice, model, stripMarkdown } = await req.json();
   if (!text || !text.trim()) {
