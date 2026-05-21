@@ -297,6 +297,122 @@
     .cb-btn:disabled { opacity: 0.35; cursor: not-allowed; }
     .cb-btn.danger:hover { background: var(--red); color: var(--ink-bright); }
 
+    /* ───── drag-to-reorder ───── */
+    .story-block .drag-handle {
+      position: absolute;
+      left: -20px; top: 50%;
+      transform: translateY(-50%) rotate(90deg);
+      font-family: var(--ui); font-weight: 800;
+      color: var(--ink-faint);
+      letter-spacing: -2px;
+      cursor: grab;
+      padding: 4px 6px;
+      opacity: 0;
+      transition: opacity .15s, color .15s;
+      user-select: none;
+    }
+    .story-block:hover .drag-handle { opacity: 1; }
+    .story-block .drag-handle:hover { color: var(--ink-bright); }
+    .story-block .drag-handle:active { cursor: grabbing; }
+    .story-block.dragging {
+      opacity: 0.45;
+      transform: rotate(-1deg) scale(0.98);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+    }
+    .story-block.drop-above {
+      box-shadow: 4px 4px 0 var(--ink-bright), 0 -6px 0 -2px var(--red);
+    }
+    .story-block.drop-below {
+      box-shadow: 4px 4px 0 var(--ink-bright), 0 6px 0 -2px var(--red);
+    }
+
+    /* ───── "Add my own block" composer ───── */
+    .own-block-composer { margin-top: 22px; }
+    .own-block-add-btn {
+      width: 100%;
+      background: var(--paper-soft);
+      border: 2.5px dashed var(--ink-bright);
+      border-radius: 14px;
+      padding: 14px 18px;
+      cursor: pointer;
+      font-family: var(--display);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--ink-soft);
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      transition: transform 140ms var(--ease), background 140ms var(--ease), border-color 140ms var(--ease);
+    }
+    .own-block-add-btn:hover {
+      background: var(--yolk);
+      border-style: solid;
+      border-color: var(--ink-bright);
+      color: var(--ink-bright);
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0 var(--ink-bright);
+    }
+    .own-block-add-btn .plus {
+      font-family: var(--ui);
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+      width: 40px; height: 40px;
+      background: var(--red);
+      color: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+    }
+    .own-block-open {
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 14px;
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 10px;
+      transform: rotate(-0.3deg);
+    }
+    .own-block-label {
+      font-family: var(--ui); font-weight: 800; font-size: 11px;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-faint);
+    }
+    .own-block-open textarea {
+      width: 100%;
+      background: var(--paper-soft);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-family: var(--serif);
+      font-size: 16px; line-height: 1.55;
+      color: var(--ink-bright);
+      resize: vertical;
+      min-height: 90px;
+      max-height: 320px;
+      outline: none;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .own-block-open textarea:focus {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0 var(--ink-bright);
+    }
+    .own-block-actions {
+      display: flex; gap: 10px; justify-content: flex-end;
+    }
+    /* Newpress vibe — TTS placeholder so the section doesn't clash there */
+    body[data-vibe="newpress"] .own-block-add-btn {
+      background: transparent; border: 1px dashed var(--np-rule-strong);
+      border-radius: 0; font-family: 'IM Fell English SC', serif; box-shadow: none;
+      font-size: 22px; color: var(--ink-soft);
+    }
+    body[data-vibe="newpress"] .own-block-add-btn:hover {
+      background: var(--paper-card); border-color: var(--ink-bright); transform: none; box-shadow: none;
+    }
+    body[data-vibe="newpress"] .own-block-add-btn .plus {
+      background: var(--np-orange); border: none; box-shadow: none;
+      font-size: 22px; width: 30px; height: 30px;
+    }
+
     /* ── Tutor (right) ── */
     .tutor-pane {
       flex: 1; display: flex; flex-direction: column; min-height: 0;
@@ -1039,6 +1155,24 @@
               <span class="little">pick blocks from wordy on the right to build it up</span>
             </div>
             <div id="story-blocks" class="story-blocks" style="display:none;"></div>
+
+            <!-- ─── kid composer: add your own block ─── -->
+            <div id="own-block-composer" class="own-block-composer">
+              <div class="own-block-folded" id="own-block-folded">
+                <button id="own-block-open" class="own-block-add-btn" type="button">
+                  <span class="plus">＋</span>
+                  <span>Add my own block</span>
+                </button>
+              </div>
+              <div class="own-block-open" id="own-block-form" style="display:none;">
+                <div class="own-block-label">write your own bit of the story</div>
+                <textarea id="own-block-text" rows="4" placeholder="type the next part of the story here…"></textarea>
+                <div class="own-block-actions">
+                  <button id="own-block-cancel" class="cb-btn" type="button">cancel</button>
+                  <button id="own-block-save" class="cb-btn" type="button" style="background: var(--red); color: var(--ink-bright); font-weight: 800;">＋ add to story</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1697,6 +1831,26 @@
       persist();
       renderAll();
     }
+    // Move a block to a specific slot by id (used by drag-and-drop)
+    function reorderBlock(fromId, toId, placement /* 'above'|'below' */) {
+      const fromIdx = state.blocks.findIndex(b => b.id === fromId);
+      if (fromIdx < 0) return;
+      const [moved] = state.blocks.splice(fromIdx, 1);
+      let toIdx = state.blocks.findIndex(b => b.id === toId);
+      if (toIdx < 0) toIdx = state.blocks.length;  // dropped at end
+      if (placement === 'below') toIdx += 1;
+      state.blocks.splice(toIdx, 0, moved);
+      persist();
+      renderAll();
+    }
+    // Kid's own custom block — bypasses wordy
+    function addOwnBlock(text) {
+      const t = (text || '').trim();
+      if (!t) return;
+      state.blocks.push({ id: uid(), text: t, custom: true });
+      persist();
+      renderAll();
+    }
 
     // ─────────── Wordy chat ───────────
     async function askWordy(message, auto = false) {
@@ -1792,17 +1946,20 @@
       const empty = document.getElementById('story-blocks-empty');
       const list = document.getElementById('story-blocks');
       const meta = document.getElementById('story-meta');
+      const composer = document.getElementById('own-block-composer');
       meta.textContent = `${state.blocks.length} block${state.blocks.length === 1 ? '' : 's'}`;
       if (!state.blocks.length) {
         empty.style.display = 'block';
         list.style.display = 'none';
         list.innerHTML = '';
+        if (composer) composer.style.display = 'block';
         return;
       }
       empty.style.display = 'none';
       list.style.display = 'flex';
       list.innerHTML = state.blocks.map((b, i) => `
-        <div class="story-block" data-block="${b.id}">
+        <div class="story-block" data-block="${b.id}" draggable="true">
+          <div class="drag-handle" title="Drag to reorder">⋮⋮</div>
           <div class="b-num">${i + 1}</div>
           <div class="b-toolbar">
             <button class="cb-btn" data-action="up" data-id="${b.id}" ${i === 0 ? 'disabled' : ''}>↑</button>
@@ -1814,6 +1971,7 @@
         </div>
       `).join('');
       list.querySelectorAll('textarea').forEach(autoGrow);
+      if (composer) composer.style.display = 'block';
     }
 
     function renderChat() {
@@ -2174,6 +2332,73 @@
         const b = state.blocks.find(x => x.id === id);
         if (b) window.qssTTS.speak(b.text);
       }
+    });
+
+    // ─── Drag-to-reorder story blocks ───
+    let dragBlockId = null;
+    storyList.addEventListener('dragstart', (e) => {
+      const block = e.target.closest?.('.story-block');
+      if (!block) return;
+      dragBlockId = block.dataset.block;
+      block.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', dragBlockId);
+    });
+    storyList.addEventListener('dragend', (e) => {
+      storyList.querySelectorAll('.story-block').forEach(el => {
+        el.classList.remove('dragging', 'drop-above', 'drop-below');
+      });
+      dragBlockId = null;
+    });
+    storyList.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const over = e.target.closest?.('.story-block');
+      storyList.querySelectorAll('.story-block').forEach(el => el.classList.remove('drop-above', 'drop-below'));
+      if (!over || over.dataset.block === dragBlockId) return;
+      // Decide above/below based on cursor Y within the target
+      const rect = over.getBoundingClientRect();
+      const below = (e.clientY - rect.top) > rect.height / 2;
+      over.classList.add(below ? 'drop-below' : 'drop-above');
+    });
+    storyList.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const over = e.target.closest?.('.story-block');
+      if (!over || !dragBlockId) return;
+      const targetId = over.dataset.block;
+      if (targetId === dragBlockId) return;
+      const rect = over.getBoundingClientRect();
+      const below = (e.clientY - rect.top) > rect.height / 2;
+      reorderBlock(dragBlockId, targetId, below ? 'below' : 'above');
+    });
+
+    // ─── Add my own block composer ───
+    const ownOpen = document.getElementById('own-block-open');
+    const ownFolded = document.getElementById('own-block-folded');
+    const ownForm = document.getElementById('own-block-form');
+    const ownText = document.getElementById('own-block-text');
+    function showOwnForm() {
+      ownFolded.style.display = 'none';
+      ownForm.style.display = 'flex';
+      requestAnimationFrame(() => ownText.focus());
+    }
+    function hideOwnForm() {
+      ownText.value = '';
+      ownFolded.style.display = 'block';
+      ownForm.style.display = 'none';
+    }
+    function saveOwnBlock() {
+      const t = ownText.value;
+      if (!t.trim()) { ownText.focus(); return; }
+      addOwnBlock(t);
+      hideOwnForm();
+    }
+    ownOpen.addEventListener('click', showOwnForm);
+    document.getElementById('own-block-cancel').addEventListener('click', hideOwnForm);
+    document.getElementById('own-block-save').addEventListener('click', saveOwnBlock);
+    ownText.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveOwnBlock(); }
+      if (e.key === 'Escape') { e.preventDefault(); hideOwnForm(); }
     });
 
     // Storyboard delegated

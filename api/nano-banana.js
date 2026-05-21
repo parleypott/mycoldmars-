@@ -243,6 +243,60 @@ async function handleTutor(body, apiKey) {
     : `i'm ready for what's next. give me 3 options that fit where we are in the story.`);
   contents.push({ role: 'user', parts: [{ text: userTurnText }] });
 
+  // ── Claude Sonnet 4.6 for tutor mode ──
+  // Gemini Flash was producing crummy / generic prose. Claude is dramatically
+  // better at in-voice creative writing with strict format constraints (the
+  // fenced block-options JSON). Falls back to Gemini if ANTHROPIC_API_KEY
+  // is missing or Claude errors out.
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (anthropicKey) {
+    const claudeMessages = history.map(m => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.content,
+    }));
+    claudeMessages.push({ role: 'user', content: userTurnText });
+
+    const claudePayload = {
+      model: 'claude-sonnet-4-6',
+      max_tokens: 6000,
+      temperature: 1.0,
+      system: systemText,
+      messages: claudeMessages,
+    };
+
+    let cres;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      cres = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(claudePayload),
+      });
+      if (cres.ok || (cres.status !== 429 && cres.status !== 529)) break;
+      if (attempt < 2) await new Promise(r => setTimeout(r, (attempt + 1) * 3000));
+    }
+    if (cres.ok) {
+      const cdata = await cres.json().catch(() => null);
+      const reply = cdata?.content?.map(c => (c.type === 'text' ? c.text : '')).join('') || '';
+      const { cleanReply, blockOptions } = extractBlockOptions(reply);
+      return jsonResponse({
+        reply: cleanReply,
+        blockOptions,
+        stage,
+        blocksCommitted: cur,
+        targetMin: blockCountTarget.min,
+        targetMax: blockCountTarget.max,
+        model: 'claude-sonnet-4-6',
+      });
+    }
+    // else: fall through to Gemini fallback below
+    console.warn('[tutor] claude failed, falling back to gemini:', cres.status);
+  }
+
+  // Fallback: Gemini Flash (also used when ANTHROPIC_API_KEY isn't set)
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent`;
   const payload = {
     contents,
