@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Queen Scarlet School — storyboard</title>
+  <title>Queen Scarlet's School — storyboard</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -20,6 +20,7 @@
       --red: #d42e05;
       --red-soft: rgba(212, 46, 5, 0.18);
       --gold: #e0b75a;
+      --gold-soft: rgba(224, 183, 90, 0.15);
       --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
       --serif: 'Iowan Old Style', 'Palatino', Georgia, serif;
     }
@@ -58,11 +59,7 @@
       position: relative;
       z-index: 4;
     }
-    .brand {
-      display: flex;
-      align-items: baseline;
-      gap: 14px;
-    }
+    .brand { display: flex; align-items: baseline; gap: 14px; }
     .brand .home {
       color: var(--ivory-dim);
       text-decoration: none;
@@ -87,11 +84,7 @@
       opacity: 0.8;
     }
 
-    .topbar-right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
     .topbar-input {
       background: transparent;
       border: 1px solid var(--line);
@@ -106,6 +99,7 @@
       transition: border-color .15s;
     }
     .topbar-input:focus { border-color: var(--gold); }
+
     .btn {
       background: transparent;
       border: 1px solid var(--line);
@@ -118,6 +112,7 @@
       cursor: pointer;
       border-radius: 2px;
       transition: all .15s;
+      white-space: nowrap;
     }
     .btn:hover { border-color: var(--gold); color: var(--ivory-bright); }
     .btn.primary {
@@ -128,6 +123,7 @@
     .btn.primary:hover { background: var(--red); }
     .btn.ghost { border-color: var(--line-soft); color: var(--ivory-dim); }
     .btn.ghost:hover { color: var(--ivory); border-color: var(--line); }
+    .btn:disabled { opacity: 0.4; cursor: wait; }
 
     /* ──────────── Main two-column ──────────── */
 
@@ -152,6 +148,7 @@
       justify-content: space-between;
       background: var(--panel);
       flex-shrink: 0;
+      gap: 12px;
     }
     .col-header h2 {
       font-family: var(--serif);
@@ -174,11 +171,7 @@
 
     /* ──────────── Scene cards ──────────── */
 
-    .scene-list {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
+    .scene-list { display: flex; flex-direction: column; gap: 16px; }
     .scene {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -193,10 +186,7 @@
       position: relative;
     }
     .scene:hover { border-color: var(--line); background: #181410; }
-    .scene.active {
-      border-color: var(--gold);
-      background: #1a1611;
-    }
+    .scene.active { border-color: var(--gold); background: #1a1611; }
     .scene.active::before {
       content: '';
       position: absolute;
@@ -225,11 +215,7 @@
       font-weight: 600;
       line-height: 1;
     }
-    .scene-actions {
-      display: flex;
-      gap: 4px;
-      margin-top: 6px;
-    }
+    .scene-actions { display: flex; gap: 4px; margin-top: 6px; }
     .icon-btn {
       background: transparent;
       border: 1px solid var(--line);
@@ -245,17 +231,8 @@
     }
     .icon-btn:hover { border-color: var(--red); color: var(--red); }
 
-    .scene-fields {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-width: 0;
-    }
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
+    .scene-fields { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .field { display: flex; flex-direction: column; gap: 3px; }
     .field-label {
       font-size: 9px;
       letter-spacing: 0.22em;
@@ -277,8 +254,7 @@
       transition: border-color .15s;
     }
     .field textarea:focus { border-bottom-color: var(--gold); }
-    .field.visual textarea::placeholder,
-    .field.audio textarea::placeholder {
+    .field textarea::placeholder {
       color: var(--ivory-faint);
       font-style: italic;
     }
@@ -300,9 +276,7 @@
       text-transform: uppercase;
       align-self: start;
     }
-    .scene-image img {
-      width: 100%; height: 100%; object-fit: cover; display: block;
-    }
+    .scene-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .scene-image .placeholder { padding: 8px; text-align: center; line-height: 1.4; }
     .scene-image .clear {
       position: absolute;
@@ -335,26 +309,67 @@
     }
     .scene-add:hover { border-color: var(--gold); color: var(--gold); border-style: solid; }
 
-    /* ──────────── Right column (chat) ──────────── */
+    /* ──────────── Right column — mode tabs ──────────── */
 
-    .chat-active {
-      padding: 10px 22px;
+    .mode-tabs {
+      display: flex;
+      gap: 0;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .mode-tab {
+      background: transparent;
+      border: none;
+      color: var(--ivory-dim);
+      padding: 6px 14px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .mode-tab:hover { color: var(--ivory); }
+    .mode-tab.active {
+      background: var(--gold-soft);
+      color: var(--gold);
+    }
+
+    .chat-context {
+      padding: 9px 22px;
       border-bottom: 1px solid var(--line-soft);
-      font-size: 11px;
+      font-size: 10px;
       letter-spacing: 0.14em;
       text-transform: uppercase;
       color: var(--ivory-dim);
       background: #131009;
       display: flex; align-items: center; gap: 10px;
       flex-shrink: 0;
+      flex-wrap: wrap;
     }
-    .chat-active .pill {
+    .chat-context .pill {
       background: var(--red-soft);
       color: var(--ivory-bright);
       padding: 2px 8px;
       border-radius: 2px;
       letter-spacing: 0.16em;
     }
+    .chat-context .pill.gold { background: var(--gold-soft); color: var(--gold); }
+    .chat-context .clear-history {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: var(--ivory-faint);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+      padding: 2px 6px;
+    }
+    .chat-context .clear-history:hover { color: var(--red); }
 
     .chat-body {
       flex: 1;
@@ -362,7 +377,7 @@
       padding: 18px 22px 12px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 18px;
       min-height: 0;
     }
     .empty {
@@ -372,28 +387,50 @@
       font-family: var(--serif);
       font-style: italic;
       font-size: 15px;
-      max-width: 320px;
+      max-width: 360px;
       line-height: 1.5;
     }
 
-    .turn {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+    .turn { display: flex; flex-direction: column; gap: 10px; }
     .turn.user .bubble {
       background: var(--panel);
       border: 1px solid var(--line);
-      padding: 9px 12px;
+      padding: 10px 13px;
       color: var(--ivory-bright);
       font-family: var(--serif);
       font-size: 14px;
-      line-height: 1.45;
+      line-height: 1.55;
       border-radius: 2px;
       align-self: flex-end;
       max-width: 88%;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
-    .turn.banana .bubble-meta {
+    .turn.user .bubble.paste-large {
+      max-height: 200px;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+    }
+    .turn.user .bubble.paste-large::after {
+      content: 'click to expand';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 16px 12px 6px;
+      background: linear-gradient(to bottom, transparent, var(--panel) 70%);
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ivory-dim);
+    }
+    .turn.user .bubble.paste-large.expanded {
+      max-height: none;
+    }
+    .turn.user .bubble.paste-large.expanded::after { display: none; }
+
+    .turn.bot .bot-meta {
       font-size: 9px;
       letter-spacing: 0.22em;
       text-transform: uppercase;
@@ -402,9 +439,106 @@
       align-items: center;
       gap: 8px;
     }
-    .turn.banana .bubble-meta .dot {
+    .turn.bot .bot-meta .dot {
       width: 6px; height: 6px; background: var(--gold); border-radius: 50%;
     }
+    .turn.bot .reply {
+      color: var(--ivory-bright);
+      font-family: var(--serif);
+      font-size: 15px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .turn.bot .reply strong { color: var(--ivory-bright); }
+    .turn.bot .reply em { color: var(--gold); font-style: italic; }
+    .turn.bot .reply code {
+      background: rgba(0,0,0,0.35);
+      padding: 1px 5px;
+      border-radius: 2px;
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+
+    /* ──────────── Scene-suggestion cards inside chat ──────────── */
+
+    .suggestions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .suggestions-label {
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ivory-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .suggestions-label::before, .suggestions-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--line-soft);
+    }
+    .suggestion {
+      background: #100d09;
+      border: 1px solid var(--line);
+      border-left: 2px solid var(--gold);
+      border-radius: 2px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .suggestion .s-num {
+      font-family: var(--serif);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gold);
+      letter-spacing: 0.04em;
+    }
+    .suggestion .s-line { display: flex; flex-direction: column; gap: 2px; }
+    .suggestion .s-label {
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ivory-dim);
+    }
+    .suggestion .s-text {
+      color: var(--ivory-bright);
+      font-family: var(--serif);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .suggestion .s-rationale {
+      color: var(--ivory-dim);
+      font-family: var(--serif);
+      font-size: 12px;
+      font-style: italic;
+      line-height: 1.45;
+    }
+    .suggestion .s-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+    .suggestion .s-actions .btn { font-size: 10px; padding: 6px 10px; letter-spacing: 0.14em; }
+    .suggestion.added {
+      opacity: 0.55;
+      border-left-color: var(--line);
+    }
+    .suggestion.added .s-actions .btn { display: none; }
+    .suggestion .added-tag {
+      display: none;
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ivory-dim);
+      padding: 4px 0 0;
+    }
+    .suggestion.added .added-tag { display: block; }
+
+    /* ──────────── Image gen output blocks ──────────── */
+
     .gen-image-wrap {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -423,11 +557,7 @@
       display: flex; align-items: center; justify-content: center;
     }
     .gen-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .gen-actions {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
+    .gen-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .gen-actions .btn { font-size: 10px; padding: 6px 10px; letter-spacing: 0.14em; }
     .gen-text {
       color: var(--ivory-dim);
@@ -463,31 +593,27 @@
       background: var(--panel);
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
       flex-shrink: 0;
     }
-    .composer-row {
-      display: flex;
-      gap: 8px;
-      align-items: flex-end;
-    }
     .composer textarea {
-      flex: 1;
+      width: 100%;
       background: transparent;
       border: 1px solid var(--line);
       color: var(--ivory-bright);
       font-family: var(--serif);
       font-size: 14px;
-      line-height: 1.45;
-      padding: 9px 11px;
+      line-height: 1.5;
+      padding: 10px 12px;
       resize: none;
       outline: none;
       border-radius: 2px;
-      min-height: 44px;
-      max-height: 160px;
+      min-height: 60px;
+      max-height: 280px;
       transition: border-color .15s;
     }
     .composer textarea:focus { border-color: var(--gold); }
+
     .composer-options {
       display: flex;
       gap: 12px;
@@ -512,11 +638,13 @@
       border-radius: 2px;
       outline: none;
     }
+    .composer-options .spacer { flex: 1; }
+
     .ref-pile {
       display: flex; gap: 6px; flex-wrap: wrap;
     }
     .ref-chip {
-      width: 36px; height: 36px;
+      width: 38px; height: 38px;
       border-radius: 2px; overflow: hidden;
       border: 1px solid var(--line);
       position: relative;
@@ -533,11 +661,11 @@
       cursor: pointer; border: none;
     }
 
-    /* ──────────── Scrollbars ──────────── */
-    *::-webkit-scrollbar { width: 8px; height: 8px; }
-    *::-webkit-scrollbar-track { background: transparent; }
-    *::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
-    *::-webkit-scrollbar-thumb:hover { background: #3a3530; }
+    /* hide image-mode options when in story mode and vice versa */
+    .mode-story-only { display: none; }
+    .mode-image-only { display: none; }
+    body[data-mode="story"] .mode-story-only { display: flex; }
+    body[data-mode="image"] .mode-image-only { display: flex; }
 
     /* ──────────── Gate ──────────── */
     .gate {
@@ -588,8 +716,13 @@
     .gate-error { color: var(--red); font-size: 11px; text-align: center; display: none; }
     .gate-error.show { display: block; }
 
-    .app { display: block; }
     .app.hidden { display: none; }
+
+    /* ──────────── Scrollbars ──────────── */
+    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+    *::-webkit-scrollbar-thumb:hover { background: #3a3530; }
 
     @media (max-width: 1100px) {
       .scene { grid-template-columns: 80px 1fr 130px; }
@@ -603,7 +736,7 @@
     }
   </style>
 </head>
-<body>
+<body data-mode="story">
 
   <div id="gate" class="gate">
     <div class="gate-inner">
@@ -615,7 +748,7 @@
     </div>
   </div>
 
-  <div id="app" class="app hidden">
+  <div id="app" class="hidden">
 
   <header class="topbar">
     <div class="brand">
@@ -645,25 +778,38 @@
     </section>
 
     <section class="col col-right">
+
       <div class="col-header">
-        <h2>Nano Banana</h2>
-        <span class="meta">imagery</span>
+        <h2>Story Workbench</h2>
+        <div class="mode-tabs" role="tablist" aria-label="Mode">
+          <button class="mode-tab active" data-mode="story" type="button">Story</button>
+          <button class="mode-tab" data-mode="image" type="button">Image</button>
+        </div>
       </div>
-      <div class="chat-active">
+
+      <div class="chat-context">
+        <span id="mode-hint" class="pill gold">story</span>
         Active scene <span id="active-pill" class="pill">—</span>
+        <button id="clear-history" class="clear-history" type="button">clear chat</button>
       </div>
+
       <div class="chat-body" id="chat-body">
         <div class="empty" id="empty-state">
-          Pick a scene on the left. Describe what you want to see. Generate, swap, iterate.
+          Paste research, transcripts, drafts — I'll suggest scenes you can drop straight into the script. Or just talk story.
         </div>
       </div>
+
       <div class="composer">
-        <div class="ref-pile" id="ref-pile" style="display:none;"></div>
-        <div class="composer-row">
-          <textarea id="prompt" placeholder="Cinematic wide shot of a small village under green twilight, paper lanterns, fog…" rows="2"></textarea>
-        </div>
+        <div class="ref-pile mode-image-only" id="ref-pile" style="display:none;"></div>
+        <textarea id="prompt" rows="3"
+          placeholder="Paste research, ask a question, or describe a scene…"></textarea>
         <div class="composer-options">
-          <label>
+
+          <!-- Story mode controls -->
+          <span class="mode-story-only" style="color: var(--ivory-dim);">⌘↵ to send</span>
+
+          <!-- Image mode controls -->
+          <label class="mode-image-only">
             model
             <select id="model">
               <option value="nano-banana">nano-banana · 3.1</option>
@@ -671,11 +817,12 @@
               <option value="nano-banana-pro">nano-banana pro</option>
             </select>
           </label>
-          <label title="Use the active scene's current image as a style/character reference">
-            <input type="checkbox" id="use-active-as-ref" /> reference active image
+          <label class="mode-image-only" title="Use the active scene's current image as a style/character reference">
+            <input type="checkbox" id="use-active-as-ref" /> ref active
           </label>
-          <div style="flex:1"></div>
-          <button id="btn-generate" class="btn primary">Generate ↵</button>
+
+          <span class="spacer"></span>
+          <button id="btn-send" class="btn primary">Send ↵</button>
         </div>
       </div>
     </section>
@@ -685,7 +832,7 @@
   </div><!-- /#app -->
 
   <script>
-    // ──────── Cosmetic access gate (same posture as /hunter/) ────────
+    // ──────── Cosmetic access gate (same pattern as /hunter/) ────────
     (function() {
       const COOKIE_NAME = 'qss_access';
       const PASSWORD = 'newpress';
@@ -704,10 +851,7 @@
         gateEl.classList.add('hidden');
         appEl.classList.remove('hidden');
       }
-      if (getCookie(COOKIE_NAME) === 'granted') {
-        unlock();
-        return;
-      }
+      if (getCookie(COOKIE_NAME) === 'granted') { unlock(); return; }
       const input = document.getElementById('gate-code');
       const submit = document.getElementById('gate-submit');
       const err = document.getElementById('gate-error');
@@ -715,11 +859,7 @@
         const code = (input.value || '').trim().toLowerCase();
         if (!code) return;
         if (code === PASSWORD) unlock();
-        else {
-          err.classList.add('show');
-          input.value = '';
-          input.focus();
-        }
+        else { err.classList.add('show'); input.value = ''; input.focus(); }
       }
       submit.addEventListener('click', check);
       input.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
@@ -733,14 +873,16 @@
     const LS_BOARD_LIST = 'qss:boards';
     const LS_BOARD = (name) => `qss:board:${name}`;
     const LS_LAST = 'qss:last';
+    const LS_MODE = 'qss:mode';
 
     const state = {
       name: '',
       scenes: [],     // { id, visual, audio, image: { mimeType, dataBase64 } | null }
-      chat: [],       // { id, role: 'user'|'banana', prompt?, images?, text?, sceneId? }
+      chat: [],       // { id, role: 'user'|'bot', mode: 'story'|'image', content?, images?, sceneSuggestions?, attachedFromTurn? }
       activeSceneId: null,
       thinking: false,
-      refs: [],       // { mimeType, dataBase64 }
+      refs: [],       // image refs for next image gen
+      mode: 'story',  // 'story' | 'image'
     };
 
     function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -771,23 +913,22 @@
         }
         localStorage.setItem(LS_LAST, state.name);
       } catch (e) {
-        // Likely quota — chat images can balloon. Drop oldest banana turns.
         if (e?.name === 'QuotaExceededError') {
           pruneChatHistory();
           try { localStorage.setItem(LS_BOARD(state.name), JSON.stringify({
             name: state.name, scenes: state.scenes, chat: state.chat,
             activeSceneId: state.activeSceneId, updatedAt: Date.now(),
-          })); } catch { /* give up silently */ }
+          })); } catch {}
         }
       }
     }
     function pruneChatHistory() {
-      // Keep last 10 banana turns and all user turns.
-      const bananaIdx = state.chat
-        .map((t, i) => t.role === 'banana' ? i : -1)
+      // Drop oldest bot turns that carry images (the heavy bytes).
+      const heavyIdx = state.chat
+        .map((t, i) => (t.role === 'bot' && t.images?.length) ? i : -1)
         .filter(i => i >= 0);
-      if (bananaIdx.length > 10) {
-        const dropBefore = bananaIdx[bananaIdx.length - 10];
+      if (heavyIdx.length > 6) {
+        const dropBefore = heavyIdx[heavyIdx.length - 6];
         state.chat = state.chat.filter((_, i) => i >= dropBefore);
       }
     }
@@ -801,17 +942,24 @@
 
     // ─────────── Scenes ───────────
 
-    function addScene() {
-      const scene = { id: uid(), visual: '', audio: '', image: null };
+    function addScene(prefill = {}) {
+      const scene = {
+        id: uid(),
+        visual: prefill.visual || '',
+        audio: prefill.audio || '',
+        image: prefill.image || null,
+      };
       state.scenes.push(scene);
       state.activeSceneId = scene.id;
       persist();
       render();
-      // Focus the new scene's visual textarea
       requestAnimationFrame(() => {
         const ta = document.querySelector(`[data-scene-id="${scene.id}"] textarea.visual`);
         ta?.focus();
+        // Scroll into view if added from chat
+        document.querySelector(`[data-scene-id="${scene.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
+      return scene;
     }
     function deleteScene(id) {
       state.scenes = state.scenes.filter(s => s.id !== id);
@@ -840,50 +988,76 @@
       render();
     }
 
-    // ─────────── Chat ───────────
+    // ─────────── Mode ───────────
 
-    async function generate() {
+    function setMode(m) {
+      state.mode = (m === 'image') ? 'image' : 'story';
+      document.body.dataset.mode = state.mode;
+      document.querySelectorAll('.mode-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.mode === state.mode);
+      });
+      document.getElementById('mode-hint').textContent = state.mode;
+      const send = document.getElementById('btn-send');
+      send.textContent = state.mode === 'image' ? 'Generate ↵' : 'Send ↵';
+      const prompt = document.getElementById('prompt');
+      prompt.placeholder = state.mode === 'image'
+        ? 'Cinematic wide shot of a small village under green twilight, paper lanterns, fog…'
+        : 'Paste research, ask a question, or describe a scene…';
+      try { localStorage.setItem(LS_MODE, state.mode); } catch {}
+    }
+
+    // ─────────── Send ───────────
+
+    async function send() {
       const promptEl = document.getElementById('prompt');
-      const prompt = promptEl.value.trim();
-      if (!prompt) {
-        promptEl.focus();
-        return;
-      }
-      const model = document.getElementById('model').value;
-      const useActiveAsRef = document.getElementById('use-active-as-ref').checked;
+      const text = promptEl.value.trim();
+      if (!text || state.thinking) { promptEl.focus(); return; }
 
-      const refs = [...state.refs];
-      if (useActiveAsRef && state.activeSceneId) {
-        const active = state.scenes.find(s => s.id === state.activeSceneId);
-        if (active?.image) refs.unshift(active.image);
-      }
+      if (state.mode === 'image') return sendImage(text);
+      return sendStory(text);
+    }
 
-      const sceneId = state.activeSceneId;
+    async function sendStory(message) {
+      const promptEl = document.getElementById('prompt');
 
-      state.chat.push({ id: uid(), role: 'user', prompt, sceneId });
+      const userTurn = { id: uid(), role: 'user', mode: 'story', content: message };
+      state.chat.push(userTurn);
       state.thinking = true;
       promptEl.value = '';
+      autoGrow(promptEl);
       render();
       scrollChatToEnd();
 
-      try {
-        // /api/* is gated by checkAccess(). Either a valid x-access-code OR
-        // any Authorization: Bearer header passes the perimeter. This page
-        // has its own cosmetic gate above; the bearer satisfies the proxy.
-        const accessCode = sessionStorage.getItem('mcm_access_code') || '';
-        const headers = {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer qss',
-        };
-        if (accessCode) headers['x-access-code'] = accessCode;
+      // Build conversation history from chat (last 8 text turns only, no image-mode noise).
+      const history = state.chat
+        .filter(t => t.mode === 'story' && (t.content || t.role === 'user'))
+        .slice(-1)  // we already pushed userTurn → exclude it from history
+        .slice(0, 0); // placeholder; rebuild below
+      const histList = [];
+      for (const t of state.chat) {
+        if (t.id === userTurn.id) break;
+        if (t.mode !== 'story') continue;
+        if (t.role === 'user' && t.content) histList.push({ role: 'user', content: t.content });
+        else if (t.role === 'bot' && t.content) histList.push({ role: 'model', content: t.content });
+      }
+      const trimmedHistory = histList.slice(-10);
 
+      try {
         const res = await fetch('/api/nano-banana', {
           method: 'POST',
-          headers,
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
           body: JSON.stringify({
-            prompt,
-            model,
-            referenceImages: refs,
+            mode: 'text',
+            message,
+            history: trimmedHistory,
+            storyboard: {
+              name: state.name,
+              scenes: state.scenes.map(s => ({
+                visual: s.visual,
+                audio: s.audio,
+                hasImage: !!s.image,
+              })),
+            },
           }),
         });
 
@@ -895,19 +1069,68 @@
         const data = await res.json();
         state.chat.push({
           id: uid(),
-          role: 'banana',
-          images: data.images || [],
-          text: data.text || '',
-          sceneId,
+          role: 'bot',
+          mode: 'story',
+          content: data.reply || '',
+          sceneSuggestions: (data.sceneSuggestions || []).map(s => ({ ...s, id: uid(), added: false })),
         });
-        state.refs = []; // clear refs after a successful gen
       } catch (e) {
         state.chat.push({
           id: uid(),
-          role: 'banana',
-          text: `⚠ ${e.message}`,
+          role: 'bot',
+          mode: 'story',
+          content: `⚠ ${e.message}`,
+        });
+      } finally {
+        state.thinking = false;
+        persist();
+        render();
+        scrollChatToEnd();
+      }
+    }
+
+    async function sendImage(prompt) {
+      const promptEl = document.getElementById('prompt');
+      const model = document.getElementById('model').value;
+      const useActiveAsRef = document.getElementById('use-active-as-ref').checked;
+
+      const refs = [...state.refs];
+      if (useActiveAsRef && state.activeSceneId) {
+        const active = state.scenes.find(s => s.id === state.activeSceneId);
+        if (active?.image) refs.unshift(active.image);
+      }
+
+      const sceneId = state.activeSceneId;
+      state.chat.push({ id: uid(), role: 'user', mode: 'image', content: prompt, sceneId });
+      state.thinking = true;
+      promptEl.value = '';
+      autoGrow(promptEl);
+      render();
+      scrollChatToEnd();
+
+      try {
+        const res = await fetch('/api/nano-banana', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          body: JSON.stringify({ mode: 'image', prompt, model, referenceImages: refs }),
+        });
+        if (!res.ok) {
+          let msg = `${res.status}`;
+          try { const j = await res.json(); msg = j.error || msg; } catch {}
+          throw new Error(msg);
+        }
+        const data = await res.json();
+        state.chat.push({
+          id: uid(),
+          role: 'bot',
+          mode: 'image',
+          content: data.text || '',
+          images: data.images || [],
           sceneId,
         });
+        state.refs = [];
+      } catch (e) {
+        state.chat.push({ id: uid(), role: 'bot', mode: 'image', content: `⚠ ${e.message}`, sceneId });
       } finally {
         state.thinking = false;
         persist();
@@ -932,7 +1155,7 @@
       state.activeSceneId = null;
       state.refs = [];
       document.getElementById('board-name').value = name;
-      addScene(); // start with one blank scene
+      addScene();
     }
 
     function loadOrInit() {
@@ -970,12 +1193,28 @@
       URL.revokeObjectURL(url);
     }
 
+    function clearHistory() {
+      if (!state.chat.length) return;
+      if (!confirm('Clear the chat history? Scenes on the left are kept.')) return;
+      state.chat = [];
+      persist();
+      render();
+    }
+
     // ─────────── Render ───────────
 
     function escapeHtml(s) {
       return (s || '').replace(/[&<>"']/g, c => ({
         '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
       })[c]);
+    }
+    function renderReply(s) {
+      // Lightweight markdown-ish: bold **x**, italic *x*, inline `code`.
+      let out = escapeHtml(s);
+      out = out.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+      out = out.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+      out = out.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+      return out;
     }
 
     function render() {
@@ -1011,22 +1250,16 @@
         </div>
       `).join('');
 
-      // Scene count
       document.getElementById('scene-count').textContent =
         `${state.scenes.length} scene${state.scenes.length === 1 ? '' : 's'}`;
 
-      // Active pill
       const idx = state.scenes.findIndex(s => s.id === state.activeSceneId);
       document.getElementById('active-pill').textContent =
         idx >= 0 ? `scene ${String(idx + 1).padStart(2, '0')}` : '—';
 
-      // Auto-grow textareas
       list.querySelectorAll('textarea').forEach(autoGrow);
 
-      // Chat
       renderChat();
-
-      // Refs
       renderRefs();
     }
 
@@ -1039,48 +1272,75 @@
         return;
       }
       const sceneIdxById = new Map(state.scenes.map((s, i) => [s.id, i]));
-      body.innerHTML = state.chat.map(t => {
-        if (t.role === 'user') {
-          return `<div class="turn user">
-            <div class="bubble">${escapeHtml(t.prompt)}</div>
-          </div>`;
-        }
-        const sceneIdx = sceneIdxById.get(t.sceneId);
-        const sceneLabel = sceneIdx != null ? `scene ${String(sceneIdx + 1).padStart(2, '0')}` : 'no scene';
-        const imgs = (t.images || []).map((img, i) => `
-          <div class="gen-image-wrap">
-            <div class="gen-image">
-              <img src="data:${img.mimeType};base64,${img.dataBase64}" />
-            </div>
-            <div class="gen-actions">
-              <button class="btn primary" data-action="use-image" data-turn="${t.id}" data-img="${i}">
-                Use for ${sceneLabel}
-              </button>
-              <button class="btn" data-action="ref-image" data-turn="${t.id}" data-img="${i}">
-                Reference
-              </button>
-              <button class="btn ghost" data-action="download-image" data-turn="${t.id}" data-img="${i}">
-                Download
-              </button>
-            </div>
-          </div>`).join('');
-        return `<div class="turn banana">
-          <div class="bubble-meta"><span class="dot"></span> nano banana · ${sceneLabel}</div>
-          ${imgs}
-          ${t.text ? `<div class="gen-text">${escapeHtml(t.text)}</div>` : ''}
-        </div>`;
-      }).join('');
+      body.innerHTML = state.chat.map(t => renderTurn(t, sceneIdxById)).join('');
       if (state.thinking) {
         body.insertAdjacentHTML('beforeend', `
-          <div class="turn banana">
-            <div class="thinking"><span class="blip"></span> generating</div>
+          <div class="turn bot">
+            <div class="thinking"><span class="blip"></span> ${state.mode === 'image' ? 'generating image' : 'thinking'}</div>
           </div>`);
       }
     }
 
+    function renderTurn(t, sceneIdxById) {
+      if (t.role === 'user') {
+        const isLargePaste = (t.content || '').length > 400;
+        return `<div class="turn user">
+          <div class="bubble ${isLargePaste ? 'paste-large' : ''}" data-turn="${t.id}">${escapeHtml(t.content)}</div>
+        </div>`;
+      }
+      // Bot turn
+      if (t.mode === 'image') {
+        const sceneIdx = sceneIdxById.get(t.sceneId);
+        const sceneLabel = sceneIdx != null ? `scene ${String(sceneIdx + 1).padStart(2, '0')}` : 'no scene';
+        const imgs = (t.images || []).map((img, i) => `
+          <div class="gen-image-wrap">
+            <div class="gen-image"><img src="data:${img.mimeType};base64,${img.dataBase64}" /></div>
+            <div class="gen-actions">
+              <button class="btn primary" data-action="use-image" data-turn="${t.id}" data-img="${i}">Use for ${sceneLabel}</button>
+              <button class="btn" data-action="ref-image" data-turn="${t.id}" data-img="${i}">Reference</button>
+              <button class="btn ghost" data-action="download-image" data-turn="${t.id}" data-img="${i}">Download</button>
+            </div>
+          </div>`).join('');
+        return `<div class="turn bot">
+          <div class="bot-meta"><span class="dot"></span> nano banana · ${sceneLabel}</div>
+          ${imgs}
+          ${t.content ? `<div class="gen-text">${escapeHtml(t.content)}</div>` : ''}
+        </div>`;
+      }
+      // Story bot turn
+      const reply = t.content ? `<div class="reply">${renderReply(t.content)}</div>` : '';
+      const suggestions = (t.sceneSuggestions || []).map((s, i) => `
+        <div class="suggestion ${s.added ? 'added' : ''}" data-sugg-id="${s.id}" data-turn="${t.id}">
+          <div class="s-num">Scene ${String(i + 1).padStart(2, '0')}</div>
+          ${s.visual ? `<div class="s-line"><span class="s-label">Visual</span><div class="s-text">${escapeHtml(s.visual)}</div></div>` : ''}
+          ${s.audio ? `<div class="s-line"><span class="s-label">Audio</span><div class="s-text">${escapeHtml(s.audio)}</div></div>` : ''}
+          ${s.rationale ? `<div class="s-rationale">${escapeHtml(s.rationale)}</div>` : ''}
+          <div class="s-actions">
+            <button class="btn primary" data-action="add-suggestion" data-turn="${t.id}" data-sugg-id="${s.id}">+ Add as scene</button>
+            <button class="btn" data-action="image-from-suggestion" data-turn="${t.id}" data-sugg-id="${s.id}">Generate image</button>
+          </div>
+          <div class="added-tag">✓ added to script</div>
+        </div>`).join('');
+      const sugBlock = suggestions ? `
+        <div class="suggestions">
+          <div class="suggestions-label">Scene suggestions</div>
+          ${suggestions}
+        </div>` : '';
+
+      return `<div class="turn bot">
+        <div class="bot-meta"><span class="dot"></span> story collaborator</div>
+        ${reply}
+        ${sugBlock}
+      </div>`;
+    }
+
     function renderRefs() {
       const pile = document.getElementById('ref-pile');
-      if (!state.refs.length) { pile.style.display = 'none'; pile.innerHTML = ''; return; }
+      if (state.mode !== 'image' || !state.refs.length) {
+        pile.style.display = 'none';
+        pile.innerHTML = '';
+        return;
+      }
       pile.style.display = 'flex';
       pile.innerHTML = state.refs.map((r, i) => `
         <div class="ref-chip">
@@ -1092,7 +1352,7 @@
 
     function autoGrow(ta) {
       ta.style.height = 'auto';
-      ta.style.height = ta.scrollHeight + 'px';
+      ta.style.height = Math.min(ta.scrollHeight, 280) + 'px';
     }
 
     // ─────────── Event delegation ───────────
@@ -1107,7 +1367,6 @@
       const card = e.target.closest('.scene');
       if (!card) return;
       const id = card.dataset.sceneId;
-
       const action = e.target.dataset.action;
       if (action === 'delete') {
         e.stopPropagation();
@@ -1119,37 +1378,71 @@
         clearSceneImage(id);
         return;
       }
-      if (e.target.closest('textarea')) return; // don't steal focus from textareas
+      if (e.target.closest('textarea')) return;
       state.activeSceneId = id;
       persist();
       render();
     });
 
     document.getElementById('chat-body').addEventListener('click', (e) => {
+      // Expand collapsed user paste bubbles
+      const bubble = e.target.closest('.bubble.paste-large');
+      if (bubble && !e.target.dataset.action) {
+        bubble.classList.toggle('expanded');
+        return;
+      }
       const action = e.target.dataset.action;
       if (!action) return;
       const turnId = e.target.dataset.turn;
-      const imgIdx = parseInt(e.target.dataset.img, 10);
       const turn = state.chat.find(t => t.id === turnId);
       if (!turn) return;
-      const img = turn.images?.[imgIdx];
-      if (!img) return;
 
       if (action === 'use-image') {
+        const imgIdx = parseInt(e.target.dataset.img, 10);
+        const img = turn.images?.[imgIdx];
+        if (!img) return;
         const sceneId = turn.sceneId || state.activeSceneId;
-        if (!sceneId) {
-          alert('No active scene. Click a scene on the left first.');
-          return;
-        }
+        if (!sceneId) { alert('No active scene. Click a scene on the left first.'); return; }
         attachImageToScene(sceneId, img);
       } else if (action === 'ref-image') {
+        const imgIdx = parseInt(e.target.dataset.img, 10);
+        const img = turn.images?.[imgIdx];
+        if (!img) return;
         state.refs.push(img);
+        setMode('image');
         renderRefs();
       } else if (action === 'download-image') {
+        const imgIdx = parseInt(e.target.dataset.img, 10);
+        const img = turn.images?.[imgIdx];
+        if (!img) return;
         const a = document.createElement('a');
         a.href = `data:${img.mimeType};base64,${img.dataBase64}`;
         a.download = `nano-banana-${Date.now()}.png`;
         a.click();
+      } else if (action === 'add-suggestion') {
+        const suggId = e.target.dataset.suggId;
+        const sugg = turn.sceneSuggestions?.find(s => s.id === suggId);
+        if (!sugg || sugg.added) return;
+        addScene({ visual: sugg.visual, audio: sugg.audio });
+        sugg.added = true;
+        persist();
+        render();
+      } else if (action === 'image-from-suggestion') {
+        const suggId = e.target.dataset.suggId;
+        const sugg = turn.sceneSuggestions?.find(s => s.id === suggId);
+        if (!sugg) return;
+        // If suggestion hasn't been added yet, add it first so the gen has a target scene.
+        if (!sugg.added) {
+          const newScene = addScene({ visual: sugg.visual, audio: sugg.audio });
+          sugg.added = true;
+        }
+        setMode('image');
+        const promptEl = document.getElementById('prompt');
+        promptEl.value = `Cinematic, photoreal, 16:9. ${sugg.visual}`;
+        autoGrow(promptEl);
+        promptEl.focus();
+        persist();
+        render();
       }
     });
 
@@ -1161,19 +1454,27 @@
       }
     });
 
-    document.getElementById('btn-generate').addEventListener('click', generate);
+    document.getElementById('btn-send').addEventListener('click', send);
+    document.getElementById('prompt').addEventListener('input', (e) => autoGrow(e.target));
     document.getElementById('prompt').addEventListener('keydown', (e) => {
+      // ⌘↵ / Ctrl↵ → always send. Plain ↵ in story mode inserts a newline (paste-friendly).
+      // In image mode, plain ↵ sends (faster iteration). Shift↵ always = newline.
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        generate();
-      } else if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        send();
+      } else if (e.key === 'Enter' && !e.shiftKey && state.mode === 'image') {
         e.preventDefault();
-        generate();
+        send();
       }
     });
 
-    document.getElementById('btn-add-scene').addEventListener('click', addScene);
-    document.getElementById('scene-add-btn').addEventListener('click', addScene);
+    document.querySelectorAll('.mode-tab').forEach(tab => {
+      tab.addEventListener('click', () => setMode(tab.dataset.mode));
+    });
+    document.getElementById('clear-history').addEventListener('click', clearHistory);
+
+    document.getElementById('btn-add-scene').addEventListener('click', () => addScene());
+    document.getElementById('scene-add-btn').addEventListener('click', () => addScene());
     document.getElementById('btn-new').addEventListener('click', () => {
       if (state.scenes.length > 1 || state.scenes[0]?.visual || state.scenes[0]?.audio || state.chat.length) {
         if (!confirm('Start a new storyboard? Your current one stays saved under its name.')) return;
@@ -1183,14 +1484,10 @@
     document.getElementById('btn-export').addEventListener('click', exportJson);
     document.getElementById('board-name').addEventListener('change', (e) => {
       const newName = e.target.value.trim();
-      if (!newName || newName === state.name) {
-        e.target.value = state.name;
-        return;
-      }
+      if (!newName || newName === state.name) { e.target.value = state.name; return; }
       const old = state.name;
       state.name = newName;
       persist();
-      // Drop old key + list entry
       try {
         localStorage.removeItem(LS_BOARD(old));
         const list = loadBoardList().filter(n => n !== old);
@@ -1200,6 +1497,8 @@
 
     // ─────────── Boot ───────────
 
+    const savedMode = localStorage.getItem(LS_MODE);
+    setMode(savedMode === 'image' ? 'image' : 'story');
     loadOrInit();
   </script>
 </body>
