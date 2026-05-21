@@ -58,6 +58,7 @@ export default defineConfig({
         translation: resolve(__dirname, 'translation/index.html'),
         hunter: resolve(__dirname, 'hunter/index.html'),
         queenScarletSchool: resolve(__dirname, 'queen-scarlet-school/index.html'),
+        queenScarletSchoolLibrary: resolve(__dirname, 'queen-scarlet-school/library/index.html'),
         trippy: resolve(__dirname, 'trippy/index.html'),
         taiwan: resolve(__dirname, 'taiwan/index.html'),
         todo: resolve(__dirname, 'todo/index.html'),

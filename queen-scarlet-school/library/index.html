@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Library — Queen Scarlet's School</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Andika:wght@400;700&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #FFF6E0; --paper-card: #FFFFFF; --paper-deep: #FCEDC4; --paper-soft: #FFFAEC;
+      --ink: #1F1F23; --ink-bright: #000; --ink-soft: #353540; --ink-faint: #6B6B7A; --ink-ghost: #D5C9A0;
+      --red: #E84545; --red-deep: #C32626;
+      --yolk: #FFD93D; --yolk-deep: #F0B900;
+      --sky: #4DB8E8; --sky-deep: #2596C7;
+      --grass: #6BCB77; --grass-deep: #44A856;
+      --bubblegum: #FF6FAA; --bubblegum-deep: #E04E89;
+      --grape: #9F7AE0;
+      --display: 'Caveat', cursive;
+      --serif: 'Andika', Georgia, serif;
+      --ui: 'Fredoka', system-ui, sans-serif;
+      --ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-soft: cubic-bezier(0.2, 0.6, 0.2, 1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--paper); color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    body { min-height: 100vh; display: flex; flex-direction: column; position: relative; }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.5;
+      background-image: radial-gradient(circle at 12px 12px, rgba(0,0,0,0.06) 1.5px, transparent 1.6px);
+      background-size: 24px 24px;
+    }
+    ::selection { background: var(--yolk); }
+    button { font-family: var(--ui); cursor: pointer; border: none; background: none; color: inherit; padding: 0; }
+
+    /* Sticker buttons */
+    .btn {
+      font-family: var(--ui); font-weight: 600; font-size: 15px;
+      border: 2.5px solid var(--ink-bright); border-radius: 12px; padding: 8px 14px;
+      background: var(--paper-card); color: var(--ink-bright);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      transition: transform 140ms var(--ease), box-shadow 140ms var(--ease), background 140ms var(--ease);
+      display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; text-decoration: none;
+    }
+    .btn:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink-bright); }
+    .btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink-bright); }
+    .btn.primary { background: var(--red); font-weight: 700; color: var(--ink-bright); }
+    .btn.primary:hover { background: var(--yolk); transform: translate(-1px, -1px) rotate(-1deg); }
+    .btn.ghost { box-shadow: 2px 2px 0 var(--ink-bright); padding: 7px 12px; font-size: 14px; }
+    .btn.ghost:hover { background: var(--yolk); }
+    .btn.big { font-size: 19px; padding: 12px 22px; font-weight: 700; border-radius: 16px; box-shadow: 4px 4px 0 var(--ink-bright); }
+    .btn .arrow { font-size: 17px; line-height: 1; }
+
+    /* Mascot blob (mycoldmars brand) */
+    .blob { display: inline-block; background: var(--yolk); border: 2.5px solid var(--ink-bright); border-radius: 50%; position: relative; box-shadow: 2px 2px 0 var(--ink-bright); flex-shrink: 0; width: 28px; height: 28px; }
+    .blob::before, .blob::after { content: ''; position: absolute; background: var(--ink-bright); border-radius: 50%; width: 4px; height: 4px; top: 9px; }
+    .blob::before { left: 7px; } .blob::after { right: 7px; }
+
+    /* Topbar */
+    .topbar {
+      display: flex; align-items: center; padding: 14px 24px; gap: 16px;
+      border-bottom: 3px solid var(--ink-bright); background: var(--paper);
+      position: relative; z-index: 10; flex-shrink: 0;
+    }
+    .brand {
+      font-family: var(--display); font-size: 26px; font-weight: 700; color: var(--ink-bright);
+      text-decoration: none; display: inline-flex; align-items: center; gap: 10px;
+      transform: rotate(-2deg); transition: transform 180ms var(--ease);
+    }
+    .brand:hover { transform: rotate(-3deg) scale(1.05); }
+    .lib-title {
+      flex: 1; text-align: center;
+      font-family: var(--display); font-size: clamp(32px, 4.2vw, 52px); font-weight: 700;
+      line-height: 1; color: var(--ink-bright);
+      letter-spacing: 0.01em;
+    }
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+
+    /* Dragon mascot (inline SVG injected at boot) */
+    .dragon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+      filter: drop-shadow(2.5px 2.5px 0 var(--ink-bright)); transition: transform 220ms var(--ease); }
+    .dragon svg { width: 100%; height: 100%; display: block; overflow: visible; }
+    .dragon.sm { width: 36px; height: 36px; }
+    .dragon.md { width: 56px; height: 56px; }
+    .dragon.lg { width: 88px; height: 88px; transform: rotate(-4deg); }
+    .dragon:hover { transform: rotate(-6deg) scale(1.05); }
+
+    /* Page body */
+    .page {
+      flex: 1; overflow-y: auto;
+      padding: 32px clamp(20px, 4vw, 60px) 80px;
+      position: relative; z-index: 1;
+      max-width: 1320px; margin: 0 auto; width: 100%;
+    }
+
+    .page-intro {
+      display: flex; align-items: center; gap: 20px; margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+    .page-intro .copy { flex: 1; min-width: 240px; }
+    .page-intro h1 { font-family: var(--display); font-size: clamp(36px, 4vw, 56px); line-height: 1; font-weight: 700; }
+    .page-intro .sub { font-family: var(--serif); color: var(--ink-soft); font-size: 16px; margin-top: 6px; max-width: 640px; }
+    .page-intro .right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .lib-count {
+      font-family: var(--ui); font-size: 13px; font-weight: 700;
+      color: var(--ink-bright);
+      background: var(--sky); border: 2.5px solid var(--ink-bright); border-radius: 999px;
+      padding: 5px 12px; box-shadow: 2.5px 2.5px 0 var(--ink-bright);
+      transform: rotate(-2deg); white-space: nowrap;
+    }
+
+    /* Banner (migration / errors) */
+    .banner {
+      background: var(--bubblegum); border: 2.5px solid var(--ink-bright); border-radius: 14px;
+      padding: 14px 18px;
+      font-family: var(--serif); font-size: 15px; color: var(--ink-bright); line-height: 1.45;
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      margin-bottom: 22px;
+      display: none;
+    }
+    .banner.show { display: block; }
+    .banner code { background: var(--paper-card); border: 1.5px solid var(--ink-bright); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
+
+    /* Stories grid */
+    .section-title {
+      font-family: var(--display); font-size: 30px; font-weight: 700;
+      color: var(--ink-soft);
+      display: flex; align-items: center; gap: 14px;
+      margin: 24px 0 14px;
+    }
+    .section-title::after { content: ''; flex: 1; height: 2px; background: var(--ink-bright); opacity: 0.18; }
+
+    .stories-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 22px;
+    }
+
+    .story-card {
+      position: relative;
+      background: var(--paper-card); border: 2.5px solid var(--ink-bright);
+      border-radius: 18px; box-shadow: 5px 5px 0 var(--ink-bright);
+      padding: 14px; display: flex; flex-direction: column; gap: 12px;
+      transition: transform .2s var(--ease), box-shadow .2s var(--ease);
+      cursor: pointer;
+    }
+    .story-card:nth-child(3n+1) { transform: rotate(-0.5deg); }
+    .story-card:nth-child(3n+2) { transform: rotate(0.5deg); }
+    .story-card:nth-child(3n+3) { transform: rotate(-0.2deg); }
+    .story-card:hover { transform: translate(-2px, -3px) rotate(0); box-shadow: 7px 7px 0 var(--ink-bright); }
+
+    .story-card .cover {
+      width: 100%; aspect-ratio: 16 / 10;
+      background: var(--paper-deep);
+      border: 2px solid var(--ink-bright); border-radius: 10px;
+      overflow: hidden; display: flex; align-items: center; justify-content: center;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      font-size: 38px;
+    }
+    .story-card .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .story-card .cover.deco { background: var(--paper-deep); padding: 6px; }
+    .story-card .cover.deco img { object-fit: contain; padding: 8px; }
+
+    .story-card h3 {
+      font-family: var(--display); font-size: 26px; font-weight: 700; line-height: 1.1;
+      color: var(--ink-bright); word-break: break-word;
+    }
+    .story-card .meta {
+      font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--ink-soft);
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .story-card .meta .chip {
+      background: var(--sky); border: 1.5px solid var(--ink-bright); border-radius: 999px;
+      padding: 1px 8px; box-shadow: 1px 1px 0 var(--ink-bright); transform: rotate(-2deg);
+    }
+    .story-card .meta .when { color: var(--ink-faint); }
+
+    .story-card .actions {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px;
+    }
+    .story-card .cb {
+      font-family: var(--ui); font-weight: 700; font-size: 12px; color: var(--ink-bright);
+      padding: 4px 10px; background: var(--paper-card);
+      border: 2px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright); cursor: pointer;
+    }
+    .story-card .cb:hover { background: var(--yolk); transform: translateY(-1px); }
+    .story-card .cb.danger:hover { background: var(--red); }
+    .story-card.trash { opacity: 0.72; background: var(--paper-deep); }
+    .story-card.trash h3 { text-decoration: line-through; color: var(--ink-soft); }
+
+    .empty {
+      grid-column: 1 / -1;
+      text-align: center; padding: 60px 30px;
+      color: var(--ink-faint); font-family: var(--display); font-size: 28px;
+      line-height: 1.3;
+    }
+    .empty .little {
+      display: block; margin-top: 10px;
+      font-family: var(--serif); font-size: 15px; color: var(--ink-faint); font-style: italic;
+    }
+
+    .trash-toggle-row { display: flex; justify-content: flex-end; margin-top: 32px; }
+    .trash-toggle {
+      font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--ink-soft);
+      background: transparent; border: 2px dashed var(--ink-bright); border-radius: 999px;
+      padding: 5px 14px; cursor: pointer;
+    }
+    .trash-toggle:hover { background: var(--paper-card); }
+
+    /* Scrapbook layer */
+    .scrap-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .scrap { position: absolute; pointer-events: none; user-select: none;
+      filter: drop-shadow(4px 6px 0 rgba(0,0,0,0.22)); opacity: 0.92; }
+    .scrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .scrap.s-fierce  { top: -22px; right: -52px; width: clamp(180px, 22vw, 320px); transform: rotate(12deg); }
+    .scrap.s-school  { top: 60px; left: -64px;   width: clamp(180px, 22vw, 320px); transform: rotate(-10deg); opacity: 0.88; }
+    .scrap.s-bunker  { bottom: -32px; right: -64px; width: clamp(220px, 28vw, 420px); transform: rotate(8deg); opacity: 0.8; }
+    .scrap.s-chill   { bottom: 30px; left: -36px; width: clamp(200px, 22vw, 320px); transform: rotate(-8deg); }
+    .scrap.s-benny   { top: 32vh; right: -42px; width: clamp(140px, 14vw, 220px); transform: rotate(6deg); }
+    .scrap.s-bolt    { top: 30vh; left: 32vw;  width: clamp(70px, 8vw, 120px); transform: rotate(-14deg); }
+    .scrap.s-bolt-2  { bottom: 18vh; right: 18vw; width: clamp(70px, 8vw, 120px); transform: rotate(18deg); opacity: 0.85; }
+    @media (max-width: 900px) {
+      .scrap.s-fierce, .scrap.s-bunker, .scrap.s-benny { display: none; }
+    }
+    @media (max-width: 700px) {
+      .scrap-layer { display: none; }
+    }
+
+    /* Gate */
+    .gate { position: fixed; inset: 0; background: var(--paper); display: flex;
+      align-items: center; justify-content: center; z-index: 500; }
+    .gate.hidden { display: none; }
+    .gate-inner { max-width: 360px; width: calc(100% - 32px); display: flex; flex-direction: column;
+      gap: 18px; padding: 40px; background: var(--paper-card); border: 3px solid var(--ink-bright);
+      border-radius: 22px; box-shadow: 8px 8px 0 var(--yolk), 8px 8px 0 3px var(--ink-bright); transform: rotate(-1deg); }
+    .gate h1 { font-family: var(--display); font-size: 36px; font-weight: 700; text-align: center; line-height: 1; }
+    .gate input { width: 100%; background: var(--paper-soft); border: 2.5px solid var(--ink-bright); color: var(--ink);
+      font-family: var(--ui); font-size: 16px; padding: 12px 16px; outline: none; border-radius: 12px; text-align: center;
+      box-shadow: 2px 2px 0 var(--ink-bright); }
+    .gate-error { color: var(--red-deep); font-family: var(--display); font-size: 18px; text-align: center; display: none; }
+    .gate-error.show { display: block; }
+    .app { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .app.hidden { display: none; }
+
+    *::-webkit-scrollbar { width: 14px; height: 14px; }
+    *::-webkit-scrollbar-thumb { background: var(--ink-bright); border-radius: 999px; border: 3px solid var(--paper); }
+  </style>
+</head>
+<body>
+
+  <div class="scrap-layer" aria-hidden="true">
+    <div class="scrap s-fierce"><img src="../decor/dragon-fierce.jpg" alt="" /></div>
+    <div class="scrap s-school"><img src="../decor/school-building.jpg" alt="" /></div>
+    <div class="scrap s-bunker"><img src="../decor/bunker-blueprint.jpg" alt="" /></div>
+    <div class="scrap s-chill"><img src="../decor/dragon-chill.jpg" alt="" /></div>
+    <div class="scrap s-benny"><img src="../decor/benny-beaver.jpg" alt="" /></div>
+    <div class="scrap s-bolt"><img src="../decor/lightning-bolt.jpg" alt="" /></div>
+    <div class="scrap s-bolt-2"><img src="../decor/lightning-bolt.jpg" alt="" /></div>
+  </div>
+
+  <div id="gate" class="gate">
+    <div class="gate-inner">
+      <span class="dragon lg" id="gate-dragon"></span>
+      <h1>Queen Scarlet's<br>Library</h1>
+      <input id="gate-code" type="password" placeholder="password" autocomplete="off" />
+      <button id="gate-submit" class="btn primary big">Let me in!</button>
+      <div id="gate-error" class="gate-error">try again!</div>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden">
+
+    <header class="topbar">
+      <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
+      <div class="lib-title">Library</div>
+      <div class="topbar-right">
+        <a href="../" class="btn ghost">← back to school</a>
+        <a href="../" class="btn primary" id="lib-new">+ new story</a>
+      </div>
+    </header>
+
+    <div class="page">
+
+      <div class="page-intro">
+        <span class="dragon md" id="intro-dragon"></span>
+        <div class="copy">
+          <h1>Your stories</h1>
+          <div class="sub">every story you've written with Wordy lives here. click one to open it, rename it, duplicate it, or send it to trash.</div>
+        </div>
+        <div class="right">
+          <span id="lib-count" class="lib-count">loading…</span>
+          <button id="refresh-btn" class="btn ghost">refresh</button>
+        </div>
+      </div>
+
+      <div id="banner" class="banner"></div>
+
+      <div id="stories-grid" class="stories-grid"></div>
+
+      <div class="trash-toggle-row">
+        <button id="toggle-trash" class="trash-toggle">show trash</button>
+      </div>
+
+      <div id="trash-section" style="display:none;">
+        <div class="section-title">Trash</div>
+        <div id="trash-grid" class="stories-grid"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // ─── Gate (shared cookie with the school) ───
+    (function() {
+      const COOKIE = 'qss_access', PASS = 'newpress';
+      const gateEl = document.getElementById('gate'), appEl = document.getElementById('app');
+      function getCookie(n) { const m = document.cookie.match(new RegExp('(?:^|; )'+n+'=([^;]*)')); return m ? decodeURIComponent(m[1]) : null; }
+      function unlock() {
+        document.cookie = COOKIE+'=granted; path=/; max-age='+(60*60*24*90);
+        gateEl.classList.add('hidden'); appEl.classList.remove('hidden');
+      }
+      if (getCookie(COOKIE) === 'granted') { unlock(); return; }
+      const inp = document.getElementById('gate-code');
+      const err = document.getElementById('gate-error');
+      function check() { const v = (inp.value||'').trim().toLowerCase(); if (v === PASS) unlock(); else { err.classList.add('show'); inp.value = ''; inp.focus(); } }
+      document.getElementById('gate-submit').addEventListener('click', check);
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
+      inp.focus();
+    })();
+
+    // ─── Dragon SVG (same source-of-truth as the school) ───
+    const DRAGON_SVG = `
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-label="Wordy the dragon">
+  <path d="M14 56 Q-2 32 4 76 Q18 72 22 60 Z" fill="#C32626" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M86 56 Q102 32 96 76 Q82 72 78 60 Z" fill="#C32626" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M50 16 L46 23 L54 23 Z" fill="#F0B900" stroke="#000" stroke-width="2"/>
+  <ellipse cx="50" cy="56" rx="34" ry="32" fill="#E84545" stroke="#000" stroke-width="3"/>
+  <ellipse cx="50" cy="68" rx="22" ry="14" fill="#FFD9B5" stroke="#000" stroke-width="2.5"/>
+  <path d="M30 30 L24 10 L40 30 Z" fill="#FFD93D" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M70 30 L76 10 L60 30 Z" fill="#FFD93D" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M16 40 Q8 38 12 52 Q18 50 22 46 Z" fill="#E84545" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M84 40 Q92 38 88 52 Q82 50 78 46 Z" fill="#E84545" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+  <circle cx="30" cy="60" r="4" fill="#FF8FA8" opacity="0.7"/>
+  <circle cx="70" cy="60" r="4" fill="#FF8FA8" opacity="0.7"/>
+  <circle cx="38" cy="48" r="9" fill="#fff" stroke="#000" stroke-width="2.5"/>
+  <circle cx="62" cy="48" r="9" fill="#fff" stroke="#000" stroke-width="2.5"/>
+  <circle cx="40" cy="50" r="3.8" fill="#000"/>
+  <circle cx="64" cy="50" r="3.8" fill="#000"/>
+  <circle cx="38" cy="46" r="1.6" fill="#fff"/>
+  <circle cx="62" cy="46" r="1.6" fill="#fff"/>
+  <ellipse cx="45" cy="65" rx="1.5" ry="2.2" fill="#000"/>
+  <ellipse cx="55" cy="65" rx="1.5" ry="2.2" fill="#000"/>
+  <path d="M42 76 Q50 82 58 76" stroke="#000" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M47 77 L46 80 L49 80 Z" fill="#fff" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>`;
+    document.querySelectorAll('.dragon').forEach(el => { if (!el.innerHTML.trim()) el.innerHTML = DRAGON_SVG; });
+
+    // ─── Library data layer ───
+    const DECOR = ['../decor/dragon-fierce.jpg', '../decor/school-building.jpg', '../decor/bunker-blueprint.jpg', '../decor/dragon-chill.jpg', '../decor/benny-beaver.jpg', '../decor/kevin-helmet.jpg', '../decor/not-to-hug-chart.jpg', '../decor/uranium-cart.jpg'];
+    function decorFor(id) {
+      // deterministic decor pick by id hash so each card stays consistent
+      let h = 0; for (const c of (id || '')) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
+      return DECOR[Math.abs(h) % DECOR.length];
+    }
+
+    function relTime(iso) {
+      if (!iso) return 'just now';
+      const ms = Date.now() - new Date(iso).getTime();
+      const s = Math.floor(ms / 1000);
+      if (s < 60) return 'just now';
+      const m = Math.floor(s / 60);
+      if (m < 60) return `${m} min${m === 1 ? '' : 's'} ago`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h} hour${h === 1 ? '' : 's'} ago`;
+      const d = Math.floor(h / 24);
+      if (d < 30) return `${d} day${d === 1 ? '' : 's'} ago`;
+      return new Date(iso).toLocaleDateString();
+    }
+    function esc(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+
+    const HEADERS = { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' };
+
+    async function fetchList(includeTrash = false) {
+      const q = includeTrash ? '?action=list&trash=1' : '?action=list';
+      const res = await fetch(`/api/qss-stories${q}`, { headers: HEADERS });
+      if (res.status === 503) {
+        const j = await res.json().catch(() => ({}));
+        if (j.error === 'MIGRATION_PENDING') return { stories: [], migrationPending: true };
+      }
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.message || `HTTP ${res.status}`);
+      }
+      const { stories } = await res.json();
+      return { stories, migrationPending: false };
+    }
+
+    function cardHtml(s, isTrash) {
+      const when = relTime(s.updated_at);
+      const cover = s.cover_image
+        ? `<div class="cover"><img src="${s.cover_image}" alt="cover" /></div>`
+        : `<div class="cover deco"><img src="${decorFor(s.id)}" alt="" /></div>`;
+      const actions = isTrash
+        ? `<button class="cb" data-action="restore" data-id="${s.id}">restore</button>
+           <button class="cb danger" data-action="purge" data-id="${s.id}">forever delete</button>`
+        : `<button class="cb" data-action="open" data-id="${s.id}">open</button>
+           <button class="cb" data-action="rename" data-id="${s.id}">rename</button>
+           <button class="cb" data-action="duplicate" data-id="${s.id}">duplicate</button>
+           <button class="cb danger" data-action="delete" data-id="${s.id}">delete</button>`;
+      return `<div class="story-card ${isTrash ? 'trash' : ''}" data-id="${s.id}">
+        ${cover}
+        <h3>${esc(s.name || 'untitled')}</h3>
+        <div class="meta">
+          <span class="chip">${s.block_count || 0} block${s.block_count === 1 ? '' : 's'}</span>
+          <span class="when">${when}</span>
+        </div>
+        <div class="actions">${actions}</div>
+      </div>`;
+    }
+
+    function showBanner(html) {
+      const b = document.getElementById('banner');
+      b.innerHTML = html;
+      b.classList.add('show');
+    }
+
+    async function renderMain() {
+      const grid = document.getElementById('stories-grid');
+      const count = document.getElementById('lib-count');
+      count.textContent = 'loading…';
+      grid.innerHTML = '';
+      try {
+        const { stories, migrationPending } = await fetchList(false);
+        if (migrationPending) {
+          showBanner('<strong>The library needs a one-time setup.</strong> In the Supabase SQL editor, run <code>supabase/migrations/015_qss_stories.sql</code>. Until then your stories are saved locally and survive on this device.');
+          count.textContent = 'setup needed';
+          grid.innerHTML = '<div class="empty">setup needed before stories can save to the cloud<span class="little">see the pink note above</span></div>';
+          return;
+        }
+        count.textContent = `${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`;
+        if (!stories.length) {
+          grid.innerHTML = `<div class="empty">no stories yet!<span class="little">head back to the school and start one — it\'ll show up here automatically.</span></div>`;
+          return;
+        }
+        grid.innerHTML = stories.map(s => cardHtml(s, false)).join('');
+      } catch (e) {
+        count.textContent = 'error';
+        grid.innerHTML = `<div class="empty">couldn\'t load library<span class="little">${esc(e.message)}</span></div>`;
+      }
+    }
+
+    async function renderTrash() {
+      const tg = document.getElementById('trash-grid');
+      tg.innerHTML = '';
+      try {
+        const { stories } = await fetchList(true);
+        if (!stories.length) { tg.innerHTML = '<div class="empty">trash is empty</div>'; return; }
+        tg.innerHTML = stories.map(s => cardHtml(s, true)).join('');
+      } catch (e) {
+        tg.innerHTML = `<div class="empty">error<span class="little">${esc(e.message)}</span></div>`;
+      }
+    }
+
+    document.getElementById('refresh-btn').addEventListener('click', renderMain);
+    document.getElementById('toggle-trash').addEventListener('click', async () => {
+      const sec = document.getElementById('trash-section');
+      const btn = document.getElementById('toggle-trash');
+      const showing = sec.style.display === 'block';
+      sec.style.display = showing ? 'none' : 'block';
+      btn.textContent = showing ? 'show trash' : 'hide trash';
+      if (!showing) await renderTrash();
+    });
+
+    document.getElementById('stories-grid').addEventListener('click', async (e) => {
+      const card = e.target.closest('.story-card');
+      if (!card) return;
+      const id = card.dataset.id;
+      const action = e.target.dataset.action;
+      if (!action || action === 'open') {
+        // Card body click or "open" button → navigate back to school with ?story=
+        window.location.href = `../?story=${encodeURIComponent(id)}`;
+        return;
+      }
+      if (action === 'rename') {
+        const cur = card.querySelector('h3').textContent.trim();
+        const next = window.prompt('New name?', cur);
+        if (!next || !next.trim() || next === cur) return;
+        try {
+          const res = await fetch('/api/qss-stories?action=rename', { method: 'POST', headers: HEADERS, body: JSON.stringify({ id, name: next.trim() }) });
+          if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'rename failed');
+          await renderMain();
+        } catch (err) { alert(err.message); }
+      } else if (action === 'duplicate') {
+        try {
+          const res = await fetch('/api/qss-stories?action=duplicate', { method: 'POST', headers: HEADERS, body: JSON.stringify({ id }) });
+          if (!res.ok) throw new Error('duplicate failed');
+          await renderMain();
+        } catch (err) { alert(err.message); }
+      } else if (action === 'delete') {
+        if (!confirm('Move this story to trash?')) return;
+        try {
+          await fetch('/api/qss-stories?action=delete', { method: 'POST', headers: HEADERS, body: JSON.stringify({ id }) });
+          await renderMain();
+          if (document.getElementById('trash-section').style.display === 'block') await renderTrash();
+        } catch (err) { alert(err.message); }
+      }
+    });
+
+    document.getElementById('trash-grid').addEventListener('click', async (e) => {
+      const action = e.target.dataset.action;
+      if (!action) return;
+      const id = e.target.dataset.id;
+      if (action === 'restore') {
+        await fetch('/api/qss-stories?action=restore', { method: 'POST', headers: HEADERS, body: JSON.stringify({ id }) });
+        await renderTrash(); await renderMain();
+      } else if (action === 'purge') {
+        if (!confirm('Delete this story FOREVER?')) return;
+        await fetch('/api/qss-stories?action=hard-delete', { method: 'POST', headers: HEADERS, body: JSON.stringify({ id }) });
+        await renderTrash();
+      }
+    });
+
+    // Boot
+    renderMain();
+  </script>
+
+</body>
+</html>

@@ -155,16 +155,32 @@
       transform: rotate(-2deg); transition: transform 180ms var(--ease);
     }
     .brand:hover { transform: rotate(-3deg) scale(1.05); }
-    .topbar-title { flex: 1; text-align: center; font-family: var(--display); font-size: 32px; font-weight: 700; color: var(--ink-bright); line-height: 1; padding: 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .topbar-right { display: flex; align-items: center; gap: 10px; }
-    .story-name {
-      font-family: var(--display); font-size: 22px; font-weight: 700;
-      background: transparent; border: none; border-bottom: 3px dashed transparent;
-      outline: none; color: var(--ink-bright); padding: 2px 8px; width: 200px;
-      transition: border-color 180ms var(--ease-soft);
+    /* Story name — the centered, big, click-to-edit title */
+    .story-title-input {
+      flex: 1;
+      min-width: 0;
+      max-width: 700px;
+      margin: 0 12px;
+      text-align: center;
+      font-family: var(--display);
+      font-size: clamp(28px, 3.4vw, 44px);
+      font-weight: 700;
+      line-height: 1;
+      background: transparent;
+      border: none;
+      border-bottom: 3px dashed transparent;
+      outline: none;
+      color: var(--ink-bright);
+      padding: 4px 14px 6px;
+      transition: border-color 180ms var(--ease-soft), background 180ms var(--ease-soft);
+      border-radius: 6px;
+      cursor: text;
     }
-    .story-name:hover, .story-name:focus { border-bottom-color: var(--ink-bright); }
-    .story-name::placeholder { color: var(--ink-faint); }
+    .story-title-input:hover { border-bottom-color: var(--ink-bright); background: rgba(255,255,255,0.4); }
+    .story-title-input:focus { border-bottom-color: var(--ink-bright); background: var(--paper-card); }
+    .story-title-input::placeholder { color: var(--ink-faint); font-style: italic; }
+    .story-title-input::after { content: '✎'; opacity: 0.4; margin-left: 8px; }
 
     /* ──────────── Tabs ──────────── */
     .tabs { display: flex; align-items: center; gap: 14px; padding: 18px 24px 10px; flex-shrink: 0; position: relative; z-index: 5; }
@@ -980,11 +996,10 @@
 
     <header class="topbar">
       <a href="/" class="brand"><span class="blob sm"></span>mycoldmars</a>
-      <h1 class="topbar-title">Queen Scarlet's School</h1>
+      <input id="board-name" class="story-title-input" type="text" placeholder="untitled story" autocomplete="off" spellcheck="false" title="Click to rename" />
       <div class="topbar-right">
-        <input id="board-name" class="story-name" type="text" placeholder="my story" autocomplete="off" />
         <span id="save-pill" class="save-pill" title="auto-save status">saved</span>
-        <button id="btn-library" class="btn gold" title="Open the story library">📚 library</button>
+        <a href="library/" id="btn-library" class="btn gold" title="Open the story library">📚 library</a>
         <button id="btn-rules" class="btn ghost" title="Parent settings — story rules and goals">⚙ rules</button>
         <button id="btn-new" class="btn ghost" title="Start a new story">+ new</button>
         <button id="btn-export" class="btn ghost" title="Download story as JSON">⬇ export</button>
@@ -1399,6 +1414,22 @@
       persist();
     }
     function init() {
+      // Coming back from the library page with ?story=<uuid>? Load that one from cloud.
+      const params = new URLSearchParams(location.search);
+      const wantedId = params.get('story');
+      if (wantedId) {
+        history.replaceState(null, '', location.pathname);
+        fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(wantedId)}`, {
+          headers: { 'Authorization': 'Bearer qss' },
+        }).then(r => r.ok ? r.json() : Promise.reject(r)).then(({ story }) => {
+          if (story && window.Lib?.loadFromServerRow) window.Lib.loadFromServerRow(story);
+          else fallbackInit();
+        }).catch(() => fallbackInit());
+        return;
+      }
+      fallbackInit();
+    }
+    function fallbackInit() {
       const last = localStorage.getItem(LS_LAST);
       if (last) { const d = loadStory(last); if (d) { bootStory(last, d); return; } }
       newStory(false);
@@ -2352,8 +2383,13 @@
         await renderTrash();
       }
 
-      // Wire up modal events
-      document.getElementById('btn-library').addEventListener('click', openLibrary);
+      // Library button is now a link to /library/ — flush any pending save
+      // before navigating so opening the library shows the latest state.
+      document.getElementById('btn-library').addEventListener('click', async (e) => {
+        // Don't block navigation; just kick the flush. sendBeacon on pagehide
+        // covers the truly-still-saving case.
+        try { flush(); } catch {}
+      });
       document.getElementById('lib-close').addEventListener('click', closeLibrary);
       document.getElementById('lib-refresh').addEventListener('click', renderLibrary);
       document.getElementById('library-modal').addEventListener('click', (e) => {
@@ -2402,6 +2438,7 @@
         openLibrary,
         loadStory,
         reloadFromServer,
+        loadFromServerRow: loadFromRow,
       };
     })();
 
