@@ -1,10 +1,10 @@
 import { checkAccess } from './_lib/access.js';
 
-// Edge runtime. Vercel's Node serverless adapter wasn't reliably passing the
-// request shape this handler expects — switched back. To mitigate the ~25s
-// hard cap on image-mode, the CLIENT retries 504s up to 2x (see index.html
-// generateForScene). 2 retries get effective success rate >90%.
-export const config = { runtime: 'edge', maxDuration: 30 };
+// Node serverless runtime so image-mode (gemini image gen) can finish past
+// the 25s edge cap. The default-export wrapper below handles Vercel's
+// Express-style (req, res) signature by adapting it to the inner Web Request
+// handler that already returns Response objects.
+export const config = { runtime: 'nodejs', maxDuration: 60 };
 
 /**
  * Queen Scarlet's School backend. Two modes:
@@ -349,7 +349,10 @@ function normalizeBlocks(arr) {
   return out;
 }
 
-export default async function handler(req) {
+// Inner handler — expects a Web Request, returns a Web Response.
+// The default-export wrapper below adapts Vercel's Express (req, res)
+// signature so this code keeps working without a per-call branch.
+async function innerHandler(req) {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -743,4 +746,65 @@ function jsonResponse(payload, status = 200) {
 }
 function jsonError(status, message) {
   return jsonResponse({ error: message }, status);
+}
+
+// ────────────────────── Vercel Node adapter ──────────────────────
+// Vercel's Node runtime invokes the default export with (req, res) where
+// req is an IncomingMessage and res is a ServerResponse. The inner handler
+// expects a Web Request and returns a Web Response, so adapt both sides.
+// If invoked with only (req) — edge runtime — pass straight through.
+
+async function buildWebRequest(req) {
+  const headers = new Headers();
+  for (const [k, v] of Object.entries(req.headers || {})) {
+    if (v == null) continue;
+    headers.set(k, Array.isArray(v) ? v.join(', ') : String(v));
+  }
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  const host = req.headers.host || 'localhost';
+  const url = `${proto}://${host}${req.url || '/'}`;
+  // Body: Vercel's Node adapter pre-parses JSON onto req.body when the
+  // request has Content-Type: application/json. If not, fall back to
+  // reading the raw stream.
+  let body;
+  const method = (req.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') {
+    if (req.body !== undefined && req.body !== null) {
+      body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    } else {
+      body = await new Promise((resolve, reject) => {
+        let buf = '';
+        req.on('data', (chunk) => { buf += chunk; });
+        req.on('end', () => resolve(buf));
+        req.on('error', reject);
+      });
+    }
+  }
+  return new Request(url, { method, headers, body: body || undefined });
+}
+
+async function sendWebResponse(res, response) {
+  res.statusCode = response.status;
+  for (const [k, v] of response.headers) res.setHeader(k, v);
+  const buf = Buffer.from(await response.arrayBuffer());
+  res.end(buf);
+}
+
+export default async function handler(req, res) {
+  // Express-style — Node runtime
+  if (res !== undefined) {
+    try {
+      const webReq = await buildWebRequest(req);
+      const response = await innerHandler(webReq);
+      await sendWebResponse(res, response);
+    } catch (e) {
+      console.error('[nano-banana]', e);
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'INTERNAL', message: (e && e.message) || String(e) }));
+    }
+    return;
+  }
+  // Web-style — Edge runtime (kept for safety in case the runtime config is overridden)
+  return innerHandler(req);
 }
