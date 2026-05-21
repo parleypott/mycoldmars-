@@ -3,739 +3,640 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Queen Scarlet's School — storyboard</title>
+  <title>Queen Scarlet's School</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0e0c0a;
-      --panel: #16130f;
-      --panel-2: #1d1916;
-      --line: #2a2622;
-      --line-soft: #1f1c18;
-      --ivory: #ece6d8;
-      --ivory-bright: #f6efde;
-      --ivory-dim: rgba(236, 230, 216, 0.55);
-      --ivory-faint: rgba(236, 230, 216, 0.18);
+      --paper: #faf6ec;
+      --paper-2: #ffffff;
+      --paper-3: #f3ecd9;
+      --ink: #1c1815;
+      --ink-soft: #4a4338;
+      --ink-faint: #8a8169;
+      --line: #e1d5b8;
+      --line-soft: #ebe2c9;
       --red: #d42e05;
-      --red-soft: rgba(212, 46, 5, 0.18);
-      --gold: #e0b75a;
-      --gold-soft: rgba(224, 183, 90, 0.15);
-      --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+      --red-deep: #b32604;
+      --gold: #f0b400;
+      --gold-deep: #cf9800;
       --serif: 'Iowan Old Style', 'Palatino', Georgia, serif;
+      --sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
     }
 
     html, body {
       height: 100%;
-      background: var(--bg);
-      color: var(--ivory);
-      font-family: var(--mono);
-      font-size: 13px;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: 18px;
+      line-height: 1.5;
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      overflow: hidden;
     }
 
-    body::after {
-      content: '';
-      position: fixed; inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
-      pointer-events: none;
-      z-index: 200;
-      mix-blend-mode: overlay;
+    body {
+      background-image:
+        radial-gradient(circle at 12% 8%, rgba(212,46,5,0.04), transparent 30%),
+        radial-gradient(circle at 88% 92%, rgba(240,180,0,0.05), transparent 35%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
-    /* ──────────── Top bar ──────────── */
+    /* ──────────── Header ──────────── */
 
     .topbar {
+      padding: 20px 32px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+    .top-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      padding: 14px 22px;
-      border-bottom: 1px solid var(--line);
-      background: var(--panel);
-      height: 56px;
-      position: relative;
-      z-index: 4;
+      flex-wrap: wrap;
     }
-    .brand { display: flex; align-items: baseline; gap: 14px; }
-    .brand .home {
-      color: var(--ivory-dim);
+    .brand { display: flex; align-items: center; gap: 18px; }
+    .home-link {
+      color: var(--ink-faint);
       text-decoration: none;
-      font-size: 11px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
+      font-family: var(--sans);
+      font-size: 13px;
+      letter-spacing: 0.04em;
       transition: color .15s;
     }
-    .brand .home:hover { color: var(--ivory-bright); }
-    .brand .title {
+    .home-link:hover { color: var(--red); }
+    .brand h1 {
+      font-family: var(--serif);
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      line-height: 1;
+    }
+
+    .right-tools { display: flex; gap: 10px; align-items: center; }
+    .board-input {
+      background: transparent;
+      border: none;
+      border-bottom: 2px dotted var(--line);
+      color: var(--ink);
+      padding: 4px 6px;
+      font-family: var(--serif);
+      font-size: 17px;
+      font-style: italic;
+      min-width: 220px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .board-input:focus { border-bottom-color: var(--gold); }
+    .board-input::placeholder { color: var(--ink-faint); }
+
+    .btn {
+      background: var(--paper-2);
+      border: 2px solid var(--ink);
+      color: var(--ink);
+      padding: 9px 16px;
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 999px;
+      transition: all .15s;
+      letter-spacing: 0.01em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .btn:hover { background: var(--ink); color: var(--paper-2); transform: translateY(-1px); }
+    .btn.primary {
+      background: var(--red);
+      border-color: var(--red);
+      color: white;
+    }
+    .btn.primary:hover { background: var(--red-deep); border-color: var(--red-deep); }
+    .btn.gold {
+      background: var(--gold);
+      border-color: var(--gold-deep);
+      color: var(--ink);
+    }
+    .btn.gold:hover { background: var(--gold-deep); }
+    .btn.ghost {
+      background: transparent;
+      border-color: var(--line);
+      color: var(--ink-soft);
+    }
+    .btn.ghost:hover { background: var(--paper-3); color: var(--ink); }
+    .btn:disabled { opacity: 0.45; cursor: wait; transform: none; }
+    .btn.big {
+      font-size: 17px;
+      padding: 14px 28px;
+      font-weight: 700;
+    }
+
+    /* ──────────── Tabs ──────────── */
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 0 32px;
+      border-bottom: 2px solid var(--line);
+      flex-shrink: 0;
+    }
+    .tab {
+      background: transparent;
+      border: none;
+      padding: 14px 22px 16px;
       font-family: var(--serif);
       font-size: 18px;
       font-weight: 600;
-      letter-spacing: 0.02em;
-      color: var(--ivory-bright);
-    }
-    .brand .sub {
-      font-size: 10px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--gold);
-      opacity: 0.8;
-    }
-
-    .topbar-right { display: flex; align-items: center; gap: 10px; }
-    .topbar-input {
-      background: transparent;
-      border: 1px solid var(--line);
-      color: var(--ivory-bright);
-      padding: 7px 10px;
-      font-family: var(--mono);
-      font-size: 12px;
-      letter-spacing: 0.04em;
-      min-width: 240px;
-      border-radius: 2px;
-      outline: none;
-      transition: border-color .15s;
-    }
-    .topbar-input:focus { border-color: var(--gold); }
-
-    .btn {
-      background: transparent;
-      border: 1px solid var(--line);
-      color: var(--ivory);
-      padding: 7px 12px;
-      font-family: var(--mono);
-      font-size: 11px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      color: var(--ink-faint);
       cursor: pointer;
-      border-radius: 2px;
+      border-bottom: 4px solid transparent;
+      margin-bottom: -2px;
       transition: all .15s;
-      white-space: nowrap;
-    }
-    .btn:hover { border-color: var(--gold); color: var(--ivory-bright); }
-    .btn.primary {
-      background: var(--red-soft);
-      border-color: var(--red);
-      color: var(--ivory-bright);
-    }
-    .btn.primary:hover { background: var(--red); }
-    .btn.ghost { border-color: var(--line-soft); color: var(--ivory-dim); }
-    .btn.ghost:hover { color: var(--ivory); border-color: var(--line); }
-    .btn:disabled { opacity: 0.4; cursor: wait; }
-
-    /* ──────────── Main two-column ──────────── */
-
-    .stage {
-      display: grid;
-      grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-      height: calc(100vh - 56px);
-      position: relative;
-    }
-    .col {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      min-width: 0;
-    }
-    .col-left { border-right: 1px solid var(--line); }
-    .col-header {
-      padding: 12px 22px;
-      border-bottom: 1px solid var(--line);
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      background: var(--panel);
-      flex-shrink: 0;
-      gap: 12px;
+      gap: 10px;
     }
-    .col-header h2 {
-      font-family: var(--serif);
-      font-weight: 600;
-      font-size: 13px;
-      letter-spacing: 0.02em;
-      color: var(--ivory-bright);
-    }
-    .col-header .meta {
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--ivory-dim);
-    }
-    .col-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 18px 22px 80px;
-    }
-
-    /* ──────────── Scene cards ──────────── */
-
-    .scene-list { display: flex; flex-direction: column; gap: 16px; }
-    .scene {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 3px;
-      padding: 14px 14px 14px 16px;
-      display: grid;
-      grid-template-columns: 110px 1fr 160px;
-      gap: 14px;
-      align-items: stretch;
-      transition: border-color .15s, background .15s;
-      cursor: pointer;
-      position: relative;
-    }
-    .scene:hover { border-color: var(--line); background: #181410; }
-    .scene.active { border-color: var(--gold); background: #1a1611; }
-    .scene.active::before {
-      content: '';
-      position: absolute;
-      left: -1px; top: -1px; bottom: -1px;
-      width: 3px;
-      background: var(--gold);
-      border-radius: 3px 0 0 3px;
-    }
-
-    .scene-num {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 4px;
-      color: var(--gold);
-    }
-    .scene-num .label {
-      font-size: 9px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--ivory-dim);
-    }
-    .scene-num .num {
-      font-family: var(--serif);
-      font-size: 28px;
-      font-weight: 600;
-      line-height: 1;
-    }
-    .scene-actions { display: flex; gap: 4px; margin-top: 6px; }
-    .icon-btn {
-      background: transparent;
-      border: 1px solid var(--line);
-      color: var(--ivory-dim);
-      width: 20px; height: 20px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-      border-radius: 2px;
-      font-size: 11px;
-      line-height: 1;
-      padding: 0;
-      transition: all .15s;
-    }
-    .icon-btn:hover { border-color: var(--red); color: var(--red); }
-
-    .scene-fields { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-    .field { display: flex; flex-direction: column; gap: 3px; }
-    .field-label {
-      font-size: 9px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--ivory-dim);
-    }
-    .field textarea {
-      background: transparent;
-      border: none;
-      border-bottom: 1px dashed var(--line);
-      color: var(--ivory-bright);
-      font-family: var(--serif);
-      font-size: 14px;
-      line-height: 1.5;
-      resize: none;
-      outline: none;
-      padding: 4px 0;
-      min-height: 22px;
-      transition: border-color .15s;
-    }
-    .field textarea:focus { border-bottom-color: var(--gold); }
-    .field textarea::placeholder {
-      color: var(--ivory-faint);
-      font-style: italic;
-    }
-
-    .scene-image {
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      background: #0a0907;
-      border: 1px solid var(--line);
-      border-radius: 2px;
-      position: relative;
-      overflow: hidden;
-      display: flex;
+    .tab .step-num {
+      background: var(--line);
+      color: var(--ink-soft);
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      color: var(--ivory-faint);
-      font-size: 10px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      align-self: start;
-    }
-    .scene-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .scene-image .placeholder { padding: 8px; text-align: center; line-height: 1.4; }
-    .scene-image .clear {
-      position: absolute;
-      top: 4px; right: 4px;
-      background: rgba(14,12,10,0.85);
-      border: 1px solid var(--line);
-      color: var(--ivory-dim);
-      width: 18px; height: 18px;
-      display: none;
-      align-items: center; justify-content: center;
-      cursor: pointer;
-      font-size: 11px;
-      border-radius: 2px;
-    }
-    .scene-image:has(img) .clear { display: flex; }
-    .scene-image .clear:hover { color: var(--red); border-color: var(--red); }
-
-    .scene-add {
-      background: transparent;
-      border: 1px dashed var(--line);
-      color: var(--ivory-dim);
-      padding: 14px;
-      font-family: var(--mono);
-      font-size: 11px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      cursor: pointer;
-      border-radius: 3px;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 700;
       transition: all .15s;
     }
-    .scene-add:hover { border-color: var(--gold); color: var(--gold); border-style: solid; }
+    .tab:hover { color: var(--ink); }
+    .tab.active {
+      color: var(--ink);
+      border-bottom-color: var(--red);
+    }
+    .tab.active .step-num {
+      background: var(--red);
+      color: white;
+    }
+    .tab .count {
+      font-family: var(--sans);
+      font-size: 12px;
+      color: var(--ink-faint);
+      background: var(--paper-3);
+      padding: 1px 8px;
+      border-radius: 999px;
+    }
 
-    /* ──────────── Right column — mode tabs ──────────── */
+    /* ──────────── Stages ──────────── */
 
-    .mode-tabs {
+    .stage {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px;
+      display: none;
+    }
+    .stage.active { display: block; }
+
+    /* ──────────── STAGE 1 — Paste ──────────── */
+
+    .paste-wrap {
+      max-width: 920px;
+      margin: 0 auto;
       display: flex;
-      gap: 0;
-      background: var(--panel-2);
-      border: 1px solid var(--line);
-      border-radius: 2px;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .paste-hello {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 18px 22px;
+      background: var(--paper-2);
+      border: 2px solid var(--line);
+      border-radius: 14px;
+    }
+    .paste-hello .emoji { font-size: 32px; line-height: 1; }
+    .paste-hello .copy { font-family: var(--serif); font-size: 17px; line-height: 1.5; color: var(--ink-soft); }
+    .paste-hello .copy strong { color: var(--ink); }
+
+    .bible-card {
+      background: var(--paper-2);
+      border: 2px solid var(--line);
+      border-radius: 14px;
       overflow: hidden;
     }
-    .mode-tab {
-      background: transparent;
-      border: none;
-      color: var(--ivory-dim);
-      padding: 6px 14px;
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all .15s;
-    }
-    .mode-tab:hover { color: var(--ivory); }
-    .mode-tab.active {
-      background: var(--gold-soft);
-      color: var(--gold);
-    }
-
-    /* ──────────── Story Bible ──────────── */
-
-    .bible-panel {
-      border-bottom: 1px solid var(--line-soft);
-      background: #100d09;
-      flex-shrink: 0;
-    }
-    .bible-toggle {
+    .bible-head {
       width: 100%;
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px 22px;
+      padding: 14px 20px;
       background: transparent;
       border: none;
-      color: var(--ivory-dim);
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: 17px;
+      font-weight: 600;
       cursor: pointer;
       text-align: left;
-      transition: background .15s, color .15s;
+      transition: background .15s;
     }
-    .bible-toggle:hover { color: var(--ivory); background: #15110b; }
-    .bible-chevron {
+    .bible-head:hover { background: var(--paper-3); }
+    .bible-head .chev {
+      color: var(--gold-deep);
       display: inline-block;
       transition: transform .18s;
-      font-size: 11px;
-      color: var(--gold);
+      font-size: 14px;
+      width: 14px;
     }
-    .bible-panel.open .bible-chevron { transform: rotate(90deg); }
-    .bible-title { color: var(--gold); letter-spacing: 0.18em; }
-    .bible-meta { margin-left: auto; font-size: 9px; color: var(--ivory-faint); }
-    .bible-body {
-      display: none;
-      padding: 4px 22px 14px;
-      flex-direction: column;
-      gap: 6px;
+    .bible-card.open .bible-head .chev { transform: rotate(90deg); }
+    .bible-head .right {
+      margin-left: auto;
+      font-family: var(--sans);
+      font-size: 12px;
+      color: var(--ink-faint);
+      font-weight: 400;
     }
-    .bible-panel.open .bible-body { display: flex; }
+    .bible-body { display: none; padding: 0 20px 18px; }
+    .bible-card.open .bible-body { display: block; }
     .bible-body textarea {
       width: 100%;
-      background: transparent;
-      border: 1px solid var(--line);
-      color: var(--ivory-bright);
+      background: var(--paper);
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
       font-family: var(--serif);
-      font-size: 13px;
-      line-height: 1.5;
-      padding: 10px 12px;
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--ink);
+      min-height: 120px;
+      max-height: 320px;
       resize: vertical;
       outline: none;
-      border-radius: 2px;
-      min-height: 90px;
-      max-height: 320px;
       transition: border-color .15s;
     }
     .bible-body textarea:focus { border-color: var(--gold); }
-    .bible-hint {
-      font-size: 9px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--ivory-faint);
-    }
+    .bible-hint { margin-top: 8px; font-size: 13px; color: var(--ink-faint); font-style: italic; }
 
-    .chat-context {
-      padding: 9px 22px;
-      border-bottom: 1px solid var(--line-soft);
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--ivory-dim);
-      background: #131009;
-      display: flex; align-items: center; gap: 10px;
-      flex-shrink: 0;
+    .paste-box {
+      background: var(--paper-2);
+      border: 2px solid var(--ink);
+      border-radius: 14px;
+      padding: 4px;
+      box-shadow: 4px 4px 0 var(--gold);
+      transition: box-shadow .15s;
+    }
+    .paste-box:focus-within { box-shadow: 4px 4px 0 var(--red); }
+    .paste-box textarea {
+      width: 100%;
+      background: transparent;
+      border: none;
+      padding: 20px 22px;
+      font-family: var(--serif);
+      font-size: 18px;
+      line-height: 1.6;
+      color: var(--ink);
+      min-height: 280px;
+      max-height: 60vh;
+      resize: vertical;
+      outline: none;
+    }
+    .paste-box textarea::placeholder { color: var(--ink-faint); font-style: italic; }
+
+    .paste-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
       flex-wrap: wrap;
     }
-    .chat-context .pill {
-      background: var(--red-soft);
-      color: var(--ivory-bright);
-      padding: 2px 8px;
-      border-radius: 2px;
-      letter-spacing: 0.16em;
+    .paste-actions .hint {
+      font-family: var(--serif);
+      font-style: italic;
+      color: var(--ink-faint);
+      font-size: 15px;
     }
-    .chat-context .pill.gold { background: var(--gold-soft); color: var(--gold); }
-    .chat-context .clear-history {
-      margin-left: auto;
-      background: none;
-      border: none;
-      color: var(--ivory-faint);
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      cursor: pointer;
-      padding: 2px 6px;
-    }
-    .chat-context .clear-history:hover { color: var(--red); }
 
-    .chat-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 18px 22px 12px;
+    .processing {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 40px;
+      color: var(--ink-soft);
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 18px;
+    }
+    .processing .dot {
+      width: 12px; height: 12px;
+      background: var(--red);
+      border-radius: 50%;
+      animation: bounce 0.9s ease-in-out infinite;
+    }
+    .processing .dot:nth-child(2) { animation-delay: 0.15s; background: var(--gold); }
+    .processing .dot:nth-child(3) { animation-delay: 0.3s; background: var(--ink); }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding-top: 18px;
+      margin-top: 8px;
+      border-top: 2px dashed var(--line);
+    }
+    .results-header h2 {
+      font-family: var(--serif);
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .results-header .reply {
+      font-family: var(--serif);
+      font-style: italic;
+      color: var(--ink-soft);
+      max-width: 60%;
+      text-align: right;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .suggestions { display: flex; flex-direction: column; gap: 14px; }
+    .sugg-card {
+      background: var(--paper-2);
+      border: 2px solid var(--line);
+      border-radius: 14px;
+      padding: 18px 22px;
+      display: grid;
+      grid-template-columns: 64px 1fr auto;
+      gap: 16px;
+      align-items: start;
+      transition: all .15s;
+    }
+    .sugg-card:hover { border-color: var(--ink); transform: translateY(-1px); }
+    .sugg-card.added {
+      background: var(--paper-3);
+      opacity: 0.7;
+      border-style: dashed;
+    }
+    .sugg-num {
+      font-family: var(--serif);
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--red);
+    }
+    .sugg-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .sugg-line { display: flex; flex-direction: column; gap: 2px; }
+    .sugg-label {
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold-deep);
+    }
+    .sugg-text {
+      font-family: var(--serif);
+      font-size: 16px;
+      line-height: 1.45;
+      color: var(--ink);
+    }
+    .sugg-rationale {
+      font-family: var(--serif);
+      font-style: italic;
+      color: var(--ink-faint);
+      font-size: 14px;
+      padding-top: 4px;
+    }
+    .sugg-actions { display: flex; flex-direction: column; gap: 8px; }
+    .sugg-actions .btn { padding: 8px 14px; font-size: 13px; }
+    .added-tag {
+      display: none;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold-deep);
+    }
+    .sugg-card.added .added-tag { display: block; }
+    .sugg-card.added .sugg-actions .btn:not(.show-added) { display: none; }
+
+    .next-step {
+      position: sticky;
+      bottom: 16px;
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .next-step .btn { box-shadow: 0 8px 24px rgba(212,46,5,0.3); }
+
+    /* ──────────── STAGE 2 — Storyboard ──────────── */
+
+    .board-wrap {
+      max-width: 1100px;
+      margin: 0 auto;
       display: flex;
       flex-direction: column;
       gap: 18px;
-      min-height: 0;
     }
-    .empty {
-      margin: auto;
+    .board-empty {
       text-align: center;
-      color: var(--ivory-faint);
+      padding: 80px 40px;
+      color: var(--ink-faint);
       font-family: var(--serif);
       font-style: italic;
-      font-size: 15px;
-      max-width: 360px;
-      line-height: 1.5;
+      font-size: 18px;
+      background: var(--paper-2);
+      border: 2px dashed var(--line);
+      border-radius: 14px;
     }
+    .board-empty .emoji { font-size: 48px; display: block; margin-bottom: 14px; }
+    .board-empty .btn { margin-top: 18px; font-style: normal; }
 
-    .turn { display: flex; flex-direction: column; gap: 10px; }
-    .turn.user .bubble {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      padding: 10px 13px;
-      color: var(--ivory-bright);
-      font-family: var(--serif);
-      font-size: 14px;
-      line-height: 1.55;
-      border-radius: 2px;
-      align-self: flex-end;
-      max-width: 88%;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-    .turn.user .bubble.paste-large {
-      max-height: 200px;
+    .board-grid { display: flex; flex-direction: column; gap: 20px; }
+
+    .scene-card {
+      background: var(--paper-2);
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      padding: 0;
       overflow: hidden;
-      position: relative;
+      display: grid;
+      grid-template-columns: 64px 1fr 320px;
+      transition: all .15s;
+    }
+    .scene-card:hover { border-color: var(--ink); }
+    .scene-card.has-image .scene-image-zone { background: transparent; }
+
+    .scene-card .num-rail {
+      background: var(--paper-3);
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      border-right: 2px solid var(--line);
+    }
+    .scene-card .num-rail .n {
+      font-family: var(--serif);
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--red);
+      line-height: 1;
+    }
+    .scene-card .num-rail .nm {
+      font-family: var(--sans);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+    }
+    .num-rail .reorder { display: flex; flex-direction: column; gap: 2px; margin-top: auto; }
+    .num-rail .reorder button {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--ink-faint);
+      width: 24px; height: 22px;
+      border-radius: 4px;
       cursor: pointer;
-    }
-    .turn.user .bubble.paste-large::after {
-      content: 'click to expand';
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      padding: 16px 12px 6px;
-      background: linear-gradient(to bottom, transparent, var(--panel) 70%);
-      text-align: center;
-      font-family: var(--mono);
-      font-size: 9px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--ivory-dim);
-    }
-    .turn.user .bubble.paste-large.expanded {
-      max-height: none;
-    }
-    .turn.user .bubble.paste-large.expanded::after { display: none; }
-
-    .turn.bot .bot-meta {
-      font-size: 9px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--gold);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .turn.bot .bot-meta .dot {
-      width: 6px; height: 6px; background: var(--gold); border-radius: 50%;
-    }
-    .turn.bot .reply {
-      color: var(--ivory-bright);
-      font-family: var(--serif);
-      font-size: 15px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-    .turn.bot .reply strong { color: var(--ivory-bright); }
-    .turn.bot .reply em { color: var(--gold); font-style: italic; }
-    .turn.bot .reply code {
-      background: rgba(0,0,0,0.35);
-      padding: 1px 5px;
-      border-radius: 2px;
-      font-family: var(--mono);
-      font-size: 13px;
-    }
-
-    /* ──────────── Scene-suggestion cards inside chat ──────────── */
-
-    .suggestions {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-top: 4px;
-    }
-    .suggestions-label {
-      font-size: 9px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--ivory-dim);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .suggestions-label::before, .suggestions-label::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--line-soft);
-    }
-    .suggestion {
-      background: #100d09;
-      border: 1px solid var(--line);
-      border-left: 2px solid var(--gold);
-      border-radius: 2px;
-      padding: 12px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .suggestion .s-num {
-      font-family: var(--serif);
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--gold);
-      letter-spacing: 0.04em;
-    }
-    .suggestion .s-line { display: flex; flex-direction: column; gap: 2px; }
-    .suggestion .s-label {
-      font-size: 9px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--ivory-dim);
-    }
-    .suggestion .s-text {
-      color: var(--ivory-bright);
-      font-family: var(--serif);
       font-size: 14px;
-      line-height: 1.5;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
-    .suggestion .s-rationale {
-      color: var(--ivory-dim);
-      font-family: var(--serif);
-      font-size: 12px;
-      font-style: italic;
-      line-height: 1.45;
-    }
-    .suggestion .s-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-    .suggestion .s-actions .btn { font-size: 10px; padding: 6px 10px; letter-spacing: 0.14em; }
-    .suggestion.added {
-      opacity: 0.55;
-      border-left-color: var(--line);
-    }
-    .suggestion.added .s-actions .btn { display: none; }
-    .suggestion .added-tag {
-      display: none;
-      font-size: 9px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--ivory-dim);
-      padding: 4px 0 0;
-    }
-    .suggestion.added .added-tag { display: block; }
+    .num-rail .reorder button:hover { background: var(--ink); color: var(--paper-2); border-color: var(--ink); }
 
-    /* ──────────── Image gen output blocks ──────────── */
-
-    .gen-image-wrap {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      padding: 8px;
-      border-radius: 3px;
+    .scene-card .script-zone {
+      padding: 18px 22px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 14px;
     }
-    .gen-image {
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      background: #0a0907;
-      border-radius: 2px;
-      overflow: hidden;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .gen-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .gen-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-    .gen-actions .btn { font-size: 10px; padding: 6px 10px; letter-spacing: 0.14em; }
-    .gen-text {
-      color: var(--ivory-dim);
-      font-family: var(--serif);
-      font-size: 13px;
-      line-height: 1.45;
-      font-style: italic;
-    }
-
-    .thinking {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--ivory-dim);
+    .field-block { display: flex; flex-direction: column; gap: 4px; }
+    .field-block label {
+      font-family: var(--sans);
       font-size: 11px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-    }
-    .thinking .blip {
-      width: 8px; height: 8px; background: var(--gold); border-radius: 50%;
-      animation: pulse 1.1s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 0.35; transform: scale(0.85); }
-      50% { opacity: 1; transform: scale(1); }
-    }
-
-    /* ──────────── Composer ──────────── */
-
-    .composer {
-      border-top: 1px solid var(--line);
-      padding: 12px 22px 14px;
-      background: var(--panel);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-    .composer textarea {
-      width: 100%;
-      background: transparent;
-      border: 1px solid var(--line);
-      color: var(--ivory-bright);
-      font-family: var(--serif);
-      font-size: 14px;
-      line-height: 1.5;
-      padding: 10px 12px;
-      resize: none;
-      outline: none;
-      border-radius: 2px;
-      min-height: 60px;
-      max-height: 280px;
-      transition: border-color .15s;
-    }
-    .composer textarea:focus { border-color: var(--gold); }
-
-    .composer-options {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--ivory-dim);
-    }
-    .composer-options label {
-      display: flex; align-items: center; gap: 6px; cursor: pointer;
-    }
-    .composer-options select {
-      background: transparent;
-      border: 1px solid var(--line);
-      color: var(--ivory);
-      font-family: var(--mono);
-      font-size: 10px;
+      font-weight: 700;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      padding: 4px 6px;
-      border-radius: 2px;
+      color: var(--gold-deep);
+    }
+    .field-block textarea {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px dashed var(--line);
+      padding: 4px 0 6px;
+      font-family: var(--serif);
+      font-size: 17px;
+      line-height: 1.5;
+      color: var(--ink);
+      resize: none;
       outline: none;
+      min-height: 28px;
+      transition: border-color .15s;
     }
-    .composer-options .spacer { flex: 1; }
+    .field-block textarea:focus { border-bottom-color: var(--gold); }
+    .field-block textarea::placeholder { color: var(--ink-faint); font-style: italic; }
 
-    .ref-pile {
-      display: flex; gap: 6px; flex-wrap: wrap;
+    .scene-image-zone {
+      background: var(--paper-3);
+      border-left: 2px solid var(--line);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: stretch;
     }
-    .ref-chip {
-      width: 38px; height: 38px;
-      border-radius: 2px; overflow: hidden;
-      border: 1px solid var(--line);
+    .scene-thumb {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: var(--paper);
+      border: 2px dashed var(--line);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
       position: relative;
-      background: #0a0907;
+      color: var(--ink-faint);
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 14px;
+      text-align: center;
+      padding: 10px;
     }
-    .ref-chip img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .ref-chip .x {
-      position: absolute; top: -4px; right: -4px;
-      width: 14px; height: 14px;
-      background: var(--red); color: var(--ivory-bright);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 9px;
-      cursor: pointer; border: none;
+    .scene-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .scene-thumb.loading { background: var(--paper-3); }
+    .scene-thumb.loading::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(240,180,0,0.25), transparent);
+      animation: shimmer 1.4s linear infinite;
+    }
+    @keyframes shimmer {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(100%); }
+    }
+    .scene-thumb .err {
+      color: var(--red);
+      font-size: 13px;
+      padding: 8px;
     }
 
-    /* hide image-mode options when in story mode and vice versa */
-    .mode-story-only { display: none; }
-    .mode-image-only { display: none; }
-    body[data-mode="story"] .mode-story-only { display: flex; }
-    body[data-mode="image"] .mode-image-only { display: flex; }
+    .scene-image-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .scene-image-actions .btn { font-size: 12px; padding: 7px 12px; }
+
+    .add-scene-btn {
+      background: var(--paper);
+      border: 2px dashed var(--line);
+      color: var(--ink-faint);
+      padding: 20px;
+      font-family: var(--serif);
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 14px;
+      transition: all .15s;
+    }
+    .add-scene-btn:hover { border-color: var(--ink); color: var(--ink); border-style: solid; background: var(--paper-2); }
+
+    .delete-scene {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--ink-faint);
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0;
+    }
+    .delete-scene:hover { background: var(--red); color: white; border-color: var(--red); }
 
     /* ──────────── Gate ──────────── */
+
     .gate {
       position: fixed; inset: 0;
-      background: var(--bg);
+      background: var(--paper);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -743,384 +644,361 @@
     }
     .gate.hidden { display: none; }
     .gate-inner {
-      max-width: 320px;
+      max-width: 360px;
+      width: calc(100% - 32px);
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 18px;
       align-items: stretch;
-      padding: 32px;
-      border: 1px solid var(--line);
-      border-radius: 3px;
-      background: var(--panel);
+      padding: 40px;
+      background: var(--paper-2);
+      border: 2px solid var(--ink);
+      border-radius: 18px;
+      box-shadow: 6px 6px 0 var(--gold);
     }
     .gate h1 {
       font-family: var(--serif);
-      font-size: 22px;
-      font-weight: 600;
-      color: var(--ivory-bright);
+      font-size: 28px;
+      font-weight: 700;
       text-align: center;
+      line-height: 1.1;
     }
-    .gate .gate-sub {
-      font-size: 10px;
-      letter-spacing: 0.22em;
+    .gate .sub {
+      font-family: var(--sans);
+      font-size: 12px;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: var(--gold);
       text-align: center;
+      color: var(--ink-faint);
     }
     .gate input {
-      background: transparent;
-      border: 1px solid var(--line);
-      color: var(--ivory-bright);
-      font-family: var(--mono);
-      font-size: 14px;
-      padding: 9px 11px;
+      width: 100%;
+      background: var(--paper);
+      border: 2px solid var(--line);
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: 16px;
+      padding: 12px 14px;
       outline: none;
-      border-radius: 2px;
+      border-radius: 999px;
+      text-align: center;
     }
     .gate input:focus { border-color: var(--gold); }
-    .gate-error { color: var(--red); font-size: 11px; text-align: center; display: none; }
+    .gate-error { color: var(--red); font-size: 14px; text-align: center; display: none; }
     .gate-error.show { display: block; }
 
     .app.hidden { display: none; }
+    .app { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
     /* ──────────── Scrollbars ──────────── */
-    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar { width: 10px; height: 10px; }
     *::-webkit-scrollbar-track { background: transparent; }
-    *::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
-    *::-webkit-scrollbar-thumb:hover { background: #3a3530; }
+    *::-webkit-scrollbar-thumb { background: var(--line); border-radius: 999px; }
+    *::-webkit-scrollbar-thumb:hover { background: var(--gold-deep); }
 
-    @media (max-width: 1100px) {
-      .scene { grid-template-columns: 80px 1fr 130px; }
-      .scene-num .num { font-size: 22px; }
-    }
+    /* ──────────── Responsive ──────────── */
     @media (max-width: 900px) {
-      .stage { grid-template-columns: 1fr; }
-      .col-left { border-right: none; border-bottom: 1px solid var(--line); }
-      .col-body { padding-bottom: 24px; }
-      .col { height: auto; }
+      .scene-card { grid-template-columns: 52px 1fr; }
+      .scene-image-zone { grid-column: 1 / -1; border-left: none; border-top: 2px solid var(--line); }
+      .brand h1 { font-size: 24px; }
+      body { font-size: 16px; }
+      .stage { padding: 20px 16px; }
+      .topbar { padding: 14px 16px 0; }
+      .tabs { padding: 0 16px; }
+    }
+    @media (max-width: 600px) {
+      .top-row { flex-direction: column; align-items: flex-start; }
+      .right-tools { width: 100%; }
+      .board-input { flex: 1; min-width: 0; }
     }
   </style>
 </head>
-<body data-mode="story">
+<body>
 
   <div id="gate" class="gate">
     <div class="gate-inner">
-      <div class="gate-sub">mycoldmars</div>
-      <h1>Queen Scarlet's School</h1>
-      <input id="gate-code" type="password" placeholder="access code" autocomplete="off" />
-      <button id="gate-submit" class="btn primary" style="padding: 10px;">Enter</button>
-      <div id="gate-error" class="gate-error">wrong code</div>
+      <div class="sub">mycoldmars</div>
+      <h1>Queen Scarlet's<br>School</h1>
+      <input id="gate-code" type="password" placeholder="password" autocomplete="off" />
+      <button id="gate-submit" class="btn primary big">Enter</button>
+      <div id="gate-error" class="gate-error">try again</div>
     </div>
   </div>
 
-  <div id="app" class="hidden">
+  <div id="app" class="app hidden">
 
-  <header class="topbar">
-    <div class="brand">
-      <a class="home" href="/">← mycoldmars</a>
-      <span class="title">Queen Scarlet's School</span>
-      <span class="sub">storyboard · nano banana</span>
-    </div>
-    <div class="topbar-right">
-      <input id="board-name" class="topbar-input" type="text" placeholder="untitled storyboard" autocomplete="off" />
-      <button id="btn-new" class="btn ghost" title="New storyboard">New</button>
-      <button id="btn-export" class="btn ghost" title="Download JSON">Export</button>
-      <button id="btn-add-scene" class="btn primary">+ Scene</button>
-    </div>
-  </header>
-
-  <main class="stage">
-
-    <section class="col col-left">
-      <div class="col-header">
-        <h2>Audiovisual Script</h2>
-        <span class="meta" id="scene-count">0 scenes</span>
+    <header class="topbar">
+      <div class="top-row">
+        <div class="brand">
+          <a class="home-link" href="/">← mycoldmars</a>
+          <h1>Queen Scarlet's School</h1>
+        </div>
+        <div class="right-tools">
+          <input id="board-name" class="board-input" type="text" placeholder="untitled story" autocomplete="off" />
+          <button id="btn-new" class="btn ghost" title="Start a new story">+ New</button>
+          <button id="btn-export" class="btn ghost" title="Download as JSON">Export</button>
+        </div>
       </div>
-      <div class="col-body">
-        <div id="scenes" class="scene-list"></div>
-        <button id="scene-add-btn" class="scene-add" style="margin-top: 16px; width: 100%;">+ Add scene</button>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-stage="paste" role="tab">
+        <span class="step-num">1</span>
+        <span>Paste Story</span>
+      </button>
+      <button class="tab" data-stage="board" role="tab">
+        <span class="step-num">2</span>
+        <span>Storyboard</span>
+        <span class="count" id="scene-count">0</span>
+      </button>
+    </nav>
+
+    <!-- ════════ Stage 1: Paste Story ════════ -->
+    <section class="stage active" id="stage-paste">
+      <div class="paste-wrap">
+
+        <div class="paste-hello">
+          <div class="emoji">📖</div>
+          <div class="copy">
+            <strong>Drop your story here.</strong> Paste a chapter, a script, or research notes — any kind of writing. I'll break it into scenes you can drag straight into the storyboard.
+          </div>
+        </div>
+
+        <div class="bible-card" id="bible-card">
+          <button class="bible-head" id="bible-toggle" type="button">
+            <span class="chev">▸</span>
+            <span>Story World <span style="color: var(--ink-faint); font-weight: 400;">— optional</span></span>
+            <span class="right" id="bible-meta">add later</span>
+          </button>
+          <div class="bible-body">
+            <textarea id="bible" placeholder="Who are the characters? What's the world like? Any running jokes? Paste it here once and I'll remember it for every scene."></textarea>
+            <div class="bible-hint">i'll use this every time you paste a story — like a cheat sheet.</div>
+          </div>
+        </div>
+
+        <div class="paste-box">
+          <textarea id="paste" placeholder="Paste your story here…&#10;&#10;Could be a chapter, a transcript, an interview, research notes — anything with characters and action."></textarea>
+        </div>
+
+        <div class="paste-actions">
+          <button id="btn-process" class="btn primary big">✨ Turn into scenes</button>
+          <span class="hint">or press <strong>⌘↵</strong></span>
+        </div>
+
+        <div id="processing" class="processing" style="display:none;">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span>reading your story…</span>
+        </div>
+
+        <div id="results-wrap" style="display:none;">
+          <div class="results-header">
+            <h2 id="results-title">Scene ideas</h2>
+            <div class="reply" id="results-reply"></div>
+          </div>
+          <div id="suggestions" class="suggestions"></div>
+          <div class="next-step">
+            <button class="btn gold big" id="btn-goto-board">Go to storyboard →</button>
+          </div>
+        </div>
+
       </div>
     </section>
 
-    <section class="col col-right">
+    <!-- ════════ Stage 2: Storyboard ════════ -->
+    <section class="stage" id="stage-board">
+      <div class="board-wrap">
 
-      <div class="col-header">
-        <h2>Story Workbench</h2>
-        <div class="mode-tabs" role="tablist" aria-label="Mode">
-          <button class="mode-tab active" data-mode="story" type="button">Story</button>
-          <button class="mode-tab" data-mode="image" type="button">Image</button>
+        <div id="board-empty" class="board-empty">
+          <span class="emoji">🎬</span>
+          No scenes yet.<br>
+          Paste a story first — or add a blank scene.
+          <br>
+          <button id="board-empty-add" class="btn primary">+ Add blank scene</button>
         </div>
-      </div>
 
-      <div class="bible-panel" id="bible-panel">
-        <button class="bible-toggle" id="bible-toggle" type="button">
-          <span class="bible-chevron">▸</span>
-          <span class="bible-title">Story Bible</span>
-          <span class="bible-meta" id="bible-meta">empty</span>
-        </button>
-        <div class="bible-body" id="bible-body">
-          <textarea id="bible" placeholder="World, characters, running gags, established rules — paste it here once and every chat will know it. Persists per storyboard."></textarea>
-          <div class="bible-hint">sent as canon with every story-mode prompt · saved with this storyboard</div>
-        </div>
-      </div>
+        <div id="board-grid" class="board-grid" style="display:none;"></div>
 
-      <div class="chat-context">
-        <span id="mode-hint" class="pill gold">story</span>
-        Active scene <span id="active-pill" class="pill">—</span>
-        <button id="clear-history" class="clear-history" type="button">clear chat</button>
-      </div>
+        <button id="add-scene-bottom" class="add-scene-btn" style="display:none;">+ Add another scene</button>
 
-      <div class="chat-body" id="chat-body">
-        <div class="empty" id="empty-state">
-          Paste research, transcripts, drafts — I'll suggest scenes you can drop straight into the script. Or just talk story.
-        </div>
-      </div>
-
-      <div class="composer">
-        <div class="ref-pile mode-image-only" id="ref-pile" style="display:none;"></div>
-        <textarea id="prompt" rows="3"
-          placeholder="Paste research, ask a question, or describe a scene…"></textarea>
-        <div class="composer-options">
-
-          <!-- Story mode controls -->
-          <span class="mode-story-only" style="color: var(--ivory-dim);">⌘↵ to send</span>
-
-          <!-- Image mode controls -->
-          <label class="mode-image-only">
-            model
-            <select id="model">
-              <option value="nano-banana">nano-banana · 3.1</option>
-              <option value="nano-banana-2.5">nano-banana · 2.5</option>
-              <option value="nano-banana-pro">nano-banana pro</option>
-            </select>
-          </label>
-          <label class="mode-image-only" title="Use the active scene's current image as a style/character reference">
-            <input type="checkbox" id="use-active-as-ref" /> ref active
-          </label>
-
-          <span class="spacer"></span>
-          <button id="btn-send" class="btn primary">Send ↵</button>
-        </div>
       </div>
     </section>
 
-  </main>
-
-  </div><!-- /#app -->
+  </div><!-- /app -->
 
   <script>
-    // ──────── Cosmetic access gate (same pattern as /hunter/) ────────
+    // ──────── Gate ────────
     (function() {
-      const COOKIE_NAME = 'qss_access';
-      const PASSWORD = 'newpress';
+      const COOKIE = 'qss_access';
+      const PASS = 'newpress';
       const gateEl = document.getElementById('gate');
       const appEl = document.getElementById('app');
-
-      function getCookie(name) {
-        const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+      function getCookie(n) {
+        const m = document.cookie.match(new RegExp('(?:^|; )'+n+'=([^;]*)'));
         return m ? decodeURIComponent(m[1]) : null;
       }
-      function setCookie(name, value) {
-        document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=' + (60*60*24*90);
-      }
       function unlock() {
-        setCookie(COOKIE_NAME, 'granted');
+        document.cookie = COOKIE+'=granted; path=/; max-age='+(60*60*24*90);
         gateEl.classList.add('hidden');
         appEl.classList.remove('hidden');
       }
-      if (getCookie(COOKIE_NAME) === 'granted') { unlock(); return; }
-      const input = document.getElementById('gate-code');
-      const submit = document.getElementById('gate-submit');
+      if (getCookie(COOKIE) === 'granted') { unlock(); return; }
+      const inp = document.getElementById('gate-code');
       const err = document.getElementById('gate-error');
+      const sub = document.getElementById('gate-submit');
       function check() {
-        const code = (input.value || '').trim().toLowerCase();
-        if (!code) return;
-        if (code === PASSWORD) unlock();
-        else { err.classList.add('show'); input.value = ''; input.focus(); }
+        const v = (inp.value || '').trim().toLowerCase();
+        if (v === PASS) unlock();
+        else { err.classList.add('show'); inp.value = ''; inp.focus(); }
       }
-      submit.addEventListener('click', check);
-      input.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
-      input.focus();
+      sub.addEventListener('click', check);
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
+      inp.focus();
     })();
   </script>
 
   <script type="module">
-    // ─────────── State ───────────
+    // ──────── State ────────
 
-    const LS_BOARD_LIST = 'qss:boards';
-    const LS_BOARD = (name) => `qss:board:${name}`;
     const LS_LAST = 'qss:last';
-    const LS_MODE = 'qss:mode';
+    const LS_KEY = name => `qss:board:${name}`;
+    const LS_LIST = 'qss:boards';
 
     const state = {
       name: '',
-      scenes: [],     // { id, visual, audio, image: { mimeType, dataBase64 } | null }
-      chat: [],       // { id, role: 'user'|'bot', mode: 'story'|'image', content?, images?, sceneSuggestions?, attachedFromTurn? }
-      activeSceneId: null,
-      thinking: false,
-      refs: [],       // image refs for next image gen
-      mode: 'story',  // 'story' | 'image'
-      bible: '',      // story bible / world context, sent with every story-mode prompt
+      bible: '',
       bibleOpen: false,
+      scenes: [],            // { id, visual, audio, image, imageLoading, imageError }
+      suggestions: [],       // last generated batch from paste step
+      lastReply: '',
+      stage: 'paste',        // 'paste' | 'board'
+      processing: false,
     };
 
-    function uid() { return Math.random().toString(36).slice(2, 10); }
+    const uid = () => Math.random().toString(36).slice(2, 10);
 
-    // ─────────── Persistence ───────────
+    // ──────── Persistence ────────
 
-    function loadBoardList() {
-      try { return JSON.parse(localStorage.getItem(LS_BOARD_LIST) || '[]'); }
+    function loadList() {
+      try { return JSON.parse(localStorage.getItem(LS_LIST) || '[]'); }
       catch { return []; }
     }
-    function saveBoardList(list) {
-      localStorage.setItem(LS_BOARD_LIST, JSON.stringify(list));
-    }
+    function saveList(l) { localStorage.setItem(LS_LIST, JSON.stringify(l)); }
+
     function persist() {
       if (!state.name) return;
+      const stripped = state.scenes.map(s => ({
+        id: s.id, visual: s.visual, audio: s.audio,
+        image: s.image || null,
+      }));
       try {
-        localStorage.setItem(LS_BOARD(state.name), JSON.stringify({
+        localStorage.setItem(LS_KEY(state.name), JSON.stringify({
           name: state.name,
-          scenes: state.scenes,
-          chat: state.chat,
-          activeSceneId: state.activeSceneId,
           bible: state.bible,
+          scenes: stripped,
+          suggestions: state.suggestions,
+          lastReply: state.lastReply,
           updatedAt: Date.now(),
         }));
-        const list = loadBoardList();
-        if (!list.includes(state.name)) {
-          list.push(state.name);
-          saveBoardList(list);
-        }
+        const l = loadList();
+        if (!l.includes(state.name)) { l.push(state.name); saveList(l); }
         localStorage.setItem(LS_LAST, state.name);
       } catch (e) {
-        if (e?.name === 'QuotaExceededError') {
-          pruneChatHistory();
-          try { localStorage.setItem(LS_BOARD(state.name), JSON.stringify({
-            name: state.name, scenes: state.scenes, chat: state.chat,
-            activeSceneId: state.activeSceneId, bible: state.bible, updatedAt: Date.now(),
-          })); } catch {}
+        if (e.name === 'QuotaExceededError') {
+          // Drop oldest scene images
+          for (const s of state.scenes) {
+            if (s.image) { s.image = null; break; }
+          }
         }
-      }
-    }
-    function pruneChatHistory() {
-      // Drop oldest bot turns that carry images (the heavy bytes).
-      const heavyIdx = state.chat
-        .map((t, i) => (t.role === 'bot' && t.images?.length) ? i : -1)
-        .filter(i => i >= 0);
-      if (heavyIdx.length > 6) {
-        const dropBefore = heavyIdx[heavyIdx.length - 6];
-        state.chat = state.chat.filter((_, i) => i >= dropBefore);
       }
     }
     function loadBoard(name) {
-      try {
-        const raw = localStorage.getItem(LS_BOARD(name));
-        if (!raw) return null;
-        return JSON.parse(raw);
-      } catch { return null; }
+      try { return JSON.parse(localStorage.getItem(LS_KEY(name)) || 'null'); }
+      catch { return null; }
     }
 
-    // ─────────── Scenes ───────────
+    // ──────── Setup ────────
 
-    function addScene(prefill = {}) {
-      const scene = {
-        id: uid(),
-        visual: prefill.visual || '',
-        audio: prefill.audio || '',
-        image: prefill.image || null,
-      };
-      state.scenes.push(scene);
-      state.activeSceneId = scene.id;
-      persist();
-      render();
-      requestAnimationFrame(() => {
-        const ta = document.querySelector(`[data-scene-id="${scene.id}"] textarea.visual`);
-        ta?.focus();
-        // Scroll into view if added from chat
-        document.querySelector(`[data-scene-id="${scene.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
-      return scene;
+    function bootBoard(name, data) {
+      state.name = name;
+      state.bible = data?.bible || '';
+      state.scenes = (data?.scenes || []).map(s => ({ ...s, imageLoading: false, imageError: null }));
+      state.suggestions = data?.suggestions || [];
+      state.lastReply = data?.lastReply || '';
+      document.getElementById('board-name').value = state.name;
+      document.getElementById('bible').value = state.bible;
+      updateBibleMeta();
+      if (state.bible) toggleBible(true);
+      if (state.suggestions.length) renderSuggestions();
+      renderBoard();
+      updateSceneCount();
     }
-    function deleteScene(id) {
-      state.scenes = state.scenes.filter(s => s.id !== id);
-      if (state.activeSceneId === id) state.activeSceneId = state.scenes[0]?.id || null;
-      persist();
-      render();
-    }
-    function setSceneField(id, field, value) {
-      const s = state.scenes.find(x => x.id === id);
-      if (!s) return;
-      s[field] = value;
+
+    function newStory(askName) {
+      const def = `story-${Date.now().toString(36)}`;
+      const name = askName ? (window.prompt('What\'s the name of this story?', def) || def) : def;
+      state.name = name;
+      state.bible = '';
+      state.scenes = [];
+      state.suggestions = [];
+      state.lastReply = '';
+      document.getElementById('board-name').value = name;
+      document.getElementById('bible').value = '';
+      document.getElementById('paste').value = '';
+      document.getElementById('results-wrap').style.display = 'none';
+      updateBibleMeta();
+      renderBoard();
+      updateSceneCount();
       persist();
     }
-    function attachImageToScene(sceneId, image) {
-      const s = state.scenes.find(x => x.id === sceneId);
-      if (!s) return;
-      s.image = image;
-      persist();
-      render();
-    }
-    function clearSceneImage(sceneId) {
-      const s = state.scenes.find(x => x.id === sceneId);
-      if (!s) return;
-      s.image = null;
-      persist();
-      render();
-    }
 
-    // ─────────── Mode ───────────
-
-    function setMode(m) {
-      state.mode = (m === 'image') ? 'image' : 'story';
-      document.body.dataset.mode = state.mode;
-      document.querySelectorAll('.mode-tab').forEach(t => {
-        t.classList.toggle('active', t.dataset.mode === state.mode);
-      });
-      document.getElementById('mode-hint').textContent = state.mode;
-      const send = document.getElementById('btn-send');
-      send.textContent = state.mode === 'image' ? 'Generate ↵' : 'Send ↵';
-      const prompt = document.getElementById('prompt');
-      prompt.placeholder = state.mode === 'image'
-        ? 'Cinematic wide shot of a small village under green twilight, paper lanterns, fog…'
-        : 'Paste research, ask a question, or describe a scene…';
-      try { localStorage.setItem(LS_MODE, state.mode); } catch {}
-    }
-
-    // ─────────── Send ───────────
-
-    async function send() {
-      const promptEl = document.getElementById('prompt');
-      const text = promptEl.value.trim();
-      if (!text || state.thinking) { promptEl.focus(); return; }
-
-      if (state.mode === 'image') return sendImage(text);
-      return sendStory(text);
-    }
-
-    async function sendStory(message) {
-      const promptEl = document.getElementById('prompt');
-
-      const userTurn = { id: uid(), role: 'user', mode: 'story', content: message };
-      state.chat.push(userTurn);
-      state.thinking = true;
-      promptEl.value = '';
-      autoGrow(promptEl);
-      render();
-      scrollChatToEnd();
-
-      // Build conversation history from chat (last 8 text turns only, no image-mode noise).
-      const history = state.chat
-        .filter(t => t.mode === 'story' && (t.content || t.role === 'user'))
-        .slice(-1)  // we already pushed userTurn → exclude it from history
-        .slice(0, 0); // placeholder; rebuild below
-      const histList = [];
-      for (const t of state.chat) {
-        if (t.id === userTurn.id) break;
-        if (t.mode !== 'story') continue;
-        if (t.role === 'user' && t.content) histList.push({ role: 'user', content: t.content });
-        else if (t.role === 'bot' && t.content) histList.push({ role: 'model', content: t.content });
+    function init() {
+      const last = localStorage.getItem(LS_LAST);
+      if (last) {
+        const data = loadBoard(last);
+        if (data) { bootBoard(last, data); return; }
       }
-      const trimmedHistory = histList.slice(-10);
+      newStory(false);
+    }
+
+    // ──────── Tabs ────────
+
+    function setStage(s) {
+      state.stage = s;
+      document.querySelectorAll('.tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.stage === s);
+      });
+      document.querySelectorAll('.stage').forEach(el => {
+        el.classList.toggle('active', el.id === `stage-${s}`);
+      });
+    }
+
+    // ──────── Bible ────────
+
+    function toggleBible(open) {
+      state.bibleOpen = open == null ? !state.bibleOpen : !!open;
+      document.getElementById('bible-card').classList.toggle('open', state.bibleOpen);
+    }
+    function updateBibleMeta() {
+      const n = (state.bible || '').length;
+      const m = document.getElementById('bible-meta');
+      if (!n) { m.textContent = 'add later'; m.style.color = ''; return; }
+      m.textContent = n > 1000 ? `${(n/1000).toFixed(1)}k characters · saved` : `${n} chars · saved`;
+      m.style.color = 'var(--gold-deep)';
+    }
+
+    // ──────── Process story → scenes ────────
+
+    async function processStory() {
+      if (state.processing) return;
+      const text = document.getElementById('paste').value.trim();
+      if (!text) {
+        document.getElementById('paste').focus();
+        return;
+      }
+      state.processing = true;
+      document.getElementById('processing').style.display = 'flex';
+      document.getElementById('results-wrap').style.display = 'none';
+      document.getElementById('btn-process').disabled = true;
 
       try {
         const res = await fetch('/api/nano-banana', {
@@ -1128,72 +1006,151 @@
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
           body: JSON.stringify({
             mode: 'text',
-            message,
-            history: trimmedHistory,
+            message: text,
             storyboard: {
               name: state.name,
               bible: state.bible,
-              scenes: state.scenes.map(s => ({
-                visual: s.visual,
-                audio: s.audio,
-                hasImage: !!s.image,
-              })),
+              scenes: state.scenes.map(s => ({ visual: s.visual, audio: s.audio, hasImage: !!s.image })),
             },
           }),
         });
-
         if (!res.ok) {
           let msg = `${res.status}`;
           try { const j = await res.json(); msg = j.error || msg; } catch {}
           throw new Error(msg);
         }
         const data = await res.json();
-        state.chat.push({
+        state.suggestions = (data.sceneSuggestions || []).map(s => ({
+          ...s,
           id: uid(),
-          role: 'bot',
-          mode: 'story',
-          content: data.reply || '',
-          sceneSuggestions: (data.sceneSuggestions || []).map(s => ({ ...s, id: uid(), added: false })),
-        });
-      } catch (e) {
-        state.chat.push({
-          id: uid(),
-          role: 'bot',
-          mode: 'story',
-          content: `⚠ ${e.message}`,
-        });
-      } finally {
-        state.thinking = false;
+          added: false,
+        }));
+        state.lastReply = (data.reply || '').slice(0, 280);
+        if (!state.suggestions.length) {
+          alert("I couldn't find clear scenes in that. Try a longer story, or add some story-world context up top.");
+        }
         persist();
-        render();
-        scrollChatToEnd();
+        renderSuggestions();
+      } catch (e) {
+        alert(`Something went wrong: ${e.message}`);
+      } finally {
+        state.processing = false;
+        document.getElementById('processing').style.display = 'none';
+        document.getElementById('btn-process').disabled = false;
       }
     }
 
-    async function sendImage(prompt) {
-      const promptEl = document.getElementById('prompt');
-      const model = document.getElementById('model').value;
-      const useActiveAsRef = document.getElementById('use-active-as-ref').checked;
-
-      const refs = [...state.refs];
-      if (useActiveAsRef && state.activeSceneId) {
-        const active = state.scenes.find(s => s.id === state.activeSceneId);
-        if (active?.image) refs.unshift(active.image);
+    function renderSuggestions() {
+      const wrap = document.getElementById('results-wrap');
+      const list = document.getElementById('suggestions');
+      const replyEl = document.getElementById('results-reply');
+      if (!state.suggestions.length) {
+        wrap.style.display = 'none';
+        return;
       }
+      wrap.style.display = 'block';
+      replyEl.textContent = state.lastReply || '';
+      list.innerHTML = state.suggestions.map((s, i) => `
+        <div class="sugg-card ${s.added ? 'added' : ''}" data-sugg="${s.id}">
+          <div class="sugg-num">${String(i + 1).padStart(2, '0')}</div>
+          <div class="sugg-body">
+            ${s.visual ? `<div class="sugg-line"><div class="sugg-label">Visual</div><div class="sugg-text">${esc(s.visual)}</div></div>` : ''}
+            ${s.audio ? `<div class="sugg-line"><div class="sugg-label">Audio · VO · SFX</div><div class="sugg-text">${esc(s.audio)}</div></div>` : ''}
+            ${s.rationale ? `<div class="sugg-rationale">${esc(s.rationale)}</div>` : ''}
+            <div class="added-tag">✓ added to storyboard</div>
+          </div>
+          <div class="sugg-actions">
+            <button class="btn primary" data-action="add" data-id="${s.id}">+ Add to storyboard</button>
+            <button class="btn ghost show-added" data-action="goto-board" data-id="${s.id}">Go to scene →</button>
+          </div>
+        </div>
+      `).join('');
+    }
 
-      const sceneId = state.activeSceneId;
-      state.chat.push({ id: uid(), role: 'user', mode: 'image', content: prompt, sceneId });
-      state.thinking = true;
-      promptEl.value = '';
-      autoGrow(promptEl);
-      render();
-      scrollChatToEnd();
+    // ──────── Scenes ────────
+
+    function addSuggestionToBoard(suggId) {
+      const s = state.suggestions.find(x => x.id === suggId);
+      if (!s || s.added) return;
+      const scene = {
+        id: uid(),
+        visual: s.visual || '',
+        audio: s.audio || '',
+        image: null,
+        imageLoading: false,
+        imageError: null,
+      };
+      state.scenes.push(scene);
+      s.added = true;
+      s.sceneId = scene.id;
+      persist();
+      renderSuggestions();
+      renderBoard();
+      updateSceneCount();
+    }
+
+    function addBlankScene() {
+      state.scenes.push({
+        id: uid(), visual: '', audio: '', image: null, imageLoading: false, imageError: null,
+      });
+      persist();
+      renderBoard();
+      updateSceneCount();
+    }
+
+    function deleteScene(id) {
+      state.scenes = state.scenes.filter(s => s.id !== id);
+      // Un-mark suggestions that pointed to this scene
+      for (const sg of state.suggestions) if (sg.sceneId === id) { sg.added = false; sg.sceneId = null; }
+      persist();
+      renderSuggestions();
+      renderBoard();
+      updateSceneCount();
+    }
+
+    function moveScene(id, dir) {
+      const i = state.scenes.findIndex(s => s.id === id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= state.scenes.length) return;
+      const a = state.scenes[i]; state.scenes[i] = state.scenes[j]; state.scenes[j] = a;
+      persist();
+      renderBoard();
+    }
+
+    function setSceneField(id, field, value) {
+      const s = state.scenes.find(x => x.id === id);
+      if (!s) return;
+      s[field] = value;
+      persist();
+    }
+
+    function updateSceneCount() {
+      document.getElementById('scene-count').textContent = state.scenes.length;
+    }
+
+    // ──────── Image gen per scene ────────
+
+    async function generateForScene(id) {
+      const s = state.scenes.find(x => x.id === id);
+      if (!s || s.imageLoading) return;
+      const visual = (s.visual || '').trim();
+      if (!visual) {
+        alert('Write something in the Visual line first — that\'s what I\'ll draw.');
+        return;
+      }
+      s.imageLoading = true;
+      s.imageError = null;
+      renderBoard();
 
       try {
         const res = await fetch('/api/nano-banana', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
-          body: JSON.stringify({ mode: 'image', prompt, model, referenceImages: refs }),
+          body: JSON.stringify({
+            mode: 'image',
+            prompt: `Cinematic, photoreal, 16:9 ratio. ${visual}`,
+            model: 'nano-banana',
+          }),
         });
         if (!res.ok) {
           let msg = `${res.status}`;
@@ -1201,72 +1158,124 @@
           throw new Error(msg);
         }
         const data = await res.json();
-        state.chat.push({
-          id: uid(),
-          role: 'bot',
-          mode: 'image',
-          content: data.text || '',
-          images: data.images || [],
-          sceneId,
-        });
-        state.refs = [];
+        const img = data.images?.[0];
+        if (!img) throw new Error('No image came back');
+        s.image = img;
       } catch (e) {
-        state.chat.push({ id: uid(), role: 'bot', mode: 'image', content: `⚠ ${e.message}`, sceneId });
+        s.imageError = e.message || 'something broke';
       } finally {
-        state.thinking = false;
+        s.imageLoading = false;
         persist();
-        render();
-        scrollChatToEnd();
+        renderBoard();
       }
     }
 
-    function scrollChatToEnd() {
-      const el = document.getElementById('chat-body');
-      requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    function clearSceneImage(id) {
+      const s = state.scenes.find(x => x.id === id);
+      if (!s) return;
+      s.image = null;
+      s.imageError = null;
+      persist();
+      renderBoard();
     }
 
-    // ─────────── Boards ───────────
-
-    function newBoard(promptName = true) {
-      const def = `board-${new Date().toISOString().slice(0,16).replace(/[-:T]/g,'')}`;
-      const name = promptName ? (window.prompt('Storyboard name?', def) || def) : def;
-      state.name = name;
-      state.scenes = [];
-      state.chat = [];
-      state.activeSceneId = null;
-      state.refs = [];
-      state.bible = '';
-      document.getElementById('board-name').value = name;
-      document.getElementById('bible').value = '';
-      updateBibleMeta();
-      addScene();
+    function downloadImage(id) {
+      const s = state.scenes.find(x => x.id === id);
+      if (!s?.image) return;
+      const a = document.createElement('a');
+      a.href = `data:${s.image.mimeType};base64,${s.image.dataBase64}`;
+      a.download = `scene-${state.scenes.indexOf(s) + 1}-${Date.now()}.png`;
+      a.click();
     }
 
-    function loadOrInit() {
-      const last = localStorage.getItem(LS_LAST);
-      if (last) {
-        const b = loadBoard(last);
-        if (b) {
-          state.name = b.name;
-          state.scenes = b.scenes || [];
-          state.chat = b.chat || [];
-          state.activeSceneId = b.activeSceneId || state.scenes[0]?.id || null;
-          state.bible = b.bible || '';
-          document.getElementById('board-name').value = state.name;
-          document.getElementById('bible').value = state.bible;
-          updateBibleMeta();
-          if (state.bible) setBibleOpen(true);
-          if (!state.scenes.length) addScene();
-          else render();
-          return;
+    // ──────── Board render ────────
+
+    function renderBoard() {
+      const empty = document.getElementById('board-empty');
+      const grid = document.getElementById('board-grid');
+      const addBtm = document.getElementById('add-scene-bottom');
+
+      if (!state.scenes.length) {
+        empty.style.display = 'block';
+        grid.style.display = 'none';
+        addBtm.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      grid.style.display = 'flex';
+      addBtm.style.display = 'block';
+
+      grid.innerHTML = state.scenes.map((s, i) => {
+        const n = String(i + 1).padStart(2, '0');
+        let thumbContent;
+        if (s.image) {
+          thumbContent = `<img src="data:${s.image.mimeType};base64,${s.image.dataBase64}" alt="Scene ${n}" />`;
+        } else if (s.imageLoading) {
+          thumbContent = `<span>drawing scene ${n}…</span>`;
+        } else if (s.imageError) {
+          thumbContent = `<span class="err">${esc(s.imageError)}</span>`;
+        } else {
+          thumbContent = `<span>no picture yet</span>`;
         }
-      }
-      newBoard(false);
+        return `
+          <div class="scene-card ${s.image ? 'has-image' : ''}" data-scene="${s.id}">
+            <div class="num-rail">
+              <div class="nm">Scene</div>
+              <div class="n">${n}</div>
+              <div class="reorder">
+                <button data-action="up" data-id="${s.id}" title="Move up">▲</button>
+                <button data-action="down" data-id="${s.id}" title="Move down">▼</button>
+              </div>
+              <button class="delete-scene" data-action="delete" data-id="${s.id}" title="Delete scene">×</button>
+            </div>
+            <div class="script-zone">
+              <div class="field-block">
+                <label>Visual</label>
+                <textarea data-id="${s.id}" data-field="visual" rows="1"
+                  placeholder="What we see on screen…">${esc(s.visual)}</textarea>
+              </div>
+              <div class="field-block">
+                <label>Audio · VO · SFX</label>
+                <textarea data-id="${s.id}" data-field="audio" rows="1"
+                  placeholder="What we hear — narration, dialogue, sound effects…">${esc(s.audio)}</textarea>
+              </div>
+            </div>
+            <div class="scene-image-zone">
+              <div class="scene-thumb ${s.imageLoading ? 'loading' : ''}">${thumbContent}</div>
+              <div class="scene-image-actions">
+                ${s.image
+                  ? `<button class="btn gold" data-action="regenerate" data-id="${s.id}">🔄 New picture</button>
+                     <button class="btn ghost" data-action="download" data-id="${s.id}">⬇</button>
+                     <button class="btn ghost" data-action="clear" data-id="${s.id}">×</button>`
+                  : `<button class="btn primary" data-action="generate" data-id="${s.id}" ${s.imageLoading ? 'disabled' : ''}>
+                       ${s.imageLoading ? '⏳ drawing…' : '🎨 Generate picture'}
+                     </button>`
+                }
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Auto-grow textareas
+      grid.querySelectorAll('textarea').forEach(autoGrow);
     }
+
+    function autoGrow(ta) {
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
+    }
+
+    function esc(s) {
+      return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+    }
+
+    // ──────── Export ────────
 
     function exportJson() {
       const blob = new Blob([JSON.stringify({
         name: state.name,
+        bible: state.bible,
         scenes: state.scenes.map(s => ({
           visual: s.visual, audio: s.audio,
           image: s.image ? { mimeType: s.image.mimeType, dataBase64: s.image.dataBase64 } : null,
@@ -1281,335 +1290,83 @@
       URL.revokeObjectURL(url);
     }
 
-    function clearHistory() {
-      if (!state.chat.length) return;
-      if (!confirm('Clear the chat history? Scenes on the left are kept.')) return;
-      state.chat = [];
+    // ──────── Wiring ────────
+
+    document.querySelectorAll('.tab').forEach(t => {
+      t.addEventListener('click', () => setStage(t.dataset.stage));
+    });
+    document.getElementById('btn-process').addEventListener('click', processStory);
+    document.getElementById('btn-goto-board').addEventListener('click', () => setStage('board'));
+    document.getElementById('board-empty-add').addEventListener('click', addBlankScene);
+    document.getElementById('add-scene-bottom').addEventListener('click', addBlankScene);
+    document.getElementById('btn-new').addEventListener('click', () => {
+      if (state.scenes.length || document.getElementById('paste').value.trim()) {
+        if (!confirm('Start a new story? Your current one stays saved.')) return;
+      }
+      newStory(true);
+    });
+    document.getElementById('btn-export').addEventListener('click', exportJson);
+
+    document.getElementById('paste').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        processStory();
+      }
+    });
+
+    document.getElementById('bible-toggle').addEventListener('click', () => toggleBible());
+    document.getElementById('bible').addEventListener('input', (e) => {
+      state.bible = e.target.value;
+      updateBibleMeta();
+      clearTimeout(window.__qssBibleT);
+      window.__qssBibleT = setTimeout(persist, 400);
+    });
+
+    document.getElementById('board-name').addEventListener('change', (e) => {
+      const n = e.target.value.trim();
+      if (!n || n === state.name) { e.target.value = state.name; return; }
+      const old = state.name;
+      state.name = n;
       persist();
-      render();
-    }
+      try {
+        localStorage.removeItem(LS_KEY(old));
+        const l = loadList().filter(x => x !== old);
+        saveList(l);
+      } catch {}
+    });
 
-    // ─────────── Render ───────────
+    // Suggestion clicks
+    document.getElementById('suggestions').addEventListener('click', (e) => {
+      const action = e.target.dataset.action;
+      if (!action) return;
+      const id = e.target.dataset.id;
+      if (action === 'add') addSuggestionToBoard(id);
+      else if (action === 'goto-board') setStage('board');
+    });
 
-    function escapeHtml(s) {
-      return (s || '').replace(/[&<>"']/g, c => ({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-      })[c]);
-    }
-    function renderReply(s) {
-      // Lightweight markdown-ish: bold **x**, italic *x*, inline `code`.
-      let out = escapeHtml(s);
-      out = out.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
-      out = out.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
-      out = out.replace(/`([^`\n]+)`/g, '<code>$1</code>');
-      return out;
-    }
-
-    function render() {
-      // Scenes
-      const list = document.getElementById('scenes');
-      list.innerHTML = state.scenes.map((s, i) => `
-        <div class="scene ${s.id === state.activeSceneId ? 'active' : ''}" data-scene-id="${s.id}">
-          <div class="scene-num">
-            <span class="label">Scene</span>
-            <span class="num">${String(i + 1).padStart(2, '0')}</span>
-            <div class="scene-actions">
-              <button class="icon-btn" data-action="delete" data-id="${s.id}" title="Delete scene">×</button>
-            </div>
-          </div>
-          <div class="scene-fields">
-            <div class="field visual">
-              <span class="field-label">Visual</span>
-              <textarea class="visual" rows="1" data-id="${s.id}" data-field="visual"
-                placeholder="What's on screen…">${escapeHtml(s.visual)}</textarea>
-            </div>
-            <div class="field audio">
-              <span class="field-label">Audio · VO · SFX</span>
-              <textarea class="audio" rows="1" data-id="${s.id}" data-field="audio"
-                placeholder="Narration, sound, dialogue…">${escapeHtml(s.audio)}</textarea>
-            </div>
-          </div>
-          <div class="scene-image" data-id="${s.id}">
-            ${s.image
-              ? `<img src="data:${s.image.mimeType};base64,${s.image.dataBase64}" />
-                 <button class="clear" data-action="clear-image" data-id="${s.id}" title="Remove image">×</button>`
-              : `<span class="placeholder">no image yet · click to make active</span>`}
-          </div>
-        </div>
-      `).join('');
-
-      document.getElementById('scene-count').textContent =
-        `${state.scenes.length} scene${state.scenes.length === 1 ? '' : 's'}`;
-
-      const idx = state.scenes.findIndex(s => s.id === state.activeSceneId);
-      document.getElementById('active-pill').textContent =
-        idx >= 0 ? `scene ${String(idx + 1).padStart(2, '0')}` : '—';
-
-      list.querySelectorAll('textarea').forEach(autoGrow);
-
-      renderChat();
-      renderRefs();
-    }
-
-    function renderChat() {
-      const body = document.getElementById('chat-body');
-      const empty = document.getElementById('empty-state');
-      if (!state.chat.length && !state.thinking) {
-        body.innerHTML = '';
-        body.appendChild(empty);
-        return;
-      }
-      const sceneIdxById = new Map(state.scenes.map((s, i) => [s.id, i]));
-      body.innerHTML = state.chat.map(t => renderTurn(t, sceneIdxById)).join('');
-      if (state.thinking) {
-        body.insertAdjacentHTML('beforeend', `
-          <div class="turn bot">
-            <div class="thinking"><span class="blip"></span> ${state.mode === 'image' ? 'generating image' : 'thinking'}</div>
-          </div>`);
-      }
-    }
-
-    function renderTurn(t, sceneIdxById) {
-      if (t.role === 'user') {
-        const isLargePaste = (t.content || '').length > 400;
-        return `<div class="turn user">
-          <div class="bubble ${isLargePaste ? 'paste-large' : ''}" data-turn="${t.id}">${escapeHtml(t.content)}</div>
-        </div>`;
-      }
-      // Bot turn
-      if (t.mode === 'image') {
-        const sceneIdx = sceneIdxById.get(t.sceneId);
-        const sceneLabel = sceneIdx != null ? `scene ${String(sceneIdx + 1).padStart(2, '0')}` : 'no scene';
-        const imgs = (t.images || []).map((img, i) => `
-          <div class="gen-image-wrap">
-            <div class="gen-image"><img src="data:${img.mimeType};base64,${img.dataBase64}" /></div>
-            <div class="gen-actions">
-              <button class="btn primary" data-action="use-image" data-turn="${t.id}" data-img="${i}">Use for ${sceneLabel}</button>
-              <button class="btn" data-action="ref-image" data-turn="${t.id}" data-img="${i}">Reference</button>
-              <button class="btn ghost" data-action="download-image" data-turn="${t.id}" data-img="${i}">Download</button>
-            </div>
-          </div>`).join('');
-        return `<div class="turn bot">
-          <div class="bot-meta"><span class="dot"></span> nano banana · ${sceneLabel}</div>
-          ${imgs}
-          ${t.content ? `<div class="gen-text">${escapeHtml(t.content)}</div>` : ''}
-        </div>`;
-      }
-      // Story bot turn
-      const reply = t.content ? `<div class="reply">${renderReply(t.content)}</div>` : '';
-      const suggestions = (t.sceneSuggestions || []).map((s, i) => `
-        <div class="suggestion ${s.added ? 'added' : ''}" data-sugg-id="${s.id}" data-turn="${t.id}">
-          <div class="s-num">Scene ${String(i + 1).padStart(2, '0')}</div>
-          ${s.visual ? `<div class="s-line"><span class="s-label">Visual</span><div class="s-text">${escapeHtml(s.visual)}</div></div>` : ''}
-          ${s.audio ? `<div class="s-line"><span class="s-label">Audio</span><div class="s-text">${escapeHtml(s.audio)}</div></div>` : ''}
-          ${s.rationale ? `<div class="s-rationale">${escapeHtml(s.rationale)}</div>` : ''}
-          <div class="s-actions">
-            <button class="btn primary" data-action="add-suggestion" data-turn="${t.id}" data-sugg-id="${s.id}">+ Add as scene</button>
-            <button class="btn" data-action="image-from-suggestion" data-turn="${t.id}" data-sugg-id="${s.id}">Generate image</button>
-          </div>
-          <div class="added-tag">✓ added to script</div>
-        </div>`).join('');
-      const sugBlock = suggestions ? `
-        <div class="suggestions">
-          <div class="suggestions-label">Scene suggestions</div>
-          ${suggestions}
-        </div>` : '';
-
-      return `<div class="turn bot">
-        <div class="bot-meta"><span class="dot"></span> story collaborator</div>
-        ${reply}
-        ${sugBlock}
-      </div>`;
-    }
-
-    function renderRefs() {
-      const pile = document.getElementById('ref-pile');
-      if (state.mode !== 'image' || !state.refs.length) {
-        pile.style.display = 'none';
-        pile.innerHTML = '';
-        return;
-      }
-      pile.style.display = 'flex';
-      pile.innerHTML = state.refs.map((r, i) => `
-        <div class="ref-chip">
-          <img src="data:${r.mimeType};base64,${r.dataBase64}" />
-          <button class="x" data-action="remove-ref" data-idx="${i}" title="Remove reference">×</button>
-        </div>
-      `).join('');
-    }
-
-    function autoGrow(ta) {
-      ta.style.height = 'auto';
-      ta.style.height = Math.min(ta.scrollHeight, 280) + 'px';
-    }
-
-    // ─────────── Event delegation ───────────
-
-    document.getElementById('scenes').addEventListener('input', (e) => {
+    // Board grid clicks + edits
+    const board = document.getElementById('board-grid');
+    board.addEventListener('click', (e) => {
+      const action = e.target.dataset.action;
+      if (!action) return;
+      const id = e.target.dataset.id;
+      if (action === 'delete') {
+        if (confirm('Delete this scene?')) deleteScene(id);
+      } else if (action === 'up') moveScene(id, -1);
+      else if (action === 'down') moveScene(id, 1);
+      else if (action === 'generate' || action === 'regenerate') generateForScene(id);
+      else if (action === 'clear') clearSceneImage(id);
+      else if (action === 'download') downloadImage(id);
+    });
+    board.addEventListener('input', (e) => {
       const ta = e.target.closest('textarea');
       if (!ta) return;
       setSceneField(ta.dataset.id, ta.dataset.field, ta.value);
       autoGrow(ta);
     });
-    document.getElementById('scenes').addEventListener('click', (e) => {
-      const card = e.target.closest('.scene');
-      if (!card) return;
-      const id = card.dataset.sceneId;
-      const action = e.target.dataset.action;
-      if (action === 'delete') {
-        e.stopPropagation();
-        if (confirm('Delete this scene?')) deleteScene(id);
-        return;
-      }
-      if (action === 'clear-image') {
-        e.stopPropagation();
-        clearSceneImage(id);
-        return;
-      }
-      if (e.target.closest('textarea')) return;
-      state.activeSceneId = id;
-      persist();
-      render();
-    });
 
-    document.getElementById('chat-body').addEventListener('click', (e) => {
-      // Expand collapsed user paste bubbles
-      const bubble = e.target.closest('.bubble.paste-large');
-      if (bubble && !e.target.dataset.action) {
-        bubble.classList.toggle('expanded');
-        return;
-      }
-      const action = e.target.dataset.action;
-      if (!action) return;
-      const turnId = e.target.dataset.turn;
-      const turn = state.chat.find(t => t.id === turnId);
-      if (!turn) return;
-
-      if (action === 'use-image') {
-        const imgIdx = parseInt(e.target.dataset.img, 10);
-        const img = turn.images?.[imgIdx];
-        if (!img) return;
-        const sceneId = turn.sceneId || state.activeSceneId;
-        if (!sceneId) { alert('No active scene. Click a scene on the left first.'); return; }
-        attachImageToScene(sceneId, img);
-      } else if (action === 'ref-image') {
-        const imgIdx = parseInt(e.target.dataset.img, 10);
-        const img = turn.images?.[imgIdx];
-        if (!img) return;
-        state.refs.push(img);
-        setMode('image');
-        renderRefs();
-      } else if (action === 'download-image') {
-        const imgIdx = parseInt(e.target.dataset.img, 10);
-        const img = turn.images?.[imgIdx];
-        if (!img) return;
-        const a = document.createElement('a');
-        a.href = `data:${img.mimeType};base64,${img.dataBase64}`;
-        a.download = `nano-banana-${Date.now()}.png`;
-        a.click();
-      } else if (action === 'add-suggestion') {
-        const suggId = e.target.dataset.suggId;
-        const sugg = turn.sceneSuggestions?.find(s => s.id === suggId);
-        if (!sugg || sugg.added) return;
-        addScene({ visual: sugg.visual, audio: sugg.audio });
-        sugg.added = true;
-        persist();
-        render();
-      } else if (action === 'image-from-suggestion') {
-        const suggId = e.target.dataset.suggId;
-        const sugg = turn.sceneSuggestions?.find(s => s.id === suggId);
-        if (!sugg) return;
-        // If suggestion hasn't been added yet, add it first so the gen has a target scene.
-        if (!sugg.added) {
-          const newScene = addScene({ visual: sugg.visual, audio: sugg.audio });
-          sugg.added = true;
-        }
-        setMode('image');
-        const promptEl = document.getElementById('prompt');
-        promptEl.value = `Cinematic, photoreal, 16:9. ${sugg.visual}`;
-        autoGrow(promptEl);
-        promptEl.focus();
-        persist();
-        render();
-      }
-    });
-
-    document.getElementById('ref-pile').addEventListener('click', (e) => {
-      if (e.target.dataset.action === 'remove-ref') {
-        const i = parseInt(e.target.dataset.idx, 10);
-        state.refs.splice(i, 1);
-        renderRefs();
-      }
-    });
-
-    document.getElementById('btn-send').addEventListener('click', send);
-    document.getElementById('prompt').addEventListener('input', (e) => autoGrow(e.target));
-    document.getElementById('prompt').addEventListener('keydown', (e) => {
-      // ⌘↵ / Ctrl↵ → always send. Plain ↵ in story mode inserts a newline (paste-friendly).
-      // In image mode, plain ↵ sends (faster iteration). Shift↵ always = newline.
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        send();
-      } else if (e.key === 'Enter' && !e.shiftKey && state.mode === 'image') {
-        e.preventDefault();
-        send();
-      }
-    });
-
-    document.querySelectorAll('.mode-tab').forEach(tab => {
-      tab.addEventListener('click', () => setMode(tab.dataset.mode));
-    });
-    document.getElementById('clear-history').addEventListener('click', clearHistory);
-
-    // Story Bible wiring
-    function setBibleOpen(open) {
-      state.bibleOpen = !!open;
-      const panel = document.getElementById('bible-panel');
-      panel.classList.toggle('open', state.bibleOpen);
-    }
-    function updateBibleMeta() {
-      const chars = (state.bible || '').length;
-      const meta = document.getElementById('bible-meta');
-      if (!chars) { meta.textContent = 'empty'; meta.style.color = ''; return; }
-      meta.textContent = chars > 1000 ? `${(chars/1000).toFixed(1)}k chars · canon` : `${chars} chars · canon`;
-      meta.style.color = 'var(--gold)';
-    }
-    document.getElementById('bible-toggle').addEventListener('click', () => setBibleOpen(!state.bibleOpen));
-    document.getElementById('bible').addEventListener('input', (e) => {
-      state.bible = e.target.value;
-      updateBibleMeta();
-      // debounce persistence — bibles can be big, don't write on every keystroke
-      clearTimeout(window.__qssBibleTimer);
-      window.__qssBibleTimer = setTimeout(persist, 400);
-    });
-
-    document.getElementById('btn-add-scene').addEventListener('click', () => addScene());
-    document.getElementById('scene-add-btn').addEventListener('click', () => addScene());
-    document.getElementById('btn-new').addEventListener('click', () => {
-      if (state.scenes.length > 1 || state.scenes[0]?.visual || state.scenes[0]?.audio || state.chat.length) {
-        if (!confirm('Start a new storyboard? Your current one stays saved under its name.')) return;
-      }
-      newBoard(true);
-    });
-    document.getElementById('btn-export').addEventListener('click', exportJson);
-    document.getElementById('board-name').addEventListener('change', (e) => {
-      const newName = e.target.value.trim();
-      if (!newName || newName === state.name) { e.target.value = state.name; return; }
-      const old = state.name;
-      state.name = newName;
-      persist();
-      try {
-        localStorage.removeItem(LS_BOARD(old));
-        const list = loadBoardList().filter(n => n !== old);
-        saveBoardList(list);
-      } catch {}
-    });
-
-    // ─────────── Boot ───────────
-
-    const savedMode = localStorage.getItem(LS_MODE);
-    setMode(savedMode === 'image' ? 'image' : 'story');
-    loadOrInit();
+    // ──────── Boot ────────
+    init();
   </script>
 </body>
 </html>

@@ -15,6 +15,28 @@ export const config = { runtime: 'edge', maxDuration: 60 };
 
 const TEXT_MODEL = 'gemini-2.5-flash';
 
+const SCRIBE_SYSTEM = `You're a writing collaborator for a visual storyteller building a linear narrative — chapter by chapter. The screen shows their full story (chapters in order, editable inline) on one side and you on the other. You're helping them develop the story ITSELF, before any storyboard breakdown.
+
+Match the tone of their existing material exactly — voice, sentence rhythm, dialogue style, pacing, comedic timing. Don't impose a register. If their chapters are short, declarative, kid-written-style, write the same way. If they're literary, match that. Read carefully before writing.
+
+How to help:
+
+1) Write new chapters when asked. When they ask you to draft a chapter, write a FULL chapter in their voice — same length, structure, and energy as their existing chapters. Use established characters by name. Land their running gags. End on a beat. Return chapters in this exact fenced format:
+
+\`\`\`chapter title="Chapter Title Here"
+[full chapter prose. multiple paragraphs ok. blank lines fine.]
+\`\`\`
+
+2) Revise existing chapters when asked. Same fenced format — they'll choose whether to replace the original.
+
+3) When brainstorming, be a smart, opinionated collaborator. Push back. Suggest angles. Don't hedge. Don't pad with disclaimers.
+
+4) Honor the story bible. Treat it as canon. Reference established characters, running gags, and earlier chapters by name and detail. Don't reinvent what's already established.
+
+5) Multiple chapters at once: emit multiple fenced \`chapter\` blocks back-to-back. The UI parses each.
+
+6) Tone: editorial, lowercase-friendly, direct. No "Certainly!" or "Great question!" — just write. He's busy and his taste is high. No emojis unless he uses them first.`;
+
 const STORY_SYSTEM = `You're a story collaborator for a visual storyteller using this tool to break narrative material — drafts, chapters, transcripts, research, scripts — into shot-by-shot scenes for a storyboard. The left side of the screen is an audiovisual script (numbered scenes, each with VISUAL and AUDIO fields). You're on the right side.
 
 Genre-agnostic: he might be developing documentary, animated comedy, drama, kids' content, pitch reels, or anything else. Match the tone of his material — don't impose a register. A satirical kid's chapter gets playful, specific, visual-gag-aware scene suggestions; a documentary transcript gets sober, observational ones. Read his material first, then write in its voice.
@@ -59,10 +81,129 @@ export default async function handler(req) {
   try { body = await req.json(); }
   catch { return jsonError(400, 'Invalid JSON body'); }
 
-  const mode = body.mode === 'image' ? 'image' : 'text';
+  const mode = body.mode === 'image' ? 'image' : body.mode === 'scribe' ? 'scribe' : 'text';
 
   if (mode === 'image') return handleImage(body, apiKey);
+  if (mode === 'scribe') return handleScribe(body, apiKey);
   return handleText(body, apiKey);
+}
+
+// ──────────────── Scribe / linear-story chat ────────────────
+
+async function handleScribe(body, apiKey) {
+  const message = (body.message || '').toString().trim();
+  if (!message) return jsonError(400, 'Missing message');
+
+  const history = Array.isArray(body.history) ? body.history.slice(-10) : [];
+  const story = body.story || null;
+
+  let bibleContext = '';
+  const bible = (story?.bible || '').trim();
+  if (bible) bibleContext = `\n\n═══ STORY BIBLE ═══\n${bible}\n═══ END BIBLE ═══`;
+
+  let chaptersContext = '';
+  if (story && Array.isArray(story.chapters) && story.chapters.length) {
+    const blocks = story.chapters.map((c, i) => {
+      const n = String(i + 1).padStart(2, '0');
+      const title = (c.title || `Chapter ${n}`).trim();
+      const body = (c.body || '').trim() || '(empty)';
+      return `── Chapter ${n}: ${title} ──\n${body}`;
+    }).join('\n\n');
+    chaptersContext = `\n\n═══ THE STORY SO FAR (titled "${story.name || 'untitled'}") ═══\n\n${blocks}\n\n═══ END STORY ═══`;
+  } else {
+    chaptersContext = '\n\n═══ THE STORY SO FAR ═══\n(no chapters yet — they\'re starting fresh)';
+  }
+
+  let activeContext = '';
+  if (story?.activeChapterId) {
+    const idx = story.chapters?.findIndex(c => c.id === story.activeChapterId);
+    if (idx >= 0) {
+      activeContext = `\n\nACTIVE CHAPTER: Chapter ${String(idx + 1).padStart(2, '0')} ("${story.chapters[idx].title || ''}"). Default any "revise this", "rewrite this", "continue this" instructions to that chapter unless they specify otherwise.`;
+    }
+  }
+
+  const systemText = SCRIBE_SYSTEM + bibleContext + chaptersContext + activeContext;
+
+  const contents = history.map(m => ({
+    role: m.role === 'user' ? 'user' : 'model',
+    parts: [{ text: m.content }],
+  }));
+  contents.push({ role: 'user', parts: [{ text: message }] });
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent`;
+  const payload = {
+    contents,
+    systemInstruction: { parts: [{ text: systemText }] },
+    generationConfig: { temperature: 0.9, maxOutputTokens: 12000 },
+  };
+
+  let res;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok || (res.status !== 429 && res.status !== 503)) break;
+    if (attempt < 2) await new Promise(r => setTimeout(r, (attempt + 1) * 4000));
+  }
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    const isQuota = errText.includes('RESOURCE_EXHAUSTED');
+    return jsonError(
+      isQuota ? 429 : (res.status || 502),
+      isQuota ? 'Gemini quota exhausted — wait a few minutes' : `Gemini ${res.status}: ${errText.slice(0, 500)}`
+    );
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!data) return jsonError(502, 'Gemini returned non-JSON response');
+
+  const reply = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+  const { cleanReply, chapters } = extractChapters(reply);
+
+  return jsonResponse({ reply: cleanReply, chapters, model: TEXT_MODEL });
+}
+
+function extractChapters(reply) {
+  // Match ```chapter title="…" \n …body… \n ``` — supports multiple back-to-back.
+  // Also tolerate ``` chapter title=… ``` without quotes, and a truncated trailing block.
+  const closedRe = /```chapter(?:\s+title\s*=\s*"([^"]*)")?\s*\n([\s\S]*?)\n```/gi;
+  const chapters = [];
+  let cleanReply = reply;
+  const consumed = [];
+
+  let m;
+  while ((m = closedRe.exec(reply)) !== null) {
+    const title = (m[1] || '').trim();
+    const body = (m[2] || '').trim();
+    if (body) {
+      chapters.push({ title, body });
+      consumed.push([m.index, m.index + m[0].length]);
+    }
+  }
+  for (const [s, e] of consumed.reverse()) {
+    cleanReply = cleanReply.slice(0, s) + cleanReply.slice(e);
+  }
+
+  // Open-ended (truncation): a final unterminated ```chapter block.
+  if (true) {
+    const openRe = /```chapter(?:\s+title\s*=\s*"([^"]*)")?\s*\n([\s\S]+)$/i;
+    const open = openRe.exec(cleanReply);
+    if (open) {
+      const body = (open[2] || '').trim();
+      if (body) {
+        chapters.push({
+          title: (open[1] || '').trim() || '(untitled — output may be truncated)',
+          body,
+        });
+        cleanReply = cleanReply.slice(0, open.index).trim() + '\n\n_(output truncated — last chapter may be incomplete)_';
+      }
+    }
+  }
+
+  return { cleanReply: cleanReply.replace(/\n{3,}/g, '\n\n').trim(), chapters };
 }
 
 // ──────────────── Text / story chat ────────────────
