@@ -604,6 +604,22 @@
       font-family: var(--display); font-weight: 700; font-size: 14px;
       display: inline-block; transform: rotate(-1deg);
     }
+    /* Routing badge — shows when the wizard re-routed the kid's input.
+       Only visible to Johnny (parent) effectively, but kid-friendly tone. */
+    .route-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--ui); font-weight: 700; font-size: 11px;
+      letter-spacing: 0.08em; padding: 3px 10px;
+      border: 1.5px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      transform: rotate(-2deg); margin-left: 54px; margin-bottom: 4px;
+    }
+    .route-badge[data-r="engage-direct"]          { background: var(--grass); color: var(--ink-bright); }
+    .route-badge[data-r="gentle-widen"]           { background: var(--yolk);  color: var(--ink-bright); }
+    .route-badge[data-r="redirect-from-fixation"] { background: var(--bubblegum); color: var(--ink-bright); }
+    .route-badge[data-r="auto-direction"],
+    .route-badge[data-r="opening"],
+    .route-badge[data-r="explicit"]               { display: none; } /* hide for default flows */
 
     /* ── Composer ── */
     .composer {
@@ -1999,6 +2015,17 @@
       if (trimmed) {
         state.chat.push({ id: uid(), role: 'kid', content: trimmed });
         document.getElementById('kid-input').value = '';
+        // Log Henry's typed request so we can analyze patterns of what
+        // he asks for vs what the system surfaced (and what he chose).
+        // The 'auto' flag distinguishes click-driven turns (try-again,
+        // back-to-dirs, chooseDirection auto-followup) from real input.
+        if (!auto) {
+          observe('kid_request', {
+            text: trimmed,
+            phase_requested: opts.phase || 'auto',
+            blocks_so_far: state.blocks.length,
+          });
+        }
       }
       state.thinking = true;
       renderChat();
@@ -2037,10 +2064,23 @@
           content: (data.reply || '').trim(),
           phase,
           chosenDirection: data.chosenDirection || null,
+          routing: data.routing || null,
+          fixation: data.fixation || null,
           stage: data.stage,
           targetMin: data.targetMin,
           targetMax: data.targetMax,
         };
+        // Log the routing decision the server made — invaluable for
+        // figuring out how often we redirect vs engage directly.
+        if (data.routing) {
+          observe('wordy_routed', {
+            routing: data.routing,
+            phase: data.phase,
+            fixation_flags: data.fixation?.flags || [],
+            fixation_severe: !!data.fixation?.severe,
+            had_kid_request: !!trimmed,
+          });
+        }
         if (phase === 'directions') {
           turn.directions = (data.directions || []).map(d => ({
             id: uid(),
@@ -2175,11 +2215,19 @@
             <div class="more-options">
               <button class="btn ghost" data-action="try-again-dirs">none of these — give me different directions</button>
             </div>` : '';
+          const routeBadge = t.routing && t.routing !== 'auto-direction' && t.routing !== 'opening' && t.routing !== 'explicit'
+            ? `<div class="route-badge" data-r="${esc(t.routing)}">${
+                t.routing === 'engage-direct'          ? '✦ running with your idea'
+              : t.routing === 'gentle-widen'           ? '✦ widening the options'
+              : t.routing === 'redirect-from-fixation' ? '✦ wizard suggests other paths'
+              : esc(t.routing)
+              }</div>` : '';
           return `<div class="tutor-turn">
             <div class="tutor-msg">
               ${window.dragon('md')}
               <div class="bubble">${esc(t.content)}<button class="tts-btn sm tts-bubble" data-tts="${esc(t.content)}" style="margin-left:8px; vertical-align:middle;"></button></div>
             </div>
+            ${routeBadge}
             <div class="dir-list">${cards}</div>
             ${tryAgain}
           </div>`;
@@ -2204,6 +2252,8 @@
         }).join('');
         const dirBadge = t.chosenDirection
           ? `<div class="dir-context">writing for direction: <strong>${esc(t.chosenDirection.split('.')[0])}</strong></div>` : '';
+        const routeBadge = t.routing === 'engage-direct'
+          ? `<div class="route-badge" data-r="engage-direct">✦ running with your idea</div>` : '';
         const moreActions = (isLatest && t.options?.length && !t.options.every(o => o.added))
           ? `<div class="more-options">
                <button class="btn ghost" data-action="try-again">none of these — try again</button>
@@ -2214,6 +2264,7 @@
             ${window.dragon('md')}
             <div class="bubble">${esc(t.content)}<button class="tts-btn sm tts-bubble" data-tts="${esc(t.content)}" style="margin-left:8px; vertical-align:middle;"></button></div>
           </div>
+          ${routeBadge}
           ${dirBadge}
           ${opts ? `<div class="option-list">${opts}</div>` : ''}
           ${moreActions}

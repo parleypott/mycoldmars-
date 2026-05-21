@@ -300,26 +300,75 @@ async function handleTutor(body, apiKey) {
 
   const stageBlock = `\n\nSEQUENCING STAGE: ${stage}. Tailor your options to this stage of the arc.`;
 
-  // Two-phase wizard:
-  //   phase: 'directions' — propose 4 narrative directions
-  //   phase: 'blocks'     — write 3 story blocks (optionally aligned to a chosen direction)
-  // Defaults: explicit phase wins. Otherwise: empty story → 'blocks' (opening options),
-  // story with content → 'directions' (the new wizard default after a block is added).
+  // Two-phase wizard with smart routing on Henry's TYPED input.
+  //
+  // Default flow (auto, no kid input):
+  //   • empty story → 'blocks' (give 3 ways to open)
+  //   • story exists → 'directions' (the wizard picker)
+  //
+  // When the kid types a request into the composer, the server inspects
+  // both the request AND the fixation flags before deciding:
+  //   • fixation SEVERE + kid asked for more of the same pattern →
+  //     force 'directions' (alternatives) so Wordy can warmly redirect
+  //   • no fixation + specific kid request → 'blocks' with his request
+  //     baked in as the direction, so we engage with what he wants
+  //   • partial fixation OR generic ask → 'directions' (default wizard)
+  //
+  // The explicit phase override (body.phase) always wins for click-driven
+  // turns where the UI knows what it's asking for (e.g. picking a
+  // direction → server already gets phase='blocks').
+  // We compute the routing decision and STORE it so we can return it to
+  // the client (and so the system prompt can adapt accordingly).
+  const message = body.message ? body.message.toString().trim() : '';
+  // (lightweight inline check — fixation gets computed for real below;
+  // here we just need a hint. We do the full compute right after.)
   let phase;
-  if (body.phase === 'directions') phase = 'directions';
-  else if (body.phase === 'blocks') phase = 'blocks';
-  else phase = (cur === 0 ? 'blocks' : 'directions');
+  let routing = 'default';
   const chosenDirection = (body.direction || '').toString().trim();
-  let phaseExtra = '';
-  if (phase === 'blocks' && chosenDirection) {
-    phaseExtra = `\n\n═══ DIRECTION THE KID CHOSE ═══\n"${chosenDirection}"\n\nAll 3 block-options you write THIS TURN must fulfill that direction in different ways (different framings of the same beat). Stay in voice; honor canon.`;
-  }
+  if (body.phase === 'directions') { phase = 'directions'; routing = 'explicit'; }
+  else if (body.phase === 'blocks') { phase = 'blocks'; routing = 'explicit'; }
+  else if (cur === 0) { phase = 'blocks'; routing = 'opening'; }
+  else { phase = 'directions'; routing = 'auto-direction'; }
+  // (phaseExtra is consolidated into phaseExtra2 below, after the
+  // routing decision is finalized — uses effectiveDirection which may
+  // be either the explicitly-passed chosenDirection OR the kid's typed
+  // request when we re-routed to engage-direct.)
 
   // ── Fixation detection — heuristic, no AI call ──
-  // Extract any extra known characters from the bible so we recognize
-  // custom additions (e.g. Mark Rober before he was canonical).
   const extraCharacters = extractBibleCharacters(rules.bible || '');
   const fixation = detectFixation(blocks, extraCharacters);
+
+  // ── Re-route the phase decision based on fixation + kid input ──
+  // (only when caller didn't explicitly set body.phase)
+  if (!body.phase && message) {
+    // Kid typed something specific.
+    if (fixation.severe) {
+      // Heavy fixation — force the wizard so Wordy can warmly redirect.
+      phase = 'directions';
+      routing = 'redirect-from-fixation';
+    } else if (!fixation.fixating) {
+      // No flags — engage directly with the kid's request. We pass it in
+      // as the chosen direction so Wordy writes 3 blocks honoring it.
+      phase = 'blocks';
+      routing = 'engage-direct';
+    } else {
+      // Mild fixation — keep the wizard but Wordy will weave the kid's
+      // ask into one of the proposed directions.
+      phase = 'directions';
+      routing = 'gentle-widen';
+    }
+  }
+
+  // If we re-routed into engage-direct, use the kid's typed message
+  // as the chosen-direction string (Wordy's blocks must honor it).
+  const effectiveDirection = (routing === 'engage-direct' && !chosenDirection)
+    ? message
+    : chosenDirection;
+
+  let phaseExtra2 = '';
+  if (phase === 'blocks' && effectiveDirection) {
+    phaseExtra2 = `\n\n═══ DIRECTION THE KID CHOSE ═══\n"${effectiveDirection}"\n\nAll 3 block-options you write THIS TURN must fulfill that direction in different ways (different framings of the same beat). Stay in voice; honor canon.`;
+  }
 
   let patternBlock = '';
   if (fixation.hints.length) {
@@ -329,8 +378,26 @@ async function handleTutor(body, apiKey) {
       `Use the "viable IP / mass-market" framing from Henry's profile to gently widen the range. Half your direction proposals MUST move off the current dynamic.`;
   }
 
+  // Special routing-aware coaching for Wordy when Henry typed a request
+  let routingBlock = '';
+  if (message && routing === 'redirect-from-fixation') {
+    routingBlock = `\n\n═══ HENRY JUST TYPED A REQUEST ═══\n"${message}"\n\nBecause the PATTERN NOTES above are firing HARD, your job is to:\n  1) Open your bubble with WARM acknowledgment of his energy — name what's exciting about his idea. ("I love the Scarlet-bursts-in instinct — that's been working hard for us.")\n  2) Then use the viable-IP frame: "we've been on this beat for a few blocks though — for a real show audiences need variety. let me show you some other paths that could still feel like you."\n  3) Of the 4 direction proposals: ONE can be a fresh framing of what he asked for (so he doesn't feel shut down). The other 3 MUST be genuinely different — different character lead, different setting, different texture.\n  4) Do not lecture. Do not refuse. Reframe as expanding his options, not denying his idea.`;
+  } else if (message && routing === 'gentle-widen') {
+    routingBlock = `\n\n═══ HENRY JUST TYPED A REQUEST ═══\n"${message}"\n\nMild pattern flags are firing. Honor his ask with ONE direction that does close-to-what-he-said. The other 3 proposals should still vary off the current dynamic — different character, different mood, different texture. Warm acknowledgment first, then the proposals.`;
+  } else if (message && routing === 'engage-direct') {
+    routingBlock = `\n\n═══ HENRY JUST TYPED A REQUEST ═══\n"${message}"\n\nNo fixation flags — engage with what he wants. All 3 block-options should fulfill his request in different framings. Stay in voice. Have fun with it.`;
+  }
+
   const baseSystem = phase === 'directions' ? DIRECTIONS_SYSTEM : TUTOR_SYSTEM;
-  const systemText = HENRY_PROFILE + '\n\n' + baseSystem + '\n\n═══ RULES SET BY PARENT ═══\n' + rulesBlock + bibleBlock + storyBlock + stageBlock + phaseExtra + patternBlock;
+  const systemText = HENRY_PROFILE
+    + '\n\n' + baseSystem
+    + '\n\n═══ RULES SET BY PARENT ═══\n' + rulesBlock
+    + bibleBlock
+    + storyBlock
+    + stageBlock
+    + phaseExtra2
+    + patternBlock
+    + routingBlock;
 
   const contents = history.map(m => ({
     role: m.role === 'user' ? 'user' : 'model',
@@ -393,7 +460,9 @@ async function handleTutor(body, apiKey) {
         phase,
         directions,
         blockOptions,
-        chosenDirection: phase === 'blocks' ? chosenDirection : null,
+        chosenDirection: phase === 'blocks' ? effectiveDirection : null,
+        routing,
+        fixation: { fixating: fixation.fixating, severe: fixation.severe, flags: fixation.flags },
         stage,
         blocksCommitted: cur,
         targetMin: blockCountTarget.min,
@@ -447,7 +516,9 @@ async function handleTutor(body, apiKey) {
     phase,
     directions,
     blockOptions,
-    chosenDirection: phase === 'blocks' ? chosenDirection : null,
+    chosenDirection: phase === 'blocks' ? effectiveDirection : null,
+    routing,
+    fixation: { fixating: fixation.fixating, severe: fixation.severe, flags: fixation.flags },
     stage,
     blocksCommitted: cur,
     targetMin: blockCountTarget.min,
