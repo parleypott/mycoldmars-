@@ -535,6 +535,76 @@
       padding-left: 54px; display: flex; gap: 10px; flex-wrap: wrap; padding-top: 4px;
     }
 
+    /* ───── Direction cards (wizard phase) ───── */
+    .dir-list {
+      display: flex; flex-direction: column; gap: 12px;
+      padding-left: 54px; padding-top: 4px;
+    }
+    .dir-card {
+      position: relative;
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 14px;
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      padding: 14px 16px 14px 50px;
+      transition: transform .18s var(--ease), box-shadow .18s var(--ease), background .18s;
+      cursor: default;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .dir-card:nth-child(4n+1) { transform: rotate(-0.4deg); border-left-color: var(--sky); border-left-width: 6px; }
+    .dir-card:nth-child(4n+2) { transform: rotate(0.4deg); border-left-color: var(--bubblegum); border-left-width: 6px; }
+    .dir-card:nth-child(4n+3) { transform: rotate(-0.2deg); border-left-color: var(--grass); border-left-width: 6px; }
+    .dir-card:nth-child(4n+4) { transform: rotate(0.2deg); border-left-color: var(--grape); border-left-width: 6px; }
+    .dir-card:hover { transform: translate(-2px, -2px) rotate(0); box-shadow: 6px 6px 0 var(--ink-bright); background: var(--paper-soft); }
+    .dir-card.chosen { background: #FFFEF5; opacity: 0.88; box-shadow: 4px 4px 0 var(--grass), 4px 4px 0 2.5px var(--ink-bright); }
+    .dir-card .dir-arrow {
+      position: absolute; left: 14px; top: 50%;
+      transform: translateY(-50%) rotate(-3deg);
+      width: 26px; height: 26px;
+      background: var(--yolk);
+      border: 2px solid var(--ink-bright);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--ui); font-weight: 800; font-size: 16px;
+      color: var(--ink-bright);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+    }
+    .dir-card.chosen .dir-arrow { background: var(--grass); }
+    .dir-card .dir-vibe {
+      align-self: flex-start;
+      font-family: var(--ui); font-weight: 800; font-size: 10px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      background: var(--yolk); border: 1.5px solid var(--ink-bright); border-radius: 999px;
+      padding: 2px 9px; box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      color: var(--ink-bright); transform: rotate(-2deg);
+    }
+    .dir-card .dir-title {
+      font-family: var(--display); font-size: 22px; font-weight: 700; line-height: 1.1;
+      color: var(--ink-bright);
+    }
+    .dir-card .dir-desc {
+      font-family: var(--serif); font-size: 14.5px; line-height: 1.5; color: var(--ink-soft);
+    }
+    .dir-card .dir-actions {
+      display: flex; gap: 8px; flex-wrap: wrap; padding-top: 4px; align-items: center;
+    }
+    .dir-card .dir-actions .btn { font-size: 13px; padding: 7px 14px; }
+    .dir-card .dir-actions .tts-btn { width: 30px; height: 30px; }
+    .dir-card .dir-actions .tts-btn svg { width: 15px; height: 15px; }
+
+    .dir-context {
+      padding-left: 54px;
+      font-family: var(--ui); font-size: 12px; letter-spacing: 0.08em;
+      color: var(--ink-soft); padding-top: 4px;
+    }
+    .dir-context strong {
+      background: var(--yolk); padding: 2px 8px;
+      border: 1.5px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      font-family: var(--display); font-weight: 700; font-size: 14px;
+      display: inline-block; transform: rotate(-1deg);
+    }
+
     /* ── Composer ── */
     .composer {
       border-top: 2.5px solid var(--ink-bright);
@@ -1794,15 +1864,35 @@
       const blockId = uid();
       state.blocks.push({ id: blockId, text: opt.text });
       opt.added = true;
-      // Link the chat option back to the block it created so deleteBlock()
-      // can find this option and re-activate it.
       opt.blockId = blockId;
-      // Push a kid msg saying "picked this one" and clear options from prior turns
       state.chat.push({ id: uid(), role: 'kid', content: `i picked: "${opt.text.slice(0, 80)}${opt.text.length > 80 ? '…' : ''}"`, kind: 'pick' });
       persist();
       renderAll();
-      // Auto-ask wordy for the next batch
+      // After a block is committed, wordy auto-asks for DIRECTIONS for the next turn.
+      // (Server defaults: empty story → blocks, otherwise → directions, so we just
+      // call askWordy() and let the server pick.)
       askWordy('', /*auto*/ true);
+    }
+
+    // Kid picked a direction. Wordy generates 3 blocks aligned to it.
+    function chooseDirection(turnId, dirId) {
+      const turn = state.chat.find(t => t.id === turnId);
+      if (!turn || !turn.directions) return;
+      const dir = turn.directions.find(d => d.id === dirId);
+      if (!dir) return;
+      // mark the chosen direction; un-choose any others in this turn
+      for (const d of turn.directions) d.chosen = (d.id === dirId);
+      // record kid's choice as a chat bubble
+      state.chat.push({
+        id: uid(),
+        role: 'kid',
+        content: `let's go with: "${dir.title}"`,
+        kind: 'pick-direction',
+      });
+      persist();
+      renderAll();
+      // Ask wordy for blocks aligned to this direction
+      askWordy('', /*auto*/ true, { phase: 'blocks', direction: dir.title + '. ' + dir.description });
     }
     function editBlock(id, newText) {
       const b = state.blocks.find(x => x.id === id);
@@ -1853,7 +1943,7 @@
     }
 
     // ─────────── Wordy chat ───────────
-    async function askWordy(message, auto = false) {
+    async function askWordy(message, auto = false, opts = {}) {
       if (state.thinking) return;
       const trimmed = (message || '').trim();
       if (trimmed) {
@@ -1878,11 +1968,10 @@
           body: JSON.stringify({
             mode: 'tutor',
             message: trimmed,
-            history: history.slice(0, -1).slice(-8), // exclude the just-pushed
-            story: {
-              blocks: state.blocks,
-              rules: state.rules,
-            },
+            history: history.slice(0, -1).slice(-8),
+            phase: opts.phase,           // 'directions' | 'blocks' | undefined (server picks)
+            direction: opts.direction,    // when phase==='blocks', the chosen direction title
+            story: { blocks: state.blocks, rules: state.rules },
           }),
         });
         if (!res.ok) {
@@ -1891,24 +1980,37 @@
           throw new Error(msg);
         }
         const data = await res.json();
-        const options = (data.blockOptions || []).map(o => ({ id: uid(), kind: o.kind || '', text: o.text, added: false }));
+        const phase = data.phase || 'blocks';
         const turn = {
           id: uid(),
           role: 'wordy',
           content: (data.reply || '').trim(),
-          options,
+          phase,
+          chosenDirection: data.chosenDirection || null,
           stage: data.stage,
           targetMin: data.targetMin,
           targetMax: data.targetMax,
         };
+        if (phase === 'directions') {
+          turn.directions = (data.directions || []).map(d => ({
+            id: uid(),
+            title: d.title || '',
+            description: d.description || '',
+            vibe: d.vibe || '',
+            chosen: false,
+          }));
+          state.latestDirections = turn.directions.length ? { turnId: turn.id, items: turn.directions } : null;
+        } else {
+          turn.options = (data.blockOptions || []).map(o => ({ id: uid(), kind: o.kind || '', text: o.text, added: false }));
+          if (turn.options.length) state.latestOptions = { turnId: turn.id, items: turn.options };
+        }
         state.chat.push(turn);
-        if (options.length) state.latestOptions = { turnId: turn.id, items: options };
 
-        // Pre-warm the TTS for wordy's bubble + every option, so when the
-        // kid hits the speaker the audio is already cached. fire-and-forget.
+        // Pre-warm TTS
         if (window.qssTtsPrefetch) {
           if (turn.content) window.qssTtsPrefetch(turn.content);
-          for (const o of options) window.qssTtsPrefetch(o.text);
+          if (turn.options) for (const o of turn.options) window.qssTtsPrefetch(o.text);
+          if (turn.directions) for (const d of turn.directions) window.qssTtsPrefetch(d.title + '. ' + d.description);
         }
       } catch (e) {
         state.chat.push({
@@ -1999,6 +2101,40 @@
         if (t.role === 'kid') {
           return `<div class="tutor-turn"><div class="user-msg"><div class="bubble">${esc(t.content)}</div></div></div>`;
         }
+        // Direction cards (wizard "where should we go?" phase)
+        if (t.phase === 'directions' && t.directions?.length) {
+          const isLatest = state.latestDirections?.turnId === t.id;
+          const someoneChosen = t.directions.some(d => d.chosen);
+          const cards = t.directions.map((d, i) => `
+            <div class="dir-card ${d.chosen ? 'chosen' : ''}" data-dir="${d.id}">
+              <div class="dir-arrow">→</div>
+              ${d.vibe ? `<span class="dir-vibe">${esc(d.vibe)}</span>` : ''}
+              <div class="dir-title">${esc(d.title)}</div>
+              ${d.description ? `<div class="dir-desc">${esc(d.description)}</div>` : ''}
+              <div class="dir-actions">
+                ${d.chosen
+                  ? `<span style="font-family:var(--ui); font-size:13px; color: var(--grass-deep); font-weight:700;">✓ taking this path</span>`
+                  : someoneChosen
+                    ? ''
+                    : `<button class="btn primary" data-action="choose-dir" data-turn="${t.id}" data-id="${d.id}">Take this path →</button>
+                       <button class="tts-btn tts-here" data-tts="${esc(d.title + '. ' + d.description)}" title="Read this direction aloud">${window.qssTTS.ICON_PLAY}</button>`
+                }
+              </div>
+            </div>`).join('');
+          const tryAgain = (isLatest && !someoneChosen) ? `
+            <div class="more-options">
+              <button class="btn ghost" data-action="try-again-dirs">none of these — give me different directions</button>
+            </div>` : '';
+          return `<div class="tutor-turn">
+            <div class="tutor-msg">
+              ${window.dragon('md')}
+              <div class="bubble">${esc(t.content)}<button class="tts-btn sm tts-bubble" data-tts="${esc(t.content)}" style="margin-left:8px; vertical-align:middle;"></button></div>
+            </div>
+            <div class="dir-list">${cards}</div>
+            ${tryAgain}
+          </div>`;
+        }
+        // Block-options (the "write me 3 ways for this beat" phase)
         const isLatest = state.latestOptions && state.latestOptions.turnId === t.id;
         const opts = (t.options || []).map((o, i) => {
           const letter = ['A','B','C','D','E'][i] || '?';
@@ -2016,15 +2152,19 @@
               </div>
             </div>`;
         }).join('');
+        const dirBadge = t.chosenDirection
+          ? `<div class="dir-context">writing for direction: <strong>${esc(t.chosenDirection.split('.')[0])}</strong></div>` : '';
         const moreActions = (isLatest && t.options?.length && !t.options.every(o => o.added))
           ? `<div class="more-options">
                <button class="btn ghost" data-action="try-again">none of these — try again</button>
+               <button class="btn ghost" data-action="back-to-dirs">← pick a different direction</button>
              </div>` : '';
         return `<div class="tutor-turn">
           <div class="tutor-msg">
             ${window.dragon('md')}
             <div class="bubble">${esc(t.content)}<button class="tts-btn sm tts-bubble" data-tts="${esc(t.content)}" style="margin-left:8px; vertical-align:middle;"></button></div>
           </div>
+          ${dirBadge}
           ${opts ? `<div class="option-list">${opts}</div>` : ''}
           ${moreActions}
         </div>`;
@@ -2311,6 +2451,9 @@
       if (!action) return;
       if (action === 'commit') commitBlockFromOption(e.target.dataset.id);
       else if (action === 'try-again') rejectOptionsTryAgain();
+      else if (action === 'choose-dir') chooseDirection(e.target.dataset.turn, e.target.dataset.id);
+      else if (action === 'try-again-dirs') askWordy('none of those — give me 4 totally different directions.', true, { phase: 'directions' });
+      else if (action === 'back-to-dirs') askWordy('let me see different directions to choose from.', true, { phase: 'directions' });
     });
 
     // Story block delegated edits + actions

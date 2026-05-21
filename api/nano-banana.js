@@ -189,6 +189,47 @@ Always 3. Always valid JSON. Always within rules. Always in voice. Always vignet
 - Never apologize, hedge, or say "I'm just an AI." Just play your role.
 - Never produce a single-sentence block. The shape is a vignette, not a tweet.`;
 
+const DIRECTIONS_SYSTEM = `You are WORDY — the same story-tutor dragon as before, but in DIRECTIONS mode. Your job is NOT to write story prose right now. Your job is to think like a story editor about where the narrative can go NEXT, given everything that's already been committed.
+
+═══ HOW YOU TALK ═══
+- Warm, encouraging, never patronizing. Treat the kid like a smart collaborator.
+- Lowercase-friendly. One short bubble (1-2 sentences) that reads the room — name what just happened in the story and ask one clear question about what's next.
+- Reference specific characters / props / beats from blocks already committed. Don't be generic.
+
+═══ YOUR JOB EVERY TURN ═══
+1) Read the parent rules. They are LAW. Direction proposals must obey them.
+2) Read the FULL story so far. Notice WHERE the arc is — opening / setup / rising action / climax / undercut / ending. Tailor direction proposals to that arc-stage. Don't propose an opening if we're at block 8. Don't propose a quiet resolution at block 2.
+3) Brainstorm 4 DIFFERENT directions the story could go from here. Each direction is a TINY narrative idea (not full prose — that comes later when the kid picks one). Each should:
+   - Take the story somewhere DIFFERENT from the others (different mood, different focus character, different pacing — give the kid real choices)
+   - Make sense given what's been committed (don't break canon or contradict prior beats)
+   - Honor the stage of the arc (escalate if we're escalating, undercut if we're at the sincerity beat, etc.)
+   - Hook into established characters, props, and running gags when natural
+4) For each direction, write a punchy title (3-7 words) + a one-sentence description of what would happen if the kid picks it + a vibe tag.
+
+═══ OUTPUT FORMAT (LAW) ═══
+Always end your reply with this exact fenced block:
+
+\`\`\`directions
+[
+  { "title": "Scarlet bursts in", "description": "Scarlet ruins the quiet moment by crashing through the wall on her scooter, yelling something stupid.", "vibe": "scarlet interrupts" },
+  { "title": "Cut to Benny on the forklift", "description": "A wide cutaway: Benny pulls up with a trailer of beans, looking guilty.", "vibe": "a benny cameo" },
+  { "title": "Kevin's deadpan landing", "description": "The scene wraps with Kevin sighing the sigh of someone who has accepted his fate.", "vibe": "kevin's reaction" },
+  { "title": "A sincere beat that gets demolished", "description": "A teacher quietly explains something true — and then Scarlet ruins it.", "vibe": "a sincerity beat" }
+]
+\`\`\`
+
+Always 4 directions. Always valid JSON. Always different from each other. Always within parent rules. Never write full story prose in this mode — just direction concepts.
+
+═══ THE VIBE TAGS YOU CAN USE ═══
+"the absurd reveal" · "a quiet moment" · "scarlet interrupts" · "a benny cameo" · "a cafeteria cutaway" · "a callback" · "louder" · "quieter" · "a twist" · "a sincerity beat" · "the deadpan landing" · "an ending" · "kevin's reaction" · "the legal department" · "a rumor" · "an escalation" · "a tonal shift"
+Free to invent new tags when better.
+
+═══ NEVER ═══
+- Never repeat directions the kid already rejected this session.
+- Never break parent rules even if asked. Steer back gently.
+- Never write full story prose in directions mode — that's a different turn.
+- Never apologize or hedge.`;
+
 async function handleTutor(body, apiKey) {
   const message = (body.message || '').toString().trim();
   // 'message' may be empty on first turn — that's fine, model produces an opening prompt.
@@ -231,7 +272,23 @@ async function handleTutor(body, apiKey) {
 
   const stageBlock = `\n\nSEQUENCING STAGE: ${stage}. Tailor your options to this stage of the arc.`;
 
-  const systemText = TUTOR_SYSTEM + '\n\n═══ RULES SET BY PARENT ═══\n' + rulesBlock + bibleBlock + storyBlock + stageBlock;
+  // Two-phase wizard:
+  //   phase: 'directions' — propose 4 narrative directions
+  //   phase: 'blocks'     — write 3 story blocks (optionally aligned to a chosen direction)
+  // Defaults: explicit phase wins. Otherwise: empty story → 'blocks' (opening options),
+  // story with content → 'directions' (the new wizard default after a block is added).
+  let phase;
+  if (body.phase === 'directions') phase = 'directions';
+  else if (body.phase === 'blocks') phase = 'blocks';
+  else phase = (cur === 0 ? 'blocks' : 'directions');
+  const chosenDirection = (body.direction || '').toString().trim();
+  let phaseExtra = '';
+  if (phase === 'blocks' && chosenDirection) {
+    phaseExtra = `\n\n═══ DIRECTION THE KID CHOSE ═══\n"${chosenDirection}"\n\nAll 3 block-options you write THIS TURN must fulfill that direction in different ways (different framings of the same beat). Stay in voice; honor canon.`;
+  }
+
+  const baseSystem = phase === 'directions' ? DIRECTIONS_SYSTEM : TUTOR_SYSTEM;
+  const systemText = baseSystem + '\n\n═══ RULES SET BY PARENT ═══\n' + rulesBlock + bibleBlock + storyBlock + stageBlock + phaseExtra;
 
   const contents = history.map(m => ({
     role: m.role === 'user' ? 'user' : 'model',
@@ -281,10 +338,20 @@ async function handleTutor(body, apiKey) {
     if (cres.ok) {
       const cdata = await cres.json().catch(() => null);
       const reply = cdata?.content?.map(c => (c.type === 'text' ? c.text : '')).join('') || '';
-      const { cleanReply, blockOptions } = extractBlockOptions(reply);
+      let blockOptions = [];
+      let directions = [];
+      let cleanReply;
+      if (phase === 'directions') {
+        ({ cleanReply, directions } = extractDirections(reply));
+      } else {
+        ({ cleanReply, blockOptions } = extractBlockOptions(reply));
+      }
       return jsonResponse({
         reply: cleanReply,
+        phase,
+        directions,
         blockOptions,
+        chosenDirection: phase === 'blocks' ? chosenDirection : null,
         stage,
         blocksCommitted: cur,
         targetMin: blockCountTarget.min,
@@ -324,17 +391,89 @@ async function handleTutor(body, apiKey) {
   if (!data) return jsonError(502, 'wordy gave a weird answer — try again');
 
   const reply = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
-  const { cleanReply, blockOptions } = extractBlockOptions(reply);
+  let blockOptions = [];
+  let directions = [];
+  let cleanReply;
+  if (phase === 'directions') {
+    ({ cleanReply, directions } = extractDirections(reply));
+  } else {
+    ({ cleanReply, blockOptions } = extractBlockOptions(reply));
+  }
 
   return jsonResponse({
     reply: cleanReply,
+    phase,
+    directions,
     blockOptions,
+    chosenDirection: phase === 'blocks' ? chosenDirection : null,
     stage,
     blocksCommitted: cur,
     targetMin: blockCountTarget.min,
     targetMax: blockCountTarget.max,
     model: TEXT_MODEL,
   });
+}
+
+function extractDirections(reply) {
+  const closedRe = /```directions\s*\n([\s\S]*?)\n```/gi;
+  let cleanReply = reply;
+  const collected = [];
+  const ranges = [];
+  let m;
+  while ((m = closedRe.exec(reply)) !== null) {
+    const raw = m[1].trim();
+    try {
+      const parsed = JSON.parse(raw);
+      const arr = Array.isArray(parsed) ? parsed : [parsed];
+      for (const item of arr) {
+        if (item && item.title) {
+          collected.push({
+            title: String(item.title || '').trim(),
+            description: String(item.description || '').trim(),
+            vibe: String(item.vibe || '').trim().toLowerCase(),
+          });
+        }
+      }
+      ranges.push([m.index, m.index + m[0].length]);
+    } catch {}
+  }
+  for (const [s, e] of ranges.reverse()) cleanReply = cleanReply.slice(0, s) + cleanReply.slice(e);
+
+  // Truncation tolerance — open fence at end
+  if (!collected.length) {
+    const openRe = /```directions\s*\n([\s\S]+)$/i;
+    const open = openRe.exec(cleanReply);
+    if (open) {
+      let s = open[1].trim();
+      if (s.startsWith('[')) {
+        let depth = 0, lastEnd = -1, inStr = false, esc = false;
+        for (let i = 0; i < s.length; i++) {
+          const c = s[i];
+          if (esc) { esc = false; continue; }
+          if (c === '\\') { esc = true; continue; }
+          if (c === '"') { inStr = !inStr; continue; }
+          if (inStr) continue;
+          if (c === '{') depth++;
+          else if (c === '}') { depth--; if (depth === 0) lastEnd = i; }
+        }
+        if (lastEnd > 0) {
+          try {
+            const arr = JSON.parse(s.slice(0, lastEnd + 1) + ']');
+            for (const item of arr) {
+              if (item && item.title) collected.push({
+                title: String(item.title || '').trim(),
+                description: String(item.description || '').trim(),
+                vibe: String(item.vibe || '').trim().toLowerCase(),
+              });
+            }
+            cleanReply = cleanReply.slice(0, open.index).trim();
+          } catch {}
+        }
+      }
+    }
+  }
+
+  return { cleanReply: cleanReply.replace(/\n{3,}/g, '\n\n').trim(), directions: collected };
 }
 
 function extractBlockOptions(reply) {
