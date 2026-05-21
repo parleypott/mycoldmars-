@@ -585,30 +585,136 @@
       background: transparent !important;
       border-bottom: 1px solid var(--np-orange) !important;
     }
-    /* Single grayscale slider track — orange marks the current value */
+    /* Editorial spectrum tracks — each axis gets its own thoughtful
+       gradient. The colors evoke the journey from autocratic (deep
+       crimson) through ambiguity (amber / coral) to the axis's
+       democratic ideal (sky / forest / gold / violet / rose). */
+    body[data-vibe="newpress"] .slider-row[data-axis="elections"]    { --np-spectrum: linear-gradient(90deg, #6B1414 0%, #B82B2B 22%, #DE8B3F 48%, #E0B447 65%, #3C8FC3 100%); --np-end: #2F7AB0; }
+    body[data-vibe="newpress"] .slider-row[data-axis="power"]        { --np-spectrum: linear-gradient(90deg, #6B1414 0%, #B82B2B 22%, #DE8B3F 48%, #B6A23B 65%, #2C6F45 100%); --np-end: #2C6F45; }
+    body[data-vibe="newpress"] .slider-row[data-axis="rights"]       { --np-spectrum: linear-gradient(90deg, #6B1414 0%, #B82B2B 22%, #DE8B3F 48%, #D8A93A 70%, #E6B833 100%); --np-end: #B8901C; }
+    body[data-vibe="newpress"] .slider-row[data-axis="equality"]     { --np-spectrum: linear-gradient(90deg, #6B1414 0%, #B82B2B 22%, #DE8B3F 48%, #A87BBE 65%, #6A45A8 100%); --np-end: #6A45A8; }
+    body[data-vibe="newpress"] .slider-row[data-axis="participation"]{ --np-spectrum: linear-gradient(90deg, #6B1414 0%, #B82B2B 22%, #DE8B3F 48%, #D26695 65%, #A93B72 100%); --np-end: #A93B72; }
+
     body[data-vibe="newpress"] .slide-track {
-      background: linear-gradient(90deg, #DDD3BD 0%, #BFB4A0 100%) !important;
-      border: 1px solid var(--np-rule-strong);
-      border-radius: 0;
-      box-shadow: none;
-      height: 6px;
+      background: var(--np-spectrum) !important;
+      border: 1px solid var(--ink-bright);
+      border-radius: 999px;
+      box-shadow: 0 1px 2px rgba(26,22,20,0.08);
+      height: 10px;
     }
-    body[data-vibe="newpress"] .slide-track::after { display: none; }
+    body[data-vibe="newpress"] .slide-track::after {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: repeating-linear-gradient(
+        90deg,
+        transparent 0,
+        transparent calc(20% - 1px),
+        rgba(26,22,20,0.30) calc(20% - 1px),
+        rgba(26,22,20,0.30) 20%
+      );
+      mask-image: linear-gradient(180deg, transparent 30%, #000 35%, #000 65%, transparent 70%);
+      -webkit-mask-image: linear-gradient(180deg, transparent 30%, #000 35%, #000 65%, transparent 70%);
+      display: block !important;
+      pointer-events: none;
+    }
     body[data-vibe="newpress"] input[type=range].slider::-webkit-slider-thumb {
-      width: 18px; height: 18px;
-      background: var(--np-orange);
-      border: 2px solid var(--ink-bright);
+      -webkit-appearance: none;
+      width: 22px; height: 22px;
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
       border-radius: 50%;
-      box-shadow: none;
+      box-shadow:
+        0 0 0 4px rgba(244,67,21,0.12),
+        0 2px 4px rgba(26,22,20,0.18);
+      transition: transform 160ms var(--ease), box-shadow 220ms var(--ease-soft);
+    }
+    body[data-vibe="newpress"] input[type=range].slider::-webkit-slider-thumb::before {
+      content: ''; display: block; width: 10px; height: 10px;
+      background: var(--np-orange); border-radius: 50%; margin: 4px;
+    }
+    body[data-vibe="newpress"] input[type=range].slider:hover::-webkit-slider-thumb {
+      transform: scale(1.18);
+      box-shadow:
+        0 0 0 6px rgba(244,67,21,0.18),
+        0 3px 8px rgba(26,22,20,0.22);
     }
     body[data-vibe="newpress"] input[type=range].slider::-moz-range-thumb {
-      width: 18px; height: 18px;
-      background: var(--np-orange);
-      border: 2px solid var(--ink-bright);
+      width: 22px; height: 22px;
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
       border-radius: 50%;
-      box-shadow: none;
+      box-shadow: 0 0 0 4px rgba(244,67,21,0.12), 0 2px 4px rgba(26,22,20,0.18);
     }
-    body[data-vibe="newpress"] input[type=range].slider:hover::-webkit-slider-thumb { transform: scale(1.12); }
+
+    /* Active pole adopts the spectrum's end color — not just orange */
+    body[data-vibe="newpress"] .pole.lit {
+      color: var(--np-end, var(--np-orange));
+      background: transparent !important;
+      border: none !important;
+      border-bottom: 1.5px solid var(--np-end, var(--np-orange)) !important;
+      box-shadow: none !important;
+      font-weight: 700;
+    }
+    body[data-vibe="newpress"] .pole.left.lit {
+      color: #B82B2B;
+      border-bottom-color: #B82B2B !important;
+    }
+
+    /* Page-level warmth — a soft paper grain via layered radials. */
+    body[data-vibe="newpress"] {
+      background-image:
+        radial-gradient(ellipse 1200px 600px at 12% 0%, rgba(244,67,21,0.045), transparent 60%),
+        radial-gradient(ellipse 900px 700px at 88% 100%, rgba(106,69,168,0.038), transparent 65%),
+        radial-gradient(circle at 50% 35%, rgba(255,255,255,0.4), transparent 70%);
+      background-attachment: fixed;
+    }
+
+    /* Country card gets a real accent fade behind the regime label */
+    body[data-vibe="newpress"] .country-card {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.6), transparent 200px),
+        var(--paper-card);
+      position: relative;
+    }
+    body[data-vibe="newpress"] .country-card::after {
+      content: '';
+      position: absolute; left: 0; right: 0; bottom: 0; height: 80px;
+      background: linear-gradient(180deg, transparent, var(--accent-soft, rgba(244,67,21,0.06)));
+      pointer-events: none;
+    }
+    /* Regime badge uses the accent color (varies per regime), not just orange */
+    body[data-vibe="newpress"] .regime-badge {
+      color: var(--accent, var(--np-orange));
+      border-color: var(--accent, var(--np-orange));
+      background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--accent, var(--np-orange)) 10%, transparent), transparent);
+    }
+    body[data-vibe="newpress"] .score-num {
+      background: linear-gradient(135deg, var(--accent, var(--np-orange)), color-mix(in oklab, var(--accent, var(--np-orange)) 70%, #6A45A8));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Preset cards — subtle gradient hover lift */
+    body[data-vibe="newpress"] .preset {
+      background: linear-gradient(180deg, var(--paper-card), color-mix(in oklab, var(--paper-card) 92%, var(--np-orange) 8%));
+      transition: background 220ms var(--ease-soft), border-color 180ms;
+    }
+    body[data-vibe="newpress"] .preset:hover {
+      background: linear-gradient(180deg, var(--paper-card), color-mix(in oklab, var(--paper-card) 80%, var(--np-orange) 20%));
+      border-color: var(--np-orange);
+    }
+
+    /* About box gets a richer gradient rule on the left */
+    body[data-vibe="newpress"] .about {
+      border-left: none;
+      background: linear-gradient(90deg, color-mix(in oklab, var(--paper-card) 92%, var(--np-orange) 8%) 0%, transparent 8px),
+                  var(--paper-card);
+      position: relative;
+    }
+    body[data-vibe="newpress"] .about::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+      background: linear-gradient(180deg, var(--np-orange), #6A45A8 60%, #2C6F45);
+    }
 
     /* ─── buttons + presets ─── */
     body[data-vibe="newpress"] .btn {
@@ -1066,8 +1172,19 @@
       scoreEl.textContent = score;
 
       card.style.setProperty('--accent', reg.accent);
-      // tint the card background a hair toward the accent
-      card.style.background = mix('#FFFFFF', reg.accent, 0.06);
+      // Set a soft + softer tint as additional CSS variables so the layered
+      // gradients in both vibes can pull from them. We keep the actual
+      // background painted by CSS — never inline — so the Newpress vibe
+      // gradients aren't fought.
+      card.style.setProperty('--accent-soft', mix('#FFFFFF', reg.accent, 0.12));
+      card.style.setProperty('--accent-softer', mix('#FFFFFF', reg.accent, 0.05));
+      // In kids vibe we still want a hair of tint; do it via background-color
+      // (won't override gradient layers in newpress).
+      if (document.body.dataset.vibe !== 'newpress') {
+        card.style.background = mix('#FFFFFF', reg.accent, 0.06);
+      } else {
+        card.style.background = '';
+      }
     }
 
     function mix(hexA, hexB, ratio) {
@@ -1160,6 +1277,7 @@
       document.body.dataset.vibe = v;
       document.querySelector('.vibe-label').textContent = LABELS[v];
       try { localStorage.setItem('democracy:vibe', v); } catch {}
+      render();  // re-evaluate the card background tint for the new vibe
     }
     const stored = (() => { try { return localStorage.getItem('democracy:vibe'); } catch { return null; } })();
     applyVibe(stored && VIBES.includes(stored) ? stored : 'kids');
