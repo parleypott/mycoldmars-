@@ -539,6 +539,58 @@
     *::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
     *::-webkit-scrollbar-thumb:hover { background: #3a3530; }
 
+    /* ──────────── Gate ──────────── */
+    .gate {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 500;
+    }
+    .gate.hidden { display: none; }
+    .gate-inner {
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: stretch;
+      padding: 32px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: var(--panel);
+    }
+    .gate h1 {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--ivory-bright);
+      text-align: center;
+    }
+    .gate .gate-sub {
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--gold);
+      text-align: center;
+    }
+    .gate input {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--ivory-bright);
+      font-family: var(--mono);
+      font-size: 14px;
+      padding: 9px 11px;
+      outline: none;
+      border-radius: 2px;
+    }
+    .gate input:focus { border-color: var(--gold); }
+    .gate-error { color: var(--red); font-size: 11px; text-align: center; display: none; }
+    .gate-error.show { display: block; }
+
+    .app { display: block; }
+    .app.hidden { display: none; }
+
     @media (max-width: 1100px) {
       .scene { grid-template-columns: 80px 1fr 130px; }
       .scene-num .num { font-size: 22px; }
@@ -552,6 +604,18 @@
   </style>
 </head>
 <body>
+
+  <div id="gate" class="gate">
+    <div class="gate-inner">
+      <div class="gate-sub">mycoldmars</div>
+      <h1>Queen Scarlet's School</h1>
+      <input id="gate-code" type="password" placeholder="access code" autocomplete="off" />
+      <button id="gate-submit" class="btn primary" style="padding: 10px;">Enter</button>
+      <div id="gate-error" class="gate-error">wrong code</div>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden">
 
   <header class="topbar">
     <div class="brand">
@@ -617,6 +681,51 @@
     </section>
 
   </main>
+
+  </div><!-- /#app -->
+
+  <script>
+    // ──────── Cosmetic access gate (same posture as /hunter/) ────────
+    (function() {
+      const COOKIE_NAME = 'qss_access';
+      const PASSWORD = 'newpress';
+      const gateEl = document.getElementById('gate');
+      const appEl = document.getElementById('app');
+
+      function getCookie(name) {
+        const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+        return m ? decodeURIComponent(m[1]) : null;
+      }
+      function setCookie(name, value) {
+        document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=' + (60*60*24*90);
+      }
+      function unlock() {
+        setCookie(COOKIE_NAME, 'granted');
+        gateEl.classList.add('hidden');
+        appEl.classList.remove('hidden');
+      }
+      if (getCookie(COOKIE_NAME) === 'granted') {
+        unlock();
+        return;
+      }
+      const input = document.getElementById('gate-code');
+      const submit = document.getElementById('gate-submit');
+      const err = document.getElementById('gate-error');
+      function check() {
+        const code = (input.value || '').trim().toLowerCase();
+        if (!code) return;
+        if (code === PASSWORD) unlock();
+        else {
+          err.classList.add('show');
+          input.value = '';
+          input.focus();
+        }
+      }
+      submit.addEventListener('click', check);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
+      input.focus();
+    })();
+  </script>
 
   <script type="module">
     // ─────────── State ───────────
@@ -758,8 +867,14 @@
       scrollChatToEnd();
 
       try {
+        // /api/* is gated by checkAccess(). Either a valid x-access-code OR
+        // any Authorization: Bearer header passes the perimeter. This page
+        // has its own cosmetic gate above; the bearer satisfies the proxy.
         const accessCode = sessionStorage.getItem('mcm_access_code') || '';
-        const headers = { 'Content-Type': 'application/json' };
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer qss',
+        };
         if (accessCode) headers['x-access-code'] = accessCode;
 
         const res = await fetch('/api/nano-banana', {
