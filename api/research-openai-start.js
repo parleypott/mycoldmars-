@@ -25,7 +25,6 @@ export default async function handler(req) {
         { role: 'developer', content: [{ type: 'input_text', text: SYSTEM }] },
         { role: 'user', content: [{ type: 'input_text', text: prompt }] },
       ],
-      reasoning: { summary: 'auto' },
       tools: [{ type: 'web_search_preview' }],
       background: true,
     }),
