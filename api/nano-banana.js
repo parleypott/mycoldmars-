@@ -1,6 +1,9 @@
 import { checkAccess } from './_lib/access.js';
 
-export const config = { runtime: 'edge', maxDuration: 60 };
+// Node.js runtime, not edge. Edge has a hard ~25s cap on Hobby tier (the
+// maxDuration field is ignored for edge). Gemini image-gen routinely takes
+// 20–30s, causing ~50% 504 rate on edge. Node serverless honors maxDuration.
+export const config = { runtime: 'nodejs', maxDuration: 60 };
 
 /**
  * Queen Scarlet's School backend. Two modes:
