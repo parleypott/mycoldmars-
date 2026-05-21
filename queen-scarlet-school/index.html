@@ -81,7 +81,7 @@
     .btn.big:hover { box-shadow: 7px 7px 0 var(--ink-bright); }
     .btn .arrow { font-size: 18px; line-height: 1; }
 
-    /* ──────────── Mascot blob ──────────── */
+    /* ──────────── Mascot blob (mycoldmars brand only) ──────────── */
     .blob {
       display: inline-block; background: var(--yolk);
       border: 2.5px solid var(--ink-bright); border-radius: 50%;
@@ -100,10 +100,47 @@
     .blob.lg { width: 64px; height: 64px; box-shadow: 3px 3px 0 var(--ink-bright); transform: rotate(-6deg); }
     .blob.lg::before, .blob.lg::after { width: 7px; height: 7px; top: 22px; }
     .blob.lg::before { left: 18px; } .blob.lg::after { right: 18px; }
-    .blob.thinking::before, .blob.thinking::after { animation: blink 2.4s ease-in-out infinite; }
-    @keyframes blink {
+
+    /* ──────────── Wordy the red dragon ──────────── */
+    .dragon {
+      display: inline-flex;
+      align-items: center; justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      filter: drop-shadow(2.5px 2.5px 0 var(--ink-bright));
+      transition: transform 220ms var(--ease);
+    }
+    .dragon svg { width: 100%; height: 100%; display: block; overflow: visible; }
+    .dragon.sm { width: 36px; height: 36px; }
+    .dragon.md { width: 56px; height: 56px; }
+    .dragon.lg { width: 88px; height: 88px; transform: rotate(-4deg); }
+    .dragon.xl { width: 120px; height: 120px; transform: rotate(-3deg); }
+    .dragon:hover { transform: rotate(-6deg) scale(1.05); }
+    .dragon.lg:hover { transform: rotate(-7deg) scale(1.05); }
+    .dragon .eye-r, .dragon .eye-l { transform-origin: center; transform-box: fill-box; }
+    .dragon.thinking .eye-r,
+    .dragon.thinking .eye-l { animation: dragonBlink 3.4s ease-in-out infinite; }
+    .dragon.thinking { animation: dragonBob 2.6s ease-in-out infinite; }
+    @keyframes dragonBlink {
       0%, 92%, 100% { transform: scaleY(1); }
       94% { transform: scaleY(0.1); }
+    }
+    @keyframes dragonBob {
+      0%, 100% { transform: translateY(0) rotate(-2deg); }
+      50% { transform: translateY(-3px) rotate(2deg); }
+    }
+    .dragon.lg.thinking { animation: dragonBobBig 2.6s ease-in-out infinite; }
+    @keyframes dragonBobBig {
+      0%, 100% { transform: translateY(0) rotate(-4deg); }
+      50% { transform: translateY(-4px) rotate(2deg); }
+    }
+    /* tiny smoke puffs from nostrils when "thinking" */
+    .dragon.thinking .puff { animation: puff 2.6s ease-in-out infinite; opacity: 0; }
+    .dragon.thinking .puff.p2 { animation-delay: 0.6s; }
+    @keyframes puff {
+      0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
+      30% { opacity: 0.7; }
+      100% { opacity: 0; transform: translate(0, -12px) scale(1.2); }
     }
 
     /* ──────────── Topbar ──────────── */
@@ -620,7 +657,7 @@
 
   <div id="gate" class="gate">
     <div class="gate-inner">
-      <span class="blob lg"></span>
+      <span class="dragon lg" id="gate-dragon"></span>
       <h1>Queen Scarlet's<br>School</h1>
       <input id="gate-code" type="password" placeholder="password" autocomplete="off" />
       <button id="gate-submit" class="btn primary big">Let me in!</button>
@@ -665,7 +702,7 @@
               <span class="meta" id="story-meta">0 blocks</span>
             </div>
             <div id="story-blocks-empty" class="story-empty">
-              <span class="blob lg"></span>
+              <span class="dragon lg" id="story-empty-dragon"></span>
               <div>Your story will appear here.</div>
               <span class="little">pick blocks from wordy on the right to build it up</span>
             </div>
@@ -676,7 +713,7 @@
         <div class="write-col">
           <div class="tutor-pane">
             <div class="tutor-head">
-              <span class="blob md thinking"></span>
+              <span class="dragon md thinking" id="tutor-head-dragon"></span>
               <h2>Wordy</h2>
               <span class="progress" id="tutor-progress">block 0 of ?</span>
             </div>
@@ -695,7 +732,7 @@
     <section class="stage" id="stage-board">
       <div class="board-wrap">
         <div id="board-empty" class="board-empty">
-          <span class="blob lg"></span>
+          <span class="dragon lg" id="board-empty-dragon"></span>
           <h2>No scenes yet!</h2>
           <p>Build your story with wordy first, then come back here to make pictures for each block.</p>
           <button id="btn-go-write" class="btn primary big">Go write with wordy<span class="arrow">→</span></button>
@@ -710,7 +747,7 @@
   <div class="modal-veil" id="rules-modal">
     <div class="modal">
       <div class="modal-head">
-        <span class="blob md"></span>
+        <span class="dragon md" id="rules-dragon"></span>
         <h2>Story Rules <span style="font-family: var(--ui); font-size: 14px; color: var(--ink-soft); font-weight: 600;">— parent setup</span></h2>
         <button id="rules-close" class="btn ghost">Done</button>
       </div>
@@ -763,6 +800,41 @@
   </div>
 
   <script>
+    // ─── Wordy the red dragon — shared SVG constant + helper (loaded before gate) ───
+    window.DRAGON_SVG = `
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-label="Wordy the dragon">
+  <path d="M14 56 Q-2 32 4 76 Q18 72 22 60 Z" fill="#C32626" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M86 56 Q102 32 96 76 Q82 72 78 60 Z" fill="#C32626" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M50 16 L46 23 L54 23 Z" fill="#F0B900" stroke="#000" stroke-width="2"/>
+  <ellipse cx="50" cy="56" rx="34" ry="32" fill="#E84545" stroke="#000" stroke-width="3"/>
+  <ellipse cx="50" cy="68" rx="22" ry="14" fill="#FFD9B5" stroke="#000" stroke-width="2.5"/>
+  <path d="M30 30 L24 10 L40 30 Z" fill="#FFD93D" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M70 30 L76 10 L60 30 Z" fill="#FFD93D" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M16 40 Q8 38 12 52 Q18 50 22 46 Z" fill="#E84545" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M84 40 Q92 38 88 52 Q82 50 78 46 Z" fill="#E84545" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+  <circle cx="30" cy="60" r="4" fill="#FF8FA8" opacity="0.7"/>
+  <circle cx="70" cy="60" r="4" fill="#FF8FA8" opacity="0.7"/>
+  <circle class="eye-l" cx="38" cy="48" r="9" fill="#fff" stroke="#000" stroke-width="2.5"/>
+  <circle class="eye-r" cx="62" cy="48" r="9" fill="#fff" stroke="#000" stroke-width="2.5"/>
+  <circle cx="40" cy="50" r="3.8" fill="#000"/>
+  <circle cx="64" cy="50" r="3.8" fill="#000"/>
+  <circle cx="38" cy="46" r="1.6" fill="#fff"/>
+  <circle cx="62" cy="46" r="1.6" fill="#fff"/>
+  <ellipse cx="45" cy="65" rx="1.5" ry="2.2" fill="#000"/>
+  <ellipse cx="55" cy="65" rx="1.5" ry="2.2" fill="#000"/>
+  <path d="M42 76 Q50 82 58 76" stroke="#000" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M47 77 L46 80 L49 80 Z" fill="#fff" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+  <circle class="puff" cx="45" cy="62" r="2.5" fill="#fff" stroke="#000" stroke-width="1.5"/>
+  <circle class="puff p2" cx="55" cy="62" r="2.5" fill="#fff" stroke="#000" stroke-width="1.5"/>
+</svg>`;
+    window.dragon = function(size = 'md', thinking = false) {
+      return `<span class="dragon ${size}${thinking ? ' thinking' : ''}">${window.DRAGON_SVG}</span>`;
+    };
+    // Hydrate any static .dragon placeholders already in the DOM
+    document.querySelectorAll('.dragon').forEach(el => {
+      if (!el.innerHTML.trim()) el.innerHTML = window.DRAGON_SVG;
+    });
+
     // ─── Cosmetic gate ───
     (function() {
       const COOKIE = 'qss_access', PASS = 'newpress';
@@ -1134,7 +1206,7 @@
         chat.innerHTML = `
           <div class="tutor-turn">
             <div class="tutor-msg">
-              <span class="blob md"></span>
+              ${window.dragon('md')}
               <div class="bubble">
                 <strong>hi! i'm wordy.</strong> i'll help you build a story, one block at a time.<br><br>
                 ${state.rules.goal ? esc(state.rules.goal) : 'tell me what kind of story you want to make — or hit the button below and i\'ll suggest 3 ways to start!'}
@@ -1175,7 +1247,7 @@
              </div>` : '';
         return `<div class="tutor-turn">
           <div class="tutor-msg">
-            <span class="blob md"></span>
+            ${window.dragon('md')}
             <div class="bubble">${esc(t.content)}<button class="tts-btn sm tts-bubble" data-tts="${esc(t.content)}" style="margin-left:8px; vertical-align:middle;"></button></div>
           </div>
           ${opts ? `<div class="option-list">${opts}</div>` : ''}
@@ -1186,7 +1258,7 @@
       chat.innerHTML = html + (state.thinking ? `
         <div class="tutor-turn">
           <div class="tutor-msg">
-            <span class="blob md thinking"></span>
+            ${window.dragon('md', true)}
             <div class="thinking-msg">wordy is thinking <span class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>
           </div>
         </div>` : '');
@@ -1380,6 +1452,11 @@
       state.name = n;
       persist();
       try { localStorage.removeItem(LS_KEY(old)); const l = loadList().filter(x => x !== old); saveList(l); } catch {}
+    });
+
+    // Hydrate any remaining .dragon placeholders (in case render order skipped some)
+    document.querySelectorAll('.dragon').forEach(el => {
+      if (!el.innerHTML.trim()) el.innerHTML = window.DRAGON_SVG;
     });
 
     // ─────────── Boot ───────────
