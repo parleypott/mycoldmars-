@@ -393,8 +393,11 @@
     }
     .opt-actions {
       display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;
+      align-items: center;
     }
     .opt-actions .btn { font-size: 13px; padding: 6px 12px; }
+    .opt-actions .tts-btn { width: 36px; height: 36px; box-shadow: 2.5px 2.5px 0 var(--ink-bright); }
+    .opt-actions .tts-btn svg { width: 18px; height: 18px; }
 
     .more-options {
       padding-left: 54px; display: flex; gap: 10px; flex-wrap: wrap; padding-top: 4px;
@@ -1317,7 +1320,7 @@
                 ${o.added
                   ? `<span style="font-family:var(--ui); font-size:13px; color: var(--grass-deep); font-weight:700;">added!</span>`
                   : `<button class="btn primary" data-action="commit" data-id="${o.id}">+ Add to story</button>
-                     <button class="btn ghost tts-here" data-tts="${esc(o.text)}" title="Read aloud">▶ read</button>`
+                     <button class="tts-btn tts-here" data-tts="${esc(o.text)}" title="Read this option aloud" aria-label="Read aloud">${window.qssTTS.ICON_PLAY}</button>`
                 }
               </div>
             </div>`;
