@@ -131,7 +131,9 @@ function isPublicRoute() {
       if (body?.dev) devMode = true;
     }
   } catch {
-    devMode = true; // network error → assume local dev
+    // Network error — DO NOT silently unlock. A transient Vercel/DNS blip
+    // during the probe was previously dropping the perimeter for one user
+    // for one page load. Stay locked; force a sign-in path.
   }
 
   if (devMode && !currentUser()) {
@@ -153,18 +155,20 @@ function isPublicRoute() {
   attachPasswordEye(document.getElementById('gate-code'));
 
   // Best-effort: ask the server to seed any ADMIN_EMAILS users that don't
-  // exist yet. Idempotent — runs every page load but only creates missing
-  // accounts. This is how the very first admin appears without any manual
-  // user-management step. Fire-and-forget; failures are silent.
-  fetch('/api/admin-users', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'bootstrap' }),
-  }).then(r => r.json()).then(out => {
-    if (out?.created?.length) {
-      console.log('[gate] seeded admin users:', out.created.map(c => c.email).join(', '));
-    }
-  }).catch(() => {});
+  // exist yet. Idempotent — but we gate with sessionStorage so it only
+  // fires once per browser session, not on every navigation/reload.
+  if (!sessionStorage.getItem('np-bootstrap-done')) {
+    sessionStorage.setItem('np-bootstrap-done', '1');
+    fetch('/api/admin-users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'bootstrap' }),
+    }).then(r => r.json()).then(out => {
+      if (out?.created?.length) {
+        console.log(`[gate] seeded ${out.created.length} admin user(s)`);
+      }
+    }).catch(() => {});
+  }
 
   // If auth state changes mid-session (magic-link callback completes,
   // sign-in from another tab), unlock automatically.
@@ -197,13 +201,18 @@ function wirePasswordForm() {
     if (!email || !password) { showError('Email and password required.'); return; }
     submitBtn.disabled = true;
     submitBtn.textContent = 'Signing in…';
-    const res = await signInWithPassword(email, password);
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Sign in';
-    if (res.ok) {
-      // onAuthChange listener calls unlock() automatically.
-    } else {
-      showError(res.error || 'Wrong email or password.');
+    try {
+      const res = await signInWithPassword(email, password);
+      if (res.ok) {
+        // onAuthChange listener calls unlock() automatically.
+      } else {
+        showError(res.error || 'Wrong email or password.');
+      }
+    } catch (e) {
+      showError(e?.message || 'Network error. Try again.');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Sign in';
     }
   }
 
@@ -227,16 +236,22 @@ function wireMagicLinkForm() {
     if (!email) return;
     submitBtn.disabled = true;
     submitBtn.textContent = 'Sending…';
-    const res = await sendMagicLink(email);
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Send sign-in link';
-    if (res.ok) {
-      successMsg.textContent = `Link sent to ${email}. Open it on this device.`;
-      successMsg.classList.remove('hidden');
-      errorMsg.classList.add('hidden');
-    } else {
-      errorMsg.textContent = res.error || 'Could not send the link.';
+    try {
+      const res = await sendMagicLink(email);
+      if (res.ok) {
+        successMsg.textContent = `Link sent to ${email}. Open it on this device.`;
+        successMsg.classList.remove('hidden');
+        errorMsg.classList.add('hidden');
+      } else {
+        errorMsg.textContent = res.error || 'Could not send the link.';
+        errorMsg.classList.remove('hidden');
+      }
+    } catch (e) {
+      errorMsg.textContent = e?.message || 'Network error. Try again.';
       errorMsg.classList.remove('hidden');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Send sign-in link';
     }
   }
 

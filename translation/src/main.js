@@ -2071,10 +2071,21 @@ async function openAccountModal(opts = {}) {
       if (sw) sw.style.background = currentClientColor();
     }, 200);
   });
-  modal.querySelector('#acct-signout')?.addEventListener('click', async () => {
-    modal.remove();
-    await authSignOut();
-    if (window.showGate) window.showGate();
+  modal.querySelector('#acct-signout')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    if (btn.disabled) return;
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = 'Signing out…';
+    try {
+      await authSignOut();
+      modal.remove();
+      if (window.showGate) window.showGate();
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = original;
+      alert(`Sign-out failed: ${err?.message || 'network error'}`);
+    }
   });
 
   // ── Password section ─────────────────────────────────────────────
@@ -2186,16 +2197,22 @@ async function openAccountModal(opts = {}) {
       usersError(e.message);
     }
   }
-  modal.querySelector('#acct-add-btn').addEventListener('click', async () => {
+  modal.querySelector('#acct-add-btn').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    if (btn.disabled) return;
     const inputEl = modal.querySelector('#acct-add-email');
     const email = inputEl.value.trim();
     if (!email) return;
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = 'Adding…';
     try {
       const out = await adminCall('create', { email });
       usersOk(`Created ${out.user.email}. Default password: ${out.defaultPassword || '(custom)'}`);
       inputEl.value = '';
       refreshUsers();
     } catch (e) { usersError(e.message); }
+    finally { btn.disabled = false; btn.textContent = original; }
   });
   modal.querySelector('#acct-add-email').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); modal.querySelector('#acct-add-btn').click(); }
@@ -3619,9 +3636,10 @@ function getDragTarget(container, y) {
 $('#btn-sequencer').addEventListener('click', showSequencer);
 $('#seq-exit-btn').addEventListener('click', exitSequencer);
 
-// Home page quick-links — bound BOTH directly AND via document delegation
-// so they fire even if the direct binding misses (e.g. element re-rendered,
-// SVG child intercepts, etc).
+// Home page quick-links — direct binding only. The inline failsafe in
+// index.html provides a boot-failure fallback; the document-level delegate
+// that used to live here was firing in addition to the direct bindings,
+// causing showLibrary / fetchLibrary to run 2–3x per click.
 const homeLibBtn = $('#home-library-btn');
 if (homeLibBtn) homeLibBtn.addEventListener('click', showLibrary);
 const homeSeqBtn = $('#home-sequencer-btn');
@@ -3630,15 +3648,6 @@ const homeAccountBtn = $('#home-account-btn');
 if (homeAccountBtn) homeAccountBtn.addEventListener('click', () => {
   if (!currentUser()) { if (window.showGate) window.showGate(); return; }
   openAccountModal();
-});
-document.addEventListener('click', (e) => {
-  if (e.target.closest('#home-library-btn')) { e.preventDefault(); showLibrary(); }
-  else if (e.target.closest('#home-sequencer-btn')) { e.preventDefault(); showSequencer(); }
-  else if (e.target.closest('#home-account-btn')) {
-    e.preventDefault();
-    if (!currentUser()) { if (window.showGate) window.showGate(); return; }
-    openAccountModal();
-  }
 });
 
 $('#seq-parse-btn').addEventListener('click', () => {
