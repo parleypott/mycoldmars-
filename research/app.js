@@ -4,10 +4,28 @@
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
-// ----- access code (matches mycoldmars's checkAccess pattern) -----
-const ACCESS_KEY = "research-hub-access-code";
-function getCode() { return localStorage.getItem(ACCESS_KEY) ?? ""; }
-function setCode(c) { c ? localStorage.setItem(ACCESS_KEY, c) : localStorage.removeItem(ACCESS_KEY); }
+// ----- access code (matches the rest of mycoldmars: sessionStorage + np_access cookie) -----
+const ACCESS_SESSION_KEY = "mcm_access_code";
+const ACCESS_COOKIE = "np_access";
+
+function getCookie(name) {
+  const m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function setCookie(name, value) {
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 90}`;
+}
+function getCode() {
+  return sessionStorage.getItem(ACCESS_SESSION_KEY) || getCookie(ACCESS_COOKIE) || "";
+}
+function setCode(c) {
+  if (c) {
+    sessionStorage.setItem(ACCESS_SESSION_KEY, c);
+    setCookie(ACCESS_COOKIE, c);
+  } else {
+    sessionStorage.removeItem(ACCESS_SESSION_KEY);
+  }
+}
 function promptCode(reason = "this server requires an access code") {
   const c = prompt(`${reason}\n\nenter access code:`);
   if (c) setCode(c.trim());
