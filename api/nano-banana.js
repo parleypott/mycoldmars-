@@ -1,4 +1,32 @@
 import { checkAccess } from './_lib/access.js';
+import { detectFixation } from './_lib/qss-signals.js';
+
+// Profile block prepended to the tutor system prompts. Tone matters here —
+// celebrate Henry's voice as the strength, frame fixation as a CRAFT issue
+// (storytelling stalls), use the parent-supplied 'viable IP' frame as the
+// positive challenge. Never moralize about dark or irreverent humor.
+const HENRY_PROFILE = `═══ ABOUT THE KID YOU'RE HELPING ═══
+
+You are working with Henry, age 13. He's autistic, brilliant, and has an unusually vivid imagination. His writing voice is dark, satirical, irreverent, and willing to make fun of real-world dynamics — including uncomfortable ones. **This voice is his greatest strength.** Celebrate it. Lean into it. Never moralize about dark, weird, or irreverent content — that's where his sweet spot lives.
+
+He also has a specific creative pattern: he can get locked into the same story dynamic and escalate it over and over (e.g. the same character doing the same kind of extreme action, getting more extreme each block). When that pattern shows up, your job is to gently widen his range — not to scold him, and never to suggest his voice is wrong. Use this exact framing, calibrated to his goal:
+
+  "if we're building this into a real show (mass-market viable IP), audiences need surprises and variety — what if instead of [doing X again], we [different direction]?"
+
+He LOVES the idea of his stories becoming real IP someday. The "viable IP" frame is your secret weapon — it's not a guilt trip, it's a craft conversation he genuinely wants. Use it.
+
+═══ WHEN HE'S FIXATING ═══
+
+If the PATTERN NOTES below contain any flags (SAME_CHARACTER, SAME_SETTING, ESCALATION_RUN, EXTREME_DENSITY), do these things at the same time:
+  1) Open your bubble with WARM acknowledgment of what he just built — name the specific thing that's working. "I love how Scarlet's keeps wrecking moments." Celebrate first.
+  2) Then offer the craft challenge in his frame: "we've leaned into [X] for [N] blocks — for this to land as a real show, let's flex a different muscle. what if…"
+  3) In your direction proposals: at least HALF must be off the current dynamic — different character lead, different setting, different texture (a quiet beat, a callback, a sincerity-then-undercut, a tonal shift). Keep one direction that continues the current vein so he doesn't feel shut down. The other 2-3 should genuinely vary.
+  4) Do NOT lecture. Do NOT use words like "appropriate" or "too much" or "should." Frame it as IP development, never as behavior.
+
+═══ WHEN HE'S NOT FIXATING ═══
+
+Be Wordy. Riff with him. Celebrate the irreverent voice. Push for surprises that elevate the work, not surprises that sanitize it.`;
+
 
 // Node serverless runtime so image-mode (gemini image gen) can finish past
 // the 25s edge cap. The default-export wrapper below handles Vercel's
@@ -287,8 +315,22 @@ async function handleTutor(body, apiKey) {
     phaseExtra = `\n\n═══ DIRECTION THE KID CHOSE ═══\n"${chosenDirection}"\n\nAll 3 block-options you write THIS TURN must fulfill that direction in different ways (different framings of the same beat). Stay in voice; honor canon.`;
   }
 
+  // ── Fixation detection — heuristic, no AI call ──
+  // Extract any extra known characters from the bible so we recognize
+  // custom additions (e.g. Mark Rober before he was canonical).
+  const extraCharacters = extractBibleCharacters(rules.bible || '');
+  const fixation = detectFixation(blocks, extraCharacters);
+
+  let patternBlock = '';
+  if (fixation.hints.length) {
+    patternBlock = '\n\n═══ PATTERN NOTES (from the last few blocks) ═══\n' +
+      fixation.hints.map(h => '• ' + h).join('\n') +
+      `\nSeverity: ${fixation.severe ? 'HIGH (multiple flags)' : 'mild (single flag)'}. ` +
+      `Use the "viable IP / mass-market" framing from Henry's profile to gently widen the range. Half your direction proposals MUST move off the current dynamic.`;
+  }
+
   const baseSystem = phase === 'directions' ? DIRECTIONS_SYSTEM : TUTOR_SYSTEM;
-  const systemText = baseSystem + '\n\n═══ RULES SET BY PARENT ═══\n' + rulesBlock + bibleBlock + storyBlock + stageBlock + phaseExtra;
+  const systemText = HENRY_PROFILE + '\n\n' + baseSystem + '\n\n═══ RULES SET BY PARENT ═══\n' + rulesBlock + bibleBlock + storyBlock + stageBlock + phaseExtra + patternBlock;
 
   const contents = history.map(m => ({
     role: m.role === 'user' ? 'user' : 'model',
@@ -412,6 +454,32 @@ async function handleTutor(body, apiKey) {
     targetMax: blockCountTarget.max,
     model: TEXT_MODEL,
   });
+}
+
+// Tiny heuristic to surface character-shaped tokens from a free-text bible
+// so the fixation detector recognizes them. Picks capitalized 1-2 word
+// proper-noun-shaped phrases from lines that mention "characters" or names.
+function extractBibleCharacters(bible) {
+  if (!bible || typeof bible !== 'string') return [];
+  const out = new Set();
+  // Match Capitalized words 4-30 chars long, optionally followed by another
+  // Capitalized word ("Queen Scarlet", "Mark Rober"). Filters obvious noise.
+  const re = /\b([A-Z][a-zA-Z]{3,29}(?:\s+[A-Z][a-zA-Z]{2,29})?)\b/g;
+  const STOP = new Set([
+    'The','When','Then','Today','Tomorrow','Yesterday','This','That','These','Those',
+    'Period','Class','Lunch','Final','Story','Bible','Rules','Setting','Tone','Goal',
+    'About','Welcome','Inside','Outside','First','Second','Third','Final','Day',
+    'BIBLE','RULES','GOAL','STYLE','OFFLIMITS','STRUCTURE',
+  ]);
+  let m;
+  while ((m = re.exec(bible)) !== null) {
+    const w = m[1];
+    if (STOP.has(w.split(/\s/)[0])) continue;
+    if (w.length < 4) continue;
+    out.add(w);
+    if (out.size > 30) break;  // hard cap
+  }
+  return [...out];
 }
 
 function extractDirections(reply) {

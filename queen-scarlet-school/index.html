@@ -1727,6 +1727,39 @@
 
     const uid = () => Math.random().toString(36).slice(2, 10);
 
+    // ─────────── Observation logger (fire-and-forget) ───────────
+    // Posts to /api/qss-observe with the current story's id/name. Never blocks
+    // UI — errors are swallowed. Server enriches with derived signals.
+    function observe(event, payload = {}) {
+      try {
+        fetch('/api/qss-observe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          body: JSON.stringify({
+            story_id: state.serverId || null,
+            story_name: state.name || null,
+            event,
+            payload,
+            context: { bibleCharacters: parseBibleCharacters(state.rules?.bible || '') },
+          }),
+          keepalive: true,  // survive page navigations
+        }).catch(() => {});
+      } catch {}
+    }
+    function parseBibleCharacters(bible) {
+      // Mirror of the server-side extractor — surfaces named characters from
+      // the bible so the signal extractor recognizes them.
+      const STOP = new Set(['The','When','Then','Today','Tomorrow','Yesterday','This','That','These','Those','Period','Class','Lunch','Final','Story','Bible','Rules','Setting','Tone','Goal','About','Welcome','Inside','Outside','First','Second','Third','Day']);
+      const out = new Set();
+      const re = /\b([A-Z][a-zA-Z]{3,29}(?:\s+[A-Z][a-zA-Z]{2,29})?)\b/g;
+      let m;
+      while ((m = re.exec(bible || '')) !== null) {
+        const w = m[1]; if (STOP.has(w.split(' ')[0])) continue;
+        out.add(w); if (out.size > 30) break;
+      }
+      return [...out];
+    }
+
     // ─────────── Persistence ───────────
     function loadList() { try { return JSON.parse(localStorage.getItem(LS_LIST) || '[]'); } catch { return []; } }
     function saveList(l) { localStorage.setItem(LS_LIST, JSON.stringify(l)); }
@@ -1866,6 +1899,12 @@
       opt.added = true;
       opt.blockId = blockId;
       state.chat.push({ id: uid(), role: 'kid', content: `i picked: "${opt.text.slice(0, 80)}${opt.text.length > 80 ? '…' : ''}"`, kind: 'pick' });
+      observe('block_added', {
+        text: opt.text,
+        kind: opt.kind || '',
+        from: 'option',
+        block_index: state.blocks.length - 1,
+      });
       persist();
       renderAll();
       // After a block is committed, wordy auto-asks for DIRECTIONS for the next turn.
@@ -1880,6 +1919,14 @@
       if (!turn || !turn.directions) return;
       const dir = turn.directions.find(d => d.id === dirId);
       if (!dir) return;
+      // log: this direction was PICKED; the others in this turn were
+      // implicitly REJECTED (the kid chose a path through the options)
+      observe('direction_picked', { title: dir.title, vibe: dir.vibe, description: dir.description });
+      for (const d of turn.directions) {
+        if (d.id !== dir.id) {
+          observe('direction_rejected', { title: d.title, vibe: d.vibe, description: d.description, reason: 'sibling-picked' });
+        }
+      }
       // mark the chosen direction; un-choose any others in this turn
       for (const d of turn.directions) d.chosen = (d.id === dirId);
       // record kid's choice as a chat bubble
@@ -1891,7 +1938,6 @@
       });
       persist();
       renderAll();
-      // Ask wordy for blocks aligned to this direction
       askWordy('', /*auto*/ true, { phase: 'blocks', direction: dir.title + '. ' + dir.description });
     }
     function editBlock(id, newText) {
@@ -1901,6 +1947,7 @@
       persist();
     }
     function deleteBlock(id) {
+      const removed = state.blocks.find(b => b.id === id);
       state.blocks = state.blocks.filter(b => b.id !== id);
       // Re-activate any chat option that originally created this block,
       // so it shows up as picky-able again. Walk every turn's options.
@@ -1910,6 +1957,7 @@
           if (o.blockId === id) { o.added = false; o.blockId = null; }
         }
       }
+      if (removed) observe('block_deleted', { text: removed.text, custom: !!removed.custom });
       persist();
       renderAll();
     }
@@ -1927,9 +1975,10 @@
       if (fromIdx < 0) return;
       const [moved] = state.blocks.splice(fromIdx, 1);
       let toIdx = state.blocks.findIndex(b => b.id === toId);
-      if (toIdx < 0) toIdx = state.blocks.length;  // dropped at end
+      if (toIdx < 0) toIdx = state.blocks.length;
       if (placement === 'below') toIdx += 1;
       state.blocks.splice(toIdx, 0, moved);
+      observe('block_reordered', { from_index: fromIdx, to_index: toIdx, text: moved.text });
       persist();
       renderAll();
     }
@@ -1938,6 +1987,7 @@
       const t = (text || '').trim();
       if (!t) return;
       state.blocks.push({ id: uid(), text: t, custom: true });
+      observe('own_block_added', { text: t, block_index: state.blocks.length - 1 });
       persist();
       renderAll();
     }
