@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The V-Dem Sandbox · my cold mars</title>
+  <meta name="description" content="Slide the five flavors of democracy and see what kind of regime you get. Built on the V-Dem (Varieties of Democracy) framework.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Andika:wght@400;700&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper:      #FFF6E0;
+      --paper-deep: #FCEDC4;
+      --paper-soft: #FFFAEC;
+      --paper-card: #FFFFFF;
+      --ink:        #1F1F23;
+      --ink-bright: #000;
+      --ink-soft:   #353540;
+      --ink-faint:  #6B6B7A;
+
+      --red:        #E84545;
+      --red-deep:   #C32626;
+      --yolk:       #FFD93D;
+      --yolk-deep:  #F0B900;
+      --sky:        #4DB8E8;
+      --sky-deep:   #2596C7;
+      --grass:      #6BCB77;
+      --grass-deep: #44A856;
+      --bubblegum:  #FF6FAA;
+      --bubblegum-deep: #E04E89;
+      --grape:      #9F7AE0;
+      --grape-deep: #7A55C2;
+      --orange:     #FF7B3D;
+
+      --display: 'Caveat', cursive;
+      --serif:   'Andika', Georgia, serif;
+      --ui:      'Fredoka', system-ui, sans-serif;
+      --ease:    cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-soft: cubic-bezier(0.2, 0.6, 0.2, 1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; background: var(--paper); color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    body {
+      min-height: 100vh; padding: 28px clamp(16px, 4vw, 56px) 80px;
+      background-image: radial-gradient(circle at 12px 12px, rgba(0,0,0,0.05) 1.4px, transparent 1.5px);
+      background-size: 24px 24px;
+    }
+    ::selection { background: var(--yolk); color: var(--ink-bright); }
+
+    /* ───── sticker buttons ───── */
+    .btn {
+      font-family: var(--ui); font-weight: 700; font-size: 14px;
+      border: 2.5px solid var(--ink-bright); border-radius: 999px;
+      padding: 8px 14px; background: var(--paper-card); color: var(--ink-bright);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      cursor: pointer; transition: transform 140ms var(--ease), box-shadow 140ms var(--ease), background 140ms var(--ease);
+      display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+      text-decoration: none;
+    }
+    .btn:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink-bright); }
+    .btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink-bright); }
+    .btn.primary { background: var(--red); color: var(--ink-bright); }
+    .btn.primary:hover { background: var(--yolk); transform: translate(-1px, -1px) rotate(-1deg); }
+    .btn.ghost { box-shadow: 2px 2px 0 var(--ink-bright); padding: 6px 11px; font-size: 13px; }
+
+    /* ───── topbar ───── */
+    .topbar { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+    .brand {
+      font-family: var(--display); font-size: 26px; font-weight: 700; color: var(--ink-bright);
+      text-decoration: none; display: inline-flex; align-items: center; gap: 10px;
+      transform: rotate(-2deg);
+    }
+    .brand:hover { transform: rotate(-3deg) scale(1.05); }
+    .brand .blob { width: 28px; height: 28px; background: var(--yolk); border: 2.5px solid var(--ink-bright); border-radius: 50%; position: relative; box-shadow: 2px 2px 0 var(--ink-bright); flex-shrink: 0; }
+    .brand .blob::before, .brand .blob::after { content: ''; position: absolute; background: var(--ink-bright); border-radius: 50%; width: 4px; height: 4px; top: 9px; }
+    .brand .blob::before { left: 7px; } .brand .blob::after { right: 7px; }
+    .pagetitle { flex: 1; font-family: var(--display); font-size: clamp(34px, 4.4vw, 56px); font-weight: 700; line-height: 1; color: var(--ink-bright); text-align: center; }
+    .tag {
+      font-family: var(--ui); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      background: var(--sky); color: var(--ink-bright);
+      border: 2px solid var(--ink-bright); border-radius: 999px;
+      padding: 4px 12px; box-shadow: 2px 2px 0 var(--ink-bright); transform: rotate(2deg);
+    }
+
+    /* ───── intro ───── */
+    .intro {
+      max-width: 720px; margin: 0 auto 22px;
+      font-family: var(--serif); font-size: 17px; line-height: 1.55; color: var(--ink-soft);
+      text-align: center;
+    }
+    .intro strong { color: var(--ink-bright); }
+    .intro .pull {
+      display: inline-block; padding: 4px 12px;
+      background: var(--yolk); border: 2px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright); transform: rotate(-1deg);
+      font-family: var(--ui); font-weight: 700; font-size: 14px; margin: 0 2px;
+    }
+
+    /* ───── hero layout ───── */
+    .hero { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 24px; max-width: 1200px; margin: 0 auto; }
+    @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
+
+    /* ───── country card ───── */
+    .country-card {
+      position: relative;
+      background: var(--paper-card); border: 3px solid var(--ink-bright); border-radius: 22px;
+      padding: 22px 24px; box-shadow: 6px 6px 0 var(--ink-bright);
+      display: flex; flex-direction: column; gap: 14px;
+      transform: rotate(-0.5deg);
+      transition: background 350ms var(--ease-soft);
+      overflow: hidden;
+    }
+    .country-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 10px;
+      background: var(--accent, var(--ink-bright));
+      transition: background 350ms var(--ease-soft);
+    }
+    .country-input {
+      width: 100%; background: transparent; border: none;
+      border-bottom: 3px dashed transparent;
+      font-family: var(--display); font-size: 38px; font-weight: 700; line-height: 1;
+      color: var(--ink-bright); padding: 4px 2px; outline: none;
+      transition: border-color 180ms;
+    }
+    .country-input:hover, .country-input:focus { border-bottom-color: var(--ink-bright); }
+    .country-input::placeholder { color: var(--ink-faint); font-style: italic; }
+    .regime-label {
+      font-family: var(--ui); font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--ink-faint);
+    }
+    .regime-name {
+      font-family: var(--display); font-size: 30px; font-weight: 700; line-height: 1.05;
+      color: var(--ink-bright);
+      transition: color 250ms var(--ease-soft);
+    }
+    .regime-badge {
+      display: inline-block; padding: 4px 12px;
+      background: var(--accent, var(--paper-deep)); color: var(--ink-bright);
+      border: 2px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright); transform: rotate(-2deg);
+      font-family: var(--ui); font-weight: 700; font-size: 13px; letter-spacing: 0.04em;
+      width: max-content; transition: background 250ms var(--ease-soft);
+    }
+    .regime-blurb {
+      font-family: var(--serif); font-size: 14.5px; line-height: 1.55; color: var(--ink-soft);
+    }
+    .regime-examples {
+      font-family: var(--serif); font-style: italic; font-size: 13.5px; color: var(--ink-faint);
+      padding-top: 6px; border-top: 1px dashed var(--ink-faint);
+    }
+    .score-row {
+      display: flex; gap: 10px; align-items: center; padding-top: 6px;
+    }
+    .score-num {
+      font-family: var(--display); font-size: 44px; font-weight: 700; line-height: 1;
+      color: var(--accent, var(--ink-bright));
+      transition: color 250ms var(--ease-soft);
+    }
+    .score-label {
+      font-family: var(--ui); font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--ink-faint); flex: 1;
+    }
+
+    /* ───── sliders panel ───── */
+    .sliders {
+      background: var(--paper-card); border: 3px solid var(--ink-bright); border-radius: 22px;
+      padding: 18px clamp(16px, 2.2vw, 28px); box-shadow: 6px 6px 0 var(--ink-bright);
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .slider-row {
+      display: grid;
+      grid-template-columns: 124px 1fr 124px;
+      gap: 14px; align-items: center;
+      padding: 12px 4px; border-bottom: 1px dashed var(--ink-faint);
+    }
+    .slider-row:last-child { border-bottom: none; }
+    .axis-name {
+      font-family: var(--ui); font-weight: 700; font-size: 18px; color: var(--ink-bright);
+    }
+    .axis-desc {
+      font-family: var(--serif); font-size: 12.5px; color: var(--ink-faint); line-height: 1.35;
+      margin-top: 2px;
+    }
+    .pole {
+      font-family: var(--ui); font-weight: 600; font-size: 12.5px;
+      color: var(--ink-soft);
+      padding: 4px 6px; border-radius: 8px;
+      transition: background 200ms, color 200ms;
+    }
+    .pole.left  { text-align: right; }
+    .pole.right { text-align: left;  }
+    .pole.lit {
+      color: var(--ink-bright);
+      background: var(--pole-color, var(--yolk));
+      border: 1.5px solid var(--ink-bright);
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      transform: rotate(-1deg);
+    }
+    .pole.right.lit { transform: rotate(1deg); }
+
+    .slide-wrap {
+      position: relative; height: 36px; display: flex; align-items: center;
+    }
+    .slide-track {
+      position: absolute; left: 0; right: 0; height: 16px;
+      border: 2.5px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      background: var(--track-bg, linear-gradient(90deg, var(--red), var(--sky-deep)));
+      overflow: hidden;
+    }
+    .slide-track::after {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: repeating-linear-gradient(90deg, transparent 0 calc(16.666% - 1px), rgba(0,0,0,0.18) calc(16.666% - 1px) 16.666%);
+      pointer-events: none;
+    }
+    input[type=range].slider {
+      position: relative;
+      width: 100%;
+      -webkit-appearance: none; appearance: none;
+      background: transparent;
+      height: 36px;
+      cursor: grab;
+      z-index: 2;
+      margin: 0;
+    }
+    input[type=range].slider:active { cursor: grabbing; }
+    input[type=range].slider:focus { outline: none; }
+    /* thumb — webkit */
+    input[type=range].slider::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 30px; height: 30px;
+      background: var(--paper-card);
+      border: 3px solid var(--ink-bright);
+      border-radius: 50%;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      cursor: grab;
+      transition: transform 140ms var(--ease);
+    }
+    input[type=range].slider:hover::-webkit-slider-thumb { transform: scale(1.08) rotate(-3deg); }
+    input[type=range].slider:active::-webkit-slider-thumb { transform: scale(1.05) rotate(2deg); cursor: grabbing; }
+    /* thumb — firefox */
+    input[type=range].slider::-moz-range-thumb {
+      width: 30px; height: 30px;
+      background: var(--paper-card);
+      border: 3px solid var(--ink-bright);
+      border-radius: 50%;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      cursor: grab;
+    }
+
+    /* ───── presets ───── */
+    .presets-wrap { max-width: 1200px; margin: 24px auto 0; }
+    .presets-title {
+      font-family: var(--display); font-size: 28px; font-weight: 700; color: var(--ink-soft);
+      display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+    }
+    .presets-title::after { content: ''; flex: 1; height: 2px; background: var(--ink-bright); opacity: 0.2; }
+    .presets {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px;
+    }
+    .preset {
+      background: var(--paper-card); border: 2.5px solid var(--ink-bright); border-radius: 14px;
+      padding: 10px 12px; box-shadow: 3px 3px 0 var(--ink-bright);
+      cursor: pointer; text-align: left;
+      transition: transform 140ms var(--ease), box-shadow 140ms var(--ease);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .preset:nth-child(3n+1) { transform: rotate(-0.4deg); }
+    .preset:nth-child(3n+2) { transform: rotate(0.4deg); }
+    .preset:hover { transform: translate(-2px, -2px) rotate(0); box-shadow: 5px 5px 0 var(--ink-bright); background: var(--yolk); }
+    .preset .flag {
+      font-size: 22px; line-height: 1;
+    }
+    .preset .name {
+      font-family: var(--ui); font-weight: 700; font-size: 14px; color: var(--ink-bright);
+    }
+    .preset .hint {
+      font-family: var(--serif); font-style: italic; font-size: 11.5px; color: var(--ink-faint); line-height: 1.3;
+    }
+
+    /* ───── about ───── */
+    .about {
+      max-width: 760px; margin: 36px auto 0;
+      padding: 18px 22px;
+      background: var(--paper-card); border: 2.5px solid var(--ink-bright); border-radius: 16px;
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      font-family: var(--serif); font-size: 14.5px; line-height: 1.6; color: var(--ink-soft);
+    }
+    .about h2 {
+      font-family: var(--display); font-size: 28px; font-weight: 700; line-height: 1;
+      color: var(--ink-bright); margin-bottom: 8px;
+    }
+    .about a { color: var(--red-deep); font-weight: 700; }
+    .about p + p { margin-top: 8px; }
+
+    /* ───── footer ───── */
+    footer {
+      max-width: 760px; margin: 24px auto 0; padding: 0 12px;
+      font-family: var(--ui); font-size: 12px; color: var(--ink-faint); text-align: center;
+    }
+    footer a { color: var(--red-deep); }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
+    <h1 class="pagetitle">The Democracy Sandbox</h1>
+    <span class="tag">v-dem method</span>
+  </header>
+
+  <p class="intro">
+    Real political scientists measure democracy on <span class="pull">five sliders</span>,
+    not a single yes/no. Slide each one and see what kind of country you've built —
+    the regime label below updates as you move.
+  </p>
+
+  <main class="hero">
+
+    <!-- ───── COUNTRY CARD (left) ───── -->
+    <section class="country-card" id="country-card">
+      <input id="country-name" class="country-input" type="text" placeholder="My country" autocomplete="off" maxlength="40" />
+      <div class="regime-label">classified as</div>
+      <div id="regime-name" class="regime-name">—</div>
+      <div id="regime-badge" class="regime-badge">loading…</div>
+      <div id="regime-blurb" class="regime-blurb">Move the sliders on the right.</div>
+      <div id="regime-examples" class="regime-examples">—</div>
+      <div class="score-row">
+        <div id="score-num" class="score-num">—</div>
+        <div class="score-label">democracy<br>index / 100</div>
+      </div>
+    </section>
+
+    <!-- ───── SLIDERS (right) ───── -->
+    <section class="sliders">
+
+      <div class="slider-row" data-axis="elections" style="--track-bg: linear-gradient(90deg, #C32626 0%, #E84545 18%, #FFD93D 50%, #4DB8E8 100%); --pole-color: var(--sky);">
+        <div>
+          <div class="axis-name">Elections</div>
+          <div class="axis-desc">are they real?</div>
+        </div>
+        <div class="slide-wrap">
+          <div class="slide-track"></div>
+          <input type="range" class="slider" id="s-elections" min="0" max="100" value="50" />
+        </div>
+        <div></div>
+        <div class="pole left"  data-pole="elections-left">Predetermined</div>
+        <div></div>
+        <div class="pole right" data-pole="elections-right">Competitive</div>
+      </div>
+
+      <div class="slider-row" data-axis="power" style="--track-bg: linear-gradient(90deg, #C32626 0%, #E84545 18%, #FFD93D 50%, #6BCB77 100%); --pole-color: var(--grass);">
+        <div>
+          <div class="axis-name">Power</div>
+          <div class="axis-desc">who shares it?</div>
+        </div>
+        <div class="slide-wrap">
+          <div class="slide-track"></div>
+          <input type="range" class="slider" id="s-power" min="0" max="100" value="50" />
+        </div>
+        <div></div>
+        <div class="pole left"  data-pole="power-left">Majoritarian</div>
+        <div></div>
+        <div class="pole right" data-pole="power-right">Consensual</div>
+      </div>
+
+      <div class="slider-row" data-axis="rights" style="--track-bg: linear-gradient(90deg, #C32626 0%, #E84545 18%, #FFD93D 50%, #F0B900 100%); --pole-color: var(--yolk);">
+        <div>
+          <div class="axis-name">Rights</div>
+          <div class="axis-desc">are they protected?</div>
+        </div>
+        <div class="slide-wrap">
+          <div class="slide-track"></div>
+          <input type="range" class="slider" id="s-rights" min="0" max="100" value="50" />
+        </div>
+        <div></div>
+        <div class="pole left"  data-pole="rights-left">Illiberal</div>
+        <div></div>
+        <div class="pole right" data-pole="rights-right">Liberal</div>
+      </div>
+
+      <div class="slider-row" data-axis="equality" style="--track-bg: linear-gradient(90deg, #C32626 0%, #E84545 18%, #FFD93D 50%, #9F7AE0 100%); --pole-color: var(--grape);">
+        <div>
+          <div class="axis-name">Equality</div>
+          <div class="axis-desc">how level is the field?</div>
+        </div>
+        <div class="slide-wrap">
+          <div class="slide-track"></div>
+          <input type="range" class="slider" id="s-equality" min="0" max="100" value="50" />
+        </div>
+        <div></div>
+        <div class="pole left"  data-pole="equality-left">Hierarchical</div>
+        <div></div>
+        <div class="pole right" data-pole="equality-right">Egalitarian</div>
+      </div>
+
+      <div class="slider-row" data-axis="participation" style="--track-bg: linear-gradient(90deg, #C32626 0%, #E84545 18%, #FFD93D 50%, #FF6FAA 100%); --pole-color: var(--bubblegum);">
+        <div>
+          <div class="axis-name">Participation</div>
+          <div class="axis-desc">who actually decides?</div>
+        </div>
+        <div class="slide-wrap">
+          <div class="slide-track"></div>
+          <input type="range" class="slider" id="s-participation" min="0" max="100" value="50" />
+        </div>
+        <div></div>
+        <div class="pole left"  data-pole="participation-left">Elite</div>
+        <div></div>
+        <div class="pole right" data-pole="participation-right">Inclusive</div>
+      </div>
+
+      <div style="display:flex; gap: 10px; justify-content: flex-end; padding-top: 8px; flex-wrap: wrap;">
+        <button id="btn-share" class="btn ghost">copy link to this country</button>
+        <button id="btn-reset" class="btn ghost">reset</button>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- ───── PRESETS ───── -->
+  <section class="presets-wrap">
+    <div class="presets-title"><span>Try a real country</span></div>
+    <div class="presets" id="presets"></div>
+  </section>
+
+  <!-- ───── ABOUT ───── -->
+  <section class="about">
+    <h2>What is V-Dem?</h2>
+    <p><strong>V-Dem</strong> (Varieties of Democracy) is an academic project at the University of Gothenburg that scores every country in the world across hundreds of indicators of democracy, then aggregates them into five "high-level principles" — the same five sliders you have here.</p>
+    <p>This page is a deliberately simplified, playable version: real V-Dem uses 470+ indicators rated by thousands of country experts. The point isn't precision; it's the idea that <strong>democracy isn't one thing</strong>. A country can have free elections AND weak rights (an illiberal democracy), or high participation AND low rights (plebiscitary populism), or both pillars but no consensus-sharing (a majoritarian liberal democracy).</p>
+    <p>Source &amp; further reading: <a href="https://www.v-dem.net/" target="_blank" rel="noopener">v-dem.net</a> · <a href="https://www.v-dem.net/data/the-v-dem-dataset/" target="_blank" rel="noopener">the dataset</a> · <a href="https://www.v-dem.net/static/website/img/refs/codebookv14.pdf" target="_blank" rel="noopener">codebook (PDF)</a>.</p>
+  </section>
+
+  <footer>
+    a my-cold-mars experiment · educational use · regime classifications are heuristics, not official V-Dem categories
+  </footer>
+
+  <script type="module">
+    // ───────── Country presets ─────────
+    // Values are 0-100 on each axis. These are stylized approximations
+    // (loosely calibrated to V-Dem v14 scores), not the institute's numbers.
+    const PRESETS = [
+      { flag: '🇳🇴', name: 'Norway',      hint: 'liberal + egalitarian',         elections: 96, power: 78, rights: 95, equality: 90, participation: 86 },
+      { flag: '🇨🇭', name: 'Switzerland', hint: 'consensual to a fault',        elections: 94, power: 96, rights: 92, equality: 78, participation: 82 },
+      { flag: '🇺🇸', name: 'USA',         hint: 'majoritarian liberal',          elections: 82, power: 52, rights: 78, equality: 56, participation: 64 },
+      { flag: '🇬🇧', name: 'UK',          hint: 'westminster majoritarian',     elections: 86, power: 40, rights: 82, equality: 60, participation: 60 },
+      { flag: '🇩🇪', name: 'Germany',     hint: 'coalition consensual',         elections: 90, power: 82, rights: 88, equality: 76, participation: 72 },
+      { flag: '🇸🇪', name: 'Sweden',      hint: 'the nordic ideal',             elections: 95, power: 80, rights: 94, equality: 90, participation: 88 },
+      { flag: '🇮🇳', name: 'India',       hint: 'electoral, slipping liberal',  elections: 70, power: 50, rights: 44, equality: 38, participation: 56 },
+      { flag: '🇧🇷', name: 'Brazil',      hint: 'electoral democracy',          elections: 80, power: 56, rights: 60, equality: 44, participation: 58 },
+      { flag: '🇭🇺', name: 'Hungary',     hint: 'electoral autocracy',          elections: 38, power: 22, rights: 30, equality: 40, participation: 36 },
+      { flag: '🇹🇷', name: 'Turkey',      hint: 'electoral autocracy',          elections: 32, power: 20, rights: 26, equality: 38, participation: 40 },
+      { flag: '🇷🇺', name: 'Russia',      hint: 'electoral autocracy',          elections: 16, power: 14, rights: 14, equality: 32, participation: 18 },
+      { flag: '🇨🇳', name: 'China',       hint: 'one-party autocracy',          elections: 6,  power: 18, rights: 10, equality: 48, participation: 12 },
+      { flag: '🇸🇦', name: 'Saudi Arabia',hint: 'closed autocracy',             elections: 4,  power: 12, rights: 8,  equality: 18, participation: 6  },
+      { flag: '🇰🇵', name: 'North Korea', hint: 'closed autocracy',             elections: 2,  power: 6,  rights: 4,  equality: 26, participation: 4  },
+      { flag: '🇻🇪', name: 'Venezuela',   hint: 'plebiscitary populism',        elections: 24, power: 24, rights: 22, equality: 38, participation: 64 },
+      { flag: '🇸🇬', name: 'Singapore',   hint: 'hybrid technocracy',           elections: 48, power: 28, rights: 50, equality: 56, participation: 36 },
+    ];
+
+    // ───────── Slider state ─────────
+    const AXES = ['elections', 'power', 'rights', 'equality', 'participation'];
+    const state = Object.fromEntries(AXES.map(a => [a, 50]));
+
+    // ───────── Regime classifier ─────────
+    function classify(s) {
+      const e = s.elections / 100, p = s.power / 100, r = s.rights / 100, q = s.equality / 100, v = s.participation / 100;
+
+      // Most authoritarian
+      if (e < 0.18 && r < 0.22) {
+        return {
+          name: 'Closed Autocracy',
+          accent: '#9B1C2C',
+          blurb: 'Elections are theatre, if they happen at all. Power is concentrated in a single party or family, and rights are routinely violated. The state controls speech, assembly, and the courts.',
+          examples: 'North Korea, Saudi Arabia, Eritrea, Turkmenistan.',
+        };
+      }
+
+      // Electoral autocracy
+      if (e < 0.5 && r < 0.45) {
+        return {
+          name: 'Electoral Autocracy',
+          accent: '#C32626',
+          blurb: 'Elections happen, but the playing field is tilted hard toward the incumbent. Opposition is harassed, the press is muzzled, courts bend. The ruling party never really loses.',
+          examples: 'Russia (Putin), Hungary (Orbán), Turkey (Erdoğan), Belarus.',
+        };
+      }
+
+      // Plebiscitary populism — high mobilization, weak rights
+      if (v > 0.62 && r < 0.42) {
+        return {
+          name: 'Plebiscitary Populism',
+          accent: '#F0B900',
+          blurb: 'Mass mobilization is high — rallies, referendums, a charismatic leader speaking for "the people" — but rights are weak. Minorities are exposed; institutional checks bypassed.',
+          examples: 'Venezuela under Chávez, Bolivia under Morales, Hungarian populist waves.',
+        };
+      }
+
+      // Oligarchic democracy — elections happen but a narrow elite decides
+      if (e > 0.55 && (v < 0.32 || q < 0.32)) {
+        return {
+          name: 'Oligarchic Democracy',
+          accent: '#7A55C2',
+          blurb: 'Elections are real and competitive, but a narrow elite — wealthy donors, party gatekeepers, established families — actually shapes who runs and what wins. Many can vote; few really decide.',
+          examples: 'Gilded Age America, post-Soviet Ukraine (1990s), parts of Latin America.',
+        };
+      }
+
+      // Illiberal electoral democracy
+      if (e > 0.55 && r < 0.5) {
+        return {
+          name: 'Illiberal Democracy',
+          accent: '#FF7B3D',
+          blurb: 'Competitive elections plus weak rights protection. Majorities can roll over minorities; courts and press bend to the ruling party. The vote works; the safeguards don\'t.',
+          examples: 'Modi-era India, PiS-era Poland, Sri Lanka in the 2010s.',
+        };
+      }
+
+      // Nordic egalitarian ideal
+      if (e > 0.78 && r > 0.78 && q > 0.7 && v > 0.65 && p > 0.6) {
+        return {
+          name: 'Egalitarian Liberal Democracy',
+          accent: '#44A856',
+          blurb: 'The Nordic model. Free elections, strong rights, broad inclusion, material equality, and bargained consensus over winner-takes-all. Hard to build, harder to keep.',
+          examples: 'Norway, Sweden, Denmark, Finland, Iceland.',
+        };
+      }
+
+      // Consensual liberal democracy
+      if (e > 0.65 && r > 0.6 && p > 0.62) {
+        return {
+          name: 'Consensual Liberal Democracy',
+          accent: '#2596C7',
+          blurb: 'Liberal democracy that resolves conflict through bargaining, broad coalitions, and federalism — not winner-takes-all majorities. Slow, frustrating, durable.',
+          examples: 'Switzerland, Netherlands, Belgium, Germany, Canada.',
+        };
+      }
+
+      // Majoritarian liberal democracy
+      if (e > 0.6 && r > 0.55 && p < 0.42) {
+        return {
+          name: 'Majoritarian Liberal Democracy',
+          accent: '#9F7AE0',
+          blurb: 'Free elections and strong rights, but power is winner-takes-all — the largest party tends to rule without sharing. Fast to govern, hard on losers.',
+          examples: 'United Kingdom, France, Australia, post-1994 South Africa.',
+        };
+      }
+
+      // Generic liberal democracy
+      if (e > 0.6 && r > 0.55) {
+        return {
+          name: 'Liberal Democracy',
+          accent: '#4DB8E8',
+          blurb: 'Free and fair elections plus rule of law, civil liberties, and independent courts. Not perfect, not equal — but the basic democratic contract holds.',
+          examples: 'United States, Canada, Japan, Spain, Chile, Costa Rica.',
+        };
+      }
+
+      // Catch-all hybrid
+      return {
+        name: 'Hybrid Regime',
+        accent: '#A07A4A',
+        blurb: 'In between. Real elements of democracy and real elements of authoritarianism. Small shifts in any direction would tip the classification — the most contested category in the field.',
+        examples: 'Singapore, Tunisia, Mexico in the 1990s, Ukraine before 2014.',
+      };
+    }
+
+    function democracyScore(s) {
+      // Weighted: V-Dem's Liberal Democracy Index gives more weight to elections + rights.
+      const e = s.elections, p = s.power, r = s.rights, q = s.equality, v = s.participation;
+      return Math.round((e * 0.30 + r * 0.30 + p * 0.15 + q * 0.12 + v * 0.13));
+    }
+
+    // ───────── Render ─────────
+    const sliders = Object.fromEntries(AXES.map(a => [a, document.getElementById(`s-${a}`)]));
+    const card = document.getElementById('country-card');
+    const nameEl = document.getElementById('regime-name');
+    const badgeEl = document.getElementById('regime-badge');
+    const blurbEl = document.getElementById('regime-blurb');
+    const examplesEl = document.getElementById('regime-examples');
+    const scoreEl = document.getElementById('score-num');
+    const nameInput = document.getElementById('country-name');
+
+    function getRowEl(axis) { return document.querySelector(`.slider-row[data-axis="${axis}"]`); }
+
+    function render() {
+      // 1) per-row pole highlighting based on value
+      for (const axis of AXES) {
+        const v = state[axis];
+        const row = getRowEl(axis);
+        const left = row.querySelector('.pole.left');
+        const right = row.querySelector('.pole.right');
+        left.classList.toggle('lit', v < 35);
+        right.classList.toggle('lit', v > 65);
+      }
+      // 2) update card
+      const reg = classify(state);
+      const score = democracyScore(state);
+      nameEl.textContent = reg.name;
+      badgeEl.textContent = reg.name.toLowerCase();
+      blurbEl.textContent = reg.blurb;
+      examplesEl.textContent = reg.examples;
+      scoreEl.textContent = score;
+
+      card.style.setProperty('--accent', reg.accent);
+      // tint the card background a hair toward the accent
+      card.style.background = mix('#FFFFFF', reg.accent, 0.06);
+    }
+
+    function mix(hexA, hexB, ratio) {
+      const a = hexToRgb(hexA), b = hexToRgb(hexB);
+      const r = Math.round(a.r * (1 - ratio) + b.r * ratio);
+      const g = Math.round(a.g * (1 - ratio) + b.g * ratio);
+      const bl = Math.round(a.b * (1 - ratio) + b.b * ratio);
+      return `rgb(${r}, ${g}, ${bl})`;
+    }
+    function hexToRgb(h) {
+      const x = h.replace('#', '');
+      return { r: parseInt(x.slice(0, 2), 16), g: parseInt(x.slice(2, 4), 16), b: parseInt(x.slice(4, 6), 16) };
+    }
+
+    // wire sliders
+    for (const axis of AXES) {
+      sliders[axis].addEventListener('input', (e) => {
+        state[axis] = +e.target.value;
+        render();
+      });
+    }
+
+    // ───────── Presets ─────────
+    const presetsHost = document.getElementById('presets');
+    presetsHost.innerHTML = PRESETS.map((p, i) => `
+      <div class="preset" data-i="${i}">
+        <div class="flag">${p.flag}</div>
+        <div class="name">${p.name}</div>
+        <div class="hint">${p.hint}</div>
+      </div>
+    `).join('');
+    presetsHost.addEventListener('click', (e) => {
+      const card = e.target.closest('.preset');
+      if (!card) return;
+      const p = PRESETS[+card.dataset.i];
+      applyState({ elections: p.elections, power: p.power, rights: p.rights, equality: p.equality, participation: p.participation });
+      nameInput.value = p.name;
+      writeURL();
+    });
+
+    function applyState(s) {
+      for (const axis of AXES) {
+        state[axis] = s[axis];
+        sliders[axis].value = s[axis];
+      }
+      render();
+    }
+
+    // ───────── URL state ─────────
+    function writeURL() {
+      const q = AXES.map(a => state[a]).join(',');
+      const params = new URLSearchParams();
+      params.set('s', q);
+      if (nameInput.value.trim()) params.set('n', nameInput.value.trim());
+      history.replaceState(null, '', '?' + params.toString());
+    }
+    function readURL() {
+      const params = new URLSearchParams(location.search);
+      const q = params.get('s');
+      const n = params.get('n');
+      if (q) {
+        const parts = q.split(',').map(x => Math.max(0, Math.min(100, parseInt(x, 10) || 50)));
+        if (parts.length === 5) applyState(Object.fromEntries(AXES.map((a, i) => [a, parts[i]])));
+      }
+      if (n) nameInput.value = n;
+    }
+    nameInput.addEventListener('input', writeURL);
+    for (const axis of AXES) sliders[axis].addEventListener('change', writeURL);
+
+    document.getElementById('btn-share').addEventListener('click', async () => {
+      writeURL();
+      try {
+        await navigator.clipboard.writeText(location.href);
+        const b = document.getElementById('btn-share');
+        const t = b.textContent;
+        b.textContent = '✓ copied';
+        setTimeout(() => { b.textContent = t; }, 1500);
+      } catch { alert(location.href); }
+    });
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      applyState(Object.fromEntries(AXES.map(a => [a, 50])));
+      nameInput.value = '';
+      history.replaceState(null, '', location.pathname);
+    });
+
+    // ───────── Boot ─────────
+    readURL();
+    render();
+  </script>
+
+</body>
+</html>
