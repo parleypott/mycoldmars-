@@ -875,6 +875,8 @@
     .tts-btn:hover { background: var(--yolk); transform: translate(-1px, -1px) rotate(-4deg); box-shadow: 3px 3px 0 var(--ink-bright); }
     .tts-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink-bright); }
     .tts-btn.playing { background: var(--red); color: var(--paper-card); animation: ttsPulse 1s ease-in-out infinite; }
+    .tts-btn.loading { background: var(--yolk); color: var(--ink-bright); }
+    .tts-btn.loading svg { color: var(--ink-bright); }
     @keyframes ttsPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
     .tts-btn.sm { width: 24px; height: 24px; box-shadow: 1.5px 1.5px 0 var(--ink-bright); }
     .tts-btn.sm svg { width: 12px; height: 12px; }
@@ -1242,36 +1244,162 @@
     })();
 
     // ─── TTS engine (shared) ───
+    // Primary: ElevenLabs via /api/qss-tts — warm, magical, premium voice.
+    // Fallback: window.speechSynthesis (browser robot) if the network/api fails.
     (function() {
-      const synth = window.speechSynthesis;
-      if (!synth) { window.qssTTS = { speak: () => {}, stop: () => {}, ICON_PLAY: '' }; return; }
-      let voices = [], preferred = null;
-      function pickVoice() {
-        voices = synth.getVoices() || [];
-        const ranked = [/Samantha/i, /Karen/i, /Allison/i, /Victoria/i, /Google US English/i, /Daniel/i, /Alex/i, /Microsoft/i];
-        for (const re of ranked) { const v = voices.find(x => re.test(x.name) && /en/i.test(x.lang)); if (v) { preferred = v; return; } }
-        preferred = voices.find(v => /en/i.test(v.lang)) || voices[0] || null;
-      }
-      pickVoice();
-      if (typeof synth.onvoiceschanged !== 'undefined') synth.onvoiceschanged = pickVoice;
-
       const ICON_PLAY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg>';
       const ICON_STOP = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>';
+      const ICON_LOADING = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="tts-spin"><circle cx="12" cy="12" r="9" opacity="0.25"/><path d="M21 12a9 9 0 00-9-9"/></svg>';
 
+      // Inject a tiny spinner keyframe (idempotent)
+      if (!document.getElementById('qss-tts-spin-style')) {
+        const s = document.createElement('style');
+        s.id = 'qss-tts-spin-style';
+        s.textContent = '@keyframes qssTtsSpin{to{transform:rotate(360deg)}}.tts-spin{transform-origin:center;animation:qssTtsSpin .9s linear infinite}';
+        document.head.appendChild(s);
+      }
+
+      // Browser-TTS fallback
+      const synth = window.speechSynthesis || null;
+      let synthVoice = null;
+      function pickSynthVoice() {
+        if (!synth) return;
+        const voices = synth.getVoices() || [];
+        const ranked = [/Samantha/i, /Karen/i, /Allison/i, /Victoria/i, /Google US English/i, /Daniel/i, /Alex/i, /Microsoft/i];
+        for (const re of ranked) { const v = voices.find(x => re.test(x.name) && /en/i.test(x.lang)); if (v) { synthVoice = v; return; } }
+        synthVoice = voices.find(v => /en/i.test(v.lang)) || voices[0] || null;
+      }
+      if (synth) {
+        pickSynthVoice();
+        if (typeof synth.onvoiceschanged !== 'undefined') synth.onvoiceschanged = pickSynthVoice;
+      }
+
+      // Selected voice — persisted per browser. Default = matilda (warm storyteller).
+      function getVoice() {
+        try { return localStorage.getItem('qss:voice') || 'matilda'; } catch { return 'matilda'; }
+      }
+      function setVoice(name) { try { localStorage.setItem('qss:voice', name); } catch {} }
+      window.qssTtsSetVoice = setVoice;
+
+      // Audio cache — same text → same MP3 blob URL, no re-fetch
+      // Key: voice|text  → object URL
+      const cache = new Map();
+      const MAX_CACHE = 60;
+      function cacheKey(voice, text) { return voice + '|' + text.trim().slice(0, 240); }
+      function cacheStore(key, url) {
+        cache.set(key, url);
+        if (cache.size > MAX_CACHE) {
+          const first = cache.keys().next().value;
+          const oldUrl = cache.get(first);
+          try { URL.revokeObjectURL(oldUrl); } catch {}
+          cache.delete(first);
+        }
+      }
+
+      // Currently-playing state
+      let currentAudio = null;
       let activeBtn = null;
-      function clearActive() { if (activeBtn) { activeBtn.classList.remove('playing'); activeBtn.innerHTML = ICON_PLAY; activeBtn = null; } }
-      function stop() { try { synth.cancel(); } catch {} clearActive(); }
-      function speak(text, btn) {
+      let activeRequestId = 0;
+
+      function clearActive() {
+        if (activeBtn) { activeBtn.classList.remove('playing', 'loading'); activeBtn.innerHTML = ICON_PLAY; activeBtn = null; }
+      }
+      function stop() {
+        activeRequestId++; // invalidate any in-flight fetch
+        if (currentAudio) {
+          try { currentAudio.pause(); currentAudio.src = ''; } catch {}
+          currentAudio = null;
+        }
+        if (synth) { try { synth.cancel(); } catch {} }
+        clearActive();
+      }
+
+      function setBtnState(btn, state) {
+        if (!btn) return;
+        btn.classList.toggle('loading', state === 'loading');
+        btn.classList.toggle('playing', state === 'playing');
+        if (state === 'loading') btn.innerHTML = ICON_LOADING;
+        else if (state === 'playing') btn.innerHTML = ICON_STOP;
+        else btn.innerHTML = ICON_PLAY;
+      }
+
+      // Play an MP3 blob URL; returns when playback ends
+      function playUrl(url, btn) {
+        return new Promise((resolve) => {
+          const audio = new Audio(url);
+          audio.preload = 'auto';
+          currentAudio = audio;
+          activeBtn = btn || null;
+          if (btn) setBtnState(btn, 'playing');
+          const done = () => { if (currentAudio === audio) currentAudio = null; clearActive(); resolve(); };
+          audio.addEventListener('ended', done, { once: true });
+          audio.addEventListener('error', done, { once: true });
+          audio.play().catch(done);
+        });
+      }
+
+      // Browser-TTS fallback
+      function browserSpeak(text, btn) {
+        return new Promise((resolve) => {
+          if (!synth) { resolve(); return; }
+          const u = new SpeechSynthesisUtterance(text);
+          if (synthVoice) u.voice = synthVoice;
+          u.rate = 0.95; u.pitch = 1.05; u.volume = 1.0;
+          u.onend = () => { clearActive(); resolve(); };
+          u.onerror = () => { clearActive(); resolve(); };
+          activeBtn = btn || null;
+          if (btn) setBtnState(btn, 'playing');
+          try { synth.speak(u); } catch { clearActive(); resolve(); }
+        });
+      }
+
+      async function fetchEleven(text, voice, reqId) {
+        const res = await fetch('/api/qss-tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          body: JSON.stringify({ text, voice }),
+        });
+        if (reqId !== activeRequestId) return null;  // canceled while in flight
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '');
+          throw new Error(`tts ${res.status}: ${errText.slice(0, 200)}`);
+        }
+        const blob = await res.blob();
+        return URL.createObjectURL(blob);
+      }
+
+      async function speak(text, btn) {
         if (!text || !text.trim()) return;
+        // Toggle off if same button is already busy (loading or playing)
         if (btn && activeBtn === btn) { stop(); return; }
         stop();
-        const u = new SpeechSynthesisUtterance(text);
-        if (preferred) u.voice = preferred;
-        u.rate = 0.95; u.pitch = 1.05; u.volume = 1.0;
-        u.onend = clearActive; u.onerror = clearActive;
-        if (btn) { activeBtn = btn; btn.classList.add('playing'); btn.innerHTML = ICON_STOP; }
-        try { synth.speak(u); } catch { clearActive(); }
+        const voice = getVoice();
+        const key = cacheKey(voice, text);
+
+        // Cache hit — instant playback
+        if (cache.has(key)) {
+          await playUrl(cache.get(key), btn);
+          return;
+        }
+
+        // Cache miss — fetch, show loading state, then play
+        const reqId = ++activeRequestId;
+        activeBtn = btn || null;
+        if (btn) setBtnState(btn, 'loading');
+
+        try {
+          const url = await fetchEleven(text, voice, reqId);
+          if (reqId !== activeRequestId || !url) { return; }  // stopped or canceled
+          cacheStore(key, url);
+          await playUrl(url, btn);
+        } catch (e) {
+          if (reqId !== activeRequestId) return;  // stop() was called
+          // Fallback to browser TTS — better robot voice than no voice
+          console.warn('[qss-tts] elevenlabs failed, falling back to browser TTS:', e?.message);
+          await browserSpeak(text, btn);
+        }
       }
+
       function buildBtn(text, opts = {}) {
         const b = document.createElement('button');
         b.className = 'tts-btn ' + (opts.size || '');
@@ -1312,7 +1440,7 @@
       });
       document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
 
-      window.qssTTS = { speak, stop, buildBtn, ICON_PLAY, ICON_STOP };
+      window.qssTTS = { speak, stop, buildBtn, ICON_PLAY, ICON_STOP, setVoice };
     })();
   </script>
 
