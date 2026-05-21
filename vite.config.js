@@ -61,6 +61,7 @@ export default defineConfig({
         trippy: resolve(__dirname, 'trippy/index.html'),
         taiwan: resolve(__dirname, 'taiwan/index.html'),
         todo: resolve(__dirname, 'todo/index.html'),
+        research: resolve(__dirname, 'research/index.html'),
       },
     },
   },

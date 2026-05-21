@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RESEARCH. — a notebook for thinking with three minds</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ctext y='20' font-size='20'%3E📔%3C/text%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Caveat:wght@400;700&family=DM+Serif+Display&family=Indie+Flower&family=Permanent+Marker&family=Reenie+Beanie&family=Shadows+Into+Light&family=Special+Elite&family=Patrick+Hand&family=Big+Shoulders+Display:wght@700;900&family=Newsreader:opsz,wght@6..72,400;6..72,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <!-- corner stamp -->
+    <div class="page-corner" aria-hidden="true">
+      <div class="stamp">
+        <span class="stamp-line">FILE №</span>
+        <span class="stamp-line stamp-big" id="date-stamp">2026 / 05</span>
+        <span class="stamp-line">DEPT. OF NOT-KNOWING</span>
+      </div>
+    </div>
+
+    <!-- doodles in margins -->
+    <svg class="doodle doodle-arrow" viewBox="0 0 200 80" aria-hidden="true">
+      <path d="M10 60 Q 60 10, 130 30 T 190 50" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" />
+      <polygon points="180,42 192,52 178,58" fill="currentColor" />
+    </svg>
+    <svg class="doodle doodle-star" viewBox="0 0 60 60" aria-hidden="true">
+      <path d="M30 5 L36 22 L54 22 L40 33 L46 50 L30 40 L14 50 L20 33 L6 22 L24 22 Z" stroke="currentColor" stroke-width="2" fill="none" />
+    </svg>
+    <svg class="doodle doodle-squig" viewBox="0 0 220 40" aria-hidden="true">
+      <path d="M5 20 Q 25 5, 45 20 T 85 20 T 125 20 T 165 20 T 215 20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" />
+    </svg>
+
+    <!-- MASTHEAD -->
+    <header class="masthead">
+      <div class="masthead-stack">
+        <div class="masthead-eyebrow">
+          <span class="hand">a notebook for thinking with</span>
+          <span class="num-circ">3</span>
+          <span class="hand">minds</span>
+        </div>
+        <h1 class="masthead-title">
+          <span class="title-main">research<span class="period">.</span></span>
+        </h1>
+        <div class="masthead-altsline">
+          <span class="alt strike">deep-dive</span>
+          <span class="alt strike">investigation</span>
+          <span class="alt strike">the brief</span>
+          <span class="alt arrow">↳ yeah, just call it research</span>
+        </div>
+      </div>
+
+      <div class="masthead-keys" id="keystatus" aria-label="api keys"></div>
+    </header>
+
+    <main class="notebook">
+      <!-- PAGE 1: the question -->
+      <section class="page page-lined page-prompt">
+        <div class="margin-tab">
+          <span class="margin-tab-text">page 01</span>
+        </div>
+
+        <div class="prompt-header">
+          <span class="ask-label">the question:</span>
+          <svg class="ask-underline" viewBox="0 0 320 14" aria-hidden="true">
+            <path d="M2 8 Q 80 2, 160 7 T 318 6" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" />
+          </svg>
+        </div>
+
+        <textarea
+          id="prompt"
+          rows="3"
+          placeholder="what do you actually want to know? be specific. messy is fine."
+          spellcheck="false"
+          autocomplete="off"
+        ></textarea>
+
+        <div class="prompt-foot">
+          <div class="prompt-hint">
+            <span class="typewriter">parallel research →</span>
+            <span class="pill pill-claude">claude · web search</span>
+            <span class="pill pill-chatgpt">chatgpt · deep research</span>
+            <span class="pill pill-gemini">gemini · grounding</span>
+          </div>
+          <button id="run" class="stamp-btn" aria-label="run research">
+            <span class="stamp-btn-inner">GO.</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- PAGE 2: the results -->
+      <section class="page page-grid page-results">
+        <div class="margin-tab">
+          <span class="margin-tab-text">page 02</span>
+        </div>
+
+        <div class="folder-tabs" role="tablist">
+          <button class="folder-tab active" data-tab="claude" role="tab">
+            <span class="folder-tab-label">claude</span>
+            <span class="folder-tab-status" id="status-claude">— idle</span>
+          </button>
+          <button class="folder-tab" data-tab="chatgpt" role="tab">
+            <span class="folder-tab-label">chatgpt</span>
+            <span class="folder-tab-status" id="status-chatgpt">— idle</span>
+          </button>
+          <button class="folder-tab" data-tab="gemini" role="tab">
+            <span class="folder-tab-label">gemini</span>
+            <span class="folder-tab-status" id="status-gemini">— idle</span>
+          </button>
+          <button class="folder-tab" data-tab="synthesis" role="tab">
+            <span class="folder-tab-label">synthesis</span>
+            <span class="folder-tab-status" id="status-synthesis">—</span>
+          </button>
+        </div>
+
+        <div class="folder-body">
+          <!-- paperclip + tape decorations -->
+          <svg class="paperclip" viewBox="0 0 60 100" aria-hidden="true">
+            <path d="M30 8 C 20 8 14 14 14 24 L14 78 C 14 86 20 92 28 92 C 36 92 42 86 42 78 L42 32 C 42 28 39 25 35 25 C 31 25 28 28 28 32 L28 70" stroke="#444" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+
+          <article id="pane-claude" class="pane active">
+            <div class="empty">
+              <span class="empty-big">∅</span>
+              <span class="empty-msg">nothing here yet.</span>
+              <span class="empty-sub">type a question above, hit GO.</span>
+            </div>
+          </article>
+          <article id="pane-chatgpt" class="pane">
+            <div class="empty"><span class="empty-big">∅</span><span class="empty-msg">nothing here yet.</span></div>
+          </article>
+          <article id="pane-gemini" class="pane">
+            <div class="empty"><span class="empty-big">∅</span><span class="empty-msg">nothing here yet.</span></div>
+          </article>
+          <article id="pane-synthesis" class="pane">
+            <div class="empty">
+              <span class="empty-big">∅</span>
+              <span class="empty-msg">synthesis = three minds → one narration.</span>
+              <span class="empty-sub">auto-generated when you make the audio. or hit the button below once at least one report is in.</span>
+              <button id="synth-now" class="ink-btn" style="display:none">make synthesis now ✎</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- PAGE 3: audio -->
+      <section class="page page-kraft page-audio">
+        <div class="margin-tab tape-tab">
+          <span class="margin-tab-text">page 03 · LISTEN</span>
+        </div>
+
+        <div class="audio-row">
+          <div class="audio-pick">
+            <label class="hand audio-label">read me back as:</label>
+            <div class="audio-pick-grid">
+              <label class="audio-opt">
+                <input type="radio" name="audio-source" value="synthesis" checked />
+                <span class="opt-tile opt-tile-synth">
+                  <span class="opt-tile-num">01</span>
+                  <span class="opt-tile-name">synthesis</span>
+                  <span class="opt-tile-desc">three minds → one cohesive narration</span>
+                </span>
+              </label>
+              <label class="audio-opt">
+                <input type="radio" name="audio-source" value="stitched" />
+                <span class="opt-tile">
+                  <span class="opt-tile-num">02</span>
+                  <span class="opt-tile-name">stitched</span>
+                  <span class="opt-tile-desc">all three, back to back</span>
+                </span>
+              </label>
+              <label class="audio-opt">
+                <input type="radio" name="audio-source" value="claude" />
+                <span class="opt-tile"><span class="opt-tile-num">03</span><span class="opt-tile-name">claude only</span></span>
+              </label>
+              <label class="audio-opt">
+                <input type="radio" name="audio-source" value="chatgpt" />
+                <span class="opt-tile"><span class="opt-tile-num">04</span><span class="opt-tile-name">chatgpt only</span></span>
+              </label>
+              <label class="audio-opt">
+                <input type="radio" name="audio-source" value="gemini" />
+                <span class="opt-tile"><span class="opt-tile-num">05</span><span class="opt-tile-name">gemini only</span></span>
+              </label>
+            </div>
+          </div>
+
+          <button id="audio-go" class="cassette-btn" disabled>
+            <span class="cassette-reel"></span>
+            <span class="cassette-text">RENDER<br />AUDIO ▸</span>
+            <span class="cassette-reel"></span>
+          </button>
+        </div>
+
+        <div id="audio-bar" class="audio-player hidden">
+          <audio id="player" controls></audio>
+          <div class="audio-meta">
+            <span id="audio-meta-text" class="typewriter"></span>
+            <a id="dl" download class="ink-btn">↓ download mp3</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- PAGE 4: sessions / corkboard -->
+      <section class="page page-cork page-history">
+        <div class="margin-tab">
+          <span class="margin-tab-text">corkboard · past questions</span>
+        </div>
+        <ul id="sessions" class="cork-notes"></ul>
+        <div class="cork-empty" id="cork-empty">
+          <span class="hand">no past sessions yet. things will pin here as you go.</span>
+        </div>
+      </section>
+
+      <footer class="colophon">
+        <span class="hand">crafted by hand · powered by</span>
+        <span class="footer-pill">claude</span>
+        <span class="footer-pill">openai</span>
+        <span class="footer-pill">gemini</span>
+        <span class="footer-pill">elevenlabs</span>
+        <br>
+        <span class="typewriter">a newpress experiment — johnny harris, 2026</span>
+      </footer>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

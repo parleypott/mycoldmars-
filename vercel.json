@@ -1,9 +1,4 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "rewrites": [
-    { "source": "/research", "destination": "https://partners-ingredients-candy-corp.trycloudflare.com/" },
-    { "source": "/research/", "destination": "https://partners-ingredients-candy-corp.trycloudflare.com/" },
-    { "source": "/research/:path*", "destination": "https://partners-ingredients-candy-corp.trycloudflare.com/:path*" }
-  ]
+  "outputDirectory": "dist"
 }
