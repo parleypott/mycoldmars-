@@ -323,9 +323,7 @@ async function handleTutor(body, apiKey) {
   // direction → server already gets phase='blocks').
   // We compute the routing decision and STORE it so we can return it to
   // the client (and so the system prompt can adapt accordingly).
-  const message = body.message ? body.message.toString().trim() : '';
-  // (lightweight inline check — fixation gets computed for real below;
-  // here we just need a hint. We do the full compute right after.)
+  // (message was declared earlier in handleTutor — reuse it here.)
   let phase;
   let routing = 'default';
   const chosenDirection = (body.direction || '').toString().trim();
