@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>LASER SPACE · mycoldmars</title>
+<style>
+  :root {
+    --bg: #000;
+    --green: #2eff2e;
+    --white: #ffffff;
+    --yellow: #fff028;
+    --red: #ff3030;
+    --magenta: #ff45ff;
+    --cyan: #28e6ff;
+    --orange: #ff8a00;
+    --brown: #8a3a14;
+    --tan: #f0c080;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #000;
+    height: 100%;
+    overflow: hidden;
+    font-family: "Press Start 2P", "Courier New", monospace;
+    color: var(--green);
+    -webkit-font-smoothing: none;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    user-select: none;
+  }
+
+  /* CRT cabinet */
+  .cabinet {
+    position: relative;
+    width: min(100vw, 100vh * 0.78);
+    height: min(100vh, 100vw / 0.78);
+    background: #000;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    background: #000;
+  }
+  .scanlines {
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0) 0,
+      rgba(0,0,0,0) 2px,
+      rgba(0,0,0,0.32) 2px,
+      rgba(0,0,0,0.32) 3px
+    );
+    pointer-events: none;
+    z-index: 3;
+  }
+  .vignette {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.85) 100%);
+    pointer-events: none;
+    z-index: 4;
+  }
+  .glow {
+    position: absolute; inset: 0;
+    box-shadow: inset 0 0 60px rgba(46,255,46,0.10);
+    pointer-events: none;
+    z-index: 5;
+  }
+  .help {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 12px;
+    z-index: 10;
+    color: #2eff2e;
+    opacity: 0.5;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-shadow: 0 0 6px #2eff2e;
+    text-align: center;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+  <div class="cabinet">
+    <canvas id="game" width="224" height="256"></canvas>
+    <div class="glow"></div>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+  </div>
+  <div class="help">← → MOVE  ·  SPACE FIRE  ·  P PAUSE</div>
+
+<script>
+/* =====================================================================
+   L A S E R   S P A C E
+   --- space invaders, but bananas, donkey kong, and an octopus ---
+   pixel grid: 224 x 256  (just like the real one)
+   ===================================================================== */
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+
+const W = 224, H = 256;
+
+/* ---------- color palette (only the colors space invaders had) ------- */
+const C = {
+  black:   "#000000",
+  white:   "#ffffff",
+  green:   "#2eff2e",
+  yellow:  "#fff028",
+  red:     "#ff3030",
+  magenta: "#ff45ff",
+  cyan:    "#28e6ff",
+  orange:  "#ff8a00",
+  brown:   "#8a3a14",
+  tan:     "#f0c080",
+  dkRed:   "#c63d2e",
+  bananaY: "#ffd83a",
+  bananaB: "#5e3500",
+  bananaT: "#ffe981",
+};
+
+/* ---------- sprite helper: render a 2d color array ------------------- */
+/* each sprite is an array of strings; each char is a key into C or " "
+   we keep a tiny key map for compactness */
+const K = {
+  ".": null,
+  "X": C.white,
+  "G": C.green,
+  "Y": C.yellow,
+  "R": C.red,
+  "M": C.magenta,
+  "C": C.cyan,
+  "O": C.orange,
+  "B": C.brown,
+  "T": C.tan,
+  "D": C.dkRed,
+  "y": C.bananaY,
+  "b": C.bananaB,
+  "t": C.bananaT,
+  "k": "#000000",
+};
+
+function drawSprite(rows, x, y, scale = 1, tint = null) {
+  for (let ry = 0; ry < rows.length; ry++) {
+    const row = rows[ry];
+    for (let rx = 0; rx < row.length; rx++) {
+      const k = row[rx];
+      if (k === "." || k === " ") continue;
+      ctx.fillStyle = tint || K[k] || C.white;
+      ctx.fillRect(x + rx * scale, y + ry * scale, scale, scale);
+    }
+  }
+}
+function spriteSize(rows) { return { w: rows[0].length, h: rows.length }; }
+
+/* ====================================================================
+   S P R I T E S
+   8-bit chunky, 2-frame anim where it matters
+   ==================================================================== */
+
+/* --- BANANA aliens (3 types, 2 frames each) ------------------------- */
+/* type A — small banana (top row of invaders) */
+const BANANA_A1 = [
+  "...yy...",
+  "..yyy...",
+  ".yyy....",
+  "yyy.....",
+  "yyy.....",
+  ".yyy....",
+  "..yyy...",
+  "...yy...",
+];
+const BANANA_A2 = [
+  "...yy...",
+  "..yyy...",
+  ".yyyt...",
+  "yyyt....",
+  "yyyt....",
+  ".yyyt...",
+  "..yyy...",
+  "...yy...",
+];
+
+/* type B — medium banana with stem */
+const BANANA_B1 = [
+  "..bb....",
+  "..yb....",
+  ".yyy....",
+  "yyyy....",
+  "yyyyy...",
+  ".yyyyy..",
+  "..yyyyy.",
+  "...yyyy.",
+  "....yy..",
+];
+const BANANA_B2 = [
+  "..bb....",
+  "..yb....",
+  ".yyy....",
+  "yyyt....",
+  "yyyyt...",
+  ".yyyyt..",
+  "..yyyyt.",
+  "...yyy..",
+  "....y...",
+];
+
+/* type C — big banana bunch */
+const BANANA_C1 = [
+  "..bbbb..",
+  "..ybbb..",
+  ".yyybb..",
+  "yyyyyy..",
+  "yyyyyy..",
+  "yyyyyyy.",
+  ".yyyyyy.",
+  "..yyyyy.",
+  "...yyyy.",
+  "....yy..",
+];
+const BANANA_C2 = [
+  "..bbbb..",
+  "..ybbb..",
+  ".yyybb..",
+  "yyytty..",
+  "yyytty..",
+  "yyyttty.",
+  ".yyytty.",
+  "..yyyyy.",
+  "...yyyy.",
+  "....yy..",
+];
+
+/* --- DONKEY KONG (player) ------------------------------------------- */
+/* chunky DK with banana cannon. brown body, tan face, red tie patch */
+const DK = [
+  "....BBBBBB....",
+  "...BBTBBTBB...",
+  "..BBTTTTTTBB..",
+  "..BTkTBBTkTB..",
+  "..BTTTBBTTTB..",
+  "..BBTBBBBTBB..",
+  "...BBBDDBBB...",
+  "..BBBBDDBBBB..",
+  ".BBBBBBBBBBBB.",
+  "BBBBBBBBBBBBBB",
+  "BBBBBBBBBBBBBB",
+  "BBBBBBBBBBBBBB",
+  ".BB..BBBB..BB.",
+  ".BB..BBBB..BB.",
+];
+/* the upside-down banana cannon DK holds on top of his head */
+const CANNON = [
+  ".....yyy.....",
+  "....yyyyy....",
+  "...yyyyyyy...",
+  "..yyytttyy...",
+  ".yyttttttyy..",
+  ".yyttttttyy..",
+  "...kkkkkk....",
+  "...kk..kk....",
+];
+
+/* --- BANANA PELLET (player bullet) ---------------------------------- */
+const PELLET = [
+  "by",
+  "yy",
+  "yy",
+  "yt",
+];
+
+/* --- ALIEN BOMB ----------------------------------------------------- */
+const BOMB_A = [
+  ".X.",
+  "X..",
+  ".X.",
+  "..X",
+  ".X.",
+];
+const BOMB_B = [
+  ".X.",
+  ".X.",
+  ".X.",
+  ".X.",
+  ".X.",
+];
+
+/* --- OCTOPUS (the mystery ship) ------------------------------------- */
+const OCTO = [
+  "...MMMMMMMM...",
+  "..MMMMMMMMMM..",
+  ".MMMMMMMMMMMM.",
+  "MMMkMMMMkMMMMM",
+  "MMMkMMMMkMMMMM",
+  "MMMMMMMMMMMMMM",
+  ".MMMMMMMMMMMM.",
+  "M.M.M.MM.M.M.M",
+  "M.M.M.MM.M.M.M",
+  "M...M..M...M.M",
+];
+
+/* --- BARRIER (the green bunkers) ------------------------------------ */
+const BUNKER_PROTO = [
+  "..GGGGGGGGGGGG..",
+  ".GGGGGGGGGGGGGG.",
+  "GGGGGGGGGGGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GGGGG......GGGGG",
+  "GGGG........GGGG",
+  "GGGG........GGGG",
+];
+
+/* --- EXPLOSION ------------------------------------------------------ */
+const BOOM = [
+  "..X...X..",
+  "X.X.X.X.X",
+  ".X.X.X.X.",
+  "X..X.X..X",
+  ".X..X..X.",
+  "X..X.X..X",
+  ".X.X.X.X.",
+  "X.X.X.X.X",
+  "..X...X..",
+];
+
+/* ====================================================================
+   F O N T
+   tiny 3x5 pixel font for HUD
+   ==================================================================== */
+const FONT = {
+  "0": ["XXX","X.X","X.X","X.X","XXX"],
+  "1": [".X.","XX.",".X.",".X.","XXX"],
+  "2": ["XXX","..X","XXX","X..","XXX"],
+  "3": ["XXX","..X","XXX","..X","XXX"],
+  "4": ["X.X","X.X","XXX","..X","..X"],
+  "5": ["XXX","X..","XXX","..X","XXX"],
+  "6": ["XXX","X..","XXX","X.X","XXX"],
+  "7": ["XXX","..X",".X.","X..","X.."],
+  "8": ["XXX","X.X","XXX","X.X","XXX"],
+  "9": ["XXX","X.X","XXX","..X","XXX"],
+  "A": ["XXX","X.X","XXX","X.X","X.X"],
+  "B": ["XX.","X.X","XX.","X.X","XX."],
+  "C": ["XXX","X..","X..","X..","XXX"],
+  "D": ["XX.","X.X","X.X","X.X","XX."],
+  "E": ["XXX","X..","XX.","X..","XXX"],
+  "F": ["XXX","X..","XX.","X..","X.."],
+  "G": ["XXX","X..","X.X","X.X","XXX"],
+  "H": ["X.X","X.X","XXX","X.X","X.X"],
+  "I": ["XXX",".X.",".X.",".X.","XXX"],
+  "J": ["XXX","..X","..X","X.X","XXX"],
+  "K": ["X.X","X.X","XX.","X.X","X.X"],
+  "L": ["X..","X..","X..","X..","XXX"],
+  "M": ["X.X","XXX","XXX","X.X","X.X"],
+  "N": ["X.X","XXX","XXX","XXX","X.X"],
+  "O": ["XXX","X.X","X.X","X.X","XXX"],
+  "P": ["XXX","X.X","XXX","X..","X.."],
+  "Q": ["XXX","X.X","X.X","XXX","..X"],
+  "R": ["XXX","X.X","XX.","X.X","X.X"],
+  "S": ["XXX","X..","XXX","..X","XXX"],
+  "T": ["XXX",".X.",".X.",".X.",".X."],
+  "U": ["X.X","X.X","X.X","X.X","XXX"],
+  "V": ["X.X","X.X","X.X","X.X",".X."],
+  "W": ["X.X","X.X","XXX","XXX","X.X"],
+  "X": ["X.X","X.X",".X.","X.X","X.X"],
+  "Y": ["X.X","X.X",".X.",".X.",".X."],
+  "Z": ["XXX","..X",".X.","X..","XXX"],
+  " ": [".....",".....",".....",".....","....."],
+  "-": ["...","...","XXX","...","..."],
+  "!": [".X.",".X.",".X.","...",".X."],
+  ".": ["...","...","...","...",".X."],
+  ":": ["...",".X.","...",".X.","..."],
+  "<": ["..X",".X.","X..",".X.","..X"],
+  ">": ["X..",".X.","..X",".X.","X.."],
+  "/": ["..X","..X",".X.","X..","X.."],
+};
+function drawText(str, x, y, color = C.white, scale = 1) {
+  ctx.fillStyle = color;
+  let cx = x;
+  for (const ch of str.toUpperCase()) {
+    const g = FONT[ch];
+    if (!g) { cx += 4 * scale; continue; }
+    for (let ry = 0; ry < 5; ry++) {
+      for (let rx = 0; rx < g[0].length; rx++) {
+        if (g[ry][rx] === "X") ctx.fillRect(cx + rx*scale, y + ry*scale, scale, scale);
+      }
+    }
+    cx += (g[0].length + 1) * scale;
+  }
+}
+
+/* ====================================================================
+   G A M E   S T A T E
+   ==================================================================== */
+const state = {
+  player: { x: 100, y: 224, w: 14, h: 14, speed: 1.2, alive: true, respawn: 0 },
+  bullets: [],   // {x, y, vy}
+  bombs: [],     // {x, y, vy, type}
+  aliens: [],    // grid
+  alienDir: 1,
+  alienStepTimer: 0,
+  alienStepRate: 36,    // frames per group step — decreases as fewer remain
+  alienFrame: 0,
+  octopus: null, // {x, y, dir, score}
+  octopusTimer: 600,
+  bunkers: [],
+  score: 0,
+  hi: parseInt(localStorage.getItem("laserspaceHi") || "0", 10),
+  lives: 3,
+  level: 1,
+  paused: false,
+  gameover: false,
+  victory: false,
+  boomFx: [],    // {x, y, life}
+  starfield: [], // {x, y, c}
+  marqueeTimer: 0,
+  flash: 0,
+};
+
+/* set up starfield (sparse, like 80s) */
+for (let i = 0; i < 30; i++) {
+  state.starfield.push({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    c: Math.random() < 0.3 ? C.white : (Math.random() < 0.5 ? C.cyan : C.green),
+    blink: Math.random() * 60 | 0,
+  });
+}
+
+/* spawn a fresh wave of aliens */
+function spawnWave(level = 1) {
+  state.aliens = [];
+  const cols = 9, rows = 5;
+  const startX = 16, startY = 36 + Math.min((level-1) * 4, 24);
+  const gx = 20, gy = 16;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const type = r === 0 ? "A" : (r <= 2 ? "B" : "C");
+      state.aliens.push({
+        x: startX + c * gx,
+        y: startY + r * gy,
+        type,
+        alive: true,
+        col: c,
+        row: r,
+      });
+    }
+  }
+  state.alienDir = 1;
+  state.alienStepRate = 36;
+  state.alienFrame = 0;
+}
+
+/* spawn bunkers (4 of them, like the original) */
+function spawnBunkers() {
+  state.bunkers = [];
+  const yPos = 188;
+  for (let i = 0; i < 4; i++) {
+    // each bunker is a 2d grid of pixel cells, deep-copy from prototype
+    const cells = BUNKER_PROTO.map(row => row.split(""));
+    state.bunkers.push({
+      x: 24 + i * 48,
+      y: yPos,
+      cells,
+    });
+  }
+}
+
+spawnWave(1);
+spawnBunkers();
+
+/* ====================================================================
+   I N P U T
+   ==================================================================== */
+const keys = {};
+window.addEventListener("keydown", (e) => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key === " ") { e.preventDefault(); tryFire(); }
+  if (e.key.toLowerCase() === "p") state.paused = !state.paused;
+  if (state.gameover && (e.key === " " || e.key === "Enter")) restart();
+});
+window.addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
+
+/* simple touch — left half / right half + tap top to fire */
+let touchLeft = false, touchRight = false;
+canvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const r = canvas.getBoundingClientRect();
+    const tx = t.clientX - r.left;
+    const ty = t.clientY - r.top;
+    if (ty < r.height * 0.55) tryFire();
+    else if (tx < r.width / 2) touchLeft = true;
+    else touchRight = true;
+  }
+  if (state.gameover) restart();
+}, { passive: false });
+canvas.addEventListener("touchend", (e) => {
+  e.preventDefault();
+  if (e.touches.length === 0) { touchLeft = touchRight = false; }
+}, { passive: false });
+
+/* ====================================================================
+   S O U N D — tiny Web Audio beeps (80s arcade)
+   ==================================================================== */
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch { audioCtx = null; }
+  }
+}
+function beep(freq, dur = 0.06, type = "square", vol = 0.07) {
+  ensureAudio();
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.value = vol;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start();
+  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+  o.stop(audioCtx.currentTime + dur);
+}
+function sndFire() { beep(880, 0.07, "square"); }
+function sndHit()  { beep(180, 0.10, "square"); beep(90, 0.10, "sawtooth", 0.05); }
+function sndStep(n){ beep(70 + (n%4)*30, 0.06, "square", 0.05); }
+function sndBomb() { beep(220, 0.05, "sawtooth", 0.04); }
+function sndOcto() { for (let i=0;i<6;i++) setTimeout(()=>beep(400+Math.random()*200,0.05,"square",0.04), i*60); }
+function sndDie()  { beep(110, 0.4, "sawtooth", 0.08); setTimeout(()=>beep(55, 0.6, "sawtooth", 0.08), 120); }
+
+/* ====================================================================
+   A C T I O N S
+   ==================================================================== */
+function tryFire() {
+  if (state.paused || state.gameover || !state.player.alive) return;
+  if (state.bullets.length >= 1) return; // classic: one bullet at a time
+  state.bullets.push({ x: state.player.x + 6, y: state.player.y - 8, vy: -3.2 });
+  sndFire();
+}
+
+function restart() {
+  state.score = 0;
+  state.lives = 3;
+  state.level = 1;
+  state.bullets = [];
+  state.bombs = [];
+  state.octopus = null;
+  state.octopusTimer = 600;
+  state.boomFx = [];
+  state.gameover = false;
+  state.victory = false;
+  state.player.alive = true;
+  state.player.x = 100;
+  state.player.respawn = 0;
+  spawnWave(1);
+  spawnBunkers();
+}
+
+/* ====================================================================
+   C O L L I S I O N S
+   ==================================================================== */
+function aabb(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+/* damage a bunker at world pixel x,y, radius rad */
+function damageBunker(px, py, rad = 3) {
+  for (const b of state.bunkers) {
+    for (let cy = 0; cy < b.cells.length; cy++) {
+      for (let cx = 0; cx < b.cells[cy].length; cx++) {
+        if (b.cells[cy][cx] !== "G") continue;
+        const wx = b.x + cx, wy = b.y + cy;
+        const dx = wx - px, dy = wy - py;
+        if (dx*dx + dy*dy <= rad*rad) b.cells[cy][cx] = ".";
+      }
+    }
+  }
+}
+/* check projectile vs bunkers — true if hit */
+function hitBunker(px, py) {
+  for (const b of state.bunkers) {
+    const cx = Math.floor(px - b.x);
+    const cy = Math.floor(py - b.y);
+    if (cx < 0 || cy < 0 || cy >= b.cells.length || cx >= b.cells[0].length) continue;
+    if (b.cells[cy][cx] === "G") return { b, cx, cy };
+  }
+  return null;
+}
+
+/* ====================================================================
+   U P D A T E
+   ==================================================================== */
+let tick = 0;
+function update() {
+  if (state.paused || state.gameover) return;
+  tick++;
+
+  /* starfield blink */
+  for (const s of state.starfield) {
+    s.blink--;
+    if (s.blink < 0) s.blink = 30 + (Math.random()*60|0);
+  }
+
+  /* player movement */
+  if (state.player.alive) {
+    const left = keys["arrowleft"] || keys["a"] || touchLeft;
+    const right = keys["arrowright"] || keys["d"] || touchRight;
+    if (left)  state.player.x -= state.player.speed;
+    if (right) state.player.x += state.player.speed;
+    state.player.x = Math.max(8, Math.min(W - 22, state.player.x));
+  } else if (state.player.respawn > 0) {
+    state.player.respawn--;
+    if (state.player.respawn === 0) {
+      if (state.lives > 0) {
+        state.player.alive = true;
+        state.player.x = 100;
+      } else {
+        state.gameover = true;
+      }
+    }
+  }
+
+  /* player bullets */
+  for (const b of state.bullets) b.y += b.vy;
+  state.bullets = state.bullets.filter(b => {
+    if (b.y < -10) return false;
+    /* bunker hit */
+    const hb = hitBunker(b.x, b.y);
+    if (hb) { damageBunker(b.x, b.y, 2.2); sndHit(); return false; }
+    /* alien hit */
+    for (const a of state.aliens) {
+      if (!a.alive) continue;
+      const sz = a.type === "A" ? {w:8,h:8} : a.type === "B" ? {w:8,h:9} : {w:8,h:10};
+      const box = { x: a.x, y: a.y, w: sz.w, h: sz.h };
+      const bb = { x: b.x, y: b.y, w: 2, h: 4 };
+      if (aabb(box, bb)) {
+        a.alive = false;
+        const pts = a.type === "A" ? 30 : a.type === "B" ? 20 : 10;
+        state.score += pts;
+        state.boomFx.push({ x: a.x - 1, y: a.y - 1, life: 14 });
+        sndHit();
+        return false;
+      }
+    }
+    /* octopus hit */
+    if (state.octopus) {
+      const o = state.octopus;
+      const box = { x: o.x, y: o.y, w: 14, h: 10 };
+      const bb = { x: b.x, y: b.y, w: 2, h: 4 };
+      if (aabb(box, bb)) {
+        state.score += o.score;
+        state.boomFx.push({ x: o.x, y: o.y, life: 20 });
+        state.octopus = null;
+        state.octopusTimer = 600 + (Math.random()*400|0);
+        state.flash = 6;
+        sndOcto();
+        return false;
+      }
+    }
+    return true;
+  });
+
+  /* alien movement (grid step) */
+  state.alienStepTimer++;
+  const aliveCount = state.aliens.filter(a => a.alive).length;
+  const dynamicRate = Math.max(6, state.alienStepRate - (45 - aliveCount));
+  if (state.alienStepTimer >= dynamicRate && state.player.alive) {
+    state.alienStepTimer = 0;
+    state.alienFrame ^= 1;
+    /* check edges */
+    let needsDrop = false;
+    for (const a of state.aliens) {
+      if (!a.alive) continue;
+      if (state.alienDir > 0 && a.x >= W - 16) { needsDrop = true; break; }
+      if (state.alienDir < 0 && a.x <= 6) { needsDrop = true; break; }
+    }
+    if (needsDrop) {
+      state.alienDir *= -1;
+      for (const a of state.aliens) a.y += 6;
+    } else {
+      for (const a of state.aliens) a.x += state.alienDir * 2;
+    }
+    sndStep(state.alienFrame + (needsDrop?2:0));
+  }
+
+  /* aliens reach the player line = game over */
+  for (const a of state.aliens) {
+    if (a.alive && a.y + 10 >= state.player.y) {
+      state.gameover = true;
+      sndDie();
+      break;
+    }
+  }
+
+  /* alien bombs */
+  if (state.player.alive && Math.random() < 0.012 + aliveCount * 0.0006) {
+    const shooters = {};
+    for (const a of state.aliens) {
+      if (!a.alive) continue;
+      const k = a.col;
+      if (!shooters[k] || shooters[k].y < a.y) shooters[k] = a;
+    }
+    const list = Object.values(shooters);
+    if (list.length) {
+      const sh = list[Math.random()*list.length | 0];
+      state.bombs.push({
+        x: sh.x + 3, y: sh.y + 10, vy: 1.4,
+        type: Math.random() < 0.5 ? "A" : "B"
+      });
+      sndBomb();
+    }
+  }
+  for (const b of state.bombs) b.y += b.vy;
+  state.bombs = state.bombs.filter(b => {
+    if (b.y > H) return false;
+    /* bunker hit */
+    const hb = hitBunker(b.x + 1, b.y + 4);
+    if (hb) { damageBunker(b.x + 1, b.y + 4, 2.4); return false; }
+    /* player hit */
+    if (state.player.alive) {
+      const box = { x: state.player.x, y: state.player.y, w: 14, h: 14 };
+      const bb = { x: b.x, y: b.y, w: 3, h: 5 };
+      if (aabb(box, bb)) {
+        state.player.alive = false;
+        state.lives--;
+        state.player.respawn = 80;
+        state.boomFx.push({ x: state.player.x, y: state.player.y, life: 24 });
+        sndDie();
+        return false;
+      }
+    }
+    return true;
+  });
+
+  /* octopus mystery ship */
+  if (state.octopus) {
+    state.octopus.x += state.octopus.dir * 0.7;
+    if (state.octopus.x < -16 || state.octopus.x > W) state.octopus = null;
+  } else {
+    state.octopusTimer--;
+    if (state.octopusTimer <= 0 && aliveCount > 4) {
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      state.octopus = {
+        x: dir > 0 ? -14 : W + 4,
+        y: 16,
+        dir,
+        score: [50, 100, 150, 300][Math.random()*4|0]
+      };
+    }
+  }
+
+  /* boom fx */
+  for (const fx of state.boomFx) fx.life--;
+  state.boomFx = state.boomFx.filter(fx => fx.life > 0);
+
+  /* wave clear */
+  if (aliveCount === 0) {
+    state.level++;
+    state.bullets = [];
+    state.bombs = [];
+    state.flash = 30;
+    spawnWave(state.level);
+    if (state.level % 3 === 0) spawnBunkers();
+  }
+
+  /* hi score */
+  if (state.score > state.hi) {
+    state.hi = state.score;
+    localStorage.setItem("laserspaceHi", String(state.hi));
+  }
+
+  if (state.flash > 0) state.flash--;
+  state.marqueeTimer++;
+}
+
+/* ====================================================================
+   R E N D E R
+   ==================================================================== */
+function render() {
+  /* clear */
+  ctx.fillStyle = C.black;
+  ctx.fillRect(0, 0, W, H);
+
+  /* starfield */
+  for (const s of state.starfield) {
+    if (s.blink < 4) continue;
+    ctx.fillStyle = s.c;
+    ctx.fillRect(s.x | 0, s.y | 0, 1, 1);
+  }
+
+  /* top HUD */
+  drawText("SCORE", 6, 4, C.white);
+  drawText(String(state.score).padStart(5, "0"), 6, 12, C.green);
+  drawText("HI-SCORE", 78, 4, C.white);
+  drawText(String(state.hi).padStart(5, "0"), 90, 12, C.yellow);
+  drawText("LEVEL", 168, 4, C.white);
+  drawText(String(state.level).padStart(2, "0"), 178, 12, C.cyan);
+
+  /* aliens */
+  const f = state.alienFrame;
+  for (const a of state.aliens) {
+    if (!a.alive) continue;
+    const sprite =
+      a.type === "A" ? (f ? BANANA_A2 : BANANA_A1) :
+      a.type === "B" ? (f ? BANANA_B2 : BANANA_B1) :
+                       (f ? BANANA_C2 : BANANA_C1);
+    drawSprite(sprite, a.x | 0, a.y | 0, 1);
+  }
+
+  /* octopus */
+  if (state.octopus) {
+    drawSprite(OCTO, state.octopus.x | 0, state.octopus.y | 0, 1);
+    drawText(String(state.octopus.score), state.octopus.x - 4, state.octopus.y - 6, C.magenta);
+  }
+
+  /* bunkers */
+  for (const b of state.bunkers) {
+    for (let cy = 0; cy < b.cells.length; cy++) {
+      for (let cx = 0; cx < b.cells[0].length; cx++) {
+        if (b.cells[cy][cx] === "G") {
+          ctx.fillStyle = C.green;
+          ctx.fillRect(b.x + cx, b.y + cy, 1, 1);
+        }
+      }
+    }
+  }
+
+  /* player */
+  if (state.player.alive) {
+    /* cannon on top of DK */
+    drawSprite(CANNON, state.player.x - 0, state.player.y - 6, 1);
+    drawSprite(DK, state.player.x, state.player.y, 1);
+  } else if (state.lives > 0 && state.player.respawn > 0) {
+    /* flicker between frames during respawn */
+    if ((state.player.respawn / 4 | 0) % 2 === 0) {
+      drawSprite(CANNON, 100, state.player.y - 6, 1, "#888");
+      drawSprite(DK, 100, state.player.y, 1, "#888");
+    }
+  }
+
+  /* bullets */
+  for (const b of state.bullets) {
+    drawSprite(PELLET, b.x | 0, b.y | 0, 1);
+  }
+
+  /* bombs */
+  for (const b of state.bombs) {
+    drawSprite(b.type === "A" ? BOMB_A : BOMB_B, b.x | 0, b.y | 0, 1);
+  }
+
+  /* booms */
+  for (const fx of state.boomFx) {
+    ctx.globalAlpha = Math.min(1, fx.life / 14);
+    drawSprite(BOOM, fx.x | 0, fx.y | 0, 1, C.yellow);
+    ctx.globalAlpha = 1;
+  }
+
+  /* ground line */
+  ctx.fillStyle = C.green;
+  ctx.fillRect(0, 240, W, 1);
+
+  /* lives */
+  drawText("LIVES", 6, 246, C.white);
+  for (let i = 0; i < state.lives; i++) {
+    drawSprite(DK, 36 + i * 16, 244, 1);
+  }
+
+  /* CREDIT line — pure arcade flavor */
+  drawText("CREDIT 01", 150, 246, C.green);
+
+  /* flash overlay on wave clear / octopus kill */
+  if (state.flash > 0) {
+    ctx.globalAlpha = state.flash / 30 * 0.3;
+    ctx.fillStyle = C.white;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+
+  /* paused */
+  if (state.paused) {
+    centerBox("PAUSED", "PRESS P", C.yellow);
+  }
+
+  /* game over */
+  if (state.gameover) {
+    centerBox("GAME OVER", "PRESS SPACE", C.red);
+  }
+
+  /* attract-style title strip across the bottom of HUD */
+  const banner = "LASER SPACE  ::  MYCOLDMARS.COM/LASERSPACE  ::  ";
+  const bx = (state.marqueeTimer * 0.6) % (banner.length * 4);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 22, W, 6);
+  ctx.clip();
+  drawText(banner + banner, 4 - (bx | 0), 22, C.green);
+  ctx.restore();
+}
+
+function centerBox(big, small, color) {
+  ctx.fillStyle = C.black;
+  ctx.fillRect(30, 100, 164, 60);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(30.5, 100.5, 163, 59);
+  drawText(big, 112 - big.length * 4, 116, color, 1);
+  drawText(small, 112 - small.length * 2, 140, C.white);
+}
+
+/* ====================================================================
+   M A I N   L O O P
+   ==================================================================== */
+let last = 0;
+function loop(now) {
+  // fixed timestep — 60fps cap, but skipping frames is fine
+  if (!last) last = now;
+  const dt = now - last;
+  if (dt >= 16) {
+    update();
+    render();
+    last = now;
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

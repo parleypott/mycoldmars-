@@ -94,6 +94,7 @@ export default defineConfig({
         research: resolve(__dirname, 'research/index.html'),
         memory: resolve(__dirname, 'memory/index.html'),
         falling: resolve(__dirname, 'falling/index.html'),
+        laserspace: resolve(__dirname, 'laserspace/index.html'),
       },
     },
   },
