@@ -569,7 +569,7 @@
         <div class="page-head">
           <div>
             <div class="page-title">the <em>cast</em></div>
-            <div class="page-sub">tap a card to open it. portraits stay archived; chat with each character to refine their look. nothing here regenerates unless you ask.</div>
+            <div class="page-sub">every character henry has developed, across every story. tap a card to chat with the character and refine their look. portraits stay archived; nothing here regenerates unless you ask.</div>
           </div>
           <div id="story-chip" class="story-chip" style="display:none;"></div>
         </div>
@@ -747,17 +747,99 @@
       chatBusy: false,
     };
 
-    function LS_KEY() { return `qss:cast:${state.storyId || '__none__'}`; }
+    // ─── Global cast storage ──────────────────────────────────────────
+    // Characters are SHARED across all stories. The localStorage key is a
+    // single global JSON map keyed by lowercased name; per-story story id
+    // tracking lives inside each card under `story_appearances`. This is
+    // the universal cast Henry develops — Queen Scarlet in story A is the
+    // same Queen Scarlet in story B, and her portraits + chat carry over.
+    //
+    // On first load, we one-shot-migrate any legacy `qss:cast:<storyId>`
+    // per-story caches into the global map so existing work isn't lost.
+    const GLOBAL_KEY = 'qss:globalcast';
+    const MIGRATED_FLAG = 'qss:globalcast:migrated';
+    function lcKey(name) { return String(name || '').trim().toLowerCase(); }
+
+    // readLS / writeLS contract:
+    //   - LS is keyed by LOWERCASED character name (cross-story dedup).
+    //   - state.cards is keyed by DISPLAY name (unchanged from prior code
+    //     so all the existing accessors keep working).
+    //   - On read: pulls the global blob, runs one-time per-story migration,
+    //     converts lowercased keys back into display-name keys via card.name.
+    //   - On write: converts state.cards display-keys into lowercased keys
+    //     and persists the single global blob.
     function readLS() {
-      try { return JSON.parse(localStorage.getItem(LS_KEY()) || '{}') || {}; }
-      catch { return {}; }
+      try {
+        const raw = localStorage.getItem(GLOBAL_KEY);
+        let lcMap = raw ? (JSON.parse(raw) || {}) : {};
+        // One-time migration from per-story caches.
+        if (!localStorage.getItem(MIGRATED_FLAG)) {
+          try {
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              if (!k || !k.startsWith('qss:cast:')) continue;
+              try {
+                const perStory = JSON.parse(localStorage.getItem(k) || '{}') || {};
+                for (const [displayName, val] of Object.entries(perStory)) {
+                  if (!displayName) continue;
+                  const lk = lcKey(displayName);
+                  if (!lcMap[lk]) {
+                    lcMap[lk] = { ...val, name: displayName };
+                  } else {
+                    // Merge: union portraits by id, concat chat, take longer notes
+                    const ex = lcMap[lk];
+                    const exP = Array.isArray(ex.portraits) ? ex.portraits : [];
+                    const inP = Array.isArray(val.portraits) ? val.portraits : [];
+                    const seen = new Set();
+                    ex.portraits = [...exP, ...inP].filter(p => {
+                      if (!p || !p.id || seen.has(p.id)) return false;
+                      seen.add(p.id);
+                      return true;
+                    });
+                    if (!ex.primary_portrait_id && ex.portraits.length) {
+                      ex.primary_portrait_id = ex.portraits[ex.portraits.length - 1].id;
+                    }
+                    const exC = Array.isArray(ex.chat) ? ex.chat : [];
+                    const inC = Array.isArray(val.chat) ? val.chat : [];
+                    ex.chat = [...exC, ...inC];
+                    if ((val.synopsis || '').length > (ex.synopsis || '').length) ex.synopsis = val.synopsis;
+                    if ((val.visual_notes || '').length > (ex.visual_notes || '').length) ex.visual_notes = val.visual_notes;
+                    ex.generated_at = Math.max(ex.generated_at || 0, val.generated_at || 0);
+                  }
+                }
+              } catch {}
+            }
+            localStorage.setItem(MIGRATED_FLAG, '1');
+            localStorage.setItem(GLOBAL_KEY, JSON.stringify(lcMap));
+          } catch {}
+        }
+        // Convert lowercased-keyed blob back into display-name-keyed map
+        // for the rest of the cast page code to consume.
+        const out = {};
+        for (const [lk, v] of Object.entries(lcMap || {})) {
+          const displayName = (v?.name || '').trim() || lk;
+          out[displayName] = v;
+        }
+        return out;
+      } catch { return {}; }
     }
+
     function writeLS() {
-      try { localStorage.setItem(LS_KEY(), JSON.stringify(state.cards)); }
+      // Convert display-name-keyed state.cards into a lowercased-keyed blob.
+      const out = {};
+      for (const [displayName, c] of Object.entries(state.cards)) {
+        if (!c) continue;
+        const lk = lcKey(c.name || displayName);
+        if (!lk) continue;
+        // Ensure card.name preserves the display-case so it round-trips.
+        if (!c.name) c.name = displayName;
+        out[lk] = c;
+      }
+      try { localStorage.setItem(GLOBAL_KEY, JSON.stringify(out)); }
       catch (e) {
-        // base64 images can blow quota; drop oldest portraits per card
+        // Quota recovery: drop all-but-most-recent portrait per character.
         try {
-          for (const c of Object.values(state.cards)) {
+          for (const c of Object.values(out)) {
             if (Array.isArray(c.portraits) && c.portraits.length > 1) {
               c.portraits.sort((a, b) => (b.generated_at || 0) - (a.generated_at || 0));
               c.portraits = c.portraits.slice(0, 1);
@@ -766,7 +848,7 @@
               }
             }
           }
-          localStorage.setItem(LS_KEY(), JSON.stringify(state.cards));
+          localStorage.setItem(GLOBAL_KEY, JSON.stringify(out));
         } catch {}
       }
     }
@@ -813,6 +895,11 @@
     }
 
     // ─── Boot ───
+    // Cast is GLOBAL across all stories. The ?story=<id> param is optional
+    // and used only to:
+    //   - fold any new characters from that story's arc into the global cast
+    //   - display a "viewing while in <story>" chip
+    // Without ?story=, we just show every character Henry has ever developed.
     async function boot() {
       const params = new URLSearchParams(location.search);
       let storyId = params.get('story');
@@ -830,70 +917,79 @@
       }
       state.storyId = storyId;
 
-      if (!storyId) {
-        renderGridEmpty('no story open', 'open a story in the school first, then tap "the cast" up top.');
-        return;
+      // Hydrate state.cards from the global blob FIRST. This is what makes
+      // the cast non-regenerative across visits.
+      state.cards = readLS();
+
+      // If we have an active story, try to fetch it to:
+      //   1. show the story-chip in the corner
+      //   2. fold any new arc characters into the global cast (with empty
+      //      portraits so they'll trigger a first-draw)
+      // The page works fine without this — it's enrichment, not required.
+      if (storyId) {
+        try {
+          const r = await fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(storyId)}`, { headers: HEADERS });
+          if (r.ok) {
+            const { story } = await r.json();
+            state.story = story;
+            const chip = document.getElementById('story-chip');
+            chip.style.display = 'inline-flex';
+            chip.innerHTML = `viewing while in <strong>${esc(story.name || 'untitled')}</strong>`;
+            chip.style.cursor = 'pointer';
+            chip.title = 'click to clear story filter';
+            chip.onclick = () => { state.storyId = null; state.story = null; chip.style.display = 'none'; render(); };
+            // Fold any arc characters into the global cast as appearances.
+            const arcChars = Array.isArray(story.arc_context?.characters) ? story.arc_context.characters : [];
+            for (const ch of arcChars) {
+              const name = (ch?.name || '').trim();
+              if (!name) continue;
+              const existing = state.cards[name];
+              if (!existing) {
+                state.cards[name] = migrateCard({
+                  name,
+                  current_state: ch.current_state || '',
+                  intro_block: ch.intro_block || null,
+                  status: 'loading',
+                });
+              } else {
+                // Always refresh current_state since it changes as story grows.
+                existing.current_state = ch.current_state || existing.current_state || '';
+                existing.intro_block = ch.intro_block || existing.intro_block || null;
+              }
+              // Track that this character appears in this story.
+              const card = state.cards[name];
+              card.story_appearances = card.story_appearances || [];
+              let app = card.story_appearances.find(a => a.story_id === storyId);
+              if (!app) {
+                app = { story_id: storyId };
+                card.story_appearances.push(app);
+              }
+              if (story.name) app.story_name = story.name;
+              if (ch.intro_block != null) app.intro_block = ch.intro_block;
+              if (ch.current_state) app.current_state = ch.current_state;
+              app.last_seen_at = Date.now();
+            }
+            writeLS();
+          }
+        } catch {}
       }
 
       try {
-        const r = await fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(storyId)}`, { headers: HEADERS });
-        if (!r.ok) throw new Error(`fetch story ${r.status}`);
-        const { story } = await r.json();
-        state.story = story;
-        const chip = document.getElementById('story-chip');
-        chip.style.display = 'inline-flex';
-        chip.innerHTML = `<strong>${esc(story.name || 'untitled')}</strong> · ${(story.blocks?.length || 0)} block${story.blocks?.length === 1 ? '' : 's'}`;
-
-        // MERGE three sources, in this precedence:
-        //   1. localStorage cache (richest, authoritative pre-migration)
-        //   2. story.character_cards from server
-        //   3. story.arc_context.characters (just names + current_state)
-        const lsCards = readLS();
-        const serverCards = Array.isArray(story.character_cards) ? story.character_cards : [];
-        const map = {};
-
-        for (const c of serverCards) {
-          const m = migrateCard(c);
-          if (m) map[m.name] = m;
-        }
-        for (const [name, raw] of Object.entries(lsCards)) {
+        // Normalize every card in the global state through migrateCard
+        // so legacy single-image shapes get promoted into portraits[].
+        const normalized = {};
+        for (const [name, raw] of Object.entries(state.cards)) {
           const m = migrateCard({ ...raw, name });
-          if (!m) continue;
-          const existing = map[name];
-          // Prefer LS if it has more portraits OR more chat OR newer generated_at
-          if (!existing
-              || m.portraits.length > existing.portraits.length
-              || m.chat.length > existing.chat.length
-              || (m.generated_at || 0) > (existing.generated_at || 0)) {
-            map[name] = m;
-          }
+          if (m) normalized[m.name] = m;
         }
-        const arcChars = Array.isArray(story.arc_context?.characters) ? story.arc_context.characters : [];
-        for (const ch of arcChars) {
-          const name = (ch?.name || '').trim();
-          if (!name) continue;
-          if (!map[name]) {
-            map[name] = migrateCard({
-              name,
-              current_state: ch.current_state || '',
-              intro_block: ch.intro_block || null,
-              status: 'loading',
-            });
-          } else {
-            // Refresh current_state from arc — it updates as the story grows.
-            map[name].current_state = ch.current_state || map[name].current_state || '';
-            map[name].intro_block = ch.intro_block || map[name].intro_block || null;
-          }
-        }
-
-        state.cards = map;
+        state.cards = normalized;
         writeLS();
 
         // ONLY generate portraits for characters that have ZERO portraits.
-        // Anything with at least one drawing already is preserved — Henry
-        // can request more via the detail-view redraw button, but we never
-        // auto-redraw on visit.
-        const needsFirstDraw = Object.values(map).filter(c => !c.portraits.length);
+        // Anything with at least one drawing already is preserved across
+        // every visit, every story, forever — until Henry asks for a redraw
+        // or deletes the portrait explicitly.
+        const needsFirstDraw = Object.values(state.cards).filter(c => !c.portraits.length);
         render();
         // Concurrency: 2 in flight at a time so we don't block the upstream.
         for (const m of needsFirstDraw.slice(0, 2)) generatePortrait(m.name);
@@ -1124,11 +1220,19 @@
       state.saveTimer = setTimeout(persistToCloud, 1400);
     }
     async function persistToCloud() {
+      // The global cast lives in localStorage. We ALSO mirror the subset
+      // that appears in the active story into qss_stories.character_cards
+      // (best-effort) so storyboard generation server-side can read the
+      // primary portraits + visual notes. No active story → just skip.
       if (!state.storyId || !state.story) return;
+      const subset = Object.values(state.cards).filter(c => {
+        const apps = Array.isArray(c.story_appearances) ? c.story_appearances : [];
+        return apps.some(a => a.story_id === state.storyId);
+      });
       const payload = {
         id: state.storyId,
         name: state.story.name,
-        character_cards: Object.values(state.cards).map(c => ({
+        character_cards: subset.map(c => ({
           name: c.name,
           synopsis: c.synopsis || '',
           visual_notes: c.visual_notes || '',
@@ -1138,7 +1242,6 @@
           primary_portrait_id: c.primary_portrait_id || null,
           chat: c.chat || [],
           generated_at: c.generated_at || Date.now(),
-          // legacy single-image mirror for older readers
           image: getPrimary(c) ? { mime: getPrimary(c).mime, dataBase64: getPrimary(c).dataBase64 } : null,
         })),
         expectedUpdatedAt: state.story.updated_at || undefined,
@@ -1148,8 +1251,6 @@
         if (r.ok) {
           const j = await r.json().catch(() => ({}));
           if (j?.story?.updated_at) state.story.updated_at = j.story.updated_at;
-        } else if (r.status === 503) {
-          // Migration 016 not applied. Silently fine — LS is the truth.
         }
       } catch {}
     }

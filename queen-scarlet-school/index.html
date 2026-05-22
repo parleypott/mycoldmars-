@@ -4979,12 +4979,15 @@
           let castRefs = [];
           let castNotes = [];
           try {
-            const castMap = JSON.parse(localStorage.getItem(`qss:cast:${state.serverId || ''}`) || '{}');
+            // Read the GLOBAL cast (one map across all stories) so any
+            // character Henry developed in any past story still anchors
+            // the look here.
+            const globalCast = JSON.parse(localStorage.getItem('qss:globalcast') || '{}');
             const blockText = (b.text || '').toLowerCase();
-            for (const [name, c] of Object.entries(castMap)) {
-              if (!name) continue;
-              const lname = name.toLowerCase();
-              // Match whole-word name appearances in the block text.
+            for (const [lk, c] of Object.entries(globalCast)) {
+              const displayName = (c?.name || lk || '').trim();
+              if (!displayName) continue;
+              const lname = displayName.toLowerCase();
               const re = new RegExp(`\\b${lname.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\b`, 'i');
               if (!re.test(blockText)) continue;
               const portraits = Array.isArray(c?.portraits) ? c.portraits : [];
@@ -4993,7 +4996,7 @@
                 castRefs.push({ dataBase64: primary.dataBase64, mimeType: primary.mime || 'image/png' });
               }
               const notes = (c?.visual_notes || '').trim();
-              if (notes) castNotes.push(`${name}: ${notes}`);
+              if (notes) castNotes.push(`${displayName}: ${notes}`);
             }
           } catch {}
           // Cap reference images at 3 so the gemini call stays cheap.
@@ -6252,6 +6255,9 @@
       if (insp && insp.classList.contains('open')) renderArcInspector();
       // Cast gallery — pick up new characters and start generating their cards
       window.qssCast?.syncFromArc();
+      // GLOBAL CAST — register every character from this story into the
+      // cross-story cast database so other stories can reuse the look + voice.
+      window.qssCast?.syncToGlobalCast?.();
     });
     // Initial render
     renderCastStrip();
@@ -6594,19 +6600,100 @@
       });
 
       // Build a compact context block that Wordy + arc-extract can use as
-      // overlay context: a few sentences per character pulled from the
-      // generated synopses. Image bytes are stripped.
+      // overlay context. This now reads the GLOBAL cast (shared across all
+      // stories) so when Henry starts a new story and mentions Queen
+      // Scarlet or Kevin, Wordy already knows who they are. Image bytes
+      // are stripped — only name + synopsis + visual_notes ride along.
       function getCardsForContext() {
-        const arr = Object.values(cards).filter(c => c?.name && c?.synopsis && c.status === 'ready');
-        return arr.map(c => ({
-          name: c.name,
-          synopsis: c.synopsis,
-          current_state: c.current_state || '',
-          intro_block: c.intro_block || null,
-        }));
+        const out = [];
+        // Always include the in-story cards (richest current_state).
+        try {
+          for (const c of Object.values(cards)) {
+            if (!c?.name || !c?.synopsis || c.status !== 'ready') continue;
+            out.push({
+              name: c.name,
+              synopsis: c.synopsis,
+              visual_notes: c.visual_notes || '',
+              current_state: c.current_state || '',
+              intro_block: c.intro_block || null,
+            });
+          }
+        } catch {}
+        // Overlay global cast — characters from OTHER stories Henry has
+        // developed. If a name is already in `out`, skip; otherwise add.
+        try {
+          const global = JSON.parse(localStorage.getItem('qss:globalcast') || '{}');
+          const seen = new Set(out.map(c => (c.name || '').toLowerCase()));
+          for (const [lk, c] of Object.entries(global)) {
+            const name = (c?.name || lk || '').trim();
+            if (!name) continue;
+            if (seen.has(name.toLowerCase())) continue;
+            const synopsis = String(c?.synopsis || '').trim();
+            if (!synopsis) continue;
+            out.push({
+              name,
+              synopsis,
+              visual_notes: String(c?.visual_notes || '').trim(),
+              current_state: '',
+              intro_block: null,
+            });
+          }
+        } catch {}
+        return out.slice(0, 30);  // bound prompt size
       }
 
-      return { open, close, syncFromArc, hydrateFromServer, getCardsForContext };
+      // Register every character from the local in-story cards map into the
+      // GLOBAL cast so other stories can see Henry's roster. Called from the
+      // Arc subscriber whenever arc state changes. Only updates appearance
+      // metadata + minimal name; portraits/chat/notes stay with whatever was
+      // developed via the cast page.
+      function syncToGlobalCast() {
+        try {
+          const KEY = 'qss:globalcast';
+          const g = JSON.parse(localStorage.getItem(KEY) || '{}') || {};
+          const storyId = state.serverId || null;
+          const storyName = state.name || null;
+          let touched = false;
+          for (const c of Object.values(cards)) {
+            const name = (c?.name || '').trim();
+            if (!name) continue;
+            const lk = name.toLowerCase();
+            if (!g[lk]) {
+              g[lk] = {
+                name,
+                synopsis: c.synopsis || '',
+                visual_notes: c.visual_notes || '',
+                portraits: [],
+                primary_portrait_id: null,
+                chat: [],
+                story_appearances: [],
+                generated_at: Date.now(),
+              };
+              touched = true;
+            }
+            const card = g[lk];
+            // Refresh synopsis only if we have one and global is empty.
+            if (c.synopsis && !card.synopsis) { card.synopsis = c.synopsis; touched = true; }
+            // Track appearance in this story.
+            card.story_appearances = card.story_appearances || [];
+            let app = card.story_appearances.find(a => a.story_id === storyId);
+            if (!app && storyId) {
+              app = { story_id: storyId };
+              card.story_appearances.push(app);
+              touched = true;
+            }
+            if (app) {
+              if (storyName) app.story_name = storyName;
+              if (c.intro_block != null) app.intro_block = c.intro_block;
+              if (c.current_state) app.current_state = c.current_state;
+              app.last_seen_at = Date.now();
+            }
+          }
+          if (touched) localStorage.setItem(KEY, JSON.stringify(g));
+        } catch {}
+      }
+
+      return { open, close, syncFromArc, hydrateFromServer, getCardsForContext, syncToGlobalCast };
     })();
 
     // ─────────── Drag-resizable split between story + chat ───────────
