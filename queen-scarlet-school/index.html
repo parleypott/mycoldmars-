@@ -641,8 +641,9 @@
       font-family: var(--serif); font-size: 15.5px; line-height: 1.55; color: var(--ink);
     }
     .opt-actions {
-      display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;
+      display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px;
       align-items: center;
+      padding-bottom: 22px;  /* room for the floating "add to story" label under the big plus */
     }
     .opt-actions .btn { font-size: 13px; padding: 6px 12px; }
     .opt-actions .tts-btn { width: 36px; height: 36px; box-shadow: 2.5px 2.5px 0 var(--ink-bright); }
@@ -652,7 +653,77 @@
       padding-left: 54px; display: flex; gap: 10px; flex-wrap: wrap; padding-top: 4px;
     }
 
-    /* ───── Direction cards (wizard phase) ───── */
+    /* ───── Scenario rows (the "what happens next" picker) ─────
+       Compact one-line rows — no card chrome, no commentary, no subtitle, no per-row speaker.
+       Big colored 1/2/3 number badge anchors each row for dyslexia-friendly scanning. */
+    .scen-list {
+      display: flex; flex-direction: column; gap: 8px;
+      padding-left: 54px; padding-top: 6px; padding-right: 8px;
+    }
+    .scen-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 10px 14px 10px 10px;
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 14px;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      cursor: pointer;
+      transition: transform .15s var(--ease), box-shadow .15s var(--ease), background .15s;
+    }
+    .scen-row:nth-child(1) { transform: rotate(-0.25deg); }
+    .scen-row:nth-child(2) { transform: rotate(0.25deg); }
+    .scen-row:nth-child(3) { transform: rotate(-0.15deg); }
+    .scen-row:nth-child(4) { transform: rotate(0.15deg); }
+    .scen-row:hover { transform: translate(-2px, -2px) rotate(0); box-shadow: 5px 5px 0 var(--ink-bright); background: var(--paper-soft); }
+    .scen-row.chosen { opacity: 0.7; cursor: default; background: #FFFEF5; }
+    .scen-row.chosen:hover { transform: none; box-shadow: 3px 3px 0 var(--ink-bright); background: #FFFEF5; }
+    .scen-num {
+      flex: 0 0 auto;
+      width: 44px; height: 44px;
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--display); font-weight: 800; font-size: 26px;
+      color: var(--ink-bright);
+      box-shadow: 2.5px 2.5px 0 var(--ink-bright);
+      transform: rotate(-4deg);
+      user-select: none;
+      transition: transform .15s var(--ease);
+    }
+    .scen-row:hover .scen-num { transform: rotate(0) scale(1.06); }
+    .scen-num-1 { background: var(--bubblegum); }
+    .scen-num-2 { background: var(--grass); }
+    .scen-num-3 { background: var(--grape); color: #fff; }
+    .scen-row.chosen .scen-num { background: var(--grass) !important; color: var(--ink-bright); }
+    .scen-text {
+      flex: 1; min-width: 0;
+      font-family: var(--display); font-size: 22px; line-height: 1.25;
+      color: var(--ink-bright); font-weight: 500;
+    }
+    .scen-check {
+      flex: 0 0 auto;
+      font-family: var(--ui); font-weight: 800; font-size: 22px;
+      color: var(--grass-deep);
+    }
+    .scen-row.scen-own {
+      background: #FFFDF1;
+      border-style: dashed;
+      box-shadow: 2px 2px 0 var(--ink-soft);
+    }
+    .scen-row.scen-own:hover { background: #FFFAE0; box-shadow: 4px 4px 0 var(--ink-soft); }
+    .scen-row.scen-own .scen-num.scen-own-num {
+      background: var(--paper-cream);
+      border-style: dashed;
+      box-shadow: 2px 2px 0 var(--ink-soft);
+      font-size: 22px;
+    }
+    .scen-row.scen-own .scen-text {
+      font-style: italic;
+      color: var(--ink-soft);
+      font-size: 18px;
+    }
+
+    /* ───── Direction cards (legacy — kept for back-compat with older saved chats) ───── */
     .dir-list {
       display: flex; flex-direction: column; gap: 12px;
       padding-left: 54px; padding-top: 4px;
@@ -760,11 +831,13 @@
        Only visible to Johnny (parent) effectively, but kid-friendly tone. */
     .route-badge {
       display: inline-flex; align-items: center; gap: 6px;
+      align-self: flex-start;  /* prevent column-flex parent from stretching the pill into a diagonal stripe */
       font-family: var(--ui); font-weight: 700; font-size: 11px;
       letter-spacing: 0.08em; padding: 3px 10px;
       border: 1.5px solid var(--ink-bright); border-radius: 999px;
       box-shadow: 1.5px 1.5px 0 var(--ink-bright);
       transform: rotate(-2deg); margin-left: 54px; margin-bottom: 4px;
+      width: auto; max-width: max-content;
     }
     .route-badge[data-r="engage-direct"]          { background: var(--grass); color: var(--ink-bright); }
     .route-badge[data-r="gentle-widen"]           { background: var(--yolk);  color: var(--ink-bright); }
@@ -772,6 +845,85 @@
     .route-badge[data-r="auto-direction"],
     .route-badge[data-r="opening"],
     .route-badge[data-r="explicit"]               { display: none; } /* hide for default flows */
+
+    /* ── Welcome hero (first-load dyslexia-clear opener for Henry) ── */
+    .welcome-hero {
+      padding: 28px 18px 10px 18px;
+      display: flex; flex-direction: column; align-items: flex-start; gap: 22px;
+    }
+    .welcome-hero .wh-title {
+      font-family: var(--ui);
+      font-weight: 700;
+      font-size: clamp(38px, 5.4vw, 64px);
+      line-height: 1.05;
+      letter-spacing: -0.005em;
+      color: var(--ink-bright);
+      max-width: 18ch;            /* keep line length easy on dyslexic eyes */
+      text-wrap: balance;
+    }
+    .welcome-hero .wh-title .wh-name {
+      color: var(--red);          /* "Henry" pops in blood red */
+    }
+    .welcome-hero .wh-cta {
+      font-family: var(--ui);
+      font-weight: 700;
+      font-size: 18px;
+      padding: 12px 22px;
+      border-radius: 14px;
+      border: 2.5px solid var(--ink-bright);
+      background: var(--red);
+      color: #fff;
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      cursor: pointer;
+      transform: rotate(-1deg);
+      transition: transform .15s var(--ease), box-shadow .15s var(--ease);
+    }
+    .welcome-hero .wh-cta:hover {
+      transform: rotate(-1deg) translate(-2px, -2px);
+      box-shadow: 6px 6px 0 var(--ink-bright);
+    }
+    .welcome-hero .wh-cta:active {
+      transform: rotate(-1deg) translate(1px, 1px);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+    }
+
+    /* ── Big blood-red "+" add-to-story button (replaces text button) ── */
+    .btn-add-plus {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: var(--red);
+      border: 2.5px solid var(--ink-bright);
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      color: #fff;
+      font-family: var(--ui); font-weight: 800; font-size: 36px; line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transform: rotate(-4deg);
+      transition: transform .15s var(--ease), box-shadow .15s var(--ease), background .15s;
+      padding: 0;
+      position: relative;
+    }
+    .btn-add-plus::after {
+      content: 'add to story';
+      position: absolute; top: 100%; left: 50%;
+      transform: translateX(-50%) rotate(4deg);
+      margin-top: 6px;
+      font-family: var(--ui); font-weight: 700; font-size: 10.5px;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--ink-soft);
+      white-space: nowrap;
+      opacity: 0.85;
+      pointer-events: none;
+    }
+    .btn-add-plus:hover {
+      transform: rotate(0deg) translate(-2px, -2px) scale(1.04);
+      box-shadow: 6px 6px 0 var(--ink-bright);
+      background: #C0392B; /* deeper blood on hover */
+    }
+    .btn-add-plus:active {
+      transform: rotate(-4deg) translate(2px, 2px);
+      box-shadow: 1px 1px 0 var(--ink-bright);
+    }
 
     /* ── Composer ── */
     .composer {
@@ -2516,21 +2668,17 @@
     function renderChat() {
       const chat = document.getElementById('tutor-chat');
       if (!state.chat.length && !state.thinking) {
-        // First-load empty state — show wordy's opening prompt button
+        // First-load empty state — big dyslexia-clear opener for Henry
+        const isContinue = state.blocks.length > 0;
         chat.innerHTML = `
-          <div class="tutor-turn">
-            <div class="tutor-msg">
-              ${window.dragon('md')}
-              <div class="bubble">
-                <strong>hi! i'm wordy.</strong> i'll help you build a story, one block at a time.<br><br>
-                ${state.rules.goal ? esc(state.rules.goal) : 'tell me what kind of story you want to make — or hit the button below and i\'ll suggest 3 ways to start!'}
-              </div>
-            </div>
-            <div class="more-options">
-              <button id="btn-start" class="btn primary">${state.blocks.length ? 'continue the story →' : 'show me 3 ways to start →'}</button>
-            </div>
+          <div class="welcome-hero">
+            <div class="wh-title">${isContinue
+              ? `welcome back, <span class="wh-name">Henry</span>.<br>keep going?`
+              : `what story will you write today, <span class="wh-name">Henry</span>?`
+            }</div>
+            <button id="btn-start" class="wh-cta">${isContinue ? 'keep going →' : 'show me 3 ways to start →'}</button>
           </div>`;
-        chat.querySelector('#btn-start')?.addEventListener('click', () => askWordy(state.blocks.length ? '' : 'show me 3 great ways to open this story.'));
+        chat.querySelector('#btn-start')?.addEventListener('click', () => askWordy(isContinue ? '' : 'show me 3 great ways to open this story.'));
         return;
       }
 
@@ -2542,52 +2690,42 @@
         if (t.phase === 'directions' && t.directions?.length) {
           const isLatest = state.latestDirections?.turnId === t.id;
           const someoneChosen = t.directions.some(d => d.chosen);
-          // Only the first 3 directions get numbered "1/2/3" cards (matches the keypress 1/2/3 UX)
+          // Only the first 3 directions get numbered rows (matches the keypress 1/2/3 UX)
           const picks = t.directions.slice(0, 3);
-          const cards = picks.map((d, i) => `
-            <div class="dir-card dir-pick ${d.chosen ? 'chosen' : ''}"
+          const rows = picks.map((d, i) => `
+            <div class="scen-row ${d.chosen ? 'chosen' : ''}"
                  data-action="${someoneChosen ? '' : 'choose-dir'}"
-                 data-turn="${t.id}" data-id="${d.id}" data-dir="${d.id}">
-              <div class="dir-num">${i + 1}</div>
-              ${!d.chosen && !someoneChosen ? `<div class="dir-keychip">press ${i + 1}</div>` : ''}
-              ${d.vibe ? `<span class="dir-vibe">${esc(d.vibe)}</span>` : ''}
-              <div class="dir-title">${esc(d.title)}</div>
-              ${d.description ? `<div class="dir-desc">${esc(d.description)}</div>` : ''}
-              <div class="dir-actions">
-                ${d.chosen
-                  ? `<span style="font-family:var(--ui); font-size:13px; color: var(--grass-deep); font-weight:700;">✓ taking this path</span>`
-                  : someoneChosen
-                    ? ''
-                    : `<button class="btn primary" data-action="choose-dir" data-turn="${t.id}" data-id="${d.id}">pick this →</button>
-                       <button class="tts-btn tts-here" data-tts="${esc(d.title + '. ' + d.description)}" title="Read aloud">${window.qssTTS.ICON_PLAY}</button>`
-                }
-              </div>
+                 data-turn="${t.id}" data-id="${d.id}">
+              <div class="scen-num scen-num-${i + 1}">${i + 1}</div>
+              <div class="scen-text">${esc(d.title)}</div>
+              ${d.chosen ? `<div class="scen-check">✓</div>` : ''}
             </div>`).join('');
-          // 4th "type your own" card pointing at the composer — only on the latest unchosen turn
-          const ownCard = (isLatest && !someoneChosen) ? `
-            <div class="dir-card dir-own" data-action="focus-composer">
-              <div class="dir-num">✎</div>
-              <div class="dir-title">or type your own next step ↓</div>
-              <div class="dir-desc">tell wordy exactly what should happen next — type it in the box below, or press the mic and just say it.</div>
+          // 4th "type your own" row — only on the latest unchosen turn
+          const ownRow = (isLatest && !someoneChosen) ? `
+            <div class="scen-row scen-own" data-action="focus-composer">
+              <div class="scen-num scen-own-num">✎</div>
+              <div class="scen-text">or type your own next step ↓</div>
             </div>` : '';
           const tryAgain = (isLatest && !someoneChosen) ? `
             <div class="more-options">
               <button class="btn ghost" data-action="try-again-dirs">none of these — give me different scenarios</button>
             </div>` : '';
-          const routeBadge = t.routing && t.routing !== 'auto-direction' && t.routing !== 'opening' && t.routing !== 'explicit'
-            ? `<div class="route-badge" data-r="${esc(t.routing)}">${
-                t.routing === 'engage-direct'          ? '✦ running with your idea'
-              : t.routing === 'gentle-widen'           ? '✦ widening the options'
-              : t.routing === 'redirect-from-fixation' ? '✦ wizard suggests other paths'
-              : esc(t.routing)
-              }</div>` : '';
+          // One master TTS payload that reads the prompt + all three options in sequence.
+          // No per-row speaker — Henry presses ONE button to hear everything.
+          const ttsAll = (t.content || 'what should happen next?') +
+            (picks.length ? ' ' + picks.map((d, i) => `option ${i + 1}: ${d.title}.`).join(' ') : '') +
+            ((isLatest && !someoneChosen) ? ' or type your own next step.' : '');
+          // Only the meaningful "wizard redirected from fixation" badge surfaces — drop
+          // the informational priming labels Johnny called out.
+          const routeBadge = t.routing === 'redirect-from-fixation'
+            ? `<div class="route-badge" data-r="redirect-from-fixation">✦ wizard suggests other paths</div>` : '';
           return `<div class="tutor-turn">
             <div class="tutor-msg">
               ${window.dragon('md')}
-              <div class="bubble">${esc(t.content)}<button class="tts-btn sm tts-bubble" data-tts="${esc(t.content)}" style="margin-left:8px; vertical-align:middle;"></button></div>
+              <div class="bubble">${esc(t.content)}<button class="tts-btn sm tts-bubble" data-tts="${esc(ttsAll)}" style="margin-left:8px; vertical-align:middle;" title="Read everything aloud"></button></div>
             </div>
             ${routeBadge}
-            <div class="dir-list">${cards}${ownCard}</div>
+            <div class="scen-list">${rows}${ownRow}</div>
             ${tryAgain}
           </div>`;
         }
@@ -2603,7 +2741,7 @@
               <div class="opt-actions">
                 ${o.added
                   ? `<span style="font-family:var(--ui); font-size:13px; color: var(--grass-deep); font-weight:700;">added!</span>`
-                  : `<button class="btn primary" data-action="commit" data-id="${o.id}">+ Add to story</button>
+                  : `<button class="btn-add-plus" data-action="commit" data-id="${o.id}" title="Add to story" aria-label="Add to story">+</button>
                      <button class="tts-btn tts-here" data-tts="${esc(o.text)}" title="Read this option aloud" aria-label="Read aloud">${window.qssTTS.ICON_PLAY}</button>`
                 }
               </div>
