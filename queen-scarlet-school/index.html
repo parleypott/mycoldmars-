@@ -2012,6 +2012,374 @@
       .story-name { width: 130px; font-size: 18px; }
       .tabs { padding: 12px; flex-wrap: wrap; gap: 8px; }
     }
+
+    /* ──────────── Cast — playing-card character gallery ──────────── */
+
+    /* Topbar button: stylized, three card silhouettes peeking out behind the label */
+    .btn-cast {
+      position: relative;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 7px 16px 7px 36px;
+      background: linear-gradient(180deg, #FFE9B0 0%, #FAC967 100%);
+      color: var(--ink-bright);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 999px;
+      font-family: var(--ui);
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: 0.06em;
+      text-transform: lowercase;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      transform: rotate(-1deg);
+      transition: transform 120ms var(--ease), box-shadow 120ms var(--ease);
+    }
+    .btn-cast:hover {
+      transform: rotate(-1deg) translate(-1px, -1px);
+      box-shadow: 4px 4px 0 var(--ink-bright);
+    }
+    .btn-cast:active { transform: rotate(-1deg) translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink-bright); }
+    .btn-cast .cast-deck {
+      position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+      width: 24px; height: 30px; pointer-events: none;
+    }
+    .btn-cast .cast-deck span {
+      position: absolute; top: 0; left: 0;
+      width: 18px; height: 26px;
+      border-radius: 3px;
+      border: 1.5px solid var(--ink-bright);
+      background: var(--paper);
+      box-shadow: 1px 1px 0 var(--ink-bright);
+    }
+    .btn-cast .cast-deck span:nth-child(1) { transform: rotate(-12deg) translateX(-3px); background: #FFD7E0; }
+    .btn-cast .cast-deck span:nth-child(2) { transform: rotate(-2deg) translateX(0px); background: #BFE5FF; }
+    .btn-cast .cast-deck span:nth-child(3) { transform: rotate(10deg) translateX(4px); background: #FFE69A; }
+    .btn-cast .cast-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 18px; height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: var(--red);
+      color: var(--paper);
+      font-family: var(--ui);
+      font-size: 11px;
+      font-weight: 800;
+      transform: rotate(2deg);
+    }
+    .btn-cast .cast-count[hidden] { display: none; }
+
+    /* Modal — uses a slightly different veil tint so it feels separate from rules */
+    .cast-veil {
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse at top, rgba(31,31,35,0.62) 0%, rgba(31,31,35,0.85) 100%);
+      z-index: 350; display: none; align-items: stretch; justify-content: center;
+      padding: 18px;
+      overflow-y: auto;
+    }
+    .cast-veil.open { display: flex; }
+    .cast-stage {
+      width: 100%; max-width: 1280px;
+      margin: auto;
+      display: flex; flex-direction: column; gap: 20px;
+      padding: 6px 0 28px;
+    }
+    .cast-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 6px 6px 0;
+    }
+    .cast-title-block { display: flex; flex-direction: column; gap: 4px; }
+    .cast-title {
+      font-family: var(--display);
+      font-size: clamp(38px, 5vw, 64px);
+      color: var(--paper);
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.01em;
+      text-shadow: 3px 3px 0 var(--ink-bright);
+    }
+    .cast-title em { color: var(--yolk); font-style: normal; }
+    .cast-sub {
+      font-family: var(--serif);
+      font-style: italic;
+      color: rgba(244, 233, 200, 0.78);
+      font-size: 15px;
+    }
+    .cast-close-x {
+      background: var(--paper);
+      color: var(--ink-bright);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 999px;
+      width: 44px; height: 44px;
+      font-family: var(--ui);
+      font-weight: 800;
+      font-size: 22px;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+    }
+    .cast-close-x:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink-bright); }
+
+    .cast-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 22px;
+      padding: 0 6px;
+    }
+    .cast-empty {
+      padding: 60px 20px;
+      text-align: center;
+      font-family: var(--serif);
+      font-size: 18px;
+      color: rgba(244, 233, 200, 0.7);
+      max-width: 540px;
+      margin: 0 auto;
+    }
+    .cast-empty strong { display: block; font-family: var(--display); color: var(--paper); font-size: 28px; margin-bottom: 8px; }
+
+    /* Playing card — 2.5 : 3.5 aspect, 3D flip */
+    .ccard {
+      position: relative;
+      aspect-ratio: 2.5 / 3.5;
+      width: 100%;
+      perspective: 1400px;
+      cursor: pointer;
+      filter: drop-shadow(6px 8px 0 rgba(31,31,35,0.7));
+    }
+    .ccard-inner {
+      position: relative;
+      width: 100%; height: 100%;
+      transition: transform 700ms cubic-bezier(0.5, 0, 0.3, 1.18);
+      transform-style: preserve-3d;
+    }
+    .ccard.flipped .ccard-inner { transform: rotateY(180deg); }
+    .ccard:not(.flipped) .ccard-inner:hover { transform: rotateY(-3deg) rotateX(2deg); }
+
+    .ccard-face {
+      position: absolute; inset: 0;
+      border-radius: 14px;
+      border: 3px solid var(--ink-bright);
+      overflow: hidden;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      background: var(--paper);
+      box-shadow: inset 0 0 0 1px rgba(31,31,35,0.15);
+    }
+
+    /* Front: portrait + name banner */
+    .ccard-front {
+      display: flex; flex-direction: column;
+      background: var(--paper);
+    }
+    .ccard-corner {
+      position: absolute; top: 8px; left: 10px;
+      font-family: var(--display);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--ink-bright);
+      line-height: 1;
+      transform: rotate(-3deg);
+      z-index: 2;
+      pointer-events: none;
+      text-shadow: 1px 1px 0 var(--paper);
+    }
+    .ccard-corner.tr {
+      top: auto; left: auto;
+      bottom: 8px; right: 10px;
+      transform: rotate(180deg) rotate(-3deg);
+    }
+    .ccard-portrait {
+      flex: 1; min-height: 0;
+      background: #F5E9C8 url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Crect width='10' height='10' fill='%23F5E9C8'/%3E%3Ccircle cx='5' cy='5' r='0.8' fill='%23D8C58A'/%3E%3C/svg%3E");
+      background-size: 10px 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    .ccard-portrait img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .ccard-portrait.loading {
+      display: flex; align-items: center; justify-content: center;
+      color: var(--ink-soft);
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 14px;
+    }
+    .ccard-portrait.loading::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%);
+      animation: ccard-shimmer 1.8s linear infinite;
+    }
+    @keyframes ccard-shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+    .ccard-portrait.failed {
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px;
+      text-align: center;
+      color: var(--ink-soft);
+      font-family: var(--serif);
+      font-size: 13px;
+    }
+
+    .ccard-nameplate {
+      flex-shrink: 0;
+      padding: 12px 14px 14px;
+      background: var(--paper-deep);
+      border-top: 2.5px solid var(--ink-bright);
+    }
+    .ccard-name {
+      font-family: var(--display);
+      font-size: clamp(20px, 1.5vw, 26px);
+      font-weight: 700;
+      line-height: 1.05;
+      color: var(--ink-bright);
+      letter-spacing: -0.01em;
+      transform: rotate(-1deg);
+      transform-origin: left center;
+    }
+    .ccard-current {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 12.5px;
+      color: var(--ink-soft);
+      margin-top: 3px;
+      line-height: 1.3;
+      max-height: 2.6em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .ccard-hint {
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+      font-family: var(--ui);
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(31,31,35,0.35);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Back: synopsis + speaker */
+    .ccard-back {
+      transform: rotateY(180deg);
+      background: var(--paper);
+      padding: 16px 14px 14px;
+      display: flex; flex-direction: column; gap: 10px;
+      background-image:
+        radial-gradient(circle at 20% 10%, rgba(255, 209, 88, 0.18) 0%, transparent 28%),
+        radial-gradient(circle at 80% 90%, rgba(255, 138, 92, 0.16) 0%, transparent 32%),
+        repeating-linear-gradient(0deg, transparent 0px, transparent 27px, rgba(31,31,35,0.06) 27px, rgba(31,31,35,0.06) 28px);
+    }
+    .ccard-back-head {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+      border-bottom: 1.5px dashed rgba(31,31,35,0.25);
+      padding-bottom: 8px;
+    }
+    .ccard-back-name {
+      font-family: var(--display);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--ink-bright);
+      line-height: 1.05;
+      letter-spacing: -0.01em;
+    }
+    .ccard-suit {
+      font-family: var(--display);
+      font-size: 16px;
+      color: var(--red);
+      transform: rotate(-6deg);
+    }
+    .ccard-synopsis {
+      flex: 1;
+      font-family: var(--serif);
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: var(--ink);
+      overflow-y: auto;
+      padding-right: 4px;
+      min-height: 0;
+    }
+    .ccard-synopsis.loading {
+      font-style: italic;
+      color: var(--ink-soft);
+    }
+    .ccard-back-actions {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1.5px dashed rgba(31,31,35,0.25);
+    }
+    .ccard-speaker {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 38px; height: 38px;
+      border-radius: 999px;
+      background: var(--paper-deep);
+      color: var(--ink-bright);
+      border: 2.5px solid var(--ink-bright);
+      cursor: pointer;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      font-size: 16px;
+      transition: transform 120ms var(--ease), box-shadow 120ms var(--ease);
+    }
+    .ccard-speaker:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink-bright); }
+    .ccard-speaker.playing {
+      background: var(--yolk);
+      animation: ccard-speaker-pulse 850ms ease-in-out infinite;
+    }
+    @keyframes ccard-speaker-pulse {
+      0%, 100% { box-shadow: 2px 2px 0 var(--ink-bright), 0 0 0 0 rgba(255,209,88,0.85); }
+      50%      { box-shadow: 2px 2px 0 var(--ink-bright), 0 0 0 6px rgba(255,209,88,0.30), 0 0 22px 4px rgba(255,209,88,0.55); }
+    }
+    .ccard-regen {
+      background: transparent;
+      color: var(--ink-soft);
+      border: none;
+      cursor: pointer;
+      font-family: var(--ui);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 6px 8px;
+    }
+    .ccard-regen:hover { color: var(--ink-bright); text-decoration: underline; }
+    .ccard-flipback {
+      background: transparent;
+      color: var(--ink-soft);
+      border: none;
+      cursor: pointer;
+      font-family: var(--ui);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 6px 8px;
+    }
+    .ccard-flipback:hover { color: var(--ink-bright); text-decoration: underline; }
+
+    .ccard-state {
+      position: absolute; top: 0; left: 0;
+      padding: 4px 8px;
+      font-family: var(--ui);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--paper);
+      background: var(--ink-bright);
+      border-bottom-right-radius: 8px;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    @media (max-width: 700px) {
+      .cast-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+      .cast-title { font-size: 36px; }
+      .btn-cast { font-size: 12px; padding: 6px 12px 6px 32px; }
+      .btn-cast .cast-deck { left: 6px; width: 22px; height: 26px; }
+    }
   </style>
 </head>
 <body>
@@ -2073,6 +2441,11 @@
       <div class="topbar-right">
         <span id="egg-chip" class="egg-chip" title="Secret things found">🏆 <span id="egg-count">0</span></span>
         <span id="save-pill" class="save-pill" title="auto-save status">saved</span>
+        <button id="btn-cast" class="btn-cast" type="button" title="Open the character gallery">
+          <span class="cast-deck" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span>the cast</span>
+          <span id="cast-count" class="cast-count" hidden>0</span>
+        </button>
         <a href="library/" id="btn-library" class="btn gold" title="Open the story library">📚 library</a>
         <button id="btn-rules" class="btn ghost" title="Parent settings — story rules and goals">⚙ rules</button>
         <button id="btn-new" class="btn ghost" title="Start a new story">+ new</button>
@@ -2284,6 +2657,25 @@
       <div class="wrap-actions">
         <button id="wrap-read-last" class="btn primary" type="button">▶ read me the last bit</button>
         <button id="wrap-close" class="btn ghost" type="button">back to the story</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ Cast Gallery ════════ -->
+  <div class="cast-veil" id="cast-modal" role="dialog" aria-modal="true" aria-label="Character gallery">
+    <div class="cast-stage">
+      <div class="cast-head">
+        <div class="cast-title-block">
+          <div class="cast-title">the <em>cast</em></div>
+          <div class="cast-sub">flip a card for the back-of-the-card scoop. portraits drawn fresh.</div>
+        </div>
+        <button id="cast-close" class="cast-close-x" type="button" aria-label="Close">×</button>
+      </div>
+      <div id="cast-grid" class="cast-grid"></div>
+      <div id="cast-empty" class="cast-empty" hidden>
+        <strong>no cards yet</strong>
+        nobody's stepped into the story yet. once Henry writes a character or two,
+        their cards will deal themselves out here.
       </div>
     </div>
   </div>
@@ -4595,9 +4987,313 @@
       renderCastStrip();
       const insp = document.getElementById('arc-inspector');
       if (insp && insp.classList.contains('open')) renderArcInspector();
+      // Cast gallery — pick up new characters and start generating their cards
+      window.qssCast?.syncFromArc();
     });
     // Initial render
     renderCastStrip();
+
+    // ─────────── Cast gallery — flip cards, lazy portrait generation ───────────
+    window.qssCast = (function() {
+      const LS_KEY = () => `qss:cast:${state.serverId || state.name || '__none__'}`;
+      // Map<characterName, { name, current_state, intro_block, status, synopsis, image: {mime, dataBase64}, generated_at, error? }>
+      let cards = {};
+      let activeAudio = null;
+      let activeSpeakerBtn = null;
+      let pendingGen = new Set();
+
+      function load() {
+        try {
+          const raw = localStorage.getItem(LS_KEY());
+          cards = raw ? JSON.parse(raw) : {};
+        } catch { cards = {}; }
+      }
+      function save() {
+        try { localStorage.setItem(LS_KEY(), JSON.stringify(cards)); } catch (e) {
+          // base64 images can blow localStorage quota; drop the oldest card and retry once
+          try {
+            const entries = Object.entries(cards).sort((a, b) => (a[1].generated_at || 0) - (b[1].generated_at || 0));
+            if (entries.length > 2) {
+              delete cards[entries[0][0]];
+              localStorage.setItem(LS_KEY(), JSON.stringify(cards));
+            }
+          } catch {}
+        }
+      }
+
+      function currentCharacters() {
+        const list = state.arcContext?.characters || [];
+        return list.filter(c => (c?.name || '').trim()).map(c => ({
+          name: c.name.trim(),
+          current_state: (c.current_state || '').trim(),
+          intro_block: Number(c.intro_block) || null,
+        }));
+      }
+
+      function updateBadge() {
+        const el = document.getElementById('cast-count');
+        if (!el) return;
+        const n = currentCharacters().length;
+        if (n > 0) { el.textContent = String(n); el.hidden = false; }
+        else { el.hidden = true; }
+      }
+
+      async function generateCard(name) {
+        if (pendingGen.has(name)) return;
+        const ch = currentCharacters().find(c => c.name === name);
+        if (!ch) return;
+        pendingGen.add(name);
+        cards[name] = { ...(cards[name] || {}), ...ch, status: 'loading' };
+        save();
+        renderIfOpen();
+        try {
+          const recent = (state.blocks || []).slice(-6).map(b => ({ text: b.text || '' }));
+          const res = await fetch('/api/qss-character-card', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+            body: JSON.stringify({
+              character: ch,
+              arc: state.arcContext || null,
+              recentBlocks: recent,
+              rules: state.rules || null,
+            }),
+          });
+          if (!res.ok) {
+            const j = await res.json().catch(() => ({}));
+            throw new Error(j.error || `${res.status}`);
+          }
+          const data = await res.json();
+          cards[name] = {
+            ...cards[name],
+            status: 'ready',
+            synopsis: data.synopsis || '',
+            image: data.image || null,
+            generated_at: Date.now(),
+            error: null,
+          };
+          save();
+          renderIfOpen();
+        } catch (e) {
+          cards[name] = { ...(cards[name] || {}), status: 'error', error: e.message };
+          save();
+          renderIfOpen();
+        } finally {
+          pendingGen.delete(name);
+        }
+      }
+
+      function syncFromArc() {
+        load();
+        const chars = currentCharacters();
+        updateBadge();
+        // Refresh current_state on existing cards (so the front-of-card snippet stays current)
+        for (const ch of chars) {
+          if (cards[ch.name]) {
+            cards[ch.name].current_state = ch.current_state;
+            cards[ch.name].intro_block = ch.intro_block;
+          }
+        }
+        save();
+        // Auto-generate cards for new characters (max 2 in flight at once)
+        const missing = chars.filter(c => !cards[c.name] || cards[c.name].status === 'error');
+        const slots = Math.max(0, 2 - pendingGen.size);
+        for (const m of missing.slice(0, slots)) generateCard(m.name);
+        renderIfOpen();
+      }
+
+      function cardMarkup(name) {
+        const c = cards[name] || {};
+        const arcCh = currentCharacters().find(x => x.name === name);
+        const isLoading = c.status === 'loading' || c.status === undefined;
+        const hasImage = c.status === 'ready' && c.image?.dataBase64;
+        const hasError = c.status === 'error';
+        const synopsis = c.synopsis || '';
+        const current = (arcCh?.current_state || c.current_state || '').trim();
+
+        const portraitInner = hasImage
+          ? `<img src="data:${esc(c.image.mime || 'image/png')};base64,${c.image.dataBase64}" alt="portrait of ${esc(name)}" loading="lazy" />`
+          : hasError
+            ? `<div>couldn't draw the card<br><span style="font-size:11px; opacity:0.7;">(${esc(c.error || 'error')})</span></div>`
+            : `<span>drawing the portrait…</span>`;
+
+        const portraitClass = hasImage ? '' : (hasError ? 'failed' : 'loading');
+
+        const synopsisInner = isLoading
+          ? `writing the back-of-card…`
+          : hasError
+            ? `(couldn't write this one — hit "redraw" to try again)`
+            : esc(synopsis);
+
+        const synopsisClass = (isLoading || hasError) ? 'loading' : '';
+
+        return `<div class="ccard" data-name="${esc(name)}">
+          <div class="ccard-inner">
+            <div class="ccard-face ccard-front">
+              ${arcCh?.intro_block ? `<span class="ccard-state">first seen · block ${arcCh.intro_block}</span>` : ''}
+              <span class="ccard-corner">${esc(initials(name))}</span>
+              <div class="ccard-portrait ${portraitClass}">${portraitInner}</div>
+              <div class="ccard-nameplate">
+                <div class="ccard-name">${esc(name)}</div>
+                ${current ? `<div class="ccard-current">${esc(current)}</div>` : ''}
+              </div>
+              <span class="ccard-corner tr">${esc(initials(name))}</span>
+              <span class="ccard-hint">tap to flip</span>
+            </div>
+            <div class="ccard-face ccard-back">
+              <div class="ccard-back-head">
+                <div class="ccard-back-name">${esc(name)}</div>
+                <span class="ccard-suit">♣</span>
+              </div>
+              <div class="ccard-synopsis ${synopsisClass}">${synopsisInner}</div>
+              <div class="ccard-back-actions">
+                <button class="ccard-speaker" type="button" data-action="speak" aria-label="Read this card aloud" ${(isLoading || hasError) ? 'disabled' : ''}>🔊</button>
+                <button class="ccard-regen" type="button" data-action="regen">↻ redraw</button>
+                <button class="ccard-flipback" type="button" data-action="flipback">flip back</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      }
+
+      function initials(name) {
+        const parts = name.split(/\s+/).filter(Boolean);
+        return parts.map(p => p[0]?.toUpperCase()).slice(0, 2).join('') || '?';
+      }
+
+      function renderIfOpen() {
+        const veil = document.getElementById('cast-modal');
+        if (!veil || !veil.classList.contains('open')) { updateBadge(); return; }
+        render();
+      }
+
+      function render() {
+        updateBadge();
+        const grid = document.getElementById('cast-grid');
+        const empty = document.getElementById('cast-empty');
+        if (!grid || !empty) return;
+        const chars = currentCharacters();
+        if (!chars.length) {
+          grid.innerHTML = '';
+          empty.hidden = false;
+          return;
+        }
+        empty.hidden = true;
+        // Sort by intro_block ascending; characters without an intro_block go last
+        const sorted = chars.slice().sort((a, b) => (a.intro_block ?? 9999) - (b.intro_block ?? 9999));
+        grid.innerHTML = sorted.map(c => cardMarkup(c.name)).join('');
+      }
+
+      function open() {
+        const veil = document.getElementById('cast-modal');
+        if (!veil) return;
+        load();
+        // Trigger generation for any character missing a card
+        syncFromArc();
+        veil.classList.add('open');
+        render();
+      }
+
+      function close() {
+        const veil = document.getElementById('cast-modal');
+        if (!veil) return;
+        veil.classList.remove('open');
+        stopSpeak();
+      }
+
+      function stopSpeak() {
+        if (activeAudio) {
+          try { activeAudio.pause(); } catch {}
+          activeAudio = null;
+        }
+        if (activeSpeakerBtn) {
+          activeSpeakerBtn.classList.remove('playing');
+          activeSpeakerBtn = null;
+        }
+      }
+
+      async function speak(name, button) {
+        const c = cards[name];
+        if (!c?.synopsis) return;
+        // Toggle if same button
+        if (activeSpeakerBtn === button) { stopSpeak(); return; }
+        stopSpeak();
+        button.classList.add('playing');
+        activeSpeakerBtn = button;
+        try {
+          const res = await fetch('/api/qss-tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+            body: JSON.stringify({ text: c.synopsis }),
+          });
+          if (!res.ok) throw new Error(`tts ${res.status}`);
+          const blob = await res.blob();
+          if (activeSpeakerBtn !== button) return; // user moved on
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          activeAudio = audio;
+          audio.addEventListener('ended', () => {
+            if (activeSpeakerBtn === button) { button.classList.remove('playing'); activeSpeakerBtn = null; activeAudio = null; }
+            URL.revokeObjectURL(url);
+          });
+          audio.addEventListener('error', () => {
+            if (activeSpeakerBtn === button) { button.classList.remove('playing'); activeSpeakerBtn = null; activeAudio = null; }
+          });
+          await audio.play();
+        } catch (e) {
+          console.warn('[cast speak]', e);
+          button.classList.remove('playing');
+          if (activeSpeakerBtn === button) activeSpeakerBtn = null;
+        }
+      }
+
+      // Delegated grid clicks
+      function onGridClick(e) {
+        const card = e.target.closest('.ccard');
+        if (!card) return;
+        const speakerBtn = e.target.closest('[data-action="speak"]');
+        if (speakerBtn) {
+          e.stopPropagation();
+          speak(card.dataset.name, speakerBtn);
+          return;
+        }
+        const regenBtn = e.target.closest('[data-action="regen"]');
+        if (regenBtn) {
+          e.stopPropagation();
+          const name = card.dataset.name;
+          delete cards[name];
+          save();
+          generateCard(name);
+          return;
+        }
+        const backBtn = e.target.closest('[data-action="flipback"]');
+        if (backBtn) {
+          e.stopPropagation();
+          card.classList.remove('flipped');
+          return;
+        }
+        // Click anywhere else on the card body → flip
+        card.classList.toggle('flipped');
+      }
+
+      // Wire DOM events on first init
+      document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('btn-cast');
+        const close_ = document.getElementById('cast-close');
+        const veil = document.getElementById('cast-modal');
+        const grid = document.getElementById('cast-grid');
+        if (btn) btn.addEventListener('click', open);
+        if (close_) close_.addEventListener('click', close);
+        if (veil) veil.addEventListener('click', (e) => { if (e.target === veil) close(); });
+        if (grid) grid.addEventListener('click', onGridClick);
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && veil?.classList.contains('open')) close();
+        });
+        load();
+        updateBadge();
+      });
+
+      return { open, close, syncFromArc };
+    })();
 
     // ─────────── Drag-resizable split between story + chat ───────────
     (function() {
