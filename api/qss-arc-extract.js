@@ -1,4 +1,5 @@
 import { checkAccess } from './_lib/access.js';
+import { findCanonCharactersInText, canonContextBlock } from './_lib/qss-canon.js';
 
 export const config = { runtime: 'edge', maxDuration: 30 };
 
@@ -90,7 +91,15 @@ export default async function handler(req) {
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1500,
         temperature: 0.3,           // factual extraction, not creative
-        system: ARC_SYSTEM,
+        system: ARC_SYSTEM + (() => {
+          // Overlay world canon when canonical characters appear in the
+          // story text. Prevents the extractor from re-classifying e.g.
+          // Queen Scarlet as a human queen when she's a red dragon.
+          const scan = blocks.map(b => b.text || '').join(' ');
+          const matches = findCanonCharactersInText(scan);
+          if (!matches.length) return '';
+          return '\n\n═══ WORLD CANON (non-negotiable overlay) ═══\n' + canonContextBlock(matches.map(m => m.name));
+        })(),
         messages: [{ role: 'user', content: userMsg }],
       }),
     });

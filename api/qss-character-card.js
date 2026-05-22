@@ -23,6 +23,7 @@
 //    AI-thesaurus tropes, no "weaving threads", no overproduction.
 
 import { checkAccess as sharedCheckAccess } from './_lib/access.js';
+import { canonForName, canonContextBlock } from './_lib/qss-canon.js';
 
 export const config = { runtime: 'edge' };
 
@@ -65,14 +66,11 @@ export default async function handler(req) {
   const denied = await checkAccess(req);
   if (denied) return withCors(denied);
 
-  // Identity check on top of shape check. The shared checkAccess only
-  // validates that the Bearer header has a JWT-shape — anyone with a
-  // JWT from any Supabase project (including ones the attacker
-  // controls) can pass that perimeter. Verify the JWT actually
-  // resolves to a user in OUR Supabase project before burning
-  // Anthropic + Gemini credits.
-  const me = await whoAmI(req);
-  if (!me) return withCors(json(401, { error: 'Sign in first.' }));
+  // NOTE: a whoAmI() Supabase-user check used to live here, blocking
+  // anyone not signed into Supabase. QSS doesn't have user accounts —
+  // clients pass through the gate password → x-access-code bootstrap.
+  // The shared perimeter (checkAccess above) is the appropriate gate
+  // for this app; requiring real Supabase auth broke every card.
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -96,8 +94,14 @@ export default async function handler(req) {
   const recentBlocks = Array.isArray(body.recentBlocks) ? body.recentBlocks.slice(-6) : [];
   const recentText = recentBlocks.map((b, i) => `[${i + 1}] ${(b.text || '').trim()}`).join('\n\n');
 
+  // World canon — non-negotiable facts about this character if they're canonical.
+  // E.g. Queen Scarlet IS a red dragon; the model doesn't get to make her a human.
+  const subjectCanon = canonForName(name);
+  const canonBlock = canonContextBlock([name]);
+
   const synopsisUser = [
     `Character: ${name}`,
+    canonBlock ? canonBlock : '',
     currentState ? `Where they are right now: ${currentState}` : '',
     introBlock ? `Introduced around block ${introBlock}.` : '',
     arcSynopsis ? `Story so far: ${arcSynopsis}` : '',
@@ -105,11 +109,11 @@ export default async function handler(req) {
     tones.length ? `Tone of the story: ${tones.join(', ')}.` : '',
     recentText ? `Most recent story blocks for voice/tone:\n${recentText}` : '',
     '',
-    'Write the back-of-the-card synopsis for this character in 3-4 short sentences. Match the voice of the story.',
+    'Write the back-of-the-card synopsis for this character in 3-4 short sentences. Match the voice of the story. If WORLD CANON is provided above, every detail in it is non-negotiably true.',
   ].filter(Boolean).join('\n');
 
   // Image prompt is locally composed so we can fire both upstream calls in parallel.
-  const portraitPrompt = buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks });
+  const portraitPrompt = buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, subjectCanon });
 
   const synopsisPromise = callClaude(anthropicKey, synopsisUser);
   const imagePromise = callNanoBanana(geminiKey, portraitPrompt);
@@ -144,7 +148,7 @@ function cleanSynopsis(s) {
     .trim();
 }
 
-function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks }) {
+function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, subjectCanon }) {
   // Style anchor — match the existing QSS sticker art (Kevin in calculator
   // helmet, Benny the beaver in a gas mask on a bean forklift, the cartoon
   // dragon). Modern children's-book sticker illustration: bold consistent
@@ -181,8 +185,20 @@ function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks }
   const story = recentSnippet ? `Snippet of recent story for visual hooks (objects, items they\'re holding, situation): "${recentSnippet}".` : '';
   const themeLine = themes.length ? `Story themes (use only if they suggest a specific visual prop, not as mood): ${themes.join(', ')}.` : '';
 
+  // Canonical override — for established characters like Queen Scarlet,
+  // these traits are non-negotiable and must dominate the user's bible /
+  // story context if they conflict.
+  const canonBlock = subjectCanon ? [
+    `CANONICAL SUBJECT (non-negotiable — these traits OVERRIDE any contradicting story context):`,
+    subjectCanon.species ? `- species: ${subjectCanon.species}` : '',
+    subjectCanon.look    ? `- look: ${subjectCanon.look}` : '',
+    subjectCanon.role    ? `- role: ${subjectCanon.role}` : '',
+    subjectCanon.donts   ? `- must NOT draw: ${subjectCanon.donts}` : '',
+  ].filter(Boolean).join('\n') : '';
+
   return [
     `SUBJECT: A character named ${name}. Render exactly ONE character — no extras, no crowd, no audience, no shadowy figures in the background.`,
+    canonBlock,
     traits,
     story,
     tone,

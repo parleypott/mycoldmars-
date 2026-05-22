@@ -1,5 +1,6 @@
 import { checkAccess } from './_lib/access.js';
 import { detectFixation } from './_lib/qss-signals.js';
+import { findCanonCharactersInText, canonContextBlock, QSS_CANON } from './_lib/qss-canon.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // WRITING_DISCIPLINE — prepended to every Wordy-side system prompt.
@@ -571,9 +572,27 @@ async function handleTutor(body, apiKey) {
     routingBlock = `\n\n═══ HENRY JUST TYPED A REQUEST ═══\n"${message}"\n\nNo fixation flags — engage with what he wants. All 3 block-options should fulfill his request in different framings. Stay in voice. Have fun with it.`;
   }
 
+  // World canon — facts about THIS story universe that override anything
+  // the model assumes. Scan recent story + Henry's message + the arc cache
+  // for canonical character names; include canon facts for matches.
+  const scanText = [
+    message || '',
+    (Array.isArray(story?.blocks) ? story.blocks : []).map(b => b.text || '').join(' '),
+    arc?.synopsis || '',
+    (arc?.characters || []).map(c => c.name || '').join(' '),
+  ].join(' ');
+  const canonMatches = findCanonCharactersInText(scanText);
+  const canonNames = canonMatches.map(c => c.name);
+  const canonBlock = canonNames.length
+    ? '\n\n═══ WORLD CANON (non-negotiable, overrides anything contradicting) ═══\n' + canonContextBlock(canonNames)
+    : (QSS_CANON.world?.length
+        ? '\n\n═══ WORLD CANON (non-negotiable) ═══\n' + canonContextBlock([])
+        : '');
+
   const baseSystem = phase === 'directions' ? DIRECTIONS_SYSTEM : TUTOR_SYSTEM;
   const systemText = HENRY_PROFILE
     + '\n\n' + baseSystem
+    + canonBlock
     + '\n\n═══ RULES SET BY PARENT ═══\n' + rulesBlock
     + bibleBlock
     + storyBlock
