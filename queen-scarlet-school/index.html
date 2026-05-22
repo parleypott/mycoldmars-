@@ -3002,10 +3002,34 @@
         wireBar();
       }
 
+      // Re-attach the karaoke DOM to the active block after a renderStory()
+      // rebuild has wiped it. Called from renderStory so expand/collapse and
+      // any other UI mutation during playback doesn't kill the read-along.
+      function reattachActiveBlock() {
+        if (!session.blockId || !session.words) return;
+        const el = document.querySelector(`.story-block[data-block="${session.blockId}"]`);
+        if (!el) return;
+        // Already has karaoke DOM? leave it alone.
+        if (el.querySelector('.b-karaoke')) return;
+        el.classList.add('karaoke');
+        const block = (window.state?.blocks || []).find(b => b.id === session.blockId);
+        if (!block) return;
+        renderKaraokeDom(el, block.text || '', session.words);
+        // Restore active-word highlight (if any) so the visual position matches the audio.
+        if (session.activeIdx >= 0) {
+          const spans = el.querySelectorAll('.b-karaoke .ks-word');
+          if (spans[session.activeIdx]) spans[session.activeIdx].classList.add('ks-active');
+          for (let i = 0; i < session.activeIdx; i++) {
+            if (spans[i]) spans[i].classList.add('ks-past');
+          }
+        }
+      }
+
       window.qssKaraoke = {
         playBlock, playAll, pause, resume, stop, setSpeed,
         _activeBlockId: () => session.blockId,
         _isPlaying: () => !!session.audio && !session.paused,
+        _reattachActiveBlock: reattachActiveBlock,
       };
     })();
 
@@ -3502,6 +3526,10 @@
       }).join('');
       list.querySelectorAll('textarea').forEach(autoGrow);
       if (composer) composer.style.display = 'block';
+      // If karaoke is mid-playback, the innerHTML rebuild just wiped the
+      // .b-karaoke div from the active block. Put it back so the
+      // read-along survives any UI mutation (expand/collapse, reorder, etc.).
+      try { window.qssKaraoke?._reattachActiveBlock?.(); } catch (e) {}
     }
     // Expose for the karaoke module so it can re-render after applying karaoke class
     window.renderStory = renderStory;
