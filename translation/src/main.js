@@ -6377,6 +6377,99 @@ function showError(msg, parentSel) {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Modal a11y helper — install on every dynamically-created modal so:
+//   • role="dialog" aria-modal="true" + aria-labelledby points at title
+//   • Tab cycles WITHIN the modal (focus trap)
+//   • Focus restores to the element that triggered the modal on close
+//   • First focusable inside the modal gets focus on mount
+// Returns a teardown function to call when the modal is removed.
+//
+// Wire from every modal-mount site:
+//   const teardownA11y = installModalA11y(modalEl, { titleId: 'foo-title' });
+//   ...
+//   modalEl.remove();
+//   teardownA11y();
+// ──────────────────────────────────────────────────────────────────────
+// MutationObserver auto-wires installModalA11y on every .np-modal
+// added to the body so we don't have to touch 15 modal-mount sites.
+// Teardown fires when the node leaves the DOM, restoring focus to
+// whatever element triggered the modal.
+const _modalTeardowns = new WeakMap();
+let _modalObserver = null;
+function ensureModalObserver() {
+  if (_modalObserver) return;
+  _modalObserver = new MutationObserver((muts) => {
+    for (const m of muts) {
+      for (const node of m.addedNodes) {
+        if (!(node instanceof HTMLElement)) continue;
+        if (!node.classList?.contains('np-modal')) continue;
+        if (_modalTeardowns.has(node)) continue;
+        _modalTeardowns.set(node, installModalA11y(node));
+      }
+      for (const node of m.removedNodes) {
+        if (!(node instanceof HTMLElement)) continue;
+        const teardown = _modalTeardowns.get(node);
+        if (teardown) {
+          try { teardown(); } catch {}
+          _modalTeardowns.delete(node);
+        }
+      }
+    }
+  });
+  _modalObserver.observe(document.body, { childList: true });
+}
+// Kick the observer on once after gate-unlock so it's running before
+// any modal mounts. Safe to call multiple times — guarded.
+if (typeof window !== 'undefined' && document.body) ensureModalObserver();
+else window.addEventListener('DOMContentLoaded', ensureModalObserver, { once: true });
+
+function installModalA11y(modalEl, opts = {}) {
+  if (!modalEl) return () => {};
+  const trigger = document.activeElement;
+  // Find the modal's card (the actual focus-trappable region). Falls
+  // back to the outer modalEl if no .np-modal-card present.
+  const card = modalEl.querySelector('.np-modal-card') || modalEl;
+  card.setAttribute('role', 'dialog');
+  card.setAttribute('aria-modal', 'true');
+  if (opts.titleId) card.setAttribute('aria-labelledby', opts.titleId);
+  else {
+    const title = card.querySelector('.np-modal-title, h1, h2, h3');
+    if (title) {
+      if (!title.id) title.id = `np-modal-title-${Math.random().toString(36).slice(2, 8)}`;
+      card.setAttribute('aria-labelledby', title.id);
+    }
+  }
+  // Focus the first non-close-button focusable inside the card.
+  const focusables = () => Array.from(card.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter(el => el.offsetParent !== null);
+  const initial = focusables().find(el => !el.matches('.np-modal-close, [data-close]'));
+  (initial || focusables()[0])?.focus();
+
+  const onKey = (e) => {
+    if (e.key !== 'Tab') return;
+    const list = focusables();
+    if (list.length === 0) return;
+    const first = list[0], last = list[list.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+  modalEl.addEventListener('keydown', onKey);
+
+  return function teardown() {
+    modalEl.removeEventListener('keydown', onKey);
+    if (trigger && typeof trigger.focus === 'function' && document.contains(trigger)) {
+      try { trigger.focus(); } catch {}
+    }
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Toast notifications — replaces showError's prepend pattern. Stacks in
 // the bottom-right corner. Variants: error (red), success (green), info.
 // Click to dismiss; auto-dismiss after a kind-specific delay.
