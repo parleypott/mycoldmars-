@@ -86,6 +86,7 @@ export default defineConfig({
         hunter: resolve(__dirname, 'hunter/index.html'),
         queenScarletSchool: resolve(__dirname, 'queen-scarlet-school/index.html'),
         queenScarletSchoolLibrary: resolve(__dirname, 'queen-scarlet-school/library/index.html'),
+        queenScarletSchoolCast: resolve(__dirname, 'queen-scarlet-school/cast/index.html'),
         democracy: resolve(__dirname, 'democracy/index.html'),
         trippy: resolve(__dirname, 'trippy/index.html'),
         taiwan: resolve(__dirname, 'taiwan/index.html'),

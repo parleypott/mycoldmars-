@@ -86,19 +86,33 @@ export default async function handler(req) {
     }
     return new Response('Method not allowed', { status: 405 });
   } catch (e) {
-    // Map Supabase missing-table to NO_DB so client can show "apply migration" hint.
     const msg = e?.message || String(e);
-    if (e?.code === '42P01' || e?.code === 'PGRST205' || /relation .* does not exist/i.test(msg) || /Could not find the table/i.test(msg) || /schema cache/i.test(msg)) {
+
+    // ORDER MATTERS: check column-missing BEFORE relation-missing, because
+    // PostgREST's column-not-exist message contains "of relation X does not
+    // exist" which spuriously matches the table-not-exist regex. If the sb()
+    // retry didn't already swallow this (because OPTIONAL_COLS coverage missed
+    // a column name), surface the SPECIFIC migration hint instead of the
+    // generic 'table does not exist' one that says everything is broken.
+    if (e?.code === '42703' || /column .* does not exist/i.test(msg)) {
+      // Identify which optional column triggered it (best-effort).
+      const colMatch = /column [\\"']?([\\w_]+)/i.exec(msg);
+      const colName = colMatch?.[1] || 'optional column';
+      const migration = colName === 'character_cards' ? '016_qss_character_cards.sql'
+                      : colName === 'freestyle_chat' || colName === 'freestyle_themes' ? '017_qss_freestyle.sql'
+                      : 'the latest migration in supabase/migrations/';
+      return jsonError(503, 'COLUMN_MISSING',
+        `The ${colName} column doesn't exist yet — apply ${migration} in the Supabase SQL editor. Until then non-essential data saves locally only.`);
+    }
+
+    // Real table-missing — qss_stories itself doesn't exist.
+    if (e?.code === '42P01' || e?.code === 'PGRST205' || /Could not find the table/i.test(msg) || /schema cache/i.test(msg) ||
+        // Be precise here: only match table-missing forms, NOT the column-of-relation form caught above.
+        /relation "?qss_stories"? does not exist/i.test(msg)) {
       return jsonError(503, 'MIGRATION_PENDING',
         'The qss_stories table does not exist yet. Apply supabase/migrations/015_qss_stories.sql in the Supabase SQL editor.');
     }
-    // Missing optional column (e.g. character_cards before migration 016 applied).
-    // Strip the optional cols from SELECT/payload and retry once so the rest
-    // of the app keeps working until the migration is run.
-    if (/column .* does not exist/i.test(msg) || e?.code === '42703') {
-      return jsonError(503, 'MIGRATION_NEEDED_016',
-        'The character_cards column does not exist yet. Apply supabase/migrations/016_qss_character_cards.sql in the Supabase SQL editor — until then, character drawings save locally only.');
-    }
+
     if (e?.code === '23505') {
       return jsonError(409, 'NAME_TAKEN', 'Another story already uses that name. Pick a different one.');
     }
