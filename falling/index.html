@@ -6,774 +6,407 @@
 <title>falling · mycoldmars</title>
 <style>
   :root {
-    --bg: #000000;
+    --bg: #000;
     --mono: ui-monospace, "SF Mono", "JetBrains Mono", "IBM Plex Mono", "Fira Code", Menlo, Consolas, monospace;
+
+    /* neon palette — flat HSL, no glow */
+    --g1: #00ff6a;   /* primary neon green */
+    --g2: #a6ff00;   /* acid lime */
+    --g3: #00ffb3;   /* mint neon */
+    --g4: #00b347;   /* deep green */
+    --g5: #006a2e;   /* dim moss */
+    --g6: #003a18;   /* near-black green */
+    --g7: #e6ffd0;   /* near-white green */
+    --rd: #ff1f3d;   /* neon red */
+    --rs: #ff4775;   /* radish */
+    --rh: #b0001d;   /* dark radish */
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { background: var(--bg); }
   body {
     font-family: var(--mono);
-    font-size: 13px;
-    line-height: 1.3;
+    font-size: 11px;
+    line-height: 1.18;
     overflow: hidden;
     height: 100vh;
     width: 100vw;
     cursor: default;
+    color: var(--g4);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: geometricPrecision;
   }
 
-  #stream {
+  /* THREE columns of waterfall, each scrolls at a slightly different rate
+     so the screen feels like layered streams, not one stream */
+  .col {
+    position: absolute;
+    top: 0;
+    width: 33.33vw;
+    height: 100vh;
+    overflow: hidden;
+    border-right: 1px solid #061a0e;
+  }
+  .col:nth-child(1) { left: 0;       }
+  .col:nth-child(2) { left: 33.33vw; }
+  .col:nth-child(3) { left: 66.66vw; border-right: none; }
+
+  .stream {
     position: absolute;
     left: 0; right: 0;
-    bottom: -300vh;
-    padding: 0;
+    bottom: -200vh;
+    padding: 0 10px;
     will-change: transform;
-    animation: fall 720s linear infinite;
-    column-count: 1;
   }
+
+  /* jittery stutter scroll via steps() — feels like terminal repaint */
+  .stream-a { animation: fall 90s  steps(540) infinite; }
+  .stream-b { animation: fall 75s  steps(620) infinite; }
+  .stream-c { animation: fall 110s steps(480) infinite; }
   @keyframes fall {
     from { transform: translate3d(0, 0, 0); }
-    to   { transform: translate3d(0, -1200vh, 0); }
+    to   { transform: translate3d(0, -900vh, 0); }
   }
 
-  /* ── section blocks: each one big sweep of monochrome ── */
-  .section {
-    padding: 4em 28px 4em 28px;
-  }
-  .section + .section {
-    margin-top: 0;
-  }
-
-  /* SAME-HUE PALETTES — dark variant + light variant only. nothing else. */
-  .pal-radish    { background: hsl(355, 70%,  8%); }
-  .pal-radish    .dim  { color: hsl(355, 65%, 32%); }
-  .pal-radish    .lit  { color: hsl(355, 88%, 66%); }
-
-  .pal-forest    { background: hsl(140, 60%,  6%); }
-  .pal-forest    .dim  { color: hsl(140, 60%, 28%); }
-  .pal-forest    .lit  { color: hsl(135, 72%, 58%); }
-
-  .pal-mustard   { background: hsl( 45, 70%,  7%); }
-  .pal-mustard   .dim  { color: hsl( 42, 65%, 34%); }
-  .pal-mustard   .lit  { color: hsl( 50, 92%, 64%); }
-
-  .pal-ocean     { background: hsl(210, 70%,  7%); }
-  .pal-ocean     .dim  { color: hsl(210, 65%, 32%); }
-  .pal-ocean     .lit  { color: hsl(205, 85%, 65%); }
-
-  .pal-plum      { background: hsl(290, 55%,  7%); }
-  .pal-plum      .dim  { color: hsl(290, 55%, 30%); }
-  .pal-plum      .lit  { color: hsl(285, 75%, 70%); }
-
-  .pal-ember     { background: hsl( 20, 75%,  7%); }
-  .pal-ember     .dim  { color: hsl( 18, 70%, 32%); }
-  .pal-ember     .lit  { color: hsl( 25, 92%, 62%); }
-
-  .pal-jade      { background: hsl(170, 70%,  6%); }
-  .pal-jade      .dim  { color: hsl(170, 65%, 28%); }
-  .pal-jade      .lit  { color: hsl(170, 72%, 60%); }
-
-  .pal-bone      { background: hsl( 40, 12%,  8%); }
-  .pal-bone      .dim  { color: hsl( 40, 15%, 38%); }
-  .pal-bone      .lit  { color: hsl( 45, 22%, 82%); }
-
-  .pal-violet    { background: hsl(260, 60%,  8%); }
-  .pal-violet    .dim  { color: hsl(260, 55%, 35%); }
-  .pal-violet    .lit  { color: hsl(255, 80%, 72%); }
-
-  .pal-rust      { background: hsl(  8, 65%,  7%); }
-  .pal-rust      .dim  { color: hsl(  8, 60%, 32%); }
-  .pal-rust      .lit  { color: hsl( 14, 85%, 58%); }
-
-  .pal-mint      { background: hsl(155, 55%,  6%); }
-  .pal-mint      .dim  { color: hsl(155, 55%, 26%); }
-  .pal-mint      .lit  { color: hsl(150, 70%, 64%); }
-
-  .pal-slate     { background: hsl(220, 18%,  8%); }
-  .pal-slate     .dim  { color: hsl(220, 18%, 38%); }
-  .pal-slate     .lit  { color: hsl(215, 25%, 78%); }
-
-  /* ── row layout ── */
-  .row    { white-space: pre; overflow: hidden; padding: 0; }
-  .row + .row { margin-top: 1px; }
-  .gap-s  { height: 0.6em; }
-  .gap-m  { height: 1.4em; }
-  .gap-l  { height: 2.6em; }
-
-  /* ── typographic rows (all default to .dim of current section) ── */
-  .log     { font-size: 12px; }
-  .hex     { font-size: 12px; letter-spacing: 0.02em; }
-  .ls      { font-size: 12px; }
-  .cmd     { font-size: 13px; }
-  .css     { font-size: 12.5px; }
-  .js      { font-size: 12.5px; }
-  .html    { font-size: 12.5px; }
-  .joke    { font-size: 13px; padding: 0.3em 0 0.6em 2ch; }
-  .one     { font-size: 15px; padding: 0.4em 0 0.4em 4ch; letter-spacing: 0.02em; }
-  .stat    { font-size: 12px; }
-  .static  { font-size: 12px; overflow: hidden; white-space: nowrap; }
-  .ascii   { font-size: 12px; line-height: 1.05; padding: 0.4em 0; }
-  .rule    { font-size: 12px; }
-
-  .poem    {
-    font-size: 14px; line-height: 1.6;
-    padding: 0.6em 0 0.6em 2ch;
-    margin: 0.5em 0 0.5em 8ch;
-    max-width: 60ch;
-  }
-  .poem .ttl {
-    display: block;
-    font-size: 10px;
-    letter-spacing: 0.32em;
-    text-transform: uppercase;
-    margin-bottom: 0.4em;
-  }
-
-  .big {
-    font-size: 56px; font-weight: 900;
-    letter-spacing: -0.03em; line-height: 1;
-    padding: 0.15em 0;
-  }
-  .marquee {
-    font-size: 22px; font-weight: 800;
-    letter-spacing: 0.04em; padding: 0.2em 0;
-  }
-  .banner  { font-size: 11px; line-height: 1.05; padding: 0.3em 0; }
-
-  /* section header: bone-dry label, just sits there */
-  .sec-label {
-    font-size: 10px;
-    letter-spacing: 0.34em;
-    text-transform: uppercase;
-    padding: 0 0 1.6em 0;
-  }
-
+  /* mobile: collapse to one column */
   @media (max-width: 700px) {
-    body { font-size: 11px; }
-    .section { padding: 3em 14px; }
-    .big { font-size: 36px; }
-    .marquee { font-size: 16px; }
-    .poem { margin-left: 2ch; font-size: 12px; }
+    .col { width: 100vw; left: 0 !important; border-right: none; }
+    .col:nth-child(2), .col:nth-child(3) { display: none; }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    #stream { animation-duration: 2400s; }
+  /* row baseline */
+  .row {
+    white-space: pre;
+    overflow: hidden;
+    color: var(--g4);
+    padding: 0;
   }
+  .row + .row { margin-top: 0; }
+
+  /* color tones — picked at random per row, weighted to greens */
+  .t-g1 { color: var(--g1); }   /* primary neon */
+  .t-g2 { color: var(--g2); }   /* lime */
+  .t-g3 { color: var(--g3); }   /* mint */
+  .t-g4 { color: var(--g4); }   /* deep green */
+  .t-g5 { color: var(--g5); }   /* dim moss */
+  .t-g6 { color: var(--g6); }   /* near-black */
+  .t-g7 { color: var(--g7); }   /* near white */
+  .t-rd { color: var(--rd); }   /* red accent */
+  .t-rs { color: var(--rs); }   /* radish accent */
+  .t-rh { color: var(--rh); }   /* dark radish */
+
+  /* size variants — chaotic */
+  .sz-9  { font-size: 9px;  line-height: 1.05; }
+  .sz-10 { font-size: 10px; line-height: 1.1;  }
+  .sz-11 { font-size: 11px; line-height: 1.18; }
+  .sz-12 { font-size: 12px; line-height: 1.22; }
+  .sz-13 { font-size: 13px; line-height: 1.25; }
+  .sz-15 { font-size: 15px; line-height: 1.15; }
+  .sz-22 { font-size: 22px; line-height: 1.05; font-weight: 800; letter-spacing: 0.04em; }
+  .sz-34 { font-size: 34px; line-height: 1.0;  font-weight: 900; letter-spacing: -0.02em; }
+
+  /* the burst flash: a chunk of new rows appended at the bottom of a stream
+     gets briefly slammed with .burst — pure color swap, no animation/transition */
+  .burst { color: var(--g7); }
 </style>
 </head>
 <body>
-  <div id="stream"></div>
+  <div class="col"><div class="stream stream-a" id="s1"></div></div>
+  <div class="col"><div class="stream stream-b" id="s2"></div></div>
+  <div class="col"><div class="stream stream-c" id="s3"></div></div>
 
 <script>
 /* ============================================================
-   F A L L I N G  —  flat color sections, raw terminal
+   F A L L I N G  —  dense neon waterfall, jittery, chaotic
    ============================================================ */
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const rint = (lo, hi) => Math.floor(Math.random() * (hi - lo + 1)) + lo;
 const padL = (s, n) => String(s).padStart(n, "0");
-const hex = (n, w=2) => n.toString(16).toUpperCase().padStart(w, "0");
+const hex  = (n, w=2) => n.toString(16).toUpperCase().padStart(w, "0");
 const hexB = () => hex(rint(0, 255));
 
-/* ── POEMS (Whitman + a few unsigned) ───────────────────────── */
+/* tone picker — heavy greens, occasional red/radish */
+const TONES = [
+  "t-g4","t-g4","t-g4","t-g4","t-g4","t-g4","t-g4",  // baseline moss
+  "t-g1","t-g1","t-g1","t-g1","t-g1","t-g1",          // neon green
+  "t-g2","t-g2","t-g2",                                // lime
+  "t-g3","t-g3",                                       // mint
+  "t-g5","t-g5","t-g5","t-g5",                         // dim
+  "t-g6","t-g6",                                       // near-black
+  "t-g7",                                              // bright white-green
+  "t-rd","t-rs","t-rh",                                // red/radish rare
+];
+const tone = () => pick(TONES);
+
+const SIZES = [
+  "sz-11","sz-11","sz-11","sz-11","sz-11","sz-11",
+  "sz-10","sz-10","sz-10",
+  "sz-12","sz-12",
+  "sz-9","sz-9",
+  "sz-13",
+  "sz-15",
+];
+const sizeNorm = () => pick(SIZES);
+
+/* ── content sources ───────────────────────────────────────── */
+
 const POEMS = [
-  { t: "Song of Myself · §1",
-    L: ["I celebrate myself, and sing myself,",
-        "And what I assume you shall assume,",
-        "For every atom belonging to me as good belongs to you."] },
-  { t: "Song of Myself · §52",
-    L: ["I bequeath myself to the dirt to grow from the grass I love,",
-        "If you want me again look for me under your boot-soles.",
-        "You will hardly know who I am or what I mean,",
-        "But I shall be good health to you nevertheless."] },
-  { t: "Leaves of Grass",
-    L: ["Do I contradict myself?",
-        "Very well then I contradict myself,",
-        "(I am large, I contain multitudes.)"] },
-  { t: "Song of the Open Road",
-    L: ["Afoot and light-hearted I take to the open road,",
-        "Healthy, free, the world before me,",
-        "The long brown path before me leading wherever I choose."] },
-  { t: "When I Heard the Learn'd Astronomer",
-    L: ["How soon unaccountable I became tired and sick,",
-        "Till rising and gliding out I wander'd off by myself,",
-        "In the mystical moist night-air, and from time to time,",
-        "Look'd up in perfect silence at the stars."] },
-  { t: "A Noiseless Patient Spider",
-    L: ["A noiseless patient spider,",
-        "I mark'd where on a little promontory it stood isolated,",
-        "Mark'd how to explore the vacant vast surrounding,",
-        "It launch'd forth filament, filament, filament, out of itself."] },
-  { t: "O Me! O Life!",
-    L: ["That you are here — that life exists and identity,",
-        "That the powerful play goes on, and you may contribute a verse."] },
-  { t: "Crossing Brooklyn Ferry",
-    L: ["Flood-tide below me! I see you face to face!",
-        "Clouds of the west — sun there half an hour high.",
-        "Crowds of men and women attired in the usual costumes,",
-        "how curious you are to me!"] },
-  { t: "Continuities",
-    L: ["Nothing is ever really lost, or can be lost,",
-        "No birth, identity, form — no object of the world,",
-        "Nor life, nor force, nor any visible thing."] },
-  { t: "There Was a Child Went Forth",
-    L: ["There was a child went forth every day,",
-        "And the first object he look'd upon, that object he became."] },
-  { t: "Anonymous, recovered fragment",
-    L: ["i scrolled until the cursor felt like a friend.",
-        "i scrolled until i forgot what i was looking for.",
-        "i scrolled, and the screen scrolled with me."] },
-  { t: "Internal monologue, 03:47",
-    L: ["maybe the cat does love me.",
-        "maybe i should drink water.",
-        "maybe i should sleep.",
-        "maybe one more episode."] },
+  ["I CELEBRATE MYSELF, AND SING MYSELF,",
+   "AND WHAT I ASSUME YOU SHALL ASSUME,",
+   "FOR EVERY ATOM BELONGING TO ME AS GOOD BELONGS TO YOU."],
+  ["I BEQUEATH MYSELF TO THE DIRT TO GROW FROM THE GRASS I LOVE,",
+   "IF YOU WANT ME AGAIN LOOK FOR ME UNDER YOUR BOOT-SOLES."],
+  ["DO I CONTRADICT MYSELF?",
+   "VERY WELL THEN I CONTRADICT MYSELF,",
+   "(I AM LARGE, I CONTAIN MULTITUDES.)"],
+  ["AFOOT AND LIGHT-HEARTED I TAKE TO THE OPEN ROAD,",
+   "HEALTHY, FREE, THE WORLD BEFORE ME."],
+  ["A NOISELESS PATIENT SPIDER,",
+   "I MARK'D WHERE ON A LITTLE PROMONTORY IT STOOD ISOLATED."],
+  ["THAT YOU ARE HERE — THAT LIFE EXISTS AND IDENTITY,",
+   "THAT THE POWERFUL PLAY GOES ON,",
+   "AND YOU MAY CONTRIBUTE A VERSE."],
 ];
 
 const ASCII = [
-`        .---.
-       /     \\
-       \\.@-@./
-       /\`\\_/\`\\
-      //  _  \\\\
-     | \\     )|_
-    /\`\\_\`>  <_/ \\
-    \\__/'---'\\__/`,
-`   _____
-  |.---.|     SIGNAL ACQUIRED
-  ||   ||     SOURCE: mycoldmars.com
-  ||___||     CHANNEL: 037
-  |[=- ]|     OPERATOR: unknown
-  '-----'`,
-`+==============================================================+
-|  M Y   C O L D   M A R S    broadcasting since forever       |
-+==============================================================+`,
-`     _________     _________     _________     _________
-    /         \\   /         \\   /         \\   /         \\
-   |   . .    | |    . .    | |    . .    | |    . .    |
-   |    o     | |     o     | |     o     | |     o     |
-   |   \\_/    | |    \\_/    | |    \\_/    | |    \\_/    |
-    \\_________/   \\_________/   \\_________/   \\_________/`,
-`    /\\___/\\
-   (  o.o  )    // debugging the universe
-    > ^ <      // it's a memory leak
-    /   \\      // the leak is on purpose`,
-`         |
-        / \\
-       /   \\
-      /     \\           THE SIGNAL TOWER
-     /-------\\          status: hopeful
-    /         \\         broadcast: warm static
-   /___________\\        listeners: 1 (you)`,
-`+-----------------------------+
-|  ERROR: meaning not found   |
-|  retrying in: forever       |
-|  [ ok ] [ cancel ] [ shrug ] |
-+-----------------------------+`,
-`   .-.   .-.   .-.   .-.   .-.   .-.   .-.   .-.
-  (   ) (   ) (   ) (   ) (   ) (   ) (   ) (   )
-   '-'   '-'   '-'   '-'   '-'   '-'   '-'   '-'`,
-`  *     *     *     *     *     *     *     *
-   .   .       .   .       .   .       .   .
-*     *     *     *  the stars are loud  *
-   .   .       .   .       .   .       .   .
-  *     *     *     *     *     *     *     *`,
-`  .-""""""""""""""""""""""""""""""""""""""""""""""""-.
- /                                                    \\
- |   you are at depth: infinity                       |
- |   air supply: vibes only                           |
- |   keep falling                                     |
- \\                                                    /
-  '-..................................................'`,
+"╔══════════════════════════════════════╗",
+"║  MYCOLDMARS / CH.037 / SIGNAL WARM   ║",
+"╚══════════════════════════════════════╝",
+"┌──────────────┐  ┌──────────────┐",
+"│  ░░▒▒▓▓██▓▓  │  │  ▓▓██▓▓▒▒░░  │",
+"└──────────────┘  └──────────────┘",
+"╭─╮ ╭─╮ ╭─╮ ╭─╮ ╭─╮ ╭─╮ ╭─╮ ╭─╮",
+"╰─╯ ╰─╯ ╰─╯ ╰─╯ ╰─╯ ╰─╯ ╰─╯ ╰─╯",
+"►►►►►►►►►►►►►►►►►►►►►►►►►►►►►►►►",
+"▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲",
+"╋━╋━╋━╋━╋━╋━╋━╋━╋━╋━╋━╋━╋━╋━╋━╋",
+"░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+"▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒",
+"▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓",
+"████████████████████████████████",
+"·─·─·─·─·─·─·─·─·─·─·─·─·─·─·─·─",
+"═══════════════════════════════",
+"```````````````````````````````",
+"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+"<><><><><><><><><><><><><><><><>",
+"┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃",
+"╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲",
 ];
 
-const JOKES = [
-  { s: "knock, knock.", p: "— who's there.  — the inevitable.  — the inevitable who.  — exactly." },
-  { s: "how many surrealists does it take to change a lightbulb?", p: "fish." },
-  { s: "i told my computer i needed a break.", p: "it said: sure, what kind. coffee, lunch, or existential." },
-  { s: "doc says i need more friends.", p: "i told them i have 3 monitors." },
-  { s: "the universe is mostly empty space.", p: "and yet, somehow, my inbox." },
-  { s: "press F to pay respects.", p: "press F again to undo." },
-  { s: "good. fast. cheap.", p: "pick zero." },
-  { s: "my code doesn't have bugs.", p: "it has undocumented features with personalities." },
-  { s: "documentation status:", p: "TODO. — written by: someone who is now retired." },
-  { s: "why did the developer quit?", p: "they didn't get arrays." },
-  { s: "what's the loneliest number?", p: "404." },
+const CODE_SNIPPETS = [
+"const heart = setInterval(beat, 1000);",
+"while (true) { listen(); whisper(); }",
+"export async function fall(n) { return n + fall(n+1); }",
+"if (!truth) { go.outside(); }",
+"map(x => x.unfold()).filter(Boolean)",
+"throw new Error('meaning not found');",
+"await Promise.all(stars.map(burn))",
+"function nothing() { return nothing; }",
+"const universe = new Proxy({}, { get: () => 'more' });",
+"return { ok: false, reason: 'still falling' };",
+"type Human = { scars: Wound[]; songs: Lyric[]; };",
+"db.tx(async t => { await t.insert(memory); });",
+"vec3 normal = normalize(cross(dPdx, dPdy));",
+"SELECT * FROM dreams WHERE remembered = 0;",
+"#define PI 3.14159265358979323846",
+"#include <stdio.h>",
+"int main(void) { return 0; }",
+"goto retry;",
+"asm volatile (\"nop\");",
+"yield* read_until('\\0');",
+"impl Future for Patience { type Output = (); }",
+"trait Memory { fn forget(&self) -> Option<Self>; }",
+"pub fn deploy() -> Result<(), ()> { Ok(()) }",
+"docker run -it --rm --net host channel037",
+"ssh johnny@mycoldmars 'tail -f /var/log/heart'",
+"curl -sN https://mycoldmars.com/falling/",
+"grep -rE 'why|how|when' ~/notes",
+"rsync -avh ~/dreams /var/backups",
+"ffmpeg -i life.mov -c:v copy life.mp4",
+"git commit -m 'still here'",
+"git push --force-with-lease origin main",
+"npm install courage  # bun is forbidden... jk",
+"kubectl apply -f hope.yaml",
+"systemctl restart heartbeat",
+"watch -n0 'echo still falling'",
+"xargs -n1 echo  < /etc/dreams",
+"awk '{print $NF}' /var/log/days.log",
+"sed -i 's/fear/curiosity/g' ~/.bashrc",
 ];
 
-const ONES = [
-  "everything is fine.",
-  "you are still here.",
-  "the cursor is also falling.",
-  "scroll is a feeling.",
-  "your screen is breathing.",
-  "this was made for you, specifically.",
-  "shh.",
-  "i have no idea what i'm doing.",
-  "but neither do you.",
-  "ok keep going.",
-  "stars are loud, actually.",
-  "we got this.",
-  "i'm proud of you.",
-  "drink some water.",
-  "the future is also made of html.",
-  "go outside, briefly.",
-  "you've already done a lot today.",
-  "stretch your jaw a little.",
-  "your shoulders. drop them.",
-  "look at something more than 20 feet away.",
-  "you don't have to reply right now.",
-  "the work was good.",
-];
-
-const CSS_BLOCKS = [
-`/* the universe, but with rounded corners */
-.universe {
-  position: absolute;
-  inset: 0;
-  animation: expand 13.8e9s linear infinite;
-}`,
-`@keyframes heartbeat {
-    0% { transform: scale(1.00); }
-   50% { transform: scale(1.06); }
-  100% { transform: scale(1.00); }
-}`,
-`/* don't tell anyone */
-.secret {
-  opacity: 0.01;
-  color: #ff00ff;
-  user-select: none;
-}`,
-`body {
-  cursor: none;  /* you are the cursor now */
-}`,
-`.feeling {
-  color: oklch(72% 0.18 41);
-  backdrop-filter: blur(0.8px) saturate(1.4);
-  mix-blend-mode: screen;
-}`,
-`/* this does absolutely nothing useful */
-.nothing {
-  all: unset;
-  display: contents;
-}`,
-];
-
-const JS_BLOCKS = [
-`// recursion is a verb
-function fall(depth = 0) {
-  if (depth > Infinity) return;
-  console.log("still falling...");
-  return fall(depth + 1);
-}`,
-`const universe = new Proxy({}, {
-  get(_, k) { return "more"; }
-});
-universe.stars;  // "more"
-universe.grief;  // "more"
-universe.joy;    // "more"`,
-`// when in doubt, ship it
-async function deploy() {
-  await vercel();
-  await pray();
-  return "works on my machine";
-}`,
-`// the only test that matters
-expect(life).toBe("worth it");
-expect(today).toBeGreaterThan(yesterday);
-expect(love).not.toBe(null);`,
-`try {
-  await understand(everything);
-} catch (err) {
-  console.warn("that's ok");
-  return listen();
-}`,
-`type Human = {
-  name: string,
-  scars: Wound[],
-  songs: Lyric[],
-  remaining_days: number | "unknown",
-};`,
-`const truth = await fetch("/api/world")
-  .then(r => r.json())
-  .catch(() => null);
-if (!truth) {
-  // go outside
-}`,
-];
-
-const HTML_BLOCKS = [
-`<body style="falling: forever">
-  <you are="reading this"></you>
-  <and> <that> <counts>
-</body>`,
-`<!-- things i didn't say -->
-<ul>
-  <li>thank you</li>
-  <li>i was wrong</li>
-  <li>stay a while</li>
-</ul>`,
-`<meta name="mood"    content="warm static">
-<meta name="weather" content="the kind you'd describe to a friend">
-<meta name="channel" content="037 / mycoldmars">`,
-];
-
-const SESSIONS = [
-[ "$ whoami",
-  "johnny",
-  "$ who are you really",
-  "bash: who: command not found",
-  "$ sudo who are you really",
-  "[sudo] password for johnny:",
-  "sorry, three incorrect attempts",
-  "$ echo \"ok then\"",
-  "ok then" ],
-[ "$ ls -la ~/feelings",
-  "total infinity",
-  "drwxr-xr-x  unresolved  2026  longing/",
-  "drwxr-xr-x  unresolved  2026  awe/",
-  "drwxr-xr-x  hidden      2026  grief/",
-  "-rw-r--r--  archived    1998  joy.txt" ],
-[ "$ ping meaning.local",
-  "PING meaning.local (127.0.0.1): 56 data bytes",
-  "Request timeout for icmp_seq 0",
-  "Request timeout for icmp_seq 1",
-  "Request timeout for icmp_seq 2",
-  "^C",
-  "$ _" ],
-[ "$ cat /etc/motd",
-  "welcome.",
-  "you are exactly where you need to be,",
-  "which is, statistically, anywhere.",
-  "have a good shift." ],
-[ "$ man patience",
-  "PATIENCE(1)              a thing you grow",
-  "NAME",
-  "       patience -- see also: everything good",
-  "SYNOPSIS",
-  "       patience [--quiet] [--again]" ],
-[ "$ tail -f /var/log/heart.log",
-  "[14:02:11] beat",
-  "[14:02:12] beat",
-  "[14:02:13] beat",
-  "[14:02:14] skipped -- ok",
-  "[14:02:15] beat",
-  "[14:02:16] beat" ],
-];
-
-const SERVICES = ["kernel","systemd","dreamd","mycoldmars","heartbeat","poetryd","cron","render","gpu","wifi","ssh","launchd","cosmic-bus"];
+const SERVICES = ["kernel","systemd","dreamd","mycoldmars","heartbeat","poetryd","cron","render","gpu","wifi","ssh","launchd","cosmic-bus","tide","modemd","compass","auroral"];
 const LOG_MSGS = [
-  "rotating buffer", "establishing tunnel to 127.0.0.1", "color cycle complete",
-  "memory pressure: warm", "vector store flushed", "dream cache invalidated",
-  "session restored", "no new mail", "still here", "rolling logs",
-  "subscriber awoke", "subscriber dozed", "phosphor warm", "channel 037 stable",
-  "tide receded", "tide returned", "moon: 73%", "uptime 9999 days",
-  "queued: 1 unsent letter", "compaction successful", "soft warnings tolerated",
-  "fan curve gentle", "battery polite", "you remembered the thing",
-  "you forgot the thing -- that's ok", "tab count: yes",
+  "rotating buffer", "tunnel up", "color cycle", "memory: warm",
+  "vector flushed", "cache invalidated", "session restored", "no new mail",
+  "still here", "rolling logs", "subscriber awoke", "subscriber dozed",
+  "phosphor warm", "channel 037 stable", "tide receded", "tide returned",
+  "moon: 73%", "uptime ok", "queued: 1 letter", "compaction ok",
+  "warnings tolerated", "fan curve gentle", "battery polite",
+  "you remembered", "you forgot — ok", "tab count: yes",
+  "thread pool widened", "gc complete", "lockfile released",
+  "swap mounted", "fs sealed", "entropy adequate", "epoch incremented",
 ];
 
 const FILENAMES = [
-  "manifesto.txt", "rain.wav", "01_voicememo.m4a", "sketch.psd", "letter.draft",
-  "color-grade.lut", "shotlist.md", "thumbs.db", "backup.tar.gz", ".DS_Store",
-  "field-notes.txt", "untitled-final-FINAL.mov", "song-i-didnt-write.midi",
-  "dream-027.log", "remember-this.txt", "no.rtf", "yes.rtf", "maybe.rtf",
-];
-const OWNERS = ["johnny","root","nobody","ghost","muse","cat"];
-
-const STATIC_CHARS = [
-  "::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::",
-  "==================================== signal warm ====================================",
-  "----  you are still falling  ----  you are still falling  ----",
-  "....  the page does not end  ....  the page does not end  ....",
-  ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>",
-  "////////////////////  warm static  ////////////////////  warm static  ////",
-  "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
-  "[][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][]",
-  "____________________________________________________________________________",
+  "manifesto.txt", "rain.wav", "voicememo_01.m4a", "sketch.psd", "letter.draft",
+  "grade.lut", "shotlist.md", "thumbs.db", "backup.tar.gz", ".DS_Store",
+  "field-notes.txt", "untitled-FINAL.mov", "song.midi",
+  "dream-027.log", "remember.txt", "no.rtf", "yes.rtf", "maybe.rtf",
+  "channel-037.cfg", "phosphor.bin", "tide.json", "compass.toml",
 ];
 
-const STAT_KEYS = [
-  ["uptime", () => `${rint(1,9999)} days, ${padL(rint(0,23),2)}:${padL(rint(0,59),2)}`],
-  ["load",   () => `${(Math.random()*0.8+0.05).toFixed(2)}, ${(Math.random()*0.8+0.05).toFixed(2)}, ${(Math.random()*0.8+0.05).toFixed(2)}`],
-  ["mem",    () => `${rint(1,32)}.${rint(0,9)} GiB / 64 GiB`],
-  ["temp",   () => `${rint(31,72)} C`],
-  ["mood",   () => pick(["warm static","hopeful","cold-but-ok","fine, actually","quietly optimistic","tea-deficient"])],
-  ["channel",() => `037 / mycoldmars / ${pick(["clear","drifting","stable","romantic"])}`],
-  ["pwd",    () => pick(["/dreams","/feelings","/var/log/heart","/usr/local/whitman","~/falling"])],
-  ["whoami", () => pick(["johnny","nobody","still figuring it out","both"])],
+const ONES = [
+  "STILL HERE.","KEEP FALLING.","WARM STATIC.","CHANNEL 037 OPEN.",
+  "SIGNAL ACQUIRED.","NO NEW MAIL.","DRINK SOME WATER.","BREATHE.",
+  "THE PAGE DOES NOT END.","YOU ARE THE LISTENER.","THE WORK WAS GOOD.",
+  "GO OUTSIDE BRIEFLY.","DROP YOUR SHOULDERS.",
 ];
 
-const BIG_WORDS = ["FALL","DEEPER","STILL","HERE","SOFT","WARM","HOLD","MORE","OK","QUIET","BREATHE","AGAIN"];
+const BIG_WORDS = ["FALL","DEEPER","STILL","HERE","WARM","HOLD","MORE","OK","QUIET","BREATHE","AGAIN","NOW","SOON","SOFT","LOUD","WIDE"];
 
-const MARQ = [
-  "this is not loading. this is the page.",
-  "scroll? no. the page is the scroll.",
-  "everything you've ever lost is still in motion.",
-  "channel 037 is open. you are the only listener.",
-  "the cursor is a small friend. don't be too hard on it.",
-];
+/* ── row factories ─────────────────────────────────────────── */
 
-const PALETTES = [
-  { cls: "pal-radish",  label: "RADISH   /  channel 037" },
-  { cls: "pal-forest",  label: "FOREST   /  channel 037" },
-  { cls: "pal-mustard", label: "MUSTARD  /  channel 037" },
-  { cls: "pal-ocean",   label: "OCEAN    /  channel 037" },
-  { cls: "pal-plum",    label: "PLUM     /  channel 037" },
-  { cls: "pal-ember",   label: "EMBER    /  channel 037" },
-  { cls: "pal-jade",    label: "JADE     /  channel 037" },
-  { cls: "pal-bone",    label: "BONE     /  channel 037" },
-  { cls: "pal-violet",  label: "VIOLET   /  channel 037" },
-  { cls: "pal-rust",    label: "RUST     /  channel 037" },
-  { cls: "pal-mint",    label: "MINT     /  channel 037" },
-  { cls: "pal-slate",   label: "SLATE    /  channel 037" },
-];
-
-/* ── row helpers ── */
-function row(cls, text, tone) {
+function rRow(text, opts = {}) {
   const d = document.createElement("div");
-  d.className = "row " + cls + " " + (tone || "dim");
+  d.className = "row " + (opts.size || sizeNorm()) + " " + (opts.tone || tone());
   d.textContent = text;
   return d;
 }
-function rowHTML(cls, html, tone) {
+
+function rLog() {
+  const h = padL(rint(0,23),2), m = padL(rint(0,59),2), s = padL(rint(0,59),2);
+  const ms = padL(rint(0,999),3);
+  const svc = pick(SERVICES);
+  const lvCh = pick(["I","I","I","I","D","D","W","E"]);
+  const lv = lvCh === "I" ? "INFO " : lvCh === "D" ? "DEBUG" : lvCh === "W" ? "WARN " : "ERROR";
+  const msg = pick(LOG_MSGS);
+  const t = lvCh === "E" ? "t-rd" : lvCh === "W" ? "t-g2" : tone();
+  return rRow(`[${h}:${m}:${s}.${ms}] ${lv} ${svc.padEnd(13," ")} ${msg}`, { size: "sz-10", tone: t });
+}
+
+function rHex() {
+  const addr = (rint(0,0xFFFFFF)).toString(16).toUpperCase().padStart(6,"0");
+  const bytes = Array.from({length: 8}, hexB).join(" ");
+  return rRow(`${addr}  ${bytes}`, { size: "sz-10" });
+}
+
+function rLs() {
+  const perm = "-rw-r--r--";
+  const own = pick(["johnny","root","nobody","ghost","muse"]);
+  const sz = String(rint(1, 99999)).padStart(6," ");
+  const dt = `2026-${padL(rint(1,12),2)}-${padL(rint(1,28),2)} ${padL(rint(0,23),2)}:${padL(rint(0,59),2)}`;
+  const nm = pick(FILENAMES);
+  return rRow(`${perm}  ${own.padEnd(7)} ${sz}  ${dt}  ${nm}`, { size: "sz-10" });
+}
+
+function rPrompt() {
+  const cmds = [
+    "$ whoami","$ uptime","$ tail -f /var/log/heart","$ ping meaning.local",
+    "$ man patience","$ cat /etc/motd","$ ls -la ~/feelings","$ df -h /dreams",
+    "$ ps aux | grep wonder","$ top","$ dmesg | tail","$ history | tail -3",
+  ];
+  return rRow(pick(cmds), { size: "sz-12", tone: pick(["t-rs","t-rd","t-g7"]) });
+}
+
+function rCode()    { return rRow(pick(CODE_SNIPPETS), { size: "sz-11" }); }
+function rAscii()   { return rRow(pick(ASCII), { size: "sz-11" }); }
+function rOne()     { return rRow(pick(ONES), { size: "sz-13", tone: pick(["t-g1","t-g2","t-g7"]) }); }
+function rBig()     { return rRow(pick(BIG_WORDS), { size: pick(["sz-22","sz-22","sz-34"]), tone: pick(["t-g1","t-g2","t-rd","t-rs","t-g7"]) }); }
+function rPoemLine(){
+  const stanza = pick(POEMS);
+  return rRow(pick(stanza), { size: "sz-12", tone: pick(["t-g3","t-g1","t-g7"]) });
+}
+function rDivider() {
+  return rRow(pick([
+    "═══════════════════════════════",
+    "───────────────────────────────",
+    "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒",
+    "···············................",
+    "++++++++++++++++++++++++++++++",
+    "////////////////////////////////",
+  ]), { size: "sz-10", tone: pick(["t-g5","t-g6","t-rh"]) });
+}
+function rBlank() {
   const d = document.createElement("div");
-  d.className = "row " + cls + " " + (tone || "dim");
-  d.innerHTML = html;
+  d.className = "row";
+  d.innerHTML = "&nbsp;";
   return d;
 }
-function gap(kind) {
-  const d = document.createElement("div");
-  d.className = "row " + kind;
-  return d;
-}
 
-/* ── content emitters: each returns an array of row elements ── */
-
-function emitLogs() {
-  const out = [];
-  const n = rint(6, 14);
-  for (let i = 0; i < n; i++) {
-    const h = padL(rint(0,23),2), m = padL(rint(0,59),2), s = padL(rint(0,59),2);
-    const ms = padL(rint(0,999),3);
-    const svc = pick(SERVICES);
-    const lvCh = pick(["I","I","I","I","D","D","W","E"]);
-    const lv = lvCh === "I" ? "INFO " : lvCh === "D" ? "DEBUG" : lvCh === "W" ? "WARN " : "ERROR";
-    const msg = pick(LOG_MSGS);
-    const tone = lvCh === "E" || lvCh === "W" ? "lit" : "dim";
-    out.push(row("log", `[${h}:${m}:${s}.${ms}] ${lv} ${svc.padEnd(13," ")} ${msg}`, tone));
-  }
-  return out;
-}
-
-function emitHex() {
-  const out = [];
-  const n = rint(4, 10);
-  for (let i = 0; i < n; i++) {
-    const addr = (rint(0,0xFFFFFF)).toString(16).padStart(6,"0").toUpperCase();
-    const bytes = Array.from({length: 16}, hexB);
-    const ascii = bytes.map(b => {
-      const v = parseInt(b,16);
-      return (v >= 32 && v < 127) ? String.fromCharCode(v) : ".";
-    }).join("");
-    const left = bytes.slice(0,8).join(" ");
-    const right = bytes.slice(8).join(" ");
-    out.push(row("hex", `${addr}  ${left}  ${right}  ${ascii}`, i % 3 === 0 ? "lit" : "dim"));
-  }
-  return out;
-}
-
-function emitLs() {
-  const out = [];
-  const n = rint(5, 10);
-  for (let i = 0; i < n; i++) {
-    const perm = "-rw-r--r--";
-    const own = pick(OWNERS);
-    const sz = String(rint(1, 99999)).padStart(6," ");
-    const dt = `2026-${padL(rint(1,12),2)}-${padL(rint(1,28),2)} ${padL(rint(0,23),2)}:${padL(rint(0,59),2)}`;
-    const nm = pick(FILENAMES);
-    out.push(row("ls", `${perm}  ${own.padEnd(7," ")} ${sz}  ${dt}  ${nm}`, i % 4 === 0 ? "lit" : "dim"));
-  }
-  return out;
-}
-
-function emitSession() {
-  const out = [];
-  const session = pick(SESSIONS);
-  out.push(gap("gap-s"));
-  for (let i = 0; i < session.length; i++) {
-    const line = session[i];
-    const isPrompt = line.startsWith("$") || line.startsWith("^") || line.startsWith("[sudo]");
-    out.push(row("cmd", line, isPrompt ? "lit" : "dim"));
-  }
-  out.push(gap("gap-s"));
-  return out;
-}
-
-function emitPoem() {
-  const p = pick(POEMS);
-  const out = [];
-  out.push(gap("gap-m"));
-  const head = document.createElement("div");
-  head.className = "row poem lit";
-  head.innerHTML = `<span class="ttl dim">${p.t}</span>` + p.L.join("<br>");
-  out.push(head);
-  out.push(gap("gap-m"));
-  return out;
-}
-
-function emitAscii() {
-  const out = [];
-  const a = pick(ASCII);
-  out.push(gap("gap-s"));
-  const lines = a.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    const tone = i % 5 === 0 ? "lit" : "dim";
-    const r = document.createElement("div");
-    r.className = "row ascii " + tone;
-    r.textContent = lines[i] || " ";
-    out.push(r);
-  }
-  out.push(gap("gap-s"));
-  return out;
-}
-
-function emitCss()  {
-  const out = [];
-  out.push(gap("gap-s"));
-  const body = pick(CSS_BLOCKS);
-  const lines = body.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    const isCommentOrSelector = lines[i].trim().startsWith("/*") || lines[i].includes("{");
-    const tone = isCommentOrSelector ? "lit" : "dim";
-    out.push(row("css", lines[i] || " ", tone));
-  }
-  out.push(gap("gap-s"));
-  return out;
-}
-function emitJs()   {
-  const out = [];
-  out.push(gap("gap-s"));
-  const body = pick(JS_BLOCKS);
-  const lines = body.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    const tone = lines[i].trim().startsWith("//") ? "dim" : "lit";
-    out.push(row("js", lines[i] || " ", tone));
-  }
-  out.push(gap("gap-s"));
-  return out;
-}
-function emitHtml() {
-  const out = [];
-  out.push(gap("gap-s"));
-  const body = pick(HTML_BLOCKS);
-  const lines = body.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    const tone = lines[i].trim().startsWith("<!--") ? "dim" : "lit";
-    out.push(row("html", lines[i] || " ", tone));
-  }
-  out.push(gap("gap-s"));
-  return out;
-}
-
-function emitJoke() {
-  const out = [];
-  const j = pick(JOKES);
-  out.push(gap("gap-s"));
-  out.push(row("joke", j.s, "dim"));
-  out.push(row("joke", "    " + j.p, "lit"));
-  out.push(gap("gap-s"));
-  return out;
-}
-
-function emitOne() {
-  return [gap("gap-s"), row("one", pick(ONES), "lit"), gap("gap-s")];
-}
-
-function emitBig() {
-  return [gap("gap-m"), row("big", pick(BIG_WORDS), "lit"), gap("gap-s")];
-}
-
-function emitMarquee() {
-  return [gap("gap-s"), row("marquee", pick(MARQ), "lit"), gap("gap-s")];
-}
-
-function emitStatic() {
-  return [gap("gap-s"), row("static", pick(STATIC_CHARS), "dim")];
-}
-
-function emitStat() {
-  const out = [];
-  out.push(gap("gap-s"));
-  out.push(row("rule", "-".repeat(60), "dim"));
-  const n = rint(3, 6);
-  for (let i = 0; i < n; i++) {
-    const [k, fn] = pick(STAT_KEYS);
-    out.push(row("stat", `${k.padEnd(10," ")}  ${fn()}`, i % 2 === 0 ? "lit" : "dim"));
-  }
-  out.push(row("rule", "-".repeat(60), "dim"));
-  return out;
-}
-
-/* ── weighted dispatcher ── */
+/* weighted picker: dense logs/code/hex, occasional poetry/big/divider */
 const MAKERS = [
-  [emitLogs,    8],
-  [emitHex,     5],
-  [emitLs,      4],
-  [emitSession, 5],
-  [emitAscii,   4],
-  [emitPoem,    5],
-  [emitCss,     3],
-  [emitJs,      3],
-  [emitHtml,    2],
-  [emitJoke,    3],
-  [emitOne,     5],
-  [emitBig,     2],
-  [emitMarquee, 2],
-  [emitStatic,  5],
-  [emitStat,    3],
+  [rLog,       18],
+  [rCode,      14],
+  [rHex,        8],
+  [rLs,         6],
+  [rPrompt,     5],
+  [rAscii,      7],
+  [rPoemLine,   5],
+  [rOne,        3],
+  [rDivider,    4],
+  [rBig,        2],
+  [rBlank,      3],
 ];
-const WEIGHTS = (() => {
+const WPOOL = (() => {
   const out = [];
-  for (const [fn, w] of MAKERS) for (let i = 0; i < w; i++) out.push(fn);
+  for (const [fn, w] of MAKERS) for (let i=0; i<w; i++) out.push(fn);
   return out;
 })();
-const pickMaker = () => pick(WEIGHTS);
+const pickMaker = () => pick(WPOOL);
 
-/* ── build a section: ONE palette, many rows, no fancy stuff ── */
-function buildSection(palette) {
-  const sec = document.createElement("section");
-  sec.className = "section " + palette.cls;
+/* ── streams + burst engine ───────────────────────────────── */
 
-  // section label, dim
-  const label = document.createElement("div");
-  label.className = "row sec-label dim";
-  label.textContent = palette.label;
-  sec.appendChild(label);
+const streams = [
+  document.getElementById("s1"),
+  document.getElementById("s2"),
+  document.getElementById("s3"),
+];
 
-  // 6-10 emitters per section
-  const blockCount = rint(6, 10);
-  for (let i = 0; i < blockCount; i++) {
-    const rows = pickMaker()();
-    for (const r of rows) sec.appendChild(r);
+/* seed each stream with a lot of rows so the screen is dense immediately */
+function seed(stream, count) {
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < count; i++) frag.appendChild(pickMaker()());
+  stream.appendChild(frag);
+}
+streams.forEach(s => seed(s, 600));
+
+/* burst engine — every short interval, one stream gets a chunk of new rows
+   appended at the bottom + briefly flashed white-green */
+function burst() {
+  const stream = pick(streams);
+  const n = rint(4, 14);
+  const frag = document.createDocumentFragment();
+  const flashed = [];
+  for (let i = 0; i < n; i++) {
+    const r = pickMaker()();
+    if (Math.random() < 0.45) {
+      r.classList.add("burst");
+      flashed.push(r);
+    }
+    frag.appendChild(r);
   }
+  stream.appendChild(frag);
 
-  return sec;
+  /* drop the white flash after a moment, no transition, just swap */
+  setTimeout(() => {
+    for (const r of flashed) r.classList.remove("burst");
+  }, rint(180, 380));
+
+  /* keep DOM bounded — trim old rows from top once stream gets huge */
+  while (stream.childElementCount > 2400) {
+    stream.removeChild(stream.firstChild);
+  }
 }
 
-/* ── build the stream ── */
-const stream = document.getElementById("stream");
-
-// shuffle palette order each visit so it's not always the same sequence
-const order = [...PALETTES].sort(() => Math.random() - 0.5);
-
-// build enough sections to fill many screens; loop palette order
-const SECTION_COUNT = 36;
-for (let i = 0; i < SECTION_COUNT; i++) {
-  stream.appendChild(buildSection(order[i % order.length]));
+/* fire bursts on a jittered cadence — feels like incoming code */
+function scheduleBurst() {
+  const next = rint(40, 220);
+  setTimeout(() => { burst(); scheduleBurst(); }, next);
 }
+scheduleBurst();
+scheduleBurst();
+scheduleBurst();
 </script>
 </body>
 </html>
