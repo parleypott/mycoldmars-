@@ -6,59 +6,31 @@
 <title>falling · mycoldmars</title>
 <style>
   :root {
-    --bg: #02060a;
-    --green: #2eff8c;
-    --green-dim: #18b265;
-    --green-faint: #0a5c33;
+    --bg: #000000;
     --mono: ui-monospace, "SF Mono", "JetBrains Mono", "IBM Plex Mono", "Fira Code", Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { background: var(--bg); color: var(--green); }
+  html, body { background: var(--bg); }
   body {
     font-family: var(--mono);
     font-size: 13px;
-    line-height: 1.25;
+    line-height: 1.3;
     overflow: hidden;
     height: 100vh;
     width: 100vw;
-    cursor: none;
-    text-shadow: 0 0 4px currentColor;
-  }
-
-  .vignette {
-    position: fixed; inset: 0;
-    background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.92) 100%);
-    pointer-events: none; z-index: 20;
-  }
-  .scanlines {
-    position: fixed; inset: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      rgba(0,0,0,0) 0px,
-      rgba(0,0,0,0) 2px,
-      rgba(0,0,0,0.22) 2px,
-      rgba(0,0,0,0.22) 3px
-    );
-    pointer-events: none; z-index: 21;
-  }
-  .flicker {
-    position: fixed; inset: 0;
-    background: rgba(46, 255, 140, 0.02);
-    pointer-events: none; z-index: 19;
-    animation: flicker 0.18s steps(2) infinite;
-  }
-  @keyframes flicker {
-    0%, 100% { opacity: 0.3; }
-    50%      { opacity: 1; }
+    cursor: default;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
   }
 
   #stream {
     position: absolute;
     left: 0; right: 0;
     bottom: -300vh;
-    padding: 0 24px;
+    padding: 0;
     will-change: transform;
-    animation: fall 180s linear infinite;
+    animation: fall 720s linear infinite;
     column-count: 1;
   }
   @keyframes fall {
@@ -66,161 +38,137 @@
     to   { transform: translate3d(0, -1200vh, 0); }
   }
 
-  .row { margin: 0; padding: 0; white-space: pre; overflow: hidden; }
-  .row + .row { margin-top: 2px; }
-
-  /* ── spacer rows give breathing ── */
-  .gap-s { height: 0.6em; }
-  .gap-m { height: 1.4em; }
-  .gap-l { height: 2.4em; }
-
-  /* ── color tokens (all on dim green base) ── */
-  .c-green  { color: var(--green); }
-  .c-dim    { color: var(--green-dim); }
-  .c-faint  { color: var(--green-faint); }
-  .c-cyan   { color: #5bf0ff; }
-  .c-amber  { color: #ffb43a; }
-  .c-pink   { color: #ff5e8a; }
-  .c-purple { color: #c08aff; }
-  .c-red    { color: #ff3c4a; }
-  .c-yellow { color: #fff170; }
-  .c-blue   { color: #6aa6ff; }
-  .c-magenta{ color: #ff5dff; }
-  .c-white  { color: #d8ffe6; }
-  .c-orange { color: #ff7a2e; }
-
-  /* ── styled rows ── */
-  .log     { color: var(--green-dim); font-size: 12px; }
-  .log .ts { color: var(--green-faint); }
-  .log .lv { color: var(--green); }
-  .log .lv-W { color: #ffb43a; }
-  .log .lv-E { color: #ff3c4a; }
-  .log .lv-D { color: #6aa6ff; }
-
-  .hex     { color: var(--green-dim); font-size: 12px; letter-spacing: 0.02em; }
-  .hex .a  { color: var(--green-faint); }
-  .hex .b  { color: var(--green); }
-  .hex .c  { color: #c08aff; }
-
-  .ls      { color: var(--green-dim); font-size: 12px; }
-  .ls .perm{ color: var(--green-faint); }
-  .ls .own { color: #c08aff; }
-  .ls .sz  { color: #5bf0ff; }
-  .ls .dt  { color: #ffb43a; }
-  .ls .nm  { color: var(--green); }
-
-  .cmd     { color: var(--green); font-size: 13px; }
-  .cmd .p  { color: #ff5e8a; }
-  .cmd .o  { color: var(--green-dim); }
-
-  .css     { color: #8fffbe; font-size: 12.5px; }
-  .css .sel { color: #ffb43a; }
-  .css .prop{ color: #5bf0ff; }
-  .css .val { color: #fff170; }
-  .css .com { color: var(--green-faint); font-style: italic; }
-  .css .brace { color: var(--green-dim); }
-
-  .js      { color: #b4ffc8; font-size: 12.5px; }
-  .js .key { color: #ff5e8a; }
-  .js .str { color: #fff170; }
-  .js .num { color: #c08aff; }
-  .js .fn  { color: #5bf0ff; }
-  .js .com { color: var(--green-faint); font-style: italic; }
-
-  .html    { color: #b4ffc8; font-size: 12.5px; }
-  .html .tag { color: #ff5e8a; }
-  .html .att { color: #5bf0ff; }
-  .html .val { color: #fff170; }
-  .html .com { color: var(--green-faint); font-style: italic; }
-
-  .poem    { color: var(--green); font-size: 14px; line-height: 1.55; padding: 0.6em 0 0.6em 2ch; border-left: 2px solid var(--green-faint); margin: 0.5em 0 0.5em 8ch; max-width: 60ch; }
-  .poem .ttl { color: var(--green-faint); font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase; margin-bottom: 0.4em; }
-
-  .ascii   { color: var(--green); font-size: 12px; line-height: 1.05; padding: 0.4em 0; }
-  .ascii.pink { color: #ff5e8a; }
-  .ascii.cyan { color: #5bf0ff; }
-  .ascii.amber { color: #ffb43a; }
-  .ascii.purple { color: #c08aff; }
-
-  .big     { color: var(--green); font-size: 56px; font-weight: 900; letter-spacing: -0.03em; line-height: 1; padding: 0.2em 0; text-shadow: 0 0 12px currentColor, 0 0 28px currentColor; }
-  .big.r   { color: #ff3c4a; }
-  .big.y   { color: #fff170; }
-  .big.p   { color: #ff5dff; }
-  .big.c   { color: #5bf0ff; }
-  .big.o   { color: #ff7a2e; }
-
-  .banner  { color: var(--green); font-size: 11px; line-height: 1.05; padding: 0.3em 0; }
-  .banner.pink { color: #ff5e8a; }
-  .banner.cyan { color: #5bf0ff; }
-  .banner.amber { color: #ffb43a; }
-  .banner.purple { color: #c08aff; }
-  .banner.magenta { color: #ff5dff; }
-
-  .marquee { color: var(--green); font-size: 22px; font-weight: 800; letter-spacing: 0.04em; padding: 0.2em 0; text-shadow: 0 0 8px currentColor; }
-  .marquee.pink { color: #ff5e8a; }
-  .marquee.cyan { color: #5bf0ff; }
-  .marquee.amber { color: #ffb43a; }
-  .marquee.purple { color: #c08aff; }
-
-  .joke    { color: var(--green); font-size: 13px; padding: 0.3em 0 0.6em 2ch; }
-  .joke .punch { color: #ffb43a; }
-  .joke .setup { color: var(--green-dim); }
-
-  .one     { color: var(--green); font-size: 15px; padding: 0.4em 0 0.4em 4ch; letter-spacing: 0.02em; }
-
-  .rule    { color: var(--green-faint); font-size: 12px; }
-
-  .stat    { color: var(--green-dim); font-size: 12px; }
-  .stat .k { color: var(--green-faint); }
-  .stat .v { color: var(--green); }
-
-  /* full-width repeating chars */
-  .static  { color: var(--green-faint); font-size: 12px; opacity: 0.7; overflow: hidden; white-space: nowrap; }
-  .static.pink   { color: #ff5e8a; opacity: 0.5; }
-  .static.cyan   { color: #5bf0ff; opacity: 0.5; }
-  .static.amber  { color: #ffb43a; opacity: 0.5; }
-  .static.purple { color: #c08aff; opacity: 0.45; }
-
-  /* gradient text */
-  .gradient {
-    font-size: 64px; font-weight: 900; letter-spacing: -0.04em; line-height: 1;
-    background: linear-gradient(90deg, #2eff8c, #5bf0ff, #c08aff, #ff5e8a, #ffb43a, #2eff8c);
-    background-size: 200% 100%;
-    -webkit-background-clip: text; background-clip: text;
-    color: transparent;
-    animation: slide 6s linear infinite;
-    text-shadow: none;
-    padding: 0.2em 0;
+  /* ── section blocks: each one big sweep of monochrome ── */
+  .section {
+    padding: 4em 28px 4em 28px;
   }
-  @keyframes slide {
-    from { background-position: 0% 0%; }
-    to   { background-position: 200% 0%; }
+  .section + .section {
+    margin-top: 0;
+  }
+
+  /* SAME-HUE PALETTES — dark variant + light variant only. nothing else. */
+  .pal-radish    { background: hsl(355, 70%,  8%); }
+  .pal-radish    .dim  { color: hsl(355, 65%, 32%); }
+  .pal-radish    .lit  { color: hsl(355, 88%, 66%); }
+
+  .pal-forest    { background: hsl(140, 60%,  6%); }
+  .pal-forest    .dim  { color: hsl(140, 60%, 28%); }
+  .pal-forest    .lit  { color: hsl(135, 72%, 58%); }
+
+  .pal-mustard   { background: hsl( 45, 70%,  7%); }
+  .pal-mustard   .dim  { color: hsl( 42, 65%, 34%); }
+  .pal-mustard   .lit  { color: hsl( 50, 92%, 64%); }
+
+  .pal-ocean     { background: hsl(210, 70%,  7%); }
+  .pal-ocean     .dim  { color: hsl(210, 65%, 32%); }
+  .pal-ocean     .lit  { color: hsl(205, 85%, 65%); }
+
+  .pal-plum      { background: hsl(290, 55%,  7%); }
+  .pal-plum      .dim  { color: hsl(290, 55%, 30%); }
+  .pal-plum      .lit  { color: hsl(285, 75%, 70%); }
+
+  .pal-ember     { background: hsl( 20, 75%,  7%); }
+  .pal-ember     .dim  { color: hsl( 18, 70%, 32%); }
+  .pal-ember     .lit  { color: hsl( 25, 92%, 62%); }
+
+  .pal-jade      { background: hsl(170, 70%,  6%); }
+  .pal-jade      .dim  { color: hsl(170, 65%, 28%); }
+  .pal-jade      .lit  { color: hsl(170, 72%, 60%); }
+
+  .pal-bone      { background: hsl( 40, 12%,  8%); }
+  .pal-bone      .dim  { color: hsl( 40, 15%, 38%); }
+  .pal-bone      .lit  { color: hsl( 45, 22%, 82%); }
+
+  .pal-violet    { background: hsl(260, 60%,  8%); }
+  .pal-violet    .dim  { color: hsl(260, 55%, 35%); }
+  .pal-violet    .lit  { color: hsl(255, 80%, 72%); }
+
+  .pal-rust      { background: hsl(  8, 65%,  7%); }
+  .pal-rust      .dim  { color: hsl(  8, 60%, 32%); }
+  .pal-rust      .lit  { color: hsl( 14, 85%, 58%); }
+
+  .pal-mint      { background: hsl(155, 55%,  6%); }
+  .pal-mint      .dim  { color: hsl(155, 55%, 26%); }
+  .pal-mint      .lit  { color: hsl(150, 70%, 64%); }
+
+  .pal-slate     { background: hsl(220, 18%,  8%); }
+  .pal-slate     .dim  { color: hsl(220, 18%, 38%); }
+  .pal-slate     .lit  { color: hsl(215, 25%, 78%); }
+
+  /* ── row layout ── */
+  .row    { white-space: pre; overflow: hidden; padding: 0; }
+  .row + .row { margin-top: 1px; }
+  .gap-s  { height: 0.6em; }
+  .gap-m  { height: 1.4em; }
+  .gap-l  { height: 2.6em; }
+
+  /* ── typographic rows (all default to .dim of current section) ── */
+  .log     { font-size: 12px; }
+  .hex     { font-size: 12px; letter-spacing: 0.02em; }
+  .ls      { font-size: 12px; }
+  .cmd     { font-size: 13px; }
+  .css     { font-size: 12.5px; }
+  .js      { font-size: 12.5px; }
+  .html    { font-size: 12.5px; }
+  .joke    { font-size: 13px; padding: 0.3em 0 0.6em 2ch; }
+  .one     { font-size: 15px; padding: 0.4em 0 0.4em 4ch; letter-spacing: 0.02em; }
+  .stat    { font-size: 12px; }
+  .static  { font-size: 12px; overflow: hidden; white-space: nowrap; }
+  .ascii   { font-size: 12px; line-height: 1.05; padding: 0.4em 0; }
+  .rule    { font-size: 12px; }
+
+  .poem    {
+    font-size: 14px; line-height: 1.6;
+    padding: 0.6em 0 0.6em 2ch;
+    margin: 0.5em 0 0.5em 8ch;
+    max-width: 60ch;
+  }
+  .poem .ttl {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    margin-bottom: 0.4em;
+  }
+
+  .big {
+    font-size: 56px; font-weight: 900;
+    letter-spacing: -0.03em; line-height: 1;
+    padding: 0.15em 0;
+  }
+  .marquee {
+    font-size: 22px; font-weight: 800;
+    letter-spacing: 0.04em; padding: 0.2em 0;
+  }
+  .banner  { font-size: 11px; line-height: 1.05; padding: 0.3em 0; }
+
+  /* section header: bone-dry label, just sits there */
+  .sec-label {
+    font-size: 10px;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    padding: 0 0 1.6em 0;
   }
 
   @media (max-width: 700px) {
     body { font-size: 11px; }
-    #stream { padding: 0 12px; }
+    .section { padding: 3em 14px; }
     .big { font-size: 36px; }
-    .gradient { font-size: 36px; }
     .marquee { font-size: 16px; }
     .poem { margin-left: 2ch; font-size: 12px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    #stream { animation-duration: 600s; }
-    .flicker, .gradient { animation: none; }
+    #stream { animation-duration: 2400s; }
   }
 </style>
 </head>
 <body>
   <div id="stream"></div>
-  <div class="flicker"></div>
-  <div class="scanlines"></div>
-  <div class="vignette"></div>
 
 <script>
 /* ============================================================
-   F A L L I N G  —  dense terminal stream
+   F A L L I N G  —  flat color sections, raw terminal
    ============================================================ */
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -263,16 +211,13 @@ const POEMS = [
         "That the powerful play goes on, and you may contribute a verse."] },
   { t: "Crossing Brooklyn Ferry",
     L: ["Flood-tide below me! I see you face to face!",
-        "Clouds of the west — sun there half an hour high — I see you also face to face.",
-        "Crowds of men and women attired in the usual costumes, how curious you are to me!"] },
+        "Clouds of the west — sun there half an hour high.",
+        "Crowds of men and women attired in the usual costumes,",
+        "how curious you are to me!"] },
   { t: "Continuities",
     L: ["Nothing is ever really lost, or can be lost,",
         "No birth, identity, form — no object of the world,",
         "Nor life, nor force, nor any visible thing."] },
-  { t: "Song of the Rolling Earth",
-    L: ["Were you thinking that those were the words, those upright lines? those curves, angles, dots?",
-        "No, those are not the words, the substantial words are in the ground and sea,",
-        "They are in the air, they are in you."] },
   { t: "There Was a Child Went Forth",
     L: ["There was a child went forth every day,",
         "And the first object he look'd upon, that object he became."] },
@@ -287,7 +232,6 @@ const POEMS = [
         "maybe one more episode."] },
 ];
 
-/* ── ASCII shapes (kept tight, terminal-y) ───────────────────── */
 const ASCII = [
 `        .---.
        /     \\
@@ -303,23 +247,19 @@ const ASCII = [
   ||___||     CHANNEL: 037
   |[=- ]|     OPERATOR: unknown
   '-----'`,
-`╔══════════════════════════════════════════════════════════════╗
-║  M Y   C O L D   M A R S    ░  broadcasting since forever   ║
-╚══════════════════════════════════════════════════════════════╝`,
+`+==============================================================+
+|  M Y   C O L D   M A R S    broadcasting since forever       |
++==============================================================+`,
 `     _________     _________     _________     _________
     /         \\   /         \\   /         \\   /         \\
    |   . .    | |    . .    | |    . .    | |    . .    |
    |    o     | |     o     | |     o     | |     o     |
    |   \\_/    | |    \\_/    | |    \\_/    | |    \\_/    |
-    \\_________/   \\_________/   \\_________/   \\_________/
-       (1)           (1)           (1)           (1)`,
+    \\_________/   \\_________/   \\_________/   \\_________/`,
 `    /\\___/\\
-   (  o.o  )    /* debugging the universe */
-    > ^ <      /* it's a memory leak */
-    /   \\      /* the leak is on purpose */`,
-`■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■
-□ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □
-■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■ □ ■`,
+   (  o.o  )    // debugging the universe
+    > ^ <      // it's a memory leak
+    /   \\      // the leak is on purpose`,
 `         |
         / \\
        /   \\
@@ -327,38 +267,28 @@ const ASCII = [
      /-------\\          status: hopeful
     /         \\         broadcast: warm static
    /___________\\        listeners: 1 (you)`,
-`░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-░░  >>  rain.  but the kind you'd describe to a friend  <<  ░░
-░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░`,
 `+-----------------------------+
 |  ERROR: meaning not found   |
 |  retrying in: forever       |
 |  [ ok ] [ cancel ] [ shrug ] |
 +-----------------------------+`,
-`   .-.   .-.   .-.   .-.   .-.   .-.   .-.   .-.   .-.   .-.
-  (   ) (   ) (   ) (   ) (   ) (   ) (   ) (   ) (   ) (   )
-   '-'   '-'   '-'   '-'   '-'   '-'   '-'   '-'   '-'   '-'
-   a string of small thoughts walking single-file`,
-`  *     *     *     *     *     *     *     *     *     *
-   .   .       .   .       .   .       .   .       .   .
-*     *     *     *  the stars are loud  *     *     *
-   .   .       .   .       .   .       .   .       .   .
-  *     *     *     *     *     *     *     *     *     *`,
-`▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒
-▒  ┌──── transmission interrupted ────┐                ▒
-▒  │  resume? (Y/N)                   │                ▒
-▒  └──────────────────────────────────┘                ▒
-▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒`,
+`   .-.   .-.   .-.   .-.   .-.   .-.   .-.   .-.
+  (   ) (   ) (   ) (   ) (   ) (   ) (   ) (   )
+   '-'   '-'   '-'   '-'   '-'   '-'   '-'   '-'`,
+`  *     *     *     *     *     *     *     *
+   .   .       .   .       .   .       .   .
+*     *     *     *  the stars are loud  *
+   .   .       .   .       .   .       .   .
+  *     *     *     *     *     *     *     *`,
 `  .-""""""""""""""""""""""""""""""""""""""""""""""""-.
  /                                                    \\
- |   you are at depth: \\u221E                          |
- |   air supply: vibes only                            |
- |   keep falling                                      |
+ |   you are at depth: infinity                       |
+ |   air supply: vibes only                           |
+ |   keep falling                                     |
  \\                                                    /
   '-..................................................'`,
 ];
 
-/* ── jokes ──────────────────────────────────────────────────── */
 const JOKES = [
   { s: "knock, knock.", p: "— who's there.  — the inevitable.  — the inevitable who.  — exactly." },
   { s: "how many surrealists does it take to change a lightbulb?", p: "fish." },
@@ -367,14 +297,12 @@ const JOKES = [
   { s: "the universe is mostly empty space.", p: "and yet, somehow, my inbox." },
   { s: "press F to pay respects.", p: "press F again to undo." },
   { s: "good. fast. cheap.", p: "pick zero." },
-  { s: "i'm not arguing.", p: "i'm just explaining why i'm right, but in a friendly tone." },
   { s: "my code doesn't have bugs.", p: "it has undocumented features with personalities." },
-  { s: "documentation status:", p: "TODO: write documentation. — written by: someone who is now retired." },
+  { s: "documentation status:", p: "TODO. — written by: someone who is now retired." },
   { s: "why did the developer quit?", p: "they didn't get arrays." },
   { s: "what's the loneliest number?", p: "404." },
 ];
 
-/* ── one-liners (slow drip) ─────────────────────────────────── */
 const ONES = [
   "everything is fine.",
   "you are still here.",
@@ -400,144 +328,141 @@ const ONES = [
   "the work was good.",
 ];
 
-/* ── code blocks ────────────────────────────────────────────── */
 const CSS_BLOCKS = [
-`<span class="com">/* the universe, but with rounded corners */</span>
-<span class="sel">.universe</span> <span class="brace">{</span>
-  <span class="prop">position</span>: <span class="val">absolute</span>;
-  <span class="prop">inset</span>: <span class="val">0</span>;
-  <span class="prop">animation</span>: <span class="val">expand 13.8e9s linear infinite</span>;
-<span class="brace">}</span>`,
-`<span class="sel">@keyframes</span> <span class="val">heartbeat</span> <span class="brace">{</span>
-  <span class="sel">  0%</span> <span class="brace">{</span> <span class="prop">transform</span>: <span class="val">scale(1.00)</span>; <span class="brace">}</span>
-  <span class="sel"> 50%</span> <span class="brace">{</span> <span class="prop">transform</span>: <span class="val">scale(1.06)</span>; <span class="brace">}</span>
-  <span class="sel">100%</span> <span class="brace">{</span> <span class="prop">transform</span>: <span class="val">scale(1.00)</span>; <span class="brace">}</span>
-<span class="brace">}</span>`,
-`<span class="com">/* don't tell anyone */</span>
-<span class="sel">.secret</span> <span class="brace">{</span>
-  <span class="prop">opacity</span>: <span class="val">0.01</span>;
-  <span class="prop">color</span>: <span class="val">#ff00ff</span>;
-  <span class="prop">user-select</span>: <span class="val">none</span>;
-<span class="brace">}</span>`,
-`<span class="sel">body</span> <span class="brace">{</span>
-  <span class="prop">cursor</span>: <span class="val">none</span>;  <span class="com">/* you are the cursor now */</span>
-<span class="brace">}</span>`,
-`<span class="sel">.feeling</span> <span class="brace">{</span>
-  <span class="prop">color</span>: <span class="val">oklch(72% 0.18 41)</span>;
-  <span class="prop">backdrop-filter</span>: <span class="val">blur(0.8px) saturate(1.4)</span>;
-  <span class="prop">mix-blend-mode</span>: <span class="val">screen</span>;
-<span class="brace">}</span>`,
-`<span class="com">/* this does absolutely nothing useful */</span>
-<span class="sel">.nothing</span> <span class="brace">{</span>
-  <span class="prop">all</span>: <span class="val">unset</span>;
-  <span class="prop">display</span>: <span class="val">contents</span>;
-<span class="brace">}</span>`,
+`/* the universe, but with rounded corners */
+.universe {
+  position: absolute;
+  inset: 0;
+  animation: expand 13.8e9s linear infinite;
+}`,
+`@keyframes heartbeat {
+    0% { transform: scale(1.00); }
+   50% { transform: scale(1.06); }
+  100% { transform: scale(1.00); }
+}`,
+`/* don't tell anyone */
+.secret {
+  opacity: 0.01;
+  color: #ff00ff;
+  user-select: none;
+}`,
+`body {
+  cursor: none;  /* you are the cursor now */
+}`,
+`.feeling {
+  color: oklch(72% 0.18 41);
+  backdrop-filter: blur(0.8px) saturate(1.4);
+  mix-blend-mode: screen;
+}`,
+`/* this does absolutely nothing useful */
+.nothing {
+  all: unset;
+  display: contents;
+}`,
 ];
 
 const JS_BLOCKS = [
-`<span class="com">// recursion is a verb</span>
-<span class="key">function</span> <span class="fn">fall</span>(<span class="num">depth</span> = <span class="num">0</span>) {
-  <span class="key">if</span> (<span class="num">depth</span> &gt; <span class="num">Infinity</span>) <span class="key">return</span>;
-  console.<span class="fn">log</span>(<span class="str">"still falling..."</span>);
-  <span class="key">return</span> <span class="fn">fall</span>(<span class="num">depth</span> + <span class="num">1</span>);
+`// recursion is a verb
+function fall(depth = 0) {
+  if (depth > Infinity) return;
+  console.log("still falling...");
+  return fall(depth + 1);
 }`,
-`<span class="key">const</span> <span class="fn">universe</span> = <span class="key">new</span> <span class="fn">Proxy</span>({}, {
-  <span class="fn">get</span>(_, k) { <span class="key">return</span> <span class="str">"more"</span>; }
+`const universe = new Proxy({}, {
+  get(_, k) { return "more"; }
 });
-<span class="fn">universe</span>.stars;  <span class="com">// "more"</span>
-<span class="fn">universe</span>.grief;  <span class="com">// "more"</span>
-<span class="fn">universe</span>.joy;    <span class="com">// "more"</span>`,
-`<span class="com">// when in doubt, ship it</span>
-<span class="key">async function</span> <span class="fn">deploy</span>() {
-  <span class="key">await</span> <span class="fn">vercel</span>();
-  <span class="key">await</span> <span class="fn">pray</span>();
-  <span class="key">return</span> <span class="str">"works on my machine"</span>;
+universe.stars;  // "more"
+universe.grief;  // "more"
+universe.joy;    // "more"`,
+`// when in doubt, ship it
+async function deploy() {
+  await vercel();
+  await pray();
+  return "works on my machine";
 }`,
-`<span class="com">// the only test that matters</span>
-<span class="fn">expect</span>(life).<span class="fn">toBe</span>(<span class="str">"worth it"</span>);
-<span class="fn">expect</span>(today).<span class="fn">toBeGreaterThan</span>(yesterday);
-<span class="fn">expect</span>(love).<span class="fn">not</span>.<span class="fn">toBe</span>(<span class="num">null</span>);`,
-`<span class="key">try</span> {
-  <span class="key">await</span> <span class="fn">understand</span>(everything);
-} <span class="key">catch</span> (err) {
-  console.<span class="fn">warn</span>(<span class="str">"that's ok"</span>);
-  <span class="key">return</span> <span class="fn">listen</span>();
+`// the only test that matters
+expect(life).toBe("worth it");
+expect(today).toBeGreaterThan(yesterday);
+expect(love).not.toBe(null);`,
+`try {
+  await understand(everything);
+} catch (err) {
+  console.warn("that's ok");
+  return listen();
 }`,
-`<span class="key">type</span> <span class="fn">Human</span> = {
-  name: <span class="str">string</span>,
-  scars: <span class="fn">Wound</span>[],
-  songs: <span class="fn">Lyric</span>[],
-  remaining_days: <span class="str">number</span> | <span class="str">"unknown"</span>,
+`type Human = {
+  name: string,
+  scars: Wound[],
+  songs: Lyric[],
+  remaining_days: number | "unknown",
 };`,
-`<span class="key">const</span> truth = <span class="key">await</span> <span class="fn">fetch</span>(<span class="str">"/api/world"</span>)
-  .<span class="fn">then</span>(r =&gt; r.<span class="fn">json</span>())
-  .<span class="fn">catch</span>(() =&gt; <span class="num">null</span>);
-<span class="key">if</span> (!truth) {
-  <span class="com">// go outside</span>
+`const truth = await fetch("/api/world")
+  .then(r => r.json())
+  .catch(() => null);
+if (!truth) {
+  // go outside
 }`,
 ];
 
 const HTML_BLOCKS = [
-`<span class="tag">&lt;body</span> <span class="att">style</span>=<span class="val">"falling: forever"</span><span class="tag">&gt;</span>
-  <span class="tag">&lt;you</span> <span class="att">are</span>=<span class="val">"reading this"</span><span class="tag">&gt;&lt;/you&gt;</span>
-  <span class="tag">&lt;and&gt; &lt;that&gt; &lt;counts&gt;</span>
-<span class="tag">&lt;/body&gt;</span>`,
-`<span class="com">&lt;!-- things i didn't say --&gt;</span>
-<span class="tag">&lt;ul&gt;</span>
-  <span class="tag">&lt;li&gt;</span>thank you<span class="tag">&lt;/li&gt;</span>
-  <span class="tag">&lt;li&gt;</span>i was wrong<span class="tag">&lt;/li&gt;</span>
-  <span class="tag">&lt;li&gt;</span>stay a while<span class="tag">&lt;/li&gt;</span>
-<span class="tag">&lt;/ul&gt;</span>`,
-`<span class="tag">&lt;meta</span> <span class="att">name</span>=<span class="val">"mood"</span>    <span class="att">content</span>=<span class="val">"warm static"</span><span class="tag">&gt;</span>
-<span class="tag">&lt;meta</span> <span class="att">name</span>=<span class="val">"weather"</span> <span class="att">content</span>=<span class="val">"the kind you'd describe to a friend"</span><span class="tag">&gt;</span>
-<span class="tag">&lt;meta</span> <span class="att">name</span>=<span class="val">"channel"</span> <span class="att">content</span>=<span class="val">"037 / mycoldmars"</span><span class="tag">&gt;</span>`,
+`<body style="falling: forever">
+  <you are="reading this"></you>
+  <and> <that> <counts>
+</body>`,
+`<!-- things i didn't say -->
+<ul>
+  <li>thank you</li>
+  <li>i was wrong</li>
+  <li>stay a while</li>
+</ul>`,
+`<meta name="mood"    content="warm static">
+<meta name="weather" content="the kind you'd describe to a friend">
+<meta name="channel" content="037 / mycoldmars">`,
 ];
 
-/* ── command transcripts ────────────────────────────────────── */
 const SESSIONS = [
-[ ["$ whoami",                "p"],
-  ["johnny",                  "o"],
-  ["$ who are you really",    "p"],
-  ["bash: who: command not found",  "o"],
-  ["$ sudo who are you really","p"],
-  ["[sudo] password for johnny:","o"],
-  ["sorry, three incorrect attempts","o"],
-  ["$ echo \"ok then\"",      "p"],
-  ["ok then",                 "o"] ],
-[ ["$ ls -la ~/feelings",     "p"],
-  ["total ∞",            "o"],
-  ["drwxr-xr-x  unresolved  2026  longing/", "o"],
-  ["drwxr-xr-x  unresolved  2026  awe/",     "o"],
-  ["drwxr-xr-x  hidden      2026  grief/",   "o"],
-  ["-rw-r--r--  archived    1998  joy.txt",  "o"] ],
-[ ["$ ping meaning.local",    "p"],
-  ["PING meaning.local (127.0.0.1): 56 data bytes","o"],
-  ["Request timeout for icmp_seq 0", "o"],
-  ["Request timeout for icmp_seq 1", "o"],
-  ["Request timeout for icmp_seq 2", "o"],
-  ["^C",                       "o"],
-  ["$ _",                     "p"] ],
-[ ["$ cat /etc/motd",         "p"],
-  ["welcome.",                "o"],
-  ["you are exactly where you need to be,", "o"],
-  ["which is, statistically, anywhere.",    "o"],
-  ["have a good shift.",      "o"] ],
-[ ["$ man patience",          "p"],
-  ["PATIENCE(1)              a thing you grow", "o"],
-  ["NAME",                    "o"],
-  ["       patience — see also: everything good", "o"],
-  ["SYNOPSIS",                "o"],
-  ["       patience [--quiet] [--again]",       "o"] ],
-[ ["$ tail -f /var/log/heart.log", "p"],
-  ["[14:02:11] beat",         "o"],
-  ["[14:02:12] beat",         "o"],
-  ["[14:02:13] beat",         "o"],
-  ["[14:02:14] skipped — ok", "o"],
-  ["[14:02:15] beat",         "o"],
-  ["[14:02:16] beat",         "o"] ],
+[ "$ whoami",
+  "johnny",
+  "$ who are you really",
+  "bash: who: command not found",
+  "$ sudo who are you really",
+  "[sudo] password for johnny:",
+  "sorry, three incorrect attempts",
+  "$ echo \"ok then\"",
+  "ok then" ],
+[ "$ ls -la ~/feelings",
+  "total infinity",
+  "drwxr-xr-x  unresolved  2026  longing/",
+  "drwxr-xr-x  unresolved  2026  awe/",
+  "drwxr-xr-x  hidden      2026  grief/",
+  "-rw-r--r--  archived    1998  joy.txt" ],
+[ "$ ping meaning.local",
+  "PING meaning.local (127.0.0.1): 56 data bytes",
+  "Request timeout for icmp_seq 0",
+  "Request timeout for icmp_seq 1",
+  "Request timeout for icmp_seq 2",
+  "^C",
+  "$ _" ],
+[ "$ cat /etc/motd",
+  "welcome.",
+  "you are exactly where you need to be,",
+  "which is, statistically, anywhere.",
+  "have a good shift." ],
+[ "$ man patience",
+  "PATIENCE(1)              a thing you grow",
+  "NAME",
+  "       patience -- see also: everything good",
+  "SYNOPSIS",
+  "       patience [--quiet] [--again]" ],
+[ "$ tail -f /var/log/heart.log",
+  "[14:02:11] beat",
+  "[14:02:12] beat",
+  "[14:02:13] beat",
+  "[14:02:14] skipped -- ok",
+  "[14:02:15] beat",
+  "[14:02:16] beat" ],
 ];
 
-/* ── log line generators ────────────────────────────────────── */
 const SERVICES = ["kernel","systemd","dreamd","mycoldmars","heartbeat","poetryd","cron","render","gpu","wifi","ssh","launchd","cosmic-bus"];
 const LOG_MSGS = [
   "rotating buffer", "establishing tunnel to 127.0.0.1", "color cycle complete",
@@ -547,36 +472,8 @@ const LOG_MSGS = [
   "tide receded", "tide returned", "moon: 73%", "uptime 9999 days",
   "queued: 1 unsent letter", "compaction successful", "soft warnings tolerated",
   "fan curve gentle", "battery polite", "you remembered the thing",
-  "you forgot the thing — that's ok", "tab count: yes",
+  "you forgot the thing -- that's ok", "tab count: yes",
 ];
-
-function logRow() {
-  const h = padL(rint(0,23),2), m = padL(rint(0,59),2), s = padL(rint(0,59),2);
-  const ms = padL(rint(0,999),3);
-  const svc = pick(SERVICES);
-  const lvCh = pick(["I","I","I","I","D","D","W","E"]);
-  const lv = lvCh === "I" ? "INFO " : lvCh === "D" ? "DEBUG" : lvCh === "W" ? "WARN " : "ERROR";
-  const msg = pick(LOG_MSGS);
-  const div = document.createElement("div");
-  div.className = "row log";
-  div.innerHTML = `<span class="ts">[${h}:${m}:${s}.${ms}]</span> <span class="lv lv-${lvCh}">${lv}</span> ${svc.padEnd(13," ")} ${msg}`;
-  return div;
-}
-
-function hexRow() {
-  const addr = (rint(0,0xFFFFFF)).toString(16).padStart(6,"0").toUpperCase();
-  const bytes = Array.from({length: 16}, hexB);
-  const ascii = bytes.map(b => {
-    const v = parseInt(b,16);
-    return (v >= 32 && v < 127) ? String.fromCharCode(v) : ".";
-  }).join("");
-  const left = bytes.slice(0,8).join(" ");
-  const right = bytes.slice(8).join(" ");
-  const div = document.createElement("div");
-  div.className = "row hex";
-  div.innerHTML = `<span class="a">${addr}</span>  <span class="b">${left}</span>  <span class="b">${right}</span>  <span class="c">${ascii}</span>`;
-  return div;
-}
 
 const FILENAMES = [
   "manifesto.txt", "rain.wav", "01_voicememo.m4a", "sketch.psd", "letter.draft",
@@ -585,166 +482,32 @@ const FILENAMES = [
   "dream-027.log", "remember-this.txt", "no.rtf", "yes.rtf", "maybe.rtf",
 ];
 const OWNERS = ["johnny","root","nobody","ghost","muse","cat"];
-function lsRow() {
-  const perm = "-rw-r--r--";
-  const own = pick(OWNERS);
-  const sz = String(rint(1, 99999)).padStart(6," ");
-  const dt = `2026-${padL(rint(1,12),2)}-${padL(rint(1,28),2)} ${padL(rint(0,23),2)}:${padL(rint(0,59),2)}`;
-  const nm = pick(FILENAMES);
-  const div = document.createElement("div");
-  div.className = "row ls";
-  div.innerHTML = `<span class="perm">${perm}</span>  <span class="own">${own.padEnd(7," ")}</span> <span class="sz">${sz}</span>  <span class="dt">${dt}</span>  <span class="nm">${nm}</span>`;
-  return div;
-}
 
-/* ── static bars (full-width single line of repeating chars) ── */
 const STATIC_CHARS = [
-  "▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░▒░",
-  "·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·.·",
-  "▓▒░  ░▒▓▓▒░  ░▒▓▓▒░  ░▒▓▓▒░  ░▒▓▓▒░  ░▒▓▓▒░  ░▒▓▓▒░  ░▒▓▓▒░  ░▒▓",
-  "=================================== signal warm ===================================",
-  "└─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┘",
-  "♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥ ♥",
-  "★    ☆    ★    ☆    ★    ☆    ★    ☆    ★    ☆    ★    ☆    ★    ☆    ★",
-  "──────── you are still falling ──────── you are still falling ────────",
-  "······ the page does not end ······ the page does not end ······",
-  "////////////////////  warm static  ////////////////////  warm static  ////////",
-  ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>",
+  "::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::",
+  "==================================== signal warm ====================================",
+  "----  you are still falling  ----  you are still falling  ----",
+  "....  the page does not end  ....  the page does not end  ....",
+  ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>",
+  "////////////////////  warm static  ////////////////////  warm static  ////",
+  "+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+",
+  "[][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][]",
+  "____________________________________________________________________________",
 ];
 
 const STAT_KEYS = [
   ["uptime", () => `${rint(1,9999)} days, ${padL(rint(0,23),2)}:${padL(rint(0,59),2)}`],
   ["load",   () => `${(Math.random()*0.8+0.05).toFixed(2)}, ${(Math.random()*0.8+0.05).toFixed(2)}, ${(Math.random()*0.8+0.05).toFixed(2)}`],
   ["mem",    () => `${rint(1,32)}.${rint(0,9)} GiB / 64 GiB`],
-  ["temp",   () => `${rint(31,72)}°C`],
+  ["temp",   () => `${rint(31,72)} C`],
   ["mood",   () => pick(["warm static","hopeful","cold-but-ok","fine, actually","quietly optimistic","tea-deficient"])],
   ["channel",() => `037 / mycoldmars / ${pick(["clear","drifting","stable","romantic"])}`],
   ["pwd",    () => pick(["/dreams","/feelings","/var/log/heart","/usr/local/whitman","~/falling"])],
   ["whoami", () => pick(["johnny","nobody","still figuring it out","both"])],
 ];
-function statBlock() {
-  const wrap = document.createDocumentFragment();
-  const n = rint(3, 6);
-  for (let i=0; i<n; i++) {
-    const [k, fn] = pick(STAT_KEYS);
-    const div = document.createElement("div");
-    div.className = "row stat";
-    div.innerHTML = `<span class="k">${k.padEnd(10," ")}</span>  <span class="v">${fn()}</span>`;
-    wrap.appendChild(div);
-  }
-  return wrap;
-}
 
-/* ── builders that emit a sequence of rows ──────────────────── */
-function frag() { return document.createDocumentFragment(); }
-function gap(cls) { const d = document.createElement("div"); d.className = "row " + cls; return d; }
-function rule(char = "─", width = 70) {
-  const d = document.createElement("div");
-  d.className = "row rule";
-  d.textContent = char.repeat(width);
-  return d;
-}
-
-/* poems */
-function blockPoem() {
-  const p = pick(POEMS);
-  const f = frag();
-  f.appendChild(gap("gap-s"));
-  const head = document.createElement("div");
-  head.className = "row poem";
-  head.innerHTML = `<span class="ttl">${p.t}</span>` + p.L.join("<br>");
-  f.appendChild(head);
-  f.appendChild(gap("gap-s"));
-  return f;
-}
-
-/* ascii */
-const ASCII_COLORS = ["", "pink", "cyan", "amber", "purple"];
-function blockAscii() {
-  const a = pick(ASCII);
-  const c = pick(ASCII_COLORS);
-  const f = frag();
-  f.appendChild(gap("gap-s"));
-  const lines = a.split("\n");
-  for (const ln of lines) {
-    const r = document.createElement("div");
-    r.className = "row ascii " + c;
-    r.textContent = ln || " ";
-    f.appendChild(r);
-  }
-  f.appendChild(gap("gap-s"));
-  return f;
-}
-
-/* multi-line code blocks rendered as one .row (preserves spaces) */
-function blockCode(cls, body) {
-  const f = frag();
-  f.appendChild(gap("gap-s"));
-  const lines = body.split("\n");
-  for (const ln of lines) {
-    const r = document.createElement("div");
-    r.className = "row " + cls;
-    r.innerHTML = ln === "" ? "&nbsp;" : ln;
-    f.appendChild(r);
-  }
-  f.appendChild(gap("gap-s"));
-  return f;
-}
-function blockCss()  { return blockCode("css",  pick(CSS_BLOCKS));  }
-function blockJs()   { return blockCode("js",   pick(JS_BLOCKS));   }
-function blockHtml() { return blockCode("html", pick(HTML_BLOCKS)); }
-
-/* jokes */
-function blockJoke() {
-  const j = pick(JOKES);
-  const f = frag();
-  f.appendChild(gap("gap-s"));
-  const a = document.createElement("div");
-  a.className = "row joke";
-  a.innerHTML = `<span class="setup">${j.s}</span>  <span class="punch">${j.p}</span>`;
-  f.appendChild(a);
-  return f;
-}
-
-/* one-liner */
-function blockOne() {
-  const f = frag();
-  f.appendChild(gap("gap-s"));
-  const a = document.createElement("div");
-  a.className = "row one";
-  a.textContent = pick(ONES);
-  f.appendChild(a);
-  return f;
-}
-
-/* big word */
 const BIG_WORDS = ["FALL","DEEPER","STILL","HERE","SOFT","WARM","HOLD","MORE","OK","QUIET","BREATHE","AGAIN"];
-const BIG_COLORS = ["","r","y","p","c","o"];
-function blockBig() {
-  const f = frag();
-  f.appendChild(gap("gap-m"));
-  const a = document.createElement("div");
-  a.className = "row big " + pick(BIG_COLORS);
-  a.textContent = pick(BIG_WORDS);
-  f.appendChild(a);
-  f.appendChild(gap("gap-s"));
-  return f;
-}
 
-/* gradient logo */
-const GRAD_TEXT = ["m y c o l d   m a r s","F A L L I N G","E N D L E S S","STILL HERE","· · ·"];
-function blockGradient() {
-  const f = frag();
-  f.appendChild(gap("gap-m"));
-  const a = document.createElement("div");
-  a.className = "row gradient";
-  a.textContent = pick(GRAD_TEXT);
-  f.appendChild(a);
-  f.appendChild(gap("gap-s"));
-  return f;
-}
-
-/* marquee */
 const MARQ = [
   "this is not loading. this is the page.",
   "scroll? no. the page is the scroll.",
@@ -752,132 +515,265 @@ const MARQ = [
   "channel 037 is open. you are the only listener.",
   "the cursor is a small friend. don't be too hard on it.",
 ];
-function blockMarquee() {
-  const f = frag();
-  f.appendChild(gap("gap-s"));
-  const a = document.createElement("div");
-  a.className = "row marquee " + pick(["","pink","cyan","amber","purple"]);
-  a.textContent = pick(MARQ);
-  f.appendChild(a);
-  f.appendChild(gap("gap-s"));
-  return f;
+
+const PALETTES = [
+  { cls: "pal-radish",  label: "RADISH   /  channel 037" },
+  { cls: "pal-forest",  label: "FOREST   /  channel 037" },
+  { cls: "pal-mustard", label: "MUSTARD  /  channel 037" },
+  { cls: "pal-ocean",   label: "OCEAN    /  channel 037" },
+  { cls: "pal-plum",    label: "PLUM     /  channel 037" },
+  { cls: "pal-ember",   label: "EMBER    /  channel 037" },
+  { cls: "pal-jade",    label: "JADE     /  channel 037" },
+  { cls: "pal-bone",    label: "BONE     /  channel 037" },
+  { cls: "pal-violet",  label: "VIOLET   /  channel 037" },
+  { cls: "pal-rust",    label: "RUST     /  channel 037" },
+  { cls: "pal-mint",    label: "MINT     /  channel 037" },
+  { cls: "pal-slate",   label: "SLATE    /  channel 037" },
+];
+
+/* ── row helpers ── */
+function row(cls, text, tone) {
+  const d = document.createElement("div");
+  d.className = "row " + cls + " " + (tone || "dim");
+  d.textContent = text;
+  return d;
+}
+function rowHTML(cls, html, tone) {
+  const d = document.createElement("div");
+  d.className = "row " + cls + " " + (tone || "dim");
+  d.innerHTML = html;
+  return d;
+}
+function gap(kind) {
+  const d = document.createElement("div");
+  d.className = "row " + kind;
+  return d;
 }
 
-/* command session */
-function blockSession() {
-  const session = pick(SESSIONS);
-  const f = frag();
-  f.appendChild(gap("gap-s"));
-  for (const [text, type] of session) {
-    const r = document.createElement("div");
-    r.className = "row cmd";
-    if (type === "p") r.innerHTML = `<span class="p">${text}</span>`;
-    else              r.innerHTML = `<span class="o">${text}</span>`;
-    f.appendChild(r);
+/* ── content emitters: each returns an array of row elements ── */
+
+function emitLogs() {
+  const out = [];
+  const n = rint(6, 14);
+  for (let i = 0; i < n; i++) {
+    const h = padL(rint(0,23),2), m = padL(rint(0,59),2), s = padL(rint(0,59),2);
+    const ms = padL(rint(0,999),3);
+    const svc = pick(SERVICES);
+    const lvCh = pick(["I","I","I","I","D","D","W","E"]);
+    const lv = lvCh === "I" ? "INFO " : lvCh === "D" ? "DEBUG" : lvCh === "W" ? "WARN " : "ERROR";
+    const msg = pick(LOG_MSGS);
+    const tone = lvCh === "E" || lvCh === "W" ? "lit" : "dim";
+    out.push(row("log", `[${h}:${m}:${s}.${ms}] ${lv} ${svc.padEnd(13," ")} ${msg}`, tone));
   }
-  f.appendChild(gap("gap-s"));
-  return f;
+  return out;
 }
 
-/* runs of log lines */
-function blockLogs() {
-  const f = frag();
-  f.appendChild(gap("gap-s"));
-  const n = rint(5, 14);
-  for (let i=0; i<n; i++) f.appendChild(logRow());
-  f.appendChild(gap("gap-s"));
-  return f;
-}
-
-/* runs of hex */
-function blockHex() {
-  const f = frag();
-  f.appendChild(gap("gap-s"));
+function emitHex() {
+  const out = [];
   const n = rint(4, 10);
-  for (let i=0; i<n; i++) f.appendChild(hexRow());
-  f.appendChild(gap("gap-s"));
-  return f;
+  for (let i = 0; i < n; i++) {
+    const addr = (rint(0,0xFFFFFF)).toString(16).padStart(6,"0").toUpperCase();
+    const bytes = Array.from({length: 16}, hexB);
+    const ascii = bytes.map(b => {
+      const v = parseInt(b,16);
+      return (v >= 32 && v < 127) ? String.fromCharCode(v) : ".";
+    }).join("");
+    const left = bytes.slice(0,8).join(" ");
+    const right = bytes.slice(8).join(" ");
+    out.push(row("hex", `${addr}  ${left}  ${right}  ${ascii}`, i % 3 === 0 ? "lit" : "dim"));
+  }
+  return out;
 }
 
-/* runs of ls */
-function blockLs() {
-  const f = frag();
-  f.appendChild(gap("gap-s"));
-  const n = rint(4, 9);
-  for (let i=0; i<n; i++) f.appendChild(lsRow());
-  f.appendChild(gap("gap-s"));
-  return f;
+function emitLs() {
+  const out = [];
+  const n = rint(5, 10);
+  for (let i = 0; i < n; i++) {
+    const perm = "-rw-r--r--";
+    const own = pick(OWNERS);
+    const sz = String(rint(1, 99999)).padStart(6," ");
+    const dt = `2026-${padL(rint(1,12),2)}-${padL(rint(1,28),2)} ${padL(rint(0,23),2)}:${padL(rint(0,59),2)}`;
+    const nm = pick(FILENAMES);
+    out.push(row("ls", `${perm}  ${own.padEnd(7," ")} ${sz}  ${dt}  ${nm}`, i % 4 === 0 ? "lit" : "dim"));
+  }
+  return out;
 }
 
-/* static bar */
-function blockStatic() {
-  const f = frag();
-  f.appendChild(gap("gap-s"));
-  const a = document.createElement("div");
-  a.className = "row static " + pick(["", "pink", "cyan", "amber", "purple"]);
-  a.textContent = pick(STATIC_CHARS);
-  f.appendChild(a);
-  return f;
+function emitSession() {
+  const out = [];
+  const session = pick(SESSIONS);
+  out.push(gap("gap-s"));
+  for (let i = 0; i < session.length; i++) {
+    const line = session[i];
+    const isPrompt = line.startsWith("$") || line.startsWith("^") || line.startsWith("[sudo]");
+    out.push(row("cmd", line, isPrompt ? "lit" : "dim"));
+  }
+  out.push(gap("gap-s"));
+  return out;
 }
 
-/* stat dump */
-function blockStat() {
-  const f = frag();
-  f.appendChild(gap("gap-s"));
-  f.appendChild(rule("─", 60));
-  f.appendChild(statBlock());
-  f.appendChild(rule("─", 60));
-  return f;
+function emitPoem() {
+  const p = pick(POEMS);
+  const out = [];
+  out.push(gap("gap-m"));
+  const head = document.createElement("div");
+  head.className = "row poem lit";
+  head.innerHTML = `<span class="ttl dim">${p.t}</span>` + p.L.join("<br>");
+  out.push(head);
+  out.push(gap("gap-m"));
+  return out;
 }
 
-/* ── weighted dispatcher ────────────────────────────────────── */
+function emitAscii() {
+  const out = [];
+  const a = pick(ASCII);
+  out.push(gap("gap-s"));
+  const lines = a.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const tone = i % 5 === 0 ? "lit" : "dim";
+    const r = document.createElement("div");
+    r.className = "row ascii " + tone;
+    r.textContent = lines[i] || " ";
+    out.push(r);
+  }
+  out.push(gap("gap-s"));
+  return out;
+}
+
+function emitCss()  {
+  const out = [];
+  out.push(gap("gap-s"));
+  const body = pick(CSS_BLOCKS);
+  const lines = body.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const isCommentOrSelector = lines[i].trim().startsWith("/*") || lines[i].includes("{");
+    const tone = isCommentOrSelector ? "lit" : "dim";
+    out.push(row("css", lines[i] || " ", tone));
+  }
+  out.push(gap("gap-s"));
+  return out;
+}
+function emitJs()   {
+  const out = [];
+  out.push(gap("gap-s"));
+  const body = pick(JS_BLOCKS);
+  const lines = body.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const tone = lines[i].trim().startsWith("//") ? "dim" : "lit";
+    out.push(row("js", lines[i] || " ", tone));
+  }
+  out.push(gap("gap-s"));
+  return out;
+}
+function emitHtml() {
+  const out = [];
+  out.push(gap("gap-s"));
+  const body = pick(HTML_BLOCKS);
+  const lines = body.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const tone = lines[i].trim().startsWith("<!--") ? "dim" : "lit";
+    out.push(row("html", lines[i] || " ", tone));
+  }
+  out.push(gap("gap-s"));
+  return out;
+}
+
+function emitJoke() {
+  const out = [];
+  const j = pick(JOKES);
+  out.push(gap("gap-s"));
+  out.push(row("joke", j.s, "dim"));
+  out.push(row("joke", "    " + j.p, "lit"));
+  out.push(gap("gap-s"));
+  return out;
+}
+
+function emitOne() {
+  return [gap("gap-s"), row("one", pick(ONES), "lit"), gap("gap-s")];
+}
+
+function emitBig() {
+  return [gap("gap-m"), row("big", pick(BIG_WORDS), "lit"), gap("gap-s")];
+}
+
+function emitMarquee() {
+  return [gap("gap-s"), row("marquee", pick(MARQ), "lit"), gap("gap-s")];
+}
+
+function emitStatic() {
+  return [gap("gap-s"), row("static", pick(STATIC_CHARS), "dim")];
+}
+
+function emitStat() {
+  const out = [];
+  out.push(gap("gap-s"));
+  out.push(row("rule", "-".repeat(60), "dim"));
+  const n = rint(3, 6);
+  for (let i = 0; i < n; i++) {
+    const [k, fn] = pick(STAT_KEYS);
+    out.push(row("stat", `${k.padEnd(10," ")}  ${fn()}`, i % 2 === 0 ? "lit" : "dim"));
+  }
+  out.push(row("rule", "-".repeat(60), "dim"));
+  return out;
+}
+
+/* ── weighted dispatcher ── */
 const MAKERS = [
-  [blockLogs,    8],
-  [blockHex,     5],
-  [blockLs,      4],
-  [blockSession, 5],
-  [blockAscii,   4],
-  [blockPoem,    5],
-  [blockCss,     4],
-  [blockJs,      4],
-  [blockHtml,    3],
-  [blockJoke,    3],
-  [blockOne,     5],
-  [blockBig,     3],
-  [blockGradient,2],
-  [blockMarquee, 2],
-  [blockStatic,  6],
-  [blockStat,    3],
+  [emitLogs,    8],
+  [emitHex,     5],
+  [emitLs,      4],
+  [emitSession, 5],
+  [emitAscii,   4],
+  [emitPoem,    5],
+  [emitCss,     3],
+  [emitJs,      3],
+  [emitHtml,    2],
+  [emitJoke,    3],
+  [emitOne,     5],
+  [emitBig,     2],
+  [emitMarquee, 2],
+  [emitStatic,  5],
+  [emitStat,    3],
 ];
 const WEIGHTS = (() => {
   const out = [];
-  for (const [fn, w] of MAKERS) for (let i=0; i<w; i++) out.push(fn);
+  for (const [fn, w] of MAKERS) for (let i = 0; i < w; i++) out.push(fn);
   return out;
 })();
 const pickMaker = () => pick(WEIGHTS);
 
-/* ── build the stream ───────────────────────────────────────── */
-const stream = document.getElementById("stream");
-const BUILD_COUNT = 500;  // a LOT of rows for density
-for (let i = 0; i < BUILD_COUNT; i++) {
-  stream.appendChild(pickMaker()());
+/* ── build a section: ONE palette, many rows, no fancy stuff ── */
+function buildSection(palette) {
+  const sec = document.createElement("section");
+  sec.className = "section " + palette.cls;
+
+  // section label, dim
+  const label = document.createElement("div");
+  label.className = "row sec-label dim";
+  label.textContent = palette.label;
+  sec.appendChild(label);
+
+  // 6-10 emitters per section
+  const blockCount = rint(6, 10);
+  for (let i = 0; i < blockCount; i++) {
+    const rows = pickMaker()();
+    for (const r of rows) sec.appendChild(r);
+  }
+
+  return sec;
 }
 
-/* swap recycled blocks every so often so the loop varies */
-setInterval(() => {
-  const children = stream.children;
-  if (!children.length) return;
-  const idx = rint(0, children.length - 1);
-  const r = children[idx].getBoundingClientRect();
-  if (r.bottom < -200) {
-    children[idx].remove();
-    stream.appendChild(pickMaker()());
-  }
-}, 300);
+/* ── build the stream ── */
+const stream = document.getElementById("stream");
 
-/* slight per-visit hue jitter for variety */
-const hue = rint(-12, 12);
-document.documentElement.style.setProperty("filter", `hue-rotate(${hue}deg)`);
+// shuffle palette order each visit so it's not always the same sequence
+const order = [...PALETTES].sort(() => Math.random() - 0.5);
+
+// build enough sections to fill many screens; loop palette order
+const SECTION_COUNT = 36;
+for (let i = 0; i < SECTION_COUNT; i++) {
+  stream.appendChild(buildSection(order[i % order.length]));
+}
 </script>
 </body>
 </html>
