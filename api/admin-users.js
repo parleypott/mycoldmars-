@@ -121,11 +121,18 @@ export default async function handler(req) {
       if (r.ok) created.push({ email, id: out?.id });
       else failed.push({ email, error: out?.msg || out?.error_description || `HTTP ${r.status}` });
     }
+    // Response intentionally leaks NOTHING about admin emails or the
+    // default password. The bootstrap endpoint is anonymous-by-design
+    // (chicken-and-egg) — if it echoed the admin list back, anyone
+    // probing the open internet would learn (a) who the admins are
+    // and (b) that the seed password is 'newpress', then trivially
+    // sign in as admin before the real owner had a chance to rotate.
+    // Client only needs counts for the toast.
     return json({
       ok: true,
-      defaultPassword: DEFAULT_PASSWORD,
-      adminEmails,
-      created, skipped, failed,
+      createdCount: created.length,
+      skippedCount: skipped.length,
+      failedCount: failed.length,
     });
   }
 

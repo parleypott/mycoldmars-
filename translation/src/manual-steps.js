@@ -244,15 +244,17 @@ async function verifyAdmin() {
       return { ok: false, reason: 'Server: ADMIN_EMAILS env var not set in Vercel. Set it to johnny@newpress.com and redeploy.' };
     }
     if (!r.ok) return { ok: false, reason: out.error || `HTTP ${r.status}` };
-    const created = (out.created || []).map(c => c.email);
-    const skipped = (out.skipped || []);
-    const failed  = (out.failed  || []);
-    if (failed.length) {
-      return { ok: false, reason: 'Some users failed to seed: ' + failed.map(f => `${f.email}: ${f.error}`).join('; ') };
+    // Bootstrap response is intentionally count-only — see admin-users.js
+    // comment about not leaking the admin email list to the open internet.
+    const createdCount = out.createdCount ?? 0;
+    const skippedCount = out.skippedCount ?? 0;
+    const failedCount  = out.failedCount  ?? 0;
+    if (failedCount) {
+      return { ok: false, reason: `${failedCount} admin user(s) failed to seed — check the Vercel logs for /api/admin-users.` };
     }
     const parts = [];
-    if (created.length) parts.push(`created ${created.join(', ')}`);
-    if (skipped.length) parts.push(`already existed: ${skipped.join(', ')}`);
+    if (createdCount) parts.push(`created ${createdCount}`);
+    if (skippedCount) parts.push(`${skippedCount} already existed`);
     const summary = parts.length ? parts.join(' · ') : 'no admin emails configured';
     return { ok: true, detail: `${summary}. Sign in with password "newpress" and change it from the avatar menu.` };
   } catch (err) {

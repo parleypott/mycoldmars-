@@ -73,7 +73,16 @@ export default async function handler(req) {
 
   if (chosen === 'whisper') {
     if (!whisperKey) return jsonError(500, 'misconfigured', 'OPENAI_API_KEY not set');
-    if (mediaSizeBytes && mediaSizeBytes > WHISPER_MAX_BYTES) {
+    // Require mediaSizeBytes for the Whisper path — without it we'd happily
+    // fetch a 500 MB file into Edge memory (128 MB cap) and blow up the
+    // runtime with a generic timeout. The audit flagged this as a P0 because
+    // the previous `&&` short-circuit silently skipped the size gate when
+    // mediaSizeBytes was undefined.
+    if (typeof mediaSizeBytes !== 'number' || !Number.isFinite(mediaSizeBytes) || mediaSizeBytes <= 0) {
+      return jsonError(400, 'missing_media_size',
+        'mediaSizeBytes is required for Whisper provider so we can guard the 25 MB limit before fetching.');
+    }
+    if (mediaSizeBytes > WHISPER_MAX_BYTES) {
       return jsonError(413, 'file_too_large',
         `Whisper API limit is 25 MB. Got ${(mediaSizeBytes / 1024 / 1024).toFixed(1)} MB. ` +
         `Set DEEPGRAM_API_KEY (handles up to 2 GB) or use 'provider: deepgram' explicitly.`);
@@ -203,7 +212,10 @@ function normalizeDeepgram(dg) {
 async function runWhisper({ mediaUrl, language, prompt, apiKey }) {
   let mediaBlob;
   try {
-    const mediaRes = await fetch(mediaUrl);
+    // 90s timeout on the upstream fetch — Supabase Storage stalls would
+    // otherwise hang against the Edge runtime's 5-minute hard cap and
+    // surface as a generic 504 to the client.
+    const mediaRes = await fetch(mediaUrl, { signal: AbortSignal.timeout(90_000) });
     if (!mediaRes.ok) {
       return jsonError(502, 'media_fetch_failed',
         `Could not fetch media: ${mediaRes.status} ${mediaRes.statusText}`);

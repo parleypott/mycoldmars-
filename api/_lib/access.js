@@ -20,17 +20,26 @@ function readHeader(req, name) {
   return Array.isArray(v) ? v.join(', ') : String(v);
 }
 
+// A JWT has three base64url parts joined by dots, each part starts with
+// the base64-encoded JSON object (`eyJ`). The previous gate accepted any
+// non-empty string after "Bearer " — meaning `Authorization: Bearer x`
+// trivially opened /api/claude, /api/gemini, /api/transcribe, etc., to
+// the open internet. This regex is the cheap perimeter check; endpoint-
+// level handlers still do the real JWT verification when they need an
+// identity (admin-users.js whoAmI, etc.).
+const BEARER_JWT_SHAPE = /^Bearer\s+(eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\s*$/i;
+
 export function checkAccess(req) {
   const validCode = process.env.ACCESS_CODE;
   if (!validCode) return null; // dev mode
   // Two ways past the gate:
   // 1) The legacy x-access-code header (single shared secret).
-  // 2) Any Authorization: Bearer <jwt> — i.e., the caller is a signed-in
-  //    Supabase user. Endpoint-level auth (whoAmI + isAdminEmail in
-  //    admin-users.js, etc.) is the real check; the access code is just a
-  //    perimeter. Don't double-gate signed-in users.
+  // 2) An Authorization: Bearer <jwt> that has the actual JWT shape —
+  //    not "Bearer x" or any other free-text fragment. Endpoint-level
+  //    auth (whoAmI + isAdminEmail in admin-users.js, etc.) is the
+  //    real check; the access code / shape check is the perimeter.
   const auth = readHeader(req, 'authorization');
-  if (/^Bearer\s+\S/i.test(auth)) return null;
+  if (BEARER_JWT_SHAPE.test(auth)) return null;
   const supplied = readHeader(req, 'x-access-code');
   if (supplied === validCode) return null;
   return new Response(JSON.stringify({

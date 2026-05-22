@@ -6,13 +6,15 @@ export function SummaryView({ content, loading, bullets, interestVotes, onVote }
   const containerRef = useRef(null);
   const popupRef = useRef(null);
 
-  if (loading && !content) {
-    return <div className="summary-loading">Generating summary...</div>;
-  }
-
-  if (!content) {
-    return <div className="summary-empty">No summary generated yet.</div>;
-  }
+  // IMPORTANT: keep ALL hook calls (useState, useRef, useEffect, useCallback)
+  // above the early-return branches. Preact (like React) enforces rules-of-
+  // hooks: the same hooks must be called in the same order on every render.
+  // The previous code had `if (loading && !content) return …` BEFORE the
+  // useEffect/useCallback below, so the moment a summary loaded the hook
+  // count changed mid-lifecycle and the component crashed with "Rendered
+  // more hooks than during the previous render" — that was the root cause
+  // of the "polished summary text vanishing" symptom the May 7 audit
+  // labeled P3-18.
 
   // Close popup on outside click
   useEffect(() => {

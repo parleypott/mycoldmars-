@@ -135,9 +135,12 @@ export function buildSRT(translations, segments, opts = {}) {
     }
   }
 
+  // CRLF line endings — Premiere and many older SRT consumers require
+  // \r\n between cue lines and a blank \r\n between cues. Using bare
+  // \n breaks import on Windows-targeted workflows.
   return subtitles
-    .map(s => `${s.index}\n${s.start} --> ${s.end}\n${s.text}\n`)
-    .join('\n');
+    .map(s => `${s.index}\r\n${s.start} --> ${s.end}\r\n${s.text}\r\n`)
+    .join('\r\n');
 }
 
 /**
@@ -235,12 +238,25 @@ function timeToSeconds(tc) {
   return isNaN(f) ? 0 : f;
 }
 
-/** Format seconds to SRT timecode: HH:MM:SS,mmm */
+/** Format seconds to SRT timecode: HH:MM:SS,mmm
+ *
+ * Two carry-overflow cases the previous implementation missed:
+ *   • ms rounds to 1000 (e.g. sec=0.9995) → carry into seconds.
+ *   • HH ≥ 100 → SRT spec is 2-digit hours; Premiere rejects 100:MM:SS.
+ *     For a transcript that long we cap at 99:59:59,999 — the file is
+ *     way past usable territory anyway, but a malformed cue is worse.
+ */
 function formatSRT(sec) {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = Math.floor(sec % 60);
-  const ms = Math.round((sec % 1) * 1000);
+  if (!Number.isFinite(sec) || sec < 0) sec = 0;
+  let totalMs = Math.round(sec * 1000);
+  // 99:59:59,999 cap so the timecode always fits HH:MM:SS,mmm
+  const MAX_MS = (99 * 3600 + 59 * 60 + 59) * 1000 + 999;
+  if (totalMs > MAX_MS) totalMs = MAX_MS;
+  const ms = totalMs % 1000;
+  const totalSec = Math.floor(totalMs / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
   return `${pad(h)}:${pad(m)}:${pad(s)},${pad3(ms)}`;
 }
 

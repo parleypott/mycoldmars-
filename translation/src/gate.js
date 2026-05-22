@@ -164,8 +164,8 @@ function isPublicRoute() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'bootstrap' }),
     }).then(r => r.json()).then(out => {
-      if (out?.created?.length) {
-        console.log(`[gate] seeded ${out.created.length} admin user(s)`);
+      if (out?.createdCount) {
+        console.log(`[gate] seeded ${out.createdCount} admin user(s)`);
       }
     }).catch(() => {});
   }
@@ -330,6 +330,9 @@ function wireAccessCodeFallback() {
   async function send() {
     const code = codeInput.value.trim();
     if (!code) return;
+    codeBtn.disabled = true;
+    const original = codeBtn.textContent;
+    codeBtn.textContent = 'Checking…';
     try {
       const res = await fetch('/api/access', {
         method: 'POST',
@@ -344,9 +347,16 @@ function wireAccessCodeFallback() {
         codeInput.value = '';
         codeInput.focus();
       }
-    } catch {
-      // Network error (dev mode) — just unlock.
-      unlock();
+    } catch (e) {
+      // Network error — DO NOT silently unlock. The dev-mode unlock path
+      // lives in the initial probe (404 explicitly = endpoint missing).
+      // A transient blip here was previously the same auth-bypass shape
+      // the password form had — now closed.
+      errorMsg.textContent = e?.message || 'Network error. Try again.';
+      errorMsg.classList.remove('hidden');
+    } finally {
+      codeBtn.disabled = false;
+      codeBtn.textContent = original;
     }
   }
 
