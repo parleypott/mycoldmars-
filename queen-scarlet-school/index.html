@@ -1095,6 +1095,59 @@
       transition: box-shadow .15s var(--ease), transform .15s var(--ease);
     }
     .composer textarea:focus { box-shadow: 4px 4px 0 var(--ink-bright); transform: translate(-1px, -1px); }
+    /* ─── Easter eggs — secret interactive scrapbook items ───
+       Lightning bolts and Benny become clickable; counting clicks unlocks
+       little surprises. pointer-events overridden per-target so the rest
+       of the scrap layer stays click-through. */
+    .scrap.s-bolt, .scrap.s-bolt-2, .scrap.s-bolt-3, .scrap.s-bolt-4,
+    .scrap.s-benny, .scrap.s-benny-2 {
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    /* Flash animation that fires when bolt is triple-clicked */
+    @keyframes egg-lightning {
+      0%   { opacity: 0; filter: brightness(1); }
+      18%  { opacity: 1; filter: brightness(1.5) saturate(2); }
+      30%  { opacity: 0.2; }
+      45%  { opacity: 1; filter: brightness(2.4) hue-rotate(-12deg); }
+      55%  { opacity: 0.1; }
+      100% { opacity: 0; filter: brightness(1); }
+    }
+    .egg-flash {
+      position: fixed; inset: 0;
+      background: radial-gradient(circle at 50% 30%, rgba(255,247,150,0.8) 0%, rgba(255,237,80,0.4) 30%, transparent 60%);
+      pointer-events: none; z-index: 9998;
+      animation: egg-lightning 900ms ease-out;
+    }
+    /* Benny zoom — beaver drives across the screen on his forklift */
+    @keyframes egg-benny-zoom {
+      0%   { left: -260px; transform: translateY(0) rotate(0deg); }
+      25%  { transform: translateY(-12px) rotate(-4deg); }
+      50%  { transform: translateY(0) rotate(0deg); }
+      75%  { transform: translateY(-10px) rotate(3deg); }
+      100% { left: calc(100vw + 80px); transform: translateY(0) rotate(0deg); }
+    }
+    .egg-benny-zoomer {
+      position: fixed; bottom: 8vh; left: -260px;
+      width: 220px; height: auto;
+      pointer-events: none; z-index: 9997;
+      animation: egg-benny-zoom 2.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      filter: drop-shadow(4px 8px 0 rgba(0,0,0,0.4));
+    }
+    /* Tiny "🏆 N" indicator chip in the topbar when an egg has been found */
+    .egg-chip {
+      display: none;
+      font-family: var(--ui); font-weight: 800; font-size: 11px;
+      letter-spacing: 0.06em;
+      background: var(--yolk); color: var(--ink-bright);
+      border: 2px solid var(--ink-bright); border-radius: 999px;
+      padding: 3px 9px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: default;
+      transform: rotate(-3deg);
+    }
+    .egg-chip.has-eggs { display: inline-flex; align-items: center; gap: 4px; }
+
     /* ─── Quick-prompts strip ── one-click Wordy verbs above the composer ─── */
     .quick-prompts {
       display: flex; flex-wrap: wrap; gap: 7px;
@@ -1981,6 +2034,7 @@
       <a href="/" class="brand"><span class="blob sm"></span>mycoldmars</a>
       <input id="board-name" class="story-title-input" type="text" placeholder="untitled story" autocomplete="off" spellcheck="false" title="Click to rename" />
       <div class="topbar-right">
+        <span id="egg-chip" class="egg-chip" title="Secret things found">🏆 <span id="egg-count">0</span></span>
         <span id="save-pill" class="save-pill" title="auto-save status">saved</span>
         <a href="library/" id="btn-library" class="btn gold" title="Open the story library">📚 library</a>
         <button id="btn-rules" class="btn ghost" title="Parent settings — story rules and goals">⚙ rules</button>
@@ -3841,6 +3895,67 @@
     });
     // Restore from localStorage
     try { if (localStorage.getItem(FOCUS_KEY) === '1') setFocusMode(true); } catch {}
+
+    // ─── Easter eggs ───
+    // Hidden interactive bits in the scrapbook decor. Sensory-seeking is real
+    // for autistic kids — rewarding exploration builds tool affinity without
+    // adding visible clutter. Counts persist across sessions.
+    (function eggs() {
+      const KEY = 'qss-eggs-found';
+      const state = JSON.parse(localStorage.getItem(KEY) || '{}');
+      const boltClicks = { count: 0, last: 0 };
+      const bennyClicks = { count: 0, last: 0 };
+      function bumpChip() {
+        const chip = document.getElementById('egg-chip');
+        const count = Object.values(state).filter(Boolean).length;
+        if (chip) {
+          chip.classList.toggle('has-eggs', count > 0);
+          document.getElementById('egg-count').textContent = String(count);
+        }
+      }
+      function unlock(name) {
+        if (state[name]) return false;
+        state[name] = Date.now();
+        try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+        bumpChip();
+        return true;
+      }
+      function flashLightning() {
+        const el = document.createElement('div');
+        el.className = 'egg-flash';
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 900);
+        unlock('lightning');
+      }
+      function zoomBenny() {
+        const img = document.createElement('img');
+        img.className = 'egg-benny-zoomer';
+        img.src = 'decor/benny-beaver.jpg';
+        img.alt = '';
+        document.body.appendChild(img);
+        setTimeout(() => img.remove(), 2700);
+        unlock('benny-zoom');
+      }
+      // Delegated clicks — pointer-events is enabled in CSS for these selectors
+      document.addEventListener('click', (e) => {
+        const target = e.target.closest('.scrap');
+        if (!target) return;
+        const now = Date.now();
+        if (target.classList.contains('s-bolt') || target.classList.contains('s-bolt-2') ||
+            target.classList.contains('s-bolt-3') || target.classList.contains('s-bolt-4')) {
+          if (now - boltClicks.last > 1500) boltClicks.count = 0;
+          boltClicks.count++; boltClicks.last = now;
+          if (boltClicks.count >= 3) { boltClicks.count = 0; flashLightning(); }
+        }
+        if (target.classList.contains('s-benny') || target.classList.contains('s-benny-2')) {
+          if (now - bennyClicks.last > 1500) bennyClicks.count = 0;
+          bennyClicks.count++; bennyClicks.last = now;
+          if (bennyClicks.count >= 5) { bennyClicks.count = 0; zoomBenny(); }
+        }
+      });
+      // Initial chip state
+      bumpChip();
+    })();
 
     // ─── Wrap-up celebration (session-end positive reinforcement) ───
     function openWrapUp() {
