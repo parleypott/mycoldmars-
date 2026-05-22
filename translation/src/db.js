@@ -1149,6 +1149,31 @@ export async function updateMediaUpload(id, fields) {
   return data;
 }
 
+// Find media_uploads rows from previous sessions whose upload or
+// transcription was abandoned. Returns rows in 'pending', 'uploading',
+// 'transcribing', or 'queued' status that are older than the given
+// staleness window (default 10 minutes). Used by main.js at boot to
+// flag uploads that never finished so the user knows.
+export async function listStuckMediaUploads({ olderThanMinutes = 10 } = {}) {
+  if (!supabase) return [];
+  const cutoff = new Date(Date.now() - olderThanMinutes * 60_000).toISOString();
+  const stuckStatuses = ['pending', 'uploading', 'transcribing', 'queued'];
+  const { data, error } = await db().from('media_uploads')
+    .select('id, filename, transcription_status, created_at, updated_at, storage_path')
+    .is('deleted_at', null)
+    .in('transcription_status', stuckStatuses)
+    .lt('updated_at', cutoff)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) {
+    // Schema may not include transcription_status column on older
+    // deployments — fail soft, return empty.
+    console.warn('[listStuckMediaUploads] probe failed:', error?.message || error);
+    return [];
+  }
+  return data || [];
+}
+
 export async function deleteMediaUpload(id, opts = {}) {
   if (opts.hard) {
     const { error } = await db().from('media_uploads').delete().eq('id', id);

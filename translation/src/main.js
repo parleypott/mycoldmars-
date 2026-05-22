@@ -5,7 +5,7 @@ import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
-import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, releaseLockBeacon, subscribeToTranscript, subscribePresence, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload, listShares, addShare, removeShare, updateShareRole, searchUserProfiles } from './db.js';
+import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, releaseLockBeacon, subscribeToTranscript, subscribePresence, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload, listStuckMediaUploads, listShares, addShare, removeShare, updateShareRole, searchUserProfiles } from './db.js';
 import { saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan, saveDraftSnapshot, loadDraftSnapshot, clearDraftSnapshot } from './snapshot.js';
 import { mountEditor } from './editor/mount.js';
 import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/document-builder.js';
@@ -7578,6 +7578,37 @@ function safeInit(name, fn) {
   migrateLocalStorageToSupabase()
     .then(r => { if (r.migrated) console.info(`Migrated ${r.transcripts} transcripts, ${r.projects} projects to Supabase`); })
     .catch(err => console.warn('Migration check failed:', err.message));
+
+  // Pending-upload rehydration. If a TUS upload was in flight when the
+  // user closed the tab, the in-memory uploadQueue is gone but the
+  // media_uploads row sits at 'pending'/'uploading' forever, looking
+  // active. Stale rows older than 10 minutes are definitely stuck;
+  // mark them as 'error' so the UI doesn't lie and the user knows
+  // their work was lost. Storage object cleanup is left to a future
+  // server-side job (we don't always have the storage path).
+  (async () => {
+    try {
+      const stuck = await listStuckMediaUploads({ olderThanMinutes: 10 });
+      if (!stuck.length) return;
+      // Best-effort flip — RLS owners only, so foreign rows are silently
+      // skipped which is the correct behavior.
+      let flipped = 0;
+      for (const row of stuck) {
+        try {
+          await updateMediaUpload(row.id, {
+            transcriptionStatus: 'error',
+            transcriptionError: 'Upload abandoned — previous session ended before completion.',
+          });
+          flipped++;
+        } catch {}
+      }
+      if (flipped > 0) {
+        showInfo(`${flipped} previous upload${flipped === 1 ? '' : 's'} never finished — marked as errored. Storage bytes may need manual cleanup.`);
+      }
+    } catch (err) {
+      console.warn('[pending-upload cleanup] failed:', err?.message || err);
+    }
+  })();
 
   // Pre-id draft recovery — if the previous session uploaded + transcribed
   // but never made it through the first save (network failure, tab close
