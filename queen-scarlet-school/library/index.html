@@ -457,6 +457,79 @@
   <div class="toast-wrap" id="toast-wrap" aria-live="polite"></div>
 
   <script>
+    // ─── API perimeter — fetch wrapper (mirrors the school's wrapper) ───
+    // Required because api/_lib/access.js now demands either a JWT-shaped
+    // Authorization header or x-access-code. QSS uses the access-code lane;
+    // /api/qss-access-token exchanges the gate password for the code.
+    (function installAccessCodeFetchWrapper() {
+      const LS_KEY = 'qss:access_code';
+      const LS_TS_KEY = 'qss:access_code:ts';
+      const TTL_MS = 90 * 24 * 60 * 60 * 1000;
+      const origFetch = window.fetch.bind(window);
+      let inMemoryCode = null;
+
+      function readCached() {
+        try {
+          const code = localStorage.getItem(LS_KEY);
+          const ts = Number(localStorage.getItem(LS_TS_KEY) || 0);
+          if (code === null) return null;
+          if (Date.now() - ts > TTL_MS) return null;
+          return code;
+        } catch { return null; }
+      }
+      function writeCached(code) {
+        try {
+          localStorage.setItem(LS_KEY, code);
+          localStorage.setItem(LS_TS_KEY, String(Date.now()));
+        } catch {}
+      }
+      function clearCached() {
+        try { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_TS_KEY); } catch {}
+      }
+      async function exchangeForCode() {
+        try {
+          const r = await origFetch('/api/qss-access-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: 'newpress' }),
+          });
+          if (!r.ok) return null;
+          const j = await r.json().catch(() => ({}));
+          return typeof j.accessCode === 'string' ? j.accessCode : null;
+        } catch { return null; }
+      }
+      async function getCode() {
+        if (inMemoryCode !== null) return inMemoryCode;
+        const cached = readCached();
+        if (cached !== null) { inMemoryCode = cached; return cached; }
+        const fresh = await exchangeForCode();
+        if (fresh !== null) { inMemoryCode = fresh; writeCached(fresh); }
+        return inMemoryCode;
+      }
+      function isApi(url) {
+        if (!url) return false;
+        return url.startsWith('/api/') || url.indexOf(location.origin + '/api/') === 0;
+      }
+      window.fetch = async function(input, init = {}) {
+        const url = typeof input === 'string' ? input : (input?.url || '');
+        if (!isApi(url) || url.includes('/api/qss-access-token')) return origFetch(input, init);
+        const code = await getCode();
+        const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined) || {});
+        if (code !== null && !headers.has('x-access-code')) headers.set('x-access-code', code);
+        let res = await origFetch(input, { ...init, headers });
+        if (res.status === 401) {
+          clearCached(); inMemoryCode = null;
+          const fresh = await getCode();
+          if (fresh !== null) {
+            headers.set('x-access-code', fresh);
+            res = await origFetch(input, { ...init, headers });
+          }
+        }
+        return res;
+      };
+      getCode();
+    })();
+
     // ─── Gate ───
     (function() {
       const COOKIE = 'qss_access', PASS = 'newpress';

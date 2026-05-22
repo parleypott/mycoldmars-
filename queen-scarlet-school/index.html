@@ -2847,6 +2847,102 @@
       if (!el.innerHTML.trim()) el.innerHTML = window.DRAGON_SVG;
     });
 
+    // ─── API perimeter — fetch wrapper injects x-access-code on /api/* ───
+    // The shared access guard (api/_lib/access.js) requires either a
+    // JWT-shaped Authorization header OR an x-access-code header matching
+    // the server's ACCESS_CODE env var. QSS doesn't have user accounts, so
+    // it lives in the access-code lane. The gate-password→access-code
+    // exchange happens at /api/qss-access-token. Result is cached in
+    // localStorage so we only exchange once per device (90-day TTL).
+    (function installAccessCodeFetchWrapper() {
+      const LS_KEY = 'qss:access_code';
+      const LS_TS_KEY = 'qss:access_code:ts';
+      const TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+      const origFetch = window.fetch.bind(window);
+      let inMemoryCode = null;
+
+      function readCached() {
+        try {
+          const code = localStorage.getItem(LS_KEY);
+          const ts = Number(localStorage.getItem(LS_TS_KEY) || 0);
+          if (code === null) return null;
+          if (Date.now() - ts > TTL_MS) return null;
+          return code;
+        } catch { return null; }
+      }
+      function writeCached(code) {
+        try {
+          localStorage.setItem(LS_KEY, code);
+          localStorage.setItem(LS_TS_KEY, String(Date.now()));
+        } catch {}
+      }
+      function clearCached() {
+        try { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_TS_KEY); } catch {}
+      }
+
+      async function exchangeForCode() {
+        try {
+          const r = await origFetch('/api/qss-access-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: 'newpress' }),
+          });
+          if (!r.ok) return null;
+          const j = await r.json().catch(() => ({}));
+          if (typeof j.accessCode === 'string') return j.accessCode;
+          return null;
+        } catch { return null; }
+      }
+
+      async function getCode() {
+        if (inMemoryCode !== null) return inMemoryCode;
+        const cached = readCached();
+        if (cached !== null) { inMemoryCode = cached; return cached; }
+        const fresh = await exchangeForCode();
+        if (fresh !== null) {
+          inMemoryCode = fresh;
+          writeCached(fresh);
+        }
+        return inMemoryCode;
+      }
+
+      function isApi(url) {
+        if (!url) return false;
+        return url.startsWith('/api/') || url.indexOf(location.origin + '/api/') === 0;
+      }
+
+      window.fetch = async function(input, init = {}) {
+        const url = typeof input === 'string' ? input : (input?.url || '');
+        // Don't re-wrap the bootstrap exchange itself.
+        if (!isApi(url) || url.includes('/api/qss-access-token')) return origFetch(input, init);
+
+        const code = await getCode();
+        const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined) || {});
+        if (code !== null && !headers.has('x-access-code')) headers.set('x-access-code', code);
+        const wrappedInit = { ...init, headers };
+
+        let res;
+        try { res = await origFetch(input, wrappedInit); }
+        catch (e) { throw e; }
+
+        // 401 → cache was stale (ACCESS_CODE rotated). Force one re-fetch + retry.
+        if (res.status === 401) {
+          clearCached();
+          inMemoryCode = null;
+          const fresh = await getCode();
+          if (fresh !== null) {
+            headers.set('x-access-code', fresh);
+            res = await origFetch(input, { ...init, headers });
+          }
+        }
+        return res;
+      };
+
+      // Warm the cache on boot so the first real API call doesn't pay
+      // the exchange latency.
+      getCode();
+    })();
+
     // ─── Cosmetic gate ───
     (function() {
       const COOKIE = 'qss_access', PASS = 'newpress';
