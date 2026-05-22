@@ -894,6 +894,116 @@
       return card.portraits.find(p => p.id === card.primary_portrait_id) || card.portraits[card.portraits.length - 1];
     }
 
+    // ─── Cloud sync ────────────────────────────────────────────────────
+    //
+    // The cast lives in the qss_cast table (migration 018). Each character
+    // is a single row keyed by lowercased name, so cross-story dedup is at
+    // the DB level. The client merges the cloud snapshot with localStorage:
+    //   - Cloud wins for any character with a newer updated_at
+    //   - LocalStorage wins for in-flight edits that haven't synced yet
+    //
+    // If migration 018 isn't applied, the cloud calls 503 silently and the
+    // client stays on localStorage. Once Johnny applies it, everything
+    // back-fills automatically.
+    let cloudPullInflight = null;
+    const cloudPushQueue = new Map();  // lowercasedName → cardSnapshot
+    let cloudPushTimer = null;
+
+    async function pullFromCloud() {
+      if (cloudPullInflight) return cloudPullInflight;
+      cloudPullInflight = (async () => {
+        try {
+          const r = await fetch('/api/qss-cast', { method: 'GET', headers: HEADERS });
+          if (!r.ok) {
+            if (r.status === 503) {
+              // Migration not applied. Silently stay local.
+              return;
+            }
+            return;
+          }
+          const { characters } = await r.json();
+          if (!Array.isArray(characters)) return;
+          let touched = false;
+          for (const cloudCard of characters) {
+            const name = (cloudCard?.name || '').trim();
+            if (!name) continue;
+            const localCard = state.cards[name];
+            const cloudUpd = cloudCard.updated_at || cloudCard.generated_at || 0;
+            const localUpd = localCard?.generated_at || 0;
+            // Cloud wins if newer, or if local missing this character entirely.
+            if (!localCard || cloudUpd >= localUpd) {
+              state.cards[name] = migrateCard({ ...cloudCard, name });
+              touched = true;
+            }
+          }
+          if (touched) {
+            writeLS();
+            render();
+          }
+          // For any LOCAL character not present in the cloud, push them up
+          // (first-time hydration of the cloud from any device that's been
+          // running on localStorage-only).
+          const cloudNames = new Set(characters.map(c => (c?.name || '').toLowerCase()));
+          for (const local of Object.values(state.cards)) {
+            const lk = (local?.name || '').toLowerCase();
+            if (!lk || cloudNames.has(lk)) continue;
+            cloudPushQueue.set(lk, local);
+          }
+          if (cloudPushQueue.size) scheduleCloudPush();
+        } catch {}
+        finally { cloudPullInflight = null; }
+      })();
+      return cloudPullInflight;
+    }
+
+    function scheduleCloudPush() {
+      clearTimeout(cloudPushTimer);
+      cloudPushTimer = setTimeout(flushCloudPush, 1500);
+    }
+    async function flushCloudPush() {
+      if (!cloudPushQueue.size) return;
+      const batch = Array.from(cloudPushQueue.values());
+      cloudPushQueue.clear();
+      try {
+        const r = await fetch('/api/qss-cast?action=upsert-many', {
+          method: 'POST', headers: HEADERS,
+          body: JSON.stringify({ cards: batch }),
+        });
+        if (!r.ok && r.status !== 503) {
+          // Re-queue for next attempt; transient.
+          for (const c of batch) cloudPushQueue.set((c.name || '').toLowerCase(), c);
+        }
+      } catch {
+        for (const c of batch) cloudPushQueue.set((c.name || '').toLowerCase(), c);
+      }
+    }
+    function pushToCloud(card) {
+      const lk = (card?.name || '').toLowerCase();
+      if (!lk) return;
+      cloudPushQueue.set(lk, card);
+      scheduleCloudPush();
+    }
+    async function deleteFromCloud(name) {
+      try {
+        await fetch('/api/qss-cast?action=delete', {
+          method: 'POST', headers: HEADERS,
+          body: JSON.stringify({ name }),
+        });
+      } catch {}
+    }
+
+    // Convenience: write the global LS blob AND queue an upsert to the
+    // cloud for the named character. Pass null to push all cards.
+    function syncCard(name) {
+      writeLS();
+      if (name === null || name === undefined) {
+        for (const c of Object.values(state.cards)) pushToCloud(c);
+        return;
+      }
+      const c = state.cards[name];
+      if (c) pushToCloud(c);
+    }
+
     // ─── Boot ───
     // Cast is GLOBAL across all stories. The ?story=<id> param is optional
     // and used only to:
@@ -917,9 +1027,15 @@
       }
       state.storyId = storyId;
 
-      // Hydrate state.cards from the global blob FIRST. This is what makes
-      // the cast non-regenerative across visits.
+      // Hydrate state.cards from the localStorage blob FIRST (instant UI),
+      // then fetch the CLOUD cast and merge — cloud wins for any character
+      // with a newer updated_at. This is what makes the cast cross-device:
+      // edit on laptop, see it on iPad.
       state.cards = readLS();
+      render();
+      // Fire-and-forget cloud sync. If migration 018 isn't applied yet,
+      // returns 503 and we silently stay on localStorage.
+      pullFromCloud().catch(() => {});
 
       // If we have an active story, try to fetch it to:
       //   1. show the story-chip in the corner
@@ -1198,8 +1314,8 @@
         toast(`couldn't redraw ${name}: ${card.error}`, 'error', 4000);
       } finally {
         state.pendingGen.delete(name);
-        writeLS();
-        scheduleCloudSave();
+        syncCard(name);            // → cloud (global)
+        scheduleCloudSave();        // → cloud (active story's per-story mirror)
         if (state.view === 'detail' && state.openName === name) renderDetail();
         else render();
       }
@@ -1281,7 +1397,7 @@
       const card = state.cards[state.openName]; if (!card) return;
       const p = card.portraits.find(x => x.id === pid); if (!p) return;
       card.primary_portrait_id = pid;
-      writeLS();
+      syncCard(state.openName);
       scheduleCloudSave();
       renderDetail();
     }
@@ -1295,20 +1411,16 @@
           ? card.portraits[card.portraits.length - 1].id
           : null;
       }
-      writeLS();
+      syncCard(state.openName);
       scheduleCloudSave();
       renderDetail();
       toast('portrait deleted', 'success', 1600);
     }
-    // Henry hits the ♥ on a portrait → it's now a style anchor. The
-    // next time he regenerates this card, we send the loved portraits
-    // as reference images to nano-banana so the new draw matches
-    // the look he liked. Toggles on/off.
     function togglePortraitLove(pid) {
       const card = state.cards[state.openName]; if (!card) return;
       const p = card.portraits.find(x => x.id === pid); if (!p) return;
       p.loved = !p.loved;
-      writeLS();
+      syncCard(state.openName);
       scheduleCloudSave();
       renderDetail();
       toast(p.loved ? '♥ saved as style anchor' : '♥ removed', 'success', 1200);
@@ -1329,9 +1441,10 @@
     }
     function deleteCharacter() {
       const name = state.openName; if (!name) return;
-      if (!confirm(`Delete ${name} from the cast? (the character stays in the story — this just removes their card)`)) return;
+      if (!confirm(`Delete ${name} from the cast? (this removes the character from the GLOBAL cast — they'll be gone from every story.)`)) return;
       delete state.cards[name];
       writeLS();
+      deleteFromCloud(name);
       scheduleCloudSave();
       backToGrid();
       toast(`${name} removed from the cast`, 'success', 2000);
@@ -1340,7 +1453,7 @@
     function saveVisualNotes() {
       const card = state.cards[state.openName]; if (!card) return;
       card.visual_notes = document.getElementById('visual-notes').value;
-      writeLS();
+      syncCard(state.openName);
       scheduleCloudSave();
     }
 

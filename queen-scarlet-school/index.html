@@ -6642,11 +6642,28 @@
         return out.slice(0, 30);  // bound prompt size
       }
 
-      // Register every character from the local in-story cards map into the
-      // GLOBAL cast so other stories can see Henry's roster. Called from the
-      // Arc subscriber whenever arc state changes. Only updates appearance
-      // metadata + minimal name; portraits/chat/notes stay with whatever was
-      // developed via the cast page.
+      // Register every character from the local in-story cards map into
+      // the GLOBAL cast — first to localStorage (instant) then to the cloud
+      // (via /api/qss-cast?action=upsert-many, debounced). The cloud cast
+      // is the cross-device source of truth; localStorage is the fast-load
+      // cache + offline buffer.
+      let _globalPushTimer = null;
+      const _globalPushQueue = new Map();
+      function _scheduleGlobalCloudPush() {
+        clearTimeout(_globalPushTimer);
+        _globalPushTimer = setTimeout(async () => {
+          if (!_globalPushQueue.size) return;
+          const batch = Array.from(_globalPushQueue.values());
+          _globalPushQueue.clear();
+          try {
+            await fetch('/api/qss-cast?action=upsert-many', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+              body: JSON.stringify({ cards: batch }),
+            });
+          } catch {}
+        }, 1800);
+      }
       function syncToGlobalCast() {
         try {
           const KEY = 'qss:globalcast';
@@ -6654,6 +6671,7 @@
           const storyId = state.serverId || null;
           const storyName = state.name || null;
           let touched = false;
+          const touchedCards = [];
           for (const c of Object.values(cards)) {
             const name = (c?.name || '').trim();
             if (!name) continue;
@@ -6672,9 +6690,7 @@
               touched = true;
             }
             const card = g[lk];
-            // Refresh synopsis only if we have one and global is empty.
             if (c.synopsis && !card.synopsis) { card.synopsis = c.synopsis; touched = true; }
-            // Track appearance in this story.
             card.story_appearances = card.story_appearances || [];
             let app = card.story_appearances.find(a => a.story_id === storyId);
             if (!app && storyId) {
@@ -6687,11 +6703,53 @@
               if (c.intro_block != null) app.intro_block = c.intro_block;
               if (c.current_state) app.current_state = c.current_state;
               app.last_seen_at = Date.now();
+              touched = true;
+            }
+            touchedCards.push(card);
+          }
+          if (touched) {
+            localStorage.setItem(KEY, JSON.stringify(g));
+            // Queue these for the cloud (deduped by name in the Map).
+            for (const card of touchedCards) {
+              _globalPushQueue.set((card.name || '').toLowerCase(), card);
+            }
+            _scheduleGlobalCloudPush();
+          }
+        } catch {}
+      }
+
+      // Pull the cloud cast on boot so the school's getCardsForContext()
+      // and the storyboard's character scan see the latest global roster.
+      // Fire-and-forget; failures fall back to localStorage silently.
+      async function pullGlobalCastFromCloud() {
+        try {
+          const r = await fetch('/api/qss-cast', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          });
+          if (!r.ok) return;
+          const { characters } = await r.json();
+          if (!Array.isArray(characters)) return;
+          const KEY = 'qss:globalcast';
+          const g = JSON.parse(localStorage.getItem(KEY) || '{}') || {};
+          let touched = false;
+          for (const cloud of characters) {
+            const name = (cloud?.name || '').trim();
+            if (!name) continue;
+            const lk = name.toLowerCase();
+            const local = g[lk];
+            const cloudUpd = cloud.updated_at || cloud.generated_at || 0;
+            const localUpd = local?.generated_at || 0;
+            if (!local || cloudUpd >= localUpd) {
+              g[lk] = { ...cloud, name };
+              touched = true;
             }
           }
           if (touched) localStorage.setItem(KEY, JSON.stringify(g));
         } catch {}
       }
+      // Kick off on module load.
+      try { pullGlobalCastFromCloud(); } catch {}
 
       return { open, close, syncFromArc, hydrateFromServer, getCardsForContext, syncToGlobalCast };
     })();
