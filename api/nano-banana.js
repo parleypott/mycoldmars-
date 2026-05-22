@@ -382,6 +382,29 @@ async function handleTutor(body, apiKey) {
       `Use the "viable IP / mass-market" framing from Henry's profile to gently widen the range. Half your direction proposals MUST move off the current dynamic.`;
   }
 
+  // ── Arc context (from /api/qss-arc-extract, cached on the story row) ──
+  // Wordy now reads a structured understanding of the arc so proposals can
+  // be CRAFT moves ("close thread #2", "Marcus hasn't had a scene with Kevin")
+  // instead of generic next-beats.
+  let arcBlock = '';
+  const arc = body.arc_context && typeof body.arc_context === 'object' ? body.arc_context : null;
+  if (arc && (arc.synopsis || (arc.characters && arc.characters.length))) {
+    const charLines = (arc.characters || []).map(c =>
+      `  - ${c.name}${c.intro_block ? ` (intro: block ${c.intro_block})` : ''}: ${c.current_state || '—'}`
+    ).join('\n');
+    const threadLines = (arc.threads || []).map(t =>
+      `  - [${t.status || 'open'}] ${t.description}${t.opened_at_block ? ` (opened: block ${t.opened_at_block})` : ''}${t.suggested_resolution ? ` — possible resolution: ${t.suggested_resolution}` : ''}`
+    ).join('\n');
+    arcBlock = '\n\n═══ CURRENT ARC (analyzed from the story so far — use this) ═══\n' +
+      (arc.synopsis ? `SYNOPSIS: ${arc.synopsis}\n\n` : '') +
+      (charLines ? `CHARACTERS:\n${charLines}\n\n` : '') +
+      (threadLines ? `THREADS:\n${threadLines}\n\n` : '') +
+      (arc.themes?.length ? `THEMES / RUNNING GAGS: ${arc.themes.join(' · ')}\n` : '') +
+      (arc.tones?.length ? `TONES USED: ${arc.tones.join(' · ')}\n` : '') +
+      (arc.next_moves ? `\nWHAT'S MISSING FOR ARC SHAPE: ${arc.next_moves}\n` : '') +
+      `\nUse this analysis to make CRAFT proposals: which character needs more screen time? which thread is overdue for payoff? which tone hasn't been used? which character could meet which other character for the first time? Your direction proposals should reference this analysis explicitly when it helps. NEVER summarize the arc back at Henry — just use it.`;
+  }
+
   // Special routing-aware coaching for Wordy when Henry typed a request
   let routingBlock = '';
   if (message && routing === 'redirect-from-fixation') {
@@ -400,6 +423,7 @@ async function handleTutor(body, apiKey) {
     + storyBlock
     + stageBlock
     + phaseExtra2
+    + arcBlock
     + patternBlock
     + routingBlock;
 

@@ -36,7 +36,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Columns we want back from a story select. Order matters for stable diffs.
-const SELECT_COLS = 'id,name,bible,rules,blocks,chat,suggestions,cover_image,deleted_at,created_at,updated_at';
+const SELECT_COLS = 'id,name,bible,rules,blocks,chat,suggestions,cover_image,arc_context,deleted_at,created_at,updated_at';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',

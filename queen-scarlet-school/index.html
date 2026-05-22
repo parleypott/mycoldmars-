@@ -908,6 +908,97 @@
     .save-pill[data-state="saving"]   { animation: savingPulse 1.1s ease-in-out infinite; }
     @keyframes savingPulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
 
+    /* ──────────── Arc chip + inspector ──────────── */
+    .arc-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--ui); font-weight: 700; font-size: 11.5px;
+      padding: 4px 10px;
+      background: var(--paper-card);
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer;
+      color: var(--ink-bright);
+      letter-spacing: 0.02em;
+      margin-left: 6px;
+      transition: transform 140ms var(--ease), background 140ms;
+    }
+    .arc-chip:hover { background: var(--yolk); transform: translate(-1px, -1px); }
+    .arc-chip strong { color: var(--red-deep); font-weight: 800; }
+    .arc-chip-sep { opacity: 0.4; }
+    .arc-chip-dot { font-size: 9px; line-height: 1; }
+
+    /* inspector reuses .lib-veil + .lib-modal scaffolding */
+    #arc-status { font-family: var(--ui); font-size: 11px; color: var(--ink-faint); margin-right: auto; }
+    .arc-stat { padding: 3px 8px; background: var(--paper-soft); border-radius: 999px; }
+    .arc-stat-refresh { background: var(--yolk); color: var(--ink-bright); animation: ttsPulse 1.1s ease-in-out infinite; }
+    .arc-stat-stale { background: var(--paper-deep); }
+    .arc-stat-err { background: var(--red); color: white; }
+
+    #arc-body { padding: 18px 22px 22px; }
+    .arc-empty {
+      text-align: center; padding: 40px 20px;
+      font-family: var(--display); font-size: 24px; color: var(--ink-faint); line-height: 1.3;
+    }
+    .arc-section { padding: 14px 0; border-bottom: 1px dashed var(--ink-faint); }
+    .arc-section:last-of-type { border-bottom: none; }
+    .arc-section h3 {
+      font-family: var(--display); font-size: 24px; font-weight: 700;
+      color: var(--ink-bright); margin-bottom: 8px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .arc-count {
+      font-family: var(--ui); font-size: 12px; font-weight: 700;
+      background: var(--sky); color: var(--ink-bright);
+      border: 1.5px solid var(--ink-bright); border-radius: 999px;
+      padding: 1px 8px; box-shadow: 1.5px 1.5px 0 var(--ink-bright); transform: rotate(-2deg);
+    }
+    .arc-synopsis {
+      font-family: var(--serif); font-size: 16px; line-height: 1.55;
+      color: var(--ink); background: var(--paper-soft);
+      padding: 12px 14px; border-radius: 10px;
+      border-left: 4px solid var(--red);
+    }
+    .arc-list {
+      list-style: none; padding: 0; margin: 0;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .arc-list li {
+      padding: 10px 12px;
+      background: var(--paper-soft);
+      border: 2px solid var(--ink-bright);
+      border-radius: 10px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+    }
+    .arc-name { font-family: var(--ui); font-weight: 700; font-size: 14px; color: var(--ink-bright); }
+    .arc-meta { font-family: var(--ui); font-size: 11px; color: var(--ink-faint); }
+    .arc-detail { font-family: var(--serif); font-size: 14px; color: var(--ink-soft); margin-top: 4px; line-height: 1.45; }
+    .arc-thread-closed { opacity: 0.65; }
+    .arc-thread-closed .arc-name { text-decoration: line-through; }
+    .arc-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .arc-tag {
+      font-family: var(--ui); font-weight: 700; font-size: 12px;
+      padding: 3px 10px;
+      background: var(--yolk); color: var(--ink-bright);
+      border: 1.5px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      transform: rotate(-1deg);
+    }
+    .arc-tag:nth-child(2n) { transform: rotate(1deg); background: var(--bubblegum); }
+    .arc-tag:nth-child(3n) { transform: rotate(-0.5deg); background: var(--grass); }
+    .arc-tag.arc-tone { background: var(--grape); color: white; }
+    .arc-next {
+      font-family: var(--serif); font-style: italic; font-size: 15px;
+      color: var(--ink-soft); line-height: 1.55;
+      background: var(--paper-soft); padding: 12px 14px; border-radius: 10px;
+      border-left: 4px solid var(--gold);
+    }
+    .arc-meta-row {
+      font-family: var(--ui); font-size: 11px; color: var(--ink-faint);
+      padding-top: 14px; display: flex; gap: 6px; align-items: center;
+    }
+    .arc-meta-row strong { color: var(--ink-bright); }
+
     /* ──────────── Library modal ──────────── */
     .lib-veil {
       position: fixed; inset: 0; background: rgba(31,31,35,0.55);
@@ -1380,7 +1471,9 @@
             <div class="pane-header">
               <h2>The Story</h2>
               <span class="meta" id="story-meta">0 blocks</span>
+              <span id="arc-chip-host"></span>
               <div class="pane-controls">
+                <button id="btn-arc" class="pane-ctrl-btn" type="button" title="Open arc inspector">📖 arc</button>
                 <button id="btn-play-all" class="pane-ctrl-btn" type="button" title="Play the whole story start to finish">▶ play</button>
                 <div class="font-size-ctrl" title="Story text size">
                   <button data-fs="14"   type="button">A</button>
@@ -1484,6 +1577,20 @@
     </section>
 
   </div><!-- /app -->
+
+  <!-- ════════ Arc Inspector Modal ════════ -->
+  <div class="lib-veil" id="arc-inspector">
+    <div class="lib-modal" style="max-width: 760px;">
+      <div class="lib-head">
+        <span class="dragon md" id="arc-dragon"></span>
+        <h2>The Arc</h2>
+        <span id="arc-status"></span>
+        <button id="btn-arc-refresh" class="btn ghost" title="Force a refresh now">↻ refresh</button>
+        <button id="arc-close" class="btn ghost">Done</button>
+      </div>
+      <div id="arc-body" class="lib-body" style="display: block;"></div>
+    </div>
+  </div>
 
   <!-- ════════ Library Modal ════════ -->
   <div class="lib-veil" id="library-modal">
@@ -1910,10 +2017,14 @@
       saveStatus: 'local',
       saveError: null,
       // ── new for UI controls (Phase A) ──
-      blockUI: {},                // { [blockId]: { expanded } } — ephemeral
-      playingBlockId: null,       // which block is being read by Play-all
-      playingAll: false,          // is the play-all loop running?
-      composerMode: 'ask',        // 'ask' | 'verbatim'
+      blockUI: {},
+      playingBlockId: null,
+      playingAll: false,
+      composerMode: 'ask',
+      // ── Phase B — arc context cache ──
+      arcContext: null,           // { synopsis, characters, threads, themes, tones, next_moves, confidence, updated_at }
+      arcStatus: 'idle',          // 'idle' | 'refreshing' | 'stale' | 'fresh' | 'error'
+      arcError: null,
     };
 
     const uid = () => Math.random().toString(36).slice(2, 10);
@@ -1985,6 +2096,10 @@
       state.chat = data?.chat || [];
       state.serverId = data?.serverId || null;
       state.serverUpdatedAt = data?.serverUpdatedAt || null;
+      // Phase B — try local arc cache, server will overwrite via loadFromServerRow
+      state.arcContext = data?.arc_context || null;
+      window.Arc?.loadFromLocal(name);
+      renderArcChip();
       state.latestOptions = null;
       // rebuild latestOptions pointer from the last wordy turn that has options
       for (let i = state.chat.length - 1; i >= 0; i--) {
@@ -2089,6 +2204,7 @@
       state.blocks.push({ id: blockId, text: opt.text, summary: opt.summary || '' });
       opt.added = true;
       opt.blockId = blockId;
+      window.Arc?.scheduleRefresh();
       state.chat.push({ id: uid(), role: 'kid', content: `i picked: "${opt.text.slice(0, 80)}${opt.text.length > 80 ? '…' : ''}"`, kind: 'pick' });
       observe('block_added', {
         text: opt.text,
@@ -2179,6 +2295,7 @@
       if (!t) return;
       state.blocks.push({ id: uid(), text: t, custom: true });
       observe('own_block_added', { text: t, block_index: state.blocks.length - 1 });
+      window.Arc?.scheduleRefresh();
       persist();
       renderAll();
     }
@@ -2224,6 +2341,7 @@
             phase: opts.phase,           // 'directions' | 'blocks' | undefined (server picks)
             direction: opts.direction,    // when phase==='blocks', the chosen direction title
             story: { blocks: state.blocks, rules: state.rules },
+            arc_context: state.arcContext || null,
           }),
         });
         if (!res.ok) {
@@ -2642,6 +2760,14 @@
       btn.addEventListener('click', () => setComposerMode(btn.dataset.mode));
     });
 
+    // Arc inspector
+    document.getElementById('btn-arc').addEventListener('click', openArcInspector);
+    document.getElementById('arc-close').addEventListener('click', closeArcInspector);
+    document.getElementById('btn-arc-refresh').addEventListener('click', () => window.Arc.refresh(true));
+    document.getElementById('arc-inspector').addEventListener('click', (e) => {
+      if (e.target.id === 'arc-inspector') closeArcInspector();
+    });
+
     // Play-all + font-size + collapse-all
     document.getElementById('btn-play-all').addEventListener('click', playWholeStory);
     document.getElementById('btn-collapse-all').addEventListener('click', () => {
@@ -2887,6 +3013,193 @@
       if (!el.innerHTML.trim()) el.innerHTML = window.DRAGON_SVG;
     });
 
+    // ─────────── Arc context cache (Phase B) ───────────
+    // Fires Claude Haiku 4.5 after every block_added (5s debounced) to
+    // refresh the running understanding of the arc. Result is fed into
+    // every subsequent Wordy turn so direction proposals become craft
+    // moves instead of generic next-beats.
+    window.Arc = (function() {
+      const DEBOUNCE_MS = 5000;
+      let timer = null;
+      let inflight = null;
+      let listeners = [];
+
+      function setStatus(s, err = null) {
+        state.arcStatus = s;
+        state.arcError = err;
+        listeners.forEach(fn => { try { fn(); } catch {} });
+      }
+      function subscribe(fn) { listeners.push(fn); return () => { listeners = listeners.filter(x => x !== fn); }; }
+
+      function scheduleRefresh() {
+        // Don't fire if there's nothing to analyze
+        if (!state.blocks.length) return;
+        setStatus('stale');
+        clearTimeout(timer);
+        timer = setTimeout(() => refresh(), DEBOUNCE_MS);
+      }
+
+      function cancel() { clearTimeout(timer); timer = null; }
+
+      async function refresh(force = false) {
+        if (!state.blocks.length) return;
+        if (inflight && !force) return inflight;
+        setStatus('refreshing');
+        inflight = (async () => {
+          try {
+            const res = await fetch('/api/qss-arc-extract', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+              body: JSON.stringify({
+                story_id: state.serverId || null,
+                story_name: state.name,
+                blocks: state.blocks.map(b => ({ id: b.id, text: b.text })),
+                rules: state.rules,
+                currentArc: state.arcContext || null,
+              }),
+            });
+            if (!res.ok) {
+              const j = await res.json().catch(() => ({}));
+              throw new Error(j.error || `${res.status}`);
+            }
+            const data = await res.json();
+            if (data.arc) {
+              state.arcContext = data.arc;
+              try { localStorage.setItem(`qss:arc:${state.name}`, JSON.stringify(data.arc)); } catch {}
+              observe('arc_refreshed', {
+                characters_count: data.arc.characters?.length || 0,
+                threads_count: data.arc.threads?.length || 0,
+                themes_count: data.arc.themes?.length || 0,
+                confidence: data.arc.confidence || 0,
+                next_moves: (data.arc.next_moves || '').slice(0, 240),
+                ms: data.ms,
+              });
+              setStatus('fresh');
+            }
+          } catch (e) {
+            console.warn('[arc] refresh failed:', e.message);
+            setStatus('error', e.message);
+          } finally {
+            inflight = null;
+          }
+        })();
+        return inflight;
+      }
+
+      function loadFromLocal(name) {
+        try {
+          const raw = localStorage.getItem(`qss:arc:${name}`);
+          if (raw) {
+            state.arcContext = JSON.parse(raw);
+            setStatus('fresh');
+          }
+        } catch {}
+      }
+
+      return { scheduleRefresh, refresh, cancel, subscribe, loadFromLocal };
+    })();
+
+    // ─────────── Arc inspector + progress chip rendering ───────────
+    function renderArcChip() {
+      const host = document.getElementById('arc-chip-host');
+      if (!host) return;
+      const arc = state.arcContext;
+      if (!arc || !arc.characters?.length) {
+        host.innerHTML = '';
+        return;
+      }
+      const status = state.arcStatus;
+      const dot = status === 'refreshing' ? '🟡' : status === 'stale' ? '🟠' : status === 'error' ? '🔴' : '🟢';
+      host.innerHTML = `
+        <button class="arc-chip" id="arc-chip-btn" type="button" title="Open arc inspector">
+          <span class="arc-chip-dot">${dot}</span>
+          <span><strong>${arc.characters.length}</strong> char${arc.characters.length === 1 ? '' : 's'}</span>
+          <span class="arc-chip-sep">·</span>
+          <span><strong>${arc.threads.length}</strong> thread${arc.threads.length === 1 ? '' : 's'}</span>
+        </button>`;
+      document.getElementById('arc-chip-btn').addEventListener('click', openArcInspector);
+    }
+    function openArcInspector() {
+      document.getElementById('arc-inspector').classList.add('open');
+      renderArcInspector();
+    }
+    function closeArcInspector() {
+      document.getElementById('arc-inspector').classList.remove('open');
+    }
+    function renderArcInspector() {
+      const arc = state.arcContext;
+      const body = document.getElementById('arc-body');
+      const statusEl = document.getElementById('arc-status');
+      if (!body) return;
+      const status = state.arcStatus;
+      statusEl.innerHTML = status === 'refreshing'
+        ? '<span class="arc-stat arc-stat-refresh">refreshing…</span>'
+        : status === 'stale'
+        ? '<span class="arc-stat arc-stat-stale">stale · refreshing soon</span>'
+        : status === 'error'
+        ? `<span class="arc-stat arc-stat-err">error: ${esc(state.arcError || 'unknown')}</span>`
+        : arc?.updated_at
+        ? `<span class="arc-stat">updated ${new Date(arc.updated_at).toLocaleTimeString()}</span>`
+        : '<span class="arc-stat">no analysis yet</span>';
+
+      if (!arc || (!arc.synopsis && !arc.characters?.length)) {
+        body.innerHTML = `<div class="arc-empty">No arc analysis yet. Add a block or two, then come back — or hit refresh below to force one now.</div>`;
+        return;
+      }
+      const conf = Math.round((arc.confidence || 0) * 100);
+      body.innerHTML = `
+        ${arc.synopsis ? `<section class="arc-section">
+          <h3>Synopsis</h3>
+          <p class="arc-synopsis">${esc(arc.synopsis)}</p>
+        </section>` : ''}
+
+        ${arc.characters?.length ? `<section class="arc-section">
+          <h3>Characters <span class="arc-count">${arc.characters.length}</span></h3>
+          <ul class="arc-list">
+            ${arc.characters.map(c => `<li>
+              <span class="arc-name">${esc(c.name)}</span>${c.intro_block ? ` <span class="arc-meta">since block ${c.intro_block}</span>` : ''}
+              <div class="arc-detail">${esc(c.current_state || '—')}</div>
+            </li>`).join('')}
+          </ul>
+        </section>` : ''}
+
+        ${arc.threads?.length ? `<section class="arc-section">
+          <h3>Open threads <span class="arc-count">${arc.threads.filter(t => t.status !== 'closed').length}</span></h3>
+          <ul class="arc-list">
+            ${arc.threads.map(t => `<li class="arc-thread arc-thread-${t.status || 'open'}">
+              <span class="arc-name">${esc(t.description)}</span>${t.opened_at_block ? ` <span class="arc-meta">since block ${t.opened_at_block}</span>` : ''}
+              ${t.suggested_resolution ? `<div class="arc-detail">→ ${esc(t.suggested_resolution)}</div>` : ''}
+            </li>`).join('')}
+          </ul>
+        </section>` : ''}
+
+        ${arc.themes?.length ? `<section class="arc-section">
+          <h3>Themes &amp; running gags</h3>
+          <div class="arc-tags">${arc.themes.map(t => `<span class="arc-tag">${esc(t)}</span>`).join('')}</div>
+        </section>` : ''}
+
+        ${arc.tones?.length ? `<section class="arc-section">
+          <h3>Tones used</h3>
+          <div class="arc-tags">${arc.tones.map(t => `<span class="arc-tag arc-tone">${esc(t)}</span>`).join('')}</div>
+        </section>` : ''}
+
+        ${arc.next_moves ? `<section class="arc-section">
+          <h3>What's missing for arc shape</h3>
+          <p class="arc-next">${esc(arc.next_moves)}</p>
+        </section>` : ''}
+
+        <div class="arc-meta-row">
+          <span>confidence <strong>${conf}%</strong></span>
+          ${arc.block_count_when_extracted ? `<span>· analyzed at block ${arc.block_count_when_extracted}</span>` : ''}
+        </div>`;
+    }
+    // Re-render chip and (if open) inspector whenever arc state changes
+    window.Arc.subscribe(() => {
+      renderArcChip();
+      const insp = document.getElementById('arc-inspector');
+      if (insp && insp.classList.contains('open')) renderArcInspector();
+    });
+
     // ─────────── Drag-resizable split between story + chat ───────────
     (function() {
       const layout = document.querySelector('.write-layout');
@@ -3070,6 +3383,7 @@
       const newBlock = { id: uid(), text: t, custom: true, verbatim: true, summary: firstSentence(t, 60) };
       state.blocks.push(newBlock);
       observe('own_block_added', { text: t, block_index: state.blocks.length - 1, verbatim: true });
+      window.Arc?.scheduleRefresh();
       document.getElementById('kid-input').value = '';
       persist();
       renderAll();
@@ -3272,10 +3586,13 @@
         state.name = row.name;
         state.rules = { ...DEFAULT_RULES, ...(row.rules || {}) };
         if (typeof row.bible === 'string' && (!state.rules.bible || row.bible)) state.rules.bible = row.bible;
-        state.blocks = (row.blocks || []).map(b => ({ id: b.id, text: b.text, __image: null }));
+        state.blocks = (row.blocks || []).map(b => ({ id: b.id, text: b.text, summary: b.summary || '', __image: null }));
         state.chat = (row.chat || []).map(t => ({ ...t, options: t.options?.map(o => ({ ...o })) }));
         state.serverId = row.id;
         state.serverUpdatedAt = row.updated_at;
+        // Phase B — pull arc context from the row (Supabase canonical version)
+        state.arcContext = row.arc_context || state.arcContext || null;
+        renderArcChip();
         state.latestOptions = null;
         for (let i = state.chat.length - 1; i >= 0; i--) {
           if (state.chat[i].role === 'wordy' && state.chat[i].options?.length) {
