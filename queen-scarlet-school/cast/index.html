@@ -307,6 +307,58 @@
       opacity: 0; transition: opacity 120ms var(--ease);
     }
     .gallery-thumb:hover .gallery-thumb-x { opacity: 1; }
+    /* Thumbs-up heart — Henry can mark a portrait as "I love this
+     * style, make more like it." Loved portraits get used as visual
+     * anchors when we generate a fresh card via the regenerate
+     * button. Sits opposite the × so they don't fight. */
+    .gallery-thumb-love {
+      position: absolute; bottom: -4px; right: -4px;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: var(--paper-card); color: var(--ink-faint);
+      border: 2px solid var(--ink-bright);
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; padding: 0;
+      opacity: 0; transition: opacity 120ms var(--ease), background 140ms var(--ease), transform 140ms var(--ease);
+    }
+    .gallery-thumb:hover .gallery-thumb-love { opacity: 1; }
+    .gallery-thumb-love.loved {
+      opacity: 1;
+      background: #FF6FAA;
+      color: var(--paper);
+      transform: scale(1.1);
+    }
+    .gallery-thumb-love:hover { transform: scale(1.15); }
+    .gallery-thumb.loved {
+      border-color: #FF6FAA;
+      box-shadow: 0 0 0 3px rgba(255, 111, 170, 0.35);
+    }
+    /* "Regenerate from loved" — sits next to the + button. Pulls all
+     * thumbs-upped portraits as style anchors so the new draw
+     * matches the look Henry liked. */
+    .gallery-regen {
+      flex: 0 0 auto;
+      width: 70px; aspect-ratio: 2.5 / 3.5;
+      border-radius: 8px;
+      border: 2.5px solid #FF6FAA;
+      background: rgba(255, 111, 170, 0.18);
+      color: var(--paper);
+      cursor: pointer;
+      font-family: var(--ui); font-weight: 700; font-size: 12px;
+      line-height: 1.15;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 4px;
+      transition: transform 140ms var(--ease), background 140ms var(--ease);
+      padding: 0 6px;
+      text-align: center;
+    }
+    .gallery-regen:hover { background: rgba(255, 111, 170, 0.32); transform: translate(-1px, -1px); }
+    .gallery-regen.busy { opacity: 0.6; cursor: wait; }
+    .gallery-regen-icon { font-size: 22px; line-height: 1; }
+    .gallery-regen-label { font-size: 10px; letter-spacing: 0.06em; }
     .gallery-add {
       flex: 0 0 auto;
       width: 70px; aspect-ratio: 2.5 / 3.5;
@@ -927,13 +979,25 @@
       const strip = document.getElementById('gallery-strip');
       const thumbs = card.portraits.slice().sort((a, b) => (a.generated_at || 0) - (b.generated_at || 0)).map(p => {
         const isPrimary = p.id === card.primary_portrait_id;
-        return `<div class="gallery-thumb ${isPrimary ? 'primary' : ''}" data-pid="${esc(p.id)}" title="${esc(p.note || (isPrimary ? 'primary' : 'tap to make primary'))}">
+        const isLoved = !!p.loved;
+        return `<div class="gallery-thumb ${isPrimary ? 'primary' : ''} ${isLoved ? 'loved' : ''}" data-pid="${esc(p.id)}" title="${esc(p.note || (isPrimary ? 'primary' : 'tap to make primary'))}">
           <img src="data:${esc(p.mime || 'image/png')};base64,${p.dataBase64}" alt="" />
           <button class="gallery-thumb-x" data-action="delete-portrait" data-pid="${esc(p.id)}" type="button" aria-label="Delete this portrait">×</button>
+          <button class="gallery-thumb-love ${isLoved ? 'loved' : ''}" data-action="toggle-love" data-pid="${esc(p.id)}" type="button" aria-label="${isLoved ? 'Unmark this portrait as loved' : 'Mark this portrait as loved — used as style anchor when you regenerate'}">${isLoved ? '♥' : '♡'}</button>
         </div>`;
       }).join('');
       const addBusy = state.pendingGen.has(card.name) ? 'busy' : '';
-      strip.innerHTML = thumbs + `<button class="gallery-add ${addBusy}" type="button" data-action="add-portrait" aria-label="Draw another portrait">+</button>`;
+      // "Regenerate from loved" only shows if at least one portrait
+      // has been thumbs-upped. Otherwise the + button is the only way
+      // to draw a fresh one.
+      const lovedCount = card.portraits.filter(p => p.loved).length;
+      const regenBtn = lovedCount > 0
+        ? `<button class="gallery-regen ${addBusy}" type="button" data-action="regen-from-loved" aria-label="Regenerate using your loved portraits as the style anchor">
+             <span class="gallery-regen-icon">↻</span>
+             <span class="gallery-regen-label">like the<br/>♥ ones</span>
+           </button>`
+        : '';
+      strip.innerHTML = thumbs + regenBtn + `<button class="gallery-add ${addBusy}" type="button" data-action="add-portrait" aria-label="Draw another portrait">+</button>`;
 
       // Chat thread
       renderChatThread(card);
@@ -958,7 +1022,7 @@
     }
 
     // ─── Generation ───
-    async function generatePortrait(name, { visualNotes = null, chatMessage = null, fromChat = false } = {}) {
+    async function generatePortrait(name, { visualNotes = null, chatMessage = null, fromChat = false, fromLoved = false } = {}) {
       const card = state.cards[name];
       if (!card) return;
       if (state.pendingGen.has(name)) return;
@@ -970,6 +1034,15 @@
 
       const recent = (state.story?.blocks || []).slice(-6).map(b => ({ text: b.text || '' }));
       const isFirst = card.portraits.length === 0;
+      // When Henry hits "regenerate from loved", send every ♥'d portrait
+      // as a reference image so nano-banana matches the style he picked.
+      // Cap at 3 to keep the payload reasonable — most-recent loved wins.
+      const lovedRefs = fromLoved
+        ? card.portraits
+            .filter(p => p.loved)
+            .slice(-3)
+            .map(p => ({ dataBase64: p.dataBase64, mimeType: p.mime || 'image/png' }))
+        : null;
       const body = {
         character: { name, current_state: card.current_state || '', intro_block: card.intro_block || null },
         arc: state.story?.arc_context || null,
@@ -980,9 +1053,12 @@
         revise: !isFirst,
         visual_notes: typeof visualNotes === 'string' ? visualNotes : (card.visual_notes || ''),
         chat: card.chat || [],
-        new_message: chatMessage || '',
+        new_message: chatMessage || (fromLoved ? 'redraw matching the style anchors I marked ♥' : ''),
         existing_synopsis: card.synopsis || '',
         primary_portrait: !isFirst ? getPrimaryAsRef(card) : null,
+        // Style anchors — nano-banana endpoint accepts these as
+        // referenceImages (validated for inline base64 + mime).
+        referenceImages: lovedRefs || undefined,
       };
 
       try {
@@ -1123,6 +1199,33 @@
       renderDetail();
       toast('portrait deleted', 'success', 1600);
     }
+    // Henry hits the ♥ on a portrait → it's now a style anchor. The
+    // next time he regenerates this card, we send the loved portraits
+    // as reference images to nano-banana so the new draw matches
+    // the look he liked. Toggles on/off.
+    function togglePortraitLove(pid) {
+      const card = state.cards[state.openName]; if (!card) return;
+      const p = card.portraits.find(x => x.id === pid); if (!p) return;
+      p.loved = !p.loved;
+      writeLS();
+      scheduleCloudSave();
+      renderDetail();
+      toast(p.loved ? '♥ saved as style anchor' : '♥ removed', 'success', 1200);
+    }
+    // Regenerate using the loved portraits as visual anchors. We
+    // pass them to the character-card endpoint as referenceImages,
+    // which nano-banana already accepts. The endpoint will hand them
+    // to Gemini as inline base64 reference frames so the new card
+    // matches the style Henry already approved.
+    function regenerateFromLoved() {
+      const card = state.cards[state.openName]; if (!card) return;
+      const loved = card.portraits.filter(p => p.loved);
+      if (loved.length === 0) {
+        toast('thumbs up a portrait first', 'info', 1600);
+        return;
+      }
+      generatePortrait(state.openName, { fromLoved: true });
+    }
     function deleteCharacter() {
       const name = state.openName; if (!name) return;
       if (!confirm(`Delete ${name} from the cast? (the character stays in the story — this just removes their card)`)) return;
@@ -1190,6 +1293,10 @@
       document.getElementById('gallery-strip').addEventListener('click', (e) => {
         const x = e.target.closest('[data-action="delete-portrait"]');
         if (x) { e.stopPropagation(); deletePortrait(x.dataset.pid); return; }
+        const love = e.target.closest('[data-action="toggle-love"]');
+        if (love) { e.stopPropagation(); togglePortraitLove(love.dataset.pid); return; }
+        const regen = e.target.closest('[data-action="regen-from-loved"]');
+        if (regen) { regenerateFromLoved(); return; }
         const add = e.target.closest('[data-action="add-portrait"]');
         if (add) { redrawFromNotes(); return; }
         const thumb = e.target.closest('.gallery-thumb');

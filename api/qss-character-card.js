@@ -115,6 +115,18 @@ export default async function handler(req) {
   const refPortrait = (body.primary_portrait && body.primary_portrait.dataBase64)
     ? { mimeType: String(body.primary_portrait.mimeType || 'image/png'), dataBase64: String(body.primary_portrait.dataBase64) }
     : null;
+  // Loved portraits — Henry ♥'d these to mark them as "this is the
+  // style I want, make more like this." Validate shape, cap at 3, cap
+  // each base64 size, restrict mime to image/*.
+  const MAX_REF_BYTES = 6 * 1024 * 1024;
+  const loved = Array.isArray(body.referenceImages) ? body.referenceImages : [];
+  const lovedRefs = loved
+    .filter(r => r && typeof r.dataBase64 === 'string' && typeof r.mimeType === 'string')
+    .filter(r => !r.url && !r.uri && !r.fileUri && !r.src) // no URL fields — SSRF guard
+    .filter(r => r.dataBase64.length <= MAX_REF_BYTES * 1.4)
+    .filter(r => /^image\/(png|jpe?g|webp|gif)$/i.test(r.mimeType))
+    .slice(-3)
+    .map(r => ({ mimeType: r.mimeType, dataBase64: r.dataBase64 }));
 
   // Compose chat transcript for the model
   const chatTranscript = [
@@ -176,7 +188,7 @@ export default async function handler(req) {
   });
 
   const claudePromise = callClaude(anthropicKey, claudeUser);
-  const imagePromise = callNanoBanana(geminiKey, portraitPrompt, refPortrait);
+  const imagePromise = callNanoBanana(geminiKey, portraitPrompt, refPortrait, lovedRefs);
 
   const [claudeR, imgR] = await Promise.allSettled([claudePromise, imagePromise]);
 
@@ -334,14 +346,19 @@ async function callClaude(apiKey, userMessage) {
   return data?.content?.map(c => (c.type === 'text' ? c.text : '')).join('') || '';
 }
 
-async function callNanoBanana(apiKey, prompt, refImage = null) {
+async function callNanoBanana(apiKey, prompt, refImage = null, lovedRefs = []) {
   const modelId = 'gemini-3.1-flash-image-preview';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`;
-  // When refImage is supplied (a previous portrait), include it as an
-  // inlineData part BEFORE the text — this anchors the new portrait to
-  // the existing character look while the prompt's "THIS DRAW IS A
-  // REVISION" / "AUTHORED VISUAL TRAITS" blocks describe the changes.
+  // Reference images go BEFORE the text so Gemini anchors the new
+  // portrait to them. Order: loved style anchors first (Henry's
+  // approved style direction), then the most recent primary portrait
+  // as the "this is the same character" anchor. Text prompt last.
   const parts = [];
+  for (const ref of (lovedRefs || [])) {
+    if (ref?.dataBase64 && ref?.mimeType) {
+      parts.push({ inlineData: { mimeType: ref.mimeType, data: ref.dataBase64 } });
+    }
+  }
   if (refImage && refImage.dataBase64) {
     parts.push({
       inlineData: {
