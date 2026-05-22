@@ -4032,6 +4032,7 @@
             direction: opts.direction,    // when phase==='blocks', the chosen direction title
             story: { blocks: state.blocks, rules: state.rules },
             arc_context: state.arcContext || null,
+            character_cards: window.qssCast?.getCardsForContext?.() || [],
           }),
         });
         if (!res.ok) {
@@ -5034,6 +5035,7 @@
                 blocks: state.blocks.map(b => ({ id: b.id, text: b.text })),
                 rules: state.rules,
                 currentArc: state.arcContext || null,
+                character_cards: window.qssCast?.getCardsForContext?.() || [],
               }),
             });
             if (!res.ok) {
@@ -5305,6 +5307,7 @@
             error: null,
           };
           save();
+          syncStateAndPersist();   // push to state.characterCards + queue cloud save
           renderIfOpen();
         } catch (e) {
           cards[name] = { ...(cards[name] || {}), status: 'error', error: e.message };
@@ -5313,6 +5316,35 @@
         } finally {
           pendingGen.delete(name);
         }
+      }
+
+      // Mirror our in-memory `cards` map into state.characterCards as an
+      // array of {name, synopsis, image, current_state, intro_block,
+      // generated_at}. Then ask the save layer to push it to the cloud.
+      function syncStateAndPersist() {
+        const arr = Object.values(cards).filter(c => c?.name && c?.status === 'ready');
+        state.characterCards = arr;
+        try { window.Lib?.queueSave?.(); } catch {}
+      }
+
+      // Called from loadFromServerRow when a story is opened with cloud-
+      // persisted character_cards. Replaces local state with the
+      // canonical server version.
+      function hydrateFromServer(serverCards) {
+        if (!Array.isArray(serverCards)) return;
+        const next = {};
+        for (const c of serverCards) {
+          if (!c?.name) continue;
+          next[c.name] = {
+            ...c,
+            status: c.image && c.image.dataBase64 ? 'ready' : (c.synopsis ? 'ready' : 'loading'),
+          };
+        }
+        cards = next;
+        save();
+        state.characterCards = serverCards;
+        updateBadge();
+        renderIfOpen();
       }
 
       function syncFromArc() {
@@ -5508,24 +5540,45 @@
         card.classList.toggle('flipped');
       }
 
-      // Wire DOM events on first init
+      // Wire DOM events on first init. The cast moved to its own dedicated
+      // page (queen-scarlet-school/cast/) so the topbar button now navigates
+      // to that route — opens with the current story's id so the page can
+      // hydrate from the server row. The modal markup remains in this file
+      // but is no longer wired to a trigger; safe to leave for now.
       document.addEventListener('DOMContentLoaded', () => {
         const btn = document.getElementById('btn-cast');
-        const close_ = document.getElementById('cast-close');
-        const veil = document.getElementById('cast-modal');
-        const grid = document.getElementById('cast-grid');
-        if (btn) btn.addEventListener('click', open);
-        if (close_) close_.addEventListener('click', close);
-        if (veil) veil.addEventListener('click', (e) => { if (e.target === veil) close(); });
-        if (grid) grid.addEventListener('click', onGridClick);
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape' && veil?.classList.contains('open')) close();
-        });
+        if (btn) {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const id = state?.serverId;
+            const target = id
+              ? `cast/?story=${encodeURIComponent(id)}`
+              : 'cast/';
+            // Persist the latest characterCards array before navigating so
+            // the cast page can hydrate from the server row even if the
+            // current save is still pending.
+            try { window.Lib?.queueSave?.(); } catch {}
+            window.location.href = target;
+          });
+        }
         load();
         updateBadge();
       });
 
-      return { open, close, syncFromArc };
+      // Build a compact context block that Wordy + arc-extract can use as
+      // overlay context: a few sentences per character pulled from the
+      // generated synopses. Image bytes are stripped.
+      function getCardsForContext() {
+        const arr = Object.values(cards).filter(c => c?.name && c?.synopsis && c.status === 'ready');
+        return arr.map(c => ({
+          name: c.name,
+          synopsis: c.synopsis,
+          current_state: c.current_state || '',
+          intro_block: c.intro_block || null,
+        }));
+      }
+
+      return { open, close, syncFromArc, hydrateFromServer, getCardsForContext };
     })();
 
     // ─────────── Drag-resizable split between story + chat ───────────
@@ -5775,6 +5828,7 @@
           blocks: state.blocks,
           chat: state.chat,
           suggestions: [],   // (kept client-side; not worth syncing)
+          character_cards: Array.isArray(state.characterCards) ? state.characterCards : undefined,
           expectedUpdatedAt: state.serverUpdatedAt || undefined,
         };
       }
@@ -5927,6 +5981,12 @@
         state.serverUpdatedAt = row.updated_at;
         // Phase B — pull arc context from the row (Supabase canonical version)
         state.arcContext = row.arc_context || state.arcContext || null;
+        // Hydrate character cards from the cloud row. window.qssCast watches
+        // this and re-renders the cast page / button badge.
+        if (Array.isArray(row.character_cards)) {
+          state.characterCards = row.character_cards;
+          try { window.qssCast?.hydrateFromServer?.(row.character_cards); } catch {}
+        }
         renderArcChip();
         state.latestOptions = null;
         for (let i = state.chat.length - 1; i >= 0; i--) {

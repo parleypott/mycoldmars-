@@ -59,6 +59,7 @@ export default async function handler(req) {
 
   const rules = body.rules || {};
   const previousArc = body.currentArc || null;
+  const characterCards = Array.isArray(body.character_cards) ? body.character_cards.slice(0, 12) : [];
 
   // Compose the user message — concise and structured so Haiku stays cheap
   const storyText = blocks.map((b, i) => `[${i + 1}] ${(b.text || '').trim()}`).join('\n\n');
@@ -66,10 +67,21 @@ export default async function handler(req) {
   const goal = (rules.goal || '').trim();
   const style = (rules.style || '').trim();
 
+  // Character cards (synopsis text only, no image bytes) — these are
+  // ground-truth descriptions Henry has confirmed via the cast page.
+  // Carry them forward when evolving the arc.
+  const castLines = characterCards.map(c => {
+    const name = String(c?.name || '').trim();
+    if (!name) return '';
+    const syn = String(c?.synopsis || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+    return `  - ${name}: ${syn || '(no synopsis)'}`;
+  }).filter(Boolean).join('\n');
+
   const userMsg = [
     goal ? `STORY GOAL: ${goal}` : '',
     style ? `STYLE: ${style}` : '',
     bible ? `BIBLE:\n${bible}` : '',
+    castLines ? `CAST CARDS (canonical character descriptions Henry has approved — use these to enrich current_state):\n${castLines}` : '',
     previousArc && Object.keys(previousArc).length
       ? `PREVIOUS ARC (evolve, don't rewrite):\n${JSON.stringify(previousArc, null, 2)}`
       : '',

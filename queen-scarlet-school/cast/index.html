@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>The Cast — Queen Scarlet's School</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Andika:wght@400;700&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #FFF6E0; --paper-card: #FFFFFF; --paper-deep: #FCEDC4; --paper-soft: #FFFAEC;
+      --ink: #1F1F23; --ink-bright: #000; --ink-soft: #353540; --ink-faint: #6B6B7A;
+      --red: #E84545; --red-deep: #C32626;
+      --yolk: #FFD93D; --yolk-deep: #F0B900;
+      --sky: #4DB8E8; --bubblegum: #FF6FAA; --grass: #6BCB77;
+      --display: 'Caveat', cursive;
+      --serif: 'Andika', Georgia, serif;
+      --ui: 'Fredoka', system-ui, sans-serif;
+      --ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { min-height: 100%; background: #2C2C34; color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    body {
+      min-height: 100vh; display: flex; flex-direction: column; position: relative;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(255, 209, 88, 0.08) 0%, transparent 35%),
+        radial-gradient(circle at 80% 90%, rgba(255, 111, 170, 0.07) 0%, transparent 35%),
+        #2C2C34;
+    }
+    ::selection { background: var(--yolk); color: var(--ink-bright); }
+    button { font-family: var(--ui); cursor: pointer; border: none; background: none; color: inherit; padding: 0; user-select: none; -webkit-user-select: none; }
+
+    /* Topbar */
+    .topbar {
+      display: flex; align-items: center; padding: 14px 22px; gap: 16px;
+      background: rgba(20, 20, 24, 0.6);
+      backdrop-filter: blur(8px);
+      border-bottom: 2px solid rgba(255, 217, 100, 0.2);
+      padding-top: max(14px, env(safe-area-inset-top));
+      flex-shrink: 0;
+    }
+    .brand {
+      font-family: var(--display); font-size: 26px; font-weight: 700; color: var(--paper);
+      text-decoration: none; display: inline-flex; align-items: center; gap: 10px;
+      transform: rotate(-2deg);
+    }
+    .blob { display: inline-block; background: var(--yolk); border: 2.5px solid var(--ink-bright); border-radius: 50%; position: relative; box-shadow: 2px 2px 0 var(--ink-bright); width: 26px; height: 26px; }
+    .blob::before, .blob::after { content: ''; position: absolute; background: var(--ink-bright); border-radius: 50%; width: 4px; height: 4px; top: 9px; }
+    .blob::before { left: 6px; } .blob::after { right: 6px; }
+    .topbar .spacer { flex: 1; }
+    .topbar .back, .topbar .lib {
+      font-family: var(--ui); font-size: 14px; font-weight: 600;
+      color: var(--paper); padding: 8px 14px;
+      background: rgba(255, 246, 224, 0.06);
+      border: 2px solid rgba(255, 246, 224, 0.3); border-radius: 999px;
+      text-decoration: none;
+      min-height: 36px; display: inline-flex; align-items: center;
+    }
+    .topbar .back:hover, .topbar .lib:hover { background: rgba(255, 246, 224, 0.14); }
+
+    /* Page */
+    .page {
+      flex: 1;
+      padding: 26px clamp(20px, 4vw, 60px) 80px;
+      max-width: 1400px; margin: 0 auto; width: 100%;
+    }
+    .page-head {
+      display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .page-title {
+      font-family: var(--display);
+      font-size: clamp(42px, 5.5vw, 76px);
+      color: var(--paper);
+      font-weight: 700; line-height: 1;
+      letter-spacing: -0.01em;
+      text-shadow: 4px 4px 0 var(--ink-bright);
+    }
+    .page-title em { color: var(--yolk); font-style: normal; }
+    .page-sub {
+      font-family: var(--serif); font-style: italic;
+      color: rgba(244, 233, 200, 0.78);
+      font-size: 15px; margin-top: 4px;
+    }
+    .story-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 14px;
+      background: rgba(255, 217, 100, 0.18);
+      border: 2px solid rgba(255, 217, 100, 0.45);
+      border-radius: 999px;
+      color: var(--paper);
+      font-family: var(--ui); font-size: 13px; font-weight: 600;
+      transform: rotate(-1.5deg);
+    }
+    .story-chip strong { color: var(--yolk); font-weight: 700; }
+
+    /* Grid */
+    .cast-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 26px;
+    }
+    .empty {
+      grid-column: 1 / -1;
+      text-align: center; padding: 80px 30px;
+      color: rgba(244, 233, 200, 0.7);
+      font-family: var(--serif); font-size: 17px;
+      max-width: 560px; margin: 0 auto;
+    }
+    .empty strong { display: block; font-family: var(--display); color: var(--paper); font-size: 32px; margin-bottom: 8px; }
+    .empty.error strong { color: var(--red); }
+
+    /* Card (flip) */
+    .ccard {
+      position: relative;
+      aspect-ratio: 2.5 / 3.5;
+      width: 100%;
+      perspective: 1400px;
+      cursor: pointer;
+      filter: drop-shadow(6px 8px 0 rgba(0, 0, 0, 0.55));
+    }
+    .ccard-inner {
+      position: relative;
+      width: 100%; height: 100%;
+      transition: transform 700ms cubic-bezier(0.5, 0, 0.3, 1.18);
+      transform-style: preserve-3d;
+    }
+    .ccard.flipped .ccard-inner { transform: rotateY(180deg); }
+    .ccard:not(.flipped) .ccard-inner:hover { transform: rotateY(-3deg) rotateX(2deg); }
+
+    .ccard-face {
+      position: absolute; inset: 0;
+      border-radius: 14px;
+      border: 3px solid var(--ink-bright);
+      overflow: hidden;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      background: var(--paper);
+    }
+
+    .ccard-front { display: flex; flex-direction: column; background: var(--paper); }
+    .ccard-corner {
+      position: absolute; top: 8px; left: 10px;
+      font-family: var(--display); font-size: 22px; font-weight: 700;
+      color: var(--ink-bright); line-height: 1;
+      transform: rotate(-3deg);
+      z-index: 2; pointer-events: none;
+      text-shadow: 1px 1px 0 var(--paper);
+    }
+    .ccard-corner.tr {
+      top: auto; left: auto;
+      bottom: 8px; right: 10px;
+      transform: rotate(180deg) rotate(-3deg);
+    }
+    .ccard-portrait {
+      flex: 1; min-height: 0;
+      background: #F5E9C8 url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Crect width='10' height='10' fill='%23F5E9C8'/%3E%3Ccircle cx='5' cy='5' r='0.8' fill='%23D8C58A'/%3E%3C/svg%3E");
+      background-size: 10px 10px;
+      position: relative; overflow: hidden;
+    }
+    .ccard-portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ccard-portrait.loading,
+    .ccard-portrait.failed {
+      display: flex; align-items: center; justify-content: center;
+      color: var(--ink-soft);
+      font-family: var(--serif); font-style: italic; font-size: 14px;
+      padding: 16px; text-align: center;
+    }
+    .ccard-portrait.loading::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+      animation: ccard-shimmer 1.8s linear infinite;
+    }
+    @keyframes ccard-shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+    .ccard-nameplate {
+      flex-shrink: 0;
+      padding: 12px 14px 14px;
+      background: var(--paper-deep);
+      border-top: 2.5px solid var(--ink-bright);
+    }
+    .ccard-name {
+      font-family: var(--display); font-size: 24px; font-weight: 700;
+      line-height: 1.05; color: var(--ink-bright);
+      transform: rotate(-1deg); transform-origin: left center;
+    }
+    .ccard-current {
+      font-family: var(--serif); font-style: italic; font-size: 12.5px;
+      color: var(--ink-soft); margin-top: 3px; line-height: 1.3;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .ccard-hint {
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+      font-family: var(--ui); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: rgba(31, 31, 35, 0.35); pointer-events: none; z-index: 2;
+    }
+    .ccard-state {
+      position: absolute; top: 0; left: 0;
+      padding: 4px 8px;
+      font-family: var(--ui); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--paper); background: var(--ink-bright);
+      border-bottom-right-radius: 8px;
+      z-index: 3; pointer-events: none;
+    }
+
+    .ccard-back {
+      transform: rotateY(180deg);
+      background: var(--paper);
+      padding: 16px 14px 14px;
+      display: flex; flex-direction: column; gap: 10px;
+      background-image:
+        radial-gradient(circle at 20% 10%, rgba(255, 209, 88, 0.18) 0%, transparent 28%),
+        radial-gradient(circle at 80% 90%, rgba(255, 138, 92, 0.16) 0%, transparent 32%),
+        repeating-linear-gradient(0deg, transparent 0px, transparent 27px, rgba(31, 31, 35, 0.06) 27px, rgba(31, 31, 35, 0.06) 28px);
+    }
+    .ccard-back-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 8px; padding-bottom: 8px;
+      border-bottom: 1.5px dashed rgba(31, 31, 35, 0.25);
+    }
+    .ccard-back-name { font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--ink-bright); line-height: 1.05; }
+    .ccard-suit { font-family: var(--display); font-size: 16px; color: var(--red); transform: rotate(-6deg); }
+    .ccard-synopsis {
+      flex: 1; font-family: var(--serif); font-size: 13.5px; line-height: 1.5; color: var(--ink);
+      overflow-y: auto; padding-right: 4px; min-height: 0;
+    }
+    .ccard-synopsis.loading { font-style: italic; color: var(--ink-soft); }
+    .ccard-back-actions {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; padding-top: 8px;
+      border-top: 1.5px dashed rgba(31, 31, 35, 0.25);
+    }
+
+    /* Speaker — same .tts-btn style as the school */
+    .tts-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px;
+      background: var(--paper-card); border: 2px solid var(--ink-bright); border-radius: 50%;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer; color: var(--ink-bright); padding: 0;
+      transition: transform 120ms var(--ease), background 120ms var(--ease);
+    }
+    .tts-btn svg { width: 16px; height: 16px; pointer-events: none; }
+    .tts-btn:hover { background: var(--yolk); transform: translate(-1px, -1px) rotate(-4deg); }
+    .tts-btn.playing {
+      background: var(--yolk);
+      animation: tts-pulse 850ms ease-in-out infinite;
+    }
+    @keyframes tts-pulse {
+      0%, 100% { box-shadow: 2px 2px 0 var(--ink-bright), 0 0 0 0 rgba(255, 209, 88, 0.85); }
+      50%      { box-shadow: 2px 2px 0 var(--ink-bright), 0 0 0 6px rgba(255, 209, 88, 0.3), 0 0 22px 4px rgba(255, 209, 88, 0.55); }
+    }
+    .ccard-regen, .ccard-flipback {
+      background: transparent; color: var(--ink-soft); border: none; cursor: pointer;
+      font-family: var(--ui); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 6px 8px;
+    }
+    .ccard-regen:hover, .ccard-flipback:hover { color: var(--ink-bright); text-decoration: underline; }
+
+    /* Migration banner */
+    .banner {
+      background: var(--bubblegum);
+      border: 2.5px solid var(--ink-bright); border-radius: 14px;
+      padding: 12px 16px; margin-bottom: 22px;
+      font-family: var(--serif); font-size: 14px; color: var(--ink-bright); line-height: 1.45;
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      display: none;
+    }
+    .banner.show { display: block; }
+    .banner code { background: var(--paper-card); border: 1.5px solid var(--ink-bright); border-radius: 6px; padding: 1px 6px; font-size: 12px; }
+
+    /* Gate */
+    .gate { position: fixed; inset: 0; background: var(--paper); display: flex; align-items: center; justify-content: center; z-index: 500; }
+    .gate.hidden { display: none; }
+    .gate-inner { max-width: 360px; width: calc(100% - 32px); display: flex; flex-direction: column;
+      gap: 18px; padding: 40px; background: var(--paper-card); border: 3px solid var(--ink-bright);
+      border-radius: 22px; box-shadow: 8px 8px 0 var(--yolk), 8px 8px 0 3px var(--ink-bright); transform: rotate(-1deg); }
+    .gate h1 { font-family: var(--display); font-size: 36px; font-weight: 700; text-align: center; line-height: 1; color: var(--ink-bright); }
+    .gate input { width: 100%; background: var(--paper-soft); border: 2.5px solid var(--ink-bright); color: var(--ink);
+      font-family: var(--ui); font-size: 16px; padding: 12px 16px; outline: none; border-radius: 12px; text-align: center;
+      box-shadow: 2px 2px 0 var(--ink-bright); }
+    .gate-error { color: var(--red-deep); font-family: var(--display); font-size: 18px; text-align: center; display: none; }
+    .gate-error.show { display: block; }
+    .gate .gate-btn {
+      font-family: var(--ui); font-weight: 700; font-size: 18px;
+      border: 2.5px solid var(--ink-bright); border-radius: 14px; padding: 10px 18px;
+      background: var(--red); color: var(--ink-bright);
+      box-shadow: 4px 4px 0 var(--ink-bright);
+    }
+    .gate .gate-btn:hover { background: var(--yolk); transform: translate(-1px, -1px); }
+    .app.hidden { display: none; }
+
+    /* Toast */
+    .toast-wrap {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      z-index: 600; display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+      max-width: calc(100vw - 32px);
+    }
+    .toast {
+      pointer-events: auto;
+      background: var(--paper-card); color: var(--ink-bright);
+      border: 2.5px solid var(--ink-bright); border-radius: 14px;
+      padding: 12px 18px; box-shadow: 4px 4px 0 var(--ink-bright);
+      font-family: var(--ui); font-weight: 600; font-size: 14px;
+      max-width: 480px; display: flex; align-items: center; gap: 10px;
+    }
+    .toast.error { background: var(--red); color: var(--paper); }
+
+    *::-webkit-scrollbar { width: 12px; height: 12px; }
+    *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+  </style>
+</head>
+<body>
+
+  <div id="gate" class="gate">
+    <div class="gate-inner">
+      <h1>The Cast</h1>
+      <input id="gate-code" type="password" placeholder="password" autocomplete="off" />
+      <button id="gate-submit" class="gate-btn">Let me in!</button>
+      <div id="gate-error" class="gate-error">try again!</div>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+    <header class="topbar">
+      <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
+      <span class="spacer"></span>
+      <a href="../" id="back-link" class="back">← back to the story</a>
+      <a href="../library/" class="lib">📚 library</a>
+    </header>
+
+    <main class="page">
+      <div class="page-head">
+        <div>
+          <div class="page-title">the <em>cast</em></div>
+          <div class="page-sub">flip a card for the back-of-the-card scoop. portraits and synopses are saved with the story.</div>
+        </div>
+        <div id="story-chip" class="story-chip" style="display:none;"></div>
+      </div>
+
+      <div id="banner" class="banner"></div>
+
+      <div id="cast-grid" class="cast-grid">
+        <div class="empty" id="loading-empty"><strong>shuffling the deck…</strong>loading characters from the story.</div>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast-wrap" id="toast-wrap" aria-live="polite"></div>
+
+  <script>
+    // ─── API perimeter — same wrapper as the school/library ───
+    (function installAccessCodeFetchWrapper() {
+      const LS_KEY = 'qss:access_code';
+      const LS_TS_KEY = 'qss:access_code:ts';
+      const TTL_MS = 90 * 24 * 60 * 60 * 1000;
+      const origFetch = window.fetch.bind(window);
+      let inMemoryCode = null;
+      function readCached() {
+        try {
+          const code = localStorage.getItem(LS_KEY);
+          const ts = Number(localStorage.getItem(LS_TS_KEY) || 0);
+          if (code === null) return null;
+          if (Date.now() - ts > TTL_MS) return null;
+          return code;
+        } catch { return null; }
+      }
+      function writeCached(code) {
+        try { localStorage.setItem(LS_KEY, code); localStorage.setItem(LS_TS_KEY, String(Date.now())); } catch {}
+      }
+      function clearCached() {
+        try { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_TS_KEY); } catch {}
+      }
+      async function exchangeForCode() {
+        try {
+          const r = await origFetch('/api/qss-access-token', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: 'newpress' }),
+          });
+          if (!r.ok) return null;
+          const j = await r.json().catch(() => ({}));
+          return typeof j.accessCode === 'string' ? j.accessCode : null;
+        } catch { return null; }
+      }
+      async function getCode() {
+        if (inMemoryCode !== null) return inMemoryCode;
+        const cached = readCached();
+        if (cached !== null) { inMemoryCode = cached; return cached; }
+        const fresh = await exchangeForCode();
+        if (fresh !== null) { inMemoryCode = fresh; writeCached(fresh); }
+        return inMemoryCode;
+      }
+      function isApi(url) {
+        if (!url) return false;
+        return url.startsWith('/api/') || url.indexOf(location.origin + '/api/') === 0;
+      }
+      window.fetch = async function(input, init = {}) {
+        const url = typeof input === 'string' ? input : (input?.url || '');
+        if (!isApi(url) || url.includes('/api/qss-access-token')) return origFetch(input, init);
+        const code = await getCode();
+        const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined) || {});
+        if (code !== null && !headers.has('x-access-code')) headers.set('x-access-code', code);
+        let res = await origFetch(input, { ...init, headers });
+        if (res.status === 401) {
+          clearCached(); inMemoryCode = null;
+          const fresh = await getCode();
+          if (fresh !== null) {
+            headers.set('x-access-code', fresh);
+            res = await origFetch(input, { ...init, headers });
+          }
+        }
+        return res;
+      };
+      getCode();
+    })();
+
+    // ─── Gate (shared cookie) ───
+    (function() {
+      const COOKIE = 'qss_access', PASS = 'newpress';
+      const gateEl = document.getElementById('gate'), appEl = document.getElementById('app');
+      function getCookie(n) { const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : null; }
+      function unlock() {
+        document.cookie = COOKIE + '=granted; path=/; max-age=' + (60*60*24*90);
+        gateEl.classList.add('hidden'); appEl.classList.remove('hidden');
+        boot();
+      }
+      if (getCookie(COOKIE) === 'granted') { unlock(); return; }
+      const inp = document.getElementById('gate-code'), err = document.getElementById('gate-error');
+      function check() { const v = (inp.value || '').trim().toLowerCase(); if (v === PASS) unlock(); else { err.classList.add('show'); inp.value = ''; inp.focus(); } }
+      document.getElementById('gate-submit').addEventListener('click', check);
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') check(); });
+      inp.focus();
+    })();
+
+    // ─── Helpers ───
+    const HEADERS = { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' };
+    function esc(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+    function initials(name) {
+      const parts = String(name || '').split(/\s+/).filter(Boolean);
+      return parts.map(p => p[0]?.toUpperCase()).slice(0, 2).join('') || '?';
+    }
+    function toast(message, kind = 'success', timeoutMs = 3200) {
+      const wrap = document.getElementById('toast-wrap'); if (!wrap) return;
+      const el = document.createElement('div');
+      el.className = `toast ${kind}`;
+      el.innerHTML = `<span>${esc(message)}</span>`;
+      wrap.appendChild(el);
+      if (timeoutMs > 0) setTimeout(() => el.remove(), timeoutMs);
+    }
+
+    // ─── App state ───
+    const state = {
+      storyId: null,
+      story: null,            // full row from /api/qss-stories?action=get
+      cards: {},              // { [name]: { name, synopsis, image, current_state, intro_block, status, generated_at } }
+      saving: false,
+      pendingGen: new Set(),
+      activeAudio: null,
+      activeSpeakerBtn: null,
+    };
+
+    async function boot() {
+      // Pull ?story=<uuid> from URL or fall back to the school's last open
+      const params = new URLSearchParams(location.search);
+      let storyId = params.get('story');
+      if (!storyId) {
+        // Most-recent fallback: the school's last-open story id
+        try {
+          const lastName = localStorage.getItem('qss:last_story');
+          if (lastName) {
+            const raw = localStorage.getItem(`qss:story:${lastName}`);
+            if (raw) {
+              const obj = JSON.parse(raw);
+              if (obj?.serverId) storyId = obj.serverId;
+            }
+          }
+        } catch {}
+      }
+      state.storyId = storyId;
+
+      if (!storyId) {
+        renderEmpty('no story open', 'open a story in the school first, then tap "the cast" up top.');
+        return;
+      }
+
+      try {
+        const r = await fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(storyId)}`, { headers: HEADERS });
+        if (!r.ok) {
+          if (r.status === 503) {
+            const j = await r.json().catch(() => ({}));
+            showBanner(`<strong>Setup needed.</strong> ${esc(j.message || '')}`);
+          }
+          throw new Error(`fetch story ${r.status}`);
+        }
+        const { story } = await r.json();
+        state.story = story;
+        const chip = document.getElementById('story-chip');
+        chip.style.display = 'inline-flex';
+        chip.innerHTML = `<strong>${esc(story.name || 'untitled')}</strong> · ${(story.blocks?.length || 0)} block${story.blocks?.length === 1 ? '' : 's'}`;
+
+        // Seed cards from saved character_cards.
+        const saved = Array.isArray(story.character_cards) ? story.character_cards : [];
+        const map = {};
+        for (const c of saved) {
+          if (!c?.name) continue;
+          map[c.name] = { ...c, status: c.image?.dataBase64 || c.synopsis ? 'ready' : 'loading' };
+        }
+        state.cards = map;
+
+        // Seed missing characters from the arc cache.
+        const arcChars = Array.isArray(story.arc_context?.characters) ? story.arc_context.characters : [];
+        for (const ch of arcChars) {
+          const name = (ch?.name || '').trim(); if (!name) continue;
+          if (!map[name]) {
+            map[name] = { name, current_state: ch.current_state || '', intro_block: ch.intro_block || null, status: 'loading' };
+          } else {
+            // Refresh current_state from arc (which is the always-updating side)
+            map[name].current_state = ch.current_state || map[name].current_state || '';
+            map[name].intro_block = ch.intro_block || map[name].intro_block || null;
+          }
+        }
+
+        render();
+        // Kick off generation for any character missing a portrait
+        const missing = Object.values(map).filter(c => !c.image?.dataBase64);
+        for (const m of missing.slice(0, 2)) generateCard(m.name);
+      } catch (e) {
+        renderEmpty('couldn\'t load the cast', e.message || 'try refresh');
+      }
+    }
+
+    function showBanner(html) {
+      const b = document.getElementById('banner'); b.innerHTML = html; b.classList.add('show');
+    }
+
+    async function generateCard(name) {
+      if (state.pendingGen.has(name)) return;
+      state.pendingGen.add(name);
+      const card = state.cards[name];
+      if (!card) { state.pendingGen.delete(name); return; }
+      card.status = 'loading';
+      render();
+      try {
+        const recent = (state.story?.blocks || []).slice(-6).map(b => ({ text: b.text || '' }));
+        const r = await fetch('/api/qss-character-card', {
+          method: 'POST', headers: HEADERS,
+          body: JSON.stringify({
+            character: { name, current_state: card.current_state || '', intro_block: card.intro_block || null },
+            arc: state.story?.arc_context || null,
+            recentBlocks: recent,
+            rules: state.story?.rules || null,
+          }),
+        });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          throw new Error(j.error || `${r.status}`);
+        }
+        const data = await r.json();
+        Object.assign(card, {
+          status: 'ready',
+          synopsis: data.synopsis || '',
+          image: data.image || null,
+          generated_at: Date.now(),
+          error: null,
+        });
+        render();
+        persistCards();
+      } catch (e) {
+        Object.assign(card, { status: 'error', error: e.message });
+        render();
+        toast(`couldn't draw ${name}: ${e.message}`, 'error', 4500);
+      } finally {
+        state.pendingGen.delete(name);
+      }
+    }
+
+    async function persistCards() {
+      if (!state.storyId || !state.story) return;
+      if (state.saving) return;
+      state.saving = true;
+      const payload = {
+        id: state.storyId,
+        name: state.story.name,
+        character_cards: Object.values(state.cards).filter(c => c.status === 'ready').map(c => ({
+          name: c.name, synopsis: c.synopsis || '',
+          image: c.image || null,
+          current_state: c.current_state || '',
+          intro_block: c.intro_block || null,
+          generated_at: c.generated_at || Date.now(),
+        })),
+        expectedUpdatedAt: state.story.updated_at || undefined,
+      };
+      try {
+        const r = await fetch('/api/qss-stories?action=save', { method: 'POST', headers: HEADERS, body: JSON.stringify(payload) });
+        if (r.status === 503) {
+          const j = await r.json().catch(() => ({}));
+          if (j.error === 'MIGRATION_NEEDED_016') {
+            showBanner(`<strong>Cards saving locally only.</strong> Apply <code>supabase/migrations/016_qss_character_cards.sql</code> in the Supabase SQL editor to persist drawings across devices.`);
+          }
+        } else if (r.ok) {
+          const j = await r.json().catch(() => ({}));
+          if (j?.story?.updated_at) state.story.updated_at = j.story.updated_at;
+        }
+      } catch (e) {
+        toast(`save failed: ${e.message}`, 'error', 4000);
+      } finally {
+        state.saving = false;
+      }
+    }
+
+    function render() {
+      const grid = document.getElementById('cast-grid');
+      const chars = Object.values(state.cards);
+      if (!chars.length) {
+        grid.innerHTML = `<div class="empty"><strong>no characters yet</strong>nobody's stepped into the story. write a block or two; their cards will show up here.</div>`;
+        return;
+      }
+      const sorted = chars.slice().sort((a, b) => (a.intro_block ?? 9999) - (b.intro_block ?? 9999));
+      grid.innerHTML = sorted.map(cardMarkup).join('');
+    }
+
+    function renderEmpty(title, sub) {
+      document.getElementById('cast-grid').innerHTML = `<div class="empty error"><strong>${esc(title)}</strong>${esc(sub || '')}</div>`;
+    }
+
+    function cardMarkup(c) {
+      const isLoading = c.status === 'loading' || c.status === undefined;
+      const hasImage = c.status === 'ready' && c.image?.dataBase64;
+      const hasError = c.status === 'error';
+      const synopsis = c.synopsis || '';
+      const current = (c.current_state || '').trim();
+
+      const portraitInner = hasImage
+        ? `<img src="data:${esc(c.image.mime || 'image/png')};base64,${c.image.dataBase64}" alt="portrait of ${esc(c.name)}" loading="lazy" />`
+        : hasError
+          ? `<div>couldn't draw the card<br><span style="font-size:11px;opacity:0.7;">(${esc(c.error || 'error')})</span></div>`
+          : `<span>drawing the portrait…</span>`;
+      const portraitClass = hasImage ? '' : (hasError ? 'failed' : 'loading');
+
+      const synInner = isLoading
+        ? 'writing the back-of-card…'
+        : hasError
+          ? '(couldn\'t write this one — hit redraw to try again)'
+          : esc(synopsis);
+      const synClass = (isLoading || hasError) ? 'loading' : '';
+
+      return `<div class="ccard" data-name="${esc(c.name)}">
+        <div class="ccard-inner">
+          <div class="ccard-face ccard-front">
+            ${c.intro_block ? `<span class="ccard-state">first seen · block ${c.intro_block}</span>` : ''}
+            <span class="ccard-corner">${esc(initials(c.name))}</span>
+            <div class="ccard-portrait ${portraitClass}">${portraitInner}</div>
+            <div class="ccard-nameplate">
+              <div class="ccard-name">${esc(c.name)}</div>
+              ${current ? `<div class="ccard-current">${esc(current)}</div>` : ''}
+            </div>
+            <span class="ccard-corner tr">${esc(initials(c.name))}</span>
+            <span class="ccard-hint">tap to flip</span>
+          </div>
+          <div class="ccard-face ccard-back">
+            <div class="ccard-back-head">
+              <div class="ccard-back-name">${esc(c.name)}</div>
+              <span class="ccard-suit">♣</span>
+            </div>
+            <div class="ccard-synopsis ${synClass}">${synInner}</div>
+            <div class="ccard-back-actions">
+              <button class="tts-btn" type="button" data-action="speak" aria-label="Read aloud" ${(isLoading || hasError) ? 'disabled' : ''}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg>
+              </button>
+              <button class="ccard-regen" type="button" data-action="regen">↻ redraw</button>
+              <button class="ccard-flipback" type="button" data-action="flipback">flip back</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    // Speaker
+    function stopSpeak() {
+      if (state.activeAudio) { try { state.activeAudio.pause(); } catch {} state.activeAudio = null; }
+      if (state.activeSpeakerBtn) { state.activeSpeakerBtn.classList.remove('playing'); state.activeSpeakerBtn = null; }
+    }
+    async function speak(name, button) {
+      const c = state.cards[name];
+      if (!c?.synopsis) return;
+      if (state.activeSpeakerBtn === button) { stopSpeak(); return; }
+      stopSpeak();
+      button.classList.add('playing');
+      state.activeSpeakerBtn = button;
+      try {
+        const r = await fetch('/api/qss-tts', { method: 'POST', headers: HEADERS, body: JSON.stringify({ text: c.synopsis }) });
+        if (!r.ok) throw new Error(`tts ${r.status}`);
+        const blob = await r.blob();
+        if (state.activeSpeakerBtn !== button) return;
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        state.activeAudio = audio;
+        audio.addEventListener('ended', () => {
+          if (state.activeSpeakerBtn === button) { button.classList.remove('playing'); state.activeSpeakerBtn = null; state.activeAudio = null; }
+          URL.revokeObjectURL(url);
+        });
+        await audio.play();
+      } catch (e) {
+        button.classList.remove('playing');
+        if (state.activeSpeakerBtn === button) state.activeSpeakerBtn = null;
+        toast(`couldn't read: ${e.message}`, 'error', 3000);
+      }
+    }
+
+    // Delegated grid clicks (flip + actions)
+    document.getElementById('cast-grid').addEventListener('click', (e) => {
+      const card = e.target.closest('.ccard'); if (!card) return;
+      const name = card.dataset.name;
+      const speakerBtn = e.target.closest('[data-action="speak"]');
+      if (speakerBtn) { e.stopPropagation(); speak(name, speakerBtn); return; }
+      const regenBtn = e.target.closest('[data-action="regen"]');
+      if (regenBtn) {
+        e.stopPropagation();
+        delete state.cards[name];
+        // Re-add a stub from arc so render shows "loading"
+        const arcChars = Array.isArray(state.story?.arc_context?.characters) ? state.story.arc_context.characters : [];
+        const arcCh = arcChars.find(c => (c?.name || '').trim() === name);
+        state.cards[name] = { name, current_state: arcCh?.current_state || '', intro_block: arcCh?.intro_block || null, status: 'loading' };
+        render();
+        generateCard(name);
+        return;
+      }
+      const backBtn = e.target.closest('[data-action="flipback"]');
+      if (backBtn) { e.stopPropagation(); card.classList.remove('flipped'); return; }
+      card.classList.toggle('flipped');
+    });
+  </script>
+</body>
+</html>

@@ -543,6 +543,26 @@ async function handleTutor(body, apiKey) {
   // Wordy now reads a structured understanding of the arc so proposals can
   // be CRAFT moves ("close thread #2", "Marcus hasn't had a scene with Kevin")
   // instead of generic next-beats.
+  // Character cards (drawings + synopses Henry has generated). These give
+  // Wordy a concrete sense of who's on screen — what they look like, what
+  // they're holding, what kind of energy they bring. Image bytes are NOT
+  // included to keep prompt size bounded.
+  let castBlock = '';
+  const incomingCards = Array.isArray(body.character_cards) ? body.character_cards.slice(0, 12) : [];
+  if (incomingCards.length) {
+    const lines = incomingCards.map(c => {
+      const name = String(c?.name || '').trim();
+      if (!name) return '';
+      const syn = String(c?.synopsis || '').replace(/\s+/g, ' ').trim().slice(0, 320);
+      return `  - ${name}: ${syn || '(no synopsis yet)'}`;
+    }).filter(Boolean).join('\n');
+    if (lines) {
+      castBlock = '\n\n═══ THE CAST (Henry has trading cards for these characters — visual + voice references) ═══\n' +
+        'Reference them by name. Treat these descriptions as canonical for personality, look, and props.\n' +
+        lines;
+    }
+  }
+
   let arcBlock = '';
   const arc = body.arc_context && typeof body.arc_context === 'object' ? body.arc_context : null;
   if (arc && (arc.synopsis || (arc.characters && arc.characters.length))) {
@@ -599,6 +619,7 @@ async function handleTutor(body, apiKey) {
     + stageBlock
     + phaseExtra2
     + arcBlock
+    + castBlock
     + patternBlock
     + routingBlock;
 

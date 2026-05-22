@@ -36,7 +36,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Columns we want back from a story select. Order matters for stable diffs.
-const SELECT_COLS = 'id,name,bible,rules,blocks,chat,suggestions,cover_image,arc_context,deleted_at,created_at,updated_at';
+// character_cards may not exist until migration 016 is applied — server falls
+// back via stripOptionalColumns() if Postgres complains.
+const SELECT_COLS = 'id,name,bible,rules,blocks,chat,suggestions,cover_image,arc_context,character_cards,deleted_at,created_at,updated_at';
+const OPTIONAL_COLS = ['character_cards']; // columns that may not exist pre-migration
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -87,6 +90,13 @@ export default async function handler(req) {
     if (e?.code === '42P01' || e?.code === 'PGRST205' || /relation .* does not exist/i.test(msg) || /Could not find the table/i.test(msg) || /schema cache/i.test(msg)) {
       return jsonError(503, 'MIGRATION_PENDING',
         'The qss_stories table does not exist yet. Apply supabase/migrations/015_qss_stories.sql in the Supabase SQL editor.');
+    }
+    // Missing optional column (e.g. character_cards before migration 016 applied).
+    // Strip the optional cols from SELECT/payload and retry once so the rest
+    // of the app keeps working until the migration is run.
+    if (/column .* does not exist/i.test(msg) || e?.code === '42703') {
+      return jsonError(503, 'MIGRATION_NEEDED_016',
+        'The character_cards column does not exist yet. Apply supabase/migrations/016_qss_character_cards.sql in the Supabase SQL editor — until then, character drawings save locally only.');
     }
     if (e?.code === '23505') {
       return jsonError(409, 'NAME_TAKEN', 'Another story already uses that name. Pick a different one.');
@@ -148,6 +158,7 @@ async function handleSave(body) {
     chat: Array.isArray(body.chat) ? sanitizeChat(body.chat) : undefined,
     suggestions: Array.isArray(body.suggestions) ? body.suggestions : undefined,
     cover_image: body.cover_image === null ? null : (typeof body.cover_image === 'string' ? body.cover_image : undefined),
+    character_cards: Array.isArray(body.character_cards) ? sanitizeCharacterCards(body.character_cards) : undefined,
   };
   // Drop undefineds so we send a partial update.
   for (const k of Object.keys(payload)) if (payload[k] === undefined) delete payload[k];
@@ -267,6 +278,42 @@ async function sb(method, path, payload, opts = {}) {
     err.code = data?.code || `HTTP_${res.status}`;
     err.details = data?.details;
     err.hint = data?.hint;
+
+    // OPTIONAL-COLUMN FALLBACK: if PostgREST complains about a missing
+    // optional column (e.g. character_cards before migration 016), strip
+    // it from the request and retry once. Lets the rest of the app keep
+    // working until the migration is applied — character cards will
+    // simply not persist server-side until then (still cached client-side).
+    const errMsg = (err.message || '').toString();
+    if (err.code === '42703' || errMsg.includes('character_cards')) {
+      let strippedPath = path;
+      let strippedPayload = payload;
+      let touched = false;
+      for (const col of OPTIONAL_COLS) {
+        if (strippedPath && strippedPath.includes(col)) {
+          strippedPath = strippedPath.replace(new RegExp(`,${col}\\b`, 'g'), '').replace(new RegExp(`\\b${col},`, 'g'), '');
+          touched = true;
+        }
+        if (strippedPayload && typeof strippedPayload === 'object' && col in strippedPayload) {
+          strippedPayload = { ...strippedPayload };
+          delete strippedPayload[col];
+          touched = true;
+        }
+      }
+      if (touched) {
+        const retryRes = await fetch(`${SUPABASE_URL}/rest/v1/${strippedPath}`, {
+          method,
+          headers,
+          body: strippedPayload !== undefined ? JSON.stringify(strippedPayload) : undefined,
+        });
+        const retryText = await retryRes.text();
+        let retryData = null;
+        if (retryText) { try { retryData = JSON.parse(retryText); } catch {} }
+        if (retryRes.ok) return retryData;
+        // Fall through to the original error if the retry also failed.
+      }
+    }
+
     throw err;
   }
   return data;
@@ -282,6 +329,42 @@ function sanitizeBlocks(blocks) {
     text: typeof b.text === 'string' ? b.text : '',
     has_image: !!(b.__image && b.__image.dataBase64),
   }));
+}
+
+// Sanitize character cards before persisting. Each card is bounded so a
+// rogue payload can't blow past Postgres's 8 MB row limit. Drop entries
+// with no name; coerce image payload; clamp synopsis length.
+function sanitizeCharacterCards(cards) {
+  const MAX_CARDS = 24;
+  const MAX_SYNOPSIS = 1200;
+  const MAX_IMAGE_BYTES = 600 * 1024;  // ~600 KB base64 ≈ ~440 KB binary
+  const out = [];
+  for (const c of cards) {
+    if (!c || typeof c !== 'object') continue;
+    const name = String(c.name || '').trim();
+    if (!name) continue;
+    const synopsis = String(c.synopsis || '').slice(0, MAX_SYNOPSIS);
+    let image = null;
+    if (c.image && typeof c.image === 'object') {
+      const dataBase64 = typeof c.image.dataBase64 === 'string' ? c.image.dataBase64 : '';
+      if (dataBase64 && dataBase64.length <= MAX_IMAGE_BYTES) {
+        image = {
+          mime: String(c.image.mime || 'image/png').slice(0, 32),
+          dataBase64,
+        };
+      }
+    }
+    out.push({
+      name,
+      synopsis,
+      image,
+      generated_at: typeof c.generated_at === 'number' ? c.generated_at : Date.now(),
+      current_state: typeof c.current_state === 'string' ? c.current_state.slice(0, 400) : '',
+      intro_block: Number(c.intro_block) || null,
+    });
+    if (out.length >= MAX_CARDS) break;
+  }
+  return out;
 }
 
 // Strip image bytes from chat turns (options with their text are kept;
