@@ -187,7 +187,7 @@ export function mountWorkshop(container, opts) {
     const loaderId = 'workshop-process-' + rid();
     chattyStart(loaderId, WORKSHOP_PROCESS_PHRASES, { progress: 0 });
     try {
-      const bites = await extractSoundbites({
+      const result = await extractSoundbites({
         segments: opts.segments,
         themes: state.themes,
         editorialFocus: opts.editorialFocus,
@@ -198,6 +198,13 @@ export function mountWorkshop(container, opts) {
           chattyUpdate(loaderId, { progress: total > 0 ? done / total : 0 });
         },
       });
+      const bites = result.bites;
+      // Surface partial-failure count so the user knows the result is
+      // incomplete and can re-run if they want full coverage.
+      if (result.failedChunks > 0) {
+        const ratio = `${result.failedChunks}/${result.totalChunks}`;
+        state.error = `Partial result — ${ratio} sections couldn't be analyzed. Re-run to retry.`;
+      }
       state.soundbites = bites;
       const counts = countByTheme(state.soundbites);
       const top = state.themes.map(t => t.name).sort((a, b) => (counts[b] || 0) - (counts[a] || 0))[0];

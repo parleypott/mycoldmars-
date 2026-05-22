@@ -53,20 +53,35 @@ async function loadProfile(userId) {
       _profile = data;
       return;
     }
-    // If the row doesn't exist yet (trigger hasn't run, or migration not
-    // applied), synthesize a placeholder so callers don't crash.
+    // Distinguish "row genuinely missing" (no error, no data — trigger
+    // hasn't run yet or migration not applied) from "RLS denied /
+    // network error" (error object present). The latter should NOT
+    // synthesize a placeholder — that masked an auth break by giving
+    // the user a wrong-color, wrong-name profile that broadcast under
+    // a fake identity to every other tab via presence.
+    if (error) {
+      console.warn('[auth] loadProfile RLS/network error:', error.code || '', error.message || error);
+      _profile = null;
+      _profileError = error;
+      return;
+    }
     _profile = {
       user_id: userId,
       display_name: (_user?.email || 'You').split('@')[0],
       color: '#dd2c1e',
       email: _user?.email || null,
       avatar_url: null,
+      _synthesized: true,
     };
   } catch (err) {
     console.warn('[auth] loadProfile failed:', err);
     _profile = null;
+    _profileError = err;
   }
 }
+
+let _profileError = null;
+export function getProfileError() { return _profileError; }
 
 /**
  * Email + password sign-in (preferred). The magic-link path stays as a

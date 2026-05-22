@@ -364,6 +364,7 @@ Respond with JSON only (no markdown fencing):
 }`;
 
   let completed = 0;
+  let failedChunks = 0;
   const runChunk = async (chunk) => {
     const chunkText = chunk
       .map(s => `${s.number}. [${s.speaker}]: ${s.text}`)
@@ -376,13 +377,15 @@ Respond with JSON only (no markdown fencing):
     ].filter(Boolean).join('\n');
 
     // Per-chunk try/catch so a single network blip doesn't reject the
-    // whole batch. Returns [] on parse OR fetch failure — caller flatten
-    // still sees usable results from the surviving chunks.
+    // whole batch. Returns [] on parse OR fetch failure — caller
+    // surface includes the failed-chunk count so the user knows a
+    // partial result is just partial.
     let rawText;
     try {
       rawText = await callClaude(systemPrompt, userMsg, 4000);
     } catch (e) {
       console.warn('[extractSoundbites] chunk fetch failed:', e?.message || e);
+      failedChunks++;
       completed++;
       if (onProgress) onProgress(completed, chunks.length);
       return [];
@@ -392,6 +395,7 @@ Respond with JSON only (no markdown fencing):
       parsed = extractJSON(rawText);
     } catch (e) {
       console.error('Soundbite chunk parse failed:', rawText.slice(0, 400));
+      failedChunks++;
       completed++;
       if (onProgress) onProgress(completed, chunks.length);
       return [];
@@ -402,7 +406,10 @@ Respond with JSON only (no markdown fencing):
   };
 
   const chunkResults = await mapWithConcurrency(chunks, 5, runChunk);
-  return chunkResults.flat();
+  const bites = chunkResults.flat();
+  // Return both the bites and the failed-chunk count so the caller can
+  // surface "N segments couldn't be analyzed — re-run to retry."
+  return { bites, totalChunks: chunks.length, failedChunks };
 }
 
 /**

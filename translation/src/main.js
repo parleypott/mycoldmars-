@@ -2735,7 +2735,10 @@ async function runSaveOnce(opts = {}) {
       // Subscribe to remote updates as soon as we have an id.
       ensureRealtimeSubscription();
     }
-    // Cheap insurance: write a revision row. Trigger trims to last 50 per transcript.
+    // Cheap insurance: write a revision row. Trigger trims to last 50
+    // per transcript. Track consecutive failures so we can surface a
+    // "version history unavailable" indicator after N strikes — the
+    // user shouldn't silently lose their rewind safety net.
     insertRevision(currentTranscriptId, payload, {
       source: opts.source || 'autosave',
       clientId: CLIENT_ID,
@@ -2743,7 +2746,14 @@ async function runSaveOnce(opts = {}) {
       clientColor: currentClientColor(),
       userId: currentUserId(),
     })
-      .catch(err => console.warn('Could not write revision:', err.message));
+      .then(() => { _revisionFailureStreak = 0; })
+      .catch(err => {
+        _revisionFailureStreak++;
+        console.warn('Could not write revision:', err.message);
+        if (_revisionFailureStreak === REVISION_FAILURE_THRESHOLD) {
+          showError('Version history is unavailable — your edits are saving but the rewind snapshots aren\'t. Check the schema migration banner or contact support.');
+        }
+      });
     setSaveState('saved');
     invalidateLibraryCache();
   } catch (err) {
@@ -6477,6 +6487,12 @@ function escHtml(s) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 function escAttr(s) { return escHtml(s); }
+
+// Track consecutive revision-write failures so we can surface a
+// "version history unavailable" toast after the threshold — silent
+// loss of the rewind safety net was a flagged audit finding.
+let _revisionFailureStreak = 0;
+const REVISION_FAILURE_THRESHOLD = 5;
 
 // MutationObserver auto-wires installModalA11y on every .np-modal
 // added to the body so we don't have to touch 15 modal-mount sites.
