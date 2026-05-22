@@ -3727,11 +3727,13 @@
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && document.body.classList.contains('focus-mode')) {
-        // Don't escape if a modal/editor is also open — let those handle ESC first
+        // Don't escape focus mode if any modal is open — let those handle ESC first
         const rules = document.getElementById('rules-modal');
         if (rules && getComputedStyle(rules).display !== 'none') return;
         const arc = document.getElementById('arc-inspector');
         if (arc && arc.classList.contains('open')) return;
+        const wrap = document.getElementById('wrap-modal');
+        if (wrap && wrap.classList.contains('open')) return;
         setFocusMode(false);
       }
     });
