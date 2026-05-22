@@ -134,12 +134,28 @@ function cleanSynopsis(s) {
 }
 
 function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks }) {
-  // Style anchor — keep it consistent across cards so the gallery feels like a set.
+  // Style anchor — match the existing QSS sticker art (Kevin in calculator
+  // helmet, Benny the beaver in a gas mask on a bean forklift, the cartoon
+  // dragon). Modern children's-book sticker illustration: bold consistent
+  // black ink outlines, flat saturated kid-book colors, no painterly /
+  // vintage / photorealistic / anime drift.
   const style = [
-    'Vintage trading-card portrait illustration, head-and-shoulders framing, painted in a cracked-marker / risograph storybook style.',
-    'Warm cream background paper with light foxing and a thin hand-drawn ink border. Slight off-register print.',
-    'Look: a single absurd character from a 13-year-old\'s dark-satirical magical-school story.',
-    'Mood: deadpan, sincere, weirdly specific. Not Pixar. Not anime. Closer to early-1900s yearbook portrait drawn by a sleepy goblin.',
+    'STYLE: Modern children\'s-book character sticker illustration.',
+    'Thick, confident, uniform black ink outlines (consistent line weight).',
+    'Flat saturated cel-shaded colors — no gradients, no painterly textures, no photographic detail, no realistic skin rendering.',
+    'Palette: tomato red, butter yellow, teal, ochre, sky blue, mossy green, warm cream — saturated but warm.',
+    'Background: plain warm cream / off-white paper (#F4ECD8 ish). No scenery, no environment behind the character. Centered subject.',
+    'Framing: 3/4 body OR head-and-shoulders, whichever best shows the character\'s defining prop or gag.',
+    'Expression: deadpan, sincere, faintly satirical — the kind of look a 13-year-old gives a teacher who just said something stupid.',
+    'Quality: clean enough to be a vinyl laptop sticker. Slightly dorky. Charmingly drawn, not slick.',
+  ].join(' ');
+
+  const refs = [
+    'STYLE REFERENCES (match these exactly): cartoon stickers of (1) a calculator-headed boy in a blue shirt holding a notebook, looking resigned, with a "SIGH" speech bubble; (2) a beaver in an orange safety vest and gas mask driving a yellow forklift loaded with green BEANS cans; (3) a red cartoon dragon with yellow horns and teal-and-orange wings, in front of a "QUEEN SCARLET\'S TOTALLY SAFE ACADEMY" sticker outline. Same line weight, same flat-color treatment, same warm cream paper feel.',
+  ].join(' ');
+
+  const dontList = [
+    'DO NOT use any of these: vintage yearbook portraiture, painterly brushwork, watercolor texture, risograph off-register effects, photorealism, manga/anime conventions, fantasy book cover polish, glitter, sparkles, lens flare, decorative scrolls, ornate frames, gradient backgrounds, scenery, ambient props beyond what the character is holding/wearing, text, labels, name tags, signage, logos, captions, or written words of any kind anywhere in the image.',
   ].join(' ');
 
   const recentSnippet = recentBlocks
@@ -149,21 +165,22 @@ function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks }
     .join(' ')
     .slice(0, 400);
 
-  const traits = currentState ? `Their current state in the story: "${currentState}".` : '';
-  const tone = tones.length ? `Tone keywords: ${tones.join(', ')}.` : '';
-  const story = recentSnippet ? `For visual hints, here is a snippet of the recent story: "${recentSnippet}".` : '';
-  const themeLine = themes.length ? `Themes that should subtly inform the portrait: ${themes.join(', ')}.` : '';
+  const traits = currentState ? `Where they are right now in the story: "${currentState}". Use that to pick props, clothing, and pose.` : '';
+  const tone = tones.length ? `Story tone keywords (for facial expression / energy): ${tones.join(', ')}.` : '';
+  const story = recentSnippet ? `Snippet of recent story for visual hooks (objects, items they\'re holding, situation): "${recentSnippet}".` : '';
+  const themeLine = themes.length ? `Story themes (use only if they suggest a specific visual prop, not as mood): ${themes.join(', ')}.` : '';
 
   return [
-    `Subject: ${name}.`,
+    `SUBJECT: A character named ${name}. Render exactly ONE character — no extras, no crowd, no audience, no shadowy figures in the background.`,
     traits,
-    'Render only this one character. Single subject. No text, no name labels, no captions, no title cards, no logos.',
-    style,
+    story,
     tone,
     themeLine,
-    story,
-    'Aspect ratio 2:3 (taller than wide), like a playing card portrait. Subject centered.',
-  ].filter(Boolean).join('\n');
+    style,
+    refs,
+    dontList,
+    'OUTPUT: A single sticker-style character illustration on a warm cream background. Approximately 2:3 portrait aspect ratio. Character centered.',
+  ].filter(Boolean).join('\n\n');
 }
 
 async function callClaude(apiKey, userMessage) {
