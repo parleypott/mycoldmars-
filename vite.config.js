@@ -93,6 +93,7 @@ export default defineConfig({
         todo: resolve(__dirname, 'todo/index.html'),
         research: resolve(__dirname, 'research/index.html'),
         memory: resolve(__dirname, 'memory/index.html'),
+        falling: resolve(__dirname, 'falling/index.html'),
       },
     },
   },

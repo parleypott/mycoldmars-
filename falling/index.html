@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>falling · mycoldmars</title>
+<meta name="description" content="endless terminal — fall through poems, code, shapes, jokes." />
+<style>
+  :root {
+    --bg: #050507;
+    --vignette: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.85) 100%);
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: #e8e8e8; }
+  body {
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.5;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    cursor: none;
+  }
+  .vignette {
+    position: fixed; inset: 0;
+    background: var(--vignette);
+    pointer-events: none;
+    z-index: 10;
+  }
+  .scanlines {
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 2px,
+      rgba(255,255,255,0.018) 2px,
+      rgba(255,255,255,0.018) 3px
+    );
+    pointer-events: none;
+    z-index: 11;
+    mix-blend-mode: overlay;
+  }
+  .glow {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 9;
+    background: radial-gradient(circle at 50% 50%, rgba(40,255,180,0.04), transparent 60%);
+    animation: glowshift 24s ease-in-out infinite;
+  }
+  @keyframes glowshift {
+    0%   { background: radial-gradient(circle at 30% 80%, rgba(80,255,180,0.06), transparent 65%); }
+    20%  { background: radial-gradient(circle at 70% 30%, rgba(255,80,200,0.06), transparent 65%); }
+    40%  { background: radial-gradient(circle at 20% 20%, rgba(255,200,40,0.06), transparent 65%); }
+    60%  { background: radial-gradient(circle at 80% 70%, rgba(80,160,255,0.06), transparent 65%); }
+    80%  { background: radial-gradient(circle at 50% 50%, rgba(255,120,80,0.06), transparent 65%); }
+    100% { background: radial-gradient(circle at 30% 80%, rgba(80,255,180,0.06), transparent 65%); }
+  }
+
+  #stream {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: -200vh;
+    padding: 0 6vw;
+    will-change: transform;
+    animation: fall 240s linear infinite;
+  }
+  @keyframes fall {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(0, -1000vh, 0); }
+  }
+
+  .block {
+    margin: 4em 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    filter: drop-shadow(0 0 6px currentColor);
+    animation: hue 40s linear infinite;
+  }
+  @keyframes hue {
+    0%   { filter: drop-shadow(0 0 6px currentColor) hue-rotate(0deg); }
+    100% { filter: drop-shadow(0 0 6px currentColor) hue-rotate(360deg); }
+  }
+
+  .poem      { color: #f3eac2; font-size: 18px; line-height: 1.7; font-style: italic; letter-spacing: 0.02em; text-align: center; max-width: 32em; margin-left: auto; margin-right: auto; }
+  .poem .title { display:block; font-style: normal; letter-spacing: 0.3em; font-size: 11px; color: #888; margin-bottom: 1.2em; text-transform: uppercase; }
+  .css       { color: #8fd9ff; font-size: 13px; }
+  .css .sel  { color: #ffb86c; }
+  .css .prop { color: #8be9fd; }
+  .css .val  { color: #f1fa8c; }
+  .css .com  { color: #6272a4; font-style: italic; }
+  .css .brace{ color: #44475a; }
+  .js        { color: #abf3c6; font-size: 13px; }
+  .js .key   { color: #ff79c6; }
+  .js .str   { color: #f1fa8c; }
+  .js .num   { color: #bd93f9; }
+  .js .fn    { color: #50fa7b; }
+  .js .com   { color: #6272a4; font-style: italic; }
+  .ascii     { color: #ff77a8; font-size: 13px; line-height: 1.1; text-align: center; }
+  .joke      { color: #ffd166; font-size: 17px; text-align: center; max-width: 28em; margin-left:auto; margin-right:auto; }
+  .joke small{ display:block; color: #888; font-size: 10px; margin-top: 0.4em; letter-spacing: 0.3em; }
+  .shape     { display:block; margin: 0 auto; }
+  .one       { color: #76f4c4; font-size: 28px; text-align: center; letter-spacing: 0.15em; }
+  .big       { color: #ffe66d; font-size: 64px; text-align: center; font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
+  .terminal  { color: #7fffaa; font-size: 13px; background: rgba(0,40,30,0.4); padding: 1em 1.4em; border-left: 3px solid #7fffaa; max-width: 44em; margin: 0 auto; }
+  .terminal .prompt { color: #ff77a8; }
+  .quiet     { color: #555; font-size: 11px; text-align: center; letter-spacing: 0.4em; text-transform: uppercase; }
+  .html      { color: #bd93f9; font-size: 13px; }
+  .html .tag { color: #ff5555; }
+  .html .att { color: #50fa7b; }
+  .html .val { color: #f1fa8c; }
+  .marquee   { color: #ff6ec7; font-size: 36px; text-align: center; font-weight: 800; letter-spacing: -0.02em; }
+  .signpost  { color: #ffae42; font-size: 14px; text-align: center; border-top: 1px dashed #444; border-bottom: 1px dashed #444; padding: 1em 0; max-width: 40em; margin: 0 auto; letter-spacing: 0.2em; }
+  .listing   { color: #ddd; font-size: 12px; line-height: 1.6; max-width: 48em; margin: 0 auto; }
+  .listing b { color: #ff7766; font-weight: 400; }
+  .gradient  { font-size: 80px; font-weight: 900; text-align: center; letter-spacing: -0.04em; line-height: 0.95;
+               background: linear-gradient(135deg, #ff77a8, #ffd166, #76f4c4, #8fd9ff, #bd93f9);
+               -webkit-background-clip: text; background-clip: text; color: transparent;
+               filter: none; }
+  .dim       { opacity: 0.5; }
+
+  /* slow content color cycle — per-block stagger via :nth-child */
+  .block:nth-child(3n)   { animation-delay: -8s;  }
+  .block:nth-child(3n+1) { animation-delay: -22s; }
+  .block:nth-child(3n+2) { animation-delay: -35s; }
+
+  /* mobile */
+  @media (max-width: 700px) {
+    body { font-size: 12px; }
+    #stream { padding: 0 4vw; }
+    .poem { font-size: 15px; }
+    .big { font-size: 38px; }
+    .gradient { font-size: 44px; }
+    .marquee { font-size: 22px; }
+  }
+
+  /* respect reduced motion — but keep some life */
+  @media (prefers-reduced-motion: reduce) {
+    #stream { animation-duration: 800s; }
+    .block { animation: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div id="stream"></div>
+  <div class="vignette"></div>
+  <div class="scanlines"></div>
+
+<script>
+/* ---------------- content library ---------------- */
+
+const POEMS = [
+  { t: "Song of Myself · §1", lines: [
+    "I celebrate myself, and sing myself,",
+    "And what I assume you shall assume,",
+    "For every atom belonging to me as good belongs to you." ]},
+  { t: "Song of the Open Road", lines: [
+    "Afoot and light-hearted I take to the open road,",
+    "Healthy, free, the world before me,",
+    "The long brown path before me leading wherever I choose." ]},
+  { t: "I Sit and Look Out", lines: [
+    "I sit and look out upon all the sorrows of the world,",
+    "and upon all oppression and shame;",
+    "I hear secret convulsive sobs from young men,",
+    "at anguish with themselves, remorseful after deeds done;" ]},
+  { t: "Whitman · Leaves of Grass", lines: [
+    "Do I contradict myself?",
+    "Very well then I contradict myself,",
+    "(I am large, I contain multitudes.)" ]},
+  { t: "Song of the Universal", lines: [
+    "Come said the Muse,",
+    "Sing me a song no poet yet has chanted,",
+    "Sing me the universal." ]},
+  { t: "When I Heard the Learn'd Astronomer", lines: [
+    "How soon unaccountable I became tired and sick,",
+    "Till rising and gliding out I wander'd off by myself,",
+    "In the mystical moist night-air, and from time to time,",
+    "Look'd up in perfect silence at the stars." ]},
+  { t: "Continuities", lines: [
+    "Nothing is ever really lost, or can be lost,",
+    "No birth, identity, form — no object of the world,",
+    "Nor life, nor force, nor any visible thing;",
+    "Appearance must not foil, nor shifted sphere confuse thy brain." ]},
+  { t: "Crossing Brooklyn Ferry", lines: [
+    "Flood-tide below me! I see you face to face!",
+    "Clouds of the west — sun there half an hour high — I see you also face to face.",
+    "Crowds of men and women attired in the usual costumes, how curious you are to me!" ]},
+  { t: "A Noiseless Patient Spider", lines: [
+    "A noiseless patient spider,",
+    "I mark'd where on a little promontory it stood isolated,",
+    "Mark'd how to explore the vacant vast surrounding,",
+    "It launch'd forth filament, filament, filament, out of itself." ]},
+  { t: "O Me! O Life!", lines: [
+    "That you are here — that life exists and identity,",
+    "That the powerful play goes on, and you may contribute a verse." ]},
+  { t: "Song of the Rolling Earth", lines: [
+    "Were you thinking that those were the words, those upright lines? those curves, angles, dots?",
+    "No, those are not the words, the substantial words are in the ground and sea,",
+    "They are in the air, they are in you." ]},
+  { t: "There Was a Child Went Forth", lines: [
+    "There was a child went forth every day,",
+    "And the first object he look'd upon, that object he became,",
+    "And that object became part of him for the day or a certain part of the day,",
+    "Or for many years or stretching cycles of years." ]},
+  { t: "Song of Myself · §52", lines: [
+    "I bequeath myself to the dirt to grow from the grass I love,",
+    "If you want me again look for me under your boot-soles.",
+    "You will hardly know who I am or what I mean,",
+    "But I shall be good health to you nevertheless." ]},
+];
+
+const CSS_BLOCKS = [
+  `<span class="com">/* the universe, but with rounded corners */</span>
+<span class="sel">.universe</span> <span class="brace">{</span>
+  <span class="prop">position</span>: <span class="val">absolute</span>;
+  <span class="prop">inset</span>: <span class="val">0</span>;
+  <span class="prop">background</span>: <span class="val">radial-gradient(circle at 50% 50%, #000 0%, #000 100%)</span>;
+  <span class="prop">color</span>: <span class="val">currentColor</span>;
+  <span class="prop">animation</span>: <span class="val">expand 13.8e9s linear infinite</span>;
+<span class="brace">}</span>`,
+  `<span class="sel">@keyframes</span> <span class="val">heartbeat</span> <span class="brace">{</span>
+  <span class="sel">0%</span>   <span class="brace">{</span> <span class="prop">transform</span>: <span class="val">scale(1.00)</span>; <span class="brace">}</span>
+  <span class="sel">20%</span>  <span class="brace">{</span> <span class="prop">transform</span>: <span class="val">scale(1.04)</span>; <span class="brace">}</span>
+  <span class="sel">40%</span>  <span class="brace">{</span> <span class="prop">transform</span>: <span class="val">scale(1.00)</span>; <span class="brace">}</span>
+  <span class="sel">60%</span>  <span class="brace">{</span> <span class="prop">transform</span>: <span class="val">scale(1.06)</span>; <span class="brace">}</span>
+  <span class="sel">100%</span> <span class="brace">{</span> <span class="prop">transform</span>: <span class="val">scale(1.00)</span>; <span class="brace">}</span>
+<span class="brace">}</span>`,
+  `<span class="com">/* please don't tell anyone */</span>
+<span class="sel">.secret</span><span class="brace">{</span>
+  <span class="prop">opacity</span>: <span class="val">0.01</span>;
+  <span class="prop">color</span>: <span class="val">#ff00ff</span>;
+  <span class="prop">font-size</span>: <span class="val">0.5px</span>;
+  <span class="prop">user-select</span>: <span class="val">none</span>;
+  <span class="prop">pointer-events</span>: <span class="val">none</span>;
+<span class="brace">}</span>`,
+  `<span class="sel">body</span> <span class="brace">{</span>
+  <span class="prop">cursor</span>: <span class="val">none</span>; <span class="com">/* you are the cursor now */</span>
+<span class="brace">}</span>`,
+  `<span class="sel">.feeling</span> <span class="brace">{</span>
+  <span class="prop">color</span>: <span class="val">oklch(72% 0.18 41)</span>;
+  <span class="prop">backdrop-filter</span>: <span class="val">blur(0.8px) saturate(1.4)</span>;
+  <span class="prop">mix-blend-mode</span>: <span class="val">screen</span>;
+  <span class="prop">transform-origin</span>: <span class="val">50% 100%</span>;
+  <span class="prop">transition</span>: <span class="val">all 800ms cubic-bezier(.2,.8,.1,1)</span>;
+<span class="brace">}</span>`,
+  `<span class="sel">.terminal</span><span class="sel">::before</span> <span class="brace">{</span>
+  <span class="prop">content</span>: <span class="val">"&gt; "</span>;
+  <span class="prop">color</span>: <span class="val">#7fffaa</span>;
+  <span class="prop">animation</span>: <span class="val">blink 1.1s steps(2) infinite</span>;
+<span class="brace">}</span>
+<span class="sel">@keyframes</span> <span class="val">blink</span> <span class="brace">{</span> <span class="sel">50%</span> <span class="brace">{</span> <span class="prop">opacity</span>: <span class="val">0</span>; <span class="brace">}</span> <span class="brace">}</span>`,
+  `<span class="com">/* this rule does absolutely nothing useful */</span>
+<span class="sel">.nothing</span> <span class="brace">{</span>
+  <span class="prop">all</span>: <span class="val">unset</span>;
+  <span class="prop">display</span>: <span class="val">contents</span>;
+  <span class="prop">content-visibility</span>: <span class="val">auto</span>;
+<span class="brace">}</span>`,
+];
+
+const JS_BLOCKS = [
+  `<span class="com">// recursion is a verb</span>
+<span class="key">function</span> <span class="fn">fall</span>(<span class="num">depth</span> = <span class="num">0</span>) <span class="key">{</span>
+  <span class="key">if</span> (<span class="num">depth</span> &gt; <span class="num">Infinity</span>) <span class="key">return</span>;
+  <span class="key">console</span>.<span class="fn">log</span>(<span class="str">"still falling..."</span>);
+  <span class="key">return</span> <span class="fn">fall</span>(<span class="num">depth</span> + <span class="num">1</span>);
+<span class="key">}</span>`,
+  `<span class="key">const</span> <span class="fn">universe</span> = <span class="key">new</span> <span class="fn">Proxy</span>({}, <span class="key">{</span>
+  <span class="fn">get</span>(_, <span class="num">key</span>) <span class="key">{</span>
+    <span class="key">return</span> <span class="num">key</span> <span class="key">in</span> <span class="key">this</span>
+      ? <span class="key">this</span>[<span class="num">key</span>]
+      : <span class="str">"more"</span>;
+  <span class="key">}</span>
+<span class="key">}</span>);
+<span class="fn">universe</span>.<span class="num">stars</span>; <span class="com">// "more"</span>
+<span class="fn">universe</span>.<span class="num">grief</span>; <span class="com">// "more"</span>`,
+  `<span class="com">// when in doubt, ship it</span>
+<span class="key">async function</span> <span class="fn">deploy</span>() <span class="key">{</span>
+  <span class="key">await</span> <span class="fn">vercel</span>();
+  <span class="key">await</span> <span class="fn">pray</span>();
+  <span class="key">return</span> <span class="str">"works on my machine"</span>;
+<span class="key">}</span>`,
+  `<span class="key">const</span> <span class="fn">colors</span> = [
+  <span class="str">"#ff77a8"</span>, <span class="str">"#ffd166"</span>, <span class="str">"#76f4c4"</span>,
+  <span class="str">"#8fd9ff"</span>, <span class="str">"#bd93f9"</span>, <span class="str">"#ff6ec7"</span>,
+<span class="key">];</span>
+<span class="key">setInterval</span>(() =&gt; <span class="key">{</span>
+  <span class="key">document</span>.<span class="num">body</span>.<span class="num">style</span>.<span class="num">color</span> = <span class="fn">colors</span>[
+    <span class="key">Math</span>.<span class="fn">floor</span>(<span class="key">Math</span>.<span class="fn">random</span>() * <span class="fn">colors</span>.<span class="num">length</span>)
+  ];
+<span class="key">}</span>, <span class="num">200</span>);`,
+  `<span class="com">// the only test that matters</span>
+<span class="fn">expect</span>(<span class="num">life</span>).<span class="fn">toBe</span>(<span class="str">"worth it"</span>);`,
+  `<span class="key">try</span> <span class="key">{</span>
+  <span class="key">await</span> <span class="fn">understand</span>(<span class="num">everything</span>);
+<span class="key">}</span> <span class="key">catch</span> (<span class="num">err</span>) <span class="key">{</span>
+  <span class="key">console</span>.<span class="fn">warn</span>(<span class="str">"that's ok"</span>);
+  <span class="key">return</span> <span class="fn">listen</span>();
+<span class="key">}</span>`,
+  `<span class="key">const</span> <span class="fn">truth</span> = <span class="key">await</span> <span class="fn">fetch</span>(<span class="str">"/api/world"</span>)
+  .<span class="fn">then</span>(<span class="num">r</span> =&gt; <span class="num">r</span>.<span class="fn">json</span>())
+  .<span class="fn">catch</span>(() =&gt; <span class="key">{</span> <span class="key">return</span> <span class="key">null</span>; <span class="key">}</span>);
+<span class="key">if</span> (!<span class="fn">truth</span>) <span class="key">{</span>
+  <span class="com">// go outside</span>
+<span class="key">}</span>`,
+  `<span class="key">type</span> <span class="fn">Human</span> = <span class="key">{</span>
+  <span class="num">name</span>: <span class="str">string</span>;
+  <span class="num">scars</span>: <span class="fn">Wound</span>[];
+  <span class="num">songs</span>: <span class="fn">Lyric</span>[];
+  <span class="num">remaining_days</span>: <span class="str">number</span> | <span class="str">"unknown"</span>;
+<span class="key">};</span>`,
+];
+
+const HTML_BLOCKS = [
+  `<span class="tag">&lt;body</span> <span class="att">style</span>=<span class="val">"falling: forever"</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;you</span> <span class="att">are</span>=<span class="val">"reading this"</span><span class="tag">&gt;</span><span class="tag">&lt;/you&gt;</span>
+  <span class="tag">&lt;and</span><span class="tag">&gt;</span> <span class="tag">&lt;that&gt;</span> <span class="tag">&lt;counts&gt;</span>
+<span class="tag">&lt;/body&gt;</span>`,
+  `<span class="tag">&lt;!--</span> a list of things i didn't say <span class="tag">--&gt;</span>
+<span class="tag">&lt;ul&gt;</span>
+  <span class="tag">&lt;li&gt;</span>thank you<span class="tag">&lt;/li&gt;</span>
+  <span class="tag">&lt;li&gt;</span>i'm proud of you<span class="tag">&lt;/li&gt;</span>
+  <span class="tag">&lt;li&gt;</span>i was wrong<span class="tag">&lt;/li&gt;</span>
+  <span class="tag">&lt;li&gt;</span>stay a while<span class="tag">&lt;/li&gt;</span>
+<span class="tag">&lt;/ul&gt;</span>`,
+  `<span class="tag">&lt;link</span> <span class="att">rel</span>=<span class="val">"stylesheet"</span>
+      <span class="att">href</span>=<span class="val">"/everything.css"</span><span class="tag">&gt;</span>`,
+  `<span class="tag">&lt;meta</span> <span class="att">name</span>=<span class="val">"mood"</span> <span class="att">content</span>=<span class="val">"warm static"</span><span class="tag">&gt;</span>
+<span class="tag">&lt;meta</span> <span class="att">name</span>=<span class="val">"weather"</span> <span class="att">content</span>=<span class="val">"the kind you'd describe to a friend"</span><span class="tag">&gt;</span>`,
+];
+
+const ASCII = [
+`         .
+        ...
+       .....
+      .......
+     .........
+    ...........
+   .............
+  ...............
+ .................
+...................
+       | | |
+       | | |
+       | | |`,
+`   _____
+  /     \\
+ |  o o  |    "everything is falling.
+ |   ^   |     don't worry. it's all
+  \\  ~  /      moving at the same speed."
+   \\___/
+   /   \\
+  /     \\`,
+`╔════════════════════════════════════╗
+║   M Y   C O L D   M A R S          ║
+║                                    ║
+║   broadcasting in deep red         ║
+║   from a planet you've forgotten   ║
+╚════════════════════════════════════╝`,
+`              *
+           *     *
+        *           *
+     *                 *
+  *                       *
+*                           *
+  *                       *
+     *                 *
+        *           *
+           *     *
+              *`,
+`   ~~~~~~~~~~~~~~~~~~~~~~
+  ~  the sea remembers  ~
+  ~  the rivers it ate  ~
+   ~~~~~~~~~~~~~~~~~~~~~~
+        \\  |  /
+         \\ | /
+          \\|/
+           v`,
+`  /\\___/\\
+ (  o.o  )   purr
+  > ^ <     (this cat is debugging)`,
+`     ___
+    /   \\
+   |  .  |
+    \\___/
+     | |
+     | |
+   __/_/__
+  /       \\
+ /  here   \\
+/  is fine  \\
+\\___________/`,
+`█▓▒░  ░▒▓█▓▒░  ░▒▓█▓▒░  ░▒▓█
+▓                            ▓
+▒   T R A N S M I S S I O N  ▒
+░       I N C O M I N G      ░
+░                            ░
+▒                            ▒
+▓                            ▓
+█▓▒░  ░▒▓█▓▒░  ░▒▓█▓▒░  ░▒▓█`,
+`             .
+          . : :
+       . : : : :
+    . : : : : : :
+ . : : : : : : : :
+: : : : : : : : : :   ← rain, but slower`,
+`+----------------------+
+|                      |
+|   404: meaning       |
+|   not found          |
+|                      |
+|   [keep falling]     |
+|                      |
++----------------------+`,
+`    ___
+   ( o )    "i was promised
+   /|\\      something, once.
+   / \\      i forget what."`,
+`░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░  ░░░░░░░░░░░░░░░░░░░░  ░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░  static.  also: ok.  ░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░`,
+];
+
+const JOKES = [
+  { t: "knock knock", b: "who's there. — the inevitable. — the inevitable who. — exactly." },
+  { t: "a horse walks into a bar", b: "the bartender says nothing because this is the internet and the joke is twenty years old and we are tired." },
+  { t: "why did the developer leave the company", b: "because they didn't get arrays." },
+  { t: "how many surrealists does it take to change a lightbulb", b: "fish." },
+  { t: "i told my computer i needed a break", b: "and it said: 'sure, what kind. coffee, lunch, or existential.'" },
+  { t: "documentation status", b: "TODO: write documentation. — written by: someone who is now retired." },
+  { t: "the universe is mostly empty space", b: "and yet, somehow, my inbox." },
+  { t: "i don't have a problem with caffeine", b: "i have a problem without caffeine." },
+  { t: "press F to pay respects", b: "press F again to undo." },
+  { t: "the rule of threes", b: "good. fast. cheap. pick zero." },
+  { t: "i'm not arguing", b: "i'm just explaining why i'm right, but in a friendly tone." },
+  { t: "my code doesn't have bugs", b: "it has undocumented features that gradually develop personalities." },
+];
+
+const ONE_LINERS = [
+  "everything is fine.",
+  "you are still here.",
+  "the cursor is also falling.",
+  "scroll is a feeling.",
+  "your screen is breathing.",
+  "this was made for you, specifically.",
+  "shh.",
+  "i have no idea what i'm doing.",
+  "but neither do you.",
+  "ok keep going.",
+  "stars are loud, actually.",
+  "we got this.",
+  "i'm proud of you.",
+  "you should drink some water.",
+  "the future is also made of html.",
+  "go outside, briefly.",
+  "you've already done a lot today.",
+];
+
+const TERMINAL = [
+`<span class="prompt">$</span> whoami
+johnny
+<span class="prompt">$</span> who are you really
+&lt;no matches found&gt;
+<span class="prompt">$</span> sudo who are you really
+&lt;still nothing&gt;
+<span class="prompt">$</span> echo "ok then"
+ok then`,
+`<span class="prompt">$</span> ls -la ./feelings
+total ∞
+drwxr-xr-x  unresolved   2026  ./longing
+drwxr-xr-x  unresolved   2026  ./awe
+drwxr-xr-x  hidden       2026  ./grief
+-rw-r--r--  archived     1998  ./joy.txt`,
+`<span class="prompt">$</span> ping meaning.local
+PING meaning.local (127.0.0.1): 56 data bytes
+Request timeout for icmp_seq 0
+Request timeout for icmp_seq 1
+Request timeout for icmp_seq 2
+^C
+<span class="prompt">$</span> _`,
+`<span class="prompt">$</span> cat /etc/motd
+welcome.
+you are exactly where you need to be,
+which is, statistically, anywhere.
+have a good shift.`,
+`<span class="prompt">$</span> man patience
+PATIENCE(1)             a thing you grow
+NAME
+       patience — see also: <i>everything good</i>
+SYNOPSIS
+       patience [--quiet] [--again]
+DESCRIPTION
+       it works. eventually. usually after
+       you've stopped checking.`,
+];
+
+const LISTINGS = [
+`<b>things i still don't understand:</b>
+01  why cats sit on the one piece of paper
+02  what 'fine' actually means when she says it
+03  whether the moon notices
+04  every git rebase that ever worked
+05  how the body just keeps going
+06  the precise moment a friendship became one
+07  who wrote the song that's stuck in my head
+08  why we say "thinking out loud" out loud`,
+`<b>seasons of a saturday:</b>
+07:14   the first coffee, the holy one
+09:01   pretending to read the news
+11:30   the productive hour
+13:45   the sandwich and the regret
+16:20   the long blue light through the window
+20:00   the second wind
+00:13   the staring at the ceiling
+03:31   the i should go to bed`,
+`<b>colors of mycoldmars:</b>
+#200005   beet, deep
+#ff4d6d   radish, exposed
+#76f4c4   leaf, just emerging
+#ffd166   honey, slow pour
+#bd93f9   the part of the sky that lies`,
+];
+
+const SIGNPOSTS = [
+  "··· still falling ···",
+  "··· you are halfway nowhere ···",
+  "··· depth: yes ···",
+  "··· welcome ···",
+  "··· this is mycoldmars ···",
+  "··· keep going ···",
+  "··· the page does not end ···",
+  "··· press anything ···",
+];
+
+const BIGS = ["FALL", "DEEPER", "AGAIN", "STILL", "HERE", "SOFT", "WARM", "NOW", "OK", "MORE", "QUIET", "HOLD"];
+const GRADIENTS = ["m y c o l d  m a r s", "F A L L I N G", "ENDLESS", "still here", "•   •   •"];
+const MARQUEES = ["this is not loading.   this is the page.", "scroll? no. the page is the scroll.", "everything you've ever lost is still in motion."];
+const QUIET = ["chapter one", "chapter two", "chapter forty-seven", "interlude", "an aside", "a small noise", "a pause", "a breath", "the same again", "later"];
+
+/* ---------------- builders ---------------- */
+
+const $ = (sel) => document.querySelector(sel);
+const stream = $("#stream");
+
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+function makePoem() {
+  const p = pick(POEMS);
+  const el = document.createElement("div");
+  el.className = "block poem";
+  el.innerHTML = `<span class="title">${p.t}</span>${p.lines.join("<br>")}`;
+  return el;
+}
+function makeCss() {
+  const el = document.createElement("pre");
+  el.className = "block css";
+  el.innerHTML = pick(CSS_BLOCKS);
+  return el;
+}
+function makeJs() {
+  const el = document.createElement("pre");
+  el.className = "block js";
+  el.innerHTML = pick(JS_BLOCKS);
+  return el;
+}
+function makeHtml() {
+  const el = document.createElement("pre");
+  el.className = "block html";
+  el.innerHTML = pick(HTML_BLOCKS);
+  return el;
+}
+function makeAscii() {
+  const el = document.createElement("pre");
+  el.className = "block ascii";
+  el.textContent = pick(ASCII);
+  return el;
+}
+function makeJoke() {
+  const j = pick(JOKES);
+  const el = document.createElement("div");
+  el.className = "block joke";
+  el.innerHTML = `${j.b}<small>${j.t}</small>`;
+  return el;
+}
+function makeOne() {
+  const el = document.createElement("div");
+  el.className = "block one";
+  el.textContent = pick(ONE_LINERS);
+  return el;
+}
+function makeBig() {
+  const el = document.createElement("div");
+  el.className = "block big";
+  el.textContent = pick(BIGS);
+  return el;
+}
+function makeGradient() {
+  const el = document.createElement("div");
+  el.className = "block gradient";
+  el.textContent = pick(GRADIENTS);
+  return el;
+}
+function makeMarquee() {
+  const el = document.createElement("div");
+  el.className = "block marquee";
+  el.textContent = pick(MARQUEES);
+  return el;
+}
+function makeTerminal() {
+  const el = document.createElement("pre");
+  el.className = "block terminal";
+  el.innerHTML = pick(TERMINAL);
+  return el;
+}
+function makeListing() {
+  const el = document.createElement("pre");
+  el.className = "block listing";
+  el.innerHTML = pick(LISTINGS);
+  return el;
+}
+function makeSignpost() {
+  const el = document.createElement("div");
+  el.className = "block signpost";
+  el.textContent = pick(SIGNPOSTS);
+  return el;
+}
+function makeQuiet() {
+  const el = document.createElement("div");
+  el.className = "block quiet";
+  el.textContent = pick(QUIET);
+  return el;
+}
+
+const MAKERS = [
+  makePoem, makePoem, makePoem,        // poetry weighted heavier
+  makeCss, makeCss,
+  makeJs, makeJs,
+  makeHtml,
+  makeAscii, makeAscii,
+  makeJoke,
+  makeOne, makeOne,
+  makeBig,
+  makeGradient,
+  makeMarquee,
+  makeTerminal,
+  makeListing,
+  makeSignpost,
+  makeQuiet,
+];
+
+/* ---------------- the stream ---------------- */
+
+const TOTAL_BLOCKS = 240; // enough to fill the loop without being thin
+const blocks = [];
+
+function spawn() {
+  const fn = pick(MAKERS);
+  const el = fn();
+  // assign a random hue rotation start so colors aren't all in phase
+  const delay = -Math.floor(Math.random() * 40);
+  el.style.animationDelay = `${delay}s`;
+  return el;
+}
+
+for (let i = 0; i < TOTAL_BLOCKS; i++) {
+  const el = spawn();
+  blocks.push(el);
+  stream.appendChild(el);
+}
+
+/* periodically swap a block out for a new one so the loop never feels identical */
+setInterval(() => {
+  const idx = Math.floor(Math.random() * blocks.length);
+  // only swap blocks that are above the viewport (already scrolled past)
+  const r = blocks[idx].getBoundingClientRect();
+  if (r.bottom < 0) {
+    const nv = spawn();
+    stream.replaceChild(nv, blocks[idx]);
+    blocks[idx] = nv;
+  }
+}, 800);
+
+/* a soft on-load color jitter so each visit is its own thing */
+const baseHue = Math.floor(Math.random() * 360);
+document.documentElement.style.setProperty("filter", `hue-rotate(${baseHue}deg)`);
+</script>
+</body>
+</html>
