@@ -4044,7 +4044,7 @@
       const trimmed = (message || '').trim();
       if (trimmed) {
         state.chat.push({ id: uid(), role: 'kid', content: trimmed });
-        document.getElementById('kid-input').value = '';
+        clearKidInput();
         // Log Henry's typed request so we can analyze patterns of what
         // he asks for vs what the system surfaced (and what he chose).
         // The 'auto' flag distinguishes click-driven turns (try-again,
@@ -4766,11 +4766,25 @@
         try { rec.stop(); } catch {}
         setListening(false);
       }
+      // Public reset — called after the composer sends so the next mic
+      // session starts from a blank slate (otherwise onresult would
+      // restore the previously-dictated text into the just-cleared field).
+      function resetTranscriptState() {
+        baseText = '';
+        finalAdded = '';
+      }
 
       micBtn.addEventListener('click', () => {
         if (listening) stop();
         else start();
       });
+
+      // Expose mic controls so submitComposer can stop dictation on send.
+      window.qssMic = {
+        stop,
+        isListening: () => listening,
+        resetTranscriptState,
+      };
 
       rec.onresult = (event) => {
         let interim = '';
@@ -5820,11 +5834,27 @@
     function submitComposer() {
       const text = document.getElementById('kid-input').value;
       if (!text.trim()) return;
+      // If the mic is still recording, stop it and wipe its transcript state
+      // so it can't write the prior message back into the textarea after we
+      // clear it. Without this, the field "retains the previous prompt".
+      try {
+        if (window.qssMic?.isListening?.()) window.qssMic.stop();
+        window.qssMic?.resetTranscriptState?.();
+      } catch {}
       if (state.composerMode === 'verbatim') {
         addVerbatimBlock(text);
       } else {
         askWordy(text);
       }
+    }
+    // Clear the kid-input textarea AND reset its auto-grown height so it
+    // looks visually empty after sending (otherwise the mic-driven grow
+    // leaves it tall even when the value is gone).
+    function clearKidInput() {
+      const inp = document.getElementById('kid-input');
+      if (!inp) return;
+      inp.value = '';
+      inp.style.height = 'auto';
     }
     function addVerbatimBlock(text) {
       // Light cleanup ONLY — preserve voice, don't paraphrase.
@@ -5841,7 +5871,7 @@
       state.blocks.push(newBlock);
       observe('own_block_added', { text: t, block_index: state.blocks.length - 1, verbatim: true });
       window.Arc?.scheduleRefresh();
-      document.getElementById('kid-input').value = '';
+      clearKidInput();
       persist();
       renderAll();
     }
