@@ -27,6 +27,11 @@ export default async function handler(req) {
   if (!prompt) return new Response(JSON.stringify({ error: 'prompt required' }), {
     status: 400, headers: { 'Content-Type': 'application/json' },
   });
+  if (typeof prompt !== 'string' || prompt.length > 3000) {
+    return new Response(JSON.stringify({ error: 'prompt too long (max 3000 chars)' }), {
+      status: 413, headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',

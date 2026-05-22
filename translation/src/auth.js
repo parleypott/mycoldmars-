@@ -138,8 +138,27 @@ export async function sendMagicLink(email) {
   }
 }
 
+// Modules register teardown callbacks here (lock release, presence
+// channel close, autosave timer stop, realtime channel teardown). They
+// fire BEFORE the supabase signOut so they can still authenticate
+// their final writes. Previously signOut() left every active session
+// running with a soon-to-be-revoked JWT.
+const _signOutHooks = new Set();
+export function onSignOutBefore(fn) {
+  if (typeof fn !== 'function') return () => {};
+  _signOutHooks.add(fn);
+  return () => _signOutHooks.delete(fn);
+}
+
 export async function signOut() {
   if (!supabase) return;
+  // Run all teardown hooks first. Sequential await so each callback
+  // can complete its final write before the next runs and before the
+  // session is dropped. Errors are caught so one bad hook doesn't
+  // block the signOut.
+  for (const fn of _signOutHooks) {
+    try { await fn(); } catch (err) { console.warn('[auth] signOut hook failed:', err); }
+  }
   try { await supabase.auth.signOut(); } catch (err) { console.warn('[auth] signOut failed:', err); }
   _user = null;
   _profile = null;

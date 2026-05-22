@@ -17,6 +17,18 @@ export default async function handler(req) {
 
   const { prompt, claude, chatgpt, gemini } = await req.json();
   if (!prompt) return new Response(JSON.stringify({ error: 'prompt required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  // Cost guard. The three report fields can be large markdown — cap the
+  // total combined body before forwarding to Sonnet 4.5 (8000-token max
+  // output) so a malicious caller can't drive the bill.
+  const totalChars = (typeof prompt === 'string' ? prompt.length : 0)
+    + (typeof claude === 'string' ? claude.length : 0)
+    + (typeof chatgpt === 'string' ? chatgpt.length : 0)
+    + (typeof gemini === 'string' ? gemini.length : 0);
+  if (totalChars > 80_000) {
+    return new Response(JSON.stringify({ error: `input too large (max 80,000 chars total, got ${totalChars})` }), {
+      status: 413, headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   const user = `Original research question:\n${prompt}\n\n---\n# Claude's report\n${claude || '(none)'}\n\n---\n# ChatGPT's report\n${chatgpt || '(none)'}\n\n---\n# Gemini's report\n${gemini || '(none)'}\n\n---\nWrite the narration now.`;
 

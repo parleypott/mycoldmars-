@@ -163,9 +163,26 @@ async function handleInner(req) {
         const content = [];
         for (const img of images) {
           if (!img?.url) continue;
+          // Validate scheme + host before forwarding to Anthropic. The
+          // image-URL passthrough is an SSRF surface — Anthropic will
+          // fetch any URL we hand it server-side. Restrict to http(s)
+          // and (preferably) to our own Supabase storage host so a
+          // malicious payload can't make Anthropic crawl internal
+          // services on our behalf.
+          let safeUrl = null;
+          try {
+            const u = new URL(img.url);
+            if (u.protocol === 'http:' || u.protocol === 'https:') {
+              // Allow public storage hosts only — Supabase and the
+              // standard CDNs we ourselves use.
+              const okHost = /\.supabase\.co$|\.supabase\.in$|\.vercel\.app$|^localhost/i;
+              if (okHost.test(u.hostname)) safeUrl = u.toString();
+            }
+          } catch {}
+          if (!safeUrl) continue;
           content.push({
             type: 'image',
-            source: { type: 'url', url: img.url },
+            source: { type: 'url', url: safeUrl },
           });
         }
         if (m.body) content.push({ type: 'text', text: m.body });

@@ -29,6 +29,19 @@ export default async function handler(req) {
       status: 400, headers: { 'Content-Type': 'application/json' },
     });
   }
+  // Cost guard: this endpoint is intentionally unauthenticated for the
+  // public /commentbank tool. Cap the input size so a malicious caller
+  // can't drive Anthropic input tokens by POSTing a 5 MB comments array.
+  if (typeof question !== 'string' || question.length > 2000) {
+    return new Response(JSON.stringify({ error: 'question too long (max 2000 chars)' }), {
+      status: 413, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  if (comments.length > 500) {
+    return new Response(JSON.stringify({ error: 'too many comments (max 500)' }), {
+      status: 413, headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   const corpus = comments.map(c => ({
     id: c.id,

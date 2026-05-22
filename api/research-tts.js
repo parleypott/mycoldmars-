@@ -56,6 +56,15 @@ export default async function handler(req) {
   if (!text || !text.trim()) {
     return new Response(JSON.stringify({ error: 'text required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }
+  // Cost guard: ElevenLabs premium voices bill per character. Without
+  // a cap, a malicious caller could POST a 5 MB string and run up the
+  // monthly bill. 50 KB is plenty for a research-tier readout.
+  const MAX_INPUT = 50_000;
+  if (text.length > MAX_INPUT) {
+    return new Response(JSON.stringify({ error: `text too long (max ${MAX_INPUT} chars)` }), {
+      status: 413, headers: { 'Content-Type': 'application/json' },
+    });
+  }
   if (stripMarkdown) text = strip(text);
   const voiceId = voice || VOICE_DEFAULT;
   const modelId = model || 'eleven_v3';

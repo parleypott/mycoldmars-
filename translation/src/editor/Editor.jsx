@@ -210,14 +210,17 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
     if (el) el.classList.toggle('show-dismissed', showDismissed);
   }, [showDismissed]);
 
-  // Speaker filter: inject dynamic CSS to hide filtered speaker blocks
+  // Speaker filter: inject dynamic CSS to hide filtered speaker blocks.
+  //
+  // Previously this used a singleton `<style id="speaker-filter-styles">`
+  // on document.head with cleanup that only wiped textContent — the
+  // element was never removed, leaking across navigations. Worse, two
+  // editor instances would fight over the same id. Now: a per-mount
+  // <style> element with a random id, fully removed on cleanup.
   useEffect(() => {
-    let styleEl = document.getElementById('speaker-filter-styles');
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = 'speaker-filter-styles';
-      document.head.appendChild(styleEl);
-    }
+    const styleEl = document.createElement('style');
+    styleEl.setAttribute('data-speaker-filter', '1');
+    document.head.appendChild(styleEl);
     if (filteredSpeakers.size === 0) {
       styleEl.textContent = '';
     } else {
@@ -228,7 +231,7 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
       styleEl.textContent = rules;
     }
     return () => {
-      if (styleEl.parentNode) styleEl.textContent = '';
+      if (styleEl.parentNode) styleEl.parentNode.removeChild(styleEl);
     };
   }, [filteredSpeakers]);
 

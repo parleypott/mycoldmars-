@@ -1787,7 +1787,7 @@ const CLIENT_DEVICE = (() => {
 // All consumers (insertRevision, presence, locks, speaker rename) call the
 // `currentClient*()` helpers below so they always pick up the latest auth
 // state without each having to subscribe themselves.
-import { currentUser, currentProfile, onAuthChange, signOut as authSignOut, updateDisplayName as authUpdateName } from './auth.js';
+import { currentUser, currentProfile, onAuthChange, signOut as authSignOut, updateDisplayName as authUpdateName, onSignOutBefore } from './auth.js';
 
 const NAME_PALETTE = [
   '#dd2c1e', '#004cff', '#0d5921', '#ffbf00',
@@ -1830,6 +1830,33 @@ function currentUserId() {
 onAuthChange(() => {
   renderHeaderIdentity();
   if (presenceChannel) broadcastPresence();
+});
+
+// Register a sign-out teardown hook: BEFORE the supabase session is
+// revoked, release this tab's edit lock, drop the realtime + presence
+// channels, stop the lock heartbeat, stop the autosave timer, and
+// flush any pending save. Without this, signing out left the tab
+// quietly retrying autosaves with a now-revoked JWT (401-looping the
+// retry queue), holding ghost locks until the TTL caught up, and
+// broadcasting stale presence as "anonymous" forever.
+onSignOutBefore(async () => {
+  try { await flushPendingSave(); } catch {}
+  try {
+    if (lockHeartbeatTimer) { clearInterval(lockHeartbeatTimer); lockHeartbeatTimer = null; }
+  } catch {}
+  try {
+    if (lockBoundTranscriptId) {
+      await releaseLock(lockBoundTranscriptId, CLIENT_ID).catch(() => {});
+      lockBoundTranscriptId = null;
+    }
+  } catch {}
+  try {
+    if (typeof realtimeUnsubscribe === 'function') {
+      await realtimeUnsubscribe();
+      realtimeUnsubscribe = null;
+    }
+  } catch {}
+  try { teardownPresence?.(); } catch {}
 });
 
 // Forward declaration — defined later in the file.

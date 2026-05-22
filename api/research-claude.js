@@ -24,6 +24,14 @@ export default async function handler(req) {
 
   const { prompt } = await req.json();
   if (!prompt) return new Response(JSON.stringify({ error: 'prompt required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  // Cost guard: this endpoint runs Sonnet 4.5 with 12 web searches and
+  // a 16k-token max output. A malicious caller could POST a megabyte
+  // prompt and rack up billing. Cap input size.
+  if (typeof prompt !== 'string' || prompt.length > 5000) {
+    return new Response(JSON.stringify({ error: 'prompt too long (max 5000 chars)' }), {
+      status: 413, headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
