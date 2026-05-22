@@ -25,7 +25,10 @@
 import { checkAccess as sharedCheckAccess } from './_lib/access.js';
 import { canonForName, canonContextBlock } from './_lib/qss-canon.js';
 
-export const config = { runtime: 'edge' };
+// Gemini image-gen reliably takes 20-40s when the model's busy, and Vercel
+// Edge defaults to a 25s function timeout. Bumping to 60s so we don't race
+// the timeout on cold-cache draws.
+export const config = { runtime: 'edge', maxDuration: 60 };
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -372,28 +375,51 @@ async function callNanoBanana(apiKey, prompt, refImage = null, lovedRefs = []) {
     contents: [{ parts }],
     generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
   };
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const t = await res.text().catch(() => '');
-    throw new Error(`gemini ${res.status}: ${t.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  const candidates = data?.candidates || [];
-  for (const c of candidates) {
-    for (const p of (c?.content?.parts || [])) {
-      if (p.inlineData?.data) {
-        return {
-          mime: p.inlineData.mimeType || 'image/png',
-          dataBase64: p.inlineData.data,
-        };
+
+  // Retry up to 3x on transient failures. Gemini image-gen is flaky
+  // under load — 429 / 500 / 503 / 504 all happen routinely. Exponential
+  // backoff between attempts to give the upstream a chance to recover.
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    if (attempt > 1) await new Promise(r => setTimeout(r, attempt * 1200));
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        const transient = res.status === 429 || res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504;
+        lastErr = new Error(`gemini ${res.status}: ${t.slice(0, 200)}`);
+        if (transient && attempt < 3) continue;
+        throw lastErr;
       }
+      const data = await res.json();
+      const candidates = data?.candidates || [];
+      for (const c of candidates) {
+        for (const p of (c?.content?.parts || [])) {
+          if (p.inlineData?.data) {
+            return {
+              mime: p.inlineData.mimeType || 'image/png',
+              dataBase64: p.inlineData.data,
+            };
+          }
+        }
+      }
+      // No image but the call returned 200 — model produced text only, e.g.
+      // refusal or content-filter trip. Retry once with the same prompt.
+      lastErr = new Error('no image returned');
+      if (attempt < 3) continue;
+      throw lastErr;
+    } catch (e) {
+      // Network errors / aborts — retry on the first two attempts.
+      lastErr = e;
+      if (attempt < 3) continue;
+      throw lastErr;
     }
   }
-  throw new Error('no image returned');
+  throw lastErr || new Error('gemini failed after 3 attempts');
 }
 
 // access guard — delegates to the shared perimeter check at the top

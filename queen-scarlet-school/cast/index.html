@@ -1101,16 +1101,33 @@
         state.cards = normalized;
         writeLS();
 
-        // ONLY generate portraits for characters that have ZERO portraits.
-        // Anything with at least one drawing already is preserved across
-        // every visit, every story, forever — until Henry asks for a redraw
-        // or deletes the portrait explicitly.
-        const needsFirstDraw = Object.values(state.cards).filter(c => !c.portraits.length);
+        // Characters that have ZERO portraits OR previously errored without
+        // ever succeeding get a fresh attempt. Anything with at least one
+        // saved drawing stays as-is.
+        const needsFirstDraw = Object.values(state.cards).filter(c =>
+          !(Array.isArray(c.portraits) && c.portraits.length)
+        );
         render();
-        // Concurrency: 2 in flight at a time so we don't block the upstream.
-        for (const m of needsFirstDraw.slice(0, 2)) generatePortrait(m.name);
+        // Serialize first-draws — Gemini image-gen times out under load when
+        // hit with too many parallel calls. One at a time, paced by the
+        // built-in retry-with-backoff in generatePortrait().
+        firstDrawQueue(needsFirstDraw.map(c => c.name));
       } catch (e) {
         renderGridEmpty('couldn\'t load the cast', e.message || 'try refresh');
+      }
+    }
+
+    // First-draw queue — runs one generation at a time, with a short pause
+    // between to give Gemini room to breathe. Each card runs through
+    // generatePortrait()'s own retry logic (up to 3 attempts inside the
+    // server's callNanoBanana too), so if one card fails after all retries
+    // we move on instead of blocking the rest.
+    async function firstDrawQueue(names) {
+      for (const name of names) {
+        if (!state.cards[name]) continue;
+        if (state.cards[name].portraits?.length) continue;  // someone else drew it
+        try { await generatePortrait(name); } catch {}
+        await new Promise(r => setTimeout(r, 400));
       }
     }
 
@@ -1274,13 +1291,33 @@
       };
 
       try {
-        const r = await fetch('/api/qss-character-card', {
-          method: 'POST', headers: HEADERS,
-          body: JSON.stringify(body),
-        });
-        if (!r.ok) {
-          const j = await r.json().catch(() => ({}));
-          throw new Error(j.error || `${r.status}`);
+        // Retry the endpoint call up to 3 times with exponential backoff
+        // for transient 5xx / network failures. Server itself also retries
+        // Gemini internally; this is a belt-and-suspenders layer.
+        let r = null;
+        let lastErr = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          if (attempt > 1) await new Promise(rs => setTimeout(rs, attempt * 1500));
+          try {
+            r = await fetch('/api/qss-character-card', {
+              method: 'POST', headers: HEADERS,
+              body: JSON.stringify(body),
+            });
+            // 200 / 4xx (not retryable) → break out
+            if (r.ok || (r.status >= 400 && r.status < 500 && r.status !== 408)) break;
+            const j = await r.json().catch(() => ({}));
+            lastErr = new Error(j.error || `${r.status}`);
+          } catch (netErr) {
+            lastErr = netErr;
+            r = null;
+          }
+        }
+        if (!r || !r.ok) {
+          if (r) {
+            const j = await r.json().catch(() => ({}));
+            throw new Error(j.error || `${r.status}`);
+          }
+          throw lastErr || new Error('failed after retries');
         }
         const data = await r.json();
         // First-ever generation populates synopsis. Revise calls preserve it.
