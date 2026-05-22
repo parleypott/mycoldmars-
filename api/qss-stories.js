@@ -36,10 +36,11 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Columns we want back from a story select. Order matters for stable diffs.
-// character_cards may not exist until migration 016 is applied — server falls
-// back via stripOptionalColumns() if Postgres complains.
-const SELECT_COLS = 'id,name,bible,rules,blocks,chat,suggestions,cover_image,arc_context,character_cards,deleted_at,created_at,updated_at';
-const OPTIONAL_COLS = ['character_cards']; // columns that may not exist pre-migration
+// character_cards / freestyle_chat / freestyle_themes may not exist until
+// their migrations are applied — server falls back via the sb() helper
+// if Postgres complains.
+const SELECT_COLS = 'id,name,bible,rules,blocks,chat,suggestions,cover_image,arc_context,character_cards,freestyle_chat,freestyle_themes,deleted_at,created_at,updated_at';
+const OPTIONAL_COLS = ['character_cards', 'freestyle_chat', 'freestyle_themes']; // columns that may not exist pre-migration
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -159,6 +160,8 @@ async function handleSave(body) {
     suggestions: Array.isArray(body.suggestions) ? body.suggestions : undefined,
     cover_image: body.cover_image === null ? null : (typeof body.cover_image === 'string' ? body.cover_image : undefined),
     character_cards: Array.isArray(body.character_cards) ? sanitizeCharacterCards(body.character_cards) : undefined,
+    freestyle_chat:   Array.isArray(body.freestyle_chat)   ? sanitizeFreestyleChat(body.freestyle_chat)     : undefined,
+    freestyle_themes: Array.isArray(body.freestyle_themes) ? sanitizeFreestyleThemes(body.freestyle_themes) : undefined,
   };
   // Drop undefineds so we send a partial update.
   for (const k of Object.keys(payload)) if (payload[k] === undefined) delete payload[k];
@@ -363,6 +366,48 @@ function sanitizeCharacterCards(cards) {
       intro_block: Number(c.intro_block) || null,
     });
     if (out.length >= MAX_CARDS) break;
+  }
+  return out;
+}
+
+// Freestyle chat is a flat list of {id, role, content, ts}. Bounded so a
+// chatty session can't push the row past 8 MB.
+function sanitizeFreestyleChat(arr) {
+  const MAX_TURNS = 200;
+  const MAX_LEN = 4000;
+  const out = [];
+  for (const m of arr) {
+    if (!m || typeof m !== 'object') continue;
+    const role = m.role === 'wordy' || m.role === 'assistant' ? 'wordy' : 'kid';
+    const content = String(m.content || '').slice(0, MAX_LEN);
+    if (!content.trim()) continue;
+    out.push({
+      id: String(m.id || '').slice(0, 64) || Math.random().toString(36).slice(2, 10),
+      role,
+      content,
+      ts: typeof m.ts === 'number' ? m.ts : Date.now(),
+    });
+    if (out.length >= MAX_TURNS) break;
+  }
+  return out;
+}
+
+// Captured themes — just labels + notes; bounded.
+function sanitizeFreestyleThemes(arr) {
+  const MAX = 80;
+  const out = [];
+  for (const t of arr) {
+    if (!t || typeof t !== 'object') continue;
+    const label = String(t.label || '').trim().slice(0, 80);
+    if (!label) continue;
+    out.push({
+      id: String(t.id || '').slice(0, 64) || Math.random().toString(36).slice(2, 10),
+      label,
+      note: String(t.note || '').trim().slice(0, 240),
+      captured_at: typeof t.captured_at === 'number' ? t.captured_at : Date.now(),
+      promoted: !!t.promoted,
+    });
+    if (out.length >= MAX) break;
   }
   return out;
 }

@@ -2431,6 +2431,212 @@
       .btn-cast .cast-deck { left: 6px; width: 22px; height: 26px; }
     }
 
+    /* ──────────── Freestyle tab ──────────── */
+    .stage#stage-freestyle { padding: 8px 24px 60px; overflow-y: auto; display: none; }
+    .stage#stage-freestyle.active { display: block; }
+    .fs-wrap { max-width: 1320px; margin: 0 auto; padding-top: 14px; }
+    .fs-head { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 22px; }
+    .fs-head .dragon { flex: 0 0 auto; }
+    .fs-head-text { flex: 1; }
+    .fs-head h2 { font-family: var(--display); font-size: clamp(36px, 4vw, 54px); line-height: 1; font-weight: 700; color: var(--ink-bright); }
+    .fs-head p { font-family: var(--serif); font-style: italic; color: var(--ink-soft); font-size: 15px; max-width: 640px; margin-top: 4px; }
+
+    .fs-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 26px;
+      align-items: start;
+    }
+    @media (max-width: 1100px) {
+      .fs-layout { grid-template-columns: 1fr; }
+      .fs-themes-col { order: -1; }
+    }
+
+    .fs-chat-col {
+      display: flex; flex-direction: column;
+      gap: 14px;
+      min-height: 60vh;
+    }
+    .fs-thread {
+      flex: 1; min-height: 280px;
+      max-height: 64vh;
+      overflow-y: auto;
+      padding: 16px 18px;
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 16px;
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      display: flex; flex-direction: column;
+      gap: 14px;
+    }
+    .fs-empty {
+      margin: auto;
+      text-align: center;
+      font-family: var(--display);
+      font-size: 24px;
+      color: var(--ink-soft);
+      line-height: 1.3;
+      padding: 20px;
+    }
+    .fs-empty .little {
+      display: block; margin-top: 8px;
+      font-family: var(--serif); font-style: italic; font-size: 14px;
+      color: var(--ink-faint);
+    }
+    .fs-msg {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .fs-msg.kid { justify-content: flex-end; }
+    .fs-msg .fs-bubble {
+      padding: 10px 14px;
+      font-family: var(--serif); font-size: 16px; line-height: 1.55;
+      border: 2.5px solid var(--ink-bright);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      white-space: pre-wrap;
+      max-width: 78%;
+    }
+    .fs-msg.wordy .fs-bubble {
+      background: var(--paper-soft);
+      border-radius: 14px 14px 14px 4px;
+    }
+    .fs-msg.kid .fs-bubble {
+      background: var(--sky);
+      border-radius: 14px 14px 4px 14px;
+    }
+    .fs-msg .fs-speaker {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--paper-card);
+      border: 2px solid var(--ink-bright);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      color: var(--ink-bright);
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+    .fs-msg .fs-speaker svg { width: 14px; height: 14px; pointer-events: none; }
+    .fs-msg .fs-speaker:hover { background: var(--yolk); transform: translate(-1px, -1px); }
+    .fs-msg .fs-speaker.playing {
+      background: var(--yolk);
+      animation: ttsPulse 850ms ease-in-out infinite, ttsGlow 850ms ease-in-out infinite;
+    }
+
+    .fs-typing {
+      display: flex; align-items: center; gap: 8px;
+      font-family: var(--serif); font-style: italic;
+      color: var(--ink-soft); font-size: 14px;
+      padding: 8px 14px;
+      align-self: flex-start;
+    }
+    .fs-typing .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--ink-soft);
+      animation: fs-bounce 1.2s ease-in-out infinite;
+    }
+    .fs-typing .dot:nth-child(2) { animation-delay: 0.15s; }
+    .fs-typing .dot:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes fs-bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40%           { transform: translateY(-5px); opacity: 1; }
+    }
+
+    .fs-composer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+    .fs-composer textarea {
+      width: 100%;
+      background: var(--paper-card); color: var(--ink);
+      border: 2.5px solid var(--ink-bright); border-radius: 12px;
+      padding: 12px 14px;
+      font-family: var(--serif); font-size: 16px; line-height: 1.55;
+      outline: none;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      resize: vertical; min-height: 56px; max-height: 200px;
+      transition: box-shadow .15s var(--ease), transform .15s var(--ease);
+    }
+    .fs-composer textarea:focus { box-shadow: 4px 4px 0 var(--ink-bright); transform: translate(-1px, -1px); }
+    .fs-composer-actions { display: flex; gap: 8px; align-items: center; }
+    .fs-mic-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 46px; height: 46px;
+      background: var(--red); color: var(--paper);
+      border: 2.5px solid var(--ink-bright); border-radius: 50%;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      font-size: 18px;
+      cursor: pointer;
+      transition: transform .15s var(--ease);
+    }
+    .fs-mic-btn:hover { transform: translate(-1px, -1px) rotate(-4deg); background: var(--yolk); color: var(--ink-bright); }
+    .fs-mic-btn.listening {
+      background: var(--yolk); color: var(--ink-bright);
+      animation: ttsPulse 850ms ease-in-out infinite;
+    }
+    .fs-mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .fs-send { padding: 10px 18px; min-height: 46px; }
+
+    /* Captured themes sidebar */
+    .fs-themes-col {
+      position: sticky; top: 14px;
+      background: var(--paper-deep);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 16px;
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      padding: 16px 16px 18px;
+      transform: rotate(0.3deg);
+    }
+    .fs-themes-head h3 {
+      font-family: var(--display); font-size: 26px; font-weight: 700;
+      color: var(--ink-bright); line-height: 1;
+    }
+    .fs-themes-hint {
+      display: block; margin-top: 4px;
+      font-family: var(--serif); font-style: italic; font-size: 12px;
+      color: var(--ink-soft); line-height: 1.4;
+    }
+    .fs-themes-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+    .fs-themes-empty {
+      font-family: var(--serif); font-style: italic; font-size: 14px;
+      color: var(--ink-faint); padding: 12px 4px; text-align: center;
+    }
+    .fs-theme {
+      background: var(--paper-card);
+      border: 2px solid var(--ink-bright);
+      border-radius: 10px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      padding: 10px 12px 12px;
+      display: flex; flex-direction: column; gap: 6px;
+      transform: rotate(-0.4deg);
+    }
+    .fs-theme:nth-child(odd) { transform: rotate(0.5deg); }
+    .fs-theme.promoted { background: var(--grass); opacity: 0.7; }
+    .fs-theme-label {
+      font-family: var(--ui); font-weight: 700; font-size: 13px;
+      color: var(--ink-bright); line-height: 1.25;
+    }
+    .fs-theme-note {
+      font-family: var(--serif); font-size: 12.5px; line-height: 1.4;
+      color: var(--ink-soft);
+    }
+    .fs-theme-actions { display: flex; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
+    .fs-theme-action {
+      font-family: var(--ui); font-size: 10.5px; font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      padding: 4px 9px;
+      background: var(--paper-card); color: var(--ink-bright);
+      border: 1.5px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      cursor: pointer;
+    }
+    .fs-theme-action:hover { background: var(--yolk); }
+    .fs-theme-action.danger:hover { background: var(--red); color: var(--paper); }
+
     /* ──────────── Storyboard image lightbox ──────────── */
     .lightbox-veil {
       position: fixed; inset: 0;
@@ -2573,6 +2779,11 @@
         <span class="step-num">2</span>
         <span>Storyboard</span>
       </button>
+      <button class="tab" data-stage="freestyle" role="tab">
+        <span class="step-num">3</span>
+        <span>Freestyle</span>
+        <span class="count-pill" id="freestyle-count" style="display:none;">0</span>
+      </button>
       <div class="tabs-spacer"></div>
     </nav>
 
@@ -2702,6 +2913,40 @@
           <button id="btn-go-write" class="btn primary big">Go write with wordy<span class="arrow">→</span></button>
         </div>
         <div id="board-grid" class="board-grid" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- ════════ STAGE 3: Freestyle ════════ -->
+    <section class="stage" id="stage-freestyle">
+      <div class="fs-wrap">
+        <div class="fs-head">
+          <span class="dragon md" id="fs-dragon"></span>
+          <div class="fs-head-text">
+            <h2>Freestyle</h2>
+            <p>just thinking out loud with wordy. nothing here gets committed to the story unless you say so. ideas worth keeping show up over on the right.</p>
+          </div>
+        </div>
+        <div class="fs-layout">
+          <div class="fs-chat-col">
+            <div id="fs-thread" class="fs-thread"></div>
+            <div class="fs-composer">
+              <textarea id="fs-input" rows="2" placeholder="say whatever's in your head — wordy will just chat back."></textarea>
+              <div class="fs-composer-actions">
+                <button id="fs-mic" class="fs-mic-btn" type="button" title="voice it" aria-label="Talk">🎙</button>
+                <button id="fs-send" class="btn primary fs-send">Send<span class="arrow">→</span></button>
+              </div>
+            </div>
+          </div>
+          <aside class="fs-themes-col">
+            <div class="fs-themes-head">
+              <h3>captured themes</h3>
+              <span class="fs-themes-hint">soft notes — promote any of these into the bible when you're ready.</span>
+            </div>
+            <div id="fs-themes-list" class="fs-themes-list">
+              <div class="fs-themes-empty">nothing captured yet. start chatting.</div>
+            </div>
+          </aside>
+        </div>
       </div>
     </section>
 
@@ -3787,6 +4032,8 @@
           name: state.name, rules: state.rules,
           blocks: state.blocks, chat: state.chat,
           serverId: state.serverId, serverUpdatedAt: state.serverUpdatedAt,
+          freestyleChat: state.freestyleChat || [],
+          freestyleThemes: state.freestyleThemes || [],
           updatedAt: Date.now(),
         }));
         const l = loadList();
@@ -3815,6 +4062,10 @@
       state.arcContext = data?.arc_context || null;
       window.Arc?.loadFromLocal(name);
       renderArcChip();
+      // Freestyle convo + captured themes are part of local persistence too.
+      state.freestyleChat = Array.isArray(data?.freestyleChat) ? data.freestyleChat : [];
+      state.freestyleThemes = Array.isArray(data?.freestyleThemes) ? data.freestyleThemes : [];
+      try { window.qssFreestyle?.hydrate?.({ chat: state.freestyleChat, themes: state.freestyleThemes }); } catch {}
       state.latestOptions = null;
       // rebuild latestOptions pointer from the last wordy turn that has options
       for (let i = state.chat.length - 1; i >= 0; i--) {
@@ -3840,6 +4091,9 @@
       state.latestOptions = null;
       state.serverId = null;
       state.serverUpdatedAt = null;
+      state.freestyleChat = [];
+      state.freestyleThemes = [];
+      try { window.qssFreestyle?.reset?.(); } catch {}
       document.getElementById('board-name').value = name;
       pushRulesToForm();
       renderAll();
@@ -5306,6 +5560,274 @@
       if (trigger && typeof openArcInspector === 'function') openArcInspector();
     });
 
+    // ─────────── Freestyle tab — brainstorm chat + soft theme capture ───────────
+    // Lives parallel to the main writing flow. Does NOT push anything into
+    // story canon (blocks / bible / arc). Just gathers themes Henry might
+    // later promote. Persisted via qss_stories.freestyle_chat /
+    // qss_stories.freestyle_themes (migration 017 — graceful fallback).
+    window.qssFreestyle = (function() {
+      const inputEl = () => document.getElementById('fs-input');
+      const sendBtn = () => document.getElementById('fs-send');
+      const threadEl = () => document.getElementById('fs-thread');
+      const themesListEl = () => document.getElementById('fs-themes-list');
+      const countPill = () => document.getElementById('freestyle-count');
+      const micBtn = () => document.getElementById('fs-mic');
+
+      let typing = false;
+      let mic = null;
+
+      function chat() { return Array.isArray(state.freestyleChat) ? state.freestyleChat : (state.freestyleChat = []); }
+      function themes() { return Array.isArray(state.freestyleThemes) ? state.freestyleThemes : (state.freestyleThemes = []); }
+
+      function escHtml(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+
+      function render() {
+        renderThread();
+        renderThemes();
+        const t = themes().filter(x => !x.promoted).length;
+        const pill = countPill();
+        if (pill) { pill.textContent = String(t); pill.style.display = t > 0 ? 'inline-flex' : 'none'; }
+      }
+
+      function renderThread() {
+        const el = threadEl(); if (!el) return;
+        const msgs = chat();
+        if (!msgs.length) {
+          el.innerHTML = `<div class="fs-empty">say something. it can be anything.<span class="little">wordy won't push for a "scene" — this is just thinking out loud.</span></div>`;
+          return;
+        }
+        const html = msgs.map(m => {
+          const role = m.role === 'wordy' ? 'wordy' : 'kid';
+          if (role === 'wordy') {
+            // Speaker on the wordy bubble — uses Charlotte (brainstorm voice) so
+            // freestyle sounds distinct from Matilda (narrator) and Adam (consultant).
+            const ttsText = m.content.replace(/"/g, '&quot;');
+            return `<div class="fs-msg wordy" data-id="${escHtml(m.id)}">
+              <button class="fs-speaker tts-btn" data-tts="${ttsText}" data-tts-voice="charlotte" aria-label="Read aloud">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg>
+              </button>
+              <div class="fs-bubble">${escHtml(m.content)}</div>
+            </div>`;
+          }
+          return `<div class="fs-msg kid"><div class="fs-bubble">${escHtml(m.content)}</div></div>`;
+        }).join('');
+        const typingHtml = typing
+          ? `<div class="fs-typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`
+          : '';
+        el.innerHTML = html + typingHtml;
+        requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+      }
+
+      function renderThemes() {
+        const el = themesListEl(); if (!el) return;
+        const ts = themes();
+        if (!ts.length) {
+          el.innerHTML = `<div class="fs-themes-empty">nothing captured yet. start chatting.</div>`;
+          return;
+        }
+        // Newest first
+        const sorted = ts.slice().sort((a, b) => (b.captured_at || 0) - (a.captured_at || 0));
+        el.innerHTML = sorted.map(t => `<div class="fs-theme ${t.promoted ? 'promoted' : ''}" data-id="${escHtml(t.id)}">
+          <div class="fs-theme-label">${escHtml(t.label)}</div>
+          ${t.note ? `<div class="fs-theme-note">${escHtml(t.note)}</div>` : ''}
+          <div class="fs-theme-actions">
+            ${t.promoted
+              ? `<span class="fs-theme-action" style="background:var(--grass);">✓ in bible</span>`
+              : `<button type="button" class="fs-theme-action" data-action="promote">→ add to bible</button>`
+            }
+            <button type="button" class="fs-theme-action danger" data-action="dismiss">dismiss</button>
+          </div>
+        </div>`).join('');
+      }
+
+      async function send(text) {
+        const trimmed = (text || '').trim();
+        if (!trimmed || typing) return;
+        chat().push({ id: uid(), role: 'kid', content: trimmed, ts: Date.now() });
+        typing = true;
+        clearComposer();
+        render();
+        persist();
+        try {
+          const r = await fetch('/api/qss-freestyle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+            body: JSON.stringify({
+              message: trimmed,
+              history: chat().slice(-12, -1).map(m => ({ role: m.role, content: m.content })),
+              story_context: {
+                name: state.name || '',
+                blocks: state.blocks || [],
+                rules: state.rules || {},
+                arc_context: state.arcContext || null,
+                character_cards: window.qssCast?.getCardsForContext?.() || [],
+              },
+              captured_so_far: themes().map(t => ({ label: t.label })),
+            }),
+          });
+          if (!r.ok) {
+            const j = await r.json().catch(() => ({}));
+            throw new Error(j.error || `${r.status}`);
+          }
+          const data = await r.json();
+          if ((data.reply || '').trim()) {
+            chat().push({ id: uid(), role: 'wordy', content: data.reply.trim(), ts: Date.now() });
+          }
+          if (Array.isArray(data.new_themes)) {
+            for (const t of data.new_themes) themes().push(t);
+          }
+        } catch (e) {
+          chat().push({
+            id: uid(),
+            role: 'wordy',
+            content: `(couldn't reach the studio — ${e.message || 'try again'})`,
+            ts: Date.now(),
+          });
+        } finally {
+          typing = false;
+          render();
+          persist();
+        }
+      }
+
+      function clearComposer() {
+        const inp = inputEl();
+        if (!inp) return;
+        inp.value = '';
+        inp.style.height = 'auto';
+      }
+
+      function persist() {
+        // Push into state and ask the main save layer to sync to the cloud.
+        state.freestyleChat = chat();
+        state.freestyleThemes = themes();
+        try { window.Lib?.queueSave?.(); } catch {}
+      }
+
+      function hydrate({ chat: c, themes: t }) {
+        if (Array.isArray(c)) state.freestyleChat = c;
+        if (Array.isArray(t)) state.freestyleThemes = t;
+        render();
+      }
+
+      function reset() {
+        state.freestyleChat = [];
+        state.freestyleThemes = [];
+        render();
+      }
+
+      function promoteTheme(id) {
+        const t = themes().find(x => x.id === id); if (!t) return;
+        t.promoted = true;
+        // Append into the bible (parent rules.bible) — non-destructive.
+        try {
+          const current = (state.rules?.bible || '').trim();
+          const line = `- ${t.label}${t.note ? ': ' + t.note : ''}`;
+          state.rules.bible = (current ? current + '\n' : '') + line;
+          // Reflect in the rules modal if open.
+          const el = document.getElementById('rule-bible');
+          if (el) el.value = state.rules.bible;
+        } catch {}
+        persist();
+        render();
+      }
+
+      function dismissTheme(id) {
+        state.freestyleThemes = themes().filter(x => x.id !== id);
+        persist(); render();
+      }
+
+      // Local mic for freestyle — uses Web Speech same as the main composer
+      // but isolated so the two don't interfere.
+      function setupMic() {
+        const btn = micBtn(); if (!btn) return;
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) { btn.disabled = true; btn.title = 'voice typing isn\'t supported in this browser'; return; }
+        const rec = new SR();
+        rec.lang = (navigator.language && /^en/i.test(navigator.language)) ? navigator.language : 'en-US';
+        rec.continuous = true;
+        rec.interimResults = true;
+        let listening = false;
+        let base = '', finalAdded = '';
+        function setOn(on) {
+          listening = on;
+          btn.classList.toggle('listening', on);
+          btn.title = on ? 'stop' : 'voice it';
+        }
+        function start() {
+          try { window.qssTTS?.stop?.(); } catch {}
+          base = (inputEl()?.value || '').trim();
+          if (base && !base.endsWith(' ')) base += ' ';
+          finalAdded = '';
+          try { rec.start(); setOn(true); inputEl()?.focus(); }
+          catch { setOn(false); }
+        }
+        function stop() { try { rec.stop(); } catch {}; setOn(false); }
+        rec.onresult = (event) => {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const r = event.results[i];
+            const txt = r[0].transcript;
+            if (r.isFinal) finalAdded += (finalAdded && !finalAdded.endsWith(' ') ? ' ' : '') + txt.trim();
+            else interim += txt;
+          }
+          const composed = (base + finalAdded + (interim ? (finalAdded ? ' ' : '') + interim : '')).replace(/\s+/g, ' ').trimStart();
+          const inp = inputEl(); if (!inp) return;
+          inp.value = composed;
+          inp.style.height = 'auto';
+          inp.style.height = Math.min(inp.scrollHeight, 200) + 'px';
+        };
+        rec.onerror = () => setOn(false);
+        rec.onend = () => { if (listening) { try { rec.start(); } catch { setOn(false); } } };
+        btn.addEventListener('click', () => listening ? stop() : start());
+        mic = { stop, isListening: () => listening };
+      }
+
+      function wire() {
+        const inp = inputEl(); const send_ = sendBtn();
+        if (!inp || !send_) return;
+        send_.addEventListener('click', () => {
+          if (mic?.isListening?.()) mic.stop();
+          send(inp.value);
+        });
+        inp.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (mic?.isListening?.()) mic.stop();
+            send(inp.value);
+          }
+        });
+        // Auto-grow textarea
+        inp.addEventListener('input', () => {
+          inp.style.height = 'auto';
+          inp.style.height = Math.min(inp.scrollHeight, 200) + 'px';
+        });
+        // Delegated theme actions
+        themesListEl()?.addEventListener('click', (e) => {
+          const btn = e.target.closest('[data-action]'); if (!btn) return;
+          const card = e.target.closest('.fs-theme'); if (!card) return;
+          const id = card.dataset.id;
+          if (btn.dataset.action === 'promote') promoteTheme(id);
+          else if (btn.dataset.action === 'dismiss') dismissTheme(id);
+        });
+        // Delegated TTS for wordy bubbles — uses the existing tts-btn pipeline
+        // so it shares cache + state with the rest of the app.
+        threadEl()?.addEventListener('click', (e) => {
+          const ttsBtn = e.target.closest('.tts-btn[data-tts]');
+          if (!ttsBtn) return;
+          e.stopPropagation();
+          const text = ttsBtn.dataset.tts || '';
+          const voice = ttsBtn.dataset.ttsVoice || '';
+          if (text) window.qssTTS?.speak?.(text, ttsBtn, voice ? { voice } : {});
+        });
+        setupMic();
+      }
+
+      document.addEventListener('DOMContentLoaded', () => { wire(); render(); });
+
+      return { send, render, hydrate, reset, promoteTheme, dismissTheme };
+    })();
+
     // Re-render chip + cast + (if open) inspector whenever arc state changes
     window.Arc.subscribe(() => {
       renderArcChip();
@@ -5935,6 +6457,8 @@
           chat: state.chat,
           suggestions: [],   // (kept client-side; not worth syncing)
           character_cards: Array.isArray(state.characterCards) ? state.characterCards : undefined,
+          freestyle_chat: Array.isArray(state.freestyleChat) ? state.freestyleChat : undefined,
+          freestyle_themes: Array.isArray(state.freestyleThemes) ? state.freestyleThemes : undefined,
           expectedUpdatedAt: state.serverUpdatedAt || undefined,
         };
       }
@@ -6093,6 +6617,10 @@
           state.characterCards = row.character_cards;
           try { window.qssCast?.hydrateFromServer?.(row.character_cards); } catch {}
         }
+        // Hydrate the freestyle conversation + captured themes
+        state.freestyleChat = Array.isArray(row.freestyle_chat) ? row.freestyle_chat : [];
+        state.freestyleThemes = Array.isArray(row.freestyle_themes) ? row.freestyle_themes : [];
+        try { window.qssFreestyle?.hydrate?.({ chat: state.freestyleChat, themes: state.freestyleThemes }); } catch {}
         renderArcChip();
         state.latestOptions = null;
         for (let i = state.chat.length - 1; i >= 0; i--) {
