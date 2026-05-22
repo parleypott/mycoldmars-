@@ -3961,24 +3961,41 @@
     function openWrapUp() {
       const veil = document.getElementById('wrap-modal');
       if (!veil) return;
-      // Compute basic stats from current state
       const blocks = state.blocks || [];
       const blockCount = blocks.length;
       const wordCount = blocks.reduce((n, b) => n + (b.text || '').trim().split(/\s+/).filter(Boolean).length, 0);
-      const charCount = blocks.reduce((n, b) => n + (b.text || '').length, 0);
       const statsEl = document.getElementById('wrap-stats');
+      const readBtn = document.getElementById('wrap-read-last');
+      const titleEl = document.querySelector('#wrap-modal .wrap-title');
+      // Empty-state branch — Henry opened wrap-up before writing anything.
+      // Show an encouraging "start writing first" card instead of awkward 0s.
+      if (blockCount === 0) {
+        if (titleEl) titleEl.innerHTML = `let's get started, <span style="color: var(--red);">Henry</span>!`;
+        statsEl.innerHTML = `
+          <div class="wrap-stat" style="grid-column: span 2;">
+            <div style="font-family: var(--serif); font-size: 17px; line-height: 1.5; padding: 4px 0;">
+              You haven't written any story blocks yet. Hit "show me 3 ways to start" in the wizard and we'll get going.
+            </div>
+          </div>`;
+        document.getElementById('wrap-cast').innerHTML = '';
+        if (readBtn) readBtn.style.display = 'none';
+        veil.classList.add('open');
+        return;
+      }
+      // Normal celebration
+      if (titleEl) titleEl.innerHTML = `🎉 nice work, <span style="color: var(--red);">Henry</span>!`;
+      if (readBtn) readBtn.style.display = '';
       statsEl.innerHTML = `
         <div class="wrap-stat"><div class="num">${wordCount.toLocaleString()}</div><div class="lbl">words written</div></div>
         <div class="wrap-stat"><div class="num">${blockCount}</div><div class="lbl">story blocks</div></div>`;
-      // Characters from the arc cache (Haiku 4.5 already extracted them)
       const cast = state.arcContext?.characters || [];
       const castEl = document.getElementById('wrap-cast');
       if (cast.length) {
         const chips = cast.slice(0, 12).map(c => {
-          const name = typeof c === 'string' ? c : (c.name || c.label || '');
+          const name = typeof c === 'string' ? c : (c?.name || '');
           return name ? `<span class="chip">${esc(name)}</span>` : '';
         }).filter(Boolean).join('');
-        castEl.innerHTML = `<b>characters in your world</b><div class="chips">${chips}</div>`;
+        castEl.innerHTML = chips ? `<b>characters in your world</b><div class="chips">${chips}</div>` : '';
       } else {
         castEl.innerHTML = '';
       }
@@ -4497,12 +4514,19 @@
       // Sort: characters introduced more recently or appearing more often first.
       // intro_block is the block-index where they first appeared; lower = earlier
       // = more established. Show up to 8 chips; overflow indicator after.
-      const sorted = cast.slice().sort((a, b) => (a.intro_block || 0) - (b.intro_block || 0));
+      // Filter out entries missing a name so we don't render ghost chips.
+      const named = cast.filter(c => (c?.name || '').trim());
+      if (!named.length) {
+        strip.classList.remove('has-cast');
+        strip.innerHTML = '';
+        return;
+      }
+      const sorted = named.slice().sort((a, b) => (a.intro_block || 0) - (b.intro_block || 0));
       const visible = sorted.slice(0, 8);
       const overflow = sorted.length - visible.length;
       const chips = visible.map(c => {
-        const name = esc(c.name || '');
-        const tooltip = esc(c.current_state || c.role || c.name || '');
+        const name = esc(c.name.trim());
+        const tooltip = esc((c.current_state || c.name || '').trim());
         return `<button type="button" class="cast-chip" title="${tooltip}" data-action="open-arc"><span class="dot"></span>${name}</button>`;
       }).join('');
       const more = overflow > 0 ? `<span class="cast-more">+${overflow} more</span>` : '';
