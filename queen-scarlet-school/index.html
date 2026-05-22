@@ -3703,14 +3703,37 @@
       persist();
     }
     function init() {
-      // Coming back from the library page with ?story=<uuid>? Load that one from cloud.
+      // Coming back from the library page?
+      //   ?story=<uuid>  → open that specific story
+      //   ?new=1         → start a fresh story (used by library's "+ new story" button)
       const params = new URLSearchParams(location.search);
       const wantedId = params.get('story');
+      const wantsNew = params.get('new') === '1';
+      if (wantsNew) {
+        history.replaceState(null, '', location.pathname);
+        newStory(false);
+        return;
+      }
       if (wantedId) {
         history.replaceState(null, '', location.pathname);
         fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(wantedId)}`, {
           headers: { 'Authorization': 'Bearer qss' },
-        }).then(r => r.ok ? r.json() : Promise.reject(r)).then(({ story }) => {
+        }).then(r => {
+          if (!r.ok) {
+            // Story id was bad / story was deleted — fall back rather than
+            // silently dumping the user in the last-opened story (which would
+            // be confusing). Show a small notice.
+            try {
+              const div = document.createElement('div');
+              div.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--red,#E84545);color:#fff;padding:10px 16px;border:2.5px solid #000;border-radius:12px;box-shadow:4px 4px 0 #000;font-family:Fredoka,sans-serif;font-weight:700;font-size:14px;z-index:9000;';
+              div.textContent = 'couldn\'t open that story — it may have been deleted';
+              document.body.appendChild(div);
+              setTimeout(() => div.remove(), 4000);
+            } catch {}
+            return Promise.reject(r);
+          }
+          return r.json();
+        }).then(({ story }) => {
           if (story && window.Lib?.loadFromServerRow) window.Lib.loadFromServerRow(story);
           else fallbackInit();
         }).catch(() => fallbackInit());

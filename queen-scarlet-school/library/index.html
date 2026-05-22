@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Library — Queen Scarlet's School</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,7 +23,7 @@
       --ease: cubic-bezier(0.34, 1.56, 0.64, 1);
       --ease-soft: cubic-bezier(0.2, 0.6, 0.2, 1);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html, body { height: 100%; background: var(--paper); color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
     body { min-height: 100vh; display: flex; flex-direction: column; position: relative; }
     body::before {
@@ -32,7 +32,8 @@
       background-size: 24px 24px;
     }
     ::selection { background: var(--yolk); }
-    button { font-family: var(--ui); cursor: pointer; border: none; background: none; color: inherit; padding: 0; }
+    button { font-family: var(--ui); cursor: pointer; border: none; background: none; color: inherit; padding: 0; user-select: none; -webkit-user-select: none; }
+    button:disabled { cursor: not-allowed; opacity: 0.5; }
 
     /* Sticker buttons */
     .btn {
@@ -42,6 +43,7 @@
       box-shadow: 3px 3px 0 var(--ink-bright);
       transition: transform 140ms var(--ease), box-shadow 140ms var(--ease), background 140ms var(--ease);
       display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; text-decoration: none;
+      min-height: 36px;
     }
     .btn:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink-bright); }
     .btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink-bright); }
@@ -52,7 +54,7 @@
     .btn.big { font-size: 19px; padding: 12px 22px; font-weight: 700; border-radius: 16px; box-shadow: 4px 4px 0 var(--ink-bright); }
     .btn .arrow { font-size: 17px; line-height: 1; }
 
-    /* Mascot blob (mycoldmars brand) */
+    /* Mascot blob */
     .blob { display: inline-block; background: var(--yolk); border: 2.5px solid var(--ink-bright); border-radius: 50%; position: relative; box-shadow: 2px 2px 0 var(--ink-bright); flex-shrink: 0; width: 28px; height: 28px; }
     .blob::before, .blob::after { content: ''; position: absolute; background: var(--ink-bright); border-radius: 50%; width: 4px; height: 4px; top: 9px; }
     .blob::before { left: 7px; } .blob::after { right: 7px; }
@@ -62,6 +64,7 @@
       display: flex; align-items: center; padding: 14px 24px; gap: 16px;
       border-bottom: 3px solid var(--ink-bright); background: var(--paper);
       position: relative; z-index: 10; flex-shrink: 0;
+      padding-top: max(14px, env(safe-area-inset-top));
     }
     .brand {
       font-family: var(--display); font-size: 26px; font-weight: 700; color: var(--ink-bright);
@@ -77,7 +80,7 @@
     }
     .topbar-right { display: flex; align-items: center; gap: 10px; }
 
-    /* Dragon mascot (inline SVG injected at boot) */
+    /* Dragon mascot */
     .dragon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
       filter: drop-shadow(2.5px 2.5px 0 var(--ink-bright)); transition: transform 220ms var(--ease); }
     .dragon svg { width: 100%; height: 100%; display: block; overflow: visible; }
@@ -110,7 +113,7 @@
       transform: rotate(-2deg); white-space: nowrap;
     }
 
-    /* Banner (migration / errors) */
+    /* Banner */
     .banner {
       background: var(--bubblegum); border: 2.5px solid var(--ink-bright); border-radius: 14px;
       padding: 14px 18px;
@@ -122,7 +125,7 @@
     .banner.show { display: block; }
     .banner code { background: var(--paper-card); border: 1.5px solid var(--ink-bright); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
 
-    /* Stories grid */
+    /* Section heading */
     .section-title {
       font-family: var(--display); font-size: 30px; font-weight: 700;
       color: var(--ink-soft);
@@ -131,6 +134,7 @@
     }
     .section-title::after { content: ''; flex: 1; height: 2px; background: var(--ink-bright); opacity: 0.18; }
 
+    /* Stories grid */
     .stories-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -142,13 +146,29 @@
       background: var(--paper-card); border: 2.5px solid var(--ink-bright);
       border-radius: 18px; box-shadow: 5px 5px 0 var(--ink-bright);
       padding: 14px; display: flex; flex-direction: column; gap: 12px;
-      transition: transform .2s var(--ease), box-shadow .2s var(--ease);
+      transition: transform .2s var(--ease), box-shadow .2s var(--ease), opacity .2s var(--ease);
       cursor: pointer;
     }
     .story-card:nth-child(3n+1) { transform: rotate(-0.5deg); }
     .story-card:nth-child(3n+2) { transform: rotate(0.5deg); }
     .story-card:nth-child(3n+3) { transform: rotate(-0.2deg); }
     .story-card:hover { transform: translate(-2px, -3px) rotate(0); box-shadow: 7px 7px 0 var(--ink-bright); }
+    .story-card.busy { opacity: 0.6; pointer-events: none; }
+    .story-card.busy::after {
+      content: ''; position: absolute; inset: 0; border-radius: 18px;
+      background: rgba(255, 246, 224, 0.4); backdrop-filter: blur(1px);
+      pointer-events: none;
+    }
+    .story-card .busy-tag {
+      position: absolute; top: 8px; right: 8px; z-index: 4;
+      font-family: var(--ui); font-size: 11px; font-weight: 800;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 4px 10px; border-radius: 999px;
+      background: var(--ink-bright); color: var(--paper);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      display: none;
+    }
+    .story-card.busy .busy-tag { display: block; }
 
     .story-card .cover {
       width: 100%; aspect-ratio: 16 / 10;
@@ -181,14 +201,34 @@
     }
     .story-card .cb {
       font-family: var(--ui); font-weight: 700; font-size: 12px; color: var(--ink-bright);
-      padding: 4px 10px; background: var(--paper-card);
+      padding: 6px 12px; background: var(--paper-card);
       border: 2px solid var(--ink-bright); border-radius: 999px;
       box-shadow: 2px 2px 0 var(--ink-bright); cursor: pointer;
+      min-height: 32px;
+      transition: background 120ms var(--ease), transform 120ms var(--ease);
     }
-    .story-card .cb:hover { background: var(--yolk); transform: translateY(-1px); }
-    .story-card .cb.danger:hover { background: var(--red); }
+    .story-card .cb:hover:not(:disabled) { background: var(--yolk); transform: translateY(-1px); }
+    .story-card .cb.danger:hover:not(:disabled) { background: var(--red); }
     .story-card.trash { opacity: 0.72; background: var(--paper-deep); }
     .story-card.trash h3 { text-decoration: line-through; color: var(--ink-soft); }
+
+    /* Loading skeleton */
+    .skel-card {
+      background: var(--paper-card); border: 2.5px solid var(--ink-bright);
+      border-radius: 18px; box-shadow: 5px 5px 0 var(--ink-bright);
+      padding: 14px; display: flex; flex-direction: column; gap: 12px;
+      position: relative; overflow: hidden;
+    }
+    .skel-line, .skel-cover { background: var(--paper-deep); border-radius: 8px; }
+    .skel-cover { width: 100%; aspect-ratio: 16 / 10; }
+    .skel-line { height: 22px; width: 70%; }
+    .skel-line.short { width: 40%; height: 14px; }
+    .skel-card::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.55) 50%, transparent 70%);
+      animation: skel-shimmer 1.4s linear infinite;
+    }
+    @keyframes skel-shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 
     .empty {
       grid-column: 1 / -1;
@@ -200,16 +240,26 @@
       display: block; margin-top: 10px;
       font-family: var(--serif); font-size: 15px; color: var(--ink-faint); font-style: italic;
     }
+    .empty.error { color: var(--red-deep); }
+    .empty .retry {
+      display: inline-block; margin-top: 18px;
+      font-family: var(--ui); font-size: 13px; font-weight: 700;
+      padding: 6px 14px;
+      background: var(--paper-card); color: var(--ink-bright);
+      border: 2px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer;
+    }
 
     .trash-toggle-row { display: flex; justify-content: flex-end; margin-top: 32px; }
     .trash-toggle {
       font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--ink-soft);
       background: transparent; border: 2px dashed var(--ink-bright); border-radius: 999px;
-      padding: 5px 14px; cursor: pointer;
+      padding: 6px 14px; cursor: pointer; min-height: 32px;
     }
     .trash-toggle:hover { background: var(--paper-card); }
 
-    /* Scrapbook layer */
+    /* Scrapbook */
     .scrap-layer { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
     .scrap { position: absolute; pointer-events: none; user-select: none;
       filter: drop-shadow(4px 6px 0 rgba(0,0,0,0.22)); opacity: 0.92; }
@@ -244,6 +294,73 @@
     .app { flex: 1; display: flex; flex-direction: column; min-height: 0; }
     .app.hidden { display: none; }
 
+    /* Toast notifications */
+    .toast-wrap {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 600;
+      display: flex; flex-direction: column; gap: 10px;
+      pointer-events: none;
+      max-width: calc(100vw - 32px);
+    }
+    .toast {
+      pointer-events: auto;
+      background: var(--paper-card); color: var(--ink-bright);
+      border: 2.5px solid var(--ink-bright); border-radius: 14px;
+      padding: 12px 18px;
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      font-family: var(--ui); font-weight: 600; font-size: 14px;
+      max-width: 480px;
+      display: flex; align-items: center; gap: 10px;
+      animation: toast-in 220ms var(--ease);
+    }
+    .toast.success { background: var(--grass); }
+    .toast.error   { background: var(--red); color: var(--paper); }
+    .toast.error b { color: var(--paper); }
+    .toast .x {
+      background: transparent; color: inherit;
+      font-family: var(--ui); font-weight: 800; font-size: 16px;
+      cursor: pointer; padding: 0 4px;
+    }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateY(20px) scale(0.95); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .toast.leaving { animation: toast-out 180ms ease-in forwards; }
+    @keyframes toast-out {
+      to { opacity: 0; transform: translateY(20px) scale(0.95); }
+    }
+
+    /* Modals (rename + confirm) */
+    .lib-modal-veil {
+      position: fixed; inset: 0; z-index: 550;
+      background: rgba(31, 31, 35, 0.6);
+      display: none; align-items: center; justify-content: center;
+      padding: 24px;
+      animation: lm-veil-in 180ms ease-out;
+    }
+    .lib-modal-veil.open { display: flex; }
+    @keyframes lm-veil-in { from { opacity: 0; } to { opacity: 1; } }
+    .lib-modal {
+      background: var(--paper-card); border: 3px solid var(--ink-bright);
+      border-radius: 20px; box-shadow: 8px 8px 0 var(--ink-bright);
+      max-width: 460px; width: 100%;
+      padding: 24px;
+      display: flex; flex-direction: column; gap: 16px;
+      transform: rotate(-0.4deg);
+    }
+    .lib-modal h2 { font-family: var(--display); font-size: 32px; font-weight: 700; line-height: 1; color: var(--ink-bright); }
+    .lib-modal p  { font-family: var(--serif); font-size: 15px; color: var(--ink); line-height: 1.5; }
+    .lib-modal input {
+      width: 100%;
+      background: var(--paper-soft); border: 2.5px solid var(--ink-bright); border-radius: 12px;
+      padding: 12px 16px;
+      font-family: var(--ui); font-size: 16px; color: var(--ink);
+      outline: none; box-shadow: 2px 2px 0 var(--ink-bright);
+    }
+    .lib-modal input:focus { box-shadow: 4px 4px 0 var(--ink-bright); transform: translate(-1px, -1px); }
+    .lib-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
     *::-webkit-scrollbar { width: 14px; height: 14px; }
     *::-webkit-scrollbar-thumb { background: var(--ink-bright); border-radius: 999px; border: 3px solid var(--paper); }
   </style>
@@ -277,7 +394,7 @@
       <div class="lib-title">Library</div>
       <div class="topbar-right">
         <a href="../" class="btn ghost">← back to school</a>
-        <a href="../" class="btn primary" id="lib-new">+ new story</a>
+        <a href="../?new=1" class="btn primary" id="lib-new">+ new story</a>
       </div>
     </header>
 
@@ -287,7 +404,7 @@
         <span class="dragon md" id="intro-dragon"></span>
         <div class="copy">
           <h1>Your stories</h1>
-          <div class="sub">every story you've written with Wordy lives here. click one to open it, rename it, duplicate it, or send it to trash.</div>
+          <div class="sub">every story you've written with Wordy lives here. tap one to open it, rename it, duplicate it, or send it to trash.</div>
         </div>
         <div class="right">
           <span id="lib-count" class="lib-count">loading…</span>
@@ -312,8 +429,35 @@
 
   </div>
 
+  <!-- Rename modal -->
+  <div class="lib-modal-veil" id="rename-modal" role="dialog" aria-modal="true">
+    <div class="lib-modal">
+      <h2>rename story</h2>
+      <input id="rename-input" type="text" maxlength="120" autocomplete="off" spellcheck="false" />
+      <div class="lib-modal-actions">
+        <button class="btn ghost" id="rename-cancel">cancel</button>
+        <button class="btn primary" id="rename-save">save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm modal -->
+  <div class="lib-modal-veil" id="confirm-modal" role="dialog" aria-modal="true">
+    <div class="lib-modal">
+      <h2 id="confirm-title">are you sure?</h2>
+      <p id="confirm-body"></p>
+      <div class="lib-modal-actions">
+        <button class="btn ghost" id="confirm-cancel">cancel</button>
+        <button class="btn primary" id="confirm-ok">yes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div class="toast-wrap" id="toast-wrap" aria-live="polite"></div>
+
   <script>
-    // ─── Gate (shared cookie with the school) ───
+    // ─── Gate ───
     (function() {
       const COOKIE = 'qss_access', PASS = 'newpress';
       const gateEl = document.getElementById('gate'), appEl = document.getElementById('app');
@@ -321,6 +465,7 @@
       function unlock() {
         document.cookie = COOKIE+'=granted; path=/; max-age='+(60*60*24*90);
         gateEl.classList.add('hidden'); appEl.classList.remove('hidden');
+        boot();
       }
       if (getCookie(COOKIE) === 'granted') { unlock(); return; }
       const inp = document.getElementById('gate-code');
@@ -331,7 +476,7 @@
       inp.focus();
     })();
 
-    // ─── Dragon SVG (same source-of-truth as the school) ───
+    // ─── Dragon SVG ───
     const DRAGON_SVG = `
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-label="Wordy the dragon">
   <path d="M14 56 Q-2 32 4 76 Q18 72 22 60 Z" fill="#C32626" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
@@ -358,10 +503,29 @@
 </svg>`;
     document.querySelectorAll('.dragon').forEach(el => { if (!el.innerHTML.trim()) el.innerHTML = DRAGON_SVG; });
 
-    // ─── Library data layer ───
-    const DECOR = ['/decor/dragon-fierce.jpg', '/decor/school-building.jpg', '/decor/bunker-blueprint.jpg', '/decor/dragon-chill.jpg', '/decor/benny-beaver.jpg', '/decor/kevin-helmet.jpg', '/decor/not-to-hug-chart.jpg', '/decor/uranium-cart.jpg'];
+    // ─────────────────── Library data layer ───────────────────
+    //
+    // Reliability invariants:
+    //   - Every server call goes through `apiCall` which retries once on
+    //     transient 5xx/timeout, parses JSON, surfaces typed errors.
+    //   - Each card has an inflight guard. Buttons on a busy card disable
+    //     themselves and the card grays out + shows a "saving…" tag.
+    //   - All success/failure paths emit a toast so the user always knows.
+    //   - On tab refocus (visibilitychange), the list re-renders so the
+    //     view stays in sync if Henry was using QSS on another device.
+    //   - The card body click → open. Buttons stop propagation via the
+    //     `closest('[data-action]')` guard.
+    //   - Custom modals replace native prompt()/confirm() (jarring on iPad).
+
+    const HEADERS = { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' };
+    const FETCH_TIMEOUT = 15000; // generous because Vercel cold-start can be 5-8s
+
+    const DECOR = [
+      '/decor/dragon-fierce.jpg', '/decor/school-building.jpg', '/decor/bunker-blueprint.jpg',
+      '/decor/dragon-chill.jpg', '/decor/benny-beaver.jpg', '/decor/kevin-helmet.jpg',
+      '/decor/not-to-hug-chart.jpg', '/decor/uranium-cart.jpg',
+    ];
     function decorFor(id) {
-      // deterministic decor pick by id hash so each card stays consistent
       let h = 0; for (const c of (id || '')) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
       return DECOR[Math.abs(h) % DECOR.length];
     }
@@ -379,38 +543,109 @@
       if (d < 30) return `${d} day${d === 1 ? '' : 's'} ago`;
       return new Date(iso).toLocaleDateString();
     }
+
     function esc(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 
-    const HEADERS = { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' };
+    // ─── Toasts ──────────────────────────────────────────────
+    function toast(message, kind = 'success', timeoutMs = 3200) {
+      const wrap = document.getElementById('toast-wrap');
+      if (!wrap) return;
+      const el = document.createElement('div');
+      el.className = `toast ${kind}`;
+      el.innerHTML = `<span>${esc(message)}</span><button class="x" aria-label="Dismiss">×</button>`;
+      wrap.appendChild(el);
+      const close = () => {
+        if (!el.parentNode) return;
+        el.classList.add('leaving');
+        setTimeout(() => el.parentNode?.removeChild(el), 200);
+      };
+      el.querySelector('.x').addEventListener('click', close);
+      if (timeoutMs > 0) setTimeout(close, timeoutMs);
+      return close;
+    }
+
+    // ─── Generic API call w/ timeout + 1 retry on transient failure ──
+    async function apiCall(path, init = {}, { retries = 1 } = {}) {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+      try {
+        const res = await fetch(path, { ...init, signal: controller.signal });
+        clearTimeout(t);
+        if (res.status === 503) {
+          const j = await res.json().catch(() => ({}));
+          const err = new Error(j.message || 'service unavailable');
+          err.code = j.error || 'UNAVAILABLE';
+          err.status = 503;
+          throw err;
+        }
+        if (res.status >= 500 && retries > 0) {
+          // Transient. Retry once after a short delay.
+          await new Promise(r => setTimeout(r, 900));
+          return apiCall(path, init, { retries: retries - 1 });
+        }
+        if (!res.ok) {
+          let j = {};
+          try { j = await res.json(); } catch {}
+          const err = new Error(j.message || `HTTP ${res.status}`);
+          err.code = j.error || `HTTP_${res.status}`;
+          err.status = res.status;
+          err.detail = j;
+          throw err;
+        }
+        return await res.json().catch(() => ({}));
+      } catch (e) {
+        clearTimeout(t);
+        if (e.name === 'AbortError') {
+          if (retries > 0) {
+            await new Promise(r => setTimeout(r, 600));
+            return apiCall(path, init, { retries: retries - 1 });
+          }
+          const err = new Error('the network is being slow. try again?');
+          err.code = 'TIMEOUT';
+          err.status = 0;
+          throw err;
+        }
+        // Network down: navigator.onLine is a strong hint, not gospel.
+        if (e.code === undefined && !navigator.onLine) {
+          const err = new Error('you appear to be offline');
+          err.code = 'OFFLINE';
+          err.status = 0;
+          throw err;
+        }
+        if (retries > 0 && /Failed to fetch|NetworkError|Load failed/i.test(e.message || '')) {
+          await new Promise(r => setTimeout(r, 700));
+          return apiCall(path, init, { retries: retries - 1 });
+        }
+        throw e;
+      }
+    }
 
     async function fetchList(includeTrash = false) {
       const q = includeTrash ? '?action=list&trash=1' : '?action=list';
-      const res = await fetch(`/api/qss-stories${q}`, { headers: HEADERS });
-      if (res.status === 503) {
-        const j = await res.json().catch(() => ({}));
-        if (j.error === 'MIGRATION_PENDING') return { stories: [], migrationPending: true };
+      try {
+        const j = await apiCall(`/api/qss-stories${q}`, { headers: HEADERS });
+        return { stories: j.stories || [], migrationPending: false };
+      } catch (e) {
+        if (e.code === 'MIGRATION_PENDING') return { stories: [], migrationPending: true };
+        throw e;
       }
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.message || `HTTP ${res.status}`);
-      }
-      const { stories } = await res.json();
-      return { stories, migrationPending: false };
     }
 
+    // ─── Card markup ─────────────────────────────────────────
     function cardHtml(s, isTrash) {
       const when = relTime(s.updated_at);
       const cover = s.cover_image
-        ? `<div class="cover"><img src="${s.cover_image}" alt="cover" /></div>`
-        : `<div class="cover deco"><img src="${decorFor(s.id)}" alt="" /></div>`;
+        ? `<div class="cover"><img src="${esc(s.cover_image)}" alt="cover" onerror="this.style.display='none'" /></div>`
+        : `<div class="cover deco"><img src="${decorFor(s.id)}" alt="" onerror="this.style.display='none'" /></div>`;
       const actions = isTrash
-        ? `<button class="cb" data-action="restore" data-id="${s.id}">restore</button>
-           <button class="cb danger" data-action="purge" data-id="${s.id}">forever delete</button>`
-        : `<button class="cb" data-action="open" data-id="${s.id}">open</button>
-           <button class="cb" data-action="rename" data-id="${s.id}">rename</button>
-           <button class="cb" data-action="duplicate" data-id="${s.id}">duplicate</button>
-           <button class="cb danger" data-action="delete" data-id="${s.id}">delete</button>`;
-      return `<div class="story-card ${isTrash ? 'trash' : ''}" data-id="${s.id}">
+        ? `<button class="cb" type="button" data-action="restore" data-id="${s.id}">restore</button>
+           <button class="cb danger" type="button" data-action="purge" data-id="${s.id}">forever delete</button>`
+        : `<button class="cb" type="button" data-action="open" data-id="${s.id}">open</button>
+           <button class="cb" type="button" data-action="rename" data-id="${s.id}">rename</button>
+           <button class="cb" type="button" data-action="duplicate" data-id="${s.id}">duplicate</button>
+           <button class="cb danger" type="button" data-action="delete" data-id="${s.id}">delete</button>`;
+      return `<div class="story-card ${isTrash ? 'trash' : ''}" data-id="${s.id}" data-name="${esc(s.name || 'untitled')}">
+        <span class="busy-tag" data-role="busy-tag">working…</span>
         ${cover}
         <h3>${esc(s.name || 'untitled')}</h3>
         <div class="meta">
@@ -421,110 +656,317 @@
       </div>`;
     }
 
-    function showBanner(html) {
+    function setBanner(html) {
       const b = document.getElementById('banner');
       b.innerHTML = html;
       b.classList.add('show');
     }
+    function clearBanner() {
+      const b = document.getElementById('banner');
+      b.classList.remove('show'); b.innerHTML = '';
+    }
 
-    async function renderMain() {
+    function skeletonHtml(n = 6) {
+      let out = '';
+      for (let i = 0; i < n; i++) {
+        out += `<div class="skel-card">
+          <div class="skel-cover"></div>
+          <div class="skel-line"></div>
+          <div class="skel-line short"></div>
+        </div>`;
+      }
+      return out;
+    }
+
+    // ─── Rendering ──────────────────────────────────────────
+    let lastMainStories = null;
+
+    async function renderMain({ skipSkeleton = false } = {}) {
       const grid = document.getElementById('stories-grid');
       const count = document.getElementById('lib-count');
-      count.textContent = 'loading…';
-      grid.innerHTML = '';
+      if (!skipSkeleton) {
+        count.textContent = 'loading…';
+        grid.innerHTML = skeletonHtml(6);
+      }
       try {
         const { stories, migrationPending } = await fetchList(false);
         if (migrationPending) {
-          showBanner('<strong>The library needs a one-time setup.</strong> In the Supabase SQL editor, run <code>supabase/migrations/015_qss_stories.sql</code>. Until then your stories are saved locally and survive on this device.');
+          setBanner('<strong>The library needs a one-time setup.</strong> In the Supabase SQL editor, run <code>supabase/migrations/015_qss_stories.sql</code>. Until then your stories are saved locally and survive on this device.');
           count.textContent = 'setup needed';
           grid.innerHTML = '<div class="empty">setup needed before stories can save to the cloud<span class="little">see the pink note above</span></div>';
           return;
         }
+        clearBanner();
+        lastMainStories = stories;
         count.textContent = `${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`;
         if (!stories.length) {
-          grid.innerHTML = `<div class="empty">no stories yet!<span class="little">head back to the school and start one — it\'ll show up here automatically.</span></div>`;
+          grid.innerHTML = `<div class="empty">no stories yet!<span class="little">tap "+ new story" up top to start one — it'll show up here automatically.</span></div>`;
           return;
         }
         grid.innerHTML = stories.map(s => cardHtml(s, false)).join('');
       } catch (e) {
         count.textContent = 'error';
-        grid.innerHTML = `<div class="empty">couldn\'t load library<span class="little">${esc(e.message)}</span></div>`;
+        grid.innerHTML = `<div class="empty error">couldn't load library<span class="little">${esc(e.message || 'unknown error')}</span><button class="retry" id="retry-main">try again</button></div>`;
+        document.getElementById('retry-main')?.addEventListener('click', () => renderMain());
       }
     }
 
     async function renderTrash() {
       const tg = document.getElementById('trash-grid');
-      tg.innerHTML = '';
+      tg.innerHTML = skeletonHtml(3);
       try {
         const { stories } = await fetchList(true);
         if (!stories.length) { tg.innerHTML = '<div class="empty">trash is empty</div>'; return; }
         tg.innerHTML = stories.map(s => cardHtml(s, true)).join('');
       } catch (e) {
-        tg.innerHTML = `<div class="empty">error<span class="little">${esc(e.message)}</span></div>`;
+        tg.innerHTML = `<div class="empty error">couldn't load trash<span class="little">${esc(e.message)}</span></div>`;
       }
     }
 
-    document.getElementById('refresh-btn').addEventListener('click', renderMain);
-    document.getElementById('toggle-trash').addEventListener('click', async () => {
-      const sec = document.getElementById('trash-section');
-      const btn = document.getElementById('toggle-trash');
-      const showing = sec.style.display === 'block';
-      sec.style.display = showing ? 'none' : 'block';
-      btn.textContent = showing ? 'show trash' : 'hide trash';
-      if (!showing) await renderTrash();
-    });
+    // ─── Per-card busy guard ────────────────────────────────
+    function setCardBusy(card, busy) {
+      if (!card) return;
+      card.classList.toggle('busy', !!busy);
+      card.querySelectorAll('button').forEach(b => { b.disabled = !!busy; });
+    }
+    function setCardBusyById(grid, id, busy) {
+      const card = grid.querySelector(`.story-card[data-id="${CSS.escape(id)}"]`);
+      setCardBusy(card, busy);
+    }
 
-    document.getElementById('stories-grid').addEventListener('click', async (e) => {
+    // ─── Modal helpers ──────────────────────────────────────
+    function showRename(currentName) {
+      return new Promise(resolve => {
+        const veil = document.getElementById('rename-modal');
+        const inp = document.getElementById('rename-input');
+        const save = document.getElementById('rename-save');
+        const cancel = document.getElementById('rename-cancel');
+        inp.value = currentName || '';
+        veil.classList.add('open');
+        setTimeout(() => { inp.focus(); inp.select(); }, 30);
+        function cleanup() {
+          veil.classList.remove('open');
+          save.removeEventListener('click', onSave);
+          cancel.removeEventListener('click', onCancel);
+          inp.removeEventListener('keydown', onKey);
+          veil.removeEventListener('click', onVeil);
+        }
+        function onSave() { cleanup(); resolve((inp.value || '').trim()); }
+        function onCancel() { cleanup(); resolve(null); }
+        function onKey(e) {
+          if (e.key === 'Enter') onSave();
+          else if (e.key === 'Escape') onCancel();
+        }
+        function onVeil(e) { if (e.target === veil) onCancel(); }
+        save.addEventListener('click', onSave);
+        cancel.addEventListener('click', onCancel);
+        inp.addEventListener('keydown', onKey);
+        veil.addEventListener('click', onVeil);
+      });
+    }
+
+    function showConfirm(title, body, okLabel = 'yes') {
+      return new Promise(resolve => {
+        const veil = document.getElementById('confirm-modal');
+        document.getElementById('confirm-title').textContent = title;
+        document.getElementById('confirm-body').textContent = body;
+        const ok = document.getElementById('confirm-ok');
+        const cancel = document.getElementById('confirm-cancel');
+        ok.textContent = okLabel;
+        veil.classList.add('open');
+        function cleanup() {
+          veil.classList.remove('open');
+          ok.removeEventListener('click', onOk);
+          cancel.removeEventListener('click', onCancel);
+          veil.removeEventListener('click', onVeil);
+          document.removeEventListener('keydown', onKey);
+        }
+        function onOk() { cleanup(); resolve(true); }
+        function onCancel() { cleanup(); resolve(false); }
+        function onVeil(e) { if (e.target === veil) onCancel(); }
+        function onKey(e) {
+          if (e.key === 'Escape') onCancel();
+          if (e.key === 'Enter') onOk();
+        }
+        ok.addEventListener('click', onOk);
+        cancel.addEventListener('click', onCancel);
+        veil.addEventListener('click', onVeil);
+        document.addEventListener('keydown', onKey);
+      });
+    }
+
+    // ─── Friendly error messages ────────────────────────────
+    function friendlyError(e) {
+      if (!e) return 'something went wrong';
+      switch (e.code) {
+        case 'NAME_TAKEN':       return 'that name is already taken. pick another?';
+        case 'NOT_FOUND':        return 'that story is gone';
+        case 'MIGRATION_PENDING': return 'the library is being set up — try again in a sec';
+        case 'TIMEOUT':          return 'the network is slow. try again?';
+        case 'OFFLINE':          return 'you\'re offline. check your connection.';
+        default: return e.message || 'something went wrong';
+      }
+    }
+
+    // ─── Action handlers ────────────────────────────────────
+    async function handleOpen(id) {
+      window.location.href = `../?story=${encodeURIComponent(id)}`;
+    }
+
+    async function handleRename(id, currentName) {
+      const grid = document.getElementById('stories-grid');
+      const next = await showRename(currentName);
+      if (next === null) return;          // cancelled
+      const trimmed = (next || '').trim();
+      if (!trimmed) { toast('name can\'t be empty', 'error'); return; }
+      if (trimmed === currentName) return;
+
+      setCardBusyById(grid, id, true);
+      try {
+        await apiCall('/api/qss-stories?action=rename', {
+          method: 'POST', headers: HEADERS,
+          body: JSON.stringify({ id, name: trimmed }),
+        });
+        toast(`renamed to "${trimmed}"`);
+        await renderMain({ skipSkeleton: true });
+      } catch (e) {
+        toast(friendlyError(e), 'error', 4500);
+        setCardBusyById(grid, id, false);
+      }
+    }
+
+    async function handleDuplicate(id) {
+      const grid = document.getElementById('stories-grid');
+      setCardBusyById(grid, id, true);
+      try {
+        const j = await apiCall('/api/qss-stories?action=duplicate', {
+          method: 'POST', headers: HEADERS,
+          body: JSON.stringify({ id }),
+        });
+        const newName = j?.story?.name || 'copy';
+        toast(`duplicated as "${newName}"`);
+        await renderMain({ skipSkeleton: true });
+      } catch (e) {
+        toast(friendlyError(e), 'error', 4500);
+        setCardBusyById(grid, id, false);
+      }
+    }
+
+    async function handleDelete(id, currentName) {
+      const ok = await showConfirm('move to trash?', `"${currentName || 'this story'}" goes to trash — you can restore it later.`, 'yes, trash it');
+      if (!ok) return;
+      const grid = document.getElementById('stories-grid');
+      setCardBusyById(grid, id, true);
+      try {
+        await apiCall('/api/qss-stories?action=delete', {
+          method: 'POST', headers: HEADERS,
+          body: JSON.stringify({ id }),
+        });
+        toast('moved to trash');
+        await renderMain({ skipSkeleton: true });
+        if (document.getElementById('trash-section').style.display === 'block') await renderTrash();
+      } catch (e) {
+        toast(friendlyError(e), 'error', 4500);
+        setCardBusyById(grid, id, false);
+      }
+    }
+
+    async function handleRestore(id) {
+      const grid = document.getElementById('trash-grid');
+      setCardBusyById(grid, id, true);
+      try {
+        await apiCall('/api/qss-stories?action=restore', {
+          method: 'POST', headers: HEADERS,
+          body: JSON.stringify({ id }),
+        });
+        toast('restored');
+        await Promise.all([renderMain({ skipSkeleton: true }), renderTrash()]);
+      } catch (e) {
+        toast(friendlyError(e), 'error', 4500);
+        setCardBusyById(grid, id, false);
+      }
+    }
+
+    async function handlePurge(id, currentName) {
+      const ok = await showConfirm('delete FOREVER?', `"${currentName || 'this story'}" will be gone forever. there's no undo for this one.`, 'yes, delete forever');
+      if (!ok) return;
+      const grid = document.getElementById('trash-grid');
+      setCardBusyById(grid, id, true);
+      try {
+        await apiCall('/api/qss-stories?action=hard-delete', {
+          method: 'POST', headers: HEADERS,
+          body: JSON.stringify({ id }),
+        });
+        toast('gone forever');
+        await renderTrash();
+      } catch (e) {
+        toast(friendlyError(e), 'error', 4500);
+        setCardBusyById(grid, id, false);
+      }
+    }
+
+    // ─── Delegated click handlers (with `closest`) ───────────
+    function onMainGridClick(e) {
       const card = e.target.closest('.story-card');
       if (!card) return;
+      if (card.classList.contains('busy')) return; // ignore clicks during inflight
+
+      const btn = e.target.closest('[data-action]');
+      const action = btn?.dataset.action;
       const id = card.dataset.id;
-      const action = e.target.dataset.action;
-      if (!action || action === 'open') {
-        // Card body click or "open" button → navigate back to school with ?story=
-        window.location.href = `../?story=${encodeURIComponent(id)}`;
-        return;
-      }
-      if (action === 'rename') {
-        const cur = card.querySelector('h3').textContent.trim();
-        const next = window.prompt('New name?', cur);
-        if (!next || !next.trim() || next === cur) return;
-        try {
-          const res = await fetch('/api/qss-stories?action=rename', { method: 'POST', headers: HEADERS, body: JSON.stringify({ id, name: next.trim() }) });
-          if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'rename failed');
-          await renderMain();
-        } catch (err) { alert(err.message); }
-      } else if (action === 'duplicate') {
-        try {
-          const res = await fetch('/api/qss-stories?action=duplicate', { method: 'POST', headers: HEADERS, body: JSON.stringify({ id }) });
-          if (!res.ok) throw new Error('duplicate failed');
-          await renderMain();
-        } catch (err) { alert(err.message); }
-      } else if (action === 'delete') {
-        if (!confirm('Move this story to trash?')) return;
-        try {
-          await fetch('/api/qss-stories?action=delete', { method: 'POST', headers: HEADERS, body: JSON.stringify({ id }) });
-          await renderMain();
-          if (document.getElementById('trash-section').style.display === 'block') await renderTrash();
-        } catch (err) { alert(err.message); }
-      }
-    });
+      const name = card.dataset.name;
+      if (action === 'rename')    { handleRename(id, name); return; }
+      if (action === 'duplicate') { handleDuplicate(id); return; }
+      if (action === 'delete')    { handleDelete(id, name); return; }
+      if (action === 'open' || !action) { handleOpen(id); return; }
+    }
 
-    document.getElementById('trash-grid').addEventListener('click', async (e) => {
-      const action = e.target.dataset.action;
-      if (!action) return;
-      const id = e.target.dataset.id;
-      if (action === 'restore') {
-        await fetch('/api/qss-stories?action=restore', { method: 'POST', headers: HEADERS, body: JSON.stringify({ id }) });
-        await renderTrash(); await renderMain();
-      } else if (action === 'purge') {
-        if (!confirm('Delete this story FOREVER?')) return;
-        await fetch('/api/qss-stories?action=hard-delete', { method: 'POST', headers: HEADERS, body: JSON.stringify({ id }) });
-        await renderTrash();
-      }
-    });
+    function onTrashGridClick(e) {
+      const card = e.target.closest('.story-card');
+      if (!card) return;
+      if (card.classList.contains('busy')) return;
+      const btn = e.target.closest('[data-action]');
+      const action = btn?.dataset.action;
+      const id = card.dataset.id;
+      const name = card.dataset.name;
+      if (action === 'restore') { handleRestore(id); return; }
+      if (action === 'purge')   { handlePurge(id, name); return; }
+    }
 
-    // Boot
-    renderMain();
+    // ─── Boot wiring ────────────────────────────────────────
+    function boot() {
+      document.getElementById('refresh-btn').addEventListener('click', () => {
+        renderMain({ skipSkeleton: true });
+        if (document.getElementById('trash-section').style.display === 'block') renderTrash();
+        toast('refreshed', 'success', 1400);
+      });
+
+      document.getElementById('toggle-trash').addEventListener('click', async () => {
+        const sec = document.getElementById('trash-section');
+        const btn = document.getElementById('toggle-trash');
+        const showing = sec.style.display === 'block';
+        sec.style.display = showing ? 'none' : 'block';
+        btn.textContent = showing ? 'show trash' : 'hide trash';
+        if (!showing) await renderTrash();
+      });
+
+      document.getElementById('stories-grid').addEventListener('click', onMainGridClick);
+      document.getElementById('trash-grid').addEventListener('click', onTrashGridClick);
+
+      // Auto-refresh when the tab regains focus — keeps the view honest if
+      // Henry was on another device or just had this open in the background.
+      let lastRefresh = Date.now();
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        const since = Date.now() - lastRefresh;
+        if (since < 5000) return; // throttle
+        lastRefresh = Date.now();
+        renderMain({ skipSkeleton: true });
+      });
+
+      // First render
+      renderMain();
+    }
   </script>
 
 </body>
