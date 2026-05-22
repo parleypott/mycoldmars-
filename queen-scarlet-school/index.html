@@ -1579,6 +1579,55 @@
     body.focus-mode .focus-chip { display: inline-flex; align-items: center; gap: 6px; }
     body.focus-mode #btn-focus { background: var(--red); color: #fff; }
 
+    /* ─── Live cast roster ── always-visible character chips above the blocks ─── */
+    .cast-strip {
+      display: none;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px 8px 4px 8px;
+      margin-bottom: 6px;
+    }
+    .cast-strip.has-cast { display: flex; }
+    .cast-strip .cast-label {
+      font-family: var(--ui); font-weight: 800; font-size: 10px;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--ink-soft);
+      align-self: center; margin-right: 4px;
+      cursor: pointer;
+    }
+    .cast-strip .cast-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 11px;
+      font-family: var(--ui); font-weight: 700; font-size: 12.5px;
+      background: var(--paper-card);
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer;
+      transition: transform .12s ease, box-shadow .12s ease, background .15s;
+    }
+    .cast-strip .cast-chip:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      background: var(--paper-soft);
+    }
+    .cast-strip .cast-chip:nth-child(5n+1) { background: var(--yolk); }
+    .cast-strip .cast-chip:nth-child(5n+2) { background: var(--grass); }
+    .cast-strip .cast-chip:nth-child(5n+3) { background: var(--bubblegum); color: #fff; }
+    .cast-strip .cast-chip:nth-child(5n+4) { background: var(--grape); color: #fff; }
+    .cast-strip .cast-chip:nth-child(5n+5) { background: var(--sky); }
+    .cast-strip .cast-chip .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--ink-bright);
+      flex-shrink: 0;
+      transform: rotate(-12deg);
+    }
+    .cast-strip .cast-more {
+      font-family: var(--ui); font-weight: 700; font-size: 11.5px;
+      color: var(--ink-soft);
+      align-self: center;
+    }
+
     /* ─── Wrap-up celebration modal — session-end positive reinforcement ─── */
     .wrap-veil {
       position: fixed; inset: 0;
@@ -1943,6 +1992,9 @@
                 <button id="btn-collapse-all" class="pane-ctrl-btn ghost" type="button" title="Collapse all blocks to summary">⊟</button>
               </div>
             </div>
+            <!-- Live character roster (auto-built from arc cache, click any chip → arc inspector) -->
+            <div id="cast-strip" class="cast-strip" aria-label="Characters in this story"></div>
+
             <!-- Sticky karaoke transport bar (visible only while audio is playing/paused) -->
             <div id="karaoke-bar" class="karaoke-bar" role="region" aria-label="Karaoke player controls">
               <button class="kb-btn kb-big" id="kb-play-pause" type="button" title="Play / pause">▶</button>
@@ -4250,12 +4302,47 @@
           ${arc.block_count_when_extracted ? `<span>· analyzed at block ${arc.block_count_when_extracted}</span>` : ''}
         </div>`;
     }
-    // Re-render chip and (if open) inspector whenever arc state changes
+    // ─── Live cast strip — top-of-story character roster, auto-updated ───
+    function renderCastStrip() {
+      const strip = document.getElementById('cast-strip');
+      if (!strip) return;
+      const cast = state.arcContext?.characters || [];
+      if (!cast.length) {
+        strip.classList.remove('has-cast');
+        strip.innerHTML = '';
+        return;
+      }
+      // Sort: characters introduced more recently or appearing more often first.
+      // intro_block is the block-index where they first appeared; lower = earlier
+      // = more established. Show up to 8 chips; overflow indicator after.
+      const sorted = cast.slice().sort((a, b) => (a.intro_block || 0) - (b.intro_block || 0));
+      const visible = sorted.slice(0, 8);
+      const overflow = sorted.length - visible.length;
+      const chips = visible.map(c => {
+        const name = esc(c.name || '');
+        const tooltip = esc(c.current_state || c.role || c.name || '');
+        return `<button type="button" class="cast-chip" title="${tooltip}" data-action="open-arc"><span class="dot"></span>${name}</button>`;
+      }).join('');
+      const more = overflow > 0 ? `<span class="cast-more">+${overflow} more</span>` : '';
+      strip.innerHTML =
+        `<span class="cast-label" data-action="open-arc">cast ·</span>${chips}${more}`;
+      strip.classList.add('has-cast');
+    }
+    // Delegated click handler: any cast chip opens the arc inspector
+    document.getElementById('cast-strip')?.addEventListener('click', (e) => {
+      const trigger = e.target.closest('[data-action="open-arc"]');
+      if (trigger && typeof openArcInspector === 'function') openArcInspector();
+    });
+
+    // Re-render chip + cast + (if open) inspector whenever arc state changes
     window.Arc.subscribe(() => {
       renderArcChip();
+      renderCastStrip();
       const insp = document.getElementById('arc-inspector');
       if (insp && insp.classList.contains('open')) renderArcInspector();
     });
+    // Initial render
+    renderCastStrip();
 
     // ─────────── Drag-resizable split between story + chat ───────────
     (function() {
