@@ -4405,9 +4405,24 @@
           if (turn.directions) for (const d of turn.directions) window.qssTtsPrefetch(d.title + '. ' + d.description);
         }
       } catch (e) {
+        // Sanitize the surfaced message — never dump raw upstream JSON into
+        // a chat bubble in front of Henry. Map known failure modes to short
+        // kid-friendly lines; everything else falls back to a generic one.
+        const rawMsg = (e && e.message ? String(e.message) : '').trim();
+        let friendly = "wordy needs a sec — give it another try?";
+        const lower = rawMsg.toLowerCase();
+        if (/\b503\b|unavailable|high demand|overloaded|capacity/.test(lower)) {
+          friendly = "wordy is super busy right now — try again in a moment.";
+        } else if (/\b429\b|rate limit/.test(lower)) {
+          friendly = "wordy is catching their breath — wait a sec and try again.";
+        } else if (/timeout|network|failed to fetch|load failed/.test(lower)) {
+          friendly = "wordy didn't hear you — check your connection and try again.";
+        } else if (/401|unauthorized/.test(lower)) {
+          friendly = "wordy lost the password — refresh the page and try again.";
+        }
         state.chat.push({
           id: uid(), role: 'wordy',
-          content: `oof, i got stuck: ${e.message}. try again in a sec?`,
+          content: friendly,
           options: [],
         });
       } finally {

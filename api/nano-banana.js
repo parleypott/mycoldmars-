@@ -410,6 +410,13 @@ End your reply with this exact fenced block:
 
 Always EXACTLY 3 scenarios, three different move types, with at least one fresh element. Valid JSON.
 
+QUOTING RULES (CRITICAL — breaks the UI when violated):
+- The JSON string values use double quotes "like this". Inside those string values, NEVER use another double quote. If you need to quote a name or phrase inside a title or description, use SINGLE quotes 'like this' or just omit quotes.
+- Bad:  { "title": "A "Camp Scarlet" intern arrives" }
+- Good: { "title": "A 'Camp Scarlet' intern arrives" }
+- Good: { "title": "A Camp Scarlet intern arrives" }
+- Same rule applies to apostrophes that happen to look like fancy quotes (' ' " " ‐ — etc.) — use straight ASCII characters only.
+
 ═══ NEVER ═══
 - Never propose abstract themes ("a quiet moment", "the reveal") — propose CONCRETE EVENTS.
 - Never repeat or near-repeat scenarios from the RECENT SCENARIOS list.
@@ -750,9 +757,16 @@ async function handleTutor(body, apiKey) {
   }
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
+    const lower = errText.toLowerCase();
     const isQuota = errText.includes('RESOURCE_EXHAUSTED');
-    return jsonError(isQuota ? 429 : (res.status || 502),
-      isQuota ? 'wordy is tired — try again in a minute' : `wordy hit a snag: ${errText.slice(0, 400)}`);
+    const isBusy = /unavailable|high demand|overloaded|currently/.test(lower) || res.status === 503;
+    // NEVER pass raw upstream JSON through — the client previously dumped
+    // it into a chat bubble. Map to short, kid-friendly strings and let
+    // the client further sanitize on its end.
+    let friendly = 'wordy needs a moment — try again';
+    if (isQuota) friendly = 'wordy is tired — try again in a minute';
+    else if (isBusy) friendly = 'wordy is super busy right now — give it a sec and try again';
+    return jsonError(isQuota || isBusy ? 503 : (res.status || 502), friendly);
   }
   const data = await res.json().catch(() => null);
   if (!data) return jsonError(502, 'wordy gave a weird answer — try again');
@@ -817,20 +831,11 @@ function extractDirections(reply) {
   let m;
   while ((m = closedRe.exec(reply)) !== null) {
     const raw = m[1].trim();
-    try {
-      const parsed = JSON.parse(raw);
-      const arr = Array.isArray(parsed) ? parsed : [parsed];
-      for (const item of arr) {
-        if (item && item.title) {
-          collected.push({
-            title: String(item.title || '').trim(),
-            description: String(item.description || '').trim(),
-            vibe: String(item.vibe || '').trim().toLowerCase(),
-          });
-        }
-      }
+    const items = parseDirectionsLenient(raw);
+    if (items.length) {
+      for (const item of items) collected.push(item);
       ranges.push([m.index, m.index + m[0].length]);
-    } catch {}
+    }
   }
   for (const [s, e] of ranges.reverse()) cleanReply = cleanReply.slice(0, s) + cleanReply.slice(e);
 
@@ -839,36 +844,141 @@ function extractDirections(reply) {
     const openRe = /```directions\s*\n([\s\S]+)$/i;
     const open = openRe.exec(cleanReply);
     if (open) {
-      let s = open[1].trim();
-      if (s.startsWith('[')) {
-        let depth = 0, lastEnd = -1, inStr = false, esc = false;
-        for (let i = 0; i < s.length; i++) {
-          const c = s[i];
-          if (esc) { esc = false; continue; }
-          if (c === '\\') { esc = true; continue; }
-          if (c === '"') { inStr = !inStr; continue; }
-          if (inStr) continue;
-          if (c === '{') depth++;
-          else if (c === '}') { depth--; if (depth === 0) lastEnd = i; }
-        }
-        if (lastEnd > 0) {
-          try {
-            const arr = JSON.parse(s.slice(0, lastEnd + 1) + ']');
-            for (const item of arr) {
-              if (item && item.title) collected.push({
-                title: String(item.title || '').trim(),
-                description: String(item.description || '').trim(),
-                vibe: String(item.vibe || '').trim().toLowerCase(),
-              });
-            }
-            cleanReply = cleanReply.slice(0, open.index).trim();
-          } catch {}
-        }
+      // Run the same lenient parser used for closed fences. Handles missing
+      // close, unescaped inner quotes, smart quotes, trailing commas, etc.
+      const items = parseDirectionsLenient(open[1]);
+      if (items.length) {
+        for (const item of items) collected.push(item);
+        cleanReply = cleanReply.slice(0, open.index).trim();
       }
     }
   }
 
   return { cleanReply: cleanReply.replace(/\n{3,}/g, '\n\n').trim(), directions: collected };
+}
+
+// Parse the `directions` array body with progressively more forgiving
+// strategies. Real-world failure mode the model hits: emitting unescaped
+// inner double-quotes inside a string value, e.g.
+//   { "title": "A "Camp Scarlet" intern arrives", ... }
+// which JSON.parse refuses to swallow. When that happens, fall back to a
+// regex-based field grabber that uses the known key names as delimiters.
+function parseDirectionsLenient(raw) {
+  if (!raw) return [];
+  const out = [];
+
+  // 1) Strict JSON (the happy path)
+  try {
+    const parsed = JSON.parse(raw);
+    const arr = Array.isArray(parsed) ? parsed : [parsed];
+    for (const item of arr) {
+      if (item && item.title) {
+        out.push({
+          title: String(item.title || '').trim(),
+          description: String(item.description || '').trim(),
+          vibe: String(item.vibe || '').trim().toLowerCase(),
+        });
+      }
+    }
+    if (out.length) return out;
+  } catch {}
+
+  // 2) Light repair: normalize smart quotes and trailing commas, then retry.
+  try {
+    const repaired = raw
+      .replace(/[“”]/g, '"')   // curly double
+      .replace(/[‘’]/g, "'")   // curly single
+      .replace(/,\s*([}\]])/g, '$1');    // trailing commas
+    const parsed = JSON.parse(repaired);
+    const arr = Array.isArray(parsed) ? parsed : [parsed];
+    for (const item of arr) {
+      if (item && item.title) {
+        out.push({
+          title: String(item.title || '').trim(),
+          description: String(item.description || '').trim(),
+          vibe: String(item.vibe || '').trim().toLowerCase(),
+        });
+      }
+    }
+    if (out.length) return out;
+  } catch {}
+
+  // 3) Field-grabber (handles unescaped inner double quotes).
+  //    Walk the raw string, find each `{ ... }` object by brace matching
+  //    (ignoring the unescaped-quote problem entirely), then within each
+  //    object pull title / description / vibe by anchoring on the known
+  //    key names. Each value runs until the next known key OR a closing
+  //    brace — whichever comes first. Outer quotes get stripped.
+  const objects = sliceBraceObjects(raw);
+  for (const obj of objects) {
+    const title = grabField(obj, 'title');
+    if (!title) continue;
+    out.push({
+      title,
+      description: grabField(obj, 'description'),
+      vibe: grabField(obj, 'vibe').toLowerCase(),
+    });
+  }
+  return out;
+}
+
+// Walk a string and return every balanced-brace `{ ... }` substring.
+// Tolerant of unescaped quotes — we don't try to track string state at
+// all because the input is probably malformed; we just want the gross
+// object outline.
+function sliceBraceObjects(s) {
+  const out = [];
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (c === '}') {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        out.push(s.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+  return out;
+}
+
+// Pull the value of a JSON-style field out of a maybe-malformed object body.
+// Anchors on `"<key>"\s*:` then takes everything up to the next known key or
+// the closing `}`. Strips outer quotes + a trailing comma if present.
+function grabField(objBody, key) {
+  const keyRe = new RegExp('"' + key + '"\\s*:\\s*', 'i');
+  const m = keyRe.exec(objBody);
+  if (!m) return '';
+  const start = m.index + m[0].length;
+  const KNOWN_KEYS = ['title', 'description', 'vibe'];
+  // Find the next "<known_key>": after our start position; the closest one
+  // determines where this value ends.
+  let endIdx = objBody.length;
+  for (const k of KNOWN_KEYS) {
+    if (k === key) continue;
+    const nextRe = new RegExp(',\\s*"' + k + '"\\s*:', 'i');
+    nextRe.lastIndex = start;
+    // Use a substring-relative search because RegExp.exec only sets lastIndex
+    // when the regex has the `g` flag.
+    const idx = objBody.slice(start).search(nextRe);
+    if (idx >= 0 && (start + idx) < endIdx) endIdx = start + idx;
+  }
+  // Also stop at trailing `}` if before any next-key marker.
+  const closeIdx = objBody.lastIndexOf('}');
+  if (closeIdx >= 0 && closeIdx < endIdx) endIdx = closeIdx;
+
+  let val = objBody.slice(start, endIdx).trim();
+  // Strip trailing comma if any
+  if (val.endsWith(',')) val = val.slice(0, -1).trim();
+  // Strip outer quotes (only if both ends look quoted)
+  if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+    val = val.slice(1, -1);
+  }
+  return val.trim();
 }
 
 function extractBlockOptions(reply) {
@@ -900,12 +1010,27 @@ function extractBlockOptions(reply) {
 }
 
 function tryParseBlockArray(raw) {
+  // 1) Strict JSON
   try {
     const p = JSON.parse(raw);
     const arr = Array.isArray(p) ? p : [p];
-    return normalizeBlocks(arr);
+    const items = normalizeBlocks(arr);
+    if (items.length) return items;
   } catch {}
-  // Truncation repair — close at last full object.
+
+  // 2) Light repair — smart quotes + trailing commas
+  try {
+    const repaired = raw
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .replace(/,\s*([}\]])/g, '$1');
+    const p = JSON.parse(repaired);
+    const arr = Array.isArray(p) ? p : [p];
+    const items = normalizeBlocks(arr);
+    if (items.length) return items;
+  } catch {}
+
+  // 3) Truncation repair — close at last full object, retry JSON.parse.
   let s = raw.trim();
   if (s.startsWith('[')) {
     let depth = 0, lastEnd = -1, inStr = false, esc = false;
@@ -919,10 +1044,52 @@ function tryParseBlockArray(raw) {
       else if (c === '}') { depth--; if (depth === 0) lastEnd = i; }
     }
     if (lastEnd > 0) {
-      try { return normalizeBlocks(JSON.parse(s.slice(0, lastEnd + 1) + ']')); } catch {}
+      try {
+        const items = normalizeBlocks(JSON.parse(s.slice(0, lastEnd + 1) + ']'));
+        if (items.length) return items;
+      } catch {}
     }
   }
-  return [];
+
+  // 4) Field-grabber fallback — handles unescaped inner double quotes.
+  //    Same pattern as parseDirectionsLenient: brace-walk to extract each
+  //    object, then pull `kind` / `summary` / `text` via key-anchored regex.
+  const objects = sliceBraceObjects(raw);
+  const out = [];
+  for (const obj of objects) {
+    const text = grabBlockField(obj, 'text');
+    if (!text) continue;
+    out.push({
+      kind: grabBlockField(obj, 'kind').toLowerCase(),
+      summary: grabBlockField(obj, 'summary'),
+      text,
+    });
+  }
+  return out;
+}
+
+// Same shape as grabField but with block-options keys.
+function grabBlockField(objBody, key) {
+  const keyRe = new RegExp('"' + key + '"\\s*:\\s*', 'i');
+  const m = keyRe.exec(objBody);
+  if (!m) return '';
+  const start = m.index + m[0].length;
+  const KNOWN_KEYS = ['kind', 'summary', 'text'];
+  let endIdx = objBody.length;
+  for (const k of KNOWN_KEYS) {
+    if (k === key) continue;
+    const nextRe = new RegExp(',\\s*"' + k + '"\\s*:', 'i');
+    const idx = objBody.slice(start).search(nextRe);
+    if (idx >= 0 && (start + idx) < endIdx) endIdx = start + idx;
+  }
+  const closeIdx = objBody.lastIndexOf('}');
+  if (closeIdx >= 0 && closeIdx < endIdx) endIdx = closeIdx;
+  let val = objBody.slice(start, endIdx).trim();
+  if (val.endsWith(',')) val = val.slice(0, -1).trim();
+  if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+    val = val.slice(1, -1);
+  }
+  return val.trim();
 }
 function normalizeBlocks(arr) {
   const out = [];
