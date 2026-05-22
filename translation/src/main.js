@@ -4757,7 +4757,15 @@ dropZone.addEventListener('drop', (e) => {
   enqueueFilesForUpload(files);
 });
 
-dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('click', (e) => {
+  // The "browse" <label for="file-input"> inside the drop zone natively
+  // triggers the file input on click. When the user clicks it, that click
+  // also bubbles up to the drop-zone handler — without this guard, we'd
+  // call fileInput.click() a second time and the picker opens twice
+  // (user has to pick the file, pick it again, then it proceeds).
+  if (e.target.closest('label[for="file-input"], #file-input')) return;
+  fileInput.click();
+});
 
 fileInput.addEventListener('change', () => {
   const files = Array.from(fileInput.files || []);
