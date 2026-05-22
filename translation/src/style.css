@@ -8676,7 +8676,7 @@ body:has(#step-1.home--brutalist.active) #app {
   text-align: center;
   max-width: 1320px;
   margin: 0 auto;
-  padding: clamp(96px, 11vw, 160px) clamp(28px, 4.5vw, 80px) 0;
+  padding: clamp(40px, 5vw, 72px) clamp(28px, 4.5vw, 80px) 0;
   opacity: 1 !important;
   transform: none !important;
   animation: none !important;
@@ -8736,7 +8736,7 @@ body:has(#step-1.home--brutalist.active) #app {
 .home--brutalist.active .home-hero::after {
   content: "";
   display: block;
-  margin: clamp(48px, 6vw, 80px) auto 0;
+  margin: clamp(24px, 3vw, 40px) auto 0;
   width: clamp(80px, 12vw, 160px);
   border-top: 2px solid var(--br-accent);
 }
@@ -8753,7 +8753,7 @@ body:has(#step-1.home--brutalist.active) #app {
   align-items: start;
   column-gap: clamp(40px, 6vw, 96px);
   row-gap: 48px;
-  margin: clamp(36px, 5vw, 72px) auto 0;
+  margin: clamp(20px, 3vw, 36px) auto 0;
   padding: 0 clamp(24px, 4vw, 48px);
   max-width: 720px;
 }
@@ -8775,11 +8775,13 @@ body:has(#step-1.home--brutalist.active) #app {
 .home--brutalist.active .home-path:active { transform: translateY(1px); }
 .home--brutalist.active .home-path-glyph {
   position: relative;
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
-  width: clamp(160px, 18vw, 200px);
+  width: clamp(160px, 18vw, 200px) !important;
+  height: clamp(160px, 18vw, 200px) !important;
   aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
   background: transparent;
   border: 2px solid var(--br-ink);
   border-radius: 50%;
@@ -8828,7 +8830,7 @@ body:has(#step-1.home--brutalist.active) #app {
 .home--brutalist.active .drop-zone {
   position: relative;
   z-index: 2;
-  margin: clamp(48px, 6vw, 80px) auto clamp(64px, 8vw, 120px);
+  margin: clamp(20px, 2.4vw, 32px) auto clamp(28px, 3vw, 48px);
   width: clamp(280px, 32vw, 360px);
   aspect-ratio: 1 / 1;
   background: transparent;
