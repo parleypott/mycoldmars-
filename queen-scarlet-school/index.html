@@ -716,7 +716,8 @@
       border: 2.5px solid var(--ink-bright);
       border-radius: 14px;
       box-shadow: 4px 4px 0 var(--ink-bright);
-      padding: 14px 16px 14px 50px;
+      /* Left padding leaves room for the vertical action column (+ and 🔊) */
+      padding: 14px 16px 14px 78px;
       transition: transform .18s var(--ease), box-shadow .18s var(--ease);
       cursor: pointer;
     }
@@ -742,11 +743,10 @@
       content: '✓ in story';
       position: absolute; top: 8px; right: 12px;
       font-family: var(--ui); font-weight: 800; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--grass-deep);
+      color: var(--ink-bright);
       background: var(--grass);
       border: 2px solid var(--ink-bright); border-radius: 999px; padding: 2px 8px;
       box-shadow: 1.5px 1.5px 0 var(--ink-bright); transform: rotate(-3deg);
-      color: var(--ink-bright);
     }
     .opt-kind {
       display: inline-block;
@@ -759,14 +759,30 @@
     .opt-text {
       font-family: var(--serif); font-size: 15.5px; line-height: 1.55; color: var(--ink);
     }
+    /* Action column — vertical stack of [+] and [🔊] positioned absolutely
+       on the LEFT side of the card. Saves all the bottom dead-space the old
+       horizontal layout produced and lets the kid scan three full options
+       in one glance. */
     .opt-actions {
-      display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px;
+      position: absolute;
+      left: 14px;
+      top: 50px;            /* below the letter badge */
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
       align-items: center;
-      padding-bottom: 22px;  /* room for the floating "add to story" label under the big plus */
     }
-    .opt-actions .btn { font-size: 13px; padding: 6px 12px; }
-    .opt-actions .tts-btn { width: 36px; height: 36px; box-shadow: 2.5px 2.5px 0 var(--ink-bright); }
+    .opt-actions .tts-btn { width: 38px; height: 38px; box-shadow: 2.5px 2.5px 0 var(--ink-bright); }
     .opt-actions .tts-btn svg { width: 18px; height: 18px; }
+    /* The big red + button uses .btn-add-plus globally. In this vertical
+       layout it shrinks slightly and drops its "add to story" floating
+       label (the icon is clear enough alongside its siblings). */
+    .opt-actions .btn-add-plus {
+      width: 46px; height: 46px;
+      font-size: 30px;
+      transform: rotate(-4deg);
+    }
+    .opt-actions .btn-add-plus::after { display: none; }
 
     .more-options {
       padding-left: 54px; display: flex; gap: 10px; flex-wrap: wrap; padding-top: 4px;
@@ -1147,40 +1163,6 @@
       transform: rotate(-3deg);
     }
     .egg-chip.has-eggs { display: inline-flex; align-items: center; gap: 4px; }
-
-    /* ─── Quick-prompts strip ── one-click Wordy verbs above the composer ─── */
-    .quick-prompts {
-      display: flex; flex-wrap: wrap; gap: 7px;
-      padding: 6px 16px 8px 16px;
-      background: var(--paper-deep);
-      border-top: 1.5px dashed var(--ink-soft);
-      flex-shrink: 0;
-    }
-    .quick-prompts .qp-btn {
-      font-family: var(--ui); font-weight: 700; font-size: 11.5px;
-      letter-spacing: 0.02em;
-      background: var(--paper-card);
-      color: var(--ink-bright);
-      border: 2px solid var(--ink-bright);
-      border-radius: 999px;
-      padding: 4px 11px;
-      cursor: pointer;
-      box-shadow: 2px 2px 0 var(--ink-bright);
-      transition: transform .12s ease, box-shadow .12s ease, background .15s;
-    }
-    .quick-prompts .qp-btn:hover {
-      background: var(--yolk);
-      transform: translate(-1px, -1px);
-      box-shadow: 3px 3px 0 var(--ink-bright);
-    }
-    .quick-prompts .qp-btn:active {
-      transform: translate(1px, 1px);
-      box-shadow: 1px 1px 0 var(--ink-bright);
-    }
-    .quick-prompts .qp-btn:nth-child(2) { background: var(--bubblegum); color: #fff; }
-    .quick-prompts .qp-btn:nth-child(2):hover { background: #FF559F; }
-    .quick-prompts .qp-btn:nth-child(3) { background: var(--grass); }
-    .quick-prompts .qp-btn:nth-child(4) { background: var(--sky); }
 
     .composer-modes {
       display: inline-flex;
@@ -2132,13 +2114,6 @@
               <span class="progress" id="tutor-progress">block 0 of ?</span>
             </div>
             <div class="tutor-chat" id="tutor-chat"></div>
-            <!-- Quick-prompt buttons — one-click access to common Wordy verbs so Henry never has to type a prompt -->
-            <div class="quick-prompts" id="quick-prompts">
-              <button class="qp-btn" data-prompt="what should happen next? give me 3 scenarios." type="button">▷ what's next?</button>
-              <button class="qp-btn" data-prompt="i'm stuck. give me one totally different angle — surprise me with a fresh character or setting." type="button">🤔 i'm stuck</button>
-              <button class="qp-btn" data-prompt="who is in this story right now? list them with what they're up to." type="button">👥 who's in this?</button>
-              <button class="qp-btn" data-prompt="read me back what i've written so far in 1-2 sentences." type="button">📖 recap so far</button>
-            </div>
             <div class="composer with-mic">
               <button id="btn-mic" class="mic-btn" title="Hold to talk to wordy" aria-label="Talk to wordy">
                 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -3815,15 +3790,6 @@
 
     // Composer — routes through submitComposer so verbatim mode gets honored
     document.getElementById('btn-ask').addEventListener('click', submitComposer);
-    // Quick-prompt buttons fire askWordy() directly so Henry doesn't have to type
-    document.querySelectorAll('#quick-prompts .qp-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const prompt = btn.dataset.prompt || '';
-        if (!prompt || state.thinking) return;
-        // Fire as a normal kid-asked turn — server treats it like any free-text request
-        askWordy(prompt);
-      });
-    });
     document.getElementById('kid-input').addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
         // Plain Enter sends only in non-verbatim mode (so paste-with-line-breaks works)
