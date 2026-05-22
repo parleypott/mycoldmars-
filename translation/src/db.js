@@ -102,9 +102,54 @@ async function probeSchemaInternal() {
   return probe;
 }
 
+// LS cache key — version bump invalidates old entries when migrations
+// add columns/tables. Bump SCHEMA_CACHE_VERSION whenever you ship a
+// migration that affects schema-probe results.
+const SCHEMA_CACHE_KEY = 'mcm_schema_probe_v1';
+const SCHEMA_CACHE_VERSION = 5; // bump on schema migrations (001..020)
+const SCHEMA_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+
 export async function getSchemaStatus() {
   if (schemaProbe) return schemaProbe;
-  if (!schemaProbePromise) schemaProbePromise = probeSchemaInternal().then(p => { schemaProbe = p; return p; });
+  // Fast-path: return cached probe from localStorage and re-probe in
+  // the background. Boot used to await 6 sequential PostgREST round-
+  // trips before anything else loaded — typically 300–800ms of
+  // "white screen" time. With the cache, the gate + library load
+  // instantly and the probe updates on the next call.
+  try {
+    const raw = localStorage.getItem(SCHEMA_CACHE_KEY);
+    if (raw) {
+      const c = JSON.parse(raw);
+      if (c && c.v === SCHEMA_CACHE_VERSION && (Date.now() - c.savedAt) < SCHEMA_CACHE_TTL_MS && c.probe) {
+        schemaProbe = c.probe;
+        // Fire a background re-probe to refresh the cache without
+        // blocking anyone.
+        if (!schemaProbePromise) {
+          schemaProbePromise = probeSchemaInternal().then(p => {
+            schemaProbe = p;
+            try {
+              localStorage.setItem(SCHEMA_CACHE_KEY, JSON.stringify({
+                v: SCHEMA_CACHE_VERSION, savedAt: Date.now(), probe: p,
+              }));
+            } catch {}
+            return p;
+          }).catch(() => schemaProbe);
+        }
+        return schemaProbe;
+      }
+    }
+  } catch {}
+  if (!schemaProbePromise) {
+    schemaProbePromise = probeSchemaInternal().then(p => {
+      schemaProbe = p;
+      try {
+        localStorage.setItem(SCHEMA_CACHE_KEY, JSON.stringify({
+          v: SCHEMA_CACHE_VERSION, savedAt: Date.now(), probe: p,
+        }));
+      } catch {}
+      return p;
+    });
+  }
   return schemaProbePromise;
 }
 

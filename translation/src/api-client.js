@@ -1,6 +1,32 @@
 const BATCH_SIZE = 20;
 
 /**
+ * Run `fn(item)` on each entry of `items` with bounded concurrency.
+ * Results are returned in original-index order. Replaces a naked
+ * `Promise.all(items.map(fn))` when fn() hits a network endpoint —
+ * 30 parallel /api/claude calls hammered the proxy, saturated the
+ * browser net stack, and made progress jump in chunks. Concurrency
+ * 5 keeps the pipeline busy without melting it.
+ */
+async function mapWithConcurrency(items, concurrency, fn) {
+  const out = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (true) {
+      const i = cursor++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i], i);
+    }
+  }
+  const workers = [];
+  for (let w = 0; w < Math.max(1, Math.min(concurrency, items.length)); w++) {
+    workers.push(worker());
+  }
+  await Promise.all(workers);
+  return out;
+}
+
+/**
  * Call Claude via our proxy. Streams the response and accumulates text.
  * All waiting happens in the browser — the proxy just pipes bytes.
  */
@@ -190,9 +216,14 @@ export async function translateSegments({ segments, languageMap, narrativeSummar
   const context = buildContext({ narrativeSummary, editorialFocus, languageMap, clarifications });
   const systemPrompt = buildTranslatePrompt(context);
 
-  // Run batches in parallel
+  // Run batches with bounded concurrency. Was fully parallel
+  // (Promise.all over every batch) — on a 600-segment transcript
+  // that's 30 batches firing simultaneously: hammers the proxy,
+  // saturates the browser network stack, and progress jumps in
+  // chunks of 30 rather than ticking smoothly. Concurrency=5
+  // keeps the pipeline saturated without melting it.
   let completed = 0;
-  const batchPromises = batches.map(async (batch) => {
+  const runBatch = async (batch) => {
     const batchSegments = batch.map(b => b.segment);
     const segmentText = batchSegments
       .map(s => `SEG ${s.number} [${s.speaker || ''}]: ${s.text}`)
@@ -220,9 +251,9 @@ export async function translateSegments({ segments, languageMap, narrativeSummar
     if (onProgress) onProgress(completed, batches.length);
 
     return { batch, translated };
-  });
+  };
 
-  const batchResults = await Promise.all(batchPromises);
+  const batchResults = await mapWithConcurrency(batches, 5, runBatch);
 
   for (const { batch, translated } of batchResults) {
     for (let j = 0; j < batch.length; j++) {
@@ -333,7 +364,7 @@ Respond with JSON only (no markdown fencing):
 }`;
 
   let completed = 0;
-  const chunkPromises = chunks.map(async (chunk) => {
+  const runChunk = async (chunk) => {
     const chunkText = chunk
       .map(s => `${s.number}. [${s.speaker}]: ${s.text}`)
       .join('\n');
@@ -344,20 +375,33 @@ Respond with JSON only (no markdown fencing):
       `TRANSCRIPT CHUNK (${chunk.length} segments):\n\n${chunkText}`,
     ].filter(Boolean).join('\n');
 
-    const rawText = await callClaude(systemPrompt, userMsg, 4000);
+    // Per-chunk try/catch so a single network blip doesn't reject the
+    // whole batch. Returns [] on parse OR fetch failure — caller flatten
+    // still sees usable results from the surviving chunks.
+    let rawText;
+    try {
+      rawText = await callClaude(systemPrompt, userMsg, 4000);
+    } catch (e) {
+      console.warn('[extractSoundbites] chunk fetch failed:', e?.message || e);
+      completed++;
+      if (onProgress) onProgress(completed, chunks.length);
+      return [];
+    }
     let parsed;
     try {
       parsed = extractJSON(rawText);
     } catch (e) {
       console.error('Soundbite chunk parse failed:', rawText.slice(0, 400));
+      completed++;
+      if (onProgress) onProgress(completed, chunks.length);
       return [];
     }
     completed++;
     if (onProgress) onProgress(completed, chunks.length);
     return Array.isArray(parsed?.soundbites) ? parsed.soundbites : [];
-  });
+  };
 
-  const chunkResults = await Promise.all(chunkPromises);
+  const chunkResults = await mapWithConcurrency(chunks, 5, runChunk);
   return chunkResults.flat();
 }
 
