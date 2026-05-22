@@ -30,8 +30,8 @@
     }
     ::selection { background: var(--yolk); color: var(--ink-bright); }
     button { font-family: var(--ui); cursor: pointer; border: none; background: none; color: inherit; padding: 0; user-select: none; -webkit-user-select: none; }
+    button:disabled { cursor: not-allowed; opacity: 0.45; }
 
-    /* Topbar */
     .topbar {
       display: flex; align-items: center; padding: 14px 22px; gap: 16px;
       background: rgba(20, 20, 24, 0.6);
@@ -49,7 +49,7 @@
     .blob::before, .blob::after { content: ''; position: absolute; background: var(--ink-bright); border-radius: 50%; width: 4px; height: 4px; top: 9px; }
     .blob::before { left: 6px; } .blob::after { right: 6px; }
     .topbar .spacer { flex: 1; }
-    .topbar .back, .topbar .lib {
+    .topbar a, .topbar .topbtn {
       font-family: var(--ui); font-size: 14px; font-weight: 600;
       color: var(--paper); padding: 8px 14px;
       background: rgba(255, 246, 224, 0.06);
@@ -57,14 +57,18 @@
       text-decoration: none;
       min-height: 36px; display: inline-flex; align-items: center;
     }
-    .topbar .back:hover, .topbar .lib:hover { background: rgba(255, 246, 224, 0.14); }
+    .topbar a:hover, .topbar .topbtn:hover { background: rgba(255, 246, 224, 0.14); }
 
-    /* Page */
     .page {
       flex: 1;
       padding: 26px clamp(20px, 4vw, 60px) 80px;
       max-width: 1400px; margin: 0 auto; width: 100%;
     }
+
+    /* ─── Grid view ─── */
+    .grid-view { display: block; }
+    .grid-view.hidden { display: none; }
+
     .page-head {
       display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
       margin-bottom: 28px; flex-wrap: wrap;
@@ -81,7 +85,7 @@
     .page-sub {
       font-family: var(--serif); font-style: italic;
       color: rgba(244, 233, 200, 0.78);
-      font-size: 15px; margin-top: 4px;
+      font-size: 15px; margin-top: 4px; max-width: 540px;
     }
     .story-chip {
       display: inline-flex; align-items: center; gap: 8px;
@@ -95,7 +99,6 @@
     }
     .story-chip strong { color: var(--yolk); font-weight: 700; }
 
-    /* Grid */
     .cast-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -111,35 +114,24 @@
     .empty strong { display: block; font-family: var(--display); color: var(--paper); font-size: 32px; margin-bottom: 8px; }
     .empty.error strong { color: var(--red); }
 
-    /* Card (flip) */
+    /* Card */
     .ccard {
       position: relative;
       aspect-ratio: 2.5 / 3.5;
       width: 100%;
-      perspective: 1400px;
       cursor: pointer;
       filter: drop-shadow(6px 8px 0 rgba(0, 0, 0, 0.55));
+      transition: transform 220ms var(--ease);
     }
-    .ccard-inner {
-      position: relative;
-      width: 100%; height: 100%;
-      transition: transform 700ms cubic-bezier(0.5, 0, 0.3, 1.18);
-      transform-style: preserve-3d;
-    }
-    .ccard.flipped .ccard-inner { transform: rotateY(180deg); }
-    .ccard:not(.flipped) .ccard-inner:hover { transform: rotateY(-3deg) rotateX(2deg); }
-
+    .ccard:hover { transform: translate(-3px, -4px) rotate(-1deg); }
     .ccard-face {
       position: absolute; inset: 0;
       border-radius: 14px;
       border: 3px solid var(--ink-bright);
       overflow: hidden;
-      backface-visibility: hidden;
-      -webkit-backface-visibility: hidden;
       background: var(--paper);
+      display: flex; flex-direction: column;
     }
-
-    .ccard-front { display: flex; flex-direction: column; background: var(--paper); }
     .ccard-corner {
       position: absolute; top: 8px; left: 10px;
       font-family: var(--display); font-size: 22px; font-weight: 700;
@@ -173,7 +165,6 @@
       animation: ccard-shimmer 1.8s linear infinite;
     }
     @keyframes ccard-shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
-
     .ccard-nameplate {
       flex-shrink: 0;
       padding: 12px 14px 14px;
@@ -191,11 +182,6 @@
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
       overflow: hidden;
     }
-    .ccard-hint {
-      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
-      font-family: var(--ui); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
-      color: rgba(31, 31, 35, 0.35); pointer-events: none; z-index: 2;
-    }
     .ccard-state {
       position: absolute; top: 0; left: 0;
       padding: 4px 8px;
@@ -204,72 +190,281 @@
       border-bottom-right-radius: 8px;
       z-index: 3; pointer-events: none;
     }
+    .ccard-portraits-count {
+      position: absolute; top: 8px; right: 10px;
+      padding: 3px 8px;
+      font-family: var(--ui); font-size: 11px; font-weight: 700;
+      background: var(--yolk); color: var(--ink-bright);
+      border: 2px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      z-index: 3; pointer-events: none;
+    }
+    .ccard-hint {
+      position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+      font-family: var(--ui); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: rgba(31, 31, 35, 0.35); pointer-events: none; z-index: 2;
+    }
 
-    .ccard-back {
-      transform: rotateY(180deg);
+    /* ─── Detail view ─── */
+    .detail-view { display: none; }
+    .detail-view.active { display: block; }
+
+    .detail-head {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      margin-bottom: 22px;
+    }
+    .detail-back {
+      font-family: var(--ui); font-weight: 700; font-size: 14px;
+      color: var(--paper); padding: 9px 16px;
+      background: rgba(255, 246, 224, 0.08);
+      border: 2px solid rgba(255, 246, 224, 0.4); border-radius: 999px;
+      cursor: pointer;
+    }
+    .detail-back:hover { background: rgba(255, 246, 224, 0.18); }
+    .detail-name {
+      flex: 1;
+      font-family: var(--display);
+      font-size: clamp(36px, 5vw, 60px); color: var(--paper);
+      font-weight: 700; line-height: 1;
+      text-shadow: 3px 3px 0 var(--ink-bright);
+    }
+    .detail-delete {
+      font-family: var(--ui); font-weight: 700; font-size: 13px;
+      color: var(--paper); padding: 8px 14px;
+      background: rgba(232, 69, 69, 0.18); border: 2px solid var(--red); border-radius: 999px;
+      cursor: pointer;
+    }
+    .detail-delete:hover { background: var(--red); }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 420px) 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .detail-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Left column — portrait + gallery + notes */
+    .portrait-col { display: flex; flex-direction: column; gap: 16px; }
+    .portrait-primary {
+      width: 100%;
+      aspect-ratio: 2.5 / 3.5;
+      border: 3px solid var(--ink-bright);
+      border-radius: 14px;
+      overflow: hidden;
       background: var(--paper);
-      padding: 16px 14px 14px;
-      display: flex; flex-direction: column; gap: 10px;
-      background-image:
-        radial-gradient(circle at 20% 10%, rgba(255, 209, 88, 0.18) 0%, transparent 28%),
-        radial-gradient(circle at 80% 90%, rgba(255, 138, 92, 0.16) 0%, transparent 32%),
-        repeating-linear-gradient(0deg, transparent 0px, transparent 27px, rgba(31, 31, 35, 0.06) 27px, rgba(31, 31, 35, 0.06) 28px);
+      box-shadow: 6px 8px 0 var(--ink-bright);
+      position: relative;
+      transform: rotate(-0.5deg);
     }
-    .ccard-back-head {
-      display: flex; align-items: flex-start; justify-content: space-between;
-      gap: 8px; padding-bottom: 8px;
-      border-bottom: 1.5px dashed rgba(31, 31, 35, 0.25);
+    .portrait-primary img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .portrait-primary.loading,
+    .portrait-primary.failed {
+      display: flex; align-items: center; justify-content: center;
+      color: var(--ink-soft); font-family: var(--serif); font-style: italic;
+      padding: 24px; text-align: center;
     }
-    .ccard-back-name { font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--ink-bright); line-height: 1.05; }
-    .ccard-suit { font-family: var(--display); font-size: 16px; color: var(--red); transform: rotate(-6deg); }
-    .ccard-synopsis {
-      flex: 1; font-family: var(--serif); font-size: 13.5px; line-height: 1.5; color: var(--ink);
-      overflow-y: auto; padding-right: 4px; min-height: 0;
-    }
-    .ccard-synopsis.loading { font-style: italic; color: var(--ink-soft); }
-    .ccard-back-actions {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 8px; padding-top: 8px;
-      border-top: 1.5px dashed rgba(31, 31, 35, 0.25);
+    .portrait-primary.loading::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+      animation: ccard-shimmer 1.8s linear infinite;
     }
 
-    /* Speaker — same .tts-btn style as the school */
-    .tts-btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 36px; height: 36px;
-      background: var(--paper-card); border: 2px solid var(--ink-bright); border-radius: 50%;
-      box-shadow: 2px 2px 0 var(--ink-bright);
-      cursor: pointer; color: var(--ink-bright); padding: 0;
-      transition: transform 120ms var(--ease), background 120ms var(--ease);
+    .gallery-strip {
+      display: flex; gap: 10px; align-items: center;
+      overflow-x: auto;
+      padding: 6px 4px 14px;
     }
-    .tts-btn svg { width: 16px; height: 16px; pointer-events: none; }
-    .tts-btn:hover { background: var(--yolk); transform: translate(-1px, -1px) rotate(-4deg); }
-    .tts-btn.playing {
-      background: var(--yolk);
-      animation: tts-pulse 850ms ease-in-out infinite;
+    .gallery-strip::-webkit-scrollbar { height: 10px; }
+    .gallery-strip::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 999px; }
+    .gallery-thumb {
+      position: relative;
+      flex: 0 0 auto;
+      width: 70px;
+      aspect-ratio: 2.5 / 3.5;
+      border-radius: 8px;
+      border: 2.5px solid rgba(255, 246, 224, 0.5);
+      background: var(--paper-card);
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 140ms var(--ease), border-color 140ms var(--ease);
     }
-    @keyframes tts-pulse {
-      0%, 100% { box-shadow: 2px 2px 0 var(--ink-bright), 0 0 0 0 rgba(255, 209, 88, 0.85); }
-      50%      { box-shadow: 2px 2px 0 var(--ink-bright), 0 0 0 6px rgba(255, 209, 88, 0.3), 0 0 22px 4px rgba(255, 209, 88, 0.55); }
+    .gallery-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .gallery-thumb.primary { border-color: var(--yolk); box-shadow: 0 0 0 3px rgba(255, 217, 60, 0.45); }
+    .gallery-thumb:hover { transform: translate(-1px, -1px); border-color: var(--paper); }
+    .gallery-thumb-x {
+      position: absolute; top: -4px; right: -4px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--red); color: var(--paper);
+      border: 2px solid var(--ink-bright);
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      font-family: var(--ui); font-weight: 800; font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; padding: 0;
+      opacity: 0; transition: opacity 120ms var(--ease);
     }
-    .ccard-regen, .ccard-flipback {
-      background: transparent; color: var(--ink-soft); border: none; cursor: pointer;
-      font-family: var(--ui); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
-      padding: 6px 8px;
+    .gallery-thumb:hover .gallery-thumb-x { opacity: 1; }
+    .gallery-add {
+      flex: 0 0 auto;
+      width: 70px; aspect-ratio: 2.5 / 3.5;
+      border-radius: 8px;
+      border: 2.5px dashed rgba(255, 246, 224, 0.45);
+      background: transparent;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--display); font-size: 28px;
+      color: rgba(255, 246, 224, 0.55);
+      transition: color 140ms var(--ease), border-color 140ms var(--ease);
     }
-    .ccard-regen:hover, .ccard-flipback:hover { color: var(--ink-bright); text-decoration: underline; }
+    .gallery-add:hover { color: var(--yolk); border-color: var(--yolk); }
+    .gallery-add.busy { animation: ccard-shimmer 1.8s linear infinite; opacity: 0.6; }
 
-    /* Migration banner */
-    .banner {
-      background: var(--bubblegum);
+    .notes-block {
+      background: var(--paper-deep);
       border: 2.5px solid var(--ink-bright); border-radius: 14px;
-      padding: 12px 16px; margin-bottom: 22px;
-      font-family: var(--serif); font-size: 14px; color: var(--ink-bright); line-height: 1.45;
+      padding: 12px 14px 14px;
       box-shadow: 4px 4px 0 var(--ink-bright);
-      display: none;
+      transform: rotate(0.4deg);
     }
-    .banner.show { display: block; }
-    .banner code { background: var(--paper-card); border: 1.5px solid var(--ink-bright); border-radius: 6px; padding: 1px 6px; font-size: 12px; }
+    .notes-label {
+      display: block;
+      font-family: var(--ui); font-weight: 700; font-size: 11px;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 6px;
+    }
+    .notes-label .hint {
+      font-family: var(--serif); font-style: italic; font-weight: 400;
+      letter-spacing: 0; text-transform: none; font-size: 12px;
+      color: var(--ink-faint); margin-left: 6px;
+    }
+    .notes-textarea {
+      width: 100%;
+      background: var(--paper-card); color: var(--ink);
+      border: 2px solid var(--ink-bright); border-radius: 8px;
+      padding: 10px 12px;
+      font-family: var(--serif); font-size: 14.5px; line-height: 1.5;
+      resize: vertical; min-height: 80px; max-height: 240px;
+      outline: none;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+    }
+    .notes-textarea:focus { box-shadow: 3px 3px 0 var(--ink-bright); transform: translate(-1px, -1px); }
+
+    /* Right column — chat + composer */
+    .chat-col {
+      display: flex; flex-direction: column;
+      min-height: 60vh;
+      gap: 12px;
+    }
+    .chat-thread {
+      flex: 1;
+      min-height: 280px;
+      max-height: 64vh;
+      overflow-y: auto;
+      padding: 16px 18px;
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 16px;
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      display: flex; flex-direction: column;
+      gap: 12px;
+    }
+    .chat-thread .empty {
+      margin: auto;
+      grid-column: auto;
+      padding: 20px;
+      color: var(--ink-soft);
+    }
+    .chat-thread .empty strong { color: var(--ink-bright); }
+    .cmsg { display: flex; gap: 10px; align-items: flex-start; }
+    .cmsg.kid { justify-content: flex-end; }
+    .cmsg-bubble {
+      padding: 10px 14px;
+      font-family: var(--serif); font-size: 15.5px; line-height: 1.5;
+      border: 2.5px solid var(--ink-bright);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      white-space: pre-wrap;
+      max-width: 82%;
+    }
+    .cmsg.wordy .cmsg-bubble {
+      background: var(--paper-soft);
+      border-radius: 14px 14px 14px 4px;
+    }
+    .cmsg.kid .cmsg-bubble {
+      background: var(--sky);
+      border-radius: 14px 14px 4px 14px;
+    }
+    .cmsg-typing {
+      display: flex; align-items: center; gap: 8px;
+      font-family: var(--serif); font-style: italic;
+      color: var(--ink-soft); font-size: 13.5px;
+      padding: 6px 12px;
+    }
+    .cmsg-typing .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--ink-soft);
+      animation: fs-bounce 1.2s ease-in-out infinite;
+    }
+    .cmsg-typing .dot:nth-child(2) { animation-delay: 0.15s; }
+    .cmsg-typing .dot:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes fs-bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40%           { transform: translateY(-5px); opacity: 1; }
+    }
+
+    .chat-composer {
+      border-top: 2.5px solid var(--ink-bright);
+      padding: 14px 18px;
+      background: var(--paper-deep);
+      display: flex; align-items: flex-end; gap: 14px;
+      border-radius: 14px;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+    }
+    .chat-composer textarea {
+      flex: 1;
+      background: var(--paper-card); color: var(--ink);
+      border: 2.5px solid var(--ink-bright); border-radius: 12px;
+      padding: 10px 14px;
+      font-family: var(--serif); font-size: 16px; line-height: 1.5;
+      resize: vertical; min-height: 56px; max-height: 180px;
+      outline: none;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+    }
+    .chat-composer .btn {
+      font-family: var(--ui); font-weight: 700; font-size: 15px;
+      padding: 10px 16px; min-height: 44px;
+      background: var(--red); color: var(--ink-bright);
+      border: 2.5px solid var(--ink-bright); border-radius: 12px;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .chat-composer .btn:hover { background: var(--yolk); transform: translate(-1px, -1px); }
+    .chat-composer .btn-redraw {
+      background: var(--paper-card); color: var(--ink-bright);
+      font-size: 13px; padding: 9px 14px;
+    }
+    .chat-composer .btn-redraw:hover { background: var(--yolk); }
+
+    /* Toast */
+    .toast-wrap {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      z-index: 600; display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+      max-width: calc(100vw - 32px);
+    }
+    .toast {
+      pointer-events: auto;
+      background: var(--paper-card); color: var(--ink-bright);
+      border: 2.5px solid var(--ink-bright); border-radius: 14px;
+      padding: 12px 18px; box-shadow: 4px 4px 0 var(--ink-bright);
+      font-family: var(--ui); font-weight: 600; font-size: 14px;
+      max-width: 480px;
+    }
+    .toast.error { background: var(--red); color: var(--paper); }
 
     /* Gate */
     .gate { position: fixed; inset: 0; background: var(--paper); display: flex; align-items: center; justify-content: center; z-index: 500; }
@@ -292,22 +487,6 @@
     .gate .gate-btn:hover { background: var(--yolk); transform: translate(-1px, -1px); }
     .app.hidden { display: none; }
 
-    /* Toast */
-    .toast-wrap {
-      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-      z-index: 600; display: flex; flex-direction: column; gap: 10px; pointer-events: none;
-      max-width: calc(100vw - 32px);
-    }
-    .toast {
-      pointer-events: auto;
-      background: var(--paper-card); color: var(--ink-bright);
-      border: 2.5px solid var(--ink-bright); border-radius: 14px;
-      padding: 12px 18px; box-shadow: 4px 4px 0 var(--ink-bright);
-      font-family: var(--ui); font-weight: 600; font-size: 14px;
-      max-width: 480px; display: flex; align-items: center; gap: 10px;
-    }
-    .toast.error { background: var(--red); color: var(--paper); }
-
     *::-webkit-scrollbar { width: 12px; height: 12px; }
     *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
   </style>
@@ -327,31 +506,64 @@
     <header class="topbar">
       <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
       <span class="spacer"></span>
-      <a href="../" id="back-link" class="back">← back to the story</a>
-      <a href="../library/" class="lib">📚 library</a>
+      <a href="../" id="back-link">← back to the story</a>
+      <a href="../library/">📚 library</a>
     </header>
 
     <main class="page">
-      <div class="page-head">
-        <div>
-          <div class="page-title">the <em>cast</em></div>
-          <div class="page-sub">flip a card for the back-of-the-card scoop. portraits and synopses are saved with the story.</div>
+
+      <!-- GRID VIEW -->
+      <section id="grid-view" class="grid-view">
+        <div class="page-head">
+          <div>
+            <div class="page-title">the <em>cast</em></div>
+            <div class="page-sub">tap a card to open it. portraits stay archived; chat with each character to refine their look. nothing here regenerates unless you ask.</div>
+          </div>
+          <div id="story-chip" class="story-chip" style="display:none;"></div>
         </div>
-        <div id="story-chip" class="story-chip" style="display:none;"></div>
-      </div>
+        <div id="cast-grid" class="cast-grid">
+          <div class="empty"><strong>shuffling the deck…</strong>loading characters from the story.</div>
+        </div>
+      </section>
 
-      <div id="banner" class="banner"></div>
+      <!-- DETAIL VIEW -->
+      <section id="detail-view" class="detail-view">
+        <div class="detail-head">
+          <button id="detail-back" class="detail-back" type="button">← back to cast</button>
+          <h1 id="detail-name" class="detail-name"></h1>
+          <button id="detail-delete" class="detail-delete" type="button">delete character</button>
+        </div>
+        <div class="detail-grid">
+          <div class="portrait-col">
+            <div id="portrait-primary" class="portrait-primary"></div>
+            <div class="notes-block">
+              <label class="notes-label" for="visual-notes">Visual notes
+                <span class="hint">used for redraws and storyboard art</span>
+              </label>
+              <textarea id="visual-notes" class="notes-textarea" placeholder="describe how the character should look. lines like 'calculator helmet, blue button-down, always slouched' get baked into every redraw."></textarea>
+            </div>
+            <div class="gallery-strip" id="gallery-strip">
+              <!-- thumbnails populated by render -->
+            </div>
+          </div>
+          <div class="chat-col">
+            <div id="chat-thread" class="chat-thread"></div>
+            <div class="chat-composer">
+              <textarea id="chat-input" rows="2" placeholder="tell wordy what to change — 'make him look more tired', 'add freckles', 'less calculator more confused'"></textarea>
+              <button id="chat-redraw" class="btn btn-redraw" type="button" title="Use the current visual notes to draw a new portrait (no chat needed)">↻ redraw</button>
+              <button id="chat-send" class="btn" type="button">Send<span style="margin-left:4px;">→</span></button>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <div id="cast-grid" class="cast-grid">
-        <div class="empty" id="loading-empty"><strong>shuffling the deck…</strong>loading characters from the story.</div>
-      </div>
     </main>
   </div>
 
   <div class="toast-wrap" id="toast-wrap" aria-live="polite"></div>
 
   <script>
-    // ─── API perimeter — same wrapper as the school/library ───
+    // ─── API perimeter — fetch wrapper (school/library/cast share this) ───
     (function installAccessCodeFetchWrapper() {
       const LS_KEY = 'qss:access_code';
       const LS_TS_KEY = 'qss:access_code:ts';
@@ -417,12 +629,6 @@
     })();
 
     // ─── Gate (shared cookie) ───
-    // NOTE: boot() is invoked via setTimeout(_, 0) so the gate IIFE doesn't
-    // call it synchronously — `boot` is hoisted but it references `const
-    // state` declared LATER in this script. Calling boot inline puts state
-    // in the temporal dead zone and throws ReferenceError silently inside
-    // the async function (unhandled rejection), leaving the page stuck on
-    // the "shuffling the deck…" loading state forever.
     (function() {
       const COOKIE = 'qss_access', PASS = 'newpress';
       const gateEl = document.getElementById('gate'), appEl = document.getElementById('app');
@@ -430,7 +636,7 @@
       function unlock() {
         document.cookie = COOKIE + '=granted; path=/; max-age=' + (60*60*24*90);
         gateEl.classList.add('hidden'); appEl.classList.remove('hidden');
-        setTimeout(boot, 0);   // defer until top-level const decls have run
+        setTimeout(boot, 0);  // defer past const-state TDZ
       }
       if (getCookie(COOKIE) === 'granted') { unlock(); return; }
       const inp = document.getElementById('gate-code'), err = document.getElementById('gate-error');
@@ -440,39 +646,125 @@
       inp.focus();
     })();
 
-    // ─── Helpers ───
+    // ─── helpers ───
     const HEADERS = { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' };
     function esc(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+    function uid() { return Math.random().toString(36).slice(2, 12); }
     function initials(name) {
       const parts = String(name || '').split(/\s+/).filter(Boolean);
       return parts.map(p => p[0]?.toUpperCase()).slice(0, 2).join('') || '?';
     }
-    function toast(message, kind = 'success', timeoutMs = 3200) {
+    function toast(message, kind = 'success', timeoutMs = 3000) {
       const wrap = document.getElementById('toast-wrap'); if (!wrap) return;
       const el = document.createElement('div');
       el.className = `toast ${kind}`;
-      el.innerHTML = `<span>${esc(message)}</span>`;
+      el.textContent = message;
       wrap.appendChild(el);
       if (timeoutMs > 0) setTimeout(() => el.remove(), timeoutMs);
     }
 
-    // ─── App state ───
+    // ─── State ───
+    //
+    // Card model:
+    //   {
+    //     name, synopsis, visual_notes, current_state, intro_block,
+    //     portraits:    [{ id, mime, dataBase64, generated_at, note }],
+    //     primary_portrait_id: string|null,
+    //     chat:         [{ id, role: 'kid'|'wordy', content, ts }],
+    //     status:       'ready'|'loading'|'error',
+    //     error:        string|null,
+    //     generated_at: number
+    //   }
+    //
+    // Persistence:
+    //   - localStorage `qss:cast:<storyId>` holds the canonical map.
+    //     This is the source of truth until the qss_stories.character_cards
+    //     column is created (migration 016) — at which point cards also
+    //     round-trip via /api/qss-stories save/get.
+    //   - On boot we MERGE: read LS, fetch story.character_cards, merge
+    //     keeping the version with the most portraits (which is LS while
+    //     migration 016 hasn't been applied).
     const state = {
       storyId: null,
-      story: null,            // full row from /api/qss-stories?action=get
-      cards: {},              // { [name]: { name, synopsis, image, current_state, intro_block, status, generated_at } }
-      saving: false,
+      story: null,
+      cards: {},                  // by name
+      view: 'grid',               // 'grid' | 'detail'
+      openName: null,             // when view==='detail', which card
       pendingGen: new Set(),
-      activeAudio: null,
-      activeSpeakerBtn: null,
+      saveTimer: null,
+      chatBusy: false,
     };
 
+    function LS_KEY() { return `qss:cast:${state.storyId || '__none__'}`; }
+    function readLS() {
+      try { return JSON.parse(localStorage.getItem(LS_KEY()) || '{}') || {}; }
+      catch { return {}; }
+    }
+    function writeLS() {
+      try { localStorage.setItem(LS_KEY(), JSON.stringify(state.cards)); }
+      catch (e) {
+        // base64 images can blow quota; drop oldest portraits per card
+        try {
+          for (const c of Object.values(state.cards)) {
+            if (Array.isArray(c.portraits) && c.portraits.length > 1) {
+              c.portraits.sort((a, b) => (b.generated_at || 0) - (a.generated_at || 0));
+              c.portraits = c.portraits.slice(0, 1);
+              if (!c.primary_portrait_id || !c.portraits.find(p => p.id === c.primary_portrait_id)) {
+                c.primary_portrait_id = c.portraits[0]?.id || null;
+              }
+            }
+          }
+          localStorage.setItem(LS_KEY(), JSON.stringify(state.cards));
+        } catch {}
+      }
+    }
+
+    // ─── Migration of legacy single-image cards into portraits[] ───
+    function migrateCard(c) {
+      if (!c || typeof c !== 'object') return null;
+      const out = {
+        name: String(c.name || '').trim(),
+        synopsis: String(c.synopsis || '').trim(),
+        visual_notes: String(c.visual_notes || '').trim(),
+        current_state: String(c.current_state || '').trim(),
+        intro_block: Number(c.intro_block) || null,
+        portraits: Array.isArray(c.portraits) ? c.portraits.slice() : [],
+        primary_portrait_id: c.primary_portrait_id || null,
+        chat: Array.isArray(c.chat) ? c.chat.slice() : [],
+        status: c.status || 'ready',
+        error: c.error || null,
+        generated_at: c.generated_at || Date.now(),
+      };
+      // Legacy single-image shape — promote into portraits[0].
+      if (!out.portraits.length && c.image && c.image.dataBase64) {
+        const pid = uid();
+        out.portraits.push({
+          id: pid,
+          mime: c.image.mime || 'image/png',
+          dataBase64: c.image.dataBase64,
+          generated_at: out.generated_at,
+          note: '',
+        });
+        out.primary_portrait_id = pid;
+      }
+      // If no primary set but portraits exist, default to the most recent.
+      if (!out.primary_portrait_id && out.portraits.length) {
+        out.primary_portrait_id = out.portraits[out.portraits.length - 1].id;
+      }
+      if (!out.name) return null;
+      return out;
+    }
+
+    function getPrimary(card) {
+      if (!card || !Array.isArray(card.portraits) || !card.portraits.length) return null;
+      return card.portraits.find(p => p.id === card.primary_portrait_id) || card.portraits[card.portraits.length - 1];
+    }
+
+    // ─── Boot ───
     async function boot() {
-      // Pull ?story=<uuid> from URL or fall back to the school's last open
       const params = new URLSearchParams(location.search);
       let storyId = params.get('story');
       if (!storyId) {
-        // Most-recent fallback: the school's last-open story id
         try {
           const lastName = localStorage.getItem('qss:last_story');
           if (lastName) {
@@ -487,255 +779,434 @@
       state.storyId = storyId;
 
       if (!storyId) {
-        renderEmpty('no story open', 'open a story in the school first, then tap "the cast" up top.');
+        renderGridEmpty('no story open', 'open a story in the school first, then tap "the cast" up top.');
         return;
       }
 
       try {
         const r = await fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(storyId)}`, { headers: HEADERS });
-        if (!r.ok) {
-          if (r.status === 503) {
-            const j = await r.json().catch(() => ({}));
-            showBanner(`<strong>Setup needed.</strong> ${esc(j.message || '')}`);
-          }
-          throw new Error(`fetch story ${r.status}`);
-        }
+        if (!r.ok) throw new Error(`fetch story ${r.status}`);
         const { story } = await r.json();
         state.story = story;
         const chip = document.getElementById('story-chip');
         chip.style.display = 'inline-flex';
         chip.innerHTML = `<strong>${esc(story.name || 'untitled')}</strong> · ${(story.blocks?.length || 0)} block${story.blocks?.length === 1 ? '' : 's'}`;
 
-        // Seed cards from saved character_cards.
-        const saved = Array.isArray(story.character_cards) ? story.character_cards : [];
+        // MERGE three sources, in this precedence:
+        //   1. localStorage cache (richest, authoritative pre-migration)
+        //   2. story.character_cards from server
+        //   3. story.arc_context.characters (just names + current_state)
+        const lsCards = readLS();
+        const serverCards = Array.isArray(story.character_cards) ? story.character_cards : [];
         const map = {};
-        for (const c of saved) {
-          if (!c?.name) continue;
-          map[c.name] = { ...c, status: c.image?.dataBase64 || c.synopsis ? 'ready' : 'loading' };
-        }
-        state.cards = map;
 
-        // Seed missing characters from the arc cache.
+        for (const c of serverCards) {
+          const m = migrateCard(c);
+          if (m) map[m.name] = m;
+        }
+        for (const [name, raw] of Object.entries(lsCards)) {
+          const m = migrateCard({ ...raw, name });
+          if (!m) continue;
+          const existing = map[name];
+          // Prefer LS if it has more portraits OR more chat OR newer generated_at
+          if (!existing
+              || m.portraits.length > existing.portraits.length
+              || m.chat.length > existing.chat.length
+              || (m.generated_at || 0) > (existing.generated_at || 0)) {
+            map[name] = m;
+          }
+        }
         const arcChars = Array.isArray(story.arc_context?.characters) ? story.arc_context.characters : [];
         for (const ch of arcChars) {
-          const name = (ch?.name || '').trim(); if (!name) continue;
+          const name = (ch?.name || '').trim();
+          if (!name) continue;
           if (!map[name]) {
-            map[name] = { name, current_state: ch.current_state || '', intro_block: ch.intro_block || null, status: 'loading' };
+            map[name] = migrateCard({
+              name,
+              current_state: ch.current_state || '',
+              intro_block: ch.intro_block || null,
+              status: 'loading',
+            });
           } else {
-            // Refresh current_state from arc (which is the always-updating side)
+            // Refresh current_state from arc — it updates as the story grows.
             map[name].current_state = ch.current_state || map[name].current_state || '';
             map[name].intro_block = ch.intro_block || map[name].intro_block || null;
           }
         }
 
+        state.cards = map;
+        writeLS();
+
+        // ONLY generate portraits for characters that have ZERO portraits.
+        // Anything with at least one drawing already is preserved — Henry
+        // can request more via the detail-view redraw button, but we never
+        // auto-redraw on visit.
+        const needsFirstDraw = Object.values(map).filter(c => !c.portraits.length);
         render();
-        // Kick off generation for any character missing a portrait
-        const missing = Object.values(map).filter(c => !c.image?.dataBase64);
-        for (const m of missing.slice(0, 2)) generateCard(m.name);
+        // Concurrency: 2 in flight at a time so we don't block the upstream.
+        for (const m of needsFirstDraw.slice(0, 2)) generatePortrait(m.name);
       } catch (e) {
-        renderEmpty('couldn\'t load the cast', e.message || 'try refresh');
+        renderGridEmpty('couldn\'t load the cast', e.message || 'try refresh');
       }
     }
 
-    function showBanner(html) {
-      const b = document.getElementById('banner'); b.innerHTML = html; b.classList.add('show');
+    function renderGridEmpty(title, sub) {
+      document.getElementById('cast-grid').innerHTML = `<div class="empty error"><strong>${esc(title)}</strong>${esc(sub || '')}</div>`;
     }
 
-    async function generateCard(name) {
+    // ─── Render ───
+    function render() {
+      if (state.view === 'detail') renderDetail();
+      else renderGrid();
+    }
+    function renderGrid() {
+      document.getElementById('grid-view').classList.remove('hidden');
+      document.getElementById('detail-view').classList.remove('active');
+      const grid = document.getElementById('cast-grid');
+      const cards = Object.values(state.cards);
+      if (!cards.length) {
+        grid.innerHTML = `<div class="empty"><strong>no characters yet</strong>start writing — anyone Henry adds to the story will show up here.</div>`;
+        return;
+      }
+      const sorted = cards.slice().sort((a, b) => (a.intro_block ?? 9999) - (b.intro_block ?? 9999));
+      grid.innerHTML = sorted.map(gridCardMarkup).join('');
+    }
+    function gridCardMarkup(c) {
+      const primary = getPrimary(c);
+      const isLoading = c.status === 'loading';
+      const hasError = c.status === 'error' && !primary;
+      const portraitInner = primary
+        ? `<img src="data:${esc(primary.mime || 'image/png')};base64,${primary.dataBase64}" alt="${esc(c.name)}" loading="lazy" />`
+        : hasError
+          ? `<div>couldn't draw — open the card to retry</div>`
+          : `<span>drawing the portrait…</span>`;
+      const portraitCls = primary ? '' : (hasError ? 'failed' : 'loading');
+      const more = c.portraits.length > 1 ? `<span class="ccard-portraits-count">${c.portraits.length} drawings</span>` : '';
+      return `<div class="ccard" data-name="${esc(c.name)}">
+        <div class="ccard-face">
+          ${c.intro_block ? `<span class="ccard-state">first seen · block ${c.intro_block}</span>` : ''}
+          <span class="ccard-corner">${esc(initials(c.name))}</span>
+          ${more}
+          <div class="ccard-portrait ${portraitCls}">${portraitInner}</div>
+          <div class="ccard-nameplate">
+            <div class="ccard-name">${esc(c.name)}</div>
+            ${c.current_state ? `<div class="ccard-current">${esc(c.current_state)}</div>` : ''}
+          </div>
+          <span class="ccard-corner tr">${esc(initials(c.name))}</span>
+          <span class="ccard-hint">tap to open</span>
+        </div>
+      </div>`;
+    }
+
+    function renderDetail() {
+      const card = state.cards[state.openName];
+      if (!card) { state.view = 'grid'; renderGrid(); return; }
+      document.getElementById('grid-view').classList.add('hidden');
+      document.getElementById('detail-view').classList.add('active');
+      document.getElementById('detail-name').textContent = card.name;
+
+      // Primary portrait
+      const primary = getPrimary(card);
+      const ppEl = document.getElementById('portrait-primary');
+      if (primary) {
+        ppEl.className = 'portrait-primary';
+        ppEl.innerHTML = `<img src="data:${esc(primary.mime || 'image/png')};base64,${primary.dataBase64}" alt="${esc(card.name)}" />`;
+      } else if (state.pendingGen.has(card.name)) {
+        ppEl.className = 'portrait-primary loading';
+        ppEl.innerHTML = '<span>drawing the portrait…</span>';
+      } else {
+        ppEl.className = 'portrait-primary failed';
+        ppEl.innerHTML = '<span>no portrait yet — hit ↻ redraw below</span>';
+      }
+
+      // Visual notes
+      const notesEl = document.getElementById('visual-notes');
+      if (document.activeElement !== notesEl) notesEl.value = card.visual_notes || '';
+
+      // Gallery strip
+      const strip = document.getElementById('gallery-strip');
+      const thumbs = card.portraits.slice().sort((a, b) => (a.generated_at || 0) - (b.generated_at || 0)).map(p => {
+        const isPrimary = p.id === card.primary_portrait_id;
+        return `<div class="gallery-thumb ${isPrimary ? 'primary' : ''}" data-pid="${esc(p.id)}" title="${esc(p.note || (isPrimary ? 'primary' : 'tap to make primary'))}">
+          <img src="data:${esc(p.mime || 'image/png')};base64,${p.dataBase64}" alt="" />
+          <button class="gallery-thumb-x" data-action="delete-portrait" data-pid="${esc(p.id)}" type="button" aria-label="Delete this portrait">×</button>
+        </div>`;
+      }).join('');
+      const addBusy = state.pendingGen.has(card.name) ? 'busy' : '';
+      strip.innerHTML = thumbs + `<button class="gallery-add ${addBusy}" type="button" data-action="add-portrait" aria-label="Draw another portrait">+</button>`;
+
+      // Chat thread
+      renderChatThread(card);
+    }
+
+    function renderChatThread(card) {
+      const thread = document.getElementById('chat-thread');
+      const msgs = card.chat || [];
+      if (!msgs.length && !state.chatBusy) {
+        thread.innerHTML = `<div class="empty"><strong>chat with ${esc(card.name)}</strong>say what you want changed — "make him scarier", "add a cape", "remove the helmet". each message draws a fresh portrait. it gets archived in the gallery, so nothing's lost.</div>`;
+        return;
+      }
+      const lines = msgs.map(m => {
+        const role = m.role === 'wordy' ? 'wordy' : 'kid';
+        return `<div class="cmsg ${role}"><div class="cmsg-bubble">${esc(m.content)}</div></div>`;
+      }).join('');
+      const typing = state.chatBusy
+        ? `<div class="cmsg-typing">wordy is drawing… <span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`
+        : '';
+      thread.innerHTML = lines + typing;
+      requestAnimationFrame(() => { thread.scrollTop = thread.scrollHeight; });
+    }
+
+    // ─── Generation ───
+    async function generatePortrait(name, { visualNotes = null, chatMessage = null, fromChat = false } = {}) {
+      const card = state.cards[name];
+      if (!card) return;
       if (state.pendingGen.has(name)) return;
       state.pendingGen.add(name);
-      const card = state.cards[name];
-      if (!card) { state.pendingGen.delete(name); return; }
       card.status = 'loading';
-      render();
+      card.error = null;
+      if (state.view === 'detail' && state.openName === name) renderDetail();
+      else render();
+
+      const recent = (state.story?.blocks || []).slice(-6).map(b => ({ text: b.text || '' }));
+      const isFirst = card.portraits.length === 0;
+      const body = {
+        character: { name, current_state: card.current_state || '', intro_block: card.intro_block || null },
+        arc: state.story?.arc_context || null,
+        recentBlocks: recent,
+        rules: state.story?.rules || null,
+        // New revise-mode fields. Server is tolerant of older clients (no
+        // `revise` flag = original behavior).
+        revise: !isFirst,
+        visual_notes: typeof visualNotes === 'string' ? visualNotes : (card.visual_notes || ''),
+        chat: card.chat || [],
+        new_message: chatMessage || '',
+        existing_synopsis: card.synopsis || '',
+        primary_portrait: !isFirst ? getPrimaryAsRef(card) : null,
+      };
+
       try {
-        const recent = (state.story?.blocks || []).slice(-6).map(b => ({ text: b.text || '' }));
         const r = await fetch('/api/qss-character-card', {
           method: 'POST', headers: HEADERS,
-          body: JSON.stringify({
-            character: { name, current_state: card.current_state || '', intro_block: card.intro_block || null },
-            arc: state.story?.arc_context || null,
-            recentBlocks: recent,
-            rules: state.story?.rules || null,
-          }),
+          body: JSON.stringify(body),
         });
         if (!r.ok) {
           const j = await r.json().catch(() => ({}));
           throw new Error(j.error || `${r.status}`);
         }
         const data = await r.json();
-        Object.assign(card, {
-          status: 'ready',
-          synopsis: data.synopsis || '',
-          image: data.image || null,
-          generated_at: Date.now(),
-          error: null,
-        });
-        render();
-        persistCards();
+        // First-ever generation populates synopsis. Revise calls preserve it.
+        if (isFirst && data.synopsis) card.synopsis = data.synopsis;
+        if (typeof data.visual_notes === 'string' && data.visual_notes.trim()) {
+          card.visual_notes = data.visual_notes.trim();
+        }
+        if (data.image && data.image.dataBase64) {
+          const pid = uid();
+          card.portraits.push({
+            id: pid,
+            mime: data.image.mime || 'image/png',
+            dataBase64: data.image.dataBase64,
+            generated_at: Date.now(),
+            note: chatMessage || (visualNotes ? 'redraw' : ''),
+          });
+          card.primary_portrait_id = pid;
+        }
+        if (fromChat && data.chat_reply) {
+          card.chat.push({
+            id: uid(), role: 'wordy',
+            content: data.chat_reply,
+            ts: Date.now(),
+          });
+        }
+        card.status = 'ready';
+        card.generated_at = Date.now();
       } catch (e) {
-        Object.assign(card, { status: 'error', error: e.message });
-        render();
-        toast(`couldn't draw ${name}: ${e.message}`, 'error', 4500);
+        card.status = 'error';
+        card.error = e.message || 'failed';
+        toast(`couldn't redraw ${name}: ${card.error}`, 'error', 4000);
       } finally {
         state.pendingGen.delete(name);
+        writeLS();
+        scheduleCloudSave();
+        if (state.view === 'detail' && state.openName === name) renderDetail();
+        else render();
       }
     }
 
-    async function persistCards() {
+    // Compact form of the primary portrait for use as a reference image in
+    // the revise prompt. nano-banana accepts referenceImages: [{ dataBase64,
+    // mimeType }] — we pass at most one to keep the upstream call cheap.
+    function getPrimaryAsRef(card) {
+      const p = getPrimary(card);
+      if (!p || !p.dataBase64) return null;
+      return { mimeType: p.mime || 'image/png', dataBase64: p.dataBase64 };
+    }
+
+    // ─── Cloud save (best-effort; LS is authoritative pre-migration) ───
+    function scheduleCloudSave() {
+      clearTimeout(state.saveTimer);
+      state.saveTimer = setTimeout(persistToCloud, 1400);
+    }
+    async function persistToCloud() {
       if (!state.storyId || !state.story) return;
-      if (state.saving) return;
-      state.saving = true;
       const payload = {
         id: state.storyId,
         name: state.story.name,
-        character_cards: Object.values(state.cards).filter(c => c.status === 'ready').map(c => ({
-          name: c.name, synopsis: c.synopsis || '',
-          image: c.image || null,
+        character_cards: Object.values(state.cards).map(c => ({
+          name: c.name,
+          synopsis: c.synopsis || '',
+          visual_notes: c.visual_notes || '',
           current_state: c.current_state || '',
           intro_block: c.intro_block || null,
+          portraits: c.portraits || [],
+          primary_portrait_id: c.primary_portrait_id || null,
+          chat: c.chat || [],
           generated_at: c.generated_at || Date.now(),
+          // legacy single-image mirror for older readers
+          image: getPrimary(c) ? { mime: getPrimary(c).mime, dataBase64: getPrimary(c).dataBase64 } : null,
         })),
         expectedUpdatedAt: state.story.updated_at || undefined,
       };
       try {
         const r = await fetch('/api/qss-stories?action=save', { method: 'POST', headers: HEADERS, body: JSON.stringify(payload) });
-        if (r.status === 503) {
-          const j = await r.json().catch(() => ({}));
-          if (j.error === 'MIGRATION_NEEDED_016') {
-            showBanner(`<strong>Cards saving locally only.</strong> Apply <code>supabase/migrations/016_qss_character_cards.sql</code> in the Supabase SQL editor to persist drawings across devices.`);
-          }
-        } else if (r.ok) {
+        if (r.ok) {
           const j = await r.json().catch(() => ({}));
           if (j?.story?.updated_at) state.story.updated_at = j.story.updated_at;
+        } else if (r.status === 503) {
+          // Migration 016 not applied. Silently fine — LS is the truth.
         }
-      } catch (e) {
-        toast(`save failed: ${e.message}`, 'error', 4000);
-      } finally {
-        state.saving = false;
+      } catch {}
+    }
+
+    // ─── Detail-view interactions ───
+    function openCard(name) {
+      if (!state.cards[name]) return;
+      state.view = 'detail';
+      state.openName = name;
+      try { history.pushState({ name }, '', `#${encodeURIComponent(name)}`); } catch {}
+      render();
+    }
+    function backToGrid() {
+      state.view = 'grid';
+      state.openName = null;
+      try { history.pushState({}, '', location.pathname + location.search); } catch {}
+      render();
+    }
+    window.addEventListener('popstate', () => {
+      const hash = (location.hash || '').replace(/^#/, '');
+      const name = hash ? decodeURIComponent(hash) : null;
+      if (name && state.cards[name]) { state.view = 'detail'; state.openName = name; }
+      else { state.view = 'grid'; state.openName = null; }
+      render();
+    });
+
+    function setPrimaryPortrait(pid) {
+      const card = state.cards[state.openName]; if (!card) return;
+      const p = card.portraits.find(x => x.id === pid); if (!p) return;
+      card.primary_portrait_id = pid;
+      writeLS();
+      scheduleCloudSave();
+      renderDetail();
+    }
+    function deletePortrait(pid) {
+      const card = state.cards[state.openName]; if (!card) return;
+      const idx = card.portraits.findIndex(x => x.id === pid);
+      if (idx < 0) return;
+      card.portraits.splice(idx, 1);
+      if (card.primary_portrait_id === pid) {
+        card.primary_portrait_id = card.portraits.length
+          ? card.portraits[card.portraits.length - 1].id
+          : null;
       }
+      writeLS();
+      scheduleCloudSave();
+      renderDetail();
+      toast('portrait deleted', 'success', 1600);
+    }
+    function deleteCharacter() {
+      const name = state.openName; if (!name) return;
+      if (!confirm(`Delete ${name} from the cast? (the character stays in the story — this just removes their card)`)) return;
+      delete state.cards[name];
+      writeLS();
+      scheduleCloudSave();
+      backToGrid();
+      toast(`${name} removed from the cast`, 'success', 2000);
     }
 
-    function render() {
-      const grid = document.getElementById('cast-grid');
-      const chars = Object.values(state.cards);
-      if (!chars.length) {
-        grid.innerHTML = `<div class="empty"><strong>no characters yet</strong>nobody's stepped into the story. write a block or two; their cards will show up here.</div>`;
-        return;
-      }
-      const sorted = chars.slice().sort((a, b) => (a.intro_block ?? 9999) - (b.intro_block ?? 9999));
-      grid.innerHTML = sorted.map(cardMarkup).join('');
+    function saveVisualNotes() {
+      const card = state.cards[state.openName]; if (!card) return;
+      card.visual_notes = document.getElementById('visual-notes').value;
+      writeLS();
+      scheduleCloudSave();
     }
 
-    function renderEmpty(title, sub) {
-      document.getElementById('cast-grid').innerHTML = `<div class="empty error"><strong>${esc(title)}</strong>${esc(sub || '')}</div>`;
-    }
-
-    function cardMarkup(c) {
-      const isLoading = c.status === 'loading' || c.status === undefined;
-      const hasImage = c.status === 'ready' && c.image?.dataBase64;
-      const hasError = c.status === 'error';
-      const synopsis = c.synopsis || '';
-      const current = (c.current_state || '').trim();
-
-      const portraitInner = hasImage
-        ? `<img src="data:${esc(c.image.mime || 'image/png')};base64,${c.image.dataBase64}" alt="portrait of ${esc(c.name)}" loading="lazy" />`
-        : hasError
-          ? `<div>couldn't draw the card<br><span style="font-size:11px;opacity:0.7;">(${esc(c.error || 'error')})</span></div>`
-          : `<span>drawing the portrait…</span>`;
-      const portraitClass = hasImage ? '' : (hasError ? 'failed' : 'loading');
-
-      const synInner = isLoading
-        ? 'writing the back-of-card…'
-        : hasError
-          ? '(couldn\'t write this one — hit redraw to try again)'
-          : esc(synopsis);
-      const synClass = (isLoading || hasError) ? 'loading' : '';
-
-      return `<div class="ccard" data-name="${esc(c.name)}">
-        <div class="ccard-inner">
-          <div class="ccard-face ccard-front">
-            ${c.intro_block ? `<span class="ccard-state">first seen · block ${c.intro_block}</span>` : ''}
-            <span class="ccard-corner">${esc(initials(c.name))}</span>
-            <div class="ccard-portrait ${portraitClass}">${portraitInner}</div>
-            <div class="ccard-nameplate">
-              <div class="ccard-name">${esc(c.name)}</div>
-              ${current ? `<div class="ccard-current">${esc(current)}</div>` : ''}
-            </div>
-            <span class="ccard-corner tr">${esc(initials(c.name))}</span>
-            <span class="ccard-hint">tap to flip</span>
-          </div>
-          <div class="ccard-face ccard-back">
-            <div class="ccard-back-head">
-              <div class="ccard-back-name">${esc(c.name)}</div>
-              <span class="ccard-suit">♣</span>
-            </div>
-            <div class="ccard-synopsis ${synClass}">${synInner}</div>
-            <div class="ccard-back-actions">
-              <button class="tts-btn" type="button" data-action="speak" aria-label="Read aloud" ${(isLoading || hasError) ? 'disabled' : ''}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg>
-              </button>
-              <button class="ccard-regen" type="button" data-action="regen">↻ redraw</button>
-              <button class="ccard-flipback" type="button" data-action="flipback">flip back</button>
-            </div>
-          </div>
-        </div>
-      </div>`;
-    }
-
-    // Speaker
-    function stopSpeak() {
-      if (state.activeAudio) { try { state.activeAudio.pause(); } catch {} state.activeAudio = null; }
-      if (state.activeSpeakerBtn) { state.activeSpeakerBtn.classList.remove('playing'); state.activeSpeakerBtn = null; }
-    }
-    async function speak(name, button) {
-      const c = state.cards[name];
-      if (!c?.synopsis) return;
-      if (state.activeSpeakerBtn === button) { stopSpeak(); return; }
-      stopSpeak();
-      button.classList.add('playing');
-      state.activeSpeakerBtn = button;
+    async function sendChatMessage() {
+      const card = state.cards[state.openName]; if (!card) return;
+      const inp = document.getElementById('chat-input');
+      const text = (inp.value || '').trim();
+      if (!text || state.chatBusy) return;
+      card.chat.push({ id: uid(), role: 'kid', content: text, ts: Date.now() });
+      inp.value = ''; inp.style.height = 'auto';
+      state.chatBusy = true;
+      renderChatThread(card);
+      // Generate a fresh portrait using the chat message as the revise instruction.
+      // generatePortrait flips state.pendingGen + status; we don't await here so the
+      // typing indicator stays visible until the call returns.
       try {
-        const r = await fetch('/api/qss-tts', { method: 'POST', headers: HEADERS, body: JSON.stringify({ text: c.synopsis }) });
-        if (!r.ok) throw new Error(`tts ${r.status}`);
-        const blob = await r.blob();
-        if (state.activeSpeakerBtn !== button) return;
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        state.activeAudio = audio;
-        audio.addEventListener('ended', () => {
-          if (state.activeSpeakerBtn === button) { button.classList.remove('playing'); state.activeSpeakerBtn = null; state.activeAudio = null; }
-          URL.revokeObjectURL(url);
+        await generatePortrait(card.name, {
+          visualNotes: card.visual_notes,
+          chatMessage: text,
+          fromChat: true,
         });
-        await audio.play();
-      } catch (e) {
-        button.classList.remove('playing');
-        if (state.activeSpeakerBtn === button) state.activeSpeakerBtn = null;
-        toast(`couldn't read: ${e.message}`, 'error', 3000);
+      } finally {
+        state.chatBusy = false;
+        renderChatThread(card);
       }
     }
 
-    // Delegated grid clicks (flip + actions)
-    document.getElementById('cast-grid').addEventListener('click', (e) => {
-      const card = e.target.closest('.ccard'); if (!card) return;
-      const name = card.dataset.name;
-      const speakerBtn = e.target.closest('[data-action="speak"]');
-      if (speakerBtn) { e.stopPropagation(); speak(name, speakerBtn); return; }
-      const regenBtn = e.target.closest('[data-action="regen"]');
-      if (regenBtn) {
-        e.stopPropagation();
-        delete state.cards[name];
-        // Re-add a stub from arc so render shows "loading"
-        const arcChars = Array.isArray(state.story?.arc_context?.characters) ? state.story.arc_context.characters : [];
-        const arcCh = arcChars.find(c => (c?.name || '').trim() === name);
-        state.cards[name] = { name, current_state: arcCh?.current_state || '', intro_block: arcCh?.intro_block || null, status: 'loading' };
-        render();
-        generateCard(name);
-        return;
-      }
-      const backBtn = e.target.closest('[data-action="flipback"]');
-      if (backBtn) { e.stopPropagation(); card.classList.remove('flipped'); return; }
-      card.classList.toggle('flipped');
+    async function redrawFromNotes() {
+      const card = state.cards[state.openName]; if (!card) return;
+      await generatePortrait(card.name, {
+        visualNotes: card.visual_notes,
+      });
+    }
+
+    // ─── Wire ───
+    document.addEventListener('DOMContentLoaded', () => {
+      // Grid clicks → open card
+      document.getElementById('cast-grid').addEventListener('click', (e) => {
+        const card = e.target.closest('.ccard'); if (!card) return;
+        openCard(card.dataset.name);
+      });
+
+      // Detail back/delete
+      document.getElementById('detail-back').addEventListener('click', backToGrid);
+      document.getElementById('detail-delete').addEventListener('click', deleteCharacter);
+
+      // Visual notes — autosave on input (debounced via cloud schedule + LS write per keystroke is fine)
+      document.getElementById('visual-notes').addEventListener('input', saveVisualNotes);
+
+      // Gallery interactions
+      document.getElementById('gallery-strip').addEventListener('click', (e) => {
+        const x = e.target.closest('[data-action="delete-portrait"]');
+        if (x) { e.stopPropagation(); deletePortrait(x.dataset.pid); return; }
+        const add = e.target.closest('[data-action="add-portrait"]');
+        if (add) { redrawFromNotes(); return; }
+        const thumb = e.target.closest('.gallery-thumb');
+        if (thumb) setPrimaryPortrait(thumb.dataset.pid);
+      });
+
+      // Chat composer
+      const chatInp = document.getElementById('chat-input');
+      document.getElementById('chat-send').addEventListener('click', sendChatMessage);
+      chatInp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+      });
+      chatInp.addEventListener('input', () => {
+        chatInp.style.height = 'auto';
+        chatInp.style.height = Math.min(chatInp.scrollHeight, 180) + 'px';
+      });
+      document.getElementById('chat-redraw').addEventListener('click', redrawFromNotes);
     });
   </script>
 </body>

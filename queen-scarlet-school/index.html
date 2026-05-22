@@ -4718,10 +4718,51 @@
         b.__image = { ...(b.__image || {}), loading: true, err: null, attempt };
         renderBoard();
         try {
+          // ── Character-aware image gen ──
+          // Scan the block text for any cast character names. For each match,
+          // grab their primary portrait (as a referenceImage) + their
+          // accumulated visual notes — then pass everything to nano-banana so
+          // the storyboard art keeps characters CONSISTENT with how Henry has
+          // refined them on the cast page. The cast cards are the canonical
+          // visual profile; the storyboard pulls from them.
+          let castRefs = [];
+          let castNotes = [];
+          try {
+            const castMap = JSON.parse(localStorage.getItem(`qss:cast:${state.serverId || ''}`) || '{}');
+            const blockText = (b.text || '').toLowerCase();
+            for (const [name, c] of Object.entries(castMap)) {
+              if (!name) continue;
+              const lname = name.toLowerCase();
+              // Match whole-word name appearances in the block text.
+              const re = new RegExp(`\\b${lname.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\b`, 'i');
+              if (!re.test(blockText)) continue;
+              const portraits = Array.isArray(c?.portraits) ? c.portraits : [];
+              const primary = portraits.find(p => p.id === c.primary_portrait_id) || portraits[portraits.length - 1];
+              if (primary?.dataBase64) {
+                castRefs.push({ dataBase64: primary.dataBase64, mimeType: primary.mime || 'image/png' });
+              }
+              const notes = (c?.visual_notes || '').trim();
+              if (notes) castNotes.push(`${name}: ${notes}`);
+            }
+          } catch {}
+          // Cap reference images at 3 so the gemini call stays cheap.
+          castRefs = castRefs.slice(0, 3);
+
+          const characterPreface = castNotes.length
+            ? `CHARACTERS IN THIS SCENE (use the attached reference portraits + these visual notes for consistency — these are the established looks):\n${castNotes.join('\n')}\n\n`
+            : '';
+          const stylePreface = 'STYLE: Children\'s storybook illustration. Cinematic 16:9 framing. Thick consistent black ink outlines, flat saturated kid-book colors, warm cream paper feel. Match the existing QSS sticker aesthetic — no painterly textures, no photorealism, no anime/manga.\n\n';
+          const composedPrompt = stylePreface + characterPreface + `SCENE: ${b.text}`;
+
           const res = await fetch('/api/nano-banana', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
-            body: JSON.stringify({ mode: 'image', prompt: `Children's storybook illustration, cinematic, 16:9. ${b.text}`, model: 'nano-banana' }),
+            body: JSON.stringify({
+              mode: 'image',
+              prompt: composedPrompt,
+              model: 'nano-banana',
+              referenceImages: castRefs,
+            }),
           });
           // 504 = upstream timeout. Retryable.
           if (res.status === 504 || res.status === 502 || res.status === 503) {

@@ -99,42 +99,124 @@ export default async function handler(req) {
   const subjectCanon = canonForName(name);
   const canonBlock = canonContextBlock([name]);
 
-  const synopsisUser = [
-    `Character: ${name}`,
-    canonBlock ? canonBlock : '',
-    currentState ? `Where they are right now: ${currentState}` : '',
-    introBlock ? `Introduced around block ${introBlock}.` : '',
-    arcSynopsis ? `Story so far: ${arcSynopsis}` : '',
-    themes.length ? `Themes in play: ${themes.join(', ')}.` : '',
-    tones.length ? `Tone of the story: ${tones.join(', ')}.` : '',
-    recentText ? `Most recent story blocks for voice/tone:\n${recentText}` : '',
-    '',
-    'Write the back-of-the-card synopsis for this character in 3-4 short sentences. Match the voice of the story. If WORLD CANON is provided above, every detail in it is non-negotiably true.',
+  // ── Revise-mode inputs ───────────────────────────────────────────────
+  // The cast page lets Henry chat with each character to refine their look.
+  // When revise=true the server skips re-writing the synopsis (it's the
+  // authored bio — only Claude writes it once) and instead:
+  //  - rewrites visual_notes from chat + existing notes (Claude Haiku)
+  //  - generates a NEW portrait honoring the visual notes + existing
+  //    primary as a referenceImage so the new draw looks like a sibling
+  //    of the existing one with the requested changes.
+  const isRevise = !!body.revise;
+  const incomingNotes = String(body.visual_notes || '').trim();
+  const chatHistory = Array.isArray(body.chat) ? body.chat.slice(-12) : [];
+  const newMessage = String(body.new_message || '').trim();
+  const existingSynopsis = String(body.existing_synopsis || '').trim();
+  const refPortrait = (body.primary_portrait && body.primary_portrait.dataBase64)
+    ? { mimeType: String(body.primary_portrait.mimeType || 'image/png'), dataBase64: String(body.primary_portrait.dataBase64) }
+    : null;
+
+  // Compose chat transcript for the model
+  const chatTranscript = [
+    ...chatHistory.map(m => `${(m.role === 'wordy' ? 'wordy' : 'henry')}: ${String(m.content || '').slice(0, 600)}`),
+    newMessage ? `henry: ${newMessage}` : '',
   ].filter(Boolean).join('\n');
 
-  // Image prompt is locally composed so we can fire both upstream calls in parallel.
-  const portraitPrompt = buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, subjectCanon });
+  // ── Build the user message for the synopsis / notes call ─────────────
+  let claudeUser;
+  if (isRevise) {
+    // Revise mode: update visual_notes + produce a short chat reply.
+    claudeUser = [
+      `Character: ${name}`,
+      canonBlock ? canonBlock : '',
+      existingSynopsis ? `Existing synopsis (keep as-is):\n${existingSynopsis}` : '',
+      incomingNotes ? `Current visual notes (update these):\n${incomingNotes}` : 'No visual notes yet.',
+      chatTranscript ? `Chat with henry (most recent at bottom):\n${chatTranscript}` : '',
+      '',
+      `Two outputs, in two fenced blocks. NO preamble.`,
+      ``,
+      `<chat_reply>`,
+      `One short sentence (10-22 words) that ACKNOWLEDGES henry's latest change request in the voice of a friendly co-conspirator. Be specific to what he said. No "let's", no "I'll", no apologies. Just confirm what's about to be redrawn. End on a period.`,
+      `</chat_reply>`,
+      ``,
+      `<visual_notes>`,
+      `Updated visual notes — 2-4 short comma-separated phrases describing the character's look right now (incorporate henry's latest request into the existing notes). E.g.: "calculator helmet, blue button-down, slouched shoulders, perpetually resigned expression". No prose. No bullets. One line.`,
+      `</visual_notes>`,
+    ].filter(Boolean).join('\n');
+  } else {
+    // First-time generation: write the synopsis + initial visual notes.
+    claudeUser = [
+      `Character: ${name}`,
+      canonBlock ? canonBlock : '',
+      currentState ? `Where they are right now: ${currentState}` : '',
+      introBlock ? `Introduced around block ${introBlock}.` : '',
+      arcSynopsis ? `Story so far: ${arcSynopsis}` : '',
+      themes.length ? `Themes in play: ${themes.join(', ')}.` : '',
+      tones.length ? `Tone of the story: ${tones.join(', ')}.` : '',
+      recentText ? `Most recent story blocks for voice/tone:\n${recentText}` : '',
+      '',
+      `Two outputs, in two fenced blocks. NO preamble.`,
+      ``,
+      `<synopsis>`,
+      `Back-of-the-card synopsis. 3-4 short sentences. Match the voice of the story. If WORLD CANON is provided above, every detail in it is non-negotiably true.`,
+      `</synopsis>`,
+      ``,
+      `<visual_notes>`,
+      `Initial visual notes — 2-4 short comma-separated phrases describing the character's look. E.g.: "calculator helmet, blue button-down, slouched shoulders, perpetually resigned expression". No prose, no bullets, one line.`,
+      `</visual_notes>`,
+    ].filter(Boolean).join('\n');
+  }
 
-  const synopsisPromise = callClaude(anthropicKey, synopsisUser);
-  const imagePromise = callNanoBanana(geminiKey, portraitPrompt);
+  // Image prompt — includes incoming visual_notes when present.
+  const portraitPrompt = buildPortraitPrompt({
+    name, currentState, themes, tones, recentBlocks, subjectCanon,
+    visualNotes: incomingNotes,
+    isRevise,
+    newMessage,
+  });
 
-  const [synR, imgR] = await Promise.allSettled([synopsisPromise, imagePromise]);
+  const claudePromise = callClaude(anthropicKey, claudeUser);
+  const imagePromise = callNanoBanana(geminiKey, portraitPrompt, refPortrait);
 
-  let synopsis = '';
-  if (synR.status === 'fulfilled') synopsis = synR.value;
-  else {
-    // soft-fail synopsis; the card still has the portrait
-    synopsis = `(couldn't write the card right now — try regenerating)`;
-    console.warn('[character-card] synopsis failed:', synR.reason);
+  const [claudeR, imgR] = await Promise.allSettled([claudePromise, imagePromise]);
+
+  // Parse the dual-fenced response
+  let synopsis = existingSynopsis;
+  let chatReply = '';
+  let visualNotesOut = incomingNotes;
+  if (claudeR.status === 'fulfilled') {
+    const raw = claudeR.value || '';
+    const synM = /<synopsis>\s*([\s\S]*?)\s*<\/synopsis>/i.exec(raw);
+    const notesM = /<visual_notes>\s*([\s\S]*?)\s*<\/visual_notes>/i.exec(raw);
+    const replyM = /<chat_reply>\s*([\s\S]*?)\s*<\/chat_reply>/i.exec(raw);
+    if (synM) synopsis = cleanSynopsis(synM[1]);
+    if (notesM) visualNotesOut = cleanSynopsis(notesM[1]).replace(/\n+/g, ' ').slice(0, 400);
+    if (replyM) chatReply = cleanSynopsis(replyM[1]);
+    // Fallback: if the model returned only plain prose, treat the whole thing
+    // as the synopsis (legacy mode).
+    if (!isRevise && !synM && raw.trim()) synopsis = cleanSynopsis(raw);
+  } else {
+    if (!isRevise) synopsis = `(couldn't write the card right now — try regenerating)`;
+    console.warn('[character-card] claude failed:', claudeR.reason);
   }
 
   if (imgR.status !== 'fulfilled') {
-    return json(502, { error: 'portrait failed', detail: String(imgR.reason).slice(0, 400) });
+    // Soft-fail: still return the chat reply + updated notes if available so
+    // the chat doesn't leave Henry hanging.
+    return json(502, {
+      error: 'portrait failed',
+      detail: String(imgR.reason).slice(0, 400),
+      synopsis,
+      visual_notes: visualNotesOut,
+      chat_reply: chatReply,
+    });
   }
 
   return json(200, {
-    synopsis: cleanSynopsis(synopsis),
+    synopsis,
     image: imgR.value,
+    visual_notes: visualNotesOut,
+    chat_reply: chatReply,
     portraitPrompt,
     model: { synopsis: 'claude-haiku-4-5', portrait: 'gemini-3.1-flash-image-preview' },
     ms: Date.now() - t0,
@@ -148,7 +230,7 @@ function cleanSynopsis(s) {
     .trim();
 }
 
-function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, subjectCanon }) {
+function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, subjectCanon, visualNotes = '', isRevise = false, newMessage = '' }) {
   // Style anchor — match the existing QSS sticker art (Kevin in calculator
   // helmet, Benny the beaver in a gas mask on a bean forklift, the cartoon
   // dragon). Modern children's-book sticker illustration: bold consistent
@@ -196,9 +278,28 @@ function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, 
     subjectCanon.donts   ? `- must NOT draw: ${subjectCanon.donts}` : '',
   ].filter(Boolean).join('\n') : '';
 
+  // Visual notes Henry has built up across redraws. These are the single
+  // most important input — they're what makes Kevin LOOK like Kevin every
+  // time. Put them HIGH in the prompt and emphasize they're authored.
+  const notesBlock = visualNotes
+    ? `AUTHORED VISUAL TRAITS (Henry has been refining these — they win over canon and over story context if anything conflicts, except for species/role canon which is still non-negotiable):\n${visualNotes}`
+    : '';
+
+  // For revise calls, surface the latest change request explicitly so the
+  // image model knows what's DIFFERENT this time. The reference image
+  // passed alongside establishes character continuity; this string tells
+  // the model what to ALTER in that reference.
+  const reviseBlock = isRevise && newMessage
+    ? `THIS DRAW IS A REVISION of an earlier portrait of the same character. The reference image attached shows the previous look. Keep the character recognizable as the same individual, but APPLY THIS SPECIFIC CHANGE: "${newMessage}". Don't redraw from scratch — adjust.`
+    : (isRevise
+        ? 'THIS DRAW IS A REVISION. Reference image attached. Keep the character recognizably the same individual; only tighten or align with the AUTHORED VISUAL TRAITS block above.'
+        : '');
+
   return [
     `SUBJECT: A character named ${name}. Render exactly ONE character — no extras, no crowd, no audience, no shadowy figures in the background.`,
     canonBlock,
+    notesBlock,
+    reviseBlock,
     traits,
     story,
     tone,
@@ -233,11 +334,25 @@ async function callClaude(apiKey, userMessage) {
   return data?.content?.map(c => (c.type === 'text' ? c.text : '')).join('') || '';
 }
 
-async function callNanoBanana(apiKey, prompt) {
+async function callNanoBanana(apiKey, prompt, refImage = null) {
   const modelId = 'gemini-3.1-flash-image-preview';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`;
+  // When refImage is supplied (a previous portrait), include it as an
+  // inlineData part BEFORE the text — this anchors the new portrait to
+  // the existing character look while the prompt's "THIS DRAW IS A
+  // REVISION" / "AUTHORED VISUAL TRAITS" blocks describe the changes.
+  const parts = [];
+  if (refImage && refImage.dataBase64) {
+    parts.push({
+      inlineData: {
+        mimeType: refImage.mimeType || 'image/png',
+        data: refImage.dataBase64,
+      },
+    });
+  }
+  parts.push({ text: prompt });
   const payload = {
-    contents: [{ parts: [{ text: prompt }] }],
+    contents: [{ parts }],
     generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
   };
   const res = await fetch(url, {
