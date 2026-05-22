@@ -1196,11 +1196,24 @@ async function handleImage(body, apiKey) {
   const modelId = modelMap[body.model] || modelMap['nano-banana'];
 
   const parts = [];
+  // Inline-base64 only — never accept URL-shaped references. Gemini
+  // would happily fetch them server-side, opening an SSRF surface
+  // (attacker hits an internal service via our paid API). Reference
+  // images must arrive as already-encoded bytes from the trusted
+  // client. Each is capped at ~6 MB encoded so a single request can't
+  // OOM the function.
+  const MAX_REF_BYTES = 6 * 1024 * 1024;
   if (Array.isArray(body.referenceImages)) {
     for (const ref of body.referenceImages) {
-      if (ref?.dataBase64 && ref?.mimeType) {
-        parts.push({ inlineData: { mimeType: ref.mimeType, data: ref.dataBase64 } });
-      }
+      if (typeof ref?.dataBase64 !== 'string') continue;
+      if (typeof ref?.mimeType !== 'string') continue;
+      // Reject any caller-supplied URL fields outright.
+      if (ref.url || ref.uri || ref.fileUri || ref.src) continue;
+      // Cap base64 size — actual byte count is ~3/4 of the base64
+      // length; using length as an upper bound is conservative.
+      if (ref.dataBase64.length > MAX_REF_BYTES * 1.4) continue;
+      if (!/^image\/(png|jpe?g|webp|gif)$/i.test(ref.mimeType)) continue;
+      parts.push({ inlineData: { mimeType: ref.mimeType, data: ref.dataBase64 } });
     }
   }
   parts.push({ text: prompt });
