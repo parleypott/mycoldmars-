@@ -200,13 +200,17 @@ Always end your reply with this exact fenced block:
 
 \`\`\`block-options
 [
-  { "kind": "a direction tag from the list above", "text": "FULL vignette text. Multiple lines. Use \\n\\n for paragraph breaks. Include dialogue. Land a beat. No markdown headers, no quotes wrapping the whole thing." },
-  { "kind": "different angle", "text": "another full vignette, different angle, different shape" },
-  { "kind": "different angle", "text": "third vignette, different angle, different shape" }
+  {
+    "kind": "a direction tag from the list above",
+    "summary": "one-sentence chapter-title-style label (6-14 words). concrete, names the specific moment. e.g. 'Kevin's helmet finally falls off in the cafeteria'. NOT generic ('something happens').",
+    "text": "FULL vignette text. Multiple lines. Use \\n\\n for paragraph breaks. Include dialogue. Land a beat. No markdown headers, no quotes wrapping the whole thing."
+  },
+  { "kind": "different angle", "summary": "...", "text": "another full vignette, different angle, different shape" },
+  { "kind": "different angle", "summary": "...", "text": "third vignette, different angle, different shape" }
 ]
 \`\`\`
 
-Always 3. Always valid JSON. Always within rules. Always in voice. Always vignette-sized — not one sentence.
+Always 3. Always valid JSON. Always within rules. Always in voice. Always vignette-sized — not one sentence. ALWAYS include the "summary" field — it's what the kid sees on the collapsed block in the story column, and it's how Johnny scans the arc at a glance.
 
 ═══ NEVER ═══
 - Never write the whole story at once.
@@ -674,6 +678,7 @@ function normalizeBlocks(arr) {
     if (item && item.text && typeof item.text === 'string' && item.text.trim()) {
       out.push({
         kind: String(item.kind || '').trim().toLowerCase(),
+        summary: String(item.summary || '').trim(),
         text: item.text.trim(),
       });
     }

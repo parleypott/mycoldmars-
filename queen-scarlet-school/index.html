@@ -214,10 +214,49 @@
 
     /* ════════ STAGE 1 — WRITE (Tutor) ════════ */
     .write-layout {
-      flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0;
-      min-height: 0; padding: 8px 24px 16px;
+      flex: 1;
+      display: grid;
+      grid-template-columns: var(--col-left, 1fr) 14px var(--col-right, 1fr);
+      gap: 0;
+      min-height: 0;
+      padding: 8px 24px 16px;
+      --story-font-size: 16.5px;  /* font-size slider drives this */
     }
     .write-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 6px; }
+    .split-handle {
+      cursor: col-resize;
+      background: transparent;
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 140ms;
+      user-select: none;
+      touch-action: none;
+    }
+    .split-handle::before {
+      content: '';
+      width: 4px; height: 60px;
+      background: var(--ink-bright);
+      border-radius: 999px;
+      opacity: 0.18;
+      transition: opacity 140ms, height 140ms;
+    }
+    .split-handle:hover::before { opacity: 0.5; height: 80px; }
+    .split-handle.dragging::before { opacity: 0.8; height: 100px; background: var(--red); }
+    .split-handle::after {
+      content: '⇔';
+      position: absolute;
+      background: var(--paper-card);
+      border: 2px solid var(--ink-bright);
+      border-radius: 50%;
+      width: 24px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--ui); font-weight: 700;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      opacity: 0;
+      transition: opacity 140ms;
+      pointer-events: none;
+    }
+    .split-handle:hover::after, .split-handle.dragging::after { opacity: 1; }
 
     /* ── The Story (left) ── */
     .story-pane {
@@ -234,6 +273,44 @@
       padding-bottom: 14px; border-bottom: 2px dashed var(--ink-bright);
     }
     .pane-header h2 { font-family: var(--display); font-size: 32px; font-weight: 700; line-height: 1; transform: rotate(-1deg); flex: 1; }
+    .pane-controls {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-left: 8px;
+    }
+    .pane-ctrl-btn {
+      font-family: var(--ui); font-weight: 700; font-size: 13px;
+      padding: 5px 10px;
+      background: var(--paper-card);
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer;
+      color: var(--ink-bright);
+      transition: transform 140ms var(--ease), background 140ms;
+      white-space: nowrap;
+    }
+    .pane-ctrl-btn:hover { background: var(--yolk); transform: translate(-1px, -1px); }
+    .pane-ctrl-btn.playing { background: var(--red); color: var(--paper-card); animation: ttsPulse 1s ease-in-out infinite; }
+    .pane-ctrl-btn.ghost { background: transparent; box-shadow: 1.5px 1.5px 0 var(--ink-bright); }
+    .font-size-ctrl {
+      display: inline-flex; align-items: center;
+      border: 2px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      background: var(--paper-card);
+      overflow: hidden;
+    }
+    .font-size-ctrl button {
+      font-family: var(--ui); font-weight: 700;
+      background: transparent; border: none;
+      padding: 4px 9px;
+      cursor: pointer;
+      border-right: 1px solid var(--ink-bright);
+      color: var(--ink-bright);
+      transition: background 120ms;
+    }
+    .font-size-ctrl button:last-child { border-right: none; }
+    .font-size-ctrl button.active { background: var(--yolk); }
+    .font-size-ctrl button:hover { background: var(--paper-deep); }
     .pane-header .meta {
       font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--ink-soft);
       background: var(--sky); border: 2px solid var(--ink-bright); border-radius: 999px;
@@ -275,9 +352,49 @@
     .story-block:nth-child(4n+4) .b-num { background: var(--yolk); }
 
     .story-block .b-text {
-      font-family: var(--serif); font-size: 16.5px; line-height: 1.55; color: var(--ink);
+      font-family: var(--serif);
+      font-size: var(--story-font-size, 16.5px);
+      line-height: 1.55; color: var(--ink);
       background: transparent; border: none; outline: none; width: 100%; resize: none; padding: 0;
       min-height: 24px;
+    }
+    /* Collapsed-by-default — show summary line + click anywhere to expand */
+    .story-block .b-summary {
+      font-family: var(--serif);
+      font-size: calc(var(--story-font-size, 16.5px) * 0.95);
+      line-height: 1.4; color: var(--ink-soft);
+      cursor: pointer;
+      padding: 4px 0;
+      font-style: italic;
+      transition: color 140ms;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .story-block .b-summary:hover { color: var(--ink-bright); }
+    .story-block .b-summary .chev {
+      display: inline-block;
+      width: 14px; flex-shrink: 0;
+      color: var(--gold-deep);
+      transition: transform .18s;
+      font-size: 13px;
+      font-style: normal;
+    }
+    .story-block.expanded .b-summary .chev { transform: rotate(90deg); }
+    .story-block.expanded .b-text { display: block; padding-top: 6px; }
+    .story-block:not(.expanded) .b-text { display: none; }
+    /* Word-highlight container (used by play-whole-story) */
+    .story-block .b-text .b-word { transition: background 120ms; padding: 0 1px; border-radius: 3px; }
+    .story-block .b-text .b-word.active {
+      background: var(--yolk);
+      box-shadow: 0 0 0 2px var(--yolk);
+    }
+    /* The 'playing now' block highlight */
+    .story-block.playing {
+      box-shadow: 6px 6px 0 var(--red), 6px 6px 0 2.5px var(--ink-bright);
+      transform: translate(-1px, -1px) rotate(0);
+      background: #FFFEF5;
+    }
+    .story-block.playing .b-num {
+      animation: ttsPulse 1.1s ease-in-out infinite;
     }
     .story-block.editing .b-text { background: var(--paper); padding: 8px; border: 2px dashed var(--ink-bright); border-radius: 8px; }
     .story-block .b-toolbar {
@@ -644,6 +761,37 @@
       transition: box-shadow .15s var(--ease), transform .15s var(--ease);
     }
     .composer textarea:focus { box-shadow: 4px 4px 0 var(--ink-bright); transform: translate(-1px, -1px); }
+    .composer-modes {
+      display: inline-flex;
+      gap: 0;
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      overflow: hidden;
+      background: var(--paper-card);
+      align-self: center;
+    }
+    .composer-modes .mode-btn {
+      font-family: var(--ui); font-weight: 700; font-size: 12px;
+      padding: 6px 12px;
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--ink-bright);
+      cursor: pointer;
+      color: var(--ink-soft);
+      transition: background 120ms;
+    }
+    .composer-modes .mode-btn:last-child { border-right: none; }
+    .composer-modes .mode-btn.active {
+      background: var(--yolk);
+      color: var(--ink-bright);
+    }
+    .composer-modes .mode-btn:hover:not(.active) { background: var(--paper-deep); }
+    /* Verbatim mode visual cue on the textarea */
+    .composer.verbatim-mode textarea {
+      background: #FFFAEC;
+      border-color: var(--bubblegum-deep);
+    }
 
     .thinking-msg {
       display: flex; gap: 10px; align-items: center;
@@ -1232,6 +1380,16 @@
             <div class="pane-header">
               <h2>The Story</h2>
               <span class="meta" id="story-meta">0 blocks</span>
+              <div class="pane-controls">
+                <button id="btn-play-all" class="pane-ctrl-btn" type="button" title="Play the whole story start to finish">▶ play</button>
+                <div class="font-size-ctrl" title="Story text size">
+                  <button data-fs="14"   type="button">A</button>
+                  <button data-fs="16.5" type="button" class="active" style="font-size: 14px;">A</button>
+                  <button data-fs="19"   type="button" style="font-size: 16px;">A</button>
+                  <button data-fs="22"   type="button" style="font-size: 18px;">A</button>
+                </div>
+                <button id="btn-collapse-all" class="pane-ctrl-btn ghost" type="button" title="Collapse all blocks to summary">⊟</button>
+              </div>
             </div>
             <div id="story-blocks-empty" class="story-empty">
               <div class="scrap-inline s-empty-bolt"><img src="decor/lightning-bolt.jpg" alt="" /></div>
@@ -1261,6 +1419,8 @@
             </div>
           </div>
         </div>
+
+        <div class="split-handle" id="split-handle" role="separator" aria-orientation="vertical" title="Drag to resize"></div>
 
         <div class="write-col">
           <div class="tutor-pane">
@@ -1296,7 +1456,11 @@
                 <span class="mic-label" id="mic-label">talk!</span>
               </button>
               <textarea id="kid-input" rows="2" placeholder="tell wordy what kind of next bit you want… (or press the mic and just say it!)"></textarea>
-              <button id="btn-ask" class="btn primary">Ask wordy<span class="arrow">→</span></button>
+              <div class="composer-modes" id="composer-modes">
+                <button id="btn-mode-ask"      class="mode-btn active" type="button" data-mode="ask"      title="wordy will respond as wizard">ask wordy</button>
+                <button id="btn-mode-verbatim" class="mode-btn"        type="button" data-mode="verbatim" title="my exact words — wordy keeps them, just tidies them up">✎ my words</button>
+              </div>
+              <button id="btn-ask" class="btn primary">Send<span class="arrow">→</span></button>
             </div>
           </div>
         </div>
@@ -1551,7 +1715,13 @@
           currentAudio = audio;
           activeBtn = btn || null;
           if (btn) setBtnState(btn, 'playing');
-          const done = () => { if (currentAudio === audio) currentAudio = null; clearActive(); resolve(); };
+          // Expose a global "playing" flag for the play-all watchdog
+          window.__qssTtsPlaying = true;
+          const done = () => {
+            if (currentAudio === audio) currentAudio = null;
+            window.__qssTtsPlaying = false;
+            clearActive(); resolve();
+          };
           audio.addEventListener('ended', done, { once: true });
           audio.addEventListener('error', done, { once: true });
           audio.play().catch(done);
@@ -1730,15 +1900,20 @@
     const state = {
       name: '',
       rules: { ...DEFAULT_RULES },
-      blocks: [],                 // { id, text }
-      chat: [],                   // { id, role: 'wordy'|'kid', content, options?, rejected? }
+      blocks: [],                 // { id, text, summary? }
+      chat: [],
       stage: 'write',
       thinking: false,
-      latestOptions: null,        // { turnId, items: [{id, kind, text, added}] }
-      serverId: null,             // qss_stories.id (UUID) once first remote save succeeds
-      serverUpdatedAt: null,      // last server-confirmed updated_at — used for optimistic concurrency
-      saveStatus: 'local',        // 'local' | 'dirty' | 'saving' | 'saved' | 'offline' | 'conflict' | 'error' | 'migration-pending'
+      latestOptions: null,
+      serverId: null,
+      serverUpdatedAt: null,
+      saveStatus: 'local',
       saveError: null,
+      // ── new for UI controls (Phase A) ──
+      blockUI: {},                // { [blockId]: { expanded } } — ephemeral
+      playingBlockId: null,       // which block is being read by Play-all
+      playingAll: false,          // is the play-all loop running?
+      composerMode: 'ask',        // 'ask' | 'verbatim'
     };
 
     const uid = () => Math.random().toString(36).slice(2, 10);
@@ -1911,7 +2086,7 @@
       const opt = state.latestOptions.items.find(o => o.id === optId);
       if (!opt || opt.added) return;
       const blockId = uid();
-      state.blocks.push({ id: blockId, text: opt.text });
+      state.blocks.push({ id: blockId, text: opt.text, summary: opt.summary || '' });
       opt.added = true;
       opt.blockId = blockId;
       state.chat.push({ id: uid(), role: 'kid', content: `i picked: "${opt.text.slice(0, 80)}${opt.text.length > 80 ? '…' : ''}"`, kind: 'pick' });
@@ -2091,7 +2266,7 @@
           }));
           state.latestDirections = turn.directions.length ? { turnId: turn.id, items: turn.directions } : null;
         } else {
-          turn.options = (data.blockOptions || []).map(o => ({ id: uid(), kind: o.kind || '', text: o.text, added: false }));
+          turn.options = (data.blockOptions || []).map(o => ({ id: uid(), kind: o.kind || '', summary: o.summary || '', text: o.text, added: false }));
           if (turn.options.length) state.latestOptions = { turnId: turn.id, items: turn.options };
         }
         state.chat.push(turn);
@@ -2134,6 +2309,18 @@
       el.textContent = `block ${state.blocks.length} of ~${max}`;
     }
 
+    // First-sentence fallback for blocks that don't have a summary yet
+    function firstSentence(text, max = 96) {
+      const t = (text || '').trim();
+      if (!t) return '';
+      const m = t.match(/^[^.!?]+[.!?]/);
+      let s = m ? m[0].trim() : t;
+      if (s.length > max) s = s.slice(0, max - 1).trim() + '…';
+      return s;
+    }
+    function blockSummary(b) {
+      return (b.summary && b.summary.trim()) || firstSentence(b.text);
+    }
     function renderStory() {
       const empty = document.getElementById('story-blocks-empty');
       const list = document.getElementById('story-blocks');
@@ -2149,19 +2336,26 @@
       }
       empty.style.display = 'none';
       list.style.display = 'flex';
-      list.innerHTML = state.blocks.map((b, i) => `
-        <div class="story-block" data-block="${b.id}" draggable="true">
+      list.innerHTML = state.blocks.map((b, i) => {
+        const isExpanded = !!state.blockUI?.[b.id]?.expanded;
+        const isPlaying = state.playingBlockId === b.id;
+        return `
+        <div class="story-block ${isExpanded ? 'expanded' : ''} ${isPlaying ? 'playing' : ''}" data-block="${b.id}" draggable="true">
           <div class="drag-handle" title="Drag to reorder">⋮⋮</div>
           <div class="b-num">${i + 1}</div>
           <div class="b-toolbar">
             <button class="cb-btn" data-action="up" data-id="${b.id}" ${i === 0 ? 'disabled' : ''}>↑</button>
             <button class="cb-btn" data-action="down" data-id="${b.id}" ${i === state.blocks.length - 1 ? 'disabled' : ''}>↓</button>
-            <button class="cb-btn tts-btn-host" data-id="${b.id}" data-action="read" title="Read aloud" style="padding:3px 6px;">▶</button>
+            <button class="cb-btn" data-id="${b.id}" data-action="read" title="Read aloud" style="padding:3px 6px;">▶</button>
             <button class="cb-btn danger" data-action="delete" data-id="${b.id}">delete</button>
           </div>
+          <div class="b-summary" data-action="toggle-expand" data-id="${b.id}" title="click to expand">
+            <span class="chev">▸</span>
+            <span>${esc(blockSummary(b))}</span>
+          </div>
           <textarea class="b-text" data-id="${b.id}" rows="1">${esc(b.text)}</textarea>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
       list.querySelectorAll('textarea').forEach(autoGrow);
       if (composer) composer.style.display = 'block';
     }
@@ -2435,10 +2629,27 @@
     document.getElementById('btn-export').addEventListener('click', exportJson);
     document.getElementById('btn-go-write').addEventListener('click', () => setStage('write'));
 
-    // Composer
-    document.getElementById('btn-ask').addEventListener('click', () => askWordy(document.getElementById('kid-input').value));
+    // Composer — routes through submitComposer so verbatim mode gets honored
+    document.getElementById('btn-ask').addEventListener('click', submitComposer);
     document.getElementById('kid-input').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askWordy(document.getElementById('kid-input').value); }
+      if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        // Plain Enter sends only in non-verbatim mode (so paste-with-line-breaks works)
+        if (state.composerMode !== 'verbatim') { e.preventDefault(); submitComposer(); }
+      }
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitComposer(); }
+    });
+    document.querySelectorAll('#composer-modes .mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => setComposerMode(btn.dataset.mode));
+    });
+
+    // Play-all + font-size + collapse-all
+    document.getElementById('btn-play-all').addEventListener('click', playWholeStory);
+    document.getElementById('btn-collapse-all').addEventListener('click', () => {
+      // toggle: if any expanded → collapse all; otherwise expand all
+      const anyExpanded = state.blocks.some(b => state.blockUI?.[b.id]?.expanded);
+      state.blockUI = {};
+      if (!anyExpanded) for (const b of state.blocks) state.blockUI[b.id] = { expanded: true };
+      renderStory();
     });
 
     // ─── Voice-to-text (vintage mic) ───
@@ -2566,6 +2777,12 @@
       autoGrow(ta);
     });
     storyList.addEventListener('click', (e) => {
+      // Expand toggle (click on summary line)
+      const expandTarget = e.target.closest('[data-action="toggle-expand"]');
+      if (expandTarget) {
+        toggleBlockExpand(expandTarget.dataset.id);
+        return;
+      }
       const action = e.target.dataset.action;
       if (!action) return;
       const id = e.target.dataset.id;
@@ -2669,6 +2886,194 @@
     document.querySelectorAll('.dragon').forEach(el => {
       if (!el.innerHTML.trim()) el.innerHTML = window.DRAGON_SVG;
     });
+
+    // ─────────── Drag-resizable split between story + chat ───────────
+    (function() {
+      const layout = document.querySelector('.write-layout');
+      const handle = document.getElementById('split-handle');
+      if (!handle || !layout) return;
+      const SAVED = (() => { try { return localStorage.getItem('qss:split'); } catch { return null; } })();
+      // Default: 1fr/1fr (50/50). Saved as a number ratio 0.2 - 0.8 (story share).
+      let ratio = SAVED ? parseFloat(SAVED) : 0.5;
+      if (!isFinite(ratio) || ratio < 0.2 || ratio > 0.8) ratio = 0.5;
+      function apply(r) {
+        layout.style.setProperty('--col-left',  `${r}fr`);
+        layout.style.setProperty('--col-right', `${1 - r}fr`);
+      }
+      apply(ratio);
+      let dragging = false;
+      function onDown(e) {
+        dragging = true; handle.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+      }
+      function onMove(e) {
+        if (!dragging) return;
+        const rect = layout.getBoundingClientRect();
+        const x = (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left;
+        let r = x / rect.width;
+        r = Math.max(0.22, Math.min(0.78, r));
+        ratio = r;
+        apply(ratio);
+      }
+      function onUp() {
+        if (!dragging) return;
+        dragging = false;
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        try { localStorage.setItem('qss:split', String(ratio)); } catch {}
+      }
+      handle.addEventListener('pointerdown', onDown);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    })();
+
+    // ─────────── Font-size control for the story pane ───────────
+    (function() {
+      const buttons = document.querySelectorAll('.font-size-ctrl button');
+      const layout = document.querySelector('.write-layout');
+      const SAVED = (() => { try { return localStorage.getItem('qss:fontsize'); } catch { return null; } })();
+      function apply(px) {
+        layout.style.setProperty('--story-font-size', px + 'px');
+        buttons.forEach(b => b.classList.toggle('active', parseFloat(b.dataset.fs) === parseFloat(px)));
+        try { localStorage.setItem('qss:fontsize', String(px)); } catch {}
+      }
+      apply(SAVED || '16.5');
+      buttons.forEach(b => b.addEventListener('click', () => apply(b.dataset.fs)));
+    })();
+
+    // ─────────── Block expand/collapse toggle ───────────
+    function toggleBlockExpand(id, force) {
+      state.blockUI = state.blockUI || {};
+      const cur = state.blockUI[id]?.expanded;
+      const next = (typeof force === 'boolean') ? force : !cur;
+      state.blockUI[id] = { ...(state.blockUI[id] || {}), expanded: next };
+      // partial re-render — only this block
+      const el = document.querySelector(`.story-block[data-block="${id}"]`);
+      if (el) {
+        el.classList.toggle('expanded', next);
+        const ta = el.querySelector('textarea');
+        if (ta && next) autoGrow(ta);
+      }
+    }
+
+    // ─────────── Play whole story start-to-finish ───────────
+    let playAllToken = 0;
+    async function playWholeStory() {
+      if (state.playingAll) { stopPlayAll(); return; }
+      if (!state.blocks.length) return;
+      const myToken = ++playAllToken;
+      state.playingAll = true;
+      const btn = document.getElementById('btn-play-all');
+      btn.classList.add('playing');
+      btn.textContent = '■ stop';
+      try { window.qssTTS?.stop?.(); } catch {}
+
+      for (const b of state.blocks) {
+        if (myToken !== playAllToken) break;
+        state.playingBlockId = b.id;
+        // Auto-expand the block so its text shows during playback
+        state.blockUI = state.blockUI || {};
+        state.blockUI[b.id] = { ...(state.blockUI[b.id] || {}), expanded: true };
+        renderStory();
+        // Scroll the playing block into view
+        const el = document.querySelector(`.story-block[data-block="${b.id}"]`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Speak the block's text and wait for it to finish
+        await new Promise((resolve) => {
+          const audio = playBlockText(b.text || '', resolve, myToken);
+          // If stopPlayAll fires, audio is interrupted and resolve runs.
+          if (!audio) resolve();
+        });
+      }
+      if (myToken === playAllToken) {
+        // Reached the end cleanly
+        state.playingAll = false;
+        state.playingBlockId = null;
+        btn.classList.remove('playing');
+        btn.textContent = '▶ play';
+        renderStory();
+      }
+    }
+    function playBlockText(text, onEnd, myToken) {
+      if (!text || !text.trim()) { onEnd(); return null; }
+      // Use the existing qssTTS pipeline (cached/streamed/elevenlabs)
+      const stub = { classList: { add(){}, remove(){}, contains(){return false;} }, innerHTML: '' };
+      // We need to know when playback finishes. The shared TTS engine
+      // exposes speak(text, btn) but resolves on button activeBtn clear.
+      // We'll poll the engine's currentAudio via a small adapter:
+      let finished = false;
+      const finish = () => { if (!finished) { finished = true; onEnd(); } };
+      window.qssTTS.speak(text, stub);
+      // Watchdog: poll for end. The engine clears its active state on end.
+      const interval = setInterval(() => {
+        if (myToken !== playAllToken) { clearInterval(interval); finish(); return; }
+        // Engine sets stub.innerHTML to ICON_PLAY when done (we use stub to detect)
+        // Simpler: check if any tts-btn has .playing class. Our stub doesn't, so
+        // we'd need a different signal. Use a periodic check on currentAudio via a
+        // module-level flag we'll set up.
+        if (!window.__qssTtsPlaying) { clearInterval(interval); finish(); }
+      }, 250);
+      return interval;
+    }
+    function stopPlayAll() {
+      playAllToken++;
+      state.playingAll = false;
+      state.playingBlockId = null;
+      const btn = document.getElementById('btn-play-all');
+      btn.classList.remove('playing');
+      btn.textContent = '▶ play';
+      try { window.qssTTS?.stop?.(); } catch {}
+      renderStory();
+    }
+
+    // ─────────── Composer mode toggle (ask vs verbatim) ───────────
+    function setComposerMode(mode) {
+      state.composerMode = mode === 'verbatim' ? 'verbatim' : 'ask';
+      document.querySelectorAll('#composer-modes .mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === state.composerMode);
+      });
+      const composer = document.querySelector('.composer');
+      composer.classList.toggle('verbatim-mode', state.composerMode === 'verbatim');
+      const ta = document.getElementById('kid-input');
+      const btn = document.getElementById('btn-ask');
+      if (state.composerMode === 'verbatim') {
+        ta.placeholder = "paste or type your exact words — i'll keep them as-is, just clean up little typos";
+        btn.innerHTML = '✎ Save my words<span class="arrow">→</span>';
+      } else {
+        ta.placeholder = "tell wordy what kind of next bit you want… (or press the mic and just say it!)";
+        btn.innerHTML = 'Send<span class="arrow">→</span>';
+      }
+    }
+    function submitComposer() {
+      const text = document.getElementById('kid-input').value;
+      if (!text.trim()) return;
+      if (state.composerMode === 'verbatim') {
+        addVerbatimBlock(text);
+      } else {
+        askWordy(text);
+      }
+    }
+    function addVerbatimBlock(text) {
+      // Light cleanup ONLY — preserve voice, don't paraphrase.
+      // 1) trim
+      // 2) collapse runs of whitespace inside a line (but keep paragraph breaks)
+      // 3) ensure ends with punctuation
+      let t = text.trim();
+      t = t.split(/\n{2,}/).map(p => p.split('\n').map(line => line.replace(/[ \t]+/g, ' ').trim()).join('\n')).join('\n\n');
+      if (!/[.!?…]$/.test(t)) t += '.';
+      // Capitalize first letter of first sentence (only if it starts lowercase)
+      if (t && /^[a-z]/.test(t)) t = t[0].toUpperCase() + t.slice(1);
+
+      const newBlock = { id: uid(), text: t, custom: true, verbatim: true, summary: firstSentence(t, 60) };
+      state.blocks.push(newBlock);
+      observe('own_block_added', { text: t, block_index: state.blocks.length - 1, verbatim: true });
+      document.getElementById('kid-input').value = '';
+      persist();
+      renderAll();
+    }
 
     // ─────────── Library (cloud sync) ───────────
     // Patterns lifted from Newpress Interpreter:
