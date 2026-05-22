@@ -1997,7 +1997,7 @@
 
             <!-- Sticky karaoke transport bar (visible only while audio is playing/paused) -->
             <div id="karaoke-bar" class="karaoke-bar" role="region" aria-label="Karaoke player controls">
-              <button class="kb-btn kb-big" id="kb-play-pause" type="button" title="Play / pause">▶</button>
+              <button class="kb-btn kb-big" id="kb-play-pause" type="button" title="Play / pause (or press space)">▶</button>
               <button class="kb-btn" id="kb-stop" type="button" title="Stop">■</button>
               <div class="kb-now" id="kb-now">block 1 of 1</div>
               <div class="kb-progress" aria-hidden="true"><div class="kb-fill" id="kb-fill"></div></div>
@@ -3956,6 +3956,23 @@
         const inp = document.getElementById('kid-input');
         if (inp) { inp.focus(); inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
       }
+    });
+
+    // Spacebar → toggle karaoke play/pause when audio is active.
+    // Skipped when typing into an input/textarea/contenteditable.
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== ' ' && e.code !== 'Space') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const ae = document.activeElement;
+      if (ae) {
+        const tag = (ae.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+        if (ae.isContentEditable) return;
+      }
+      const ks = window.qssKaraoke;
+      if (!ks || !ks._activeBlockId?.()) return;
+      e.preventDefault();
+      ks._isPlaying?.() ? ks.pause() : ks.resume();
     });
 
     // Keypress 1 / 2 / 3 to instantly pick the matching scenario card when
