@@ -1275,6 +1275,180 @@
       border-color: var(--bubblegum-deep);
     }
 
+    /* "Let's touch base" — the Story Guide button. Sits next to the
+     * mode toggle in the composer row. Distinct grape color so it
+     * never gets mixed up with the regular send button. */
+    .touch-base-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--grape); color: var(--paper-card);
+      border-color: var(--ink-bright);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      font-weight: 700;
+    }
+    .touch-base-btn:hover {
+      background: var(--grape-deep);
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0 var(--ink-bright);
+    }
+    .touch-base-btn:active {
+      transform: translate(1px, 1px);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+    }
+    .touch-base-btn[disabled] {
+      opacity: 0.6; cursor: not-allowed; transform: none;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+    }
+    .touch-base-btn .tb-icon {
+      font-size: 18px; line-height: 1;
+      display: inline-block; transform: translateY(-1px);
+    }
+
+    /* The Story Guide bubble — bigger and friendlier than Wordy's
+     * regular messages. Grape border so it reads as "this is the
+     * Guide stepping in," not Wordy. */
+    .tutor-msg.touch-base-msg {
+      align-items: stretch;
+    }
+    .touch-base-card {
+      background: var(--paper-card);
+      border: 3px solid var(--grape-deep);
+      border-radius: 18px;
+      padding: 18px 20px 20px;
+      box-shadow: 5px 5px 0 var(--ink-bright);
+      width: 100%;
+      max-width: 680px;
+    }
+    .touch-base-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px;
+    }
+    .touch-base-eyebrow {
+      font-family: var(--ui);
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--grape-deep);
+      background: rgba(159, 122, 224, 0.16);
+      padding: 4px 10px; border-radius: 6px;
+      border: 2px solid var(--grape-deep);
+    }
+    .touch-base-title {
+      font-family: var(--display);
+      font-size: 30px; font-weight: 700;
+      color: var(--ink-bright);
+      line-height: 1.0;
+    }
+    .touch-base-summary {
+      font-family: var(--serif);
+      font-size: 17px; line-height: 1.5;
+      color: var(--ink);
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 2px dashed var(--ink-ghost);
+    }
+    .touch-base-section-label {
+      font-family: var(--ui);
+      font-size: 12px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--ink-soft);
+      margin: 4px 0 10px;
+    }
+    .touch-base-checklist {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .touch-base-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: var(--paper-soft);
+      border: 2px solid var(--ink-ghost);
+    }
+    .touch-base-item .tb-check {
+      flex: 0 0 24px;
+      width: 24px; height: 24px; border-radius: 50%;
+      border: 2px solid var(--ink-bright);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-family: var(--ui); font-size: 13px; font-weight: 700;
+      line-height: 1; margin-top: 1px;
+    }
+    .touch-base-item .tb-name {
+      font-family: var(--ui);
+      font-size: 15px; font-weight: 700;
+      color: var(--ink-bright);
+      line-height: 1.25;
+    }
+    .touch-base-item .tb-note {
+      font-family: var(--serif);
+      font-size: 14px; line-height: 1.4;
+      color: var(--ink-soft);
+      margin-top: 2px;
+    }
+    .touch-base-item.tb-present {
+      background: rgba(107, 203, 119, 0.16);
+      border-color: var(--grass-deep);
+    }
+    .touch-base-item.tb-present .tb-check {
+      background: var(--grass); color: var(--ink-bright);
+    }
+    .touch-base-item.tb-partial {
+      background: rgba(255, 217, 61, 0.20);
+      border-color: var(--yolk-deep);
+    }
+    .touch-base-item.tb-partial .tb-check {
+      background: var(--yolk); color: var(--ink-bright);
+    }
+    .touch-base-item.tb-missing {
+      background: rgba(232, 69, 69, 0.10);
+      border-color: var(--red-deep);
+    }
+    .touch-base-item.tb-missing .tb-check {
+      background: var(--paper-card); color: var(--red-deep);
+    }
+    .touch-base-suggestions {
+      padding: 12px 14px;
+      background: rgba(159, 122, 224, 0.10);
+      border: 2px solid var(--grape-deep);
+      border-radius: 12px;
+    }
+    .touch-base-suggestions .tb-sugg-label {
+      font-family: var(--ui);
+      font-size: 12px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--grape-deep);
+      margin-bottom: 8px;
+    }
+    .touch-base-suggestions ul {
+      list-style: none; padding: 0; margin: 0;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .touch-base-suggestions li {
+      font-family: var(--serif);
+      font-size: 16px; line-height: 1.45;
+      color: var(--ink);
+      padding-left: 24px;
+      position: relative;
+    }
+    .touch-base-suggestions li::before {
+      content: '→';
+      position: absolute; left: 0; top: 0;
+      color: var(--grape-deep); font-weight: 700;
+      font-family: var(--ui);
+    }
+    .touch-base-actions {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .touch-base-actions .btn {
+      font-size: 13px; padding: 6px 12px;
+    }
+    @media (max-width: 720px) {
+      .touch-base-card { padding: 14px 16px 16px; }
+      .touch-base-title { font-size: 24px; }
+      .touch-base-summary { font-size: 15px; }
+    }
+
     .thinking-msg {
       display: flex; gap: 10px; align-items: center;
       font-family: var(--display); font-size: 22px; color: var(--ink-soft);
@@ -2860,6 +3034,10 @@
                 <button id="btn-mode-ask"      class="mode-btn active" type="button" data-mode="ask"      title="wordy will respond as wizard">ask wordy</button>
                 <button id="btn-mode-verbatim" class="mode-btn"        type="button" data-mode="verbatim" title="my exact words — wordy keeps them, just tidies them up">✎ my words</button>
               </div>
+              <button id="btn-touch-base" class="btn touch-base-btn" type="button" title="The Story Guide pops in to tell you where the story is and what's missing.">
+                <span class="tb-icon" aria-hidden="true">✦</span>
+                <span class="tb-label">Let's touch base</span>
+              </button>
               <button id="btn-ask" class="btn primary">Send<span class="arrow">→</span></button>
             </div>
           </div>
@@ -4515,6 +4693,11 @@
         if (t.role === 'kid') {
           return `<div class="tutor-turn"><div class="user-msg"><div class="bubble">${esc(t.content)}</div></div></div>`;
         }
+        // Story Guide "let's touch base" bubble — voiced lay-of-the-land
+        // + ingredient checklist + prescriptive next-step suggestions.
+        if (t.phase === 'touch-base' && t.guide) {
+          return renderTouchBaseBubble(t);
+        }
         // Direction cards (wizard "where should we go?" phase)
         if (t.phase === 'directions' && t.directions?.length) {
           const isLatest = state.latestDirections?.turnId === t.id;
@@ -4647,6 +4830,74 @@
     function scrollChat() {
       const c = document.getElementById('tutor-chat');
       requestAnimationFrame(() => { c.scrollTop = c.scrollHeight; });
+    }
+
+    // ─── Story Guide "let's touch base" bubble renderer ───
+    // Returns the HTML for one chat turn rendered as the Story Guide
+    // card: voiced summary, optional concern callout, ingredient
+    // checklist, and prescriptive next-step suggestions. The whole
+    // card is a single TTS payload so Henry can press play and hear
+    // the Guide read it back. Routed to the consultant voice (Adam)
+    // since this is the Guide speaking, not the narrator.
+    function renderTouchBaseBubble(t) {
+      const g = t.guide || {};
+      const items = Array.isArray(g.ingredients) ? g.ingredients : [];
+      const sugg = Array.isArray(g.suggestions) ? g.suggestions : [];
+      const STATUS_SYMBOL = { present: '✓', partial: '•', missing: '—' };
+      const checklist = items.length ? `
+        <div class="touch-base-section-label">Story ingredients check</div>
+        <div class="touch-base-checklist">
+          ${items.map(i => `
+            <div class="touch-base-item tb-${esc(i.status || 'partial')}">
+              <span class="tb-check" aria-hidden="true">${STATUS_SYMBOL[i.status] || '•'}</span>
+              <div>
+                <div class="tb-name">${esc(i.name || '')}</div>
+                <div class="tb-note">${esc(i.note || '')}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : '';
+      const concernHtml = g.concern ? `
+        <div class="touch-base-item tb-missing" style="margin-bottom:14px;">
+          <span class="tb-check" aria-hidden="true">!</span>
+          <div>
+            <div class="tb-name">A note from the Guide</div>
+            <div class="tb-note">${esc(g.concern)}</div>
+          </div>
+        </div>
+      ` : '';
+      const suggestionsHtml = sugg.length ? `
+        <div class="touch-base-suggestions">
+          <div class="tb-sugg-label">Where I'd take it next</div>
+          <ul>${sugg.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+        </div>
+      ` : '';
+      // Build a TTS payload that reads the Guide's whole take in order.
+      const ttsParts = [
+        (g.summary || '').trim(),
+        g.concern ? `One note from me: ${g.concern}` : '',
+        items.length ? `Story ingredients check.` : '',
+        ...items.map(i => `${i.name}: ${i.status}. ${i.note}`),
+        sugg.length ? `Where I'd take it next.` : '',
+        ...sugg,
+      ].filter(Boolean);
+      const ttsAll = ttsParts.join(' ');
+      return `<div class="tutor-turn">
+        <div class="tutor-msg touch-base-msg">
+          <div class="touch-base-card">
+            <div class="touch-base-header">
+              <span class="touch-base-eyebrow">Story Guide</span>
+              <span class="touch-base-title">Let's touch base.</span>
+              <button class="tts-btn sm tts-bubble" data-tts="${esc(ttsAll)}" data-tts-voice="adam" style="margin-left:auto;"></button>
+            </div>
+            ${g.summary ? `<div class="touch-base-summary">${esc(g.summary)}</div>` : ''}
+            ${concernHtml}
+            ${checklist}
+            ${suggestionsHtml}
+          </div>
+        </div>
+      </div>`;
     }
 
     function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
@@ -4849,6 +5100,95 @@
     document.querySelectorAll('#composer-modes .mode-btn').forEach(btn => {
       btn.addEventListener('click', () => setComposerMode(btn.dataset.mode));
     });
+
+    // "Let's touch base" — the Story Guide pops in. Reads everything
+    // Henry has written and gives a direct, voiced read on where the
+    // story stands plus a checklist of story ingredients and concrete
+    // next moves. Lives in state.chat so it persists with the story.
+    document.getElementById('btn-touch-base')?.addEventListener('click', touchBase);
+    async function touchBase() {
+      if (state.thinking) return;
+      const btn = document.getElementById('btn-touch-base');
+      if (!btn || btn.disabled) return;
+      if (!state.blocks || state.blocks.length === 0) {
+        // Nothing to touch base ON yet. Coach Henry to write a little first.
+        state.chat.push({
+          id: 'tb-empty-' + Date.now(),
+          role: 'tutor',
+          phase: 'touch-base',
+          content: '',
+          guide: {
+            summary: "Hey Henry — there's nothing for me to look at yet. Write the first block or two, then hit Let's touch base and I'll come in. Right now there's no story for me to read.",
+            concern: null,
+            ingredients: [],
+            suggestions: [],
+          },
+        });
+        renderChat();
+        scrollChat();
+        return;
+      }
+
+      btn.disabled = true;
+      const original = btn.querySelector('.tb-label')?.textContent || "Let's touch base";
+      const labelEl = btn.querySelector('.tb-label');
+      if (labelEl) labelEl.textContent = 'thinking…';
+      state.thinking = true;
+      renderChat();
+      scrollChat();
+      try {
+        const res = await fetch('/api/qss-touch-base', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          body: JSON.stringify({
+            story_name: state.name || 'this story',
+            blocks: state.blocks.map(b => ({ id: b.id, text: b.text })),
+            rules: state.rules || {},
+            arcContext: state.arcContext || null,
+            character_cards: window.qssCast?.getCardsForContext?.() || [],
+            recent_chat: state.chat.slice(-6).map(t => ({ role: t.role, content: t.content || '' })),
+          }),
+        });
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.error || `${res.status}`);
+        }
+        const data = await res.json();
+        state.chat.push({
+          id: 'tb-' + Date.now(),
+          role: 'tutor',
+          phase: 'touch-base',
+          content: '',
+          guide: {
+            summary: data.summary || '',
+            concern: data.concern || null,
+            ingredients: data.ingredients || [],
+            suggestions: data.suggestions || [],
+          },
+        });
+        persist();
+      } catch (err) {
+        state.chat.push({
+          id: 'tb-err-' + Date.now(),
+          role: 'tutor',
+          phase: 'touch-base',
+          content: '',
+          guide: {
+            summary: `Sorry Henry — I couldn't get a read on the story just now. (${err.message || err}) Try again in a sec.`,
+            concern: null,
+            ingredients: [],
+            suggestions: [],
+          },
+        });
+      } finally {
+        state.thinking = false;
+        btn.disabled = false;
+        if (labelEl) labelEl.textContent = original;
+        renderChat();
+        scrollChat();
+      }
+    }
+    window.touchBase = touchBase;
 
     // Arc inspector
     document.getElementById('btn-arc').addEventListener('click', openArcInspector);
