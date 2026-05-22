@@ -6387,6 +6387,11 @@ function ensureToastHost() {
     host = document.createElement('div');
     host.id = 'toast-host';
     host.className = 'toast-host';
+    // Live region so screen readers announce toast content. Polite
+    // (not assertive) — toasts are non-blocking by design.
+    host.setAttribute('role', 'status');
+    host.setAttribute('aria-live', 'polite');
+    host.setAttribute('aria-atomic', 'false');
     document.body.appendChild(host);
   }
   return host;

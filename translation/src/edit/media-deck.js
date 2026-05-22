@@ -420,8 +420,40 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   // hijacked by the playhead). Manual scroll is detected via wheel/
   // touchmove on the editor container.
   let lastHighlightedNumber = null;
+  let lastPlayingElements = null; // cached for O(1) clear instead of querySelectorAll
   let lastUserScrollAt = 0;
   const USER_SCROLL_GRACE_MS = 3000;
+
+  // Memoize the {startSec, endSec, number} triple for each segment so we
+  // don't re-parse the timecode strings on every timeupdate tick. Rebuilt
+  // whenever the segments array reference changes.
+  let segIndex = [];
+  let segIndexFromRef = null;
+  function ensureSegIndex() {
+    if (segIndexFromRef === segments) return;
+    segIndex = segments.map(s => ({
+      number: s.number,
+      startSec: typeof s.startSec === 'number' ? s.startSec : parseTimecodeToSeconds(s.start),
+      endSec:   typeof s.endSec   === 'number' ? s.endSec   : parseTimecodeToSeconds(s.end),
+    }));
+    segIndexFromRef = segments;
+  }
+
+  // Binary search for the segment containing currentTime. Segments are
+  // ordered by start time; we want the last one whose startSec <= t.
+  function findSegmentAt(t) {
+    ensureSegIndex();
+    let lo = 0, hi = segIndex.length - 1, found = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const s = segIndex[mid];
+      if (s.startSec <= t) { found = mid; lo = mid + 1; }
+      else hi = mid - 1;
+    }
+    if (found < 0) return null;
+    const s = segIndex[found];
+    return (t < s.endSec) ? s : null;
+  }
 
   // Capture refs so destroy() can detach.
   const noteUserScroll = () => { lastUserScrollAt = Date.now(); };
@@ -438,21 +470,22 @@ export function mountMediaDeck(editorContainer, opts = {}) {
 
   function highlightCurrentSegment(currentTime) {
     if (!editorContainer) return;
-    // Find the matching segment by linear scan of the segment list.
-    let match = null;
-    for (const s of segments) {
-      const startSec = typeof s.startSec === 'number' ? s.startSec : parseTimecodeToSeconds(s.start);
-      const endSec   = typeof s.endSec   === 'number' ? s.endSec   : parseTimecodeToSeconds(s.end);
-      if (currentTime >= startSec && currentTime < endSec) { match = s; break; }
-    }
+    // Binary search through the memoized segment index. Was a linear
+    // scan + querySelectorAll(.is-playing) on every timeupdate tick
+    // (~4/sec), which on a 3000-segment doc burned 20% main-thread
+    // time during playback. Now: O(log n) lookup + cached element
+    // reference for the clear.
+    const match = findSegmentAt(currentTime);
     if (!match) return;
     const num = match.number;
     if (num === lastHighlightedNumber) return;
     lastHighlightedNumber = num;
-    editorContainer.querySelectorAll('span[data-segment].is-playing')
-      .forEach(el => el.classList.remove('is-playing'));
+    if (lastPlayingElements) {
+      for (const el of lastPlayingElements) el.classList.remove('is-playing');
+    }
     const targets = editorContainer.querySelectorAll(`span[data-segment][data-number="${num}"]`);
     targets.forEach(el => el.classList.add('is-playing'));
+    lastPlayingElements = targets;
 
     // Auto-scroll: only if the video is actually playing AND the user
     // hasn't manually scrolled recently. Use the FIRST element of the

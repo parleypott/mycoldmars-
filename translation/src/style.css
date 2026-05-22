@@ -1,7 +1,12 @@
 /* ── Tokens ── */
 :root {
   --np-warm-white:   #F4F2E6;
-  --np-cool-neutral: #D9D9D9;
+  /* Darkened from #D9D9D9 (1.2:1 — invisible on cream) to #B3B3B3
+   * (2.0:1 — borderline) plus our preferred sepia-tint at 0.45a for
+   * actual borders. Old token kept available for legacy callers; the
+   * audit's color-contrast spot-check flagged input borders as failing
+   * the 3:1 UI minimum. */
+  --np-cool-neutral: #B3B3B3;
   --np-ink:          #121118;
   --np-sepia:        #412C27;
   --np-blue:         #004CFF;
@@ -53,6 +58,16 @@
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 ::selection { background: var(--np-red); color: var(--np-warm-white); }
+
+/* Global :focus-visible ring. The codebase has ~14 `outline: none`
+ * resets sprinkled across components — keyboard-only users had no
+ * focus indicator on textareas, selects, palette input, library
+ * search, editor body, copilot textarea. focus-visible only fires
+ * on keyboard focus (not mouse), so this doesn't break mouse UX. */
+*:focus-visible {
+  outline: 2px solid var(--np-red);
+  outline-offset: 2px;
+}
 
 /* Respect reduced-motion: keep opacity transitions, drop position movement */
 @media (prefers-reduced-motion: reduce) {
@@ -971,7 +986,12 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
 .save-status--fade {
   opacity: 0;
 }
-.save-status--dirty .save-dot { background: var(--np-yellow); }
+.save-status--dirty .save-dot {
+  background: var(--np-yellow);
+  /* Yellow at 1.5:1 against cream paper is invisible. Ring with ink
+   * gives it a 3:1 outline so the dot reads. */
+  box-shadow: 0 0 0 1.5px var(--np-ink);
+}
 .save-status--conflict {
   color: var(--np-red);
   background: rgba(221, 44, 30, 0.06);
