@@ -22,28 +22,77 @@ function setCookie(name, value) {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 90}`;
 }
 
-// ── Fetch interceptor for x-access-code header ──
-// Runs BEFORE any /api/* request so /api/transcribe, /api/claude, /api/gemini
-// etc. all receive the gate credential. Idempotent.
+// ── Fetch interceptor for x-access-code header + Bearer JWT injection ──
+// Runs BEFORE any same-origin /api/* request so /api/transcribe,
+// /api/claude, /api/gemini etc. all receive credentials. Two credentials
+// in priority order:
+//   1) Supabase session JWT — added as Authorization: Bearer <jwt> if
+//      the user is signed in. The server-side checkAccess() accepts a
+//      valid JWT shape; the endpoint then does the real auth check.
+//   2) Legacy x-access-code from sessionStorage — the pre-auth fallback
+//      for access-code-only deployments.
+// Scope is restricted to SAME-ORIGIN URLs so we don't leak credentials
+// to third-party hosts that happen to have `/api/` in the path. The
+// previous regex would have matched https://evil.com/api/foo.
 function installApiFetchInterceptor() {
   if (window.__mcmApiFetchPatched) return;
   window.__mcmApiFetchPatched = true;
   const originalFetch = window.fetch.bind(window);
-  window.fetch = (input, init) => {
+  window.fetch = async (input, init) => {
     try {
       const url = typeof input === 'string' ? input : (input && input.url) || '';
-      if (url && /^(\/|https?:\/\/)?[^\s]*\/api\//.test(url)) {
+      // Only touch same-origin /api/* requests — never inject credentials
+      // into outbound third-party calls.
+      const isApi = url && (
+        url.startsWith('/api/') ||
+        (url.startsWith(window.location.origin) && url.slice(window.location.origin.length).startsWith('/api/'))
+      );
+      if (isApi) {
+        init = init || {};
+        const headers = new Headers(init.headers || (typeof input === 'object' ? input.headers : undefined) || {});
+        // x-access-code (legacy)
         const code = sessionStorage.getItem('mcm_access_code') || '';
-        if (code) {
-          init = init || {};
-          const headers = new Headers(init.headers || (typeof input === 'object' ? input.headers : undefined) || {});
-          if (!headers.has('x-access-code')) headers.set('x-access-code', code);
-          init.headers = headers;
+        if (code && !headers.has('x-access-code')) headers.set('x-access-code', code);
+        // Authorization: Bearer <jwt> — read the Supabase session token
+        // synchronously from localStorage. Supabase stores it at
+        // sb-<projectRef>-auth-token as a JSON array; element 0 is the
+        // access token. Falling back to async getSession() would force
+        // every /api/* call through a promise — synchronous read is
+        // fast and correct as long as the user is signed in.
+        if (!headers.has('authorization')) {
+          try {
+            const tok = readSupabaseAccessTokenSync();
+            if (tok) headers.set('Authorization', `Bearer ${tok}`);
+          } catch {}
         }
+        init.headers = headers;
       }
     } catch {}
     return originalFetch(input, init);
   };
+}
+
+// Read the Supabase access token from localStorage. The storage key shape
+// is `sb-<projectRef>-auth-token`; pre-v2 used `supabase.auth.token`. We
+// match either and parse the JWT out of the payload.
+function readSupabaseAccessTokenSync() {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (!/^sb-.*-auth-token$/i.test(key) && key !== 'supabase.auth.token') continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      // v2 stores { access_token, refresh_token, ... }
+      if (parsed && typeof parsed === 'object' && parsed.access_token) return parsed.access_token;
+      // Some adapter versions wrap in an array; element 0 is access token.
+      if (Array.isArray(parsed) && typeof parsed[0] === 'string') return parsed[0];
+      // currentSession.access_token (legacy)
+      if (parsed?.currentSession?.access_token) return parsed.currentSession.access_token;
+    }
+  } catch {}
+  return null;
 }
 
 function unlock(opts = {}) {
