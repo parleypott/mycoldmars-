@@ -4335,6 +4335,22 @@
             story: { blocks: state.blocks, rules: state.rules },
             arc_context: state.arcContext || null,
             character_cards: window.qssCast?.getCardsForContext?.() || [],
+            // Anti-repetition: every scenario Wordy has proposed in this
+            // story, flattened to {title, vibe}. Server includes them in
+            // the prompt so the model can't redo or near-redo them.
+            recent_scenarios: (() => {
+              const out = [];
+              for (const t of state.chat) {
+                if (t?.role !== 'wordy') continue;
+                if (Array.isArray(t.directions)) {
+                  for (const d of t.directions) out.push({ title: d.title || '', vibe: d.vibe || '' });
+                }
+                if (Array.isArray(t.options)) {
+                  for (const o of t.options) out.push({ title: (o.text || '').slice(0, 120), vibe: o.kind || '' });
+                }
+              }
+              return out.slice(-30);
+            })(),
           }),
         });
         if (!res.ok) {
