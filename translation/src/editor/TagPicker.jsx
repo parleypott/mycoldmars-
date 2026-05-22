@@ -19,20 +19,32 @@ export function TagPicker({ projectId, onSelect, onClose }) {
     return () => { cancelled = true; };
   }, [projectId]);
 
+  // Global Escape — without this, pressing Escape only closed the
+  // picker when focus was in the input. After clicking a tag (or
+  // anywhere else inside the picker), Escape was silent.
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
   function handleCreate() {
     const name = newTagName.trim();
     if (!name) return;
+    if (loading) return; // double-click guard while in-flight create runs
     const color = TAG_COLORS[tags.length % TAG_COLORS.length];
 
     if (projectId) {
       // Save to DB
+      setLoading(true);
       createTag({ projectId, name, color })
         .then(tag => {
           setTags([...tags, tag]);
           setNewTagName('');
           onSelect(tag);
         })
-        .catch(err => console.error('Failed to create tag:', err));
+        .catch(err => console.error('Failed to create tag:', err))
+        .finally(() => setLoading(false));
     } else {
       // Local-only tag — no DB needed
       const localTag = {

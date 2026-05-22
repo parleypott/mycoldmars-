@@ -84,7 +84,18 @@ function escapeHtml(str) {
 // Layout: file pills at top → options table → centered TRANSCRIBE.
 export function openPreTranscribeDialog({ filename, sizeBytes, durationSeconds, mimeType }) {
   return new Promise((resolve, reject) => {
-    document.getElementById('pretranscribe-modal')?.remove();
+    // If a prior dialog is still mounted, its caller's awaiting Promise
+    // never resolved or rejected — silently abandon-rejecting the old
+    // one here so the prior await unblocks (with a 'superseded' error)
+    // instead of hanging forever.
+    const prior = document.getElementById('pretranscribe-modal');
+    if (prior) {
+      try {
+        const priorReject = prior.__npReject;
+        if (priorReject) priorReject(new Error('Dialog superseded by a newer open call.'));
+      } catch {}
+      prior.remove();
+    }
 
     const sourceOpts = ISO_LANG_CHOICES
       .map(([code, label]) => `<option value="${code}"${code === '' ? ' selected' : ''}>${escapeHtml(label)}</option>`)
@@ -158,6 +169,8 @@ export function openPreTranscribeDialog({ filename, sizeBytes, durationSeconds, 
       </div>
     `;
     document.body.appendChild(modal);
+    // Stash reject so a future re-open can release this awaited promise.
+    modal.__npReject = reject;
 
     // Press Escape to dismiss. The listener is on `window`, so we MUST
     // detach it on every exit path (close X, cancel button, escape key,
@@ -196,7 +209,16 @@ export function openPreTranscribeDialog({ filename, sizeBytes, durationSeconds, 
 // a sample-audio play button, rename input, and ignore checkbox.
 export function openSpeakerLabelDialog({ segments, signedUrl }) {
   return new Promise((resolve, reject) => {
-    document.getElementById('speaker-label-modal')?.remove();
+    // Same hang-rejection guard as openPreTranscribeDialog — without
+    // this, a second open call abandons the first awaited promise.
+    const prior = document.getElementById('speaker-label-modal');
+    if (prior) {
+      try {
+        const priorReject = prior.__npReject;
+        if (priorReject) priorReject(new Error('Dialog superseded by a newer open call.'));
+      } catch {}
+      prior.remove();
+    }
 
     const bySpeaker = new Map();
     for (const seg of segments) {
@@ -230,7 +252,7 @@ export function openSpeakerLabelDialog({ segments, signedUrl }) {
         <p class="pretranscribe-subtitle">Click play to hear a few seconds of each speaker, then give them a name. Toggle <em>ignore</em> to drop background voices or crew chatter from the transcript.</p>
         <button class="np-modal-close pretranscribe-close" data-close aria-label="Close">×</button>
 
-        <audio data-shared-audio preload="metadata" src="${escapeHtml(signedUrl)}" style="display:none"></audio>
+        <audio data-shared-audio preload="none" data-deferred-src="${escapeHtml(signedUrl)}" style="display:none"></audio>
 
         <div class="speaker-label-list">
           ${speakers.map((sp, i) => `
@@ -269,6 +291,7 @@ export function openSpeakerLabelDialog({ segments, signedUrl }) {
       </div>
     `;
     document.body.appendChild(modal);
+    modal.__npReject = reject;
 
     const audio = modal.querySelector('[data-shared-audio]');
     let activePlayBtn = null;
@@ -292,6 +315,13 @@ export function openSpeakerLabelDialog({ segments, signedUrl }) {
         const end = parseFloat(btn.getAttribute('data-end')) || (start + 4);
         const playLen = Math.max(2, Math.min(8, end - start));
         try {
+          // Deferred src — only hit the network when the user actually
+          // clicks Play, not when the modal mounts. The signed URL can
+          // be a multi-GB file; preload='metadata' on mount fired an
+          // immediate range request on every dialog open.
+          if (!audio.src && audio.dataset.deferredSrc) {
+            audio.src = audio.dataset.deferredSrc;
+          }
           audio.currentTime = start;
           audio.play().then(() => {
             btn.querySelector('.speaker-sample-glyph').textContent = '◼';

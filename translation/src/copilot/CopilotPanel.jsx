@@ -55,11 +55,20 @@ export function CopilotPanel({ selection, segments, translations, speakerMap, hi
     }
   }, [messages]);
 
-  // Reset messages when selection changes
+  // Reset messages when selection changes — and ABORT any in-flight
+  // request so a stale stream from the prior selection can't paint
+  // into the new selection's message list. Previously the closure
+  // that captured the old `newMessages` kept appending tokens after
+  // the selection moved on.
   useEffect(() => {
+    if (abortRef.current) {
+      try { abortRef.current.abort(); } catch {}
+      abortRef.current = null;
+    }
     setMessages([]);
     setDeepContext(false);
     setCommitted(new Set());
+    setLoading(false);
   }, [selection?.text]);
 
   async function sendMessage(question) {

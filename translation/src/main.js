@@ -4800,18 +4800,33 @@ function renderTranscript() {
   uploadPreview.classList.remove('hidden');
 }
 
-// Drag & drop
-dropZone.addEventListener('dragover', (e) => {
+// Drag & drop — the dragenter/dragleave counter avoids the flicker
+// where moving the cursor across child elements (icon, label, text)
+// inside the drop zone fires dragleave on the parent, momentarily
+// removing the highlight before dragenter on the child re-adds it.
+// Standard DOM dnd-counter pattern: increment on enter, decrement on
+// leave, only clear the class when the counter hits 0.
+let dragDepth = 0;
+dropZone.addEventListener('dragenter', (e) => {
   e.preventDefault();
+  dragDepth++;
   dropZone.classList.add('drag-over');
 });
-
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  // dragover fires constantly while the cursor is inside; keep the
+  // class on without re-incrementing the counter.
+  dropZone.classList.add('drag-over');
+});
 dropZone.addEventListener('dragleave', () => {
-  dropZone.classList.remove('drag-over');
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) dropZone.classList.remove('drag-over');
 });
 
 dropZone.addEventListener('drop', (e) => {
   e.preventDefault();
+  e.stopPropagation();
+  dragDepth = 0;
   dropZone.classList.remove('drag-over');
   const files = Array.from(e.dataTransfer.files || []);
   enqueueFilesForUpload(files);
@@ -6756,7 +6771,20 @@ let lockHeartbeatTimer = null;
 let lockBoundTranscriptId = null;
 let viewOnly = false;
 
+// In-flight guard so two parallel maybeAcquireLock() calls (rapid
+// transcript switch + take-over click) can't both pass the early-exit
+// and both schedule a heartbeat interval — the loser used to leak
+// forever because clearInterval only references the latest handle.
+let _acquireLockInFlight = null;
 async function maybeAcquireLock() {
+  if (_acquireLockInFlight) return _acquireLockInFlight;
+  _acquireLockInFlight = _maybeAcquireLockInner().finally(() => {
+    _acquireLockInFlight = null;
+  });
+  return _acquireLockInFlight;
+}
+
+async function _maybeAcquireLockInner() {
   if (!currentTranscriptId) return;
   // Already holding lock for this transcript?
   if (lockBoundTranscriptId === currentTranscriptId) return;
@@ -6794,6 +6822,11 @@ async function maybeAcquireLock() {
   try {
     await acquireLock(currentTranscriptId, CLIENT_ID, currentClientLabel());
     lockBoundTranscriptId = currentTranscriptId;
+    // Belt-and-suspenders: if the prior heartbeat timer is still
+    // alive (shouldn't be after the in-flight guard, but defense in
+    // depth), clear it before assigning the new handle so the old
+    // one isn't orphaned.
+    if (lockHeartbeatTimer) { clearInterval(lockHeartbeatTimer); }
     lockHeartbeatTimer = setInterval(() => {
       heartbeatLock(currentTranscriptId, CLIENT_ID).catch(() => {});
     }, 30000);
