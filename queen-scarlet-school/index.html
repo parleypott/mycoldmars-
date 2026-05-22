@@ -663,30 +663,65 @@
       border: 2.5px solid var(--ink-bright);
       border-radius: 14px;
       box-shadow: 4px 4px 0 var(--ink-bright);
-      padding: 14px 16px 14px 50px;
+      padding: 16px 18px 16px 78px;
       transition: transform .18s var(--ease), box-shadow .18s var(--ease), background .18s;
-      cursor: default;
+      cursor: pointer;
       display: flex; flex-direction: column; gap: 6px;
     }
-    .dir-card:nth-child(4n+1) { transform: rotate(-0.4deg); border-left-color: var(--sky); border-left-width: 6px; }
-    .dir-card:nth-child(4n+2) { transform: rotate(0.4deg); border-left-color: var(--bubblegum); border-left-width: 6px; }
-    .dir-card:nth-child(4n+3) { transform: rotate(-0.2deg); border-left-color: var(--grass); border-left-width: 6px; }
-    .dir-card:nth-child(4n+4) { transform: rotate(0.2deg); border-left-color: var(--grape); border-left-width: 6px; }
+    .dir-card.dir-pick:nth-child(1) { transform: rotate(-0.4deg); border-left-color: var(--bubblegum); border-left-width: 7px; }
+    .dir-card.dir-pick:nth-child(2) { transform: rotate(0.4deg);  border-left-color: var(--grass);     border-left-width: 7px; }
+    .dir-card.dir-pick:nth-child(3) { transform: rotate(-0.2deg); border-left-color: var(--grape);     border-left-width: 7px; }
     .dir-card:hover { transform: translate(-2px, -2px) rotate(0); box-shadow: 6px 6px 0 var(--ink-bright); background: var(--paper-soft); }
-    .dir-card.chosen { background: #FFFEF5; opacity: 0.88; box-shadow: 4px 4px 0 var(--grass), 4px 4px 0 2.5px var(--ink-bright); }
-    .dir-card .dir-arrow {
+    .dir-card:hover .dir-num { transform: translateY(-50%) rotate(0) scale(1.05); }
+    .dir-card.chosen { background: #FFFEF5; opacity: 0.88; box-shadow: 4px 4px 0 var(--grass), 4px 4px 0 2.5px var(--ink-bright); cursor: default; }
+    .dir-card .dir-num {
       position: absolute; left: 14px; top: 50%;
-      transform: translateY(-50%) rotate(-3deg);
-      width: 26px; height: 26px;
-      background: var(--yolk);
-      border: 2px solid var(--ink-bright);
+      transform: translateY(-50%) rotate(-4deg);
+      width: 50px; height: 50px;
+      border: 2.5px solid var(--ink-bright);
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-family: var(--ui); font-weight: 800; font-size: 16px;
+      font-family: var(--display); font-weight: 800; font-size: 28px;
       color: var(--ink-bright);
-      box-shadow: 2px 2px 0 var(--ink-bright);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      transition: transform .2s var(--ease);
+      user-select: none;
     }
-    .dir-card.chosen .dir-arrow { background: var(--grass); }
+    .dir-card.dir-pick:nth-child(1) .dir-num { background: var(--bubblegum); }
+    .dir-card.dir-pick:nth-child(2) .dir-num { background: var(--grass); }
+    .dir-card.dir-pick:nth-child(3) .dir-num { background: var(--grape); color: #fff; }
+    .dir-card.chosen .dir-num { background: var(--grass) !important; color: var(--ink-bright); }
+    .dir-card .dir-keychip {
+      position: absolute; top: -10px; right: 14px;
+      font-family: var(--ui); font-weight: 800; font-size: 10.5px;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      background: var(--paper-card); color: var(--ink-bright);
+      border: 2px solid var(--ink-bright); border-radius: 999px;
+      padding: 3px 9px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      transform: rotate(2deg);
+      pointer-events: none;
+    }
+    .dir-card.chosen .dir-keychip { display: none; }
+    /* "type your own" 4th card — visually distinct */
+    .dir-card.dir-own {
+      cursor: pointer;
+      background: #FFFDF1;
+      border-style: dashed;
+      border-color: var(--ink-soft);
+      box-shadow: 3px 3px 0 var(--ink-soft);
+      padding-left: 78px;
+      transform: rotate(0.15deg);
+    }
+    .dir-card.dir-own:hover { background: #FFFAE0; box-shadow: 5px 5px 0 var(--ink-soft); }
+    .dir-card.dir-own .dir-num {
+      background: var(--paper-cream); color: var(--ink-bright);
+      border-style: dashed; border-width: 2.5px;
+      box-shadow: 2px 2px 0 var(--ink-soft);
+      font-size: 24px;
+    }
+    .dir-card.dir-own .dir-title { font-style: italic; color: var(--ink-soft); }
+    .dir-card.dir-own .dir-desc { color: var(--ink-soft); }
     .dir-card .dir-vibe {
       align-self: flex-start;
       font-family: var(--ui); font-weight: 800; font-size: 10px;
@@ -2507,9 +2542,14 @@
         if (t.phase === 'directions' && t.directions?.length) {
           const isLatest = state.latestDirections?.turnId === t.id;
           const someoneChosen = t.directions.some(d => d.chosen);
-          const cards = t.directions.map((d, i) => `
-            <div class="dir-card ${d.chosen ? 'chosen' : ''}" data-dir="${d.id}">
-              <div class="dir-arrow">→</div>
+          // Only the first 3 directions get numbered "1/2/3" cards (matches the keypress 1/2/3 UX)
+          const picks = t.directions.slice(0, 3);
+          const cards = picks.map((d, i) => `
+            <div class="dir-card dir-pick ${d.chosen ? 'chosen' : ''}"
+                 data-action="${someoneChosen ? '' : 'choose-dir'}"
+                 data-turn="${t.id}" data-id="${d.id}" data-dir="${d.id}">
+              <div class="dir-num">${i + 1}</div>
+              ${!d.chosen && !someoneChosen ? `<div class="dir-keychip">press ${i + 1}</div>` : ''}
               ${d.vibe ? `<span class="dir-vibe">${esc(d.vibe)}</span>` : ''}
               <div class="dir-title">${esc(d.title)}</div>
               ${d.description ? `<div class="dir-desc">${esc(d.description)}</div>` : ''}
@@ -2518,14 +2558,21 @@
                   ? `<span style="font-family:var(--ui); font-size:13px; color: var(--grass-deep); font-weight:700;">✓ taking this path</span>`
                   : someoneChosen
                     ? ''
-                    : `<button class="btn primary" data-action="choose-dir" data-turn="${t.id}" data-id="${d.id}">Take this path →</button>
-                       <button class="tts-btn tts-here" data-tts="${esc(d.title + '. ' + d.description)}" title="Read this direction aloud">${window.qssTTS.ICON_PLAY}</button>`
+                    : `<button class="btn primary" data-action="choose-dir" data-turn="${t.id}" data-id="${d.id}">pick this →</button>
+                       <button class="tts-btn tts-here" data-tts="${esc(d.title + '. ' + d.description)}" title="Read aloud">${window.qssTTS.ICON_PLAY}</button>`
                 }
               </div>
             </div>`).join('');
+          // 4th "type your own" card pointing at the composer — only on the latest unchosen turn
+          const ownCard = (isLatest && !someoneChosen) ? `
+            <div class="dir-card dir-own" data-action="focus-composer">
+              <div class="dir-num">✎</div>
+              <div class="dir-title">or type your own next step ↓</div>
+              <div class="dir-desc">tell wordy exactly what should happen next — type it in the box below, or press the mic and just say it.</div>
+            </div>` : '';
           const tryAgain = (isLatest && !someoneChosen) ? `
             <div class="more-options">
-              <button class="btn ghost" data-action="try-again-dirs">none of these — give me different directions</button>
+              <button class="btn ghost" data-action="try-again-dirs">none of these — give me different scenarios</button>
             </div>` : '';
           const routeBadge = t.routing && t.routing !== 'auto-direction' && t.routing !== 'opening' && t.routing !== 'explicit'
             ? `<div class="route-badge" data-r="${esc(t.routing)}">${
@@ -2540,7 +2587,7 @@
               <div class="bubble">${esc(t.content)}<button class="tts-btn sm tts-bubble" data-tts="${esc(t.content)}" style="margin-left:8px; vertical-align:middle;"></button></div>
             </div>
             ${routeBadge}
-            <div class="dir-list">${cards}</div>
+            <div class="dir-list">${cards}${ownCard}</div>
             ${tryAgain}
           </div>`;
         }
@@ -2875,7 +2922,7 @@
       document.addEventListener('visibilitychange', () => { if (document.hidden && listening) stop(); });
     })();
 
-    // Chat delegated clicks
+    // Chat delegated clicks — closest() so clicks anywhere on a card dispatch
     document.getElementById('tutor-chat').addEventListener('click', (e) => {
       // TTS in chat
       const ttsBtn = e.target.closest('.tts-btn[data-tts], .tts-here');
@@ -2885,13 +2932,52 @@
         if (text) window.qssTTS.speak(text, ttsBtn.classList.contains('tts-btn') ? ttsBtn : null);
         return;
       }
-      const action = e.target.dataset.action;
+      const trigger = e.target.closest('[data-action]');
+      if (!trigger) return;
+      const action = trigger.dataset.action;
       if (!action) return;
-      if (action === 'commit') commitBlockFromOption(e.target.dataset.id);
+      if (action === 'commit') commitBlockFromOption(trigger.dataset.id);
       else if (action === 'try-again') rejectOptionsTryAgain();
-      else if (action === 'choose-dir') chooseDirection(e.target.dataset.turn, e.target.dataset.id);
-      else if (action === 'try-again-dirs') askWordy('none of those — give me 4 totally different directions.', true, { phase: 'directions' });
-      else if (action === 'back-to-dirs') askWordy('let me see different directions to choose from.', true, { phase: 'directions' });
+      else if (action === 'choose-dir') chooseDirection(trigger.dataset.turn, trigger.dataset.id);
+      else if (action === 'try-again-dirs') askWordy('none of those — give me 3 totally different scenarios.', true, { phase: 'directions' });
+      else if (action === 'back-to-dirs') askWordy('let me see different scenarios to choose from.', true, { phase: 'directions' });
+      else if (action === 'focus-composer') {
+        const inp = document.getElementById('kid-input');
+        if (inp) { inp.focus(); inp.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      }
+    });
+
+    // Keypress 1 / 2 / 3 to instantly pick the matching scenario card when
+    // the latest turn has unchosen directions and no input is focused.
+    document.addEventListener('keydown', (e) => {
+      // Bail if a modifier is held (Cmd-1 / Ctrl-2 are tab/system shortcuts)
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!['1', '2', '3'].includes(e.key)) return;
+      // Bail if user is typing into anything text-y
+      const ae = document.activeElement;
+      if (ae) {
+        const tag = (ae.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+        if (ae.isContentEditable) return;
+      }
+      // Bail if any modal-ish overlay is open
+      if (document.body.classList.contains('modal-open')) return;
+      const rules = document.getElementById('rules-modal');
+      if (rules && getComputedStyle(rules).display !== 'none') return;
+      const arc = document.getElementById('arc-inspector');
+      if (arc && arc.classList.contains('open')) return;
+      // Find the latest directions turn with unchosen options
+      const latest = state.latestDirections;
+      if (!latest) return;
+      const turn = state.chat.find(t => t.id === latest.turnId);
+      if (!turn || !turn.directions) return;
+      if (turn.directions.some(d => d.chosen)) return;
+      const idx = parseInt(e.key, 10) - 1;
+      const picks = turn.directions.slice(0, 3);
+      const dir = picks[idx];
+      if (!dir) return;
+      e.preventDefault();
+      chooseDirection(turn.id, dir.id);
     });
 
     // Story block delegated edits + actions
