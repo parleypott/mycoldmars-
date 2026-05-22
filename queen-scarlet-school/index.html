@@ -738,7 +738,11 @@
     .option-card:nth-child(3n+2) .opt-letter { background: var(--grass); }
     .option-card:nth-child(3n+3) .opt-letter { background: var(--grape); color: white; }
     .option-card.grape .opt-letter { color: white; }
-    .option-card.added { opacity: 0.55; }
+    /* Added card — fade the TEXT itself (not the whole card with opacity)
+       so the speaker button stays vivid and clickable. */
+    .option-card.added { cursor: default; background: #FBF9EE; }
+    .option-card.added .opt-text { color: var(--ink-soft); }
+    .option-card.added .opt-kind { opacity: 0.6; }
     .option-card.added::after {
       content: '✓ in story';
       position: absolute; top: 8px; right: 12px;
@@ -748,6 +752,10 @@
       border: 2px solid var(--ink-bright); border-radius: 999px; padding: 2px 8px;
       box-shadow: 1.5px 1.5px 0 var(--ink-bright); transform: rotate(-3deg);
     }
+    /* The speaker on an added card stays full-strength so re-listening is obvious */
+    .option-card.added .tts-btn { background: var(--paper-card); }
+    .option-card.added .tts-btn:hover { background: var(--yolk); }
+    .opt-added-label { display: none; }   /* visual ✓ in story pill is enough */
     .opt-kind {
       display: inline-block;
       font-family: var(--ui); font-weight: 800; font-size: 10px; letter-spacing: 0.1em;
@@ -3665,7 +3673,7 @@
               <div class="opt-text">${esc(o.text)}</div>
               <div class="opt-actions">
                 ${o.added
-                  ? `<span style="font-family:var(--ui); font-size:13px; color: var(--grass-deep); font-weight:700;">added!</span>`
+                  ? `<button class="tts-btn tts-here" data-tts="${esc(o.text)}" title="Listen to this block again" aria-label="Listen again">${window.qssTTS.ICON_PLAY}</button>`
                   : `<button class="btn-add-plus" data-action="commit" data-id="${o.id}" title="Add to story" aria-label="Add to story">+</button>
                      <button class="tts-btn tts-here" data-tts="${esc(o.text)}" title="Read this option aloud" aria-label="Read aloud">${window.qssTTS.ICON_PLAY}</button>`
                 }
