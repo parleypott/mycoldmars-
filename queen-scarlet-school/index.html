@@ -774,13 +774,25 @@
     }
     .opt-actions .tts-btn { width: 38px; height: 38px; box-shadow: 2.5px 2.5px 0 var(--ink-bright); }
     .opt-actions .tts-btn svg { width: 18px; height: 18px; }
-    /* The big red + button uses .btn-add-plus globally. In this vertical
-       layout it shrinks slightly and drops its "add to story" floating
-       label (the icon is clear enough alongside its siblings). */
+    /* In the vertical action column, the + button is sized + weighted to
+       SIT NEXT TO the speaker icon, not dominate it. Slim + glyph, gentle
+       rotation, matching shadow. The "add to story" floating label is
+       hidden — the icon reads clearly stacked here. */
     .opt-actions .btn-add-plus {
-      width: 46px; height: 46px;
-      font-size: 30px;
-      transform: rotate(-4deg);
+      width: 38px; height: 38px;
+      font-size: 22px;
+      font-weight: 500;
+      line-height: 1;
+      transform: rotate(-2deg);
+      box-shadow: 2.5px 2.5px 0 var(--ink-bright);
+    }
+    .opt-actions .btn-add-plus:hover {
+      transform: rotate(0deg) translate(-1px, -1px) scale(1.06);
+      box-shadow: 3.5px 3.5px 0 var(--ink-bright);
+    }
+    .opt-actions .btn-add-plus:active {
+      transform: rotate(-2deg) translate(1px, 1px);
+      box-shadow: 1px 1px 0 var(--ink-bright);
     }
     .opt-actions .btn-add-plus::after { display: none; }
 
