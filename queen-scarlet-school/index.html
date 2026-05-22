@@ -990,18 +990,33 @@
     .dir-card .dir-actions .tts-btn { width: 30px; height: 30px; }
     .dir-card .dir-actions .tts-btn svg { width: 15px; height: 15px; }
 
+    /* "writing for: ..." direction echo — quiet mono line, no pill, no rotation.
+       Wraps naturally instead of stretching the full pane width. */
     .dir-context {
       padding-left: 54px;
-      font-family: var(--ui); font-size: 12px; letter-spacing: 0.08em;
-      color: var(--ink-soft); padding-top: 4px;
+      padding-top: 4px;
+      padding-right: 16px;
+      font-family: 'JetBrains Mono', 'Menlo', 'Consolas', ui-monospace, monospace;
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: var(--ink-soft);
+      letter-spacing: 0;
+      word-break: break-word;
     }
     .dir-context strong {
-      background: var(--yolk); padding: 2px 8px;
-      border: 1.5px solid var(--ink-bright); border-radius: 999px;
-      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
-      font-family: var(--display); font-weight: 700; font-size: 14px;
-      display: inline-block; transform: rotate(-1deg);
+      font-weight: 500;
+      color: var(--ink-bright);
+      background: none;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+      font-family: inherit;
+      font-size: inherit;
+      display: inline;
+      transform: none;
     }
+    .dir-context strong::before { content: '"'; opacity: 0.5; }
+    .dir-context strong::after  { content: '"'; opacity: 0.5; }
     /* Routing badge — shows when the wizard re-routed the kid's input.
        Only visible to Johnny (parent) effectively, but kid-friendly tone. */
     .route-badge {
