@@ -1212,7 +1212,12 @@ function openFolderContextMenu(x, y, projectId) {
 async function promptRenameFolder(projectId) {
   const proj = projects.find(p => p.id === projectId);
   if (!proj) return;
-  const next = window.prompt(`Rename folder "${proj.name}":`, proj.name);
+  const next = await openPromptOverlay({
+    title: `Rename folder`,
+    message: `Currently: "${proj.name}"`,
+    defaultValue: proj.name,
+    confirmLabel: 'Rename',
+  });
   if (next == null) return;
   const trimmed = next.trim();
   if (!trimmed || trimmed === proj.name) return;
@@ -1920,7 +1925,7 @@ function renderHeaderIdentity() {
 
   host.querySelector('[data-act="rename"]')?.addEventListener('click', async () => {
     menu.classList.add('hidden');
-    const next = window.prompt('Display name:', currentClientName());
+    const next = await openPromptOverlay({ title: 'Display name', defaultValue: currentClientName(), confirmLabel: 'Save' });
     if (next == null) return;
     const trimmed = next.trim();
     if (!trimmed) return;
@@ -2086,7 +2091,7 @@ async function openAccountModal(opts = {}) {
 
   // ── Profile section ──────────────────────────────────────────────
   modal.querySelector('#acct-name-edit')?.addEventListener('click', async () => {
-    const next = window.prompt('Display name:', currentClientName());
+    const next = await openPromptOverlay({ title: 'Display name', defaultValue: currentClientName(), confirmLabel: 'Save' });
     if (next == null) return;
     const trimmed = next.trim();
     if (!trimmed) return;
@@ -2208,7 +2213,7 @@ async function openAccountModal(opts = {}) {
       usersListEl.querySelectorAll('[data-pw-for]').forEach(btn => {
         btn.addEventListener('click', async () => {
           const userId = btn.dataset.pwFor;
-          const pw = window.prompt('New password (default: newpress):', 'newpress');
+          const pw = await openPromptOverlay({ title: 'New password', message: 'Default: newpress', defaultValue: 'newpress', confirmLabel: 'Set password' });
           if (pw == null) return;
           try {
             await adminCall('set_password', { userId, password: pw });
@@ -2392,7 +2397,7 @@ async function openAdminConsole() {
       list.querySelectorAll('[data-pw-for]').forEach(btn => {
         btn.addEventListener('click', async () => {
           const userId = btn.dataset.pwFor;
-          const pw = window.prompt('New password (default: newpress):', 'newpress');
+          const pw = await openPromptOverlay({ title: 'New password', message: 'Default: newpress', defaultValue: 'newpress', confirmLabel: 'Set password' });
           if (pw == null) return;
           try {
             await adminCall('set_password', { userId, password: pw });
@@ -6390,6 +6395,89 @@ function showError(msg, parentSel) {
 //   modalEl.remove();
 //   teardownA11y();
 // ──────────────────────────────────────────────────────────────────────
+// In-app replacements for window.prompt() and window.confirm(). The
+// browser versions are blocked in sandboxed iframes, can't be styled,
+// aren't keyboard-trapped to the page, and read poorly with screen
+// readers. Both return a Promise so they slot directly into existing
+// awaits.
+function openPromptOverlay({ title, message = '', defaultValue = '', confirmLabel = 'OK', cancelLabel = 'Cancel', placeholder = '' } = {}) {
+  return new Promise((resolve) => {
+    document.getElementById('np-prompt-overlay')?.remove();
+    const m = document.createElement('div');
+    m.id = 'np-prompt-overlay';
+    m.className = 'np-modal';
+    m.innerHTML = `
+      <div class="np-modal-backdrop" data-cancel></div>
+      <div class="np-modal-card" style="max-width: 440px;">
+        <div class="np-modal-header">
+          <h3 class="np-modal-title">${escHtml(title || 'Enter a value')}</h3>
+          <button class="np-modal-close" data-cancel aria-label="Close">×</button>
+        </div>
+        ${message ? `<p style="font-family:var(--np-font-mono);font-size:12px;color:var(--np-sepia);margin-bottom:12px;line-height:1.5;">${escHtml(message)}</p>` : ''}
+        <input class="np-textarea" id="np-prompt-input" type="text"
+               style="min-height:auto;padding:10px 12px;font-size:14px;"
+               value="${escAttr(defaultValue)}"
+               placeholder="${escAttr(placeholder)}" />
+        <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+          <button class="np-button" data-cancel>${escHtml(cancelLabel)}</button>
+          <button class="np-button np-button--primary" data-ok>${escHtml(confirmLabel)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(m);
+    const input = m.querySelector('#np-prompt-input');
+    const cleanup = () => m.remove();
+    const ok = () => { const v = input.value; cleanup(); resolve(v); };
+    const cancel = () => { cleanup(); resolve(null); };
+    m.querySelectorAll('[data-cancel]').forEach(el => el.addEventListener('click', cancel));
+    m.querySelector('[data-ok]').addEventListener('click', ok);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); ok(); }
+      if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+    });
+    input.focus(); input.select();
+  });
+}
+function openConfirmOverlay({ title, message = '', confirmLabel = 'OK', cancelLabel = 'Cancel', danger = false } = {}) {
+  return new Promise((resolve) => {
+    document.getElementById('np-confirm-overlay')?.remove();
+    const m = document.createElement('div');
+    m.id = 'np-confirm-overlay';
+    m.className = 'np-modal';
+    const confirmClass = danger ? 'np-button np-button--red' : 'np-button np-button--primary';
+    m.innerHTML = `
+      <div class="np-modal-backdrop" data-cancel></div>
+      <div class="np-modal-card" style="max-width: 440px;">
+        <div class="np-modal-header">
+          <h3 class="np-modal-title">${escHtml(title || 'Confirm')}</h3>
+          <button class="np-modal-close" data-cancel aria-label="Close">×</button>
+        </div>
+        ${message ? `<p style="font-family:var(--np-font-mono);font-size:13px;color:var(--np-sepia);margin-bottom:14px;line-height:1.55;">${escHtml(message)}</p>` : ''}
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="np-button" data-cancel>${escHtml(cancelLabel)}</button>
+          <button class="${confirmClass}" data-ok>${escHtml(confirmLabel)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(m);
+    const cleanup = () => m.remove();
+    const ok = () => { cleanup(); resolve(true); };
+    const cancel = () => { cleanup(); resolve(false); };
+    m.querySelectorAll('[data-cancel]').forEach(el => el.addEventListener('click', cancel));
+    m.querySelector('[data-ok]').addEventListener('click', ok);
+    m.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); ok(); }
+      if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+    });
+    m.querySelector('[data-ok]').focus();
+  });
+}
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function escAttr(s) { return escHtml(s); }
+
 // MutationObserver auto-wires installModalA11y on every .np-modal
 // added to the body so we don't have to touch 15 modal-mount sites.
 // Teardown fires when the node leaves the DOM, restoring focus to
@@ -7749,11 +7837,12 @@ function safeInit(name, fn) {
     if (draft?.payload && (draft.payload.segments || []).length > 0 && !getPermalinkId()) {
       const segCount = draft.payload.segments.length;
       const when = draft.savedAt ? new Date(draft.savedAt).toLocaleString() : 'recently';
-      const recover = window.confirm(
-        `Recover unsaved work?\n\n` +
-        `${segCount} segments from a previous session were never saved to the cloud (${when}).\n\n` +
-        `OK to recover, Cancel to discard.`
-      );
+      const recover = await openConfirmOverlay({
+        title: 'Recover unsaved work?',
+        message: `${segCount} segments from a previous session were never saved to the cloud (${when}). Recover, or discard?`,
+        confirmLabel: 'Recover',
+        cancelLabel: 'Discard',
+      });
       if (recover) {
         applySnapshotPayload(draft.payload);
         // Force first-save now so a real id gets minted and the indexed

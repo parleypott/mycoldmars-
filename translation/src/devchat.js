@@ -482,17 +482,41 @@ async function sendCurrentMessage() {
 
   try {
     // 1. Upload every pending attachment first so we have public URLs.
+    // Promise.allSettled (not all) so a single failed upload doesn't
+    // reject the whole batch and orphan the 3/4 blobs that succeeded.
+    // Failed attachments stay in the pending tray so the user can
+    // retry without re-dragging.
     let uploadedImages = [];
     if (attachments.length) {
       sendBtn.textContent = 'uploading…';
-      uploadedImages = await Promise.all(
+      const settled = await Promise.allSettled(
         attachments.map(a => uploadDevchatImage(a.file))
       );
+      const failedAttachments = [];
+      for (let i = 0; i < settled.length; i++) {
+        if (settled[i].status === 'fulfilled') {
+          uploadedImages.push(settled[i].value);
+        } else {
+          failedAttachments.push(attachments[i]);
+          console.warn('[devchat] upload failed:', settled[i].reason);
+        }
+      }
+      if (failedAttachments.length > 0) {
+        showError(`${failedAttachments.length} attachment${failedAttachments.length === 1 ? '' : 's'} failed to upload — kept in tray for retry.`);
+        // Keep the failed ones in pendingAttachments so the tray still
+        // shows them; only clear those that uploaded successfully.
+        const fullList = pendingAttachments.slice();
+        // pendingAttachments is module-scoped; rebuild it to keep the
+        // failed ones only (matched by file identity).
+        pendingAttachments.length = 0;
+        for (const a of failedAttachments) pendingAttachments.push(a);
+        renderPendingAttachments();
+      }
     }
 
     // 2. Insert the message with image refs in metadata.
     input.value = '';
-    clearPendingAttachments();
+    if (uploadedImages.length === attachments.length) clearPendingAttachments();
     const insertedRow = await addDevchatMessage(activeThreadId, {
       sender: 'user',
       body: text,

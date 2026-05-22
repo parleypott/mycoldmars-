@@ -1567,6 +1567,15 @@ export async function migrateLocalStorageToSupabase() {
     }
   }
 
+  // CRITICAL data-loss guard: only wipe localStorage if EVERY row
+  // migrated cleanly. If any error landed, keep LS so the user can
+  // retry — the audit flagged the previous behavior where partial
+  // migration failures would still wipe LS, irreversibly losing
+  // transcripts that didn't make it across.
+  if (results.errors.length > 0) {
+    console.warn('[db] migration had errors — keeping localStorage intact:', results.errors);
+    return { migrated: false, partial: true, ...results };
+  }
   if (results.projects > 0 || results.transcripts > 0) {
     localStorage.setItem(MIGRATION_KEY, JSON.stringify({ at: new Date().toISOString(), ...results }));
     for (const oldId of projectIndex) lsDelete(`project_${oldId}`);
