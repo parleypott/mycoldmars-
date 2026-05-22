@@ -83,12 +83,18 @@ export function EditorBubbleMenu({ editor, onHighlight, onAskAI }) {
     };
 
     const onBlur = () => setVisible(false);
+    // Reposition on window resize so the bubble doesn't drift off the
+    // selection when the user resizes mid-edit. Reuses updateMenu —
+    // it'll early-return if there's no selection.
+    const onResize = () => updateMenu();
     editor.on('selectionUpdate', updateMenu);
     editor.on('blur', onBlur);
+    window.addEventListener('resize', onResize);
 
     return () => {
       editor.off('selectionUpdate', updateMenu);
       editor.off('blur', onBlur);
+      window.removeEventListener('resize', onResize);
     };
   }, [editor]);
 

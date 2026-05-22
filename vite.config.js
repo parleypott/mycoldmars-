@@ -2,10 +2,15 @@ import { resolve } from 'path';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  // Local dev proxies /api to the URL in MCM_DEV_API. Defaults to the
+  // prod Vercel deployment so existing workflows keep working, but
+  // setting MCM_DEV_API=https://preview-branch.vercel.app in .env.local
+  // points local dev at a preview branch — without that, every local
+  // /api/claude / /api/transcribe call burns real prod-account tokens.
   server: {
     proxy: {
       '/api': {
-        target: 'https://mycoldmars.vercel.app',
+        target: process.env.MCM_DEV_API || 'https://mycoldmars.vercel.app',
         changeOrigin: true,
         secure: true,
       },

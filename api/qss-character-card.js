@@ -65,6 +65,15 @@ export default async function handler(req) {
   const denied = checkAccess(req);
   if (denied) return withCors(denied);
 
+  // Identity check on top of shape check. The shared checkAccess only
+  // validates that the Bearer header has a JWT-shape — anyone with a
+  // JWT from any Supabase project (including ones the attacker
+  // controls) can pass that perimeter. Verify the JWT actually
+  // resolves to a user in OUR Supabase project before burning
+  // Anthropic + Gemini credits.
+  const me = await whoAmI(req);
+  if (!me) return withCors(json(401, { error: 'Sign in first.' }));
+
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!anthropicKey) return json(500, { error: 'ANTHROPIC_API_KEY not configured' });
@@ -246,6 +255,28 @@ async function callNanoBanana(apiKey, prompt) {
 // + Gemini image-gen credits with no rate limit.
 function checkAccess(req) {
   return sharedCheckAccess(req);
+}
+
+// Verify the Bearer JWT resolves to a real user in OUR Supabase
+// project (not just any project — same threat model as admin-users.js
+// whoAmI). Returns the user payload or null.
+async function whoAmI(req) {
+  const auth = (typeof req.headers.get === 'function')
+    ? (req.headers.get('authorization') || '')
+    : (req.headers.authorization || req.headers.Authorization || '');
+  const m = String(auth).match(/^Bearer\s+(.+)$/i);
+  if (!m) return null;
+  const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const anon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!supaUrl || !anon) return null;
+  try {
+    const r = await fetch(`${supaUrl}/auth/v1/user`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${m[1]}`, apikey: anon },
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
 }
 
 function withCors(res) {
