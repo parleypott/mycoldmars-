@@ -88,16 +88,25 @@ export default async function handler(req) {
   } catch (e) {
     const msg = e?.message || String(e);
 
-    // ORDER MATTERS: check column-missing BEFORE relation-missing, because
-    // PostgREST's column-not-exist message contains "of relation X does not
-    // exist" which spuriously matches the table-not-exist regex. If the sb()
-    // retry didn't already swallow this (because OPTIONAL_COLS coverage missed
-    // a column name), surface the SPECIFIC migration hint instead of the
-    // generic 'table does not exist' one that says everything is broken.
-    if (e?.code === '42703' || /column .* does not exist/i.test(msg)) {
-      // Identify which optional column triggered it (best-effort).
-      const colMatch = /column [\\"']?([\\w_]+)/i.exec(msg);
-      const colName = colMatch?.[1] || 'optional column';
+    // ORDER MATTERS: check column-missing forms BEFORE table-missing forms,
+    // because PostgREST conflates the two — column-missing messages
+    // mention "of relation X" and "schema cache" which both spuriously
+    // match the broader table-not-exist regexes.
+    //
+    // Column-missing fingerprints across PostgREST versions:
+    //   42703  + "column \"X\" of relation \"Y\" does not exist"
+    //   PGRST204 + "Could not find the 'X' column of 'Y' in the schema cache"
+    if (
+      e?.code === '42703' ||
+      e?.code === 'PGRST204' ||
+      e?.colName ||                              // set by sb() retry on column-missing
+      /column .* does not exist/i.test(msg) ||
+      /Could not find the .* column/i.test(msg)
+    ) {
+      const colName = e?.colName
+        || /column [\"']?([\w_]+)/i.exec(msg)?.[1]
+        || /'([\w_]+)' column of/i.exec(msg)?.[1]
+        || 'optional column';
       const migration = colName === 'character_cards' ? '016_qss_character_cards.sql'
                       : colName === 'freestyle_chat' || colName === 'freestyle_themes' ? '017_qss_freestyle.sql'
                       : 'the latest migration in supabase/migrations/';
@@ -106,9 +115,16 @@ export default async function handler(req) {
     }
 
     // Real table-missing — qss_stories itself doesn't exist.
-    if (e?.code === '42P01' || e?.code === 'PGRST205' || /Could not find the table/i.test(msg) || /schema cache/i.test(msg) ||
-        // Be precise here: only match table-missing forms, NOT the column-of-relation form caught above.
-        /relation "?qss_stories"? does not exist/i.test(msg)) {
+    if (
+      e?.code === '42P01' ||
+      e?.code === 'PGRST205' ||
+      /Could not find the table/i.test(msg) ||
+      /relation "?qss_stories"? does not exist/i.test(msg) ||
+      // Match the table-cache variant but NOT the column-cache variant
+      // (the column-cache one says "column X of Y in the schema cache",
+      // never "table Y in the schema cache"). Anchor on "the table".
+      /table .* schema cache/i.test(msg)
+    ) {
       return jsonError(503, 'MIGRATION_PENDING',
         'The qss_stories table does not exist yet. Apply supabase/migrations/015_qss_stories.sql in the Supabase SQL editor.');
     }
@@ -296,19 +312,38 @@ async function sb(method, path, payload, opts = {}) {
     err.details = data?.details;
     err.hint = data?.hint;
 
-    // OPTIONAL-COLUMN FALLBACK: if PostgREST complains about a missing
-    // optional column (e.g. character_cards before migration 016), strip
-    // it from the request and retry once. Lets the rest of the app keep
-    // working until the migration is applied — character cards will
-    // simply not persist server-side until then (still cached client-side).
+    // OPTIONAL-COLUMN FALLBACK
+    //
+    // PostgREST reports a missing JSONB column in TWO different ways
+    // depending on whether the column appears in `?select=` (returns code
+    // '42703') or only in the JSON body (returns code 'PGRST204' with
+    // message "Could not find the 'X' column of 'qss_stories' in the
+    // schema cache"). Both forms also mention 'schema cache' which causes
+    // a separate table-not-exist regex to spuriously fire — so we have
+    // to detect BOTH variants here and short-circuit the retry before
+    // anything mistakes a missing column for a missing table.
     const errMsg = (err.message || '').toString();
-    if (err.code === '42703' || errMsg.includes('character_cards')) {
+    const missingColMatch = /(?:column "([\w_]+)" of relation|column .* "([\w_]+)" does not exist|column '([\w_]+)' of|"([\w_]+)" column of)/i.exec(errMsg);
+    const missingColName = missingColMatch && (missingColMatch[1] || missingColMatch[2] || missingColMatch[3] || missingColMatch[4]) || '';
+    const isColMissing = err.code === '42703'
+      || err.code === 'PGRST204'
+      || /column .* does not exist/i.test(errMsg)
+      || /Could not find the .* column/i.test(errMsg)
+      || (missingColName && OPTIONAL_COLS.includes(missingColName));
+
+    if (isColMissing) {
       let strippedPath = path;
       let strippedPayload = payload;
       let touched = false;
+      // Strip every OPTIONAL_COL from path + payload — cheaper than
+      // figuring out which one triggered it, and harmless if a col
+      // is absent.
       for (const col of OPTIONAL_COLS) {
         if (strippedPath && strippedPath.includes(col)) {
-          strippedPath = strippedPath.replace(new RegExp(`,${col}\\b`, 'g'), '').replace(new RegExp(`\\b${col},`, 'g'), '');
+          strippedPath = strippedPath
+            .replace(new RegExp(`,${col}\\b`, 'g'), '')
+            .replace(new RegExp(`\\b${col},`, 'g'), '')
+            .replace(new RegExp(`\\b${col}\\b`, 'g'), '');
           touched = true;
         }
         if (strippedPayload && typeof strippedPayload === 'object' && col in strippedPayload) {
@@ -327,7 +362,13 @@ async function sb(method, path, payload, opts = {}) {
         let retryData = null;
         if (retryText) { try { retryData = JSON.parse(retryText); } catch {} }
         if (retryRes.ok) return retryData;
-        // Fall through to the original error if the retry also failed.
+        // Retry also failed — surface a precise column-missing error
+        // so the dispatcher can route to COLUMN_MISSING (not the
+        // misleading MIGRATION_PENDING).
+        const e2 = new Error(`column ${missingColName || 'optional col'} missing after retry: ${retryText.slice(0, 200)}`);
+        e2.code = '42703';
+        e2.colName = missingColName;
+        throw e2;
       }
     }
 
