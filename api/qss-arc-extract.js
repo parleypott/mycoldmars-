@@ -112,26 +112,33 @@ export default async function handler(req) {
   arc.updated_at = new Date().toISOString();
   arc.block_count_when_extracted = blocks.length;
 
-  // Persist to Supabase if we have a story_id
+  // Persist to Supabase if we have a story_id. Return the new updated_at so
+  // the client can refresh its optimistic-concurrency token; otherwise the
+  // next regular save 409s ("another tab modified this story").
+  let serverUpdatedAt = null;
   if (body.story_id && SUPABASE_URL && SUPABASE_KEY) {
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/qss_stories?id=eq.${encodeURIComponent(body.story_id)}`, {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/qss_stories?id=eq.${encodeURIComponent(body.story_id)}&select=updated_at`, {
         method: 'PATCH',
         headers: {
           apikey: SUPABASE_KEY,
           Authorization: `Bearer ${SUPABASE_KEY}`,
           'Content-Type': 'application/json',
-          Prefer: 'return=minimal',
+          Prefer: 'return=representation',
         },
         body: JSON.stringify({ arc_context: arc }),
       });
+      if (r.ok) {
+        const rows = await r.json().catch(() => null);
+        if (Array.isArray(rows) && rows[0]?.updated_at) serverUpdatedAt = rows[0].updated_at;
+      }
     } catch (e) {
       // non-fatal — return arc anyway so client cache stays warm
       console.warn('[arc] persist failed:', e.message);
     }
   }
 
-  return json(200, { arc, model: 'claude-haiku-4-5', ms: Date.now() - t0 });
+  return json(200, { arc, serverUpdatedAt, model: 'claude-haiku-4-5', ms: Date.now() - t0 });
 }
 
 function extractArc(text) {

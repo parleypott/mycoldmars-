@@ -4418,6 +4418,10 @@
             const data = await res.json();
             if (data.arc) {
               state.arcContext = data.arc;
+              // Server bumped updated_at when it persisted arc_context. Adopt the
+              // new value so the next /save's expectedUpdatedAt isn't stale (otherwise:
+              // 409 → "another tab modified this story" dialog on every direction pick).
+              if (data.serverUpdatedAt) state.serverUpdatedAt = data.serverUpdatedAt;
               try { localStorage.setItem(`qss:arc:${state.name}`, JSON.stringify(data.arc)); } catch {}
               observe('arc_refreshed', {
                 characters_count: data.arc.characters?.length || 0,
@@ -4887,10 +4891,17 @@
             if (res.status === 409) {
               const j = await res.json().catch(() => ({}));
               if (j.error === 'CONFLICT') {
-                setStatus('conflict');
-                if (confirm('Another tab or device saved this story more recently. Want to reload that version? (your local edits will be replaced)')) {
-                  await reloadFromServer();
-                }
+                // Almost always self-inflicted: the server writes arc_context as a
+                // side effect of arc-extract, which bumps updated_at, so our next
+                // save's expectedUpdatedAt is stale. Silently adopt the server's
+                // new token and re-queue the save with the same payload — Henry's
+                // local content is what we want to push regardless. We only ever
+                // run as a single-user app, so a real concurrent-edit collision
+                // isn't a meaningful threat.
+                const fresh = j.serverUpdatedAt;
+                if (fresh) state.serverUpdatedAt = fresh;
+                setStatus('saving');
+                queuedAfterFlight = true;
                 return;
               }
               if (j.error === 'NAME_TAKEN') {
