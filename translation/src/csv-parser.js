@@ -108,12 +108,21 @@ export function getSequenceMetadata(segments) {
  * Expected header: Number;Speaker;Start time;End time;Duration;Text
  */
 export function parseCSV(text) {
+  // Strip UTF-8 BOM (Excel-Windows and some Happy Scribe exports prepend
+  // ﻿, which would otherwise land in the first header cell as
+  // "﻿Number" and break the column-index lookup).
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  // Normalize Windows CRLF to LF before splitting — otherwise every
+  // line keeps a trailing \r that contaminates field values and breaks
+  // strict-equality lookups elsewhere.
+  text = text.replace(/\r\n?/g, '\n');
   const lines = text.trim().split('\n');
   if (lines.length < 2) throw new Error('CSV file appears empty');
 
-  // Detect delimiter — Happy Scribe uses semicolons
+  // Detect delimiter — Happy Scribe uses semicolons; tab covers TSV
+  // exports from Trint / Otter that some users paste in by mistake.
   const header = lines[0];
-  const delimiter = header.includes(';') ? ';' : ',';
+  const delimiter = header.includes('\t') ? '\t' : header.includes(';') ? ';' : ',';
   const cols = header.split(delimiter).map(c => c.trim().toLowerCase());
 
   const numIdx = cols.findIndex(c => c === 'number' || c === '#');

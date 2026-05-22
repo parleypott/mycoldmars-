@@ -21,6 +21,11 @@ const EN_BREAK = /[.?!,;:]/;
 const TARGET_WORDS = 5;
 
 export function parseJSON(text) {
+  // Strip UTF-8 BOM if present — Happy Scribe occasionally exports
+  // with one, and JSON.parse rejects it as "Unexpected token ﻿".
+  if (typeof text === 'string' && text.charCodeAt(0) === 0xFEFF) {
+    text = text.slice(1);
+  }
   let data;
   try {
     data = JSON.parse(text);

@@ -1232,7 +1232,7 @@ export function needsTranscode({ mimeType, filename }) {
  * @param {string} opts.path — full storage path (e.g. 'projectid/uuid.mp4')
  * @param {function} [opts.onProgress] — (percent: number 0..1) => void
  */
-export async function uploadMediaFile({ file, bucket = 'media', path, onProgress }) {
+export async function uploadMediaFile({ file, bucket = 'media', path, onProgress, onUpload }) {
   if (!supabase) {
     const e = new Error('Supabase not configured');
     e.code = 'NO_DB';
@@ -1251,8 +1251,13 @@ export async function uploadMediaFile({ file, bucket = 'media', path, onProgress
     return { path: data.path, bucket };
   }
 
-  // Resumable TUS upload for anything bigger.
-  return uploadViaTus({ file, bucket, path, onProgress });
+  // Resumable TUS upload for anything bigger. `onUpload` (when supplied)
+  // receives the tus.Upload instance so the caller can hold an abort
+  // handle — calling `upload.abort(true)` stops the in-flight chunks
+  // AND tells Supabase to delete the partial bytes. Without this, a
+  // cancelled upload silently kept consuming bandwidth and left
+  // orphan storage objects piling up at $0.021/GB/month.
+  return uploadViaTus({ file, bucket, path, onProgress, onUpload });
 }
 
 /**
@@ -1271,7 +1276,7 @@ export async function uploadMediaFile({ file, bucket = 'media', path, onProgress
  * whatever the rest of the app is using — avoids env-var drift between
  * the build-time and runtime values.
  */
-async function uploadViaTus({ file, bucket, path, onProgress }) {
+async function uploadViaTus({ file, bucket, path, onProgress, onUpload }) {
   // Pull the key from the live supabase client so it matches whatever
   // the rest of the app uses (avoids divergence with import.meta.env).
   // Trim because pasted keys often arrive with stray whitespace.
@@ -1347,6 +1352,13 @@ async function uploadViaTus({ file, bucket, path, onProgress }) {
         resolve({ path, bucket });
       },
     });
+
+    // Expose the upload instance so the caller can hold an abort handle.
+    // upload.abort(true) stops the chunks in flight AND deletes the
+    // partial bytes server-side via the TUS delete endpoint.
+    if (typeof onUpload === 'function') {
+      try { onUpload(upload); } catch {}
+    }
 
     // Honor any in-progress upload so a refresh resumes instead of restarts.
     upload.findPreviousUploads().then((previous) => {

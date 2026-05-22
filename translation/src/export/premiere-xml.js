@@ -76,6 +76,18 @@ export function buildPremiereXML(highlights, segments, transcriptName, opts = {}
 
 /**
  * Convert HH:MM:SS.mmm timecode to frame count.
+ *
+ * For NTSC-fractional rates (23.976, 29.97, 59.94) we round-trip through
+ * the INTEGER timebase that's actually written into the XML so the frame
+ * count stays inside the grid Premiere uses to render markers. The old
+ * implementation multiplied by `fps` (23.976) but the XML's `<timebase>`
+ * was 24 — drift was ~0.1%/hour, ~3.6s over a 1-hour transcript, visible
+ * in real edits.
+ *
+ * The mapping is the standard FCP-XML convention: write integer timebase
+ * (24/30/60) + `<ntsc>TRUE</ntsc>` so Premiere interprets frame counts
+ * as 24000/1001 (= 23.976). The frame indices we generate ARE integer
+ * timebase frames; Premiere does the pulldown at import time.
  */
 function timecodeToFrames(tc, fps = 24) {
   if (!tc) return 0;
@@ -97,7 +109,20 @@ function timecodeToFrames(tc, fps = 24) {
   }
 
   const totalSeconds = hours * 3600 + minutes * 60 + seconds + ms / 1000;
-  return Math.round(totalSeconds * fps);
+  // Convert seconds to integer-timebase frames. The audit flagged a
+  // strict float-equality `fps === 23.976` check elsewhere — we use a
+  // tolerance window so values arriving as 23.97599... still match.
+  const timebase = ntscIntegerTimebase(fps);
+  return Math.round(totalSeconds * timebase);
+}
+
+// For NTSC fractional rates return the integer timebase used in the XML.
+// Otherwise the rate IS the timebase (24, 25, 30, 50, 60).
+function ntscIntegerTimebase(fps) {
+  if (Math.abs(fps - 23.976) < 0.01) return 24;
+  if (Math.abs(fps - 29.97)  < 0.01) return 30;
+  if (Math.abs(fps - 59.94)  < 0.01) return 60;
+  return Math.round(fps);
 }
 
 function tagColorToPremiereColor(hex) {

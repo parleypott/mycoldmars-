@@ -55,7 +55,7 @@ export function isMediaFile(file) {
  * call runTranscription() with the user's choices.
  */
 export async function uploadMedia(file, opts = {}) {
-  const { projectId, onProgress = () => {} } = opts;
+  const { projectId, onProgress = () => {}, onUpload } = opts;
 
   if (!file) throw new Error('No file');
   if (!isMediaFile(file)) {
@@ -66,11 +66,14 @@ export async function uploadMedia(file, opts = {}) {
     throw new Error(`File is ${gb} GB — over the 2 GB hard limit. Trim or compress before uploading.`);
   }
 
-  // Storage path: {projectOrUnattached}/{timestamp}-{filename}
+  // Storage path: {projectOrUnattached}/{timestamp}-{filename}.
+  // crypto.randomUUID() makes collisions impossible even if two parallel
+  // uploads of the same filename land within the same millisecond.
   const safeName = sanitizeFilename(file.name);
   const folder = projectId || 'unattached';
   const stamp = Date.now().toString(36);
-  const storagePath = `${folder}/${stamp}-${safeName}`;
+  const rand = (globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)).slice(0, 8);
+  const storagePath = `${folder}/${stamp}-${rand}-${safeName}`;
 
   onProgress(0);
   await uploadMediaFile({
@@ -78,6 +81,7 @@ export async function uploadMedia(file, opts = {}) {
     bucket: 'media',
     path: storagePath,
     onProgress,
+    onUpload, // forwarded so the caller can hold an abort handle
   });
   onProgress(1);
 

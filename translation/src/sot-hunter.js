@@ -450,8 +450,16 @@ export function initSotHunter({ getSegments, getTranslations }) {
   // Attached image state. Each entry: { id, dataUrl, mediaType, base64, name, size }.
   const attachedImages = [];
 
+  // 10 MB cap on attached screenshots — Claude rejects bigger anyway,
+  // and FileReader without a size gate slurped 200 MB screenshots into
+  // memory + base64-bloated them to 270 MB before the network rejected.
+  const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
   function readImageFile(file) {
     return new Promise((resolve, reject) => {
+      if (file && typeof file.size === 'number' && file.size > MAX_IMAGE_BYTES) {
+        const mb = (file.size / 1024 / 1024).toFixed(1);
+        return reject(new Error(`Image is ${mb} MB — keep screenshots under 10 MB.`));
+      }
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result;
@@ -822,9 +830,20 @@ export function initSotHunter({ getSegments, getTranslations }) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') hunt();
   });
 
-  document.addEventListener('keydown', (e) => {
+  // Scope the global Escape listener to the lifetime of THIS panel
+  // and store a handle so a future re-init (transcript switch + re-
+  // mount) doesn't accumulate listeners. The May 7 audit flagged this
+  // as the listener-count problem; it's been carried for a while.
+  const escapeHandler = (e) => {
     if (e.key === 'Escape' && !panel.hidden) closePanel();
-  });
+  };
+  document.addEventListener('keydown', escapeHandler);
+  // Expose a teardown on the root for callers who want to fully drop
+  // the panel (currently no one calls it, but it's wired for the
+  // future without needing another audit pass).
+  root.__sotHunterTeardown = () => {
+    document.removeEventListener('keydown', escapeHandler);
+  };
 }
 
 function escapeHtml(s) {

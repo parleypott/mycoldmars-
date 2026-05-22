@@ -41,7 +41,7 @@ export function exportHighlightsPDF(highlights, tags, transcriptName) {
 
   ${Object.entries(byTag).map(([tagName, { color, items }]) => `
     <div class="tag-section">
-      <h2><span class="tag-dot" style="background:${color}"></span>${esc(tagName)}</h2>
+      <h2><span class="tag-dot" style="background:${esc(color || '#ccc')}"></span>${esc(tagName)}</h2>
       ${items.map(h => renderHighlight(h)).join('')}
     </div>
   `).join('')}
@@ -63,7 +63,7 @@ export function exportHighlightsPDF(highlights, tags, transcriptName) {
 
 function renderHighlight(h) {
   return `
-    <div class="highlight-item" style="border-color: ${h.color || '#ccc'}">
+    <div class="highlight-item" style="border-color: ${esc(h.color || '#ccc')}">
       <div class="highlight-text">${esc(h.textPreview)}</div>
       ${h.originalTextPreview ? `<div class="highlight-original">${esc(h.originalTextPreview)}</div>` : ''}
       ${h.note ? `<div class="highlight-meta">Note: ${esc(h.note)}</div>` : ''}
@@ -71,7 +71,17 @@ function renderHighlight(h) {
   `;
 }
 
+// HTML-entity escape including quotes — must cover both `"` and `'`
+// because esc() output gets used inside double-quoted style attributes
+// (style="background:..."). The previous version only escaped & < > so a
+// tag color stored as `red;"><script>...` would break out of the attr
+// and inject markup into the PDF preview window.
 function esc(str) {
-  if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

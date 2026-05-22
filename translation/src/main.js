@@ -4155,15 +4155,25 @@ function enqueueUpload(file) {
     addedAt: Date.now(),
   });
   renderUploadPanel();
-  if (!uploadWorkerActive) runUploadWorker().catch(err => {
-    console.error('[upload-worker] crashed:', err);
-    uploadWorkerActive = false;
-  });
+  // Re-entry guard: flip the flag synchronously BEFORE awaiting anything
+  // else. Two rapid enqueueUpload() calls used to both pass the
+  // !uploadWorkerActive check (the flag wasn't set until inside
+  // runUploadWorker, which is async), spawning two workers that
+  // race-picked the same 'queued' item.
+  if (!uploadWorkerActive) {
+    uploadWorkerActive = true;
+    runUploadWorker().catch(err => {
+      console.error('[upload-worker] crashed:', err);
+    }).finally(() => {
+      uploadWorkerActive = false;
+    });
+  }
   return id;
 }
 
 async function runUploadWorker() {
-  uploadWorkerActive = true;
+  // uploadWorkerActive is set by the caller synchronously to avoid the
+  // double-spawn race. We just drain the queue.
   while (true) {
     const next = uploadQueue.find(u => u.status === 'queued');
     if (!next) break;
@@ -4183,7 +4193,9 @@ async function runUploadWorker() {
       renderUploadPanel();
     }
   }
-  uploadWorkerActive = false;
+  // uploadWorkerActive is cleared by the caller's .finally(). Don't
+  // race-clear it here — a re-enqueue between this line and the
+  // finally would see `active = false` and spawn a second worker.
 }
 
 async function processBulkUpload(item) {
@@ -4197,12 +4209,23 @@ async function processBulkUpload(item) {
   }
 
   // 1) Upload to Storage with progress.
+  // onUpload captures the tus.Upload instance so cancelUpload() can
+  // actually abort the in-flight chunks AND tell Supabase to delete
+  // the partial bytes. Previously cancelling only flipped a status
+  // flag and the upload kept consuming bandwidth + storage.
   const upload = await uploadMedia(item.file, {
     projectId: currentProjectId,
     onProgress: (percent) => {
       // Map upload progress to 0–55% of the overall bar.
       item.progress = Math.min(0.55, (percent || 0) * 0.55);
       renderUploadPanel();
+    },
+    onUpload: (tusUpload) => {
+      item.tusUpload = tusUpload;
+      // If user clicked cancel before we got here, abort immediately.
+      if (item.status === 'cancelled') {
+        try { tusUpload.abort(true); } catch {}
+      }
     },
   });
   if (item.status === 'cancelled') return;
@@ -4370,11 +4393,17 @@ function cancelUpload(id) {
     return;
   }
   item.status = 'cancelled';
+  // Actually abort the in-flight TUS upload if we have a handle on it.
+  // `abort(true)` stops the chunks AND deletes the partial bytes from
+  // Supabase storage (TUS DELETE endpoint). Previously cancelled
+  // uploads kept consuming bandwidth and left orphan storage objects.
+  if (item.tusUpload) {
+    try { item.tusUpload.abort(true); } catch (e) {
+      console.warn('[cancelUpload] tus abort failed:', e?.message || e);
+    }
+    item.tusUpload = null;
+  }
   renderUploadPanel();
-  // Note: we don't actively abort an in-flight Supabase storage upload —
-  // the SDK doesn't expose that cleanly. The status flip prevents the
-  // worker from saving a transcript row when the upload eventually finishes,
-  // and the panel reflects the user's intent immediately.
 }
 
 function retryUpload(id) {
@@ -4384,10 +4413,14 @@ function retryUpload(id) {
   item.progress = 0;
   item.error = null;
   renderUploadPanel();
-  if (!uploadWorkerActive) runUploadWorker().catch(err => {
-    console.error('[upload-worker] crashed:', err);
-    uploadWorkerActive = false;
-  });
+  if (!uploadWorkerActive) {
+    uploadWorkerActive = true;
+    runUploadWorker().catch(err => {
+      console.error('[upload-worker] crashed:', err);
+    }).finally(() => {
+      uploadWorkerActive = false;
+    });
+  }
 }
 
 function clearFinishedUploads() {
