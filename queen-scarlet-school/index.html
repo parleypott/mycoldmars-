@@ -1553,6 +1553,32 @@
     /* Floating, rotated, low-key. Sit behind content (z-index 0) and
        don't catch pointer events. Sized via clamp so they scale with the
        viewport without dominating it. */
+
+    /* ─── Focus mode — single high-impact toggle for Henry ───
+       Dims all decoration, hides chat, slightly bumps story font.
+       Activated with the 🎯 focus button or ESC toggles back. */
+    body.focus-mode .scrap-layer,
+    body.focus-mode .scrap,
+    body.focus-mode .scrap-inline { opacity: 0.10 !important; filter: grayscale(70%); pointer-events: none; }
+    body.focus-mode .write-layout > .write-col:last-of-type { display: none !important; }
+    body.focus-mode .write-layout > .write-col:first-of-type { flex: 1 1 100% !important; max-width: 100% !important; width: 100% !important; }
+    body.focus-mode .split-handle { display: none; }
+    body.focus-mode .story-block { font-size: 19px; }
+    body.focus-mode .topbar { background: #FFFCEC; }
+    body.focus-mode .karaoke-bar { background: var(--ink-bright); color: #fff; border-color: var(--red); }
+    /* Focus-mode chip in the topbar — only visible when active */
+    .focus-chip {
+      display: none;
+      font-family: var(--ui); font-weight: 800; font-size: 11px;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      background: var(--red); color: #fff;
+      padding: 4px 12px; border-radius: 999px;
+      border: 2px solid var(--ink-bright); box-shadow: 2px 2px 0 var(--ink-bright);
+      margin-left: 10px;
+    }
+    body.focus-mode .focus-chip { display: inline-flex; align-items: center; gap: 6px; }
+    body.focus-mode #btn-focus { background: var(--red); color: #fff; }
+
     .scrap-layer {
       position: fixed;
       inset: 0;
@@ -1807,6 +1833,7 @@
               <span class="meta" id="story-meta">0 blocks</span>
               <span id="arc-chip-host"></span>
               <div class="pane-controls">
+                <button id="btn-focus" class="pane-ctrl-btn" type="button" title="Focus mode — dim everything except your story">🎯 focus</button>
                 <button id="btn-arc" class="pane-ctrl-btn" type="button" title="Open arc inspector">📖 arc</button>
                 <button id="btn-play-all" class="pane-ctrl-btn" type="button" title="Play the whole story start to finish">▶ play</button>
                 <div class="font-size-ctrl" title="Story text size">
@@ -3572,6 +3599,32 @@
       if (!anyExpanded) for (const b of state.blocks) state.blockUI[b.id] = { expanded: true };
       renderStory();
     });
+
+    // ─── Focus mode toggle ───
+    // Dims decoration, hides the chat panel so the story column has full width.
+    // ESC also toggles off. State persists in localStorage per browser.
+    const FOCUS_KEY = 'qss-focus-mode';
+    function setFocusMode(on) {
+      document.body.classList.toggle('focus-mode', on);
+      try { localStorage.setItem(FOCUS_KEY, on ? '1' : '0'); } catch {}
+      const btn = document.getElementById('btn-focus');
+      if (btn) btn.textContent = on ? '✕ focus' : '🎯 focus';
+    }
+    document.getElementById('btn-focus')?.addEventListener('click', () => {
+      setFocusMode(!document.body.classList.contains('focus-mode'));
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.body.classList.contains('focus-mode')) {
+        // Don't escape if a modal/editor is also open — let those handle ESC first
+        const rules = document.getElementById('rules-modal');
+        if (rules && getComputedStyle(rules).display !== 'none') return;
+        const arc = document.getElementById('arc-inspector');
+        if (arc && arc.classList.contains('open')) return;
+        setFocusMode(false);
+      }
+    });
+    // Restore from localStorage
+    try { if (localStorage.getItem(FOCUS_KEY) === '1') setFocusMode(true); } catch {}
 
     // ─── Voice-to-text (vintage mic) ───
     (function setupMic() {

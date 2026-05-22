@@ -523,10 +523,19 @@ async function handleTutor(body, apiKey) {
 
   let patternBlock = '';
   if (fixation.hints.length) {
+    // CHANNEL — don't redirect. Hyperfocus is Henry's strength. Of the 3
+    // scenarios, ONE escalates the fixation big (cinematic, absurd, leans
+    // all the way in), ONE moves sideways to adjacent territory, ONE jumps
+    // to a different character/setting. This way the kid feels HEARD on his
+    // obsession AND offered exits if he wants them.
     patternBlock = '\n\n═══ PATTERN NOTES (from the last few blocks) ═══\n' +
       fixation.hints.map(h => '• ' + h).join('\n') +
-      `\nSeverity: ${fixation.severe ? 'HIGH (multiple flags)' : 'mild (single flag)'}. ` +
-      `Use the "viable IP / mass-market" framing from Henry's profile to gently widen the range. Half your direction proposals MUST move off the current dynamic.`;
+      `\nSeverity: ${fixation.severe ? 'HIGH (multiple flags)' : 'mild (single flag)'}.\n\n` +
+      `▸ CHANNEL THE FIXATION — Do NOT lecture, redirect, or scold. Henry's hyperfocus is a STRENGTH. Of your 3 scenarios:\n` +
+      `  1. ONE that GOES BIGGER on the fixation — escalate it absurdly, make it the main event. If he keeps circling the legal department, propose "the legal department forms a marching band" or "the legal department writes the bunker by-laws in iambic pentameter" or "the legal department becomes the villain." Lean in.\n` +
+      `  2. ONE that moves sideways — adjacent territory, different angle on the same world (a character he hasn't featured lately reacts to the fixation).\n` +
+      `  3. ONE that jumps cleanly to a different character or setting (an escape hatch if he wants one).\n\n` +
+      `Never say "let's try something different" or "you've been doing X — try Y." That feels like censorship and shuts him down. Just OFFER all three and let him pick.`;
   }
 
   // ── Arc context (from /api/qss-arc-extract, cached on the story row) ──
