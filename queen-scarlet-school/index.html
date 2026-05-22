@@ -2064,8 +2064,6 @@
           <div class="story-pane" id="story-pane">
             <div class="pane-header">
               <h2>The Story</h2>
-              <span class="meta" id="story-meta">0 blocks</span>
-              <span id="arc-chip-host"></span>
               <div class="pane-controls">
                 <button id="btn-focus" class="pane-ctrl-btn" type="button" title="Focus mode — dim everything except your story">🎯 focus</button>
                 <button id="btn-arc" class="pane-ctrl-btn" type="button" title="Open arc inspector">📖 arc</button>
@@ -3494,9 +3492,7 @@
     function renderStory() {
       const empty = document.getElementById('story-blocks-empty');
       const list = document.getElementById('story-blocks');
-      const meta = document.getElementById('story-meta');
       const composer = document.getElementById('own-block-composer');
-      meta.textContent = `${state.blocks.length} block${state.blocks.length === 1 ? '' : 's'}`;
       if (!state.blocks.length) {
         empty.style.display = 'block';
         list.style.display = 'none';
