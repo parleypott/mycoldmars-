@@ -13,22 +13,34 @@ export const config = { runtime: 'edge' };
  */
 export default async function handler(req) {
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+    return jsonError(405, 'method_not_allowed', 'POST only');
   }
   const denied = checkAccess(req);
   if (denied) return denied;
 
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return jsonError(500, 'misconfigured', 'ANTHROPIC_API_KEY is not set on the server.');
+  }
+
   const body = await req.text();
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body,
-  });
+  let response;
+  try {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body,
+    });
+  } catch (err) {
+    // Network error reaching Anthropic — previously this threw an
+    // uncaught TypeError and Vercel returned a bare HTML 500 page.
+    return jsonError(502, 'anthropic_unreachable', err?.message || String(err));
+  }
 
   // Pipe Anthropic's response (including SSE stream) straight to browser
   return new Response(response.body, {
@@ -37,5 +49,12 @@ export default async function handler(req) {
       'Content-Type': response.headers.get('Content-Type') || 'text/event-stream',
       'Cache-Control': 'no-cache',
     },
+  });
+}
+
+function jsonError(status, error, message) {
+  return new Response(JSON.stringify({ error, message }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
   });
 }

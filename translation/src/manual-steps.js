@@ -188,8 +188,15 @@ async function verifyDevchat() {
       if (error.code === '42501') return { ok: false, reason: 'Insert blocked by RLS — migration 013 hasn\'t run.' };
       return { ok: false, reason: 'Insert failed: ' + (error.message || error.code) };
     }
-    // Clean up the probe row.
-    if (data?.id) supabase.from('devchat_threads').delete().eq('id', data.id).then(() => {});
+    // Clean up the probe row. Both legs of the promise need a handler
+    // or a rejection here surfaces as "Uncaught (in promise)" — if RLS
+    // allows INSERT but blocks DELETE (real misconfiguration shape),
+    // the probe was leaving orphan __verify__ rows AND throwing in the
+    // console for every verify click.
+    if (data?.id) {
+      supabase.from('devchat_threads').delete().eq('id', data.id)
+        .then(() => {}, () => {});
+    }
   } catch (err) {
     return { ok: false, reason: 'Insert probe threw: ' + (err?.message || err) };
   }
@@ -199,6 +206,14 @@ async function verifyDevchat() {
       headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY || '' },
     });
     if (r.status === 404) return { ok: false, reason: 'Attachments bucket missing — migration 014 needs to run (image upload won\'t work without it).' };
+    // Anything other than 200 (bucket exists + readable) or 404 (missing)
+    // means the probe itself was rejected — 401/403 from auth, 5xx from
+    // Supabase. Previously these were silently treated as success
+    // because only 404 was checked, so a misconfigured env reported
+    // "bucket present" when really we couldn't see it at all.
+    if (r.status !== 200) {
+      return { ok: false, reason: `Bucket probe inconclusive (HTTP ${r.status}). Likely Supabase env vars are not set in this build — uploads will fail at runtime.` };
+    }
   } catch {} // bucket check is best-effort; not fatal
   // Endpoint check — just hit /api/devchat-respond with a bogus thread to
   // confirm it's deployed and not 404ing. We expect a 400 or 404 from a

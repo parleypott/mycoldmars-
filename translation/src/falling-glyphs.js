@@ -83,11 +83,29 @@ function resizeCanvas() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
+// Pause when the tab loses focus so the RAF loop doesn't run at the
+// throttled 1Hz in the background. Browsers already throttle background
+// RAF but we still pay the JS-engine wake-up cost; better to fully stop.
+let visibilityHandler = null;
+function ensureVisibilityHandler() {
+  if (visibilityHandler) return;
+  visibilityHandler = () => {
+    if (document.hidden) {
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+    } else if (visible && !raf) {
+      lastT = performance.now();
+      raf = requestAnimationFrame(tick);
+    }
+  };
+  document.addEventListener('visibilitychange', visibilityHandler);
+}
+
 export function startFallingGlyphs() {
   if (visible) return;
   visible = true;
   lastT = performance.now();
   scheduleNextSpawn(performance.now());
+  ensureVisibilityHandler();
   if (!raf) raf = requestAnimationFrame(tick);
 }
 

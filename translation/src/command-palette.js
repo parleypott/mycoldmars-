@@ -80,8 +80,15 @@ export function initCommandPalette({ getActions, getTranscripts, onJumpToTranscr
   });
 
   // Global keybinding: ⌘K / Ctrl-K toggles, Esc closes.
+  //
+  // Don't preempt ⌘K when focus is in an editable surface. TipTap (the
+  // transcript editor) binds ⌘K to "add link" — stealing it broke link
+  // creation. Same for any future input/textarea that might rely on it.
+  // The palette can still be opened from the menu or via the in-app
+  // shortcut helper.
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+      if (isEditableFocus()) return;
       e.preventDefault();
       isOpen ? closePalette() : openPalette();
     } else if (e.key === 'Escape' && isOpen) {
@@ -89,6 +96,19 @@ export function initCommandPalette({ getActions, getTranscripts, onJumpToTranscr
       closePalette();
     }
   });
+}
+
+function isEditableFocus() {
+  const el = document.activeElement;
+  if (!el || el === document.body) return false;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (el.isContentEditable) return true;
+  // TipTap renders a contenteditable inside `.tiptap`. The activeElement
+  // is the editor's root; isContentEditable covers it, but belt-and-
+  // suspenders against future restructuring.
+  if (el.closest && el.closest('.tiptap, [contenteditable="true"]')) return true;
+  return false;
 }
 
 export function openCommandPalette() { openPalette(); }

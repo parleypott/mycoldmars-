@@ -120,6 +120,16 @@ export function SummaryView({ content, loading, bullets, interestVotes, onVote }
     if (segNums.length > 0) onVote(segNums, nextType);
   }, [bullets, interestVotes, onVote]);
 
+  // Early-return branches MUST live after every hook above so the hook
+  // call-order is stable across renders. If you add a hook later, keep
+  // it ABOVE this line.
+  if (loading && !content) {
+    return <div className="summary-loading">Generating summary...</div>;
+  }
+  if (!content) {
+    return <div className="summary-empty">No summary generated yet.</div>;
+  }
+
   // Structured bullet rendering
   if (bullets && bullets.length > 0) {
     // Group bullets by section

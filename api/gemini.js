@@ -1,6 +1,28 @@
 import { checkAccess } from './_lib/access.js';
+import { createClient } from '@supabase/supabase-js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
+
+// Lazy-init server-side Supabase client. The four hunter-job handlers
+// (handleCreateJob, handleListJobs, handleGetWorkerStatus, handleGetUploadUrl)
+// referenced a `supabase` global that didn't exist — every call was a
+// ReferenceError at runtime and Vercel returned a bare 500. Build it once
+// per cold start using the service-role key for full table access.
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+  || process.env.SUPABASE_SERVICE_KEY
+  || process.env.VITE_SUPABASE_ANON_KEY; // graceful degrade in dev
+const supabase = (SUPABASE_URL && SUPABASE_SERVICE_KEY)
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } })
+  : null;
+function requireSupabase() {
+  if (!supabase) {
+    return new Response(JSON.stringify({
+      error: 'Server is missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY',
+    }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
+  return null;
+}
 
 // PostgREST filter values must be URL-encoded. Bare interpolation of a
 // caller-supplied id lets a request inject extra filters or traverse rows
@@ -1819,6 +1841,7 @@ function formatSeconds(s) {
 // ── Job queue handlers ──
 
 async function handleCreateJob(body) {
+  const denied = requireSupabase(); if (denied) return denied;
   const { jobType, projectId, params } = body;
   const validTypes = ['ingest_selects', 'compute_decisions', 'train_taste', 'run_synthesis', 'backfill_analyses'];
   if (!validTypes.includes(jobType)) {
@@ -1838,6 +1861,7 @@ async function handleCreateJob(body) {
 }
 
 async function handleListJobs(body) {
+  const denied = requireSupabase(); if (denied) return denied;
   const { projectId, limit: lim } = body;
   let query = supabase.from('hunter_jobs')
     .select('*')
@@ -1853,6 +1877,7 @@ async function handleListJobs(body) {
 }
 
 async function handleGetWorkerStatus() {
+  const denied = requireSupabase(); if (denied) return denied;
   const { data } = await supabase.from('hunter_jobs')
     .select('progress, started_at')
     .eq('id', '00000000-0000-0000-0000-000000000000')
@@ -1866,6 +1891,7 @@ async function handleGetWorkerStatus() {
 }
 
 async function handleGetUploadUrl(body) {
+  const denied = requireSupabase(); if (denied) return denied;
   const { fileName } = body;
   const path = `selects/${Date.now()}-${fileName || 'upload.xml'}`;
 

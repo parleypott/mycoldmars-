@@ -429,13 +429,23 @@ export function mountWorkshop(container, opts) {
   async function runZap(segNum) {
     const seg = opts.segments.find(s => s.number === segNum);
     if (!seg) return;
-    state.zaps[segNum] = { status: 'loading' };
+    // Double-click guard: if a zap is already in flight for this segment,
+    // don't fire a second request. The previous version let two rapid
+    // clicks race; whichever Anthropic response landed last won, so a
+    // freshly-polished result could be overwritten by a stale error from
+    // the first attempt — and Johnny got billed for both calls.
+    if (state.zaps[segNum]?.status === 'loading') return;
+    // Per-request token so a stale resolve can't clobber a newer one.
+    const token = (state.zaps[segNum]?.token || 0) + 1;
+    state.zaps[segNum] = { status: 'loading', token };
     render();
     try {
       const result = await polishSoundbite(seg.text);
-      state.zaps[segNum] = { status: 'ready', chunks: result.chunks, polished: result.polished };
+      if (state.zaps[segNum]?.token !== token) return; // newer request superseded
+      state.zaps[segNum] = { status: 'ready', token, chunks: result.chunks, polished: result.polished };
     } catch (err) {
-      state.zaps[segNum] = { status: 'error', error: err.message || String(err) };
+      if (state.zaps[segNum]?.token !== token) return;
+      state.zaps[segNum] = { status: 'error', token, error: err.message || String(err) };
     }
     render();
   }

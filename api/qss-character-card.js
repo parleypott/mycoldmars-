@@ -22,6 +22,8 @@
 //  - Voice / tone matches the rest of the WRITING_DISCIPLINE preamble — no
 //    AI-thesaurus tropes, no "weaving threads", no overproduction.
 
+import { checkAccess as sharedCheckAccess } from './_lib/access.js';
+
 export const config = { runtime: 'edge' };
 
 const CORS = {
@@ -237,13 +239,13 @@ async function callNanoBanana(apiKey, prompt) {
   throw new Error('no image returned');
 }
 
-// access guard — matches the rest of the qss endpoints
+// access guard — delegates to the shared perimeter check at the top
+// of this file. The previous local implementation accepted ANY
+// `Authorization: Bearer ...` string, which meant `curl -H
+// 'Authorization: Bearer x'` could call this endpoint and burn Haiku
+// + Gemini image-gen credits with no rate limit.
 function checkAccess(req) {
-  const auth = req.headers.get('authorization') || '';
-  if (!auth.toLowerCase().startsWith('bearer ')) {
-    return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
-  }
-  return null;
+  return sharedCheckAccess(req);
 }
 
 function withCors(res) {

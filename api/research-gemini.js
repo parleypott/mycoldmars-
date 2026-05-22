@@ -11,12 +11,24 @@ export default async function handler(req) {
   const { prompt } = await req.json();
   if (!prompt) return new Response(JSON.stringify({ error: 'prompt required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return new Response(JSON.stringify({ error: 'GEMINI_API_KEY not set' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' },
+    });
+  }
   const MODEL = 'gemini-2.5-pro';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  // Send the API key in the x-goog-api-key header rather than the URL.
+  // The URL-query form lands the key in Vercel + Google access logs
+  // verbatim; the header form is the documented secure path.
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
     body: JSON.stringify({
       system_instruction: { parts: [{ text: SYSTEM }] },
       contents: [{ role: 'user', parts: [{ text: prompt }] }],

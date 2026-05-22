@@ -137,7 +137,12 @@ export default async function handler(req) {
   }
 
   const me = await whoAmI(req);
-  const localDev = isLocalhost(req) && !process.env.ADMIN_EMAILS;
+  // Defense in depth: the localhost dev-bypass only fires when ALSO not
+  // in production. Previously a Vercel deploy that had ADMIN_EMAILS unset
+  // and was probed with a spoofed `Host: localhost` header could trip
+  // the bypass and hand out admin actions to the open internet.
+  const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+  const localDev = !isProd && isLocalhost(req) && !process.env.ADMIN_EMAILS;
   if (!localDev) {
     if (!me) return json({ error: 'Sign in first.' }, 401);
     if (!isAdminEmail(me.email)) return json({ error: 'Only admins can do that.' }, 403);
