@@ -660,6 +660,34 @@
       display: flex; flex-direction: column; gap: 8px;
       padding-left: 54px; padding-top: 6px; padding-right: 8px;
     }
+    /* When the scen-list lives INSIDE a .bubble, drop the indent/padding so the
+       3 rows sit flush inside the bubble — one visually unified message. */
+    .bubble-scenarios { padding: 14px 14px 10px 14px; }
+    .bubble-scenarios .bubble-text { margin-bottom: 12px; }
+    .scen-list-inline { padding-left: 0; padding-top: 0; padding-right: 0; gap: 7px; }
+    .bubble-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin-top: 12px; padding-top: 10px;
+      border-top: 1.5px dashed rgba(0,0,0,0.18);
+    }
+    .bubble-foot-hint {
+      font-family: var(--ui); font-weight: 700; font-size: 12px;
+      letter-spacing: 0.06em; color: var(--ink-soft);
+      text-transform: uppercase;
+    }
+    .bubble-foot .tts-btn { flex: 0 0 auto; }
+    /* Scenario rows inside a bubble: lighter shadow (the bubble already has its own
+       card frame), slightly less rotation so they don't fight the bubble's rhythm. */
+    .scen-list-inline .scen-row {
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      background: var(--paper-soft);
+    }
+    .scen-list-inline .scen-row:hover {
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      background: var(--paper-card);
+    }
+    .scen-list-inline .scen-row.scen-own { background: #FFFDF1; }
+    .scen-list-inline .scen-row.scen-own:hover { background: #FFFAE0; }
     .scen-row {
       display: flex; align-items: center; gap: 14px;
       padding: 10px 14px 10px 10px;
@@ -2714,18 +2742,27 @@
           // No per-row speaker — Henry presses ONE button to hear everything.
           const ttsAll = (t.content || 'what should happen next?') +
             (picks.length ? ' ' + picks.map((d, i) => `option ${i + 1}: ${d.title}.`).join(' ') : '') +
-            ((isLatest && !someoneChosen) ? ' or type your own next step.' : '');
+            ((isLatest && !someoneChosen) ? ' or type your own next step.' : '') +
+            ' press 1, 2, or 3 — or type your own.';
           // Only the meaningful "wizard redirected from fixation" badge surfaces — drop
           // the informational priming labels Johnny called out.
           const routeBadge = t.routing === 'redirect-from-fixation'
             ? `<div class="route-badge" data-r="redirect-from-fixation">✦ wizard suggests other paths</div>` : '';
+          // ONE BUBBLE. Prompt + 3 scenarios + "type your own" all live INSIDE the same
+          // .bubble so a single TTS press reads the whole thing as one block of text.
           return `<div class="tutor-turn">
+            ${routeBadge}
             <div class="tutor-msg">
               ${window.dragon('md')}
-              <div class="bubble">${esc(t.content)}<button class="tts-btn sm tts-bubble" data-tts="${esc(ttsAll)}" style="margin-left:8px; vertical-align:middle;" title="Read everything aloud"></button></div>
+              <div class="bubble bubble-scenarios">
+                <div class="bubble-text">${esc(t.content)}</div>
+                <div class="scen-list scen-list-inline">${rows}${ownRow}</div>
+                <div class="bubble-foot">
+                  <span class="bubble-foot-hint">press 1, 2, or 3 — or type your own</span>
+                  <button class="tts-btn sm tts-bubble" data-tts="${esc(ttsAll)}" title="Read the whole message aloud" aria-label="Read all options aloud"></button>
+                </div>
+              </div>
             </div>
-            ${routeBadge}
-            <div class="scen-list">${rows}${ownRow}</div>
             ${tryAgain}
           </div>`;
         }
@@ -2748,20 +2785,26 @@
             </div>`;
         }).join('');
         const dirBadge = t.chosenDirection
-          ? `<div class="dir-context">writing for direction: <strong>${esc(t.chosenDirection.split('.')[0])}</strong></div>` : '';
-        const routeBadge = t.routing === 'engage-direct'
-          ? `<div class="route-badge" data-r="engage-direct">✦ running with your idea</div>` : '';
+          ? `<div class="dir-context">writing for: <strong>${esc(t.chosenDirection.split('.')[0])}</strong></div>` : '';
+        // After a direction is picked, the bubble is intentionally empty — Henry already
+        // chose, the next thing he should see is the 3 blocks, not another writing lecture.
+        // Only render the dragon-and-bubble row when the model actually wrote something
+        // meaningful (rare — free-typed turn or opening turn).
+        const trimmedContent = (t.content || '').trim();
+        const wordyRow = trimmedContent
+          ? `<div class="tutor-msg">
+               ${window.dragon('md')}
+               <div class="bubble">${esc(trimmedContent)}<button class="tts-btn sm tts-bubble" data-tts="${esc(trimmedContent)}" style="margin-left:8px; vertical-align:middle;"></button></div>
+             </div>`
+          : '';
+        // Drop the informational "running with your idea" badge — it's priming Henry doesn't need.
         const moreActions = (isLatest && t.options?.length && !t.options.every(o => o.added))
           ? `<div class="more-options">
                <button class="btn ghost" data-action="try-again">none of these — try again</button>
                <button class="btn ghost" data-action="back-to-dirs">← pick a different direction</button>
              </div>` : '';
         return `<div class="tutor-turn">
-          <div class="tutor-msg">
-            ${window.dragon('md')}
-            <div class="bubble">${esc(t.content)}<button class="tts-btn sm tts-bubble" data-tts="${esc(t.content)}" style="margin-left:8px; vertical-align:middle;"></button></div>
-          </div>
-          ${routeBadge}
+          ${wordyRow}
           ${dirBadge}
           ${opts ? `<div class="option-list">${opts}</div>` : ''}
           ${moreActions}
