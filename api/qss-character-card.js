@@ -350,8 +350,17 @@ async function callClaude(apiKey, userMessage) {
 }
 
 async function callNanoBanana(apiKey, prompt, refImage = null, lovedRefs = []) {
-  const modelId = 'gemini-3.1-flash-image-preview';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`;
+  // gemini-3.1-flash-image-preview is higher quality but routinely takes
+  // 25-40s — which races Vercel's 25s Edge cap on Hobby plans and the
+  // request 504s before Gemini returns. gemini-2.5-flash-image renders
+  // in ~8-15s with comparable quality for sticker-style portraits, so
+  // we use it as the primary. If it returns no image (content filter
+  // trip), the retry logic below falls back to 3.1 as a slower
+  // last-resort.
+  const PRIMARY_MODEL = 'gemini-2.5-flash-image';
+  const FALLBACK_MODEL = 'gemini-3.1-flash-image-preview';
+  let modelId = PRIMARY_MODEL;
+  let url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`;
   // Reference images go BEFORE the text so Gemini anchors the new
   // portrait to them. Order: loved style anchors first (Henry's
   // approved style direction), then the most recent primary portrait
@@ -378,10 +387,16 @@ async function callNanoBanana(apiKey, prompt, refImage = null, lovedRefs = []) {
 
   // Retry up to 3x on transient failures. Gemini image-gen is flaky
   // under load — 429 / 500 / 503 / 504 all happen routinely. Exponential
-  // backoff between attempts to give the upstream a chance to recover.
+  // backoff between attempts. Attempts 1+2 use the fast 2.5-flash model;
+  // attempt 3 falls back to the slower 3.1 in case 2.5 hits a content
+  // filter or quality issue.
   let lastErr = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
-    if (attempt > 1) await new Promise(r => setTimeout(r, attempt * 1200));
+    if (attempt > 1) await new Promise(r => setTimeout(r, attempt * 800));
+    if (attempt === 3) {
+      modelId = FALLBACK_MODEL;
+      url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`;
+    }
     try {
       const res = await fetch(url, {
         method: 'POST',
