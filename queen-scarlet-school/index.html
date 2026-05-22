@@ -1902,10 +1902,30 @@
     .tts-btn svg { width: 14px; height: 14px; pointer-events: none; }
     .tts-btn:hover { background: var(--yolk); transform: translate(-1px, -1px) rotate(-4deg); box-shadow: 3px 3px 0 var(--ink-bright); }
     .tts-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink-bright); }
-    .tts-btn.playing { background: var(--red); color: var(--paper-card); animation: ttsPulse 1s ease-in-out infinite; }
+    .tts-btn.playing {
+      background: var(--yolk);
+      color: var(--ink-bright);
+      animation: ttsPulse 850ms ease-in-out infinite, ttsGlow 850ms ease-in-out infinite;
+    }
+    .tts-btn.playing svg { color: var(--ink-bright); }
     .tts-btn.loading { background: var(--yolk); color: var(--ink-bright); }
     .tts-btn.loading svg { color: var(--ink-bright); }
-    @keyframes ttsPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+    @keyframes ttsPulse {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.14); }
+    }
+    @keyframes ttsGlow {
+      0%, 100% {
+        box-shadow: 2px 2px 0 var(--ink-bright),
+                    0 0 0 0     rgba(255, 209, 88, 0.85),
+                    0 0 12px 0  rgba(255, 209, 88, 0.55);
+      }
+      50% {
+        box-shadow: 2px 2px 0 var(--ink-bright),
+                    0 0 0 6px   rgba(255, 209, 88, 0.30),
+                    0 0 22px 4px rgba(255, 209, 88, 0.65);
+      }
+    }
     .tts-btn.sm { width: 24px; height: 24px; box-shadow: 1.5px 1.5px 0 var(--ink-bright); }
     .tts-btn.sm svg { width: 12px; height: 12px; }
     .tts-float {
