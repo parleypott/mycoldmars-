@@ -1826,6 +1826,14 @@ function currentUserId() {
   return currentUser()?.id || null;
 }
 
+// Forward declaration — defined later in the file. Lives BEFORE the
+// onAuthChange listener below because auth.js fires the listener
+// synchronously at registration time with user=null. If `let
+// presenceChannel` lived past line ~1862 (as it used to), that
+// synchronous fire would hit the temporal-dead-zone and throw a
+// ReferenceError at module-load.
+let presenceChannel = null;
+
 // Re-broadcast presence + redraw identity badge whenever auth state shifts.
 onAuthChange(() => {
   renderHeaderIdentity();
@@ -1859,8 +1867,8 @@ onSignOutBefore(async () => {
   try { teardownPresence?.(); } catch {}
 });
 
-// Forward declaration — defined later in the file.
-let presenceChannel = null;
+// (presenceChannel is now declared above next to onAuthChange — see
+// the comment there for why it has to live BEFORE that listener.)
 
 // Render the user's identity badge in the editor header. Click to open
 // dropdown: change display name, change color, sign out.
@@ -4243,6 +4251,11 @@ async function processBulkUpload(item) {
   const upload = await uploadMedia(item.file, {
     projectId: currentProjectId,
     onProgress: (percent) => {
+      // Late-callback guard: tus-js-client occasionally fires onProgress
+      // after onSuccess on slow networks. Without this, a late tick
+      // capped at 0.55 would snap the bar backward from 'transcribing'
+      // state. Only update while we're actually in the uploading phase.
+      if (item.status !== 'uploading') return;
       // Map upload progress to 0–55% of the overall bar.
       item.progress = Math.min(0.55, (percent || 0) * 0.55);
       // Fast path: only patch the bar + percent in place instead of
@@ -4441,6 +4454,12 @@ function retryUpload(id) {
   item.status = 'queued';
   item.progress = 0;
   item.error = null;
+  // Drop stale handles from the failed prior attempt — without this,
+  // a cancel between retry-enqueue and the new TUS handle landing
+  // would abort the OLD (defunct) tus.Upload instance.
+  item.tusUpload = null;
+  item.mediaUploadId = null;
+  item.signedUrl = null;
   renderUploadPanel();
   if (!uploadWorkerActive) {
     uploadWorkerActive = true;
@@ -6612,7 +6631,7 @@ let realtimeBoundTranscriptId = null;
 function ensureRealtimeSubscription() {
   if (!currentTranscriptId) return;
   if (realtimeBoundTranscriptId === currentTranscriptId && realtimeUnsubscribe) return;
-  if (realtimeUnsubscribe) { try { realtimeUnsubscribe(); } catch {} realtimeUnsubscribe = null; }
+  if (realtimeUnsubscribe) { try { realtimeUnsubscribe(); } catch (e) { console.warn("[realtime] unsubscribe failed:", e?.message || e); } realtimeUnsubscribe = null; }
   realtimeBoundTranscriptId = currentTranscriptId;
   try {
     realtimeUnsubscribe = subscribeToTranscript(currentTranscriptId, handleRemoteUpdate);
@@ -6624,7 +6643,7 @@ function ensureRealtimeSubscription() {
 }
 
 function teardownRealtime() {
-  if (realtimeUnsubscribe) { try { realtimeUnsubscribe(); } catch {} realtimeUnsubscribe = null; }
+  if (realtimeUnsubscribe) { try { realtimeUnsubscribe(); } catch (e) { console.warn("[realtime] unsubscribe failed:", e?.message || e); } realtimeUnsubscribe = null; }
   realtimeBoundTranscriptId = null;
   teardownPresence();
 }

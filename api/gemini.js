@@ -9,9 +9,13 @@ export const config = { runtime: 'edge', maxDuration: 60 };
 // ReferenceError at runtime and Vercel returned a bare 500. Build it once
 // per cold start using the service-role key for full table access.
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+// Service-role only. Previously this fell back to the anon key when
+// service-role was missing, which used to be a graceful-degrade hack
+// for dev. After migration 019 locked tables to the `authenticated`
+// role, an anon-key client silently fails every write — hunter jobs
+// look like they vanish into the void. Fail loudly instead.
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-  || process.env.SUPABASE_SERVICE_KEY
-  || process.env.VITE_SUPABASE_ANON_KEY; // graceful degrade in dev
+  || process.env.SUPABASE_SERVICE_KEY;
 const supabase = (SUPABASE_URL && SUPABASE_SERVICE_KEY)
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { auth: { persistSession: false } })
   : null;
