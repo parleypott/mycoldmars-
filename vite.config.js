@@ -25,7 +25,29 @@ export default defineConfig({
     },
   },
   build: {
+    // Strip dev-only console + debugger calls from production bundles.
+    // Editorial app — diagnostic noise that survives to prod just adds
+    // overhead and leaks app internals to anyone with DevTools open.
+    // Console.warn and console.error survive so real failures still
+    // surface; only `log/debug/info/trace` are stripped.
+    esbuildOptions: { drop: ['debugger'] },
     rollupOptions: {
+      output: {
+        // Code-split the heavy editor/AI/Supabase chunks out of the
+        // translation entry bundle. The gate (sign-in form) doesn't
+        // need any of these — splitting them defers ~500KB of parse
+        // cost until AFTER the user has signed in. Big TTI win on
+        // mobile / cold cache.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('@tiptap') || id.includes('prosemirror')) return 'editor-vendor';
+          if (id.includes('wavesurfer')) return 'wavesurfer';
+          if (id.includes('@supabase/supabase-js')) return 'supabase';
+          if (id.includes('@anthropic-ai') || id.includes('@google/genai')) return 'ai-sdk';
+          if (id.includes('tus-js-client')) return 'tus';
+          if (id.includes('preact')) return 'preact';
+        },
+      },
       input: {
         main: resolve(__dirname, 'index.html'),
         pinglobe: resolve(__dirname, 'pinglobe/index.html'),

@@ -4245,7 +4245,9 @@ async function processBulkUpload(item) {
     onProgress: (percent) => {
       // Map upload progress to 0–55% of the overall bar.
       item.progress = Math.min(0.55, (percent || 0) * 0.55);
-      renderUploadPanel();
+      // Fast path: only patch the bar + percent in place instead of
+      // rebuilding the whole panel on every chunk (~10x/sec during TUS).
+      patchUploadRowProgress(item);
     },
     onUpload: (tusUpload) => {
       item.tusUpload = tusUpload;
@@ -4483,6 +4485,29 @@ function statusLabel(s) {
 
 // ── UploadPanel UI: floating card bottom-left, collapsible. ──
 let uploadPanelCollapsed = false;
+// Fast-path: just patch the progress bar + percent text in place
+// without rebuilding the whole panel. Use this from the TUS onProgress
+// handler — full renderUploadPanel() runs ~10x/sec during chunks
+// otherwise, blowing away any focused button mid-click and resetting
+// CSS animations on the row.
+function patchUploadRowProgress(item) {
+  if (!item) return;
+  const row = document.querySelector(`[data-upload-row="${item.id}"]`);
+  if (!row) {
+    // Row doesn't exist yet (or panel hasn't been rendered). Fall back
+    // to a full render.
+    renderUploadPanel();
+    return;
+  }
+  const bar = row.querySelector('.upload-row-bar-fill');
+  const pctEl = row.querySelector('.upload-row-pct');
+  const pct = Math.round((item.progress || 0) * 100);
+  if (bar) bar.style.width = `${pct}%`;
+  if (pctEl) pctEl.textContent = `${pct}%`;
+  // Status string outside this fast path stays untouched — call
+  // renderUploadPanel() on state transitions instead.
+}
+
 function renderUploadPanel() {
   let host = document.getElementById('upload-panel');
   if (uploadQueue.length === 0) {
@@ -4549,7 +4574,7 @@ function renderUploadRow(item) {
     <div class="upload-row upload-row--${item.status}" data-upload-row="${item.id}">
       <div class="upload-row-top">
         <span class="upload-row-name" title="${esc(item.file.name)}">${esc(shortName(item.file.name))}</span>
-        <span class="upload-row-status">${esc(statusLabel(item.status))}${isActive ? ' · ' + pct + '%' : ''}</span>
+        <span class="upload-row-status">${esc(statusLabel(item.status))}${isActive ? ' · ' : ''}<span class="upload-row-pct">${isActive ? pct + '%' : ''}</span></span>
       </div>
       <div class="upload-row-bar"><div class="upload-row-bar-fill" style="${fillStyle}"></div></div>
       ${isError ? `<div class="upload-row-error" title="${esc(item.error || '')}">${esc(item.error || 'Failed.')}</div>` : ''}

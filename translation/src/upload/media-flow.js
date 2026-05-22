@@ -259,27 +259,38 @@ function pad3(n) { return String(n).padStart(3, '0'); }
 /**
  * Get duration in seconds via a hidden HTMLMediaElement. Cheap, runs
  * in O(1) wall time once metadata loads. Returns null if it fails.
+ *
+ * Cleanup hardened: we also clear the media element's src on timeout
+ * / error and clear the timeout handle once metadata arrives. Without
+ * the src-clear, a 4K MOV on a slow disk kept being decoded in the
+ * background after the 5s timeout fired, paying CPU + memory for
+ * nothing. Without the timeout-clear, a late-arriving loadedmetadata
+ * would call resolve() on an already-resolved promise (harmless
+ * Promise-wise, but the timer remained scheduled until 5s expired).
  */
 function probeDurationSeconds(file) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const isVideo = (file.type || '').startsWith('video/');
     const el = document.createElement(isVideo ? 'video' : 'audio');
     el.preload = 'metadata';
     el.muted = true;
     let done = false;
+    let timer = null;
     const cleanup = () => {
       if (done) return;
       done = true;
+      if (timer) { clearTimeout(timer); timer = null; }
       try { URL.revokeObjectURL(url); } catch {}
+      try { el.removeAttribute('src'); el.load?.(); } catch {}
     };
     el.addEventListener('loadedmetadata', () => {
       const d = el.duration;
       cleanup();
       resolve(typeof d === 'number' && isFinite(d) ? d : null);
     });
-    el.addEventListener('error', () => { cleanup(); reject(new Error('media probe failed')); });
-    setTimeout(() => { cleanup(); resolve(null); }, 5000);
+    el.addEventListener('error', () => { cleanup(); resolve(null); });
+    timer = setTimeout(() => { cleanup(); resolve(null); }, 5000);
     el.src = url;
   });
 }
