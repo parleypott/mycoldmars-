@@ -42,6 +42,23 @@ export default async function handler(req) {
       status: 413, headers: { 'Content-Type': 'application/json' },
     });
   }
+  // Per-comment text cap + total-serialized-bytes cap. Without these,
+  // a malicious caller could send 500 comments × 10KB each (5MB)
+  // through Sonnet 4.5 with prompt caching that doesn't actually
+  // discount because the corpus varies per call.
+  for (const c of comments) {
+    if (typeof c?.text === 'string' && c.text.length > 1000) {
+      return new Response(JSON.stringify({ error: 'comment text too long (max 1000 chars per comment)' }), {
+        status: 413, headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  }
+  const serializedSize = JSON.stringify(comments).length;
+  if (serializedSize > 200_000) {
+    return new Response(JSON.stringify({ error: `corpus too large (max 200,000 bytes serialized, got ${serializedSize})` }), {
+      status: 413, headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   const corpus = comments.map(c => ({
     id: c.id,

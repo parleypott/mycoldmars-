@@ -2549,6 +2549,22 @@ function setSaveState(state, detail) {
   }
 }
 
+// LS snapshot was firing the full multi-MB JSON.stringify on EVERY
+// keystroke (every editor onUpdate → debouncedAutoSave → markDirty
+// → snapshotDirtyState). For an hour-long transcript that's an
+// 8MB serialize per keypress — locked the main thread. Now: debounce
+// to 350ms idle so a typing burst only writes once at the tail. The
+// 3s autosave-to-cloud debounce already exists; this just brings the
+// LS-mirror in line.
+let _dirtySnapshotTimer = null;
+function scheduleDirtySnapshot() {
+  if (_dirtySnapshotTimer) clearTimeout(_dirtySnapshotTimer);
+  _dirtySnapshotTimer = setTimeout(() => {
+    _dirtySnapshotTimer = null;
+    snapshotDirtyState();
+  }, 350);
+}
+
 function markDirty() {
   // Allow dirty marking from any state EXCEPT mid-save (which will end in
   // saved/error/conflict and re-evaluate). Previously, error/conflict states
@@ -2559,11 +2575,11 @@ function markDirty() {
   // user needs to keep seeing the failure. But DO snapshot the new content
   // to LS so it survives a tab close.
   if (saveState === 'error' || saveState === 'conflict') {
-    snapshotDirtyState();
+    scheduleDirtySnapshot();
     return;
   }
   setSaveState('dirty');
-  snapshotDirtyState();
+  scheduleDirtySnapshot();
 }
 
 // Mirror current in-memory state to localStorage immediately, with no
@@ -2612,7 +2628,20 @@ function debouncedAutoSave() {
 
 // Force any pending/queued save to fire immediately. Returns the save
 // promise so callers can await before navigating away.
+// Force-fire any pending LS snapshot synchronously before saving to
+// the cloud. The debounced snapshot might have a tail-edit that
+// hasn't landed in LS yet — flush it so a mid-flush tab close still
+// recovers the latest keystrokes.
+function flushDirtySnapshotNow() {
+  if (_dirtySnapshotTimer) {
+    clearTimeout(_dirtySnapshotTimer);
+    _dirtySnapshotTimer = null;
+    try { snapshotDirtyState(); } catch {}
+  }
+}
+
 async function flushPendingSave() {
+  flushDirtySnapshotNow();
   clearTimeout(debouncedAutoSaveTimer);
   debouncedAutoSaveTimer = null;
   pendingSave = false;
@@ -2622,6 +2651,7 @@ async function flushPendingSave() {
 // Manual save (Cmd-S / Ctrl-S). Same as flush, but tagged so revisions
 // know it was an explicit user action (useful in the history UI).
 async function manualSave() {
+  flushDirtySnapshotNow();
   clearTimeout(debouncedAutoSaveTimer);
   debouncedAutoSaveTimer = null;
   pendingSave = false;

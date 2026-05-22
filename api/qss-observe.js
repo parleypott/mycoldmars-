@@ -35,7 +35,7 @@ export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: CORS });
 
-  const denied = checkAccess(req);
+  const denied = await checkAccess(req);
   if (denied) return withCors(denied);
 
   if (!SUPABASE_URL || !SUPABASE_KEY) {

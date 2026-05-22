@@ -113,8 +113,43 @@ export default async function handler(req) {
   }
 }
 
+// Per-IP rate limit. Edge runtime keeps module state alive per
+// instance — this is a simple token bucket so a botted POST loop
+// can't blast Sonnet 4.6 inference costs. 6 calls per 60s per IP.
+const _devchatBucket = new Map();
+const RATE_LIMIT_PER_MIN = 6;
+const RATE_WINDOW_MS = 60_000;
+function rateLimitOk(ip) {
+  if (!ip) return true; // can't extract IP — let through; not our DoS hardening boundary
+  const now = Date.now();
+  const entry = _devchatBucket.get(ip) || { count: 0, resetAt: now + RATE_WINDOW_MS };
+  if (now > entry.resetAt) {
+    entry.count = 0;
+    entry.resetAt = now + RATE_WINDOW_MS;
+  }
+  entry.count++;
+  _devchatBucket.set(ip, entry);
+  return entry.count <= RATE_LIMIT_PER_MIN;
+}
+function extractIp(req) {
+  try {
+    const h = (typeof req.headers.get === 'function')
+      ? (req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '')
+      : (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || '');
+    return (h || '').split(',')[0].trim() || null;
+  } catch { return null; }
+}
+
 async function handleInner(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+
+  // Cost-guard rate limit — endpoint is intentionally anonymous for
+  // bug-reporting from the public site, but a 500KB body running
+  // Sonnet 4.6 at 10 rps is $14k/hr. Hard cap at 6/min/IP.
+  const ip = extractIp(req);
+  if (!rateLimitOk(ip)) {
+    return json({ error: 'Too many requests. Wait a minute.' }, 429);
+  }
 
   let body = {};
   try { body = await req.json(); } catch {}
@@ -154,8 +189,22 @@ async function handleInner(req) {
   //
   // For user messages with metadata.images, build a multi-block content
   // array so Claude's vision can read the screenshots inline.
-  const historyMessages = messages
-    .filter(m => m.sender === 'user' || m.sender === 'assistant')
+  // Cap input size before forwarding to Anthropic. The adversarial
+  // audit verified: anyone can anonymously INSERT a 500KB message
+  // row into devchat_messages (the table is intentionally public
+  // for bug-reporting), then POST here to spend ~$0.40/call on
+  // Sonnet 4.6. Limit:
+  //   - Last 20 messages only (truncate older history).
+  //   - Total body chars <= 40KB across the truncated window.
+  const userOrAssistant = messages.filter(m => m.sender === 'user' || m.sender === 'assistant');
+  const recent = userOrAssistant.slice(-20);
+  let totalChars = 0;
+  for (const m of recent) totalChars += (m.body || '').length;
+  if (totalChars > 40_000) {
+    return json({ error: 'Conversation history too long. Start a new thread.' }, 413);
+  }
+
+  const historyMessages = recent
     .map(m => {
       const role = m.sender === 'assistant' ? 'assistant' : 'user';
       const images = (m.metadata && Array.isArray(m.metadata.images)) ? m.metadata.images : [];
@@ -166,17 +215,27 @@ async function handleInner(req) {
           // Validate scheme + host before forwarding to Anthropic. The
           // image-URL passthrough is an SSRF surface — Anthropic will
           // fetch any URL we hand it server-side. Restrict to http(s)
-          // and (preferably) to our own Supabase storage host so a
-          // malicious payload can't make Anthropic crawl internal
-          // services on our behalf.
+          // and our own storage hosts.
           let safeUrl = null;
           try {
             const u = new URL(img.url);
             if (u.protocol === 'http:' || u.protocol === 'https:') {
-              // Allow public storage hosts only — Supabase and the
-              // standard CDNs we ourselves use.
-              const okHost = /\.supabase\.co$|\.supabase\.in$|\.vercel\.app$|^localhost/i;
-              if (okHost.test(u.hostname)) safeUrl = u.toString();
+              // Anchored allowlist — bug from prior pass: `^localhost`
+              // with no end anchor matched `localhost.attacker.com`,
+              // and `.supabase.co$` matched ANY supabase project
+              // (attacker can create their own). Tighter:
+              //   * our exact Supabase project
+              //   * our exact Vercel hosts
+              //   * literal localhost only
+              const okHost =
+                u.hostname === 'localhost' ||
+                u.hostname === '127.0.0.1' ||
+                u.hostname === 'ukqimqkifkhdavveopdm.supabase.co' ||
+                u.hostname === 'mycoldmars.com' ||
+                u.hostname === 'www.newpress.press' ||
+                u.hostname === 'mycoldmars.vercel.app' ||
+                /^mycoldmars-[a-z0-9-]+-johnnywharris-4274s-projects\.vercel\.app$/i.test(u.hostname);
+              if (okHost) safeUrl = u.toString();
             }
           } catch {}
           if (!safeUrl) continue;

@@ -15,7 +15,7 @@ export default async function handler(req) {
   if (req.method !== 'POST') {
     return jsonError(405, 'method_not_allowed', 'POST only');
   }
-  const denied = checkAccess(req);
+  const denied = await checkAccess(req);
   if (denied) return denied;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;

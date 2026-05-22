@@ -52,7 +52,7 @@ export default async function handler(req) {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 
-  const denied = checkAccess(req);
+  const denied = await checkAccess(req);
   if (denied) return withCors(denied);
 
   if (!SUPABASE_URL || !SUPABASE_KEY) {

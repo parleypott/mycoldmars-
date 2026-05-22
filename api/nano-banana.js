@@ -873,7 +873,7 @@ async function innerHandler(req) {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
-  const denied = checkAccess(req);
+  const denied = await checkAccess(req);
   if (denied) return denied;
 
   const apiKey = process.env.GEMINI_API_KEY;

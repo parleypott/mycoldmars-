@@ -291,12 +291,28 @@ function appendMessage(row) {
   scrollMessagesToBottom();
 }
 
+// Devchat messages can be written anonymously (intentional, for bug
+// reports). That means metadata.images[].url is attacker-controllable.
+// HTML-encoding the URL still leaves `javascript:` and `data:text/html`
+// schemes live as `<a href>` — click-to-execute in the operator's
+// session. Whitelist scheme before emitting.
+function safeImageUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol === 'https:' || u.protocol === 'http:') return u.toString();
+  } catch {}
+  return null;
+}
+
 function messageToHtml(m) {
   const images = m.metadata?.images || [];
-  const imagesHtml = images.length ? `
+  const safeImages = images
+    .map(img => ({ ...img, url: safeImageUrl(img?.url) }))
+    .filter(img => img.url);
+  const imagesHtml = safeImages.length ? `
     <div class="devchat-msg-images">
-      ${images.map(img => `
-        <a class="devchat-msg-image" href="${escDc(img.url)}" target="_blank" rel="noopener">
+      ${safeImages.map(img => `
+        <a class="devchat-msg-image" href="${escDc(img.url)}" target="_blank" rel="noopener noreferrer">
           <img src="${escDc(img.url)}" alt="attachment" loading="lazy">
         </a>
       `).join('')}

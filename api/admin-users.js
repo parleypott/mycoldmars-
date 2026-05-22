@@ -86,7 +86,7 @@ export default async function handler(req) {
   // ever creates emails from the server-controlled ADMIN_EMAILS list and
   // is idempotent (existing users are skipped, never modified).
   if (action !== 'bootstrap') {
-    const denied = checkAccess(req);
+    const denied = await checkAccess(req);
     if (denied) return denied;
   }
 

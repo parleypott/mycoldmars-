@@ -62,7 +62,7 @@ export default async function handler(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: CORS });
 
   const t0 = Date.now();
-  const denied = checkAccess(req);
+  const denied = await checkAccess(req);
   if (denied) return withCors(denied);
 
   // Identity check on top of shape check. The shared checkAccess only
