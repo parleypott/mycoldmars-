@@ -2544,42 +2544,9 @@
       40%           { transform: translateY(-5px); opacity: 1; }
     }
 
-    .fs-composer {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 10px;
-      align-items: end;
-    }
-    .fs-composer textarea {
-      width: 100%;
-      background: var(--paper-card); color: var(--ink);
-      border: 2.5px solid var(--ink-bright); border-radius: 12px;
-      padding: 12px 14px;
-      font-family: var(--serif); font-size: 16px; line-height: 1.55;
-      outline: none;
-      box-shadow: 3px 3px 0 var(--ink-bright);
-      resize: vertical; min-height: 56px; max-height: 200px;
-      transition: box-shadow .15s var(--ease), transform .15s var(--ease);
-    }
-    .fs-composer textarea:focus { box-shadow: 4px 4px 0 var(--ink-bright); transform: translate(-1px, -1px); }
-    .fs-composer-actions { display: flex; gap: 8px; align-items: center; }
-    .fs-mic-btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 46px; height: 46px;
-      background: var(--red); color: var(--paper);
-      border: 2.5px solid var(--ink-bright); border-radius: 50%;
-      box-shadow: 3px 3px 0 var(--ink-bright);
-      font-size: 18px;
-      cursor: pointer;
-      transition: transform .15s var(--ease);
-    }
-    .fs-mic-btn:hover { transform: translate(-1px, -1px) rotate(-4deg); background: var(--yolk); color: var(--ink-bright); }
-    .fs-mic-btn.listening {
-      background: var(--yolk); color: var(--ink-bright);
-      animation: ttsPulse 850ms ease-in-out infinite;
-    }
-    .fs-mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .fs-send { padding: 10px 18px; min-height: 46px; }
+    /* The freestyle composer reuses .composer.with-mic + .mic-btn from the
+       main "Write with Wordy" composer for pixel-identical UI. No bespoke
+       fs-composer / fs-mic-btn / fs-send styles. */
 
     /* Captured themes sidebar */
     .fs-themes-col {
@@ -2929,12 +2896,30 @@
         <div class="fs-layout">
           <div class="fs-chat-col">
             <div id="fs-thread" class="fs-thread"></div>
-            <div class="fs-composer">
+            <!-- Composer mirrors the main "Write with Wordy" composer EXACTLY
+                 (vintage red mic, same textarea, same Send button). The only
+                 difference is no composer-modes row — freestyle doesn't have
+                 the 'ask wordy / my words' toggle. -->
+            <div class="composer with-mic">
+              <button id="fs-mic" class="mic-btn" title="Hold to talk to wordy" aria-label="Talk to wordy" type="button">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M22 48 Q22 22 50 22 Q78 22 78 48" stroke="#000" stroke-width="3" fill="none" stroke-linecap="round"/>
+                  <circle cx="22" cy="48" r="4" fill="#FFD93D" stroke="#000" stroke-width="2.5"/>
+                  <circle cx="78" cy="48" r="4" fill="#FFD93D" stroke="#000" stroke-width="2.5"/>
+                  <ellipse class="mic-capsule" cx="50" cy="52" rx="20" ry="28" fill="#E84545" stroke="#000" stroke-width="3"/>
+                  <line class="mic-stripe" x1="36" y1="40" x2="64" y2="40" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+                  <line class="mic-stripe" x1="34" y1="48" x2="66" y2="48" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+                  <line class="mic-stripe" x1="34" y1="56" x2="66" y2="56" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+                  <line class="mic-stripe" x1="36" y1="64" x2="64" y2="64" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+                  <ellipse cx="42" cy="42" rx="3" ry="12" fill="#FFD93D" opacity="0.65"/>
+                  <rect x="46" y="80" width="8" height="10" fill="#F0B900" stroke="#000" stroke-width="2.5"/>
+                  <ellipse cx="50" cy="93" rx="18" ry="4.5" fill="#1F1F23" stroke="#000" stroke-width="2.5"/>
+                </svg>
+                <span class="listening-pip"></span>
+                <span class="mic-label" id="fs-mic-label">talk!</span>
+              </button>
               <textarea id="fs-input" rows="2" placeholder="say whatever's in your head — wordy will just chat back."></textarea>
-              <div class="fs-composer-actions">
-                <button id="fs-mic" class="fs-mic-btn" type="button" title="voice it" aria-label="Talk">🎙</button>
-                <button id="fs-send" class="btn primary fs-send">Send<span class="arrow">→</span></button>
-              </div>
+              <button id="fs-send" class="btn primary">Send<span class="arrow">→</span></button>
             </div>
           </div>
           <aside class="fs-themes-col">
@@ -5769,11 +5754,18 @@
       }
 
       // Local mic for freestyle — uses Web Speech same as the main composer
-      // but isolated so the two don't interfere.
+      // but isolated so the two don't interfere. Mirrors the main composer's
+      // listening-state UI (red→yolk pulse, label flipping 'talk!'/'listening…').
       function setupMic() {
         const btn = micBtn(); if (!btn) return;
+        const label = document.getElementById('fs-mic-label');
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) { btn.disabled = true; btn.title = 'voice typing isn\'t supported in this browser'; return; }
+        if (!SR) {
+          btn.disabled = true;
+          btn.title = 'voice typing isn\'t supported in this browser — try Chrome or Safari';
+          if (label) label.textContent = 'no mic';
+          return;
+        }
         const rec = new SR();
         rec.lang = (navigator.language && /^en/i.test(navigator.language)) ? navigator.language : 'en-US';
         rec.continuous = true;
@@ -5783,7 +5775,8 @@
         function setOn(on) {
           listening = on;
           btn.classList.toggle('listening', on);
-          btn.title = on ? 'stop' : 'voice it';
+          if (label) label.textContent = on ? 'listening…' : 'talk!';
+          btn.title = on ? 'tap to stop' : 'tap and just say it';
         }
         function start() {
           try { window.qssTTS?.stop?.(); } catch {}
@@ -5808,7 +5801,18 @@
           inp.style.height = 'auto';
           inp.style.height = Math.min(inp.scrollHeight, 200) + 'px';
         };
-        rec.onerror = () => setOn(false);
+        rec.onerror = (e) => {
+          if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+            if (label) label.textContent = 'mic blocked';
+          } else if (e.error === 'no-speech') {
+            if (label) label.textContent = 'i didn\'t hear you';
+            setTimeout(() => { if (!listening && label) label.textContent = 'talk!'; }, 1800);
+          } else {
+            if (label) label.textContent = 'try again';
+            setTimeout(() => { if (!listening && label) label.textContent = 'talk!'; }, 1800);
+          }
+          setOn(false);
+        };
         rec.onend = () => { if (listening) { try { rec.start(); } catch { setOn(false); } } };
         btn.addEventListener('click', () => listening ? stop() : start());
         mic = { stop, isListening: () => listening };
