@@ -831,6 +831,50 @@
       text-transform: uppercase;
     }
     .bubble-foot .tts-btn { flex: 0 0 auto; }
+
+    /* Directions bubble — big left-rail speaker (consultant voice) that
+       mirrors the story-block speaker pattern. Drops the dragon mascot
+       since this is the story-consultant voice, not the storyteller. */
+    .tutor-msg.dir-msg { align-items: stretch; }
+    .dir-msg .dir-side {
+      flex: 0 0 auto;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-start;
+      padding-top: 6px;
+      gap: 10px;
+    }
+    .dir-msg .dir-side .dragon { display: none; } /* swap dragon for the consultant speaker */
+    .dir-speaker {
+      width: 52px; height: 52px;
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 50%;
+      background: var(--paper-card);
+      box-shadow: 3.5px 3.5px 0 var(--ink-bright);
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--ink-bright);
+      cursor: pointer;
+      transition: transform 140ms var(--ease), background 140ms var(--ease), box-shadow 140ms var(--ease);
+    }
+    .dir-speaker svg { width: 24px; height: 24px; pointer-events: none; }
+    .dir-speaker:hover { background: var(--yolk); transform: translate(-1px, -1px) rotate(-3deg); box-shadow: 5px 5px 0 var(--ink-bright); }
+    .dir-speaker:active { transform: translate(1px, 1px); box-shadow: 1.5px 1.5px 0 var(--ink-bright); }
+    .dir-speaker.playing {
+      background: var(--yolk);
+      animation: ttsPulse 850ms ease-in-out infinite, ttsGlow 850ms ease-in-out infinite;
+    }
+    .dir-speaker.loading { background: var(--yolk); }
+    .dir-speaker-label {
+      font-family: var(--ui); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--ink-soft);
+      text-align: center;
+      line-height: 1.1;
+      max-width: 56px;
+    }
+    @media (max-width: 700px) {
+      .dir-speaker { width: 44px; height: 44px; }
+      .dir-speaker svg { width: 20px; height: 20px; }
+    }
     /* Scenario rows inside a bubble: lighter shadow (the bubble already has its own
        card frame), slightly less rotation so they don't fight the bubble's rhythm. */
     .scen-list-inline .scen-row {
@@ -3122,12 +3166,16 @@
       // Expose for callers (e.g. when wordy returns new options)
       window.qssTtsPrefetch = prefetch;
 
-      async function speak(text, btn) {
+      async function speak(text, btn, opts = {}) {
         if (!text || !text.trim()) return;
         // Toggle off if same button is already busy (loading or playing)
         if (btn && activeBtn === btn) { stop(); return; }
         stop();
-        const voice = getVoice();
+        // Per-call voice override so different speech contexts can use
+        // different ElevenLabs voices — Matilda for the story-block /
+        // narrative voice, Adam for the consultant / Wordy directions
+        // voice. Falls back to the persisted default.
+        const voice = (opts.voice || getVoice()).toString();
         const key = cacheKey(voice, text);
 
         // Cache hit — instant playback
@@ -4221,28 +4269,48 @@
             <div class="more-options">
               <button class="btn ghost" data-action="try-again-dirs">none of these — give me different scenarios</button>
             </div>` : '';
-          // One master TTS payload that reads the prompt + all three options in sequence.
-          // No per-row speaker — Henry presses ONE button to hear everything.
-          const ttsAll = (t.content || 'what should happen next?') +
-            (picks.length ? ' ' + picks.map((d, i) => `option ${i + 1}: ${d.title}.`).join(' ') : '') +
-            ((isLatest && !someoneChosen) ? ' or type your own next step.' : '') +
-            ' press 1, 2, or 3 — or type your own.';
+          // ONE TTS payload covering preamble + every option + the "or type
+          // your own" + the "press 1/2/3" prompt — so a single press reads
+          // the whole adventure card aloud. Voice routed via data-tts-voice
+          // to ADAM (consultant) so it sounds different from the story
+          // narration voice (Matilda).
+          const ttsParts = [
+            (t.content || 'what should happen next?').trim(),
+          ];
+          picks.forEach((d, i) => {
+            const title = (d.title || '').trim();
+            if (title) ttsParts.push(`Option ${i + 1}: ${title}.`);
+          });
+          if (isLatest && !someoneChosen) ttsParts.push('Or type your own next step.');
+          ttsParts.push('Press 1, 2, or 3 — or type your own.');
+          const ttsAll = ttsParts.join(' ');
+
           // Only the meaningful "wizard redirected from fixation" badge surfaces — drop
           // the informational priming labels Johnny called out.
           const routeBadge = t.routing === 'redirect-from-fixation'
             ? `<div class="route-badge" data-r="redirect-from-fixation">✦ wizard suggests other paths</div>` : '';
-          // ONE BUBBLE. Prompt + 3 scenarios + "type your own" all live INSIDE the same
-          // .bubble so a single TTS press reads the whole thing as one block of text.
+
+          // ONE BUBBLE with a big consultant-voice speaker on the LEFT rail —
+          // mirrors the story-block speaker layout. The dragon mascot is
+          // suppressed because directions are the consultant's voice (Adam),
+          // not the storyteller (Matilda) who narrates committed blocks.
           return `<div class="tutor-turn">
             ${routeBadge}
-            <div class="tutor-msg">
-              ${window.dragon('md')}
+            <div class="tutor-msg dir-msg">
+              <div class="dir-side">
+                ${window.dragon('md')}
+                <button class="tts-btn dir-speaker tts-bubble"
+                        data-tts="${esc(ttsAll)}"
+                        data-tts-voice="adam"
+                        title="Hear the choose-your-adventure (consultant voice)"
+                        aria-label="Read everything aloud">${window.qssTTS.ICON_PLAY}</button>
+                <span class="dir-speaker-label">read it</span>
+              </div>
               <div class="bubble bubble-scenarios">
                 <div class="bubble-text">${esc(t.content)}</div>
                 <div class="scen-list scen-list-inline">${rows}${ownRow}</div>
                 <div class="bubble-foot">
                   <span class="bubble-foot-hint">press 1, 2, or 3 — or type your own</span>
-                  <button class="tts-btn sm tts-bubble" data-tts="${esc(ttsAll)}" title="Read the whole message aloud" aria-label="Read all options aloud"></button>
                 </div>
               </div>
             </div>
@@ -4749,12 +4817,20 @@
 
     // Chat delegated clicks — closest() so clicks anywhere on a card dispatch
     document.getElementById('tutor-chat').addEventListener('click', (e) => {
-      // TTS in chat
+      // TTS in chat. data-tts-voice opt-in lets us route specific buttons
+      // (the directions bubble) to a different ElevenLabs voice than the
+      // story-narrator default — so Henry hears the choose-your-own-adventure
+      // prompts in a distinct "consultant" voice (Adam) and the story prose
+      // stays in the storyteller voice (Matilda).
       const ttsBtn = e.target.closest('.tts-btn[data-tts], .tts-here');
       if (ttsBtn) {
         e.stopPropagation();
         const text = ttsBtn.dataset.tts || '';
-        if (text) window.qssTTS.speak(text, ttsBtn.classList.contains('tts-btn') ? ttsBtn : null);
+        const voice = ttsBtn.dataset.ttsVoice || '';
+        if (text) {
+          const target = ttsBtn.classList.contains('tts-btn') ? ttsBtn : null;
+          window.qssTTS.speak(text, target, voice ? { voice } : {});
+        }
         return;
       }
       const trigger = e.target.closest('[data-action]');
