@@ -1579,6 +1579,103 @@
     body.focus-mode .focus-chip { display: inline-flex; align-items: center; gap: 6px; }
     body.focus-mode #btn-focus { background: var(--red); color: #fff; }
 
+    /* ─── Wrap-up celebration modal — session-end positive reinforcement ─── */
+    .wrap-veil {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      align-items: center; justify-content: center;
+      z-index: 9999;
+      animation: wrap-veil-in 220ms ease-out;
+    }
+    .wrap-veil.open { display: flex; }
+    @keyframes wrap-veil-in { from { opacity: 0; } to { opacity: 1; } }
+    .wrap-card {
+      position: relative;
+      max-width: 520px; width: calc(100% - 32px);
+      background: var(--paper-card);
+      border: 3px solid var(--ink-bright);
+      border-radius: 18px;
+      box-shadow: 8px 8px 0 var(--ink-bright);
+      padding: 28px 32px 26px 32px;
+      transform: rotate(-0.3deg);
+      animation: wrap-card-in 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+      overflow: hidden;
+    }
+    @keyframes wrap-card-in {
+      from { transform: rotate(2deg) scale(0.92); opacity: 0; }
+      to   { transform: rotate(-0.3deg) scale(1); opacity: 1; }
+    }
+    .wrap-conf {
+      /* Cheap confetti via radial gradients — no images, no JS animation cost */
+      position: absolute; inset: 0; pointer-events: none;
+      background-image:
+        radial-gradient(circle at 12% 8%, var(--red) 0 4px, transparent 5px),
+        radial-gradient(circle at 88% 12%, var(--grass) 0 5px, transparent 6px),
+        radial-gradient(circle at 22% 92%, var(--grape) 0 4px, transparent 5px),
+        radial-gradient(circle at 76% 88%, var(--sky) 0 5px, transparent 6px),
+        radial-gradient(circle at 50% 4%, var(--yolk) 0 5px, transparent 6px),
+        radial-gradient(circle at 6% 60%, var(--bubblegum) 0 4px, transparent 5px),
+        radial-gradient(circle at 94% 60%, var(--yolk) 0 4px, transparent 5px),
+        radial-gradient(circle at 38% 18%, var(--grass) 0 3px, transparent 4px),
+        radial-gradient(circle at 62% 82%, var(--red) 0 3px, transparent 4px);
+      opacity: 0.85;
+    }
+    .wrap-title {
+      font-family: var(--ui); font-weight: 700; font-size: 36px;
+      line-height: 1.05; letter-spacing: -0.005em;
+      color: var(--ink-bright);
+      margin: 6px 0 18px 0;
+      position: relative; z-index: 1;
+    }
+    .wrap-stats {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      margin-bottom: 16px;
+      position: relative; z-index: 1;
+    }
+    .wrap-stat {
+      background: #FFFEF1;
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+    }
+    .wrap-stat .num {
+      font-family: var(--display); font-weight: 700; font-size: 34px;
+      line-height: 1; color: var(--red);
+    }
+    .wrap-stat .lbl {
+      font-family: var(--ui); font-weight: 700; font-size: 11px;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-top: 2px;
+    }
+    .wrap-cast {
+      margin: 8px 0 16px 0;
+      font-family: var(--serif); font-size: 16px; line-height: 1.5;
+      position: relative; z-index: 1;
+    }
+    .wrap-cast b {
+      font-family: var(--ui); font-weight: 700; font-size: 11px;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft);
+      display: block; margin-bottom: 4px;
+    }
+    .wrap-cast .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .wrap-cast .chip {
+      font-family: var(--ui); font-weight: 700; font-size: 12.5px;
+      background: var(--yolk); border: 2px solid var(--ink-bright);
+      border-radius: 999px; padding: 3px 10px;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      transform: rotate(-1deg);
+    }
+    .wrap-cast .chip:nth-child(2n) { background: var(--bubblegum); color: #fff; transform: rotate(1deg); }
+    .wrap-cast .chip:nth-child(3n) { background: var(--grass); transform: rotate(-1.5deg); }
+    .wrap-cast .chip:nth-child(5n) { background: var(--grape); color: #fff; }
+    .wrap-actions {
+      display: flex; gap: 10px; justify-content: flex-end;
+      position: relative; z-index: 1;
+    }
+
     .scrap-layer {
       position: fixed;
       inset: 0;
@@ -1836,6 +1933,7 @@
                 <button id="btn-focus" class="pane-ctrl-btn" type="button" title="Focus mode — dim everything except your story">🎯 focus</button>
                 <button id="btn-arc" class="pane-ctrl-btn" type="button" title="Open arc inspector">📖 arc</button>
                 <button id="btn-play-all" class="pane-ctrl-btn" type="button" title="Play the whole story start to finish">▶ play</button>
+                <button id="btn-wrap-up" class="pane-ctrl-btn" type="button" title="Wrap up today's session — see what you wrote">🎉 wrap up</button>
                 <div class="font-size-ctrl" title="Story text size">
                   <button data-fs="14"   type="button">A</button>
                   <button data-fs="16.5" type="button" class="active" style="font-size: 14px;">A</button>
@@ -1997,6 +2095,20 @@
         <div class="right">
           <button id="lib-new" class="btn primary">+ New story</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ Wrap-up celebration modal — session-end positive reinforcement ════════ -->
+  <div class="wrap-veil" id="wrap-modal" role="dialog" aria-modal="true" aria-label="Wrap up today's writing session">
+    <div class="wrap-card">
+      <div class="wrap-conf" aria-hidden="true"></div>
+      <div class="wrap-title">🎉 nice work, <span style="color: var(--red);">Henry</span>!</div>
+      <div class="wrap-stats" id="wrap-stats"></div>
+      <div class="wrap-cast" id="wrap-cast"></div>
+      <div class="wrap-actions">
+        <button id="wrap-read-last" class="btn primary" type="button">▶ read me the last bit</button>
+        <button id="wrap-close" class="btn ghost" type="button">back to the story</button>
       </div>
     </div>
   </div>
@@ -3625,6 +3737,50 @@
     });
     // Restore from localStorage
     try { if (localStorage.getItem(FOCUS_KEY) === '1') setFocusMode(true); } catch {}
+
+    // ─── Wrap-up celebration (session-end positive reinforcement) ───
+    function openWrapUp() {
+      const veil = document.getElementById('wrap-modal');
+      if (!veil) return;
+      // Compute basic stats from current state
+      const blocks = state.blocks || [];
+      const blockCount = blocks.length;
+      const wordCount = blocks.reduce((n, b) => n + (b.text || '').trim().split(/\s+/).filter(Boolean).length, 0);
+      const charCount = blocks.reduce((n, b) => n + (b.text || '').length, 0);
+      const statsEl = document.getElementById('wrap-stats');
+      statsEl.innerHTML = `
+        <div class="wrap-stat"><div class="num">${wordCount.toLocaleString()}</div><div class="lbl">words written</div></div>
+        <div class="wrap-stat"><div class="num">${blockCount}</div><div class="lbl">story blocks</div></div>`;
+      // Characters from the arc cache (Haiku 4.5 already extracted them)
+      const cast = state.arcContext?.characters || [];
+      const castEl = document.getElementById('wrap-cast');
+      if (cast.length) {
+        const chips = cast.slice(0, 12).map(c => {
+          const name = typeof c === 'string' ? c : (c.name || c.label || '');
+          return name ? `<span class="chip">${esc(name)}</span>` : '';
+        }).filter(Boolean).join('');
+        castEl.innerHTML = `<b>characters in your world</b><div class="chips">${chips}</div>`;
+      } else {
+        castEl.innerHTML = '';
+      }
+      veil.classList.add('open');
+    }
+    function closeWrapUp() { document.getElementById('wrap-modal')?.classList.remove('open'); }
+    document.getElementById('btn-wrap-up')?.addEventListener('click', openWrapUp);
+    document.getElementById('wrap-close')?.addEventListener('click', closeWrapUp);
+    document.getElementById('wrap-read-last')?.addEventListener('click', () => {
+      const last = (state.blocks || []).slice(-1)[0];
+      if (!last) return;
+      closeWrapUp();
+      if (window.qssKaraoke?.playBlock) window.qssKaraoke.playBlock(last.id);
+    });
+    // Close on backdrop click or ESC
+    document.getElementById('wrap-modal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'wrap-modal') closeWrapUp();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeWrapUp();
+    });
 
     // ─── Voice-to-text (vintage mic) ───
     (function setupMic() {
