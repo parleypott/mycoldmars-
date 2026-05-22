@@ -1269,9 +1269,15 @@
       background: var(--paper-card); border: 2.5px solid var(--ink-bright);
       border-radius: 20px; box-shadow: 5px 5px 0 var(--ink-bright);
       padding: 0; overflow: hidden;
-      display: grid; grid-template-columns: 1fr 360px;
+      display: grid; grid-template-columns: 1fr 560px;
       transition: transform .22s var(--ease), box-shadow .22s var(--ease);
       margin-left: 28px; margin-top: 18px;
+    }
+    @media (max-width: 1400px) {
+      .scene-card { grid-template-columns: 1fr 460px; }
+    }
+    @media (max-width: 1100px) {
+      .scene-card { grid-template-columns: 1fr 380px; }
     }
     .scene-card:nth-child(odd) { transform: rotate(-0.3deg); }
     .scene-card:nth-child(even) { transform: rotate(0.3deg); }
@@ -1309,6 +1315,23 @@
       padding: 12px; transform: rotate(-1deg);
     }
     .scene-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .scene-thumb.has-image { cursor: zoom-in; transition: transform .18s var(--ease), box-shadow .18s var(--ease); }
+    .scene-thumb.has-image:hover { transform: rotate(-1deg) translate(-2px, -2px); box-shadow: 5px 5px 0 var(--ink-bright); }
+    .scene-thumb.has-image::after {
+      content: '⤢';
+      position: absolute; top: 8px; right: 10px;
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255, 250, 232, 0.92);
+      color: var(--ink-bright);
+      border: 2px solid var(--ink-bright);
+      border-radius: 50%;
+      font-family: var(--ui); font-weight: 800; font-size: 14px;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      pointer-events: none;
+      opacity: 0; transition: opacity .15s var(--ease);
+    }
+    .scene-thumb.has-image:hover::after { opacity: 1; }
     .scene-thumb.loading { background: var(--yolk); }
     .scene-thumb.loading::after {
       content: ''; position: absolute; inset: 0;
@@ -2363,6 +2386,66 @@
       .btn-cast { font-size: 12px; padding: 6px 12px 6px 32px; }
       .btn-cast .cast-deck { left: 6px; width: 22px; height: 26px; }
     }
+
+    /* ──────────── Storyboard image lightbox ──────────── */
+    .lightbox-veil {
+      position: fixed; inset: 0;
+      background: rgba(20, 20, 24, 0.88);
+      backdrop-filter: blur(4px);
+      z-index: 400; display: none;
+      align-items: center; justify-content: center;
+      padding: 32px;
+      cursor: zoom-out;
+      animation: lightbox-in 200ms ease-out;
+    }
+    .lightbox-veil.open { display: flex; }
+    @keyframes lightbox-in { from { opacity: 0; } to { opacity: 1; } }
+    .lightbox-frame {
+      position: relative;
+      max-width: min(95vw, 1400px);
+      max-height: 92vh;
+      border: 4px solid var(--paper);
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6), 8px 8px 0 var(--ink-bright);
+      overflow: hidden;
+      cursor: default;
+      transform: rotate(-0.4deg);
+    }
+    .lightbox-frame img {
+      display: block;
+      max-width: 100%;
+      max-height: 92vh;
+      width: auto; height: auto;
+      object-fit: contain;
+    }
+    .lightbox-close {
+      position: absolute; top: 16px; right: 16px;
+      width: 44px; height: 44px;
+      border-radius: 999px;
+      background: var(--paper);
+      color: var(--ink-bright);
+      border: 2.5px solid var(--ink-bright);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      font-family: var(--ui); font-weight: 800; font-size: 22px;
+      cursor: pointer;
+      z-index: 2;
+    }
+    .lightbox-close:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink-bright); }
+    .lightbox-caption {
+      position: absolute; left: 16px; bottom: 16px; right: 76px;
+      padding: 10px 14px;
+      background: rgba(255, 250, 232, 0.94);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 10px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      font-family: var(--serif);
+      font-size: 14px;
+      line-height: 1.4;
+      color: var(--ink);
+      max-height: 30vh;
+      overflow-y: auto;
+    }
+    .lightbox-caption b { font-family: var(--display); font-weight: 700; color: var(--ink-bright); margin-right: 6px; }
   </style>
 </head>
 <body>
@@ -2641,6 +2724,15 @@
         <button id="wrap-read-last" class="btn primary" type="button">▶ read me the last bit</button>
         <button id="wrap-close" class="btn ghost" type="button">back to the story</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ════════ Storyboard image lightbox ════════ -->
+  <div class="lightbox-veil" id="lightbox-modal" role="dialog" aria-modal="true" aria-label="Enlarged scene image">
+    <div class="lightbox-frame" onclick="event.stopPropagation()">
+      <button id="lightbox-close" class="lightbox-close" type="button" aria-label="Close">×</button>
+      <img id="lightbox-img" src="" alt="" />
+      <div id="lightbox-caption" class="lightbox-caption"></div>
     </div>
   </div>
 
@@ -4134,7 +4226,7 @@
               <div class="scene-text">${esc(b.text)}</div>
             </div>
             <div class="scene-image-zone">
-              <div class="scene-thumb ${img?.loading ? 'loading' : ''}">${thumb}</div>
+              <div class="scene-thumb ${img?.loading ? 'loading' : ''} ${(img && img.dataBase64) ? 'has-image' : ''}" data-action="zoom" data-id="${b.id}">${thumb}</div>
               <div class="scene-image-actions">
                 ${img && img.dataBase64
                   ? `<button class="btn primary" data-action="regen" data-id="${b.id}">↻ New picture</button>
@@ -4716,14 +4808,53 @@
       if (e.key === 'Escape') { e.preventDefault(); hideOwnForm(); }
     });
 
-    // Storyboard delegated
+    // Storyboard delegated — buttons + click-to-zoom on the thumbnail
     const grid = document.getElementById('board-grid');
     grid.addEventListener('click', (e) => {
-      const action = e.target.dataset.action;
-      if (!action) return;
-      const id = e.target.dataset.id;
-      if (action === 'gen' || action === 'regen') genImageFor(id);
-      else if (action === 'dl') downloadImageFor(id);
+      // Buttons first (so a zoom on .scene-thumb doesn't swallow the regen/dl)
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      if (action === 'gen' || action === 'regen') { genImageFor(id); return; }
+      if (action === 'dl') { downloadImageFor(id); return; }
+      if (action === 'zoom') {
+        const b = state.blocks.find(x => x.id === id);
+        if (b?.__image?.dataBase64) openLightbox(b);
+        return;
+      }
+    });
+
+    // ─── Lightbox: tap any storyboard image to see it big ───
+    function openLightbox(b) {
+      const veil = document.getElementById('lightbox-modal');
+      const img = document.getElementById('lightbox-img');
+      const cap = document.getElementById('lightbox-caption');
+      if (!veil || !img) return;
+      const idx = state.blocks.findIndex(x => x.id === b.id) + 1;
+      img.src = `data:${b.__image.mimeType || 'image/png'};base64,${b.__image.dataBase64}`;
+      img.alt = `scene ${idx}`;
+      if (cap) cap.innerHTML = `<b>scene ${idx}</b>${esc(b.text || '')}`;
+      veil.classList.add('open');
+    }
+    function closeLightbox() {
+      const veil = document.getElementById('lightbox-modal');
+      const img = document.getElementById('lightbox-img');
+      if (!veil) return;
+      veil.classList.remove('open');
+      if (img) img.src = '';
+    }
+    document.getElementById('lightbox-modal')?.addEventListener('click', (e) => {
+      // Click on the dim backdrop closes; click inside the frame doesn't (frame
+      // sets cursor:default + stops propagation via .lightbox-frame check)
+      if (e.target.id === 'lightbox-modal') closeLightbox();
+    });
+    document.getElementById('lightbox-close')?.addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const v = document.getElementById('lightbox-modal');
+        if (v?.classList.contains('open')) closeLightbox();
+      }
     });
 
     // Story name rename
