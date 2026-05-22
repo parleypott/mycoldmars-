@@ -61,7 +61,11 @@ export function parseTrintHTML(htmlText) {
       const num = seqNum++;
       const start = words[0].startSec;
       const last = words[words.length - 1];
-      const end = last.startSec + last.durSec;
+      // Trint occasionally emits durSec=0 on its last word. Without
+      // this floor, end === start and any downstream consumer dividing
+      // by duration crashes. 60ms is a reasonable minimum word length.
+      const rawDur = last.durSec || 0;
+      const end = last.startSec + (rawDur > 0 ? rawDur : 0.06);
       segments.push({
         number: num,
         speaker,
@@ -80,7 +84,8 @@ export function parseTrintHTML(htmlText) {
       const num = seqNum++;
       const start = group[0].startSec;
       const last = group[group.length - 1];
-      const end = last.startSec + last.durSec;
+      const rawDur = last.durSec || 0;
+      const end = last.startSec + (rawDur > 0 ? rawDur : 0.06);
       segments.push({
         number: num,
         speaker,

@@ -36,8 +36,9 @@ export function cleanSpeakerName(raw) {
  */
 export function parseSequenceInfo(rawSpeakerName) {
   if (!rawSpeakerName) return { sequenceName: '', dateFilmed: null };
-  // Try to extract date from the beginning: YYMMDD or YYYYMMDD patterns
-  const dateMatch = rawSpeakerName.match(/(\d{6})/);
+  // Anchor the date match at the START so we don't accidentally pick
+  // up a 6-digit run inside a phone number / id later in the string.
+  const dateMatch = rawSpeakerName.match(/^\s*(\d{6})/);
   let dateFilmed = null;
   if (dateMatch) {
     const d = dateMatch[1];
@@ -46,7 +47,11 @@ export function parseSequenceInfo(rawSpeakerName) {
     const month = parseInt(d.slice(2, 4));
     const day = parseInt(d.slice(4, 6));
     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      dateFilmed = new Date(year, month - 1, day);
+      // Construct in UTC. The Date constructor's local-time form gave
+      // a date object that flipped a day across timezones — Johnny in
+      // ET vs. a viewer in PT would see "Mar 16" vs "Mar 17" for the
+      // same shoot day. Date.UTC keeps the "shoot day" semantic stable.
+      dateFilmed = new Date(Date.UTC(year, month - 1, day));
     }
   }
   return { sequenceName: rawSpeakerName.trim(), dateFilmed };
