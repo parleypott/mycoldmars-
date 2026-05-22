@@ -2513,16 +2513,24 @@
       }
 
       // Internal: stop everything (cancels any in-flight playback).
+      // Bumps session.token so any awaited startBlock() bails on next check,
+      // and synthesizes an 'ended' event on the dying audio so the promise
+      // attached to its `ended` listener resolves immediately (otherwise
+      // a paused-then-stopped audio never fires `ended` and we leak the
+      // playAll loop's await).
       function hardStop({ keepBar = false } = {}) {
+        const oldAudio = session.audio;
         session.token++;
         if (session.rafHandle) { cancelAnimationFrame(session.rafHandle); session.rafHandle = 0; }
-        if (session.audio) {
-          try { session.audio.pause(); } catch {}
+        if (oldAudio) {
+          try { oldAudio.pause(); } catch {}
+          try { oldAudio.dispatchEvent(new Event('ended')); } catch {}
           session.audio = null;
         }
         if (session.blockId) teardownBlock(session.blockId);
         session.blockId = null;
         session.words = null;
+        session.snapshotText = null;
         session.queue = [];
         session.paused = false;
         session.activeIdx = -1;
@@ -2534,6 +2542,8 @@
       async function startBlock(blockId, { token, fromTime = 0 } = {}) {
         const block = (window.state?.blocks || []).find(b => b.id === blockId);
         if (!block) return false;
+        // Empty / whitespace-only blocks have nothing to read — skip cleanly.
+        if (!(block.text || '').trim()) return false;
         // Expand the block so its text is visible
         window.state.blockUI = window.state.blockUI || {};
         window.state.blockUI[blockId] = { ...(window.state.blockUI[blockId] || {}), expanded: true };
@@ -2565,6 +2575,7 @@
         if (token !== session.token) return false; // superseded
 
         session.words = data.words || [];
+        session.snapshotText = block.text || '';   // baseline for edit-invalidation
         // Build the karaoke DOM
         renderKaraokeDom(el, block.text || '', session.words);
         // Create audio element from base64
@@ -2653,27 +2664,30 @@
       }
 
       function resume() {
-        if (!session.audio) return;
-        // Detect if the block text changed during edit — if so, invalidate cache and re-start
+        if (!session.audio && !session.snapshotText) return;
         const blockId = session.blockId;
         const block = (window.state?.blocks || []).find(b => b.id === blockId);
         if (!block) { hardStop(); return; }
         const el = document.querySelector(`.story-block[data-block="${blockId}"]`);
         const ta = el?.querySelector('.b-text');
         const ko = el?.querySelector('.b-karaoke');
-        // If text was edited since karaoke audio was generated, re-fetch
-        // (the cache key is the text content, so a different text = cache miss)
-        // For simplicity: always check current text vs. words concatenation
-        const audioStillValid = session.audio && session.words;
-        if (!audioStillValid) {
-          // Re-fetch with current block text from start
+        // If text was edited during pause, the cached audio + word timings no
+        // longer match the rendered words. Restart this block from scratch —
+        // the cache key on the server is text-based so it'll regenerate.
+        const currentText = (block.text || '');
+        if (session.snapshotText && currentText !== session.snapshotText) {
           if (ko) ko.style.display = '';
           if (ta) ta.style.display = '';
+          // Drop the old audio + word data so startBlock re-fetches cleanly
+          try { session.audio?.pause(); } catch {}
+          session.audio = null;
+          session.words = null;
+          session.activeIdx = -1;
           const myToken = ++session.token;
           startBlock(blockId, { token: myToken });
           return;
         }
-        // Swap textarea hidden, karaoke visible, audio resumes
+        // Text unchanged — resume from current position
         if (ko) ko.style.display = '';
         if (ta) ta.style.display = '';
         session.paused = false;
@@ -3540,10 +3554,13 @@
 
     // Play-all + font-size + collapse-all
     document.getElementById('btn-play-all').addEventListener('click', () => {
-      // Prefer karaoke (read-along with word highlight + sticky transport bar).
-      // Falls back to the legacy plain TTS pipeline if karaoke module is gone.
+      // Top play button: karaoke read-along of the whole story. If already
+      // playing/paused, this acts as a toggle/stop so clicking it again
+      // cancels out of karaoke entirely.
       if (window.qssKaraoke?.playAll) {
-        window.qssKaraoke.playAll();
+        const ks = window.qssKaraoke;
+        if (ks._activeBlockId?.()) { ks.stop(); }
+        else { ks.playAll(); }
       } else {
         playWholeStory();
       }
@@ -3733,10 +3750,16 @@
       else if (action === 'up') moveBlock(id, -1);
       else if (action === 'down') moveBlock(id, 1);
       else if (action === 'read') {
-        // Use karaoke for story-block playback (word-by-word highlight).
-        // Falls back to qssTTS internally if the karaoke endpoint fails.
+        // Karaoke for story-block playback (word-by-word). Re-clicking the
+        // same block's ▶ toggles pause/resume. Clicking another block
+        // switches to it.
         if (window.qssKaraoke?.playBlock) {
-          window.qssKaraoke.playBlock(id);
+          const ks = window.qssKaraoke;
+          if (ks._activeBlockId?.() === id) {
+            ks._isPlaying?.() ? ks.pause() : ks.resume();
+          } else {
+            ks.playBlock(id);
+          }
         } else {
           const b = state.blocks.find(x => x.id === id);
           if (b) window.qssTTS.speak(b.text);
