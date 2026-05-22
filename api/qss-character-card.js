@@ -350,17 +350,11 @@ async function callClaude(apiKey, userMessage) {
 }
 
 async function callNanoBanana(apiKey, prompt, refImage = null, lovedRefs = []) {
-  // gemini-3.1-flash-image-preview is higher quality but routinely takes
-  // 25-40s — which races Vercel's 25s Edge cap on Hobby plans and the
-  // request 504s before Gemini returns. gemini-2.5-flash-image renders
-  // in ~8-15s with comparable quality for sticker-style portraits, so
-  // we use it as the primary. If it returns no image (content filter
-  // trip), the retry logic below falls back to 3.1 as a slower
-  // last-resort.
-  const PRIMARY_MODEL = 'gemini-2.5-flash-image';
-  const FALLBACK_MODEL = 'gemini-3.1-flash-image-preview';
-  let modelId = PRIMARY_MODEL;
-  let url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`;
+  // gemini-2.5-flash-image: ~8-15s, comfortably under Vercel's 25s Edge cap.
+  // (gemini-3.1-flash-image-preview is higher quality but routinely 25-40s,
+  // which would 504 the function.)
+  const modelId = 'gemini-2.5-flash-image';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`;
   // Reference images go BEFORE the text so Gemini anchors the new
   // portrait to them. Order: loved style anchors first (Henry's
   // approved style direction), then the most recent primary portrait
@@ -385,56 +379,33 @@ async function callNanoBanana(apiKey, prompt, refImage = null, lovedRefs = []) {
     generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
   };
 
-  // Retry up to 3x on transient failures. Gemini image-gen is flaky
-  // under load — 429 / 500 / 503 / 504 all happen routinely. Exponential
-  // backoff between attempts. Attempts 1+2 use the fast 2.5-flash model;
-  // attempt 3 falls back to the slower 3.1 in case 2.5 hits a content
-  // filter or quality issue.
-  let lastErr = null;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    if (attempt > 1) await new Promise(r => setTimeout(r, attempt * 800));
-    if (attempt === 3) {
-      modelId = FALLBACK_MODEL;
-      url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`;
-    }
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const t = await res.text().catch(() => '');
-        const transient = res.status === 429 || res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504;
-        lastErr = new Error(`gemini ${res.status}: ${t.slice(0, 200)}`);
-        if (transient && attempt < 3) continue;
-        throw lastErr;
+  // SINGLE attempt server-side. We can't safely retry inside Vercel's 25s
+  // Edge cap (Hobby plan) — if attempt 1 takes 15s and fails, attempt 2
+  // races the cap. Instead we make ONE clean call and let the CLIENT
+  // retry the whole endpoint with backoff (it has its own 3-attempt loop
+  // in generatePortrait()).
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error(`gemini ${res.status}: ${t.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  const candidates = data?.candidates || [];
+  for (const c of candidates) {
+    for (const p of (c?.content?.parts || [])) {
+      if (p.inlineData?.data) {
+        return {
+          mime: p.inlineData.mimeType || 'image/png',
+          dataBase64: p.inlineData.data,
+        };
       }
-      const data = await res.json();
-      const candidates = data?.candidates || [];
-      for (const c of candidates) {
-        for (const p of (c?.content?.parts || [])) {
-          if (p.inlineData?.data) {
-            return {
-              mime: p.inlineData.mimeType || 'image/png',
-              dataBase64: p.inlineData.data,
-            };
-          }
-        }
-      }
-      // No image but the call returned 200 — model produced text only, e.g.
-      // refusal or content-filter trip. Retry once with the same prompt.
-      lastErr = new Error('no image returned');
-      if (attempt < 3) continue;
-      throw lastErr;
-    } catch (e) {
-      // Network errors / aborts — retry on the first two attempts.
-      lastErr = e;
-      if (attempt < 3) continue;
-      throw lastErr;
     }
   }
-  throw lastErr || new Error('gemini failed after 3 attempts');
+  throw new Error('no image returned');
 }
 
 // access guard — delegates to the shared perimeter check at the top
