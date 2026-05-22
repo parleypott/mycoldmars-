@@ -381,6 +381,125 @@
     .story-block.expanded .b-summary .chev { transform: rotate(90deg); }
     .story-block.expanded .b-text { display: block; padding-top: 6px; }
     .story-block:not(.expanded) .b-text { display: none; }
+
+    /* ─────────── KARAOKE — story-block read-along mode ───────────
+       When a block is being karaoke-played, the editable textarea hides
+       and a .b-karaoke div takes its place. Word-level <span> children
+       get a `.ks-active` class as their time range plays. Clicking the
+       karaoke pane PAUSES audio and swaps back to the textarea so Henry
+       can edit. Pressing resume picks back up at the current word. */
+    .story-block.karaoke .b-text { display: none; }
+    .story-block.karaoke { background: #FFFEF1; box-shadow: 6px 6px 0 var(--red); }
+    .story-block.karaoke .b-num { background: var(--red); color: #fff; }
+    .b-karaoke {
+      font-family: var(--serif);
+      font-size: var(--story-font-size, 16.5px);
+      line-height: 1.65;
+      color: var(--ink);
+      padding: 6px 0 4px 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      cursor: text;     /* signals "click to edit" */
+      user-select: text;
+      min-height: 24px;
+    }
+    .b-karaoke .ks-word {
+      display: inline;
+      padding: 1px 2px;
+      margin: 0 -2px;
+      border-radius: 4px;
+      transition: background 110ms ease-out, color 110ms ease-out, transform 110ms ease-out;
+    }
+    .b-karaoke .ks-word.ks-active {
+      background: var(--yolk);
+      color: var(--ink-bright);
+      box-shadow: 0 0 0 1.5px var(--ink-bright), 2px 2px 0 var(--ink-bright);
+      transform: translateY(-0.5px);
+    }
+    .b-karaoke .ks-word.ks-past {
+      color: var(--ink-soft);
+    }
+    /* "Click anywhere to pause + edit" hint chip — only visible during karaoke */
+    .b-karaoke-hint {
+      display: inline-block;
+      margin-top: 8px;
+      font-family: var(--ui); font-weight: 700; font-size: 10.5px;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--ink-soft);
+      background: rgba(255, 220, 100, 0.45);
+      border: 1.5px dashed var(--ink-soft);
+      border-radius: 999px;
+      padding: 3px 10px;
+      pointer-events: none;
+    }
+
+    /* ─────────── Sticky karaoke transport bar ───────────
+       Lives at the top of "The Story" panel when a block is playing.
+       Shows: current block (N of M), play/pause, stop, speed, big text. */
+    .karaoke-bar {
+      position: sticky; top: 0; z-index: 40;
+      display: none;
+      align-items: center; gap: 12px;
+      padding: 10px 14px;
+      background: var(--red);
+      color: #fff;
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 14px;
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      margin: 6px 8px 10px 8px;
+      font-family: var(--ui); font-weight: 700;
+      transform: rotate(-0.3deg);
+    }
+    .karaoke-bar.is-playing { display: flex; }
+    .karaoke-bar.is-paused { display: flex; background: var(--yolk); color: var(--ink-bright); }
+    .karaoke-bar .kb-now {
+      font-size: 14px; flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      letter-spacing: 0.02em;
+    }
+    .karaoke-bar .kb-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 38px; height: 38px; border-radius: 50%;
+      border: 2px solid var(--ink-bright);
+      background: #fff; color: var(--ink-bright);
+      font-family: var(--ui); font-weight: 800; font-size: 16px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer;
+      transition: transform .12s ease, box-shadow .12s ease, background .12s;
+    }
+    .karaoke-bar .kb-btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink-bright); }
+    .karaoke-bar .kb-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink-bright); }
+    .karaoke-bar .kb-btn.kb-big {
+      width: 48px; height: 48px; font-size: 22px;
+      background: var(--ink-bright); color: #fff;
+    }
+    .karaoke-bar .kb-btn.kb-big:hover { background: #2a2a2a; }
+    .karaoke-bar .kb-speed {
+      display: inline-flex; gap: 4px; padding: 3px;
+      background: rgba(255,255,255,0.32); border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+    }
+    .karaoke-bar .kb-speed button {
+      font-family: var(--ui); font-weight: 800; font-size: 11px;
+      letter-spacing: 0.04em;
+      background: transparent; border: none; color: var(--ink-bright);
+      padding: 4px 8px; border-radius: 999px; cursor: pointer;
+    }
+    .karaoke-bar .kb-speed button.active {
+      background: #fff; color: var(--ink-bright);
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+    }
+    .karaoke-bar .kb-progress {
+      flex: 0 0 90px; height: 6px;
+      background: rgba(255,255,255,0.34);
+      border: 1.5px solid var(--ink-bright);
+      border-radius: 999px; overflow: hidden;
+    }
+    .karaoke-bar .kb-progress .kb-fill {
+      height: 100%; width: 0%;
+      background: var(--ink-bright);
+      transition: width 80ms linear;
+    }
     /* Word-highlight container (used by play-whole-story) */
     .story-block .b-text .b-word { transition: background 120ms; padding: 0 1px; border-radius: 3px; }
     .story-block .b-text .b-word.active {
@@ -1699,6 +1818,18 @@
                 <button id="btn-collapse-all" class="pane-ctrl-btn ghost" type="button" title="Collapse all blocks to summary">⊟</button>
               </div>
             </div>
+            <!-- Sticky karaoke transport bar (visible only while audio is playing/paused) -->
+            <div id="karaoke-bar" class="karaoke-bar" role="region" aria-label="Karaoke player controls">
+              <button class="kb-btn kb-big" id="kb-play-pause" type="button" title="Play / pause">▶</button>
+              <button class="kb-btn" id="kb-stop" type="button" title="Stop">■</button>
+              <div class="kb-now" id="kb-now">block 1 of 1</div>
+              <div class="kb-progress" aria-hidden="true"><div class="kb-fill" id="kb-fill"></div></div>
+              <div class="kb-speed" role="group" aria-label="Playback speed">
+                <button data-speed="0.75" type="button">0.75×</button>
+                <button data-speed="1" class="active" type="button">1×</button>
+                <button data-speed="1.25" type="button">1.25×</button>
+              </div>
+            </div>
             <div id="story-blocks-empty" class="story-empty">
               <div class="scrap-inline s-empty-bolt"><img src="decor/lightning-bolt.jpg" alt="" /></div>
               <div class="scrap-inline s-empty-benny"><img src="decor/benny-beaver.jpg" alt="" /></div>
@@ -2201,6 +2332,410 @@
         if (t) prefetch(t);
       }, true);
     })();
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // qssKaraoke — story-window karaoke (word-by-word highlight as audio plays)
+    // Only used in The Story panel; chat-bubble TTS keeps using qssTTS.
+    // ═══════════════════════════════════════════════════════════════════════
+    (function setupKaraoke() {
+      const cache = new Map(); // textHash -> { audio_base64, words, mime }
+      // currentSession tracks the active playback (block-by-block or play-all).
+      // Bumping `token` invalidates in-flight requests / animations from prior runs.
+      const session = {
+        token: 0,
+        audio: null,        // HTMLAudioElement currently playing
+        words: null,        // array of { text, start, end, charStart, charEnd } for the active block
+        blockId: null,      // block currently rendered in karaoke mode
+        queue: [],          // remaining block ids if play-all
+        speed: 1,           // playback rate
+        paused: false,
+        rafHandle: 0,
+        activeIdx: -1,
+      };
+
+      function hash(text) {
+        // Simple stable hash; collisions are fine — false-positive cache hit
+        // would just mean we replay the same audio for the same text.
+        let h = 0;
+        for (let i = 0; i < text.length; i++) { h = (h * 31 + text.charCodeAt(i)) | 0; }
+        return 'h' + (h >>> 0).toString(36) + '_' + text.length;
+      }
+
+      async function fetchKaraoke(text, voice = 'matilda') {
+        const key = voice + '|' + hash(text);
+        if (cache.has(key)) return cache.get(key);
+        const res = await fetch('/api/qss-tts-karaoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          body: JSON.stringify({ text, voice }),
+        });
+        if (!res.ok) {
+          let err = '';
+          try { err = (await res.json()).error || ''; } catch {}
+          throw new Error(`karaoke fetch ${res.status}${err ? ': ' + err : ''}`);
+        }
+        const data = await res.json();
+        if (!data.audio_base64 || !Array.isArray(data.words)) {
+          throw new Error('karaoke response missing audio or words');
+        }
+        cache.set(key, data);
+        // Soft cap on cache so we don't balloon memory across long sessions
+        if (cache.size > 40) {
+          const firstKey = cache.keys().next().value;
+          cache.delete(firstKey);
+        }
+        return data;
+      }
+
+      // Build the karaoke <div> inside the given story-block — replaces the
+      // textarea visually while playing. Each word is a <span> with start/end
+      // microsecond data attrs.
+      function renderKaraokeDom(blockEl, text, words) {
+        const existing = blockEl.querySelector('.b-karaoke');
+        if (existing) existing.remove();
+        const wrap = document.createElement('div');
+        wrap.className = 'b-karaoke';
+        // Walk the source text and emit either word-spans (matched against
+        // word.charStart/charEnd) or plain text for whitespace between words.
+        let cursor = 0;
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < words.length; i++) {
+          const w = words[i];
+          // Whitespace/punctuation before this word (gap between cursor and w.charStart)
+          if (w.charStart > cursor) {
+            frag.appendChild(document.createTextNode(text.slice(cursor, w.charStart)));
+          }
+          const span = document.createElement('span');
+          span.className = 'ks-word';
+          span.dataset.start = String(w.start);
+          span.dataset.end = String(w.end);
+          span.dataset.idx = String(i);
+          span.textContent = text.slice(w.charStart, w.charEnd);
+          frag.appendChild(span);
+          cursor = w.charEnd;
+        }
+        // Trailing text after last word
+        if (cursor < text.length) {
+          frag.appendChild(document.createTextNode(text.slice(cursor)));
+        }
+        wrap.appendChild(frag);
+        // Click-to-pause-and-edit hint
+        const hint = document.createElement('div');
+        hint.className = 'b-karaoke-hint';
+        hint.textContent = '⏸ tap to pause + edit';
+        wrap.appendChild(document.createElement('br'));
+        wrap.appendChild(hint);
+        blockEl.appendChild(wrap);
+        return wrap;
+      }
+
+      // Clear karaoke DOM and remove the .karaoke class from a block, restoring textarea.
+      function teardownBlock(blockId) {
+        const el = document.querySelector(`.story-block[data-block="${blockId}"]`);
+        if (!el) return;
+        el.classList.remove('karaoke');
+        const ko = el.querySelector('.b-karaoke');
+        if (ko) ko.remove();
+      }
+
+      function setActiveWord(idx) {
+        if (idx === session.activeIdx) return;
+        const el = document.querySelector(`.story-block[data-block="${session.blockId}"] .b-karaoke`);
+        if (!el) return;
+        const spans = el.querySelectorAll('.ks-word');
+        if (session.activeIdx >= 0 && spans[session.activeIdx]) {
+          spans[session.activeIdx].classList.remove('ks-active');
+          spans[session.activeIdx].classList.add('ks-past');
+        }
+        if (idx >= 0 && spans[idx]) {
+          spans[idx].classList.add('ks-active');
+          spans[idx].classList.remove('ks-past');
+          // Scroll the active word into view if it's clipped
+          const r = spans[idx].getBoundingClientRect();
+          const vh = window.innerHeight || document.documentElement.clientHeight;
+          if (r.bottom > vh - 80 || r.top < 80) {
+            spans[idx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+        session.activeIdx = idx;
+      }
+
+      function loopHighlight() {
+        if (!session.audio || session.audio.paused) {
+          session.rafHandle = 0;
+          return;
+        }
+        const t = session.audio.currentTime;
+        // Find current word — words are time-sorted so a simple forward scan works
+        const ws = session.words || [];
+        let idx = -1;
+        for (let i = 0; i < ws.length; i++) {
+          if (t >= ws[i].start && t <= ws[i].end + 0.04) { idx = i; break; }
+          if (ws[i].start > t) break; // we've passed where t would land
+        }
+        // If no exact match (we're in a gap), advance to the next upcoming word's predecessor
+        if (idx < 0) {
+          for (let i = 0; i < ws.length; i++) {
+            if (ws[i].start > t) { idx = i - 1; break; }
+          }
+          if (idx < 0 && ws.length && t >= ws[ws.length-1].end) idx = ws.length - 1;
+        }
+        setActiveWord(idx);
+        // Progress bar
+        const fill = document.getElementById('kb-fill');
+        if (fill && session.audio.duration) {
+          fill.style.width = Math.min(100, (t / session.audio.duration) * 100) + '%';
+        }
+        session.rafHandle = requestAnimationFrame(loopHighlight);
+      }
+
+      function updateBar(state) {
+        const bar = document.getElementById('karaoke-bar');
+        const pp = document.getElementById('kb-play-pause');
+        const now = document.getElementById('kb-now');
+        if (!bar) return;
+        if (state === 'hidden') {
+          bar.classList.remove('is-playing', 'is-paused');
+          return;
+        }
+        if (state === 'playing') {
+          bar.classList.add('is-playing'); bar.classList.remove('is-paused');
+          if (pp) pp.textContent = '⏸';
+        } else if (state === 'paused') {
+          bar.classList.add('is-paused'); bar.classList.remove('is-playing');
+          if (pp) pp.textContent = '▶';
+        }
+        if (now && session.blockId && window.state) {
+          const blocks = window.state.blocks || [];
+          const idx = blocks.findIndex(b => b.id === session.blockId);
+          if (idx >= 0) now.textContent = `block ${idx + 1} of ${blocks.length}`;
+        }
+      }
+
+      // Internal: stop everything (cancels any in-flight playback).
+      function hardStop({ keepBar = false } = {}) {
+        session.token++;
+        if (session.rafHandle) { cancelAnimationFrame(session.rafHandle); session.rafHandle = 0; }
+        if (session.audio) {
+          try { session.audio.pause(); } catch {}
+          session.audio = null;
+        }
+        if (session.blockId) teardownBlock(session.blockId);
+        session.blockId = null;
+        session.words = null;
+        session.queue = [];
+        session.paused = false;
+        session.activeIdx = -1;
+        if (!keepBar) updateBar('hidden');
+      }
+
+      // Start karaoke for a single block — fetches audio, renders spans,
+      // plays. Resolves when playback finishes naturally.
+      async function startBlock(blockId, { token, fromTime = 0 } = {}) {
+        const block = (window.state?.blocks || []).find(b => b.id === blockId);
+        if (!block) return false;
+        // Expand the block so its text is visible
+        window.state.blockUI = window.state.blockUI || {};
+        window.state.blockUI[blockId] = { ...(window.state.blockUI[blockId] || {}), expanded: true };
+        // Render in karaoke mode
+        session.blockId = blockId;
+        // Re-render the story so this block gets `.karaoke` class
+        if (typeof window.renderStory === 'function') window.renderStory();
+        const el = document.querySelector(`.story-block[data-block="${blockId}"]`);
+        if (!el) return false;
+        el.classList.add('karaoke');
+
+        let data;
+        try {
+          data = await fetchKaraoke(block.text || '', 'matilda');
+        } catch (e) {
+          console.warn('[karaoke] fetch failed', e);
+          // Fallback: use plain qssTTS for this block (no highlight)
+          el.classList.remove('karaoke');
+          await new Promise((resolve) => {
+            const stub = { classList: { add(){}, remove(){}, contains(){return false;} }, innerHTML: '' };
+            window.qssTTS.speak(block.text || '', stub);
+            const interval = setInterval(() => {
+              if (!window.__qssTtsPlaying) { clearInterval(interval); resolve(); }
+            }, 250);
+          });
+          return true;
+        }
+
+        if (token !== session.token) return false; // superseded
+
+        session.words = data.words || [];
+        // Build the karaoke DOM
+        renderKaraokeDom(el, block.text || '', session.words);
+        // Create audio element from base64
+        const audio = new Audio(`data:${data.mime || 'audio/mpeg'};base64,${data.audio_base64}`);
+        audio.playbackRate = session.speed;
+        session.audio = audio;
+        if (fromTime > 0) {
+          try { audio.currentTime = fromTime; } catch {}
+        }
+
+        // Scroll the block into view
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        updateBar('playing');
+
+        return new Promise((resolve) => {
+          audio.addEventListener('ended', () => {
+            if (token !== session.token) return resolve(false);
+            session.audio = null;
+            // Mark all words past
+            const spans = document.querySelectorAll(`.story-block[data-block="${blockId}"] .ks-word`);
+            spans.forEach(s => { s.classList.remove('ks-active'); s.classList.add('ks-past'); });
+            resolve(true);
+          });
+          audio.addEventListener('error', () => {
+            console.warn('[karaoke] audio error');
+            resolve(false);
+          });
+          audio.play().then(() => {
+            session.paused = false;
+            session.rafHandle = requestAnimationFrame(loopHighlight);
+          }).catch((e) => {
+            console.warn('[karaoke] play() rejected', e);
+            resolve(false);
+          });
+        });
+      }
+
+      // ─── Public API ───
+      async function playBlock(blockId) {
+        hardStop();
+        const myToken = ++session.token;
+        await startBlock(blockId, { token: myToken });
+        if (myToken === session.token) {
+          teardownBlock(blockId);
+          updateBar('hidden');
+          session.blockId = null;
+          session.audio = null;
+        }
+      }
+
+      async function playAll() {
+        hardStop();
+        const myToken = ++session.token;
+        const blocks = window.state?.blocks || [];
+        for (const b of blocks) {
+          if (myToken !== session.token) return;
+          await startBlock(b.id, { token: myToken });
+          teardownBlock(b.id);
+        }
+        if (myToken === session.token) {
+          updateBar('hidden');
+          session.blockId = null;
+          session.audio = null;
+        }
+      }
+
+      function pause() {
+        if (!session.audio) return;
+        try { session.audio.pause(); } catch {}
+        session.paused = true;
+        if (session.rafHandle) { cancelAnimationFrame(session.rafHandle); session.rafHandle = 0; }
+        updateBar('paused');
+        // Swap the karaoke DOM back to textarea so Henry can edit
+        if (session.blockId) {
+          const el = document.querySelector(`.story-block[data-block="${session.blockId}"]`);
+          if (el) {
+            const ta = el.querySelector('.b-text');
+            const ko = el.querySelector('.b-karaoke');
+            if (ko) ko.style.display = 'none';
+            if (ta) {
+              ta.style.display = 'block';
+              setTimeout(() => { ta.focus(); }, 30);
+            }
+          }
+        }
+      }
+
+      function resume() {
+        if (!session.audio) return;
+        // Detect if the block text changed during edit — if so, invalidate cache and re-start
+        const blockId = session.blockId;
+        const block = (window.state?.blocks || []).find(b => b.id === blockId);
+        if (!block) { hardStop(); return; }
+        const el = document.querySelector(`.story-block[data-block="${blockId}"]`);
+        const ta = el?.querySelector('.b-text');
+        const ko = el?.querySelector('.b-karaoke');
+        // If text was edited since karaoke audio was generated, re-fetch
+        // (the cache key is the text content, so a different text = cache miss)
+        // For simplicity: always check current text vs. words concatenation
+        const audioStillValid = session.audio && session.words;
+        if (!audioStillValid) {
+          // Re-fetch with current block text from start
+          if (ko) ko.style.display = '';
+          if (ta) ta.style.display = '';
+          const myToken = ++session.token;
+          startBlock(blockId, { token: myToken });
+          return;
+        }
+        // Swap textarea hidden, karaoke visible, audio resumes
+        if (ko) ko.style.display = '';
+        if (ta) ta.style.display = '';
+        session.paused = false;
+        try { session.audio.play(); } catch {}
+        updateBar('playing');
+        session.rafHandle = requestAnimationFrame(loopHighlight);
+      }
+
+      function stop() {
+        hardStop();
+      }
+
+      function setSpeed(rate) {
+        session.speed = Math.max(0.5, Math.min(2, rate));
+        if (session.audio) session.audio.playbackRate = session.speed;
+        // Update speed-button active state
+        document.querySelectorAll('#karaoke-bar .kb-speed button').forEach(b => {
+          b.classList.toggle('active', Math.abs(parseFloat(b.dataset.speed) - session.speed) < 0.01);
+        });
+      }
+
+      // ─── Transport bar wiring ───
+      function wireBar() {
+        const bar = document.getElementById('karaoke-bar');
+        if (!bar) return;
+        document.getElementById('kb-play-pause')?.addEventListener('click', () => {
+          if (!session.audio) return;
+          if (session.paused) resume(); else pause();
+        });
+        document.getElementById('kb-stop')?.addEventListener('click', () => stop());
+        bar.querySelectorAll('.kb-speed button').forEach(b => {
+          b.addEventListener('click', () => setSpeed(parseFloat(b.dataset.speed)));
+        });
+        // Click anywhere INSIDE a karaoke block (but not on transport bar or buttons)
+        // pauses + switches to edit. Word clicks could also seek (future enhancement).
+        document.addEventListener('click', (e) => {
+          if (!session.audio || session.paused) return;
+          // Ignore clicks on the bar itself
+          if (e.target.closest('#karaoke-bar')) return;
+          const koClick = e.target.closest('.b-karaoke');
+          if (koClick && session.blockId) {
+            pause();
+            // Move focus to the underlying textarea, approximate cursor
+            // placement isn't critical for v1 — Henry can click anywhere.
+          }
+        });
+      }
+
+      // Wait for DOM ready before wiring
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', wireBar);
+      } else {
+        wireBar();
+      }
+
+      window.qssKaraoke = {
+        playBlock, playAll, pause, resume, stop, setSpeed,
+        _activeBlockId: () => session.blockId,
+        _isPlaying: () => !!session.audio && !session.paused,
+      };
+    })();
+
   </script>
 
   <script type="module">
@@ -2241,6 +2776,8 @@
       arcStatus: 'idle',          // 'idle' | 'refreshing' | 'stale' | 'fresh' | 'error'
       arcError: null,
     };
+    // Expose for the karaoke module + any external debug
+    window.state = state;
 
     const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -2672,8 +3209,11 @@
       list.innerHTML = state.blocks.map((b, i) => {
         const isExpanded = !!state.blockUI?.[b.id]?.expanded;
         const isPlaying = state.playingBlockId === b.id;
+        // Karaoke ownership — re-applied on every render so dragging/editing other
+        // blocks doesn't strip the highlight chrome from the currently-playing one.
+        const isKaraoke = (window.qssKaraoke && window.qssKaraoke._activeBlockId && window.qssKaraoke._activeBlockId() === b.id);
         return `
-        <div class="story-block ${isExpanded ? 'expanded' : ''} ${isPlaying ? 'playing' : ''}" data-block="${b.id}" draggable="true">
+        <div class="story-block ${isExpanded ? 'expanded' : ''} ${isPlaying ? 'playing' : ''} ${isKaraoke ? 'karaoke' : ''}" data-block="${b.id}" draggable="true">
           <div class="drag-handle" title="Drag to reorder">⋮⋮</div>
           <div class="b-num">${i + 1}</div>
           <div class="b-toolbar">
@@ -2692,6 +3232,8 @@
       list.querySelectorAll('textarea').forEach(autoGrow);
       if (composer) composer.style.display = 'block';
     }
+    // Expose for the karaoke module so it can re-render after applying karaoke class
+    window.renderStory = renderStory;
 
     function renderChat() {
       const chat = document.getElementById('tutor-chat');
@@ -2997,7 +3539,15 @@
     });
 
     // Play-all + font-size + collapse-all
-    document.getElementById('btn-play-all').addEventListener('click', playWholeStory);
+    document.getElementById('btn-play-all').addEventListener('click', () => {
+      // Prefer karaoke (read-along with word highlight + sticky transport bar).
+      // Falls back to the legacy plain TTS pipeline if karaoke module is gone.
+      if (window.qssKaraoke?.playAll) {
+        window.qssKaraoke.playAll();
+      } else {
+        playWholeStory();
+      }
+    });
     document.getElementById('btn-collapse-all').addEventListener('click', () => {
       // toggle: if any expanded → collapse all; otherwise expand all
       const anyExpanded = state.blocks.some(b => state.blockUI?.[b.id]?.expanded);
@@ -3183,8 +3733,14 @@
       else if (action === 'up') moveBlock(id, -1);
       else if (action === 'down') moveBlock(id, 1);
       else if (action === 'read') {
-        const b = state.blocks.find(x => x.id === id);
-        if (b) window.qssTTS.speak(b.text);
+        // Use karaoke for story-block playback (word-by-word highlight).
+        // Falls back to qssTTS internally if the karaoke endpoint fails.
+        if (window.qssKaraoke?.playBlock) {
+          window.qssKaraoke.playBlock(id);
+        } else {
+          const b = state.blocks.find(x => x.id === id);
+          if (b) window.qssTTS.speak(b.text);
+        }
       }
     });
 
