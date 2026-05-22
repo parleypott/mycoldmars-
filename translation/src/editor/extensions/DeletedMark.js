@@ -36,17 +36,24 @@ export const DeletedMark = Mark.create({
   },
 
   addProseMirrorPlugins() {
+    // Cache against doc identity so we only rebuild the decoration set
+    // when the doc actually changes. ProseMirror calls decorations()
+    // on EVERY transaction — for a 10k-segment transcript, walking
+    // doc.descendants on each keystroke was the dominant cost during
+    // type-then-delete loops. Doc identity (===) is stable across
+    // selection-only transactions, so cursor moves now reuse the set.
+    let cachedDoc = null;
+    let cachedSet = DecorationSet.empty;
     return [
       new Plugin({
         key: new PluginKey('deletedCollapse'),
         props: {
           decorations: (state) => {
-            const decorations = [];
             const { doc } = state;
-
+            if (doc === cachedDoc) return cachedSet;
+            const decorations = [];
             doc.descendants((node, pos) => {
               if (node.isText && node.marks.some(m => m.type.name === 'deleted')) {
-                // Add a CSS class that hides the content unless expanded
                 decorations.push(
                   Decoration.inline(pos, pos + node.nodeSize, {
                     class: 'editor-deleted-content',
@@ -54,8 +61,9 @@ export const DeletedMark = Mark.create({
                 );
               }
             });
-
-            return DecorationSet.create(doc, decorations);
+            cachedDoc = doc;
+            cachedSet = DecorationSet.create(doc, decorations);
+            return cachedSet;
           },
         },
       }),

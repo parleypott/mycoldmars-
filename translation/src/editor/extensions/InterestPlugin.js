@@ -8,6 +8,13 @@ export const InterestPlugin = Extension.create({
   name: 'interestPlugin',
 
   addProseMirrorPlugins() {
+    // Same cache pattern as DeletedMark — decorations() runs on every
+    // transaction (including selection-only). Cache against doc AND
+    // votes identity so cursor moves on a 10k-segment transcript don't
+    // rewalk descendants every keystroke.
+    let cachedDoc = null;
+    let cachedVotes = null;
+    let cachedSet = DecorationSet.empty;
     return [
       new Plugin({
         key: interestPluginKey,
@@ -26,9 +33,10 @@ export const InterestPlugin = Extension.create({
             const votes = interestPluginKey.getState(state);
             if (!votes || Object.keys(votes).length === 0) return DecorationSet.empty;
 
-            const decorations = [];
             const { doc } = state;
+            if (doc === cachedDoc && votes === cachedVotes) return cachedSet;
 
+            const decorations = [];
             doc.descendants((node, pos) => {
               if (!node.isText || !node.marks) return;
               const segMark = node.marks.find(m => m.type.name === 'segment');
@@ -43,7 +51,10 @@ export const InterestPlugin = Extension.create({
               );
             });
 
-            return DecorationSet.create(doc, decorations);
+            cachedDoc = doc;
+            cachedVotes = votes;
+            cachedSet = DecorationSet.create(doc, decorations);
+            return cachedSet;
           },
         },
       }),

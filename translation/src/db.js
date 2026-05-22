@@ -1310,6 +1310,19 @@ async function uploadViaTus({ file, bucket, path, onProgress, onUpload }) {
         apikey: anonKey,
         'x-upsert': 'true',
       },
+      // Refresh the Authorization header before every chunk. Supabase-
+      // js auto-refreshes the session on a timer, so getSession() near
+      // the chunk boundary returns the freshest access token. Without
+      // this, a multi-GB upload that ran past the JWT's 60-min TTL
+      // would 401 on every retry. Best-effort — if getSession fails
+      // (offline blip), we keep the previous header.
+      onBeforeRequest: async (req) => {
+        try {
+          const { data } = await supabase.auth.getSession();
+          const tok = data?.session?.access_token;
+          if (tok) req.setHeader('Authorization', `Bearer ${tok}`);
+        } catch {}
+      },
       uploadDataDuringCreation: true,
       removeFingerprintOnSuccess: true,
       chunkSize: 6 * 1024 * 1024, // Supabase REQUIRES 6MB chunks (no smaller, no larger except final)
