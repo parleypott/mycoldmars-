@@ -1309,6 +1309,235 @@
       display: inline-block; transform: translateY(-1px);
     }
 
+    /* "How's my story?" — sibling to touch-base. Sky-blue so it
+       reads as a deeper analytical button vs the grape check-in. */
+    .story-report-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--sky); color: var(--ink-bright);
+      border-color: var(--ink-bright);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      font-weight: 700;
+    }
+    .story-report-btn:hover {
+      background: var(--sky-deep, #2596C7);
+      color: var(--paper-card);
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0 var(--ink-bright);
+    }
+    .story-report-btn:active {
+      transform: translate(1px, 1px);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+    }
+    .story-report-btn[disabled] {
+      opacity: 0.6; cursor: not-allowed; transform: none;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+    }
+    .story-report-btn .sr-icon {
+      font-size: 16px; line-height: 1;
+      display: inline-block; transform: translateY(-1px);
+    }
+
+    /* ── Story Report card — the deep-critique bubble ── */
+    .tutor-msg.story-report-msg { width: 100%; max-width: 100%; }
+    .story-report-card {
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 18px;
+      box-shadow: 6px 6px 0 var(--ink-bright);
+      padding: 18px 20px 20px;
+      width: 100%;
+      max-width: 760px;
+      position: relative;
+    }
+    .story-report-header {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 2px dashed var(--ink-ghost, rgba(0,0,0,0.16));
+    }
+    .story-report-eyebrow {
+      font-family: var(--ui);
+      font-size: 11px; font-weight: 800; letter-spacing: 0.18em;
+      text-transform: uppercase;
+      background: var(--sky); color: var(--ink-bright);
+      padding: 4px 10px;
+      border: 2px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+    }
+    .story-report-title {
+      font-family: 'Sailing Club', var(--display, system-ui);
+      font-size: 32px; line-height: 1; color: var(--ink-bright);
+      font-weight: 400;
+      font-style: italic;
+    }
+    .story-report-readalong {
+      margin-left: auto;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px;
+      background: var(--yolk, #ffd93d);
+      color: var(--ink-bright);
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      font-family: var(--ui);
+      font-size: 14px; font-weight: 700;
+      cursor: pointer;
+      transition: transform 80ms ease, box-shadow 80ms ease, background 120ms ease;
+    }
+    .story-report-readalong:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink-bright); }
+    .story-report-readalong.is-loading { background: var(--paper-soft); cursor: progress; }
+    .story-report-readalong.is-playing { background: var(--grass, #6bcb77); }
+
+    /* Power meter — the big visual grade */
+    .story-report-power {
+      display: flex; align-items: center; gap: 18px;
+      padding: 14px 16px;
+      background: var(--paper-soft);
+      border: 2px solid var(--ink-bright);
+      border-radius: 14px;
+      margin-bottom: 16px;
+    }
+    .story-power-num {
+      flex: 0 0 auto;
+      font-family: var(--display, system-ui);
+      font-size: 56px; font-weight: 800; line-height: 1;
+      color: var(--ink-bright);
+      font-variant-numeric: tabular-nums;
+    }
+    .story-power-bar-wrap {
+      flex: 1 1 auto;
+      display: flex; flex-direction: column; gap: 6px;
+      min-width: 0;
+    }
+    .story-power-label {
+      font-family: var(--ui);
+      font-size: 14px; font-weight: 700; letter-spacing: 0.02em;
+      color: var(--ink-bright);
+    }
+    .story-power-bar {
+      height: 14px;
+      background: var(--paper-deep);
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .story-power-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--red) 0%, var(--yolk) 50%, var(--grass) 100%);
+      border-right: 2px solid var(--ink-bright);
+      transition: width 800ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Opening metaphor */
+    .story-report-oneliner {
+      font-family: var(--serif);
+      font-size: 16.5px;
+      line-height: 1.55;
+      color: var(--ink);
+      margin-bottom: 18px;
+      font-style: italic;
+    }
+
+    /* Per-dimension scores grid */
+    .story-scores-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .story-score-item {
+      padding: 10px 12px;
+      background: var(--paper-soft);
+      border: 2px solid var(--ink-bright);
+      border-radius: 12px;
+    }
+    .story-score-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .story-score-cat {
+      font-family: var(--ui); font-weight: 700; font-size: 13px;
+      letter-spacing: 0.04em; text-transform: capitalize;
+      color: var(--ink-bright);
+    }
+    .story-score-stars {
+      letter-spacing: 0.06em; font-size: 14px; line-height: 1;
+    }
+    .story-score-stars .star-on  { color: var(--yolk-deep, #F0B900); }
+    .story-score-stars .star-off { color: rgba(0, 0, 0, 0.18); }
+    .story-score-comment {
+      font-family: var(--serif); font-size: 13.5px; line-height: 1.4;
+      color: var(--ink-soft);
+    }
+
+    /* Issues + strengths sections */
+    .story-section-label {
+      font-family: var(--ui);
+      font-size: 12px; font-weight: 800; letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin: 14px 0 8px;
+    }
+    .story-issue-list, .story-strength-list, .story-rec-list {
+      list-style: none; padding: 0; margin: 0 0 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .story-issue-item {
+      padding: 8px 12px;
+      background: rgba(232, 69, 69, 0.08);
+      border: 2px solid rgba(232, 69, 69, 0.35);
+      border-radius: 10px;
+      font-family: var(--serif); font-size: 14px; line-height: 1.5;
+      color: var(--ink);
+    }
+    .story-issue-item .issue-where {
+      font-family: var(--ui); font-weight: 800; font-size: 11px;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--red-deep, #C32626);
+      margin-right: 8px;
+    }
+    .story-strength-item {
+      padding: 8px 12px;
+      background: rgba(107, 203, 119, 0.12);
+      border: 2px solid rgba(107, 203, 119, 0.4);
+      border-radius: 10px;
+      font-family: var(--serif); font-size: 14px; line-height: 1.5;
+      color: var(--ink);
+    }
+    .story-strength-item::before { content: '✓ '; color: var(--grass-deep, #2d7a3a); font-weight: 800; }
+    .story-rec-item {
+      padding: 10px 14px;
+      background: rgba(159, 122, 224, 0.10);
+      border: 2px solid rgba(159, 122, 224, 0.4);
+      border-radius: 10px;
+      font-family: var(--serif); font-size: 14.5px; line-height: 1.5;
+      color: var(--ink);
+      position: relative;
+      padding-left: 32px;
+    }
+    .story-rec-item::before {
+      content: '→';
+      position: absolute; left: 12px; top: 8px;
+      color: var(--grape-deep, #7654AC); font-weight: 800;
+      font-family: var(--ui); font-size: 16px;
+    }
+
+    /* Active-word highlight inside the report card (same recipe as touch-base) */
+    .story-report-card .ks-word {
+      transition: background 80ms ease, color 80ms ease;
+      border-radius: 3px;
+      padding: 0 1px;
+    }
+    .story-report-card .ks-word.ks-active {
+      background: var(--yolk, #ffd93d);
+      color: var(--ink-bright);
+      box-shadow: 0 0 0 2px var(--ink-bright);
+    }
+    .story-report-card .ks-word.ks-past {
+      color: var(--ink-soft);
+      opacity: 0.78;
+    }
+
     /* "i'm stuck" — Henry's blank-brain rescue button.
      * Sits next to touch-base. Yolk-yellow so it pops as a HELP
      * button, not a check-in. Lowercase kid voice. One tap →
@@ -3239,6 +3468,10 @@
               <button id="btn-touch-base" class="btn touch-base-btn" type="button" title="The Story Guide pops in to tell you where the story is and what's missing.">
                 <span class="tb-icon" aria-hidden="true">✦</span>
                 <span class="tb-label">Let's touch base</span>
+              </button>
+              <button id="btn-story-report" class="btn story-report-btn" type="button" title="Deeper look at your whole story — a grade, what's working, what to fix.">
+                <span class="sr-icon" aria-hidden="true">📊</span>
+                <span class="sr-label">How's my story?</span>
               </button>
               <button id="btn-ask" class="btn primary">Send<span class="arrow">→</span></button>
             </div>
@@ -5195,6 +5428,10 @@
         if (t.phase === 'touch-base' && t.guide) {
           return renderTouchBaseBubble(t);
         }
+        // Story Report Card — deeper structural critique with a grade.
+        if (t.phase === 'story-report' && t.report) {
+          return renderStoryReportBubble(t);
+        }
         // Direction cards (wizard "where should we go?" phase)
         if (t.phase === 'directions' && t.directions?.length) {
           const isLatest = state.latestDirections?.turnId === t.id;
@@ -5472,6 +5709,108 @@
             ${concernHtml}
             ${checklist}
             ${suggestionsHtml}
+          </div>
+        </div>
+      </div>`;
+    }
+
+    // ─── Story Report Card renderer ────────────────────────────────────
+    // The deep structural critique. Sibling to renderTouchBaseBubble.
+    // Reuses the same karaoke read-along pattern — every [data-ks-region]
+    // text node gets walked in DOM order so Henry can press one button
+    // and hear the whole report card.
+    function renderStoryReportBubble(t) {
+      const r = t.report || {};
+      let ksIdx = 0;
+      const ksReg = (cls) => `data-ks-region data-ks-idx="${ksIdx++}"${cls ? ` class="${cls}"` : ''}`;
+      const score = Math.max(0, Math.min(100, Number(r.power_score) || 0));
+      const label = (r.power_label || 'getting there').toString();
+      const oneLiner = (r.one_liner || '').toString().trim();
+      const scores = Array.isArray(r.scores) ? r.scores : [];
+      const gaps = Array.isArray(r.gaps) ? r.gaps : [];
+      const reps = Array.isArray(r.repetitions) ? r.repetitions : [];
+      const strengths = Array.isArray(r.strengths) ? r.strengths : [];
+      const recs = Array.isArray(r.recommendations) ? r.recommendations : [];
+
+      const stars = (n) => {
+        const k = Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
+        let out = '';
+        for (let i = 0; i < 5; i++) {
+          out += i < k
+            ? '<span class="star-on" aria-hidden="true">★</span>'
+            : '<span class="star-off" aria-hidden="true">★</span>';
+        }
+        return out;
+      };
+
+      const scoresHtml = scores.length ? `
+        <div class="story-section-label">Where your story is right now</div>
+        <div class="story-scores-grid">
+          ${scores.map(s => `
+            <div class="story-score-item">
+              <div class="story-score-head">
+                <span ${ksReg('story-score-cat')}>${esc(s.category)}</span>
+                <span class="story-score-stars" aria-label="${esc(s.score)} of 5">${stars(s.score)}</span>
+              </div>
+              <div ${ksReg('story-score-comment')}>${esc(s.comment || '')}</div>
+            </div>
+          `).join('')}
+        </div>` : '';
+
+      const gapsHtml = gaps.length ? `
+        <div class="story-section-label">Where the story jumps without landing</div>
+        <ul class="story-issue-list">
+          ${gaps.map(g => `<li class="story-issue-item">
+            <span class="issue-where" ${ksReg()}>block ${g.from_block} → ${g.to_block}</span>
+            <span ${ksReg()}>${esc(g.issue || '')}</span>
+          </li>`).join('')}
+        </ul>` : '';
+
+      const repsHtml = reps.length ? `
+        <div class="story-section-label">Stuff you're repeating</div>
+        <ul class="story-issue-list">
+          ${reps.map(rp => `<li class="story-issue-item">
+            <span class="issue-where" ${ksReg()}>${esc(rp.where || `x${rp.count}`)}</span>
+            <span ${ksReg()}>${esc(rp.pattern || '')}</span>
+          </li>`).join('')}
+        </ul>` : '';
+
+      const strengthsHtml = strengths.length ? `
+        <div class="story-section-label">What's working</div>
+        <ul class="story-strength-list">
+          ${strengths.map(s => `<li class="story-strength-item" ${ksReg()}>${esc(s)}</li>`).join('')}
+        </ul>` : '';
+
+      const recsHtml = recs.length ? `
+        <div class="story-section-label">What I'd do next</div>
+        <ul class="story-rec-list">
+          ${recs.map(rc => `<li class="story-rec-item" ${ksReg()}>${esc(rc)}</li>`).join('')}
+        </ul>` : '';
+
+      return `<div class="tutor-turn">
+        <div class="tutor-msg story-report-msg">
+          <div class="story-report-card" data-touch-base-card>
+            <div class="story-report-header">
+              <span class="story-report-eyebrow">Story Report</span>
+              <span class="story-report-title">How's your story doing?</span>
+              <button class="story-report-readalong" data-tb-readalong type="button" aria-label="Read this whole report aloud">
+                <span aria-hidden="true">▶</span>
+                <span>Read me this</span>
+              </button>
+            </div>
+            <div class="story-report-power">
+              <div class="story-power-num">${score}</div>
+              <div class="story-power-bar-wrap">
+                <div ${ksReg('story-power-label')}>Story power: ${esc(label)}</div>
+                <div class="story-power-bar"><div class="story-power-fill" style="width:${score}%"></div></div>
+              </div>
+            </div>
+            ${oneLiner ? `<div ${ksReg('story-report-oneliner')}>${esc(oneLiner)}</div>` : ''}
+            ${scoresHtml}
+            ${gapsHtml}
+            ${repsHtml}
+            ${strengthsHtml}
+            ${recsHtml}
           </div>
         </div>
       </div>`;
@@ -5929,6 +6268,102 @@
     // story stands plus a checklist of story ingredients and concrete
     // next moves. Lives in state.chat so it persists with the story.
     document.getElementById('btn-touch-base')?.addEventListener('click', touchBase);
+
+    // "How's my story?" — the deeper structural report card. Grades
+    // the whole story on cohesion / surprise / intention / action /
+    // repetition / characters; surfaces gaps and repetitions with
+    // specific block references; recommends concrete next moves.
+    document.getElementById('btn-story-report')?.addEventListener('click', storyReport);
+
+    async function storyReport() {
+      if (state.thinking) return;
+      const btn = document.getElementById('btn-story-report');
+      if (!btn || btn.disabled) return;
+      if (!state.blocks || state.blocks.length < 2) {
+        state.chat.push({
+          id: 'sr-empty-' + Date.now(),
+          role: 'tutor',
+          phase: 'story-report',
+          content: '',
+          report: {
+            power_score: 0,
+            power_label: 'getting there',
+            one_liner: "Hey Henry — I need at least two blocks to grade. Write a little more, then come back and tap How's My Story.",
+            scores: [], gaps: [], repetitions: [], strengths: [], recommendations: [],
+          },
+        });
+        renderChat();
+        scrollChat();
+        return;
+      }
+      btn.disabled = true;
+      const labelEl = btn.querySelector('.sr-label');
+      const original = labelEl?.textContent || "How's my story?";
+      if (labelEl) labelEl.textContent = 'reading…';
+      state.thinking = true;
+      renderChat();
+      scrollChat();
+      try {
+        const res = await fetch('/api/qss-story-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            story_name: state.name || 'this story',
+            blocks: state.blocks.map(b => ({ id: b.id, text: b.text })),
+            rules: state.rules || {},
+            arcContext: state.arcContext || null,
+            character_cards: window.qssCast?.getCardsForContext?.() || [],
+          }),
+        });
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.error || `${res.status}`);
+        }
+        const data = await res.json();
+        state.chat.push({
+          id: 'sr-' + Date.now(),
+          role: 'tutor',
+          phase: 'story-report',
+          content: '',
+          report: {
+            power_score: data.power_score || 0,
+            power_label: data.power_label || 'getting there',
+            one_liner: data.one_liner || '',
+            scores: data.scores || [],
+            gaps: data.gaps || [],
+            repetitions: data.repetitions || [],
+            strengths: data.strengths || [],
+            recommendations: data.recommendations || [],
+          },
+        });
+        observe('story_report_generated', {
+          power_score: data.power_score,
+          power_label: data.power_label,
+          block_count: state.blocks.length,
+        });
+      } catch (e) {
+        state.chat.push({
+          id: 'sr-err-' + Date.now(),
+          role: 'tutor',
+          phase: 'story-report',
+          content: '',
+          report: {
+            power_score: 0,
+            power_label: 'getting there',
+            one_liner: "Wordy couldn't read your story right now — try the button again in a moment.",
+            scores: [], gaps: [], repetitions: [], strengths: [], recommendations: [],
+          },
+        });
+        console.warn('[story-report]', e?.message || e);
+      } finally {
+        state.thinking = false;
+        btn.disabled = false;
+        if (labelEl) labelEl.textContent = original;
+        renderChat();
+        scrollChat();
+        persist();
+      }
+    }
 
     // "i'm stuck" — Henry's blank-brain rescue button.
     // No kid bubble, no lecture, no analysis. Just three fresh story moves.
