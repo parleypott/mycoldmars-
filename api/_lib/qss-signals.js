@@ -81,8 +81,12 @@ function extractCharacters(text, extras = []) {
   const out = new Set();
   const list = [...CANON_CHARACTERS, ...extras];
   for (const c of list) {
-    // Match whole-word, case-sensitive for proper nouns
-    const re = new RegExp(`\\b${c.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\b`);
+    // Match whole-word, case-sensitive for proper nouns.
+    // The escape pattern in the previous version had a double-escaped
+    // replacement string ('\\\\$&') that produced literal '\\$&' in the
+    // output — harmless for current names but would fail the moment
+    // someone added 'Dr. Periwinkle' or anything with a regex metachar.
+    const re = new RegExp(`\\b${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
     if (re.test(text)) out.add(c);
   }
   return [...out];

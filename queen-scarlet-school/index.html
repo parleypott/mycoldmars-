@@ -5788,7 +5788,7 @@
               const displayName = (c?.name || lk || '').trim();
               if (!displayName) continue;
               const lname = displayName.toLowerCase();
-              const re = new RegExp(`\\b${lname.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\b`, 'i');
+              const re = new RegExp(`\\b${lname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
               if (!re.test(blockText)) continue;
               const portraits = Array.isArray(c?.portraits) ? c.portraits : [];
               const primary = portraits.find(p => p.id === c.primary_portrait_id) || portraits[portraits.length - 1];

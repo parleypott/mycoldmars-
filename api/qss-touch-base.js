@@ -203,9 +203,12 @@ export default async function handler(req) {
     const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
     parsed = JSON.parse(cleaned);
   } catch (err) {
+    // Cap detail and only include the first 120 chars to avoid leaking
+    // the full Claude reply (which can contain arbitrary hallucinated
+    // content). Forge audit P1-8.
     return json(502, {
       error: 'parse_failed',
-      detail: rawText.slice(0, 400),
+      detail: 'model returned non-JSON output. snippet: ' + rawText.slice(0, 120),
     });
   }
 
