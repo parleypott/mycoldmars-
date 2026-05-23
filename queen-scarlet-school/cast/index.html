@@ -735,7 +735,7 @@
     })();
 
     // ─── helpers ───
-    const HEADERS = { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' };
+    const HEADERS = { 'Content-Type': 'application/json' };
     function esc(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
     function uid() { return Math.random().toString(36).slice(2, 12); }
     function initials(name) {

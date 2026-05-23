@@ -3732,7 +3732,7 @@
         const promise = (async () => {
           const res = await fetch('/api/qss-tts', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+            headers: { 'Content-Type': 'application/json' },
             // 'fast' = flash_v2_5 + 64kbps streaming. First byte ~400ms.
             body: JSON.stringify({ text, voice, speed: 'fast' }),
           });
@@ -4073,7 +4073,7 @@
         if (cache.has(key)) return cache.get(key);
         const res = await fetch('/api/qss-tts-karaoke', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text, voice }),
         });
         if (!res.ok) {
@@ -4628,7 +4628,7 @@
       try {
         fetch('/api/qss-observe', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             story_id: state.serverId || null,
             story_name: state.name || null,
@@ -4747,7 +4747,7 @@
       if (wantedId) {
         history.replaceState(null, '', location.pathname);
         fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(wantedId)}`, {
-          headers: { 'Authorization': 'Bearer qss' },
+          headers: {},
         }).then(r => {
           if (!r.ok) {
             // Story id was bad / story was deleted — fall back rather than
@@ -4957,7 +4957,7 @@
       try {
         const res = await fetch('/api/nano-banana', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             mode: 'tutor',
             message: trimmed,
@@ -5429,7 +5429,7 @@
         if (cache.has(key)) return cache.get(key);
         const res = await fetch('/api/qss-tts-karaoke', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text, voice }),
         });
         if (!res.ok) {
@@ -5756,7 +5756,7 @@
 
           const res = await fetch('/api/nano-banana', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               mode: 'image',
               prompt: composedPrompt,
@@ -5913,7 +5913,7 @@
       try {
         const res = await fetch('/api/qss-touch-base', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             story_name: state.name || 'this story',
             blocks: state.blocks.map(b => ({ id: b.id, text: b.text })),
@@ -6572,7 +6572,7 @@
           try {
             const res = await fetch('/api/qss-arc-extract', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 story_id: state.serverId || null,
                 story_name: state.name,
@@ -6862,7 +6862,7 @@
         try {
           const r = await fetch('/api/qss-freestyle', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               message: trimmed,
               history: chat().slice(-12, -1).map(m => ({ role: m.role, content: m.content })),
@@ -7130,7 +7130,7 @@
           const recent = (state.blocks || []).slice(-6).map(b => ({ text: b.text || '' }));
           const res = await fetch('/api/qss-character-card', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               character: ch,
               arc: state.arcContext || null,
@@ -7332,7 +7332,7 @@
         try {
           const res = await fetch('/api/qss-tts', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: c.synopsis }),
           });
           if (!res.ok) throw new Error(`tts ${res.status}`);
@@ -7469,7 +7469,7 @@
           try {
             await fetch('/api/qss-cast?action=upsert-many', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ cards: batch }),
             });
           } catch {}
@@ -7536,7 +7536,7 @@
         try {
           const r = await fetch('/api/qss-cast', {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+            headers: { 'Content-Type': 'application/json' },
           });
           if (!r.ok) return;
           const { characters } = await r.json();
@@ -7862,7 +7862,7 @@
           try {
             const res = await fetch('/api/qss-stories?action=save', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
             });
             if (res.status === 503) {
@@ -7965,7 +7965,7 @@
       async function reloadFromServer() {
         if (!state.serverId) return;
         const res = await fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(state.serverId)}`, {
-          headers: { 'Authorization': 'Bearer qss' },
+          headers: {},
         });
         if (!res.ok) return;
         const { story } = await res.json();
@@ -8010,7 +8010,7 @@
 
       async function fetchList(includeTrash = false) {
         const q = includeTrash ? '?action=list&trash=1' : '?action=list';
-        const res = await fetch(`/api/qss-stories${q}`, { headers: { 'Authorization': 'Bearer qss' } });
+        const res = await fetch(`/api/qss-stories${q}`, { headers: {} });
         if (res.status === 503) {
           const j = await res.json().catch(() => ({}));
           if (j.error === 'MIGRATION_PENDING') {
@@ -8121,7 +8121,7 @@
       async function loadStory(id) {
         // Flush any pending save against the current story first.
         await flush().catch(() => {});
-        const res = await fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(id)}`, { headers: { 'Authorization': 'Bearer qss' } });
+        const res = await fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(id)}`, { headers: {} });
         if (!res.ok) { alert('Couldn\'t open: ' + (await res.text()).slice(0, 200)); return; }
         const { story } = await res.json();
         loadFromRow(story);
@@ -8133,7 +8133,7 @@
         if (!next || !next.trim() || next === currentName) return;
         const res = await fetch('/api/qss-stories?action=rename', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, name: next.trim() }),
         });
         if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.message || 'rename failed'); return; }
@@ -8149,7 +8149,7 @@
       async function duplicateStory(id) {
         const res = await fetch('/api/qss-stories?action=duplicate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id }),
         });
         if (!res.ok) { alert('Duplicate failed'); return; }
@@ -8160,7 +8160,7 @@
         if (!confirm('Move this story to trash? You can restore it later.')) return;
         const res = await fetch('/api/qss-stories?action=delete', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id }),
         });
         if (!res.ok) { alert('Delete failed'); return; }
@@ -8178,7 +8178,7 @@
       async function restoreStory(id) {
         const res = await fetch('/api/qss-stories?action=restore', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id }),
         });
         if (!res.ok) { alert('Restore failed'); return; }
@@ -8190,7 +8190,7 @@
         if (!confirm('Delete this story FOREVER? This can\'t be undone.')) return;
         const res = await fetch('/api/qss-stories?action=hard-delete', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id }),
         });
         if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.message || 'Purge failed'); return; }
