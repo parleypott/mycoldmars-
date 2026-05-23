@@ -18,12 +18,13 @@
 
 import { checkAccess } from './_lib/access.js';
 
-// Node runtime (default). Was on edge runtime; the missing-await bug on
-// checkAccess below was killing every request with a 500 because the
-// async checkAccess Promise was truthy, hitting the withCors-on-Promise
-// path. Edge runtime also caps at 25s on Hobby which is too short for
-// large upsert-many batches. Node gives both correctness and time.
-export const config = { maxDuration: 30 };
+// Edge runtime. The missing-await bug on checkAccess below was killing
+// every request with a 500 because the async checkAccess Promise was
+// truthy, hitting the withCors-on-Promise path. Now fixed. We stay on
+// edge because: (a) calls go to Supabase PostgREST and complete in
+// well under 5s, (b) Edge req.url is a full URL while Node would
+// give us just a path which breaks `new URL(req.url)`.
+export const config = { runtime: 'edge' };
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
