@@ -1083,11 +1083,14 @@
         state.cards = normalized;
         writeLS();
 
-        // EMERGENCY HALT: do NOT auto-regenerate on load. Auto-draw was
-        // overwriting portraits that exist server-side but weren't being
-        // hydrated on reload. Render only. Henry must click a card's "+"
-        // (or "redraw" in detail view) to intentionally make a new image.
+        // Auto-draw on load: only for cards that have ZERO portraits. Each
+        // successful draw fires syncCard() which pushes to the qss_cast
+        // cloud table, so future reloads find them ready-made.
+        const needsFirstDraw = Object.values(state.cards).filter(c =>
+          !(Array.isArray(c.portraits) && c.portraits.length)
+        );
         render();
+        firstDrawQueue(needsFirstDraw.map(c => c.name));
       } catch (e) {
         renderGridEmpty('couldn\'t load the cast', e.message || 'try refresh');
       }
