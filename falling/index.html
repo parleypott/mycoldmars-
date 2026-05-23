@@ -25,8 +25,8 @@
   html, body { background: var(--bg); }
   body {
     font-family: var(--mono);
-    font-size: 11px;
-    line-height: 1.18;
+    font-size: 13px;
+    line-height: 1.22;
     overflow: hidden;
     height: 100vh;
     width: 100vw;
@@ -35,6 +35,33 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: geometricPrecision;
+  }
+
+  /* banana layer — flying yellow ASCII bananas across the whole page */
+  .banana {
+    position: fixed;
+    font-family: var(--mono);
+    white-space: pre;
+    line-height: 1;
+    z-index: 10;
+    pointer-events: none;
+    color: #ffd726;
+    font-weight: 700;
+    will-change: transform;
+  }
+  .banana.bright { color: #fff04d; }
+  .banana.deep   { color: #c89400; }
+  .banana.tiny   { font-size: 18px; }
+  .banana.mid    { font-size: 26px; }
+  .banana.huge   { font-size: 42px; }
+
+  @keyframes fly-right {
+    from { transform: translate3d(-30vw, 0, 0) rotate(var(--rot, 0deg)); }
+    to   { transform: translate3d(130vw, 0, 0) rotate(var(--rot, 0deg)); }
+  }
+  @keyframes fly-left {
+    from { transform: translate3d(130vw, 0, 0) rotate(var(--rot, 0deg)); }
+    to   { transform: translate3d(-30vw, 0, 0) rotate(var(--rot, 0deg)); }
   }
 
   /* THREE columns of waterfall, each scrolls at a slightly different rate
@@ -60,9 +87,9 @@
   }
 
   /* jittery stutter scroll via steps() — feels like terminal repaint */
-  .stream-a { animation: fall 90s  steps(540) infinite; }
-  .stream-b { animation: fall 75s  steps(620) infinite; }
-  .stream-c { animation: fall 110s steps(480) infinite; }
+  .stream-a { animation: fall 180s steps(540) infinite; }
+  .stream-b { animation: fall 150s steps(620) infinite; }
+  .stream-c { animation: fall 220s steps(480) infinite; }
   @keyframes fall {
     from { transform: translate3d(0, 0, 0); }
     to   { transform: translate3d(0, -900vh, 0); }
@@ -95,15 +122,15 @@
   .t-rs { color: var(--rs); }   /* radish accent */
   .t-rh { color: var(--rh); }   /* dark radish */
 
-  /* size variants — chaotic */
-  .sz-9  { font-size: 9px;  line-height: 1.05; }
-  .sz-10 { font-size: 10px; line-height: 1.1;  }
-  .sz-11 { font-size: 11px; line-height: 1.18; }
-  .sz-12 { font-size: 12px; line-height: 1.22; }
-  .sz-13 { font-size: 13px; line-height: 1.25; }
-  .sz-15 { font-size: 15px; line-height: 1.15; }
-  .sz-22 { font-size: 22px; line-height: 1.05; font-weight: 800; letter-spacing: 0.04em; }
-  .sz-34 { font-size: 34px; line-height: 1.0;  font-weight: 900; letter-spacing: -0.02em; }
+  /* size variants — chaotic, bumped up ~20% */
+  .sz-9  { font-size: 11px; line-height: 1.1;  }
+  .sz-10 { font-size: 12px; line-height: 1.15; }
+  .sz-11 { font-size: 13px; line-height: 1.22; }
+  .sz-12 { font-size: 15px; line-height: 1.25; }
+  .sz-13 { font-size: 17px; line-height: 1.25; }
+  .sz-15 { font-size: 19px; line-height: 1.18; }
+  .sz-22 { font-size: 28px; line-height: 1.05; font-weight: 800; letter-spacing: 0.04em; }
+  .sz-34 { font-size: 44px; line-height: 1.0;  font-weight: 900; letter-spacing: -0.02em; }
 
   /* the burst flash: a chunk of new rows appended at the bottom of a stream
      gets briefly slammed with .burst — pure color swap, no animation/transition */
@@ -114,6 +141,7 @@
   <div class="col"><div class="stream stream-a" id="s1"></div></div>
   <div class="col"><div class="stream stream-b" id="s2"></div></div>
   <div class="col"><div class="stream stream-c" id="s3"></div></div>
+  <div id="banana-layer"></div>
 
 <script>
 /* ============================================================
@@ -407,6 +435,75 @@ function scheduleBurst() {
 scheduleBurst();
 scheduleBurst();
 scheduleBurst();
+
+/* ============================================================
+   B A N A N A S  —  flying yellow ASCII across the page
+   ============================================================ */
+
+const BANANA_ART = [
+  // single-line bananas
+  ")",
+  "))",
+  "))))",
+  "~)",
+  "~~)",
+  "(~~",
+  "~~)~~",
+  "BANANA",
+  "BANANA!!",
+  "BANANA BANANA BANANA",
+  ")))))))))))",
+  "(~~~~~~~)",
+  "~ B A N A N A ~",
+  // tiny multi-line bananas
+  "  ___\n_/   \\__\n\\______/",
+  " __\n/  \\__\n\\____/",
+  "   ___\n  /   )___\n  \\_______/",
+  // wordy
+  "🍌",
+  "🍌🍌🍌",
+  "🍌 🍌 🍌 🍌 🍌",
+  "🍌  ───>  🍌",
+  "<───  🍌  ───>",
+];
+
+const banLayer = document.getElementById("banana-layer");
+
+function flyBanana() {
+  const art = pick(BANANA_ART);
+  const el = document.createElement("pre");
+
+  const size = pick(["tiny","tiny","tiny","mid","mid","huge"]);
+  const tone = pick(["", "bright", "deep", "bright"]);
+  el.className = "banana " + size + " " + tone;
+  el.textContent = art;
+
+  // vertical position anywhere in the viewport
+  const y = rint(2, 92);
+  el.style.top = y + "vh";
+
+  // small random rotation, locked for the flight
+  const rot = rint(-25, 25);
+  el.style.setProperty("--rot", rot + "deg");
+
+  // direction + duration (slow-ish so they read)
+  const dir = Math.random() < 0.5 ? "fly-right" : "fly-left";
+  const dur = rint(4, 10);
+  el.style.animation = `${dir} ${dur}s linear forwards`;
+
+  banLayer.appendChild(el);
+  setTimeout(() => el.remove(), (dur + 1) * 1000);
+}
+
+/* spawn bananas on a jittered cadence — multiple in the air at once */
+function scheduleBanana() {
+  const next = rint(220, 900);
+  setTimeout(() => { flyBanana(); scheduleBanana(); }, next);
+}
+scheduleBanana();
+scheduleBanana();
+scheduleBanana();
+scheduleBanana();
 </script>
 </body>
 </html>
