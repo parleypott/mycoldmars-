@@ -1083,17 +1083,11 @@
         state.cards = normalized;
         writeLS();
 
-        // Characters that have ZERO portraits OR previously errored without
-        // ever succeeding get a fresh attempt. Anything with at least one
-        // saved drawing stays as-is.
-        const needsFirstDraw = Object.values(state.cards).filter(c =>
-          !(Array.isArray(c.portraits) && c.portraits.length)
-        );
+        // EMERGENCY HALT: do NOT auto-regenerate on load. Auto-draw was
+        // overwriting portraits that exist server-side but weren't being
+        // hydrated on reload. Render only. Henry must click a card's "+"
+        // (or "redraw" in detail view) to intentionally make a new image.
         render();
-        // Serialize first-draws — Gemini image-gen times out under load when
-        // hit with too many parallel calls. One at a time, paced by the
-        // built-in retry-with-backoff in generatePortrait().
-        firstDrawQueue(needsFirstDraw.map(c => c.name));
       } catch (e) {
         renderGridEmpty('couldn\'t load the cast', e.message || 'try refresh');
       }
