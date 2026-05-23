@@ -81,6 +81,39 @@
       letter-spacing: -0.02em;
     }
     .page-title em { color: var(--yolk); font-style: normal; font-weight: 600; }
+    /* ─── SAVE ALL button + status ─── */
+    .page-head-actions {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .btn-save {
+      font-family: var(--ui); font-weight: 800; font-size: 15px;
+      padding: 12px 22px;
+      background: #d23f3f; color: #fff;
+      border: 3px solid #1f1f23; border-radius: 14px;
+      box-shadow: 4px 4px 0 #1f1f23;
+      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 8px;
+      letter-spacing: 0.02em;
+      transition: transform 80ms, box-shadow 80ms, background 120ms;
+    }
+    .btn-save:hover { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 #1f1f23; background: #e04848; }
+    .btn-save:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #1f1f23; }
+    .btn-save:disabled { opacity: 0.65; cursor: progress; }
+    .btn-save .bs-ico { font-size: 17px; }
+    .save-status {
+      font-family: var(--ui); font-size: 13px; font-weight: 600;
+      color: var(--paper); opacity: 0.85;
+      padding: 6px 12px;
+      background: rgba(255,255,255,0.06);
+      border: 1.5px dashed rgba(255,255,255,0.18);
+      border-radius: 10px;
+      min-height: 28px;
+      display: inline-flex; align-items: center;
+    }
+    .save-status:empty { display: none; }
+    .save-status.ok { background: rgba(72,200,120,0.18); border-color: rgba(72,200,120,0.5); color: #b6f3cf; border-style: solid; }
+    .save-status.err { background: rgba(210,63,63,0.22); border-color: rgba(210,63,63,0.55); color: #ffd8d8; border-style: solid; }
+    .save-status.busy { color: var(--paper); }
     .story-chip {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 6px 14px;
@@ -607,6 +640,12 @@
       <section id="grid-view" class="grid-view">
         <div class="page-head">
           <div class="page-title">the <em>cast</em></div>
+          <div class="page-head-actions">
+            <button id="btn-force-save" class="btn-save" type="button" title="Save every portrait to the cloud and to this device's storage. Use this if pictures aren't sticking.">
+              <span class="bs-ico">💾</span><span class="bs-label">save all</span>
+            </button>
+            <span id="save-status" class="save-status" aria-live="polite"></span>
+          </div>
         </div>
         <div id="cast-grid" class="cast-grid">
           <div class="empty"><strong>shuffling the deck…</strong>loading characters from the story.</div>
@@ -1389,6 +1428,37 @@
       } catch {}
     }
 
+    // Manual SAVE button — when Henry hits "save all", we exhaustively
+    // persist everything: every portrait blob to IDB synchronously,
+    // every card to the cloud, and update the LS thin index. Returns a
+    // summary { cards, portraits, cloud } for the status pill.
+    async function saveAll() {
+      const cards = Object.values(state.cards).filter(c => c?.name);
+      let portraitCount = 0;
+      // 1) Write every portrait blob to IDB (await — block on completion)
+      const writes = [];
+      for (const c of cards) {
+        if (!Array.isArray(c.portraits)) continue;
+        for (const p of c.portraits) {
+          if (p?.id && p.dataBase64) {
+            writes.push(castIdb.put(p));
+            portraitCount++;
+          }
+        }
+      }
+      try { await Promise.all(writes); } catch (e) { console.warn('[saveAll] idb', e); }
+      // 2) Write thin LS index
+      try { writeLS(); } catch (e) { console.warn('[saveAll] writeLS', e); }
+      // 3) Push every card to cloud (queue + flush)
+      let cloudOk = false;
+      try {
+        for (const c of cards) pushToCloud(c);
+        await flushCloudPush();
+        cloudOk = true;
+      } catch (e) { console.warn('[saveAll] cloud push', e); }
+      return { cards: cards.length, portraits: portraitCount, cloud: cloudOk };
+    }
+
     // Convenience: write the global LS blob AND queue an upsert to the
     // cloud for the named character. Pass null to push all cards.
     function syncCard(name) {
@@ -1467,6 +1537,33 @@
         try {
           const touched = await hydratePortraitsFromIdb(state.cards);
           if (touched) render();
+          // Wait for the cloud sync to also have its say (it might pull
+          // newer portraits than what's locally cached). Then check for
+          // orphans: cards with portraits[] entries that have NO
+          // dataBase64 anywhere (LS stripped, IDB empty, cloud absent).
+          // These would stick on "drawing the portrait…" forever
+          // because firstDrawQueue skips any card with portraits.length>0.
+          // Fix: drop the orphan metadata and let the auto-draw queue
+          // pick them up.
+          try { await pullFromCloud(); } catch {}
+          const orphanNames = [];
+          for (const c of Object.values(state.cards)) {
+            if (!Array.isArray(c?.portraits) || !c.portraits.length) continue;
+            const hasAny = c.portraits.some(p => p?.dataBase64);
+            if (!hasAny) {
+              c.portraits = [];
+              c.primary_portrait_id = null;
+              c.status = 'loading';
+              orphanNames.push(c.name);
+            }
+          }
+          if (orphanNames.length) {
+            console.warn('[cast recovery] orphan portrait metadata cleared for', orphanNames);
+            writeLS();
+            render();
+            try { toast(`re-drawing ${orphanNames.length} character${orphanNames.length === 1 ? '' : 's'} — old pictures got stuck`, 'info', 3500); } catch {}
+            firstDrawQueue(orphanNames).catch(() => {});
+          }
         } catch (e) { console.warn('[idb] hydrate on init failed', e); }
       })();
       // Fire-and-forget cloud sync. If migration 018 isn't applied yet,
@@ -2006,6 +2103,33 @@
         const card = e.target.closest('.ccard'); if (!card) return;
         openCard(card.dataset.name);
       });
+
+      // "save all" button — force every portrait into IDB + cloud, update
+      // the status pill with what got persisted.
+      const saveBtn = document.getElementById('btn-force-save');
+      const saveStatus = document.getElementById('save-status');
+      if (saveBtn && saveStatus) {
+        saveBtn.addEventListener('click', async () => {
+          saveBtn.disabled = true;
+          saveStatus.className = 'save-status busy';
+          saveStatus.textContent = 'saving…';
+          try {
+            const r = await saveAll();
+            saveStatus.className = 'save-status ok';
+            saveStatus.textContent = r.cloud
+              ? `saved ${r.cards} character${r.cards === 1 ? '' : 's'} · ${r.portraits} picture${r.portraits === 1 ? '' : 's'} · cloud ✓`
+              : `saved ${r.cards} on this device — cloud try again in a moment`;
+            // Fade the pill out after 6s so it's not a permanent label
+            setTimeout(() => { if (saveStatus.textContent.startsWith('saved')) saveStatus.textContent = ''; }, 6000);
+          } catch (e) {
+            saveStatus.className = 'save-status err';
+            saveStatus.textContent = 'save failed — open console for details';
+            console.error('[saveAll]', e);
+          } finally {
+            saveBtn.disabled = false;
+          }
+        });
+      }
 
       // Detail back/delete
       document.getElementById('detail-back').addEventListener('click', backToGrid);
