@@ -25,10 +25,12 @@
 import { checkAccess as sharedCheckAccess } from './_lib/access.js';
 import { canonForName, canonContextBlock } from './_lib/qss-canon.js';
 
-// Gemini image-gen reliably takes 20-40s when the model's busy, and Vercel
-// Edge defaults to a 25s function timeout. Bumping to 60s so we don't race
-// the timeout on cold-cache draws.
-export const config = { runtime: 'edge', maxDuration: 60 };
+// Gemini image-gen reliably takes 5-15s but can spike to 30-50s when the
+// model's busy. Edge runtime + Hobby plan IGNORES maxDuration and hard-caps
+// at 25s, which was killing ~1-in-5 portraits. Switched to Node (default
+// when runtime omitted) so maxDuration actually applies. 60s gives us
+// enough budget for ONE attempt + ONE retry inside the function.
+export const config = { maxDuration: 60 };
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -400,33 +402,55 @@ async function callNanoBanana(apiKey, prompt, refImage = null, lovedRefs = []) {
     generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
   };
 
-  // SINGLE attempt server-side. We can't safely retry inside Vercel's 25s
-  // Edge cap (Hobby plan) — if attempt 1 takes 15s and fails, attempt 2
-  // races the cap. Instead we make ONE clean call and let the CLIENT
-  // retry the whole endpoint with backoff (it has its own 3-attempt loop
-  // in generatePortrait()).
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const t = await res.text().catch(() => '');
-    throw new Error(`gemini ${res.status}: ${t.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  const candidates = data?.candidates || [];
-  for (const c of candidates) {
-    for (const p of (c?.content?.parts || [])) {
-      if (p.inlineData?.data) {
-        return {
-          mime: p.inlineData.mimeType || 'image/png',
-          dataBase64: p.inlineData.data,
-        };
+  // Two-attempt server-side retry. We now run on Node runtime with
+  // maxDuration: 60s, so we have budget for one retry on a transient
+  // upstream failure (504, 503, or empty response). Each Gemini attempt
+  // typically resolves in 5-15s; even two back-to-back attempts stay
+  // comfortably under 60s. The client still has its own 3-retry loop
+  // around the whole endpoint for genuinely catastrophic failures.
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(45_000),
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        lastErr = new Error(`gemini ${res.status}: ${t.slice(0, 200)}`);
+        if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
+          throw lastErr; // hard 4xx — don't retry
+        }
+        if (attempt < 2) { await new Promise(r => setTimeout(r, 1200)); continue; }
+        throw lastErr;
       }
+      const data = await res.json();
+      const candidates = data?.candidates || [];
+      for (const c of candidates) {
+        for (const p of (c?.content?.parts || [])) {
+          if (p.inlineData?.data) {
+            return {
+              mime: p.inlineData.mimeType || 'image/png',
+              dataBase64: p.inlineData.data,
+            };
+          }
+        }
+      }
+      lastErr = new Error('no image returned');
+      if (attempt < 2) { await new Promise(r => setTimeout(r, 1000)); continue; }
+      throw lastErr;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < 2 && !/gemini 4\d\d/.test(String(err))) {
+        await new Promise(r => setTimeout(r, 1200));
+        continue;
+      }
+      throw err;
     }
   }
-  throw new Error('no image returned');
+  throw lastErr || new Error('gemini call exhausted retries');
 }
 
 // access guard — delegates to the shared perimeter check at the top

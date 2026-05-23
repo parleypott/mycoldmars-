@@ -1,13 +1,18 @@
 import { checkAccess } from './_lib/access.js';
 
-// Edge runtime — calls ElevenLabs's WITH-TIMESTAMPS endpoint and returns
+// Node runtime — calls ElevenLabs's WITH-TIMESTAMPS endpoint and returns
 // audio + character/word timing data the client uses for karaoke-style
 // word-by-word highlighting as the audio plays.
+//
+// Was on edge runtime previously but Hobby plan ignores maxDuration on edge
+// and caps at 25s — ElevenLabs with-timestamps for longer text was timing out
+// (the touch-base card concatenates 600-1200 chars which takes ~3-8s).
+// Node lets maxDuration: 60 actually apply.
 //
 // Trade-off: this can't stream the audio chunked the way qss-tts.js does
 // because we need the full alignment payload up front. Henry tolerates the
 // extra ~1-2s startup lag in exchange for the read-along.
-export const config = { runtime: 'edge', maxDuration: 60 };
+export const config = { maxDuration: 60 };
 
 const VOICES = {
   matilda:   'XrExE9yKIg1WjnnlVkGX',   // warm, gentle storyteller (default)

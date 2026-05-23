@@ -22,7 +22,10 @@
 
 import { checkAccess as sharedCheckAccess } from './_lib/access.js';
 
-export const config = { runtime: 'edge', maxDuration: 45 };
+// Node runtime (default). Was on edge with maxDuration: 45 but edge IGNORES
+// maxDuration on Hobby and caps at 25s — Sonnet calls were timing out.
+// Node lets maxDuration actually apply.
+export const config = { maxDuration: 60 };
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
