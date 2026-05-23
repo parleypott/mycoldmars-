@@ -446,15 +446,51 @@ body[data-world="burgundy"] textarea::placeholder {
 }
 
 /* ─── Hide QSS sticker decorations + the red dragon mascot ───────────── */
+/* .scrap is the library page's per-image sticker wrapper. The .scrap-deck
+ * variants (s-fierce/s-school/s-bunker/s-chill/s-benny/s-bolt) are all
+ * children OF .scrap, so the parent selector catches them. The QSS main
+ * page's floating sticker decor uses .decor / .deck-decor / .qss-decor.
+ * Sticker-* / data-decor / floating-stickers cover any future world that
+ * adopts its own sticker pattern. */
 body[data-world="burgundy"] .decor,
 body[data-world="burgundy"] .deck-decor,
 body[data-world="burgundy"] .qss-decor,
 body[data-world="burgundy"] .floating-stickers,
 body[data-world="burgundy"] .sticker-deck,
+body[data-world="burgundy"] .scrap,
 body[data-world="burgundy"] [class*="sticker-"],
 body[data-world="burgundy"] [data-decor] {
   display: none !important;
 }
+
+/* Story-card covers — QSS uses /decor/dragon-fierce.jpg etc. for the
+ * thumbnail. Under Burgundy these are wrong (Kevin / Benny / school).
+ * Hide the cover image, replace with a Burgundy painterly tile via
+ * background-image. The decorFor() rotation that picks DECOR images is
+ * QSS-only; cleaner to override on the CSS layer than rewire the JS.
+ *
+ * Hide the embedded QSS image, then paint a Burgundy background based on
+ * card position (cheap pseudo-randomness). */
+body[data-world="burgundy"] .story-card .cover img,
+body[data-world="burgundy"] .story-card .cover.deco img {
+  display: none !important;
+}
+body[data-world="burgundy"] .story-card .cover,
+body[data-world="burgundy"] .story-card .cover.deco {
+  background-color: var(--paper-deep);
+  background-size: cover;
+  background-position: center;
+  padding: 0;
+  border: 1px solid rgba(232, 162, 72, 0.18);
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5);
+}
+/* Rotate through six Burgundy painterly thumbnails by card position */
+body[data-world="burgundy"] .story-card:nth-of-type(6n+1) .cover { background-image: url('/queen-scarlet-school/worlds/burgundy/palace-exterior.jpg'); }
+body[data-world="burgundy"] .story-card:nth-of-type(6n+2) .cover { background-image: url('/queen-scarlet-school/worlds/burgundy/mining-rico.jpg'); }
+body[data-world="burgundy"] .story-card:nth-of-type(6n+3) .cover { background-image: url('/queen-scarlet-school/worlds/burgundy/peasant-miners.jpg'); }
+body[data-world="burgundy"] .story-card:nth-of-type(6n+4) .cover { background-image: url('/queen-scarlet-school/worlds/burgundy/msdos-terminal-closeup.jpg'); }
+body[data-world="burgundy"] .story-card:nth-of-type(6n+5) .cover { background-image: url('/queen-scarlet-school/worlds/burgundy/throne-room-siege.jpg'); }
+body[data-world="burgundy"] .story-card:nth-of-type(6n+6) .cover { background-image: url('/queen-scarlet-school/worlds/burgundy/smuggler-ship.jpg'); }
 /* Wordy SVG vanishes — RICO_MK1 takes its place via worlds.js injection */
 body[data-world="burgundy"] .dragon > svg {
   display: none !important;

@@ -268,13 +268,26 @@ Henry can fill in: the Queen's name, the planet's official name (if different fr
       try {
         const url = typeof input === 'string' ? input : (input?.url || '');
         const method = (init?.method || (typeof input !== 'string' ? input?.method : 'GET') || 'GET').toUpperCase();
-        // Only inject on POSTs to /api/qss-* endpoints with a JSON body.
-        if (method === 'POST' && /\/api\/qss-/.test(url) && init?.body && typeof init.body === 'string') {
-          let body;
-          try { body = JSON.parse(init.body); } catch { body = null; }
-          if (body && typeof body === 'object' && !('world' in body) && !('world_slug' in body)) {
-            body.world = getActive();
-            init = { ...init, body: JSON.stringify(body) };
+        const isQssApi = /\/api\/qss-/.test(url);
+        if (isQssApi) {
+          // POSTs: inject body.world if missing (server reads body.world / body.world_slug).
+          if (method === 'POST' && init?.body && typeof init.body === 'string') {
+            let body;
+            try { body = JSON.parse(init.body); } catch { body = null; }
+            if (body && typeof body === 'object' && !('world' in body) && !('world_slug' in body)) {
+              body.world = getActive();
+              init = { ...init, body: JSON.stringify(body) };
+            }
+          }
+          // GETs: append ?world=<slug> if missing (server reads URL param).
+          // Reconstruct input as a string with the param added so it
+          // works whether input was a string or a Request.
+          if (method === 'GET') {
+            const urlStr = typeof input === 'string' ? input : input.url;
+            if (urlStr && !/[?&]world(_slug)?=/.test(urlStr)) {
+              const sep = urlStr.includes('?') ? '&' : '?';
+              input = urlStr + sep + 'world=' + encodeURIComponent(getActive());
+            }
           }
         }
       } catch {}

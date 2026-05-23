@@ -55,14 +55,19 @@ export default async function handler(req) {
 
   const url = new URL(req.url);
   const action = url.searchParams.get('action');
+  // World isolation — cast characters live per-world. Pre-migration legacy
+  // rows have world_slug NULL and are treated as queen-scarlet so existing
+  // data survives.
+  const world = sanitizeWorldSlug(url.searchParams.get('world') || url.searchParams.get('world_slug'));
 
   try {
-    if (req.method === 'GET') return await handleList();
+    if (req.method === 'GET') return await handleList(world);
     if (req.method === 'POST') {
       const body = await req.json().catch(() => ({}));
-      if (action === 'upsert')      return await handleUpsert(body);
-      if (action === 'upsert-many') return await handleUpsertMany(body);
-      if (action === 'delete')      return await handleDelete(body);
+      const bodyWorld = sanitizeWorldSlug(body?.world_slug || body?.world || world);
+      if (action === 'upsert')      return await handleUpsert(body, bodyWorld);
+      if (action === 'upsert-many') return await handleUpsertMany(body, bodyWorld);
+      if (action === 'delete')      return await handleDelete(body, bodyWorld);
       return jsonError(400, 'BAD_ACTION', `Unknown action: ${action}`);
     }
     return new Response('Method not allowed', { status: 405, headers: CORS });
@@ -79,40 +84,67 @@ export default async function handler(req) {
 
 // ────────────────────── handlers ──────────────────────
 
-async function handleList() {
-  const rows = await sb('GET', `qss_cast?select=${SELECT_COLS}&order=updated_at.desc&limit=500`);
+async function handleList(world) {
+  // World filter: queen-scarlet (default) sees its own rows AND legacy
+  // NULL rows; other worlds see ONLY their own rows.
+  const worldFilter = world === 'queen-scarlet'
+    ? `or=(world_slug.eq.queen-scarlet,world_slug.is.null)`
+    : `world_slug=eq.${encodeURIComponent(world)}`;
+  let rows;
+  try {
+    rows = await sb('GET', `qss_cast?select=${SELECT_COLS},world_slug&${worldFilter}&order=updated_at.desc&limit=500`);
+  } catch (e) {
+    // If migration 021 isn't applied yet, world_slug doesn't exist —
+    // fall back to unfiltered list (acceptable: pre-migration we only
+    // had QSS anyway).
+    if (/world_slug/i.test(e?.message || '') && /column.*does not exist|schema cache/i.test(e?.message || '')) {
+      rows = await sb('GET', `qss_cast?select=${SELECT_COLS}&order=updated_at.desc&limit=500`);
+    } else {
+      throw e;
+    }
+  }
   const characters = (rows || []).map(r => rowToCard(r));
   return jsonOk({ characters });
 }
 
-async function handleUpsert(body) {
+async function handleUpsert(body, world) {
   const card = sanitizeCard(body?.card);
   if (!card) return jsonError(400, 'BAD_CARD', 'card with name required');
   const row = cardToRow(card);
-  await sb('POST', `qss_cast?on_conflict=name_key&select=${SELECT_COLS}`, row, {
+  row.world_slug = world;
+  await sb('POST', `qss_cast?on_conflict=name_key,world_slug&select=${SELECT_COLS}`, row, {
     returnRepresentation: true,
     prefer: 'resolution=merge-duplicates',
   });
   return jsonOk({ ok: true });
 }
 
-async function handleUpsertMany(body) {
+async function handleUpsertMany(body, world) {
   const cards = Array.isArray(body?.cards) ? body.cards : [];
   if (!cards.length) return jsonOk({ ok: true, upserted: 0 });
   const rows = cards.map(sanitizeCard).filter(Boolean).map(cardToRow);
   if (!rows.length) return jsonOk({ ok: true, upserted: 0 });
-  await sb('POST', `qss_cast?on_conflict=name_key`, rows, {
+  for (const r of rows) r.world_slug = world;
+  await sb('POST', `qss_cast?on_conflict=name_key,world_slug`, rows, {
     prefer: 'resolution=merge-duplicates,return=minimal',
   });
   return jsonOk({ ok: true, upserted: rows.length });
 }
 
-async function handleDelete(body) {
+async function handleDelete(body, world) {
   const name = String(body?.name || '').trim();
   if (!name) return jsonError(400, 'BAD_NAME', 'name required');
   const key = name.toLowerCase();
-  await sb('DELETE', `qss_cast?name_key=eq.${encodeURIComponent(key)}`);
+  // Scope delete to this world so deleting Burgundy's "Kevin" doesn't
+  // nuke QSS's "Kevin".
+  await sb('DELETE', `qss_cast?name_key=eq.${encodeURIComponent(key)}&world_slug=eq.${encodeURIComponent(world)}`);
   return jsonOk({ ok: true });
+}
+
+function sanitizeWorldSlug(raw) {
+  const slug = String(raw || '').trim().toLowerCase();
+  if (slug === 'burgundy') return 'burgundy';
+  return 'queen-scarlet';
 }
 
 // ────────────────────── sanitize / row mapping ──────────────────────

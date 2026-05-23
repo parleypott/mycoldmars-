@@ -141,25 +141,33 @@ export default async function handler(req) {
 
 async function handleList(url) {
   const includeTrash = url.searchParams.get('trash') === '1';
-  // List view — DON'T include big payloads (blocks, chat) so the library
-  // loads instantly even with many stories. Client pulls the full story
-  // via ?action=get when one is opened.
-  const cols = 'id,name,deleted_at,created_at,updated_at,cover_image';
+  // World isolation — each world's library is independent. Default world
+  // (queen-scarlet) sees legacy NULL-world rows; other worlds only see
+  // their own rows. The client's fetch wrapper appends ?world=<slug> for
+  // every GET, so we don't need to default here.
+  const world = (url.searchParams.get('world') || url.searchParams.get('world_slug') || 'queen-scarlet').toLowerCase();
+  const cols = 'id,name,deleted_at,created_at,updated_at,cover_image,world_slug';
   const filter = includeTrash ? 'deleted_at=not.is.null' : 'deleted_at=is.null';
-  // Library list MUST stay small — multi-MB blocks payload per story
-  // makes the library hang on slow networks. Block count is computed
-  // server-side via PostgREST's jsonb_array_length expression so we
-  // ship a single int instead of the full blocks array.
+  // World filter: queen-scarlet sees its own rows AND legacy NULL rows
+  // (everything pre-migration was QSS-only). Other worlds see only their
+  // own rows — never legacy NULL leakage.
+  const worldFilter = world === 'queen-scarlet'
+    ? `or=(world_slug.eq.queen-scarlet,world_slug.is.null)`
+    : `world_slug=eq.${encodeURIComponent(world)}`;
   const params = new URLSearchParams({
     select: cols + ',block_count:blocks->jsonb_array_length',
     [filter.split('=')[0]]: filter.split('=').slice(1).join('='),
     order: 'updated_at.desc',
     limit: '500',
   });
+  // PostgREST `or` is a top-level param, not key=value via URLSearchParams.
+  const queryStr = params.toString() + (world === 'queen-scarlet'
+    ? `&${worldFilter}`
+    : `&${worldFilter}`);
 
   let data;
   try {
-    data = await sb('GET', `qss_stories?${params}`);
+    data = await sb('GET', `qss_stories?${queryStr}`);
   } catch (e) {
     // If the computed-column syntax isn't supported on this PostgREST
     // version, fall back to the small-cols-only query and report 0
@@ -167,6 +175,17 @@ async function handleList(url) {
     if (/jsonb_array_length|invalid select|function jsonb_array_length/i.test(e?.message || '')) {
       const fallback = new URLSearchParams({
         select: cols,
+        [filter.split('=')[0]]: filter.split('=').slice(1).join('='),
+        order: 'updated_at.desc',
+        limit: '500',
+      });
+      const fbQs = fallback.toString() + `&${worldFilter}`;
+      data = await sb('GET', `qss_stories?${fbQs}`);
+    } else if (/world_slug/i.test(e?.message || '') && /column.*does not exist|schema cache/i.test(e?.message || '')) {
+      // Migration 021 not applied yet — fall back to listing everything,
+      // labeled as queen-scarlet. Better than 500-ing the whole library.
+      const fallback = new URLSearchParams({
+        select: 'id,name,deleted_at,created_at,updated_at,cover_image,block_count:blocks->jsonb_array_length',
         [filter.split('=')[0]]: filter.split('=').slice(1).join('='),
         order: 'updated_at.desc',
         limit: '500',
@@ -184,6 +203,7 @@ async function handleList(url) {
     updated_at: r.updated_at,
     cover_image: r.cover_image || null,
     block_count: Number(r.block_count) || 0,
+    world_slug: r.world_slug || 'queen-scarlet',
   }));
   return jsonOk({ stories });
 }
@@ -200,6 +220,8 @@ async function handleSave(body) {
   const name = (body.name || '').toString().trim();
   if (!name) return jsonError(400, 'BAD_REQUEST', 'name is required');
 
+  const worldSlug = sanitizeWorldSlug(body.world_slug || body.world);
+
   const payload = {
     name,
     bible: typeof body.bible === 'string' ? body.bible : undefined,
@@ -211,6 +233,7 @@ async function handleSave(body) {
     character_cards: Array.isArray(body.character_cards) ? sanitizeCharacterCards(body.character_cards) : undefined,
     freestyle_chat:   Array.isArray(body.freestyle_chat)   ? sanitizeFreestyleChat(body.freestyle_chat)     : undefined,
     freestyle_themes: Array.isArray(body.freestyle_themes) ? sanitizeFreestyleThemes(body.freestyle_themes) : undefined,
+    world_slug: worldSlug,
   };
   // Drop undefineds so we send a partial update.
   for (const k of Object.keys(payload)) if (payload[k] === undefined) delete payload[k];
@@ -234,6 +257,14 @@ async function handleSave(body) {
   // INSERT (new story).
   const rows = await sb('POST', `qss_stories?select=${SELECT_COLS}`, payload, { returnRepresentation: true });
   return jsonOk({ story: rows[0] });
+}
+
+// Whitelist active world slugs — anything else falls back to queen-scarlet
+// (the default) so a malformed client can't poison the world_slug column.
+function sanitizeWorldSlug(raw) {
+  const slug = String(raw || '').trim().toLowerCase();
+  if (slug === 'burgundy') return 'burgundy';
+  return 'queen-scarlet';
 }
 
 async function handleRename(body) {
@@ -269,6 +300,7 @@ async function handleDuplicate(body) {
       chat: src.chat || [],
       suggestions: src.suggestions || [],
       cover_image: src.cover_image || null,
+      world_slug: sanitizeWorldSlug(src.world_slug),
     };
     try {
       const rows = await sb('POST', `qss_stories?select=${SELECT_COLS}`, payload, { returnRepresentation: true });
