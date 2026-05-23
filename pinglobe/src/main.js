@@ -6,6 +6,23 @@ import { Game } from './game.js';
 import { initThemes } from './theme.js';
 import './style.css';
 
+// ─── On-screen error overlay (so failures don't hide in devtools) ───
+(function installErrorOverlay() {
+  const show = (msg) => {
+    let box = document.getElementById('__err_box');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = '__err_box';
+      box.style.cssText = 'position:fixed;left:12px;bottom:12px;max-width:520px;z-index:99999;background:#111;color:#ff8c5a;font:12px/1.4 ui-monospace,monospace;padding:10px 12px;border:1px solid #ff5a1f;border-radius:6px;white-space:pre-wrap;word-break:break-word;box-shadow:0 8px 24px rgba(0,0,0,.4)';
+      box.addEventListener('click', () => box.remove());
+      document.body.appendChild(box);
+    }
+    box.textContent = String(msg).slice(0, 800) + '\n\n(tap to dismiss)';
+  };
+  window.addEventListener('error', (e) => show('JS ERROR: ' + (e.error?.stack || e.message)));
+  window.addEventListener('unhandledrejection', (e) => show('PROMISE: ' + (e.reason?.stack || e.reason)));
+})();
+
 // ─── Country GeoJSON for coastlines ───
 
 const countriesGeo = topojson.feature(worldTopo, worldTopo.objects.countries);
@@ -184,19 +201,42 @@ const mapStyle = {
 
 // ─── Create Map ───
 
-const map = new mapboxgl.Map({
-  container: 'map',
-  style: mapStyle,
-  projection: 'globe',
-  center: [20, 20],
-  zoom: 3,
-  maxPitch: 0,
-  attributionControl: true,
-});
+let map;
+try {
+  map = new mapboxgl.Map({
+    container: 'map',
+    style: mapStyle,
+    projection: 'globe',
+    center: [20, 20],
+    zoom: 3,
+    maxPitch: 0,
+    attributionControl: true,
+  });
 
-// Disable rotation (keep it globe-like)
-map.dragRotate.disable();
-map.touchZoomRotate.disableRotation();
+  // Disable rotation (keep it globe-like)
+  map.dragRotate.disable();
+  map.touchZoomRotate.disableRotation();
+
+  map.on('error', (e) => {
+    const msg = e?.error?.message || e?.message || String(e);
+    const box = document.getElementById('__err_box') || (() => {
+      const b = document.createElement('div');
+      b.id = '__err_box';
+      b.style.cssText = 'position:fixed;left:12px;bottom:12px;max-width:520px;z-index:99999;background:#111;color:#ff8c5a;font:12px/1.4 ui-monospace,monospace;padding:10px 12px;border:1px solid #ff5a1f;border-radius:6px;white-space:pre-wrap;word-break:break-word';
+      b.addEventListener('click', () => b.remove());
+      document.body.appendChild(b);
+      return b;
+    })();
+    box.textContent = 'MAPBOX: ' + msg + '\n\n(tap to dismiss)';
+  });
+} catch (err) {
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;left:12px;bottom:12px;max-width:520px;z-index:99999;background:#111;color:#ff8c5a;font:12px/1.4 ui-monospace,monospace;padding:10px 12px;border:1px solid #ff5a1f;border-radius:6px;white-space:pre-wrap;word-break:break-word';
+  box.textContent = 'MAP INIT FAILED: ' + (err?.stack || err?.message || err);
+  document.body.appendChild(box);
+  // Stub map so rest of file doesn't crash on map.* calls
+  map = { on: () => {}, easeTo: () => {}, getCenter: () => ({ lng: 0, lat: 0 }), setCenter: () => {}, project: () => ({ x: 0, y: 0 }), unproject: () => ({ lng: 0, lat: 0 }), setFog: () => {}, dragRotate: { disable: () => {} }, touchZoomRotate: { disableRotation: () => {} } };
+}
 
 // ─── Auto-Spin Globe (Intro) ───
 
