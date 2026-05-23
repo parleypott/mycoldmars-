@@ -4953,6 +4953,9 @@
       state.arcContext = data?.arc_context || null;
       window.Arc?.loadFromLocal(name);
       renderArcChip();
+      // Backfill missing block summaries for existing stories. New stories
+      // get summaries inline; old stories need a one-shot catch-up.
+      window.Summaries?.schedule();
       // Freestyle convo + captured themes are part of local persistence too.
       state.freestyleChat = Array.isArray(data?.freestyleChat) ? data.freestyleChat : [];
       state.freestyleThemes = Array.isArray(data?.freestyleThemes) ? data.freestyleThemes : [];
@@ -5088,6 +5091,7 @@
       opt.added = true;
       opt.blockId = blockId;
       window.Arc?.scheduleRefresh();
+      window.Summaries?.schedule();
       state.chat.push({ id: uid(), role: 'kid', content: `i picked: "${opt.text.slice(0, 80)}${opt.text.length > 80 ? '…' : ''}"`, kind: 'pick' });
       observe('block_added', {
         text: opt.text,
@@ -5179,6 +5183,7 @@
       state.blocks.push({ id: uid(), text: t, custom: true });
       observe('own_block_added', { text: t, block_index: state.blocks.length - 1 });
       window.Arc?.scheduleRefresh();
+      window.Summaries?.schedule();
       persist();
       renderAll();
     }
@@ -6425,7 +6430,11 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             story_name: state.name || 'this story',
-            blocks: state.blocks.map(b => ({ id: b.id, text: b.text })),
+            // Pass the block summary alongside the full text. Touch-base
+            // server uses summaries as the SPINE (what happens, in order)
+            // and the full text only as detail. This is the arc Henry has
+            // actually built in the story panel.
+            blocks: state.blocks.map(b => ({ id: b.id, text: b.text, summary: b.summary || '' })),
             rules: state.rules || {},
             arcContext: state.arcContext || null,
             character_cards: window.qssCast?.getCardsForContext?.() || [],
@@ -7144,6 +7153,71 @@
       }
 
       return { scheduleRefresh, refresh, cancel, subscribe, loadFromLocal };
+    })();
+
+    // ─────────── Block summaries ───────────
+    // The story panel shows numbered bricks. Without real summaries each
+    // brick prints its block's first sentence — that reads as scatterbrained.
+    // This module fires a single batched call to /api/qss-block-summaries
+    // for every block currently missing a summary, then writes the result
+    // onto b.summary, re-renders, and persists.
+    //
+    // Triggers: after blocks change (push/edit) and on first render after
+    // load. Debounced so rapid edits don't slam the API.
+    window.Summaries = (function() {
+      const DEBOUNCE_MS = 1200;
+      let timer = null;
+      let inflight = false;
+
+      function blocksNeedingSummary() {
+        return (state.blocks || []).filter(b => !(b?.summary && b.summary.trim()) && (b?.text || '').trim());
+      }
+
+      function schedule() {
+        clearTimeout(timer);
+        timer = setTimeout(run, DEBOUNCE_MS);
+      }
+
+      async function run() {
+        if (inflight) return;
+        const need = blocksNeedingSummary();
+        if (!need.length) return;
+        inflight = true;
+        try {
+          const res = await fetch('/api/qss-block-summaries', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ blocks: need.map(b => ({ id: b.id, text: b.text })) }),
+          });
+          if (!res.ok) {
+            console.warn('[summaries] non-OK', res.status);
+            return;
+          }
+          const data = await res.json();
+          const items = Array.isArray(data.summaries) ? data.summaries : [];
+          let touched = false;
+          for (const item of items) {
+            if (!item?.id || !item.summary) continue;
+            const block = state.blocks.find(b => b.id === item.id);
+            if (block && !(block.summary && block.summary.trim())) {
+              block.summary = item.summary;
+              touched = true;
+            }
+          }
+          if (touched) {
+            persist();
+            renderStory();
+          }
+        } catch (e) {
+          console.warn('[summaries] failed', e.message);
+        } finally {
+          inflight = false;
+          // If new blocks arrived during the call, run again.
+          if (blocksNeedingSummary().length) schedule();
+        }
+      }
+
+      return { schedule, run };
     })();
 
     // ─────────── Arc inspector + progress chip rendering ───────────

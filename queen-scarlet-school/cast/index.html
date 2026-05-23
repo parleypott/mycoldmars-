@@ -972,7 +972,34 @@
         document.cookie = COOKIE + '=granted; path=/; max-age=' + (60*60*24*90);
         gateEl.classList.add('hidden'); appEl.classList.remove('hidden');
         mountWorldSwitcher();
-        setTimeout(boot, 0);  // defer past const-state TDZ
+        setTimeout(() => {
+          // Hard guard so a thrown error in boot() leaves a real message
+          // instead of the silent "shuffling the deck…" placeholder.
+          // boot() is async; catch both sync throws and the returned promise.
+          let result;
+          try { result = boot(); }
+          catch (e) { handleBootError(e); return; }
+          if (result && typeof result.catch === 'function') {
+            result.catch(handleBootError);
+          }
+          function handleBootError(e) {
+            console.error('[cast] boot failed', e);
+            const grid = document.getElementById('cast-grid');
+            if (!grid) return;
+            const msg = (e && e.message) ? String(e.message).replace(/[<>&]/g, '') : 'try refresh';
+            grid.innerHTML = `<div class="empty error"><strong>couldn't load the cast</strong>${msg}<br/><button onclick="location.reload()" style="margin-top:10px;padding:8px 14px;border:2px solid currentColor;background:transparent;color:inherit;border-radius:8px;cursor:pointer;font:inherit;">try again</button></div>`;
+          }
+          // Watchdog: if after 4s render() hasn't replaced the loading state,
+          // boot is stuck in an unhandled promise — surface a recoverable error.
+          setTimeout(() => {
+            const grid = document.getElementById('cast-grid');
+            if (!grid) return;
+            if (grid.querySelector('.empty strong')?.textContent?.includes('shuffling')) {
+              console.warn('[cast watchdog] render() never replaced loading state after 4s');
+              grid.innerHTML = `<div class="empty error"><strong>still loading…</strong>something's slow or stuck. <button onclick="location.reload()" style="margin-top:10px;padding:8px 14px;border:2px solid currentColor;background:transparent;color:inherit;border-radius:8px;cursor:pointer;font:inherit;">try again</button></div>`;
+            }
+          }, 4000);
+        }, 0);
       }
       function mountWorldSwitcher() {
         try {

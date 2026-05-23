@@ -558,7 +558,7 @@
         document.cookie = COOKIE+'=granted; path=/; max-age='+(60*60*24*90);
         gateEl.classList.add('hidden'); appEl.classList.remove('hidden');
         mountWorldSwitcher();
-        boot();
+        setTimeout(boot, 0);  // defer past const-state TDZ — HEADERS et al. are declared later in this script
       }
       function mountWorldSwitcher() {
         try {

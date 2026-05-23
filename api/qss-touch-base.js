@@ -145,10 +145,27 @@ export default async function handler(req) {
     return json(400, { error: 'No story blocks yet — write a little first, then touch base.' });
   }
   // Cap input — Henry's stories can run long; trim each block, cap total.
+  // Lead each block with its "what happens" summary if the client provided
+  // one. That summary is the SPINE Henry can see in the story panel —
+  // touch-base should ground its read on those events, then look at the
+  // full text for tone/voice/detail.
   const trimmedBlocks = blocks
-    .map((b, i) => `Block ${i + 1}: ${String(b.text || '').slice(0, 800)}`)
+    .map((b, i) => {
+      const text = String(b.text || '').slice(0, 800);
+      const summary = String(b.summary || '').trim();
+      const head = summary ? `Block ${i + 1} (what happens: ${summary})` : `Block ${i + 1}`;
+      return `${head}: ${text}`;
+    })
     .join('\n\n')
     .slice(0, 30_000);
+
+  // Build the spine-only view too — a clean list of the block summaries
+  // in order. This is what Henry sees on screen and what the touch-base
+  // metaphor should react to.
+  const spine = blocks
+    .map((b, i) => `${i + 1}. ${String(b.summary || '').trim() || '(no summary yet)'}`)
+    .join('\n')
+    .slice(0, 4_000);
 
   const arc = body.arcContext || null;
   const cards = Array.isArray(body.character_cards) ? body.character_cards.slice(0, 12) : [];
@@ -159,12 +176,16 @@ export default async function handler(req) {
     `Story: ${storyName}`,
     rules?.goal ? `What Henry says he's going for: ${String(rules.goal).slice(0, 600)}` : '',
     rules?.bible ? `World rules Henry set: ${String(rules.bible).slice(0, 1000)}` : '',
-    arc?.synopsis ? `Arc so far: ${String(arc.synopsis).slice(0, 800)}` : '',
+    arc?.synopsis ? `Arc so far (AI-extracted): ${String(arc.synopsis).slice(0, 800)}` : '',
     cards.length ? `Characters:\n${cards.map(c => `- ${c.name || ''}${c.current_state ? ' (' + String(c.current_state).slice(0, 120) + ')' : ''}`).join('\n')}` : '',
     recentChat.length ? `Recent back-and-forth (most recent last):\n${recentChat.map(t => `${t.role || '?'}: ${String(t.content || '').slice(0, 300)}`).join('\n')}` : '',
-    `\nThe story so far (in order):\n\n${trimmedBlocks}`,
+    // The SPINE comes first because it's the structure Henry sees on
+    // screen — the numbered bricks in the story panel. Anchor your read
+    // on these events, in this order.
+    `\nThe story spine — what Henry has actually built in the story panel, in order:\n${spine}`,
+    `\nThe full text of each block (use for tone/voice/detail; the spine above is the arc):\n\n${trimmedBlocks}`,
     '',
-    'Touch base with Henry. Return the JSON object only.',
+    'Touch base with Henry. Ground every observation in the actual spine above — reference specific blocks by what happens in them. Return the JSON object only.',
   ].filter(Boolean).join('\n');
 
   let res;
