@@ -825,19 +825,57 @@
       }
       try { localStorage.setItem(GLOBAL_KEY, JSON.stringify(out)); }
       catch (e) {
-        // Quota recovery: drop all-but-most-recent portrait per character.
-        try {
-          for (const c of Object.values(out)) {
-            if (Array.isArray(c.portraits) && c.portraits.length > 1) {
-              c.portraits.sort((a, b) => (b.generated_at || 0) - (a.generated_at || 0));
-              c.portraits = c.portraits.slice(0, 1);
-              if (!c.primary_portrait_id || !c.portraits.find(p => p.id === c.primary_portrait_id)) {
-                c.primary_portrait_id = c.portraits[0]?.id || null;
-              }
+        // Quota recovery: trim portrait history. CRITICAL — mutate
+        // state.cards (the in-memory source of truth), NOT just `out`.
+        // Previously this only trimmed `out` which meant next writeLS()
+        // tried the full history again and quota-failed again silently
+        // in a loop. Also: the trimmed cards must be pushed to the cloud
+        // so the cloud copy doesn't keep the full history while LS has
+        // the trimmed one (divergence). Then toast Henry so he knows
+        // older portraits got cleaned up.
+        const trimmedNames = [];
+        for (const [displayName, c] of Object.entries(state.cards)) {
+          if (!c) continue;
+          if (Array.isArray(c.portraits) && c.portraits.length > 1) {
+            // Preserve loved + primary portraits before trimming by date.
+            const loved = c.portraits.filter(p => p.loved);
+            const primary = c.portraits.find(p => p.id === c.primary_portrait_id);
+            const keepers = new Map();
+            for (const p of loved) keepers.set(p.id, p);
+            if (primary) keepers.set(primary.id, primary);
+            // If we have room for more, fill with newest.
+            const byDate = c.portraits.slice().sort((a, b) => (b.generated_at || 0) - (a.generated_at || 0));
+            for (const p of byDate) {
+              if (keepers.size >= 2) break;
+              keepers.set(p.id, p);
+            }
+            const before = c.portraits.length;
+            c.portraits = Array.from(keepers.values());
+            if (!c.primary_portrait_id || !c.portraits.find(p => p.id === c.primary_portrait_id)) {
+              c.primary_portrait_id = c.portraits[0]?.id || null;
+            }
+            if (c.portraits.length < before) {
+              trimmedNames.push(c.name || displayName);
+              out[lcKey(c.name || displayName)] = c;
             }
           }
+        }
+        try {
           localStorage.setItem(GLOBAL_KEY, JSON.stringify(out));
-        } catch {}
+          if (trimmedNames.length) {
+            // Force-push trimmed cards to cloud so cloud and LS stay aligned.
+            for (const name of trimmedNames) {
+              const card = state.cards[name];
+              if (card) { try { pushToCloud(card); } catch {} }
+            }
+            try { toast(`storage filling up — kept the loved + main pictures for ${trimmedNames.length} ${trimmedNames.length === 1 ? 'character' : 'characters'}, dropped older drafts`, 'info', 5000); } catch {}
+            console.warn('[qss-cast quota] trimmed portraits for', trimmedNames);
+          }
+        } catch (e2) {
+          // Still failing — chat history is probably the bloat now.
+          try { toast('cast storage full — try opening one character and deleting old chat messages', 'error', 6000); } catch {}
+          console.error('[qss-cast quota] still over after portrait trim', e2);
+        }
       }
     }
 

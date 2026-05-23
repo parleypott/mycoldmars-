@@ -114,6 +114,7 @@ export default async function handler(req) {
         })(),
         messages: [{ role: 'user', content: userMsg }],
       }),
+      signal: AbortSignal.timeout(25_000),
     });
   } catch (e) {
     return json(502, { error: 'anthropic_unreachable', detail: e.message });

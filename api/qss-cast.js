@@ -18,7 +18,12 @@
 
 import { checkAccess } from './_lib/access.js';
 
-export const config = { runtime: 'edge' };
+// Node runtime (default). Was on edge runtime; the missing-await bug on
+// checkAccess below was killing every request with a 500 because the
+// async checkAccess Promise was truthy, hitting the withCors-on-Promise
+// path. Edge runtime also caps at 25s on Hobby which is too short for
+// large upsert-many batches. Node gives both correctness and time.
+export const config = { maxDuration: 30 };
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
@@ -40,7 +45,7 @@ const CORS = {
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
 
-  const denied = checkAccess(req);
+  const denied = await checkAccess(req);
   if (denied) return withCors(denied);
 
   if (!SUPABASE_URL || !SUPABASE_KEY) {

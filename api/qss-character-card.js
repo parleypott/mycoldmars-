@@ -117,21 +117,29 @@ export default async function handler(req) {
   const chatHistory = Array.isArray(body.chat) ? body.chat.slice(-12) : [];
   const newMessage = String(body.new_message || '').trim();
   const existingSynopsis = String(body.existing_synopsis || '').trim();
-  const refPortrait = (body.primary_portrait && body.primary_portrait.dataBase64)
-    ? { mimeType: String(body.primary_portrait.mimeType || 'image/png'), dataBase64: String(body.primary_portrait.dataBase64) }
-    : null;
-  // Loved portraits — Henry ♥'d these to mark them as "this is the
-  // style I want, make more like this." Validate shape, cap at 3, cap
-  // each base64 size, restrict mime to image/*.
+  // Validate reference images. SAME guards for primary_portrait AND
+  // referenceImages: shape check, no URL fields (SSRF guard), base64 size
+  // cap, mime allowlist. Previously primary_portrait bypassed all of
+  // these — a client could ship arbitrary mimeType and unbounded base64.
   const MAX_REF_BYTES = 6 * 1024 * 1024;
+  const MIME_ALLOWLIST = /^image\/(png|jpe?g|webp|gif)$/i;
+  function safeRef(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    if (raw.url || raw.uri || raw.fileUri || raw.src) return null; // SSRF guard
+    const dataBase64 = typeof raw.dataBase64 === 'string' ? raw.dataBase64 : '';
+    if (!dataBase64 || dataBase64.length > MAX_REF_BYTES * 1.4) return null;
+    const mimeType = String(raw.mimeType || raw.mime || 'image/png');
+    if (!MIME_ALLOWLIST.test(mimeType)) return null;
+    return { mimeType, dataBase64 };
+  }
+  const refPortrait = safeRef(body.primary_portrait);
+  // Loved portraits — Henry ♥'d these to mark them as "this is the
+  // style I want, make more like this." Validate shape, cap at 3.
   const loved = Array.isArray(body.referenceImages) ? body.referenceImages : [];
   const lovedRefs = loved
-    .filter(r => r && typeof r.dataBase64 === 'string' && typeof r.mimeType === 'string')
-    .filter(r => !r.url && !r.uri && !r.fileUri && !r.src) // no URL fields — SSRF guard
-    .filter(r => r.dataBase64.length <= MAX_REF_BYTES * 1.4)
-    .filter(r => /^image\/(png|jpe?g|webp|gif)$/i.test(r.mimeType))
-    .slice(-3)
-    .map(r => ({ mimeType: r.mimeType, dataBase64: r.dataBase64 }));
+    .map(safeRef)
+    .filter(Boolean)
+    .slice(-3);
 
   // Compose chat transcript for the model
   const chatTranscript = [
@@ -363,6 +371,7 @@ async function callClaude(apiKey, userMessage) {
       system: SYNOPSIS_SYSTEM,
       messages: [{ role: 'user', content: userMessage }],
     }),
+    signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) {
     const t = await res.text().catch(() => '');
@@ -415,7 +424,7 @@ async function callNanoBanana(apiKey, prompt, refImage = null, lovedRefs = []) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(45_000),
+        signal: AbortSignal.timeout(25_000),
       });
       if (!res.ok) {
         const t = await res.text().catch(() => '');

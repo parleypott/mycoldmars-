@@ -146,17 +146,36 @@ async function handleList(url) {
   // via ?action=get when one is opened.
   const cols = 'id,name,deleted_at,created_at,updated_at,cover_image';
   const filter = includeTrash ? 'deleted_at=not.is.null' : 'deleted_at=is.null';
-  // Block count via a JSON length expression — Supabase REST supports
-  // computed columns via the ?select syntax: blocks->>... Limited; use
-  // a small payload instead and let the client count if it needs to.
+  // Library list MUST stay small — multi-MB blocks payload per story
+  // makes the library hang on slow networks. Block count is computed
+  // server-side via PostgREST's jsonb_array_length expression so we
+  // ship a single int instead of the full blocks array.
   const params = new URLSearchParams({
-    select: cols + ',blocks',  // include blocks just to count length client-side
+    select: cols + ',block_count:blocks->jsonb_array_length',
     [filter.split('=')[0]]: filter.split('=').slice(1).join('='),
     order: 'updated_at.desc',
     limit: '500',
   });
 
-  const data = await sb('GET', `qss_stories?${params}`);
+  let data;
+  try {
+    data = await sb('GET', `qss_stories?${params}`);
+  } catch (e) {
+    // If the computed-column syntax isn't supported on this PostgREST
+    // version, fall back to the small-cols-only query and report 0
+    // block counts (better than 500ing the whole library).
+    if (/jsonb_array_length|invalid select|function jsonb_array_length/i.test(e?.message || '')) {
+      const fallback = new URLSearchParams({
+        select: cols,
+        [filter.split('=')[0]]: filter.split('=').slice(1).join('='),
+        order: 'updated_at.desc',
+        limit: '500',
+      });
+      data = await sb('GET', `qss_stories?${fallback}`);
+    } else {
+      throw e;
+    }
+  }
   const stories = (data || []).map(r => ({
     id: r.id,
     name: r.name,
@@ -164,7 +183,7 @@ async function handleList(url) {
     created_at: r.created_at,
     updated_at: r.updated_at,
     cover_image: r.cover_image || null,
-    block_count: Array.isArray(r.blocks) ? r.blocks.length : 0,
+    block_count: Number(r.block_count) || 0,
   }));
   return jsonOk({ stories });
 }
@@ -392,16 +411,32 @@ function sanitizeBlocks(blocks) {
 // Sanitize character cards before persisting. Each card is bounded so a
 // rogue payload can't blow past Postgres's 8 MB row limit. Drop entries
 // with no name; coerce image payload; clamp synopsis length.
+//
+// CRITICAL HISTORY: this function previously stripped portraits[],
+// visual_notes, chat, primary_portrait_id, and loved flags on every save.
+// The cast page calls /api/qss-stories?action=save with the full shape,
+// the server wrote back the stripped shape, and the main tool's
+// hydrateFromServer then overwrote in-memory cards with the lossy
+// version — destroying portrait history, loved flags, and visual notes
+// on round-trip. Now preserved with hard caps so a runaway story can't
+// crash the row.
 function sanitizeCharacterCards(cards) {
   const MAX_CARDS = 24;
   const MAX_SYNOPSIS = 1200;
-  const MAX_IMAGE_BYTES = 600 * 1024;  // ~600 KB base64 ≈ ~440 KB binary
+  const MAX_VISUAL_NOTES = 600;
+  const MAX_IMAGE_BYTES = 600 * 1024;       // ~600 KB base64 (per-image)
+  const MAX_TOTAL_BYTES = 3.5 * 1024 * 1024; // ~3.5 MB total across all cards
+  const MAX_PORTRAITS_PER_CARD = 10;
+  const MAX_CHAT_TURNS = 50;
+  const MAX_CHAT_LEN = 1200;
   const out = [];
+  let totalBytes = 0;
   for (const c of cards) {
     if (!c || typeof c !== 'object') continue;
     const name = String(c.name || '').trim();
     if (!name) continue;
     const synopsis = String(c.synopsis || '').slice(0, MAX_SYNOPSIS);
+    const visual_notes = String(c.visual_notes || '').slice(0, MAX_VISUAL_NOTES);
     let image = null;
     if (c.image && typeof c.image === 'object') {
       const dataBase64 = typeof c.image.dataBase64 === 'string' ? c.image.dataBase64 : '';
@@ -412,15 +447,53 @@ function sanitizeCharacterCards(cards) {
         };
       }
     }
+    // Portraits — preserve full history (Henry refines characters over
+    // many redraws). Drop any portrait whose base64 exceeds the per-image
+    // cap or stop accumulating once we exceed the total byte budget.
+    const portraits = [];
+    const rawPortraits = Array.isArray(c.portraits) ? c.portraits.slice(-MAX_PORTRAITS_PER_CARD) : [];
+    for (const p of rawPortraits) {
+      if (!p || typeof p !== 'object') continue;
+      const dataBase64 = typeof p.dataBase64 === 'string' ? p.dataBase64 : '';
+      if (!dataBase64 || dataBase64.length > MAX_IMAGE_BYTES) continue;
+      if (totalBytes + dataBase64.length > MAX_TOTAL_BYTES) break;
+      totalBytes += dataBase64.length;
+      portraits.push({
+        id: String(p.id || '').slice(0, 32),
+        mime: String(p.mime || 'image/png').slice(0, 32),
+        dataBase64,
+        generated_at: Number(p.generated_at) || Date.now(),
+        note: typeof p.note === 'string' ? p.note.slice(0, 200) : '',
+        loved: !!p.loved,
+      });
+    }
+    // Chat — last N turns only, with per-turn cap. Wordy <-> Henry on this
+    // character's "what should they look like" thread.
+    const chat = [];
+    const rawChat = Array.isArray(c.chat) ? c.chat.slice(-MAX_CHAT_TURNS) : [];
+    for (const m of rawChat) {
+      if (!m || typeof m !== 'object') continue;
+      chat.push({
+        id: String(m.id || '').slice(0, 32),
+        role: m.role === 'wordy' ? 'wordy' : 'henry',
+        content: String(m.content || '').slice(0, MAX_CHAT_LEN),
+        ts: Number(m.ts) || Date.now(),
+      });
+    }
     out.push({
       name,
       synopsis,
+      visual_notes,
       image,
+      portraits,
+      primary_portrait_id: typeof c.primary_portrait_id === 'string' ? c.primary_portrait_id.slice(0, 32) : null,
+      chat,
       generated_at: typeof c.generated_at === 'number' ? c.generated_at : Date.now(),
       current_state: typeof c.current_state === 'string' ? c.current_state.slice(0, 400) : '',
       intro_block: Number(c.intro_block) || null,
     });
     if (out.length >= MAX_CARDS) break;
+    if (totalBytes > MAX_TOTAL_BYTES) break;
   }
   return out;
 }
