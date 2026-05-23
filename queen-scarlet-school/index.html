@@ -523,15 +523,21 @@
     }
     .story-block:hover .b-toolbar { opacity: 1; }
     .cb-btn {
-      font-family: var(--ui); font-weight: 700; font-size: 11px; color: var(--ink-bright);
-      padding: 3px 9px; background: var(--paper-card);
+      font-family: var(--ui); font-weight: 700; font-size: 12px; color: var(--ink-bright);
+      padding: 8px 14px; background: var(--paper-card);
       border: 2px solid var(--ink-bright); border-radius: 999px;
       box-shadow: 2px 2px 0 var(--ink-bright); cursor: pointer;
       transition: transform 140ms var(--ease), background 140ms var(--ease);
+      min-height: 36px; min-width: 36px;
+      display: inline-flex; align-items: center; justify-content: center;
     }
     .cb-btn:hover { background: var(--yolk); transform: translateY(-1px); }
     .cb-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .cb-btn.danger { background: var(--paper-card); }
     .cb-btn.danger:hover { background: var(--red); color: var(--ink-bright); }
+    /* Make the delete button explicitly bigger AND require the toolbar
+       hover to commit before it appears — Henry can't fat-finger it. */
+    .cb-btn.danger { padding: 10px 16px; font-size: 13px; }
 
     /* ───── drag-to-reorder ───── */
     .story-block .drag-handle {
@@ -5052,7 +5058,7 @@
         } else if (/timeout|network|failed to fetch|load failed/.test(lower)) {
           friendly = "wordy didn't hear you — check your connection and try again.";
         } else if (/401|unauthorized/.test(lower)) {
-          friendly = "wordy lost the password — refresh the page and try again.";
+          friendly = "wordy got logged out — ask mom or dad to refresh the page.";
         }
         state.chat.push({
           id: uid(), role: 'wordy',
@@ -5302,6 +5308,54 @@
 
       // Inject TTS icons into the bubble play buttons
       chat.querySelectorAll('.tts-bubble').forEach(b => { if (!b.innerHTML.trim()) b.innerHTML = window.qssTTS.ICON_PLAY; });
+
+      // ─── Auto-speak NEW wordy messages ───
+      // Henry's primary interface is TTS. When a new wordy bubble arrives,
+      // auto-play it (skipping direction-cards and touch-base which have
+      // their own read-along widgets). Opt-out via localStorage flag
+      // 'qss:auto_speak=off'. On boot we set lastAutoSpokenId to the
+      // newest existing wordy turn so we don't replay history.
+      try { autoSpeakNewWordy(); } catch {}
+    }
+
+    let _lastAutoSpokenId = null;
+    let _autoSpeakBooted = false;
+    function autoSpeakNewWordy() {
+      if (!window.qssTTS) return;
+      if (localStorage.getItem('qss:auto_speak') === 'off') return;
+      const wordyTurns = state.chat.filter(t => t.role === 'wordy');
+      if (!wordyTurns.length) return;
+      const latest = wordyTurns[wordyTurns.length - 1];
+      // First render after boot — snapshot the latest id so we don't speak
+      // historical chat on page reload.
+      if (!_autoSpeakBooted) {
+        _lastAutoSpokenId = latest.id;
+        _autoSpeakBooted = true;
+        return;
+      }
+      if (latest.id === _lastAutoSpokenId) return;
+      _lastAutoSpokenId = latest.id;
+      // Skip phase-specific bubbles — they have their own read-along.
+      if (latest.phase === 'directions' || latest.phase === 'touch-base') return;
+      // Skip empty / very-short / error-glyph-only content.
+      const text = (latest.content || '').trim();
+      if (!text || text.length < 3) return;
+      // Find the matching bubble's tts button so the icon animates while
+      // playing. The bubble for this turn has data-tts containing exactly
+      // this text (after esc round-trips). Fall back to button-less speak.
+      const allBtns = document.querySelectorAll('#tutor-chat .tts-bubble[data-tts]');
+      let matchBtn = null;
+      for (const b of allBtns) {
+        // Compare against the un-esc'd content. data-tts in DOM is already
+        // un-esc'd at read time.
+        if (b.dataset.tts && b.dataset.tts.trim() === text.trim()) { matchBtn = b; break; }
+      }
+      // Small delay so any in-flight render/scroll settles before we
+      // start playback (prevents the play state animation from getting
+      // wiped by a follow-up re-render).
+      setTimeout(() => {
+        try { window.qssTTS.speak(text, matchBtn); } catch {}
+      }, 120);
     }
 
     function scrollChat() {

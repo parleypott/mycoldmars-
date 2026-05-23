@@ -1868,6 +1868,16 @@
       const card = state.cards[state.openName]; if (!card) return;
       const idx = card.portraits.findIndex(x => x.id === pid);
       if (idx < 0) return;
+      const isLoved = card.portraits[idx]?.loved;
+      const isPrimary = card.primary_portrait_id === pid;
+      // Loved or primary portraits get a confirm — Henry might tap the
+      // × by accident. Casual portraits delete silently (you can always
+      // redraw). Loved portraits are intentionally marked; primary is
+      // the visible one. Both deserve a "are you sure?".
+      if (isLoved || isPrimary) {
+        const what = isLoved ? 'a portrait you ♥-loved' : 'the main portrait you can see right now';
+        if (!confirm(`Delete ${what}? You can\'t un-delete this.`)) return;
+      }
       card.portraits.splice(idx, 1);
       if (card.primary_portrait_id === pid) {
         card.primary_portrait_id = card.portraits.length
