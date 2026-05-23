@@ -268,8 +268,8 @@ function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, 
     'Flat saturated cel-shaded colors — no gradients, no painterly textures, no photographic detail, no realistic skin rendering.',
     'Palette: tomato red, butter yellow, teal, ochre, sky blue, mossy green, lavender, salmon pink, warm cream — saturated, warm, slightly off-kilter.',
     'Background: plain warm cream / off-white paper (#F4ECD8 ish). No scenery, no environment behind the character. Centered subject.',
-    'Framing: 3/4 body OR head-and-shoulders, whichever best shows the character\'s defining absurd prop or feature.',
-    'Expression: deadpan, sincere, faintly satirical — the look a 13-year-old gives a teacher who just said something stupid. The character does NOT smile at the camera. They are caught mid-thought, mid-task, mid-something specific.',
+    // Framing + expression + pose come from the SHOT VARIATION block above
+    // — do not re-specify them here; that creates a composition lock.
     'Quality: clean enough to be a vinyl laptop sticker. Slightly dorky. Charmingly drawn, not slick. Drawn like Henry would draw it — confident, weird, unselfconscious.',
   ].join(' ');
 
@@ -341,11 +341,92 @@ function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, 
         ? 'THIS DRAW IS A REVISION. Reference image attached. Keep the character recognizably the same individual; only tighten or align with the AUTHORED VISUAL TRAITS block above.'
         : '');
 
+  // ────────────────────────────────────────────────────────────────────
+  // Shot variation — picked randomly per call.
+  //
+  // Problem: when a reference image is passed (revise mode or loved
+  // refs), Gemini anchors composition too hard — every redraw of Queen
+  // Scarlet was the same 3/4 view holding the same microphone in the
+  // same pose. Identity-lock is good; composition-lock is not.
+  //
+  // Fix: explicitly tell the model which axes to KEEP from reference
+  // (face, skin, hair, defining props, clothing colors) and which axes
+  // to CHANGE this time (framing, pose, expression, angle, energy).
+  // Pick one variant from each pool randomly per call so successive
+  // redraws genuinely look like different shots of the same character.
+  // ────────────────────────────────────────────────────────────────────
+  const FRAMING_VARIANTS = [
+    'tight head-and-shoulders bust, prop or feature fills the upper third of the frame',
+    '3/4 body, mid-action, prop interacting with the character',
+    'full-body sticker, head-to-toe with feet visible, slightly small in frame',
+    'low-angle hero shot from below, character looming overhead',
+    'high-angle, looking down at the character, who tilts head up to viewer',
+    'side profile, head turned about 3/4 toward camera',
+    'over-the-shoulder turn, looking back at viewer with partial face visible',
+    'extreme close-up on the face, prop visible at frame edge',
+    'pulled-back full sticker, character small against the cream paper',
+    'medium shot, hands and prop in frame, eyes meeting viewer dead-on',
+  ];
+  const POSE_VARIANTS = [
+    'caught mid-stride, one foot lifted',
+    'frozen mid-task, prop being used',
+    'seated and slouched, prop loose in lap',
+    'leaning forward into the frame, elbows out',
+    'arms crossed, weight on one hip',
+    'mid-gesture, one hand raised in explanation',
+    'turned away mid-shrug, half-looking back',
+    'crouching to inspect something offscreen',
+    'standing tall and rigid, formal-portrait stiff',
+    'mid-jump, both feet off the ground',
+    'kneeling on one knee, prop on raised knee',
+    'mid-fall or just-tripped, off-balance',
+  ];
+  const EXPRESSION_VARIANTS = [
+    'deadpan resigned, eyes half-lidded',
+    'mid-eye-roll, exasperated',
+    'mid-yawn, mouth wide, eyes squeezed shut',
+    'distracted, looking past the camera',
+    'wide-eyed surprised, eyebrows up',
+    'smug smirk, head tilted',
+    'exhausted, dark under-eye shadows, slumping',
+    'intensely focused on something off-frame',
+    'mid-shrug, palms up, mouth in flat line',
+    'tongue stuck out in concentration',
+    'mid-sentence, mouth open speaking',
+    'just realized something, brow furrowed',
+    'caught laughing at a private joke, mouth half-open',
+  ];
+  const ENERGY_VARIANTS = [
+    'about to do the thing they are known for',
+    'just finished doing the thing they are known for',
+    'mid-way through a sentence',
+    'reacting to an offscreen sound or event',
+    'unaware of being observed, lost in their own world',
+    'fully aware of the viewer, addressing them directly',
+    'pretending nothing is wrong while something obviously is',
+  ];
+
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  const framing = pick(FRAMING_VARIANTS);
+  const pose = pick(POSE_VARIANTS);
+  const expression = pick(EXPRESSION_VARIANTS);
+  const energy = pick(ENERGY_VARIANTS);
+
+  const variationBlock = [
+    'SHOT VARIATION (THIS REDRAW MUST USE THESE — do not copy the composition of the reference image):',
+    `- Framing: ${framing}.`,
+    `- Pose: ${pose}.`,
+    `- Expression: ${expression}.`,
+    `- Energy: ${energy}.`,
+    'IDENTITY-LOCK vs COMPOSITION-CHANGE: From the reference image and AUTHORED VISUAL TRAITS, INHERIT — face structure, skin color, eye color, hair shape and color, defining absurd prop, clothing colors and silhouette. CHANGE — body angle, framing distance, gesture, expression, energy. The result should read as the SAME CHARACTER caught at a DIFFERENT MOMENT, not a near-duplicate of the previous portrait.',
+  ].join('\n');
+
   return [
     `SUBJECT: A character named ${name}. Render exactly ONE character — no extras, no crowd, no audience, no shadowy figures in the background.`,
     canonBlock,
     notesBlock,
     reviseBlock,
+    variationBlock,
     traits,
     story,
     tone,
