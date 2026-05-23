@@ -1722,6 +1722,47 @@
     }
     .arc-meta-row strong { color: var(--ink-bright); }
 
+    /* ──────────── Per-character voice picker (inside arc inspector) ────────── */
+    .arc-voice-row {
+      margin-top: 8px;
+      display: flex; align-items: center; gap: 8px;
+      font-family: var(--ui); font-size: 12px;
+    }
+    .arc-voice-row label {
+      font-weight: 700; color: var(--ink-bright);
+      letter-spacing: 0.04em; text-transform: uppercase; font-size: 10.5px;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .arc-voice-row select {
+      font-family: var(--ui); font-size: 13px; font-weight: 600;
+      padding: 5px 26px 5px 10px;
+      background: var(--paper); color: var(--ink-bright);
+      border: 2px solid var(--ink-bright);
+      border-radius: 8px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M3 4 L6 8 L9 4' stroke='%231f1f23' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+      background-repeat: no-repeat; background-position: right 8px center; background-size: 12px 12px;
+    }
+    .arc-voice-row select:focus { outline: 3px solid var(--gold); outline-offset: 1px; }
+    .arc-voice-row .arc-voice-preview {
+      font-family: var(--ui); font-weight: 700; font-size: 11px;
+      padding: 4px 10px; background: var(--grass); color: var(--ink-bright);
+      border: 2px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      cursor: pointer;
+    }
+    .arc-voice-row .arc-voice-preview:hover { transform: translate(-1px,-1px); box-shadow: 2.5px 2.5px 0 var(--ink-bright); }
+    .arc-voice-row .arc-voice-preview:active { transform: translate(1px,1px); box-shadow: 0.5px 0.5px 0 var(--ink-bright); }
+    /* Tiny mic dot on cast chips when a non-default voice is assigned */
+    .cast-strip .cast-chip.has-voice::after {
+      content: "🎤";
+      margin-left: 6px;
+      font-size: 11px;
+      filter: saturate(1.2);
+    }
+
     /* ──────────── Library modal ──────────── */
     .lib-veil {
       position: fixed; inset: 0; background: rgba(31,31,35,0.55);
@@ -3715,6 +3756,187 @@
     })();
 
     // ═══════════════════════════════════════════════════════════════════════
+    // qssVoices — per-character voice assignment (localStorage-backed)
+    //
+    // Maps lowercased character names → ElevenLabs voice IDs (keys from the
+    // VOICES table in api/qss-tts-karaoke.js). Anyone unassigned defaults to
+    // 'matilda' (the warm storyteller voice the whole story used to use).
+    //
+    // Cast picker UI sits in the arc inspector — each character gets a
+    // dropdown next to their name.
+    // ═══════════════════════════════════════════════════════════════════════
+    window.qssVoices = (function() {
+      const LS = 'qss_voice_map_v1';
+      const DEFAULT = 'matilda';
+
+      // Mirror of server-side VOICES — adding here also requires adding to
+      // api/qss-tts-karaoke.js. The label/hint is purely UI.
+      const LIBRARY = [
+        { id: 'matilda',   label: 'Matilda',   hint: 'warm storyteller (default)' },
+        { id: 'rachel',    label: 'Rachel',    hint: 'calm woman' },
+        { id: 'charlotte', label: 'Charlotte', hint: 'bright young woman' },
+        { id: 'bella',     label: 'Bella',     hint: 'soft expressive girl' },
+        { id: 'adam',      label: 'Adam',      hint: 'low man' },
+        { id: 'parley',    label: 'Parley',    hint: 'Johnny voice' },
+      ];
+
+      function load() { try { return JSON.parse(localStorage.getItem(LS) || '{}'); } catch { return {}; } }
+      function save(m) { try { localStorage.setItem(LS, JSON.stringify(m)); } catch {} }
+      function key(name) { return (name || '').trim().toLowerCase(); }
+
+      function getVoice(name) {
+        if (!name) return DEFAULT;
+        return load()[key(name)] || DEFAULT;
+      }
+      function assignVoice(name, voiceId) {
+        const k = key(name);
+        if (!k) return;
+        const m = load();
+        if (!voiceId || voiceId === DEFAULT) delete m[k];
+        else m[k] = voiceId;
+        save(m);
+      }
+      function getMap() { return load(); }
+      function isAssigned(name) { return !!load()[key(name)]; }
+
+      // Build a name → voiceId map filtered to non-default entries only.
+      // Used by the segmenter so it doesn't bother matching names that would
+      // all collapse back into the default voice anyway.
+      function activeMap() {
+        const m = load();
+        const out = {};
+        for (const k of Object.keys(m)) {
+          if (m[k] && m[k] !== DEFAULT) out[k] = m[k];
+        }
+        return out;
+      }
+
+      return { LIBRARY, DEFAULT, getVoice, assignVoice, getMap, isAssigned, activeMap };
+    })();
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // segmentByVoice(text, activeVoiceMap, defaultVoice)
+    //
+    // Splits a block of story text into ordered [{text, voice, charStart,
+    // charEnd}] segments, with dialogue lines attributed to assigned voices
+    // and everything else owned by the narrator (defaultVoice).
+    //
+    // Recognized patterns:
+    //   • Name said|asked|whispered|…, "quoted text"
+    //   • "quoted text," said|asked|… Name
+    //   • Name: "quoted text"  (or  Name: bare line)
+    //
+    // Smart quotes get normalized to straight (positions preserved — same
+    // codepoint length) so a single regex set works regardless of editor.
+    // Segments are coalesced when adjacent and same-voice, so the output
+    // is the minimum number of audio fetches.
+    // ═══════════════════════════════════════════════════════════════════════
+    function segmentByVoice(text, activeVoiceMap, defaultVoice) {
+      if (!text) return [];
+      const defVoice = defaultVoice || 'matilda';
+      const names = Object.keys(activeVoiceMap || {}).filter(n => activeVoiceMap[n]);
+      if (!names.length) {
+        return [{ text, voice: defVoice, charStart: 0, charEnd: text.length }];
+      }
+
+      // Normalize smart quotes → straight (codepoint-preserving)
+      const norm = text
+        .replace(/[“”]/g, '"')
+        .replace(/[‘’]/g, "'");
+
+      // Build name alternation, longest first so "Queen Scarlet" wins over "Scarlet"
+      const sortedNames = names.slice().sort((a, b) => b.length - a.length);
+      const escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const namePat = sortedNames.map(escape).join('|');
+
+      const VERBS = 'said|asked|whispered|shouted|yelled|muttered|murmured|hissed|growled|barked|sighed|laughed|replied|answered|cried|wailed|chanted|declared|announced|protested|complained|grumbled|snapped|continued|added|interrupted|insisted|repeated|called';
+
+      // Quote-spans we'll attribute. Each marker = { start, end, voice }
+      // where start/end span INCLUDING the surrounding quote chars.
+      const markers = [];
+
+      function addMarker(speakerName, quoteStart, quoteEnd) {
+        const v = activeVoiceMap[speakerName.trim().toLowerCase()];
+        if (!v) return;
+        markers.push({ start: quoteStart, end: quoteEnd, voice: v });
+      }
+
+      // Pattern A: <Name> <verb>[,:]? "quote"
+      // Captured groups: 1=name  2=opening quote+text+closing quote
+      const reA = new RegExp(
+        `(${namePat})\\s+(?:${VERBS})[,:]?\\s+("[^"\\n]+")`,
+        'gi'
+      );
+      let m;
+      while ((m = reA.exec(norm)) !== null) {
+        const quoteIdx = m.index + m[0].lastIndexOf(m[2]);
+        addMarker(m[1], quoteIdx, quoteIdx + m[2].length);
+      }
+
+      // Pattern B: "quote"[,]? <verb> <Name>
+      const reB = new RegExp(
+        `("[^"\\n]+")[,]?\\s+(?:${VERBS})\\s+(${namePat})`,
+        'gi'
+      );
+      while ((m = reB.exec(norm)) !== null) {
+        const quoteIdx = m.index + m[0].indexOf(m[1]);
+        addMarker(m[2], quoteIdx, quoteIdx + m[1].length);
+      }
+
+      // Pattern C: ^<Name>: "quote"  OR  ^<Name>: bare line
+      // The "bare line" branch captures from the colon to end-of-line.
+      const reC = new RegExp(
+        `^(\\s*)(${namePat}):\\s*(.+?)\\s*$`,
+        'gim'
+      );
+      while ((m = reC.exec(norm)) !== null) {
+        const speaker = m[2];
+        // Skip if the rest of the line is empty / just punctuation
+        if (!m[3] || !m[3].trim().length) continue;
+        const restIdx = m.index + m[0].indexOf(m[3]);
+        addMarker(speaker, restIdx, restIdx + m[3].length);
+      }
+
+      // Sort + drop overlaps (first match wins)
+      markers.sort((a, b) => a.start - b.start);
+      const clean = [];
+      for (const mk of markers) {
+        const last = clean[clean.length - 1];
+        if (last && mk.start < last.end) continue;
+        clean.push(mk);
+      }
+
+      // Fill gaps with narrator
+      const out = [];
+      let cursor = 0;
+      for (const mk of clean) {
+        if (mk.start > cursor) {
+          out.push({ text: text.slice(cursor, mk.start), voice: defVoice, charStart: cursor, charEnd: mk.start });
+        }
+        out.push({ text: text.slice(mk.start, mk.end), voice: mk.voice, charStart: mk.start, charEnd: mk.end });
+        cursor = mk.end;
+      }
+      if (cursor < text.length) {
+        out.push({ text: text.slice(cursor), voice: defVoice, charStart: cursor, charEnd: text.length });
+      }
+
+      // Coalesce adjacent same-voice segments (minimizes audio fetches)
+      const merged = [];
+      for (const seg of out) {
+        const last = merged[merged.length - 1];
+        if (last && last.voice === seg.voice) {
+          last.text += seg.text;
+          last.charEnd = seg.charEnd;
+        } else {
+          merged.push({ ...seg });
+        }
+      }
+
+      return merged.filter(s => s.text.length > 0);
+    }
+    window.segmentByVoice = segmentByVoice; // exposed for debugging
+
+    // ═══════════════════════════════════════════════════════════════════════
     // qssKaraoke — story-window karaoke (word-by-word highlight as audio plays)
     // Only used in The Story panel; chat-bubble TTS keeps using qssTTS.
     // ═══════════════════════════════════════════════════════════════════════
@@ -3846,7 +4068,14 @@
           session.rafHandle = 0;
           return;
         }
-        const t = session.audio.currentTime;
+        // Global time = active segment's offset + currentTime within that segment.
+        // Falls back gracefully to plain currentTime if segment metadata missing
+        // (e.g. legacy code path that didn't build session.segments).
+        const segs = session.segments;
+        const activeSeg = segs && segs[session.activeSegIdx];
+        const t = activeSeg
+          ? activeSeg.timeOffset + session.audio.currentTime
+          : session.audio.currentTime;
         // Find current word — words are time-sorted so a simple forward scan works
         const ws = session.words || [];
         let idx = -1;
@@ -3862,10 +4091,11 @@
           if (idx < 0 && ws.length && t >= ws[ws.length-1].end) idx = ws.length - 1;
         }
         setActiveWord(idx);
-        // Progress bar
+        // Progress bar (global across all segments)
         const fill = document.getElementById('kb-fill');
-        if (fill && session.audio.duration) {
-          fill.style.width = Math.min(100, (t / session.audio.duration) * 100) + '%';
+        const total = session.totalDuration || (session.audio.duration || 0);
+        if (fill && total) {
+          fill.style.width = Math.min(100, (t / total) * 100) + '%';
         }
         session.rafHandle = requestAnimationFrame(loopHighlight);
       }
@@ -3912,14 +4142,19 @@
         session.blockId = null;
         session.words = null;
         session.snapshotText = null;
+        session.segments = null;
+        session.activeSegIdx = 0;
+        session.totalDuration = 0;
         session.queue = [];
         session.paused = false;
         session.activeIdx = -1;
         if (!keepBar) updateBar('hidden');
       }
 
-      // Start karaoke for a single block — fetches audio, renders spans,
-      // plays. Resolves when playback finishes naturally.
+      // Start karaoke for a single block — segments text by speaker voice,
+      // fetches all segments in parallel, builds a unified words array, then
+      // plays segment audios back-to-back through a single <audio> element.
+      // Resolves when the last segment finishes naturally.
       async function startBlock(blockId, { token, fromTime = 0 } = {}) {
         const block = (window.state?.blocks || []).find(b => b.id === blockId);
         if (!block) return false;
@@ -3936,16 +4171,29 @@
         if (!el) return false;
         el.classList.add('karaoke');
 
-        let data;
+        // Build per-voice segments. With no assignments this returns a single
+        // narrator-voice segment covering the whole block — same as before.
+        const text = block.text || '';
+        const voiceMap = window.qssVoices?.activeMap?.() || {};
+        const defaultVoice = window.qssVoices?.DEFAULT || 'matilda';
+        const segments = (typeof segmentByVoice === 'function')
+          ? segmentByVoice(text, voiceMap, defaultVoice)
+          : [{ text, voice: defaultVoice, charStart: 0, charEnd: text.length }];
+
+        // Fetch all segments in parallel — each cache-keyed by (voice, text)
+        // so repeats are free.
+        let segData;
         try {
-          data = await fetchKaraoke(block.text || '', 'matilda');
+          segData = await Promise.all(
+            segments.map(seg => fetchKaraoke(seg.text, seg.voice))
+          );
         } catch (e) {
-          console.warn('[karaoke] fetch failed', e);
-          // Fallback: use plain qssTTS for this block (no highlight)
+          console.warn('[karaoke] segment fetch failed', e);
+          // Fallback: plain qssTTS, no highlight
           el.classList.remove('karaoke');
           await new Promise((resolve) => {
             const stub = { classList: { add(){}, remove(){}, contains(){return false;} }, innerHTML: '' };
-            window.qssTTS.speak(block.text || '', stub);
+            window.qssTTS.speak(text, stub);
             const interval = setInterval(() => {
               if (!window.__qssTtsPlaying) { clearInterval(interval); resolve(); }
             }, 250);
@@ -3955,16 +4203,70 @@
 
         if (token !== session.token) return false; // superseded
 
-        session.words = data.words || [];
-        session.snapshotText = block.text || '';   // baseline for edit-invalidation
-        // Build the karaoke DOM
-        renderKaraokeDom(el, block.text || '', session.words);
-        // Create audio element from base64
-        const audio = new Audio(`data:${data.mime || 'audio/mpeg'};base64,${data.audio_base64}`);
+        // Build the unified words array (global time + global char offsets).
+        // Each entry remembers which segment audio it lives inside so the
+        // loopHighlight knows when to swap audio elements.
+        const unifiedWords = [];
+        const segmentInfo = []; // [{ idx, voice, audio_base64, mime, duration, timeOffset, charStart }]
+        let timeOffset = 0;
+        for (let i = 0; i < segments.length; i++) {
+          const seg = segments[i];
+          const data = segData[i];
+          const ws = data.words || [];
+          for (const w of ws) {
+            unifiedWords.push({
+              text: w.text,
+              start: timeOffset + w.start,
+              end: timeOffset + w.end,
+              charStart: seg.charStart + w.charStart,
+              charEnd: seg.charStart + w.charEnd,
+              segIdx: i,
+            });
+          }
+          segmentInfo.push({
+            idx: i,
+            voice: seg.voice,
+            audio_base64: data.audio_base64,
+            mime: data.mime || 'audio/mpeg',
+            duration: data.duration || (ws.length ? ws[ws.length - 1].end : 0),
+            timeOffset,
+            charStart: seg.charStart,
+          });
+          timeOffset += data.duration || (ws.length ? ws[ws.length - 1].end : 0);
+        }
+
+        session.words = unifiedWords;
+        session.snapshotText = text;
+        session.segments = segmentInfo;
+        session.totalDuration = timeOffset;
+        session.activeSegIdx = 0;
+
+        // Build the karaoke DOM (one pass over the full block text)
+        renderKaraokeDom(el, text, unifiedWords);
+
+        // First-segment audio
+        const firstSeg = segmentInfo[0];
+        const audio = new Audio(`data:${firstSeg.mime};base64,${firstSeg.audio_base64}`);
         audio.playbackRate = session.speed;
         session.audio = audio;
         if (fromTime > 0) {
-          try { audio.currentTime = fromTime; } catch {}
+          // fromTime is GLOBAL — find which segment it falls in
+          let segIdx = 0;
+          let segLocal = fromTime;
+          for (let i = 0; i < segmentInfo.length; i++) {
+            if (fromTime < segmentInfo[i].timeOffset + segmentInfo[i].duration) {
+              segIdx = i;
+              segLocal = fromTime - segmentInfo[i].timeOffset;
+              break;
+            }
+          }
+          if (segIdx !== 0) {
+            // Swap to the right segment's audio
+            const target = segmentInfo[segIdx];
+            audio.src = `data:${target.mime};base64,${target.audio_base64}`;
+            session.activeSegIdx = segIdx;
+          }
+          try { audio.currentTime = Math.max(0, segLocal); } catch {}
         }
 
         // Scroll the block into view
@@ -3972,14 +4274,29 @@
         updateBar('playing');
 
         return new Promise((resolve) => {
-          audio.addEventListener('ended', () => {
+          // When a segment ends, advance to the next one until done.
+          const onEnded = () => {
             if (token !== session.token) return resolve(false);
-            session.audio = null;
-            // Mark all words past
-            const spans = document.querySelectorAll(`.story-block[data-block="${blockId}"] .ks-word`);
-            spans.forEach(s => { s.classList.remove('ks-active'); s.classList.add('ks-past'); });
-            resolve(true);
-          });
+            const next = session.activeSegIdx + 1;
+            if (next >= segmentInfo.length) {
+              // All segments played — mark all words past, resolve
+              session.audio = null;
+              const spans = document.querySelectorAll(`.story-block[data-block="${blockId}"] .ks-word`);
+              spans.forEach(s => { s.classList.remove('ks-active'); s.classList.add('ks-past'); });
+              return resolve(true);
+            }
+            session.activeSegIdx = next;
+            const seg = segmentInfo[next];
+            audio.src = `data:${seg.mime};base64,${seg.audio_base64}`;
+            audio.playbackRate = session.speed;
+            audio.play().then(() => {
+              if (!session.rafHandle) session.rafHandle = requestAnimationFrame(loopHighlight);
+            }).catch((e) => {
+              console.warn('[karaoke] segment play() rejected', e);
+              resolve(false);
+            });
+          };
+          audio.addEventListener('ended', onEnded);
           audio.addEventListener('error', () => {
             console.warn('[karaoke] audio error');
             resolve(false);
@@ -5282,6 +5599,35 @@
       if (e.target.id === 'arc-inspector') closeArcInspector();
     });
 
+    // Delegated handlers for per-character voice picker (inside arc inspector).
+    // Change-on-select persists the assignment + refreshes the cast strip so
+    // the 🎤 indicator updates immediately.
+    document.getElementById('arc-body')?.addEventListener('change', (e) => {
+      const sel = e.target.closest('select[data-voice-for]');
+      if (!sel) return;
+      const name = sel.dataset.voiceFor;
+      const v = sel.value;
+      if (window.qssVoices?.assignVoice) {
+        window.qssVoices.assignVoice(name, v);
+        // Refresh cast strip to show/hide the 🎤 dot
+        try { if (typeof renderCastStrip === 'function') renderCastStrip(); } catch {}
+      }
+    });
+    // "▶ test" button — preview a sample line in that character's voice.
+    // qssTTS.speak() accepts a per-call voice override, so we don't pollute
+    // the persisted default.
+    document.getElementById('arc-body')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-voice-preview]');
+      if (!btn) return;
+      const name = btn.dataset.voicePreview;
+      const voice = window.qssVoices?.getVoice(name) || 'matilda';
+      const sample = `Hi! I'm ${name}.`;
+      if (window.qssTTS?.speak) {
+        const stub = { classList: { add(){}, remove(){}, contains(){return false;} }, innerHTML: '' };
+        window.qssTTS.speak(sample, stub, { voice });
+      }
+    });
+
     // Play-all + font-size + collapse-all
     document.getElementById('btn-play-all').addEventListener('click', () => {
       // Top play button: karaoke read-along of the whole story. If already
@@ -5965,10 +6311,20 @@
         ${arc.characters?.length ? `<section class="arc-section">
           <h3>Characters <span class="arc-count">${arc.characters.length}</span></h3>
           <ul class="arc-list">
-            ${arc.characters.map(c => `<li>
-              <span class="arc-name">${esc(c.name)}</span>${c.intro_block ? ` <span class="arc-meta">since block ${c.intro_block}</span>` : ''}
-              <div class="arc-detail">${esc(c.current_state || '—')}</div>
-            </li>`).join('')}
+            ${arc.characters.map(c => {
+              const assigned = window.qssVoices?.getVoice(c.name) || 'matilda';
+              const lib = window.qssVoices?.LIBRARY || [];
+              const options = lib.map(v => `<option value="${esc(v.id)}"${v.id === assigned ? ' selected' : ''}>${esc(v.label)} — ${esc(v.hint)}</option>`).join('');
+              return `<li>
+                <span class="arc-name">${esc(c.name)}</span>${c.intro_block ? ` <span class="arc-meta">since block ${c.intro_block}</span>` : ''}
+                <div class="arc-detail">${esc(c.current_state || '—')}</div>
+                <div class="arc-voice-row">
+                  <label>🎤 voice</label>
+                  <select data-voice-for="${esc(c.name)}">${options}</select>
+                  <button type="button" class="arc-voice-preview" data-voice-preview="${esc(c.name)}">▶ test</button>
+                </div>
+              </li>`;
+            }).join('')}
           </ul>
         </section>` : ''}
 
@@ -6028,7 +6384,8 @@
       const chips = visible.map(c => {
         const name = esc(c.name.trim());
         const tooltip = esc((c.current_state || c.name || '').trim());
-        return `<button type="button" class="cast-chip" title="${tooltip}" data-action="open-arc"><span class="dot"></span>${name}</button>`;
+        const hasVoice = window.qssVoices?.isAssigned?.(c.name) ? ' has-voice' : '';
+        return `<button type="button" class="cast-chip${hasVoice}" title="${tooltip}" data-action="open-arc"><span class="dot"></span>${name}</button>`;
       }).join('');
       const more = overflow > 0 ? `<span class="cast-more">+${overflow} more</span>` : '';
       strip.innerHTML =
