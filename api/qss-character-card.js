@@ -114,6 +114,11 @@ export default async function handler(req) {
   //    primary as a referenceImage so the new draw looks like a sibling
   //    of the existing one with the requested changes.
   const isRevise = !!body.revise;
+  // vibeShift = Henry hit 👎 on the current direction. Rewrite visual_notes
+  // to propose a MEANINGFULLY different archetype, drop reference images so
+  // Gemini doesn't anchor to the rejected aesthetic, and tell the image
+  // model explicitly to shift visual direction.
+  const vibeShift = !!body.vibe_shift;
   const incomingNotes = String(body.visual_notes || '').trim();
   const chatHistory = Array.isArray(body.chat) ? body.chat.slice(-12) : [];
   const newMessage = String(body.new_message || '').trim();
@@ -133,10 +138,14 @@ export default async function handler(req) {
     if (!MIME_ALLOWLIST.test(mimeType)) return null;
     return { mimeType, dataBase64 };
   }
-  const refPortrait = safeRef(body.primary_portrait);
+  // In vibeShift mode we INTENTIONALLY discard the primary portrait and
+  // loved style anchors — they're what's locking the vibe Henry rejected.
+  const refPortrait = vibeShift ? null : safeRef(body.primary_portrait);
   // Loved portraits — Henry ♥'d these to mark them as "this is the
   // style I want, make more like this." Validate shape, cap at 3.
-  const loved = Array.isArray(body.referenceImages) ? body.referenceImages : [];
+  const loved = (vibeShift || !Array.isArray(body.referenceImages))
+    ? []
+    : body.referenceImages;
   const lovedRefs = loved
     .map(safeRef)
     .filter(Boolean)
@@ -150,7 +159,35 @@ export default async function handler(req) {
 
   // ── Build the user message for the synopsis / notes call ─────────────
   let claudeUser;
-  if (isRevise) {
+  if (vibeShift) {
+    // Vibe-shift: Henry hit 👎 on the current direction. Rewrite the
+    // visual notes to propose a MEANINGFULLY different archetype, not
+    // a small tweak. Keep name + current_state intact; change everything
+    // else about the look.
+    claudeUser = [
+      `Character: ${name}`,
+      canonBlock ? canonBlock : '',
+      existingSynopsis ? `Existing synopsis (keep as-is):\n${existingSynopsis}` : '',
+      incomingNotes ? `Visual notes that henry just REJECTED (do NOT iterate on these — pivot):\n${incomingNotes}` : 'No prior notes.',
+      currentState ? `What they do in the story (still true): ${currentState}` : '',
+      chatTranscript ? `Recent chat (for tone, not for visual direction):\n${chatTranscript}` : '',
+      '',
+      `henry hit 👎 on the current visual direction. He wants a MEANINGFULLY DIFFERENT vibe — not a tweak. Pivot the character's aesthetic.`,
+      '',
+      `What to change (all of these): the defining absurd PROP, the body type / silhouette, the color palette emphasis, the mood/expression archetype, the visual genre (sci-fi vs. medieval vs. cowboy vs. office-worker vs. critter vs. robot vs. swamp-thing vs. ...). Surprise him. Lean weird. Lean specific.`,
+      `What to keep: the name, the role/current_state in the story, and any non-negotiable WORLD CANON traits.`,
+      '',
+      `Two outputs, in two fenced blocks. NO preamble.`,
+      ``,
+      `<chat_reply>`,
+      `One short sentence (10-22 words) naming the new direction in plain words — not generic ("trying something different") but specific ("going full bog-witch on this one" or "what if she was a tiny gym coach instead"). End on a period.`,
+      `</chat_reply>`,
+      ``,
+      `<visual_notes>`,
+      `Fresh visual notes — 2-4 short comma-separated phrases describing the NEW look. Meaningfully different from the rejected notes. One line, no prose, no bullets.`,
+      `</visual_notes>`,
+    ].filter(Boolean).join('\n');
+  } else if (isRevise) {
     // Revise mode: update visual_notes + produce a short chat reply.
     claudeUser = [
       `Character: ${name}`,
@@ -194,10 +231,14 @@ export default async function handler(req) {
   }
 
   // Image prompt — includes incoming visual_notes when present.
+  // In vibeShift mode we drop visual_notes so Gemini doesn't anchor to
+  // the rejected direction; the prompt's VIBE SHIFT block tells it to
+  // invent a meaningfully different archetype.
   const portraitPrompt = buildPortraitPrompt({
     name, currentState, themes, tones, recentBlocks, subjectCanon,
-    visualNotes: incomingNotes,
+    visualNotes: vibeShift ? '' : incomingNotes,
     isRevise,
+    vibeShift,
     newMessage,
   });
 
@@ -256,7 +297,7 @@ function cleanSynopsis(s) {
     .trim();
 }
 
-function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, subjectCanon, visualNotes = '', isRevise = false, newMessage = '' }) {
+function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, subjectCanon, visualNotes = '', isRevise = false, vibeShift = false, newMessage = '' }) {
   // Style anchor — match the existing QSS sticker art (Kevin in calculator
   // helmet, Benny the beaver in a gas mask on a bean forklift, the cartoon
   // dragon). The art has to feel as wild and imaginative as Henry's brain —
@@ -335,11 +376,27 @@ function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, 
   // image model knows what's DIFFERENT this time. The reference image
   // passed alongside establishes character continuity; this string tells
   // the model what to ALTER in that reference.
-  const reviseBlock = isRevise && newMessage
+  // SKIP in vibeShift mode — we WANT to break continuity in that flow.
+  const reviseBlock = vibeShift ? '' : (isRevise && newMessage
     ? `THIS DRAW IS A REVISION of an earlier portrait of the same character. The reference image attached shows the previous look. Keep the character recognizable as the same individual, but APPLY THIS SPECIFIC CHANGE: "${newMessage}". Don't redraw from scratch — adjust.`
     : (isRevise
         ? 'THIS DRAW IS A REVISION. Reference image attached. Keep the character recognizably the same individual; only tighten or align with the AUTHORED VISUAL TRAITS block above.'
-        : '');
+        : ''));
+
+  // Vibe-shift directive — fires when Henry hit 👎 on the previous look.
+  // No reference image is attached this time (the caller dropped it).
+  // Tell Gemini to invent a meaningfully different archetype across
+  // every axis: prop, body, palette, mood, genre.
+  const vibeShiftBlock = vibeShift ? [
+    'VIBE SHIFT DIRECTIVE (HIGHEST PRIORITY — overrides everything below about matching previous portraits):',
+    'Henry rejected the previous visual direction for this character. NO reference image is attached on purpose. Pick a FUNDAMENTALLY DIFFERENT visual archetype this time across ALL FOUR axes:',
+    '1. DEFINING ABSURD PROP — invent a different one. If the last had a microphone-and-clipboard, give them a fishbowl helmet OR a bandolier of crayons OR a comically tall hat OR a single oversized boot OR a chest-mounted toaster OR a backpack of antennas. Specific and weird.',
+    '2. BODY TYPE / SPECIES — humanoid → tiny squat critter → tall gangly humanoid → beaver/raccoon → sentient lamp → swamp-thing → robot → cat-headed humanoid → blob with a face → something stranger. Rotate.',
+    '3. COLOR PALETTE emphasis — if previous leaned tomato-red-and-butter-yellow, lean mossy green and ochre, OR slate blue and salmon, OR pure lavender, OR deep terracotta. Single dominant palette per portrait.',
+    '4. MOOD / ENERGY archetype — anxious bureaucrat | delusional optimist | exhausted parent | swaggering tyrant | sleepy mystic | nervous wreck | smug coward | overworked janitor | feral guard | bored saint. Pick one. Be specific to it.',
+    'KEEP: the character\'s name, the role/current_state they have in the story, and any WORLD CANON non-negotiables.',
+    'CHANGE: everything else about the look. Surprise the viewer. The result must read as a fundamentally different character VARIANT, not a re-pose of the previous one.',
+  ].join(' ') : '';
 
   // ────────────────────────────────────────────────────────────────────
   // Shot variation — picked randomly per call.
@@ -424,8 +481,9 @@ function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, 
   return [
     `SUBJECT: A character named ${name}. Render exactly ONE character — no extras, no crowd, no audience, no shadowy figures in the background.`,
     canonBlock,
-    notesBlock,
-    reviseBlock,
+    vibeShiftBlock,           // highest-priority pivot directive (only set when vibe-shifting)
+    notesBlock,               // visualNotes is blanked in vibeShift mode, so this is empty then
+    reviseBlock,              // also blanked in vibeShift mode
     variationBlock,
     traits,
     story,

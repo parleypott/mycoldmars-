@@ -573,6 +573,28 @@
       font-size: 13px; padding: 9px 14px;
     }
     .chat-composer .btn-redraw:hover { background: var(--yolk); }
+    .chat-composer .btn-vibe-shift {
+      background: #f7d36b; color: var(--ink-bright);
+      font-size: 13px; padding: 9px 14px;
+      border-color: var(--ink-bright);
+    }
+    .chat-composer .btn-vibe-shift:hover { background: #ffb84a; }
+    .chat-composer .btn-vibe-shift:disabled { opacity: 0.55; cursor: progress; }
+
+    /* Thumbs-down on gallery thumbnails — small twin to the love button */
+    .gallery-thumb-down {
+      position: absolute; bottom: 6px; right: 36px;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--paper);
+      border: 2px solid var(--ink-bright);
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; line-height: 1; cursor: pointer;
+      opacity: 0; transition: opacity 120ms, transform 120ms;
+      padding: 0;
+    }
+    .gallery-thumb:hover .gallery-thumb-down { opacity: 1; }
+    .gallery-thumb-down:hover { transform: scale(1.15); background: #f7d36b; }
 
     /* Toast */
     .toast-wrap {
@@ -677,6 +699,7 @@
             <div id="chat-thread" class="chat-thread"></div>
             <div class="chat-composer">
               <textarea id="chat-input" rows="2" placeholder="tell wordy what to change — 'make him look more tired', 'add freckles', 'less calculator more confused'"></textarea>
+              <button id="chat-vibe-shift" class="btn btn-vibe-shift" type="button" title="Throw this whole vibe out. Wordy picks a meaningfully different look — different prop, different mood, different palette.">👎 different vibe</button>
               <button id="chat-redraw" class="btn btn-redraw" type="button" title="Use the current visual notes to draw a new portrait (no chat needed)">↻ redraw</button>
               <button id="chat-send" class="btn" type="button">Send<span style="margin-left:4px;">→</span></button>
             </div>
@@ -1766,6 +1789,7 @@
         return `<div class="gallery-thumb ${isPrimary ? 'primary' : ''} ${isLoved ? 'loved' : ''}" data-pid="${esc(p.id)}" title="${esc(p.note || (isPrimary ? 'primary' : 'tap to make primary'))}">
           ${inner}
           <button class="gallery-thumb-x" data-action="delete-portrait" data-pid="${esc(p.id)}" type="button" aria-label="Delete this portrait">×</button>
+          <button class="gallery-thumb-down" data-action="vibe-shift" data-pid="${esc(p.id)}" type="button" aria-label="Thumbs down — try a meaningfully different vibe">👎</button>
           <button class="gallery-thumb-love ${isLoved ? 'loved' : ''}" data-action="toggle-love" data-pid="${esc(p.id)}" type="button" aria-label="${isLoved ? 'Unmark this portrait as loved' : 'Mark this portrait as loved — used as style anchor when you regenerate'}">${isLoved ? '♥' : '♡'}</button>
         </div>`;
       }).join('');
@@ -1810,7 +1834,7 @@
     }
 
     // ─── Generation ───
-    async function generatePortrait(name, { visualNotes = null, chatMessage = null, fromChat = false, fromLoved = false } = {}) {
+    async function generatePortrait(name, { visualNotes = null, chatMessage = null, fromChat = false, fromLoved = false, vibeShift = false } = {}) {
       const card = state.cards[name];
       if (!card) return;
       if (state.pendingGen.has(name)) return;
@@ -1839,14 +1863,22 @@
         // New revise-mode fields. Server is tolerant of older clients (no
         // `revise` flag = original behavior).
         revise: !isFirst,
+        // vibe_shift: Henry hit 👎 — backend rewrites visual_notes to a
+        // meaningfully different archetype, skips the primary portrait as
+        // reference so Gemini doesn't anchor to the rejected vibe.
+        vibe_shift: !!vibeShift,
         visual_notes: typeof visualNotes === 'string' ? visualNotes : (card.visual_notes || ''),
         chat: card.chat || [],
         new_message: chatMessage || (fromLoved ? 'redraw matching the style anchors I marked ♥' : ''),
         existing_synopsis: card.synopsis || '',
-        primary_portrait: !isFirst ? getPrimaryAsRef(card) : null,
+        // In vibeShift mode we deliberately DON'T attach the primary
+        // portrait — that's the reference that's locking the vibe Henry
+        // rejected. Server also drops it independently as a safety net.
+        primary_portrait: (!isFirst && !vibeShift) ? getPrimaryAsRef(card) : null,
         // Style anchors — nano-banana endpoint accepts these as
         // referenceImages (validated for inline base64 + mime).
-        referenceImages: lovedRefs || undefined,
+        // Suppressed in vibeShift mode for the same reason as above.
+        referenceImages: vibeShift ? undefined : (lovedRefs || undefined),
       };
 
       try {
@@ -2096,6 +2128,19 @@
       });
     }
 
+    // Vibe-shift redraw — Henry hit 👎 on the current direction. Backend
+    // rewrites visual_notes to a meaningfully different archetype and
+    // draws without the primary portrait as reference so it doesn't lock
+    // to the rejected vibe.
+    async function vibeShiftRedraw() {
+      const card = state.cards[state.openName]; if (!card) return;
+      toast(`trying a meaningfully different vibe for ${card.name}…`, 'info', 2200);
+      await generatePortrait(card.name, {
+        visualNotes: card.visual_notes,
+        vibeShift: true,
+      });
+    }
+
     // ─── Wire ───
     document.addEventListener('DOMContentLoaded', () => {
       // Grid clicks → open card
@@ -2144,6 +2189,8 @@
         if (x) { e.stopPropagation(); deletePortrait(x.dataset.pid); return; }
         const love = e.target.closest('[data-action="toggle-love"]');
         if (love) { e.stopPropagation(); togglePortraitLove(love.dataset.pid); return; }
+        const down = e.target.closest('[data-action="vibe-shift"]');
+        if (down) { e.stopPropagation(); vibeShiftRedraw(); return; }
         const regen = e.target.closest('[data-action="regen-from-loved"]');
         if (regen) { regenerateFromLoved(); return; }
         const add = e.target.closest('[data-action="add-portrait"]');
@@ -2151,6 +2198,11 @@
         const thumb = e.target.closest('.gallery-thumb');
         if (thumb) setPrimaryPortrait(thumb.dataset.pid);
       });
+
+      // "👎 different vibe" button next to redraw — forces a meaningfully
+      // different visual direction (rewrites visual_notes, drops the
+      // primary-portrait reference so Gemini doesn't anchor).
+      document.getElementById('chat-vibe-shift')?.addEventListener('click', vibeShiftRedraw);
 
       // Chat composer
       const chatInp = document.getElementById('chat-input');
