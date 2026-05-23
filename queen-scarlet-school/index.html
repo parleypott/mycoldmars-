@@ -1459,6 +1459,29 @@
       border-width: 3px;
     }
     .touch-base-item .tb-body { flex: 1 1 auto; min-width: 0; }
+    /* Status word prefix on each brick name — Henry sees + hears the
+       traffic-light status as an actual readable word, not just a glyph. */
+    .touch-base-item .tb-status-word {
+      font-family: var(--ui);
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      padding: 1px 7px;
+      border-radius: 6px;
+      font-size: 0.92em;
+      vertical-align: 0;
+    }
+    .touch-base-item .tb-status-present {
+      background: rgba(107, 203, 119, 0.20);
+      color: var(--grass-deep, #2d7a3a);
+    }
+    .touch-base-item .tb-status-partial {
+      background: rgba(255, 217, 61, 0.28);
+      color: var(--ink-bright);
+    }
+    .touch-base-item .tb-status-missing {
+      background: rgba(232, 69, 69, 0.16);
+      color: var(--red-deep, #c32626);
+    }
     /* ── "Read me this" button — big, friendly, kid-clear ── */
     .touch-base-readalong {
       margin-left: auto;
@@ -3050,9 +3073,9 @@
       <div class="scrap-inline s-gate-bunker"><img src="decor/bunker-blueprint.jpg" alt="" /></div>
       <span class="dragon lg" id="gate-dragon"></span>
       <h1>Queen Scarlet's<br>School</h1>
-      <input id="gate-code" type="password" placeholder="password" autocomplete="off" />
+      <input id="gate-code" type="text" placeholder="say the magic word" autocomplete="off" autocapitalize="off" autocorrect="off" inputmode="text" />
       <button id="gate-submit" class="btn primary big">Let me in!</button>
-      <div id="gate-error" class="gate-error">try again!</div>
+      <div id="gate-error" class="gate-error">hmm, that's not the word — try one more time</div>
     </div>
   </div>
 
@@ -5309,12 +5332,21 @@
         partial: 'yellow light',
         missing: 'red light',
       };
+      // Word that prefixes each brick name in BOTH the visible text and
+      // the karaoke read-aloud. Henry sees + hears the light status as
+      // an actual word, not just a glyph.
+      const STATUS_WORD = {
+        present: 'Green',
+        partial: 'Yellow',
+        missing: 'Red',
+      };
       const checklist = items.length ? `
         <div class="touch-base-section-label">Story ingredients check</div>
         <div class="touch-base-checklist">
           ${items.map(i => {
             const status = i.status || 'partial';
             const lightLabel = STATUS_LIGHT_LABEL[status] || 'yellow light';
+            const statusWord = STATUS_WORD[status] || 'Yellow';
             return `
             <div class="touch-base-item tb-${esc(status)}">
               <div class="tb-light tb-light-${esc(status)}" aria-label="${esc(lightLabel)}" title="${esc(lightLabel)}">
@@ -5323,7 +5355,7 @@
                 <span class="tb-light-bulb tb-bulb-green"></span>
               </div>
               <div class="tb-body">
-                <div ${ksReg('tb-name')}>${esc(i.name || '')}</div>
+                <div ${ksReg('tb-name')}><span class="tb-status-word tb-status-${esc(status)}">${esc(statusWord)}</span> &middot; ${esc(i.name || '')}</div>
                 <div ${ksReg('tb-note')}>${esc(i.note || '')}</div>
               </div>
             </div>
@@ -5338,7 +5370,7 @@
             <span class="tb-light-bulb tb-bulb-green"></span>
           </div>
           <div class="tb-body">
-            <div class="tb-name">A note from the Guide</div>
+            <div ${ksReg('tb-name')}>A note from the Guide:</div>
             <div ${ksReg('tb-note')}>${esc(g.concern)}</div>
           </div>
         </div>

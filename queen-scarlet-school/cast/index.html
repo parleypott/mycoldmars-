@@ -108,6 +108,53 @@
     .empty strong { display: block; font-family: var(--ui); color: var(--paper); font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 8px; }
     .empty.error strong { color: var(--red); }
 
+    /* Detail-head speaker — sits between the name and delete button */
+    .detail-tts { display: inline-flex; align-items: center; }
+    /* Wordy reply speaker inside chat bubbles */
+    .cmsg-tts {
+      margin-top: 6px;
+      display: flex;
+      justify-content: flex-start;
+    }
+
+    /* ── TTS button (read aloud, shared with main app) ── */
+    .tts-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px;
+      background: var(--paper-card); border: 2px solid var(--ink-bright); border-radius: 50%;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer; transition: transform 140ms var(--ease), background 140ms var(--ease);
+      flex-shrink: 0; color: var(--ink-bright); padding: 0;
+    }
+    .tts-btn svg { width: 14px; height: 14px; pointer-events: none; }
+    .tts-btn:hover { background: var(--yolk); transform: translate(-1px, -1px) rotate(-4deg); box-shadow: 3px 3px 0 var(--ink-bright); }
+    .tts-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink-bright); }
+    .tts-btn.playing {
+      background: var(--yolk);
+      color: var(--ink-bright);
+      animation: cast-tts-pulse 850ms ease-in-out infinite;
+    }
+    .tts-btn.loading { background: var(--yolk); color: var(--ink-bright); }
+    .tts-btn.sm { width: 24px; height: 24px; box-shadow: 1.5px 1.5px 0 var(--ink-bright); }
+    .tts-btn.sm svg { width: 12px; height: 12px; }
+    .tts-btn.lg { width: 44px; height: 44px; box-shadow: 3px 3px 0 var(--ink-bright); }
+    .tts-btn.lg svg { width: 20px; height: 20px; }
+    .tts-btn.dark { background: rgba(255, 246, 224, 0.12); border-color: rgba(255, 246, 224, 0.5); color: var(--paper); box-shadow: 2px 2px 0 rgba(255, 246, 224, 0.25); }
+    .tts-btn.dark:hover { background: var(--yolk); color: var(--ink-bright); border-color: var(--ink-bright); }
+    @keyframes cast-tts-pulse {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.14); }
+    }
+    @keyframes cast-tts-spin { to { transform: rotate(360deg); } }
+    .tts-spin { transform-origin: center; animation: cast-tts-spin 0.9s linear infinite; }
+    /* Card-mounted read-aloud — sits in the nameplate, kid-finger sized */
+    .ccard-tts {
+      position: absolute;
+      top: 8px; right: 10px;
+      z-index: 4;
+    }
+    .ccard:has(.ccard-portraits-count) .ccard-tts { top: 38px; }
+
     /* Card */
     .ccard {
       position: relative;
@@ -540,9 +587,9 @@
   <div id="gate" class="gate">
     <div class="gate-inner">
       <h1>The Cast</h1>
-      <input id="gate-code" type="password" placeholder="password" autocomplete="off" />
+      <input id="gate-code" type="text" placeholder="say the magic word" autocomplete="off" autocapitalize="off" autocorrect="off" inputmode="text" />
       <button id="gate-submit" class="gate-btn">Let me in!</button>
-      <div id="gate-error" class="gate-error">try again!</div>
+      <div id="gate-error" class="gate-error">hmm, that's not the word — try one more time</div>
     </div>
   </div>
 
@@ -571,6 +618,7 @@
         <div class="detail-head">
           <button id="detail-back" class="detail-back" type="button">← back to cast</button>
           <h1 id="detail-name" class="detail-name"></h1>
+          <span id="detail-tts" class="detail-tts"></span>
           <button id="detail-delete" class="detail-delete" type="button">delete character</button>
         </div>
         <div class="detail-grid">
@@ -702,6 +750,142 @@
       wrap.appendChild(el);
       if (timeoutMs > 0) setTimeout(() => el.remove(), timeoutMs);
     }
+
+    // ─── TTS engine — same contract as main app's window.qssTTS ───
+    // Henry doesn't read well; every visible label on this page needs a
+    // speaker button. Primary: /api/qss-tts (ElevenLabs Matilda). Fallback:
+    // browser speechSynthesis. Auth is the same x-access-code wrapper
+    // installed above.
+    (function() {
+      const ICON_PLAY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg>';
+      const ICON_STOP = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>';
+      const ICON_LOADING = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="tts-spin"><circle cx="12" cy="12" r="9" opacity="0.25"/><path d="M21 12a9 9 0 00-9-9"/></svg>';
+
+      const synth = window.speechSynthesis || null;
+      let synthVoice = null;
+      function pickSynthVoice() {
+        if (!synth) return;
+        const voices = synth.getVoices() || [];
+        const ranked = [/Samantha/i, /Karen/i, /Allison/i, /Victoria/i, /Google US English/i, /Daniel/i, /Alex/i, /Microsoft/i];
+        for (const re of ranked) { const v = voices.find(x => re.test(x.name) && /en/i.test(x.lang)); if (v) { synthVoice = v; return; } }
+        synthVoice = voices.find(v => /en/i.test(v.lang)) || voices[0] || null;
+      }
+      if (synth) {
+        pickSynthVoice();
+        if (typeof synth.onvoiceschanged !== 'undefined') synth.onvoiceschanged = pickSynthVoice;
+      }
+
+      const cache = new Map();
+      const MAX_CACHE = 40;
+      function cacheKey(voice, text) { return voice + '|' + text.trim().slice(0, 240); }
+      function cacheStore(key, url) {
+        cache.set(key, url);
+        if (cache.size > MAX_CACHE) {
+          const first = cache.keys().next().value;
+          try { URL.revokeObjectURL(cache.get(first)); } catch {}
+          cache.delete(first);
+        }
+      }
+
+      let currentAudio = null;
+      let activeBtn = null;
+      let activeReqId = 0;
+
+      function clearActive() {
+        if (activeBtn) { activeBtn.classList.remove('playing', 'loading'); activeBtn.innerHTML = ICON_PLAY; activeBtn = null; }
+      }
+      function stop() {
+        activeReqId++;
+        if (currentAudio) { try { currentAudio.pause(); currentAudio.src = ''; } catch {} currentAudio = null; }
+        if (synth) { try { synth.cancel(); } catch {} }
+        clearActive();
+      }
+      function setBtnState(btn, state) {
+        if (!btn) return;
+        btn.classList.toggle('loading', state === 'loading');
+        btn.classList.toggle('playing', state === 'playing');
+        if (state === 'loading') btn.innerHTML = ICON_LOADING;
+        else if (state === 'playing') btn.innerHTML = ICON_STOP;
+        else btn.innerHTML = ICON_PLAY;
+      }
+      function playUrl(url, btn) {
+        return new Promise((resolve) => {
+          const audio = new Audio(url);
+          currentAudio = audio;
+          activeBtn = btn || null;
+          if (btn) setBtnState(btn, 'playing');
+          const done = () => { if (currentAudio === audio) currentAudio = null; clearActive(); resolve(); };
+          audio.addEventListener('ended', done, { once: true });
+          audio.addEventListener('error', done, { once: true });
+          audio.play().catch(done);
+        });
+      }
+      function browserSpeak(text, btn) {
+        return new Promise((resolve) => {
+          if (!synth) { resolve(); return; }
+          const u = new SpeechSynthesisUtterance(text);
+          if (synthVoice) u.voice = synthVoice;
+          u.rate = 0.95; u.pitch = 1.05; u.volume = 1.0;
+          u.onend = () => { clearActive(); resolve(); };
+          u.onerror = () => { clearActive(); resolve(); };
+          activeBtn = btn || null;
+          if (btn) setBtnState(btn, 'playing');
+          try { synth.speak(u); } catch { clearActive(); resolve(); }
+        });
+      }
+      async function fetchEleven(text, voice) {
+        const res = await fetch('/api/qss-tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice, speed: 'fast' }),
+        });
+        if (!res.ok) throw new Error('tts ' + res.status);
+        const blob = await res.blob();
+        return URL.createObjectURL(blob);
+      }
+      async function speak(text, btn, opts = {}) {
+        if (!text || !text.trim()) return;
+        if (btn && activeBtn === btn) { stop(); return; }
+        stop();
+        const voice = (opts.voice || 'matilda').toString();
+        const key = cacheKey(voice, text);
+        if (cache.has(key)) { await playUrl(cache.get(key), btn); return; }
+        const reqId = ++activeReqId;
+        activeBtn = btn || null;
+        if (btn) setBtnState(btn, 'loading');
+        try {
+          const url = await fetchEleven(text, voice);
+          if (reqId !== activeReqId) return;
+          cacheStore(key, url);
+          await playUrl(url, btn);
+        } catch (e) {
+          if (reqId !== activeReqId) return;
+          await browserSpeak(text, btn);
+        }
+      }
+      function buildBtn(text, opts = {}) {
+        const size = opts.size || '';
+        return `<button class="tts-btn ${size}${opts.dark ? ' dark' : ''}" type="button" data-tts="${esc(typeof text === 'function' ? text() : text)}" data-tts-voice="${esc(opts.voice || 'matilda')}" aria-label="Read aloud">${ICON_PLAY}</button>`;
+      }
+      // Delegated click — anything with data-tts attribute speaks.
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.tts-btn[data-tts]');
+        if (!btn) return;
+        e.stopPropagation();
+        e.preventDefault();
+        const text = btn.dataset.tts || '';
+        const voice = btn.dataset.ttsVoice || 'matilda';
+        speak(text, btn, { voice });
+      });
+      document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
+      // Walk the DOM and refresh icons for any buttons that lost innerHTML.
+      function refreshIcons() {
+        document.querySelectorAll('.tts-btn[data-tts]').forEach(b => {
+          if (!b.innerHTML.trim()) b.innerHTML = ICON_PLAY;
+        });
+      }
+      window.qssTTS = { speak, stop, buildBtn, refreshIcons, ICON_PLAY };
+    })();
 
     // ─── State ───
     //
@@ -1176,13 +1360,18 @@
       const portraitInner = primary
         ? `<img src="data:${esc(primary.mime || 'image/png')};base64,${primary.dataBase64}" alt="${esc(c.name)}" loading="lazy" />`
         : hasError
-          ? `<div>couldn't draw — open the card to retry</div>`
+          ? `<div>couldn't draw yet — tap to try again</div>`
           : `<span>drawing the portrait…</span>`;
       const portraitCls = primary ? '' : (hasError ? 'failed' : 'loading');
       const more = c.portraits.length > 1 ? `<span class="ccard-portraits-count">${c.portraits.length} drawings</span>` : '';
+      // Build the read-aloud text — name first, then current_state if any.
+      // Henry hears who the character is + what they're up to right now.
+      const ttsText = c.current_state ? `${c.name}. ${c.current_state}` : c.name;
+      const ttsBtn = window.qssTTS ? window.qssTTS.buildBtn(ttsText, { size: 'sm' }) : '';
       return `<div class="ccard" data-name="${esc(c.name)}">
         <div class="ccard-face">
           ${more}
+          <div class="ccard-tts" onclick="event.stopPropagation()">${ttsBtn}</div>
           <div class="ccard-portrait ${portraitCls}">${portraitInner}</div>
           <div class="ccard-nameplate">
             <div class="ccard-name">${esc(c.name)}</div>
@@ -1198,6 +1387,16 @@
       document.getElementById('grid-view').classList.add('hidden');
       document.getElementById('detail-view').classList.add('active');
       document.getElementById('detail-name').textContent = card.name;
+      // Detail-head speaker: reads name + synopsis (if any) + current_state.
+      // That's the whole introduction to this character — Henry can hear
+      // who they are without reading anything.
+      const ttsEl = document.getElementById('detail-tts');
+      if (ttsEl && window.qssTTS) {
+        const parts = [card.name];
+        if (card.synopsis && card.synopsis.trim()) parts.push(card.synopsis.trim());
+        else if (card.current_state) parts.push(card.current_state);
+        ttsEl.innerHTML = window.qssTTS.buildBtn(parts.join('. '), { size: 'lg', dark: true });
+      }
 
       // Primary portrait
       const primary = getPrimary(card);
@@ -1254,7 +1453,12 @@
       }
       const lines = msgs.map(m => {
         const role = m.role === 'wordy' ? 'wordy' : 'kid';
-        return `<div class="cmsg ${role}"><div class="cmsg-bubble">${esc(m.content)}</div></div>`;
+        // Only wordy's bubbles get a speaker — Henry hears the reply.
+        // His own messages aren't TTS'd back to him (would feel weird).
+        const ttsBtn = (role === 'wordy' && window.qssTTS)
+          ? window.qssTTS.buildBtn(m.content, { size: 'sm', voice: 'adam' })
+          : '';
+        return `<div class="cmsg ${role}"><div class="cmsg-bubble">${esc(m.content)}</div>${ttsBtn ? `<div class="cmsg-tts">${ttsBtn}</div>` : ''}</div>`;
       }).join('');
       const typing = state.chatBusy
         ? `<div class="cmsg-typing">wordy is drawing… <span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`

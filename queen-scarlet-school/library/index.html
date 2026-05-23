@@ -185,7 +185,23 @@
     .story-card h3 {
       font-family: var(--display); font-size: 26px; font-weight: 700; line-height: 1.1;
       color: var(--ink-bright); word-break: break-word;
+      display: flex; align-items: flex-start; gap: 10px;
     }
+    .story-card h3 .lib-tts-btn { flex: 0 0 auto; }
+    .lib-tts-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px;
+      background: var(--paper-card); border: 2px solid var(--ink-bright); border-radius: 50%;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      color: var(--ink-bright); padding: 0; cursor: pointer;
+      transition: transform 140ms var(--ease), background 140ms var(--ease);
+      margin-top: 2px;
+    }
+    .lib-tts-btn:hover { background: var(--yolk); transform: translate(-1px, -1px) rotate(-4deg); box-shadow: 3px 3px 0 var(--ink-bright); }
+    .lib-tts-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink-bright); }
+    .lib-tts-btn.playing { background: var(--yolk); animation: lib-tts-pulse 850ms ease-in-out infinite; }
+    .lib-tts-btn.loading { background: var(--yolk); }
+    @keyframes lib-tts-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.14); } }
     .story-card .meta {
       font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--ink-soft);
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -381,9 +397,9 @@
     <div class="gate-inner">
       <span class="dragon lg" id="gate-dragon"></span>
       <h1>Queen Scarlet's<br>Library</h1>
-      <input id="gate-code" type="password" placeholder="password" autocomplete="off" />
+      <input id="gate-code" type="text" placeholder="say the magic word" autocomplete="off" autocapitalize="off" autocorrect="off" inputmode="text" />
       <button id="gate-submit" class="btn primary big">Let me in!</button>
-      <div id="gate-error" class="gate-error">try again!</div>
+      <div id="gate-error" class="gate-error">hmm, that's not the word — try one more time</div>
     </div>
   </div>
 
@@ -619,6 +635,81 @@
 
     function esc(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
 
+    // ─── Tiny TTS for library — story titles + meta read aloud ───
+    // Henry can't read well; every story title gets a speaker. Routes
+    // through /api/qss-tts (ElevenLabs Matilda) with browser TTS fallback.
+    (function() {
+      const ICON_PLAY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg>';
+      const ICON_STOP = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>';
+      const cache = new Map();
+      let currentAudio = null, activeBtn = null, reqId = 0;
+      function clearActive() {
+        if (activeBtn) { activeBtn.classList.remove('playing','loading'); activeBtn.innerHTML = ICON_PLAY; activeBtn = null; }
+      }
+      function stop() {
+        reqId++;
+        if (currentAudio) { try { currentAudio.pause(); currentAudio.src=''; } catch {} currentAudio = null; }
+        try { window.speechSynthesis?.cancel(); } catch {}
+        clearActive();
+      }
+      async function fetchEleven(text) {
+        const res = await fetch('/api/qss-tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice: 'matilda', speed: 'fast' }),
+        });
+        if (!res.ok) throw new Error('tts ' + res.status);
+        return URL.createObjectURL(await res.blob());
+      }
+      function browserSpeak(text) {
+        return new Promise((resolve) => {
+          const synth = window.speechSynthesis;
+          if (!synth) { clearActive(); return resolve(); }
+          const u = new SpeechSynthesisUtterance(text);
+          u.rate = 0.95; u.pitch = 1.05;
+          u.onend = () => { clearActive(); resolve(); };
+          u.onerror = () => { clearActive(); resolve(); };
+          try { synth.speak(u); } catch { clearActive(); resolve(); }
+        });
+      }
+      async function speak(text, btn) {
+        if (!text || !text.trim()) return;
+        if (activeBtn === btn) { stop(); return; }
+        stop();
+        const key = text.trim().slice(0, 240);
+        activeBtn = btn || null;
+        if (btn) { btn.classList.add('loading'); }
+        const my = ++reqId;
+        try {
+          let url = cache.get(key);
+          if (!url) { url = await fetchEleven(text); cache.set(key, url); if (cache.size > 30) { try { URL.revokeObjectURL(cache.get(cache.keys().next().value)); } catch {} cache.delete(cache.keys().next().value); } }
+          if (my !== reqId) return;
+          const audio = new Audio(url);
+          currentAudio = audio;
+          if (btn) { btn.classList.remove('loading'); btn.classList.add('playing'); btn.innerHTML = ICON_STOP; }
+          const done = () => { if (currentAudio === audio) currentAudio = null; clearActive(); };
+          audio.addEventListener('ended', done, { once: true });
+          audio.addEventListener('error', done, { once: true });
+          await audio.play().catch(done);
+        } catch (e) {
+          if (my !== reqId) return;
+          if (btn) { btn.classList.remove('loading'); btn.classList.add('playing'); btn.innerHTML = ICON_STOP; }
+          await browserSpeak(text);
+        }
+      }
+      function buildBtn(text) {
+        return `<button class="lib-tts-btn" type="button" data-tts="${esc(text)}" aria-label="Read this story name aloud">${ICON_PLAY}</button>`;
+      }
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.lib-tts-btn[data-tts]');
+        if (!btn) return;
+        e.stopPropagation(); e.preventDefault();
+        speak(btn.dataset.tts || '', btn);
+      });
+      document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
+      window.libTTS = { speak, stop, buildBtn };
+    })();
+
     // ─── Toasts ──────────────────────────────────────────────
     function toast(message, kind = 'success', timeoutMs = 3200) {
       const wrap = document.getElementById('toast-wrap');
@@ -717,10 +808,13 @@
            <button class="cb" type="button" data-action="rename" data-id="${s.id}">rename</button>
            <button class="cb" type="button" data-action="duplicate" data-id="${s.id}">duplicate</button>
            <button class="cb danger" type="button" data-action="delete" data-id="${s.id}">delete</button>`;
-      return `<div class="story-card ${isTrash ? 'trash' : ''}" data-id="${s.id}" data-name="${esc(s.name || 'untitled')}">
+      const name = s.name || 'untitled';
+      const ttsText = `${name}. ${s.block_count || 0} ${s.block_count === 1 ? 'block' : 'blocks'}.`;
+      const ttsBtn = window.libTTS ? window.libTTS.buildBtn(ttsText) : '';
+      return `<div class="story-card ${isTrash ? 'trash' : ''}" data-id="${s.id}" data-name="${esc(name)}">
         <span class="busy-tag" data-role="busy-tag">working…</span>
         ${cover}
-        <h3>${esc(s.name || 'untitled')}</h3>
+        <h3>${ttsBtn}<span>${esc(name)}</span></h3>
         <div class="meta">
           <span class="chip">${s.block_count || 0} block${s.block_count === 1 ? '' : 's'}</span>
           <span class="when">${when}</span>
