@@ -1,4 +1,5 @@
 import { checkAccess } from './_lib/access.js';
+import { withSentry } from './_lib/sentry.js';
 
 export const config = { runtime: 'edge' };
 
@@ -11,7 +12,7 @@ export const config = { runtime: 'edge' };
  * endpoint 401s. Without this, anyone with the URL could blast through
  * Johnny's Anthropic budget by hitting /api/claude directly.
  */
-export default async function handler(req) {
+export default withSentry(async function handler(req) {
   if (req.method !== 'POST') {
     return jsonError(405, 'method_not_allowed', 'POST only');
   }
@@ -50,7 +51,7 @@ export default async function handler(req) {
       'Cache-Control': 'no-cache',
     },
   });
-}
+});
 
 function jsonError(status, error, message) {
   return new Response(JSON.stringify({ error, message }), {
