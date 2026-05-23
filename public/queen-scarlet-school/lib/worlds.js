@@ -173,6 +173,35 @@
     } catch (e) { console.warn('[worlds] migration error', e); }
   }
 
+  // ─── Fetch wrapper — inject active world into /api/qss-* POSTs ────
+  // Server endpoints read body.world_slug (or body.world) and prepend
+  // that world's canon to their system prompts. The cast/library/main
+  // pages have an access-code fetch wrapper that runs AFTER this one;
+  // their wrapper sees our wrapped version, adds the x-access-code
+  // header, and delegates. So the call order is:
+  //   page code → access-code wrapper → world-injection wrapper → real fetch
+  function installWorldFetchWrapper() {
+    if (window.__qssWorldFetchInstalled) return;
+    window.__qssWorldFetchInstalled = true;
+    const origFetch = window.fetch.bind(window);
+    window.fetch = async function(input, init = {}) {
+      try {
+        const url = typeof input === 'string' ? input : (input?.url || '');
+        const method = (init?.method || (typeof input !== 'string' ? input?.method : 'GET') || 'GET').toUpperCase();
+        // Only inject on POSTs to /api/qss-* endpoints with a JSON body.
+        if (method === 'POST' && /\/api\/qss-/.test(url) && init?.body && typeof init.body === 'string') {
+          let body;
+          try { body = JSON.parse(init.body); } catch { body = null; }
+          if (body && typeof body === 'object' && !('world' in body) && !('world_slug' in body)) {
+            body.world = getActive();
+            init = { ...init, body: JSON.stringify(body) };
+          }
+        }
+      } catch {}
+      return origFetch(input, init);
+    };
+  }
+
   // ─── Theme painting ────────────────────────────────────────────────
   // Each world gets its own --world-accent + --world-primary CSS vars.
   // Page CSS can hook these for accents. Doesn't replace the existing
@@ -353,6 +382,7 @@
 
   // ─── Boot ──────────────────────────────────────────────────────────
   migrateLegacy();
+  installWorldFetchWrapper();
   injectCSS();
   const w = activeWorld();
   if (document.readyState === 'loading') {
