@@ -86,15 +86,19 @@
         primaryDeep: '#3A0C0A',
       },
       planet: {
-        size: 200,
+        size: 220,
         x: 72,
-        y: 56,
-        // Dark iron-gray planet with magma-orange mining veins glowing
-        // through cracks. Deep teal-blue atmospheric wash. No bright
-        // playful gradient.
+        y: 54,
+        // Painted hero image (Studio Ghibli + Iron Giant register).
+        // The cosmic universe page uses heroImage when present and
+        // falls back to surface gradient if missing.
+        heroImage: '/queen-scarlet-school/worlds/burgundy/planet-hero.jpg',
+        // Fallback gradient — dark iron-gray + magma-orange veins.
         surface: 'radial-gradient(circle at 32% 30%, #4A3A3A 0%, #1F1416 55%, #0A0506 100%), radial-gradient(circle at 70% 65%, rgba(214, 122, 62, 0.35) 0%, transparent 50%)',
-        glow: 'rgba(214, 122, 62, 0.5)',
-        ring: { color: '#7A5A3A', tilt: 22, opacity: 0.55 },
+        glow: 'rgba(214, 122, 62, 0.55)',
+        // No Saturn-style ring on this planet — the painting handles
+        // its own visual identity.
+        ring: null,
         atmosphere: 'rgba(45, 80, 95, 0.32)',
         bauble: { emoji: '👑', x: 14, y: 24 },
       },

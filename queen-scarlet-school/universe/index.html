@@ -189,6 +189,17 @@
         inset 8px 8px 24px rgba(255, 255, 255, 0.1),
         0 0 80px var(--planet-glow, rgba(255, 255, 255, 0.35));
       transition: transform 480ms var(--ease), box-shadow 480ms var(--ease-soft);
+      overflow: hidden;
+    }
+    /* When a world supplies a painted hero image, render it as the
+       planet's surface — circular crop via the parent's border-radius
+       + overflow:hidden. */
+    .planet-hero-img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      mix-blend-mode: normal;
     }
     /* Atmosphere — a wash that hugs the planet just outside its body */
     .planet::before {
@@ -488,6 +499,7 @@
         btn.innerHTML = `
           ${p.ring ? '<span class="planet-ring back" aria-hidden="true"></span>' : ''}
           <div class="planet" aria-hidden="true">
+            ${p.heroImage ? `<img class="planet-hero-img" src="${p.heroImage}" alt="" loading="lazy" />` : ''}
             ${p.bauble ? `<span class="planet-bauble" style="left:${p.bauble.x ?? 80}%; top:${p.bauble.y ?? 20}%; transform: translate(-50%, -50%);">${p.bauble.emoji || '✨'}</span>` : ''}
           </div>
           ${p.ring ? '<span class="planet-ring" aria-hidden="true"></span>' : ''}
