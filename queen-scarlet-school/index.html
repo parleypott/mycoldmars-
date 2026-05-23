@@ -6291,8 +6291,11 @@
         }
       }
       function stop() {
-        try { rec.stop(); } catch {}
+        // Flip the flag FIRST so the onresult guard kicks in
+        // immediately — any trailing event the browser hands us
+        // between this line and rec.stop() landing will be ignored.
         setListening(false);
+        try { rec.stop(); } catch {}
       }
       // Public reset — called after the composer sends so the next mic
       // session starts from a blank slate (otherwise onresult would
@@ -6315,6 +6318,13 @@
       };
 
       rec.onresult = (event) => {
+        // CRITICAL: drop late events after stop(). The browser's
+        // SpeechRecognition emits a trailing 'onresult' AFTER stop()
+        // is called with the final transcript chunk, which would
+        // overwrite the textarea we just cleared on send. Without
+        // this guard, the previous prompt text leaks into the next
+        // composer state.
+        if (!listening) return;
         let interim = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const r = event.results[i];
@@ -7802,18 +7812,36 @@
     function submitComposer() {
       const text = document.getElementById('kid-input').value;
       if (!text.trim()) return;
-      // If the mic is still recording, stop it and wipe its transcript state
-      // so it can't write the prior message back into the textarea after we
-      // clear it. Without this, the field "retains the previous prompt".
+      // CRITICAL ORDER:
+      //  1. Stop the mic + reset its transcript buffer FIRST. The
+      //     browser SpeechRecognition emits a trailing 'onresult'
+      //     after stop() which would re-populate the textarea. The
+      //     onresult handler now also guards on `listening`, so this
+      //     two-belts approach kills the leak in both paths.
+      //  2. Clear the textarea IMMEDIATELY so the kid sees it empty.
+      //  3. Dispatch. askWordy / addVerbatimBlock also call
+      //     clearKidInput() but that's redundant insurance now.
+      //  4. Schedule a 120ms re-clear in case ANY late mic event
+      //     still squeaks through (browser SR has been known to fire
+      //     one final 'isFinal' result a tick or two after stop()).
       try {
         if (window.qssMic?.isListening?.()) window.qssMic.stop();
         window.qssMic?.resetTranscriptState?.();
       } catch {}
+      clearKidInput();
       if (state.composerMode === 'verbatim') {
         addVerbatimBlock(text);
       } else {
         askWordy(text);
       }
+      // Defensive late-event sweep.
+      setTimeout(() => {
+        try {
+          if (window.qssMic?.isListening?.()) window.qssMic.stop();
+          window.qssMic?.resetTranscriptState?.();
+        } catch {}
+        clearKidInput();
+      }, 120);
     }
     // Clear the kid-input textarea AND reset its auto-grown height so it
     // looks visually empty after sending (otherwise the mic-driven grow
