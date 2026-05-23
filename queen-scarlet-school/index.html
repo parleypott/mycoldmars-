@@ -1417,6 +1417,87 @@
       font-family: var(--ui); font-size: 13px; font-weight: 700;
       line-height: 1; margin-top: 1px;
     }
+    /* ── Traffic-light dot (red / yellow / green) for each brick ── */
+    .touch-base-item .tb-light {
+      flex: 0 0 22px;
+      width: 22px;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 4px 3px;
+      border-radius: 8px;
+      background: #1f1f1f;
+      border: 2px solid var(--ink-bright);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      margin-top: 2px;
+    }
+    .touch-base-item .tb-light-bulb {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #444;
+      opacity: 0.35;
+      transition: opacity 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+    }
+    .touch-base-item .tb-light-missing .tb-bulb-red {
+      background: var(--red, #e84545);
+      opacity: 1;
+      box-shadow: 0 0 10px 2px rgba(232, 69, 69, 0.65);
+      transform: scale(1.08);
+    }
+    .touch-base-item .tb-light-partial .tb-bulb-yellow {
+      background: var(--yolk, #ffd93d);
+      opacity: 1;
+      box-shadow: 0 0 10px 2px rgba(255, 217, 61, 0.7);
+      transform: scale(1.08);
+    }
+    .touch-base-item .tb-light-present .tb-bulb-green {
+      background: var(--grass, #6bcb77);
+      opacity: 1;
+      box-shadow: 0 0 10px 2px rgba(107, 203, 119, 0.65);
+      transform: scale(1.08);
+    }
+    /* Concern callout uses the same light but in a wider, more urgent frame */
+    .touch-base-item.tb-concern {
+      margin-bottom: 14px;
+      border-width: 3px;
+    }
+    .touch-base-item .tb-body { flex: 1 1 auto; min-width: 0; }
+    /* ── "Read me this" button — big, friendly, kid-clear ── */
+    .touch-base-readalong {
+      margin-left: auto;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px;
+      background: var(--yolk, #ffd93d);
+      color: var(--ink-bright);
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      font-family: var(--ui);
+      font-size: 14px; font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: transform 80ms ease, box-shadow 80ms ease, background 120ms ease;
+    }
+    .touch-base-readalong:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink-bright); }
+    .touch-base-readalong:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink-bright); }
+    .touch-base-readalong.is-loading { background: var(--paper-soft); cursor: progress; }
+    .touch-base-readalong.is-playing { background: var(--grass, #6bcb77); }
+    .touch-base-readalong.is-playing .tb-readalong-icon::before { content: '⏸'; }
+    .touch-base-readalong.is-playing .tb-readalong-icon { font-size: 0; }
+    .touch-base-readalong.is-playing .tb-readalong-icon::before { font-size: 14px; }
+    .touch-base-readalong.is-playing .tb-readalong-label::after { content: ' — tap to stop'; opacity: 0.75; }
+    /* ── Active-word highlight inside the touch-base card ── */
+    .touch-base-card .ks-word {
+      transition: background 80ms ease, color 80ms ease;
+      border-radius: 3px;
+      padding: 0 1px;
+    }
+    .touch-base-card .ks-word.ks-active {
+      background: var(--yolk, #ffd93d);
+      color: var(--ink-bright);
+      box-shadow: 0 0 0 2px var(--ink-bright);
+    }
+    .touch-base-card .ks-word.ks-past {
+      color: var(--ink-soft);
+      opacity: 0.78;
+    }
     .touch-base-item .tb-name {
       font-family: var(--ui);
       font-size: 15px; font-weight: 700;
@@ -5207,64 +5288,81 @@
 
     // ─── Story Guide "let's touch base" bubble renderer ───
     // Returns the HTML for one chat turn rendered as the Story Guide
-    // card: voiced summary, optional concern callout, ingredient
-    // checklist, and prescriptive next-step suggestions. The whole
-    // card is a single TTS payload so Henry can press play and hear
-    // the Guide read it back. Routed to the consultant voice (Adam)
-    // since this is the Guide speaking, not the narrator.
+    // card. The card uses a TRAFFIC-LIGHT system for ingredient status
+    // (🟢 you're crushing this / 🟡 you sort of have this but it needs
+    // more / 🔴 the story isn't doing this yet) and a karaoke read-along
+    // that walks every text region in DOM order so Henry can follow as
+    // the Guide reads the whole thing aloud. Henry doesn't read well —
+    // the audio + word highlight is how he consumes the feedback.
     function renderTouchBaseBubble(t) {
       const g = t.guide || {};
       const items = Array.isArray(g.ingredients) ? g.ingredients : [];
       const sugg = Array.isArray(g.suggestions) ? g.suggestions : [];
-      const STATUS_SYMBOL = { present: '✓', partial: '•', missing: '—' };
+      // Every text region we want karaoke-readable gets data-ks-region
+      // with a sequential idx. The play handler reads all regions in
+      // order, concatenates their text, fetches one karaoke payload,
+      // and highlights words across all regions as the audio plays.
+      let ksIdx = 0;
+      const ksReg = (cls) => `data-ks-region data-ks-idx="${ksIdx++}"${cls ? ` class="${cls}"` : ''}`;
+      const STATUS_LIGHT_LABEL = {
+        present: 'green light',
+        partial: 'yellow light',
+        missing: 'red light',
+      };
       const checklist = items.length ? `
         <div class="touch-base-section-label">Story ingredients check</div>
         <div class="touch-base-checklist">
-          ${items.map(i => `
-            <div class="touch-base-item tb-${esc(i.status || 'partial')}">
-              <span class="tb-check" aria-hidden="true">${STATUS_SYMBOL[i.status] || '•'}</span>
-              <div>
-                <div class="tb-name">${esc(i.name || '')}</div>
-                <div class="tb-note">${esc(i.note || '')}</div>
+          ${items.map(i => {
+            const status = i.status || 'partial';
+            const lightLabel = STATUS_LIGHT_LABEL[status] || 'yellow light';
+            return `
+            <div class="touch-base-item tb-${esc(status)}">
+              <div class="tb-light tb-light-${esc(status)}" aria-label="${esc(lightLabel)}" title="${esc(lightLabel)}">
+                <span class="tb-light-bulb tb-bulb-red"></span>
+                <span class="tb-light-bulb tb-bulb-yellow"></span>
+                <span class="tb-light-bulb tb-bulb-green"></span>
+              </div>
+              <div class="tb-body">
+                <div ${ksReg('tb-name')}>${esc(i.name || '')}</div>
+                <div ${ksReg('tb-note')}>${esc(i.note || '')}</div>
               </div>
             </div>
-          `).join('')}
+          `;}).join('')}
         </div>
       ` : '';
       const concernHtml = g.concern ? `
-        <div class="touch-base-item tb-missing" style="margin-bottom:14px;">
-          <span class="tb-check" aria-hidden="true">!</span>
-          <div>
+        <div class="touch-base-item tb-missing tb-concern">
+          <div class="tb-light tb-light-missing" aria-label="big red light" title="big red light">
+            <span class="tb-light-bulb tb-bulb-red"></span>
+            <span class="tb-light-bulb tb-bulb-yellow"></span>
+            <span class="tb-light-bulb tb-bulb-green"></span>
+          </div>
+          <div class="tb-body">
             <div class="tb-name">A note from the Guide</div>
-            <div class="tb-note">${esc(g.concern)}</div>
+            <div ${ksReg('tb-note')}>${esc(g.concern)}</div>
           </div>
         </div>
       ` : '';
       const suggestionsHtml = sugg.length ? `
         <div class="touch-base-suggestions">
           <div class="tb-sugg-label">Where I'd take it next</div>
-          <ul>${sugg.map(s => `<li>${esc(s)}</li>`).join('')}</ul>
+          <ul>${sugg.map(s => `<li><span ${ksReg()}>${esc(s)}</span></li>`).join('')}</ul>
         </div>
       ` : '';
-      // Build a TTS payload that reads the Guide's whole take in order.
-      const ttsParts = [
-        (g.summary || '').trim(),
-        g.concern ? `One note from me: ${g.concern}` : '',
-        items.length ? `Story ingredients check.` : '',
-        ...items.map(i => `${i.name}: ${i.status}. ${i.note}`),
-        sugg.length ? `Where I'd take it next.` : '',
-        ...sugg,
-      ].filter(Boolean);
-      const ttsAll = ttsParts.join(' ');
+      // The summary opens the card so it gets idx 0 in the karaoke walk.
+      const summaryHtml = g.summary ? `<div ${ksReg('touch-base-summary')}>${esc(g.summary)}</div>` : '';
       return `<div class="tutor-turn">
         <div class="tutor-msg touch-base-msg">
-          <div class="touch-base-card">
+          <div class="touch-base-card" data-touch-base-card>
             <div class="touch-base-header">
               <span class="touch-base-eyebrow">Story Guide</span>
               <span class="touch-base-title">Let's touch base.</span>
-              <button class="tts-btn sm tts-bubble" data-tts="${esc(ttsAll)}" data-tts-voice="adam" style="margin-left:auto;"></button>
+              <button class="touch-base-readalong" data-tb-readalong type="button" aria-label="Read this whole card aloud">
+                <span class="tb-readalong-icon" aria-hidden="true">▶</span>
+                <span class="tb-readalong-label">Read me this</span>
+              </button>
             </div>
-            ${g.summary ? `<div class="touch-base-summary">${esc(g.summary)}</div>` : ''}
+            ${summaryHtml}
             ${concernHtml}
             ${checklist}
             ${suggestionsHtml}
@@ -5272,6 +5370,249 @@
         </div>
       </div>`;
     }
+
+    // ─── Touch-base karaoke read-along ─────────────────────────────────
+    // Henry doesn't read well — the Guide card has to be LISTENED to.
+    // This walks every [data-ks-region] in the card in DOM order,
+    // concatenates the text with double-newline separators, hits the
+    // existing /api/qss-tts-karaoke endpoint (ElevenLabs with-timestamps
+    // → words[] with charStart/charEnd into the input string), then
+    // wraps each region's text with word-spans and runs a single RAF
+    // highlight loop across the whole card as one audio element plays.
+    //
+    // Click button → play. Click again or click any word → stop and
+    // restore plain text. One card plays at a time.
+    (function setupTouchBaseKaraoke() {
+      const cache = new Map(); // textHash -> { audio_base64, words, mime }
+      let session = null; // { audio, words, rafHandle, activeIdx, button, card, originalRegions }
+
+      function hash(text) {
+        let h = 0;
+        for (let i = 0; i < text.length; i++) { h = (h * 31 + text.charCodeAt(i)) | 0; }
+        return 'tb' + (h >>> 0).toString(36) + '_' + text.length;
+      }
+
+      async function fetchKaraoke(text, voice = 'adam') {
+        const key = voice + '|' + hash(text);
+        if (cache.has(key)) return cache.get(key);
+        const res = await fetch('/api/qss-tts-karaoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer qss' },
+          body: JSON.stringify({ text, voice }),
+        });
+        if (!res.ok) {
+          let err = '';
+          try { err = (await res.json()).error || ''; } catch {}
+          throw new Error(`karaoke ${res.status}${err ? ': ' + err : ''}`);
+        }
+        const data = await res.json();
+        if (!data.audio_base64 || !Array.isArray(data.words)) {
+          throw new Error('karaoke response missing audio or words');
+        }
+        cache.set(key, data);
+        if (cache.size > 24) cache.delete(cache.keys().next().value);
+        return data;
+      }
+
+      // Collect every [data-ks-region] in the card, in DOM order, and
+      // return { regions, fullText, offsets } where offsets[i] is the
+      // char position in fullText where region i's text begins.
+      function gatherRegions(card) {
+        const regions = Array.from(card.querySelectorAll('[data-ks-region]'));
+        const offsets = [];
+        const parts = [];
+        const SEP = '\n\n';
+        let cursor = 0;
+        for (let i = 0; i < regions.length; i++) {
+          const txt = regions[i].textContent.trim();
+          if (!txt) { offsets.push(null); continue; }
+          if (parts.length > 0) { cursor += SEP.length; }
+          offsets.push(cursor);
+          parts.push(txt);
+          cursor += txt.length;
+        }
+        return { regions, fullText: parts.join(SEP), offsets };
+      }
+
+      // Wrap each region's text with word-spans whose data-idx maps into
+      // the global words[] array. Preserves the original text on each
+      // region in dataset.original so we can restore on stop.
+      function wrapRegionsWithWords(regions, offsets, words) {
+        for (let r = 0; r < regions.length; r++) {
+          const region = regions[r];
+          const offset = offsets[r];
+          if (offset == null) continue;
+          const original = region.textContent;
+          region.dataset.tbOriginal = original;
+          const text = original.trim();
+          const startInFull = offset;
+          const endInFull = offset + text.length;
+          // Build word ranges relative to THIS region.
+          // A word belongs to this region if its charStart falls inside [startInFull, endInFull).
+          const frag = document.createDocumentFragment();
+          let localCursor = 0; // offset within `text`
+          for (let wi = 0; wi < words.length; wi++) {
+            const w = words[wi];
+            if (w.charStart < startInFull) continue;
+            if (w.charStart >= endInFull) break;
+            const wStart = w.charStart - startInFull;
+            const wEnd = Math.min(w.charEnd - startInFull, text.length);
+            if (wEnd <= wStart) continue;
+            if (wStart > localCursor) {
+              frag.appendChild(document.createTextNode(text.slice(localCursor, wStart)));
+            }
+            const span = document.createElement('span');
+            span.className = 'ks-word';
+            span.dataset.idx = String(wi);
+            span.textContent = text.slice(wStart, wEnd);
+            frag.appendChild(span);
+            localCursor = wEnd;
+          }
+          if (localCursor < text.length) {
+            frag.appendChild(document.createTextNode(text.slice(localCursor)));
+          }
+          region.textContent = '';
+          region.appendChild(frag);
+        }
+      }
+
+      function restoreRegions(regions) {
+        for (const r of regions) {
+          if (r.dataset.tbOriginal != null) {
+            r.textContent = r.dataset.tbOriginal;
+            delete r.dataset.tbOriginal;
+          }
+        }
+      }
+
+      function setActiveWord(card, idx) {
+        if (!session || idx === session.activeIdx) return;
+        // Past words: everything with data-idx < idx
+        // Active word: the one with data-idx === idx
+        const prev = session.activeIdx;
+        if (prev >= 0) {
+          const prevSpan = card.querySelector(`.ks-word[data-idx="${prev}"]`);
+          if (prevSpan) { prevSpan.classList.remove('ks-active'); prevSpan.classList.add('ks-past'); }
+        }
+        if (idx >= 0) {
+          const cur = card.querySelector(`.ks-word[data-idx="${idx}"]`);
+          if (cur) {
+            cur.classList.add('ks-active');
+            cur.classList.remove('ks-past');
+            const r = cur.getBoundingClientRect();
+            const vh = window.innerHeight || document.documentElement.clientHeight;
+            if (r.bottom > vh - 60 || r.top < 60) {
+              cur.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        }
+        session.activeIdx = idx;
+      }
+
+      function loopHighlight() {
+        if (!session || !session.audio || session.audio.paused) {
+          if (session) session.rafHandle = 0;
+          return;
+        }
+        const t = session.audio.currentTime;
+        const ws = session.words;
+        let idx = -1;
+        for (let i = 0; i < ws.length; i++) {
+          if (t >= ws[i].start && t <= ws[i].end + 0.04) { idx = i; break; }
+          if (ws[i].start > t) break;
+        }
+        if (idx < 0) {
+          for (let i = 0; i < ws.length; i++) {
+            if (ws[i].start > t) { idx = i - 1; break; }
+          }
+          if (idx < 0 && ws.length && t >= ws[ws.length - 1].end) idx = ws.length - 1;
+        }
+        setActiveWord(session.card, idx);
+        session.rafHandle = requestAnimationFrame(loopHighlight);
+      }
+
+      function stop() {
+        if (!session) return;
+        const s = session;
+        session = null;
+        try { s.audio?.pause(); } catch {}
+        if (s.rafHandle) cancelAnimationFrame(s.rafHandle);
+        restoreRegions(s.regions);
+        if (s.button) {
+          s.button.classList.remove('is-playing', 'is-loading');
+          const label = s.button.querySelector('.tb-readalong-label');
+          if (label) label.textContent = 'Read me this';
+        }
+      }
+
+      async function play(button) {
+        if (session && session.button === button) { stop(); return; }
+        if (session) stop();
+        const card = button.closest('[data-touch-base-card]');
+        if (!card) return;
+        const { regions, fullText } = gatherRegions(card);
+        if (!fullText.trim()) return;
+        button.classList.add('is-loading');
+        button.classList.remove('is-playing');
+        const label = button.querySelector('.tb-readalong-label');
+        if (label) label.textContent = 'Loading…';
+        let payload;
+        try {
+          payload = await fetchKaraoke(fullText, 'adam');
+        } catch (err) {
+          button.classList.remove('is-loading');
+          if (label) label.textContent = 'Try again';
+          console.warn('[touch-base karaoke]', err);
+          return;
+        }
+        // Fresh-collect regions in case DOM mutated; recompute offsets
+        // against the SAME fullText we just sent.
+        const fresh = gatherRegions(card);
+        wrapRegionsWithWords(fresh.regions, fresh.offsets, payload.words);
+        const audio = new Audio(`data:${payload.mime || 'audio/mpeg'};base64,${payload.audio_base64}`);
+        session = {
+          audio,
+          words: payload.words,
+          rafHandle: 0,
+          activeIdx: -1,
+          button,
+          card,
+          regions: fresh.regions,
+        };
+        audio.addEventListener('ended', () => {
+          if (session && session.audio === audio) stop();
+        });
+        audio.addEventListener('error', () => {
+          if (session && session.audio === audio) stop();
+        });
+        button.classList.remove('is-loading');
+        button.classList.add('is-playing');
+        if (label) label.textContent = 'Reading';
+        try { await audio.play(); } catch (err) {
+          console.warn('[touch-base karaoke] play failed', err);
+          stop();
+          return;
+        }
+        session.rafHandle = requestAnimationFrame(loopHighlight);
+      }
+
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-tb-readalong]');
+        if (btn) {
+          e.preventDefault();
+          play(btn).catch(err => console.warn('[touch-base karaoke]', err));
+          return;
+        }
+        // Click on a highlighted word in the card = stop (so Henry can read the rest himself)
+        const word = e.target.closest('[data-touch-base-card] .ks-word');
+        if (word && session) {
+          e.preventDefault();
+          stop();
+        }
+      });
+
+      window.qssTouchBaseKaraoke = { play, stop };
+    })();
 
     function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
     function esc(s) { return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
