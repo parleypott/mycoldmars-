@@ -446,18 +446,17 @@ body[data-world="burgundy"] textarea::placeholder {
 }
 
 /* ─── Hide QSS sticker decorations + the red dragon mascot ───────────── */
-/* .scrap is the library page's per-image sticker wrapper. The .scrap-deck
- * variants (s-fierce/s-school/s-bunker/s-chill/s-benny/s-bolt) are all
- * children OF .scrap, so the parent selector catches them. The QSS main
- * page's floating sticker decor uses .decor / .deck-decor / .qss-decor.
- * Sticker-* / data-decor / floating-stickers cover any future world that
- * adopts its own sticker pattern. */
+/* Main page has BOTH .scrap (in .scrap-layer) AND .scrap-inline (inside
+ * .gate / .story-empty / .board-empty). Library page has .scrap as
+ * children of <div class="scrap-deck">. Cover every shape. */
+body[data-world="burgundy"] .scrap-layer,
+body[data-world="burgundy"] .scrap-inline,
+body[data-world="burgundy"] .scrap,
 body[data-world="burgundy"] .decor,
 body[data-world="burgundy"] .deck-decor,
 body[data-world="burgundy"] .qss-decor,
 body[data-world="burgundy"] .floating-stickers,
 body[data-world="burgundy"] .sticker-deck,
-body[data-world="burgundy"] .scrap,
 body[data-world="burgundy"] [class*="sticker-"],
 body[data-world="burgundy"] [data-decor] {
   display: none !important;
@@ -549,3 +548,240 @@ body[data-world="burgundy"] .app,
 body[data-world="burgundy"] main.page {
   background: transparent;
 }
+
+/* ─── Burgundy chat composer — minimal enterprise treatment ─────────────
+ *
+ * The composer becomes a single utility row inside a dark phosphor panel:
+ * mic | textarea | send. No sticker buttons. No rounded pills. No mode
+ * toggle visible (the toggle still exists in QSS; under Burgundy it
+ * collapses out of view because Henry just types and sends).
+ *
+ * Send button reads as a flat amber-rimmed lever, not a red sticker.
+ * Mic button reads as a square machined button with a faint phosphor
+ * glow when active. Composer-modes hidden — Burgundy doesn't expose the
+ * ask/verbatim toggle (the underlying mode still works; default = ask).
+ * ──────────────────────────────────────────────────────────────────── */
+
+body[data-world="burgundy"] .composer,
+body[data-world="burgundy"] .chat-composer {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+/* Hide the QSS toggle pills + the helper buttons we removed from the
+ * composer — Burgundy chat is just type-and-send. */
+body[data-world="burgundy"] .composer-modes,
+body[data-world="burgundy"] .composer .stuck-btn,
+body[data-world="burgundy"] .composer .touch-base-btn,
+body[data-world="burgundy"] .composer .story-report-btn,
+body[data-world="burgundy"] .chat-composer .composer-modes,
+body[data-world="burgundy"] .chat-composer .stuck-btn,
+body[data-world="burgundy"] .chat-composer .touch-base-btn,
+body[data-world="burgundy"] .chat-composer .story-report-btn,
+body[data-world="burgundy"] #btn-stuck,
+body[data-world="burgundy"] #btn-story-report {
+  display: none !important;
+}
+
+/* Textarea — expand to fill the row, terminal-style */
+body[data-world="burgundy"] .composer textarea,
+body[data-world="burgundy"] .chat-composer textarea,
+body[data-world="burgundy"] #kid-input {
+  flex: 1 1 auto;
+  min-height: 38px;
+  padding: 8px 10px;
+  background: transparent;
+  border: 1px solid rgba(91, 214, 138, 0.18);
+  border-radius: 2px;
+  color: #D4F5DE;
+  font-family: var(--mono, ui-monospace, 'JetBrains Mono', monospace);
+  font-size: 14px;
+  line-height: 1.45;
+  resize: none;
+  box-shadow: inset 0 0 12px rgba(0,0,0,0.45);
+}
+body[data-world="burgundy"] .composer textarea:focus,
+body[data-world="burgundy"] .chat-composer textarea:focus,
+body[data-world="burgundy"] #kid-input:focus {
+  border-color: rgba(91, 214, 138, 0.55);
+  box-shadow: inset 0 0 12px rgba(0,0,0,0.45), 0 0 0 1px rgba(232, 162, 72, 0.32);
+}
+
+/* Mic — square brushed-metal button instead of QSS round red */
+body[data-world="burgundy"] .mic-btn,
+body[data-world="burgundy"] #btn-mic {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #294050 0%, #1A2D38 100%);
+  border: 1px solid rgba(232, 217, 184, 0.20);
+  color: var(--ink-bright);
+  box-shadow:
+    inset 0 1px 0 rgba(244, 230, 196, 0.10),
+    0 2px 6px rgba(0, 0, 0, 0.45);
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all 140ms ease;
+  flex-shrink: 0;
+}
+body[data-world="burgundy"] .mic-btn:hover,
+body[data-world="burgundy"] #btn-mic:hover {
+  border-color: rgba(232, 162, 72, 0.55);
+  box-shadow: inset 0 1px 0 rgba(244, 230, 196, 0.15), 0 0 0 1px rgba(232, 162, 72, 0.22);
+}
+body[data-world="burgundy"] .mic-btn.listening,
+body[data-world="burgundy"] #btn-mic.listening {
+  border-color: rgba(91, 214, 138, 0.75);
+  box-shadow: 0 0 0 1px rgba(91, 214, 138, 0.45), 0 0 18px rgba(91, 214, 138, 0.32);
+}
+body[data-world="burgundy"] .mic-label,
+body[data-world="burgundy"] #mic-label {
+  display: none;   /* hide the playful "talk!" label under Burgundy */
+}
+
+/* Send button — flat amber-rimmed lever */
+body[data-world="burgundy"] #btn-ask,
+body[data-world="burgundy"] .composer .btn.primary,
+body[data-world="burgundy"] .chat-composer .btn.primary {
+  background: linear-gradient(180deg, #B07628 0%, #7A4A18 100%);
+  color: #FFF5DC;
+  border: 1px solid #C68930;
+  border-radius: 4px;
+  padding: 9px 18px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 245, 220, 0.20),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.40),
+    0 2px 8px rgba(0, 0, 0, 0.45);
+  flex-shrink: 0;
+  transform: none;
+}
+body[data-world="burgundy"] #btn-ask:hover {
+  background: linear-gradient(180deg, #D67A3E 0%, #8A4A18 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 245, 220, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.40),
+    0 4px 14px rgba(214, 122, 62, 0.32);
+}
+body[data-world="burgundy"] #btn-ask .arrow {
+  display: none;  /* arrow glyph is QSS-style; under Burgundy the label alone is enough */
+}
+
+/* ─── Burgundy welcome hero — terminal init feel ──────────────────────── */
+body[data-world="burgundy"] .welcome-hero {
+  background: transparent;
+  padding: 24px 20px;
+  border: 0;
+  box-shadow: none;
+  text-align: left;
+}
+body[data-world="burgundy"] .welcome-hero::before {
+  content: 'RICO_MK1 // SESSION INIT';
+  display: block;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  color: var(--sky);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  opacity: 0.75;
+  text-shadow: 0 0 8px rgba(91, 214, 138, 0.32);
+}
+body[data-world="burgundy"] .wh-title {
+  font-family: var(--display, 'Sailing Club', serif);
+  color: var(--ink-bright);
+  font-size: clamp(28px, 3.4vw, 44px);
+  line-height: 1.15;
+  letter-spacing: 0;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+body[data-world="burgundy"] .wh-name {
+  color: var(--yolk);
+  text-shadow: 0 0 14px rgba(232, 162, 72, 0.38);
+}
+body[data-world="burgundy"] .wh-cta {
+  background: linear-gradient(180deg, #C24A40 0%, #7A2A23 100%);
+  border: 1px solid #5C1F18;
+  color: #FAF1DA;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 12px 22px;
+  border-radius: 4px;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 245, 220, 0.18),
+    0 3px 12px rgba(122, 42, 35, 0.45),
+    0 0 18px rgba(184, 68, 58, 0.25);
+  margin-top: 20px;
+}
+body[data-world="burgundy"] .wh-cta:hover {
+  background: linear-gradient(180deg, #D55449 0%, #8A2F26 100%);
+  transform: translateY(-1px);
+}
+
+/* ─── Burgundy story-pane toolbar — heavy machined controls ───────────── */
+body[data-world="burgundy"] .pane-ctrl-btn {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 7px 12px;
+  background: linear-gradient(180deg, #294050 0%, #1A2D38 100%);
+  border: 1px solid rgba(232, 217, 184, 0.18);
+  border-radius: 4px;
+  color: var(--ink-bright);
+  box-shadow:
+    inset 0 1px 0 rgba(244, 230, 196, 0.10),
+    0 2px 6px rgba(0, 0, 0, 0.45);
+  transform: none;
+}
+body[data-world="burgundy"] .pane-ctrl-btn:hover {
+  background: linear-gradient(180deg, #324A5C 0%, #213846 100%);
+  border-color: rgba(232, 162, 72, 0.45);
+  transform: none;
+}
+body[data-world="burgundy"] .pane-ctrl-btn.pane-ctrl-primary {
+  background: linear-gradient(180deg, #C24A40 0%, #7A2A23 100%);
+  color: var(--ink-bright);
+  border-color: #5C1F18;
+  box-shadow:
+    inset 0 1px 0 rgba(244, 230, 196, 0.18),
+    0 3px 10px rgba(122, 42, 35, 0.45),
+    0 0 16px rgba(184, 68, 58, 0.22);
+}
+body[data-world="burgundy"] .pane-ctrl-btn.pane-ctrl-primary:hover {
+  background: linear-gradient(180deg, #D55449 0%, #8A2F26 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(244, 230, 196, 0.22),
+    0 4px 14px rgba(184, 68, 58, 0.32);
+}
+body[data-world="burgundy"] .font-size-ctrl {
+  background: linear-gradient(180deg, #294050 0%, #1A2D38 100%);
+  border: 1px solid rgba(232, 217, 184, 0.18);
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+body[data-world="burgundy"] .font-size-ctrl button {
+  color: var(--ink-bright);
+  background: transparent;
+  border: 0;
+}
+body[data-world="burgundy"] .font-size-ctrl button.active {
+  background: rgba(232, 162, 72, 0.18);
+  color: var(--yolk);
+}
+
+/* ─── Universal: hide the floating mic-label "talk!" too aggressive? ───
+ * Keep mic-label visible in QSS, hidden in Burgundy (already above). */

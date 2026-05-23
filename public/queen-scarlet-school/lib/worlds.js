@@ -173,16 +173,47 @@ Henry can fill in: the Queen's name, the planet's official name (if different fr
   const LS_MIGRATED = 'qss:world:migrated:v1';
 
   // ─── Active-world accessors ────────────────────────────────────────
+  //
+  // URL-first detection. The canonical URL space is /universe/<world>/...
+  // (see vercel.json rewrites). If we're on that route, the world is
+  // baked into the URL — that wins over localStorage so deep links and
+  // permalinks always land in the right world. Localstorage is only the
+  // fallback for legacy /queen-scarlet-school/* paths that haven't been
+  // redirected yet, or for direct file:// previews.
+  function worldFromUrl() {
+    try {
+      const m = location.pathname.match(/^\/universe\/([a-z0-9-]+)(?:\/|$)/i);
+      const slug = m ? m[1].toLowerCase() : null;
+      return (slug && WORLDS[slug]) ? slug : null;
+    } catch { return null; }
+  }
   function getActive() {
+    const urlSlug = worldFromUrl();
+    if (urlSlug) {
+      // Mirror to LS so any code that reads LS directly stays consistent.
+      try { localStorage.setItem(LS_ACTIVE, urlSlug); } catch {}
+      return urlSlug;
+    }
     try {
       const slug = localStorage.getItem(LS_ACTIVE);
       return (slug && WORLDS[slug]) ? slug : DEFAULT_WORLD;
     } catch { return DEFAULT_WORLD; }
   }
-  function setActive(slug) {
+  // setActive — mirror to LS AND navigate to the world's URL if we're
+  // inside /universe/. Outside that route (legacy paths), just persist.
+  // Returns true if persistence succeeded.
+  function setActive(slug, opts = {}) {
     if (!WORLDS[slug]) return false;
-    try { localStorage.setItem(LS_ACTIVE, slug); return true; }
-    catch { return false; }
+    try { localStorage.setItem(LS_ACTIVE, slug); } catch {}
+    if (opts.navigate !== false && /^\/universe\//.test(location.pathname)) {
+      // Swap the world segment in the URL, keep the page kind (cast/write/etc).
+      const newPath = location.pathname.replace(
+        /^\/universe\/[a-z0-9-]+(\/.*)?$/i,
+        `/universe/${slug}$1`
+      );
+      location.href = newPath || `/universe/${slug}/`;
+    }
+    return true;
   }
   function list() { return Object.values(WORLDS); }
   function get(slug) { return WORLDS[slug || getActive()] || null; }
@@ -327,13 +358,29 @@ Henry can fill in: the Queen's name, the planet's official name (if different fr
   }
 
   // Returns 'workshop' | 'library' | 'cast' | 'universe' | '' based on URL.
+  // Knows both URL forms — new canonical /universe/<world>/... and legacy
+  // /queen-scarlet-school/... in case any old bookmark still hits them.
   function pageKind() {
     const path = location.pathname || '';
+    // New /universe space
+    if (/^\/universe\/?$/.test(path))                            return 'universe';
+    if (/^\/universe\/[a-z0-9-]+\/cast\/?$/i.test(path))         return 'cast';
+    if (/^\/universe\/[a-z0-9-]+\/(?:write|story)\/?/i.test(path)) return 'workshop';
+    if (/^\/universe\/[a-z0-9-]+\/?$/i.test(path))               return 'library';
+    // Legacy /queen-scarlet-school space (kept until all redirects settle)
     if (/\/queen-scarlet-school\/library\/?(?:index\.html)?$/.test(path)) return 'library';
     if (/\/queen-scarlet-school\/cast\/?(?:index\.html)?$/.test(path))    return 'cast';
     if (/\/queen-scarlet-school\/universe\/?(?:index\.html)?$/.test(path)) return 'universe';
     if (/\/queen-scarlet-school\/?(?:index\.html)?(?:\?.*)?$/.test(path))  return 'workshop';
     return '';
+  }
+
+  // Path helpers — build canonical URLs for any world.
+  function libraryHref(slug)  { return `/universe/${slug || getActive()}/`; }
+  function castHref(slug)     { return `/universe/${slug || getActive()}/cast/`; }
+  function writeHref(slug)    { return `/universe/${slug || getActive()}/write/`; }
+  function storyHref(slug, storyId) {
+    return `/universe/${slug || getActive()}/write/${encodeURIComponent(storyId)}`;
   }
 
   // Burgundy decoration — four glowing CRT terminal fragments anchored to
@@ -457,17 +504,8 @@ _</pre>
     }
   }
 
-  // Resolve the universe page URL from any page depth — pages live at
-  // /queen-scarlet-school/, /queen-scarlet-school/cast/, and
-  // /queen-scarlet-school/library/. Universe is at
-  // /queen-scarlet-school/universe/.
-  function universeHref() {
-    const path = location.pathname;
-    if (/\/queen-scarlet-school\/(cast|library|universe)\/?(?:index\.html)?$/.test(path)) {
-      return '../universe/';
-    }
-    return 'universe/';
-  }
+  // Universe is now permanently at /universe/. Absolute path always.
+  function universeHref() { return '/universe/'; }
 
   // ─── Switcher UI ───────────────────────────────────────────────────
   function createSwitcher() {
@@ -475,16 +513,23 @@ _</pre>
     const world = get(active);
     const wrap = document.createElement('div');
     wrap.className = 'world-switcher';
+    // No emojis — color dots stand in for mascots so the chrome stays
+    // editorial. Each world's primary color paints a small disc; the rest
+    // is text. Universe link uses an inline SVG instead of a planet emoji.
+    function colorDot(w) {
+      const c = (w?.colors?.primary) || (w?.colors?.accent) || 'currentColor';
+      return `<span class="world-option-dot" aria-hidden="true" style="background:${c}"></span>`;
+    }
     wrap.innerHTML = `
       <button class="world-pill" type="button" aria-label="Switch worlds" aria-haspopup="menu">
-        <span class="world-pill-mascot" aria-hidden="true">${world?.mascot || '🌍'}</span>
+        ${colorDot(world)}
         <span class="world-pill-name">${world?.shortName || 'World'}</span>
         <span class="world-pill-caret" aria-hidden="true">▾</span>
       </button>
       <div class="world-menu hidden" role="menu">
         ${list().map(w => `
           <button class="world-option ${w.slug === active ? 'active' : ''}" data-slug="${w.slug}" type="button" role="menuitem">
-            <span class="world-option-mascot" aria-hidden="true">${w.mascot}</span>
+            ${colorDot(w)}
             <span class="world-option-text">
               <span class="world-option-name">${w.name}</span>
               <span class="world-option-tag">${w.tagline}</span>
@@ -493,7 +538,7 @@ _</pre>
           </button>
         `).join('')}
         <a class="world-option world-option-universe" href="${universeHref()}" role="menuitem">
-          <span class="world-option-mascot" aria-hidden="true">🌌</span>
+          <span class="world-option-dot" aria-hidden="true" style="background:transparent;border:1px solid currentColor;opacity:0.55"></span>
           <span class="world-option-text">
             <span class="world-option-name">see the whole universe</span>
             <span class="world-option-tag">cosmic view — every world floating in space</span>
@@ -513,8 +558,12 @@ _</pre>
       if (!opt) return;
       const slug = opt.dataset.slug;
       if (slug && slug !== active) {
+        // setActive() handles both LS write and URL navigation when we're
+        // inside /universe/. If we're on a legacy /queen-scarlet-school/*
+        // path, setActive falls back to LS-only and we reload to repaint.
         setActive(slug);
-        location.reload();
+        // If still here (legacy path), reload to apply.
+        if (!/^\/universe\//.test(location.pathname)) location.reload();
       } else {
         menu.classList.add('hidden');
       }
@@ -550,6 +599,14 @@ _</pre>
       }
       .world-pill:hover { background: rgba(255, 246, 224, 0.14); }
       .world-pill-mascot { font-size: 16px; line-height: 1; }
+      .world-option-dot {
+        display: inline-block;
+        width: 12px; height: 12px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        box-shadow: 0 0 0 1px rgba(0,0,0,0.18) inset;
+      }
+      .world-pill .world-option-dot { width: 10px; height: 10px; }
       .world-pill-name { letter-spacing: -0.01em; }
       .world-pill-caret { opacity: 0.6; font-size: 10px; }
 
@@ -613,6 +670,9 @@ _</pre>
     getActive, setActive,
     // storage scoping
     key,
+    // url helpers — every internal link should go through these so
+    // /universe/<world>/ stays canonical
+    universeHref, libraryHref, castHref, writeHref, storyHref, pageKind,
     // ui
     createSwitcher, injectCSS, paintTheme,
     // lifecycle

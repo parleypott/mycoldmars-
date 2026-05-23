@@ -292,6 +292,17 @@
     .pane-ctrl-btn:hover { background: var(--yolk); transform: translate(-1px, -1px); }
     .pane-ctrl-btn.playing { background: var(--red); color: var(--paper-card); animation: ttsPulse 1s ease-in-out infinite; }
     .pane-ctrl-btn.ghost { background: transparent; box-shadow: 1.5px 1.5px 0 var(--ink-bright); }
+    /* Primary pane control — the touch-base button. The action that gets
+     * Henry the most signal about the story; visually heavier than the
+     * utility tabs around it. Sits to the LEFT so it reads as "the main
+     * thing" rather than another tab. */
+    .pane-ctrl-btn.pane-ctrl-primary {
+      background: var(--red);
+      color: var(--paper-card);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      padding: 7px 14px;
+    }
+    .pane-ctrl-btn.pane-ctrl-primary:hover { background: var(--red-deep, var(--red)); transform: translate(-1px, -1px); }
     .font-size-ctrl {
       display: inline-flex; align-items: center;
       border: 2px solid var(--ink-bright); border-radius: 999px;
@@ -3264,8 +3275,8 @@
   </style>
   <!-- worlds.js: registry + shim. Must load BEFORE any inline script that
        touches localStorage — it runs legacy-key migration on import. -->
-  <script src="lib/worlds.js"></script>
-  <link rel="stylesheet" href="lib/themes.css" />
+  <script src="/queen-scarlet-school/lib/worlds.js"></script>
+  <link rel="stylesheet" href="/queen-scarlet-school/lib/themes.css" />
 </head>
 <body>
 
@@ -3324,14 +3335,14 @@
       <a href="/" class="brand"><span class="blob sm"></span>mycoldmars</a>
       <input id="board-name" class="story-title-input" type="text" placeholder="untitled story" autocomplete="off" spellcheck="false" title="Click to rename" />
       <div class="topbar-right">
-        <span id="egg-chip" class="egg-chip" title="Secret things found">🏆 <span id="egg-count">0</span></span>
+        <span id="egg-chip" class="egg-chip" title="Secret things found"><span id="egg-count">0</span> found</span>
         <span id="save-pill" class="save-pill" title="auto-save status">saved</span>
         <button id="btn-cast" class="btn-cast" type="button" title="Open the character gallery">
           <span class="cast-deck" aria-hidden="true"><span></span><span></span><span></span></span>
           <span>the cast</span>
           <span id="cast-count" class="cast-count" hidden>0</span>
         </button>
-        <a href="library/" id="btn-library" class="btn gold" title="Open the story library">📚 library</a>
+        <a href="#" id="btn-library" class="btn gold" title="Open the story library">library</a>
         <button id="btn-rules" class="btn ghost" title="Parent settings — story rules and goals">⚙ rules</button>
         <button id="btn-new" class="btn ghost" title="Start a new story">+ new</button>
         <button id="btn-export" class="btn ghost" title="Download story as JSON">⬇ export</button>
@@ -3365,17 +3376,18 @@
             <div class="pane-header">
               <h2>The Story</h2>
               <div class="pane-controls">
-                <button id="btn-focus" class="pane-ctrl-btn" type="button" title="Focus mode — dim everything except your story">🎯 focus</button>
-                <button id="btn-arc" class="pane-ctrl-btn" type="button" title="Open arc inspector">📖 arc</button>
-                <button id="btn-play-all" class="pane-ctrl-btn" type="button" title="Play the whole story start to finish">▶ play</button>
-                <button id="btn-wrap-up" class="pane-ctrl-btn" type="button" title="Wrap up today's session — see what you wrote">🎉 wrap up</button>
+                <button id="btn-touch-base-pane" class="pane-ctrl-btn pane-ctrl-primary" type="button" title="The Story Guide reads what you've built so far and tells you what's working and what's missing.">touch base</button>
+                <button id="btn-focus" class="pane-ctrl-btn" type="button" title="Focus mode — dim everything except your story">focus</button>
+                <button id="btn-arc" class="pane-ctrl-btn" type="button" title="Open arc inspector">arc</button>
+                <button id="btn-play-all" class="pane-ctrl-btn" type="button" title="Play the whole story start to finish">play</button>
+                <button id="btn-wrap-up" class="pane-ctrl-btn" type="button" title="Wrap up today's session — see what you wrote">wrap up</button>
                 <div class="font-size-ctrl" title="Story text size">
                   <button data-fs="14"   type="button">A</button>
                   <button data-fs="16.5" type="button" class="active" style="font-size: 14px;">A</button>
                   <button data-fs="19"   type="button" style="font-size: 16px;">A</button>
                   <button data-fs="22"   type="button" style="font-size: 18px;">A</button>
                 </div>
-                <button id="btn-collapse-all" class="pane-ctrl-btn ghost" type="button" title="Collapse all blocks to summary">⊟</button>
+                <button id="btn-collapse-all" class="pane-ctrl-btn ghost" type="button" title="Collapse all blocks to summary">collapse</button>
               </div>
             </div>
             <!-- Live character roster (auto-built from arc cache, click any chip → arc inspector) -->
@@ -3462,18 +3474,14 @@
                 <button id="btn-mode-ask"      class="mode-btn active" type="button" data-mode="ask"      title="wordy will respond as wizard">ask wordy</button>
                 <button id="btn-mode-verbatim" class="mode-btn"        type="button" data-mode="verbatim" title="my exact words — wordy keeps them, just tidies them up">✎ my words</button>
               </div>
-              <button id="btn-stuck" class="btn stuck-btn" type="button" title="Tap when your brain goes blank. Wordy gives you 3 totally different things that could happen next.">
-                <span class="stuck-icon" aria-hidden="true">⚡</span>
-                <span class="stuck-label">i'm stuck</span>
-              </button>
-              <button id="btn-touch-base" class="btn touch-base-btn" type="button" title="The Story Guide pops in to tell you where the story is and what's missing.">
-                <span class="tb-icon" aria-hidden="true">✦</span>
-                <span class="tb-label">Let's touch base</span>
-              </button>
-              <button id="btn-story-report" class="btn story-report-btn" type="button" title="Deeper look at your whole story — a grade, what's working, what to fix.">
-                <span class="sr-icon" aria-hidden="true">📊</span>
-                <span class="sr-label">How's my story?</span>
-              </button>
+              <!-- Touch-base moved up to the story panel toolbar — it's
+                   about the story's structure, not chat. Stuck + How's-my-story
+                   were removed; Henry can ask those things directly in chat.
+                   These hidden anchors are kept so existing JS handlers
+                   (touchBase / iAmStuck / storyReport) still wire. -->
+              <button id="btn-stuck" class="btn stuck-btn" type="button" style="display:none" aria-hidden="true">i'm stuck</button>
+              <button id="btn-touch-base" class="btn touch-base-btn" type="button" style="display:none" aria-hidden="true">touch base</button>
+              <button id="btn-story-report" class="btn story-report-btn" type="button" style="display:none" aria-hidden="true">how's my story</button>
               <button id="btn-ask" class="btn primary">Send<span class="arrow">→</span></button>
             </div>
           </div>
@@ -6274,6 +6282,7 @@
     // story stands plus a checklist of story ingredients and concrete
     // next moves. Lives in state.chat so it persists with the story.
     document.getElementById('btn-touch-base')?.addEventListener('click', touchBase);
+    document.getElementById('btn-touch-base-pane')?.addEventListener('click', touchBase);
 
     // "How's my story?" — the deeper structural report card. Grades
     // the whole story on cohesion / surprise / intention / action /
@@ -7989,15 +7998,22 @@
         if (btn) {
           btn.addEventListener('click', (e) => {
             e.preventDefault();
+            // Canonical cast permalink — /universe/<world>/cast/[?story=...]
+            const world = window.QSSWorlds?.getActive?.() || 'queen-scarlet';
             const id = state?.serverId;
             const target = id
-              ? `cast/?story=${encodeURIComponent(id)}`
-              : 'cast/';
-            // Persist the latest characterCards array before navigating so
-            // the cast page can hydrate from the server row even if the
-            // current save is still pending.
+              ? `/universe/${world}/cast/?story=${encodeURIComponent(id)}`
+              : `/universe/${world}/cast/`;
             try { window.Lib?.queueSave?.(); } catch {}
             window.location.href = target;
+          });
+        }
+        const libBtn = document.getElementById('btn-library');
+        if (libBtn) {
+          libBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const world = window.QSSWorlds?.getActive?.() || 'queen-scarlet';
+            window.location.href = `/universe/${world}/`;
           });
         }
         load();

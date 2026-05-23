@@ -799,8 +799,8 @@
   </style>
   <!-- worlds.js: registry + shim. Must load BEFORE any inline script that
        touches localStorage — it runs legacy-key migration on import. -->
-  <script src="../lib/worlds.js"></script>
-  <link rel="stylesheet" href="../lib/themes.css" />
+  <script src="/queen-scarlet-school/lib/worlds.js"></script>
+  <link rel="stylesheet" href="/queen-scarlet-school/lib/themes.css" />
 </head>
 <body>
 
@@ -817,9 +817,18 @@
     <header class="topbar">
       <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
       <span class="spacer"></span>
-      <a href="../" id="back-link">← back to the story</a>
-      <a href="../library/">📚 library</a>
+      <a href="#" id="back-link">back to the story</a>
+      <a href="#" id="cast-library-link">library</a>
     </header>
+    <script>
+      (function fixCastTopbarHrefs() {
+        const world = (location.pathname.match(/^\/universe\/([a-z0-9-]+)/i) || [])[1] || 'queen-scarlet';
+        const back = document.getElementById('back-link');
+        const lib = document.getElementById('cast-library-link');
+        if (back) back.href = `/universe/${world}/write/`;
+        if (lib) lib.href = `/universe/${world}/`;
+      })();
+    </script>
 
     <main class="page">
 
@@ -1871,19 +1880,22 @@
       try {
         // Normalize every card in the global state through migrateCard
         // so legacy single-image shapes get promoted into portraits[].
+        // Defensive: skip falsy entries up front so a stray null can't
+        // throw `.portraits of undefined` mid-loop.
         const normalized = {};
-        for (const [name, raw] of Object.entries(state.cards)) {
+        for (const [name, raw] of Object.entries(state.cards || {})) {
+          if (!raw || typeof raw !== 'object') continue;
           const m = migrateCard({ ...raw, name });
-          if (m) normalized[m.name] = m;
+          if (m && m.name) normalized[m.name] = m;
         }
         state.cards = normalized;
         writeLS();
 
-        // Auto-draw on load: only for cards that have ZERO portraits. Each
-        // successful draw fires syncCard() which pushes to the qss_cast
-        // cloud table, so future reloads find them ready-made.
+        // Auto-draw on load: only for cards that have ZERO portraits. Filter
+        // out any null/undefined cards defensively — empty stages don't
+        // start the recovery flow.
         const needsFirstDraw = Object.values(state.cards).filter(c =>
-          !(Array.isArray(c.portraits) && c.portraits.length)
+          c && !(Array.isArray(c.portraits) && c.portraits.length)
         );
         render();
         firstDrawQueue(needsFirstDraw.map(c => c.name));
@@ -1927,7 +1939,7 @@
       document.getElementById('grid-view').classList.remove('hidden');
       document.getElementById('detail-view').classList.remove('active');
       const grid = document.getElementById('cast-grid');
-      const cards = Object.values(state.cards);
+      const cards = Object.values(state.cards || {}).filter(Boolean);
       if (!cards.length) {
         grid.innerHTML = `<div class="empty"><strong>no characters yet</strong>start writing — anyone Henry adds to the story will show up here.</div>`;
         return;

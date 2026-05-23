@@ -382,8 +382,8 @@
   </style>
   <!-- worlds.js: registry + shim. Must load BEFORE any inline script that
        touches localStorage — it runs legacy-key migration on import. -->
-  <script src="../lib/worlds.js"></script>
-  <link rel="stylesheet" href="../lib/themes.css" />
+  <script src="/queen-scarlet-school/lib/worlds.js"></script>
+  <link rel="stylesheet" href="/queen-scarlet-school/lib/themes.css" />
 </head>
 <body>
 
@@ -413,11 +413,22 @@
       <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
       <div class="lib-title">Library</div>
       <div class="topbar-right">
-        <a href="../universe/" class="btn ghost" title="Back to the universe — pick a different world">🌌 universe</a>
-        <a href="../cast/" class="btn ghost" id="lib-cast" title="See every character in this world">🎭 the cast</a>
-        <a href="../?new=1" class="btn primary" id="lib-new">+ new story</a>
+        <a href="/universe/" class="btn ghost" title="Back to the universe — pick a different world">universe</a>
+        <a href="#" class="btn ghost" id="lib-cast" title="See every character in this world">cast</a>
+        <a href="#" class="btn primary" id="lib-new">new story</a>
       </div>
     </header>
+    <script>
+      // Wire library topbar links to world-aware paths. Runs ASAP so the
+      // anchors are clickable before the gate IIFE evaluates.
+      (function fixTopbarHrefs() {
+        const world = (location.pathname.match(/^\/universe\/([a-z0-9-]+)/i) || [])[1] || 'queen-scarlet';
+        const cast = document.getElementById('lib-cast');
+        const newBtn = document.getElementById('lib-new');
+        if (cast) cast.href = `/universe/${world}/cast/`;
+        if (newBtn) newBtn.href = `/universe/${world}/write/?new=1`;
+      })();
+    </script>
 
     <div class="page">
 
@@ -425,7 +436,7 @@
         <span class="dragon md" id="intro-dragon"></span>
         <div class="copy">
           <h1>Your stories</h1>
-          <div class="sub">every story you've written in this world lives here. tap one to open it, hit "+ new story" to start a fresh one, or check "🎭 the cast" to see every character you've made.</div>
+          <div class="sub">every story you've written in this world lives here. tap one to open it, hit "new story" to start a fresh one, or check "cast" to see every character you've made.</div>
         </div>
         <div class="right">
           <span id="lib-count" class="lib-count">loading…</span>
@@ -999,7 +1010,9 @@
 
     // ─── Action handlers ────────────────────────────────────
     async function handleOpen(id) {
-      window.location.href = `../?story=${encodeURIComponent(id)}`;
+      // Canonical permalink — /universe/<world>/write/<story-id>
+      const world = (window.QSSWorlds?.getActive?.() || 'queen-scarlet');
+      window.location.href = `/universe/${world}/write/${encodeURIComponent(id)}`;
     }
 
     async function handleRename(id, currentName) {

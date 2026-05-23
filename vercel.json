@@ -1,4 +1,29 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/universe", "destination": "/queen-scarlet-school/universe/index.html" },
+    { "source": "/universe/", "destination": "/queen-scarlet-school/universe/index.html" },
+
+    { "source": "/universe/:world/cast", "destination": "/queen-scarlet-school/cast/index.html" },
+    { "source": "/universe/:world/cast/", "destination": "/queen-scarlet-school/cast/index.html" },
+
+    { "source": "/universe/:world/write", "destination": "/queen-scarlet-school/index.html" },
+    { "source": "/universe/:world/write/", "destination": "/queen-scarlet-school/index.html" },
+    { "source": "/universe/:world/write/:story", "destination": "/queen-scarlet-school/index.html?story=:story" },
+    { "source": "/universe/:world/story/:story", "destination": "/queen-scarlet-school/index.html?story=:story" },
+
+    { "source": "/universe/:world", "destination": "/queen-scarlet-school/library/index.html" },
+    { "source": "/universe/:world/", "destination": "/queen-scarlet-school/library/index.html" }
+  ],
+  "redirects": [
+    { "source": "/queen-scarlet-school", "destination": "/universe/queen-scarlet/write", "permanent": false },
+    { "source": "/queen-scarlet-school/", "destination": "/universe/queen-scarlet/write/", "permanent": false },
+    { "source": "/queen-scarlet-school/universe", "destination": "/universe", "permanent": false },
+    { "source": "/queen-scarlet-school/universe/", "destination": "/universe/", "permanent": false },
+    { "source": "/queen-scarlet-school/library", "destination": "/universe/queen-scarlet", "permanent": false },
+    { "source": "/queen-scarlet-school/library/", "destination": "/universe/queen-scarlet/", "permanent": false },
+    { "source": "/queen-scarlet-school/cast", "destination": "/universe/queen-scarlet/cast", "permanent": false },
+    { "source": "/queen-scarlet-school/cast/", "destination": "/universe/queen-scarlet/cast/", "permanent": false }
+  ]
 }
