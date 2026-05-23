@@ -25,12 +25,13 @@
 import { checkAccess as sharedCheckAccess } from './_lib/access.js';
 import { canonForName, canonContextBlock } from './_lib/qss-canon.js';
 
-// Gemini image-gen reliably takes 5-15s but can spike to 30-50s when the
-// model's busy. Edge runtime + Hobby plan IGNORES maxDuration and hard-caps
-// at 25s, which was killing ~1-in-5 portraits. Switched to Node (default
-// when runtime omitted) so maxDuration actually applies. 60s gives us
-// enough budget for ONE attempt + ONE retry inside the function.
-export const config = { maxDuration: 60 };
+// Edge runtime. We TRIED moving to Node with a server-side retry to
+// dodge the 25s edge cap, but the combination produced consistent 60s
+// timeouts in production (Vercel's hard ceiling). Reverted to a clean
+// single-attempt Edge call. Client retry loop (cast/index.html:1274)
+// retries the whole endpoint 3 times, which empirically gets us to
+// ~99% success even with a 20% per-attempt timeout rate.
+export const config = { runtime: 'edge' };
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -371,7 +372,6 @@ async function callClaude(apiKey, userMessage) {
       system: SYNOPSIS_SYSTEM,
       messages: [{ role: 'user', content: userMessage }],
     }),
-    signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) {
     const t = await res.text().catch(() => '');
@@ -411,55 +411,31 @@ async function callNanoBanana(apiKey, prompt, refImage = null, lovedRefs = []) {
     generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
   };
 
-  // Two-attempt server-side retry. We now run on Node runtime with
-  // maxDuration: 60s, so we have budget for one retry on a transient
-  // upstream failure (504, 503, or empty response). Each Gemini attempt
-  // typically resolves in 5-15s; even two back-to-back attempts stay
-  // comfortably under 60s. The client still has its own 3-retry loop
-  // around the whole endpoint for genuinely catastrophic failures.
-  let lastErr = null;
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(25_000),
-      });
-      if (!res.ok) {
-        const t = await res.text().catch(() => '');
-        lastErr = new Error(`gemini ${res.status}: ${t.slice(0, 200)}`);
-        if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
-          throw lastErr; // hard 4xx — don't retry
-        }
-        if (attempt < 2) { await new Promise(r => setTimeout(r, 1200)); continue; }
-        throw lastErr;
+  // SINGLE attempt. On Edge runtime with Hobby's 25s cap we can't safely
+  // retry server-side. The client retry loop in cast/index.html handles
+  // transient failures with 3 attempts + backoff.
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error(`gemini ${res.status}: ${t.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  const candidates = data?.candidates || [];
+  for (const c of candidates) {
+    for (const p of (c?.content?.parts || [])) {
+      if (p.inlineData?.data) {
+        return {
+          mime: p.inlineData.mimeType || 'image/png',
+          dataBase64: p.inlineData.data,
+        };
       }
-      const data = await res.json();
-      const candidates = data?.candidates || [];
-      for (const c of candidates) {
-        for (const p of (c?.content?.parts || [])) {
-          if (p.inlineData?.data) {
-            return {
-              mime: p.inlineData.mimeType || 'image/png',
-              dataBase64: p.inlineData.data,
-            };
-          }
-        }
-      }
-      lastErr = new Error('no image returned');
-      if (attempt < 2) { await new Promise(r => setTimeout(r, 1000)); continue; }
-      throw lastErr;
-    } catch (err) {
-      lastErr = err;
-      if (attempt < 2 && !/gemini 4\d\d/.test(String(err))) {
-        await new Promise(r => setTimeout(r, 1200));
-        continue;
-      }
-      throw err;
     }
   }
-  throw lastErr || new Error('gemini call exhausted retries');
+  throw new Error('no image returned');
 }
 
 // access guard — delegates to the shared perimeter check at the top
