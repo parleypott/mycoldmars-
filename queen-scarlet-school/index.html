@@ -1303,6 +1303,50 @@
       display: inline-block; transform: translateY(-1px);
     }
 
+    /* "i'm stuck" — Henry's blank-brain rescue button.
+     * Sits next to touch-base. Yolk-yellow so it pops as a HELP
+     * button, not a check-in. Lowercase kid voice. One tap →
+     * 3 fresh story moves, no lecture in between. */
+    .stuck-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--yolk); color: var(--ink-bright);
+      border-color: var(--ink-bright);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+    .stuck-btn:hover {
+      background: #FFC83A;
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0 var(--ink-bright);
+    }
+    .stuck-btn:active {
+      transform: translate(1px, 1px);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+    }
+    .stuck-btn[disabled] {
+      opacity: 0.6; cursor: not-allowed; transform: none;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+    }
+    .stuck-btn .stuck-icon {
+      font-size: 16px; line-height: 1;
+      display: inline-block; transform: translateY(-1px);
+    }
+
+    /* Stuck-mode eyebrow chip — shows on the directions card so
+     * Henry sees "yep, the button worked, here's three fresh moves." */
+    .stuck-eyebrow {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--ui); font-weight: 800; font-size: 11px;
+      letter-spacing: 0.10em; text-transform: uppercase;
+      padding: 4px 10px; border-radius: 999px;
+      background: var(--yolk); color: var(--ink-bright);
+      border: 2px solid var(--ink-bright);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      margin-bottom: 8px;
+    }
+    .stuck-eyebrow .stuck-icon { font-size: 12px; }
+
     /* The Story Guide bubble — bigger and friendlier than Wordy's
      * regular messages. Grape border so it reads as "this is the
      * Guide stepping in," not Wordy. */
@@ -3034,6 +3078,10 @@
                 <button id="btn-mode-ask"      class="mode-btn active" type="button" data-mode="ask"      title="wordy will respond as wizard">ask wordy</button>
                 <button id="btn-mode-verbatim" class="mode-btn"        type="button" data-mode="verbatim" title="my exact words — wordy keeps them, just tidies them up">✎ my words</button>
               </div>
+              <button id="btn-stuck" class="btn stuck-btn" type="button" title="Tap when your brain goes blank. Wordy gives you 3 totally different things that could happen next.">
+                <span class="stuck-icon" aria-hidden="true">⚡</span>
+                <span class="stuck-label">i'm stuck</span>
+              </button>
               <button id="btn-touch-base" class="btn touch-base-btn" type="button" title="The Story Guide pops in to tell you where the story is and what's missing.">
                 <span class="tb-icon" aria-hidden="true">✦</span>
                 <span class="tb-label">Let's touch base</span>
@@ -4495,6 +4543,7 @@
             history: history.slice(0, -1).slice(-8),
             phase: opts.phase,           // 'directions' | 'blocks' | undefined (server picks)
             direction: opts.direction,    // when phase==='blocks', the chosen direction title
+            stuck: opts.stuck === true,   // Henry tapped "i'm stuck" — server forces fresh-moves mode
             story: { blocks: state.blocks, rules: state.rules },
             arc_context: state.arcContext || null,
             character_cards: window.qssCast?.getCardsForContext?.() || [],
@@ -4534,6 +4583,7 @@
           stage: data.stage,
           targetMin: data.targetMin,
           targetMax: data.targetMax,
+          stuck: opts.stuck === true,
         };
         // Log the routing decision the server made — invaluable for
         // figuring out how often we redirect vs engage directly.
@@ -4742,6 +4792,11 @@
           // the informational priming labels Johnny called out.
           const routeBadge = t.routing === 'redirect-from-fixation'
             ? `<div class="route-badge" data-r="redirect-from-fixation">✦ wizard suggests other paths</div>` : '';
+          // Stuck chip — surfaces when Henry tapped "i'm stuck" so he sees
+          // the button worked and these moves are the unsticker, not a
+          // regular wizard prompt.
+          const stuckChip = t.stuck
+            ? `<div class="stuck-eyebrow"><span class="stuck-icon" aria-hidden="true">⚡</span>stuck → here are 3 fresh moves</div>` : '';
 
           // ONE BUBBLE with a big consultant-voice speaker on the LEFT rail —
           // mirrors the story-block speaker layout. The dragon mascot is
@@ -4749,6 +4804,7 @@
           // not the storyteller (Matilda) who narrates committed blocks.
           return `<div class="tutor-turn">
             ${routeBadge}
+            ${stuckChip}
             <div class="tutor-msg dir-msg">
               <div class="dir-side">
                 ${window.dragon('md')}
@@ -5109,6 +5165,31 @@
     // story stands plus a checklist of story ingredients and concrete
     // next moves. Lives in state.chat so it persists with the story.
     document.getElementById('btn-touch-base')?.addEventListener('click', touchBase);
+
+    // "i'm stuck" — Henry's blank-brain rescue button.
+    // No kid bubble, no lecture, no analysis. Just three fresh story moves.
+    // Server picks up stuck:true and biases DIRECTIONS_SYSTEM accordingly.
+    document.getElementById('btn-stuck')?.addEventListener('click', iAmStuck);
+    async function iAmStuck() {
+      if (state.thinking) return;
+      const btn = document.getElementById('btn-stuck');
+      if (!btn || btn.disabled) return;
+      observe('stuck_tapped', {
+        blocks_so_far: (state.blocks || []).length,
+        chat_turns: (state.chat || []).length,
+      });
+      btn.disabled = true;
+      const labelEl = btn.querySelector('.stuck-label');
+      const original = labelEl?.textContent || "i'm stuck";
+      if (labelEl) labelEl.textContent = 'thinking…';
+      try {
+        await askWordy('', /*auto*/ true, { phase: 'directions', stuck: true });
+      } finally {
+        btn.disabled = false;
+        if (labelEl) labelEl.textContent = original;
+      }
+    }
+    window.iAmStuck = iAmStuck;
     async function touchBase() {
       if (state.thinking) return;
       const btn = document.getElementById('btn-touch-base');

@@ -491,7 +491,9 @@ async function handleTutor(body, apiKey) {
   let phase;
   let routing = 'default';
   const chosenDirection = (body.direction || '').toString().trim();
-  if (body.phase === 'directions') { phase = 'directions'; routing = 'explicit'; }
+  const stuckMode = body.stuck === true;
+  if (stuckMode) { phase = 'directions'; routing = 'stuck-rescue'; }
+  else if (body.phase === 'directions') { phase = 'directions'; routing = 'explicit'; }
   else if (body.phase === 'blocks') { phase = 'blocks'; routing = 'explicit'; }
   else if (cur === 0) { phase = 'blocks'; routing = 'opening'; }
   else { phase = 'directions'; routing = 'auto-direction'; }
@@ -505,8 +507,8 @@ async function handleTutor(body, apiKey) {
   const fixation = detectFixation(blocks, extraCharacters);
 
   // ── Re-route the phase decision based on fixation + kid input ──
-  // (only when caller didn't explicitly set body.phase)
-  if (!body.phase && message) {
+  // (only when caller didn't explicitly set body.phase, and not in stuck mode)
+  if (!body.phase && message && !stuckMode) {
     // Kid typed something specific.
     if (fixation.severe) {
       // Heavy fixation — force the wizard so Wordy can warmly redirect.
@@ -643,6 +645,31 @@ async function handleTutor(body, apiKey) {
         ? '\n\n═══ WORLD CANON (non-negotiable) ═══\n' + canonContextBlock([])
         : '');
 
+  // STUCK MODE — Henry tapped "i'm stuck." His brain is blank. The cure
+  // isn't deeper analysis (that's touch-base). The cure is 3 wildly
+  // different, sensorily concrete first moves so one of them lights up
+  // for him. No welcome, no lecture, no "great question Henry" — go
+  // straight to the scenarios.
+  const stuckBlock = stuckMode
+    ? `\n\n═══ STUCK MODE (HARD OVERRIDE) ═══
+Henry pressed the "i'm stuck" button. He doesn't know what comes next.
+
+DO:
+- Skip preamble. No "great question," no "let me think," no analysis.
+- Reply text (before the fenced \`\`\`directions block) is ONE short sentence acknowledging the stuck — kid-voiced, warm, 6-12 words MAX. Examples: "okay — three totally different doors." / "let's shake it loose." / "brand new directions, coming up." Then go straight to the directions.
+- The 3 scenarios MUST be MAXIMALLY DIFFERENT from each other AND from any RECENT SCENARIOS already proposed.
+- Each scenario should have a strong sensory hook in the title — a sound, a smell, a face, a sudden movement, a weird object — something Henry can SEE in his head immediately.
+- Bias toward MOVEMENT: a thing arriving, a thing falling, a character doing something physical right now. Not internal thoughts, not "Scarlet considers her options."
+- Use the storytelling fundamentals lens (tension, surprise, character behavior, humor, motion, curiosity) — each scenario should foreground at least 2.
+
+DO NOT:
+- Do NOT lecture about why he's stuck.
+- Do NOT propose abstract themes ("a quiet moment", "a reveal").
+- Do NOT propose 3 variants of the same beat — they must use 3 different MOVE TYPES.
+- Do NOT default to the autopilot moves (PA announcement, Scarlet bursts in, Benny rolls past, Kevin does math, food list, rules list).
+═══ END STUCK MODE ═══`
+    : '';
+
   const baseSystem = phase === 'directions' ? DIRECTIONS_SYSTEM : TUTOR_SYSTEM;
   const systemText = HENRY_PROFILE
     + '\n\n' + baseSystem
@@ -656,16 +683,19 @@ async function handleTutor(body, apiKey) {
     + castBlock
     + patternBlock
     + antiRepeatBlock
-    + routingBlock;
+    + routingBlock
+    + stuckBlock;
 
   const contents = history.map(m => ({
     role: m.role === 'user' ? 'user' : 'model',
     parts: [{ text: m.content }],
   }));
   // First-turn nudge if no message
-  const userTurnText = message || (cur === 0
-    ? "let's start! what are 3 great ways i could open this story?"
-    : `i'm ready for what's next. give me 3 options that fit where we are in the story.`);
+  const userTurnText = stuckMode
+    ? "i'm stuck — i don't know what could happen next. give me 3 totally different concrete moves with strong sensory hooks. no lecture, just the scenarios."
+    : (message || (cur === 0
+        ? "let's start! what are 3 great ways i could open this story?"
+        : `i'm ready for what's next. give me 3 options that fit where we are in the story.`));
   contents.push({ role: 'user', parts: [{ text: userTurnText }] });
 
   // ── Claude Sonnet 4.6 for tutor mode ──
