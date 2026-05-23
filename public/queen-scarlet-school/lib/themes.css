@@ -6,145 +6,446 @@
  * (Queen Scarlet's bright sticker chrome); a Burgundy override block
  * repaints every visible token under that body selector.
  *
- * worlds.js sets data-world on both <html> and <body> on every page load,
- * so these selectors fire immediately — no FOUC.
+ * worlds.js sets data-world on both <html> and <body> on every page load
+ * AND adds page-library / page-cast / page-workshop based on pathname,
+ * so per-page hero anchors fire automatically.
  * ─────────────────────────────────────────────────────────────────────── */
 
-/* ─── Burgundy / Puppy Town — placeholder pending Designer output ────────
+/* ═══════════════════════════════════════════════════════════════════════
+ * BURGUNDY / PUPPY TOWN — full aesthetic override (Designer-spec)
  *
- * These are FIRST-CUT values. Designer agent is producing the real spec;
- * once it lands at queen-scarlet-school/burgundy-design.md, paste its CSS
- * block here, replacing this section. The point of these placeholders is
- * that the moment data-world="burgundy" lands, every visible chunk of UI
- * stops looking like cream-paper QSS and starts looking like the dark
- * painterly Burgundy world. Even if the aesthetic isn't final, the SWAP
- * is wired and verifiable.
- * ──────────────────────────────────────────────────────────────────────── */
+ * Aesthetic target: Studio Ghibli watercolor + Iron Giant rust + Yucatan
+ * 1512 poster + green CRT. Deep teal-blue night, sienna lamplight, iron-
+ * gray machinery, mossy MS-DOS green. Painterly, not graphic. Cold, not
+ * cute.
+ * ═══════════════════════════════════════════════════════════════════════ */
 
 body[data-world="burgundy"] {
-  /* Paper / page surfaces — dark teal-blue replaces cream */
-  --paper:       #1A2433;
-  --paper-card:  #243248;
-  --paper-deep:  #11192A;
-  --paper-soft:  #2B3B54;
+  /* "paper" — now the painted dark canvas under everything */
+  --paper:       #0F1E26;
+  --paper-card:  #1A2D38;
+  --paper-deep:  #081218;
+  --paper-soft:  #213846;
 
-  /* Ink — warm cream replaces near-black */
-  --ink:         #E8DFCC;
-  --ink-bright:  #F2EBD8;
-  --ink-soft:    #C9BEAA;
-  --ink-faint:   #8A7E69;
-  --ink-ghost:   #4F4736;
+  /* "ink" — now the warm cream the lamps cast, not black */
+  --ink:         #E8D9B8;
+  --ink-bright:  #F4E6C4;
+  --ink-soft:    #B8A582;
+  --ink-faint:   #7A6E5C;
+  --ink-ghost:   #3A4A56;
 
-  /* Accent palette — amber lamplight + sienna + burgundy + dim teal */
-  --red:         #A24F1F;      /* sienna replaces tomato */
-  --red-deep:    #6E1F1A;      /* burgundy */
-  --yolk:        #D67A3E;      /* amber lamplight replaces butter */
-  --yolk-deep:   #A85A28;
-  --sky:         #3B5A6E;      /* dim industrial teal replaces sky blue */
-  --sky-deep:    #1F3849;
-  --grass:       #5E6E4E;      /* mossy olive replaces grass */
-  --grass-deep:  #3E4A35;
-  --bubblegum:   #8F4B4B;      /* dusty rose replaces bubblegum */
-  --bubblegum-deep: #5E2E2E;
+  /* "red" — sienna-burgundy oxidized iron, NOT sticker tomato */
+  --red:         #B8443A;
+  --red-deep:    #7A2A23;
+
+  /* "yolk" — REDIRECTED to amber lamplight */
+  --yolk:        #E8A248;
+  --yolk-deep:   #B07628;
+
+  /* "sky" — REDIRECTED to CRT phosphor green */
+  --sky:         #5BD68A;
+  --sky-deep:    #2D8A4A;
+
+  /* "grass" — REDIRECTED to copper-teal */
+  --grass:       #4A8585;
+  --grass-deep:  #2A5555;
+
+  /* "bubblegum" — REDIRECTED to brushed gunmetal */
+  --bubblegum:      #5A6470;
+  --bubblegum-deep: #3A434E;
 }
 
-/* Hard surface — replace cream paper with painterly atmosphere on the
- * page body. The planet-hero composite sits as a fixed background, dimmed
- * heavily so chrome stays legible. */
+/* ─── Page background — painterly hero per page ─────────────────────── */
 body[data-world="burgundy"] {
   background-color: var(--paper);
   background-image:
-    linear-gradient(180deg, rgba(10, 14, 24, 0.88) 0%, rgba(10, 14, 24, 0.78) 40%, rgba(10, 14, 24, 0.92) 100%),
-    url('/queen-scarlet-school/worlds/burgundy/palace-exterior.jpg');
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
+    radial-gradient(ellipse at center, transparent 0%, rgba(8,18,24,0.55) 75%, rgba(8,18,24,0.85) 100%),
+    linear-gradient(180deg, rgba(15,30,38,0.82) 0%, rgba(15,30,38,0.74) 40%, rgba(8,18,24,0.88) 100%),
+    var(--bg-hero, url('/queen-scarlet-school/worlds/burgundy/burgundy-portrait.jpg'));
+  background-size: cover, cover, cover;
+  background-position: center, center, center 30%;
+  background-attachment: fixed, fixed, fixed;
   background-repeat: no-repeat;
   color: var(--ink);
 }
 
-/* Topbar — dark chrome with amber separators */
-body[data-world="burgundy"] .topbar {
-  background: rgba(17, 25, 42, 0.88);
-  border-bottom-color: rgba(214, 122, 62, 0.42);
-  color: var(--ink);
-  backdrop-filter: blur(8px) saturate(1.1);
-}
-body[data-world="burgundy"] .brand,
-body[data-world="burgundy"] .lib-title {
-  color: var(--ink-bright);
+body[data-world="burgundy"].page-library   { --bg-hero: url('/queen-scarlet-school/worlds/burgundy/burgundy-portrait.jpg'); }
+body[data-world="burgundy"].page-cast      { --bg-hero: url('/queen-scarlet-school/worlds/burgundy/peasant-miners.jpg'); }
+body[data-world="burgundy"].page-workshop  { --bg-hero: url('/queen-scarlet-school/worlds/burgundy/msdos-terminal-closeup.jpg'); }
+body[data-world="burgundy"].page-universe  { --bg-hero: url('/queen-scarlet-school/worlds/burgundy/palace-exterior.jpg'); }
+
+/* Subtle film-grain noise overlay — painterly texture */
+body[data-world="burgundy"]::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.92  0 0 0 0 0.85  0 0 0 0 0.72  0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  mix-blend-mode: overlay;
+  opacity: 0.55;
 }
 
-/* Buttons — replace QSS thick-outline sticker style with subtle brushed
- * panels. No hard offset shadow; soft amber border instead. */
-body[data-world="burgundy"] .btn {
-  background: rgba(36, 50, 72, 0.86);
+/* ─── Corner CRT terminal decoration ────────────────────────────────── */
+body[data-world="burgundy"] .burgundy-decor {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+}
+body[data-world="burgundy"] .burgundy-decor .crt-frag {
+  position: absolute;
+  font-family: var(--mono, ui-monospace, 'JetBrains Mono', monospace);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--sky);
+  opacity: 0.32;
+  letter-spacing: 0.04em;
+  text-shadow:
+    0 0 6px rgba(91, 214, 138, 0.55),
+    0 0 14px rgba(91, 214, 138, 0.28);
+  white-space: pre;
+  user-select: none;
+  animation: crt-flicker 4.2s ease-in-out infinite;
+  margin: 0;
+}
+body[data-world="burgundy"] .burgundy-decor .crt-frag.tl { top: 24px;    left: 28px;   transform: rotate(-1.5deg); }
+body[data-world="burgundy"] .burgundy-decor .crt-frag.tr { top: 32px;    right: 28px;  transform: rotate(1deg);  text-align: right; }
+body[data-world="burgundy"] .burgundy-decor .crt-frag.bl { bottom: 28px; left: 32px;   transform: rotate(0.8deg); }
+body[data-world="burgundy"] .burgundy-decor .crt-frag.br { bottom: 24px; right: 28px;  transform: rotate(-1deg); text-align: right; }
+@keyframes crt-flicker {
+  0%, 92%, 100% { opacity: 0.32; }
+  93% { opacity: 0.22; }
+  94% { opacity: 0.38; }
+  95% { opacity: 0.18; }
+  96% { opacity: 0.34; }
+}
+
+/* Hide decor on the universe page (planet picker is its own thing) */
+body[data-world="burgundy"].page-universe .burgundy-decor { display: none; }
+
+/* ─── Topbar — dark gunmetal with amber under-rail ───────────────────── */
+body[data-world="burgundy"] .topbar {
+  background: linear-gradient(180deg,
+    rgba(8, 18, 24, 0.96) 0%,
+    rgba(15, 30, 38, 0.94) 100%);
+  border-bottom: 1px solid rgba(232, 217, 184, 0.10);
+  box-shadow:
+    inset 0 -1px 0 rgba(232, 162, 72, 0.22),
+    0 2px 12px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(12px) saturate(1.1);
   color: var(--ink-bright);
-  border: 1px solid rgba(214, 122, 62, 0.38);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 2px 10px rgba(0, 0, 0, 0.45);
-  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  position: relative;
+  z-index: 5;
+}
+body[data-world="burgundy"] .topbar .brand,
+body[data-world="burgundy"] .topbar .lib-title,
+body[data-world="burgundy"] .topbar .topbar-title {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-bright);
+  text-shadow: 0 0 10px rgba(232, 162, 72, 0.25);
+}
+body[data-world="burgundy"] .topbar .btn {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  padding: 7px 13px;
+}
+body[data-world="burgundy"] .world-switcher,
+body[data-world="burgundy"] .world-pill {
+  background: rgba(15, 30, 38, 0.72);
+  border: 1px solid rgba(232, 217, 184, 0.16);
+  color: var(--ink);
+  box-shadow:
+    inset 0 1px 0 rgba(244, 230, 196, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.45);
+  font-family: var(--mono, monospace);
+  letter-spacing: 0.16em;
+}
+
+/* ─── Buttons — brushed metal panels ─────────────────────────────────── */
+body[data-world="burgundy"] .btn {
+  border: 1px solid var(--ink-faint);
+  border-radius: 4px;
+  padding: 9px 16px;
+  background: linear-gradient(180deg,
+    var(--paper-soft) 0%,
+    var(--paper-card) 50%,
+    var(--paper-deep) 100%);
+  color: var(--ink-bright);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 1px 0 rgba(244, 230, 196, 0.10),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.50),
+    0 2px 8px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.55);
+  transform: none;
+  transition: all 140ms ease-out;
 }
 body[data-world="burgundy"] .btn:hover {
-  transform: translateY(-1px);
-  border-color: rgba(214, 122, 62, 0.72);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.10) inset, 0 4px 14px rgba(214, 122, 62, 0.28);
+  background: linear-gradient(180deg, #294050 0%, #213846 50%, #1A2D38 100%);
+  border-color: var(--ink-soft);
+  box-shadow:
+    inset 0 1px 0 rgba(244, 230, 196, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.50),
+    0 3px 12px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(232, 162, 72, 0.18);
+  transform: none;
+  color: var(--ink-bright);
 }
 body[data-world="burgundy"] .btn:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.30) inset, 0 1px 4px rgba(0, 0, 0, 0.50);
+  background: linear-gradient(180deg, var(--paper-deep) 0%, var(--paper-card) 100%);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+  transform: translateY(1px);
 }
 body[data-world="burgundy"] .btn.primary {
-  background: linear-gradient(180deg, #C46832 0%, #8B3F18 100%);
-  color: #FAF1DA;
-  border-color: #C46832;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  background: linear-gradient(180deg, #C24A40 0%, #B8443A 50%, #7A2A23 100%);
+  border-color: #5C1F18;
+  color: var(--ink-bright);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(244, 230, 196, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 3px 10px rgba(122, 42, 35, 0.45),
+    0 0 18px rgba(184, 68, 58, 0.25);
 }
 body[data-world="burgundy"] .btn.primary:hover {
-  background: linear-gradient(180deg, #D67A3E 0%, #9D4720 100%);
-  border-color: #FFA567;
-  transform: translateY(-1px);
+  background: linear-gradient(180deg, #D55449 0%, #C24A40 50%, #8A2F26 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(244, 230, 196, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    0 4px 14px rgba(122, 42, 35, 0.55),
+    0 0 24px rgba(184, 68, 58, 0.35);
 }
 body[data-world="burgundy"] .btn.ghost {
-  background: transparent;
-  border-color: rgba(232, 223, 204, 0.22);
+  background: rgba(33, 56, 70, 0.45);
+  border: 1px solid rgba(232, 217, 184, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(244, 230, 196, 0.05),
+    0 1px 4px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px) saturate(1.1);
 }
 body[data-world="burgundy"] .btn.ghost:hover {
-  background: rgba(214, 122, 62, 0.12);
-  border-color: rgba(214, 122, 62, 0.55);
+  background: rgba(58, 74, 86, 0.55);
+  border-color: rgba(232, 162, 72, 0.40);
+  color: var(--ink-bright);
 }
 body[data-world="burgundy"] .btn.gold {
-  background: linear-gradient(180deg, #D67A3E 0%, #A24F1F 100%);
-  color: #FFF5DC;
-  border-color: #E69658;
+  background: linear-gradient(180deg, #E8A248 0%, #B07628 100%);
+  color: #1A1208;
+  border-color: #C68930;
+  text-shadow: 0 1px 0 rgba(255, 245, 220, 0.32);
 }
 
-/* Cards — subtle metallic panel instead of cream sticker card */
+/* ─── Cards — painted wooden panels ──────────────────────────────────── */
 body[data-world="burgundy"] .story-card,
 body[data-world="burgundy"] .ccard,
-body[data-world="burgundy"] .story-block {
-  background: rgba(36, 50, 72, 0.78);
-  border: 1px solid rgba(214, 122, 62, 0.28);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
-  color: var(--ink-bright);
-  transform: none;
+body[data-world="burgundy"] .card,
+body[data-world="burgundy"] .panel {
+  background: linear-gradient(180deg,
+    rgba(26, 45, 56, 0.88) 0%,
+    rgba(15, 30, 38, 0.92) 100%);
+  border: 1px solid rgba(232, 217, 184, 0.14);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 1px 0 rgba(244, 230, 196, 0.06),
+    0 6px 18px rgba(0, 0, 0, 0.45),
+    0 1px 0 rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px) saturate(1.05);
+  transform: none !important;
 }
 body[data-world="burgundy"] .story-card:hover,
-body[data-world="burgundy"] .ccard:hover,
-body[data-world="burgundy"] .story-block:hover {
-  transform: translateY(-2px);
-  border-color: rgba(214, 122, 62, 0.65);
-  box-shadow: 0 8px 28px rgba(214, 122, 62, 0.22), 0 1px 0 rgba(255, 255, 255, 0.10) inset;
+body[data-world="burgundy"] .ccard:hover {
+  border-color: rgba(232, 162, 72, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(244, 230, 196, 0.10),
+    0 8px 24px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(232, 162, 72, 0.20),
+    0 0 32px rgba(232, 162, 72, 0.10);
+  transform: translateY(-2px) !important;
+}
+body[data-world="burgundy"] .story-card .cover {
+  background: var(--paper-deep);
+  border: 1px solid rgba(232, 217, 184, 0.16);
+  border-radius: 4px;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.55);
+}
+body[data-world="burgundy"] .story-card h3 {
+  color: var(--ink-bright);
+  font-family: var(--display);
+  text-shadow: 0 2px 4px rgba(0,0,0,0.65);
 }
 
-/* Block numbers — keep the colored circle but recolor against Burgundy palette */
-body[data-world="burgundy"] .story-block:nth-child(4n+1) .b-num { background: #3B5A6E; color: var(--ink-bright); }
-body[data-world="burgundy"] .story-block:nth-child(4n+2) .b-num { background: #8F4B4B; color: var(--ink-bright); }
-body[data-world="burgundy"] .story-block:nth-child(4n+3) .b-num { background: #5E6E4E; color: var(--ink-bright); }
-body[data-world="burgundy"] .story-block:nth-child(4n+4) .b-num { background: #D67A3E; color: #1A1208; }
+/* Story blocks list — also a "card" but it's the terminal */
+body[data-world="burgundy"] .story-block {
+  background: rgba(26, 45, 56, 0.65);
+  border: 1px solid rgba(232, 217, 184, 0.14);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  color: var(--ink-bright);
+  transform: none !important;
+}
+body[data-world="burgundy"] .story-block:hover {
+  transform: translate(-1px, -1px) !important;
+  border-color: rgba(232, 162, 72, 0.42);
+  box-shadow: 0 6px 22px rgba(232, 162, 72, 0.16), 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+/* Block number circles — repaint against Burgundy palette */
+body[data-world="burgundy"] .story-block:nth-child(4n+1) .b-num { background: var(--sky);       color: #0B1F12; }
+body[data-world="burgundy"] .story-block:nth-child(4n+2) .b-num { background: var(--red);       color: var(--ink-bright); }
+body[data-world="burgundy"] .story-block:nth-child(4n+3) .b-num { background: var(--grass);     color: var(--ink-bright); }
+body[data-world="burgundy"] .story-block:nth-child(4n+4) .b-num { background: var(--yolk);      color: #1A1208; }
 
-/* Hide QSS sticker decorations under Burgundy — those scattered cartoon
- * stickers in the background are world-specific. Burgundy doesn't have
- * them. (Designer may replace with painted ornaments.) */
+/* ─── Typography ──────────────────────────────────────────────────────── */
+body[data-world="burgundy"] {
+  line-height: 1.5;
+}
+body[data-world="burgundy"] h1,
+body[data-world="burgundy"] h2,
+body[data-world="burgundy"] .page-intro h1,
+body[data-world="burgundy"] .section-title,
+body[data-world="burgundy"] .page-title {
+  color: var(--ink-bright);
+  letter-spacing: 0.005em;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  transform: none !important;
+}
+body[data-world="burgundy"] .eyebrow,
+body[data-world="burgundy"] .section-meta,
+body[data-world="burgundy"] .label,
+body[data-world="burgundy"] .little,
+body[data-world="burgundy"] .page-intro .sub {
+  color: var(--ink-soft);
+}
+body[data-world="burgundy"] p,
+body[data-world="burgundy"] li,
+body[data-world="burgundy"] .body {
+  color: var(--ink);
+}
+
+/* ─── The Burgundy motto — chrome element ─────────────────────────────── */
+body[data-world="burgundy"] .burgundy-motto {
+  display: block;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--red);
+  text-align: center;
+  padding: 10px 18px;
+  border-top:    1px solid rgba(184, 68, 58, 0.35);
+  border-bottom: 1px solid rgba(184, 68, 58, 0.35);
+  text-shadow: 0 0 12px rgba(184, 68, 58, 0.45);
+  background: linear-gradient(180deg,
+    rgba(184, 68, 58, 0.04) 0%,
+    rgba(184, 68, 58, 0.10) 50%,
+    rgba(184, 68, 58, 0.04) 100%);
+  position: relative;
+  margin: 12px 0;
+}
+body[data-world="burgundy"] .burgundy-motto::before,
+body[data-world="burgundy"] .burgundy-motto::after {
+  content: '◆';
+  color: var(--yolk);
+  margin: 0 14px;
+  opacity: 0.7;
+  font-size: 9px;
+  vertical-align: middle;
+}
+
+/* ─── CRT scanlines — chat composer + story blocks ────────────────────── */
+body[data-world="burgundy"] .chat-composer,
+body[data-world="burgundy"] .composer,
+body[data-world="burgundy"] .story-blocks,
+body[data-world="burgundy"] .blocks-list {
+  position: relative;
+  background: linear-gradient(180deg,
+    rgba(8, 24, 16, 0.78) 0%,
+    rgba(4, 14, 10, 0.85) 100%);
+  border: 1px solid rgba(91, 214, 138, 0.22);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 24px rgba(91, 214, 138, 0.08),
+    inset 0 1px 0 rgba(91, 214, 138, 0.18),
+    0 4px 18px rgba(0, 0, 0, 0.55);
+  color: #D4F5DE;
+}
+body[data-world="burgundy"] .chat-composer::after,
+body[data-world="burgundy"] .composer::after,
+body[data-world="burgundy"] .story-blocks::after,
+body[data-world="burgundy"] .blocks-list::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.18) 0px,
+    rgba(0, 0, 0, 0.18) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  border-radius: inherit;
+  z-index: 1;
+}
+body[data-world="burgundy"] .chat-composer::before,
+body[data-world="burgundy"] .composer::before,
+body[data-world="burgundy"] .story-blocks::before,
+body[data-world="burgundy"] .blocks-list::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center,
+    transparent 60%,
+    rgba(0, 0, 0, 0.35) 100%);
+  border-radius: inherit;
+  z-index: 1;
+}
+body[data-world="burgundy"] .chat-composer > *,
+body[data-world="burgundy"] .composer > *,
+body[data-world="burgundy"] .story-blocks > *,
+body[data-world="burgundy"] .blocks-list > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* ─── Inputs — terminal-flavored text input ───────────────────────────── */
+body[data-world="burgundy"] input[type="text"],
+body[data-world="burgundy"] input[type="search"],
+body[data-world="burgundy"] textarea {
+  background: rgba(8, 24, 16, 0.65);
+  color: #D4F5DE;
+  border: 1px solid rgba(91, 214, 138, 0.20);
+  font-family: var(--mono, ui-monospace, monospace);
+  caret-color: var(--sky);
+  text-shadow: 0 0 4px rgba(91, 214, 138, 0.30);
+}
+body[data-world="burgundy"] input[type="text"]:focus,
+body[data-world="burgundy"] input[type="search"]:focus,
+body[data-world="burgundy"] textarea:focus {
+  border-color: rgba(91, 214, 138, 0.55);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(91, 214, 138, 0.12);
+}
+body[data-world="burgundy"] input::placeholder,
+body[data-world="burgundy"] textarea::placeholder {
+  color: rgba(91, 214, 138, 0.40);
+  font-style: normal;
+}
+
+/* ─── Hide QSS sticker decorations + the red dragon mascot ───────────── */
 body[data-world="burgundy"] .decor,
 body[data-world="burgundy"] .deck-decor,
 body[data-world="burgundy"] .qss-decor,
@@ -154,70 +455,61 @@ body[data-world="burgundy"] [class*="sticker-"],
 body[data-world="burgundy"] [data-decor] {
   display: none !important;
 }
-
-/* Wordy the red dragon mascot — hide under Burgundy until Designer
- * delivers a replacement mascot SVG. */
-body[data-world="burgundy"] .dragon,
-body[data-world="burgundy"] .wordy-mascot {
-  display: none;
+/* Wordy SVG vanishes — RICO_MK1 takes its place via worlds.js injection */
+body[data-world="burgundy"] .dragon > svg {
+  display: none !important;
 }
 
-/* CRT scanline grain overlay — adds the green-CRT mining-planet vibe to
- * the chat composer and other "machine" surfaces without overwhelming. */
-body[data-world="burgundy"] .chat-composer,
-body[data-world="burgundy"] .composer,
-body[data-world="burgundy"] .story-blocks {
-  position: relative;
+/* RICO_MK1 SVG sizing — matches the dragon container scales */
+body[data-world="burgundy"] .rico-mk1 {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 0 14px rgba(91, 214, 138, 0.18))
+          drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
 }
-body[data-world="burgundy"] .chat-composer::after,
-body[data-world="burgundy"] .composer::after,
-body[data-world="burgundy"] .story-blocks::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.10) 0px, rgba(0, 0, 0, 0.10) 1px, transparent 1px, transparent 3px);
-  mix-blend-mode: multiply;
-  opacity: 0.55;
-  border-radius: inherit;
-}
+body[data-world="burgundy"] .dragon.sm .rico-mk1 { width: 36px; height: 36px; }
+body[data-world="burgundy"] .dragon.md .rico-mk1 { width: 56px; height: 56px; }
+body[data-world="burgundy"] .dragon.lg .rico-mk1 { width: 88px; height: 88px; transform: none; }
+body[data-world="burgundy"] .dragon.xl .rico-mk1 { width: 120px; height: 120px; transform: none; }
+body[data-world="burgundy"] .dragon:hover { transform: none; }
 
-/* Library page intro copy — light ink against dark background */
-body[data-world="burgundy"] .page-intro h1,
-body[data-world="burgundy"] .page-intro .sub,
-body[data-world="burgundy"] .page-head,
-body[data-world="burgundy"] .page-title {
+/* ─── Library page intro (Burgundy-flavored) ─────────────────────────── */
+body[data-world="burgundy"] .page-intro {
+  background: rgba(15, 30, 38, 0.78);
+  border: 1px solid rgba(232, 162, 72, 0.22);
+  border-radius: 6px;
+  padding: 22px 26px;
+  backdrop-filter: blur(8px) saturate(1.05);
+  box-shadow: inset 0 1px 0 rgba(244, 230, 196, 0.06), 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+body[data-world="burgundy"] .page-intro h1 {
   color: var(--ink-bright);
 }
-
-/* Inputs — dark fields with amber focus ring */
-body[data-world="burgundy"] input[type="text"],
-body[data-world="burgundy"] input[type="search"],
-body[data-world="burgundy"] textarea {
-  background: rgba(17, 25, 42, 0.88);
+body[data-world="burgundy"] .page-intro .sub {
+  color: var(--ink-soft);
+}
+body[data-world="burgundy"] .lib-count {
+  background: rgba(232, 162, 72, 0.16);
+  border: 1px solid rgba(232, 162, 72, 0.45);
   color: var(--ink-bright);
-  border: 1px solid rgba(214, 122, 62, 0.32);
+  box-shadow: none;
 }
-body[data-world="burgundy"] input[type="text"]:focus,
-body[data-world="burgundy"] input[type="search"]:focus,
-body[data-world="burgundy"] textarea:focus {
-  border-color: rgba(214, 122, 62, 0.85);
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(214, 122, 62, 0.18);
-}
-
-/* World switcher pill — match the burgundy chrome */
-body[data-world="burgundy"] .world-pill {
-  background: rgba(36, 50, 72, 0.88);
-  border: 1px solid rgba(214, 122, 62, 0.42);
+body[data-world="burgundy"] .banner {
+  background: linear-gradient(180deg, rgba(184, 68, 58, 0.32), rgba(122, 42, 35, 0.42));
+  border: 1px solid rgba(184, 68, 58, 0.55);
   color: var(--ink-bright);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+body[data-world="burgundy"] .banner code {
+  background: rgba(8, 18, 24, 0.82);
+  border: 1px solid rgba(184, 68, 58, 0.32);
+  color: var(--sky);
 }
 
-/* The Burgundy motto — when it appears anywhere, all-caps amber */
-body[data-world="burgundy"] .burgundy-motto {
-  font-family: var(--font-header, 'Sailing Club', sans-serif);
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: #D67A3E;
-  text-shadow: 0 0 18px rgba(214, 122, 62, 0.45);
+/* App shell — Burgundy app needs a transparent app container so the
+ * background painting reads through. */
+body[data-world="burgundy"] .app,
+body[data-world="burgundy"] main.page {
+  background: transparent;
 }

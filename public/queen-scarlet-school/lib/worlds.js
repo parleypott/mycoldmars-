@@ -296,17 +296,151 @@ Henry can fill in: the Queen's name, the planet's official name (if different fr
     if (c.primary)      root.style.setProperty('--world-primary',      c.primary);
     if (c.primaryDeep)  root.style.setProperty('--world-primary-deep', c.primaryDeep);
     root.setAttribute('data-world', world.slug);
-    // Body too — many shell-page selectors are written against `body[data-world=…]`
-    // for the per-world theme overrides. Setting both means either selector
-    // form works.
-    if (document.body) {
+    const applyToBody = () => {
+      if (!document.body) return;
       document.body.setAttribute('data-world', world.slug);
+      // Tag the page kind so themes.css can pick a per-page hero anchor.
+      const page = pageKind();
+      if (page) document.body.classList.add(`page-${page}`);
+      // Per-world post-paint: corner decor + mascot swap.
+      if (world.slug === 'burgundy') {
+        installBurgundyDecor();
+        installBurgundyMotto();
+        replaceMascotsWithRico();
+      }
+    };
+    if (document.body) applyToBody();
+    else document.addEventListener('DOMContentLoaded', applyToBody, { once: true });
+  }
+
+  // Returns 'workshop' | 'library' | 'cast' | 'universe' | '' based on URL.
+  function pageKind() {
+    const path = location.pathname || '';
+    if (/\/queen-scarlet-school\/library\/?(?:index\.html)?$/.test(path)) return 'library';
+    if (/\/queen-scarlet-school\/cast\/?(?:index\.html)?$/.test(path))    return 'cast';
+    if (/\/queen-scarlet-school\/universe\/?(?:index\.html)?$/.test(path)) return 'universe';
+    if (/\/queen-scarlet-school\/?(?:index\.html)?(?:\?.*)?$/.test(path))  return 'workshop';
+    return '';
+  }
+
+  // Burgundy decoration — four glowing CRT terminal fragments anchored to
+  // the page corners. Atmospheric, diegetic (looks like a monitor on
+  // across the room). Idempotent: only injects once.
+  function installBurgundyDecor() {
+    if (document.querySelector('.burgundy-decor')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'burgundy-decor';
+    wrap.setAttribute('aria-hidden', 'true');
+    wrap.innerHTML = `
+      <pre class="crt-frag tl">RICO_MK1&gt; boot
+loading kernel...
+mem: 640K ok
+[ ready ]</pre>
+      <pre class="crt-frag tr">&gt; uplink stable
+&gt; tribute_queue: 3
+&gt; heartbeat 04ms
+&gt; _</pre>
+      <pre class="crt-frag bl">SCORE_OUTCOME()
+MUTATE_PARAMS()
+ITERATE++
+_</pre>
+      <pre class="crt-frag br">// throne_room.log
+// 14:22:03 entered
+// 14:22:11 secured
+// _</pre>
+    `;
+    document.body.appendChild(wrap);
+  }
+
+  // RICO_MK1 — boxy iron robot with a CRT face, replaces Wordy the red
+  // dragon in the Burgundy world. Inline SVG so it animates (eye blink)
+  // and themes via currentColor at any size. Injected into every existing
+  // .dragon container; QSS pages keep their dragon DOM intact so when
+  // Henry switches back to Queen Scarlet world it returns automatically.
+  const RICO_SVG = `<svg class="rico-mk1" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg" aria-label="RICO_MK1">
+    <defs>
+      <linearGradient id="rico-body" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#6E5848"/>
+        <stop offset="55%" stop-color="#4A3A2E"/>
+        <stop offset="100%" stop-color="#2E2418"/>
+      </linearGradient>
+      <linearGradient id="rico-crt" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#1A3A24"/>
+        <stop offset="100%" stop-color="#0A1A10"/>
+      </linearGradient>
+      <radialGradient id="rico-glow" cx="0.5" cy="0.55" r="0.5">
+        <stop offset="0%" stop-color="#7BE8A0" stop-opacity="0.55"/>
+        <stop offset="60%" stop-color="#5BD68A" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="#5BD68A" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <line x1="48" y1="6" x2="48" y2="14" stroke="#2E2418" stroke-width="2"/>
+    <circle cx="48" cy="5" r="2.2" fill="#B8443A"/>
+    <rect x="14" y="14" width="68" height="60" rx="4" fill="url(#rico-body)" stroke="#1A1208" stroke-width="1.5"/>
+    <circle cx="20" cy="20" r="1.4" fill="#1A1208"/>
+    <circle cx="76" cy="20" r="1.4" fill="#1A1208"/>
+    <circle cx="20" cy="68" r="1.4" fill="#1A1208"/>
+    <circle cx="76" cy="68" r="1.4" fill="#1A1208"/>
+    <rect x="22" y="24" width="52" height="40" rx="3" fill="url(#rico-crt)" stroke="#1A1208" stroke-width="1"/>
+    <rect x="22" y="24" width="52" height="40" rx="3" fill="url(#rico-glow)"/>
+    <g opacity="0.35" fill="#0A1A10">
+      <rect x="22" y="28" width="52" height="1"/>
+      <rect x="22" y="34" width="52" height="1"/>
+      <rect x="22" y="40" width="52" height="1"/>
+      <rect x="22" y="46" width="52" height="1"/>
+      <rect x="22" y="52" width="52" height="1"/>
+      <rect x="22" y="58" width="52" height="1"/>
+    </g>
+    <g fill="#5BD68A">
+      <rect x="32" y="38" width="8" height="8">
+        <animate attributeName="height" values="8;8;1;8;8" dur="4.5s" repeatCount="indefinite" keyTimes="0;0.55;0.6;0.65;1"/>
+        <animate attributeName="y"      values="38;38;42;38;38" dur="4.5s" repeatCount="indefinite" keyTimes="0;0.55;0.6;0.65;1"/>
+      </rect>
+      <rect x="56" y="38" width="8" height="8">
+        <animate attributeName="height" values="8;8;1;8;8" dur="4.5s" repeatCount="indefinite" keyTimes="0;0.55;0.6;0.65;1"/>
+        <animate attributeName="y"      values="38;38;42;38;38" dur="4.5s" repeatCount="indefinite" keyTimes="0;0.55;0.6;0.65;1"/>
+      </rect>
+    </g>
+    <text x="48" y="58" font-family="ui-monospace,'JetBrains Mono',monospace" font-size="9" font-weight="700" fill="#5BD68A" text-anchor="middle" opacity="0.9">&gt;_</text>
+    <rect x="32" y="76" width="32" height="6" rx="1" fill="#1A1208"/>
+    <text x="48" y="81" font-family="ui-monospace,monospace" font-size="5" font-weight="700" fill="#E8A248" text-anchor="middle" letter-spacing="0.15em">MK_01</text>
+  </svg>`;
+
+  // Burgundy's motto — appears just under the topbar on every page so it
+  // sits like a chrome element, never inline with content. Hidden on the
+  // universe page (planet picker is too small to need it).
+  function installBurgundyMotto() {
+    if (pageKind() === 'universe') return;
+    if (document.querySelector('.burgundy-motto')) return;
+    const motto = document.createElement('div');
+    motto.className = 'burgundy-motto';
+    motto.textContent = 'Burgundy, King of the Puppies, God of Machines';
+    const topbar = document.querySelector('.topbar');
+    if (topbar && topbar.parentNode) {
+      topbar.parentNode.insertBefore(motto, topbar.nextSibling);
     } else {
-      // If worlds.js runs before <body> exists (rare — but the script can be
-      // moved into <head> on some pages), wait for it.
-      document.addEventListener('DOMContentLoaded', () => {
-        document.body && document.body.setAttribute('data-world', world.slug);
-      }, { once: true });
+      document.body.insertBefore(motto, document.body.firstChild);
+    }
+  }
+
+  function replaceMascotsWithRico() {
+    // Append RICO_MK1 alongside existing dragon SVG (CSS hides dragon
+    // under Burgundy). Idempotent — guards via marker class.
+    const dragons = document.querySelectorAll('.dragon');
+    dragons.forEach(el => {
+      if (el.querySelector('.rico-mk1')) return; // already swapped
+      el.insertAdjacentHTML('beforeend', RICO_SVG);
+    });
+    // Re-run if the page renders dragons dynamically (chat re-renders).
+    // MutationObserver scoped to body, debounced via flag.
+    if (!window.__burgundyMascotObserver) {
+      window.__burgundyMascotObserver = new MutationObserver(() => {
+        document.querySelectorAll('.dragon').forEach(el => {
+          if (el.querySelector('.rico-mk1')) return;
+          el.insertAdjacentHTML('beforeend', RICO_SVG);
+        });
+      });
+      window.__burgundyMascotObserver.observe(document.body, { childList: true, subtree: true });
     }
   }
 
