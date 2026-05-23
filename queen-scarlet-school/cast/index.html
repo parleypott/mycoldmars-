@@ -628,6 +628,24 @@
       background: var(--sky);
       border-radius: 14px 14px 4px 14px;
     }
+    /* Consistency-flag bubble — Wordy proactively flagged that two
+       loved portraits look like different characters. Distinct yolk
+       tint so Henry can tell this is a heads-up, not a direct reply. */
+    .cmsg.wordy.flag .cmsg-bubble {
+      background: rgba(255, 217, 60, 0.32);
+      border-color: var(--yolk-deep);
+    }
+    .cmsg-tag {
+      display: inline-block;
+      padding: 1px 8px;
+      margin-right: 8px;
+      font-family: var(--ui); font-size: 10px; font-weight: 800;
+      letter-spacing: 0.16em; text-transform: uppercase;
+      background: var(--yolk-deep); color: var(--ink-bright);
+      border: 1.5px solid var(--ink-bright);
+      border-radius: 999px;
+      vertical-align: 2px;
+    }
     .cmsg-typing {
       display: flex; align-items: center; gap: 8px;
       font-family: var(--serif); font-style: italic;
@@ -1946,12 +1964,12 @@
       }
       const lines = msgs.map(m => {
         const role = m.role === 'wordy' ? 'wordy' : 'kid';
-        // Only wordy's bubbles get a speaker — Henry hears the reply.
-        // His own messages aren't TTS'd back to him (would feel weird).
+        const isFlag = m.tag === 'consistency-flag';
+        const tagPrefix = isFlag ? `<span class="cmsg-tag">heads up</span>` : '';
         const ttsBtn = (role === 'wordy' && window.qssTTS)
           ? window.qssTTS.buildBtn(m.content, { size: 'sm', voice: 'adam' })
           : '';
-        return `<div class="cmsg ${role}"><div class="cmsg-bubble">${esc(m.content)}</div>${ttsBtn ? `<div class="cmsg-tts">${ttsBtn}</div>` : ''}</div>`;
+        return `<div class="cmsg ${role}${isFlag ? ' flag' : ''}"><div class="cmsg-bubble">${tagPrefix}${esc(m.content)}</div>${ttsBtn ? `<div class="cmsg-tts">${ttsBtn}</div>` : ''}</div>`;
       }).join('');
       const typing = state.chatBusy
         ? `<div class="cmsg-typing">wordy is drawing… <span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`
@@ -2191,6 +2209,68 @@
       scheduleCloudSave();
       renderDetail();
       toast(p.loved ? '♥ saved as style anchor' : '♥ removed', 'success', 1200);
+      // Contradiction detection — when a SECOND (or later) love lands,
+      // ask Gemini Vision whether the loved portraits actually look like
+      // the same character. If they don't, Wordy chimes in on the chat
+      // thread so Henry can pick a direction before the style anchors
+      // confuse the next redraw.
+      if (p.loved) {
+        const lovedNow = card.portraits.filter(x => x.loved);
+        if (lovedNow.length >= 2) checkLovedConsistency(card).catch(() => {});
+      }
+    }
+
+    // Rolling de-dupe: don't re-run consistency check on the same set
+    // of loved portraits. Key = sorted loved ids joined with comma.
+    let _lastConsistencyKey = null;
+    let _consistencyInflight = false;
+    async function checkLovedConsistency(card) {
+      if (_consistencyInflight) return;
+      const lovedPortraits = (card.portraits || []).filter(p => p.loved);
+      if (lovedPortraits.length < 2) return;
+      const key = lovedPortraits.map(p => p.id).slice().sort().join(',');
+      if (key === _lastConsistencyKey) return;
+      _consistencyInflight = true;
+      try {
+        // Limit to 4 images max (most recent loved). Each can be ~1.5MB.
+        const images = lovedPortraits.slice(-4)
+          .filter(p => p.dataBase64)
+          .map(p => ({ mimeType: p.mime || 'image/png', dataBase64: p.dataBase64 }));
+        if (images.length < 2) return;
+        const res = await fetch('/api/qss-character-compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ character_name: card.name, images }),
+        });
+        if (!res.ok) return;
+        const data = await res.json().catch(() => ({}));
+        _lastConsistencyKey = key;
+        if (data.incompatible && data.wordy_message) {
+          // Post Wordy's flag into the chat thread. This is a passive
+          // notification — Henry can ignore it. He sees it next to the
+          // portrait, hears it auto-speak (no — chat auto-speak is in
+          // the main app, here we let the speaker button be the entry).
+          card.chat = card.chat || [];
+          card.chat.push({
+            id: uid(),
+            role: 'wordy',
+            content: data.wordy_message,
+            ts: Date.now(),
+            tag: 'consistency-flag',
+          });
+          syncCard(state.openName);
+          scheduleCloudSave();
+          renderChatThread(card);
+          // Auto-speak the flag so Henry doesn't miss it.
+          if (window.qssTTS) {
+            setTimeout(() => { try { window.qssTTS.speak(data.wordy_message, null, { voice: 'adam' }); } catch {} }, 220);
+          }
+        }
+      } catch {
+        // Silently swallow — this is a nice-to-have, not a P0.
+      } finally {
+        _consistencyInflight = false;
+      }
     }
     // Regenerate using the loved portraits as visual anchors. We
     // pass them to the character-card endpoint as referenceImages,
