@@ -1407,6 +1407,34 @@
     //   - fold any new characters from that story's arc into the global cast
     //   - display a "viewing while in <story>" chip
     // Without ?story=, we just show every character Henry has ever developed.
+    // Cross-tab sync — when another tab writes to qss:globalcast,
+    // re-read LS and re-render so this tab doesn't drift stale.
+    // Without this, two open tabs go out of sync (Henry edits in tab A,
+    // tab B keeps showing old state until manual reload). Engineer
+    // agent flagged this as one of the silent-divergence risks.
+    window.addEventListener('storage', (e) => {
+      if (e.key !== 'qss:globalcast') return;
+      if (e.newValue == null) return; // ignore clears
+      try {
+        const fresh = JSON.parse(e.newValue) || {};
+        const out = {};
+        for (const [lk, raw] of Object.entries(fresh)) {
+          const displayName = (raw && raw.name) || lk;
+          if (!displayName) continue;
+          // Skip overwriting any card currently mid-generation in THIS tab.
+          if (state.pendingGen?.has(displayName)) continue;
+          const m = migrateCard({ ...raw, name: displayName });
+          if (m) out[m.name] = m;
+        }
+        // Preserve in-flight cards from this tab.
+        for (const [name, c] of Object.entries(state.cards || {})) {
+          if (state.pendingGen?.has(name)) out[name] = c;
+        }
+        state.cards = out;
+        render();
+      } catch {}
+    });
+
     async function boot() {
       const params = new URLSearchParams(location.search);
       let storyId = params.get('story');
@@ -1522,11 +1550,19 @@
     // server's callNanoBanana too), so if one card fails after all retries
     // we move on instead of blocking the rest.
     async function firstDrawQueue(names) {
-      for (const name of names) {
-        if (!state.cards[name]) continue;
-        if (state.cards[name].portraits?.length) continue;  // someone else drew it
-        try { await generatePortrait(name); } catch {}
-        await new Promise(r => setTimeout(r, 400));
+      // Concurrency 2 — Gemini handles 2 parallel image-gen calls fine,
+      // and this cuts wall time in half for a fresh 8-character cast
+      // (40s → ~22s). Anvil flagged the original fully-serial loop as
+      // P0 perf. Each batch of 2 fires together, then a 400ms cool-off
+      // between batches so we don't pile on Gemini if it's already
+      // slow.
+      const queue = names.slice();
+      while (queue.length) {
+        const batch = queue.splice(0, 2)
+          .filter(n => state.cards[n] && !state.cards[n].portraits?.length);
+        if (!batch.length) continue;
+        await Promise.all(batch.map(n => generatePortrait(n).catch(() => {})));
+        if (queue.length) await new Promise(r => setTimeout(r, 400));
       }
     }
 
