@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Andika:wght@400;700&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="../lib/worlds.js"></script>
+  <link rel="stylesheet" href="../lib/themes.css" />
   <style>
     :root {
       --ink: #f4e9c8;
@@ -557,9 +558,15 @@
         if (p !== btn) p.classList.add('hidden-by-zoom');
       });
       warp.classList.add('fire');
-      // After the white wash hits, jump to the world's writer tool.
+      // After the white wash hits, land in the world's LIBRARY — the home
+      // of that world. From there Henry sees all his stories in that
+      // world, has the cast button always visible, and either opens an
+      // existing story or hits "+ new" to create one (which then takes
+      // him into the workshop). Direct universe → workshop was the wrong
+      // mental model — universe is the cosmos, planet is the bookshelf,
+      // story is the desk.
       setTimeout(() => {
-        location.href = '../';
+        location.href = '../library/';
       }, 1180);
     }
 

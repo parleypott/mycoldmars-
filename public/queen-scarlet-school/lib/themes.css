@@ -1,0 +1,223 @@
+/* ───────────────────────────────────────────────────────────────────────
+ * Henry's storytelling tool — per-world themes.
+ *
+ * Each world layered as `body[data-world="<slug>"]` overrides. The shell
+ * pages (main, library, cast) keep their existing :root token defaults
+ * (Queen Scarlet's bright sticker chrome); a Burgundy override block
+ * repaints every visible token under that body selector.
+ *
+ * worlds.js sets data-world on both <html> and <body> on every page load,
+ * so these selectors fire immediately — no FOUC.
+ * ─────────────────────────────────────────────────────────────────────── */
+
+/* ─── Burgundy / Puppy Town — placeholder pending Designer output ────────
+ *
+ * These are FIRST-CUT values. Designer agent is producing the real spec;
+ * once it lands at queen-scarlet-school/burgundy-design.md, paste its CSS
+ * block here, replacing this section. The point of these placeholders is
+ * that the moment data-world="burgundy" lands, every visible chunk of UI
+ * stops looking like cream-paper QSS and starts looking like the dark
+ * painterly Burgundy world. Even if the aesthetic isn't final, the SWAP
+ * is wired and verifiable.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+body[data-world="burgundy"] {
+  /* Paper / page surfaces — dark teal-blue replaces cream */
+  --paper:       #1A2433;
+  --paper-card:  #243248;
+  --paper-deep:  #11192A;
+  --paper-soft:  #2B3B54;
+
+  /* Ink — warm cream replaces near-black */
+  --ink:         #E8DFCC;
+  --ink-bright:  #F2EBD8;
+  --ink-soft:    #C9BEAA;
+  --ink-faint:   #8A7E69;
+  --ink-ghost:   #4F4736;
+
+  /* Accent palette — amber lamplight + sienna + burgundy + dim teal */
+  --red:         #A24F1F;      /* sienna replaces tomato */
+  --red-deep:    #6E1F1A;      /* burgundy */
+  --yolk:        #D67A3E;      /* amber lamplight replaces butter */
+  --yolk-deep:   #A85A28;
+  --sky:         #3B5A6E;      /* dim industrial teal replaces sky blue */
+  --sky-deep:    #1F3849;
+  --grass:       #5E6E4E;      /* mossy olive replaces grass */
+  --grass-deep:  #3E4A35;
+  --bubblegum:   #8F4B4B;      /* dusty rose replaces bubblegum */
+  --bubblegum-deep: #5E2E2E;
+}
+
+/* Hard surface — replace cream paper with painterly atmosphere on the
+ * page body. The planet-hero composite sits as a fixed background, dimmed
+ * heavily so chrome stays legible. */
+body[data-world="burgundy"] {
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(180deg, rgba(10, 14, 24, 0.88) 0%, rgba(10, 14, 24, 0.78) 40%, rgba(10, 14, 24, 0.92) 100%),
+    url('/queen-scarlet-school/worlds/burgundy/palace-exterior.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  color: var(--ink);
+}
+
+/* Topbar — dark chrome with amber separators */
+body[data-world="burgundy"] .topbar {
+  background: rgba(17, 25, 42, 0.88);
+  border-bottom-color: rgba(214, 122, 62, 0.42);
+  color: var(--ink);
+  backdrop-filter: blur(8px) saturate(1.1);
+}
+body[data-world="burgundy"] .brand,
+body[data-world="burgundy"] .lib-title {
+  color: var(--ink-bright);
+}
+
+/* Buttons — replace QSS thick-outline sticker style with subtle brushed
+ * panels. No hard offset shadow; soft amber border instead. */
+body[data-world="burgundy"] .btn {
+  background: rgba(36, 50, 72, 0.86);
+  color: var(--ink-bright);
+  border: 1px solid rgba(214, 122, 62, 0.38);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 2px 10px rgba(0, 0, 0, 0.45);
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+body[data-world="burgundy"] .btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(214, 122, 62, 0.72);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.10) inset, 0 4px 14px rgba(214, 122, 62, 0.28);
+}
+body[data-world="burgundy"] .btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.30) inset, 0 1px 4px rgba(0, 0, 0, 0.50);
+}
+body[data-world="burgundy"] .btn.primary {
+  background: linear-gradient(180deg, #C46832 0%, #8B3F18 100%);
+  color: #FAF1DA;
+  border-color: #C46832;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+body[data-world="burgundy"] .btn.primary:hover {
+  background: linear-gradient(180deg, #D67A3E 0%, #9D4720 100%);
+  border-color: #FFA567;
+  transform: translateY(-1px);
+}
+body[data-world="burgundy"] .btn.ghost {
+  background: transparent;
+  border-color: rgba(232, 223, 204, 0.22);
+}
+body[data-world="burgundy"] .btn.ghost:hover {
+  background: rgba(214, 122, 62, 0.12);
+  border-color: rgba(214, 122, 62, 0.55);
+}
+body[data-world="burgundy"] .btn.gold {
+  background: linear-gradient(180deg, #D67A3E 0%, #A24F1F 100%);
+  color: #FFF5DC;
+  border-color: #E69658;
+}
+
+/* Cards — subtle metallic panel instead of cream sticker card */
+body[data-world="burgundy"] .story-card,
+body[data-world="burgundy"] .ccard,
+body[data-world="burgundy"] .story-block {
+  background: rgba(36, 50, 72, 0.78);
+  border: 1px solid rgba(214, 122, 62, 0.28);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  color: var(--ink-bright);
+  transform: none;
+}
+body[data-world="burgundy"] .story-card:hover,
+body[data-world="burgundy"] .ccard:hover,
+body[data-world="burgundy"] .story-block:hover {
+  transform: translateY(-2px);
+  border-color: rgba(214, 122, 62, 0.65);
+  box-shadow: 0 8px 28px rgba(214, 122, 62, 0.22), 0 1px 0 rgba(255, 255, 255, 0.10) inset;
+}
+
+/* Block numbers — keep the colored circle but recolor against Burgundy palette */
+body[data-world="burgundy"] .story-block:nth-child(4n+1) .b-num { background: #3B5A6E; color: var(--ink-bright); }
+body[data-world="burgundy"] .story-block:nth-child(4n+2) .b-num { background: #8F4B4B; color: var(--ink-bright); }
+body[data-world="burgundy"] .story-block:nth-child(4n+3) .b-num { background: #5E6E4E; color: var(--ink-bright); }
+body[data-world="burgundy"] .story-block:nth-child(4n+4) .b-num { background: #D67A3E; color: #1A1208; }
+
+/* Hide QSS sticker decorations under Burgundy — those scattered cartoon
+ * stickers in the background are world-specific. Burgundy doesn't have
+ * them. (Designer may replace with painted ornaments.) */
+body[data-world="burgundy"] .decor,
+body[data-world="burgundy"] .deck-decor,
+body[data-world="burgundy"] .qss-decor,
+body[data-world="burgundy"] .floating-stickers,
+body[data-world="burgundy"] .sticker-deck,
+body[data-world="burgundy"] [class*="sticker-"],
+body[data-world="burgundy"] [data-decor] {
+  display: none !important;
+}
+
+/* Wordy the red dragon mascot — hide under Burgundy until Designer
+ * delivers a replacement mascot SVG. */
+body[data-world="burgundy"] .dragon,
+body[data-world="burgundy"] .wordy-mascot {
+  display: none;
+}
+
+/* CRT scanline grain overlay — adds the green-CRT mining-planet vibe to
+ * the chat composer and other "machine" surfaces without overwhelming. */
+body[data-world="burgundy"] .chat-composer,
+body[data-world="burgundy"] .composer,
+body[data-world="burgundy"] .story-blocks {
+  position: relative;
+}
+body[data-world="burgundy"] .chat-composer::after,
+body[data-world="burgundy"] .composer::after,
+body[data-world="burgundy"] .story-blocks::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.10) 0px, rgba(0, 0, 0, 0.10) 1px, transparent 1px, transparent 3px);
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+  border-radius: inherit;
+}
+
+/* Library page intro copy — light ink against dark background */
+body[data-world="burgundy"] .page-intro h1,
+body[data-world="burgundy"] .page-intro .sub,
+body[data-world="burgundy"] .page-head,
+body[data-world="burgundy"] .page-title {
+  color: var(--ink-bright);
+}
+
+/* Inputs — dark fields with amber focus ring */
+body[data-world="burgundy"] input[type="text"],
+body[data-world="burgundy"] input[type="search"],
+body[data-world="burgundy"] textarea {
+  background: rgba(17, 25, 42, 0.88);
+  color: var(--ink-bright);
+  border: 1px solid rgba(214, 122, 62, 0.32);
+}
+body[data-world="burgundy"] input[type="text"]:focus,
+body[data-world="burgundy"] input[type="search"]:focus,
+body[data-world="burgundy"] textarea:focus {
+  border-color: rgba(214, 122, 62, 0.85);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(214, 122, 62, 0.18);
+}
+
+/* World switcher pill — match the burgundy chrome */
+body[data-world="burgundy"] .world-pill {
+  background: rgba(36, 50, 72, 0.88);
+  border: 1px solid rgba(214, 122, 62, 0.42);
+  color: var(--ink-bright);
+}
+
+/* The Burgundy motto — when it appears anywhere, all-caps amber */
+body[data-world="burgundy"] .burgundy-motto {
+  font-family: var(--font-header, 'Sailing Club', sans-serif);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #D67A3E;
+  text-shadow: 0 0 18px rgba(214, 122, 62, 0.45);
+}

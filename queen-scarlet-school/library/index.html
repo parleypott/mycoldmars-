@@ -383,6 +383,7 @@
   <!-- worlds.js: registry + shim. Must load BEFORE any inline script that
        touches localStorage — it runs legacy-key migration on import. -->
   <script src="../lib/worlds.js"></script>
+  <link rel="stylesheet" href="../lib/themes.css" />
 </head>
 <body>
 
@@ -412,7 +413,8 @@
       <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
       <div class="lib-title">Library</div>
       <div class="topbar-right">
-        <a href="../" class="btn ghost">← back to school</a>
+        <a href="../universe/" class="btn ghost" title="Back to the universe — pick a different world">🌌 universe</a>
+        <a href="../cast/" class="btn ghost" id="lib-cast" title="See every character in this world">🎭 the cast</a>
         <a href="../?new=1" class="btn primary" id="lib-new">+ new story</a>
       </div>
     </header>
@@ -423,7 +425,7 @@
         <span class="dragon md" id="intro-dragon"></span>
         <div class="copy">
           <h1>Your stories</h1>
-          <div class="sub">every story you've written with Wordy lives here. tap one to open it, rename it, duplicate it, or send it to trash.</div>
+          <div class="sub">every story you've written in this world lives here. tap one to open it, hit "+ new story" to start a fresh one, or check "🎭 the cast" to see every character you've made.</div>
         </div>
         <div class="right">
           <span id="lib-count" class="lib-count">loading…</span>

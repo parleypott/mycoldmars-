@@ -296,6 +296,18 @@ Henry can fill in: the Queen's name, the planet's official name (if different fr
     if (c.primary)      root.style.setProperty('--world-primary',      c.primary);
     if (c.primaryDeep)  root.style.setProperty('--world-primary-deep', c.primaryDeep);
     root.setAttribute('data-world', world.slug);
+    // Body too — many shell-page selectors are written against `body[data-world=…]`
+    // for the per-world theme overrides. Setting both means either selector
+    // form works.
+    if (document.body) {
+      document.body.setAttribute('data-world', world.slug);
+    } else {
+      // If worlds.js runs before <body> exists (rare — but the script can be
+      // moved into <head> on some pages), wait for it.
+      document.addEventListener('DOMContentLoaded', () => {
+        document.body && document.body.setAttribute('data-world', world.slug);
+      }, { once: true });
+    }
   }
 
   // Resolve the universe page URL from any page depth — pages live at
