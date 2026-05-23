@@ -2002,7 +2002,7 @@
       const thread = document.getElementById('chat-thread');
       const msgs = card.chat || [];
       if (!msgs.length && !state.chatBusy) {
-        thread.innerHTML = `<div class="empty"><strong>chat with ${esc(card.name)}</strong>say what you want changed — "make him scarier", "add a cape", "remove the helmet". each message draws a fresh portrait. it gets archived in the gallery, so nothing's lost.</div>`;
+        thread.innerHTML = `<div class="empty"><strong>chat with ${esc(card.name)}</strong>say what to change — "make him scarier", "add a cape", "no helmet". every message draws a new picture. the old ones stay in the gallery below.</div>`;
         return;
       }
       const lines = msgs.map(m => {
