@@ -248,26 +248,46 @@ function cleanSynopsis(s) {
 function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, subjectCanon, visualNotes = '', isRevise = false, newMessage = '' }) {
   // Style anchor — match the existing QSS sticker art (Kevin in calculator
   // helmet, Benny the beaver in a gas mask on a bean forklift, the cartoon
-  // dragon). Modern children's-book sticker illustration: bold consistent
-  // black ink outlines, flat saturated kid-book colors, no painterly /
-  // vintage / photorealistic / anime drift.
+  // dragon). The art has to feel as wild and imaginative as Henry's brain —
+  // never a generic kid sticker. Prop-driven, deadpan, weird, specific.
   const style = [
-    'STYLE: Modern children\'s-book character sticker illustration.',
+    'STYLE: Whimsical, weird, prop-driven sticker illustration. As imaginative as a brilliant 13-year-old\'s drawings of his own characters.',
+    'EVERY character has at least ONE absurd, oversized, story-specific physical feature or prop — a calculator-helmet head, a forklift, a gas mask, a backpack the size of their torso, antennae, extra eyes, a clipboard fused to their hand, a tail, weird ears, a doorknob for a nose, a haircut shaped like a building. The prop or feature IS the character. If you draw a plain person with no defining absurd feature, you have failed.',
     'Thick, confident, uniform black ink outlines (consistent line weight).',
     'Flat saturated cel-shaded colors — no gradients, no painterly textures, no photographic detail, no realistic skin rendering.',
-    'Palette: tomato red, butter yellow, teal, ochre, sky blue, mossy green, warm cream — saturated but warm.',
+    'Palette: tomato red, butter yellow, teal, ochre, sky blue, mossy green, lavender, salmon pink, warm cream — saturated, warm, slightly off-kilter.',
     'Background: plain warm cream / off-white paper (#F4ECD8 ish). No scenery, no environment behind the character. Centered subject.',
-    'Framing: 3/4 body OR head-and-shoulders, whichever best shows the character\'s defining prop or gag.',
-    'Expression: deadpan, sincere, faintly satirical — the kind of look a 13-year-old gives a teacher who just said something stupid.',
-    'Quality: clean enough to be a vinyl laptop sticker. Slightly dorky. Charmingly drawn, not slick.',
+    'Framing: 3/4 body OR head-and-shoulders, whichever best shows the character\'s defining absurd prop or feature.',
+    'Expression: deadpan, sincere, faintly satirical — the look a 13-year-old gives a teacher who just said something stupid. The character does NOT smile at the camera. They are caught mid-thought, mid-task, mid-something specific.',
+    'Quality: clean enough to be a vinyl laptop sticker. Slightly dorky. Charmingly drawn, not slick. Drawn like Henry would draw it — confident, weird, unselfconscious.',
+  ].join(' ');
+
+  // Diversity law — never default to a generic white kid. Skin can be any
+  // human shade (deep brown, warm brown, olive, tan, golden, freckled pale)
+  // OR fully non-human (purple, green, yellow, blue, lavender, mossy,
+  // rust-orange, etc.). White / pinkish-pale skin is the LAST option, not
+  // the first. For minor/throwaway characters lean non-human or unusual.
+  const diversity = [
+    'CHARACTER APPEARANCE — DIVERSITY LAW (non-negotiable):',
+    'NEVER default to white / pinkish-pale skin. NEVER default to a generic North-American-cartoon-boy look.',
+    'For human characters, skin color rotates across the full spectrum: deep brown, warm brown, golden tan, olive, freckled cream — pick whichever fits the character\'s vibe, NOT whichever is "default". If forced to choose with no signal, lean darker, not lighter.',
+    'Non-human options are equally valid and often better: lavender skin, mossy green skin, sunshine yellow skin, butter-yellow skin, dusty rose, slate blue, terracotta. A whimsical color choice is a feature, not a bug.',
+    'Hair: any color from real-world ranges (black, brown, blonde, red, auburn, silver) OR weird-real (lilac, mint, electric orange, faded teal). Hair shapes can be sculptural — a triangle, a cube, a single tall curl, two perfect spheres.',
+    'Bodies: any body type, any height, any proportions. Big heads on small bodies, tall and gangly, round and squat — variety per draw.',
+    'Gender: read the story signal. If no signal, do NOT default to boy. Rotate.',
   ].join(' ');
 
   const refs = [
-    'STYLE REFERENCES (match these exactly): cartoon stickers of (1) a calculator-headed boy in a blue shirt holding a notebook, looking resigned, with a "SIGH" speech bubble; (2) a beaver in an orange safety vest and gas mask driving a yellow forklift loaded with green BEANS cans; (3) a red cartoon dragon with yellow horns and teal-and-orange wings, in front of a "QUEEN SCARLET\'S TOTALLY SAFE ACADEMY" sticker outline. Same line weight, same flat-color treatment, same warm cream paper feel.',
+    'STYLE REFERENCES (match these exactly):',
+    '(1) GOLD STANDARD — Kevin: a boy with a giant grey calculator-helmet swallowing his whole head, a tiny red screen reading "ERROR: 3000", a chunky button keypad across the chin, a bagel sandwich floating beside him, wearing a teal hoodie with a yellow K emblem and a blue backpack. The prop dwarfs the character. Three small "BEEP BEEP BEEP" lozenges hover near the helmet. Deadpan resigned expression behind the visor.',
+    '(2) Benny the beaver in an orange safety vest and gas mask driving a yellow forklift loaded with green BEANS cans.',
+    '(3) A red cartoon dragon with yellow horns and teal-and-orange wings.',
+    'EVERY new character must hit the Kevin bar: at least one absurd prop or physical feature that makes the character impossible to mistake for anyone else, drawn with the same line weight, same flat-color treatment, same warm cream paper feel.',
   ].join(' ');
 
   const dontList = [
-    'DO NOT use any of these: vintage yearbook portraiture, painterly brushwork, watercolor texture, risograph off-register effects, photorealism, manga/anime conventions, fantasy book cover polish, glitter, sparkles, lens flare, decorative scrolls, ornate frames, gradient backgrounds, scenery, ambient props beyond what the character is holding/wearing, text, labels, name tags, signage, logos, captions, or written words of any kind anywhere in the image.',
+    'DO NOT use any of these: a generic smiling kid with no defining prop, a "stock cartoon boy" face, default-white skin unless the story explicitly requires it, vintage yearbook portraiture, painterly brushwork, watercolor texture, risograph off-register effects, photorealism, manga/anime conventions, fantasy book cover polish, glitter, sparkles, lens flare, decorative scrolls, ornate frames, gradient backgrounds, scenery, ambient props beyond what the character is holding/wearing, text, labels, name tags, signage, logos, captions, or written words of any kind anywhere in the image.',
+    'DO NOT draw a normal-looking person. If the story doesn\'t hand you an absurd prop, INVENT ONE that fits — an oversized clipboard, weird ears, a hat made of paperwork, a single comically large boot, a permanent tilt to their head, a halo of bees, a tail. The character without the absurdity is a failure state.',
   ].join(' ');
 
   const recentSnippet = recentBlocks
@@ -320,9 +340,10 @@ function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, 
     tone,
     themeLine,
     style,
+    diversity,
     refs,
     dontList,
-    'OUTPUT: A single sticker-style character illustration on a warm cream background. Approximately 2:3 portrait aspect ratio. Character centered.',
+    'OUTPUT: A single sticker-style character illustration on a warm cream background. Approximately 2:3 portrait aspect ratio. Character centered. The character must be visually impossible to mistake for a generic cartoon kid — a defining absurd prop or non-default appearance is mandatory.',
   ].filter(Boolean).join('\n\n');
 }
 
