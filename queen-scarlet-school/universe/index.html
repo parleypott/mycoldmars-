@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>The Universe — Henry's Storytelling Worlds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Andika:wght@400;700&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="../lib/worlds.js"></script>
+  <style>
+    :root {
+      --ink: #f4e9c8;
+      --ink-bright: #fff;
+      --ink-soft: rgba(244, 233, 200, 0.72);
+      --ink-faint: rgba(244, 233, 200, 0.4);
+      --paper: #FFF6E0;
+      --paper-card: #FFFFFF;
+      --paper-deep: #FCEDC4;
+      --yolk: #FFD93D;
+      --display: 'Caveat', cursive;
+      --serif: 'Andika', Georgia, serif;
+      --ui: 'Fredoka', system-ui, sans-serif;
+      --ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-soft: cubic-bezier(0.22, 0.6, 0.24, 1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      min-height: 100%;
+      background: #06070d;
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: 17px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+    body {
+      min-height: 100vh;
+      position: relative;
+      isolation: isolate;
+    }
+
+    /* ── Deep-space backdrop ─────────────────────────────────────── */
+    .cosmos {
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 14%, rgba(110, 90, 200, 0.22) 0%, transparent 42%),
+        radial-gradient(ellipse at 78% 80%, rgba(232, 100, 60, 0.18) 0%, transparent 48%),
+        radial-gradient(ellipse at 50% 50%, rgba(20, 22, 40, 0.6) 0%, #06070d 80%);
+      z-index: 0;
+    }
+    .starfield {
+      position: fixed; inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.95;
+    }
+    .nebula-1, .nebula-2 {
+      position: fixed; z-index: 1;
+      pointer-events: none;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.4;
+      animation: nebula-drift 26s ease-in-out infinite alternate;
+    }
+    .nebula-1 {
+      top: 8%; left: -6%;
+      width: 520px; height: 520px;
+      background: radial-gradient(circle, rgba(255, 111, 170, 0.55), transparent 70%);
+    }
+    .nebula-2 {
+      bottom: -8%; right: -6%;
+      width: 620px; height: 620px;
+      background: radial-gradient(circle, rgba(77, 184, 232, 0.45), transparent 70%);
+      animation-delay: -8s;
+    }
+    @keyframes nebula-drift {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(30px, 18px) scale(1.06); }
+    }
+
+    /* ── Topbar (compact, calm) ──────────────────────────────────── */
+    .topbar {
+      position: relative; z-index: 10;
+      display: flex; align-items: center;
+      padding: 18px 28px;
+      gap: 16px;
+      padding-top: max(18px, env(safe-area-inset-top));
+    }
+    .brand {
+      font-family: var(--ui); font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
+      color: var(--ink); text-decoration: none;
+      display: inline-flex; align-items: center; gap: 10px;
+    }
+    .blob {
+      display: inline-block; background: var(--yolk);
+      border: 2.5px solid #000; border-radius: 50%;
+      position: relative; box-shadow: 2px 2px 0 #000;
+      width: 26px; height: 26px;
+    }
+    .blob::before, .blob::after {
+      content: ''; position: absolute; background: #000;
+      border-radius: 50%; width: 4px; height: 4px; top: 9px;
+    }
+    .blob::before { left: 6px; } .blob::after { right: 6px; }
+    .spacer { flex: 1; }
+
+    /* ── Title ───────────────────────────────────────────────────── */
+    .stage {
+      position: relative; z-index: 5;
+      min-height: calc(100vh - 80px);
+      display: flex; flex-direction: column;
+      padding: 0 28px 60px;
+    }
+    .hello {
+      text-align: center;
+      margin: 8px 0 4px;
+      animation: hello-in 1200ms var(--ease-soft) both;
+    }
+    .hello-eyebrow {
+      font-family: var(--ui); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.32em; text-transform: uppercase;
+      color: rgba(244, 233, 200, 0.45);
+    }
+    .hello-title {
+      font-family: var(--display);
+      font-size: clamp(48px, 7vw, 96px);
+      font-weight: 700;
+      line-height: 0.95;
+      color: var(--ink-bright);
+      margin: 8px 0 4px;
+      text-shadow: 0 4px 32px rgba(255, 217, 60, 0.25);
+    }
+    .hello-title em {
+      font-style: normal;
+      background: linear-gradient(120deg, #FFD93D 0%, #FF6FAA 50%, #9F7AE0 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hello-sub {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(15px, 1.4vw, 18px);
+      color: var(--ink-soft);
+      margin: 6px 0 0;
+    }
+    @keyframes hello-in {
+      from { opacity: 0; transform: translateY(-12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Universe — the planets layer ────────────────────────────── */
+    .universe {
+      flex: 1; position: relative;
+      margin-top: 12px;
+      min-height: 540px;
+    }
+    .planet-zone {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      background: transparent; border: none; padding: 0;
+      color: inherit;
+      font-family: inherit;
+      animation: planet-drift 14s ease-in-out infinite alternate;
+      transform-origin: center center;
+      will-change: transform;
+    }
+    .planet-zone:nth-child(odd) { animation-duration: 18s; animation-direction: alternate-reverse; }
+    .planet-zone:focus { outline: none; }
+    .planet-zone:focus-visible .planet { box-shadow: 0 0 0 4px var(--yolk), 0 0 60px var(--planet-glow, rgba(255,255,255,0.4)); }
+    @keyframes planet-drift {
+      0%   { transform: translate(-50%, -50%) translate(0, 0); }
+      50%  { transform: translate(-50%, -50%) translate(6px, -10px); }
+      100% { transform: translate(-50%, -50%) translate(-4px, 8px); }
+    }
+
+    /* Planet body */
+    .planet {
+      position: relative;
+      width: var(--planet-size, 220px);
+      height: var(--planet-size, 220px);
+      border-radius: 50%;
+      background: var(--planet-surface, radial-gradient(circle at 35% 30%, #888, #333));
+      box-shadow:
+        inset -22px -22px 60px rgba(0, 0, 0, 0.55),
+        inset 8px 8px 24px rgba(255, 255, 255, 0.1),
+        0 0 80px var(--planet-glow, rgba(255, 255, 255, 0.35));
+      transition: transform 480ms var(--ease), box-shadow 480ms var(--ease-soft);
+    }
+    /* Atmosphere — a wash that hugs the planet just outside its body */
+    .planet::before {
+      content: ''; position: absolute;
+      inset: -8%;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--planet-atmosphere, transparent) 60%, transparent 75%);
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    /* Ring — a tilted oval band around the planet */
+    .planet-ring {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 165%; height: 22%;
+      transform: translate(-50%, -50%) rotate(var(--ring-tilt, -16deg));
+      border-radius: 50%;
+      border: 4px solid var(--ring-color, #FFD93D);
+      border-top-color: transparent;
+      opacity: var(--ring-opacity, 0.7);
+      pointer-events: none;
+      filter: drop-shadow(0 0 6px var(--ring-color, #FFD93D));
+    }
+    .planet-ring.back {
+      border-bottom-color: transparent;
+      border-top-color: var(--ring-color, #FFD93D);
+      opacity: calc(var(--ring-opacity, 0.7) * 0.55);
+      z-index: -1;
+      filter: none;
+    }
+
+    /* Hover state — wobble + grow */
+    .planet-zone:hover .planet,
+    .planet-zone:focus-visible .planet {
+      transform: scale(1.06);
+    }
+    .planet-zone:hover .planet-bauble {
+      transform: translate(0, -8px) rotate(-8deg);
+    }
+
+    /* Bauble — the floating icon hint near each planet */
+    .planet-bauble {
+      position: absolute;
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.65);
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      transition: transform 320ms var(--ease);
+      z-index: 2;
+    }
+
+    /* Label below the planet */
+    .planet-label {
+      position: absolute;
+      top: calc(100% + 22px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: 340px;
+      text-align: center;
+    }
+    .planet-name {
+      display: block;
+      font-family: var(--ui);
+      font-weight: 700;
+      font-size: clamp(18px, 1.6vw, 24px);
+      color: var(--ink-bright);
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+      margin-bottom: 4px;
+      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+    }
+    .planet-tagline {
+      display: block;
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 13.5px;
+      color: var(--ink-soft);
+      max-width: 280px;
+      margin: 0 auto;
+      line-height: 1.4;
+    }
+    .planet-enter-hint {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 4px 10px;
+      font-family: var(--ui); font-weight: 700;
+      font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
+      background: rgba(255, 217, 60, 0.18);
+      border: 1.5px solid rgba(255, 217, 60, 0.4);
+      border-radius: 999px;
+      color: var(--yolk);
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity 240ms var(--ease-soft), transform 240ms var(--ease-soft);
+    }
+    .planet-zone:hover .planet-enter-hint,
+    .planet-zone:focus-visible .planet-enter-hint {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Speaker button — small floating mute/play near each planet */
+    .planet-speaker {
+      position: absolute;
+      bottom: -64px; left: 50%;
+      transform: translateX(-50%) translateX(-110px);
+      width: 36px; height: 36px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(0, 0, 0, 0.65);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      cursor: pointer;
+      color: var(--ink);
+      transition: transform 140ms var(--ease), background 140ms var(--ease);
+    }
+    .planet-speaker:hover { background: var(--yolk); color: #000; transform: translateX(-50%) translateX(-110px) scale(1.08); }
+    .planet-speaker.playing { background: var(--yolk); color: #000; }
+    .planet-speaker svg { width: 16px; height: 16px; pointer-events: none; }
+
+    /* ── Zoom-into-planet transition ─────────────────────────────── */
+    .universe.zooming { pointer-events: none; }
+    .planet-zone.zooming {
+      animation: planet-zoom 900ms var(--ease-soft) forwards;
+      z-index: 50;
+    }
+    .planet-zone:not(.zooming).hidden-by-zoom {
+      animation: planet-fade-out 700ms ease-out forwards;
+    }
+    .stage.zooming .hello,
+    .stage.zooming .footer {
+      animation: title-fade-out 600ms ease-out forwards;
+    }
+    @keyframes planet-zoom {
+      0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      60% { transform: translate(-50%, -50%) translate(calc(50vw - var(--zone-x, 50vw)), calc(50vh - var(--zone-y, 50vh))) scale(2.2); opacity: 1; }
+      100% { transform: translate(-50%, -50%) translate(calc(50vw - var(--zone-x, 50vw)), calc(50vh - var(--zone-y, 50vh))) scale(8); opacity: 0; }
+    }
+    @keyframes planet-fade-out {
+      to { opacity: 0; filter: blur(8px); transform: translate(-50%, -50%) scale(0.85); }
+    }
+    @keyframes title-fade-out {
+      to { opacity: 0; transform: translateY(-12px); }
+    }
+    /* White wash that swallows the screen at peak zoom */
+    .warp-flash {
+      position: fixed; inset: 0; z-index: 80;
+      background: radial-gradient(circle at center, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0));
+      opacity: 0;
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+    .warp-flash.fire {
+      animation: warp 900ms var(--ease-soft) forwards;
+      animation-delay: 350ms;
+    }
+    @keyframes warp {
+      0% { opacity: 0; }
+      55% { opacity: 1; }
+      100% { opacity: 1; background: radial-gradient(circle at center, rgba(255, 255, 255, 1), rgba(255, 255, 255, 1)); }
+    }
+
+    /* ── Footer hint ─────────────────────────────────────────────── */
+    .footer {
+      position: relative; z-index: 5;
+      text-align: center;
+      padding: 14px 20px 28px;
+      font-family: var(--serif); font-style: italic;
+      color: rgba(244, 233, 200, 0.55);
+      font-size: 13.5px;
+    }
+    .footer-pulse {
+      display: inline-block;
+      width: 6px; height: 6px;
+      background: var(--yolk);
+      border-radius: 50%;
+      vertical-align: 2px;
+      margin-right: 8px;
+      animation: pulse-dot 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 0.35; transform: scale(1); }
+      50%      { opacity: 1; transform: scale(1.4); }
+    }
+
+    /* ── Mobile layout — stack planets vertically ───────────────── */
+    @media (max-width: 760px) {
+      .universe { display: flex; flex-direction: column; gap: 110px; align-items: center; min-height: 0; padding: 60px 0; }
+      .planet-zone { position: relative; left: auto !important; top: auto !important; transform: none !important; animation: none; }
+      .planet-zone:hover .planet { transform: scale(1.04); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="cosmos" aria-hidden="true"></div>
+  <canvas class="starfield" id="starfield" aria-hidden="true"></canvas>
+  <div class="nebula-1" aria-hidden="true"></div>
+  <div class="nebula-2" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
+    <span class="spacer"></span>
+  </header>
+
+  <main class="stage" id="stage">
+    <div class="hello">
+      <div class="hello-eyebrow">welcome back, Henry</div>
+      <h1 class="hello-title">the <em>universe</em></h1>
+      <p class="hello-sub">tap a planet to step into that world</p>
+    </div>
+    <div class="universe" id="universe" role="navigation" aria-label="Pick a story world"></div>
+    <div class="footer">
+      <span class="footer-pulse" aria-hidden="true"></span>
+      every world has its own characters, its own pictures, and its own stories.
+    </div>
+  </main>
+
+  <div class="warp-flash" id="warp" aria-hidden="true"></div>
+
+  <script>
+    // ─── Starfield (animated dots) ───
+    (function() {
+      const canvas = document.getElementById('starfield');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let stars = [];
+      let w = 0, h = 0;
+      function resize() {
+        const dpr = window.devicePixelRatio || 1;
+        w = canvas.width = innerWidth * dpr;
+        h = canvas.height = innerHeight * dpr;
+        canvas.style.width = innerWidth + 'px';
+        canvas.style.height = innerHeight + 'px';
+        ctx.scale(dpr, dpr);
+        // ~150 stars, deterministic-ish per render
+        stars = [];
+        const n = Math.min(180, Math.floor((innerWidth * innerHeight) / 9000));
+        for (let i = 0; i < n; i++) {
+          stars.push({
+            x: Math.random() * innerWidth,
+            y: Math.random() * innerHeight,
+            r: Math.random() * 1.3 + 0.15,
+            tw: Math.random() * Math.PI * 2,
+            tws: 0.6 + Math.random() * 1.6,
+          });
+        }
+      }
+      function draw(t) {
+        ctx.clearRect(0, 0, innerWidth, innerHeight);
+        for (const s of stars) {
+          const tw = 0.5 + 0.5 * Math.sin(t * 0.001 * s.tws + s.tw);
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(244, 233, 200, ${0.25 + tw * 0.55})`;
+          ctx.fill();
+        }
+        requestAnimationFrame(draw);
+      }
+      resize();
+      addEventListener('resize', resize);
+      requestAnimationFrame(draw);
+    })();
+
+    // ─── Render planets from the worlds registry ───
+    function renderPlanets() {
+      const universe = document.getElementById('universe');
+      if (!universe || !window.QSSWorlds) return;
+      universe.innerHTML = '';
+      const worlds = window.QSSWorlds.list();
+      worlds.forEach((w, i) => {
+        const p = w.planet || {};
+        const btn = document.createElement('button');
+        btn.className = 'planet-zone';
+        btn.dataset.slug = w.slug;
+        btn.type = 'button';
+        btn.setAttribute('aria-label', `Enter ${w.name} — ${w.tagline}`);
+        btn.style.left = (p.x ?? 50) + '%';
+        btn.style.top = (p.y ?? 50) + '%';
+        btn.style.setProperty('--planet-size', (p.size || 200) + 'px');
+        btn.style.setProperty('--planet-surface', p.surface || 'radial-gradient(circle at 35% 30%, #999, #333)');
+        btn.style.setProperty('--planet-glow', p.glow || 'rgba(255,255,255,0.4)');
+        btn.style.setProperty('--planet-atmosphere', p.atmosphere || 'transparent');
+        if (p.ring) {
+          btn.style.setProperty('--ring-color', p.ring.color);
+          btn.style.setProperty('--ring-tilt', (p.ring.tilt || -16) + 'deg');
+          btn.style.setProperty('--ring-opacity', (p.ring.opacity ?? 0.7));
+        }
+        // Delay the planet-in animation so they appear staggered.
+        btn.style.animationDelay = (i * 600) + 'ms';
+        btn.innerHTML = `
+          ${p.ring ? '<span class="planet-ring back" aria-hidden="true"></span>' : ''}
+          <div class="planet" aria-hidden="true">
+            ${p.bauble ? `<span class="planet-bauble" style="left:${p.bauble.x ?? 80}%; top:${p.bauble.y ?? 20}%; transform: translate(-50%, -50%);">${p.bauble.emoji || '✨'}</span>` : ''}
+          </div>
+          ${p.ring ? '<span class="planet-ring" aria-hidden="true"></span>' : ''}
+          <div class="planet-label">
+            <span class="planet-name">${escHtml(w.name)}</span>
+            <span class="planet-tagline">${escHtml(w.tagline || '')}</span>
+            <span class="planet-enter-hint">tap to enter →</span>
+          </div>
+          <button class="planet-speaker" type="button" data-action="speak" aria-label="Read this world's name aloud">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+              <path d="M15.54 8.46a5 5 0 010 7.07"/>
+              <path d="M19.07 4.93a10 10 0 010 14.14"/>
+            </svg>
+          </button>
+        `;
+        btn.addEventListener('click', (e) => {
+          if (e.target.closest('[data-action="speak"]')) return; // handled below
+          enterWorld(w.slug, btn);
+        });
+        const speaker = btn.querySelector('[data-action="speak"]');
+        if (speaker) {
+          speaker.addEventListener('click', (e) => {
+            e.stopPropagation();
+            speakWorld(w, speaker);
+          });
+        }
+        universe.appendChild(btn);
+      });
+    }
+    function escHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+    }
+
+    // ─── Enter-a-world zoom transition ───
+    function enterWorld(slug, btn) {
+      if (!window.QSSWorlds) return;
+      const universe = document.getElementById('universe');
+      const stage = document.getElementById('stage');
+      const warp = document.getElementById('warp');
+      // Set CSS vars for the zoom keyframe — where the planet is now,
+      // so the keyframe knows where to translate from.
+      const rect = btn.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      btn.style.setProperty('--zone-x', x + 'px');
+      btn.style.setProperty('--zone-y', y + 'px');
+      // Save the choice and start the animation
+      window.QSSWorlds.setActive(slug);
+      universe.classList.add('zooming');
+      stage.classList.add('zooming');
+      btn.classList.add('zooming');
+      // Other planets fade
+      universe.querySelectorAll('.planet-zone').forEach(p => {
+        if (p !== btn) p.classList.add('hidden-by-zoom');
+      });
+      warp.classList.add('fire');
+      // After the white wash hits, jump to the world's writer tool.
+      setTimeout(() => {
+        location.href = '../';
+      }, 1180);
+    }
+
+    // ─── Speak a world's name + tagline ───
+    let activeSpeakerBtn = null;
+    let activeAudio = null;
+    function stopSpeaker() {
+      if (activeAudio) { try { activeAudio.pause(); activeAudio.src = ''; } catch {} activeAudio = null; }
+      if (activeSpeakerBtn) { activeSpeakerBtn.classList.remove('playing'); activeSpeakerBtn = null; }
+      try { window.speechSynthesis?.cancel(); } catch {}
+    }
+    async function speakWorld(world, btn) {
+      if (activeSpeakerBtn === btn) { stopSpeaker(); return; }
+      stopSpeaker();
+      activeSpeakerBtn = btn;
+      btn.classList.add('playing');
+      const text = `${world.name}. ${world.tagline || ''}`;
+      try {
+        // Use the existing qss-tts endpoint (Matilda voice). Falls back
+        // to browser speechSynthesis if the API is unreachable.
+        const r = await fetch('/api/qss-tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice: 'matilda', speed: 'fast' }),
+        });
+        if (!r.ok) throw new Error('tts ' + r.status);
+        const blob = await r.blob();
+        const audio = new Audio(URL.createObjectURL(blob));
+        activeAudio = audio;
+        audio.addEventListener('ended', () => { if (activeSpeakerBtn === btn) stopSpeaker(); });
+        audio.addEventListener('error', () => { if (activeSpeakerBtn === btn) stopSpeaker(); });
+        await audio.play().catch(() => stopSpeaker());
+      } catch {
+        // Fallback — robot voice in the kid's browser
+        try {
+          const u = new SpeechSynthesisUtterance(text);
+          u.rate = 0.95; u.pitch = 1.05;
+          u.onend = () => { if (activeSpeakerBtn === btn) stopSpeaker(); };
+          u.onerror = () => { if (activeSpeakerBtn === btn) stopSpeaker(); };
+          window.speechSynthesis?.speak(u);
+        } catch { stopSpeaker(); }
+      }
+    }
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stopSpeaker(); });
+
+    // ─── Boot ───
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', renderPlanets);
+    } else {
+      renderPlanets();
+    }
+  </script>
+</body>
+</html>

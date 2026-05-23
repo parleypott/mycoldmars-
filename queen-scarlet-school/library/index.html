@@ -380,6 +380,9 @@
     *::-webkit-scrollbar { width: 14px; height: 14px; }
     *::-webkit-scrollbar-thumb { background: var(--ink-bright); border-radius: 999px; border: 3px solid var(--paper); }
   </style>
+  <!-- worlds.js: registry + shim. Must load BEFORE any inline script that
+       touches localStorage — it runs legacy-key migration on import. -->
+  <script src="../lib/worlds.js"></script>
 </head>
 <body>
 
@@ -554,7 +557,24 @@
       function unlock() {
         document.cookie = COOKIE+'=granted; path=/; max-age='+(60*60*24*90);
         gateEl.classList.add('hidden'); appEl.classList.remove('hidden');
+        mountWorldSwitcher();
         boot();
+      }
+      function mountWorldSwitcher() {
+        try {
+          const topbar = document.querySelector('.topbar');
+          if (!topbar || !window.QSSWorlds) return;
+          if (topbar.querySelector('.world-switcher')) return; // idempotent
+          const switcher = window.QSSWorlds.createSwitcher();
+          // library topbar has no .spacer — drop the switcher into the
+          // right-side button cluster so it lines up with the other pills.
+          const right = topbar.querySelector('.topbar-right');
+          if (right) {
+            right.insertBefore(switcher, right.firstChild);
+          } else {
+            topbar.appendChild(switcher);
+          }
+        } catch {}
       }
       if (getCookie(COOKIE) === 'granted') { unlock(); return; }
       const inp = document.getElementById('gate-code');

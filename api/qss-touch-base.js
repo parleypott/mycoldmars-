@@ -21,6 +21,7 @@
 //             suggestions: [string], modelMs }
 
 import { checkAccess as sharedCheckAccess } from './_lib/access.js';
+import { canonOverlayForBody } from './_lib/qss-worlds.js';
 
 // Edge runtime. Sonnet's typical response on this prompt is 8-15s,
 // well under the 25s edge cap. Tried Node + maxDuration: 60 but the
@@ -178,7 +179,7 @@ export default async function handler(req) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 2000,
-        system: SYSTEM,
+        system: SYSTEM + canonOverlayForBody(body),
         messages: [{ role: 'user', content: userParts }],
       }),
       signal: AbortSignal.timeout(40_000),

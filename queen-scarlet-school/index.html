@@ -3033,6 +3033,9 @@
     }
     .lightbox-caption b { font-family: var(--display); font-weight: 700; color: var(--ink-bright); margin-right: 6px; }
   </style>
+  <!-- worlds.js: registry + shim. Must load BEFORE any inline script that
+       touches localStorage — it runs legacy-key migration on import. -->
+  <script src="lib/worlds.js"></script>
 </head>
 <body>
 
@@ -3599,7 +3602,24 @@
       const COOKIE = 'qss_access', PASS = 'newpress';
       const g = document.getElementById('gate'), a = document.getElementById('app');
       function getC(n) { const m = document.cookie.match(new RegExp('(?:^|; )'+n+'=([^;]*)')); return m ? decodeURIComponent(m[1]) : null; }
-      function unlock() { document.cookie = COOKIE+'=granted; path=/; max-age='+(60*60*24*90); g.classList.add('hidden'); a.classList.remove('hidden'); }
+      function unlock() { document.cookie = COOKIE+'=granted; path=/; max-age='+(60*60*24*90); g.classList.add('hidden'); a.classList.remove('hidden'); mountWorldSwitcher(); }
+      function mountWorldSwitcher() {
+        try {
+          const topbar = document.querySelector('.topbar');
+          if (!topbar || !window.QSSWorlds) return;
+          if (topbar.querySelector('.world-switcher')) return; // idempotent
+          const switcher = window.QSSWorlds.createSwitcher();
+          // Main topbar has no .spacer — drop the switcher into the
+          // right-side button cluster, leftmost, so it sits before the
+          // cast/library/rules pills.
+          const right = topbar.querySelector('.topbar-right');
+          if (right) {
+            right.insertBefore(switcher, right.firstChild);
+          } else {
+            topbar.appendChild(switcher);
+          }
+        } catch {}
+      }
       if (getC(COOKIE) === 'granted') { unlock(); return; }
       const inp = document.getElementById('gate-code'), err = document.getElementById('gate-error');
       function check() { const v = (inp.value||'').trim().toLowerCase(); if (v === PASS) unlock(); else { err.classList.add('show'); inp.value = ''; inp.focus(); } }
@@ -4587,7 +4607,7 @@
   <script type="module">
     // ─────────── State ───────────
     const LS_LAST = 'qss:last';
-    const LS_KEY = name => `qss:story:${name}`;
+    const LS_KEY = name => QSSWorlds.key('story:' + name);
     const LS_LIST = 'qss:stories';
 
     const DEFAULT_RULES = {
@@ -5782,7 +5802,7 @@
             // Read the GLOBAL cast (one map across all stories) so any
             // character Henry developed in any past story still anchors
             // the look here.
-            const globalCast = JSON.parse(localStorage.getItem('qss:globalcast') || '{}');
+            const globalCast = JSON.parse(localStorage.getItem(QSSWorlds.key('globalcast')) || '{}');
             const blockText = (b.text || '').toLowerCase();
             for (const [lk, c] of Object.entries(globalCast)) {
               const displayName = (c?.name || lk || '').trim();
@@ -7129,7 +7149,7 @@
 
     // ─────────── Cast gallery — flip cards, lazy portrait generation ───────────
     window.qssCast = (function() {
-      const LS_KEY = () => `qss:cast:${state.serverId || state.name || '__none__'}`;
+      const LS_KEY = () => QSSWorlds.key(`cast:${state.serverId || state.name || '__none__'}`);
       // Map<characterName, { name, current_state, intro_block, status, synopsis, image: {mime, dataBase64}, generated_at, error? }>
       let cards = {};
       let activeAudio = null;
@@ -7487,7 +7507,7 @@
         // Overlay global cast — characters from OTHER stories Henry has
         // developed. If a name is already in `out`, skip; otherwise add.
         try {
-          const global = JSON.parse(localStorage.getItem('qss:globalcast') || '{}');
+          const global = JSON.parse(localStorage.getItem(QSSWorlds.key('globalcast')) || '{}');
           const seen = new Set(out.map(c => (c.name || '').toLowerCase()));
           for (const [lk, c] of Object.entries(global)) {
             const name = (c?.name || lk || '').trim();
@@ -7531,7 +7551,7 @@
       }
       function syncToGlobalCast() {
         try {
-          const KEY = 'qss:globalcast';
+          const KEY = QSSWorlds.key('globalcast');
           const g = JSON.parse(localStorage.getItem(KEY) || '{}') || {};
           const storyId = state.serverId || null;
           const storyName = state.name || null;
@@ -7595,7 +7615,7 @@
           if (!r.ok) return;
           const { characters } = await r.json();
           if (!Array.isArray(characters)) return;
-          const KEY = 'qss:globalcast';
+          const KEY = QSSWorlds.key('globalcast');
           const g = JSON.parse(localStorage.getItem(KEY) || '{}') || {};
           let touched = false;
           for (const cloud of characters) {

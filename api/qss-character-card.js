@@ -24,6 +24,7 @@
 
 import { checkAccess as sharedCheckAccess } from './_lib/access.js';
 import { canonForName, canonContextBlock } from './_lib/qss-canon.js';
+import { canonOverlayForBody } from './_lib/qss-worlds.js';
 
 // Edge runtime. We TRIED moving to Node with a server-side retry to
 // dodge the 25s edge cap, but the combination produced consistent 60s
@@ -242,8 +243,9 @@ export default async function handler(req) {
     newMessage,
   });
 
-  const claudePromise = callClaude(anthropicKey, claudeUser);
-  const imagePromise = callNanoBanana(geminiKey, portraitPrompt, refPortrait, lovedRefs);
+  const worldOverlay = canonOverlayForBody(body);
+  const claudePromise = callClaude(anthropicKey, claudeUser, worldOverlay);
+  const imagePromise = callNanoBanana(geminiKey, portraitPrompt + worldOverlay, refPortrait, lovedRefs);
 
   const [claudeR, imgR] = await Promise.allSettled([claudePromise, imagePromise]);
 
@@ -497,7 +499,7 @@ function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, 
   ].filter(Boolean).join('\n\n');
 }
 
-async function callClaude(apiKey, userMessage) {
+async function callClaude(apiKey, userMessage, worldOverlay = '') {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -508,7 +510,7 @@ async function callClaude(apiKey, userMessage) {
     body: JSON.stringify({
       model: 'claude-haiku-4-5',
       max_tokens: 400,
-      system: SYNOPSIS_SYSTEM,
+      system: SYNOPSIS_SYSTEM + worldOverlay,
       messages: [{ role: 'user', content: userMessage }],
     }),
   });

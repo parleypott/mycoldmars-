@@ -797,6 +797,9 @@
     *::-webkit-scrollbar { width: 12px; height: 12px; }
     *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
   </style>
+  <!-- worlds.js: registry + shim. Must load BEFORE any inline script that
+       touches localStorage — it runs legacy-key migration on import. -->
+  <script src="../lib/worlds.js"></script>
 </head>
 <body>
 
@@ -968,7 +971,22 @@
       function unlock() {
         document.cookie = COOKIE + '=granted; path=/; max-age=' + (60*60*24*90);
         gateEl.classList.add('hidden'); appEl.classList.remove('hidden');
+        mountWorldSwitcher();
         setTimeout(boot, 0);  // defer past const-state TDZ
+      }
+      function mountWorldSwitcher() {
+        try {
+          const topbar = document.querySelector('.topbar');
+          if (!topbar || !window.QSSWorlds) return;
+          if (topbar.querySelector('.world-switcher')) return; // idempotent
+          const switcher = window.QSSWorlds.createSwitcher();
+          const spacer = topbar.querySelector('.spacer');
+          if (spacer && spacer.nextSibling) {
+            topbar.insertBefore(switcher, spacer.nextSibling);
+          } else {
+            topbar.appendChild(switcher);
+          }
+        } catch {}
       }
       if (getCookie(COOKIE) === 'granted') { unlock(); return; }
       const inp = document.getElementById('gate-code'), err = document.getElementById('gate-error');
@@ -1172,8 +1190,8 @@
     //
     // On first load, we one-shot-migrate any legacy `qss:cast:<storyId>`
     // per-story caches into the global map so existing work isn't lost.
-    const GLOBAL_KEY = 'qss:globalcast';
-    const MIGRATED_FLAG = 'qss:globalcast:migrated';
+    const GLOBAL_KEY = QSSWorlds.key('globalcast');
+    const MIGRATED_FLAG = QSSWorlds.key('globalcast:migrated');
     function lcKey(name) { return String(name || '').trim().toLowerCase(); }
 
     // ─── IndexedDB store for portrait blob bodies ────────────────────────
@@ -1682,13 +1700,13 @@
     //   - fold any new characters from that story's arc into the global cast
     //   - display a "viewing while in <story>" chip
     // Without ?story=, we just show every character Henry has ever developed.
-    // Cross-tab sync — when another tab writes to qss:globalcast,
-    // re-read LS and re-render so this tab doesn't drift stale.
-    // Without this, two open tabs go out of sync (Henry edits in tab A,
-    // tab B keeps showing old state until manual reload). Engineer
+    // Cross-tab sync — when another tab writes to the active world's
+    // globalcast key, re-read LS and re-render so this tab doesn't drift
+    // stale. Without this, two open tabs go out of sync (Henry edits in
+    // tab A, tab B keeps showing old state until manual reload). Engineer
     // agent flagged this as one of the silent-divergence risks.
     window.addEventListener('storage', (e) => {
-      if (e.key !== 'qss:globalcast') return;
+      if (e.key !== QSSWorlds.key('globalcast')) return;
       if (e.newValue == null) return; // ignore clears
       try {
         const fresh = JSON.parse(e.newValue) || {};
@@ -1715,9 +1733,9 @@
       let storyId = params.get('story');
       if (!storyId) {
         try {
-          const lastName = localStorage.getItem('qss:last_story');
+          const lastName = localStorage.getItem(QSSWorlds.key('last_story'));
           if (lastName) {
-            const raw = localStorage.getItem(`qss:story:${lastName}`);
+            const raw = localStorage.getItem(QSSWorlds.key(`story:${lastName}`));
             if (raw) {
               const obj = JSON.parse(raw);
               if (obj?.serverId) storyId = obj.serverId;

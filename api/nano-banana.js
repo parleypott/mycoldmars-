@@ -1,6 +1,7 @@
 import { checkAccess } from './_lib/access.js';
 import { detectFixation } from './_lib/qss-signals.js';
 import { findCanonCharactersInText, canonContextBlock, QSS_CANON } from './_lib/qss-canon.js';
+import { canonOverlayForBody } from './_lib/qss-worlds.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // WRITING_DISCIPLINE — prepended to every Wordy-side system prompt.
@@ -673,6 +674,7 @@ DO NOT:
   const baseSystem = phase === 'directions' ? DIRECTIONS_SYSTEM : TUTOR_SYSTEM;
   const systemText = HENRY_PROFILE
     + '\n\n' + baseSystem
+    + canonOverlayForBody(body)
     + canonBlock
     + '\n\n═══ RULES SET BY PARENT ═══\n' + rulesBlock
     + bibleBlock
@@ -1197,7 +1199,7 @@ async function handleScribe(body, apiKey) {
     }
   }
 
-  const systemText = SCRIBE_SYSTEM + bibleContext + chaptersContext + activeContext;
+  const systemText = SCRIBE_SYSTEM + canonOverlayForBody(body) + bibleContext + chaptersContext + activeContext;
 
   const contents = history.map(m => ({
     role: m.role === 'user' ? 'user' : 'model',
@@ -1310,7 +1312,7 @@ async function handleText(body, apiKey) {
     storyboardContext = '\n\nCURRENT STORYBOARD: empty.';
   }
 
-  const systemText = STORY_SYSTEM + bibleContext + storyboardContext;
+  const systemText = STORY_SYSTEM + canonOverlayForBody(body) + bibleContext + storyboardContext;
 
   const contents = history.map(m => ({
     role: m.role === 'user' ? 'user' : 'model',
