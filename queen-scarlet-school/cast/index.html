@@ -299,6 +299,33 @@
       font-family: var(--ui);
       font-size: clamp(26px, 3vw, 36px); color: var(--paper);
       font-weight: 600; line-height: 1.1; letter-spacing: -0.02em;
+      min-width: 200px;
+    }
+    /* Editable name — feels clickable, shows hover hint, focus ring */
+    .editable-name {
+      outline: none;
+      border-bottom: 2px dashed transparent;
+      padding: 2px 4px;
+      border-radius: 6px;
+      cursor: text;
+      transition: background 120ms var(--ease), border-color 120ms var(--ease);
+    }
+    .editable-name:hover { background: rgba(255, 217, 60, 0.08); border-bottom-color: rgba(255, 217, 60, 0.35); }
+    .editable-name:focus { background: rgba(255, 217, 60, 0.16); border-bottom-color: var(--yolk); }
+    .editable-name:empty::before {
+      content: attr(data-placeholder);
+      color: rgba(255, 246, 224, 0.4);
+    }
+    .workshop-tag {
+      font-family: var(--ui);
+      font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      background: var(--yolk); color: var(--ink-bright);
+      border: 2px solid var(--ink-bright); border-radius: 999px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      transform: rotate(-3deg);
+      align-self: center;
     }
     .detail-delete {
       font-family: var(--ui); font-weight: 700; font-size: 13px;
@@ -307,6 +334,61 @@
       cursor: pointer;
     }
     .detail-delete:hover { background: var(--red); }
+
+    /* Bio block — sits above visual notes, holds the editable synopsis */
+    .bio-block {
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 14px;
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      padding: 14px 16px;
+    }
+    .bio-block .notes-label {
+      display: flex; align-items: baseline; gap: 8px;
+      font-family: var(--ui); font-weight: 700; font-size: 13px;
+      color: var(--ink-bright);
+      margin-bottom: 8px; letter-spacing: 0.02em;
+    }
+    .bio-block .notes-label .hint {
+      font-family: var(--serif); font-style: italic; font-weight: 400;
+      font-size: 12px; color: var(--ink-soft);
+    }
+    .bio-textarea {
+      width: 100%;
+      min-height: 88px;
+      max-height: 240px;
+      background: var(--paper-soft);
+      border: 2px solid var(--ink-bright);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-family: var(--serif);
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: var(--ink);
+      resize: vertical;
+      outline: none;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+    }
+    .bio-textarea:focus { border-color: var(--yolk-deep); box-shadow: 1.5px 1.5px 0 var(--yolk-deep); }
+
+    /* Gallery section — full-width below the two-col grid */
+    .gallery-section {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 2px dashed rgba(255, 246, 224, 0.18);
+    }
+    .gallery-heading {
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px;
+      margin-bottom: 12px;
+    }
+    .gallery-title {
+      font-family: var(--ui); font-weight: 700; font-size: 16px;
+      color: var(--paper); letter-spacing: -0.01em;
+    }
+    .gallery-hint {
+      font-family: var(--serif); font-style: italic; font-size: 13px;
+      color: rgba(244, 233, 200, 0.6);
+    }
 
     .detail-grid {
       display: grid;
@@ -345,26 +427,40 @@
     }
 
     .gallery-strip {
-      display: flex; gap: 10px; align-items: center;
+      display: flex; gap: 14px; align-items: stretch;
       overflow-x: auto;
-      padding: 6px 4px 14px;
+      padding: 6px 4px 18px;
     }
     .gallery-strip::-webkit-scrollbar { height: 10px; }
     .gallery-strip::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 999px; }
     .gallery-thumb {
       position: relative;
       flex: 0 0 auto;
-      width: 70px;
+      width: 132px;
       aspect-ratio: 2.5 / 3.5;
-      border-radius: 8px;
-      border: 2.5px solid rgba(255, 246, 224, 0.5);
+      border-radius: 12px;
+      border: 3px solid rgba(255, 246, 224, 0.5);
       background: var(--paper-card);
       overflow: hidden;
       cursor: pointer;
-      transition: transform 140ms var(--ease), border-color 140ms var(--ease);
+      transition: transform 140ms var(--ease), border-color 140ms var(--ease), box-shadow 140ms var(--ease);
+      box-shadow: 3px 3px 0 var(--ink-bright);
     }
     .gallery-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .gallery-thumb.primary { border-color: var(--yolk); box-shadow: 0 0 0 3px rgba(255, 217, 60, 0.45); }
+    .gallery-thumb.primary {
+      border-color: var(--yolk);
+      box-shadow: 0 0 0 3px rgba(255, 217, 60, 0.45), 4px 4px 0 var(--ink-bright);
+      transform: translateY(-2px);
+    }
+    .gallery-thumb.primary::after {
+      content: 'MAIN';
+      position: absolute; top: 6px; left: 6px;
+      padding: 2px 7px;
+      font-family: var(--ui); font-weight: 800; font-size: 9px; letter-spacing: 0.18em;
+      background: var(--yolk); color: var(--ink-bright);
+      border: 1.5px solid var(--ink-bright); border-radius: 999px;
+      pointer-events: none;
+    }
     .gallery-thumb:hover { transform: translate(-1px, -1px); border-color: var(--paper); }
     .gallery-thumb-x {
       position: absolute; top: -4px; right: -4px;
@@ -412,36 +508,43 @@
      * matches the look Henry liked. */
     .gallery-regen {
       flex: 0 0 auto;
-      width: 70px; aspect-ratio: 2.5 / 3.5;
-      border-radius: 8px;
-      border: 2.5px solid #FF6FAA;
+      width: 132px; aspect-ratio: 2.5 / 3.5;
+      border-radius: 12px;
+      border: 3px solid #FF6FAA;
       background: rgba(255, 111, 170, 0.18);
       color: var(--paper);
       cursor: pointer;
-      font-family: var(--ui); font-weight: 700; font-size: 12px;
-      line-height: 1.15;
+      font-family: var(--ui); font-weight: 700; font-size: 14px;
+      line-height: 1.2;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      gap: 4px;
+      gap: 6px;
       transition: transform 140ms var(--ease), background 140ms var(--ease);
-      padding: 0 6px;
+      padding: 0 10px;
       text-align: center;
+      box-shadow: 3px 3px 0 var(--ink-bright);
     }
     .gallery-regen:hover { background: rgba(255, 111, 170, 0.32); transform: translate(-1px, -1px); }
     .gallery-regen.busy { opacity: 0.6; cursor: wait; }
-    .gallery-regen-icon { font-size: 22px; line-height: 1; }
-    .gallery-regen-label { font-size: 10px; letter-spacing: 0.06em; }
+    .gallery-regen-icon { font-size: 36px; line-height: 1; }
+    .gallery-regen-label { font-size: 12px; letter-spacing: 0.04em; }
     .gallery-add {
       flex: 0 0 auto;
-      width: 70px; aspect-ratio: 2.5 / 3.5;
-      border-radius: 8px;
-      border: 2.5px dashed rgba(255, 246, 224, 0.45);
+      width: 132px; aspect-ratio: 2.5 / 3.5;
+      border-radius: 12px;
+      border: 3px dashed rgba(255, 246, 224, 0.45);
       background: transparent;
       cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      font-family: var(--display); font-size: 28px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      font-family: var(--display); font-size: 48px;
       color: rgba(255, 246, 224, 0.55);
       transition: color 140ms var(--ease), border-color 140ms var(--ease);
+    }
+    .gallery-add::after {
+      content: 'new drawing';
+      font-family: var(--ui); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: inherit;
     }
     .gallery-add:hover { color: var(--yolk); border-color: var(--yolk); }
     .gallery-add.busy { animation: ccard-shimmer 1.8s linear infinite; opacity: 0.6; }
@@ -678,25 +781,29 @@
         </div>
       </section>
 
-      <!-- DETAIL VIEW -->
+      <!-- DETAIL VIEW — the Character Workshop -->
       <section id="detail-view" class="detail-view">
         <div class="detail-head">
           <button id="detail-back" class="detail-back" type="button">← back to cast</button>
-          <h1 id="detail-name" class="detail-name"></h1>
+          <h1 id="detail-name" class="detail-name editable-name" contenteditable="true" spellcheck="false" data-placeholder="character name"></h1>
+          <span class="workshop-tag">workshop</span>
           <span id="detail-tts" class="detail-tts"></span>
           <button id="detail-delete" class="detail-delete" type="button">delete character</button>
         </div>
         <div class="detail-grid">
           <div class="portrait-col">
             <div id="portrait-primary" class="portrait-primary"></div>
+            <div class="bio-block">
+              <label class="notes-label" for="character-bio">About this character
+                <span class="hint">who they are — read aloud, used by storyboard art</span>
+              </label>
+              <textarea id="character-bio" class="bio-textarea" placeholder="describe who this character is. their deal, their voice, what they're up to. wordy uses this when drawing new pictures and when reading them out loud."></textarea>
+            </div>
             <div class="notes-block">
               <label class="notes-label" for="visual-notes">Visual notes
-                <span class="hint">used for redraws and storyboard art</span>
+                <span class="hint">how they look — used for redraws and storyboard art</span>
               </label>
-              <textarea id="visual-notes" class="notes-textarea" placeholder="describe how the character should look. lines like 'calculator helmet, blue button-down, always slouched' get baked into every redraw."></textarea>
-            </div>
-            <div class="gallery-strip" id="gallery-strip">
-              <!-- thumbnails populated by render -->
+              <textarea id="visual-notes" class="notes-textarea" placeholder="how should they look? 'calculator helmet, blue button-down, always slouched'"></textarea>
             </div>
           </div>
           <div class="chat-col">
@@ -707,6 +814,16 @@
               <button id="chat-redraw" class="btn btn-redraw" type="button" title="Use the current visual notes to draw a new portrait (no chat needed)">↻ redraw</button>
               <button id="chat-send" class="btn" type="button">Send<span style="margin-left:4px;">→</span></button>
             </div>
+          </div>
+        </div>
+        <!-- Gallery moved to full-width below grid: every draft visible at once -->
+        <div class="gallery-section">
+          <div class="gallery-heading">
+            <span class="gallery-title">every drawing of this character</span>
+            <span class="gallery-hint">tap a drawing to make it the main one · ♡ marks favorites wordy will copy when drawing new ones</span>
+          </div>
+          <div class="gallery-strip" id="gallery-strip">
+            <!-- thumbnails populated by render -->
           </div>
         </div>
       </section>
@@ -1749,7 +1866,13 @@
       if (!card) { state.view = 'grid'; renderGrid(); return; }
       document.getElementById('grid-view').classList.add('hidden');
       document.getElementById('detail-view').classList.add('active');
-      document.getElementById('detail-name').textContent = card.name;
+      // Don't trample the name if Henry is currently editing it (focus
+      // would lose its caret position on every re-render otherwise).
+      const nameEl = document.getElementById('detail-name');
+      if (document.activeElement !== nameEl) nameEl.textContent = card.name;
+      // Bio textarea — same rule: don't trample while focused.
+      const bioEl = document.getElementById('character-bio');
+      if (bioEl && document.activeElement !== bioEl) bioEl.value = card.synopsis || '';
       // Detail-head speaker: reads name + synopsis (if any) + current_state.
       // That's the whole introduction to this character — Henry can hear
       // who they are without reading anything.
@@ -2101,6 +2224,68 @@
       scheduleCloudSave();
     }
 
+    function saveBio() {
+      const card = state.cards[state.openName]; if (!card) return;
+      const bio = document.getElementById('character-bio').value;
+      if (bio === card.synopsis) return; // no-op
+      card.synopsis = bio;
+      syncCard(state.openName);
+      scheduleCloudSave();
+    }
+
+    // ─── Rename the character (inline-edit the h1) ───
+    // The h1 is contenteditable; on blur we validate and commit. Rename
+    // is a real shape change — state.cards is keyed by displayName, and
+    // syncCard / cloud rows are keyed by lowercased name. We have to:
+    //   1. Trim + cap length + reject empty
+    //   2. If the lowercased key collided with another character, refuse
+    //   3. Move the card to the new key in state.cards, delete the old
+    //   4. Tell the cloud the OLD key is gone (delete) + push the new
+    //   5. Update state.openName so subsequent renders find the card
+    function commitRename() {
+      const nameEl = document.getElementById('detail-name');
+      const oldName = state.openName;
+      const card = state.cards[oldName];
+      if (!card || !nameEl) return;
+      let newName = (nameEl.textContent || '').replace(/\s+/g, ' ').trim();
+      if (newName.length > 80) newName = newName.slice(0, 80);
+      // Restore visual on empty or no-change.
+      if (!newName) { nameEl.textContent = card.name; return; }
+      if (newName === card.name) { nameEl.textContent = card.name; return; }
+      const newLk = (newName || '').toLowerCase();
+      const oldLk = (oldName || '').toLowerCase();
+      if (newLk !== oldLk) {
+        // Case-rename safe (Snorbjorn → Snorbjørn) because lowercased key changes.
+        // Real-name collision: refuse and restore.
+        const collision = Object.values(state.cards).find(c => {
+          if (!c || c === card) return false;
+          return (c.name || '').toLowerCase() === newLk;
+        });
+        if (collision) {
+          toast(`there's already a character called "${collision.name}" — pick a different name`, 'error', 3500);
+          nameEl.textContent = card.name;
+          return;
+        }
+      }
+      // Apply the rename. state.cards is keyed by displayName.
+      card.name = newName;
+      delete state.cards[oldName];
+      state.cards[newName] = card;
+      state.openName = newName;
+      // If the lowercased key changed, the cloud row at the old lk
+      // is now orphaned — explicitly delete it before pushing the new one.
+      if (newLk !== oldLk && oldLk) {
+        try { deleteFromCloud(oldName); } catch {}
+      }
+      writeLS();
+      syncCard(newName);
+      scheduleCloudSave();
+      // Re-render the grid so the rename is reflected there too.
+      // (Re-render detail to refresh the speaker-button text and bio.)
+      renderDetail();
+      toast(`renamed → ${newName}`, 'success', 1800);
+    }
+
     async function sendChatMessage() {
       const card = state.cards[state.openName]; if (!card) return;
       const inp = document.getElementById('chat-input');
@@ -2186,6 +2371,31 @@
 
       // Visual notes — autosave on input (debounced via cloud schedule + LS write per keystroke is fine)
       document.getElementById('visual-notes').addEventListener('input', saveVisualNotes);
+
+      // Character bio — same autosave-on-input pattern.
+      document.getElementById('character-bio')?.addEventListener('input', saveBio);
+
+      // Editable name — commit on blur OR Enter. Enter blurs the field
+      // so the same commit path handles both. Escape cancels by restoring
+      // the original textContent.
+      const nameEl = document.getElementById('detail-name');
+      if (nameEl) {
+        nameEl.addEventListener('blur', commitRename);
+        nameEl.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); }
+          if (e.key === 'Escape') {
+            const card = state.cards[state.openName];
+            if (card) nameEl.textContent = card.name;
+            nameEl.blur();
+          }
+        });
+        // Strip pasted formatting — keep only plain text.
+        nameEl.addEventListener('paste', (e) => {
+          e.preventDefault();
+          const t = (e.clipboardData || window.clipboardData).getData('text');
+          document.execCommand('insertText', false, t.replace(/\s+/g, ' '));
+        });
+      }
 
       // Gallery interactions
       document.getElementById('gallery-strip').addEventListener('click', (e) => {
