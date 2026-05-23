@@ -932,6 +932,148 @@
     const MIGRATED_FLAG = 'qss:globalcast:migrated';
     function lcKey(name) { return String(name || '').trim().toLowerCase(); }
 
+    // ─── IndexedDB store for portrait blob bodies ────────────────────────
+    //
+    // Each portrait dataBase64 is 50–300 KB. With 8 characters × multiple
+    // portraits each plus chat history plus story_appearances, localStorage
+    // (~5 MB ceiling) blows up — the cast goes blank and "drawing the
+    // portrait…" sticks because new draws can't persist.
+    //
+    // Fix: portrait METADATA stays in LS (id, mime, generated_at, note,
+    // loved) but dataBase64 lives in IndexedDB keyed by id. IDB has
+    // effectively unlimited storage on modern browsers (often 50%+ of
+    // disk). state.cards in memory still holds the full shape with
+    // dataBase64 attached, so every render/cloud-push site works unchanged
+    // — only writeLS strips and readLS rehydrates.
+    const castIdb = (function() {
+      const DB_NAME = 'qss-cast';
+      const STORE = 'portraits';
+      const VERSION = 1;
+      let dbPromise = null;
+
+      function open() {
+        if (dbPromise) return dbPromise;
+        dbPromise = new Promise((resolve) => {
+          if (!window.indexedDB) { resolve(null); return; }
+          const req = indexedDB.open(DB_NAME, VERSION);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE)) {
+              db.createObjectStore(STORE, { keyPath: 'id' });
+            }
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => { console.warn('[idb] open failed', req.error); resolve(null); };
+        });
+        return dbPromise;
+      }
+      async function txStore(mode) {
+        const db = await open();
+        if (!db) return null;
+        try { return db.transaction(STORE, mode).objectStore(STORE); }
+        catch (e) { console.warn('[idb] tx failed', e); return null; }
+      }
+      async function put(portrait) {
+        if (!portrait?.id) return false;
+        const store = await txStore('readwrite');
+        if (!store) return false;
+        return new Promise((resolve) => {
+          let r;
+          try { r = store.put(portrait); }
+          catch (e) { console.warn('[idb] put threw', e); return resolve(false); }
+          r.onsuccess = () => resolve(true);
+          r.onerror = () => { console.warn('[idb] put failed', r.error); resolve(false); };
+        });
+      }
+      async function getMany(ids) {
+        const out = new Map();
+        if (!ids?.length) return out;
+        const store = await txStore('readonly');
+        if (!store) return out;
+        return new Promise((resolve) => {
+          let pending = ids.length;
+          for (const id of ids) {
+            let r;
+            try { r = store.get(id); }
+            catch { if (--pending === 0) resolve(out); continue; }
+            r.onsuccess = () => {
+              if (r.result) out.set(id, r.result);
+              if (--pending === 0) resolve(out);
+            };
+            r.onerror = () => { if (--pending === 0) resolve(out); };
+          }
+        });
+      }
+      async function del(id) {
+        if (!id) return false;
+        const store = await txStore('readwrite');
+        if (!store) return false;
+        return new Promise((resolve) => {
+          let r; try { r = store.delete(id); } catch { return resolve(false); }
+          r.onsuccess = () => resolve(true);
+          r.onerror = () => resolve(false);
+        });
+      }
+      // GC: drop any IDB entries not referenced by current state.cards.
+      // Runs occasionally on writes so a never-cleaned IDB doesn't slowly
+      // accumulate orphans across re-imports / cloud-pulls.
+      async function gc(referencedIds) {
+        const store = await txStore('readwrite');
+        if (!store) return 0;
+        const ref = referencedIds instanceof Set ? referencedIds : new Set(referencedIds);
+        return new Promise((resolve) => {
+          let dropped = 0;
+          let req; try { req = store.openCursor(); } catch { return resolve(0); }
+          req.onsuccess = (e) => {
+            const cur = e.target.result;
+            if (!cur) return resolve(dropped);
+            if (!ref.has(cur.key)) { try { cur.delete(); dropped++; } catch {} }
+            cur.continue();
+          };
+          req.onerror = () => resolve(dropped);
+        });
+      }
+      return { open, put, getMany, del, gc };
+    })();
+    // Pre-open so the first read/write doesn't pay the upgrade cost.
+    castIdb.open();
+
+    // Strip portrait dataBase64 before persisting to LS (the body lives in IDB).
+    function thinPortrait(p) {
+      if (!p) return p;
+      const { dataBase64, ...rest } = p;
+      return rest;
+    }
+
+    // Async: fill any portrait missing dataBase64 by fetching from IDB.
+    // Returns true if anything was hydrated (caller should re-render).
+    async function hydratePortraitsFromIdb(cards) {
+      const ids = [];
+      for (const c of Object.values(cards || {})) {
+        if (!Array.isArray(c?.portraits)) continue;
+        for (const p of c.portraits) {
+          if (p?.id && !p.dataBase64) ids.push(p.id);
+        }
+      }
+      if (!ids.length) return false;
+      const blobs = await castIdb.getMany(ids);
+      let touched = false;
+      for (const c of Object.values(cards || {})) {
+        if (!Array.isArray(c?.portraits)) continue;
+        for (const p of c.portraits) {
+          if (p?.id && !p.dataBase64) {
+            const full = blobs.get(p.id);
+            if (full?.dataBase64) {
+              p.dataBase64 = full.dataBase64;
+              p.mime = p.mime || full.mime || 'image/png';
+              touched = true;
+            }
+          }
+        }
+      }
+      return touched;
+    }
+
     // readLS / writeLS contract:
     //   - LS is keyed by LOWERCASED character name (cross-story dedup).
     //   - state.cards is keyed by DISPLAY name (unchanged from prior code
@@ -997,70 +1139,95 @@
     }
 
     function writeLS() {
-      // Convert display-name-keyed state.cards into a lowercased-keyed blob.
+      // Build the LS payload — thin portraits (no dataBase64). The full
+      // dataBase64 body lives in IndexedDB, written below.
       const out = {};
+      const referenced = new Set();
       for (const [displayName, c] of Object.entries(state.cards)) {
         if (!c) continue;
         const lk = lcKey(c.name || displayName);
         if (!lk) continue;
         // Ensure card.name preserves the display-case so it round-trips.
         if (!c.name) c.name = displayName;
-        out[lk] = c;
+        const thin = { ...c };
+        if (Array.isArray(c.portraits)) {
+          thin.portraits = c.portraits.map(thinPortrait);
+          for (const p of c.portraits) if (p?.id) referenced.add(p.id);
+        }
+        out[lk] = thin;
       }
+
       try { localStorage.setItem(GLOBAL_KEY, JSON.stringify(out)); }
       catch (e) {
-        // Quota recovery: trim portrait history. CRITICAL — mutate
-        // state.cards (the in-memory source of truth), NOT just `out`.
-        // Previously this only trimmed `out` which meant next writeLS()
-        // tried the full history again and quota-failed again silently
-        // in a loop. Also: the trimmed cards must be pushed to the cloud
-        // so the cloud copy doesn't keep the full history while LS has
-        // the trimmed one (divergence). Then toast Henry so he knows
-        // older portraits got cleaned up.
-        const trimmedNames = [];
-        for (const [displayName, c] of Object.entries(state.cards)) {
-          if (!c) continue;
-          if (Array.isArray(c.portraits) && c.portraits.length > 1) {
-            // Preserve loved + primary portraits before trimming by date.
-            const loved = c.portraits.filter(p => p.loved);
-            const primary = c.portraits.find(p => p.id === c.primary_portrait_id);
-            const keepers = new Map();
-            for (const p of loved) keepers.set(p.id, p);
-            if (primary) keepers.set(primary.id, primary);
-            // If we have room for more, fill with newest.
-            const byDate = c.portraits.slice().sort((a, b) => (b.generated_at || 0) - (a.generated_at || 0));
-            for (const p of byDate) {
-              if (keepers.size >= 2) break;
-              keepers.set(p.id, p);
-            }
-            const before = c.portraits.length;
-            c.portraits = Array.from(keepers.values());
-            if (!c.primary_portrait_id || !c.portraits.find(p => p.id === c.primary_portrait_id)) {
-              c.primary_portrait_id = c.portraits[0]?.id || null;
-            }
-            if (c.portraits.length < before) {
-              trimmedNames.push(c.name || displayName);
-              out[lcKey(c.name || displayName)] = c;
-            }
+        // With dataBase64 already extracted to IDB, the LS payload is
+        // KB-scale (just metadata + chat + appearances). If this STILL
+        // overflows, chat history is the next bloat axis. Auto-trim
+        // chat to last 12 turns per card and retry — no "go clean it
+        // up yourself" toasts. Then sync the trimmed state back into
+        // state.cards in memory so future writes match.
+        let chatTrimmed = 0;
+        for (const c of Object.values(out)) {
+          if (Array.isArray(c?.chat) && c.chat.length > 12) {
+            c.chat = c.chat.slice(-12);
+            chatTrimmed++;
+          }
+          if (Array.isArray(c?.story_appearances)) {
+            const cutoff = Date.now() - 30 * 24 * 3600_000;
+            c.story_appearances = c.story_appearances.filter(a => (a.last_seen_at || 0) > cutoff);
           }
         }
         try {
           localStorage.setItem(GLOBAL_KEY, JSON.stringify(out));
-          if (trimmedNames.length) {
-            // Force-push trimmed cards to cloud so cloud and LS stay aligned.
-            for (const name of trimmedNames) {
-              const card = state.cards[name];
-              if (card) { try { pushToCloud(card); } catch {} }
+          // Reflect the trim back into the in-memory source of truth.
+          for (const [lk, thin] of Object.entries(out)) {
+            const dn = thin?.name || lk;
+            const live = state.cards[dn];
+            if (live) {
+              live.chat = thin.chat;
+              live.story_appearances = thin.story_appearances;
             }
-            try { toast(`storage filling up — kept the loved + main pictures for ${trimmedNames.length} ${trimmedNames.length === 1 ? 'character' : 'characters'}, dropped older drafts`, 'info', 5000); } catch {}
-            console.warn('[qss-cast quota] trimmed portraits for', trimmedNames);
+          }
+          if (chatTrimmed) {
+            try { toast(`auto-cleaned old chat messages for ${chatTrimmed} character${chatTrimmed === 1 ? '' : 's'}`, 'info', 3500); } catch {}
+            console.warn('[qss-cast quota] trimmed chat for', chatTrimmed, 'cards');
           }
         } catch (e2) {
-          // Still failing — chat history is probably the bloat now.
-          try { toast('cast storage full — try opening one character and deleting old chat messages', 'error', 6000); } catch {}
-          console.error('[qss-cast quota] still over after portrait trim', e2);
+          // Catastrophic — drop chat entirely and retry once more.
+          for (const c of Object.values(out)) c.chat = [];
+          try {
+            localStorage.setItem(GLOBAL_KEY, JSON.stringify(out));
+            for (const [lk, thin] of Object.entries(out)) {
+              const dn = thin?.name || lk;
+              if (state.cards[dn]) state.cards[dn].chat = [];
+            }
+            try { toast('cleared old chat to fit more pictures', 'info', 3500); } catch {}
+            console.warn('[qss-cast quota] all chat dropped');
+          } catch (e3) {
+            console.error('[qss-cast quota] truly catastrophic', e3);
+          }
         }
       }
+
+      // Fire-and-forget: persist portrait blob bodies to IndexedDB.
+      // Errors logged but don't crash UI; state.cards in memory still has
+      // the dataBase64 so the current session keeps working either way.
+      (async () => {
+        try {
+          const writes = [];
+          for (const c of Object.values(state.cards)) {
+            if (!Array.isArray(c?.portraits)) continue;
+            for (const p of c.portraits) {
+              if (p?.id && p.dataBase64) writes.push(castIdb.put(p));
+            }
+          }
+          if (writes.length) await Promise.all(writes);
+          // Occasional GC: ~1-in-10 writes, drop orphan IDB blobs not
+          // referenced by any current card.
+          if (Math.random() < 0.1) {
+            try { await castIdb.gc(referenced); } catch {}
+          }
+        } catch (e) { console.warn('[idb] portrait write batch failed', e); }
+      })();
     }
 
     // ─── Migration of legacy single-image cards into portraits[] ───
@@ -1134,21 +1301,41 @@
           const { characters } = await r.json();
           if (!Array.isArray(characters)) return;
           let touched = false;
+          const newCharNeedsDraw = [];
           for (const cloudCard of characters) {
             const name = (cloudCard?.name || '').trim();
             if (!name) continue;
+            // Skip if a portrait is being drawn right now — race protection.
+            // Without this, a slow cloud pull could overwrite a freshly-drawn
+            // local portrait if the timestamps tied.
+            if (state.pendingGen.has(name)) continue;
             const localCard = state.cards[name];
             const cloudUpd = cloudCard.updated_at || cloudCard.generated_at || 0;
             const localUpd = localCard?.generated_at || 0;
-            // Cloud wins if newer, or if local missing this character entirely.
-            if (!localCard || cloudUpd >= localUpd) {
+            // Cloud wins ONLY if strictly newer, or if local missing entirely.
+            // Strict > prevents the race where cloud and local share a ms.
+            if (!localCard || cloudUpd > localUpd) {
               state.cards[name] = migrateCard({ ...cloudCard, name });
               touched = true;
+              // If this newly-merged cloud character has no portraits, queue
+              // it for auto-draw. Previously the bootstrap firstDrawQueue ran
+              // ONCE before pullFromCloud completed, so cloud-only characters
+              // sat at "drawing the portrait…" forever until Henry tapped
+              // them. Now they auto-draw on first cloud sync.
+              const merged = state.cards[name];
+              const hasPortraits = Array.isArray(merged?.portraits) && merged.portraits.length;
+              if (!hasPortraits) newCharNeedsDraw.push(name);
             }
           }
           if (touched) {
             writeLS();
             render();
+          }
+          // Auto-enqueue any newly-merged cloud characters that lack
+          // portraits. firstDrawQueue is idempotent — skips anything
+          // already pending or anything that gained a portrait since.
+          if (newCharNeedsDraw.length) {
+            firstDrawQueue(newCharNeedsDraw).catch(() => {});
           }
           // For any LOCAL character not present in the cloud, push them up
           // (first-time hydration of the cloud from any device that's been
@@ -1241,8 +1428,19 @@
       // then fetch the CLOUD cast and merge — cloud wins for any character
       // with a newer updated_at. This is what makes the cast cross-device:
       // edit on laptop, see it on iPad.
+      //
+      // Portrait dataBase64 lives in IndexedDB (since the cast was hitting
+      // the LS quota ceiling); hydrate that async after the first render
+      // so "drawing the portrait…" placeholders flip to real images as
+      // soon as IDB delivers them.
       state.cards = readLS();
       render();
+      (async () => {
+        try {
+          const touched = await hydratePortraitsFromIdb(state.cards);
+          if (touched) render();
+        } catch (e) { console.warn('[idb] hydrate on init failed', e); }
+      })();
       // Fire-and-forget cloud sync. If migration 018 isn't applied yet,
       // returns 503 and we silently stay on localStorage.
       pullFromCloud().catch(() => {});
@@ -1355,14 +1553,19 @@
     }
     function gridCardMarkup(c) {
       const primary = getPrimary(c);
+      // A portrait counts as "ready to render" only when its dataBase64
+      // body is attached. With portraits offloaded to IDB, there's a brief
+      // window between LS hydrate and IDB hydrate where the metadata is
+      // present but the body isn't — that's a loading state, not a primary.
+      const primaryReady = !!(primary && primary.dataBase64);
       const isLoading = c.status === 'loading';
-      const hasError = c.status === 'error' && !primary;
-      const portraitInner = primary
+      const hasError = c.status === 'error' && !primaryReady;
+      const portraitInner = primaryReady
         ? `<img src="data:${esc(primary.mime || 'image/png')};base64,${primary.dataBase64}" alt="${esc(c.name)}" loading="lazy" />`
         : hasError
           ? `<div>couldn't draw yet — tap to try again</div>`
           : `<span>drawing the portrait…</span>`;
-      const portraitCls = primary ? '' : (hasError ? 'failed' : 'loading');
+      const portraitCls = primaryReady ? '' : (hasError ? 'failed' : 'loading');
       const more = c.portraits.length > 1 ? `<span class="ccard-portraits-count">${c.portraits.length} drawings</span>` : '';
       // Build the read-aloud text — name first, then current_state if any.
       // Henry hears who the character is + what they're up to right now.
@@ -1398,13 +1601,15 @@
         ttsEl.innerHTML = window.qssTTS.buildBtn(parts.join('. '), { size: 'lg', dark: true });
       }
 
-      // Primary portrait
+      // Primary portrait. Needs both the metadata AND the dataBase64 body
+      // (which arrives async from IDB on first paint).
       const primary = getPrimary(card);
+      const primaryReady = !!(primary && primary.dataBase64);
       const ppEl = document.getElementById('portrait-primary');
-      if (primary) {
+      if (primaryReady) {
         ppEl.className = 'portrait-primary';
         ppEl.innerHTML = `<img src="data:${esc(primary.mime || 'image/png')};base64,${primary.dataBase64}" alt="${esc(card.name)}" />`;
-      } else if (state.pendingGen.has(card.name)) {
+      } else if (primary || state.pendingGen.has(card.name)) {
         ppEl.className = 'portrait-primary loading';
         ppEl.innerHTML = '<span>drawing the portrait…</span>';
       } else {
@@ -1416,13 +1621,17 @@
       const notesEl = document.getElementById('visual-notes');
       if (document.activeElement !== notesEl) notesEl.value = card.visual_notes || '';
 
-      // Gallery strip
+      // Gallery strip — portraits whose dataBase64 hasn't arrived yet from
+      // IDB render a small loading shimmer instead of a broken <img>.
       const strip = document.getElementById('gallery-strip');
       const thumbs = card.portraits.slice().sort((a, b) => (a.generated_at || 0) - (b.generated_at || 0)).map(p => {
         const isPrimary = p.id === card.primary_portrait_id;
         const isLoved = !!p.loved;
+        const inner = p.dataBase64
+          ? `<img src="data:${esc(p.mime || 'image/png')};base64,${p.dataBase64}" alt="" />`
+          : `<span style="display:block;padding:18px 8px;font-size:11px;color:var(--ink-faint);text-align:center;">loading…</span>`;
         return `<div class="gallery-thumb ${isPrimary ? 'primary' : ''} ${isLoved ? 'loved' : ''}" data-pid="${esc(p.id)}" title="${esc(p.note || (isPrimary ? 'primary' : 'tap to make primary'))}">
-          <img src="data:${esc(p.mime || 'image/png')};base64,${p.dataBase64}" alt="" />
+          ${inner}
           <button class="gallery-thumb-x" data-action="delete-portrait" data-pid="${esc(p.id)}" type="button" aria-label="Delete this portrait">×</button>
           <button class="gallery-thumb-love ${isLoved ? 'loved' : ''}" data-action="toggle-love" data-pid="${esc(p.id)}" type="button" aria-label="${isLoved ? 'Unmark this portrait as loved' : 'Mark this portrait as loved — used as style anchor when you regenerate'}">${isLoved ? '♥' : '♡'}</button>
         </div>`;
@@ -1665,6 +1874,8 @@
           ? card.portraits[card.portraits.length - 1].id
           : null;
       }
+      // Drop the IDB blob too so it doesn't orphan-leak.
+      try { castIdb.del(pid); } catch {}
       syncCard(state.openName);
       scheduleCloudSave();
       renderDetail();
