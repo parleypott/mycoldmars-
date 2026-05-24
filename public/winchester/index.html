@@ -5470,9 +5470,14 @@ function renderAgentContext() {
     : '<div class="ag-empty">no villages saved</div>';
 }
 
+const AG_CHAT_STICK_PX = 80;
 function renderAgentChat() {
   const el = document.getElementById('ag-chat');
   if (!el) return;
+  // Sticky-bottom: only auto-scroll if user was already at (or near) the bottom.
+  // Prevents the streaming loop from yanking the viewport down while they're reading.
+  const prevScrollTop = el.scrollTop;
+  const wasAtBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < AG_CHAT_STICK_PX;
   if (!agentMessages.length) {
     el.innerHTML = `<div class="ag-empty-chat">Ask anything about the ${pins.length} pinned home${pins.length===1?'':'s'} and ${villages.length} village${villages.length===1?'':'s'}.<div class="hint">It has the full dataset — prices, beds, sqft, train commute, trail proximity, school districts, taxes, monthly all-in.<br>It also remembers what you tell it matters.</div></div>`;
     return;
@@ -5491,7 +5496,11 @@ function renderAgentChat() {
       ${rememberBtn}
     </div>`;
   }).join('');
-  el.scrollTop = el.scrollHeight;
+  if (wasAtBottom) {
+    el.scrollTop = el.scrollHeight;
+  } else {
+    el.scrollTop = prevScrollTop;
+  }
   el.querySelectorAll('.ag-msg-remember').forEach(b => {
     b.addEventListener('click', () => {
       addMemory(b.dataset.text);
@@ -5520,6 +5529,9 @@ async function sendAgentMessage(text) {
   agentMessages.push({ role: 'user', content: trimmed });
   agentMessages.push({ role: 'assistant', content: '', _streaming: true });
   saveAgentChat();
+  // After sending, the user wants to see their new message and the reply — force-stick to bottom for the first render.
+  const _chatEl = document.getElementById('ag-chat');
+  if (_chatEl) _chatEl.scrollTop = _chatEl.scrollHeight + 9999;
   renderAgentChat();
   const sendBtn = document.getElementById('ag-send');
   if (sendBtn) sendBtn.disabled = true;
