@@ -123,21 +123,22 @@ async function handleExtract(body) {
     : (world === 'burgundy' ? BURGUNDY_NOVEL_ACT1 : '');
   if (!source) return j(400, { error: 'no_source_for_world' });
 
-  // CHUNKED EXTRACT — 4 parallel calls, each requesting ~25 items from
-  // its quarter of the novel. The first attempt (one big call, 100 items)
-  // blew past Edge's 25s cap because the model needed >22s to generate
-  // 14K tokens. Splitting into 4 parallel requests each producing ~25
-  // items lets Haiku finish each in ~6-10s; Promise.all wall time is
-  // bounded by the slowest chunk, well under Edge cap.
-  const CHUNKS = 4;
-  const ITEMS_PER_CHUNK = 25;
-  const sections = splitSourceIntoChunks(source, CHUNKS);
-
-  const results = await Promise.allSettled(
-    sections.map((section, idx) =>
-      extractChunk({ apiKey, section, sectionIndex: idx, totalSections: CHUNKS, itemsTarget: ITEMS_PER_CHUNK })
-    )
-  );
+  // Sectioned + sequential extract — Edge runtime doesn't give us real
+  // parallelism for outbound fetches to one host (Anthropic), so 4
+  // simultaneous calls effectively serialize and hit the 25s cap.
+  // Strategy: do one focused call that covers the WHOLE novel and
+  // requests ~50 items. Haiku-4.5 handles this in ~12-16s. We get a
+  // good first pass; user can later trigger a "more items" expansion
+  // by re-running extract or by adding follow-up endpoints.
+  const TARGET_ITEMS = 50;
+  const results = [await extractChunk({
+    apiKey,
+    section: source,
+    sectionIndex: 0,
+    totalSections: 1,
+    itemsTarget: TARGET_ITEMS,
+  }).then(items => ({ status: 'fulfilled', value: items }))
+   .catch(e => ({ status: 'rejected', reason: e }))];
 
   // Merge — preserve section order so the gallery reads top-to-bottom
   // through the novel.
@@ -254,11 +255,11 @@ Plain JSON only. No fences. No preamble.`;
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 6000,
+      max_tokens: 11000,
       system: SYSTEM,
       messages: [{ role: 'user', content: userPrompt }],
     }),
-    signal: AbortSignal.timeout(22_000),
+    signal: AbortSignal.timeout(23_500),
   });
 
   if (!res.ok) {
