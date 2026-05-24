@@ -277,20 +277,37 @@ export async function listAllCorpusUnits(limit = 200) {
 export async function getIngestStatus(projectId) {
   if (!supabase) return null;
 
+  // Bail when no projectId — was sending `project_id=eq.undefined` to
+  // Postgres on every 6s poll, hammering PostgREST until the pool drained
+  // and EVERY other Supabase endpoint started timing out (522/504s
+  // observed across qss-cast, qss-stories, qss-explorer simultaneously).
+  if (!projectId) return { active: false };
+
   // Get media assets for this project to check queue status
   const { data: assets } = await db().from('media_assets')
     .select('id, queue_status, source_ref')
     .eq('project_id', projectId);
 
-  const activeAsset = assets?.find(a => !['done', 'error'].includes(a.queue_status));
-  if (!activeAsset && assets?.every(a => a.queue_status === 'done')) {
+  // No assets at all — nothing to count, nothing to show. Returning early
+  // prevents the downstream `eq('media_asset_id', undefined)` query, which
+  // PostgREST serialized as the literal string "undefined" and ran as a
+  // table scan on corpus_units every six seconds per open tab.
+  if (!assets?.length) return { active: false };
+
+  const activeAsset = assets.find(a => !['done', 'error'].includes(a.queue_status));
+  if (!activeAsset && assets.every(a => a.queue_status === 'done')) {
     return { active: false };
   }
+
+  // Asset id we'll filter by. Guard against null/undefined so we never
+  // fall through to the eq.undefined path again.
+  const assetId = activeAsset?.id || assets[0]?.id;
+  if (!assetId) return { active: false };
 
   // Count analyzed corpus units
   const { count: analyzedCount } = await db().from('corpus_units')
     .select('id', { count: 'exact', head: true })
-    .eq('media_asset_id', activeAsset?.id || assets?.[0]?.id);
+    .eq('media_asset_id', assetId);
 
   // Get the 5 most recent analyses
   const { data: recentAnalyses } = await db().from('analyses')
