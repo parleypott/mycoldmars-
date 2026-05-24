@@ -253,19 +253,20 @@ async function handleGenerate(body) {
   // Mark as generating
   await sb('PATCH', `qss_world_explorer?id=eq.${encodeURIComponent(id)}`, { status: 'generating', updated_at: new Date().toISOString() });
 
-  // Call Gemini Nano Banana (gemini-2.5-flash-image / preview).
+  // Call Gemini Nano Banana — same model + header pattern as
+  // /api/nano-banana so failure modes and rate-limit behavior match.
   let imgBase64 = null;
   let imgMime = 'image/png';
   let errMsg = null;
   try {
     const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: row.art_prompt }] }],
-          generationConfig: { responseModalities: ['IMAGE'] },
+          contents: [{ parts: [{ text: row.art_prompt }] }],
+          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
         }),
         signal: AbortSignal.timeout(22_000),
       }
@@ -275,13 +276,18 @@ async function handleGenerate(body) {
       errMsg = `gemini_${geminiRes.status}: ${t.slice(0, 200)}`;
     } else {
       const data = await geminiRes.json();
-      const part = data?.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.data);
-      if (part) {
-        imgBase64 = part.inlineData.data;
-        imgMime = part.inlineData.mimeType || 'image/png';
-      } else {
-        errMsg = 'no_image_in_response';
+      const candidates = data?.candidates || [];
+      for (const c of candidates) {
+        for (const p of (c?.content?.parts || [])) {
+          if (p.inlineData?.data) {
+            imgBase64 = p.inlineData.data;
+            imgMime = p.inlineData.mimeType || 'image/png';
+            break;
+          }
+        }
+        if (imgBase64) break;
       }
+      if (!imgBase64) errMsg = 'no_image_in_response';
     }
   } catch (e) {
     errMsg = e?.message || String(e);
