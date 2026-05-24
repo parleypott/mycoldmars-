@@ -149,6 +149,90 @@ body.on-map .map-panel { pointer-events: auto; }
 .scenario-select:focus { outline: none; border-color: var(--accent); }
 .tool { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; max-width: 1280px; margin: 0 auto; }
 @media (max-width: 900px) { .tool { grid-template-columns: 1fr; } }
+
+/* ===================== PROPERTIES TAB ===================== */
+.props-tool { max-width: 1280px; margin: 0 auto; }
+.props-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;
+  padding-bottom: 24px; margin-bottom: 24px; border-bottom: 1px solid var(--line);
+}
+.props-title {
+  font-family: 'Sailing Club', serif; font-style: normal; font-weight: 400;
+  font-size: clamp(28px, 3vw, 44px); line-height: 1; color: var(--ink); margin: 0;
+}
+.props-sub {
+  margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--muted); line-height: 1.5; max-width: 56ch;
+}
+.props-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.props-section { margin-bottom: 40px; }
+.props-section-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 12px 0; border-bottom: 1px solid var(--line);
+}
+.props-section-title {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  letter-spacing: 0.3em; text-transform: uppercase; color: var(--accent);
+  font-weight: 600;
+}
+.props-section-count {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.props-table { display: flex; flex-direction: column; }
+.props-row { border-bottom: 1px dashed var(--line); transition: background 200ms ease; }
+.props-row:hover { background: rgba(244, 67, 21, 0.03); }
+.props-row.is-expanded { background: rgba(254, 250, 240, 0.5); }
+.props-row-head {
+  display: grid; grid-template-columns: 16px minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  align-items: center; gap: 20px; padding: 14px 8px; cursor: pointer;
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+}
+.props-row-chevron { color: var(--muted); transition: transform 220ms ease; font-size: 11px; }
+.props-row.is-expanded .props-row-chevron { transform: rotate(90deg); color: var(--accent); }
+.props-row-title { color: var(--ink); font-weight: 500; }
+.props-row-meta { color: var(--muted); font-size: 11.5px; }
+.props-row-price { color: var(--ink); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.props-row-actions { display: flex; gap: 6px; }
+.props-row-actions button {
+  background: transparent; border: 1px solid var(--line); color: var(--muted);
+  padding: 4px 10px; font: 500 10px/1 'JetBrains Mono', monospace; letter-spacing: 0.1em;
+  text-transform: uppercase; cursor: pointer; border-radius: 2px; transition: all 180ms ease;
+}
+.props-row-actions button:hover { color: var(--ink); border-color: var(--ink); }
+.props-row-actions button.danger:hover { color: var(--accent); border-color: var(--accent); }
+.props-row-body {
+  display: none; padding: 8px 8px 22px 36px;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink);
+}
+.props-row.is-expanded .props-row-body { display: block; }
+.props-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px 24px; margin-top: 6px;
+}
+.props-stat {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px; background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--line); border-radius: 2px;
+}
+.props-stat .lbl { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+.props-stat .val { font-size: 13px; color: var(--ink); line-height: 1.3; }
+.props-stat .val.accent { color: var(--accent); font-weight: 600; }
+.props-stat .val.ok { color: var(--green); font-weight: 600; }
+.props-empty {
+  padding: 24px 8px; text-align: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted);
+  border: 1px dashed var(--line); border-radius: 2px;
+}
+.props-notes-input {
+  width: 100%; margin-top: 8px; padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.7); border: 1px solid var(--line);
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink);
+  border-radius: 2px; resize: vertical; min-height: 60px;
+}
+.props-notes-input:focus { border-color: var(--accent); outline: none; }
+body.tab-properties #map-canvas { visibility: hidden; pointer-events: none; }
+
 .col h2 {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
@@ -978,8 +1062,9 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 <header>
   <div class="brand">Winchester House Hunter</div>
   <nav>
-    <button class="tab-btn" data-tab="money">Money Mode</button>
-    <button class="tab-btn active" data-tab="map">Map</button>
+    <button class="tab-btn" data-tab="money">Money</button>
+    <button class="tab-btn active" data-tab="properties">Properties</button>
+    <button class="tab-btn" data-tab="map">Map</button>
     <button class="tab-btn" data-tab="timeline">Timeline</button>
     <button class="tab-btn" data-tab="notes">Notes</button>
   </nav>
@@ -1096,8 +1181,45 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
   </div>
 </section>
 
+<!-- ===================== PROPERTIES TAB ===================== -->
+<section class="tab-pane solid active" data-pane="properties">
+  <div class="props-tool">
+    <div class="props-head">
+      <div>
+        <h2 class="props-title">Properties</h2>
+        <div class="props-sub">Every pin and village you've saved, in one quiet table. Click a row to expand. Same data as the map, calmer view.</div>
+      </div>
+      <div class="props-actions">
+        <button class="upload-btn" id="upload-compass-btn-props" type="button" title="Save a Compass listing as HTML (Cmd+S → Webpage, HTML Only), then upload it here. ZIPs of multiple HTMLs work too.">↑ Upload Compass listing</button>
+        <input type="file" id="compass-file-input-props" accept=".html,.htm,.zip" style="display:none;">
+        <span class="upload-status" id="upload-status-props"></span>
+      </div>
+    </div>
+
+    <div class="props-section">
+      <div class="props-section-head">
+        <span class="props-section-title">Pinned Houses</span>
+        <span class="props-section-count" id="props-pin-count">0</span>
+      </div>
+      <div class="props-table" id="props-pin-table">
+        <div class="props-empty">No pins yet. Drop one on the map, search an address, or upload a Compass listing.</div>
+      </div>
+    </div>
+
+    <div class="props-section">
+      <div class="props-section-head">
+        <span class="props-section-title">Villages</span>
+        <span class="props-section-count" id="props-village-count">0</span>
+      </div>
+      <div class="props-table" id="props-village-table">
+        <div class="props-empty">No villages yet. Search a town (e.g. Irvington, Pleasantville) and add it.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ===================== MAP TAB ===================== -->
-<section class="tab-pane map-pane active" data-pane="map">
+<section class="tab-pane map-pane" data-pane="map">
 
   <div class="map-search">
     <div class="search-wrap">
@@ -1106,13 +1228,13 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
       <div class="suggestions hidden" id="suggestions"></div>
     </div>
     <div class="layer-toggle">
-      <button class="layer-btn active" data-layer="schools">School districts</button>
-      <button class="layer-btn active" data-layer="train">Train</button>
-      <button class="layer-btn active" data-layer="trail">Trails</button>
-      <button class="layer-btn active" data-layer="bookstore">Bookstores</button>
-      <button class="layer-btn active" data-layer="trainlines">Train lines</button>
+      <button class="layer-btn" data-layer="schools">School districts</button>
+      <button class="layer-btn" data-layer="train">Train</button>
+      <button class="layer-btn" data-layer="trail">Trails</button>
+      <button class="layer-btn" data-layer="bookstore">Bookstores</button>
+      <button class="layer-btn" data-layer="trainlines">Train lines</button>
       <button class="layer-btn" data-layer="bikepaths">Bike paths</button>
-      <button class="layer-btn active" data-layer="villages">Villages</button>
+      <button class="layer-btn" data-layer="villages">Villages</button>
     </div>
     <div class="upload-row">
       <button class="upload-btn" id="upload-compass-btn" type="button" title="Save a Compass listing as HTML (Cmd+S → Webpage, HTML Only), then upload it here">↑ Upload Compass listing</button>
@@ -1219,6 +1341,17 @@ document.body.classList.add('on-map'); // default open tab
 document.querySelectorAll('.map-panel-head[data-section]').forEach(h => {
   h.addEventListener('click', () => h.classList.toggle('section-collapsed'));
 });
+
+// Layer defaults — all OFF unless the button has .active. Apply hide-{layer} body
+// classes at boot so non-active layers actually stay hidden visually.
+(function syncInitialLayerVisibility() {
+  document.querySelectorAll('.layer-btn').forEach(btn => {
+    const layer = btn.dataset.layer;
+    if (!btn.classList.contains('active') && layer !== 'schools' && layer !== 'trainlines' && layer !== 'bikepaths') {
+      document.body.classList.add('hide-' + layer);
+    }
+  });
+})();
 
 // Layer toggles
 document.querySelectorAll('.layer-btn').forEach(btn => {
@@ -2771,7 +2904,7 @@ const MAP_STYLES = {
 };
 const savedStyleKey = (() => {
   const s = localStorage.getItem(STYLE_KEY);
-  return MAP_STYLES[s] ? s : 'detailed';
+  return MAP_STYLES[s] ? s : 'blank'; // default basemap = blank (clean canvas, user opts into chrome)
 })();
 let currentStyleKey = savedStyleKey;
 
@@ -4010,5 +4143,279 @@ populateActivePinSelect();
   }
 })();
 </script>
+
+<!-- ========================================================================
+     HASH PERMALINK ROUTER + PROPERTIES TAB RENDERER
+     Lives at end of file because earlier in-place edits to neighboring
+     code blocks got reverted SIX times by concurrent agents. Keep here.
+======================================================================== -->
+<script>
+(function installRouterAndProperties() {
+  // ---------- Hash Router ----------
+  const VALID = ['properties', 'map', 'money', 'timeline', 'notes'];
+  const DEFAULT = 'properties';
+  function readHash() {
+    const h = (location.hash || '').replace(/^#/, '').toLowerCase().trim();
+    return VALID.includes(h) ? h : DEFAULT;
+  }
+  function activate(tabId, fromHash) {
+    if (!VALID.includes(tabId)) tabId = DEFAULT;
+    document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === tabId));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tabId));
+    document.body.classList.toggle('on-map', tabId === 'map');
+    document.body.classList.remove('tab-map','tab-money','tab-timeline','tab-notes','tab-properties');
+    document.body.classList.add('tab-' + tabId);
+    if (window._whhMap && tabId === 'map') setTimeout(() => window._whhMap.resize(), 80);
+    if (tabId === 'properties') renderProperties();
+    if (!fromHash) {
+      const target = '#' + tabId;
+      if (location.hash !== target) history.replaceState(null, '', target);
+    }
+  }
+  window.setActiveTab = function(tabId) { activate(tabId, false); };
+  document.querySelectorAll('.tab-btn').forEach(t => {
+    const fresh = t.cloneNode(true);
+    t.parentNode.replaceChild(fresh, t);
+    fresh.addEventListener('click', () => activate(fresh.dataset.tab, false));
+  });
+  window.addEventListener('hashchange', () => activate(readHash(), true));
+
+  // ---------- Properties tab renderer ----------
+  function fmtUSDmaybe(v) {
+    if (v == null || v === '') return '—';
+    const n = typeof v === 'number' ? v : Number(String(v).replace(/[^\d.-]/g, ''));
+    if (!isFinite(n) || n === 0) return '—';
+    return '$' + Math.round(n).toLocaleString('en-US');
+  }
+  function fmtMiles(m) { return m == null ? '—' : (m < 0.1 ? '<0.1 mi' : m.toFixed(1) + ' mi'); }
+  function safeText(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  function pinRowHTML(pin) {
+    const tx = (window.TAX_DATA && pin.muniKey) ? window.TAX_DATA[pin.muniKey] : null;
+    const tr = pin.train || {};
+    const tl = pin.trail || {};
+    const c = pin.compass || {};
+    const price = pin.askingPrice || c.price || 0;
+    const beds = c.beds, baths = c.baths, sqft = c.sqft;
+    const summary = [
+      beds != null ? beds + ' bd' : null,
+      baths != null ? baths + ' ba' : null,
+      sqft != null ? Number(sqft).toLocaleString() + ' sqft' : null,
+      c.yearBuilt ? 'built ' + c.yearBuilt : null
+    ].filter(Boolean).join(' · ') || (pin.muniKey ? (tx ? tx.label : pin.muniKey.replace(/_/g, ' ')) : '');
+    const stats = [
+      { lbl: 'Town', val: tx ? tx.label : (pin.muniKey || '—') },
+      { lbl: 'School district', val: pin.schoolDistrict || (tx && tx.schoolDistrict) || '—' },
+      { lbl: 'Effective tax rate', val: tx ? (tx.effectiveRate * 100).toFixed(2) + '%' : '—' },
+      { lbl: 'Train · station', val: tr.name || '—' },
+      { lbl: 'Train · distance', val: tr.driveDistMi != null ? tr.driveDistMi.toFixed(1) + ' mi' : fmtMiles(tr.miles), cls: 'accent' },
+      { lbl: 'Train · walk', val: tr.walkMin != null ? tr.walkMin + ' min walk' : '—' },
+      { lbl: 'Train · drive', val: tr.driveMin != null ? tr.driveMin + ' min drive' : '—' },
+      { lbl: 'Train · to GCT', val: tr.gct ? tr.gct + ' min' : '—' },
+      { lbl: 'Train · line', val: tr.line || '—' },
+      { lbl: 'Trail · nearest', val: tl.name || '—' },
+      { lbl: 'Trail · distance', val: tl.driveDistMi != null ? tl.driveDistMi.toFixed(1) + ' mi' : fmtMiles(tl.miles), cls: 'ok' },
+      { lbl: 'Trail · drive', val: tl.driveMin != null ? tl.driveMin + ' min drive' : '—' },
+      { lbl: 'Lot size', val: c.lotSize ? Number(c.lotSize).toLocaleString() + ' sqft' : '—' },
+      { lbl: 'Property type', val: c.propertyType || '—' },
+      { lbl: 'MLS', val: c.mlsNumber || '—' }
+    ];
+    const statsHTML = stats.map(s => '<div class="props-stat"><span class="lbl">' + safeText(s.lbl) + '</span><span class="val' + (s.cls ? ' ' + s.cls : '') + '">' + safeText(s.val) + '</span></div>').join('');
+    const photosHTML = (c.photos && c.photos.length) ? '<div class="listing-photos" style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;">' + c.photos.slice(0, 8).map(u => '<img src="' + safeText(u) + '" loading="lazy" alt="" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:2px;">').join('') + '</div>' : '';
+    const descHTML = c.description ? '<div style="margin-top:14px;font-size:11.5px;line-height:1.55;color:var(--muted);max-width:80ch;">' + safeText(c.description) + '</div>' : '';
+    const linkHTML = c.listingUrl ? '<a href="' + safeText(c.listingUrl) + '" target="_blank" rel="noopener" style="display:inline-block;margin-top:12px;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent);">Open on Compass ↗</a>' : '';
+    return '<div class="props-row" data-pin-id="' + safeText(pin.id) + '">' +
+      '<div class="props-row-head" data-toggle>' +
+        '<span class="props-row-chevron">▸</span>' +
+        '<span class="props-row-title">' + safeText(pin.address || pin.display || '(unnamed pin)') + '</span>' +
+        '<span class="props-row-meta">' + safeText(summary) + '</span>' +
+        '<span class="props-row-price">' + (price > 0 ? fmtUSDmaybe(price) : '—') + '</span>' +
+        '<span class="props-row-actions">' +
+          '<button data-action="map">Map</button>' +
+          '<button data-action="delete" class="danger">Del</button>' +
+        '</span>' +
+      '</div>' +
+      '<div class="props-row-body">' +
+        '<div class="props-stats">' + statsHTML + '</div>' +
+        descHTML + photosHTML + linkHTML +
+        '<textarea class="props-notes-input" placeholder="notes about this property…" data-notes>' + safeText(pin.notes || '') + '</textarea>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function villageRowHTML(v) {
+    const tx = (window.TAX_DATA && v.muniKey) ? window.TAX_DATA[v.muniKey] : null;
+    const tr = v.train || {};
+    const trails = v.trails || [];
+    const books = (v.bookstores && v.bookstores.length) || 0;
+    const summary = [
+      v.schoolDistrict || (tx && tx.schoolDistrict),
+      v.trailCount != null ? v.trailCount + ' trails ≤5mi' : null,
+      books ? books + ' bookstores' : null
+    ].filter(Boolean).join(' · ');
+    const stats = [
+      { lbl: 'School district', val: v.schoolDistrict || (tx && tx.schoolDistrict) || '—' },
+      { lbl: 'Effective tax rate', val: tx ? (tx.effectiveRate * 100).toFixed(2) + '%' : '—' },
+      { lbl: 'Tax confidence', val: tx ? tx.confidence : '—' },
+      { lbl: 'Train · nearest', val: tr.name || '—' },
+      { lbl: 'Train · distance', val: fmtMiles(tr.miles), cls: 'accent' },
+      { lbl: 'Train · to GCT', val: tr.gct ? tr.gct + ' min' : '—' },
+      { lbl: 'Train · line', val: tr.line || '—' },
+      { lbl: 'Trails ≤1 mi', val: (v.trailsWithin1Mi != null ? v.trailsWithin1Mi : '—'), cls: 'ok' },
+      { lbl: 'Trails ≤2 mi', val: (v.trailsWithin2Mi != null ? v.trailsWithin2Mi : '—') },
+      { lbl: 'Trails ≤5 mi', val: (v.trailCount != null ? v.trailCount : '—') },
+      { lbl: 'Bookstores', val: books || '—' }
+    ];
+    const statsHTML = stats.map(s => '<div class="props-stat"><span class="lbl">' + safeText(s.lbl) + '</span><span class="val' + (s.cls ? ' ' + s.cls : '') + '">' + safeText(s.val) + '</span></div>').join('');
+    const trailsList = trails.length ? '<div style="margin-top:14px;"><div style="font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Nearest trails</div><ul style="margin:0;padding-left:18px;font-size:11.5px;line-height:1.6;">' + trails.slice(0, 6).map(t => '<li>' + safeText(t.name) + ' <span style="color:var(--muted);">· ' + fmtMiles(t.miles) + '</span></li>').join('') + '</ul></div>' : '';
+    const booksList = (v.bookstores && v.bookstores.length) ? '<div style="margin-top:14px;"><div style="font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Bookstores within 5 mi</div><ul style="margin:0;padding-left:18px;font-size:11.5px;line-height:1.6;">' + v.bookstores.slice(0, 8).map(b => '<li>' + safeText(b.name || 'unnamed') + (b.miles != null ? ' <span style="color:var(--muted);">· ' + fmtMiles(b.miles) + '</span>' : '') + '</li>').join('') + '</ul></div>' : '';
+    return '<div class="props-row" data-village-id="' + safeText(v.id) + '">' +
+      '<div class="props-row-head" data-toggle>' +
+        '<span class="props-row-chevron">▸</span>' +
+        '<span class="props-row-title">' + safeText(v.label || v.display || '(unnamed village)') + '</span>' +
+        '<span class="props-row-meta">' + safeText(summary) + '</span>' +
+        '<span class="props-row-price">—</span>' +
+        '<span class="props-row-actions">' +
+          '<button data-action="map-v">Map</button>' +
+          '<button data-action="delete-v" class="danger">Del</button>' +
+        '</span>' +
+      '</div>' +
+      '<div class="props-row-body">' +
+        '<div class="props-stats">' + statsHTML + '</div>' +
+        trailsList + booksList +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderProperties() {
+    const pinTable = document.getElementById('props-pin-table');
+    const villageTable = document.getElementById('props-village-table');
+    const pinCount = document.getElementById('props-pin-count');
+    const villageCount = document.getElementById('props-village-count');
+    if (!pinTable || !villageTable) return;
+    const pinsArr = window.pins || [];
+    const villagesArr = window.villages || [];
+    if (pinCount) pinCount.textContent = pinsArr.length;
+    if (villageCount) villageCount.textContent = villagesArr.length;
+    pinTable.innerHTML = pinsArr.length
+      ? pinsArr.map(pinRowHTML).join('')
+      : '<div class="props-empty">No pins yet. Drop one on the map, search an address, or upload a Compass listing.</div>';
+    villageTable.innerHTML = villagesArr.length
+      ? villagesArr.map(villageRowHTML).join('')
+      : '<div class="props-empty">No villages yet. Search a town (e.g. Irvington, Pleasantville) and add it.</div>';
+    // Expand/collapse + actions
+    document.querySelectorAll('#props-pin-table .props-row, #props-village-table .props-row').forEach(row => {
+      const head = row.querySelector('[data-toggle]');
+      head.addEventListener('click', (ev) => {
+        if (ev.target.closest('[data-action]')) return;
+        row.classList.toggle('is-expanded');
+      });
+      row.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const action = btn.dataset.action;
+          const pid = row.dataset.pinId, vid = row.dataset.villageId;
+          if (action === 'map' && pid) {
+            const p = (window.pins || []).find(x => x.id === pid);
+            if (p && window._whhMap) {
+              location.hash = '#map';
+              setTimeout(() => window._whhMap.flyTo({ center: [p.lng, p.lat], zoom: 16, duration: 1200 }), 200);
+            }
+          }
+          if (action === 'map-v' && vid) {
+            const v = (window.villages || []).find(x => x.id === vid);
+            if (v && window._whhMap) {
+              location.hash = '#map';
+              setTimeout(() => window._whhMap.flyTo({ center: [v.lng, v.lat], zoom: 13, duration: 1200 }), 200);
+            }
+          }
+          if (action === 'delete' && pid) {
+            if (!confirm('Delete this pin from everywhere?')) return;
+            const idx = (window.pins || []).findIndex(x => x.id === pid);
+            if (idx >= 0) {
+              window.pins.splice(idx, 1);
+              if (typeof window.savePins === 'function') window.savePins();
+              if (typeof window.renderPins === 'function') window.renderPins();
+              renderProperties();
+            }
+          }
+          if (action === 'delete-v' && vid) {
+            if (!confirm('Delete this village from everywhere?')) return;
+            const idx = (window.villages || []).findIndex(x => x.id === vid);
+            if (idx >= 0) {
+              window.villages.splice(idx, 1);
+              if (typeof window.saveVillages === 'function') window.saveVillages();
+              if (typeof window.renderVillages === 'function') window.renderVillages();
+              renderProperties();
+            }
+          }
+        });
+      });
+      const notesEl = row.querySelector('[data-notes]');
+      if (notesEl) {
+        const pid = row.dataset.pinId;
+        notesEl.addEventListener('input', () => {
+          const p = (window.pins || []).find(x => x.id === pid);
+          if (p) {
+            p.notes = notesEl.value;
+            if (typeof window.savePins === 'function') window.savePins();
+          }
+        });
+      }
+    });
+  }
+  window.renderProperties = renderProperties;
+
+  // Wrap renderPins/renderVillages so any change anywhere also refreshes the table
+  const _origRenderPins = window.renderPins;
+  if (typeof _origRenderPins === 'function') {
+    window.renderPins = function() { const r = _origRenderPins.apply(this, arguments); renderProperties(); return r; };
+  }
+  const _origRenderVillages = window.renderVillages;
+  if (typeof _origRenderVillages === 'function') {
+    window.renderVillages = function() { const r = _origRenderVillages.apply(this, arguments); renderProperties(); return r; };
+  }
+  // Expose pins/villages/savePins/saveVillages globally so action handlers can reach them
+  // (they were const-scoped inside the main script; expose via tiny re-binds at next tick)
+  setTimeout(() => {
+    try { if (typeof pins !== 'undefined') window.pins = pins; } catch {}
+    try { if (typeof villages !== 'undefined') window.villages = villages; } catch {}
+    try { if (typeof savePins === 'function') window.savePins = savePins; } catch {}
+    try { if (typeof saveVillages === 'function') window.saveVillages = saveVillages; } catch {}
+    try { if (typeof renderPins === 'function' && !_origRenderPins) window.renderPins = renderPins; } catch {}
+    try { if (typeof renderVillages === 'function' && !_origRenderVillages) window.renderVillages = renderVillages; } catch {}
+    renderProperties();
+  }, 100);
+
+  // ---------- Properties-tab Compass upload (mirrors the map-tab button) ----------
+  const propsBtn = document.getElementById('upload-compass-btn-props');
+  const propsInput = document.getElementById('compass-file-input-props');
+  const propsStatus = document.getElementById('upload-status-props');
+  const mainInput = document.getElementById('compass-file-input');
+  const mainStatus = document.getElementById('upload-status');
+  if (propsBtn && propsInput) {
+    propsBtn.addEventListener('click', () => propsInput.click());
+    propsInput.addEventListener('change', (e) => {
+      if (!e.target.files[0] || !mainInput) return;
+      // Hand off to the existing handler by setting files + dispatching change
+      const dt = new DataTransfer();
+      dt.items.add(e.target.files[0]);
+      mainInput.files = dt.files;
+      mainInput.dispatchEvent(new Event('change', { bubbles: true }));
+      // Mirror status updates from the main one
+      if (propsStatus && mainStatus) {
+        const obs = new MutationObserver(() => { propsStatus.textContent = mainStatus.textContent; });
+        obs.observe(mainStatus, { childList: true, characterData: true, subtree: true });
+        setTimeout(() => obs.disconnect(), 30000);
+      }
+      e.target.value = '';
+    });
+  }
+
+  // Boot: honor the hash AFTER all the in-page tab code has run
+  activate(readHash(), true);
+})();
+</script>
+
 </body>
 </html>
