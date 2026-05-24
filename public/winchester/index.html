@@ -787,29 +787,23 @@ body.hide-villages .whh-village-label { display: none !important; }
 .whh-icon-book { border-color: #7B4FA8; }
 .whh-icon-book svg { color: #7B4FA8; fill: #7B4FA8; }
 
-/* House pin markers — minimal green dot. Rank still influences depth but stays in the green family.
-   Toggle layer 'pins' hides them all. Per-pin `pin.hidden = true` hides individual ones. */
+/* House pin markers */
 .whh-marker {
-  width: 14px; height: 14px;
+  width: 26px; height: 26px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  background: #3F7A3A;
+  border: 2px solid var(--ink);
+  background: var(--rank-0);
   cursor: pointer;
-  display: block;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(35, 64, 30, 0.5);
-  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 180ms ease;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
+  color: var(--ink);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.30);
 }
-.whh-marker:hover {
-  transform: scale(1.45);
-  box-shadow: 0 4px 12px rgba(35, 80, 30, 0.55), 0 0 0 1px rgba(35, 64, 30, 0.8);
-  z-index: 10;
-}
-.whh-marker[data-rank="5"] { background: #1F4D1A; width: 16px; height: 16px; }
-.whh-marker[data-rank="4"] { background: #2A5F25; width: 15px; height: 15px; }
-.whh-marker[data-rank="3"] { background: #3F7A3A; }
-.whh-marker[data-rank="2"] { background: #5C9656; }
-.whh-marker[data-rank="1"] { background: #8AB283; }
-body.hide-pins .whh-marker { display: none !important; }
+.whh-marker[data-rank="5"] { background: var(--rank-5); color: #FFF; border-color: var(--rank-5); }
+.whh-marker[data-rank="4"] { background: var(--rank-4); color: #FFF; border-color: var(--rank-4); }
+.whh-marker[data-rank="3"] { background: var(--rank-3); color: var(--ink); border-color: var(--rank-3); }
+.whh-marker[data-rank="2"] { background: var(--rank-2); color: #FFF; border-color: var(--rank-2); }
+.whh-marker[data-rank="1"] { background: var(--rank-1); color: #FFF; border-color: var(--rank-1); }
 
 .maplibregl-ctrl-attrib { font-size: 9px !important; }
 
@@ -1112,17 +1106,17 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
       <div class="suggestions hidden" id="suggestions"></div>
     </div>
     <div class="layer-toggle">
-      <button class="layer-btn active" data-layer="pins">House pins</button>
-      <button class="layer-btn" data-layer="schools">School districts</button>
-      <button class="layer-btn" data-layer="train">Train</button>
-      <button class="layer-btn" data-layer="trail">Trails</button>
-      <button class="layer-btn" data-layer="bookstore">Bookstores</button>
-      <button class="layer-btn" data-layer="trainlines">Train lines</button>
+      <button class="layer-btn active" data-layer="schools">School districts</button>
+      <button class="layer-btn active" data-layer="train">Train</button>
+      <button class="layer-btn active" data-layer="trail">Trails</button>
+      <button class="layer-btn active" data-layer="bookstore">Bookstores</button>
+      <button class="layer-btn active" data-layer="trainlines">Train lines</button>
       <button class="layer-btn" data-layer="bikepaths">Bike paths</button>
-      <button class="layer-btn" data-layer="villages">Villages</button>
+      <button class="layer-btn active" data-layer="villages">Villages</button>
     </div>
     <div class="upload-row">
       <button class="upload-btn" id="upload-compass-btn" type="button" title="Save a Compass listing as HTML (Cmd+S → Webpage, HTML Only), then upload it here">↑ Upload Compass listing</button>
+      <button class="upload-btn" id="seed-listings-btn" type="button" title="Drop the 11 listings from your saved Compass favorites in one click">↓ Load 11 sample homes</button>
       <input type="file" id="compass-file-input" accept=".html,.htm,.zip" style="display:none;">
       <span class="upload-status" id="upload-status"></span>
     </div>
@@ -1850,6 +1844,56 @@ const uploadStatusEl = document.getElementById('upload-status');
 function setUploadStatus(msg) { if (uploadStatusEl) uploadStatusEl.textContent = msg || ''; }
 
 compassUploadBtn?.addEventListener('click', () => compassFileInput?.click());
+
+// Seed 11 listings from the user's saved Compass favorites — one-click load
+const SEED_LISTINGS = [
+  { street: "301 Bear Ridge Road",      city: "Pleasantville",     state: "NY", zip: "10570", price: 1675000, beds: 5, baths: 4, sqft: 4321, acres: 1.17, status: "Pending", brokerage: "Coldwell Banker Realty" },
+  { street: "24 Country Club Lane",     city: "Briarcliff Manor",  state: "NY", zip: "10510", price: 3400000, beds: 6, baths: 6, sqft: 6754, acres: 0.5,  status: "Active",  brokerage: "Julia B Fee Sothebys Int. Rlty" },
+  { street: "2 Emerald Woods",          city: "Tarrytown",         state: "NY", zip: "10591", price: 2200000, beds: 4, baths: 5, sqft: 3941, acres: 0.92, status: "Pending", brokerage: "Corcoran Legends Realty" },
+  { street: "816 Hardscrabble Road",    city: "Chappaqua",         state: "NY", zip: "10514", price: 1299000, beds: 3, baths: 3, sqft: 2444, acres: null, status: "Active",  brokerage: "Houlihan Lawrence Inc." },
+  { street: "333 Hartsdale Avenue",     city: "Hartsdale",         state: "NY", zip: "10530", price: 1325000, beds: 4, baths: 4, sqft: 4000, acres: 1.95, status: "Pending", brokerage: "Julia B Fee Sothebys Int. Rlty" },
+  { street: "3 Banks Hill Road",        city: "Pleasantville",     state: "NY", zip: "10570", price: 1499000, beds: 4, baths: 3, sqft: 3340, acres: 1.11, status: "Active",  brokerage: "Houlihan Lawrence Inc." },
+  { street: "36 Revolutionary Road",    city: "Briarcliff Manor",  state: "NY", zip: "10510", price: 2995000, beds: 5, baths: 7, sqft: 7931, acres: 3.83, status: "Active",  brokerage: "Houlihan Lawrence Inc." },
+  { street: "1320 Albany Post Road",    city: "Croton-on-Hudson",  state: "NY", zip: "10520", price: 2099000, beds: 3, baths: 4, sqft: 4000, acres: 3.91, status: "Active",  brokerage: null },
+  { street: "6 West Sunnyside Lane",    city: "Irvington",         state: "NY", zip: "10533", price: 3195000, beds: 4, baths: 5, sqft: 5296, acres: 1.5,  status: "Active",  brokerage: "Houlihan Lawrence Inc." },
+  { street: "65 Holly Place",           city: "Briarcliff Manor",  state: "NY", zip: "10510", price: 1599000, beds: 3, baths: 4, sqft: 3600, acres: 0.92, status: "Active",  brokerage: "Corcoran Legends Realty" },
+  { street: "6 Raven Way",              city: "Pleasantville",     state: "NY", zip: "10570", price: 1549000, beds: 4, baths: 4, sqft: 2437, acres: 0.93, status: "Active",  brokerage: "Julia B Fee Sothebys Int. Rlty" }
+];
+
+document.getElementById('seed-listings-btn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('seed-listings-btn');
+  btn.disabled = true;
+  const orig = btn.textContent;
+  let imported = 0, skipped = 0;
+  for (const [i, s] of SEED_LISTINGS.entries()) {
+    const addrStr = [s.street, s.city, s.state, s.zip].join(', ');
+    // Dedupe: skip if a pin with this address already exists
+    if (pins.some(p => p.address?.toLowerCase().startsWith(s.street.toLowerCase()))) {
+      skipped++;
+      continue;
+    }
+    setUploadStatus(`importing ${i + 1}/${SEED_LISTINGS.length}: ${s.street}…`);
+    try {
+      await importListingAsPin({
+        streetAddress: s.street, city: s.city, state: s.state, zip: s.zip,
+        price: s.price, beds: s.beds, baths: s.baths, sqft: s.sqft,
+        lotSize: s.acres ? Math.round(s.acres * 43560) : null,
+        propertyType: null,
+        description: s.brokerage ? `Listing courtesy of ${s.brokerage}${s.status && s.status !== 'Active' ? ' · ' + s.status : ''}` : null,
+        listingUrl: null,
+        photos: []
+      });
+      imported++;
+      await new Promise(r => setTimeout(r, 900));
+    } catch (e) {
+      console.warn('[whh] seed failed', s.street, e);
+    }
+  }
+  setUploadStatus(`imported ${imported}, skipped ${skipped} (already pinned)`);
+  setTimeout(() => setUploadStatus(''), 6000);
+  btn.disabled = false;
+  btn.textContent = orig;
+});
 compassFileInput?.addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -3093,78 +3137,17 @@ const TRAIN_LINE_COLOR_EXPR = ['match', ['get', 'line'],
   '#5A5448'
 ];
 
-const GRAND_CENTRAL = { lat: 40.752671, lng: -73.977333 };
-
-// Realistic-ish waypoints from each line's southernmost station down to Grand Central.
-// Real bends so the route reads as a train route, not a ruler line.
-const TRAIN_LINE_TAILS = {
-  Hudson: [
-    [-73.91200, 40.89500],   // Riverdale
-    [-73.92100, 40.87800],   // Spuyten Duyvil curve
-    [-73.92600, 40.86500],   // Inwood / Marble Hill
-    [-73.94600, 40.82000],   // ~125th St West Harlem
-    [-73.96500, 40.79200],   // ~96th St
-    [-73.97300, 40.76800],   // ~57th St approach
-    [GRAND_CENTRAL.lng, GRAND_CENTRAL.lat]
-  ],
-  Harlem: [
-    [-73.85400, 40.89700],   // Wakefield
-    [-73.86500, 40.88500],   // Williamsbridge
-    [-73.88600, 40.86200],   // Fordham
-    [-73.89800, 40.84300],   // Tremont
-    [-73.91200, 40.82500],   // Melrose
-    [-73.93600, 40.80580],   // 125th St / Park Ave portal
-    [-73.95200, 40.79100],   // 96th St
-    [-73.96800, 40.77000],   // 72nd St
-    [GRAND_CENTRAL.lng, GRAND_CENTRAL.lat]
-  ],
-  'New Haven': [
-    [-73.81800, 40.89400],   // Co-op City swing
-    [-73.84500, 40.88600],   // Eastchester approach
-    [-73.86500, 40.88500],   // Williamsbridge (joins Harlem trunk)
-    [-73.88600, 40.86200],   // Fordham
-    [-73.89800, 40.84300],   // Tremont
-    [-73.91200, 40.82500],   // Melrose
-    [-73.93600, 40.80580],   // 125th
-    [-73.95200, 40.79100],   // 96th
-    [-73.96800, 40.77000],   // 72nd
-    [GRAND_CENTRAL.lng, GRAND_CENTRAL.lat]
-  ]
-};
-
-// Chaikin corner-cutting smoother. 3 iterations softens every bend without moving endpoints.
-function chaikinSmooth(coords, iterations) {
-  let pts = coords;
-  for (let it = 0; it < iterations; it++) {
-    if (pts.length < 3) break;
-    const next = [pts[0]];
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p = pts[i], q = pts[i + 1];
-      next.push([p[0] + 0.25 * (q[0] - p[0]), p[1] + 0.25 * (q[1] - p[1])]);
-      next.push([p[0] + 0.75 * (q[0] - p[0]), p[1] + 0.75 * (q[1] - p[1])]);
-    }
-    next.push(pts[pts.length - 1]);
-    pts = next;
-  }
-  return pts;
-}
-
 function buildTrainLinesGeoJSON() {
   const groups = {};
   TRAIN_STATIONS.forEach(s => {
     (groups[s.line] = groups[s.line] || []).push(s);
   });
   const features = Object.entries(groups).map(([line, stations]) => {
-    // Closest-to-GCT first, then reverse for a north→south traversal.
+    // Sort by gct ascending so the polyline runs Grand Central → out
     const sorted = [...stations].sort((a, b) => a.gct - b.gct);
-    const stationCoords = sorted.map(s => [s.lng, s.lat]);
-    const northToSouth = [...stationCoords].reverse();
-    const tail = TRAIN_LINE_TAILS[line] || [];
-    const fullPath = [...northToSouth, ...tail];
-    const smoothed = chaikinSmooth(fullPath, 3);
     return {
       type: 'Feature',
-      geometry: { type: 'LineString', coordinates: smoothed },
+      geometry: { type: 'LineString', coordinates: sorted.map(s => [s.lng, s.lat]) },
       properties: { line }
     };
   });
@@ -3194,11 +3177,8 @@ function mountTrainLineLayers() {
     layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
       'line-color': TRAIN_LINE_COLOR_EXPR,
-      // Slimmer than before — was 1.8/2.8/4.0/5.6. Less wall, more thread.
-      'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.2, 12, 2.0, 15, 2.8, 18, 4.0],
-      // Softer ink so the curve glides instead of slicing.
-      'line-opacity': 0.68,
-      'line-blur': ['interpolate', ['linear'], ['zoom'], 8, 0.5, 14, 0.6, 18, 0.8]
+      'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.8, 12, 2.8, 15, 4.0, 18, 5.6],
+      'line-opacity': 0.88
     }
   });
 
@@ -3208,9 +3188,9 @@ function mountTrainLineLayers() {
     type: 'circle',
     source: 'train-stops',
     paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3.0, 14, 5.0, 18, 7.5],
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 4.5, 14, 7.2, 18, 10],
       'circle-color': '#F5F1E6',
-      'circle-opacity': 0.75
+      'circle-opacity': 0.95
     }
   });
   map.addLayer({
@@ -3218,13 +3198,11 @@ function mountTrainLineLayers() {
     type: 'circle',
     source: 'train-stops',
     paint: {
-      // Smaller dots — was 2.6/4.4/6.5. Lets the line carry the eye, not the beads.
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 1.6, 14, 2.8, 18, 4.5],
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 2.6, 14, 4.4, 18, 6.5],
       'circle-color': TRAIN_LINE_COLOR_EXPR,
       'circle-stroke-color': '#1A1A1F',
-      'circle-stroke-width': 0.6,
-      'circle-stroke-opacity': 0.25,
-      'circle-opacity': 0.85
+      'circle-stroke-width': 0.8,
+      'circle-stroke-opacity': 0.4
     }
   });
 
@@ -3507,12 +3485,11 @@ let pinMarkers = [];
 function clearPinMarkers() { pinMarkers.forEach(m => m.remove()); pinMarkers = []; }
 function renderMapMarkers() {
   clearPinMarkers();
-  pins.forEach((pin) => {
-    if (pin.hidden) return; // per-pin visibility toggle (set from Properties tab)
+  pins.forEach((pin, idx) => {
     const el = document.createElement('div');
     el.className = 'whh-marker';
     el.setAttribute('data-rank', pin.rank || 0);
-    el.title = pin.address || pin.display || ''; // hover-only tooltip
+    el.textContent = idx + 1;
     el.addEventListener('click', () => focusPin(pin.id));
     const m = new maplibregl.Marker({ element: el, anchor: 'center' })
       .setLngLat([pin.lng, pin.lat]).addTo(map);
