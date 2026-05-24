@@ -1513,6 +1513,42 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
   color: var(--muted);
   font-style: italic;
 }
+.school-modal-body { white-space: normal; }
+.school-modal-body .sp-stamp {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.school-modal-body .sp-stamp strong { color: var(--accent); font-weight: 700; }
+.school-modal-body h3 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+  margin: 18px 0 8px;
+}
+.school-modal-body h3:first-child { margin-top: 0; }
+.school-modal-body p {
+  margin: 0 0 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--ink);
+}
+.school-modal-body strong { font-weight: 700; color: var(--ink); }
+.school-modal-body em { font-style: italic; color: var(--ink); }
+.school-modal-body hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 18px 0;
+}
 
 /* ===================== PHOTO LIGHTBOX ===================== */
 .lightbox-overlay {
@@ -4888,7 +4924,273 @@ function buildStaticMapPhoto(lat, lng, idx, rank) {
   return `<div class="qv-photo qv-staticmap">${parts.join('')}<div class="qv-staticmap-pin"></div><div class="qv-rank-chip" data-rank="${rank}">${idx || ''}</div><div class="qv-staticmap-credit">© OpenStreetMap</div></div>`;
 }
 
-// ----- SCHOOL DISTRICT MODAL (streaming overview from Claude) -----
+// ----- SCHOOL DISTRICT MODAL — static profiles first, Claude stream fallback -----
+// Profiles synthesized 2026-05-24 from district sites, Niche, GreatSchools, NYSED,
+// NYS Office of State Review, local press, and SEPTA/SEPTO orgs. Locked in.
+const SCHOOL_PROFILES = {
+  'pocantico hills': { name: 'Pocantico Hills', body: `### Music & Arts
+Single-building K-8 program of ~339 students with an **8:1 student-teacher ratio**, which shapes everything. Band, choir, and visual arts are core "related arts" running through the K-8 sequence. No separate full strings/orchestra track, no marching band, visual art is a single-teacher operation. Theater appears at the club/grade-show level. The trade-off: with ~20–31 students per grade, an artistically inclined kid plays in everything every year without auditioning past anyone. The arts ceiling is real but the floor is unusually generous.
+
+### Athletics
+NYSPHSAA Section 1 member but only fields **modified sports (grades 7–8)**, Conference III. Too small to field many teams on its own — operates **merged teams with neighboring districts** so 7th and 8th graders can play sports the home school cannot staff alone. On-site: tennis, futsal, basketball courts. No JV/varsity (structurally impossible at K-8). Sports competition restarts at high school.
+
+### Special Education & Autism Support
+Student Support Services runs the K-8 CSE, Section 504 accommodations, RTI/MTSS, related services. For a verbal, included autistic learner in elementary, the small class sizes and 8:1 ratio are a real asset. **The structural issue is the 8th-grade cliff.** Pocantico ends at 8 and sends students to one of three partner high schools: Sleepy Hollow, Pleasantville, or Briarcliff. For a student with an IEP it's a placement decision and **the receiving district's special-ed program varies enormously across those three.** Sleepy Hollow has an in-house special ed dept plus the SHADE program; Pleasantville and Briarcliff each have their own continuum. **Realistic read:** great K-5 for an included autistic kid, the 6-8 years are likely fine because the building stays small and familiar, but you are essentially shopping for the high-school program separately starting around 7th grade.
+
+### Overall Vibe & Parent Reputation
+Tight-knit village-school energy. Parents on Niche describe "it takes a village" culture, 20-kid grades, individual attention, low taxes. Real complaints in reviews: "administrative turnover lacking vision" and "dated and run-down facilities" appear multiple times. Demographically more diverse than Briarcliff (the Sleepy Hollow/Tarrytown belt pulls in a substantial Latino population).
+
+### Distinctive Programs
+Physically adjacent to **Stone Barns Center for Food and Agriculture** and the **Rockefeller State Park Preserve**, and the **Rockefeller Brothers Fund's Pocantico Center** runs gardening and biome-monitoring programs partnered with local schools. Trail cameras placed around the Preserve let students track wildlife with Teatown Lake Reservation. Most Westchester districts pay for field trips to places Pocantico kids walk to. Small class size is itself the program here.
+
+### For This Family
+**Strong fit for elementary years for both kids**, especially the 10-year-old who would get attention impossible in larger districts. **Risky for the 13-year-old autistic son** because he's exactly at the age where the partner-school transition kicks in within 2–3 years — that transition forces a high-school search precisely when most autistic adolescents need continuity, not new building/new staff/new CSE. At ages 6 and 9 the calculus would differ; at 13 and 10 the structural cliff is too close.` },
+
+  'briarcliff manor': { name: 'Briarcliff Manor', body: `### Music & Arts
+Genuinely strong music for its size (~1,336 students K-12, ~478 HS). **Orchestra/strings start in grade 3** at Todd Elementary and continue through 6, with dedicated string teachers. Middle school keeps a separate all-strings ensemble plus band and chorus, with weekly chamber rehearsals. HS: Jazz Band, Pep Band, Camerata, Clifftones, Overtones, Chamber Orchestra, Garage Orchestra, plus SUNY-credit College Chorus, College Orchestra, College Music Theory. Theater is robust: dedicated fall drama + spring musical in a 500-seat auditorium built in 1998. In 2014 Briarcliff was the first US high school to stage the British musical *The Hired Man*. **No marching band** — auditorium-and-concert culture rather than football-halftime culture.
+
+### Athletics
+JV and varsity teams in **16 sports** under the Briarcliff Bears name, Section 1. Confirmed: boys/girls soccer, girls tennis, girls volleyball, baseball, plus modified middle school program. Reputation: "strong sports culture with excellent coaches and facilities." Small district = some sports operate as combined/smaller-roster, but Briarcliff fields its own varsity teams across the standard fall/winter/spring slate. Section 1 Class C-level for most sports.
+
+### Special Education & Autism Support
+Pupil Personnel Services page is explicit: the district commits to **"educating students with disabilities within its own schools whenever possible"** — that's the official inclusion philosophy. Continuum runs **K-12 Integrated Co-Teaching** (regular ed teacher + special ed teacher + aide, 12:1), **Resource Room** direct instruction at 5:1, related services, plus monthly family training for parents of autistic students and community-based instruction. Occupational Education provided through Putnam/Northern Westchester BOCES. In practice: well set up for an autistic student who can participate in general-ed curriculum with co-teaching support — the higher-functioning, verbal, included middle/high schooler profile. **Not** set up as a destination for students needing a self-contained autism classroom; those would be out-placed to BOCES.
+
+### Overall Vibe & Parent Reputation
+Niche reviews use a phrase that repeats: the **"Briarcliff Bubble."** Vast majority of kids have grown up in the town their whole lives; social structures extremely cliquey and largely white and affluent. Reviews praise resources (laptops for all, all-day writing/math labs), small class sizes (HS 8:1), strong sports culture, academic rigor — Briarcliff HS ranks ~#42 in NY on Niche. Same reviews flag low diversity, "materialistic" social hierarchy, and the difficulty of entering an established peer group from outside. Class sizes: K-5 13:1, MS 10:1, HS 8:1. Culture is more "country club competitive" than "pressure cooker" — closer to Bronxville than Scarsdale.
+
+### Distinctive Programs
+Highly regarded science research program, robust University-in-the-High-School and AP slate, comparatively unusual depth of music/theater for a 478-student high school.
+
+### For This Family
+**Likely a good academic and arts fit, with a real social caveat.** If your 13-year-old autistic son is verbal, high-functioning, and the Integrated Co-Teaching model fits his profile, Briarcliff's K-12 inclusion philosophy and small class sizes will support him well. **The honest concern is the "bubble" culture for a kid entering middle/early high school from outside** — these are exactly the ages where Briarcliff's tight-since-nursery social structure is hardest to break into, and that lands hardest on a neurodivergent newcomer. Your daughter, entering upper elementary, has a much easier on-ramp socially.` },
+
+  'irvington': { name: 'Irvington', body: `### Music & Arts
+Serious, fully-staffed K-12 music. Dedicated specialists at every level: HS Wind/Band/Jazz, HS Chorus & AP Theory, Main Street School Band/Chorus, Main Street Orchestra & Chorus, IMS Band, and combined IHS/IMS Orchestra + General Music. **Strings start in elementary** at Main Street School; chorus, band, orchestra continue 6-8 at IMS; HS adds AP Music Theory and routinely sends students to **Area All-State music ensembles**. Theater is anchored by the **Irvington Conservatory Theater** (the HS drama program with its own website at ihsdrama.com and a Performing Arts Club producing multiple shows per year) plus a separate IMS Drama Club annual production. HS visual arts: drawing, painting, digital media, ceramics tracks. **Arts reputation is the strongest of the three Hudson River villages.**
+
+### Athletics
+Irvington Blue Knights, Section 1. Confirmed varsity: football, girls soccer, boys/girls cross-country, girls volleyball, full standard slate. AD: John Buonamano. Reporting suggests competitive-but-not-dominant Section 1 performance. Modified middle school feeds JV/varsity. One Niche reviewer complained that football bleachers get heavy funding "while theater budget is minimal" — make of that what you will, but it suggests athletics is well-resourced.
+
+### Special Education & Autism Support
+Here I have to be honest: **Irvington has the most ambiguous track record of the three Hudson villages for autism specifically, and there is a documented history of due-process complaints.** Two NY State Office of State Review decisions (published) involve Irvington UFSD parents disputing the district's recommendations for students with autism. Both cases involved IEPs recommending placement in BOCES classes (12:1+1) and parental disagreement. **That pattern suggests Irvington's instinct for moderate-to-significant autism support is to out-place to BOCES rather than build in-district capacity** — convenient because Southern Westchester BOCES Center for Special Services operates an **Irvington Middle-High site right in town at 40 North Broadway**. The only confirmed in-district self-contained program is the **Vocational Independence Program (VIP)**, an 8:1+1 self-contained class — but VIP is for students with significant adaptive-behavior deficits. **There does not appear to be a dedicated in-district program for high-functioning autism / twice-exceptional learners.** A 2e or higher-functioning autistic student here will be supported through general ed with related services, push-in/pull-out, and resource room — but if needs escalate, the district's path is BOCES, not an in-district autism cohort.
+
+### Overall Vibe & Parent Reputation
+The most academically intense and overtly competitive of the three. Niche reviews describe culture where "students judge classes by how they look on transcripts" and "submerge themselves in internships, clubs and extracurriculars with the dream of majoring in CS, business, engineering or pre-med at elite universities." ~1,722 students K-12. Same reviews call it "very competitive," "develops a hierarchy around wealth," "amazing academically but the people are very clique and rude," "if you're not wealthy, you will be treated different." Faculty caring and accessible — many teachers offer extra help outside hours — but grading consistency uneven across departments. **Closest of the three to Westchester pressure-cooker energy.**
+
+### Distinctive Programs
+Conservatory-style theater at the HS level (Irvington Conservatory Theater), strong All-State music pipeline, deep AP/honors slate. No publicly surfaced dual-language immersion, Reggio influence, or gifted-and-talented pull-out at the level Briarcliff or wealthier districts maintain.
+
+### For This Family
+**Strong fit for your neurotypical 10-year-old daughter** if she thrives in a competitive, arts-rich environment, and **a real fit concern for your 13-year-old autistic son.** The combination of (a) documented pattern of out-placing autism cases to BOCES, (b) high-pressure competitive social culture, and (c) absence of a dedicated in-district program for high-functioning autism makes Irvington the highest-risk of the three Hudson villages for him specifically.` },
+
+  'tarrytown': { name: 'Tarrytown / Sleepy Hollow', body: `### Music & Arts
+The crown jewel of this district — probably its strongest qualitative differentiator. **Sleepy Hollow Players** musical theater program racked up **40+ Metropolitan High School Theater Award nominations over seven years** and won Best Overall Musical (highest honor across four counties) for *Hello, Dolly!* under director Julie Colangelo-Dore. Fall play + spring musical annually. Instrumental music runs a full pipeline: 6th-grade Junior Orchestra → 7/8 Concert Orchestra → MS Chamber Ensemble → HS Orchestra → HS Chamber Orchestra, plus HS Pep/Marching Band, Jazz Workshop, and the **Sleepy Hollow Jazz Festival** (one of the largest educational jazz events in the region, ~200 students from four counties). **NAMM "Best Community for Music Education."** Strings start in elementary at Washington Irving Intermediate (grades 3–5). Visual art through AP Studio levels. Pep/marching hybrid, not competitive Bands of America.
+
+### Athletics
+Sleepy Hollow Horsemen, Section 1, modified/JV/varsity. Full menu: football, basketball, baseball, soccer, lacrosse, cross-country, track, ice hockey, swimming/diving, gymnastics, golf, tennis, volleyball, skiing, handball, cheerleading, field hockey. Boys soccer and lacrosse historically competitive; football mid-pack. "Horsemen Stadium" with turf. AD: Chuck Scarpulla. Solid-suburban-public — every kid who wants a uniform gets one.
+
+### Special Education & Autism Support
+Department + **SHADE program (Sleepy Hollow Academy for Disability Education)** plus a **Friday Night Social** at Neighborhood House for special-needs students 13–21, where SHHS general-ed students serve as mentors — a genuinely lovely inclusion-culture signal for an autistic 13-year-old. But **no documented in-district autism-specific classroom** (no published 12:1:1, no autism "nest" model). Standard pattern: ICT + resource room + related services in-district, **BOCES (Southern Westchester) out-placement for higher-needs autism**. For a verbal, classroom-functional autistic kid this is workable; for a kid needing a dedicated ASD program, expect a BOCES conversation. Niche parent reviews flag inconsistency: one parent specifically said anxiety-related absences "could have been handled much better." CSE reputation decent but not standout — you'll need to advocate.
+
+### Overall Vibe & Parent Reputation
+SHHS is **65% Hispanic, 27% White, 58% economically disadvantaged**, 820 students grades 9–12, 12:1 ratio. Niche grade A overall, 3.99/5 from 227 reviews. Vibe: warm, community-feeling, genuinely diverse but with the honest caveat that kids self-segregate into friend groups by ethnicity. District total ~2,800 K-12 — small enough that teachers know families. Reading proficiency is the soft spot (57% vs 95% math), tracing directly to the large ENL/multilingual population, not weak instruction.
+
+### Distinctive Programs
+**No IB.** AP track, Science Research Program, BOCES options, strong ENL department, Academic Assistance/Homework Center. The real distinctives are arts (theater + jazz festival), the bilingual community feel, and the SHADE inclusion culture.
+
+### For This Family
+The 10-year-old daughter would thrive here — small, warm, strong arts, diverse without being overwhelming. The 13-year-old autistic son is the harder call. **District is small enough (~600 kids per grade-band) to feel known, and the SHADE/Friday Night Social culture suggests authentic inclusion energy, not just compliance.** But no documented autism-specific in-district program at middle/high level. High-functioning ICT/resource-room kid: probably good. Needs a structured ASD classroom: BOCES. As a creative-professional white family, you'll be a minority demographic but a welcome one; this district has been absorbing rivertown professionals for two decades.` },
+
+  'ossining': { name: 'Ossining', body: `### Music & Arts
+Serious institutional weight — a full **Director of Cultural Arts** overseeing music/art/theater for 4,500+ students, recognized as **NAMM "Best Community for Music Education" every year since 2011** and Middle States "Program of Distinction in Music." **Jazz starts in elementary** (a rare and serious choice). Students regularly place in WCSMA All-County and Area All-State Band/Orchestra/Chorus. Theater: OHS mounts **two large-scale productions per year** — fall play and spring musical — and Anne M. Dorner Middle School does a winter musical, so theater opportunities start at age 11. Arts Director elected VP of state Band Directors Association. Stronger institutional infrastructure than Tarrytown's program, slightly less individual marquee shine on theater right now.
+
+### Athletics
+Ossining Pride, Section 1, modified/JV/varsity. Genuine athletics-strong district. **Girls basketball is a regional dynasty** — Section 1 Class AA Champions multiple times, a 28-2 NY State Federation Championship season under Coach Dan Ricci. Football has six Section 1 titles historically (1975–2007). Full sport menu including flag football, swimming, lacrosse, wrestling. Bigger school (1,577 students) = deeper rosters, more competitive tryouts, higher ceiling for a serious athlete, harder bench for a casual one.
+
+### Special Education & Autism Support
+Ossining publishes a clearer special-ed continuum than Tarrytown does: Related Services, Resource Room, **Integrated Co-Teaching, and Self-Contained Special Classes "grouped based on similarity of educational needs"** in-district — the last category is key for autism, because it implies they run self-contained ASD-style classes rather than outplacing everyone to BOCES. Anne M. Dorner Middle School (the only MS, 1,031 students) and OHS both have dedicated SpEd teaching staff, psychologists, speech therapists on the directory. **Scale cuts both ways:** a 4,500-student district has more SpEd capacity, more specialists, more program options — but also more bureaucracy and more risk of a kid getting lost. No public state-complaint or major lawsuit pattern flagging Ossining SpEd as deficient, which is meaningful. CSE reputation in Westchester SpEd circles: workmanlike, not famously responsive but not infamous.
+
+### Overall Vibe & Parent Reputation
+OHS is **69% Hispanic, 16% White, 9% Black, 83% minority enrollment, 57% economically disadvantaged**, 1,577 students, 12:1 ratio. **Substantially more diverse and lower-income than Tarrytown**, and notably larger. Niche reviews split: many praise caring teachers, strong parent involvement, programs for every interest, a school that actively welcomes immigrant families. Others flag social-segregation issue plus larger-school anonymity. Larger size = more cliques, more energy, more variance in any given kid's experience.
+
+### Distinctive Programs
+Three real distinctives. (1) **"Two Voices, One World / Dos Voces, Un Mundo" dual-language Spanish-English program** starting PreK/K/1 via lottery, continuing through high school toward the NYS Seal of Biliteracy — one of the most established two-way bilingual programs in Westchester. (2) **Nationally-recognized Science Research Program** — started 1998, three-year independent research track; in 2012 had 8 Intel Science Talent Search semifinalists, more than any program in the country that year. (3) **14 AP courses** with 33% AP participation. **No IB.**
+
+### For This Family
+**The higher-ceiling, higher-variance choice.** For the 10-year-old, dual-language immersion is a genuine differentiator if you started her in K-1 — but she's 10, so that ship has sailed unless she's already Spanish-fluent. The Science Research Program is a real prize for a curious kid heading into HS. For the 13-year-old autistic son, the larger scale is the central question: 1,577-student OHS gives more SpEd program options and specialists than Tarrytown's 820, but also more chance of being one face in a crowd, more bureaucratic friction, harder social navigation. As a creative-professional white family you'll be a clear minority — more so than in Tarrytown — and that's a values question, not a school-quality question.` },
+
+  'croton-harmon': { name: 'Croton-Harmon', body: `### Music & Arts
+Long-running music program with band (including a marching band that performs at community events), a concert/chamber strings track, and choir at all three buildings. Croton-Harmon HS is publicly described by the district as "noted for its performing arts programs," with a full sequence of music and visual-art electives K–12. Theater is smaller-scale than Edgemont's — typically one main-stage musical and a play per year at HS, with a junior-school production at Pierre Van Cortlandt Middle. The Croton Foundation funds arts equipment, recording gear, and visiting-artist residencies. Separate private Croton Harmon Music Academy in the village — useful supplemental ecosystem. Niche reviews call the teaching staff "passionate" and the environment "welcoming" rather than competitive.
+
+### Athletics
+Croton-Harmon Tigers, Section 1, Class B / smaller classifications. Modified, JV, and varsity across: baseball, basketball, bowling, cheerleading, **crew (Hudson-river access — a real local distinctive)**, cross-country, fencing, field hockey, football, golf, gymnastics, ice hockey, lacrosse, outdoor/winter track, rifle, skiing, soccer, softball, swimming/diving, tennis, volleyball, wrestling. **Crew is the standout.** Because the school is small (508 students 9–12), Croton uses combined-team arrangements for some sports. Facilities functional, not lavish. AD: Tom Cunningham. Solid no-cut-ish culture for many sports.
+
+### Special Education & Autism Support
+Active CSE under Assistant Superintendent for Pupil Personnel Services Rachel DePaul, an active **CHSEPTA** (Special Education PTA) running IEP trainings and bringing in outside speakers including specialists from the **Thompson Center for Autism**. Explicit collaborative/integrated special-education staffing at the middle school in grades 7–8. For students whose needs exceed in-district capacity, out-placement is to **Southern Westchester BOCES**. Could not verify a dedicated in-district autism-spectrum classroom or named program brand. **Inclusion + push-in/pull-out resource room is the model for higher-functioning kids; BOCES is the destination for more intensive needs** — typical for a 1,566-student district. **SEPTA's active presence is a real positive signal** — districts with hostile CSEs don't usually have functional SEPTAs. For a 2e / high-functioning autistic teen, ask in person: who specifically runs the social-skills group at PVC and the high school, and what's the caseload of the school psychologist.
+
+### Overall Vibe & Parent Reputation
+Hudson-river village feel. **~1,566 students total K–12, ~508 at the high school, 11:1 ratio.** Niche reviews emphasize "warm," "nurturing," "teachers know your kid" — and the district leans into this language itself ("teachers are as invested in social/emotional growth as intellectual"). Downside: small school = less variety in electives, sports rosters, peer-group diversity. Demographics predominantly white with modest minority enrollment — much less academically-pressurized than Edgemont.
+
+### Distinctive Programs
+**"What School Can Be"** is the district's named educational framework, oriented toward interdisciplinary learning, student passion projects, hands-on/experiential work, House systems at the elementary, science research symposia bridging middle and high school, bioethics courses, "Tiger Tuesday" expert-led masterclasses, entrepreneurship projects. Strong Science Research at the high school, University in the High School dual-enrollment, AP courses, and **Schools-of-Excellence (US Dept of Ed) designations on all three buildings.** Sustainability/environment is real — Grades of Green partnership, Hudson-river ecology integrated.
+
+### For This Family
+**Safer, gentler bet for both kids.** The 13-year-old autistic son lands in a small middle school (PVC, ~472 kids) where 7–8 teachers work as named subject-area teams with a special-ed teacher embedded, in a district whose self-stated identity is social-emotional-growth-forward and whose SEPTA is active — culturally that posture matters more than program names. The 10-year-old neurotypical daughter gets project-based, passion-driven enrichment, crew on the Hudson if she wants it, and a low-stress peer culture. Trade-off: thinner course/sport menu than Edgemont; verify in person what dedicated supports exist for autism at the middle/high level, since BOCES out-placement is the fallback.` },
+
+  'edgemont': { name: 'Edgemont', body: `### Music & Arts
+One of Edgemont's genuine bright spots. District runs band, orchestra (strings program well-established and starts in elementary), choir, jazz ensembles, and a robust visual-arts sequence — supported structurally by the parent-driven **ACE Committee (Arts, Creativity and Enhancement)** under the Edgemont School Foundation, which funds visiting artists, master classes, equipment, and grade-wide performances. Theater is the headline: the **annual spring musical at Edgemont Jr/Sr High is a regular participant in — and frequent winner at — the Helen Hayes Youth Theatre / Metro Awards** covering Westchester, Rockland, Putnam, and Bergen counties. Separate Junior High musical and a high-school drama (non-musical) each year. **Arts here are taken seriously, well-funded, competitive at a regional level — closer to a prep-school feel than a typical 1,800-student public district.**
+
+### Athletics
+Edgemont Panthers, Section 1, generally Class B or C. Full sports menu: soccer, cross-country, tennis, golf, bowling, field hockey, volleyball, skiing, football, wrestling, lacrosse, basketball, winter and spring track, baseball, swimming, softball. Two notable strengths: **Football famously won three consecutive state championships in 1998, 1999, 2000** — historically over-performing for school size — and **Wrestling has been the current dynasty**, with a Section 1 Championship in 2024 and Section 1 Dual Meet + Team Championships in 2022. Boys lacrosse competitive in Section 1 Class C/D. AD: Liz Daly. Facilities decent for a small district but tight on field space (Greenville/Hartsdale is land-constrained).
+
+### Special Education & Autism Support
+Honest read: **Edgemont is NOT known regionally as a destination district for special-needs services, and especially not for autism.** Standard CSE/IEP/LRE language published, but **a dedicated in-district autism-spectrum program at the secondary level is NOT advertised on the district website.** Published LRE language is explicit: "if a child is recommended for special education services that cannot be provided in their home school, an appropriate placement within Edgemont or in an out-of-district public or private school will be recommended" — i.e., **out-placement to Southern Westchester BOCES is the standard route for moderate-to-significant autism needs.** For high-functioning / 2e profiles, the district relies on inclusion + IEP accommodations + counseling — and **this is where Edgemont's broader culture matters**: the same competitive, high-pressure environment praised by college-bound families is repeatedly flagged in Niche reviews as "stressful," "sleep-deprived," "judgmental," and tough on social-emotional health. **Honest verdict: Edgemont's small size and academic-pressure culture are both working against autism support at the middle/high level** — the size means fewer specialists, fewer parallel classroom options, fewer peer-group choices; the culture is built around AP/Honors stacking, not neurodiversity-forward design. Push hardest in any in-person tour.
+
+### Overall Vibe & Parent Reputation
+~1,830 students K–12, three schools (Greenville Elementary, Seely Place Elementary, Edgemont Jr/Sr High 7–12), 11:1 ratio. **Demographics: ~42% white, ~37% Asian, ~10% Hispanic/Latino, ~2% Black — minority enrollment 58–60%, majority Asian-American.** The "small, high-pressure, Asian-American-majority, intensely academic" reputation is accurate and well-documented. Niche language: "very rigorous and competitive," "pressure to excel academically is intense," "encouraged to take multiple AP and Honors courses," "generally very stressed out and sleep-deprived," "depressed student body and a generally not great vibe" appears repeatedly. Counter-voices exist ("no more intense than a competitive college") but the dominant sentiment is academic pressure dominates social-emotional life. Geographic quirk: unincorporated Greenburgh (Hartsdale ZIP, Scarsdale mailing address for some streets). Niche ranked Edgemont #1 Public District in America in 2015 and the district still leans on that hard.
+
+### Distinctive Programs
+Deep AP catalog at the Jr/Sr High, strong Science Olympiad / Math team / Science Research culture. **No IB.** The Edgemont School Foundation is unusually well-funded and bankrolls programming the operating budget wouldn't cover. No published outdoor-ed, dual-language, or makerspace flagship.
+
+### For This Family
+**Hard pass for the 13-year-old autistic son** unless the family does a detailed in-person CSE meeting and walks away convinced the in-district supports actually match his profile. Combination of (a) no advertised in-district autism program at secondary, (b) Niche-documented sleep-deprived high-pressure culture, and (c) small size = thin specialist bench creates real fit risk for an autistic teen entering middle/early high school. For the 10-year-old neurotypical daughter, Edgemont is academically excellent and arts-rich — **but you'd be optimizing one kid at the cost of the other.**` },
+
+  'pleasantville': { name: 'Pleasantville', body: `### Music & Arts
+Small but real program. District runs band, orchestra, chorus, and a jazz ensemble at both the middle school (grades 5–8) and high school. **Vocal program at the middle school serves 200+ students across four curricular choirs.** Instrumental music starts in elementary at Bedford Road and continues through MS Bands and Orchestras. Performance traditions: "Concert on the Green" and "Concerts on the Court," plus a District Choral Festival at HS. Theater active: HS Performing Arts puts on a fall play, a spring musical (recent: *A Grand Night for Singing*), and cabaret revues; middle school does its own production. Visual art at HS through AP Studio Art with Digital Photography and Animation electives. No marching band. Niche reviews mixed: "great extracurriculars" but the district "tends to focus on sports more than the music and performing arts department."
+
+### Athletics
+This is where Pleasantville **punches above its weight.** Panthers, Section 1, with Westlake as historic rival. **50 teams across 16 interscholastic sports** with V/JV/MS tiers for most. Ice hockey and both swim teams operate as merged programs (signal of small enrollment). Notable recent state titles: **2017 football Class B NYSPHSAA championship, 2017 lacrosse state championship (16–2), 2019 girls' soccer state championship (3–2)**. AD: Dan Iorio. **More than 60% of students grades 7–12 play at least one sport** — high participation matches small-town culture.
+
+### Special Education & Autism Support
+**Push to verify in person** — district's public-facing materials are thin and the published catalog of in-district autism programs is essentially not itemized on the website. Confirmed: Director of Special Education is Dr. Rukmini Bhalla; Supervisor is Daniel Brink. The district participates in **Southern Westchester BOCES (SWBOCES)**, which runs structured ABA-based autism classrooms K–12 — meaning students whose needs cannot be met in-district are typically out-placed there. Most concrete asset: **Pleasantville SEPTA**, an active district-wide Special Education PTA covering preschool through age 21, running monthly meetings on OPWDD, guardianship, transition, and special education programming, explicitly doing autism-awareness programming at HS. **Engaged SEPTAs are a positive signal.** Could not find evidence of a named, in-district structured autism program at the middle or high school level. For a high-functioning 13-year-old who can be served by ICT + counseling + social skills + a strong CSE relationship, this model can work very well. For a student needing a self-contained autism classroom in-district, Pleasantville is more likely to refer to SWBOCES. **Ask the district pointedly: "Do you have an in-district program for autism at middle and early high school, or do those students go to BOCES?"**
+
+### Overall Vibe & Parent Reputation
+**Small, walkable, arts-leaning village.** ~1,616 students across three schools (Bedford Road K–4, Pleasantville Middle 5–8, Pleasantville HS 9–12 with ~573 students, **~9:1 ratio**). Demographics: 69.5% white, 18.1% Hispanic, 5.2% Asian, 1.8% Black; 8.7% free/reduced lunch — more economically and racially mixed than Chappaqua. Niche rates 4.1/5 across 19 reviews, #57 in NY. Community press repeatedly calls out the **Jacob Burns Film Center**, the Pleasantville Music Festival, and the Gordon Parks Foundation as the cultural DNA of the village — this is genuinely an arts-and-film town. "Pleasantville stands out as both walkable and welcoming, particularly for families with children in arts or special education." Quirks: no school busing (kids walk), small graduating classes (~140), "very small school and everyone knows each other" feel.
+
+### Distinctive Programs
+No flashy iLab or million-dollar greenhouse. The district's distinction is the **Jacob Burns partnership** (kids grow up with serious independent film a block from school) and a strong community-arts surround. AP/honors curriculum is solid but not deep.
+
+### For This Family
+**Likely a strong fit, with one caveat.** The small scale (140-kid grade levels, ~9:1 ratio), the active SEPTA, the arts/film-soaked community, and the warm-village ethos are all favorable for a 13-year-old autistic son and a 10-year-old creative daughter — provided your son's profile is on the high-functioning side that can be served with ICT + resource room + social skills supports rather than a self-contained classroom. If he needs the latter, expect a BOCES (SWBOCES) placement conversation. **Get that answer before you sign.**` },
+
+  'chappaqua': { name: 'Chappaqua', body: `### Music & Arts
+Deep, well-funded, competitive. Strings instruction district-wide and longstanding. General music K–4 exposes students to orchestral strings, flute, clarinet, trumpet, french horn, percussion before formal ensemble selection. At Greeley: Performing Arts chaired by Lauren Olmo; Kathleen Feldman runs orchestra and chairs K–12 music. **The Madrigal Choir has performed at Carnegie Hall and Lincoln Center** and won gold/second at the 2011 Boston Heritage Festival. Greeley Theatre produces three named annual shows (Fall Musical, Winter Comedy, Spring Drama). Recent productions nominated for major Metropolitan High School Theater Awards: *Anastasia* earned five 2025 nominations, *Chicago* earned eight 2026 nominations. Visual arts run through a dedicated Visual Arts Lab.
+
+### Athletics
+Greeley is Section 1, **~1,800 athletic participants across 68 teams, 25 sports, 4 levels across 3 seasons**. Recent dominance: **boys' swim won three consecutive NYSPHSAA state championships (2022, 2023, 2024)**; boys' indoor track took sectional titles 2022–2024. Boys' cross country won state in 2002; football state runner-up 2001. Produces state-level tennis champions, recognized hockey tradition.
+
+### Special Education & Autism Support
+**Chappaqua's public posture is aggressively inclusion-first** and the district publicly stakes its identity on it. Stated philosophy: "least restrictive environment" as the first consideration, general-ed placement plus supports as default. Named in-district programs: **Consultant Teacher Services** (2 hrs/week min), **Integrated Co-Teaching** (ICT, capped at 12 students with disabilities per class), **Resource Room** (max 5) and **Learning Center** (12:1 ratio, 3+ hrs/week), **Transition Support Program (TSP)** (grades 9–12, academic + therapeutic for emotional distress), and **Pathways Program** (12:1:2 at HS for students on the NY Alternate Assessment track). Greeley HS Special Education and 504 Handbook explicitly references autism support services, social skills groups, counseling. Chappaqua tends to *keep* high-functioning autism and twice-exceptional students in-district through ICT + resource room + counseling + social skills. Publicly cites a 100% IEP graduation rate (2011 data, 86% Regents diplomas). Out-placement to BOCES exists but is described as the exception. **The risk profile differs from Pleasantville: in Chappaqua, the academic pressure and competitive social environment can be hard on a kid who is socially atypical, even with strong on-paper supports.** Inclusion as a model is strong; inclusion as a *felt experience* in a high-achieving, cliquey peer culture is the real question. No public documentation of a discrete sensory room or named autism-specific classroom.
+
+### Overall Vibe & Parent Reputation
+**Pressure-cooker, honestly.** ~4,000 district students across three elementary, two middle (Robert E. Bell ~600, Seven Bridges ~500), and Greeley (~1,140, 10:1 ratio). Greeley demographics: 71% white, 15% Asian, 8% Hispanic, 5% two-or-more, 1% Black. District spends **~$33,757/student**. Median household income **~$241k**, average ~$327k, only 2.6% free/reduced lunch. Niche reviews surface pressure honestly: "high pressure environment that made many kids overwhelmed and depressed"; "competitive, cliquey atmosphere"; "competition felt unnecessary in retrospect." **The Greeley AP participation rate is 95%** — that number tells you everything about the academic culture. Counterweight: ~10% of seniors get National Merit recognition, mean SAT 1368, ACT 29, alumni include Andy Rubin, Adam Mosseri, Bill Ackman, Vanessa Williams. Does pressure extend to elementary? Yes and no — elementary schools (Grafflin, Roaring Brook, Westorchard) are described as nurturing and resource-rich, but parent culture and math-tracking (formally begins 7th grade) means competitive sorting starts being visible in upper elementary. The Town of New Castle has a standing **Committee for Mental Resilience** that partners with Greeley — this community openly acknowledges adolescent mental health is a known issue.
+
+### Distinctive Programs
+Genuinely impressive infrastructure: Horace Greeley **iLab, MakerSpace, STEAM Center, Global Learning Center, Multi-Media Studio, Visual Arts Lab, and an actual greenhouse** (hydroponics curriculum). Each elementary has its own Global Learning Center + MakerSpace; each middle has a STEAM Center. Funded in part by the **Chappaqua School Foundation** ($3.8M+ raised since 1993, 300+ grants). Academic Challenge Team has won National Academic Championship **three times (2003, 2013, 2023)**. Four languages including Latin and Chinese. **LIFE School** is an on-campus alternative program for grades 11–12. Math tracks "extended / normal / enriched / honors" starting 7th grade. Over 85 clubs at HS.
+
+### For This Family
+**Mediocre-to-risky fit, despite the spectacular facilities and inclusion philosophy on paper.** Chappaqua's inclusion model is real, and a verbally strong, academically capable autistic 13-year-old can absolutely succeed here — but **the social pressure-cooker, the cliquey peer culture, and the implicit Ivy-track sorting work against a kid for whom social navigation is already the hard part.** The 10-year-old neurotypical daughter would have world-class arts, athletics, and STEM resources and would likely thrive academically; the question is whether you want her absorbing that pressure environment from upper elementary onward. **If your son's autism profile leans more sensory-overwhelmed or socially fragile, the smaller, warmer Pleasantville ecosystem is the safer bet even with thinner published programs.**` },
+
+  'hendrick hudson': { name: 'Hendrick Hudson', body: `### Music & Arts
+Punches above its enrollment. HS runs two orchestras (Chamber Orchestra by audition + Sinfonietta) that accept all strings including harp, performs minimum four formal concerts per year plus OMEA festivals and feeder-school visits, regularly sends students to the **NYSSMA All-State Festival** in Rochester. Choral department mounts mixed and women's chorus delegations to All-State. Musical theater produces one major musical per year. Standout signal: the district just inducted its **inaugural Music Hall of Fame class**, and the **Harmony Performing Arts Project is funding a brand-new orchestra room, renovated band/choir rooms, and a state-of-the-art auditorium**. Also runs a **United Sound** program where mentors teach string instruments to students with disabilities — rare, and a meaningful inclusion marker.
+
+### Athletics
+Mascot: Sailors. Section 1 across football, basketball, baseball, softball, volleyball, soccer, field hockey, lacrosse, plus a recently dominant flag football program that **won the 2025 Section 1 Class C Flag Football Championship** (12–3 regular season). Smaller competitive class (729 high schoolers) means kids who want to play, generally play. Three seniors signed Division I National Letters of Intent in the last cycle.
+
+### Special Education & Autism Support
+The district where the landmark **Board of Education v. Rowley (1982)** Supreme Court IDEA case originated — the Rowleys sued Hen Hud over services for their deaf daughter Amy. The case set the federal floor for "appropriate education" (educational benefit, not full potential), and Hen Hud won. Today the district runs a full continuum of in-district special education under Lisa Schuchman (Exec Director PPS) with Melissa Golio-Herron as Interim Asst Director for grades 6–12. **Niche parent reviews are split** — some praise teachers/social workers/counselors for accommodations that "make education accessible," others explicitly warn: *"for parents considering this school for a child with special needs, proceed with caution… while Hen Hud may offer many great things for general education students, its handling of special education has raised concerns."* **No specific dedicated in-district autism program (e.g., ABA classroom) surfaces in public documentation at the middle/high school level** — significant cases are likely sent out to **PNW BOCES** in Yorktown Heights (Walden School and other specialized programs).
+
+### Overall Vibe & Parent Reputation
+**2,220 students total / 729 at HS, 10:1 ratio** (small for Westchester). Niche A / GreatSchools 8. Demographics: 48% white, 37% Hispanic, 6% Black, 3% Asian; **21% economically disadvantaged** — markedly more working-class than Bedford or K-L, reflecting the historical Indian Point / Buchanan / Verplanck base. Reviews describe a "welcoming, family-like atmosphere," nurturing, less pressure-cooker than its leafy neighbors. **Quirk: closure of Indian Point Energy Center in 2021 hit the local tax base hard — watch district financials.**
+
+### Distinctive Programs
+**Only NY high school named PLTW Distinguished for eight straight years** (Engineering, Biomedical Science, Computer Science pathways). Blue Mountain MS is also PLTW Distinguished Gateway. Strong CTE / career-readiness orientation alongside AP. **United Sound** music-inclusion program.
+
+### For This Family
+A 10-year-old neurotypical daughter would thrive here — strong arts, real athletics access in a small competitive class, low pressure. For a 13-year-old autistic son entering middle/early high school, **this is the biggest question mark of the leafy-neighbors set**: small class sizes and personal attention are real assets, but the absence of a publicly profiled in-district autism program at the secondary level plus active parent warnings about special-ed handling means **you'd need to interview the CSE directly** about exactly what supports a student on the spectrum would receive, and whether the district default for moderate-need cases is BOCES out-placement.` },
+
+  'bedford central': { name: 'Bedford Central', body: `### Music & Arts
+**The strongest pure arts program of the leafy-neighbors group.** Fox Lane HS curricular ensembles: Concert Band, Chamber Winds, Treble Chorus, Mixed Chorus, Chamber Choir, Grade 9–10 Concert Orchestra, Grade 11–12 Concert Orchestra, and **Chamber Orchestra**. The Chamber Orchestra under Janine Bergamini was selected as **one of only 15 ensembles nationally invited to the 2026 American String Teachers Association National Orchestra Festival** — a genuinely elite recognition. NYSSMA Area All-State selections **five-fold increase** in recent cycle. Theater runs out of the **615-seat Mary Lou Meese Theater** (advanced lighting, sound, counterweight fly system) — annual fall play, spring musical, student-directed show by the Fox Lane Players. Electronic music + rock ensembles. **NAMM Foundation Best Communities for Music Education 2024.** Destination arts program.
+
+### Athletics
+Mascot: Foxes. Section 1. Comprehensive: football, field hockey, ice hockey, diving, volleyball, soccer, swimming, cross country, winter track, spring track, dance, cheerleading, basketball, skiing, wrestling, lacrosse, ultimate frisbee, softball, baseball, golf, tennis. AD: Adam Lodewick. Large, semi-rural campus with strong facilities; lacrosse and field hockey historically competitive in Section 1 power conferences.
+
+### Special Education & Autism Support
+Bedford has a formal CSE process and a **Special Education Process and Procedure Manual (2025 edition) that's publicly downloadable** — a transparency signal. Fox Lane MS offers tiered programs decided per-IEP, plus Speech, OT, PT, and counseling in small group or 1:1. **For students identified ASD, district policy requires an Administrator or Liaison at every team meeting**, and the manual cites state law requirements for anti-bullying skill instruction for autistic students. Active **BCSD SEPTO** (Special Ed PTO) on Facebook — sign of organized parent advocacy. **Niche reviews flag one persistent concern**: *"Parents with special needs children should stay on top of their child's IEP… turnover in the special education department and entire school administration."* Translation: programs exist, advocacy infrastructure exists, **but execution depends on which staff are in place that year — squeaky-wheel parents do better.** PNW BOCES in Yorktown is the standard out-placement when in-district can't meet need.
+
+### Overall Vibe & Parent Reputation
+**3,545 students, 11:1 ratio.** Demographics: 49% white, 41% Hispanic, 3% Asian, 3% Black; **20% economically disadvantaged** — **far more socioeconomically and ethnically diverse than its zip-code reputation suggests**, largely because Mt Kisco is a much more working-class hub than Bedford Village or Pound Ridge. Parent reviews praise "diverse environment… very welcoming and inclusive," "wonderful mix of arts, sports and academics," strong guidance counselors and AP prep. Class sizes larger than Hen Hud; campus is large semi-rural. **Quirk: the K-12 town/hamlet split means the social experience is very different depending on whether you're coming from Pound Ridge (small, leafy, affluent) or Mt Kisco (denser, more diverse, more retail).**
+
+### Distinctive Programs
+Strong arts pipeline (above). **Foundation for Bedford Central Schools** funds enrichment. **No IB** at Fox Lane — heavy AP track instead. Animation Film Festival. The arts program is the headline distinctive.
+
+### For This Family
+**Strongest arts pull of the leafy-neighbors group by a noticeable margin** and genuine academic + athletic depth — your daughter would have a lot to choose from. For your son, Bedford is the **middle option on autism support**: the infrastructure (manual, SEPTO, multi-tier programs, Administrator-at-every-ASD-meeting policy) is the most formally documented, but the parent-reported turnover issue means you'd want to talk to current ASD-family parents in the SEPTO before banking on it. **The larger campus (Fox Lane HS) is a real sensory consideration for a high-functioning autistic teen — louder, more anonymous, more navigation demand than Hen Hud.**` },
+
+  'katonah-lewisboro': { name: 'Katonah-Lewisboro', body: `### Music & Arts
+John Jay HS runs **one of the most extensive Performing Arts curricula in the tri-state area** — **550+ students enrolled across 14 courses.** Ensembles: two choral, three bands (including two jazz bands), two orchestras (string + symphony), wind ensemble, symphonic band, concert band, plus chorale and Vocal Jazz. **Three student-run a cappella groups** — student-driven culture. Music technology, music history/theory as electives. Theater produces two major shows per year (fall drama + spring musical) in the JJHS theater. Multiple concert series across the year open to public. KLSD Arts Alive is the district arts org.
+
+### Athletics
+Mascot: **Wolves** (retired the Indians mascot in 2019, picked Wolves in 2020 as a tribute to the nearby Wolf Conservation Center in South Salem). Section 1 across football, baseball, basketball, lacrosse, softball, track & field, cross country, soccer. **Girls Cross Country were State of NY Cross Country Federation Champions (2013)** — sustained distance-running program. Lacrosse historically strong in this corner of Section 1.
+
+### Special Education & Autism Support
+This section requires the most honesty. **In 2021, an autistic 13-year-old in KLSD was physically restrained 33 times over two months with no parental notification** — restraints involving up to nine adults and lasting up to 20 minutes, triggered by incidents like throwing a cup of water or a shoe. The parent only found out via a state-mandated log delivered in April; a 34th restraint occurred the day after notification. The district's Special Needs Advocacy Group formed in response, and the End Seclusion organization published an open letter to the school board. Other reported practices in that period included putting young children in bathrooms as punishment, unexplained bruising, and use of a chokehold. KLSD also has an ongoing 2024–2025 legal case (Third Department Appellate Division) over whether they were required to provide FAPE to a developmentally disabled student until the day before their 22nd birthday. The district has a CSE process, an active **SEPTO** parent org, and standard related services, and PNW BOCES (Yorktown) is the out-placement path. **No public evidence of a systemic reform announcement verified for 2023–2025.** The 2021 incident is now four years old and staff may well have changed — but **the family should ask the CSE directly about current restraint policy, parental notification protocols, and how the district has changed since 2021.**
+
+### Overall Vibe & Parent Reputation
+**2,800 students, 11:1 ratio.** Demographics: **76% white, 12% Hispanic, 7% two-or-more, 4% Asian, 1% Black** — the least diverse of the leafy-neighbors group by a wide margin. Niche: A+ academics, A+ college prep, A teachers, A clubs/activities, B+ administration, **C for diversity**. Parents largely positive on academics and teacher quality ("attentive and caring," "engaged and dedicated parent community"), but one Niche review on diversity is blunt: *"the district is sort of in a bubble full of white privilege with very little diversity and a lack of interest in minorities and America's issues."* Setting is leafy, semi-rural, affluent — old-money rural Westchester.
+
+### Distinctive Programs
+The 14-course / 550-student performing arts curriculum is genuinely unusual for a district this size. The Wolf Conservation Center connection (the mascot change) is real and active — community programming flows. Heavy AP track.
+
+### For This Family
+Academically and artistically this district is excellent, and the leafy rural setting and engaged parent community would be a strong fit for your daughter. But the **2021 restraint incident involving a 13-year-old autistic boy** — almost exactly your son's profile and exactly the age he'd enter middle school here — is the single most concerning data point across all the leafy-neighbors set. Would not rule this district out based on a four-year-old incident, but **treat it as a mandatory deep-due-diligence item**: get current restraint/seclusion policy in writing, ask the CSE for parental-notification protocol, and talk to two or three current SEPTO families with autistic kids at John Jay MS/HS before pinning a home in this district.` }
+};
+
+// Normalize: lowercase, strip suffix tags (UFSD/CSD/SD/Central School District/Union Free School District),
+// trim, collapse spaces. Matches all variants in pin.schoolDistrict.
+function normalizeSchoolKey(district) {
+  if (!district) return '';
+  return String(district)
+    .toLowerCase()
+    .replace(/\s*(union free school district|central school district|free school district|school district)\s*$/i, '')
+    .replace(/\s+(ufsd|csd|sd|cufsd)\s*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function renderSchoolMarkdown(md) {
+  // Light renderer: ### Heading, paragraphs (blank-line separated), **bold**, *italic*, --- hr
+  const lines = String(md || '').split('\n');
+  const out = [];
+  let para = [];
+  function flushPara() {
+    if (!para.length) return;
+    const txt = para.join(' ').trim();
+    if (txt) out.push('<p>' + applyInline(txt) + '</p>');
+    para = [];
+  }
+  function applyInline(s) {
+    return escapeHtml(s)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>');
+  }
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line.startsWith('### ')) {
+      flushPara();
+      out.push('<h3>' + escapeHtml(line.slice(4).trim()) + '</h3>');
+    } else if (line === '---') {
+      flushPara();
+      out.push('<hr>');
+    } else if (line === '') {
+      flushPara();
+    } else {
+      para.push(line);
+    }
+  }
+  flushPara();
+  return out.join('\n');
+}
+
 let _schoolStreamAbort = null;
 function openSchoolModal(district) {
   if (!district) return;
@@ -4896,8 +5198,19 @@ function openSchoolModal(district) {
   const title = document.getElementById('school-modal-title');
   const body = document.getElementById('school-modal-body');
   if (!overlay || !title || !body) return;
+  const key = normalizeSchoolKey(district);
+  const profile = SCHOOL_PROFILES[key];
+  if (profile) {
+    title.textContent = profile.name;
+    body.innerHTML =
+      '<div class="sp-stamp">Researched <strong>2026-05-24</strong> · qualitative synthesis · locked in</div>' +
+      renderSchoolMarkdown(profile.body);
+    overlay.classList.add('open');
+    return;
+  }
+  // Fallback: stream from Claude for districts not yet researched
   title.textContent = district.replace(/\s+(UFSD|CSD|SD)$/i, '').trim();
-  body.innerHTML = '<span class="pending">looking up elementary + middle school detail…</span>';
+  body.innerHTML = '<span class="pending">no locked profile for this district — pulling a live overview…</span>';
   overlay.classList.add('open');
   if (_schoolStreamAbort) try { _schoolStreamAbort.abort(); } catch {}
   _schoolStreamAbort = new AbortController();
