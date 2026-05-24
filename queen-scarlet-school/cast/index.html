@@ -51,7 +51,10 @@
     .topbar .spacer { flex: 1; }
     .topbar a, .topbar .topbtn {
       font-family: var(--ui); font-size: 14px; font-weight: 600;
-      color: var(--paper); padding: 8px 14px;
+      /* --ink is the FOREGROUND token (dark on QSS cream, cream on
+         burgundy dark). Was --paper which IS the page background — on
+         burgundy that rendered teal-text-on-teal-bg, invisible. */
+      color: var(--ink); padding: 8px 14px;
       background: rgba(255, 246, 224, 0.06);
       border: 2px solid rgba(255, 246, 224, 0.3); border-radius: 999px;
       text-decoration: none;
