@@ -2417,7 +2417,10 @@
       const orphanNames = [];
       for (const c of Object.values(state.cards)) {
         if (!Array.isArray(c?.portraits) || !c.portraits.length) continue;
-        const anyHasBytes = c.portraits.some(p => p?.dataBase64);
+        // A card has bytes if ANY portrait has either inline base64 OR
+        // a Storage URL. The Storage URL counts because the <img src>
+        // renders straight from the CDN — no IDB or bytes needed.
+        const anyHasBytes = c.portraits.some(p => p?.dataBase64 || p?.image_url);
         if (!anyHasBytes) {
           allowShrink(c.name);
           c.portraits = [];
