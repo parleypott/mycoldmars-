@@ -1723,7 +1723,14 @@
       if (cloudPullInflight) return cloudPullInflight;
       cloudPullInflight = (async () => {
         try {
-          const r = await fetch('/api/qss-cast', { method: 'GET', headers: HEADERS });
+          // CRITICAL: pass the active world. Without ?world= the server
+          // defaults to queen-scarlet and burgundy/cast silently shows
+          // QSS data forever. This is the root cause of the "burgundy
+          // shows Queen Scarlet characters" symptom — not a contaminated
+          // cloud row (that was deleted), but the client literally never
+          // telling the server which world it's asking about.
+          const w = encodeURIComponent(window.QSSWorlds?.getActive?.() || 'queen-scarlet');
+          const r = await fetch(`/api/qss-cast?world=${w}`, { method: 'GET', headers: HEADERS });
           if (!r.ok) {
             if (r.status === 503) {
               // Migration not applied. Silently stay local.
@@ -1835,9 +1842,10 @@
       cloudPushQueue.clear();
       if (!batch.length) return;
       try {
-        const r = await fetch('/api/qss-cast?action=upsert-many', {
+        const w = encodeURIComponent(window.QSSWorlds?.getActive?.() || 'queen-scarlet');
+        const r = await fetch(`/api/qss-cast?action=upsert-many&world=${w}`, {
           method: 'POST', headers: HEADERS,
-          body: JSON.stringify({ cards: batch }),
+          body: JSON.stringify({ cards: batch, world_slug: window.QSSWorlds?.getActive?.() || 'queen-scarlet' }),
         });
         if (!r.ok && r.status !== 503) {
           // Re-queue for next attempt; transient.
@@ -1855,9 +1863,10 @@
     }
     async function deleteFromCloud(name) {
       try {
-        await fetch('/api/qss-cast?action=delete', {
+        const w = encodeURIComponent(window.QSSWorlds?.getActive?.() || 'queen-scarlet');
+        await fetch(`/api/qss-cast?action=delete&world=${w}`, {
           method: 'POST', headers: HEADERS,
-          body: JSON.stringify({ name }),
+          body: JSON.stringify({ name, world_slug: window.QSSWorlds?.getActive?.() || 'queen-scarlet' }),
         });
       } catch {}
     }

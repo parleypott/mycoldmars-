@@ -5397,10 +5397,11 @@
             status: 'loading',
             story_appearances: state.serverId ? [{ story_id: state.serverId, story_name: state.name, current_state: c.current_state || '' }] : [],
           }));
-          await fetch('/api/qss-cast?action=upsert-many', {
+          const w = window.QSSWorlds?.getActive?.() || 'queen-scarlet';
+          await fetch(`/api/qss-cast?action=upsert-many&world=${encodeURIComponent(w)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cards }),
+            body: JSON.stringify({ cards, world_slug: w }),
           });
         } catch (e) {
           console.warn('[auto-build] cast upsert failed', e);
@@ -8314,10 +8315,11 @@
           const batch = Array.from(_globalPushQueue.values());
           _globalPushQueue.clear();
           try {
-            await fetch('/api/qss-cast?action=upsert-many', {
+            const w = window.QSSWorlds?.getActive?.() || 'queen-scarlet';
+            await fetch(`/api/qss-cast?action=upsert-many&world=${encodeURIComponent(w)}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ cards: batch }),
+              body: JSON.stringify({ cards: batch, world_slug: w }),
             });
           } catch {}
         }, 1800);
@@ -8381,7 +8383,8 @@
       // Fire-and-forget; failures fall back to localStorage silently.
       async function pullGlobalCastFromCloud() {
         try {
-          const r = await fetch('/api/qss-cast', {
+          const w = window.QSSWorlds?.getActive?.() || 'queen-scarlet';
+          const r = await fetch(`/api/qss-cast?world=${encodeURIComponent(w)}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
           });
