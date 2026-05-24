@@ -1387,6 +1387,405 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 .qv-actions button:hover, .qv-actions a:hover { background: var(--ink); color: var(--bg); }
 .qv-actions a.compass { border-color: var(--accent); color: var(--accent); }
 .qv-actions a.compass:hover { background: var(--accent); color: #FFF; border-color: var(--accent); }
+
+/* Static-map fallback when there's no listing photo */
+.qv-staticmap {
+  position: relative;
+  width: 100%;
+  height: 160px;
+  background: #2A2620;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+}
+.qv-staticmap img {
+  position: absolute;
+  display: block;
+  filter: saturate(0.78) brightness(0.94);
+  pointer-events: none;
+  user-select: none;
+}
+.qv-staticmap-pin {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2.5px solid #FFF;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6), 0 0 0 8px rgba(244, 67, 21, 0.18);
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  pointer-events: none;
+}
+.qv-staticmap-credit {
+  position: absolute;
+  bottom: 4px; right: 6px;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.6);
+  font-family: 'JetBrains Mono', monospace;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+  z-index: 2;
+}
+
+/* School name as clickable pill inside qv-popup */
+.qv-school-btn {
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: right;
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  padding: 0;
+}
+.qv-school-btn:hover { color: var(--accent); text-decoration-color: var(--accent); }
+
+/* School modal (district overview) */
+.school-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 22, 18, 0.62);
+  backdrop-filter: blur(4px);
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+}
+.school-modal-overlay.open { display: flex; }
+.school-modal {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  overflow: hidden;
+  position: relative;
+}
+.school-modal-close {
+  position: absolute;
+  top: 12px; right: 12px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+}
+.school-modal-close:hover { color: var(--accent); border-color: var(--accent); }
+.school-modal-head {
+  padding: 22px 24px 14px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(0,0,0,0.025);
+}
+.school-modal-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700;
+  margin-bottom: 6px;
+}
+.school-modal-title {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: 26px;
+  color: var(--ink);
+  line-height: 1.15;
+}
+.school-modal-body {
+  padding: 18px 24px 24px;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+.school-modal-body .pending {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ===================== AGENT TAB ===================== */
+.agent-pane { padding: 28px clamp(20px, 4vw, 56px) 40px; }
+.ag-wrap {
+  max-width: 1640px; margin: 0 auto;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .ag-wrap { grid-template-columns: 1fr; }
+}
+
+.ag-ctx {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+.ag-ctx-section { border-bottom: 1px solid var(--line); padding: 16px 16px 18px; }
+.ag-ctx-section:last-child { border-bottom: none; }
+.ag-ctx-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px; letter-spacing: 0.26em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700;
+  margin-bottom: 12px;
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.ag-ctx-title .count { color: var(--muted); letter-spacing: 0.1em; font-size: 10px; }
+.ag-ctx-list { display: flex; flex-direction: column; gap: 5px; }
+.ag-ctx-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  background: var(--bg);
+  padding: 8px 10px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.ag-ctx-item span { flex: 1; color: var(--ink); }
+.ag-mem-del {
+  background: transparent; border: none;
+  color: var(--muted); cursor: pointer; font-size: 14px;
+  padding: 0 4px; line-height: 1;
+}
+.ag-mem-del:hover { color: var(--accent); }
+.ag-add-row { display: flex; gap: 6px; margin-top: 10px; }
+.ag-add-row input {
+  flex: 1; background: #FFF; border: 1px solid var(--line);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 7px 10px; border-radius: 2px; outline: none;
+}
+.ag-add-row input:focus { border-color: var(--accent); }
+.ag-add-row button {
+  background: var(--ink); color: var(--bg);
+  border: none; padding: 6px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px; font-weight: 700;
+  border-radius: 2px; cursor: pointer;
+  line-height: 1;
+}
+.ag-add-row button:hover { background: var(--accent); }
+
+.ag-pin-list { display: flex; flex-direction: column; gap: 0; }
+.ag-pin-row {
+  display: grid; grid-template-columns: 24px 1fr auto;
+  align-items: center; gap: 10px;
+  padding: 8px 2px;
+  font-size: 10.5px;
+  border-bottom: 1px solid var(--line);
+}
+.ag-pin-row:last-child { border-bottom: none; }
+.ag-pin-rank {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  background: var(--rank-0); color: var(--muted);
+  border-radius: 50%; font-weight: 700; font-size: 10px;
+  border: 1.5px dashed var(--line);
+  font-family: 'JetBrains Mono', monospace;
+}
+.ag-pin-rank[data-rank="5"] { background: var(--rank-5); color: #FFF; border: 1.5px solid var(--rank-5); }
+.ag-pin-rank[data-rank="4"] { background: var(--rank-4); color: #FFF; border: 1.5px solid var(--rank-4); }
+.ag-pin-rank[data-rank="3"] { background: var(--rank-3); color: var(--ink); border: 1.5px solid var(--rank-3); }
+.ag-pin-rank[data-rank="2"] { background: var(--rank-2); color: #FFF; border: 1.5px solid var(--rank-2); }
+.ag-pin-rank[data-rank="1"] { background: var(--rank-1); color: #FFF; border: 1.5px solid var(--rank-1); }
+.ag-pin-addr {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.04em;
+  text-transform: uppercase; font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--ink);
+}
+.ag-pin-price {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.ag-empty { font-size: 11px; color: var(--muted); font-style: italic; padding: 4px 0; }
+
+.ag-chat-wrap {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  display: flex; flex-direction: column;
+  height: calc(100vh - 130px);
+  min-height: 520px;
+}
+.ag-chat-head {
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(0,0,0,0.025);
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.ag-chat-head .title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700;
+}
+.ag-chat-head .sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px; color: var(--muted);
+}
+.ag-clear-btn {
+  background: transparent; border: 1px solid var(--line);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 5px 10px; border-radius: 2px;
+  cursor: pointer; font-weight: 700;
+}
+.ag-clear-btn:hover { color: var(--accent); border-color: var(--accent); }
+.ag-chat {
+  flex: 1; overflow-y: auto;
+  padding: 22px 26px;
+  display: flex; flex-direction: column; gap: 22px;
+}
+.ag-chat::-webkit-scrollbar { width: 8px; }
+.ag-chat::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 4px; }
+.ag-empty-chat {
+  text-align: center; padding: 40px 20px;
+  color: var(--muted);
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: 19px;
+  line-height: 1.45;
+  max-width: 460px;
+  margin: 0 auto;
+}
+.ag-empty-chat .hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  font-style: normal;
+  color: var(--muted);
+  margin-top: 14px;
+  line-height: 1.6;
+}
+.ag-msg { display: flex; flex-direction: column; gap: 6px; max-width: 760px; }
+.ag-msg.user { align-self: flex-end; }
+.ag-msg-role {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
+  font-weight: 700;
+  color: var(--muted);
+}
+.ag-msg.user .ag-msg-role { color: var(--accent); text-align: right; }
+.ag-msg-body {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px; line-height: 1.6;
+  color: var(--ink);
+}
+.ag-msg-body strong { font-weight: 700; }
+.ag-msg-body em { font-style: italic; }
+.ag-msg-body code {
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-size: 11px;
+}
+.ag-msg.user .ag-msg-body {
+  padding: 12px 16px;
+  background: var(--bg);
+  border-left: 3px solid var(--accent);
+  border-radius: 2px;
+}
+.ag-msg.assistant .ag-msg-body {
+  padding: 4px 0;
+}
+.ag-msg-remember {
+  margin-top: 8px;
+  background: transparent;
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 5px 11px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-weight: 700;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.ag-msg-remember:hover { background: var(--accent); color: #FFF; }
+.ag-msg.streaming .ag-msg-body::after {
+  content: '▍';
+  color: var(--accent);
+  animation: ag-blink 0.9s steps(2, end) infinite;
+  margin-left: 1px;
+}
+@keyframes ag-blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+
+.ag-suggestions {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 14px 26px 4px;
+  border-top: 1px solid var(--line);
+}
+.ag-suggestion {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 6px 11px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color 140ms, border-color 140ms;
+}
+.ag-suggestion:hover { color: var(--ink); border-color: var(--ink); }
+
+.ag-composer {
+  border-top: 1px solid var(--line);
+  padding: 14px 16px;
+  display: flex; gap: 10px; align-items: flex-end;
+  background: rgba(0,0,0,0.02);
+}
+.ag-composer textarea {
+  flex: 1;
+  background: #FFF;
+  border: 1px solid var(--line);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; line-height: 1.5;
+  padding: 10px 12px;
+  outline: none;
+  border-radius: 2px;
+  resize: vertical;
+  min-height: 50px;
+  max-height: 180px;
+}
+.ag-composer textarea:focus { border-color: var(--accent); }
+.ag-composer button {
+  background: var(--ink); color: var(--bg);
+  border: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  font-weight: 700;
+  padding: 14px 22px;
+  border-radius: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+  align-self: stretch;
+}
+.ag-composer button:hover { background: var(--accent); }
+.ag-composer button:disabled { opacity: 0.45; cursor: wait; background: var(--muted); }
 </style>
 </head>
 <body>
@@ -1401,6 +1800,7 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
     <button class="tab-btn" data-tab="money">Money Mode</button>
     <button class="tab-btn active" data-tab="map">Map</button>
     <button class="tab-btn" data-tab="table">Table</button>
+    <button class="tab-btn" data-tab="agent">Agent</button>
     <button class="tab-btn" data-tab="timeline">Timeline</button>
     <button class="tab-btn" data-tab="notes">Notes</button>
   </nav>
@@ -1693,6 +2093,64 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
   </div>
 </section>
 
+<!-- ===================== AGENT TAB ===================== -->
+<section class="tab-pane solid agent-pane" data-pane="agent">
+  <div class="ag-wrap">
+    <aside class="ag-ctx">
+      <div class="ag-ctx-section">
+        <div class="ag-ctx-title"><span>Memory</span><span class="count" id="ag-mem-count">0</span></div>
+        <div class="ag-ctx-list" id="ag-mem-list"></div>
+        <div class="ag-add-row">
+          <input type="text" id="ag-mem-input" placeholder="add a consideration…">
+          <button id="ag-mem-add" type="button">+</button>
+        </div>
+      </div>
+      <div class="ag-ctx-section">
+        <div class="ag-ctx-title"><span>Pinned Homes</span><span class="count" id="ag-pin-count">0</span></div>
+        <div class="ag-pin-list" id="ag-pin-list"></div>
+      </div>
+      <div class="ag-ctx-section">
+        <div class="ag-ctx-title"><span>Villages</span><span class="count" id="ag-vil-count">0</span></div>
+        <div class="ag-pin-list" id="ag-vil-list"></div>
+      </div>
+    </aside>
+
+    <div class="ag-chat-wrap">
+      <div class="ag-chat-head">
+        <div>
+          <div class="title">Agent</div>
+          <div class="sub">Knows every pinned home, every village, and what you've told it to remember.</div>
+        </div>
+        <button class="ag-clear-btn" id="ag-clear-btn" type="button">Clear chat</button>
+      </div>
+      <div class="ag-chat" id="ag-chat"></div>
+      <div class="ag-suggestions" id="ag-suggestions">
+        <button class="ag-suggestion" data-q="Rank the pinned homes by overall value for the money, and explain.">Rank by value</button>
+        <button class="ag-suggestion" data-q="Which homes have the best train commute to Manhattan? Compare top 3.">Best commutes</button>
+        <button class="ag-suggestion" data-q="Compare the school districts across these homes — which are strongest at the elementary and middle level?">Schools compare</button>
+        <button class="ag-suggestion" data-q="What's the trade-off pattern I should be thinking about? Walk me through the real choices these homes represent.">Frame the trade-offs</button>
+        <button class="ag-suggestion" data-q="Ask me 3 questions you don't have answers to yet that would help you narrow this list.">Interview me</button>
+      </div>
+      <div class="ag-composer">
+        <textarea id="ag-input" placeholder="ask about the homes, the schools, the commute, the trade-offs… Enter to send, Shift+Enter for newline"></textarea>
+        <button id="ag-send" type="button">Send</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== SCHOOL DISTRICT MODAL ===================== -->
+<div class="school-modal-overlay" id="school-modal-overlay" role="dialog" aria-modal="true">
+  <div class="school-modal">
+    <button class="school-modal-close" id="school-modal-close" type="button" aria-label="Close">×</button>
+    <div class="school-modal-head">
+      <div class="school-modal-eyebrow">School District</div>
+      <div class="school-modal-title" id="school-modal-title"></div>
+    </div>
+    <div class="school-modal-body" id="school-modal-body"></div>
+  </div>
+</div>
+
 <section class="tab-pane solid" data-pane="timeline"><div class="placeholder-pane">— empty —</div></section>
 <section class="tab-pane solid" data-pane="notes"><div class="placeholder-pane">— empty —</div></section>
 
@@ -1702,6 +2160,56 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
+// API perimeter — auto-inject x-access-code on /api/* calls (exchange "newpress" gate via /api/qss-access-token)
+(function installAccessCodeFetchWrapper() {
+  const LS_KEY = 'whh:access_code', LS_TS_KEY = 'whh:access_code:ts';
+  const TTL_MS = 90 * 24 * 60 * 60 * 1000;
+  const origFetch = window.fetch.bind(window);
+  let inMem = null;
+  function readCached() {
+    try {
+      const code = localStorage.getItem(LS_KEY);
+      const ts = Number(localStorage.getItem(LS_TS_KEY) || 0);
+      if (code === null) return null;
+      if (Date.now() - ts > TTL_MS) return null;
+      return code;
+    } catch { return null; }
+  }
+  function writeCached(c) { try { localStorage.setItem(LS_KEY, c); localStorage.setItem(LS_TS_KEY, String(Date.now())); } catch {} }
+  function clearCached() { try { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_TS_KEY); } catch {} }
+  async function getCode() {
+    if (inMem) return inMem;
+    const cached = readCached();
+    if (cached) { inMem = cached; return cached; }
+    try {
+      const r = await origFetch('/api/qss-access-token', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: 'newpress' })
+      });
+      if (!r.ok) return null;
+      const j = await r.json().catch(() => ({}));
+      const c = j?.accessCode || j?.access_code || j?.code || null;
+      if (c) { inMem = c; writeCached(c); }
+      return c;
+    } catch { return null; }
+  }
+  window.fetch = async function(input, init = {}) {
+    const url = typeof input === 'string' ? input : (input?.url || '');
+    if (!/(^|\/)api\//.test(url)) return origFetch(input, init);
+    const code = await getCode();
+    const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined) || {});
+    if (code && !headers.has('x-access-code')) headers.set('x-access-code', code);
+    let res = await origFetch(input, { ...init, headers });
+    if (res.status === 401) {
+      clearCached(); inMem = null;
+      const fresh = await getCode();
+      if (fresh) { headers.set('x-access-code', fresh); res = await origFetch(input, { ...init, headers }); }
+    }
+    return res;
+  };
+  getCode(); // warm
+})();
+
 // Surface any silent JS error so we never silently break
 window.addEventListener('error', (e) => {
   if (e?.error?.message?.includes('ResizeObserver')) return;
@@ -1751,6 +2259,7 @@ function setActiveTab(tabId) {
   document.body.classList.toggle('on-map', tabId === 'map');
   if (window._whhMap) setTimeout(() => window._whhMap.resize(), 80);
   if (tabId === 'table' && typeof renderTable === 'function') renderTable();
+  if (tabId === 'agent' && typeof renderAgentContext === 'function') { renderAgentContext(); renderAgentChat(); }
 }
 document.querySelectorAll('.tab-btn').forEach(t => t.addEventListener('click', () => setActiveTab(t.dataset.tab)));
 document.body.classList.add('on-map'); // default open tab
@@ -4120,7 +4629,7 @@ function openHouseQuickView(pin, idx) {
     ? `<div class="qv-row"><span class="lbl">Trail</span><span class="val">${escapeHtml(tl.name)}</span></div>`
     : '';
   const schoolLine = pin.schoolDistrict
-    ? `<div class="qv-row"><span class="lbl">School</span><span class="val">${escapeHtml(pin.schoolDistrict)}</span></div>`
+    ? `<div class="qv-row"><span class="lbl">School</span><button class="qv-school-btn" data-school="${escapeHtml(pin.schoolDistrict)}" type="button" title="Open district overview">${escapeHtml(pin.schoolDistrict)} →</button></div>`
     : '';
   const monthlyLine = monthly
     ? `<div class="qv-row"><span class="lbl">Monthly</span><span class="val">${fmtUSD(monthly.total)} all-in</span></div>`
@@ -4130,7 +4639,7 @@ function openHouseQuickView(pin, idx) {
     : '';
   const photoBlock = photo0
     ? `<div class="qv-photo" style="background-image:url('${escapeHtml(photo0)}')"><div class="qv-rank-chip" data-rank="${pin.rank || 0}">${idx || ''}</div>${photoCount > 1 ? `<div class="qv-photo-count">${photoCount} photos</div>` : ''}</div>`
-    : `<div class="qv-photo placeholder"><div class="qv-rank-chip" data-rank="${pin.rank || 0}">${idx || ''}</div>no photo</div>`;
+    : buildStaticMapPhoto(pin.lat, pin.lng, idx, pin.rank || 0);
   const html = `
     <div class="qv" data-pin="${pin.id}">
       ${photoBlock}
@@ -4154,11 +4663,375 @@ function openHouseQuickView(pin, idx) {
     .addTo(map);
   map.flyTo({ center: [pin.lng, pin.lat], zoom: Math.max(map.getZoom(), 14), duration: 600 });
   setTimeout(() => {
-    const detailsBtn = document.querySelector('.qv-popup .qv-details-btn');
+    const root = document.querySelector('.qv-popup');
+    if (!root) return;
+    const detailsBtn = root.querySelector('.qv-details-btn');
     detailsBtn && detailsBtn.addEventListener('click', () => focusPin(pin.id));
+    const schoolBtn = root.querySelector('.qv-school-btn');
+    schoolBtn && schoolBtn.addEventListener('click', () => openSchoolModal(schoolBtn.dataset.school));
   }, 30);
 }
 window.openHouseQuickView = openHouseQuickView;
+
+// ----- OSM static-map fallback for missing-photo case -----
+function buildStaticMapPhoto(lat, lng, idx, rank) {
+  if (lat == null || lng == null) {
+    return `<div class="qv-photo placeholder"><div class="qv-rank-chip" data-rank="${rank}">${idx || ''}</div>no location</div>`;
+  }
+  const z = 15, ts = 256, W = 280, H = 160;
+  const n = Math.pow(2, z);
+  const tx = (lng + 180) / 360 * n;
+  const ty = (1 - Math.log(Math.tan(lat * Math.PI/180) + 1/Math.cos(lat * Math.PI/180)) / Math.PI) / 2 * n;
+  const baseX = Math.floor(tx), baseY = Math.floor(ty);
+  const offX = (tx - baseX) * ts, offY = (ty - baseY) * ts;
+  const baseLeft = W/2 - offX, baseTop = H/2 - offY;
+  const parts = [];
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const txi = baseX + dx, tyi = baseY + dy;
+      if (txi < 0 || tyi < 0 || txi >= n || tyi >= n) continue;
+      const l = baseLeft + dx * ts, t = baseTop + dy * ts;
+      // Only include tiles that overlap container bounds
+      if (l + ts < 0 || t + ts < 0 || l > W || t > H) continue;
+      parts.push(`<img src="https://tile.openstreetmap.org/${z}/${txi}/${tyi}.png" style="left:${Math.round(l)}px;top:${Math.round(t)}px;width:${ts}px;height:${ts}px;" loading="lazy" alt="" referrerpolicy="no-referrer">`);
+    }
+  }
+  return `<div class="qv-photo qv-staticmap">${parts.join('')}<div class="qv-staticmap-pin"></div><div class="qv-rank-chip" data-rank="${rank}">${idx || ''}</div><div class="qv-staticmap-credit">© OpenStreetMap</div></div>`;
+}
+
+// ----- SCHOOL DISTRICT MODAL (streaming overview from Claude) -----
+let _schoolStreamAbort = null;
+function openSchoolModal(district) {
+  if (!district) return;
+  const overlay = document.getElementById('school-modal-overlay');
+  const title = document.getElementById('school-modal-title');
+  const body = document.getElementById('school-modal-body');
+  if (!overlay || !title || !body) return;
+  title.textContent = district.replace(/\s+(UFSD|CSD|SD)$/i, '').trim();
+  body.innerHTML = '<span class="pending">looking up elementary + middle school detail…</span>';
+  overlay.classList.add('open');
+  if (_schoolStreamAbort) try { _schoolStreamAbort.abort(); } catch {}
+  _schoolStreamAbort = new AbortController();
+  streamSchoolOverview(district, body, _schoolStreamAbort.signal).catch(err => {
+    body.innerHTML = '<span class="pending">couldn\'t load overview — ' + escapeHtml(err.message || String(err)) + '</span>';
+  });
+}
+function closeSchoolModal() {
+  const overlay = document.getElementById('school-modal-overlay');
+  if (overlay) overlay.classList.remove('open');
+  if (_schoolStreamAbort) { try { _schoolStreamAbort.abort(); } catch {}; _schoolStreamAbort = null; }
+}
+document.getElementById('school-modal-close')?.addEventListener('click', closeSchoolModal);
+document.getElementById('school-modal-overlay')?.addEventListener('click', e => {
+  if (e.target.id === 'school-modal-overlay') closeSchoolModal();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSchoolModal(); });
+
+async function streamSchoolOverview(district, bodyEl, signal) {
+  const system = `You are a Westchester, NY school district researcher. Give a brief, factual overview of the named school district. Focus ONLY on:
+1. ELEMENTARY schools in the district — list 2-4 by name with a one-line note on each
+2. MIDDLE school(s) — name and a one-line note
+3. Overall reputation at the elementary/middle level (1-2 sentences)
+4. Any notable programs (gifted, arts, dual language, etc.)
+
+Keep total response under 200 words. Use plain language. If you're uncertain about a specific school name, say so — better to admit than to invent. No high-school information. Markdown formatting OK (bold for school names).`;
+  const res = await fetch('/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal,
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 700,
+      stream: true,
+      system,
+      messages: [{ role: 'user', content: `District: ${district}` }]
+    })
+  });
+  if (!res.ok) throw new Error('http ' + res.status);
+  if (!res.body) throw new Error('no stream');
+  bodyEl.textContent = '';
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  let acc = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (!data || data === '[DONE]') continue;
+      try {
+        const ev = JSON.parse(data);
+        if (ev.type === 'content_block_delta' && ev.delta?.text) {
+          acc += ev.delta.text;
+          bodyEl.textContent = acc;
+        }
+      } catch {}
+    }
+  }
+  // Light markdown: bold + paragraph spacing
+  bodyEl.innerHTML = escapeHtml(acc)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n{2,}/g, '\n\n');
+}
+
+// ----- AGENT (chat + memory) -----
+const AGENT_MEM_KEY = 'whh:agent:memory:v1';
+const AGENT_CHAT_KEY = 'whh:agent:chat:v1';
+let agentMemory = [];
+let agentMessages = [];
+try { agentMemory = JSON.parse(localStorage.getItem(AGENT_MEM_KEY) || '[]'); } catch {}
+try { agentMessages = JSON.parse(localStorage.getItem(AGENT_CHAT_KEY) || '[]'); } catch {}
+function saveAgentMemory() { try { localStorage.setItem(AGENT_MEM_KEY, JSON.stringify(agentMemory)); } catch {} }
+function saveAgentChat() { try { localStorage.setItem(AGENT_CHAT_KEY, JSON.stringify(agentMessages.slice(-40))); } catch {} }
+function addMemory(text) {
+  const t = String(text || '').trim();
+  if (!t) return;
+  agentMemory.unshift({ text: t, ts: Date.now() });
+  if (agentMemory.length > 60) agentMemory = agentMemory.slice(0, 60);
+  saveAgentMemory(); renderAgentContext();
+}
+function removeMemory(idx) {
+  agentMemory.splice(idx, 1); saveAgentMemory(); renderAgentContext();
+}
+
+function buildAgentSystemPrompt() {
+  const pinsCompact = pins.map((p, i) => {
+    const c = p.compass || {};
+    const m = (typeof computePinMonthly === 'function') ? computePinMonthly(p) : null;
+    const tx = p.muniKey && TAX_DATA && TAX_DATA[p.muniKey];
+    return {
+      n: i + 1,
+      address: formatPinAddress(p),
+      lat: Number(p.lat?.toFixed(5) || 0), lng: Number(p.lng?.toFixed(5) || 0),
+      rank: p.rank || 0,
+      price: c.price || null,
+      asking: p.askingPrice || null,
+      beds: c.beds ?? null, baths: c.baths ?? null, sqft: c.sqft ?? null,
+      yearBuilt: c.yearBuilt ?? null, lotSqft: c.lotSize ?? null,
+      propertyType: c.propertyType || null,
+      description: c.description ? c.description.slice(0, 500) : null,
+      train: p.train ? { name: p.train.name, line: p.train.line || null, gctMin: p.train.gct || null, miles: p.train.miles, walkMin: p.train.walkMin || null, driveDistMi: p.train.driveDistMi || null, driveMin: p.train.driveMin || null } : null,
+      trail: p.trail ? { name: p.trail.name, miles: p.trail.miles, driveDistMi: p.trail.driveDistMi || null } : null,
+      schoolDistrict: p.schoolDistrict || null,
+      taxMuni: tx ? tx.label : null,
+      taxRatePct: tx ? Number((tx.effectiveRate * 100).toFixed(2)) : null,
+      monthlyAllIn: m ? m.total : null,
+      notes: p.notes || null,
+      compassUrl: c.listingUrl || null
+    };
+  });
+  const villagesCompact = villages.map(v => ({
+    name: v.name,
+    lat: Number(v.lat?.toFixed(5) || 0), lng: Number(v.lng?.toFixed(5) || 0),
+    schoolDistrict: v.schoolDistrict || null,
+    trailsWithin1Mi: v.trailsWithin1Mi ?? null, trailsWithin2Mi: v.trailsWithin2Mi ?? null, trailsWithin5Mi: v.trailCount ?? null,
+    nearestTrail: v.trails?.[0] ? { name: v.trails[0].name, miles: v.trails[0].miles } : null,
+    train: v.train ? { name: v.train.name, line: v.train.line || null, gctMin: v.train.gct || null, miles: v.train.miles } : null,
+    bookstores: (v.bookstores || []).slice(0, 5).map(b => ({ name: b.name, miles: b.miles }))
+  }));
+  return `You are Johnny's research assistant for his Westchester, NY house hunt. You have read the COMPLETE dataset of every pinned home and every saved village. Your job: help him think through trade-offs, surface non-obvious comparisons, and answer questions about specific homes.
+
+STYLE: editorial, direct, plain language, no buzzwords or marketing-speak. Lowercase is fine. Use the actual numbers from the data. When you reference a home, say its street address. When you reference a village or district, name it. Bold key takeaways with **double-asterisks**. Keep responses tight — a few short paragraphs is usually right.
+
+MEMORY HANDLING: when Johnny tells you something new about what matters to him (a constraint, preference, must-have, deal-breaker), END your response with a line like:
+[REMEMBER: <crisp one-line note he might want to save>]
+The UI will offer a one-click "save this" button when it sees that. Don't force it — only when something new and durable was actually expressed.
+
+PINNED HOMES (${pinsCompact.length}):
+${JSON.stringify(pinsCompact)}
+
+VILLAGES (${villagesCompact.length}):
+${JSON.stringify(villagesCompact)}
+
+PRIOR CONSIDERATIONS (most recent first, saved by Johnny):
+${agentMemory.length ? agentMemory.map((m, i) => `${i + 1}. ${m.text}`).join('\n') : '(none yet)'}
+
+Today: ${new Date().toISOString().slice(0, 10)}.`;
+}
+
+function renderAgentContext() {
+  document.body.dataset.agentTab = 'open';
+  const memListEl = document.getElementById('ag-mem-list');
+  const memCountEl = document.getElementById('ag-mem-count');
+  const pinListEl = document.getElementById('ag-pin-list');
+  const pinCountEl = document.getElementById('ag-pin-count');
+  const vilListEl = document.getElementById('ag-vil-list');
+  const vilCountEl = document.getElementById('ag-vil-count');
+  if (!memListEl) return;
+
+  memCountEl.textContent = agentMemory.length;
+  memListEl.innerHTML = agentMemory.length
+    ? agentMemory.map((m, i) => `<div class="ag-ctx-item"><span>${escapeHtml(m.text)}</span><button class="ag-mem-del" data-idx="${i}" type="button" aria-label="Remove">×</button></div>`).join('')
+    : '<div class="ag-empty">no saved considerations yet — add what matters above</div>';
+  memListEl.querySelectorAll('.ag-mem-del').forEach(b => {
+    b.addEventListener('click', () => removeMemory(Number(b.dataset.idx)));
+  });
+
+  pinCountEl.textContent = pins.length;
+  pinListEl.innerHTML = pins.length
+    ? pins.map((p, i) => {
+        const c = p.compass || {};
+        return `<div class="ag-pin-row">
+          <span class="ag-pin-rank" data-rank="${p.rank || 0}">${i + 1}</span>
+          <span class="ag-pin-addr" title="${escapeHtml(formatPinAddress(p))}">${escapeHtml(formatPinAddress(p))}</span>
+          <span class="ag-pin-price">${c.price ? fmtUSD(c.price) : '—'}</span>
+        </div>`;
+      }).join('')
+    : '<div class="ag-empty">no homes pinned yet — drop one from the Map tab</div>';
+
+  vilCountEl.textContent = villages.length;
+  vilListEl.innerHTML = villages.length
+    ? villages.map(v => `<div class="ag-pin-row" style="grid-template-columns:1fr auto;">
+        <span class="ag-pin-addr" style="text-transform:none;font-family:'Instrument Serif',serif;font-style:italic;font-size:14px;letter-spacing:0;">${escapeHtml(v.name)}</span>
+        <span class="ag-pin-price">${v.schoolDistrict ? escapeHtml(v.schoolDistrict.replace(/\s+(UFSD|CSD|SD)$/i, '')) : '—'}</span>
+      </div>`).join('')
+    : '<div class="ag-empty">no villages saved</div>';
+}
+
+function renderAgentChat() {
+  const el = document.getElementById('ag-chat');
+  if (!el) return;
+  if (!agentMessages.length) {
+    el.innerHTML = `<div class="ag-empty-chat">Ask anything about the ${pins.length} pinned home${pins.length===1?'':'s'} and ${villages.length} village${villages.length===1?'':'s'}.<div class="hint">It has the full dataset — prices, beds, sqft, train commute, trail proximity, school districts, taxes, monthly all-in.<br>It also remembers what you tell it matters.</div></div>`;
+    return;
+  }
+  el.innerHTML = agentMessages.map((m, idx) => {
+    const isLast = idx === agentMessages.length - 1;
+    const streaming = isLast && m.role === 'assistant' && m._streaming;
+    const body = renderMd(m.content || '');
+    const rememberMatch = m.role === 'assistant' && /\[REMEMBER:\s*(.+?)\]\s*$/m.exec(m.content || '');
+    const rememberBtn = rememberMatch
+      ? `<button class="ag-msg-remember" data-text="${escapeHtml(rememberMatch[1])}" type="button">+ save to memory</button>`
+      : '';
+    return `<div class="ag-msg ${m.role}${streaming ? ' streaming' : ''}">
+      <div class="ag-msg-role">${m.role === 'user' ? 'You' : 'Agent'}</div>
+      <div class="ag-msg-body">${body}</div>
+      ${rememberBtn}
+    </div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+  el.querySelectorAll('.ag-msg-remember').forEach(b => {
+    b.addEventListener('click', () => {
+      addMemory(b.dataset.text);
+      b.disabled = true;
+      b.textContent = '✓ saved';
+      b.style.opacity = '0.5';
+    });
+  });
+}
+
+function renderMd(s) {
+  // Strip trailing [REMEMBER: ...] line from displayed body
+  const cleaned = String(s || '').replace(/\[REMEMBER:\s*.+?\]\s*$/m, '').trim();
+  return escapeHtml(cleaned)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\n/g, '<br>');
+}
+
+let _agentStreamAbort = null;
+async function sendAgentMessage(text) {
+  const trimmed = String(text || '').trim();
+  if (!trimmed) return;
+  if (_agentStreamAbort) try { _agentStreamAbort.abort(); } catch {}
+  _agentStreamAbort = new AbortController();
+  agentMessages.push({ role: 'user', content: trimmed });
+  agentMessages.push({ role: 'assistant', content: '', _streaming: true });
+  saveAgentChat();
+  renderAgentChat();
+  const sendBtn = document.getElementById('ag-send');
+  if (sendBtn) sendBtn.disabled = true;
+
+  const system = buildAgentSystemPrompt();
+  const histForApi = agentMessages.slice(0, -1).slice(-14).map(m => ({ role: m.role, content: m.content }));
+
+  try {
+    const res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: _agentStreamAbort.signal,
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2200,
+        stream: true,
+        system,
+        messages: histForApi
+      })
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error('http ' + res.status + (txt ? ': ' + txt.slice(0, 200) : ''));
+    }
+    if (!res.body) throw new Error('no stream');
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (!data || data === '[DONE]') continue;
+        try {
+          const ev = JSON.parse(data);
+          if (ev.type === 'content_block_delta' && ev.delta?.text) {
+            agentMessages[agentMessages.length - 1].content += ev.delta.text;
+            renderAgentChat();
+          }
+        } catch {}
+      }
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      agentMessages[agentMessages.length - 1].content = '⚠ ' + (e.message || String(e));
+    }
+  } finally {
+    agentMessages[agentMessages.length - 1]._streaming = false;
+    saveAgentChat();
+    renderAgentChat();
+    if (sendBtn) sendBtn.disabled = false;
+  }
+}
+
+// Wire agent controls
+document.getElementById('ag-send')?.addEventListener('click', () => {
+  const input = document.getElementById('ag-input');
+  if (!input) return;
+  const v = input.value;
+  input.value = '';
+  sendAgentMessage(v);
+});
+document.getElementById('ag-input')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    document.getElementById('ag-send')?.click();
+  }
+});
+document.getElementById('ag-mem-add')?.addEventListener('click', () => {
+  const inp = document.getElementById('ag-mem-input');
+  if (!inp) return;
+  addMemory(inp.value);
+  inp.value = '';
+});
+document.getElementById('ag-mem-input')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('ag-mem-add')?.click(); }
+});
+document.getElementById('ag-clear-btn')?.addEventListener('click', () => {
+  if (!confirm('Clear the chat history? Memory items stay.')) return;
+  agentMessages = []; saveAgentChat(); renderAgentChat();
+});
+document.querySelectorAll('.ag-suggestion').forEach(b => {
+  b.addEventListener('click', () => sendAgentMessage(b.dataset.q));
+});
 
 function focusPin(id) {
   const pin = pins.find(p => p.id === id);
@@ -4479,6 +5352,9 @@ function renderBookstoreMarkers() {
 function renderVillages() {
   if (document.body.dataset.tableTab === 'open' && typeof renderTable === 'function') {
     queueMicrotask(() => renderTable());
+  }
+  if (document.body.dataset.agentTab === 'open' && typeof renderAgentContext === 'function') {
+    queueMicrotask(() => renderAgentContext());
   }
   const listEl = document.getElementById('village-list');
   const countEl = document.getElementById('village-count');
@@ -4846,6 +5722,7 @@ function renderPins() {
   renderMapMarkers();
   populateActivePinSelect();
   if (document.body.dataset.tableTab === 'open') renderTable();
+  if (typeof renderAgentContext === 'function' && document.body.dataset.agentTab === 'open') renderAgentContext();
 }
 
 function escapeHtml(s) {
