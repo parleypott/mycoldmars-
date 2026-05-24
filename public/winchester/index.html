@@ -938,12 +938,8 @@ document.querySelectorAll('.layer-btn').forEach(btn => {
     const layer = btn.dataset.layer;
     const wasActive = btn.classList.contains('active');
     btn.classList.toggle('active');
-    const visibility = wasActive ? 'none' : 'visible';
     if (layer === 'schools') {
-      if (window._whhMap?.getLayer('school-districts-fill'))
-        window._whhMap.setLayoutProperty('school-districts-fill', 'visibility', visibility);
-      if (window._whhMap?.getLayer('school-districts-line'))
-        window._whhMap.setLayoutProperty('school-districts-line', 'visibility', visibility);
+      if (typeof syncSchoolVisibility === 'function') syncSchoolVisibility();
     } else {
       document.body.classList.toggle('hide-' + layer, wasActive);
     }
@@ -2028,6 +2024,16 @@ map.on('load', () => {
   })();
 });
 
+function syncSchoolVisibility() {
+  if (!map.getLayer || !map.getLayer('school-districts-fill')) return;
+  const btn = document.querySelector('.layer-btn[data-layer="schools"]');
+  const wanted = btn && btn.classList.contains('active');
+  const inBlank = currentStyleKey === 'blank';
+  const vis = (wanted && !inBlank) ? 'visible' : 'none';
+  map.setLayoutProperty('school-districts-fill', 'visibility', vis);
+  map.setLayoutProperty('school-districts-line', 'visibility', vis);
+}
+
 function mountSchoolDistrictLayers() {
   if (!window._schoolDistricts || map.getSource('school-districts')) return;
   const data = { type: 'FeatureCollection', features: window._schoolDistricts };
@@ -2045,11 +2051,7 @@ function mountSchoolDistrictLayers() {
     source: 'school-districts',
     paint: { 'line-color': '#5E5A4D', 'line-width': 1.1, 'line-opacity': 0.6 }
   }, firstSymbol);
-  // Respect current toggle state
-  const schoolsBtn = document.querySelector('.layer-btn[data-layer="schools"]');
-  const vis = (schoolsBtn && schoolsBtn.classList.contains('active')) ? 'visible' : 'none';
-  map.setLayoutProperty('school-districts-fill', 'visibility', vis);
-  map.setLayoutProperty('school-districts-line', 'visibility', vis);
+  syncSchoolVisibility();
   // Click → popup
   map.on('click', 'school-districts-fill', (e) => {
     const f = e.features?.[0];
@@ -2099,6 +2101,7 @@ function refreshVillageBoundaries() {
 function mountCustomLayers() {
   mountSchoolDistrictLayers();
   mountVillageBoundaryLayers();
+  syncSchoolVisibility();
 }
 
 function applyMapStyle(key) {
