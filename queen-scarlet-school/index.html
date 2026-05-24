@@ -5266,8 +5266,15 @@
       // Coming back from the library page?
       //   ?story=<uuid>  → open that specific story
       //   ?new=1         → start a fresh story (used by library's "+ new story" button)
+      //
+      // Vercel rewrites `/universe/<world>/write/<id>` → `?story=<id>`
+      // SERVER-SIDE only. The browser's address bar stays at the path
+      // form, so `location.search` is empty even though the user opened
+      // a specific story. Parse the id out of the pathname too —
+      // pathname wins because that's what the user actually clicked.
       const params = new URLSearchParams(location.search);
-      const wantedId = params.get('story');
+      const pathMatch = location.pathname.match(/^\/universe\/[a-z0-9-]+\/(?:write|story)\/([0-9a-f-]{8,})/i);
+      const wantedId = (pathMatch && pathMatch[1]) || params.get('story');
       const wantsNew = params.get('new') === '1';
       if (wantsNew) {
         history.replaceState(null, '', location.pathname);
