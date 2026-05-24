@@ -16,7 +16,10 @@
 
 import { checkAccess } from './_lib/access.js';
 
-export const config = { runtime: 'nodejs', maxDuration: 60 };
+// Edge runtime — Node functions FUNCTION_INVOCATION_FAILED at 90ms on
+// this project (Hobby plan). Edge handles Claude Haiku in 5-15s well
+// inside the 25s cap.
+export const config = { runtime: 'edge' };
 
 const SUPABASE_URL = process.env.QSS_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.QSS_SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_KEY || '';

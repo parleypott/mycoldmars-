@@ -15,7 +15,9 @@
 import { checkAccess } from './_lib/access.js';
 import { loadWorldStyle } from './_lib/qss-worlds.js';
 
-export const config = { runtime: 'nodejs', maxDuration: 60 };
+// Edge runtime — Node fails on this project. Gemini 2.5-flash-image
+// returns in 5-12s, comfortably inside the 25s Edge cap.
+export const config = { runtime: 'edge' };
 
 const SUPABASE_URL = process.env.QSS_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.QSS_SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
@@ -199,7 +201,10 @@ export default async function handler(req) {
   const path = `${worldSlug}/${scene.story_id}/${sceneId}/${variationId}.${ext}`;
   let imageUrl = null, storagePath = null, uploadErr = null;
   try {
-    const bin = Buffer.from(imgBase64, 'base64');
+    // Edge-safe base64 decode → Uint8Array (no Buffer global on Edge).
+    const binStr = atob(imgBase64);
+    const bin = new Uint8Array(binStr.length);
+    for (let i = 0; i < binStr.length; i++) bin[i] = binStr.charCodeAt(i);
     const up = await fetch(`${SUPABASE_URL}/storage/v1/object/qss-scenes/${path}`, {
       method: 'POST',
       headers: {
