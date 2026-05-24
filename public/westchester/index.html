@@ -3125,7 +3125,11 @@ function setActiveTab(tabId, updateHash = true) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tabId));
   document.body.classList.toggle('on-map', tabId === 'map');
   if (window._whhMap) setTimeout(() => window._whhMap.resize(), 80);
-  if (tabId === 'table' && typeof renderTable === 'function') { renderTable(); setTimeout(() => { if (typeof autoScoreUnscored === 'function') autoScoreUnscored(); }, 200); }
+  if (tabId === 'table' && typeof renderTable === 'function') {
+    renderTable();
+    setTimeout(() => { if (typeof attachPhotoManifest === 'function') attachPhotoManifest(); }, 100);
+    setTimeout(() => { if (typeof autoScoreUnscored === 'function') autoScoreUnscored(); }, 200);
+  }
   if (tabId === 'agent' && typeof renderAgentContext === 'function') { renderAgentContext(); renderAgentChat(); }
   // Hash routing — each tab is bookmarkable / deep-linkable
   if (updateHash) {
@@ -5337,17 +5341,54 @@ const TRAIN_LINE_COLOR_EXPR = ['match', ['get', 'line'],
   '#5A5448'
 ];
 
+// Grand Central + Harlem-125th junction (where all 3 MNR lines converge)
+const _GCT = [-73.9772, 40.7527];
+const _HARLEM_125 = [-73.9385, 40.8077];
+
+// Anchor points south of each line's southernmost Westchester station,
+// approximating actual rail corridor geography through the Bronx into GCT.
+const TRAIN_LINE_SOUTHERN_EXTENSIONS = {
+  Hudson: [
+    [-73.9210, 40.8781], // Spuyten Duyvil
+    [-73.9258, 40.8377], // University Heights
+    _HARLEM_125,         // Harlem-125th (Hudson joins)
+    _GCT
+  ],
+  Harlem: [
+    [-73.8541, 40.8977], // Wakefield
+    [-73.8756, 40.8664], // Botanical Garden
+    [-73.8882, 40.8573], // Fordham
+    [-73.9113, 40.8403], // Tremont
+    [-73.9155, 40.8244], // Melrose
+    _HARLEM_125,
+    _GCT
+  ],
+  'New Haven': [
+    [-73.8403, 40.8997], // Mt Vernon East
+    [-73.8463, 40.8915], // approaching Bronx
+    [-73.8577, 40.8785], // Co-op City / Hutchinson River
+    [-73.8760, 40.8524], // Westchester Sq
+    [-73.8944, 40.8318], // Hunts Point area
+    _HARLEM_125,         // joins Harlem at 125th
+    _GCT
+  ]
+};
+
 function buildTrainLinesGeoJSON() {
   const groups = {};
   TRAIN_STATIONS.forEach(s => {
     (groups[s.line] = groups[s.line] || []).push(s);
   });
   const features = Object.entries(groups).map(([line, stations]) => {
-    // Sort by gct ascending so the polyline runs Grand Central → out
+    // Sort by gct ascending so sorted[0] is the SOUTHERNMOST station (closest to GCT).
     const sorted = [...stations].sort((a, b) => a.gct - b.gct);
+    // Build polyline GCT → north: [GCT, harlem125, ...intermediates..., southernmost, ..., northernmost]
+    const ext = TRAIN_LINE_SOUTHERN_EXTENSIONS[line];
+    const southernExt = ext ? [...ext].reverse() : []; // [GCT, ...intermediates..., first-intermediate-north-of-junction]
+    const coords = [...southernExt, ...sorted.map(s => [s.lng, s.lat])];
     return {
       type: 'Feature',
-      geometry: { type: 'LineString', coordinates: sorted.map(s => [s.lng, s.lat]) },
+      geometry: { type: 'LineString', coordinates: coords },
       properties: { line }
     };
   });
@@ -5378,7 +5419,8 @@ function mountTrainLineLayers() {
     paint: {
       'line-color': TRAIN_LINE_COLOR_EXPR,
       'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.8, 12, 2.8, 15, 4.0, 18, 5.6],
-      'line-opacity': 0.88
+      'line-opacity': 0.55,
+      'line-blur': 0.4
     }
   });
 
@@ -6245,6 +6287,53 @@ async function scoreAllPins({ force = false, onProgress } = {}) {
   }
   if (typeof renderTable === 'function' && document.body.dataset.tableTab === 'open') renderTable();
   return results;
+}
+
+// ===================== PHOTO MANIFEST AUTO-ATTACH =====================
+// Pulls /westchester/photos/manifest.json once per session, matches each
+// entry against existing pins by street-name prefix, and silently fills
+// c.photos for any pin whose photos are empty. Never overwrites existing
+// photos (portrait-persistence pattern: only fill empty rows).
+let _manifestCache = null;
+let _photoAttachRan = false;
+async function loadPhotoManifest() {
+  if (_manifestCache !== null) return _manifestCache;
+  try {
+    const r = await fetch('./photos/manifest.json', { cache: 'force-cache' });
+    if (!r.ok) { _manifestCache = {}; return {}; }
+    _manifestCache = await r.json();
+  } catch { _manifestCache = {}; }
+  return _manifestCache;
+}
+async function attachPhotoManifest() {
+  if (_photoAttachRan) return;
+  _photoAttachRan = true;
+  if (!pins || !pins.length) { _photoAttachRan = false; return; }
+  const manifest = await loadPhotoManifest();
+  const keys = Object.keys(manifest);
+  if (!keys.length) return;
+  let attached = 0;
+  for (const p of pins) {
+    if (p.compass && p.compass.photos && p.compass.photos.length) continue; // never overwrite
+    const street = String(p.address || '').toLowerCase();
+    // Find first manifest key whose street prefix matches this pin's address
+    const matchKey = keys.find(k => {
+      const ks = k.toLowerCase().split(/[,\s]+/).slice(0, 3).join(' '); // first ~3 tokens
+      return street.startsWith(ks.split(' ').slice(0, 3).join(' ')) ||
+             ks.split(' ').slice(0, 3).join(' ') === street.split(/[,\s]+/).slice(0, 3).join(' ');
+    });
+    if (!matchKey) continue;
+    p.compass = p.compass || {};
+    p.compass.photos = manifest[matchKey];
+    attached++;
+  }
+  if (attached) {
+    if (typeof savePins === 'function') savePins();
+    if (typeof renderTable === 'function' && document.body.dataset.tableTab === 'open') renderTable();
+    if (typeof renderPins === 'function') renderPins();
+    if (typeof renderMapMarkers === 'function') renderMapMarkers();
+    console.log('[whh] photo manifest attached', attached, 'pins');
+  }
 }
 
 // Auto-score on Table-tab activation: kicks off unscored pins one by one.
