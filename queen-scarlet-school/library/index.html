@@ -597,6 +597,7 @@
       <div class="topbar-right">
         <a href="/universe/" class="btn ghost" title="Back to the universe — pick a different world">universe</a>
         <a href="#" class="btn ghost" id="lib-explore" title="Train this world's eye — thumbs up what feels right">explore</a>
+        <a href="#" class="btn ghost" id="lib-style" title="Set the look — palette, references, do-not rules">style</a>
         <a href="#" class="btn ghost" id="lib-cast" title="See every character in this world">cast</a>
         <a href="#" class="btn primary" id="lib-new">new story</a>
       </div>
@@ -608,9 +609,11 @@
         const world = (location.pathname.match(/^\/universe\/([a-z0-9-]+)/i) || [])[1] || 'queen-scarlet';
         const cast = document.getElementById('lib-cast');
         const explore = document.getElementById('lib-explore');
+        const style = document.getElementById('lib-style');
         const newBtn = document.getElementById('lib-new');
         if (cast) cast.href = `/universe/${world}/cast/`;
         if (explore) explore.href = `/universe/${world}/explore/`;
+        if (style) style.href = `/universe/${world}/style/`;
         if (newBtn) newBtn.href = `/universe/${world}/write/?new=1`;
       })();
     </script>

@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>World Style — Henry's Worlds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cambo&family=Caveat:wght@600;700&family=Fredoka:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #FFF6E0; --paper-card: #FFFFFF; --paper-deep: #FCEDC4;
+      --ink: #1F1F23; --ink-bright: #000; --ink-soft: #353540; --ink-faint: #6B6B7A;
+      --red: #E84545; --red-deep: #C32626;
+      --yolk: #FFD93D; --yolk-deep: #F0B900;
+      --sky: #4DB8E8;
+      --grass: #6BCB77;
+      --ui: 'Fredoka', system-ui, -apple-system, sans-serif;
+      --display: 'Caveat', 'Sailing Club', sans-serif;
+      --serif: 'Cambo', Georgia, serif;
+      --mono: ui-monospace, 'JetBrains Mono', monospace;
+      --ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; min-height: 100vh; }
+    body { font-family: var(--ui); background: var(--paper); color: var(--ink-bright); }
+
+    .topbar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 22px; border-bottom: 3px solid var(--ink-bright);
+      background: var(--paper); position: sticky; top: 0; z-index: 10;
+    }
+    .brand {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--ui); font-weight: 800; font-size: 17px;
+      color: var(--ink-bright); text-decoration: none;
+    }
+    .brand .blob {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--yolk);
+      border: 2.5px solid var(--ink-bright);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      position: relative; flex-shrink: 0;
+    }
+    .brand .blob::before, .brand .blob::after {
+      content: ''; position: absolute; background: var(--ink-bright);
+      width: 4px; height: 4px; top: 9px; border-radius: 50%;
+    }
+    .brand .blob::before { left: 6px; }
+    .brand .blob::after  { right: 6px; }
+    .spacer { flex: 1; }
+    .btn {
+      font-family: var(--ui); font-weight: 700; font-size: 14px;
+      padding: 8px 14px; border-radius: 999px;
+      border: 2.5px solid var(--ink-bright);
+      background: var(--paper-card); color: var(--ink-bright);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: transform 120ms var(--ease);
+    }
+    .btn:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink-bright); }
+    .btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink-bright); }
+    .btn.primary { background: var(--red); color: #fff; }
+    .btn.ghost   { background: transparent; box-shadow: 2px 2px 0 var(--ink-bright); }
+    .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+    .page { padding: 28px clamp(16px, 3vw, 36px) 96px; max-width: 1400px; margin: 0 auto; }
+    .page-intro { margin-bottom: 28px; }
+    .page-intro h1 {
+      font-family: var(--display); font-size: clamp(40px, 6vw, 64px);
+      margin: 0; line-height: 1;
+    }
+    .page-intro h1 .accent { color: var(--red); }
+    .page-intro .sub {
+      color: var(--ink-soft); font-size: 16px; max-width: 70ch;
+      margin-top: 10px; line-height: 1.5;
+    }
+    .meta-row {
+      margin-top: 10px; display: flex; gap: 14px; flex-wrap: wrap;
+      font-family: var(--mono); font-size: 12px;
+      color: var(--ink-faint); letter-spacing: 0.04em;
+    }
+    .meta-row .chip {
+      padding: 4px 10px; background: rgba(0,0,0,0.06);
+      border-radius: 999px;
+    }
+
+    .field {
+      background: var(--paper-card);
+      border: 3px solid var(--ink-bright);
+      box-shadow: 6px 6px 0 var(--ink-bright);
+      border-radius: 14px;
+      padding: 20px 22px;
+      margin-bottom: 26px;
+    }
+    .field-head {
+      display: flex; align-items: baseline; gap: 12px;
+      margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .field-label {
+      font-family: var(--mono); font-weight: 700; font-size: 11px;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--ink-bright);
+      padding: 4px 10px; background: var(--yolk);
+      border: 2px solid var(--ink-bright); border-radius: 6px;
+    }
+    .field-title {
+      font-family: var(--display); font-size: 28px;
+      line-height: 1; color: var(--ink-bright);
+    }
+    .field-hint {
+      font-family: var(--ui); font-size: 13px; color: var(--ink-faint);
+      flex: 1; min-width: 200px;
+    }
+    .field textarea {
+      width: 100%; min-height: 140px; resize: vertical;
+      padding: 14px 16px;
+      font-family: var(--mono); font-size: 14px; line-height: 1.55;
+      color: var(--ink-bright); background: #FFFDF6;
+      border: 2px solid rgba(0,0,0,0.18); border-radius: 8px;
+      outline: none;
+    }
+    .field textarea:focus { border-color: var(--ink-bright); box-shadow: 0 0 0 3px rgba(232,69,69,0.15); }
+    .field-foot {
+      margin-top: 8px; display: flex; justify-content: space-between;
+      font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+    }
+    .field-foot .reset {
+      cursor: pointer; color: var(--red-deep); text-decoration: underline;
+      background: none; border: none; font-family: inherit; font-size: inherit;
+    }
+
+    .save-bar {
+      position: sticky; bottom: 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 14px; padding: 14px 20px;
+      background: var(--paper-deep);
+      border: 3px solid var(--ink-bright);
+      box-shadow: 6px 6px 0 var(--ink-bright);
+      border-radius: 14px;
+      margin-top: 8px;
+    }
+    .save-status {
+      font-family: var(--mono); font-size: 12px; color: var(--ink-soft);
+      letter-spacing: 0.04em;
+    }
+    .save-status.dirty   { color: var(--red-deep); font-weight: 700; }
+    .save-status.saving  { color: var(--ink-soft); }
+    .save-status.saved   { color: #1f7a3b; }
+    .save-status.error   { color: var(--red-deep); font-weight: 700; }
+
+    .empty-state { padding: 40px; text-align: center; color: var(--ink-faint); font-style: italic; }
+
+    .test-section {
+      margin-top: 36px; padding-top: 28px;
+      border-top: 2px dashed var(--ink-bright);
+    }
+    .test-section h2 {
+      font-family: var(--display); font-size: 36px; margin: 0 0 6px;
+    }
+    .test-section .sub {
+      font-size: 13px; color: var(--ink-faint); margin-bottom: 16px;
+    }
+    .test-row {
+      display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    }
+    .test-row select {
+      font-family: var(--ui); font-size: 14px; font-weight: 600;
+      padding: 8px 12px; border: 2.5px solid var(--ink-bright);
+      border-radius: 999px; background: var(--paper-card);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      cursor: pointer;
+    }
+    .test-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+      margin-top: 18px;
+    }
+    .test-pane {
+      background: var(--paper-card); border: 3px solid var(--ink-bright);
+      box-shadow: 6px 6px 0 var(--ink-bright); border-radius: 14px;
+      padding: 14px; min-height: 280px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .test-pane .label {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--ink-faint);
+    }
+    .test-pane .img-box {
+      width: 100%; aspect-ratio: 1/1; background: #f4f1ea;
+      border-radius: 8px; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono); color: var(--ink-faint); font-size: 13px;
+      text-align: center; padding: 12px;
+    }
+    .test-pane .img-box img {
+      width: 100%; height: 100%; object-fit: contain;
+    }
+    @media (max-width: 720px) {
+      .test-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Toast */
+    .toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 100;
+      display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast {
+      padding: 12px 18px; border: 2.5px solid var(--ink-bright);
+      border-radius: 10px; background: var(--paper-card);
+      box-shadow: 4px 4px 0 var(--ink-bright);
+      font-family: var(--ui); font-weight: 600; font-size: 14px;
+      animation: slide-in 240ms var(--ease);
+    }
+    .toast.error { background: var(--red); color: #fff; }
+    .toast.ok    { background: var(--grass); color: var(--ink-bright); }
+    @keyframes slide-in { from { transform: translateX(60px); opacity: 0; } to { transform: none; opacity: 1; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a class="brand" href="/universe"><span class="blob"></span>mycoldmars</a>
+    <a class="btn ghost" id="back-library">library</a>
+    <a class="btn ghost" id="open-write">write</a>
+    <a class="btn ghost" id="open-cast">cast</a>
+    <a class="btn ghost" id="open-explore">explore</a>
+    <div class="spacer"></div>
+    <span id="world-name" class="btn ghost" style="cursor: default; pointer-events: none;">…</span>
+  </div>
+
+  <div class="page">
+    <div class="page-intro">
+      <h1>world <span class="accent">style</span></h1>
+      <div class="sub">brainstorm the look. these notes feed every portrait + explorer card draw in this world. change them and the next draw uses the new direction. existing pictures stay until you redraw them.</div>
+      <div class="meta-row">
+        <span class="chip" id="updated-chip">loading…</span>
+      </div>
+    </div>
+
+    <div id="fields">
+      <div class="empty-state">loading style…</div>
+    </div>
+
+    <div class="save-bar" id="save-bar" style="display: none;">
+      <div class="save-status" id="save-status">all saved</div>
+      <button class="btn primary" id="save-btn">save style</button>
+    </div>
+
+    <div class="test-section" id="test-section" style="display: none;">
+      <h2>test draw</h2>
+      <div class="sub">redraw one character with the saved style. doesn't replace the cast portrait — preview only.</div>
+      <div class="test-row">
+        <select id="test-char"><option value="">— pick a character —</option></select>
+        <button class="btn primary" id="test-btn" disabled>draw with current style</button>
+      </div>
+      <div class="test-grid">
+        <div class="test-pane">
+          <div class="label">existing</div>
+          <div class="img-box" id="pane-old">pick a character above</div>
+        </div>
+        <div class="test-pane">
+          <div class="label">new draw</div>
+          <div class="img-box" id="pane-new">click "draw with current style"</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-wrap" id="toasts"></div>
+
+  <script>
+    // ── gate / fetch wrapper (same pattern as /explore/, /cast/) ──
+    (function installAccessCodeFetchWrapper() {
+      const LS_KEY = 'qss:access_code';
+      const LS_TS_KEY = 'qss:access_code:ts';
+      const TTL_MS = 90 * 24 * 60 * 60 * 1000;
+      const origFetch = window.fetch.bind(window);
+      let inMemoryCode = null;
+      function readCached() {
+        try {
+          const code = localStorage.getItem(LS_KEY);
+          const ts = Number(localStorage.getItem(LS_TS_KEY) || 0);
+          if (code === null || Date.now() - ts > TTL_MS) return null;
+          return code;
+        } catch { return null; }
+      }
+      function writeCached(code) {
+        try { localStorage.setItem(LS_KEY, code); localStorage.setItem(LS_TS_KEY, String(Date.now())); } catch {}
+      }
+      async function exchangeForCode() {
+        try {
+          const r = await origFetch('/api/qss-access-token', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: 'newpress' }),
+          });
+          if (!r.ok) return null;
+          const j = await r.json().catch(() => ({}));
+          return typeof j.accessCode === 'string' ? j.accessCode : null;
+        } catch { return null; }
+      }
+      async function getCode() {
+        if (inMemoryCode !== null) return inMemoryCode;
+        const c = readCached(); if (c !== null) { inMemoryCode = c; return c; }
+        const f = await exchangeForCode(); if (f !== null) { inMemoryCode = f; writeCached(f); }
+        return inMemoryCode;
+      }
+      window.fetch = async function(input, init = {}) {
+        const url = typeof input === 'string' ? input : (input?.url || '');
+        if (!url.startsWith('/api/') || url.includes('/api/qss-access-token')) return origFetch(input, init);
+        const code = await getCode();
+        const headers = new Headers(init.headers || {});
+        if (code !== null && !headers.has('x-access-code')) headers.set('x-access-code', code);
+        let res = await origFetch(input, { ...init, headers });
+        if (res.status === 401) {
+          inMemoryCode = null;
+          const fresh = await getCode();
+          if (fresh !== null) {
+            headers.set('x-access-code', fresh);
+            res = await origFetch(input, { ...init, headers });
+          }
+        }
+        return res;
+      };
+      getCode();
+    })();
+
+    // ── world from URL ──
+    const world = (location.pathname.match(/^\/universe\/([a-z0-9-]+)/i) || [])[1] || 'queen-scarlet';
+    document.getElementById('back-library').href = `/universe/${world}/`;
+    document.getElementById('open-write').href   = `/universe/${world}/write/`;
+    document.getElementById('open-cast').href    = `/universe/${world}/cast/`;
+    document.getElementById('open-explore').href = `/universe/${world}/explore/`;
+
+    // ── field definitions ──
+    const FIELDS = [
+      { key: 'styleBlock', label: '01', title: 'the style block',
+        hint: 'the main creative direction — register, palette, brushwork, framing, quality bar. this is the biggest lever.' },
+      { key: 'references', label: '02', title: 'references',
+        hint: 'concrete anchors. name films, illustrators, specific characters. gemini matches what you name.' },
+      { key: 'dontList',   label: '03', title: 'do not list',
+        hint: 'banned moves. every "DO NOT" here closes one default failure mode (sticker outlines, anime, default-white skin).' },
+      { key: 'paper',      label: '04', title: 'paper / background',
+        hint: 'how to treat the surface — flat paper, embedded scene, deep environment.' },
+    ];
+
+    const state = {
+      world: null,           // loaded row from /api/qss-world-style
+      dirty: false,
+      saving: false,
+      values: {},            // current edited values per field
+      original: {},          // last saved values (for reset)
+      castChars: [],         // pulled from /api/qss-cast for the test panel
+    };
+
+    function setStatus(label, cls) {
+      const el = document.getElementById('save-status');
+      el.textContent = label;
+      el.className = 'save-status ' + (cls || '');
+    }
+
+    function toast(msg, kind = 'ok', ms = 2400) {
+      const t = document.createElement('div');
+      t.className = 'toast ' + kind;
+      t.textContent = msg;
+      document.getElementById('toasts').appendChild(t);
+      setTimeout(() => t.remove(), ms);
+    }
+
+    function markDirty() {
+      state.dirty = true;
+      setStatus('unsaved changes', 'dirty');
+    }
+
+    function renderFields() {
+      const root = document.getElementById('fields');
+      root.innerHTML = '';
+      for (const f of FIELDS) {
+        const wrap = document.createElement('div');
+        wrap.className = 'field';
+        wrap.innerHTML = `
+          <div class="field-head">
+            <span class="field-label">${f.label}</span>
+            <span class="field-title">${f.title}</span>
+            <span class="field-hint">${f.hint}</span>
+          </div>
+          <textarea data-key="${f.key}"></textarea>
+          <div class="field-foot">
+            <span><span data-ch-count="${f.key}">0</span> characters</span>
+            <button class="reset" data-reset="${f.key}" type="button">reset to original</button>
+          </div>
+        `;
+        root.appendChild(wrap);
+        const ta = wrap.querySelector('textarea');
+        ta.value = state.values[f.key] || '';
+        wrap.querySelector(`[data-ch-count="${f.key}"]`).textContent = (state.values[f.key] || '').length;
+        ta.addEventListener('input', () => {
+          state.values[f.key] = ta.value;
+          wrap.querySelector(`[data-ch-count="${f.key}"]`).textContent = ta.value.length;
+          markDirty();
+        });
+        wrap.querySelector(`[data-reset="${f.key}"]`).addEventListener('click', () => {
+          ta.value = state.original[f.key] || '';
+          state.values[f.key] = ta.value;
+          wrap.querySelector(`[data-ch-count="${f.key}"]`).textContent = ta.value.length;
+          markDirty();
+        });
+      }
+      document.getElementById('save-bar').style.display = '';
+      document.getElementById('test-section').style.display = '';
+    }
+
+    async function loadWorld() {
+      try {
+        const r = await fetch(`/api/qss-world-style?world=${encodeURIComponent(world)}`);
+        if (!r.ok) throw new Error(`http_${r.status}`);
+        const { world: w } = await r.json();
+        state.world = w;
+        const a = w.art_style || {};
+        for (const f of FIELDS) {
+          state.values[f.key]   = a[f.key] || '';
+          state.original[f.key] = a[f.key] || '';
+        }
+        document.getElementById('world-name').textContent = w.short_name || w.name || world;
+        document.getElementById('updated-chip').textContent =
+          w.updated_at ? `last saved ${new Date(w.updated_at).toLocaleString()}` : 'never saved';
+        renderFields();
+        setStatus('all saved', 'saved');
+      } catch (e) {
+        document.getElementById('fields').innerHTML =
+          `<div class="empty-state">couldn't load — ${(e.message || e)}</div>`;
+      }
+    }
+
+    async function save() {
+      if (state.saving) return;
+      state.saving = true;
+      setStatus('saving…', 'saving');
+      try {
+        const body = { art_style: { ...state.values } };
+        const r = await fetch(`/api/qss-world-style?world=${encodeURIComponent(world)}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          throw new Error(j.detail || j.error || `http_${r.status}`);
+        }
+        const { world: w } = await r.json();
+        state.world = w;
+        for (const f of FIELDS) state.original[f.key] = state.values[f.key] || '';
+        document.getElementById('updated-chip').textContent =
+          `last saved ${new Date(w.updated_at).toLocaleString()}`;
+        state.dirty = false;
+        setStatus('all saved', 'saved');
+        toast('style saved — next draw uses it', 'ok');
+      } catch (e) {
+        setStatus(`error: ${e.message || e}`, 'error');
+        toast('save failed: ' + (e.message || e), 'error', 4500);
+      } finally { state.saving = false; }
+    }
+
+    document.getElementById('save-btn').addEventListener('click', save);
+    window.addEventListener('beforeunload', (e) => {
+      if (state.dirty) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    // ── Test-draw panel: pull cast list, let user pick one, redraw with current saved style ──
+    async function loadCastList() {
+      try {
+        const r = await fetch(`/api/qss-cast?world=${encodeURIComponent(world)}&action=list`);
+        if (!r.ok) return;
+        const { characters } = await r.json();
+        const select = document.getElementById('test-char');
+        for (const c of (characters || [])) {
+          const opt = document.createElement('option');
+          opt.value = c.name;
+          opt.textContent = c.name;
+          select.appendChild(opt);
+        }
+        select.addEventListener('change', () => {
+          const name = select.value;
+          document.getElementById('test-btn').disabled = !name;
+          const c = (characters || []).find(x => x.name === name);
+          const pane = document.getElementById('pane-old');
+          if (c && c.primary_portrait_id) {
+            pane.innerHTML = `<img src="/api/qss-cast?action=portrait&world=${encodeURIComponent(world)}&name=${encodeURIComponent(c.name)}&id=${encodeURIComponent(c.primary_portrait_id)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'no existing portrait yet',style:'color:var(--ink-faint);font-family:var(--mono);font-size:13px'}))"/>`;
+          } else {
+            pane.textContent = c ? 'no existing portrait yet' : 'pick a character above';
+          }
+          document.getElementById('pane-new').textContent = 'click "draw with current style"';
+        });
+        state.castChars = characters || [];
+      } catch (e) {
+        console.warn('cast list', e);
+      }
+    }
+
+    document.getElementById('test-btn').addEventListener('click', async () => {
+      const select = document.getElementById('test-char');
+      const name = select.value;
+      if (!name) return;
+      const c = state.castChars.find(x => x.name === name);
+      if (!c) return;
+      const pane = document.getElementById('pane-new');
+      pane.textContent = 'drawing… (5-12s)';
+      const btn = document.getElementById('test-btn');
+      btn.disabled = true;
+      try {
+        const r = await fetch('/api/qss-character-card', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            world_slug: world,
+            character: { name: c.name, current_state: c.current_state || '', intro_block: c.intro_block || null },
+            rules: null, recentBlocks: [],
+            revise: false, vibe_shift: false,
+            visual_notes: c.visual_notes || '',
+            chat: [],
+            new_message: '',
+            existing_synopsis: c.synopsis || '',
+          }),
+        });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          throw new Error(j.detail || j.error || `http_${r.status}`);
+        }
+        const data = await r.json();
+        if (!data.image?.dataBase64) throw new Error(data.error || 'no image');
+        pane.innerHTML = `<img src="data:${data.image.mime || 'image/png'};base64,${data.image.dataBase64}"/>`;
+      } catch (e) {
+        pane.textContent = 'draw failed: ' + (e.message || e);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    loadWorld();
+    loadCastList();
+  </script>
+</body>
+</html>

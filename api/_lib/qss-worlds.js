@@ -112,3 +112,89 @@ export function artStyleForBody(body) {
   const w = resolveWorld(slug);
   return w.artStyle || WORLDS[DEFAULT_WORLD].artStyle;
 }
+
+// ─── DB-backed live overrides ────────────────────────────────────────
+// The World Style Hub (UI at /universe/<world>/style/) writes art_style
+// and canon_text into the qss_worlds row. loadWorldStyle merges the DB
+// values OVER the bundled defaults so Johnny can iterate on style
+// without a deploy. DB miss / network error / column null → fall back
+// to bundled defaults silently. Cache TTL keeps prod off Supabase on
+// every portrait draw.
+
+const STYLE_CACHE = new Map();   // slug → { fetchedAt, art_style, canon_text }
+const STYLE_TTL_MS = 5 * 60 * 1000;
+
+async function fetchWorldRowFromDb(slug) {
+  const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supaKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supaUrl || !supaKey) return null;
+  try {
+    const r = await fetch(
+      `${supaUrl}/rest/v1/qss_worlds?slug=eq.${encodeURIComponent(slug)}&select=art_style,canon_text&limit=1`,
+      {
+        headers: { apikey: supaKey, Authorization: `Bearer ${supaKey}` },
+        signal: AbortSignal.timeout(3000),
+      }
+    );
+    if (!r.ok) return null;
+    const rows = await r.json();
+    return Array.isArray(rows) && rows[0] ? rows[0] : null;
+  } catch { return null; }
+}
+
+// Returns merged { artStyle, canonText } for a slug. DB overrides win
+// per-field; missing/empty DB fields fall through to the bundled
+// hardcoded values in WORLDS above. Cached per-instance with a 5-min
+// TTL so a busy draw burst hits Supabase at most once.
+export async function loadWorldStyle(slug) {
+  const key = sanitizeSlug(slug);
+  const now = Date.now();
+  const cached = STYLE_CACHE.get(key);
+  if (cached && (now - cached.fetchedAt) < STYLE_TTL_MS) {
+    return mergeStyle(key, cached);
+  }
+  const row = await fetchWorldRowFromDb(key);
+  const entry = {
+    fetchedAt: now,
+    art_style: row?.art_style && typeof row.art_style === 'object' ? row.art_style : null,
+    canon_text: typeof row?.canon_text === 'string' && row.canon_text.length ? row.canon_text : null,
+  };
+  STYLE_CACHE.set(key, entry);
+  return mergeStyle(key, entry);
+}
+
+function mergeStyle(slug, entry) {
+  const bundled = WORLDS[slug] || WORLDS[DEFAULT_WORLD];
+  const bundledArt = bundled.artStyle || {};
+  const dbArt = entry.art_style || {};
+  // Per-field override: any non-empty string in DB beats bundled.
+  const artStyle = {
+    styleBlock: stringPick(dbArt.styleBlock, bundledArt.styleBlock),
+    references: stringPick(dbArt.references, bundledArt.references),
+    dontList:   stringPick(dbArt.dontList,   bundledArt.dontList),
+    paper:      stringPick(dbArt.paper,      bundledArt.paper),
+    slug,
+  };
+  const canonText = stringPick(entry.canon_text, bundled.canonText);
+  return { artStyle, canonText, slug, name: bundled.name };
+}
+
+function stringPick(...candidates) {
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.length) return c;
+  }
+  return '';
+}
+
+function sanitizeSlug(raw) {
+  const s = String(raw || '').trim().toLowerCase();
+  if (s === 'burgundy') return 'burgundy';
+  return DEFAULT_WORLD;
+}
+
+// Cache-bust hook — call from PUT handler after writing so the next
+// draw picks up the new style without waiting out the TTL.
+export function invalidateWorldStyleCache(slug) {
+  if (slug) STYLE_CACHE.delete(sanitizeSlug(slug));
+  else STYLE_CACHE.clear();
+}

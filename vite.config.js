@@ -89,6 +89,7 @@ export default defineConfig({
         queenScarletSchoolCast: resolve(__dirname, 'queen-scarlet-school/cast/index.html'),
         queenScarletSchoolUniverse: resolve(__dirname, 'queen-scarlet-school/universe/index.html'),
         queenScarletSchoolExplore: resolve(__dirname, 'queen-scarlet-school/explore/index.html'),
+        queenScarletSchoolStyle: resolve(__dirname, 'queen-scarlet-school/style/index.html'),
         democracy: resolve(__dirname, 'democracy/index.html'),
         trippy: resolve(__dirname, 'trippy/index.html'),
         taiwan: resolve(__dirname, 'taiwan/index.html'),

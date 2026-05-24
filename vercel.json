@@ -11,6 +11,9 @@
     { "source": "/universe/:world/explore", "destination": "/queen-scarlet-school/explore/index.html" },
     { "source": "/universe/:world/explore/", "destination": "/queen-scarlet-school/explore/index.html" },
 
+    { "source": "/universe/:world/style", "destination": "/queen-scarlet-school/style/index.html" },
+    { "source": "/universe/:world/style/", "destination": "/queen-scarlet-school/style/index.html" },
+
     { "source": "/universe/:world/write", "destination": "/queen-scarlet-school/index.html" },
     { "source": "/universe/:world/write/", "destination": "/queen-scarlet-school/index.html" },
     { "source": "/universe/:world/write/:story", "destination": "/queen-scarlet-school/index.html?story=:story" },

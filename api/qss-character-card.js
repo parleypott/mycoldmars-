@@ -24,7 +24,7 @@
 
 import { checkAccess as sharedCheckAccess } from './_lib/access.js';
 import { canonForName, canonContextBlock } from './_lib/qss-canon.js';
-import { canonOverlayForBody, resolveWorld } from './_lib/qss-worlds.js';
+import { canonOverlayForBody, resolveWorld, loadWorldStyle } from './_lib/qss-worlds.js';
 
 // Edge runtime. We TRIED moving to Node with a server-side retry to
 // dodge the 25s edge cap, but the combination produced consistent 60s
@@ -237,7 +237,12 @@ export default async function handler(req) {
   // invent a meaningfully different archetype.
   // Resolve which world this draw belongs to. Drives art style
   // (sticker vs painterly), background treatment, output directive.
-  const world = resolveWorld(body?.world_slug || body?.world);
+  // loadWorldStyle returns the DB-edited art_style + canon_text merged
+  // over the bundled defaults — so Johnny's edits in the World Style
+  // Hub flow into every draw without a deploy. Cached 5 min per
+  // instance, falls back silently to bundled if DB unreachable.
+  const liveWorld = await loadWorldStyle(body?.world_slug || body?.world);
+  const world = { ...resolveWorld(body?.world_slug || body?.world), artStyle: liveWorld.artStyle };
   const portraitPrompt = buildPortraitPrompt({
     name, currentState, themes, tones, recentBlocks, subjectCanon,
     visualNotes: vibeShift ? '' : incomingNotes,
@@ -247,7 +252,9 @@ export default async function handler(req) {
     world,
   });
 
-  const worldOverlay = canonOverlayForBody(body);
+  // Canon overlay — DB-edited canon_text wins over bundled. Build the
+  // overlay block inline so we use the merged value.
+  const worldOverlay = `\n\n═══ WORLD CANON: ${liveWorld.name} ═══\n${liveWorld.canonText}\n`;
   const claudePromise = callClaude(anthropicKey, claudeUser, worldOverlay);
   const imagePromise = callNanoBanana(geminiKey, portraitPrompt + worldOverlay, refPortrait, lovedRefs);
 
