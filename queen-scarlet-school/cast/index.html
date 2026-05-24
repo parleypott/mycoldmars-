@@ -2691,6 +2691,11 @@
             .map(p => ({ dataBase64: p.dataBase64, mimeType: p.mime || 'image/png' }))
         : null;
       const body = {
+        // Without world_slug, /api/qss-character-card defaults to QSS
+        // sticker style — which means burgundy cast cards got drawn in
+        // QSS register instead of burgundy painterly. Threads the active
+        // world through so per-world art canon applies.
+        world_slug: (window.QSSWorlds?.getActive?.() || 'queen-scarlet'),
         character: { name, current_state: card.current_state || '', intro_block: card.intro_block || null },
         arc: state.story?.arc_context || null,
         recentBlocks: recent,
