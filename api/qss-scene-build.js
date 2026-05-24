@@ -32,7 +32,11 @@
 import { checkAccess } from './_lib/access.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
 
-export const config = { runtime: 'nodejs', maxDuration: 60 };
+// Edge runtime. Node was hanging on Fetch-style handlers (Node needs the
+// Express (req, res) signature; my function returns a Response object).
+// Edge supports Fetch natively. 25s cap on Hobby is plenty — with the
+// marker-only output, Haiku 4.5 finishes a novel-length source in 5-15s.
+export const config = { runtime: 'edge' };
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -161,7 +165,7 @@ export default async function handler(req) {
         system: SYSTEM + canonOverlayForBody(body),
         messages: [{ role: 'user', content: userParts }],
       }),
-      signal: AbortSignal.timeout(50_000),
+      signal: AbortSignal.timeout(22_000),
     });
   } catch (err) {
     return json(502, { error: 'anthropic_unreachable', detail: err?.message || String(err) });
