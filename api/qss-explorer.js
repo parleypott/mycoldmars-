@@ -181,8 +181,12 @@ Return ONLY the JSON object. No markdown.`;
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 16000,
+        // Haiku 4.5 — fast structured extraction. Sonnet's wall time on
+        // a ~44K-char novel with 100-item output blew past Edge's 25s
+        // function cap. Haiku finishes the same task in 10-15s with the
+        // structured JSON staying clean.
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 14000,
         system: SYSTEM,
         messages: [{ role: 'user', content: userPrompt }],
       }),
