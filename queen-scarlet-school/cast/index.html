@@ -1896,12 +1896,40 @@
       resolveHydrationGate();
     }
 
-    // A card is "hydrated" if every portrait metadata entry has its
-    // dataBase64 body attached. Returns true for cards with no portraits
-    // at all (legitimately empty — auto-draw will fill them).
+    // A card is "hydrated" if every portrait has SOMETHING to render
+    // — either a Storage CDN URL (image_url) or inline base64 bytes
+    // (dataBase64). Either is enough; orphans (id only, no bytes/url)
+    // make the card unhydrated and skip cloud push.
     function cardIsHydrated(card) {
       if (!card || !Array.isArray(card.portraits) || !card.portraits.length) return true;
-      return card.portraits.every(p => p && typeof p.dataBase64 === 'string' && p.dataBase64.length > 0);
+      return card.portraits.every(p => {
+        if (!p) return false;
+        if (typeof p.image_url === 'string' && p.image_url.length > 0) return true;
+        if (typeof p.dataBase64 === 'string' && p.dataBase64.length > 0) return true;
+        return false;
+      });
+    }
+
+    // Resolve the src= for an <img> tag from a portrait object.
+    // Prefers the Supabase Storage CDN URL (no function round-trip,
+    // browser caches in the disk cache). Falls back to inline data: URL
+    // for legacy portraits whose bytes are in IDB/jsonb only.
+    function portraitSrc(p) {
+      if (!p) return '';
+      if (typeof p.image_url === 'string' && p.image_url) return p.image_url;
+      if (typeof p.dataBase64 === 'string' && p.dataBase64) {
+        const mime = p.mime || 'image/png';
+        return `data:${mime};base64,${p.dataBase64}`;
+      }
+      return '';
+    }
+    // True when the portrait has bytes (in any form) — used by render
+    // paths that need to decide between "show image" and "show loading".
+    function portraitHasBytes(p) {
+      if (!p) return false;
+      if (p.image_url) return true;
+      if (typeof p.dataBase64 === 'string' && p.dataBase64.length > 0) return true;
+      return false;
     }
 
     // ─── Portrait-count invariant ───────────────────────────────────────
@@ -2114,7 +2142,30 @@
           if (!r.ok && r.status !== 503) {
             console.warn('[cast cloud] chunk push failed', r.status, chunk.map(c => c.name));
             for (const c of chunk) cloudPushQueue.set((c.name || '').toLowerCase(), c);
+            continue;
           }
+          // Save-observability — compare what we sent vs what the server
+          // says it stored. If the server dropped any portrait ids that
+          // we shipped, FIRE A TOAST so silent loss surfaces in the
+          // session it happens (the Tobin-class bug — server said 200
+          // but the row had portrait_count=0).
+          try {
+            const body = await r.json().catch(() => ({}));
+            const stored = body?.stored || {};
+            for (const c of chunk) {
+              const sentIds = Array.isArray(c.portraits) ? c.portraits.map(p => p?.id).filter(Boolean) : [];
+              const got = stored[c.name];
+              const gotIds = got?.portrait_ids || [];
+              if (!sentIds.length) continue;
+              const missing = sentIds.filter(id => !gotIds.includes(id));
+              if (missing.length) {
+                console.error('[cast SAVE INVARIANT] server dropped portrait id(s)', {
+                  name: c.name, sent: sentIds, stored: gotIds, missing,
+                });
+                try { toast(`save bug — ${c.name} lost ${missing.length} portrait(s) on the server. logged.`, 'error', 6000); } catch {}
+              }
+            }
+          } catch {}
         } catch (e) {
           console.warn('[cast cloud] chunk push errored', e?.message, chunk.map(c => c.name));
           for (const c of chunk) cloudPushQueue.set((c.name || '').toLowerCase(), c);
@@ -2537,15 +2588,14 @@
     }
     function gridCardMarkup(c) {
       const primary = getPrimary(c);
-      // A portrait counts as "ready to render" only when its dataBase64
-      // body is attached. With portraits offloaded to IDB, there's a brief
-      // window between LS hydrate and IDB hydrate where the metadata is
-      // present but the body isn't — that's a loading state, not a primary.
-      const primaryReady = !!(primary && primary.dataBase64);
+      // A portrait counts as "ready" if it has EITHER a Storage URL
+      // (image_url) or inline bytes (dataBase64). Storage-backed
+      // portraits render immediately on fresh devices — no IDB wait.
+      const primaryReady = portraitHasBytes(primary);
       const isLoading = c.status === 'loading';
       const hasError = c.status === 'error' && !primaryReady;
       const portraitInner = primaryReady
-        ? `<img src="data:${esc(primary.mime || 'image/png')};base64,${primary.dataBase64}" alt="${esc(c.name)}" loading="lazy" />`
+        ? `<img src="${esc(portraitSrc(primary))}" alt="${esc(c.name)}" loading="lazy" />`
         : hasError
           ? `<div>couldn't draw yet — tap to try again</div>`
           : `<span>drawing the portrait…</span>`;
@@ -2595,14 +2645,14 @@
         ttsEl.innerHTML = window.qssTTS.buildBtn(parts.join('. '), { size: 'lg', dark: true });
       }
 
-      // Primary portrait. Needs both the metadata AND the dataBase64 body
-      // (which arrives async from IDB on first paint).
+      // Primary portrait — Storage URL preferred, falls back to inline
+      // base64 for legacy IDB-cached portraits.
       const primary = getPrimary(card);
-      const primaryReady = !!(primary && primary.dataBase64);
+      const primaryReady = portraitHasBytes(primary);
       const ppEl = document.getElementById('portrait-primary');
       if (primaryReady) {
         ppEl.className = 'portrait-primary';
-        ppEl.innerHTML = `<img src="data:${esc(primary.mime || 'image/png')};base64,${primary.dataBase64}" alt="${esc(card.name)}" />`;
+        ppEl.innerHTML = `<img src="${esc(portraitSrc(primary))}" alt="${esc(card.name)}" />`;
       } else if (primary || state.pendingGen.has(card.name)) {
         ppEl.className = 'portrait-primary loading';
         ppEl.innerHTML = '<span>drawing the portrait…</span>';
@@ -2621,8 +2671,8 @@
       const thumbs = card.portraits.slice().sort((a, b) => (a.generated_at || 0) - (b.generated_at || 0)).map(p => {
         const isPrimary = p.id === card.primary_portrait_id;
         const isLoved = !!p.loved;
-        const inner = p.dataBase64
-          ? `<img src="data:${esc(p.mime || 'image/png')};base64,${p.dataBase64}" alt="" />`
+        const inner = portraitHasBytes(p)
+          ? `<img src="${esc(portraitSrc(p))}" alt="" />`
           : `<span style="display:block;padding:18px 8px;font-size:11px;color:var(--ink-faint);text-align:center;">loading…</span>`;
         return `<div class="gallery-thumb ${isPrimary ? 'primary' : ''} ${isLoved ? 'loved' : ''}" data-pid="${esc(p.id)}" title="${esc(p.note || (isPrimary ? 'primary' : 'tap to make primary'))}">
           ${inner}

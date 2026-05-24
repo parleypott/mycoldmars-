@@ -35,13 +35,15 @@ const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   '';
 
-const SELECT_COLS = 'name_key,name,synopsis,visual_notes,portraits,primary_portrait_id,chat,story_appearances,generated_at,updated_at';
+const SELECT_COLS = 'name_key,name,synopsis,visual_notes,portraits,primary_portrait_id,primary_image_url,chat,story_appearances,generated_at,updated_at';
 // Thin select for handleList — omits the portraits JSONB column so the
 // 8 s statement timeout doesn't fire when portraits weigh ~70 MB total.
-// handleList synthesizes a thin portraits=[{id: primary_portrait_id}]
-// from primary_portrait_id; the client lazy-loads bytes via
-// ?action=portrait. See handleList for the full rationale.
-const LIST_BASE_COLS = 'name_key,name,synopsis,visual_notes,primary_portrait_id,chat,story_appearances,generated_at,updated_at';
+// handleList synthesizes a thin portraits=[{id, image_url}] from
+// primary_portrait_id + primary_image_url; client renders <img src=
+// image_url> direct from Storage CDN, no per-portrait function call.
+// Pre-Storage-migration rows have primary_image_url NULL — those still
+// fall through to the legacy ?action=portrait lazy-fetch.
+const LIST_BASE_COLS = 'name_key,name,synopsis,visual_notes,primary_portrait_id,primary_image_url,chat,story_appearances,generated_at,updated_at';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -127,10 +129,23 @@ async function handleList(world) {
     name: r.name,
     synopsis: r.synopsis || '',
     visual_notes: r.visual_notes || '',
+    // Synthesize ONE primary portrait entry with the Storage CDN URL
+    // if we have one. Client uses image_url for direct render — no
+    // function round-trip, no IDB hydrate dance. Legacy rows that
+    // pre-date the Storage migration carry primary_image_url=NULL;
+    // their portraits still fall through to ?action=portrait.
     portraits: r.primary_portrait_id
-      ? [{ id: r.primary_portrait_id, mime: 'image/png', generated_at: Date.now(), note: '', loved: false }]
+      ? [{
+          id: r.primary_portrait_id,
+          mime: 'image/png',
+          generated_at: Date.now(),
+          note: '',
+          loved: false,
+          image_url: r.primary_image_url || null,
+        }]
       : [],
     primary_portrait_id: r.primary_portrait_id || null,
+    primary_image_url: r.primary_image_url || null,
     chat: Array.isArray(r.chat) ? r.chat : [],
     story_appearances: Array.isArray(r.story_appearances) ? r.story_appearances : [],
     generated_at: r.generated_at ? new Date(r.generated_at).getTime() : Date.now(),
@@ -165,37 +180,98 @@ async function handleUpsert(body, world) {
   const card = sanitizeCard(body?.card);
   if (!card) return jsonError(400, 'BAD_CARD', 'card with name required');
   const merged = await mergeWithExisting(card, world);
+  await uploadPendingPortraitsToStorage(merged, world);
   const row = cardToRow(merged);
   row.world_slug = world;
   await sb('POST', `qss_cast?on_conflict=name_key,world_slug&select=${SELECT_COLS}`, row, {
     returnRepresentation: true,
     prefer: 'resolution=merge-duplicates',
   });
-  return jsonOk({ ok: true });
+  // Save-observability: tell client exactly which portrait ids landed.
+  // Client compares against what it sent and toasts on silent loss.
+  return jsonOk({
+    ok: true,
+    stored: {
+      [merged.name]: {
+        portrait_ids: (merged.portraits || []).map(p => p.id),
+        primary: merged.primary_portrait_id || null,
+      },
+    },
+  });
 }
 
 async function handleUpsertMany(body, world) {
   const cards = Array.isArray(body?.cards) ? body.cards : [];
-  if (!cards.length) return jsonOk({ ok: true, upserted: 0 });
+  if (!cards.length) return jsonOk({ ok: true, upserted: 0, stored: {} });
   const sanitized = cards.map(sanitizeCard).filter(Boolean);
-  if (!sanitized.length) return jsonOk({ ok: true, upserted: 0 });
+  if (!sanitized.length) return jsonOk({ ok: true, upserted: 0, stored: {} });
   // Merge each incoming card against the existing row for the same
-  // (name_key, world_slug). This is the BACKSTOP against a buggy client
-  // that sends a thin (unhydrated) card up — without this, the server
-  // would happily overwrite a row with full portraits using a row whose
-  // portraits[] is empty because dataBase64 was still in IDB. Johnny has
-  // reported the resulting "every visit redraws every character" 15+
-  // times. Now: server NEVER reduces portrait count, NEVER drops
-  // visual_notes, NEVER drops loved flags. Generation-only paths still
-  // add new portraits (since merge keeps both sides). Explicit deletes
-  // go through DELETE, not upsert.
+  // (name_key, world_slug). Belt-and-suspenders against thin-card
+  // pushes — server NEVER reduces portrait count, NEVER drops
+  // visual_notes, NEVER drops loved flags.
   const merged = await Promise.all(sanitized.map(c => mergeWithExisting(c, world)));
+  // For every portrait that carries bytes but no image_url yet, upload
+  // to Storage. Eliminates the inline-jsonb bloat going forward and
+  // gives every portrait a CDN URL that future reads serve directly.
+  await Promise.all(merged.map(c => uploadPendingPortraitsToStorage(c, world)));
   const rows = merged.map(cardToRow);
   for (const r of rows) r.world_slug = world;
   await sb('POST', `qss_cast?on_conflict=name_key,world_slug`, rows, {
     prefer: 'resolution=merge-duplicates,return=minimal',
   });
-  return jsonOk({ ok: true, upserted: rows.length });
+  const stored = {};
+  for (const m of merged) {
+    stored[m.name] = {
+      portrait_ids: (m.portraits || []).map(p => p.id),
+      primary: m.primary_portrait_id || null,
+    };
+  }
+  return jsonOk({ ok: true, upserted: rows.length, stored });
+}
+
+// For each portrait that has dataBase64 inline but no image_url, upload
+// the bytes to the public qss-cast Storage bucket and set image_url on
+// the portrait object. dataBase64 stays attached for response back-compat;
+// cardToRow strips it before persistence so the DB row only stores URLs.
+// Mutates in place.
+async function uploadPendingPortraitsToStorage(card, world) {
+  if (!card || !Array.isArray(card.portraits) || !card.portraits.length) return;
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  const nameKey = String(card.name || '').toLowerCase();
+  const safe = s => String(s || '').replace(/[^a-z0-9\-_]/gi, '_').slice(0, 80);
+  for (const p of card.portraits) {
+    if (!p || !p.id) continue;
+    if (p.image_url) continue;
+    if (!p.dataBase64) continue;
+    const mime = p.mime || 'image/png';
+    const ext = mime.includes('jpeg') ? 'jpg' : (mime.includes('webp') ? 'webp' : 'png');
+    const path = `${safe(world)}/${safe(nameKey)}/${safe(p.id)}.${ext}`;
+    try {
+      const bin = atob(p.dataBase64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const up = await fetch(`${SUPABASE_URL}/storage/v1/object/qss-cast/${path}`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': mime,
+          'x-upsert': 'true',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+        },
+        body: bytes,
+      });
+      if (up.ok) {
+        p.image_url = `${SUPABASE_URL}/storage/v1/object/public/qss-cast/${path}`;
+        p.storage_path = path;
+      } else {
+        const t = await up.text().catch(() => '');
+        console.warn('[qss-cast storage upload]', up.status, t.slice(0, 200));
+      }
+    } catch (e) {
+      console.warn('[qss-cast storage upload threw]', e?.message || String(e));
+    }
+  }
 }
 
 // Fetch the existing row for this (name_key, world_slug) and merge the
@@ -244,8 +320,14 @@ async function mergeWithExisting(card, world) {
   const existingPortraits = Array.isArray(existing.portraits) ? existing.portraits : [];
   const incomingPortraits = Array.isArray(card.portraits) ? card.portraits : [];
 
-  // Union by id. Incoming wins on metadata except dataBase64/mime where
-  // existing always wins (the indestructible byte-preservation rule).
+  // A portrait is "real" if it has SOMETHING to render — either an
+  // image_url (Storage CDN) or dataBase64 (legacy inline). Portraits
+  // with only an id (no bytes, no URL) are orphan metadata and dropped
+  // — accepting them is what caused the 15-time silent-erase bug.
+  const hasBytes = p => p && (p.image_url || p.dataBase64);
+
+  // Union by id. Incoming wins on metadata; bytes prefer existing
+  // (server-stored is canonical), then fall back to incoming.
   const byId = new Map();
   for (const p of existingPortraits) {
     if (p && p.id) byId.set(p.id, { ...p });
@@ -254,27 +336,28 @@ async function mergeWithExisting(card, world) {
     if (!p || !p.id) continue;
     const prior = byId.get(p.id);
     if (!prior) {
-      // Brand new portrait — accept only if it carries bytes. A
-      // dataBase64-less portrait id has no value without the body, and
-      // accepting it would re-introduce the original bug at the
-      // single-portrait level.
-      if (p.dataBase64) byId.set(p.id, { ...p });
+      // Brand new portrait — accept only if it carries bytes-or-URL.
+      // No bytes AND no image_url = orphan, drop.
+      if (hasBytes(p)) byId.set(p.id, { ...p });
       continue;
     }
-    // Same id on both sides — preserve existing bytes; let incoming
-    // refresh love/note/generated_at.
+    // Same id on both sides — preserve existing bytes/URL; incoming
+    // refreshes love/note/generated_at.
     byId.set(p.id, {
       ...prior,
-      // dataBase64/mime: existing wins (prior is server-stored, must
-      // not be replaced with whatever the client happened to ship).
-      dataBase64: prior.dataBase64 || p.dataBase64 || '',
+      // image_url: existing wins (server-stored), else fall back to incoming.
+      image_url: prior.image_url || p.image_url || null,
+      storage_path: prior.storage_path || p.storage_path || null,
+      // dataBase64 only retained for the upload-pending edge case;
+      // if existing already has image_url we drop the inline bytes here.
+      dataBase64: prior.image_url ? '' : (prior.dataBase64 || p.dataBase64 || ''),
       mime: prior.mime || p.mime || 'image/png',
       loved: typeof p.loved === 'boolean' ? p.loved : !!prior.loved,
       note: typeof p.note === 'string' && p.note ? p.note : (prior.note || ''),
       generated_at: typeof p.generated_at === 'number' ? p.generated_at : (prior.generated_at || Date.now()),
     });
   }
-  const mergedPortraits = Array.from(byId.values()).filter(p => p && p.dataBase64);
+  const mergedPortraits = Array.from(byId.values()).filter(hasBytes);
 
   // primary: prefer incoming if still valid; else existing if valid;
   // else last in merged.
@@ -362,10 +445,16 @@ function sanitizeCard(c) {
   const cleanPortraits = [];
   for (const p of portraits) {
     const dataBase64 = typeof p.dataBase64 === 'string' ? p.dataBase64 : '';
-    if (!dataBase64) continue;
-    if (dataBase64.length > MAX_IMAGE_BYTES * 1.4) {
-      // Loud so the next regression surfaces immediately instead of
-      // silently dropping every portrait again.
+    const imageUrl = typeof p.image_url === 'string' ? p.image_url : '';
+    const storagePath = typeof p.storage_path === 'string' ? p.storage_path : '';
+    // Accept a portrait if it carries EITHER:
+    //   - bytes inline (legacy path; will be uploaded to Storage by
+    //     uploadPendingPortraitsToStorage and image_url filled in), OR
+    //   - an image_url already (Storage-native path; no bytes needed).
+    // Drop if neither — that's orphan metadata and accepting it caused
+    // the 15-time silent-erase bug.
+    if (!dataBase64 && !imageUrl) continue;
+    if (dataBase64 && dataBase64.length > MAX_IMAGE_BYTES * 1.4) {
       console.warn('[qss-cast sanitize] dropping oversize portrait', {
         cardName: name, portraitId: p.id, bytes: dataBase64.length, cap: MAX_IMAGE_BYTES * 1.4,
       });
@@ -374,7 +463,9 @@ function sanitizeCard(c) {
     cleanPortraits.push({
       id: String(p.id || '').slice(0, 64) || Math.random().toString(36).slice(2, 12),
       mime: String(p.mime || 'image/png').slice(0, 32),
-      dataBase64,
+      ...(dataBase64 ? { dataBase64 } : {}),
+      ...(imageUrl ? { image_url: imageUrl } : {}),
+      ...(storagePath ? { storage_path: storagePath } : {}),
       generated_at: typeof p.generated_at === 'number' ? p.generated_at : Date.now(),
       note: String(p.note || '').slice(0, 200),
       loved: !!p.loved,
@@ -412,13 +503,39 @@ function sanitizeCard(c) {
 }
 
 function cardToRow(card) {
+  // Strip dataBase64 from every portrait before persisting — the bytes
+  // live in Supabase Storage now, the row only carries the URL refs.
+  // Portraits without image_url AND without dataBase64 are dropped
+  // (orphan metadata, no value to keep). The uploadPendingPortraitsToStorage
+  // pass above runs before cardToRow so any incoming bytes have already
+  // been uploaded.
+  const thinPortraits = (Array.isArray(card.portraits) ? card.portraits : [])
+    .filter(p => p && p.id && (p.image_url || p.dataBase64))
+    .map(p => ({
+      id: p.id,
+      mime: p.mime || 'image/png',
+      // Strip dataBase64 on save. Image_url is the canonical bytes ref.
+      ...(p.image_url ? { image_url: p.image_url } : {}),
+      ...(p.storage_path ? { storage_path: p.storage_path } : {}),
+      generated_at: typeof p.generated_at === 'number' ? p.generated_at : Date.now(),
+      note: String(p.note || ''),
+      loved: !!p.loved,
+      // ONLY include dataBase64 if we couldn't upload to Storage (fallback).
+      // Once Storage migration is universal this branch never fires.
+      ...((!p.image_url && p.dataBase64) ? { dataBase64: p.dataBase64 } : {}),
+    }));
+  // primary_image_url: lookup the URL of whichever portrait is primary
+  // so handleList can return it cheaply.
+  const primary = thinPortraits.find(p => p.id === card.primary_portrait_id);
+  const primaryImageUrl = primary?.image_url || null;
   return {
     name_key: card.name.toLowerCase(),
     name: card.name,
     synopsis: card.synopsis,
     visual_notes: card.visual_notes,
-    portraits: card.portraits,
+    portraits: thinPortraits,
     primary_portrait_id: card.primary_portrait_id,
+    primary_image_url: primaryImageUrl,
     chat: card.chat,
     story_appearances: card.story_appearances,
     generated_at: new Date(card.generated_at).toISOString(),
