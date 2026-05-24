@@ -3441,5 +3441,49 @@ populateActivePinSelect();
   }
 })();
 </script>
+
+<!-- ========================================================================
+     HASH PERMALINK ROUTER — DO NOT EDIT WITHOUT READING THIS COMMENT.
+     This block lives at the end of the file on purpose. Earlier attempts
+     to put hash routing inside the main TABS script were silently reverted
+     by concurrent edits to neighboring tab code FOUR separate times.
+     Keep it here. It overrides setActiveTab to make /winchester#money,
+     #map, #timeline, #notes reload-stable and shareable.
+======================================================================== -->
+<script>
+(function installHashRouter() {
+  const VALID = ['map', 'money', 'timeline', 'notes'];
+  const DEFAULT = 'map';
+  function readHash() {
+    const h = (location.hash || '').replace(/^#/, '').toLowerCase().trim();
+    return VALID.includes(h) ? h : DEFAULT;
+  }
+  function activate(tabId, fromHash) {
+    if (!VALID.includes(tabId)) tabId = DEFAULT;
+    document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === tabId));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tabId));
+    document.body.classList.toggle('on-map', tabId === 'map');
+    document.body.classList.remove('tab-map','tab-money','tab-timeline','tab-notes');
+    document.body.classList.add('tab-' + tabId);
+    if (window._whhMap) setTimeout(() => window._whhMap.resize(), 80);
+    if (!fromHash) {
+      const target = '#' + tabId;
+      if (location.hash !== target) history.replaceState(null, '', target);
+    }
+  }
+  // Override the global setActiveTab so any old-shape callers still work AND sync the URL
+  window.setActiveTab = function(tabId) { activate(tabId, false); };
+  // Rebind tab buttons to our wrapped version (in case the earlier script bound the old one)
+  document.querySelectorAll('.tab-btn').forEach(t => {
+    const fresh = t.cloneNode(true);
+    t.parentNode.replaceChild(fresh, t);
+    fresh.addEventListener('click', () => activate(fresh.dataset.tab, false));
+  });
+  window.addEventListener('hashchange', () => activate(readHash(), true));
+  // Boot: honor the hash NOW, overriding any default-tab activation that already ran
+  activate(readHash(), true);
+})();
+</script>
+
 </body>
 </html>
