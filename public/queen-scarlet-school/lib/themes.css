@@ -1705,3 +1705,34 @@ body[data-world="burgundy"] .btn-save {
     inset 0 1px 0 rgba(244, 230, 196, 0.22),
     0 0 18px rgba(184, 68, 58, 0.22) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * UNIVERSE PAGE — stay cosmic even when a world is active
+ *
+ * The universe planet-picker page (/universe/) is OUTSIDE any specific
+ * world. It must stay neutral cosmic regardless of which world's data
+ * is stored in localStorage. Without this override, body[data-world=
+ * "burgundy"].page-universe inherits the Burgundy palace-exterior hero
+ * and leaks it behind the planets. Same for any future world.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+body.page-universe[data-world] {
+  /* Reset to the universe page's own cosmic look — no world hero, no
+   * scrim, no per-world tokens leaking through. The universe page has
+   * its own background gradient + starfield canvas.
+   */
+  background-image: none !important;
+  background-color: transparent !important;
+}
+
+/* Kill the film-grain overlay only on the universe page */
+body.page-universe[data-world="burgundy"]::before {
+  display: none !important;
+}
+
+/* Hide Burgundy CRT corner fragments + motto on the universe page —
+ * those are world-specific chrome, not universe chrome. */
+body.page-universe .burgundy-decor,
+body.page-universe .burgundy-motto {
+  display: none !important;
+}

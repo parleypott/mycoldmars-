@@ -199,20 +199,24 @@ Henry can fill in: the Queen's name, the planet's official name (if different fr
       return (slug && WORLDS[slug]) ? slug : DEFAULT_WORLD;
     } catch { return DEFAULT_WORLD; }
   }
-  // setActive — mirror to LS AND navigate to the world's URL if we're
-  // inside /universe/. Outside that route (legacy paths), just persist.
-  // Returns true if persistence succeeded.
+  // setActive — mirror to LS AND navigate to the world's URL ONLY when
+  // we're inside a per-world page (/universe/<slug>/...) — never on the
+  // bare /universe/ planet picker (its own click handler navigates).
+  //
+  // Previous bug: regex matched /universe/ (planet picker) too, then
+  // location.href = '/universe/' reloaded the SAME URL, killing the JS
+  // context and cancelling enterWorld()'s queued navigation. Clicking a
+  // planet did nothing visible.
   function setActive(slug, opts = {}) {
     if (!WORLDS[slug]) return false;
     try { localStorage.setItem(LS_ACTIVE, slug); } catch {}
-    if (opts.navigate !== false && /^\/universe\//.test(location.pathname)) {
-      // Swap the world segment in the URL, keep the page kind (cast/write/etc).
-      const newPath = location.pathname.replace(
-        /^\/universe\/[a-z0-9-]+(\/.*)?$/i,
-        `/universe/${slug}$1`
-      );
-      location.href = newPath || `/universe/${slug}/`;
-    }
+    if (opts.navigate === false) return true;
+    // Must already be inside a world (has a slug segment) — not the
+    // planet picker, not a legacy /queen-scarlet-school/* path.
+    const m = location.pathname.match(/^\/universe\/[a-z0-9-]+(\/.*)?$/i);
+    if (!m) return true;
+    const newPath = `/universe/${slug}${m[1] || '/'}`;
+    if (newPath !== location.pathname) location.href = newPath;
     return true;
   }
   function list() { return Object.values(WORLDS); }
