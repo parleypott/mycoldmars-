@@ -360,6 +360,147 @@
       font-size: 0.85em;
     }
 
+    /* ─── BOOK VIEW v2 — two-pane hub (prose + sticky art) ─── */
+    .book-hub {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: 28px;
+      align-items: start;
+      padding: 24px 28px 80px;
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+    .book-hub-prose {
+      max-width: 64ch; margin-left: auto;
+      padding-right: 8px;
+      color: var(--ink-bright);
+      font-size: var(--story-font-size, 17px);
+      font-family: var(--book-font-family, 'Cambo', Georgia, serif);
+      line-height: 1.78;
+    }
+    .book-hub-prose .book-scene-anchor {
+      position: relative;
+      padding-top: 8px;
+      scroll-margin-top: 100px;
+    }
+    .book-hub-prose .book-scene-anchor::before {
+      content: ''; display: block;
+      width: 40px; height: 2px;
+      background: var(--ink-faint);
+      margin: 18px 0 10px;
+      opacity: 0.55;
+    }
+    .book-hub-prose .book-scene-anchor.dim { opacity: 0.42; transition: opacity 380ms ease; }
+    .book-hub-prose .book-scene-anchor.active { opacity: 1; }
+    .book-hub-prose .book-scene-title {
+      font-family: var(--ui);
+      font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--ink-faint); margin: 0 0 12px;
+    }
+    .book-hub-prose .book-scene-title .idx {
+      color: var(--red); font-weight: 700; margin-right: 8px;
+    }
+    .book-hub-prose .book-paragraph {
+      margin: 0 0 1.1em 0; text-indent: 1.4em; white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .book-hub-prose .book-paragraph:first-child { text-indent: 0; }
+
+    .book-hub-art {
+      position: sticky; top: 100px; align-self: start;
+      max-width: 620px;
+    }
+    .book-hub-art .art-meta {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      font-family: var(--ui); font-size: 11px;
+      color: var(--ink-faint); letter-spacing: 0.14em; text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .book-hub-art .art-meta .scene-idx {
+      color: var(--red); font-weight: 700;
+    }
+    .book-hub-art .art-frame {
+      position: relative;
+      width: 100%; aspect-ratio: 1 / 1;
+      background: rgba(0,0,0,0.20);
+      border: 2px solid var(--ink-bright);
+      border-radius: 14px;
+      box-shadow: 6px 6px 0 var(--ink-bright);
+      overflow: hidden;
+    }
+    .book-hub-art .art-frame img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: opacity 480ms ease;
+    }
+    .book-hub-art .art-frame .art-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono); font-size: 13px; color: var(--ink-faint);
+      pointer-events: none;
+      text-align: center; padding: 16px;
+    }
+    .book-hub-art .art-frame .art-overlay.generating {
+      animation: art-pulse 1.6s ease-in-out infinite alternate;
+    }
+    @keyframes art-pulse { from { opacity: 0.55; } to { opacity: 0.95; } }
+    .book-hub-art .art-actions {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .book-hub-art .art-actions button {
+      font-family: var(--ui); font-size: 12px; font-weight: 600;
+      padding: 6px 12px; border-radius: 999px;
+      border: 2px solid var(--ink-bright);
+      background: var(--paper-card); color: var(--ink-bright);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .book-hub-art .art-actions button:hover { background: var(--paper-deep); }
+    .book-hub-art .art-actions button.active.up   { background: var(--grass); color: #fff; }
+    .book-hub-art .art-actions button.active.down { background: var(--red); color: #fff; }
+    .book-hub-art .art-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .book-hub-art .art-variations {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .book-hub-art .art-variations .var-thumb {
+      width: 56px; height: 56px; border-radius: 8px; overflow: hidden;
+      border: 2px solid var(--ink-bright);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer; background: rgba(0,0,0,0.18);
+      flex-shrink: 0;
+    }
+    .book-hub-art .art-variations .var-thumb img {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    .book-hub-art .art-variations .var-thumb.active {
+      outline: 3px solid var(--yolk); outline-offset: 2px;
+    }
+    .book-hub-art .art-variations .var-add {
+      width: 56px; height: 56px; border-radius: 8px;
+      border: 2px dashed var(--ink-bright);
+      background: transparent; color: var(--ink-soft);
+      font-family: var(--ui); font-size: 22px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .book-hub-art .art-variations .var-add:hover { background: rgba(255,217,100,0.18); }
+
+    .book-hub-prose .karaoke-word { transition: background 120ms ease; padding: 0 1px; border-radius: 3px; }
+    .book-hub-prose .karaoke-word.active { background: var(--yolk); color: var(--ink-bright); }
+
+    /* Burgundy: invert paper/ink and lean cinematic — same theme overlay
+       pattern as the rest of QSS. */
+    body[data-world="burgundy"] .book-hub-prose { color: var(--ink-bright); }
+    body[data-world="burgundy"] .book-hub-prose .book-paragraph:first-child::first-letter { color: var(--yolk); }
+    body[data-world="burgundy"] .book-hub-art .art-frame { border-color: var(--ink-faint); box-shadow: 0 12px 36px rgba(0,0,0,0.45); }
+    body[data-world="burgundy"] .book-hub-art .art-actions button {
+      background: rgba(15,30,38,0.6); color: var(--ink-bright);
+      border-color: rgba(255,246,224,0.32);
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.35);
+    }
+
     /* Font-family options applied by setBookFont() */
     .story-book[data-book-font="serif-cambo"]   { font-family: 'Cambo', Georgia, serif; }
     .story-book[data-book-font="serif-lora"]    { font-family: 'Lora', 'Cambo', Georgia, serif; }
@@ -3666,11 +3807,38 @@
               <span class="little">pick blocks from wordy on the right to build it up</span>
             </div>
             <div id="story-blocks" class="story-blocks" style="display:none;"></div>
-            <!-- BOOK VIEW — same story text rendered as continuous prose for
-                 a clean reading experience. Toggled via the block/book view
-                 controls in the pane header. Hidden by default; renderStory
-                 swaps visibility based on state.storyView. -->
-            <div id="story-book" class="story-book" style="display:none;"></div>
+            <!-- BOOK VIEW v2 — two-pane reader hub. Left: prose with
+                 per-scene anchors. Right: sticky AI-illustrated scene
+                 art that fades as you scroll. Auto-generated scene
+                 breaks via /api/qss-scene-detect; per-scene images via
+                 /api/qss-scene-illustrate; images served straight from
+                 Supabase Storage CDN.
+                 Falls back to a single-pane prose render if the story
+                 is too short for scene detection or if generation hasn't
+                 caught up yet. -->
+            <div id="story-book" class="story-book" style="display:none;">
+              <div class="book-hub" id="book-hub">
+                <div class="book-hub-prose" id="book-hub-prose">
+                  <!-- populated by renderBookHub() -->
+                </div>
+                <div class="book-hub-art" id="book-hub-art">
+                  <div class="art-meta" id="book-art-meta">
+                    <span class="scene-idx" id="book-art-idx">—</span>
+                    <span id="book-art-title">scenes loading…</span>
+                  </div>
+                  <div class="art-frame" id="book-art-frame">
+                    <div class="art-overlay" id="book-art-overlay">preparing your book…</div>
+                  </div>
+                  <div class="art-actions" id="book-art-actions">
+                    <button id="book-art-up" type="button" title="Keep this image">keep</button>
+                    <button id="book-art-down" type="button" title="Redraw — try a different vibe">redraw</button>
+                    <button id="book-art-variation" type="button" title="Draw a variation — same scene, different composition">＋ variation</button>
+                    <button id="book-art-play" type="button" title="Press play — karaoke reading with auto-scroll">▶ play</button>
+                  </div>
+                  <div class="art-variations" id="book-art-variations"></div>
+                </div>
+              </div>
+            </div>
 
             <!-- ─── kid composer: add your own block ─── -->
             <div id="own-block-composer" class="own-block-composer">
@@ -5829,22 +5997,18 @@
         if (composer) composer.style.display = 'block';
         return;
       }
-      // BOOK view — render every block as a paragraph in continuous prose.
-      // Same text, no toolbars, no numbers. Composer stays hidden (book is
-      // a reading mode, not an editing mode).
+      // BOOK view v2 — two-pane reader hub. Left: prose grouped by
+      // detected scenes (anchor div per scene), right: sticky scene
+      // art. Scene detection + image gen happens lazily on first
+      // activation; see initBookHub() below. Composer is hidden in
+      // reading mode.
       if (view === 'book') {
         empty.style.display = 'none';
         list.style.display = 'none';
         if (book) {
           book.style.display = 'block';
-          // Each block becomes one paragraph. We preserve original line
-          // breaks inside a block by leaving them in textContent (the CSS
-          // sets white-space: pre-wrap on .book-paragraph).
-          book.innerHTML = state.blocks.map((b) => {
-            const t = (b.text || '').trim();
-            if (!t) return '';
-            return `<p class="book-paragraph">${esc(t)}</p>`;
-          }).filter(Boolean).join('<div class="book-scene-break" aria-hidden="true">⁂</div>');
+          renderBookHubProse();      // renders prose left pane with scene anchors
+          initBookHubIfNeeded();     // kicks off scene-detect + first-image gen on first entry
         }
         if (composer) composer.style.display = 'none';
         return;
@@ -8757,6 +8921,335 @@
       applyFont(savedFont || 'serif-cambo');
       apply(savedView || 'block');
     })();
+
+    // ═══════════════════════════════════════════════════════════════
+    // BOOK VIEW v2 — two-pane reader hub with AI-illustrated scenes.
+    // Scene detection on first activation, lazy per-scene illustrate,
+    // karaoke auto-scroll on play. Same Storage-CDN pattern as cast
+    // portraits + explorer images.
+    // ═══════════════════════════════════════════════════════════════
+    const bookHub = {
+      scenes: [],           // [{id, scene_index, title, ..., image_url, status, variations, vote}]
+      activeIdx: 0,
+      initedStoryId: null,  // story id we've already kicked off detect for
+      genInflight: new Set(),
+      observer: null,
+      karaoke: false,       // play-mode toggle
+    };
+
+    function renderBookHubProse() {
+      const root = document.getElementById('book-hub-prose');
+      if (!root) return;
+      // Group blocks into scenes. If no scenes detected yet, render
+      // one big chunk (initial state during the "preparing your book…"
+      // pulse) so the page isn't blank.
+      const scenes = bookHub.scenes;
+      const blocks = state.blocks || [];
+      if (!scenes.length || !blocks.length) {
+        root.innerHTML = blocks.map(b => {
+          const t = (b.text || '').trim();
+          return t ? `<p class="book-paragraph">${esc(t)}</p>` : '';
+        }).filter(Boolean).join('');
+        return;
+      }
+      // Build per-scene anchors. Each anchor wraps the paragraphs for
+      // blocks [prose_start..prose_end].
+      root.innerHTML = scenes.map((s, i) => {
+        const paras = [];
+        for (let bi = s.prose_start_block; bi <= s.prose_end_block && bi < blocks.length; bi++) {
+          const t = (blocks[bi]?.text || '').trim();
+          if (t) paras.push(`<p class="book-paragraph">${esc(t)}</p>`);
+        }
+        const title = s.title || `scene ${s.scene_index + 1}`;
+        return `
+          <div class="book-scene-anchor ${i === bookHub.activeIdx ? 'active' : 'dim'}" data-scene-idx="${i}" data-scene-id="${esc(s.id)}">
+            <div class="book-scene-title"><span class="idx">${String(s.scene_index + 1).padStart(2, '0')}</span>${esc(title)}</div>
+            ${paras.join('')}
+          </div>`;
+      }).join('');
+      attachBookHubObserver();
+    }
+
+    function renderBookHubArt() {
+      const meta = document.getElementById('book-art-meta');
+      const idxEl = document.getElementById('book-art-idx');
+      const titleEl = document.getElementById('book-art-title');
+      const frame = document.getElementById('book-art-frame');
+      const overlay = document.getElementById('book-art-overlay');
+      const actions = document.getElementById('book-art-actions');
+      const varsEl = document.getElementById('book-art-variations');
+      const upBtn = document.getElementById('book-art-up');
+      const downBtn = document.getElementById('book-art-down');
+      const variationBtn = document.getElementById('book-art-variation');
+      if (!frame) return;
+      const s = bookHub.scenes[bookHub.activeIdx];
+      if (!s) {
+        idxEl.textContent = '—';
+        titleEl.textContent = 'scenes loading…';
+        frame.innerHTML = `<div class="art-overlay generating">preparing your book…</div>`;
+        if (varsEl) varsEl.innerHTML = '';
+        return;
+      }
+      idxEl.textContent = `${String(s.scene_index + 1).padStart(2, '0')} / ${bookHub.scenes.length}`;
+      titleEl.textContent = s.title || `scene ${s.scene_index + 1}`;
+      if (s.status === 'ready' && s.image_url) {
+        // Show the image; kick off any pending variation
+        frame.innerHTML = `<img src="${esc(s.image_url)}" alt="${esc(s.title || '')}" loading="lazy" />`;
+      } else if (s.status === 'generating' || bookHub.genInflight.has(s.id)) {
+        frame.innerHTML = `<div class="art-overlay generating">drawing this scene…</div>`;
+      } else if (s.status === 'error') {
+        frame.innerHTML = `<div class="art-overlay">couldn't draw — tap redraw</div>`;
+      } else {
+        frame.innerHTML = `<div class="art-overlay">queued…</div>`;
+        // Auto-trigger gen on first display
+        triggerSceneGen(s.id, false);
+      }
+      if (upBtn) upBtn.classList.toggle('active', s.vote === 'up');
+      if (downBtn) downBtn.classList.toggle('active', s.vote === 'down');
+      if (upBtn) upBtn.classList.toggle('up', true);
+      if (downBtn) downBtn.classList.toggle('down', true);
+      // Variations
+      if (varsEl) {
+        const variations = Array.isArray(s.variations) ? s.variations : [];
+        varsEl.innerHTML = variations.map(v => `
+          <div class="var-thumb ${v.id === s.active_variation_id ? 'active' : ''}" data-var-id="${esc(v.id)}" title="switch to this version">
+            <img src="${esc(v.image_url)}" alt="" />
+          </div>
+        `).join('') + (variations.length || s.image_url
+          ? `<button class="var-add" type="button" id="book-art-variation-thumb" title="draw a variation">+</button>`
+          : '');
+      }
+    }
+
+    function attachBookHubObserver() {
+      if (bookHub.observer) bookHub.observer.disconnect();
+      const anchors = document.querySelectorAll('#book-hub-prose .book-scene-anchor');
+      if (!anchors.length) return;
+      bookHub.observer = new IntersectionObserver(entries => {
+        // Pick the topmost intersecting anchor as active.
+        let topMost = null;
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          if (!topMost || e.boundingClientRect.top < topMost.boundingClientRect.top) topMost = e;
+        }
+        if (!topMost) return;
+        const idx = Number(topMost.target.dataset.sceneIdx);
+        if (!Number.isFinite(idx) || idx === bookHub.activeIdx) return;
+        bookHub.activeIdx = idx;
+        // Dim/active swap
+        document.querySelectorAll('#book-hub-prose .book-scene-anchor').forEach(el => {
+          const i = Number(el.dataset.sceneIdx);
+          el.classList.toggle('active', i === idx);
+          el.classList.toggle('dim', i !== idx);
+        });
+        renderBookHubArt();
+      }, { root: null, rootMargin: '-80px 0px -55% 0px', threshold: [0.05, 0.5, 1] });
+      anchors.forEach(a => bookHub.observer.observe(a));
+    }
+
+    async function initBookHubIfNeeded() {
+      const storyId = state.serverId;
+      if (!storyId) {
+        // No saved story yet — show the empty hub state
+        bookHub.scenes = [];
+        renderBookHubArt();
+        return;
+      }
+      if (bookHub.initedStoryId === storyId && bookHub.scenes.length) {
+        // Already loaded — just rerender
+        renderBookHubArt();
+        return;
+      }
+      bookHub.initedStoryId = storyId;
+      // Try cached list first (fast path)
+      try {
+        const r = await fetch(`/api/qss-story-scenes?action=list&story_id=${encodeURIComponent(storyId)}`);
+        if (r.ok) {
+          const d = await r.json();
+          if (Array.isArray(d.scenes) && d.scenes.length) {
+            bookHub.scenes = d.scenes;
+            bookHub.activeIdx = 0;
+            renderBookHubProse();
+            renderBookHubArt();
+            // Kick off illustration for the first scene immediately if needed
+            const firstUnready = d.scenes.find(s => s.status !== 'ready' || !s.image_url);
+            if (firstUnready) triggerSceneGen(firstUnready.id, false);
+            return;
+          }
+        }
+      } catch {}
+      // No cached scenes — run detect
+      try {
+        const r = await fetch('/api/qss-scene-detect', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ story_id: storyId }),
+        });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          throw new Error(j.detail || j.error || `${r.status}`);
+        }
+        const d = await r.json();
+        bookHub.scenes = Array.isArray(d.scenes) ? d.scenes : [];
+        bookHub.activeIdx = 0;
+        renderBookHubProse();
+        renderBookHubArt();
+        // Trigger first scene's image gen now (visible to user)
+        if (bookHub.scenes[0]) triggerSceneGen(bookHub.scenes[0].id, false);
+      } catch (e) {
+        const frame = document.getElementById('book-art-frame');
+        if (frame) frame.innerHTML = `<div class="art-overlay">couldn't prepare scenes: ${esc(e.message || e)}</div>`;
+      }
+    }
+
+    async function triggerSceneGen(sceneId, isVariation = false) {
+      if (!sceneId) return;
+      if (bookHub.genInflight.has(sceneId) && !isVariation) return;
+      bookHub.genInflight.add(sceneId);
+      // Optimistic UI — mark generating on the scene if it's the active one
+      const s = bookHub.scenes.find(x => x.id === sceneId);
+      if (s && !isVariation) { s.status = 'generating'; renderBookHubArt(); }
+      try {
+        const r = await fetch('/api/qss-scene-illustrate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scene_id: sceneId, variation: !!isVariation }),
+        });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          throw new Error(j.detail || j.error || `${r.status}`);
+        }
+        // Refresh this scene from the server (gets new image_url + variations)
+        const list = await fetch(`/api/qss-story-scenes?action=list&story_id=${encodeURIComponent(bookHub.initedStoryId)}`).then(x => x.json()).catch(() => null);
+        if (list?.scenes) {
+          // Merge — keep activeIdx pointing at the same scene by id
+          const oldActiveId = bookHub.scenes[bookHub.activeIdx]?.id;
+          bookHub.scenes = list.scenes;
+          const newIdx = oldActiveId ? bookHub.scenes.findIndex(x => x.id === oldActiveId) : 0;
+          if (newIdx >= 0) bookHub.activeIdx = newIdx;
+          renderBookHubArt();
+          // Cascade: kick off the next unready scene so they stream in
+          const next = bookHub.scenes.find(x => x.id !== sceneId && (x.status !== 'ready' || !x.image_url));
+          if (next) triggerSceneGen(next.id, false);
+        }
+      } catch (e) {
+        if (s) { s.status = 'error'; s.error_msg = e.message || String(e); renderBookHubArt(); }
+        try { console.warn('[book-hub gen]', e); } catch {}
+      } finally {
+        bookHub.genInflight.delete(sceneId);
+      }
+    }
+
+    // Wire vote / variation / play buttons (idempotent — runs once on first load)
+    (function wireBookHubButtons() {
+      const upBtn = document.getElementById('book-art-up');
+      const downBtn = document.getElementById('book-art-down');
+      const variationBtn = document.getElementById('book-art-variation');
+      const playBtn = document.getElementById('book-art-play');
+      const varsEl = document.getElementById('book-art-variations');
+      if (!upBtn) return;
+      async function castVote(vote) {
+        const s = bookHub.scenes[bookHub.activeIdx];
+        if (!s) return;
+        const next = (s.vote === vote) ? null : vote;
+        s.vote = next;
+        renderBookHubArt();
+        try {
+          await fetch('/api/qss-story-scenes?action=vote', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scene_id: s.id, vote: next }),
+          });
+        } catch {}
+      }
+      upBtn.addEventListener('click', () => castVote('up'));
+      downBtn.addEventListener('click', () => {
+        const s = bookHub.scenes[bookHub.activeIdx];
+        castVote('down');
+        // Down-vote = ask for a fresh variation that breaks the current vibe
+        if (s) triggerSceneGen(s.id, true);
+      });
+      variationBtn?.addEventListener('click', () => {
+        const s = bookHub.scenes[bookHub.activeIdx];
+        if (s) triggerSceneGen(s.id, true);
+      });
+      varsEl?.addEventListener('click', async (e) => {
+        const thumb = e.target.closest('.var-thumb');
+        const addBtn = e.target.closest('.var-add');
+        if (addBtn) {
+          const s = bookHub.scenes[bookHub.activeIdx];
+          if (s) triggerSceneGen(s.id, true);
+          return;
+        }
+        if (!thumb) return;
+        const varId = thumb.dataset.varId;
+        const s = bookHub.scenes[bookHub.activeIdx];
+        if (!s || !varId) return;
+        try {
+          const r = await fetch('/api/qss-story-scenes?action=set-active-variation', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scene_id: s.id, variation_id: varId }),
+          });
+          if (r.ok) {
+            // Refresh scenes
+            const list = await fetch(`/api/qss-story-scenes?action=list&story_id=${encodeURIComponent(bookHub.initedStoryId)}`).then(x => x.json()).catch(() => null);
+            if (list?.scenes) {
+              const oldId = s.id;
+              bookHub.scenes = list.scenes;
+              const newIdx = bookHub.scenes.findIndex(x => x.id === oldId);
+              if (newIdx >= 0) bookHub.activeIdx = newIdx;
+              renderBookHubArt();
+            }
+          }
+        } catch {}
+      });
+      // Play — karaoke auto-scroll through scenes' paragraphs
+      playBtn?.addEventListener('click', () => {
+        bookHub.karaoke = !bookHub.karaoke;
+        playBtn.textContent = bookHub.karaoke ? '⏸ pause' : '▶ play';
+        if (bookHub.karaoke) startBookKaraoke();
+        else stopBookKaraoke();
+      });
+    })();
+
+    let _bookKaraokeTimer = null;
+    function startBookKaraoke() {
+      // Auto-scroll through scenes at a reading-pace cadence. Each scene
+      // gets dwell time proportional to its prose length (rough ~3 words/sec).
+      // Pauses on manual scroll.
+      stopBookKaraoke();
+      let idx = bookHub.activeIdx || 0;
+      function step() {
+        const s = bookHub.scenes[idx];
+        if (!s) { stopBookKaraoke(); return; }
+        const el = document.querySelector(`#book-hub-prose .book-scene-anchor[data-scene-idx="${idx}"]`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        bookHub.activeIdx = idx;
+        renderBookHubArt();
+        const blocks = state.blocks || [];
+        const wordCount = (() => {
+          let n = 0;
+          for (let i = s.prose_start_block; i <= s.prose_end_block && i < blocks.length; i++) {
+            n += (blocks[i]?.text || '').split(/\s+/).length;
+          }
+          return n;
+        })();
+        const dwell = Math.max(6000, Math.min(45000, wordCount * 400));
+        _bookKaraokeTimer = setTimeout(() => {
+          idx++;
+          if (idx >= bookHub.scenes.length) { stopBookKaraoke(); return; }
+          step();
+        }, dwell);
+      }
+      step();
+    }
+    function stopBookKaraoke() {
+      if (_bookKaraokeTimer) clearTimeout(_bookKaraokeTimer);
+      _bookKaraokeTimer = null;
+      bookHub.karaoke = false;
+      const playBtn = document.getElementById('book-art-play');
+      if (playBtn) playBtn.textContent = '▶ play';
+    }
+    // Pause auto-scroll on manual scroll (so reader can stop and read)
+    window.addEventListener('wheel', () => { if (bookHub.karaoke) stopBookKaraoke(); }, { passive: true });
+    window.addEventListener('touchmove', () => { if (bookHub.karaoke) stopBookKaraoke(); }, { passive: true });
 
     // ─────────── Block expand/collapse toggle ───────────
     function toggleBlockExpand(id, force) {
