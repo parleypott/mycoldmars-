@@ -36,6 +36,12 @@ const SUPABASE_KEY =
   '';
 
 const SELECT_COLS = 'name_key,name,synopsis,visual_notes,portraits,primary_portrait_id,chat,story_appearances,generated_at,updated_at';
+// Thin select for handleList — omits the portraits JSONB column so the
+// 8 s statement timeout doesn't fire when portraits weigh ~70 MB total.
+// handleList synthesizes a thin portraits=[{id: primary_portrait_id}]
+// from primary_portrait_id; the client lazy-loads bytes via
+// ?action=portrait. See handleList for the full rationale.
+const LIST_BASE_COLS = 'name_key,name,synopsis,visual_notes,primary_portrait_id,chat,story_appearances,generated_at,updated_at';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
