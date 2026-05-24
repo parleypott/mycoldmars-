@@ -1062,15 +1062,32 @@ function safeSet(key, value) {
 </script>
 <script>
 
-// ===================== TABS =====================
-function setActiveTab(tabId) {
+// ===================== TABS — hash-routed permalinks =====================
+// /winchester#money, #map, #timeline, #notes — reload-stable, shareable, back/forward works
+const VALID_TABS = ['map', 'money', 'timeline', 'notes'];
+const DEFAULT_TAB = 'map';
+function _readTabFromHash() {
+  const h = (location.hash || '').replace(/^#/, '').toLowerCase().trim();
+  return VALID_TABS.includes(h) ? h : DEFAULT_TAB;
+}
+function setActiveTab(tabId, opts) {
+  if (!VALID_TABS.includes(tabId)) tabId = DEFAULT_TAB;
   document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === tabId));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tabId));
   document.body.classList.toggle('on-map', tabId === 'map');
+  document.body.classList.remove('tab-map', 'tab-money', 'tab-timeline', 'tab-notes');
+  document.body.classList.add('tab-' + tabId);
   if (window._whhMap) setTimeout(() => window._whhMap.resize(), 80);
+  // Sync URL hash unless we're responding to a hashchange (avoid double-fire)
+  if (!opts || !opts.fromHash) {
+    const target = '#' + tabId;
+    if (location.hash !== target) history.replaceState(null, '', target);
+  }
 }
 document.querySelectorAll('.tab-btn').forEach(t => t.addEventListener('click', () => setActiveTab(t.dataset.tab)));
-document.body.classList.add('on-map'); // default open tab
+window.addEventListener('hashchange', () => setActiveTab(_readTabFromHash(), { fromHash: true }));
+// Boot: honor the hash, fall back to default
+setActiveTab(_readTabFromHash(), { fromHash: true });
 
 // Layer toggles
 document.querySelectorAll('.layer-btn').forEach(btn => {
