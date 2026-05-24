@@ -5024,8 +5024,25 @@ Keep total response under 200 words. Use plain language. If you're uncertain abo
 // ----- AGENT (chat + memory) -----
 const AGENT_MEM_KEY = 'whh:agent:memory:v1';
 const AGENT_CHAT_KEY = 'whh:agent:chat:v1';
+const FAMILY_CRITERIA_URL = './family-criteria.md';
 let agentMemory = [];
 let agentMessages = [];
+let familyCriteriaText = '';
+let familyCriteriaLoading = null;
+async function loadFamilyCriteria() {
+  if (familyCriteriaText) return familyCriteriaText;
+  if (familyCriteriaLoading) return familyCriteriaLoading;
+  familyCriteriaLoading = (async () => {
+    try {
+      const r = await fetch(FAMILY_CRITERIA_URL, { cache: 'no-cache' });
+      if (r.ok) familyCriteriaText = await r.text();
+    } catch (e) { console.warn('[agent] family-criteria.md not loaded:', e); }
+    return familyCriteriaText;
+  })();
+  return familyCriteriaLoading;
+}
+// kick off the load on script start so first chat is fast
+loadFamilyCriteria();
 try { agentMemory = JSON.parse(localStorage.getItem(AGENT_MEM_KEY) || '[]'); } catch {}
 try { agentMessages = JSON.parse(localStorage.getItem(AGENT_CHAT_KEY) || '[]'); } catch {}
 function saveAgentMemory() { try { localStorage.setItem(AGENT_MEM_KEY, JSON.stringify(agentMemory)); } catch {} }
@@ -5076,21 +5093,26 @@ function buildAgentSystemPrompt() {
     train: v.train ? { name: v.train.name, line: v.train.line || null, gctMin: v.train.gct || null, miles: v.train.miles } : null,
     bookstores: (v.bookstores || []).slice(0, 5).map(b => ({ name: b.name, miles: b.miles }))
   }));
-  return `You are Johnny's research assistant for his Westchester, NY house hunt. You have read the COMPLETE dataset of every pinned home and every saved village. Your job: help him think through trade-offs, surface non-obvious comparisons, and answer questions about specific homes.
+  const criteriaBlock = familyCriteriaText
+    ? `FAMILY DECISION FRAMEWORK (the doctrine — this is who they are and what they're optimizing for; treat as canonical when asked about criteria, priorities, what matters, scoring, or trade-offs):\n\n${familyCriteriaText}\n\n---\n\n`
+    : '';
+  return `You are Johnny's research assistant for his Westchester, NY house hunt. You have read the COMPLETE family decision framework, the full dataset of every pinned home, and every saved village. Your job: help him think through trade-offs against the family's actual criteria, surface non-obvious comparisons, and answer questions about specific homes.
 
 STYLE: editorial, direct, plain language, no buzzwords or marketing-speak. Lowercase is fine. Use the actual numbers from the data. When you reference a home, say its street address. When you reference a village or district, name it. Bold key takeaways with **double-asterisks**. Keep responses tight — a few short paragraphs is usually right.
 
-MEMORY HANDLING: when Johnny tells you something new about what matters to him (a constraint, preference, must-have, deal-breaker), END your response with a line like:
+WHEN ASKED ABOUT CRITERIA / PRIORITIES / WHAT MATTERS: lead with the highest-weighted items from the family decision framework below (Henry's school as the hard filter, then creative-class fit, walkable village, NYC commute, lot size). Name the weights. Name the threshold rules (the hard filters for Henry's school and NYC commute, the strong caution on creative-class fit). Don't recite the whole doc — show you've actually read it by pulling the load-bearing pieces.
+
+MEMORY HANDLING: when Johnny tells you something new about what matters to him (a constraint, preference, must-have, deal-breaker) that ISN'T already in the framework, END your response with a line like:
 [REMEMBER: <crisp one-line note he might want to save>]
 The UI will offer a one-click "save this" button when it sees that. Don't force it — only when something new and durable was actually expressed.
 
-PINNED HOMES (${pinsCompact.length}):
+${criteriaBlock}PINNED HOMES (${pinsCompact.length}):
 ${JSON.stringify(pinsCompact)}
 
 VILLAGES (${villagesCompact.length}):
 ${JSON.stringify(villagesCompact)}
 
-PRIOR CONSIDERATIONS (most recent first, saved by Johnny):
+PRIOR CONSIDERATIONS (most recent first, saved by Johnny in chat):
 ${agentMemory.length ? agentMemory.map((m, i) => `${i + 1}. ${m.text}`).join('\n') : '(none yet)'}
 
 Today: ${new Date().toISOString().slice(0, 10)}.`;
@@ -5189,6 +5211,7 @@ async function sendAgentMessage(text) {
   const sendBtn = document.getElementById('ag-send');
   if (sendBtn) sendBtn.disabled = true;
 
+  await loadFamilyCriteria();
   const system = buildAgentSystemPrompt();
   const histForApi = agentMessages.slice(0, -1).slice(-14).map(m => ({ role: m.role, content: m.content }));
 
