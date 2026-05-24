@@ -5326,18 +5326,42 @@
       const scenes = Array.isArray(data?.scenes) ? data.scenes : [];
       const characters = Array.isArray(data?.characters) ? data.characters : [];
 
-      // Apply scenes to story blocks.
+      // Slice the source text into scene blocks using the model's
+      // first_line markers. The server NEVER echoes verbatim text back
+      // (that's what 504'd the first version). The client has the full
+      // source and does the cuts itself via String.indexOf().
+      //
+      // For each scene marker, find it in source from the last cut
+      // point. Skip any marker the source doesn't contain (model
+      // hallucination guard) — the next valid marker still works.
       if (mode === 'replace') {
         state.blocks = [];
       }
       const beforeCount = state.blocks.length;
+      const sliceStarts = [];
+      let cursor = 0;
       for (const scene of scenes) {
-        const t = (scene?.text || '').trim();
-        if (!t) continue;
+        const marker = (scene?.first_line || '').trim();
+        if (marker.length < 6) { sliceStarts.push(null); continue; }
+        const idx = text.indexOf(marker, cursor);
+        if (idx === -1) { sliceStarts.push(null); continue; }
+        sliceStarts.push(idx);
+        cursor = idx + marker.length;
+      }
+      for (let i = 0; i < scenes.length; i++) {
+        const startIdx = sliceStarts[i];
+        if (startIdx == null) continue;
+        // Find the next VALID start to compute end. Skip nulls.
+        let endIdx = text.length;
+        for (let j = i + 1; j < scenes.length; j++) {
+          if (sliceStarts[j] != null) { endIdx = sliceStarts[j]; break; }
+        }
+        const verbatim = text.slice(startIdx, endIdx).trim();
+        if (!verbatim) continue;
         state.blocks.push({
           id: uid(),
-          text: t,
-          summary: (scene?.summary || '').trim(),
+          text: verbatim,
+          summary: (scenes[i]?.summary || '').trim(),
           custom: false,
           source: 'auto-build',
         });
