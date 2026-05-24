@@ -103,6 +103,28 @@ body.on-map .map-search,
 body.on-map .map-panel { pointer-events: auto; }
 
 /* ---------- MONEY MODE ---------- */
+.money-export-bar {
+  max-width: 1280px;
+  margin: 0 auto 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+.export-btn {
+  background: var(--ink);
+  color: var(--bg);
+  border: 1px solid var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 150ms, color 150ms;
+}
+.export-btn:hover { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.export-btn:disabled { opacity: 0.5; cursor: wait; }
 .tool { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; max-width: 1280px; margin: 0 auto; }
 @media (max-width: 900px) { .tool { grid-template-columns: 1fr; } }
 .col h2 {
@@ -740,6 +762,9 @@ body.hide-villages .whh-village-label { display: none !important; }
 
 <!-- ===================== MONEY MODE ===================== -->
 <section class="tab-pane solid" data-pane="money">
+  <div class="money-export-bar">
+    <button id="export-xlsx-btn" class="export-btn" type="button">↓ Export Excel</button>
+  </div>
   <div class="tool">
     <div class="col">
       <h2>Inputs</h2>
@@ -763,7 +788,7 @@ body.hide-villages .whh-village-label { display: none !important; }
       <div class="group">
         <div class="group-title">The Bridge · pre-VA-close cash</div>
         <div class="field"><label>Liquidate stocks</label><input type="text" id="invPulled"></div>
-        <div class="field"><label>Magical bridge</label><input type="text" id="bizPulled"></div>
+        <div class="field"><label>Bridge Cash (HELOC or C&amp;Z)</label><input type="text" id="bizPulled"></div>
         <div class="field"><label>Total bridge</label><span class="derived cost ok" id="bridgeTotal-derived">= —</span></div>
       </div>
       <div class="group">
@@ -893,6 +918,7 @@ body.hide-villages .whh-village-label { display: none !important; }
 </main>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script>
 
 // ===================== TABS =====================
@@ -1235,6 +1261,235 @@ termSeg.querySelectorAll('button').forEach(btn => btn.addEventListener('click', 
   moneyState.term = Number(btn.dataset.val);
   moneyRecalc();
 }));
+
+// ===================== EXCEL EXPORT =====================
+async function exportMoneyXlsx() {
+  const btn = document.getElementById('export-xlsx-btn');
+  if (!window.ExcelJS) { alert('Export library is still loading — wait a sec and try again.'); return; }
+  if (!btn) return;
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Building…';
+  try {
+    const s = moneyState;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'mycoldmars';
+    wb.created = new Date();
+    const ws = wb.addWorksheet('Money', {
+      properties: { defaultRowHeight: 18 },
+      views: [{ showGridLines: false, state: 'frozen', ySplit: 3 }]
+    });
+    ws.columns = [
+      { key: 'label', width: 38 },
+      { key: 'value', width: 20 },
+      { key: 'note',  width: 44 }
+    ];
+
+    // Palette
+    const HEAD_FILL    = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2A2620' } };
+    const SECTION_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEBE6D7' } };
+    const INPUT_FILL   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7CC' } };
+    const HEAD_FONT    = { name: 'Helvetica', size: 13, bold: true, color: { argb: 'FFFBF9F2' } };
+    const SUB_FONT     = { name: 'Helvetica', size: 9, italic: true, color: { argb: 'FF807969' } };
+    const SECTION_FONT = { name: 'Helvetica', size: 10, bold: true, color: { argb: 'FF2A2620' } };
+    const BODY_FONT    = { name: 'Helvetica', size: 11, color: { argb: 'FF2A2620' } };
+    const NOTE_FONT    = { name: 'Helvetica', size: 9, italic: true, color: { argb: 'FF807969' } };
+    const TOTAL_FONT   = { name: 'Helvetica', size: 11, bold: true, color: { argb: 'FF2A2620' } };
+    const ACCENT_FONT  = { name: 'Helvetica', size: 12, bold: true, color: { argb: 'FFF44315' } };
+    const THIN         = { style: 'thin', color: { argb: 'FFCFC9B9' } };
+    const TOP          = { style: 'medium', color: { argb: 'FF2A2620' } };
+    const FMT_USD = '"$"#,##0;[Red]-"$"#,##0';
+    const FMT_PCT = '0.00%';
+
+    // --- Title (merged) ---
+    ws.mergeCells('A1:C1');
+    {
+      const row = ws.getRow(1);
+      row.height = 30;
+      const c = row.getCell(1);
+      c.value = '  MYCOLDMARS · MONEY';
+      c.fill = HEAD_FILL;
+      c.font = HEAD_FONT;
+      c.alignment = { vertical: 'middle' };
+    }
+    ws.mergeCells('A2:C2');
+    {
+      const row = ws.getRow(2);
+      row.height = 18;
+      const c = row.getCell(1);
+      const date = new Date().toISOString().slice(0,10);
+      c.value = `  Exported ${date} · edit yellow cells; bold rows are formulas that recompute`;
+      c.font = SUB_FONT;
+      c.alignment = { vertical: 'middle' };
+    }
+
+    let r = 4;
+    function blank() { r++; }
+    function section(title) {
+      const row = ws.getRow(r++);
+      row.height = 22;
+      [1,2,3].forEach(i => {
+        const cell = row.getCell(i);
+        cell.fill = SECTION_FILL;
+        cell.font = SECTION_FONT;
+        cell.alignment = { vertical: 'middle' };
+        cell.border = { bottom: THIN };
+      });
+      row.getCell(1).value = '  ' + title.toUpperCase();
+    }
+    function setRow(label, value, opts = {}) {
+      const rowNum = r;
+      const row = ws.getRow(r++);
+      row.getCell(1).value = label;
+      row.getCell(1).font = opts.bold ? TOTAL_FONT : BODY_FONT;
+      row.getCell(1).alignment = { vertical: 'middle' };
+      const cell = row.getCell(2);
+      cell.value = value;
+      if (opts.numFmt) cell.numFmt = opts.numFmt;
+      cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      cell.font = opts.accent ? ACCENT_FONT : (opts.bold ? TOTAL_FONT : BODY_FONT);
+      if (opts.input) cell.fill = INPUT_FILL;
+      if (opts.topBorder) {
+        row.getCell(1).border = { top: TOP, bottom: THIN };
+        cell.border = { top: TOP, bottom: THIN };
+      } else {
+        row.getCell(1).border = { bottom: THIN };
+        cell.border = { bottom: THIN };
+      }
+      row.getCell(3).value = opts.note || '';
+      row.getCell(3).font = NOTE_FONT;
+      row.getCell(3).alignment = { vertical: 'middle' };
+      row.getCell(3).border = { bottom: THIN };
+      return rowNum;
+    }
+
+    // === MAIN HOUSE ===
+    section('Main House · Virginia');
+    const MH_SALE = setRow('Sale price', s.vaSale, { numFmt: FMT_USD, input: true, note: 'editable' });
+    const MH_PAY  = setRow('Mortgage payoff', s.vaPayoff, { numFmt: FMT_USD, input: true, note: 'editable' });
+    const MH_PCT  = setRow('Realtor + closing %', s.vaSellPct / 100, { numFmt: FMT_PCT, input: true, note: 'editable — applies to both VA houses' });
+    const MH_SELL = setRow('Realtor + closing $',
+      { formula: `B${MH_SALE}*B${MH_PCT}`, result: s.vaSale * s.vaSellPct / 100 },
+      { numFmt: FMT_USD, note: 'derived' });
+    const MH_REP  = setRow('Repairs before sale', s.vaRepairs, { numFmt: FMT_USD, input: true, note: 'editable' });
+    const MH_NET  = setRow('Net to you',
+      { formula: `B${MH_SALE}-B${MH_PAY}-B${MH_SELL}-B${MH_REP}`, result: s.vaSale - s.vaPayoff - (s.vaSale*s.vaSellPct/100) - s.vaRepairs },
+      { numFmt: FMT_USD, bold: true, topBorder: true, note: 'derived' });
+    blank();
+
+    // === 808 STUDIO ===
+    section('808 Studio · Virginia');
+    const ST_SALE = setRow('Sale price', s.studioSale, { numFmt: FMT_USD, input: true, note: 'editable' });
+    const ST_PAY  = setRow('Mortgage payoff', s.studioPayoff, { numFmt: FMT_USD, input: true, note: 'editable' });
+    const ST_SELL = setRow('Realtor + closing $',
+      { formula: `B${ST_SALE}*B${MH_PCT}`, result: s.studioSale * s.vaSellPct / 100 },
+      { numFmt: FMT_USD, note: 'derived (same %)' });
+    const ST_REP  = setRow('Repairs before sale', s.studioRepairs, { numFmt: FMT_USD, input: true, note: 'editable' });
+    const ST_NET  = setRow('Net to you',
+      { formula: `B${ST_SALE}-B${ST_PAY}-B${ST_SELL}-B${ST_REP}`, result: s.studioSale - s.studioPayoff - (s.studioSale*s.vaSellPct/100) - s.studioRepairs },
+      { numFmt: FMT_USD, bold: true, topBorder: true, note: 'derived' });
+    blank();
+
+    // === BRIDGE ===
+    section('The Bridge · pre-VA-close cash');
+    const BR_STK = setRow('Liquidate stocks', s.invPulled, { numFmt: FMT_USD, input: true, note: 'editable' });
+    const BR_BIZ = setRow('Bridge Cash (HELOC or C&Z)', s.bizPulled, { numFmt: FMT_USD, input: true, note: 'editable' });
+    const BR_TOT = setRow('Total bridge',
+      { formula: `B${BR_STK}+B${BR_BIZ}`, result: s.invPulled + s.bizPulled },
+      { numFmt: FMT_USD, bold: true, topBorder: true, note: 'derived' });
+    blank();
+
+    // === PLEASANTVILLE ===
+    section('The New House · Pleasantville');
+    const NH_BUY  = setRow('Purchase price', s.buyPrice, { numFmt: FMT_USD, input: true, note: 'editable' });
+    const NH_DPC  = setRow('Down payment %', s.downPct / 100, { numFmt: FMT_PCT, input: true, note: 'editable' });
+    const NH_DPD  = setRow('Down payment $',
+      { formula: `B${NH_BUY}*B${NH_DPC}`, result: s.buyPrice * s.downPct/100 },
+      { numFmt: FMT_USD, note: 'derived' });
+    const NH_LOAN = setRow('Loan amount',
+      { formula: `B${NH_BUY}-B${NH_DPD}`, result: s.buyPrice - s.buyPrice*s.downPct/100 },
+      { numFmt: FMT_USD, note: 'derived' });
+    const NH_RT   = setRow('Mortgage rate', s.rate / 100, { numFmt: FMT_PCT, input: true, note: 'editable' });
+    const NH_TERM = setRow('Term (years)', s.term, { numFmt: '0', input: true, note: 'editable' });
+    const piVal = (() => {
+      const m = s.rate/100/12, n = s.term*12, l = s.buyPrice - s.buyPrice*s.downPct/100;
+      return m === 0 ? l/n : l * (m * Math.pow(1+m, n)) / (Math.pow(1+m,n) - 1);
+    })();
+    const NH_PI   = setRow('Monthly P&I',
+      { formula: `IF(B${NH_RT}=0, B${NH_LOAN}/(B${NH_TERM}*12), -PMT(B${NH_RT}/12, B${NH_TERM}*12, B${NH_LOAN}))`, result: piVal },
+      { numFmt: FMT_USD, note: 'derived (PMT)' });
+    const NH_TAX  = setRow('Annual property tax', s.propTax || 0, { numFmt: FMT_USD, input: true, note: 'editable — auto-set from active pin in app' });
+    const NH_TAXM = setRow('Monthly tax',
+      { formula: `B${NH_TAX}/12`, result: (s.propTax||0)/12 },
+      { numFmt: FMT_USD, note: 'derived' });
+    const NH_INS  = setRow('Annual insurance',
+      { formula: `B${NH_BUY}*0.004`, result: s.buyPrice*0.004 },
+      { numFmt: FMT_USD, note: 'derived (0.4%/yr est.)' });
+    const NH_INSM = setRow('Monthly insurance',
+      { formula: `B${NH_INS}/12`, result: s.buyPrice*0.004/12 },
+      { numFmt: FMT_USD, note: 'derived' });
+    setRow('Monthly nut total',
+      { formula: `B${NH_PI}+B${NH_TAXM}+B${NH_INSM}`, result: piVal + (s.propTax||0)/12 + s.buyPrice*0.004/12 },
+      { numFmt: FMT_USD, bold: true, accent: true, topBorder: true, note: 'P&I + tax + ins' });
+    blank();
+
+    // === DAY 1 ===
+    section('Day 1 · Close on Pleasantville');
+    const D1_DOWN = setRow('Down payment',
+      { formula: `B${NH_DPD}`, result: s.buyPrice*s.downPct/100 },
+      { numFmt: FMT_USD, note: 'derived from down %' });
+    const mansionVal = (() => {
+      const p = s.buyPrice;
+      let rate = 0;
+      if (p >= 1_000_000) rate = 0.01;
+      if (p >= 5_000_000) rate = 0.0175;
+      if (p >= 10_000_000) rate = 0.0225;
+      return p * rate;
+    })();
+    const D1_MAN  = setRow('Mansion tax (NY)', mansionVal, { numFmt: FMT_USD, input: true, note: 'tiered — re-edit if price crosses $1M/$5M/$10M tier' });
+    const D1_CLO  = setRow('NY closing costs', s.nyClosing || 0, { numFmt: FMT_USD, input: true, note: 'title ins + mort rec tax + fixed fees' });
+    const D1_MOV  = setRow('Moving + upstart', s.moving, { numFmt: FMT_USD, input: true, note: 'editable' });
+    const D1_NEED = setRow('Cash needed',
+      { formula: `B${D1_DOWN}+B${D1_MAN}+B${D1_CLO}+B${D1_MOV}`, result: s.buyPrice*s.downPct/100 + mansionVal + (s.nyClosing||0) + s.moving },
+      { numFmt: FMT_USD, bold: true, topBorder: true, note: 'derived' });
+    const D1_HAVE = setRow('Cash available (bridge)',
+      { formula: `B${BR_TOT}`, result: s.invPulled + s.bizPulled },
+      { numFmt: FMT_USD, note: 'from bridge total' });
+    const D1_GAP  = setRow('Gap',
+      { formula: `B${D1_HAVE}-B${D1_NEED}`, result: (s.invPulled+s.bizPulled) - (s.buyPrice*s.downPct/100 + mansionVal + (s.nyClosing||0) + s.moving) },
+      { numFmt: FMT_USD, bold: true, note: 'positive = covered · negative = short' });
+    blank();
+
+    // === DAY N ===
+    section('Day N · After both VA houses sell');
+    const DN_VA = setRow('VA net proceeds (both)',
+      { formula: `B${MH_NET}+B${ST_NET}`, result: (s.vaSale - s.vaPayoff - s.vaSale*s.vaSellPct/100 - s.vaRepairs) + (s.studioSale - s.studioPayoff - s.studioSale*s.vaSellPct/100 - s.studioRepairs) },
+      { numFmt: FMT_USD, note: 'derived' });
+    setRow('Final cash position',
+      { formula: `B${DN_VA}+B${D1_GAP}`, result: ((s.vaSale - s.vaPayoff - s.vaSale*s.vaSellPct/100 - s.vaRepairs) + (s.studioSale - s.studioPayoff - s.studioSale*s.vaSellPct/100 - s.studioRepairs)) + ((s.invPulled+s.bizPulled) - (s.buyPrice*s.downPct/100 + mansionVal + (s.nyClosing||0) + s.moving)) },
+      { numFmt: FMT_USD, bold: true, accent: true, topBorder: true, note: 'VA net + Day-1 gap' });
+
+    // Write file
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const ds = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    a.href = url;
+    a.download = `mycoldmars-money-${ds}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  } catch (e) {
+    console.error('Export failed', e);
+    alert('Export failed: ' + (e?.message || e));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
+}
+document.getElementById('export-xlsx-btn')?.addEventListener('click', exportMoneyXlsx);
 
 // ===================== PROPERTY TAX (auto from active pin) =====================
 const taxState = { activePinId: null, override: 0 };
