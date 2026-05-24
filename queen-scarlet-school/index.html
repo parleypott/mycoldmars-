@@ -3583,6 +3583,7 @@
           <span id="cast-count" class="cast-count" hidden>0</span>
         </button>
         <a href="#" id="btn-library" class="btn gold" title="Open the story library">library</a>
+        <a href="#" id="btn-explore" class="btn ghost" title="Train this world's eye — thumbs up images you love">explore</a>
         <button id="btn-rules" class="btn ghost" title="Parent settings — story rules and goals">⚙ rules</button>
         <button id="btn-new" class="btn ghost" title="Start a new story">+ new</button>
         <button id="btn-export" class="btn ghost" title="Download story as JSON">⬇ export</button>
@@ -8477,6 +8478,14 @@
             e.preventDefault();
             const world = window.QSSWorlds?.getActive?.() || 'queen-scarlet';
             window.location.href = `/universe/${world}/`;
+          });
+        }
+        const exploreBtn = document.getElementById('btn-explore');
+        if (exploreBtn) {
+          exploreBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const world = window.QSSWorlds?.getActive?.() || 'queen-scarlet';
+            window.location.href = `/universe/${world}/explore/`;
           });
         }
         load();

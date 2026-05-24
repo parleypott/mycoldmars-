@@ -1005,6 +1005,7 @@
       <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
       <span class="spacer"></span>
       <a href="#" id="back-link">back to the story</a>
+      <a href="#" id="cast-explore-link">explore</a>
       <a href="#" id="cast-library-link">library</a>
     </header>
     <script>
@@ -1012,8 +1013,10 @@
         const world = (location.pathname.match(/^\/universe\/([a-z0-9-]+)/i) || [])[1] || 'queen-scarlet';
         const back = document.getElementById('back-link');
         const lib = document.getElementById('cast-library-link');
+        const explore = document.getElementById('cast-explore-link');
         if (back) back.href = `/universe/${world}/write/`;
         if (lib) lib.href = `/universe/${world}/`;
+        if (explore) explore.href = `/universe/${world}/explore/`;
       })();
     </script>
 
