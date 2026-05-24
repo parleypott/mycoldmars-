@@ -1621,6 +1621,94 @@
     const cloudPushQueue = new Map();  // lowercasedName → cardSnapshot
     let cloudPushTimer = null;
 
+    // ─── Hydration gate ────────────────────────────────────────────────
+    //
+    // ROOT CAUSE OF THE 15-TIME "EVERY VISIT REDRAWS EVERYTHING" BUG:
+    // pullFromCloud's "push local cards missing from cloud" branch
+    // (formerly line 1675) used to fire during boot BEFORE IndexedDB
+    // hydration finished. The local cards at that moment held thin
+    // portrait metadata (id, mime, generated_at) with NO dataBase64 —
+    // because the bodies live in IDB and hadn't been rehydrated yet.
+    // Those thin cards got pushed up; the server's sanitizeCard skipped
+    // every portrait missing dataBase64; the row was written with
+    // portraits=[]; on the NEXT visit the cloud pull returned the
+    // emptied row, overwrote the local card, and firstDrawQueue
+    // redrew every character from scratch — losing visual_notes, loved
+    // flags, primary portrait id, and the entire portrait history.
+    //
+    // Fix: every cloud push waits on this gate, which only resolves
+    // once IDB hydration is verified complete AND every card in
+    // state.cards either has all portrait bodies attached or is
+    // explicitly known to have none (verified by IDB miss + cloud miss).
+    let resolveHydrationGate;
+    const hydrationGate = new Promise(r => { resolveHydrationGate = r; });
+    let hydrationGateOpen = false;
+    function openHydrationGate(reason) {
+      if (hydrationGateOpen) return;
+      hydrationGateOpen = true;
+      try { console.info('[cast] hydration gate opened:', reason); } catch {}
+      resolveHydrationGate();
+    }
+
+    // A card is "hydrated" if every portrait metadata entry has its
+    // dataBase64 body attached. Returns true for cards with no portraits
+    // at all (legitimately empty — auto-draw will fill them).
+    function cardIsHydrated(card) {
+      if (!card || !Array.isArray(card.portraits) || !card.portraits.length) return true;
+      return card.portraits.every(p => p && typeof p.dataBase64 === 'string' && p.dataBase64.length > 0);
+    }
+
+    // ─── Portrait-count invariant ───────────────────────────────────────
+    //
+    // This bug has bitten 15+ times because the symptom (portraits
+    // vanishing) is silent — Henry only sees it on the NEXT visit when
+    // the page redraws. The fix above closes the door, but the
+    // invariant below makes any future regression LOUD: if a card's
+    // portrait count ever decreases without an explicit user-driven
+    // delete, we log + toast immediately so the regression surfaces in
+    // the session it was introduced, not 15 sessions later.
+    const portraitCountSnapshot = new Map();  // displayName → number
+    function snapshotPortraitCount(name) {
+      const c = state.cards[name];
+      portraitCountSnapshot.set(name, Array.isArray(c?.portraits) ? c.portraits.length : 0);
+    }
+    function snapshotAllPortraitCounts(reason) {
+      for (const name of Object.keys(state.cards || {})) snapshotPortraitCount(name);
+      try { console.debug('[cast invariant] snapshot:', reason, portraitCountSnapshot.size); } catch {}
+    }
+    // Mutation marker — bumped whenever the user intentionally drops a
+    // portrait (delete, regenerate-from-loved that clears, etc.) so the
+    // invariant doesn't false-alarm on legitimate shrinks.
+    const allowedShrinks = new Set();  // displayName values, consumed on next check
+    function allowShrink(name) { if (name) allowedShrinks.add(name); }
+    function checkPortraitInvariant(reason) {
+      for (const [name, prior] of portraitCountSnapshot) {
+        const live = state.cards[name];
+        const now = Array.isArray(live?.portraits) ? live.portraits.length : 0;
+        if (now < prior) {
+          if (allowedShrinks.has(name)) {
+            allowedShrinks.delete(name);
+            portraitCountSnapshot.set(name, now);
+            continue;
+          }
+          // REGRESSION. Either a new bug, or a legitimate flow forgot
+          // to call allowShrink(name). Either way: loud.
+          const msg = `[cast invariant FAIL] ${name} portraits ${prior} → ${now} (${reason})`;
+          try { console.error(msg); } catch {}
+          try { toast(`bug guard: ${name} lost portraits — refresh to recover`, 'error', 6000); } catch {}
+          // Update snapshot so we don't toast every second; the log
+          // line stays in DevTools history for diagnosis.
+          portraitCountSnapshot.set(name, now);
+        } else if (now > prior) {
+          portraitCountSnapshot.set(name, now);
+        }
+      }
+      // Also snapshot any new cards that have appeared.
+      for (const name of Object.keys(state.cards || {})) {
+        if (!portraitCountSnapshot.has(name)) snapshotPortraitCount(name);
+      }
+    }
+
     async function pullFromCloud() {
       if (cloudPullInflight) return cloudPullInflight;
       cloudPullInflight = (async () => {
@@ -1665,6 +1753,7 @@
           if (touched) {
             writeLS();
             render();
+            checkPortraitInvariant('pullFromCloud merge');
           }
           // Auto-enqueue any newly-merged cloud characters that lack
           // portraits. firstDrawQueue is idempotent — skips anything
@@ -1675,10 +1764,24 @@
           // For any LOCAL character not present in the cloud, push them up
           // (first-time hydration of the cloud from any device that's been
           // running on localStorage-only).
+          //
+          // CRITICAL: only push cards that are FULLY HYDRATED — i.e. every
+          // portrait metadata entry has its dataBase64 body attached. Pushing
+          // a thin (unhydrated) card sends an empty portraits[] to the server
+          // (sanitizeCard drops any portrait missing dataBase64) which then
+          // overwrites the row with empties on the next pull — the exact
+          // 15-time regression. flushCloudPush enforces the same rule as a
+          // belt-and-suspenders guard.
           const cloudNames = new Set(characters.map(c => (c?.name || '').toLowerCase()));
           for (const local of Object.values(state.cards)) {
             const lk = (local?.name || '').toLowerCase();
             if (!lk || cloudNames.has(lk)) continue;
+            if (!cardIsHydrated(local)) {
+              // Defer until hydration completes. The boot IIFE re-runs
+              // pullFromCloud after hydratePortraitsFromIdb, so this card
+              // will be picked up on the next pass.
+              continue;
+            }
             cloudPushQueue.set(lk, local);
           }
           if (cloudPushQueue.size) scheduleCloudPush();
@@ -1694,8 +1797,33 @@
     }
     async function flushCloudPush() {
       if (!cloudPushQueue.size) return;
-      const batch = Array.from(cloudPushQueue.values());
+      // Hard gate: never push before hydration is verified complete. The
+      // boot sequence opens the gate AFTER hydratePortraitsFromIdb +
+      // pullFromCloud + orphan-recovery have all settled, so any pre-gate
+      // queued push waits for hydrated state. Without this gate, a push
+      // queued from the synchronous boot path (e.g. story-arc enrichment
+      // writing a new character with no portraits, or any user action
+      // before IDB hydrates) could ship a thin card and trash the cloud
+      // row — the original 15-time regression.
+      if (!hydrationGateOpen) {
+        try { await Promise.race([hydrationGate, new Promise(r => setTimeout(r, 8000))]); } catch {}
+      }
+      // Drop any card from the batch that's still unhydrated (the IDB
+      // hydrate genuinely could not find its bodies AND cloud-pull also
+      // couldn't fill them — pushing this card would zero out the cloud
+      // row). Snapshot the latest in-memory shape before flushing so
+      // edits made between scheduleCloudPush and flush actually go out.
+      const batch = [];
+      for (const queued of cloudPushQueue.values()) {
+        const live = state.cards[queued?.name] || queued;
+        if (!cardIsHydrated(live)) {
+          try { console.warn('[cast cloud] skipping push of unhydrated card', live?.name); } catch {}
+          continue;
+        }
+        batch.push(live);
+      }
       cloudPushQueue.clear();
+      if (!batch.length) return;
       try {
         const r = await fetch('/api/qss-cast?action=upsert-many', {
           method: 'POST', headers: HEADERS,
@@ -1796,8 +1924,28 @@
         for (const [name, c] of Object.entries(state.cards || {})) {
           if (state.pendingGen?.has(name)) out[name] = c;
         }
+        // ALSO preserve any local-with-bytes portraits the other tab
+        // doesn't know about (e.g. this tab drew a new portrait that
+        // hasn't synced to LS yet, or the other tab wrote thin metadata
+        // that's missing the bodies we still have in memory). Without
+        // this, opening two tabs and editing in either can cause a
+        // round-trip that wipes portraits.
+        for (const [name, prior] of Object.entries(state.cards || {})) {
+          if (!prior || !Array.isArray(prior.portraits)) continue;
+          const next = out[name];
+          if (!next) continue;
+          const nextIds = new Set((next.portraits || []).map(p => p?.id).filter(Boolean));
+          const orphanBytes = prior.portraits.filter(p => p?.dataBase64 && !nextIds.has(p.id));
+          if (orphanBytes.length) {
+            next.portraits = [...next.portraits, ...orphanBytes];
+            if (!next.primary_portrait_id && prior.primary_portrait_id) {
+              next.primary_portrait_id = prior.primary_portrait_id;
+            }
+          }
+        }
         state.cards = out;
         render();
+        checkPortraitInvariant('cross-tab storage event');
       } catch {}
     });
 
@@ -1818,66 +1966,136 @@
       }
       state.storyId = storyId;
 
-      // Hydrate state.cards from the localStorage blob FIRST (instant UI),
-      // then fetch the CLOUD cast and merge — cloud wins for any character
-      // with a newer updated_at. This is what makes the cast cross-device:
-      // edit on laptop, see it on iPad.
+      // ─── Strict boot ordering ─────────────────────────────────────────
       //
-      // Portrait dataBase64 lives in IndexedDB (since the cast was hitting
-      // the LS quota ceiling); hydrate that async after the first render
-      // so "drawing the portrait…" placeholders flip to real images as
-      // soon as IDB delivers them.
+      // Steps below are STRICTLY SEQUENTIAL. The hydration gate stays
+      // closed until every recovery path has run; cloud-push is held off
+      // until then. The previous boot order had two pullFromCloud calls
+      // racing each other (one fire-and-forget, one awaited inside an
+      // async IIFE) — the racing call ran BEFORE IDB hydration could
+      // attach portrait bodies, pushed thin cards to the server, the
+      // server's sanitizeCard dropped every portrait missing dataBase64,
+      // and the row was overwritten with empties. On every subsequent
+      // visit the empty row pulled down, orphan-recovery wiped local
+      // metadata, and firstDrawQueue redrew everything from scratch.
+      // That's the 15-time bug. The fix is structural: never push until
+      // hydration is verified, never overwrite local with cloud unless
+      // the cloud row carries real bytes, and merge-preserve on the
+      // server as a third backstop.
       state.cards = readLS();
       render();
-      (async () => {
-        try {
-          const touched = await hydratePortraitsFromIdb(state.cards);
-          if (touched) render();
-          // Wait for the cloud sync to also have its say (it might pull
-          // newer portraits than what's locally cached). Then check for
-          // orphans: cards with portraits[] entries that have NO
-          // dataBase64 anywhere (LS stripped, IDB empty, cloud absent).
-          // These would stick on "drawing the portrait…" forever
-          // because firstDrawQueue skips any card with portraits.length>0.
-          // Fix: drop the orphan metadata and let the auto-draw queue
-          // pick them up.
-          try { await pullFromCloud(); } catch {}
-          const orphanNames = [];
-          for (const c of Object.values(state.cards)) {
-            if (!Array.isArray(c?.portraits) || !c.portraits.length) continue;
-            const hasAny = c.portraits.some(p => p?.dataBase64);
-            if (!hasAny) {
-              c.portraits = [];
-              c.primary_portrait_id = null;
-              c.status = 'loading';
-              orphanNames.push(c.name);
-            }
-          }
-          if (orphanNames.length) {
-            console.warn('[cast recovery] orphan portrait metadata cleared for', orphanNames);
-            writeLS();
-            render();
-            try { toast(`re-drawing ${orphanNames.length} character${orphanNames.length === 1 ? '' : 's'} — old pictures got stuck`, 'info', 3500); } catch {}
-            firstDrawQueue(orphanNames).catch(() => {});
-          }
-        } catch (e) { console.warn('[idb] hydrate on init failed', e); }
-      })();
-      // Fire-and-forget cloud sync. If migration 018 isn't applied yet,
-      // returns 503 and we silently stay on localStorage.
-      pullFromCloud().catch(() => {});
+      snapshotAllPortraitCounts('after readLS');
 
-      // If we have an active story, try to fetch it to:
-      //   1. show the story-chip in the corner
-      //   2. fold any new arc characters into the global cast (with empty
-      //      portraits so they'll trigger a first-draw)
-      // The page works fine without this — it's enrichment, not required.
+      // 1) Hydrate portrait bodies from IDB. This must finish before any
+      //    cloud-push can fire so we never ship thin cards.
+      try {
+        const touched = await hydratePortraitsFromIdb(state.cards);
+        if (touched) render();
+      } catch (e) { try { console.warn('[idb] hydrate failed', e); } catch {} }
+      snapshotAllPortraitCounts('after idb hydrate');
+
+      // 2) Pull from cloud. Cloud-newer rows replace local. Cloud rows
+      //    may carry full portraits (with bytes) — those overwrite cleanly.
+      //    Cloud rows that arrived empty because of a PRE-FIX buggy push
+      //    are filtered below in step 3 (orphan recovery) — but ONLY for
+      //    cards where IDB also has nothing. We never assume cloud is
+      //    correct when local IDB has the bytes.
+      const localBeforeCloud = new Map();
+      for (const [name, c] of Object.entries(state.cards || {})) {
+        if (!c || !Array.isArray(c.portraits)) continue;
+        // Snapshot portraits-with-bytes so we can restore them if the
+        // cloud pull arrives with an empty/destructive shape (the legacy
+        // bug). Server merge-preservation makes this redundant going
+        // forward but the client guard makes it survive a stale row
+        // that was already destroyed before the server fix shipped.
+        const withBytes = c.portraits.filter(p => p && p.dataBase64);
+        if (withBytes.length) localBeforeCloud.set(name, {
+          portraits: withBytes.map(p => ({ ...p })),
+          primary_portrait_id: c.primary_portrait_id,
+          visual_notes: c.visual_notes,
+        });
+      }
+      try { await pullFromCloud(); } catch {}
+
+      // 2a) Restore any local-only bytes that the cloud pull would have
+      //     dropped. If the cloud row came back empty (legacy
+      //     destruction), or with strictly fewer portraits than local
+      //     held with bytes, we merge local-with-bytes back in. This is
+      //     the rescue path for rows already poisoned by the old bug —
+      //     they'll heal back to full state once the next push goes out
+      //     post-gate.
+      let restored = 0;
+      for (const [name, snap] of localBeforeCloud) {
+        const live = state.cards[name];
+        if (!live) {
+          // Cloud-pull dropped the card entirely (shouldn't happen on a
+          // GET, but defensive). Re-add it.
+          state.cards[name] = migrateCard({ name, ...snap });
+          restored++;
+          continue;
+        }
+        if (!Array.isArray(live.portraits)) live.portraits = [];
+        const liveIds = new Set(live.portraits.filter(p => p?.dataBase64).map(p => p.id));
+        const missing = snap.portraits.filter(p => !liveIds.has(p.id));
+        if (missing.length) {
+          live.portraits = [...live.portraits, ...missing];
+          if (!live.primary_portrait_id && snap.primary_portrait_id) {
+            live.primary_portrait_id = snap.primary_portrait_id;
+          }
+          if (!live.visual_notes && snap.visual_notes) {
+            live.visual_notes = snap.visual_notes;
+          }
+          restored++;
+        }
+      }
+      if (restored) {
+        try { console.warn('[cast recovery] restored', restored, 'card(s) from local bytes after cloud overwrite'); } catch {}
+        writeLS();
+        render();
+      }
+      snapshotAllPortraitCounts('after cloud pull + restore');
+
+      // 3) Orphan recovery — but ONLY for cards that have portrait
+      //    metadata yet ZERO bytes anywhere (LS, IDB, cloud). These are
+      //    the truly-lost cards that need a re-draw. We do NOT touch
+      //    cards with mixed states (some portraits with bytes, some
+      //    without — the without-bytes ones just stay as loading thumbs
+      //    until IDB delivers them on the next session).
+      const orphanNames = [];
+      for (const c of Object.values(state.cards)) {
+        if (!Array.isArray(c?.portraits) || !c.portraits.length) continue;
+        const anyHasBytes = c.portraits.some(p => p?.dataBase64);
+        if (!anyHasBytes) {
+          allowShrink(c.name);
+          c.portraits = [];
+          c.primary_portrait_id = null;
+          c.status = 'loading';
+          orphanNames.push(c.name);
+        }
+      }
+      if (orphanNames.length) {
+        try { console.warn('[cast recovery] orphan portrait metadata cleared for', orphanNames); } catch {}
+        writeLS();
+        render();
+        try { toast(`re-drawing ${orphanNames.length} character${orphanNames.length === 1 ? '' : 's'} — old pictures got stuck`, 'info', 3500); } catch {}
+        // Re-snapshot the cleared cards so the invariant treats their
+        // new (empty) state as the baseline going forward — the
+        // allowShrink calls inside the loop already permitted this
+        // specific shrink.
+        for (const name of orphanNames) snapshotPortraitCount(name);
+      }
+
+      // 4) Story-arc enrichment — fold new characters from the active
+      //    story into the cast. Only writes LS, never pushes to cloud
+      //    here (the new cards have no portraits yet; pushing would
+      //    just re-create the original bug). They'll get pushed by
+      //    firstDrawQueue + generatePortrait once they're drawn.
       if (storyId) {
         try {
           const r = await fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(storyId)}`, { headers: HEADERS });
           if (r.ok) {
             const { story } = await r.json();
             state.story = story;
-            // Fold any arc characters into the global cast as appearances.
             const arcChars = Array.isArray(story.arc_context?.characters) ? story.arc_context.characters : [];
             for (const ch of arcChars) {
               const name = (ch?.name || '').trim();
@@ -1891,11 +2109,9 @@
                   status: 'loading',
                 });
               } else {
-                // Always refresh current_state since it changes as story grows.
                 existing.current_state = ch.current_state || existing.current_state || '';
                 existing.intro_block = ch.intro_block || existing.intro_block || null;
               }
-              // Track that this character appears in this story.
               const card = state.cards[name];
               card.story_appearances = card.story_appearances || [];
               let app = card.story_appearances.find(a => a.story_id === storyId);
@@ -1913,11 +2129,11 @@
         } catch {}
       }
 
+      // 5) Normalize and open the hydration gate. From this point on,
+      //    state.cards is the authoritative shape; cloud pushes are
+      //    safe because every card with portrait metadata also carries
+      //    its bytes (or has been explicitly emptied for re-draw).
       try {
-        // Normalize every card in the global state through migrateCard
-        // so legacy single-image shapes get promoted into portraits[].
-        // Defensive: skip falsy entries up front so a stray null can't
-        // throw `.portraits of undefined` mid-loop.
         const normalized = {};
         for (const [name, raw] of Object.entries(state.cards || {})) {
           if (!raw || typeof raw !== 'object') continue;
@@ -1926,16 +2142,21 @@
         }
         state.cards = normalized;
         writeLS();
+        snapshotAllPortraitCounts('after normalize');
+        openHydrationGate('boot complete');
 
-        // Auto-draw on load: only for cards that have ZERO portraits. Filter
-        // out any null/undefined cards defensively — empty stages don't
-        // start the recovery flow.
+        // 6) Auto-draw cards that genuinely have ZERO portraits. Now
+        //    that the gate is open, generatePortrait's cloud push will
+        //    go through cleanly. Note: orphanNames were already added
+        //    to the same zero-portrait set by the recovery loop above.
         const needsFirstDraw = Object.values(state.cards).filter(c =>
           c && !(Array.isArray(c.portraits) && c.portraits.length)
         );
         render();
         firstDrawQueue(needsFirstDraw.map(c => c.name));
       } catch (e) {
+        // Even on error, open the gate so user actions aren't deadlocked.
+        openHydrationGate('boot error');
         renderGridEmpty('couldn\'t load the cast', e.message || 'try refresh');
       }
     }
@@ -2329,6 +2550,8 @@
         const what = isLoved ? 'a portrait you ♥-loved' : 'the main portrait you can see right now';
         if (!confirm(`Delete ${what}? You can\'t un-delete this.`)) return;
       }
+      // Tell the invariant that this shrink is intentional.
+      allowShrink(card.name);
       card.portraits.splice(idx, 1);
       if (card.primary_portrait_id === pid) {
         card.primary_portrait_id = card.portraits.length
