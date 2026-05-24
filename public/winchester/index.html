@@ -611,6 +611,38 @@ body.hide-train .whh-icon-train { display: none !important; }
 body.hide-trail .whh-icon-trail { display: none !important; }
 body.hide-villages .whh-village-label { display: none !important; }
 
+/* Basemap switcher — separate row, segmented */
+.basemap-switcher {
+  margin-top: 8px;
+  display: inline-flex;
+  background: rgba(251, 249, 242, 0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 4px;
+  gap: 2px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.10);
+}
+.basemap-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 150ms, color 150ms;
+}
+.basemap-btn:hover { color: var(--ink); }
+.basemap-btn.active {
+  background: var(--ink);
+  color: var(--bg);
+}
+
 /* MapLibre popup — match editorial palette */
 .maplibregl-popup-content {
   background: var(--card) !important;
@@ -820,6 +852,11 @@ body.hide-villages .whh-village-label { display: none !important; }
       <button class="layer-btn active" data-layer="train">Train</button>
       <button class="layer-btn active" data-layer="trail">Trails</button>
       <button class="layer-btn active" data-layer="villages">Villages</button>
+    </div>
+    <div class="basemap-switcher" id="basemap-switcher">
+      <button class="basemap-btn" data-style="detailed">Detailed</button>
+      <button class="basemap-btn" data-style="minimal">Minimal</button>
+      <button class="basemap-btn" data-style="blank">Blank</button>
     </div>
   </div>
 
@@ -1556,9 +1593,57 @@ try { villages = JSON.parse(localStorage.getItem(V_KEY) || '[]'); } catch (e) { 
 function saveVillages() { localStorage.setItem(V_KEY, JSON.stringify(villages)); }
 
 // ===================== MAP =====================
+const STYLE_KEY = 'whh:basemap:v1';
+const OFM_GLYPHS = 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf';
+const OFM_TILES = 'https://tiles.openfreemap.org/planet';
+const MAP_STYLES = {
+  detailed: 'https://tiles.openfreemap.org/styles/positron',
+  minimal: {
+    version: 8,
+    glyphs: OFM_GLYPHS,
+    sources: { omt: { type: 'vector', url: OFM_TILES } },
+    layers: [
+      { id: 'bg', type: 'background', paint: { 'background-color': '#F5F1E8' } },
+      { id: 'major-roads', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary'], true, false],
+        paint: {
+          'line-color': '#B5AE9D',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.4, 12, 1.1, 16, 2.4]
+        }
+      },
+      { id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['==', ['get', 'class'], 'rail'],
+        paint: { 'line-color': '#7A7468', 'line-width': 1, 'line-dasharray': [2, 2] }
+      },
+      { id: 'place-labels', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        filter: ['match', ['get', 'class'], ['city', 'town', 'village', 'hamlet', 'suburb'], true, false],
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9, 14, 13],
+          'text-font': ['Noto Sans Regular']
+        },
+        paint: { 'text-color': '#2A2620', 'text-halo-color': '#F5F1E8', 'text-halo-width': 1.4 }
+      }
+    ]
+  },
+  blank: {
+    version: 8,
+    glyphs: OFM_GLYPHS,
+    sources: {},
+    layers: [
+      { id: 'bg', type: 'background', paint: { 'background-color': '#F5F1E8' } }
+    ]
+  }
+};
+const savedStyleKey = (() => {
+  const s = localStorage.getItem(STYLE_KEY);
+  return MAP_STYLES[s] ? s : 'detailed';
+})();
+let currentStyleKey = savedStyleKey;
+
 const map = new maplibregl.Map({
   container: 'map-canvas',
-  style: 'https://tiles.openfreemap.org/styles/positron',
+  style: MAP_STYLES[savedStyleKey],
   center: [-73.7831, 41.1346],
   zoom: 12.5,
   pitch: 0,
@@ -1612,6 +1697,7 @@ map.on('load', () => {
   renderPins();
   renderVillages();
   renderVillageMarkers();
+  mountVillageBoundaryLayers();
   // Refine any villages that haven't been researched yet (legacy or partial)
   (async () => {
     for (const v of villages) {
@@ -1623,6 +1709,95 @@ map.on('load', () => {
   })();
 });
 
+function mountSchoolDistrictLayers() {
+  if (!window._schoolDistricts || map.getSource('school-districts')) return;
+  const data = { type: 'FeatureCollection', features: window._schoolDistricts };
+  map.addSource('school-districts', { type: 'geojson', data });
+  const firstSymbol = map.getStyle().layers.find(l => l.type === 'symbol')?.id;
+  map.addLayer({
+    id: 'school-districts-fill',
+    type: 'fill',
+    source: 'school-districts',
+    paint: { 'fill-color': ['get', '_color'], 'fill-opacity': 0.22 }
+  }, firstSymbol);
+  map.addLayer({
+    id: 'school-districts-line',
+    type: 'line',
+    source: 'school-districts',
+    paint: { 'line-color': '#5E5A4D', 'line-width': 1.1, 'line-opacity': 0.6 }
+  }, firstSymbol);
+  // Respect current toggle state
+  const schoolsBtn = document.querySelector('.layer-btn[data-layer="schools"]');
+  const vis = (schoolsBtn && schoolsBtn.classList.contains('active')) ? 'visible' : 'none';
+  map.setLayoutProperty('school-districts-fill', 'visibility', vis);
+  map.setLayoutProperty('school-districts-line', 'visibility', vis);
+  // Click → popup
+  map.on('click', 'school-districts-fill', (e) => {
+    const f = e.features?.[0];
+    if (!f) return;
+    new maplibregl.Popup({ closeButton: true, maxWidth: '280px' })
+      .setLngLat(e.lngLat)
+      .setHTML(`<div class="map-popup"><div class="map-popup-kind">School District</div><div class="map-popup-name">${escapeHtml(f.properties.DISTNAME)}</div></div>`)
+      .addTo(map);
+  });
+  map.on('mouseenter', 'school-districts-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', 'school-districts-fill', () => { map.getCanvas().style.cursor = ''; });
+}
+
+function mountVillageBoundaryLayers() {
+  if (map.getSource('village-boundaries')) return;
+  map.addSource('village-boundaries', { type: 'geojson', data: villageBoundaryCollection() });
+  map.addLayer({
+    id: 'village-boundaries-fill',
+    type: 'fill',
+    source: 'village-boundaries',
+    paint: { 'fill-color': '#3a8c5f', 'fill-opacity': 0.08 }
+  });
+  map.addLayer({
+    id: 'village-boundaries-line',
+    type: 'line',
+    source: 'village-boundaries',
+    paint: { 'line-color': '#2A2620', 'line-width': 1.4, 'line-opacity': 0.75 }
+  });
+}
+
+function villageBoundaryCollection() {
+  return {
+    type: 'FeatureCollection',
+    features: villages.filter(v => v.boundary).map(v => ({
+      type: 'Feature',
+      geometry: v.boundary,
+      properties: { name: v.name, id: v.id }
+    }))
+  };
+}
+
+function refreshVillageBoundaries() {
+  const src = map.getSource('village-boundaries');
+  if (src) src.setData(villageBoundaryCollection());
+}
+
+function mountCustomLayers() {
+  mountSchoolDistrictLayers();
+  mountVillageBoundaryLayers();
+}
+
+function applyMapStyle(key) {
+  if (!MAP_STYLES[key] || key === currentStyleKey) return;
+  currentStyleKey = key;
+  localStorage.setItem(STYLE_KEY, key);
+  document.querySelectorAll('.basemap-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.style === key);
+  });
+  map.setStyle(MAP_STYLES[key]);
+  map.once('styledata', () => { mountCustomLayers(); });
+}
+
+document.querySelectorAll('.basemap-btn').forEach(b => {
+  b.classList.toggle('active', b.dataset.style === currentStyleKey);
+  b.addEventListener('click', () => applyMapStyle(b.dataset.style));
+});
+
 async function loadSchoolDistricts() {
   try {
     const url = 'https://giswww.westchestergov.com/arcgis/rest/services/Datahub_Boundaries/MapServer/154/query?where=1%3D1&outFields=DISTNAME&geometryPrecision=5&f=geojson&outSR=4326';
@@ -1630,40 +1805,11 @@ async function loadSchoolDistricts() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (!data.features?.length) throw new Error('no features');
-    // Pre-compute color per district for paint expression
     data.features.forEach(f => {
       f.properties._color = colorForDistrict(f.properties.DISTNAME);
     });
     window._schoolDistricts = data.features;
-    if (!map.getSource('school-districts')) {
-      map.addSource('school-districts', { type: 'geojson', data });
-      // Insert UNDER the basemap's first symbol layer (labels) so roads + place names stay visible on top
-      const firstSymbol = map.getStyle().layers.find(l => l.type === 'symbol')?.id;
-      map.addLayer({
-        id: 'school-districts-fill',
-        type: 'fill',
-        source: 'school-districts',
-        paint: { 'fill-color': ['get', '_color'], 'fill-opacity': 0.22 }
-      }, firstSymbol);
-      map.addLayer({
-        id: 'school-districts-line',
-        type: 'line',
-        source: 'school-districts',
-        paint: { 'line-color': '#5E5A4D', 'line-width': 1.1, 'line-opacity': 0.6 }
-      }, firstSymbol);
-
-      // Click → popup with district name
-      map.on('click', 'school-districts-fill', (e) => {
-        const f = e.features?.[0];
-        if (!f) return;
-        new maplibregl.Popup({ closeButton: true, maxWidth: '280px' })
-          .setLngLat(e.lngLat)
-          .setHTML(`<div class="map-popup"><div class="map-popup-kind">School District</div><div class="map-popup-name">${escapeHtml(f.properties.DISTNAME)}</div></div>`)
-          .addTo(map);
-      });
-      map.on('mouseenter', 'school-districts-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave', 'school-districts-fill', () => { map.getCanvas().style.cursor = ''; });
-    }
+    mountSchoolDistrictLayers();
     // Re-detect for existing pins, save + re-render
     let changed = false;
     pins.forEach(p => {
@@ -1716,7 +1862,7 @@ function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTi
 
 async function searchAddresses(q) {
   // viewbox biases results toward Westchester area but doesn't strictly limit
-  const url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=us&viewbox=-74.05,41.35,-73.45,40.95&q=' + encodeURIComponent(q);
+  const url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&polygon_geojson=1&limit=6&countrycodes=us&viewbox=-74.05,41.35,-73.45,40.95&q=' + encodeURIComponent(q);
   const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
   if (!res.ok) throw new Error('search failed');
   return res.json();
@@ -1803,11 +1949,14 @@ function addVillageFromSuggestion(idx) {
     statusEl.textContent = 'already added';
     return;
   }
+  const boundary = (s.geojson && (s.geojson.type === 'Polygon' || s.geojson.type === 'MultiPolygon')) ? s.geojson : null;
   const v = {
     id: 'v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
     name, lat, lng, bbox,
     addrParts: a,
     display: s.display_name,
+    osmType: s.osm_type, osmId: s.osm_id,
+    boundary,
     schoolDistrict: null,
     train: null,
     trails: null,
@@ -1818,6 +1967,7 @@ function addVillageFromSuggestion(idx) {
   saveVillages();
   renderVillages();
   renderVillageMarkers();
+  refreshVillageBoundaries();
   map.flyTo({ center: [lng, lat], zoom: 13, duration: 1000 });
   addrInput.value = '';
   suggestionsEl.classList.add('hidden');
@@ -1855,6 +2005,30 @@ async function refineVillage(id) {
   } catch (e) {
     v.bookstores = [];
   }
+
+  // 5. Boundary polygon (backfill for legacy villages or if first fetch missed it)
+  if (!v.boundary) {
+    try {
+      const params = new URLSearchParams({
+        format: 'json', addressdetails: '1', polygon_geojson: '1',
+        countrycodes: 'us', limit: '5', q: v.display || v.name
+      });
+      const res = await fetch('https://nominatim.openstreetmap.org/search?' + params);
+      if (res.ok) {
+        const arr = await res.json();
+        const hit =
+          (v.osmId && arr.find(h => String(h.osm_id) === String(v.osmId))) ||
+          arr.find(h => h.geojson && (h.geojson.type === 'Polygon' || h.geojson.type === 'MultiPolygon')) ||
+          null;
+        if (hit?.geojson && (hit.geojson.type === 'Polygon' || hit.geojson.type === 'MultiPolygon')) {
+          v.boundary = hit.geojson;
+          saveVillages();
+          refreshVillageBoundaries();
+        }
+      }
+    } catch (e) { /* swallow */ }
+  }
+
   v.refined = true;
   saveVillages();
   renderVillages();
@@ -1991,6 +2165,7 @@ function renderVillages() {
       saveVillages();
       renderVillages();
       renderVillageMarkers();
+      refreshVillageBoundaries();
     });
     listEl.appendChild(card);
   });
