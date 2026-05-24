@@ -1385,45 +1385,76 @@
       try {
         const raw = localStorage.getItem(GLOBAL_KEY);
         let lcMap = raw ? (JSON.parse(raw) || {}) : {};
-        // One-time migration from per-story caches.
+        // One-time migration from per-story caches into the GLOBAL cast.
+        //
+        // WORLD ISOLATION: legacy `qss:cast:<storyId>` keys are all
+        // pre-worlds data (Queen Scarlet's school). They must ONLY
+        // migrate into queen-scarlet's globalcast — never into Burgundy
+        // (or any future world). Without this guard, switching into a
+        // new world for the first time would fold Queen Scarlet's
+        // entire cast into the new world's slot — exactly the bug
+        // Johnny reported: Burgundy showing Kevin, Queen Scarlet,
+        // Principal Gerald, Marcus Alvarez.
+        const activeWorld = (window.QSSWorlds?.getActive?.() || 'queen-scarlet');
+        const isDefaultWorld = (activeWorld === 'queen-scarlet');
         if (!localStorage.getItem(MIGRATED_FLAG)) {
           try {
-            for (let i = 0; i < localStorage.length; i++) {
-              const k = localStorage.key(i);
-              if (!k || !k.startsWith('qss:cast:')) continue;
-              try {
-                const perStory = JSON.parse(localStorage.getItem(k) || '{}') || {};
-                for (const [displayName, val] of Object.entries(perStory)) {
-                  if (!displayName) continue;
-                  const lk = lcKey(displayName);
-                  if (!lcMap[lk]) {
-                    lcMap[lk] = { ...val, name: displayName };
-                  } else {
-                    // Merge: union portraits by id, concat chat, take longer notes
-                    const ex = lcMap[lk];
-                    const exP = Array.isArray(ex.portraits) ? ex.portraits : [];
-                    const inP = Array.isArray(val.portraits) ? val.portraits : [];
-                    const seen = new Set();
-                    ex.portraits = [...exP, ...inP].filter(p => {
-                      if (!p || !p.id || seen.has(p.id)) return false;
-                      seen.add(p.id);
-                      return true;
-                    });
-                    if (!ex.primary_portrait_id && ex.portraits.length) {
-                      ex.primary_portrait_id = ex.portraits[ex.portraits.length - 1].id;
+            if (isDefaultWorld) {
+              for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k || !k.startsWith('qss:cast:')) continue;
+                try {
+                  const perStory = JSON.parse(localStorage.getItem(k) || '{}') || {};
+                  for (const [displayName, val] of Object.entries(perStory)) {
+                    if (!displayName) continue;
+                    const lk = lcKey(displayName);
+                    if (!lcMap[lk]) {
+                      lcMap[lk] = { ...val, name: displayName };
+                    } else {
+                      const ex = lcMap[lk];
+                      const exP = Array.isArray(ex.portraits) ? ex.portraits : [];
+                      const inP = Array.isArray(val.portraits) ? val.portraits : [];
+                      const seen = new Set();
+                      ex.portraits = [...exP, ...inP].filter(p => {
+                        if (!p || !p.id || seen.has(p.id)) return false;
+                        seen.add(p.id);
+                        return true;
+                      });
+                      if (!ex.primary_portrait_id && ex.portraits.length) {
+                        ex.primary_portrait_id = ex.portraits[ex.portraits.length - 1].id;
+                      }
+                      const exC = Array.isArray(ex.chat) ? ex.chat : [];
+                      const inC = Array.isArray(val.chat) ? val.chat : [];
+                      ex.chat = [...exC, ...inC];
+                      if ((val.synopsis || '').length > (ex.synopsis || '').length) ex.synopsis = val.synopsis;
+                      if ((val.visual_notes || '').length > (ex.visual_notes || '').length) ex.visual_notes = val.visual_notes;
+                      ex.generated_at = Math.max(ex.generated_at || 0, val.generated_at || 0);
                     }
-                    const exC = Array.isArray(ex.chat) ? ex.chat : [];
-                    const inC = Array.isArray(val.chat) ? val.chat : [];
-                    ex.chat = [...exC, ...inC];
-                    if ((val.synopsis || '').length > (ex.synopsis || '').length) ex.synopsis = val.synopsis;
-                    if ((val.visual_notes || '').length > (ex.visual_notes || '').length) ex.visual_notes = val.visual_notes;
-                    ex.generated_at = Math.max(ex.generated_at || 0, val.generated_at || 0);
                   }
-                }
-              } catch {}
+                } catch {}
+              }
             }
+            // Always mark migrated — non-default worlds skip the loop
+            // but still need the flag so they don't keep re-checking.
             localStorage.setItem(MIGRATED_FLAG, '1');
             localStorage.setItem(GLOBAL_KEY, JSON.stringify(lcMap));
+          } catch {}
+        }
+        // SELF-HEAL: if this is a non-default world AND the slot was
+        // populated by an older buggy build (before this fix), the
+        // cards likely all belong to queen-scarlet. Detect the marker
+        // 'qss:world:burgundy:cast:contaminated' — if not set, AND
+        // the cloud has zero characters for this world, treat any
+        // local cards as poisoned and wipe them. The next cloud pull
+        // will fill in actual world-scoped data.
+        const SELF_HEAL_KEY = `qss:world:${activeWorld}:cast:self-healed:v1`;
+        if (!isDefaultWorld && !localStorage.getItem(SELF_HEAL_KEY) && Object.keys(lcMap).length > 0) {
+          // Reset — cloud is the source of truth for non-default worlds.
+          lcMap = {};
+          try {
+            localStorage.setItem(GLOBAL_KEY, '{}');
+            localStorage.setItem(SELF_HEAL_KEY, '1');
+            console.warn('[cast] self-healed contaminated non-default world cast slot');
           } catch {}
         }
         // Convert lowercased-keyed blob back into display-name-keyed map
