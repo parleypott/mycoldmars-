@@ -960,13 +960,38 @@ window.addEventListener('error', (e) => {
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'whh-err-overlay';
-    overlay.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;max-height:160px;overflow:auto;padding:10px 14px;background:#B5331E;color:#F5F1E6;font-family:JetBrains Mono,monospace;font-size:11px;line-height:1.4;border-radius:2px;z-index:99999;box-shadow:0 8px 30px rgba(0,0,0,0.5);';
+    overlay.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;max-height:200px;overflow:auto;padding:10px 14px;background:#B5331E;color:#F5F1E6;font-family:JetBrains Mono,monospace;font-size:11px;line-height:1.4;border-radius:2px;z-index:99999;box-shadow:0 8px 30px rgba(0,0,0,0.5);';
     document.body && document.body.appendChild(overlay);
   }
   const line = document.createElement('div');
   line.textContent = '⚠ ' + (e.message || 'unknown') + ' @ ' + (e.filename||'').split('/').pop() + ':' + e.lineno;
   overlay.appendChild(line);
+  if ((e.message||'').includes('Quota') || (e.message||'').includes('quota')) {
+    const btn = document.createElement('button');
+    btn.textContent = '⚠ Storage full — click to clear village/pin cache and reload';
+    btn.style.cssText = 'margin-top:8px;background:#F5F1E6;color:#B5331E;border:0;padding:8px 16px;font:600 11px/1 JetBrains Mono,monospace;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;border-radius:2px;';
+    btn.onclick = () => {
+      try { localStorage.removeItem('whh:villages:v1'); } catch {}
+      try { localStorage.removeItem('whh:pins:v1'); } catch {}
+      try { localStorage.removeItem('whh:scenarios:v1'); } catch {}
+      try { localStorage.removeItem('whh:money:v1'); } catch {}
+      try { localStorage.removeItem('whh:basemap:v1'); } catch {}
+      location.reload();
+    };
+    overlay.appendChild(btn);
+  }
 });
+
+// Safe localStorage wrapper — quota errors never crash callers
+function safeSet(key, value) {
+  try { localStorage.setItem(key, value); return true; }
+  catch (e) {
+    console.warn('[whh] localStorage quota for', key, e);
+    // Trigger the error overlay so the emergency Reset button appears
+    window.dispatchEvent(new ErrorEvent('error', { message: 'QuotaExceededError on ' + key, filename: 'storage', lineno: 0 }));
+    return false;
+  }
+}
 </script>
 <script>
 
@@ -1033,7 +1058,7 @@ function saveMoneyState() {
       _taxOverride: (typeof taxState !== 'undefined') ? taxState.override : 0,
       _activePinId: (typeof taxState !== 'undefined') ? taxState.activePinId : null
     };
-    localStorage.setItem(MONEY_KEY, JSON.stringify(snap));
+    safeSet(MONEY_KEY, JSON.stringify(snap));
   } catch (e) { /* ignore */ }
 }
 
@@ -1583,7 +1608,7 @@ function listScenarios() {
   try { return JSON.parse(localStorage.getItem(SCENARIOS_KEY) || '[]'); } catch { return []; }
 }
 function writeScenarios(list) {
-  localStorage.setItem(SCENARIOS_KEY, JSON.stringify(list));
+  safeSet(SCENARIOS_KEY, JSON.stringify(list));
   renderScenarioMenu();
 }
 function snapshotScenarioState() {
@@ -2038,12 +2063,27 @@ function formatPinAddress(pin) {
 const STORAGE_KEY = 'whh:pins:v1';
 let pins = [];
 try { pins = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { pins = []; }
-function savePins() { localStorage.setItem(STORAGE_KEY, JSON.stringify(pins)); }
+function savePins() { safeSet(STORAGE_KEY, JSON.stringify(pins)); }
 
 const V_KEY = 'whh:villages:v1';
 let villages = [];
 try { villages = JSON.parse(localStorage.getItem(V_KEY) || '[]'); } catch (e) { villages = []; }
-function saveVillages() { localStorage.setItem(V_KEY, JSON.stringify(villages)); }
+function saveVillages() {
+  // Strip heavy fields before persisting — boundary polygons & trails-arrays bloat past quota fast.
+  // They're re-fetched on next load via refineVillage backfill.
+  const slim = villages.map(v => {
+    const { boundary, trails, bookstores, ...keep } = v;
+    return { ...keep, hadBoundary: !!boundary, refined: false };
+  });
+  const ok = safeSet(V_KEY, JSON.stringify(slim));
+  if (!ok) {
+    // Last-ditch: persist only the bare minimum (name + lat/lng + id)
+    try {
+      const ultraSlim = villages.map(v => ({ id: v.id, name: v.name, lat: v.lat, lng: v.lng, display: v.display }));
+      localStorage.setItem(V_KEY, JSON.stringify(ultraSlim));
+    } catch {}
+  }
+}
 
 // ===================== MAP =====================
 const STYLE_KEY = 'whh:basemap:v1';
@@ -2329,7 +2369,7 @@ function applyMapStyle(key) {
     return;
   }
   currentStyleKey = key;
-  localStorage.setItem(STYLE_KEY, key);
+  safeSet(STYLE_KEY, key);
   document.querySelectorAll('.basemap-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.style === key);
   });
