@@ -866,8 +866,6 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
         </div>
         <div class="field"><label>NY closing costs</label><span class="derived cost" id="nyClosing-out">= —</span></div>
         <div class="field"><div class="derived" id="nyClosing-breakdown">—</div></div>
-        <div class="field"><label>Moving + upstart costs</label><input type="text" id="moving"></div>
-        <div class="field"><div class="derived" id="moving-note">move-in, furniture, deposits, repairs to settle in</div></div>
       </div>
       <div class="group">
         <div class="group-title">Property Tax · auto from active pin</div>
@@ -984,119 +982,57 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script>
-// ===================== ERROR OVERLAY — deduped, one button =====================
-const _seenErrors = new Set();
-function _ensureOverlay() {
+// Surface any silent JS error so we never silently break
+window.addEventListener('error', (e) => {
+  if (e?.error?.message?.includes('ResizeObserver')) return;
   let overlay = document.getElementById('whh-err-overlay');
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'whh-err-overlay';
-    overlay.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;max-height:160px;overflow:auto;padding:10px 14px;background:#B5331E;color:#F5F1E6;font-family:JetBrains Mono,monospace;font-size:11px;line-height:1.4;border-radius:2px;z-index:99999;box-shadow:0 8px 30px rgba(0,0,0,0.5);';
+    overlay.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;max-height:200px;overflow:auto;padding:10px 14px;background:#B5331E;color:#F5F1E6;font-family:JetBrains Mono,monospace;font-size:11px;line-height:1.4;border-radius:2px;z-index:99999;box-shadow:0 8px 30px rgba(0,0,0,0.5);';
     document.body && document.body.appendChild(overlay);
   }
-  return overlay;
-}
-function _appendErrorLine(msg, withClearBtn) {
-  if (_seenErrors.has(msg)) return;
-  _seenErrors.add(msg);
-  const overlay = _ensureOverlay();
   const line = document.createElement('div');
-  line.textContent = '⚠ ' + msg;
+  line.textContent = '⚠ ' + (e.message || 'unknown') + ' @ ' + (e.filename||'').split('/').pop() + ':' + e.lineno;
   overlay.appendChild(line);
-  if (withClearBtn && !document.getElementById('whh-err-clear-btn')) {
+  if ((e.message||'').includes('Quota') || (e.message||'').includes('quota')) {
     const btn = document.createElement('button');
-    btn.id = 'whh-err-clear-btn';
-    btn.textContent = '⚠ Storage full — click to free space and continue (your work is safe)';
-    btn.style.cssText = 'display:block;margin-top:8px;background:#F5F1E6;color:#B5331E;border:0;padding:8px 16px;font:600 11px/1 JetBrains Mono,monospace;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;border-radius:2px;';
+    btn.textContent = '⚠ Storage full — click to clear village/pin cache and reload';
+    btn.style.cssText = 'margin-top:8px;background:#F5F1E6;color:#B5331E;border:0;padding:8px 16px;font:600 11px/1 JetBrains Mono,monospace;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;border-radius:2px;';
     btn.onclick = () => {
-      const freed = _evictAllRegenerable();
-      try { if (typeof saveMoneyState === 'function') saveMoneyState(); } catch {}
-      const o = document.getElementById('whh-err-overlay');
-      if (o) o.remove();
-      _seenErrors.clear();
-      console.info('[whh] manual clear freed', freed, 'bytes');
+      try { localStorage.removeItem('whh:villages:v1'); } catch {}
+      try { localStorage.removeItem('whh:pins:v1'); } catch {}
+      try { localStorage.removeItem('whh:scenarios:v1'); } catch {}
+      try { localStorage.removeItem('whh:money:v1'); } catch {}
+      try { localStorage.removeItem('whh:basemap:v1'); } catch {}
+      location.reload();
     };
     overlay.appendChild(btn);
   }
-}
-window.addEventListener('error', (e) => {
-  if (e?.error?.message?.includes('ResizeObserver')) return;
-  const msg = (e.message || 'unknown') + ' @ ' + (e.filename||'').split('/').pop() + ':' + e.lineno;
-  const isQuota = (e.message||'').toLowerCase().includes('quota');
-  _appendErrorLine(msg, isQuota);
 });
 
-// ===================== SAFE LOCALSTORAGE — self-heals on quota =====================
-// On quota error: evict every regenerable cache (villages, pins, basemap pref) before
-// bothering the user. Money + scenarios are PROTECTED — those are typed by hand.
-const _PROTECTED_KEYS = new Set(['whh:money:v1', 'whh:scenarios:v1']);
-function _measureStorage() {
-  const rows = [];
-  let total = 0;
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      const v = localStorage.getItem(k) || '';
-      const bytes = k.length + v.length;
-      rows.push({ key: k, bytes });
-      total += bytes;
-    }
-  } catch {}
-  rows.sort((a, b) => b.bytes - a.bytes);
-  return { rows, total };
-}
-function _evictAllRegenerable() {
-  const { rows } = _measureStorage();
-  let freed = 0;
-  for (const r of rows) {
-    if (_PROTECTED_KEYS.has(r.key)) continue;
-    try { localStorage.removeItem(r.key); freed += r.bytes; } catch {}
-  }
-  return freed;
-}
+// Safe localStorage wrapper — quota errors never crash callers
 function safeSet(key, value) {
   try { localStorage.setItem(key, value); return true; }
   catch (e) {
-    const freed = _evictAllRegenerable();
-    console.warn('[whh] quota hit on', key, '— freed', freed, 'bytes, retrying');
-    try { localStorage.setItem(key, value); return true; } catch (e2) {
-      const { rows, total } = _measureStorage();
-      console.warn('[whh] STILL over quota after evict.', total, 'bytes used:', rows);
-      _appendErrorLine('Storage full — couldn\'t save ' + key.replace('whh:','').replace(':v1','') + ' (check console for sizes)', true);
-      return false;
-    }
+    console.warn('[whh] localStorage quota for', key, e);
+    // Trigger the error overlay so the emergency Reset button appears
+    window.dispatchEvent(new ErrorEvent('error', { message: 'QuotaExceededError on ' + key, filename: 'storage', lineno: 0 }));
+    return false;
   }
 }
 </script>
 <script>
 
-// ===================== TABS — hash-routed permalinks =====================
-// /winchester#money, #map, #timeline, #notes — reload-stable, shareable, back/forward works
-const VALID_TABS = ['map', 'money', 'timeline', 'notes'];
-const DEFAULT_TAB = 'map';
-function _readTabFromHash() {
-  const h = (location.hash || '').replace(/^#/, '').toLowerCase().trim();
-  return VALID_TABS.includes(h) ? h : DEFAULT_TAB;
-}
-function setActiveTab(tabId, opts) {
-  if (!VALID_TABS.includes(tabId)) tabId = DEFAULT_TAB;
+// ===================== TABS =====================
+function setActiveTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === tabId));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tabId));
   document.body.classList.toggle('on-map', tabId === 'map');
-  // body class per tab so each tab can have its own styling rules
-  document.body.classList.remove('tab-map', 'tab-money', 'tab-timeline', 'tab-notes');
-  document.body.classList.add('tab-' + tabId);
   if (window._whhMap) setTimeout(() => window._whhMap.resize(), 80);
-  // sync URL hash unless we're responding to a hashchange (avoid double-fire)
-  if (!opts || !opts.fromHash) {
-    const target = '#' + tabId;
-    if (location.hash !== target) history.replaceState(null, '', target);
-  }
 }
 document.querySelectorAll('.tab-btn').forEach(t => t.addEventListener('click', () => setActiveTab(t.dataset.tab)));
-window.addEventListener('hashchange', () => setActiveTab(_readTabFromHash(), { fromHash: true }));
-// Boot: honor the hash, fall back to default
-setActiveTab(_readTabFromHash(), { fromHash: true });
+document.body.classList.add('on-map'); // default open tab
 
 // Layer toggles
 document.querySelectorAll('.layer-btn').forEach(btn => {
@@ -1119,7 +1055,7 @@ const SCENARIOS_KEY = 'whh:scenarios:v1';
 const moneyState = {
   // Main VA house — vaSellPct is combined realtor commission + closing costs (default 6%)
   vaSale: 2400000, vaPayoff: 675000, vaSellPct: 6, vaRepairs: 10000,
-  moving: 100000,
+  moving: 20000,
   // 808 Studio (second VA house) — actual loan balance from screenshot
   studioSale: 215000, studioPayoff: 167414, studioRepairs: 5000,
   // NY home
@@ -1137,8 +1073,6 @@ const moneyState = {
     if (!raw) return;
     const snap = JSON.parse(raw);
     Object.keys(moneyState).forEach(k => {
-      // one-shot: old default for moving was $20K, bump to new $100K once
-      if (k === 'moving' && snap.moving === 20000 && !snap._upstartMigratedV1) return;
       if (snap[k] != null && typeof snap[k] === typeof moneyState[k]) moneyState[k] = snap[k];
     });
     if (snap._taxOverride != null) window._pendingTaxOverride = snap._taxOverride;
@@ -1146,19 +1080,12 @@ const moneyState = {
   } catch (e) { /* ignore */ }
 })();
 
-// debounced — coalesces rapid keystrokes into a single localStorage write
-let _saveMoneyTimer = null;
 function saveMoneyState() {
-  if (_saveMoneyTimer) clearTimeout(_saveMoneyTimer);
-  _saveMoneyTimer = setTimeout(_saveMoneyStateNow, 220);
-}
-function _saveMoneyStateNow() {
   try {
     const snap = {
       ...moneyState,
       _taxOverride: (typeof taxState !== 'undefined') ? taxState.override : 0,
-      _activePinId: (typeof taxState !== 'undefined') ? taxState.activePinId : null,
-      _upstartMigratedV1: true
+      _activePinId: (typeof taxState !== 'undefined') ? taxState.activePinId : null
     };
     safeSet(MONEY_KEY, JSON.stringify(snap));
   } catch (e) { /* ignore */ }
@@ -1440,7 +1367,6 @@ const FIELDS = {
   studioSale: { format: fmtUSD }, studioPayoff: { format: fmtUSD }, studioRepairs: { format: fmtUSD },
   buyPrice: { format: fmtUSD }, downPct: { format: fmtPct },
   rate: { format: fmtPct },
-  moving: { format: fmtUSD },
   invPulled: { format: fmtUSD }, bizPulled: { format: fmtUSD }
 };
 Object.entries(FIELDS).forEach(([key, cfg]) => {
@@ -2199,27 +2125,70 @@ const MAP_STYLES = {
     glyphs: OFM_GLYPHS,
     sources: { omt: { type: 'vector', url: OFM_TILES } },
     layers: [
-      { id: 'bg', type: 'background', paint: { 'background-color': '#F5F1E8' } },
-      { id: 'major-roads', type: 'line', source: 'omt', 'source-layer': 'transportation',
-        filter: ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary'], true, false],
+      // Cream paper
+      { id: 'bg', type: 'background', paint: { 'background-color': '#F2EDE0' } },
+
+      // Hudson watercolor — same treatment as Blank, slightly subdued so rail/roads read on top
+      { id: 'water-halo', type: 'line', source: 'omt', 'source-layer': 'water',
         paint: {
-          'line-color': '#B5AE9D',
-          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.4, 12, 1.1, 16, 2.4]
+          'line-color': '#BFD5E4',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 7, 3, 12, 6, 16, 10],
+          'line-opacity': 0.5,
+          'line-blur': 4
         }
       },
+      { id: 'water-main', type: 'fill', source: 'omt', 'source-layer': 'water',
+        paint: { 'fill-color': '#5A7E96', 'fill-opacity': 0.85 }
+      },
+      { id: 'water-ripple-1', type: 'line', source: 'omt', 'source-layer': 'water',
+        paint: {
+          'line-color': '#7E9FB6', 'line-width': 0.6, 'line-opacity': 0.5,
+          'line-offset': ['interpolate', ['linear'], ['zoom'], 8, 1.5, 14, 5, 18, 12]
+        }
+      },
+      { id: 'water-ripple-2', type: 'line', source: 'omt', 'source-layer': 'water',
+        paint: {
+          'line-color': '#9BB7CB', 'line-width': 0.5, 'line-opacity': 0.4,
+          'line-offset': ['interpolate', ['linear'], ['zoom'], 8, 3, 14, 9, 18, 20]
+        }
+      },
+      { id: 'water-edge', type: 'line', source: 'omt', 'source-layer': 'water',
+        paint: {
+          'line-color': '#2E4760',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.4, 14, 1.0],
+          'line-opacity': 0.7
+        }
+      },
+      { id: 'waterways', type: 'line', source: 'omt', 'source-layer': 'waterway',
+        paint: {
+          'line-color': '#5A7E96',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.3, 14, 1.0],
+          'line-opacity': 0.55
+        }
+      },
+
+      // The structural skeleton — only the biggest highways
+      { id: 'major-roads', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['match', ['get', 'class'], ['motorway', 'trunk'], true, false],
+        paint: {
+          'line-color': '#A89E84',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.4, 12, 0.9, 16, 1.6],
+          'line-opacity': 0.55
+        }
+      },
+
+      // Metro-North + freight rail — defining feature of the Hudson Valley
       { id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation',
         filter: ['==', ['get', 'class'], 'rail'],
-        paint: { 'line-color': '#7A7468', 'line-width': 1, 'line-dasharray': [2, 2] }
-      },
-      { id: 'place-labels', type: 'symbol', source: 'omt', 'source-layer': 'place',
-        filter: ['match', ['get', 'class'], ['city', 'town', 'village', 'hamlet', 'suburb'], true, false],
-        layout: {
-          'text-field': ['get', 'name'],
-          'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9, 14, 13],
-          'text-font': ['Noto Sans Regular']
-        },
-        paint: { 'text-color': '#2A2620', 'text-halo-color': '#F5F1E8', 'text-halo-width': 1.4 }
+        paint: {
+          'line-color': '#5C5544',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.5, 14, 1.2],
+          'line-opacity': 0.75,
+          'line-dasharray': [3, 2]
+        }
       }
+
+      // NO LABELS — pure structure
     ]
   },
   parks: {
