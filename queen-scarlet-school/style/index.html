@@ -6,6 +6,22 @@
   <title>World Style — Henry's Worlds</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Cambo&family=Caveat:wght@600;700&family=Fredoka:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <!-- Per-world theme tokens (burgundy turns the page into deep teal-blue
+       cinematic with amber accent; queen-scarlet keeps cream sticker). -->
+  <link rel="stylesheet" href="/queen-scarlet-school/lib/themes.css" />
+  <script>
+    // Set data-world on <html> + <body> ASAP so themes.css can paint
+    // before first frame. Same pattern other QSS pages use.
+    (function(){
+      const m = location.pathname.match(/^\/universe\/([a-z0-9-]+)/i);
+      const world = (m && m[1]) || 'queen-scarlet';
+      document.documentElement.setAttribute('data-world', world);
+      document.addEventListener('DOMContentLoaded', () => {
+        document.body.setAttribute('data-world', world);
+        document.body.classList.add('page-style');
+      });
+    })();
+  </script>
   <style>
     :root {
       --paper: #FFF6E0; --paper-card: #FFFFFF; --paper-deep: #FCEDC4;
