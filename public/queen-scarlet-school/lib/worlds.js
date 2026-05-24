@@ -693,4 +693,29 @@ _</pre>
   } else {
     paintTheme(w);
   }
+
+  // ─── Burgundy motion engine loader ─────────────────────────────────
+  // Idempotent: only loads the motion JS when world === 'burgundy'.
+  // Owned by the burgundy-world agent slice. Safe to call on every paint.
+  function ensureBurgundyMotion() {
+    if (document.body && document.body.dataset.world === 'burgundy') {
+      if (document.querySelector('script[data-burgundy-motion]')) return;
+      const s = document.createElement('script');
+      s.src = '/queen-scarlet-school/lib/burgundy-motion.js';
+      s.async = true;
+      s.dataset.burgundyMotion = '1';
+      document.head.appendChild(s);
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureBurgundyMotion);
+  } else {
+    ensureBurgundyMotion();
+  }
+  // re-fire whenever the world attribute changes (live-toggle from switcher)
+  if (typeof MutationObserver !== 'undefined' && document.body) {
+    new MutationObserver(ensureBurgundyMotion).observe(document.body, {
+      attributes: true, attributeFilter: ['data-world']
+    });
+  }
 })();

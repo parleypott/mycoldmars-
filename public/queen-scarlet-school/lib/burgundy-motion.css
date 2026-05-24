@@ -1,0 +1,566 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * BURGUNDY MOTION + POLISH LAYER (v2 — painterly dev terminal)
+ *
+ * Adds: ambient grain breathing, cursor halo, page-load blur-in,
+ * spring pop-in, letter-by-letter reveal, lift-on-hover, LED pulse,
+ * view-transition crossfade, parallax hero, typography polish,
+ * tab/medallion machined treatments missed by v2.css.
+ *
+ * Scoped under body[data-world="burgundy"]. Inert elsewhere.
+ * ──────────────────────────────────────────────────────────────────── */
+
+/* ─── 0. Tokens that other layers may reference ───────────────────── */
+body[data-world="burgundy"] {
+  --bg-amber: #E8A248;
+  --bg-amber-soft: rgba(232, 162, 72, 0.18);
+  --bg-amber-hot: rgba(232, 162, 72, 0.55);
+  --bg-cream: #F4E6C4;
+  --bg-cream-soft: rgba(244, 230, 196, 0.78);
+  --bg-bronze-top: #D89A4A;
+  --bg-bronze-mid: #A86E26;
+  --bg-bronze-low: #5C3712;
+  --bg-iron-top: rgba(36, 56, 68, 0.92);
+  --bg-iron-mid: rgba(20, 36, 46, 0.96);
+  --bg-iron-low: rgba(8, 18, 24, 0.98);
+  --bg-phosphor: #5BD68A;
+  --bg-burgundy: #B8443A;
+
+  /* Cursor halo — set by JS on mousemove */
+  --cursor-x: 50%;
+  --cursor-y: 50%;
+
+  /* Scroll parallax — set by JS on scroll */
+  --scroll-y: 0px;
+
+  /* Numeral hygiene */
+  font-variant-numeric: lining-nums proportional-nums;
+}
+
+/* All headings get balance + tight measure → no orphans */
+body[data-world="burgundy"] h1,
+body[data-world="burgundy"] h2,
+body[data-world="burgundy"] h3,
+body[data-world="burgundy"] .wh-title,
+body[data-world="burgundy"] .section-title,
+body[data-world="burgundy"] .page-title,
+body[data-world="burgundy"] .cast-title,
+body[data-world="burgundy"] .lib-title {
+  text-wrap: balance;
+  text-wrap: pretty;
+}
+
+/* Story / UI numerals: tabular + lining */
+body[data-world="burgundy"] .b-num,
+body[data-world="burgundy"] .count-pill,
+body[data-world="burgundy"] .step-num,
+body[data-world="burgundy"] .stat,
+body[data-world="burgundy"] .cast-count,
+body[data-world="burgundy"] .block-counter {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+
+/* ─── 1. Ambient grain — breathes 0.08↔0.14 over 6s ───────────────── */
+body[data-world="burgundy"]::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  /* tiny SVG noise data URL — fast, no network */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='7'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.88  0 0 0 0 0.72  0 0 0 0.42 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: 160px 160px;
+  background-repeat: repeat;
+  mix-blend-mode: overlay;
+  opacity: 0.11;
+  animation: bg-grain-breathe 6.2s ease-in-out infinite;
+}
+
+@keyframes bg-grain-breathe {
+  0%, 100% { opacity: 0.08; }
+  50%      { opacity: 0.14; }
+}
+
+/* Faint horizontal scanline overlay — CRT inheritance */
+body[data-world="burgundy"]::before {
+  /* keep whatever v1 set; just stamp a scanline by layering */
+}
+
+body[data-world="burgundy"] .bg-scanlines,
+body[data-world="burgundy"]:has(.world-hero)::before {
+  /* No-op fallback if v1 already paints the gradient — extra scanline layer */
+}
+
+/* Dedicated scanline element via body shadow root */
+@keyframes bg-scanline-drift {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 6px; }
+}
+
+/* ─── 2. Cursor halo (opt-in via .has-halo on body, set by JS) ────── */
+body[data-world="burgundy"].has-halo {
+  cursor: default;
+}
+
+body[data-world="burgundy"].has-halo::after {
+  /* extend grain layer with cursor light — composite via radial mask */
+  background-image:
+    radial-gradient(280px circle at var(--cursor-x) var(--cursor-y),
+      rgba(232, 162, 72, 0.10) 0%,
+      rgba(232, 162, 72, 0.04) 30%,
+      transparent 65%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='7'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.88  0 0 0 0 0.72  0 0 0 0.42 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size: auto, 160px 160px;
+  background-repeat: no-repeat, repeat;
+}
+
+/* ─── 3. Page-load entrance — blur in over 1.4s ───────────────────── */
+@keyframes burgundy-blur-in {
+  0%   { filter: blur(12px); opacity: 0; transform: translateY(8px); }
+  60%  { filter: blur(2px);  opacity: 1; transform: translateY(0); }
+  100% { filter: blur(0);    opacity: 1; transform: translateY(0); }
+}
+
+body[data-world="burgundy"] .welcome-hero,
+body[data-world="burgundy"] .world-hero,
+body[data-world="burgundy"] .composer.with-mic,
+body[data-world="burgundy"] .lib-title,
+body[data-world="burgundy"] .cast-title,
+body[data-world="burgundy"] .page-intro {
+  animation: burgundy-blur-in 1.4s cubic-bezier(0.7, 0, 0.2, 1) both;
+}
+
+/* Hero gets a longer reveal so it lands last */
+body[data-world="burgundy"] .welcome-hero { animation-duration: 1.6s; }
+
+/* ─── 4. Spring pop-in (triggered via .is-in-view by IntersectionObserver) ─ */
+@keyframes burgundy-pop-in {
+  0%   { transform: scale(0.92) translateY(14px); opacity: 0; filter: blur(4px); }
+  60%  { transform: scale(1.015) translateY(-1px); opacity: 1; filter: blur(0); }
+  100% { transform: scale(1) translateY(0); opacity: 1; filter: blur(0); }
+}
+
+/* Resting state — invisible until observer adds .is-in-view */
+body[data-world="burgundy"] .story-block:not(.is-in-view),
+body[data-world="burgundy"] .ccard:not(.is-in-view),
+body[data-world="burgundy"] .story-card:not(.is-in-view) {
+  opacity: 0;
+}
+
+body[data-world="burgundy"] .story-block.is-in-view,
+body[data-world="burgundy"] .ccard.is-in-view,
+body[data-world="burgundy"] .story-card.is-in-view {
+  animation: burgundy-pop-in 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Stagger via nth-child to avoid JS-set delays */
+body[data-world="burgundy"] .story-block.is-in-view:nth-child(2),
+body[data-world="burgundy"] .ccard.is-in-view:nth-child(2),
+body[data-world="burgundy"] .story-card.is-in-view:nth-child(2) { animation-delay: 0.07s; }
+body[data-world="burgundy"] .story-block.is-in-view:nth-child(3),
+body[data-world="burgundy"] .ccard.is-in-view:nth-child(3),
+body[data-world="burgundy"] .story-card.is-in-view:nth-child(3) { animation-delay: 0.14s; }
+body[data-world="burgundy"] .story-block.is-in-view:nth-child(4),
+body[data-world="burgundy"] .ccard.is-in-view:nth-child(4),
+body[data-world="burgundy"] .story-card.is-in-view:nth-child(4) { animation-delay: 0.21s; }
+body[data-world="burgundy"] .story-block.is-in-view:nth-child(5),
+body[data-world="burgundy"] .ccard.is-in-view:nth-child(5),
+body[data-world="burgundy"] .story-card.is-in-view:nth-child(5) { animation-delay: 0.28s; }
+body[data-world="burgundy"] .story-block.is-in-view:nth-child(n+6),
+body[data-world="burgundy"] .ccard.is-in-view:nth-child(n+6),
+body[data-world="burgundy"] .story-card.is-in-view:nth-child(n+6) { animation-delay: 0.35s; }
+
+/* ─── 5. Letter-by-letter reveal (JS wraps words into spans) ──────── */
+body[data-world="burgundy"] .word-reveal > span {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.4em) rotateX(40deg);
+  filter: blur(6px);
+  animation: burgundy-word-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+  animation-delay: calc(var(--word-i, 0) * 70ms + 320ms);
+  transform-origin: 50% 100%;
+  /* preserve whitespace via thin spacer span */
+}
+
+body[data-world="burgundy"] .word-reveal > span.space {
+  /* a real space between words — keep width but skip animation work */
+  animation: none;
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+@keyframes burgundy-word-in {
+  0%   { opacity: 0; transform: translateY(0.4em) rotateX(40deg); filter: blur(6px); }
+  60%  { opacity: 1; transform: translateY(-0.04em) rotateX(0); filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) rotateX(0); filter: blur(0); }
+}
+
+/* ─── 6. Lift on hover (utility for cards / buttons) ──────────────── */
+body[data-world="burgundy"] .lift-on-hover,
+body[data-world="burgundy"] .story-card,
+body[data-world="burgundy"] .ccard,
+body[data-world="burgundy"] .story-block {
+  transition:
+    transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 200ms ease-out;
+  will-change: transform;
+}
+
+body[data-world="burgundy"] .lift-on-hover:hover,
+body[data-world="burgundy"] .story-card:hover,
+body[data-world="burgundy"] .ccard:hover {
+  transform: translateY(-4px);
+}
+
+/* ─── 7. LED pulse (mic listening) ────────────────────────────────── */
+@keyframes burgundy-led-pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow:
+      0 0 6px rgba(232, 69, 69, 0.85),
+      0 0 14px rgba(232, 69, 69, 0.45);
+  }
+  50% {
+    opacity: 0.55;
+    box-shadow:
+      0 0 4px rgba(232, 69, 69, 0.55),
+      0 0 10px rgba(232, 69, 69, 0.25);
+  }
+}
+
+body[data-world="burgundy"] .led-pulse {
+  animation: burgundy-led-pulse 1.1s ease-in-out infinite;
+}
+
+/* ─── 8. View-transition crossfade ────────────────────────────────── */
+@supports (view-transition-name: root) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 500ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  ::view-transition-old(root) {
+    animation-name: burgundy-vt-out;
+  }
+  ::view-transition-new(root) {
+    animation-name: burgundy-vt-in;
+  }
+}
+
+@keyframes burgundy-vt-out {
+  0%   { opacity: 1; filter: blur(0); }
+  100% { opacity: 0; filter: blur(8px); }
+}
+
+@keyframes burgundy-vt-in {
+  0%   { opacity: 0; filter: blur(8px); }
+  100% { opacity: 1; filter: blur(0); }
+}
+
+/* Named transition elements (paired across pages via JS) */
+body[data-world="burgundy"] .planet-burgundy { view-transition-name: bg-planet; }
+body[data-world="burgundy"] .world-hero      { view-transition-name: bg-hero; }
+body[data-world="burgundy"] .composer-shell  { view-transition-name: bg-composer; }
+
+/* ─── 9. Parallax hero (translateY by --scroll-y * 0.3, set by JS) ── */
+body[data-world="burgundy"] .bg-hero,
+body[data-world="burgundy"] .world-hero .hero-bg,
+body[data-world="burgundy"] .cast-hero .hero-bg {
+  will-change: transform;
+  transform: translate3d(0, calc(var(--scroll-y) * 0.3), 0);
+}
+
+/* ─── 10. Workshop tabs — heavier press physics, amber active LED ── */
+/* The .tab rules in v2.1 covered structure; this adds motion + LED. */
+body[data-world="burgundy"] .tab {
+  transition:
+    background 180ms ease-out,
+    border-color 180ms ease-out,
+    color 160ms ease-out,
+    transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+}
+
+body[data-world="burgundy"] .tab:active {
+  transform: translateY(1px);
+}
+
+/* Amber LED dot below the active tab label — phosphor-on bulb */
+body[data-world="burgundy"] .tab.active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--bg-amber);
+  transform: translateX(-50%);
+  box-shadow:
+    0 0 6px rgba(232, 162, 72, 0.85),
+    0 0 12px rgba(232, 162, 72, 0.45);
+  animation: burgundy-led-on 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes burgundy-led-on {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.7; }
+}
+
+/* Hairline separators between tabs */
+body[data-world="burgundy"] .tab + .tab {
+  border-left: 1px solid rgba(232, 217, 184, 0.06);
+}
+
+/* ─── 11. Mode tabs (1 WRITE / 2 STORYBOARD / 3 FREESTYLE) ────────── */
+/* The numbered circle becomes a brass medallion w/ cream stamp ring */
+body[data-world="burgundy"] .mode-btn .mode-num,
+body[data-world="burgundy"] .mode-btn .num,
+body[data-world="burgundy"] .mode-btn::first-letter {
+  /* Style any numeric prefix consistently — first-letter is a fallback. */
+}
+
+body[data-world="burgundy"] .composer-modes .mode-btn {
+  /* keep v2 tab look but add active medallion via a real prefix */
+  padding-left: 28px !important;
+  position: relative;
+}
+
+/* If the mode-btn label starts with a digit, the ::before stamps a medallion.
+   Markup typically renders "1 write with wordy" — we extract via attr-numbered
+   class if available; otherwise rely on data-num. Both paths supported. */
+body[data-world="burgundy"] .composer-modes .mode-btn[data-num]::before,
+body[data-world="burgundy"] .composer-modes .mode-btn.has-num::before {
+  content: attr(data-num);
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%,
+    rgba(216, 154, 74, 0.65) 0%,
+    rgba(168, 110, 38, 0.55) 50%,
+    rgba(92, 55, 18, 0.65) 100%);
+  color: rgba(244, 230, 196, 0.72);
+  font-size: 8.5px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(244, 230, 196, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 160, 0.30),
+    0 1px 1px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+  margin-right: 0;
+}
+
+body[data-world="burgundy"] .composer-modes .mode-btn.active[data-num]::before,
+body[data-world="burgundy"] .composer-modes .mode-btn.active.has-num::before {
+  background: radial-gradient(circle at 35% 30%,
+    #F4C66A 0%,
+    #C8852E 50%,
+    #6E430E 100%);
+  color: #1A0F0C;
+  border-color: rgba(244, 230, 196, 0.45);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 220, 160, 0.55),
+    0 0 8px rgba(232, 162, 72, 0.42);
+}
+
+/* ─── 12. Welcome hero — wh-title support for word-reveal ─────────── */
+/* (JS injects spans; CSS makes sure span children behave) */
+body[data-world="burgundy"] .welcome-hero .wh-title.word-reveal {
+  /* the outer h1/h2 animation from blur-in still works on the container */
+}
+
+body[data-world="burgundy"] .welcome-hero .wh-title .wh-name {
+  /* keep the v2 amber underline; just animate the underline draw on load */
+  border-bottom-color: transparent !important;
+  background-image: linear-gradient(90deg,
+    var(--bg-amber) 0%,
+    var(--bg-amber) 100%);
+  background-repeat: no-repeat;
+  background-size: 0 2px;
+  background-position: 0 100%;
+  animation: burgundy-underline-draw 1.0s cubic-bezier(0.7, 0, 0.2, 1) 1.8s forwards;
+  padding-bottom: 1px;
+}
+
+@keyframes burgundy-underline-draw {
+  0%   { background-size: 0 2px; }
+  100% { background-size: 100% 2px; }
+}
+
+/* ─── 13. Section heroes — "Your stories" / "the cast" amber glow ── */
+body[data-world="burgundy"] .lib-hero h1,
+body[data-world="burgundy"] .lib-hero .lib-title,
+body[data-world="burgundy"] .cast-hero h1,
+body[data-world="burgundy"] .cast-hero .cast-title,
+body[data-world="burgundy"] .page-cast h1.cast-title {
+  font-family: 'Cambo', var(--serif), Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(34px, 4.2vw, 56px);
+  letter-spacing: -0.005em;
+  line-height: 1.05;
+  text-shadow:
+    0 2px 18px rgba(0, 0, 0, 0.75),
+    0 0 32px rgba(232, 162, 72, 0.14);
+  position: relative;
+}
+
+/* Ambient amber under-glow on the heroes */
+body[data-world="burgundy"] .lib-hero,
+body[data-world="burgundy"] .cast-hero {
+  position: relative;
+}
+
+body[data-world="burgundy"] .lib-hero::after,
+body[data-world="burgundy"] .cast-hero::after {
+  content: '';
+  position: absolute;
+  left: 6%;
+  right: 60%;
+  bottom: 12px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--bg-amber-soft) 35%,
+    var(--bg-amber-hot) 50%,
+    var(--bg-amber-soft) 65%,
+    transparent 100%);
+  box-shadow: 0 0 18px rgba(232, 162, 72, 0.35);
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* ─── 14. Wordy panel header — phosphor-CRT eyebrow ────────────────── */
+body[data-world="burgundy"] .wordy-panel,
+body[data-world="burgundy"] .wordy-pane,
+body[data-world="burgundy"] .pane-wordy {
+  position: relative;
+}
+
+body[data-world="burgundy"] .wordy-panel > h2,
+body[data-world="burgundy"] .wordy-panel > .pane-title,
+body[data-world="burgundy"] .wordy-pane > h2,
+body[data-world="burgundy"] .wordy-pane > .pane-title,
+body[data-world="burgundy"] .pane-wordy > h2,
+body[data-world="burgundy"] .pane-wordy > .pane-title {
+  position: relative;
+}
+
+body[data-world="burgundy"] .wordy-panel > h2::before,
+body[data-world="burgundy"] .wordy-pane > h2::before,
+body[data-world="burgundy"] .pane-wordy > h2::before {
+  content: 'WORDY // MK1';
+  display: block;
+  font-family: var(--mono, ui-monospace, 'JetBrains Mono', monospace);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--bg-amber);
+  text-shadow: 0 0 9px rgba(232, 162, 72, 0.35);
+  margin-bottom: 6px;
+  opacity: 0.92;
+}
+
+/* Faint green scanline behind Wordy header */
+body[data-world="burgundy"] .wordy-panel > h2::after,
+body[data-world="burgundy"] .wordy-pane > h2::after,
+body[data-world="burgundy"] .pane-wordy > h2::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 30%;
+  bottom: -6px;
+  height: 12px;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(91, 214, 138, 0.07) 0px,
+      rgba(91, 214, 138, 0.07) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+/* ─── 15. Block-counter "block N of ~M" — digit flip animation ────── */
+@keyframes burgundy-digit-flip {
+  0%   { transform: translateY(0); opacity: 1; }
+  45%  { transform: translateY(-100%); opacity: 0; }
+  55%  { transform: translateY(100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+body[data-world="burgundy"] .block-counter.flipping,
+body[data-world="burgundy"] .count-pill.flipping {
+  animation: burgundy-digit-flip 320ms cubic-bezier(0.6, 0, 0.2, 1);
+}
+
+/* ─── 16. Single-accent rule — demote secondary amber ──────────────── */
+/* Where two amber CTAs would otherwise compete, the non-primary fades */
+body[data-world="burgundy"] .topbar .btn:not(.primary):not(.gold) {
+  color: var(--bg-cream-soft);
+  border-color: rgba(232, 217, 184, 0.18);
+}
+
+/* ─── 17. ENTER planet button on universe page — machined polish ──── */
+body[data-world="burgundy"] .planet-card .enter-btn,
+body[data-world="burgundy"] .planet-card .btn,
+body.page-universe[data-world="burgundy"] .planet-burgundy .enter-btn {
+  transition:
+    background 180ms ease-out,
+    border-color 180ms ease-out,
+    box-shadow 220ms ease-out,
+    transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+body[data-world="burgundy"] .planet-card .enter-btn:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(244, 230, 196, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    0 0 24px rgba(232, 162, 72, 0.28);
+}
+
+/* ─── 18. Composer focus — gentle amber bloom on the textarea row ── */
+body[data-world="burgundy"] .composer.with-mic:focus-within {
+  transition: box-shadow 280ms ease-out;
+  box-shadow:
+    inset  1px  1px 0 rgba(232, 162, 72, 0.18),
+    inset  2px  2px 0 rgba(232, 162, 72, 0.06),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.55),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.28),
+    0 2px 6px rgba(0, 0, 0, 0.45),
+    0 0 32px rgba(232, 162, 72, 0.15);
+}
+
+/* ─── 19. Reduced-motion safety net ────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  body[data-world="burgundy"] *,
+  body[data-world="burgundy"] *::before,
+  body[data-world="burgundy"] *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 60ms !important;
+  }
+  body[data-world="burgundy"] .story-block:not(.is-in-view),
+  body[data-world="burgundy"] .ccard:not(.is-in-view),
+  body[data-world="burgundy"] .story-card:not(.is-in-view) {
+    opacity: 1;
+  }
+}
+
+/* ─── 20. Print fallback — no fancy motion ─────────────────────────── */
+@media print {
+  body[data-world="burgundy"]::after,
+  body[data-world="burgundy"]::before { display: none !important; }
+}
