@@ -1944,6 +1944,395 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 }
 .ag-composer button:hover { background: var(--accent); }
 .ag-composer button:disabled { opacity: 0.45; cursor: wait; background: var(--muted); }
+
+/* ========== SCORE CHIP + SECTION ACTIONS + DETAIL BREAKDOWN ========== */
+.tv-section-head { display: flex; align-items: center; gap: 16px; }
+.tv-section-head .count { margin-right: auto; }
+.tv-section-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.tv-action-btn.primary {
+  border-color: var(--ink);
+  color: var(--ink);
+  font-weight: 700;
+}
+.tv-action-btn.primary:hover { background: var(--ink); color: var(--bg); }
+
+.tv-row td.tv-score-cell { width: 50px; padding-left: 6px; }
+.tv-score-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 38px; height: 26px;
+  border-radius: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  border: 1.5px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+}
+.tv-score-chip[data-band="5"] { background: var(--rank-5); color: #FFF; border-color: var(--rank-5); }
+.tv-score-chip[data-band="4"] { background: var(--rank-4); color: var(--ink); border-color: var(--rank-4); }
+.tv-score-chip[data-band="3"] { background: var(--rank-3); color: var(--ink); border-color: var(--rank-3); }
+.tv-score-chip[data-band="2"] { background: var(--rank-2); color: #FFF; border-color: var(--rank-2); }
+.tv-score-chip[data-band="1"] { background: var(--rank-1); color: #FFF; border-color: var(--rank-1); }
+.tv-score-chip[data-band="na"] {
+  background: transparent;
+  color: var(--muted);
+  border: 1.5px dashed var(--line);
+  font-weight: 500;
+}
+
+/* Detail row — Score breakdown */
+.tv-score-detail {
+  grid-column: 1 / -1;
+  display: flex; flex-direction: column; gap: 12px;
+  padding-top: 14px; border-top: 1px solid var(--line);
+}
+.tv-score-headline {
+  display: flex; align-items: baseline; gap: 14px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.tv-score-headline .total {
+  font-size: 28px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.tv-score-headline .label {
+  font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700;
+}
+.tv-score-rationale {
+  font-size: 12px; line-height: 1.55;
+  color: var(--ink);
+}
+.tv-score-rationale .strength { color: var(--green); font-weight: 700; }
+.tv-score-rationale .concern { color: var(--accent); font-weight: 700; }
+.tv-score-bars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px 18px;
+}
+.tv-sb {
+  display: grid; grid-template-columns: 110px 1fr 32px; gap: 10px;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+}
+.tv-sb .sb-name {
+  color: var(--ink); font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  font-size: 9px;
+}
+.tv-sb .sb-track {
+  height: 6px; background: rgba(0,0,0,0.08); border-radius: 2px;
+  position: relative; overflow: hidden;
+}
+.tv-sb .sb-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--accent);
+  transition: width 600ms cubic-bezier(0.65, 0.05, 0.36, 1);
+}
+.tv-sb .sb-fill[data-band="5"] { background: var(--rank-5); }
+.tv-sb .sb-fill[data-band="4"] { background: var(--rank-4); }
+.tv-sb .sb-fill[data-band="3"] { background: var(--rank-3); }
+.tv-sb .sb-fill[data-band="2"] { background: var(--rank-2); }
+.tv-sb .sb-fill[data-band="1"] { background: var(--rank-1); }
+.tv-sb .sb-val {
+  text-align: right; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.tv-sb-notes {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 6px 18px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px; color: var(--muted); line-height: 1.5;
+  margin-top: 6px;
+}
+.tv-sb-note { padding: 3px 0; }
+.tv-sb-note strong { color: var(--ink); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-size: 9px; }
+
+/* Action button row inside detail */
+.tv-feature-row {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding-top: 14px; margin-top: 4px;
+  border-top: 1px solid var(--line);
+}
+.tv-feature-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.tv-feature-btn:hover { background: var(--ink); color: var(--bg); }
+.tv-feature-btn.score { border-color: var(--accent); color: var(--accent); }
+.tv-feature-btn.score:hover { background: var(--accent); color: #FFF; }
+.tv-feature-btn:disabled { opacity: 0.5; cursor: wait; }
+
+/* ========== GENERIC NARRATIVE MODAL (story / visit / neg / walk) ========== */
+.gen-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(28, 22, 18, 0.62);
+  backdrop-filter: blur(4px);
+  z-index: 70;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+}
+.gen-modal-overlay.open { display: flex; }
+.gen-modal {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  width: 100%;
+  max-width: 760px;
+  max-height: 86vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  overflow: hidden;
+  position: relative;
+}
+.gen-modal-close {
+  position: absolute;
+  top: 12px; right: 12px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+}
+.gen-modal-close:hover { color: var(--accent); border-color: var(--accent); }
+.gen-modal-head {
+  padding: 22px 28px 14px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(0,0,0,0.025);
+}
+.gen-modal-eyebrow {
+  font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700; margin-bottom: 6px;
+}
+.gen-modal-title {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: 24px;
+  color: var(--ink);
+  line-height: 1.15;
+}
+.gen-modal-sub {
+  margin-top: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--muted);
+  letter-spacing: 0.06em;
+}
+.gen-modal-body {
+  flex: 1;
+  padding: 22px 28px 24px;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px; line-height: 1.7;
+  color: var(--ink);
+}
+.gen-modal-body h3 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700;
+  margin: 22px 0 10px;
+}
+.gen-modal-body h3:first-child { margin-top: 0; }
+.gen-modal-body p { margin: 0 0 12px; }
+.gen-modal-body strong { font-weight: 700; }
+.gen-modal-body em { font-style: italic; }
+.gen-modal-body ul { margin: 0 0 12px; padding-left: 20px; }
+.gen-modal-body li { margin-bottom: 4px; }
+.gen-modal-body .pending {
+  color: var(--muted); font-style: italic;
+}
+.gen-modal-foot {
+  padding: 12px 28px;
+  border-top: 1px solid var(--line);
+  background: rgba(0,0,0,0.02);
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px;
+}
+.gen-modal-foot .meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--muted);
+}
+.gen-modal-foot button {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.gen-modal-foot button:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ========== DECISION MATRIX (large modal) ========== */
+.matrix-modal { max-width: 1280px; }
+.matrix-body { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.matrix-wrap {
+  flex: 1; overflow: auto;
+  padding: 0 28px 24px;
+}
+.matrix-table {
+  width: 100%; border-collapse: collapse;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+}
+.matrix-table th, .matrix-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.matrix-table th {
+  position: sticky; top: 0;
+  background: var(--card);
+  font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700;
+  border-bottom: 2px solid var(--accent);
+  z-index: 1;
+}
+.matrix-table th.matrix-criterion-col {
+  width: 180px;
+  color: var(--muted);
+  border-bottom-color: var(--line);
+}
+.matrix-table td.criterion-name {
+  font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--muted); font-weight: 700;
+}
+.matrix-table td .home-addr {
+  font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.matrix-table td .home-sub {
+  font-size: 10px; color: var(--muted);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.matrix-cell {
+  position: relative;
+}
+.matrix-cell .v {
+  font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.matrix-cell .n {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+.matrix-cell[data-band="5"] { background: rgba(92, 143, 28, 0.18); }
+.matrix-cell[data-band="4"] { background: rgba(139, 179, 72, 0.16); }
+.matrix-cell[data-band="3"] { background: rgba(214, 193, 107, 0.14); }
+.matrix-cell[data-band="2"] { background: rgba(214, 157, 63, 0.16); }
+.matrix-cell[data-band="1"] { background: rgba(181, 51, 30, 0.16); }
+
+@media print {
+  body * { visibility: hidden; }
+  .matrix-modal-overlay, .matrix-modal-overlay * { visibility: visible; }
+  .matrix-modal-overlay { position: absolute; inset: 0; background: #FFF; padding: 0; }
+  .matrix-modal { max-width: none; max-height: none; box-shadow: none; }
+  .gen-modal-close, .gen-modal-foot { display: none !important; }
+}
+
+/* ========== AGENT MEMORY TOAST (cross-reference deltas) ========== */
+.xref-toast {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  z-index: 90;
+  max-width: 360px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 2px;
+  padding: 14px 18px;
+  box-shadow: 0 14px 30px rgba(0,0,0,0.22);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  line-height: 1.55;
+  animation: xrefIn 240ms cubic-bezier(0.65, 0.05, 0.36, 1);
+}
+@keyframes xrefIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.xref-toast .head {
+  font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700; margin-bottom: 8px;
+}
+.xref-toast ul { margin: 0; padding: 0; list-style: none; }
+.xref-toast li {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 11px; padding: 2px 0;
+}
+.xref-toast li .delta.up { color: var(--green); font-weight: 700; }
+.xref-toast li .delta.down { color: var(--accent); font-weight: 700; }
+.xref-toast .close {
+  position: absolute; top: 8px; right: 8px;
+  background: transparent; border: none; color: var(--muted);
+  cursor: pointer; font-size: 14px;
+}
+
+/* ========== AGENT DAILY WATCH PANEL ========== */
+.ag-watch {
+  margin-top: 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.ag-watch .head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 8px;
+}
+.ag-watch .head .title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px; letter-spacing: 0.26em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700;
+}
+.ag-watch .head .badge {
+  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+.ag-watch .meta {
+  font-size: 11px; color: var(--muted); line-height: 1.5;
+}
+.ag-watch .meta strong { color: var(--ink); font-weight: 700; }
+.ag-watch .ag-decision-btn,
+.ag-watch .ag-watch-btn {
+  margin-top: 10px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-weight: 700;
+  padding: 7px 12px; border-radius: 2px;
+  cursor: pointer;
+  width: 100%;
+}
+.ag-watch .ag-decision-btn { border-color: var(--accent); color: var(--accent); }
+.ag-watch .ag-decision-btn:hover { background: var(--accent); color: #FFF; }
+.ag-watch .ag-watch-btn:hover { background: var(--ink); color: var(--bg); }
 </style>
 </head>
 <body>
@@ -2222,12 +2611,18 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
       <div class="tv-section-head">
         <span class="title">Pinned Homes</span>
         <span class="count" id="tv-pin-count">0</span>
+        <div class="tv-section-actions">
+          <button class="tv-action-btn" id="tv-rescore-all-btn" type="button" title="Re-score every pin against the latest doctrine + memory">↻ Rescore All</button>
+          <button class="tv-action-btn primary" id="tv-matrix-btn" type="button" title="Side-by-side comparison of top 5 scored homes">▦ Compare Top 5</button>
+          <button class="tv-action-btn primary" id="tv-brief-btn" type="button" title="Generate a stakeholder brief for spouse">⎘ Brief →</button>
+        </div>
       </div>
       <div class="tv-table-wrap">
         <table class="tv-table tv-pins">
           <thead>
             <tr>
               <th class="tv-expand-col no-sort"></th>
+              <th data-sort="score" title="Family-criteria fit score (0–100)">Score <span class="sort-ind"></span></th>
               <th data-sort="rank">Rank <span class="sort-ind"></span></th>
               <th data-sort="address">Address <span class="sort-ind"></span></th>
               <th data-sort="price">Price <span class="sort-ind"></span></th>
@@ -2270,6 +2665,18 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
         <div class="ag-ctx-title"><span>Villages</span><span class="count" id="ag-vil-count">0</span></div>
         <div class="ag-pin-list" id="ag-vil-list"></div>
       </div>
+      <div class="ag-ctx-section ag-watch" id="ag-watch">
+        <div class="head">
+          <span class="title">Daily Watch</span>
+          <span class="badge" id="ag-watch-badge">cron · 05:00 ET</span>
+        </div>
+        <div class="meta" id="ag-watch-meta">
+          <strong>Last run:</strong> never · <strong>New today:</strong> 0
+          <br><span style="font-size:10px;">Cron is wired. Scraper not yet configured — needs MLS or Apify integration.</span>
+        </div>
+        <button class="ag-watch-btn" id="ag-watch-run" type="button">↻ Run now</button>
+        <button class="ag-decision-btn" id="ag-decision-walk" type="button" style="margin-top:6px;">▷ Run decision walk</button>
+      </div>
     </aside>
 
     <div class="ag-chat-wrap">
@@ -2305,6 +2712,45 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
       <div class="school-modal-title" id="school-modal-title"></div>
     </div>
     <div class="school-modal-body" id="school-modal-body"></div>
+  </div>
+</div>
+
+<!-- ===================== GENERIC NARRATIVE MODAL (story / visit / neg / walk) ===================== -->
+<div class="gen-modal-overlay" id="gen-modal-overlay" role="dialog" aria-modal="true">
+  <div class="gen-modal" id="gen-modal-shell">
+    <button class="gen-modal-close" id="gen-modal-close" type="button" aria-label="Close">×</button>
+    <div class="gen-modal-head">
+      <div class="gen-modal-eyebrow" id="gen-modal-eyebrow"></div>
+      <div class="gen-modal-title" id="gen-modal-title"></div>
+      <div class="gen-modal-sub" id="gen-modal-sub"></div>
+    </div>
+    <div class="gen-modal-body" id="gen-modal-body"></div>
+    <div class="gen-modal-foot">
+      <div class="meta" id="gen-modal-meta"></div>
+      <div>
+        <button id="gen-modal-regen" type="button">↻ Regenerate</button>
+        <button id="gen-modal-print" type="button" style="margin-left:6px;">⎙ Print</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== DECISION MATRIX MODAL ===================== -->
+<div class="gen-modal-overlay matrix-modal-overlay" id="matrix-modal-overlay" role="dialog" aria-modal="true">
+  <div class="gen-modal matrix-modal" id="matrix-modal-shell">
+    <button class="gen-modal-close" id="matrix-modal-close" type="button" aria-label="Close">×</button>
+    <div class="gen-modal-head">
+      <div class="gen-modal-eyebrow">Decision Matrix · Top 5 Scored</div>
+      <div class="gen-modal-title">Side-by-side comparison</div>
+      <div class="gen-modal-sub">Color-coded by quintile within this matrix. Green = strongest, red = weakest <em>among these five</em>.</div>
+    </div>
+    <div class="gen-modal-body matrix-body">
+      <div class="matrix-wrap" id="matrix-wrap"></div>
+    </div>
+    <div class="gen-modal-foot">
+      <div class="meta" id="matrix-meta"></div>
+      <div><button id="matrix-print" type="button">⎙ Print</button></div>
+    </div>
   </div>
 </div>
 
@@ -2679,7 +3125,7 @@ function setActiveTab(tabId, updateHash = true) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tabId));
   document.body.classList.toggle('on-map', tabId === 'map');
   if (window._whhMap) setTimeout(() => window._whhMap.resize(), 80);
-  if (tabId === 'table' && typeof renderTable === 'function') renderTable();
+  if (tabId === 'table' && typeof renderTable === 'function') { renderTable(); setTimeout(() => { if (typeof autoScoreUnscored === 'function') autoScoreUnscored(); }, 200); }
   if (tabId === 'agent' && typeof renderAgentContext === 'function') { renderAgentContext(); renderAgentChat(); }
   // Hash routing — each tab is bookmarkable / deep-linkable
   if (updateHash) {
@@ -5721,6 +6167,417 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'ArrowRight') { _lbIdx = (_lbIdx + 1) % _lbPhotos.length; renderLightbox(); }
 });
 
+// ===================== SCORING (Family-Criteria Fit) =====================
+// Calls /api/whh-score per pin, caches on pin.score, re-renders table.
+// Pulls the family criteria doctrine (loaded by the agent) into the request.
+let _familyCriteriaCache = null;
+async function loadFamilyCriteria() {
+  if (_familyCriteriaCache !== null) return _familyCriteriaCache;
+  try {
+    const r = await fetch('./family-criteria.md');
+    _familyCriteriaCache = r.ok ? await r.text() : '';
+  } catch { _familyCriteriaCache = ''; }
+  return _familyCriteriaCache;
+}
+
+const SCORE_CRITERIA_ORDER = ['schoolFit','henryFit','ollieFit','commuteFit','priceFit','sensoryFit','creativeClassFit','valueFit'];
+const SCORE_CRITERIA_LABEL = {
+  schoolFit:'School', henryFit:'Henry Fit', ollieFit:'Ollie Fit',
+  commuteFit:'Commute', priceFit:'Price', sensoryFit:'Sensory',
+  creativeClassFit:'Creative Fit', valueFit:'Value'
+};
+
+async function scorePin(pin, { force = false } = {}) {
+  if (!pin) return null;
+  if (!force && pin.score && pin.score.total != null && (Date.now() - (pin.score._ts || 0) < 7 * 24 * 60 * 60 * 1000)) {
+    return pin.score; // fresh enough
+  }
+  const familyCriteria = await loadFamilyCriteria();
+  const memory = (typeof agentMemory !== 'undefined') ? agentMemory : [];
+  const compact = compactPinForScoring(pin);
+  try {
+    const res = await fetch('/api/whh-score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: compact, familyCriteria, memory })
+    });
+    if (!res.ok) {
+      console.warn('[whh] score failed for', pin.address, res.status);
+      return null;
+    }
+    const data = await res.json();
+    pin.score = data;
+    if (typeof savePins === 'function') savePins();
+    return data;
+  } catch (err) {
+    console.warn('[whh] score error', err);
+    return null;
+  }
+}
+
+function compactPinForScoring(p) {
+  const c = p.compass || {};
+  const m = (typeof computePinMonthly === 'function') ? computePinMonthly(p) : null;
+  return {
+    address: formatPinAddress ? formatPinAddress(p) : p.address,
+    schoolDistrict: p.schoolDistrict || null,
+    price: c.price || null,
+    askingPrice: p.askingPrice || null,
+    beds: c.beds ?? null, baths: c.baths ?? null, sqft: c.sqft ?? null,
+    yearBuilt: c.yearBuilt ?? null, lotSqft: c.lotSize ?? null,
+    train: p.train ? { name: p.train.name, line: p.train.line||null, gctMin: p.train.gct||null, walkMin: p.train.walkMin||null, miles: p.train.miles } : null,
+    trail: p.trail ? { name: p.trail.name, miles: p.trail.miles, driveDistMi: p.trail.driveDistMi||null } : null,
+    monthlyAllIn: m ? m.total : null,
+    description: c.description ? String(c.description).slice(0, 600) : null,
+    rank: p.rank || 0,
+    notes: p.notes || null
+  };
+}
+
+async function scoreAllPins({ force = false, onProgress } = {}) {
+  if (!pins?.length) return [];
+  const results = [];
+  for (let i = 0; i < pins.length; i++) {
+    const p = pins[i];
+    if (onProgress) onProgress(i + 1, pins.length, p.address);
+    const r = await scorePin(p, { force });
+    results.push({ id: p.id, address: p.address, score: r });
+  }
+  if (typeof renderTable === 'function' && document.body.dataset.tableTab === 'open') renderTable();
+  return results;
+}
+
+// Auto-score on Table-tab activation: kicks off unscored pins one by one.
+let _autoScoreInFlight = false;
+async function autoScoreUnscored() {
+  if (_autoScoreInFlight) return;
+  _autoScoreInFlight = true;
+  try {
+    for (const p of pins) {
+      if (p.score && p.score.total != null) continue;
+      await scorePin(p);
+      if (typeof renderTable === 'function' && document.body.dataset.tableTab === 'open') renderTable();
+    }
+  } finally {
+    _autoScoreInFlight = false;
+  }
+}
+
+// ===================== GENERIC NARRATIVE MODAL =====================
+const NARRATIVE_KIND_META = {
+  story:        { eyebrow: 'House Story',       title: (p) => formatPinAddress(p), cacheKey: 'story' },
+  'visit-prep': { eyebrow: 'Visit Prep',        title: (p) => formatPinAddress(p), cacheKey: 'visitPrep' },
+  negotiation:  { eyebrow: 'Negotiation Memo',  title: (p) => formatPinAddress(p), cacheKey: 'negMemo' },
+  'decision-walk': { eyebrow: 'Decision Walk',  title: () => 'Final three frames', cacheKey: null },
+  brief:        { eyebrow: 'Stakeholder Brief', title: () => 'Where we are', cacheKey: null }
+};
+
+let _genModalState = { kind: null, pin: null, pins: null, text: '', generating: false };
+
+async function openGenModal({ kind, pin = null, pins: pinsArg = null, forceRegen = false }) {
+  const meta = NARRATIVE_KIND_META[kind];
+  if (!meta) return;
+  const overlay = document.getElementById('gen-modal-overlay');
+  const eyebrow = document.getElementById('gen-modal-eyebrow');
+  const title = document.getElementById('gen-modal-title');
+  const sub = document.getElementById('gen-modal-sub');
+  const body = document.getElementById('gen-modal-body');
+  const metaEl = document.getElementById('gen-modal-meta');
+  const regen = document.getElementById('gen-modal-regen');
+  if (!overlay) return;
+  eyebrow.textContent = meta.eyebrow;
+  title.textContent = pin ? meta.title(pin) : meta.title();
+  sub.textContent = '';
+  body.innerHTML = '<span class="pending">generating with claude…</span>';
+  metaEl.textContent = '';
+  overlay.classList.add('open');
+  _genModalState = { kind, pin, pins: pinsArg, text: '', generating: true };
+
+  // Check cache first (per-pin features)
+  const cached = pin && meta.cacheKey && pin.generated && pin.generated[meta.cacheKey];
+  if (cached && !forceRegen) {
+    renderGenModalText(cached.text, cached._ts);
+    _genModalState.generating = false;
+    return;
+  }
+
+  const familyCriteria = await loadFamilyCriteria();
+  const memory = (typeof agentMemory !== 'undefined') ? agentMemory : [];
+  const reqBody = {
+    kind,
+    pin: pin ? compactPinForScoring(pin) : undefined,
+    pins: pinsArg ? pinsArg.map(compactPinForScoring) : undefined,
+    context: { familyCriteria, memory }
+  };
+  try {
+    const res = await fetch('/api/whh-narrative', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reqBody)
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error('http ' + res.status + (txt ? ': ' + txt.slice(0, 200) : ''));
+    }
+    const data = await res.json();
+    const text = data.text || '';
+    // cache on pin if per-pin kind
+    if (pin && meta.cacheKey) {
+      pin.generated = pin.generated || {};
+      pin.generated[meta.cacheKey] = { text, _ts: Date.now() };
+      if (typeof savePins === 'function') savePins();
+    }
+    _genModalState.text = text;
+    renderGenModalText(text, Date.now());
+  } catch (err) {
+    body.innerHTML = '<span class="pending">couldn\'t generate — ' + escapeHtml(err.message || String(err)) + '</span>';
+  } finally {
+    _genModalState.generating = false;
+  }
+}
+function renderGenModalText(text, ts) {
+  const body = document.getElementById('gen-modal-body');
+  if (!body) return;
+  body.innerHTML = renderModalMarkdown(text);
+  const meta = document.getElementById('gen-modal-meta');
+  if (meta && ts) {
+    const when = new Date(ts);
+    meta.textContent = 'Generated ' + when.toLocaleString();
+  }
+}
+function renderModalMarkdown(s) {
+  const escaped = String(s || '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  // ### headings, **bold**, *italic*, lists, paragraphs
+  const lines = escaped.split('\n');
+  const out = [];
+  let para = [];
+  let inList = false;
+  function flushPara() {
+    if (para.length) { out.push('<p>' + inlineMd(para.join(' ').trim()) + '</p>'); para = []; }
+  }
+  function inlineMd(s) {
+    return s
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>');
+  }
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line.startsWith('### ')) { flushPara(); if (inList){out.push('</ul>');inList=false;} out.push('<h3>' + line.slice(4) + '</h3>'); }
+    else if (line.startsWith('- ') || line.startsWith('• ')) {
+      flushPara();
+      if (!inList) { out.push('<ul>'); inList = true; }
+      out.push('<li>' + inlineMd(line.slice(2)) + '</li>');
+    } else if (line === '') {
+      flushPara();
+      if (inList) { out.push('</ul>'); inList = false; }
+    } else {
+      para.push(line);
+    }
+  }
+  flushPara();
+  if (inList) out.push('</ul>');
+  return out.join('\n');
+}
+function closeGenModal() {
+  const o = document.getElementById('gen-modal-overlay');
+  if (o) o.classList.remove('open');
+}
+document.getElementById('gen-modal-close')?.addEventListener('click', closeGenModal);
+document.getElementById('gen-modal-overlay')?.addEventListener('click', e => {
+  if (e.target.id === 'gen-modal-overlay') closeGenModal();
+});
+document.getElementById('gen-modal-regen')?.addEventListener('click', () => {
+  const s = _genModalState;
+  if (!s.kind) return;
+  openGenModal({ kind: s.kind, pin: s.pin, pins: s.pins, forceRegen: true });
+});
+document.getElementById('gen-modal-print')?.addEventListener('click', () => window.print());
+
+// ===================== DECISION MATRIX =====================
+function openDecisionMatrix() {
+  const overlay = document.getElementById('matrix-modal-overlay');
+  const wrap = document.getElementById('matrix-wrap');
+  const meta = document.getElementById('matrix-meta');
+  if (!overlay || !wrap) return;
+  const scored = pins.filter(p => p.score && p.score.total != null)
+    .sort((a, b) => (b.score.total - a.score.total))
+    .slice(0, 5);
+  if (scored.length < 2) {
+    wrap.innerHTML = '<div style="padding:40px 24px;text-align:center;color:var(--muted);font-style:italic;">Need at least 2 scored homes. Click <strong>↻ Rescore All</strong> first.</div>';
+    overlay.classList.add('open');
+    return;
+  }
+  const rows = [
+    { key: 'header', label: '' },
+    { key: 'total', label: 'Overall Score', fmt: p => p.score.total, sortNumeric: true },
+    ...SCORE_CRITERIA_ORDER.map(k => ({ key: k, label: SCORE_CRITERIA_LABEL[k], breakdown: true, sortNumeric: true })),
+    { key: 'price', label: 'Price', fmt: p => p.compass?.price || p.askingPrice, sortNumeric: true, lowerIsBetter: true },
+    { key: 'beds', label: 'Beds', fmt: p => p.compass?.beds, sortNumeric: true },
+    { key: 'baths', label: 'Baths', fmt: p => p.compass?.baths, sortNumeric: true },
+    { key: 'sqft', label: 'Sq Ft', fmt: p => p.compass?.sqft, sortNumeric: true },
+    { key: 'lot', label: 'Lot', fmt: p => p.compass?.lotSize ? (p.compass.lotSize/43560).toFixed(2) + ' ac' : null, sortNumeric: true, raw: p => p.compass?.lotSize || 0 },
+    { key: 'gct', label: 'GCT min', fmt: p => p.train?.gct, sortNumeric: true, lowerIsBetter: true },
+    { key: 'walk', label: 'Train walk', fmt: p => p.train?.walkMin ? p.train.walkMin + 'm' : null, sortNumeric: true, raw: p => p.train?.walkMin || 999, lowerIsBetter: true },
+    { key: 'trail', label: 'Nearest trail', fmt: p => p.trail?.name || '—' },
+    { key: 'monthly', label: 'Monthly', fmt: p => { const m = computePinMonthly(p); return m ? fmtUSD(m.total) : null; }, sortNumeric: true, raw: p => { const m = computePinMonthly(p); return m ? m.total : 0; }, lowerIsBetter: true },
+    { key: 'school', label: 'School District', fmt: p => p.schoolDistrict || '—' }
+  ];
+
+  let html = '<table class="matrix-table"><thead><tr><th class="matrix-criterion-col">Criterion</th>';
+  scored.forEach(p => {
+    const c = p.compass || {};
+    html += '<th><div class="home-addr">' + escapeHtml(formatPinAddress(p)) + '</div><div class="home-sub">$' + (c.price ? Number(c.price).toLocaleString() : (p.askingPrice ? Number(p.askingPrice).toLocaleString() + ' asking' : '—')) + ' · <span class="tv-score-chip" data-band="' + scoreBand(p.score.total) + '" style="font-size:10px;height:18px;min-width:28px;">' + p.score.total + '</span></div></th>';
+  });
+  html += '</tr></thead><tbody>';
+
+  for (const row of rows) {
+    if (row.key === 'header') continue;
+    const values = scored.map(p => {
+      let raw;
+      if (row.breakdown) raw = p.score.breakdown?.[row.key]?.score ?? null;
+      else if (row.raw) raw = row.raw(p);
+      else if (row.fmt) {
+        const v = row.fmt(p);
+        if (typeof v === 'number') raw = v;
+        else if (v && /^[\$\d]/.test(String(v))) raw = parseInt(String(v).replace(/[^0-9.]/g, ''), 10) || null;
+        else raw = null;
+      } else raw = null;
+      const display = row.fmt ? (row.fmt(p) ?? '—') : (raw != null ? raw : '—');
+      return { display, raw };
+    });
+    let bands = values.map(() => null);
+    if (row.sortNumeric) {
+      const nums = values.map(v => typeof v.raw === 'number' ? v.raw : (Number.isFinite(parseFloat(v.raw)) ? parseFloat(v.raw) : null)).filter(n => n != null);
+      if (nums.length >= 2) {
+        const sorted = [...nums].sort((a,b) => row.lowerIsBetter ? a - b : b - a);
+        const q = (i) => sorted[Math.floor(sorted.length * i / 5)];
+        bands = values.map(v => {
+          const n = typeof v.raw === 'number' ? v.raw : (Number.isFinite(parseFloat(v.raw)) ? parseFloat(v.raw) : null);
+          if (n == null) return null;
+          const idx = sorted.indexOf(n);
+          const pct = idx / Math.max(sorted.length - 1, 1);
+          return pct < 0.2 ? '5' : pct < 0.4 ? '4' : pct < 0.6 ? '3' : pct < 0.8 ? '2' : '1';
+        });
+      }
+    }
+    html += '<tr><td class="criterion-name">' + escapeHtml(row.label) + '</td>';
+    values.forEach((v, i) => {
+      const band = bands[i] ? ' data-band="' + bands[i] + '"' : '';
+      let cellDisp = '';
+      if (typeof v.display === 'number') cellDisp = '<span class="v">' + v.display + '</span>';
+      else if (typeof v.display === 'string' && /^\$/.test(v.display)) cellDisp = '<span class="v">' + escapeHtml(v.display) + '</span>';
+      else cellDisp = '<span class="v">' + escapeHtml(String(v.display ?? '—')) + '</span>';
+      // for breakdown rows, also include the note
+      if (row.breakdown) {
+        const note = scored[i].score?.breakdown?.[row.key]?.note;
+        if (note) cellDisp += '<span class="n">' + escapeHtml(note) + '</span>';
+      }
+      html += '<td class="matrix-cell"' + band + '>' + cellDisp + '</td>';
+    });
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  if (meta) meta.textContent = 'Comparing ' + scored.length + ' of ' + pins.length + ' homes · ' + new Date().toLocaleString();
+  overlay.classList.add('open');
+}
+
+document.getElementById('matrix-modal-close')?.addEventListener('click', () => {
+  document.getElementById('matrix-modal-overlay').classList.remove('open');
+});
+document.getElementById('matrix-modal-overlay')?.addEventListener('click', e => {
+  if (e.target.id === 'matrix-modal-overlay') document.getElementById('matrix-modal-overlay').classList.remove('open');
+});
+document.getElementById('matrix-print')?.addEventListener('click', () => window.print());
+
+// ===================== TABLE-TOP ACTION BUTTONS =====================
+document.getElementById('tv-matrix-btn')?.addEventListener('click', openDecisionMatrix);
+document.getElementById('tv-rescore-all-btn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('tv-rescore-all-btn');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  try {
+    await scoreAllPins({ force: true, onProgress: (i, n, addr) => {
+      btn.textContent = `scoring ${i}/${n}…`;
+    }});
+  } finally {
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
+});
+document.getElementById('tv-brief-btn')?.addEventListener('click', () => {
+  const scored = pins.filter(p => p.score && p.score.total != null).sort((a, b) => b.score.total - a.score.total);
+  if (scored.length < 1) {
+    alert('Score some homes first — click ↻ Rescore All.');
+    return;
+  }
+  openGenModal({ kind: 'brief', pins: scored.slice(0, 8) });
+});
+
+// ===================== CROSS-REFERENCE (rescore on memory save) =====================
+let _origAddMemory = null;
+if (typeof addMemory === 'function') {
+  _origAddMemory = addMemory;
+  addMemory = function(text) {
+    // Snapshot scores before
+    const before = pins.map(p => ({ id: p.id, addr: formatPinAddress(p), score: p.score?.total ?? null }));
+    _origAddMemory.call(this, text);
+    // Re-score in background
+    (async () => {
+      await scoreAllPins({ force: true });
+      const after = pins.map(p => ({ id: p.id, addr: formatPinAddress(p), score: p.score?.total ?? null }));
+      const deltas = before.map(b => {
+        const a = after.find(x => x.id === b.id);
+        const d = (a?.score != null && b.score != null) ? (a.score - b.score) : 0;
+        return { addr: b.addr, delta: d, after: a?.score ?? null };
+      }).filter(x => Math.abs(x.delta) >= 3).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 5);
+      if (deltas.length) showXrefToast(deltas);
+    })();
+  };
+}
+function showXrefToast(deltas) {
+  const old = document.getElementById('xref-toast');
+  if (old) old.remove();
+  const t = document.createElement('div');
+  t.className = 'xref-toast';
+  t.id = 'xref-toast';
+  t.innerHTML =
+    '<button class="close">×</button>' +
+    '<div class="head">Memory saved → scores shifted</div>' +
+    '<ul>' + deltas.map(d =>
+      '<li><span>' + escapeHtml(d.addr) + '</span><span class="delta ' + (d.delta > 0 ? 'up' : 'down') + '">' + (d.delta > 0 ? '+' : '') + d.delta + '</span></li>'
+    ).join('') + '</ul>';
+  document.body.appendChild(t);
+  t.querySelector('.close').addEventListener('click', () => t.remove());
+  setTimeout(() => t.remove(), 12000);
+}
+
+// ===================== DAILY WATCH (manual trigger UI) =====================
+document.getElementById('ag-watch-run')?.addEventListener('click', async () => {
+  const btn = document.getElementById('ag-watch-run');
+  const meta = document.getElementById('ag-watch-meta');
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = 'running…';
+  try {
+    const res = await fetch('/api/whh-daily-watch', { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    meta.innerHTML = `<strong>Last run:</strong> ${new Date(data.lastRun || Date.now()).toLocaleString()} · <strong>New:</strong> ${data.newListings?.length || 0}<br><span style="font-size:10px;">${escapeHtml(data.note || '')}</span>`;
+  } catch (err) {
+    meta.innerHTML = '<span style="color:var(--accent);">Watch failed — ' + escapeHtml(err.message) + '</span>';
+  } finally {
+    btn.textContent = orig; btn.disabled = false;
+  }
+});
+
+// ===================== DECISION WALK =====================
+document.getElementById('ag-decision-walk')?.addEventListener('click', () => {
+  const scored = pins.filter(p => p.score && p.score.total != null).sort((a, b) => b.score.total - a.score.total);
+  if (scored.length < 2) {
+    alert('Score at least 2 homes first — click ↻ Rescore All in the Table tab.');
+    return;
+  }
+  openGenModal({ kind: 'decision-walk', pins: scored.slice(0, 5) });
+});
+
 async function streamSchoolOverview(district, bodyEl, signal) {
   const system = `You are a Westchester, NY school district researcher. Give a brief, factual overview of the named school district. Focus ONLY on:
 1. ELEMENTARY schools in the district — list 2-4 by name with a one-line note on each
@@ -6797,7 +7654,16 @@ function tvVillageValue(v, col) {
   }
   return 0;
 }
+function scoreBand(s) {
+  if (s == null) return 'na';
+  if (s >= 90) return '5';
+  if (s >= 75) return '4';
+  if (s >= 60) return '3';
+  if (s >= 45) return '2';
+  return '1';
+}
 function tvPinValue(p, col) {
+  if (col === 'score') return (p.score && typeof p.score.total === 'number') ? p.score.total : -1;
   const c = p.compass || {};
   const m = (typeof computePinMonthly === 'function') ? computePinMonthly(p) : null;
   switch (col) {
@@ -6894,7 +7760,7 @@ function renderTable() {
   // ----- PINS -----
   pBody.innerHTML = '';
   if (!pins.length) {
-    pBody.innerHTML = `<tr><td colspan="14" class="tv-empty">No pinned homes yet — drop one from the <em>Map</em> tab.</td></tr>`;
+    pBody.innerHTML = `<tr><td colspan="15" class="tv-empty">No pinned homes yet — drop one from the <em>Map</em> tab.</td></tr>`;
   } else {
     sortRows(pins, 'pins').forEach((p, sortedIdx) => {
       const c = p.compass || {};
@@ -6908,8 +7774,14 @@ function renderTable() {
       const trailCell = p.trail ? `${escapeHtml(p.trail.name)} <span class="tv-mute">${p.trail.driveDistMi != null ? p.trail.driveDistMi.toFixed(1) + ' mi' : fmtMiles(p.trail.miles)}</span>` : '—';
       const walkCell = p.train && p.train.walkMin != null ? `${p.train.walkMin}m` : (p.train && p.train.miles != null ? '~' + walkMin(p.train.miles) + 'm' : '<span class="tv-mute">—</span>');
       const gctCell = p.train && p.train.gct != null ? `${p.train.gct}m` : '<span class="tv-mute">—</span>';
+      const scoreObj = p.score && typeof p.score === 'object' ? p.score : null;
+      const scoreVal = scoreObj && typeof scoreObj.total === 'number' ? scoreObj.total : null;
+      const scoreCell = scoreVal == null
+        ? '<span class="tv-mute" style="font-size:9px;letter-spacing:0.12em;">—</span>'
+        : `<span class="tv-score-chip" data-band="${scoreBand(scoreVal)}">${scoreVal}</span>`;
       tr_.innerHTML = `
         <td class="tv-expand-col"><button class="tv-expand-btn" title="Expand">▸</button></td>
+        <td class="tv-score-cell">${scoreCell}</td>
         <td class="tv-rank-cell"><span class="tv-rank-chip" data-rank="${p.rank || 0}">${origIdx}</span></td>
         <td class="tv-addr-cell">${escapeHtml(formatPinAddress(p))}</td>
         <td class="tv-price-cell">${c.price ? fmtUSD(c.price) : (p.askingPrice ? fmtUSD(p.askingPrice) + ' <span class="tv-mute" style="font-size:9px;letter-spacing:0.12em;">asking</span>' : '<span class="tv-mute">—</span>')}</td>
@@ -7005,7 +7877,7 @@ function buildPinDetail(p) {
   const tr = document.createElement('tr');
   tr.className = 'tv-detail-row';
   tr.innerHTML = `
-    <td colspan="14">
+    <td colspan="15">
       <div class="tv-detail-wrap">
         ${photoBlock}
         <div class="tv-detail-block">
@@ -7031,6 +7903,13 @@ function buildPinDetail(p) {
           <div class="tv-detail-body">${manhBody}</div>
         </div>
         ${descBlock}
+        ${buildScoreDetailBlock(p)}
+        <div class="tv-feature-row">
+          <button class="tv-feature-btn score" data-act="score" data-pin="${escapeHtml(p.id)}" type="button">${p.score?.total != null ? '↻ Rescore' : '✦ Score this home'}</button>
+          <button class="tv-feature-btn" data-act="story" data-pin="${escapeHtml(p.id)}" type="button">Read story →</button>
+          <button class="tv-feature-btn" data-act="visit-prep" data-pin="${escapeHtml(p.id)}" type="button">Visit prep →</button>
+          <button class="tv-feature-btn" data-act="negotiation" data-pin="${escapeHtml(p.id)}" type="button">Negotiation memo →</button>
+        </div>
         <div class="tv-detail-controls">
           <div class="tv-asking-wrap">
             <label>Asking</label>
@@ -7049,6 +7928,51 @@ function buildPinDetail(p) {
   return tr;
 }
 
+function buildScoreDetailBlock(p) {
+  const s = p.score;
+  if (!s || s.total == null) {
+    return `
+    <div class="tv-score-detail">
+      <div class="tv-score-headline">
+        <span class="label">Family-Criteria Fit</span>
+      </div>
+      <div class="tv-score-rationale" style="color: var(--muted); font-style: italic;">
+        Not scored yet. Click <strong>✦ Score this home</strong> below to compute against the family doctrine + saved memory.
+      </div>
+    </div>`;
+  }
+  const b = s.breakdown || {};
+  const bars = SCORE_CRITERIA_ORDER.map(k => {
+    const v = b[k];
+    if (!v) return '';
+    const val = typeof v === 'number' ? v : (v.score ?? null);
+    if (val == null) return '';
+    return `<div class="tv-sb">
+      <span class="sb-name">${SCORE_CRITERIA_LABEL[k]}</span>
+      <span class="sb-track"><span class="sb-fill" data-band="${scoreBand(val)}" style="width: ${val}%"></span></span>
+      <span class="sb-val">${val}</span>
+    </div>`;
+  }).join('');
+  const notes = SCORE_CRITERIA_ORDER.map(k => {
+    const v = b[k];
+    if (!v || !v.note) return '';
+    return `<div class="tv-sb-note"><strong>${SCORE_CRITERIA_LABEL[k]}.</strong> ${escapeHtml(v.note)}</div>`;
+  }).join('');
+  const rationale = s.rationale ? `<div class="tv-score-rationale">${escapeHtml(s.rationale)}</div>` : '';
+  const strengthConcern = (s.topStrength || s.topConcern) ? `<div class="tv-score-rationale" style="margin-top:4px;">${s.topStrength ? '<span class="strength">+ ' + escapeHtml(s.topStrength) + '</span>' : ''}${s.topStrength && s.topConcern ? '  ' : ''}${s.topConcern ? '<span class="concern">− ' + escapeHtml(s.topConcern) + '</span>' : ''}</div>` : '';
+  return `
+    <div class="tv-score-detail">
+      <div class="tv-score-headline">
+        <span class="total">${s.total}</span>
+        <span class="label">Family-Criteria Fit · 0–100</span>
+      </div>
+      ${rationale}
+      ${strengthConcern}
+      <div class="tv-score-bars">${bars}</div>
+      <div class="tv-sb-notes">${notes}</div>
+    </div>`;
+}
+
 function attachTableHandlers() {
   // School-district buttons → open locked profile modal
   document.querySelectorAll('.tv-school-btn').forEach(btn => {
@@ -7056,6 +7980,24 @@ function attachTableHandlers() {
       e.stopPropagation();
       const d = btn.dataset.school;
       if (d) openSchoolModal(d);
+    });
+  });
+  // Per-pin feature buttons (story / visit-prep / negotiation / score)
+  document.querySelectorAll('.tv-feature-btn[data-act]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const act = btn.dataset.act;
+      const pid = btn.dataset.pin;
+      const p = pins.find(x => x.id === pid);
+      if (!p) return;
+      if (act === 'score') {
+        btn.disabled = true; const orig = btn.textContent; btn.textContent = 'scoring…';
+        try { await scorePin(p, { force: true }); if (typeof renderTable === 'function') renderTable(); }
+        finally { btn.textContent = orig; btn.disabled = false; }
+        return;
+      }
+      // story / visit-prep / negotiation
+      openGenModal({ kind: act, pin: p });
     });
   });
   // detail-row photo thumbs → lightbox
@@ -7080,7 +8022,7 @@ function attachTableHandlers() {
         tvSort[kind].dir = tvSort[kind].dir === 'asc' ? 'desc' : 'asc';
       } else {
         tvSort[kind].col = col;
-        tvSort[kind].dir = (col === 'rank' || col === 'price' || col === 'sqft' || col === 'beds' || col === 'baths' || col === 'bb' || col === 'lot' || col === 'built' || col === 'trailCount' || col === 'books' || col === 'monthly') ? 'desc' : 'asc';
+        tvSort[kind].dir = (col === 'score' || col === 'rank' || col === 'price' || col === 'sqft' || col === 'beds' || col === 'baths' || col === 'bb' || col === 'lot' || col === 'built' || col === 'trailCount' || col === 'books' || col === 'monthly') ? 'desc' : 'asc';
       }
       renderTable();
     });

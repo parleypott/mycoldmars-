@@ -35,5 +35,8 @@
     { "source": "/winchester", "destination": "/westchester", "permanent": false },
     { "source": "/winchester/", "destination": "/westchester/", "permanent": false },
     { "source": "/winchester/:path*", "destination": "/westchester/:path*", "permanent": false }
+  ],
+  "crons": [
+    { "path": "/api/whh-daily-watch", "schedule": "0 10 * * *" }
   ]
 }
