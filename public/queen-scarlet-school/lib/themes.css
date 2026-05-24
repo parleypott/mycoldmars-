@@ -1739,3 +1739,208 @@ body.page-universe .burgundy-decor,
 body.page-universe .burgundy-motto {
   display: none !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * STORY PANEL — READ MODE
+ *
+ * The base karaoke transport bar is a loud red rubber-stamp tilted
+ * -0.3deg with hard ink-bright shadows — fine for the kid-tool QSS world,
+ * but it fights the burgundy underworld aesthetic. Same with the yolk
+ * pill word-highlight: it stamps each word like a button.
+ *
+ * Burgundy book-mode is a quiet "engineer reads his notebook" view —
+ * candlelight on parchment, amber underline ticking through the words,
+ * slim transport that sits politely above the page instead of dominating
+ * it. This whole block is scoped to data-world="burgundy".
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─── Sticky transport bar — slim, translucent, amber-lit ─────────────── */
+body[data-world="burgundy"] .karaoke-bar {
+  background: linear-gradient(180deg,
+    rgba(20, 16, 12, 0.86) 0%,
+    rgba(12, 9, 6, 0.94) 100%);
+  color: #F4E9C8;
+  border: 1px solid rgba(232, 162, 72, 0.30);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 1px 0 rgba(232, 162, 72, 0.20),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    0 8px 26px rgba(0, 0, 0, 0.45),
+    0 0 22px rgba(232, 162, 72, 0.10);
+  padding: 7px 12px;
+  gap: 12px;
+  margin: 8px 6px 14px;
+  transform: none !important;
+  font-family: var(--mono, ui-monospace, 'JetBrains Mono', monospace);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(6px) saturate(1.1);
+  -webkit-backdrop-filter: blur(6px) saturate(1.1);
+}
+body[data-world="burgundy"] .karaoke-bar.is-paused {
+  background: linear-gradient(180deg,
+    rgba(40, 30, 18, 0.88) 0%,
+    rgba(26, 18, 8, 0.94) 100%);
+  border-color: rgba(232, 162, 72, 0.46);
+  color: #F4E9C8;
+}
+
+body[data-world="burgundy"] .karaoke-bar .kb-now {
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(244, 233, 200, 0.72);
+}
+
+/* Play / Stop — calm translucent buttons, no rubber-stamp shadow */
+body[data-world="burgundy"] .karaoke-bar .kb-btn {
+  width: 30px; height: 30px;
+  background: rgba(232, 162, 72, 0.10);
+  color: #F4E9C8;
+  border: 1px solid rgba(232, 162, 72, 0.42);
+  box-shadow: none;
+  font-size: 12px;
+  border-radius: 50%;
+  transition: background 140ms ease-out, border-color 140ms ease-out,
+              box-shadow 140ms ease-out, transform 80ms ease-out;
+}
+body[data-world="burgundy"] .karaoke-bar .kb-btn:hover {
+  background: rgba(232, 162, 72, 0.22);
+  border-color: rgba(232, 162, 72, 0.70);
+  transform: none;
+  box-shadow: 0 0 12px rgba(232, 162, 72, 0.32);
+}
+body[data-world="burgundy"] .karaoke-bar .kb-btn:active {
+  transform: scale(0.94);
+  box-shadow: none;
+}
+body[data-world="burgundy"] .karaoke-bar .kb-btn.kb-big {
+  width: 34px; height: 34px;
+  background: rgba(232, 162, 72, 0.18);
+  color: #FFF6E0;
+  font-size: 13px;
+}
+body[data-world="burgundy"] .karaoke-bar .kb-btn.kb-big:hover {
+  background: rgba(232, 162, 72, 0.32);
+}
+
+/* Speed selector — slim mono chips */
+body[data-world="burgundy"] .karaoke-bar .kb-speed {
+  gap: 0;
+  padding: 2px;
+  background: rgba(0, 0, 0, 0.34);
+  border: 1px solid rgba(232, 162, 72, 0.24);
+  border-radius: 3px;
+}
+body[data-world="burgundy"] .karaoke-bar .kb-speed button {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-weight: 500;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: rgba(244, 233, 200, 0.55);
+  padding: 3px 8px;
+  border-radius: 2px;
+  transition: background 140ms ease-out, color 140ms ease-out;
+}
+body[data-world="burgundy"] .karaoke-bar .kb-speed button:hover {
+  color: rgba(244, 233, 200, 0.85);
+}
+body[data-world="burgundy"] .karaoke-bar .kb-speed button.active {
+  background: rgba(232, 162, 72, 0.22);
+  color: #FFF6E0;
+  box-shadow: inset 0 0 0 1px rgba(232, 162, 72, 0.50);
+}
+
+/* Progress bar — slim amber gradient that actually shows progress */
+body[data-world="burgundy"] .karaoke-bar .kb-progress {
+  flex: 1 1 auto;
+  min-width: 80px;
+  height: 2px;
+  background: rgba(232, 162, 72, 0.14);
+  border: none;
+  border-radius: 999px;
+}
+body[data-world="burgundy"] .karaoke-bar .kb-progress .kb-fill {
+  background: linear-gradient(90deg,
+    rgba(232, 162, 72, 0.6) 0%,
+    rgba(244, 198, 106, 1.0) 100%);
+  box-shadow: 0 0 8px rgba(232, 162, 72, 0.45);
+}
+
+/* ─── Word highlight — soft amber underline, no pill-button stamp ──── */
+body[data-world="burgundy"] .b-karaoke {
+  font-family: 'Cambo', 'Crimson Pro', Georgia, serif;
+  font-size: var(--story-font-size, 18.5px);
+  line-height: 1.78;
+  color: #F2E7CD;
+  letter-spacing: 0.005em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.32);
+}
+body[data-world="burgundy"] .b-karaoke .ks-word {
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  transition: color 140ms ease-out, box-shadow 140ms ease-out, text-shadow 140ms ease-out;
+}
+body[data-world="burgundy"] .b-karaoke .ks-word.ks-active {
+  background: transparent;
+  color: #FFF6E0;
+  box-shadow: inset 0 -2px 0 rgba(244, 198, 106, 0.78);
+  text-shadow: 0 0 10px rgba(232, 162, 72, 0.45);
+  transform: none;
+}
+body[data-world="burgundy"] .b-karaoke .ks-word.ks-past {
+  color: rgba(244, 233, 200, 0.45);
+  text-shadow: none;
+}
+
+/* Karaoke pause hint — calmer */
+body[data-world="burgundy"] .b-karaoke-hint {
+  background: rgba(232, 162, 72, 0.10);
+  border: 1px dashed rgba(232, 162, 72, 0.42);
+  color: rgba(244, 233, 200, 0.72);
+  font-family: var(--mono, ui-monospace, monospace);
+  letter-spacing: 0.18em;
+}
+
+/* ─── BOOK VIEW — restrained chapter typography ───────────────────────── */
+body[data-world="burgundy"] .story-book {
+  max-width: 64ch;
+  padding: 40px 44px 90px;
+  font-family: 'Cambo', 'Crimson Pro', Georgia, serif;
+  font-size: var(--story-font-size, 18.5px);
+  line-height: 1.82;
+  color: #F2E7CD;
+  letter-spacing: 0.005em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.32);
+}
+body[data-world="burgundy"] .story-book .book-paragraph {
+  margin: 0 0 1.05em 0;
+  text-indent: 1.8em;
+  color: #F2E7CD;
+}
+body[data-world="burgundy"] .story-book .book-paragraph:first-child::first-letter {
+  color: rgba(244, 198, 106, 0.96);
+  font-family: 'Cambo', Georgia, serif;
+  font-weight: 500;
+  font-size: 3.4em;
+  line-height: 0.88;
+  padding: 0.06em 0.14em 0 0;
+  text-shadow: 0 0 18px rgba(232, 162, 72, 0.38);
+}
+body[data-world="burgundy"] .story-book .book-scene-break {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-weight: 400;
+  font-size: 0.7em;
+  letter-spacing: 0.6em;
+  color: rgba(244, 198, 106, 0.42);
+  margin: 1.8em 0 1.6em;
+  text-shadow: 0 0 12px rgba(232, 162, 72, 0.22);
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+}
+body[data-world="burgundy"] .story-book .book-scene-break::before,
+body[data-world="burgundy"] .story-book .book-scene-break::after {
+  content: '';
+  width: 36px; height: 1px;
+  background: rgba(244, 198, 106, 0.32);
+}
