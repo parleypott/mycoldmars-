@@ -23,6 +23,7 @@
 
 import { checkAccess } from './_lib/access.js';
 import { BURGUNDY_NOVEL_ACT1 } from './_lib/burgundy-novel-act1.js';
+import { loadWorldStyle } from './_lib/qss-worlds.js';
 
 // Edge runtime. We surfaced the underlying Anthropic error so we can see
 // why the call is failing fast. The list endpoint no longer pulls
@@ -386,25 +387,47 @@ Plain JSON only. No art_prompt — that's built server-side.`;
 }
 
 // Build a full nano-banana art prompt from a row's title + caption.
-// Encapsulates the world style frame so the model gets a consistent
-// painterly Burgundy treatment without the extract step having to
-// emit it per row.
-function buildArtPrompt(row) {
-  const STYLE = [
-    'Painterly cinematic watercolor illustration in the register of Studio Ghibli atmosphere crossed with Iron Giant mechanical weight and a Yucatan 1512 movie-poster mood.',
-    'Hand-painted feel, visible brush strokes, atmospheric depth, painted lighting.',
-    'PALETTE: deep teal-blue night, warm amber lamplight, sienna-burgundy reds, iron-gray. Heavy chiaroscuro.',
-    'WORLD: Puppy Town — a backwater mining planet. Retro-futurist: MS-DOS green-on-black terminals, CRT monitors, hand-soldered boards.',
-    'The puppies are LITERAL working-breed dogs (brown-and-white, tan, weathered) in period work clothes / royal cloaks — NOT cute anthropomorphic mascots.',
-    'DO NOT: sticker outlines, flat cel coloring, manga/anime, photorealism, generic Disney-3D, bright saccharine palettes.',
-  ].join(' ');
+// Composes from the LIVE world style (DB-edited art_style merged over
+// the bundled defaults via loadWorldStyle). Async so style hub edits
+// flow through to the next explorer draw without a deploy. If no
+// style row is found, falls back to the bundled defaults silently —
+// never produces an empty prompt.
+async function buildArtPromptLive(row) {
+  const style = await loadWorldStyle(row.world_slug);
+  const a = style.artStyle || {};
+  // The four fields composed: styleBlock + references + dontList sit
+  // ABOVE the subject so they define the register before the prompt
+  // names what to draw. `paper` slots in last as a backdrop directive
+  // since it affects framing more than register.
+  const STYLE = [a.styleBlock, a.references, a.dontList].filter(Boolean).join(' ');
   const KIND_HINT = {
     person: 'PORTRAIT framing — 3/4 or head-and-shoulders, character-focused.',
     place:  'ESTABLISHING shot — landscape framing, environment-first, atmospheric.',
     thing:  'CLOSE-UP — single object or contraption, tactile detail, painted lighting.',
     event:  'CINEMATIC scene — multiple figures, action moment, dramatic composition.',
   }[row.kind] || '';
-  return `${STYLE}\n\n${KIND_HINT}\n\nSUBJECT: ${row.title}. ${row.caption || ''} ${row.source_quote ? `(Anchor moment from the source: "${row.source_quote}")` : ''}`;
+  const PAPER = a.paper ? `BACKGROUND: ${a.paper}` : '';
+  return [
+    STYLE,
+    KIND_HINT,
+    PAPER,
+    `SUBJECT: ${row.title}. ${row.caption || ''} ${row.source_quote ? `(Anchor moment from the source: "${row.source_quote}")` : ''}`,
+  ].filter(Boolean).join('\n\n');
+}
+
+// Sync version kept for the extract step (where we have no live style
+// context at write time — extracts run BEFORE the row exists in DB).
+// New rows still store this in art_prompt as a fallback for any older
+// callers, but handleGenerate now uses buildArtPromptLive to recompute
+// from current style every time.
+function buildArtPrompt(row) {
+  const KIND_HINT = {
+    person: 'PORTRAIT framing — 3/4 or head-and-shoulders, character-focused.',
+    place:  'ESTABLISHING shot — landscape framing, environment-first, atmospheric.',
+    thing:  'CLOSE-UP — single object or contraption, tactile detail, painted lighting.',
+    event:  'CINEMATIC scene — multiple figures, action moment, dramatic composition.',
+  }[row.kind] || '';
+  return `${KIND_HINT}\n\nSUBJECT: ${row.title}. ${row.caption || ''} ${row.source_quote ? `(Anchor moment from the source: "${row.source_quote}")` : ''}`;
 }
 
 // ────────────────────── generate one image ──────────────────────
@@ -416,11 +439,21 @@ async function handleGenerate(body) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
   if (!apiKey) return j(500, { error: 'gemini_key_missing' });
 
-  // Load the row.
-  const rows = await sb('GET', `qss_world_explorer?id=eq.${encodeURIComponent(id)}&select=id,world_slug,art_prompt,status&limit=1`);
+  // Load the row — pull the source fields needed to recompute the
+  // prompt against current world style, plus art_prompt as a legacy
+  // fallback in case the new fields are missing.
+  const rows = await sb('GET', `qss_world_explorer?id=eq.${encodeURIComponent(id)}&select=id,world_slug,kind,title,caption,source_quote,art_prompt,status&limit=1`);
   if (!rows?.length) return j(404, { error: 'not_found' });
   const row = rows[0];
   if (row.status === 'ready') return j(200, { ok: true, status: 'ready', skipped: true });
+
+  // Recompose the prompt from CURRENT world style + this row's
+  // title/caption. Falls back to the row's stored art_prompt if
+  // anything in buildArtPromptLive throws (e.g. DB hiccup).
+  let livePrompt = '';
+  try { livePrompt = await buildArtPromptLive(row); }
+  catch (e) { console.warn('[qss-explorer] buildArtPromptLive failed, using stored', e?.message); }
+  const promptForGemini = livePrompt || row.art_prompt || '';
 
   // Mark as generating
   await sb('PATCH', `qss_world_explorer?id=eq.${encodeURIComponent(id)}`, { status: 'generating', updated_at: new Date().toISOString() });
@@ -440,7 +473,7 @@ async function handleGenerate(body) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: row.art_prompt }] }],
+          contents: [{ parts: [{ text: promptForGemini }] }],
           generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
         }),
         signal: AbortSignal.timeout(50_000),
