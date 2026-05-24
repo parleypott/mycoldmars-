@@ -1091,6 +1091,302 @@ body.basemap-blank .whh-village-label { display: none !important; }
   transition: filter 900ms cubic-bezier(0.65, 0.05, 0.36, 1);
 }
 body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
+
+/* ===================== TABLE VIEW ===================== */
+.table-pane { padding: 28px clamp(20px, 4vw, 56px) 80px; }
+.tv-wrap { max-width: 1640px; margin: 0 auto; display: flex; flex-direction: column; gap: 36px; }
+
+.tv-section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.tv-section-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(0,0,0,0.025);
+}
+.tv-section-head .title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700;
+}
+.tv-section-head .count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 700; color: var(--muted);
+}
+.tv-table-wrap { overflow-x: auto; }
+.tv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.tv-table thead th {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 12px 10px;
+  text-align: left;
+  font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--muted); font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer; user-select: none;
+}
+.tv-table thead th:hover { color: var(--ink); }
+.tv-table thead th.sorted { color: var(--accent); }
+.tv-table thead th.no-sort { cursor: default; }
+.tv-table thead th.no-sort:hover { color: var(--muted); }
+.tv-table thead th .sort-ind { margin-left: 4px; font-size: 9px; opacity: 0.85; }
+.tv-table thead th.tv-expand-col { width: 30px; padding: 12px 4px 12px 14px; }
+
+.tv-row { border-bottom: 1px solid var(--line); transition: background 140ms; cursor: pointer; }
+.tv-row:hover { background: rgba(0,0,0,0.03); }
+.tv-row > td { padding: 10px 10px; vertical-align: middle; color: var(--ink); white-space: nowrap; }
+.tv-row td.tv-name-cell {
+  font-family: 'Instrument Serif', serif; font-style: italic;
+  font-size: 16px; color: var(--ink);
+  white-space: normal; max-width: 240px;
+}
+.tv-row td.tv-addr-cell {
+  font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  white-space: normal; max-width: 280px; line-height: 1.35;
+}
+.tv-row td.tv-price-cell { font-weight: 700; color: var(--ink); font-size: 12px; }
+.tv-row td.tv-rank-cell { width: 30px; padding-left: 6px; }
+.tv-row td.tv-mute { color: var(--muted); }
+
+.tv-rank-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--rank-0); color: var(--ink);
+  font-weight: 700; font-size: 11px;
+  border: 1.5px solid var(--rank-0);
+}
+.tv-rank-chip[data-rank="5"] { background: var(--rank-5); color: #FFF; border-color: var(--rank-5); }
+.tv-rank-chip[data-rank="4"] { background: var(--rank-4); color: #FFF; border-color: var(--rank-4); }
+.tv-rank-chip[data-rank="3"] { background: var(--rank-3); color: var(--ink); border-color: var(--rank-3); }
+.tv-rank-chip[data-rank="2"] { background: var(--rank-2); color: #FFF; border-color: var(--rank-2); }
+.tv-rank-chip[data-rank="1"] { background: var(--rank-1); color: #FFF; border-color: var(--rank-1); }
+.tv-rank-chip[data-rank="0"] { background: transparent; color: var(--muted); border: 1.5px dashed var(--line); }
+
+.tv-expand-btn {
+  background: transparent; border: 1px solid var(--line);
+  color: var(--muted);
+  width: 20px; height: 20px; border-radius: 2px;
+  font-family: inherit; font-size: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: transform 200ms ease, color 140ms, border-color 140ms;
+}
+.tv-expand-btn:hover { color: var(--ink); border-color: var(--ink); }
+.tv-row.expanded .tv-expand-btn { transform: rotate(90deg); color: var(--accent); border-color: var(--accent); }
+
+.tv-row td.tv-actions { text-align: right; padding-right: 14px; white-space: nowrap; }
+.tv-action-btn {
+  background: transparent; border: 1px solid var(--line);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+  padding: 5px 9px; border-radius: 2px;
+  cursor: pointer; margin-left: 4px; font-weight: 700;
+}
+.tv-action-btn:hover { color: var(--ink); border-color: var(--ink); }
+.tv-action-btn.delete:hover { color: var(--accent); border-color: var(--accent); }
+
+.tv-detail-row { background: var(--bg); }
+.tv-detail-row > td { padding: 0; border-bottom: 1px solid var(--line); }
+.tv-detail-wrap {
+  padding: 18px 24px 22px;
+  border-left: 4px solid var(--accent);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px 28px;
+}
+.tv-detail-photos {
+  grid-column: 1 / -1;
+  display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px;
+}
+.tv-detail-photos img {
+  height: 120px; width: 180px; object-fit: cover;
+  border-radius: 2px; border: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.tv-detail-block { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tv-detail-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700;
+}
+.tv-detail-body {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; line-height: 1.5; color: var(--ink);
+}
+.tv-detail-body .mute { color: var(--muted); }
+.tv-detail-body strong { font-weight: 700; }
+.tv-detail-desc {
+  grid-column: 1 / -1;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px; line-height: 1.55; color: var(--ink);
+  max-height: 14em; overflow-y: auto; padding-right: 8px;
+  border-top: 1px solid var(--line); padding-top: 14px;
+}
+.tv-detail-url {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--accent); text-decoration: none;
+  border-bottom: 1px solid var(--accent); padding-bottom: 1px;
+}
+.tv-detail-url:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+.tv-detail-controls {
+  grid-column: 1 / -1;
+  display: flex; flex-wrap: wrap; gap: 18px 24px;
+  align-items: center;
+  padding-top: 14px; border-top: 1px solid var(--line);
+}
+.tv-rank-row { display: flex; gap: 4px; align-items: center; }
+.tv-rank-row .rank-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--muted); margin-right: 6px; font-weight: 700;
+}
+.tv-rank-row button {
+  background: transparent; border: 1px solid var(--line);
+  color: var(--muted);
+  width: 24px; height: 24px; border-radius: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; cursor: pointer; font-weight: 600;
+}
+.tv-rank-row button:hover { color: var(--ink); border-color: var(--ink); }
+.tv-rank-row button.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tv-asking-wrap { display: flex; align-items: center; gap: 8px; }
+.tv-asking-wrap label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700;
+}
+.tv-asking-wrap input {
+  background: #FFF; border: 1px solid var(--line);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 600;
+  padding: 5px 10px; text-align: right;
+  outline: none; border-radius: 2px; width: 130px;
+}
+.tv-notes-wrap {
+  flex: 1 1 240px; min-width: 200px;
+}
+.tv-notes-wrap textarea {
+  width: 100%; background: #FFF; border: 1px solid var(--line);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; padding: 6px 9px; outline: none;
+  border-radius: 2px; resize: vertical; min-height: 38px;
+}
+
+.tv-empty {
+  text-align: center; padding: 40px 20px;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; line-height: 1.6;
+}
+.tv-empty em { font-style: normal; color: var(--ink); }
+
+/* ===================== HOUSE QUICK-VIEW POPUP ===================== */
+.qv-popup .maplibregl-popup-content {
+  padding: 0 !important;
+  overflow: hidden;
+  border: 1px solid var(--line) !important;
+  background: var(--card) !important;
+  box-shadow: 0 14px 36px rgba(0,0,0,0.32) !important;
+  border-radius: 3px !important;
+}
+.qv-popup .maplibregl-popup-close-button {
+  font-size: 18px !important;
+  color: #FFF !important;
+  background: rgba(0,0,0,0.42) !important;
+  width: 22px; height: 22px;
+  line-height: 1 !important;
+  border-radius: 50% !important;
+  top: 8px !important; right: 8px !important;
+  padding: 0 !important;
+  z-index: 2;
+}
+.qv-popup .maplibregl-popup-tip { border-top-color: var(--line) !important; }
+.qv {
+  width: 280px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--ink);
+}
+.qv-photo {
+  height: 140px;
+  background: #2A2620 center/cover no-repeat;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+}
+.qv-photo.placeholder {
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.42);
+  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+  background: linear-gradient(135deg, #3A3530, #1F1A14);
+}
+.qv-rank-chip {
+  position: absolute; top: 8px; left: 8px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--rank-0); color: var(--ink);
+  font-weight: 700; font-size: 12px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #FFF;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+.qv-rank-chip[data-rank="5"] { background: var(--rank-5); color: #FFF; }
+.qv-rank-chip[data-rank="4"] { background: var(--rank-4); color: #FFF; }
+.qv-rank-chip[data-rank="3"] { background: var(--rank-3); }
+.qv-rank-chip[data-rank="2"] { background: var(--rank-2); color: #FFF; }
+.qv-rank-chip[data-rank="1"] { background: var(--rank-1); color: #FFF; }
+.qv-photo-count {
+  position: absolute; bottom: 8px; right: 8px;
+  font-size: 9px; letter-spacing: 0.16em;
+  background: rgba(0,0,0,0.55); color: #FFF;
+  padding: 3px 7px; border-radius: 2px;
+  text-transform: uppercase;
+}
+.qv-body { padding: 12px 14px 14px; }
+.qv-addr {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  line-height: 1.35; margin-bottom: 6px;
+}
+.qv-price { font-size: 18px; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.01em; }
+.qv-no-price { font-size: 10px; color: var(--muted); font-style: italic; margin-bottom: 4px; }
+.qv-stats { font-size: 10.5px; color: var(--muted); margin-bottom: 8px; }
+.qv-stats strong { color: var(--ink); font-weight: 700; }
+.qv-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 10px; padding: 4px 0;
+  border-top: 1px solid var(--line);
+}
+.qv-row .lbl { color: var(--muted); letter-spacing: 0.14em; text-transform: uppercase; }
+.qv-row .val { color: var(--ink); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.qv-actions {
+  display: flex; gap: 6px;
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.qv-actions button, .qv-actions a {
+  flex: 1; background: transparent;
+  border: 1px solid var(--ink); color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 7px 8px; border-radius: 2px;
+  cursor: pointer; font-weight: 700;
+  text-decoration: none; text-align: center;
+}
+.qv-actions button:hover, .qv-actions a:hover { background: var(--ink); color: var(--bg); }
+.qv-actions a.compass { border-color: var(--accent); color: var(--accent); }
+.qv-actions a.compass:hover { background: var(--accent); color: #FFF; border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -1104,6 +1400,7 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
   <nav>
     <button class="tab-btn" data-tab="money">Money Mode</button>
     <button class="tab-btn active" data-tab="map">Map</button>
+    <button class="tab-btn" data-tab="table">Table</button>
     <button class="tab-btn" data-tab="timeline">Timeline</button>
     <button class="tab-btn" data-tab="notes">Notes</button>
   </nav>
@@ -1335,6 +1632,67 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 
 </section>
 
+<!-- ===================== TABLE TAB ===================== -->
+<section class="tab-pane solid table-pane" data-pane="table">
+  <div class="tv-wrap">
+    <div class="tv-section">
+      <div class="tv-section-head">
+        <span class="title">Villages</span>
+        <span class="count" id="tv-village-count">0</span>
+      </div>
+      <div class="tv-table-wrap">
+        <table class="tv-table tv-villages">
+          <thead>
+            <tr>
+              <th class="tv-expand-col no-sort"></th>
+              <th data-sort="name">Name <span class="sort-ind"></span></th>
+              <th data-sort="school">School District <span class="sort-ind"></span></th>
+              <th data-sort="trail">Nearest Trail <span class="sort-ind"></span></th>
+              <th data-sort="trailCount">≤1mi <span class="sort-ind"></span></th>
+              <th data-sort="train">Train <span class="sort-ind"></span></th>
+              <th data-sort="gct">GCT min <span class="sort-ind"></span></th>
+              <th data-sort="books">Books <span class="sort-ind"></span></th>
+              <th class="no-sort"></th>
+            </tr>
+          </thead>
+          <tbody id="tv-villages-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tv-section">
+      <div class="tv-section-head">
+        <span class="title">Pinned Homes</span>
+        <span class="count" id="tv-pin-count">0</span>
+      </div>
+      <div class="tv-table-wrap">
+        <table class="tv-table tv-pins">
+          <thead>
+            <tr>
+              <th class="tv-expand-col no-sort"></th>
+              <th data-sort="rank">Rank <span class="sort-ind"></span></th>
+              <th data-sort="address">Address <span class="sort-ind"></span></th>
+              <th data-sort="price">Price <span class="sort-ind"></span></th>
+              <th data-sort="beds">Bd <span class="sort-ind"></span></th>
+              <th data-sort="baths">Ba <span class="sort-ind"></span></th>
+              <th data-sort="sqft">SqFt <span class="sort-ind"></span></th>
+              <th data-sort="built">Built <span class="sort-ind"></span></th>
+              <th data-sort="train">Train <span class="sort-ind"></span></th>
+              <th data-sort="walk">Walk <span class="sort-ind"></span></th>
+              <th data-sort="gct">GCT <span class="sort-ind"></span></th>
+              <th data-sort="trail">Trail <span class="sort-ind"></span></th>
+              <th data-sort="monthly">Monthly <span class="sort-ind"></span></th>
+              <th data-sort="school">School <span class="sort-ind"></span></th>
+              <th class="no-sort"></th>
+            </tr>
+          </thead>
+          <tbody id="tv-pins-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="tab-pane solid" data-pane="timeline"><div class="placeholder-pane">— empty —</div></section>
 <section class="tab-pane solid" data-pane="notes"><div class="placeholder-pane">— empty —</div></section>
 
@@ -1392,6 +1750,7 @@ function setActiveTab(tabId) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tabId));
   document.body.classList.toggle('on-map', tabId === 'map');
   if (window._whhMap) setTimeout(() => window._whhMap.resize(), 80);
+  if (tabId === 'table' && typeof renderTable === 'function') renderTable();
 }
 document.querySelectorAll('.tab-btn').forEach(t => t.addEventListener('click', () => setActiveTab(t.dataset.tab)));
 document.body.classList.add('on-map'); // default open tab
@@ -3719,18 +4078,95 @@ function renderMapMarkers() {
     el.className = 'whh-marker';
     el.setAttribute('data-rank', pin.rank || 0);
     el.textContent = idx + 1;
-    el.addEventListener('click', () => focusPin(pin.id));
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openHouseQuickView(pin, idx + 1);
+    });
     const m = new maplibregl.Marker({ element: el, anchor: 'center' })
       .setLngLat([pin.lng, pin.lat]).addTo(map);
     pinMarkers.push(m);
   });
 }
+
+let _qvPopup = null;
+function openHouseQuickView(pin, idx) {
+  if (_qvPopup) { try { _qvPopup.remove(); } catch {} _qvPopup = null; }
+  const c = pin.compass || {};
+  const tr = pin.train || {};
+  const tl = pin.trail || {};
+  const monthly = (typeof computePinMonthly === 'function') ? computePinMonthly(pin) : null;
+  const trainDist = tr.driveDistMi != null ? tr.driveDistMi.toFixed(1) + ' mi'
+                  : (tr.miles != null ? fmtMiles(tr.miles) : '—');
+  const trainWalk = tr.walkMin != null ? tr.walkMin + ' min walk'
+                  : (tr.miles != null ? '~' + walkMin(tr.miles) + ' min walk' : '');
+  const photo0 = (c.photos && c.photos[0]) || null;
+  const photoCount = (c.photos && c.photos.length) || 0;
+  const addr = escapeHtml(formatPinAddress(pin));
+  const priceLine = c.price
+    ? `<div class="qv-price">${fmtUSD(c.price)}</div>`
+    : `<div class="qv-no-price">no listing attached — upload a Compass page to get price + photos</div>`;
+  const statBits = [];
+  if (c.beds != null) statBits.push(`<strong>${c.beds}</strong> bd`);
+  if (c.baths != null) statBits.push(`<strong>${c.baths}</strong> ba`);
+  if (c.sqft != null) statBits.push(`<strong>${Number(c.sqft).toLocaleString()}</strong> sqft`);
+  if (c.yearBuilt) statBits.push(`built <strong>${c.yearBuilt}</strong>`);
+  const stats = statBits.length ? `<div class="qv-stats">${statBits.join(' · ')}</div>` : '';
+  const trainLine = tr.name
+    ? `<div class="qv-row"><span class="lbl">Train</span><span class="val">${escapeHtml(tr.name)}${tr.line ? ' · ' + tr.line : ''}</span></div>
+       <div class="qv-row"><span class="lbl">Distance</span><span class="val">${trainDist}${trainWalk ? ' · ' + trainWalk : ''}</span></div>
+       ${tr.gct ? `<div class="qv-row"><span class="lbl">→ GCT</span><span class="val">${tr.gct} min</span></div>` : ''}`
+    : '';
+  const trailLine = tl.name
+    ? `<div class="qv-row"><span class="lbl">Trail</span><span class="val">${escapeHtml(tl.name)}</span></div>`
+    : '';
+  const schoolLine = pin.schoolDistrict
+    ? `<div class="qv-row"><span class="lbl">School</span><span class="val">${escapeHtml(pin.schoolDistrict)}</span></div>`
+    : '';
+  const monthlyLine = monthly
+    ? `<div class="qv-row"><span class="lbl">Monthly</span><span class="val">${fmtUSD(monthly.total)} all-in</span></div>`
+    : '';
+  const compassLink = c.listingUrl
+    ? `<a class="compass" href="${escapeHtml(c.listingUrl)}" target="_blank" rel="noopener">Compass ↗</a>`
+    : '';
+  const photoBlock = photo0
+    ? `<div class="qv-photo" style="background-image:url('${escapeHtml(photo0)}')"><div class="qv-rank-chip" data-rank="${pin.rank || 0}">${idx || ''}</div>${photoCount > 1 ? `<div class="qv-photo-count">${photoCount} photos</div>` : ''}</div>`
+    : `<div class="qv-photo placeholder"><div class="qv-rank-chip" data-rank="${pin.rank || 0}">${idx || ''}</div>no photo</div>`;
+  const html = `
+    <div class="qv" data-pin="${pin.id}">
+      ${photoBlock}
+      <div class="qv-body">
+        <div class="qv-addr">${addr}</div>
+        ${priceLine}
+        ${stats}
+        ${trainLine}
+        ${trailLine}
+        ${schoolLine}
+        ${monthlyLine}
+        <div class="qv-actions">
+          <button class="qv-details-btn" type="button">Details →</button>
+          ${compassLink}
+        </div>
+      </div>
+    </div>`;
+  _qvPopup = new maplibregl.Popup({ closeButton: true, offset: 18, maxWidth: '300px', className: 'qv-popup' })
+    .setLngLat([pin.lng, pin.lat])
+    .setHTML(html)
+    .addTo(map);
+  map.flyTo({ center: [pin.lng, pin.lat], zoom: Math.max(map.getZoom(), 14), duration: 600 });
+  setTimeout(() => {
+    const detailsBtn = document.querySelector('.qv-popup .qv-details-btn');
+    detailsBtn && detailsBtn.addEventListener('click', () => focusPin(pin.id));
+  }, 30);
+}
+window.openHouseQuickView = openHouseQuickView;
+
 function focusPin(id) {
   const pin = pins.find(p => p.id === id);
   if (!pin) return;
   map.flyTo({ center: [pin.lng, pin.lat], zoom: 15, duration: 800 });
   const card = document.querySelector('.pin-card[data-id="' + id + '"]');
   if (card) {
+    card.classList.remove('collapsed');
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     card.style.background = '#FFF';
     setTimeout(() => card.style.background = '', 1200);
@@ -4041,6 +4477,9 @@ function renderBookstoreMarkers() {
 }
 
 function renderVillages() {
+  if (document.body.dataset.tableTab === 'open' && typeof renderTable === 'function') {
+    queueMicrotask(() => renderTable());
+  }
   const listEl = document.getElementById('village-list');
   const countEl = document.getElementById('village-count');
   if (!listEl || !countEl) return;
@@ -4406,6 +4845,7 @@ function renderPins() {
   });
   renderMapMarkers();
   populateActivePinSelect();
+  if (document.body.dataset.tableTab === 'open') renderTable();
 }
 
 function escapeHtml(s) {
@@ -4414,6 +4854,377 @@ function escapeHtml(s) {
 
 renderPins();
 populateActivePinSelect();
+
+// ===================== TABLE VIEW =====================
+const tvExpanded = { villages: new Set(), pins: new Set() };
+let tvSort = {
+  villages: { col: 'name', dir: 'asc' },
+  pins:     { col: 'rank', dir: 'desc' }
+};
+
+function tvVillageValue(v, col) {
+  switch (col) {
+    case 'name': return (v.name || '').toLowerCase();
+    case 'school': return (v.schoolDistrict || 'zzz').toLowerCase();
+    case 'trail': return v.trails && v.trails[0] ? v.trails[0].miles : 999;
+    case 'trailCount': return v.trailsWithin1Mi != null ? v.trailsWithin1Mi : -1;
+    case 'train': return v.train ? v.train.name.toLowerCase() : 'zzz';
+    case 'gct': return v.train && v.train.gct != null ? v.train.gct : 999;
+    case 'books': return v.bookstores ? v.bookstores.length : -1;
+  }
+  return 0;
+}
+function tvPinValue(p, col) {
+  const c = p.compass || {};
+  const m = (typeof computePinMonthly === 'function') ? computePinMonthly(p) : null;
+  switch (col) {
+    case 'rank': return p.rank || 0;
+    case 'address': return (formatPinAddress(p) || '').toLowerCase();
+    case 'price': return c.price || 0;
+    case 'beds': return c.beds != null ? c.beds : -1;
+    case 'baths': return c.baths != null ? c.baths : -1;
+    case 'sqft': return c.sqft != null ? c.sqft : -1;
+    case 'built': return c.yearBuilt || 0;
+    case 'train': return p.train ? p.train.name.toLowerCase() : 'zzz';
+    case 'walk': return p.train && p.train.walkMin != null ? p.train.walkMin : 999;
+    case 'gct': return p.train && p.train.gct != null ? p.train.gct : 999;
+    case 'trail': return p.trail && p.trail.driveDistMi != null ? p.trail.driveDistMi : (p.trail && p.trail.miles != null ? p.trail.miles : 999);
+    case 'monthly': return m ? m.total : 0;
+    case 'school': return (p.schoolDistrict || 'zzz').toLowerCase();
+  }
+  return 0;
+}
+
+function sortRows(rows, kind) {
+  const { col, dir } = tvSort[kind];
+  const getVal = kind === 'villages' ? tvVillageValue : tvPinValue;
+  const mult = dir === 'asc' ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const av = getVal(a, col), bv = getVal(b, col);
+    if (typeof av === 'string' || typeof bv === 'string') {
+      return String(av).localeCompare(String(bv)) * mult;
+    }
+    return (av - bv) * mult;
+  });
+}
+
+function renderTable() {
+  const vBody = document.getElementById('tv-villages-body');
+  const pBody = document.getElementById('tv-pins-body');
+  const vCount = document.getElementById('tv-village-count');
+  const pCount = document.getElementById('tv-pin-count');
+  if (!vBody || !pBody) return;
+  document.body.dataset.tableTab = 'open';
+
+  vCount.textContent = villages.length;
+  pCount.textContent = pins.length;
+
+  // sort indicators
+  document.querySelectorAll('.tv-villages thead th[data-sort]').forEach(th => {
+    const c = th.dataset.sort;
+    const sorted = c === tvSort.villages.col;
+    th.classList.toggle('sorted', sorted);
+    const ind = th.querySelector('.sort-ind');
+    if (ind) ind.textContent = sorted ? (tvSort.villages.dir === 'asc' ? '▲' : '▼') : '';
+  });
+  document.querySelectorAll('.tv-pins thead th[data-sort]').forEach(th => {
+    const c = th.dataset.sort;
+    const sorted = c === tvSort.pins.col;
+    th.classList.toggle('sorted', sorted);
+    const ind = th.querySelector('.sort-ind');
+    if (ind) ind.textContent = sorted ? (tvSort.pins.dir === 'asc' ? '▲' : '▼') : '';
+  });
+
+  // ----- VILLAGES -----
+  vBody.innerHTML = '';
+  if (!villages.length) {
+    vBody.innerHTML = `<tr><td colspan="9" class="tv-empty">No villages yet — add one from the <em>Map</em> tab to populate.</td></tr>`;
+  } else {
+    sortRows(villages, 'villages').forEach(v => {
+      const tr = document.createElement('tr');
+      tr.className = 'tv-row';
+      tr.dataset.id = v.id;
+      if (tvExpanded.villages.has(v.id)) tr.classList.add('expanded');
+      const trailNearest = v.trails && v.trails[0] ? `${escapeHtml(v.trails[0].name)} <span class="mute">${fmtMiles(v.trails[0].miles)}</span>` : '—';
+      const trainCell = v.train ? `${escapeHtml(v.train.name)} <span class="mute">· ${escapeHtml(v.train.line || '')}</span>` : '—';
+      tr.innerHTML = `
+        <td class="tv-expand-col"><button class="tv-expand-btn" title="Expand">▸</button></td>
+        <td class="tv-name-cell">${escapeHtml(v.name || '')}</td>
+        <td>${v.schoolDistrict ? escapeHtml(v.schoolDistrict) : '<span class="tv-mute">—</span>'}</td>
+        <td>${trailNearest}</td>
+        <td>${v.trailsWithin1Mi != null ? v.trailsWithin1Mi : '<span class="tv-mute">—</span>'}</td>
+        <td>${trainCell}</td>
+        <td>${v.train && v.train.gct != null ? v.train.gct : '<span class="tv-mute">—</span>'}</td>
+        <td>${v.bookstores ? v.bookstores.length : '<span class="tv-mute">—</span>'}</td>
+        <td class="tv-actions">
+          <button class="tv-action-btn" data-act="fly">Map ↗</button>
+          <button class="tv-action-btn delete" data-act="del">×</button>
+        </td>`;
+      vBody.appendChild(tr);
+      if (tvExpanded.villages.has(v.id)) vBody.appendChild(buildVillageDetail(v));
+    });
+  }
+
+  // ----- PINS -----
+  pBody.innerHTML = '';
+  if (!pins.length) {
+    pBody.innerHTML = `<tr><td colspan="15" class="tv-empty">No pinned homes yet — drop one from the <em>Map</em> tab.</td></tr>`;
+  } else {
+    sortRows(pins, 'pins').forEach((p, sortedIdx) => {
+      const c = p.compass || {};
+      const m = (typeof computePinMonthly === 'function') ? computePinMonthly(p) : null;
+      const tr_ = document.createElement('tr');
+      tr_.className = 'tv-row';
+      tr_.dataset.id = p.id;
+      if (tvExpanded.pins.has(p.id)) tr_.classList.add('expanded');
+      const origIdx = pins.indexOf(p) + 1;
+      const trainCell = p.train ? `${escapeHtml(p.train.name)}${p.train.line ? ' <span class="tv-mute">· ' + escapeHtml(p.train.line) + '</span>' : ''}` : '—';
+      const trailCell = p.trail ? `${escapeHtml(p.trail.name)} <span class="tv-mute">${p.trail.driveDistMi != null ? p.trail.driveDistMi.toFixed(1) + ' mi' : fmtMiles(p.trail.miles)}</span>` : '—';
+      const walkCell = p.train && p.train.walkMin != null ? `${p.train.walkMin}m` : (p.train && p.train.miles != null ? '~' + walkMin(p.train.miles) + 'm' : '<span class="tv-mute">—</span>');
+      const gctCell = p.train && p.train.gct != null ? `${p.train.gct}m` : '<span class="tv-mute">—</span>';
+      tr_.innerHTML = `
+        <td class="tv-expand-col"><button class="tv-expand-btn" title="Expand">▸</button></td>
+        <td class="tv-rank-cell"><span class="tv-rank-chip" data-rank="${p.rank || 0}">${origIdx}</span></td>
+        <td class="tv-addr-cell">${escapeHtml(formatPinAddress(p))}</td>
+        <td class="tv-price-cell">${c.price ? fmtUSD(c.price) : '<span class="tv-mute">—</span>'}</td>
+        <td>${c.beds != null ? '<strong>' + c.beds + '</strong>' : '<span class="tv-mute">—</span>'}</td>
+        <td>${c.baths != null ? '<strong>' + c.baths + '</strong>' : '<span class="tv-mute">—</span>'}</td>
+        <td>${c.sqft != null ? Number(c.sqft).toLocaleString() : '<span class="tv-mute">—</span>'}</td>
+        <td>${c.yearBuilt || '<span class="tv-mute">—</span>'}</td>
+        <td>${trainCell}</td>
+        <td>${walkCell}</td>
+        <td>${gctCell}</td>
+        <td>${trailCell}</td>
+        <td>${m ? '<strong>' + fmtUSD(m.total) + '</strong>' : '<span class="tv-mute">enter asking</span>'}</td>
+        <td>${p.schoolDistrict ? escapeHtml(p.schoolDistrict) : '<span class="tv-mute">—</span>'}</td>
+        <td class="tv-actions">
+          <button class="tv-action-btn" data-act="fly">Map ↗</button>
+          <button class="tv-action-btn delete" data-act="del">×</button>
+        </td>`;
+      pBody.appendChild(tr_);
+      if (tvExpanded.pins.has(p.id)) pBody.appendChild(buildPinDetail(p));
+    });
+  }
+
+  attachTableHandlers();
+}
+
+function buildVillageDetail(v) {
+  const tr = document.createElement('tr');
+  tr.className = 'tv-detail-row';
+  const trailsTop = (v.trails || []).slice(0, 4).map(t =>
+    `<div>• <strong>${escapeHtml(t.name)}</strong> <span class="mute">${fmtMiles(t.miles)}</span></div>`
+  ).join('') || '<div class="mute">no trails computed</div>';
+  const booksTop = (v.bookstores || []).slice(0, 5).map(b =>
+    `<div>• <strong>${escapeHtml(b.name)}</strong> <span class="mute">${fmtMiles(b.miles)}</span></div>`
+  ).join('') || '<div class="mute">none within 5 mi</div>';
+  const trainBody = v.train
+    ? `<div><strong>${escapeHtml(v.train.name)}</strong> · ${escapeHtml(v.train.line || '')} Line</div>
+       <div><span class="mute">${fmtMiles(v.train.miles)} crow-flies</span></div>
+       ${v.train.gct ? `<div>${v.train.gct} min to GCT · off-peak</div>` : ''}`
+    : '<div class="mute">—</div>';
+  tr.innerHTML = `
+    <td colspan="9">
+      <div class="tv-detail-wrap">
+        <div class="tv-detail-block">
+          <span class="tv-detail-label">School</span>
+          <div class="tv-detail-body">${v.schoolDistrict ? escapeHtml(v.schoolDistrict) : '<span class="mute">no polygon match</span>'}</div>
+        </div>
+        <div class="tv-detail-block">
+          <span class="tv-detail-label">Train</span>
+          <div class="tv-detail-body">${trainBody}</div>
+        </div>
+        <div class="tv-detail-block">
+          <span class="tv-detail-label">Trails (top 4)</span>
+          <div class="tv-detail-body">
+            <div><strong>${v.trailsWithin1Mi != null ? v.trailsWithin1Mi : '?'}</strong> ≤1mi · <strong>${v.trailsWithin2Mi != null ? v.trailsWithin2Mi : '?'}</strong> ≤2mi · <strong>${v.trailCount != null ? v.trailCount : '?'}</strong> ≤5mi</div>
+            ${trailsTop}
+          </div>
+        </div>
+        <div class="tv-detail-block">
+          <span class="tv-detail-label">Bookstores (top 5)</span>
+          <div class="tv-detail-body">${booksTop}</div>
+        </div>
+      </div>
+    </td>`;
+  return tr;
+}
+
+function buildPinDetail(p) {
+  const c = p.compass || {};
+  const m = (typeof computePinMonthly === 'function') ? computePinMonthly(p) : null;
+  const tx = p.muniKey && TAX_DATA && TAX_DATA[p.muniKey];
+  const photos = (c.photos || []).slice(0, 14)
+    .map(u => `<img src="${escapeHtml(u)}" loading="lazy" alt="">`).join('');
+  const photoBlock = photos ? `<div class="tv-detail-photos">${photos}</div>` : '';
+  const descBlock = c.description ? `<div class="tv-detail-desc">${escapeHtml(c.description)}</div>` : '';
+  const compassLink = c.listingUrl
+    ? `<a class="tv-detail-url" href="${escapeHtml(c.listingUrl)}" target="_blank" rel="noopener">Open on Compass ↗</a>` : '';
+  const taxBody = tx && m
+    ? `<div>~<strong>${(tx.effectiveRate * 100).toFixed(2)}%</strong> of market</div>
+       <div><strong>${fmtUSD(m.taxAnnual)}</strong>/yr · <strong>${fmtUSD(m.tax)}</strong>/mo</div>
+       <div class="mute">${escapeHtml(tx.label)}</div>`
+    : (tx
+        ? `<div>~<strong>${(tx.effectiveRate * 100).toFixed(2)}%</strong> of market</div><div class="mute">${escapeHtml(tx.label)}</div><div class="mute">enter asking → see $</div>`
+        : '<div class="mute">municipality not matched</div>');
+  const monthlyBody = m
+    ? `<div><strong>${fmtUSD(m.total)}</strong> /mo all-in</div>
+       <div class="mute">P&amp;I ${fmtUSD(m.pi)} · Tax ${fmtUSD(m.tax)} · Ins ${fmtUSD(m.ins)}</div>
+       <div class="mute">${100 - m.downPct}% loan · ${m.rate}% · ${m.term}yr</div>`
+    : '<div class="mute">enter asking price ↓ to compute</div>';
+  const manhBody = p.manhattan
+    ? `<div><strong>${p.manhattan.driveDistMi.toFixed(1)} mi</strong> · <strong>${p.manhattan.driveMin} min drive</strong></div>
+       <div class="mute">to ${escapeHtml(p.manhattan.label)} · OSRM off-peak</div>`
+    : '<div class="mute">routing to Grand Central…</div>';
+
+  const tr = document.createElement('tr');
+  tr.className = 'tv-detail-row';
+  tr.innerHTML = `
+    <td colspan="15">
+      <div class="tv-detail-wrap">
+        ${photoBlock}
+        <div class="tv-detail-block">
+          <span class="tv-detail-label">Listing</span>
+          <div class="tv-detail-body">
+            ${c.propertyType ? `<div>${escapeHtml(c.propertyType)}</div>` : ''}
+            ${c.lotSize != null ? `<div>Lot <strong>${Number(c.lotSize).toLocaleString()}</strong> sqft</div>` : ''}
+            ${c.mlsNumber ? `<div class="mute">MLS ${escapeHtml(String(c.mlsNumber))}</div>` : ''}
+            ${compassLink}
+            ${!c.price && !c.photos ? '<div class="mute">no listing attached — upload a Compass page</div>' : ''}
+          </div>
+        </div>
+        <div class="tv-detail-block">
+          <span class="tv-detail-label">Tax</span>
+          <div class="tv-detail-body">${taxBody}</div>
+        </div>
+        <div class="tv-detail-block">
+          <span class="tv-detail-label">Monthly</span>
+          <div class="tv-detail-body">${monthlyBody}</div>
+        </div>
+        <div class="tv-detail-block">
+          <span class="tv-detail-label">Manhattan</span>
+          <div class="tv-detail-body">${manhBody}</div>
+        </div>
+        ${descBlock}
+        <div class="tv-detail-controls">
+          <div class="tv-asking-wrap">
+            <label>Asking</label>
+            <input type="text" class="tv-asking-input" placeholder="$0" value="${p.askingPrice ? fmtUSD(p.askingPrice) : ''}">
+          </div>
+          <div class="tv-rank-row">
+            <span class="rank-label">Rank</span>
+            ${[1,2,3,4,5].map(n => `<button class="${p.rank === n ? 'active' : ''}" data-rank="${n}" type="button">${n}</button>`).join('')}
+          </div>
+          <div class="tv-notes-wrap">
+            <textarea class="tv-notes-input" placeholder="notes…">${escapeHtml(p.notes || '')}</textarea>
+          </div>
+        </div>
+      </div>
+    </td>`;
+  return tr;
+}
+
+function attachTableHandlers() {
+  // sort
+  document.querySelectorAll('.tv-table thead th[data-sort]').forEach(th => {
+    if (th._wired) return;
+    th._wired = true;
+    th.addEventListener('click', () => {
+      const kind = th.closest('table').classList.contains('tv-villages') ? 'villages' : 'pins';
+      const col = th.dataset.sort;
+      if (tvSort[kind].col === col) {
+        tvSort[kind].dir = tvSort[kind].dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        tvSort[kind].col = col;
+        tvSort[kind].dir = (col === 'rank' || col === 'price' || col === 'sqft' || col === 'beds' || col === 'baths' || col === 'built' || col === 'trailCount' || col === 'books') ? 'desc' : 'asc';
+      }
+      renderTable();
+    });
+  });
+
+  // row click → toggle expand (or jump to map on action btn)
+  document.querySelectorAll('.tv-pins tbody .tv-row').forEach(row => {
+    row.addEventListener('click', e => {
+      const action = e.target.closest('.tv-action-btn');
+      const isControl = e.target.closest('.tv-detail-controls, input, textarea, button');
+      if (action) {
+        e.stopPropagation();
+        const id = row.dataset.id;
+        const pin = pins.find(p => p.id === id);
+        if (!pin) return;
+        if (action.dataset.act === 'fly') {
+          setActiveTab('map');
+          setTimeout(() => openHouseQuickView(pin, pins.indexOf(pin) + 1), 250);
+        } else if (action.dataset.act === 'del') {
+          if (!confirm('Remove this pin?')) return;
+          pins = pins.filter(x => x.id !== id);
+          savePins(); renderPins();
+        }
+        return;
+      }
+      if (isControl && !e.target.closest('.tv-expand-btn')) return;
+      const id = row.dataset.id;
+      if (tvExpanded.pins.has(id)) tvExpanded.pins.delete(id);
+      else tvExpanded.pins.add(id);
+      renderTable();
+    });
+  });
+  document.querySelectorAll('.tv-villages tbody .tv-row').forEach(row => {
+    row.addEventListener('click', e => {
+      const action = e.target.closest('.tv-action-btn');
+      if (action) {
+        e.stopPropagation();
+        const id = row.dataset.id;
+        const v = villages.find(x => x.id === id);
+        if (!v) return;
+        if (action.dataset.act === 'fly') {
+          setActiveTab('map');
+          setTimeout(() => map.flyTo({ center: [v.lng, v.lat], zoom: 13, duration: 800 }), 250);
+        } else if (action.dataset.act === 'del') {
+          if (!confirm('Remove this village?')) return;
+          villages = villages.filter(x => x.id !== id);
+          saveVillages(); renderVillages(); renderVillageMarkers(); renderBookstoreMarkers(); refreshVillageBoundaries();
+        }
+        return;
+      }
+      const id = row.dataset.id;
+      if (tvExpanded.villages.has(id)) tvExpanded.villages.delete(id);
+      else tvExpanded.villages.add(id);
+      renderTable();
+    });
+  });
+
+  // detail-row inputs (asking / rank / notes) — only wired on expanded rows
+  document.querySelectorAll('.tv-pins .tv-detail-row').forEach(detailRow => {
+    const mainRow = detailRow.previousElementSibling;
+    if (!mainRow) return;
+    const id = mainRow.dataset.id;
+    const pin = pins.find(p => p.id === id);
+    if (!pin) return;
+    const asking = detailRow.querySelector('.tv-asking-input');
+    if (asking) {
+      asking.addEventListener('focus', e => { e.stopPropagation(); asking.select(); });
+      asking.addEventListener('blur', () => {
+        pin.askingPrice = parseMoney(asking.value);
+        savePins(); renderTable(); renderPins();
+      });
+    }
+    detailRow.querySelectorAll('.tv-rank-row button[data-rank]').forEach(b => {
+      b.addEventListener('click', e => {
+        e.stopPropagation();
+        const n = Number(b.dataset.rank);
+        pin.rank = pin.rank === n ? 0 : n;
+        savePins(); renderTable(); renderPins();
+      });
+    });
+    const notes = detailRow.querySelector('.tv-notes-input');
+    if (notes) {
+      notes.addEventListener('click', e => e.stopPropagation());
+      notes.addEventListener('input', () => { pin.notes = notes.value; savePins(); });
+    }
+  });
+}
+
 
 // Refine any legacy pins that haven't been routed yet — serial with small delay to respect OSRM rate limit.
 // Also re-routes pins missing the new pin.manhattan field (added after their last refine).
