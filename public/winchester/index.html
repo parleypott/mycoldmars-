@@ -852,6 +852,7 @@ body.hide-villages .whh-village-label { display: none !important; }
         <div class="out-field"><span class="lbl">Main house repairs</span><span class="val" id="o-va-repairs">—</span></div>
         <div class="out-field"><span class="lbl">Studio repairs</span><span class="val" id="o-studio-repairs">—</span></div>
         <div class="out-field total"><span class="lbl">VA net proceeds</span><span class="val" id="o-vanet">—</span></div>
+        <div class="out-field"><span class="lbl">Repay bridge (stocks + HELOC/C&amp;Z)</span><span class="val" id="o-repay">—</span></div>
         <div class="out-field total"><span class="lbl">Final cash position</span><span class="val" id="o-final">—</span></div>
       </div>
       <div class="group">
@@ -1170,7 +1171,10 @@ function moneyRecalc() {
   const cashAvail = s.invPulled + s.bizPulled;
   const gap = cashNeeded - cashAvail;
   const covered = gap <= 0;
-  const finalCash = vaNet + cashAvail - cashNeeded;
+  // Bridge cash is borrowed at Day 1 and repaid from VA proceeds at Day N — it cancels out.
+  // Final cash = VA net − Day 1 cash needed.
+  const bridgeRepay = cashAvail;
+  const finalCash = vaNet - cashNeeded;
   // Monthly
   const mPI = mortgagePayment(loan, s.rate, s.term);
   const mTax = s.propTax / 12;
@@ -1194,6 +1198,7 @@ function moneyRecalc() {
   setVal('o-va-repairs', s.vaRepairs, 'out');
   setVal('o-studio-repairs', s.studioRepairs, 'out');
   setVal('o-vanet', vaNet, 'in-total');
+  setVal('o-repay', bridgeRepay, 'out');
   setVal('o-final', finalCash, finalCash >= 0 ? 'in-total' : 'out-total');
   setVal('m-pi', mPI, 'out');
   setVal('m-tax', mTax, 'out');
@@ -1466,9 +1471,12 @@ async function exportMoneyXlsx() {
     const DN_VA = setRow('VA net proceeds (both)',
       { formula: `B${MH_NET}+B${ST_NET}`, result: (s.vaSale - s.vaPayoff - s.vaSale*s.vaSellPct/100 - s.vaRepairs) + (s.studioSale - s.studioPayoff - s.studioSale*s.vaSellPct/100 - s.studioRepairs) },
       { numFmt: FMT_USD, note: 'derived' });
+    setRow('Repay bridge (stocks + HELOC/C&Z)',
+      { formula: `-B${BR_TOT}`, result: -(s.invPulled + s.bizPulled) },
+      { numFmt: FMT_USD, note: 'paid back from VA net — funded Day 1' });
     setRow('Final cash position',
-      { formula: `B${DN_VA}+B${D1_GAP}`, result: ((s.vaSale - s.vaPayoff - s.vaSale*s.vaSellPct/100 - s.vaRepairs) + (s.studioSale - s.studioPayoff - s.studioSale*s.vaSellPct/100 - s.studioRepairs)) + ((s.invPulled+s.bizPulled) - (s.buyPrice*s.downPct/100 + mansionVal + (s.nyClosing||0) + s.moving)) },
-      { numFmt: FMT_USD, bold: true, accent: true, topBorder: true, note: 'VA net + Day-1 gap' });
+      { formula: `B${DN_VA}-B${D1_NEED}`, result: ((s.vaSale - s.vaPayoff - s.vaSale*s.vaSellPct/100 - s.vaRepairs) + (s.studioSale - s.studioPayoff - s.studioSale*s.vaSellPct/100 - s.studioRepairs)) - (s.buyPrice*s.downPct/100 + mansionVal + (s.nyClosing||0) + s.moving) },
+      { numFmt: FMT_USD, bold: true, accent: true, topBorder: true, note: 'VA net − Day 1 cash needed (bridge deployed + repaid = cancels)' });
 
     // Write file
     const buf = await wb.xlsx.writeBuffer();
