@@ -108,6 +108,9 @@ body.on-map .map-panel { pointer-events: auto; }
   margin: 0 auto 14px;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .export-btn {
   background: var(--ink);
@@ -121,10 +124,26 @@ body.on-map .map-panel { pointer-events: auto; }
   padding: 8px 16px;
   border-radius: 2px;
   cursor: pointer;
-  transition: background 150ms, color 150ms;
+  transition: background 150ms, color 150ms, border-color 150ms;
 }
 .export-btn:hover { background: var(--accent); border-color: var(--accent); color: var(--bg); }
 .export-btn:disabled { opacity: 0.5; cursor: wait; }
+.export-btn.ghost { background: transparent; color: var(--ink); }
+.export-btn.ghost:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.scenario-select {
+  background: #FFF;
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  max-width: 280px;
+}
+.scenario-select:focus { outline: none; border-color: var(--accent); }
 .tool { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; max-width: 1280px; margin: 0 auto; }
 @media (max-width: 900px) { .tool { grid-template-columns: 1fr; } }
 .col h2 {
@@ -766,6 +785,11 @@ body.hide-villages .whh-village-label { display: none !important; }
 <!-- ===================== MONEY MODE ===================== -->
 <section class="tab-pane solid" data-pane="money">
   <div class="money-export-bar">
+    <button id="save-scenario-btn" class="export-btn ghost" type="button">＋ Save scenario</button>
+    <select id="scenario-select" class="scenario-select" aria-label="Load scenario">
+      <option value="">Load scenario…</option>
+    </select>
+    <button id="delete-scenario-btn" class="export-btn ghost" type="button" title="Delete selected scenario" style="display:none;">× Delete</button>
     <button id="export-xlsx-btn" class="export-btn" type="button">↓ Export Excel</button>
   </div>
   <div class="tool">
@@ -795,7 +819,7 @@ body.hide-villages .whh-village-label { display: none !important; }
         <div class="field"><label>Total bridge</label><span class="derived cost ok" id="bridgeTotal-derived">= —</span></div>
       </div>
       <div class="group">
-        <div class="group-title">The New House · Pleasantville</div>
+        <div class="group-title">The New House · NY</div>
         <div class="field"><label>Purchase price</label><input type="text" id="buyPrice"></div>
         <div class="field"><label>Down payment %</label><input type="text" id="downPct"></div>
         <div class="field"><div class="derived" id="downDollars-derived">= —</div></div>
@@ -833,7 +857,7 @@ body.hide-villages .whh-village-label { display: none !important; }
     <div class="col">
       <h2>Results</h2>
       <div class="group">
-        <div class="group-title">Day 1 — close on Pleasantville</div>
+        <div class="group-title">Day 1 — close on NY home</div>
         <div class="out-field"><span class="lbl">Down payment</span><span class="val minus" id="o-down">—</span></div>
         <div class="out-field"><span class="lbl">Mansion tax (NY)</span><span class="val minus" id="o-mansion">—</span></div>
         <div class="out-field"><span class="lbl">NY closing costs</span><span class="val minus" id="o-nyclose">—</span></div>
@@ -856,7 +880,7 @@ body.hide-villages .whh-village-label { display: none !important; }
         <div class="out-field total"><span class="lbl">Final cash position</span><span class="val" id="o-final">—</span></div>
       </div>
       <div class="group">
-        <div class="group-title">Monthly nut on Pleasantville</div>
+        <div class="group-title">Monthly nut on NY home</div>
         <div class="out-field"><span class="lbl">Mortgage P&amp;I</span><span class="val" id="m-pi">—</span></div>
         <div class="out-field"><span class="lbl">Property tax (/12)</span><span class="val" id="m-tax">—</span></div>
         <div class="out-field"><span class="lbl">Insurance (est. 0.4%/yr)</span><span class="val" id="m-ins">—</span></div>
@@ -952,19 +976,47 @@ document.querySelectorAll('.layer-btn').forEach(btn => {
 });
 
 // ===================== MONEY MODE =====================
+const MONEY_KEY = 'whh:money:v1';
+const SCENARIOS_KEY = 'whh:scenarios:v1';
+
 const moneyState = {
   // Main VA house — vaSellPct is combined realtor commission + closing costs (default 6%)
   vaSale: 2400000, vaPayoff: 675000, vaSellPct: 6, vaRepairs: 10000,
   moving: 20000,
   // 808 Studio (second VA house) — actual loan balance from screenshot
   studioSale: 215000, studioPayoff: 167414, studioRepairs: 5000,
-  // Pleasantville
+  // NY home
   buyPrice: 1499000, downPct: 25, rate: 6.75, term: 30,
   propTax: 0, nyClosing: 0, // nyClosing auto-derived in moneyRecalc
 
   // The Bridge — pre-VA-close cash
   invPulled: 250000, bizPulled: 100000
 };
+
+// Hydrate from localStorage immediately so all init reads the last-saved values
+(function hydrateMoneyState() {
+  try {
+    const raw = localStorage.getItem(MONEY_KEY);
+    if (!raw) return;
+    const snap = JSON.parse(raw);
+    Object.keys(moneyState).forEach(k => {
+      if (snap[k] != null && typeof snap[k] === typeof moneyState[k]) moneyState[k] = snap[k];
+    });
+    if (snap._taxOverride != null) window._pendingTaxOverride = snap._taxOverride;
+    if (snap._activePinId != null) window._pendingActivePinId = snap._activePinId;
+  } catch (e) { /* ignore */ }
+})();
+
+function saveMoneyState() {
+  try {
+    const snap = {
+      ...moneyState,
+      _taxOverride: (typeof taxState !== 'undefined') ? taxState.override : 0,
+      _activePinId: (typeof taxState !== 'undefined') ? taxState.activePinId : null
+    };
+    localStorage.setItem(MONEY_KEY, JSON.stringify(snap));
+  } catch (e) { /* ignore */ }
+}
 
 // ===================== WESTCHESTER TAX DATA =====================
 // Effective rates expressed as % of TRUE MARKET VALUE (decimal).
@@ -1253,20 +1305,27 @@ Object.entries(FIELDS).forEach(([key, cfg]) => {
     moneyState[key] = parser(el.value);
     el.value = cfg.format(moneyState[key]);
     if (key === 'buyPrice') recalcTax(); else moneyRecalc();
+    saveMoneyState();
   });
   el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
   el.addEventListener('input', () => {
     moneyState[key] = parser(el.value);
     if (key === 'buyPrice') recalcTax(); else moneyRecalc();
+    saveMoneyState();
   });
 });
+// Reflect the saved term on the segmented control (FIELDS already reflected scalar inputs)
 const termSeg = document.getElementById('term-seg');
-termSeg.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
-  termSeg.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  moneyState.term = Number(btn.dataset.val);
-  moneyRecalc();
-}));
+termSeg.querySelectorAll('button').forEach(b => {
+  b.classList.toggle('active', Number(b.dataset.val) === moneyState.term);
+  b.addEventListener('click', () => {
+    termSeg.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    moneyState.term = Number(b.dataset.val);
+    moneyRecalc();
+    saveMoneyState();
+  });
+});
 
 // ===================== EXCEL EXPORT =====================
 async function exportMoneyXlsx() {
@@ -1406,7 +1465,7 @@ async function exportMoneyXlsx() {
     blank();
 
     // === PLEASANTVILLE ===
-    section('The New House · Pleasantville');
+    section('The New House · NY');
     const NH_BUY  = setRow('Purchase price', s.buyPrice, { numFmt: FMT_USD, input: true, note: 'editable' });
     const NH_DPC  = setRow('Down payment %', s.downPct / 100, { numFmt: FMT_PCT, input: true, note: 'editable' });
     const NH_DPD  = setRow('Down payment $',
@@ -1440,7 +1499,7 @@ async function exportMoneyXlsx() {
     blank();
 
     // === DAY 1 ===
-    section('Day 1 · Close on Pleasantville');
+    section('Day 1 · Close on NY home');
     const D1_DOWN = setRow('Down payment',
       { formula: `B${NH_DPD}`, result: s.buyPrice*s.downPct/100 },
       { numFmt: FMT_USD, note: 'derived from down %' });
@@ -1500,8 +1559,104 @@ async function exportMoneyXlsx() {
 }
 document.getElementById('export-xlsx-btn')?.addEventListener('click', exportMoneyXlsx);
 
+// ===================== SAVED SCENARIOS =====================
+function listScenarios() {
+  try { return JSON.parse(localStorage.getItem(SCENARIOS_KEY) || '[]'); } catch { return []; }
+}
+function writeScenarios(list) {
+  localStorage.setItem(SCENARIOS_KEY, JSON.stringify(list));
+  renderScenarioMenu();
+}
+function snapshotScenarioState() {
+  return {
+    ...moneyState,
+    _taxOverride: taxState.override,
+    _activePinId: taxState.activePinId
+  };
+}
+function applyScenarioState(state) {
+  Object.keys(moneyState).forEach(k => {
+    if (state[k] != null && typeof state[k] === typeof moneyState[k]) moneyState[k] = state[k];
+  });
+  if (state._taxOverride != null) taxState.override = state._taxOverride;
+  if (state._activePinId != null) taxState.activePinId = state._activePinId;
+
+  // Re-paint inputs
+  Object.entries(FIELDS).forEach(([key, cfg]) => {
+    const el = document.getElementById(key);
+    if (el && moneyState[key] != null) el.value = cfg.format(moneyState[key]);
+  });
+  // Term seg
+  document.querySelectorAll('#term-seg button').forEach(b => {
+    b.classList.toggle('active', Number(b.dataset.val) === moneyState.term);
+  });
+  // Override input + active pin select
+  const ovEl = document.getElementById('propTaxOverride');
+  if (ovEl) ovEl.value = taxState.override > 0 ? fmtUSD(taxState.override) : '';
+  if (activePinSel && taxState.activePinId) activePinSel.value = taxState.activePinId;
+
+  saveMoneyState();
+  recalcTax();
+}
+function saveScenarioPrompt() {
+  const def = 'Scenario ' + (listScenarios().length + 1);
+  const name = (prompt('Name this scenario:', def) || '').trim();
+  if (!name) return;
+  const list = listScenarios();
+  list.unshift({
+    id: 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    name,
+    savedAt: new Date().toISOString(),
+    state: snapshotScenarioState()
+  });
+  writeScenarios(list);
+  const sel = document.getElementById('scenario-select');
+  if (sel) sel.value = list[0].id;
+  toggleDeleteBtn();
+}
+function deleteSelectedScenario() {
+  const sel = document.getElementById('scenario-select');
+  const id = sel?.value;
+  if (!id) return;
+  const s = listScenarios().find(x => x.id === id);
+  if (!s) return;
+  if (!confirm(`Delete scenario "${s.name}"?`)) return;
+  writeScenarios(listScenarios().filter(x => x.id !== id));
+  if (sel) sel.value = '';
+  toggleDeleteBtn();
+}
+function renderScenarioMenu() {
+  const sel = document.getElementById('scenario-select');
+  if (!sel) return;
+  const list = listScenarios();
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Load scenario…</option>' +
+    list.map(s => `<option value="${s.id}">${escapeHtml(s.name)} · ${new Date(s.savedAt).toLocaleDateString()}</option>`).join('');
+  if (cur && list.find(s => s.id === cur)) sel.value = cur;
+}
+function toggleDeleteBtn() {
+  const sel = document.getElementById('scenario-select');
+  const del = document.getElementById('delete-scenario-btn');
+  if (!sel || !del) return;
+  del.style.display = sel.value ? '' : 'none';
+}
+
+document.getElementById('save-scenario-btn')?.addEventListener('click', saveScenarioPrompt);
+document.getElementById('delete-scenario-btn')?.addEventListener('click', deleteSelectedScenario);
+document.getElementById('scenario-select')?.addEventListener('change', (ev) => {
+  const id = ev.target.value;
+  toggleDeleteBtn();
+  if (!id) return;
+  const s = listScenarios().find(x => x.id === id);
+  if (s) applyScenarioState(s.state);
+});
+renderScenarioMenu();
+
 // ===================== PROPERTY TAX (auto from active pin) =====================
-const taxState = { activePinId: null, override: 0 };
+const taxState = {
+  activePinId: window._pendingActivePinId || null,
+  override: window._pendingTaxOverride || 0
+};
 
 const activePinSel = document.getElementById('activePinSel');
 function populateActivePinSelect() {
@@ -1536,17 +1691,19 @@ function populateActivePinSelect() {
 activePinSel.addEventListener('change', () => {
   taxState.activePinId = activePinSel.value;
   recalcTax();
+  saveMoneyState();
 });
 
 const overrideEl = document.getElementById('propTaxOverride');
-overrideEl.value = '';
+overrideEl.value = taxState.override > 0 ? fmtUSD(taxState.override) : '';
 overrideEl.addEventListener('focus', () => { if (taxState.override) overrideEl.value = String(taxState.override); else overrideEl.value = ''; });
 overrideEl.addEventListener('blur', () => {
   taxState.override = parseNum(overrideEl.value);
   overrideEl.value = taxState.override > 0 ? fmtUSD(taxState.override) : '';
   recalcTax();
+  saveMoneyState();
 });
-overrideEl.addEventListener('input', () => { taxState.override = parseNum(overrideEl.value); recalcTax(); });
+overrideEl.addEventListener('input', () => { taxState.override = parseNum(overrideEl.value); recalcTax(); saveMoneyState(); });
 overrideEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); overrideEl.blur(); } });
 
 // Seed property tax to a realistic Westchester average on load (never zero)
