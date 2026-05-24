@@ -431,23 +431,44 @@
 
     async function extractFromNovel() {
       const btn = document.getElementById('btn-extract');
-      if (state.items.length && !confirm('Wipe the current explorer and rebuild 100 cards from the source novel? Image generation runs in the background after.')) return;
+      if (state.items.length && !confirm('Wipe the current explorer and rebuild from the source novel?')) return;
       const orig = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'reading novel…';
       try {
+        // Pass 1 — wipes + seeds ~25 items spanning the whole novel.
+        btn.textContent = 'reading novel (1/4)…';
         const r = await fetch('/api/qss-explorer?action=extract', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ world: state.world }),
         });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) {
-          alert('Extract failed: ' + (data?.detail || data?.error || `http_${r.status}`));
+          alert('Extract pass 1 failed: ' + (data?.detail || data?.error || `http_${r.status}`));
           return;
         }
         await loadAll();
         for (const it of state.items) {
           if (it.status === 'queued') enqueueGenerate(it.id);
+        }
+        // Passes 2..4 — append items focused on each remaining quarter
+        // of the novel. Each pass passes the already-captured titles so
+        // Haiku doesn't repeat them.
+        for (let pass = 2; pass <= 4; pass++) {
+          btn.textContent = `reading novel (${pass}/4)…`;
+          try {
+            const ar = await fetch('/api/qss-explorer?action=append', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ world: state.world, pass }),
+            });
+            if (ar.ok) {
+              await loadAll();
+              for (const it of state.items) {
+                if (it.status === 'queued') enqueueGenerate(it.id);
+              }
+            }
+          } catch (e) {
+            console.warn(`Append pass ${pass} threw`, e);
+          }
         }
       } catch (e) {
         alert('Extract failed: ' + (e?.message || e));

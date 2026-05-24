@@ -94,6 +94,7 @@ export default async function handler(req) {
     if (req.method === 'POST') {
       const body = await req.json().catch(() => ({}));
       if (action === 'extract')  return await handleExtract(body);
+      if (action === 'append')   return await handleAppend(body);
       if (action === 'generate') return await handleGenerate(body);
       if (action === 'rate')     return await handleRate(body);
       if (action === 'reset')    return await handleReset(body);
@@ -123,14 +124,12 @@ async function handleExtract(body) {
     : (world === 'burgundy' ? BURGUNDY_NOVEL_ACT1 : '');
   if (!source) return j(400, { error: 'no_source_for_world' });
 
-  // Sectioned + sequential extract — Edge runtime doesn't give us real
-  // parallelism for outbound fetches to one host (Anthropic), so 4
-  // simultaneous calls effectively serialize and hit the 25s cap.
-  // Strategy: do one focused call that covers the WHOLE novel and
-  // requests ~50 items. Haiku-4.5 handles this in ~12-16s. We get a
-  // good first pass; user can later trigger a "more items" expansion
-  // by re-running extract or by adding follow-up endpoints.
-  const TARGET_ITEMS = 50;
+  // One call, ~25 items. With Edge's 25s cap and Haiku's wall time on
+  // 44K-char input, this is the largest single-call target that
+  // reliably finishes. (50 items consistently aborted at 23.5s.) The
+  // 'append' action below adds more items in subsequent calls without
+  // wiping; the client can chain a few of those to get to ~100.
+  const TARGET_ITEMS = 25;
   const results = [await extractChunk({
     apiKey,
     section: source,
@@ -182,6 +181,66 @@ async function handleExtract(body) {
   });
 }
 
+// ────────────────────── append (chain to reach 100) ──────────────────────
+// Adds more items WITHOUT wiping. The client calls this with a pass
+// hint (1..4) that focuses Haiku on a specific quarter of the novel,
+// telling it which kinds we already have a lot of so it diversifies.
+async function handleAppend(body) {
+  const world = sanitizeWorldSlug(body?.world);
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return j(500, { error: 'anthropic_key_missing' });
+
+  const source = typeof body?.source_text === 'string' && body.source_text.trim()
+    ? body.source_text
+    : (world === 'burgundy' ? BURGUNDY_NOVEL_ACT1 : '');
+  if (!source) return j(400, { error: 'no_source_for_world' });
+
+  // Pass selector: 1..N, picks a quarter of the novel.
+  const pass = Math.max(1, Math.min(4, Number(body?.pass) || 2));
+  const TOTAL_SECTIONS = 4;
+  const sections = splitSourceIntoChunks(source, TOTAL_SECTIONS);
+  const section = sections[pass - 1] || source;
+
+  // Existing titles — sent in the prompt so Haiku doesn't duplicate.
+  const existingRows = await sb('GET', `qss_world_explorer?world_slug=eq.${encodeURIComponent(world)}&select=title,sort_order&order=sort_order.asc&limit=200`);
+  const existingTitles = (existingRows || []).map(r => r.title);
+  const maxSort = (existingRows || []).reduce((m, r) => Math.max(m, Number(r.sort_order) || 0), -1);
+
+  let items;
+  try {
+    items = await extractChunk({
+      apiKey,
+      section,
+      sectionIndex: pass - 1,
+      totalSections: TOTAL_SECTIONS,
+      itemsTarget: 25,
+      existingTitles,
+    });
+  } catch (e) {
+    return j(502, { error: 'extract_failed', detail: e?.message || String(e) });
+  }
+
+  const VALID_KIND = new Set(['person', 'place', 'thing', 'event']);
+  const lowerExisting = new Set(existingTitles.map(t => t.toLowerCase()));
+  const rows = items
+    .filter(x => x && VALID_KIND.has(x.kind) && x.title && x.art_prompt)
+    .filter(x => !lowerExisting.has(String(x.title).toLowerCase()))
+    .map((x, i) => ({
+      world_slug: world,
+      kind: String(x.kind).slice(0, 16),
+      title: String(x.title).slice(0, 200),
+      caption: String(x.caption || '').slice(0, 400),
+      source_quote: String(x.source_quote || '').slice(0, 600),
+      art_prompt: String(x.art_prompt).slice(0, 4000),
+      status: 'queued',
+      sort_order: maxSort + 1 + i,
+    }));
+
+  if (!rows.length) return j(200, { inserted: 0, items: [], note: 'no_new_items' });
+  const inserted = await sb('POST', 'qss_world_explorer', rows);
+  return j(200, { inserted: (inserted || []).length, items: inserted || [] });
+}
+
 // Split source text into N roughly-equal sections by paragraph break.
 // Each section is contiguous prose — the model sees a coherent slice,
 // not arbitrarily chopped mid-sentence.
@@ -202,8 +261,11 @@ function splitSourceIntoChunks(text, n) {
   return sections.filter(s => s.length > 0);
 }
 
-async function extractChunk({ apiKey, section, sectionIndex, totalSections, itemsTarget }) {
-  const SYSTEM = `You are an editorial researcher. You're reading section ${sectionIndex + 1} of ${totalSections} of a novel and enumerating distinctive subjects — every person, place, thing, and event in this section — so that an illustrator could draw companion cards.
+async function extractChunk({ apiKey, section, sectionIndex, totalSections, itemsTarget, existingTitles }) {
+  const dedupClause = (Array.isArray(existingTitles) && existingTitles.length)
+    ? `\n\nALREADY CAPTURED — DO NOT REPEAT THESE TITLES:\n${existingTitles.slice(0, 80).map(t => `- ${t}`).join('\n')}\n\nReturn ONLY NEW items the gallery doesn't already have.`
+    : '';
+  const SYSTEM = `You are an editorial researcher. You're reading ${totalSections > 1 ? `section ${sectionIndex + 1} of ${totalSections} of ` : ''}a novel and enumerating distinctive subjects — every person, place, thing, and event — so that an illustrator could draw companion cards.${dedupClause}
 
 OUTPUT — strict JSON, no fences, no preamble:
 {
@@ -255,7 +317,7 @@ Plain JSON only. No fences. No preamble.`;
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 11000,
+      max_tokens: 6500,
       system: SYSTEM,
       messages: [{ role: 'user', content: userPrompt }],
     }),
