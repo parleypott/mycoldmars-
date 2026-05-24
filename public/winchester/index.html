@@ -730,7 +730,6 @@ body.hide-villages .whh-village-label { display: none !important; }
       </div>
       <div class="group">
         <div class="group-title">The Bridge · pre-VA-close cash</div>
-        <div class="field"><label>Cash on hand</label><input type="text" id="cashOnHand"></div>
         <div class="field"><label>Liquidate stocks</label><input type="text" id="invPulled"></div>
         <div class="field"><label>Magical bridge</label><input type="text" id="bizPulled"></div>
         <div class="field"><label>Total bridge</label><span class="derived cost ok" id="bridgeTotal-derived">= —</span></div>
@@ -899,7 +898,7 @@ const moneyState = {
   propTax: 0, nyClosing: 0, // nyClosing auto-derived in moneyRecalc
 
   // The Bridge — pre-VA-close cash
-  cashOnHand: 0, invPulled: 250000, bizPulled: 100000
+  invPulled: 250000, bizPulled: 100000
 };
 
 // ===================== WESTCHESTER TAX DATA =====================
@@ -1104,7 +1103,7 @@ function moneyRecalc() {
   s.nyClosing = ny.total;
   const cashNeeded = down + mansion + s.nyClosing + s.moving;
   // The Bridge
-  const cashAvail = s.cashOnHand + s.invPulled + s.bizPulled;
+  const cashAvail = s.invPulled + s.bizPulled;
   const gap = cashNeeded - cashAvail;
   const covered = gap <= 0;
   const finalCash = vaNet + cashAvail - cashNeeded;
@@ -1174,7 +1173,6 @@ const FIELDS = {
   studioSale: { format: fmtUSD }, studioPayoff: { format: fmtUSD }, studioRepairs: { format: fmtUSD },
   buyPrice: { format: fmtUSD }, downPct: { format: fmtPct },
   rate: { format: fmtPct },
-  cashOnHand: { format: fmtUSD },
   invPulled: { format: fmtUSD }, bizPulled: { format: fmtUSD }
 };
 Object.entries(FIELDS).forEach(([key, cfg]) => {
