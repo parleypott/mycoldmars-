@@ -955,45 +955,95 @@ body.hide-villages .whh-village-label { display: none !important; }
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script>
-// Surface any silent JS error so we never silently break
-window.addEventListener('error', (e) => {
-  if (e?.error?.message?.includes('ResizeObserver')) return;
+// ===================== ERROR OVERLAY — deduped, never stacks =====================
+const _seenErrors = new Set();
+function _ensureOverlay() {
   let overlay = document.getElementById('whh-err-overlay');
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'whh-err-overlay';
-    overlay.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;max-height:200px;overflow:auto;padding:10px 14px;background:#B5331E;color:#F5F1E6;font-family:JetBrains Mono,monospace;font-size:11px;line-height:1.4;border-radius:2px;z-index:99999;box-shadow:0 8px 30px rgba(0,0,0,0.5);';
+    overlay.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;max-height:160px;overflow:auto;padding:10px 14px;background:#B5331E;color:#F5F1E6;font-family:JetBrains Mono,monospace;font-size:11px;line-height:1.4;border-radius:2px;z-index:99999;box-shadow:0 8px 30px rgba(0,0,0,0.5);';
     document.body && document.body.appendChild(overlay);
   }
+  return overlay;
+}
+function _appendErrorLine(msg, withClearBtn) {
+  if (_seenErrors.has(msg)) return; // dedupe — one line per unique message
+  _seenErrors.add(msg);
+  const overlay = _ensureOverlay();
   const line = document.createElement('div');
-  line.textContent = '⚠ ' + (e.message || 'unknown') + ' @ ' + (e.filename||'').split('/').pop() + ':' + e.lineno;
+  line.textContent = '⚠ ' + msg;
   overlay.appendChild(line);
-  if ((e.message||'').includes('Quota') || (e.message||'').includes('quota')) {
+  if (withClearBtn && !document.getElementById('whh-err-clear-btn')) {
     const btn = document.createElement('button');
-    btn.textContent = '⚠ Storage full — click to clear village/pin cache and reload';
-    btn.style.cssText = 'margin-top:8px;background:#F5F1E6;color:#B5331E;border:0;padding:8px 16px;font:600 11px/1 JetBrains Mono,monospace;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;border-radius:2px;';
+    btn.id = 'whh-err-clear-btn';
+    btn.textContent = '⚠ Storage full — click to free space and continue (your work is safe)';
+    btn.style.cssText = 'display:block;margin-top:8px;background:#F5F1E6;color:#B5331E;border:0;padding:8px 16px;font:600 11px/1 JetBrains Mono,monospace;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;border-radius:2px;';
     btn.onclick = () => {
-      try { localStorage.removeItem('whh:villages:v1'); } catch {}
-      try { localStorage.removeItem('whh:pins:v1'); } catch {}
-      try { localStorage.removeItem('whh:scenarios:v1'); } catch {}
-      try { localStorage.removeItem('whh:money:v1'); } catch {}
-      try { localStorage.removeItem('whh:basemap:v1'); } catch {}
-      location.reload();
+      _evictNonCritical();
+      // try a re-save of money/scenarios if hydrated
+      try { if (typeof saveMoneyState === 'function') saveMoneyState(); } catch {}
+      const o = document.getElementById('whh-err-overlay');
+      if (o) o.remove();
+      _seenErrors.clear();
     };
     overlay.appendChild(btn);
   }
+}
+window.addEventListener('error', (e) => {
+  if (e?.error?.message?.includes('ResizeObserver')) return;
+  const msg = (e.message || 'unknown') + ' @ ' + (e.filename||'').split('/').pop() + ':' + e.lineno;
+  const isQuota = (e.message||'').toLowerCase().includes('quota');
+  _appendErrorLine(msg, isQuota);
 });
 
-// Safe localStorage wrapper — quota errors never crash callers
+// ===================== SAFE LOCALSTORAGE — self-healing on quota =====================
+// Non-critical keys evicted first if storage is full. Critical state (money, scenarios)
+// always wins. Eviction is transparent — no banner unless every fallback fails.
+const _NONCRITICAL_KEYS = ['whh:villages:v1', 'whh:basemap:v1'];
+function _evictNonCritical() {
+  let freedAny = false;
+  for (const k of _NONCRITICAL_KEYS) {
+    try { if (localStorage.getItem(k) != null) { localStorage.removeItem(k); freedAny = true; } } catch {}
+  }
+  return freedAny;
+}
 function safeSet(key, value) {
-  try { localStorage.setItem(key, value); return true; }
-  catch (e) {
+  // 1st attempt
+  try { localStorage.setItem(key, value); return true; } catch (e) {
+    // 2nd attempt — evict non-critical caches and retry
+    if (_evictNonCritical()) {
+      try { localStorage.setItem(key, value); return true; } catch {}
+    }
+    // 3rd attempt — for money/scenarios keys, also drop pins (signal: storage really packed)
+    if (key === 'whh:money:v1' || key === 'whh:scenarios:v1') {
+      try { localStorage.removeItem('whh:pins:v1'); } catch {}
+      try { localStorage.setItem(key, value); return true; } catch {}
+    }
+    // give up — surface ONE banner, deduped
     console.warn('[whh] localStorage quota for', key, e);
-    // Trigger the error overlay so the emergency Reset button appears
-    window.dispatchEvent(new ErrorEvent('error', { message: 'QuotaExceededError on ' + key, filename: 'storage', lineno: 0 }));
+    _appendErrorLine('Storage full — couldn\'t save ' + key.replace('whh:','').replace(':v1',''), true);
     return false;
   }
 }
+
+// On boot: if storage is >80% full, proactively evict non-critical caches so the first
+// save doesn't trip the quota and spam the UI.
+(function proactiveEvict() {
+  try {
+    let total = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      const v = localStorage.getItem(k) || '';
+      total += k.length + v.length;
+    }
+    // ~5MB quota in Chrome; evict if over 4MB
+    if (total > 4_000_000) {
+      _evictNonCritical();
+      console.info('[whh] proactively evicted non-critical caches —', total, 'bytes used');
+    }
+  } catch {}
+})();
 </script>
 <script>
 
@@ -1055,7 +1105,13 @@ const moneyState = {
   } catch (e) { /* ignore */ }
 })();
 
+// debounced save — coalesces rapid-fire keystrokes into one localStorage write
+let _saveMoneyTimer = null;
 function saveMoneyState() {
+  if (_saveMoneyTimer) clearTimeout(_saveMoneyTimer);
+  _saveMoneyTimer = setTimeout(_saveMoneyStateNow, 220);
+}
+function _saveMoneyStateNow() {
   try {
     const snap = {
       ...moneyState,
