@@ -1516,6 +1516,117 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
   font-style: italic;
 }
 
+/* ===================== PHOTO LIGHTBOX ===================== */
+.lightbox-overlay {
+  position: fixed; inset: 0;
+  background: rgba(8, 6, 4, 0.94);
+  z-index: 80;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.lightbox-overlay.open { display: flex; }
+.lightbox-close {
+  position: absolute;
+  top: 18px; right: 22px;
+  width: 36px; height: 36px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: #FFF;
+  border-radius: 50%;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+}
+.lightbox-close:hover { background: rgba(255,255,255,0.18); }
+.lightbox-meta {
+  position: absolute;
+  top: 22px; left: 24px;
+  color: rgba(255,255,255,0.82);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  z-index: 2;
+}
+.lightbox-meta .addr { color: #FFF; font-weight: 700; }
+.lightbox-meta .count { color: rgba(255,255,255,0.55); margin-left: 10px; }
+.lightbox-stage {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%;
+  position: relative;
+  min-height: 0;
+  margin-top: 30px;
+}
+.lightbox-img {
+  max-width: min(100%, 1400px);
+  max-height: calc(100vh - 200px);
+  object-fit: contain;
+  border-radius: 2px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  user-select: none;
+}
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px; height: 48px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: #FFF;
+  border-radius: 50%;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+}
+.lightbox-nav:hover { background: rgba(255,255,255,0.18); }
+.lightbox-nav.prev { left: 24px; }
+.lightbox-nav.next { right: 24px; }
+.lightbox-strip {
+  display: flex; gap: 6px;
+  margin-top: 16px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 8px 4px;
+  scrollbar-width: thin;
+}
+.lightbox-strip img {
+  height: 64px; width: 96px;
+  object-fit: cover;
+  border-radius: 2px;
+  cursor: pointer;
+  opacity: 0.55;
+  border: 2px solid transparent;
+  transition: opacity 140ms, border-color 140ms;
+  flex: 0 0 auto;
+}
+.lightbox-strip img:hover { opacity: 0.85; }
+.lightbox-strip img.active { opacity: 1; border-color: var(--accent); }
+
+/* Hover affordance on clickable hero photos */
+.qv-photo[data-photos="1"], .qv-photo.has-photos {
+  cursor: pointer;
+}
+.qv-photo.has-photos::after {
+  content: '⛶';
+  position: absolute;
+  bottom: 8px; left: 8px;
+  width: 22px; height: 22px;
+  background: rgba(0,0,0,0.55);
+  color: #FFF;
+  border-radius: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.tv-detail-photos img { cursor: pointer; transition: transform 200ms; }
+.tv-detail-photos img:hover { transform: scale(1.04); }
+
 /* ===================== AGENT TAB ===================== */
 .agent-pane { padding: 28px clamp(20px, 4vw, 56px) 40px; }
 .ag-wrap {
@@ -2149,6 +2260,21 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
     </div>
     <div class="school-modal-body" id="school-modal-body"></div>
   </div>
+</div>
+
+<!-- ===================== PHOTO LIGHTBOX ===================== -->
+<div class="lightbox-overlay" id="lightbox-overlay" role="dialog" aria-modal="true">
+  <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Close">×</button>
+  <div class="lightbox-meta">
+    <span class="addr" id="lightbox-addr"></span>
+    <span class="count" id="lightbox-count"></span>
+  </div>
+  <div class="lightbox-stage">
+    <button class="lightbox-nav prev" id="lightbox-prev" type="button" aria-label="Previous">‹</button>
+    <img class="lightbox-img" id="lightbox-img" alt="">
+    <button class="lightbox-nav next" id="lightbox-next" type="button" aria-label="Next">›</button>
+  </div>
+  <div class="lightbox-strip" id="lightbox-strip"></div>
 </div>
 
 <section class="tab-pane solid" data-pane="timeline"><div class="placeholder-pane">— empty —</div></section>
@@ -2994,18 +3120,47 @@ compassFileInput?.addEventListener('change', async (e) => {
         const raw = await listingsJsonEntry.async('text');
         const arr = JSON.parse(raw);
         if (!Array.isArray(arr)) throw new Error('listings.json must be an array');
-        let imported = 0;
+        let imported = 0, mergedPhotos = 0;
         for (const [i, l] of arr.entries()) {
-          setUploadStatus(`importing ${i + 1}/${arr.length}: ${l.street || l.address}…`);
+          const total = arr.length;
+          setUploadStatus(`importing ${i + 1}/${total}: ${l.street || l.address}…`);
           try {
-            // Pull first photo from zip if present (for cover)
-            let coverDataUrl = null;
-            if (l.photos?.[0]) {
-              const photoEntry = zip.file(l.photos[0]);
-              if (photoEntry) {
+            // Pull ALL photos from zip, resized to fit localStorage quota
+            const photoDataUrls = [];
+            const photoPaths = Array.isArray(l.photos) ? l.photos.slice(0, 12) : [];
+            for (let pi = 0; pi < photoPaths.length; pi++) {
+              const photoEntry = zip.file(photoPaths[pi]);
+              if (!photoEntry) continue;
+              setUploadStatus(`importing ${i + 1}/${total}: ${l.street} · photo ${pi + 1}/${photoPaths.length}…`);
+              try {
                 const blob = await photoEntry.async('blob');
-                coverDataUrl = await blobToDataUrl(blob);
+                const dataUrl = await blobToResizedDataUrl(blob, 1000, 0.72);
+                if (dataUrl) photoDataUrls.push(dataUrl);
+              } catch (err) {
+                console.warn('[whh] photo extract failed', photoPaths[pi], err);
               }
+            }
+            // Merge into existing pin if address matches; otherwise create new
+            const existing = pins.find(p => p.address?.toLowerCase().startsWith(String(l.street || '').toLowerCase()));
+            if (existing) {
+              existing.compass = existing.compass || {};
+              const c = existing.compass;
+              if (l.price != null) c.price = l.price;
+              if (l.beds != null) c.beds = l.beds;
+              if (l.baths != null) c.baths = l.baths;
+              if (l.sqft != null) c.sqft = l.sqft;
+              if (l.acres != null) c.lotSize = Math.round(l.acres * 43560);
+              if (l.brokerage && !c.description) c.description = `Listing courtesy of ${l.brokerage}`;
+              if (photoDataUrls.length) {
+                c.photos = photoDataUrls; // replace with the full set from zip
+                mergedPhotos += photoDataUrls.length;
+              }
+              if (l.price && !existing.askingPrice) existing.askingPrice = l.price;
+              savePins();
+              if (typeof renderPins === 'function') renderPins();
+              if (typeof renderTable === 'function' && document.body.dataset.tableTab === 'open') renderTable();
+              imported++;
+              continue;
             }
             await importListingAsPin({
               streetAddress: l.street,
@@ -3020,7 +3175,7 @@ compassFileInput?.addEventListener('change', async (e) => {
               propertyType: null,
               description: l.brokerage ? `Listing courtesy of ${l.brokerage}` : null,
               listingUrl: null,
-              photos: coverDataUrl ? [coverDataUrl] : []
+              photos: photoDataUrls
             });
             imported++;
             await new Promise(r => setTimeout(r, 900)); // be polite to Nominatim
@@ -3028,7 +3183,7 @@ compassFileInput?.addEventListener('change', async (e) => {
             console.warn('[whh] failed listing', l.address, err);
           }
         }
-        setUploadStatus(`imported ${imported}/${arr.length} ✓`);
+        setUploadStatus(`imported ${imported}/${arr.length} ✓ · ${mergedPhotos} photos attached`);
         setTimeout(() => setUploadStatus(''), 5000);
         return;
       }
@@ -3063,6 +3218,35 @@ function blobToDataUrl(blob) {
     fr.onerror = reject;
     fr.readAsDataURL(blob);
   });
+}
+
+// Resize an image blob down to JPEG <= maxDim on the long side, ~quality 0.72.
+// Keeps photos under ~70KB so all ~12 per listing fit inside localStorage quota.
+async function blobToResizedDataUrl(blob, maxDim = 1000, quality = 0.72) {
+  try {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise((res, rej) => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = rej;
+        i.src = url;
+      });
+      const W = img.naturalWidth, H = img.naturalHeight;
+      if (!W || !H) return blobToDataUrl(blob);
+      const longSide = Math.max(W, H);
+      const scale = longSide > maxDim ? maxDim / longSide : 1;
+      const tw = Math.round(W * scale), th = Math.round(H * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = tw; canvas.height = th;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, tw, th);
+      return canvas.toDataURL('image/jpeg', quality);
+    } finally { URL.revokeObjectURL(url); }
+  } catch (e) {
+    console.warn('[whh] resize failed, falling back to original blob', e);
+    return blobToDataUrl(blob);
+  }
 }
 
 async function importFromHtml(html) {
@@ -4638,7 +4822,7 @@ function openHouseQuickView(pin, idx) {
     ? `<a class="compass" href="${escapeHtml(c.listingUrl)}" target="_blank" rel="noopener">Compass ↗</a>`
     : '';
   const photoBlock = photo0
-    ? `<div class="qv-photo" style="background-image:url('${escapeHtml(photo0)}')"><div class="qv-rank-chip" data-rank="${pin.rank || 0}">${idx || ''}</div>${photoCount > 1 ? `<div class="qv-photo-count">${photoCount} photos</div>` : ''}</div>`
+    ? `<div class="qv-photo has-photos" data-photo-count="${photoCount}" style="background-image:url('${escapeHtml(photo0)}')"><div class="qv-rank-chip" data-rank="${pin.rank || 0}">${idx || ''}</div>${photoCount > 1 ? `<div class="qv-photo-count">${photoCount} photos</div>` : ''}</div>`
     : buildStaticMapPhoto(pin.lat, pin.lng, idx, pin.rank || 0);
   const html = `
     <div class="qv" data-pin="${pin.id}">
@@ -4669,6 +4853,10 @@ function openHouseQuickView(pin, idx) {
     detailsBtn && detailsBtn.addEventListener('click', () => focusPin(pin.id));
     const schoolBtn = root.querySelector('.qv-school-btn');
     schoolBtn && schoolBtn.addEventListener('click', () => openSchoolModal(schoolBtn.dataset.school));
+    const heroPhoto = root.querySelector('.qv-photo.has-photos');
+    if (heroPhoto && pin.compass?.photos?.length) {
+      heroPhoto.addEventListener('click', () => openLightbox(pin.compass.photos, 0, formatPinAddress(pin)));
+    }
   }, 30);
 }
 window.openHouseQuickView = openHouseQuickView;
@@ -4726,6 +4914,59 @@ document.getElementById('school-modal-overlay')?.addEventListener('click', e => 
   if (e.target.id === 'school-modal-overlay') closeSchoolModal();
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSchoolModal(); });
+
+// ----- PHOTO LIGHTBOX -----
+let _lbPhotos = [], _lbIdx = 0;
+function openLightbox(photos, startIdx = 0, addrLabel = '') {
+  if (!Array.isArray(photos) || !photos.length) return;
+  _lbPhotos = photos; _lbIdx = Math.max(0, Math.min(startIdx, photos.length - 1));
+  const overlay = document.getElementById('lightbox-overlay');
+  document.getElementById('lightbox-addr').textContent = addrLabel || '';
+  renderLightbox();
+  overlay.classList.add('open');
+}
+function closeLightbox() {
+  const overlay = document.getElementById('lightbox-overlay');
+  if (overlay) overlay.classList.remove('open');
+  _lbPhotos = []; _lbIdx = 0;
+}
+function renderLightbox() {
+  const img = document.getElementById('lightbox-img');
+  const count = document.getElementById('lightbox-count');
+  const strip = document.getElementById('lightbox-strip');
+  if (!img || !_lbPhotos.length) return;
+  img.src = _lbPhotos[_lbIdx];
+  count.textContent = `${_lbIdx + 1} of ${_lbPhotos.length}`;
+  strip.innerHTML = _lbPhotos.map((u, i) =>
+    `<img src="${escapeHtml(u)}" data-i="${i}" class="${i === _lbIdx ? 'active' : ''}" loading="lazy" alt="">`
+  ).join('');
+  strip.querySelectorAll('img').forEach(t => t.addEventListener('click', () => {
+    _lbIdx = Number(t.dataset.i); renderLightbox();
+  }));
+  const activeThumb = strip.querySelector('img.active');
+  activeThumb && activeThumb.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+}
+document.getElementById('lightbox-close')?.addEventListener('click', closeLightbox);
+document.getElementById('lightbox-overlay')?.addEventListener('click', e => {
+  if (e.target.id === 'lightbox-overlay') closeLightbox();
+});
+document.getElementById('lightbox-prev')?.addEventListener('click', e => {
+  e.stopPropagation();
+  if (!_lbPhotos.length) return;
+  _lbIdx = (_lbIdx - 1 + _lbPhotos.length) % _lbPhotos.length; renderLightbox();
+});
+document.getElementById('lightbox-next')?.addEventListener('click', e => {
+  e.stopPropagation();
+  if (!_lbPhotos.length) return;
+  _lbIdx = (_lbIdx + 1) % _lbPhotos.length; renderLightbox();
+});
+document.addEventListener('keydown', e => {
+  const open = document.getElementById('lightbox-overlay')?.classList.contains('open');
+  if (!open) return;
+  if (e.key === 'Escape') closeLightbox();
+  else if (e.key === 'ArrowLeft') { _lbIdx = (_lbIdx - 1 + _lbPhotos.length) % _lbPhotos.length; renderLightbox(); }
+  else if (e.key === 'ArrowRight') { _lbIdx = (_lbIdx + 1) % _lbPhotos.length; renderLightbox(); }
+});
 
 async function streamSchoolOverview(district, bodyEl, signal) {
   const system = `You are a Westchester, NY school district researcher. Give a brief, factual overview of the named school district. Focus ONLY on:
@@ -5932,7 +6173,7 @@ function buildPinDetail(p) {
   const m = (typeof computePinMonthly === 'function') ? computePinMonthly(p) : null;
   const tx = p.muniKey && TAX_DATA && TAX_DATA[p.muniKey];
   const photos = (c.photos || []).slice(0, 14)
-    .map(u => `<img src="${escapeHtml(u)}" loading="lazy" alt="">`).join('');
+    .map((u, i) => `<img src="${escapeHtml(u)}" data-pin="${escapeHtml(p.id)}" data-i="${i}" loading="lazy" alt="">`).join('');
   const photoBlock = photos ? `<div class="tv-detail-photos">${photos}</div>` : '';
   const descBlock = c.description ? `<div class="tv-detail-desc">${escapeHtml(c.description)}</div>` : '';
   const compassLink = c.listingUrl
@@ -6002,6 +6243,17 @@ function buildPinDetail(p) {
 }
 
 function attachTableHandlers() {
+  // detail-row photo thumbs → lightbox
+  document.querySelectorAll('.tv-detail-photos img').forEach(img => {
+    img.addEventListener('click', e => {
+      e.stopPropagation();
+      const pid = img.dataset.pin;
+      const i = Number(img.dataset.i || 0);
+      const p = pins.find(x => x.id === pid);
+      if (p && p.compass?.photos?.length) openLightbox(p.compass.photos, i, formatPinAddress(p));
+    });
+  });
+
   // sort
   document.querySelectorAll('.tv-table thead th[data-sort]').forEach(th => {
     if (th._wired) return;
