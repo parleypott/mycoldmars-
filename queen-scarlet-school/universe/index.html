@@ -6,566 +6,770 @@
   <title>The Universe — Henry's Storytelling Worlds</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Andika:wght@400;700&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
   <script src="/queen-scarlet-school/lib/worlds.js"></script>
   <link rel="stylesheet" href="/queen-scarlet-school/lib/themes.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <style>
     :root {
       --ink: #f4e9c8;
-      --ink-bright: #fff;
+      --ink-bright: #ffffff;
       --ink-soft: rgba(244, 233, 200, 0.72);
       --ink-faint: rgba(244, 233, 200, 0.4);
-      --paper: #FFF6E0;
-      --paper-card: #FFFFFF;
-      --paper-deep: #FCEDC4;
       --yolk: #FFD93D;
-      --display: 'Caveat', cursive;
-      --serif: 'Andika', Georgia, serif;
-      --ui: 'Fredoka', system-ui, sans-serif;
+      --space: #000003;
+      --display: 'Orbitron', sans-serif;
+      --ui: 'Space Grotesk', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, monospace;
+      --kid: 'Fredoka', system-ui, sans-serif;
       --ease: cubic-bezier(0.34, 1.56, 0.64, 1);
       --ease-soft: cubic-bezier(0.22, 0.6, 0.24, 1);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html, body {
       min-height: 100%;
-      background: #06070d;
+      width: 100%;
+      background: var(--space);
       color: var(--ink);
-      font-family: var(--serif);
-      font-size: 17px;
-      line-height: 1.55;
+      font-family: var(--ui);
+      font-size: 15px;
+      line-height: 1.5;
       -webkit-font-smoothing: antialiased;
       overflow: hidden;
     }
-    body {
-      min-height: 100vh;
-      position: relative;
-      isolation: isolate;
+
+    /* ── Loading screen ─────────────────────────────────────────────── */
+    .loading {
+      position: fixed; inset: 0; z-index: 100;
+      background: radial-gradient(circle at center, #0a0a14 0%, #000003 70%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 22px;
+      transition: opacity 800ms ease, visibility 800ms ease;
+    }
+    .loading.gone { opacity: 0; visibility: hidden; pointer-events: none; }
+    .loader-sun {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #fff7c4 0%, #FFD93D 45%, #FF8A3D 80%, transparent 100%);
+      box-shadow: 0 0 40px rgba(255, 217, 60, 0.7), 0 0 90px rgba(255, 138, 61, 0.45);
+      animation: sun-pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes sun-pulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(255,217,60,0.7), 0 0 90px rgba(255,138,61,0.45); }
+      50% { transform: scale(1.12); box-shadow: 0 0 60px rgba(255,217,60,0.95), 0 0 140px rgba(255,138,61,0.65); }
+    }
+    .loader-title {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.42em;
+      text-transform: uppercase;
+      color: var(--ink-bright);
+    }
+    .loader-sub {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--ink-faint);
     }
 
-    /* ── Deep-space backdrop ─────────────────────────────────────── */
-    .cosmos {
-      position: fixed; inset: 0;
-      background:
-        radial-gradient(ellipse at 20% 14%, rgba(110, 90, 200, 0.22) 0%, transparent 42%),
-        radial-gradient(ellipse at 78% 80%, rgba(232, 100, 60, 0.18) 0%, transparent 48%),
-        radial-gradient(ellipse at 50% 50%, rgba(20, 22, 40, 0.6) 0%, #06070d 80%);
-      z-index: 0;
-    }
-    .starfield {
+    /* ── Three.js stage ─────────────────────────────────────────────── */
+    #stage3d {
       position: fixed; inset: 0;
       z-index: 1;
-      pointer-events: none;
-      opacity: 0.95;
     }
-    .nebula-1, .nebula-2 {
-      position: fixed; z-index: 1;
-      pointer-events: none;
-      border-radius: 50%;
-      filter: blur(80px);
-      opacity: 0.4;
-      animation: nebula-drift 26s ease-in-out infinite alternate;
-    }
-    .nebula-1 {
-      top: 8%; left: -6%;
-      width: 520px; height: 520px;
-      background: radial-gradient(circle, rgba(255, 111, 170, 0.55), transparent 70%);
-    }
-    .nebula-2 {
-      bottom: -8%; right: -6%;
-      width: 620px; height: 620px;
-      background: radial-gradient(circle, rgba(77, 184, 232, 0.45), transparent 70%);
-      animation-delay: -8s;
-    }
-    @keyframes nebula-drift {
-      from { transform: translate(0, 0) scale(1); }
-      to   { transform: translate(30px, 18px) scale(1.06); }
-    }
+    #stage3d canvas { display: block; }
 
-    /* ── Topbar (compact, calm) ──────────────────────────────────── */
+    /* ── Topbar ─────────────────────────────────────────────────────── */
     .topbar {
-      position: relative; z-index: 10;
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 20;
       display: flex; align-items: center;
-      padding: 18px 28px;
-      gap: 16px;
-      padding-top: max(18px, env(safe-area-inset-top));
+      padding: 22px 30px;
+      padding-top: max(22px, env(safe-area-inset-top));
+      pointer-events: none;
     }
+    .topbar > * { pointer-events: auto; }
     .brand {
-      font-family: var(--ui); font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
-      color: var(--ink); text-decoration: none;
-      display: inline-flex; align-items: center; gap: 10px;
-    }
-    .blob {
-      display: inline-block; background: var(--yolk);
-      border: 2.5px solid #000; border-radius: 50%;
-      position: relative; box-shadow: 2px 2px 0 #000;
-      width: 26px; height: 26px;
-    }
-    .blob::before, .blob::after {
-      content: ''; position: absolute; background: #000;
-      border-radius: 50%; width: 4px; height: 4px; top: 9px;
-    }
-    .blob::before { left: 6px; } .blob::after { right: 6px; }
-    .spacer { flex: 1; }
-
-    /* ── Title ───────────────────────────────────────────────────── */
-    .stage {
-      position: relative; z-index: 5;
-      min-height: calc(100vh - 80px);
-      display: flex; flex-direction: column;
-      padding: 0 28px 60px;
-    }
-    .hello {
-      text-align: center;
-      margin: 8px 0 4px;
-      animation: hello-in 1200ms var(--ease-soft) both;
-    }
-    .hello-eyebrow {
-      font-family: var(--ui); font-size: 12px; font-weight: 700;
-      letter-spacing: 0.32em; text-transform: uppercase;
-      color: rgba(244, 233, 200, 0.45);
-    }
-    .hello-title {
       font-family: var(--display);
-      font-size: clamp(48px, 7vw, 96px);
       font-weight: 700;
-      line-height: 0.95;
+      font-size: 14px;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
       color: var(--ink-bright);
-      margin: 8px 0 4px;
-      text-shadow: 0 4px 32px rgba(255, 217, 60, 0.25);
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 12px;
     }
-    .hello-title em {
-      font-style: normal;
-      background: linear-gradient(120deg, #FFD93D 0%, #FF6FAA 50%, #9F7AE0 100%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
+    .brand-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--yolk);
+      box-shadow: 0 0 12px rgba(255, 217, 60, 0.8);
     }
-    .hello-sub {
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: clamp(15px, 1.4vw, 18px);
+    .topbar .spacer { flex: 1; pointer-events: none; }
+    .top-eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
       color: var(--ink-soft);
-      margin: 6px 0 0;
     }
-    @keyframes hello-in {
-      from { opacity: 0; transform: translateY(-12px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
+    .top-eyebrow b { color: var(--yolk); font-weight: 700; }
 
-    /* ── Universe — the planets layer ────────────────────────────── */
-    .universe {
-      flex: 1; position: relative;
-      margin-top: 12px;
-      min-height: 540px;
-    }
-    .planet-zone {
-      position: absolute;
-      transform: translate(-50%, -50%);
-      cursor: pointer;
-      background: transparent; border: none; padding: 0;
-      color: inherit;
-      font-family: inherit;
-      animation: planet-drift 14s ease-in-out infinite alternate;
-      transform-origin: center center;
-      will-change: transform;
-    }
-    .planet-zone:nth-child(odd) { animation-duration: 18s; animation-direction: alternate-reverse; }
-    .planet-zone:focus { outline: none; }
-    .planet-zone:focus-visible .planet { box-shadow: 0 0 0 4px var(--yolk), 0 0 60px var(--planet-glow, rgba(255,255,255,0.4)); }
-    @keyframes planet-drift {
-      0%   { transform: translate(-50%, -50%) translate(0, 0); }
-      50%  { transform: translate(-50%, -50%) translate(6px, -10px); }
-      100% { transform: translate(-50%, -50%) translate(-4px, 8px); }
-    }
-
-    /* Planet body */
-    .planet {
-      position: relative;
-      width: var(--planet-size, 220px);
-      height: var(--planet-size, 220px);
-      border-radius: 50%;
-      background: var(--planet-surface, radial-gradient(circle at 35% 30%, #888, #333));
-      box-shadow:
-        inset -22px -22px 60px rgba(0, 0, 0, 0.55),
-        inset 8px 8px 24px rgba(255, 255, 255, 0.1),
-        0 0 80px var(--planet-glow, rgba(255, 255, 255, 0.35));
-      transition: transform 480ms var(--ease), box-shadow 480ms var(--ease-soft);
-      overflow: hidden;
-    }
-    /* When a world supplies a painted hero image, render it as the
-       planet's surface — circular crop via the parent's border-radius
-       + overflow:hidden. */
-    .planet-hero-img {
-      position: absolute; inset: 0;
-      width: 100%; height: 100%;
-      object-fit: cover;
-      border-radius: 50%;
-      mix-blend-mode: normal;
-    }
-    /* Atmosphere — a wash that hugs the planet just outside its body */
-    .planet::before {
-      content: ''; position: absolute;
-      inset: -8%;
-      border-radius: 50%;
-      background: radial-gradient(circle, var(--planet-atmosphere, transparent) 60%, transparent 75%);
-      opacity: 0.6;
-      pointer-events: none;
-    }
-    /* Ring — a tilted oval band around the planet. Width:140% (was 165%)
-       so it doesn't overlap label text below. */
-    .planet-ring {
-      position: absolute;
-      top: 50%; left: 50%;
-      width: 140%; height: 16%;
-      transform: translate(-50%, -50%) rotate(var(--ring-tilt, -16deg));
-      border-radius: 50%;
-      border: 3.5px solid var(--ring-color, #FFD93D);
-      border-top-color: transparent;
-      opacity: var(--ring-opacity, 0.7);
-      pointer-events: none;
-      filter: drop-shadow(0 0 6px var(--ring-color, #FFD93D));
-    }
-    .planet-ring.back {
-      border-bottom-color: transparent;
-      border-top-color: var(--ring-color, #FFD93D);
-      opacity: calc(var(--ring-opacity, 0.7) * 0.55);
-      z-index: -1;
-      filter: none;
-    }
-
-    /* Hover state — wobble + grow */
-    .planet-zone:hover .planet,
-    .planet-zone:focus-visible .planet {
-      transform: scale(1.06);
-    }
-    .planet-zone:hover .planet-bauble {
-      transform: translate(0, -8px) rotate(-8deg);
-    }
-
-    /* Bauble — the floating icon hint near each planet */
-    .planet-bauble {
-      position: absolute;
-      width: 56px; height: 56px;
-      border-radius: 50%;
-      background: rgba(0, 0, 0, 0.65);
-      border: 2px solid rgba(255, 255, 255, 0.4);
-      backdrop-filter: blur(4px);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 26px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-      transition: transform 320ms var(--ease);
-      z-index: 2;
-    }
-
-    /* Label below the planet — clears the ring + drifts. */
-    .planet-label {
-      position: absolute;
-      top: calc(100% + 44px);
+    /* ── Title card (top-center, restrained) ────────────────────────── */
+    .title-card {
+      position: fixed;
+      top: 88px;
       left: 50%;
       transform: translateX(-50%);
-      width: max-content;
-      max-width: 340px;
+      z-index: 15;
       text-align: center;
       pointer-events: none;
+      animation: fade-down 1.2s var(--ease-soft) both;
     }
-    .planet-name {
-      display: block;
-      font-family: var(--ui);
-      font-weight: 700;
-      font-size: clamp(18px, 1.6vw, 24px);
+    .title-eyebrow {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: 0.36em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin-bottom: 8px;
+    }
+    .title-h1 {
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: clamp(22px, 2.4vw, 32px);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
       color: var(--ink-bright);
-      letter-spacing: -0.01em;
-      line-height: 1.15;
-      margin-bottom: 4px;
-      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+      text-shadow: 0 0 32px rgba(255, 217, 60, 0.35);
     }
-    .planet-tagline {
-      display: block;
-      font-family: var(--serif);
-      font-style: italic;
-      font-size: 13.5px;
+    .title-sub {
+      font-family: var(--ui);
+      font-size: 13px;
       color: var(--ink-soft);
-      max-width: 280px;
-      margin: 0 auto;
-      line-height: 1.4;
+      margin-top: 8px;
+      font-style: italic;
     }
-    .planet-enter-hint {
-      display: inline-block;
-      margin-top: 10px;
-      padding: 4px 10px;
-      font-family: var(--ui); font-weight: 700;
-      font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
-      background: rgba(255, 217, 60, 0.18);
-      border: 1.5px solid rgba(255, 217, 60, 0.4);
-      border-radius: 999px;
-      color: var(--yolk);
-      opacity: 0;
-      transform: translateY(-4px);
-      transition: opacity 240ms var(--ease-soft), transform 240ms var(--ease-soft);
-    }
-    .planet-zone:hover .planet-enter-hint,
-    .planet-zone:focus-visible .planet-enter-hint {
-      opacity: 1;
-      transform: translateY(0);
+    @keyframes fade-down {
+      from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
 
-    /* Inline speaker — sits inline with the label so it can't collide
-       with the ring or the planet body. Tap to hear the world name. */
-    .planet-speaker {
+    /* ── Projected planet labels ────────────────────────────────────── */
+    #labelLayer {
+      position: fixed; inset: 0;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .planet-label {
+      position: absolute;
+      transform: translate(-50%, 0);
       pointer-events: auto;
-      margin-top: 8px;
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 32px; height: 32px;
+      text-align: center;
+      cursor: pointer;
+      padding: 6px 8px;
+      opacity: 0;
+      transition: opacity 360ms ease;
+      will-change: transform, opacity;
+    }
+    .planet-label.visible { opacity: 1; }
+    .planet-label .label-name {
+      display: block;
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 13.5px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--planet-color, var(--ink-bright));
+      text-shadow: 0 0 12px var(--planet-glow, rgba(255,255,255,0.6)), 0 0 2px rgba(0,0,0,0.9);
+      line-height: 1.15;
+    }
+    .planet-label .label-tagline {
+      display: block;
+      margin-top: 6px;
+      font-family: var(--ui);
+      font-size: 12px;
+      color: var(--ink-soft);
+      max-width: 220px;
+      margin-left: auto; margin-right: auto;
+      line-height: 1.35;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.85);
+    }
+    .planet-label .label-actions {
+      margin-top: 10px;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .label-enter {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px;
+      font-family: var(--mono);
+      font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--planet-color, var(--yolk));
       background: rgba(0, 0, 0, 0.55);
-      border: 2px solid rgba(255, 255, 255, 0.3);
+      border: 1.5px solid color-mix(in srgb, var(--planet-color, #FFD93D) 60%, transparent);
+      border-radius: 999px;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: background 180ms ease, transform 180ms ease;
+    }
+    .label-enter:hover {
+      background: color-mix(in srgb, var(--planet-color, #FFD93D) 18%, rgba(0,0,0,0.55));
+      transform: translateY(-1px);
+    }
+    .label-speaker {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1.5px solid rgba(255, 255, 255, 0.25);
       border-radius: 50%;
       cursor: pointer;
       color: var(--ink);
-      transition: transform 140ms var(--ease), background 140ms var(--ease);
+      backdrop-filter: blur(6px);
+      transition: background 160ms ease, transform 160ms ease;
     }
-    .planet-speaker:hover { background: var(--yolk); color: #000; transform: scale(1.08); }
-    .planet-speaker.playing { background: var(--yolk); color: #000; }
-    .planet-speaker svg { width: 14px; height: 14px; pointer-events: none; }
+    .label-speaker:hover { background: var(--yolk); color: #000; transform: scale(1.06); }
+    .label-speaker.playing { background: var(--yolk); color: #000; }
+    .label-speaker svg { width: 13px; height: 13px; pointer-events: none; }
 
-    /* ── Zoom-into-planet transition ─────────────────────────────── */
-    .universe.zooming { pointer-events: none; }
-    .planet-zone.zooming {
-      animation: planet-zoom 900ms var(--ease-soft) forwards;
-      z-index: 50;
-    }
-    .planet-zone:not(.zooming).hidden-by-zoom {
-      animation: planet-fade-out 700ms ease-out forwards;
-    }
-    .stage.zooming .hello,
-    .stage.zooming .footer {
-      animation: title-fade-out 600ms ease-out forwards;
-    }
-    @keyframes planet-zoom {
-      0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-      60% { transform: translate(-50%, -50%) translate(calc(50vw - var(--zone-x, 50vw)), calc(50vh - var(--zone-y, 50vh))) scale(2.2); opacity: 1; }
-      100% { transform: translate(-50%, -50%) translate(calc(50vw - var(--zone-x, 50vw)), calc(50vh - var(--zone-y, 50vh))) scale(8); opacity: 0; }
-    }
-    @keyframes planet-fade-out {
-      to { opacity: 0; filter: blur(8px); transform: translate(-50%, -50%) scale(0.85); }
-    }
-    @keyframes title-fade-out {
-      to { opacity: 0; transform: translateY(-12px); }
-    }
-    /* White wash that swallows the screen at peak zoom */
-    .warp-flash {
-      position: fixed; inset: 0; z-index: 80;
-      background: radial-gradient(circle at center, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0));
-      opacity: 0;
+    /* ── Bottom-right legend (sci-fi controls) ──────────────────────── */
+    .legend {
+      position: fixed;
+      right: 28px;
+      bottom: 28px;
+      bottom: max(28px, env(safe-area-inset-bottom));
+      z-index: 20;
+      display: flex; flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
       pointer-events: none;
-      mix-blend-mode: screen;
     }
-    .warp-flash.fire {
-      animation: warp 900ms var(--ease-soft) forwards;
-      animation-delay: 350ms;
+    .legend-row { display: inline-flex; align-items: center; gap: 10px; }
+    .legend-key {
+      font-family: var(--mono); font-weight: 700;
+      padding: 3px 8px;
+      border: 1px solid rgba(244, 233, 200, 0.28);
+      border-radius: 3px;
+      color: var(--ink-bright);
+      background: rgba(0, 0, 0, 0.4);
+      letter-spacing: 0.16em;
     }
-    @keyframes warp {
-      0% { opacity: 0; }
-      55% { opacity: 1; }
-      100% { opacity: 1; background: radial-gradient(circle at center, rgba(255, 255, 255, 1), rgba(255, 255, 255, 1)); }
+    .legend-divider {
+      width: 100%;
+      border-top: 1px solid rgba(244, 233, 200, 0.14);
+      margin: 6px 0 2px;
+    }
+    .legend-keyline { display: inline-flex; align-items: center; gap: 8px; }
+    .legend-keyline .swatch {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      box-shadow: 0 0 10px currentColor;
+    }
+    .legend-keyline.swatch-orbit {
+      color: rgba(244, 233, 200, 0.45);
+    }
+    .legend-keyline.swatch-orbit .swatch {
+      background: transparent;
+      width: 18px; height: 0;
+      border-top: 1px dashed currentColor;
+      box-shadow: none;
+      border-radius: 0;
     }
 
-    /* ── Footer hint ─────────────────────────────────────────────── */
-    .footer {
-      position: relative; z-index: 5;
-      text-align: center;
-      padding: 14px 20px 28px;
-      font-family: var(--serif); font-style: italic;
-      color: rgba(244, 233, 200, 0.55);
-      font-size: 13.5px;
+    /* ── Footer pulse / hint ────────────────────────────────────────── */
+    .footer-hint {
+      position: fixed;
+      left: 28px;
+      bottom: 28px;
+      bottom: max(28px, env(safe-area-inset-bottom));
+      z-index: 20;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      display: inline-flex; align-items: center; gap: 10px;
     }
     .footer-pulse {
       display: inline-block;
-      width: 6px; height: 6px;
+      width: 7px; height: 7px;
       background: var(--yolk);
       border-radius: 50%;
-      vertical-align: 2px;
-      margin-right: 8px;
-      animation: pulse-dot 1.4s ease-in-out infinite;
+      box-shadow: 0 0 10px var(--yolk);
+      animation: pulse-dot 1.6s ease-in-out infinite;
     }
     @keyframes pulse-dot {
       0%, 100% { opacity: 0.35; transform: scale(1); }
       50%      { opacity: 1; transform: scale(1.4); }
     }
 
-    /* ── Mobile layout — stack planets vertically ───────────────── */
+    /* ── Warp transition into a world ───────────────────────────────── */
+    .warp-flash {
+      position: fixed; inset: 0; z-index: 90;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.95), rgba(255,255,255,0));
+      opacity: 0;
+      pointer-events: none;
+    }
+    .warp-flash.fire {
+      animation: warp 1100ms var(--ease-soft) forwards;
+    }
+    @keyframes warp {
+      0% { opacity: 0; }
+      55% { opacity: 1; }
+      100% { opacity: 1; background: radial-gradient(circle at center, rgba(255,255,255,1), rgba(255,255,255,1)); }
+    }
+    body.zooming .title-card,
+    body.zooming .legend,
+    body.zooming .footer-hint,
+    body.zooming #labelLayer {
+      animation: fade-away 600ms ease forwards;
+    }
+    @keyframes fade-away {
+      to { opacity: 0; transform: translateY(-6px); }
+    }
+
+    /* ── Mobile ─────────────────────────────────────────────────────── */
     @media (max-width: 760px) {
-      .universe { display: flex; flex-direction: column; gap: 110px; align-items: center; min-height: 0; padding: 60px 0; }
-      .planet-zone { position: relative; left: auto !important; top: auto !important; transform: none !important; animation: none; }
-      .planet-zone:hover .planet { transform: scale(1.04); }
+      .title-card { top: 70px; }
+      .title-h1 { font-size: 18px; letter-spacing: 0.12em; }
+      .topbar { padding: 16px 18px; }
+      .legend, .footer-hint { font-size: 9.5px; right: 14px; left: auto; bottom: 14px; }
+      .footer-hint { display: none; }
+      .planet-label .label-name { font-size: 12px; }
+      .planet-label .label-tagline { font-size: 11px; max-width: 180px; }
     }
   </style>
 </head>
 <body>
 
-  <div class="cosmos" aria-hidden="true"></div>
-  <canvas class="starfield" id="starfield" aria-hidden="true"></canvas>
-  <div class="nebula-1" aria-hidden="true"></div>
-  <div class="nebula-2" aria-hidden="true"></div>
+  <div class="loading" id="loader">
+    <div class="loader-sun"></div>
+    <div class="loader-title">Warming up the universe</div>
+    <div class="loader-sub">Plotting orbits · gathering stars</div>
+  </div>
+
+  <div id="stage3d"></div>
+  <div id="labelLayer"></div>
 
   <header class="topbar">
-    <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
+    <a href="/" class="brand"><span class="brand-dot"></span>mycoldmars</a>
     <span class="spacer"></span>
+    <span class="top-eyebrow">welcome back, <b>Henry</b></span>
   </header>
 
-  <main class="stage" id="stage">
-    <div class="hello">
-      <div class="hello-eyebrow">welcome back, Henry</div>
-      <h1 class="hello-title">the <em>universe</em></h1>
-      <p class="hello-sub">tap a planet to step into that world</p>
-    </div>
-    <div class="universe" id="universe" role="navigation" aria-label="Pick a story world"></div>
-    <div class="footer">
-      <span class="footer-pulse" aria-hidden="true"></span>
-      every world has its own characters, its own pictures, and its own stories.
-    </div>
-  </main>
+  <div class="title-card">
+    <div class="title-eyebrow">The Universe · v2</div>
+    <h1 class="title-h1">Pick a World</h1>
+    <p class="title-sub">drag to spin · scroll to zoom · tap a planet to step in</p>
+  </div>
+
+  <div class="legend" aria-hidden="true">
+    <div class="legend-keyline"><span class="swatch" style="background: var(--yolk); color: var(--yolk);"></span>Worlds</div>
+    <div class="legend-keyline swatch-orbit"><span class="swatch"></span>Orbits</div>
+    <div class="legend-divider"></div>
+    <div class="legend-row">Explore <span class="legend-key">click</span></div>
+    <div class="legend-row">Spin <span class="legend-key">drag</span></div>
+    <div class="legend-row">Zoom <span class="legend-key">scroll</span></div>
+  </div>
+
+  <div class="footer-hint">
+    <span class="footer-pulse" aria-hidden="true"></span>
+    every world is its own story
+  </div>
 
   <div class="warp-flash" id="warp" aria-hidden="true"></div>
 
   <script>
-    // ─── Starfield (animated dots) ───
-    (function() {
-      const canvas = document.getElementById('starfield');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      let stars = [];
-      let w = 0, h = 0;
-      function resize() {
-        const dpr = window.devicePixelRatio || 1;
-        w = canvas.width = innerWidth * dpr;
-        h = canvas.height = innerHeight * dpr;
-        canvas.style.width = innerWidth + 'px';
-        canvas.style.height = innerHeight + 'px';
-        ctx.scale(dpr, dpr);
-        // ~150 stars, deterministic-ish per render
-        stars = [];
-        const n = Math.min(180, Math.floor((innerWidth * innerHeight) / 9000));
-        for (let i = 0; i < n; i++) {
-          stars.push({
-            x: Math.random() * innerWidth,
-            y: Math.random() * innerHeight,
-            r: Math.random() * 1.3 + 0.15,
-            tw: Math.random() * Math.PI * 2,
-            tws: 0.6 + Math.random() * 1.6,
-          });
-        }
+  (function() {
+    if (!window.QSSWorlds || !window.THREE) {
+      console.error('Missing dependency: QSSWorlds or THREE');
+      return;
+    }
+
+    const THREE = window.THREE;
+    const worlds = window.QSSWorlds.list();
+    const stage = document.getElementById('stage3d');
+    const labelLayer = document.getElementById('labelLayer');
+    const loader = document.getElementById('loader');
+    const warp = document.getElementById('warp');
+
+    // ─── Scene / camera / renderer ───
+    const scene = new THREE.Scene();
+    // Light fog adds depth but keep it weak — too dense kills the
+    // starfield that lives at radius ~400.
+    scene.fog = new THREE.FogExp2(0x000003, 0.004);
+
+    const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 2000);
+    camera.position.set(0, 20, 56);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setClearColor(0x000003, 1);
+    stage.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.enablePan = false;
+    controls.minDistance = 14;
+    controls.maxDistance = 80;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.35;
+    controls.maxPolarAngle = Math.PI * 0.62;
+    controls.minPolarAngle = Math.PI * 0.30;
+
+    // ─── Lights ───
+    scene.add(new THREE.AmbientLight(0x6a6a85, 1.0));
+    const sunLight = new THREE.PointLight(0xfff0c8, 1.6, 240);
+    sunLight.position.set(0, 0, 0);
+    scene.add(sunLight);
+    const fill = new THREE.DirectionalLight(0xb8c8ff, 0.45);
+    fill.position.set(20, 30, 20);
+    scene.add(fill);
+
+    // ─── Starfield (Points cloud) ───
+    (function makeStarfield() {
+      const g = new THREE.BufferGeometry();
+      const N = 1600;
+      const pos = new Float32Array(N * 3);
+      const col = new Float32Array(N * 3);
+      for (let i = 0; i < N; i++) {
+        // spherical shell at radius 400-600
+        const r = 380 + Math.random() * 220;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        pos[i*3]   = r * Math.sin(phi) * Math.cos(theta);
+        pos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+        pos[i*3+2] = r * Math.cos(phi);
+        const warm = Math.random();
+        col[i*3]   = 0.85 + warm * 0.15;
+        col[i*3+1] = 0.82 + warm * 0.12;
+        col[i*3+2] = 0.7  + warm * 0.20;
       }
-      function draw(t) {
-        ctx.clearRect(0, 0, innerWidth, innerHeight);
-        for (const s of stars) {
-          const tw = 0.5 + 0.5 * Math.sin(t * 0.001 * s.tws + s.tw);
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(244, 233, 200, ${0.25 + tw * 0.55})`;
-          ctx.fill();
-        }
-        requestAnimationFrame(draw);
-      }
-      resize();
-      addEventListener('resize', resize);
-      requestAnimationFrame(draw);
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      const m = new THREE.PointsMaterial({
+        size: 2.2,
+        sizeAttenuation: true,
+        vertexColors: true,
+        transparent: true,
+        opacity: 1,
+        depthWrite: false,
+      });
+      scene.add(new THREE.Points(g, m));
     })();
 
-    // ─── Render planets from the worlds registry ───
-    function renderPlanets() {
-      const universe = document.getElementById('universe');
-      if (!universe || !window.QSSWorlds) return;
-      universe.innerHTML = '';
-      const worlds = window.QSSWorlds.list();
-      worlds.forEach((w, i) => {
-        const p = w.planet || {};
-        const btn = document.createElement('button');
-        btn.className = 'planet-zone';
-        btn.dataset.slug = w.slug;
-        btn.type = 'button';
-        btn.setAttribute('aria-label', `Enter ${w.name} — ${w.tagline}`);
-        btn.style.left = (p.x ?? 50) + '%';
-        btn.style.top = (p.y ?? 50) + '%';
-        btn.style.setProperty('--planet-size', (p.size || 200) + 'px');
-        btn.style.setProperty('--planet-surface', p.surface || 'radial-gradient(circle at 35% 30%, #999, #333)');
-        btn.style.setProperty('--planet-glow', p.glow || 'rgba(255,255,255,0.4)');
-        btn.style.setProperty('--planet-atmosphere', p.atmosphere || 'transparent');
-        if (p.ring) {
-          btn.style.setProperty('--ring-color', p.ring.color);
-          btn.style.setProperty('--ring-tilt', (p.ring.tilt || -16) + 'deg');
-          btn.style.setProperty('--ring-opacity', (p.ring.opacity ?? 0.7));
-        }
-        // Delay the planet-in animation so they appear staggered.
-        btn.style.animationDelay = (i * 600) + 'ms';
-        btn.innerHTML = `
-          ${p.ring ? '<span class="planet-ring back" aria-hidden="true"></span>' : ''}
-          <div class="planet" aria-hidden="true">
-            ${p.heroImage ? `<img class="planet-hero-img" src="${p.heroImage}" alt="" loading="lazy" />` : ''}
-          </div>
-          ${p.ring ? '<span class="planet-ring" aria-hidden="true"></span>' : ''}
-          <div class="planet-label">
-            <span class="planet-name">${escHtml(w.name)}</span>
-            <span class="planet-tagline">${escHtml(w.tagline || '')}</span>
-            <button class="planet-speaker" type="button" data-action="speak" aria-label="Read this world's name aloud">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 5L6 9H2v6h4l5 4V5z"/>
-                <path d="M15.54 8.46a5 5 0 010 7.07"/>
-                <path d="M19.07 4.93a10 10 0 010 14.14"/>
-              </svg>
-            </button>
-            <div><span class="planet-enter-hint">tap to enter →</span></div>
-          </div>
-        `;
-        btn.addEventListener('click', (e) => {
-          if (e.target.closest('[data-action="speak"]')) return; // handled below
-          enterWorld(w.slug, btn);
-        });
-        const speaker = btn.querySelector('[data-action="speak"]');
-        if (speaker) {
-          speaker.addEventListener('click', (e) => {
-            e.stopPropagation();
-            speakWorld(w, speaker);
-          });
-        }
-        universe.appendChild(btn);
+    // ─── Central sun ───
+    (function makeSun() {
+      const sunGeom = new THREE.SphereGeometry(1.4, 48, 48);
+      const sunMat = new THREE.MeshBasicMaterial({ color: 0xfff7c4 });
+      const sun = new THREE.Mesh(sunGeom, sunMat);
+      scene.add(sun);
+
+      // halo sprite — tight + restrained so it doesn't drown the planets
+      const haloTex = makeRadialSprite(['#fff7c4', '#ffd93d', '#ff8a3d'], [0.85, 0.35, 0.0]);
+      const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: haloTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.85,
+      }));
+      halo.scale.set(5, 5, 1);
+      scene.add(halo);
+
+      const haloOuter = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: haloTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.18,
+      }));
+      haloOuter.scale.set(10, 10, 1);
+      scene.add(haloOuter);
+    })();
+
+    // ─── Helper: radial gradient sprite texture ───
+    function makeRadialSprite(stops, alphas) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 256;
+      const ctx = c.getContext('2d');
+      const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+      stops.forEach((stop, i) => {
+        const a = alphas[i] != null ? alphas[i] : (1 - i / stops.length);
+        g.addColorStop(i / (stops.length - 1), hexToRgba(stop, a));
       });
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 256, 256);
+      const tex = new THREE.CanvasTexture(c);
+      tex.needsUpdate = true;
+      return tex;
     }
+    function hexToRgba(hex, a) {
+      const h = hex.replace('#', '');
+      const r = parseInt(h.slice(0,2), 16);
+      const g = parseInt(h.slice(2,4), 16);
+      const b = parseInt(h.slice(4,6), 16);
+      return `rgba(${r},${g},${b},${a})`;
+    }
+    function pickAccent(w) {
+      // The PLANET BODY color — favor the bright accent so the sphere
+      // pops against deep space. Burgundy/iron-gray primaries vanish
+      // against the sun bloom.
+      const c = w.colors || {};
+      return c.accent || c.primary || (w.planet?.ring?.color) || '#FFD93D';
+    }
+    function pickGlow(w) {
+      // The HALO / LABEL color — same accent so the eye binds them.
+      const c = w.colors || {};
+      return c.accent || c.primary || (w.planet?.ring?.color) || '#FFD93D';
+    }
+
+    // ─── Build planets on orbits ───
+    const planetRecords = [];
+    const N = worlds.length;
+    // Spread the planets out — with few worlds, generous spacing reads as
+    // a real solar system. With many, the curve compresses naturally.
+    const baseRadius = N <= 2 ? 14 : 11;
+    const radiusStep = N <= 2 ? 12 : 7.5;
+    worlds.forEach((w, i) => {
+      const radius = baseRadius + i * radiusStep;
+      // Spread initial angles evenly so planets sit on opposite sides
+      // of the sun instead of clustering at startup.
+      const angle = (i / Math.max(N, 1)) * Math.PI * 2 + Math.PI * 0.25;
+      const speed = 0.00045 + (i % 2 === 0 ? 0.00018 : -0.00018) - i * 0.000035;
+      const tiltY = (i % 2 === 0 ? 0.05 : -0.08);
+
+      // Orbit ring (line)
+      const orbitGeom = new THREE.BufferGeometry();
+      const segs = 256;
+      const pts = new Float32Array((segs + 1) * 3);
+      for (let s = 0; s <= segs; s++) {
+        const a = (s / segs) * Math.PI * 2;
+        pts[s*3]   = Math.cos(a) * radius;
+        pts[s*3+1] = Math.sin(a) * radius * 0.18; // slight ellipse
+        pts[s*3+2] = Math.sin(a) * radius;
+      }
+      orbitGeom.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+      const orbitMat = new THREE.LineBasicMaterial({
+        color: 0x6b6850,
+        transparent: true,
+        opacity: 0.22,
+      });
+      const orbit = new THREE.LineLoop(orbitGeom, orbitMat);
+      orbit.rotation.x = tiltY;
+      scene.add(orbit);
+
+      // Planet pivot — we rotate this around Y to orbit the sun
+      const pivot = new THREE.Object3D();
+      pivot.rotation.x = tiltY;
+      scene.add(pivot);
+
+      // Planet body
+      const accent = pickAccent(w);
+      const glow = pickGlow(w);
+      const planetSize = 1.4 + Math.min((w.planet?.size || 220) / 220, 1.4) * 0.8;
+      const planetGeom = new THREE.SphereGeometry(planetSize, 64, 64);
+      let planetMat;
+      if (w.planet?.heroImage) {
+        // Use the painted hero as the planet's surface texture
+        const tex = new THREE.TextureLoader().load(w.planet.heroImage);
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        planetMat = new THREE.MeshPhongMaterial({
+          map: tex,
+          shininess: 18,
+          specular: 0x222222,
+          emissive: new THREE.Color(accent),
+          emissiveIntensity: 0.08,
+        });
+      } else {
+        planetMat = new THREE.MeshPhongMaterial({
+          color: new THREE.Color(accent),
+          emissive: new THREE.Color(accent),
+          emissiveIntensity: 0.22,
+          shininess: 40,
+          specular: 0x333333,
+        });
+      }
+      const planet = new THREE.Mesh(planetGeom, planetMat);
+      // position the planet on its orbit (ellipse in XZ)
+      planet.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius * 0.18, Math.sin(angle) * radius);
+      // store initial angle on the planet so we can advance it each frame
+      planet.userData.angle = angle;
+      pivot.add(planet);
+
+      // Atmosphere halo
+      const haloTex = makeRadialSprite([glow, glow, '#000000'], [0.85, 0.32, 0.0]);
+      const haloSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: haloTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+      }));
+      haloSprite.scale.set(planetSize * 4.5, planetSize * 4.5, 1);
+      planet.add(haloSprite);
+
+      // Optional ring (Saturn-style) if world has ring config
+      if (w.planet?.ring) {
+        const ringInner = planetSize * 1.35;
+        const ringOuter = planetSize * 1.95;
+        const ringGeom = new THREE.RingGeometry(ringInner, ringOuter, 96);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: new THREE.Color(w.planet.ring.color),
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: (w.planet.ring.opacity ?? 0.7) * 0.7,
+          depthWrite: false,
+        });
+        const ring = new THREE.Mesh(ringGeom, ringMat);
+        ring.rotation.x = Math.PI / 2 + ((w.planet.ring.tilt || -16) * Math.PI / 180);
+        planet.add(ring);
+      }
+
+      // HTML label for this planet
+      const label = document.createElement('div');
+      label.className = 'planet-label';
+      label.style.setProperty('--planet-color', accent);
+      label.style.setProperty('--planet-glow', glow);
+      label.innerHTML = `
+        <span class="label-name">${escHtml(w.shortName || w.name)}</span>
+        <span class="label-tagline">${escHtml(w.tagline || '')}</span>
+        <div class="label-actions">
+          <button class="label-enter" type="button" data-action="enter">enter →</button>
+          <button class="label-speaker" type="button" data-action="speak" aria-label="Read this world's name aloud">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+              <path d="M15.54 8.46a5 5 0 010 7.07"/>
+              <path d="M19.07 4.93a10 10 0 010 14.14"/>
+            </svg>
+          </button>
+        </div>
+      `;
+      labelLayer.appendChild(label);
+
+      label.querySelector('[data-action="enter"]').addEventListener('click', () => enterWorld(w.slug, planet, accent));
+      label.querySelector('[data-action="speak"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        speakWorld(w, label.querySelector('.label-speaker'));
+      });
+      label.querySelector('.label-name').addEventListener('click', () => enterWorld(w.slug, planet, accent));
+
+      planetRecords.push({
+        world: w, planet, pivot, label, speed, baseRadius: radius, accent, glow, tiltY,
+      });
+    });
+
     function escHtml(s) {
       return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
     }
 
-    // ─── Enter-a-world zoom transition ───
-    function enterWorld(slug, btn) {
-      if (!window.QSSWorlds) return;
-      const universe = document.getElementById('universe');
-      const stage = document.getElementById('stage');
-      const warp = document.getElementById('warp');
-      // Set CSS vars for the zoom keyframe — where the planet is now,
-      // so the keyframe knows where to translate from.
-      const rect = btn.getBoundingClientRect();
-      const x = rect.left + rect.width / 2;
-      const y = rect.top + rect.height / 2;
-      btn.style.setProperty('--zone-x', x + 'px');
-      btn.style.setProperty('--zone-y', y + 'px');
-      // Save the choice and start the animation
-      window.QSSWorlds.setActive(slug);
-      universe.classList.add('zooming');
-      stage.classList.add('zooming');
-      btn.classList.add('zooming');
-      // Other planets fade
-      universe.querySelectorAll('.planet-zone').forEach(p => {
-        if (p !== btn) p.classList.add('hidden-by-zoom');
+    // ─── Raycaster for click on planet body ───
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      ndc.x = (e.clientX / innerWidth) * 2 - 1;
+      ndc.y = -(e.clientY / innerHeight) * 2 + 1;
+      raycaster.setFromCamera(ndc, camera);
+      const meshes = planetRecords.map(r => r.planet);
+      const hits = raycaster.intersectObjects(meshes, false);
+      if (hits.length) {
+        const hit = hits[0].object;
+        const rec = planetRecords.find(r => r.planet === hit);
+        if (rec) enterWorld(rec.world.slug, rec.planet, rec.accent);
+      }
+    });
+
+    // ─── Project planet positions → screen, position HTML labels ───
+    const tmp = new THREE.Vector3();
+    function updateLabels() {
+      const W = innerWidth, H = innerHeight;
+      const camPos = camera.position;
+      planetRecords.forEach(rec => {
+        rec.planet.getWorldPosition(tmp);
+        const dist = tmp.distanceTo(camPos);
+        const v = tmp.clone().project(camera);
+        const sx = (v.x * 0.5 + 0.5) * W;
+        const sy = (-v.y * 0.5 + 0.5) * H;
+        // Behind camera or off-screen → hide
+        const behind = v.z > 1;
+        const off = sx < -200 || sx > W + 200 || sy < -200 || sy > H + 200;
+        if (behind || off) {
+          rec.label.classList.remove('visible');
+          return;
+        }
+        // Position label just below the planet — clear the sphere by a
+        // margin that grows when the planet is close to the camera.
+        const planetRadiusPx = (rec.planet.geometry.parameters.radius * (innerHeight / 2)) / (dist * Math.tan(camera.fov * Math.PI / 360));
+        const offsetY = Math.max(54, planetRadiusPx + 26);
+        rec.label.style.left = sx + 'px';
+        rec.label.style.top  = (sy + offsetY) + 'px';
+        rec.label.classList.add('visible');
       });
-      warp.classList.add('fire');
-      // After the white wash hits, land in the world's LIBRARY — the home
-      // of that world. Canonical URL: /universe/<slug>/ (Vercel rewrites
-      // serve the library page from that path).
-      setTimeout(() => {
-        location.href = window.QSSWorlds?.libraryHref(slug) || `/universe/${slug}/`;
-      }, 1180);
     }
 
-    // ─── Speak a world's name + tagline ───
+    // ─── Animation loop ───
+    let last = performance.now();
+    function tick(now) {
+      const dt = Math.min(now - last, 50);
+      last = now;
+      // Advance each planet around its orbit
+      planetRecords.forEach(rec => {
+        const p = rec.planet;
+        p.userData.angle += rec.speed * dt;
+        const a = p.userData.angle;
+        p.position.set(Math.cos(a) * rec.baseRadius, Math.sin(a) * rec.baseRadius * 0.18, Math.sin(a) * rec.baseRadius);
+        p.rotation.y += 0.003;
+      });
+      controls.update();
+      renderer.render(scene, camera);
+      updateLabels();
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    // ─── Resize ───
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    // ─── Enter-world transition ───
+    function enterWorld(slug, planetMesh, accentHex) {
+      if (window.__qssZooming) return;
+      window.__qssZooming = true;
+      window.QSSWorlds.setActive(slug);
+      document.body.classList.add('zooming');
+      controls.autoRotate = false;
+
+      // Tween camera toward the planet
+      const target = new THREE.Vector3();
+      planetMesh.getWorldPosition(target);
+      const start = camera.position.clone();
+      const startTarget = controls.target.clone();
+      const tweenStart = performance.now();
+      const DUR = 900;
+
+      function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+      function tween(now) {
+        const t = Math.min((now - tweenStart) / DUR, 1);
+        const e = easeOutCubic(t);
+        // approach to within 0.4 units of the planet
+        const dir = target.clone().sub(start).normalize();
+        const finalPos = target.clone().sub(dir.multiplyScalar(0.6));
+        camera.position.lerpVectors(start, finalPos, e);
+        controls.target.lerpVectors(startTarget, target, e);
+        if (t < 1) requestAnimationFrame(tween);
+      }
+      requestAnimationFrame(tween);
+
+      // Fire the white wash halfway through
+      setTimeout(() => warp.classList.add('fire'), 350);
+
+      // Redirect once the wash hits full white
+      setTimeout(() => {
+        location.href = window.QSSWorlds?.libraryHref(slug) || `/universe/${slug}/`;
+      }, 1280);
+    }
+
+    // ─── Speak a world's name + tagline (existing /api/qss-tts) ───
     let activeSpeakerBtn = null;
     let activeAudio = null;
     function stopSpeaker() {
@@ -578,10 +782,8 @@
       stopSpeaker();
       activeSpeakerBtn = btn;
       btn.classList.add('playing');
-      const text = `${world.name}. ${world.tagline || ''}`;
+      const text = `${world.shortName || world.name}. ${world.tagline || ''}`;
       try {
-        // Use the existing qss-tts endpoint (Matilda voice). Falls back
-        // to browser speechSynthesis if the API is unreachable.
         const r = await fetch('/api/qss-tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -595,7 +797,6 @@
         audio.addEventListener('error', () => { if (activeSpeakerBtn === btn) stopSpeaker(); });
         await audio.play().catch(() => stopSpeaker());
       } catch {
-        // Fallback — robot voice in the kid's browser
         try {
           const u = new SpeechSynthesisUtterance(text);
           u.rate = 0.95; u.pitch = 1.05;
@@ -607,12 +808,11 @@
     }
     document.addEventListener('visibilitychange', () => { if (document.hidden) stopSpeaker(); });
 
-    // ─── Boot ───
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', renderPlanets);
-    } else {
-      renderPlanets();
-    }
+    // ─── Drop the loader once the first frame is on screen ───
+    requestAnimationFrame(() => {
+      setTimeout(() => loader.classList.add('gone'), 380);
+    });
+  })();
   </script>
 </body>
 </html>
