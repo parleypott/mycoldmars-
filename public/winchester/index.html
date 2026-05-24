@@ -837,6 +837,8 @@ body.hide-villages .whh-village-label { display: none !important; }
         </div>
         <div class="field"><label>NY closing costs</label><span class="derived cost" id="nyClosing-out">= —</span></div>
         <div class="field"><div class="derived" id="nyClosing-breakdown">—</div></div>
+        <div class="field"><label>Moving + upstart costs</label><input type="text" id="moving"></div>
+        <div class="field"><div class="derived" id="moving-note">move-in, furniture, deposits, repairs to settle in</div></div>
       </div>
       <div class="group">
         <div class="group-title">Property Tax · auto from active pin</div>
@@ -1026,7 +1028,7 @@ const SCENARIOS_KEY = 'whh:scenarios:v1';
 const moneyState = {
   // Main VA house — vaSellPct is combined realtor commission + closing costs (default 6%)
   vaSale: 2400000, vaPayoff: 675000, vaSellPct: 6, vaRepairs: 10000,
-  moving: 20000,
+  moving: 100000,
   // 808 Studio (second VA house) — actual loan balance from screenshot
   studioSale: 215000, studioPayoff: 167414, studioRepairs: 5000,
   // NY home
@@ -1044,6 +1046,8 @@ const moneyState = {
     if (!raw) return;
     const snap = JSON.parse(raw);
     Object.keys(moneyState).forEach(k => {
+      // one-shot migration: old default for moving was $20K, bump to new $100K default once
+      if (k === 'moving' && snap.moving === 20000 && !snap._upstartMigratedV1) return;
       if (snap[k] != null && typeof snap[k] === typeof moneyState[k]) moneyState[k] = snap[k];
     });
     if (snap._taxOverride != null) window._pendingTaxOverride = snap._taxOverride;
@@ -1056,7 +1060,8 @@ function saveMoneyState() {
     const snap = {
       ...moneyState,
       _taxOverride: (typeof taxState !== 'undefined') ? taxState.override : 0,
-      _activePinId: (typeof taxState !== 'undefined') ? taxState.activePinId : null
+      _activePinId: (typeof taxState !== 'undefined') ? taxState.activePinId : null,
+      _upstartMigratedV1: true
     };
     safeSet(MONEY_KEY, JSON.stringify(snap));
   } catch (e) { /* ignore */ }
@@ -1338,6 +1343,7 @@ const FIELDS = {
   studioSale: { format: fmtUSD }, studioPayoff: { format: fmtUSD }, studioRepairs: { format: fmtUSD },
   buyPrice: { format: fmtUSD }, downPct: { format: fmtPct },
   rate: { format: fmtPct },
+  moving: { format: fmtUSD },
   invPulled: { format: fmtUSD }, bizPulled: { format: fmtUSD }
 };
 Object.entries(FIELDS).forEach(([key, cfg]) => {
