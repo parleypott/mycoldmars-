@@ -2672,16 +2672,32 @@ if (typeof window.toast !== 'function') {
 }
 
 // ===================== TABS =====================
-function setActiveTab(tabId) {
+const VALID_TABS = ['money', 'map', 'table', 'agent', 'timeline', 'notes'];
+function setActiveTab(tabId, updateHash = true) {
+  if (!VALID_TABS.includes(tabId)) tabId = 'map';
   document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === tabId));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tabId));
   document.body.classList.toggle('on-map', tabId === 'map');
   if (window._whhMap) setTimeout(() => window._whhMap.resize(), 80);
   if (tabId === 'table' && typeof renderTable === 'function') renderTable();
   if (tabId === 'agent' && typeof renderAgentContext === 'function') { renderAgentContext(); renderAgentChat(); }
+  // Hash routing — each tab is bookmarkable / deep-linkable
+  if (updateHash) {
+    const want = '#' + tabId;
+    if (location.hash !== want) history.replaceState(null, '', want);
+  }
 }
 document.querySelectorAll('.tab-btn').forEach(t => t.addEventListener('click', () => setActiveTab(t.dataset.tab)));
-document.body.classList.add('on-map'); // default open tab
+// Boot: prefer hash, else default to map
+const _bootTab = (location.hash || '').slice(1).toLowerCase();
+const _initial = VALID_TABS.includes(_bootTab) ? _bootTab : 'map';
+setActiveTab(_initial, false);
+document.body.classList.toggle('on-map', _initial === 'map');
+// React to manual hash changes (back/forward, paste-into-bar)
+window.addEventListener('hashchange', () => {
+  const t = (location.hash || '').slice(1).toLowerCase();
+  if (VALID_TABS.includes(t)) setActiveTab(t, false);
+});
 
 // Section-header collapse (Villages / Pinned Houses)
 document.querySelectorAll('.map-panel-head[data-section]').forEach(h => {
