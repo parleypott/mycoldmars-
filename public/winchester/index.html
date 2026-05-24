@@ -96,8 +96,11 @@ main {
 }
 .tab-pane.map-pane > * { pointer-events: auto; }
 
-/* When map pane is active, hide main scrollbar (map is the canvas) */
-body.on-map main { overflow: hidden; }
+/* When map pane is active, hide main scrollbar AND let wheel events fall through to the map canvas behind */
+body.on-map main { overflow: hidden; pointer-events: none; }
+body.on-map main > * { pointer-events: none; }
+body.on-map .map-search,
+body.on-map .map-panel { pointer-events: auto; }
 
 /* ---------- MONEY MODE ---------- */
 .tool { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; max-width: 1280px; margin: 0 auto; }
@@ -270,6 +273,7 @@ body.on-map main { overflow: hidden; }
   position: absolute;
   top: calc(100% + 4px);
   left: 0; right: 0;
+  z-index: 50;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 2px;
@@ -603,8 +607,8 @@ body.on-map main { overflow: hidden; }
 }
 
 /* Hide-class rules for HTML markers */
-body.hide-train .whh-anchor-train, body.hide-train .whh-train-label { display: none !important; }
-body.hide-trail .whh-anchor-trail, body.hide-trail .whh-trail-label { display: none !important; }
+body.hide-train .whh-icon-train { display: none !important; }
+body.hide-trail .whh-icon-trail { display: none !important; }
 body.hide-villages .whh-village-label { display: none !important; }
 
 /* MapLibre popup — match editorial palette */
@@ -646,31 +650,23 @@ body.hide-villages .whh-village-label { display: none !important; }
 }
 .map-popup-meta strong { color: var(--ink); font-weight: 600; }
 
-/* Anchor markers */
-.whh-anchor-marker {
-  width: 10px; height: 10px;
+/* Circular icon markers — train (red) + trail (green) */
+.whh-icon-marker {
+  width: 26px; height: 26px;
   background: #FFF;
+  border: 2px solid var(--accent);
   border-radius: 50%;
-  pointer-events: none;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.28);
+  cursor: pointer;
+  transition: transform 140ms ease;
 }
-.whh-train-label, .whh-trail-label {
-  background: rgba(255,255,255,0.92);
-  padding: 1px 5px;
-  font-size: 8.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink);
-  border-radius: 2px;
-  pointer-events: none;
-  white-space: nowrap;
-  transform: translateY(-16px);
-  font-family: 'JetBrains Mono', monospace;
-}
-.whh-train-label { border: 1px solid var(--accent); }
-.whh-trail-label { border: 1px solid var(--green); color: var(--green); }
-.whh-anchor-train { border: 2px solid var(--accent); }
-.whh-anchor-trail { border: 2px solid var(--green); }
+.whh-icon-marker:hover { transform: scale(1.18); }
+.whh-icon-marker svg { width: 14px; height: 14px; display: block; }
+.whh-icon-train { border-color: var(--accent); }
+.whh-icon-train svg { color: var(--accent); fill: var(--accent); }
+.whh-icon-trail { border-color: var(--green); }
+.whh-icon-trail svg { color: var(--green); fill: var(--green); }
 
 /* House pin markers */
 .whh-marker {
@@ -1571,13 +1567,17 @@ map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'imperial' }),
 
 map.on('load', () => {
   loadSchoolDistricts();
+  const TRAIN_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8 2 5 2.5 5 6v8c0 1.1.9 2 2 2l-2 3h2l2-3h6l2 3h2l-2-3c1.1 0 2-.9 2-2V6c0-3.5-3-4-7-4zM7.5 14a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM11 8H7V5h4v3zm2 0V5h4v3h-4zm3.5 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>';
+  const TREE_SVG  = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2 L7 9 H9 L5 15 H8 L4 21 H11 V24 H13 V21 H20 L16 15 H19 L17 9 H19 Z"/></svg>';
+
   TRAIN_STATIONS.forEach(s => {
     const el = document.createElement('div');
-    el.style.cursor = 'pointer';
-    el.innerHTML = '<div class="whh-anchor-marker whh-anchor-train"></div><div class="whh-train-label">' + s.name + '</div>';
+    el.className = 'whh-icon-marker whh-icon-train';
+    el.innerHTML = TRAIN_SVG;
+    el.title = s.name + ' · ' + s.line + ' Line';
     el.addEventListener('click', (e) => {
       e.stopPropagation();
-      new maplibregl.Popup({ closeButton: true, offset: 14 })
+      new maplibregl.Popup({ closeButton: true, offset: 16 })
         .setLngLat([s.lng, s.lat])
         .setHTML(`<div class="map-popup">
           <div class="map-popup-kind">Metro-North · ${s.line} Line</div>
@@ -1586,15 +1586,16 @@ map.on('load', () => {
         </div>`)
         .addTo(map);
     });
-    new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([s.lng, s.lat]).addTo(map);
+    new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([s.lng, s.lat]).addTo(map);
   });
   TRAILHEADS.forEach(s => {
     const el = document.createElement('div');
-    el.style.cursor = 'pointer';
-    el.innerHTML = '<div class="whh-anchor-marker whh-anchor-trail"></div><div class="whh-trail-label">' + s.name + '</div>';
+    el.className = 'whh-icon-marker whh-icon-trail';
+    el.innerHTML = TREE_SVG;
+    el.title = s.name;
     el.addEventListener('click', (e) => {
       e.stopPropagation();
-      new maplibregl.Popup({ closeButton: true, offset: 14 })
+      new maplibregl.Popup({ closeButton: true, offset: 16 })
         .setLngLat([s.lng, s.lat])
         .setHTML(`<div class="map-popup">
           <div class="map-popup-kind">Trail access</div>
@@ -1602,7 +1603,7 @@ map.on('load', () => {
         </div>`)
         .addTo(map);
     });
-    new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([s.lng, s.lat]).addTo(map);
+    new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([s.lng, s.lat]).addTo(map);
   });
   renderPins();
   renderVillages();
