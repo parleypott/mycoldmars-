@@ -2425,6 +2425,253 @@ function safeSet(key, value) {
 </script>
 <script>
 
+// ===================== TABLE-VIEW STATE (hoisted early) =====================
+// Declared at the very top of the script so any renderTable() call —
+// even from a click handler that fires before the rest of the script
+// finishes parsing — can read tvSort/tvExpanded without tripping a TDZ.
+// Fresh machines / cold loads were hitting this; do not move down again.
+var tvExpanded = { villages: new Set(), pins: new Set() };
+var tvSort = {
+  villages: { col: 'name', dir: 'asc' },
+  pins:     { col: 'rank', dir: 'desc' }
+};
+
+// ===================== CLOUD STATE SYNC =====================
+// Cross-machine persistence for the six whh:* localStorage keys via
+// /api/winchester-state. Boot order:
+//   1. Synchronous localStorage reads happen below (legacy, unchanged).
+//   2. cloudPull() runs immediately, async. If cloud has newer state for any
+//      key, it writes it into localStorage and dispatches a 'cloud-hydrated'
+//      event. Listeners re-hydrate their in-memory arrays and re-render.
+//   3. After hydration, every save (savePins/saveVillages/etc.) is wrapped
+//      to schedule a debounced cloudPush(). Pushes never fire pre-hydration
+//      to prevent a thin-state push from wiping the cloud blob (the QSS
+//      cast-portrait bug, applied to this app's risk surface).
+// Conflict policy: last-write-wins per key, tracked by a per-key
+// `_updatedAt` sidecar timestamp inside the state blob.
+var CLOUD_KEYS = ['whh:pins:v1','whh:villages:v1','whh:money:v1','whh:scenarios:v1','whh:agent:memory:v1','whh:agent:chat:v1'];
+var CLOUD_TS_LOCAL_KEY = 'whh:cloud:lastSyncedAt';
+var _cloudHydrated = false;
+var _cloudPushTimer = null;
+var _cloudUpdatedAt = null;
+var _cloudPushInFlight = false;
+
+function _localKeyTs(key) {
+  // Per-key local update timestamp. Bumped by markCloudKeyDirty() inside
+  // wrapped savers below. Used to decide push direction on first sync.
+  try { return Number(localStorage.getItem(key + ':ts') || 0); } catch { return 0; }
+}
+function _bumpLocalKeyTs(key) {
+  try { localStorage.setItem(key + ':ts', String(Date.now())); } catch {}
+}
+
+async function cloudPull() {
+  try {
+    const r = await fetch('/api/winchester-state', { method: 'GET' });
+    if (!r.ok) {
+      console.warn('[cloud] pull failed', r.status);
+      _cloudHydrated = true; // unblock pushes anyway — local-only mode
+      window.dispatchEvent(new CustomEvent('cloud-hydrated', { detail: { ok: false, status: r.status } }));
+      return;
+    }
+    const { state, updated_at } = await r.json();
+    _cloudUpdatedAt = updated_at;
+
+    const cloudHasAnything = state && typeof state === 'object' && Object.keys(state).length > 0;
+
+    if (!cloudHasAnything) {
+      // First-ever sync — cloud is empty. Push current local state up,
+      // but only after the rest of the script has finished parsing so the
+      // local in-memory arrays are populated.
+      _cloudHydrated = true;
+      window.dispatchEvent(new CustomEvent('cloud-hydrated', { detail: { ok: true, direction: 'push-initial' } }));
+      // Initial push happens after a beat so all in-memory state is loaded.
+      setTimeout(() => cloudPushSoon(120), 800);
+      return;
+    }
+
+    // Cloud has data. For each known key, take cloud if its embedded
+    // _updatedAt is >= local ts. Otherwise keep local and the next push
+    // will overwrite cloud.
+    let touchedAny = false;
+    for (const key of CLOUD_KEYS) {
+      const cloudEntry = state[key];
+      if (cloudEntry == null) continue;
+      const cloudTs = Number(cloudEntry._updatedAt || 0);
+      const localTs = _localKeyTs(key);
+      if (cloudTs >= localTs) {
+        try {
+          // cloudEntry.value is the original stringified payload.
+          localStorage.setItem(key, cloudEntry.value);
+          localStorage.setItem(key + ':ts', String(cloudTs));
+          touchedAny = true;
+        } catch (e) {
+          console.warn('[cloud] failed to hydrate', key, e);
+        }
+      }
+    }
+    try { localStorage.setItem(CLOUD_TS_LOCAL_KEY, _cloudUpdatedAt || ''); } catch {}
+
+    _cloudHydrated = true;
+    window.dispatchEvent(new CustomEvent('cloud-hydrated', {
+      detail: { ok: true, direction: 'pull', touchedAny, updated_at: _cloudUpdatedAt },
+    }));
+  } catch (err) {
+    console.warn('[cloud] pull threw', err);
+    _cloudHydrated = true;
+    window.dispatchEvent(new CustomEvent('cloud-hydrated', { detail: { ok: false, error: String(err) } }));
+  }
+}
+
+function cloudPushSoon(ms = 1500) {
+  // Hard gate: never push pre-hydration. This is the structural fix that
+  // mirrors the QSS cast-portrait invariant — a thin push during boot can
+  // wipe a remote blob.
+  if (!_cloudHydrated) return;
+  if (_cloudPushTimer) clearTimeout(_cloudPushTimer);
+  _cloudPushTimer = setTimeout(() => {
+    _cloudPushTimer = null;
+    cloudPush().catch(err => console.warn('[cloud] push failed', err));
+  }, ms);
+}
+
+async function cloudPush() {
+  if (!_cloudHydrated) return;
+  if (_cloudPushInFlight) {
+    // Re-schedule for after the in-flight push lands.
+    cloudPushSoon(500);
+    return;
+  }
+
+  // Build the blob from current localStorage, with per-key timestamps.
+  const state = {};
+  for (const key of CLOUD_KEYS) {
+    let value = null;
+    try { value = localStorage.getItem(key); } catch {}
+    if (value == null) continue;
+    state[key] = { value, _updatedAt: _localKeyTs(key) || Date.now() };
+  }
+
+  // Invariant: if everything we're about to push is empty, AND the cloud
+  // has known non-empty data (we tracked _cloudUpdatedAt at last pull),
+  // refuse to push. This is the portrait-bug guard adapted for winchester.
+  const allEmpty = CLOUD_KEYS.every(k => {
+    const v = state[k]?.value;
+    if (v == null) return true;
+    try {
+      const parsed = JSON.parse(v);
+      if (Array.isArray(parsed)) return parsed.length === 0;
+      if (parsed && typeof parsed === 'object') return Object.keys(parsed).length === 0;
+      return !parsed;
+    } catch { return false; }
+  });
+  if (allEmpty && _cloudUpdatedAt) {
+    console.warn('[cloud] refusing to push all-empty state over existing cloud blob — guard tripped');
+    try {
+      if (typeof toast === 'function') toast('Cloud sync paused — local looks empty');
+    } catch {}
+    return;
+  }
+
+  _cloudPushInFlight = true;
+  try {
+    const r = await fetch('/api/winchester-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state, expectedUpdatedAt: _cloudUpdatedAt || undefined }),
+    });
+    if (r.status === 409) {
+      // Conflict: another tab/machine wrote first. Take their state and
+      // re-fire local update path.
+      const body = await r.json().catch(() => ({}));
+      console.warn('[cloud] 409 conflict — adopting server state');
+      if (body && body.error && body.error.serverState) {
+        const sv = body.error.serverState;
+        for (const key of CLOUD_KEYS) {
+          if (!sv[key]) continue;
+          try {
+            localStorage.setItem(key, sv[key].value);
+            localStorage.setItem(key + ':ts', String(sv[key]._updatedAt || Date.now()));
+          } catch {}
+        }
+        _cloudUpdatedAt = body.error.serverUpdatedAt || _cloudUpdatedAt;
+        window.dispatchEvent(new CustomEvent('cloud-hydrated', { detail: { ok: true, direction: 'pull-conflict' } }));
+      }
+    } else if (!r.ok) {
+      const text = await r.text().catch(() => '');
+      console.warn('[cloud] push !ok', r.status, text);
+    } else {
+      const body = await r.json().catch(() => ({}));
+      _cloudUpdatedAt = body.updated_at || _cloudUpdatedAt;
+      try { localStorage.setItem(CLOUD_TS_LOCAL_KEY, _cloudUpdatedAt || ''); } catch {}
+    }
+  } finally {
+    _cloudPushInFlight = false;
+  }
+}
+
+// Wrap safeSet so every whh:* write auto-bumps the per-key timestamp
+// and schedules a debounced cloud push. Pushes are gated by
+// _cloudHydrated inside cloudPushSoon — pre-hydration writes are safe.
+(function wrapSafeSetForCloud() {
+  if (typeof safeSet !== 'function') return; // script-order safety
+  const orig = safeSet;
+  window.safeSet = function (key, value) {
+    const ok = orig(key, value);
+    if (ok && CLOUD_KEYS.indexOf(key) !== -1) {
+      _bumpLocalKeyTs(key);
+      cloudPushSoon();
+    }
+    return ok;
+  };
+})();
+
+// Kick off the pull immediately. Local in-memory arrays will still be
+// loaded synchronously below from localStorage; the pull either confirms
+// they're current (no-op) or overwrites them and dispatches re-hydration.
+cloudPull();
+
+// Re-hydration listener: when cloud-pull touches localStorage, re-read the
+// in-memory pins/villages/moneyState arrays and re-render the visible UI.
+window.addEventListener('cloud-hydrated', (e) => {
+  if (!e.detail || !e.detail.touchedAny) return;
+  try {
+    if (typeof pins !== 'undefined') {
+      try { pins = JSON.parse(localStorage.getItem('whh:pins:v1') || '[]'); } catch {}
+    }
+    if (typeof villages !== 'undefined') {
+      try { villages = JSON.parse(localStorage.getItem('whh:villages:v1') || '[]'); } catch {}
+    }
+    if (typeof renderPins === 'function') renderPins();
+    if (typeof renderMapMarkers === 'function') renderMapMarkers();
+    if (typeof renderTable === 'function' && document.body.dataset.tableTab === 'open') renderTable();
+    if (typeof renderAgentContext === 'function' && document.body.dataset.agentTab === 'open') renderAgentContext();
+    if (typeof toast === 'function') toast('Synced from cloud');
+  } catch (err) {
+    console.warn('[cloud] re-hydrate render failed', err);
+  }
+});
+
+// Tiny toast helper — used by the cloud-push guard. Idempotent if a
+// real toast() already exists later in the script.
+if (typeof window.toast !== 'function') {
+  window.toast = function (msg) {
+    try {
+      let n = document.getElementById('whh-toast');
+      if (!n) {
+        n = document.createElement('div');
+        n.id = 'whh-toast';
+        n.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1a1a1a;color:#f4ecd8;padding:10px 16px;border:1px solid #8a3a14;border-radius:6px;font:13px/1.4 ui-monospace,monospace;z-index:99999;opacity:0;transition:opacity .25s ease;pointer-events:none';
+        document.body.appendChild(n);
+      }
+      n.textContent = msg;
+      n.style.opacity = '1';
+      clearTimeout(n._fadeT);
+      n._fadeT = setTimeout(() => { n.style.opacity = '0'; }, 2400);
+    } catch {}
+  };
+}
+
 // ===================== TABS =====================
 function setActiveTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === tabId));
@@ -5535,8 +5782,14 @@ async function loadFamilyCriteria() {
 loadFamilyCriteria();
 try { agentMemory = JSON.parse(localStorage.getItem(AGENT_MEM_KEY) || '[]'); } catch {}
 try { agentMessages = JSON.parse(localStorage.getItem(AGENT_CHAT_KEY) || '[]'); } catch {}
-function saveAgentMemory() { try { localStorage.setItem(AGENT_MEM_KEY, JSON.stringify(agentMemory)); } catch {} }
-function saveAgentChat() { try { localStorage.setItem(AGENT_CHAT_KEY, JSON.stringify(agentMessages.slice(-40))); } catch {} }
+function saveAgentMemory() {
+  try { localStorage.setItem(AGENT_MEM_KEY, JSON.stringify(agentMemory)); } catch {}
+  try { _bumpLocalKeyTs(AGENT_MEM_KEY); cloudPushSoon(); } catch {}
+}
+function saveAgentChat() {
+  try { localStorage.setItem(AGENT_CHAT_KEY, JSON.stringify(agentMessages.slice(-40))); } catch {}
+  try { _bumpLocalKeyTs(AGENT_CHAT_KEY); cloudPushSoon(); } catch {}
+}
 function addMemory(text) {
   const t = String(text || '').trim();
   if (!t) return;
@@ -6512,11 +6765,10 @@ renderPins();
 populateActivePinSelect();
 
 // ===================== TABLE VIEW =====================
-const tvExpanded = { villages: new Set(), pins: new Set() };
-let tvSort = {
-  villages: { col: 'name', dir: 'asc' },
-  pins:     { col: 'rank', dir: 'desc' }
-};
+// (Persistent state — tvExpanded / tvSort — is declared at the very
+// top of this script as `var` so it's available to any renderTable()
+// call that fires before the rest of the script finishes parsing.
+// Do not redeclare here.)
 
 function tvVillageValue(v, col) {
   switch (col) {
