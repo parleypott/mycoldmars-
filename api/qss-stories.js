@@ -39,8 +39,8 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SE
 // character_cards / freestyle_chat / freestyle_themes may not exist until
 // their migrations are applied — server falls back via the sb() helper
 // if Postgres complains.
-const SELECT_COLS = 'id,name,bible,rules,blocks,chat,suggestions,cover_image,arc_context,character_cards,freestyle_chat,freestyle_themes,deleted_at,created_at,updated_at';
-const OPTIONAL_COLS = ['character_cards', 'freestyle_chat', 'freestyle_themes']; // columns that may not exist pre-migration
+const SELECT_COLS = 'id,name,bible,rules,blocks,chat,suggestions,cover_image,arc_context,character_cards,freestyle_chat,freestyle_themes,world_slug,deleted_at,created_at,updated_at';
+const OPTIONAL_COLS = ['character_cards', 'freestyle_chat', 'freestyle_themes', 'world_slug']; // columns that may not exist pre-migration
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',

@@ -1447,14 +1447,24 @@
         // the cloud has zero characters for this world, treat any
         // local cards as poisoned and wipe them. The next cloud pull
         // will fill in actual world-scoped data.
-        const SELF_HEAL_KEY = `qss:world:${activeWorld}:cast:self-healed:v1`;
+        // v2 bumps the flag so existing devices that already self-healed
+        // under v1 (but were then re-poisoned by the story-arc enrichment
+        // contamination vector) wipe again exactly once. v2 also wipes
+        // the per-world active-story pointer so a leftover cross-world
+        // story id can't keep triggering the same contamination.
+        const SELF_HEAL_KEY = `qss:world:${activeWorld}:cast:self-healed:v2`;
         if (!isDefaultWorld && !localStorage.getItem(SELF_HEAL_KEY) && Object.keys(lcMap).length > 0) {
           // Reset — cloud is the source of truth for non-default worlds.
           lcMap = {};
           try {
             localStorage.setItem(GLOBAL_KEY, '{}');
             localStorage.setItem(SELF_HEAL_KEY, '1');
-            console.warn('[cast] self-healed contaminated non-default world cast slot');
+            // Also clear the active-story pointer for this world so the
+            // next enrichment pass doesn't re-fetch a queen-scarlet story
+            // and re-contaminate.
+            try { window.QSSWorlds?.setActiveStory?.(null); } catch {}
+            try { localStorage.removeItem(`qss:world:${activeWorld}:last_story`); } catch {}
+            console.warn('[cast] self-healed v2: wiped contaminated', activeWorld, 'cast + cross-world story pointer');
           } catch {}
         }
         // Convert lowercased-keyed blob back into display-name-keyed map
@@ -2090,11 +2100,31 @@
       //    here (the new cards have no portraits yet; pushing would
       //    just re-create the original bug). They'll get pushed by
       //    firstDrawQueue + generatePortrait once they're drawn.
+      //
+      // WORLD ISOLATION GUARD: if the active story belongs to a DIFFERENT
+      // world than the cast page we're viewing, do NOT enrich. The story
+      // arc carries that story's characters (queen-scarlet's Kevin, Queen
+      // Scarlet, Marcus Alvarez, etc.) and folding them into a different
+      // world's cast then auto-pushing was the second contamination
+      // vector behind the 14-row burgundy poisoning at 2026-05-24 01:20Z.
+      // The world-leak migration guard caught the localStorage migration
+      // path but missed this one. Skip enrichment + clear the cross-world
+      // story pointer so we don't keep tripping the same wire.
+      const activeWorldForEnrich = (window.QSSWorlds?.getActive?.() || 'queen-scarlet');
       if (storyId) {
         try {
           const r = await fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(storyId)}`, { headers: HEADERS });
           if (r.ok) {
             const { story } = await r.json();
+            const storyWorld = story?.world_slug || 'queen-scarlet';
+            if (storyWorld !== activeWorldForEnrich) {
+              try { console.warn('[cast world guard] active story', storyId, 'belongs to world', storyWorld, '— skipping enrichment in', activeWorldForEnrich); } catch {}
+              // Clear the per-world active-story pointer so the next visit
+              // doesn't keep trying to enrich from a foreign story.
+              try { window.QSSWorlds?.setActiveStory?.(null); } catch {}
+              state.storyId = null;
+              throw new Error('cross-world story — skip');
+            }
             state.story = story;
             const arcChars = Array.isArray(story.arc_context?.characters) ? story.arc_context.characters : [];
             for (const ch of arcChars) {
