@@ -807,6 +807,97 @@ body.hide-villages .whh-village-label { display: none !important; }
 
 .maplibregl-ctrl-attrib { font-size: 9px !important; }
 
+/* Compass listing upload */
+.upload-row {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(251, 249, 242, 0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 6px 10px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.10);
+}
+.upload-btn {
+  background: transparent;
+  border: 1px dashed var(--ink);
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 150ms, color 150ms;
+}
+.upload-btn:hover { background: var(--ink); color: var(--bg); }
+.upload-btn:disabled { opacity: 0.55; cursor: wait; }
+.upload-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Listing block inside pin card */
+.pin-block.listing { border-left: 3px solid var(--accent); padding-left: 10px; }
+.pin-block.listing .listing-price {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+.pin-block.listing .listing-stats {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.pin-block.listing .listing-stats strong { color: var(--ink); }
+.pin-block.listing .listing-desc {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink);
+  line-height: 1.45;
+  margin-top: 6px;
+  max-height: 8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pin-block.listing .listing-photos {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.pin-block.listing .listing-photos img {
+  height: 56px;
+  width: 84px;
+  object-fit: cover;
+  border-radius: 2px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+}
+.pin-block.listing .listing-url {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: none;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 1px;
+}
+.pin-block.listing .listing-url:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
 /* Bike paths legend */
 #bike-legend {
   position: fixed;
@@ -1023,6 +1114,11 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
       <button class="layer-btn" data-layer="bikepaths">Bike paths</button>
       <button class="layer-btn active" data-layer="villages">Villages</button>
     </div>
+    <div class="upload-row">
+      <button class="upload-btn" id="upload-compass-btn" type="button" title="Save a Compass listing as HTML (Cmd+S → Webpage, HTML Only), then upload it here">↑ Upload Compass listing</button>
+      <input type="file" id="compass-file-input" accept=".html,.htm,.zip" style="display:none;">
+      <span class="upload-status" id="upload-status"></span>
+    </div>
     <div class="basemap-switcher" id="basemap-switcher">
       <button class="basemap-btn" data-style="detailed" type="button" onclick="window.applyMapStyle&&window.applyMapStyle('detailed')">Detailed</button>
       <button class="basemap-btn" data-style="minimal" type="button" onclick="window.applyMapStyle&&window.applyMapStyle('minimal')">Minimal</button>
@@ -1065,6 +1161,7 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
 // Surface any silent JS error so we never silently break
 window.addEventListener('error', (e) => {
@@ -1737,6 +1834,230 @@ async function exportMoneyXlsx() {
   }
 }
 document.getElementById('export-xlsx-btn')?.addEventListener('click', exportMoneyXlsx);
+
+// ===================== COMPASS LISTING IMPORT =====================
+const compassFileInput = document.getElementById('compass-file-input');
+const compassUploadBtn = document.getElementById('upload-compass-btn');
+const uploadStatusEl = document.getElementById('upload-status');
+
+function setUploadStatus(msg) { if (uploadStatusEl) uploadStatusEl.textContent = msg || ''; }
+
+compassUploadBtn?.addEventListener('click', () => compassFileInput?.click());
+compassFileInput?.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  compassUploadBtn.disabled = true;
+  setUploadStatus('reading…');
+  try {
+    let html;
+    if (/\.zip$/i.test(file.name)) {
+      if (typeof JSZip === 'undefined') throw new Error('zip support not loaded');
+      const zip = await JSZip.loadAsync(file);
+      const entries = Object.values(zip.files).filter(f => !f.dir);
+      // Prefer the root-level .html (not the _files/ assets)
+      const htmlEntry = entries
+        .filter(f => /\.html?$/i.test(f.name) && !/_files\//i.test(f.name))
+        .sort((a, b) => a.name.length - b.name.length)[0]
+        || entries.find(f => /\.html?$/i.test(f.name));
+      if (!htmlEntry) throw new Error('No .html found inside the zip');
+      html = await htmlEntry.async('text');
+    } else {
+      html = await file.text();
+    }
+    setUploadStatus('parsing…');
+    const listing = parseCompassListing(html);
+    if (!listing || !listing.streetAddress) {
+      throw new Error("Couldn't find listing data in this file");
+    }
+    setUploadStatus('geocoding ' + listing.streetAddress + '…');
+    await importListingAsPin(listing);
+    setUploadStatus('imported ✓');
+    setTimeout(() => setUploadStatus(''), 4000);
+  } catch (err) {
+    console.error('[whh] import failed', err);
+    setUploadStatus('failed: ' + (err.message || err));
+    alert('Import failed: ' + (err.message || err) + '\n\nTip: save the Compass page via Cmd+S → Webpage, HTML Only (or zip it and try again).');
+  } finally {
+    compassUploadBtn.disabled = false;
+    e.target.value = '';
+  }
+});
+
+function parseCompassListing(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
+  // Strategy 1: __NEXT_DATA__ JSON blob (Next.js / Compass standard)
+  const nextScript = doc.getElementById('__NEXT_DATA__');
+  if (nextScript) {
+    try {
+      const data = JSON.parse(nextScript.textContent);
+      const found = walkForListing(data);
+      if (found) return found;
+    } catch (e) { console.warn('[whh] next-data parse', e); }
+  }
+
+  // Strategy 2: Apollo / Redux state in a script
+  const scripts = Array.from(doc.querySelectorAll('script'));
+  for (const s of scripts) {
+    const t = s.textContent || '';
+    const m = t.match(/(?:__APOLLO_STATE__|__INITIAL_STATE__|__PRELOADED_STATE__)\s*=\s*({[\s\S]+?});\s*(?:<|window\.|$)/);
+    if (m) {
+      try {
+        const data = JSON.parse(m[1]);
+        const found = walkForListing(data);
+        if (found) return found;
+      } catch (e) { /* keep trying */ }
+    }
+    // Look for raw JSON-LD listing
+    if (s.type === 'application/ld+json' && t.trim()) {
+      try {
+        const ld = JSON.parse(t);
+        const arr = Array.isArray(ld) ? ld : [ld];
+        for (const node of arr) {
+          if (node['@type'] === 'Residence' || node['@type'] === 'Product' || node['@type'] === 'Place' || node['@type'] === 'SingleFamilyResidence') {
+            const normalized = normalizeListing(node, doc);
+            if (normalized.streetAddress) return normalized;
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+  }
+
+  // Strategy 3: OG meta tags fallback
+  return extractFromMeta(doc);
+}
+
+function walkForListing(obj, depth = 0, seen = new WeakSet()) {
+  if (!obj || typeof obj !== 'object' || depth > 40) return null;
+  if (seen.has(obj)) return null;
+  seen.add(obj);
+  // Heuristic match: has both an address-ish field and a price-ish field
+  const hasAddr = obj.streetAddress || (obj.address && (obj.address.streetAddress || obj.address.line1)) ||
+                  obj.line1 || obj.addressLine1;
+  const hasPrice = obj.price != null || obj.listPrice != null || obj.askingPrice != null ||
+                   (obj.offers && (obj.offers.price || obj.offers.askingPrice));
+  if (hasAddr && hasPrice) {
+    const n = normalizeListing(obj);
+    if (n.streetAddress) return n;
+  }
+  if (Array.isArray(obj)) {
+    for (const v of obj) {
+      const r = walkForListing(v, depth + 1, seen);
+      if (r) return r;
+    }
+  } else {
+    for (const k of Object.keys(obj)) {
+      const r = walkForListing(obj[k], depth + 1, seen);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+
+function pickAddrField(o, ...keys) {
+  for (const k of keys) {
+    const v = k.split('.').reduce((acc, key) => acc?.[key], o);
+    if (v != null && v !== '') return v;
+  }
+  return null;
+}
+
+function normalizeListing(raw, doc) {
+  const a = raw.address || {};
+  const streetAddress = pickAddrField(raw, 'streetAddress', 'address.streetAddress', 'address.line1', 'line1', 'addressLine1', 'address.addressLine1');
+  const city = pickAddrField(raw, 'city', 'address.city', 'address.locality', 'addressLocality', 'address.addressLocality');
+  const state = pickAddrField(raw, 'state', 'stateCode', 'address.state', 'address.stateCode', 'address.region', 'addressRegion', 'address.addressRegion');
+  const zip = pickAddrField(raw, 'zip', 'zipCode', 'postalCode', 'address.zip', 'address.postalCode', 'address.zipCode');
+  const price = raw.price ?? raw.listPrice ?? raw.askingPrice ?? raw.salePrice ?? raw.offers?.price;
+  const photosRaw = raw.photos || raw.images || raw.media?.photos || raw.media || [];
+  const photos = (Array.isArray(photosRaw) ? photosRaw : [])
+    .map(p => typeof p === 'string' ? p : (p.url || p.uri || p.src || p.fullUrl || p.contentUrl || p.image))
+    .filter(Boolean)
+    .slice(0, 12);
+  return {
+    streetAddress,
+    city,
+    state,
+    zip,
+    price: typeof price === 'string' ? Number(String(price).replace(/[^\d]/g, '')) : price,
+    beds: raw.beds ?? raw.bedrooms ?? raw.bedroomCount ?? raw.numberOfBedrooms ?? raw.numberOfRooms,
+    baths: raw.baths ?? raw.bathrooms ?? raw.bathroomCount ?? raw.totalBaths ?? raw.numberOfBathroomsTotal,
+    sqft: raw.sqft ?? raw.squareFeet ?? raw.livingArea ?? raw.floorSize?.value,
+    lotSize: raw.lotSize ?? raw.lotSquareFeet ?? raw.lotSizeSqft,
+    yearBuilt: raw.yearBuilt,
+    propertyType: raw.propertyType || raw.type,
+    description: raw.remarks || raw.description || raw.publicRemarks,
+    mlsNumber: raw.mlsNumber || raw.mlsId || raw.listingId,
+    listingUrl: raw.url || raw.canonicalUrl || raw.canonical || (doc ? doc.querySelector('link[rel="canonical"]')?.href : null),
+    photos
+  };
+}
+
+function extractFromMeta(doc) {
+  const ogTitle = doc.querySelector('meta[property="og:title"]')?.content;
+  const ogDesc = doc.querySelector('meta[property="og:description"]')?.content;
+  const ogImg = doc.querySelector('meta[property="og:image"]')?.content;
+  const ogUrl = doc.querySelector('meta[property="og:url"]')?.content || doc.querySelector('link[rel="canonical"]')?.href;
+  if (!ogTitle) return null;
+  const priceMatch = (ogTitle + ' ' + (ogDesc||'')).match(/\$\s*([\d,]+)/);
+  const price = priceMatch ? parseInt(priceMatch[1].replace(/[^\d]/g, ''), 10) : null;
+  const addrChunk = ogTitle.replace(/\$\s*[\d,]+/, '').replace(/[|·]/g, ',').trim();
+  const parts = addrChunk.split(',').map(p => p.trim()).filter(Boolean);
+  const streetAddress = parts[0];
+  const city = parts[1];
+  const stateZipMatch = parts[2]?.match(/([A-Z]{2})\s+(\d{5})/);
+  const state = stateZipMatch?.[1] || parts[2];
+  const zip = stateZipMatch?.[2];
+  const specs = (ogDesc || '').match(/(\d+)\s*bed[s]?[\s,·|]+(\d+(?:\.\d+)?)\s*bath[s]?[\s,·|]+([\d,]+)\s*(?:sqft|sq\.?\s*ft)/i);
+  return {
+    streetAddress, city, state, zip, price,
+    beds: specs ? parseInt(specs[1], 10) : null,
+    baths: specs ? parseFloat(specs[2]) : null,
+    sqft: specs ? parseInt(specs[3].replace(/,/g, ''), 10) : null,
+    description: ogDesc,
+    listingUrl: ogUrl,
+    photos: ogImg ? [ogImg] : []
+  };
+}
+
+async function importListingAsPin(listing) {
+  const addrStr = [listing.streetAddress, listing.city, listing.state, listing.zip].filter(Boolean).join(', ');
+  if (!addrStr) throw new Error('no address in listing');
+  const url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&countrycodes=us&q=' + encodeURIComponent(addrStr);
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!res.ok) throw new Error('geocode HTTP ' + res.status);
+  const arr = await res.json();
+  if (!arr.length) throw new Error('geocode returned no results for ' + addrStr);
+  const g = arr[0];
+  addPin({
+    address: addrStr,
+    display: g.display_name,
+    lat: parseFloat(g.lat),
+    lng: parseFloat(g.lon),
+    addrParts: g.address
+  });
+  const newPin = pins[0];
+  if (newPin) {
+    newPin.compass = {
+      price: listing.price,
+      beds: listing.beds,
+      baths: listing.baths,
+      sqft: listing.sqft,
+      lotSize: listing.lotSize,
+      yearBuilt: listing.yearBuilt,
+      propertyType: listing.propertyType,
+      description: typeof listing.description === 'string' ? listing.description.slice(0, 1500) : null,
+      mlsNumber: listing.mlsNumber,
+      listingUrl: listing.listingUrl,
+      photos: (listing.photos || []).slice(0, 12)
+    };
+    if (listing.price && !newPin.askingPrice) newPin.askingPrice = listing.price;
+    savePins();
+    renderPins();
+    map.flyTo({ center: [newPin.lng, newPin.lat], zoom: 14, duration: 1100 });
+  }
+}
 
 // ===================== SAVED SCENARIOS =====================
 function listScenarios() {
@@ -3522,6 +3843,20 @@ function renderPins() {
     const trainDrive = tr.driveMin != null ? tr.driveMin + ' min drive' : '— min drive';
     const trailDist = tl.driveDistMi != null ? tl.driveDistMi.toFixed(1) + ' mi' : fmtMiles(tl.miles);
     const trailDrive = tl.driveMin != null ? tl.driveMin + ' min drive' : '';
+    const c = pin.compass;
+    const listingBlock = c ? `
+      <div class="pin-block listing">
+        <div class="kind">Listing</div>
+        <div class="body">
+          ${c.price ? `<div class="listing-price">${fmtUSD(c.price)}</div>` : ''}
+          <div class="listing-stats">
+            ${c.beds != null ? `<strong>${c.beds}</strong> bd` : ''}${c.baths != null ? ` <span class="mute">·</span> <strong>${c.baths}</strong> ba` : ''}${c.sqft != null ? ` <span class="mute">·</span> <strong>${Number(c.sqft).toLocaleString()}</strong> sqft` : ''}${c.lotSize != null ? ` <span class="mute">·</span> <strong>${Number(c.lotSize).toLocaleString()}</strong> sqft lot` : ''}${c.yearBuilt ? ` <span class="mute">·</span> built <strong>${c.yearBuilt}</strong>` : ''}${c.propertyType ? `<br><span class="mute">${escapeHtml(c.propertyType)}</span>` : ''}${c.mlsNumber ? `<br><span class="mute">MLS ${escapeHtml(String(c.mlsNumber))}</span>` : ''}
+          </div>
+          ${c.description ? `<div class="listing-desc">${escapeHtml(c.description)}</div>` : ''}
+          ${c.photos && c.photos.length ? `<div class="listing-photos">${c.photos.map(u => `<img src="${escapeHtml(u)}" loading="lazy" alt="">`).join('')}</div>` : ''}
+          ${c.listingUrl ? `<a class="listing-url" href="${escapeHtml(c.listingUrl)}" target="_blank" rel="noopener">Open on Compass ↗</a>` : ''}
+        </div>
+      </div>` : '';
     card.innerHTML = `
       <div class="pin-header">
         <div class="pin-address"><span class="num">${idx + 1}</span>${escapeHtml(formatPinAddress(pin))}</div>
@@ -3530,6 +3865,7 @@ function renderPins() {
           <button class="pin-delete" title="Delete">×</button>
         </div>
       </div>
+      ${listingBlock}
       <div class="pin-block">
         <div class="kind">Train</div>
         <div class="body">
