@@ -606,7 +606,7 @@ async function whoAmI(req) {
     : (req.headers.authorization || req.headers.Authorization || '');
   const m = String(auth).match(/^Bearer\s+(.+)$/i);
   if (!m) return null;
-  const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supaUrl = process.env.QSS_SUPABASE_URL || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const anon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
   if (!supaUrl || !anon) return null;
   try {

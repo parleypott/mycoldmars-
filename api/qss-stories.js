@@ -32,8 +32,8 @@ export const config = { runtime: 'edge', maxDuration: 30 };
  *     body: { id }      (purge — soft-deleted rows only, for safety)
  */
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = process.env.QSS_SUPABASE_URL || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = process.env.QSS_SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Columns we want back from a story select. Order matters for stable diffs.
 // character_cards / freestyle_chat / freestyle_themes may not exist until

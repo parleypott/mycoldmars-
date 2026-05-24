@@ -125,8 +125,8 @@ const STYLE_CACHE = new Map();   // slug → { fetchedAt, art_style, canon_text 
 const STYLE_TTL_MS = 5 * 60 * 1000;
 
 async function fetchWorldRowFromDb(slug) {
-  const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const supaKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supaUrl = process.env.QSS_SUPABASE_URL || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supaKey = process.env.QSS_SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supaUrl || !supaKey) return null;
   try {
     const r = await fetch(
