@@ -124,17 +124,19 @@ async function handleExtract(body) {
     : (world === 'burgundy' ? BURGUNDY_NOVEL_ACT1 : '');
   if (!source) return j(400, { error: 'no_source_for_world' });
 
-  // One call, ~25 items. With Edge's 25s cap and Haiku's wall time on
-  // 44K-char input, this is the largest single-call target that
-  // reliably finishes. (50 items consistently aborted at 23.5s.) The
-  // 'append' action below adds more items in subsequent calls without
-  // wiping; the client can chain a few of those to get to ~100.
+  // KEY INSIGHT — even with templated art_prompt and 25-item target,
+  // Haiku was still timing out. The 44K-char input ALONE takes ~20s
+  // to process on Edge (something about Edge + Anthropic latency).
+  // Fix: send only the FIRST QUARTER of the novel in the extract step.
+  // Subsequent quarters get appended via /append?pass=2|3|4 — same
+  // pattern Henry's client already chains.
+  const FIRST_QUARTER = splitSourceIntoChunks(source, 4)[0] || source;
   const TARGET_ITEMS = 25;
   const results = [await extractChunk({
     apiKey,
-    section: source,
+    section: FIRST_QUARTER,
     sectionIndex: 0,
-    totalSections: 1,
+    totalSections: 4,
     itemsTarget: TARGET_ITEMS,
   }).then(items => ({ status: 'fulfilled', value: items }))
    .catch(e => ({ status: 'rejected', reason: e }))];
