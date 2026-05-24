@@ -93,36 +93,43 @@ async function handleList(world) {
   const worldFilter = world === 'queen-scarlet'
     ? `or=(world_slug.eq.queen-scarlet,world_slug.is.null)`
     : `world_slug=eq.${encodeURIComponent(world)}`;
+  // SKIP the portraits JSONB column entirely on this query. Each portrait
+  // is ~2 MB base64; with 17 cards × 2 portraits the column alone is
+  // 70 MB and Postgres aborts at the 8 s statement timeout before
+  // PostgREST even starts streaming. Stripping in the Edge function isn't
+  // enough — the bytes still have to cross the wire from PG → PostgREST.
+  // LIST_BASE_COLS deliberately omits `portraits`.
+  //
+  // The client needs SOMETHING in portraits[] so its orphan-recovery
+  // doesn't fire and wipe the row. We synthesize a 1-element
+  // portraits=[{id: primary_portrait_id}] (no dataBase64) so the
+  // cross-device cloud-hydrate path can fetch the bytes via
+  // ?action=portrait. Non-primary (loved) portraits are NOT surfaced
+  // here — a follow-up `?action=portraits-meta` is needed for that.
+  // For now, primary is what makes the cast page render.
   let rows;
   try {
-    rows = await sb('GET', `qss_cast?select=${SELECT_COLS},world_slug&${worldFilter}&order=updated_at.desc&limit=500`);
+    rows = await sb('GET', `qss_cast?select=${LIST_BASE_COLS},world_slug&${worldFilter}&order=updated_at.desc&limit=500`);
   } catch (e) {
-    // If migration 021 isn't applied yet, world_slug doesn't exist —
-    // fall back to unfiltered list (acceptable: pre-migration we only
-    // had QSS anyway).
     if (/world_slug/i.test(e?.message || '') && /column.*does not exist|schema cache/i.test(e?.message || '')) {
-      rows = await sb('GET', `qss_cast?select=${SELECT_COLS}&order=updated_at.desc&limit=500`);
+      rows = await sb('GET', `qss_cast?select=${LIST_BASE_COLS}&order=updated_at.desc&limit=500`);
     } else {
       throw e;
     }
   }
-  // STRIP portrait bytes from the list response. Each portrait can be ~2 MB
-  // base64; 17 cards × 2 portraits each = ~70 MB which times-out Vercel
-  // Edge (504). Client gets thin metadata and lazily fetches portrait bytes
-  // via /api/qss-cast?action=portrait&name=X&id=Y when IDB doesn't have
-  // them. Pages on the same device hit IDB and never need the network.
-  const characters = (rows || []).map(r => {
-    const card = rowToCard(r);
-    card.portraits = (card.portraits || []).map(p => ({
-      id: p.id,
-      mime: p.mime || 'image/png',
-      generated_at: p.generated_at || Date.now(),
-      note: p.note || '',
-      loved: !!p.loved,
-      // dataBase64 omitted — fetch on demand via action=portrait
-    }));
-    return card;
-  });
+  const characters = (rows || []).map(r => ({
+    name: r.name,
+    synopsis: r.synopsis || '',
+    visual_notes: r.visual_notes || '',
+    portraits: r.primary_portrait_id
+      ? [{ id: r.primary_portrait_id, mime: 'image/png', generated_at: Date.now(), note: '', loved: false }]
+      : [],
+    primary_portrait_id: r.primary_portrait_id || null,
+    chat: Array.isArray(r.chat) ? r.chat : [],
+    story_appearances: Array.isArray(r.story_appearances) ? r.story_appearances : [],
+    generated_at: r.generated_at ? new Date(r.generated_at).getTime() : Date.now(),
+    updated_at: r.updated_at ? new Date(r.updated_at).getTime() : Date.now(),
+  }));
   return jsonOk({ characters });
 }
 
