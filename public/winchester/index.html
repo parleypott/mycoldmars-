@@ -1549,6 +1549,13 @@ overrideEl.addEventListener('blur', () => {
 overrideEl.addEventListener('input', () => { taxState.override = parseNum(overrideEl.value); recalcTax(); });
 overrideEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); overrideEl.blur(); } });
 
+// Seed property tax to a realistic Westchester average on load (never zero)
+setTimeout(() => { if (typeof recalcTax === 'function') recalcTax(); }, 0);
+
+// Fallback when no pin / no muni match — never zero. Westchester county-average effective rate
+// (~2.5% of market) and a typical assessed-to-market ratio of ~50%. Realistic enough for budgeting.
+const WESTCHESTER_DEFAULT = { effectiveRate: 0.025, rar: 0.50 };
+
 function recalcTax() {
   const market = moneyState.buyPrice;
   const activePin = pins.find(p => p.id === taxState.activePinId);
@@ -1556,16 +1563,22 @@ function recalcTax() {
   const t = muniKey ? TAX_DATA[muniKey] : null;
 
   if (!t) {
-    document.getElementById('tax-town-out').textContent = activePin ? 'outside table' : 'no pin selected';
+    // Use Westchester average instead of zero
+    const assessed = market * WESTCHESTER_DEFAULT.rar;
+    const computed = market * WESTCHESTER_DEFAULT.effectiveRate;
+    const annual = taxState.override > 0 ? taxState.override : computed;
+    moneyState.propTax = annual;
+
+    document.getElementById('tax-town-out').textContent = activePin ? 'outside table — using avg' : 'Westchester avg';
     document.getElementById('tax-school-out').textContent = '—';
-    document.getElementById('tax-rate-out').textContent = '—';
-    document.getElementById('tax-rar-out').textContent = '—';
-    document.getElementById('tax-annual-out').textContent = taxState.override > 0 ? fmtUSD(taxState.override) + '/yr' : '—';
-    document.getElementById('tax-monthly-out').textContent = taxState.override > 0 ? fmtUSD(taxState.override / 12) + '/mo' : '—';
-    document.getElementById('tax-note').textContent = activePin
-      ? "Couldn't match this address to a Westchester municipality. Use the override to enter the seller's actual annual tax bill."
-      : 'Drop a pin on the Map tab and pick it here. The tool auto-detects the town and computes property tax from real Westchester effective rates.';
-    moneyState.propTax = taxState.override > 0 ? taxState.override : 0;
+    document.getElementById('tax-rate-out').textContent = (WESTCHESTER_DEFAULT.effectiveRate * 100).toFixed(2) + '% of market (county avg)';
+    document.getElementById('tax-rar-out').textContent = (WESTCHESTER_DEFAULT.rar * 100).toFixed(0) + '% (typical) → ' + fmtUSD(assessed) + ' assessed';
+    document.getElementById('tax-annual-out').textContent = fmtUSD(annual) + '/yr';
+    document.getElementById('tax-monthly-out').textContent = fmtUSD(annual / 12) + '/mo';
+    document.getElementById('tax-note').textContent = (activePin
+      ? "Couldn't match this address to the Westchester table — falling back to a typical county-average effective rate. Override below if you have the seller's actual bill."
+      : 'Default = Westchester-average effective rate (' + (WESTCHESTER_DEFAULT.effectiveRate*100).toFixed(2) + '% of market) applied to your purchase price, after a typical 50% assessment discount. Drop a pin on the Map tab to use the exact municipal rate.')
+      + (taxState.override > 0 ? ' Using your override of ' + fmtUSD(taxState.override) + ' instead of the ' + fmtUSD(computed) + ' computed estimate.' : '');
     moneyRecalc();
     return;
   }
