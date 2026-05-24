@@ -1155,6 +1155,19 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 .tv-row td.tv-price-cell { font-weight: 700; color: var(--ink); font-size: 12px; }
 .tv-row td.tv-rank-cell { width: 30px; padding-left: 6px; }
 .tv-row td.tv-mute { color: var(--muted); }
+.tv-school-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--ink);
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  letter-spacing: inherit;
+}
+.tv-school-btn:hover { color: var(--accent); text-decoration-color: var(--accent); }
 
 .tv-rank-chip {
   display: inline-flex; align-items: center; justify-content: center;
@@ -6593,7 +6606,7 @@ function renderTable() {
       tr.innerHTML = `
         <td class="tv-expand-col"><button class="tv-expand-btn" title="Expand">▸</button></td>
         <td class="tv-name-cell">${escapeHtml(v.name || '')}</td>
-        <td>${v.schoolDistrict ? escapeHtml(v.schoolDistrict) : '<span class="tv-mute">—</span>'}</td>
+        <td>${v.schoolDistrict ? `<button class="tv-school-btn" type="button" data-school="${escapeHtml(v.schoolDistrict)}">${escapeHtml(v.schoolDistrict)} →</button>` : '<span class="tv-mute">—</span>'}</td>
         <td>${trailNearest}</td>
         <td>${v.trailsWithin1Mi != null ? v.trailsWithin1Mi : '<span class="tv-mute">—</span>'}</td>
         <td>${trainCell}</td>
@@ -6639,7 +6652,7 @@ function renderTable() {
         <td>${gctCell}</td>
         <td>${trailCell}</td>
         <td>${m ? '<strong>' + fmtUSD(m.total) + '</strong>' : '<span class="tv-mute">enter asking</span>'}</td>
-        <td>${p.schoolDistrict ? escapeHtml(p.schoolDistrict) : '<span class="tv-mute">—</span>'}</td>
+        <td>${p.schoolDistrict ? `<button class="tv-school-btn" type="button" data-school="${escapeHtml(p.schoolDistrict)}">${escapeHtml(p.schoolDistrict)} →</button>` : '<span class="tv-mute">—</span>'}</td>
         <td class="tv-actions">
           <button class="tv-action-btn" data-act="fly">Map ↗</button>
           <button class="tv-action-btn delete" data-act="del">×</button>
@@ -6768,6 +6781,14 @@ function buildPinDetail(p) {
 }
 
 function attachTableHandlers() {
+  // School-district buttons → open locked profile modal
+  document.querySelectorAll('.tv-school-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const d = btn.dataset.school;
+      if (d) openSchoolModal(d);
+    });
+  });
   // detail-row photo thumbs → lightbox
   document.querySelectorAll('.tv-detail-photos img').forEach(img => {
     img.addEventListener('click', e => {
