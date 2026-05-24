@@ -76,17 +76,23 @@ function sanitizeWorldSlug(raw) {
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
 
-  const denied = await checkAccess(req);
-  if (denied) {
-    const h = new Headers(denied.headers);
-    for (const [k, v] of Object.entries(CORS)) h.set(k, v);
-    return new Response(denied.body, { status: denied.status, headers: h });
+  const url = new URL(req.url);
+  const action = url.searchParams.get('action') || (req.method === 'GET' ? 'list' : '');
+
+  // ?action=image returns image bytes for <img src> tags, which can't carry
+  // the x-access-code header. The image data is non-sensitive curated atlas
+  // art (same threat model as a public CDN), so this route is open. All
+  // other actions (list / extract / generate / rate / reset) require auth.
+  if (!(req.method === 'GET' && action === 'image')) {
+    const denied = await checkAccess(req);
+    if (denied) {
+      const h = new Headers(denied.headers);
+      for (const [k, v] of Object.entries(CORS)) h.set(k, v);
+      return new Response(denied.body, { status: denied.status, headers: h });
+    }
   }
 
   if (!SUPABASE_URL || !SUPABASE_KEY) return j(500, { error: 'no_db' });
-
-  const url = new URL(req.url);
-  const action = url.searchParams.get('action') || (req.method === 'GET' ? 'list' : '');
 
   try {
     if (req.method === 'GET' && action === 'list') {
