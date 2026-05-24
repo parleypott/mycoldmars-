@@ -110,7 +110,8 @@ async function handleList(world) {
 async function handleUpsert(body, world) {
   const card = sanitizeCard(body?.card);
   if (!card) return jsonError(400, 'BAD_CARD', 'card with name required');
-  const row = cardToRow(card);
+  const merged = await mergeWithExisting(card, world);
+  const row = cardToRow(merged);
   row.world_slug = world;
   await sb('POST', `qss_cast?on_conflict=name_key,world_slug&select=${SELECT_COLS}`, row, {
     returnRepresentation: true,
@@ -122,13 +123,150 @@ async function handleUpsert(body, world) {
 async function handleUpsertMany(body, world) {
   const cards = Array.isArray(body?.cards) ? body.cards : [];
   if (!cards.length) return jsonOk({ ok: true, upserted: 0 });
-  const rows = cards.map(sanitizeCard).filter(Boolean).map(cardToRow);
-  if (!rows.length) return jsonOk({ ok: true, upserted: 0 });
+  const sanitized = cards.map(sanitizeCard).filter(Boolean);
+  if (!sanitized.length) return jsonOk({ ok: true, upserted: 0 });
+  // Merge each incoming card against the existing row for the same
+  // (name_key, world_slug). This is the BACKSTOP against a buggy client
+  // that sends a thin (unhydrated) card up — without this, the server
+  // would happily overwrite a row with full portraits using a row whose
+  // portraits[] is empty because dataBase64 was still in IDB. Johnny has
+  // reported the resulting "every visit redraws every character" 15+
+  // times. Now: server NEVER reduces portrait count, NEVER drops
+  // visual_notes, NEVER drops loved flags. Generation-only paths still
+  // add new portraits (since merge keeps both sides). Explicit deletes
+  // go through DELETE, not upsert.
+  const merged = await Promise.all(sanitized.map(c => mergeWithExisting(c, world)));
+  const rows = merged.map(cardToRow);
   for (const r of rows) r.world_slug = world;
   await sb('POST', `qss_cast?on_conflict=name_key,world_slug`, rows, {
     prefer: 'resolution=merge-duplicates,return=minimal',
   });
   return jsonOk({ ok: true, upserted: rows.length });
+}
+
+// Fetch the existing row for this (name_key, world_slug) and merge the
+// incoming sanitized card with it. Merge rules — preservation wins:
+//   - portraits[]: union by id. Existing entries that aren't in the
+//     incoming card are preserved. Incoming entries new to this id are
+//     added. Same id: incoming wins on `loved` and `note`, existing
+//     wins on `dataBase64`/`mime` (never overwrite real bytes with
+//     missing bytes — the whole bug).
+//   - primary_portrait_id: incoming if it points to a portrait still in
+//     the merged set, else existing if valid, else fall back to last.
+//   - visual_notes / synopsis: incoming if non-empty, else existing.
+//   - chat: union, dedup by id, sorted by ts (preserves history).
+//   - story_appearances: union by story_id, last_seen_at wins.
+//   - generated_at: max(incoming, existing).
+//
+// If the existing row is absent (new character), return the incoming
+// card untouched.
+async function mergeWithExisting(card, world) {
+  const key = card.name.toLowerCase();
+  let existing = null;
+  try {
+    const rows = await sb(
+      'GET',
+      `qss_cast?select=${SELECT_COLS}&name_key=eq.${encodeURIComponent(key)}&world_slug=eq.${encodeURIComponent(world)}&limit=1`,
+    );
+    if (Array.isArray(rows) && rows[0]) existing = rows[0];
+  } catch (e) {
+    // If the lookup fails (e.g. world_slug column missing pre-021), fall
+    // back to a name-only lookup so we still preserve data on legacy
+    // schemas. Worst case we miss the merge and fall through to the
+    // original (destructive) behavior — same as before this fix, so
+    // never strictly worse.
+    if (/world_slug/i.test(e?.message || '') && /column.*does not exist|schema cache/i.test(e?.message || '')) {
+      try {
+        const rows = await sb(
+          'GET',
+          `qss_cast?select=${SELECT_COLS}&name_key=eq.${encodeURIComponent(key)}&limit=1`,
+        );
+        if (Array.isArray(rows) && rows[0]) existing = rows[0];
+      } catch {}
+    }
+  }
+  if (!existing) return card;
+
+  const existingPortraits = Array.isArray(existing.portraits) ? existing.portraits : [];
+  const incomingPortraits = Array.isArray(card.portraits) ? card.portraits : [];
+
+  // Union by id. Incoming wins on metadata except dataBase64/mime where
+  // existing always wins (the indestructible byte-preservation rule).
+  const byId = new Map();
+  for (const p of existingPortraits) {
+    if (p && p.id) byId.set(p.id, { ...p });
+  }
+  for (const p of incomingPortraits) {
+    if (!p || !p.id) continue;
+    const prior = byId.get(p.id);
+    if (!prior) {
+      // Brand new portrait — accept only if it carries bytes. A
+      // dataBase64-less portrait id has no value without the body, and
+      // accepting it would re-introduce the original bug at the
+      // single-portrait level.
+      if (p.dataBase64) byId.set(p.id, { ...p });
+      continue;
+    }
+    // Same id on both sides — preserve existing bytes; let incoming
+    // refresh love/note/generated_at.
+    byId.set(p.id, {
+      ...prior,
+      // dataBase64/mime: existing wins (prior is server-stored, must
+      // not be replaced with whatever the client happened to ship).
+      dataBase64: prior.dataBase64 || p.dataBase64 || '',
+      mime: prior.mime || p.mime || 'image/png',
+      loved: typeof p.loved === 'boolean' ? p.loved : !!prior.loved,
+      note: typeof p.note === 'string' && p.note ? p.note : (prior.note || ''),
+      generated_at: typeof p.generated_at === 'number' ? p.generated_at : (prior.generated_at || Date.now()),
+    });
+  }
+  const mergedPortraits = Array.from(byId.values()).filter(p => p && p.dataBase64);
+
+  // primary: prefer incoming if still valid; else existing if valid;
+  // else last in merged.
+  const hasId = id => id && mergedPortraits.some(p => p.id === id);
+  let primary = null;
+  if (hasId(card.primary_portrait_id)) primary = card.primary_portrait_id;
+  else if (hasId(existing.primary_portrait_id)) primary = existing.primary_portrait_id;
+  else if (mergedPortraits.length) primary = mergedPortraits[mergedPortraits.length - 1].id;
+
+  // chat: union by id, sort by ts ascending, hard-cap at 200 like sanitizeCard.
+  const chatById = new Map();
+  for (const m of Array.isArray(existing.chat) ? existing.chat : []) {
+    if (m && m.id) chatById.set(m.id, m);
+  }
+  for (const m of Array.isArray(card.chat) ? card.chat : []) {
+    if (m && m.id) chatById.set(m.id, m);
+  }
+  const mergedChat = Array.from(chatById.values())
+    .sort((a, b) => (a.ts || 0) - (b.ts || 0))
+    .slice(-200);
+
+  // story_appearances: union by story_id, most-recent last_seen_at wins.
+  const appsById = new Map();
+  for (const a of Array.isArray(existing.story_appearances) ? existing.story_appearances : []) {
+    if (a && a.story_id) appsById.set(a.story_id, a);
+  }
+  for (const a of Array.isArray(card.story_appearances) ? card.story_appearances : []) {
+    if (!a || !a.story_id) continue;
+    const prior = appsById.get(a.story_id);
+    if (!prior || (a.last_seen_at || 0) >= (prior.last_seen_at || 0)) appsById.set(a.story_id, a);
+  }
+  const mergedApps = Array.from(appsById.values());
+
+  return {
+    name: card.name,
+    synopsis: (card.synopsis || '').length ? card.synopsis : (existing.synopsis || ''),
+    visual_notes: (card.visual_notes || '').length ? card.visual_notes : (existing.visual_notes || ''),
+    portraits: mergedPortraits,
+    primary_portrait_id: primary,
+    chat: mergedChat,
+    story_appearances: mergedApps,
+    generated_at: Math.max(
+      typeof card.generated_at === 'number' ? card.generated_at : 0,
+      existing.generated_at ? new Date(existing.generated_at).getTime() : 0,
+    ) || Date.now(),
+  };
 }
 
 async function handleDelete(body, world) {

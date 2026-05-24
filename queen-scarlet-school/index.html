@@ -1286,6 +1286,64 @@
       color: var(--ink-bright);
     }
     .composer-modes .mode-btn:hover:not(.active) { background: var(--paper-deep); }
+
+    /* AUTO BUILD mode — expanded textarea + drop target affordance */
+    .composer.auto-build-mode textarea {
+      background: #FFFAEC;
+      border-color: var(--ink-soft);
+      min-height: 140px;
+    }
+    .composer.auto-build-mode textarea.drop-target {
+      background: var(--yolk);
+      border-color: var(--red);
+      border-style: dashed;
+    }
+
+    /* AUTO BUILD append-vs-replace confirm modal */
+    .auto-build-confirm { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; }
+    .auto-build-confirm .abc-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(8, 18, 24, 0.72);
+      backdrop-filter: blur(4px);
+    }
+    .auto-build-confirm .abc-card {
+      position: relative;
+      max-width: 460px; width: calc(100% - 48px);
+      padding: 28px 30px 22px;
+      background: var(--paper);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 16px;
+      box-shadow: 6px 6px 0 var(--ink-bright);
+      font-family: var(--ui);
+    }
+    .auto-build-confirm .abc-title {
+      font-family: var(--display);
+      font-size: 22px;
+      color: var(--ink-bright);
+      margin-bottom: 8px;
+    }
+    .auto-build-confirm .abc-body {
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--ink);
+      margin-bottom: 20px;
+    }
+    .auto-build-confirm .abc-actions {
+      display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;
+    }
+    .auto-build-confirm .abc-btn {
+      font-family: var(--ui); font-weight: 700; font-size: 14px;
+      padding: 9px 16px; border-radius: 10px;
+      border: 2px solid var(--ink-bright);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer;
+      transition: transform 120ms var(--ease);
+    }
+    .auto-build-confirm .abc-btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink-bright); }
+    .auto-build-confirm .abc-ghost { background: var(--paper-card); color: var(--ink-bright); }
+    .auto-build-confirm .abc-danger { background: var(--red); color: #fff; }
+    .auto-build-confirm .abc-primary { background: var(--yolk); color: var(--ink-bright); }
+
     /* Verbatim mode visual cue on the textarea */
     .composer.verbatim-mode textarea {
       background: #FFFAEC;
@@ -3470,9 +3528,11 @@
                 <span class="mic-label" id="mic-label">talk!</span>
               </button>
               <textarea id="kid-input" rows="2" placeholder="tell wordy what kind of next bit you want… (or press the mic and just say it!)"></textarea>
+              <input type="file" id="auto-build-file" accept=".md,.txt,.markdown" hidden />
               <div class="composer-modes" id="composer-modes">
-                <button id="btn-mode-ask"      class="mode-btn active" type="button" data-mode="ask"      title="wordy will respond as wizard">ask wordy</button>
-                <button id="btn-mode-verbatim" class="mode-btn"        type="button" data-mode="verbatim" title="my exact words — wordy keeps them, just tidies them up">✎ my words</button>
+                <button id="btn-mode-ask"        class="mode-btn active" type="button" data-mode="ask"        title="wordy will respond as wizard">ask wordy</button>
+                <button id="btn-mode-verbatim"   class="mode-btn"        type="button" data-mode="verbatim"   title="my exact words — wordy keeps them, just tidies them up">my words</button>
+                <button id="btn-mode-auto-build" class="mode-btn"        type="button" data-mode="auto-build" title="paste a fully-written story (or upload a .md / .txt) — I'll split it into scenes and populate the cast for this world">AUTO BUILD</button>
               </div>
               <!-- Touch-base moved up to the story panel toolbar — it's
                    about the story's structure, not chat. Stuck + How's-my-story
@@ -5195,6 +5255,159 @@
       window.Summaries?.schedule();
       persist();
       renderAll();
+    }
+
+    // ─────────── AUTO BUILD — paste a full story, segment into scenes ───────────
+    //
+    // Henry pastes (or drops) a fully-drafted story in the chat. The
+    // server segments it into scenes (verbatim text + summary) and
+    // extracts every named character. We:
+    //   1. Confirm append-vs-replace if blocks already exist.
+    //   2. POST /api/qss-scene-build.
+    //   3. Push each scene as a story block (verbatim text + summary).
+    //   4. Upsert every character into the world's cast bank via
+    //      /api/qss-cast?action=upsert-many — world-scoped, so the
+    //      bank lives across all stories in this world. Existing
+    //      characters get an appearance link; brand-new ones get
+    //      queued for first-draw portraits automatically.
+    async function runAutoBuild(sourceText) {
+      const text = (sourceText || '').trim();
+      if (!text) return;
+      if (text.length < 80) {
+        alert('Paste a full story — that text is too short for auto-build to find scenes.');
+        return;
+      }
+
+      // Append vs Replace decision.
+      let mode = 'append';
+      if (state.blocks && state.blocks.length > 0) {
+        const choice = await confirmAppendReplace(state.blocks.length);
+        if (choice === 'cancel') return;
+        mode = choice;  // 'append' | 'replace'
+      }
+
+      // Show a chat bubble so Henry knows we're working (auto-build can
+      // take 30-60s on a long story).
+      const buildBubbleId = 'auto-build-' + Date.now();
+      state.chat.push({
+        id: buildBubbleId,
+        role: 'tutor',
+        phase: 'auto-build',
+        content: 'reading your story… finding the scenes… this can take a minute for a long story.',
+      });
+      state.thinking = true;
+      renderChat();
+      scrollChat();
+
+      let data;
+      try {
+        const r = await fetch('/api/qss-scene-build', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source_text: text,
+            story_name: state.name || 'this story',
+            story_id: state.serverId || null,
+          }),
+        });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          throw new Error(j.error || ('HTTP ' + r.status));
+        }
+        data = await r.json();
+      } catch (e) {
+        const errTurn = state.chat.find(t => t.id === buildBubbleId);
+        if (errTurn) errTurn.content = `couldn't build the scenes — ${e.message || e}. try again?`;
+        state.thinking = false;
+        renderChat();
+        return;
+      }
+
+      const scenes = Array.isArray(data?.scenes) ? data.scenes : [];
+      const characters = Array.isArray(data?.characters) ? data.characters : [];
+
+      // Apply scenes to story blocks.
+      if (mode === 'replace') {
+        state.blocks = [];
+      }
+      const beforeCount = state.blocks.length;
+      for (const scene of scenes) {
+        const t = (scene?.text || '').trim();
+        if (!t) continue;
+        state.blocks.push({
+          id: uid(),
+          text: t,
+          summary: (scene?.summary || '').trim(),
+          custom: false,
+          source: 'auto-build',
+        });
+      }
+      const addedCount = state.blocks.length - beforeCount;
+
+      // Update the build bubble copy.
+      const turn = state.chat.find(t => t.id === buildBubbleId);
+      if (turn) {
+        turn.content = `built ${addedCount} scene${addedCount === 1 ? '' : 's'} from your story. ${characters.length ? `added ${characters.length} character${characters.length === 1 ? '' : 's'} to the cast for this world.` : ''}`.trim();
+      }
+      state.thinking = false;
+      window.Arc?.scheduleRefresh();
+      window.Summaries?.schedule();
+      persist();
+      renderAll();
+
+      // Upsert characters into the WORLD cast bank — never story-scoped.
+      // The world wrapper adds ?world=<slug> automatically; qss-cast
+      // upsert-many is unique on (world_slug, name_key) so existing
+      // characters merge cleanly.
+      if (characters.length) {
+        try {
+          const cards = characters.map(c => ({
+            name: c.name,
+            synopsis: c.synopsis || '',
+            visual_notes: c.visual_notes || '',
+            current_state: c.current_state || '',
+            portraits: [],
+            primary_portrait_id: null,
+            chat: [],
+            generated_at: Date.now(),
+            status: 'loading',
+            story_appearances: state.serverId ? [{ story_id: state.serverId, story_name: state.name, current_state: c.current_state || '' }] : [],
+          }));
+          await fetch('/api/qss-cast?action=upsert-many', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cards }),
+          });
+        } catch (e) {
+          console.warn('[auto-build] cast upsert failed', e);
+        }
+      }
+    }
+
+    // Custom append-vs-replace dialog. Returns 'append' | 'replace' | 'cancel'.
+    function confirmAppendReplace(existingCount) {
+      return new Promise(resolve => {
+        const wrap = document.createElement('div');
+        wrap.className = 'auto-build-confirm';
+        wrap.innerHTML = `
+          <div class="abc-backdrop"></div>
+          <div class="abc-card">
+            <div class="abc-title">You have ${existingCount} block${existingCount === 1 ? '' : 's'} already.</div>
+            <div class="abc-body">Auto-build can either add the new scenes after what you've got, or wipe everything and start fresh from the pasted story. Which one?</div>
+            <div class="abc-actions">
+              <button type="button" data-choice="cancel" class="abc-btn abc-ghost">cancel</button>
+              <button type="button" data-choice="replace" class="abc-btn abc-danger">replace everything</button>
+              <button type="button" data-choice="append" class="abc-btn abc-primary">append after</button>
+            </div>
+          </div>`;
+        document.body.appendChild(wrap);
+        wrap.addEventListener('click', (e) => {
+          const choice = e.target?.dataset?.choice;
+          if (!choice) return;
+          wrap.remove();
+          resolve(choice);
+        });
+      });
     }
 
     // ─────────── Wordy chat ───────────
@@ -8317,24 +8530,82 @@
       renderStory();
     }
 
-    // ─────────── Composer mode toggle (ask vs verbatim) ───────────
+    // ─────────── Composer mode toggle (ask / verbatim / auto-build) ───────────
     function setComposerMode(mode) {
-      state.composerMode = mode === 'verbatim' ? 'verbatim' : 'ask';
+      const valid = ['ask', 'verbatim', 'auto-build'];
+      state.composerMode = valid.includes(mode) ? mode : 'ask';
       document.querySelectorAll('#composer-modes .mode-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.mode === state.composerMode);
       });
       const composer = document.querySelector('.composer');
-      composer.classList.toggle('verbatim-mode', state.composerMode === 'verbatim');
+      composer.classList.toggle('verbatim-mode',   state.composerMode === 'verbatim');
+      composer.classList.toggle('auto-build-mode', state.composerMode === 'auto-build');
       const ta = document.getElementById('kid-input');
       const btn = document.getElementById('btn-ask');
       if (state.composerMode === 'verbatim') {
         ta.placeholder = "paste or type your exact words — i'll keep them as-is, just clean up little typos";
-        btn.innerHTML = '✎ Save my words<span class="arrow">→</span>';
+        ta.rows = 2;
+        btn.innerHTML = 'Save my words<span class="arrow">→</span>';
+      } else if (state.composerMode === 'auto-build') {
+        ta.placeholder = "paste a fully-written story here (or drop a .md / .txt file) — I'll split it into scenes and populate the cast";
+        ta.rows = 6;
+        btn.innerHTML = 'BUILD<span class="arrow">→</span>';
       } else {
         ta.placeholder = "tell wordy what kind of next bit you want… (or press the mic and just say it!)";
+        ta.rows = 2;
         btn.innerHTML = 'Send<span class="arrow">→</span>';
       }
     }
+
+    // File picker for AUTO BUILD — .md / .txt drop into the textarea.
+    // Triggered when Henry clicks the AUTO BUILD pill twice (re-click on
+    // already-active pill opens the file dialog) — or when he drops a
+    // file directly on the textarea.
+    (function wireAutoBuildFilePicker() {
+      const fileInput = document.getElementById('auto-build-file');
+      const ta = document.getElementById('kid-input');
+      const autoBtn = document.getElementById('btn-mode-auto-build');
+      if (!fileInput || !ta || !autoBtn) return;
+      autoBtn.addEventListener('click', () => {
+        // First click activates AUTO BUILD mode; second click on already-
+        // active opens file picker. Single-tap UX = swap mode; double-tap
+        // = pick file.
+        if (state.composerMode === 'auto-build') fileInput.click();
+      });
+      fileInput.addEventListener('change', async () => {
+        const f = fileInput.files?.[0];
+        if (!f) return;
+        try {
+          const text = await f.text();
+          ta.value = (ta.value ? ta.value + '\n\n' : '') + text;
+          ta.focus();
+          // Reset input so the same file can be picked again.
+          fileInput.value = '';
+        } catch (e) {
+          alert('Could not read the file: ' + (e.message || e));
+        }
+      });
+      // Drop a file directly on the textarea while in AUTO BUILD mode.
+      ta.addEventListener('dragover', (e) => {
+        if (state.composerMode !== 'auto-build') return;
+        e.preventDefault();
+        ta.classList.add('drop-target');
+      });
+      ta.addEventListener('dragleave', () => ta.classList.remove('drop-target'));
+      ta.addEventListener('drop', async (e) => {
+        if (state.composerMode !== 'auto-build') return;
+        e.preventDefault();
+        ta.classList.remove('drop-target');
+        const f = e.dataTransfer?.files?.[0];
+        if (!f) return;
+        try {
+          const text = await f.text();
+          ta.value = (ta.value ? ta.value + '\n\n' : '') + text;
+        } catch (err) {
+          alert('Could not read the file: ' + (err.message || err));
+        }
+      });
+    })();
     function submitComposer() {
       const text = document.getElementById('kid-input').value;
       if (!text.trim()) return;
@@ -8357,6 +8628,8 @@
       clearKidInput();
       if (state.composerMode === 'verbatim') {
         addVerbatimBlock(text);
+      } else if (state.composerMode === 'auto-build') {
+        runAutoBuild(text);
       } else {
         askWordy(text);
       }
