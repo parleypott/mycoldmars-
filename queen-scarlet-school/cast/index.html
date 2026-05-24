@@ -1578,7 +1578,10 @@
       for (const c of Object.values(cards || {})) {
         if (!Array.isArray(c?.portraits)) continue;
         for (const p of c.portraits) {
-          if (p?.id && !p.dataBase64) needs.push({ cardName: c.name, p });
+          // Skip if portrait already has a Storage URL — <img src=>
+          // renders direct from CDN, no hydrate needed. Only legacy
+          // portraits that have neither URL nor bytes need a fetch.
+          if (p?.id && !p.dataBase64 && !p.image_url) needs.push({ cardName: c.name, p });
         }
       }
       if (!needs.length) return false;
