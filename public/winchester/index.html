@@ -940,6 +940,7 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
       <button class="layer-btn active" data-layer="train">Train</button>
       <button class="layer-btn active" data-layer="trail">Trails</button>
       <button class="layer-btn active" data-layer="bookstore">Bookstores</button>
+      <button class="layer-btn active" data-layer="trainlines">Train lines</button>
       <button class="layer-btn active" data-layer="villages">Villages</button>
     </div>
     <div class="basemap-switcher" id="basemap-switcher">
@@ -1045,6 +1046,8 @@ document.querySelectorAll('.layer-btn').forEach(btn => {
     btn.classList.toggle('active');
     if (layer === 'schools') {
       if (typeof syncSchoolVisibility === 'function') syncSchoolVisibility();
+    } else if (layer === 'trainlines') {
+      if (typeof syncTrainLineVisibility === 'function') syncTrainLineVisibility();
     } else {
       document.body.classList.toggle('hide-' + layer, wasActive);
     }
@@ -2099,7 +2102,11 @@ function savePins() { safeSet(STORAGE_KEY, JSON.stringify(pins)); }
 
 const V_KEY = 'whh:villages:v1';
 let villages = [];
-try { villages = JSON.parse(localStorage.getItem(V_KEY) || '[]'); } catch (e) { villages = []; }
+try {
+  villages = JSON.parse(localStorage.getItem(V_KEY) || '[]');
+  // Retro-clean any "Village of …" prefixes from already-saved village names
+  villages.forEach(v => { if (v.name) v.name = String(v.name).replace(/^(Village|Town|City|Hamlet|Township|Borough)\s+of\s+/i, '').trim(); });
+} catch (e) { villages = []; }
 function saveVillages() {
   // Strip heavy fields before persisting — boundary polygons & trails-arrays bloat past quota fast.
   // They're re-fetched on next load via refineVillage backfill.
@@ -2496,13 +2503,18 @@ function mountVillageBoundaryLayers() {
   });
 }
 
+function cleanVillageName(raw) {
+  if (!raw) return raw;
+  return String(raw).replace(/^(Village|Town|City|Hamlet|Township|Borough)\s+of\s+/i, '').trim();
+}
+
 function villageBoundaryCollection() {
   return {
     type: 'FeatureCollection',
     features: villages.filter(v => v.boundary).map(v => ({
       type: 'Feature',
       geometry: v.boundary,
-      properties: { name: v.name, id: v.id }
+      properties: { name: cleanVillageName(v.name), id: v.id }
     }))
   };
 }
@@ -2512,10 +2524,118 @@ function refreshVillageBoundaries() {
   if (src) src.setData(villageBoundaryCollection());
 }
 
+// Metro-North line colors (close to MTA brand but tuned for the cream palette)
+const TRAIN_LINE_COLORS = { Hudson: '#2C7A4B', Harlem: '#1F6FB0', 'New Haven': '#C2342E' };
+const TRAIN_LINE_COLOR_EXPR = ['match', ['get', 'line'],
+  'Hudson', TRAIN_LINE_COLORS.Hudson,
+  'Harlem', TRAIN_LINE_COLORS.Harlem,
+  'New Haven', TRAIN_LINE_COLORS['New Haven'],
+  '#5A5448'
+];
+
+function buildTrainLinesGeoJSON() {
+  const groups = {};
+  TRAIN_STATIONS.forEach(s => {
+    (groups[s.line] = groups[s.line] || []).push(s);
+  });
+  const features = Object.entries(groups).map(([line, stations]) => {
+    // Sort by gct ascending so the polyline runs Grand Central → out
+    const sorted = [...stations].sort((a, b) => a.gct - b.gct);
+    return {
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: sorted.map(s => [s.lng, s.lat]) },
+      properties: { line }
+    };
+  });
+  return { type: 'FeatureCollection', features };
+}
+
+function buildTrainStopsGeoJSON() {
+  return {
+    type: 'FeatureCollection',
+    features: TRAIN_STATIONS.map(s => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [s.lng, s.lat] },
+      properties: { line: s.line, name: s.name, gct: s.gct }
+    }))
+  };
+}
+
+function mountTrainLineLayers() {
+  if (map.getSource('train-lines')) return;
+  map.addSource('train-lines', { type: 'geojson', data: buildTrainLinesGeoJSON() });
+  map.addSource('train-stops', { type: 'geojson', data: buildTrainStopsGeoJSON() });
+
+  map.addLayer({
+    id: 'train-lines-layer',
+    type: 'line',
+    source: 'train-lines',
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': TRAIN_LINE_COLOR_EXPR,
+      'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.8, 12, 2.8, 15, 4.0, 18, 5.6],
+      'line-opacity': 0.88
+    }
+  });
+
+  // White halo under the dots so they read on any basemap
+  map.addLayer({
+    id: 'train-stops-halo',
+    type: 'circle',
+    source: 'train-stops',
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 4.5, 14, 7.2, 18, 10],
+      'circle-color': '#F5F1E6',
+      'circle-opacity': 0.95
+    }
+  });
+  map.addLayer({
+    id: 'train-stops-layer',
+    type: 'circle',
+    source: 'train-stops',
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 2.6, 14, 4.4, 18, 6.5],
+      'circle-color': TRAIN_LINE_COLOR_EXPR,
+      'circle-stroke-color': '#1A1A1F',
+      'circle-stroke-width': 0.8,
+      'circle-stroke-opacity': 0.4
+    }
+  });
+
+  map.on('click', 'train-stops-layer', (e) => {
+    const f = e.features?.[0];
+    if (!f) return;
+    new maplibregl.Popup({ closeButton: true, offset: 12, maxWidth: '260px' })
+      .setLngLat(f.geometry.coordinates)
+      .setHTML(`<div class="map-popup">
+        <div class="map-popup-kind">Metro-North · ${escapeHtml(f.properties.line)} Line</div>
+        <div class="map-popup-name">${escapeHtml(f.properties.name)}</div>
+        <div class="map-popup-meta"><strong>${f.properties.gct} min</strong> to Grand Central · off-peak</div>
+      </div>`)
+      .addTo(map);
+  });
+  map.on('mouseenter', 'train-stops-layer', () => { map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', 'train-stops-layer', () => { map.getCanvas().style.cursor = ''; });
+
+  syncTrainLineVisibility();
+}
+
+function syncTrainLineVisibility() {
+  if (!map.getLayer || !map.getLayer('train-lines-layer')) return;
+  const btn = document.querySelector('.layer-btn[data-layer="trainlines"]');
+  const wanted = btn && btn.classList.contains('active');
+  const vis = wanted ? 'visible' : 'none';
+  ['train-lines-layer', 'train-stops-halo', 'train-stops-layer'].forEach(id => {
+    if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis);
+  });
+}
+
 function mountCustomLayers() {
   mountSchoolDistrictLayers();
   mountVillageBoundaryLayers();
+  mountTrainLineLayers();
   syncSchoolVisibility();
+  syncTrainLineVisibility();
 }
 
 function flashStyleSwap(label) {
@@ -2727,7 +2847,7 @@ function addVillageFromSuggestion(idx) {
   const s = suggestionList[idx];
   if (!s) return;
   const a = s.address || {};
-  const name = a.village || a.town || a.city || a.hamlet || a.suburb || s.display_name.split(',')[0];
+  const name = cleanVillageName(a.village || a.town || a.city || a.hamlet || a.suburb || s.display_name.split(',')[0]);
   const lat = parseFloat(s.lat);
   const lng = parseFloat(s.lon);
   const bbox = s.boundingbox ? s.boundingbox.map(parseFloat) : null;
