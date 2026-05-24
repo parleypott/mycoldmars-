@@ -2231,12 +2231,11 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
               <th data-sort="rank">Rank <span class="sort-ind"></span></th>
               <th data-sort="address">Address <span class="sort-ind"></span></th>
               <th data-sort="price">Price <span class="sort-ind"></span></th>
-              <th data-sort="beds">Bd <span class="sort-ind"></span></th>
-              <th data-sort="baths">Ba <span class="sort-ind"></span></th>
+              <th data-sort="bb" title="Beds / Baths">B/B <span class="sort-ind"></span></th>
               <th data-sort="sqft">SqFt <span class="sort-ind"></span></th>
-              <th data-sort="built">Built <span class="sort-ind"></span></th>
+              <th data-sort="lot" title="Lot size in acres">Lot <span class="sort-ind"></span></th>
               <th data-sort="train">Train <span class="sort-ind"></span></th>
-              <th data-sort="walk">Walk <span class="sort-ind"></span></th>
+              <th data-sort="downtown" title="Walking distance to village downtown (train station proxy)">Downtown <span class="sort-ind"></span></th>
               <th data-sort="gct">GCT <span class="sort-ind"></span></th>
               <th data-sort="trail">Trail <span class="sort-ind"></span></th>
               <th data-sort="monthly">Monthly <span class="sort-ind"></span></th>
@@ -6791,10 +6790,13 @@ function tvPinValue(p, col) {
     case 'price': return c.price || p.askingPrice || 0;
     case 'beds': return c.beds != null ? c.beds : -1;
     case 'baths': return c.baths != null ? c.baths : -1;
+    case 'bb': return ((c.beds != null ? c.beds : 0) * 10) + (c.baths != null ? c.baths : 0);
     case 'sqft': return c.sqft != null ? c.sqft : -1;
+    case 'lot': return c.lotSize != null ? c.lotSize : -1;
     case 'built': return c.yearBuilt || 0;
     case 'train': return p.train ? p.train.name.toLowerCase() : 'zzz';
     case 'walk': return p.train && p.train.walkMin != null ? p.train.walkMin : 999;
+    case 'downtown': return p.train && p.train.walkMin != null ? p.train.walkMin : 999;
     case 'gct': return p.train && p.train.gct != null ? p.train.gct : 999;
     case 'trail': return p.trail && p.trail.driveDistMi != null ? p.trail.driveDistMi : (p.trail && p.trail.miles != null ? p.trail.miles : 999);
     case 'monthly': return m ? m.total : 0;
@@ -6876,7 +6878,7 @@ function renderTable() {
   // ----- PINS -----
   pBody.innerHTML = '';
   if (!pins.length) {
-    pBody.innerHTML = `<tr><td colspan="15" class="tv-empty">No pinned homes yet — drop one from the <em>Map</em> tab.</td></tr>`;
+    pBody.innerHTML = `<tr><td colspan="14" class="tv-empty">No pinned homes yet — drop one from the <em>Map</em> tab.</td></tr>`;
   } else {
     sortRows(pins, 'pins').forEach((p, sortedIdx) => {
       const c = p.compass || {};
@@ -6895,10 +6897,9 @@ function renderTable() {
         <td class="tv-rank-cell"><span class="tv-rank-chip" data-rank="${p.rank || 0}">${origIdx}</span></td>
         <td class="tv-addr-cell">${escapeHtml(formatPinAddress(p))}</td>
         <td class="tv-price-cell">${c.price ? fmtUSD(c.price) : (p.askingPrice ? fmtUSD(p.askingPrice) + ' <span class="tv-mute" style="font-size:9px;letter-spacing:0.12em;">asking</span>' : '<span class="tv-mute">—</span>')}</td>
-        <td>${c.beds != null ? '<strong>' + c.beds + '</strong>' : '<span class="tv-mute">—</span>'}</td>
-        <td>${c.baths != null ? '<strong>' + c.baths + '</strong>' : '<span class="tv-mute">—</span>'}</td>
+        <td>${(c.beds != null || c.baths != null) ? '<strong>' + (c.beds != null ? c.beds : '—') + '</strong><span class="tv-mute">/</span><strong>' + (c.baths != null ? c.baths : '—') + '</strong>' : '<span class="tv-mute">—</span>'}</td>
         <td>${c.sqft != null ? Number(c.sqft).toLocaleString() : '<span class="tv-mute">—</span>'}</td>
-        <td>${c.yearBuilt || '<span class="tv-mute">—</span>'}</td>
+        <td>${c.lotSize != null ? (c.lotSize / 43560).toFixed(2) + ' <span class="tv-mute">ac</span>' : '<span class="tv-mute">—</span>'}</td>
         <td>${trainCell}</td>
         <td>${walkCell}</td>
         <td>${gctCell}</td>
@@ -6988,7 +6989,7 @@ function buildPinDetail(p) {
   const tr = document.createElement('tr');
   tr.className = 'tv-detail-row';
   tr.innerHTML = `
-    <td colspan="15">
+    <td colspan="14">
       <div class="tv-detail-wrap">
         ${photoBlock}
         <div class="tv-detail-block">
@@ -7063,7 +7064,7 @@ function attachTableHandlers() {
         tvSort[kind].dir = tvSort[kind].dir === 'asc' ? 'desc' : 'asc';
       } else {
         tvSort[kind].col = col;
-        tvSort[kind].dir = (col === 'rank' || col === 'price' || col === 'sqft' || col === 'beds' || col === 'baths' || col === 'built' || col === 'trailCount' || col === 'books') ? 'desc' : 'asc';
+        tvSort[kind].dir = (col === 'rank' || col === 'price' || col === 'sqft' || col === 'beds' || col === 'baths' || col === 'bb' || col === 'lot' || col === 'built' || col === 'trailCount' || col === 'books' || col === 'monthly') ? 'desc' : 'asc';
       }
       renderTable();
     });
