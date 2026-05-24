@@ -184,6 +184,8 @@ body[data-world="burgundy"] .word-reveal > span {
 
 body[data-world="burgundy"] .word-reveal > span.space {
   /* a real space between words — keep width but skip animation work */
+  display: inline;
+  white-space: pre;
   animation: none;
   opacity: 1;
   transform: none;
@@ -380,7 +382,7 @@ body[data-world="burgundy"] .welcome-hero .wh-title.word-reveal {
 }
 
 body[data-world="burgundy"] .welcome-hero .wh-title .wh-name {
-  /* keep the v2 amber underline; just animate the underline draw on load */
+  /* keep the v2 amber underline; chain word-reveal + underline draw */
   border-bottom-color: transparent !important;
   background-image: linear-gradient(90deg,
     var(--bg-amber) 0%,
@@ -388,7 +390,12 @@ body[data-world="burgundy"] .welcome-hero .wh-title .wh-name {
   background-repeat: no-repeat;
   background-size: 0 2px;
   background-position: 0 100%;
-  animation: burgundy-underline-draw 1.0s cubic-bezier(0.7, 0, 0.2, 1) 1.8s forwards;
+  animation:
+    burgundy-word-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards,
+    burgundy-underline-draw 1.0s cubic-bezier(0.7, 0, 0.2, 1) forwards;
+  animation-delay:
+    calc(var(--word-i, 0) * 70ms + 320ms),
+    1.8s;
   padding-bottom: 1px;
 }
 
