@@ -184,12 +184,12 @@ body[data-world="burgundy"] .word-reveal > span {
 
 body[data-world="burgundy"] .word-reveal > span.space {
   /* a real space between words — keep width but skip animation work */
-  display: inline;
-  white-space: pre;
-  animation: none;
-  opacity: 1;
-  transform: none;
-  filter: none;
+  display: inline !important;
+  white-space: pre !important;
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
 }
 
 @keyframes burgundy-word-in {
@@ -405,11 +405,12 @@ body[data-world="burgundy"] .welcome-hero .wh-title .wh-name {
 }
 
 /* ─── 13. Section heroes — "Your stories" / "the cast" amber glow ── */
+body[data-world="burgundy"].page-library .page-intro h1,
+body[data-world="burgundy"].page-cast .page-intro h1,
+body[data-world="burgundy"].page-cast h1,
 body[data-world="burgundy"] .lib-hero h1,
-body[data-world="burgundy"] .lib-hero .lib-title,
 body[data-world="burgundy"] .cast-hero h1,
-body[data-world="burgundy"] .cast-hero .cast-title,
-body[data-world="burgundy"] .page-cast h1.cast-title {
+body[data-world="burgundy"] .cast-hero .cast-title {
   font-family: 'Cambo', var(--serif), Georgia, serif;
   font-style: italic;
   font-weight: 400;
@@ -420,14 +421,19 @@ body[data-world="burgundy"] .page-cast h1.cast-title {
     0 2px 18px rgba(0, 0, 0, 0.75),
     0 0 32px rgba(232, 162, 72, 0.14);
   position: relative;
+  animation: burgundy-blur-in 1.4s cubic-bezier(0.7, 0, 0.2, 1) both;
 }
 
 /* Ambient amber under-glow on the heroes */
+body[data-world="burgundy"].page-library .page-intro,
+body[data-world="burgundy"].page-cast .page-intro,
 body[data-world="burgundy"] .lib-hero,
 body[data-world="burgundy"] .cast-hero {
   position: relative;
 }
 
+body[data-world="burgundy"].page-library .page-intro::after,
+body[data-world="burgundy"].page-cast .page-intro::after,
 body[data-world="burgundy"] .lib-hero::after,
 body[data-world="burgundy"] .cast-hero::after {
   content: '';
