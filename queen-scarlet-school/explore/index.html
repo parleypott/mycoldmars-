@@ -554,7 +554,12 @@
       const tag = (it.kind || '').toUpperCase();
       let imgArea = '';
       if (it.status === 'ready') {
-        imgArea = `<img src="/api/qss-explorer?action=image&id=${encodeURIComponent(it.id)}" alt="${esc(it.title)}" loading="lazy" />`;
+        // Prefer Storage public URL — direct CDN, zero function calls.
+        // Falls back to the legacy /api/qss-explorer?action=image route
+        // for pre-migration rows (image_data_base64 in DB, no Storage
+        // upload yet).
+        const src = it.image_url || `/api/qss-explorer?action=image&id=${encodeURIComponent(it.id)}`;
+        imgArea = `<img src="${esc(src)}" alt="${esc(it.title)}" loading="lazy" decoding="async" />`;
       } else if (it.status === 'generating') {
         imgArea = `<div class="placeholder generating">drawing…</div>`;
       } else if (it.status === 'error') {
@@ -609,8 +614,9 @@
       if (!it) return;
       state.lightboxId = id;
       const imgWrap = document.getElementById('lb-img');
+      const src = it.image_url || `/api/qss-explorer?action=image&id=${encodeURIComponent(it.id)}`;
       imgWrap.innerHTML = (it.status === 'ready')
-        ? `<img src="/api/qss-explorer?action=image&id=${encodeURIComponent(it.id)}" alt="${esc(it.title)}" />`
+        ? `<img src="${esc(src)}" alt="${esc(it.title)}" />`
         : `<div class="placeholder" style="position:relative;display:flex;align-items:center;justify-content:center;height:100%;font-family:var(--mono);font-size:13px;">no image yet</div>`;
       document.getElementById('lb-title').textContent = it.title || '';
       document.getElementById('lb-caption').textContent = it.caption || '';

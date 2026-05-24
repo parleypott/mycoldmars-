@@ -98,10 +98,12 @@ export default async function handler(req) {
   try {
     if (req.method === 'GET' && action === 'list') {
       const world = sanitizeWorldSlug(url.searchParams.get('world'));
-      // Do NOT pull image_data_base64 here — with 100 rows × ~500KB each
-      // it was a 50MB JSON response and timed out the function. Client
-      // fetches each image via /api/qss-explorer?action=image&id=...
-      const rows = await sb('GET', `qss_world_explorer?world_slug=eq.${encodeURIComponent(world)}&order=sort_order.asc,created_at.asc&select=id,world_slug,kind,title,caption,source_quote,art_prompt,image_mime,rating,rating_reason,status,error_msg,sort_order,created_at,updated_at&limit=500`);
+      // Pull image_url so the client can serve straight from Supabase
+      // Storage's public CDN. Falls back to /api/qss-explorer?action=image
+      // for rows that pre-date the Storage migration (image_url null but
+      // image_data_base64 present). Migrating those rows is handled
+      // separately by backfill-explorer-storage.mjs.
+      const rows = await sb('GET', `qss_world_explorer?world_slug=eq.${encodeURIComponent(world)}&order=sort_order.asc,created_at.asc&select=id,world_slug,kind,title,caption,source_quote,art_prompt,image_mime,image_url,rating,rating_reason,status,error_msg,sort_order,created_at,updated_at&limit=500`);
       return j(200, { items: rows || [] });
     }
 
@@ -508,14 +510,58 @@ async function handleGenerate(body) {
     return j(502, { error: 'image_gen_failed', detail: errMsg });
   }
 
-  await sb('PATCH', `qss_world_explorer?id=eq.${encodeURIComponent(id)}`, {
+  // Upload bytes straight to Supabase Storage public bucket so the
+  // browser can serve them from the CDN without going through this
+  // function at all. Cuts the cold-cache 504 cascade — 48 parallel
+  // <img> tags used to saturate the function; now they hit Storage's
+  // CDN directly.
+  const ext = imgMime.includes('jpeg') ? 'jpg' : (imgMime.includes('webp') ? 'webp' : 'png');
+  const storagePath = `${id}.${ext}`;
+  let imageUrl = null;
+  let uploadErr = null;
+  try {
+    const bin = atob(imgBase64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const upRes = await fetch(`${SUPABASE_URL}/storage/v1/object/qss-explorer/${storagePath}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': imgMime,
+        'x-upsert': 'true',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      },
+      body: bytes,
+    });
+    if (!upRes.ok) {
+      uploadErr = `storage_${upRes.status}: ${(await upRes.text().catch(()=>'')).slice(0,200)}`;
+    } else {
+      imageUrl = `${SUPABASE_URL}/storage/v1/object/public/qss-explorer/${storagePath}`;
+    }
+  } catch (e) { uploadErr = e?.message || String(e); }
+
+  // Write back. Even on Storage upload failure we keep the bytes in
+  // image_data_base64 so the legacy /action=image route still serves
+  // the image — never lose work because of a transient upload hiccup.
+  const patch = {
     status: 'ready',
-    image_data_base64: imgBase64,
     image_mime: imgMime,
     error_msg: null,
     updated_at: new Date().toISOString(),
-  });
-  return j(200, { ok: true, status: 'ready' });
+  };
+  if (imageUrl) {
+    patch.image_url = imageUrl;
+    patch.storage_path = storagePath;
+    // Storage URL is the authoritative source going forward; drop the
+    // base64 from DB to reclaim ~2 MB per row.
+    patch.image_data_base64 = null;
+  } else {
+    // Storage failed — keep the bytes in DB so the row still serves.
+    patch.image_data_base64 = imgBase64;
+    if (uploadErr) patch.error_msg = `storage_upload_failed_kept_inline: ${uploadErr}`.slice(0, 300);
+  }
+  await sb('PATCH', `qss_world_explorer?id=eq.${encodeURIComponent(id)}`, patch);
+  return j(200, { ok: true, status: 'ready', image_url: imageUrl, fallback: !imageUrl });
 }
 
 // ────────────────────── rate ──────────────────────
