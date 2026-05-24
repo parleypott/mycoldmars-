@@ -1026,12 +1026,10 @@
       <section id="grid-view" class="grid-view">
         <div class="page-head">
           <div class="page-title">the <em>cast</em></div>
-          <div class="page-head-actions">
-            <button id="btn-force-save" class="btn-save" type="button" title="Save every portrait to the cloud and to this device's storage. Use this if pictures aren't sticking.">
-              <span class="bs-ico">💾</span><span class="bs-label">save all</span>
-            </button>
-            <span id="save-status" class="save-status" aria-live="polite"></span>
-          </div>
+          <!-- No manual save button. Every new portrait auto-saves to IDB
+               and Supabase via syncCard() inside generatePortrait() the
+               instant generation finishes — same path the (now removed)
+               "save all" button used to hit, just per-card and automatic. -->
         </div>
         <div id="cast-grid" class="cast-grid">
           <div class="empty"><strong>shuffling the deck…</strong>loading characters from the story.</div>
@@ -3112,32 +3110,9 @@
         openCard(card.dataset.name);
       });
 
-      // "save all" button — force every portrait into IDB + cloud, update
-      // the status pill with what got persisted.
-      const saveBtn = document.getElementById('btn-force-save');
-      const saveStatus = document.getElementById('save-status');
-      if (saveBtn && saveStatus) {
-        saveBtn.addEventListener('click', async () => {
-          saveBtn.disabled = true;
-          saveStatus.className = 'save-status busy';
-          saveStatus.textContent = 'saving…';
-          try {
-            const r = await saveAll();
-            saveStatus.className = 'save-status ok';
-            saveStatus.textContent = r.cloud
-              ? `saved ${r.cards} character${r.cards === 1 ? '' : 's'} · ${r.portraits} picture${r.portraits === 1 ? '' : 's'} · cloud ✓`
-              : `saved ${r.cards} on this device — cloud try again in a moment`;
-            // Fade the pill out after 6s so it's not a permanent label
-            setTimeout(() => { if (saveStatus.textContent.startsWith('saved')) saveStatus.textContent = ''; }, 6000);
-          } catch (e) {
-            saveStatus.className = 'save-status err';
-            saveStatus.textContent = 'save failed — open console for details';
-            console.error('[saveAll]', e);
-          } finally {
-            saveBtn.disabled = false;
-          }
-        });
-      }
+      // No save-button handler — auto-save lives inside generatePortrait()
+      // and fires syncCard(name) the moment a new portrait lands.
+      // saveAll() is still exported in case anything else wants to call it.
 
       // Detail back/delete
       document.getElementById('detail-back').addEventListener('click', backToGrid);
