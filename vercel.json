@@ -30,6 +30,10 @@
     { "source": "/queen-scarlet-school/library", "destination": "/universe/queen-scarlet", "permanent": false },
     { "source": "/queen-scarlet-school/library/", "destination": "/universe/queen-scarlet/", "permanent": false },
     { "source": "/queen-scarlet-school/cast", "destination": "/universe/queen-scarlet/cast", "permanent": false },
-    { "source": "/queen-scarlet-school/cast/", "destination": "/universe/queen-scarlet/cast/", "permanent": false }
+    { "source": "/queen-scarlet-school/cast/", "destination": "/universe/queen-scarlet/cast/", "permanent": false },
+
+    { "source": "/winchester", "destination": "/westchester", "permanent": false },
+    { "source": "/winchester/", "destination": "/westchester/", "permanent": false },
+    { "source": "/winchester/:path*", "destination": "/westchester/:path*", "permanent": false }
   ]
 }
