@@ -648,6 +648,11 @@
     }
     loadAll();
 
+    // Auto-draw only for 'queued' (never drawn) — NOT 'error' rows. Errored
+    // rows are surfaced as "couldn't draw" tiles; user clicks "draw missing"
+    // to retry them deliberately. Without this guard, every page visit
+    // hammers the same broken items and the user can't tell that drawing
+    // ever ended.
     setTimeout(() => {
       for (const it of state.items) {
         if (it.status === 'queued') enqueueGenerate(it.id);

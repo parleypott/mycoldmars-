@@ -425,8 +425,11 @@ async function handleGenerate(body) {
   let imgMime = 'image/png';
   let errMsg = null;
   try {
+    // gemini-3.1-flash-image-preview hangs forever (direct curl 45s -> no
+    // response). gemini-2.5-flash-image returns ~2.5 MB image in ~5s.
+    // 50s timeout fits inside Node 60s maxDuration with headroom.
     const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
@@ -434,7 +437,7 @@ async function handleGenerate(body) {
           contents: [{ parts: [{ text: row.art_prompt }] }],
           generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
         }),
-        signal: AbortSignal.timeout(22_000),
+        signal: AbortSignal.timeout(50_000),
       }
     );
     if (!geminiRes.ok) {
