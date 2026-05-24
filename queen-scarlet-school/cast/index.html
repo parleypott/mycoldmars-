@@ -42,7 +42,8 @@
     }
     .brand {
       font-family: var(--ui); font-size: 18px; font-weight: 600; letter-spacing: -0.01em;
-      color: var(--paper);
+      /* Hardcoded cream — same reason as .topbar a above. */
+      color: #F4E6C4;
       text-decoration: none; display: inline-flex; align-items: center; gap: 10px;
     }
     .blob { display: inline-block; background: var(--yolk); border: 2.5px solid var(--ink-bright); border-radius: 50%; position: relative; box-shadow: 2px 2px 0 var(--ink-bright); width: 26px; height: 26px; }
@@ -51,16 +52,17 @@
     .topbar .spacer { flex: 1; }
     .topbar a, .topbar .topbtn {
       font-family: var(--ui); font-size: 14px; font-weight: 600;
-      /* --ink is the FOREGROUND token (dark on QSS cream, cream on
-         burgundy dark). Was --paper which IS the page background — on
-         burgundy that rendered teal-text-on-teal-bg, invisible. */
-      color: var(--ink); padding: 8px 14px;
+      /* Topbar bg is hardcoded dark (rgba(20,20,24,0.6) blur) on BOTH
+         worlds — so text must be hardcoded cream. Using --ink or
+         --paper tokens here breaks one world or the other because the
+         tokens flip between dark/light depending on world. */
+      color: #F4E6C4; padding: 8px 14px;
       background: rgba(255, 246, 224, 0.06);
       border: 2px solid rgba(255, 246, 224, 0.3); border-radius: 999px;
       text-decoration: none;
       min-height: 36px; display: inline-flex; align-items: center;
     }
-    .topbar a:hover, .topbar .topbtn:hover { background: rgba(255, 246, 224, 0.14); }
+    .topbar a:hover, .topbar .topbtn:hover { background: rgba(255, 246, 224, 0.16); }
 
     .page {
       flex: 1;
