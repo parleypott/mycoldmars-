@@ -6880,9 +6880,11 @@
       const name = btn.dataset.voicePreview;
       const voice = window.qssVoices?.getVoice(name) || 'matilda';
       const sample = `Hi! I'm ${name}.`;
+      // Pass the REAL test button (not a stub) so qssTTS can paint
+      // loading/playing state on it. The stub used to omit classList.toggle
+      // which crashed setBtnState() silently — making the test do nothing.
       if (window.qssTTS?.speak) {
-        const stub = { classList: { add(){}, remove(){}, contains(){return false;} }, innerHTML: '' };
-        window.qssTTS.speak(sample, stub, { voice });
+        window.qssTTS.speak(sample, btn, { voice });
       }
     });
 

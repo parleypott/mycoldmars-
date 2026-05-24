@@ -292,7 +292,14 @@ function sanitizeCard(c) {
   const name = String(c.name || '').trim();
   if (!name) return null;
   const MAX_PORTRAITS = 10;
-  const MAX_IMAGE_BYTES = 600 * 1024;
+  // Portrait base64 size cap. Nano Banana / Gemini portraits routinely hit
+  // ~2 MB base64 (≈1.5 MB binary, ~1000×1500 PNG). The previous 600 KB
+  // cap silently dropped EVERY portrait via the `continue` below — server
+  // wrote the row with portraits=[], returned 200 OK, Henry saw empty
+  // cards on every reload. THAT was the actual save-doesn't-stick bug.
+  // 3 MB raw allows ~4 MB base64; Vercel Edge body cap is 4.5 MB so the
+  // client must chunk batches (see flushCloudPush).
+  const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
   const MAX_CHAT = 200;
   const MAX_APPS = 80;
   const MAX_LEN = 1200;
@@ -302,7 +309,14 @@ function sanitizeCard(c) {
   for (const p of portraits) {
     const dataBase64 = typeof p.dataBase64 === 'string' ? p.dataBase64 : '';
     if (!dataBase64) continue;
-    if (dataBase64.length > MAX_IMAGE_BYTES * 1.4) continue;
+    if (dataBase64.length > MAX_IMAGE_BYTES * 1.4) {
+      // Loud so the next regression surfaces immediately instead of
+      // silently dropping every portrait again.
+      console.warn('[qss-cast sanitize] dropping oversize portrait', {
+        cardName: name, portraitId: p.id, bytes: dataBase64.length, cap: MAX_IMAGE_BYTES * 1.4,
+      });
+      continue;
+    }
     cleanPortraits.push({
       id: String(p.id || '').slice(0, 64) || Math.random().toString(36).slice(2, 12),
       mime: String(p.mime || 'image/png').slice(0, 32),

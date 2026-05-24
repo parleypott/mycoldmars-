@@ -2028,18 +2028,48 @@
       }
       cloudPushQueue.clear();
       if (!batch.length) return;
-      try {
-        const w = encodeURIComponent(window.QSSWorlds?.getActive?.() || 'queen-scarlet');
-        const r = await fetch(`/api/qss-cast?action=upsert-many&world=${w}`, {
-          method: 'POST', headers: HEADERS,
-          body: JSON.stringify({ cards: batch, world_slug: window.QSSWorlds?.getActive?.() || 'queen-scarlet' }),
-        });
-        if (!r.ok && r.status !== 503) {
-          // Re-queue for next attempt; transient.
-          for (const c of batch) cloudPushQueue.set((c.name || '').toLowerCase(), c);
+      // Chunk by total base64 bytes per request. Each portrait can be ~2 MB
+      // and Vercel Edge caps request bodies at ~4.5 MB. Cap each request
+      // at ~3.5 MB worth of card payload so we never get rejected for
+      // size and never silently lose a push to a 413/payload limit.
+      const BYTES_PER_REQUEST = 3.5 * 1024 * 1024;
+      const chunks = [];
+      let current = []; let currentBytes = 0;
+      for (const c of batch) {
+        let cardBytes = 0;
+        if (Array.isArray(c.portraits)) {
+          for (const p of c.portraits) cardBytes += (p?.dataBase64?.length || 0);
         }
-      } catch {
-        for (const c of batch) cloudPushQueue.set((c.name || '').toLowerCase(), c);
+        // If a single card is itself bigger than the per-request cap, send
+        // it solo — better than re-queueing forever.
+        if (cardBytes > BYTES_PER_REQUEST) {
+          if (current.length) { chunks.push(current); current = []; currentBytes = 0; }
+          chunks.push([c]);
+          continue;
+        }
+        if (currentBytes + cardBytes > BYTES_PER_REQUEST && current.length) {
+          chunks.push(current); current = []; currentBytes = 0;
+        }
+        current.push(c); currentBytes += cardBytes;
+      }
+      if (current.length) chunks.push(current);
+
+      const w = encodeURIComponent(window.QSSWorlds?.getActive?.() || 'queen-scarlet');
+      const wSlug = window.QSSWorlds?.getActive?.() || 'queen-scarlet';
+      for (const chunk of chunks) {
+        try {
+          const r = await fetch(`/api/qss-cast?action=upsert-many&world=${w}`, {
+            method: 'POST', headers: HEADERS,
+            body: JSON.stringify({ cards: chunk, world_slug: wSlug }),
+          });
+          if (!r.ok && r.status !== 503) {
+            console.warn('[cast cloud] chunk push failed', r.status, chunk.map(c => c.name));
+            for (const c of chunk) cloudPushQueue.set((c.name || '').toLowerCase(), c);
+          }
+        } catch (e) {
+          console.warn('[cast cloud] chunk push errored', e?.message, chunk.map(c => c.name));
+          for (const c of chunk) cloudPushQueue.set((c.name || '').toLowerCase(), c);
+        }
       }
     }
     function pushToCloud(card) {
