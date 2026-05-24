@@ -1427,11 +1427,16 @@
           } catch {}
         }
         // Convert lowercased-keyed blob back into display-name-keyed map
-        // for the rest of the cast page code to consume.
+        // for the rest of the cast page code to consume. Every card is
+        // migrated up-front so any downstream code can trust the shape
+        // (portraits[], primary_portrait_id, status, etc.) — prevents
+        // the "Cannot read properties of undefined (reading 'length')"
+        // crash on first render before the migration loop runs.
         const out = {};
         for (const [lk, v] of Object.entries(lcMap || {})) {
           const displayName = (v?.name || '').trim() || lk;
-          out[displayName] = v;
+          const card = migrateCard({ ...(v || {}), name: displayName });
+          if (card && card.name) out[card.name] = card;
         }
         return out;
       } catch { return {}; }
@@ -1962,7 +1967,11 @@
           ? `<div>couldn't draw yet — tap to try again</div>`
           : `<span>drawing the portrait…</span>`;
       const portraitCls = primaryReady ? '' : (hasError ? 'failed' : 'loading');
-      const more = c.portraits.length > 1 ? `<span class="ccard-portraits-count">${c.portraits.length} drawings</span>` : '';
+      // Defensive: portraits may be missing on raw cards that landed in
+      // state.cards before the migration loop ran. Default to [] so the
+      // first render never throws ".length of undefined".
+      const portraits = Array.isArray(c.portraits) ? c.portraits : [];
+      const more = portraits.length > 1 ? `<span class="ccard-portraits-count">${portraits.length} drawings</span>` : '';
       // Build the read-aloud text — name first, then current_state if any.
       // Henry hears who the character is + what they're up to right now.
       const ttsText = c.current_state ? `${c.name}. ${c.current_state}` : c.name;
