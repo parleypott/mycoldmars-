@@ -81,10 +81,16 @@
     .page-title {
       font-family: var(--ui);
       font-size: clamp(32px, 3.6vw, 48px);
-      color: var(--paper);
+      /* Both worlds' cast pages have a dark hero overlay as the body
+         background — hardcoded cream like the topbar so the title
+         reads on both. Token-based color would flip dark-on-dark on
+         one of the two themes. */
+      color: #F4E6C4;
       font-weight: 600; line-height: 1;
       letter-spacing: -0.02em;
     }
+    /* Em accent: warm amber on both worlds — yolk maps yellow on QS,
+       amber on burgundy, both legible on the dark hero. */
     .page-title em { color: var(--yolk); font-style: normal; font-weight: 600; }
     /* ─── SAVE ALL button + status ─── */
     .page-head-actions {
