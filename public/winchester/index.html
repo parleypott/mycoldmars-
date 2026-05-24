@@ -735,7 +735,7 @@ body.hide-villages .whh-village-label { display: none !important; }
         <div class="field"><label>Total bridge</label><span class="derived cost ok" id="bridgeTotal-derived">= —</span></div>
       </div>
       <div class="group">
-        <div class="group-title">The New House · Pleasantville</div>
+        <div class="group-title" id="newhouse-title">The New House</div>
         <div class="field"><label>Purchase price</label><input type="text" id="buyPrice"></div>
         <div class="field"><label>Down payment %</label><input type="text" id="downPct"></div>
         <div class="field"><div class="derived" id="downDollars-derived">= —</div></div>
@@ -753,6 +753,14 @@ body.hide-villages .whh-village-label { display: none !important; }
       </div>
       <div class="group">
         <div class="group-title">Property Tax · auto from active pin</div>
+        <div class="field">
+          <label>Quick estimate</label>
+          <div class="seg-group tax-preset-row" id="tax-preset-row">
+            <button type="button" data-pct="0.017" title="Low-tax town — Armonk, Mt. Pleasant. Big commercial tax base subsidizes residential.">Low · 1.7%</button>
+            <button type="button" data-pct="0.022" title="Typical Westchester — most villages cluster here.">Mid · 2.2%</button>
+            <button type="button" data-pct="0.027" title="High-tax town — Edgemont, Chappaqua, Ossining. Strong schools, full reval.">High · 2.7%</button>
+          </div>
+        </div>
         <div class="field">
           <label>Active pin</label>
           <select id="activePinSel" class="town-select"></select>
@@ -773,7 +781,7 @@ body.hide-villages .whh-village-label { display: none !important; }
     <div class="col">
       <h2>Results</h2>
       <div class="group">
-        <div class="group-title">Day 1 — close on Pleasantville</div>
+        <div class="group-title" id="day1-title">Day 1 — close</div>
         <div class="out-field"><span class="lbl">Down payment</span><span class="val minus" id="o-down">—</span></div>
         <div class="out-field"><span class="lbl">Mansion tax (NY)</span><span class="val minus" id="o-mansion">—</span></div>
         <div class="out-field"><span class="lbl">NY closing costs</span><span class="val minus" id="o-nyclose">—</span></div>
@@ -793,7 +801,7 @@ body.hide-villages .whh-village-label { display: none !important; }
         <div class="out-field total"><span class="lbl">Final cash position</span><span class="val" id="o-final">—</span></div>
       </div>
       <div class="group">
-        <div class="group-title">Monthly nut on Pleasantville</div>
+        <div class="group-title" id="monthly-title">Monthly nut</div>
         <div class="out-field"><span class="lbl">Mortgage P&amp;I</span><span class="val" id="m-pi">—</span></div>
         <div class="out-field"><span class="lbl">Property tax (/12)</span><span class="val" id="m-tax">—</span></div>
         <div class="out-field"><span class="lbl">Insurance (est. 0.4%/yr)</span><span class="val" id="m-ins">—</span></div>
@@ -1196,7 +1204,61 @@ termSeg.querySelectorAll('button').forEach(btn => btn.addEventListener('click', 
 }));
 
 // ===================== PROPERTY TAX (auto from active pin) =====================
-const taxState = { activePinId: null, override: 0 };
+const taxState = { activePinId: null, override: 0, presetPct: null };
+
+// Short place label from the active pin — just the village/town, used in
+// the section headers ("The New House · Pleasantville", "Day 1 — close
+// on Pleasantville", "Monthly nut on Pleasantville"). Empty when no
+// pin is selected so the titles fall back to their generic form.
+function currentPinPlaceLabel() {
+  const pin = pins.find(p => p.id === taxState.activePinId);
+  if (!pin) return '';
+  const a = pin.addrParts;
+  if (a) return a.village || a.town || a.city || a.hamlet || '';
+  return '';
+}
+
+function updateSectionTitlesForPin() {
+  const place = currentPinPlaceLabel();
+  const nh = document.getElementById('newhouse-title');
+  const d1 = document.getElementById('day1-title');
+  const mo = document.getElementById('monthly-title');
+  if (nh) nh.textContent = place ? `The New House · ${place}` : 'The New House';
+  if (d1) d1.textContent = place ? `Day 1 — close on ${place}`  : 'Day 1 — close';
+  if (mo) mo.textContent = place ? `Monthly nut on ${place}`    : 'Monthly nut';
+}
+
+// ── Quick tax-rate presets ─────────────────────────────────────────────
+// Three buttons that pre-fill the override field with purchasePrice ×
+// preset rate. Useful before dropping a pin — Johnny can sandbox a
+// budget by saying "assume low-tax town" without committing to a place.
+// The chosen preset is sticky: the override recomputes whenever
+// buyPrice changes, so adjusting purchase price keeps the same
+// scenario active. Hit any preset again to refresh; clear the override
+// to drop back to pin-driven math.
+const taxPresetRow = document.getElementById('tax-preset-row');
+if (taxPresetRow) {
+  taxPresetRow.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-pct]');
+    if (!btn) return;
+    const pct = parseFloat(btn.dataset.pct);
+    if (!isFinite(pct) || pct <= 0) return;
+    taxState.presetPct = pct;
+    applyTaxPreset();
+    // Mark this button as active and clear siblings.
+    taxPresetRow.querySelectorAll('button[data-pct]').forEach(b => b.classList.toggle('active', b === btn));
+  });
+}
+function applyTaxPreset() {
+  if (!taxState.presetPct) return;
+  const price = Math.max(0, moneyState.buyPrice || 0);
+  if (!price) return;
+  taxState.override = Math.round(price * taxState.presetPct);
+  const el = document.getElementById('propTaxOverride');
+  if (el) el.value = fmtUSD(taxState.override);
+  recalcTax();
+}
+
 
 const activePinSel = document.getElementById('activePinSel');
 function populateActivePinSelect() {
@@ -1241,10 +1303,26 @@ overrideEl.addEventListener('blur', () => {
   overrideEl.value = taxState.override > 0 ? fmtUSD(taxState.override) : '';
   recalcTax();
 });
-overrideEl.addEventListener('input', () => { taxState.override = parseNum(overrideEl.value); recalcTax(); });
+overrideEl.addEventListener('input', () => {
+  // Manual typing clears the sticky preset — Johnny picked a specific
+  // number, don't let the next buyPrice change overwrite it.
+  taxState.presetPct = null;
+  document.querySelectorAll('#tax-preset-row button[data-pct]').forEach(b => b.classList.remove('active'));
+  taxState.override = parseNum(overrideEl.value);
+  recalcTax();
+});
 overrideEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); overrideEl.blur(); } });
 
 function recalcTax() {
+  // If a preset is sticky, refresh override from current purchase price
+  // BEFORE the main computation so price edits keep the scenario live.
+  if (taxState.presetPct && moneyState.buyPrice > 0) {
+    taxState.override = Math.round(moneyState.buyPrice * taxState.presetPct);
+    const el = document.getElementById('propTaxOverride');
+    if (el && document.activeElement !== el) el.value = fmtUSD(taxState.override);
+  }
+  updateSectionTitlesForPin();
+
   const market = moneyState.buyPrice;
   const activePin = pins.find(p => p.id === taxState.activePinId);
   const muniKey = activePin?.muniKey || null;
