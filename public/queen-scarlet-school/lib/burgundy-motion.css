@@ -408,20 +408,29 @@ body[data-world="burgundy"] .welcome-hero .wh-title .wh-name {
 body[data-world="burgundy"].page-library .page-intro h1,
 body[data-world="burgundy"].page-cast .page-intro h1,
 body[data-world="burgundy"].page-cast h1,
+body[data-world="burgundy"].page-cast .page-title,
 body[data-world="burgundy"] .lib-hero h1,
 body[data-world="burgundy"] .cast-hero h1,
 body[data-world="burgundy"] .cast-hero .cast-title {
-  font-family: 'Cambo', var(--serif), Georgia, serif;
-  font-style: italic;
-  font-weight: 400;
-  font-size: clamp(34px, 4.2vw, 56px);
-  letter-spacing: -0.005em;
-  line-height: 1.05;
+  font-family: 'Cambo', var(--serif), Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  font-size: clamp(44px, 5.4vw, 76px) !important;
+  letter-spacing: -0.005em !important;
+  line-height: 1.02 !important;
   text-shadow:
-    0 2px 18px rgba(0, 0, 0, 0.75),
-    0 0 32px rgba(232, 162, 72, 0.14);
+    0 2px 22px rgba(0, 0, 0, 0.78),
+    0 0 38px rgba(232, 162, 72, 0.18) !important;
   position: relative;
   animation: burgundy-blur-in 1.4s cubic-bezier(0.7, 0, 0.2, 1) both;
+  color: var(--ink-bright, #F4E6C4) !important;
+}
+
+/* The cast title has <em>cast</em> inside — make the emphasis the amber word */
+body[data-world="burgundy"].page-cast .page-title em {
+  font-style: italic;
+  color: var(--bg-amber);
+  text-shadow: 0 0 24px rgba(232, 162, 72, 0.42);
 }
 
 /* Ambient amber under-glow on the heroes */
@@ -570,6 +579,94 @@ body[data-world="burgundy"] .composer.with-mic:focus-within {
   body[data-world="burgundy"] .story-card:not(.is-in-view) {
     opacity: 1;
   }
+}
+
+/* ─── 19. Workshop empty-state — painterly idle terminal ──────────── */
+body[data-world="burgundy"] .story-empty {
+  position: relative;
+  padding: clamp(48px, 8vh, 96px) clamp(20px, 3vw, 36px) clamp(40px, 6vh, 72px);
+  min-height: clamp(280px, 38vh, 420px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+}
+
+/* big "STANDBY" eyebrow above the kid copy — phosphor green */
+body[data-world="burgundy"] .story-empty::before {
+  content: 'RICO_MK1 :: STANDBY';
+  display: block;
+  font-family: var(--mono), 'JetBrains Mono', 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--bg-phosphor);
+  text-shadow:
+    0 0 8px rgba(91, 214, 138, 0.45),
+    0 0 18px rgba(91, 214, 138, 0.22);
+  margin-bottom: 14px;
+  opacity: 0.82;
+  animation: burgundy-standby-pulse 4.2s ease-in-out infinite;
+}
+
+/* faint amber "blueprint" frame around the empty pane content */
+body[data-world="burgundy"] .story-empty::after {
+  content: '';
+  position: absolute;
+  inset: clamp(14px, 2vh, 22px) clamp(20px, 3vw, 36px);
+  border: 1px dashed rgba(232, 162, 72, 0.16);
+  border-radius: 6px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 38%,
+      rgba(232, 162, 72, 0.06) 0%,
+      transparent 60%);
+  z-index: 0;
+  animation: burgundy-blueprint-breathe 7s ease-in-out infinite;
+}
+
+@keyframes burgundy-standby-pulse {
+  0%, 100% { opacity: 0.62; }
+  50%      { opacity: 0.92; }
+}
+
+@keyframes burgundy-blueprint-breathe {
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 1; }
+}
+
+/* The actual copy floats above the frame */
+body[data-world="burgundy"] .story-empty > div,
+body[data-world="burgundy"] .story-empty > span {
+  position: relative;
+  z-index: 1;
+}
+
+/* Headline: "Your story will appear here." — make it feel like a status, not a placeholder */
+body[data-world="burgundy"] .story-empty > div:not(.scrap-inline):not(.dragon) {
+  font-family: 'Cambo', var(--serif), Georgia, serif;
+  font-style: italic;
+  font-size: clamp(20px, 2vw, 30px);
+  color: var(--ink-bright);
+  letter-spacing: -0.005em;
+  line-height: 1.2;
+  text-wrap: balance;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+}
+
+/* Sub-line in mono ink-faint, wide */
+body[data-world="burgundy"] .story-empty .little {
+  font-family: var(--mono), 'JetBrains Mono', 'IBM Plex Mono', monospace !important;
+  font-style: normal !important;
+  font-size: 11.5px !important;
+  letter-spacing: 0.18em !important;
+  text-transform: uppercase !important;
+  color: var(--ink-faint) !important;
+  margin-top: 4px !important;
+  opacity: 0.82;
 }
 
 /* ─── 20. Print fallback — no fancy motion ─────────────────────────── */
