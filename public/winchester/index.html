@@ -149,33 +149,6 @@ body.on-map .map-panel { pointer-events: auto; }
 .scenario-select:focus { outline: none; border-color: var(--accent); }
 .tool { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; max-width: 1280px; margin: 0 auto; }
 @media (max-width: 900px) { .tool { grid-template-columns: 1fr; } }
-
-/* Paired layout — each input row aligns with its results row.
-   See the dedicated hash-router block at the bottom of the file for the
-   reason this layout uses .tool--paired instead of editing .tool directly. */
-.tool--paired { grid-auto-flow: row; align-items: stretch; row-gap: 18px; column-gap: 32px; }
-.tool--paired .group { margin: 0; }
-.tool--paired .group--input { background: rgba(254, 250, 240, 0.4); }
-.tool--paired .group--output {
-  background: rgba(245, 241, 232, 0.7);
-  border-left: 2px solid var(--accent);
-}
-.tool--paired .group--output .group-title { color: var(--accent); opacity: 0.95; }
-.tool--paired .group--footer {
-  grid-column: 1 / -1;
-  background: linear-gradient(180deg, rgba(42, 38, 32, 0.04) 0%, rgba(42, 38, 32, 0.10) 100%);
-  border-top: 2px solid var(--ink);
-  margin-top: 8px;
-}
-.tool--paired .footer-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1.2fr;
-  gap: 24px;
-  align-items: end;
-}
-@media (max-width: 900px) {
-  .tool--paired .footer-grid { grid-template-columns: 1fr; }
-}
 .col h2 {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
@@ -834,6 +807,48 @@ body.hide-villages .whh-village-label { display: none !important; }
 
 .maplibregl-ctrl-attrib { font-size: 9px !important; }
 
+/* Bike paths legend */
+#bike-legend {
+  position: fixed;
+  left: 12px;
+  bottom: 56px;
+  background: rgba(251, 249, 242, 0.96);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 8px 12px 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  font-family: 'JetBrains Mono', monospace;
+  z-index: 30;
+  pointer-events: none;
+}
+#bike-legend .bike-legend-title {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+#bike-legend .bike-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  color: var(--ink);
+  margin-top: 3px;
+}
+#bike-legend .swatch {
+  display: inline-block;
+  width: 18px;
+  height: 3px;
+  border-radius: 1px;
+  flex: 0 0 18px;
+}
+#bike-legend .swatch.dashed {
+  background-image: repeating-linear-gradient(90deg, #3A5F1E 0 5px, transparent 5px 8px) !important;
+  background-color: transparent !important;
+}
+
 /* Cinematic Blank-mode overlay — paper grain + vignette */
 #paper-overlay {
   position: fixed;
@@ -891,138 +906,104 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
     <button id="delete-scenario-btn" class="export-btn ghost" type="button" title="Delete selected scenario" style="display:none;">× Delete</button>
     <button id="export-xlsx-btn" class="export-btn" type="button">↓ Export Excel</button>
   </div>
-  <div class="tool tool--paired">
-
-    <!-- ROW 1 — Main House · Virginia -->
-    <div class="group group--input">
-      <div class="group-title">Main House · Virginia</div>
-      <div class="field"><label>Sale price</label><input type="text" id="vaSale"></div>
-      <div class="field"><label>Mortgage payoff</label><input type="text" id="vaPayoff"></div>
-      <div class="field"><label>Realtor + closing %</label><input type="text" id="vaSellPct"></div>
-      <div class="field"><label>6% of sale</label><span class="derived cost" id="mainSell-derived">= —</span></div>
-      <div class="field"><label>Repairs before sale</label><input type="text" id="vaRepairs"></div>
-      <div class="field"><label>Net to you</label><span class="derived cost ok" id="mainNet-derived">= —</span></div>
-    </div>
-    <div class="group group--output">
-      <div class="group-title">→ Main House proceeds</div>
-      <div class="out-field"><span class="lbl">Sale price</span><span class="val" id="o-main-sale">—</span></div>
-      <div class="out-field"><span class="lbl">Mortgage payoff</span><span class="val" id="o-main-payoff">—</span></div>
-      <div class="out-field"><span class="lbl">Realtor + closing</span><span class="val" id="o-main-sell">—</span></div>
-      <div class="out-field"><span class="lbl">Repairs</span><span class="val" id="o-main-repairs">—</span></div>
-      <div class="out-field total"><span class="lbl">Net to you</span><span class="val" id="o-main-net">—</span></div>
-    </div>
-
-    <!-- ROW 2 — 808 Studio · Virginia -->
-    <div class="group group--input">
-      <div class="group-title">808 Studio · Virginia</div>
-      <div class="field"><label>Sale price</label><input type="text" id="studioSale"></div>
-      <div class="field"><label>Mortgage payoff</label><input type="text" id="studioPayoff"></div>
-      <div class="field"><label>6% of sale</label><span class="derived cost" id="studioSell-derived">= —</span></div>
-      <div class="field"><label>Repairs before sale</label><input type="text" id="studioRepairs"></div>
-      <div class="field"><label>Net to you</label><span class="derived cost ok" id="studioNet-derived">= —</span></div>
-    </div>
-    <div class="group group--output">
-      <div class="group-title">→ 808 Studio proceeds</div>
-      <div class="out-field"><span class="lbl">Sale price</span><span class="val" id="o-studio-saleR">—</span></div>
-      <div class="out-field"><span class="lbl">Mortgage payoff</span><span class="val" id="o-studio-payoff">—</span></div>
-      <div class="out-field"><span class="lbl">Realtor + closing</span><span class="val" id="o-studio-sell">—</span></div>
-      <div class="out-field"><span class="lbl">Repairs</span><span class="val" id="o-studio-repairsR">—</span></div>
-      <div class="out-field total"><span class="lbl">Net to you</span><span class="val" id="o-studio-net">—</span></div>
-    </div>
-
-    <!-- ROW 3 — The Bridge -->
-    <div class="group group--input">
-      <div class="group-title">The Bridge · pre-VA-close cash</div>
-      <div class="field"><label>Liquidate stocks</label><input type="text" id="invPulled"></div>
-      <div class="field"><label>Bridge Cash (HELOC or C&amp;Z)</label><input type="text" id="bizPulled"></div>
-      <div class="field"><label>Total bridge</label><span class="derived cost ok" id="bridgeTotal-derived">= —</span></div>
-    </div>
-    <div class="group group--output">
-      <div class="group-title">→ Cash you have ready (Day 1)</div>
-      <div class="out-field"><span class="lbl">From stocks</span><span class="val" id="o-bridge-stocks">—</span></div>
-      <div class="out-field"><span class="lbl">From HELOC / C&amp;Z</span><span class="val" id="o-bridge-heloc">—</span></div>
-      <div class="out-field total"><span class="lbl">Cash ready</span><span class="val" id="o-have">—</span></div>
-      <div class="note">borrowed Day 1, repaid from VA proceeds Day N — nets to zero</div>
-    </div>
-
-    <!-- ROW 4 — The New House · NY -->
-    <div class="group group--input">
-      <div class="group-title">The New House · NY</div>
-      <div class="field"><label>Purchase price</label><input type="text" id="buyPrice"></div>
-      <div class="field"><label>Down payment %</label><input type="text" id="downPct"></div>
-      <div class="field"><div class="derived" id="downDollars-derived">= —</div></div>
-      <div class="field"><label>Mortgage rate %</label><input type="text" id="rate"></div>
-      <div class="field">
-        <label>Mortgage term</label>
-        <div class="seg-group" id="term-seg">
-          <button data-val="15">15 yr</button>
-          <button data-val="20">20 yr</button>
-          <button data-val="30" class="active">30 yr</button>
+  <div class="tool">
+    <div class="col">
+      <h2>Inputs</h2>
+      <div class="group">
+        <div class="group-title">Main House · Virginia</div>
+        <div class="field"><label>Sale price</label><input type="text" id="vaSale"></div>
+        <div class="field"><label>Mortgage payoff</label><input type="text" id="vaPayoff"></div>
+        <div class="field"><label>Realtor + closing %</label><input type="text" id="vaSellPct"></div>
+        <div class="field"><label>6% of sale</label><span class="derived cost" id="mainSell-derived">= —</span></div>
+        <div class="field"><label>Repairs before sale</label><input type="text" id="vaRepairs"></div>
+        <div class="field"><label>Net to you</label><span class="derived cost ok" id="mainNet-derived">= —</span></div>
+      </div>
+      <div class="group">
+        <div class="group-title">808 Studio · Virginia</div>
+        <div class="field"><label>Sale price</label><input type="text" id="studioSale"></div>
+        <div class="field"><label>Mortgage payoff</label><input type="text" id="studioPayoff"></div>
+        <div class="field"><label>6% of sale</label><span class="derived cost" id="studioSell-derived">= —</span></div>
+        <div class="field"><label>Repairs before sale</label><input type="text" id="studioRepairs"></div>
+        <div class="field"><label>Net to you</label><span class="derived cost ok" id="studioNet-derived">= —</span></div>
+      </div>
+      <div class="group">
+        <div class="group-title">The Bridge · pre-VA-close cash</div>
+        <div class="field"><label>Liquidate stocks</label><input type="text" id="invPulled"></div>
+        <div class="field"><label>Bridge Cash (HELOC or C&amp;Z)</label><input type="text" id="bizPulled"></div>
+        <div class="field"><label>Total bridge</label><span class="derived cost ok" id="bridgeTotal-derived">= —</span></div>
+      </div>
+      <div class="group">
+        <div class="group-title">The New House · NY</div>
+        <div class="field"><label>Purchase price</label><input type="text" id="buyPrice"></div>
+        <div class="field"><label>Down payment %</label><input type="text" id="downPct"></div>
+        <div class="field"><div class="derived" id="downDollars-derived">= —</div></div>
+        <div class="field"><label>Mortgage rate %</label><input type="text" id="rate"></div>
+        <div class="field">
+          <label>Mortgage term</label>
+          <div class="seg-group" id="term-seg">
+            <button data-val="15">15 yr</button>
+            <button data-val="20">20 yr</button>
+            <button data-val="30" class="active">30 yr</button>
+          </div>
         </div>
+        <div class="field"><label>NY closing costs</label><span class="derived cost" id="nyClosing-out">= —</span></div>
+        <div class="field"><div class="derived" id="nyClosing-breakdown">—</div></div>
       </div>
-      <div class="field"><label>NY closing costs</label><span class="derived cost" id="nyClosing-out">= —</span></div>
-      <div class="field"><div class="derived" id="nyClosing-breakdown">—</div></div>
-      <div class="field"><label>Moving + upstart costs</label><input type="text" id="moving"></div>
-      <div class="field"><div class="derived" id="moving-note">move-in, furniture, deposits, repairs to settle in</div></div>
-    </div>
-    <div class="group group--output">
-      <div class="group-title">→ Day 1 — close on NY home</div>
-      <div class="out-field"><span class="lbl">Down payment</span><span class="val minus" id="o-down">—</span></div>
-      <div class="out-field"><span class="lbl">Mansion tax (NY)</span><span class="val minus" id="o-mansion">—</span></div>
-      <div class="out-field"><span class="lbl">NY closing costs</span><span class="val minus" id="o-nyclose">—</span></div>
-      <div class="out-field"><span class="lbl">Moving + upstart</span><span class="val minus" id="o-moving">—</span></div>
-      <div class="out-field total"><span class="lbl">Cash needed</span><span class="val" id="o-needed">—</span></div>
-      <div class="out-field total"><span class="lbl">The Gap</span><span class="val" id="o-gap">—</span></div>
-      <div class="note" id="o-gap-note">—</div>
-    </div>
-
-    <!-- ROW 5 — Property Tax -->
-    <div class="group group--input">
-      <div class="group-title">Property Tax · auto from active pin</div>
-      <div class="field">
-        <label>Active pin</label>
-        <select id="activePinSel" class="town-select"></select>
+      <div class="group">
+        <div class="group-title">Property Tax · auto from active pin</div>
+        <div class="field">
+          <label>Active pin</label>
+          <select id="activePinSel" class="town-select"></select>
+        </div>
+        <div class="field"><label>Override (actual bill)</label><input type="text" id="propTaxOverride" placeholder="blank = auto-compute"></div>
+        <div class="tax-readout">
+          <span class="lbl">Detected town</span><span class="val" id="tax-town-out">—</span>
+          <span class="lbl">School district</span><span class="val" id="tax-school-out">—</span>
+          <span class="lbl">Effective rate</span><span class="val" id="tax-rate-out">—</span>
+          <span class="lbl">Assessed at (RAR)</span><span class="val" id="tax-rar-out">—</span>
+          <hr>
+          <span class="lbl">Annual tax</span><span class="val headline" id="tax-annual-out">—</span>
+          <span class="lbl">Monthly</span><span class="val mo" id="tax-monthly-out">—</span>
+        </div>
+        <div class="note" id="tax-note">—</div>
       </div>
-      <div class="field"><label>Override (actual bill)</label><input type="text" id="propTaxOverride" placeholder="blank = auto-compute"></div>
-      <div class="tax-readout">
-        <span class="lbl">Detected town</span><span class="val" id="tax-town-out">—</span>
-        <span class="lbl">School district</span><span class="val" id="tax-school-out">—</span>
-        <span class="lbl">Effective rate</span><span class="val" id="tax-rate-out">—</span>
-        <span class="lbl">Assessed at (RAR)</span><span class="val" id="tax-rar-out">—</span>
-        <hr>
-        <span class="lbl">Annual tax</span><span class="val headline" id="tax-annual-out">—</span>
-        <span class="lbl">Monthly</span><span class="val mo" id="tax-monthly-out">—</span>
+    </div>
+    <div class="col">
+      <h2>Results</h2>
+      <div class="group">
+        <div class="group-title">Day 1 — close on NY home</div>
+        <div class="out-field"><span class="lbl">Down payment</span><span class="val minus" id="o-down">—</span></div>
+        <div class="out-field"><span class="lbl">Mansion tax (NY)</span><span class="val minus" id="o-mansion">—</span></div>
+        <div class="out-field"><span class="lbl">NY closing costs</span><span class="val minus" id="o-nyclose">—</span></div>
+        <div class="out-field"><span class="lbl">Moving + upstart costs</span><span class="val minus" id="o-moving">—</span></div>
+        <div class="out-field total"><span class="lbl">Cash needed</span><span class="val" id="o-needed">—</span></div>
+        <div class="out-field"><span class="lbl">Cash you have ready</span><span class="val" id="o-have">—</span></div>
+        <div class="out-field total"><span class="lbl">The Gap</span><span class="val" id="o-gap">—</span></div>
+        <div class="note" id="o-gap-note">—</div>
       </div>
-      <div class="note" id="tax-note">—</div>
-    </div>
-    <div class="group group--output">
-      <div class="group-title">→ Monthly nut on NY home</div>
-      <div class="out-field"><span class="lbl">Mortgage P&amp;I</span><span class="val" id="m-pi">—</span></div>
-      <div class="out-field"><span class="lbl">Property tax (/12)</span><span class="val" id="m-tax">—</span></div>
-      <div class="out-field"><span class="lbl">Insurance (est. 0.4%/yr)</span><span class="val" id="m-ins">—</span></div>
-      <div class="out-field total"><span class="lbl">Total / month</span><span class="val" id="m-total">—</span></div>
-      <div class="note" id="m-meta">—</div>
-    </div>
-
-    <!-- FOOTER ROW (spans both columns) — cross-property aggregate -->
-    <div class="group group--footer">
-      <div class="group-title">Final cash position · after both VA houses sell</div>
-      <div class="footer-grid">
-        <div class="out-field"><span class="lbl">VA net proceeds (combined)</span><span class="val" id="o-vanet">—</span></div>
+      <div class="group">
+        <div class="group-title">Day N — after both VA houses sell</div>
+        <div class="out-field"><span class="lbl">Main house sale</span><span class="val" id="o-vasale">—</span></div>
+        <div class="out-field"><span class="lbl">808 Studio sale</span><span class="val" id="o-studio-sale">—</span></div>
+        <div class="out-field"><span class="lbl">Mortgage payoffs (both)</span><span class="val" id="o-vapayoff">—</span></div>
+        <div class="out-field"><span class="lbl">Realtor + closing (6%, both)</span><span class="val" id="o-vasell">—</span></div>
+        <div class="out-field"><span class="lbl">Main house repairs</span><span class="val" id="o-va-repairs">—</span></div>
+        <div class="out-field"><span class="lbl">Studio repairs</span><span class="val" id="o-studio-repairs">—</span></div>
+        <div class="out-field total"><span class="lbl">VA net proceeds</span><span class="val" id="o-vanet">—</span></div>
         <div class="out-field"><span class="lbl">Repay bridge (stocks + HELOC/C&amp;Z)</span><span class="val" id="o-repay">—</span></div>
         <div class="out-field total"><span class="lbl">Final cash position</span><span class="val" id="o-final">—</span></div>
       </div>
-      <span style="display:none" id="o-vasale">—</span>
-      <span style="display:none" id="o-studio-sale">—</span>
-      <span style="display:none" id="o-vapayoff">—</span>
-      <span style="display:none" id="o-vasell">—</span>
-      <span style="display:none" id="o-va-repairs">—</span>
-      <span style="display:none" id="o-studio-repairs">—</span>
+      <div class="group">
+        <div class="group-title">Monthly nut on NY home</div>
+        <div class="out-field"><span class="lbl">Mortgage P&amp;I</span><span class="val" id="m-pi">—</span></div>
+        <div class="out-field"><span class="lbl">Property tax (/12)</span><span class="val" id="m-tax">—</span></div>
+        <div class="out-field"><span class="lbl">Insurance (est. 0.4%/yr)</span><span class="val" id="m-ins">—</span></div>
+        <div class="out-field total"><span class="lbl">Total / month</span><span class="val" id="m-total">—</span></div>
+        <div class="note" id="m-meta">—</div>
+      </div>
     </div>
-
   </div>
 </section>
-
 
 <!-- ===================== MAP TAB ===================== -->
 <section class="tab-pane map-pane active" data-pane="map">
@@ -1039,6 +1020,7 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
       <button class="layer-btn active" data-layer="trail">Trails</button>
       <button class="layer-btn active" data-layer="bookstore">Bookstores</button>
       <button class="layer-btn active" data-layer="trainlines">Train lines</button>
+      <button class="layer-btn" data-layer="bikepaths">Bike paths</button>
       <button class="layer-btn active" data-layer="villages">Villages</button>
     </div>
     <div class="basemap-switcher" id="basemap-switcher">
@@ -1151,6 +1133,21 @@ document.querySelectorAll('.layer-btn').forEach(btn => {
       if (typeof syncSchoolVisibility === 'function') syncSchoolVisibility();
     } else if (layer === 'trainlines') {
       if (typeof syncTrainLineVisibility === 'function') syncTrainLineVisibility();
+    } else if (layer === 'bikepaths') {
+      const nowActive = btn.classList.contains('active');
+      if (nowActive && !window._bikePathsLoaded) {
+        const origText = btn.textContent;
+        btn.textContent = 'Loading…';
+        btn.disabled = true;
+        loadBikePaths().catch(err => console.error('[whh] bike paths failed', err))
+          .finally(() => {
+            btn.textContent = origText;
+            btn.disabled = false;
+            syncBikePathVisibility();
+          });
+      } else {
+        syncBikePathVisibility();
+      }
     } else {
       document.body.classList.toggle('hide-' + layer, wasActive);
     }
@@ -1164,7 +1161,7 @@ const SCENARIOS_KEY = 'whh:scenarios:v1';
 const moneyState = {
   // Main VA house — vaSellPct is combined realtor commission + closing costs (default 6%)
   vaSale: 2400000, vaPayoff: 675000, vaSellPct: 6, vaRepairs: 10000,
-  moving: 100000,
+  moving: 20000,
   // 808 Studio (second VA house) — actual loan balance from screenshot
   studioSale: 215000, studioPayoff: 167414, studioRepairs: 5000,
   // NY home
@@ -1182,8 +1179,6 @@ const moneyState = {
     if (!raw) return;
     const snap = JSON.parse(raw);
     Object.keys(moneyState).forEach(k => {
-      // one-shot: old default for moving was $20K, bump to new $100K once
-      if (k === 'moving' && snap.moving === 20000 && !snap._upstartMigratedV1) return;
       if (snap[k] != null && typeof snap[k] === typeof moneyState[k]) moneyState[k] = snap[k];
     });
     if (snap._taxOverride != null) window._pendingTaxOverride = snap._taxOverride;
@@ -1191,19 +1186,12 @@ const moneyState = {
   } catch (e) { /* ignore */ }
 })();
 
-// debounced — coalesces rapid keystrokes into a single localStorage write
-let _saveMoneyTimer = null;
 function saveMoneyState() {
-  if (_saveMoneyTimer) clearTimeout(_saveMoneyTimer);
-  _saveMoneyTimer = setTimeout(_saveMoneyStateNow, 220);
-}
-function _saveMoneyStateNow() {
   try {
     const snap = {
       ...moneyState,
       _taxOverride: (typeof taxState !== 'undefined') ? taxState.override : 0,
-      _activePinId: (typeof taxState !== 'undefined') ? taxState.activePinId : null,
-      _upstartMigratedV1: true
+      _activePinId: (typeof taxState !== 'undefined') ? taxState.activePinId : null
     };
     safeSet(MONEY_KEY, JSON.stringify(snap));
   } catch (e) { /* ignore */ }
@@ -1434,28 +1422,12 @@ function moneyRecalc() {
   document.getElementById('o-gap-note').textContent = covered
     ? 'Covered — your bridge fully funds the Day-1 close. Cushion: ' + fmtUSD(-gap) + '.'
     : 'Short. Bridge ' + fmtUSD(cashAvail) + ' covers part of ' + fmtUSD(cashNeeded) + ' needed; ' + fmtUSD(gap) + ' gap remains.';
-  // Legacy combined IDs — hidden in DOM but populated for scenarios/Excel
   setVal('o-vasale', s.vaSale, 'in');
   setVal('o-studio-sale', s.studioSale, 'in');
   setVal('o-vapayoff', vaPayoffTotal, 'out');
   setVal('o-vasell', vaSellTotal, 'out');
   setVal('o-va-repairs', s.vaRepairs, 'out');
   setVal('o-studio-repairs', s.studioRepairs, 'out');
-  // Per-house result cards (visible, aligned with each input card)
-  setVal('o-main-sale', s.vaSale, 'in');
-  setVal('o-main-payoff', s.vaPayoff, 'out');
-  setVal('o-main-sell', vaSell1, 'out');
-  setVal('o-main-repairs', s.vaRepairs, 'out');
-  setVal('o-main-net', vaNet1, vaNet1 >= 0 ? 'in-total' : 'out-total');
-  setVal('o-studio-saleR', s.studioSale, 'in');
-  setVal('o-studio-payoff', s.studioPayoff, 'out');
-  setVal('o-studio-sell', vaSell2, 'out');
-  setVal('o-studio-repairsR', s.studioRepairs, 'out');
-  setVal('o-studio-net', vaNet2, vaNet2 >= 0 ? 'in-total' : 'out-total');
-  // Bridge split (paired with Bridge input card)
-  setVal('o-bridge-stocks', s.invPulled, 'in');
-  setVal('o-bridge-heloc', s.bizPulled, 'in');
-  // Footer aggregate
   setVal('o-vanet', vaNet, 'in-total');
   setVal('o-repay', bridgeRepay, 'out');
   setVal('o-final', finalCash, finalCash >= 0 ? 'in-total' : 'out-total');
@@ -1492,7 +1464,6 @@ function setVal(id, val, kind) {
   if (kind === 'in') text = '+' + formatted;
   else if (kind === 'out') text = '−' + formatted;
   else text = (val < 0 ? '−' : '') + formatted;
-  if (!el) return; // null-safe — IDs that don't exist silently skip
   el.textContent = text;
   el.className = 'val' + (kind ? ' ' + kind : '');
 }
@@ -1502,7 +1473,6 @@ const FIELDS = {
   studioSale: { format: fmtUSD }, studioPayoff: { format: fmtUSD }, studioRepairs: { format: fmtUSD },
   buyPrice: { format: fmtUSD }, downPct: { format: fmtPct },
   rate: { format: fmtPct },
-  moving: { format: fmtUSD },
   invPulled: { format: fmtUSD }, bizPulled: { format: fmtUSD }
 };
 Object.entries(FIELDS).forEach(([key, cfg]) => {
@@ -2544,6 +2514,13 @@ map.on('load', () => {
   renderBookstoreMarkers();
   mountVillageBoundaryLayers();
   mountTrainLineLayers();
+  // Hydrate bike paths from cache (no network) so toggle is instant
+  try {
+    const cached = JSON.parse(localStorage.getItem(BIKE_KEY) || 'null');
+    if (cached?.ts && (Date.now() - cached.ts) < 30 * 24 * 3600 * 1000) {
+      mountBikePathLayers(cached.data);
+    }
+  } catch {}
   // Refine any villages that haven't been researched yet (legacy or partial)
   (async () => {
     for (const v of villages) {
@@ -2749,6 +2726,174 @@ function mountTrainLineLayers() {
   map.on('mouseleave', 'train-stops-layer', () => { map.getCanvas().style.cursor = ''; });
 
   syncTrainLineVisibility();
+}
+
+// ===================== BIKE PATHS =====================
+const BIKE_KEY = 'whh:bikepaths:v1';
+const BIKE_COLORS = {
+  mtb: '#3A5F1E',       // dark forest — rugged off-road
+  shared: '#1F8A8A',    // teal — clean paths for peds + bikes (rail-trails, greenways)
+  bike_lane: '#E8862F'  // signal orange — bike lane painted on a road shared with cars
+};
+
+function categorizeBikeWay(tags) {
+  if (!tags) return null;
+  // Mountain bike: explicit mtb tags
+  if (tags['mtb:scale'] || tags.mtb === 'yes' || tags['route'] === 'mtb') return 'mtb';
+  // Dedicated cycleway
+  if (tags.highway === 'cycleway') return 'shared';
+  // Paths that allow bikes (rail-trails, greenways)
+  if (tags.highway === 'path' && (tags.bicycle === 'designated' || tags.bicycle === 'yes')) return 'shared';
+  if (tags.highway === 'footway' && (tags.bicycle === 'designated' || tags.bicycle === 'yes')) return 'shared';
+  // Car roads with bike infrastructure
+  const carTypes = ['primary','secondary','tertiary','residential','unclassified','primary_link','secondary_link','tertiary_link'];
+  if (carTypes.includes(tags.highway)) {
+    const cw = tags.cycleway || tags['cycleway:right'] || tags['cycleway:left'] || tags['cycleway:both'];
+    if (cw && cw !== 'no' && cw !== 'none') return 'bike_lane';
+  }
+  return null;
+}
+
+async function loadBikePaths() {
+  // Cache (30 days) via safeSet — quota-safe
+  try {
+    const cached = JSON.parse(localStorage.getItem(BIKE_KEY) || 'null');
+    if (cached?.ts && (Date.now() - cached.ts) < 30 * 24 * 3600 * 1000) {
+      mountBikePathLayers(cached.data);
+      return;
+    }
+  } catch {}
+
+  const bbox = '40.88,-73.95,41.40,-73.45'; // s,w,n,e
+  const q = `[out:json][timeout:60];
+    (
+      way["highway"="cycleway"](${bbox});
+      way["highway"~"^(path|footway)$"]["bicycle"~"designated|yes"](${bbox});
+      way["mtb:scale"](${bbox});
+      way["mtb"="yes"](${bbox});
+      way["route"="mtb"](${bbox});
+      way["highway"~"^(primary|secondary|tertiary|residential|unclassified|primary_link|secondary_link|tertiary_link)$"]["cycleway"](${bbox});
+      way["highway"~"^(primary|secondary|tertiary|residential|unclassified|primary_link|secondary_link|tertiary_link)$"]["cycleway:right"](${bbox});
+      way["highway"~"^(primary|secondary|tertiary|residential|unclassified|primary_link|secondary_link|tertiary_link)$"]["cycleway:left"](${bbox});
+      way["highway"~"^(primary|secondary|tertiary|residential|unclassified|primary_link|secondary_link|tertiary_link)$"]["cycleway:both"](${bbox});
+    );
+    out geom;`;
+  const res = await fetch('https://overpass-api.de/api/interpreter', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'data=' + encodeURIComponent(q)
+  });
+  if (!res.ok) throw new Error('Overpass HTTP ' + res.status);
+  const data = await res.json();
+  const features = (data.elements || [])
+    .filter(e => e.geometry && e.geometry.length >= 2)
+    .map(e => {
+      const cat = categorizeBikeWay(e.tags || {});
+      if (!cat) return null;
+      return {
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: e.geometry.map(g => [g.lon, g.lat]) },
+        properties: { category: cat, name: (e.tags && e.tags.name) || '' }
+      };
+    })
+    .filter(Boolean);
+  const fc = { type: 'FeatureCollection', features };
+  safeSet(BIKE_KEY, JSON.stringify({ ts: Date.now(), data: fc }));
+  mountBikePathLayers(fc);
+}
+
+function mountBikePathLayers(fc) {
+  if (map.getSource('bike-paths')) {
+    map.getSource('bike-paths').setData(fc);
+  } else {
+    map.addSource('bike-paths', { type: 'geojson', data: fc });
+    map.addLayer({
+      id: 'bike-mtb',
+      type: 'line',
+      source: 'bike-paths',
+      filter: ['==', ['get', 'category'], 'mtb'],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': BIKE_COLORS.mtb,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1.2, 14, 2.4, 18, 3.8],
+        'line-dasharray': [1.4, 1.2],
+        'line-opacity': 0.88
+      }
+    });
+    map.addLayer({
+      id: 'bike-shared',
+      type: 'line',
+      source: 'bike-paths',
+      filter: ['==', ['get', 'category'], 'shared'],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': BIKE_COLORS.shared,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1.6, 14, 3.0, 18, 4.6],
+        'line-opacity': 0.88
+      }
+    });
+    map.addLayer({
+      id: 'bike-lane',
+      type: 'line',
+      source: 'bike-paths',
+      filter: ['==', ['get', 'category'], 'bike_lane'],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': BIKE_COLORS.bike_lane,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.9, 14, 1.6, 18, 2.8],
+        'line-opacity': 0.78
+      }
+    });
+    ['bike-mtb', 'bike-shared', 'bike-lane'].forEach(id => {
+      map.on('click', id, (e) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        const labels = { mtb: 'Mountain bike trail', shared: 'Shared path (bikes + peds)', bike_lane: 'Road with bike lane' };
+        new maplibregl.Popup({ closeButton: true, offset: 8, maxWidth: '260px' })
+          .setLngLat(e.lngLat)
+          .setHTML(`<div class="map-popup">
+            <div class="map-popup-kind">${labels[f.properties.category]}</div>
+            ${f.properties.name ? `<div class="map-popup-name">${escapeHtml(f.properties.name)}</div>` : ''}
+          </div>`)
+          .addTo(map);
+      });
+    });
+  }
+  window._bikePathsLoaded = true;
+  syncBikePathVisibility();
+  toggleBikeLegend();
+}
+
+function syncBikePathVisibility() {
+  ['bike-mtb', 'bike-shared', 'bike-lane'].forEach(id => {
+    if (!map.getLayer(id)) return;
+    const btn = document.querySelector('.layer-btn[data-layer="bikepaths"]');
+    const vis = (btn && btn.classList.contains('active')) ? 'visible' : 'none';
+    map.setLayoutProperty(id, 'visibility', vis);
+  });
+  toggleBikeLegend();
+}
+
+function toggleBikeLegend() {
+  let legend = document.getElementById('bike-legend');
+  const btn = document.querySelector('.layer-btn[data-layer="bikepaths"]');
+  const wantsOn = btn && btn.classList.contains('active') && window._bikePathsLoaded;
+  if (wantsOn) {
+    if (!legend) {
+      legend = document.createElement('div');
+      legend.id = 'bike-legend';
+      legend.innerHTML = `
+        <div class="bike-legend-title">BIKE PATHS</div>
+        <div class="bike-legend-row"><span class="swatch" style="background:${BIKE_COLORS.shared}"></span>Shared path (bikes + peds)</div>
+        <div class="bike-legend-row"><span class="swatch" style="background:${BIKE_COLORS.bike_lane}"></span>Road with bike lane</div>
+        <div class="bike-legend-row"><span class="swatch dashed" style="background:${BIKE_COLORS.mtb}"></span>Mountain bike trail</div>
+      `;
+      document.body.appendChild(legend);
+    }
+    legend.style.display = '';
+  } else if (legend) {
+    legend.style.display = 'none';
+  }
 }
 
 function syncTrainLineVisibility() {
@@ -3529,49 +3674,5 @@ populateActivePinSelect();
   }
 })();
 </script>
-
-<!-- ========================================================================
-     HASH PERMALINK ROUTER — DO NOT EDIT WITHOUT READING THIS COMMENT.
-     This block lives at the end of the file on purpose. Earlier attempts
-     to put hash routing inside the main TABS script were silently reverted
-     by concurrent edits to neighboring tab code FOUR separate times.
-     Keep it here. It overrides setActiveTab to make /winchester#money,
-     #map, #timeline, #notes reload-stable and shareable.
-======================================================================== -->
-<script>
-(function installHashRouter() {
-  const VALID = ['map', 'money', 'timeline', 'notes'];
-  const DEFAULT = 'map';
-  function readHash() {
-    const h = (location.hash || '').replace(/^#/, '').toLowerCase().trim();
-    return VALID.includes(h) ? h : DEFAULT;
-  }
-  function activate(tabId, fromHash) {
-    if (!VALID.includes(tabId)) tabId = DEFAULT;
-    document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === tabId));
-    document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tabId));
-    document.body.classList.toggle('on-map', tabId === 'map');
-    document.body.classList.remove('tab-map','tab-money','tab-timeline','tab-notes');
-    document.body.classList.add('tab-' + tabId);
-    if (window._whhMap) setTimeout(() => window._whhMap.resize(), 80);
-    if (!fromHash) {
-      const target = '#' + tabId;
-      if (location.hash !== target) history.replaceState(null, '', target);
-    }
-  }
-  // Override the global setActiveTab so any old-shape callers still work AND sync the URL
-  window.setActiveTab = function(tabId) { activate(tabId, false); };
-  // Rebind tab buttons to our wrapped version (in case the earlier script bound the old one)
-  document.querySelectorAll('.tab-btn').forEach(t => {
-    const fresh = t.cloneNode(true);
-    t.parentNode.replaceChild(fresh, t);
-    fresh.addEventListener('click', () => activate(fresh.dataset.tab, false));
-  });
-  window.addEventListener('hashchange', () => activate(readHash(), true));
-  // Boot: honor the hash NOW, overriding any default-tab activation that already ran
-  activate(readHash(), true);
-})();
-</script>
-
 </body>
 </html>
