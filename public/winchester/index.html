@@ -4797,7 +4797,9 @@ function openHouseQuickView(pin, idx) {
   const addr = escapeHtml(formatPinAddress(pin));
   const priceLine = c.price
     ? `<div class="qv-price">${fmtUSD(c.price)}</div>`
-    : `<div class="qv-no-price">no listing attached — upload a Compass page to get price + photos</div>`;
+    : (pin.askingPrice
+        ? `<div class="qv-price">${fmtUSD(pin.askingPrice)} <span style="font-size:10px;color:var(--muted);letter-spacing:0.16em;text-transform:uppercase;font-weight:600;">asking</span></div>`
+        : `<div class="qv-no-price">no listing attached — upload a Compass page to get price + photos</div>`);
   const statBits = [];
   if (c.beds != null) statBits.push(`<strong>${c.beds}</strong> bd`);
   if (c.baths != null) statBits.push(`<strong>${c.baths}</strong> ba`);
@@ -5120,7 +5122,7 @@ function renderAgentContext() {
         return `<div class="ag-pin-row">
           <span class="ag-pin-rank" data-rank="${p.rank || 0}">${i + 1}</span>
           <span class="ag-pin-addr" title="${escapeHtml(formatPinAddress(p))}">${escapeHtml(formatPinAddress(p))}</span>
-          <span class="ag-pin-price">${c.price ? fmtUSD(c.price) : '—'}</span>
+          <span class="ag-pin-price">${c.price ? fmtUSD(c.price) : (p.askingPrice ? fmtUSD(p.askingPrice) : '—')}</span>
         </div>`;
       }).join('')
     : '<div class="ag-empty">no homes pinned yet — drop one from the Map tab</div>';
@@ -5998,7 +6000,7 @@ function tvPinValue(p, col) {
   switch (col) {
     case 'rank': return p.rank || 0;
     case 'address': return (formatPinAddress(p) || '').toLowerCase();
-    case 'price': return c.price || 0;
+    case 'price': return c.price || p.askingPrice || 0;
     case 'beds': return c.beds != null ? c.beds : -1;
     case 'baths': return c.baths != null ? c.baths : -1;
     case 'sqft': return c.sqft != null ? c.sqft : -1;
@@ -6104,7 +6106,7 @@ function renderTable() {
         <td class="tv-expand-col"><button class="tv-expand-btn" title="Expand">▸</button></td>
         <td class="tv-rank-cell"><span class="tv-rank-chip" data-rank="${p.rank || 0}">${origIdx}</span></td>
         <td class="tv-addr-cell">${escapeHtml(formatPinAddress(p))}</td>
-        <td class="tv-price-cell">${c.price ? fmtUSD(c.price) : '<span class="tv-mute">—</span>'}</td>
+        <td class="tv-price-cell">${c.price ? fmtUSD(c.price) : (p.askingPrice ? fmtUSD(p.askingPrice) + ' <span class="tv-mute" style="font-size:9px;letter-spacing:0.12em;">asking</span>' : '<span class="tv-mute">—</span>')}</td>
         <td>${c.beds != null ? '<strong>' + c.beds + '</strong>' : '<span class="tv-mute">—</span>'}</td>
         <td>${c.baths != null ? '<strong>' + c.baths + '</strong>' : '<span class="tv-mute">—</span>'}</td>
         <td>${c.sqft != null ? Number(c.sqft).toLocaleString() : '<span class="tv-mute">—</span>'}</td>
