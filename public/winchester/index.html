@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Winchester House Hunter</title>
+<title>Westchester House Hunter</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -916,23 +916,21 @@ body.hide-villages .whh-village-label { display: none !important; }
 .whh-icon-book { border-color: #7B4FA8; }
 .whh-icon-book svg { color: #7B4FA8; fill: #7B4FA8; }
 
-/* House pin markers */
+/* House pin markers — minimalist single-color */
 .whh-marker {
   width: 26px; height: 26px;
   border-radius: 50%;
-  border: 2px solid var(--ink);
-  background: var(--rank-0);
+  border: 1.5px solid var(--ink);
+  background: #FFF;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
   color: var(--ink);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.30);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.22);
+  transition: transform 140ms ease, box-shadow 140ms ease;
 }
-.whh-marker[data-rank="5"] { background: var(--rank-5); color: #FFF; border-color: var(--rank-5); }
-.whh-marker[data-rank="4"] { background: var(--rank-4); color: #FFF; border-color: var(--rank-4); }
-.whh-marker[data-rank="3"] { background: var(--rank-3); color: var(--ink); border-color: var(--rank-3); }
-.whh-marker[data-rank="2"] { background: var(--rank-2); color: #FFF; border-color: var(--rank-2); }
-.whh-marker[data-rank="1"] { background: var(--rank-1); color: #FFF; border-color: var(--rank-1); }
+.whh-marker:hover { transform: scale(1.18); box-shadow: 0 5px 14px rgba(0,0,0,0.32); }
+.whh-marker svg { width: 14px; height: 14px; display: block; fill: currentColor; }
+.whh-marker.is-active { background: var(--ink); color: #FFF; }
 
 .maplibregl-ctrl-attrib { font-size: 9px !important; }
 
@@ -1906,7 +1904,7 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 <div id="paper-overlay" aria-hidden="true"></div>
 
 <header>
-  <div class="brand">Winchester House Hunter</div>
+  <div class="brand">Westchester House Hunter</div>
   <nav>
     <button class="tab-btn" data-tab="money">Money Mode</button>
     <button class="tab-btn active" data-tab="map">Map</button>
@@ -4770,7 +4768,8 @@ function renderMapMarkers() {
     const el = document.createElement('div');
     el.className = 'whh-marker';
     el.setAttribute('data-rank', pin.rank || 0);
-    el.textContent = idx + 1;
+    el.title = `House ${idx + 1}`;
+    el.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 11.2h2v8.3a1 1 0 0 0 1 1h5v-6h4v6h5a1 1 0 0 0 1-1v-8.3h2z"/></svg>';
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       openHouseQuickView(pin, idx + 1);
