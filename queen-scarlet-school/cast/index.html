@@ -1563,6 +1563,51 @@
       return touched;
     }
 
+    // Cloud fallback: for any portrait STILL missing dataBase64 after the
+    // IDB pass (cross-device hydration, fresh browser, evicted IDB blob),
+    // fetch its bytes from the cast API one at a time. The list endpoint
+    // returns thin metadata only (was hitting Vercel's 4.5 MB response cap
+    // and 504'ing at ~30s for cards with real portraits); this endpoint
+    // fetches one portrait blob per call so the page can selectively
+    // restore what it actually needs. Writes the result into IDB so future
+    // visits on this device skip the network entirely.
+    async function hydratePortraitsFromCloud(cards) {
+      const w = encodeURIComponent(window.QSSWorlds?.getActive?.() || 'queen-scarlet');
+      const needs = [];
+      for (const c of Object.values(cards || {})) {
+        if (!Array.isArray(c?.portraits)) continue;
+        for (const p of c.portraits) {
+          if (p?.id && !p.dataBase64) needs.push({ cardName: c.name, p });
+        }
+      }
+      if (!needs.length) return false;
+      // Fetch in parallel batches of 4 so 17 cards = ~5 round-trips not 17.
+      let touched = false;
+      const BATCH = 4;
+      for (let i = 0; i < needs.length; i += BATCH) {
+        const slice = needs.slice(i, i + BATCH);
+        const results = await Promise.allSettled(slice.map(async ({ cardName, p }) => {
+          const r = await fetch(`/api/qss-cast?action=portrait&world=${w}&name=${encodeURIComponent(cardName)}&id=${encodeURIComponent(p.id)}`, {
+            method: 'GET', headers: HEADERS,
+          });
+          if (!r.ok) throw new Error(`portrait fetch ${r.status} for ${cardName}/${p.id}`);
+          return { p, body: await r.json() };
+        }));
+        for (const res of results) {
+          if (res.status !== 'fulfilled') { try { console.warn('[cast cloud-hydrate]', res.reason?.message || res.reason); } catch {} continue; }
+          const { p, body } = res.value;
+          if (body?.dataBase64) {
+            p.dataBase64 = body.dataBase64;
+            p.mime = p.mime || body.mime || 'image/png';
+            touched = true;
+            // Persist into IDB so future loads are instant.
+            try { await castIdb.put({ id: p.id, mime: p.mime, dataBase64: p.dataBase64 }); } catch {}
+          }
+        }
+      }
+      return touched;
+    }
+
     // readLS / writeLS contract:
     //   - LS is keyed by LOWERCASED character name (cross-story dedup).
     //   - state.cards is keyed by DISPLAY name (unchanged from prior code
@@ -2292,6 +2337,20 @@
         writeLS();
         render();
       }
+
+      // 2b) Cross-device hydration. Cloud GET now returns thin portraits
+      //     (no dataBase64) so the list doesn't 504. For any portrait the
+      //     cloud knows about but IDB doesn't have, fetch the bytes
+      //     individually. Skips portraits we already restored from
+      //     IDB/local-bytes. Writes results into IDB so future loads
+      //     skip the network. Without this step, every cross-device
+      //     visit would see cards-with-metadata-but-no-bytes, hit the
+      //     orphan-recovery branch, and redraw from scratch — the same
+      //     symptom as the original 15-time bug.
+      try {
+        const touched = await hydratePortraitsFromCloud(state.cards);
+        if (touched) { writeLS(); render(); }
+      } catch (e) { try { console.warn('[cast cloud-hydrate] failed', e); } catch {} }
       snapshotAllPortraitCounts('after cloud pull + restore');
 
       // 3) Orphan recovery — but ONLY for cards that have portrait

@@ -229,8 +229,29 @@
   </style>
   <script src="/queen-scarlet-school/lib/worlds.js"></script>
   <link rel="stylesheet" href="/queen-scarlet-school/lib/themes.css" />
+  <script>
+    // Apply world theming BEFORE first paint so the page never flashes
+    // QSS sticker style on a Burgundy URL.
+    (function () {
+      try {
+        var world = (location.pathname.match(/^\/universe\/([a-z0-9-]+)/i) || [])[1]
+                 || (window.QSSWorlds && window.QSSWorlds.getActive && window.QSSWorlds.getActive())
+                 || 'queen-scarlet';
+        document.documentElement.dataset.world = world;
+      } catch (e) {}
+    })();
+  </script>
 </head>
-<body>
+<body data-world="burgundy" class="page-explore">
+  <script>
+    // Read world from URL so this works for any world (not just burgundy)
+    (function () {
+      try {
+        var m = location.pathname.match(/^\/universe\/([a-z0-9-]+)/i);
+        if (m) document.body.dataset.world = m[1];
+      } catch (e) {}
+    })();
+  </script>
   <header class="topbar">
     <a href="/" class="brand"><span class="blob"></span>mycoldmars</a>
     <span class="spacer"></span>

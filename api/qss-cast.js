@@ -61,7 +61,10 @@ export default async function handler(req) {
   const world = sanitizeWorldSlug(url.searchParams.get('world') || url.searchParams.get('world_slug'));
 
   try {
-    if (req.method === 'GET') return await handleList(world);
+    if (req.method === 'GET') {
+      if (action === 'portrait') return await handlePortrait(url, world);
+      return await handleList(world);
+    }
     if (req.method === 'POST') {
       const body = await req.json().catch(() => ({}));
       const bodyWorld = sanitizeWorldSlug(body?.world_slug || body?.world || world);
@@ -103,8 +106,46 @@ async function handleList(world) {
       throw e;
     }
   }
-  const characters = (rows || []).map(r => rowToCard(r));
+  // STRIP portrait bytes from the list response. Each portrait can be ~2 MB
+  // base64; 17 cards × 2 portraits each = ~70 MB which times-out Vercel
+  // Edge (504). Client gets thin metadata and lazily fetches portrait bytes
+  // via /api/qss-cast?action=portrait&name=X&id=Y when IDB doesn't have
+  // them. Pages on the same device hit IDB and never need the network.
+  const characters = (rows || []).map(r => {
+    const card = rowToCard(r);
+    card.portraits = (card.portraits || []).map(p => ({
+      id: p.id,
+      mime: p.mime || 'image/png',
+      generated_at: p.generated_at || Date.now(),
+      note: p.note || '',
+      loved: !!p.loved,
+      // dataBase64 omitted — fetch on demand via action=portrait
+    }));
+    return card;
+  });
   return jsonOk({ characters });
+}
+
+// Fetch a single portrait's bytes for lazy cross-device hydration. Cheap —
+// one row select, one portrait, one ~2 MB response. Client only calls this
+// when IDB doesn't have the bytes.
+async function handlePortrait(url, world) {
+  const name = (url.searchParams.get('name') || '').trim();
+  const id = (url.searchParams.get('id') || '').trim();
+  if (!name || !id) return jsonError(400, 'BAD_REQUEST', 'name and id are required');
+  const key = name.toLowerCase();
+  const worldFilter = world === 'queen-scarlet'
+    ? `or=(world_slug.eq.queen-scarlet,world_slug.is.null)`
+    : `world_slug=eq.${encodeURIComponent(world)}`;
+  const rows = await sb('GET', `qss_cast?select=portraits&name_key=eq.${encodeURIComponent(key)}&${worldFilter}&limit=1`);
+  const row = Array.isArray(rows) && rows[0] ? rows[0] : null;
+  if (!row) return jsonError(404, 'NOT_FOUND', 'card not found');
+  const p = Array.isArray(row.portraits) ? row.portraits.find(p => p?.id === id) : null;
+  if (!p || !p.dataBase64) return jsonError(404, 'NO_PORTRAIT', 'portrait not found or missing bytes');
+  return jsonOk({
+    id: p.id, mime: p.mime || 'image/png', dataBase64: p.dataBase64,
+    generated_at: p.generated_at || Date.now(), note: p.note || '', loved: !!p.loved,
+  });
 }
 
 async function handleUpsert(body, world) {
