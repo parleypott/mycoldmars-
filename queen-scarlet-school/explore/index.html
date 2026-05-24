@@ -1,0 +1,923 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Explore the World — Puppy Town</title>
+<meta name="theme-color" content="#0F1E26" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Cambo&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+<script src="/queen-scarlet-school/lib/worlds.js"></script>
+<link rel="stylesheet" href="/queen-scarlet-school/lib/themes.css" />
+
+<style>
+  /* ────────── base tokens (mirrors Burgundy aesthetic) ────────── */
+  :root {
+    --paper:      #FFF6E0;
+    --paper-card: #FFFCF3;
+    --ink:        #1F1F23;
+    --ink-bright: #000000;
+    --ink-soft:   #5A5A60;
+    --ink-faint:  #8A8A92;
+    --red:        #E84545;
+    --yolk:       #FFD93D;
+    --display:    'Sailing Club', 'Druk Wide', 'Impact', sans-serif;
+    --serif:      'Cambo', Georgia, serif;
+    --mono:       'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+    --ui:         system-ui, -apple-system, sans-serif;
+    --ease:       cubic-bezier(0.7, 0, 0.2, 1);
+    --ease-soft:  cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  body[data-world="burgundy"] {
+    --paper:       #0F1E26;
+    --paper-card:  #1A2D38;
+    --paper-deep:  #081218;
+    --paper-soft:  #213846;
+    --ink:         #E8D9B8;
+    --ink-bright:  #F4E6C4;
+    --ink-soft:    #B8A582;
+    --ink-faint:   #7A6E5C;
+    --red:         #B8443A;
+    --yolk:        #E8A248;
+    --bg-amber:    #E8A248;
+    --bg-cream:    #F4E6C4;
+    --bg-bronze-top: #D89A4A;
+    --bg-bronze-mid: #A86E26;
+    --bg-bronze-low: #5C3712;
+    --bg-iron-top: rgba(36, 56, 68, 0.92);
+    --bg-iron-mid: rgba(20, 36, 46, 0.96);
+    --bg-iron-low: rgba(8, 18, 24, 0.98);
+    --bg-phosphor: #5BD68A;
+    --bg-burgundy: #B8443A;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--ui);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  body[data-world="burgundy"] {
+    background:
+      radial-gradient(circle at 80% 20%, rgba(232,162,72,0.04) 0%, transparent 40%),
+      radial-gradient(circle at 15% 85%, rgba(91,214,138,0.03) 0%, transparent 50%),
+      linear-gradient(160deg, #0F1E26 0%, #050B10 100%);
+  }
+  /* painterly hero bg layer */
+  body[data-world="burgundy"]::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: url('/queen-scarlet-school/worlds/burgundy/palace-exterior.jpg') center/cover no-repeat;
+    opacity: 0.18;
+    filter: blur(2px) brightness(0.75);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body[data-world="burgundy"]::after {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      linear-gradient(180deg,
+        rgba(8,18,24,0.86) 0%,
+        rgba(8,18,24,0.78) 50%,
+        rgba(8,18,24,0.94) 100%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='9'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.88  0 0 0 0 0.72  0 0 0 0.42 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    background-size: cover, 160px 160px;
+    background-repeat: no-repeat, repeat;
+    mix-blend-mode: normal;
+    pointer-events: none;
+    z-index: 1;
+    animation: explore-grain 6.2s ease-in-out infinite;
+  }
+  @keyframes explore-grain {
+    0%, 100% { opacity: 0.95; }
+    50%      { opacity: 1; }
+  }
+
+  main {
+    position: relative;
+    z-index: 2;
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: clamp(20px, 3vh, 40px) clamp(20px, 3vw, 48px) 120px;
+  }
+
+  /* ────────── topbar ────────── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 6px 0 22px;
+    border-bottom: 1px dashed rgba(232,162,72,0.18);
+    margin-bottom: clamp(28px, 5vh, 56px);
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--ink-bright);
+    text-decoration: none;
+  }
+  .brand .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--yolk);
+    box-shadow: 0 0 12px rgba(232,162,72,0.55);
+  }
+  .nav-links {
+    display: flex; gap: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  .nav-links a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    padding: 6px 10px;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    transition: color .2s, border-color .2s, background .2s;
+  }
+  .nav-links a:hover {
+    color: var(--ink-bright);
+    border-color: rgba(232,162,72,0.35);
+    background: rgba(232,162,72,0.06);
+  }
+  .nav-links a.active {
+    color: var(--yolk);
+    border-color: rgba(232,162,72,0.55);
+    background: rgba(232,162,72,0.10);
+  }
+
+  /* ────────── hero ────────── */
+  .hero {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 32px;
+    align-items: end;
+    padding-bottom: 28px;
+    margin-bottom: clamp(28px, 4vh, 48px);
+    border-bottom: 1px dashed rgba(232,162,72,0.14);
+    animation: hero-blur-in 1.4s var(--ease) both;
+  }
+  @keyframes hero-blur-in {
+    0%   { filter: blur(12px); opacity: 0; transform: translateY(10px); }
+    100% { filter: blur(0); opacity: 1; transform: translateY(0); }
+  }
+  .hero .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--yolk);
+    text-shadow: 0 0 12px rgba(232,162,72,0.42);
+    margin: 0 0 12px;
+  }
+  .hero h1 {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(40px, 5vw, 76px);
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    color: var(--ink-bright);
+    margin: 0 0 12px;
+    text-wrap: balance;
+    text-shadow: 0 2px 22px rgba(0,0,0,0.7), 0 0 36px rgba(232,162,72,0.14);
+  }
+  .hero h1 em { color: var(--yolk); font-style: italic; text-shadow: 0 0 26px rgba(232,162,72,0.5); }
+  .hero .lede {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(16px, 1.2vw, 20px);
+    line-height: 1.4;
+    color: var(--ink);
+    max-width: 56ch;
+    margin: 0;
+    text-wrap: pretty;
+  }
+  .stats {
+    display: flex; flex-direction: column; gap: 8px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    text-align: right;
+  }
+  .stats .stat-row { display: flex; align-items: baseline; gap: 8px; justify-content: flex-end; }
+  .stats .num {
+    font-family: var(--display), var(--serif);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--ink-bright);
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums lining-nums;
+    min-width: 2ch; text-align: right;
+  }
+  .stats .loved .num   { color: var(--yolk); text-shadow: 0 0 14px rgba(232,162,72,0.42); }
+  .stats .dropped .num { color: var(--red);  text-shadow: 0 0 14px rgba(184,68,58,0.32); }
+
+  /* ────────── layout: grid + side rail ────────── */
+  .work {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: clamp(20px, 2.4vw, 36px);
+    align-items: start;
+  }
+  @media (max-width: 1100px) {
+    .work { grid-template-columns: 1fr; }
+  }
+
+  /* ────────── image grid ────────── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 18px;
+  }
+  .tile {
+    position: relative;
+    background: rgba(15,30,38,0.62);
+    border: 1px solid rgba(232,217,184,0.14);
+    border-radius: 4px;
+    overflow: hidden;
+    aspect-ratio: 1 / 1;
+    cursor: pointer;
+    transition: transform .35s var(--ease-soft), border-color .25s, box-shadow .3s;
+    box-shadow:
+      inset 1px 1px 0 rgba(232,162,72,0.10),
+      inset -1px -1px 0 rgba(0,0,0,0.55),
+      0 4px 16px rgba(0,0,0,0.45);
+    animation: tile-in 0.9s var(--ease-soft) both;
+  }
+  .tile:nth-child(2)  { animation-delay: 0.05s; }
+  .tile:nth-child(3)  { animation-delay: 0.10s; }
+  .tile:nth-child(4)  { animation-delay: 0.15s; }
+  .tile:nth-child(5)  { animation-delay: 0.20s; }
+  .tile:nth-child(6)  { animation-delay: 0.25s; }
+  .tile:nth-child(7)  { animation-delay: 0.30s; }
+  .tile:nth-child(8)  { animation-delay: 0.35s; }
+  .tile:nth-child(n+9){ animation-delay: 0.40s; }
+  @keyframes tile-in {
+    0%   { opacity: 0; transform: scale(0.92) translateY(14px); filter: blur(6px); }
+    60%  { opacity: 1; transform: scale(1.015) translateY(-2px); filter: blur(0); }
+    100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+  }
+  .tile:hover {
+    transform: translateY(-4px) scale(1.02);
+    border-color: rgba(232,162,72,0.55);
+    box-shadow:
+      inset 1px 1px 0 rgba(232,162,72,0.22),
+      inset -1px -1px 0 rgba(0,0,0,0.55),
+      0 14px 38px rgba(0,0,0,0.6),
+      0 0 30px rgba(232,162,72,0.22);
+  }
+  .tile img {
+    display: block;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transition: transform .6s var(--ease), filter .35s;
+  }
+  .tile:hover img { transform: scale(1.06); filter: brightness(1.06) contrast(1.04); }
+  .tile .scrim {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg,
+      transparent 0%,
+      transparent 55%,
+      rgba(8,18,24,0.84) 100%);
+    pointer-events: none;
+  }
+  .tile .meta {
+    position: absolute; left: 12px; right: 12px; bottom: 10px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--ink-bright);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    pointer-events: none;
+  }
+  .tile .meta .tag-row {
+    color: var(--ink-faint);
+    font-size: 8.5px;
+    letter-spacing: 0.22em;
+    margin-top: 2px;
+  }
+
+  /* thumb actions */
+  .actions {
+    position: absolute; top: 10px; right: 10px;
+    display: flex; gap: 6px;
+    opacity: 0;
+    transition: opacity .25s;
+    z-index: 2;
+  }
+  .tile:hover .actions,
+  .tile.is-loved .actions,
+  .tile.is-dropped .actions { opacity: 1; }
+  .thumb {
+    width: 36px; height: 36px;
+    border-radius: 4px;
+    background: rgba(8,18,24,0.82);
+    border: 1px solid rgba(232,162,72,0.32);
+    color: var(--ink-bright);
+    font-size: 16px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: transform .2s var(--ease-soft), background .25s, border-color .25s, box-shadow .25s;
+    backdrop-filter: blur(8px);
+  }
+  .thumb:hover {
+    transform: scale(1.12) rotate(-3deg);
+    border-color: var(--yolk);
+    box-shadow: 0 0 16px rgba(232,162,72,0.42);
+  }
+  .thumb.up.pressed,
+  .tile.is-loved .thumb.up {
+    background: rgba(232,162,72,0.92);
+    border-color: var(--yolk);
+    color: #0F1E26;
+    box-shadow: 0 0 22px rgba(232,162,72,0.6);
+  }
+  .thumb.down.pressed,
+  .tile.is-dropped .thumb.down {
+    background: rgba(184,68,58,0.92);
+    border-color: var(--red);
+    color: #FFFCF3;
+    box-shadow: 0 0 22px rgba(184,68,58,0.5);
+  }
+
+  /* loved badge */
+  .tile.is-loved {
+    border-color: rgba(232,162,72,0.55);
+    box-shadow:
+      inset 1px 1px 0 rgba(232,162,72,0.18),
+      inset -1px -1px 0 rgba(0,0,0,0.55),
+      0 6px 22px rgba(0,0,0,0.5),
+      0 0 26px rgba(232,162,72,0.22);
+  }
+  .tile.is-loved::after {
+    content: '★';
+    position: absolute; top: 8px; left: 12px;
+    color: var(--yolk);
+    font-size: 16px;
+    text-shadow: 0 0 12px rgba(232,162,72,0.7);
+    animation: star-pop 0.6s var(--ease-soft);
+  }
+  @keyframes star-pop {
+    0%   { transform: scale(0) rotate(-60deg); opacity: 0; }
+    60%  { transform: scale(1.4) rotate(8deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+  .tile.is-dropped { opacity: 0.4; filter: saturate(0.4); }
+
+  /* ────────── side rail — "what we're training" ────────── */
+  .rail {
+    position: sticky;
+    top: 20px;
+    align-self: start;
+    display: flex; flex-direction: column;
+    gap: 18px;
+  }
+  .panel {
+    background: rgba(15,30,38,0.72);
+    border: 1px solid rgba(232,162,72,0.20);
+    border-radius: 4px;
+    padding: 20px 22px;
+    box-shadow:
+      inset 1px 1px 0 rgba(232,162,72,0.10),
+      inset -1px -1px 0 rgba(0,0,0,0.55),
+      0 6px 22px rgba(0,0,0,0.45);
+    backdrop-filter: blur(8px);
+  }
+  .panel .panel-eyebrow {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--bg-phosphor);
+    text-shadow: 0 0 10px rgba(91,214,138,0.35);
+    margin: 0 0 4px;
+  }
+  .panel h3 {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 22px;
+    color: var(--ink-bright);
+    margin: 0 0 16px;
+    letter-spacing: -0.005em;
+  }
+  .panel p {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--ink);
+    margin: 0 0 12px;
+  }
+
+  /* loved corpus mini-grid */
+  .loved-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    margin-bottom: 14px;
+    min-height: 60px;
+  }
+  .loved-grid img {
+    width: 100%; aspect-ratio: 1/1;
+    object-fit: cover;
+    border-radius: 2px;
+    border: 1px solid rgba(232,162,72,0.32);
+    animation: mini-pop 0.5s var(--ease-soft) both;
+  }
+  @keyframes mini-pop {
+    0% { opacity: 0; transform: scale(0.7); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  .loved-empty {
+    grid-column: 1 / -1;
+    padding: 14px 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    text-align: center;
+    border: 1px dashed rgba(232,162,72,0.22);
+    border-radius: 4px;
+  }
+
+  /* tag cloud */
+  .tag-cloud {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-bottom: 16px;
+    min-height: 28px;
+  }
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 2px;
+    border: 1px solid rgba(232,162,72,0.32);
+    color: var(--ink-bright);
+    background: rgba(232,162,72,0.08);
+    transition: transform .2s var(--ease-soft);
+  }
+  .tag:hover { transform: scale(1.08); }
+  .tag.hot { background: rgba(232,162,72,0.22); border-color: var(--yolk); }
+  .tag.empty {
+    color: var(--ink-faint); border-style: dashed;
+    background: transparent;
+  }
+
+  /* style block preview */
+  .style-preview {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    background: rgba(8,18,24,0.6);
+    border-left: 2px solid var(--yolk);
+    padding: 12px 14px;
+    border-radius: 2px;
+    max-height: 220px;
+    overflow-y: auto;
+    margin-bottom: 14px;
+    white-space: pre-wrap;
+  }
+  .style-preview strong { color: var(--yolk); }
+
+  /* CTA buttons */
+  .cta {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    padding: 14px 22px;
+    background: linear-gradient(180deg, var(--bg-bronze-top), var(--bg-bronze-mid));
+    color: #0F1E26;
+    border: 1px solid var(--yolk);
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow:
+      inset 1px 1px 0 rgba(255,255,255,0.18),
+      inset -1px -1px 0 rgba(0,0,0,0.32),
+      0 4px 14px rgba(0,0,0,0.4),
+      0 0 22px rgba(232,162,72,0.22);
+    text-decoration: none;
+    transition: transform .15s var(--ease-soft), box-shadow .2s;
+    width: 100%;
+  }
+  .cta:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 1px 1px 0 rgba(255,255,255,0.28),
+      inset -1px -1px 0 rgba(0,0,0,0.32),
+      0 10px 24px rgba(0,0,0,0.5),
+      0 0 32px rgba(232,162,72,0.42);
+  }
+  .cta:active { transform: translateY(1px); box-shadow: inset 0 2px 8px rgba(0,0,0,0.4); }
+  .cta.ghost {
+    background: transparent;
+    color: var(--ink-bright);
+    border-color: rgba(232,162,72,0.55);
+    box-shadow: none;
+  }
+  .cta.ghost:hover { background: rgba(232,162,72,0.10); box-shadow: 0 0 18px rgba(232,162,72,0.22); }
+  .cta .arrow { font-size: 14px; letter-spacing: 0; }
+
+  /* generating overlay */
+  .gen-status {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--bg-phosphor);
+    margin-top: 12px;
+    display: flex; align-items: center; gap: 8px;
+    min-height: 14px;
+  }
+  .gen-status .pulse {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--bg-phosphor);
+    box-shadow: 0 0 10px rgba(91,214,138,0.6);
+    animation: phosphor-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes phosphor-pulse {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50%      { opacity: 1; transform: scale(1.4); }
+  }
+
+  /* tag panel collapse on mobile */
+  @media (max-width: 1100px) {
+    .rail { position: static; }
+  }
+
+  /* reduced-motion safety */
+  @media (prefers-reduced-motion: reduce) {
+    .tile, .loved-grid img, .hero, * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+
+<body data-world="burgundy" class="page-explore">
+
+<main>
+
+  <nav class="topbar">
+    <a class="brand" href="/universe">
+      <span class="dot"></span>
+      <span>MYCOLDMARS</span>
+    </a>
+    <div class="nav-links">
+      <a href="/universe/burgundy">Library</a>
+      <a href="/universe/burgundy/write">Write</a>
+      <a href="/universe/burgundy/cast">Cast</a>
+      <a href="/universe/burgundy/explore" class="active">Explore</a>
+      <a href="/universe">Worlds</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div>
+      <p class="eyebrow">PUPPY TOWN :: TASTE LAB</p>
+      <h1>train this world's <em>eye</em>.</h1>
+      <p class="lede">thumbs up the images that feel right. we'll keep showing you more of that — and every new character, every new scene we paint will lean toward what you loved.</p>
+    </div>
+    <div class="stats" id="stats">
+      <div class="stat-row loved"><span class="num" id="stat-loved">0</span><span>loved</span></div>
+      <div class="stat-row dropped"><span class="num" id="stat-dropped">0</span><span>dropped</span></div>
+      <div class="stat-row"><span class="num" id="stat-total">13</span><span>seeded</span></div>
+    </div>
+  </section>
+
+  <section class="work">
+
+    <!-- left: image grid -->
+    <div class="grid" id="grid"></div>
+
+    <!-- right rail: what we're training -->
+    <aside class="rail">
+
+      <div class="panel">
+        <p class="panel-eyebrow">RICO_MK1 :: LIVE CANON</p>
+        <h3>what you've taught us so far</h3>
+        <div class="loved-grid" id="loved-grid"></div>
+        <div class="tag-cloud" id="tag-cloud"></div>
+        <p style="color: var(--ink-faint); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;">
+          tags derive from the images you've kept. heavier tag → more weight in the next round.
+        </p>
+      </div>
+
+      <div class="panel">
+        <p class="panel-eyebrow">STYLE PROMPT</p>
+        <h3>what we'll tell the painter</h3>
+        <div class="style-preview" id="style-preview"></div>
+        <button class="cta" id="btn-generate" type="button">
+          <span class="arrow">▶</span>
+          <span>paint more like this</span>
+        </button>
+        <button class="cta ghost" id="btn-reset" type="button" style="margin-top: 10px;">
+          <span>reset taste</span>
+        </button>
+        <div class="gen-status" id="gen-status"></div>
+      </div>
+
+    </aside>
+
+  </section>
+
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  // ─── world detection ──────────────────────────────────────────────
+  const world = (window.QSSWorlds && QSSWorlds.getActive()) || 'burgundy';
+  document.body.dataset.world = world;
+
+  // ─── seed images per world ────────────────────────────────────────
+  const SEEDS = {
+    burgundy: [
+      { id: 'palace-exterior',     src: '/queen-scarlet-school/worlds/burgundy/palace-exterior.jpg',     title: 'palace exterior',     tags: ['palace','architecture','exterior','lamplight'] },
+      { id: 'throne-room-siege',   src: '/queen-scarlet-school/worlds/burgundy/throne-room-siege.jpg',   title: 'throne room',         tags: ['throne','interior','siege','chiaroscuro'] },
+      { id: 'tribute-drop',        src: '/queen-scarlet-school/worlds/burgundy/tribute-drop.jpg',        title: 'tribute drop',        tags: ['ritual','crowd','offering','sienna'] },
+      { id: 'peasant-miners',      src: '/queen-scarlet-school/worlds/burgundy/peasant-miners.jpg',      title: 'peasant miners',      tags: ['miners','people','peasants','lanterns'] },
+      { id: 'mining-rico',         src: '/queen-scarlet-school/worlds/burgundy/mining-rico.jpg',         title: 'mining rico',         tags: ['rico','machinery','mining','iron-giant'] },
+      { id: 'battle-rico',         src: '/queen-scarlet-school/worlds/burgundy/battle-rico.jpg',         title: 'battle rico',         tags: ['rico','battle','machinery','combat'] },
+      { id: 'puppy-king',          src: '/queen-scarlet-school/worlds/burgundy/puppy-king.jpg',          title: 'the puppy king',      tags: ['puppy','royalty','portrait','character'] },
+      { id: 'the-queen',           src: '/queen-scarlet-school/worlds/burgundy/the-queen.jpg',           title: 'the queen',           tags: ['queen','royalty','portrait','character'] },
+      { id: 'space-pirate-captain',src: '/queen-scarlet-school/worlds/burgundy/space-pirate-captain.jpg',title: 'space pirate captain',tags: ['pirate','captain','character','sci-fi'] },
+      { id: 'smuggler-ship',       src: '/queen-scarlet-school/worlds/burgundy/smuggler-ship.jpg',       title: 'smuggler ship',       tags: ['ship','sci-fi','vehicle','smuggler'] },
+      { id: 'msdos-terminal',      src: '/queen-scarlet-school/worlds/burgundy/msdos-terminal-closeup.jpg', title: 'msdos terminal',   tags: ['terminal','crt','phosphor','closeup'] },
+      { id: 'burgundy-portrait',   src: '/queen-scarlet-school/worlds/burgundy/burgundy-portrait.jpg',   title: 'burgundy (the king)', tags: ['king','portrait','dog','character'] },
+      { id: 'planet-hero',         src: '/queen-scarlet-school/worlds/burgundy/planet-hero.jpg',         title: 'planet hero',         tags: ['planet','exterior','space','establishing'] },
+    ]
+  };
+
+  // ─── storage ──────────────────────────────────────────────────────
+  const LS_LOVED   = `qss:${world}:loved`;
+  const LS_DROPPED = `qss:${world}:dropped`;
+  const LS_POOL    = `qss:${world}:pool`;
+
+  function load(key, fallback) {
+    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+    catch { return fallback; }
+  }
+  function save(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+  }
+
+  let lovedIds   = new Set(load(LS_LOVED,   []));
+  let droppedIds = new Set(load(LS_DROPPED, []));
+  let pool       = load(LS_POOL, null);
+  if (!pool || !Array.isArray(pool) || pool.length === 0) {
+    pool = (SEEDS[world] || SEEDS.burgundy).slice();
+    save(LS_POOL, pool);
+  } else {
+    // ensure any newly added seeds get merged in
+    const ids = new Set(pool.map(p => p.id));
+    const fresh = (SEEDS[world] || SEEDS.burgundy).filter(s => !ids.has(s.id));
+    if (fresh.length) {
+      pool = pool.concat(fresh);
+      save(LS_POOL, pool);
+    }
+  }
+
+  // ─── render grid ──────────────────────────────────────────────────
+  const grid = document.getElementById('grid');
+  function renderGrid() {
+    grid.innerHTML = pool.map((img, i) => {
+      const loved   = lovedIds.has(img.id);
+      const dropped = droppedIds.has(img.id);
+      const cls = loved ? 'is-loved' : (dropped ? 'is-dropped' : '');
+      return `
+        <article class="tile ${cls}" data-id="${img.id}" tabindex="0" aria-label="${img.title}">
+          <img src="${img.src}" alt="${img.title}" loading="lazy" decoding="async" />
+          <div class="scrim"></div>
+          <div class="actions">
+            <button class="thumb down" data-action="down" title="drop">✕</button>
+            <button class="thumb up"   data-action="up"   title="love">★</button>
+          </div>
+          <div class="meta">
+            <div>${img.title}</div>
+            <div class="tag-row">${img.tags.slice(0,3).join(' · ')}</div>
+          </div>
+        </article>
+      `;
+    }).join('');
+    refreshSidebar();
+  }
+
+  function refreshSidebar() {
+    // stats
+    document.getElementById('stat-loved').textContent   = lovedIds.size;
+    document.getElementById('stat-dropped').textContent = droppedIds.size;
+    document.getElementById('stat-total').textContent   = pool.length;
+
+    // loved mini-grid
+    const lovedGrid = document.getElementById('loved-grid');
+    const lovedImgs = pool.filter(p => lovedIds.has(p.id)).slice(0, 12);
+    if (lovedImgs.length === 0) {
+      lovedGrid.innerHTML = `<div class="loved-empty">no loves yet — start tapping ★</div>`;
+    } else {
+      lovedGrid.innerHTML = lovedImgs.map(p => `<img src="${p.src}" alt="${p.title}" title="${p.title}" />`).join('');
+    }
+
+    // tag cloud — weighted
+    const tagCounts = {};
+    pool.forEach(p => {
+      if (lovedIds.has(p.id)) p.tags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
+    });
+    const tags = Object.entries(tagCounts).sort((a,b) => b[1]-a[1]);
+    const tagCloud = document.getElementById('tag-cloud');
+    if (tags.length === 0) {
+      tagCloud.innerHTML = `<span class="tag empty">tags appear here</span>`;
+    } else {
+      const max = tags[0][1];
+      tagCloud.innerHTML = tags.map(([t, c]) => {
+        const hot = c >= max ? 'hot' : '';
+        return `<span class="tag ${hot}" title="${c} loved">${t} ${c>1?`<strong style="opacity:0.6;">·${c}</strong>`:''}</span>`;
+      }).join('');
+    }
+
+    // style prompt preview
+    const stylePrev = document.getElementById('style-preview');
+    const baseBlock = (window.QSSWorlds && window.QSSWorlds.list && (() => {
+      try {
+        const w = window.QSSWorlds.list().find(w => w.slug === world);
+        return w && w.artStyle && w.artStyle.styleBlock;
+      } catch { return null; }
+    })()) || 'STYLE: painterly cinematic illustration in the lineage of Studio Ghibli, Brad Bird\'s Iron Giant, and the YUCATAN 1512 movie poster. Hand-painted feel, deep teal-blue night + warm amber lamplight.';
+
+    const lovedTitles = lovedImgs.map(p => p.title).join(', ') || '(nothing yet — tap a few stars)';
+    const topTags = tags.slice(0, 8).map(([t]) => t).join(', ') || '(no tags yet)';
+
+    stylePrev.innerHTML =
+      '<strong>BASE STYLE</strong>\n' + baseBlock.slice(0, 220) + (baseBlock.length > 220 ? '…' : '') + '\n\n' +
+      '<strong>LIVE TASTE PROMPT</strong>\n' +
+      `Match the visual world of: ${lovedTitles}. Especially lean into: ${topTags}. Same palette, same paint, same lighting.`;
+  }
+
+  // ─── interactions ─────────────────────────────────────────────────
+  grid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.thumb');
+    const tile = e.target.closest('.tile');
+    if (!tile) return;
+    const id = tile.dataset.id;
+    if (!btn) {
+      // click on tile body — also toggles love
+      toggle(id, 'up');
+      return;
+    }
+    const action = btn.dataset.action;
+    toggle(id, action);
+  });
+
+  function toggle(id, action) {
+    if (action === 'up') {
+      if (lovedIds.has(id)) {
+        lovedIds.delete(id);
+      } else {
+        lovedIds.add(id);
+        droppedIds.delete(id);
+      }
+    } else if (action === 'down') {
+      if (droppedIds.has(id)) {
+        droppedIds.delete(id);
+      } else {
+        droppedIds.add(id);
+        lovedIds.delete(id);
+      }
+    }
+    save(LS_LOVED,   Array.from(lovedIds));
+    save(LS_DROPPED, Array.from(droppedIds));
+    // Expose style context globally so other pages / API can read it
+    if (window.QSSWorlds && window.QSSWorlds.setStyleContext) {
+      window.QSSWorlds.setStyleContext(world, buildStyleContext());
+    } else {
+      try {
+        localStorage.setItem(`qss:${world}:styleContext`, JSON.stringify(buildStyleContext()));
+      } catch {}
+    }
+    renderGrid();
+  }
+
+  function buildStyleContext() {
+    const loved = pool.filter(p => lovedIds.has(p.id));
+    const tagCounts = {};
+    loved.forEach(p => p.tags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
+    const tags = Object.entries(tagCounts).sort((a,b) => b[1]-a[1]).map(([t]) => t);
+    return {
+      world,
+      refs: loved.map(p => p.src),
+      titles: loved.map(p => p.title),
+      tags,
+      prompt_suffix: loved.length === 0
+        ? ''
+        : `Match the visual world of: ${loved.map(p => p.title).join(', ')}. Especially: ${tags.slice(0, 8).join(', ')}. Same palette, same paint, same lighting.`,
+      updated: Date.now()
+    };
+  }
+
+  // ─── generate-more button (v1: triggers Gemini imagen via existing pipe) ───
+  const btnGen = document.getElementById('btn-generate');
+  const btnReset = document.getElementById('btn-reset');
+  const status = document.getElementById('gen-status');
+
+  btnGen.addEventListener('click', async () => {
+    const ctx = buildStyleContext();
+    if (ctx.refs.length === 0) {
+      status.innerHTML = '<span class="pulse"></span> tap at least one ★ first — we need to know what you like';
+      return;
+    }
+    status.innerHTML = '<span class="pulse"></span> painting four new ones in your taste — this can take 30s';
+    btnGen.disabled = true;
+
+    try {
+      const res = await fetch('/api/qss-explore-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ world, styleContext: ctx, count: 4 })
+      });
+      if (!res.ok) throw new Error(`gen ${res.status}`);
+      const data = await res.json();
+      if (data.images && data.images.length) {
+        data.images.forEach((img, i) => {
+          pool.unshift({
+            id: img.id || `gen-${Date.now()}-${i}`,
+            src: img.url || img.src,
+            title: img.title || 'fresh paint',
+            tags: img.tags || ctx.tags.slice(0, 4),
+            generated: true
+          });
+        });
+        save(LS_POOL, pool);
+        status.innerHTML = `<span class="pulse"></span> ${data.images.length} new — keep going`;
+        renderGrid();
+      } else {
+        status.innerHTML = '<span class="pulse"></span> nothing came back · API is stubbed for now · taste is still saved';
+      }
+    } catch (err) {
+      // V1 fallback: API endpoint may not exist yet. Still useful — we save the style context.
+      status.innerHTML = `<span class="pulse"></span> API not wired yet — your taste is saved · prompt ready to copy`;
+      console.warn('[explore] gen API missing, fallback:', err.message);
+    } finally {
+      btnGen.disabled = false;
+      setTimeout(() => { if (status.textContent.includes('new') || status.textContent.includes('saved')) status.innerHTML = ''; }, 8000);
+    }
+  });
+
+  btnReset.addEventListener('click', () => {
+    if (!confirm("reset everything — clear all loves and drops?")) return;
+    lovedIds.clear();
+    droppedIds.clear();
+    save(LS_LOVED, []);
+    save(LS_DROPPED, []);
+    try { localStorage.removeItem(`qss:${world}:styleContext`); } catch {}
+    renderGrid();
+  });
+
+  // ─── keyboard shortcuts: 1 = love focused, 2 = drop focused ──────
+  document.addEventListener('keydown', (e) => {
+    const focused = document.activeElement;
+    if (!focused || !focused.classList.contains('tile')) return;
+    if (e.key === '1' || e.key === 'l') { toggle(focused.dataset.id, 'up');   e.preventDefault(); }
+    else if (e.key === '2' || e.key === 'x') { toggle(focused.dataset.id, 'down'); e.preventDefault(); }
+  });
+
+  // ─── publish API for other pages to read taste ────────────────────
+  window.getWorldTaste = function(w = world) {
+    try { return JSON.parse(localStorage.getItem(`qss:${w}:styleContext`)) || null; }
+    catch { return null; }
+  };
+
+  // initial paint
+  renderGrid();
+  // seed initial style context
+  if (lovedIds.size > 0) {
+    try { localStorage.setItem(`qss:${world}:styleContext`, JSON.stringify(buildStyleContext())); } catch {}
+  }
+})();
+</script>
+
+</body>
+</html>

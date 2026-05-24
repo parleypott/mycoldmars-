@@ -8,6 +8,9 @@
     { "source": "/universe/:world/cast", "destination": "/queen-scarlet-school/cast/index.html" },
     { "source": "/universe/:world/cast/", "destination": "/queen-scarlet-school/cast/index.html" },
 
+    { "source": "/universe/:world/explore", "destination": "/queen-scarlet-school/explore/index.html" },
+    { "source": "/universe/:world/explore/", "destination": "/queen-scarlet-school/explore/index.html" },
+
     { "source": "/universe/:world/write", "destination": "/queen-scarlet-school/index.html" },
     { "source": "/universe/:world/write/", "destination": "/queen-scarlet-school/index.html" },
     { "source": "/universe/:world/write/:story", "destination": "/queen-scarlet-school/index.html?story=:story" },

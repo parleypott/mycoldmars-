@@ -596,6 +596,7 @@
       <div class="lib-title">Library</div>
       <div class="topbar-right">
         <a href="/universe/" class="btn ghost" title="Back to the universe — pick a different world">universe</a>
+        <a href="#" class="btn ghost" id="lib-explore" title="Train this world's eye — thumbs up what feels right">explore</a>
         <a href="#" class="btn ghost" id="lib-cast" title="See every character in this world">cast</a>
         <a href="#" class="btn primary" id="lib-new">new story</a>
       </div>
@@ -606,8 +607,10 @@
       (function fixTopbarHrefs() {
         const world = (location.pathname.match(/^\/universe\/([a-z0-9-]+)/i) || [])[1] || 'queen-scarlet';
         const cast = document.getElementById('lib-cast');
+        const explore = document.getElementById('lib-explore');
         const newBtn = document.getElementById('lib-new');
         if (cast) cast.href = `/universe/${world}/cast/`;
+        if (explore) explore.href = `/universe/${world}/explore/`;
         if (newBtn) newBtn.href = `/universe/${world}/write/?new=1`;
       })();
     </script>

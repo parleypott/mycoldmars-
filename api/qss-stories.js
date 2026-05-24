@@ -40,7 +40,18 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SE
 // their migrations are applied — server falls back via the sb() helper
 // if Postgres complains.
 const SELECT_COLS = 'id,name,bible,rules,blocks,chat,suggestions,cover_image,arc_context,character_cards,freestyle_chat,freestyle_themes,world_slug,deleted_at,created_at,updated_at';
-const OPTIONAL_COLS = ['character_cards', 'freestyle_chat', 'freestyle_themes', 'world_slug']; // columns that may not exist pre-migration
+// Columns the sb() fallback is allowed to strip on a PostgREST schema-cache
+// hiccup. world_slug used to live here — but migration 021 has shipped for
+// a long time and the column is now load-bearing for world isolation. A
+// stale schema-cache error on ANY column would trigger this whole list to
+// be stripped, which silently wrote world_slug=null and made stories vanish
+// from their world's library (THE bug). Keep world_slug OFF this list so a
+// schema hiccup hard-fails the save instead of corrupting the row.
+const OPTIONAL_COLS = ['character_cards', 'freestyle_chat', 'freestyle_themes'];
+// world_slug is REQUIRED — never strip it. Listed here only so the missing-
+// col regex can distinguish "real missing world_slug" (escalate, don't strip)
+// from the optional cols above.
+const REQUIRED_COLS = ['world_slug'];
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -243,12 +254,32 @@ async function handleSave(body) {
       if (!probe?.length) return jsonError(404, 'NOT_FOUND', 'Story not found');
       return jsonError(409, 'CONFLICT', 'Story was modified elsewhere', { serverUpdatedAt: probe[0].updated_at });
     }
+    assertWorldSlugPersisted(rows[0], worldSlug);
     return jsonOk({ story: rows[0] });
   }
 
   // INSERT (new story).
   const rows = await sb('POST', `qss_stories?select=${SELECT_COLS}`, payload, { returnRepresentation: true });
+  assertWorldSlugPersisted(rows[0], worldSlug);
   return jsonOk({ story: rows[0] });
+}
+
+// Invariant: the returned row must carry the world_slug we sent. If it
+// doesn't, something silently stripped it (the old OPTIONAL_COLS retry
+// path was THE culprit). Refuse to lie to the client — surface the
+// regression loudly so it can't sit in the DB unnoticed for weeks.
+function assertWorldSlugPersisted(row, sentSlug) {
+  if (!row) return;
+  if (row.world_slug === sentSlug) return;
+  console.error('[qss-stories] world_slug regression', {
+    sent: sentSlug,
+    stored: row.world_slug,
+    id: row.id,
+    name: row.name,
+  });
+  const e = new Error(`world_slug silently dropped on save (sent=${sentSlug}, stored=${row.world_slug ?? 'null'}). Refusing to return success.`);
+  e.code = 'WORLD_SLUG_REGRESSION';
+  throw e;
 }
 
 // Whitelist active world slugs — anything else falls back to queen-scarlet
@@ -368,6 +399,19 @@ async function sb(method, path, payload, opts = {}) {
     const errMsg = (err.message || '').toString();
     const missingColMatch = /(?:column "([\w_]+)" of relation|column .* "([\w_]+)" does not exist|column '([\w_]+)' of|"([\w_]+)" column of)/i.exec(errMsg);
     const missingColName = missingColMatch && (missingColMatch[1] || missingColMatch[2] || missingColMatch[3] || missingColMatch[4]) || '';
+    // If the missing column is REQUIRED (e.g. world_slug), refuse to fall
+    // back. Stripping it would silently write a corrupt row. Surface the
+    // schema error so a human can fix the migration. THE bug we shipped:
+    // a stale schema-cache warning about character_cards caused world_slug
+    // to be stripped too, persisting world_slug=null and making the story
+    // disappear from its world's library.
+    if (missingColName && REQUIRED_COLS.includes(missingColName)) {
+      const e2 = new Error(`REQUIRED column "${missingColName}" reported missing — refusing to strip. Apply migration 021 (qss_worlds_and_canon).`);
+      e2.code = 'REQUIRED_COL_MISSING';
+      e2.colName = missingColName;
+      throw e2;
+    }
+
     const isColMissing = err.code === '42703'
       || err.code === 'PGRST204'
       || /column .* does not exist/i.test(errMsg)
