@@ -149,6 +149,31 @@ body.on-map .map-panel { pointer-events: auto; }
 .scenario-select:focus { outline: none; border-color: var(--accent); }
 .tool { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; max-width: 1280px; margin: 0 auto; }
 @media (max-width: 900px) { .tool { grid-template-columns: 1fr; } }
+
+/* Paired layout — each input row aligns with its results row */
+.tool--paired { grid-auto-flow: row; align-items: stretch; row-gap: 18px; column-gap: 32px; }
+.tool--paired .group { margin: 0; }
+.tool--paired .group--input { background: rgba(254, 250, 240, 0.4); }
+.tool--paired .group--output {
+  background: rgba(245, 241, 232, 0.7);
+  border-left: 2px solid var(--accent);
+}
+.tool--paired .group--output .group-title { color: var(--accent); opacity: 0.95; }
+.tool--paired .group--footer {
+  grid-column: 1 / -1;
+  background: linear-gradient(180deg, rgba(42, 38, 32, 0.04) 0%, rgba(42, 38, 32, 0.10) 100%);
+  border-top: 2px solid var(--ink);
+  margin-top: 8px;
+}
+.tool--paired .footer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 24px;
+  align-items: end;
+}
+@media (max-width: 900px) {
+  .tool--paired .footer-grid { grid-template-columns: 1fr; }
+}
 .col h2 {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
@@ -1322,12 +1347,28 @@ function moneyRecalc() {
   document.getElementById('o-gap-note').textContent = covered
     ? 'Covered — your bridge fully funds the Day-1 close. Cushion: ' + fmtUSD(-gap) + '.'
     : 'Short. Bridge ' + fmtUSD(cashAvail) + ' covers part of ' + fmtUSD(cashNeeded) + ' needed; ' + fmtUSD(gap) + ' gap remains.';
+  // legacy combined IDs (hidden in DOM but still populated for scenarios/Excel)
   setVal('o-vasale', s.vaSale, 'in');
   setVal('o-studio-sale', s.studioSale, 'in');
   setVal('o-vapayoff', vaPayoffTotal, 'out');
   setVal('o-vasell', vaSellTotal, 'out');
   setVal('o-va-repairs', s.vaRepairs, 'out');
   setVal('o-studio-repairs', s.studioRepairs, 'out');
+  // Per-house result cards (visible, aligned with each input card)
+  setVal('o-main-sale', s.vaSale, 'in');
+  setVal('o-main-payoff', s.vaPayoff, 'out');
+  setVal('o-main-sell', vaSell1, 'out');
+  setVal('o-main-repairs', s.vaRepairs, 'out');
+  setVal('o-main-net', vaNet1, vaNet1 >= 0 ? 'in-total' : 'out-total');
+  setVal('o-studio-saleR', s.studioSale, 'in');
+  setVal('o-studio-payoff', s.studioPayoff, 'out');
+  setVal('o-studio-sell', vaSell2, 'out');
+  setVal('o-studio-repairsR', s.studioRepairs, 'out');
+  setVal('o-studio-net', vaNet2, vaNet2 >= 0 ? 'in-total' : 'out-total');
+  // Bridge split (paired with Bridge input card)
+  setVal('o-bridge-stocks', s.invPulled, 'in');
+  setVal('o-bridge-heloc', s.bizPulled, 'in');
+  // Footer aggregate
   setVal('o-vanet', vaNet, 'in-total');
   setVal('o-repay', bridgeRepay, 'out');
   setVal('o-final', finalCash, finalCash >= 0 ? 'in-total' : 'out-total');
