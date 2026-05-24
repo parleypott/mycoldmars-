@@ -669,6 +669,320 @@ body[data-world="burgundy"] .story-empty .little {
   opacity: 0.82;
 }
 
+/* ─── 21. World Explorer page — re-skin QSS sticker chrome to Burgundy ─ */
+/* The /explore/ page ships in QSS sticker style by default. This block
+ * makes it match Burgundy when world=burgundy. Scoped via .page-explore. */
+
+body[data-world="burgundy"].page-explore {
+  background:
+    radial-gradient(circle at 80% 20%, rgba(232,162,72,0.05) 0%, transparent 40%),
+    linear-gradient(160deg, #0F1E26 0%, #050B10 100%) !important;
+  color: var(--ink) !important;
+}
+body[data-world="burgundy"].page-explore::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: url('/queen-scarlet-school/worlds/burgundy/palace-exterior.jpg') center/cover no-repeat;
+  opacity: 0.14;
+  filter: blur(3px) brightness(0.7);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Topbar */
+body[data-world="burgundy"].page-explore .topbar {
+  background: rgba(8,18,24,0.86) !important;
+  border-bottom: 1px solid rgba(232,162,72,0.20) !important;
+  backdrop-filter: blur(10px) !important;
+  position: relative; z-index: 5;
+}
+body[data-world="burgundy"].page-explore .brand {
+  color: var(--ink-bright) !important;
+  font-family: var(--mono), 'JetBrains Mono', monospace !important;
+  font-size: 12px !important;
+  letter-spacing: 0.24em !important;
+  text-transform: uppercase !important;
+  font-weight: 700 !important;
+}
+body[data-world="burgundy"].page-explore .brand .blob {
+  background: var(--bg-amber, #E8A248) !important;
+  border-color: rgba(232,162,72,0.62) !important;
+  box-shadow: 0 0 14px rgba(232,162,72,0.55) !important;
+}
+body[data-world="burgundy"].page-explore .brand .blob::before,
+body[data-world="burgundy"].page-explore .brand .blob::after {
+  background: #0F1E26 !important;
+}
+
+/* Buttons — machined Burgundy */
+body[data-world="burgundy"].page-explore .btn {
+  font-family: var(--mono), 'JetBrains Mono', monospace !important;
+  font-size: 11px !important;
+  letter-spacing: 0.22em !important;
+  text-transform: uppercase !important;
+  font-weight: 700 !important;
+  padding: 9px 16px !important;
+  border-radius: 3px !important;
+  background: rgba(15,30,38,0.62) !important;
+  color: var(--ink-bright) !important;
+  border: 1px solid rgba(232,162,72,0.35) !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(232,162,72,0.12),
+    inset -1px -1px 0 rgba(0,0,0,0.4),
+    0 3px 10px rgba(0,0,0,0.4) !important;
+}
+body[data-world="burgundy"].page-explore .btn:hover {
+  transform: translateY(-1px) !important;
+  background: rgba(232,162,72,0.08) !important;
+  border-color: rgba(232,162,72,0.62) !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(232,162,72,0.22),
+    inset -1px -1px 0 rgba(0,0,0,0.4),
+    0 6px 18px rgba(0,0,0,0.5),
+    0 0 18px rgba(232,162,72,0.24) !important;
+}
+body[data-world="burgundy"].page-explore .btn.primary {
+  background: linear-gradient(180deg, #D89A4A, #A86E26) !important;
+  color: #0F1E26 !important;
+  border-color: var(--bg-amber, #E8A248) !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,0.20),
+    inset -1px -1px 0 rgba(0,0,0,0.35),
+    0 4px 14px rgba(0,0,0,0.45),
+    0 0 22px rgba(232,162,72,0.32) !important;
+}
+body[data-world="burgundy"].page-explore .btn.ghost {
+  background: transparent !important;
+}
+
+/* Page intro */
+body[data-world="burgundy"].page-explore .page {
+  position: relative; z-index: 2;
+}
+body[data-world="burgundy"].page-explore .page-intro h1 {
+  font-family: 'Cambo', var(--serif), Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  font-size: clamp(40px, 5vw, 72px) !important;
+  line-height: 1.02 !important;
+  letter-spacing: -0.01em !important;
+  color: var(--ink-bright) !important;
+  text-shadow: 0 2px 22px rgba(0,0,0,0.7), 0 0 36px rgba(232,162,72,0.14) !important;
+  text-wrap: balance;
+}
+body[data-world="burgundy"].page-explore .page-intro h1 .accent {
+  color: var(--bg-amber, #E8A248) !important;
+  text-shadow: 0 0 26px rgba(232,162,72,0.5) !important;
+}
+body[data-world="burgundy"].page-explore .page-intro .sub {
+  color: var(--ink) !important;
+  font-family: 'Cambo', var(--serif), Georgia, serif !important;
+  font-style: italic !important;
+  font-size: clamp(15px, 1.1vw, 18px) !important;
+  max-width: 62ch;
+}
+body[data-world="burgundy"].page-explore .counter {
+  font-family: var(--mono), 'JetBrains Mono', monospace !important;
+  background: rgba(232,162,72,0.10) !important;
+  color: var(--bg-amber, #E8A248) !important;
+  border: 1px solid rgba(232,162,72,0.32) !important;
+  padding: 6px 14px !important;
+  letter-spacing: 0.24em !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  border-radius: 2px !important;
+}
+
+/* Filters */
+body[data-world="burgundy"].page-explore .filter-pill {
+  font-family: var(--mono), 'JetBrains Mono', monospace !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.22em !important;
+  text-transform: uppercase !important;
+  padding: 7px 14px !important;
+  border-radius: 2px !important;
+  background: rgba(15,30,38,0.62) !important;
+  border: 1px solid rgba(232,162,72,0.28) !important;
+  color: var(--ink-soft) !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(232,162,72,0.08),
+    inset -1px -1px 0 rgba(0,0,0,0.35) !important;
+  transition: transform .15s cubic-bezier(0.34,1.56,0.64,1), border-color .2s, color .2s;
+}
+body[data-world="burgundy"].page-explore .filter-pill:hover {
+  color: var(--ink-bright) !important;
+  border-color: rgba(232,162,72,0.55) !important;
+  transform: translateY(-1px);
+}
+body[data-world="burgundy"].page-explore .filter-pill.active {
+  background: rgba(232,162,72,0.18) !important;
+  border-color: var(--bg-amber, #E8A248) !important;
+  color: var(--bg-amber, #E8A248) !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(232,162,72,0.20),
+    inset -1px -1px 0 rgba(0,0,0,0.35),
+    0 0 16px rgba(232,162,72,0.28) !important;
+}
+body[data-world="burgundy"].page-explore .filter-pill .count {
+  opacity: 0.62;
+  margin-left: 6px;
+}
+
+/* Cards */
+body[data-world="burgundy"].page-explore .card {
+  background: rgba(15,30,38,0.72) !important;
+  border: 1px solid rgba(232,217,184,0.16) !important;
+  border-radius: 4px !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(232,162,72,0.10),
+    inset -1px -1px 0 rgba(0,0,0,0.55),
+    0 6px 22px rgba(0,0,0,0.5) !important;
+  backdrop-filter: blur(6px) !important;
+  transform: none !important;
+}
+body[data-world="burgundy"].page-explore .card:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(232,162,72,0.55) !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(232,162,72,0.20),
+    inset -1px -1px 0 rgba(0,0,0,0.55),
+    0 14px 38px rgba(0,0,0,0.6),
+    0 0 30px rgba(232,162,72,0.22) !important;
+}
+body[data-world="burgundy"].page-explore .card .img-wrap {
+  background: rgba(8,18,24,0.62) !important;
+}
+body[data-world="burgundy"].page-explore .card .kind-tag {
+  background: rgba(8,18,24,0.86) !important;
+  color: var(--bg-amber, #E8A248) !important;
+  border: 1px solid rgba(232,162,72,0.42) !important;
+  letter-spacing: 0.28em !important;
+  font-weight: 700 !important;
+  backdrop-filter: blur(6px) !important;
+}
+body[data-world="burgundy"].page-explore .card .body {
+  background: rgba(8,18,24,0.4);
+  border-top: 1px solid rgba(232,162,72,0.10) !important;
+}
+body[data-world="burgundy"].page-explore .card .title {
+  font-family: 'Cambo', var(--serif), Georgia, serif !important;
+  font-style: italic !important;
+  color: var(--ink-bright) !important;
+  font-size: 21px !important;
+  line-height: 1.1;
+  letter-spacing: -0.005em;
+}
+body[data-world="burgundy"].page-explore .card .caption {
+  color: var(--ink) !important;
+  font-family: 'Cambo', var(--serif), Georgia, serif !important;
+  font-style: italic !important;
+  font-size: 13.5px !important;
+}
+body[data-world="burgundy"].page-explore .card .actions {
+  background: rgba(8,18,24,0.6) !important;
+  border-top: 1px solid rgba(232,162,72,0.10) !important;
+}
+body[data-world="burgundy"].page-explore .rate-btn {
+  font-family: var(--mono), 'JetBrains Mono', monospace !important;
+  background: rgba(15,30,38,0.62) !important;
+  border: 1px solid rgba(232,162,72,0.32) !important;
+  color: var(--ink) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.18em !important;
+}
+body[data-world="burgundy"].page-explore .rate-btn:hover {
+  border-color: rgba(232,162,72,0.62) !important;
+  color: var(--ink-bright) !important;
+}
+body[data-world="burgundy"].page-explore .rate-btn.up.active {
+  background: rgba(232,162,72,0.85) !important;
+  color: #0F1E26 !important;
+  border-color: var(--bg-amber, #E8A248) !important;
+  box-shadow: 0 0 18px rgba(232,162,72,0.45) !important;
+}
+body[data-world="burgundy"].page-explore .rate-btn.down.active {
+  background: rgba(184,68,58,0.85) !important;
+  color: #F4E6C4 !important;
+  border-color: var(--bg-burgundy, #B8443A) !important;
+  box-shadow: 0 0 16px rgba(184,68,58,0.45) !important;
+}
+
+/* Placeholder states (queued/generating/error) */
+body[data-world="burgundy"].page-explore .placeholder {
+  background: linear-gradient(135deg, rgba(8,18,24,0.4), rgba(15,30,38,0.7)) !important;
+  color: var(--ink-faint) !important;
+  font-family: var(--mono), 'JetBrains Mono', monospace !important;
+  letter-spacing: 0.28em !important;
+}
+body[data-world="burgundy"].page-explore .placeholder.generating {
+  background: linear-gradient(135deg, rgba(91,214,138,0.10), rgba(232,162,72,0.18)) !important;
+  color: var(--bg-phosphor, #5BD68A) !important;
+}
+body[data-world="burgundy"].page-explore .placeholder.error {
+  background: linear-gradient(135deg, rgba(184,68,58,0.12), rgba(184,68,58,0.32)) !important;
+  color: #F4D5C8 !important;
+}
+
+/* Empty state */
+body[data-world="burgundy"].page-explore .empty {
+  background: rgba(8,18,24,0.55) !important;
+  border: 1px dashed rgba(232,162,72,0.32) !important;
+  color: var(--ink) !important;
+  border-radius: 4px !important;
+}
+body[data-world="burgundy"].page-explore .empty .head {
+  font-family: 'Cambo', var(--serif), Georgia, serif !important;
+  font-style: italic !important;
+  color: var(--ink-bright) !important;
+  font-size: clamp(24px, 2.4vw, 36px) !important;
+}
+body[data-world="burgundy"].page-explore .empty .sub,
+body[data-world="burgundy"].page-explore .empty {
+  font-family: 'Cambo', var(--serif), Georgia, serif !important;
+  font-style: italic !important;
+}
+body[data-world="burgundy"].page-explore .empty strong {
+  color: var(--bg-amber, #E8A248);
+  font-family: var(--mono), 'JetBrains Mono', monospace !important;
+  font-style: normal !important;
+  font-size: 0.9em;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+/* Lightbox */
+body[data-world="burgundy"].page-explore .lightbox {
+  background: rgba(5,11,16,0.86) !important;
+  backdrop-filter: blur(10px) !important;
+}
+body[data-world="burgundy"].page-explore .lightbox-card {
+  background: rgba(15,30,38,0.94) !important;
+  border: 1px solid rgba(232,162,72,0.35) !important;
+  border-radius: 4px !important;
+  box-shadow:
+    inset 1px 1px 0 rgba(232,162,72,0.15),
+    inset -1px -1px 0 rgba(0,0,0,0.55),
+    0 24px 60px rgba(0,0,0,0.7),
+    0 0 64px rgba(232,162,72,0.18) !important;
+}
+body[data-world="burgundy"].page-explore .lb-title {
+  font-family: 'Cambo', var(--serif), Georgia, serif !important;
+  font-style: italic !important;
+  color: var(--ink-bright) !important;
+}
+body[data-world="burgundy"].page-explore .lb-caption,
+body[data-world="burgundy"].page-explore .lb-quote {
+  font-family: 'Cambo', var(--serif), Georgia, serif !important;
+  font-style: italic !important;
+  color: var(--ink) !important;
+}
+body[data-world="burgundy"].page-explore .lightbox-close {
+  background: rgba(8,18,24,0.86) !important;
+  color: var(--ink-bright) !important;
+  border: 1px solid rgba(232,162,72,0.42) !important;
+}
+
 /* ─── 20. Print fallback — no fancy motion ─────────────────────────── */
 @media print {
   body[data-world="burgundy"]::after,
