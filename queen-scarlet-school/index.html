@@ -8630,11 +8630,11 @@
         // Scroll the playing block into view
         const el = document.querySelector(`.story-block[data-block="${b.id}"]`);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Speak the block's text and wait for it to finish
+        // playBlockText is now async — it resolves when the segmented
+        // playback (per-character voices via segmentByVoice) finishes
+        // OR when stopPlayAll bumps playAllToken.
         await new Promise((resolve) => {
-          const audio = playBlockText(b.text || '', resolve, myToken);
-          // If stopPlayAll fires, audio is interrupted and resolve runs.
-          if (!audio) resolve();
+          playBlockText(b.text || '', resolve, myToken);
         });
       }
       if (myToken === playAllToken) {
@@ -8646,26 +8646,34 @@
         renderStory();
       }
     }
-    function playBlockText(text, onEnd, myToken) {
+    async function playBlockText(text, onEnd, myToken) {
       if (!text || !text.trim()) { onEnd(); return null; }
-      // Use the existing qssTTS pipeline (cached/streamed/elevenlabs)
-      const stub = { classList: { add(){}, remove(){}, contains(){return false;} }, innerHTML: '' };
-      // We need to know when playback finishes. The shared TTS engine
-      // exposes speak(text, btn) but resolves on button activeBtn clear.
-      // We'll poll the engine's currentAudio via a small adapter:
+      // PER-CHARACTER VOICES — split the block by dialogue and play each
+      // segment in the right voice. segmentByVoice returns ordered
+      // [{ text, voice }] runs; narrator owns everything not in dialogue.
+      const activeMap = window.qssVoices?.activeMap?.() || {};
+      const defaultVoice = window.qssVoices?.DEFAULT || 'matilda';
+      const segments = (typeof segmentByVoice === 'function')
+        ? segmentByVoice(text, activeMap, defaultVoice)
+        : [{ text, voice: defaultVoice }];
       let finished = false;
       const finish = () => { if (!finished) { finished = true; onEnd(); } };
-      window.qssTTS.speak(text, stub);
-      // Watchdog: poll for end. The engine clears its active state on end.
-      const interval = setInterval(() => {
-        if (myToken !== playAllToken) { clearInterval(interval); finish(); return; }
-        // Engine sets stub.innerHTML to ICON_PLAY when done (we use stub to detect)
-        // Simpler: check if any tts-btn has .playing class. Our stub doesn't, so
-        // we'd need a different signal. Use a periodic check on currentAudio via a
-        // module-level flag we'll set up.
-        if (!window.__qssTtsPlaying) { clearInterval(interval); finish(); }
-      }, 250);
-      return interval;
+      try {
+        for (const seg of segments) {
+          if (myToken !== playAllToken) { finish(); return null; }
+          if (!seg.text || !seg.text.trim()) continue;
+          // Pass null instead of a stub btn — qssTTS guards on btn truthiness
+          // and the broken stub (missing classList.toggle) used to make this
+          // path crash silently.
+          await window.qssTTS.speak(seg.text, null, { voice: seg.voice });
+          // qssTTS.speak resolves AFTER the audio finishes (or fails). We
+          // don't need a separate watchdog interval anymore.
+        }
+      } catch (e) {
+        console.warn('[play-all] segment playback failed', e);
+      }
+      finish();
+      return null;
     }
     function stopPlayAll() {
       playAllToken++;
