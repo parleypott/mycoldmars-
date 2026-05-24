@@ -827,104 +827,138 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
     <button id="delete-scenario-btn" class="export-btn ghost" type="button" title="Delete selected scenario" style="display:none;">× Delete</button>
     <button id="export-xlsx-btn" class="export-btn" type="button">↓ Export Excel</button>
   </div>
-  <div class="tool">
-    <div class="col">
-      <h2>Inputs</h2>
-      <div class="group">
-        <div class="group-title">Main House · Virginia</div>
-        <div class="field"><label>Sale price</label><input type="text" id="vaSale"></div>
-        <div class="field"><label>Mortgage payoff</label><input type="text" id="vaPayoff"></div>
-        <div class="field"><label>Realtor + closing %</label><input type="text" id="vaSellPct"></div>
-        <div class="field"><label>6% of sale</label><span class="derived cost" id="mainSell-derived">= —</span></div>
-        <div class="field"><label>Repairs before sale</label><input type="text" id="vaRepairs"></div>
-        <div class="field"><label>Net to you</label><span class="derived cost ok" id="mainNet-derived">= —</span></div>
-      </div>
-      <div class="group">
-        <div class="group-title">808 Studio · Virginia</div>
-        <div class="field"><label>Sale price</label><input type="text" id="studioSale"></div>
-        <div class="field"><label>Mortgage payoff</label><input type="text" id="studioPayoff"></div>
-        <div class="field"><label>6% of sale</label><span class="derived cost" id="studioSell-derived">= —</span></div>
-        <div class="field"><label>Repairs before sale</label><input type="text" id="studioRepairs"></div>
-        <div class="field"><label>Net to you</label><span class="derived cost ok" id="studioNet-derived">= —</span></div>
-      </div>
-      <div class="group">
-        <div class="group-title">The Bridge · pre-VA-close cash</div>
-        <div class="field"><label>Liquidate stocks</label><input type="text" id="invPulled"></div>
-        <div class="field"><label>Bridge Cash (HELOC or C&amp;Z)</label><input type="text" id="bizPulled"></div>
-        <div class="field"><label>Total bridge</label><span class="derived cost ok" id="bridgeTotal-derived">= —</span></div>
-      </div>
-      <div class="group">
-        <div class="group-title">The New House · NY</div>
-        <div class="field"><label>Purchase price</label><input type="text" id="buyPrice"></div>
-        <div class="field"><label>Down payment %</label><input type="text" id="downPct"></div>
-        <div class="field"><div class="derived" id="downDollars-derived">= —</div></div>
-        <div class="field"><label>Mortgage rate %</label><input type="text" id="rate"></div>
-        <div class="field">
-          <label>Mortgage term</label>
-          <div class="seg-group" id="term-seg">
-            <button data-val="15">15 yr</button>
-            <button data-val="20">20 yr</button>
-            <button data-val="30" class="active">30 yr</button>
-          </div>
-        </div>
-        <div class="field"><label>NY closing costs</label><span class="derived cost" id="nyClosing-out">= —</span></div>
-        <div class="field"><div class="derived" id="nyClosing-breakdown">—</div></div>
-      </div>
-      <div class="group">
-        <div class="group-title">Property Tax · auto from active pin</div>
-        <div class="field">
-          <label>Active pin</label>
-          <select id="activePinSel" class="town-select"></select>
-        </div>
-        <div class="field"><label>Override (actual bill)</label><input type="text" id="propTaxOverride" placeholder="blank = auto-compute"></div>
-        <div class="tax-readout">
-          <span class="lbl">Detected town</span><span class="val" id="tax-town-out">—</span>
-          <span class="lbl">School district</span><span class="val" id="tax-school-out">—</span>
-          <span class="lbl">Effective rate</span><span class="val" id="tax-rate-out">—</span>
-          <span class="lbl">Assessed at (RAR)</span><span class="val" id="tax-rar-out">—</span>
-          <hr>
-          <span class="lbl">Annual tax</span><span class="val headline" id="tax-annual-out">—</span>
-          <span class="lbl">Monthly</span><span class="val mo" id="tax-monthly-out">—</span>
-        </div>
-        <div class="note" id="tax-note">—</div>
-      </div>
+  <div class="tool tool--paired">
+
+    <!-- ROW 1 — Main House · Virginia -->
+    <div class="group group--input">
+      <div class="group-title">Main House · Virginia</div>
+      <div class="field"><label>Sale price</label><input type="text" id="vaSale"></div>
+      <div class="field"><label>Mortgage payoff</label><input type="text" id="vaPayoff"></div>
+      <div class="field"><label>Realtor + closing %</label><input type="text" id="vaSellPct"></div>
+      <div class="field"><label>6% of sale</label><span class="derived cost" id="mainSell-derived">= —</span></div>
+      <div class="field"><label>Repairs before sale</label><input type="text" id="vaRepairs"></div>
+      <div class="field"><label>Net to you</label><span class="derived cost ok" id="mainNet-derived">= —</span></div>
     </div>
-    <div class="col">
-      <h2>Results</h2>
-      <div class="group">
-        <div class="group-title">Day 1 — close on NY home</div>
-        <div class="out-field"><span class="lbl">Down payment</span><span class="val minus" id="o-down">—</span></div>
-        <div class="out-field"><span class="lbl">Mansion tax (NY)</span><span class="val minus" id="o-mansion">—</span></div>
-        <div class="out-field"><span class="lbl">NY closing costs</span><span class="val minus" id="o-nyclose">—</span></div>
-        <div class="out-field"><span class="lbl">Moving + upstart costs</span><span class="val minus" id="o-moving">—</span></div>
-        <div class="out-field total"><span class="lbl">Cash needed</span><span class="val" id="o-needed">—</span></div>
-        <div class="out-field"><span class="lbl">Cash you have ready</span><span class="val" id="o-have">—</span></div>
-        <div class="out-field total"><span class="lbl">The Gap</span><span class="val" id="o-gap">—</span></div>
-        <div class="note" id="o-gap-note">—</div>
+    <div class="group group--output">
+      <div class="group-title">→ Main House proceeds</div>
+      <div class="out-field"><span class="lbl">Sale price</span><span class="val" id="o-main-sale">—</span></div>
+      <div class="out-field"><span class="lbl">Mortgage payoff</span><span class="val" id="o-main-payoff">—</span></div>
+      <div class="out-field"><span class="lbl">Realtor + closing</span><span class="val" id="o-main-sell">—</span></div>
+      <div class="out-field"><span class="lbl">Repairs</span><span class="val" id="o-main-repairs">—</span></div>
+      <div class="out-field total"><span class="lbl">Net to you</span><span class="val" id="o-main-net">—</span></div>
+    </div>
+
+    <!-- ROW 2 — 808 Studio · Virginia -->
+    <div class="group group--input">
+      <div class="group-title">808 Studio · Virginia</div>
+      <div class="field"><label>Sale price</label><input type="text" id="studioSale"></div>
+      <div class="field"><label>Mortgage payoff</label><input type="text" id="studioPayoff"></div>
+      <div class="field"><label>6% of sale</label><span class="derived cost" id="studioSell-derived">= —</span></div>
+      <div class="field"><label>Repairs before sale</label><input type="text" id="studioRepairs"></div>
+      <div class="field"><label>Net to you</label><span class="derived cost ok" id="studioNet-derived">= —</span></div>
+    </div>
+    <div class="group group--output">
+      <div class="group-title">→ 808 Studio proceeds</div>
+      <div class="out-field"><span class="lbl">Sale price</span><span class="val" id="o-studio-saleR">—</span></div>
+      <div class="out-field"><span class="lbl">Mortgage payoff</span><span class="val" id="o-studio-payoff">—</span></div>
+      <div class="out-field"><span class="lbl">Realtor + closing</span><span class="val" id="o-studio-sell">—</span></div>
+      <div class="out-field"><span class="lbl">Repairs</span><span class="val" id="o-studio-repairsR">—</span></div>
+      <div class="out-field total"><span class="lbl">Net to you</span><span class="val" id="o-studio-net">—</span></div>
+    </div>
+
+    <!-- ROW 3 — The Bridge -->
+    <div class="group group--input">
+      <div class="group-title">The Bridge · pre-VA-close cash</div>
+      <div class="field"><label>Liquidate stocks</label><input type="text" id="invPulled"></div>
+      <div class="field"><label>Bridge Cash (HELOC or C&amp;Z)</label><input type="text" id="bizPulled"></div>
+      <div class="field"><label>Total bridge</label><span class="derived cost ok" id="bridgeTotal-derived">= —</span></div>
+    </div>
+    <div class="group group--output">
+      <div class="group-title">→ Cash you have ready (Day 1)</div>
+      <div class="out-field"><span class="lbl">From stocks</span><span class="val" id="o-bridge-stocks">—</span></div>
+      <div class="out-field"><span class="lbl">From HELOC / C&amp;Z</span><span class="val" id="o-bridge-heloc">—</span></div>
+      <div class="out-field total"><span class="lbl">Cash ready</span><span class="val" id="o-have">—</span></div>
+      <div class="note">borrowed Day 1, repaid from VA proceeds Day N — nets to zero</div>
+    </div>
+
+    <!-- ROW 4 — The New House · NY -->
+    <div class="group group--input">
+      <div class="group-title">The New House · NY</div>
+      <div class="field"><label>Purchase price</label><input type="text" id="buyPrice"></div>
+      <div class="field"><label>Down payment %</label><input type="text" id="downPct"></div>
+      <div class="field"><div class="derived" id="downDollars-derived">= —</div></div>
+      <div class="field"><label>Mortgage rate %</label><input type="text" id="rate"></div>
+      <div class="field">
+        <label>Mortgage term</label>
+        <div class="seg-group" id="term-seg">
+          <button data-val="15">15 yr</button>
+          <button data-val="20">20 yr</button>
+          <button data-val="30" class="active">30 yr</button>
+        </div>
       </div>
-      <div class="group">
-        <div class="group-title">Day N — after both VA houses sell</div>
-        <div class="out-field"><span class="lbl">Main house sale</span><span class="val" id="o-vasale">—</span></div>
-        <div class="out-field"><span class="lbl">808 Studio sale</span><span class="val" id="o-studio-sale">—</span></div>
-        <div class="out-field"><span class="lbl">Mortgage payoffs (both)</span><span class="val" id="o-vapayoff">—</span></div>
-        <div class="out-field"><span class="lbl">Realtor + closing (6%, both)</span><span class="val" id="o-vasell">—</span></div>
-        <div class="out-field"><span class="lbl">Main house repairs</span><span class="val" id="o-va-repairs">—</span></div>
-        <div class="out-field"><span class="lbl">Studio repairs</span><span class="val" id="o-studio-repairs">—</span></div>
-        <div class="out-field total"><span class="lbl">VA net proceeds</span><span class="val" id="o-vanet">—</span></div>
+      <div class="field"><label>NY closing costs</label><span class="derived cost" id="nyClosing-out">= —</span></div>
+      <div class="field"><div class="derived" id="nyClosing-breakdown">—</div></div>
+      <div class="field"><label>Moving + upstart costs</label><input type="text" id="moving"></div>
+      <div class="field"><div class="derived" id="moving-note">move-in, furniture, deposits, repairs to settle in</div></div>
+    </div>
+    <div class="group group--output">
+      <div class="group-title">→ Day 1 — close on NY home</div>
+      <div class="out-field"><span class="lbl">Down payment</span><span class="val minus" id="o-down">—</span></div>
+      <div class="out-field"><span class="lbl">Mansion tax (NY)</span><span class="val minus" id="o-mansion">—</span></div>
+      <div class="out-field"><span class="lbl">NY closing costs</span><span class="val minus" id="o-nyclose">—</span></div>
+      <div class="out-field"><span class="lbl">Moving + upstart</span><span class="val minus" id="o-moving">—</span></div>
+      <div class="out-field total"><span class="lbl">Cash needed</span><span class="val" id="o-needed">—</span></div>
+      <div class="out-field total"><span class="lbl">The Gap</span><span class="val" id="o-gap">—</span></div>
+      <div class="note" id="o-gap-note">—</div>
+    </div>
+
+    <!-- ROW 5 — Property Tax -->
+    <div class="group group--input">
+      <div class="group-title">Property Tax · auto from active pin</div>
+      <div class="field">
+        <label>Active pin</label>
+        <select id="activePinSel" class="town-select"></select>
+      </div>
+      <div class="field"><label>Override (actual bill)</label><input type="text" id="propTaxOverride" placeholder="blank = auto-compute"></div>
+      <div class="tax-readout">
+        <span class="lbl">Detected town</span><span class="val" id="tax-town-out">—</span>
+        <span class="lbl">School district</span><span class="val" id="tax-school-out">—</span>
+        <span class="lbl">Effective rate</span><span class="val" id="tax-rate-out">—</span>
+        <span class="lbl">Assessed at (RAR)</span><span class="val" id="tax-rar-out">—</span>
+        <hr>
+        <span class="lbl">Annual tax</span><span class="val headline" id="tax-annual-out">—</span>
+        <span class="lbl">Monthly</span><span class="val mo" id="tax-monthly-out">—</span>
+      </div>
+      <div class="note" id="tax-note">—</div>
+    </div>
+    <div class="group group--output">
+      <div class="group-title">→ Monthly nut on NY home</div>
+      <div class="out-field"><span class="lbl">Mortgage P&amp;I</span><span class="val" id="m-pi">—</span></div>
+      <div class="out-field"><span class="lbl">Property tax (/12)</span><span class="val" id="m-tax">—</span></div>
+      <div class="out-field"><span class="lbl">Insurance (est. 0.4%/yr)</span><span class="val" id="m-ins">—</span></div>
+      <div class="out-field total"><span class="lbl">Total / month</span><span class="val" id="m-total">—</span></div>
+      <div class="note" id="m-meta">—</div>
+    </div>
+
+    <!-- FOOTER ROW (spans both columns) — cross-property aggregate -->
+    <div class="group group--footer">
+      <div class="group-title">Final cash position · after both VA houses sell</div>
+      <div class="footer-grid">
+        <div class="out-field"><span class="lbl">VA net proceeds (combined)</span><span class="val" id="o-vanet">—</span></div>
         <div class="out-field"><span class="lbl">Repay bridge (stocks + HELOC/C&amp;Z)</span><span class="val" id="o-repay">—</span></div>
         <div class="out-field total"><span class="lbl">Final cash position</span><span class="val" id="o-final">—</span></div>
       </div>
-      <div class="group">
-        <div class="group-title">Monthly nut on NY home</div>
-        <div class="out-field"><span class="lbl">Mortgage P&amp;I</span><span class="val" id="m-pi">—</span></div>
-        <div class="out-field"><span class="lbl">Property tax (/12)</span><span class="val" id="m-tax">—</span></div>
-        <div class="out-field"><span class="lbl">Insurance (est. 0.4%/yr)</span><span class="val" id="m-ins">—</span></div>
-        <div class="out-field total"><span class="lbl">Total / month</span><span class="val" id="m-total">—</span></div>
-        <div class="note" id="m-meta">—</div>
-      </div>
+      <span style="display:none" id="o-vasale">—</span>
+      <span style="display:none" id="o-studio-sale">—</span>
+      <span style="display:none" id="o-vapayoff">—</span>
+      <span style="display:none" id="o-vasell">—</span>
+      <span style="display:none" id="o-va-repairs">—</span>
+      <span style="display:none" id="o-studio-repairs">—</span>
     </div>
+
   </div>
 </section>
+
 
 <!-- ===================== MAP TAB ===================== -->
 <section class="tab-pane map-pane active" data-pane="map">
