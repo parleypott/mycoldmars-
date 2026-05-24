@@ -631,6 +631,7 @@ body.on-map .map-panel { pointer-events: auto; }
 /* Hide-class rules for HTML markers */
 body.hide-train .whh-icon-train { display: none !important; }
 body.hide-trail .whh-icon-trail { display: none !important; }
+body.hide-bookstore .whh-icon-book { display: none !important; }
 body.hide-villages .whh-village-label { display: none !important; }
 
 /* Basemap switcher — separate row, segmented */
@@ -721,6 +722,8 @@ body.hide-villages .whh-village-label { display: none !important; }
 .whh-icon-train svg { color: var(--accent); fill: var(--accent); }
 .whh-icon-trail { border-color: var(--green); }
 .whh-icon-trail svg { color: var(--green); fill: var(--green); }
+.whh-icon-book { border-color: #7B4FA8; }
+.whh-icon-book svg { color: #7B4FA8; fill: #7B4FA8; }
 
 /* House pin markers */
 .whh-marker {
@@ -876,6 +879,7 @@ body.hide-villages .whh-village-label { display: none !important; }
       <button class="layer-btn active" data-layer="schools">School districts</button>
       <button class="layer-btn active" data-layer="train">Train</button>
       <button class="layer-btn active" data-layer="trail">Trails</button>
+      <button class="layer-btn active" data-layer="bookstore">Bookstores</button>
       <button class="layer-btn active" data-layer="villages">Villages</button>
     </div>
     <div class="basemap-switcher" id="basemap-switcher">
@@ -1973,6 +1977,7 @@ map.on('load', () => {
   loadSchoolDistricts();
   const TRAIN_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8 2 5 2.5 5 6v8c0 1.1.9 2 2 2l-2 3h2l2-3h6l2 3h2l-2-3c1.1 0 2-.9 2-2V6c0-3.5-3-4-7-4zM7.5 14a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM11 8H7V5h4v3zm2 0V5h4v3h-4zm3.5 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>';
   const TREE_SVG  = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2 L7 9 H9 L5 15 H8 L4 21 H11 V24 H13 V21 H20 L16 15 H19 L17 9 H19 Z"/></svg>';
+  window.BOOK_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M6 3.5c-.83 0-1.5.67-1.5 1.5v14c0 .83.67 1.5 1.5 1.5h13V18H6.5a.5.5 0 0 1 0-1H19V3.5H6zm1.5 3h9V8h-9V6.5zm0 3h9V11h-9V9.5z"/></svg>';
 
   TRAIN_STATIONS.forEach(s => {
     const el = document.createElement('div');
@@ -2012,6 +2017,7 @@ map.on('load', () => {
   renderPins();
   renderVillages();
   renderVillageMarkers();
+  renderBookstoreMarkers();
   mountVillageBoundaryLayers();
   // Refine any villages that haven't been researched yet (legacy or partial)
   (async () => {
@@ -2354,6 +2360,7 @@ async function refineVillage(id) {
   v.refined = true;
   saveVillages();
   renderVillages();
+  renderBookstoreMarkers();
 }
 
 async function fetchBookstoresNearby(lat, lng) {
@@ -2409,6 +2416,49 @@ function renderVillageMarkers() {
       .setLngLat([v.lng, v.lat]).addTo(map);
     villageMarkers.push(m);
   });
+}
+
+let bookstoreMarkers = [];
+function clearBookstoreMarkers() { bookstoreMarkers.forEach(m => m.remove()); bookstoreMarkers = []; }
+function renderBookstoreMarkers() {
+  clearBookstoreMarkers();
+  // Flat dedup'd list across all villages — key on rounded lng/lat + name
+  const seen = new Map();
+  villages.forEach(v => {
+    (v.bookstores || []).forEach(b => {
+      if (b.lat == null || b.lng == null) return;
+      const key = `${b.lat.toFixed(4)}|${b.lng.toFixed(4)}|${(b.name||'').toLowerCase()}`;
+      if (seen.has(key)) {
+        seen.get(key).nearVillages.push(v.name);
+      } else {
+        seen.set(key, { ...b, nearVillages: [v.name] });
+      }
+    });
+  });
+  for (const b of seen.values()) {
+    const el = document.createElement('div');
+    el.className = 'whh-icon-marker whh-icon-book';
+    el.innerHTML = window.BOOK_SVG || '';
+    el.title = b.name + (b.brand ? ' · ' + b.brand : '');
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      new maplibregl.Popup({ closeButton: true, offset: 16, maxWidth: '280px' })
+        .setLngLat([b.lng, b.lat])
+        .setHTML(`<div class="map-popup">
+          <div class="map-popup-kind">Bookstore</div>
+          <div class="map-popup-name">${escapeHtml(b.name || 'Unnamed bookshop')}</div>
+          <div class="map-popup-meta">
+            ${b.brand ? `<strong>${escapeHtml(b.brand)}</strong><br>` : ''}
+            ${b.addrCity ? `${escapeHtml(b.addrCity)}<br>` : ''}
+            near: ${b.nearVillages.map(n => escapeHtml(n)).join(' · ')}
+          </div>
+        </div>`)
+        .addTo(map);
+    });
+    const m = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([b.lng, b.lat]).addTo(map);
+    bookstoreMarkers.push(m);
+  }
 }
 
 function renderVillages() {
@@ -2487,6 +2537,7 @@ function renderVillages() {
       saveVillages();
       renderVillages();
       renderVillageMarkers();
+      renderBookstoreMarkers();
       refreshVillageBoundaries();
     });
     listEl.appendChild(card);
