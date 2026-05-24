@@ -157,17 +157,20 @@ async function handleExtract(body) {
   }
 
   const rows = allItems
-    .filter(x => x && VALID_KIND.has(x.kind) && x.title && x.art_prompt)
-    .map((x, i) => ({
-      world_slug: world,
-      kind: String(x.kind).slice(0, 16),
-      title: String(x.title).slice(0, 200),
-      caption: String(x.caption || '').slice(0, 400),
-      source_quote: String(x.source_quote || '').slice(0, 600),
-      art_prompt: String(x.art_prompt).slice(0, 4000),
-      status: 'queued',
-      sort_order: i,
-    }));
+    .filter(x => x && VALID_KIND.has(x.kind) && x.title)
+    .map((x, i) => {
+      const row = {
+        world_slug: world,
+        kind: String(x.kind).slice(0, 16),
+        title: String(x.title).slice(0, 200),
+        caption: String(x.caption || '').slice(0, 400),
+        source_quote: String(x.source_quote || '').slice(0, 600),
+        status: 'queued',
+        sort_order: i,
+      };
+      row.art_prompt = buildArtPrompt(row).slice(0, 4000);
+      return row;
+    });
 
   if (!rows.length) return j(502, { error: 'no_valid_items', chunkErrors });
 
@@ -223,18 +226,21 @@ async function handleAppend(body) {
   const VALID_KIND = new Set(['person', 'place', 'thing', 'event']);
   const lowerExisting = new Set(existingTitles.map(t => t.toLowerCase()));
   const rows = items
-    .filter(x => x && VALID_KIND.has(x.kind) && x.title && x.art_prompt)
+    .filter(x => x && VALID_KIND.has(x.kind) && x.title)
     .filter(x => !lowerExisting.has(String(x.title).toLowerCase()))
-    .map((x, i) => ({
-      world_slug: world,
-      kind: String(x.kind).slice(0, 16),
-      title: String(x.title).slice(0, 200),
-      caption: String(x.caption || '').slice(0, 400),
-      source_quote: String(x.source_quote || '').slice(0, 600),
-      art_prompt: String(x.art_prompt).slice(0, 4000),
-      status: 'queued',
-      sort_order: maxSort + 1 + i,
-    }));
+    .map((x, i) => {
+      const row = {
+        world_slug: world,
+        kind: String(x.kind).slice(0, 16),
+        title: String(x.title).slice(0, 200),
+        caption: String(x.caption || '').slice(0, 400),
+        source_quote: String(x.source_quote || '').slice(0, 600),
+        status: 'queued',
+        sort_order: maxSort + 1 + i,
+      };
+      row.art_prompt = buildArtPrompt(row).slice(0, 4000);
+      return row;
+    });
 
   if (!rows.length) return j(200, { inserted: 0, items: [], note: 'no_new_items' });
   const inserted = await sb('POST', 'qss_world_explorer', rows);
@@ -262,50 +268,43 @@ function splitSourceIntoChunks(text, n) {
 }
 
 async function extractChunk({ apiKey, section, sectionIndex, totalSections, itemsTarget, existingTitles }) {
+  // KEY OPTIMIZATION — extract returns ONLY title/caption/kind/quote
+  // per item. The art_prompt is built server-side at draw time by
+  // combining a world-template with the item title + caption. The old
+  // version asked the model to emit a 200-word art_prompt PER item,
+  // which dominated output token count and kept blowing the 25s cap.
   const dedupClause = (Array.isArray(existingTitles) && existingTitles.length)
-    ? `\n\nALREADY CAPTURED — DO NOT REPEAT THESE TITLES:\n${existingTitles.slice(0, 80).map(t => `- ${t}`).join('\n')}\n\nReturn ONLY NEW items the gallery doesn't already have.`
+    ? `\n\nALREADY CAPTURED — DO NOT REPEAT THESE TITLES:\n${existingTitles.slice(0, 80).map(t => `- ${t}`).join('\n')}\n\nReturn ONLY NEW items.`
     : '';
-  const SYSTEM = `You are an editorial researcher. You're reading ${totalSections > 1 ? `section ${sectionIndex + 1} of ${totalSections} of ` : ''}a novel and enumerating distinctive subjects — every person, place, thing, and event — so that an illustrator could draw companion cards.${dedupClause}
+  const SYSTEM = `You read a novel and enumerate distinctive subjects — every person, place, thing, and event — so an illustrator can draw companion cards.${dedupClause}
 
 OUTPUT — strict JSON, no fences, no preamble:
 {
   "items": [
-    {
-      "kind": "person" | "place" | "thing" | "event",
-      "title": "Burgundy at the basement workshop",
-      "caption": "Three monitors glowing green, the prototype under a tarp, two years of late nights.",
-      "source_quote": "The basement smelled like ozone and old copper.",
-      "art_prompt": "A young puppy in coveralls hunched at a workbench, three CRT monitors glowing green-on-black, ..."
-    }
+    { "kind": "person", "title": "Burgundy at the basement workshop", "caption": "Three monitors glow green; the prototype waits under a tarp.", "source_quote": "The basement smelled like ozone and old copper." }
   ]
 }
 
 RULES:
-1. Return APPROXIMATELY ${itemsTarget} items from THIS section only. A few more or fewer is fine; do NOT stretch to hit a quota.
-2. Distribution across kinds should reflect what's actually IN this section.
-3. "title" — 3-8 words, action-led. Distinguishing detail over generic noun.
-4. "caption" — 1 sentence, 8-22 words. No AI-essay tropes.
-5. "source_quote" — short verbatim phrase from THIS section, 4-20 words. Empty string if none anchors.
-6. "art_prompt" — 80-220 words, image-gen ready. ALWAYS include the world style frame:
-   - Painterly cinematic watercolor; Studio Ghibli atmosphere + Iron Giant mechanical weight + Yucatan 1512 movie-poster mood
-   - Hand-painted, visible brush strokes, atmospheric depth
-   - Deep teal-blue night + warm amber lamplight + sienna-burgundy reds + iron-gray
-   - Puppies are LITERAL working-breed dogs (brown-and-white, weathered, period clothes) — NOT cute mascots
-   - Retro-futurist mining planet: MS-DOS green-on-black terminals, CRT monitors, hand-soldered circuits
-   - NOT sticker, NOT cel, NOT vector, NOT photorealism, NOT manga
-   Then describe the SPECIFIC scene/subject with concrete visual detail.
-7. Items should appear in the order they're introduced in the source.
+1. ~${itemsTarget} items from THIS source.
+2. Spread across kinds: person | place | thing | event (whatever's actually IN the source).
+3. title: 3-8 words, action-led. Distinguishing detail over generic noun.
+4. caption: 1 sentence, 8-22 words. Concrete. No AI-essay tropes.
+5. source_quote: 4-20 word verbatim phrase from the source, or empty string.
+6. Order: roughly narrative order through the source.
 
-Plain JSON only. No fences. No preamble.`;
+Plain JSON only. No art_prompt — that's built server-side.`;
 
   const userPrompt = [
-    `Section ${sectionIndex + 1} of ${totalSections} between markers. Enumerate items from THIS section only.`,
+    totalSections > 1
+      ? `Section ${sectionIndex + 1} of ${totalSections}. Enumerate items from THIS section.`
+      : 'Full source. Enumerate items.',
     '',
-    '===SECTION-BEGIN===',
+    '===BEGIN===',
     section,
-    '===SECTION-END===',
+    '===END===',
     '',
-    `Return ~${itemsTarget} items as JSON.`,
+    `Return ~${itemsTarget} items as JSON. No fences.`,
   ].join('\n');
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -317,7 +316,10 @@ Plain JSON only. No fences. No preamble.`;
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 6500,
+      // Item now = title + caption + quote + kind ≈ 60-80 output tokens.
+      // 25 items × 80 = 2000 tokens. Leaves headroom for 40+ items if
+      // the model goes verbose. Total output time ~6-10s vs ~20s before.
+      max_tokens: 3500,
       system: SYSTEM,
       messages: [{ role: 'user', content: userPrompt }],
     }),
@@ -335,6 +337,28 @@ Plain JSON only. No fences. No preamble.`;
   try { parsed = JSON.parse(cleaned); }
   catch { throw new Error('parse_failed'); }
   return Array.isArray(parsed?.items) ? parsed.items : [];
+}
+
+// Build a full nano-banana art prompt from a row's title + caption.
+// Encapsulates the world style frame so the model gets a consistent
+// painterly Burgundy treatment without the extract step having to
+// emit it per row.
+function buildArtPrompt(row) {
+  const STYLE = [
+    'Painterly cinematic watercolor illustration in the register of Studio Ghibli atmosphere crossed with Iron Giant mechanical weight and a Yucatan 1512 movie-poster mood.',
+    'Hand-painted feel, visible brush strokes, atmospheric depth, painted lighting.',
+    'PALETTE: deep teal-blue night, warm amber lamplight, sienna-burgundy reds, iron-gray. Heavy chiaroscuro.',
+    'WORLD: Puppy Town — a backwater mining planet. Retro-futurist: MS-DOS green-on-black terminals, CRT monitors, hand-soldered boards.',
+    'The puppies are LITERAL working-breed dogs (brown-and-white, tan, weathered) in period work clothes / royal cloaks — NOT cute anthropomorphic mascots.',
+    'DO NOT: sticker outlines, flat cel coloring, manga/anime, photorealism, generic Disney-3D, bright saccharine palettes.',
+  ].join(' ');
+  const KIND_HINT = {
+    person: 'PORTRAIT framing — 3/4 or head-and-shoulders, character-focused.',
+    place:  'ESTABLISHING shot — landscape framing, environment-first, atmospheric.',
+    thing:  'CLOSE-UP — single object or contraption, tactile detail, painted lighting.',
+    event:  'CINEMATIC scene — multiple figures, action moment, dramatic composition.',
+  }[row.kind] || '';
+  return `${STYLE}\n\n${KIND_HINT}\n\nSUBJECT: ${row.title}. ${row.caption || ''} ${row.source_quote ? `(Anchor moment from the source: "${row.source_quote}")` : ''}`;
 }
 
 // ────────────────────── generate one image ──────────────────────
