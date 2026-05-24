@@ -778,6 +778,7 @@ body.hide-villages .whh-village-label { display: none !important; }
         <div class="out-field"><span class="lbl">Down payment</span><span class="val minus" id="o-down">—</span></div>
         <div class="out-field"><span class="lbl">Mansion tax (NY)</span><span class="val minus" id="o-mansion">—</span></div>
         <div class="out-field"><span class="lbl">NY closing costs</span><span class="val minus" id="o-nyclose">—</span></div>
+        <div class="out-field"><span class="lbl">Moving + upstart costs</span><span class="val minus" id="o-moving">—</span></div>
         <div class="out-field total"><span class="lbl">Cash needed</span><span class="val" id="o-needed">—</span></div>
         <div class="out-field"><span class="lbl">Cash you have ready</span><span class="val" id="o-have">—</span></div>
         <div class="out-field total"><span class="lbl">The Gap</span><span class="val" id="o-gap">—</span></div>
@@ -890,6 +891,7 @@ document.querySelectorAll('.layer-btn').forEach(btn => {
 const moneyState = {
   // Main VA house — vaSellPct is combined realtor commission + closing costs (default 6%)
   vaSale: 2400000, vaPayoff: 675000, vaSellPct: 6, vaRepairs: 10000,
+  moving: 20000,
   // 808 Studio (second VA house) — actual loan balance from screenshot
   studioSale: 215000, studioPayoff: 167414, studioRepairs: 5000,
   // Pleasantville
@@ -1100,7 +1102,7 @@ function moneyRecalc() {
   // NY closing costs — derived live from purchase + loan
   const ny = computeNYClosing(s.buyPrice, loan);
   s.nyClosing = ny.total;
-  const cashNeeded = down + mansion + s.nyClosing;
+  const cashNeeded = down + mansion + s.nyClosing + s.moving;
   // The Bridge
   const cashAvail = s.cashOnHand + s.invPulled + s.bizPulled;
   const gap = cashNeeded - cashAvail;
@@ -1115,6 +1117,7 @@ function moneyRecalc() {
   setVal('o-down', down, 'out');
   setVal('o-mansion', mansion, 'out');
   setVal('o-nyclose', s.nyClosing, 'out');
+  setVal('o-moving', s.moving, 'out');
   setVal('o-needed', cashNeeded, 'out-total');
   setVal('o-have', cashAvail, 'in');
   setVal('o-gap', Math.abs(gap), covered ? 'covered' : 'short');
