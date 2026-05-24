@@ -313,11 +313,12 @@ body.on-map .map-panel { pointer-events: auto; }
   letter-spacing: 0.06em;
   pointer-events: none;
 }
+.map-search .search-wrap { z-index: 200; }
 .suggestions {
   position: absolute;
   top: calc(100% + 4px);
   left: 0; right: 0;
-  z-index: 50;
+  z-index: 200;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 2px;
@@ -326,6 +327,8 @@ body.on-map .map-panel { pointer-events: auto; }
   max-height: 360px;
   overflow-y: auto;
 }
+.map-search .layer-toggle,
+.map-search .basemap-switcher { position: relative; z-index: 1; }
 .suggestions.hidden { display: none; }
 .suggestion-item {
   padding: 12px 18px;
@@ -2623,12 +2626,32 @@ let activeSuggestion = -1;
 
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
+// Westchester County bounding box (lng/lat): roughly -73.95..-73.45 by 40.88..41.40
+const WESTCHESTER_BBOX = { west: -73.95, south: 40.88, east: -73.45, north: 41.40 };
+function isInWestchester(s) {
+  // Trust the bounding box first (cheap), then the address county field as a tie-breaker
+  const lat = parseFloat(s.lat), lng = parseFloat(s.lon);
+  if (!isFinite(lat) || !isFinite(lng)) return false;
+  if (lat < WESTCHESTER_BBOX.south || lat > WESTCHESTER_BBOX.north) return false;
+  if (lng < WESTCHESTER_BBOX.west  || lng > WESTCHESTER_BBOX.east)  return false;
+  const a = s.address || {};
+  // Inside the bbox but obviously another county (Bronx/Rockland/Putnam/Fairfield) — drop.
+  if (a.county && a.county !== 'Westchester County' && a.county !== 'Westchester') return false;
+  if (a.state && a.state !== 'New York') return false;
+  return true;
+}
+
 async function searchAddresses(q) {
-  // viewbox biases results toward Westchester area but doesn't strictly limit
-  const url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&polygon_geojson=1&limit=6&countrycodes=us&viewbox=-74.05,41.35,-73.45,40.95&q=' + encodeURIComponent(q);
+  // bounded=1 clamps Nominatim results to the viewbox; we still client-filter for safety
+  const url = 'https://nominatim.openstreetmap.org/search'
+    + '?format=json&addressdetails=1&polygon_geojson=1&limit=12&countrycodes=us'
+    + `&viewbox=${WESTCHESTER_BBOX.west},${WESTCHESTER_BBOX.north},${WESTCHESTER_BBOX.east},${WESTCHESTER_BBOX.south}`
+    + '&bounded=1'
+    + '&q=' + encodeURIComponent(q);
   const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
   if (!res.ok) throw new Error('search failed');
-  return res.json();
+  const data = await res.json();
+  return data.filter(isInWestchester).slice(0, 6);
 }
 
 function formatSuggestion(s) {
