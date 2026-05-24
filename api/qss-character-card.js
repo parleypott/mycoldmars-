@@ -291,7 +291,7 @@ export default async function handler(req) {
     visual_notes: visualNotesOut,
     chat_reply: chatReply,
     portraitPrompt,
-    model: { synopsis: 'claude-haiku-4-5', portrait: 'gemini-3.1-flash-image-preview' },
+    model: { synopsis: 'claude-haiku-4-5', portrait: 'gemini-2.5-flash-image' },
     ms: Date.now() - t0,
   });
 }
