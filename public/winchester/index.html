@@ -2412,17 +2412,6 @@ function safeSet(key, value) {
 </script>
 <script>
 
-// ===================== TABLE-VIEW STATE (hoisted early) =====================
-// Declared at the very top of the script so any renderTable() call —
-// even from a click handler that fires before the rest of the script
-// finishes parsing — can read tvSort/tvExpanded without tripping a TDZ.
-// Fresh machines / cold loads were hitting this; do not move down again.
-var tvExpanded = { villages: new Set(), pins: new Set() };
-var tvSort = {
-  villages: { col: 'name', dir: 'asc' },
-  pins:     { col: 'rank', dir: 'desc' }
-};
-
 // ===================== TABS =====================
 function setActiveTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === tabId));
@@ -3112,7 +3101,17 @@ const SEED_LISTINGS = [
   { street: "1320 Albany Post Road",    city: "Croton-on-Hudson",  state: "NY", zip: "10520", price: 2099000, beds: 3, baths: 4, sqft: 4000, acres: 3.91, status: "Active",  brokerage: null },
   { street: "6 West Sunnyside Lane",    city: "Irvington",         state: "NY", zip: "10533", price: 3195000, beds: 4, baths: 5, sqft: 5296, acres: 1.5,  status: "Active",  brokerage: "Houlihan Lawrence Inc." },
   { street: "65 Holly Place",           city: "Briarcliff Manor",  state: "NY", zip: "10510", price: 1599000, beds: 3, baths: 4, sqft: 3600, acres: 0.92, status: "Active",  brokerage: "Corcoran Legends Realty" },
-  { street: "6 Raven Way",              city: "Pleasantville",     state: "NY", zip: "10570", price: 1549000, beds: 4, baths: 4, sqft: 2437, acres: 0.93, status: "Active",  brokerage: "Julia B Fee Sothebys Int. Rlty" }
+  { street: "6 Raven Way",              city: "Pleasantville",     state: "NY", zip: "10570", price: 1549000, beds: 4, baths: 4, sqft: 2437, acres: 0.93, status: "Active",  brokerage: "Julia B Fee Sothebys Int. Rlty" },
+  // ---- Batch 2 (Homes 2.zip, 2026-05-24) — 9 net-new after duplicate-filter ----
+  { street: "21 Hampshire Road",        city: "Bronxville",        state: "NY", zip: "10708", price: 3595000, beds: 4, baths: 5, sqft: 4966, acres: null, status: "Active", brokerage: null },
+  { street: "6 Round House Court",      city: "Bedford",           state: "NY", zip: "10506", price: 3450000, beds: 5, baths: 6, sqft: 6077, acres: null, status: "Active", brokerage: null },
+  { street: "8 Shoreview Circle",       city: "Pelham",            state: "NY", zip: "10803", price: 2195000, beds: 4, baths: 3, sqft: 3267, acres: null, status: "Active", brokerage: null },
+  { street: "13 Cedar Lane",            city: "Bronxville",        state: "NY", zip: "10708", price: null,    beds: null, baths: null, sqft: null, acres: null, status: "Active", brokerage: null },
+  { street: "14 Kopac Lane",            city: "Palisades",         state: "NY", zip: "10964", price: null,    beds: null, baths: null, sqft: null, acres: null, status: "Active", brokerage: null },
+  { street: "18 Puritan Road",          city: "Rye",               state: "NY", zip: "10580", price: null,    beds: null, baths: null, sqft: null, acres: null, status: "Active", brokerage: null },
+  { street: "245 River Road",           city: "Nyack",             state: "NY", zip: "10960", price: null,    beds: null, baths: null, sqft: null, acres: null, status: "Active", brokerage: null },
+  { street: "401 Stanwich Road",        city: "Greenwich",         state: "CT", zip: "06831", price: null,    beds: null, baths: null, sqft: null, acres: null, status: "Active", brokerage: null },
+  { street: "40 Rogers Road",           city: "Stamford",          state: "CT", zip: "06902", price: null,    beds: null, baths: null, sqft: null, acres: null, status: "Active", brokerage: null }
 ];
 
 document.getElementById('seed-listings-btn')?.addEventListener('click', async () => {
@@ -3232,7 +3231,98 @@ compassFileInput?.addEventListener('change', async (e) => {
         setTimeout(() => setUploadStatus(''), 5000);
         return;
       }
-      // PATH 2: zip of a saved Compass page — find the .html inside
+      // PATH 1b: folder of Compass-saved HTMLs (one .html per listing + sibling <basename>_files/ for photos)
+      const allEntries = Object.values(zip.files).filter(f => !f.dir && !/^__MACOSX\//.test(f.name));
+      const topHtmls = allEntries.filter(f => /\.html?$/i.test(f.name) && !/_files\//i.test(f.name));
+      if (topHtmls.length > 1) {
+        let imported = 0, merged = 0, photosAttached = 0, skippedUnparsed = 0;
+        for (const [i, htmlEntry] of topHtmls.entries()) {
+          const basename = htmlEntry.name.replace(/\.html?$/i, '');
+          const fileBase = basename.split('/').pop();
+          setUploadStatus(`importing ${i + 1}/${topHtmls.length}: ${fileBase}…`);
+          const parsed = parseListingFilename(fileBase);
+          if (!parsed) { skippedUnparsed++; continue; }
+          // Try og:description for full meta; fall back to filename-only
+          let meta = { price: null, beds: null, baths: null, sqft: null, brokerage: null };
+          try {
+            const htmlText = await htmlEntry.async('text');
+            meta = { ...meta, ...extractCompassMetaFromHtml(htmlText) };
+          } catch {}
+          // Pull photos from sibling _files/ folder
+          const filesPrefix = basename + '_files/';
+          const photoEntries = allEntries.filter(f =>
+            f.name.startsWith(filesPrefix) &&
+            /\.(jpe?g|png|webp)$/i.test(f.name)
+          );
+          // Compass icon thumbnails are <2KB; real photos are bigger. Filter + cap.
+          const realPhotos = [];
+          for (const pe of photoEntries) {
+            try {
+              const blob = await pe.async('blob');
+              if (blob.size < 8000) continue; // skip icons / sprites
+              realPhotos.push({ entry: pe, blob, size: blob.size });
+            } catch {}
+          }
+          // Sort by size desc (bigger = more likely a real hero photo), cap 12
+          realPhotos.sort((a, b) => b.size - a.size);
+          const top = realPhotos.slice(0, 12);
+          const photoDataUrls = [];
+          for (let pi = 0; pi < top.length; pi++) {
+            setUploadStatus(`importing ${i + 1}/${topHtmls.length}: ${fileBase} · photo ${pi + 1}/${top.length}…`);
+            try {
+              const dataUrl = await blobToResizedDataUrl(top[pi].blob, 1000, 0.72);
+              if (dataUrl) photoDataUrls.push(dataUrl);
+            } catch (err) { console.warn('[whh] photo extract failed', top[pi].entry.name, err); }
+          }
+          // Merge into existing pin if address matches; else create new
+          const existing = pins.find(p => p.address?.toLowerCase().startsWith(parsed.street.toLowerCase()));
+          if (existing) {
+            existing.compass = existing.compass || {};
+            const c = existing.compass;
+            if (meta.price != null) c.price = meta.price;
+            if (meta.beds != null) c.beds = meta.beds;
+            if (meta.baths != null) c.baths = meta.baths;
+            if (meta.sqft != null) c.sqft = meta.sqft;
+            if (meta.brokerage && !c.description) c.description = `Listing courtesy of ${meta.brokerage}`;
+            if (photoDataUrls.length) {
+              c.photos = photoDataUrls;
+              photosAttached += photoDataUrls.length;
+            }
+            if (meta.price && !existing.askingPrice) existing.askingPrice = meta.price;
+            savePins();
+            if (typeof renderPins === 'function') renderPins();
+            if (typeof renderTable === 'function' && document.body.dataset.tableTab === 'open') renderTable();
+            merged++;
+            continue;
+          }
+          try {
+            await importListingAsPin({
+              streetAddress: parsed.street,
+              city: parsed.city,
+              state: parsed.state,
+              zip: parsed.zip || null,
+              price: meta.price,
+              beds: meta.beds,
+              baths: meta.baths,
+              sqft: meta.sqft,
+              lotSize: null,
+              propertyType: null,
+              description: meta.brokerage ? `Listing courtesy of ${meta.brokerage}` : null,
+              listingUrl: null,
+              photos: photoDataUrls
+            });
+            photosAttached += photoDataUrls.length;
+            imported++;
+            await new Promise(r => setTimeout(r, 900));
+          } catch (err) {
+            console.warn('[whh] import failed for', parsed.street, err);
+          }
+        }
+        setUploadStatus(`done · ${imported} new pin${imported===1?'':'s'} · ${merged} merged · ${photosAttached} photos attached${skippedUnparsed ? ' · ' + skippedUnparsed + ' unparsed' : ''}`);
+        setTimeout(() => setUploadStatus(''), 8000);
+        return;
+      }
+      // PATH 2: zip of a single saved Compass page — find the .html inside
       const entries = Object.values(zip.files).filter(f => !f.dir);
       const htmlEntry = entries
         .filter(f => /\.html?$/i.test(f.name) && !/_files\//i.test(f.name))
@@ -3292,6 +3382,69 @@ async function blobToResizedDataUrl(blob, maxDim = 1000, quality = 0.72) {
     console.warn('[whh] resize failed, falling back to original blob', e);
     return blobToDataUrl(blob);
   }
+}
+
+// Parse "13 Cedar Ln Bronxville, NY.html" or "21 Hampshire Rd, Bronxville, NY 10708 _ MLS #920495.html"
+// into { street, city, state, zip }. Case-insensitive, trims trailing punctuation.
+function parseListingFilename(name) {
+  if (!name) return null;
+  let s = String(name).trim();
+  s = s.replace(/\s*[_|]\s*MLS\s*#?\s*\d+\s*$/i, '').trim();
+  // Strip a trailing 5-digit zip (with or without preceding comma)
+  let trailingZip = null;
+  const zipM = s.match(/(?:,\s*|\s+)(\d{5})\s*$/);
+  if (zipM) { trailingZip = zipM[1]; s = s.slice(0, zipM.index).replace(/,\s*$/, '').trim(); }
+  const clean = (v) => String(v || '').replace(/[\s,]+$/, '').trim();
+  const titleCase = (v) => clean(v).split(/\s+/).map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w).join(' ');
+  // Recognized street suffixes — anchor the street/city split
+  const STREET_SUFFIX = '(?:road|rd|lane|ln|court|ct|circle|cir|way|place|pl|avenue|ave|drive|dr|blvd|boulevard|street|st|terrace|trail|loop|highway|hwy|run|row|crossing|crossroad)';
+  const suffixRe = new RegExp('^(.+?\\s+' + STREET_SUFFIX + ')\\.?\\s+(.+?)(?:\\s+([A-Za-z]{2}))?\\s*$', 'i');
+  // Pattern A: "<street>, <city>, <state>"
+  let m = s.match(/^(.+?),\s*([^,]+?),\s*([A-Za-z]{2})\s*$/);
+  if (m) return { street: clean(m[1]), city: titleCase(m[2]), state: m[3].toUpperCase(), zip: trailingZip };
+  // Pattern B: "<street>, <city> <state>"
+  m = s.match(/^(.+?),\s*([^,]+?)\s+([A-Za-z]{2})\s*$/);
+  if (m) return { street: clean(m[1]), city: titleCase(m[2]), state: m[3].toUpperCase(), zip: trailingZip };
+  // Pattern C: "<street with suffix> <city...> <state>" — anchored on street suffix
+  m = s.match(suffixRe);
+  if (m && m[3]) return { street: clean(m[1]), city: titleCase(m[2]), state: m[3].toUpperCase(), zip: trailingZip };
+  if (m && !m[3]) return { street: clean(m[1]), city: titleCase(m[2]), state: 'NY', zip: trailingZip };
+  // Pattern D: trailing state, no comma anywhere
+  m = s.match(/^(.+?)\s+([A-Za-z]{2})\s*$/);
+  if (m) {
+    const parts = clean(m[1]).split(/\s+/);
+    if (parts.length >= 3) {
+      const street = parts.slice(0, -1).join(' ');
+      const city = parts.slice(-1).join(' ');
+      return { street, city: titleCase(city), state: m[2].toUpperCase(), zip: trailingZip };
+    }
+  }
+  // Pattern E: "<street>, <city>" with no state — assume NY
+  m = s.match(/^(.+?),\s*(.+?)\s*$/);
+  if (m) return { street: clean(m[1]), city: titleCase(m[2]), state: 'NY', zip: trailingZip };
+  return null;
+}
+
+// Extract { price, beds, baths, sqft, brokerage } from a Compass-saved HTML string
+// via og:description meta. Returns nulls for missing fields. Generic Compass shells
+// (saved before SSR populated listing data) return all nulls.
+function extractCompassMetaFromHtml(html) {
+  if (!html) return {};
+  const desc = (html.match(/<meta[^>]+(?:property|name)=["']og:description["'][^>]+content=["']([^"']+)["']/i)
+             || html.match(/<meta[^>]+(?:property|name)=["']description["'][^>]+content=["']([^"']+)["']/i)
+             || [])[1] || '';
+  if (/Centralized hub|guided, transparent/i.test(desc) || !desc) return {};
+  const priceM = desc.match(/\$([0-9,]+)/);
+  const bedsM = desc.match(/(\d+(?:\.\d+)?)\s*-?\s*bed/i);
+  const bathsM = desc.match(/(\d+(?:\.\d+)?)\s*-?\s*bath/i);
+  const sqftM = desc.match(/([\d,]+)\s*sqft/i);
+  return {
+    price: priceM ? parseInt(priceM[1].replace(/,/g, ''), 10) : null,
+    beds: bedsM ? parseFloat(bedsM[1]) : null,
+    baths: bathsM ? parseFloat(bathsM[1]) : null,
+    sqft: sqftM ? parseInt(sqftM[1].replace(/,/g, ''), 10) : null,
+    brokerage: null
+  };
 }
 
 async function importFromHtml(html) {
@@ -6342,15 +6495,15 @@ function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-// ===================== TABLE VIEW =====================
-// (Actual table view code is below; only the persistent state for it
-// is declared up at the top of the script — see the "table-view state"
-// block near the start of this <script>. Hoisting it prevented a TDZ
-// when a fast click on the Table tab fired renderTable before the rest
-// of the script had finished parsing.)
-
 renderPins();
 populateActivePinSelect();
+
+// ===================== TABLE VIEW =====================
+const tvExpanded = { villages: new Set(), pins: new Set() };
+let tvSort = {
+  villages: { col: 'name', dir: 'asc' },
+  pins:     { col: 'rank', dir: 'desc' }
+};
 
 function tvVillageValue(v, col) {
   switch (col) {
