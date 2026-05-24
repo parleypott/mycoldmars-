@@ -1,0 +1,2249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Winchester House Hunter</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<style>
+:root {
+  --bg: #F5F1E6;
+  --card: #FBF9F2;
+  --ink: #1A1A1F;
+  --muted: #807967;
+  --line: #DAD3BD;
+  --accent: #B5331E;
+  --green: #2F7D4F;
+  --rank-5: #B5331E;
+  --rank-4: #E07A2E;
+  --rank-3: #C9A53E;
+  --rank-2: #8C8875;
+  --rank-1: #5E5A4D;
+  --rank-0: #FFFFFF;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ---------- FULL-BLEED MAP LAYER ---------- */
+#map-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: #ECE6D8;
+}
+
+/* ---------- HEADER (floats over map) ---------- */
+header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 30;
+  display: flex;
+  align-items: baseline;
+  gap: 28px;
+  padding: 18px 32px 14px;
+  background: rgba(245, 241, 230, 0.85);
+  backdrop-filter: blur(10px) saturate(1.2);
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: 22px;
+  line-height: 1;
+}
+nav { margin-left: auto; display: flex; gap: 2px; }
+nav button {
+  background: transparent; border: none; color: var(--muted);
+  font-family: inherit; font-size: 10px; letter-spacing: 0.22em;
+  text-transform: uppercase; padding: 6px 12px; cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+nav button:hover { color: var(--ink); }
+nav button.active { color: var(--ink); border-bottom-color: var(--accent); }
+
+/* ---------- TAB PANES ---------- */
+main {
+  position: relative;
+  z-index: 10;
+  height: 100vh;
+  width: 100%;
+  overflow-y: auto;
+  padding-top: 56px; /* below header */
+}
+.tab-pane { display: none; min-height: calc(100vh - 56px); }
+.tab-pane.active { display: block; }
+
+/* Solid panes (Money, Timeline, Notes) cover the map */
+.tab-pane.solid {
+  background: var(--bg);
+  padding: 36px clamp(20px, 4vw, 64px) 80px;
+}
+
+/* Map pane is transparent — overlays float over the map */
+.tab-pane.map-pane {
+  background: transparent;
+  pointer-events: none; /* let map handle interaction by default */
+  padding: 0;
+}
+.tab-pane.map-pane > * { pointer-events: auto; }
+
+/* When map pane is active, hide main scrollbar (map is the canvas) */
+body.on-map main { overflow: hidden; }
+
+/* ---------- MONEY MODE ---------- */
+.tool { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; max-width: 1280px; margin: 0 auto; }
+@media (max-width: 900px) { .tool { grid-template-columns: 1fr; } }
+.col h2 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 18px; font-weight: 600;
+  padding-bottom: 10px; border-bottom: 1px solid var(--line);
+}
+.group {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  margin-bottom: 18px;
+  padding: 4px 18px 14px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+.group-title {
+  font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase;
+  color: var(--accent); font-weight: 600;
+  margin: -4px -18px 6px;
+  padding: 11px 18px 10px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(245, 241, 230, 0.55);
+  border-radius: 4px 4px 0 0;
+}
+.field { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--line); }
+.field:last-child { border-bottom: none; }
+.field label { font-size: 12px; color: var(--ink); letter-spacing: 0.02em; }
+.field input {
+  background: #FFF; border: 1px solid var(--line); color: var(--ink);
+  font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  padding: 7px 12px; width: 160px; text-align: right; outline: none;
+  border-radius: 2px; font-variant-numeric: tabular-nums;
+}
+.field input:focus { border-color: var(--accent); background: #FFF; }
+.field .seg-group { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.field .seg-group button {
+  background: #FFF; border: 1px solid var(--line); color: var(--muted);
+  font-family: inherit; font-size: 11px; padding: 6px 12px; cursor: pointer; border-radius: 2px;
+  white-space: nowrap;
+}
+.field .seg-group button.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.field .derived { font-size: 11px; color: var(--muted); text-align: right; grid-column: 2; font-style: italic; }
+.field .derived.cost { color: var(--accent); font-size: 10.5px; font-style: normal; font-variant-numeric: tabular-nums; font-weight: 600; }
+.field .derived.cost.ok { color: var(--green); }
+.field select.town-select {
+  background: #FFF; border: 1px solid var(--line); color: var(--ink);
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  padding: 7px 30px 7px 12px; outline: none; border-radius: 2px;
+  min-width: 240px; max-width: 280px; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23807967'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.field select.town-select:focus { border-color: var(--accent); }
+.tax-readout {
+  margin-top: 6px;
+  padding: 12px 14px;
+  background: #FFF;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 2px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 16px;
+  align-items: baseline;
+}
+.tax-readout .lbl { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
+.tax-readout .val {
+  font-family: 'JetBrains Mono', monospace; font-weight: 600;
+  font-size: 13px; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.tax-readout .val.headline {
+  font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400;
+  font-size: 24px; color: var(--accent);
+}
+.tax-readout .val.mo {
+  font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400;
+  font-size: 18px;
+}
+.tax-readout hr {
+  grid-column: 1 / -1;
+  border: none;
+  border-top: 1px dashed var(--line);
+  margin: 4px 0;
+}
+.out-field { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--line); }
+.out-field:last-child { border-bottom: none; }
+.out-field .lbl { font-size: 12px; color: var(--ink); grid-column: 1 / 3; }
+.out-field .val {
+  font-family: 'JetBrains Mono', monospace; font-weight: 600;
+  font-size: 14px; color: var(--ink);
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: nowrap;
+}
+.out-field .val.in { color: var(--green); }
+.out-field .val.out { color: var(--accent); }
+.out-field .val.in-total,
+.out-field .val.covered { color: var(--green); }
+.out-field .val.out-total,
+.out-field .val.short { color: var(--accent); }
+.out-field.total {
+  border-top: 2px solid var(--ink);
+  border-bottom: none;
+  margin: 10px -18px -14px;
+  padding: 14px 18px 16px;
+  background: rgba(26, 26, 31, 0.04);
+  border-radius: 0 0 4px 4px;
+}
+.out-field.total .lbl { font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; font-size: 11px; }
+.out-field.total .val {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 26px;
+}
+.out-field.subtotal {
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  padding-top: 12px;
+}
+.out-field.subtotal .lbl { font-weight: 600; }
+.note { font-size: 11px; color: var(--muted); margin-top: 10px; font-style: italic; line-height: 1.5; padding: 0 2px; }
+.placeholder-pane { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); padding: 80px 0; text-align: center; }
+
+/* ---------- MAP OVERLAYS ---------- */
+.map-search {
+  position: fixed;
+  top: 80px;
+  left: 32px;
+  z-index: 25;
+  width: clamp(360px, 36vw, 520px);
+}
+.map-search .search-wrap {
+  position: relative;
+  background: rgba(251, 249, 242, 0.96);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+}
+.map-search input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  padding: 14px 18px;
+  outline: none;
+}
+.map-search input::placeholder { color: var(--muted); }
+.map-search .search-status {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--muted);
+  font-style: italic;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+}
+.suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  box-shadow: 0 10px 32px rgba(0,0,0,0.20);
+  overflow: hidden;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.suggestions.hidden { display: none; }
+.suggestion-item {
+  padding: 12px 18px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.suggestion-item:last-child { border-bottom: none; }
+.suggestion-item:hover, .suggestion-item.active {
+  background: var(--bg);
+}
+.suggestion-item .primary {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+.suggestion-item .secondary {
+  font-size: 10.5px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+/* Pin list panel — right side */
+.map-panel {
+  position: fixed;
+  top: 80px;
+  right: 16px;
+  bottom: 16px;
+  width: 380px;
+  z-index: 22;
+  background: rgba(251, 249, 242, 0.96);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+}
+.panel-scroll { flex: 1; overflow-y: auto; }
+.map-panel-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0;
+  background: rgba(251, 249, 242, 0.96);
+  backdrop-filter: blur(8px);
+  z-index: 2;
+}
+.map-panel-head .title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--accent); font-weight: 700;
+}
+.map-panel-head .count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 700; color: var(--muted);
+}
+.pin-list, .village-list {
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.pin-card {
+  background: #FFF;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--rank-0);
+  border-radius: 2px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color 200ms, background 200ms;
+}
+.pin-card:hover { background: var(--bg); }
+.pin-card[data-rank="5"] { border-left-color: var(--rank-5); }
+.pin-card[data-rank="4"] { border-left-color: var(--rank-4); }
+.pin-card[data-rank="3"] { border-left-color: var(--rank-3); }
+.pin-card[data-rank="2"] { border-left-color: var(--rank-2); }
+.pin-card[data-rank="1"] { border-left-color: var(--rank-1); }
+
+.pin-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 0; }
+.pin-address {
+  font-family: 'JetBrains Mono', monospace;
+  font-style: normal;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  color: var(--ink);
+  text-transform: uppercase;
+  flex: 1;
+}
+.pin-address .num {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: var(--ink);
+  color: var(--bg);
+  padding: 2px 6px;
+  border-radius: 2px;
+  margin-right: 7px;
+  vertical-align: 1px;
+}
+.pin-delete { background: transparent; border: none; color: var(--muted); font-family: inherit; font-size: 18px; cursor: pointer; padding: 0 2px; line-height: 1; align-self: flex-start; }
+.pin-delete:hover { color: var(--accent); }
+
+.pin-block {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+  font-family: 'JetBrains Mono', monospace;
+}
+.pin-block:first-of-type { margin-top: 10px; }
+.pin-block .kind {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.pin-block .body { font-size: 11px; color: var(--ink); line-height: 1.5; }
+.pin-block .primary {
+  font-weight: 600;
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  text-transform: uppercase;
+}
+.pin-block .primary .sub {
+  color: var(--muted);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+.pin-block .meta {
+  color: var(--ink);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.pin-block .meta .mute { color: var(--muted); }
+.pin-block .meta strong { font-weight: 600; }
+.pin-block .commute {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+.pin-block .pending {
+  color: var(--muted);
+  opacity: 0.7;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.rank-row { display: flex; gap: 4px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.rank-row .rank-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-right: 8px; font-weight: 600; }
+.rank-btn {
+  background: transparent; border: 1px solid var(--line); color: var(--muted);
+  width: 24px; height: 24px; border-radius: 2px;
+  font-family: inherit; font-size: 11px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.rank-btn:hover { color: var(--ink); border-color: var(--ink); }
+.rank-btn.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.pin-asking {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.pin-asking label {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+}
+.pin-asking input {
+  background: #FFF;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 9px;
+  text-align: right;
+  outline: none;
+  border-radius: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.pin-asking input:focus { border-color: var(--accent); }
+
+.pin-notes {
+  margin-top: 8px;
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--line);
+  font-family: inherit; font-size: 11px; color: var(--ink);
+  padding: 6px 8px; outline: none; border-radius: 2px;
+  resize: vertical; min-height: 42px;
+}
+.pin-notes:focus { border-color: var(--accent); background: #FFF; }
+
+.empty-state {
+  font-size: 11.5px; color: var(--muted); line-height: 1.6;
+  padding: 22px 18px;
+  text-align: center;
+}
+.empty-state em { font-family: 'JetBrains Mono', monospace; font-style: normal; color: var(--ink); }
+.empty-state strong { color: var(--accent); font-weight: 700; }
+
+/* Village card */
+.village-card {
+  background: #FFF;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 2px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: background 200ms;
+  font-family: 'JetBrains Mono', monospace;
+}
+.village-card:hover { background: var(--bg); }
+.village-card .pin-header { margin-bottom: 6px; }
+.village-card .village-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  text-transform: uppercase;
+  flex: 1;
+}
+.village-card .village-sub {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+
+/* Village marker (label floating on map) */
+.whh-village-label {
+  background: rgba(245, 241, 230, 0.96);
+  border: 1.5px solid var(--accent);
+  padding: 5px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border-radius: 2px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.whh-village-label:hover { background: #FFF; }
+
+/* Suggestion: + village button */
+.suggestion-item.village-row { padding-right: 6px; }
+.suggestion-item .add-village-btn {
+  position: absolute;
+  right: 10px; top: 50%;
+  transform: translateY(-50%);
+  background: var(--accent);
+  color: #FFF;
+  border: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.suggestion-item .add-village-btn:hover { background: var(--ink); }
+.suggestion-item.village-row { position: relative; padding-right: 110px; }
+
+/* Layer toggle (under search box) */
+.layer-toggle {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: rgba(251, 249, 242, 0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 6px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.10);
+}
+.layer-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 5px 9px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 150ms, color 150ms, border-color 150ms;
+}
+.layer-btn:hover { color: var(--ink); border-color: var(--ink); }
+.layer-btn.active {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+
+/* Hide-class rules for HTML markers */
+body.hide-train .whh-anchor-train, body.hide-train .whh-train-label { display: none !important; }
+body.hide-trail .whh-anchor-trail, body.hide-trail .whh-trail-label { display: none !important; }
+body.hide-villages .whh-village-label { display: none !important; }
+
+/* MapLibre popup — match editorial palette */
+.maplibregl-popup-content {
+  background: var(--card) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 2px !important;
+  padding: 10px 14px !important;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.18) !important;
+  font-family: 'JetBrains Mono', monospace !important;
+}
+.maplibregl-popup-close-button {
+  font-size: 18px !important;
+  color: var(--muted) !important;
+  padding: 2px 6px !important;
+}
+.maplibregl-popup-tip { border-top-color: var(--card) !important; }
+.map-popup-kind {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.map-popup-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+.map-popup-meta {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.map-popup-meta strong { color: var(--ink); font-weight: 600; }
+
+/* Anchor markers */
+.whh-anchor-marker {
+  width: 10px; height: 10px;
+  background: #FFF;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.whh-train-label, .whh-trail-label {
+  background: rgba(255,255,255,0.92);
+  padding: 1px 5px;
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+  border-radius: 2px;
+  pointer-events: none;
+  white-space: nowrap;
+  transform: translateY(-16px);
+  font-family: 'JetBrains Mono', monospace;
+}
+.whh-train-label { border: 1px solid var(--accent); }
+.whh-trail-label { border: 1px solid var(--green); color: var(--green); }
+.whh-anchor-train { border: 2px solid var(--accent); }
+.whh-anchor-trail { border: 2px solid var(--green); }
+
+/* House pin markers */
+.whh-marker {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: var(--rank-0);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
+  color: var(--ink);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.30);
+}
+.whh-marker[data-rank="5"] { background: var(--rank-5); color: #FFF; border-color: var(--rank-5); }
+.whh-marker[data-rank="4"] { background: var(--rank-4); color: #FFF; border-color: var(--rank-4); }
+.whh-marker[data-rank="3"] { background: var(--rank-3); color: var(--ink); border-color: var(--rank-3); }
+.whh-marker[data-rank="2"] { background: var(--rank-2); color: #FFF; border-color: var(--rank-2); }
+.whh-marker[data-rank="1"] { background: var(--rank-1); color: #FFF; border-color: var(--rank-1); }
+
+.maplibregl-ctrl-attrib { font-size: 9px !important; }
+</style>
+</head>
+<body>
+
+<!-- Always-on map layer behind everything -->
+<div id="map-canvas"></div>
+
+<header>
+  <div class="brand">Winchester House Hunter</div>
+  <nav>
+    <button class="tab-btn" data-tab="money">Money Mode</button>
+    <button class="tab-btn active" data-tab="map">Map</button>
+    <button class="tab-btn" data-tab="timeline">Timeline</button>
+    <button class="tab-btn" data-tab="notes">Notes</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ===================== MONEY MODE ===================== -->
+<section class="tab-pane solid" data-pane="money">
+  <div class="tool">
+    <div class="col">
+      <h2>Inputs</h2>
+      <div class="group">
+        <div class="group-title">Main House · Virginia</div>
+        <div class="field"><label>Sale price</label><input type="text" id="vaSale"></div>
+        <div class="field"><label>Mortgage payoff</label><input type="text" id="vaPayoff"></div>
+        <div class="field"><label>Realtor + closing %</label><input type="text" id="vaSellPct"></div>
+        <div class="field"><label>6% of sale</label><span class="derived cost" id="mainSell-derived">= —</span></div>
+        <div class="field"><label>Net to you</label><span class="derived cost ok" id="mainNet-derived">= —</span></div>
+      </div>
+      <div class="group">
+        <div class="group-title">808 Studio · Virginia</div>
+        <div class="field"><label>Sale price</label><input type="text" id="studioSale"></div>
+        <div class="field"><label>Mortgage payoff</label><input type="text" id="studioPayoff"></div>
+        <div class="field"><label>6% of sale</label><span class="derived cost" id="studioSell-derived">= —</span></div>
+        <div class="field"><label>Repairs before sale</label><input type="text" id="studioRepairs"></div>
+        <div class="field"><label>Net to you</label><span class="derived cost ok" id="studioNet-derived">= —</span></div>
+      </div>
+      <div class="group">
+        <div class="group-title">The Bridge · pre-VA-close cash</div>
+        <div class="field"><label>Cash on hand</label><input type="text" id="cashOnHand"></div>
+        <div class="field"><label>Liquidate stocks</label><input type="text" id="invPulled"></div>
+        <div class="field"><label>Magical bridge</label><input type="text" id="bizPulled"></div>
+        <div class="field"><label>Total bridge</label><span class="derived cost ok" id="bridgeTotal-derived">= —</span></div>
+      </div>
+      <div class="group">
+        <div class="group-title">The New House · Pleasantville</div>
+        <div class="field"><label>Purchase price</label><input type="text" id="buyPrice"></div>
+        <div class="field"><label>Down payment %</label><input type="text" id="downPct"></div>
+        <div class="field"><div class="derived" id="downDollars-derived">= —</div></div>
+        <div class="field"><label>Mortgage rate %</label><input type="text" id="rate"></div>
+        <div class="field">
+          <label>Mortgage term</label>
+          <div class="seg-group" id="term-seg">
+            <button data-val="15">15 yr</button>
+            <button data-val="20">20 yr</button>
+            <button data-val="30" class="active">30 yr</button>
+          </div>
+        </div>
+        <div class="field"><label>NY closing costs</label><span class="derived cost" id="nyClosing-out">= —</span></div>
+        <div class="field"><div class="derived" id="nyClosing-breakdown">—</div></div>
+      </div>
+      <div class="group">
+        <div class="group-title">Property Tax · auto from active pin</div>
+        <div class="field">
+          <label>Active pin</label>
+          <select id="activePinSel" class="town-select"></select>
+        </div>
+        <div class="field"><label>Override (actual bill)</label><input type="text" id="propTaxOverride" placeholder="blank = auto-compute"></div>
+        <div class="tax-readout">
+          <span class="lbl">Detected town</span><span class="val" id="tax-town-out">—</span>
+          <span class="lbl">School district</span><span class="val" id="tax-school-out">—</span>
+          <span class="lbl">Effective rate</span><span class="val" id="tax-rate-out">—</span>
+          <span class="lbl">Assessed at (RAR)</span><span class="val" id="tax-rar-out">—</span>
+          <hr>
+          <span class="lbl">Annual tax</span><span class="val headline" id="tax-annual-out">—</span>
+          <span class="lbl">Monthly</span><span class="val mo" id="tax-monthly-out">—</span>
+        </div>
+        <div class="note" id="tax-note">—</div>
+      </div>
+    </div>
+    <div class="col">
+      <h2>Results</h2>
+      <div class="group">
+        <div class="group-title">Day 1 — close on Pleasantville</div>
+        <div class="out-field"><span class="lbl">Down payment</span><span class="val minus" id="o-down">—</span></div>
+        <div class="out-field"><span class="lbl">Mansion tax (NY)</span><span class="val minus" id="o-mansion">—</span></div>
+        <div class="out-field"><span class="lbl">NY closing costs</span><span class="val minus" id="o-nyclose">—</span></div>
+        <div class="out-field total"><span class="lbl">Cash needed</span><span class="val" id="o-needed">—</span></div>
+        <div class="out-field"><span class="lbl">Cash you have ready</span><span class="val" id="o-have">—</span></div>
+        <div class="out-field total"><span class="lbl">The Gap</span><span class="val" id="o-gap">—</span></div>
+        <div class="note" id="o-gap-note">—</div>
+      </div>
+      <div class="group">
+        <div class="group-title">Day N — after both VA houses sell</div>
+        <div class="out-field"><span class="lbl">Main house sale</span><span class="val" id="o-vasale">—</span></div>
+        <div class="out-field"><span class="lbl">808 Studio sale</span><span class="val" id="o-studio-sale">—</span></div>
+        <div class="out-field"><span class="lbl">Mortgage payoffs (both)</span><span class="val" id="o-vapayoff">—</span></div>
+        <div class="out-field"><span class="lbl">Realtor + closing (6%, both)</span><span class="val" id="o-vasell">—</span></div>
+        <div class="out-field"><span class="lbl">Studio repairs</span><span class="val" id="o-studio-repairs">—</span></div>
+        <div class="out-field total"><span class="lbl">VA net proceeds</span><span class="val" id="o-vanet">—</span></div>
+        <div class="out-field total"><span class="lbl">Final cash position</span><span class="val" id="o-final">—</span></div>
+      </div>
+      <div class="group">
+        <div class="group-title">Monthly nut on Pleasantville</div>
+        <div class="out-field"><span class="lbl">Mortgage P&amp;I</span><span class="val" id="m-pi">—</span></div>
+        <div class="out-field"><span class="lbl">Property tax (/12)</span><span class="val" id="m-tax">—</span></div>
+        <div class="out-field"><span class="lbl">Insurance (est. 0.4%/yr)</span><span class="val" id="m-ins">—</span></div>
+        <div class="out-field total"><span class="lbl">Total / month</span><span class="val" id="m-total">—</span></div>
+        <div class="note" id="m-meta">—</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== MAP TAB ===================== -->
+<section class="tab-pane map-pane active" data-pane="map">
+
+  <div class="map-search">
+    <div class="search-wrap">
+      <input type="text" id="address-input" placeholder="type an address (or village) — auto-search after 3 letters" autocomplete="off">
+      <div class="search-status" id="search-status"></div>
+      <div class="suggestions hidden" id="suggestions"></div>
+    </div>
+    <div class="layer-toggle">
+      <button class="layer-btn active" data-layer="schools">School districts</button>
+      <button class="layer-btn active" data-layer="train">Train</button>
+      <button class="layer-btn active" data-layer="trail">Trails</button>
+      <button class="layer-btn active" data-layer="villages">Villages</button>
+    </div>
+  </div>
+
+  <div class="map-panel">
+    <div class="panel-scroll">
+      <div class="map-panel-head">
+        <span class="title">Villages</span>
+        <span class="count" id="village-count">0</span>
+      </div>
+      <div class="village-list" id="village-list">
+        <div class="empty-state" id="empty-state-v">
+          Type a village name (e.g. <em>Irvington</em>, <em>Pleasantville</em>) and click <strong>+ village</strong> on the suggestion.<br><br>
+          The map labels the village and pulls trail proximity, nearby bookstores, school district, and Metro-North access automatically.
+        </div>
+      </div>
+      <div class="map-panel-head" style="margin-top: 12px;">
+        <span class="title">Pinned Houses</span>
+        <span class="count" id="pin-count">0</span>
+      </div>
+      <div class="pin-list" id="pin-list">
+        <div class="empty-state" id="empty-state">
+          Type a full address (e.g. <em>6 W Sunnyside Lane Irvington</em>) and click a suggestion to drop a pin.<br><br>
+          Each pin auto-measures the closest train station, trail, and tax muni.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<section class="tab-pane solid" data-pane="timeline"><div class="placeholder-pane">— empty —</div></section>
+<section class="tab-pane solid" data-pane="notes"><div class="placeholder-pane">— empty —</div></section>
+
+</main>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+
+// ===================== TABS =====================
+function setActiveTab(tabId) {
+  document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === tabId));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tabId));
+  document.body.classList.toggle('on-map', tabId === 'map');
+  if (window._whhMap) setTimeout(() => window._whhMap.resize(), 80);
+}
+document.querySelectorAll('.tab-btn').forEach(t => t.addEventListener('click', () => setActiveTab(t.dataset.tab)));
+document.body.classList.add('on-map'); // default open tab
+
+// Layer toggles
+document.querySelectorAll('.layer-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const layer = btn.dataset.layer;
+    const wasActive = btn.classList.contains('active');
+    btn.classList.toggle('active');
+    const visibility = wasActive ? 'none' : 'visible';
+    if (layer === 'schools') {
+      if (window._whhMap?.getLayer('school-districts-fill'))
+        window._whhMap.setLayoutProperty('school-districts-fill', 'visibility', visibility);
+      if (window._whhMap?.getLayer('school-districts-line'))
+        window._whhMap.setLayoutProperty('school-districts-line', 'visibility', visibility);
+    } else {
+      document.body.classList.toggle('hide-' + layer, wasActive);
+    }
+  });
+});
+
+// ===================== MONEY MODE =====================
+const moneyState = {
+  // Main VA house — vaSellPct is combined realtor commission + closing costs (default 6%)
+  vaSale: 2400000, vaPayoff: 675000, vaSellPct: 6,
+  // 808 Studio (second VA house) — actual loan balance from screenshot
+  studioSale: 215000, studioPayoff: 167414, studioRepairs: 5000,
+  // Pleasantville
+  buyPrice: 1499000, downPct: 25, rate: 6.75, term: 30,
+  propTax: 0, nyClosing: 0, // nyClosing auto-derived in moneyRecalc
+
+  // The Bridge — pre-VA-close cash
+  cashOnHand: 0, invPulled: 250000, bizPulled: 100000
+};
+
+// ===================== WESTCHESTER TAX DATA =====================
+// Effective rates expressed as % of TRUE MARKET VALUE (decimal).
+// Cross-referenced: NYS ORPTS RAR data, O'Donnell & Cullen 2026, Ownwell, Tax-Rates.org, school district tax sheets.
+// HIGH confidence = ≥2 independent sources confirm. MED = single credible source + derivation.
+const TAX_DATA = {
+  mount_pleasant_pleasantville_village: {
+    label: 'Pleasantville (village)',
+    effectiveRate: 0.0185, rateRange: [0.0150, 0.0220],
+    rar: 0.0594, lastReval: null,
+    schoolDistrict: 'Pleasantville UFSD',
+    starBasic: 1460, starEnhanced: 3975,
+    confidence: 'MED',
+    nuance: 'Mt. Pleasant assesses at <6% of market value — per-$1000 rates look huge but normalize to ~1.8%. School is strong. Grievance culture is active.'
+  },
+  mount_pleasant_unincorporated: {
+    label: 'Valhalla · Hawthorne · Thornwood',
+    effectiveRate: 0.0210, rateRange: [0.0180, 0.0230],
+    rar: 0.0087, lastReval: null,
+    schoolDistrict: 'Mount Pleasant CSD / Valhalla UFSD',
+    starBasic: 1280, starEnhanced: 3152,
+    confidence: 'MED',
+    nuance: 'Mount Pleasant assesses at <1% of market — seller bill alone is the only reliable signal. ~$20–23K/yr on a $1M home.'
+  },
+  mount_pleasant_sleepy_hollow_village: {
+    label: 'Sleepy Hollow (village)',
+    effectiveRate: 0.0180, rateRange: [0.0150, 0.0210],
+    rar: 0.1358, lastReval: null,
+    schoolDistrict: 'UFSD of the Tarrytowns',
+    starBasic: 1450, starEnhanced: 3700,
+    confidence: 'MED',
+    nuance: 'Village budgets rising sharply — 23.5% village tax increase FY25→FY26. Plan for upward pressure.'
+  },
+  greenburgh_irvington_village: {
+    label: 'Irvington (village)',
+    effectiveRate: 0.0230, rateRange: [0.0220, 0.0240],
+    rar: 1.00, lastReval: 2016,
+    schoolDistrict: 'Irvington UFSD',
+    starBasic: 1486, starEnhanced: 3735,
+    confidence: 'HIGH',
+    nuance: 'Greenburgh full-reval 2016 at 100% RAR. Irvington village did its own 2025 reval. Seller bill ÷ purchase price ≈ true rate. School ~55% of bill.'
+  },
+  greenburgh_unincorporated: {
+    label: 'Greenburgh — Edgemont · Hartsdale · Ardsley · Dobbs Ferry',
+    effectiveRate: 0.0270, rateRange: [0.0250, 0.0290],
+    rar: 1.00, lastReval: 2016,
+    schoolDistrict: 'Edgemont / Greenburgh Central / Ardsley / Dobbs Ferry',
+    starBasic: 1066, starEnhanced: 2776,
+    confidence: 'MED',
+    nuance: 'Edgemont schools push the top of the range (~2.9%). 100% RAR so seller bill is reliable.'
+  },
+  new_castle_chappaqua: {
+    label: 'Chappaqua / New Castle',
+    effectiveRate: 0.0270, rateRange: [0.0255, 0.0290],
+    rar: 0.1250, lastReval: 1978,
+    schoolDistrict: 'Chappaqua CSD',
+    starBasic: 1450, starEnhanced: 3620,
+    confidence: 'HIGH',
+    nuance: 'No townwide reval since 1978 — assessments are wildly inconsistent. Identical houses can pay very different bills. DO NOT trust seller bill — verify assessed value vs. recent comparable sales. Grievance is common and often successful.'
+  },
+  ossining_briarcliff_manor_village: {
+    label: 'Briarcliff Manor (village)',
+    effectiveRate: 0.0214, rateRange: [0.0200, 0.0240],
+    rar: 1.00, lastReval: 2016,
+    schoolDistrict: 'Briarcliff Manor UFSD',
+    starBasic: 1475, starEnhanced: 3970,
+    confidence: 'HIGH',
+    nuance: 'Briarcliff spans Ossining (RAR 100%) and Mt. Pleasant (RAR 0.87%) — check the tax-map parcel ID. Effective rate ends up similar (~2.1–2.2%) but math beneath is completely different.'
+  },
+  ossining_town_unincorporated: {
+    label: 'Ossining (town)',
+    effectiveRate: 0.0260, rateRange: [0.0240, 0.0280],
+    rar: 1.00, lastReval: 2016,
+    schoolDistrict: 'Ossining UFSD',
+    starBasic: 1550, starEnhanced: 4200,
+    confidence: 'HIGH',
+    nuance: '100% RAR — seller bill is reliable proxy.'
+  },
+  north_castle_unincorporated_armonk: {
+    label: 'Armonk / North Castle',
+    effectiveRate: 0.0170, rateRange: [0.0160, 0.0210],
+    rar: 0.0148, lastReval: null,
+    schoolDistrict: 'Byram Hills CSD',
+    starBasic: 1140, starEnhanced: 2590,
+    confidence: 'MED',
+    nuance: 'Lowest effective rate in this cohort — commercial tax base (legacy IBM) subsidizes residential. Grievance very common given fractional RAR.'
+  },
+  north_castle_mount_kisco_village: {
+    label: 'Mount Kisco (coterminous town/village)',
+    effectiveRate: 0.0260, rateRange: [0.0240, 0.0290],
+    rar: 0.1068, lastReval: null,
+    schoolDistrict: 'Bedford CSD (most parcels)',
+    starBasic: 1197, starEnhanced: 2442,
+    confidence: 'MED',
+    nuance: 'One government for town+village. Most parcels in Bedford CSD; a sliver in Chappaqua CSD. Verify school district on each listing.'
+  }
+};
+
+const fmtUSD = n => { const v = Math.round(n); return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US'); };
+const fmtUSDshort = n => {
+  const a = Math.abs(n);
+  if (a >= 1e6) return (n<0?'-$':'$') + (a/1e6).toFixed(2).replace(/\.?0+$/, '') + 'M';
+  if (a >= 1000) return (n<0?'-$':'$') + Math.round(a/1000) + 'K';
+  return fmtUSD(n);
+};
+const fmtPct = v => v + '%';
+
+// Smart money parser: accepts "$255,000", "255000", "250k", "1.5m", "1.5M"
+const parseMoney = s => {
+  if (s == null) return 0;
+  const str = String(s).toLowerCase().trim().replace(/[\$,\s]/g, '');
+  if (!str) return 0;
+  let mult = 1;
+  let core = str;
+  if (str.endsWith('m')) { mult = 1000000; core = str.slice(0, -1); }
+  else if (str.endsWith('k')) { mult = 1000; core = str.slice(0, -1); }
+  const n = parseFloat(core);
+  return isNaN(n) ? 0 : n * mult;
+};
+const parseNum = parseMoney;
+const parsePct = s => {
+  const n = parseFloat(String(s ?? '').replace(/[^0-9.\-]/g, ''));
+  return isNaN(n) ? 0 : n;
+};
+function mortgagePayment(p, ratePct, years) { if (p <= 0) return 0; const r = ratePct/100/12, n = years*12; if (r === 0) return p/n; return p * (r * Math.pow(1+r,n)) / (Math.pow(1+r,n) - 1); }
+
+// NY (Westchester) buyer closing costs.
+// Sources: NY TIRSA Rate Manual (title), NY State + Westchester County mortgage recording tax,
+// typical Westchester attorney/title/recording/escrow fees. ≈ 2-3% of purchase financed, ~1.5% cash.
+function computeNYClosing(purchasePrice, loanAmount) {
+  if (purchasePrice <= 0) return { titleIns: 0, mortRecTax: 0, fixed: 0, escrow: 0, total: 0 };
+  const titleIns = purchasePrice * 0.0045;          // combined owner + simultaneous lender, NY TIRSA ≈ 0.45%
+  // Westchester buyer-paid mortgage recording tax for 1-2 family residential:
+  // basic 0.5% + additional 0.3% (loans >$500K) + Westchester county 0.25% = 1.05%
+  // Lender pays the 0.25% special additional, so it's not in the buyer total.
+  const mortRecTax = loanAmount > 0 ? loanAmount * 0.0105 : 0;
+  const fixed = loanAmount > 0 ? 6500 : 4000;        // attorney + bank + appraisal + survey + title search + recording
+  const escrow = loanAmount > 0 ? purchasePrice * 0.004 : 0;  // ~2 months tax + ~2 months homeowners insurance
+  return {
+    titleIns: Math.round(titleIns),
+    mortRecTax: Math.round(mortRecTax),
+    fixed: Math.round(fixed),
+    escrow: Math.round(escrow),
+    total: Math.round(titleIns + mortRecTax + fixed + escrow)
+  };
+}
+
+// All-in monthly for a pin given its asking price + current Money Mode mortgage settings
+function computePinMonthly(pin) {
+  if (!pin?.askingPrice || pin.askingPrice <= 0) return null;
+  const tx = pin.muniKey && TAX_DATA[pin.muniKey];
+  if (!tx) return null;
+  const price = pin.askingPrice;
+  const downPct = moneyState.downPct;
+  const rate = moneyState.rate;
+  const term = moneyState.term;
+  const loan = price * (1 - downPct/100);
+  const pi = mortgagePayment(loan, rate, term);
+  const taxAnnual = price * tx.effectiveRate;
+  const taxMo = taxAnnual / 12;
+  const insMo = (price * 0.004) / 12;
+  return {
+    pi: Math.round(pi),
+    tax: Math.round(taxMo),
+    ins: Math.round(insMo),
+    total: Math.round(pi + taxMo + insMo),
+    taxAnnual: Math.round(taxAnnual),
+    rate, term, downPct
+  };
+}
+function mansionTax(p) {
+  if (p < 1_000_000) return 0;
+  let rate = 0.01;
+  if (p >= 2_000_000) rate = 0.0125;
+  if (p >= 3_000_000) rate = 0.015;
+  if (p >= 5_000_000) rate = 0.0175;
+  if (p >= 10_000_000) rate = 0.0225;
+  return p * rate;
+}
+function moneyRecalc() {
+  const s = moneyState;
+  // Combined realtor + closing rate (single 6% knob for both VA houses)
+  const sellRate = s.vaSellPct / 100;
+  // Main VA
+  const vaSell1 = s.vaSale * sellRate;
+  const vaNet1 = s.vaSale - s.vaPayoff - vaSell1;
+  // 808 Studio (same rate, plus repairs)
+  const vaSell2 = s.studioSale * sellRate;
+  const vaNet2 = s.studioSale - s.studioPayoff - vaSell2 - s.studioRepairs;
+  // Combined VA totals
+  const vaSaleTotal = s.vaSale + s.studioSale;
+  const vaPayoffTotal = s.vaPayoff + s.studioPayoff;
+  const vaSellTotal = vaSell1 + vaSell2;
+  const vaNet = vaNet1 + vaNet2;
+  // Pleasantville
+  const down = s.buyPrice * (s.downPct/100);
+  const loan = s.buyPrice - down;
+  const mansion = mansionTax(s.buyPrice);
+  // NY closing costs — derived live from purchase + loan
+  const ny = computeNYClosing(s.buyPrice, loan);
+  s.nyClosing = ny.total;
+  const cashNeeded = down + mansion + s.nyClosing;
+  // The Bridge
+  const cashAvail = s.cashOnHand + s.invPulled + s.bizPulled;
+  const gap = cashNeeded - cashAvail;
+  const covered = gap <= 0;
+  const finalCash = vaNet + cashAvail - cashNeeded;
+  // Monthly
+  const mPI = mortgagePayment(loan, s.rate, s.term);
+  const mTax = s.propTax / 12;
+  const mIns = (s.buyPrice * 0.004) / 12;
+  const mTotal = mPI + mTax + mIns;
+
+  setVal('o-down', down, 'out');
+  setVal('o-mansion', mansion, 'out');
+  setVal('o-nyclose', s.nyClosing, 'out');
+  setVal('o-needed', cashNeeded, 'out-total');
+  setVal('o-have', cashAvail, 'in');
+  setVal('o-gap', Math.abs(gap), covered ? 'covered' : 'short');
+  document.getElementById('o-gap-note').textContent = covered
+    ? 'Covered — your bridge fully funds the Day-1 close. Cushion: ' + fmtUSD(-gap) + '.'
+    : 'Short. Bridge ' + fmtUSD(cashAvail) + ' covers part of ' + fmtUSD(cashNeeded) + ' needed; ' + fmtUSD(gap) + ' gap remains.';
+  setVal('o-vasale', s.vaSale, 'in');
+  setVal('o-studio-sale', s.studioSale, 'in');
+  setVal('o-vapayoff', vaPayoffTotal, 'out');
+  setVal('o-vasell', vaSellTotal, 'out');
+  setVal('o-studio-repairs', s.studioRepairs, 'out');
+  setVal('o-vanet', vaNet, 'in-total');
+  setVal('o-final', finalCash, finalCash >= 0 ? 'in-total' : 'out-total');
+  setVal('m-pi', mPI, 'out');
+  setVal('m-tax', mTax, 'out');
+  setVal('m-ins', mIns, 'out');
+  setVal('m-total', mTotal, 'out-total');
+  document.getElementById('m-meta').textContent =
+    'Loan ' + fmtUSDshort(loan) + ' · LTV ' + Math.round(100 - s.downPct) + '% · ' + s.term + 'yr fixed at ' + s.rate + '%';
+  document.getElementById('downDollars-derived').textContent = '= ' + fmtUSD(down);
+  const mainSellEl = document.getElementById('mainSell-derived');
+  if (mainSellEl) mainSellEl.textContent = '= −' + fmtUSD(vaSell1);
+  const mainNetEl = document.getElementById('mainNet-derived');
+  if (mainNetEl) mainNetEl.textContent = '= ' + fmtUSD(vaNet1);
+  const studioSellEl = document.getElementById('studioSell-derived');
+  if (studioSellEl) studioSellEl.textContent = '= −' + fmtUSD(vaSell2);
+  const studioNetEl = document.getElementById('studioNet-derived');
+  if (studioNetEl) studioNetEl.textContent = '= ' + fmtUSD(vaNet2);
+  const bridgeTotalEl = document.getElementById('bridgeTotal-derived');
+  if (bridgeTotalEl) bridgeTotalEl.textContent = '= ' + fmtUSD(cashAvail);
+  const nyOutEl = document.getElementById('nyClosing-out');
+  if (nyOutEl) nyOutEl.textContent = '= ' + fmtUSD(ny.total);
+  const nyBreakdownEl = document.getElementById('nyClosing-breakdown');
+  if (nyBreakdownEl) {
+    nyBreakdownEl.textContent =
+      'Title $' + (ny.titleIns/1000).toFixed(1) + 'K · Mortgage tax $' + (ny.mortRecTax/1000).toFixed(1) + 'K · Fixed $' + (ny.fixed/1000).toFixed(1) + 'K · Escrows $' + (ny.escrow/1000).toFixed(1) + 'K';
+  }
+}
+function setVal(id, val, kind) {
+  const el = document.getElementById(id);
+  const abs = Math.abs(Math.round(val));
+  const formatted = '$' + abs.toLocaleString('en-US');
+  let text;
+  if (kind === 'in') text = '+' + formatted;
+  else if (kind === 'out') text = '−' + formatted;
+  else text = (val < 0 ? '−' : '') + formatted;
+  el.textContent = text;
+  el.className = 'val' + (kind ? ' ' + kind : '');
+}
+const FIELDS = {
+  vaSale: { format: fmtUSD }, vaPayoff: { format: fmtUSD },
+  vaSellPct: { format: fmtPct },
+  studioSale: { format: fmtUSD }, studioPayoff: { format: fmtUSD }, studioRepairs: { format: fmtUSD },
+  buyPrice: { format: fmtUSD }, downPct: { format: fmtPct },
+  rate: { format: fmtPct },
+  cashOnHand: { format: fmtUSD },
+  invPulled: { format: fmtUSD }, bizPulled: { format: fmtUSD }
+};
+Object.entries(FIELDS).forEach(([key, cfg]) => {
+  const el = document.getElementById(key);
+  const parser = cfg.format === fmtPct ? parsePct : parseMoney;
+  el.value = cfg.format(moneyState[key]);
+  el.addEventListener('focus', () => el.select());
+  el.addEventListener('blur', () => {
+    moneyState[key] = parser(el.value);
+    el.value = cfg.format(moneyState[key]);
+    if (key === 'buyPrice') recalcTax(); else moneyRecalc();
+  });
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
+  el.addEventListener('input', () => {
+    moneyState[key] = parser(el.value);
+    if (key === 'buyPrice') recalcTax(); else moneyRecalc();
+  });
+});
+const termSeg = document.getElementById('term-seg');
+termSeg.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
+  termSeg.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  moneyState.term = Number(btn.dataset.val);
+  moneyRecalc();
+}));
+
+// ===================== PROPERTY TAX (auto from active pin) =====================
+const taxState = { activePinId: null, override: 0 };
+
+const activePinSel = document.getElementById('activePinSel');
+function populateActivePinSelect() {
+  if (!activePinSel) return;
+  const prev = activePinSel.value;
+  activePinSel.innerHTML = '';
+  if (!pins.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'No pinned houses yet — drop one on the Map tab';
+    activePinSel.appendChild(opt);
+    taxState.activePinId = null;
+    recalcTax();
+    return;
+  }
+  pins.forEach((p, idx) => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = (idx + 1) + '. ' + formatPinAddress(p);
+    activePinSel.appendChild(opt);
+  });
+  // restore or default to first
+  if (prev && pins.find(p => p.id === prev)) {
+    activePinSel.value = prev;
+    taxState.activePinId = prev;
+  } else {
+    activePinSel.value = pins[0].id;
+    taxState.activePinId = pins[0].id;
+  }
+  recalcTax();
+}
+activePinSel.addEventListener('change', () => {
+  taxState.activePinId = activePinSel.value;
+  recalcTax();
+});
+
+const overrideEl = document.getElementById('propTaxOverride');
+overrideEl.value = '';
+overrideEl.addEventListener('focus', () => { if (taxState.override) overrideEl.value = String(taxState.override); else overrideEl.value = ''; });
+overrideEl.addEventListener('blur', () => {
+  taxState.override = parseNum(overrideEl.value);
+  overrideEl.value = taxState.override > 0 ? fmtUSD(taxState.override) : '';
+  recalcTax();
+});
+overrideEl.addEventListener('input', () => { taxState.override = parseNum(overrideEl.value); recalcTax(); });
+overrideEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); overrideEl.blur(); } });
+
+function recalcTax() {
+  const market = moneyState.buyPrice;
+  const activePin = pins.find(p => p.id === taxState.activePinId);
+  const muniKey = activePin?.muniKey || null;
+  const t = muniKey ? TAX_DATA[muniKey] : null;
+
+  if (!t) {
+    document.getElementById('tax-town-out').textContent = activePin ? 'outside table' : 'no pin selected';
+    document.getElementById('tax-school-out').textContent = '—';
+    document.getElementById('tax-rate-out').textContent = '—';
+    document.getElementById('tax-rar-out').textContent = '—';
+    document.getElementById('tax-annual-out').textContent = taxState.override > 0 ? fmtUSD(taxState.override) + '/yr' : '—';
+    document.getElementById('tax-monthly-out').textContent = taxState.override > 0 ? fmtUSD(taxState.override / 12) + '/mo' : '—';
+    document.getElementById('tax-note').textContent = activePin
+      ? "Couldn't match this address to a Westchester municipality. Use the override to enter the seller's actual annual tax bill."
+      : 'Drop a pin on the Map tab and pick it here. The tool auto-detects the town and computes property tax from real Westchester effective rates.';
+    moneyState.propTax = taxState.override > 0 ? taxState.override : 0;
+    moneyRecalc();
+    return;
+  }
+
+  // Fair posture, no STAR — sensible default. Override beats everything.
+  const computed = Math.max(0, market * t.effectiveRate);
+  const annual = taxState.override > 0 ? taxState.override : computed;
+  moneyState.propTax = annual;
+
+  document.getElementById('tax-town-out').textContent = t.label;
+  document.getElementById('tax-school-out').textContent = t.schoolDistrict;
+  document.getElementById('tax-rate-out').textContent = (t.effectiveRate * 100).toFixed(2) + '% of market';
+  document.getElementById('tax-rar-out').textContent = (t.rar >= 1 ? '100% (full value)' : (t.rar * 100).toFixed(2) + '% of market');
+  document.getElementById('tax-annual-out').textContent = fmtUSD(annual) + '/yr';
+  document.getElementById('tax-monthly-out').textContent = fmtUSD(annual / 12) + '/mo';
+
+  const lastRevalText = t.lastReval ? 'Last reval ' + t.lastReval + '.' : 'No recent townwide reval — assessments drift.';
+  const overrideText = taxState.override > 0
+    ? ' Using your override of ' + fmtUSD(taxState.override) + ' instead of the ' + fmtUSD(computed) + ' computed estimate.'
+    : '';
+  document.getElementById('tax-note').textContent =
+    t.nuance + ' ' + lastRevalText + overrideText + ' [Confidence: ' + t.confidence + ']';
+
+  moneyRecalc();
+}
+
+// ===================== MAP DATA =====================
+// All Metro-North stations in/near Westchester. gct = typical minutes to Grand Central (off-peak avg).
+const TRAIN_STATIONS = [
+  // Hudson Line
+  { name: 'Yonkers',            line: 'Hudson',    gct: 32, lat: 40.93264, lng: -73.89972 },
+  { name: 'Glenwood',           line: 'Hudson',    gct: 35, lat: 40.95010, lng: -73.90180 },
+  { name: 'Greystone',          line: 'Hudson',    gct: 36, lat: 40.96690, lng: -73.89020 },
+  { name: 'Hastings-on-Hudson', line: 'Hudson',    gct: 39, lat: 41.00900, lng: -73.88060 },
+  { name: 'Dobbs Ferry',        line: 'Hudson',    gct: 41, lat: 41.01570, lng: -73.87710 },
+  { name: 'Ardsley-on-Hudson',  line: 'Hudson',    gct: 43, lat: 41.02980, lng: -73.87170 },
+  { name: 'Irvington',          line: 'Hudson',    gct: 42, lat: 41.03880, lng: -73.86940 },
+  { name: 'Tarrytown',          line: 'Hudson',    gct: 45, lat: 41.07690, lng: -73.86170 },
+  { name: 'Philipse Manor',     line: 'Hudson',    gct: 49, lat: 41.09450, lng: -73.86740 },
+  { name: 'Scarborough',        line: 'Hudson',    gct: 52, lat: 41.13990, lng: -73.86620 },
+  { name: 'Ossining',           line: 'Hudson',    gct: 55, lat: 41.15730, lng: -73.86880 },
+  { name: 'Croton-Harmon',      line: 'Hudson',    gct: 58, lat: 41.19000, lng: -73.88090 },
+  // Harlem Line
+  { name: 'Mt Vernon West',     line: 'Harlem',    gct: 26, lat: 40.91190, lng: -73.83070 },
+  { name: 'Fleetwood',          line: 'Harlem',    gct: 28, lat: 40.92510, lng: -73.83260 },
+  { name: 'Bronxville',         line: 'Harlem',    gct: 30, lat: 40.93890, lng: -73.83440 },
+  { name: 'Tuckahoe',           line: 'Harlem',    gct: 32, lat: 40.94910, lng: -73.82640 },
+  { name: 'Crestwood',          line: 'Harlem',    gct: 34, lat: 40.95950, lng: -73.82080 },
+  { name: 'Scarsdale',          line: 'Harlem',    gct: 36, lat: 40.98920, lng: -73.80560 },
+  { name: 'Hartsdale',          line: 'Harlem',    gct: 39, lat: 41.00930, lng: -73.79670 },
+  { name: 'White Plains',       line: 'Harlem',    gct: 41, lat: 41.03370, lng: -73.77410 },
+  { name: 'North White Plains', line: 'Harlem',    gct: 44, lat: 41.05610, lng: -73.78070 },
+  { name: 'Valhalla',           line: 'Harlem',    gct: 47, lat: 41.07460, lng: -73.77230 },
+  { name: 'Hawthorne',          line: 'Harlem',    gct: 50, lat: 41.10750, lng: -73.79720 },
+  { name: 'Pleasantville',      line: 'Harlem',    gct: 53, lat: 41.13460, lng: -73.78310 },
+  { name: 'Chappaqua',          line: 'Harlem',    gct: 56, lat: 41.15810, lng: -73.78000 },
+  { name: 'Mt Kisco',           line: 'Harlem',    gct: 60, lat: 41.20650, lng: -73.72900 },
+  { name: 'Bedford Hills',      line: 'Harlem',    gct: 64, lat: 41.23990, lng: -73.69120 },
+  { name: 'Katonah',            line: 'Harlem',    gct: 67, lat: 41.26150, lng: -73.68430 },
+  { name: 'Goldens Bridge',     line: 'Harlem',    gct: 71, lat: 41.29670, lng: -73.66140 },
+  // New Haven Line (eastern Westchester)
+  { name: 'Pelham',             line: 'New Haven', gct: 28, lat: 40.91010, lng: -73.80830 },
+  { name: 'New Rochelle',       line: 'New Haven', gct: 32, lat: 40.91010, lng: -73.78330 },
+  { name: 'Larchmont',          line: 'New Haven', gct: 35, lat: 40.93330, lng: -73.75740 },
+  { name: 'Mamaroneck',         line: 'New Haven', gct: 38, lat: 40.94860, lng: -73.73490 },
+  { name: 'Harrison',           line: 'New Haven', gct: 41, lat: 40.96940, lng: -73.71150 },
+  { name: 'Rye',                line: 'New Haven', gct: 44, lat: 40.98920, lng: -73.68310 },
+  { name: 'Port Chester',       line: 'New Haven', gct: 46, lat: 41.00580, lng: -73.66450 }
+];
+
+const TRAILHEADS = [
+  // Old Croton Aqueduct Trail — runs N–S through Westchester. Multiple access points.
+  { name: 'Old Croton Aqueduct · Yonkers',     lat: 40.95300, lng: -73.88000 },
+  { name: 'Old Croton Aqueduct · Hastings',    lat: 41.00800, lng: -73.87870 },
+  { name: 'Old Croton Aqueduct · Dobbs Ferry', lat: 41.01200, lng: -73.87600 },
+  { name: 'Old Croton Aqueduct · Irvington',   lat: 41.03900, lng: -73.86800 },
+  { name: 'Old Croton Aqueduct · Tarrytown',   lat: 41.07700, lng: -73.86400 },
+  { name: 'Old Croton Aqueduct · Ossining',    lat: 41.15800, lng: -73.86600 },
+  { name: 'Old Croton Aqueduct · Croton Gorge',lat: 41.21800, lng: -73.88100 },
+  // South County Trailway (paved, runs Yonkers → Elmsford)
+  { name: 'South County Trailway · Yonkers',   lat: 40.95800, lng: -73.85800 },
+  { name: 'South County Trailway · Ardsley',   lat: 41.01000, lng: -73.84500 },
+  { name: 'South County Trailway · Elmsford',  lat: 41.05500, lng: -73.81700 },
+  // North County Trailway (paved, Elmsford → Putnam)
+  { name: 'North County Trailway · Elmsford',  lat: 41.06000, lng: -73.81600 },
+  { name: 'North County Trailway · Hawthorne', lat: 41.10500, lng: -73.80100 },
+  { name: 'North County Trailway · Pleasantville', lat: 41.13000, lng: -73.78360 },
+  { name: 'North County Trailway · Briarcliff',lat: 41.14300, lng: -73.80500 },
+  // Parks
+  { name: 'Rockefeller State Park',            lat: 41.11170, lng: -73.82940 },
+  { name: 'Graham Hills Park',                 lat: 41.12840, lng: -73.78980 },
+  { name: 'Pruyn Sanctuary',                   lat: 41.17890, lng: -73.76540 },
+  { name: 'Teatown Lake',                      lat: 41.20690, lng: -73.83260 },
+  { name: 'Marsh Sanctuary',                   lat: 41.09640, lng: -73.73720 },
+  { name: 'Briarcliff Trailway',               lat: 41.14190, lng: -73.82600 },
+  { name: 'Halle Ravine',                      lat: 41.15970, lng: -73.72440 },
+  { name: 'Mianus River Gorge',                lat: 41.17690, lng: -73.60940 },
+  { name: 'Ward Pound Ridge',                  lat: 41.23330, lng: -73.59530 },
+  { name: 'Sleepy Hollow / Kingsland Point',   lat: 41.08800, lng: -73.86700 }
+];
+
+// ===================== POINT-IN-POLYGON (school district detection) =====================
+function ringContains(ring, lng, lat) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    const intersect = ((yi > lat) !== (yj > lat)) &&
+      (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+function pointInPolygon(lng, lat, geom) {
+  if (!geom) return false;
+  const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.type === 'MultiPolygon' ? geom.coordinates : [];
+  for (const poly of polys) {
+    if (ringContains(poly[0], lng, lat)) {
+      let inHole = false;
+      for (let i = 1; i < poly.length; i++) {
+        if (ringContains(poly[i], lng, lat)) { inHole = true; break; }
+      }
+      if (!inHole) return true;
+    }
+  }
+  return false;
+}
+// Deterministic muted color per district name
+function colorForDistrict(name) {
+  const palette = ['#A37B59', '#7B8B6F', '#9C8E68', '#8A6D5C', '#71746B', '#A89B7E', '#8E8569', '#9C7964', '#7E8B7D', '#8C8A6F'];
+  let hash = 0;
+  for (let i = 0; i < (name || '').length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return palette[hash % palette.length];
+}
+window._schoolDistricts = [];
+function detectSchoolDistrict(lng, lat) {
+  for (const f of window._schoolDistricts) {
+    if (pointInPolygon(lng, lat, f.geometry)) return f.properties.DISTNAME;
+  }
+  return null;
+}
+
+function distMiles(a, b) {
+  const R = 3958.8;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+  const x = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+function closest(point, list) {
+  let best = null, bestD = Infinity;
+  list.forEach(p => { const d = distMiles(point, p); if (d < bestD) { bestD = d; best = p; } });
+  return { ...best, miles: bestD };
+}
+function walkMin(miles) { return Math.round(miles * 20); }
+function fmtMiles(m) { return m < 0.5 ? Math.round(m*5280) + ' ft' : m.toFixed(2) + ' mi'; }
+
+// ===================== OSRM ROUTING (real walk/drive distance) =====================
+// Public OSRM endpoint, free, no auth. Returns null gracefully on error.
+async function osrmRoute(from, to, profile) {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/${profile}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=false&alternatives=false`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const d = await res.json();
+    if (d.code !== 'Ok' || !d.routes?.length) return null;
+    return {
+      distanceMi: d.routes[0].distance / 1609.344,
+      durationMin: Math.round(d.routes[0].duration / 60)
+    };
+  } catch (e) { return null; }
+}
+
+// Find truly closest train station: nearest 4 by haversine, then real walking distance for each.
+async function findClosestStationAccurate(point) {
+  const candidates = TRAIN_STATIONS
+    .map(s => ({ ...s, hav: distMiles(point, s) }))
+    .sort((a, b) => a.hav - b.hav)
+    .slice(0, 4);
+  const withWalk = [];
+  for (const s of candidates) {
+    const walk = await osrmRoute(point, { lat: s.lat, lng: s.lng }, 'foot');
+    withWalk.push({ ...s, walk });
+  }
+  withWalk.sort((a, b) => {
+    const aD = a.walk?.distanceMi ?? a.hav * 1.4;
+    const bD = b.walk?.distanceMi ?? b.hav * 1.4;
+    return aD - bD;
+  });
+  const best = withWalk[0];
+  const drive = await osrmRoute(point, { lat: best.lat, lng: best.lng }, 'car');
+  return {
+    name: best.name,
+    line: best.line,
+    gct: best.gct,
+    miles: best.hav,
+    walkDistMi: best.walk?.distanceMi,
+    walkMin: best.walk?.durationMin,
+    driveDistMi: drive?.distanceMi,
+    driveMin: drive?.durationMin,
+    lat: best.lat, lng: best.lng
+  };
+}
+
+// Trail: drive-to. Top 3 by haversine, then driving for each.
+async function findClosestTrailAccurate(point) {
+  const candidates = TRAILHEADS
+    .map(t => ({ ...t, hav: distMiles(point, t) }))
+    .sort((a, b) => a.hav - b.hav)
+    .slice(0, 3);
+  const withDrive = [];
+  for (const t of candidates) {
+    const drive = await osrmRoute(point, { lat: t.lat, lng: t.lng }, 'car');
+    withDrive.push({ ...t, drive });
+  }
+  withDrive.sort((a, b) => {
+    const aD = a.drive?.distanceMi ?? a.hav * 1.3;
+    const bD = b.drive?.distanceMi ?? b.hav * 1.3;
+    return aD - bD;
+  });
+  const best = withDrive[0];
+  return {
+    name: best.name,
+    miles: best.hav,
+    driveDistMi: best.drive?.distanceMi,
+    driveMin: best.drive?.durationMin,
+    lat: best.lat, lng: best.lng
+  };
+}
+
+// Map Nominatim parsed address → TAX_DATA key
+function detectMuniKey(addr) {
+  if (!addr) return null;
+  const village = (addr.village || '').toLowerCase();
+  const town = (addr.town || '').toLowerCase();
+  const city = (addr.city || '').toLowerCase();
+  const hamlet = (addr.hamlet || '').toLowerCase();
+  const county = (addr.county || '').toLowerCase();
+  const allPlace = [village, town, city, hamlet].join(' ');
+  if (!county.includes('westchester')) return null;
+  if (allPlace.includes('irvington')) return 'greenburgh_irvington_village';
+  if (allPlace.includes('pleasantville')) return 'mount_pleasant_pleasantville_village';
+  if (allPlace.includes('sleepy hollow')) return 'mount_pleasant_sleepy_hollow_village';
+  if (allPlace.includes('briarcliff')) return 'ossining_briarcliff_manor_village';
+  if (allPlace.includes('mount kisco') || allPlace.includes('mt kisco')) return 'north_castle_mount_kisco_village';
+  if (allPlace.includes('valhalla') || allPlace.includes('hawthorne') || allPlace.includes('thornwood')) return 'mount_pleasant_unincorporated';
+  if (allPlace.includes('chappaqua')) return 'new_castle_chappaqua';
+  if (allPlace.includes('armonk')) return 'north_castle_unincorporated_armonk';
+  if (allPlace.includes('edgemont') || allPlace.includes('hartsdale') || allPlace.includes('ardsley') || allPlace.includes('dobbs')) return 'greenburgh_unincorporated';
+  return null;
+}
+
+// Compact address from Nominatim parts
+function formatPinAddress(pin) {
+  const a = pin.addrParts;
+  if (a) {
+    const STREET_ABBR = { 'lane': 'LN', 'street': 'ST', 'road': 'RD', 'avenue': 'AVE', 'place': 'PL', 'drive': 'DR', 'court': 'CT', 'terrace': 'TER', 'boulevard': 'BLVD', 'highway': 'HWY', 'parkway': 'PKWY', 'circle': 'CIR' };
+    const DIR_ABBR = { 'west': 'W', 'east': 'E', 'north': 'N', 'south': 'S' };
+    let road = (a.road || '').trim();
+    if (road) {
+      road = road.replace(/\b(West|East|North|South)\b/g, w => DIR_ABBR[w.toLowerCase()] || w);
+      road = road.replace(/\b(Lane|Street|Road|Avenue|Place|Drive|Court|Terrace|Boulevard|Highway|Parkway|Circle)\b/gi,
+        w => STREET_ABBR[w.toLowerCase()] || w);
+    }
+    const num = a.house_number || '';
+    const place = a.village || a.town || a.city || a.hamlet || '';
+    const state = a.state_code || '';
+    const parts = [
+      [num, road].filter(Boolean).join(' '),
+      place,
+      state
+    ].filter(Boolean);
+    return parts.join(', ');
+  }
+  return pin.address || pin.display || '';
+}
+
+// ===================== STORAGE =====================
+const STORAGE_KEY = 'whh:pins:v1';
+let pins = [];
+try { pins = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { pins = []; }
+function savePins() { localStorage.setItem(STORAGE_KEY, JSON.stringify(pins)); }
+
+const V_KEY = 'whh:villages:v1';
+let villages = [];
+try { villages = JSON.parse(localStorage.getItem(V_KEY) || '[]'); } catch (e) { villages = []; }
+function saveVillages() { localStorage.setItem(V_KEY, JSON.stringify(villages)); }
+
+// ===================== MAP =====================
+const map = new maplibregl.Map({
+  container: 'map-canvas',
+  style: 'https://tiles.openfreemap.org/styles/positron',
+  center: [-73.7831, 41.1346],
+  zoom: 12.5,
+  pitch: 0,
+  bearing: 0,
+  attributionControl: { compact: true }
+});
+window._whhMap = map;
+map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), 'bottom-right');
+map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'imperial' }), 'bottom-left');
+
+map.on('load', () => {
+  loadSchoolDistricts();
+  TRAIN_STATIONS.forEach(s => {
+    const el = document.createElement('div');
+    el.style.cursor = 'pointer';
+    el.innerHTML = '<div class="whh-anchor-marker whh-anchor-train"></div><div class="whh-train-label">' + s.name + '</div>';
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      new maplibregl.Popup({ closeButton: true, offset: 14 })
+        .setLngLat([s.lng, s.lat])
+        .setHTML(`<div class="map-popup">
+          <div class="map-popup-kind">Metro-North · ${s.line} Line</div>
+          <div class="map-popup-name">${escapeHtml(s.name)}</div>
+          <div class="map-popup-meta"><strong>${s.gct} min</strong> to Grand Central · off-peak</div>
+        </div>`)
+        .addTo(map);
+    });
+    new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([s.lng, s.lat]).addTo(map);
+  });
+  TRAILHEADS.forEach(s => {
+    const el = document.createElement('div');
+    el.style.cursor = 'pointer';
+    el.innerHTML = '<div class="whh-anchor-marker whh-anchor-trail"></div><div class="whh-trail-label">' + s.name + '</div>';
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      new maplibregl.Popup({ closeButton: true, offset: 14 })
+        .setLngLat([s.lng, s.lat])
+        .setHTML(`<div class="map-popup">
+          <div class="map-popup-kind">Trail access</div>
+          <div class="map-popup-name">${escapeHtml(s.name)}</div>
+        </div>`)
+        .addTo(map);
+    });
+    new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([s.lng, s.lat]).addTo(map);
+  });
+  renderPins();
+  renderVillages();
+  renderVillageMarkers();
+  // Refine any villages that haven't been researched yet (legacy or partial)
+  (async () => {
+    for (const v of villages) {
+      if (!v.refined) {
+        await refineVillage(v.id);
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+  })();
+});
+
+async function loadSchoolDistricts() {
+  try {
+    const url = 'https://giswww.westchestergov.com/arcgis/rest/services/Datahub_Boundaries/MapServer/154/query?where=1%3D1&outFields=DISTNAME&geometryPrecision=5&f=geojson&outSR=4326';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!data.features?.length) throw new Error('no features');
+    // Pre-compute color per district for paint expression
+    data.features.forEach(f => {
+      f.properties._color = colorForDistrict(f.properties.DISTNAME);
+    });
+    window._schoolDistricts = data.features;
+    if (!map.getSource('school-districts')) {
+      map.addSource('school-districts', { type: 'geojson', data });
+      // Insert UNDER the basemap's first symbol layer (labels) so roads + place names stay visible on top
+      const firstSymbol = map.getStyle().layers.find(l => l.type === 'symbol')?.id;
+      map.addLayer({
+        id: 'school-districts-fill',
+        type: 'fill',
+        source: 'school-districts',
+        paint: { 'fill-color': ['get', '_color'], 'fill-opacity': 0.22 }
+      }, firstSymbol);
+      map.addLayer({
+        id: 'school-districts-line',
+        type: 'line',
+        source: 'school-districts',
+        paint: { 'line-color': '#5E5A4D', 'line-width': 1.1, 'line-opacity': 0.6 }
+      }, firstSymbol);
+
+      // Click → popup with district name
+      map.on('click', 'school-districts-fill', (e) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        new maplibregl.Popup({ closeButton: true, maxWidth: '280px' })
+          .setLngLat(e.lngLat)
+          .setHTML(`<div class="map-popup"><div class="map-popup-kind">School District</div><div class="map-popup-name">${escapeHtml(f.properties.DISTNAME)}</div></div>`)
+          .addTo(map);
+      });
+      map.on('mouseenter', 'school-districts-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'school-districts-fill', () => { map.getCanvas().style.cursor = ''; });
+    }
+    // Re-detect for existing pins, save + re-render
+    let changed = false;
+    pins.forEach(p => {
+      const d = detectSchoolDistrict(p.lng, p.lat);
+      if (d && p.schoolDistrict !== d) { p.schoolDistrict = d; changed = true; }
+    });
+    if (changed) { savePins(); renderPins(); }
+    console.log('[school-districts] loaded', data.features.length, 'districts');
+  } catch (e) {
+    console.warn('[school-districts] unavailable:', e.message);
+  }
+}
+
+let pinMarkers = [];
+function clearPinMarkers() { pinMarkers.forEach(m => m.remove()); pinMarkers = []; }
+function renderMapMarkers() {
+  clearPinMarkers();
+  pins.forEach((pin, idx) => {
+    const el = document.createElement('div');
+    el.className = 'whh-marker';
+    el.setAttribute('data-rank', pin.rank || 0);
+    el.textContent = idx + 1;
+    el.addEventListener('click', () => focusPin(pin.id));
+    const m = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([pin.lng, pin.lat]).addTo(map);
+    pinMarkers.push(m);
+  });
+}
+function focusPin(id) {
+  const pin = pins.find(p => p.id === id);
+  if (!pin) return;
+  map.flyTo({ center: [pin.lng, pin.lat], zoom: 15, duration: 800 });
+  const card = document.querySelector('.pin-card[data-id="' + id + '"]');
+  if (card) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.style.background = '#FFF';
+    setTimeout(() => card.style.background = '', 1200);
+  }
+}
+
+// ===================== AUTO-SUGGEST =====================
+const addrInput = document.getElementById('address-input');
+const suggestionsEl = document.getElementById('suggestions');
+const statusEl = document.getElementById('search-status');
+
+let suggestionList = [];
+let activeSuggestion = -1;
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+async function searchAddresses(q) {
+  // viewbox biases results toward Westchester area but doesn't strictly limit
+  const url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&countrycodes=us&viewbox=-74.05,41.35,-73.45,40.95&q=' + encodeURIComponent(q);
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!res.ok) throw new Error('search failed');
+  return res.json();
+}
+
+function formatSuggestion(s) {
+  const a = s.address || {};
+  const parts1 = [a.house_number, a.road].filter(Boolean).join(' ');
+  const parts2 = [a.city || a.town || a.village || a.hamlet, a.state_code || a.state].filter(Boolean).join(', ');
+  return { primary: parts1 || (s.display_name.split(',')[0]), secondary: parts2 || s.display_name.split(',').slice(1).join(',').trim() };
+}
+
+function isVillageSuggestion(s) {
+  // Nominatim returns class+type. Place-types or anything without house_number = treat as area, not address.
+  if (s.class === 'place' && ['village','town','hamlet','city','suburb','municipality','neighbourhood'].includes(s.type)) return true;
+  if (s.class === 'boundary' && s.type === 'administrative') return true;
+  if (!s.address?.house_number && (s.address?.village || s.address?.town || s.address?.city)) return true;
+  return false;
+}
+
+function renderSuggestions(items) {
+  suggestionList = items;
+  activeSuggestion = -1;
+  if (!items.length) { suggestionsEl.classList.add('hidden'); return; }
+  suggestionsEl.innerHTML = items.map((s, i) => {
+    const f = formatSuggestion(s);
+    const isVillage = isVillageSuggestion(s);
+    return `<div class="suggestion-item${isVillage ? ' village-row' : ''}" data-idx="${i}">
+      <div class="primary">${escapeHtml(f.primary)}</div>
+      <div class="secondary">${escapeHtml(f.secondary)}</div>
+      ${isVillage ? '<button class="add-village-btn" data-idx="' + i + '">+ village</button>' : ''}
+    </div>`;
+  }).join('');
+  suggestionsEl.classList.remove('hidden');
+  suggestionsEl.querySelectorAll('.add-village-btn').forEach(btn => {
+    btn.addEventListener('mousedown', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = Number(btn.dataset.idx);
+      addVillageFromSuggestion(idx);
+    });
+  });
+  suggestionsEl.querySelectorAll('.suggestion-item').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      if (e.target.closest('.add-village-btn')) return;
+      e.preventDefault();
+      const idx = Number(el.dataset.idx);
+      pickSuggestion(idx);
+    });
+  });
+}
+
+function pickSuggestion(idx) {
+  const s = suggestionList[idx];
+  if (!s) return;
+  // If user picks a village-type result with no house number → add as village instead of trying to pin a non-existent house
+  if (isVillageSuggestion(s) && !s.address?.house_number) {
+    addVillageFromSuggestion(idx);
+    return;
+  }
+  const f = formatSuggestion(s);
+  const label = f.primary + (f.secondary ? ', ' + f.secondary : '');
+  addPin({
+    address: label,
+    display: s.display_name,
+    lat: parseFloat(s.lat),
+    lng: parseFloat(s.lon),
+    addrParts: s.address || null
+  });
+  addrInput.value = '';
+  suggestionsEl.classList.add('hidden');
+  statusEl.textContent = '';
+}
+
+function addVillageFromSuggestion(idx) {
+  const s = suggestionList[idx];
+  if (!s) return;
+  const a = s.address || {};
+  const name = a.village || a.town || a.city || a.hamlet || a.suburb || s.display_name.split(',')[0];
+  const lat = parseFloat(s.lat);
+  const lng = parseFloat(s.lon);
+  const bbox = s.boundingbox ? s.boundingbox.map(parseFloat) : null;
+  if (villages.some(v => v.name.toLowerCase() === name.toLowerCase() && Math.abs(v.lat - lat) < 0.01)) {
+    statusEl.textContent = 'already added';
+    return;
+  }
+  const v = {
+    id: 'v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    name, lat, lng, bbox,
+    addrParts: a,
+    display: s.display_name,
+    schoolDistrict: null,
+    train: null,
+    trails: null,
+    bookstores: null,
+    refined: false
+  };
+  villages.unshift(v);
+  saveVillages();
+  renderVillages();
+  renderVillageMarkers();
+  map.flyTo({ center: [lng, lat], zoom: 13, duration: 1000 });
+  addrInput.value = '';
+  suggestionsEl.classList.add('hidden');
+  statusEl.textContent = '';
+  refineVillage(v.id);
+}
+
+async function refineVillage(id) {
+  const v = villages.find(x => x.id === id);
+  if (!v) return;
+  const point = { lat: v.lat, lng: v.lng };
+
+  // 1. School district (point-in-polygon on the village center)
+  v.schoolDistrict = detectSchoolDistrict(v.lng, v.lat);
+
+  // 2. Nearest train station (haversine, cheap)
+  const train = closest(point, TRAIN_STATIONS);
+  v.train = { name: train.name, line: train.line, gct: train.gct, miles: train.miles };
+
+  // 3. Trails — full ranking within 5 mi
+  const trailsRanked = TRAILHEADS
+    .map(t => ({ name: t.name, lat: t.lat, lng: t.lng, miles: distMiles(point, t) }))
+    .sort((a, b) => a.miles - b.miles);
+  v.trails = trailsRanked.slice(0, 5);
+  v.trailCount = trailsRanked.filter(t => t.miles < 5).length;
+  v.trailsWithin1Mi = trailsRanked.filter(t => t.miles < 1).length;
+  v.trailsWithin2Mi = trailsRanked.filter(t => t.miles < 2).length;
+
+  saveVillages();
+  renderVillages();
+
+  // 4. Bookstores — async Overpass query (OSM)
+  try {
+    v.bookstores = await fetchBookstoresNearby(v.lat, v.lng);
+  } catch (e) {
+    v.bookstores = [];
+  }
+  v.refined = true;
+  saveVillages();
+  renderVillages();
+}
+
+async function fetchBookstoresNearby(lat, lng) {
+  const query = `[out:json][timeout:15];nwr["shop"="books"](around:8000,${lat},${lng});out center 20;`;
+  const res = await fetch('https://overpass-api.de/api/interpreter', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'data=' + encodeURIComponent(query)
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data.elements || []).map(e => {
+    const eLat = e.lat ?? e.center?.lat;
+    const eLng = e.lon ?? e.center?.lon;
+    if (eLat == null || eLng == null) return null;
+    const miles = distMiles({ lat, lng }, { lat: eLat, lng: eLng });
+    return {
+      name: e.tags?.name || 'Unnamed bookshop',
+      lat: eLat, lng: eLng,
+      miles,
+      brand: e.tags?.brand || null,
+      addrCity: e.tags?.['addr:city'] || null
+    };
+  }).filter(Boolean).sort((a, b) => a.miles - b.miles).slice(0, 6);
+}
+
+let villageMarkers = [];
+function clearVillageMarkers() { villageMarkers.forEach(m => m.remove()); villageMarkers = []; }
+function renderVillageMarkers() {
+  clearVillageMarkers();
+  villages.forEach(v => {
+    const el = document.createElement('div');
+    el.innerHTML = '<div class="whh-village-label">' + escapeHtml(v.name) + '</div>';
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const trail0 = v.trails?.[0];
+      const books = v.bookstores?.length;
+      new maplibregl.Popup({ closeButton: true, offset: 18, maxWidth: '300px' })
+        .setLngLat([v.lng, v.lat])
+        .setHTML(`<div class="map-popup">
+          <div class="map-popup-kind">Village · Westchester</div>
+          <div class="map-popup-name">${escapeHtml(v.name)}</div>
+          <div class="map-popup-meta">
+            ${v.schoolDistrict ? `<strong>${escapeHtml(v.schoolDistrict)}</strong> school district<br>` : ''}
+            ${trail0 ? `nearest trail: <strong>${escapeHtml(trail0.name)}</strong> ${fmtMiles(trail0.miles)}<br>` : ''}
+            ${books != null ? `<strong>${books}</strong> bookstore${books === 1 ? '' : 's'} within 5 mi<br>` : ''}
+            ${v.train ? `<strong>${escapeHtml(v.train.name)}</strong> · ${v.train.line} Line · ${v.train.gct} min to GCT` : ''}
+          </div>
+        </div>`)
+        .addTo(map);
+    });
+    const m = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([v.lng, v.lat]).addTo(map);
+    villageMarkers.push(m);
+  });
+}
+
+function renderVillages() {
+  const listEl = document.getElementById('village-list');
+  const countEl = document.getElementById('village-count');
+  if (!listEl || !countEl) return;
+  countEl.textContent = villages.length;
+  if (!villages.length) {
+    listEl.innerHTML = '<div class="empty-state" id="empty-state-v">Type a village name (e.g. <em>Irvington</em>, <em>Pleasantville</em>) and click <strong>+ village</strong> on the suggestion.<br><br>The map labels the village and pulls trail proximity, nearby bookstores, school district, and Metro-North access automatically.</div>';
+    return;
+  }
+  listEl.innerHTML = '';
+  villages.forEach(v => {
+    const card = document.createElement('div');
+    card.className = 'village-card';
+    card.dataset.id = v.id;
+    const trailsBody = v.trails
+      ? `
+        <div class="primary">${v.trailsWithin1Mi} within 1 mi <span class="sub">· ${v.trailsWithin2Mi} within 2 mi · ${v.trailCount} within 5 mi</span></div>
+        <div class="meta">Nearest: <strong>${escapeHtml(v.trails[0]?.name || '—')}</strong> ${v.trails[0] ? fmtMiles(v.trails[0].miles) : ''}</div>
+        ${v.trails[1] ? `<div class="commute">+ ${escapeHtml(v.trails[1].name)} ${fmtMiles(v.trails[1].miles)}</div>` : ''}
+        ${v.trails[2] ? `<div class="commute">+ ${escapeHtml(v.trails[2].name)} ${fmtMiles(v.trails[2].miles)}</div>` : ''}
+      `
+      : '<div class="pending">computing…</div>';
+    const booksBody = v.bookstores
+      ? (v.bookstores.length === 0
+          ? '<div class="primary">none within 5 mi</div><div class="meta mute">closest bookshop is farther</div>'
+          : `
+            <div class="primary">${v.bookstores.length} within 5 mi</div>
+            ${v.bookstores.slice(0, 3).map(b => `<div class="meta">• <strong>${escapeHtml(b.name)}</strong> <span class="mute">${fmtMiles(b.miles)}</span></div>`).join('')}
+          `)
+      : '<div class="pending">querying OpenStreetMap…</div>';
+    const trainBody = v.train
+      ? `<div class="primary">${escapeHtml(v.train.name.toUpperCase())} <span class="sub">· ${v.train.line} Line</span></div>
+         <div class="meta"><strong>${fmtMiles(v.train.miles)}</strong> <span class="mute">crow-flies</span></div>
+         <div class="commute">${v.train.gct} min to Grand Central · off-peak</div>`
+      : '<div class="pending">…</div>';
+    const schoolBody = v.schoolDistrict
+      ? `<div class="primary">${escapeHtml(v.schoolDistrict)}</div>
+         <div class="commute">from county GIS polygon</div>`
+      : '<div class="pending">no school district polygon match</div>';
+
+    card.innerHTML = `
+      <div class="pin-header">
+        <div>
+          <div class="village-name">${escapeHtml(v.name)}</div>
+          <div class="village-sub">Village · Westchester</div>
+        </div>
+        <button class="pin-delete" title="Remove village">×</button>
+      </div>
+      <div class="pin-block">
+        <div class="kind">School</div>
+        <div class="body">${schoolBody}</div>
+      </div>
+      <div class="pin-block">
+        <div class="kind">Trail</div>
+        <div class="body">${trailsBody}</div>
+      </div>
+      <div class="pin-block">
+        <div class="kind">Books</div>
+        <div class="body">${booksBody}</div>
+      </div>
+      <div class="pin-block">
+        <div class="kind">Train</div>
+        <div class="body">${trainBody}</div>
+      </div>
+    `;
+    card.addEventListener('click', e => {
+      if (e.target.closest('.pin-delete')) return;
+      map.flyTo({ center: [v.lng, v.lat], zoom: 13, duration: 800 });
+    });
+    card.querySelector('.pin-delete').addEventListener('click', e => {
+      e.stopPropagation();
+      if (!confirm('Remove this village?')) return;
+      villages = villages.filter(x => x.id !== v.id);
+      saveVillages();
+      renderVillages();
+      renderVillageMarkers();
+    });
+    listEl.appendChild(card);
+  });
+}
+
+function addPin({ address, display, lat, lng, addrParts }) {
+  const pt = { lat, lng };
+  // Initial haversine baseline (instant) — gets refined async by OSRM routing
+  const train = closest(pt, TRAIN_STATIONS);
+  const trail = closest(pt, TRAILHEADS);
+  const muniKey = detectMuniKey(addrParts);
+  const schoolDistrict = detectSchoolDistrict(lng, lat);
+  const pin = {
+    id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    address, display, lat, lng, addrParts, muniKey, schoolDistrict,
+    askingPrice: 0,
+    train: {
+      name: train.name, line: train.line, gct: train.gct,
+      miles: train.miles, walkMin: walkMin(train.miles)
+    },
+    trail: { name: trail.name, miles: trail.miles, walkMin: walkMin(trail.miles) },
+    rank: 0, notes: '', refined: false
+  };
+  pins.unshift(pin);
+  savePins();
+  renderPins();
+  map.flyTo({ center: [lng, lat], zoom: 15, duration: 900 });
+  refinePin(pin.id);
+  populateActivePinSelect();
+}
+
+// Async: replace haversine guess with real walk/drive routing
+async function refinePin(pinId) {
+  const pin = pins.find(p => p.id === pinId);
+  if (!pin) return;
+  const pt = { lat: pin.lat, lng: pin.lng };
+  try {
+    const trainAcc = await findClosestStationAccurate(pt);
+    if (trainAcc) pin.train = { ...pin.train, ...trainAcc };
+    const trailAcc = await findClosestTrailAccurate(pt);
+    if (trailAcc) pin.trail = { ...pin.trail, ...trailAcc };
+    pin.refined = true;
+    savePins();
+    renderPins();
+  } catch (e) { /* graceful — haversine baseline already showing */ }
+}
+
+const doSearch = debounce(async () => {
+  const q = addrInput.value.trim();
+  if (q.length < 3) { suggestionsEl.classList.add('hidden'); statusEl.textContent = ''; return; }
+  statusEl.textContent = 'searching…';
+  try {
+    const items = await searchAddresses(q);
+    statusEl.textContent = items.length ? items.length + ' result' + (items.length === 1 ? '' : 's') : 'no match';
+    renderSuggestions(items);
+  } catch (e) {
+    statusEl.textContent = 'error';
+  }
+}, 320);
+
+addrInput.addEventListener('input', doSearch);
+addrInput.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeSuggestion = Math.min(suggestionList.length - 1, activeSuggestion + 1);
+    updateActiveSuggestion();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeSuggestion = Math.max(0, activeSuggestion - 1);
+    updateActiveSuggestion();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (activeSuggestion >= 0) {
+      pickSuggestion(activeSuggestion);
+    } else if (suggestionList.length) {
+      pickSuggestion(0);
+    }
+  } else if (e.key === 'Escape') {
+    suggestionsEl.classList.add('hidden');
+  }
+});
+addrInput.addEventListener('blur', () => setTimeout(() => suggestionsEl.classList.add('hidden'), 200));
+addrInput.addEventListener('focus', () => {
+  if (suggestionList.length) suggestionsEl.classList.remove('hidden');
+});
+
+function updateActiveSuggestion() {
+  suggestionsEl.querySelectorAll('.suggestion-item').forEach((el, i) => {
+    el.classList.toggle('active', i === activeSuggestion);
+  });
+}
+
+// ===================== PIN LIST =====================
+const listEl = document.getElementById('pin-list');
+const emptyEl = document.getElementById('empty-state');
+const countEl = document.getElementById('pin-count');
+
+function renderPins() {
+  countEl.textContent = pins.length;
+  if (!pins.length) {
+    listEl.innerHTML = '';
+    listEl.appendChild(emptyEl);
+    renderMapMarkers();
+    return;
+  }
+  listEl.innerHTML = '';
+  pins.forEach((pin, idx) => {
+    const card = document.createElement('div');
+    card.className = 'pin-card';
+    card.dataset.id = pin.id;
+    card.dataset.rank = pin.rank || 0;
+    const tx = pin.muniKey && TAX_DATA[pin.muniKey];
+    const tr = pin.train, tl = pin.trail;
+    const trainDist = tr.driveDistMi != null ? tr.driveDistMi.toFixed(1) + ' mi' : fmtMiles(tr.miles);
+    const trainWalk = tr.walkMin != null ? tr.walkMin + ' min walk' : '~' + walkMin(tr.miles) + ' min walk';
+    const trainDrive = tr.driveMin != null ? tr.driveMin + ' min drive' : '— min drive';
+    const trailDist = tl.driveDistMi != null ? tl.driveDistMi.toFixed(1) + ' mi' : fmtMiles(tl.miles);
+    const trailDrive = tl.driveMin != null ? tl.driveMin + ' min drive' : '';
+    card.innerHTML = `
+      <div class="pin-header">
+        <div class="pin-address"><span class="num">${idx + 1}</span>${escapeHtml(formatPinAddress(pin))}</div>
+        <button class="pin-delete" title="Delete">×</button>
+      </div>
+      <div class="pin-block">
+        <div class="kind">Train</div>
+        <div class="body">
+          <div class="primary">${escapeHtml(tr.name.toUpperCase())} ${tr.line ? '<span class="sub">· ' + tr.line + ' Line</span>' : ''}</div>
+          <div class="meta"><strong>${trainDist}</strong> <span class="mute">·</span> ${trainWalk} <span class="mute">·</span> ${trainDrive}</div>
+          ${tr.gct ? `<div class="commute">${tr.gct} min to Grand Central · off-peak</div>` : ''}
+          ${!pin.refined ? '<div class="pending">refining…</div>' : ''}
+        </div>
+      </div>
+      <div class="pin-block">
+        <div class="kind">Trail</div>
+        <div class="body">
+          <div class="primary">${escapeHtml(tl.name.toUpperCase())}</div>
+          <div class="meta"><strong>${trailDist}</strong>${trailDrive ? ' <span class="mute">·</span> ' + trailDrive : ''}</div>
+        </div>
+      </div>
+      ${tx ? (() => {
+        const monthly = computePinMonthly(pin);
+        const taxLine = monthly
+          ? `~${(tx.effectiveRate * 100).toFixed(2)}% of market · <strong>${fmtUSD(monthly.taxAnnual)}/yr</strong> · ${fmtUSD(monthly.tax)}/mo`
+          : `~${(tx.effectiveRate * 100).toFixed(2)}% of market · enter asking ↓ to see $`;
+        return `
+      <div class="pin-block">
+        <div class="kind">Tax</div>
+        <div class="body">
+          <div class="primary">${escapeHtml(tx.label.toUpperCase())}</div>
+          <div class="meta"><span class="mute">${escapeHtml(pin.schoolDistrict || tx.schoolDistrict)}</span></div>
+          <div class="commute">${taxLine}</div>
+        </div>
+      </div>`;
+      })() : (pin.addrParts ? `
+      <div class="pin-block">
+        <div class="kind">Tax</div>
+        <div class="body">
+          ${pin.schoolDistrict ? `<div class="primary">${escapeHtml(pin.schoolDistrict)}</div>` : ''}
+          <div class="pending">municipality not matched · outside the Westchester table</div>
+        </div>
+      </div>` : '')}
+      ${(() => {
+        const m = computePinMonthly(pin);
+        if (!m) return '';
+        return `
+      <div class="pin-block">
+        <div class="kind">Monthly</div>
+        <div class="body">
+          <div class="primary">${fmtUSD(m.total)} <span class="sub">/ mo all-in</span></div>
+          <div class="meta">P&amp;I <strong>${fmtUSD(m.pi)}</strong> <span class="mute">·</span> Tax <strong>${fmtUSD(m.tax)}</strong> <span class="mute">·</span> Ins <strong>${fmtUSD(m.ins)}</strong></div>
+          <div class="commute">${100 - m.downPct}% loan · ${m.rate}% / ${m.term}yr · ${fmtUSD(pin.askingPrice * (1 - m.downPct/100))} mortgage</div>
+        </div>
+      </div>`;
+      })()}
+      ${pin.schoolDistrict && tx && pin.schoolDistrict.toLowerCase().replace(/\s+(ufsd|csd)$/, '') !== tx.schoolDistrict.toLowerCase().replace(/\s+(ufsd|csd)$/, '') ? `
+      <div class="pin-block">
+        <div class="kind">School</div>
+        <div class="body">
+          <div class="primary">${escapeHtml(pin.schoolDistrict)}</div>
+          <div class="commute">from map polygon — overrides estimate</div>
+        </div>
+      </div>` : ''}
+      <div class="pin-asking">
+        <label>Asking</label>
+        <input type="text" class="pin-asking-input" placeholder="$0" value="${pin.askingPrice ? fmtUSD(pin.askingPrice) : ''}">
+      </div>
+      <div class="rank-row">
+        <span class="rank-label">Rank</span>
+        ${[1,2,3,4,5].map(n => `<button class="rank-btn ${pin.rank === n ? 'active' : ''}" data-rank="${n}">${n}</button>`).join('')}
+      </div>
+      <textarea class="pin-notes" placeholder="notes…">${escapeHtml(pin.notes || '')}</textarea>
+    `;
+    card.addEventListener('click', e => {
+      if (e.target.closest('.rank-btn') || e.target.closest('.pin-delete') || e.target.closest('.pin-notes') || e.target.closest('.pin-asking')) return;
+      focusPin(pin.id);
+    });
+    card.querySelectorAll('.rank-btn').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation();
+      const n = Number(b.dataset.rank);
+      pin.rank = pin.rank === n ? 0 : n;
+      savePins();
+      renderPins();
+    }));
+    const notesEl = card.querySelector('.pin-notes');
+    notesEl.addEventListener('input', () => { pin.notes = notesEl.value; savePins(); });
+    const askingEl = card.querySelector('.pin-asking-input');
+    askingEl.addEventListener('focus', e => { e.stopPropagation(); askingEl.select(); });
+    askingEl.addEventListener('blur', () => {
+      pin.askingPrice = parseMoney(askingEl.value);
+      askingEl.value = pin.askingPrice > 0 ? fmtUSD(pin.askingPrice) : '';
+      savePins();
+      renderPins();
+    });
+    askingEl.addEventListener('input', () => {
+      pin.askingPrice = parseMoney(askingEl.value);
+      // Live update derived monthly without full re-render to keep input focus
+      const m = computePinMonthly(pin);
+      const monthlyBlock = card.querySelectorAll('.pin-block')[3];
+      if (m && monthlyBlock) {
+        const body = monthlyBlock.querySelector('.body');
+        body.innerHTML = `
+          <div class="primary">${fmtUSD(m.total)} <span class="sub">/ mo all-in</span></div>
+          <div class="meta">P&I <strong>${fmtUSD(m.pi)}</strong> <span class="mute">·</span> Tax <strong>${fmtUSD(m.tax)}</strong> <span class="mute">·</span> Ins <strong>${fmtUSD(m.ins)}</strong></div>
+          <div class="commute">${100 - m.downPct}% loan · ${m.rate}% / ${m.term}yr · ${fmtUSD(pin.askingPrice * (1 - m.downPct/100))} mortgage</div>
+        `;
+      }
+    });
+    askingEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); askingEl.blur(); } });
+    askingEl.addEventListener('click', e => e.stopPropagation());
+    card.querySelector('.pin-delete').addEventListener('click', e => {
+      e.stopPropagation();
+      if (!confirm('Delete this pin?')) return;
+      pins = pins.filter(p => p.id !== pin.id);
+      savePins();
+      renderPins();
+    });
+    listEl.appendChild(card);
+  });
+  renderMapMarkers();
+  populateActivePinSelect();
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+renderPins();
+populateActivePinSelect();
+
+// Refine any legacy pins that haven't been routed yet — serial with small delay to respect OSRM rate limit
+(async () => {
+  for (const p of pins) {
+    if (!p.refined) {
+      await refinePin(p.id);
+      await new Promise(r => setTimeout(r, 400));
+    }
+  }
+})();
+</script>
+</body>
+</html>
