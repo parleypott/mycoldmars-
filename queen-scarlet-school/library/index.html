@@ -294,6 +294,71 @@
       .scrap-layer { display: none; }
     }
 
+    /* Burgundy world-row (library empty state) */
+    body[data-world="burgundy"] .world-row {
+      max-width: 980px;
+      margin: 28px auto 0;
+      padding: 22px;
+      background: linear-gradient(155deg, rgba(28, 44, 54, 0.78) 0%, rgba(14, 26, 34, 0.86) 100%);
+      border: 1px solid rgba(232, 217, 184, 0.14);
+      border-radius: 4px;
+      box-shadow:
+        inset 1px 1px 0 rgba(232, 162, 72, 0.14),
+        inset -1px -1px 0 rgba(0,0,0,0.45),
+        0 8px 28px rgba(0,0,0,0.45);
+      backdrop-filter: blur(6px) saturate(1.05);
+    }
+    body[data-world="burgundy"] .world-row-eyebrow {
+      font-family: var(--mono, ui-monospace, 'JetBrains Mono', monospace);
+      font-size: 10px;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: #E8A248;
+      text-align: center;
+      margin-bottom: 16px;
+      text-shadow: 0 0 10px rgba(232, 162, 72, 0.35);
+    }
+    body[data-world="burgundy"] .world-row-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+    @media (max-width: 760px) {
+      body[data-world="burgundy"] .world-row-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    body[data-world="burgundy"] .world-tile {
+      margin: 0;
+      background: rgba(8, 18, 24, 0.6);
+      border: 1px solid rgba(232, 217, 184, 0.14);
+      border-radius: 3px;
+      overflow: hidden;
+      box-shadow:
+        inset 1px 1px 0 rgba(232, 162, 72, 0.10),
+        inset -1px -1px 0 rgba(0,0,0,0.45),
+        0 4px 14px rgba(0,0,0,0.40);
+      transition: transform 200ms ease-out, border-color 200ms ease-out;
+    }
+    body[data-world="burgundy"] .world-tile:hover {
+      border-color: rgba(232, 162, 72, 0.42);
+      transform: translateY(-2px);
+    }
+    body[data-world="burgundy"] .world-tile img {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      display: block;
+      filter: brightness(0.88) saturate(0.95);
+    }
+    body[data-world="burgundy"] .world-tile figcaption {
+      padding: 6px 10px 8px;
+      font-family: var(--mono, ui-monospace, monospace);
+      font-size: 10px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(232, 217, 184, 0.72);
+      text-align: center;
+    }
+
     /* Gate */
     .gate { position: fixed; inset: 0; background: var(--paper); display: flex;
       align-items: center; justify-content: center; z-index: 500; }
@@ -309,6 +374,123 @@
     .gate-error.show { display: block; }
     .app { flex: 1; display: flex; flex-direction: column; min-height: 0; }
     .app.hidden { display: none; }
+
+    /* ── Burgundy Gate Override ─────────────────────────────────────── */
+    body[data-world="burgundy"] .gate {
+      background:
+        radial-gradient(ellipse at 50% 30%, rgba(28, 42, 52, 0.55) 0%, transparent 70%),
+        linear-gradient(180deg, #0A1218 0%, #050A0F 100%);
+    }
+    body[data-world="burgundy"] .gate .dragon,
+    body[data-world="burgundy"] #gate-dragon { display: none !important; }
+    body[data-world="burgundy"] .scrap-layer { display: none !important; }
+    body[data-world="burgundy"] .gate-inner {
+      background: linear-gradient(155deg, rgba(28, 44, 54, 0.92) 0%, rgba(14, 26, 34, 0.96) 60%, rgba(8, 18, 24, 0.98) 100%) !important;
+      border: 1px solid rgba(232, 217, 184, 0.18) !important;
+      border-radius: 4px !important;
+      transform: none !important;
+      box-shadow:
+        inset 1px 1px 0 rgba(232, 162, 72, 0.18),
+        inset -1px -1px 0 rgba(0,0,0,0.55),
+        0 18px 60px rgba(0,0,0,0.65),
+        0 0 80px rgba(232, 162, 72, 0.08) !important;
+      padding: 36px 32px !important;
+      max-width: 380px;
+      position: relative;
+    }
+    body[data-world="burgundy"] .gate-inner::before {
+      content: 'MYCOLDMARS // ACCESS —';
+      position: absolute;
+      top: 14px; left: 0; right: 0;
+      text-align: center;
+      font-family: var(--mono, ui-monospace, 'JetBrains Mono', monospace);
+      font-size: 9.5px;
+      letter-spacing: 0.36em;
+      text-transform: uppercase;
+      color: #E8A248;
+      opacity: 0.85;
+      text-shadow: 0 0 10px rgba(232, 162, 72, 0.45);
+    }
+    body[data-world="burgundy"] .gate h1 {
+      font-family: 'Cambo', Georgia, serif !important;
+      font-style: italic;
+      font-weight: 400 !important;
+      font-size: 30px !important;
+      letter-spacing: 0 !important;
+      color: #FFF6E0 !important;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.65);
+      margin-top: 12px;
+      text-wrap: balance;
+    }
+    body[data-world="burgundy"] .gate input,
+    body[data-world="burgundy"] #gate-code {
+      background: rgba(8, 18, 24, 0.82) !important;
+      border: 1px solid rgba(232, 217, 184, 0.18) !important;
+      border-radius: 3px !important;
+      box-shadow:
+        inset 1px 1px 0 rgba(0,0,0,0.55),
+        inset -1px -1px 0 rgba(232, 162, 72, 0.08) !important;
+      color: #F4E6C4 !important;
+      font-family: var(--mono, ui-monospace, 'JetBrains Mono', monospace) !important;
+      font-size: 13px !important;
+      letter-spacing: 0.18em;
+      text-transform: lowercase;
+      caret-color: #E8A248 !important;
+      text-align: center;
+      padding: 14px 16px !important;
+    }
+    body[data-world="burgundy"] .gate input::placeholder {
+      color: rgba(232, 217, 184, 0.36) !important;
+      font-style: normal !important;
+      letter-spacing: 0.24em;
+      text-transform: lowercase;
+    }
+    body[data-world="burgundy"] .gate input:focus {
+      border-color: rgba(232, 162, 72, 0.55) !important;
+      box-shadow:
+        inset 1px 1px 0 rgba(0,0,0,0.55),
+        0 0 18px rgba(232, 162, 72, 0.22) !important;
+      outline: none !important;
+    }
+    body[data-world="burgundy"] .gate #gate-submit,
+    body[data-world="burgundy"] .gate .btn.primary {
+      background: linear-gradient(180deg, #B8443A 0%, #9A382F 45%, #6E2820 100%) !important;
+      color: #F4E6C4 !important;
+      border: 1px solid rgba(232, 162, 72, 0.22) !important;
+      border-radius: 3px !important;
+      font-family: var(--mono, ui-monospace, 'JetBrains Mono', monospace) !important;
+      font-size: 12px !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.28em !important;
+      text-transform: uppercase !important;
+      padding: 14px 22px !important;
+      transform: none !important;
+      box-shadow:
+        inset 0 1px 0 rgba(244, 230, 196, 0.22),
+        inset 1px 1px 0 rgba(244, 196, 142, 0.10),
+        inset 0 -1px 0 rgba(0,0,0,0.55),
+        0 0 22px rgba(184, 68, 58, 0.22) !important;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.55);
+    }
+    body[data-world="burgundy"] .gate #gate-submit:hover,
+    body[data-world="burgundy"] .gate .btn.primary:hover {
+      background: linear-gradient(180deg, #C84A3F 0%, #A93C32 45%, #7A2A23 100%) !important;
+      filter: brightness(1.08);
+      transform: none !important;
+      box-shadow:
+        inset 0 1px 0 rgba(244, 230, 196, 0.28),
+        inset 1px 1px 0 rgba(244, 196, 142, 0.14),
+        inset 0 -1px 0 rgba(0,0,0,0.55),
+        0 0 32px rgba(184, 68, 58, 0.36) !important;
+    }
+    body[data-world="burgundy"] .gate-error {
+      color: #E8A248 !important;
+      font-family: var(--mono, ui-monospace, 'JetBrains Mono', monospace) !important;
+      font-size: 11px !important;
+      letter-spacing: 0.18em;
+      text-transform: lowercase;
+      font-weight: 600;
+    }
 
     /* Toast notifications */
     .toast-wrap {
@@ -900,7 +1082,18 @@
         lastMainStories = stories;
         count.textContent = `${stories.length} ${stories.length === 1 ? 'story' : 'stories'}`;
         if (!stories.length) {
-          grid.innerHTML = `<div class="empty">no stories yet!<span class="little">tap "+ new story" up top to start one — it'll show up here automatically.</span></div>`;
+          const isBurg = (document.body.getAttribute('data-world') || '') === 'burgundy';
+          const worldRow = isBurg ? `
+            <div class="world-row" aria-hidden="true">
+              <div class="world-row-eyebrow">EXPLORE THE WORLD</div>
+              <div class="world-row-grid">
+                <figure class="world-tile"><img src="/queen-scarlet-school/worlds/burgundy/throne-room-siege.jpg" alt="" /><figcaption>throne room</figcaption></figure>
+                <figure class="world-tile"><img src="/queen-scarlet-school/worlds/burgundy/tribute-drop.jpg" alt="" /><figcaption>tribute drop</figcaption></figure>
+                <figure class="world-tile"><img src="/queen-scarlet-school/worlds/burgundy/mining-rico.jpg" alt="" /><figcaption>the mines</figcaption></figure>
+                <figure class="world-tile"><img src="/queen-scarlet-school/worlds/burgundy/battle-rico.jpg" alt="" /><figcaption>the battle</figcaption></figure>
+              </div>
+            </div>` : '';
+          grid.innerHTML = `<div class="empty">no stories yet!<span class="little">tap "+ new story" up top to start one — it'll show up here automatically.</span></div>${worldRow}`;
           return;
         }
         grid.innerHTML = stories.map(s => cardHtml(s, false)).join('');
