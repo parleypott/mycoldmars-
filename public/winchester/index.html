@@ -881,6 +881,7 @@ body.hide-villages .whh-village-label { display: none !important; }
     <div class="basemap-switcher" id="basemap-switcher">
       <button class="basemap-btn" data-style="detailed">Detailed</button>
       <button class="basemap-btn" data-style="minimal">Minimal</button>
+      <button class="basemap-btn" data-style="parks">Parks</button>
       <button class="basemap-btn" data-style="blank">Blank</button>
     </div>
   </div>
@@ -1878,6 +1879,69 @@ const MAP_STYLES = {
           'text-font': ['Noto Sans Regular']
         },
         paint: { 'text-color': '#2A2620', 'text-halo-color': '#F5F1E8', 'text-halo-width': 1.4 }
+      }
+    ]
+  },
+  parks: {
+    version: 8,
+    glyphs: OFM_GLYPHS,
+    sources: { omt: { type: 'vector', url: OFM_TILES } },
+    layers: [
+      { id: 'bg', type: 'background', paint: { 'background-color': '#F5F1E8' } },
+      // Water for context
+      { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water',
+        paint: { 'fill-color': '#B8C9D6', 'fill-opacity': 0.5 } },
+      // Park polygons — green
+      { id: 'park-fill', type: 'fill', source: 'omt', 'source-layer': 'park',
+        paint: { 'fill-color': '#7FB069', 'fill-opacity': 0.42 } },
+      // Reinforce parkland from landcover (some parks live in landcover/grass at lower zooms)
+      { id: 'landcover-grass', type: 'fill', source: 'omt', 'source-layer': 'landcover',
+        filter: ['match', ['get', 'class'], ['grass', 'wood', 'forest'], true, false],
+        paint: { 'fill-color': '#7FB069', 'fill-opacity': 0.22 } },
+      { id: 'park-outline', type: 'line', source: 'omt', 'source-layer': 'park',
+        paint: { 'line-color': '#3A6B2A', 'line-width': 1.0, 'line-opacity': 0.7 } },
+      // Major roads faded — context only
+      { id: 'major-roads', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['match', ['get', 'class'], ['motorway', 'trunk', 'primary'], true, false],
+        paint: {
+          'line-color': '#CFC9B9',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.3, 14, 0.9]
+        }
+      },
+      // Rail
+      { id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['==', ['get', 'class'], 'rail'],
+        paint: { 'line-color': '#A89F8C', 'line-width': 0.8, 'line-dasharray': [2, 2] }
+      },
+      // Trails — emphasized dashed brown
+      { id: 'trail-paths', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['match', ['get', 'class'], ['path', 'track', 'footway', 'pedestrian'], true, false],
+        paint: {
+          'line-color': '#8B4F2D',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.5, 13, 1.2, 16, 2.4, 19, 3.2],
+          'line-dasharray': [3, 2]
+        }
+      },
+      // Place labels
+      { id: 'place-labels', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        filter: ['match', ['get', 'class'], ['city', 'town', 'village', 'hamlet', 'suburb'], true, false],
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 8, 9, 14, 13],
+          'text-font': ['Noto Sans Regular']
+        },
+        paint: { 'text-color': '#2A2620', 'text-halo-color': '#F5F1E8', 'text-halo-width': 1.4 }
+      },
+      // Park name labels
+      { id: 'park-labels', type: 'symbol', source: 'omt', 'source-layer': 'park',
+        minzoom: 11,
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 11, 9, 14, 11],
+          'text-font': ['Noto Sans Italic'],
+          'text-max-width': 8
+        },
+        paint: { 'text-color': '#2D5A1E', 'text-halo-color': '#F5F1E8', 'text-halo-width': 1.4 }
       }
     ]
   },
