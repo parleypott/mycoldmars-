@@ -143,49 +143,36 @@ async function handleList(url) {
   const includeTrash = url.searchParams.get('trash') === '1';
   // World isolation — each world's library is independent. Default world
   // (queen-scarlet) sees legacy NULL-world rows; other worlds only see
-  // their own rows. The client's fetch wrapper appends ?world=<slug> for
-  // every GET, so we don't need to default here.
+  // their own rows.
   const world = (url.searchParams.get('world') || url.searchParams.get('world_slug') || 'queen-scarlet').toLowerCase();
-  const cols = 'id,name,deleted_at,created_at,updated_at,cover_image,world_slug';
+  // We need `blocks` in the SELECT so we can compute block_count
+  // server-side. The PostgREST inline computed-column syntax
+  // (block_count:blocks->jsonb_array_length) silently returned NULL on
+  // this deployment, which caused EVERY story to display "0 blocks" in
+  // the library — making Johnny think his work was gone. Pulling the raw
+  // blocks payload and counting in JS is the reliable path. We strip
+  // blocks from the response so the wire stays lean.
+  const cols = 'id,name,deleted_at,created_at,updated_at,cover_image,world_slug,blocks';
   const filter = includeTrash ? 'deleted_at=not.is.null' : 'deleted_at=is.null';
-  // World filter: queen-scarlet sees its own rows AND legacy NULL rows
-  // (everything pre-migration was QSS-only). Other worlds see only their
-  // own rows — never legacy NULL leakage.
   const worldFilter = world === 'queen-scarlet'
     ? `or=(world_slug.eq.queen-scarlet,world_slug.is.null)`
     : `world_slug=eq.${encodeURIComponent(world)}`;
   const params = new URLSearchParams({
-    select: cols + ',block_count:blocks->jsonb_array_length',
+    select: cols,
     [filter.split('=')[0]]: filter.split('=').slice(1).join('='),
     order: 'updated_at.desc',
     limit: '500',
   });
-  // PostgREST `or` is a top-level param, not key=value via URLSearchParams.
-  const queryStr = params.toString() + (world === 'queen-scarlet'
-    ? `&${worldFilter}`
-    : `&${worldFilter}`);
+  const queryStr = params.toString() + `&${worldFilter}`;
 
   let data;
   try {
     data = await sb('GET', `qss_stories?${queryStr}`);
   } catch (e) {
-    // If the computed-column syntax isn't supported on this PostgREST
-    // version, fall back to the small-cols-only query and report 0
-    // block counts (better than 500ing the whole library).
-    if (/jsonb_array_length|invalid select|function jsonb_array_length/i.test(e?.message || '')) {
+    if (/world_slug/i.test(e?.message || '') && /column.*does not exist|schema cache/i.test(e?.message || '')) {
+      // Migration 021 not applied yet — fall back to no world filter.
       const fallback = new URLSearchParams({
-        select: cols,
-        [filter.split('=')[0]]: filter.split('=').slice(1).join('='),
-        order: 'updated_at.desc',
-        limit: '500',
-      });
-      const fbQs = fallback.toString() + `&${worldFilter}`;
-      data = await sb('GET', `qss_stories?${fbQs}`);
-    } else if (/world_slug/i.test(e?.message || '') && /column.*does not exist|schema cache/i.test(e?.message || '')) {
-      // Migration 021 not applied yet — fall back to listing everything,
-      // labeled as queen-scarlet. Better than 500-ing the whole library.
-      const fallback = new URLSearchParams({
-        select: 'id,name,deleted_at,created_at,updated_at,cover_image,block_count:blocks->jsonb_array_length',
+        select: 'id,name,deleted_at,created_at,updated_at,cover_image,blocks',
         [filter.split('=')[0]]: filter.split('=').slice(1).join('='),
         order: 'updated_at.desc',
         limit: '500',
@@ -202,7 +189,12 @@ async function handleList(url) {
     created_at: r.created_at,
     updated_at: r.updated_at,
     cover_image: r.cover_image || null,
-    block_count: Number(r.block_count) || 0,
+    // Compute block_count from the raw blocks payload — the PostgREST
+    // inline jsonb_array_length aliased select returned NULL on prod,
+    // so we count here. blocks itself is NOT shipped to the client (it's
+    // potentially multi-KB per story; opening a story still does a full
+    // ?action=get fetch).
+    block_count: Array.isArray(r.blocks) ? r.blocks.length : 0,
     world_slug: r.world_slug || 'queen-scarlet',
   }));
   return jsonOk({ stories });

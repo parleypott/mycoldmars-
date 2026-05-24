@@ -8415,8 +8415,13 @@
       let retryDelay = 0;        // exponential backoff for transient errors
 
       // ─ status pill ─
+      // NB: 'local' is the EMPTY-CONTENT state — nothing to push to cloud
+      // yet. Don't call it "local only" because that reads as a warning,
+      // like work isn't backed up. It's just "auto-save is on; nothing
+      // to save right now". When real content lands queueSave flips to
+      // 'dirty' → 'saving' → 'saved' (cloud round-trip confirmed).
       const STATUS_TEXT = {
-        local: 'local only',
+        local: 'auto-save on',
         dirty: 'unsaved',
         saving: 'saving…',
         saved: 'saved',
