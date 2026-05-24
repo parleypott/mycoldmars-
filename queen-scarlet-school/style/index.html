@@ -329,15 +329,20 @@
     document.getElementById('open-explore').href = `/universe/${world}/explore/`;
 
     // ── field definitions ──
+    // Two groups: art_style.* fields (jsonb subfields of art_style)
+    // and canon_text (its own column on qss_worlds). The save flow
+    // checks `column` to know which DB target each field maps to.
     const FIELDS = [
-      { key: 'styleBlock', label: '01', title: 'the style block',
+      { key: 'styleBlock', column: 'art_style', label: '01', title: 'the style block',
         hint: 'the main creative direction — register, palette, brushwork, framing, quality bar. this is the biggest lever.' },
-      { key: 'references', label: '02', title: 'references',
+      { key: 'references', column: 'art_style', label: '02', title: 'references',
         hint: 'concrete anchors. name films, illustrators, specific characters. gemini matches what you name.' },
-      { key: 'dontList',   label: '03', title: 'do not list',
+      { key: 'dontList',   column: 'art_style', label: '03', title: 'do not list',
         hint: 'banned moves. every "DO NOT" here closes one default failure mode (sticker outlines, anime, default-white skin).' },
-      { key: 'paper',      label: '04', title: 'paper / background',
+      { key: 'paper',      column: 'art_style', label: '04', title: 'paper / background',
         hint: 'how to treat the surface — flat paper, embedded scene, deep environment.' },
+      { key: 'canon_text', column: 'canon_text', label: '05', title: 'world canon',
+        hint: 'the prose canon — tone, characters, setting, rules of the world. feeds claude on every synopsis draft + every test-draw.' },
     ];
 
     const state = {
@@ -414,8 +419,9 @@
         state.world = w;
         const a = w.art_style || {};
         for (const f of FIELDS) {
-          state.values[f.key]   = a[f.key] || '';
-          state.original[f.key] = a[f.key] || '';
+          const raw = f.column === 'art_style' ? (a[f.key] || '') : (w[f.column] || '');
+          state.values[f.key]   = raw;
+          state.original[f.key] = raw;
         }
         document.getElementById('world-name').textContent = w.short_name || w.name || world;
         document.getElementById('updated-chip').textContent =
@@ -433,7 +439,14 @@
       state.saving = true;
       setStatus('saving…', 'saving');
       try {
-        const body = { art_style: { ...state.values } };
+        // Build the PUT body by routing each field to its column. Only
+        // art_style subfields go into the art_style object; canon_text
+        // goes to its own top-level key.
+        const body = { art_style: {} };
+        for (const f of FIELDS) {
+          if (f.column === 'art_style') body.art_style[f.key] = state.values[f.key] || '';
+          else body[f.column] = state.values[f.key] || '';
+        }
         const r = await fetch(`/api/qss-world-style?world=${encodeURIComponent(world)}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
