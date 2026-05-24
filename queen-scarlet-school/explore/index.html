@@ -550,8 +550,8 @@
     function cardInner(it) {
       const tag = (it.kind || '').toUpperCase();
       let imgArea = '';
-      if (it.status === 'ready' && it.image_data_base64) {
-        imgArea = `<img src="data:${esc(it.image_mime || 'image/png')};base64,${it.image_data_base64}" alt="${esc(it.title)}" loading="lazy" />`;
+      if (it.status === 'ready') {
+        imgArea = `<img src="/api/qss-explorer?action=image&id=${encodeURIComponent(it.id)}" alt="${esc(it.title)}" loading="lazy" />`;
       } else if (it.status === 'generating') {
         imgArea = `<div class="placeholder generating">drawing…</div>`;
       } else if (it.status === 'error') {
@@ -606,8 +606,8 @@
       if (!it) return;
       state.lightboxId = id;
       const imgWrap = document.getElementById('lb-img');
-      imgWrap.innerHTML = (it.status === 'ready' && it.image_data_base64)
-        ? `<img src="data:${esc(it.image_mime || 'image/png')};base64,${it.image_data_base64}" alt="${esc(it.title)}" />`
+      imgWrap.innerHTML = (it.status === 'ready')
+        ? `<img src="/api/qss-explorer?action=image&id=${encodeURIComponent(it.id)}" alt="${esc(it.title)}" />`
         : `<div class="placeholder" style="position:relative;display:flex;align-items:center;justify-content:center;height:100%;font-family:var(--mono);font-size:13px;">no image yet</div>`;
       document.getElementById('lb-title').textContent = it.title || '';
       document.getElementById('lb-caption').textContent = it.caption || '';

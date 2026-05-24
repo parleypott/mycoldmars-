@@ -24,7 +24,11 @@
 import { checkAccess } from './_lib/access.js';
 import { BURGUNDY_NOVEL_ACT1 } from './_lib/burgundy-novel-act1.js';
 
-export const config = { runtime: 'edge' };
+// Edge runtime. We surfaced the underlying Anthropic error so we can see
+// why the call is failing fast. The list endpoint no longer pulls
+// image_data_base64 (was the 504-on-GET cause); images are streamed via
+// ?action=image&id=... instead.
+export const config = { runtime: 'edge', maxDuration: 30 };
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -87,8 +91,31 @@ export default async function handler(req) {
   try {
     if (req.method === 'GET' && action === 'list') {
       const world = sanitizeWorldSlug(url.searchParams.get('world'));
-      const rows = await sb('GET', `qss_world_explorer?world_slug=eq.${encodeURIComponent(world)}&order=sort_order.asc,created_at.asc&select=id,world_slug,kind,title,caption,source_quote,art_prompt,image_data_base64,image_mime,rating,rating_reason,status,error_msg,sort_order,created_at,updated_at&limit=500`);
+      // Do NOT pull image_data_base64 here — with 100 rows × ~500KB each
+      // it was a 50MB JSON response and timed out the function. Client
+      // fetches each image via /api/qss-explorer?action=image&id=...
+      const rows = await sb('GET', `qss_world_explorer?world_slug=eq.${encodeURIComponent(world)}&order=sort_order.asc,created_at.asc&select=id,world_slug,kind,title,caption,source_quote,art_prompt,image_mime,rating,rating_reason,status,error_msg,sort_order,created_at,updated_at&limit=500`);
       return j(200, { items: rows || [] });
+    }
+
+    if (req.method === 'GET' && action === 'image') {
+      const id = url.searchParams.get('id') || '';
+      if (!id) return j(400, { error: 'no_id' });
+      const rows = await sb('GET', `qss_world_explorer?id=eq.${encodeURIComponent(id)}&select=image_data_base64,image_mime&limit=1`);
+      const row = rows?.[0];
+      if (!row?.image_data_base64) return j(404, { error: 'not_ready' });
+      // Edge-safe base64 decode → Uint8Array (no Buffer global on Edge).
+      const bin = atob(row.image_data_base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new Response(bytes, {
+        status: 200,
+        headers: {
+          'Content-Type': row.image_mime || 'image/png',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          ...CORS,
+        },
+      });
     }
 
     if (req.method === 'POST') {
@@ -155,7 +182,8 @@ async function handleExtract(body) {
   });
 
   if (!allItems.length) {
-    return j(502, { error: 'no_items_extracted', chunkErrors });
+    const detail = chunkErrors.map(e => e.error).filter(Boolean).join(' | ') || 'no detail';
+    return j(502, { error: 'no_items_extracted', detail, chunkErrors });
   }
 
   const rows = allItems
@@ -325,19 +353,29 @@ Plain JSON only. No art_prompt — that's built server-side.`;
       system: SYSTEM,
       messages: [{ role: 'user', content: userPrompt }],
     }),
-    signal: AbortSignal.timeout(23_500),
+    signal: AbortSignal.timeout(26_000),
   });
 
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
-    throw new Error(`anthropic_${res.status}: ${txt.slice(0, 160)}`);
+    throw new Error(`anthropic_${res.status}: ${txt.slice(0, 200)}`);
   }
   const payload = await res.json();
   const raw = payload?.content?.[0]?.text || '';
-  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  const stopReason = payload?.stop_reason || '';
+  if (!raw) {
+    throw new Error(`empty_response stop=${stopReason || 'none'}`);
+  }
+  // Strip fences, also handle a leading prose preamble before the JSON.
+  let cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  // Find first { and trim everything before.
+  const firstBrace = cleaned.indexOf('{');
+  if (firstBrace > 0) cleaned = cleaned.slice(firstBrace);
   let parsed;
   try { parsed = JSON.parse(cleaned); }
-  catch { throw new Error('parse_failed'); }
+  catch (e) {
+    throw new Error(`parse_failed stop=${stopReason} preview=${cleaned.slice(0, 120).replace(/\n/g, ' ')}`);
+  }
   return Array.isArray(parsed?.items) ? parsed.items : [];
 }
 
