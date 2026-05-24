@@ -303,6 +303,69 @@
       padding: 7px 14px;
     }
     .pane-ctrl-btn.pane-ctrl-primary:hover { background: var(--red-deep, var(--red)); transform: translate(-1px, -1px); }
+
+    /* BLOCK / BOOK view toggle — two pills that share a border */
+    .view-toggle { display: inline-flex; align-items: stretch; gap: 0; }
+    .view-toggle .view-toggle-btn { border-radius: 0; padding: 5px 14px; }
+    .view-toggle .view-toggle-btn:first-child { border-top-left-radius: 999px; border-bottom-left-radius: 999px; }
+    .view-toggle .view-toggle-btn:last-child  { border-top-right-radius: 999px; border-bottom-right-radius: 999px; border-left: none; }
+    .view-toggle .view-toggle-btn.active { background: var(--ink-bright); color: var(--paper); }
+
+    /* Book-view font picker — only visible when book mode active */
+    #book-font-picker {
+      padding: 5px 10px;
+      font-family: var(--ui);
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      max-width: 160px;
+    }
+    body[data-story-view="block"] .book-only { display: none !important; }
+    body[data-story-view="book"]  .block-only { display: none !important; }
+
+    /* ─── BOOK VIEW — clean reading prose ─── */
+    .story-book {
+      max-width: 70ch;
+      margin: 0 auto;
+      padding: 28px 32px 64px;
+      color: var(--ink-bright);
+      font-size: var(--story-font-size, 17px);
+      line-height: 1.78;
+      letter-spacing: 0.005em;
+      font-family: var(--book-font-family, 'Cambo', Georgia, serif);
+      text-rendering: optimizeLegibility;
+    }
+    .story-book .book-paragraph {
+      margin: 0 0 1.15em 0;
+      text-indent: 1.6em;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .story-book .book-paragraph:first-child { text-indent: 0; }
+    .story-book .book-paragraph:first-child::first-letter {
+      font-size: 3.2em;
+      float: left;
+      line-height: 0.92;
+      padding: 0.05em 0.08em 0 0;
+      color: var(--red);
+      font-weight: 700;
+    }
+    .story-book .book-scene-break {
+      text-align: center;
+      letter-spacing: 0.5em;
+      color: var(--ink-faint);
+      margin: 1.6em 0;
+      font-family: var(--ui);
+      font-weight: 700;
+      font-size: 0.85em;
+    }
+
+    /* Font-family options applied by setBookFont() */
+    .story-book[data-book-font="serif-cambo"]   { font-family: 'Cambo', Georgia, serif; }
+    .story-book[data-book-font="serif-lora"]    { font-family: 'Lora', 'Cambo', Georgia, serif; }
+    .story-book[data-book-font="serif-crimson"] { font-family: 'Crimson Pro', 'Cambo', Georgia, serif; }
+    .story-book[data-book-font="serif-iowan"]   { font-family: 'Iowan Old Style', 'Cambo', Georgia, serif; }
+    .story-book[data-book-font="sans-inter"]    { font-family: 'Inter', system-ui, -apple-system, sans-serif; line-height: 1.7; }
     .font-size-ctrl {
       display: inline-flex; align-items: center;
       border: 2px solid var(--ink-bright); border-radius: 999px;
@@ -3554,17 +3617,28 @@
               <h2>The Story</h2>
               <div class="pane-controls">
                 <button id="btn-touch-base-pane" class="pane-ctrl-btn pane-ctrl-primary" type="button" title="The Story Guide reads what you've built so far and tells you what's working and what's missing.">touch base</button>
+                <div class="view-toggle" role="tablist" aria-label="Story view">
+                  <button id="btn-view-block" class="pane-ctrl-btn view-toggle-btn active" data-view="block" type="button" title="Numbered story blocks with summaries — for editing">block</button>
+                  <button id="btn-view-book"  class="pane-ctrl-btn view-toggle-btn"        data-view="book"  type="button" title="Continuous prose — read it like a chapter book">book</button>
+                </div>
                 <button id="btn-focus" class="pane-ctrl-btn" type="button" title="Focus mode — dim everything except your story">focus</button>
                 <button id="btn-arc" class="pane-ctrl-btn" type="button" title="Open arc inspector">arc</button>
                 <button id="btn-play-all" class="pane-ctrl-btn" type="button" title="Play the whole story start to finish">play</button>
                 <button id="btn-wrap-up" class="pane-ctrl-btn" type="button" title="Wrap up today's session — see what you wrote">wrap up</button>
+                <select id="book-font-picker" class="pane-ctrl-btn book-only" title="Change the reading font">
+                  <option value="serif-cambo">Cambo serif</option>
+                  <option value="serif-lora">Lora serif</option>
+                  <option value="serif-crimson">Crimson serif</option>
+                  <option value="serif-iowan">Iowan serif</option>
+                  <option value="sans-inter">Inter sans</option>
+                </select>
                 <div class="font-size-ctrl" title="Story text size">
                   <button data-fs="14"   type="button">A</button>
                   <button data-fs="16.5" type="button" class="active" style="font-size: 14px;">A</button>
                   <button data-fs="19"   type="button" style="font-size: 16px;">A</button>
                   <button data-fs="22"   type="button" style="font-size: 18px;">A</button>
                 </div>
-                <button id="btn-collapse-all" class="pane-ctrl-btn ghost" type="button" title="Collapse all blocks to summary">collapse</button>
+                <button id="btn-collapse-all" class="pane-ctrl-btn ghost block-only" type="button" title="Collapse all blocks to summary">collapse</button>
               </div>
             </div>
             <!-- Live character roster (auto-built from arc cache, click any chip → arc inspector) -->
@@ -3590,6 +3664,11 @@
               <span class="little">pick blocks from wordy on the right to build it up</span>
             </div>
             <div id="story-blocks" class="story-blocks" style="display:none;"></div>
+            <!-- BOOK VIEW — same story text rendered as continuous prose for
+                 a clean reading experience. Toggled via the block/book view
+                 controls in the pane header. Hidden by default; renderStory
+                 swaps visibility based on state.storyView. -->
+            <div id="story-book" class="story-book" style="display:none;"></div>
 
             <!-- ─── kid composer: add your own block ─── -->
             <div id="own-block-composer" class="own-block-composer">
@@ -5730,16 +5809,41 @@
     function renderStory() {
       const empty = document.getElementById('story-blocks-empty');
       const list = document.getElementById('story-blocks');
+      const book = document.getElementById('story-book');
       const composer = document.getElementById('own-block-composer');
+      const view = state.storyView || 'block';
       if (!state.blocks.length) {
         empty.style.display = 'block';
         list.style.display = 'none';
         list.innerHTML = '';
+        if (book) { book.style.display = 'none'; book.innerHTML = ''; }
         if (composer) composer.style.display = 'block';
         return;
       }
+      // BOOK view — render every block as a paragraph in continuous prose.
+      // Same text, no toolbars, no numbers. Composer stays hidden (book is
+      // a reading mode, not an editing mode).
+      if (view === 'book') {
+        empty.style.display = 'none';
+        list.style.display = 'none';
+        if (book) {
+          book.style.display = 'block';
+          // Each block becomes one paragraph. We preserve original line
+          // breaks inside a block by leaving them in textContent (the CSS
+          // sets white-space: pre-wrap on .book-paragraph).
+          book.innerHTML = state.blocks.map((b) => {
+            const t = (b.text || '').trim();
+            if (!t) return '';
+            return `<p class="book-paragraph">${esc(t)}</p>`;
+          }).filter(Boolean).join('<div class="book-scene-break" aria-hidden="true">⁂</div>');
+        }
+        if (composer) composer.style.display = 'none';
+        return;
+      }
+      // BLOCK view (default) — numbered editable blocks
       empty.style.display = 'none';
       list.style.display = 'flex';
+      if (book) { book.style.display = 'none'; book.innerHTML = ''; }
       list.innerHTML = state.blocks.map((b, i) => {
         const isExpanded = !!state.blockUI?.[b.id]?.expanded;
         const isPlaying = state.playingBlockId === b.id;
@@ -8591,6 +8695,42 @@
       }
       apply(SAVED || '16.5');
       buttons.forEach(b => b.addEventListener('click', () => apply(b.dataset.fs)));
+    })();
+
+    // ─────────── Story view toggle (BLOCK / BOOK) + book font picker ───────────
+    // BOOK mode renders state.blocks as continuous prose for reading. Same
+    // text, no toolbars, no edit affordances. Font + font-size persist
+    // separately so Henry can have a different reading typeface than what
+    // he uses while editing.
+    (function wireViewToggle() {
+      const LS_VIEW = 'qss:storyView';
+      const LS_FONT = 'qss:bookFont';
+      const blockBtn = document.getElementById('btn-view-block');
+      const bookBtn  = document.getElementById('btn-view-book');
+      const picker   = document.getElementById('book-font-picker');
+      const book     = document.getElementById('story-book');
+      function apply(view) {
+        state.storyView = (view === 'book') ? 'book' : 'block';
+        document.body.setAttribute('data-story-view', state.storyView);
+        if (blockBtn) blockBtn.classList.toggle('active', state.storyView === 'block');
+        if (bookBtn)  bookBtn.classList.toggle('active',  state.storyView === 'book');
+        try { localStorage.setItem(LS_VIEW, state.storyView); } catch {}
+        try { renderStory(); } catch {}
+      }
+      function applyFont(font) {
+        const v = font || 'serif-cambo';
+        if (book) book.setAttribute('data-book-font', v);
+        if (picker) picker.value = v;
+        try { localStorage.setItem(LS_FONT, v); } catch {}
+      }
+      blockBtn?.addEventListener('click', () => apply('block'));
+      bookBtn?.addEventListener('click',  () => apply('book'));
+      picker?.addEventListener('change', (e) => applyFont(e.target.value));
+      // Initial state from LS — fallback to block view with Cambo serif
+      const savedView = (() => { try { return localStorage.getItem(LS_VIEW); } catch { return null; } })();
+      const savedFont = (() => { try { return localStorage.getItem(LS_FONT); } catch { return null; } })();
+      applyFont(savedFont || 'serif-cambo');
+      apply(savedView || 'block');
     })();
 
     // ─────────── Block expand/collapse toggle ───────────
