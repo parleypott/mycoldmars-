@@ -783,6 +783,12 @@ body.hide-villages .whh-village-label { display: none !important; }
 }
 body.basemap-blank #paper-overlay { opacity: 1; }
 
+/* In Blank mode, only water + faint contours + villages-you-added. Nothing else. */
+body.basemap-blank .whh-icon-train,
+body.basemap-blank .whh-icon-trail,
+body.basemap-blank .whh-icon-book,
+body.basemap-blank .whh-village-label { display: none !important; }
+
 /* Soft fade on the map canvas during style swaps — feels intentional, not janky */
 #map-canvas {
   transition: filter 900ms cubic-bezier(0.65, 0.05, 0.36, 1);
