@@ -2833,6 +2833,19 @@ async function findClosestStationAccurate(point) {
   };
 }
 
+// Manhattan: drive-to Grand Central as the reference Manhattan point
+const MANHATTAN_REF = { lat: 40.7527, lng: -73.9772, label: 'Grand Central' };
+async function findDriveToManhattan(point) {
+  const drive = await osrmRoute(point, MANHATTAN_REF, 'car');
+  if (!drive) return null;
+  return {
+    label: MANHATTAN_REF.label,
+    driveDistMi: drive.distanceMi,
+    driveMin: drive.durationMin,
+    havMi: distMiles(point, MANHATTAN_REF)
+  };
+}
+
 // Trail: drive-to. Top 3 by haversine, then driving for each.
 async function findClosestTrailAccurate(point) {
   const candidates = TRAILHEADS
@@ -4157,6 +4170,8 @@ async function refinePin(pinId) {
     if (trainAcc) pin.train = { ...pin.train, ...trainAcc };
     const trailAcc = await findClosestTrailAccurate(pt);
     if (trailAcc) pin.trail = { ...pin.trail, ...trailAcc };
+    const mh = await findDriveToManhattan(pt);
+    if (mh) pin.manhattan = mh;
     pin.refined = true;
     savePins();
     renderPins();
@@ -4258,6 +4273,15 @@ function renderPins() {
       </div>
       ${listingBlock}
       <div class="pin-block">
+        <div class="kind">Manhattan</div>
+        <div class="body">
+          ${pin.manhattan ? `
+            <div class="primary"><strong>${pin.manhattan.driveDistMi.toFixed(1)} mi</strong> <span class="mute">·</span> <strong>${pin.manhattan.driveMin} min drive</strong></div>
+            <div class="commute">to ${escapeHtml(pin.manhattan.label)} · off-peak OSRM</div>
+          ` : '<div class="pending">routing to Grand Central…</div>'}
+        </div>
+      </div>
+      <div class="pin-block">
         <div class="kind">Train</div>
         <div class="body">
           <div class="primary">${escapeHtml(tr.name.toUpperCase())} ${tr.line ? '<span class="sub">· ' + tr.line + ' Line</span>' : ''}</div>
@@ -4267,7 +4291,7 @@ function renderPins() {
         </div>
       </div>
       <div class="pin-block">
-        <div class="kind">Trail</div>
+        <div class="kind">Trail / Park</div>
         <div class="body">
           <div class="primary">${escapeHtml(tl.name.toUpperCase())}</div>
           <div class="meta"><strong>${trailDist}</strong>${trailDrive ? ' <span class="mute">·</span> ' + trailDrive : ''}</div>
@@ -4391,11 +4415,19 @@ function escapeHtml(s) {
 renderPins();
 populateActivePinSelect();
 
-// Refine any legacy pins that haven't been routed yet — serial with small delay to respect OSRM rate limit
+// Refine any legacy pins that haven't been routed yet — serial with small delay to respect OSRM rate limit.
+// Also re-routes pins missing the new pin.manhattan field (added after their last refine).
 (async () => {
   for (const p of pins) {
-    if (!p.refined) {
-      await refinePin(p.id);
+    const needsManhattan = !p.manhattan;
+    if (!p.refined || needsManhattan) {
+      if (needsManhattan && p.refined) {
+        // Just add Manhattan, don't redo train/trail
+        const mh = await findDriveToManhattan({ lat: p.lat, lng: p.lng });
+        if (mh) { p.manhattan = mh; savePins(); renderPins(); }
+      } else {
+        await refinePin(p.id);
+      }
       await new Promise(r => setTimeout(r, 400));
     }
   }
