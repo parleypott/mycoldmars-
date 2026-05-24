@@ -258,6 +258,7 @@
     <a href="#" id="back-library" class="btn ghost">library</a>
     <a href="#" id="open-write"   class="btn ghost">write</a>
     <a href="#" id="open-cast"    class="btn ghost">cast</a>
+    <a href="#" id="open-style"   class="btn ghost">style</a>
     <button id="btn-generate-all" class="btn primary" title="Draw any cards that haven't been drawn yet">draw missing</button>
     <button id="btn-extract" class="btn" title="Re-read the source novel and regenerate the 100-item gallery">re-seed from novel</button>
   </header>
@@ -365,6 +366,8 @@
       document.getElementById('back-library').href = `/universe/${world}/`;
       document.getElementById('open-write').href   = `/universe/${world}/write/`;
       document.getElementById('open-cast').href    = `/universe/${world}/cast/`;
+      const styleLink = document.getElementById('open-style');
+      if (styleLink) styleLink.href = `/universe/${world}/style/`;
     })();
 
     const state = {
