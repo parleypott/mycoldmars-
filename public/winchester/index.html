@@ -1095,7 +1095,7 @@ const SCENARIOS_KEY = 'whh:scenarios:v1';
 const moneyState = {
   // Main VA house — vaSellPct is combined realtor commission + closing costs (default 6%)
   vaSale: 2400000, vaPayoff: 675000, vaSellPct: 6, vaRepairs: 10000,
-  moving: 20000,
+  moving: 100000,
   // 808 Studio (second VA house) — actual loan balance from screenshot
   studioSale: 215000, studioPayoff: 167414, studioRepairs: 5000,
   // NY home
@@ -1113,6 +1113,8 @@ const moneyState = {
     if (!raw) return;
     const snap = JSON.parse(raw);
     Object.keys(moneyState).forEach(k => {
+      // one-shot: old default for moving was $20K, bump to new $100K default once
+      if (k === 'moving' && snap.moving === 20000 && !snap._upstartMigratedV1) return;
       if (snap[k] != null && typeof snap[k] === typeof moneyState[k]) moneyState[k] = snap[k];
     });
     if (snap._taxOverride != null) window._pendingTaxOverride = snap._taxOverride;
@@ -1120,12 +1122,19 @@ const moneyState = {
   } catch (e) { /* ignore */ }
 })();
 
+// debounced — coalesces rapid keystrokes into a single localStorage write
+let _saveMoneyTimer = null;
 function saveMoneyState() {
+  if (_saveMoneyTimer) clearTimeout(_saveMoneyTimer);
+  _saveMoneyTimer = setTimeout(_saveMoneyStateNow, 220);
+}
+function _saveMoneyStateNow() {
   try {
     const snap = {
       ...moneyState,
       _taxOverride: (typeof taxState !== 'undefined') ? taxState.override : 0,
-      _activePinId: (typeof taxState !== 'undefined') ? taxState.activePinId : null
+      _activePinId: (typeof taxState !== 'undefined') ? taxState.activePinId : null,
+      _upstartMigratedV1: true
     };
     safeSet(MONEY_KEY, JSON.stringify(snap));
   } catch (e) { /* ignore */ }
@@ -1398,6 +1407,7 @@ function setVal(id, val, kind) {
   if (kind === 'in') text = '+' + formatted;
   else if (kind === 'out') text = '−' + formatted;
   else text = (val < 0 ? '−' : '') + formatted;
+  if (!el) return; // null-safe — IDs that don't exist (e.g. removed by future refactor) silently skip
   el.textContent = text;
   el.className = 'val' + (kind ? ' ' + kind : '');
 }
@@ -1407,6 +1417,7 @@ const FIELDS = {
   studioSale: { format: fmtUSD }, studioPayoff: { format: fmtUSD }, studioRepairs: { format: fmtUSD },
   buyPrice: { format: fmtUSD }, downPct: { format: fmtPct },
   rate: { format: fmtPct },
+  moving: { format: fmtUSD },
   invPulled: { format: fmtUSD }, bizPulled: { format: fmtUSD }
 };
 Object.entries(FIELDS).forEach(([key, cfg]) => {
