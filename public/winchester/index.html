@@ -2412,6 +2412,17 @@ function safeSet(key, value) {
 </script>
 <script>
 
+// ===================== TABLE-VIEW STATE (hoisted early) =====================
+// Declared at the very top of the script so any renderTable() call —
+// even from a click handler that fires before the rest of the script
+// finishes parsing — can read tvSort/tvExpanded without tripping a TDZ.
+// Fresh machines / cold loads were hitting this; do not move down again.
+var tvExpanded = { villages: new Set(), pins: new Set() };
+var tvSort = {
+  villages: { col: 'name', dir: 'asc' },
+  pins:     { col: 'rank', dir: 'desc' }
+};
+
 // ===================== TABS =====================
 function setActiveTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === tabId));
@@ -6331,15 +6342,15 @@ function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// ===================== TABLE VIEW =====================
+// (Actual table view code is below; only the persistent state for it
+// is declared up at the top of the script — see the "table-view state"
+// block near the start of this <script>. Hoisting it prevented a TDZ
+// when a fast click on the Table tab fired renderTable before the rest
+// of the script had finished parsing.)
+
 renderPins();
 populateActivePinSelect();
-
-// ===================== TABLE VIEW =====================
-const tvExpanded = { villages: new Set(), pins: new Set() };
-let tvSort = {
-  villages: { col: 'name', dir: 'asc' },
-  pins:     { col: 'rank', dir: 'desc' }
-};
 
 function tvVillageValue(v, col) {
   switch (col) {
