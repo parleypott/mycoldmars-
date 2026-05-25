@@ -3583,18 +3583,24 @@
     .sb-paragraph .karaoke-word { transition: background 120ms ease; padding: 0 1px; border-radius: 3px; }
     .sb-paragraph .karaoke-word.active { background: var(--yolk); color: var(--ink-bright); }
 
-    /* Image cue markers — visible in prose so reader knows where art changes */
+    /* Image cue markers — visible in prose so reader knows where art changes.
+     * Two layers:
+     *   1. INLINE cue rule between paragraphs (the horizontal break with
+     *      label + delete button)
+     *   2. MARGIN thumbnail — absolutely positioned in the left margin
+     *      next to the cue. Thumb of the actual image when generated,
+     *      a numbered placeholder when not. Always visible at a glance. */
     .sb-cue-mark {
-      display: flex; align-items: center; gap: 10px;
-      margin: 28px 0 18px 0;
+      display: flex; align-items: center; gap: 12px;
+      margin: 36px 0 22px 0;
       cursor: pointer;
       position: relative;
       user-select: none;
     }
     .sb-cue-mark:hover .sb-cue-dot { background: var(--yolk); transform: scale(1.15); }
     .sb-cue-dot {
-      width: 14px; height: 14px;
-      border: 2px solid var(--ink-bright);
+      width: 16px; height: 16px;
+      border: 2.5px solid var(--ink-bright);
       border-radius: 999px;
       background: var(--paper-card);
       flex: 0 0 auto;
@@ -3603,22 +3609,23 @@
     }
     .sb-cue-mark.is-active .sb-cue-dot {
       background: var(--yolk);
-      box-shadow: 0 0 0 4px rgba(255,217,100,0.4);
+      box-shadow: 0 0 0 4px rgba(255,217,100,0.4), 2px 2px 0 var(--ink-bright);
     }
     .sb-cue-rule {
-      flex: 1; height: 1.5px;
+      flex: 1; height: 2px;
       background: var(--ink-bright);
-      opacity: 0.22;
+      opacity: 0.32;
     }
-    .sb-cue-mark.is-active .sb-cue-rule { opacity: 0.55; }
+    .sb-cue-mark.is-active .sb-cue-rule { opacity: 0.7; }
     .sb-cue-label {
       font-family: var(--mono, monospace);
-      font-size: 10.5px;
+      font-size: 11px;
       letter-spacing: 0.18em;
       text-transform: uppercase;
       color: var(--ink-soft);
+      font-weight: 700;
     }
-    .sb-cue-mark.is-active .sb-cue-label { color: var(--ink-bright); font-weight: 700; }
+    .sb-cue-mark.is-active .sb-cue-label { color: var(--ink-bright); }
     .sb-cue-mark .sb-cue-delete {
       opacity: 0; transition: opacity 140ms;
       background: transparent; border: none; color: var(--ink-faint);
@@ -3627,6 +3634,64 @@
     .sb-cue-mark:hover .sb-cue-delete { opacity: 1; }
     .sb-cue-mark.sb-cue-default .sb-cue-delete { display: none; }
     .sb-cue-mark .sb-cue-delete:hover { color: var(--red, #d65653); }
+
+    /* Margin thumbnails — absolute-positioned next to each cue */
+    .sb-prose-inner { padding-left: 92px; }
+    .sb-margin-thumbs {
+      position: absolute;
+      left: 0; top: 0;
+      width: 76px;
+      pointer-events: none;
+    }
+    .sb-mthumb {
+      position: absolute;
+      left: 0;
+      width: 64px; height: 40px;
+      background: var(--paper-card);
+      background-size: cover;
+      background-position: center;
+      border: 2px solid var(--ink-bright);
+      border-radius: 6px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      cursor: pointer;
+      pointer-events: auto;
+      transition: transform 140ms, box-shadow 140ms;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    .sb-mthumb:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 4px 4px 0 var(--ink-bright);
+    }
+    .sb-mthumb.is-active {
+      box-shadow: 4px 4px 0 var(--ink-bright), 0 0 0 3px var(--yolk);
+    }
+    .sb-mthumb .sb-mthumb-num {
+      font-family: var(--mono, monospace);
+      font-weight: 800;
+      font-size: 13px;
+      color: var(--ink-bright);
+      letter-spacing: 0.04em;
+    }
+    .sb-mthumb.is-generating .sb-mthumb-num {
+      color: var(--ink-soft);
+    }
+    .sb-mthumb.is-generating::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--yolk), transparent);
+      animation: sb-shimmer 1.4s infinite;
+    }
+    /* Connector line from the thumbnail to the cue rule, so the eye
+     * follows the gutter into the reading column. */
+    .sb-mthumb-tail {
+      position: absolute;
+      left: 64px; top: 50%;
+      width: 16px; height: 2px;
+      background: var(--ink-bright);
+      opacity: 0.32;
+      transform: translateY(-1px);
+    }
+    .sb-mthumb.is-active .sb-mthumb-tail { opacity: 0.8; height: 3px; }
 
     /* Floating selection action bar — appears when text is highlighted
      * in the Storybook prose. Two actions in one capsule: generate
@@ -4492,6 +4557,9 @@
           <!-- Prose pane (left, scrolls) -->
           <div class="sb-prose-pane" id="sb-prose-pane">
             <div class="sb-prose-inner" id="sb-prose-inner">
+              <!-- Margin thumbnails — absolute positioned, one per cue,
+                   y-aligned with the cue's marker inside the prose. -->
+              <div class="sb-margin-thumbs" id="sb-margin-thumbs" aria-hidden="true"></div>
               <header class="sb-heading">
                 <div class="sb-eyebrow" id="sb-eyebrow">A story · — words</div>
                 <h1 id="sb-title">…</h1>
@@ -9955,20 +10023,21 @@
 
     // Ensure every block has at least one __cues entry. Auto-cue at
     // offset 0 inherits b.__image if present so existing Storyboard
-    // images keep showing.
+    // images keep showing. Inherited image may be URL-form (new) or
+    // base64-form (legacy) — both work via the same builder.
     function ensureBlockCues(b) {
       if (!Array.isArray(b.__cues)) b.__cues = [];
       if (b.__cues.length === 0) {
-        const inherited = b.__image && b.__image.dataBase64 ? b.__image : null;
+        const im = b.__image;
+        const hasImg = im && (im.url || im.dataBase64);
         b.__cues.push({
           id: uidCue(),
           offset: 0,
           source_text: (b.text || '').slice(0, 1200),
-          image: inherited ? { ...inherited } : null,
+          image: hasImg ? { ...im } : null,
           auto: true,
         });
       }
-      // Re-sort by offset just in case
       b.__cues.sort((a, c) => (a.offset || 0) - (c.offset || 0));
     }
 
@@ -9979,9 +10048,13 @@
         ensureBlockCues(b);
         (b.__cues || []).forEach((cue, ci) => {
           const im = cue.image;
-          const image_url = (im && im.dataBase64)
-            ? `data:${im.mimeType || 'image/png'};base64,${im.dataBase64}`
-            : null;
+          // Prefer cloud URL (lean row); fall back to inline base64 for
+          // legacy rows that haven't been migrated yet.
+          const image_url = (im && im.url)
+            ? im.url
+            : (im && im.dataBase64)
+              ? `data:${im.mimeType || 'image/png'};base64,${im.dataBase64}`
+              : null;
           const label = cue.auto
             ? (ci === 0 ? `scene ${bi + 1}` : `scene ${bi + 1}.${ci}`)
             : labelFromText(cue.source_text);
@@ -10161,6 +10234,49 @@
 
       markActiveCueInProse(storybook.activeIdx);
       wireCueMarkClicks();
+      // Margin thumbnails — y-positioned next to each cue's marker
+      requestAnimationFrame(renderMarginThumbs);
+    }
+
+    function renderMarginThumbs() {
+      const host = document.getElementById('sb-margin-thumbs');
+      const inner = document.getElementById('sb-prose-inner');
+      if (!host || !inner) return;
+      const innerRect = inner.getBoundingClientRect();
+      const items = [];
+      storybook.cues.forEach((cue, i) => {
+        const markEl = document.querySelector(`.sb-cue-mark[data-cue-id="${cue.id}"]`);
+        if (!markEl) return;
+        const r = markEl.getBoundingClientRect();
+        const top = r.top - innerRect.top + (r.height / 2) - 20; // center thumb on the rule
+        const num = String(i + 1).padStart(2, '0');
+        const isGenerating = cue.status === 'generating' || storybook.genInflight.has(cue.id);
+        const bg = cue.image_url ? `background-image:url("${esc(cue.image_url)}");` : '';
+        items.push(`
+          <button class="sb-mthumb ${i === storybook.activeIdx ? 'is-active' : ''} ${isGenerating ? 'is-generating' : ''}"
+                  data-cue-id="${esc(cue.id)}"
+                  data-idx="${i}"
+                  title="${esc(cue.label || 'image ' + num)}"
+                  style="top:${top}px;${bg}">
+            ${cue.image_url ? '' : `<span class="sb-mthumb-num">${num}</span>`}
+            <span class="sb-mthumb-tail"></span>
+          </button>
+        `);
+      });
+      host.innerHTML = items.join('');
+      host.querySelectorAll('.sb-mthumb').forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.preventDefault();
+          const idx = parseInt(el.dataset.idx, 10);
+          const cue = storybook.cues[idx];
+          if (!cue) return;
+          storybook.activeIdx = idx;
+          markActiveCueInProse(idx);
+          renderStorybookArt();
+          scrollProseToCueMark(cue.id);
+          renderMarginThumbs();
+        });
+      });
     }
 
     function renderCueMark(blockId, cue, bi) {
@@ -10603,17 +10719,52 @@
         const im = data.images?.[0];
         if (!im) throw new Error('no image came back');
 
-        cueData.image = { mimeType: im.mimeType, dataBase64: im.dataBase64, loading: false };
-        // Default auto-cue mirrors to b.__image so Storyboard stays in sync
-        if (cueData.auto && (cueData.offset || 0) === 0) {
-          block.__image = { mimeType: im.mimeType, dataBase64: im.dataBase64, loading: false };
+        // Upload bytes to Supabase Storage (same bucket the scene-illustrate
+        // and storyboard endpoints use). Store only the URL on the cue so
+        // the story row doesn't bloat with inline base64. If upload fails
+        // we fall back to inline base64 so the picture still shows locally.
+        let cdnUrl = null;
+        try {
+          const storyId = state.serverId || state.cloudId || state.id || 'no-story';
+          const up = await fetch('/api/qss-image-upload', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              story_id: storyId,
+              block_id: block.id,
+              cue_id: cueData.id,
+              dataBase64: im.dataBase64,
+              mimeType: im.mimeType,
+              world: (state.world || (typeof QSSWorlds !== 'undefined' && QSSWorlds.current && QSSWorlds.current()) || ''),
+            }),
+          });
+          if (up.ok) {
+            const upJson = await up.json();
+            cdnUrl = upJson.url || null;
+          }
+        } catch (e) {
+          try { console.warn('[storybook upload failed, using inline base64]', e); } catch {}
+        }
+
+        // Persist: prefer URL (lean row), fall back to base64 if upload failed
+        if (cdnUrl) {
+          cueData.image = { url: cdnUrl, mimeType: im.mimeType, loading: false };
+          if (cueData.auto && (cueData.offset || 0) === 0) {
+            block.__image = { url: cdnUrl, mimeType: im.mimeType, loading: false };
+          }
+          cueRef.image_url = cdnUrl;
+        } else {
+          cueData.image = { mimeType: im.mimeType, dataBase64: im.dataBase64, loading: false };
+          if (cueData.auto && (cueData.offset || 0) === 0) {
+            block.__image = { mimeType: im.mimeType, dataBase64: im.dataBase64, loading: false };
+          }
+          cueRef.image_url = `data:${im.mimeType};base64,${im.dataBase64}`;
         }
         if (typeof persist === 'function') persist();
 
-        cueRef.image_url = `data:${im.mimeType};base64,${im.dataBase64}`;
         cueRef.status = 'ready';
         renderStorybookArt();
         renderStorybookRail();
+        renderMarginThumbs();
 
         // Cascade: kick the next unready cue
         const next = storybook.cues.find(c => !c.image_url && c.id !== cueId);
@@ -11000,7 +11151,7 @@
       `).join('');
       host.scrollTop = host.scrollHeight;
     }
-    function keepStorybookEdit() {
+    async function keepStorybookEdit() {
       const staged = storybook._edit.stagedImage;
       const cueId = storybook._edit.cueId;
       if (!staged || !cueId) return;
@@ -11008,18 +11159,58 @@
       if (!cueRef) return;
       const block = (state.blocks || []).find(b => b.id === cueRef.blockId);
       const cueData = (block?.__cues || []).find(c => c.id === cueId);
-      if (cueData) {
-        cueData.image = { mimeType: staged.mimeType, dataBase64: staged.dataBase64, loading: false };
-        if (cueData.auto && (cueData.offset || 0) === 0 && block) {
-          block.__image = { mimeType: staged.mimeType, dataBase64: staged.dataBase64, loading: false };
-        }
-        if (typeof persist === 'function') persist();
-      }
-      cueRef.image_url = `data:${staged.mimeType};base64,${staged.dataBase64}`;
+
+      // Optimistic local update — show right away
+      const inline = `data:${staged.mimeType};base64,${staged.dataBase64}`;
+      cueRef.image_url = inline;
       cueRef.status = 'ready';
       renderStorybookArt();
       renderStorybookRail();
+      renderMarginThumbs();
       closeStorybookEdit();
+
+      // Upload to Supabase Storage. Same pattern as the initial gen —
+      // URL stored on the cue, base64 only if upload fails.
+      let cdnUrl = null;
+      try {
+        const storyId = state.serverId || state.cloudId || state.id || 'no-story';
+        const up = await fetch('/api/qss-image-upload', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            story_id: storyId,
+            block_id: cueRef.blockId,
+            cue_id: cueId,
+            dataBase64: staged.dataBase64,
+            mimeType: staged.mimeType,
+            world: (state.world || (typeof QSSWorlds !== 'undefined' && QSSWorlds.current && QSSWorlds.current()) || ''),
+          }),
+        });
+        if (up.ok) {
+          const j = await up.json();
+          cdnUrl = j.url || null;
+        }
+      } catch {}
+
+      if (cueData) {
+        if (cdnUrl) {
+          cueData.image = { url: cdnUrl, mimeType: staged.mimeType, loading: false };
+          if (cueData.auto && (cueData.offset || 0) === 0 && block) {
+            block.__image = { url: cdnUrl, mimeType: staged.mimeType, loading: false };
+          }
+        } else {
+          cueData.image = { mimeType: staged.mimeType, dataBase64: staged.dataBase64, loading: false };
+          if (cueData.auto && (cueData.offset || 0) === 0 && block) {
+            block.__image = { mimeType: staged.mimeType, dataBase64: staged.dataBase64, loading: false };
+          }
+        }
+        if (typeof persist === 'function') persist();
+      }
+      if (cdnUrl) {
+        cueRef.image_url = cdnUrl;
+        renderStorybookArt();
+        renderStorybookRail();
+        renderMarginThumbs();
+      }
     }
     function revertStorybookEdit() {
       const canvas = document.getElementById('sb-edit-canvas');
