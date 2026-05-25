@@ -1181,9 +1181,26 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
   letter-spacing: 0; padding-top: 14px; padding-bottom: 14px;
 }
 .tv-row td.tv-addr-cell {
-  font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
-  white-space: normal; max-width: 300px; line-height: 1.3;
+  white-space: normal; max-width: 240px; line-height: 1.25;
+  padding-top: 14px; padding-bottom: 14px;
+}
+.tv-row td.tv-addr-cell .addr-street {
+  font-weight: 700;
   font-size: 15px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.tv-row td.tv-addr-cell .addr-sub {
+  font-weight: 400;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--muted);
+  margin-top: 3px;
+  font-style: italic;
+  font-family: 'Instrument Serif', serif;
 }
 .tv-row td.tv-price-cell {
   font-weight: 700; color: var(--ink); font-size: 16px;
@@ -5905,39 +5922,65 @@ function detectMuniKey(addr) {
   return null;
 }
 
-// Compact address from Nominatim parts
-function formatPinAddress(pin) {
+// Strip "Village of " / "Town of " / "City of " noise from a city name
+function cleanPlace(p) {
+  return String(p || '').replace(/^(Village|Town|City|Hamlet|Township|Borough)\s+of\s+/i, '').trim();
+}
+
+// Split a pin's address into { street, place, state } parts — the building
+// blocks that the table cell + popup use to render the two-line address.
+// Returns null fields when missing.
+function pinAddressParts(pin) {
   const a = pin.addrParts;
-  if (a) {
-    const STREET_ABBR = { 'lane': 'LN', 'street': 'ST', 'road': 'RD', 'avenue': 'AVE', 'place': 'PL', 'drive': 'DR', 'court': 'CT', 'terrace': 'TER', 'boulevard': 'BLVD', 'highway': 'HWY', 'parkway': 'PKWY', 'circle': 'CIR' };
-    const DIR_ABBR = { 'west': 'W', 'east': 'E', 'north': 'N', 'south': 'S' };
-    // Two addrParts shapes exist in the wild:
-    //   Nominatim shape: { house_number, road, village/town/city, state_code }
-    //   Simple shape:    { street, city, state, zip }  (used by bulk importers)
-    // Support both.
-    let num = a.house_number || '';
-    let road = (a.road || '').trim();
-    if (!road && a.street) {
-      // Split "13 Cedar LN" → num="13", road="Cedar LN"
-      const m = String(a.street).match(/^(\d+[A-Z]?)\s+(.+)$/);
-      if (m) { num = num || m[1]; road = m[2]; }
-      else road = String(a.street);
-    }
-    if (road) {
-      road = road.replace(/\b(West|East|North|South)\b/g, w => DIR_ABBR[w.toLowerCase()] || w);
-      road = road.replace(/\b(Lane|Street|Road|Avenue|Place|Drive|Court|Terrace|Boulevard|Highway|Parkway|Circle)\b/gi,
-        w => STREET_ABBR[w.toLowerCase()] || w);
-    }
-    const place = a.village || a.town || a.city || a.hamlet || '';
-    const state = a.state_code || a.state || '';
-    const parts = [
-      [num, road].filter(Boolean).join(' '),
-      place,
-      state
-    ].filter(Boolean);
-    return parts.join(', ');
+  if (!a) {
+    // Fallback parse from pin.address string
+    const raw = String(pin.address || pin.display || '');
+    const segs = raw.split(',').map(s => s.trim()).filter(Boolean);
+    return {
+      street: segs[0] || '',
+      place: cleanPlace(segs[1] || ''),
+      state: (segs[2] || '').toUpperCase().slice(0, 2),
+    };
   }
-  return pin.address || pin.display || '';
+  const STREET_ABBR = { 'lane': 'LN', 'street': 'ST', 'road': 'RD', 'avenue': 'AVE', 'place': 'PL', 'drive': 'DR', 'court': 'CT', 'terrace': 'TER', 'boulevard': 'BLVD', 'highway': 'HWY', 'parkway': 'PKWY', 'circle': 'CIR' };
+  const DIR_ABBR = { 'west': 'W', 'east': 'E', 'north': 'N', 'south': 'S' };
+  let num = a.house_number || '';
+  let road = (a.road || '').trim();
+  if (!road && a.street) {
+    const m = String(a.street).match(/^(\d+[A-Z]?)\s+(.+)$/);
+    if (m) { num = num || m[1]; road = m[2]; }
+    else road = String(a.street);
+  }
+  if (road) {
+    road = road.replace(/\b(West|East|North|South)\b/g, w => DIR_ABBR[w.toLowerCase()] || w);
+    road = road.replace(/\b(Lane|Street|Road|Avenue|Place|Drive|Court|Terrace|Boulevard|Highway|Parkway|Circle)\b/gi,
+      w => STREET_ABBR[w.toLowerCase()] || w);
+  }
+  const place = cleanPlace(a.village || a.town || a.city || a.hamlet || '');
+  const state = (a.state_code || a.state || '').toUpperCase().slice(0, 2);
+  return {
+    street: [num, road].filter(Boolean).join(' '),
+    place,
+    state,
+  };
+}
+
+// Compact address — one line, drops "New York" and "Village of " noise.
+// Used for popups, narratives, dropdown selects.
+function formatPinAddress(pin) {
+  const { street, place, state } = pinAddressParts(pin);
+  const parts = [street, place].filter(Boolean);
+  // Only show state if it's NOT NY (so CT homes still flag as out-of-state)
+  if (state && state !== 'NY') parts.push(state);
+  return parts.join(', ');
+}
+
+// Two-line address for the table cell — STREET big, City small subtitle
+function formatPinAddressHtml(pin) {
+  const { street, place, state } = pinAddressParts(pin);
+  const sub = [place, state && state !== 'NY' ? state : null].filter(Boolean).join(', ');
+  return `<div class="addr-street">${escapeHtml(street)}</div>` +
+         (sub ? `<div class="addr-sub">${escapeHtml(sub)}</div>` : '');
 }
 
 // ===================== STORAGE =====================
@@ -9033,7 +9076,7 @@ function renderTable() {
         <td class="tv-expand-col"><button class="tv-expand-btn" title="Expand">▸</button></td>
         <td class="tv-score-cell">${scoreCell}</td>
         <td class="tv-rank-cell"><span class="tv-rank-chip" data-rank="${p.rank || 0}">${origIdx}</span></td>
-        <td class="tv-addr-cell tv-prio">${escapeHtml(formatPinAddress(p))}</td>
+        <td class="tv-addr-cell tv-prio">${formatPinAddressHtml(p)}</td>
         <td class="tv-price-cell tv-prio">${c.price ? fmtUSD(c.price) : (p.askingPrice ? fmtUSD(p.askingPrice) + ' <span class="tv-mute" style="font-size:9px;letter-spacing:0.12em;">asking</span>' : '<span class="tv-mute">—</span>')}</td>
         <td class="tv-bb-cell tv-prio">${(c.beds != null || c.baths != null) ? '<strong>' + (c.beds != null ? c.beds : '—') + '</strong><span class="tv-mute">/</span><strong>' + (c.baths != null ? c.baths : '—') + '</strong>' : '<span class="tv-mute">—</span>'}</td>
         <td class="tv-sqft-cell tv-prio">${c.sqft != null ? Number(c.sqft).toLocaleString() : '<span class="tv-mute">—</span>'}</td>
