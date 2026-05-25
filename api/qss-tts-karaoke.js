@@ -13,12 +13,15 @@ import { checkAccess } from './_lib/access.js';
 export const config = { runtime: 'edge', maxDuration: 60 };
 
 const VOICES = {
-  matilda:   'XrExE9yKIg1WjnnlVkGX',   // warm, gentle storyteller (default)
-  rachel:    '21m00Tcm4TlvDq8ikWAM',
-  charlotte: 'XB0fDUnXU5powFXDhCwa',
-  bella:     'EXAVITQu4vr4xnSDxMaL',
-  adam:      'pNInz6obpgDQGcFmaJgB',
-  parley:    'ZF6FPAbjXT4488VcRRnw',
+  matilda:   'XrExE9yKIg1WjnnlVkGX',   // warm adult female narrator (default)
+  gigi:      'jBpfuIE2acCO8z3wKNLl',   // bright child girl
+  mimi:      'zrHiDhphv9ZnVXBqCLjz',   // young child voice
+  liam:      'TX3LPaxmHKxFdv7VOQHJ',   // young adult male, American
+  charlie:   'IKne3meq5aSn9XLyUdCD',   // casual young male, Australian
+  george:    'JBFqnCBsd6RMkjVDRZzb',   // warm adult male, British
+  daniel:    'onwK4e9ZLuTAKqWW03F9',   // deep adult male, UK
+  dorothy:   'ThT5KcBeYPX3keUQqHPh',   // older female, warm
+  parley:    'ZF6FPAbjXT4488VcRRnw',   // Johnny's voice
 };
 
 const DEFAULT_VOICE = VOICES.matilda;

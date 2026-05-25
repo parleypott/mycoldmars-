@@ -6029,12 +6029,15 @@
       // Mirror of server-side VOICES — adding here also requires adding to
       // api/qss-tts-karaoke.js. The label/hint is purely UI.
       const LIBRARY = [
-        { id: 'matilda',   label: 'Matilda',   hint: 'warm storyteller (default)' },
-        { id: 'rachel',    label: 'Rachel',    hint: 'calm woman' },
-        { id: 'charlotte', label: 'Charlotte', hint: 'bright young woman' },
-        { id: 'bella',     label: 'Bella',     hint: 'soft expressive girl' },
-        { id: 'adam',      label: 'Adam',      hint: 'low man' },
-        { id: 'parley',    label: 'Parley',    hint: 'Johnny voice' },
+        { id: 'matilda',  label: 'Matilda',  hint: 'warm narrator ♀ (default)' },
+        { id: 'gigi',     label: 'Gigi',     hint: 'bright girl 👧' },
+        { id: 'mimi',     label: 'Mimi',     hint: 'young child 🧒' },
+        { id: 'liam',     label: 'Liam',     hint: 'young guy ♂' },
+        { id: 'charlie',  label: 'Charlie',  hint: 'casual dude ♂' },
+        { id: 'george',   label: 'George',   hint: 'warm storyteller ♂' },
+        { id: 'daniel',   label: 'Daniel',   hint: 'deep UK voice ♂' },
+        { id: 'dorothy',  label: 'Dorothy',  hint: 'older woman ♀' },
+        { id: 'parley',   label: 'Parley',   hint: 'Johnny' },
       ];
 
       function load() { try { return JSON.parse(localStorage.getItem(LS) || '{}'); } catch { return {}; } }
