@@ -3518,6 +3518,134 @@
     }
     .sb-tb-btn-primary:hover { background: #ffe07c; }
 
+    /* ──── Read-along player ──── */
+    .sb-topbar {
+      padding: 10px 22px 14px 22px;
+      gap: 8px;
+      position: relative;
+    }
+    .sb-pl-btn {
+      background: var(--paper-card);
+      color: var(--ink-bright);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      transition: transform 100ms, box-shadow 100ms, background 140ms;
+      display: inline-flex; align-items: center; gap: 6px;
+      flex: 0 0 auto;
+    }
+    .sb-pl-btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink-bright); background: var(--paper-deep); }
+    .sb-pl-btn:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--ink-bright); }
+    .sb-pl-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: 1px 1px 0 var(--ink-bright); }
+    .sb-pl-btn-play {
+      background: var(--yolk);
+      padding: 8px 18px;
+      font-size: 12.5px;
+      border-width: 3px;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+    }
+    .sb-pl-btn-play:hover { background: var(--yolk-deep); box-shadow: 4px 4px 0 var(--ink-bright); }
+    .sb-pl-btn-play.is-playing { background: var(--red, #d65653); color: #fff; }
+    .sb-pl-btn-play.is-playing:hover { background: #c14a4a; }
+    .sb-pl-btn-icon { font-size: 14px; line-height: 1; }
+    .sb-pl-meta {
+      display: inline-flex; gap: 6px; align-items: baseline;
+      margin-left: 14px;
+      min-width: 0;
+    }
+    .sb-pl-voice-wrap {
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .sb-pl-voice-label {
+      font-family: var(--mono, monospace);
+      font-size: 10.5px;
+      letter-spacing: 0.16em;
+      color: var(--ink-soft);
+      text-transform: uppercase;
+    }
+    .sb-pl-voice {
+      background: var(--paper-card);
+      color: var(--ink-bright);
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+      letter-spacing: 0.04em;
+    }
+    .sb-pl-time {
+      font-family: var(--mono, monospace);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink-bright);
+      font-weight: 700;
+      padding: 0 4px;
+    }
+    .sb-pl-progress {
+      position: relative;
+      height: 6px;
+      background: rgba(0,0,0,0.08);
+      border-top: 1.5px solid var(--ink-bright);
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .sb-pl-progress-fill {
+      position: absolute; top: 0; left: 0; bottom: 0;
+      background: var(--yolk);
+      width: 0%;
+      transition: width 100ms linear;
+      box-shadow: inset 0 -2px 0 rgba(0,0,0,0.12);
+    }
+    .sb-pl-progress-marks {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+    }
+    .sb-pl-progress-mark {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 1.5px;
+      background: rgba(0,0,0,0.32);
+    }
+
+    /* Karaoke word highlighting inside scene-text cards.
+     * During playback, .sb-scene-text gets .is-playing and we replace
+     * the plain text with <span class="ks-w"> per word. The active word
+     * lights up; past words go dimmer; upcoming stays full. */
+    .sb-scene-text.is-playing {
+      contenteditable: false;  /* hint — actual attr toggled in JS */
+      cursor: default;
+      user-select: none;
+    }
+    .sb-scene-text .ks-w {
+      transition: background 80ms ease, color 80ms ease;
+      padding: 0 2px;
+      border-radius: 4px;
+    }
+    .sb-scene-text .ks-w.ks-past {
+      color: var(--ink-soft);
+      opacity: 0.62;
+    }
+    .sb-scene-text .ks-w.ks-active {
+      background: var(--yolk);
+      color: var(--ink-bright);
+      box-shadow: 0 0 0 1px var(--ink-bright);
+    }
+
+    /* When a scene-card is the actively-playing one — pulse subtly */
+    .sb-cue-section.is-playing .sb-scene-text {
+      background: rgba(255,217,100,0.05);
+      border-color: var(--yolk);
+    }
+
     /* Scene rail */
     .sb-rail {
       grid-area: rail;
@@ -4958,11 +5086,35 @@
                the reading control). Title + position follow it.
                The right side of the bar stays clear over the art pane. -->
           <div class="sb-topbar">
-            <button class="sb-tb-btn sb-tb-btn-primary" id="sb-play-btn" type="button" title="Read along — karaoke + auto-scroll">▶ play</button>
-            <span class="sb-tb-title" id="sb-tb-title">your story</span>
-            <span class="sb-tb-sep">·</span>
-            <span class="sb-tb-pos" id="sb-tb-pos">01 / 01</span>
+            <button class="sb-pl-btn sb-pl-btn-play" id="sb-play-btn" type="button" title="Read along — karaoke + auto-scroll" aria-label="Play/pause">
+              <span class="sb-pl-btn-icon" id="sb-pl-icon">▶</span>
+              <span class="sb-pl-btn-label" id="sb-pl-label">play</span>
+            </button>
+            <button class="sb-pl-btn" id="sb-pl-prev" type="button" title="Previous scene" aria-label="Previous scene">⏮</button>
+            <button class="sb-pl-btn" id="sb-pl-back15" type="button" title="Back 15 seconds" aria-label="Back 15">⟲ 15</button>
+            <button class="sb-pl-btn" id="sb-pl-fwd15" type="button" title="Forward 15 seconds" aria-label="Forward 15">15 ⟳</button>
+            <button class="sb-pl-btn" id="sb-pl-next" type="button" title="Next scene" aria-label="Next scene">⏭</button>
+
+            <div class="sb-pl-meta">
+              <span class="sb-tb-title" id="sb-tb-title">your story</span>
+              <span class="sb-tb-sep">·</span>
+              <span class="sb-tb-pos" id="sb-tb-pos">01 / 01</span>
+            </div>
+
             <span class="sb-tb-spacer"></span>
+
+            <div class="sb-pl-voice-wrap">
+              <label class="sb-pl-voice-label" for="sb-pl-voice">voice</label>
+              <select class="sb-pl-voice" id="sb-pl-voice" title="Pick a voice"></select>
+            </div>
+
+            <span class="sb-pl-time" id="sb-pl-time">0:00 / 0:00</span>
+          </div>
+
+          <!-- Progress bar — runs along the bottom of the topbar -->
+          <div class="sb-pl-progress" id="sb-pl-progress" title="Click to seek">
+            <div class="sb-pl-progress-fill" id="sb-pl-fill"></div>
+            <div class="sb-pl-progress-marks" id="sb-pl-marks"></div>
           </div>
 
           <!-- Scene rail — clickable dots, one per scene -->

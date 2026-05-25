@@ -156,6 +156,68 @@ No hedging. Pick names. Make the call.`,
     };
   }
 
+  if (kind === 'realtor-shortlist') {
+    return {
+      maxTokens: 3000,
+      system: `You write a polished one-document realtor briefing the buyer can email to their agent. It introduces the buyer family in one short paragraph (no names of children), then lists ONLY the homes the buyer has selected, in the order provided.
+
+Output structure (markdown):
+
+# Shortlist · Harris Family · Westchester / NYC Metro
+_<today's date in long form>_
+
+## About Our Family
+One short paragraph (~80 words) describing the household and what we're optimizing for. Lead with the move (Falls Church → NYC metro, creative-professional household, one child with sensory + learning differences, one neurotypical child, one dog). End with the single trade-off we are most willing to make.
+
+## Homes We're Interested In
+For each selected home (in the order provided):
+
+### <STREET, VILLAGE>
+- **Listed:** $<price> · <beds>BR / <baths>BA · <sqft> sqft · <lot> acres
+- **Why this home for our family:** Two or three sentences in plain editorial prose. Reference the actual village, the train commute, the school district, the walking/biking environment, and how this home addresses our priority criteria (connection to village, school fit for our older child, creative-class context, value vs. price). Be specific. No marketing voice.
+- **What we'd want to confirm on a visit:** One or two concrete questions (school philosophy for 2e learners, village walkability after dark, lot's actual usable footprint, ADU feasibility, etc.) — chosen for THIS home, not generic.
+
+End with a single closing line:
+_"Happy to walk through any of these by phone or in person. — The Harris Family"_
+
+Voice: editorial, warm, factual, lowercase ok where natural, NO real-estate marketing phrases, no buzzwords, no exclamation points. Realtor-readable, not boilerplate. Never invent facts not in the data.`,
+      userMsg: `Family: ${family}\n\nDOCTRINE:\n${doctrine}\n\nSELECTED HOMES (in user's chosen order):\n${JSON.stringify(pins)}\n\nWrite the shortlist briefing now. Today's date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}.`
+    };
+  }
+
+  if (kind === 'realtor-doctrine') {
+    return {
+      maxTokens: 2400,
+      system: `You translate the buyer's internal family-criteria doctrine into a polished one-page briefing the buyer can email to their realtor. It is the realtor's shopping guide — what we care about, what we don't, what is non-negotiable.
+
+Output structure (markdown):
+
+# What We're Looking For · Harris Family
+_A briefing for our realtor_
+
+## The Family
+A 60–80 word portrait: who lives in the house, work context, kids and their needs (specific but warm — sensory differences, learning differences, NOT clinical labels in italics), dog. End with the move driver.
+
+## What We're Optimizing For
+A numbered list of 4–6 priorities, in rank order, each with one sentence of context. Lead with connection to village (walkability, bikeability, trail access, train within 8 min). Include school fit for our 13-year-old, creative-class community feel, manageable commute, sensible value, room to add an ADU and a pool over time.
+
+## What We Are NOT Optimizing For
+A short bullet list (3–5 items) naming things realtors usually assume buyers want but we don't: huge lot for its own sake, prestige-village pedigree, brand-new construction, biggest house in budget, etc. One line each.
+
+## Geographic Lanes
+A short paragraph naming the villages we're most interested in (Pleasantville, Irvington, Hastings, Tarrytown, Croton-on-Hudson, Bronxville for specific reasons) and the ones we have explicitly ruled out and why (Chappaqua, Scarsdale, Bedford if relevant — pull the actual reasons from the doctrine).
+
+## Budget + Build-Out
+Two sentences: budget range, plus the reserved capital we plan to spend on ADU + pool + fencing over the first 2–3 years.
+
+## How to Send Us Listings
+A short bullet list (3–4 items): what makes a listing worth sending, what's a fast pass, and the format we prefer (Compass link + a one-sentence reason).
+
+Voice: direct, warm, editorial. No buzzwords. No "synergy", "lifestyle", "intricate", "tapestry", "weave", "delve". Plain words. Lowercase ok where natural.`,
+      userMsg: `Family: ${family}\n\nDOCTRINE (the source of truth — pull priorities, lanes, exclusions, budget directly from here):\n${doctrine}\n\nWrite the realtor doctrine briefing now.`
+    };
+  }
+
   if (kind === 'brief') {
     return {
       maxTokens: 2000,
