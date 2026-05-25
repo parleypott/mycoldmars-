@@ -1510,10 +1510,7 @@ async function handleImage(body, apiKey) {
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
           contents: [{ parts: partsToSend }],
-          generationConfig: {
-            responseModalities: ['TEXT', 'IMAGE'],
-            imageGenerationConfig: { aspectRatio: 'LANDSCAPE_16_9' },
-          },
+          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
         }),
       });
     } catch (err) {
