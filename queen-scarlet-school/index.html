@@ -3888,6 +3888,136 @@
     }
     .sb-art-frame:hover .sb-edit-hint { opacity: 1; }
 
+    /* ──── Inline riff chat — replaces the modal flow ────
+     * Sits between the action bar and the variations carousel.
+     * Click "riff on image" → panel slides down. Type → Enter (or
+     * "draw it") → fires a new variation through the existing
+     * triggerStorybookGen path. Each successful gen adds a new
+     * thumb to the carousel below; old images are never killed. */
+    .sb-riff {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+                  opacity 200ms ease,
+                  margin 200ms ease;
+      margin: 0;
+    }
+    .sb-riff.is-open {
+      max-height: 360px;
+      opacity: 1;
+      margin: 10px 0 4px;
+    }
+    .sb-riff-card {
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 14px;
+      background: var(--paper-soft);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      padding: 12px 14px;
+      display: flex; flex-direction: column; gap: 10px;
+      transform: translateY(-6px);
+      transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .sb-riff.is-open .sb-riff-card { transform: translateY(0); }
+    .sb-riff-head {
+      display: flex; align-items: center; gap: 8px;
+      font-family: var(--mono, monospace);
+      font-size: 10.5px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      font-weight: 700;
+    }
+    .sb-riff-head-title { color: var(--ink-bright); }
+    .sb-riff-close {
+      margin-left: auto;
+      background: transparent; border: none;
+      color: var(--ink-soft);
+      font-size: 16px; line-height: 1;
+      cursor: pointer; padding: 4px 6px;
+      border-radius: 4px;
+    }
+    .sb-riff-close:hover { background: rgba(0,0,0,0.06); color: var(--ink-bright); }
+    .sb-riff-row {
+      display: flex; gap: 10px; align-items: stretch;
+    }
+    .sb-riff-input {
+      flex: 1;
+      min-height: 44px;
+      max-height: 120px;
+      resize: vertical;
+      border: 2px solid var(--ink-bright);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font: inherit; font-size: 14px; line-height: 1.4;
+      background: var(--paper-card);
+      color: var(--ink-bright);
+      box-shadow: 2px 2px 0 var(--ink-bright);
+    }
+    .sb-riff-input:focus { outline: none; box-shadow: 3px 3px 0 var(--ink-bright); }
+    .sb-riff-send {
+      flex: 0 0 auto;
+      background: var(--yolk);
+      color: var(--ink-bright);
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 10px;
+      padding: 0 18px;
+      font-family: inherit; font-weight: 800; font-size: 14px;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 var(--ink-bright);
+      transition: transform 100ms, box-shadow 100ms, background 140ms;
+      white-space: nowrap;
+    }
+    .sb-riff-send:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--ink-bright); background: var(--yolk-deep); }
+    .sb-riff-send:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--ink-bright); }
+    .sb-riff-send:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: 2px 2px 0 var(--ink-bright); }
+    .sb-riff-tip {
+      font-family: var(--mono, monospace);
+      font-size: 10.5px;
+      letter-spacing: 0.06em;
+      color: var(--ink-soft);
+    }
+    .sb-riff-chips {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .sb-riff-chip {
+      background: var(--paper-card);
+      border: 1.5px solid var(--ink-bright);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11.5px;
+      font-family: var(--mono, monospace);
+      cursor: pointer;
+      color: var(--ink-bright);
+      box-shadow: 1.5px 1.5px 0 var(--ink-bright);
+    }
+    .sb-riff-chip:hover { background: var(--yolk); }
+    .sb-riff-status {
+      font-family: var(--mono, monospace);
+      font-size: 10.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      display: none;
+    }
+    .sb-riff.is-busy .sb-riff-status { display: inline; }
+    .sb-riff.is-busy .sb-riff-send { background: var(--paper-card); }
+
+    /* Loved heart badge on a variation thumb */
+    .sb-var-thumb-heart {
+      position: absolute;
+      bottom: -6px; right: -6px;
+      width: 22px; height: 22px;
+      background: var(--red, #d65653);
+      color: #fff;
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      font-size: 11px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 1px 1px 0 var(--ink-bright);
+      pointer-events: none;
+    }
+
     .sb-art-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .sb-act {
       background: var(--paper-card);
@@ -4735,11 +4865,35 @@
               <div class="sb-art-overlay" id="sb-art-overlay">preparing your storybook…</div>
             </div>
             <div class="sb-art-actions" id="sb-art-actions">
-              <button id="sb-edit-btn" class="sb-act sb-act-primary" type="button" title="Click to change this picture with words">✎ change picture</button>
+              <button id="sb-edit-btn" class="sb-act sb-act-primary" type="button" title="Tell wordy how to change this picture">✎ riff on image</button>
               <button id="sb-variation-btn" class="sb-act" type="button" title="Draw a different take of this scene">＋ variation</button>
-              <button id="sb-up-btn" class="sb-act sb-act-vote-up" type="button" title="Love it">♡</button>
+              <button id="sb-up-btn" class="sb-act sb-act-vote-up" type="button" title="Love this version">♡</button>
               <button id="sb-down-btn" class="sb-act sb-act-vote-down" type="button" title="Redraw — different vibe">↻</button>
             </div>
+
+            <!-- Inline riff chat — animates open under the action bar -->
+            <div id="sb-riff" class="sb-riff" aria-hidden="true">
+              <div class="sb-riff-card">
+                <div class="sb-riff-head">
+                  <span>✎</span>
+                  <span class="sb-riff-head-title">riff on image</span>
+                  <span class="sb-riff-status" id="sb-riff-status">drawing…</span>
+                  <button class="sb-riff-close" id="sb-riff-close" type="button" aria-label="Close">✕</button>
+                </div>
+                <div class="sb-riff-row">
+                  <textarea id="sb-riff-input" class="sb-riff-input" rows="1" placeholder="tell wordy what to change. like &quot;make him look more tired&quot; or &quot;put it at night&quot;"></textarea>
+                  <button id="sb-riff-send" class="sb-riff-send" type="button">draw it</button>
+                </div>
+                <div class="sb-riff-chips" id="sb-riff-chips">
+                  <button class="sb-riff-chip" type="button" data-riff="make the lighting feel more dramatic — moodier, lower-key">moodier light</button>
+                  <button class="sb-riff-chip" type="button" data-riff="zoom in tight on the main character's face — show their expression bigger">closer on face</button>
+                  <button class="sb-riff-chip" type="button" data-riff="pick a totally different camera angle — wide shot from above or behind">different angle</button>
+                  <button class="sb-riff-chip" type="button" data-riff="add more background detail — props, room, environment">more detail</button>
+                </div>
+                <div class="sb-riff-tip">enter to send · shift+enter for a new line · adds a new version, keeps the old one</div>
+              </div>
+            </div>
+
             <div class="sb-art-variations" id="sb-art-variations"></div>
           </div>
         </div>
@@ -10374,7 +10528,11 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
             id: v.id,
             url: v.url || (v.dataBase64 ? `data:${v.mimeType || 'image/png'};base64,${v.dataBase64}` : null),
             isActive: v.id === cue.active_variation_id,
+            loved: !!v.loved,
+            riff: typeof v.riff === 'string' ? v.riff : '',
           })).filter(v => v.url);
+          const activeVariation = variations.find(v => v.id === cue.active_variation_id);
+          const activeIsLoved = !!(activeVariation && activeVariation.loved);
           out.push({
             id: cue.id,
             blockId: b.id,
@@ -10389,6 +10547,7 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
             title: (b.summary || labelFromText(b.text) || `block ${bi + 1}`),
             variations: variationThumbs,
             active_variation_id: cue.active_variation_id || null,
+            active_loved: activeIsLoved,
           });
         });
       });
@@ -11033,8 +11192,13 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
         overlay.classList.add('is-hidden');
       }
 
-      // Vote buttons reflect scene state
-      if (upBtn) upBtn.classList.toggle('is-on', scene.vote === 'up');
+      // Heart (♡ / ♥) reflects whether the ACTIVE variation is loved.
+      // Down arrow stays as redraw-on-click and lights only if voted down.
+      if (upBtn) {
+        upBtn.classList.toggle('is-on', !!scene.active_loved);
+        upBtn.textContent = scene.active_loved ? '♥' : '♡';
+        upBtn.title = scene.active_loved ? 'Unlove this version' : 'Love this version';
+      }
       if (downBtn) downBtn.classList.toggle('is-on', scene.vote === 'down');
 
       // Variations carousel — always render, even with 0 variations
@@ -11043,15 +11207,21 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
       const activeVarId = scene.active_variation_id;
       const isGen = scene.status === 'generating' || storybook.genInflight.has(scene.id);
       if (varsEl) {
-        const thumbsHtml = variations.map((v, i) => `
-          <button class="sb-var-thumb ${v.isActive ? 'is-active' : ''}"
+        const thumbsHtml = variations.map((v, i) => {
+          const titleParts = [`version ${i + 1} of ${variations.length}`];
+          if (v.loved) titleParts.push('· loved');
+          if (v.riff) titleParts.push(`· riff: ${String(v.riff).slice(0, 80)}`);
+          return `
+          <button class="sb-var-thumb ${v.isActive ? 'is-active' : ''} ${v.loved ? 'is-loved' : ''}"
                   data-var-id="${esc(v.id)}"
                   data-idx="${i}"
                   style="background-image:url('${esc(v.url || '')}');"
-                  title="version ${i + 1} of ${variations.length}">
+                  title="${esc(titleParts.join(' '))}">
             <span class="sb-var-thumb-x" data-del="${esc(v.id)}" title="Delete this version">✕</span>
+            ${v.loved ? '<span class="sb-var-thumb-heart" aria-label="loved">♥</span>' : ''}
           </button>
-        `).join('');
+        `;
+        }).join('');
         const count = variations.length;
         varsEl.innerHTML = `
           <span class="sb-var-label">versions</span>
@@ -11113,6 +11283,9 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
           storybook.activeIdx = bestIdx;
           markActiveCueInProse(bestIdx);
           renderStorybookArt();
+          // If the riff panel is open for the OLD cue, close it
+          const riff = document.getElementById('sb-riff');
+          if (riff?.classList.contains('is-open')) toggleStorybookRiff(false);
           // Cascade: queue the next cue's image if it doesn't have one yet
           const next = storybook.cues[bestIdx + 1];
           if (next && !next.image_url) triggerStorybookGen(next.id, false);
@@ -11489,29 +11662,40 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
         }
       });
 
-      // Click art → open edit modal
-      document.getElementById('sb-art-frame')?.addEventListener('click', openStorybookEdit);
-      // Big "✎ change picture" button → same
-      document.getElementById('sb-edit-btn')?.addEventListener('click', openStorybookEdit);
+      // Click "✎ riff on image" → toggle the inline riff panel
+      document.getElementById('sb-edit-btn')?.addEventListener('click', () => toggleStorybookRiff());
+      // Clicking the art frame itself also opens the riff panel
+      document.getElementById('sb-art-frame')?.addEventListener('click', () => toggleStorybookRiff(true));
 
-      // Modal close
-      document.getElementById('sb-edit-close')?.addEventListener('click', closeStorybookEdit);
-      document.getElementById('sb-edit-backdrop')?.addEventListener('click', closeStorybookEdit);
-      document.addEventListener('keydown', (e) => {
-        const modal = document.getElementById('sb-edit-modal');
-        if (e.key === 'Escape' && modal && modal.style.display !== 'none') closeStorybookEdit();
-      });
-
-      // Modal send / keep / revert
-      document.getElementById('sb-edit-send')?.addEventListener('click', sendStorybookEdit);
-      document.getElementById('sb-edit-input')?.addEventListener('keydown', (e) => {
+      // Riff panel close + send
+      document.getElementById('sb-riff-close')?.addEventListener('click', () => toggleStorybookRiff(false));
+      document.getElementById('sb-riff-send')?.addEventListener('click', sendStorybookRiff);
+      document.getElementById('sb-riff-input')?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
-          sendStorybookEdit();
+          sendStorybookRiff();
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          toggleStorybookRiff(false);
         }
       });
-      document.getElementById('sb-edit-keep')?.addEventListener('click', keepStorybookEdit);
-      document.getElementById('sb-edit-revert')?.addEventListener('click', revertStorybookEdit);
+      // Quick-suggestion chips drop their text into the input
+      document.getElementById('sb-riff-chips')?.addEventListener('click', (e) => {
+        const chip = e.target.closest('.sb-riff-chip');
+        if (!chip) return;
+        const input = document.getElementById('sb-riff-input');
+        if (!input) return;
+        const txt = chip.dataset.riff || chip.textContent.trim();
+        input.value = txt;
+        input.focus();
+      });
+      // Escape anywhere closes the riff panel if open
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const riff = document.getElementById('sb-riff');
+        if (riff && riff.classList.contains('is-open')) toggleStorybookRiff(false);
+      });
 
       // Play toggle
       document.getElementById('sb-play-btn')?.addEventListener('click', toggleStorybookPlay);
@@ -11570,9 +11754,107 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
     function sbCastVote(vote) {
       const c = storybook.cues[storybook.activeIdx];
       if (!c) return;
-      const next = (c.vote === vote) ? null : vote;
-      c.vote = next;
-      renderStorybookArt();
+      if (vote === 'up') {
+        // Heart toggles the LOVED flag on the active variation (persists)
+        const block = (state.blocks || []).find(b => b.id === c.blockId);
+        const cueData = (block?.__cues || []).find(cc => cc.id === c.id);
+        if (!cueData) return;
+        const activeId = cueData.active_variation_id;
+        const v = (cueData.variations || []).find(x => x.id === activeId)
+                  || (cueData.variations || [])[cueData.variations.length - 1];
+        if (!v) {
+          sbToast('no picture yet — draw one first');
+          return;
+        }
+        v.loved = !v.loved;
+        if (typeof persist === 'function') persist();
+        storybook.cues = buildStorybookCues();
+        renderStorybookArt();
+        renderMarginThumbs();
+        sbToast(v.loved ? 'loved this version' : 'unloved');
+      } else {
+        const next = (c.vote === vote) ? null : vote;
+        c.vote = next;
+        renderStorybookArt();
+      }
+    }
+
+    /* ──── Inline riff chat (replaces the modal flow) ──── */
+    function toggleStorybookRiff(forceOpen) {
+      const panel = document.getElementById('sb-riff');
+      if (!panel) return;
+      const isOpen = panel.classList.contains('is-open');
+      const shouldOpen = (typeof forceOpen === 'boolean') ? forceOpen : !isOpen;
+      if (shouldOpen) {
+        const cue = storybook.cues[storybook.activeIdx];
+        if (!cue) {
+          sbToast('no scene selected yet');
+          return;
+        }
+        panel.classList.add('is-open');
+        panel.setAttribute('aria-hidden', 'false');
+        setTimeout(() => {
+          const input = document.getElementById('sb-riff-input');
+          if (input) input.focus();
+        }, 120);
+      } else {
+        panel.classList.remove('is-open');
+        panel.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    async function sendStorybookRiff() {
+      const panel = document.getElementById('sb-riff');
+      const input = document.getElementById('sb-riff-input');
+      const sendBtn = document.getElementById('sb-riff-send');
+      if (!panel || !input || !sendBtn) return;
+      if (panel.classList.contains('is-busy')) return;
+      const text = (input.value || '').trim();
+      if (!text) {
+        input.focus();
+        return;
+      }
+      const cue = storybook.cues[storybook.activeIdx];
+      if (!cue) {
+        sbToast('no scene selected yet');
+        return;
+      }
+      // Build a riff instruction that ALSO points the model at the existing
+      // image as a reference. triggerStorybookGen pushes it as a new variation.
+      const baseUrl = cue.image_url;
+      const riffInstruction = baseUrl
+        ? `RIFF on the existing image (passed as a reference). User's change: ${text}. Keep everything else the same unless the change implies otherwise.`
+        : `User wants this scene drawn with this guidance: ${text}.`;
+
+      panel.classList.add('is-busy');
+      sendBtn.disabled = true;
+      const oldLabel = sendBtn.textContent;
+      sendBtn.textContent = 'drawing…';
+
+      try {
+        await triggerStorybookGen(cue.id, true, riffInstruction);
+        // Record the riff text on the variation we just created (last one)
+        try {
+          const block = (state.blocks || []).find(b => b.id === cue.blockId);
+          const cueData = (block?.__cues || []).find(cc => cc.id === cue.id);
+          const v = cueData?.variations?.[cueData.variations.length - 1];
+          if (v) {
+            v.riff = text.slice(0, 600);
+            if (typeof persist === 'function') persist();
+          }
+        } catch {}
+        input.value = '';
+        sbToast('drew a new version + saved');
+      } catch (e) {
+        sbToast('couldn’t draw that — try again');
+        try { console.warn('[riff failed]', e); } catch {}
+      } finally {
+        panel.classList.remove('is-busy');
+        sendBtn.disabled = false;
+        sendBtn.textContent = oldLabel || 'draw it';
+        // Re-focus so the kid can keep iterating without re-clicking
+        setTimeout(() => input.focus(), 80);
+      }
     }
 
     /* ──── Storybook image-edit modal ──── */

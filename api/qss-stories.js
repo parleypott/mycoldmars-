@@ -529,6 +529,8 @@ function sanitizeBlocks(blocks) {
             totalBytes += v.dataBase64.length;
           }
         }
+        if (v.loved) item.loved = true;
+        if (typeof v.riff === 'string' && v.riff.length) item.riff = v.riff.slice(0, 600);
         if (item.url || item.dataBase64) out.push(item);
       }
       return out.length ? out : undefined;
