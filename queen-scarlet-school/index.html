@@ -5297,7 +5297,7 @@
               <select class="sb-pl-voice" id="sb-pl-voice" title="Pick a voice"></select>
             </div>
 
-            <button class="sb-clean-btn" id="sb-clean-btn" type="button" title="Clean up orphan scenes and re-scan for better breaks">✦ clean</button>
+            <button class="sb-clean-btn" id="sb-clean-btn" type="button" title="Rebuild scene text from DOM and re-scan for better breaks">✦ clean & parse</button>
             <button class="sb-focus-btn" id="sb-focus-btn" type="button" title="Focus mode — hide images, just write (F)">focus</button>
             <button class="sb-keys-btn" id="sb-keys-btn" type="button" title="Keyboard shortcuts">?</button>
             <div class="sb-save-ind" id="sb-save-ind" aria-live="polite" aria-label="save status">saved</div>
@@ -10860,7 +10860,7 @@
     // character. This way Johnny's customizations are authoritative.
     const QSSArt = (function() {
       // One tight paragraph. Style + palette + skin tones. ~400 chars.
-      const STYLE = `Hand-drawn children's storybook illustration, 16:9 single full-bleed frame, thick black ink outlines with slightly varied hand-drawn weight, flat cel-shaded color blocks on a warm cream paper background (#F4ECD8). Soft natural light, no gradients, no airbrush, no photorealism. Mood: classroom-comedy in the tradition of Lauren Child and Oliver Jeffers — scrappy, warm, expressive, a smart illustrator's hand. Palette: tomato red, butter yellow, teal, ochre, sky blue, mossy green, lavender, salmon pink. Skin tones rotate across deep brown, warm brown, golden, olive, freckled cream — white is the last option.`;
+      const STYLE = `Hand-drawn children's storybook illustration, 16:9 single full-bleed frame, thick black ink outlines with slightly varied hand-drawn weight, flat cel-shaded color blocks on a warm cream paper background (#F4ECD8). Soft natural light, no gradients, no airbrush, no photorealism. Mood: classroom-comedy in the tradition of Lauren Child and Oliver Jeffers — scrappy, warm, expressive, a smart illustrator's hand. Palette: tomato red, butter yellow, teal, ochre, sky blue, mossy green, lavender, salmon pink. Skin tones rotate across deep brown, warm brown, golden, olive, freckled cream — white is the last option. Every character's full body must be visible and unclipped — wide establishing shot, subjects placed in the lower 55% of the frame, generous empty space above the tallest figure's head.`;
 
       // Canonical characters. ONE sentence each. All positive framing.
       // Johnny's cast-page notes replace these when present.
@@ -10935,7 +10935,7 @@
           ? `Show one strong single moment from this passage — pick the most visually surprising or emotionally loaded beat and render only that one picture, like a single page of a picture book:\n"${cleanScene.slice(0, 800)}"`
           : `Draw an inviting establishing shot for an empty scene in Queen Scarlet's School — a bright classroom or hallway, no specific action yet. The viewer should feel ready for a story to start.`;
 
-        const composition = `One camera angle, one moment, full-bleed frame. No comic panels, no speech bubbles, no visible text, words, or letters anywhere in the image.`;
+        const composition = `One camera angle, one moment, full-bleed frame. No comic panels, no speech bubbles, no visible text, words, or letters anywhere in the image. Wide enough that every character is fully visible from feet to top of head, with comfortable breathing room above the tallest figure.`;
 
         const variationLine = variation
           ? `This is a fresh take — pick a meaningfully different camera angle, composition, or chosen moment than any prior version.`
@@ -13951,67 +13951,79 @@
 
     // Wire UI controls
 
-    // Clean up button — repairs orphan scenes + resets AI re-scan
+    // Clean & Parse button — DOM-read rebuild + AI re-scan
+    // Reads actual rendered scene text from DOM (bypasses corrupt block.text),
+    // smart-joins mid-word/mid-sentence orphan breaks, then fires fresh AI scene detection.
     (function wireCleanBtn() {
       const btn = document.getElementById('sb-clean-btn');
       if (!btn) return;
       btn.addEventListener('click', async () => {
         if (btn.classList.contains('is-running')) return;
         btn.classList.add('is-running');
-        btn.textContent = '↻';
+        btn.textContent = '↻ reading…';
 
-        let orphansFixed = 0, cuesRemoved = 0;
-        const blocksNeedingRescan = new Set();
-
-        // Track which blocks had cues before cleanup
-        const beforeCueCounts = new Map((state.blocks || []).map(b => [b.id, (b.__cues || []).length]));
-
-        // Run the same cleanup pipeline as init, but record what changed
-        repairCorruptBlockText();
-        cleanupDegenerateAutoCues();
-        snapCuesToWordBoundaries();
+        let blocksRebuilt = 0;
 
         for (const b of (state.blocks || [])) {
-          const before = beforeCueCounts.get(b.id) || 0;
-          const after = (b.__cues || []).length;
-          if (after < before) {
-            cuesRemoved += (before - after);
-            blocksNeedingRescan.add(b.id);
+          // Read the rendered text for each scene in this block directly from DOM.
+          // This is the ground truth — it bypasses whatever b.text has become.
+          const sceneEls = [...document.querySelectorAll(`.sb-scene-text[data-block-id="${b.id}"]`)];
+          if (!sceneEls.length) continue;
+
+          const scenes = sceneEls.map(el => (el.innerText || '').trim()).filter(Boolean);
+          if (!scenes.length) continue;
+
+          // Smart-join pass: if a scene ends without terminal punctuation AND the
+          // next scene starts with a lowercase letter → they were one sentence that
+          // got split at a word boundary bug → join them directly with a space.
+          const joined = [];
+          let carry = scenes[0];
+          for (let i = 1; i < scenes.length; i++) {
+            const last = carry.trimEnd();
+            const next = scenes[i].trimStart();
+            const lastChar = last[last.length - 1] || '';
+            const firstChar = next[0] || '';
+            if (/[A-Za-z,]/.test(lastChar) && /^[a-z]/.test(firstChar)) {
+              // Mid-sentence break — weld back together
+              carry = last + ' ' + next;
+            } else {
+              joined.push(carry);
+              carry = scenes[i];
+            }
           }
-        }
+          joined.push(carry);
 
-        // Also find blocks with text that looks like it still has tiny orphan scenes
-        // (single words or very short paragraphs as separate \n\n-separated segments)
-        for (const b of (state.blocks || [])) {
-          const paras = (b.text || '').split(/\n{2,}/);
-          if (paras.some(p => p.trim().length > 0 && p.trim().length < 15)) {
-            blocksNeedingRescan.add(b.id);
+          const newText = joined.join('\n\n');
+          if (newText !== b.text) {
+            b.text = newText;
+            blocksRebuilt++;
           }
+
+          // Clear all non-art cues so AI can re-propose clean scene breaks.
+          // Art cues are preserved because they have a user's image attached.
+          b.__cues = (b.__cues || []).filter(c => c.art);
+          b.__sceneBreaksScanned = '';
         }
 
-        // Force re-scan on affected blocks by clearing their scan cache
-        for (const id of blocksNeedingRescan) {
-          const b = (state.blocks || []).find(x => x.id === id);
-          if (b) b.__sceneBreaksScanned = '';
-        }
+        if (typeof persist === 'function') persist();
+        storybook.cues = buildStorybookCues();
+        renderStorybookProse();
+        renderStorybookRail();
+        renderStorybookArt();
+        renderMarginThumbs();
 
-        if (cuesRemoved > 0 || blocksNeedingRescan.size > 0) {
-          if (typeof persist === 'function') persist();
-          storybook.cues = buildStorybookCues();
-          renderStorybookProse();
-          renderStorybookRail();
-          renderStorybookArt();
-          renderMarginThumbs();
-          const parts = [];
-          if (cuesRemoved > 0) parts.push(`removed ${cuesRemoved} orphan scene${cuesRemoved > 1 ? 's' : ''}`);
-          if (blocksNeedingRescan.size > 0) parts.push(`queued ${blocksNeedingRescan.size} section${blocksNeedingRescan.size > 1 ? 's' : ''} for new scene suggestions`);
-          sbToast('✦ ' + parts.join(' · '));
-        } else {
-          sbToast('✦ nothing to clean up');
+        const msg = blocksRebuilt > 0
+          ? `✦ rebuilt ${blocksRebuilt} section${blocksRebuilt > 1 ? 's' : ''} · re-scanning for scene breaks…`
+          : '✦ text looks clean · re-scanning scene breaks…';
+        sbToast(msg);
+
+        // Fire AI scene detection — all blocks have been cleared so they'll all re-scan
+        if (typeof detectSceneBreaksForAllBlocks === 'function') {
+          detectSceneBreaksForAllBlocks();
         }
 
         btn.classList.remove('is-running');
-        btn.textContent = '✦ clean';
+        btn.textContent = '✦ clean & parse';
       });
     })();
 
