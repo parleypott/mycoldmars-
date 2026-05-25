@@ -11236,6 +11236,23 @@
         flushBlockScenes(sceneEl.dataset.blockId);
       }, true);
 
+      // Force Enter to insert a plain newline instead of browser-specific
+      // <div> or <br> elements that corrupt innerText normalization on flush.
+      host.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        if (!e.target?.closest?.('.sb-scene-text')) return;
+        e.preventDefault();
+        document.execCommand('insertText', false, '\n');
+      });
+
+      // Strip HTML on paste — only plain text allowed in scene cards.
+      host.addEventListener('paste', (e) => {
+        if (!e.target?.closest?.('.sb-scene-text')) return;
+        e.preventDefault();
+        const plain = e.clipboardData?.getData('text/plain') || '';
+        if (plain) document.execCommand('insertText', false, plain);
+      });
+
       // + scene break button → split this scene at the cursor (if cursor
       // is inside it) or insert an empty scene right after.
       host.addEventListener('click', (e) => {
