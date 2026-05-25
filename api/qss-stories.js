@@ -466,14 +466,89 @@ async function sb(method, path, payload, opts = {}) {
 
 // ────────────────────── sanitizers ──────────────────────
 
-// Strip per-block images (they live in localStorage as base64 — too big
-// for cloud rows). Keep block ids + text + small metadata.
+// Sanitize blocks before persisting.
+//
+// CRITICAL HISTORY (same shape as the cast portrait fix): this
+// function previously stripped __image and __cues on every save with
+// the comment "they live in localStorage as base64 — too big for
+// cloud rows". That was true for the OLD design where images were
+// inline base64. The new Storybook design moved per-cue images to
+// Supabase Storage (qss-scenes bucket) and stores only the URL on
+// b.__image / b.__cues[i].image. The old sanitizer kept stripping
+// them, so every save deleted the URLs, every load got back blocks
+// with no image refs, and every Storybook open re-generated all
+// images from scratch. Henry described the same bug class on the
+// cast page ("you fixed it forever last time"). The fix is the same
+// pattern: preserve the full shape with hard byte caps so a runaway
+// story can't crash the row.
 function sanitizeBlocks(blocks) {
-  return blocks.map(b => ({
-    id: b.id,
-    text: typeof b.text === 'string' ? b.text : '',
-    has_image: !!(b.__image && b.__image.dataBase64),
-  }));
+  const MAX_BLOCKS = 200;
+  const MAX_TEXT = 12_000;
+  const MAX_SUMMARY = 240;
+  const MAX_CUES_PER_BLOCK = 24;
+  const MAX_URL_LEN = 2000;
+  const MAX_SOURCE_TEXT = 1500;
+  const MAX_INLINE_IMG_BYTES = 600 * 1024; // 600 KB base64 fallback only
+  const MAX_TOTAL_BYTES = 3.5 * 1024 * 1024; // 3.5 MB total
+  let totalBytes = 0;
+  const out = [];
+  for (const b of (blocks || []).slice(0, MAX_BLOCKS)) {
+    if (!b || typeof b !== 'object') continue;
+    const id = b.id;
+    if (!id) continue;
+    const cleanImage = (im) => {
+      if (!im || typeof im !== 'object') return undefined;
+      const o = {};
+      if (typeof im.url === 'string' && im.url.length <= MAX_URL_LEN) o.url = im.url;
+      if (typeof im.mimeType === 'string' && im.mimeType.length <= 64) o.mimeType = im.mimeType;
+      // Only keep inline base64 if no URL is present (fallback path)
+      if (!o.url && typeof im.dataBase64 === 'string' && im.dataBase64.length <= MAX_INLINE_IMG_BYTES) {
+        const sz = im.dataBase64.length;
+        if (totalBytes + sz <= MAX_TOTAL_BYTES) {
+          o.dataBase64 = im.dataBase64;
+          totalBytes += sz;
+        }
+      }
+      return (o.url || o.dataBase64) ? o : undefined;
+    };
+    const cleanCues = (cues) => {
+      if (!Array.isArray(cues)) return undefined;
+      const list = [];
+      for (const c of cues.slice(0, MAX_CUES_PER_BLOCK)) {
+        if (!c || typeof c !== 'object' || !c.id) continue;
+        const item = {
+          id: String(c.id).slice(0, 80),
+          offset: Number.isFinite(c.offset) ? Math.max(0, Math.floor(c.offset)) : 0,
+          auto: !!c.auto,
+        };
+        if (typeof c.source_text === 'string') item.source_text = c.source_text.slice(0, MAX_SOURCE_TEXT);
+        if (typeof c.label === 'string') item.label = c.label.slice(0, 120);
+        if (typeof c.why === 'string') item.why = c.why.slice(0, 240);
+        const img = cleanImage(c.image);
+        if (img) item.image = img;
+        list.push(item);
+      }
+      return list.length ? list : undefined;
+    };
+    const blk = {
+      id,
+      text: typeof b.text === 'string' ? b.text.slice(0, MAX_TEXT) : '',
+    };
+    if (typeof b.summary === 'string' && b.summary.trim()) {
+      blk.summary = b.summary.slice(0, MAX_SUMMARY);
+    }
+    const img = cleanImage(b.__image);
+    if (img) blk.__image = img;
+    const cues = cleanCues(b.__cues);
+    if (cues) blk.__cues = cues;
+    if (typeof b.__sceneBreaksScanned === 'string' && b.__sceneBreaksScanned.length <= 32) {
+      blk.__sceneBreaksScanned = b.__sceneBreaksScanned;
+    }
+    // Kept for backwards-compat with anything reading has_image
+    blk.has_image = !!img;
+    out.push(blk);
+  }
+  return out;
 }
 
 // Sanitize character cards before persisting. Each card is bounded so a
