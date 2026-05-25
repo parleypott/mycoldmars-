@@ -3994,31 +3994,45 @@
       border-radius: 14px;
       background: var(--paper-soft);
       box-shadow: 3px 3px 0 var(--ink-bright);
-      padding: 12px 14px;
-      display: flex; flex-direction: column; gap: 10px;
+      padding: 0;
+      display: flex; flex-direction: column;
       transform: translateY(-6px);
       transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      overflow: hidden;
     }
     .sb-riff.is-open .sb-riff-card { transform: translateY(0); }
     .sb-riff-head {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 10px;
       font-family: var(--mono, monospace);
-      font-size: 10.5px;
+      font-size: 12px;
       letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: var(--ink-soft);
-      font-weight: 700;
+      color: var(--paper);
+      font-weight: 800;
+      background: var(--ink-bright);
+      padding: 10px 14px;
+      border-bottom: 2.5px solid var(--ink-bright);
     }
-    .sb-riff-head-title { color: var(--ink-bright); }
+    .sb-riff-head-title { color: var(--paper); font-weight: 800; }
+    .sb-riff-card > .sb-riff-row,
+    .sb-riff-card > .sb-prompt-meta,
+    .sb-riff-card > .sb-riff-chips,
+    .sb-riff-card > .sb-prompt-text,
+    .sb-riff-card > .sb-riff-tip {
+      margin: 10px 14px 0 14px;
+    }
+    .sb-riff-card > .sb-riff-tip { margin-bottom: 12px; }
+    .sb-riff-card > .sb-riff-row:last-child { margin-bottom: 12px; }
     .sb-riff-close {
       margin-left: auto;
-      background: transparent; border: none;
-      color: var(--ink-soft);
-      font-size: 16px; line-height: 1;
-      cursor: pointer; padding: 4px 6px;
-      border-radius: 4px;
+      background: transparent; border: 2px solid var(--paper);
+      color: var(--paper);
+      font-size: 14px; line-height: 1;
+      cursor: pointer; padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 800;
     }
-    .sb-riff-close:hover { background: rgba(0,0,0,0.06); color: var(--ink-bright); }
+    .sb-riff-close:hover { background: var(--paper); color: var(--ink-bright); }
     .sb-riff-row {
       display: flex; gap: 10px; align-items: stretch;
     }
@@ -4097,19 +4111,25 @@
       resize: vertical;
     }
     .sb-prompt-meta {
-      display: flex; flex-wrap: wrap; gap: 8px;
+      display: flex; flex-wrap: wrap; gap: 6px;
+      padding: 10px 14px;
+      background: var(--paper-deep);
+      border-bottom: 2px dashed var(--ink-bright);
     }
+    .sb-riff-card > .sb-prompt-meta { margin: 0; }
     .sb-prompt-meta-pill {
       background: var(--paper-card);
       border: 1.5px solid var(--ink-bright);
       border-radius: 999px;
-      padding: 3px 10px;
+      padding: 4px 10px;
       font-family: var(--mono, monospace);
-      font-size: 10.5px;
-      letter-spacing: 0.08em;
-      color: var(--ink-soft);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: var(--ink);
       box-shadow: 1px 1px 0 var(--ink-bright);
+      display: inline-flex; gap: 6px; align-items: center;
     }
+    .sb-prompt-meta-pill > span { color: var(--ink-faint); }
     .sb-prompt-meta-pill strong { color: var(--ink-bright); font-weight: 800; }
     .sb-prompt-row { gap: 8px; }
 
@@ -10660,9 +10680,48 @@
       return s.length > 48 ? s.slice(0, 48) + '…' : s;
     }
 
+    // One-time cleanup: removes degenerate auto-cues that snuck in from
+    // earlier buggy runs (e.g., scene-break detector packed cues too
+    // tight at mid-word offsets, creating one-letter "scenes"). Never
+    // touches user cues or cues that have generated variations.
+    function cleanupDegenerateAutoCues() {
+      const blocks = state.blocks || [];
+      let removed = 0;
+      for (const b of blocks) {
+        if (!Array.isArray(b.__cues) || b.__cues.length <= 1) continue;
+        const sorted = b.__cues.slice().sort((a, c) => (a.offset || 0) - (c.offset || 0));
+        const keep = [sorted[0]]; // always keep offset-0
+        for (let i = 1; i < sorted.length; i++) {
+          const c = sorted[i];
+          const prev = keep[keep.length - 1];
+          const range = (c.offset || 0) - (prev.offset || 0);
+          const hasArt = Array.isArray(c.variations) && c.variations.length > 0;
+          const isUser = !c.auto;
+          // Drop auto-cues that have NO art AND are within 50 chars of
+          // the previous cue. Anything user-created or with art stays.
+          if (!hasArt && !isUser && range < 50) {
+            removed++;
+            continue;
+          }
+          keep.push(c);
+        }
+        if (keep.length !== b.__cues.length) {
+          b.__cues = keep;
+          // Invalidate the detection cache so we don't re-add them
+          b.__sceneBreaksScanned = '';
+        }
+      }
+      if (removed > 0) {
+        try { console.info('[sb-cleanup] removed', removed, 'degenerate auto-cues'); } catch {}
+        if (typeof persist === 'function') persist();
+        try { if (window.Lib?.flush) window.Lib.flush(); } catch {}
+      }
+    }
+
     function initStorybook() {
       const empty = document.getElementById('sb-empty');
       const reader = document.getElementById('sb-reader');
+      cleanupDegenerateAutoCues();
       storybook.cues = buildStorybookCues();
 
       if (storybook.cues.length === 0) {
@@ -11134,7 +11193,13 @@
       const b = (state.blocks || []).find(x => x.id === blockId);
       if (!b) return;
       const cue = (b.__cues || []).find(c => c.id === cueId);
-      if (!cue || cue.auto) return;  // never delete the default auto-cue
+      if (!cue) return;
+      // Only the DEFAULT offset-0 auto-cue is protected (every block
+      // needs at least one cue). User cues AND non-default auto-cues
+      // (scene-break detector results) ARE deletable — previous code
+      // rejected all auto-cues and left detector-mistakes stranded.
+      const isDefault = cue.auto && (cue.offset || 0) === 0;
+      if (isDefault) return;
       b.__cues = (b.__cues || []).filter(c => c.id !== cueId);
       if (typeof persist === 'function') persist();
       storybook.cues = buildStorybookCues();
@@ -11562,10 +11627,16 @@
         const castRefs = composed.castRefs.map(c => ({ dataBase64: c.dataBase64, mimeType: c.mimeType }));
 
         // Build the reference list. Cast portraits first; if the user is
-        // riffing, the existing image gets added so the model edits it
+        // riffing, the existing image (passed as inline base64 — nano-banana
+        // rejects URL refs for SSRF) gets added so the model edits it
         // instead of drawing from scratch.
         const refs = [...castRefs];
-        if (opts.referenceUrl) refs.push(opts.referenceUrl);
+        if (opts.referenceInline && opts.referenceInline.dataBase64) {
+          refs.push({
+            dataBase64: opts.referenceInline.dataBase64,
+            mimeType: opts.referenceInline.mimeType || 'image/jpeg',
+          });
+        }
 
         let composedPrompt;
         if (typeof opts.rawPrompt === 'string' && opts.rawPrompt.trim()) {
@@ -12269,6 +12340,33 @@
       }
     }
 
+    // Fetch a CDN url + convert to { dataBase64, mimeType }. nano-banana
+    // rejects URL refs for SSRF safety, so the riff path has to download
+    // the image client-side and ship the bytes.
+    async function urlToInlineData(url) {
+      try {
+        const res = await fetch(url, { credentials: 'omit', mode: 'cors' });
+        if (!res.ok) return null;
+        const blob = await res.blob();
+        const mimeType = blob.type || 'image/jpeg';
+        const dataBase64 = await new Promise((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => {
+            const s = String(fr.result || '');
+            // strip "data:<mime>;base64," prefix
+            const i = s.indexOf(',');
+            resolve(i >= 0 ? s.slice(i + 1) : s);
+          };
+          fr.onerror = () => reject(fr.error);
+          fr.readAsDataURL(blob);
+        });
+        return { dataBase64, mimeType };
+      } catch (e) {
+        try { console.warn('[riff] urlToInlineData failed', e?.message || e); } catch {}
+        return null;
+      }
+    }
+
     async function sendStorybookRiff() {
       const panel = document.getElementById('sb-riff');
       const input = document.getElementById('sb-riff-input');
@@ -12289,31 +12387,44 @@
         sbToast('no scene selected yet');
         return;
       }
-      // Build a riff instruction. If there's an existing image, pass its
-      // URL as a reference so the model RIFFS on it (keeps composition,
-      // applies the change). Otherwise it's a fresh draw with the riff
-      // text as guidance.
       const baseUrl = cue.image_url;
-      const riffInstruction = baseUrl
-        ? `RIFF: take the attached reference image and apply this change — ${text}. Keep everything else the same unless the change implies otherwise.`
-        : `User wants this scene drawn with this guidance: ${text}.`;
 
       panel.classList.add('is-busy');
       sendBtn.disabled = true;
       const oldLabel = sendBtn.textContent;
-      sendBtn.textContent = 'drawing…';
+      sendBtn.textContent = 'fetching…';
 
-      try { console.info('[riff] send', { cueId: cue.id, hasBase: !!baseUrl, text: text.slice(0, 80) }); } catch {}
+      // Stage 1: fetch the base image as a real inline reference so
+      // Gemini can actually riff on it (URL refs are rejected server-side).
+      let referenceInline = null;
+      if (baseUrl) {
+        referenceInline = await urlToInlineData(baseUrl);
+        try { console.info('[riff] reference image fetched', { ok: !!referenceInline, bytes: referenceInline?.dataBase64?.length }); } catch {}
+      }
+
+      sendBtn.textContent = 'drawing…';
+      // Progress nudges so it doesn't feel "loading forever"
+      let progressNudge = setTimeout(() => {
+        sendBtn.textContent = 'still drawing…';
+        progressNudge = setTimeout(() => {
+          sendBtn.textContent = 'one more sec…';
+        }, 30000);
+      }, 25000);
+
+      const riffInstruction = referenceInline
+        ? `RIFF on the attached reference image (the current picture of this scene). Apply this change: ${text}. Keep everything else the same unless the change implies otherwise.`
+        : `Draw this scene with this guidance: ${text}.`;
+
+      try { console.info('[riff] send', { cueId: cue.id, hasReference: !!referenceInline, text: text.slice(0, 80) }); } catch {}
       const r = await triggerStorybookGen(cue.id, true, riffInstruction, {
-        referenceUrl: baseUrl || undefined,
+        referenceInline,
       });
+      clearTimeout(progressNudge);
+
       if (!r || !r.ok) {
-        // triggerStorybookGen already toasted; just keep the input populated
-        // so the kid can edit + retry without retyping.
         try { console.warn('[riff] failed', r?.error); } catch {}
+        // triggerStorybookGen already toasted the failure
       } else {
-        // Record the riff text on the NEW variation (located by id from
-        // the result so we don't accidentally tag the wrong one).
         try {
           const block = (state.blocks || []).find(b => b.id === cue.blockId);
           const cueData = (block?.__cues || []).find(cc => cc.id === cue.id);
@@ -12329,7 +12440,6 @@
       panel.classList.remove('is-busy');
       sendBtn.disabled = false;
       sendBtn.textContent = oldLabel || 'draw it';
-      // Re-focus so the kid can keep iterating without re-clicking
       setTimeout(() => input.focus(), 80);
     }
 
