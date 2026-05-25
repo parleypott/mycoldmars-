@@ -10680,6 +10680,50 @@
       return s.length > 48 ? s.slice(0, 48) + '…' : s;
     }
 
+    // One-time cleanup: repair corrupted block.text that has stray \n\n
+    // between every few letters ("edu\n\nca\n\nt\n\ni\n\npu" instead of
+    // "educational purposes"). Detection: more than 25% of paragraphs are
+    // short letter fragments (<6 chars, just letters). Repair: concatenate
+    // adjacent short fragments into single words/paragraphs.
+    function repairCorruptBlockText() {
+      const blocks = state.blocks || [];
+      let repaired = 0;
+      for (const b of blocks) {
+        const text = String(b.text || '');
+        if (!text || text.length < 50) continue;
+        const paras = text.split(/\n{2,}/).map(p => p);
+        if (paras.length < 5) continue;
+        const isTiny = (p) => /^[a-z'’]{1,5}\.?,?$/i.test(p.trim());
+        const tinyCount = paras.filter(isTiny).length;
+        const ratio = tinyCount / paras.length;
+        if (ratio < 0.25) continue;  // not corrupted
+
+        // Walk paragraphs. Concatenate runs of tiny fragments into one word.
+        const out = [];
+        let buf = '';
+        for (const p of paras) {
+          if (isTiny(p)) {
+            buf += p.trim();
+          } else {
+            if (buf) { out.push(buf); buf = ''; }
+            out.push(p);
+          }
+        }
+        if (buf) out.push(buf);
+        const fixed = out.join('\n\n');
+        if (fixed !== text) {
+          b.text = fixed;
+          b.__sceneBreaksScanned = ''; // re-detect on the clean text
+          repaired++;
+        }
+      }
+      if (repaired > 0) {
+        try { console.warn('[sb-cleanup] repaired', repaired, 'corrupt block.text(s) — letter-fragment newlines rejoined'); } catch {}
+        if (typeof persist === 'function') persist();
+        try { if (window.Lib?.flush) window.Lib.flush(); } catch {}
+      }
+    }
+
     // One-time cleanup: removes degenerate auto-cues that snuck in from
     // earlier buggy runs (e.g., scene-break detector packed cues too
     // tight at mid-word offsets, creating one-letter "scenes"). Never
@@ -10721,7 +10765,20 @@
     function initStorybook() {
       const empty = document.getElementById('sb-empty');
       const reader = document.getElementById('sb-reader');
+      // ORDER MATTERS — repair text BEFORE cleaning cues, because cue
+      // offsets may shift after text is rejoined.
+      repairCorruptBlockText();
       cleanupDegenerateAutoCues();
+      // Also reset any cue offset that now lands past the end of its
+      // block's (newly-shortened) text, or in the middle of a word.
+      for (const b of (state.blocks || [])) {
+        if (!Array.isArray(b.__cues) || !b.text) continue;
+        const len = b.text.length;
+        for (const c of b.__cues) {
+          if ((c.offset || 0) > len) c.offset = Math.max(0, len - 1);
+        }
+        b.__cues.sort((a, c) => (a.offset || 0) - (c.offset || 0));
+      }
       storybook.cues = buildStorybookCues();
 
       if (storybook.cues.length === 0) {
