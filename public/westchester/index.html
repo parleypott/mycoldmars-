@@ -3795,12 +3795,18 @@ document.querySelectorAll('.tab-btn').forEach(t => t.addEventListener('click', (
       try { if (typeof attachPhotoManifest === 'function' && typeof pins !== 'undefined' && pins?.length) attachPhotoManifest(); }
       catch (e) { console.warn('[whh] boot photo-attach skipped', e); }
     }, 400);
+    // Auto-enrich any bare pins (no train/trail/school yet) — usually pins
+    // that arrived via cloud-push without going through the in-browser importer.
+    setTimeout(() => {
+      try { if (typeof autoEnrichBarePins === 'function' && typeof pins !== 'undefined' && pins?.length) autoEnrichBarePins(); }
+      catch (e) { console.warn('[whh] boot auto-enrich skipped', e); }
+    }, 800);
     // Kick off doctrine-aware auto-rescore in the background regardless of tab —
     // gives the Map pins their fresh village-connection scores too.
     setTimeout(() => {
       try { if (typeof autoScoreUnscored === 'function' && typeof pins !== 'undefined' && pins?.length) autoScoreUnscored(); }
       catch (e) { console.warn('[whh] boot auto-rescore skipped', e); }
-    }, 1500);
+    }, 2200);
   };
   if (document.readyState === 'loading') {
     window.addEventListener('DOMContentLoaded', fire, { once: true });
@@ -8222,6 +8228,48 @@ async function refinePin(pinId) {
     renderPins();
   } catch (e) { /* graceful — haversine baseline already showing */ }
 }
+
+// AUTO-ENRICH any pin that arrived without train/trail/school data (the bulk
+// importer that landed 11 pins via cloud-push couldn't run the in-browser
+// closest-station/closest-trail/schoolDistrict logic). Runs at boot, after
+// cloud-hydrate, idempotent — skips pins that already have train.
+async function autoEnrichBarePins() {
+  if (!pins?.length) return;
+  const bare = pins.filter(p => !p.train || (typeof p.train === 'object' && !p.train.name));
+  if (!bare.length) return;
+  console.info('[whh] auto-enriching ' + bare.length + ' bare pin(s)…');
+  let changed = 0;
+  for (const p of bare) {
+    if (typeof p.lat !== 'number' || typeof p.lng !== 'number') continue;
+    const pt = { lat: p.lat, lng: p.lng };
+    try {
+      // Synchronous haversine baseline (instant)
+      const train = closest(pt, TRAIN_STATIONS);
+      const trail = closest(pt, TRAILHEADS);
+      p.train = { name: train.name, line: train.line, gct: train.gct, miles: train.miles, walkMin: walkMin(train.miles) };
+      p.trail = { name: trail.name, miles: trail.miles, walkMin: walkMin(trail.miles) };
+      if (!p.muniKey) p.muniKey = detectMuniKey(p.addrParts || {});
+      if (!p.schoolDistrict) p.schoolDistrict = detectSchoolDistrict(p.lng, p.lat);
+      p.refined = false;
+      changed++;
+    } catch (e) {
+      console.warn('[whh] auto-enrich failed for', p.address, e);
+    }
+  }
+  if (changed) {
+    savePins();
+    if (typeof renderPins === 'function') renderPins();
+    if (typeof renderMapMarkers === 'function') renderMapMarkers();
+    if (typeof renderTable === 'function') renderTable();
+    if (typeof toast === 'function') toast('Enriched ' + changed + ' home' + (changed === 1 ? '' : 's') + ' with train/trail/school.');
+  }
+  // Then upgrade each from haversine → real OSRM walking/driving distance
+  for (const p of bare) {
+    try { refinePin(p.id); } catch {}
+    await new Promise(r => setTimeout(r, 300)); // pace OSRM calls
+  }
+}
+window.autoEnrichBarePins = autoEnrichBarePins;
 
 const doSearch = debounce(async () => {
   const q = addrInput.value.trim();
