@@ -488,8 +488,13 @@ function sanitizeBlocks(blocks) {
   const MAX_CUES_PER_BLOCK = 24;
   const MAX_URL_LEN = 2000;
   const MAX_SOURCE_TEXT = 1500;
-  const MAX_INLINE_IMG_BYTES = 600 * 1024; // 600 KB base64 fallback only
-  const MAX_TOTAL_BYTES = 3.5 * 1024 * 1024; // 3.5 MB total
+  // BUMPED 2026-05-25 — old 600KB cap was silently dropping nano-banana
+  // jpegs (~1.3MB) when Supabase Storage upload failed. New 2.5MB cap
+  // ensures a fresh variation NEVER vanishes from the save, even if the
+  // CDN upload didn't complete. Total per-story cap raised to 8MB to
+  // keep multi-image stories safe.
+  const MAX_INLINE_IMG_BYTES = 2.5 * 1024 * 1024;
+  const MAX_TOTAL_BYTES = 8 * 1024 * 1024;
   let totalBytes = 0;
   const out = [];
   for (const b of (blocks || []).slice(0, MAX_BLOCKS)) {
@@ -513,9 +518,23 @@ function sanitizeBlocks(blocks) {
     };
     const cleanVariations = (variations) => {
       if (!Array.isArray(variations)) return undefined;
-      const out = [];
       const MAX_VARIATIONS = 12;
-      for (const v of variations.slice(0, MAX_VARIATIONS)) {
+      // LOVED-AWARE PRUNING — if we have more than MAX_VARIATIONS, keep
+      // every LOVED variation + the most recent unloved ones, oldest
+      // unloved get dropped first. Stable sort: preserve original order.
+      let working = variations.slice();
+      if (working.length > MAX_VARIATIONS) {
+        const loved = working.filter(v => v?.loved);
+        const unloved = working.filter(v => !v?.loved);
+        const keepUnlovedCount = Math.max(0, MAX_VARIATIONS - loved.length);
+        // Keep the MOST RECENT unloved (last in array). Drop oldest.
+        const keptUnloved = unloved.slice(-keepUnlovedCount);
+        // Re-merge preserving original order
+        const keepSet = new Set([...loved, ...keptUnloved].map(v => v.id));
+        working = variations.filter(v => keepSet.has(v.id));
+      }
+      const out = [];
+      for (const v of working) {
         if (!v || typeof v !== 'object' || !v.id) continue;
         const item = {
           id: String(v.id).slice(0, 80),
