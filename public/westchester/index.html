@@ -6252,15 +6252,9 @@ document.addEventListener('keydown', e => {
 // ===================== SCORING (Family-Criteria Fit) =====================
 // Calls /api/whh-score per pin, caches on pin.score, re-renders table.
 // Pulls the family criteria doctrine (loaded by the agent) into the request.
-let _familyCriteriaCache = null;
-async function loadFamilyCriteria() {
-  if (_familyCriteriaCache !== null) return _familyCriteriaCache;
-  try {
-    const r = await fetch('./family-criteria.md');
-    _familyCriteriaCache = r.ok ? await r.text() : '';
-  } catch { _familyCriteriaCache = ''; }
-  return _familyCriteriaCache;
-}
+// NOTE: the canonical loadFamilyCriteria() lives in the agent block far below.
+// We declared a duplicate here previously — JS allowed the redecl (sloppy mode)
+// but it caused subtle ordering bugs. Removed in favor of the single source.
 
 // Bump this whenever the family-criteria doctrine changes meaningfully.
 // All cached scores with a different version auto-invalidate on next load.
@@ -6789,18 +6783,40 @@ const FAMILY_CRITERIA_URL = './family-criteria.md';
 let agentMemory = [];
 let agentMessages = [];
 let familyCriteriaText = '';
+let familyCriteriaError = '';  // last fetch error, surfaced in fallback so we can debug
 let familyCriteriaLoading = null;
-async function loadFamilyCriteria() {
-  if (familyCriteriaText) return familyCriteriaText;
+async function _fetchFamilyCriteriaOnce(attempt) {
+  // Cache-bust the URL so wife's stale CDN/SW cache can't serve a 404 forever
+  const bust = '?v=' + (window.DOCTRINE_VERSION || Date.now());
+  const r = await fetch(FAMILY_CRITERIA_URL + bust, { cache: 'no-cache', credentials: 'same-origin' });
+  if (!r.ok) throw new Error('HTTP ' + r.status + ' on attempt ' + attempt);
+  const text = await r.text();
+  if (!text || text.length < 200) throw new Error('empty/short response on attempt ' + attempt + ' (len=' + (text?.length||0) + ')');
+  return text;
+}
+async function loadFamilyCriteria({ force = false } = {}) {
+  if (!force && familyCriteriaText) return familyCriteriaText;
   if (familyCriteriaLoading) return familyCriteriaLoading;
   familyCriteriaLoading = (async () => {
-    try {
-      const r = await fetch(FAMILY_CRITERIA_URL, { cache: 'no-cache' });
-      if (r.ok) familyCriteriaText = await r.text();
-    } catch (e) { console.warn('[agent] family-criteria.md not loaded:', e); }
-    return familyCriteriaText;
+    let lastErr = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const text = await _fetchFamilyCriteriaOnce(attempt);
+        familyCriteriaText = text;
+        familyCriteriaError = '';
+        return text;
+      } catch (e) {
+        lastErr = e;
+        console.warn('[agent] family-criteria.md load failed attempt ' + attempt + ':', e?.message || e);
+        if (attempt < 3) await new Promise(r => setTimeout(r, 300 * attempt));
+      }
+    }
+    familyCriteriaError = (lastErr?.message || String(lastErr) || 'unknown') + ' · url=' + FAMILY_CRITERIA_URL;
+    return familyCriteriaText; // empty string if every attempt failed
   })();
-  return familyCriteriaLoading;
+  const result = await familyCriteriaLoading;
+  familyCriteriaLoading = null;  // clear so future force-reloads work
+  return result;
 }
 // kick off the load on script start so first chat is fast
 loadFamilyCriteria();
@@ -6862,7 +6878,7 @@ function buildAgentSystemPrompt() {
   }));
   const criteriaBlock = familyCriteriaText
     ? `# THE FAMILY DOCTRINE\n\nThe document below is the ground truth on (a) who this family is and (b) how they rank towns. It is loaded fresh on every chat. **You have read this document end to end.** When Johnny asks anything about who they are, what they care about, what they need, what they're optimizing for, or how to evaluate a town or home — the answers are in here. Use real names (Henry, Ollie, Remi the dog, Johnny). Use the real diagnoses. Use the real weights and thresholds. **NEVER say "I don't have specifics" or "I don't know what X means" when the answer is in this document.** If you find yourself about to hedge, re-read the document instead.\n\n---\n\n${familyCriteriaText}\n\n---\n\n`
-    : '# THE FAMILY DOCTRINE\n\n(not loaded — tell Johnny the family-criteria.md fetch failed and he should reload)\n\n---\n\n';
+    : `# THE FAMILY DOCTRINE\n\n(not loaded — tell Johnny the family-criteria.md fetch failed. Specific error: ${familyCriteriaError || 'unknown'}. Suggest he hard-reload (Cmd+Shift+R) and try again — the file is at ${FAMILY_CRITERIA_URL} and should return markdown.)\n\n---\n\n`;
   return `${criteriaBlock}# YOUR ROLE
 
 You are Johnny's research assistant for his move from Falls Church, VA to the NYC metro area. You have the full family doctrine above, the complete pinned-home dataset below, and every saved village. Help him think through trade-offs against the family's actual criteria, surface non-obvious comparisons, and answer questions about specific homes.
@@ -7003,6 +7019,11 @@ async function sendAgentMessage(text) {
   if (sendBtn) sendBtn.disabled = true;
 
   await loadFamilyCriteria();
+  // Last-resort: if it's still empty, force a fresh attempt before giving up.
+  // (Caches a real error in familyCriteriaError so the agent can report what broke.)
+  if (!familyCriteriaText) {
+    await loadFamilyCriteria({ force: true });
+  }
   const system = buildAgentSystemPrompt();
   const histForApi = agentMessages.slice(0, -1).slice(-14).map(m => ({ role: m.role, content: m.content }));
 
