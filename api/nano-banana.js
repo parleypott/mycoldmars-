@@ -1465,9 +1465,9 @@ async function handleImage(body, apiKey) {
   if (!prompt) return jsonError(400, 'Missing prompt');
 
   const modelMap = {
-    'nano-banana': 'gemini-3.1-flash-image-preview',
+    'nano-banana': 'gemini-2.5-flash-image',
     'nano-banana-2.5': 'gemini-2.5-flash-image',
-    'nano-banana-pro': 'gemini-3-pro-image-preview',
+    'nano-banana-pro': 'gemini-2.5-flash-image',
   };
   const modelId = modelMap[body.model] || modelMap['nano-banana'];
 

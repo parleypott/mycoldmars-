@@ -4153,6 +4153,18 @@
       flex-shrink: 0;
     }
     .sb-keys-btn:hover { color: var(--ink-soft); border-color: var(--ink-faint); }
+    .sb-clean-btn {
+      background: transparent; border: none;
+      font-family: var(--mono, monospace); font-size: 9px;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--ink-faint); cursor: pointer;
+      padding: 3px 7px; border-radius: 3px;
+      border: 1px solid transparent; transition: color 140ms, border-color 140ms, background 140ms;
+      flex-shrink: 0;
+    }
+    .sb-clean-btn:hover { color: var(--ink-soft); border-color: var(--ink-faint); }
+    .sb-clean-btn.is-running { color: var(--yolk, #ffd93d); border-color: rgba(255,217,61,0.35); animation: sb-spin 0.8s linear infinite; }
+    @keyframes sb-spin { 100% { transform: rotate(360deg); } }
     .sb-keys-pop {
       position: fixed; z-index: 200;
       background: var(--paper-card);
@@ -5271,6 +5283,7 @@
               <select class="sb-pl-voice" id="sb-pl-voice" title="Pick a voice"></select>
             </div>
 
+            <button class="sb-clean-btn" id="sb-clean-btn" type="button" title="Clean up orphan scenes and re-scan for better breaks">✦ clean</button>
             <button class="sb-focus-btn" id="sb-focus-btn" type="button" title="Focus mode — hide images, just write (F)">focus</button>
             <button class="sb-keys-btn" id="sb-keys-btn" type="button" title="Keyboard shortcuts">?</button>
             <div class="sb-save-ind" id="sb-save-ind" aria-live="polite" aria-label="save status">saved</div>
@@ -13799,6 +13812,71 @@
     })();
 
     // Wire UI controls
+
+    // Clean up button — repairs orphan scenes + resets AI re-scan
+    (function wireCleanBtn() {
+      const btn = document.getElementById('sb-clean-btn');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        if (btn.classList.contains('is-running')) return;
+        btn.classList.add('is-running');
+        btn.textContent = '↻';
+
+        let orphansFixed = 0, cuesRemoved = 0;
+        const blocksNeedingRescan = new Set();
+
+        // Track which blocks had cues before cleanup
+        const beforeCueCounts = new Map((state.blocks || []).map(b => [b.id, (b.__cues || []).length]));
+
+        // Run the same cleanup pipeline as init, but record what changed
+        repairCorruptBlockText();
+        cleanupDegenerateAutoCues();
+        snapCuesToWordBoundaries();
+
+        for (const b of (state.blocks || [])) {
+          const before = beforeCueCounts.get(b.id) || 0;
+          const after = (b.__cues || []).length;
+          if (after < before) {
+            cuesRemoved += (before - after);
+            blocksNeedingRescan.add(b.id);
+          }
+        }
+
+        // Also find blocks with text that looks like it still has tiny orphan scenes
+        // (single words or very short paragraphs as separate \n\n-separated segments)
+        for (const b of (state.blocks || [])) {
+          const paras = (b.text || '').split(/\n{2,}/);
+          if (paras.some(p => p.trim().length > 0 && p.trim().length < 15)) {
+            blocksNeedingRescan.add(b.id);
+          }
+        }
+
+        // Force re-scan on affected blocks by clearing their scan cache
+        for (const id of blocksNeedingRescan) {
+          const b = (state.blocks || []).find(x => x.id === id);
+          if (b) b.__sceneBreaksScanned = '';
+        }
+
+        if (cuesRemoved > 0 || blocksNeedingRescan.size > 0) {
+          if (typeof persist === 'function') persist();
+          storybook.cues = buildStorybookCues();
+          renderStorybookProse();
+          renderStorybookRail();
+          renderStorybookArt();
+          renderMarginThumbs();
+          const parts = [];
+          if (cuesRemoved > 0) parts.push(`removed ${cuesRemoved} orphan scene${cuesRemoved > 1 ? 's' : ''}`);
+          if (blocksNeedingRescan.size > 0) parts.push(`queued ${blocksNeedingRescan.size} section${blocksNeedingRescan.size > 1 ? 's' : ''} for new scene suggestions`);
+          sbToast('✦ ' + parts.join(' · '));
+        } else {
+          sbToast('✦ nothing to clean up');
+        }
+
+        btn.classList.remove('is-running');
+        btn.textContent = '✦ clean';
+      });
+    })();
+
     // Focus mode toggle
     function toggleFocusMode() {
       const reader = document.getElementById('sb-reader');
