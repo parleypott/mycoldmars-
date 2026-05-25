@@ -10998,83 +10998,106 @@
       return s.length > 48 ? s.slice(0, 48) + '…' : s;
     }
 
-    // One-time cleanup: repair corrupted block.text that has stray \n\n
-    // between every few letters ("edu\n\nca\n\nt\n\ni\n\npu" instead of
-    // "educational purposes"). Detection: more than 25% of paragraphs are
-    // short letter fragments (<6 chars, just letters). Repair: concatenate
-    // adjacent short fragments into single words/paragraphs.
+    // One-time cleanup: repair corrupted block.text where \n\n was baked
+    // mid-word by flushBlockScenes using bad cue offsets. Two-pass:
+    // Pass 1 — any paragraph starting with a lowercase letter is a mid-word
+    //   continuation; concatenate directly (no space) onto previous.
+    // Pass 2 — any remaining short fragment (< 10 chars) where the previous
+    //   paragraph ended in a letter (i.e., was also cut mid-word); join directly.
+    // Detects corruption by presence of any lowercase-start paragraph OR
+    // multiple tiny (<8 char) paragraphs.
     function repairCorruptBlockText() {
       const blocks = state.blocks || [];
       let repaired = 0;
       for (const b of blocks) {
-        const text = String(b.text || '');
-        if (!text || text.length < 50) continue;
-        const paras = text.split(/\n{2,}/).map(p => p);
-        if (paras.length < 5) continue;
-        const isTiny = (p) => /^[a-z'’]{1,5}\.?,?$/i.test(p.trim());
-        const tinyCount = paras.filter(isTiny).length;
-        const ratio = tinyCount / paras.length;
-        if (ratio < 0.25) continue;  // not corrupted
+        const text = String(b.text || ‘’);
+        if (!text || text.length < 30) continue;
+        const paras = text.split(/\n{2,}/);
+        if (paras.length < 3) continue;
 
-        // Walk paragraphs. Concatenate runs of tiny fragments into one word.
-        const out = [];
-        let buf = '';
+        // Quick detection gate
+        const hasLowerStart = paras.some(p => /^[a-z]/.test(p.trimStart()));
+        const tinyCount = paras.filter(p => p.trim().length < 8).length;
+        if (!hasLowerStart && tinyCount < 2) continue;
+
+        // Pass 1: lowercase-start paragraphs are always mid-word continuations
+        const pass1 = [];
         for (const p of paras) {
-          if (isTiny(p)) {
-            buf += p.trim();
+          if (pass1.length > 0 && /^[a-z]/.test(p.trimStart())) {
+            pass1[pass1.length - 1] = pass1[pass1.length - 1].trimEnd() + p.trimStart();
           } else {
-            if (buf) { out.push(buf); buf = ''; }
-            out.push(p);
+            pass1.push(p);
           }
         }
-        if (buf) out.push(buf);
-        const fixed = out.join('\n\n');
+
+        // Pass 2: catch remaining tiny fragments where prev ended mid-word
+        // (e.g. "E WEEK", "S EARLIER:" left after pass 1 joined the lowercase ones)
+        const pass2 = [];
+        for (const p of pass1) {
+          const trimmed = p.trim();
+          const prev = pass2.length > 0 ? pass2[pass2.length - 1] : null;
+          const prevEnd = prev !== null ? prev.trimEnd() : ‘’;
+          const prevLastChar = prevEnd ? prevEnd[prevEnd.length - 1] : ‘’;
+          // Short fragment AND previous ended in a bare letter (not punctuation) = join
+          if (prev !== null && /[A-Za-z]/.test(prevLastChar) && trimmed.length > 0 && trimmed.length < 10) {
+            pass2[pass2.length - 1] = prevEnd + trimmed;
+          } else {
+            pass2.push(p);
+          }
+        }
+
+        const fixed = pass2.join(‘\n\n’);
         if (fixed !== text) {
           b.text = fixed;
-          b.__sceneBreaksScanned = ''; // re-detect on the clean text
+          b.__sceneBreaksScanned = ‘’;
           repaired++;
         }
       }
       if (repaired > 0) {
-        try { console.warn('[sb-cleanup] repaired', repaired, 'corrupt block.text(s) — letter-fragment newlines rejoined'); } catch {}
-        if (typeof persist === 'function') persist();
+        try { console.warn(‘[sb-cleanup] repaired’, repaired, ‘corrupt block.text(s) — mid-word fragments rejoined’); } catch {}
+        if (typeof persist === ‘function’) persist();
         try { if (window.Lib?.flush) window.Lib.flush(); } catch {}
       }
     }
 
-    // One-time cleanup: removes degenerate auto-cues that snuck in from
-    // earlier buggy runs (e.g., scene-break detector packed cues too
-    // tight at mid-word offsets, creating one-letter "scenes"). Never
-    // touches user cues or cues that have generated variations.
+    // One-time cleanup: removes degenerate cues that produce tiny scenes.
+    // After repairCorruptBlockText rejoins mid-word fragments, cues that
+    // pointed into those corrupt positions now produce near-empty scenes.
+    // We drop ANY cue (auto OR user) whose scene text is < 25 chars and
+    // has no generated art — these are always corruption artifacts, never
+    // intentional (intentional short scenes get art immediately).
+    // Also keeps the original rule: auto-cues with no art within 50 chars.
     function cleanupDegenerateAutoCues() {
       const blocks = state.blocks || [];
       let removed = 0;
       for (const b of blocks) {
         if (!Array.isArray(b.__cues) || b.__cues.length <= 1) continue;
+        const text = b.text || '';
         const sorted = b.__cues.slice().sort((a, c) => (a.offset || 0) - (c.offset || 0));
-        const keep = [sorted[0]]; // always keep offset-0
+        const keep = [sorted[0]]; // always keep offset-0 (whole-block default)
         for (let i = 1; i < sorted.length; i++) {
           const c = sorted[i];
           const prev = keep[keep.length - 1];
-          const range = (c.offset || 0) - (prev.offset || 0);
+          const start = c.offset || 0;
+          const end = i + 1 < sorted.length ? (sorted[i + 1].offset || text.length) : text.length;
+          const sceneText = text.slice(start, end).trim();
           const hasArt = Array.isArray(c.variations) && c.variations.length > 0;
-          const isUser = !c.auto;
-          // Drop auto-cues that have NO art AND are within 50 chars of
-          // the previous cue. Anything user-created or with art stays.
-          if (!hasArt && !isUser && range < 50) {
-            removed++;
-            continue;
-          }
+          const range = start - (prev.offset || 0);
+
+          // Drop: no art AND scene produces < 25 chars (corruption artifact)
+          if (!hasArt && sceneText.length < 25) { removed++; continue; }
+          // Drop: auto-cue, no art, too close to previous (original rule)
+          if (!hasArt && c.auto && range < 50) { removed++; continue; }
+
           keep.push(c);
         }
         if (keep.length !== b.__cues.length) {
           b.__cues = keep;
-          // Invalidate the detection cache so we don't re-add them
           b.__sceneBreaksScanned = '';
         }
       }
       if (removed > 0) {
-        try { console.info('[sb-cleanup] removed', removed, 'degenerate auto-cues'); } catch {}
+        try { console.info('[sb-cleanup] removed', removed, 'degenerate cues (tiny scene text, no art)'); } catch {}
         if (typeof persist === 'function') persist();
         try { if (window.Lib?.flush) window.Lib.flush(); } catch {}
       }
