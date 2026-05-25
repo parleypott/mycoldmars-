@@ -26,13 +26,10 @@
 // ─────────────────────────────────────────────────────────────
 //  GLOBAL STYLE PREFACE
 // ─────────────────────────────────────────────────────────────
-// The hand-drawn classroom-comedy vibe Johnny confirmed (Lauren
-// Child / Oliver Jeffers / Captain Underpants but grounded).
-export const GLOBAL_STYLE_PREFACE = `STYLE: Hand-drawn children's storybook illustration in the warm classroom-comedy tradition (Lauren Child, Oliver Jeffers, Captain Underpants panels but more grounded). Single full-bleed cinematic frame, 16:9. Thick uniform black ink outlines with slightly hand-varied weight. Flat cel-shaded color blocks — no gradients, no painterly textures, no airbrush, no photoreal rendering. Warm cream off-white paper background (#F4ECD8). Big rounded kid-friendly shapes. Soft natural light, no dramatic shadows. Faces are simple and expressive. Slight scrappiness, not slick — a smart illustrator's hand, not a stock asset.
-
-Palette: tomato red, butter yellow, teal, ochre, sky blue, mossy green, lavender, salmon pink, warm cream.
-
-Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. White is the LAST option, not the first.`;
+// Rewritten 2026-05-25 against Google's official nano-banana prompting
+// guide: narrative paragraphs beat keyword lists, positive framing beats
+// negative ("empty street", not "no cars"). One tight paragraph.
+export const GLOBAL_STYLE_PREFACE = `Hand-drawn children's storybook illustration, 16:9 single full-bleed frame, thick black ink outlines with slightly varied hand-drawn weight, flat cel-shaded color blocks on a warm cream paper background (#F4ECD8). Soft natural light, no gradients, no airbrush, no photorealism. Mood: classroom-comedy in the tradition of Lauren Child and Oliver Jeffers — scrappy, warm, expressive, a smart illustrator's hand. Palette: tomato red, butter yellow, teal, ochre, sky blue, mossy green, lavender, salmon pink. Skin tones rotate across deep brown, warm brown, golden, olive, freckled cream — white is the last option.`;
 
 // ─────────────────────────────────────────────────────────────
 //  COMPOSITION RULE — one hero moment per scene
