@@ -4084,6 +4084,35 @@
     .sb-riff.is-busy .sb-riff-status { display: inline; }
     .sb-riff.is-busy .sb-riff-send { background: var(--paper-card); }
 
+    /* Prompt inspector — opens taller than the riff panel because the
+     * composed prompt is several paragraphs long. */
+    .sb-prompt-panel.is-open { max-height: 640px; }
+    .sb-prompt-text {
+      font-family: var(--mono, monospace);
+      font-size: 12.5px !important;
+      line-height: 1.55;
+      min-height: 220px;
+      max-height: 420px;
+      white-space: pre-wrap;
+      resize: vertical;
+    }
+    .sb-prompt-meta {
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .sb-prompt-meta-pill {
+      background: var(--paper-card);
+      border: 1.5px solid var(--ink-bright);
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-family: var(--mono, monospace);
+      font-size: 10.5px;
+      letter-spacing: 0.08em;
+      color: var(--ink-soft);
+      box-shadow: 1px 1px 0 var(--ink-bright);
+    }
+    .sb-prompt-meta-pill strong { color: var(--ink-bright); font-weight: 800; }
+    .sb-prompt-row { gap: 8px; }
+
     /* Loved heart badge on a variation thumb */
     .sb-var-thumb-heart {
       position: absolute;
@@ -4948,6 +4977,7 @@
             <div class="sb-art-actions" id="sb-art-actions">
               <button id="sb-edit-btn" class="sb-act sb-act-primary" type="button" title="Tell wordy how to change this picture">✎ riff on image</button>
               <button id="sb-variation-btn" class="sb-act" type="button" title="Draw a different take of this scene">＋ variation</button>
+              <button id="sb-prompt-btn" class="sb-act" type="button" title="See and edit the exact prompt sent to the image model">⌕ prompt</button>
               <button id="sb-up-btn" class="sb-act sb-act-vote-up" type="button" title="Love this version">♡</button>
               <button id="sb-down-btn" class="sb-act sb-act-vote-down" type="button" title="Redraw — different vibe">↻</button>
             </div>
@@ -4972,6 +5002,31 @@
                   <button class="sb-riff-chip" type="button" data-riff="add more background detail — props, room, environment">more detail</button>
                 </div>
                 <div class="sb-riff-tip">enter to send · shift+enter for a new line · adds a new version, keeps the old one</div>
+              </div>
+            </div>
+
+            <!-- Prompt inspector + editor — shows the EXACT text sent to the image model -->
+            <div id="sb-prompt-panel" class="sb-riff sb-prompt-panel" aria-hidden="true">
+              <div class="sb-riff-card">
+                <div class="sb-riff-head">
+                  <span>⌕</span>
+                  <span class="sb-riff-head-title">the actual prompt sent to the image model</span>
+                  <span class="sb-riff-status" id="sb-prompt-status">drawing…</span>
+                  <button class="sb-riff-close" id="sb-prompt-close" type="button" aria-label="Close">✕</button>
+                </div>
+                <div class="sb-prompt-meta" id="sb-prompt-meta">
+                  <span class="sb-prompt-meta-pill"><span>scene text:</span> <strong id="sb-prompt-meta-scene">—</strong></span>
+                  <span class="sb-prompt-meta-pill"><span>cast portraits:</span> <strong id="sb-prompt-meta-refs">0</strong></span>
+                  <span class="sb-prompt-meta-pill"><span>length:</span> <strong id="sb-prompt-meta-len">0</strong> chars</span>
+                </div>
+                <textarea id="sb-prompt-text" class="sb-riff-input sb-prompt-text" spellcheck="false" rows="12"></textarea>
+                <div class="sb-riff-row sb-prompt-row">
+                  <button id="sb-prompt-reset" class="sb-act" type="button" title="Restore the default composed prompt">↻ reset</button>
+                  <button id="sb-prompt-copy" class="sb-act" type="button" title="Copy to clipboard">⧉ copy</button>
+                  <span style="flex:1"></span>
+                  <button id="sb-prompt-send" class="sb-riff-send" type="button">draw with this prompt</button>
+                </div>
+                <div class="sb-riff-tip">edits aren’t saved — they fire one new version with the exact text you type, then reset for next time</div>
               </div>
             </div>
 
@@ -11480,6 +11535,51 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
       });
     }
 
+    // Build the EXACT prompt that triggerStorybookGen would send for
+    // a given cue. Used by the prompt-inspector panel so the kid can
+    // see what's being sent, and by the gen path itself (factored out
+    // to keep both code paths in sync).
+    //
+    // Returns { prompt, sceneText, castRefs[], castNotes[] }.
+    function composeScenePromptForCue(cueId, { isVariation = false, extraInstruction = '' } = {}) {
+      const cueRef = storybook.cues.find(c => c.id === cueId);
+      if (!cueRef) return null;
+      const block = (state.blocks || []).find(b => b.id === cueRef.blockId);
+      const cueData = (block?.__cues || []).find(c => c.id === cueId);
+      if (!block || !cueData) return null;
+      let castRefs = [];
+      let castNotes = [];
+      try {
+        const globalCast = JSON.parse(localStorage.getItem(QSSWorlds.key('globalcast')) || '{}');
+        const haystack = (cueData.source_text || block.text || '').toLowerCase();
+        for (const [lk, c] of Object.entries(globalCast)) {
+          const displayName = (c?.name || lk || '').trim();
+          if (!displayName) continue;
+          const lname = displayName.toLowerCase();
+          const re = new RegExp(`\\b${lname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+          if (!re.test(haystack)) continue;
+          const portraits = Array.isArray(c?.portraits) ? c.portraits : [];
+          const primary = portraits.find(p => p.id === c.primary_portrait_id) || portraits[portraits.length - 1];
+          if (primary?.dataBase64) castRefs.push({ dataBase64: primary.dataBase64, mimeType: primary.mime || 'image/png', name: displayName });
+          const notes = (c?.visual_notes || '').trim();
+          if (notes) castNotes.push(`${displayName}: ${notes}`);
+        }
+      } catch {}
+      castRefs = castRefs.slice(0, 3);
+      const sceneText = (cueData.source_text || block.text || '').slice(0, 1500);
+      const extraInstructionParts = [];
+      if (castNotes.length) {
+        extraInstructionParts.push('Additional canon notes from the cast page: ' + castNotes.join('; '));
+      }
+      if (extraInstruction) extraInstructionParts.push(extraInstruction);
+      const prompt = QSSArt.build({
+        sceneText,
+        extra: extraInstructionParts.join(' — '),
+        variation: !!isVariation,
+      });
+      return { prompt, sceneText, castRefs, castNotes };
+    }
+
     // Generate (or regenerate) the image for a cue. Calls nano-banana
     // with the cue's source text + the QSS style preface + character
     // refs from the cast page. Persists the result on the cue and
@@ -11565,18 +11665,25 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
         if (opts.referenceUrl) refs.push(opts.referenceUrl);
 
         const sceneText = (cueData.source_text || block.text || '').slice(0, 1500);
-        const extraInstructionParts = [];
-        if (castNotes.length) {
-          extraInstructionParts.push('Additional canon notes from the cast page: ' + castNotes.join('; '));
+        let composedPrompt;
+        if (typeof opts.rawPrompt === 'string' && opts.rawPrompt.trim()) {
+          // Inspector path — fire with the kid's edited prompt verbatim.
+          composedPrompt = opts.rawPrompt;
+          log('using raw prompt override', { chars: composedPrompt.length });
+        } else {
+          const extraInstructionParts = [];
+          if (castNotes.length) {
+            extraInstructionParts.push('Additional canon notes from the cast page: ' + castNotes.join('; '));
+          }
+          if (extraInstruction) {
+            extraInstructionParts.push(extraInstruction);
+          }
+          composedPrompt = QSSArt.build({
+            sceneText,
+            extra: extraInstructionParts.join(' — '),
+            variation: !!isVariation,
+          });
         }
-        if (extraInstruction) {
-          extraInstructionParts.push(extraInstruction);
-        }
-        const composedPrompt = QSSArt.build({
-          sceneText,
-          extra: extraInstructionParts.join(' — '),
-          variation: !!isVariation,
-        });
         log('calling /api/nano-banana', { promptChars: composedPrompt.length, refCount: refs.length });
 
         // 120s fetch timeout so a hung request can't pin the inflight
@@ -11946,10 +12053,40 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
         input.value = txt;
         input.focus();
       });
-      // Escape anywhere closes the riff panel if open
+      // Prompt inspector
+      document.getElementById('sb-prompt-btn')?.addEventListener('click', () => toggleStorybookPromptPanel());
+      document.getElementById('sb-prompt-close')?.addEventListener('click', () => toggleStorybookPromptPanel(false));
+      document.getElementById('sb-prompt-send')?.addEventListener('click', sendStorybookPromptEdit);
+      document.getElementById('sb-prompt-reset')?.addEventListener('click', () => {
+        const cue = storybook.cues[storybook.activeIdx];
+        if (cue) populateStorybookPromptPanel(cue.id);
+      });
+      document.getElementById('sb-prompt-copy')?.addEventListener('click', async () => {
+        const ta = document.getElementById('sb-prompt-text');
+        if (!ta) return;
+        try {
+          await navigator.clipboard.writeText(ta.value || '');
+          sbToast('prompt copied to clipboard');
+        } catch {
+          ta.select();
+          document.execCommand('copy');
+          sbToast('prompt copied');
+        }
+      });
+      document.getElementById('sb-prompt-text')?.addEventListener('input', (e) => {
+        const metaLen = document.getElementById('sb-prompt-meta-len');
+        if (metaLen) metaLen.textContent = String((e.target.value || '').length);
+      });
+
+      // Escape anywhere closes the riff or prompt panel if open
       document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
         const riff = document.getElementById('sb-riff');
+        const promptPanel = document.getElementById('sb-prompt-panel');
+        if (promptPanel && promptPanel.classList.contains('is-open')) {
+          toggleStorybookPromptPanel(false);
+          return;
+        }
         if (riff && riff.classList.contains('is-open')) toggleStorybookRiff(false);
       });
 
@@ -12035,9 +12172,77 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
       }
     }
 
+    /* ──── Prompt inspector + editor ──── */
+    function toggleStorybookPromptPanel(forceOpen) {
+      const panel = document.getElementById('sb-prompt-panel');
+      const riff = document.getElementById('sb-riff');
+      if (!panel) return;
+      const isOpen = panel.classList.contains('is-open');
+      const shouldOpen = (typeof forceOpen === 'boolean') ? forceOpen : !isOpen;
+      if (shouldOpen) {
+        const cue = storybook.cues[storybook.activeIdx];
+        if (!cue) { sbToast('no scene selected yet'); return; }
+        // Close the riff panel if it's open — only one at a time
+        if (riff?.classList.contains('is-open')) toggleStorybookRiff(false);
+        populateStorybookPromptPanel(cue.id);
+        panel.classList.add('is-open');
+        panel.setAttribute('aria-hidden', 'false');
+        setTimeout(() => {
+          const ta = document.getElementById('sb-prompt-text');
+          if (ta) ta.focus();
+        }, 120);
+      } else {
+        panel.classList.remove('is-open');
+        panel.setAttribute('aria-hidden', 'true');
+      }
+    }
+    function populateStorybookPromptPanel(cueId) {
+      const composed = composeScenePromptForCue(cueId, { isVariation: false });
+      const ta = document.getElementById('sb-prompt-text');
+      const metaScene = document.getElementById('sb-prompt-meta-scene');
+      const metaRefs = document.getElementById('sb-prompt-meta-refs');
+      const metaLen = document.getElementById('sb-prompt-meta-len');
+      if (!composed || !ta) {
+        if (ta) ta.value = '— couldn’t build a prompt for this scene —';
+        return;
+      }
+      ta.value = composed.prompt;
+      if (metaScene) metaScene.textContent = (composed.sceneText || '').slice(0, 60).replace(/\s+/g, ' ') + (composed.sceneText.length > 60 ? '…' : '');
+      if (metaRefs) metaRefs.textContent = String(composed.castRefs.length) + (composed.castRefs.length ? ` (${composed.castRefs.map(c => c.name).join(', ')})` : '');
+      if (metaLen) metaLen.textContent = String(composed.prompt.length);
+    }
+    async function sendStorybookPromptEdit() {
+      const panel = document.getElementById('sb-prompt-panel');
+      const ta = document.getElementById('sb-prompt-text');
+      const sendBtn = document.getElementById('sb-prompt-send');
+      if (!panel || !ta || !sendBtn) return;
+      if (panel.classList.contains('is-busy')) return;
+      const text = (ta.value || '').trim();
+      if (!text) { sbToast('prompt is empty'); ta.focus(); return; }
+      const cue = storybook.cues[storybook.activeIdx];
+      if (!cue) { sbToast('no scene selected'); return; }
+      panel.classList.add('is-busy');
+      sendBtn.disabled = true;
+      const oldLabel = sendBtn.textContent;
+      sendBtn.textContent = 'drawing…';
+      try { console.info('[prompt-edit] send', { cueId: cue.id, chars: text.length }); } catch {}
+      const r = await triggerStorybookGen(cue.id, true, '', { rawPrompt: text });
+      if (r?.ok) {
+        sbToast('drew a version with your prompt');
+        // Re-populate from defaults so next open shows the canonical prompt again
+        populateStorybookPromptPanel(cue.id);
+      } else {
+        try { console.warn('[prompt-edit] failed', r?.error); } catch {}
+      }
+      panel.classList.remove('is-busy');
+      sendBtn.disabled = false;
+      sendBtn.textContent = oldLabel || 'draw with this prompt';
+    }
+
     /* ──── Inline riff chat (replaces the modal flow) ──── */
     function toggleStorybookRiff(forceOpen) {
       const panel = document.getElementById('sb-riff');
+      const promptPanel = document.getElementById('sb-prompt-panel');
       if (!panel) return;
       const isOpen = panel.classList.contains('is-open');
       const shouldOpen = (typeof forceOpen === 'boolean') ? forceOpen : !isOpen;
@@ -12047,6 +12252,8 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
           sbToast('no scene selected yet');
           return;
         }
+        // Close the prompt panel if it's open — only one at a time
+        if (promptPanel?.classList.contains('is-open')) toggleStorybookPromptPanel(false);
         panel.classList.add('is-open');
         panel.setAttribute('aria-hidden', 'false');
         setTimeout(() => {
