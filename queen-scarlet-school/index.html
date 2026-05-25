@@ -11535,6 +11535,56 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
       });
     }
 
+    // Post-gen invariant: re-fetch the story from the cloud and confirm
+    // the new variation made the round trip. Same defensive pattern that
+    // finally caught the cast-page portrait silent-loss bug. Runs in the
+    // background ~3 seconds after the gen (giving the debounced save a
+    // chance to flush). On miss, toasts loudly + logs [sb-invariant FAIL]
+    // so a regression can't sit in the DB unnoticed.
+    function verifyVariationPersisted(cueId, variationId, reqId = '') {
+      if (!cueId || !variationId) return;
+      const tag = `[sb-invariant ${reqId || Math.random().toString(36).slice(2,6)}]`;
+      setTimeout(async () => {
+        const sid = state.serverId || state.cloudId || null;
+        if (!sid) {
+          try { console.info(tag, 'no serverId yet — skipping verify (will re-check on next gen)'); } catch {}
+          return;
+        }
+        try {
+          const res = await fetch(`/api/qss-stories?action=get&id=${encodeURIComponent(sid)}`);
+          if (!res.ok) {
+            try { console.warn(tag, 'verify fetch failed', res.status); } catch {}
+            return;
+          }
+          const { story } = await res.json();
+          const blocks = Array.isArray(story?.blocks) ? story.blocks : [];
+          let foundCue = null, foundVar = null;
+          for (const b of blocks) {
+            const cues = Array.isArray(b?.__cues) ? b.__cues : [];
+            const c = cues.find(c => c?.id === cueId);
+            if (c) {
+              foundCue = c;
+              foundVar = (c.variations || []).find(v => v?.id === variationId);
+              break;
+            }
+          }
+          if (!foundCue) {
+            console.error(tag, 'FAIL — cue not found in saved story', { cueId });
+            sbToast('⚠ cue disappeared from cloud save — check console');
+            return;
+          }
+          if (!foundVar) {
+            console.error(tag, 'FAIL — new variation not in saved story', { cueId, variationId, savedVariations: (foundCue.variations || []).map(v => v.id) });
+            sbToast('⚠ new picture didn’t make it to the cloud — refresh + retry');
+            return;
+          }
+          try { console.info(tag, 'OK — variation persisted', { cueId, variationId, hasUrl: !!foundVar.url }); } catch {}
+        } catch (e) {
+          try { console.warn(tag, 'verify threw', e?.message || e); } catch {}
+        }
+      }, 4500);
+    }
+
     // Build the EXACT prompt that triggerStorybookGen would send for
     // a given cue. Used by the prompt-inspector panel so the kid can
     // see what's being sent, and by the gen path itself (factored out
@@ -11791,6 +11841,13 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
         // Cascade: kick the next unready cue (silent — this is background)
         const next = storybook.cues.find(c => !c.image_url && c.id !== cueId);
         if (next) triggerStorybookGen(next.id, false, '', { silentInflight: true, silentToast: true });
+
+        // Post-save invariant — same pattern as the cast page portrait fix.
+        // After the debounced save flushes, re-fetch this story from the
+        // cloud and verify the new variation actually persisted. If not,
+        // toast loudly so a silent data-loss can't hide.
+        verifyVariationPersisted(cueData.id, newVariation.id, reqId);
+
         return { ok: true, variationId: newVariation.id, cue: liveCueRef || cueRef };
       } catch (e) {
         errLog('FAIL', e?.message || e, e);
