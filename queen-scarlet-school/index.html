@@ -3798,8 +3798,16 @@
     }
     .sb-scene-text:hover { background: rgba(0,0,0,0.04); }
     .sb-scene-text:focus {
-      background: rgba(255,217,100,0.10);
+      background: rgba(255,217,100,0.08);
+      border-color: rgba(255,217,100,0.55);
+      border-style: solid;
+      box-shadow: 0 0 0 3px rgba(255,217,100,0.10);
+    }
+    /* Active scene section gets a warmer bg when its text is being edited */
+    .sb-cue-section.is-active .sb-scene-text:focus {
+      background: rgba(255,217,100,0.12);
       border-color: var(--ink-bright);
+      box-shadow: 0 0 0 4px rgba(255,217,100,0.18);
     }
     .sb-scene-text:empty::before {
       content: "start typing this scene…";
@@ -4122,6 +4130,46 @@
     /* While Storybook stage is active, hide the global TTS float so
      * it doesn't double up with the selection bar above. */
     body.sb-stage-active #tts-float { display: none !important; }
+
+    /* Keyboard shortcuts popover */
+    .sb-keys-btn {
+      background: transparent; border: none;
+      font-family: var(--mono, monospace); font-size: 9px;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--ink-faint); cursor: pointer;
+      padding: 3px 7px; border-radius: 3px;
+      border: 1px solid transparent; transition: color 140ms, border-color 140ms;
+      flex-shrink: 0;
+    }
+    .sb-keys-btn:hover { color: var(--ink-soft); border-color: var(--ink-faint); }
+    .sb-keys-pop {
+      position: fixed; z-index: 200;
+      background: var(--paper-card);
+      border: 2.5px solid var(--ink-bright);
+      box-shadow: 5px 5px 0 var(--ink-bright);
+      border-radius: 10px;
+      padding: 18px 22px;
+      min-width: 260px;
+      font-family: var(--mono, monospace);
+      display: none;
+    }
+    .sb-keys-pop.is-on { display: block; }
+    .sb-keys-pop h4 {
+      margin: 0 0 12px; font-size: 10px; letter-spacing: 0.22em;
+      text-transform: uppercase; color: var(--ink-soft);
+    }
+    .sb-keys-row {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 20px; padding: 5px 0;
+      border-bottom: 1px solid var(--ink-faint);
+    }
+    .sb-keys-row:last-child { border-bottom: none; }
+    .sb-keys-label { font-size: 12px; color: var(--ink); }
+    .sb-keys-key {
+      font-size: 10px; color: var(--ink-soft);
+      background: var(--paper-deep); border: 1px solid var(--ink-faint);
+      border-radius: 4px; padding: 2px 7px; white-space: nowrap;
+    }
 
     /* Art pane (sticky) */
     .sb-art-pane {
@@ -5213,6 +5261,7 @@
             </div>
 
             <button class="sb-focus-btn" id="sb-focus-btn" type="button" title="Focus mode — hide images, just write (F)">focus</button>
+            <button class="sb-keys-btn" id="sb-keys-btn" type="button" title="Keyboard shortcuts">?</button>
             <div class="sb-save-ind" id="sb-save-ind" aria-live="polite" aria-label="save status">saved</div>
             <span class="sb-pl-time" id="sb-pl-time">0:00 / 0:00</span>
           </div>
@@ -11255,6 +11304,7 @@
       wireCueSectionClicks();
       attachStorybookEditing();
       attachStorybookSplitter();
+      sbUpdatePositionCounter();
     }
 
     /* ──── Draggable splitter between prose and art ──── */
@@ -11335,14 +11385,74 @@
         flushBlockScenes(sceneEl.dataset.blockId);
       }, true);
 
+      // Focus into a scene text → activate that scene (updates art pane + rail).
+      host.addEventListener('focus', (e) => {
+        const sceneEl = e.target?.closest?.('.sb-scene-text');
+        if (!sceneEl) return;
+        const cueId = sceneEl.dataset.cueId;
+        const idx = storybook.cues.findIndex(c => c.id === cueId);
+        if (idx >= 0 && idx !== storybook.activeIdx) {
+          storybook.activeIdx = idx;
+          markActiveCueInProse(idx);
+          renderStorybookArt();
+          renderMarginThumbs();
+        }
+        sbUpdatePositionCounter();
+      }, true);
+
       // Keyboard scene control inside scene text cards.
       host.addEventListener('keydown', (e) => {
         if (!e.target?.closest?.('.sb-scene-text')) return;
-        if (e.key !== 'Enter') return;
+        const sceneEl = e.target.closest('.sb-scene-text');
+
+        // Tab / Shift+Tab — jump to next/previous scene
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          const allScenes = Array.from(document.querySelectorAll('.sb-scene-text'));
+          const idx = allScenes.indexOf(sceneEl);
+          const target = e.shiftKey ? allScenes[idx - 1] : allScenes[idx + 1];
+          if (target) {
+            target.focus();
+            try {
+              const sel = window.getSelection();
+              const range = document.createRange();
+              if (e.shiftKey) {
+                // Move to end of previous scene
+                range.selectNodeContents(target);
+                range.collapse(false);
+              } else {
+                // Move to start of next scene
+                const firstText = target.firstChild && target.firstChild.nodeType === 3
+                  ? target.firstChild : target;
+                range.setStart(firstText, 0);
+                range.collapse(true);
+              }
+              sel.removeAllRanges();
+              sel.addRange(range);
+            } catch {}
+          }
+          return;
+        }
+
+        if (e.key !== 'Enter') {
+          // Smart quotes — open vs close based on preceding character
+          if (e.key === '"' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+            e.preventDefault();
+            const prev = sbPrecedingChar();
+            const quote = (!prev || /[\s\(]/.test(prev)) ? '“' : '”';
+            document.execCommand('insertText', false, quote);
+          } else if (e.key === "'" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+            e.preventDefault();
+            const prev = sbPrecedingChar();
+            const quote = (!prev || /[\s\(]/.test(prev)) ? '‘' : '’';
+            document.execCommand('insertText', false, quote);
+          }
+          return;
+        }
+
         e.preventDefault();
         if (e.metaKey || e.ctrlKey) {
           // Cmd/Ctrl+Enter → scene break after current card
-          const sceneEl = e.target.closest('.sb-scene-text');
           const blockId = sceneEl?.dataset.blockId;
           const cueId   = sceneEl?.dataset.cueId;
           if (blockId && cueId) addSceneBreakAfter(blockId, cueId);
@@ -11352,17 +11462,22 @@
         }
       });
 
-      // Live word count — update the sb-wc badge as the user types.
+      // Live word count + typewriter scroll + position counter.
       host.addEventListener('input', (e) => {
         const sceneEl = e.target?.closest?.('.sb-scene-text');
         if (!sceneEl) return;
+        // Word count badge
         const cueId = sceneEl.dataset.cueId;
         const badge = host.querySelector(`[data-cue-wc="${cueId}"]`);
-        if (!badge) return;
-        const text = sceneEl.innerText || sceneEl.textContent || '';
-        const wc = text.trim() ? text.trim().split(/\s+/).length : 0;
-        badge.textContent = wc + 'w';
-        badge.classList.toggle('sb-wc-long', wc > 200);
+        if (badge) {
+          const text = sceneEl.innerText || sceneEl.textContent || '';
+          const wc = text.trim() ? text.trim().split(/\s+/).length : 0;
+          badge.textContent = wc + 'w';
+          badge.classList.toggle('sb-wc-long', wc > 200);
+        }
+        // Typewriter scroll — keep cursor ~38% from top of prose pane
+        sbTypewriterScroll();
+        sbUpdatePositionCounter();
       });
 
       // Strip HTML on paste — only plain text allowed in scene cards.
@@ -11382,6 +11497,49 @@
         e.stopPropagation();
         addSceneBreakAfter(btn.dataset.blockId, btn.dataset.afterCue);
       });
+    }
+
+    function sbPrecedingChar() {
+      try {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return '';
+        const range = sel.getRangeAt(0).cloneRange();
+        range.collapse(true);
+        if (range.startOffset === 0) return '';
+        range.setStart(range.startContainer, range.startOffset - 1);
+        return range.toString();
+      } catch { return ''; }
+    }
+
+    let _twScrollFrame = null;
+    function sbTypewriterScroll() {
+      if (_twScrollFrame) return; // debounce to rAF
+      _twScrollFrame = requestAnimationFrame(() => {
+        _twScrollFrame = null;
+        try {
+          const sel = window.getSelection();
+          if (!sel || sel.rangeCount === 0) return;
+          const range = sel.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          if (!rect.height) return;
+          const pane = document.getElementById('sb-prose-pane');
+          if (!pane) return;
+          const paneRect = pane.getBoundingClientRect();
+          const targetY = paneRect.top + paneRect.height * 0.40;
+          const delta = rect.top - targetY;
+          if (Math.abs(delta) > 60) {
+            pane.scrollBy({ top: delta * 0.5, behavior: 'smooth' });
+          }
+        } catch {}
+      });
+    }
+
+    function sbUpdatePositionCounter() {
+      const el = document.getElementById('sb-tb-pos');
+      if (!el) return;
+      const total = storybook.cues.length || 1;
+      const current = (storybook.activeIdx >= 0 ? storybook.activeIdx : 0) + 1;
+      el.textContent = `${String(current).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
     }
 
     // Recompose block.text + cue offsets from the live DOM scene cards.
@@ -11948,6 +12106,7 @@
       document.querySelectorAll('#sb-rail .sb-rail-dot').forEach((el, i) => {
         el.classList.toggle('is-active', i === idx);
       });
+      sbUpdatePositionCounter();
     }
 
     function attachStorybookScrollSync() {
@@ -13562,6 +13721,52 @@
       if (btn) btn.textContent = reader.classList.contains('is-focus') ? 'exit focus' : 'focus';
     }
     document.getElementById('sb-focus-btn')?.addEventListener('click', toggleFocusMode);
+
+    // Keyboard shortcuts popover
+    (function wireKeysPopover() {
+      const btn = document.getElementById('sb-keys-btn');
+      if (!btn) return;
+      // Create popover lazily
+      let pop = null;
+      const ensurePop = () => {
+        if (pop) return pop;
+        pop = document.createElement('div');
+        pop.id = 'sb-keys-pop';
+        pop.className = 'sb-keys-pop';
+        pop.innerHTML = `
+          <h4>keyboard shortcuts</h4>
+          <div class="sb-keys-row"><span class="sb-keys-label">New scene break</span><span class="sb-keys-key">⌘ Enter</span></div>
+          <div class="sb-keys-row"><span class="sb-keys-label">Next scene</span><span class="sb-keys-key">Tab</span></div>
+          <div class="sb-keys-row"><span class="sb-keys-label">Previous scene</span><span class="sb-keys-key">⇧ Tab</span></div>
+          <div class="sb-keys-row"><span class="sb-keys-label">Focus / exit focus</span><span class="sb-keys-key">F</span></div>
+          <div class="sb-keys-row"><span class="sb-keys-label">Play / pause</span><span class="sb-keys-key">Space</span></div>
+          <div class="sb-keys-row"><span class="sb-keys-label">Close popover</span><span class="sb-keys-key">Esc</span></div>
+          <div class="sb-keys-row"><span class="sb-keys-label">Break at selection</span><span class="sb-keys-key">select → ✂</span></div>
+        `;
+        document.body.appendChild(pop);
+        return pop;
+      };
+      const position = () => {
+        const p = ensurePop();
+        const rect = btn.getBoundingClientRect();
+        p.style.right = (window.innerWidth - rect.right) + 'px';
+        p.style.top = (rect.bottom + 6) + 'px';
+        p.style.left = 'auto';
+      };
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const p = ensurePop();
+        const on = p.classList.toggle('is-on');
+        if (on) position();
+      });
+      document.addEventListener('click', () => ensurePop().classList.remove('is-on'));
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && ensurePop().classList.contains('is-on')) {
+          ensurePop().classList.remove('is-on');
+        }
+      });
+    })();
+
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         const reader = document.getElementById('sb-reader');
