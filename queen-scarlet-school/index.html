@@ -10671,7 +10671,7 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
       // Auto-generate imagery for any cue that doesn't have one yet.
       // Cascade through them so they stream in while Henry reads.
       const firstUnready = storybook.cues.find(c => !c.image_url);
-      if (firstUnready) triggerStorybookGen(firstUnready.id, false);
+      if (firstUnready) triggerStorybookGen(firstUnready.id, false, '', { silentInflight: true, silentToast: true });
     }
 
     /* For each block: if it's long, has only the default auto-cue, and
@@ -10732,7 +10732,7 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
           renderStorybookArt();
           // Kick gen for any new unready cues
           const nextUnready = storybook.cues.find(c => !c.image_url);
-          if (nextUnready) triggerStorybookGen(nextUnready.id, false);
+          if (nextUnready) triggerStorybookGen(nextUnready.id, false, '', { silentInflight: true, silentToast: true });
         } catch (e) {
           // Soft fail — don't mark as scanned so a future open retries
         }
@@ -11349,7 +11349,7 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
         existingLayers.forEach(l => l.classList.remove('is-active'));
         setTimeout(() => existingLayers.forEach(l => l.remove()), 320);
         if (!storybook.genInflight.has(scene.id)) {
-          triggerStorybookGen(scene.id, false);
+          triggerStorybookGen(scene.id, false, '', { silentInflight: true, silentToast: true });
         }
       }
       frame.classList.toggle('is-generating', isGenerating || !url);
@@ -11473,7 +11473,9 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
           if (riff?.classList.contains('is-open')) toggleStorybookRiff(false);
           // Cascade: queue the next cue's image if it doesn't have one yet
           const next = storybook.cues[bestIdx + 1];
-          if (next && !next.image_url) triggerStorybookGen(next.id, false);
+          if (next && !next.image_url) {
+            triggerStorybookGen(next.id, false, '', { silentInflight: true, silentToast: true });
+          }
         }
       });
     }
@@ -11483,20 +11485,54 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
     // refs from the cast page. Persists the result on the cue and
     // re-renders. For the default auto-cue at offset 0, we ALSO
     // mirror to b.__image so the Storyboard stage stays in sync.
-    async function triggerStorybookGen(cueId, isVariation = false, extraInstruction = '') {
-      if (!cueId) return null;
-      if (storybook.genInflight.has(cueId)) return null;
+    //
+    // Returns { ok, error?, variationId?, cue? }. Never throws — failures
+    // are toasted + logged + reflected on cueRef.error_msg.
+    //
+    // Options:
+    //   referenceUrl — pass the current image URL so the model can RIFF
+    //     on it instead of drawing from scratch.
+    //   silentInflight — suppress the "still drawing" toast (for
+    //     background cascades that shouldn't yell at the user).
+    //   silentToast — suppress the failure toast (for cascades).
+    async function triggerStorybookGen(cueId, isVariation = false, extraInstruction = '', opts = {}) {
+      const reqId = Math.random().toString(36).slice(2, 8);
+      const tag = `[sb-gen ${reqId}]`;
+      const log  = (...a) => { try { console.info(tag, ...a); } catch {} };
+      const warn = (...a) => { try { console.warn(tag, ...a); } catch {} };
+      const errLog = (...a) => { try { console.error(tag, ...a); } catch {} };
+
+      if (!cueId) { warn('no cueId given'); return { ok: false, error: 'no cue id' }; }
+      if (storybook.genInflight.has(cueId)) {
+        warn('already in-flight for', cueId);
+        if (!opts.silentInflight) sbToast('still drawing this one — give me a sec');
+        return { ok: false, error: 'in-flight' };
+      }
       const cueRef = storybook.cues.find(c => c.id === cueId);
-      if (!cueRef) return null;
+      if (!cueRef) {
+        warn('cue not in storybook.cues:', cueId);
+        if (!opts.silentToast) sbToast('that scene disappeared — pick another');
+        return { ok: false, error: 'cue not found' };
+      }
       const block = (state.blocks || []).find(b => b.id === cueRef.blockId);
       const cueData = (block?.__cues || []).find(c => c.id === cueId);
-      if (!block || !cueData) return null;
+      if (!block || !cueData) {
+        warn('block or cueData missing for', cueId, { hasBlock: !!block, hasCueData: !!cueData });
+        if (!opts.silentToast) sbToast('lost the scene data — refresh the page');
+        return { ok: false, error: 'block/cue data missing' };
+      }
 
       storybook.genInflight.add(cueId);
       cueRef.status = 'generating';
       cueData._generating = true;
       renderStorybookArt();
       renderMarginThumbs();
+      log('start', {
+        cueId,
+        variation: isVariation,
+        hasExtra: !!extraInstruction,
+        hasReference: !!opts.referenceUrl,
+      });
 
       try {
         // Build the SAME prompt shape Storyboard uses, but anchored on
@@ -11519,16 +11555,16 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
             const notes = (c?.visual_notes || '').trim();
             if (notes) castNotes.push(`${displayName}: ${notes}`);
           }
-        } catch {}
+        } catch (e) { warn('cast load failed', e); }
         castRefs = castRefs.slice(0, 3);
 
+        // Build the reference list. Cast portraits first; if the user is
+        // riffing, the existing image gets added so the model edits it
+        // instead of drawing from scratch.
+        const refs = [...castRefs];
+        if (opts.referenceUrl) refs.push(opts.referenceUrl);
+
         const sceneText = (cueData.source_text || block.text || '').slice(0, 1500);
-        // Centralized prompt builder — see QSSArt above. Includes
-        // GLOBAL_STYLE_PREFACE + COMPOSITION_RULE + GLOBAL_PROP_RULE +
-        // the character lookbook (only the characters detected in
-        // THIS scene's text). Cast portraits from the cast page
-        // still get attached as reference images. Custom notes from
-        // the cast page (castNotes) are appended as an extra hint.
         const extraInstructionParts = [];
         if (castNotes.length) {
           extraInstructionParts.push('Additional canon notes from the cast page: ' + castNotes.join('; '));
@@ -11541,24 +11577,36 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
           extra: extraInstructionParts.join(' — '),
           variation: !!isVariation,
         });
+        log('calling /api/nano-banana', { promptChars: composedPrompt.length, refCount: refs.length });
 
-        const res = await fetch('/api/nano-banana', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mode: 'image',
-            prompt: composedPrompt,
-            model: 'nano-banana',
-            referenceImages: castRefs,
-          }),
-        });
+        // 120s fetch timeout so a hung request can't pin the inflight
+        // lock forever (the previous version had no timeout — if the API
+        // ever stalled, the inflight Set kept that cue dead until reload).
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 120000);
+        let res;
+        try {
+          res = await fetch('/api/nano-banana', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              mode: 'image',
+              prompt: composedPrompt,
+              model: 'nano-banana',
+              referenceImages: refs,
+            }),
+            signal: ctrl.signal,
+          });
+        } finally { clearTimeout(tid); }
+        log('nano-banana response', res.status);
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
-          throw new Error(j.error || j.message || `${res.status}`);
+          throw new Error(j.error || j.message || `nano-banana HTTP ${res.status}`);
         }
         const data = await res.json();
         const im = data.images?.[0];
-        if (!im) throw new Error('no image came back');
+        if (!im) throw new Error('nano-banana returned no image');
+        log('got image bytes', { bytes: (im.dataBase64 || '').length, mime: im.mimeType });
 
         // Upload bytes to Supabase Storage (same bucket the scene-illustrate
         // and storyboard endpoints use). Store only the URL on the cue so
@@ -11567,6 +11615,7 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
         let cdnUrl = null;
         try {
           const storyId = state.serverId || state.cloudId || state.id || 'no-story';
+          log('calling /api/qss-image-upload', { storyId, blockId: block.id });
           const up = await fetch('/api/qss-image-upload', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -11578,12 +11627,17 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
               world: (state.world || (typeof QSSWorlds !== 'undefined' && QSSWorlds.current && QSSWorlds.current()) || ''),
             }),
           });
+          log('upload response', up.status);
           if (up.ok) {
             const upJson = await up.json();
             cdnUrl = upJson.url || null;
+            log('cdn url', cdnUrl);
+          } else {
+            const t = await up.text().catch(() => '');
+            warn('upload failed — falling back to inline base64', up.status, t.slice(0, 200));
           }
         } catch (e) {
-          try { console.warn('[storybook upload failed, using inline base64]', e); } catch {}
+          warn('upload threw — falling back to inline base64', e?.message || e);
         }
 
         // Append as a new VARIATION (not replace the image). The new
@@ -11616,24 +11670,35 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
         cueData._generating = false;
         if (typeof persist === 'function') persist();
 
-        // Rebuild flat cues so variations carousel shows the new thumb
+        // Rebuild flat cues so variations carousel shows the new thumb.
+        // The cueRef we held above is now STALE (no longer in the array),
+        // so re-locate it so .status = 'ready' lands on a live object.
         storybook.cues = buildStorybookCues();
-        cueRef.status = 'ready';
+        const liveCueRef = storybook.cues.find(c => c.id === cueId);
+        if (liveCueRef) liveCueRef.status = 'ready';
         renderStorybookArt();
         renderStorybookRail();
         renderMarginThumbs();
+        log('done', { variationId: newVariation.id, hasCdn: !!cdnUrl });
 
-        // Cascade: kick the next unready cue
+        // Cascade: kick the next unready cue (silent — this is background)
         const next = storybook.cues.find(c => !c.image_url && c.id !== cueId);
-        if (next) triggerStorybookGen(next.id, false);
-        return cueRef;
+        if (next) triggerStorybookGen(next.id, false, '', { silentInflight: true, silentToast: true });
+        return { ok: true, variationId: newVariation.id, cue: liveCueRef || cueRef };
       } catch (e) {
+        errLog('FAIL', e?.message || e, e);
         cueRef.status = 'error';
         cueRef.error_msg = e?.message || 'something broke';
         if (cueData) cueData._generating = false;
         renderStorybookArt();
         renderMarginThumbs();
-        return null;
+        if (!opts.silentToast) {
+          const msg = (e?.name === 'AbortError')
+            ? 'drawing timed out after 2 minutes — try again'
+            : `couldn’t draw — ${(e?.message || 'failed').slice(0, 80)}`;
+          sbToast(msg);
+        }
+        return { ok: false, error: e?.message || 'gen failed' };
       } finally {
         storybook.genInflight.delete(cueId);
       }
@@ -11817,18 +11882,22 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
 
       // Vote / variation buttons
       document.getElementById('sb-up-btn')?.addEventListener('click', () => sbCastVote('up'));
-      document.getElementById('sb-down-btn')?.addEventListener('click', () => {
+      document.getElementById('sb-down-btn')?.addEventListener('click', async () => {
         const cue = storybook.cues[storybook.activeIdx];
+        if (!cue) { sbToast('no scene selected'); return; }
         sbCastVote('down');
-        if (cue) triggerStorybookGen(cue.id, true);
+        const r = await triggerStorybookGen(cue.id, true);
+        if (r?.ok) sbToast('drew a different take');
       });
-      document.getElementById('sb-variation-btn')?.addEventListener('click', () => {
+      document.getElementById('sb-variation-btn')?.addEventListener('click', async () => {
         const cue = storybook.cues[storybook.activeIdx];
-        if (cue) triggerStorybookGen(cue.id, true);
+        if (!cue) { sbToast('no scene selected'); return; }
+        const r = await triggerStorybookGen(cue.id, true);
+        if (r?.ok) sbToast('drew a new version');
       });
 
       // Variation carousel — click thumb to switch, + to add, × to delete
-      document.getElementById('sb-art-variations')?.addEventListener('click', (e) => {
+      document.getElementById('sb-art-variations')?.addEventListener('click', async (e) => {
         const del = e.target.closest('.sb-var-thumb-x');
         if (del) {
           e.stopPropagation();
@@ -11843,7 +11912,9 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
         const add = e.target.closest('#sb-var-add');
         if (add) {
           const c = storybook.cues[storybook.activeIdx];
-          if (c) triggerStorybookGen(c.id, true);
+          if (!c) { sbToast('no scene selected'); return; }
+          const r = await triggerStorybookGen(c.id, true);
+          if (r?.ok) sbToast('drew a new version');
         }
       });
 
@@ -12004,11 +12075,13 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
         sbToast('no scene selected yet');
         return;
       }
-      // Build a riff instruction that ALSO points the model at the existing
-      // image as a reference. triggerStorybookGen pushes it as a new variation.
+      // Build a riff instruction. If there's an existing image, pass its
+      // URL as a reference so the model RIFFS on it (keeps composition,
+      // applies the change). Otherwise it's a fresh draw with the riff
+      // text as guidance.
       const baseUrl = cue.image_url;
       const riffInstruction = baseUrl
-        ? `RIFF on the existing image (passed as a reference). User's change: ${text}. Keep everything else the same unless the change implies otherwise.`
+        ? `RIFF: take the attached reference image and apply this change — ${text}. Keep everything else the same unless the change implies otherwise.`
         : `User wants this scene drawn with this guidance: ${text}.`;
 
       panel.classList.add('is-busy');
@@ -12016,13 +12089,21 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
       const oldLabel = sendBtn.textContent;
       sendBtn.textContent = 'drawing…';
 
-      try {
-        await triggerStorybookGen(cue.id, true, riffInstruction);
-        // Record the riff text on the variation we just created (last one)
+      try { console.info('[riff] send', { cueId: cue.id, hasBase: !!baseUrl, text: text.slice(0, 80) }); } catch {}
+      const r = await triggerStorybookGen(cue.id, true, riffInstruction, {
+        referenceUrl: baseUrl || undefined,
+      });
+      if (!r || !r.ok) {
+        // triggerStorybookGen already toasted; just keep the input populated
+        // so the kid can edit + retry without retyping.
+        try { console.warn('[riff] failed', r?.error); } catch {}
+      } else {
+        // Record the riff text on the NEW variation (located by id from
+        // the result so we don't accidentally tag the wrong one).
         try {
           const block = (state.blocks || []).find(b => b.id === cue.blockId);
           const cueData = (block?.__cues || []).find(cc => cc.id === cue.id);
-          const v = cueData?.variations?.[cueData.variations.length - 1];
+          const v = cueData?.variations?.find(x => x.id === r.variationId);
           if (v) {
             v.riff = text.slice(0, 600);
             if (typeof persist === 'function') persist();
@@ -12030,16 +12111,12 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
         } catch {}
         input.value = '';
         sbToast('drew a new version + saved');
-      } catch (e) {
-        sbToast('couldn’t draw that — try again');
-        try { console.warn('[riff failed]', e); } catch {}
-      } finally {
-        panel.classList.remove('is-busy');
-        sendBtn.disabled = false;
-        sendBtn.textContent = oldLabel || 'draw it';
-        // Re-focus so the kid can keep iterating without re-clicking
-        setTimeout(() => input.focus(), 80);
       }
+      panel.classList.remove('is-busy');
+      sendBtn.disabled = false;
+      sendBtn.textContent = oldLabel || 'draw it';
+      // Re-focus so the kid can keep iterating without re-clicking
+      setTimeout(() => input.focus(), 80);
     }
 
     /* ──── Storybook image-edit modal ──── */

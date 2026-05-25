@@ -5565,15 +5565,25 @@ function formatPinAddress(pin) {
   if (a) {
     const STREET_ABBR = { 'lane': 'LN', 'street': 'ST', 'road': 'RD', 'avenue': 'AVE', 'place': 'PL', 'drive': 'DR', 'court': 'CT', 'terrace': 'TER', 'boulevard': 'BLVD', 'highway': 'HWY', 'parkway': 'PKWY', 'circle': 'CIR' };
     const DIR_ABBR = { 'west': 'W', 'east': 'E', 'north': 'N', 'south': 'S' };
+    // Two addrParts shapes exist in the wild:
+    //   Nominatim shape: { house_number, road, village/town/city, state_code }
+    //   Simple shape:    { street, city, state, zip }  (used by bulk importers)
+    // Support both.
+    let num = a.house_number || '';
     let road = (a.road || '').trim();
+    if (!road && a.street) {
+      // Split "13 Cedar LN" → num="13", road="Cedar LN"
+      const m = String(a.street).match(/^(\d+[A-Z]?)\s+(.+)$/);
+      if (m) { num = num || m[1]; road = m[2]; }
+      else road = String(a.street);
+    }
     if (road) {
       road = road.replace(/\b(West|East|North|South)\b/g, w => DIR_ABBR[w.toLowerCase()] || w);
       road = road.replace(/\b(Lane|Street|Road|Avenue|Place|Drive|Court|Terrace|Boulevard|Highway|Parkway|Circle)\b/gi,
         w => STREET_ABBR[w.toLowerCase()] || w);
     }
-    const num = a.house_number || '';
     const place = a.village || a.town || a.city || a.hamlet || '';
-    const state = a.state_code || '';
+    const state = a.state_code || a.state || '';
     const parts = [
       [num, road].filter(Boolean).join(' '),
       place,
