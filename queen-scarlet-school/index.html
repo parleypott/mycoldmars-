@@ -11023,7 +11023,7 @@
       const blocks = state.blocks || [];
       let repaired = 0;
       for (const b of blocks) {
-        const text = String(b.text || ‘’);
+        const text = String(b.text || '');
         if (!text || text.length < 30) continue;
         const paras = text.split(/\n{2,}/);
         if (paras.length < 3) continue;
@@ -11049,8 +11049,8 @@
         for (const p of pass1) {
           const trimmed = p.trim();
           const prev = pass2.length > 0 ? pass2[pass2.length - 1] : null;
-          const prevEnd = prev !== null ? prev.trimEnd() : ‘’;
-          const prevLastChar = prevEnd ? prevEnd[prevEnd.length - 1] : ‘’;
+          const prevEnd = prev !== null ? prev.trimEnd() : '';
+          const prevLastChar = prevEnd ? prevEnd[prevEnd.length - 1] : '';
           // Short fragment AND previous ended in a bare letter (not punctuation) = join
           if (prev !== null && /[A-Za-z]/.test(prevLastChar) && trimmed.length > 0 && trimmed.length < 10) {
             pass2[pass2.length - 1] = prevEnd + trimmed;
@@ -11059,16 +11059,16 @@
           }
         }
 
-        const fixed = pass2.join(‘\n\n’);
+        const fixed = pass2.join('\n\n');
         if (fixed !== text) {
           b.text = fixed;
-          b.__sceneBreaksScanned = ‘’;
+          b.__sceneBreaksScanned = '';
           repaired++;
         }
       }
       if (repaired > 0) {
-        try { console.warn(‘[sb-cleanup] repaired’, repaired, ‘corrupt block.text(s) — mid-word fragments rejoined’); } catch {}
-        if (typeof persist === ‘function’) persist();
+        try { console.warn('[sb-cleanup] repaired', repaired, 'corrupt block.text(s) — mid-word fragments rejoined'); } catch {}
+        if (typeof persist === 'function') persist();
         try { if (window.Lib?.flush) window.Lib.flush(); } catch {}
       }
     }
