@@ -12403,7 +12403,7 @@
     // (real-world 504s after 60s). Downsampling to ~768px wide gives
     // the model plenty of detail to riff on while keeping the call fast
     // and the request body small. Typical output: 60-150KB jpeg.
-    async function urlToInlineData(url, { maxSide = 768, quality = 0.82 } = {}) {
+    async function urlToInlineData(url, { maxSide = 512, quality = 0.78 } = {}) {
       try {
         const res = await fetch(url, { credentials: 'omit', mode: 'cors' });
         if (!res.ok) return null;

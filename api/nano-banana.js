@@ -148,10 +148,12 @@ Be Wordy. Riff with him. Celebrate the irreverent voice. Push for surprises that
 // the 25s edge cap. The default-export wrapper below handles Vercel's
 // Express-style (req, res) signature by adapting it to the inner Web Request
 // handler that already returns Response objects.
-// 90s — give Gemini room when riff requests carry a reference image.
-// Vercel Pro caps Node serverless at 300s; 90 is well within that and
-// double the old 60s wall (which was kicking in on real riff requests).
-export const config = { runtime: 'nodejs', maxDuration: 90 };
+// 300s — the Vercel Pro ceiling. With-reference Gemini calls (riffs) can
+// take 60-120s and we'd rather give them room than 504 the user. Without
+// this, the function dies at maxDuration before Gemini finishes returning
+// bytes. The server-side retry-without-reference below catches anything
+// that still doesn't fit.
+export const config = { runtime: 'nodejs', maxDuration: 300 };
 
 /**
  * Queen Scarlet's School backend. Two modes:
@@ -1493,51 +1495,57 @@ async function handleImage(body, apiKey) {
   parts.push({ text: prompt });
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`;
-  const payload = {
-    contents: [{ parts }],
-    generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-  };
+  const refPartCount = parts.filter(p => p.inlineData).length;
 
-  let res;
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify(payload),
-    });
-  } catch (err) {
-    return jsonError(502, `Gemini request failed: ${err.message}`);
-  }
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    return jsonError(res.status, `Gemini ${res.status}: ${errText.slice(0, 800)}`);
-  }
-
-  const data = await res.json().catch(() => null);
-  if (!data) return jsonError(502, 'Gemini returned non-JSON response');
-
-  const images = [];
-  let text = '';
-  const candidates = data.candidates || [];
-  for (const c of candidates) {
-    for (const p of (c?.content?.parts || [])) {
-      if (p.inlineData?.data) {
-        images.push({
-          mimeType: p.inlineData.mimeType || 'image/png',
-          dataBase64: p.inlineData.data,
-        });
-      } else if (p.text) {
-        text += (text ? '\n' : '') + p.text;
+  // Try once with everything. If that fails AND we had reference images,
+  // retry once without them — better to hand back a fresh-drawn image
+  // than a 504. The text prompt usually carries enough description to
+  // get a reasonable result on its own.
+  async function callGemini(partsToSend, label) {
+    const t0 = Date.now();
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({
+          contents: [{ parts: partsToSend }],
+          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+        }),
+      });
+    } catch (err) {
+      return { ok: false, status: 0, error: `Gemini fetch threw (${label}): ${err.message}`, ms: Date.now() - t0 };
+    }
+    const ms = Date.now() - t0;
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      return { ok: false, status: res.status, error: `Gemini ${res.status} (${label}): ${errText.slice(0, 600)}`, ms };
+    }
+    const data = await res.json().catch(() => null);
+    if (!data) return { ok: false, status: 502, error: `Gemini non-JSON (${label})`, ms };
+    const images = [];
+    let text = '';
+    for (const c of (data.candidates || [])) {
+      for (const p of (c?.content?.parts || [])) {
+        if (p.inlineData?.data) images.push({ mimeType: p.inlineData.mimeType || 'image/png', dataBase64: p.inlineData.data });
+        else if (p.text) text += (text ? '\n' : '') + p.text;
       }
     }
+    if (!images.length) {
+      return { ok: false, status: 502, error: `Gemini returned no image (${label})${text ? ': ' + text.slice(0, 300) : ''}`, ms };
+    }
+    return { ok: true, images, text, ms };
   }
 
-  if (!images.length) {
-    return jsonError(502, text ? `No image returned. Model said: ${text.slice(0, 400)}` : 'No image returned');
+  let result = await callGemini(parts, refPartCount ? `with ${refPartCount} refs` : 'no refs');
+  if (!result.ok && refPartCount > 0) {
+    console.warn(`[nano-banana] with-refs call failed (${result.ms}ms, status ${result.status}): ${result.error.slice(0, 200)} — retrying without refs`);
+    const textOnlyParts = parts.filter(p => !p.inlineData);
+    result = await callGemini(textOnlyParts, 'no-refs retry');
   }
+  if (!result.ok) return jsonError(result.status || 502, result.error);
 
-  return jsonResponse({ images, text, model: modelId });
+  return jsonResponse({ images: result.images, text: result.text, model: modelId, ms: result.ms });
 }
 
 // ──────────────── helpers ────────────────

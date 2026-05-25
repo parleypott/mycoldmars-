@@ -6094,7 +6094,7 @@ function pinAddressParts(pin) {
     return {
       street: segs[0] || '',
       place: cleanPlace(segs[1] || ''),
-      state: (segs[2] || '').toUpperCase().slice(0, 2),
+      state: normalizeStateAbbrev(segs[2] || ''),
     };
   }
   const STREET_ABBR = { 'lane': 'LN', 'street': 'ST', 'road': 'RD', 'avenue': 'AVE', 'place': 'PL', 'drive': 'DR', 'court': 'CT', 'terrace': 'TER', 'boulevard': 'BLVD', 'highway': 'HWY', 'parkway': 'PKWY', 'circle': 'CIR' };
@@ -6112,12 +6112,31 @@ function pinAddressParts(pin) {
       w => STREET_ABBR[w.toLowerCase()] || w);
   }
   const place = cleanPlace(a.village || a.town || a.city || a.hamlet || '');
-  const state = (a.state_code || a.state || '').toUpperCase().slice(0, 2);
+  const state = normalizeStateAbbrev(a.state_code || a.state || '');
   return {
     street: [num, road].filter(Boolean).join(' '),
     place,
     state,
   };
+}
+
+// Nominatim sometimes returns full state names ("New York"). Bare slice(0,2)
+// of "New York" → "NE" (Nebraska bug). Map full names to USPS abbreviations.
+const US_STATE_ABBREV = {
+  'new york': 'NY', 'connecticut': 'CT', 'new jersey': 'NJ', 'pennsylvania': 'PA',
+  'massachusetts': 'MA', 'rhode island': 'RI', 'vermont': 'VT', 'new hampshire': 'NH',
+  'maine': 'ME', 'maryland': 'MD', 'delaware': 'DE', 'virginia': 'VA',
+  'california': 'CA', 'florida': 'FL', 'texas': 'TX',
+};
+function normalizeStateAbbrev(s) {
+  const v = String(s || '').trim();
+  if (!v) return '';
+  if (v.length === 2) return v.toUpperCase();
+  const lower = v.toLowerCase();
+  if (US_STATE_ABBREV[lower]) return US_STATE_ABBREV[lower];
+  // Fallback: take first letters of each word ("New York" → "NY", "North Carolina" → "NC")
+  const initials = v.split(/\s+/).map(w => w[0] || '').join('').toUpperCase().slice(0, 2);
+  return initials || v.toUpperCase().slice(0, 2);
 }
 
 // Compact address — one line, drops "New York" and "Village of " noise.
