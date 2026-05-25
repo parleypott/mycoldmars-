@@ -8288,11 +8288,14 @@ function renderPins() {
     card.dataset.id = pin.id;
     card.dataset.rank = pin.rank || 0;
     const tx = pin.muniKey && TAX_DATA[pin.muniKey];
-    const tr = pin.train, tl = pin.trail;
-    const trainDist = tr.driveDistMi != null ? tr.driveDistMi.toFixed(1) + ' mi' : fmtMiles(tr.miles);
-    const trainWalk = tr.walkMin != null ? tr.walkMin + ' min walk' : '~' + walkMin(tr.miles) + ' min walk';
+    // Null-guards: pins imported in bulk (without per-pin enrichment yet) can
+    // have train/trail = null. Render '—' instead of crashing.
+    const tr = pin.train || {};
+    const tl = pin.trail || {};
+    const trainDist = tr.driveDistMi != null ? tr.driveDistMi.toFixed(1) + ' mi' : (tr.miles != null ? fmtMiles(tr.miles) : '—');
+    const trainWalk = tr.walkMin != null ? tr.walkMin + ' min walk' : (tr.miles != null ? '~' + walkMin(tr.miles) + ' min walk' : '');
     const trainDrive = tr.driveMin != null ? tr.driveMin + ' min drive' : '— min drive';
-    const trailDist = tl.driveDistMi != null ? tl.driveDistMi.toFixed(1) + ' mi' : fmtMiles(tl.miles);
+    const trailDist = tl.driveDistMi != null ? tl.driveDistMi.toFixed(1) + ' mi' : (tl.miles != null ? fmtMiles(tl.miles) : '—');
     const trailDrive = tl.driveMin != null ? tl.driveMin + ' min drive' : '';
     const c = pin.compass;
     const listingBlock = c ? `
