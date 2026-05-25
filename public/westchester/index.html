@@ -6786,10 +6786,10 @@ let familyCriteriaText = '';
 let familyCriteriaError = '';  // last fetch error, surfaced in fallback so we can debug
 let familyCriteriaLoading = null;
 async function _fetchFamilyCriteriaOnce(attempt) {
-  // Cache-bust the URL so wife's stale CDN/SW cache can't serve a 404 forever
-  const bust = '?v=' + (window.DOCTRINE_VERSION || Date.now());
-  const r = await fetch(FAMILY_CRITERIA_URL + bust, { cache: 'no-cache', credentials: 'same-origin' });
-  if (!r.ok) throw new Error('HTTP ' + r.status + ' on attempt ' + attempt);
+  // Plain URL — no query string. Vercel's Attack Challenge Mode can 403 on
+  // unusual query params. The Cache-Control header below is sufficient.
+  const r = await fetch(FAMILY_CRITERIA_URL, { cache: 'no-cache', credentials: 'same-origin' });
+  if (!r.ok) throw new Error('HTTP ' + r.status + ' on attempt ' + attempt + ' — likely a Vercel firewall challenge; check vercel project settings → security → attack challenge mode');
   const text = await r.text();
   if (!text || text.length < 200) throw new Error('empty/short response on attempt ' + attempt + ' (len=' + (text?.length||0) + ')');
   return text;
