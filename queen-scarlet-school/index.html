@@ -3636,6 +3636,87 @@
     .sb-paragraph .karaoke-word { transition: background 120ms ease; padding: 0 1px; border-radius: 3px; }
     .sb-paragraph .karaoke-word.active { background: var(--yolk); color: var(--ink-bright); }
 
+    /* ──── Scene-card editable text region ────
+     * Each cue (scene break) now renders ONE big editable text card.
+     * Paragraph breaks inside are just whitespace (white-space: pre-wrap
+     * preserves any newlines the kid types). No DOM-level paragraph
+     * splitting — block.text gets reconstructed on blur. */
+    .sb-scene-text {
+      font-family: var(--book-serif, "Source Serif Pro", Georgia, serif);
+      font-size: 19px;
+      line-height: 1.65;
+      color: var(--ink);
+      outline: none;
+      white-space: pre-wrap;
+      word-break: normal;
+      overflow-wrap: break-word;
+      min-height: 1.65em;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1.5px dashed transparent;
+      background: rgba(0,0,0,0.015);
+      transition: background 140ms, border-color 140ms;
+      cursor: text;
+    }
+    .sb-scene-text:hover { background: rgba(0,0,0,0.04); }
+    .sb-scene-text:focus {
+      background: rgba(255,217,100,0.10);
+      border-color: var(--ink-bright);
+    }
+    .sb-scene-text:empty::before {
+      content: "start typing this scene…";
+      color: var(--ink-faint);
+      font-style: italic;
+    }
+    .sb-scene-text ::selection { background: var(--yolk); color: var(--ink-bright); }
+
+    /* "+ scene break" button — appears at the bottom of every scene card
+     * on hover. Click splits the scene at the cursor position (or after
+     * this scene if no cursor). Inserts a new cue + empty scene below. */
+    .sb-add-break-wrap {
+      display: flex; align-items: center; gap: 10px;
+      margin: 10px 0 0 0;
+      padding: 0 16px;
+      opacity: 0;
+      transition: opacity 160ms;
+    }
+    .sb-cue-section:hover .sb-add-break-wrap,
+    .sb-add-break-wrap:hover,
+    .sb-cue-section:focus-within .sb-add-break-wrap {
+      opacity: 1;
+    }
+    .sb-add-break-line { flex: 1; height: 1.5px; background: var(--ink-faint); }
+    .sb-add-break-btn {
+      background: var(--paper-card);
+      color: var(--ink-bright);
+      border: 2px dashed var(--ink-bright);
+      border-radius: 999px;
+      padding: 5px 12px 5px 9px;
+      font-family: var(--mono, monospace);
+      font-size: 10.5px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      transition: transform 100ms, box-shadow 100ms, background 140ms, border-style 140ms;
+    }
+    .sb-add-break-btn:hover {
+      background: var(--yolk);
+      border-style: solid;
+      transform: translate(-1px,-1px);
+      box-shadow: 3px 3px 0 var(--ink-bright);
+    }
+    .sb-add-break-btn:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--ink-bright); }
+    .sb-add-break-btn-plus {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px;
+      background: var(--ink-bright); color: var(--paper);
+      border-radius: 999px; font-size: 12px; font-weight: 800;
+      line-height: 1;
+    }
+
     /* Cue sections — every cue OWNS the paragraphs after it until the
      * next cue. Each section gets a left margin with:
      *   - a thumbnail at the top (image preview or numbered placeholder)
@@ -10680,52 +10761,29 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
       // result updates the header in place when it arrives.
       maybeGenerateBookTitle();
 
-      // For each block, render its paragraphs with cue-mark insertion
-      // points at each cue's text offset. Paragraphs are split on blank
-      // lines; cue marks are placed BEFORE the paragraph whose start
-      // offset is closest to the cue's offset (auto-cue at offset 0
-      // sits before the very first paragraph as the scene header).
-      // Build a flat list of {cue, paragraphs[]} groups, sectioned by
-      // cue. The first cue at offset 0 owns everything before the next
-      // cue's offset, and so on. Each section renders with its margin
-      // thumb, range bar, and the paragraphs between this cue and the
-      // next one.
+      // NEW model — each cue (scene break) renders as ONE editable text
+      // card. The card's text IS the slice of block.text between this
+      // cue's offset and the next cue's offset. Paragraph breaks inside
+      // the text are just whitespace — pre-wrap honors any newlines
+      // the kid types. On blur, the block's text + cue offsets are
+      // recomposed from the cards' current text.
+      //
+      // Between scene cards (and at the end of the last one), a
+      // "+ scene break" button appears on hover. Clicking it creates a
+      // new EMPTY cue right after the current scene so the kid can type
+      // into a fresh scene without paragraph breaks doing structural work.
       host.innerHTML = blocks.map((b, bi) => {
         ensureBlockCues(b);
         const cues = (b.__cues || []).slice().sort((a, c) => (a.offset || 0) - (c.offset || 0));
-        const paras = splitProseForReader(b.text || '');
-
-        // Group paragraphs by which cue OWNS them. A paragraph belongs
-        // to the cue whose offset is the LATEST one less than or equal
-        // to the paragraph's startOffset. Equivalent: walk paragraphs
-        // in order, advance cue index when the next cue's offset
-        // crosses the paragraph's startOffset. This handles cue offsets
-        // that fall mid-paragraph correctly — the paragraph containing
-        // the cue belongs to that cue.
-        const sections = cues.map(cue => ({ cue, paras: [], ci: cues.indexOf(cue) }));
-        let ci = 0;
-        for (const p of paras) {
-          // Advance ci while the NEXT cue's offset is <= this paragraph's end
-          while (ci + 1 < cues.length && (cues[ci + 1].offset || 0) <= p.endOffset) ci++;
-          if (sections[ci]) sections[ci].paras.push(p);
-        }
-
-        // Cues with no paragraphs in range still render (e.g., if a
-        // cue's offset lands inside a paragraph that's owned by the
-        // previous cue) — fold them into the previous section so
-        // they don't orphan.
-        const merged = [];
-        for (const s of sections) {
-          if (s.paras.length === 0 && merged.length > 0) {
-            merged[merged.length - 1].extraCues = merged[merged.length - 1].extraCues || [];
-            merged[merged.length - 1].extraCues.push(s.cue);
-          } else {
-            merged.push(s);
-          }
-        }
+        const text = String(b.text || '');
 
         return `<div class="sb-scene-block" data-block-id="${esc(b.id)}" data-block-idx="${bi}">${
-          merged.map(({ cue, paras: myParas, ci, extraCues }) => {
+          cues.map((cue, idx) => {
+            const start = Math.max(0, Math.min(text.length, cue.offset || 0));
+            const end = (idx + 1 < cues.length)
+              ? Math.max(start, Math.min(text.length, cues[idx + 1].offset || text.length))
+              : text.length;
+            const sceneText = text.slice(start, end).replace(/^\n+/, '').replace(/\n+$/, '');
             const cueIdx = storybook.cues.findIndex(x => x.id === cue.id);
             const cueRef = storybook.cues[cueIdx] || {};
             const num = String(cueIdx + 1).padStart(2, '0');
@@ -10737,9 +10795,6 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
               ? `scene · ${num}`
               : labelFromText(cue.source_text) || `image · ${num}`;
             const labelShort = labelFromText(cue.source_text) || `image ${num}`;
-            const parasHtml = myParas.map(p =>
-              `<p class="sb-paragraph" data-block-id="${esc(b.id)}" data-para-start="${p.startOffset}" data-para-end="${p.endOffset}">${esc(p.text)}</p>`
-            ).join('');
             return `
               <div class="sb-cue-section ${isDefault ? 'sb-cue-default' : ''}"
                    data-cue-id="${esc(cue.id)}"
@@ -10758,7 +10813,22 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
                   <span class="sb-cue-rule"></span>
                   <button class="sb-cue-delete" type="button" title="Remove this image break" aria-label="Remove">✕</button>
                 </div>
-                ${parasHtml}
+                <div class="sb-scene-text sb-paragraph"
+                     contenteditable="true"
+                     spellcheck="true"
+                     data-block-id="${esc(b.id)}"
+                     data-cue-id="${esc(cue.id)}"
+                     data-cue-idx="${cueIdx}">${esc(sceneText)}</div>
+                <div class="sb-add-break-wrap">
+                  <span class="sb-add-break-line" aria-hidden="true"></span>
+                  <button class="sb-add-break-btn" type="button"
+                          data-block-id="${esc(b.id)}"
+                          data-after-cue="${esc(cue.id)}"
+                          title="Add a new scene break here">
+                    <span class="sb-add-break-btn-plus">+</span> scene break
+                  </button>
+                  <span class="sb-add-break-line" aria-hidden="true"></span>
+                </div>
               </div>
             `;
           }).join('')
@@ -10831,12 +10901,127 @@ Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. Wh
       document.addEventListener('pointercancel', up);
     }
 
-    /* ──── Editable prose — disabled for now ────
-     * Was causing wonky behavior (cursor jumps, word splits) because
-     * contenteditable + cue offsets as paragraph breakpoints fought
-     * each other. Coming back as a polish pass once the rest of the
-     * Storybook UX is solid. */
-    function attachStorybookEditing() { /* no-op */ }
+    /* ──── Scene-card editing ────
+     * Each .sb-scene-text is one big contenteditable region per cue.
+     * Paragraph breaks inside are just whitespace (preserved by
+     * white-space: pre-wrap). On blur, the block's text + cue offsets
+     * are recomposed from the cards' text. */
+    function attachStorybookEditing() {
+      const host = document.getElementById('sb-scenes-host');
+      if (!host) return;
+      // Idempotent — bail if already wired
+      if (host._sbEditWired) return;
+      host._sbEditWired = true;
+
+      host.addEventListener('blur', (e) => {
+        const sceneEl = e.target?.closest?.('.sb-scene-text');
+        if (!sceneEl) return;
+        flushBlockScenes(sceneEl.dataset.blockId);
+      }, true);
+
+      // + scene break button → split this scene at the cursor (if cursor
+      // is inside it) or insert an empty scene right after.
+      host.addEventListener('click', (e) => {
+        const btn = e.target.closest('.sb-add-break-btn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        addSceneBreakAfter(btn.dataset.blockId, btn.dataset.afterCue);
+      });
+    }
+
+    // Recompose block.text + cue offsets from the live DOM scene cards.
+    // Called on blur of any scene-text. Each scene's editable contents
+    // gets read back, joined with a single blank line between scenes,
+    // and the cues' offsets are updated to match the new joined string.
+    function flushBlockScenes(blockId) {
+      if (!blockId) return;
+      const block = (state.blocks || []).find(b => b.id === blockId);
+      if (!block) return;
+      const sceneEls = Array.from(document.querySelectorAll(`.sb-scene-text[data-block-id="${blockId}"]`));
+      if (!sceneEls.length) return;
+      // Normalize each scene's text: collapse 3+ newlines to 2; trim.
+      const parts = sceneEls.map(el => {
+        const raw = (el.innerText || el.textContent || '');
+        return raw.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '');
+      });
+      const cueIds = sceneEls.map(el => el.dataset.cueId);
+      const SEP = '\n\n';
+      const newText = parts.join(SEP);
+      if (newText === block.text) return;
+
+      // Update each cue's offset to the position where its slice begins
+      // in the joined newText. Also keep source_text in sync for the
+      // image prompt + label generation.
+      let offset = 0;
+      for (let i = 0; i < cueIds.length; i++) {
+        const cue = (block.__cues || []).find(c => c.id === cueIds[i]);
+        if (cue) {
+          cue.offset = offset;
+          cue.source_text = parts[i].slice(0, 1500);
+        }
+        offset += parts[i].length;
+        if (i < parts.length - 1) offset += SEP.length;
+      }
+
+      block.text = newText;
+      block.__sceneBreaksScanned = ''; // let the auto-detect re-run if/when needed
+      if (typeof persist === 'function') persist();
+      storybook.cues = buildStorybookCues();
+      renderStorybookRail();
+      renderMarginThumbs();
+      // Do NOT re-render prose — the live DOM is already correct and
+      // re-rendering would steal focus from the kid mid-edit.
+    }
+
+    // + scene break button. Take the focused-scene's selection (if any)
+    // as the split point; otherwise split at the very end. Creates a
+    // new empty cue right after `afterCueId`.
+    function addSceneBreakAfter(blockId, afterCueId) {
+      const block = (state.blocks || []).find(b => b.id === blockId);
+      if (!block) return;
+      // Flush any in-progress edits first so block.text is up to date.
+      flushBlockScenes(blockId);
+
+      const cues = (block.__cues || []).slice().sort((a, b) => (a.offset || 0) - (b.offset || 0));
+      const idx = cues.findIndex(c => c.id === afterCueId);
+      if (idx < 0) return;
+      const cur = cues[idx];
+      const next = cues[idx + 1];
+      const sceneEnd = next ? (next.offset || 0) : (block.text || '').length;
+
+      // If the user's selection cursor is inside the current scene card,
+      // use it as the split point. Otherwise default to end of scene.
+      let splitOffset = sceneEnd;
+      try {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          const sceneEl = (range.startContainer.nodeType === 1
+            ? range.startContainer
+            : range.startContainer.parentElement)?.closest('.sb-scene-text');
+          if (sceneEl && sceneEl.dataset.cueId === afterCueId) {
+            const r2 = document.createRange();
+            r2.setStart(sceneEl, 0);
+            r2.setEnd(range.startContainer, range.startOffset);
+            const intra = r2.toString().length;
+            splitOffset = (cur.offset || 0) + intra;
+          }
+        }
+      } catch {}
+
+      // Clamp: must be strictly inside (cur.offset, sceneEnd] — and not
+      // collide with an existing cue offset.
+      splitOffset = Math.max((cur.offset || 0) + 1, Math.min(splitOffset, sceneEnd));
+      const collision = (block.__cues || []).find(c => Math.abs((c.offset || 0) - splitOffset) < 2);
+      if (collision) {
+        sbToast('that spot already has a scene break');
+        return;
+      }
+      const sourceText = (block.text || '').slice(splitOffset, splitOffset + 800);
+      createCueAtSelection(blockId, splitOffset, sourceText);
+    }
+
     function onProseBeforeInput(e) {
       // Capture Enter (insertParagraph) and turn it into a cue creation
       // at the cursor position. The browser's default would create a
