@@ -973,6 +973,19 @@ body.hide-houses .whh-marker { display: none !important; }
 }
 .whh-marker.is-starred:hover { box-shadow: 0 6px 18px rgba(184, 134, 11, 0.6), 0 0 0 5px rgba(255, 214, 10, 0.25); }
 
+/* Muted/deprioritized pins — faded, desaturated, smaller-feeling */
+.whh-marker.is-muted {
+  opacity: 0.32;
+  filter: grayscale(1);
+  background: #C8C8C8;
+  color: #6B6B6B;
+  border-color: rgba(0,0,0,0.18);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  z-index: 0;
+}
+.whh-marker.is-muted:hover { opacity: 0.55; filter: grayscale(0.7); }
+.whh-marker.is-muted svg { fill: #6B6B6B; }
+
 .maplibregl-ctrl-attrib { font-size: 9px !important; }
 
 /* Compass listing upload — buttons inside layers-panel Listings section */
@@ -1202,6 +1215,29 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 }
 .tv-star-btn:hover { color: #B8860B; transform: scale(1.15); }
 .tv-row.starred .tv-star-btn { color: #E5B500; text-shadow: 0 1px 2px rgba(184,134,11,0.3); }
+
+/* Muted/deprioritized rows — desaturated wash, dim text, faded chips */
+.tv-row.muted { background: rgba(0,0,0,0.025); opacity: 0.55; filter: grayscale(0.85); }
+.tv-row.muted:hover { background: rgba(0,0,0,0.05); opacity: 0.75; }
+.tv-row.muted td:first-child { border-left: 3px solid rgba(0,0,0,0.18); padding-left: 11px; }
+.tv-row.muted td { color: #888 !important; }
+.tv-row.muted .tv-score-chip,
+.tv-row.muted .tv-rank-chip { filter: grayscale(1); opacity: 0.7; }
+/* Mute toggle button (sits next to star) */
+.tv-mute-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 4px;
+  color: rgba(0,0,0,0.22);
+  margin-left: 2px;
+  transition: color 120ms, transform 120ms;
+  vertical-align: middle;
+}
+.tv-mute-btn:hover { color: #555; transform: scale(1.18); }
+.tv-row.muted .tv-mute-btn { color: #777; }
 .tv-row > td { padding: 10px 10px; vertical-align: middle; color: var(--ink); white-space: nowrap; }
 .tv-row td.tv-name-cell {
   font-family: 'Instrument Serif', serif; font-style: italic;
@@ -6916,9 +6952,12 @@ function renderMapMarkers() {
   const STAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 14.85 9.2 22 9.85l-5.42 4.74L18.18 22 12 18.27 5.82 22l1.6-7.41L2 9.85 9.15 9.2z"/></svg>';
   pins.forEach((pin, idx) => {
     const el = document.createElement('div');
-    el.className = 'whh-marker' + (pin.starred ? ' is-starred' : '');
+    const classes = ['whh-marker'];
+    if (pin.starred) classes.push('is-starred');
+    if (pin.muted) classes.push('is-muted');
+    el.className = classes.join(' ');
     el.setAttribute('data-rank', pin.rank || 0);
-    el.title = (pin.starred ? '★ ' : '') + `House ${idx + 1}`;
+    el.title = (pin.starred ? '★ ' : '') + (pin.muted ? '(deprioritized) ' : '') + `House ${idx + 1}`;
     el.innerHTML = pin.starred ? STAR_SVG : HOUSE_SVG;
     el.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -6986,7 +7025,10 @@ async function loadAllParcels({ force = false } = {}) {
 function parcelCollection() {
   return {
     type: 'FeatureCollection',
-    features: (pins || []).filter(p => p.parcel).map(p => p.parcel),
+    features: (pins || []).filter(p => p.parcel).map(p => ({
+      ...p.parcel,
+      properties: { ...(p.parcel.properties || {}), muted: !!p.muted, starred: !!p.starred },
+    })),
   };
 }
 
@@ -6999,8 +7041,12 @@ function mountParcelLayers() {
     type: 'fill',
     source: 'parcels',
     paint: {
-      'fill-color': '#E66B2A',
-      'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.20, 0.10],
+      'fill-color': ['case', ['==', ['get', 'muted'], true], '#9A9A9A', '#E66B2A'],
+      'fill-opacity': ['case',
+        ['==', ['get', 'muted'], true], 0.06,
+        ['boolean', ['feature-state', 'hover'], false], 0.20,
+        0.10,
+      ],
     },
   });
   // Outline: crisp orange line, slightly thicker at high zoom
@@ -7009,9 +7055,9 @@ function mountParcelLayers() {
     type: 'line',
     source: 'parcels',
     paint: {
-      'line-color': '#B84B14',
+      'line-color': ['case', ['==', ['get', 'muted'], true], '#888', '#B84B14'],
       'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1, 16, 2, 19, 3],
-      'line-opacity': 0.85,
+      'line-opacity': ['case', ['==', ['get', 'muted'], true], 0.40, 0.85],
     },
   });
 }
@@ -9267,11 +9313,14 @@ function renderTable() {
         ? '<span class="tv-mute" style="font-size:9px;letter-spacing:0.12em;">—</span>'
         : `<span class="tv-score-chip" data-band="${scoreBand(scoreVal)}">${scoreVal}</span>`;
       if (p.starred) tr_.classList.add('starred');
+      if (p.muted) tr_.classList.add('muted');
       const starGlyph = p.starred ? '★' : '☆';
+      const muteGlyph = p.muted ? '⊘' : '○';
       tr_.innerHTML = `
         <td class="tv-expand-col">
           <button class="tv-expand-btn" title="Expand">▸</button>
           <button class="tv-star-btn" data-act="star" data-pin="${escapeHtml(p.id)}" title="${p.starred ? 'Unstar' : 'Star'} this home" aria-pressed="${!!p.starred}">${starGlyph}</button>
+          <button class="tv-mute-btn" data-act="mute" data-pin="${escapeHtml(p.id)}" title="${p.muted ? 'Reactivate this home' : 'Deprioritize / grey out this home'}" aria-pressed="${!!p.muted}">${muteGlyph}</button>
         </td>
         <td class="tv-score-cell">${scoreCell}</td>
         <td class="tv-rank-cell"><span class="tv-rank-chip" data-rank="${p.rank || 0}">${origIdx}</span></td>
@@ -9534,6 +9583,22 @@ function attachTableHandlers() {
         pin.starred = !pin.starred;
         savePins();
         if (typeof renderMapMarkers === 'function') renderMapMarkers();
+        if (typeof renderTable === 'function') renderTable();
+      });
+    }
+    // Mute button — toggle deprioritized state (greys row + map marker)
+    const muteBtn = row.querySelector('.tv-mute-btn');
+    if (muteBtn) {
+      muteBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        e.preventDefault();
+        const id = row.dataset.id;
+        const pin = pins.find(p => p.id === id);
+        if (!pin) return;
+        pin.muted = !pin.muted;
+        savePins();
+        if (typeof renderMapMarkers === 'function') renderMapMarkers();
+        if (typeof updateParcelLayer === 'function') updateParcelLayer();
         if (typeof renderTable === 'function') renderTable();
       });
     }
