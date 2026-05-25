@@ -3974,6 +3974,16 @@
     .sb-cue-section:hover .sb-cue-delete { opacity: 1; }
     .sb-cue-section.sb-cue-default .sb-cue-delete { display: none; }
     .sb-cue-delete:hover { color: var(--red, #d65653); }
+    .sb-scene-auto-break {
+      opacity: 0; transition: opacity 140ms;
+      background: transparent; border: none; color: var(--ink-faint);
+      cursor: pointer; font-family: var(--mono, monospace); font-size: 9px;
+      letter-spacing: 0.14em; text-transform: uppercase; padding: 2px 6px;
+      white-space: nowrap;
+    }
+    .sb-cue-section:hover .sb-scene-auto-break { opacity: 1; }
+    .sb-scene-auto-break:hover { color: var(--yellow, #f5c842); }
+    .sb-scene-auto-break.is-loading { opacity: 1 !important; color: var(--ink-soft); cursor: default; }
 
     /* New-cue confirmation pulse — flashes the section when created */
     @keyframes sb-cue-pulse {
@@ -11117,6 +11127,7 @@
                 <div class="sb-cue-mark">
                   <span class="sb-cue-label">${esc(label)}</span>
                   <span class="sb-cue-rule"></span>
+                  ${sceneText.length > 400 ? `<button class="sb-scene-auto-break" type="button" title="Analyze and split into multiple scenes">break into scenes</button>` : ''}
                   <button class="sb-cue-delete" type="button" title="Remove this image break" aria-label="Remove">✕</button>
                 </div>
                 <div class="sb-scene-text sb-paragraph"
@@ -11391,6 +11402,7 @@
         const del = section.querySelector('.sb-cue-delete');
         const activate = (e) => {
           if (e && e.target && e.target.closest('.sb-cue-delete')) return;
+          if (e && e.target && e.target.closest('.sb-scene-auto-break')) return;
           const idx = storybook.cues.findIndex(c => c.id === cueId);
           if (idx >= 0) {
             storybook.activeIdx = idx;
@@ -11404,6 +11416,82 @@
         del?.addEventListener('click', (e) => {
           e.stopPropagation();
           deleteCue(blockId, cueId);
+        });
+        section.querySelector('.sb-scene-auto-break')?.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const btn = e.currentTarget;
+          if (btn.classList.contains('is-loading')) return;
+
+          const b = (state.blocks || []).find(x => x.id === blockId);
+          if (!b) return;
+          ensureBlockCues(b);
+
+          const allCues = (b.__cues || []).slice().sort((a, c) => (a.offset || 0) - (c.offset || 0));
+          const cueObj = allCues.find(c => c.id === cueId);
+          if (!cueObj) return;
+
+          const cueObjIdx = allCues.indexOf(cueObj);
+          const sliceStart = Math.max(0, cueObj.offset || 0);
+          const sliceEnd = cueObjIdx + 1 < allCues.length
+            ? Math.min((b.text || '').length, allCues[cueObjIdx + 1].offset || (b.text || '').length)
+            : (b.text || '').length;
+          const sliceText = (b.text || '').slice(sliceStart, sliceEnd);
+
+          if (sliceText.length < 400) return;
+
+          btn.textContent = 'analyzing…';
+          btn.classList.add('is-loading');
+
+          try {
+            const r = await fetch('/api/qss-scene-breaks', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: sliceText, world: (state.world || '') }),
+            });
+            if (!r.ok) throw new Error('api error');
+            const d = await r.json();
+            const breaks = Array.isArray(d.breaks) ? d.breaks : [];
+
+            if (!breaks.length) {
+              sbToast('no natural breaks found');
+              btn.textContent = 'break into scenes';
+              btn.classList.remove('is-loading');
+              return;
+            }
+
+            let added = 0;
+            for (const br of breaks) {
+              const relOffset = Math.floor(br.offset || 0);
+              if (relOffset <= 0 || relOffset >= sliceText.length) continue;
+              const absOffset = sliceStart + relOffset;
+              if (b.__cues.some(c => Math.abs((c.offset || 0) - absOffset) < 80)) continue;
+              const sourceText = (b.text || '').slice(absOffset, Math.min((b.text || '').length, absOffset + 800));
+              b.__cues.push({
+                id: uidCue(),
+                offset: absOffset,
+                source_text: sourceText,
+                image: null,
+                auto: false,
+                label: (br.label || '').slice(0, 80),
+                why: (br.why || '').slice(0, 200),
+              });
+              added++;
+            }
+            b.__cues.sort((a, c) => (a.offset || 0) - (c.offset || 0));
+            b.__sceneBreaksScanned = '';
+
+            if (typeof persist === 'function') persist();
+            storybook.cues = buildStorybookCues();
+            renderStorybookProse();
+            renderStorybookRail();
+            renderStorybookArt();
+            if (added) sbToast(`split into ${added + 1} scenes`);
+            else sbToast('no new breaks — already well split');
+          } catch {
+            sbToast('could not analyze — try again');
+            btn.textContent = 'break into scenes';
+            btn.classList.remove('is-loading');
+          }
         });
       });
     }
