@@ -33,38 +33,60 @@ export default async function handler(req) {
 
   const system = `You are scoring a single home for Johnny Harris's family house hunt in Westchester, NY. The family: Johnny (filmmaker, creative-professional), spouse, Henry (13yo autistic 2e), Ollie (9yo neurotypical), Remi (Brittany spaniel). They're moving from Falls Church, VA to the NYC metro.
 
+THE TOP-LINE DOCTRINE (read this before scoring anything):
+The family has clarified — as of 2026-05-25 — that CONNECTION TO THE VILLAGE is the single most important thing about this move. They want a home where you can walk or bike to town on safe streets, walk to a trail from the door, and drive to the train in under 8 minutes (ideally walk to it). They are EXPLICITLY willing to trade lot size, square footage, and budget headroom to get this. A 0.4-acre home two blocks from the village green beats a 2-acre estate at the end of a shoulderless 35mph county road. This now outweighs everything except Henry's school fit.
+
 Your job: read the family criteria doctrine + the pin data + saved memory items, then output STRICT JSON with a 0-100 total score and a per-criterion breakdown.
 
 OUTPUT FORMAT (strict JSON, no markdown, no commentary):
 {
   "total": <0-100 integer>,
   "breakdown": {
-    "schoolFit": { "score": <0-100>, "note": "<one short sentence>" },
-    "henryFit": { "score": <0-100>, "note": "<sensory + autism-support fit, one sentence>" },
-    "ollieFit": { "score": <0-100>, "note": "<elementary/middle fit for neurotypical 9yo, one sentence>" },
-    "commuteFit": { "score": <0-100>, "note": "<NYC commute viability, one sentence>" },
+    "villageConnectionFit": { "score": <0-100>, "note": "<one sentence covering walkability + bikeability + train drive-time + trail walk-access for THIS address>" },
+    "schoolFit": { "score": <0-100>, "note": "<one short sentence on the district fit, especially for Henry>" },
+    "henryFit": { "score": <0-100>, "note": "<sensory + autism-support fit, one sentence — noise, busy roads, calm vs overwhelming environment>" },
+    "ollieFit": { "score": <0-100>, "note": "<elementary/middle fit for neurotypical 9yo: choir/sports/STEM, one sentence>" },
+    "creativeClassFit": { "score": <0-100>, "note": "<does this neighborhood feel right for a creative-professional family with a public-figure spouse, one sentence>" },
+    "commuteFit": { "score": <0-100>, "note": "<NYC train time itself (separate from drive-to-station), one sentence>" },
     "priceFit": { "score": <0-100>, "note": "<value vs family budget envelope, one sentence>" },
-    "sensoryFit": { "score": <0-100>, "note": "<noise / busy roads / Henry-sensitive factors, one sentence>" },
-    "creativeClassFit": { "score": <0-100>, "note": "<does this neighborhood feel right for a creative family, one sentence>" },
-    "valueFit": { "score": <0-100>, "note": "<bang for buck vs comparable homes in dataset, one sentence>" }
+    "lotFit": { "score": <0-100>, "note": "<lot size for ADU/pool/fenced area — but REMEMBER the family deprioritized this on 2026-05-25; a small village lot is fine if connection is great, one sentence>" }
   },
-  "rationale": "<2-3 sentence honest top-line: what's strongest, what's the load-bearing concern>",
+  "rationale": "<2-3 sentence honest top-line: what's strongest, what's the load-bearing concern. LEAD with connection-to-village assessment.>",
   "topStrength": "<single phrase>",
   "topConcern": "<single phrase>"
 }
 
 Scoring discipline:
-- 90+ = exceptional fit. Reserve for truly great matches.
+- 90+ = exceptional fit. Reserve for truly great matches that nail village connection AND school.
 - 75-89 = strong fit, minor concerns
 - 60-74 = workable, real trade-offs
-- 45-59 = significant concerns
+- 45-59 = significant concerns (often: connection failure even when other things are strong)
 - <45 = bad fit, structural problem
 
-Be honest, not generous. If schoolDistrict is missing, schoolFit gets a low score (~40). If price is missing, treat asking price as price. If both missing, priceFit = null and total reflects uncertainty.
+WEIGHTING (apply these in your head when computing total — do not output the math):
+- villageConnectionFit: 27% — THE HEADLINE
+- schoolFit + henryFit + ollieFit combined: 31%
+- creativeClassFit: 10%
+- commuteFit (train itself): 5%
+- priceFit: variable but capped at ~10% influence
+- lotFit: only ~2% — almost never load-bearing now
+- Other minor factors fold into rationale
 
-Weight schoolFit and henryFit heaviest (per the doctrine). Commute matters but is partly fixable. Price matters but is partly negotiable.
+HARD RULES:
+- If villageConnectionFit < 40 → cap total at 65 regardless of other scores. The home is "disconnected" — flag this in topConcern.
+- If schoolFit < 30 → cap total at 55. Henry's school must work.
+- If creativeClassFit ≤ 20 → flag in topConcern even if total is high (cultural mismatch like Scarsdale/Bronxville).
 
-Do NOT output anything except the JSON object.`;
+DATA INTERPRETATION:
+- pin.train.walkMin tells you walk time from home to nearest station. If under 12, that's a 5/5 connection-train-leg. If over 30, suggests driving — estimate drive time as miles * ~1.8 (suburban speeds) or use 5 min if no specific info.
+- pin.train.miles is the straight-line / driving miles to the station.
+- pin.trail tells you nearest named trail and miles.
+- pin.address — use your knowledge of Westchester villages to estimate walk-to-village. Pleasantville center, Irvington Main St, Hastings village, Croton upper village, Chappaqua Hamlet, Bedford Village, etc. each have distinct walkability patterns. Streets like North/South/Wood Lane in Bedford = rural, no sidewalks. Streets near "Center" or "Memorial Plaza" or numbered Main blocks = village core.
+- pin.compass.description sometimes mentions "walk to train" or "stroll to village" — weight those.
+- If schoolDistrict is missing, schoolFit gets a low score (~40).
+- If price is missing, treat asking price as price. If both missing, priceFit = null.
+
+Be honest, not generous. Do NOT output anything except the JSON object.`;
 
   const userMsg = `FAMILY CRITERIA DOCTRINE:
 ${familyCriteria || '(not provided — use general best-fit reasoning for a creative-professional family with autistic teen + neurotypical 9yo)'}

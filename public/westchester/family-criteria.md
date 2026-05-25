@@ -1,7 +1,10 @@
-# Town Ranking Decision Framework
+# Town & Home Ranking Decision Framework
 
 ## Purpose
-This framework evaluates towns in the NYC metro area (Westchester County NY, Rockland County NY, Essex County NJ, Fairfield County CT) for a relocating family. Use these criteria to score and rank towns systematically.
+This framework evaluates **towns** AND **specific homes** in the NYC metro area (Westchester County NY, Rockland County NY, Essex County NJ, Fairfield County CT) for a relocating family. Use these criteria to score and rank systematically.
+
+> **2026-05-25 doctrine update — read this first:**
+> The family has clarified its top priority for the move: **CONNECTION TO THE VILLAGE.** This now outweighs every other single criterion, including school fit. The whole point of moving to Westchester is to live in a place where village life is woven into daily life — where you bike or walk into town for coffee, walk to trails from your door, and the train station is a sub-8-minute drive (ideally walkable). The family is **explicitly willing to trade lot size, square footage, and budget headroom** to get this. A home on a 0.4-acre lot two blocks from the village green beats a 2-acre estate at the end of a 25mph shoulderless county road. Score accordingly.
 
 ---
 
@@ -13,31 +16,55 @@ This framework evaluates towns in the NYC metro area (Westchester County NY, Roc
 - **Henry (13):** Autism, dyslexia, dyspraxia, working memory challenges. Intellectually capable, deep interests in geopolitics/systems/philosophy. No behavioral issues. History of bullying at previous school. **Will attend public school in the home district** — specialized private placement (Karafin, Edenwald, etc.) is not feasible due to cost ($60-80K/year) and the legal advocacy required for IEP-funded placement.
 - **Ollie (9, entering 5th grade):** Loves choir, basketball, STEM. General education student. Currently at Congressional School (Falls Church, VA) which he loves for its warm, holistic, outdoor-focused culture.
 
-**Dog:** Brittany (3 years old, named Remi). Non-reactive, gentle, social with other dogs. Needs ~30 min off-leash daily to be content. Currently has 3,000 sq ft fenced yard + W&OD trail off-leash culture access.
+**Dog:** Brittany (3 years old, named Remi). Non-reactive, gentle, social with other dogs. Needs ~30 min off-leash daily.
 
 **Move drivers:** CEO relocating company operations toward NYC. CEO in NYC 2 days/week. Travels frequently for company business.
 
-**Budget:** Up to $3M for property, with plans for additional ADU build (~$250-500K), pool (~$80-200K), and fencing (~$30-60K).
+**Budget:** Up to $3M for property, with plans for additional ADU build (~$250-500K), pool (~$80-200K), and fencing (~$30-60K). The family will accept the lower end of this range for a smaller, more connected property.
 
 ---
 
 ## Critical Framing for Tool
 
-### THE FILTER: Public School Quality for Henry
+### THE TOP-LINE FILTER: Connection to the Village
 
-Henry will attend public school in the home district. This is the decision filter. Towns where the public middle/high school cannot serve Henry well should be **deprioritized regardless of other scores**.
+**The family is moving to Westchester to live a *connected* life — not a *spacious* one.** A house is great when you can walk out the front door and be in town in under 10 minutes on foot, ideally on a real sidewalk and a quiet street. The dream is a Saturday morning where Ollie bikes to the bagel shop alone, Henry walks to the library, and the parents stroll to a trailhead from the driveway. If a home cannot deliver that, it's failing the most important thing about this move.
+
+**Operationalize this when scoring:**
+
+1. **Walk time from THIS home to the village center** (Main Street / downtown / where the coffee + bookstore + restaurants are):
+   - 0–10 min walk: 5/5
+   - 11–20 min walk: 4/5
+   - 21–30 min walk: 3/5
+   - Driveable-only (no safe walk route): 1/5
+2. **Bike-ability of the route from THIS home to the village:**
+   - Sidewalks AND/OR low-traffic streets the whole way, kid-safe: 5/5
+   - Mixed — some quiet roads, some sketchy crossings: 3/5
+   - 25–45mph county roads with no shoulder, kid-unsafe: 1/5
+3. **Walking distance from THIS home to a real trailhead** (woods, reservation, river path):
+   - Out-the-door trail access: 5/5
+   - 5–15 min walk to trailhead: 4/5
+   - 5–10 min drive to trailhead: 3/5
+   - 20+ min drive: 1/5
+4. **Drive time from THIS home to the nearest commuter rail station:**
+   - Under 5 min drive (or walkable): 5/5
+   - 5–8 min drive: 4/5 — *this is the family's ideal ceiling*
+   - 9–12 min drive: 3/5
+   - 13–18 min drive: 2/5
+   - 18+ min: 1/5
+
+A home gets a great Connection-to-Village score when most of those are 4s and 5s. A home gets a bad score when most are 2s or below — *no matter how nice the kitchen or how big the lot.*
+
+### THE SECOND FILTER: Public School Quality for Henry
+
+Henry will attend public school in the home district. This remains a hard filter. Towns where the public middle/high school cannot serve Henry well should be **deprioritized regardless of other scores**.
 
 Specifically:
 - IEP-funded placement at specialized private schools requires legal advocacy capacity the family doesn't have
 - Out-of-pocket private school tuition ($60-80K/year) is not feasible alongside other costs
-- Many specialized autism schools serve students with significant behavioral needs — wrong peer environment for Henry (who has no behavioral issues, is academically capable, and needs intellectual stimulation)
 - The mainstream public school must actually work for a twice-exceptional (2e) student with bullying vulnerability
 
-### What this means for ranking
-
 **Anti-bullying culture and 2e support matter more than overall school district rating.** Top-ranked districts like Scarsdale and Greenwich have intense achievement-pressure cultures that are actively bad for Henry's profile. Smaller, less competitive districts often serve him better than higher-rated competitive ones.
-
-**Counselor ratios and middle school size matter more than test scores.** A large middle school with low counselor ratios (e.g., 1,000+ students with 2 counselors) is structurally weak for Henry regardless of academic ratings.
 
 ---
 
@@ -47,15 +74,82 @@ Each criterion is scored 1 (poor fit) to 5 (excellent fit). Weights are provided
 
 ---
 
-### PRIORITY 1: KIDS' WELLBEING (38% total weight)
+### PRIORITY 1: CONNECTION TO THE VILLAGE (27% total weight — NEW TOP)
 
 ---
 
-#### 1A. Public School Quality for Henry (Weight: 20%)
+#### 1A. Walk-to-Village from THIS home (Weight: 9%)
+
+**What this measures:** Time and quality of walking route from the actual home (not the town center) to the real village downtown — where coffee, bookstore, restaurants, post office live.
+
+**5/5 indicators:**
+- 0–10 min walk on sidewalks
+- Most of route is residential, tree-lined, calm
+- Crossing 0–1 busy streets at signalized intersections
+- Kid can do it alone safely
+
+**1/5 indicators:**
+- 25+ min walk
+- No sidewalks for significant portion
+- Requires crossing a 4-lane state route or county road
+- Effectively driveable-only
+
+---
+
+#### 1B. Bike-to-Village from THIS home (Weight: 7%)
+
+**What this measures:** Whether a 9-year-old or a parent can ride a bike from this address into town safely and pleasantly.
+
+**5/5 indicators:**
+- Continuous sidewalks or quiet residential streets (under 25mph) the whole way
+- Bike lanes or wide shoulders on any non-residential segment
+- Multi-use path connection (river trail, rail trail) into town
+
+**1/5 indicators:**
+- Route includes a stretch of 35mph+ road with no shoulder
+- Steep / narrow / blind-corner county road
+- Realistically: only adults in lycra would attempt it
+
+---
+
+#### 1C. Walk-to-Trail from THIS home (Weight: 4%)
+
+**What this measures:** Real woods / nature path reachable on foot from the driveway. This is "open the door and you're in nature" capability — not "drive 15 minutes to a trailhead."
+
+**5/5 indicators:**
+- Out-the-door trail access (e.g., Rockefeller Preserve adjacency, river path at end of street)
+- 5–15 min walk to trailhead through quiet streets
+- Multi-use path runs near home (Bronx River Pathway, OCA, etc.)
+
+**1/5 indicators:**
+- All trails require driving 15+ min
+- No woods or path within walking distance
+
+---
+
+#### 1D. Drive-to-Train from THIS home (Weight: 7%)
+
+**What this measures:** Minutes from driveway to the nearest commuter rail station's parking lot. Ideal ceiling is 8 minutes — that means morning departures don't eat the day.
+
+**5/5 indicators:**
+- Under 5 min drive (or walkable to the station)
+- Multiple stations within 8 min radius
+
+**1/5 indicators:**
+- 18+ min drive to nearest station
+- Single congested route to the station
+
+---
+
+### PRIORITY 2: KIDS' SCHOOL FIT (31% total weight)
+
+---
+
+#### 2A. Public School Quality for Henry (Weight: 18%)
 
 **What this measures:** Whether the local public middle and high school can serve Henry well — academically (smart, struggles with reading/writing), socially (bullying-vulnerable, autistic, no behavioral issues), and structurally (has 2e support, has anti-bullying culture, has small enough environment for institutional knowledge of students).
 
-**Why this matters:** This is the single highest-stakes criterion. Henry will attend public school; the school must actually work for him.
+**Why this matters:** This is the second-highest-stakes criterion. Henry will attend public school; the school must actually work for him.
 
 **5/5 indicators:**
 - Middle school under 600 students
@@ -65,476 +159,352 @@ Each criterion is scored 1 (poor fit) to 5 (excellent fit). Weights are provided
 - Differentiated instruction model (not just "honors track or regular")
 - Special education department with autism expertise
 - Resource room or co-taught classroom models available
-- Parent reviews confirm safe environment for "different" kids
 
 **1/5 indicators:**
 - Middle school over 800 students
 - Counselor ratio above 500:1
 - No documented 2e program
-- "Equity Focus" or similar designation indicating specialized resources are spread thin
 - High-pressure achievement culture
 - Parent reviews mention bullying problems
 
 ---
 
-#### 1B. Public School Quality for Ollie (Weight: 10%)
+#### 2B. Public School Quality for Ollie (Weight: 8%)
 
 **What this measures:** Whether the public school path serves Ollie's general academic and extracurricular interests (choir, basketball, STEM) at 5th grade entry.
 
 **5/5 indicators:**
-- Strong middle school (5-8 or 6-8) with team-based organization in 5th-6th
+- Strong middle school with team-based organization in 5th-6th
 - Real choir/band/orchestra program starting at 5th grade
 - Honors or accelerated track available
-- STEM enrichment (Science Olympiad, research programs, robotics)
-- Strong recreational sports infrastructure (school + town rec)
-- Pathway to strong high school
+- STEM enrichment (Science Olympiad, robotics)
+- Strong recreational sports infrastructure
 
 **1/5 indicators:**
 - Below-average academic ratings
 - Weak music programs
 - No accelerated track
-- Limited extracurricular pipeline
 
 ---
 
-#### 1C. Henry's Activity Infrastructure Proximity (Weight: 8%)
+#### 2C. Henry's Activity Infrastructure Proximity (Weight: 5%)
 
-**What this measures:** Drive time and accessibility to activities supporting Henry's life outside school — rock climbing (The Cliffs at Valhalla), forest/nature programs (Teatown Lake Reservation or similar), social skills groups, related services, NYC-accessible programs.
+**What this measures:** Drive time to activities supporting Henry's life outside school — rock climbing (The Cliffs at Valhalla), forest/nature programs (Teatown), social skills groups, related services, NYC-accessible programs.
 
-**5/5 indicators:**
-- All major activities within 15 min drive
-- NYC accessible in under 75 min for aide-supported trips
-- Multiple climbing/nature program options
-
-**1/5 indicators:**
-- Activities 45+ min away each direction
-- Limited specialized program access without significant travel
+**5/5 indicators:** All major activities within 20 min drive · NYC accessible in under 75 min
+**1/5 indicators:** Activities 45+ min away each direction
 
 ---
 
-### PRIORITY 2: TOWN CULTURAL FIT (32% total weight)
+### PRIORITY 3: TOWN CULTURAL FIT (22% total weight)
 
 ---
 
-#### 2A. Creative-Class / Public-Figure-Friendly Culture (Weight: 12%)
+#### 3A. Creative-Class / Public-Figure-Friendly Culture (Weight: 10%)
 
-**What this measures:** Whether the town attracts and accepts people with unusual jobs, public profiles, and outside-mainstream lifestyles. Whether the family's profile is handled gracefully or made a spectacle.
-
-**Why this matters:** Family operates outside standard suburban hierarchies. Husband is a public figure. They want a community where being different professionally is normal.
+**What this measures:** Whether the town attracts and accepts people with unusual jobs, public profiles, and outside-mainstream lifestyles.
 
 **5/5 indicators:**
 - Documented creative-class population (writers, filmmakers, artists, journalists, public figures)
 - Cultural institutions anchoring that community (indie film venues, art museums, indie bookstores)
 - Local culture is "not snobby" — privacy and authenticity over status display
 - Athleisure acceptable as daily wear
-- Diverse income mix (uniformly wealthy creates aesthetic pressure)
-- Established history of attracting unconventional residents
+- Diverse income mix
 
 **1/5 indicators:**
 - Highly status-conscious, achievement-display-oriented culture
 - Polished aesthetic standards as daily norm
 - Heavy country club / establishment professional culture
-- Visible income/status hierarchies
 
 ---
 
-#### 2B. Walkable Village Density (Weight: 10%)
+#### 3B. Village Quality (Weight: 5%)
 
-**What this measures:** Can family walk from home to a real downtown with coffee, bookstore, restaurants, and shops? Is daily life on foot or in the car?
+**What this measures:** Independent of whether THIS home is walkable to it (that's Priority 1) — is the village itself any good when you get there? Real downtown with coffee, bookstore, restaurants, character?
+
+> Distinct from 1A. 1A asks "can you walk there?" 3B asks "is the destination worth walking to?"
 
 **5/5 indicators:**
-- True walkable downtown core
+- True walkable downtown core with indie shops
 - Indie bookstore in village
 - Multiple coffee options including specialty
-- Restaurant variety walking distance
+- Restaurant variety
 - Specialty food/wine/cheese shops
-- Most residential areas within 0.5-1 mile of downtown
-- Real sidewalks throughout residential streets
 
 **1/5 indicators:**
-- No walkable downtown (estate areas, shopping plaza substitutes)
-- Drive required for all amenities
+- Strip-mall substitutes
 - No indie cultural shops
+- Chain-only retail
 
 ---
 
-#### 2C. Cultural Anchor Institutions (Weight: 6%)
+#### 3C. Cultural Anchor Institutions (Weight: 4%)
 
-**What this measures:** Indie cultural institutions (film center, art museum, indie music venue, bookstore) that define the town's cultural identity.
+**What this measures:** Indie cultural institutions (film center, art museum, indie music venue, bookstore) that define the town's identity.
 
-**Why this matters:** These institutions create the gravity holding together a creative-class community.
-
-**5/5 indicators:**
-- Major indie cultural institution(s) (film center, museum, theater, festival)
-- Independent bookstore with character
-- Indie music venue or performance space
-- Annual cultural events/festivals
-- Creative-class peer community formed around institutions
-
-**1/5 indicators:**
-- No cultural anchor
-- Estate areas or commuter suburbs without institutional gravity
+**5/5:** Major indie cultural institution(s) anchoring the town (Jacob Burns FC, Caramoor, Hudson River Museum, etc.)
+**1/5:** No cultural anchor — estate area or commuter suburb
 
 ---
 
-#### 2D. Food Scene — Especially Ethnic/Indie (Weight: 4%)
+#### 3D. Food Scene — Especially Ethnic/Indie (Weight: 3%)
 
-**What this measures:** Daily food access for cuisines family loves (Lebanese, Indian, Israeli, Italian, indie casual). Restaurant variety + specialty grocery.
+**What this measures:** Daily food access for cuisines family loves (Lebanese, Indian, Israeli, Italian, indie casual).
 
-**Why this matters:** Coming from NoVA's strong immigrant food scene. Within-town access matters because regular long drives for dinner = friction.
-
-**5/5 indicators:**
-- Multiple ethnic cuisines in town (Lebanese, Indian, Korean, Japanese, etc.)
-- Specialty grocers (Italian, Middle Eastern, Asian)
-- Indie wine/cheese shop
-- Real coffee culture
-- Bakery variety
-- Farm-to-table restaurants
-
-**1/5 indicators:**
-- Very limited food scene
-- No ethnic diversity in restaurants
-- No specialty grocers
+**5/5:** Multiple ethnic cuisines + specialty grocers in town
+**1/5:** Very limited food scene, no ethnic diversity
 
 ---
 
-### PRIORITY 3: DOG LIFE (16% total weight)
+### PRIORITY 4: DOG LIFE (7% total weight — DOWN from 16%)
+
+> Lot size is no longer load-bearing. The family will trade yard for village connection. Off-leash access still matters but is less weight than connection.
 
 ---
 
-#### 3A. Off-Leash Daily Access (Weight: 6%)
+#### 4A. Off-Leash Daily Access (Weight: 5%)
 
-**What this measures:** Can Remi get 30 min daily off-leash time near home through some combination of legal fenced parks, culturally-permissive trails, private fenced yard, or house manager-driven trips.
+**What this measures:** Can Remi get 30 min daily off-leash through fenced parks, culturally-permissive trails, or a fenced yard?
 
-**5/5 indicators:**
-- Fenced legal dog park within 15 min
-- Culturally-off-leash trails within 20 min
-- Large lots (1+ acre) for home fenced area
-- Multiple options for weather/schedule resilience
-
-**1/5 indicators:**
-- Very limited off-leash options
-- All off-leash requires significant driving
-- No legal options nearby
+**5/5:** Fenced legal dog park within 15 min · culturally-off-leash trails within 20 min
+**1/5:** Very limited off-leash options
 
 ---
 
-#### 3B. Trail Access for Adult Recreation (Weight: 4%)
+#### 4B. Lot Size (Weight: 2% — DOWN from 6%)
 
-**What this measures:** Real hiking trails accessible from home for personal recreation. "Walk out the door into woods" capability.
+**What this measures:** Property size for fenced dog area, ADU, pool, office.
 
-**5/5 indicators:**
-- Major trail system within 15 min drive
-- Linear paved or maintained trail through town
-- "Walk into woods from your door" possible from many neighborhoods
-- Variety of trail types (paved + dirt + wilderness)
+> **Deprioritized intentionally on 2026-05-25.** The family explicitly accepts a smaller lot to gain village connection. A 0.3-acre village lot now scores 4/5, not 2/5. Penalize only when lot is so small that ADU + pool is structurally impossible.
 
-**1/5 indicators:**
-- Drive significant distance for any trails
-- Limited trail variety
+**5/5:** 1+ acre achievable at budget · zoning allows ADU
+**3/5:** 0.3–0.7 acre, ADU tight but feasible
+**1/5:** Structurally impossible (HOA condos, etc.)
 
 ---
 
-#### 3C. Lot Size — Realistic 1+ Acre Under $3M (Weight: 6%)
+### PRIORITY 5: COMMUTE & TRAVEL (7% total weight)
 
-**What this measures:** Can family find property at budget that supports full plan: 1+ acre fenced for dog, ADU for parents, pool installation, office cottage, family home for two kids + guest space?
-
-**5/5 indicators:**
-- 1+ acre lots abundant under $3M
-- 2-3 acre lots achievable at top of budget
-- Zoning allows ADU
-- Topography permits pool + fenced area
-
-**1/5 indicators:**
-- Structurally impossible (HOA condos, dense village cores)
-- 1+ acre lots rare or above budget
+> NOTE: drive-time to train station moved to Priority 1 (1D). What remains here is the train-itself + airport.
 
 ---
 
-### PRIORITY 4: COMMUTE AND TRAVEL (8% total weight)
+#### 5A. NYC Train Time (Weight: 5%)
+
+**What this measures:** Train minutes from the nearest station to Grand Central (or Penn, for NJ). Distinct from 1D (drive to the station) — this is the train leg itself.
+
+**Threshold:** Under 60 min train ideal. Under 75 min acceptable.
+
+**5/5:** Under 45 min to GCT/Penn (express service)
+**1/5:** Over 75 min consistently
 
 ---
 
-#### 4A. NYC Commute (Weight: 5%)
+#### 5B. Airport Access (Weight: 2%)
 
-**What this measures:** Door-to-door time from home to NYC office or meeting location (drive to station + train + walk from station). Family will commute 2 days/week.
+**What this measures:** Drive time to HPN, Newark, JFK/LGA.
 
-**Threshold:** Under 75 min is the ceiling. Under 55 min is ideal.
-
-**5/5 indicators:**
-- Door-to-door under 55 min
-
-**1/5 indicators:**
-- Over 85 min consistently
+**5/5:** Major airport within 30 min · **1/5:** Over 75 min to any airport
 
 ---
 
-#### 4B. Airport Access (Weight: 3%)
-
-**What this measures:** Drive time to major airports — HPN, Newark (international hub), JFK/LGA.
-
-**Why this matters:** Frequent business travel. Closer airports enable earlier flights without leaving a day early (= less time away from kids).
-
-**5/5 indicators:**
-- Major airport within 30 min
-
-**1/5 indicators:**
-- Over 75 min to any major airport
+### PRIORITY 6: HOUSEHOLD LIFESTYLE (6% total weight)
 
 ---
 
-### PRIORITY 5: HOUSEHOLD LIFESTYLE (5% total weight)
+#### 6A. Property Accommodates Plan (Weight: 2%)
+
+ADU + pool + office feasibility on the lot.
+
+**5/5:** Common to fit everything · **1/5:** HOA prohibits ADUs
 
 ---
 
-#### 5A. Property Accommodates Full Plan (Weight: 2%)
+#### 6B. Daily Living Infrastructure (Weight: 2%)
 
-**What this measures:** Beyond lot size, can the property fit: house + ADU + pool + office cottage + fenced dog area?
+Uber, food delivery, grocery delivery coverage.
 
-**5/5 indicators:**
-- Common to find properties fitting everything easily
-- Zoning supports ADUs
-- No HOA restrictions
-
-**1/5 indicators:**
-- HOA prohibits ADUs/additions
-- Topography limits buildable area
+**5/5:** NYC-like reliability · **1/5:** Sparse, long waits
 
 ---
 
-#### 5B. Daily Living Infrastructure (Weight: 2%)
+#### 6C. Property Tax Burden (Weight: 1%)
 
-**What this measures:** Uber/Lyft availability, food delivery coverage, grocery delivery, specialty services.
+Effective rate on a $2.5M home.
 
-**5/5 indicators:**
-- Full coverage with NYC-like reliability
-- Multiple grocery delivery options
-- Reliable rideshare any time
-
-**1/5 indicators:**
-- Sparse infrastructure
-- Long waits or limited options
+**5/5:** Under 2.0% · **1/5:** Over 3.5%
 
 ---
 
-#### 5C. Property Tax Burden (Weight: 1%)
+#### 6D. Family-Specific Needs (Weight: 1%)
 
-**What this measures:** Annual property tax cost on a $2.5M home.
-
-**Why this matters:** NY/NJ property taxes are high and non-deductible above $10K federal SALT cap. 0.5-1% difference in effective rate = $15-25K/year.
-
-**5/5 indicators:**
-- Under 2.0% effective rate
-
-**1/5 indicators:**
-- Over 3.5% effective rate
+Husband's interests (jazz, meditation, music production), adult fitness (pilates, boxing), parents' visit logistics.
 
 ---
 
-### PRIORITY 6: SPECIFIC FAMILY NEEDS (1% total weight)
+## Weighting Summary (NEW — 2026-05-25)
 
----
-
-#### 6A. Husband's Interests (Jazz, Meditation, Music Production)
-
-**5/5:** Strong local options for multiple interests
-**1/5:** Drive to NYC for everything
-
----
-
-#### 6B. Adult Fitness Infrastructure (Pilates, Boxing, Personal Training)
-
-**5/5:** Multiple high-quality options in town
-**1/5:** Drive significant distance
-
----
-
-#### 6C. Parents' Visit Logistics (Drive from Falls Church VA, ADU Feasibility, Fishing Access)
-
-**5/5:** ADU easy + great fishing + town activities for parents
-**1/5:** Significant constraints
-
----
-
-## Weighting Summary
-
-| Category | Weight |
-|---|---|
-| 1A. Public School for Henry | 20% |
-| 1B. Public School for Ollie | 10% |
-| 1C. Henry's Activity Infrastructure | 8% |
-| 2A. Creative-Class / Public-Figure Friendly | 12% |
-| 2B. Walkable Village Density | 10% |
-| 2C. Cultural Anchor Institutions | 6% |
-| 2D. Food Scene | 4% |
-| 3A. Off-Leash Daily Access | 6% |
-| 3B. Trail Access for Adults | 4% |
-| 3C. Lot Size Realistic | 6% |
-| 4A. NYC Commute | 5% |
-| 4B. Airport Access | 3% |
-| 5A. Property Accommodates Plan | 2% |
-| 5B. Daily Living Infrastructure | 2% |
-| 5C. Property Tax Burden | 1% |
-| 6A-6C. Family-Specific Needs | 1% |
-| **TOTAL** | **100%** |
+| # | Category | Weight |
+|---|---|---|
+| 1A | Walk-to-Village from THIS home | **9%** |
+| 1B | Bike-to-Village from THIS home | **7%** |
+| 1C | Walk-to-Trail from THIS home | **4%** |
+| 1D | Drive-to-Train from THIS home | **7%** |
+| **1** | **CONNECTION TO VILLAGE** | **27%** |
+| 2A | Public School for Henry | 18% |
+| 2B | Public School for Ollie | 8% |
+| 2C | Henry's Activity Infrastructure | 5% |
+| **2** | **KIDS' SCHOOL FIT** | **31%** |
+| 3A | Creative-Class / Public-Figure Friendly | 10% |
+| 3B | Village Quality | 5% |
+| 3C | Cultural Anchor Institutions | 4% |
+| 3D | Food Scene | 3% |
+| **3** | **TOWN CULTURAL FIT** | **22%** |
+| 4A | Off-Leash Daily Access | 5% |
+| 4B | Lot Size *(deprioritized)* | 2% |
+| **4** | **DOG LIFE** | **7%** |
+| 5A | NYC Train Time | 5% |
+| 5B | Airport Access | 2% |
+| **5** | **COMMUTE & TRAVEL** | **7%** |
+| 6A | Property Accommodates Plan | 2% |
+| 6B | Daily Living Infrastructure | 2% |
+| 6C | Property Tax Burden | 1% |
+| 6D | Family-Specific Needs | 1% |
+| **6** | **HOUSEHOLD LIFESTYLE** | **6%** |
+| | **TOTAL** | **100%** |
 
 ---
 
 ## Calculation Method
 
-For each town, score each criterion 1-5, then apply weights:
-
-**Weighted Score = (Score × Weight) summed across all criteria**
-
-Maximum possible: 500 points (5 × 100% weight)
-Practical range: 200-450 points
+For each home, score each criterion 1-5, then apply weights. Output a 0-100 total. Anchor the per-criterion bars to the new doctrine — most pre-2026-05-25 scores need recomputing.
 
 ---
 
 ## Threshold Rules
 
-### Hard Filter Rule
-If **Criterion 1A (Public School for Henry)** scores **1 or 2 out of 5**, the town is **not viable regardless of total score**. This is the decision filter — Henry's school must work.
+### Connection Filter (NEW)
+If **Priority 1 (Connection to Village)** averages **2 or below across 1A/1B/1C/1D**, the home is **flagged as disconnected** — it might still be a beautiful house, but it's failing the top reason for the move. Total score caps at 65 regardless of other strengths.
+
+### School Hard Filter
+If **Criterion 2A (Public School for Henry)** scores **1 or 2 out of 5**, the home is **not viable regardless of total score**. Henry's school must work.
 
 ### Strong Caution Rule
-If **Criterion 2A (Creative-Class Fit)** scores **1 out of 5**, family will likely be unhappy regardless of other scores. Towns scoring 1 here should be flagged as cultural mismatch even with high total scores.
+If **Criterion 3A (Creative-Class Fit)** scores **1 out of 5**, family will likely be unhappy regardless of other scores.
 
 ### Commute Filter
-If **Criterion 4A (NYC Commute)** scores **1 out of 5** (over 85 min), town is not viable regardless of total score.
+If **Criterion 5A (NYC Train Time)** is over 85 min consistently, town not viable.
 
 ---
 
-## Investigation Questions for Top-Ranked Towns
+## Investigation Questions for Top-Ranked Homes
 
-Before final commitment to any top-ranked town, family should call the Special Education Director and ask:
+Before final commitment, family should walk the route from the home to the village in person — not just look at a map. Things to check on foot:
 
-1. "What does your in-house program look like for a twice-exceptional (academically capable + learning differences) autistic student?"
+1. Are the sidewalks continuous? Where do they end?
+2. Is the route safe at dusk in winter? (No streetlights = different story than satellite view suggests)
+3. What's the noisiest road crossing? Could Ollie do it alone?
+4. Is there a true bike-able route, or are you sharing a 45mph county road for half a mile?
+5. Where's the nearest trailhead actually accessed on foot? (Many "trail proximity" claims are driving-only)
+6. Time the drive to the train at the actual weekday morning hour you'd use it — not midday Google Maps estimate.
+
+Then for the school (still load-bearing):
+
+1. "What does your in-house program look like for a twice-exceptional autistic student?"
 2. "What's your middle school's counselor-to-student ratio?"
 3. "Can you describe your anti-bullying culture and the specific structures that support it?"
-4. "Do you have a resource room model, co-taught classrooms, or pull-out support? Which?"
-5. "Can you connect me with a parent of a current 2e student?"
-6. "How does your district approach differentiated instruction for kids who are above-grade in math but below-grade in reading?"
-
-For Ollie's school:
-1. "What does the music program look like at 5th grade entry?"
-2. "Are there honors/accelerated tracks at the middle school level?"
-3. "What's the cohort structure for 5th-6th graders?"
+4. "Can you connect me with a parent of a current 2e student?"
 
 ---
 
-## Reference Scores: Top Contenders
+## Reference Scores: Top Contenders (Recalibrated 2026-05-25)
 
-Based on research to date, here are reference scores for the top contender towns. These can serve as calibration anchors when scoring new towns.
-
-### Croton-on-Hudson, NY
-- 1A (Henry's school): 4 — Croton-Harmon UFSD, small district, solid reputation
-- 1B (Ollie's school): 4 — Strong overall, good music
-- 1C (Henry's activities): 3 — 20-25 min to Westchester autism cluster
-- 2A (Creative-class fit): 5 — Most artsy/diverse of options
-- 2B (Walkable village): 4 — Two village centers
-- 2C (Cultural anchor): 4 — By-the-Dam Books, indie character
-- 2D (Food scene): 4 — Solid variety
-- 3A (Off-leash): 5 — Black Rock Dog Park in village
-- 3B (Trails for adults): 5 — Multiple trail systems
-- 3C (Lot size): 4 — 1+ acre achievable
-- 4A (NYC commute): 4 — 52 min to GCT
-- 4B (Airport): 4 — HPN 20 min
-- 5A (Property fit): 4
-- 5B (Daily infrastructure): 4
-- 5C (Taxes): 4 — ~2.5%
-- 6 (Family needs): 4
+These scores use the NEW Connection-to-Village doctrine. Town-level only — actual home scores depend on which specific street within the town.
 
 ### Pleasantville, NY
-- 1A (Henry's school): 5 — Pleasantville UFSD, small middle (482 students), 10:1 ratio
-- 1B (Ollie's school): 5 — Platinum rating, strong STEM
-- 1C (Henry's activities): 5 — Best autism resource proximity (Cliffs 15 min)
-- 2A (Creative-class fit): 4 — Jacob Burns FC community
-- 2B (Walkable village): 5 — Tightest walkable cluster
-- 2C (Cultural anchor): 5 — Jacob Burns Film Center
-- 2D (Food scene): 3 — Italian strong, ethnic limited
-- 3A (Off-leash): 4 — East Rumbrook 15 min
-- 3B (Trails for adults): 4 — Graham Hills, Rockefeller close
-- 3C (Lot size): 3 — Smaller lots typical
-- 4A (NYC commute): 4 — 56 min to GCT
-- 4B (Airport): 4 — HPN 15-20 min
-- 5A (Property fit): 3
-- 5B (Daily infrastructure): 4
-- 5C (Taxes): 4 — ~2.6%
-- 6 (Family needs): 4
+- 1A-D (Connection): **5** — tightest walkable cluster in Westchester. Most addresses are 0.5 mi to Memorial Plaza. Train station is in the village.
+- 2A (Henry's school): 5 — Pleasantville UFSD, small middle (482 students), 10:1 ratio
+- 2B (Ollie's school): 5
+- 2C (Henry's activities): 5 — Cliffs 15 min
+- 3A (Creative-class): 4 — Jacob Burns FC community
+- 3B (Village quality): 5
+- 3C (Cultural anchor): 5 — Jacob Burns Film Center
+- 3D (Food): 3
+- 4A (Off-leash): 4 · 4B (Lot): 3
+- 5A (Train): 4 — 56 min to GCT · 5B (Airport): 4
+- 6A-D: 3-4
+- **Verdict: now the runaway #1 contender under the new doctrine.**
 
 ### Irvington, NY
-- 1A (Henry's school): 4 — Irvington UFSD, small district, good ratios
-- 1B (Ollie's school): 4 — Strong overall
-- 1C (Henry's activities): 3 — 20-30 min to autism cluster
-- 2A (Creative-class fit): 5 — "Westchester's West Village"
-- 2B (Walkable village): 4 — Historic Main Street
-- 2C (Cultural anchor): 5 — Town Hall Theater, indie character
-- 2D (Food scene): 5 — Strongest ethnic diversity (Cantonese, Korean, Indian, Greek, Malaysian)
-- 3A (Off-leash): 3 — Limited in-village options
-- 3B (Trails for adults): 4 — 1/3 of village undeveloped
-- 3C (Lot size): 3 — Bimodal (small downtown or estate-large)
-- 4A (NYC commute): 5 — 40-45 min to GCT (fastest)
-- 4B (Airport): 4 — HPN 25 min
-- 5A (Property fit): 3
-- 5B (Daily infrastructure): 4
-- 5C (Taxes): 2 — ~3.2% (high)
-- 6 (Family needs): 4
+- 1A-D (Connection): **5** — historic Main Street, train station walkable from much of village, river path through town
+- 2A: 4 — Irvington UFSD
+- 2B: 4
+- 3A: 5 — "Westchester's West Village"
+- 3B-C: 4-5
+- 3D: 5 — strongest ethnic food diversity
+- 4A: 3 · 4B: 3
+- 5A: 5 — 40-45 min to GCT (fastest)
+- 6C: 2 — high taxes (~3.2%)
+- **Verdict: still elite. Connection score even stronger now.**
 
-### Montclair, NJ
-- 1A (Henry's school): 4 — Magnet system, requires investigation for 2e fit
-- 1B (Ollie's school): 4 — Strong, magnet allows interest-matching
-- 1C (Henry's activities): 2 — NJ side, Westchester autism cluster is 45-60 min
-- 2A (Creative-class fit): 5 — "Brooklyn of NJ," Colbert family, etc.
-- 2B (Walkable village): 5 — Multiple walkable downtowns
-- 2C (Cultural anchor): 5 — Montclair Film, Watchung Booksellers, Wellmont, Art Museum
-- 2D (Food scene): 5 — Among strongest in metro
-- 3A (Off-leash): 4 — South Mountain off-leash area
-- 3B (Trails for adults): 4 — Eagle Rock, Mills, South Mountain
-- 3C (Lot size): 3 — Achievable in Upper Montclair
-- 4A (NYC commute): 5 — 35-40 min to Penn Station
-- 4B (Airport): 5 — Newark 20 min
-- 5A (Property fit): 3
-- 5B (Daily infrastructure): 5
-- 5C (Taxes): 2 — NJ taxes high
-- 6 (Family needs): 4
+### Croton-on-Hudson, NY
+- 1A-D (Connection): **3** — two village centers, train is its own zone away from upper village. Mixed walkability depending on street.
+- 2A: 4 · 2B: 4
+- 3A: 5 — most artsy/diverse of options
+- 3B-C: 4
+- 3D: 4
+- 4A: 5 · 4B: 4
+- 5A: 4 — 52 min to GCT
+- **Verdict: drops below Pleasantville/Irvington under new doctrine because connection is mixed.**
 
-### Scarsdale, NY (Reference: Cultural Mismatch)
-- 1A (Henry's school): 2 — Top-rated but achievement-pressure culture bad for Henry's profile
-- 1B (Ollie's school): 5 — Top-tier academics
-- 1C (Henry's activities): 4 — Reasonable proximity
-- 2A (Creative-class fit): 1 — Highly status-conscious, opposite of family's values
-- 2B (Walkable village): 3 — Walkable but polished/manicured
-- 2C (Cultural anchor): 3 — Polished cultural amenities, not indie
-- 2D (Food scene): 4 — Strong but polished
-- 3A (Off-leash): 2 — Limited
-- 3B (Trails for adults): 2 — Limited
-- 3C (Lot size): 3 — Variable
-- 4A (NYC commute): 5 — 30 min to GCT (fastest)
-- 4B (Airport): 4
-- 5A (Property fit): 3
-- 5B (Daily infrastructure): 5
-- 5C (Taxes): 5 — Lower effective rate
-- 6 (Family needs): 3
+### Bronxville, NY
+- 1A-D (Connection): **5** — most compact walkable village in lower Westchester, station IS the village
+- 2A: 3 — small district but achievement-pressure culture
+- 3A: 2 — country-club culture, status-conscious
+- 5A: 5 — 28 min to GCT
+- **Verdict: connection is perfect but trips the Strong Caution Rule on creative-class fit.**
 
-**Note:** Scarsdale would score high on raw academic ratings but fails the Filter Rule (Henry's school structurally bad for his profile) AND the Strong Caution Rule (cultural mismatch). Despite high total possible score, it should be flagged as not viable.
+### Hastings-on-Hudson, NY
+- 1A-D (Connection): **4** — walkable village, river path, train station in village
+- 2A: 4 · 2B: 4
+- 3A: 5 — strong artsy/creative population
+- 3B-C: 4
+- **Verdict: rising sharply under new doctrine.**
+
+### Chappaqua, NY (Reference: Lot-heavy estate culture)
+- 1A-D (Connection): **2** — most homes are estate-style on county roads, walkable village is small relative to spread
+- 2A: 5
+- 3A: 3
+- 4B (Lot): 5 — easy to find 1+ acre
+- **Verdict: was a top contender pre-doctrine, now drops because the homes themselves rarely deliver village connection. Used to be the "you can have it all" town; now flagged as the inverse of the new priority.**
+
+### Bedford / Pound Ridge / Katonah-area (Reference: Rural connection failure)
+- 1A-D (Connection): **1-2** — most homes are 10-25 min drive from any village, country roads with no shoulder
+- 4B (Lot): 5 — 2-5 acre is normal
+- **Verdict: explicitly de-ranked under new doctrine. These are the wrong-shape towns for what the family wants now.**
+
+### Scarsdale, NY (still flagged: Cultural Mismatch)
+- 1A-D (Connection): 4 — walkable but polished/manicured
+- 2A: 2 — top-rated but achievement-pressure culture bad for Henry's profile
+- 3A: 1 — highly status-conscious
+- **Verdict: still fails Strong Caution Rule. Not viable.**
 
 ---
 
 ## Final Output Format
 
-When ranking a town, output should include:
+When ranking a town OR home, output should include:
 
-1. **Total weighted score** (out of 500)
-2. **Filter Status** — Pass / Fail / Caution based on threshold rules
-3. **Top 3 strengths** with specific criteria
-4. **Top 3 weaknesses** with specific criteria
-5. **Specific investigation needed** before commitment
-6. **Comparable towns** at similar score level
+1. **Total weighted score** (out of 500 for towns; 0-100 for homes)
+2. **Connection Score** — average of 1A-D for THIS home
+3. **Filter Status** — Pass / Fail / Caution
+4. **Top 3 strengths** with specific criteria
+5. **Top 3 weaknesses** with specific criteria
+6. **Specific investigation needed** before commitment
+7. **Comparable homes/towns** at similar score level
 
 ---
 
 ## Source Notes
 
-This framework was developed through extended conversation about the family's specific values, lifestyle, and constraints. Key data points reflect research current as of conversation date. School district information, property tax rates, and amenity availability should be re-verified for any town added to the consideration set, as these change over time.
-
-The framework reflects the family's stated decision to use public schools (not specialized private placement) for both children, which fundamentally shapes how school-related criteria are weighted and which towns become viable options.
+This framework was developed through extended conversation about the family's specific values, lifestyle, and constraints, and was substantially revised on 2026-05-25 to elevate Connection to Village as the top priority. The family's stated decision to use public schools and to trade lot size for village connection fundamentally shapes how home-specific criteria are weighted.

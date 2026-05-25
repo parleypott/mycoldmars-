@@ -3156,7 +3156,15 @@ document.querySelectorAll('.tab-btn').forEach(t => t.addEventListener('click', (
   const initial = VALID_TABS.includes(bootTab) ? bootTab : 'map';
   // Always mark map active visually first (cheap, no data deps)
   document.body.classList.toggle('on-map', initial === 'map');
-  const fire = () => { try { setActiveTab(initial, false); } catch (e) { console.warn('[whh] boot tab activation failed', e); } };
+  const fire = () => {
+    try { setActiveTab(initial, false); } catch (e) { console.warn('[whh] boot tab activation failed', e); }
+    // Kick off doctrine-aware auto-rescore in the background regardless of tab —
+    // gives the Map pins their fresh village-connection scores too.
+    setTimeout(() => {
+      try { if (typeof autoScoreUnscored === 'function' && typeof pins !== 'undefined' && pins?.length) autoScoreUnscored(); }
+      catch (e) { console.warn('[whh] boot auto-rescore skipped', e); }
+    }, 1500);
+  };
   if (document.readyState === 'loading') {
     window.addEventListener('DOMContentLoaded', fire, { once: true });
   } else {
@@ -6243,17 +6251,24 @@ async function loadFamilyCriteria() {
   return _familyCriteriaCache;
 }
 
-const SCORE_CRITERIA_ORDER = ['schoolFit','henryFit','ollieFit','commuteFit','priceFit','sensoryFit','creativeClassFit','valueFit'];
+// Bump this whenever the family-criteria doctrine changes meaningfully.
+// All cached scores with a different version auto-invalidate on next load.
+const DOCTRINE_VERSION = '2026-05-25-connection-to-village';
+
+const SCORE_CRITERIA_ORDER = ['villageConnectionFit','schoolFit','henryFit','ollieFit','creativeClassFit','commuteFit','priceFit','lotFit'];
 const SCORE_CRITERIA_LABEL = {
-  schoolFit:'School', henryFit:'Henry Fit', ollieFit:'Ollie Fit',
-  commuteFit:'Commute', priceFit:'Price', sensoryFit:'Sensory',
-  creativeClassFit:'Creative Fit', valueFit:'Value'
+  villageConnectionFit:'Village Connection', schoolFit:'School',
+  henryFit:'Henry Fit', ollieFit:'Ollie Fit',
+  creativeClassFit:'Creative Fit', commuteFit:'Train', priceFit:'Price', lotFit:'Lot'
 };
 
 async function scorePin(pin, { force = false } = {}) {
   if (!pin) return null;
-  if (!force && pin.score && pin.score.total != null && (Date.now() - (pin.score._ts || 0) < 7 * 24 * 60 * 60 * 1000)) {
-    return pin.score; // fresh enough
+  const cached = pin.score;
+  const cacheFresh = cached && cached.total != null && (Date.now() - (cached._ts || 0) < 7 * 24 * 60 * 60 * 1000);
+  const cacheCurrentDoctrine = cached && cached._doctrineVersion === DOCTRINE_VERSION;
+  if (!force && cacheFresh && cacheCurrentDoctrine) {
+    return pin.score; // fresh AND scored against current doctrine
   }
   const familyCriteria = await loadFamilyCriteria();
   const memory = (typeof agentMemory !== 'undefined') ? agentMemory : [];
@@ -6269,6 +6284,7 @@ async function scorePin(pin, { force = false } = {}) {
       return null;
     }
     const data = await res.json();
+    data._doctrineVersion = DOCTRINE_VERSION;
     pin.score = data;
     if (typeof savePins === 'function') savePins();
     return data;
@@ -6363,10 +6379,25 @@ async function autoScoreUnscored() {
   if (_autoScoreInFlight) return;
   _autoScoreInFlight = true;
   try {
+    // Count what needs work so we can show a single toast (no per-pin spam)
+    const stale = pins.filter(p => !p.score || p.score.total == null || p.score._doctrineVersion !== DOCTRINE_VERSION);
+    if (stale.length > 1 && typeof showXrefToast === 'function') {
+      showXrefToast(`Re-scoring ${stale.length} homes against the new village-connection doctrine…`);
+    }
+    let done = 0;
     for (const p of pins) {
-      if (p.score && p.score.total != null) continue;
-      await scorePin(p);
-      if (typeof renderTable === 'function' && document.body.dataset.tableTab === 'open') renderTable();
+      const fresh = p.score && p.score.total != null && p.score._doctrineVersion === DOCTRINE_VERSION;
+      if (fresh) continue;
+      await scorePin(p, { force: true });
+      done++;
+      // Re-render incrementally so Johnny sees scores arrive
+      if (typeof renderTable === 'function') {
+        const tableActive = document.querySelector('.tab-pane[data-pane="table"]')?.classList.contains('active');
+        if (tableActive) renderTable();
+      }
+    }
+    if (done > 1 && typeof showXrefToast === 'function') {
+      showXrefToast(`Done — ${done} home${done === 1 ? '' : 's'} rescored against the new doctrine.`);
     }
   } finally {
     _autoScoreInFlight = false;
