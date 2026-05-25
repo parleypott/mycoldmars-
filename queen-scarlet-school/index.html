@@ -7195,16 +7195,61 @@
         state.blocks = [];
       }
       const beforeCount = state.blocks.length;
+
+      // Normalize curly quotes / special dashes so model-returned markers
+      // that use typographic chars still match source text (and vice versa).
+      function normMarker(s) {
+        return s
+          .replace(/[‘’′]/g, "'")
+          .replace(/[“”″]/g, '"')
+          .replace(/[⸻—–]/g, '-')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+      const normText = normMarker(text);
+
+      function findMarker(marker, cursor) {
+        // 1. Exact match
+        let idx = text.indexOf(marker, cursor);
+        if (idx !== -1) return idx;
+        // 2. Normalize both and retry
+        const nm = normMarker(marker);
+        idx = normText.indexOf(nm, cursor);
+        if (idx !== -1) return idx;
+        // 3. Short prefix of normalized (handles trailing truncation differences)
+        const short = nm.slice(0, Math.min(35, nm.length)).trim();
+        if (short.length >= 10) {
+          idx = normText.indexOf(short, cursor);
+          if (idx !== -1) return idx;
+        }
+        return -1;
+      }
+
       const sliceStarts = [];
       let cursor = 0;
       for (const scene of scenes) {
         const marker = (scene?.first_line || '').trim();
         if (marker.length < 6) { sliceStarts.push(null); continue; }
-        const idx = text.indexOf(marker, cursor);
+        const idx = findMarker(marker, cursor);
         if (idx === -1) { sliceStarts.push(null); continue; }
         sliceStarts.push(idx);
         cursor = idx + marker.length;
       }
+
+      // Capture any text before the first matched scene as a preamble block.
+      // Without this, if scene-1's marker fails to match, everything before
+      // the first valid hit is silently dropped.
+      const firstValidStart = sliceStarts.find(s => s != null);
+      if (firstValidStart != null && firstValidStart > 0) {
+        const preamble = text.slice(0, firstValidStart).trim();
+        if (preamble.length > 20) {
+          state.blocks.push({ id: uid(), text: preamble, summary: '', custom: false, source: 'auto-build' });
+        }
+      } else if (firstValidStart == null && text.trim().length > 20) {
+        // No markers matched at all — push the entire text as one block.
+        state.blocks.push({ id: uid(), text: text.trim(), summary: '', custom: false, source: 'auto-build' });
+      }
+
       for (let i = 0; i < scenes.length; i++) {
         const startIdx = sliceStarts[i];
         if (startIdx == null) continue;
