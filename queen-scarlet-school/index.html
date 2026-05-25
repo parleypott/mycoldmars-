@@ -12340,27 +12340,43 @@
       }
     }
 
-    // Fetch a CDN url + convert to { dataBase64, mimeType }. nano-banana
-    // rejects URL refs for SSRF safety, so the riff path has to download
-    // the image client-side and ship the bytes.
-    async function urlToInlineData(url) {
+    // Fetch a CDN url + return a DOWNSAMPLED reference image as
+    // { dataBase64, mimeType }. nano-banana rejects URL refs for SSRF,
+    // and a full-size 1.3MB jpeg blows past Gemini's processing window
+    // (real-world 504s after 60s). Downsampling to ~768px wide gives
+    // the model plenty of detail to riff on while keeping the call fast
+    // and the request body small. Typical output: 60-150KB jpeg.
+    async function urlToInlineData(url, { maxSide = 768, quality = 0.82 } = {}) {
       try {
         const res = await fetch(url, { credentials: 'omit', mode: 'cors' });
         if (!res.ok) return null;
         const blob = await res.blob();
-        const mimeType = blob.type || 'image/jpeg';
-        const dataBase64 = await new Promise((resolve, reject) => {
-          const fr = new FileReader();
-          fr.onload = () => {
-            const s = String(fr.result || '');
-            // strip "data:<mime>;base64," prefix
-            const i = s.indexOf(',');
-            resolve(i >= 0 ? s.slice(i + 1) : s);
-          };
-          fr.onerror = () => reject(fr.error);
-          fr.readAsDataURL(blob);
-        });
-        return { dataBase64, mimeType };
+        const imgUrl = URL.createObjectURL(blob);
+        try {
+          const img = await new Promise((resolve, reject) => {
+            const i = new Image();
+            i.crossOrigin = 'anonymous';
+            i.onload = () => resolve(i);
+            i.onerror = (e) => reject(e);
+            i.src = imgUrl;
+          });
+          const ratio = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+          const w = Math.round(img.naturalWidth * ratio);
+          const h = Math.round(img.naturalHeight * ratio);
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          const idx = dataUrl.indexOf(',');
+          const dataBase64 = idx >= 0 ? dataUrl.slice(idx + 1) : dataUrl;
+          try { console.info('[riff] downsampled reference', { from: `${img.naturalWidth}x${img.naturalHeight}`, to: `${w}x${h}`, bytes: dataBase64.length }); } catch {}
+          return { dataBase64, mimeType: 'image/jpeg' };
+        } finally {
+          URL.revokeObjectURL(imgUrl);
+        }
       } catch (e) {
         try { console.warn('[riff] urlToInlineData failed', e?.message || e); } catch {}
         return null;

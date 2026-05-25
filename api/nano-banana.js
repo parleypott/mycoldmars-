@@ -148,7 +148,10 @@ Be Wordy. Riff with him. Celebrate the irreverent voice. Push for surprises that
 // the 25s edge cap. The default-export wrapper below handles Vercel's
 // Express-style (req, res) signature by adapting it to the inner Web Request
 // handler that already returns Response objects.
-export const config = { runtime: 'nodejs', maxDuration: 60 };
+// 90s — give Gemini room when riff requests carry a reference image.
+// Vercel Pro caps Node serverless at 300s; 90 is well within that and
+// double the old 60s wall (which was kicking in on real riff requests).
+export const config = { runtime: 'nodejs', maxDuration: 90 };
 
 /**
  * Queen Scarlet's School backend. Two modes:
