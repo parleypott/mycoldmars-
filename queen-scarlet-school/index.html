@@ -3448,18 +3448,40 @@
     .sb-empty h2 { margin: 6px 0; font-size: 28px; }
     .sb-empty p { max-width: 460px; opacity: 0.78; }
 
-    /* Reader root — grid: rail | prose | art */
+    /* Reader root — grid: rail | prose | splitter | art
+     * Split ratio is CSS-variable driven so the splitter handle can
+     * mutate it on drag and we can persist the ratio to localStorage. */
     .sb-reader {
       flex: 1; min-height: 0;
       display: grid;
-      grid-template-columns: 28px 1fr 0.96fr;
+      grid-template-columns: 28px var(--sb-prose-fr, 1fr) 8px var(--sb-art-fr, 0.96fr);
       grid-template-rows: 44px 1fr;
       grid-template-areas:
-        "topbar topbar topbar"
-        "rail prose art";
+        "topbar topbar topbar topbar"
+        "rail prose splitter art";
       background: var(--paper);
       color: var(--ink);
     }
+    .sb-splitter {
+      grid-area: splitter;
+      background: var(--ink-faint);
+      cursor: col-resize;
+      position: relative;
+      transition: background 140ms;
+    }
+    .sb-splitter:hover, .sb-splitter.is-dragging {
+      background: var(--yolk);
+    }
+    .sb-splitter::after {
+      content: ""; position: absolute;
+      left: 50%; top: 50%;
+      width: 2px; height: 48px;
+      background: var(--ink-bright);
+      transform: translate(-50%, -50%);
+      border-radius: 2px;
+      opacity: 0.5;
+    }
+    .sb-splitter:hover::after, .sb-splitter.is-dragging::after { opacity: 1; }
 
     /* Top bar */
     .sb-topbar {
@@ -3490,6 +3512,11 @@
     }
     .sb-tb-btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink-bright); }
     .sb-tb-btn.is-on { background: var(--yolk); }
+    .sb-tb-btn-primary {
+      background: var(--yolk);
+      font-size: 12px;
+    }
+    .sb-tb-btn-primary:hover { background: #ffe07c; }
 
     /* Scene rail */
     .sb-rail {
@@ -4588,13 +4615,15 @@
 
         <!-- Active reader — two pane -->
         <div id="sb-reader" class="sb-reader" style="display:none;">
-          <!-- Top bar: chapter pill + scene count -->
+          <!-- Top bar: play sits on the LEFT (the prose side — that's
+               the reading control). Title + position follow it.
+               The right side of the bar stays clear over the art pane. -->
           <div class="sb-topbar">
+            <button class="sb-tb-btn sb-tb-btn-primary" id="sb-play-btn" type="button" title="Read along — karaoke + auto-scroll">▶ play</button>
             <span class="sb-tb-title" id="sb-tb-title">your story</span>
             <span class="sb-tb-sep">·</span>
             <span class="sb-tb-pos" id="sb-tb-pos">01 / 01</span>
             <span class="sb-tb-spacer"></span>
-            <button class="sb-tb-btn" id="sb-play-btn" type="button" title="Read along — karaoke + auto-scroll">▶ play</button>
           </div>
 
           <!-- Scene rail — clickable dots, one per scene -->
@@ -4613,6 +4642,9 @@
               <div id="sb-scenes-host"><!-- populated by renderStorybook --></div>
             </div>
           </div>
+
+          <!-- Splitter — drag to resize prose / art -->
+          <div class="sb-splitter" id="sb-splitter" role="separator" aria-orientation="vertical" title="Drag to resize"></div>
 
           <!-- Art pane (right, sticky) -->
           <div class="sb-art-pane" id="sb-art-pane">
@@ -10345,6 +10377,67 @@
       markActiveCueInProse(storybook.activeIdx);
       wireCueSectionClicks();
       attachStorybookEditing();
+      attachStorybookSplitter();
+    }
+
+    /* ──── Draggable splitter between prose and art ──── */
+    function attachStorybookSplitter() {
+      const reader = document.getElementById('sb-reader');
+      const handle = document.getElementById('sb-splitter');
+      if (!reader || !handle) return;
+      // Restore persisted ratio
+      try {
+        const saved = parseFloat(localStorage.getItem('qss:sb:split') || '');
+        if (Number.isFinite(saved) && saved > 0.25 && saved < 0.85) {
+          applySplitRatio(saved);
+        }
+      } catch {}
+      if (handle._sbWired) return;
+      handle._sbWired = true;
+      handle.addEventListener('pointerdown', onSplitterDown);
+    }
+    function applySplitRatio(proseRatio) {
+      const reader = document.getElementById('sb-reader');
+      if (!reader) return;
+      const artRatio = 1 - proseRatio;
+      reader.style.setProperty('--sb-prose-fr', `${proseRatio.toFixed(4)}fr`);
+      reader.style.setProperty('--sb-art-fr', `${artRatio.toFixed(4)}fr`);
+    }
+    function onSplitterDown(e) {
+      const reader = document.getElementById('sb-reader');
+      const handle = document.getElementById('sb-splitter');
+      if (!reader || !handle) return;
+      e.preventDefault();
+      handle.classList.add('is-dragging');
+      handle.setPointerCapture?.(e.pointerId);
+      const move = (ev) => {
+        const rect = reader.getBoundingClientRect();
+        const railWidth = 28;
+        const splitterWidth = 8;
+        const usable = rect.width - railWidth - splitterWidth;
+        const x = ev.clientX - rect.left - railWidth;
+        const ratio = Math.max(0.25, Math.min(0.85, x / usable));
+        applySplitRatio(ratio);
+      };
+      const up = (ev) => {
+        handle.classList.remove('is-dragging');
+        try { handle.releasePointerCapture?.(ev.pointerId); } catch {}
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', up);
+        document.removeEventListener('pointercancel', up);
+        // Persist the final ratio
+        const reader2 = document.getElementById('sb-reader');
+        if (reader2) {
+          const cs = getComputedStyle(reader2).getPropertyValue('--sb-prose-fr');
+          const v = parseFloat(cs);
+          if (Number.isFinite(v) && v > 0) {
+            try { localStorage.setItem('qss:sb:split', String(v)); } catch {}
+          }
+        }
+      };
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', up);
+      document.addEventListener('pointercancel', up);
     }
 
     /* ──── Editable prose — Enter splits, blur saves ──── */
