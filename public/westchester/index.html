@@ -6398,18 +6398,148 @@ const savedStyleKey = (() => {
 })();
 let currentStyleKey = savedStyleKey;
 
-const map = new maplibregl.Map({
-  container: 'map-canvas',
-  style: MAP_STYLES[savedStyleKey],
-  center: [-73.7831, 41.1346],
-  zoom: 12.5,
-  pitch: 0,
-  bearing: 0,
-  attributionControl: { compact: true }
-});
-window._whhMap = map;
-map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), 'bottom-right');
-map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'imperial' }), 'bottom-left');
+// ===== WebGL availability probe + graceful fallback =====
+// Some computers (wife's mac, Safari with hardware accel off, locked-down
+// work laptops) can't initialize WebGL. MapLibre throws a hard error and
+// nothing else loads. We probe up front, and if WebGL is dead we mount a
+// friendly fallback panel + a no-op map shim so the table view + scoring
+// + cloud sync all keep working.
+function probeWebGL() {
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl');
+    if (!gl) return { ok: false, reason: 'no-context' };
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : (gl.getParameter ? gl.getParameter(gl.VENDOR) : '');
+    return { ok: true, vendor: String(vendor || '') };
+  } catch (e) { return { ok: false, reason: e?.message || 'exception' }; }
+}
+function mountWebGLFallbackUI(reason) {
+  const mc = document.getElementById('map-canvas');
+  if (!mc) return;
+  mc.style.display = 'flex';
+  mc.style.alignItems = 'center';
+  mc.style.justifyContent = 'center';
+  mc.style.padding = '32px';
+  mc.style.background = '#F2EBDB';
+  mc.innerHTML = `
+    <div style="max-width:640px;font-family:'JetBrains Mono',monospace;color:#1a1a1a;line-height:1.55;">
+      <div style="font-size:11px;letter-spacing:0.22em;color:#B23A23;font-weight:700;margin-bottom:8px;">⚠ MAP UNAVAILABLE</div>
+      <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:28px;font-weight:400;color:#1a1a1a;margin:0 0 14px 0;letter-spacing:-0.01em;">Your browser blocked the map.</h2>
+      <p style="margin:0 0 14px 0;font-size:13px;">The map needs your computer's graphics card (WebGL) to draw, and it's turned off right now. The good news: <strong>everything else still works.</strong> Click the <strong>Table</strong> tab above to see all the pinned homes.</p>
+      <div style="font-size:11px;color:#666;margin:18px 0 6px 0;letter-spacing:0.16em;font-weight:700;">HOW TO TURN THE MAP BACK ON</div>
+      <div style="font-size:12px;background:#FFF;border:1px solid #ddd6c4;padding:14px 16px;border-radius:3px;">
+        <div style="font-weight:700;margin-bottom:6px;">Chrome / Edge / Brave</div>
+        <ol style="margin:0 0 12px 18px;padding:0;">
+          <li>Open <code style="background:#f3edd9;padding:1px 5px;border-radius:2px;">chrome://settings/system</code></li>
+          <li>Turn on <strong>"Use hardware acceleration when available"</strong></li>
+          <li>Relaunch the browser. Reload this page.</li>
+        </ol>
+        <div style="font-weight:700;margin-bottom:6px;">Safari</div>
+        <ol style="margin:0 0 12px 18px;padding:0;">
+          <li>Safari menu → <strong>Settings → Advanced</strong></li>
+          <li>Turn on <strong>"Show features for web developers"</strong></li>
+          <li>New <strong>Develop</strong> menu → <strong>Experimental Features</strong> → enable <strong>WebGL 2.0</strong></li>
+          <li>Reload this page.</li>
+        </ol>
+        <div style="font-weight:700;margin-bottom:6px;">Still broken?</div>
+        <div style="margin:0 0 4px 0;">Try a different browser. Chrome usually works.</div>
+      </div>
+      <div style="margin-top:18px;font-size:10px;color:#888;letter-spacing:0.10em;">technical reason: ${(typeof escapeHtml === 'function') ? escapeHtml(reason) : String(reason).replace(/[<>&"']/g, '')}</div>
+    </div>`;
+  // Auto-switch to Table tab so she sees something useful immediately
+  setTimeout(() => { try { if (typeof setActiveTab === 'function') setActiveTab('table'); } catch {} }, 100);
+  // Top-bar banner
+  try {
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#B23A23;color:#FFF;font-family:JetBrains Mono,monospace;font-size:11px;padding:8px 14px;letter-spacing:0.10em;text-align:center;';
+    banner.innerHTML = 'Map disabled (WebGL off on this computer). Table view still works. <a href="#" id="whh-webgl-help" style="color:#FFD089;text-decoration:underline;margin-left:8px;">why?</a>';
+    document.body.appendChild(banner);
+    banner.querySelector('#whh-webgl-help').addEventListener('click', e => { e.preventDefault(); setActiveTab('map'); });
+  } catch {}
+}
+function makeNoMapShim() {
+  // Chainable no-op that satisfies most fluent MapLibre call chains.
+  const noop = () => shim;
+  const shim = {
+    _isNoMapShim: true,
+    on: noop, off: noop, once: noop, fire: noop,
+    addControl: noop, removeControl: noop,
+    addSource: noop, removeSource: noop, addLayer: noop, removeLayer: noop,
+    setLayoutProperty: noop, setPaintProperty: noop, setFilter: noop,
+    setLayerZoomRange: noop, moveLayer: noop, setLight: noop,
+    flyTo: noop, jumpTo: noop, easeTo: noop, panTo: noop, fitBounds: noop,
+    setCenter: noop, setZoom: noop, setBearing: noop, setPitch: noop,
+    setStyle: noop, setMaxBounds: noop, resize: noop, remove: noop,
+    loaded: () => true, isStyleLoaded: () => true,
+    getCenter: () => ({ lng: -73.78, lat: 41.13 }),
+    getZoom: () => 12,
+    getBearing: () => 0, getPitch: () => 0,
+    getCanvas: () => ({ style: {} }),
+    getContainer: () => document.getElementById('map-canvas'),
+    getSource: () => null, getLayer: () => null, getStyle: () => ({ layers: [] }),
+    queryRenderedFeatures: () => [], querySourceFeatures: () => [],
+    project: (lngLat) => ({ x: 0, y: 0 }),
+    unproject: () => ({ lng: 0, lat: 0 }),
+    setFeatureState: noop, getFeatureState: () => ({}), removeFeatureState: noop,
+    listImages: () => [], hasImage: () => false, addImage: noop, removeImage: noop,
+    loadImage: (_url, cb) => { try { cb && cb(new Error('no map'), null); } catch {} },
+  };
+  return shim;
+}
+
+let map;
+const webglProbe = probeWebGL();
+if (!webglProbe.ok) {
+  console.error('[whh] WebGL probe failed:', webglProbe.reason);
+  map = makeNoMapShim();
+  window._whhMap = map;
+  window._whhMapDisabled = true;
+  // Defer fallback UI until DOM is ready + setActiveTab exists
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => mountWebGLFallbackUI(webglProbe.reason));
+  } else {
+    setTimeout(() => mountWebGLFallbackUI(webglProbe.reason), 50);
+  }
+} else {
+  try {
+    map = new maplibregl.Map({
+      container: 'map-canvas',
+      style: MAP_STYLES[savedStyleKey],
+      center: [-73.7831, 41.1346],
+      zoom: 12.5,
+      pitch: 0,
+      bearing: 0,
+      attributionControl: { compact: true }
+    });
+    window._whhMap = map;
+    map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), 'bottom-right');
+    map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'imperial' }), 'bottom-left');
+    // If MapLibre throws AFTER construction (some Intel iGPUs fail late),
+    // catch the runtime error and swap to the shim so the page survives.
+    map.on('error', (e) => {
+      const msg = String(e?.error?.message || e?.message || '');
+      if (msg.includes('WebGL') || msg.includes('webgl') || /Failed to initialize/i.test(msg)) {
+        console.error('[whh] Late WebGL failure:', msg);
+        try { map.remove(); } catch {}
+        map = makeNoMapShim();
+        window._whhMap = map;
+        window._whhMapDisabled = true;
+        mountWebGLFallbackUI(msg);
+      }
+    });
+  } catch (e) {
+    console.error('[whh] Map construction threw:', e);
+    map = makeNoMapShim();
+    window._whhMap = map;
+    window._whhMapDisabled = true;
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => mountWebGLFallbackUI(e?.message || 'construction-failed'));
+    } else {
+      setTimeout(() => mountWebGLFallbackUI(e?.message || 'construction-failed'), 50);
+    }
+  }
+}
 
 map.on('load', () => {
   loadSchoolDistricts();
