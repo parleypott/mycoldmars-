@@ -4144,6 +4144,10 @@ window.addEventListener('cloud-hydrated', (e) => {
     try {
       if (typeof attachPhotoManifest === 'function') setTimeout(() => attachPhotoManifest({ force: true }), 150);
     } catch {}
+    // Refresh parcel polygons for newly-arrived pins
+    try {
+      if (typeof loadAllParcels === 'function') setTimeout(() => loadAllParcels().catch(()=>{}), 300);
+    } catch {}
     if (typeof toast === 'function') toast('Synced from cloud');
   } catch (err) {
     console.warn('[cloud] re-hydrate render failed', err);
@@ -6336,6 +6340,12 @@ map.on('load', () => {
   renderBookstoreMarkers();
   mountVillageBoundaryLayers();
   mountTrainLineLayers();
+  // Property parcel boundaries — mount source/layers, then load polygons
+  // for any pin that doesn't have one cached. Layers render below pin markers.
+  try {
+    mountParcelLayers();
+    setTimeout(() => loadAllParcels().catch(e => console.warn('[whh] loadAllParcels', e)), 600);
+  } catch (e) { console.warn('[whh] parcel mount failed', e); }
   // Hydrate bike paths from cache (no network) so toggle is instant
   try {
     const cached = JSON.parse(localStorage.getItem(BIKE_KEY) || 'null');
@@ -6870,6 +6880,99 @@ function renderMapMarkers() {
     pinMarkers.push(m);
   });
 }
+
+// ===================== PROPERTY PARCEL BOUNDARIES =====================
+// Fetch the tax-parcel polygon containing each pin from the Westchester
+// County GIS service. Cached on pin.parcel so we don't re-fetch every load.
+// Renders as a translucent orange fill + crisp outline.
+const PARCEL_ENDPOINT = 'https://giswww.westchestergov.com/arcgis/rest/services/DataHub_TaxParcels/MapServer/0/query';
+
+async function fetchParcelForPin(pin) {
+  if (!pin || typeof pin.lat !== 'number' || typeof pin.lng !== 'number') return null;
+  // Only Westchester County has data in this endpoint. CT (Stamford, Greenwich)
+  // and Rockland (Nyack, Palisades) won't return anything.
+  const params = new URLSearchParams({
+    geometry: `${pin.lng},${pin.lat}`,
+    geometryType: 'esriGeometryPoint',
+    inSR: '4326',
+    outSR: '4326',
+    spatialRel: 'esriSpatialRelIntersects',
+    outFields: 'PROPADDRESS,MUNNAME,SBL,PRINTKEY,SHAPE.AREA',
+    f: 'geojson',
+  });
+  const url = PARCEL_ENDPOINT + '?' + params.toString();
+  const cacheKey = `parcel:${pin.lat.toFixed(5)},${pin.lng.toFixed(5)}`;
+  try {
+    const res = await whhCachedFetch(url, undefined, { cacheKey, ttlMs: 90 * 24 * 3600 * 1000, label: 'parcel', timeoutMs: 12000, retries: 1 });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const feat = data.features && data.features[0];
+    if (!feat || !feat.geometry) return null;
+    return {
+      type: 'Feature',
+      properties: { pinId: pin.id, address: pin.address, ...(feat.properties || {}) },
+      geometry: feat.geometry,
+    };
+  } catch (e) {
+    console.warn('[whh] parcel fetch failed for', pin.address, e?.message || e);
+    return null;
+  }
+}
+
+async function loadAllParcels({ force = false } = {}) {
+  if (!pins?.length) return;
+  let changed = 0;
+  for (const p of pins) {
+    if (!force && p.parcel) continue;
+    const feat = await fetchParcelForPin(p);
+    if (feat) { p.parcel = feat; changed++; }
+    await new Promise(r => setTimeout(r, 120)); // polite pacing
+  }
+  if (changed) {
+    if (typeof savePins === 'function') savePins();
+    updateParcelLayer();
+  }
+}
+
+function parcelCollection() {
+  return {
+    type: 'FeatureCollection',
+    features: (pins || []).filter(p => p.parcel).map(p => p.parcel),
+  };
+}
+
+function mountParcelLayers() {
+  if (map.getSource('parcels')) return;
+  map.addSource('parcels', { type: 'geojson', data: parcelCollection() });
+  // Fill: translucent warm so the underlying tiles still read through
+  map.addLayer({
+    id: 'parcels-fill',
+    type: 'fill',
+    source: 'parcels',
+    paint: {
+      'fill-color': '#E66B2A',
+      'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.20, 0.10],
+    },
+  });
+  // Outline: crisp orange line, slightly thicker at high zoom
+  map.addLayer({
+    id: 'parcels-line',
+    type: 'line',
+    source: 'parcels',
+    paint: {
+      'line-color': '#B84B14',
+      'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1, 16, 2, 19, 3],
+      'line-opacity': 0.85,
+    },
+  });
+}
+
+function updateParcelLayer() {
+  const src = map.getSource && map.getSource('parcels');
+  if (src) src.setData(parcelCollection());
+}
+window.loadAllParcels = loadAllParcels;
+window.fetchParcelForPin = fetchParcelForPin;
 
 let _qvPopup = null;
 function openHouseQuickView(pin, idx) {
