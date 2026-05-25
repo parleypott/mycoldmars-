@@ -6017,6 +6017,13 @@
       serverUpdatedAt: null,
       saveStatus: 'local',
       saveError: null,
+      // ── HYDRATION GATE (six-layer fix for data-loss bug) ──
+      // Starts false. queueSave() blocks until something sets this to
+      // true. Set true by bootStory (local data is real), loadFromRow
+      // (server data is real), or newStory (a fresh empty story IS
+      // intentional). Prevents an empty in-memory snapshot from
+      // racing the cloud fetch and wiping the user's real blocks.
+      blocksAreHydrated: false,
       // ── new for UI controls (Phase A) ──
       blockUI: {},
       playingBlockId: null,
@@ -6101,6 +6108,10 @@
       state.chat = data?.chat || [];
       state.serverId = data?.serverId || null;
       state.serverUpdatedAt = data?.serverUpdatedAt || null;
+      // HYDRATION GATE — local data is real, mark as hydrated so the
+      // autosave can fire. Without this, queueSave silently blocks
+      // until a cloud round-trip lands.
+      state.blocksAreHydrated = true;
       // Phase B — try local arc cache, server will overwrite via loadFromServerRow
       state.arcContext = data?.arc_context || null;
       window.Arc?.loadFromLocal(name);
@@ -6139,6 +6150,8 @@
       state.serverUpdatedAt = null;
       state.freestyleChat = [];
       state.freestyleThemes = [];
+      // HYDRATION GATE — a brand-new empty story IS the source of truth.
+      state.blocksAreHydrated = true;
       try { window.qssFreestyle?.reset?.(); } catch {}
       document.getElementById('board-name').value = name;
       pushRulesToForm();
@@ -11638,6 +11651,13 @@
       }
 
       // ─ snapshot the current state ─
+      // CRITICAL: never push a snapshot with empty blocks IF the
+      // blocksAreHydrated flag isn't set. That flag is only true after
+      // either bootStory() loaded from localStorage OR loadFromRow()
+      // hydrated from the server with non-empty blocks. Without this
+      // gate, a brand-new boot can race the cloud fetch and push
+      // blocks:[] to the server, wiping the user's story.
+      // (Same shape as the cast portrait six-layer fix.)
       function snapshot() {
         return {
           id: state.serverId || undefined,
@@ -11646,7 +11666,7 @@
           rules: state.rules,
           blocks: state.blocks,
           chat: state.chat,
-          suggestions: [],   // (kept client-side; not worth syncing)
+          suggestions: [],
           character_cards: Array.isArray(state.characterCards) ? state.characterCards : undefined,
           freestyle_chat: Array.isArray(state.freestyleChat) ? state.freestyleChat : undefined,
           freestyle_themes: Array.isArray(state.freestyleThemes) ? state.freestyleThemes : undefined,
@@ -11654,10 +11674,44 @@
         };
       }
 
+      // ─ hydration gate ─
+      function isHydrated() {
+        return state.blocksAreHydrated === true;
+      }
+
+      // ─ cross-tab safety ─
+      // If another tab opens a different story and writes to LS_LAST,
+      // we just log and stay on our story. A tab that updates the SAME
+      // story's localStorage entry can trigger us to merge — but only
+      // if we're not currently inflight AND the other tab actually has
+      // MORE blocks than us (defensive — never lose data this way).
+      try {
+        window.addEventListener('storage', (e) => {
+          if (!e || !e.key) return;
+          // Other-tab writes to LS_KEY(state.name) — same story
+          try {
+            if (state.name && e.key === `qss-story:${state.name}`) {
+              const parsed = JSON.parse(e.newValue || 'null');
+              const otherBlocks = Array.isArray(parsed?.blocks) ? parsed.blocks : [];
+              if (otherBlocks.length > (state.blocks?.length || 0)) {
+                console.warn('[qss-crosstab] other tab has more blocks; refreshing from cloud');
+                refresh();
+              }
+            }
+          } catch {}
+        });
+      } catch {}
+
       // ─ queue (debounced) ─
       function queueSave() {
+        // HARD GATE — never push to cloud until in-memory state has
+        // been hydrated from somewhere (local or server). Boot-time
+        // empty state can otherwise blow away the real story.
+        if (!isHydrated()) {
+          try { console.debug('[qss-save] queueSave blocked — not hydrated yet'); } catch {}
+          return;
+        }
         if (!hasContent()) {
-          // Nothing meaningful yet — stay 'local'.
           setStatus('local');
           return;
         }
@@ -11793,10 +11847,40 @@
 
       function loadFromRow(row) {
         cancelPending();
+        // ── LOCAL-BYTES RESCUE ──
+        // If the server returned an EMPTY blocks array but we have
+        // non-empty blocks locally for THIS same story id, the server
+        // copy is stale (probably from a fresh-create race). Do NOT
+        // wipe local — instead push local back to the server and bail.
+        // Same shape as the cast portrait fix: don't trust the cloud
+        // when it claims you have nothing.
+        const incomingBlocks = Array.isArray(row.blocks) ? row.blocks : [];
+        const sameStory = row.id && state.serverId && row.id === state.serverId;
+        if (incomingBlocks.length === 0 && Array.isArray(state.blocks) && state.blocks.length > 0 && sameStory) {
+          try { console.warn('[qss-load] rescue — server returned empty blocks for', row.id, '; keeping local copy'); } catch {}
+          state.serverUpdatedAt = row.updated_at || state.serverUpdatedAt;
+          // Mark hydrated (we already had real blocks) and re-flush
+          state.blocksAreHydrated = true;
+          setStatus('dirty');
+          clearTimeout(pendingTimer);
+          pendingTimer = setTimeout(flush, 100);  // push local up fast
+          return;
+        }
         state.name = row.name;
         state.rules = { ...DEFAULT_RULES, ...(row.rules || {}) };
         if (typeof row.bible === 'string' && (!state.rules.bible || row.bible)) state.rules.bible = row.bible;
-        state.blocks = (row.blocks || []).map(b => ({ id: b.id, text: b.text, summary: b.summary || '', __image: null }));
+        // Preserve __image and __cues from the server row — they now
+        // hold URL refs (cheap) and ARE the storybook art persistence.
+        // Previously we threw them away on every reload which is why
+        // the art kept disappearing.
+        state.blocks = incomingBlocks.map(b => ({
+          id: b.id,
+          text: b.text,
+          summary: b.summary || '',
+          __image: b.__image || null,
+          __cues: Array.isArray(b.__cues) ? b.__cues : undefined,
+          __sceneBreaksScanned: b.__sceneBreaksScanned || undefined,
+        }));
         state.chat = (row.chat || []).map(t => ({ ...t, options: t.options?.map(o => ({ ...o })) }));
         state.serverId = row.id;
         state.serverUpdatedAt = row.updated_at;
@@ -11822,9 +11906,22 @@
         }
         document.getElementById('board-name').value = state.name;
         pushRulesToForm();
+        // HYDRATION GATE — server data is real, mark hydrated so the
+        // autosave can fire from here on.
+        state.blocksAreHydrated = true;
         renderAll();
         persist();          // mirrors id into localStorage
         setStatus('saved');
+        // BLOCKS-COUNT INVARIANT — after render, the visible block
+        // count must match state.blocks.length. If it ever doesn't,
+        // something's wiped state mid-flight. Toast loudly.
+        try {
+          const pill = document.getElementById('block-count');
+          const visible = pill ? parseInt(pill.textContent, 10) : NaN;
+          if (Number.isFinite(visible) && visible !== state.blocks.length) {
+            console.warn('[qss-invariant FAIL] block count mismatch — pill says', visible, 'state has', state.blocks.length);
+          }
+        } catch {}
       }
 
       async function fetchList(includeTrash = false) {
