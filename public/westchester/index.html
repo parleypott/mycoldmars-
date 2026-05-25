@@ -865,6 +865,7 @@ body.hide-train .whh-icon-train { display: none !important; }
 body.hide-trail .whh-icon-trail { display: none !important; }
 body.hide-bookstore .whh-icon-book { display: none !important; }
 body.hide-villages .whh-village-label { display: none !important; }
+body.hide-houses .whh-marker { display: none !important; }
 
 /* MapLibre popup — match editorial palette */
 .maplibregl-popup-content {
@@ -2618,8 +2619,8 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
           <span class="label">Rail</span>
         </div>
         <div class="layers-section-body">
-          <button class="layer-btn active" data-layer="train" type="button"><span class="box" aria-hidden="true"></span><span class="txt">Train stations</span></button>
-          <button class="layer-btn active" data-layer="trainlines" type="button"><span class="box" aria-hidden="true"></span><span class="txt">Train lines</span></button>
+          <button class="layer-btn" data-layer="train" type="button"><span class="box" aria-hidden="true"></span><span class="txt">Train stations</span></button>
+          <button class="layer-btn" data-layer="trainlines" type="button"><span class="box" aria-hidden="true"></span><span class="txt">Train lines</span></button>
         </div>
       </div>
 
@@ -2630,7 +2631,7 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
           <span class="label">Outdoor</span>
         </div>
         <div class="layers-section-body">
-          <button class="layer-btn active" data-layer="trail" type="button"><span class="box" aria-hidden="true"></span><span class="txt">Trails</span></button>
+          <button class="layer-btn" data-layer="trail" type="button"><span class="box" aria-hidden="true"></span><span class="txt">Trails</span></button>
           <button class="layer-btn" data-layer="bikepaths" type="button"><span class="box" aria-hidden="true"></span><span class="txt">Bike paths</span></button>
         </div>
       </div>
@@ -2642,9 +2643,10 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
           <span class="label">Community</span>
         </div>
         <div class="layers-section-body">
-          <button class="layer-btn active" data-layer="schools" type="button"><span class="box" aria-hidden="true"></span><span class="txt">School districts</span></button>
-          <button class="layer-btn active" data-layer="bookstore" type="button"><span class="box" aria-hidden="true"></span><span class="txt">Bookstores</span></button>
-          <button class="layer-btn active" data-layer="villages" type="button"><span class="box" aria-hidden="true"></span><span class="txt">Villages</span></button>
+          <button class="layer-btn" data-layer="schools" type="button"><span class="box" aria-hidden="true"></span><span class="txt">School districts</span></button>
+          <button class="layer-btn" data-layer="bookstore" type="button"><span class="box" aria-hidden="true"></span><span class="txt">Bookstores</span></button>
+          <button class="layer-btn active" data-layer="houses" type="button"><span class="box" aria-hidden="true"></span><span class="txt">Home pins</span></button>
+          <button class="layer-btn" data-layer="parcels" type="button"><span class="box" aria-hidden="true"></span><span class="txt">Property lines</span></button>
         </div>
       </div>
 
@@ -4243,37 +4245,77 @@ document.querySelectorAll('.map-panel-head[data-section]').forEach(h => {
   h.addEventListener('click', () => h.classList.toggle('section-collapsed'));
 });
 
+// Hide MapLibre layers via setLayoutProperty (for things that aren't DOM markers)
+function syncParcelVisibility() {
+  if (!window._whhMap) return;
+  const btn = document.querySelector('.layer-btn[data-layer="parcels"]');
+  const visible = !btn || btn.classList.contains('active');
+  ['parcels-fill', 'parcels-line'].forEach(id => {
+    try { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none'); } catch {}
+  });
+}
+window.syncParcelVisibility = syncParcelVisibility;
+
 // Layer toggles
+function applyLayerState(layer, btn) {
+  const wasActive = btn.classList.contains('active');
+  if (layer === 'schools') {
+    if (typeof syncSchoolVisibility === 'function') syncSchoolVisibility();
+  } else if (layer === 'trainlines') {
+    if (typeof syncTrainLineVisibility === 'function') syncTrainLineVisibility();
+  } else if (layer === 'bikepaths') {
+    if (wasActive && !window._bikePathsLoaded) {
+      const txtEl = btn.querySelector('.txt') || btn;
+      const origText = txtEl.textContent;
+      txtEl.textContent = 'Loading…';
+      btn.disabled = true;
+      loadBikePaths().catch(err => console.error('[whh] bike paths failed', err))
+        .finally(() => {
+          txtEl.textContent = origText;
+          btn.disabled = false;
+          syncBikePathVisibility();
+        });
+    } else {
+      if (typeof syncBikePathVisibility === 'function') syncBikePathVisibility();
+    }
+  } else if (layer === 'parcels') {
+    syncParcelVisibility();
+    // CSS class also useful in case future parcel decorations attach to DOM
+    document.body.classList.toggle('hide-parcels', !wasActive);
+  } else {
+    // DOM-class toggles (train, trail, bookstore, houses, villages…)
+    document.body.classList.toggle('hide-' + layer, !wasActive);
+  }
+}
+
 document.querySelectorAll('.layer-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    const layer = btn.dataset.layer;
-    const wasActive = btn.classList.contains('active');
     btn.classList.toggle('active');
-    if (layer === 'schools') {
-      if (typeof syncSchoolVisibility === 'function') syncSchoolVisibility();
-    } else if (layer === 'trainlines') {
-      if (typeof syncTrainLineVisibility === 'function') syncTrainLineVisibility();
-    } else if (layer === 'bikepaths') {
-      const nowActive = btn.classList.contains('active');
-      if (nowActive && !window._bikePathsLoaded) {
-        const txtEl = btn.querySelector('.txt') || btn;
-        const origText = txtEl.textContent;
-        txtEl.textContent = 'Loading…';
-        btn.disabled = true;
-        loadBikePaths().catch(err => console.error('[whh] bike paths failed', err))
-          .finally(() => {
-            txtEl.textContent = origText;
-            btn.disabled = false;
-            syncBikePathVisibility();
-          });
-      } else {
-        syncBikePathVisibility();
-      }
-    } else {
-      document.body.classList.toggle('hide-' + layer, wasActive);
-    }
+    applyLayerState(btn.dataset.layer, btn);
   });
 });
+
+// Initial sync — for any layer button that starts INACTIVE, apply the hide state
+// so we don't briefly see all layers on, then have them disappear.
+function applyInitialLayerState() {
+  document.querySelectorAll('.layer-btn').forEach(btn => {
+    if (!btn.classList.contains('active')) {
+      // Treat as if it was toggled off — current state is inactive, so add hide class
+      const layer = btn.dataset.layer;
+      if (layer === 'parcels') {
+        document.body.classList.add('hide-parcels');
+        syncParcelVisibility();
+      } else if (layer === 'schools') {
+        // schools default to visible internally, so just call sync after the layer mounts
+      } else if (layer === 'trainlines' || layer === 'bikepaths') {
+        // these have their own visibility funcs that read btn.active
+      } else {
+        document.body.classList.add('hide-' + layer);
+      }
+    }
+  });
+}
+applyInitialLayerState();
 
 // ===================== LAYERS PANEL =====================
 (function initLayersPanel() {
@@ -6345,7 +6387,14 @@ map.on('load', () => {
   try {
     mountParcelLayers();
     setTimeout(() => loadAllParcels().catch(e => console.warn('[whh] loadAllParcels', e)), 600);
+    // Honor the parcel layer toggle's initial state (default OFF per layers panel)
+    setTimeout(() => { if (typeof syncParcelVisibility === 'function') syncParcelVisibility(); }, 50);
   } catch (e) { console.warn('[whh] parcel mount failed', e); }
+  // Honor school/trainline initial states (default OFF now)
+  setTimeout(() => {
+    try { if (typeof syncSchoolVisibility === 'function') syncSchoolVisibility(); } catch {}
+    try { if (typeof syncTrainLineVisibility === 'function') syncTrainLineVisibility(); } catch {}
+  }, 200);
   // Hydrate bike paths from cache (no network) so toggle is instant
   try {
     const cached = JSON.parse(localStorage.getItem(BIKE_KEY) || 'null');
