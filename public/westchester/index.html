@@ -2783,9 +2783,11 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 
 </main>
 
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<!-- crossorigin="anonymous" so window.onerror gets real error messages from these CDN scripts
+     (without it, cross-origin errors surface as the cryptic "Script error. @ :0") -->
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" crossorigin="anonymous"></script>
 <script>
 // API perimeter — auto-inject x-access-code on /api/* calls (exchange "newpress" gate via /api/qss-access-token)
 (function installAccessCodeFetchWrapper() {
@@ -2840,6 +2842,15 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 // Surface any silent JS error so we never silently break
 window.addEventListener('error', (e) => {
   if (e?.error?.message?.includes('ResizeObserver')) return;
+  // Skip bare cross-origin errors with no useful info — those come from
+  // browser extensions or third-party scripts we don't control. Real errors
+  // from our own + CDN scripts (with crossorigin) deliver actual messages.
+  const isOpaqueScriptError = (e.message === 'Script error.' || e.message === 'Script error')
+                              && (!e.filename || e.lineno === 0 || e.lineno == null);
+  if (isOpaqueScriptError) {
+    console.warn('[whh] suppressed opaque cross-origin script error (likely browser extension):', e);
+    return;
+  }
   let overlay = document.getElementById('whh-err-overlay');
   if (!overlay) {
     overlay = document.createElement('div');
