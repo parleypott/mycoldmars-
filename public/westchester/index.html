@@ -957,6 +957,20 @@ body.hide-villages .whh-village-label { display: none !important; }
   transition: transform 140ms ease;
 }
 .whh-marker.is-active { background: var(--ink); color: #FFF; }
+/* Starred pins — yellow star, larger, eye-catching */
+.whh-marker.is-starred {
+  width: 32px; height: 32px;
+  border: 2px solid #B8860B;
+  background: #FFD60A;
+  color: #6B4A00;
+  box-shadow: 0 4px 12px rgba(184, 134, 11, 0.45), 0 0 0 3px rgba(255, 214, 10, 0.18);
+  z-index: 2;
+}
+.whh-marker.is-starred svg {
+  width: 19px; height: 19px;
+  fill: #6B4A00;
+}
+.whh-marker.is-starred:hover { box-shadow: 0 6px 18px rgba(184, 134, 11, 0.6), 0 0 0 5px rgba(255, 214, 10, 0.25); }
 
 .maplibregl-ctrl-attrib { font-size: 9px !important; }
 
@@ -1166,8 +1180,27 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 .tv-table thead th .sort-ind { margin-left: 4px; font-size: 9px; opacity: 0.85; }
 .tv-table thead th.tv-expand-col { width: 30px; padding: 12px 4px 12px 14px; }
 
-.tv-row { border-bottom: 1px solid var(--line); transition: background 140ms; cursor: pointer; }
+.tv-row { border-bottom: 1px solid var(--line); transition: background 140ms; cursor: pointer; position: relative; }
 .tv-row:hover { background: rgba(0,0,0,0.03); }
+/* Starred rows — warm yellow wash + left ribbon */
+.tv-row.starred { background: rgba(255, 214, 10, 0.13); }
+.tv-row.starred:hover { background: rgba(255, 214, 10, 0.22); }
+.tv-row.starred td:first-child { border-left: 3px solid #E5B500; padding-left: 11px; }
+/* Star button next to expand */
+.tv-star-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 4px;
+  color: rgba(0,0,0,0.22);
+  margin-left: 4px;
+  transition: color 120ms, transform 120ms;
+  vertical-align: middle;
+}
+.tv-star-btn:hover { color: #B8860B; transform: scale(1.15); }
+.tv-row.starred .tv-star-btn { color: #E5B500; text-shadow: 0 1px 2px rgba(184,134,11,0.3); }
 .tv-row > td { padding: 10px 10px; vertical-align: middle; color: var(--ink); white-space: nowrap; }
 .tv-row td.tv-name-cell {
   font-family: 'Instrument Serif', serif; font-style: italic;
@@ -6818,12 +6851,16 @@ let pinMarkers = [];
 function clearPinMarkers() { pinMarkers.forEach(m => m.remove()); pinMarkers = []; }
 function renderMapMarkers() {
   clearPinMarkers();
+  // Starred pins render as a yellow star SVG. Default pins render as the
+  // circular house glyph.
+  const HOUSE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 11.2h2v8.3a1 1 0 0 0 1 1h5v-6h4v6h5a1 1 0 0 0 1-1v-8.3h2z"/></svg>';
+  const STAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 14.85 9.2 22 9.85l-5.42 4.74L18.18 22 12 18.27 5.82 22l1.6-7.41L2 9.85 9.15 9.2z"/></svg>';
   pins.forEach((pin, idx) => {
     const el = document.createElement('div');
-    el.className = 'whh-marker';
+    el.className = 'whh-marker' + (pin.starred ? ' is-starred' : '');
     el.setAttribute('data-rank', pin.rank || 0);
-    el.title = `House ${idx + 1}`;
-    el.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 11.2h2v8.3a1 1 0 0 0 1 1h5v-6h4v6h5a1 1 0 0 0 1-1v-8.3h2z"/></svg>';
+    el.title = (pin.starred ? '★ ' : '') + `House ${idx + 1}`;
+    el.innerHTML = pin.starred ? STAR_SVG : HOUSE_SVG;
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       openHouseQuickView(pin, idx + 1);
@@ -9077,8 +9114,13 @@ function renderTable() {
       const scoreCell = scoreVal == null
         ? '<span class="tv-mute" style="font-size:9px;letter-spacing:0.12em;">—</span>'
         : `<span class="tv-score-chip" data-band="${scoreBand(scoreVal)}">${scoreVal}</span>`;
+      if (p.starred) tr_.classList.add('starred');
+      const starGlyph = p.starred ? '★' : '☆';
       tr_.innerHTML = `
-        <td class="tv-expand-col"><button class="tv-expand-btn" title="Expand">▸</button></td>
+        <td class="tv-expand-col">
+          <button class="tv-expand-btn" title="Expand">▸</button>
+          <button class="tv-star-btn" data-act="star" data-pin="${escapeHtml(p.id)}" title="${p.starred ? 'Unstar' : 'Star'} this home" aria-pressed="${!!p.starred}">${starGlyph}</button>
+        </td>
         <td class="tv-score-cell">${scoreCell}</td>
         <td class="tv-rank-cell"><span class="tv-rank-chip" data-rank="${p.rank || 0}">${origIdx}</span></td>
         <td class="tv-addr-cell tv-prio">${formatPinAddressHtml(p)}</td>
@@ -9328,6 +9370,21 @@ function attachTableHandlers() {
 
   // row click → toggle expand (or jump to map on action btn)
   document.querySelectorAll('.tv-pins tbody .tv-row').forEach(row => {
+    // Star button — toggle starred state without expanding the row
+    const starBtn = row.querySelector('.tv-star-btn');
+    if (starBtn) {
+      starBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        e.preventDefault();
+        const id = row.dataset.id;
+        const pin = pins.find(p => p.id === id);
+        if (!pin) return;
+        pin.starred = !pin.starred;
+        savePins();
+        if (typeof renderMapMarkers === 'function') renderMapMarkers();
+        if (typeof renderTable === 'function') renderTable();
+      });
+    }
     row.addEventListener('click', e => {
       const action = e.target.closest('.tv-action-btn');
       const isControl = e.target.closest('.tv-detail-controls, input, textarea, button');
