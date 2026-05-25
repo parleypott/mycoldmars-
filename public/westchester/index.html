@@ -7416,7 +7416,12 @@ async function attachPhotoManifest({ force = false } = {}) {
   if (!keys.length) return;
   let attached = 0;
   for (const p of pins) {
-    if (p.compass && p.compass.photos && p.compass.photos.length) continue; // never overwrite
+    // Migrate: overwrite if existing photos look like the old local-path
+    // format (/westchester/photos/...). These were from a buggy bash extractor
+    // that pulled the wrong listings' photos. New manifest uses Compass URLs.
+    const hasPhotos = p.compass && p.compass.photos && p.compass.photos.length;
+    const isOldLocal = hasPhotos && p.compass.photos[0].startsWith('/westchester/photos/');
+    if (hasPhotos && !isOldLocal) continue; // already on Compass CDN, keep
     const street = String(p.address || '').toLowerCase();
     // Find first manifest key whose street prefix matches this pin's address
     const matchKey = keys.find(k => {
