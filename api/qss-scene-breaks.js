@@ -137,17 +137,42 @@ function findExplicitCuts(text) {
   return dedup;
 }
 
-// Move offset backwards to the start of the current sentence
+// Snap offset to the start of the nearest clean text unit.
+// Strategy: first try snapping FORWARD to the next paragraph/sentence start
+// (LLM offsets often land inside the last sentence of the old scene, not the
+// first sentence of the new one). Fall back to backward sentence-start scan.
 function snapToSentenceStart(text, offset) {
+  // Forward scan: if there's a paragraph break within 150 chars, snap to
+  // the text that starts after it (skipping ⸻ / — separators + whitespace).
+  const fwd = Math.min(text.length - 1, offset + 150);
+  for (let i = offset; i < fwd; i++) {
+    if (text[i] === '\n') {
+      let j = i + 1;
+      // Skip any blank lines
+      while (j < text.length && (text[j] === '\n' || text[j] === '\r')) j++;
+      // Skip visual section separators (⸻ U+2E3B, — U+2014, – U+2013, hyphens)
+      while (j < text.length && /[⸻—–\-]/.test(text[j])) j++;
+      while (j < text.length && /\s/.test(text[j])) j++;
+      if (j < text.length && j > offset) return j;
+    }
+  }
+  // Backward scan: start of current sentence (scan for [.!?] then skip whitespace).
   const lo = Math.max(0, offset - 400);
   for (let i = offset; i >= lo; i--) {
     if (i === 0) return 0;
     const c = text[i - 1];
-    if (/[.!?]/.test(c) && /\s/.test(text[i] || '') && /[A-Z"“'']/.test(text[i + 1] || '')) {
+    if (/[.!?]/.test(c) && /\s/.test(text[i] || '')) {
       let j = i;
       while (j < text.length && /\s/.test(text[j])) j++;
-      return j;
+      // Require a letter or quote to confirm real sentence start (not mid-abbrev.)
+      if (j < text.length && /[A-Za-z”''”]/.test(text[j])) return j;
     }
+  }
+  // Word-boundary fallback: snap to end of current word so we never land mid-word
+  if (offset > 0 && /\S/.test(text[offset - 1] || '') && /\S/.test(text[offset] || '')) {
+    let right = offset;
+    while (right < text.length && /\S/.test(text[right])) right++;
+    return right < text.length ? right : offset;
   }
   return offset;
 }

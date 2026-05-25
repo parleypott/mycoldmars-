@@ -11252,6 +11252,46 @@
      * fingerprint of the block text on b.__sceneBreaksScanned so we
      * don't re-call unless the text changes.
      */
+
+    // Snap an API-returned break offset to the nearest clean text boundary
+    // so scene cards never start mid-word or mid-sentence.
+    // 1. Forward: find the next paragraph start within 150 chars (handles the
+    //    case where the LLM offset lands inside the last sentence of a scene).
+    // 2. Backward: find the sentence start for the current sentence.
+    // 3. Word-end fallback: never leave the offset mid-word.
+    function snapBreakToCleanBoundary(text, offset) {
+      if (offset <= 0 || offset >= text.length) return offset;
+      // Forward: next paragraph/section start
+      const fwd = Math.min(text.length - 1, offset + 150);
+      for (let i = offset; i < fwd; i++) {
+        if (text[i] === '\n') {
+          let j = i + 1;
+          while (j < text.length && (text[j] === '\n' || text[j] === '\r')) j++;
+          // Skip visual separators like ⸻ — –
+          while (j < text.length && /[⸻—–\-]/.test(text[j])) j++;
+          while (j < text.length && /\s/.test(text[j])) j++;
+          if (j < text.length && j > offset) return j;
+        }
+      }
+      // Backward: sentence start
+      const lo = Math.max(0, offset - 300);
+      for (let i = offset; i >= lo; i--) {
+        if (i === 0) return 0;
+        if (/[.!?]/.test(text[i - 1]) && /\s/.test(text[i] || '')) {
+          let j = i;
+          while (j < text.length && /\s/.test(text[j])) j++;
+          if (j < text.length && /[A-Za-z"'"]/.test(text[j])) return j;
+        }
+      }
+      // Word-end fallback
+      if (/\S/.test(text[offset - 1] || '') && /\S/.test(text[offset] || '')) {
+        let right = offset;
+        while (right < text.length && /\S/.test(text[right])) right++;
+        return right < text.length ? right : offset;
+      }
+      return offset;
+    }
+
     async function detectSceneBreaksForAllBlocks() {
       const blocks = (state.blocks || []).filter(b => (b?.text || '').trim().length >= 400);
       // Fire calls sequentially to keep load gentle — one block at a
@@ -11288,7 +11328,12 @@
               return false;
             });
             for (const br of breaks) {
-              const offset = Math.max(0, Math.floor(br.offset || 0));
+              let offset = Math.max(0, Math.floor(br.offset || 0));
+              if (offset <= 0 || offset >= text.length) continue;
+              // Snap to clean paragraph/word boundary so we never land mid-word.
+              // The server already tries this but can miss \n\n separators; do it
+              // client-side too as the final safety net.
+              offset = snapBreakToCleanBoundary(text, offset);
               if (offset <= 0 || offset >= text.length) continue;
               // Skip if too close to an existing cue
               if (b.__cues.some(c => Math.abs((c.offset || 0) - offset) < 200)) continue;
