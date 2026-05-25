@@ -10542,7 +10542,8 @@
       //                          that character. Cast-page visual_notes go
       //                          here so Johnny's customizations win.
       function build({ sceneText = '', extra = '', variation = false, characterOverrides = {} } = {}) {
-        const characters = detectCharacters(sceneText);
+        const cleanScene = String(sceneText || '').trim();
+        const characters = detectCharacters(cleanScene);
         const charBlock = characters.length
           ? `The characters in this picture (the attached reference images show their canonical look — match the portraits):\n${characters.map(c => {
               const ov = characterOverrides[c.key] || characterOverrides[(c.name || '').toLowerCase()];
@@ -10551,7 +10552,11 @@
             }).join('\n')}\nBackground extras are ordinary-looking kids and grown-ups with naturalistic faces — only the named characters above carry signature props.`
           : 'The people in this picture are ordinary-looking kids and grown-ups with naturalistic faces and varied skin tones.';
 
-        const scenePart = `Show one strong single moment from this passage — pick the most visually surprising or emotionally loaded beat and render only that one picture, like a single page of a picture book:\n"${String(sceneText || '').slice(0, 800)}"`;
+        // Empty-scene guard — never send the model an empty quoted block.
+        // Fall back to a neutral prompt so we still produce a useful image.
+        const scenePart = cleanScene
+          ? `Show one strong single moment from this passage — pick the most visually surprising or emotionally loaded beat and render only that one picture, like a single page of a picture book:\n"${cleanScene.slice(0, 800)}"`
+          : `Draw an inviting establishing shot for an empty scene in Queen Scarlet's School — a bright classroom or hallway, no specific action yet. The viewer should feel ready for a story to start.`;
 
         const composition = `One camera angle, one moment, full-bleed frame. No comic panels, no speech bubbles, no visible text, words, or letters anywhere in the image.`;
 
@@ -11525,6 +11530,11 @@
           // If the riff panel is open for the OLD cue, close it
           const riff = document.getElementById('sb-riff');
           if (riff?.classList.contains('is-open')) toggleStorybookRiff(false);
+          // Same for the prompt panel — close it on cue change so the
+          // user doesn't accidentally fire an edited prompt against
+          // a different scene than they were looking at.
+          const promptPanel = document.getElementById('sb-prompt-panel');
+          if (promptPanel?.classList.contains('is-open')) toggleStorybookPromptPanel(false);
           // Cascade: queue the next cue's image if it doesn't have one yet
           const next = storybook.cues[bestIdx + 1];
           if (next && !next.image_url) {
@@ -11726,6 +11736,13 @@
           composedPrompt = composed.prompt;
         }
         log('calling /api/nano-banana', { promptChars: composedPrompt.length, refCount: refs.length, characters: Object.keys(composed.characterOverrides || {}) });
+        try {
+          // Full prompt to debug console — collapsed group so it doesn't
+          // pollute the main log unless you expand it.
+          console.groupCollapsed(`${tag} ⌕ exact prompt sent (${composedPrompt.length} chars)`);
+          console.log(composedPrompt);
+          console.groupEnd();
+        } catch {}
 
         // 120s fetch timeout so a hung request can't pin the inflight
         // lock forever (the previous version had no timeout — if the API
@@ -12106,7 +12123,10 @@
       document.getElementById('sb-prompt-close')?.addEventListener('click', () => toggleStorybookPromptPanel(false));
       document.getElementById('sb-prompt-send')?.addEventListener('click', sendStorybookPromptEdit);
       document.getElementById('sb-prompt-reset')?.addEventListener('click', () => {
-        const cue = storybook.cues[storybook.activeIdx];
+        // Reset to the LOCKED target, not the current activeIdx
+        const targetId = storybook._promptTargetCueId;
+        const cue = (targetId ? storybook.cues.find(c => c.id === targetId) : null)
+                    || storybook.cues[storybook.activeIdx];
         if (cue) populateStorybookPromptPanel(cue.id);
       });
       document.getElementById('sb-prompt-copy')?.addEventListener('click', async () => {
@@ -12220,7 +12240,13 @@
       }
     }
 
-    /* ──── Prompt inspector + editor ──── */
+    /* ──── Prompt inspector + editor ────
+     * The panel LOCKS onto whichever cue was active when it opened.
+     * Scrolling can't yank the gen into firing for the wrong scene —
+     * the target cueId is stored on storybook._promptTargetCueId
+     * and the panel auto-closes on cue change. The textarea preview
+     * is built with isVariation=true so what-you-see is what's-sent
+     * (every "draw with this prompt" creates a new variation). */
     function toggleStorybookPromptPanel(forceOpen) {
       const panel = document.getElementById('sb-prompt-panel');
       const riff = document.getElementById('sb-riff');
@@ -12232,6 +12258,8 @@
         if (!cue) { sbToast('no scene selected yet'); return; }
         // Close the riff panel if it's open — only one at a time
         if (riff?.classList.contains('is-open')) toggleStorybookRiff(false);
+        // LOCK to this cue so scrolling can't make us fire for another
+        storybook._promptTargetCueId = cue.id;
         populateStorybookPromptPanel(cue.id);
         panel.classList.add('is-open');
         panel.setAttribute('aria-hidden', 'false');
@@ -12242,10 +12270,14 @@
       } else {
         panel.classList.remove('is-open');
         panel.setAttribute('aria-hidden', 'true');
+        storybook._promptTargetCueId = null;
       }
     }
     function populateStorybookPromptPanel(cueId) {
-      const composed = composeScenePromptForCue(cueId, { isVariation: false });
+      // Preview with isVariation=true — every prompt-panel send creates
+      // a new variation, so the textarea should reflect EXACTLY what
+      // gets shipped to the model.
+      const composed = composeScenePromptForCue(cueId, { isVariation: true });
       const ta = document.getElementById('sb-prompt-text');
       const metaScene = document.getElementById('sb-prompt-meta-scene');
       const metaRefs = document.getElementById('sb-prompt-meta-refs');
@@ -12255,9 +12287,19 @@
         return;
       }
       ta.value = composed.prompt;
-      if (metaScene) metaScene.textContent = (composed.sceneText || '').slice(0, 60).replace(/\s+/g, ' ') + (composed.sceneText.length > 60 ? '…' : '');
+      const cueRef = storybook.cues.find(c => c.id === cueId);
+      const idxLabel = cueRef ? `scene ${storybook.cues.indexOf(cueRef) + 1}/${storybook.cues.length}` : 'scene';
+      if (metaScene) metaScene.textContent = `${idxLabel} — ` + (composed.sceneText || '').slice(0, 48).replace(/\s+/g, ' ') + ((composed.sceneText || '').length > 48 ? '…' : '');
       if (metaRefs) metaRefs.textContent = String(composed.castRefs.length) + (composed.castRefs.length ? ` (${composed.castRefs.map(c => c.name).join(', ')})` : '');
       if (metaLen) metaLen.textContent = String(composed.prompt.length);
+      try {
+        console.info('[prompt-panel] populated', {
+          cueId,
+          chars: composed.prompt.length,
+          castRefs: composed.castRefs.map(c => c.name),
+          overrides: Object.keys(composed.characterOverrides || {}),
+        });
+      } catch {}
     }
     async function sendStorybookPromptEdit() {
       const panel = document.getElementById('sb-prompt-panel');
@@ -12267,13 +12309,27 @@
       if (panel.classList.contains('is-busy')) return;
       const text = (ta.value || '').trim();
       if (!text) { sbToast('prompt is empty'); ta.focus(); return; }
-      const cue = storybook.cues[storybook.activeIdx];
-      if (!cue) { sbToast('no scene selected'); return; }
+      // CRITICAL — use the locked target, NOT activeIdx. The user opened
+      // the panel for a specific cue; if they scrolled away while typing,
+      // the gen must still fire for the original target.
+      const cueId = storybook._promptTargetCueId;
+      const cue = cueId ? storybook.cues.find(c => c.id === cueId) : null;
+      if (!cue) {
+        sbToast('lost track of the scene — reopen the prompt panel');
+        toggleStorybookPromptPanel(false);
+        return;
+      }
       panel.classList.add('is-busy');
       sendBtn.disabled = true;
       const oldLabel = sendBtn.textContent;
       sendBtn.textContent = 'drawing…';
-      try { console.info('[prompt-edit] send', { cueId: cue.id, chars: text.length }); } catch {}
+      try {
+        console.info('[prompt-edit] FIRE', {
+          cueId: cue.id,
+          chars: text.length,
+          preview: text.slice(0, 120) + (text.length > 120 ? '…' : ''),
+        });
+      } catch {}
       const r = await triggerStorybookGen(cue.id, true, '', { rawPrompt: text });
       if (r?.ok) {
         sbToast('drew a version with your prompt');
@@ -12302,6 +12358,8 @@
         }
         // Close the prompt panel if it's open — only one at a time
         if (promptPanel?.classList.contains('is-open')) toggleStorybookPromptPanel(false);
+        // LOCK to this cue so scrolling away doesn't redirect the riff
+        storybook._riffTargetCueId = cue.id;
         panel.classList.add('is-open');
         panel.setAttribute('aria-hidden', 'false');
         setTimeout(() => {
@@ -12311,6 +12369,7 @@
       } else {
         panel.classList.remove('is-open');
         panel.setAttribute('aria-hidden', 'true');
+        storybook._riffTargetCueId = null;
       }
     }
 
@@ -12325,7 +12384,11 @@
         input.focus();
         return;
       }
-      const cue = storybook.cues[storybook.activeIdx];
+      // Use the LOCKED riff target — falls back to activeIdx only if the
+      // panel was somehow opened without locking (shouldn't happen).
+      const targetId = storybook._riffTargetCueId;
+      const cue = (targetId ? storybook.cues.find(c => c.id === targetId) : null)
+                  || storybook.cues[storybook.activeIdx];
       if (!cue) {
         sbToast('no scene selected yet');
         return;
