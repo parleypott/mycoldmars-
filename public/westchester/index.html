@@ -905,7 +905,7 @@ body.hide-villages .whh-village-label { display: none !important; }
 }
 .map-popup-meta strong { color: var(--ink); font-weight: 600; }
 
-/* Circular icon markers — train (red) + trail (green) */
+/* Circular icon markers — train (red) + trail (green) — GPU-pegged */
 .whh-icon-marker {
   width: 26px; height: 26px;
   background: #FFF;
@@ -914,10 +914,16 @@ body.hide-villages .whh-village-label { display: none !important; }
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 3px 8px rgba(0,0,0,0.28);
   cursor: pointer;
+  /* GPU-promote, no transition on transform (maplibre sets it per frame) */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+.whh-icon-marker:hover svg { transform: scale(1.18); }
+.whh-icon-marker svg {
+  width: 14px; height: 14px; display: block;
   transition: transform 140ms ease;
 }
-.whh-icon-marker:hover { transform: scale(1.18); }
-.whh-icon-marker svg { width: 14px; height: 14px; display: block; }
 .whh-icon-train { border-color: var(--accent); }
 .whh-icon-train svg { color: var(--accent); fill: var(--accent); }
 .whh-icon-trail { border-color: var(--green); }
@@ -925,7 +931,7 @@ body.hide-villages .whh-village-label { display: none !important; }
 .whh-icon-book { border-color: #7B4FA8; }
 .whh-icon-book svg { color: #7B4FA8; fill: #7B4FA8; }
 
-/* House pin markers — minimalist single-color */
+/* House pin markers — minimalist single-color, GPU-pegged to map */
 .whh-marker {
   width: 26px; height: 26px;
   border-radius: 50%;
@@ -935,10 +941,21 @@ body.hide-villages .whh-village-label { display: none !important; }
   display: flex; align-items: center; justify-content: center;
   color: var(--ink);
   box-shadow: 0 3px 8px rgba(0,0,0,0.22);
-  transition: transform 140ms ease, box-shadow 140ms ease;
+  /* GPU-promote so MapLibre's per-frame transform stays pegged to the map
+     during zoom. NO transition on transform — that's what caused the lag.
+     Hover scaling is now handled by an inner element so the outer transform
+     stays under maplibre's control. */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  transition: box-shadow 140ms ease;
 }
-.whh-marker:hover { transform: scale(1.18); box-shadow: 0 5px 14px rgba(0,0,0,0.32); }
-.whh-marker svg { width: 14px; height: 14px; display: block; fill: currentColor; }
+.whh-marker:hover { box-shadow: 0 5px 14px rgba(0,0,0,0.32); }
+.whh-marker:hover svg { transform: scale(1.18); }
+.whh-marker svg {
+  width: 14px; height: 14px; display: block; fill: currentColor;
+  transition: transform 140ms ease;
+}
 .whh-marker.is-active { background: var(--ink); color: #FFF; }
 
 .maplibregl-ctrl-attrib { font-size: 9px !important; }
@@ -5862,7 +5879,7 @@ map.on('load', () => {
         </div>`)
         .addTo(map);
     });
-    new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([s.lng, s.lat]).addTo(map);
+    new maplibregl.Marker({ element: el, anchor: 'center', subpixelPositioning: true }).setLngLat([s.lng, s.lat]).addTo(map);
   });
   TRAILHEADS.forEach(s => {
     const el = document.createElement('div');
@@ -5879,7 +5896,7 @@ map.on('load', () => {
         </div>`)
         .addTo(map);
     });
-    new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([s.lng, s.lat]).addTo(map);
+    new maplibregl.Marker({ element: el, anchor: 'center', subpixelPositioning: true }).setLngLat([s.lng, s.lat]).addTo(map);
   });
   renderPins();
   renderVillages();
@@ -6412,7 +6429,7 @@ function renderMapMarkers() {
       e.stopPropagation();
       openHouseQuickView(pin, idx + 1);
     });
-    const m = new maplibregl.Marker({ element: el, anchor: 'center' })
+    const m = new maplibregl.Marker({ element: el, anchor: 'center', subpixelPositioning: true })
       .setLngLat([pin.lng, pin.lat]).addTo(map);
     pinMarkers.push(m);
   });
@@ -8036,7 +8053,7 @@ function renderVillageMarkers() {
         </div>`)
         .addTo(map);
     });
-    const m = new maplibregl.Marker({ element: el, anchor: 'center' })
+    const m = new maplibregl.Marker({ element: el, anchor: 'center', subpixelPositioning: true })
       .setLngLat([v.lng, v.lat]).addTo(map);
     villageMarkers.push(m);
   });
@@ -8079,7 +8096,7 @@ function renderBookstoreMarkers() {
         </div>`)
         .addTo(map);
     });
-    const m = new maplibregl.Marker({ element: el, anchor: 'center' })
+    const m = new maplibregl.Marker({ element: el, anchor: 'center', subpixelPositioning: true })
       .setLngLat([b.lng, b.lat]).addTo(map);
     bookstoreMarkers.push(m);
   }
