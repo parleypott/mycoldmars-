@@ -4247,7 +4247,9 @@
     .sb-art-layer {
       position: absolute; inset: 0;
       opacity: 0; transition: opacity 380ms ease;
-      background-size: cover; background-position: center;
+      background-size: contain;
+      background-position: center center;
+      background-repeat: no-repeat;
     }
     .sb-art-layer.is-active { opacity: 1; }
     .sb-art-overlay {
