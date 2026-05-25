@@ -3623,6 +3623,11 @@ window.addEventListener('cloud-hydrated', (e) => {
     if (typeof renderMapMarkers === 'function') renderMapMarkers();
     if (typeof renderTable === 'function' && document.body.dataset.tableTab === 'open') renderTable();
     if (typeof renderAgentContext === 'function' && document.body.dataset.agentTab === 'open') renderAgentContext();
+    // Re-attach photos to any newly-arrived pins (force=true bypasses the
+    // idempotent guard so the manifest gets re-applied to the fresh pins array).
+    try {
+      if (typeof attachPhotoManifest === 'function') setTimeout(() => attachPhotoManifest({ force: true }), 150);
+    } catch {}
     if (typeof toast === 'function') toast('Synced from cloud');
   } catch (err) {
     console.warn('[cloud] re-hydrate render failed', err);
@@ -3681,6 +3686,12 @@ document.querySelectorAll('.tab-btn').forEach(t => t.addEventListener('click', (
   document.body.classList.toggle('on-map', initial === 'map');
   const fire = () => {
     try { setActiveTab(initial, false); } catch (e) { console.warn('[whh] boot tab activation failed', e); }
+    // Photo manifest at boot — so map pin popups can show photos without
+    // requiring a Table tab visit first.
+    setTimeout(() => {
+      try { if (typeof attachPhotoManifest === 'function' && typeof pins !== 'undefined' && pins?.length) attachPhotoManifest(); }
+      catch (e) { console.warn('[whh] boot photo-attach skipped', e); }
+    }, 400);
     // Kick off doctrine-aware auto-rescore in the background regardless of tab —
     // gives the Map pins their fresh village-connection scores too.
     setTimeout(() => {
@@ -6859,8 +6870,8 @@ async function loadPhotoManifest() {
   } catch { _manifestCache = {}; }
   return _manifestCache;
 }
-async function attachPhotoManifest() {
-  if (_photoAttachRan) return;
+async function attachPhotoManifest({ force = false } = {}) {
+  if (_photoAttachRan && !force) return;
   _photoAttachRan = true;
   if (!pins || !pins.length) { _photoAttachRan = false; return; }
   const manifest = await loadPhotoManifest();
