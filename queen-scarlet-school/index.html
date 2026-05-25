@@ -3583,115 +3583,135 @@
     .sb-paragraph .karaoke-word { transition: background 120ms ease; padding: 0 1px; border-radius: 3px; }
     .sb-paragraph .karaoke-word.active { background: var(--yolk); color: var(--ink-bright); }
 
-    /* Image cue markers — visible in prose so reader knows where art changes.
-     * Two layers:
-     *   1. INLINE cue rule between paragraphs (the horizontal break with
-     *      label + delete button)
-     *   2. MARGIN thumbnail — absolutely positioned in the left margin
-     *      next to the cue. Thumb of the actual image when generated,
-     *      a numbered placeholder when not. Always visible at a glance. */
-    .sb-cue-mark {
-      display: flex; align-items: center; gap: 12px;
-      margin: 36px 0 22px 0;
-      cursor: pointer;
+    /* Cue sections — every cue OWNS the paragraphs after it until the
+     * next cue. Each section gets a left margin with:
+     *   - a thumbnail at the top (image preview or numbered placeholder)
+     *   - a vertical range bar running the full length of the section
+     *     so the reader can SEE which prose belongs to which picture
+     *   - the cue label below the thumb
+     * The cue's active state lights everything up. */
+    .sb-cue-section {
       position: relative;
-      user-select: none;
+      padding-left: 96px;     /* margin reserved for thumb + range bar */
+      margin: 0;
+      transition: opacity 220ms ease;
     }
-    .sb-cue-mark:hover .sb-cue-dot { background: var(--yolk); transform: scale(1.15); }
-    .sb-cue-dot {
-      width: 16px; height: 16px;
-      border: 2.5px solid var(--ink-bright);
-      border-radius: 999px;
-      background: var(--paper-card);
-      flex: 0 0 auto;
-      box-shadow: 2px 2px 0 var(--ink-bright);
-      transition: background 160ms, transform 160ms, box-shadow 160ms;
-    }
-    .sb-cue-mark.is-active .sb-cue-dot {
-      background: var(--yolk);
-      box-shadow: 0 0 0 4px rgba(255,217,100,0.4), 2px 2px 0 var(--ink-bright);
-    }
-    .sb-cue-rule {
-      flex: 1; height: 2px;
-      background: var(--ink-bright);
-      opacity: 0.32;
-    }
-    .sb-cue-mark.is-active .sb-cue-rule { opacity: 0.7; }
-    .sb-cue-label {
-      font-family: var(--mono, monospace);
-      font-size: 11px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--ink-soft);
-      font-weight: 700;
-    }
-    .sb-cue-mark.is-active .sb-cue-label { color: var(--ink-bright); }
-    .sb-cue-mark .sb-cue-delete {
-      opacity: 0; transition: opacity 140ms;
-      background: transparent; border: none; color: var(--ink-faint);
-      cursor: pointer; font-size: 14px; padding: 2px 6px;
-    }
-    .sb-cue-mark:hover .sb-cue-delete { opacity: 1; }
-    .sb-cue-mark.sb-cue-default .sb-cue-delete { display: none; }
-    .sb-cue-mark .sb-cue-delete:hover { color: var(--red, #d65653); }
+    .sb-cue-section + .sb-cue-section { margin-top: 28px; }
 
-    /* Margin thumbnails — absolute-positioned next to each cue */
-    .sb-prose-inner { padding-left: 92px; }
-    .sb-margin-thumbs {
+    /* Range bar — runs the full height of the section, in the gutter */
+    .sb-cue-range {
       position: absolute;
-      left: 0; top: 0;
-      width: 76px;
+      left: 76px;
+      top: 8px;
+      bottom: 8px;
+      width: 4px;
+      border-radius: 999px;
+      background: var(--ink-bright);
+      opacity: 0.14;
+      transition: opacity 220ms, background 220ms, width 220ms;
       pointer-events: none;
     }
-    .sb-mthumb {
+    .sb-cue-section.is-active .sb-cue-range {
+      width: 6px;
+      left: 75px;
+      background: var(--yolk);
+      opacity: 1;
+      box-shadow: 0 0 0 1px var(--ink-bright);
+    }
+
+    /* Thumbnail at top-left of each section */
+    .sb-cue-thumb {
       position: absolute;
       left: 0;
+      top: 4px;
       width: 64px; height: 40px;
       background: var(--paper-card);
       background-size: cover;
       background-position: center;
-      border: 2px solid var(--ink-bright);
+      border: 2.5px solid var(--ink-bright);
       border-radius: 6px;
       box-shadow: 2px 2px 0 var(--ink-bright);
       cursor: pointer;
-      pointer-events: auto;
       transition: transform 140ms, box-shadow 140ms;
       display: flex; align-items: center; justify-content: center;
       overflow: hidden;
+      padding: 0;
     }
-    .sb-mthumb:hover {
+    .sb-cue-thumb:hover {
       transform: translate(-1px, -1px);
       box-shadow: 4px 4px 0 var(--ink-bright);
     }
-    .sb-mthumb.is-active {
-      box-shadow: 4px 4px 0 var(--ink-bright), 0 0 0 3px var(--yolk);
+    .sb-cue-section.is-active .sb-cue-thumb {
+      box-shadow: 3px 3px 0 var(--ink-bright), 0 0 0 3px var(--yolk);
     }
-    .sb-mthumb .sb-mthumb-num {
+    .sb-cue-thumb-num {
       font-family: var(--mono, monospace);
       font-weight: 800;
       font-size: 13px;
       color: var(--ink-bright);
       letter-spacing: 0.04em;
     }
-    .sb-mthumb.is-generating .sb-mthumb-num {
-      color: var(--ink-soft);
-    }
-    .sb-mthumb.is-generating::after {
+    .sb-cue-thumb.is-generating .sb-cue-thumb-num { color: var(--ink-soft); }
+    .sb-cue-thumb.is-generating::after {
       content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
       background: linear-gradient(90deg, transparent, var(--yolk), transparent);
       animation: sb-shimmer 1.4s infinite;
     }
-    /* Connector line from the thumbnail to the cue rule, so the eye
-     * follows the gutter into the reading column. */
-    .sb-mthumb-tail {
+
+    /* Inline label row beneath the thumb (still in the gutter) */
+    .sb-cue-meta {
       position: absolute;
-      left: 64px; top: 50%;
-      width: 16px; height: 2px;
-      background: var(--ink-bright);
-      opacity: 0.32;
-      transform: translateY(-1px);
+      left: 0;
+      top: 50px;
+      width: 76px;
+      font-family: var(--mono, monospace);
+      font-size: 9.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      line-height: 1.25;
+      pointer-events: none;
     }
-    .sb-mthumb.is-active .sb-mthumb-tail { opacity: 0.8; height: 3px; }
+    .sb-cue-section.is-active .sb-cue-meta { color: var(--ink-bright); font-weight: 700; }
+
+    /* Compact horizontal rule above the section's first paragraph —
+     * just a hairline now since the range bar carries the visual weight. */
+    .sb-cue-mark {
+      display: flex; align-items: center; gap: 10px;
+      margin: 0 0 12px 0;
+      padding-top: 6px;
+      user-select: none;
+      position: relative;
+    }
+    .sb-cue-label {
+      font-family: var(--mono, monospace);
+      font-size: 10.5px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      font-weight: 700;
+    }
+    .sb-cue-section.is-active .sb-cue-label { color: var(--ink-bright); }
+    .sb-cue-rule { flex: 1; height: 1.5px; background: var(--ink-bright); opacity: 0.18; }
+    .sb-cue-section.is-active .sb-cue-rule { opacity: 0.4; }
+    .sb-cue-delete {
+      opacity: 0; transition: opacity 140ms;
+      background: transparent; border: none; color: var(--ink-faint);
+      cursor: pointer; font-size: 14px; padding: 2px 6px;
+    }
+    .sb-cue-section:hover .sb-cue-delete { opacity: 1; }
+    .sb-cue-section.sb-cue-default .sb-cue-delete { display: none; }
+    .sb-cue-delete:hover { color: var(--red, #d65653); }
+
+    /* New-cue confirmation pulse — flashes the section when created */
+    @keyframes sb-cue-pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(255,217,100,0); }
+      30%  { box-shadow: 0 0 0 12px rgba(255,217,100,0.4); }
+      100% { box-shadow: 0 0 0 0 rgba(255,217,100,0); }
+    }
+    .sb-cue-section.is-new .sb-cue-thumb {
+      animation: sb-cue-pulse 900ms ease-out 1;
+    }
 
     /* Floating selection action bar — appears when text is highlighted
      * in the Storybook prose. Two actions in one capsule: generate
@@ -10207,92 +10227,117 @@
       // lines; cue marks are placed BEFORE the paragraph whose start
       // offset is closest to the cue's offset (auto-cue at offset 0
       // sits before the very first paragraph as the scene header).
+      // Build a flat list of {cue, paragraphs[]} groups, sectioned by
+      // cue. The first cue at offset 0 owns everything before the next
+      // cue's offset, and so on. Each section renders with its margin
+      // thumb, range bar, and the paragraphs between this cue and the
+      // next one.
       host.innerHTML = blocks.map((b, bi) => {
         ensureBlockCues(b);
-        const cues = b.__cues || [];
-        // Use cue offsets as additional paragraph breakpoints so the
-        // wall-of-text gets visually chunked at the same places the
-        // picture changes. Also breaks on sentence boundaries inside
-        // long paragraphs so the reader never sees a 800-char block.
+        const cues = (b.__cues || []).slice().sort((a, c) => (a.offset || 0) - (c.offset || 0));
         const cueOffsets = cues.map(c => c.offset || 0).filter(o => o > 0);
         const paras = splitProseForReader(b.text || '', cueOffsets);
-        const html = [];
-        for (let i = 0; i < paras.length; i++) {
-          const para = paras[i];
-          const prevEnd = i === 0 ? -1 : paras[i - 1].endOffset;
-          // Cue marks land BEFORE the paragraph whose start matches
-          // their offset most closely.
-          const cuesHere = cues.filter(c => (c.offset || 0) > prevEnd && (c.offset || 0) <= para.startOffset);
-          for (const cue of cuesHere) html.push(renderCueMark(b.id, cue, bi));
-          html.push(`<p class="sb-paragraph" data-block-id="${esc(b.id)}" data-para-start="${para.startOffset}" data-para-end="${para.endOffset}">${esc(para.text)}</p>`);
+
+        // Group paragraphs by which cue's range they fall into. A
+        // paragraph belongs to cue i if cue[i].offset <= paragraph.start
+        // < cue[i+1].offset.
+        const sections = cues.map((cue, ci) => {
+          const startO = cue.offset || 0;
+          const nextO = (ci + 1 < cues.length) ? (cues[ci + 1].offset || 0) : Infinity;
+          const myParas = paras.filter(p => p.startOffset >= startO && p.startOffset < nextO);
+          return { cue, paras: myParas, ci };
+        });
+
+        // Cues with no paragraphs in range still render (e.g., if a
+        // cue's offset lands inside a paragraph that's owned by the
+        // previous cue) — fold them into the previous section so
+        // they don't orphan.
+        const merged = [];
+        for (const s of sections) {
+          if (s.paras.length === 0 && merged.length > 0) {
+            merged[merged.length - 1].extraCues = merged[merged.length - 1].extraCues || [];
+            merged[merged.length - 1].extraCues.push(s.cue);
+          } else {
+            merged.push(s);
+          }
         }
-        const lastEnd = paras.length ? paras[paras.length - 1].endOffset : 0;
-        const tailCues = cues.filter(c => (c.offset || 0) > lastEnd);
-        for (const cue of tailCues) html.push(renderCueMark(b.id, cue, bi));
-        return `<div class="sb-scene-block" data-block-id="${esc(b.id)}" data-block-idx="${bi}">${html.join('')}</div>`;
+
+        return `<div class="sb-scene-block" data-block-id="${esc(b.id)}" data-block-idx="${bi}">${
+          merged.map(({ cue, paras: myParas, ci, extraCues }) => {
+            const cueIdx = storybook.cues.findIndex(x => x.id === cue.id);
+            const cueRef = storybook.cues[cueIdx] || {};
+            const num = String(cueIdx + 1).padStart(2, '0');
+            const isDefault = cue.auto && (cue.offset || 0) === 0;
+            const isGenerating = cueRef.status === 'generating' || storybook.genInflight.has(cue.id);
+            const imageUrl = cueRef.image_url || '';
+            const thumbBg = imageUrl ? `background-image:url('${esc(imageUrl)}');` : '';
+            const label = isDefault
+              ? `scene · ${num}`
+              : labelFromText(cue.source_text) || `image · ${num}`;
+            const labelShort = labelFromText(cue.source_text) || `image ${num}`;
+            const parasHtml = myParas.map(p =>
+              `<p class="sb-paragraph" data-block-id="${esc(b.id)}" data-para-start="${p.startOffset}" data-para-end="${p.endOffset}">${esc(p.text)}</p>`
+            ).join('');
+            return `
+              <div class="sb-cue-section ${isDefault ? 'sb-cue-default' : ''}"
+                   data-cue-id="${esc(cue.id)}"
+                   data-block-id="${esc(b.id)}"
+                   data-cue-idx="${cueIdx}">
+                <button class="sb-cue-thumb ${isGenerating ? 'is-generating' : ''}"
+                        type="button"
+                        title="${esc(labelShort)}"
+                        style="${thumbBg}">
+                  ${imageUrl ? '' : `<span class="sb-cue-thumb-num">${num}</span>`}
+                </button>
+                <div class="sb-cue-meta">${esc(label)}</div>
+                <div class="sb-cue-range" aria-hidden="true"></div>
+                <div class="sb-cue-mark">
+                  <span class="sb-cue-label">${esc(label)}</span>
+                  <span class="sb-cue-rule"></span>
+                  <button class="sb-cue-delete" type="button" title="Remove this image break" aria-label="Remove">✕</button>
+                </div>
+                ${parasHtml}
+              </div>
+            `;
+          }).join('')
+        }</div>`;
       }).join('');
 
       markActiveCueInProse(storybook.activeIdx);
-      wireCueMarkClicks();
-      // Margin thumbnails — y-positioned next to each cue's marker
-      requestAnimationFrame(renderMarginThumbs);
+      wireCueSectionClicks();
     }
 
     function renderMarginThumbs() {
-      const host = document.getElementById('sb-margin-thumbs');
-      const inner = document.getElementById('sb-prose-inner');
-      if (!host || !inner) return;
-      const innerRect = inner.getBoundingClientRect();
-      const items = [];
-      storybook.cues.forEach((cue, i) => {
-        const markEl = document.querySelector(`.sb-cue-mark[data-cue-id="${cue.id}"]`);
-        if (!markEl) return;
-        const r = markEl.getBoundingClientRect();
-        const top = r.top - innerRect.top + (r.height / 2) - 20; // center thumb on the rule
-        const num = String(i + 1).padStart(2, '0');
+      // Each section already renders its own thumbnail inline — but
+      // we may need to refresh the thumb backgrounds after a fresh
+      // image arrives. Walk the sections and update.
+      document.querySelectorAll('.sb-cue-section').forEach(section => {
+        const cueId = section.dataset.cueId;
+        const cue = storybook.cues.find(c => c.id === cueId);
+        if (!cue) return;
+        const thumb = section.querySelector('.sb-cue-thumb');
+        if (!thumb) return;
         const isGenerating = cue.status === 'generating' || storybook.genInflight.has(cue.id);
-        const bg = cue.image_url ? `background-image:url("${esc(cue.image_url)}");` : '';
-        items.push(`
-          <button class="sb-mthumb ${i === storybook.activeIdx ? 'is-active' : ''} ${isGenerating ? 'is-generating' : ''}"
-                  data-cue-id="${esc(cue.id)}"
-                  data-idx="${i}"
-                  title="${esc(cue.label || 'image ' + num)}"
-                  style="top:${top}px;${bg}">
-            ${cue.image_url ? '' : `<span class="sb-mthumb-num">${num}</span>`}
-            <span class="sb-mthumb-tail"></span>
-          </button>
-        `);
-      });
-      host.innerHTML = items.join('');
-      host.querySelectorAll('.sb-mthumb').forEach(el => {
-        el.addEventListener('click', (e) => {
-          e.preventDefault();
-          const idx = parseInt(el.dataset.idx, 10);
-          const cue = storybook.cues[idx];
-          if (!cue) return;
-          storybook.activeIdx = idx;
-          markActiveCueInProse(idx);
-          renderStorybookArt();
-          scrollProseToCueMark(cue.id);
-          renderMarginThumbs();
-        });
+        thumb.classList.toggle('is-generating', isGenerating);
+        if (cue.image_url) {
+          thumb.style.backgroundImage = `url('${cue.image_url}')`;
+          const num = thumb.querySelector('.sb-cue-thumb-num');
+          if (num) num.remove();
+        } else {
+          thumb.style.backgroundImage = '';
+          if (!thumb.querySelector('.sb-cue-thumb-num')) {
+            const idx = storybook.cues.findIndex(c => c.id === cueId);
+            const span = document.createElement('span');
+            span.className = 'sb-cue-thumb-num';
+            span.textContent = String(idx + 1).padStart(2, '0');
+            thumb.appendChild(span);
+          }
+        }
       });
     }
 
-    function renderCueMark(blockId, cue, bi) {
-      const isDefault = cue.auto && (cue.offset || 0) === 0;
-      const label = isDefault
-        ? `scene · ${String(bi + 1).padStart(2, '0')}`
-        : `image · ${labelFromText(cue.source_text) || 'here'}`;
-      return `
-        <div class="sb-cue-mark ${isDefault ? 'sb-cue-default' : ''}" data-cue-id="${esc(cue.id)}" data-block-id="${esc(blockId)}">
-          <span class="sb-cue-dot" aria-hidden="true"></span>
-          <span class="sb-cue-label">${esc(label)}</span>
-          <span class="sb-cue-rule"></span>
-          <button class="sb-cue-delete" type="button" title="Remove this image break" aria-label="Remove">✕</button>
-        </div>
-      `;
-    }
+    // Legacy — superseded by the section-based render above.
+    function renderCueMark() { return ''; }
 
     function splitToParagraphs(text) {
       return splitToParagraphsWithOffsets(text).map(p => p.text);
@@ -10422,23 +10467,27 @@
       }).catch(() => {});
     }
 
-    function wireCueMarkClicks() {
+    function wireCueSectionClicks() {
       const host = document.getElementById('sb-scenes-host');
       if (!host) return;
-      host.querySelectorAll('.sb-cue-mark').forEach(el => {
-        const cueId = el.dataset.cueId;
-        const blockId = el.dataset.blockId;
-        el.addEventListener('click', (e) => {
-          if (e.target.closest('.sb-cue-delete')) return;
+      host.querySelectorAll('.sb-cue-section').forEach(section => {
+        const cueId = section.dataset.cueId;
+        const blockId = section.dataset.blockId;
+        const thumb = section.querySelector('.sb-cue-thumb');
+        const del = section.querySelector('.sb-cue-delete');
+        const activate = (e) => {
+          if (e && e.target && e.target.closest('.sb-cue-delete')) return;
           const idx = storybook.cues.findIndex(c => c.id === cueId);
           if (idx >= 0) {
             storybook.activeIdx = idx;
             markActiveCueInProse(idx);
             renderStorybookArt();
-            scrollProseToCueMark(cueId);
+            renderMarginThumbs();
           }
-        });
-        el.querySelector('.sb-cue-delete')?.addEventListener('click', (e) => {
+        };
+        thumb?.addEventListener('click', activate);
+        section.querySelector('.sb-cue-mark')?.addEventListener('click', activate);
+        del?.addEventListener('click', (e) => {
           e.stopPropagation();
           deleteCue(blockId, cueId);
         });
@@ -10461,7 +10510,7 @@
 
     function scrollProseToCueMark(cueId) {
       const pane = document.getElementById('sb-prose-pane');
-      const el = document.querySelector(`.sb-cue-mark[data-cue-id="${cueId}"]`);
+      const el = document.querySelector(`.sb-cue-section[data-cue-id="${cueId}"]`);
       if (!pane || !el) return;
       const elTop = el.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop;
       pane.scrollTop = elTop - 32;
@@ -10584,10 +10633,10 @@
       const host = document.getElementById('sb-scenes-host');
       if (!host) return;
       const activeCue = storybook.cues[idx];
-      host.querySelectorAll('.sb-cue-mark').forEach(el => {
+      host.querySelectorAll('.sb-cue-section').forEach(el => {
         el.classList.toggle('is-active', activeCue && el.dataset.cueId === activeCue.id);
       });
-      host.querySelectorAll('.sb-scene-block').forEach((el, i) => {
+      host.querySelectorAll('.sb-scene-block').forEach(el => {
         el.classList.toggle('is-active', activeCue && el.dataset.blockId === activeCue.blockId);
       });
       document.querySelectorAll('#sb-rail .sb-rail-dot').forEach((el, i) => {
@@ -10608,15 +10657,15 @@
       if (storybook._scrollRaf) return;
       storybook._scrollRaf = requestAnimationFrame(() => {
         storybook._scrollRaf = null;
-        // Pick the cue whose marker top is closest to ~28% from top
+        // Pick the cue whose section top is closest to ~28% from top
         // of the prose pane. The cue stays active until the NEXT cue
         // crosses the threshold — that's the visible swap point.
-        const marks = pane.querySelectorAll('.sb-cue-mark');
-        if (!marks.length) return;
+        const sections = pane.querySelectorAll('.sb-cue-section');
+        if (!sections.length) return;
         const paneRect = pane.getBoundingClientRect();
         const targetY = paneRect.top + paneRect.height * 0.28;
         let bestIdx = 0, bestDist = Infinity;
-        marks.forEach((el) => {
+        sections.forEach((el) => {
           const cueId = el.dataset.cueId;
           const idx = storybook.cues.findIndex(c => c.id === cueId);
           if (idx < 0) return;
@@ -10886,12 +10935,17 @@
       if (!b) return;
       ensureBlockCues(b);
       // Don't duplicate if a cue already exists at this exact offset
-      if ((b.__cues || []).some(c => Math.abs((c.offset || 0) - offset) < 4)) {
-        // Just activate it
-        const cueId = b.__cues.find(c => Math.abs((c.offset || 0) - offset) < 4).id;
+      const dup = (b.__cues || []).find(c => Math.abs((c.offset || 0) - offset) < 4);
+      if (dup) {
         storybook.cues = buildStorybookCues();
-        const idx = storybook.cues.findIndex(c => c.id === cueId);
-        if (idx >= 0) { storybook.activeIdx = idx; markActiveCueInProse(idx); renderStorybookArt(); }
+        const idx = storybook.cues.findIndex(c => c.id === dup.id);
+        if (idx >= 0) {
+          storybook.activeIdx = idx;
+          markActiveCueInProse(idx);
+          renderStorybookArt();
+          scrollProseToCueMark(dup.id);
+          sbToast('that spot already has a picture break');
+        }
         return;
       }
       const newCue = {
@@ -10905,18 +10959,46 @@
       b.__cues.sort((a, c) => (a.offset || 0) - (c.offset || 0));
       if (typeof persist === 'function') persist();
       storybook.cues = buildStorybookCues();
-      // Re-render prose + rail to show the new marker
       renderStorybookProse();
       renderStorybookRail();
-      // Activate the new cue and start generating
       const idx = storybook.cues.findIndex(c => c.id === newCue.id);
       if (idx >= 0) {
         storybook.activeIdx = idx;
         markActiveCueInProse(idx);
         renderStorybookArt();
         scrollProseToCueMark(newCue.id);
+        // Pulse the new section so the user SEES it land
+        const section = document.querySelector(`.sb-cue-section[data-cue-id="${newCue.id}"]`);
+        if (section) {
+          section.classList.add('is-new');
+          setTimeout(() => section.classList.remove('is-new'), 1000);
+        }
       }
+      sbToast('drawing a new picture for this passage…');
       triggerStorybookGen(newCue.id, false);
+    }
+
+    // Lightweight toast shown in the Storybook stage. Reuses the
+    // existing toast/notification host if present; otherwise creates
+    // its own one-shot element.
+    function sbToast(message) {
+      let host = document.getElementById('sb-toast-host');
+      if (!host) {
+        host = document.createElement('div');
+        host.id = 'sb-toast-host';
+        host.style.cssText = 'position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:120; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none;';
+        document.body.appendChild(host);
+      }
+      const el = document.createElement('div');
+      el.textContent = message;
+      el.style.cssText = 'background:var(--ink-bright,#000); color:var(--paper,#FFF6E0); padding:10px 18px; border-radius:999px; font-weight:700; font-size:13.5px; box-shadow:4px 4px 0 var(--yolk,#FFD93D); border:2px solid var(--ink-bright,#000); opacity:0; transform:translateY(8px); transition:opacity 220ms, transform 220ms;';
+      host.appendChild(el);
+      requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; });
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(8px)';
+        setTimeout(() => el.remove(), 240);
+      }, 2400);
     }
 
     /* ──── Storybook wiring (idempotent) ──── */
