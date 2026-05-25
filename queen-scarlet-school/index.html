@@ -3421,6 +3421,439 @@
       .btn-cast .cast-deck { left: 6px; width: 22px; height: 26px; }
     }
 
+    /* ════════ STAGE 3 — STORYBOOK ════════
+     * Two-pane read-along reader. Prose left (scrolls), art right
+     * (sticky). Active scene tracked by which scene's top is closest
+     * to ~28% from top of the prose pane; art crossfades on change.
+     * Click the big art → modal opens with chat-driven nano-banana
+     * edit loop. */
+    .stage#stage-storybook { padding: 0; overflow: hidden; display: none; position: relative; }
+    .stage#stage-storybook.active { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+    .sb-wrap {
+      flex: 1; min-height: 0;
+      position: relative;
+      display: flex; flex-direction: column;
+    }
+    .sb-reader { flex: 1; min-height: 0; }
+
+    /* Empty state */
+    .sb-empty {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 18px; padding: 40px;
+      text-align: center;
+      color: var(--ink-bright, #f5e9c8);
+    }
+    .sb-empty h2 { margin: 6px 0; font-size: 28px; }
+    .sb-empty p { max-width: 460px; opacity: 0.78; }
+
+    /* Reader root — grid: rail | prose | art */
+    .sb-reader {
+      display: grid;
+      grid-template-columns: 28px 1fr 0.96fr;
+      grid-template-rows: 44px 1fr;
+      grid-template-areas:
+        "topbar topbar topbar"
+        "rail prose art";
+      height: 100%;
+      background: var(--paper, #1d1410);
+      color: var(--ink-bright, #f5e9c8);
+    }
+
+    /* Top bar */
+    .sb-topbar {
+      grid-area: topbar;
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 22px;
+      border-bottom: 1px solid rgba(255,217,100,0.14);
+      font-family: var(--mono, ui-monospace, monospace);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(245,233,200,0.74);
+      background: rgba(0,0,0,0.18);
+    }
+    .sb-tb-title { color: var(--yolk, #ffd964); font-weight: 700; }
+    .sb-tb-sep { opacity: 0.5; }
+    .sb-tb-pos { font-variant-numeric: tabular-nums; }
+    .sb-tb-spacer { flex: 1; }
+    .sb-tb-btn {
+      background: transparent; color: inherit;
+      border: 1px solid rgba(255,217,100,0.32);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-family: inherit; font-size: 10.5px; letter-spacing: 0.14em;
+      cursor: pointer;
+      transition: background 140ms, color 140ms;
+    }
+    .sb-tb-btn:hover { background: rgba(255,217,100,0.18); color: var(--ink-bright); }
+    .sb-tb-btn.is-on { background: var(--yolk, #ffd964); color: #1f1611; border-color: var(--yolk); }
+
+    /* Scene rail */
+    .sb-rail {
+      grid-area: rail;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 24px 0;
+      gap: 0;
+      border-right: 1px solid rgba(255,217,100,0.08);
+      overflow: hidden;
+    }
+    .sb-rail-dot {
+      width: 12px; height: 12px;
+      margin: 6px 0;
+      border: none;
+      background: rgba(245,233,200,0.18);
+      border-radius: 999px;
+      cursor: pointer;
+      padding: 0;
+      position: relative;
+      transition: background 160ms, transform 160ms, box-shadow 160ms;
+    }
+    .sb-rail-dot:hover { background: rgba(255,217,100,0.6); transform: scale(1.18); }
+    .sb-rail-dot.is-active {
+      background: var(--yolk, #ffd964);
+      box-shadow: 0 0 0 3px rgba(255,217,100,0.22), 0 0 16px rgba(255,217,100,0.55);
+    }
+    .sb-rail-dot.is-chapter-start::before {
+      content: ""; position: absolute; left: 50%; transform: translateX(-50%);
+      top: -6px; width: 2px; height: 3px; background: rgba(255,217,100,0.5);
+    }
+    .sb-rail-tip {
+      position: absolute; left: 22px; top: 50%; transform: translateY(-50%);
+      background: #1a120e; color: var(--ink-bright);
+      padding: 6px 10px; border-radius: 6px;
+      font-family: var(--mono, monospace); font-size: 11px; letter-spacing: 0.08em;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0; transition: opacity 140ms;
+      border: 1px solid rgba(255,217,100,0.22);
+      z-index: 4;
+    }
+    .sb-rail-dot:hover .sb-rail-tip { opacity: 1; }
+
+    /* Prose pane */
+    .sb-prose-pane {
+      grid-area: prose;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 40px 48px 60vh 48px;
+      scroll-behavior: smooth;
+    }
+    .sb-prose-inner { max-width: 640px; margin: 0 auto; }
+    .sb-heading { margin-bottom: 56px; }
+    .sb-eyebrow {
+      font-family: var(--mono, monospace);
+      font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: rgba(245,233,200,0.6);
+      margin-bottom: 14px;
+    }
+    .sb-heading h1 {
+      font-family: var(--book-serif, "Source Serif Pro", Georgia, serif);
+      font-size: clamp(40px, 5vw, 64px);
+      line-height: 1.05;
+      letter-spacing: -0.01em;
+      margin: 0;
+      color: var(--ink-bright);
+    }
+    .sb-scene-block {
+      margin-bottom: 64px;
+      transition: opacity 320ms ease;
+      opacity: 0.42;
+    }
+    .sb-scene-block.is-active { opacity: 1; }
+    .sb-scene-tag {
+      display: flex; align-items: center; gap: 12px;
+      font-family: var(--mono, monospace);
+      font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: rgba(255,217,100,0.78);
+      margin-bottom: 18px;
+    }
+    .sb-scene-tag-rule { flex: 1; height: 1px; background: rgba(255,217,100,0.22); }
+    .sb-paragraph {
+      font-family: var(--book-serif, "Source Serif Pro", Georgia, serif);
+      font-size: 19px;
+      line-height: 1.65;
+      margin: 0 0 1.1em 0;
+      text-indent: 1.6em;
+      color: var(--ink-bright);
+    }
+    .sb-paragraph:first-of-type { text-indent: 0; }
+    .sb-paragraph .karaoke-word { transition: background 120ms ease; padding: 0 1px; border-radius: 3px; }
+    .sb-paragraph .karaoke-word.active { background: var(--yolk, #ffd964); color: #1f1611; }
+
+    /* Art pane (sticky) */
+    .sb-art-pane {
+      grid-area: art;
+      border-left: 1px solid rgba(255,217,100,0.08);
+      padding: 28px 32px;
+      display: flex; flex-direction: column; gap: 14px;
+      background: rgba(0,0,0,0.22);
+      overflow: hidden;
+    }
+    .sb-art-meta {
+      display: flex; align-items: baseline; gap: 12px;
+      font-family: var(--mono, monospace);
+      font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    }
+    .sb-scene-idx {
+      color: var(--yolk, #ffd964); font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .sb-scene-title { color: var(--ink-bright); opacity: 0.88; letter-spacing: 0.08em; }
+
+    .sb-art-frame {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      width: 100%;
+      background: #0c0807;
+      border: 1px solid rgba(255,217,100,0.16);
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: pointer;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+      transition: transform 220ms ease, box-shadow 220ms ease;
+    }
+    .sb-art-frame:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 42px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,217,100,0.32);
+    }
+    .sb-art-layer {
+      position: absolute; inset: 0;
+      opacity: 0; transition: opacity 380ms ease;
+      background-size: cover; background-position: center;
+    }
+    .sb-art-layer.is-active { opacity: 1; }
+    .sb-art-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(245,233,200,0.66);
+      font-family: var(--mono, monospace); font-size: 12px;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      background: rgba(0,0,0,0.4);
+      pointer-events: none;
+      opacity: 1; transition: opacity 280ms ease;
+    }
+    .sb-art-overlay.is-hidden { opacity: 0; }
+    .sb-art-frame.is-generating .sb-art-overlay {
+      opacity: 1; background: rgba(0,0,0,0.55);
+    }
+    .sb-art-frame.is-generating::after {
+      content: "";
+      position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--yolk, #ffd964), transparent);
+      animation: sb-shimmer 1.4s infinite;
+    }
+    @keyframes sb-shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .sb-edit-hint {
+      position: absolute; bottom: 12px; right: 12px;
+      background: rgba(0,0,0,0.66); backdrop-filter: blur(4px);
+      color: var(--ink-bright);
+      padding: 6px 10px; border-radius: 999px;
+      font-family: var(--mono, monospace); font-size: 10.5px;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      opacity: 0; transition: opacity 200ms;
+      pointer-events: none;
+    }
+    .sb-art-frame:hover .sb-edit-hint { opacity: 1; }
+
+    .sb-art-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .sb-act {
+      background: rgba(255,217,100,0.08);
+      color: var(--ink-bright);
+      border: 1px solid rgba(255,217,100,0.22);
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-family: inherit; font-size: 12.5px;
+      cursor: pointer;
+      transition: background 140ms, border-color 140ms, transform 120ms;
+    }
+    .sb-act:hover { background: rgba(255,217,100,0.18); border-color: rgba(255,217,100,0.42); }
+    .sb-act:active { transform: scale(0.97); }
+    .sb-act-primary {
+      background: var(--yolk, #ffd964);
+      color: #1f1611; font-weight: 700;
+      border-color: var(--yolk);
+    }
+    .sb-act-primary:hover { background: #ffe07c; }
+    .sb-act-vote-up.is-on { background: var(--grass, #6dc56b); color: #fff; border-color: var(--grass); }
+    .sb-act-vote-down.is-on { background: var(--red, #d65653); color: #fff; border-color: var(--red); }
+
+    .sb-art-variations {
+      display: flex; gap: 8px; flex-wrap: wrap;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(255,217,100,0.12);
+    }
+    .sb-var-thumb {
+      width: 54px; height: 32px;
+      background-size: cover; background-position: center;
+      background-color: #0c0807;
+      border: 2px solid transparent;
+      border-radius: 4px;
+      cursor: pointer; padding: 0;
+      transition: border-color 160ms, transform 120ms;
+    }
+    .sb-var-thumb:hover { transform: scale(1.06); }
+    .sb-var-thumb.is-active { border-color: var(--yolk, #ffd964); box-shadow: 0 0 0 1px rgba(255,217,100,0.32); }
+
+    /* ──── Storybook edit modal ──── */
+    .sb-edit-modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; }
+    .sb-edit-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(8,6,4,0.78);
+      backdrop-filter: blur(6px);
+    }
+    .sb-edit-card {
+      position: relative;
+      width: min(1280px, 96vw);
+      max-height: 92vh;
+      background: var(--paper, #1d1410);
+      border: 1px solid rgba(255,217,100,0.22);
+      border-radius: 14px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .sb-edit-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 18px; padding: 14px 22px;
+      border-bottom: 1px solid rgba(255,217,100,0.12);
+    }
+    .sb-edit-titles { display: flex; flex-direction: column; gap: 2px; }
+    .sb-edit-eyebrow {
+      font-family: var(--mono, monospace);
+      font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--yolk, #ffd964); font-weight: 700;
+    }
+    .sb-edit-h { margin: 0; font-size: 20px; color: var(--ink-bright); }
+    .sb-edit-close {
+      background: transparent; color: var(--ink-bright);
+      border: 1px solid rgba(255,217,100,0.22); border-radius: 999px;
+      width: 32px; height: 32px;
+      cursor: pointer; font-size: 14px;
+    }
+    .sb-edit-close:hover { background: rgba(255,217,100,0.18); }
+
+    .sb-edit-body {
+      display: grid;
+      grid-template-columns: 1.4fr 0.95fr;
+      gap: 0;
+      flex: 1; min-height: 0;
+    }
+
+    .sb-edit-canvas {
+      position: relative;
+      background: #0c0807;
+      background-size: contain; background-repeat: no-repeat; background-position: center;
+      min-height: 360px;
+    }
+    .sb-edit-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(245,233,200,0.78);
+      font-family: var(--mono, monospace); font-size: 12px;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      background: rgba(0,0,0,0.55);
+      opacity: 0; pointer-events: none;
+      transition: opacity 220ms ease;
+    }
+    .sb-edit-overlay.is-on {
+      opacity: 1; pointer-events: auto;
+    }
+    .sb-edit-canvas.is-generating .sb-edit-overlay { opacity: 1; }
+    .sb-edit-canvas.is-generating::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, var(--yolk, #ffd964), transparent);
+      animation: sb-shimmer 1.4s infinite;
+    }
+
+    .sb-edit-side {
+      display: flex; flex-direction: column;
+      border-left: 1px solid rgba(255,217,100,0.12);
+      background: rgba(0,0,0,0.18);
+      min-height: 0;
+    }
+    .sb-edit-chat {
+      flex: 1; min-height: 0; overflow-y: auto;
+      padding: 18px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .sb-edit-msg { display: flex; }
+    .sb-edit-msg-kid { justify-content: flex-end; }
+    .sb-edit-msg-wordy { justify-content: flex-start; }
+    .sb-edit-bubble {
+      max-width: 86%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      line-height: 1.5;
+      font-size: 14.5px;
+      color: var(--ink-bright);
+    }
+    .sb-edit-msg-wordy .sb-edit-bubble {
+      background: rgba(255,217,100,0.12);
+      border: 1px solid rgba(255,217,100,0.22);
+      border-bottom-left-radius: 4px;
+    }
+    .sb-edit-msg-kid .sb-edit-bubble {
+      background: rgba(214, 86, 83, 0.22);
+      border: 1px solid rgba(214, 86, 83, 0.38);
+      border-bottom-right-radius: 4px;
+    }
+    .sb-edit-msg-thinking .sb-edit-bubble {
+      background: rgba(255,217,100,0.06);
+      border: 1px dashed rgba(255,217,100,0.32);
+      font-style: italic;
+      color: rgba(245,233,200,0.7);
+    }
+
+    .sb-edit-composer {
+      padding: 14px 18px 18px;
+      border-top: 1px solid rgba(255,217,100,0.12);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .sb-edit-composer textarea {
+      width: 100%;
+      padding: 10px 12px;
+      background: rgba(0,0,0,0.34);
+      color: var(--ink-bright);
+      border: 1px solid rgba(255,217,100,0.22);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14.5px;
+      resize: vertical;
+    }
+    .sb-edit-composer textarea:focus { outline: 2px solid var(--yolk); }
+    .sb-edit-composer-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .sb-edit-send {
+      background: var(--yolk, #ffd964); color: #1f1611;
+      border: 1px solid var(--yolk);
+      border-radius: 999px; padding: 8px 18px;
+      font-weight: 700; cursor: pointer;
+    }
+    .sb-edit-send:hover { background: #ffe07c; }
+    .sb-edit-send:disabled { opacity: 0.55; cursor: not-allowed; }
+    .sb-edit-keep, .sb-edit-revert {
+      background: transparent; color: var(--ink-bright);
+      border: 1px solid rgba(255,217,100,0.32);
+      border-radius: 999px; padding: 8px 14px;
+      cursor: pointer;
+    }
+    .sb-edit-keep:hover, .sb-edit-revert:hover { background: rgba(255,217,100,0.16); }
+    .sb-edit-keep:disabled, .sb-edit-revert:disabled { opacity: 0.4; cursor: not-allowed; }
+    .sb-edit-tip { color: rgba(245,233,200,0.55); font-size: 11.5px; line-height: 1.4; }
+
+    @media (max-width: 1080px) {
+      .sb-reader { grid-template-columns: 22px 1fr 0.92fr; }
+      .sb-prose-pane { padding: 28px 24px 60vh 24px; }
+      .sb-art-pane { padding: 22px 20px; }
+      .sb-edit-body { grid-template-columns: 1fr; }
+      .sb-edit-side { border-left: none; border-top: 1px solid rgba(255,217,100,0.12); }
+      .sb-edit-canvas { min-height: 280px; aspect-ratio: 16/9; }
+    }
+
     /* ──────────── Freestyle tab ──────────── */
     .stage#stage-freestyle { padding: 8px 24px 60px; overflow-y: auto; display: none; }
     .stage#stage-freestyle.active { display: block; }
@@ -3742,8 +4175,13 @@
         <span class="step-num">2</span>
         <span>Storyboard</span>
       </button>
-      <button class="tab" data-stage="freestyle" role="tab">
+      <button class="tab" data-stage="storybook" role="tab" title="Read the finished story with a picture for every scene">
         <span class="step-num">3</span>
+        <span>Storybook</span>
+        <span class="count-pill" id="storybook-count" style="display:none;">0</span>
+      </button>
+      <button class="tab" data-stage="freestyle" role="tab">
+        <span class="step-num">4</span>
         <span>Freestyle</span>
         <span class="count-pill" id="freestyle-count" style="display:none;">0</span>
       </button>
@@ -3933,7 +4371,104 @@
       </div>
     </section>
 
-    <!-- ════════ STAGE 3: Freestyle ════════ -->
+    <!-- ════════ STAGE 3: Storybook ════════ -->
+    <section class="stage" id="stage-storybook">
+      <div class="sb-wrap" id="sb-wrap">
+        <!-- Empty state — shown when no story / no scenes -->
+        <div id="sb-empty" class="sb-empty">
+          <div class="scrap-inline s-board-school"><img src="decor/school-building.jpg" alt="" /></div>
+          <span class="dragon lg" id="sb-empty-dragon"></span>
+          <h2>No story yet!</h2>
+          <p>Build your story with wordy first, then come back here to read it like a book with pictures.</p>
+          <button id="sb-go-write" class="btn primary big" type="button">Go write with wordy<span class="arrow">→</span></button>
+        </div>
+
+        <!-- Active reader — two pane -->
+        <div id="sb-reader" class="sb-reader" style="display:none;">
+          <!-- Top bar: chapter pill + scene count -->
+          <div class="sb-topbar">
+            <span class="sb-tb-title" id="sb-tb-title">your story</span>
+            <span class="sb-tb-sep">·</span>
+            <span class="sb-tb-pos" id="sb-tb-pos">01 / 01</span>
+            <span class="sb-tb-spacer"></span>
+            <button class="sb-tb-btn" id="sb-play-btn" type="button" title="Read along — karaoke + auto-scroll">▶ play</button>
+          </div>
+
+          <!-- Scene rail — clickable dots, one per scene -->
+          <div class="sb-rail" id="sb-rail" aria-hidden="true"></div>
+
+          <!-- Prose pane (left, scrolls) -->
+          <div class="sb-prose-pane" id="sb-prose-pane">
+            <div class="sb-prose-inner" id="sb-prose-inner">
+              <header class="sb-heading">
+                <div class="sb-eyebrow" id="sb-eyebrow">A story · — words</div>
+                <h1 id="sb-title">…</h1>
+              </header>
+              <div id="sb-scenes-host"><!-- populated by renderStorybook --></div>
+            </div>
+          </div>
+
+          <!-- Art pane (right, sticky) -->
+          <div class="sb-art-pane" id="sb-art-pane">
+            <div class="sb-art-meta">
+              <span class="sb-scene-idx" id="sb-art-idx">—</span>
+              <span class="sb-scene-title" id="sb-art-title">scenes loading…</span>
+            </div>
+            <div class="sb-art-frame" id="sb-art-frame">
+              <div class="sb-art-overlay" id="sb-art-overlay">preparing your storybook…</div>
+            </div>
+            <div class="sb-art-actions" id="sb-art-actions">
+              <button id="sb-edit-btn" class="sb-act sb-act-primary" type="button" title="Click to change this picture with words">✎ change picture</button>
+              <button id="sb-variation-btn" class="sb-act" type="button" title="Draw a different take of this scene">＋ variation</button>
+              <button id="sb-up-btn" class="sb-act sb-act-vote-up" type="button" title="Love it">♡</button>
+              <button id="sb-down-btn" class="sb-act sb-act-vote-down" type="button" title="Redraw — different vibe">↻</button>
+            </div>
+            <div class="sb-art-variations" id="sb-art-variations"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ Storybook image-edit modal ════════ -->
+    <div id="sb-edit-modal" class="sb-edit-modal" style="display:none;">
+      <div class="sb-edit-backdrop" id="sb-edit-backdrop"></div>
+      <div class="sb-edit-card" role="dialog" aria-modal="true" aria-labelledby="sb-edit-title">
+        <header class="sb-edit-head">
+          <div class="sb-edit-titles">
+            <div class="sb-edit-eyebrow" id="sb-edit-eyebrow">SCENE · —</div>
+            <h3 class="sb-edit-h" id="sb-edit-title">change this picture</h3>
+          </div>
+          <button id="sb-edit-close" class="sb-edit-close" type="button" aria-label="Close">✕</button>
+        </header>
+
+        <div class="sb-edit-body">
+          <!-- Big image being edited -->
+          <div class="sb-edit-canvas" id="sb-edit-canvas">
+            <div class="sb-edit-overlay" id="sb-edit-canvas-overlay">drawing…</div>
+          </div>
+
+          <!-- Chat -->
+          <div class="sb-edit-side">
+            <div class="sb-edit-chat" id="sb-edit-chat">
+              <div class="sb-edit-msg sb-edit-msg-wordy">
+                <div class="sb-edit-bubble">tell me what to change about this picture. like "make him look more tired" or "change the background to a forest."</div>
+              </div>
+            </div>
+            <div class="sb-edit-composer">
+              <textarea id="sb-edit-input" rows="2" placeholder="tell wordy what to change… "></textarea>
+              <div class="sb-edit-composer-actions">
+                <button id="sb-edit-send" class="sb-edit-send" type="button">draw it</button>
+                <button id="sb-edit-keep" class="sb-edit-keep" type="button" disabled title="Save this version as a new variation of the scene">keep this version</button>
+                <button id="sb-edit-revert" class="sb-edit-revert" type="button" disabled title="Throw away the edit and start from the original">revert</button>
+              </div>
+              <div class="sb-edit-tip">tip: be specific. "make the dog purple with a calculator on his head" works better than "make it cooler".</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ STAGE 4: Freestyle ════════ -->
     <section class="stage" id="stage-freestyle">
       <div class="fs-wrap">
         <div class="fs-head">
@@ -5489,6 +6024,7 @@
       document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.stage === s));
       document.querySelectorAll('.stage').forEach(el => el.classList.toggle('active', el.id === `stage-${s}`));
       if (s === 'board') renderBoard();
+      if (s === 'storybook') initStorybook();
     }
 
     // ─────────── Rules modal ───────────
@@ -9250,6 +9786,648 @@
     // Pause auto-scroll on manual scroll (so reader can stop and read)
     window.addEventListener('wheel', () => { if (bookHub.karaoke) stopBookKaraoke(); }, { passive: true });
     window.addEventListener('touchmove', () => { if (bookHub.karaoke) stopBookKaraoke(); }, { passive: true });
+
+    /* ════════════════════════════════════════════════════════════
+     * STORYBOOK STAGE — two-pane illustrated reader
+     * ════════════════════════════════════════════════════════════
+     * Prose left (scrolls), art right (sticky), scene rail far left.
+     * As henry scrolls, the active scene is detected by which scene
+     * block's top edge is closest to ~28% from the top of the prose
+     * pane. When the active scene changes, the art frame crossfades
+     * to that scene's image. Click the art frame to open an edit
+     * modal that drives /api/nano-banana with the current image as
+     * a reference and a free-text instruction. The fresh image
+     * stages in the modal; "keep this version" submits it back as a
+     * new variation of the scene via /api/qss-scene-illustrate
+     * (best-effort; falls back to local-only if server doesn't
+     * accept the override prompt).
+     */
+    const storybook = {
+      initedStoryId: null,
+      scenes: [],
+      activeIdx: 0,
+      genInflight: new Set(),
+      karaoke: false,
+      _scrollRaf: null,
+      _edit: {
+        sceneId: null,
+        baseImageUrl: null,  // original image URL/base64 we started from
+        stagedImage: null,   // { dataBase64, mimeType } pending decision
+        chat: [],            // [{ role: 'kid'|'wordy', content }]
+        busy: false,
+      },
+    };
+
+    async function initStorybook() {
+      const storyId = state.serverId || state.cloudId || state.id || null;
+      const blocks = (state.blocks || []).filter(b => (b.text || '').trim());
+      const empty = document.getElementById('sb-empty');
+      const reader = document.getElementById('sb-reader');
+      if (!storyId || blocks.length === 0) {
+        empty.style.display = 'flex';
+        reader.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      reader.style.display = 'grid';
+
+      // Reuse bookHub scenes if they're already loaded for the same story —
+      // saves a round-trip and keeps both views in sync.
+      if (bookHub.initedStoryId === storyId && bookHub.scenes.length > 0) {
+        storybook.initedStoryId = storyId;
+        storybook.scenes = bookHub.scenes;
+      } else {
+        storybook.initedStoryId = storyId;
+        storybook.scenes = [];
+        try {
+          const r = await fetch(`/api/qss-story-scenes?action=list&story_id=${encodeURIComponent(storyId)}`);
+          if (r.ok) {
+            const d = await r.json();
+            if (Array.isArray(d.scenes) && d.scenes.length) {
+              storybook.scenes = d.scenes;
+              // Mirror to bookHub so the in-write book view also benefits
+              bookHub.initedStoryId = storyId;
+              bookHub.scenes = d.scenes;
+            }
+          }
+        } catch {}
+        if (storybook.scenes.length === 0) {
+          // No cached scenes — run detect
+          try {
+            const r = await fetch('/api/qss-scene-detect', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ story_id: storyId }),
+            });
+            if (r.ok) {
+              const d = await r.json();
+              storybook.scenes = Array.isArray(d.scenes) ? d.scenes : [];
+              bookHub.initedStoryId = storyId;
+              bookHub.scenes = storybook.scenes;
+            }
+          } catch (e) {
+            const frame = document.getElementById('sb-art-frame');
+            if (frame) frame.innerHTML = `<div class="sb-art-overlay">couldn't prepare scenes: ${esc(e.message || e)}</div>`;
+            return;
+          }
+        }
+      }
+
+      storybook.activeIdx = 0;
+      renderStorybookProse();
+      renderStorybookArt();
+      renderStorybookRail();
+      attachStorybookScrollSync();
+      // Kick off any unready scene
+      const firstUnready = storybook.scenes.find(s => s.status !== 'ready' || !s.image_url);
+      if (firstUnready) triggerStorybookGen(firstUnready.id, false);
+    }
+
+    function renderStorybookProse() {
+      const eyebrow = document.getElementById('sb-eyebrow');
+      const titleEl = document.getElementById('sb-title');
+      const host = document.getElementById('sb-scenes-host');
+      if (!host) return;
+
+      const wordCount = (state.blocks || []).reduce((n, b) => n + ((b.text || '').trim().split(/\s+/).filter(Boolean).length), 0);
+      eyebrow.textContent = `A story · ${wordCount.toLocaleString()} words · ${storybook.scenes.length} scene${storybook.scenes.length === 1 ? '' : 's'}`;
+      titleEl.textContent = state.title || 'untitled story';
+
+      host.innerHTML = storybook.scenes.map((scene, i) => {
+        const paragraphs = (scene.paragraphs || splitToParagraphs(scene.text || ''))
+          .filter(Boolean)
+          .map(p => `<p class="sb-paragraph">${esc(p)}</p>`)
+          .join('');
+        return `
+          <div class="sb-scene-block" data-scene-id="${esc(scene.id)}" data-scene-idx="${i}">
+            <div class="sb-scene-tag">
+              <span>scene · ${String(i + 1).padStart(2, '0')} · ${esc(scene.title || 'untitled')}</span>
+              <span class="sb-scene-tag-rule"></span>
+            </div>
+            ${paragraphs}
+          </div>
+        `;
+      }).join('');
+
+      markActiveSceneBlock(storybook.activeIdx);
+    }
+
+    function splitToParagraphs(text) {
+      return String(text || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+    }
+
+    function renderStorybookRail() {
+      const rail = document.getElementById('sb-rail');
+      if (!rail) return;
+      rail.innerHTML = storybook.scenes.map((s, i) => `
+        <button class="sb-rail-dot ${i === storybook.activeIdx ? 'is-active' : ''}"
+                data-idx="${i}"
+                title="scene ${i + 1} · ${esc(s.title || '')}">
+          <span class="sb-rail-tip">${String(i + 1).padStart(2, '0')} · ${esc(s.title || 'scene')}</span>
+        </button>
+      `).join('');
+      rail.querySelectorAll('.sb-rail-dot').forEach(dot => {
+        dot.addEventListener('click', () => scrollStorybookToScene(parseInt(dot.dataset.idx, 10)));
+      });
+    }
+
+    function renderStorybookArt() {
+      const scene = storybook.scenes[storybook.activeIdx];
+      const frame = document.getElementById('sb-art-frame');
+      const idxEl = document.getElementById('sb-art-idx');
+      const titleEl = document.getElementById('sb-art-title');
+      const varsEl = document.getElementById('sb-art-variations');
+      const upBtn = document.getElementById('sb-up-btn');
+      const downBtn = document.getElementById('sb-down-btn');
+      const tbPos = document.getElementById('sb-tb-pos');
+      const tbTitle = document.getElementById('sb-tb-title');
+      if (!scene || !frame) return;
+
+      idxEl.textContent = `SCENE · ${String(storybook.activeIdx + 1).padStart(2, '0')} / ${String(storybook.scenes.length).padStart(2, '0')}`;
+      titleEl.textContent = scene.title || '';
+      tbPos.textContent = `${String(storybook.activeIdx + 1).padStart(2, '0')} / ${String(storybook.scenes.length).padStart(2, '0')}`;
+      tbTitle.textContent = state.title || 'your story';
+
+      const url = scene.image_url;
+      const isGenerating = scene.status === 'generating' || storybook.genInflight.has(scene.id);
+
+      // Crossfade: keep last layer, push new one on top
+      const existingLayers = Array.from(frame.querySelectorAll('.sb-art-layer'));
+      if (url) {
+        const newLayer = document.createElement('div');
+        newLayer.className = 'sb-art-layer';
+        newLayer.style.backgroundImage = `url("${url}")`;
+        frame.appendChild(newLayer);
+        // Force reflow then activate
+        // eslint-disable-next-line no-unused-expressions
+        newLayer.offsetWidth;
+        newLayer.classList.add('is-active');
+        // Remove all but the new one after the transition
+        setTimeout(() => {
+          existingLayers.forEach(l => l.remove());
+        }, 420);
+      }
+      frame.classList.toggle('is-generating', isGenerating);
+      // Add edit-hint pill if not present
+      if (!frame.querySelector('.sb-edit-hint')) {
+        const hint = document.createElement('span');
+        hint.className = 'sb-edit-hint';
+        hint.textContent = '✎ click to change';
+        frame.appendChild(hint);
+      }
+      // Ensure overlay reflects state
+      let overlay = frame.querySelector('.sb-art-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'sb-art-overlay';
+        frame.appendChild(overlay);
+      }
+      if (isGenerating) {
+        overlay.textContent = 'drawing this scene…';
+        overlay.classList.remove('is-hidden');
+      } else if (!url) {
+        overlay.textContent = 'no picture yet';
+        overlay.classList.remove('is-hidden');
+      } else {
+        overlay.classList.add('is-hidden');
+      }
+
+      // Vote buttons reflect scene state
+      if (upBtn) upBtn.classList.toggle('is-on', scene.vote === 'up');
+      if (downBtn) downBtn.classList.toggle('is-on', scene.vote === 'down');
+
+      // Variations row
+      const variations = Array.isArray(scene.variations) ? scene.variations : [];
+      const activeVarId = scene.active_variation_id || scene.id;
+      if (varsEl) {
+        if (variations.length <= 1) {
+          varsEl.innerHTML = '';
+        } else {
+          varsEl.innerHTML = variations.map(v => `
+            <button class="sb-var-thumb ${v.id === activeVarId ? 'is-active' : ''}"
+                    data-var-id="${esc(v.id)}"
+                    style="background-image:url('${esc(v.image_url || '')}');"
+                    title="variation"></button>
+          `).join('');
+        }
+      }
+    }
+
+    function markActiveSceneBlock(idx) {
+      const host = document.getElementById('sb-scenes-host');
+      if (!host) return;
+      host.querySelectorAll('.sb-scene-block').forEach((el, i) => {
+        el.classList.toggle('is-active', i === idx);
+      });
+      // Update rail active state
+      document.querySelectorAll('#sb-rail .sb-rail-dot').forEach((el, i) => {
+        el.classList.toggle('is-active', i === idx);
+      });
+    }
+
+    function attachStorybookScrollSync() {
+      const pane = document.getElementById('sb-prose-pane');
+      if (!pane) return;
+      // Replace listener (idempotent)
+      pane.removeEventListener('scroll', onStorybookScroll);
+      pane.addEventListener('scroll', onStorybookScroll, { passive: true });
+      // Trigger initial sync
+      onStorybookScroll();
+    }
+    function onStorybookScroll() {
+      const pane = document.getElementById('sb-prose-pane');
+      if (!pane) return;
+      if (storybook._scrollRaf) return;
+      storybook._scrollRaf = requestAnimationFrame(() => {
+        storybook._scrollRaf = null;
+        const blocks = pane.querySelectorAll('.sb-scene-block');
+        if (!blocks.length) return;
+        const paneRect = pane.getBoundingClientRect();
+        const targetY = paneRect.top + paneRect.height * 0.28;
+        let bestIdx = -1, bestDist = Infinity;
+        blocks.forEach((el, i) => {
+          const r = el.getBoundingClientRect();
+          const top = r.top;
+          let dist;
+          if (top <= targetY) dist = targetY - top;
+          else dist = (top - targetY) * 2;
+          if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+        });
+        if (bestIdx !== -1 && bestIdx !== storybook.activeIdx) {
+          storybook.activeIdx = bestIdx;
+          markActiveSceneBlock(bestIdx);
+          renderStorybookArt();
+          // Cascade: ensure next scene's art is queued so it's ready when we get there
+          const next = storybook.scenes[bestIdx + 1];
+          if (next && (next.status !== 'ready' || !next.image_url)) {
+            triggerStorybookGen(next.id, false);
+          }
+        }
+      });
+    }
+
+    function scrollStorybookToScene(idx) {
+      const pane = document.getElementById('sb-prose-pane');
+      const blocks = pane?.querySelectorAll('.sb-scene-block');
+      if (!pane || !blocks || !blocks[idx]) return;
+      const el = blocks[idx];
+      const elTop = el.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop;
+      pane.scrollTop = elTop - 28;
+      storybook.activeIdx = idx;
+      markActiveSceneBlock(idx);
+      renderStorybookArt();
+    }
+
+    async function triggerStorybookGen(sceneId, isVariation = false, overridePrompt = null) {
+      if (!sceneId) return null;
+      if (storybook.genInflight.has(sceneId) && !isVariation) return null;
+      storybook.genInflight.add(sceneId);
+      const s = storybook.scenes.find(x => x.id === sceneId);
+      if (s && !isVariation) { s.status = 'generating'; renderStorybookArt(); }
+      try {
+        const body = { scene_id: sceneId, variation: !!isVariation };
+        if (overridePrompt) body.prompt = overridePrompt;
+        const r = await fetch('/api/qss-scene-illustrate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          throw new Error(j.detail || j.error || `${r.status}`);
+        }
+        const list = await fetch(`/api/qss-story-scenes?action=list&story_id=${encodeURIComponent(storybook.initedStoryId)}`).then(x => x.json()).catch(() => null);
+        if (list?.scenes) {
+          const oldId = storybook.scenes[storybook.activeIdx]?.id;
+          storybook.scenes = list.scenes;
+          bookHub.scenes = list.scenes;
+          const newIdx = oldId ? storybook.scenes.findIndex(x => x.id === oldId) : 0;
+          if (newIdx >= 0) storybook.activeIdx = newIdx;
+          renderStorybookArt();
+        }
+        return list?.scenes?.find(x => x.id === sceneId) || null;
+      } catch (e) {
+        if (s) { s.status = 'error'; s.error_msg = e.message || String(e); renderStorybookArt(); }
+        return null;
+      } finally {
+        storybook.genInflight.delete(sceneId);
+      }
+    }
+
+    /* ──── Storybook wiring (idempotent) ──── */
+    (function wireStorybook() {
+      // Empty-state CTA
+      document.getElementById('sb-go-write')?.addEventListener('click', () => setStage('write'));
+
+      // Vote / variation buttons
+      document.getElementById('sb-up-btn')?.addEventListener('click', () => sbCastVote('up'));
+      document.getElementById('sb-down-btn')?.addEventListener('click', () => {
+        const s = storybook.scenes[storybook.activeIdx];
+        sbCastVote('down');
+        if (s) triggerStorybookGen(s.id, true);
+      });
+      document.getElementById('sb-variation-btn')?.addEventListener('click', () => {
+        const s = storybook.scenes[storybook.activeIdx];
+        if (s) triggerStorybookGen(s.id, true);
+      });
+
+      // Variation thumbnails
+      document.getElementById('sb-art-variations')?.addEventListener('click', async (e) => {
+        const thumb = e.target.closest('.sb-var-thumb');
+        if (!thumb) return;
+        const varId = thumb.dataset.varId;
+        const s = storybook.scenes[storybook.activeIdx];
+        if (!s || !varId) return;
+        try {
+          const r = await fetch('/api/qss-story-scenes?action=set-active-variation', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scene_id: s.id, variation_id: varId }),
+          });
+          if (r.ok) {
+            const list = await fetch(`/api/qss-story-scenes?action=list&story_id=${encodeURIComponent(storybook.initedStoryId)}`).then(x => x.json()).catch(() => null);
+            if (list?.scenes) {
+              storybook.scenes = list.scenes;
+              bookHub.scenes = list.scenes;
+              renderStorybookArt();
+            }
+          }
+        } catch {}
+      });
+
+      // Click art → open edit modal
+      document.getElementById('sb-art-frame')?.addEventListener('click', openStorybookEdit);
+      // Big "✎ change picture" button → same
+      document.getElementById('sb-edit-btn')?.addEventListener('click', openStorybookEdit);
+
+      // Modal close
+      document.getElementById('sb-edit-close')?.addEventListener('click', closeStorybookEdit);
+      document.getElementById('sb-edit-backdrop')?.addEventListener('click', closeStorybookEdit);
+      document.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('sb-edit-modal');
+        if (e.key === 'Escape' && modal && modal.style.display !== 'none') closeStorybookEdit();
+      });
+
+      // Modal send / keep / revert
+      document.getElementById('sb-edit-send')?.addEventListener('click', sendStorybookEdit);
+      document.getElementById('sb-edit-input')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendStorybookEdit();
+        }
+      });
+      document.getElementById('sb-edit-keep')?.addEventListener('click', keepStorybookEdit);
+      document.getElementById('sb-edit-revert')?.addEventListener('click', revertStorybookEdit);
+
+      // Play toggle
+      document.getElementById('sb-play-btn')?.addEventListener('click', toggleStorybookPlay);
+    })();
+
+    async function sbCastVote(vote) {
+      const s = storybook.scenes[storybook.activeIdx];
+      if (!s) return;
+      const next = (s.vote === vote) ? null : vote;
+      s.vote = next;
+      renderStorybookArt();
+      try {
+        await fetch('/api/qss-story-scenes?action=vote', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scene_id: s.id, vote: next }),
+        });
+      } catch {}
+    }
+
+    /* ──── Storybook image-edit modal ──── */
+    function openStorybookEdit() {
+      const scene = storybook.scenes[storybook.activeIdx];
+      if (!scene) return;
+      const url = scene.image_url;
+      if (!url) {
+        // No image yet — kick off a generation; modal still opens so kid can give a custom prompt
+      }
+      storybook._edit = {
+        sceneId: scene.id,
+        baseImageUrl: url || null,
+        stagedImage: null,
+        chat: [],
+        busy: false,
+      };
+      const modal = document.getElementById('sb-edit-modal');
+      const canvas = document.getElementById('sb-edit-canvas');
+      const eyebrow = document.getElementById('sb-edit-eyebrow');
+      const title = document.getElementById('sb-edit-title');
+      const overlay = document.getElementById('sb-edit-canvas-overlay');
+      eyebrow.textContent = `SCENE · ${String(storybook.activeIdx + 1).padStart(2, '0')} / ${String(storybook.scenes.length).padStart(2, '0')}`;
+      title.textContent = scene.title ? `change: ${scene.title}` : 'change this picture';
+      if (url) {
+        canvas.style.backgroundImage = `url("${url}")`;
+        overlay.classList.remove('is-on');
+      } else {
+        canvas.style.backgroundImage = 'none';
+        overlay.textContent = 'no picture yet — tell wordy what to draw';
+        overlay.classList.add('is-on');
+      }
+      canvas.classList.remove('is-generating');
+      document.getElementById('sb-edit-chat').innerHTML = `
+        <div class="sb-edit-msg sb-edit-msg-wordy">
+          <div class="sb-edit-bubble">tell me what to change about this picture. like "make him look more tired" or "change the background to a forest."</div>
+        </div>
+      `;
+      document.getElementById('sb-edit-input').value = '';
+      document.getElementById('sb-edit-keep').disabled = true;
+      document.getElementById('sb-edit-revert').disabled = true;
+      modal.style.display = 'flex';
+      setTimeout(() => document.getElementById('sb-edit-input').focus(), 80);
+    }
+    function closeStorybookEdit() {
+      const modal = document.getElementById('sb-edit-modal');
+      if (modal) modal.style.display = 'none';
+      storybook._edit = { sceneId: null, baseImageUrl: null, stagedImage: null, chat: [], busy: false };
+    }
+    async function sendStorybookEdit() {
+      if (storybook._edit.busy) return;
+      const input = document.getElementById('sb-edit-input');
+      const text = (input.value || '').trim();
+      if (!text) return;
+      const scene = storybook.scenes.find(s => s.id === storybook._edit.sceneId);
+      if (!scene) return;
+
+      storybook._edit.chat.push({ role: 'kid', content: text });
+      input.value = '';
+      renderEditChat();
+      // Add a thinking bubble
+      const chatHost = document.getElementById('sb-edit-chat');
+      const thinking = document.createElement('div');
+      thinking.className = 'sb-edit-msg sb-edit-msg-wordy sb-edit-msg-thinking';
+      thinking.innerHTML = '<div class="sb-edit-bubble">drawing it…</div>';
+      chatHost.appendChild(thinking);
+      chatHost.scrollTop = chatHost.scrollHeight;
+
+      const canvas = document.getElementById('sb-edit-canvas');
+      canvas.classList.add('is-generating');
+      const overlay = document.getElementById('sb-edit-canvas-overlay');
+      overlay.textContent = 'drawing your edit…';
+      overlay.classList.add('is-on');
+      storybook._edit.busy = true;
+      document.getElementById('sb-edit-send').disabled = true;
+
+      try {
+        // Build composed prompt — sandwich the scene text + edit instruction + any prior chat turns
+        const priorEdits = storybook._edit.chat
+          .slice(0, -1)
+          .filter(t => t.role === 'kid')
+          .map(t => `- ${t.content}`)
+          .join('\n');
+        const stylePreface = 'STYLE: Children\'s storybook illustration. Cinematic 16:9 framing. Thick consistent black ink outlines, flat saturated kid-book colors, warm cream paper feel. Match the existing QSS sticker aesthetic — no painterly textures, no photorealism, no anime/manga.\n\n';
+        const sceneCtx = `SCENE: ${scene.text || scene.title || ''}\n\n`;
+        const editBlock = priorEdits
+          ? `EARLIER EDITS APPLIED:\n${priorEdits}\n\nNEW EDIT INSTRUCTION:\n${text}\n`
+          : `EDIT INSTRUCTION:\n${text}\n`;
+        const composedPrompt = stylePreface + sceneCtx + editBlock + 'Modify the attached reference image to apply the edit instruction. Keep everything else the same unless told otherwise.';
+
+        // Reference images: the current staged (if any) or the base scene image
+        const refUrl = storybook._edit.stagedImage
+          ? `data:${storybook._edit.stagedImage.mimeType};base64,${storybook._edit.stagedImage.dataBase64}`
+          : storybook._edit.baseImageUrl;
+        const referenceImages = [];
+        if (refUrl) {
+          // nano-banana endpoint accepts either base64 or URL — try both shapes
+          referenceImages.push(refUrl);
+        }
+        const res = await fetch('/api/nano-banana', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'image',
+            prompt: composedPrompt,
+            model: 'nano-banana',
+            referenceImages,
+          }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || j.message || `${res.status}`);
+        }
+        const data = await res.json();
+        const im = data.images?.[0];
+        if (!im) throw new Error('no image came back');
+
+        storybook._edit.stagedImage = { mimeType: im.mimeType, dataBase64: im.dataBase64 };
+        const dataUrl = `data:${im.mimeType};base64,${im.dataBase64}`;
+        canvas.style.backgroundImage = `url("${dataUrl}")`;
+        canvas.classList.remove('is-generating');
+        overlay.classList.remove('is-on');
+
+        // Reply bubble — minimal — replace the thinking one
+        thinking.classList.remove('sb-edit-msg-thinking');
+        thinking.innerHTML = '<div class="sb-edit-bubble">drew it. like this one? if not, tell me what to fix.</div>';
+        document.getElementById('sb-edit-keep').disabled = false;
+        document.getElementById('sb-edit-revert').disabled = false;
+      } catch (e) {
+        thinking.classList.remove('sb-edit-msg-thinking');
+        thinking.innerHTML = `<div class="sb-edit-bubble">couldn't draw that — ${esc(e.message || 'something broke')}. try again?</div>`;
+        canvas.classList.remove('is-generating');
+        overlay.classList.remove('is-on');
+      } finally {
+        storybook._edit.busy = false;
+        document.getElementById('sb-edit-send').disabled = false;
+      }
+    }
+    function renderEditChat() {
+      const host = document.getElementById('sb-edit-chat');
+      if (!host) return;
+      host.innerHTML = `
+        <div class="sb-edit-msg sb-edit-msg-wordy">
+          <div class="sb-edit-bubble">tell me what to change about this picture. like "make him look more tired" or "change the background to a forest."</div>
+        </div>
+      ` + storybook._edit.chat.map(t => `
+        <div class="sb-edit-msg sb-edit-msg-${t.role}">
+          <div class="sb-edit-bubble">${esc(t.content)}</div>
+        </div>
+      `).join('');
+      host.scrollTop = host.scrollHeight;
+    }
+    async function keepStorybookEdit() {
+      const staged = storybook._edit.stagedImage;
+      const sceneId = storybook._edit.sceneId;
+      if (!staged || !sceneId) return;
+      const dataUrl = `data:${staged.mimeType};base64,${staged.dataBase64}`;
+      // Optimistic local update — show the edit immediately on the art pane
+      const scene = storybook.scenes.find(s => s.id === sceneId);
+      if (scene) {
+        scene.image_url = dataUrl;
+        renderStorybookArt();
+      }
+      // Best-effort upload as a new variation
+      try {
+        await fetch('/api/qss-story-scenes?action=add-variation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scene_id: sceneId,
+            image_base64: staged.dataBase64,
+            mime_type: staged.mimeType,
+          }),
+        });
+        // Refetch to get the canonical CDN URL
+        const list = await fetch(`/api/qss-story-scenes?action=list&story_id=${encodeURIComponent(storybook.initedStoryId)}`).then(x => x.json()).catch(() => null);
+        if (list?.scenes) {
+          storybook.scenes = list.scenes;
+          bookHub.scenes = list.scenes;
+          renderStorybookArt();
+        }
+      } catch {}
+      closeStorybookEdit();
+    }
+    function revertStorybookEdit() {
+      const canvas = document.getElementById('sb-edit-canvas');
+      const baseUrl = storybook._edit.baseImageUrl;
+      storybook._edit.stagedImage = null;
+      if (baseUrl) canvas.style.backgroundImage = `url("${baseUrl}")`;
+      else canvas.style.backgroundImage = 'none';
+      document.getElementById('sb-edit-keep').disabled = true;
+      document.getElementById('sb-edit-revert').disabled = true;
+      const chatHost = document.getElementById('sb-edit-chat');
+      const reverted = document.createElement('div');
+      reverted.className = 'sb-edit-msg sb-edit-msg-wordy';
+      reverted.innerHTML = '<div class="sb-edit-bubble">reverted. what do you want to try?</div>';
+      chatHost.appendChild(reverted);
+      chatHost.scrollTop = chatHost.scrollHeight;
+    }
+
+    /* ──── Storybook auto-advance play ──── */
+    let _sbPlayTimer = null;
+    function toggleStorybookPlay() {
+      storybook.karaoke = !storybook.karaoke;
+      const btn = document.getElementById('sb-play-btn');
+      btn.textContent = storybook.karaoke ? '⏸ pause' : '▶ play';
+      btn.classList.toggle('is-on', storybook.karaoke);
+      if (storybook.karaoke) startStorybookPlay();
+      else stopStorybookPlay();
+    }
+    function startStorybookPlay() {
+      stopStorybookPlay();
+      let idx = storybook.activeIdx;
+      function step() {
+        const s = storybook.scenes[idx];
+        if (!s) { stopStorybookPlay(); return; }
+        scrollStorybookToScene(idx);
+        const words = ((s.text || '') + ' ').trim().split(/\s+/).filter(Boolean).length;
+        const dwell = Math.max(3500, Math.min(20000, Math.round((words / 2.5) * 1000)));
+        _sbPlayTimer = setTimeout(() => {
+          idx += 1;
+          if (idx >= storybook.scenes.length) { stopStorybookPlay(); return; }
+          step();
+        }, dwell);
+      }
+      step();
+    }
+    function stopStorybookPlay() {
+      if (_sbPlayTimer) clearTimeout(_sbPlayTimer);
+      _sbPlayTimer = null;
+      storybook.karaoke = false;
+      const btn = document.getElementById('sb-play-btn');
+      if (btn) { btn.textContent = '▶ play'; btn.classList.remove('is-on'); }
+    }
+    // Pause auto-play on user scroll
+    document.getElementById('sb-prose-pane')?.addEventListener('wheel', () => { if (storybook.karaoke) stopStorybookPlay(); }, { passive: true });
 
     // ─────────── Block expand/collapse toggle ───────────
     function toggleBlockExpand(id, force) {
