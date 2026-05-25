@@ -9803,8 +9803,7 @@
      * accept the override prompt).
      */
     const storybook = {
-      initedStoryId: null,
-      scenes: [],
+      scenes: [],            // built fresh from state.blocks every init
       activeIdx: 0,
       genInflight: new Set(),
       karaoke: false,
@@ -9818,12 +9817,50 @@
       },
     };
 
-    async function initStorybook() {
-      const storyId = state.serverId || state.cloudId || state.id || null;
-      const blocks = (state.blocks || []).filter(b => (b.text || '').trim());
+    // Build scenes directly from state.blocks — the canonical story.
+    // Each block IS one scene. Image lives on block.__image (the same
+    // field the Storyboard stage uses), so any picture Henry already
+    // generated on the Storyboard stage shows up here without any
+    // round-trip. No /api/qss-story-scenes calls — the storybook
+    // reads from the in-memory story state every time the tab opens.
+    function buildStorybookScenes() {
+      const out = [];
+      const blocks = (state.blocks || []).filter(b => (b?.text || '').trim());
+      blocks.forEach((b, i) => {
+        const text = (b.text || '').trim();
+        const summary = (b.summary || '').trim();
+        const title = summary || firstSentenceShort(text) || `block ${i + 1}`;
+        const im = b.__image;
+        const image_url = (im && im.dataBase64)
+          ? `data:${im.mimeType || 'image/png'};base64,${im.dataBase64}`
+          : null;
+        out.push({
+          id: b.id,
+          blockId: b.id,
+          title,
+          text,
+          paragraphs: splitToParagraphs(text),
+          image_url,
+          status: im?.loading ? 'generating' : (image_url ? 'ready' : 'idle'),
+          variations: [],
+        });
+      });
+      return out;
+    }
+    function firstSentenceShort(text) {
+      if (!text) return '';
+      const t = String(text).trim();
+      const m = t.match(/^[^.!?]+[.!?]?/);
+      const s = (m ? m[0] : t).trim();
+      return s.length > 64 ? s.slice(0, 64) + '…' : s;
+    }
+
+    function initStorybook() {
       const empty = document.getElementById('sb-empty');
       const reader = document.getElementById('sb-reader');
-      if (!storyId || blocks.length === 0) {
+      storybook.scenes = buildStorybookScenes();
+
+      if (storybook.scenes.length === 0) {
         empty.style.display = 'flex';
         reader.style.display = 'none';
         return;
@@ -9831,55 +9868,17 @@
       empty.style.display = 'none';
       reader.style.display = 'grid';
 
-      // Reuse bookHub scenes if they're already loaded for the same story —
-      // saves a round-trip and keeps both views in sync.
-      if (bookHub.initedStoryId === storyId && bookHub.scenes.length > 0) {
-        storybook.initedStoryId = storyId;
-        storybook.scenes = bookHub.scenes;
-      } else {
-        storybook.initedStoryId = storyId;
-        storybook.scenes = [];
-        try {
-          const r = await fetch(`/api/qss-story-scenes?action=list&story_id=${encodeURIComponent(storyId)}`);
-          if (r.ok) {
-            const d = await r.json();
-            if (Array.isArray(d.scenes) && d.scenes.length) {
-              storybook.scenes = d.scenes;
-              // Mirror to bookHub so the in-write book view also benefits
-              bookHub.initedStoryId = storyId;
-              bookHub.scenes = d.scenes;
-            }
-          }
-        } catch {}
-        if (storybook.scenes.length === 0) {
-          // No cached scenes — run detect
-          try {
-            const r = await fetch('/api/qss-scene-detect', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ story_id: storyId }),
-            });
-            if (r.ok) {
-              const d = await r.json();
-              storybook.scenes = Array.isArray(d.scenes) ? d.scenes : [];
-              bookHub.initedStoryId = storyId;
-              bookHub.scenes = storybook.scenes;
-            }
-          } catch (e) {
-            const frame = document.getElementById('sb-art-frame');
-            if (frame) frame.innerHTML = `<div class="sb-art-overlay">couldn't prepare scenes: ${esc(e.message || e)}</div>`;
-            return;
-          }
-        }
-      }
-
       storybook.activeIdx = 0;
       renderStorybookProse();
-      renderStorybookArt();
       renderStorybookRail();
+      renderStorybookArt();
       attachStorybookScrollSync();
-      // Kick off any unready scene
-      const firstUnready = storybook.scenes.find(s => s.status !== 'ready' || !s.image_url);
-      if (firstUnready) triggerStorybookGen(firstUnready.id, false);
+
+      // Auto-generate imagery for any scene that doesn't have one yet —
+      // reuses the Storyboard stage's genImageFor which already knows
+      // about character refs, style preface, retries, and persistence.
+      const firstUnready = storybook.scenes.find(s => !s.image_url);
+      if (firstUnready) triggerStorybookGen(firstUnready.blockId, false);
     }
 
     function renderStorybookProse() {
@@ -10077,38 +10076,37 @@
       renderStorybookArt();
     }
 
-    async function triggerStorybookGen(sceneId, isVariation = false, overridePrompt = null) {
-      if (!sceneId) return null;
-      if (storybook.genInflight.has(sceneId) && !isVariation) return null;
-      storybook.genInflight.add(sceneId);
-      const s = storybook.scenes.find(x => x.id === sceneId);
-      if (s && !isVariation) { s.status = 'generating'; renderStorybookArt(); }
+    // Generate (or regenerate) the image for a block-scene. Reuses
+    // the Storyboard stage's genImageFor, which knows about character
+    // reference portraits, style preface, retries, and persistence to
+    // block.__image. After it finishes, we refresh the scene's
+    // image_url from the block and re-render.
+    async function triggerStorybookGen(blockId, isVariation = false) {
+      if (!blockId) return null;
+      if (storybook.genInflight.has(blockId)) return null;
+      storybook.genInflight.add(blockId);
+      const scene = storybook.scenes.find(s => s.blockId === blockId);
+      if (scene) { scene.status = 'generating'; renderStorybookArt(); }
       try {
-        const body = { scene_id: sceneId, variation: !!isVariation };
-        if (overridePrompt) body.prompt = overridePrompt;
-        const r = await fetch('/api/qss-scene-illustrate', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        if (!r.ok) {
-          const j = await r.json().catch(() => ({}));
-          throw new Error(j.detail || j.error || `${r.status}`);
+        if (typeof genImageFor === 'function') {
+          await genImageFor(blockId);
         }
-        const list = await fetch(`/api/qss-story-scenes?action=list&story_id=${encodeURIComponent(storybook.initedStoryId)}`).then(x => x.json()).catch(() => null);
-        if (list?.scenes) {
-          const oldId = storybook.scenes[storybook.activeIdx]?.id;
-          storybook.scenes = list.scenes;
-          bookHub.scenes = list.scenes;
-          const newIdx = oldId ? storybook.scenes.findIndex(x => x.id === oldId) : 0;
-          if (newIdx >= 0) storybook.activeIdx = newIdx;
-          renderStorybookArt();
+        // Pull the freshly written __image back into the scene
+        const b = (state.blocks || []).find(x => x.id === blockId);
+        if (scene && b?.__image?.dataBase64) {
+          scene.image_url = `data:${b.__image.mimeType || 'image/png'};base64,${b.__image.dataBase64}`;
+          scene.status = 'ready';
+        } else if (scene) {
+          scene.status = b?.__image?.err ? 'error' : 'idle';
+          scene.error_msg = b?.__image?.err || '';
         }
-        return list?.scenes?.find(x => x.id === sceneId) || null;
-      } catch (e) {
-        if (s) { s.status = 'error'; s.error_msg = e.message || String(e); renderStorybookArt(); }
-        return null;
+        renderStorybookArt();
+        // Cascade: if the just-finished one was the active scene, kick the next unready
+        const next = storybook.scenes.find(s => !s.image_url && s.blockId !== blockId);
+        if (next) triggerStorybookGen(next.blockId, false);
+        return scene;
       } finally {
-        storybook.genInflight.delete(sceneId);
+        storybook.genInflight.delete(blockId);
       }
     }
 
@@ -10129,28 +10127,8 @@
         if (s) triggerStorybookGen(s.id, true);
       });
 
-      // Variation thumbnails
-      document.getElementById('sb-art-variations')?.addEventListener('click', async (e) => {
-        const thumb = e.target.closest('.sb-var-thumb');
-        if (!thumb) return;
-        const varId = thumb.dataset.varId;
-        const s = storybook.scenes[storybook.activeIdx];
-        if (!s || !varId) return;
-        try {
-          const r = await fetch('/api/qss-story-scenes?action=set-active-variation', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ scene_id: s.id, variation_id: varId }),
-          });
-          if (r.ok) {
-            const list = await fetch(`/api/qss-story-scenes?action=list&story_id=${encodeURIComponent(storybook.initedStoryId)}`).then(x => x.json()).catch(() => null);
-            if (list?.scenes) {
-              storybook.scenes = list.scenes;
-              bookHub.scenes = list.scenes;
-              renderStorybookArt();
-            }
-          }
-        } catch {}
-      });
+      // No-op variation thumbs for now — block model only stores one
+      // active image. Future: keep an array of prior renders per block.
 
       // Click art → open edit modal
       document.getElementById('sb-art-frame')?.addEventListener('click', openStorybookEdit);
@@ -10186,12 +10164,8 @@
       const next = (s.vote === vote) ? null : vote;
       s.vote = next;
       renderStorybookArt();
-      try {
-        await fetch('/api/qss-story-scenes?action=vote', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scene_id: s.id, vote: next }),
-        });
-      } catch {}
+      // Vote stored locally on the scene (transient). Cloud persistence
+      // not needed — Henry can just regenerate or keep.
     }
 
     /* ──── Storybook image-edit modal ──── */
@@ -10344,36 +10318,22 @@
       `).join('');
       host.scrollTop = host.scrollHeight;
     }
-    async function keepStorybookEdit() {
+    function keepStorybookEdit() {
       const staged = storybook._edit.stagedImage;
       const sceneId = storybook._edit.sceneId;
       if (!staged || !sceneId) return;
-      const dataUrl = `data:${staged.mimeType};base64,${staged.dataBase64}`;
-      // Optimistic local update — show the edit immediately on the art pane
-      const scene = storybook.scenes.find(s => s.id === sceneId);
-      if (scene) {
-        scene.image_url = dataUrl;
-        renderStorybookArt();
+      // sceneId === blockId in the new model
+      const block = (state.blocks || []).find(b => b.id === sceneId);
+      const scene = storybook.scenes.find(s => s.blockId === sceneId);
+      if (block) {
+        block.__image = { mimeType: staged.mimeType, dataBase64: staged.dataBase64, loading: false };
+        if (typeof persist === 'function') persist();
       }
-      // Best-effort upload as a new variation
-      try {
-        await fetch('/api/qss-story-scenes?action=add-variation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            scene_id: sceneId,
-            image_base64: staged.dataBase64,
-            mime_type: staged.mimeType,
-          }),
-        });
-        // Refetch to get the canonical CDN URL
-        const list = await fetch(`/api/qss-story-scenes?action=list&story_id=${encodeURIComponent(storybook.initedStoryId)}`).then(x => x.json()).catch(() => null);
-        if (list?.scenes) {
-          storybook.scenes = list.scenes;
-          bookHub.scenes = list.scenes;
-          renderStorybookArt();
-        }
-      } catch {}
+      if (scene) {
+        scene.image_url = `data:${staged.mimeType};base64,${staged.dataBase64}`;
+        scene.status = 'ready';
+      }
+      renderStorybookArt();
       closeStorybookEdit();
     }
     function revertStorybookEdit() {
