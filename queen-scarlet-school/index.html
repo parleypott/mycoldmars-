@@ -3816,6 +3816,20 @@
     }
     .sb-scene-text ::selection { background: var(--yolk); color: var(--ink-bright); }
 
+    /* Focus isolation — when writing in one scene, everything else recedes */
+    #sb-scenes-host:focus-within .sb-cue-section {
+      opacity: 0.48;
+    }
+    #sb-scenes-host:focus-within .sb-cue-section:focus-within {
+      opacity: 1;
+    }
+    /* Saved pulse — brief green confirmation on the card after blur saves */
+    @keyframes sb-saved-pulse {
+      0%   { border-color: rgba(59,199,115,0.82); box-shadow: 0 0 0 3px rgba(59,199,115,0.14); border-style: solid; }
+      100% { border-color: transparent; box-shadow: none; border-style: dashed; }
+    }
+    .sb-scene-text.sb-just-saved { animation: sb-saved-pulse 800ms ease-out forwards; }
+
     /* "+ scene break" button — appears at the bottom of every scene card
      * on hover. Click splits the scene at the cursor position (or after
      * this scene if no cursor). Inserts a new cue + empty scene below. */
@@ -11622,6 +11636,19 @@
             const prev = sbPrecedingChar();
             const quote = (!prev || /[\s\(]/.test(prev)) ? '‘' : '’';
             document.execCommand('insertText', false, quote);
+          } else if (e.key === '-' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+            if (sbPrecedingChar() === '-') {
+              e.preventDefault();
+              document.execCommand('delete', false);
+              document.execCommand('insertText', false, '—');
+            }
+          } else if (e.key === '.' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+            if (sbPreceding2Chars() === '..') {
+              e.preventDefault();
+              document.execCommand('delete', false);
+              document.execCommand('delete', false);
+              document.execCommand('insertText', false, '…');
+            }
           }
           return;
         }
@@ -11683,6 +11710,18 @@
         range.collapse(true);
         if (range.startOffset === 0) return '';
         range.setStart(range.startContainer, range.startOffset - 1);
+        return range.toString();
+      } catch { return ''; }
+    }
+
+    function sbPreceding2Chars() {
+      try {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return '';
+        const range = sel.getRangeAt(0).cloneRange();
+        range.collapse(true);
+        if (range.startOffset < 2) return '';
+        range.setStart(range.startContainer, range.startOffset - 2);
         return range.toString();
       } catch { return ''; }
     }
@@ -11755,7 +11794,13 @@
       }
 
       block.text = newText;
-      block.__sceneBreaksScanned = ''; // let the auto-detect re-run if/when needed
+      block.__sceneBreaksScanned = '';
+      sceneEls.forEach(el => {
+        el.classList.remove('sb-just-saved');
+        void el.offsetWidth;
+        el.classList.add('sb-just-saved');
+        setTimeout(() => el.classList.remove('sb-just-saved'), 900);
+      });
       sbSaveNotify('saving');
       if (typeof persist === 'function') persist();
       // Flip to 'saved' after the debounce window; persist() queues 1400ms debounce
