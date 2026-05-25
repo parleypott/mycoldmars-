@@ -5036,44 +5036,8 @@
       </div>
     </section>
 
-    <!-- ════════ Storybook image-edit modal ════════ -->
-    <div id="sb-edit-modal" class="sb-edit-modal" style="display:none;">
-      <div class="sb-edit-backdrop" id="sb-edit-backdrop"></div>
-      <div class="sb-edit-card" role="dialog" aria-modal="true" aria-labelledby="sb-edit-title">
-        <header class="sb-edit-head">
-          <div class="sb-edit-titles">
-            <div class="sb-edit-eyebrow" id="sb-edit-eyebrow">SCENE · —</div>
-            <h3 class="sb-edit-h" id="sb-edit-title">change this picture</h3>
-          </div>
-          <button id="sb-edit-close" class="sb-edit-close" type="button" aria-label="Close">✕</button>
-        </header>
-
-        <div class="sb-edit-body">
-          <!-- Big image being edited -->
-          <div class="sb-edit-canvas" id="sb-edit-canvas">
-            <div class="sb-edit-overlay" id="sb-edit-canvas-overlay">drawing…</div>
-          </div>
-
-          <!-- Chat -->
-          <div class="sb-edit-side">
-            <div class="sb-edit-chat" id="sb-edit-chat">
-              <div class="sb-edit-msg sb-edit-msg-wordy">
-                <div class="sb-edit-bubble">tell me what to change about this picture. like "make him look more tired" or "change the background to a forest."</div>
-              </div>
-            </div>
-            <div class="sb-edit-composer">
-              <textarea id="sb-edit-input" rows="2" placeholder="tell wordy what to change… "></textarea>
-              <div class="sb-edit-composer-actions">
-                <button id="sb-edit-send" class="sb-edit-send" type="button">draw it</button>
-                <button id="sb-edit-keep" class="sb-edit-keep" type="button" disabled title="Save this version as a new variation of the scene">keep this version</button>
-                <button id="sb-edit-revert" class="sb-edit-revert" type="button" disabled title="Throw away the edit and start from the original">revert</button>
-              </div>
-              <div class="sb-edit-tip">tip: be specific. "make the dog purple with a calculator on his head" works better than "make it cooler".</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- (legacy Storybook image-edit modal removed 2026-05-25 — replaced by
+         the inline riff panel + prompt panel inside the Storybook stage) -->
 
     <!-- ════════ STAGE 4: Freestyle ════════ -->
     <section class="stage" id="stage-freestyle">
@@ -10576,18 +10540,13 @@
     window.QSSArt = QSSArt;
 
     const storybook = {
-      cues: [],              // flat list of {cueId, blockId, blockIdx, offset, source_text, image_url, status, isAuto, label, variations:[]}
+      cues: [],              // flat list — see buildStorybookCues for shape
       activeIdx: 0,
       genInflight: new Set(),
       karaoke: false,
       _scrollRaf: null,
-      _edit: {
-        cueId: null,
-        baseImageUrl: null,
-        stagedImage: null,
-        chat: [],
-        busy: false,
-      },
+      _promptTargetCueId: null,  // panel locks onto this cue at open
+      _riffTargetCueId: null,    // same for riff panel
     };
 
     function uidCue() {
@@ -10761,9 +10720,19 @@
           const d = await r.json();
           const breaks = Array.isArray(d.breaks) ? d.breaks : [];
           if (breaks.length) {
-            // Drop existing auto-cues that aren't at offset 0 (we're
-            // replacing them with the freshly-detected set)
-            b.__cues = (b.__cues || []).filter(c => !c.auto || (c.offset || 0) === 0);
+            // Drop existing auto-cues that aren't at offset 0 — BUT
+            // never drop a cue that has variations (the kid has
+            // generated pictures for it). Treat any cue with art as
+            // sacred regardless of auto/user. This was a real data-loss
+            // path: editing text invalidated the scene-breaks fingerprint
+            // and re-detection wiped auto-cues with finished images.
+            b.__cues = (b.__cues || []).filter(c => {
+              const hasArt = Array.isArray(c.variations) && c.variations.length > 0;
+              if (hasArt) return true;                 // never drop generated art
+              if (!c.auto) return true;                // never drop user cues
+              if ((c.offset || 0) === 0) return true;  // keep the default
+              return false;
+            });
             for (const br of breaks) {
               const offset = Math.max(0, Math.floor(br.offset || 0));
               if (offset <= 0 || offset >= text.length) continue;
@@ -11081,65 +11050,6 @@
       createCueAtSelection(blockId, splitOffset, sourceText);
     }
 
-    function onProseBeforeInput(e) {
-      // Capture Enter (insertParagraph) and turn it into a cue creation
-      // at the cursor position. The browser's default would create a
-      // <div> or <br> in the middle of the contenteditable, which we
-      // don't want — we want a real cue split.
-      if (e.inputType !== 'insertParagraph' && e.inputType !== 'insertLineBreak') return;
-      const sel = window.getSelection();
-      if (!sel || !sel.rangeCount) return;
-      const range = sel.getRangeAt(0);
-      const startNode = range.startContainer;
-      const paraEl = (startNode.nodeType === 1 ? startNode : startNode.parentElement)?.closest('.sb-paragraph');
-      if (!paraEl) return;
-      e.preventDefault();
-      const blockId = paraEl.dataset.blockId;
-      const paraStart = parseInt(paraEl.dataset.paraStart, 10) || 0;
-      let intra = 0;
-      try {
-        const r2 = document.createRange();
-        r2.setStart(paraEl, 0);
-        r2.setEnd(range.startContainer, range.startOffset);
-        intra = r2.toString().length;
-      } catch {}
-      const offset = paraStart + intra;
-      // Grab a snippet of text starting at the offset to seed the new cue
-      const block = (state.blocks || []).find(b => b.id === blockId);
-      const snippet = block ? (block.text || '').slice(offset, offset + 800) : '';
-      // Save any in-progress edits to the current paragraph BEFORE we
-      // re-render (otherwise the in-DOM text gets thrown away)
-      flushParagraphEdits(paraEl);
-      createCueAtSelection(blockId, offset, snippet || paraEl.textContent.slice(intra, intra + 800));
-    }
-    function onProseBlur(e) {
-      const paraEl = e.target?.closest?.('.sb-paragraph');
-      if (!paraEl) return;
-      flushParagraphEdits(paraEl);
-    }
-    function flushParagraphEdits(paraEl) {
-      if (!paraEl) return;
-      const blockId = paraEl.dataset.blockId;
-      const block = (state.blocks || []).find(b => b.id === blockId);
-      if (!block) return;
-      // Rebuild block.text by reading the current DOM paragraphs for
-      // this block. Joined with double-newline so the next render
-      // chunks them correctly.
-      const all = Array.from(document.querySelectorAll(`.sb-paragraph[data-block-id="${blockId}"]`));
-      const newText = all.map(p => (p.innerText || p.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n\n');
-      if (!newText) return;
-      if (newText === block.text) return;
-      block.text = newText;
-      // Mark the scene-breaks cache as dirty so a fresh detect can run
-      block.__sceneBreaksScanned = '';
-      if (typeof persist === 'function') persist();
-      // Rebuild cues and re-render so the gutter range bars adjust
-      storybook.cues = buildStorybookCues();
-      renderStorybookProse();
-      renderStorybookRail();
-      renderMarginThumbs();
-    }
-
     function renderMarginThumbs() {
       // Each section already renders its own thumbnail inline — but
       // we may need to refresh the thumb backgrounds after a fresh
@@ -11167,108 +11077,6 @@
           }
         }
       });
-    }
-
-    // Legacy — superseded by the section-based render above.
-    function renderCueMark() { return ''; }
-
-    function splitToParagraphs(text) {
-      return splitToParagraphsWithOffsets(text).map(p => p.text);
-    }
-    function splitToParagraphsWithOffsets(text) {
-      const out = [];
-      const s = String(text || '');
-      // Newline-based first pass
-      const re = /([^\n]+)(\n+|$)/g;
-      let m;
-      while ((m = re.exec(s)) !== null) {
-        const chunk = m[1].trim();
-        const startOffset = m.index;
-        const endOffset = m.index + m[1].length;
-        if (chunk) out.push({ text: chunk, startOffset, endOffset });
-        if (m.index === re.lastIndex) re.lastIndex++;
-      }
-      return out;
-    }
-
-    /* Build a reader-friendly paragraph list. Splits on:
-     *   1. Newlines (existing paragraph breaks the kid wrote)
-     *   2. Sentence boundaries when a paragraph runs longer than
-     *      ~260 chars (so wall-of-text blocks become readable)
-     *
-     * Returns [{ text, startOffset, endOffset }] all referencing the
-     * ORIGINAL text.
-     *
-     * NOTE — earlier version also used cue offsets as paragraph
-     * breakpoints. That was wrong: when snap-to-sentence failed
-     * (long single sentence with no preceding period), the cue
-     * offset landed MID-WORD and produced one-letter "paragraphs".
-     * The cue/section grouping happens separately in renderStorybookProse
-     * — we group paragraphs by which cue's offset range they fall into.
-     */
-    function splitProseForReader(rawText /*, cueOffsets ignored */) {
-      const s = String(rawText || '');
-      if (!s.trim()) return [];
-      const breakSet = new Set([0]);
-      let i = 0;
-      while (i < s.length) {
-        const n = s.indexOf('\n', i);
-        if (n < 0) break;
-        let j = n;
-        while (j < s.length && s[j] === '\n') j++;
-        if (j < s.length) breakSet.add(j);
-        i = j;
-      }
-      let breaks = Array.from(breakSet).sort((a, b) => a - b);
-      const refined = [0];
-      for (let bi = 1; bi < breaks.length; bi++) {
-        const prev = breaks[bi - 1];
-        const cur = breaks[bi];
-        addSentenceSplitsBetween(s, prev, cur, refined);
-        refined.push(cur);
-      }
-      addSentenceSplitsBetween(s, breaks[breaks.length - 1] || 0, s.length, refined);
-      const out = [];
-      for (let k = 0; k < refined.length; k++) {
-        const start = refined[k];
-        const end = (k === refined.length - 1) ? s.length : refined[k + 1];
-        const piece = s.slice(start, end).replace(/^\s+|\s+$/g, '');
-        if (piece) {
-          out.push({ text: piece, startOffset: start, endOffset: end });
-        }
-      }
-      return out;
-    }
-    function addSentenceSplitsBetween(s, start, end, out) {
-      const LONG = 260;
-      let span = end - start;
-      if (span <= LONG) return;
-      // Find sentence-end positions inside [start, end)
-      const re = /[.!?]["”']?\s+(?=[A-Z"“‘''])/g;
-      re.lastIndex = start;
-      let last = start;
-      let m;
-      while ((m = re.exec(s)) !== null) {
-        if (m.index >= end) break;
-        const cut = re.lastIndex; // position after the whitespace
-        if (cut > last + 160) {
-          out.push(cut);
-          last = cut;
-        }
-      }
-    }
-    function snapToSentenceStart(s, offset) {
-      const lo = Math.max(0, offset - 200);
-      for (let i = offset; i >= lo; i--) {
-        if (i === 0) return 0;
-        const c = s[i - 1];
-        if (/[.!?]/.test(c) && /\s/.test(s[i] || '') && /[A-Z"“'']/.test(s[i + 1] || '')) {
-          let j = i;
-          while (j < s.length && /\s/.test(s[j])) j++;
-          return j;
-        }
-      }
-      return offset;
     }
 
     function maybeGenerateBookTitle() {
@@ -11331,6 +11139,13 @@
       if (typeof persist === 'function') persist();
       storybook.cues = buildStorybookCues();
       if (storybook.activeIdx >= storybook.cues.length) storybook.activeIdx = Math.max(0, storybook.cues.length - 1);
+      // Close any open panel that was locked to this cue
+      if (storybook._promptTargetCueId === cueId) {
+        toggleStorybookPromptPanel(false);
+      }
+      if (storybook._riffTargetCueId === cueId) {
+        toggleStorybookRiff(false);
+      }
       renderStorybookProse();
       renderStorybookRail();
       renderStorybookArt();
@@ -11354,17 +11169,27 @@
           <span class="sb-rail-tip">${esc(c.label || 'image')}</span>
         </button>
       `).join('');
-      rail.querySelectorAll('.sb-rail-dot').forEach(dot => {
-        dot.addEventListener('click', () => {
+      // Event delegation — one listener on the rail, not one per dot
+      if (!rail._sbWired) {
+        rail._sbWired = true;
+        rail.addEventListener('click', (e) => {
+          const dot = e.target.closest('.sb-rail-dot');
+          if (!dot) return;
           const idx = parseInt(dot.dataset.idx, 10);
           const cue = storybook.cues[idx];
           if (!cue) return;
+          if (storybook.activeIdx === idx) return; // already there — no-op
           storybook.activeIdx = idx;
+          // Close any open panel — they're locked to the old cue
+          const riff = document.getElementById('sb-riff');
+          const promptPanel = document.getElementById('sb-prompt-panel');
+          if (riff?.classList.contains('is-open')) toggleStorybookRiff(false);
+          if (promptPanel?.classList.contains('is-open')) toggleStorybookPromptPanel(false);
           markActiveCueInProse(idx);
           renderStorybookArt();
           scrollProseToCueMark(cue.id);
         });
-      });
+      }
     }
 
     function renderStorybookArt() {
@@ -12506,280 +12331,6 @@
       sendBtn.textContent = oldLabel || 'draw it';
       // Re-focus so the kid can keep iterating without re-clicking
       setTimeout(() => input.focus(), 80);
-    }
-
-    /* ──── Storybook image-edit modal ──── */
-    function openStorybookEdit() {
-      const cue = storybook.cues[storybook.activeIdx];
-      if (!cue) return;
-      const url = cue.image_url;
-      storybook._edit = {
-        cueId: cue.id,
-        baseImageUrl: url || null,
-        stagedImage: null,
-        chat: [],
-        busy: false,
-      };
-      const modal = document.getElementById('sb-edit-modal');
-      const canvas = document.getElementById('sb-edit-canvas');
-      const eyebrow = document.getElementById('sb-edit-eyebrow');
-      const title = document.getElementById('sb-edit-title');
-      const overlay = document.getElementById('sb-edit-canvas-overlay');
-      eyebrow.textContent = `${(cue.label || 'image').toUpperCase()} · ${String(storybook.activeIdx + 1).padStart(2, '0')} / ${String(storybook.cues.length).padStart(2, '0')}`;
-      title.textContent = cue.title ? `change: ${cue.title}` : 'change this picture';
-      const inflight = storybook.genInflight.has(cue.id);
-      if (url) {
-        canvas.style.backgroundImage = `url("${url}")`;
-        overlay.classList.remove('is-on');
-        canvas.classList.remove('is-generating');
-      } else if (inflight) {
-        canvas.style.backgroundImage = 'none';
-        overlay.textContent = 'drawing this scene now…';
-        overlay.classList.add('is-on');
-        canvas.classList.add('is-generating');
-      } else {
-        canvas.style.backgroundImage = 'none';
-        overlay.textContent = 'no picture yet — tell wordy what to draw';
-        overlay.classList.add('is-on');
-        canvas.classList.remove('is-generating');
-        // Kick a fresh generation so the picture catches up
-        triggerStorybookGen(cue.id, false).then(() => {
-          // If the modal is still open and looking at the same cue,
-          // swap the canvas to the freshly-drawn image
-          if (storybook._edit.cueId === cue.id) {
-            const c2 = storybook.cues.find(x => x.id === cue.id);
-            if (c2?.image_url) {
-              canvas.style.backgroundImage = `url("${c2.image_url}")`;
-              overlay.classList.remove('is-on');
-              canvas.classList.remove('is-generating');
-              storybook._edit.baseImageUrl = c2.image_url;
-            }
-          }
-        }).catch(() => {});
-      }
-      document.getElementById('sb-edit-chat').innerHTML = `
-        <div class="sb-edit-msg sb-edit-msg-wordy">
-          <div class="sb-edit-bubble">tell me what to change about this picture. like "make him look more tired" or "change the background to a forest."</div>
-        </div>
-      `;
-      document.getElementById('sb-edit-input').value = '';
-      document.getElementById('sb-edit-keep').disabled = true;
-      document.getElementById('sb-edit-revert').disabled = true;
-      modal.style.display = 'flex';
-      setTimeout(() => document.getElementById('sb-edit-input').focus(), 80);
-    }
-    function closeStorybookEdit() {
-      const modal = document.getElementById('sb-edit-modal');
-      if (modal) modal.style.display = 'none';
-      storybook._edit = { cueId: null, baseImageUrl: null, stagedImage: null, chat: [], busy: false };
-    }
-    async function sendStorybookEdit() {
-      if (storybook._edit.busy) return;
-      const input = document.getElementById('sb-edit-input');
-      const text = (input.value || '').trim();
-      if (!text) return;
-      const cue = storybook.cues.find(c => c.id === storybook._edit.cueId);
-      if (!cue) return;
-
-      storybook._edit.chat.push({ role: 'kid', content: text });
-      input.value = '';
-      renderEditChat();
-      // Add a thinking bubble
-      const chatHost = document.getElementById('sb-edit-chat');
-      const thinking = document.createElement('div');
-      thinking.className = 'sb-edit-msg sb-edit-msg-wordy sb-edit-msg-thinking';
-      thinking.innerHTML = '<div class="sb-edit-bubble">drawing it…</div>';
-      chatHost.appendChild(thinking);
-      chatHost.scrollTop = chatHost.scrollHeight;
-
-      const canvas = document.getElementById('sb-edit-canvas');
-      canvas.classList.add('is-generating');
-      const overlay = document.getElementById('sb-edit-canvas-overlay');
-      overlay.textContent = 'drawing your edit…';
-      overlay.classList.add('is-on');
-      storybook._edit.busy = true;
-      document.getElementById('sb-edit-send').disabled = true;
-
-      try {
-        // Centralized prompt builder. The edit instruction (and any
-        // earlier edits in the chat) get appended as extra context.
-        const priorEdits = storybook._edit.chat
-          .slice(0, -1)
-          .filter(t => t.role === 'kid')
-          .map(t => `- ${t.content}`)
-          .join('\n');
-        const extraParts = [];
-        if (priorEdits) extraParts.push(`Earlier edits applied:\n${priorEdits}`);
-        extraParts.push(`New edit instruction: ${text}`);
-        extraParts.push('Modify the attached reference image to apply the edit instruction. Keep everything else the same unless told otherwise.');
-        const composedPrompt = QSSArt.build({
-          sceneText: cue.source_text || cue.title || '',
-          extra: extraParts.join('\n\n'),
-        });
-
-        // Reference images: the current staged (if any) or the base scene image
-        const refUrl = storybook._edit.stagedImage
-          ? `data:${storybook._edit.stagedImage.mimeType};base64,${storybook._edit.stagedImage.dataBase64}`
-          : storybook._edit.baseImageUrl;
-        const referenceImages = [];
-        if (refUrl) {
-          // nano-banana endpoint accepts either base64 or URL — try both shapes
-          referenceImages.push(refUrl);
-        }
-        const res = await fetch('/api/nano-banana', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mode: 'image',
-            prompt: composedPrompt,
-            model: 'nano-banana',
-            referenceImages,
-          }),
-        });
-        if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          throw new Error(j.error || j.message || `${res.status}`);
-        }
-        const data = await res.json();
-        const im = data.images?.[0];
-        if (!im) throw new Error('no image came back');
-
-        storybook._edit.stagedImage = { mimeType: im.mimeType, dataBase64: im.dataBase64 };
-        const dataUrl = `data:${im.mimeType};base64,${im.dataBase64}`;
-        canvas.style.backgroundImage = `url("${dataUrl}")`;
-        canvas.classList.remove('is-generating');
-        overlay.classList.remove('is-on');
-
-        // Reply bubble — minimal — replace the thinking one
-        thinking.classList.remove('sb-edit-msg-thinking');
-        thinking.innerHTML = '<div class="sb-edit-bubble">drew it. like this one? if not, tell me what to fix.</div>';
-        document.getElementById('sb-edit-keep').disabled = false;
-        document.getElementById('sb-edit-revert').disabled = false;
-      } catch (e) {
-        thinking.classList.remove('sb-edit-msg-thinking');
-        thinking.innerHTML = `<div class="sb-edit-bubble">couldn't draw that — ${esc(e.message || 'something broke')}. try again?</div>`;
-        canvas.classList.remove('is-generating');
-        overlay.classList.remove('is-on');
-      } finally {
-        storybook._edit.busy = false;
-        document.getElementById('sb-edit-send').disabled = false;
-      }
-    }
-    function renderEditChat() {
-      const host = document.getElementById('sb-edit-chat');
-      if (!host) return;
-      host.innerHTML = `
-        <div class="sb-edit-msg sb-edit-msg-wordy">
-          <div class="sb-edit-bubble">tell me what to change about this picture. like "make him look more tired" or "change the background to a forest."</div>
-        </div>
-      ` + storybook._edit.chat.map(t => `
-        <div class="sb-edit-msg sb-edit-msg-${t.role}">
-          <div class="sb-edit-bubble">${esc(t.content)}</div>
-        </div>
-      `).join('');
-      host.scrollTop = host.scrollHeight;
-    }
-    function keepStorybookEdit() {
-      const staged = storybook._edit.stagedImage;
-      const cueId = storybook._edit.cueId;
-      if (!staged || !cueId) return;
-      const cueRef = storybook.cues.find(c => c.id === cueId);
-      if (!cueRef) return;
-      const block = (state.blocks || []).find(b => b.id === cueRef.blockId);
-      const cueData = (block?.__cues || []).find(c => c.id === cueId);
-      if (!cueData) return;
-
-      // Push the staged image onto the variations list IMMEDIATELY with
-      // an inline data-URL so the carousel shows it right away. Then
-      // close the modal. The Supabase upload happens in the background
-      // and rewrites the variation's url + drops the inline base64
-      // when it lands.
-      const newVariation = {
-        id: uidCue() + '-v',
-        url: undefined,
-        mimeType: staged.mimeType,
-        dataBase64: staged.dataBase64,
-        created_at: Date.now(),
-        _uploading: true,
-      };
-      if (!Array.isArray(cueData.variations)) cueData.variations = [];
-      cueData.variations.push(newVariation);
-      cueData.active_variation_id = newVariation.id;
-      cueData.image = { mimeType: staged.mimeType, dataBase64: staged.dataBase64 };
-      if (cueData.auto && (cueData.offset || 0) === 0) {
-        block.__image = { mimeType: staged.mimeType, dataBase64: staged.dataBase64 };
-      }
-      if (typeof persist === 'function') persist();
-
-      storybook.cues = buildStorybookCues();
-      renderStorybookArt();
-      renderStorybookRail();
-      renderMarginThumbs();
-      sbToast('saved as a new version');
-      closeStorybookEdit();
-
-      // BACKGROUND UPLOAD — fire-and-forget. Once it lands, swap inline
-      // base64 → CDN url. If it fails we keep the inline base64 (will
-      // still show locally; persisted as base64 via the fallback in
-      // the sanitizer with size cap).
-      (async () => {
-        try {
-          const storyId = state.serverId || state.cloudId || state.id || 'no-story';
-          const up = await fetch('/api/qss-image-upload', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              story_id: storyId,
-              block_id: cueRef.blockId,
-              cue_id: cueId,
-              dataBase64: staged.dataBase64,
-              mimeType: staged.mimeType,
-              world: (state.world || (typeof QSSWorlds !== 'undefined' && QSSWorlds.current && QSSWorlds.current()) || ''),
-            }),
-          });
-          if (!up.ok) throw new Error(`upload_${up.status}`);
-          const j = await up.json();
-          const cdnUrl = j.url;
-          if (!cdnUrl) throw new Error('no url');
-          // Re-locate the variation (it may have moved/been deleted) and update
-          const b2 = (state.blocks || []).find(x => x.id === cueRef.blockId);
-          const c2 = (b2?.__cues || []).find(x => x.id === cueId);
-          const v2 = (c2?.variations || []).find(v => v.id === newVariation.id);
-          if (v2) {
-            v2.url = cdnUrl;
-            delete v2.dataBase64;
-            delete v2._uploading;
-            // If it's still the active one, mirror to cue.image and __image
-            if (c2.active_variation_id === newVariation.id) {
-              c2.image = { url: cdnUrl, mimeType: staged.mimeType };
-              if (c2.auto && (c2.offset || 0) === 0 && b2) {
-                b2.__image = { url: cdnUrl, mimeType: staged.mimeType };
-              }
-            }
-            if (typeof persist === 'function') persist();
-            storybook.cues = buildStorybookCues();
-            renderStorybookArt();
-            renderStorybookRail();
-            renderMarginThumbs();
-          }
-        } catch (e) {
-          try { console.warn('[storybook background upload failed]', e); } catch {}
-        }
-      })();
-    }
-    function revertStorybookEdit() {
-      const canvas = document.getElementById('sb-edit-canvas');
-      const baseUrl = storybook._edit.baseImageUrl;
-      storybook._edit.stagedImage = null;
-      if (baseUrl) canvas.style.backgroundImage = `url("${baseUrl}")`;
-      else canvas.style.backgroundImage = 'none';
-      document.getElementById('sb-edit-keep').disabled = true;
-      document.getElementById('sb-edit-revert').disabled = true;
-      const chatHost = document.getElementById('sb-edit-chat');
-      const reverted = document.createElement('div');
-      reverted.className = 'sb-edit-msg sb-edit-msg-wordy';
-      reverted.innerHTML = '<div class="sb-edit-bubble">reverted. what do you want to try?</div>';
-      chatHost.appendChild(reverted);
-      chatHost.scrollTop = chatHost.scrollHeight;
     }
 
     /* ──── Storybook auto-advance play ──── */
