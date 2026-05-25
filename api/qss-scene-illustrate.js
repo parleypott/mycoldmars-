@@ -139,7 +139,18 @@ export default async function handler(req) {
 
   // 5. Time / framing hint
   const timeBlock = scene.time_of_day ? `\n\nTIME: ${scene.time_of_day}` : '';
-  const FRAMING = 'CINEMATIC scene — wide-to-medium shot, multiple figures if present, atmosphere central. Painterly frame from an animated film, not a sticker.';
+  const FRAMING = [
+    'CINEMATIC single-frame illustration — one composition, one camera angle, one moment.',
+    '',
+    'COMPOSITION RULE (absolute, do not break):',
+    '- ONE single image. ONE moment.',
+    '- NEVER a comic panel layout. NEVER a multi-panel collage. NEVER split-screen.',
+    '- NEVER speech bubbles. NEVER thought bubbles. NEVER captions.',
+    '- NEVER any text, words, letters, numbers, signs, or labels visible inside the image.',
+    '- NEVER show a sequence of beats. Pick the ONE strongest visual moment from the scene below — the most surprising, the most physically dynamic, or the most emotionally loaded — and render ONLY that single picture.',
+    '- If the scene describes many things happening, choose the SINGLE image that captures the spirit best. Drop the rest.',
+    '- Treat the output like one page of a picture book, NOT a page of a graphic novel.',
+  ].join('\n');
 
   // 6. Variation hint — if generating a variant, ask for a meaningfully
   // different composition with the same characters/setting.
