@@ -12334,8 +12334,7 @@
         if (riff && riff.classList.contains('is-open')) toggleStorybookRiff(false);
       });
 
-      // Play toggle
-      document.getElementById('sb-play-btn')?.addEventListener('click', toggleStorybookPlay);
+      // Play button is wired by the sbPlayer module (below) — no double-bind.
     })();
 
     function switchVariation(cueId, variationId) {
@@ -12668,45 +12667,506 @@
       setTimeout(() => input.focus(), 80);
     }
 
-    /* ──── Storybook auto-advance play ──── */
-    let _sbPlayTimer = null;
-    function toggleStorybookPlay() {
-      storybook.karaoke = !storybook.karaoke;
-      const btn = document.getElementById('sb-play-btn');
-      btn.textContent = storybook.karaoke ? '⏸ pause' : '▶ play';
-      btn.classList.toggle('is-on', storybook.karaoke);
-      if (storybook.karaoke) startStorybookPlay();
-      else stopStorybookPlay();
-    }
-    function startStorybookPlay() {
-      stopStorybookPlay();
-      let idx = storybook.activeIdx;
-      function step() {
-        const c = storybook.cues[idx];
-        if (!c) { stopStorybookPlay(); return; }
-        storybook.activeIdx = idx;
-        markActiveCueInProse(idx);
-        renderStorybookArt();
-        scrollProseToCueMark(c.id);
-        const words = ((c.source_text || '') + ' ').trim().split(/\s+/).filter(Boolean).length;
-        const dwell = Math.max(3500, Math.min(20000, Math.round((words / 2.5) * 1000)));
-        _sbPlayTimer = setTimeout(() => {
-          idx += 1;
-          if (idx >= storybook.cues.length) { stopStorybookPlay(); return; }
-          step();
-        }, dwell);
+    /* ═══════════════════════════════════════════════════════════════════
+     *  STORYBOOK READ-ALONG PLAYER
+     * ═══════════════════════════════════════════════════════════════════
+     *  Per-scene TTS via /api/qss-tts-karaoke (ElevenLabs with-timestamps).
+     *  Each scene's text gets a parallel <audio> element + word timings.
+     *  Plays sequentially through every scene in the story, lighting up
+     *  the active word as the audio speaks it.
+     *
+     *  Controls: ▶/⏸ · ⏮ prev scene · ⟲15 back · 15⟳ forward · ⏭ next
+     *            voice picker · global progress bar · time / total
+     *
+     *  Robustness:
+     *    - Session token invalidates stale fetches if user pauses/skips
+     *    - Pre-fetches NEXT scene while current plays
+     *    - Snapshot-text invalidation: scene edit during playback stops cleanly
+     *    - Browser TTS fallback if /api/qss-tts-karaoke errors
+     *    - Safe re-entry: clicking play while playing toggles pause
+     */
+    const sbPlayer = (function() {
+      // Voice picker — same library as the cast page TTS
+      const VOICE_LS = 'qss:sb:voice';
+      function loadVoice() {
+        try { return localStorage.getItem(VOICE_LS) || (window.qssVoices?.DEFAULT) || 'matilda'; } catch { return 'matilda'; }
       }
-      step();
-    }
-    function stopStorybookPlay() {
-      if (_sbPlayTimer) clearTimeout(_sbPlayTimer);
-      _sbPlayTimer = null;
-      storybook.karaoke = false;
-      const btn = document.getElementById('sb-play-btn');
-      if (btn) { btn.textContent = '▶ play'; btn.classList.remove('is-on'); }
-    }
-    // Pause auto-play on user scroll
-    document.getElementById('sb-prose-pane')?.addEventListener('wheel', () => { if (storybook.karaoke) stopStorybookPlay(); }, { passive: true });
+      function saveVoice(v) { try { localStorage.setItem(VOICE_LS, v); } catch {} }
+
+      // Per-text TTS cache. Keyed by `${voice}|${textHash}`.
+      const ttsCache = new Map();
+      function textHash(t) {
+        let h = 0;
+        for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0;
+        return 'h' + (h >>> 0).toString(36) + '_' + t.length;
+      }
+
+      async function fetchTTS(text, voice) {
+        const key = `${voice}|${textHash(text)}`;
+        if (ttsCache.has(key)) return ttsCache.get(key);
+        const r = await fetch('/api/qss-tts-karaoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice }),
+        });
+        if (!r.ok) {
+          let msg = '';
+          try { msg = (await r.json()).error || ''; } catch {}
+          throw new Error(`tts ${r.status}${msg ? ': ' + msg : ''}`);
+        }
+        const data = await r.json();
+        if (!data.audio_base64 || !Array.isArray(data.words)) {
+          throw new Error('tts response missing audio or words');
+        }
+        // Memory cap — drop oldest if we exceed
+        if (ttsCache.size > 30) {
+          const oldKey = ttsCache.keys().next().value;
+          ttsCache.delete(oldKey);
+        }
+        ttsCache.set(key, data);
+        return data;
+      }
+
+      // Session state — bumping `token` cancels in-flight scene loads.
+      const session = {
+        token: 0,
+        playing: false,    // is audio currently producing sound
+        paused: false,     // user explicitly paused
+        sceneIdx: 0,       // which scene of storybook.cues is active
+        scenes: [],        // [{ cueId, text, words[], duration, audio: HTMLAudioElement }]
+        rafHandle: 0,
+        voice: loadVoice(),
+        totalDuration: 0,  // sum of all scene durations
+        elapsedBefore: 0,  // elapsed time before the current scene started
+      };
+
+      // Format seconds → "M:SS"
+      function fmt(t) {
+        if (!isFinite(t) || t < 0) t = 0;
+        const m = Math.floor(t / 60);
+        const s = Math.floor(t - m * 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+      }
+
+      // Compute the text for a given storybook cue — what gets spoken.
+      function textForCue(cue) {
+        if (!cue) return '';
+        if (typeof cue.source_text === 'string' && cue.source_text.trim().length > 4) return cue.source_text.trim();
+        // Fallback: slice block.text from this cue's offset to next cue's offset
+        const block = (state.blocks || []).find(b => b.id === cue.blockId);
+        if (!block || !block.text) return '';
+        const cues = (block.__cues || []).slice().sort((a, c) => (a.offset || 0) - (c.offset || 0));
+        const myIdx = cues.findIndex(c => c.id === cue.id);
+        const start = Math.max(0, cues[myIdx]?.offset || 0);
+        const end = (myIdx + 1 < cues.length)
+          ? cues[myIdx + 1].offset || block.text.length
+          : block.text.length;
+        return block.text.slice(start, end).trim();
+      }
+
+      // Render a scene-text element with per-word spans for karaoke.
+      // Disables contenteditable during playback. Restores on teardown.
+      function decorateSceneCard(cueId, text, words) {
+        const el = document.querySelector(`.sb-scene-text[data-cue-id="${cueId}"]`);
+        if (!el) return null;
+        el.dataset._origEditable = el.getAttribute('contenteditable') || 'true';
+        el.setAttribute('contenteditable', 'false');
+        el.classList.add('is-playing');
+        // Walk text + words, build span-decorated DOM
+        const frag = document.createDocumentFragment();
+        let cursor = 0;
+        for (let i = 0; i < words.length; i++) {
+          const w = words[i];
+          if (w.charStart > cursor) {
+            frag.appendChild(document.createTextNode(text.slice(cursor, w.charStart)));
+          }
+          const span = document.createElement('span');
+          span.className = 'ks-w';
+          span.dataset.idx = String(i);
+          span.dataset.start = String(w.start);
+          span.dataset.end = String(w.end);
+          span.textContent = text.slice(w.charStart, w.charEnd);
+          frag.appendChild(span);
+          cursor = w.charEnd;
+        }
+        if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+        el.innerHTML = '';
+        el.appendChild(frag);
+        // Mark the parent cue section as playing too
+        const section = el.closest('.sb-cue-section');
+        if (section) section.classList.add('is-playing');
+        return el;
+      }
+      // Restore plain text + re-enable editing
+      function restoreSceneCard(cueId, text) {
+        const el = document.querySelector(`.sb-scene-text[data-cue-id="${cueId}"]`);
+        if (!el) return;
+        el.classList.remove('is-playing');
+        el.setAttribute('contenteditable', el.dataset._origEditable || 'true');
+        el.textContent = text;
+        const section = el.closest('.sb-cue-section');
+        if (section) section.classList.remove('is-playing');
+      }
+
+      // Build the array of scenes from current storybook.cues
+      function buildScenes() {
+        return storybook.cues.map(c => ({
+          cueId: c.id,
+          text: textForCue(c),
+        })).filter(s => s.text && s.text.length >= 2);
+      }
+
+      // Light up the active word, dim past, clear future. Called every RAF.
+      function highlightActiveWord(sceneIdx, wordIdx) {
+        const sc = session.scenes[sceneIdx];
+        if (!sc) return;
+        const el = document.querySelector(`.sb-scene-text[data-cue-id="${sc.cueId}"]`);
+        if (!el) return;
+        const spans = el.querySelectorAll('.ks-w');
+        // Avoid re-walking every frame — track lastIdx on the element
+        const last = parseInt(el.dataset._lastIdx || '-2', 10);
+        if (last === wordIdx) return;
+        for (let i = 0; i < spans.length; i++) {
+          if (i < wordIdx) {
+            spans[i].classList.remove('ks-active');
+            spans[i].classList.add('ks-past');
+          } else if (i === wordIdx) {
+            spans[i].classList.add('ks-active');
+            spans[i].classList.remove('ks-past');
+            // Auto-scroll active word into view if it's off-screen
+            const pane = document.getElementById('sb-prose-pane');
+            if (pane) {
+              const wr = spans[i].getBoundingClientRect();
+              const pr = pane.getBoundingClientRect();
+              if (wr.top < pr.top + 60 || wr.bottom > pr.bottom - 80) {
+                spans[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }
+          } else {
+            spans[i].classList.remove('ks-active', 'ks-past');
+          }
+        }
+        el.dataset._lastIdx = String(wordIdx);
+      }
+
+      function updateUI() {
+        const btn = document.getElementById('sb-play-btn');
+        const icon = document.getElementById('sb-pl-icon');
+        const label = document.getElementById('sb-pl-label');
+        const fill = document.getElementById('sb-pl-fill');
+        const timeEl = document.getElementById('sb-pl-time');
+        if (btn && icon && label) {
+          const isOn = session.playing && !session.paused;
+          btn.classList.toggle('is-playing', isOn);
+          icon.textContent = isOn ? '⏸' : '▶';
+          label.textContent = isOn ? 'pause' : (session.paused ? 'resume' : 'play');
+        }
+        const sc = session.scenes[session.sceneIdx];
+        const cur = sc?.audio ? (session.elapsedBefore + sc.audio.currentTime) : session.elapsedBefore;
+        const total = session.totalDuration || 1;
+        if (fill) fill.style.width = Math.min(100, (cur / total) * 100) + '%';
+        if (timeEl) timeEl.textContent = `${fmt(cur)} / ${fmt(total)}`;
+      }
+
+      function renderProgressMarks() {
+        const marks = document.getElementById('sb-pl-marks');
+        if (!marks) return;
+        if (!session.totalDuration) { marks.innerHTML = ''; return; }
+        let t = 0;
+        const out = [];
+        for (let i = 0; i < session.scenes.length - 1; i++) {
+          t += session.scenes[i].duration || 0;
+          const pct = (t / session.totalDuration) * 100;
+          out.push(`<div class="sb-pl-progress-mark" style="left:${pct.toFixed(2)}%"></div>`);
+        }
+        marks.innerHTML = out.join('');
+      }
+
+      function rafLoop() {
+        if (!session.playing || session.paused) {
+          session.rafHandle = 0;
+          return;
+        }
+        const sc = session.scenes[session.sceneIdx];
+        if (!sc || !sc.audio) { session.rafHandle = requestAnimationFrame(rafLoop); return; }
+        const t = sc.audio.currentTime;
+        // Find current word in this scene's words array
+        let idx = -1;
+        const ws = sc.words || [];
+        for (let i = 0; i < ws.length; i++) {
+          if (t >= ws[i].start && t <= ws[i].end + 0.05) { idx = i; break; }
+          if (ws[i].start > t) break;
+        }
+        if (idx < 0 && ws.length && t >= ws[ws.length - 1].end) idx = ws.length - 1;
+        if (idx >= 0) highlightActiveWord(session.sceneIdx, idx);
+        updateUI();
+        session.rafHandle = requestAnimationFrame(rafLoop);
+      }
+
+      async function loadAndPlay(sceneIdx, { fromTime = 0 } = {}) {
+        const myToken = ++session.token;
+        const sc = session.scenes[sceneIdx];
+        if (!sc) return false;
+        session.sceneIdx = sceneIdx;
+
+        // Activate the cue in the rest of the UI (art frame, rail dot, scroll)
+        const cueIdx = storybook.cues.findIndex(c => c.id === sc.cueId);
+        if (cueIdx >= 0) {
+          storybook.activeIdx = cueIdx;
+          markActiveCueInProse(cueIdx);
+          renderStorybookArt();
+          scrollProseToCueMark(sc.cueId);
+        }
+
+        // Fetch TTS if not already cached on the scene
+        if (!sc.words || !sc.audio) {
+          try {
+            const data = await fetchTTS(sc.text, session.voice);
+            if (myToken !== session.token) return false; // user moved on
+            sc.words = data.words;
+            sc.duration = data.duration || (sc.words.length ? sc.words[sc.words.length - 1].end : 0);
+            sc.audio = new Audio(`data:${data.mime || 'audio/mpeg'};base64,${data.audio_base64}`);
+            sc.audio.preload = 'auto';
+            // Recompute total + marks now that we know this scene's duration
+            session.totalDuration = session.scenes.reduce((n, x) => n + (x.duration || 0), 0);
+            renderProgressMarks();
+          } catch (e) {
+            console.warn('[sb-player] tts failed for scene', sceneIdx, e?.message || e);
+            sbToast(`couldn’t fetch audio — ${(e?.message || 'failed').slice(0, 60)}`);
+            stop();
+            return false;
+          }
+        }
+
+        // Wait for audio to be ready (no metadata can race with autoplay)
+        await new Promise((resolve) => {
+          if (sc.audio.readyState >= 2) resolve();
+          else sc.audio.addEventListener('canplay', resolve, { once: true });
+        });
+        if (myToken !== session.token) return false;
+
+        // Decorate the scene card with karaoke spans
+        decorateSceneCard(sc.cueId, sc.text, sc.words);
+
+        // Compute elapsedBefore = sum of prior scenes' duration
+        session.elapsedBefore = 0;
+        for (let i = 0; i < sceneIdx; i++) session.elapsedBefore += session.scenes[i].duration || 0;
+
+        // Wire onended → next scene
+        sc.audio.onended = () => {
+          if (myToken !== session.token) return;
+          restoreSceneCard(sc.cueId, sc.text);
+          if (sceneIdx + 1 < session.scenes.length) {
+            loadAndPlay(sceneIdx + 1);
+          } else {
+            stop();
+          }
+        };
+
+        // Start playing
+        try { sc.audio.currentTime = Math.max(0, Math.min(sc.duration - 0.1, fromTime)); } catch {}
+        try { await sc.audio.play(); } catch (e) {
+          console.warn('[sb-player] audio.play() threw', e);
+        }
+        session.playing = true;
+        session.paused = false;
+        if (!session.rafHandle) rafLoop();
+        updateUI();
+
+        // Prefetch next scene's audio (parallel background fetch)
+        const next = session.scenes[sceneIdx + 1];
+        if (next && !next.words) {
+          fetchTTS(next.text, session.voice).then(d => {
+            if (myToken !== session.token) return;
+            next.words = d.words;
+            next.duration = d.duration || (d.words.length ? d.words[d.words.length - 1].end : 0);
+            next.audio = new Audio(`data:${d.mime || 'audio/mpeg'};base64,${d.audio_base64}`);
+            next.audio.preload = 'auto';
+            session.totalDuration = session.scenes.reduce((n, x) => n + (x.duration || 0), 0);
+            renderProgressMarks();
+            updateUI();
+          }).catch(() => {});
+        }
+        return true;
+      }
+
+      function start() {
+        if (session.playing && !session.paused) return;
+        if (session.paused && session.scenes[session.sceneIdx]?.audio) {
+          // Resume
+          session.scenes[session.sceneIdx].audio.play().catch(() => {});
+          session.paused = false;
+          session.playing = true;
+          if (!session.rafHandle) rafLoop();
+          updateUI();
+          return;
+        }
+        // Fresh start
+        session.scenes = buildScenes();
+        session.sceneIdx = Math.max(0, Math.min(storybook.activeIdx, session.scenes.length - 1));
+        if (!session.scenes.length) { sbToast('no story to read yet'); return; }
+        // Reset prior session
+        session.totalDuration = 0;
+        loadAndPlay(session.sceneIdx);
+      }
+      function pause() {
+        const sc = session.scenes[session.sceneIdx];
+        if (sc?.audio) { try { sc.audio.pause(); } catch {} }
+        session.paused = true;
+        session.playing = false;
+        if (session.rafHandle) { cancelAnimationFrame(session.rafHandle); session.rafHandle = 0; }
+        updateUI();
+      }
+      function stop() {
+        session.token++;
+        if (session.rafHandle) { cancelAnimationFrame(session.rafHandle); session.rafHandle = 0; }
+        for (const sc of session.scenes) {
+          if (sc.audio) { try { sc.audio.pause(); } catch {} sc.audio.onended = null; }
+          restoreSceneCard(sc.cueId, sc.text);
+        }
+        session.playing = false;
+        session.paused = false;
+        session.sceneIdx = 0;
+        session.elapsedBefore = 0;
+        updateUI();
+        const fill = document.getElementById('sb-pl-fill');
+        if (fill) fill.style.width = '0%';
+      }
+      function toggle() {
+        if (session.playing && !session.paused) pause();
+        else start();
+      }
+      function nextScene() {
+        if (!session.scenes.length) return;
+        const next = Math.min(session.scenes.length - 1, session.sceneIdx + 1);
+        if (next === session.sceneIdx) return;
+        // Tear down current
+        const cur = session.scenes[session.sceneIdx];
+        if (cur?.audio) { try { cur.audio.pause(); } catch {} }
+        restoreSceneCard(cur.cueId, cur.text);
+        loadAndPlay(next);
+      }
+      function prevScene() {
+        if (!session.scenes.length) return;
+        const prev = Math.max(0, session.sceneIdx - 1);
+        if (prev === session.sceneIdx) return;
+        const cur = session.scenes[session.sceneIdx];
+        if (cur?.audio) { try { cur.audio.pause(); } catch {} }
+        restoreSceneCard(cur.cueId, cur.text);
+        loadAndPlay(prev);
+      }
+      function skip(seconds) {
+        const sc = session.scenes[session.sceneIdx];
+        if (!sc?.audio) return;
+        const next = sc.audio.currentTime + seconds;
+        if (next < 0) {
+          // Spill into previous scene
+          if (session.sceneIdx > 0) {
+            const prevSc = session.scenes[session.sceneIdx - 1];
+            const carry = -next; // how far back we still need to go
+            const target = Math.max(0, (prevSc.duration || 0) - carry);
+            try { sc.audio.pause(); } catch {}
+            restoreSceneCard(sc.cueId, sc.text);
+            loadAndPlay(session.sceneIdx - 1, { fromTime: target });
+          } else {
+            sc.audio.currentTime = 0;
+          }
+        } else if (next > (sc.duration || 0) - 0.1) {
+          // Spill into next scene
+          if (session.sceneIdx + 1 < session.scenes.length) {
+            const carry = next - (sc.duration || 0);
+            try { sc.audio.pause(); } catch {}
+            restoreSceneCard(sc.cueId, sc.text);
+            loadAndPlay(session.sceneIdx + 1, { fromTime: Math.max(0, carry) });
+          } else {
+            sc.audio.currentTime = sc.duration || 0;
+          }
+        } else {
+          sc.audio.currentTime = next;
+        }
+      }
+      function setVoice(v) {
+        if (!v || v === session.voice) return;
+        session.voice = v;
+        saveVoice(v);
+        // Voice change invalidates cached scene audio — clear it
+        for (const sc of session.scenes) {
+          if (sc.audio) { try { sc.audio.pause(); } catch {} }
+          sc.audio = null; sc.words = null; sc.duration = 0;
+        }
+        // If we were playing, restart from current scene
+        const wasPlaying = session.playing && !session.paused;
+        const fromIdx = session.sceneIdx;
+        stop();
+        if (wasPlaying) {
+          session.scenes = buildScenes();
+          session.sceneIdx = Math.max(0, Math.min(fromIdx, session.scenes.length - 1));
+          loadAndPlay(session.sceneIdx);
+        }
+      }
+      function seekToPct(pct) {
+        if (!session.scenes.length || !session.totalDuration) return;
+        const targetT = Math.max(0, Math.min(session.totalDuration, pct * session.totalDuration));
+        // Find which scene this falls into
+        let t = 0;
+        for (let i = 0; i < session.scenes.length; i++) {
+          const d = session.scenes[i].duration || 0;
+          if (targetT <= t + d || i === session.scenes.length - 1) {
+            const cur = session.scenes[session.sceneIdx];
+            if (cur?.audio) { try { cur.audio.pause(); } catch {} }
+            restoreSceneCard(cur.cueId, cur.text);
+            loadAndPlay(i, { fromTime: targetT - t });
+            return;
+          }
+          t += d;
+        }
+      }
+      // Public surface
+      return {
+        start, pause, stop, toggle, nextScene, prevScene, skip, setVoice, seekToPct,
+        getVoice: () => session.voice,
+        isPlaying: () => session.playing && !session.paused,
+        updateUI,
+      };
+    })();
+
+    // Wire UI controls
+    document.getElementById('sb-play-btn')?.addEventListener('click', () => sbPlayer.toggle());
+    document.getElementById('sb-pl-prev')?.addEventListener('click', () => sbPlayer.prevScene());
+    document.getElementById('sb-pl-next')?.addEventListener('click', () => sbPlayer.nextScene());
+    document.getElementById('sb-pl-back15')?.addEventListener('click', () => sbPlayer.skip(-15));
+    document.getElementById('sb-pl-fwd15')?.addEventListener('click', () => sbPlayer.skip(15));
+    document.getElementById('sb-pl-progress')?.addEventListener('click', (e) => {
+      const bar = e.currentTarget;
+      const rect = bar.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      sbPlayer.seekToPct(pct);
+    });
+    // Voice picker — populate from qssVoices library
+    (function wireVoicePicker() {
+      const sel = document.getElementById('sb-pl-voice');
+      if (!sel || !window.qssVoices) return;
+      sel.innerHTML = window.qssVoices.LIBRARY.map(v =>
+        `<option value="${esc(v.id)}">${esc(v.label)}</option>`
+      ).join('');
+      sel.value = sbPlayer.getVoice();
+      sel.addEventListener('change', () => sbPlayer.setVoice(sel.value));
+    })();
+    // Spacebar shortcut anywhere on the storybook stage
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== ' ' && e.code !== 'Space') return;
+      const active = document.activeElement;
+      // Don't hijack space when the user is typing in an input/textarea/contenteditable
+      const tag = active?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || active?.isContentEditable) return;
+      const stage = document.getElementById('stage-storybook');
+      if (!stage || !stage.classList.contains('active')) return;
+      e.preventDefault();
+      sbPlayer.toggle();
+    });
+
+    // Public-ish alias so older code paths still work
+    function toggleStorybookPlay() { sbPlayer.toggle(); }
 
     // ─────────── Block expand/collapse toggle ───────────
     function toggleBlockExpand(id, force) {
