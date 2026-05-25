@@ -3946,30 +3946,41 @@
       width: 76px;
       font-family: var(--mono, monospace);
       font-size: 9.5px;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.10em;
       text-transform: uppercase;
       color: var(--ink-soft);
       line-height: 1.25;
       pointer-events: none;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: clip;
     }
     .sb-cue-section.is-active .sb-cue-meta { color: var(--ink-bright); font-weight: 700; }
 
     /* Compact horizontal rule above the section's first paragraph —
      * just a hairline now since the range bar carries the visual weight. */
     .sb-cue-mark {
-      display: flex; align-items: center; gap: 10px;
+      display: flex; align-items: center; gap: 8px;
       margin: 0 0 12px 0;
       padding-top: 6px;
       user-select: none;
       position: relative;
+      min-width: 0;
+      overflow: hidden;
     }
     .sb-cue-label {
       font-family: var(--mono, monospace);
-      font-size: 10.5px;
-      letter-spacing: 0.18em;
+      font-size: 10px;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--ink-soft);
       font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
+      flex-shrink: 1;
+      min-width: 0;
     }
     .sb-cue-section.is-active .sb-cue-label { color: var(--ink-bright); }
     .sb-cue-rule { flex: 1; height: 1.5px; background: var(--ink-bright); opacity: 0.18; }
@@ -11069,6 +11080,41 @@
       }
     }
 
+    function snapCuesToWordBoundaries() {
+      let snapped = 0;
+      for (const b of (state.blocks || [])) {
+        if (!Array.isArray(b.__cues) || !b.text) continue;
+        const text = b.text;
+        let changed = false;
+        for (const c of b.__cues) {
+          const off = c.offset || 0;
+          if (off <= 0 || off >= text.length) continue;
+          const prev = text[off - 1];
+          const curr = text[off];
+          // If both adjacent chars are non-whitespace, we're mid-word
+          if (prev && curr && /\S/.test(prev) && /\S/.test(curr)) {
+            // Find nearest word boundary: scan left to word start, right to word end
+            let left = off;
+            while (left > 0 && /\S/.test(text[left - 1])) left--;
+            let right = off;
+            while (right < text.length && /\S/.test(text[right])) right++;
+            // Prefer the word end (right) — keeps more text in previous scene
+            c.offset = right < text.length ? right : left;
+            changed = true;
+            snapped++;
+          }
+        }
+        if (changed) {
+          b.__cues.sort((a, c) => (a.offset || 0) - (c.offset || 0));
+          b.__sceneBreaksScanned = '';
+        }
+      }
+      if (snapped > 0) {
+        try { console.warn('[sb-cleanup] snapped', snapped, 'mid-word cue offset(s) to word boundary'); } catch {}
+        if (typeof persist === 'function') persist();
+      }
+    }
+
     function initStorybook() {
       const empty = document.getElementById('sb-empty');
       const reader = document.getElementById('sb-reader');
@@ -11076,8 +11122,9 @@
       // offsets may shift after text is rejoined.
       repairCorruptBlockText();
       cleanupDegenerateAutoCues();
+      snapCuesToWordBoundaries();
       // Also reset any cue offset that now lands past the end of its
-      // block's (newly-shortened) text, or in the middle of a word.
+      // block's (newly-shortened) text.
       for (const b of (state.blocks || [])) {
         if (!Array.isArray(b.__cues) || !b.text) continue;
         const len = b.text.length;
@@ -11260,7 +11307,7 @@
                    data-cue-id="${esc(cue.id)}"
                    data-block-id="${esc(b.id)}"
                    data-cue-idx="${cueIdx}"
-                   draggable="true">
+                   draggable="false">
                 <button class="sb-cue-thumb ${isGenerating ? 'is-generating' : ''}"
                         type="button"
                         title="${esc(labelShort)}"
@@ -11276,7 +11323,7 @@
                   ${wc > 0 ? `<span class="sb-wc${wc > 200 ? ' sb-wc-long' : ''}" data-cue-wc="${esc(cue.id)}">${wc}w</span>` : ''}
                   ${charChipsHtml}
                   ${sceneText.length > 400 ? `<button class="sb-scene-auto-break" type="button" title="Analyze and split into multiple scenes">break into scenes</button>` : ''}
-                  <button class="sb-cue-delete" type="button" title="Merge with next scene (removes this scene break)" aria-label="Merge scenes">⊗</button>
+                  <button class="sb-cue-delete" type="button" title="Remove scene break (merges with next scene)" aria-label="Remove scene break">×</button>
                 </div>
                 <div class="sb-scene-text sb-paragraph"
                      contenteditable="true"
@@ -11513,7 +11560,7 @@
 
     let _twScrollFrame = null;
     function sbTypewriterScroll() {
-      if (_twScrollFrame) return; // debounce to rAF
+      if (_twScrollFrame) return; // one nudge per frame
       _twScrollFrame = requestAnimationFrame(() => {
         _twScrollFrame = null;
         try {
@@ -11527,8 +11574,10 @@
           const paneRect = pane.getBoundingClientRect();
           const targetY = paneRect.top + paneRect.height * 0.40;
           const delta = rect.top - targetY;
-          if (Math.abs(delta) > 60) {
-            pane.scrollBy({ top: delta * 0.5, behavior: 'smooth' });
+          // Only nudge when cursor drifts more than 1.5 lines from target
+          if (Math.abs(delta) > 48) {
+            // Direct scrollTop — no smooth animation, no queuing, no jitter
+            pane.scrollTop += delta * 0.35;
           }
         } catch {}
       });
@@ -11693,6 +11742,17 @@
     function wireCueSectionClicks() {
       const host = document.getElementById('sb-scenes-host');
       if (!host) return;
+      // Delegated: character chips open arc inspector
+      if (!host._charChipWired) {
+        host._charChipWired = true;
+        host.addEventListener('click', (e) => {
+          const chip = e.target.closest('.sb-scene-char-chip[data-action="open-arc"]');
+          if (chip && typeof openArcInspector === 'function') {
+            e.stopPropagation();
+            openArcInspector();
+          }
+        });
+      }
       host.querySelectorAll('.sb-cue-section').forEach(section => {
         const cueId = section.dataset.cueId;
         const blockId = section.dataset.blockId;
@@ -11718,8 +11778,12 @@
           deleteCue(blockId, cueId);
         });
 
-        // ── Drag-to-reorder ──
+        // ── Drag-to-reorder — only arms when pointer starts on the handle ──
+        const handle = section.querySelector('.sb-drag-handle');
+        handle?.addEventListener('mousedown', () => { section.draggable = true; });
+        document.addEventListener('mouseup', () => { section.draggable = false; }, true);
         section.addEventListener('dragstart', (e) => {
+          if (!section.draggable) { e.preventDefault(); return; }
           e.dataTransfer.setData('application/qss-cue', JSON.stringify({ cueId, blockId }));
           e.dataTransfer.effectAllowed = 'move';
           section.classList.add('is-dragging');
