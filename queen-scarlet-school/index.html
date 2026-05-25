@@ -3628,25 +3628,49 @@
     .sb-cue-mark.sb-cue-default .sb-cue-delete { display: none; }
     .sb-cue-mark .sb-cue-delete:hover { color: var(--red, #d65653); }
 
-    /* Floating "generate here" button (appears on text selection) */
-    .sb-genhere-pill {
+    /* Floating selection action bar — appears when text is highlighted
+     * in the Storybook prose. Two actions in one capsule: generate
+     * image here + read aloud. Replaces the global TTS float while
+     * the Storybook stage is active so they don't collide. */
+    .sb-selbar {
       position: fixed;
-      z-index: 80;
-      background: var(--yolk);
-      color: var(--ink-bright);
+      z-index: 90;
+      display: none;
+      align-items: stretch;
+      background: var(--paper-card);
       border: 2.5px solid var(--ink-bright);
-      box-shadow: 3px 3px 0 var(--ink-bright);
+      box-shadow: 4px 4px 0 var(--ink-bright);
       border-radius: 999px;
-      padding: 6px 14px;
+      overflow: hidden;
       font-family: var(--ui, inherit);
+    }
+    .sb-selbar.is-on { display: inline-flex; }
+    .sb-selbar-btn {
+      background: transparent;
+      color: var(--ink-bright);
+      border: none;
+      padding: 8px 16px;
+      font-family: inherit;
       font-weight: 800;
       font-size: 13px;
+      letter-spacing: 0.01em;
       cursor: pointer;
-      display: none;
-      transition: transform 100ms;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: background 120ms;
     }
-    .sb-genhere-pill:hover { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 var(--ink-bright); }
-    .sb-genhere-pill.is-on { display: inline-flex; align-items: center; gap: 6px; }
+    .sb-selbar-btn:hover { background: var(--yolk); }
+    .sb-selbar-btn.is-primary { background: var(--yolk); }
+    .sb-selbar-btn.is-primary:hover { background: #ffe07c; }
+    .sb-selbar-divider {
+      width: 2px;
+      background: var(--ink-bright);
+      opacity: 0.85;
+    }
+    .sb-selbar-btn svg { width: 16px; height: 16px; }
+
+    /* While Storybook stage is active, hide the global TTS float so
+     * it doesn't double up with the selection bar above. */
+    body.sb-stage-active #tts-float { display: none !important; }
 
     /* Art pane (sticky) */
     .sb-art-pane {
@@ -6091,6 +6115,14 @@
       state.stage = s;
       document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.stage === s));
       document.querySelectorAll('.stage').forEach(el => el.classList.toggle('active', el.id === `stage-${s}`));
+      // Storybook owns its own selection action bar — suppress the
+      // global TTS float to keep them from overlapping.
+      document.body.classList.toggle('sb-stage-active', s === 'storybook');
+      // Also hide the bar itself when leaving the stage
+      if (s !== 'storybook') {
+        const bar = document.getElementById('sb-selbar');
+        if (bar) bar.classList.remove('is-on');
+      }
       if (s === 'board') renderBoard();
       if (s === 'storybook') initStorybook();
     }
@@ -10433,18 +10465,31 @@
       }
     }
 
-    /* ──── Text selection → "generate image here" pill ──── */
+    /* ──── Text selection → action bar (generate + read aloud) ──── */
     function attachStorybookSelection() {
       const pane = document.getElementById('sb-prose-pane');
       if (!pane) return;
-      // Ensure the floating pill exists
-      if (!document.getElementById('sb-genhere-pill')) {
-        const pill = document.createElement('button');
-        pill.id = 'sb-genhere-pill';
-        pill.className = 'sb-genhere-pill';
-        pill.innerHTML = '✎ generate image here';
-        document.body.appendChild(pill);
-        pill.addEventListener('click', onGenerateHere);
+      if (!document.getElementById('sb-selbar')) {
+        const bar = document.createElement('div');
+        bar.id = 'sb-selbar';
+        bar.className = 'sb-selbar';
+        bar.innerHTML = `
+          <button type="button" class="sb-selbar-btn is-primary" id="sb-selbar-gen" title="Generate a new picture for this passage">
+            <span aria-hidden="true">✎</span><span>generate image here</span>
+          </button>
+          <span class="sb-selbar-divider" aria-hidden="true"></span>
+          <button type="button" class="sb-selbar-btn" id="sb-selbar-read" title="Read this selection aloud">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M15.54 8.46a5 5 0 010 7.07"/>
+            </svg>
+            <span>read this</span>
+          </button>
+        `;
+        document.body.appendChild(bar);
+        // Stop click from collapsing the selection before we read it
+        bar.addEventListener('mousedown', (e) => e.preventDefault());
+        bar.querySelector('#sb-selbar-gen').addEventListener('click', onGenerateHere);
+        bar.querySelector('#sb-selbar-read').addEventListener('click', onReadSelection);
       }
       pane.removeEventListener('mouseup', onSelectionMaybe);
       pane.addEventListener('mouseup', onSelectionMaybe);
@@ -10453,23 +10498,39 @@
       document.addEventListener('selectionchange', onSelectionMaybe);
     }
     function onSelectionMaybe() {
-      const pill = document.getElementById('sb-genhere-pill');
+      const bar = document.getElementById('sb-selbar');
       const sel = window.getSelection();
-      if (!pill) return;
-      if (!sel || sel.isCollapsed) { pill.classList.remove('is-on'); return; }
+      if (!bar) return;
+      if (!sel || sel.isCollapsed) { bar.classList.remove('is-on'); return; }
+      // Don't react to selections inside our own bar
       const range = sel.getRangeAt(0);
-      // Limit to inside the prose pane
+      if (bar.contains(range.commonAncestorContainer)) return;
       const pane = document.getElementById('sb-prose-pane');
       if (!pane || !pane.contains(range.commonAncestorContainer)) {
-        pill.classList.remove('is-on');
+        bar.classList.remove('is-on');
         return;
       }
       const text = sel.toString().trim();
-      if (text.length < 6) { pill.classList.remove('is-on'); return; }
+      if (text.length < 4) { bar.classList.remove('is-on'); return; }
       const rect = range.getBoundingClientRect();
-      pill.style.left = `${Math.max(8, rect.left + rect.width / 2 - 110)}px`;
-      pill.style.top = `${Math.max(8, rect.top - 42)}px`;
-      pill.classList.add('is-on');
+      // Place bar centered above selection, clamped to viewport
+      const barWidth = 360;
+      const left = Math.max(8, Math.min(window.innerWidth - barWidth - 8, rect.left + rect.width / 2 - barWidth / 2));
+      const top = Math.max(8, rect.top - 52);
+      bar.style.left = `${left}px`;
+      bar.style.top = `${top}px`;
+      bar.classList.add('is-on');
+    }
+    function onReadSelection() {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return;
+      const text = sel.toString().trim();
+      if (!text) return;
+      try {
+        if (window.qssTTS && typeof window.qssTTS.speak === 'function') {
+          window.qssTTS.speak(text, document.getElementById('sb-selbar-read'));
+        }
+      } catch {}
     }
     function onGenerateHere() {
       const sel = window.getSelection();
@@ -10500,8 +10561,8 @@
       const offset = paraStart + intraPara;
       // Clear the selection so the pill goes away
       sel.removeAllRanges();
-      const pill = document.getElementById('sb-genhere-pill');
-      if (pill) pill.classList.remove('is-on');
+      const bar = document.getElementById('sb-selbar');
+      if (bar) bar.classList.remove('is-on');
       createCueAtSelection(blockId, offset, text);
     }
     function createCueAtSelection(blockId, offset, sourceText) {
