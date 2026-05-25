@@ -4002,24 +4002,41 @@ window.addEventListener('error', (e) => {
   overlay.appendChild(line);
   if ((e.message||'').includes('Quota') || (e.message||'').includes('quota')) {
     const btn = document.createElement('button');
-    btn.textContent = '⚠ Storage full — click to clear village/pin cache and reload';
+    btn.textContent = '⚠ STORAGE FULL — CLICK TO CLEAR VILLAGE/PIN CACHE AND RELOAD';
     btn.style.cssText = 'margin-top:8px;background:#F5F1E6;color:#B5331E;border:0;padding:8px 16px;font:600 11px/1 JetBrains Mono,monospace;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;border-radius:2px;';
     btn.onclick = () => {
-      try { localStorage.removeItem('whh:villages:v1'); } catch {}
-      try { localStorage.removeItem('whh:pins:v1'); } catch {}
-      try { localStorage.removeItem('whh:scenarios:v1'); } catch {}
-      try { localStorage.removeItem('whh:money:v1'); } catch {}
-      try { localStorage.removeItem('whh:basemap:v1'); } catch {}
+      // Clear disposable search/routing cache first — pins and villages are preserved
+      const evicted = clearFetchCache();
+      console.info('[whh] manual cache clear: evicted', evicted, 'fetchcache entries');
       location.reload();
     };
     overlay.appendChild(btn);
   }
 });
 
-// Safe localStorage wrapper — quota errors never crash callers
+// Clear all disposable fetchcache entries — leaves pins/villages/etc. untouched
+function clearFetchCache() {
+  const toRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('whh:fetchcache:')) toRemove.push(k);
+  }
+  toRemove.forEach(k => { try { localStorage.removeItem(k); } catch {} });
+  return toRemove.length;
+}
+window.clearFetchCache = clearFetchCache;
+
+// Safe localStorage wrapper — quota errors never crash callers.
+// On QuotaExceededError: first evict disposable fetchcache entries and
+// retry. Only show the error banner if the retry also fails.
 function safeSet(key, value) {
   try { localStorage.setItem(key, value); return true; }
   catch (e) {
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      const evicted = clearFetchCache();
+      console.info('[whh] quota hit on', key, '— evicted', evicted, 'fetchcache entries, retrying');
+      try { localStorage.setItem(key, value); return true; } catch {}
+    }
     console.warn('[whh] localStorage quota for', key, e);
     // Trigger the error overlay so the emergency Reset button appears
     window.dispatchEvent(new ErrorEvent('error', { message: 'QuotaExceededError on ' + key, filename: 'storage', lineno: 0 }));
