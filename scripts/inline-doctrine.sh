@@ -1,37 +1,44 @@
 #!/bin/bash
-# Re-bake public/westchester/family-criteria.md into public/westchester/index.html
-# as a <script type="text/plain" id="family-criteria-inline"> block.
+# Re-bake static assets into public/westchester/index.html so the page renders
+# fully from a single HTTP response — no secondary fetches that can be eaten by
+# Vercel Attack Challenge Mode, stale CDNs, browser extensions, or bot filters.
 #
-# Why: Vercel's Attack Challenge Mode can 403 secondary fetches of static
-# assets, breaking the agent's family-criteria.md load. By inlining the
-# doctrine into the same response as the page, we eliminate the secondary
-# request entirely.
+# Currently bakes:
+#   - family-criteria.md → <script type="text/plain" id="family-criteria-inline">
+#   - photos/manifest.json → <script type="application/json" id="photo-manifest-inline">
 #
-# Run this after editing family-criteria.md, before committing.
-# (Or wire it into a pre-commit hook later.)
+# Run this whenever family-criteria.md OR the photo manifest changes, then commit.
 
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IDX="$ROOT/public/westchester/index.html"
 CRIT="$ROOT/public/westchester/family-criteria.md"
+MANIFEST="$ROOT/public/westchester/photos/manifest.json"
 
 node -e '
 const fs = require("fs");
-const html = fs.readFileSync(process.argv[1], "utf8");
+let html = fs.readFileSync(process.argv[1], "utf8");
 const md = fs.readFileSync(process.argv[2], "utf8");
-const safe = md.replace(/<\/script>/gi, "<\\/script>");
-const open = "<script type=\"text/plain\" id=\"family-criteria-inline\">";
-const close = "</script>";
-const re = /<script type="text\/plain" id="family-criteria-inline">[\s\S]*?<\/script>/;
-let out;
-if (re.test(html)) {
-  out = html.replace(re, open + safe + close);
-} else {
-  const anchor = "<script src=\"https://unpkg.com/maplibre-gl";
+const manifest = fs.existsSync(process.argv[3]) ? fs.readFileSync(process.argv[3], "utf8") : "{}";
+
+function inlineBlock(html, tagOpen, content, anchor) {
+  const open = tagOpen;
+  const close = "</script>";
+  const safe = String(content).replace(/<\/script>/gi, "<\\/script>");
+  const re = new RegExp(open.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[\\s\\S]*?</script>");
+  if (re.test(html)) {
+    return html.replace(re, open + safe + close);
+  }
   const idx = html.indexOf(anchor);
-  if (idx === -1) { console.error("anchor not found"); process.exit(1); }
-  out = html.slice(0, idx) + open + safe + close + "\n" + html.slice(idx);
+  if (idx === -1) throw new Error("anchor not found: " + anchor);
+  return html.slice(0, idx) + open + safe + close + "\n" + html.slice(idx);
 }
-fs.writeFileSync(process.argv[1], out);
-console.log("inlined doctrine:", md.length, "chars · index now:", out.length, "chars");
-' "$IDX" "$CRIT"
+
+const anchor = "<script src=\"https://unpkg.com/maplibre-gl";
+html = inlineBlock(html, "<script type=\"text/plain\" id=\"family-criteria-inline\">", md, anchor);
+html = inlineBlock(html, "<script type=\"application/json\" id=\"photo-manifest-inline\">", manifest, anchor);
+
+fs.writeFileSync(process.argv[1], html);
+console.log("baked: family-criteria.md (" + md.length + " chars) + photo-manifest (" + manifest.length + " chars)");
+console.log("index now: " + html.length + " chars");
+' "$IDX" "$CRIT" "$MANIFEST"
