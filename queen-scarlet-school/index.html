@@ -7608,7 +7608,7 @@
             ? `CHARACTERS IN THIS SCENE (use the attached reference portraits + these visual notes for consistency — these are the established looks):\n${castNotes.join('\n')}\n\n`
             : '';
           const stylePreface =
-            'STYLE: Children\'s storybook illustration. Single full-bleed cinematic frame, 16:9. Thick consistent black ink outlines, flat saturated kid-book colors, warm cream paper feel. Match the existing QSS sticker aesthetic — no painterly textures, no photorealism, no anime/manga.\n\n' +
+            'STYLE: Hand-drawn children\'s storybook illustration in the warm classroom-comedy tradition (Lauren Child, Oliver Jeffers, Captain Underpants panels but more grounded). Single full-bleed cinematic frame, 16:9. Thick uniform black ink outlines with slightly hand-varied weight. Flat cel-shaded color blocks — no gradients, no painterly textures, no airbrush, no photoreal rendering. Warm cream off-white paper background (#F4ECD8). Big rounded kid-friendly shapes. Soft natural light, no dramatic shadows. Slight scrappiness, not slick — a smart illustrator\'s hand, not a stock asset.\n\n' +
             'COMPOSITION RULE (absolute, do not break):\n' +
             '- ONE single image. ONE moment. ONE composition. ONE camera angle.\n' +
             '- NEVER a comic panel layout. NEVER a multi-panel collage. NEVER split-screen.\n' +
@@ -7616,7 +7616,13 @@
             '- NEVER any text, words, letters, numbers, signs, or labels visible inside the image.\n' +
             '- NEVER show a sequence of beats. Pick the ONE strongest visual moment from the scene below — the most surprising, the most physically dynamic, or the most emotionally loaded — and render ONLY that single picture.\n' +
             '- If the scene describes many things happening, choose the SINGLE image that captures the spirit best. Drop the rest.\n' +
-            '- Treat the output like one page of a picture book, NOT a page of a graphic novel.\n\n';
+            '- Treat the output like one page of a picture book, NOT a page of a graphic novel.\n\n' +
+            'PROP RULE (absolute, do not break):\n' +
+            '- Signature props belong to ONE character at a time. NEVER copy a prop onto another character.\n' +
+            '- Kevin (and Kevin ONLY) wears the grey calculator-helmet. Mark Rober is a NORMAL Earth man — earnest, polo shirt, no helmet, no oversized accessory, just a guy. Scarlet is the red dragon. Benny is the beaver in the orange vest with the forklift.\n' +
+            '- Background characters in the scene are ORDINARY-LOOKING kids and grown-ups with naturalistic features. No calculator-helmets on extras. No gas masks on extras. Most faces in a scene are normal.\n' +
+            '- The absurdity lives in WHAT HAPPENS in the scene, not in every face.\n' +
+            '- Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. White is the LAST option, not the first.\n\n';
           const composedPrompt = stylePreface + characterPreface + `SCENE: ${b.text}`;
 
           const res = await fetch('/api/nano-banana', {
@@ -10306,18 +10312,22 @@
       host.innerHTML = blocks.map((b, bi) => {
         ensureBlockCues(b);
         const cues = (b.__cues || []).slice().sort((a, c) => (a.offset || 0) - (c.offset || 0));
-        const cueOffsets = cues.map(c => c.offset || 0).filter(o => o > 0);
-        const paras = splitProseForReader(b.text || '', cueOffsets);
+        const paras = splitProseForReader(b.text || '');
 
-        // Group paragraphs by which cue's range they fall into. A
-        // paragraph belongs to cue i if cue[i].offset <= paragraph.start
-        // < cue[i+1].offset.
-        const sections = cues.map((cue, ci) => {
-          const startO = cue.offset || 0;
-          const nextO = (ci + 1 < cues.length) ? (cues[ci + 1].offset || 0) : Infinity;
-          const myParas = paras.filter(p => p.startOffset >= startO && p.startOffset < nextO);
-          return { cue, paras: myParas, ci };
-        });
+        // Group paragraphs by which cue OWNS them. A paragraph belongs
+        // to the cue whose offset is the LATEST one less than or equal
+        // to the paragraph's startOffset. Equivalent: walk paragraphs
+        // in order, advance cue index when the next cue's offset
+        // crosses the paragraph's startOffset. This handles cue offsets
+        // that fall mid-paragraph correctly — the paragraph containing
+        // the cue belongs to that cue.
+        const sections = cues.map(cue => ({ cue, paras: [], ci: cues.indexOf(cue) }));
+        let ci = 0;
+        for (const p of paras) {
+          // Advance ci while the NEXT cue's offset is <= this paragraph's end
+          while (ci + 1 < cues.length && (cues[ci + 1].offset || 0) <= p.endOffset) ci++;
+          if (sections[ci]) sections[ci].paras.push(p);
+        }
 
         // Cues with no paragraphs in range still render (e.g., if a
         // cue's offset lands inside a paragraph that's owned by the
@@ -10347,7 +10357,7 @@
               : labelFromText(cue.source_text) || `image · ${num}`;
             const labelShort = labelFromText(cue.source_text) || `image ${num}`;
             const parasHtml = myParas.map(p =>
-              `<p class="sb-paragraph" contenteditable="plaintext-only" spellcheck="false" data-block-id="${esc(b.id)}" data-para-start="${p.startOffset}" data-para-end="${p.endOffset}">${esc(p.text)}</p>`
+              `<p class="sb-paragraph" data-block-id="${esc(b.id)}" data-para-start="${p.startOffset}" data-para-end="${p.endOffset}">${esc(p.text)}</p>`
             ).join('');
             return `
               <div class="sb-cue-section ${isDefault ? 'sb-cue-default' : ''}"
@@ -10440,15 +10450,12 @@
       document.addEventListener('pointercancel', up);
     }
 
-    /* ──── Editable prose — Enter splits, blur saves ──── */
-    function attachStorybookEditing() {
-      const pane = document.getElementById('sb-prose-pane');
-      if (!pane) return;
-      pane.removeEventListener('beforeinput', onProseBeforeInput);
-      pane.addEventListener('beforeinput', onProseBeforeInput);
-      pane.removeEventListener('blur', onProseBlur, true);
-      pane.addEventListener('blur', onProseBlur, true);
-    }
+    /* ──── Editable prose — disabled for now ────
+     * Was causing wonky behavior (cursor jumps, word splits) because
+     * contenteditable + cue offsets as paragraph breakpoints fought
+     * each other. Coming back as a polish pass once the rest of the
+     * Storybook UX is solid. */
+    function attachStorybookEditing() { /* no-op */ }
     function onProseBeforeInput(e) {
       // Capture Enter (insertParagraph) and turn it into a cue creation
       // at the cursor position. The browser's default would create a
@@ -10561,20 +10568,23 @@
 
     /* Build a reader-friendly paragraph list. Splits on:
      *   1. Newlines (existing paragraph breaks the kid wrote)
-     *   2. Cue offsets — every image cue is also a paragraph break
-     *   3. Sentence boundaries when a paragraph runs longer than
+     *   2. Sentence boundaries when a paragraph runs longer than
      *      ~260 chars (so wall-of-text blocks become readable)
      *
      * Returns [{ text, startOffset, endOffset }] all referencing the
-     * ORIGINAL text. Sentence-split keeps offsets accurate.
+     * ORIGINAL text.
+     *
+     * NOTE — earlier version also used cue offsets as paragraph
+     * breakpoints. That was wrong: when snap-to-sentence failed
+     * (long single sentence with no preceding period), the cue
+     * offset landed MID-WORD and produced one-letter "paragraphs".
+     * The cue/section grouping happens separately in renderStorybookProse
+     * — we group paragraphs by which cue's offset range they fall into.
      */
-    function splitProseForReader(rawText, cueOffsets = []) {
+    function splitProseForReader(rawText /*, cueOffsets ignored */) {
       const s = String(rawText || '');
       if (!s.trim()) return [];
-      // Insert virtual breakpoints: 0, every cue offset, every newline,
-      // and after every sentence in long runs.
       const breakSet = new Set([0]);
-      // Newline positions (post-newline character index)
       let i = 0;
       while (i < s.length) {
         const n = s.indexOf('\n', i);
@@ -10584,14 +10594,7 @@
         if (j < s.length) breakSet.add(j);
         i = j;
       }
-      // Cue offsets snapped to nearest sentence start (best-effort)
-      for (const co of cueOffsets) {
-        if (co > 0 && co < s.length) breakSet.add(snapToSentenceStart(s, co));
-      }
-      // Sort breakpoints
       let breaks = Array.from(breakSet).sort((a, b) => a - b);
-      // Walk through breakpoints; if a slice is >260 chars, split it
-      // further at internal sentence ends.
       const refined = [0];
       for (let bi = 1; bi < breaks.length; bi++) {
         const prev = breaks[bi - 1];
@@ -10600,7 +10603,6 @@
         refined.push(cur);
       }
       addSentenceSplitsBetween(s, breaks[breaks.length - 1] || 0, s.length, refined);
-      // Build chunks
       const out = [];
       for (let k = 0; k < refined.length; k++) {
         const start = refined[k];
