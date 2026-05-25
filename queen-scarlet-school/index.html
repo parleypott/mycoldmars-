@@ -3578,8 +3578,34 @@
       margin: 0 0 1.1em 0;
       text-indent: 1.6em;
       color: var(--ink);
+      outline: none;
+      transition: background 140ms;
+      border-radius: 4px;
+      padding: 2px 6px;
+      margin-left: -6px; margin-right: -6px;
     }
     .sb-paragraph:first-of-type { text-indent: 0; }
+    .sb-paragraph[contenteditable="true"]:focus {
+      background: rgba(255,217,100,0.18);
+    }
+    .sb-paragraph[contenteditable="true"]::selection { background: var(--yolk); color: var(--ink-bright); }
+    /* Tip pill that appears next to focused paragraph */
+    .sb-edit-tip-pill {
+      position: absolute;
+      background: var(--ink-bright);
+      color: var(--paper);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-family: var(--mono, monospace);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 700;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 160ms;
+    }
+    .sb-edit-tip-pill.is-on { opacity: 1; }
     .sb-paragraph .karaoke-word { transition: background 120ms ease; padding: 0 1px; border-radius: 3px; }
     .sb-paragraph .karaoke-word.active { background: var(--yolk); color: var(--ink-bright); }
 
@@ -10289,7 +10315,7 @@
               : labelFromText(cue.source_text) || `image · ${num}`;
             const labelShort = labelFromText(cue.source_text) || `image ${num}`;
             const parasHtml = myParas.map(p =>
-              `<p class="sb-paragraph" data-block-id="${esc(b.id)}" data-para-start="${p.startOffset}" data-para-end="${p.endOffset}">${esc(p.text)}</p>`
+              `<p class="sb-paragraph" contenteditable="plaintext-only" spellcheck="false" data-block-id="${esc(b.id)}" data-para-start="${p.startOffset}" data-para-end="${p.endOffset}">${esc(p.text)}</p>`
             ).join('');
             return `
               <div class="sb-cue-section ${isDefault ? 'sb-cue-default' : ''}"
@@ -10318,6 +10344,75 @@
 
       markActiveCueInProse(storybook.activeIdx);
       wireCueSectionClicks();
+      attachStorybookEditing();
+    }
+
+    /* ──── Editable prose — Enter splits, blur saves ──── */
+    function attachStorybookEditing() {
+      const pane = document.getElementById('sb-prose-pane');
+      if (!pane) return;
+      pane.removeEventListener('beforeinput', onProseBeforeInput);
+      pane.addEventListener('beforeinput', onProseBeforeInput);
+      pane.removeEventListener('blur', onProseBlur, true);
+      pane.addEventListener('blur', onProseBlur, true);
+    }
+    function onProseBeforeInput(e) {
+      // Capture Enter (insertParagraph) and turn it into a cue creation
+      // at the cursor position. The browser's default would create a
+      // <div> or <br> in the middle of the contenteditable, which we
+      // don't want — we want a real cue split.
+      if (e.inputType !== 'insertParagraph' && e.inputType !== 'insertLineBreak') return;
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      const startNode = range.startContainer;
+      const paraEl = (startNode.nodeType === 1 ? startNode : startNode.parentElement)?.closest('.sb-paragraph');
+      if (!paraEl) return;
+      e.preventDefault();
+      const blockId = paraEl.dataset.blockId;
+      const paraStart = parseInt(paraEl.dataset.paraStart, 10) || 0;
+      let intra = 0;
+      try {
+        const r2 = document.createRange();
+        r2.setStart(paraEl, 0);
+        r2.setEnd(range.startContainer, range.startOffset);
+        intra = r2.toString().length;
+      } catch {}
+      const offset = paraStart + intra;
+      // Grab a snippet of text starting at the offset to seed the new cue
+      const block = (state.blocks || []).find(b => b.id === blockId);
+      const snippet = block ? (block.text || '').slice(offset, offset + 800) : '';
+      // Save any in-progress edits to the current paragraph BEFORE we
+      // re-render (otherwise the in-DOM text gets thrown away)
+      flushParagraphEdits(paraEl);
+      createCueAtSelection(blockId, offset, snippet || paraEl.textContent.slice(intra, intra + 800));
+    }
+    function onProseBlur(e) {
+      const paraEl = e.target?.closest?.('.sb-paragraph');
+      if (!paraEl) return;
+      flushParagraphEdits(paraEl);
+    }
+    function flushParagraphEdits(paraEl) {
+      if (!paraEl) return;
+      const blockId = paraEl.dataset.blockId;
+      const block = (state.blocks || []).find(b => b.id === blockId);
+      if (!block) return;
+      // Rebuild block.text by reading the current DOM paragraphs for
+      // this block. Joined with double-newline so the next render
+      // chunks them correctly.
+      const all = Array.from(document.querySelectorAll(`.sb-paragraph[data-block-id="${blockId}"]`));
+      const newText = all.map(p => (p.innerText || p.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n\n');
+      if (!newText) return;
+      if (newText === block.text) return;
+      block.text = newText;
+      // Mark the scene-breaks cache as dirty so a fresh detect can run
+      block.__sceneBreaksScanned = '';
+      if (typeof persist === 'function') persist();
+      // Rebuild cues and re-render so the gutter range bars adjust
+      storybook.cues = buildStorybookCues();
+      renderStorybookProse();
+      renderStorybookRail();
+      renderMarginThumbs();
     }
 
     function renderMarginThumbs() {
