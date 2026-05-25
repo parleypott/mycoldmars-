@@ -3138,11 +3138,23 @@ function setActiveTab(tabId, updateHash = true) {
   }
 }
 document.querySelectorAll('.tab-btn').forEach(t => t.addEventListener('click', () => setActiveTab(t.dataset.tab)));
-// Boot: prefer hash, else default to map
-const _bootTab = (location.hash || '').slice(1).toLowerCase();
-const _initial = VALID_TABS.includes(_bootTab) ? _bootTab : 'map';
-setActiveTab(_initial, false);
-document.body.classList.toggle('on-map', _initial === 'map');
+// Boot: prefer hash, else default to map.
+// Defer until DOMContentLoaded so later <script> blocks have declared
+// pins/villages/etc. — otherwise tabs that touch those (table, agent)
+// hit a TDZ ReferenceError on first paint.
+(function bootTabFromHash() {
+  const bootTab = (location.hash || '').slice(1).toLowerCase();
+  const initial = VALID_TABS.includes(bootTab) ? bootTab : 'map';
+  // Always mark map active visually first (cheap, no data deps)
+  document.body.classList.toggle('on-map', initial === 'map');
+  const fire = () => { try { setActiveTab(initial, false); } catch (e) { console.warn('[whh] boot tab activation failed', e); } };
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', fire, { once: true });
+  } else {
+    // Already past parsing — defer one tick so any pending sync init finishes
+    setTimeout(fire, 0);
+  }
+})();
 // React to manual hash changes (back/forward, paste-into-bar)
 window.addEventListener('hashchange', () => {
   const t = (location.hash || '').slice(1).toLowerCase();
