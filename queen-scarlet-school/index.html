@@ -3974,6 +3974,60 @@
     .sb-cue-section:hover .sb-cue-delete { opacity: 1; }
     .sb-cue-section.sb-cue-default .sb-cue-delete { display: none; }
     .sb-cue-delete:hover { color: var(--red, #d65653); }
+    /* Focus / fullscreen write mode */
+    .sb-reader.is-focus {
+      grid-template-columns: 0 1fr 0 0;
+      grid-template-areas: "topbar topbar topbar topbar" "rail prose splitter art";
+    }
+    .sb-reader.is-focus .sb-rail,
+    .sb-reader.is-focus .sb-splitter,
+    .sb-reader.is-focus .sb-art-pane { display: none; }
+    .sb-reader.is-focus .sb-prose-pane { padding: 40px 12vw 60vh; }
+    .sb-reader.is-focus .sb-prose-inner { max-width: 740px; }
+    .sb-focus-btn {
+      background: transparent; border: none;
+      font-family: var(--mono, monospace);
+      font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--ink-faint); cursor: pointer; padding: 4px 8px;
+      border: 1px solid transparent; border-radius: 3px;
+      transition: color 140ms, border-color 140ms;
+      flex-shrink: 0;
+    }
+    .sb-focus-btn:hover { color: var(--ink-soft); border-color: var(--ink-faint); }
+    .sb-reader.is-focus .sb-focus-btn { color: var(--yolk, #ffd93d); border-color: rgba(255,217,61,0.4); }
+
+    /* Autosave indicator — quiet dot in the topbar */
+    .sb-save-ind {
+      font-family: var(--mono, monospace);
+      font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+      display: flex; align-items: center; gap: 5px;
+      opacity: 0; transition: opacity 400ms;
+      color: var(--ink-soft);
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+    .sb-save-ind.is-on { opacity: 1; }
+    .sb-save-ind::before {
+      content: ''; display: block;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor; flex-shrink: 0;
+      transition: background 300ms;
+    }
+    .sb-save-ind.is-saving { color: var(--ink-soft); }
+    .sb-save-ind.is-saving::before { animation: sb-save-pulse 900ms ease-in-out infinite; }
+    .sb-save-ind.is-saved { color: var(--green, #3bc773); }
+    .sb-save-ind.is-error { color: var(--red, #d65653); }
+    @keyframes sb-save-pulse {
+      0%, 100% { opacity: 0.4; } 50% { opacity: 1; }
+    }
+    .sb-wc {
+      font-family: var(--mono, monospace);
+      font-size: 9px; letter-spacing: 0.12em;
+      color: var(--ink-faint);
+      transition: color 200ms;
+      flex-shrink: 0;
+    }
+    .sb-wc.sb-wc-long { color: rgba(244,67,21,0.65); }
     .sb-scene-auto-break {
       opacity: 0; transition: opacity 140ms;
       background: transparent; border: none; color: var(--ink-faint);
@@ -5128,6 +5182,8 @@
               <select class="sb-pl-voice" id="sb-pl-voice" title="Pick a voice"></select>
             </div>
 
+            <button class="sb-focus-btn" id="sb-focus-btn" type="button" title="Focus mode — hide images, just write (F)">focus</button>
+            <div class="sb-save-ind" id="sb-save-ind" aria-live="polite" aria-label="save status">saved</div>
             <span class="sb-pl-time" id="sb-pl-time">0:00 / 0:00</span>
           </div>
 
@@ -11127,6 +11183,7 @@
                 <div class="sb-cue-mark">
                   <span class="sb-cue-label">${esc(label)}</span>
                   <span class="sb-cue-rule"></span>
+                  ${(() => { const wc = sceneText.trim() ? sceneText.trim().split(/\s+/).length : 0; return wc > 0 ? `<span class="sb-wc${wc > 200 ? ' sb-wc-long' : ''}" data-cue-wc="${esc(cue.id)}">${wc}w</span>` : ''; })()}
                   ${sceneText.length > 400 ? `<button class="sb-scene-auto-break" type="button" title="Analyze and split into multiple scenes">break into scenes</button>` : ''}
                   <button class="sb-cue-delete" type="button" title="Remove this image break" aria-label="Remove">✕</button>
                 </div>
@@ -11236,13 +11293,34 @@
         flushBlockScenes(sceneEl.dataset.blockId);
       }, true);
 
-      // Force Enter to insert a plain newline instead of browser-specific
-      // <div> or <br> elements that corrupt innerText normalization on flush.
+      // Keyboard scene control inside scene text cards.
       host.addEventListener('keydown', (e) => {
-        if (e.key !== 'Enter') return;
         if (!e.target?.closest?.('.sb-scene-text')) return;
+        if (e.key !== 'Enter') return;
         e.preventDefault();
-        document.execCommand('insertText', false, '\n');
+        if (e.metaKey || e.ctrlKey) {
+          // Cmd/Ctrl+Enter → scene break after current card
+          const sceneEl = e.target.closest('.sb-scene-text');
+          const blockId = sceneEl?.dataset.blockId;
+          const cueId   = sceneEl?.dataset.cueId;
+          if (blockId && cueId) addSceneBreakAfter(blockId, cueId);
+        } else {
+          // Plain Enter → insert \n, no browser <div>/<br> nonsense
+          document.execCommand('insertText', false, '\n');
+        }
+      });
+
+      // Live word count — update the sb-wc badge as the user types.
+      host.addEventListener('input', (e) => {
+        const sceneEl = e.target?.closest?.('.sb-scene-text');
+        if (!sceneEl) return;
+        const cueId = sceneEl.dataset.cueId;
+        const badge = host.querySelector(`[data-cue-wc="${cueId}"]`);
+        if (!badge) return;
+        const text = sceneEl.innerText || sceneEl.textContent || '';
+        const wc = text.trim() ? text.trim().split(/\s+/).length : 0;
+        badge.textContent = wc + 'w';
+        badge.classList.toggle('sb-wc-long', wc > 200);
       });
 
       // Strip HTML on paste — only plain text allowed in scene cards.
@@ -11300,7 +11378,10 @@
 
       block.text = newText;
       block.__sceneBreaksScanned = ''; // let the auto-detect re-run if/when needed
+      sbSaveNotify('saving');
       if (typeof persist === 'function') persist();
+      // Flip to 'saved' after the debounce window; persist() queues 1400ms debounce
+      setTimeout(() => sbSaveNotify('saved'), 1600);
       storybook.cues = buildStorybookCues();
       renderStorybookRail();
       renderMarginThumbs();
@@ -12318,6 +12399,20 @@
     // Lightweight toast shown in the Storybook stage. Reuses the
     // existing toast/notification host if present; otherwise creates
     // its own one-shot element.
+    let _sbSaveTimer = null;
+    function sbSaveNotify(state /* 'saving' | 'saved' | 'error' */ = 'saving') {
+      const el = document.getElementById('sb-save-ind');
+      if (!el) return;
+      clearTimeout(_sbSaveTimer);
+      el.className = 'sb-save-ind is-on is-' + state;
+      el.textContent = state === 'saving' ? 'saving' : state === 'error' ? 'save failed' : 'saved';
+      if (state !== 'saving') {
+        _sbSaveTimer = setTimeout(() => {
+          el.classList.remove('is-on');
+        }, state === 'error' ? 4000 : 2000);
+      }
+    }
+
     function sbToast(message) {
       let host = document.getElementById('sb-toast-host');
       if (!host) {
@@ -13274,6 +13369,28 @@
     })();
 
     // Wire UI controls
+    // Focus mode toggle
+    function toggleFocusMode() {
+      const reader = document.getElementById('sb-reader');
+      if (!reader) return;
+      reader.classList.toggle('is-focus');
+      const btn = document.getElementById('sb-focus-btn');
+      if (btn) btn.textContent = reader.classList.contains('is-focus') ? 'exit focus' : 'focus';
+    }
+    document.getElementById('sb-focus-btn')?.addEventListener('click', toggleFocusMode);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const reader = document.getElementById('sb-reader');
+        if (reader?.classList.contains('is-focus')) { toggleFocusMode(); return; }
+      }
+      // F key = focus mode (only when not typing in an input/contenteditable)
+      if (e.key === 'f' || e.key === 'F') {
+        const active = document.activeElement;
+        if (active && (active.isContentEditable || active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        if (document.getElementById('sb-reader')?.style.display !== 'none') toggleFocusMode();
+      }
+    });
+
     document.getElementById('sb-play-btn')?.addEventListener('click', () => sbPlayer.toggle());
     document.getElementById('sb-pl-prev')?.addEventListener('click', () => sbPlayer.prevScene());
     document.getElementById('sb-pl-next')?.addEventListener('click', () => sbPlayer.nextScene());
