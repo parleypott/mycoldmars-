@@ -1238,6 +1238,45 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 }
 .tv-mute-btn:hover { color: #555; transform: scale(1.18); }
 .tv-row.muted .tv-mute-btn { color: #777; }
+
+/* ===== Extras column (Pool · ADU at-a-glance) ===== */
+.tv-extras-cell { padding: 8px 10px !important; }
+.tv-extras { display: inline-flex; gap: 10px; align-items: center; }
+.tv-amenity {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  user-select: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  transition: background 120ms, color 120ms;
+  position: relative;
+}
+.tv-amenity svg { display: block; }
+.tv-amenity.has { color: #0E7C3A; background: rgba(14, 124, 58, 0.10); }
+.tv-amenity.has:hover { background: rgba(14, 124, 58, 0.18); }
+.tv-amenity.no { color: rgba(0,0,0,0.32); }
+.tv-amenity.no:hover { color: rgba(0,0,0,0.55); background: rgba(0,0,0,0.04); }
+/* Diagonal strike through the "no" state — drawn as ::after so it lays over both icon + label */
+.tv-amenity.no::after {
+  content: "";
+  position: absolute;
+  left: 4px; right: 4px;
+  top: 50%;
+  height: 1.5px;
+  background: rgba(0,0,0,0.42);
+  transform: rotate(-12deg);
+  transform-origin: center;
+  border-radius: 1px;
+  pointer-events: none;
+}
+.tv-amenity .tv-amenity-label { letter-spacing: 0.10em; }
 .tv-row > td { padding: 10px 10px; vertical-align: middle; color: var(--ink); white-space: nowrap; }
 .tv-row td.tv-name-cell {
   font-family: 'Instrument Serif', serif; font-style: italic;
@@ -2779,6 +2818,7 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
               <th class="tv-prio-th" data-sort="bb" title="Beds / Baths">B/B <span class="sort-ind"></span></th>
               <th class="tv-prio-th" data-sort="sqft">SqFt <span class="sort-ind"></span></th>
               <th class="tv-prio-th" data-sort="lot" title="Lot size in acres">Lot <span class="sort-ind"></span></th>
+              <th class="tv-sec-th tv-extras-th no-sort" title="Pool · ADU (click icons to toggle)">Extras</th>
               <th class="tv-sec-th" data-sort="train">Train <span class="sort-ind"></span></th>
               <th class="tv-sec-th" data-sort="downtown" title="Walking distance to village downtown (train station proxy)">Downtown <span class="sort-ind"></span></th>
               <th class="tv-sec-th" data-sort="gct">GCT <span class="sort-ind"></span></th>
@@ -9195,6 +9235,41 @@ function scoreBand(s) {
   if (s >= 45) return '2';
   return '1';
 }
+
+// ===== Pool / ADU detection =====
+// Mines compass.description + pin.notes for keywords. Returns booleans.
+// If the user has manually toggled (pin.hasPool / pin.hasAdu defined), the
+// override wins. Otherwise we fall back to the text scan.
+const POOL_RE = /\b(in[-\s]?ground pool|swimming pool|gunite pool|heated pool|saltwater pool|\bpool\b)/i;
+const POOL_NEG_RE = /\b(no pool|without (?:a )?pool|car ?pool|liverpool|pool table|cesspool)\b/i;
+const ADU_RE = /\b(ADU|accessory dwelling|accessory apartment|guest house|guest cottage|guest quarters|in[-\s]?law (?:suite|apartment|unit)|carriage house|pool house|detached cottage|detached studio|separate cottage|separate apartment|au pair)\b/i;
+function detectPinAmenities(p) {
+  const text = [
+    p?.compass?.description,
+    p?.notes,
+    p?.compass?.title,
+  ].filter(Boolean).join(' \n ');
+  let pool = false, adu = false;
+  if (text) {
+    if (POOL_RE.test(text) && !POOL_NEG_RE.test(text)) pool = true;
+    if (ADU_RE.test(text)) adu = true;
+  }
+  const hasPool = (typeof p.hasPool === 'boolean') ? p.hasPool : pool;
+  const hasAdu  = (typeof p.hasAdu  === 'boolean') ? p.hasAdu  : adu;
+  return { hasPool, hasAdu };
+}
+const POOL_SVG = '<svg viewBox="0 0 22 14" width="18" height="11" aria-hidden="true"><path d="M1 3.5 Q4 0.5 7 3.5 T13 3.5 T21 3.5" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round"/><path d="M1 8 Q4 5 7 8 T13 8 T21 8" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round"/><path d="M1 12.5 Q4 9.5 7 12.5 T13 12.5 T21 12.5" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round"/></svg>';
+function formatExtrasCell(p) {
+  const { hasPool, hasAdu } = detectPinAmenities(p);
+  const poolCls = hasPool ? 'has' : 'no';
+  const aduCls  = hasAdu  ? 'has' : 'no';
+  const poolTitle = hasPool ? 'Has a pool (click to mark no pool)' : 'No pool detected (click to mark has pool)';
+  const aduTitle  = hasAdu  ? 'Has an ADU / guest house (click to mark no ADU)' : 'No ADU detected (click to mark has ADU)';
+  return `<span class="tv-extras">`
+    + `<span class="tv-amenity ${poolCls}" data-act="amenity-pool" data-pin="${escapeHtml(p.id)}" title="${poolTitle}">${POOL_SVG}<span class="tv-amenity-label">POOL</span></span>`
+    + `<span class="tv-amenity ${aduCls}" data-act="amenity-adu" data-pin="${escapeHtml(p.id)}" title="${aduTitle}"><span class="tv-amenity-label">ADU</span></span>`
+    + `</span>`;
+}
 function tvPinValue(p, col) {
   if (col === 'score') return (p.score && typeof p.score.total === 'number') ? p.score.total : -1;
   const c = p.compass || {};
@@ -9329,6 +9404,7 @@ function renderTable() {
         <td class="tv-bb-cell tv-prio">${(c.beds != null || c.baths != null) ? '<strong>' + (c.beds != null ? c.beds : '—') + '</strong><span class="tv-mute">/</span><strong>' + (c.baths != null ? c.baths : '—') + '</strong>' : '<span class="tv-mute">—</span>'}</td>
         <td class="tv-sqft-cell tv-prio">${c.sqft != null ? Number(c.sqft).toLocaleString() : '<span class="tv-mute">—</span>'}</td>
         <td class="tv-lot-cell tv-prio">${c.lotSize != null ? (c.lotSize / 43560).toFixed(2) + ' <span class="tv-mute">ac</span>' : '<span class="tv-mute">—</span>'}</td>
+        <td class="tv-sec tv-extras-cell">${formatExtrasCell(p)}</td>
         <td class="tv-sec">${trainCell}</td>
         <td class="tv-sec">${walkCell}</td>
         <td class="tv-sec">${gctCell}</td>
@@ -9602,6 +9678,24 @@ function attachTableHandlers() {
         if (typeof renderTable === 'function') renderTable();
       });
     }
+    // Amenity badges (pool / ADU) — click to toggle override
+    row.querySelectorAll('.tv-amenity').forEach(badge => {
+      badge.addEventListener('click', e => {
+        e.stopPropagation();
+        e.preventDefault();
+        const id = row.dataset.id;
+        const pin = pins.find(p => p.id === id);
+        if (!pin) return;
+        const det = detectPinAmenities(pin);
+        if (badge.dataset.act === 'amenity-pool') {
+          pin.hasPool = !det.hasPool;
+        } else if (badge.dataset.act === 'amenity-adu') {
+          pin.hasAdu = !det.hasAdu;
+        }
+        savePins();
+        if (typeof renderTable === 'function') renderTable();
+      });
+    });
     row.addEventListener('click', e => {
       const action = e.target.closest('.tv-action-btn');
       const isControl = e.target.closest('.tv-detail-controls, input, textarea, button');
