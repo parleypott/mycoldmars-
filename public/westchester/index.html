@@ -1174,11 +1174,47 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
   font-size: 16px; color: var(--ink);
   white-space: normal; max-width: 240px;
 }
-.tv-row td.tv-addr-cell {
-  font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
-  white-space: normal; max-width: 280px; line-height: 1.35;
+/* ===== Table visual hierarchy ===== */
+/* Priority columns (Address, Price, B/B, SqFt, Lot) — big + bold + dark */
+.tv-row td.tv-prio {
+  font-size: 15px; font-weight: 600; color: var(--ink);
+  letter-spacing: 0; padding-top: 14px; padding-bottom: 14px;
 }
-.tv-row td.tv-price-cell { font-weight: 700; color: var(--ink); font-size: 12px; }
+.tv-row td.tv-addr-cell {
+  font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
+  white-space: normal; max-width: 300px; line-height: 1.3;
+  font-size: 15px;
+}
+.tv-row td.tv-price-cell {
+  font-weight: 700; color: var(--ink); font-size: 16px;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.tv-row td.tv-bb-cell { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tv-row td.tv-sqft-cell { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+.tv-row td.tv-lot-cell { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Within priority cells, the mute spans (asking suffix, /, ac) stay quiet */
+.tv-row td.tv-prio .tv-mute { font-size: 11px; font-weight: 400; color: var(--muted); }
+/* Secondary columns (train, downtown, GCT, trail, monthly, school) — smaller, muted */
+.tv-row td.tv-sec {
+  font-size: 11px; color: var(--muted);
+  letter-spacing: 0.02em; line-height: 1.3;
+  vertical-align: middle;
+}
+.tv-row td.tv-sec .tv-mute { color: rgba(0, 0, 0, 0.25); }
+.tv-row td.tv-sec strong { font-weight: 600; color: var(--ink); font-size: 12px; }
+/* Header row matches the visual weight of its body */
+.tv-prio-th {
+  font-size: 11px !important;
+  color: var(--ink) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.16em !important;
+}
+.tv-sec-th {
+  font-size: 9px !important;
+  color: var(--muted) !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.18em !important;
+}
 .tv-row td.tv-rank-cell { width: 30px; padding-left: 6px; }
 .tv-row td.tv-mute { color: var(--muted); }
 .tv-school-btn {
@@ -2650,17 +2686,17 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
               <th class="tv-expand-col no-sort"></th>
               <th data-sort="score" title="Family-criteria fit score (0–100)">Score <span class="sort-ind"></span></th>
               <th data-sort="rank">Rank <span class="sort-ind"></span></th>
-              <th data-sort="address">Address <span class="sort-ind"></span></th>
-              <th data-sort="price">Price <span class="sort-ind"></span></th>
-              <th data-sort="bb" title="Beds / Baths">B/B <span class="sort-ind"></span></th>
-              <th data-sort="sqft">SqFt <span class="sort-ind"></span></th>
-              <th data-sort="lot" title="Lot size in acres">Lot <span class="sort-ind"></span></th>
-              <th data-sort="train">Train <span class="sort-ind"></span></th>
-              <th data-sort="downtown" title="Walking distance to village downtown (train station proxy)">Downtown <span class="sort-ind"></span></th>
-              <th data-sort="gct">GCT <span class="sort-ind"></span></th>
-              <th data-sort="trail">Trail <span class="sort-ind"></span></th>
-              <th data-sort="monthly">Monthly <span class="sort-ind"></span></th>
-              <th data-sort="school">School <span class="sort-ind"></span></th>
+              <th class="tv-prio-th" data-sort="address">Address <span class="sort-ind"></span></th>
+              <th class="tv-prio-th" data-sort="price">Price <span class="sort-ind"></span></th>
+              <th class="tv-prio-th" data-sort="bb" title="Beds / Baths">B/B <span class="sort-ind"></span></th>
+              <th class="tv-prio-th" data-sort="sqft">SqFt <span class="sort-ind"></span></th>
+              <th class="tv-prio-th" data-sort="lot" title="Lot size in acres">Lot <span class="sort-ind"></span></th>
+              <th class="tv-sec-th" data-sort="train">Train <span class="sort-ind"></span></th>
+              <th class="tv-sec-th" data-sort="downtown" title="Walking distance to village downtown (train station proxy)">Downtown <span class="sort-ind"></span></th>
+              <th class="tv-sec-th" data-sort="gct">GCT <span class="sort-ind"></span></th>
+              <th class="tv-sec-th" data-sort="trail">Trail <span class="sort-ind"></span></th>
+              <th class="tv-sec-th" data-sort="monthly">Monthly <span class="sort-ind"></span></th>
+              <th class="tv-sec-th" data-sort="school">School <span class="sort-ind"></span></th>
               <th class="no-sort"></th>
             </tr>
           </thead>
@@ -8687,17 +8723,17 @@ function renderTable() {
         <td class="tv-expand-col"><button class="tv-expand-btn" title="Expand">▸</button></td>
         <td class="tv-score-cell">${scoreCell}</td>
         <td class="tv-rank-cell"><span class="tv-rank-chip" data-rank="${p.rank || 0}">${origIdx}</span></td>
-        <td class="tv-addr-cell">${escapeHtml(formatPinAddress(p))}</td>
-        <td class="tv-price-cell">${c.price ? fmtUSD(c.price) : (p.askingPrice ? fmtUSD(p.askingPrice) + ' <span class="tv-mute" style="font-size:9px;letter-spacing:0.12em;">asking</span>' : '<span class="tv-mute">—</span>')}</td>
-        <td>${(c.beds != null || c.baths != null) ? '<strong>' + (c.beds != null ? c.beds : '—') + '</strong><span class="tv-mute">/</span><strong>' + (c.baths != null ? c.baths : '—') + '</strong>' : '<span class="tv-mute">—</span>'}</td>
-        <td>${c.sqft != null ? Number(c.sqft).toLocaleString() : '<span class="tv-mute">—</span>'}</td>
-        <td>${c.lotSize != null ? (c.lotSize / 43560).toFixed(2) + ' <span class="tv-mute">ac</span>' : '<span class="tv-mute">—</span>'}</td>
-        <td>${trainCell}</td>
-        <td>${walkCell}</td>
-        <td>${gctCell}</td>
-        <td>${trailCell}</td>
-        <td>${m ? '<strong>' + fmtUSD(m.total) + '</strong>' : '<span class="tv-mute">enter asking</span>'}</td>
-        <td>${p.schoolDistrict ? `<button class="tv-school-btn" type="button" data-school="${escapeHtml(p.schoolDistrict)}">${escapeHtml(p.schoolDistrict)} →</button>` : '<span class="tv-mute">—</span>'}</td>
+        <td class="tv-addr-cell tv-prio">${escapeHtml(formatPinAddress(p))}</td>
+        <td class="tv-price-cell tv-prio">${c.price ? fmtUSD(c.price) : (p.askingPrice ? fmtUSD(p.askingPrice) + ' <span class="tv-mute" style="font-size:9px;letter-spacing:0.12em;">asking</span>' : '<span class="tv-mute">—</span>')}</td>
+        <td class="tv-bb-cell tv-prio">${(c.beds != null || c.baths != null) ? '<strong>' + (c.beds != null ? c.beds : '—') + '</strong><span class="tv-mute">/</span><strong>' + (c.baths != null ? c.baths : '—') + '</strong>' : '<span class="tv-mute">—</span>'}</td>
+        <td class="tv-sqft-cell tv-prio">${c.sqft != null ? Number(c.sqft).toLocaleString() : '<span class="tv-mute">—</span>'}</td>
+        <td class="tv-lot-cell tv-prio">${c.lotSize != null ? (c.lotSize / 43560).toFixed(2) + ' <span class="tv-mute">ac</span>' : '<span class="tv-mute">—</span>'}</td>
+        <td class="tv-sec">${trainCell}</td>
+        <td class="tv-sec">${walkCell}</td>
+        <td class="tv-sec">${gctCell}</td>
+        <td class="tv-sec">${trailCell}</td>
+        <td class="tv-sec">${m ? '<strong>' + fmtUSD(m.total) + '</strong>' : '<span class="tv-mute">enter asking</span>'}</td>
+        <td class="tv-sec">${p.schoolDistrict ? `<button class="tv-school-btn" type="button" data-school="${escapeHtml(p.schoolDistrict)}">${escapeHtml(p.schoolDistrict)} →</button>` : '<span class="tv-mute">—</span>'}</td>
         <td class="tv-actions">
           <button class="tv-action-btn" data-act="fly">Map ↗</button>
           <button class="tv-action-btn delete" data-act="del">×</button>
