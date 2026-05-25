@@ -3906,22 +3906,101 @@
     .sb-act-vote-up.is-on { background: var(--grass, #6dc56b); color: var(--ink-bright); }
     .sb-act-vote-down.is-on { background: var(--red, #d65653); color: #fff; }
 
+    /* Variation carousel — sits under the art frame. Shows every
+     * take of this scene as a row of thumbs. Click to make a thumb
+     * the active picture. + button at the end fires a fresh variation.
+     * Each thumb has × on hover to delete. */
     .sb-art-variations {
-      display: flex; gap: 8px; flex-wrap: wrap;
-      padding-top: 6px;
-      border-top: 1px dashed var(--ink-faint);
+      display: flex; gap: 8px;
+      padding: 10px 0 4px;
+      border-top: 2px dashed var(--ink-faint);
+      overflow-x: auto;
+      overflow-y: visible;
+      align-items: center;
+    }
+    .sb-art-variations::-webkit-scrollbar { height: 6px; }
+    .sb-art-variations::-webkit-scrollbar-thumb {
+      background: var(--ink-faint);
+      border-radius: 3px;
+    }
+    .sb-var-label {
+      font-family: var(--mono, monospace);
+      font-size: 10.5px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      font-weight: 700;
+      padding-right: 6px;
+      flex: 0 0 auto;
     }
     .sb-var-thumb {
-      width: 54px; height: 32px;
+      position: relative;
+      flex: 0 0 auto;
+      width: 88px; height: 50px;
       background-size: cover; background-position: center;
       background-color: var(--paper-card);
-      border: 2px solid var(--ink-bright);
-      border-radius: 4px;
+      border: 2.5px solid var(--ink-bright);
+      border-radius: 6px;
       cursor: pointer; padding: 0;
-      transition: transform 120ms;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      transition: transform 120ms, box-shadow 120ms;
     }
-    .sb-var-thumb:hover { transform: scale(1.06); }
-    .sb-var-thumb.is-active { box-shadow: 0 0 0 2px var(--yolk); }
+    .sb-var-thumb:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink-bright); }
+    .sb-var-thumb.is-active {
+      box-shadow: 3px 3px 0 var(--ink-bright), 0 0 0 3px var(--yolk);
+    }
+    .sb-var-thumb-x {
+      position: absolute;
+      top: -8px; right: -8px;
+      width: 20px; height: 20px;
+      background: var(--paper-card);
+      color: var(--ink-bright);
+      border: 2px solid var(--ink-bright);
+      border-radius: 999px;
+      font-size: 10px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 140ms;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 1px 1px 0 var(--ink-bright);
+      padding: 0;
+    }
+    .sb-var-thumb:hover .sb-var-thumb-x { opacity: 1; }
+    .sb-var-thumb-x:hover { background: var(--red, #d65653); color: #fff; }
+    .sb-var-add {
+      flex: 0 0 auto;
+      width: 88px; height: 50px;
+      background: var(--paper-card);
+      border: 2.5px dashed var(--ink-bright);
+      border-radius: 6px;
+      cursor: pointer; padding: 0;
+      box-shadow: 2px 2px 0 var(--ink-bright);
+      transition: transform 120ms, background 140ms;
+      color: var(--ink-bright);
+      font-family: inherit;
+      font-weight: 800;
+      font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sb-var-add:hover { background: var(--yolk); transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink-bright); }
+    .sb-var-add.is-generating {
+      background: var(--yolk);
+      border-style: solid;
+    }
+    .sb-var-add.is-generating::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--ink-bright), transparent);
+      animation: sb-shimmer 1.4s infinite;
+    }
+    .sb-var-spacer { flex: 1; }
+    .sb-var-count {
+      font-family: var(--mono, monospace);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--ink-soft);
+      flex: 0 0 auto;
+      padding-left: 6px;
+    }
 
     /* ──── Storybook edit modal ──── */
     .sb-edit-modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; }
@@ -7604,26 +7683,12 @@
           // Cap reference images at 3 so the gemini call stays cheap.
           castRefs = castRefs.slice(0, 3);
 
-          const characterPreface = castNotes.length
-            ? `CHARACTERS IN THIS SCENE (use the attached reference portraits + these visual notes for consistency — these are the established looks):\n${castNotes.join('\n')}\n\n`
-            : '';
-          const stylePreface =
-            'STYLE: Hand-drawn children\'s storybook illustration in the warm classroom-comedy tradition (Lauren Child, Oliver Jeffers, Captain Underpants panels but more grounded). Single full-bleed cinematic frame, 16:9. Thick uniform black ink outlines with slightly hand-varied weight. Flat cel-shaded color blocks — no gradients, no painterly textures, no airbrush, no photoreal rendering. Warm cream off-white paper background (#F4ECD8). Big rounded kid-friendly shapes. Soft natural light, no dramatic shadows. Slight scrappiness, not slick — a smart illustrator\'s hand, not a stock asset.\n\n' +
-            'COMPOSITION RULE (absolute, do not break):\n' +
-            '- ONE single image. ONE moment. ONE composition. ONE camera angle.\n' +
-            '- NEVER a comic panel layout. NEVER a multi-panel collage. NEVER split-screen.\n' +
-            '- NEVER speech bubbles. NEVER thought bubbles. NEVER captions.\n' +
-            '- NEVER any text, words, letters, numbers, signs, or labels visible inside the image.\n' +
-            '- NEVER show a sequence of beats. Pick the ONE strongest visual moment from the scene below — the most surprising, the most physically dynamic, or the most emotionally loaded — and render ONLY that single picture.\n' +
-            '- If the scene describes many things happening, choose the SINGLE image that captures the spirit best. Drop the rest.\n' +
-            '- Treat the output like one page of a picture book, NOT a page of a graphic novel.\n\n' +
-            'PROP RULE (absolute, do not break):\n' +
-            '- Signature props belong to ONE character at a time. NEVER copy a prop onto another character.\n' +
-            '- Kevin (and Kevin ONLY) wears the grey calculator-helmet. Mark Rober is a NORMAL Earth man — earnest, polo shirt, no helmet, no oversized accessory, just a guy. Scarlet is the red dragon. Benny is the beaver in the orange vest with the forklift.\n' +
-            '- Background characters in the scene are ORDINARY-LOOKING kids and grown-ups with naturalistic features. No calculator-helmets on extras. No gas masks on extras. Most faces in a scene are normal.\n' +
-            '- The absurdity lives in WHAT HAPPENS in the scene, not in every face.\n' +
-            '- Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. White is the LAST option, not the first.\n\n';
-          const composedPrompt = stylePreface + characterPreface + `SCENE: ${b.text}`;
+          // Centralized prompt builder. Cast page custom visual notes
+          // for matched characters get appended as extra context.
+          const composedPrompt = QSSArt.build({
+            sceneText: b.text || '',
+            extra: castNotes.length ? `Cast-page canon notes: ${castNotes.join('; ')}` : '',
+          });
 
           const res = await fetch('/api/nano-banana', {
             method: 'POST',
@@ -10099,8 +10164,125 @@
      * legacy single-image-per-block) when no __cues exist yet, so
      * Storyboard's images carry through cleanly.
      */
+    /* ─────────────────────────────────────────────────────────
+     * QSS ART DIRECTION (client mirror)
+     * Mirrors api/_lib/qss-art-direction.js. ONE place that knows
+     * the global style, composition rule, prop rule, and per-character
+     * lookbook. Every client-side image-gen call (storyboard,
+     * storybook, edit modal) builds its prompt through QSSArt.build()
+     * so a single edit propagates everywhere.
+     * ───────────────────────────────────────────────────────── */
+    const QSSArt = (function() {
+      const GLOBAL_STYLE_PREFACE = `STYLE: Hand-drawn children's storybook illustration in the warm classroom-comedy tradition (Lauren Child, Oliver Jeffers, Captain Underpants panels but more grounded). Single full-bleed cinematic frame, 16:9. Thick uniform black ink outlines with slightly hand-varied weight. Flat cel-shaded color blocks — no gradients, no painterly textures, no airbrush, no photoreal rendering. Warm cream off-white paper background (#F4ECD8). Big rounded kid-friendly shapes. Soft natural light, no dramatic shadows. Faces are simple and expressive. Slight scrappiness, not slick — a smart illustrator's hand, not a stock asset.
+
+Palette: tomato red, butter yellow, teal, ochre, sky blue, mossy green, lavender, salmon pink, warm cream.
+
+Skin tones rotate: deep brown / warm brown / golden / olive / freckled cream. White is the LAST option, not the first.`;
+
+      const COMPOSITION_RULE = `COMPOSITION RULE (absolute, do not break):
+- ONE single image. ONE moment. ONE composition. ONE camera angle.
+- NEVER a comic panel layout. NEVER a multi-panel collage. NEVER split-screen.
+- NEVER speech bubbles. NEVER thought bubbles. NEVER captions.
+- NEVER any text, words, letters, numbers, signs, or labels visible inside the image.
+- NEVER show a sequence of beats. Pick the ONE strongest visual moment from the scene below — the most surprising, the most physically dynamic, or the most emotionally loaded — and render ONLY that single picture.
+- If the scene describes many things happening, choose the SINGLE image that captures the spirit best. Drop the rest.
+- Treat the output like one page of a picture book, NOT a page of a graphic novel.`;
+
+      const GLOBAL_PROP_RULE = `PROP RULE (absolute, do not break):
+- Signature visual props belong to ONE character at a time. NEVER copy a prop onto another character.
+- The character lookbook below tells you which prop belongs to whom. Apply each character's signature ONLY when that character is in the scene.
+- Background characters in any scene are ORDINARY-LOOKING kids and grown-ups with naturalistic features. NO calculator helmets on extras. NO gas masks on extras. NO antennae on extras. Most characters in any scene are normal.
+- The absurdity lives in WHAT HAPPENS in the scene, not in every face.`;
+
+      const LOOKBOOK = {
+        'kevin': {
+          name: 'Kevin',
+          signature: 'A school-age boy with a giant grey calculator-helmet completely swallowing his head, red display screen showing "ERROR: 3000", teal hoodie with a "K" on the chest, blue backpack. Bagel sandwich sometimes in hand.',
+          do: 'Always shows the calculator-helmet — that\'s how the reader knows it\'s Kevin.',
+          dont: 'Never appears without the calculator-helmet.',
+        },
+        'benny': {
+          name: 'Benny the Prepared Beaver',
+          aliases: ['benny the beaver', 'benny the prepared beaver'],
+          signature: 'An anthropomorphic brown beaver standing upright, orange high-visibility safety vest, sometimes operating a yellow forklift loaded with green cans of beans. Buck teeth visible.',
+          do: 'Always wears the orange safety vest.',
+          dont: 'Never appears without the vest. Never wears a calculator-helmet — that\'s Kevin\'s.',
+        },
+        'queen scarlet': {
+          name: 'Queen Scarlet',
+          aliases: ['scarlet'],
+          signature: 'A large red cartoon dragon with yellow horns and teal-and-orange wings. Scaled body, claws, fierce-but-charming face. Often wearing a sash tied to her latest scheme.',
+          do: 'Always red, always a dragon, always the dominant presence in the room.',
+          dont: 'Never appears as a human. Never wears a calculator-helmet.',
+        },
+        'mark rober': {
+          name: 'Mark Rober',
+          aliases: ['mark', 'mr rober'],
+          signature: 'A normal Earth man in his late thirties — friendly face, short brown hair, clean-shaven or light stubble, blue or teal polo shirt, jeans. Average build. Looks like a real YouTuber filming in his studio.',
+          do: 'Looks like a regular guy. Earnest. Holds normal objects like a clipboard, a contract, or a phone.',
+          dont: 'NEVER wears a calculator-helmet. NEVER wears any helmet. NEVER has oversized props, antennae, or non-human features. He is a NORMAL HUMAN. If the model is tempted to give him a calculator-helmet, the answer is no — that\'s Kevin\'s.',
+        },
+        'principal gerald': {
+          name: 'Principal Gerald',
+          signature: 'A tall, slightly stooped older man in a brown suit, balding with grey hair on the sides, bushy eyebrows, glasses on a chain. Carries a clipboard or thick manila folder.',
+          do: 'Looks tired but proper.',
+          dont: 'Never wears a calculator-helmet. Never wears a costume.',
+        },
+        'lunch lady': {
+          name: 'The Lunch Lady',
+          signature: 'A middle-aged woman in a white kitchen apron and a hairnet, holding a giant ladle. Stern face.',
+          do: 'Always in the kitchen apron.',
+          dont: 'Never wears a calculator-helmet.',
+        },
+      };
+
+      function detectCharacters(text) {
+        const t = String(text || '').toLowerCase();
+        const hits = [];
+        for (const [key, entry] of Object.entries(LOOKBOOK)) {
+          const names = [key, ...(entry.aliases || []), entry.name];
+          for (const n of names) {
+            const lname = String(n).toLowerCase();
+            const re = new RegExp(`\\b${lname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+            if (re.test(t)) { hits.push({ key, ...entry }); break; }
+          }
+        }
+        return hits;
+      }
+
+      function build({ sceneText = '', extra = '', variation = false } = {}) {
+        const characters = detectCharacters(sceneText);
+        const lookbookBlock = characters.length
+          ? `CHARACTERS IN THIS SCENE (use these established looks — only these characters get their signature props; all other faces in the scene are ordinary-looking extras):\n${characters.map(c => {
+              const lines = [`- ${c.name}: ${c.signature}`];
+              if (c.do) lines.push(`  DO: ${c.do}`);
+              if (c.dont) lines.push(`  DON'T: ${c.dont}`);
+              return lines.join('\n');
+            }).join('\n\n')}`
+          : 'CHARACTERS: no established cast members in this scene — render the people as normal-looking kids and grown-ups with naturalistic features.';
+        const variationBlock = variation
+          ? '\nVARIATION — same scene, same characters, but a meaningfully DIFFERENT camera angle, composition, or chosen moment from any previous attempt.'
+          : '';
+        const extraBlock = extra ? `\nEXTRA INSTRUCTION: ${extra}` : '';
+        return [
+          GLOBAL_STYLE_PREFACE,
+          '',
+          COMPOSITION_RULE,
+          '',
+          GLOBAL_PROP_RULE,
+          '',
+          lookbookBlock,
+          '',
+          `SCENE TO ILLUSTRATE:\n${String(sceneText || '').slice(0, 1800)}${variationBlock}${extraBlock}`,
+        ].join('\n');
+      }
+
+      return { build, detectCharacters, LOOKBOOK };
+    })();
+    window.QSSArt = QSSArt;
+
     const storybook = {
-      cues: [],              // flat list of {cueId, blockId, blockIdx, offset, source_text, image_url, status, isAuto, label}
+      cues: [],              // flat list of {cueId, blockId, blockIdx, offset, source_text, image_url, status, isAuto, label, variations:[]}
       activeIdx: 0,
       genInflight: new Set(),
       karaoke: false,
@@ -10120,8 +10302,9 @@
 
     // Ensure every block has at least one __cues entry. Auto-cue at
     // offset 0 inherits b.__image if present so existing Storyboard
-    // images keep showing. Inherited image may be URL-form (new) or
-    // base64-form (legacy) — both work via the same builder.
+    // images keep showing. ALSO migrates legacy { image } to the new
+    // { variations[], active_variation_id, image } shape — old image
+    // becomes the first variation.
     function ensureBlockCues(b) {
       if (!Array.isArray(b.__cues)) b.__cues = [];
       if (b.__cues.length === 0) {
@@ -10132,8 +10315,34 @@
           offset: 0,
           source_text: (b.text || '').slice(0, 1200),
           image: hasImg ? { ...im } : null,
+          variations: hasImg ? [{ id: uidCue() + '-v', url: im.url, mimeType: im.mimeType, dataBase64: im.dataBase64, created_at: Date.now() }] : [],
+          active_variation_id: null,
           auto: true,
         });
+        if (hasImg) b.__cues[0].active_variation_id = b.__cues[0].variations[0].id;
+      }
+      // Migrate any cue that has .image but no variations array
+      for (const c of b.__cues) {
+        if (!Array.isArray(c.variations)) c.variations = [];
+        if (c.variations.length === 0 && c.image && (c.image.url || c.image.dataBase64)) {
+          const v = {
+            id: uidCue() + '-v',
+            url: c.image.url,
+            mimeType: c.image.mimeType,
+            dataBase64: c.image.dataBase64,
+            created_at: Date.now(),
+          };
+          c.variations.push(v);
+          c.active_variation_id = v.id;
+        }
+        if (!c.active_variation_id && c.variations.length > 0) {
+          c.active_variation_id = c.variations[c.variations.length - 1].id;
+        }
+        // Keep c.image mirroring the active variation for back-compat
+        if (c.active_variation_id) {
+          const av = c.variations.find(v => v.id === c.active_variation_id);
+          if (av) c.image = { url: av.url, mimeType: av.mimeType, dataBase64: av.dataBase64 };
+        }
       }
       b.__cues.sort((a, c) => (a.offset || 0) - (c.offset || 0));
     }
@@ -10144,17 +10353,28 @@
       blocks.forEach((b, bi) => {
         ensureBlockCues(b);
         (b.__cues || []).forEach((cue, ci) => {
+          // Pull the active variation's URL/bytes
+          const variations = Array.isArray(cue.variations) ? cue.variations : [];
+          const active = variations.find(v => v.id === cue.active_variation_id) || variations[variations.length - 1] || null;
+          const image_url = active
+            ? (active.url || (active.dataBase64 ? `data:${active.mimeType || 'image/png'};base64,${active.dataBase64}` : null))
+            : (cue.image && cue.image.url)
+              ? cue.image.url
+              : (cue.image && cue.image.dataBase64)
+                ? `data:${cue.image.mimeType || 'image/png'};base64,${cue.image.dataBase64}`
+                : null;
           const im = cue.image;
-          // Prefer cloud URL (lean row); fall back to inline base64 for
-          // legacy rows that haven't been migrated yet.
-          const image_url = (im && im.url)
-            ? im.url
-            : (im && im.dataBase64)
-              ? `data:${im.mimeType || 'image/png'};base64,${im.dataBase64}`
-              : null;
           const label = cue.auto
             ? (ci === 0 ? `scene ${bi + 1}` : `scene ${bi + 1}.${ci}`)
             : labelFromText(cue.source_text);
+          // Surface the variations array on the flat cue ref so the
+          // carousel UI can render them without reaching back into
+          // state.blocks. Each thumb entry: { id, url, isActive }.
+          const variationThumbs = variations.map(v => ({
+            id: v.id,
+            url: v.url || (v.dataBase64 ? `data:${v.mimeType || 'image/png'};base64,${v.dataBase64}` : null),
+            isActive: v.id === cue.active_variation_id,
+          })).filter(v => v.url);
           out.push({
             id: cue.id,
             blockId: b.id,
@@ -10163,10 +10383,12 @@
             offset: cue.offset || 0,
             source_text: cue.source_text || (b.text || ''),
             image_url,
-            status: im?.loading ? 'generating' : (image_url ? 'ready' : 'idle'),
+            status: (im?.loading || cue._generating) ? 'generating' : (image_url ? 'ready' : 'idle'),
             label,
             isAuto: !!cue.auto,
             title: (b.summary || labelFromText(b.text) || `block ${bi + 1}`),
+            variations: variationThumbs,
+            active_variation_id: cue.active_variation_id || null,
           });
         });
       });
@@ -10815,20 +11037,29 @@
       if (upBtn) upBtn.classList.toggle('is-on', scene.vote === 'up');
       if (downBtn) downBtn.classList.toggle('is-on', scene.vote === 'down');
 
-      // Variations row
+      // Variations carousel — always render, even with 0 variations
+      // (shows just the + button so user can kick off the first one).
       const variations = Array.isArray(scene.variations) ? scene.variations : [];
-      const activeVarId = scene.active_variation_id || scene.id;
+      const activeVarId = scene.active_variation_id;
+      const isGen = scene.status === 'generating' || storybook.genInflight.has(scene.id);
       if (varsEl) {
-        if (variations.length <= 1) {
-          varsEl.innerHTML = '';
-        } else {
-          varsEl.innerHTML = variations.map(v => `
-            <button class="sb-var-thumb ${v.id === activeVarId ? 'is-active' : ''}"
-                    data-var-id="${esc(v.id)}"
-                    style="background-image:url('${esc(v.image_url || '')}');"
-                    title="variation"></button>
-          `).join('');
-        }
+        const thumbsHtml = variations.map((v, i) => `
+          <button class="sb-var-thumb ${v.isActive ? 'is-active' : ''}"
+                  data-var-id="${esc(v.id)}"
+                  data-idx="${i}"
+                  style="background-image:url('${esc(v.url || '')}');"
+                  title="version ${i + 1} of ${variations.length}">
+            <span class="sb-var-thumb-x" data-del="${esc(v.id)}" title="Delete this version">✕</span>
+          </button>
+        `).join('');
+        const count = variations.length;
+        varsEl.innerHTML = `
+          <span class="sb-var-label">versions</span>
+          ${thumbsHtml}
+          <button class="sb-var-add ${isGen ? 'is-generating' : ''}" id="sb-var-add" type="button" title="Draw another version of this scene">＋</button>
+          <span class="sb-var-spacer"></span>
+          <span class="sb-var-count">${count} ${count === 1 ? 'version' : 'versions'}</span>
+        `;
       }
     }
 
@@ -10905,9 +11136,9 @@
 
       storybook.genInflight.add(cueId);
       cueRef.status = 'generating';
-      if (cueData.image) cueData.image.loading = true;
-      else cueData.image = { loading: true };
+      cueData._generating = true;
       renderStorybookArt();
+      renderMarginThumbs();
 
       try {
         // Build the SAME prompt shape Storyboard uses, but anchored on
@@ -10933,25 +11164,25 @@
         } catch {}
         castRefs = castRefs.slice(0, 3);
 
-        const stylePreface =
-          'STYLE: Children\'s storybook illustration. Single full-bleed cinematic frame, 16:9. Thick consistent black ink outlines, flat saturated kid-book colors, warm cream paper feel. Match the existing QSS sticker aesthetic — no painterly textures, no photorealism, no anime/manga.\n\n' +
-          'COMPOSITION RULE (absolute, do not break):\n' +
-          '- ONE single image. ONE moment. ONE composition. ONE camera angle.\n' +
-          '- NEVER a comic panel layout. NEVER a multi-panel collage. NEVER split-screen.\n' +
-          '- NEVER speech bubbles. NEVER thought bubbles. NEVER captions.\n' +
-          '- NEVER any text, words, letters, numbers, signs, or labels visible inside the image.\n' +
-          '- NEVER show a sequence of beats. Pick the ONE strongest visual moment from the scene below — the most surprising, the most physically dynamic, or the most emotionally loaded — and render ONLY that single picture.\n' +
-          '- If the scene describes many things happening, choose the SINGLE image that captures the spirit best. Drop the rest.\n' +
-          '- Treat the output like one page of a picture book, NOT a page of a graphic novel.\n\n';
-
-        const characterPreface = castNotes.length
-          ? `CHARACTERS IN THIS SCENE (use the attached reference portraits + these visual notes for consistency — these are the established looks):\n${castNotes.join('\n')}\n\n`
-          : '';
-
         const sceneText = (cueData.source_text || block.text || '').slice(0, 1500);
-        const instructionBlock = extraInstruction ? `\n\nEXTRA INSTRUCTION FROM THE READER: ${extraInstruction}` : '';
-        const variantBlock = isVariation ? '\n\nVARIATION — same scene, but a meaningfully DIFFERENT camera angle, composition, or moment.' : '';
-        const composedPrompt = stylePreface + characterPreface + `SCENE: ${sceneText}${instructionBlock}${variantBlock}`;
+        // Centralized prompt builder — see QSSArt above. Includes
+        // GLOBAL_STYLE_PREFACE + COMPOSITION_RULE + GLOBAL_PROP_RULE +
+        // the character lookbook (only the characters detected in
+        // THIS scene's text). Cast portraits from the cast page
+        // still get attached as reference images. Custom notes from
+        // the cast page (castNotes) are appended as an extra hint.
+        const extraInstructionParts = [];
+        if (castNotes.length) {
+          extraInstructionParts.push('Additional canon notes from the cast page: ' + castNotes.join('; '));
+        }
+        if (extraInstruction) {
+          extraInstructionParts.push(extraInstruction);
+        }
+        const composedPrompt = QSSArt.build({
+          sceneText,
+          extra: extraInstructionParts.join(' — '),
+          variation: !!isVariation,
+        });
 
         const res = await fetch('/api/nano-banana', {
           method: 'POST',
@@ -10997,7 +11228,20 @@
           try { console.warn('[storybook upload failed, using inline base64]', e); } catch {}
         }
 
-        // Persist: prefer URL (lean row), fall back to base64 if upload failed
+        // Append as a new VARIATION (not replace the image). The new
+        // variation becomes the active one. This gives Henry a
+        // carousel of all the takes for each scene.
+        if (!Array.isArray(cueData.variations)) cueData.variations = [];
+        const newVariation = {
+          id: uidCue() + '-v',
+          url: cdnUrl || undefined,
+          mimeType: im.mimeType,
+          dataBase64: cdnUrl ? undefined : im.dataBase64,
+          created_at: Date.now(),
+        };
+        cueData.variations.push(newVariation);
+        cueData.active_variation_id = newVariation.id;
+        // Back-compat mirror
         if (cdnUrl) {
           cueData.image = { url: cdnUrl, mimeType: im.mimeType, loading: false };
           if (cueData.auto && (cueData.offset || 0) === 0) {
@@ -11011,8 +11255,11 @@
           }
           cueRef.image_url = `data:${im.mimeType};base64,${im.dataBase64}`;
         }
+        cueData._generating = false;
         if (typeof persist === 'function') persist();
 
+        // Rebuild flat cues so variations carousel shows the new thumb
+        storybook.cues = buildStorybookCues();
         cueRef.status = 'ready';
         renderStorybookArt();
         renderStorybookRail();
@@ -11025,8 +11272,9 @@
       } catch (e) {
         cueRef.status = 'error';
         cueRef.error_msg = e?.message || 'something broke';
-        if (cueData?.image) cueData.image.loading = false;
+        if (cueData) cueData._generating = false;
         renderStorybookArt();
+        renderMarginThumbs();
         return null;
       } finally {
         storybook.genInflight.delete(cueId);
@@ -11221,8 +11469,25 @@
         if (cue) triggerStorybookGen(cue.id, true);
       });
 
-      // No-op variation thumbs for now — block model only stores one
-      // active image. Future: keep an array of prior renders per block.
+      // Variation carousel — click thumb to switch, + to add, × to delete
+      document.getElementById('sb-art-variations')?.addEventListener('click', (e) => {
+        const del = e.target.closest('.sb-var-thumb-x');
+        if (del) {
+          e.stopPropagation();
+          deleteVariation(storybook.cues[storybook.activeIdx]?.id, del.dataset.del);
+          return;
+        }
+        const thumb = e.target.closest('.sb-var-thumb');
+        if (thumb) {
+          switchVariation(storybook.cues[storybook.activeIdx]?.id, thumb.dataset.varId);
+          return;
+        }
+        const add = e.target.closest('#sb-var-add');
+        if (add) {
+          const c = storybook.cues[storybook.activeIdx];
+          if (c) triggerStorybookGen(c.id, true);
+        }
+      });
 
       // Click art → open edit modal
       document.getElementById('sb-art-frame')?.addEventListener('click', openStorybookEdit);
@@ -11251,6 +11516,56 @@
       // Play toggle
       document.getElementById('sb-play-btn')?.addEventListener('click', toggleStorybookPlay);
     })();
+
+    function switchVariation(cueId, variationId) {
+      if (!cueId || !variationId) return;
+      const cueRef = storybook.cues.find(c => c.id === cueId);
+      if (!cueRef) return;
+      const block = (state.blocks || []).find(b => b.id === cueRef.blockId);
+      const cueData = (block?.__cues || []).find(c => c.id === cueId);
+      if (!cueData) return;
+      const v = (cueData.variations || []).find(x => x.id === variationId);
+      if (!v) return;
+      cueData.active_variation_id = variationId;
+      // Mirror the active variation onto cue.image for back-compat
+      cueData.image = { url: v.url, mimeType: v.mimeType, dataBase64: v.dataBase64 };
+      // Mirror to b.__image if this is the default offset-0 auto-cue
+      if (cueData.auto && (cueData.offset || 0) === 0 && block) {
+        block.__image = { url: v.url, mimeType: v.mimeType, dataBase64: v.dataBase64 };
+      }
+      if (typeof persist === 'function') persist();
+      storybook.cues = buildStorybookCues();
+      renderStorybookArt();
+      renderStorybookRail();
+      renderMarginThumbs();
+    }
+
+    function deleteVariation(cueId, variationId) {
+      if (!cueId || !variationId) return;
+      const cueRef = storybook.cues.find(c => c.id === cueId);
+      if (!cueRef) return;
+      const block = (state.blocks || []).find(b => b.id === cueRef.blockId);
+      const cueData = (block?.__cues || []).find(c => c.id === cueId);
+      if (!cueData) return;
+      const before = (cueData.variations || []).length;
+      cueData.variations = (cueData.variations || []).filter(v => v.id !== variationId);
+      if (before === cueData.variations.length) return;
+      // If we deleted the active one, fall back to the most recent remaining
+      if (cueData.active_variation_id === variationId) {
+        const fallback = cueData.variations[cueData.variations.length - 1];
+        cueData.active_variation_id = fallback ? fallback.id : null;
+        cueData.image = fallback ? { url: fallback.url, mimeType: fallback.mimeType, dataBase64: fallback.dataBase64 } : null;
+        if (cueData.auto && (cueData.offset || 0) === 0 && block) {
+          block.__image = fallback ? { url: fallback.url, mimeType: fallback.mimeType, dataBase64: fallback.dataBase64 } : null;
+        }
+      }
+      if (typeof persist === 'function') persist();
+      storybook.cues = buildStorybookCues();
+      renderStorybookArt();
+      renderStorybookRail();
+      renderMarginThumbs();
+      sbToast('version removed');
+    }
 
     function sbCastVote(vote) {
       const c = storybook.cues[storybook.activeIdx];
@@ -11353,26 +11668,21 @@
       document.getElementById('sb-edit-send').disabled = true;
 
       try {
-        // Build composed prompt — sandwich the scene text + edit instruction + any prior chat turns
+        // Centralized prompt builder. The edit instruction (and any
+        // earlier edits in the chat) get appended as extra context.
         const priorEdits = storybook._edit.chat
           .slice(0, -1)
           .filter(t => t.role === 'kid')
           .map(t => `- ${t.content}`)
           .join('\n');
-        const stylePreface =
-          'STYLE: Children\'s storybook illustration. Single full-bleed cinematic frame, 16:9. Thick consistent black ink outlines, flat saturated kid-book colors, warm cream paper feel. Match the existing QSS sticker aesthetic — no painterly textures, no photorealism, no anime/manga.\n\n' +
-          'COMPOSITION RULE (absolute, do not break):\n' +
-          '- ONE single image. ONE moment. ONE composition. ONE camera angle.\n' +
-          '- NEVER a comic panel layout. NEVER a multi-panel collage. NEVER split-screen.\n' +
-          '- NEVER speech bubbles. NEVER thought bubbles. NEVER captions.\n' +
-          '- NEVER any text, words, letters, numbers, signs, or labels visible inside the image.\n' +
-          '- NEVER show a sequence of beats. Pick the ONE strongest visual moment.\n' +
-          '- Treat the output like one page of a picture book, NOT a page of a graphic novel.\n\n';
-        const sceneCtx = `SCENE: ${cue.source_text || cue.title || ''}\n\n`;
-        const editBlock = priorEdits
-          ? `EARLIER EDITS APPLIED:\n${priorEdits}\n\nNEW EDIT INSTRUCTION:\n${text}\n`
-          : `EDIT INSTRUCTION:\n${text}\n`;
-        const composedPrompt = stylePreface + sceneCtx + editBlock + 'Modify the attached reference image to apply the edit instruction. Keep everything else the same unless told otherwise.';
+        const extraParts = [];
+        if (priorEdits) extraParts.push(`Earlier edits applied:\n${priorEdits}`);
+        extraParts.push(`New edit instruction: ${text}`);
+        extraParts.push('Modify the attached reference image to apply the edit instruction. Keep everything else the same unless told otherwise.');
+        const composedPrompt = QSSArt.build({
+          sceneText: cue.source_text || cue.title || '',
+          extra: extraParts.join('\n\n'),
+        });
 
         // Reference images: the current staged (if any) or the base scene image
         const refUrl = storybook._edit.stagedImage
@@ -11436,7 +11746,7 @@
       `).join('');
       host.scrollTop = host.scrollHeight;
     }
-    async function keepStorybookEdit() {
+    function keepStorybookEdit() {
       const staged = storybook._edit.stagedImage;
       const cueId = storybook._edit.cueId;
       if (!staged || !cueId) return;
@@ -11444,58 +11754,84 @@
       if (!cueRef) return;
       const block = (state.blocks || []).find(b => b.id === cueRef.blockId);
       const cueData = (block?.__cues || []).find(c => c.id === cueId);
+      if (!cueData) return;
 
-      // Optimistic local update — show right away
-      const inline = `data:${staged.mimeType};base64,${staged.dataBase64}`;
-      cueRef.image_url = inline;
-      cueRef.status = 'ready';
+      // Push the staged image onto the variations list IMMEDIATELY with
+      // an inline data-URL so the carousel shows it right away. Then
+      // close the modal. The Supabase upload happens in the background
+      // and rewrites the variation's url + drops the inline base64
+      // when it lands.
+      const newVariation = {
+        id: uidCue() + '-v',
+        url: undefined,
+        mimeType: staged.mimeType,
+        dataBase64: staged.dataBase64,
+        created_at: Date.now(),
+        _uploading: true,
+      };
+      if (!Array.isArray(cueData.variations)) cueData.variations = [];
+      cueData.variations.push(newVariation);
+      cueData.active_variation_id = newVariation.id;
+      cueData.image = { mimeType: staged.mimeType, dataBase64: staged.dataBase64 };
+      if (cueData.auto && (cueData.offset || 0) === 0) {
+        block.__image = { mimeType: staged.mimeType, dataBase64: staged.dataBase64 };
+      }
+      if (typeof persist === 'function') persist();
+
+      storybook.cues = buildStorybookCues();
       renderStorybookArt();
       renderStorybookRail();
       renderMarginThumbs();
+      sbToast('saved as a new version');
       closeStorybookEdit();
 
-      // Upload to Supabase Storage. Same pattern as the initial gen —
-      // URL stored on the cue, base64 only if upload fails.
-      let cdnUrl = null;
-      try {
-        const storyId = state.serverId || state.cloudId || state.id || 'no-story';
-        const up = await fetch('/api/qss-image-upload', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            story_id: storyId,
-            block_id: cueRef.blockId,
-            cue_id: cueId,
-            dataBase64: staged.dataBase64,
-            mimeType: staged.mimeType,
-            world: (state.world || (typeof QSSWorlds !== 'undefined' && QSSWorlds.current && QSSWorlds.current()) || ''),
-          }),
-        });
-        if (up.ok) {
+      // BACKGROUND UPLOAD — fire-and-forget. Once it lands, swap inline
+      // base64 → CDN url. If it fails we keep the inline base64 (will
+      // still show locally; persisted as base64 via the fallback in
+      // the sanitizer with size cap).
+      (async () => {
+        try {
+          const storyId = state.serverId || state.cloudId || state.id || 'no-story';
+          const up = await fetch('/api/qss-image-upload', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              story_id: storyId,
+              block_id: cueRef.blockId,
+              cue_id: cueId,
+              dataBase64: staged.dataBase64,
+              mimeType: staged.mimeType,
+              world: (state.world || (typeof QSSWorlds !== 'undefined' && QSSWorlds.current && QSSWorlds.current()) || ''),
+            }),
+          });
+          if (!up.ok) throw new Error(`upload_${up.status}`);
           const j = await up.json();
-          cdnUrl = j.url || null;
-        }
-      } catch {}
-
-      if (cueData) {
-        if (cdnUrl) {
-          cueData.image = { url: cdnUrl, mimeType: staged.mimeType, loading: false };
-          if (cueData.auto && (cueData.offset || 0) === 0 && block) {
-            block.__image = { url: cdnUrl, mimeType: staged.mimeType, loading: false };
+          const cdnUrl = j.url;
+          if (!cdnUrl) throw new Error('no url');
+          // Re-locate the variation (it may have moved/been deleted) and update
+          const b2 = (state.blocks || []).find(x => x.id === cueRef.blockId);
+          const c2 = (b2?.__cues || []).find(x => x.id === cueId);
+          const v2 = (c2?.variations || []).find(v => v.id === newVariation.id);
+          if (v2) {
+            v2.url = cdnUrl;
+            delete v2.dataBase64;
+            delete v2._uploading;
+            // If it's still the active one, mirror to cue.image and __image
+            if (c2.active_variation_id === newVariation.id) {
+              c2.image = { url: cdnUrl, mimeType: staged.mimeType };
+              if (c2.auto && (c2.offset || 0) === 0 && b2) {
+                b2.__image = { url: cdnUrl, mimeType: staged.mimeType };
+              }
+            }
+            if (typeof persist === 'function') persist();
+            storybook.cues = buildStorybookCues();
+            renderStorybookArt();
+            renderStorybookRail();
+            renderMarginThumbs();
           }
-        } else {
-          cueData.image = { mimeType: staged.mimeType, dataBase64: staged.dataBase64, loading: false };
-          if (cueData.auto && (cueData.offset || 0) === 0 && block) {
-            block.__image = { mimeType: staged.mimeType, dataBase64: staged.dataBase64, loading: false };
-          }
+        } catch (e) {
+          try { console.warn('[storybook background upload failed]', e); } catch {}
         }
-        if (typeof persist === 'function') persist();
-      }
-      if (cdnUrl) {
-        cueRef.image_url = cdnUrl;
-        renderStorybookArt();
-        renderStorybookRail();
-        renderMarginThumbs();
-      }
+      })();
     }
     function revertStorybookEdit() {
       const canvas = document.getElementById('sb-edit-canvas');

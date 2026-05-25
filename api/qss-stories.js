@@ -511,6 +511,28 @@ function sanitizeBlocks(blocks) {
       }
       return (o.url || o.dataBase64) ? o : undefined;
     };
+    const cleanVariations = (variations) => {
+      if (!Array.isArray(variations)) return undefined;
+      const out = [];
+      const MAX_VARIATIONS = 12;
+      for (const v of variations.slice(0, MAX_VARIATIONS)) {
+        if (!v || typeof v !== 'object' || !v.id) continue;
+        const item = {
+          id: String(v.id).slice(0, 80),
+          mimeType: typeof v.mimeType === 'string' ? v.mimeType.slice(0, 64) : undefined,
+          created_at: Number.isFinite(v.created_at) ? v.created_at : Date.now(),
+        };
+        if (typeof v.url === 'string' && v.url.length <= MAX_URL_LEN) item.url = v.url;
+        if (!item.url && typeof v.dataBase64 === 'string' && v.dataBase64.length <= MAX_INLINE_IMG_BYTES) {
+          if (totalBytes + v.dataBase64.length <= MAX_TOTAL_BYTES) {
+            item.dataBase64 = v.dataBase64;
+            totalBytes += v.dataBase64.length;
+          }
+        }
+        if (item.url || item.dataBase64) out.push(item);
+      }
+      return out.length ? out : undefined;
+    };
     const cleanCues = (cues) => {
       if (!Array.isArray(cues)) return undefined;
       const list = [];
@@ -526,6 +548,12 @@ function sanitizeBlocks(blocks) {
         if (typeof c.why === 'string') item.why = c.why.slice(0, 240);
         const img = cleanImage(c.image);
         if (img) item.image = img;
+        // NEW — variations carousel + active pointer
+        const vars = cleanVariations(c.variations);
+        if (vars) item.variations = vars;
+        if (typeof c.active_variation_id === 'string') {
+          item.active_variation_id = c.active_variation_id.slice(0, 80);
+        }
         list.push(item);
       }
       return list.length ? list : undefined;
