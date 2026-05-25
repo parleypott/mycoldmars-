@@ -10394,23 +10394,31 @@
       const url = scene.image_url;
       const isGenerating = scene.status === 'generating' || storybook.genInflight.has(scene.id);
 
-      // Crossfade: keep last layer, push new one on top
+      // Crossfade: keep last layer, push new one on top. If there's
+      // NO url for the new active cue, clear all existing layers so
+      // the user doesn't see a stale picture from a previously active
+      // cue (which would make the click-to-edit modal mismatch).
       const existingLayers = Array.from(frame.querySelectorAll('.sb-art-layer'));
       if (url) {
         const newLayer = document.createElement('div');
         newLayer.className = 'sb-art-layer';
         newLayer.style.backgroundImage = `url("${url}")`;
         frame.appendChild(newLayer);
-        // Force reflow then activate
         // eslint-disable-next-line no-unused-expressions
         newLayer.offsetWidth;
         newLayer.classList.add('is-active');
-        // Remove all but the new one after the transition
-        setTimeout(() => {
-          existingLayers.forEach(l => l.remove());
-        }, 420);
+        setTimeout(() => existingLayers.forEach(l => l.remove()), 420);
+      } else {
+        // No image yet for this cue — clear stale layers and kick a
+        // generation now so the picture catches up. The genInflight
+        // guard inside triggerStorybookGen prevents double-fires.
+        existingLayers.forEach(l => l.classList.remove('is-active'));
+        setTimeout(() => existingLayers.forEach(l => l.remove()), 320);
+        if (!storybook.genInflight.has(scene.id)) {
+          triggerStorybookGen(scene.id, false);
+        }
       }
-      frame.classList.toggle('is-generating', isGenerating);
+      frame.classList.toggle('is-generating', isGenerating || !url);
       // Add edit-hint pill if not present
       if (!frame.querySelector('.sb-edit-hint')) {
         const hint = document.createElement('span');
@@ -10835,15 +10843,36 @@
       const overlay = document.getElementById('sb-edit-canvas-overlay');
       eyebrow.textContent = `${(cue.label || 'image').toUpperCase()} · ${String(storybook.activeIdx + 1).padStart(2, '0')} / ${String(storybook.cues.length).padStart(2, '0')}`;
       title.textContent = cue.title ? `change: ${cue.title}` : 'change this picture';
+      const inflight = storybook.genInflight.has(cue.id);
       if (url) {
         canvas.style.backgroundImage = `url("${url}")`;
         overlay.classList.remove('is-on');
+        canvas.classList.remove('is-generating');
+      } else if (inflight) {
+        canvas.style.backgroundImage = 'none';
+        overlay.textContent = 'drawing this scene now…';
+        overlay.classList.add('is-on');
+        canvas.classList.add('is-generating');
       } else {
         canvas.style.backgroundImage = 'none';
         overlay.textContent = 'no picture yet — tell wordy what to draw';
         overlay.classList.add('is-on');
+        canvas.classList.remove('is-generating');
+        // Kick a fresh generation so the picture catches up
+        triggerStorybookGen(cue.id, false).then(() => {
+          // If the modal is still open and looking at the same cue,
+          // swap the canvas to the freshly-drawn image
+          if (storybook._edit.cueId === cue.id) {
+            const c2 = storybook.cues.find(x => x.id === cue.id);
+            if (c2?.image_url) {
+              canvas.style.backgroundImage = `url("${c2.image_url}")`;
+              overlay.classList.remove('is-on');
+              canvas.classList.remove('is-generating');
+              storybook._edit.baseImageUrl = c2.image_url;
+            }
+          }
+        }).catch(() => {});
       }
-      canvas.classList.remove('is-generating');
       document.getElementById('sb-edit-chat').innerHTML = `
         <div class="sb-edit-msg sb-edit-msg-wordy">
           <div class="sb-edit-bubble">tell me what to change about this picture. like "make him look more tired" or "change the background to a forest."</div>
