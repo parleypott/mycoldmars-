@@ -3553,6 +3553,15 @@
     .sb-pl-btn-play:hover { background: var(--yolk-deep); box-shadow: 4px 4px 0 var(--ink-bright); }
     .sb-pl-btn-play.is-playing { background: var(--red, #d65653); color: #fff; }
     .sb-pl-btn-play.is-playing:hover { background: #c14a4a; }
+    .sb-pl-btn-play.is-loading {
+      background: var(--paper-deep);
+      pointer-events: none;
+      animation: sb-pl-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes sb-pl-pulse {
+      0%, 100% { opacity: 0.7; }
+      50%      { opacity: 1; }
+    }
     .sb-pl-btn-icon { font-size: 14px; line-height: 1; }
     .sb-pl-meta {
       display: inline-flex; gap: 6px; align-items: baseline;
@@ -3621,7 +3630,8 @@
      * the plain text with <span class="ks-w"> per word. The active word
      * lights up; past words go dimmer; upcoming stays full. */
     .sb-scene-text.is-playing {
-      contenteditable: false;  /* hint — actual attr toggled in JS */
+      /* contenteditable attribute is toggled in JS; the CSS just blocks
+         the cursor/selection so the karaoke spans don't feel editable. */
       cursor: default;
       user-select: none;
     }
@@ -12808,12 +12818,27 @@
         if (section) section.classList.remove('is-playing');
       }
 
-      // Build the array of scenes from current storybook.cues
+      // Build the array of scenes from current storybook.cues. Filters
+      // out cues whose text is too short to bother synthesizing (the
+      // ElevenLabs endpoint rejects empty / sub-trivial input).
       function buildScenes() {
         return storybook.cues.map(c => ({
           cueId: c.id,
           text: textForCue(c),
-        })).filter(s => s.text && s.text.length >= 2);
+        })).filter(s => s.text && s.text.trim().length >= 8);
+      }
+
+      // Toggle a "loading" visual on the play button while TTS fetches.
+      function setLoading(on) {
+        const btn = document.getElementById('sb-play-btn');
+        const label = document.getElementById('sb-pl-label');
+        if (!btn || !label) return;
+        if (on) {
+          btn.classList.add('is-loading');
+          label.textContent = 'loading…';
+        } else {
+          btn.classList.remove('is-loading');
+        }
       }
 
       // Light up the active word, dim past, clear future. Called every RAF.
@@ -12920,9 +12945,10 @@
 
         // Fetch TTS if not already cached on the scene
         if (!sc.words || !sc.audio) {
+          setLoading(true);
           try {
             const data = await fetchTTS(sc.text, session.voice);
-            if (myToken !== session.token) return false; // user moved on
+            if (myToken !== session.token) { setLoading(false); return false; }
             sc.words = data.words;
             sc.duration = data.duration || (sc.words.length ? sc.words[sc.words.length - 1].end : 0);
             sc.audio = new Audio(`data:${data.mime || 'audio/mpeg'};base64,${data.audio_base64}`);
@@ -12933,8 +12959,11 @@
           } catch (e) {
             console.warn('[sb-player] tts failed for scene', sceneIdx, e?.message || e);
             sbToast(`couldn’t fetch audio — ${(e?.message || 'failed').slice(0, 60)}`);
+            setLoading(false);
             stop();
             return false;
+          } finally {
+            setLoading(false);
           }
         }
 
@@ -13001,12 +13030,21 @@
           updateUI();
           return;
         }
-        // Fresh start
+        // Fresh start — invalidate any stale prefetches
+        session.token++;
         session.scenes = buildScenes();
-        session.sceneIdx = Math.max(0, Math.min(storybook.activeIdx, session.scenes.length - 1));
         if (!session.scenes.length) { sbToast('no story to read yet'); return; }
+        // Map the active CUE to its position in the filtered scenes list.
+        // storybook.activeIdx is a cue index; scenes may have dropped
+        // text-empty cues, so the two indices can diverge.
+        const activeCue = storybook.cues[storybook.activeIdx];
+        const sceneStart = activeCue
+          ? Math.max(0, session.scenes.findIndex(s => s.cueId === activeCue.id))
+          : 0;
+        session.sceneIdx = sceneStart >= 0 ? sceneStart : 0;
         // Reset prior session
         session.totalDuration = 0;
+        session.elapsedBefore = 0;
         loadAndPlay(session.sceneIdx);
       }
       function pause() {
