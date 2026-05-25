@@ -4089,6 +4089,36 @@
     }
     .sb-selbar-btn svg { width: 16px; height: 16px; }
 
+    /* Scene character chips — tiny per-scene cast indicators */
+    .sb-scene-chars {
+      display: flex; align-items: center; gap: 3px; margin-left: 2px;
+    }
+    .sb-scene-char-chip {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 50%;
+      font-size: 9px; font-weight: 800; line-height: 1;
+      border: 1.5px solid rgba(0,0,0,0.18);
+      cursor: pointer; transition: transform 100ms, box-shadow 100ms;
+      flex-shrink: 0; background: var(--yolk); color: var(--ink-bright);
+    }
+    .sb-scene-char-chip:nth-child(2) { background: var(--grass, #a8e6b0); }
+    .sb-scene-char-chip:nth-child(3) { background: var(--bubblegum, #ffb3d9); }
+    .sb-scene-char-chip:nth-child(4) { background: var(--sky, #b3d9ff); }
+    .sb-scene-char-chip:nth-child(5) { background: var(--grape, #d4b3ff); color: #fff; }
+    .sb-scene-char-chip:hover { transform: scale(1.18); box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+
+    /* Scene drag handle */
+    .sb-drag-handle {
+      cursor: grab; color: var(--ink-faint); font-size: 11px; line-height: 1;
+      padding: 0 3px; opacity: 0; transition: opacity 120ms; flex-shrink: 0;
+      user-select: none;
+    }
+    .sb-cue-section:hover .sb-drag-handle { opacity: 0.5; }
+    .sb-drag-handle:hover { opacity: 1 !important; color: var(--ink-bright); }
+    .sb-drag-handle:active { cursor: grabbing; }
+    .sb-cue-section.is-dragging { opacity: 0.35; }
+    .sb-cue-section.drag-over-top { border-top: 3px solid var(--yolk); padding-top: 0; }
+
     /* While Storybook stage is active, hide the global TTS float so
      * it doesn't double up with the selection bar above. */
     body.sb-stage-active #tts-float { display: none !important; }
@@ -11144,6 +11174,8 @@
       // "+ scene break" button appears on hover. Clicking it creates a
       // new EMPTY cue right after the current scene so the kid can type
       // into a fresh scene without paragraph breaks doing structural work.
+      const castMembers = (state.arcContext?.characters || []).filter(c => (c?.name || '').trim());
+
       host.innerHTML = blocks.map((b, bi) => {
         ensureBlockCues(b);
         const cues = (b.__cues || []).slice().sort((a, c) => (a.offset || 0) - (c.offset || 0));
@@ -11167,11 +11199,19 @@
               ? `scene · ${num}`
               : labelFromText(cue.source_text) || `image · ${num}`;
             const labelShort = labelFromText(cue.source_text) || `image ${num}`;
+            // Detect which cast members appear in this scene
+            const sceneChars = castMembers.filter(c => {
+              const n = (c.name || '').trim();
+              return n && sceneText.toLowerCase().includes(n.toLowerCase());
+            }).slice(0, 5);
+            const charChipsHtml = sceneChars.length ? `<span class="sb-scene-chars">${sceneChars.map(c => `<button type="button" class="sb-scene-char-chip" title="${esc(c.name.trim())}" data-action="open-arc">${esc(c.name.trim()[0]?.toUpperCase() || '?')}</button>`).join('')}</span>` : '';
+            const wc = sceneText.trim() ? sceneText.trim().split(/\s+/).length : 0;
             return `
               <div class="sb-cue-section ${isDefault ? 'sb-cue-default' : ''}"
                    data-cue-id="${esc(cue.id)}"
                    data-block-id="${esc(b.id)}"
-                   data-cue-idx="${cueIdx}">
+                   data-cue-idx="${cueIdx}"
+                   draggable="true">
                 <button class="sb-cue-thumb ${isGenerating ? 'is-generating' : ''}"
                         type="button"
                         title="${esc(labelShort)}"
@@ -11181,11 +11221,13 @@
                 <div class="sb-cue-meta">${esc(label)}</div>
                 <div class="sb-cue-range" aria-hidden="true"></div>
                 <div class="sb-cue-mark">
+                  <span class="sb-drag-handle" aria-hidden="true" title="Drag to reorder scene">⠿</span>
                   <span class="sb-cue-label">${esc(label)}</span>
                   <span class="sb-cue-rule"></span>
-                  ${(() => { const wc = sceneText.trim() ? sceneText.trim().split(/\s+/).length : 0; return wc > 0 ? `<span class="sb-wc${wc > 200 ? ' sb-wc-long' : ''}" data-cue-wc="${esc(cue.id)}">${wc}w</span>` : ''; })()}
+                  ${wc > 0 ? `<span class="sb-wc${wc > 200 ? ' sb-wc-long' : ''}" data-cue-wc="${esc(cue.id)}">${wc}w</span>` : ''}
+                  ${charChipsHtml}
                   ${sceneText.length > 400 ? `<button class="sb-scene-auto-break" type="button" title="Analyze and split into multiple scenes">break into scenes</button>` : ''}
-                  <button class="sb-cue-delete" type="button" title="Remove this image break" aria-label="Remove">✕</button>
+                  <button class="sb-cue-delete" type="button" title="Merge with next scene (removes this scene break)" aria-label="Merge scenes">⊗</button>
                 </div>
                 <div class="sb-scene-text sb-paragraph"
                      contenteditable="true"
@@ -11501,6 +11543,8 @@
         const activate = (e) => {
           if (e && e.target && e.target.closest('.sb-cue-delete')) return;
           if (e && e.target && e.target.closest('.sb-scene-auto-break')) return;
+          if (e && e.target && e.target.closest('.sb-drag-handle')) return;
+          if (e && e.target && e.target.closest('.sb-scene-char-chip')) return;
           const idx = storybook.cues.findIndex(c => c.id === cueId);
           if (idx >= 0) {
             storybook.activeIdx = idx;
@@ -11514,6 +11558,36 @@
         del?.addEventListener('click', (e) => {
           e.stopPropagation();
           deleteCue(blockId, cueId);
+        });
+
+        // ── Drag-to-reorder ──
+        section.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('application/qss-cue', JSON.stringify({ cueId, blockId }));
+          e.dataTransfer.effectAllowed = 'move';
+          section.classList.add('is-dragging');
+        });
+        section.addEventListener('dragend', () => {
+          section.classList.remove('is-dragging');
+          document.querySelectorAll('.sb-cue-section.drag-over-top').forEach(el => el.classList.remove('drag-over-top'));
+        });
+        section.addEventListener('dragover', (e) => {
+          if (!e.dataTransfer.types.includes('application/qss-cue')) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          document.querySelectorAll('.sb-cue-section.drag-over-top').forEach(el => el.classList.remove('drag-over-top'));
+          section.classList.add('drag-over-top');
+        });
+        section.addEventListener('dragleave', (e) => {
+          if (!section.contains(e.relatedTarget)) section.classList.remove('drag-over-top');
+        });
+        section.addEventListener('drop', (e) => {
+          e.preventDefault();
+          section.classList.remove('drag-over-top');
+          try {
+            const data = JSON.parse(e.dataTransfer.getData('application/qss-cue'));
+            if (data.cueId === cueId) return;
+            reorderScene(data.blockId, data.cueId, blockId, cueId);
+          } catch {}
         });
         section.querySelector('.sb-scene-auto-break')?.addEventListener('click', async (e) => {
           e.stopPropagation();
@@ -11594,6 +11668,8 @@
       });
     }
 
+    let _lastDeletedCueSnap = null;
+
     function deleteCue(blockId, cueId) {
       const b = (state.blocks || []).find(x => x.id === blockId);
       if (!b) return;
@@ -11605,6 +11681,8 @@
       // rejected all auto-cues and left detector-mistakes stranded.
       const isDefault = cue.auto && (cue.offset || 0) === 0;
       if (isDefault) return;
+      // Save snapshot for undo
+      _lastDeletedCueSnap = { blockId, cues: (b.__cues || []).map(c => ({ ...c })) };
       b.__cues = (b.__cues || []).filter(c => c.id !== cueId);
       if (typeof persist === 'function') persist();
       storybook.cues = buildStorybookCues();
@@ -11619,6 +11697,91 @@
       renderStorybookProse();
       renderStorybookRail();
       renderStorybookArt();
+      sbToastWithUndo('scenes merged', () => {
+        if (!_lastDeletedCueSnap) return;
+        const snap = _lastDeletedCueSnap;
+        _lastDeletedCueSnap = null;
+        const bb = (state.blocks || []).find(x => x.id === snap.blockId);
+        if (!bb) return;
+        bb.__cues = snap.cues;
+        if (typeof persist === 'function') persist();
+        storybook.cues = buildStorybookCues();
+        renderStorybookProse();
+        renderStorybookRail();
+        renderStorybookArt();
+      });
+    }
+
+    function sbToastWithUndo(message, onUndo) {
+      let host = document.getElementById('sb-toast-host');
+      if (!host) {
+        host = document.createElement('div');
+        host.id = 'sb-toast-host';
+        host.style.cssText = 'position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:120; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none;';
+        document.body.appendChild(host);
+      }
+      const el = document.createElement('div');
+      el.style.cssText = 'pointer-events:auto; display:flex; align-items:center; gap:10px; background:var(--ink-bright,#000); color:var(--paper,#FFF6E0); padding:10px 18px; border-radius:999px; font-weight:700; font-size:13.5px; box-shadow:4px 4px 0 var(--yolk,#FFD93D); border:2px solid var(--ink-bright,#000); opacity:0; transform:translateY(8px); transition:opacity 220ms, transform 220ms;';
+      const msg = document.createElement('span');
+      msg.textContent = message;
+      const undoBtn = document.createElement('button');
+      undoBtn.textContent = 'undo';
+      undoBtn.style.cssText = 'background:var(--yolk,#FFD93D); color:var(--ink-bright,#000); border:none; border-radius:999px; padding:3px 10px; font-weight:900; font-size:12px; cursor:pointer; flex-shrink:0;';
+      el.appendChild(msg);
+      el.appendChild(undoBtn);
+      host.appendChild(el);
+      let dismissed = false;
+      const dismiss = () => {
+        if (dismissed) return;
+        dismissed = true;
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(8px)';
+        setTimeout(() => el.remove(), 240);
+      };
+      undoBtn.addEventListener('click', () => { onUndo(); dismiss(); });
+      requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; });
+      setTimeout(dismiss, 4000);
+    }
+
+    function reorderScene(srcBlockId, srcCueId, dstBlockId, dstCueId) {
+      if (srcBlockId !== dstBlockId) {
+        sbToast('can only reorder scenes within the same section for now');
+        return;
+      }
+      const b = (state.blocks || []).find(x => x.id === srcBlockId);
+      if (!b) return;
+      flushBlockScenes(srcBlockId);
+      const cues = (b.__cues || []).slice().sort((a, c) => (a.offset || 0) - (c.offset || 0));
+      const text = b.text || '';
+      // Capture text slices for each cue
+      const slices = cues.map((cue, i) => {
+        const start = Math.max(0, cue.offset || 0);
+        const end = i + 1 < cues.length ? (cues[i + 1].offset || text.length) : text.length;
+        return { cue: { ...cue }, sliceText: text.slice(start, end).replace(/^\n+/, '').replace(/\n+$/, '') };
+      });
+      const srcIdx = slices.findIndex(s => s.cue.id === srcCueId);
+      const dstIdx = slices.findIndex(s => s.cue.id === dstCueId);
+      if (srcIdx < 0 || dstIdx < 0 || srcIdx === dstIdx) return;
+      // Move src to before dst
+      const [moved] = slices.splice(srcIdx, 1);
+      const newDstIdx = slices.findIndex(s => s.cue.id === dstCueId);
+      slices.splice(newDstIdx, 0, moved);
+      // Rebuild block.text and cue offsets
+      let offset = 0;
+      const newCues = slices.map((s, i) => {
+        const cue = { ...s.cue, offset };
+        offset += s.sliceText.length + (i < slices.length - 1 ? 2 : 0);
+        return cue;
+      });
+      b.text = slices.map(s => s.sliceText).join('\n\n');
+      b.__cues = newCues;
+      b.__sceneBreaksScanned = '';
+      if (typeof persist === 'function') persist();
+      storybook.cues = buildStorybookCues();
+      renderStorybookProse();
+      renderStorybookRail();
+      renderStorybookArt();
+      sbToast('scene moved');
     }
 
     function scrollProseToCueMark(cueId) {
@@ -12261,6 +12424,10 @@
             <span aria-hidden="true">✎</span><span>generate image here</span>
           </button>
           <span class="sb-selbar-divider" aria-hidden="true"></span>
+          <button type="button" class="sb-selbar-btn" id="sb-selbar-break" title="Split scene at selection — adds a new scene break here">
+            <span aria-hidden="true">✂</span><span>break scene here</span>
+          </button>
+          <span class="sb-selbar-divider" aria-hidden="true"></span>
           <button type="button" class="sb-selbar-btn" id="sb-selbar-read" title="Read this selection aloud">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M15.54 8.46a5 5 0 010 7.07"/>
@@ -12272,6 +12439,7 @@
         // Stop click from collapsing the selection before we read it
         bar.addEventListener('mousedown', (e) => e.preventDefault());
         bar.querySelector('#sb-selbar-gen').addEventListener('click', onGenerateHere);
+        bar.querySelector('#sb-selbar-break').addEventListener('click', onBreakSceneHere);
         bar.querySelector('#sb-selbar-read').addEventListener('click', onReadSelection);
       }
       pane.removeEventListener('mouseup', onSelectionMaybe);
@@ -12297,7 +12465,7 @@
       if (text.length < 4) { bar.classList.remove('is-on'); return; }
       const rect = range.getBoundingClientRect();
       // Place bar centered above selection, clamped to viewport
-      const barWidth = 360;
+      const barWidth = 520;
       const left = Math.max(8, Math.min(window.innerWidth - barWidth - 8, rect.left + rect.width / 2 - barWidth / 2));
       const top = Math.max(8, rect.top - 52);
       bar.style.left = `${left}px`;
@@ -12314,6 +12482,22 @@
           window.qssTTS.speak(text, document.getElementById('sb-selbar-read'));
         }
       } catch {}
+    }
+    function onBreakSceneHere() {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return;
+      const range = sel.getRangeAt(0);
+      const startNode = range.startContainer;
+      const sceneEl = (startNode.nodeType === 1 ? startNode : startNode.parentElement)?.closest('.sb-scene-text');
+      if (!sceneEl) return;
+      const blockId = sceneEl.dataset.blockId;
+      const cueId = sceneEl.dataset.cueId;
+      if (!blockId || !cueId) return;
+      // addSceneBreakAfter reads window.getSelection() internally to find split point
+      addSceneBreakAfter(blockId, cueId);
+      sel.removeAllRanges();
+      const bar = document.getElementById('sb-selbar');
+      if (bar) bar.classList.remove('is-on');
     }
     function onGenerateHere() {
       const sel = window.getSelection();
