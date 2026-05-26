@@ -2043,6 +2043,29 @@
               const merged = state.cards[name];
               const hasPortraits = Array.isArray(merged?.portraits) && merged.portraits.length;
               if (!hasPortraits) newCharNeedsDraw.push(name);
+            } else if (Array.isArray(localCard.portraits) && Array.isArray(cloudCard.portraits)) {
+              // Local kept — enrich its portraits with image_url + storage_path
+              // from cloud where we share a portrait id. Without this, a local
+              // portrait whose Supabase upload completed but whose dataBase64
+              // was never promoted to image_url renders as a 1-2 MB inline
+              // data: URL forever (Henry pays the cost on every page paint,
+              // and the cast grid stalls for seconds during decode).
+              const cloudById = new Map();
+              for (const cp of cloudCard.portraits) if (cp?.id) cloudById.set(cp.id, cp);
+              let mergedAny = false;
+              for (const lp of localCard.portraits) {
+                if (!lp?.id || lp.image_url) continue;
+                const cp = cloudById.get(lp.id);
+                if (!cp?.image_url) continue;
+                lp.image_url = cp.image_url;
+                if (cp.storage_path) lp.storage_path = cp.storage_path;
+                mergedAny = true;
+              }
+              if (!localCard.primary_image_url && cloudCard.primary_image_url) {
+                localCard.primary_image_url = cloudCard.primary_image_url;
+                mergedAny = true;
+              }
+              if (mergedAny) touched = true;
             }
           }
           if (touched) {
