@@ -1732,6 +1732,8 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
   padding: 2px 8px;
   cursor: pointer;
   opacity: 0;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: opacity 0.2s, color 0.2s;
 }
 .lib-row:hover .lib-restore-btn {
@@ -1740,6 +1742,19 @@ tbody tr:hover { background: rgba(18, 17, 24, 0.02); }
 .lib-restore-btn:hover {
   color: var(--np-ink);
   border-color: var(--np-ink);
+}
+
+/* Trash rows carry an extra "Restore" button next to the × — the 56px
+   actions column was clipping Restore so only "ORE" peeked out and the
+   click target was barely reachable. Give trash rows a wider actions
+   column and let the buttons paint without clipping. */
+.lib-row--deleted {
+  grid-template-columns: minmax(0, 1fr) 110px 120px 140px;
+  cursor: default;
+}
+.lib-row--deleted .lib-col--actions {
+  overflow: visible;
+  gap: 8px;
 }
 
 /* Deleted days indicator */
