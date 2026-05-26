@@ -905,18 +905,20 @@ async function importStory(ep: Episode, index: number): Promise<string | null> {
     const label = cue.label || `scene ${i + 1}`;
 
     console.log(`${n}   🎨 [${i + 1}/${cues.length}] "${label.slice(0, 40)}"`);
-    try {
-      const img = await generateImage(label, excerpt);
-      if (img) {
+    let img = null;
+    for (let attempt = 0; attempt < 3 && !img; attempt++) {
+      if (attempt > 0) { console.log(`${n}   ↩ retry ${attempt}...`); await sleep(3000); }
+      try { img = await generateImage(label, excerpt); } catch (e) { console.log(`${n}   ⚠ gen error: ${e}`); }
+    }
+    if (img) {
+      try {
         const ext = img.mime.includes("jpeg") ? "jpg" : "png";
         const varId = `primary-${Date.now().toString(36)}`;
         const storagePath = `${WORLD_SLUG}/${storyId}/storybook/${blockId}/${cue.id}-${varId}.${ext}`;
         const url = await sbUpload(storagePath, b64toUint8(img.base64), img.mime);
         cue.image = { url, mimeType: img.mime };
         console.log(`${n}   ✓ Image uploaded: ...${url.split("/").slice(-2).join("/")}`);
-      }
-    } catch (e) {
-      console.log(`${n}   ⚠ Image ${i + 1} failed: ${e}`);
+      } catch (e) { console.log(`${n}   ⚠ upload failed: ${e}`); }
     }
 
     // Rate-limit: 2s between Gemini calls to avoid 429
