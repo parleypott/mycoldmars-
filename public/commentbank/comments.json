@@ -1,5 +1,274 @@
 [
   {
+    "id": "F0B68DBKT6E",
+    "name": "Screenshot 2026-05-23 at 8.15.14 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 23199,
+    "local_path": "images/F0B68DBKT6E.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1779810201.361119",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1779810201361119?thread_ts=1779810201.361119&cid=C084AQ5MNTS",
+    "posted_at": "2026-05-26T15:43:21.361Z",
+    "analysis": {
+      "comment_text": "I've been waiting for this complete video.",
+      "commenter": "Ocificap-J8r",
+      "sentiment": "personal_story",
+      "themes": [
+        "anticipation",
+        "complete video",
+        "viewer engagement"
+      ],
+      "video_hint": "A video described as 'complete', possibly a full or extended version of previously partial content",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-05-26T17:26:10.132Z"
+  },
+  {
+    "id": "F0B5SV833FH",
+    "name": "Screenshot 2026-05-26 at 11.41.58 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 83119,
+    "local_path": "images/F0B5SV833FH.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1779810201.361119",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1779810201361119?thread_ts=1779810201.361119&cid=C084AQ5MNTS",
+    "posted_at": "2026-05-26T15:43:21.361Z",
+    "analysis": {
+      "comment_text": "Thank you for compiling all of the episodes, watching them all together was amazing!! Your hard work of putting together the whole timeline so thoughtfully plus the sincere sharing of your personal experience in that timeline was beautifully done, you definitely clarified a few things that I thought I already knew, excellent work! 💖",
+      "commenter": "@pthaloblue100",
+      "sentiment": "praise",
+      "themes": [
+        "compilation",
+        "timeline",
+        "personal experience",
+        "clarity"
+      ],
+      "video_hint": "A compiled episodes video featuring a chronological timeline with personal narrative",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-05-26T17:26:11.099Z"
+  },
+  {
+    "id": "F0B5SV6TP8X",
+    "name": "Screenshot 2026-05-23 at 8.07.08 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 56939,
+    "local_path": "images/F0B5SV6TP8X.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1779810201.361119",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1779810201361119?thread_ts=1779810201.361119&cid=C084AQ5MNTS",
+    "posted_at": "2026-05-26T15:43:21.361Z",
+    "analysis": {
+      "comment_text": "This was so inspiring especially to someone who has religious trauma. Thank you so much for posting all 3 videos in one. You are doing amazing thank you Johnny!",
+      "commenter": "notreallyaugust",
+      "sentiment": "personal_story",
+      "themes": [
+        "religious trauma",
+        "inspiration",
+        "host",
+        "compilation"
+      ],
+      "video_hint": "A compilation or single upload containing 3 videos, likely related to religion or faith",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-05-26T17:26:11.212Z"
+  },
+  {
+    "id": "F0B5SV649QF",
+    "name": "Screenshot 2026-05-23 at 8.35.45 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 56607,
+    "local_path": "images/F0B5SV649QF.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1779810201.361119",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1779810201361119?thread_ts=1779810201.361119&cid=C084AQ5MNTS",
+    "posted_at": "2026-05-26T15:43:21.361Z",
+    "analysis": {
+      "comment_text": "Thank you for the video. Recently I got involved with LDS people. I went to their church service. They got a lot of peculiar doctrines about various subjects. Your documentaries about LDS give me proper info about the organisation. God bless.",
+      "commenter": "lionegberts",
+      "sentiment": "personal_story",
+      "themes": [
+        "lds",
+        "documentary",
+        "religion",
+        "information"
+      ],
+      "video_hint": "A documentary or video series about the LDS (Latter-day Saints / Mormon) church",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-05-26T17:26:11.766Z"
+  },
+  {
+    "id": "F0B68DDKF8A",
+    "name": "Screenshot 2026-05-26 at 11.41.36 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 47771,
+    "local_path": "images/F0B68DDKF8A.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1779810201.361119",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1779810201361119?thread_ts=1779810201.361119&cid=C084AQ5MNTS",
+    "posted_at": "2026-05-26T15:43:21.361Z",
+    "analysis": {
+      "comment_text": "I really appreciate how you share and provide information in such an informed, transparent, enjoyable way.  Thank you!",
+      "commenter": "@Marietta30064",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "transparency",
+        "presentation style",
+        "information quality"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-05-26T17:26:14.044Z"
+  },
+  {
+    "id": "F0B651ZSYAH",
+    "name": "Screenshot 2026-05-26 at 11.41.48 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 55974,
+    "local_path": "images/F0B651ZSYAH.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1779810201.361119",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1779810201361119?thread_ts=1779810201.361119&cid=C084AQ5MNTS",
+    "posted_at": "2026-05-26T15:43:21.361Z",
+    "analysis": {
+      "comment_text": "This was so inspiring especially to someone who has religious trauma. Thank you so much for posting all 3 videos in one. You are doing amazing thank you Johnny!",
+      "commenter": "notreallyaugust",
+      "sentiment": "personal_story",
+      "themes": [
+        "religious trauma",
+        "inspiration",
+        "compilation",
+        "host"
+      ],
+      "video_hint": "A compilation video containing 3 videos in one, likely related to religion or faith",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-05-26T17:26:15.072Z"
+  },
+  {
+    "id": "F0B68DCK9D0",
+    "name": "Screenshot 2026-05-26 at 11.41.31 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 71638,
+    "local_path": "images/F0B68DCK9D0.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1779810201.361119",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1779810201361119?thread_ts=1779810201.361119&cid=C084AQ5MNTS",
+    "posted_at": "2026-05-26T15:43:21.361Z",
+    "analysis": {
+      "comment_text": "Thank you for your honesty, vulnerability and really hard work. I have watched and appreciated every video you have done. I am a former Evangelical and I will always miss the community and feeling special BUT having my eyes open and being able to love everyone for who they are can not be replaced.",
+      "commenter": "terrilj",
+      "sentiment": "personal_story",
+      "themes": [
+        "evangelicalism",
+        "deconstruction",
+        "community",
+        "acceptance"
+      ],
+      "video_hint": "likely a video about leaving evangelical christianity or religious deconstruction",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-05-26T17:26:15.533Z"
+  },
+  {
+    "id": "F0B6520ESJH",
+    "name": "Screenshot 2026-05-26 at 11.41.15 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 45984,
+    "local_path": "images/F0B6520ESJH.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1779810201.361119",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1779810201361119?thread_ts=1779810201.361119&cid=C084AQ5MNTS",
+    "posted_at": "2026-05-26T15:43:21.361Z",
+    "analysis": {
+      "comment_text": "Your video \"why i left the mormon religion \" helped me when i was deconstructing from the jehovah's witnesses",
+      "commenter": "@EXJWCoffeebreak",
+      "sentiment": "personal_story",
+      "themes": [
+        "religious deconstruction",
+        "mormonism",
+        "jehovah's witnesses",
+        "personal impact"
+      ],
+      "video_hint": "Video titled 'why i left the mormon religion'",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-05-26T17:26:15.886Z"
+  },
+  {
+    "id": "F0B6C1Y57J8",
+    "name": "Screenshot 2026-05-26 at 11.41.08 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 38165,
+    "local_path": "images/F0B6C1Y57J8.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1779810201.361119",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1779810201361119?thread_ts=1779810201.361119&cid=C084AQ5MNTS",
+    "posted_at": "2026-05-26T15:43:21.361Z",
+    "analysis": {
+      "comment_text": "Takes great courage to step away from everything you once and everyone else around you stood for",
+      "commenter": "@KreditKard-m2p",
+      "sentiment": "insightful",
+      "themes": [
+        "courage",
+        "personal change",
+        "identity",
+        "conviction"
+      ],
+      "video_hint": "likely a video about someone changing their beliefs, leaving a group, or taking an unpopular stance",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-05-26T17:26:17.137Z"
+  },
+  {
+    "id": "F0B72MW2UE4",
+    "name": "Screenshot 2026-05-26 at 11.41.02 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 35833,
+    "local_path": "images/F0B72MW2UE4.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1779810201.361119",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1779810201361119?thread_ts=1779810201.361119&cid=C084AQ5MNTS",
+    "posted_at": "2026-05-26T15:43:21.361Z",
+    "analysis": {
+      "comment_text": "Would love see you on Mormon stories podcast.",
+      "commenter": "patrickbateman161",
+      "sentiment": "other",
+      "themes": [
+        "podcast",
+        "collaboration",
+        "mormon",
+        "invitation"
+      ],
+      "video_hint": "likely a video related to Mormonism or religious topics",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-05-26T17:26:17.659Z"
+  },
+  {
     "id": "F0B3MKDR70S",
     "name": "Screenshot 2026-05-13 at 1.30.12 PM.png",
     "ext": "png",
