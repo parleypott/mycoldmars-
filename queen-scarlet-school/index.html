@@ -7010,6 +7010,7 @@
       const smaxRaw = parseInt(document.getElementById('rule-smax').value, 10) || 3;
       const smax = Math.max(smin, smaxRaw);
       state.rules = {
+        ...state.rules, // preserve inception, arc, and any other custom flags
         goal: document.getElementById('rule-goal').value.trim(),
         bible: document.getElementById('rule-bible').value.trim(),
         style: document.getElementById('rule-style').value.trim() || DEFAULT_RULES.style,
