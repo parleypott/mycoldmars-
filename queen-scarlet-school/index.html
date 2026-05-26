@@ -11956,8 +11956,10 @@
 
         // ── Drag-to-reorder — only arms when pointer starts on the handle ──
         const handle = section.querySelector('.sb-drag-handle');
-        handle?.addEventListener('mousedown', () => { section.draggable = true; });
-        document.addEventListener('mouseup', () => { section.draggable = false; }, true);
+        handle?.addEventListener('mousedown', () => {
+          section.draggable = true;
+          document.addEventListener('mouseup', () => { section.draggable = false; }, { once: true, capture: true });
+        });
         section.addEventListener('dragstart', (e) => {
           if (!section.draggable) { e.preventDefault(); return; }
           e.dataTransfer.setData('application/qss-cue', JSON.stringify({ cueId, blockId }));
