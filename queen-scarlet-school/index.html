@@ -14000,9 +14000,13 @@
             blocksRebuilt++;
           }
 
-          // Clear all non-art cues so AI can re-propose clean scene breaks.
-          // Art cues are preserved because they have a user's image attached.
-          b.__cues = (b.__cues || []).filter(c => c.art);
+          // Clear auto scene-break cues but preserve any that have art
+          // (image or variations). c.art doesn't exist; check c.image / c.variations.
+          b.__cues = (b.__cues || []).filter(c => {
+            const hasImg = !!(c.image?.url);
+            const hasVars = Array.isArray(c.variations) && c.variations.length > 0;
+            return hasImg || hasVars;
+          });
           b.__sceneBreaksScanned = '';
         }
 
