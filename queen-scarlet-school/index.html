@@ -7129,6 +7129,11 @@
       renderAll();
       window.Lib?.setStatus('local');
       persist();
+      // Two-mode shell: a brand new story should land on the Storybook tab
+      // so Henry sees the Karl-chat dropzone (paste / drop a file → AUTO
+      // BUILD) — the obvious entry point for an empty story. Without this,
+      // newStory() leaves whatever tab was previously active.
+      try { setStage('storybook'); } catch {}
     }
     function init() {
       // Coming back from the library page?
