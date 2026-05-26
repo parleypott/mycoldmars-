@@ -6,8 +6,6 @@
 import { readFileSync } from "fs";
 import * as path from "path";
 
-// ── Credentials ────────────────────────────────────────────────────────
-// Load from .env.local first, then .env
 function loadEnv() {
   const envFiles = [
     path.join(import.meta.dir, "../.env.local"),
@@ -30,13 +28,12 @@ const SUPABASE_KEY = process.env.HENRY_UNIVERSE_SUPABASE_SERVICE_KEY || process.
 const GEMINI_KEY = process.env.GEMINI_API_KEY || "";
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 
-if (!SUPABASE_URL || !SUPABASE_KEY) { console.error("❌ HENRY_UNIVERSE_SUPABASE_URL / HENRY_UNIVERSE_SUPABASE_SERVICE_KEY missing — source ~/.config/mycoldmars/secrets.env"); process.exit(1); }
-const WORLD_SLUG = "queen-scarlet";
-
+if (!SUPABASE_URL || !SUPABASE_KEY) { console.error("❌ HENRY_UNIVERSE_SUPABASE_URL / HENRY_UNIVERSE_SUPABASE_SERVICE_KEY missing"); process.exit(1); }
 if (!GEMINI_KEY) { console.error("❌ GEMINI_API_KEY missing"); process.exit(1); }
 if (!ANTHROPIC_KEY) { console.error("❌ ANTHROPIC_API_KEY missing"); process.exit(1); }
 
-// ── ID helpers ─────────────────────────────────────────────────────────
+const WORLD_SLUG = "queen-scarlet";
+
 const CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 function genId(len = 8) {
   let s = "";
@@ -44,9 +41,16 @@ function genId(len = 8) {
   return s;
 }
 
-// ── Supabase REST ───────────────────────────────────────────────────────
-async function sb(method: string, path: string, body?: unknown): Promise<unknown> {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+// Same djb2 hash the browser uses for __sceneBreaksScanned fingerprints.
+function hashString(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+// ── Supabase REST ───────────────────────────────────────────────────────────
+async function sb(method: string, urlPath: string, body?: unknown): Promise<unknown> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${urlPath}`, {
     method,
     headers: {
       apikey: SUPABASE_KEY,
@@ -83,7 +87,7 @@ async function sbUpload(storagePath: string, data: Uint8Array, mime: string): Pr
   return `${SUPABASE_URL}/storage/v1/object/public/qss-scenes/${storagePath}`;
 }
 
-// ── Scene break detection (Claude) ──────────────────────────────────────
+// ── Scene break detection (Claude) ─────────────────────────────────────────
 const BREAK_SYSTEM = `You are a picture-book art director. You read a block of a kid's story and decide where the ILLUSTRATION should change. Your output is a list of character offsets where a new picture would help the reader.
 
 PHILOSOPHY:
@@ -105,6 +109,7 @@ OFFSET RULES:
 - Use the START of the sentence or the cut line.
 - Offsets must be > 0 and < text.length. Strictly increasing.
 - Two breaks within 80 characters of each other are too close — pick one.
+- SNAP to paragraph start (just after a \\n\\n) whenever possible — never land mid-sentence.
 
 OUTPUT — strict JSON only:
 { "breaks": [ { "offset": number, "label": "short phrase", "why": "one sentence" }, ... ] }
@@ -137,25 +142,124 @@ async function detectBreaks(text: string): Promise<SceneBreak[]> {
   if (!res.ok) throw new Error(`claude_${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = await res.json() as { content: Array<{ text: string }> };
   const raw = (data.content?.[0]?.text || "").replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+
+  // Snap each break offset to the nearest paragraph boundary so cues
+  // never start mid-sentence.
+  function snapToParagraph(t: string, off: number): number {
+    if (off <= 0 || off >= t.length) return off;
+    // Forward: look for \n\n within 200 chars
+    const fwd = Math.min(t.length - 1, off + 200);
+    for (let i = off; i < fwd; i++) {
+      if (t[i] === '\n' && t[i + 1] === '\n') {
+        let j = i + 2;
+        while (j < t.length && /[\s\n]/.test(t[j])) j++;
+        if (j < t.length) return j;
+      }
+    }
+    // Backward: look for start of current paragraph
+    for (let i = off - 1; i >= Math.max(0, off - 300); i--) {
+      if (t[i] === '\n' && (i === 0 || t[i - 1] === '\n')) {
+        let j = i + 1;
+        while (j < t.length && /[ \t]/.test(t[j])) j++;
+        if (j < t.length && j > 0) return j;
+      }
+    }
+    return off;
+  }
+
   try {
     const parsed = JSON.parse(raw) as { breaks: SceneBreak[] };
     return (parsed.breaks || [])
       .filter(b => b && typeof b.offset === "number" && b.offset > 0 && b.offset < text.length)
+      .map(b => ({ ...b, offset: snapToParagraph(text, b.offset) }))
+      .filter((b, i, arr) => {
+        if (i === 0) return true;
+        return Math.abs(b.offset - arr[i - 1].offset) >= 80;
+      })
       .slice(0, 16);
   } catch {
     return [];
   }
 }
 
-// ── Gemini image generation ──────────────────────────────────────────────
-const ART_STYLE = `Hand-drawn children's storybook illustration, thick black ink outlines with slightly varied hand-drawn weight, flat cel-shaded color blocks on a warm cream paper background (#F4ECD8). Soft natural light, no gradients, no airbrush, no photorealism. Mood: classroom-comedy in the tradition of Lauren Child and Oliver Jeffers — scrappy, warm, expressive, a smart illustrator's hand. Palette: tomato red, butter yellow, teal, ochre, sky blue, mossy green, lavender, salmon pink. Skin tones: deep brown, warm brown, golden, olive, or freckled cream — no default-white characters. Every character's full body must be visible and unclipped — wide establishing shot, subjects placed in the lower 55% of the frame, generous empty space above the tallest figure's head.
+// ── Art prompt (mirrors QSSArt.build in index.html) ─────────────────────────
 
-COMPOSITION (absolute rules): One single image, one camera angle, one moment. NEVER comic panels, split-screen, or multi-panel layouts. NEVER speech bubbles, thought bubbles, or captions. NEVER any visible text, words, letters, numbers, signs, or labels inside the image. Wide enough that every character is fully visible from feet to top of head.`;
+const ART_STYLE = `Hand-drawn children's storybook illustration, 16:9 single full-bleed frame, thick black ink outlines with slightly varied hand-drawn weight, flat cel-shaded color blocks on a warm cream paper background (#F4ECD8). Soft natural light, no gradients, no airbrush, no photorealism. Mood: warm, expressive, scrappy — zany apocalypse-prep school energy in the tradition of Lauren Child and Oliver Jeffers. Palette: tomato red, butter yellow, teal, ochre, sky blue, mossy green, lavender, salmon pink. Skin tones rotate across deep brown, warm brown, golden, olive, freckled cream — white is the last option. Every character's full body must be visible and unclipped — wide establishing shot, subjects placed in the lower 55% of the frame, generous empty space above the tallest figure's head.`;
 
+// Canonical character visual signatures — keep in sync with QSSArt.LOOKBOOK in index.html.
+const LOOKBOOK: Record<string, { name: string; aliases?: string[]; signature: string }> = {
+  'kevin': {
+    name: 'Kevin',
+    signature: 'a school-age boy whose head is completely swallowed by a giant grey calculator-helmet showing "ERROR: 3000" on its red screen, teal hoodie with a K on the chest, blue backpack',
+  },
+  'benny': {
+    name: 'Benny the Prepared Beaver',
+    aliases: ['benny the beaver', 'benny the prepared beaver'],
+    signature: 'an anthropomorphic brown beaver standing upright in an orange high-visibility safety vest, buck teeth visible',
+  },
+  'queen scarlet': {
+    name: 'Queen Scarlet',
+    aliases: ['scarlet'],
+    signature: 'a large red cartoon dragon with yellow horns and teal-and-orange wings, fierce-but-charming face, dominant presence in the room',
+  },
+  'mark rober': {
+    name: 'Mark Rober',
+    aliases: ['mark', 'mr rober'],
+    // Based on actual reference photo: olive-tan skin, short dark brown hair, backward tan
+    // Hurley baseball cap (brim facing back), short stubble, brown eyes, black t-shirt.
+    // His studio background is a pegboard wall covered in colourful tools.
+    signature: 'a man in his late thirties, olive-tan skin, brown eyes, short dark brown hair, backward tan baseball cap (brim facing back — his signature), short stubble beard, black t-shirt; when in his studio he stands in front of a pegboard tool wall',
+  },
+  'principal gerald': {
+    name: 'Principal Gerald',
+    signature: 'a tall stooped older man in a brown suit, balding with grey side hair, glasses on a chain, carrying a clipboard',
+  },
+  'lunch lady': {
+    name: 'The Lunch Lady',
+    signature: 'a middle-aged woman in a white kitchen apron and hairnet, holding a giant ladle',
+  },
+  'lila': {
+    name: 'Lila',
+    signature: 'a school-age girl with warm brown skin and two puffed-out pigtails, wearing a lab coat two sizes too big, eyes wide with enthusiasm',
+  },
+};
+
+function detectCharacters(text: string): Array<{ key: string; name: string; signature: string }> {
+  const t = text.toLowerCase();
+  const hits: Array<{ key: string; name: string; signature: string }> = [];
+  for (const [key, entry] of Object.entries(LOOKBOOK)) {
+    const names = [key, ...(entry.aliases || []), entry.name];
+    for (const n of names) {
+      const lname = n.toLowerCase();
+      const escaped = lname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`\\b${escaped}\\b`, 'i');
+      if (re.test(t)) { hits.push({ key, name: entry.name, signature: entry.signature }); break; }
+    }
+  }
+  return hits;
+}
+
+function buildPrompt(sceneText: string): string {
+  const clean = sceneText.trim();
+  const characters = detectCharacters(clean);
+  const charBlock = characters.length
+    ? `The characters in this picture:\n${characters.map(c => `- ${c.name}: ${c.signature}`).join('\n')}\nBackground extras are ordinary-looking kids and grown-ups with naturalistic faces.`
+    : 'The people in this picture are ordinary-looking kids and grown-ups with naturalistic faces and varied skin tones.';
+
+  const scenePart = clean
+    ? `Show one strong single moment from this passage — pick the most visually surprising or emotionally loaded beat and render only that one picture, like a single page of a picture book:\n"${clean.slice(0, 800)}"`
+    : `Draw an inviting establishing shot for an empty scene in Queen Scarlet's School — a bright classroom or hallway, no specific action yet.`;
+
+  const composition = `One camera angle, one moment, full-bleed frame. No comic panels, no speech bubbles, no visible text, words, or letters anywhere in the image. Wide enough that every character is fully visible from feet to top of head, with comfortable breathing room above the tallest figure.`;
+
+  return [ART_STYLE, scenePart, charBlock, composition].filter(Boolean).join('\n\n');
+}
+
+// ── Gemini image generation ─────────────────────────────────────────────────
 interface GeminiImage { base64: string; mime: string; }
 
-async function generateImage(label: string, excerpt: string): Promise<GeminiImage | null> {
-  const prompt = `${ART_STYLE}\n\nSCENE: ${label}\n\nWHAT HAPPENS:\n${excerpt.slice(0, 800)}`;
+async function generateImage(sceneText: string): Promise<GeminiImage | null> {
+  const prompt = buildPrompt(sceneText);
   try {
     const res = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
@@ -198,7 +302,7 @@ function b64toUint8(b64: string): Uint8Array {
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-// ── Story data ──────────────────────────────────────────────────────────
+// ── Story data ──────────────────────────────────────────────────────────────
 interface Episode { arc: string; name: string; text: string; }
 
 const STORIES: Episode[] = [
@@ -313,7 +417,7 @@ Scarlet smirked, taking a sip of her perfectly laser-heated tea.
 "See?" she said to the horrified lawyers. "Physics in action. Now, if you'll excuse me, I need to call MrBeast. I have a frightfully good idea involving a deserted island and a very large bunker."`,
   },
 
-  // ── Arc 2: Crunch Lab: The Invasion Arc ──────────────────────────────
+  // ── Arc 2: Crunch Lab: The Invasion Arc ──────────────────────────────────
   {
     arc: "Crunch Lab: The Invasion Arc",
     name: "The Crunch Lab Invasion",
@@ -376,7 +480,7 @@ The barrel hummed happily back.
 And the beans, as always, outlived everyone's good decisions.`,
   },
 
-  // ── Arc 3: The Box That Changed Everything ────────────────────────────
+  // ── Arc 3: The Box That Changed Everything ────────────────────────────────
   {
     arc: "The Box That Changed Everything",
     name: "The Forty-Million-Dollar Box",
@@ -826,14 +930,27 @@ Kevin sighed.
   },
 ];
 
-// ── Main pipeline ────────────────────────────────────────────────────────
+// ── Cue type ─────────────────────────────────────────────────────────────────
+interface Variation { id: string; url: string; mimeType: string; created_at: number; }
+interface Cue {
+  id: string;
+  offset: number;
+  label: string;
+  auto: boolean;
+  source_text: string;
+  variations: Variation[];
+  active_variation_id: string | null;
+  image?: { url: string; mimeType: string };
+}
+
+// ── Main pipeline ─────────────────────────────────────────────────────────────
 async function importStory(ep: Episode, index: number): Promise<string | null> {
   const n = `[${index + 1}/9]`;
   const blockId = genId(8);
 
   console.log(`\n${n} 📖 "${ep.name}" (${ep.arc})`);
 
-  // 1. Create story in Supabase (or find existing if name is taken)
+  // 1. Create or reset story
   console.log(`${n}   Creating story record...`);
   let storyId: string;
   try {
@@ -847,20 +964,18 @@ async function importStory(ep: Episode, index: number): Promise<string | null> {
     console.log(`${n}   ✓ Story created: ${storyId}`);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    // Duplicate name — find the existing story and reuse its ID
     if (msg.includes("23505") || msg.includes("duplicate key")) {
-      console.log(`${n}   ↩ Duplicate name — finding existing story...`);
+      console.log(`${n}   ↩ Duplicate — finding existing story...`);
       try {
         const rows = await sb("GET", `qss_stories?name=eq.${encodeURIComponent(ep.name)}&select=id&limit=1`) as Array<{ id: string }>;
         if (!rows?.length) throw new Error("not found after duplicate error");
         storyId = rows[0].id;
-        // Reset blocks so we regenerate everything fresh
         await sb("PATCH", `qss_stories?id=eq.${storyId}`, {
           rules: { inception: true, arc: ep.arc },
           blocks: [{ id: blockId, text: ep.text, __cues: [] }],
           updated_at: new Date().toISOString(),
         });
-        console.log(`${n}   ✓ Reusing existing story: ${storyId}`);
+        console.log(`${n}   ✓ Reset existing story: ${storyId}`);
       } catch (e2) {
         console.error(`${n}   ✗ Could not recover from duplicate: ${e2}`);
         return null;
@@ -882,61 +997,73 @@ async function importStory(ep: Episode, index: number): Promise<string | null> {
   }
   await sleep(500);
 
-  // 3. Build cues from breaks
-  const cues: Array<{
-    id: string; offset: number; label: string; auto: boolean;
-    image?: { url: string; mimeType: string };
-  }> = breaks.map(b => ({
-    id: genId(8),
-    offset: b.offset,
-    label: b.label,
-    auto: true,
-  }));
+  // 3. Build cues — offset-0 opener first, then detected breaks
+  const rawCues: Array<{ id: string; offset: number; label: string }> = [
+    { id: genId(8), offset: 0, label: "opening" },
+    ...breaks.map(b => ({ id: genId(8), offset: b.offset, label: b.label })),
+  ];
 
-  // Add a cue at offset 0 for the opening scene
-  cues.unshift({ id: genId(8), offset: 0, label: "opening", auto: true });
+  // Assign source_text slices now so the browser never falls back to full block text
+  const cues: Cue[] = rawCues.map((rc, i) => {
+    const nextOffset = rawCues[i + 1]?.offset ?? ep.text.length;
+    return {
+      id: rc.id,
+      offset: rc.offset,
+      label: rc.label,
+      auto: true,
+      source_text: ep.text.slice(rc.offset, nextOffset),
+      variations: [],
+      active_variation_id: null,
+    };
+  });
 
   // 4. Generate images for each cue
   console.log(`${n}   Generating ${cues.length} images...`);
   for (let i = 0; i < cues.length; i++) {
     const cue = cues[i];
-    const nextOffset = cues[i + 1]?.offset ?? ep.text.length;
-    const excerpt = ep.text.slice(cue.offset, nextOffset);
-    const label = cue.label || `scene ${i + 1}`;
-
-    console.log(`${n}   🎨 [${i + 1}/${cues.length}] "${label.slice(0, 40)}"`);
-    let img = null;
+    console.log(`${n}   🎨 [${i + 1}/${cues.length}] "${cue.label.slice(0, 50)}"`);
+    let img: GeminiImage | null = null;
     for (let attempt = 0; attempt < 3 && !img; attempt++) {
       if (attempt > 0) { console.log(`${n}   ↩ retry ${attempt}...`); await sleep(3000); }
-      try { img = await generateImage(label, excerpt); } catch (e) { console.log(`${n}   ⚠ gen error: ${e}`); }
+      img = await generateImage(cue.source_text);
     }
     if (img) {
       try {
         const ext = img.mime.includes("jpeg") ? "jpg" : "png";
-        const varId = `primary-${Date.now().toString(36)}`;
+        const varId = genId(8) + "-v";
         const storagePath = `${WORLD_SLUG}/${storyId}/storybook/${blockId}/${cue.id}-${varId}.${ext}`;
         const url = await sbUpload(storagePath, b64toUint8(img.base64), img.mime);
+        const variation: Variation = { id: varId, url, mimeType: img.mime, created_at: Date.now() };
+        cue.variations.push(variation);
+        cue.active_variation_id = varId;
         cue.image = { url, mimeType: img.mime };
-        console.log(`${n}   ✓ Image uploaded: ...${url.split("/").slice(-2).join("/")}`);
+        console.log(`${n}   ✓ ...${url.split("/").slice(-2).join("/")}`);
       } catch (e) { console.log(`${n}   ⚠ upload failed: ${e}`); }
+    } else {
+      console.log(`${n}   ⚠ No image after 3 attempts — skipping`);
     }
-
-    // Rate-limit: 2s between Gemini calls to avoid 429
     if (i < cues.length - 1) await sleep(2000);
   }
 
-  // 5. Save story with populated cues
-  console.log(`${n}   Saving story with ${cues.length} cues...`);
+  // 5. Save with __sceneBreaksScanned fingerprint so the browser won't
+  //    re-run detection and overwrite the import cues.
+  const fp = `${ep.text.length}:${hashString(ep.text)}`;
+  console.log(`${n}   Saving ${cues.length} cues (fp: ${fp})...`);
   try {
     await sb("PATCH", `qss_stories?id=eq.${storyId}`, {
-      blocks: [{ id: blockId, text: ep.text, __cues: cues }],
+      blocks: [{
+        id: blockId,
+        text: ep.text,
+        __cues: cues,
+        __sceneBreaksScanned: fp,
+      }],
       rules: { inception: true, arc: ep.arc },
       updated_at: new Date().toISOString(),
     });
-    const withImages = cues.filter(c => c.image).length;
+    const withImages = cues.filter(c => c.variations.length > 0).length;
     console.log(`${n}   ✓ Saved! ${withImages}/${cues.length} cues have images`);
   } catch (e) {
-    console.error(`${n}   ✗ Failed to save cues: ${e}`);
+    console.error(`${n}   ✗ Failed to save: ${e}`);
   }
 
   return storyId;
@@ -948,7 +1075,6 @@ async function main() {
   console.log(`   Supabase: ${SUPABASE_URL}`);
   console.log(`   World: ${WORLD_SLUG}\n`);
 
-  // Test Supabase connection
   try {
     await sb("GET", "qss_stories?select=id&limit=1");
     console.log("✓ Supabase connection OK\n");
@@ -958,26 +1084,19 @@ async function main() {
   }
 
   const results: Array<{ name: string; storyId: string | null }> = [];
-
   for (let i = 0; i < STORIES.length; i++) {
-    const ep = STORIES[i];
-    const storyId = await importStory(ep, i);
-    results.push({ name: ep.name, storyId });
-    // Pause between stories to be kind to rate limits
+    const storyId = await importStory(STORIES[i], i);
+    results.push({ name: STORIES[i].name, storyId });
     if (i < STORIES.length - 1) {
-      console.log("\n⏳ Pausing 3s before next story...");
+      console.log("\n⏳ Pausing 3s...");
       await sleep(3000);
     }
   }
 
-  // Summary
   console.log("\n\n════════════════════════════════════");
   console.log("📋 Import Summary");
   console.log("════════════════════════════════════");
-  for (const r of results) {
-    const icon = r.storyId ? "✓" : "✗";
-    console.log(`${icon} "${r.name}" → ${r.storyId || "FAILED"}`);
-  }
+  for (const r of results) console.log(`${r.storyId ? "✓" : "✗"} "${r.name}" → ${r.storyId || "FAILED"}`);
   const ok = results.filter(r => r.storyId).length;
   console.log(`\n${ok}/${results.length} stories imported successfully`);
   console.log("\n✅ Done! Refresh the QSS library to see your inception stories.");
