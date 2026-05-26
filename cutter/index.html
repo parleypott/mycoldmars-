@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>✂ the cutter — Newpress</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-mono/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-sans/style.css">
+  <style>
+    :root {
+      --bg:       #0a0a0a;
+      --surface:  #141414;
+      --surface2: #1c1c1c;
+      --border:   rgba(255,255,255,0.08);
+      --border2:  rgba(255,255,255,0.14);
+      --ink:      #e5e5e5;
+      --dim:      rgba(255,255,255,0.4);
+      --red:      #FF3B20;
+      --green:    #22C55E;
+      --warm:     #F4F2E6;
+      --mono:     'Geist Mono', monospace;
+      --sans:     'Geist Sans', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    ::selection { background: var(--red); color: var(--warm); }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.5;
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .hidden { display: none !important; }
+
+    /* ── Gate ───────────────────────────────────────────────────── */
+    #gate {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg);
+      z-index: 100;
+    }
+    .gate-inner {
+      display: flex; flex-direction: column; gap: 12px;
+      width: 280px;
+    }
+    .gate-eyebrow {
+      font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase;
+      color: var(--red); font-family: var(--mono);
+    }
+    .gate-title {
+      font-family: var(--mono); font-size: 28px; font-weight: 400;
+      color: var(--warm); letter-spacing: -0.02em;
+    }
+    .gate-input {
+      background: var(--surface); border: 1px solid var(--border2);
+      color: var(--ink); font-family: var(--mono); font-size: 13px;
+      padding: 10px 12px; border-radius: 4px; outline: none; width: 100%;
+    }
+    .gate-input:focus { border-color: rgba(255,255,255,0.3); }
+    .gate-btn {
+      background: var(--red); color: var(--warm); border: none;
+      font-family: var(--mono); font-size: 11px; font-weight: 500;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 10px; border-radius: 4px; cursor: pointer; width: 100%;
+    }
+    .gate-btn:hover { opacity: 0.85; }
+    .gate-error { font-size: 10px; color: var(--red); letter-spacing: 0.05em; }
+
+    /* ── App shell ──────────────────────────────────────────────── */
+    #app {
+      display: flex; flex-direction: column;
+      height: 100vh; overflow: hidden;
+    }
+
+    /* Top bar */
+    .topbar {
+      display: flex; align-items: center; gap: 16px;
+      padding: 0 20px; height: 44px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .topbar-logo {
+      font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
+      color: var(--dim);
+    }
+    .topbar-logo span { color: var(--warm); }
+    .topbar-sep { width: 1px; height: 14px; background: var(--border2); }
+    .topbar-title {
+      font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--dim);
+    }
+    .topbar-title.active { color: var(--warm); }
+    .topbar-spacer { flex: 1; }
+    .topbar-status {
+      font-size: 10px; letter-spacing: 0.15em; color: var(--dim);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .pulse {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .pulse.off { background: var(--dim); animation: none; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ── Phase panels ───────────────────────────────────────────── */
+    .phase { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .phase.hidden { display: none !important; }
+
+    /* Upload phase */
+    .upload-wrap { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+    .drop-zone {
+      width: 480px; border: 1.5px dashed var(--border2);
+      border-radius: 8px; padding: 60px 40px;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s;
+      text-align: center;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: rgba(255,255,255,0.35);
+      background: rgba(255,255,255,0.02);
+    }
+    .drop-icon { font-size: 36px; opacity: 0.4; }
+    .drop-main { font-size: 13px; color: var(--warm); }
+    .drop-sub { font-size: 11px; color: var(--dim); letter-spacing: 0.05em; }
+    .drop-formats { font-size: 10px; color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; }
+    #file-input { display: none; }
+
+    .file-selected {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--dim);
+    }
+    .file-name { font-size: 13px; color: var(--warm); }
+    .file-size { font-size: 11px; color: var(--dim); }
+
+    .btn-analyze {
+      background: var(--red); color: var(--warm); border: none;
+      font-family: var(--mono); font-size: 11px; font-weight: 500;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      padding: 12px 32px; border-radius: 4px; cursor: pointer;
+    }
+    .btn-analyze:hover { opacity: 0.85; }
+    .btn-analyze:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* Upload progress */
+    .upload-progress { display: flex; flex-direction: column; gap: 10px; width: 480px; }
+    .progress-label { font-size: 11px; color: var(--dim); letter-spacing: 0.1em; }
+    .progress-bar {
+      height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: var(--red); border-radius: 2px;
+      transition: width 0.3s ease; width: 0%;
+    }
+    .progress-status { font-size: 10px; color: var(--dim); }
+
+    /* Analyzing phase */
+    .analyzing-wrap { text-align: center; display: flex; flex-direction: column; gap: 16px; align-items: center; }
+    .analyzing-icon { font-size: 32px; opacity: 0.5; animation: spin 3s linear infinite; }
+    @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+    .analyzing-title { font-size: 15px; color: var(--warm); }
+    .analyzing-sub { font-size: 12px; color: var(--dim); max-width: 360px; line-height: 1.6; }
+    .analyzing-steps { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+    .step {
+      font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--dim); display: flex; align-items: center; gap: 8px;
+    }
+    .step.done { color: var(--green); }
+    .step.active { color: var(--warm); }
+    .step-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+    /* Results phase */
+    #phase-results {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+    #phase-results.hidden { display: none !important; }
+
+    .results-shell {
+      flex: 1; display: grid;
+      grid-template-columns: 1fr 380px;
+      overflow: hidden;
+    }
+
+    /* Script panel */
+    .script-panel {
+      display: flex; flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .panel-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .panel-title {
+      font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
+      color: var(--dim);
+    }
+    .panel-meta { font-size: 10px; color: var(--dim); margin-left: auto; }
+
+    .script-scroll { flex: 1; overflow-y: auto; }
+    .script-scroll::-webkit-scrollbar { width: 4px; }
+    .script-scroll::-webkit-scrollbar-track { background: transparent; }
+    .script-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    .script-table { width: 100%; border-collapse: collapse; }
+    .script-table th {
+      font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--dim); text-align: left; padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: var(--surface); z-index: 1;
+    }
+    .script-table th:first-child { width: 80px; }
+    .script-table th:nth-child(2) { width: 45%; }
+
+    .script-row { border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .script-row:hover { background: rgba(255,255,255,0.02); }
+    .script-row td {
+      padding: 10px 14px; vertical-align: top; font-size: 12px;
+      line-height: 1.55;
+    }
+    .ts {
+      font-size: 10px; color: var(--dim); letter-spacing: 0.06em;
+      white-space: nowrap; font-family: var(--mono);
+    }
+    .words { color: var(--warm); }
+    .words.no-dialogue { color: var(--dim); font-style: italic; }
+    .visual-desc { color: rgba(255,255,255,0.6); }
+
+    /* Chat panel */
+    .chat-panel {
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .chat-scroll {
+      flex: 1; overflow-y: auto; padding: 12px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .chat-scroll::-webkit-scrollbar { width: 3px; }
+    .chat-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    .chat-msg {
+      display: flex; flex-direction: column; gap: 3px;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+    .chat-msg-role {
+      font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim);
+    }
+    .chat-msg.user .chat-msg-role { color: rgba(255,59,32,0.7); }
+    .chat-msg-body {
+      font-size: 12px; line-height: 1.6; color: var(--ink);
+      background: var(--surface2); padding: 10px 12px; border-radius: 4px;
+    }
+    .chat-msg.user .chat-msg-body {
+      background: rgba(255,59,32,0.12);
+      border: 1px solid rgba(255,59,32,0.2);
+    }
+
+    .chat-msg-body p { margin-bottom: 8px; }
+    .chat-msg-body p:last-child { margin-bottom: 0; }
+
+    .chat-typing { display: flex; align-items: center; gap: 4px; padding: 6px 4px; }
+    .typing-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--dim); animation: blink 1.2s infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%,100%{opacity:0.3} 50%{opacity:1} }
+
+    .chat-footer {
+      padding: 10px 12px; border-top: 1px solid var(--border); flex-shrink: 0;
+    }
+    .chat-input-row { display: flex; gap: 8px; }
+    .chat-input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border2);
+      color: var(--ink); font-family: var(--mono); font-size: 12px;
+      padding: 9px 12px; border-radius: 4px; outline: none; resize: none;
+      min-height: 36px; max-height: 120px; line-height: 1.5;
+    }
+    .chat-input:focus { border-color: rgba(255,255,255,0.25); }
+    .chat-send {
+      background: var(--red); color: var(--warm); border: none;
+      font-family: var(--mono); font-size: 10px; font-weight: 500;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 0 14px; border-radius: 4px; cursor: pointer;
+      flex-shrink: 0; align-self: flex-end; height: 36px;
+    }
+    .chat-send:hover { opacity: 0.85; }
+    .chat-send:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .chat-hint {
+      font-size: 9px; color: var(--dim); margin-top: 6px; line-height: 1.5;
+      letter-spacing: 0.03em;
+    }
+
+    /* Toasts */
+    #toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--surface2); border: 1px solid var(--border2);
+      color: var(--ink); font-family: var(--mono); font-size: 11px;
+      padding: 10px 16px; border-radius: 4px; z-index: 999;
+      pointer-events: none; opacity: 0; transition: opacity 0.2s;
+      letter-spacing: 0.05em;
+    }
+    #toast.show { opacity: 1; }
+    #toast.error { border-color: rgba(255,59,32,0.5); color: var(--red); }
+  </style>
+</head>
+<body>
+
+<!-- Access gate -->
+<div id="gate">
+  <div class="gate-inner">
+    <div class="gate-eyebrow">Newpress Tools</div>
+    <h1 class="gate-title">✂ the cutter</h1>
+    <input id="gate-code" class="gate-input" type="password" placeholder="access code" autocomplete="off">
+    <button id="gate-btn" class="gate-btn">Enter</button>
+    <p id="gate-error" class="gate-error hidden">wrong code</p>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app" class="hidden">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-logo">Newpress / <span>the cutter</span></div>
+    <div class="topbar-sep"></div>
+    <div class="topbar-title" id="topbar-phase">upload</div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-status">
+      <div class="pulse off" id="pulse"></div>
+      <span id="topbar-status-text">ready</span>
+    </div>
+  </div>
+
+  <!-- Phase: Upload -->
+  <div id="phase-upload" class="phase">
+    <div class="upload-wrap">
+      <div class="drop-zone" id="drop-zone">
+        <div class="drop-icon">✂</div>
+        <div class="drop-main">drop your rough cut here</div>
+        <div class="drop-sub">or click to browse</div>
+        <div class="drop-formats">MP4 · MOV · M4V · MKV</div>
+      </div>
+      <input type="file" id="file-input" accept="video/*">
+
+      <div id="file-info" class="file-selected hidden">
+        <div class="file-name" id="file-name-label"></div>
+        <div class="file-size" id="file-size-label"></div>
+      </div>
+
+      <div id="upload-progress" class="upload-progress hidden">
+        <div class="progress-label" id="progress-label">uploading to gemini</div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        <div class="progress-status" id="progress-status">0%</div>
+      </div>
+
+      <button id="btn-analyze" class="btn-analyze" disabled>analyze this cut</button>
+    </div>
+  </div>
+
+  <!-- Phase: Analyzing -->
+  <div id="phase-analyzing" class="phase hidden">
+    <div class="analyzing-wrap">
+      <div class="analyzing-icon">⚙</div>
+      <div class="analyzing-title">gemini is reading your cut</div>
+      <div class="analyzing-sub">multimodal analysis of the whole video — this takes a few minutes for a 20-minute cut</div>
+      <div class="analyzing-steps">
+        <div class="step" id="step-upload"><div class="step-dot"></div> uploading video file</div>
+        <div class="step" id="step-process"><div class="step-dot"></div> gemini processing video</div>
+        <div class="step" id="step-analyze"><div class="step-dot"></div> building two-column breakdown</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase: Results -->
+  <div id="phase-results" class="hidden">
+    <div class="results-shell">
+      <!-- Script panel -->
+      <div class="script-panel">
+        <div class="panel-header">
+          <div class="panel-title">what gemini heard & saw</div>
+          <div class="panel-meta" id="script-meta"></div>
+        </div>
+        <div class="script-scroll">
+          <table class="script-table">
+            <thead>
+              <tr>
+                <th>time</th>
+                <th>words being said</th>
+                <th>what's being shown</th>
+              </tr>
+            </thead>
+            <tbody id="script-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Chat panel -->
+      <div class="chat-panel">
+        <div class="panel-header">
+          <div class="panel-title">restructure</div>
+        </div>
+        <div class="chat-scroll" id="chat-scroll">
+          <div class="chat-msg">
+            <div class="chat-msg-role">cutter</div>
+            <div class="chat-msg-body">
+              <p>i've read the whole cut. tell me what's wrong with the narrative and i'll propose a specific reorder — with timestamps.</p>
+              <p>try: "the opening is too slow" or "the interview about X needs to come first" or "where's the best place to start?"</p>
+            </div>
+          </div>
+        </div>
+        <div class="chat-footer">
+          <div class="chat-input-row">
+            <textarea
+              id="chat-input"
+              class="chat-input"
+              placeholder="what's not working?"
+              rows="1"
+            ></textarea>
+            <button id="chat-send" class="chat-send">send</button>
+          </div>
+          <div class="chat-hint">shift+enter for new line · enter to send</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // ── Constants ───────────────────────────────────────────────────────────────
+  const ACCESS_CODE = 'newpress';
+  let uploadedFile = null;
+  let geminiFileName = null;
+  let geminiFileUri = null;
+  let geminiMimeType = null;
+  let cutSegments = [];
+  let cutTitle = '';
+  let chatHistory = [];
+
+  // ── Gate ────────────────────────────────────────────────────────────────────
+  const gateCode = document.getElementById('gate-code');
+  const gateBtn = document.getElementById('gate-btn');
+  const gateError = document.getElementById('gate-error');
+
+  function tryEnter() {
+    if (gateCode.value === ACCESS_CODE) {
+      document.getElementById('gate').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+    } else {
+      gateError.classList.remove('hidden');
+      gateCode.value = '';
+    }
+  }
+
+  gateBtn.addEventListener('click', tryEnter);
+  gateCode.addEventListener('keydown', e => { if (e.key === 'Enter') tryEnter(); });
+
+  // ── Toast ────────────────────────────────────────────────────────────────────
+  let toastTimer;
+  function toast(msg, isError = false) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'show' + (isError ? ' error' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.className = '', 3500);
+  }
+
+  // ── Status ───────────────────────────────────────────────────────────────────
+  function setStatus(text, active = false) {
+    document.getElementById('topbar-status-text').textContent = text;
+    document.getElementById('pulse').className = 'pulse' + (active ? '' : ' off');
+  }
+
+  function setPhaseLabel(text) {
+    document.getElementById('topbar-phase').textContent = text;
+  }
+
+  // ── Phase transitions ────────────────────────────────────────────────────────
+  function showPhase(name) {
+    ['upload', 'analyzing', 'results'].forEach(p => {
+      document.getElementById(`phase-${p}`).classList.toggle('hidden', p !== name);
+    });
+    setPhaseLabel(name);
+  }
+
+  // ── File drop / picker ───────────────────────────────────────────────────────
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const btnAnalyze = document.getElementById('btn-analyze');
+
+  dropZone.addEventListener('click', () => fileInput.click());
+
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) selectFile(f);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) selectFile(fileInput.files[0]);
+  });
+
+  function selectFile(f) {
+    uploadedFile = f;
+    geminiMimeType = f.type || 'video/mp4';
+    document.getElementById('file-name-label').textContent = f.name;
+    document.getElementById('file-size-label').textContent = formatBytes(f.size);
+    document.getElementById('file-info').classList.remove('hidden');
+    btnAnalyze.disabled = false;
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 ** 3) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+  }
+
+  // ── Main flow ────────────────────────────────────────────────────────────────
+  btnAnalyze.addEventListener('click', runAnalysis);
+
+  async function runAnalysis() {
+    if (!uploadedFile) return;
+    btnAnalyze.disabled = true;
+    showPhase('analyzing');
+    setStatus('uploading', true);
+
+    markStep('step-upload', 'active');
+
+    try {
+      // 1. Get upload URI from backend
+      const initRes = await api('initiate_upload', {
+        fileName: uploadedFile.name,
+        mimeType: geminiMimeType,
+        fileSize: uploadedFile.size,
+      });
+      const { uploadUri } = initRes;
+
+      // 2. Upload directly to Gemini
+      const fileInfo = await uploadToGemini(uploadedFile, uploadUri);
+      geminiFileName = fileInfo.name;
+      geminiFileUri = fileInfo.uri;
+
+      markStep('step-upload', 'done');
+      markStep('step-process', 'active');
+      setStatus('processing', true);
+
+      // 3. Poll until ACTIVE
+      await pollUntilActive(geminiFileName);
+
+      markStep('step-process', 'done');
+      markStep('step-analyze', 'active');
+      setStatus('analyzing', true);
+
+      // 4. Run two-column analysis
+      const analysis = await api('analyze_video', {
+        fileUri: geminiFileUri,
+        fileName: geminiFileName,
+        mimeType: geminiMimeType,
+      });
+
+      markStep('step-analyze', 'done');
+
+      if (!analysis.segments || !analysis.segments.length) {
+        throw new Error('No segments returned — try again or check the video file');
+      }
+
+      cutSegments = analysis.segments;
+      cutTitle = analysis.title || uploadedFile.name.replace(/\.[^.]+$/, '');
+
+      renderScript(analysis);
+      showPhase('results');
+      setStatus('ready');
+
+    } catch (err) {
+      console.error(err);
+      toast(err.message || 'something went wrong', true);
+      showPhase('upload');
+      setStatus('error');
+    }
+  }
+
+  // ── Gemini direct upload ─────────────────────────────────────────────────────
+  function uploadToGemini(file, uploadUri) {
+    return new Promise((resolve, reject) => {
+      const showProgress = file.size > 5 * 1024 * 1024; // show bar if > 5MB
+
+      if (showProgress) {
+        document.getElementById('upload-progress').classList.remove('hidden');
+      }
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', uploadUri);
+      xhr.setRequestHeader('X-Goog-Upload-Command', 'upload, finalize');
+      xhr.setRequestHeader('X-Goog-Upload-Offset', '0');
+
+      xhr.upload.addEventListener('progress', e => {
+        if (!e.lengthComputable) return;
+        const pct = Math.round(e.loaded / e.total * 100);
+        document.getElementById('progress-fill').style.width = pct + '%';
+        document.getElementById('progress-status').textContent = pct + '%';
+        if (pct === 100) {
+          document.getElementById('progress-label').textContent = 'waiting for gemini to process';
+          document.getElementById('progress-status').textContent = 'done';
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status === 200) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            resolve(data.file || data);
+          } catch {
+            reject(new Error('Upload response parse error'));
+          }
+        } else {
+          reject(new Error(`Upload failed: ${xhr.status} — ${xhr.responseText.slice(0, 200)}`));
+        }
+      });
+
+      xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+      xhr.send(file);
+    });
+  }
+
+  // ── Poll file status ─────────────────────────────────────────────────────────
+  async function pollUntilActive(fileName, maxWait = 300000) {
+    const start = Date.now();
+    while (Date.now() - start < maxWait) {
+      const { state } = await api('poll_file', { fileName });
+      if (state === 'ACTIVE') return;
+      if (state === 'FAILED') throw new Error('Gemini file processing failed');
+      await sleep(4000);
+    }
+    throw new Error('Timed out waiting for Gemini to process video');
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // ── Render script ────────────────────────────────────────────────────────────
+  function renderScript({ segments, title, total_duration }) {
+    const tbody = document.getElementById('script-body');
+    tbody.innerHTML = '';
+
+    if (title) document.title = `✂ ${title} — the cutter`;
+
+    const meta = [];
+    if (total_duration) meta.push(total_duration);
+    meta.push(`${segments.length} segments`);
+    document.getElementById('script-meta').textContent = meta.join(' · ');
+
+    for (const seg of segments) {
+      const tr = document.createElement('tr');
+      tr.className = 'script-row';
+
+      const isNoDialogue = /^\[(no dialogue|music|ambient)/i.test(seg.words?.trim() || '');
+
+      tr.innerHTML = `
+        <td class="ts">${seg.timestamp_start || ''}${seg.timestamp_end ? '–' + seg.timestamp_end : ''}</td>
+        <td class="words${isNoDialogue ? ' no-dialogue' : ''}">${esc(seg.words || '')}</td>
+        <td class="visual-desc">${esc(seg.visual || '')}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function esc(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // ── Step indicators ──────────────────────────────────────────────────────────
+  function markStep(id, state) {
+    const el = document.getElementById(id);
+    el.className = 'step ' + state;
+  }
+
+  // ── Chat ─────────────────────────────────────────────────────────────────────
+  const chatInput = document.getElementById('chat-input');
+  const chatSend = document.getElementById('chat-send');
+
+  chatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChat();
+    }
+  });
+
+  // Auto-resize textarea
+  chatInput.addEventListener('input', () => {
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+  });
+
+  chatSend.addEventListener('click', sendChat);
+
+  async function sendChat() {
+    const msg = chatInput.value.trim();
+    if (!msg || chatSend.disabled) return;
+
+    chatInput.value = '';
+    chatInput.style.height = '';
+    chatSend.disabled = true;
+
+    appendChatMsg('user', msg);
+    chatHistory.push({ role: 'user', content: msg });
+
+    const typingEl = appendTyping();
+
+    try {
+      const { reply } = await api('chat', {
+        message: msg,
+        history: chatHistory.slice(-12),
+        segments: cutSegments,
+        title: cutTitle,
+      });
+
+      typingEl.remove();
+      appendChatMsg('cutter', reply);
+      chatHistory.push({ role: 'model', content: reply });
+
+    } catch (err) {
+      typingEl.remove();
+      appendChatMsg('cutter', 'something went wrong — ' + (err.message || 'try again'));
+    }
+
+    chatSend.disabled = false;
+    chatInput.focus();
+  }
+
+  function appendChatMsg(role, content) {
+    const scroll = document.getElementById('chat-scroll');
+    const div = document.createElement('div');
+    div.className = `chat-msg ${role}`;
+
+    // Convert markdown-ish newlines to paragraphs
+    const paragraphs = content.split(/\n\n+/).filter(Boolean);
+    const body = paragraphs.map(p => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
+
+    div.innerHTML = `
+      <div class="chat-msg-role">${role === 'user' ? 'you' : 'cutter'}</div>
+      <div class="chat-msg-body">${body}</div>
+    `;
+    scroll.appendChild(div);
+    scroll.scrollTop = scroll.scrollHeight;
+    return div;
+  }
+
+  function appendTyping() {
+    const scroll = document.getElementById('chat-scroll');
+    const div = document.createElement('div');
+    div.className = 'chat-typing';
+    div.innerHTML = `<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>`;
+    scroll.appendChild(div);
+    scroll.scrollTop = scroll.scrollHeight;
+    return div;
+  }
+
+  // ── API helper ───────────────────────────────────────────────────────────────
+  async function api(action, body = {}) {
+    const res = await fetch('/api/cutter', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-access-code': ACCESS_CODE,
+      },
+      body: JSON.stringify({ action, ...body }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `API error ${res.status}`);
+    return data;
+  }
+</script>
+</body>
+</html>
