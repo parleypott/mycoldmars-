@@ -3448,6 +3448,246 @@
     .sb-empty h2 { margin: 6px 0; font-size: 28px; }
     .sb-empty p { max-width: 460px; opacity: 0.78; }
 
+    /* ─── Storybook empty-state: Karl-chat dropzone ─── */
+    .sb-empty-dropzone {
+      gap: 22px;
+      padding: 28px 24px 48px;
+      overflow-y: auto;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(255,221,99,0.18), transparent 60%),
+        radial-gradient(circle at 84% 88%, rgba(232,69,69,0.10), transparent 60%),
+        var(--paper, #FAF1DE);
+    }
+    .sb-dz-stage {
+      display: flex; flex-direction: column;
+      align-items: stretch;
+      gap: 22px;
+      width: 100%;
+      max-width: 760px;
+      margin: 0 auto;
+      text-align: left;
+    }
+    .sb-dz-karl {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      align-items: start;
+      gap: 18px;
+    }
+    .sb-dz-karl .dragon { width: 92px; height: 92px; }
+    .sb-dz-karl-bubble {
+      position: relative;
+      background: var(--paper-card, #FFF8E4);
+      border: 2px solid var(--ink-bright, #1F1F23);
+      border-radius: 18px;
+      padding: 16px 18px;
+      box-shadow: 4px 4px 0 var(--ink-bright, #1F1F23);
+    }
+    .sb-dz-karl-bubble::before {
+      content: "";
+      position: absolute;
+      left: -16px; top: 28px;
+      width: 16px; height: 16px;
+      background: var(--paper-card, #FFF8E4);
+      border-left: 2px solid var(--ink-bright, #1F1F23);
+      border-bottom: 2px solid var(--ink-bright, #1F1F23);
+      transform: rotate(45deg);
+    }
+    .sb-dz-karl-title {
+      font-family: var(--display, Cambo, Georgia, serif);
+      font-size: 22px; font-weight: 700;
+      line-height: 1.25;
+      color: var(--ink-bright, #1F1F23);
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .sb-dz-henry { color: var(--red, #E84545); }
+    .sb-dz-karl-sub {
+      margin-top: 6px;
+      font-family: var(--serif, Georgia, serif);
+      font-size: 14.5px;
+      line-height: 1.45;
+      color: var(--ink-soft, #5b574e);
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .sb-dz-karl-sub code {
+      background: rgba(0,0,0,0.06);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 12.5px;
+    }
+    .sb-dz-card {
+      background: var(--paper-card, #FFF8E4);
+      border: 2px solid var(--ink-bright, #1F1F23);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 4px 4px 0 var(--ink-bright, #1F1F23);
+      transition: box-shadow 140ms, transform 140ms;
+    }
+    .sb-dz-card.is-drag {
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0 var(--yolk, #FFD93D);
+      outline: 2px dashed var(--red, #E84545);
+      outline-offset: 4px;
+    }
+    .sb-dz-input {
+      width: 100%;
+      min-height: 180px;
+      padding: 12px 14px;
+      border: 1.5px dashed var(--ink-faint, #c8c0a8);
+      border-radius: 12px;
+      background: var(--paper, #FAF1DE);
+      font-family: var(--serif, Georgia, serif);
+      font-size: 15.5px;
+      line-height: 1.45;
+      color: var(--ink-bright, #1F1F23);
+      resize: vertical;
+      outline: none;
+      transition: border-color 120ms, box-shadow 120ms;
+    }
+    .sb-dz-input:focus {
+      border-color: var(--red, #E84545);
+      box-shadow: 0 0 0 3px rgba(232,69,69,0.18);
+    }
+    .sb-dz-input::placeholder {
+      color: var(--ink-soft, #8b8470);
+      font-style: italic;
+    }
+    .sb-dz-actions {
+      display: flex; align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .sb-dz-spacer { flex: 1; }
+    .sb-dz-act {
+      font-family: var(--ui, system-ui);
+      font-size: 14px; font-weight: 700;
+      padding: 9px 16px;
+      border: 2px solid var(--ink-bright, #1F1F23);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 100ms, box-shadow 100ms;
+      background: var(--paper, #FAF1DE);
+      color: var(--ink-bright, #1F1F23);
+      box-shadow: 2px 2px 0 var(--ink-bright, #1F1F23);
+    }
+    .sb-dz-act:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink-bright, #1F1F23); }
+    .sb-dz-act:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink-bright, #1F1F23); }
+    .sb-dz-act-primary {
+      background: var(--red, #E84545);
+      color: #fff;
+      font-size: 15px;
+      padding: 10px 22px;
+    }
+    .sb-dz-act-ghost {
+      background: transparent;
+    }
+    .sb-dz-act[disabled] {
+      opacity: 0.5; cursor: not-allowed;
+      transform: none !important; box-shadow: 2px 2px 0 var(--ink-bright, #1F1F23) !important;
+    }
+    .sb-dz-hint {
+      margin-top: 8px;
+      font-family: var(--ui, system-ui);
+      font-size: 12px;
+      color: var(--ink-soft, #8b8470);
+      letter-spacing: 0;
+      text-transform: none;
+      text-align: center;
+    }
+    .sb-dz-or {
+      text-align: center;
+      font-family: var(--ui, system-ui);
+      font-size: 12px;
+      letter-spacing: 0.24em;
+      color: var(--ink-soft, #8b8470);
+      text-transform: uppercase;
+    }
+    .sb-dz-cya {
+      text-align: center;
+      display: flex; flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .sb-dz-cya-btn {
+      font-family: var(--ui, system-ui);
+      font-size: 14.5px; font-weight: 700;
+      padding: 11px 22px;
+      border: 2px solid var(--ink-bright, #1F1F23);
+      border-radius: 999px;
+      background: var(--paper-card, #FFF8E4);
+      color: var(--ink-bright, #1F1F23);
+      cursor: pointer;
+      box-shadow: 2px 2px 0 var(--ink-bright, #1F1F23);
+      transition: transform 100ms, box-shadow 100ms, background 120ms;
+    }
+    .sb-dz-cya-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 var(--ink-bright, #1F1F23);
+      background: var(--yolk, #FFD93D);
+    }
+    .sb-dz-cya-btn .arrow { margin-left: 8px; }
+    .sb-dz-cya-sub {
+      font-family: var(--serif, Georgia, serif);
+      font-size: 13px;
+      color: var(--ink-soft, #8b8470);
+      max-width: 460px;
+      line-height: 1.4;
+    }
+
+    /* ─── Add-more-text modal (populated storybook → re-open dropzone) ─── */
+    .sb-add-modal-veil {
+      position: fixed; inset: 0;
+      background: rgba(31,31,35,0.55);
+      backdrop-filter: blur(3px);
+      z-index: 9000;
+      display: none;
+      align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .sb-add-modal-veil.is-on { display: flex; }
+    .sb-add-modal-card {
+      width: 100%;
+      max-width: 720px;
+      background: var(--paper, #FAF1DE);
+      border: 2.5px solid var(--ink-bright, #1F1F23);
+      border-radius: 20px;
+      padding: 22px 24px 18px;
+      box-shadow: 8px 8px 0 var(--ink-bright, #1F1F23);
+      max-height: 86vh; overflow-y: auto;
+    }
+    .sb-add-modal-head {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 12px;
+    }
+    .sb-add-modal-head h2 {
+      font-family: var(--display, Cambo, Georgia, serif);
+      font-size: 24px; font-weight: 700; line-height: 1.2;
+      margin: 0; flex: 1;
+      text-transform: none; letter-spacing: 0;
+    }
+    .sb-add-modal-close {
+      border: none; background: transparent;
+      font-size: 22px; cursor: pointer;
+      color: var(--ink-bright, #1F1F23);
+      padding: 4px 8px; line-height: 1;
+    }
+
+    /* The "+ add more text" button that lives in the populated topbar */
+    .sb-add-btn {
+      background: var(--paper-card, #FFF8E4);
+      border: 1.5px solid var(--ink-bright, #1F1F23);
+      color: var(--ink-bright, #1F1F23);
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-family: var(--ui, system-ui);
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: background 120ms, transform 100ms;
+    }
+    .sb-add-btn:hover { background: var(--yolk, #FFD93D); transform: translateY(-1px); }
+
     /* Reader root — grid: rail | prose | splitter | art
      * Split ratio is CSS-variable driven so the splitter handle can
      * mutate it on drag and we can persist the ratio to localStorage. */
@@ -5050,30 +5290,19 @@
     </header>
 
     <nav class="tabs" role="tablist">
-      <button class="tab active" data-stage="write" role="tab">
-        <span class="step-num">1</span>
-        <span>Write with Wordy</span>
-        <span class="count-pill" id="block-count">0</span>
-      </button>
-      <button class="tab" data-stage="board" role="tab">
-        <span class="step-num">2</span>
-        <span>Storyboard</span>
-      </button>
-      <button class="tab" data-stage="storybook" role="tab" title="Read the finished story with a picture for every scene">
-        <span class="step-num">3</span>
-        <span>Storybook</span>
+      <button class="tab active" data-stage="storybook" role="tab" title="The finished story with a picture for every scene — paste or drop in story text and Karl auto-builds it">
+        <span>📖 Storybook</span>
         <span class="count-pill" id="storybook-count" style="display:none;">0</span>
       </button>
-      <button class="tab" data-stage="freestyle" role="tab">
-        <span class="step-num">4</span>
-        <span>Freestyle</span>
-        <span class="count-pill" id="freestyle-count" style="display:none;">0</span>
+      <button class="tab" data-stage="write" role="tab" title="Build your story block by block with Karl, your story guide">
+        <span>🐉 Choose Your Own Adventure</span>
+        <span class="count-pill" id="block-count">0</span>
       </button>
       <div class="tabs-spacer"></div>
     </nav>
 
-    <!-- ════════ STAGE 1: Write ════════ -->
-    <section class="stage active" id="stage-write">
+    <!-- ════════ TAB 2: Choose Your Own Adventure (block-builder w/ Karl) ════════ -->
+    <section class="stage" id="stage-write">
       <div class="write-layout">
 
         <div class="write-col">
@@ -5126,7 +5355,7 @@
               <div class="scrap-inline s-empty-benny"><img src="decor/benny-beaver.jpg" alt="" /></div>
               <span class="dragon lg" id="story-empty-dragon"></span>
               <div>Your story will appear here.</div>
-              <span class="little">pick blocks from wordy on the right to build it up</span>
+              <span class="little">pick blocks from Karl on the right to build it up</span>
             </div>
             <div id="story-blocks" class="story-blocks" style="display:none;"></div>
             <!-- BOOK VIEW v2 — two-pane reader hub. Left: prose with
@@ -5188,12 +5417,12 @@
           <div class="tutor-pane">
             <div class="tutor-head">
               <span class="dragon md thinking" id="tutor-head-dragon"></span>
-              <h2>Wordy</h2>
+              <h2>Karl</h2>
               <span class="progress" id="tutor-progress">block 0 of ?</span>
             </div>
             <div class="tutor-chat" id="tutor-chat"></div>
             <div class="composer with-mic">
-              <button id="btn-mic" class="mic-btn" title="Hold to talk to wordy" aria-label="Talk to wordy">
+              <button id="btn-mic" class="mic-btn" title="Hold to talk to Karl" aria-label="Talk to Karl">
                 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <!-- hanging bracket arc -->
                   <path d="M22 48 Q22 22 50 22 Q78 22 78 48" stroke="#000" stroke-width="3" fill="none" stroke-linecap="round"/>
@@ -5217,12 +5446,12 @@
                 <span class="listening-pip"></span>
                 <span class="mic-label" id="mic-label">talk!</span>
               </button>
-              <textarea id="kid-input" rows="2" placeholder="tell wordy what kind of next bit you want… (or press the mic and just say it!)"></textarea>
+              <textarea id="kid-input" rows="2" placeholder="tell Karl what kind of next bit you want… (or press the mic and just say it!)"></textarea>
               <input type="file" id="auto-build-file" accept=".md,.txt,.markdown" hidden />
               <div class="composer-modes" id="composer-modes">
-                <button id="btn-mode-ask"        class="mode-btn active" type="button" data-mode="ask"        title="wordy will respond as wizard">ask wordy</button>
-                <button id="btn-mode-verbatim"   class="mode-btn"        type="button" data-mode="verbatim"   title="my exact words — wordy keeps them, just tidies them up">my words</button>
-                <button id="btn-mode-auto-build" class="mode-btn"        type="button" data-mode="auto-build" title="paste a fully-written story (or upload a .md / .txt) — I'll split it into scenes and populate the cast for this world">AUTO BUILD</button>
+                <button id="btn-mode-ask"        class="mode-btn active" type="button" data-mode="ask"        title="Karl will respond as wizard">ask Karl</button>
+                <button id="btn-mode-verbatim"   class="mode-btn"        type="button" data-mode="verbatim"   title="my exact words — Karl keeps them, just tidies them up">my words</button>
+                <button id="btn-mode-auto-build" class="mode-btn"        type="button" data-mode="auto-build" title="paste a fully-written story (or upload a .md / .txt) — Karl will split it into scenes and populate the cast for this world">AUTO BUILD</button>
               </div>
               <!-- Touch-base moved up to the story panel toolbar — it's
                    about the story's structure, not chat. Stuck + How's-my-story
@@ -5240,31 +5469,36 @@
       </div>
     </section>
 
-    <!-- ════════ STAGE 2: Storyboard ════════ -->
-    <section class="stage" id="stage-board">
-      <div class="board-wrap">
-        <div id="board-empty" class="board-empty">
-          <div class="scrap-inline s-board-school"><img src="decor/school-building.jpg" alt="" /></div>
-          <div class="scrap-inline s-board-bunker"><img src="decor/bunker-blueprint.jpg" alt="" /></div>
-          <span class="dragon lg" id="board-empty-dragon"></span>
-          <h2>No scenes yet!</h2>
-          <p>Build your story with wordy first, then come back here to make pictures for each block.</p>
-          <button id="btn-go-write" class="btn primary big">Go write with wordy<span class="arrow">→</span></button>
-        </div>
-        <div id="board-grid" class="board-grid" style="display:none;"></div>
-      </div>
-    </section>
-
-    <!-- ════════ STAGE 3: Storybook ════════ -->
-    <section class="stage" id="stage-storybook">
+    <!-- ════════ TAB 1: Storybook (auto-build via Karl chat dropzone) ════════ -->
+    <section class="stage active" id="stage-storybook">
       <div class="sb-wrap" id="sb-wrap">
-        <!-- Empty state — shown when no story / no scenes -->
-        <div id="sb-empty" class="sb-empty">
-          <div class="scrap-inline s-board-school"><img src="decor/school-building.jpg" alt="" /></div>
-          <span class="dragon lg" id="sb-empty-dragon"></span>
-          <h2>No story yet!</h2>
-          <p>Build your story with wordy first, then come back here to read it like a book with pictures.</p>
-          <button id="sb-go-write" class="btn primary big" type="button">Go write with wordy<span class="arrow">→</span></button>
+        <!-- Empty state — chat-style dropzone, Karl invites Henry to paste
+             a story or drop a file. Send/upload → AUTO BUILD pipeline. -->
+        <div id="sb-empty" class="sb-empty sb-empty-dropzone">
+          <div class="sb-dz-stage">
+            <div class="sb-dz-karl">
+              <span class="dragon lg" id="sb-empty-dragon"></span>
+              <div class="sb-dz-karl-bubble">
+                <div class="sb-dz-karl-title">hey <span class="sb-dz-henry">Henry</span> — drop a story in and i'll build it.</div>
+                <div class="sb-dz-karl-sub">paste a story below, or drop a <code>.md</code> / <code>.txt</code> file. i'll split it into scenes, line up the cast, and draw every page.</div>
+              </div>
+            </div>
+            <div class="sb-dz-card" id="sb-dz-card">
+              <textarea id="sb-dz-input" class="sb-dz-input" rows="9" placeholder="paste your story here — a few paragraphs, a chapter, anything…"></textarea>
+              <input type="file" id="sb-dz-file" accept=".md,.txt,.markdown" hidden />
+              <div class="sb-dz-actions">
+                <button id="sb-dz-upload" class="sb-dz-act sb-dz-act-ghost" type="button" title="Upload a .md or .txt file instead">📎 upload a file</button>
+                <span class="sb-dz-spacer"></span>
+                <button id="sb-dz-build" class="sb-dz-act sb-dz-act-primary" type="button">⚡ AUTO BUILD</button>
+              </div>
+              <div class="sb-dz-hint">tip — you can also drag a file straight onto this card.</div>
+            </div>
+            <div class="sb-dz-or">— or —</div>
+            <div class="sb-dz-cya">
+              <button id="sb-dz-go-cya" class="sb-dz-cya-btn" type="button">🐉 write it block by block with Karl<span class="arrow">→</span></button>
+              <div class="sb-dz-cya-sub">jump into Choose Your Own Adventure if you'd rather start from a blank page and let Karl guide you.</div>
+            </div>
+          </div>
         </div>
 
         <!-- Active reader — two pane -->
@@ -5295,6 +5529,7 @@
               <select class="sb-pl-voice" id="sb-pl-voice" title="Pick a voice"></select>
             </div>
 
+            <button class="sb-add-btn" id="sb-add-text-btn" type="button" title="Drop in more text or a file — Karl will append new scenes to your storybook">＋ add more text</button>
             <button class="sb-clean-btn" id="sb-clean-btn" type="button" title="Rebuild scene text from DOM and re-scan for better breaks">✦ clean & parse</button>
             <button class="sb-focus-btn" id="sb-focus-btn" type="button" title="Focus mode — hide images, just write (F)">focus</button>
             <button class="sb-keys-btn" id="sb-keys-btn" type="button" title="Keyboard shortcuts">?</button>
@@ -5338,7 +5573,7 @@
               <div class="sb-art-overlay" id="sb-art-overlay">preparing your storybook…</div>
             </div>
             <div class="sb-art-actions" id="sb-art-actions">
-              <button id="sb-edit-btn" class="sb-act sb-act-primary" type="button" title="Tell wordy how to change this picture">✎ riff on image</button>
+              <button id="sb-edit-btn" class="sb-act sb-act-primary" type="button" title="Tell Karl how to change this picture">✎ riff on image</button>
               <button id="sb-variation-btn" class="sb-act" type="button" title="Draw a different take of this scene">＋ variation</button>
               <button id="sb-prompt-btn" class="sb-act" type="button" title="See and edit the exact prompt sent to the image model">⌕ prompt</button>
               <button id="sb-up-btn" class="sb-act sb-act-vote-up" type="button" title="Love this version">♡</button>
@@ -5355,7 +5590,7 @@
                   <button class="sb-riff-close" id="sb-riff-close" type="button" aria-label="Close">✕</button>
                 </div>
                 <div class="sb-riff-row">
-                  <textarea id="sb-riff-input" class="sb-riff-input" rows="1" placeholder="tell wordy what to change. like &quot;make him look more tired&quot; or &quot;put it at night&quot;"></textarea>
+                  <textarea id="sb-riff-input" class="sb-riff-input" rows="1" placeholder="tell Karl what to change. like &quot;make him look more tired&quot; or &quot;put it at night&quot;"></textarea>
                   <button id="sb-riff-send" class="sb-riff-send" type="button">draw it</button>
                 </div>
                 <div class="sb-riff-chips" id="sb-riff-chips">
@@ -5402,59 +5637,30 @@
     <!-- (legacy Storybook image-edit modal removed 2026-05-25 — replaced by
          the inline riff panel + prompt panel inside the Storybook stage) -->
 
-    <!-- ════════ STAGE 4: Freestyle ════════ -->
-    <section class="stage" id="stage-freestyle">
-      <div class="fs-wrap">
-        <div class="fs-head">
-          <span class="dragon md" id="fs-dragon"></span>
-          <div class="fs-head-text">
-            <h2>Freestyle</h2>
-            <p>just thinking out loud with wordy. nothing here gets committed to the story unless you say so. ideas worth keeping show up over on the right.</p>
-          </div>
-        </div>
-        <div class="fs-layout">
-          <div class="fs-chat-col">
-            <div id="fs-thread" class="fs-thread"></div>
-            <!-- Composer mirrors the main "Write with Wordy" composer EXACTLY
-                 (vintage red mic, same textarea, same Send button). The only
-                 difference is no composer-modes row — freestyle doesn't have
-                 the 'ask wordy / my words' toggle. -->
-            <div class="composer with-mic">
-              <button id="fs-mic" class="mic-btn" title="Hold to talk to wordy" aria-label="Talk to wordy" type="button">
-                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <path d="M22 48 Q22 22 50 22 Q78 22 78 48" stroke="#000" stroke-width="3" fill="none" stroke-linecap="round"/>
-                  <circle cx="22" cy="48" r="4" fill="#FFD93D" stroke="#000" stroke-width="2.5"/>
-                  <circle cx="78" cy="48" r="4" fill="#FFD93D" stroke="#000" stroke-width="2.5"/>
-                  <ellipse class="mic-capsule" cx="50" cy="52" rx="20" ry="28" fill="#E84545" stroke="#000" stroke-width="3"/>
-                  <line class="mic-stripe" x1="36" y1="40" x2="64" y2="40" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
-                  <line class="mic-stripe" x1="34" y1="48" x2="66" y2="48" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
-                  <line class="mic-stripe" x1="34" y1="56" x2="66" y2="56" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
-                  <line class="mic-stripe" x1="36" y1="64" x2="64" y2="64" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
-                  <ellipse cx="42" cy="42" rx="3" ry="12" fill="#FFD93D" opacity="0.65"/>
-                  <rect x="46" y="80" width="8" height="10" fill="#F0B900" stroke="#000" stroke-width="2.5"/>
-                  <ellipse cx="50" cy="93" rx="18" ry="4.5" fill="#1F1F23" stroke="#000" stroke-width="2.5"/>
-                </svg>
-                <span class="listening-pip"></span>
-                <span class="mic-label" id="fs-mic-label">talk!</span>
-              </button>
-              <textarea id="fs-input" rows="2" placeholder="say whatever's in your head — wordy will just chat back."></textarea>
-              <button id="fs-send" class="btn primary">Send<span class="arrow">→</span></button>
-            </div>
-          </div>
-          <aside class="fs-themes-col">
-            <div class="fs-themes-head">
-              <h3>captured themes</h3>
-              <span class="fs-themes-hint">soft notes — promote any of these into the bible when you're ready.</span>
-            </div>
-            <div id="fs-themes-list" class="fs-themes-list">
-              <div class="fs-themes-empty">nothing captured yet. start chatting.</div>
-            </div>
-          </aside>
-        </div>
-      </div>
-    </section>
-
   </div><!-- /app -->
+
+  <!-- ════════ Storybook "+ add more text" Modal ════════
+       Re-uses the same dropzone affordance as the empty-state, just inside a
+       veil over the populated storybook. Sends through runAutoBuild in 'append'
+       mode so Karl tacks new scenes onto the end without nuking existing ones. -->
+  <div class="sb-add-modal-veil" id="sb-add-modal">
+    <div class="sb-add-modal-card" onclick="event.stopPropagation()">
+      <div class="sb-add-modal-head">
+        <h2>add more text to the storybook</h2>
+        <button class="sb-add-modal-close" id="sb-add-modal-close" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="sb-dz-card" id="sb-add-card">
+        <textarea id="sb-add-input" class="sb-dz-input" rows="9" placeholder="paste the next chapter, a few more paragraphs, anything…"></textarea>
+        <input type="file" id="sb-add-file" accept=".md,.txt,.markdown" hidden />
+        <div class="sb-dz-actions">
+          <button id="sb-add-upload" class="sb-dz-act sb-dz-act-ghost" type="button">📎 upload a file</button>
+          <span class="sb-dz-spacer"></span>
+          <button id="sb-add-build" class="sb-dz-act sb-dz-act-primary" type="button">⚡ AUTO BUILD</button>
+        </div>
+        <div class="sb-dz-hint">tip — you can also drag a file straight onto this card.</div>
+      </div>
+    </div>
+  </div>
 
   <!-- ════════ Arc Inspector Modal ════════ -->
   <div class="lib-veil" id="arc-inspector">
@@ -5560,7 +5766,7 @@
         <div class="modal-row">
           <label>Story goal</label>
           <textarea id="rule-goal" rows="2" placeholder="What should this story be about? e.g. 'Henry will write Chapter 4 of Queen Scarlet's Academy — a school field trip that goes wrong'"></textarea>
-          <div class="hint">one sentence is enough. wordy uses this every turn.</div>
+          <div class="hint">one sentence is enough. Karl uses this every turn.</div>
         </div>
         <div class="modal-row">
           <label>World &amp; characters (bible)</label>
@@ -5607,7 +5813,7 @@
   <script>
     // ─── Wordy the red dragon — shared SVG constant + helper (loaded before gate) ───
     window.DRAGON_SVG = `
-<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-label="Wordy the dragon">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-label="Karl the dragon">
   <path d="M14 56 Q-2 32 4 76 Q18 72 22 60 Z" fill="#C32626" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
   <path d="M86 56 Q102 32 96 76 Q82 72 78 60 Z" fill="#C32626" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
   <path d="M50 16 L46 23 L54 23 Z" fill="#F0B900" stroke="#000" stroke-width="2"/>
@@ -6767,7 +6973,7 @@
       rules: { ...DEFAULT_RULES },
       blocks: [],                 // { id, text, summary? }
       chat: [],
-      stage: 'write',
+      stage: 'storybook',
       thinking: false,
       latestOptions: null,
       serverId: null,
@@ -6981,7 +7187,6 @@
         const bar = document.getElementById('sb-selbar');
         if (bar) bar.classList.remove('is-on');
       }
-      if (s === 'board') renderBoard();
       if (s === 'storybook') initStorybook();
     }
 
@@ -7469,16 +7674,16 @@
         // a chat bubble in front of Henry. Map known failure modes to short
         // kid-friendly lines; everything else falls back to a generic one.
         const rawMsg = (e && e.message ? String(e.message) : '').trim();
-        let friendly = "wordy needs a sec — give it another try?";
+        let friendly = "Karl needs a sec — give it another try?";
         const lower = rawMsg.toLowerCase();
         if (/\b503\b|unavailable|high demand|overloaded|capacity/.test(lower)) {
-          friendly = "wordy is super busy right now — try again in a moment.";
+          friendly = "Karl is super busy right now — try again in a moment.";
         } else if (/\b429\b|rate limit/.test(lower)) {
-          friendly = "wordy is catching their breath — wait a sec and try again.";
+          friendly = "Karl is catching his breath — wait a sec and try again.";
         } else if (/timeout|network|failed to fetch|load failed/.test(lower)) {
-          friendly = "wordy didn't hear you — check your connection and try again.";
+          friendly = "Karl didn't hear you — check your connection and try again.";
         } else if (/401|unauthorized/.test(lower)) {
-          friendly = "wordy got logged out — ask mom or dad to refresh the page.";
+          friendly = "Karl got logged out — ask mom or dad to refresh the page.";
         }
         state.chat.push({
           id: uid(), role: 'wordy',
@@ -7747,7 +7952,7 @@
         <div class="tutor-turn">
           <div class="tutor-msg">
             ${window.dragon('md', true)}
-            <div class="thinking-msg">wordy is thinking <span class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>
+            <div class="thinking-msg">Karl is thinking <span class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>
           </div>
         </div>` : '');
 
@@ -8257,8 +8462,13 @@
     function setBlockImage(b, img) { b.__image = img; persist(); }
 
     function renderBoard() {
+      // Storyboard tab removed 2026-05-26 (two-mode shell: Storybook + Choose
+      // Your Own Adventure). Function retained as a no-op so any leftover
+      // callers don't throw — safe to delete once we've confirmed nothing
+      // out of tree calls it.
       const empty = document.getElementById('board-empty');
       const grid = document.getElementById('board-grid');
+      if (!empty || !grid) return;
       if (!state.blocks.length) { empty.style.display = 'block'; grid.style.display = 'none'; return; }
       empty.style.display = 'none';
       grid.style.display = 'flex';
@@ -8437,7 +8647,102 @@
       newStory(true);
     });
     document.getElementById('btn-export').addEventListener('click', exportJson);
-    document.getElementById('btn-go-write').addEventListener('click', () => setStage('write'));
+
+    // ─── Storybook empty-state dropzone (Karl chat) + populated "+ add more text" modal ───
+    // Both share the same plumbing: textarea → file input → drag-drop → runAutoBuild.
+    // Empty dropzone lives inline in #sb-empty. The modal mirrors it for the
+    // populated state so Henry can append more chapters without leaving the storybook.
+    (function wireStorybookDropzones() {
+      function readFileIntoTextarea(file, ta) {
+        if (!file) return;
+        const ok = /\.(md|markdown|txt)$/i.test(file.name) || /text|markdown/.test(file.type || '');
+        if (!ok) {
+          alert('Karl can only read .md or .txt files for now.');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => { ta.value = (reader.result || '').toString(); ta.focus(); };
+        reader.onerror = () => alert("Couldn't read that file — try again.");
+        reader.readAsText(file);
+      }
+      function bindCard(card, input, file, uploadBtn, buildBtn, onAfterBuild) {
+        if (!card) return;
+        // Click upload → opens file chooser
+        uploadBtn?.addEventListener('click', () => file?.click());
+        file?.addEventListener('change', () => readFileIntoTextarea(file.files?.[0], input));
+        // Drag + drop on the card
+        ['dragenter', 'dragover'].forEach(ev => card.addEventListener(ev, (e) => {
+          if (!e.dataTransfer?.types?.includes('Files')) return;
+          e.preventDefault();
+          card.classList.add('is-drag');
+        }));
+        ['dragleave', 'drop'].forEach(ev => card.addEventListener(ev, (e) => {
+          if (ev === 'drop') e.preventDefault();
+          card.classList.remove('is-drag');
+        }));
+        card.addEventListener('drop', (e) => {
+          const f = e.dataTransfer?.files?.[0];
+          if (f) readFileIntoTextarea(f, input);
+        });
+        // Build button → runAutoBuild on the textarea contents
+        buildBtn?.addEventListener('click', async () => {
+          const text = (input?.value || '').trim();
+          if (!text) { input?.focus(); return; }
+          if (text.length < 80) {
+            alert("That's a bit short for Karl to find scenes — paste at least a paragraph or two.");
+            return;
+          }
+          buildBtn.disabled = true;
+          const restore = buildBtn.textContent;
+          buildBtn.textContent = '⏳ building…';
+          try {
+            await runAutoBuild(text);
+            input.value = '';
+            if (onAfterBuild) onAfterBuild();
+          } catch (e) {
+            console.error('[dz] runAutoBuild threw', e);
+            alert("Karl tripped while reading your story — try again?");
+          } finally {
+            buildBtn.disabled = false;
+            buildBtn.textContent = restore;
+          }
+        });
+      }
+      // Empty-state dropzone wiring
+      bindCard(
+        document.getElementById('sb-dz-card'),
+        document.getElementById('sb-dz-input'),
+        document.getElementById('sb-dz-file'),
+        document.getElementById('sb-dz-upload'),
+        document.getElementById('sb-dz-build'),
+        () => { try { initStorybook(); } catch {} }
+      );
+      // Jump-to-CYA button
+      document.getElementById('sb-dz-go-cya')?.addEventListener('click', () => setStage('write'));
+
+      // Populated-state "+ add more text" button → open modal
+      const modal = document.getElementById('sb-add-modal');
+      document.getElementById('sb-add-text-btn')?.addEventListener('click', () => {
+        modal?.classList.add('is-on');
+        setTimeout(() => document.getElementById('sb-add-input')?.focus(), 50);
+      });
+      function closeModal() { modal?.classList.remove('is-on'); }
+      document.getElementById('sb-add-modal-close')?.addEventListener('click', closeModal);
+      modal?.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal?.classList.contains('is-on')) closeModal();
+      });
+
+      // Modal dropzone wiring
+      bindCard(
+        document.getElementById('sb-add-card'),
+        document.getElementById('sb-add-input'),
+        document.getElementById('sb-add-file'),
+        document.getElementById('sb-add-upload'),
+        document.getElementById('sb-add-build'),
+        () => { closeModal(); try { initStorybook(); } catch {} }
+      );
+    })();
 
     // Composer — routes through submitComposer so verbatim mode gets honored
     document.getElementById('btn-ask').addEventListener('click', submitComposer);
@@ -8540,7 +8845,7 @@
           report: {
             power_score: 0,
             power_label: 'getting there',
-            one_liner: "Wordy couldn't read your story right now — try the button again in a moment.",
+            one_liner: "Karl couldn't read your story right now — try the button again in a moment.",
             scores: [], gaps: [], repetitions: [], strengths: [], recommendations: [],
           },
         });
@@ -14253,7 +14558,7 @@
         ta.rows = 6;
         btn.innerHTML = 'BUILD<span class="arrow">→</span>';
       } else {
-        ta.placeholder = "tell wordy what kind of next bit you want… (or press the mic and just say it!)";
+        ta.placeholder = "tell Karl what kind of next bit you want… (or press the mic and just say it!)";
         ta.rows = 2;
         btn.innerHTML = 'Send<span class="arrow">→</span>';
       }
