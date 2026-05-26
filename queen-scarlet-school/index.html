@@ -7098,6 +7098,14 @@
       pushRulesToForm();
       renderAll();
       window.Lib?.setStatus(state.serverId ? 'saved' : 'local');
+      // Two-mode shell: when the active tab is Storybook (the default on
+      // open) and the story has blocks, re-init the storybook so the reader
+      // shows instead of the empty-state dropzone. Without this, the boot
+      // sequence flashes the dropzone forever because initStorybook ran on
+      // the tab change before bootStory had loaded the blocks.
+      if (state.stage === 'storybook') {
+        try { initStorybook(); } catch (e) { console.warn('[boot] initStorybook after bootStory threw', e); }
+      }
     }
     function newStory(ask) {
       const def = `story-${Date.now().toString(36)}`;
@@ -9492,9 +9500,12 @@
       if (e.key === 'Escape') { e.preventDefault(); hideOwnForm(); }
     });
 
-    // Storyboard delegated — buttons + click-to-zoom on the thumbnail
+    // Storyboard delegated — buttons + click-to-zoom on the thumbnail.
+    // Storyboard tab removed 2026-05-26 — DOM is gone. Guard the lookup so
+    // this whole block silently no-ops instead of throwing and killing every
+    // event listener that gets registered after it.
     const grid = document.getElementById('board-grid');
-    grid.addEventListener('click', (e) => {
+    grid?.addEventListener('click', (e) => {
       // Buttons first (so a zoom on .scene-thumb doesn't swallow the regen/dl)
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
@@ -14990,6 +15001,12 @@
         // HYDRATION GATE — server data is real, mark hydrated so the
         // autosave can fire from here on.
         state.blocksAreHydrated = true;
+        // Two-mode shell: storybook is the default tab. If the cloud row
+        // just landed and the storybook tab is active, re-init so the
+        // reader shows instead of the empty-state dropzone.
+        if (state.stage === 'storybook') {
+          try { initStorybook(); } catch (e) { console.warn('[loadFromRow] initStorybook threw', e); }
+        }
 
         // ── BACKUP RESTORE ──
         // Walk the localStorage backup for this story. For every backed-
