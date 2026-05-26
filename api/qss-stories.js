@@ -163,7 +163,7 @@ async function handleList(url) {
   // the library — making Johnny think his work was gone. Pulling the raw
   // blocks payload and counting in JS is the reliable path. We strip
   // blocks from the response so the wire stays lean.
-  const cols = 'id,name,deleted_at,created_at,updated_at,cover_image,world_slug,blocks';
+  const cols = 'id,name,deleted_at,created_at,updated_at,cover_image,world_slug,rules,blocks';
   const filter = includeTrash ? 'deleted_at=not.is.null' : 'deleted_at=is.null';
   const worldFilter = world === 'queen-scarlet'
     ? `or=(world_slug.eq.queen-scarlet,world_slug.is.null)`
@@ -183,7 +183,7 @@ async function handleList(url) {
     if (/world_slug/i.test(e?.message || '') && /column.*does not exist|schema cache/i.test(e?.message || '')) {
       // Migration 021 not applied yet — fall back to no world filter.
       const fallback = new URLSearchParams({
-        select: 'id,name,deleted_at,created_at,updated_at,cover_image,blocks',
+        select: 'id,name,deleted_at,created_at,updated_at,cover_image,rules,blocks',
         [filter.split('=')[0]]: filter.split('=').slice(1).join('='),
         order: 'updated_at.desc',
         limit: '500',
@@ -207,6 +207,7 @@ async function handleList(url) {
     // ?action=get fetch).
     block_count: Array.isArray(r.blocks) ? r.blocks.length : 0,
     world_slug: r.world_slug || 'queen-scarlet',
+    rules: r.rules || null,
   }));
   return jsonOk({ stories });
 }
