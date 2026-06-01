@@ -1,0 +1,1154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>newpress novel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cambo&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:       #0F0F12;
+    --paper-warm:  #14141A;
+    --ink-card:    #1A1A22;
+    --ink-soft:    #1F1F28;
+    --cream:       #ECE6D5;
+    --cream-soft:  rgba(236,230,213,0.78);
+    --cream-faint: rgba(236,230,213,0.42);
+    --cream-line:  rgba(236,230,213,0.10);
+    --cream-hair:  rgba(236,230,213,0.06);
+    --orange:      #F44315;
+    --orange-soft: rgba(244,67,21,0.18);
+    --orange-glow: rgba(244,67,21,0.35);
+    --green:       #3BC773;
+    --display:     'Cambo', 'Crimson Pro', Georgia, serif;
+    --serif:       'Crimson Pro', 'Iowan Old Style', Georgia, serif;
+    --mono:        'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: var(--paper); color: var(--cream);
+    font-family: var(--serif); font-size: 18px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    height: 100%; overflow: hidden;
+  }
+  button { font-family: inherit; color: inherit; background: transparent; border: none; cursor: pointer; }
+  button:focus-visible { outline: 1px solid var(--orange); outline-offset: 2px; }
+  ::selection { background: rgba(244,67,21,0.30); color: var(--cream); }
+
+  /* ════════ APP SHELL ════════ */
+  .app { display: grid; grid-template-rows: 56px 1fr 26px; height: 100vh; }
+
+  /* ── top bar ── */
+  .topbar {
+    display: flex; align-items: center; gap: 18px;
+    padding: 0 22px; border-bottom: 1px solid var(--cream-line);
+    background: var(--paper);
+  }
+  .brand {
+    font-family: var(--display); font-style: italic; font-size: 18px;
+    color: var(--cream); letter-spacing: -0.005em;
+  }
+  .brand .dot { color: var(--orange); margin-right: 6px; }
+  .novel-title {
+    font-family: var(--display); font-style: italic; font-size: 18px;
+    color: var(--cream); padding: 4px 8px; border-radius: 3px;
+    background: transparent; outline: none; border: 1px solid transparent;
+    min-width: 200px; max-width: 360px; transition: border-color 140ms, background 140ms;
+  }
+  .novel-title:hover, .novel-title:focus { border-color: var(--cream-line); background: var(--ink-card); }
+  .view-toggle { display: flex; gap: 0; margin-left: auto; border: 1px solid var(--cream-line); border-radius: 3px; padding: 2px; }
+  .view-toggle button {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--cream-faint); padding: 5px 12px; border-radius: 2px; transition: all 140ms;
+  }
+  .view-toggle button:hover { color: var(--cream-soft); }
+  .view-toggle button.active { color: var(--paper); background: var(--cream); }
+  .top-actions { display: flex; align-items: center; gap: 8px; }
+  .icon-btn {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--cream-faint); padding: 5px 10px; border-radius: 3px; border: 1px solid transparent;
+    transition: all 140ms;
+  }
+  .icon-btn:hover { color: var(--cream); border-color: var(--cream-line); }
+  .icon-btn.is-on { color: var(--orange); border-color: var(--orange-glow); }
+
+  /* ── status bar ── */
+  .statusbar {
+    display: flex; align-items: center; gap: 18px;
+    padding: 0 22px; border-top: 1px solid var(--cream-line);
+    background: var(--paper);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--cream-faint);
+  }
+  .statusbar .save-pill[data-state="saved"]   { color: var(--green); }
+  .statusbar .save-pill[data-state="saving"]  { color: var(--orange); }
+  .statusbar .save-pill[data-state="error"]   { color: #ff6b6b; }
+  .statusbar .spacer { flex: 1; }
+  .statusbar .cost { color: var(--cream-soft); }
+  .statusbar .cost span { color: var(--green); }
+
+  /* ════════ MAIN — view container ════════ */
+  .main { position: relative; overflow: hidden; }
+  .view { position: absolute; inset: 0; overflow: auto; display: none; }
+  .view.active { display: block; }
+
+  /* ════════ OUTLINE VIEW ════════ */
+  #view-outline { background: var(--paper); }
+  .outline-wrap { max-width: 880px; margin: 0 auto; padding: 56px 32px 200px; }
+  .outline-head { margin-bottom: 36px; }
+  .outline-head .eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--cream-faint); margin-bottom: 10px; }
+  .outline-head h1 { font-family: var(--display); font-style: italic; font-weight: 400; font-size: 44px; line-height: 1.1; letter-spacing: -0.01em; margin: 0 0 8px; color: var(--cream); }
+  .outline-head .blurb { font-size: 16px; line-height: 1.5; color: var(--cream-soft); max-width: 60ch; padding: 4px 0; outline: none; border-radius: 3px; }
+  .outline-head .blurb:empty::before { content: 'add a blurb or logline…'; color: var(--cream-faint); }
+  .outline-head .blurb:focus { background: var(--ink-card); padding: 8px 12px; }
+
+  .chapter {
+    background: var(--ink-card); border: 1px solid var(--cream-line); border-radius: 4px;
+    padding: 22px 26px; margin-bottom: 16px; transition: border-color 140ms;
+  }
+  .chapter:hover { border-color: var(--cream-hair); }
+  .ch-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 12px; }
+  .ch-num { font-family: var(--mono); font-size: 10px; letter-spacing: 0.24em; color: var(--orange); flex-shrink: 0; }
+  .ch-title {
+    font-family: var(--display); font-style: italic; font-size: 24px; color: var(--cream);
+    flex: 1; outline: none; padding: 2px 6px; border-radius: 3px; border: 1px solid transparent;
+  }
+  .ch-title:hover, .ch-title:focus { background: var(--ink-soft); border-color: var(--cream-line); }
+  .ch-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .ch-actions button {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--cream-faint); padding: 4px 8px; border-radius: 2px; border: 1px solid transparent;
+  }
+  .ch-actions button:hover { color: var(--cream); border-color: var(--cream-line); }
+  .ch-actions .danger:hover { color: #ff6b6b; border-color: rgba(255,107,107,0.3); }
+
+  .ch-summary {
+    font-size: 15px; line-height: 1.55; color: var(--cream-soft);
+    padding: 6px 8px; border-radius: 3px; outline: none; min-height: 24px;
+    margin-bottom: 14px;
+  }
+  .ch-summary:empty::before { content: 'one-line summary of the chapter…'; color: var(--cream-faint); }
+  .ch-summary:focus { background: var(--ink-soft); }
+
+  .ch-meta-row { display: flex; gap: 18px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--cream-faint); }
+  .ch-meta-row .status { color: var(--cream-soft); }
+  .ch-meta-row .status[data-st="final"] { color: var(--green); }
+
+  .add-chapter-btn {
+    width: 100%; padding: 18px;
+    background: transparent; border: 1px dashed var(--cream-line); border-radius: 4px;
+    color: var(--cream-faint); font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.24em; text-transform: uppercase;
+    transition: all 140ms; margin-top: 8px;
+  }
+  .add-chapter-btn:hover { color: var(--orange); border-color: var(--orange-glow); }
+
+  /* ════════ NOVEL VIEW ════════ */
+  #view-novel { background: var(--paper); }
+  .novel-wrap { max-width: 720px; margin: 0 auto; padding: 80px 32px 240px; }
+
+  .chapter-block { margin-bottom: 80px; }
+  .chapter-block .ch-eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase; color: var(--orange); margin-bottom: 14px; }
+  .chapter-block h2 { font-family: var(--display); font-style: italic; font-weight: 400; font-size: 42px; line-height: 1.1; margin: 0 0 36px; color: var(--cream); letter-spacing: -0.01em; }
+  .scene-prose {
+    font-family: var(--serif); font-size: 19px; line-height: 1.75; color: var(--cream);
+    outline: none; min-height: 60px; white-space: pre-wrap; word-wrap: break-word;
+    margin-bottom: 28px; padding: 4px 0;
+    /* old-style book first line indent feel */
+  }
+  .scene-prose:focus { background: linear-gradient(180deg, transparent 0%, rgba(244,67,21,0.02) 50%, transparent 100%); }
+
+  /* the bracket — directive highlight */
+  .scene-prose .dx {
+    background: var(--orange-soft);
+    color: var(--cream);
+    font-family: var(--mono);
+    font-size: 0.86em;
+    font-style: normal;
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--orange-glow);
+    line-height: 1.5;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  .scene-prose .dx-gen {
+    background: rgba(59,199,115,0.10);
+    border-bottom: 1px solid rgba(59,199,115,0.4);
+    color: var(--cream);
+    animation: pulse-in 1.4s ease-out;
+  }
+  @keyframes pulse-in {
+    0% { background: rgba(59,199,115,0.30); }
+    100% { background: rgba(59,199,115,0.10); }
+  }
+
+  /* floating expand button */
+  .float-action {
+    position: absolute;
+    background: var(--paper);
+    border: 1px solid var(--orange);
+    border-radius: 4px;
+    padding: 8px 14px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--orange);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    z-index: 100;
+    cursor: pointer;
+    transition: transform 140ms;
+    display: none;
+  }
+  .float-action.is-on { display: block; }
+  .float-action:hover { transform: translateY(-1px); background: var(--orange); color: var(--paper); }
+  .float-action.is-loading { color: var(--cream-faint); border-color: var(--cream-line); cursor: wait; }
+  .float-action.is-loading::after {
+    content: '…'; margin-left: 4px;
+    animation: dots 1s steps(4, end) infinite;
+  }
+  @keyframes dots { 0%,20%{content:'…'} 40%{content:'.'} 60%{content:'..'} 80%{content:'…'} }
+
+  /* ════════ GRID VIEW ════════ */
+  #view-grid { background: var(--paper); }
+  .grid-wrap { max-width: 1200px; margin: 0 auto; padding: 56px 32px 200px; }
+  .grid-head { margin-bottom: 36px; }
+  .grid-head .eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--cream-faint); margin-bottom: 10px; }
+  .grid-head h1 { font-family: var(--display); font-style: italic; font-weight: 400; font-size: 36px; margin: 0; color: var(--cream); }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;
+  }
+  .grid-card {
+    background: var(--ink-card); border: 1px solid var(--cream-line); border-radius: 4px;
+    padding: 22px 24px; min-height: 200px; display: flex; flex-direction: column;
+    cursor: pointer; transition: all 140ms;
+  }
+  .grid-card:hover { border-color: var(--orange-glow); transform: translateY(-2px); }
+  .grid-card .num { font-family: var(--mono); font-size: 10px; letter-spacing: 0.24em; color: var(--orange); margin-bottom: 10px; }
+  .grid-card .title { font-family: var(--display); font-style: italic; font-size: 22px; color: var(--cream); margin-bottom: 10px; line-height: 1.2; }
+  .grid-card .summary { flex: 1; font-size: 14px; line-height: 1.5; color: var(--cream-soft); }
+  .grid-card .footer { margin-top: 14px; display: flex; gap: 14px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--cream-faint); }
+  .grid-card .footer .st { color: var(--cream-soft); }
+
+  /* ════════ CODEX DRAWER ════════ */
+  .drawer-scrim {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    opacity: 0; pointer-events: none; transition: opacity 220ms;
+    z-index: 200;
+  }
+  .drawer-scrim.is-on { opacity: 1; pointer-events: auto; }
+  .codex-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 480px;
+    background: var(--paper-warm); border-left: 1px solid var(--cream-line);
+    transform: translateX(100%); transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 210; display: flex; flex-direction: column;
+    box-shadow: -20px 0 60px rgba(0,0,0,0.6);
+  }
+  .codex-drawer.is-on { transform: translateX(0); }
+  .codex-head {
+    padding: 20px 24px; border-bottom: 1px solid var(--cream-line);
+    display: flex; align-items: center; gap: 14px;
+  }
+  .codex-head h3 { font-family: var(--display); font-style: italic; font-weight: 400; font-size: 22px; margin: 0; flex: 1; color: var(--cream); }
+  .codex-tabs { display: flex; gap: 2px; padding: 12px 24px 0; }
+  .codex-tabs button {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--cream-faint); padding: 6px 10px; border-radius: 3px; border: 1px solid transparent;
+  }
+  .codex-tabs button.active { color: var(--orange); border-color: var(--orange-glow); }
+  .codex-body { flex: 1; overflow: auto; padding: 16px 24px 80px; }
+  .codex-entry {
+    background: var(--ink-card); border: 1px solid var(--cream-line); border-radius: 4px;
+    padding: 14px 16px; margin-bottom: 10px;
+  }
+  .codex-entry .name {
+    font-family: var(--display); font-style: italic; font-size: 18px; color: var(--cream);
+    outline: none; padding: 2px 4px; border-radius: 3px;
+  }
+  .codex-entry .name:focus { background: var(--ink-soft); }
+  .codex-entry .oneline {
+    font-size: 13px; line-height: 1.4; color: var(--cream-soft);
+    margin-top: 4px; outline: none; padding: 2px 4px; border-radius: 3px;
+  }
+  .codex-entry .oneline:focus { background: var(--ink-soft); }
+  .codex-entry .oneline:empty::before { content: 'one-line description…'; color: var(--cream-faint); }
+  .codex-entry .full {
+    font-size: 13px; line-height: 1.5; color: var(--cream-soft);
+    margin-top: 8px; outline: none; padding: 6px 8px; border-radius: 3px;
+    background: var(--ink-soft); min-height: 40px; display: none;
+    white-space: pre-wrap;
+  }
+  .codex-entry.is-open .full { display: block; }
+  .codex-entry .row {
+    display: flex; gap: 10px; align-items: center; margin-top: 6px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--cream-faint);
+  }
+  .codex-entry .row button {
+    color: var(--cream-faint); padding: 2px 6px; border-radius: 2px;
+  }
+  .codex-entry .row button:hover { color: var(--cream); }
+  .codex-entry .row .danger:hover { color: #ff6b6b; }
+
+  .codex-add {
+    width: 100%; padding: 14px;
+    border: 1px dashed var(--cream-line); border-radius: 4px;
+    color: var(--cream-faint); font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    transition: all 140ms; margin-top: 4px;
+  }
+  .codex-add:hover { color: var(--orange); border-color: var(--orange-glow); }
+
+  /* ════════ TOAST ════════ */
+  .toast {
+    position: fixed; bottom: 56px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--ink-card); border: 1px solid var(--cream-line); border-left: 3px solid var(--orange);
+    padding: 12px 20px; border-radius: 4px; z-index: 300;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--cream); opacity: 0; pointer-events: none; transition: all 220ms;
+    max-width: 80vw;
+  }
+  .toast.is-on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.is-error { border-left-color: #ff6b6b; }
+
+  /* ════════ ONBOARDING / WELCOME ════════ */
+  .welcome {
+    position: fixed; inset: 0; background: var(--paper); z-index: 400;
+    display: none; align-items: center; justify-content: center;
+    flex-direction: column; gap: 24px; padding: 40px;
+  }
+  .welcome.is-on { display: flex; }
+  .welcome h1 { font-family: var(--display); font-style: italic; font-weight: 400; font-size: 56px; margin: 0; color: var(--cream); text-align: center; }
+  .welcome p { font-family: var(--serif); font-size: 18px; line-height: 1.5; color: var(--cream-soft); max-width: 46ch; text-align: center; margin: 0; }
+  .welcome button {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--paper); background: var(--cream); padding: 14px 32px; border-radius: 3px;
+    margin-top: 20px; transition: all 140ms;
+  }
+  .welcome button:hover { background: var(--orange); color: var(--paper); }
+
+  /* misc */
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ════════ TOP BAR ════════ -->
+  <div class="topbar">
+    <span class="brand"><span class="dot">●</span>newpress novel</span>
+    <input class="novel-title" id="novel-title" placeholder="untitled novel" />
+    <div class="view-toggle" role="tablist">
+      <button data-view="outline" class="active">outline</button>
+      <button data-view="novel">novel</button>
+      <button data-view="grid">grid</button>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="btn-codex" title="Open the codex (story bible)">⌘ codex</button>
+      <button class="icon-btn" id="btn-export" title="Export to plain markdown">↓ export</button>
+      <button class="icon-btn" id="btn-focus" title="Focus mode (F)">focus</button>
+    </div>
+  </div>
+
+  <!-- ════════ MAIN ════════ -->
+  <div class="main">
+
+    <!-- OUTLINE -->
+    <div class="view active" id="view-outline">
+      <div class="outline-wrap">
+        <div class="outline-head">
+          <div class="eyebrow">outline · the architect's view</div>
+          <h1 id="ol-title">untitled novel</h1>
+          <div class="blurb" id="ol-blurb" contenteditable="true" data-placeholder="add a blurb or logline…"></div>
+        </div>
+        <div id="chapters-list"></div>
+        <button class="add-chapter-btn" id="btn-add-chapter">＋ add chapter</button>
+      </div>
+    </div>
+
+    <!-- NOVEL -->
+    <div class="view" id="view-novel">
+      <div class="novel-wrap" id="novel-wrap"></div>
+      <button class="float-action" id="float-action">turn into writing</button>
+    </div>
+
+    <!-- GRID -->
+    <div class="view" id="view-grid">
+      <div class="grid-wrap">
+        <div class="grid-head">
+          <div class="eyebrow">grid · the map view</div>
+          <h1 id="grid-title">untitled novel</h1>
+        </div>
+        <div class="grid" id="grid-cards"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════════ STATUS BAR ════════ -->
+  <div class="statusbar">
+    <span class="save-pill" id="save-pill" data-state="saved">saved locally</span>
+    <span>·</span>
+    <span id="word-count">0 words</span>
+    <span class="spacer"></span>
+    <span class="cost">session cost · <span id="session-cost">$0.00</span></span>
+    <span>·</span>
+    <span id="model-label">claude sonnet 4.6</span>
+  </div>
+</div>
+
+<!-- ════════ CODEX DRAWER ════════ -->
+<div class="drawer-scrim" id="drawer-scrim"></div>
+<div class="codex-drawer" id="codex-drawer">
+  <div class="codex-head">
+    <h3>codex</h3>
+    <button class="icon-btn" id="btn-close-codex">close</button>
+  </div>
+  <div class="codex-tabs">
+    <button data-kind="character" class="active">character</button>
+    <button data-kind="place">place</button>
+    <button data-kind="object">object</button>
+    <button data-kind="concept">concept</button>
+    <button data-kind="theme">theme</button>
+  </div>
+  <div class="codex-body" id="codex-body"></div>
+</div>
+
+<!-- ════════ TOAST ════════ -->
+<div class="toast" id="toast"></div>
+
+<!-- ════════ WELCOME OVERLAY ════════ -->
+<div class="welcome" id="welcome">
+  <h1>begin a novel.</h1>
+  <p>This is your private editorial canvas. You write here. The model has read every word and is listening. Brackets are your prompting language — type <code style="background:var(--ink-card);padding:2px 6px;border-radius:3px;font-family:var(--mono);font-size:14px;color:var(--orange)">[[ a directive ]]</code> anywhere and click "turn into writing" to expand it. Everything you write saves to this browser. Add cloud sync later.</p>
+  <button id="btn-begin">begin →</button>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   NEWPRESS NOVEL · single-file editorial novel tool
+   v0 · local-first, full-context AI, bracket-as-prompt syntax
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── IndexedDB layer ────────────────────────────────────────────── */
+const DB_NAME = 'newpress-novel';
+const DB_VER = 1;
+const STORES = ['novel', 'chapters', 'scenes', 'codex', 'meta'];
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      STORES.forEach(s => { if (!db.objectStoreNames.contains(s)) db.createObjectStore(s, { keyPath: 'id' }); });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function tx(store, mode = 'readonly') {
+  const db = await openDB();
+  return db.transaction(store, mode).objectStore(store);
+}
+
+async function put(store, obj) {
+  const s = await tx(store, 'readwrite');
+  return new Promise((res, rej) => { const r = s.put(obj); r.onsuccess = () => res(obj); r.onerror = () => rej(r.error); });
+}
+async function getAll(store) {
+  const s = await tx(store);
+  return new Promise((res, rej) => { const r = s.getAll(); r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error); });
+}
+async function getOne(store, id) {
+  const s = await tx(store);
+  return new Promise((res, rej) => { const r = s.get(id); r.onsuccess = () => res(r.result || null); r.onerror = () => rej(r.error); });
+}
+async function del(store, id) {
+  const s = await tx(store, 'readwrite');
+  return new Promise((res, rej) => { const r = s.delete(id); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
+}
+
+/* ── ID helpers ─────────────────────────────────────────────────── */
+function uid() {
+  return 'x' + Math.random().toString(36).slice(2, 11) + Date.now().toString(36).slice(-4);
+}
+
+/* ── State ──────────────────────────────────────────────────────── */
+const state = {
+  novel: null,           // { id, title, subtitle, blurb, voice_sample, created_at, updated_at }
+  chapters: [],          // [{ id, novel_id, position, title, summary, status, ... }]
+  scenes: [],            // [{ id, chapter_id, novel_id, position, prose, ... }]
+  codex: [],             // [{ id, novel_id, kind, name, one_line, full_text, ... }]
+  currentView: 'outline',
+  sessionCost: 0,
+  saveStatus: 'saved',
+  focusMode: false,
+  codexTab: 'character',
+};
+
+/* ── Seed: ensure there's a novel ───────────────────────────────── */
+async function ensureNovel() {
+  const novels = await getAll('novel');
+  if (novels.length) {
+    state.novel = novels[0];
+  } else {
+    state.novel = {
+      id: uid(),
+      title: 'untitled novel',
+      subtitle: '',
+      blurb: '',
+      voice_sample: '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    await put('novel', state.novel);
+  }
+  state.chapters = (await getAll('chapters')).filter(c => c.novel_id === state.novel.id).sort((a, b) => (a.position || 0) - (b.position || 0));
+  state.scenes = (await getAll('scenes')).filter(s => s.novel_id === state.novel.id).sort((a, b) => (a.position || 0) - (b.position || 0));
+  state.codex = (await getAll('codex')).filter(c => c.novel_id === state.novel.id);
+}
+
+/* ── Default starter bracket on new chapter ─────────────────────── */
+const STARTER_BRACKET = `[[ write a scene where:
+
+(describe what happens — characters present, location, mood, what shifts, how it ends. write as much context as you want here. when you're done, select this whole bracket and click "turn into writing" in the top right.)
+]]`;
+
+async function addChapter(opts = {}) {
+  const position = state.chapters.length;
+  const chapter = {
+    id: uid(),
+    novel_id: state.novel.id,
+    position,
+    act: '',
+    title: opts.title || `chapter ${position + 1}`,
+    summary: '',
+    status: 'draft',
+    word_count: 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  await put('chapters', chapter);
+  state.chapters.push(chapter);
+
+  // every new chapter starts with a starter scene containing the bracket
+  const scene = {
+    id: uid(),
+    chapter_id: chapter.id,
+    novel_id: state.novel.id,
+    position: 0,
+    title: '',
+    summary: '',
+    prompt: '',
+    prose: STARTER_BRACKET,
+    status: 'draft',
+    word_count: 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  await put('scenes', scene);
+  state.scenes.push(scene);
+  return chapter;
+}
+
+async function deleteChapter(id) {
+  if (!confirm('delete this chapter and all its scenes? this cannot be undone.')) return;
+  const scenes = state.scenes.filter(s => s.chapter_id === id);
+  for (const sc of scenes) await del('scenes', sc.id);
+  await del('chapters', id);
+  state.scenes = state.scenes.filter(s => s.chapter_id !== id);
+  state.chapters = state.chapters.filter(c => c.id !== id);
+  state.chapters.forEach((c, i) => { c.position = i; put('chapters', c); });
+  renderAll();
+}
+
+async function saveScene(scene) {
+  scene.updated_at = new Date().toISOString();
+  scene.word_count = (scene.prose || '').trim().split(/\s+/).filter(Boolean).length;
+  await put('scenes', scene);
+  flashSaved();
+}
+
+async function saveChapter(chapter) {
+  chapter.updated_at = new Date().toISOString();
+  const myScenes = state.scenes.filter(s => s.chapter_id === chapter.id);
+  chapter.word_count = myScenes.reduce((n, s) => n + (s.word_count || 0), 0);
+  await put('chapters', chapter);
+  flashSaved();
+}
+
+async function saveNovel() {
+  state.novel.updated_at = new Date().toISOString();
+  await put('novel', state.novel);
+  flashSaved();
+}
+
+function flashSaved() {
+  state.saveStatus = 'saved';
+  const pill = document.getElementById('save-pill');
+  pill.dataset.state = 'saved';
+  pill.textContent = 'saved locally';
+}
+function markSaving() {
+  state.saveStatus = 'saving';
+  const pill = document.getElementById('save-pill');
+  pill.dataset.state = 'saving';
+  pill.textContent = 'saving…';
+}
+
+/* ── Bracket parsing & rendering ─────────────────────────────────
+   We render scene prose as HTML with [[ ... ]] wrapped in <span class="dx">.
+   The editor is contenteditable; on input we DEBOUNCE re-extract plain text,
+   save it, then re-render only when not actively typing (to avoid cursor jump).
+   Simpler approach: scene prose stays as plain text in storage; when not
+   focused we render with highlights; when focused we show plain text and
+   let the bracket styling appear after blur. — that keeps cursor stable. */
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function renderProseHTML(text) {
+  const esc = escapeHtml(text);
+  return esc.replace(/(\[\[[\s\S]*?\]\])/g, '<span class="dx">$1</span>');
+}
+
+/* ── OUTLINE VIEW ───────────────────────────────────────────────── */
+function renderOutline() {
+  document.getElementById('novel-title').value = state.novel.title || '';
+  document.getElementById('ol-title').textContent = state.novel.title || 'untitled novel';
+  const blurbEl = document.getElementById('ol-blurb');
+  if (document.activeElement !== blurbEl) blurbEl.textContent = state.novel.blurb || '';
+
+  const host = document.getElementById('chapters-list');
+  host.innerHTML = state.chapters.map((ch, i) => {
+    const sc = state.scenes.filter(s => s.chapter_id === ch.id);
+    const wc = sc.reduce((n, s) => n + (s.word_count || 0), 0);
+    const num = String(i + 1).padStart(2, '0');
+    return `
+      <div class="chapter" data-id="${ch.id}">
+        <div class="ch-head">
+          <span class="ch-num">CH · ${num}</span>
+          <div class="ch-title" contenteditable="true" data-field="title">${escapeHtml(ch.title || '')}</div>
+          <div class="ch-actions">
+            <button data-action="jump">open ↗</button>
+            <button class="danger" data-action="delete">delete</button>
+          </div>
+        </div>
+        <div class="ch-summary" contenteditable="true" data-field="summary">${escapeHtml(ch.summary || '')}</div>
+        <div class="ch-meta-row">
+          <span class="status" data-st="${ch.status}">${ch.status}</span>
+          <span>${wc.toLocaleString()} words</span>
+          <span>${sc.length} scene${sc.length === 1 ? '' : 's'}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // wire chapter edits
+  host.querySelectorAll('.chapter').forEach(node => {
+    const id = node.dataset.id;
+    const ch = state.chapters.find(c => c.id === id);
+    if (!ch) return;
+
+    node.querySelectorAll('[contenteditable="true"]').forEach(el => {
+      el.addEventListener('input', () => {
+        ch[el.dataset.field] = el.textContent;
+        markSaving();
+        debounce('save-ch-' + id, 600, () => saveChapter(ch));
+      });
+    });
+    node.querySelector('[data-action="delete"]').addEventListener('click', e => { e.stopPropagation(); deleteChapter(id); });
+    node.querySelector('[data-action="jump"]').addEventListener('click', e => {
+      e.stopPropagation();
+      switchView('novel');
+      requestAnimationFrame(() => {
+        const target = document.querySelector(`.chapter-block[data-id="${id}"]`);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  });
+}
+
+/* ── NOVEL VIEW ─────────────────────────────────────────────────── */
+function renderNovel() {
+  const host = document.getElementById('novel-wrap');
+  host.innerHTML = state.chapters.map((ch, i) => {
+    const num = String(i + 1).padStart(2, '0');
+    const scenes = state.scenes.filter(s => s.chapter_id === ch.id).sort((a, b) => a.position - b.position);
+    return `
+      <div class="chapter-block" data-id="${ch.id}">
+        <div class="ch-eyebrow">CHAPTER · ${num}</div>
+        <h2>${escapeHtml(ch.title || '')}</h2>
+        ${scenes.map(sc => `
+          <div class="scene-prose"
+               contenteditable="true"
+               spellcheck="true"
+               data-scene-id="${sc.id}">${renderProseHTML(sc.prose || '')}</div>
+        `).join('')}
+      </div>
+    `;
+  }).join('');
+
+  // wire scene editors
+  host.querySelectorAll('.scene-prose').forEach(el => {
+    const sceneId = el.dataset.sceneId;
+    const sc = state.scenes.find(s => s.id === sceneId);
+    if (!sc) return;
+
+    let isFocused = false;
+    el.addEventListener('focus', () => {
+      isFocused = true;
+      // on focus, render plain text so cursor + selection work normally
+      el.textContent = sc.prose || '';
+    });
+    el.addEventListener('blur', () => {
+      isFocused = false;
+      sc.prose = el.textContent;
+      markSaving();
+      saveScene(sc).then(() => {
+        // re-render with highlight
+        el.innerHTML = renderProseHTML(sc.prose || '');
+      });
+    });
+    el.addEventListener('input', () => {
+      sc.prose = el.textContent;
+      markSaving();
+      debounce('save-sc-' + sceneId, 800, () => saveScene(sc));
+    });
+  });
+
+  // wire chapter title hover (jump back to outline)
+  // (skipped for v0 — keep novel view a reading surface)
+}
+
+/* ── GRID VIEW ──────────────────────────────────────────────────── */
+function renderGrid() {
+  document.getElementById('grid-title').textContent = state.novel.title || 'untitled novel';
+  const host = document.getElementById('grid-cards');
+  host.innerHTML = state.chapters.map((ch, i) => {
+    const num = String(i + 1).padStart(2, '0');
+    const sc = state.scenes.filter(s => s.chapter_id === ch.id);
+    const wc = sc.reduce((n, s) => n + (s.word_count || 0), 0);
+    return `
+      <div class="grid-card" data-id="${ch.id}">
+        <div class="num">CH · ${num}</div>
+        <div class="title">${escapeHtml(ch.title || '')}</div>
+        <div class="summary">${escapeHtml(ch.summary || '(no summary yet)')}</div>
+        <div class="footer">
+          <span class="st">${ch.status}</span>
+          <span>${wc.toLocaleString()}w</span>
+          <span>${sc.length} scene${sc.length === 1 ? '' : 's'}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+  host.querySelectorAll('.grid-card').forEach(card => {
+    card.addEventListener('click', () => {
+      switchView('novel');
+      requestAnimationFrame(() => {
+        const target = document.querySelector(`.chapter-block[data-id="${card.dataset.id}"]`);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  });
+}
+
+/* ── CODEX ──────────────────────────────────────────────────────── */
+function renderCodex() {
+  const host = document.getElementById('codex-body');
+  const entries = state.codex.filter(e => e.kind === state.codexTab);
+  host.innerHTML = entries.map(e => `
+    <div class="codex-entry ${e._open ? 'is-open' : ''}" data-id="${e.id}">
+      <div class="name" contenteditable="true" data-field="name">${escapeHtml(e.name || '')}</div>
+      <div class="oneline" contenteditable="true" data-field="one_line">${escapeHtml(e.one_line || '')}</div>
+      <div class="full" contenteditable="true" data-field="full_text">${escapeHtml(e.full_text || '')}</div>
+      <div class="row">
+        <button data-action="toggle">${e._open ? 'collapse' : 'expand'}</button>
+        <span class="spacer" style="flex:1"></span>
+        <button class="danger" data-action="delete">delete</button>
+      </div>
+    </div>
+  `).join('') + `<button class="codex-add" id="codex-add">＋ add ${state.codexTab}</button>`;
+
+  host.querySelectorAll('.codex-entry').forEach(node => {
+    const id = node.dataset.id;
+    const entry = state.codex.find(e => e.id === id);
+    if (!entry) return;
+
+    node.querySelectorAll('[contenteditable="true"]').forEach(el => {
+      el.addEventListener('input', () => {
+        entry[el.dataset.field] = el.dataset.field === 'full_text' ? el.textContent : el.textContent;
+        markSaving();
+        debounce('save-cx-' + id, 500, async () => {
+          entry.updated_at = new Date().toISOString();
+          await put('codex', entry);
+          flashSaved();
+        });
+      });
+    });
+    node.querySelector('[data-action="toggle"]').addEventListener('click', () => {
+      entry._open = !entry._open;
+      renderCodex();
+    });
+    node.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+      if (!confirm(`delete "${entry.name}"?`)) return;
+      await del('codex', id);
+      state.codex = state.codex.filter(e => e.id !== id);
+      renderCodex();
+    });
+  });
+  document.getElementById('codex-add').addEventListener('click', async () => {
+    const entry = {
+      id: uid(),
+      novel_id: state.novel.id,
+      kind: state.codexTab,
+      name: '',
+      aliases: [],
+      one_line: '',
+      full_text: '',
+      color: '',
+      _open: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    await put('codex', entry);
+    state.codex.push(entry);
+    renderCodex();
+  });
+}
+
+/* ── view switching ─────────────────────────────────────────────── */
+function switchView(name) {
+  state.currentView = name;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.view-toggle button').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  if (name === 'outline') renderOutline();
+  if (name === 'novel') renderNovel();
+  if (name === 'grid') renderGrid();
+  updateWordCount();
+}
+
+function updateWordCount() {
+  const total = state.scenes.reduce((n, s) => n + (s.word_count || 0), 0);
+  document.getElementById('word-count').textContent = `${total.toLocaleString()} words`;
+}
+
+function renderAll() {
+  if (state.currentView === 'outline') renderOutline();
+  if (state.currentView === 'novel') renderNovel();
+  if (state.currentView === 'grid') renderGrid();
+  updateWordCount();
+}
+
+/* ── debounce ───────────────────────────────────────────────────── */
+const debounceTimers = {};
+function debounce(key, ms, fn) {
+  clearTimeout(debounceTimers[key]);
+  debounceTimers[key] = setTimeout(fn, ms);
+}
+
+/* ── toast ──────────────────────────────────────────────────────── */
+function toast(msg, opts = {}) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.toggle('is-error', !!opts.error);
+  el.classList.add('is-on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('is-on'), opts.duration || 3200);
+}
+
+/* ── SELECTION → FLOAT ACTION ───────────────────────────────────── */
+const floatBtn = document.getElementById('float-action');
+let currentBracketMatch = null;
+
+function findBracketAroundSelection() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return null;
+  const range = sel.getRangeAt(0);
+  const proseEl = range.commonAncestorContainer.closest
+    ? range.commonAncestorContainer.closest('.scene-prose')
+    : range.commonAncestorContainer.parentElement?.closest('.scene-prose');
+  if (!proseEl) return null;
+
+  // Walk the plain text; figure out start/end offset of selection inside the prose
+  const text = proseEl.textContent;
+  const preRange = range.cloneRange();
+  preRange.selectNodeContents(proseEl);
+  preRange.setEnd(range.startContainer, range.startOffset);
+  const start = preRange.toString().length;
+  const end = start + range.toString().length;
+
+  // find a [[ ... ]] block that contains or overlaps the selection
+  const re = /\[\[[\s\S]*?\]\]/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const bStart = m.index;
+    const bEnd = m.index + m[0].length;
+    if (start >= bStart && end <= bEnd) {
+      return { proseEl, sceneId: proseEl.dataset.sceneId, bracket: m[0], bStart, bEnd, text };
+    }
+  }
+  return null;
+}
+
+function positionFloatBtn(rect) {
+  // position above-right of the selection rect
+  const wrap = document.querySelector('#view-novel');
+  const wrapRect = wrap.getBoundingClientRect();
+  const top = rect.top - wrapRect.top + wrap.scrollTop - 44;
+  const left = Math.min(rect.right - wrapRect.left + 8, wrap.clientWidth - 200);
+  floatBtn.style.top = Math.max(8, top) + 'px';
+  floatBtn.style.left = Math.max(8, left) + 'px';
+}
+
+document.addEventListener('selectionchange', () => {
+  if (state.currentView !== 'novel') { floatBtn.classList.remove('is-on'); return; }
+  const match = findBracketAroundSelection();
+  if (!match) { floatBtn.classList.remove('is-on'); currentBracketMatch = null; return; }
+  currentBracketMatch = match;
+  const sel = window.getSelection();
+  const rect = sel.getRangeAt(0).getBoundingClientRect();
+  positionFloatBtn(rect);
+  floatBtn.classList.add('is-on');
+});
+
+/* ── AI: turn bracket into writing ──────────────────────────────── */
+function buildContextPayload(directive, scene) {
+  // Compose the full novel text in chapter+position order.
+  const orderedChapters = [...state.chapters].sort((a, b) => a.position - b.position);
+  const fullNovel = orderedChapters.map(ch => {
+    const num = String(orderedChapters.indexOf(ch) + 1).padStart(2, '0');
+    const myScenes = state.scenes.filter(s => s.chapter_id === ch.id).sort((a, b) => a.position - b.position);
+    return `\n\n# CHAPTER ${num} · ${ch.title}\n\n${myScenes.map(s => s.prose || '').join('\n\n')}`;
+  }).join('\n');
+
+  const outlineText = orderedChapters.map((ch, i) => {
+    const num = String(i + 1).padStart(2, '0');
+    return `${num}. ${ch.title}${ch.summary ? ' — ' + ch.summary : ''}`;
+  }).join('\n');
+
+  const codexText = ['character', 'place', 'object', 'concept', 'theme'].map(kind => {
+    const entries = state.codex.filter(e => e.kind === kind);
+    if (!entries.length) return '';
+    return `### ${kind.toUpperCase()}\n\n${entries.map(e =>
+      `**${e.name}**${e.one_line ? ' — ' + e.one_line : ''}${e.full_text ? '\n' + e.full_text : ''}`
+    ).join('\n\n')}`;
+  }).filter(Boolean).join('\n\n');
+
+  // surrounding prose: get a 600-char window around the scene this bracket lives in
+  let surrounding = '';
+  if (scene) {
+    const prose = scene.prose || '';
+    const idx = prose.indexOf(currentBracketMatch?.bracket || '');
+    if (idx >= 0) {
+      surrounding = prose.slice(Math.max(0, idx - 800), idx);
+    }
+  }
+
+  return {
+    novel_title: state.novel.title,
+    novel_blurb: state.novel.blurb || '',
+    voice_sample: state.novel.voice_sample || '',
+    outline_text: outlineText,
+    codex_text: codexText,
+    full_novel_text: fullNovel.trim(),
+    surrounding_prose: surrounding,
+    directive,
+    kind: 'bracket',
+    strict_mode: true,
+  };
+}
+
+async function expandBracket() {
+  if (!currentBracketMatch) return;
+  const { proseEl, sceneId, bracket, bStart, bEnd } = currentBracketMatch;
+  const scene = state.scenes.find(s => s.id === sceneId);
+  if (!scene) return;
+
+  // strip [[ ]] off the directive
+  const directiveInner = bracket.replace(/^\[\[\s*/, '').replace(/\s*\]\]$/, '').trim();
+  if (!directiveInner) { toast('bracket is empty — write a directive first'); return; }
+
+  floatBtn.classList.add('is-loading');
+  floatBtn.textContent = 'writing';
+  markSaving();
+  toast('thinking with the whole book in mind…', { duration: 8000 });
+
+  try {
+    const payload = buildContextPayload(directiveInner, scene);
+    const res = await fetch('/api/novel-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'generation failed');
+
+    const prose = (data.prose || '').trim();
+    if (!prose) throw new Error('empty response');
+
+    // replace the bracket in the scene's prose
+    const fullText = scene.prose || '';
+    const idx = fullText.indexOf(bracket);
+    if (idx < 0) throw new Error('bracket no longer in prose');
+    scene.prose = fullText.slice(0, idx) + prose + fullText.slice(idx + bracket.length);
+    await saveScene(scene);
+
+    // re-render the scene element
+    proseEl.innerHTML = renderProseHTML(scene.prose);
+
+    // cost
+    if (typeof data.cost_usd === 'number') {
+      state.sessionCost += data.cost_usd;
+      document.getElementById('session-cost').textContent = '$' + state.sessionCost.toFixed(2);
+    }
+    const cacheHit = (data.usage?.cache_read_input_tokens || 0) > 0;
+    toast(`✓ wrote ${prose.split(/\s+/).length} words · ${cacheHit ? 'cached' : 'fresh'} · $${(data.cost_usd || 0).toFixed(3)}`);
+  } catch (err) {
+    console.error('[expand]', err);
+    toast('generation failed — ' + (err.message || 'unknown'), { error: true, duration: 5000 });
+  } finally {
+    floatBtn.classList.remove('is-loading');
+    floatBtn.classList.remove('is-on');
+    floatBtn.textContent = 'turn into writing';
+    currentBracketMatch = null;
+  }
+}
+
+floatBtn.addEventListener('click', expandBracket);
+
+/* ── EXPORT ─────────────────────────────────────────────────────── */
+function exportMarkdown() {
+  const ordered = [...state.chapters].sort((a, b) => a.position - b.position);
+  const title = state.novel.title || 'untitled novel';
+  let md = `# ${title}\n\n`;
+  if (state.novel.blurb) md += `> ${state.novel.blurb}\n\n`;
+  md += `---\n\n`;
+  ordered.forEach((ch, i) => {
+    md += `\n\n## Chapter ${i + 1} · ${ch.title}\n\n`;
+    if (ch.summary) md += `*${ch.summary}*\n\n`;
+    const scenes = state.scenes.filter(s => s.chapter_id === ch.id).sort((a, b) => a.position - b.position);
+    scenes.forEach(sc => {
+      md += (sc.prose || '') + '\n\n';
+    });
+  });
+  // codex
+  if (state.codex.length) {
+    md += `\n\n---\n\n# Codex\n\n`;
+    ['character', 'place', 'object', 'concept', 'theme'].forEach(kind => {
+      const entries = state.codex.filter(e => e.kind === kind);
+      if (!entries.length) return;
+      md += `\n## ${kind.charAt(0).toUpperCase() + kind.slice(1)}s\n\n`;
+      entries.forEach(e => {
+        md += `### ${e.name}\n\n`;
+        if (e.one_line) md += `${e.one_line}\n\n`;
+        if (e.full_text) md += `${e.full_text}\n\n`;
+      });
+    });
+  }
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'novel') + '.md';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  toast('exported to downloads');
+}
+
+/* ── WIRING ─────────────────────────────────────────────────────── */
+document.querySelectorAll('.view-toggle button').forEach(b => {
+  b.addEventListener('click', () => switchView(b.dataset.view));
+});
+
+document.getElementById('novel-title').addEventListener('input', e => {
+  state.novel.title = e.target.value;
+  markSaving();
+  debounce('save-novel', 500, () => { saveNovel(); renderAll(); });
+});
+
+document.getElementById('ol-blurb').addEventListener('input', e => {
+  state.novel.blurb = e.target.textContent;
+  markSaving();
+  debounce('save-novel-blurb', 500, () => saveNovel());
+});
+
+document.getElementById('btn-add-chapter').addEventListener('click', async () => {
+  const ch = await addChapter();
+  renderAll();
+  toast('added chapter — switch to novel view to write');
+});
+
+document.getElementById('btn-export').addEventListener('click', exportMarkdown);
+
+document.getElementById('btn-focus').addEventListener('click', () => {
+  state.focusMode = !state.focusMode;
+  document.body.classList.toggle('focus-mode', state.focusMode);
+  document.getElementById('btn-focus').classList.toggle('is-on', state.focusMode);
+  document.getElementById('btn-focus').textContent = state.focusMode ? 'exit focus' : 'focus';
+});
+
+/* codex */
+document.getElementById('btn-codex').addEventListener('click', () => {
+  document.getElementById('codex-drawer').classList.add('is-on');
+  document.getElementById('drawer-scrim').classList.add('is-on');
+  renderCodex();
+});
+document.getElementById('btn-close-codex').addEventListener('click', () => {
+  document.getElementById('codex-drawer').classList.remove('is-on');
+  document.getElementById('drawer-scrim').classList.remove('is-on');
+});
+document.getElementById('drawer-scrim').addEventListener('click', () => {
+  document.getElementById('codex-drawer').classList.remove('is-on');
+  document.getElementById('drawer-scrim').classList.remove('is-on');
+});
+document.querySelectorAll('.codex-tabs button').forEach(b => {
+  b.addEventListener('click', () => {
+    state.codexTab = b.dataset.kind;
+    document.querySelectorAll('.codex-tabs button').forEach(x => x.classList.toggle('active', x === b));
+    renderCodex();
+  });
+});
+
+/* keyboard */
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, [contenteditable="true"]')) return;
+  if (e.key === 'f' || e.key === 'F') {
+    document.getElementById('btn-focus').click();
+  }
+  if (e.key === '1') switchView('outline');
+  if (e.key === '2') switchView('novel');
+  if (e.key === '3') switchView('grid');
+});
+
+/* welcome / boot */
+async function boot() {
+  await ensureNovel();
+  // first-run: empty novel with no chapters → show welcome
+  if (!state.chapters.length && (!state.novel.title || state.novel.title === 'untitled novel')) {
+    document.getElementById('welcome').classList.add('is-on');
+  }
+  renderAll();
+}
+document.getElementById('btn-begin').addEventListener('click', async () => {
+  document.getElementById('welcome').classList.remove('is-on');
+  await addChapter({ title: 'chapter 1' });
+  renderAll();
+  document.getElementById('novel-title').focus();
+});
+
+boot().catch(err => {
+  console.error('[boot] failed', err);
+  toast('failed to load — check the console', { error: true, duration: 6000 });
+});
+</script>
+
+</body>
+</html>
