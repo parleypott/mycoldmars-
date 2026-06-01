@@ -85,7 +85,6 @@ export default defineConfig({
         translation: resolve(__dirname, 'translation/index.html'),
         hunter: resolve(__dirname, 'hunter/index.html'),
         cutter: resolve(__dirname, 'cutter/index.html'),
-        novel: resolve(__dirname, 'novel/index.html'),
         queenScarletSchool: resolve(__dirname, 'queen-scarlet-school/index.html'),
         queenScarletSchoolLibrary: resolve(__dirname, 'queen-scarlet-school/library/index.html'),
         queenScarletSchoolCast: resolve(__dirname, 'queen-scarlet-school/cast/index.html'),
