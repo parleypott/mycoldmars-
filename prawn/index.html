@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>🦐 PRAWN WEEKEND 🦐 :: ENTER YR DETAILS</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E%F0%9F%A6%90%3C/text%3E%3C/svg%3E">
 
 <style>
   /* ===================================================================
@@ -274,6 +275,35 @@
   .s7 { bottom: -60px; right: -80px; --rot: -8deg; --w: 160px; --h: 200px; }
   @media (max-width: 900px) {
     .sticker { display: none; }
+  }
+  @media (max-width: 540px) {
+    main { padding: 12px 8px 60px; }
+    .tabs { padding: 0 6px; gap: 4px; }
+    .tab {
+      font-size: 14px;
+      padding: 8px 10px 12px;
+      white-space: nowrap;
+    }
+    .banner { font-size: 14px; letter-spacing: 1px; padding: 6px 4px; }
+    .header h1 { font-size: 52px; letter-spacing: 2px; }
+    .header .sub { font-size: 16px; padding: 4px 10px; }
+    .vibe-btn { font-size: 18px; padding: 8px 16px; letter-spacing: 2px; }
+    .panel-body { padding: 16px 14px 22px; }
+    label { font-size: 18px; }
+    input[type="text"], textarea { font-size: 16px; padding: 8px 10px; }
+    button.submit { font-size: 24px; padding: 10px 24px; letter-spacing: 2px; }
+    .titlebar { font-size: 12px; padding: 3px 6px; }
+    .prawn-card {
+      grid-template-columns: 60px 1fr;
+      padding: 12px 12px;
+      gap: 10px;
+    }
+    .prawn-card h3 { font-size: 22px; }
+    .prawn-emoji { font-size: 44px; }
+    .prawn-meta {
+      grid-template-columns: 80px 1fr;
+      font-size: 12px;
+    }
   }
 
   /* ----- "what others said" list ----- */
