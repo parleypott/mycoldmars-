@@ -135,7 +135,7 @@ export function parseCSV(text) {
   const cols = parseLine(header, delimiter).map(c => c.trim().toLowerCase());
 
   const numIdx = cols.findIndex(c => c === 'number' || c === '#');
-  const speakerIdx = cols.findIndex(c => c === 'speaker');
+  const speakerIdx = cols.findIndex(c => c === 'speaker' || c === 'speaker name' || c === 'name');
   const startIdx = cols.findIndex(c => c.includes('start'));
   const endIdx = cols.findIndex(c => c.includes('end'));
   const durationIdx = cols.findIndex(c => c.includes('duration'));
