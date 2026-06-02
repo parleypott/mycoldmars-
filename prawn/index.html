@@ -124,6 +124,7 @@
     border-radius: 12px 12px 0 0;
     box-shadow: 4px -2px 0 #000;
     transform: rotate(-0.5deg);
+    white-space: nowrap;
   }
   .tab:nth-child(2) { transform: rotate(0.7deg); background: #ffe9a8; }
   .tab.active {
@@ -273,37 +274,71 @@
   .s5 { bottom: 25%; left: -70px;  --rot: -6deg;  --w: 140px; --h: 180px; }
   .s6 { bottom: -50px; left: -60px; --rot: 5deg;  --w: 170px; --h: 210px; }
   .s7 { bottom: -60px; right: -80px; --rot: -8deg; --w: 160px; --h: 200px; }
+  /* tablet — polaroids overflow off-screen at narrow widths, drop them */
   @media (max-width: 900px) {
     .sticker { display: none; }
+    .tab { font-size: 17px; padding: 8px 14px 12px; }
+    .tabs { padding: 0 12px; gap: 4px; }
+    .header h1 { font-size: 78px; }
+    main { padding: 12px 10px 60px; }
   }
-  @media (max-width: 540px) {
-    main { padding: 12px 8px 60px; }
-    .tabs { padding: 0 6px; gap: 4px; }
+
+  /* phone */
+  @media (max-width: 640px) {
+    main { padding: 10px 6px 50px; }
+    .tabs { padding: 0 6px; gap: 3px; }
     .tab {
-      font-size: 14px;
-      padding: 8px 10px 12px;
-      white-space: nowrap;
+      font-size: 13px;
+      padding: 6px 8px 10px;
+      letter-spacing: 0;
+      border-width: 3px;
+      border-radius: 8px 8px 0 0;
     }
-    .banner { font-size: 14px; letter-spacing: 1px; padding: 6px 4px; }
-    .header h1 { font-size: 52px; letter-spacing: 2px; }
-    .header .sub { font-size: 16px; padding: 4px 10px; }
-    .vibe-btn { font-size: 18px; padding: 8px 16px; letter-spacing: 2px; }
-    .panel-body { padding: 16px 14px 22px; }
-    label { font-size: 18px; }
+    .banner { font-size: 13px; letter-spacing: 1px; padding: 5px 4px; border-width: 4px; }
+    .header h1 {
+      font-size: clamp(40px, 13vw, 60px);
+      letter-spacing: 2px;
+      text-shadow: 2px 2px 0 #fff, 4px 4px 0 #2bd6c4, 6px 6px 0 #000;
+    }
+    .header .sub { font-size: 14px; padding: 3px 8px; border-width: 3px; }
+    .vibe-btn {
+      font-size: 16px;
+      padding: 7px 14px;
+      letter-spacing: 2px;
+      border-width: 3px;
+      box-shadow: 4px 4px 0 #000;
+    }
+    .panel { box-shadow: 5px 5px 0 #000; }
+    .panel-body { padding: 14px 12px 20px; }
+    label { font-size: 15px; padding: 2px 6px; }
+    /* iOS auto-zooms inputs with font-size < 16px. Don't let it. */
     input[type="text"], textarea { font-size: 16px; padding: 8px 10px; }
-    button.submit { font-size: 24px; padding: 10px 24px; letter-spacing: 2px; }
-    .titlebar { font-size: 12px; padding: 3px 6px; }
+    textarea { min-height: 70px; }
+    button.submit {
+      font-size: 22px;
+      padding: 10px 24px;
+      letter-spacing: 2px;
+      border-width: 4px;
+      box-shadow: 4px 4px 0 #000;
+    }
+    .titlebar { font-size: 11px; padding: 3px 6px; letter-spacing: 0; }
+    .titlebar .controls span { width: 14px; height: 14px; font-size: 10px; line-height: 10px; }
     .prawn-card {
-      grid-template-columns: 60px 1fr;
-      padding: 12px 12px;
-      gap: 10px;
+      grid-template-columns: 50px 1fr;
+      padding: 10px;
+      gap: 8px;
+      box-shadow: 4px 4px 0 rgba(0,0,0,0.5);
     }
-    .prawn-card h3 { font-size: 22px; }
-    .prawn-emoji { font-size: 44px; }
+    .prawn-card h3 { font-size: 20px; }
+    .prawn-emoji { font-size: 38px; }
     .prawn-meta {
-      grid-template-columns: 80px 1fr;
+      grid-template-columns: 72px 1fr;
       font-size: 12px;
+      gap: 3px 6px;
     }
+    .prawn-meta .k, .prawn-meta .v { padding: 1px 4px; }
+    footer { font-size: 12px; }
+    .status { font-size: 16px; padding: 10px 18px; }
   }
 
   /* ----- "what others said" list ----- */
