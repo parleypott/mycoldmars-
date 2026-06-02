@@ -251,32 +251,27 @@
   .sticker {
     position: absolute;
     background: #fff;
-    padding: 8px 8px 30px;
+    padding: 8px;
     box-shadow: 6px 6px 0 #000, inset 0 0 0 1px #aaa;
-    border-top: 1px solid #ddd;
     transform: rotate(var(--rot, -4deg));
-    font-family: "Comic Sans MS", cursive;
-    font-size: 14px;
-    text-align: center;
-    color: #333;
   }
   .sticker img {
     display: block;
     width: var(--w, 160px);
-    height: var(--h, 160px);
+    height: var(--h, 200px);
     object-fit: cover;
     background:
       repeating-linear-gradient(45deg, #eee 0 10px, #ddd 10px 20px);
   }
-  .sticker .cap { margin-top: 6px; }
 
-  /* arrange them around the page chaotically */
-  .s1 { top: -40px; left: -70px; --rot: -8deg; --w: 170px; --h: 170px; }
-  .s2 { top: -50px; right: -60px; --rot: 6deg; --w: 150px; --h: 200px; }
-  .s3 { bottom: -40px; left: -60px; --rot: 5deg; --w: 180px; --h: 130px; }
-  .s4 { bottom: -50px; right: -70px; --rot: -7deg; --w: 160px; --h: 170px; }
-  .s5 { top: 35%; left: -90px; --rot: 12deg; --w: 140px; --h: 140px; }
-  .s6 { top: 30%; right: -100px; --rot: -10deg; --w: 150px; --h: 150px; }
+  /* arrange the polaroids chaotically around the form */
+  .s1 { top: -50px; left: -80px;   --rot: -8deg;  --w: 160px; --h: 200px; }
+  .s2 { top: -60px; right: -70px;  --rot: 7deg;   --w: 150px; --h: 200px; }
+  .s3 { top: 30%;   left: -100px;  --rot: 12deg;  --w: 150px; --h: 190px; }
+  .s4 { top: 30%;   right: -100px; --rot: -10deg; --w: 160px; --h: 200px; }
+  .s5 { bottom: 25%; left: -70px;  --rot: -6deg;  --w: 140px; --h: 180px; }
+  .s6 { bottom: -50px; left: -60px; --rot: 5deg;  --w: 170px; --h: 210px; }
+  .s7 { bottom: -60px; right: -80px; --rot: -8deg; --w: 160px; --h: 200px; }
   @media (max-width: 900px) {
     .sticker { display: none; }
   }
@@ -390,17 +385,156 @@
   .tab-content { display: none; }
   .tab-content.active { display: block; }
 
-  /* tiny under-the-rug grid for image slots overlay */
-  .img-credits {
-    margin: 18px auto 0;
-    max-width: 720px;
-    font-size: 12px;
-    color: #444;
-    background: #fff;
-    border: 2px dashed #888;
-    padding: 8px 12px;
-    font-family: "Courier New", monospace;
+  /* ============================================================
+     VIBE BUTTON — sits next to the subtitle, cycles palettes
+     ============================================================ */
+  .vibe-btn {
+    display: inline-block;
+    margin: 14px 0 0;
+    padding: 10px 22px;
+    font-family: "Impact", "Arial Black", sans-serif;
+    font-size: 22px;
+    letter-spacing: 3px;
+    color: #fff;
+    background: linear-gradient(135deg, #ff0080 0%, #ffea00 50%, #00d4ff 100%);
+    background-size: 200% 200%;
+    border-top: 5px outset #fff;
+    border-left: 5px outset #fff;
+    border-right: 5px outset #444;
+    border-bottom: 5px outset #444;
+    text-shadow: 2px 2px 0 #000;
+    cursor: pointer;
+    transform: rotate(2deg);
+    box-shadow: 6px 6px 0 #000;
+    animation: vibe-shimmer 3s linear infinite;
   }
+  .vibe-btn:hover { transform: rotate(-2deg) scale(1.04); }
+  .vibe-btn:active {
+    border-top: 5px inset #444;
+    border-left: 5px inset #444;
+    border-right: 5px inset #fff;
+    border-bottom: 5px inset #fff;
+  }
+  @keyframes vibe-shimmer {
+    from { background-position: 0% 50%; }
+    to   { background-position: 200% 50%; }
+  }
+
+  /* ============================================================
+     VIBE PRESETS — five distinct 1995-collage palettes.
+     Each preset shifts the design-token variables (so most of
+     the page recolors automatically) plus overrides the few
+     hard-coded color values that aren't tokenized.
+     ============================================================ */
+
+  /* ----- vibe-holo: holographic rainbow / lisa frank acid trip ----- */
+  body.vibe-holo {
+    --teal: #c800ff;
+    --hot: #00ffae;
+    --lime: #ff00aa;
+    --yellow: #fff200;
+    background:
+      conic-gradient(from 45deg at 30% 30%,
+        #ff00aa, #ffea00, #00f0ff, #c800ff, #ff00aa),
+      #200033;
+    background-attachment: fixed;
+    background-size: 600px 600px;
+  }
+  body.vibe-holo .banner { background: #00ffae; color: #200033; }
+  body.vibe-holo .header h1 {
+    color: #fffd00;
+    text-shadow: 3px 3px 0 #ff00aa, 6px 6px 0 #00f0ff, 9px 9px 0 #000;
+  }
+  body.vibe-holo .header .sub { background: #200033; color: #fffd00; border-color: #00ffae; }
+  body.vibe-holo .titlebar { background: linear-gradient(90deg, #c800ff 0%, #ff00aa 100%); }
+  body.vibe-holo button.submit { background: #00ffae; color: #200033; }
+  body.vibe-holo .prawn-card:nth-child(odd) { background: #ffe5ff; }
+  body.vibe-holo .prawn-card:nth-child(even) { background: #e5fffa; }
+  body.vibe-holo .prawn-card h3 { color: #c800ff; }
+  body.vibe-holo footer .hits { color: #fffd00; }
+
+  /* ----- vibe-bsod: windows 95 desktop, default teal solid bg ----- */
+  body.vibe-bsod {
+    --teal: #008080;
+    --hot: #0000aa;
+    --lime: #ffff00;
+    --yellow: #c0c0c0;
+    background: #008080;
+    background-attachment: fixed;
+  }
+  body.vibe-bsod .banner { background: #0000aa; color: #fff; }
+  body.vibe-bsod .header h1 {
+    color: #fff;
+    text-shadow: 3px 3px 0 #c0c0c0, 6px 6px 0 #000, 9px 9px 0 #ff0000;
+  }
+  body.vibe-bsod .header .sub { background: #c0c0c0; color: #000; border-color: #0000aa; border-style: solid; }
+  body.vibe-bsod .titlebar { background: linear-gradient(90deg, #000080 0%, #0080ff 100%); }
+  body.vibe-bsod button.submit { background: #ffff00; color: #000; }
+  body.vibe-bsod .prawn-card:nth-child(odd) { background: #ffffff; }
+  body.vibe-bsod .prawn-card:nth-child(even) { background: #e0e0e0; }
+  body.vibe-bsod .prawn-card h3 { color: #0000aa; }
+  body.vibe-bsod footer { color: #fff; text-shadow: 1px 1px 0 #000; }
+
+  /* ----- vibe-neon: black, neon star field, magenta + lime ----- */
+  body.vibe-neon {
+    --teal: #0a0014;
+    --hot: #ff00f7;
+    --lime: #00ff66;
+    --yellow: #fff000;
+    color: #0a0014;
+    background:
+      radial-gradient(2px 2px at 20% 30%, #fff, transparent 50%),
+      radial-gradient(2px 2px at 70% 60%, #ff00f7, transparent 50%),
+      radial-gradient(2px 2px at 45% 85%, #00ff66, transparent 50%),
+      radial-gradient(2px 2px at 90% 20%, #fff000, transparent 50%),
+      radial-gradient(2px 2px at 10% 70%, #00f0ff, transparent 50%),
+      #0a0014;
+    background-size: 220px 220px, 320px 320px, 280px 280px, 350px 350px, 260px 260px;
+    background-attachment: fixed;
+  }
+  body.vibe-neon .banner { background: #00ff66; color: #0a0014; }
+  body.vibe-neon .header h1 {
+    color: #ff00f7;
+    text-shadow:
+      0 0 8px #ff00f7,
+      3px 3px 0 #fff000,
+      6px 6px 0 #00f0ff,
+      9px 9px 0 #fff;
+  }
+  body.vibe-neon .header .sub { background: #0a0014; color: #00ff66; border-color: #ff00f7; border-style: dashed; }
+  body.vibe-neon .titlebar { background: linear-gradient(90deg, #ff00f7 0%, #00f0ff 100%); }
+  body.vibe-neon button.submit { background: #fff000; color: #0a0014; }
+  body.vibe-neon .prawn-card:nth-child(odd) { background: #1a0028; color: #00ff66; }
+  body.vibe-neon .prawn-card:nth-child(even) { background: #001a14; color: #fff000; }
+  body.vibe-neon .prawn-card h3 { color: #ff00f7; text-shadow: 1px 1px 0 #fff000, 2px 2px 0 #000; }
+  body.vibe-neon .prawn-meta .v { background: #0a0014; color: #fff; }
+  body.vibe-neon .prawn-meta .v.empty { color: #444; }
+  body.vibe-neon footer { color: #00ff66; }
+
+  /* ----- vibe-tropical: sunset gradient with squiggle clipart energy ----- */
+  body.vibe-tropical {
+    --teal: #1a4d5c;
+    --hot: #ff5500;
+    --lime: #00d4aa;
+    --yellow: #ffce00;
+    background:
+      radial-gradient(ellipse at top, #ffce00 0%, transparent 60%),
+      linear-gradient(180deg, #ff8a00 0%, #ff3c1f 35%, #c9007e 70%, #2a004f 100%);
+    background-attachment: fixed;
+  }
+  body.vibe-tropical .banner { background: #ffce00; color: #c9007e; }
+  body.vibe-tropical .header h1 {
+    color: #ffce00;
+    text-shadow: 3px 3px 0 #c9007e, 6px 6px 0 #2a004f, 9px 9px 0 #000;
+  }
+  body.vibe-tropical .header .sub { background: #2a004f; color: #ffce00; border-color: #00d4aa; }
+  body.vibe-tropical .titlebar { background: linear-gradient(90deg, #c9007e 0%, #ff3c1f 100%); }
+  body.vibe-tropical button.submit { background: #00d4aa; color: #2a004f; }
+  body.vibe-tropical .prawn-card:nth-child(odd) { background: #fff4d6; }
+  body.vibe-tropical .prawn-card:nth-child(even) { background: #ffe1d6; }
+  body.vibe-tropical .prawn-card h3 { color: #c9007e; }
+
+  /* ----- vibe-candy is implicit (no class) and uses the original :root tokens ----- */
 </style>
 </head>
 <body>
@@ -419,6 +553,8 @@
     <span class="star" style="top:-10px; right:24%; animation-duration: 4s;">💫</span>
     <h1>PRAWN WEEKEND</h1>
     <div class="sub">OH MY GOD, I'm Lovely 🦐</div>
+    <br>
+    <button class="vibe-btn" id="vibe-btn" type="button">✨ NEW VIBE ✨</button>
   </div>
 
   <!-- ============= TABS ============= -->
@@ -436,46 +572,43 @@
       </div>
       <div class="panel-body">
 
-        <!-- collage stickers (drop /prawn/img/slot-1.png etc) -->
+        <!-- collage stickers (drop /prawn/img/slot-N.{jpg,png,...}) -->
         <div class="collage" aria-hidden="true">
-          <div class="sticker s1"><img data-slot="1" alt=""><div class="cap">~ a prawn ~</div></div>
-          <div class="sticker s2"><img data-slot="2" alt=""><div class="cap">circa 1998</div></div>
-          <div class="sticker s3"><img data-slot="3" alt=""><div class="cap">vacay 🍹</div></div>
-          <div class="sticker s4"><img data-slot="4" alt=""><div class="cap">the boys</div></div>
-          <div class="sticker s5"><img data-slot="5" alt=""><div class="cap">cool!</div></div>
-          <div class="sticker s6"><img data-slot="6" alt=""><div class="cap">good times</div></div>
+          <div class="sticker s1"><img data-slot="1" alt=""></div>
+          <div class="sticker s2"><img data-slot="2" alt=""></div>
+          <div class="sticker s3"><img data-slot="3" alt=""></div>
+          <div class="sticker s4"><img data-slot="4" alt=""></div>
+          <div class="sticker s5"><img data-slot="5" alt=""></div>
+          <div class="sticker s6"><img data-slot="6" alt=""></div>
+          <div class="sticker s7"><img data-slot="7" alt=""></div>
         </div>
 
         <form id="prawn-form" autocomplete="off">
 
           <div class="row">
             <label for="f-name">🦐 your name (which prawn r u)</label>
-            <input id="f-name" name="name" type="text" maxlength="80" required placeholder="e.g. Big Steve" />
+            <input id="f-name" name="name" type="text" maxlength="80" required />
           </div>
 
           <div class="two-up">
             <div class="row">
               <label for="f-arrive">🛬 when u arriving</label>
-              <div class="hint">date + time, however u wanna write it</div>
-              <input id="f-arrive" name="arrive_when" type="text" maxlength="200" placeholder="Fri Sept 12 around 6:45pm" />
+              <input id="f-arrive" name="arrive_when" type="text" maxlength="200" />
             </div>
             <div class="row">
               <label for="f-depart">🛫 when u leaving</label>
-              <div class="hint">date + time</div>
-              <input id="f-depart" name="depart_when" type="text" maxlength="200" placeholder="Sun Sept 14 mid-afternoon" />
+              <input id="f-depart" name="depart_when" type="text" maxlength="200" />
             </div>
           </div>
 
           <div class="two-up">
             <div class="row">
               <label for="f-fin">✈️ flight in (optional)</label>
-              <div class="hint">airline + flight #</div>
-              <input id="f-fin" name="flight_in" type="text" maxlength="60" placeholder="UA 2410" />
+              <input id="f-fin" name="flight_in" type="text" maxlength="60" />
             </div>
             <div class="row">
               <label for="f-fout">✈️ flight out (optional)</label>
-              <div class="hint">airline + flight #</div>
-              <input id="f-fout" name="flight_out" type="text" maxlength="60" placeholder="DL 819" />
+              <input id="f-fout" name="flight_out" type="text" maxlength="60" />
             </div>
           </div>
 
@@ -483,19 +616,17 @@
 
           <div class="row">
             <label for="f-food">🍔 FOOD ZONE — what do u want to eat</label>
-            <div class="hint">favorites, hates, allergies, weird requests, the works</div>
-            <textarea id="f-food" name="food" maxlength="2000" placeholder="bagels in the morning. no mushrooms ever. obsessed with breakfast burritos. one (1) really good steak at some point."></textarea>
+            <textarea id="f-food" name="food" maxlength="2000"></textarea>
           </div>
 
           <div class="row">
             <label for="f-drink">🍺 DRINK ZONE — what r u sippin</label>
-            <div class="hint">coffee order, beer/wine pref, the obscure soda u've been chasing</div>
-            <textarea id="f-drink" name="drink" maxlength="2000" placeholder="cortado in the morning. spicy marg at golden hour. one diet dr pepper per day."></textarea>
+            <textarea id="f-drink" name="drink" maxlength="2000"></textarea>
           </div>
 
           <div class="row">
             <label for="f-notes">📝 anything else (optional)</label>
-            <textarea id="f-notes" name="notes" maxlength="2000" placeholder="bringing my guitar / can't do red-eye / need a power adapter / blah blah"></textarea>
+            <textarea id="f-notes" name="notes" maxlength="2000"></textarea>
           </div>
 
           <div class="submit-wrap">
@@ -507,10 +638,6 @@
       </div>
     </div>
 
-    <div class="img-credits">
-      <strong>collage slots:</strong>
-      drop images into <code>/prawn/img/slot-1.png</code> through <code>slot-6.png</code> and they auto-appear at the polaroid angles. any common extension works (png / jpg / gif / webp).
-    </div>
   </section>
 
   <!-- ============= SEE PANEL ============= -->
@@ -566,7 +693,7 @@
 
   // image slot loader — try common extensions in order
   async function tryImage(slot, img) {
-    const exts = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+    const exts = ['jpg', 'png', 'jpeg', 'gif', 'webp'];
     for (const ext of exts) {
       const url = `/prawn/img/slot-${slot}.${ext}`;
       const ok = await new Promise(res => {
@@ -676,6 +803,17 @@
     localStorage.setItem(k, String(n));
     document.getElementById('hits').textContent = String(n).padStart(5, '0');
   } catch {}
+
+  // vibe button: click cycles to a random different palette
+  const VIBES = ['candy', 'holo', 'bsod', 'neon', 'tropical'];
+  let currentVibe = 'candy';
+  document.getElementById('vibe-btn').addEventListener('click', () => {
+    const others = VIBES.filter(v => v !== currentVibe);
+    const pick = others[Math.floor(Math.random() * others.length)];
+    if (currentVibe !== 'candy') document.body.classList.remove(`vibe-${currentVibe}`);
+    if (pick !== 'candy') document.body.classList.add(`vibe-${pick}`);
+    currentVibe = pick;
+  });
 
   // warm the see-tab cache in the background
   loadPrawns();
