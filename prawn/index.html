@@ -601,6 +601,102 @@
   body.vibe-tropical .prawn-card h3 { color: #c9007e; }
 
   /* ----- vibe-candy is implicit (no class) and uses the original :root tokens ----- */
+
+  /* ============================================================
+     90s WINAMP-STYLE PLAYER — speaker + live waveform/EQ bars
+     ============================================================ */
+  .winamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px auto 0;
+    padding: 6px 10px;
+    background: linear-gradient(180deg, #2a2a2a 0%, #0a0a0a 100%);
+    border-top: 3px outset #888;
+    border-left: 3px outset #888;
+    border-right: 3px outset #222;
+    border-bottom: 3px outset #222;
+    box-shadow: 4px 4px 0 #000;
+    font-family: "Courier New", monospace;
+    color: #00ff66;
+    text-shadow: 0 0 4px rgba(0,255,102,0.6);
+    user-select: none;
+    transform: rotate(-1deg);
+  }
+  .winamp-led {
+    width: 10px; height: 10px;
+    background: #330000;
+    border-radius: 50%;
+    box-shadow: inset 0 0 4px #000, 0 0 4px rgba(255,0,0,0.4);
+    flex: 0 0 auto;
+  }
+  .winamp.playing .winamp-led {
+    background: #ff0033;
+    box-shadow: 0 0 10px #ff0033, 0 0 4px #ff5577;
+    animation: led-blink 1s steps(2, end) infinite;
+  }
+  @keyframes led-blink { 50% { opacity: 0.35; } }
+
+  .winamp-btn {
+    font-family: "Courier New", monospace;
+    font-size: 16px;
+    line-height: 1;
+    width: 32px; height: 28px;
+    background: linear-gradient(180deg, #5a5a5a 0%, #1a1a1a 100%);
+    border-top: 2px outset #aaa;
+    border-left: 2px outset #aaa;
+    border-right: 2px outset #000;
+    border-bottom: 2px outset #000;
+    color: #00ff66;
+    text-shadow: 0 0 3px #00ff66;
+    cursor: pointer;
+    padding: 0;
+    flex: 0 0 auto;
+  }
+  .winamp-btn:active {
+    border-top: 2px inset #000;
+    border-left: 2px inset #000;
+    border-right: 2px inset #aaa;
+    border-bottom: 2px inset #aaa;
+  }
+
+  .winamp-title {
+    font-size: 11px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: 200px;
+    flex: 0 0 auto;
+  }
+  .winamp.playing .winamp-title { animation: scroll-title 10s linear infinite; }
+  @keyframes scroll-title {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-30%); }
+  }
+
+  .winamp-eq {
+    display: block;
+    width: 140px;
+    height: 36px;
+    background: #000;
+    border-top: 2px inset #444;
+    border-left: 2px inset #444;
+    border-right: 2px inset #888;
+    border-bottom: 2px inset #888;
+    flex: 0 0 auto;
+  }
+
+  @media (max-width: 640px) {
+    .winamp {
+      gap: 6px;
+      padding: 5px 8px;
+      margin-top: 12px;
+      transform: rotate(-0.5deg);
+    }
+    .winamp-title { max-width: 90px; font-size: 9px; letter-spacing: 0.5px; }
+    .winamp-eq { width: 90px; height: 28px; }
+    .winamp-btn { width: 28px; height: 24px; font-size: 14px; }
+  }
 </style>
 </head>
 <body>
@@ -621,6 +717,13 @@
     <div class="sub">OH MY GOD, I'm Lovely 🦐</div>
     <br>
     <button class="vibe-btn" id="vibe-btn" type="button">✨ NEW VIBE ✨</button>
+    <br>
+    <div class="winamp" id="winamp" role="region" aria-label="Prawn Choir audio player">
+      <div class="winamp-led" aria-hidden="true"></div>
+      <button class="winamp-btn" id="winamp-btn" type="button" aria-label="Play prawn choir">▶</button>
+      <div class="winamp-title">🔊 PRAWN CHOIR ░ OMG IM LOVELY ░░░</div>
+      <canvas class="winamp-eq" id="winamp-eq" width="280" height="72"></canvas>
+    </div>
   </div>
 
   <!-- ============= TABS ============= -->
@@ -880,6 +983,104 @@
     if (pick !== 'candy') document.body.classList.add(`vibe-${pick}`);
     currentVibe = pick;
   });
+
+  // ============================================================
+  // 90s winamp player — analyser-driven EQ bars over <audio>
+  // ============================================================
+  (function() {
+    const audio = new Audio('/prawn/audio/prawn-choir.mp3');
+    audio.loop = true;
+    audio.preload = 'metadata';
+    const btn = document.getElementById('winamp-btn');
+    const wrap = document.getElementById('winamp');
+    const canvas = document.getElementById('winamp-eq');
+    const g = canvas.getContext('2d');
+
+    let actx = null, source = null, analyser = null, dataArr = null;
+
+    function ensureCtx() {
+      if (actx) return;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return; // Safari < 14 etc — audio still plays, just no EQ
+      actx = new AC();
+      source = actx.createMediaElementSource(audio);
+      analyser = actx.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.6;
+      dataArr = new Uint8Array(analyser.frequencyBinCount);
+      source.connect(analyser);
+      analyser.connect(actx.destination);
+    }
+
+    // idle EQ (gentle wave) when not playing, so the canvas isn't dead black
+    let idlePhase = 0;
+    function drawIdle() {
+      g.fillStyle = '#000';
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      const bars = 24;
+      const barW = canvas.width / bars;
+      for (let i = 0; i < bars; i++) {
+        const h = (Math.sin(idlePhase + i * 0.4) * 0.3 + 0.4) * canvas.height * 0.5;
+        g.fillStyle = '#00aa44';
+        g.fillRect(i * barW, canvas.height - h, barW - 2, h);
+      }
+      idlePhase += 0.07;
+    }
+
+    function drawLive() {
+      analyser.getByteFrequencyData(dataArr);
+      g.fillStyle = '#000';
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      const bars = dataArr.length;
+      const barW = canvas.width / bars;
+      for (let i = 0; i < bars; i++) {
+        const v = dataArr[i] / 255;
+        const h = v * canvas.height;
+        // winamp-classic gradient: green low → yellow mid → red peak
+        const hue = 120 - v * 120;
+        g.fillStyle = `hsl(${hue}, 100%, 55%)`;
+        g.fillRect(i * barW, canvas.height - h, barW - 2, h);
+        // pixel peak cap
+        g.fillStyle = '#fff';
+        g.fillRect(i * barW, canvas.height - h - 2, barW - 2, 2);
+      }
+    }
+
+    let rafId = null;
+    function loop() {
+      if (!audio.paused && analyser) drawLive();
+      else drawIdle();
+      rafId = requestAnimationFrame(loop);
+    }
+    loop();
+
+    btn.addEventListener('click', async () => {
+      ensureCtx();
+      if (actx && actx.state === 'suspended') {
+        try { await actx.resume(); } catch {}
+      }
+      if (audio.paused) {
+        try {
+          await audio.play();
+          btn.textContent = '⏸';
+          btn.setAttribute('aria-label', 'Pause prawn choir');
+          wrap.classList.add('playing');
+        } catch (err) {
+          toast('audio blocked: tap again', true);
+        }
+      } else {
+        audio.pause();
+        btn.textContent = '▶';
+        btn.setAttribute('aria-label', 'Play prawn choir');
+        wrap.classList.remove('playing');
+      }
+    });
+
+    audio.addEventListener('ended', () => {
+      wrap.classList.remove('playing');
+      btn.textContent = '▶';
+    });
+  })();
 
   // warm the see-tab cache in the background
   loadPrawns();
