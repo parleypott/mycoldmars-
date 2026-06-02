@@ -442,13 +442,6 @@ const Slide14_TeamA = ({ num, total }) => {
       photo: "assets/team/johnny-harris.jpeg",
     },
     {
-      name: "Michael Letta",
-      role: "Chief Operating Officer",
-      bio: "A natural operator with deep finance instincts.",
-      photo: "assets/team/michael-letta.jpg",
-      objectPosition: "35% 30%",
-    },
-    {
       name: "Jon Laurence",
       role: "VP Production",
       bio: "Emmy & Peabody winner. Formerly AJ+, NowThis, Channel 4 UK.",
@@ -483,15 +476,15 @@ const Slide14_TeamA = ({ num, total }) => {
           {/* LEFT — Team */}
           <div style={{display:'flex', flexDirection:'column', gap: 22}}>
             <div className="mono caps" style={{fontSize: 12, letterSpacing:'0.24em', color:'var(--np-blue)'}}>Leadership</div>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap: 22}}>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap: 28}}>
               {team.map((p,i)=>(
                 <div key={i} style={{display:'flex', flexDirection:'column', gap: 0}}>
                   <div style={{aspectRatio:'3/4', overflow:'hidden', background:'var(--np-cool-neutral)'}}>
                     <img src={p.photo + V} alt={p.name} style={{width:'100%', height:'100%', objectFit:'cover', objectPosition: p.objectPosition || 'center 20%', display:'block'}}/>
                   </div>
-                  <div className="serif" style={{fontSize: 28, lineHeight: 1.05, letterSpacing:'-0.012em', marginTop: 18, minHeight: 'calc(28px * 1.05 * 2)', display:'flex', alignItems:'flex-start'}}>{p.name}</div>
-                  <div className="mono caps" style={{fontSize: 10, letterSpacing:'0.2em', color:'var(--np-blue)', lineHeight: 1.4, marginTop: 8, minHeight: 'calc(10px * 1.4 * 2)'}}>{p.role}</div>
-                  <div className="mono body-sm" style={{opacity:0.78, fontSize: 13, lineHeight: 1.45, marginTop: 8}}>{p.bio}</div>
+                  <div className="serif" style={{fontSize: 34, lineHeight: 1.05, letterSpacing:'-0.012em', marginTop: 22, minHeight: 'calc(34px * 1.05 * 2)', display:'flex', alignItems:'flex-start'}}>{p.name}</div>
+                  <div className="mono caps" style={{fontSize: 11, letterSpacing:'0.2em', color:'var(--np-blue)', lineHeight: 1.4, marginTop: 10, minHeight: 'calc(11px * 1.4 * 2)'}}>{p.role}</div>
+                  <div className="mono body-sm" style={{opacity:0.8, fontSize: 14, lineHeight: 1.5, marginTop: 10}}>{p.bio}</div>
                 </div>
               ))}
             </div>
