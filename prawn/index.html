@@ -243,48 +243,163 @@
     border-bottom: 6px inset #fff;
   }
 
-  /* ----- collage decoration slots ----- */
-  /* Drop images into /prawn/img/ named slot-1.png ... slot-8.png and they auto-appear */
-  .collage {
-    pointer-events: none;
+  /* ============================================================
+     VIDEO HERO — the big prominent looping video block
+     ============================================================ */
+  .video-hero {
+    margin: 20px auto 24px;
+    padding: 14px;
+    background: linear-gradient(180deg, #2a2a2a 0%, #0a0a0a 100%);
+    border-top: 5px outset #888;
+    border-left: 5px outset #888;
+    border-right: 5px outset #222;
+    border-bottom: 5px outset #222;
+    box-shadow: 8px 8px 0 #000;
+  }
+  .video-hero-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin: 0 4px 10px;
+    font-family: "Courier New", monospace;
+    color: #00ff66;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-shadow: 0 0 4px rgba(0,255,102,0.5);
+  }
+  .video-hero-head .rec {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #ff0033;
+    text-shadow: 0 0 4px #ff0033;
+  }
+  .video-hero-head .rec::before {
+    content: '';
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #ff0033;
+    box-shadow: 0 0 8px #ff0033;
+    animation: led-blink 1s steps(2, end) infinite;
+  }
+  .video-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .video-cell {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    overflow: hidden;
+    border-top: 2px inset #444;
+    border-left: 2px inset #444;
+    border-right: 2px inset #888;
+    border-bottom: 2px inset #888;
+  }
+  .video-cell video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .video-cell .vlabel {
+    position: absolute;
+    top: 6px; left: 8px;
+    font-family: "Courier New", monospace;
+    font-size: 10px;
+    color: #00ff66;
+    text-shadow: 0 0 3px #00ff66, 1px 1px 0 #000;
+    letter-spacing: 1px;
+    background: rgba(0,0,0,0.6);
+    padding: 1px 5px;
+    border: 1px solid rgba(0,255,102,0.4);
+    z-index: 2;
+  }
+  .video-cell .scanlines {
     position: absolute;
     inset: 0;
-    overflow: visible;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(0,0,0,0) 0,
+        rgba(0,0,0,0) 2px,
+        rgba(0,0,0,0.10) 3px,
+        rgba(0,0,0,0) 4px
+      );
+    z-index: 1;
   }
-  .sticker {
-    position: absolute;
+
+  /* ============================================================
+     THE BOYS — polaroid strip (lower on page, no longer hero)
+     ============================================================ */
+  .boys-strip {
+    margin: 36px 0 12px;
+    text-align: center;
+  }
+  .boys-strip-title {
+    display: inline-block;
+    font-family: "Impact", "Arial Black", sans-serif;
+    font-size: 36px;
+    color: var(--yellow);
+    background: #000;
+    padding: 6px 18px;
+    letter-spacing: 4px;
+    transform: rotate(-1.5deg);
+    text-shadow: 2px 2px 0 var(--hot);
+    border-top: 4px solid #fff;
+    border-bottom: 4px solid #fff;
+    margin-bottom: 10px;
+  }
+  .boys-rail {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px 18px;
+    margin-top: 14px;
+    padding: 18px 6px;
+  }
+  .polaroid {
     background: #fff;
-    padding: 8px;
-    box-shadow: 6px 6px 0 #000, inset 0 0 0 1px #aaa;
-    transform: rotate(var(--rot, -4deg));
+    padding: 8px 8px 14px;
+    box-shadow: 5px 5px 0 #000, inset 0 0 0 1px #aaa;
+    transform: rotate(var(--rot, -3deg));
   }
-  .sticker img {
+  .polaroid:nth-child(2n) { --rot: 3deg; }
+  .polaroid:nth-child(3n) { --rot: -5deg; }
+  .polaroid:nth-child(5n) { --rot: 2deg; }
+  .polaroid img {
     display: block;
-    width: var(--w, 160px);
-    height: var(--h, 200px);
+    width: 140px;
+    height: 180px;
     object-fit: cover;
     background:
       repeating-linear-gradient(45deg, #eee 0 10px, #ddd 10px 20px);
   }
 
-  /* arrange the polaroids chaotically around the form */
-  .s1 { top: -50px; left: -80px;   --rot: -8deg;  --w: 160px; --h: 200px; }
-  .s2 { top: -60px; right: -70px;  --rot: 7deg;   --w: 150px; --h: 200px; }
-  .s3 { top: 30%;   left: -100px;  --rot: 12deg;  --w: 150px; --h: 190px; }
-  .s4 { top: 30%;   right: -100px; --rot: -10deg; --w: 160px; --h: 200px; }
-  .s5 { bottom: 25%; left: -70px;  --rot: -6deg;  --w: 140px; --h: 180px; }
-  .s6 { bottom: -50px; left: -60px; --rot: 5deg;  --w: 170px; --h: 210px; }
-  .s7 { bottom: -60px; right: -80px; --rot: -8deg; --w: 160px; --h: 200px; }
-  /* tablet — polaroids overflow off-screen at narrow widths, drop them */
   @media (max-width: 900px) {
-    .sticker { display: none; }
     .tab { font-size: 17px; padding: 8px 14px 12px; }
     .tabs { padding: 0 12px; gap: 4px; }
     .header h1 { font-size: 78px; }
     main { padding: 12px 10px 60px; }
+    .polaroid img { width: 110px; height: 140px; }
+    .boys-strip-title { font-size: 28px; letter-spacing: 3px; }
   }
 
-  /* phone */
+  /* phone — video grid stacks single column */
+  @media (max-width: 640px) {
+    .video-grid { grid-template-columns: 1fr; gap: 8px; }
+    .video-hero { padding: 10px; margin: 14px auto 18px; box-shadow: 5px 5px 0 #000; }
+    .video-hero-head { font-size: 11px; letter-spacing: 1px; }
+    .polaroid img { width: 92px; height: 118px; }
+    .polaroid { padding: 6px 6px 10px; box-shadow: 4px 4px 0 #000; }
+    .boys-rail { gap: 10px 12px; padding: 10px 4px; }
+    .boys-strip-title { font-size: 22px; padding: 4px 12px; }
+    .boys-strip { margin-top: 24px; }
+  }
   @media (max-width: 640px) {
     main { padding: 10px 6px 50px; }
     .tabs { padding: 0 6px; gap: 3px; }
@@ -726,6 +841,36 @@
     </div>
   </div>
 
+  <!-- ============= VIDEO HERO ============= -->
+  <section class="video-hero" aria-label="Prawn footage">
+    <div class="video-hero-head">
+      <span>📼 PRAWN-TV.CH — LIVE FEED</span>
+      <span class="rec">REC</span>
+    </div>
+    <div class="video-grid">
+      <div class="video-cell">
+        <span class="vlabel">CAM-01</span>
+        <video src="/prawn/video/clip-1.mp4" autoplay muted loop playsinline preload="auto"></video>
+        <span class="scanlines" aria-hidden="true"></span>
+      </div>
+      <div class="video-cell">
+        <span class="vlabel">CAM-02</span>
+        <video src="/prawn/video/clip-2.mp4" autoplay muted loop playsinline preload="auto"></video>
+        <span class="scanlines" aria-hidden="true"></span>
+      </div>
+      <div class="video-cell">
+        <span class="vlabel">CAM-03</span>
+        <video src="/prawn/video/clip-3.mp4" autoplay muted loop playsinline preload="auto"></video>
+        <span class="scanlines" aria-hidden="true"></span>
+      </div>
+      <div class="video-cell">
+        <span class="vlabel">CAM-04</span>
+        <video src="/prawn/video/clip-4.mp4" autoplay muted loop playsinline preload="auto"></video>
+        <span class="scanlines" aria-hidden="true"></span>
+      </div>
+    </div>
+  </section>
+
   <!-- ============= TABS ============= -->
   <div class="tabs" role="tablist">
     <div class="tab active" data-tab="rsvp" role="tab">📝 ENTER YR INFO</div>
@@ -741,16 +886,6 @@
       </div>
       <div class="panel-body">
 
-        <!-- collage stickers (drop /prawn/img/slot-N.{jpg,png,...}) -->
-        <div class="collage" aria-hidden="true">
-          <div class="sticker s1"><img data-slot="1" alt=""></div>
-          <div class="sticker s2"><img data-slot="2" alt=""></div>
-          <div class="sticker s3"><img data-slot="3" alt=""></div>
-          <div class="sticker s4"><img data-slot="4" alt=""></div>
-          <div class="sticker s5"><img data-slot="5" alt=""></div>
-          <div class="sticker s6"><img data-slot="6" alt=""></div>
-          <div class="sticker s7"><img data-slot="7" alt=""></div>
-        </div>
 
         <form id="prawn-form" autocomplete="off">
 
@@ -824,6 +959,20 @@
     </div>
   </section>
 
+  <!-- ============= THE BOYS POLAROID STRIP ============= -->
+  <section class="boys-strip" aria-label="The Prawns">
+    <h2 class="boys-strip-title">★ THE BOYS ★</h2>
+    <div class="boys-rail">
+      <div class="polaroid"><img src="/prawn/img/slot-1.jpg" alt="prawn 1"></div>
+      <div class="polaroid"><img src="/prawn/img/slot-2.jpg" alt="prawn 2"></div>
+      <div class="polaroid"><img src="/prawn/img/slot-3.jpg" alt="prawn 3"></div>
+      <div class="polaroid"><img src="/prawn/img/slot-4.jpg" alt="prawn 4"></div>
+      <div class="polaroid"><img src="/prawn/img/slot-5.jpg" alt="prawn 5"></div>
+      <div class="polaroid"><img src="/prawn/img/slot-6.jpg" alt="prawn 6"></div>
+      <div class="polaroid"><img src="/prawn/img/slot-7.jpg" alt="prawn 7"></div>
+    </div>
+  </section>
+
   <footer>
     <marquee direction="left" scrollamount="3" style="max-width:900px; margin:0 auto;">
       ★ best viewed in NETSCAPE NAVIGATOR 4.0 or higher ★ © 1995-FOREVER ★ prawnweekend@mycoldmars.com ★
@@ -859,25 +1008,6 @@
     clearTimeout(statusTimer);
     statusTimer = setTimeout(() => statusEl.classList.remove('show'), 3200);
   }
-
-  // image slot loader — try common extensions in order
-  async function tryImage(slot, img) {
-    const exts = ['jpg', 'png', 'jpeg', 'gif', 'webp'];
-    for (const ext of exts) {
-      const url = `/prawn/img/slot-${slot}.${ext}`;
-      const ok = await new Promise(res => {
-        const probe = new Image();
-        probe.onload = () => res(true);
-        probe.onerror = () => res(false);
-        probe.src = url;
-      });
-      if (ok) { img.src = url; return; }
-    }
-    // no image found — leave the placeholder pattern visible
-  }
-  document.querySelectorAll('img[data-slot]').forEach(img => {
-    tryImage(img.dataset.slot, img);
-  });
 
   // form submit
   const form = document.getElementById('prawn-form');
