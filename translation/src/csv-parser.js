@@ -128,7 +128,11 @@ export function parseCSV(text) {
   // exports from Trint / Otter that some users paste in by mistake.
   const header = lines[0];
   const delimiter = header.includes('\t') ? '\t' : header.includes(';') ? ';' : ',';
-  const cols = header.split(delimiter).map(c => c.trim().toLowerCase());
+  // Use the quote-aware parser for the header too. A naive split leaves the
+  // surrounding quotes in each column name (`"Text"` stays as the literal
+  // string `"text"` after lowercase), which makes strict-equality lookups
+  // miss real columns. parseLine strips them properly.
+  const cols = parseLine(header, delimiter).map(c => c.trim().toLowerCase());
 
   const numIdx = cols.findIndex(c => c === 'number' || c === '#');
   const speakerIdx = cols.findIndex(c => c === 'speaker');
