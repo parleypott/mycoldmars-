@@ -1358,14 +1358,37 @@ async function uploadViaTus({ file, bucket, path, onProgress, onUpload }) {
     throw e;
   }
 
-  // If the user is authenticated (currently we're not — anon access only),
-  // prefer their access token. Otherwise fall back to the anon key, which
-  // Supabase's TUS endpoint accepts as a bearer.
-  let bearer = anonKey;
+  // A valid Supabase bearer is ALWAYS a JWT (three dot-separated base64
+  // segments). The new "sb_publishable_*" / "sb_secret_*" keys are NOT
+  // JWTs and the Storage TUS endpoint rejects them with "Invalid Compact
+  // JWS". Guard against accidentally sending one as the Authorization
+  // bearer — fall through to a no-bearer (anon) request, which Storage
+  // still accepts when the `apikey` header is set and RLS allows it.
+  const looksLikeJwt = (s) => typeof s === 'string' && /^[\w-]+\.[\w-]+\.[\w-]+$/.test(s);
+
+  let bearer = looksLikeJwt(anonKey) ? anonKey : '';
   try {
     const { data } = await supabase.auth.getSession();
-    if (data?.session?.access_token) bearer = data.session.access_token;
+    const sessTok = data?.session?.access_token;
+    if (looksLikeJwt(sessTok)) bearer = sessTok;
   } catch {}
+
+  if (!bearer) {
+    // No JWT available — the deployed anon key isn't a JWT AND the user
+    // isn't signed in with one. Surface this loudly instead of letting
+    // the upload bounce with a confusing "Invalid Compact JWS" 403.
+    const e = new Error(
+      'Upload auth misconfigured: no JWT available. The deployed Supabase ' +
+      'anon key must be the legacy JWT (eyJ...), not a sb_publishable_* key. ' +
+      'Storage TUS uploads require a JWT bearer.'
+    );
+    e.code = 'BAD_AUTH';
+    throw e;
+  }
+  if (typeof console !== 'undefined') {
+    console.info('[upload] TUS bearer source:',
+      bearer === anonKey ? 'anon-key (build-time JWT)' : 'user session JWT');
+  }
 
   // Lazy-load tus-js-client to keep it out of the cold-start bundle.
   const tusMod = await import('tus-js-client');
@@ -1387,10 +1410,14 @@ async function uploadViaTus({ file, bucket, path, onProgress, onUpload }) {
       // would 401 on every retry. Best-effort — if getSession fails
       // (offline blip), we keep the previous header.
       onBeforeRequest: async (req) => {
+        // Refresh from the live session if we have one. Critical for
+        // multi-GB uploads that outrun the JWT's 60-min TTL. Only swap
+        // in tokens that actually look like JWTs — never overwrite a
+        // good bearer with an sb_publishable_* string.
         try {
           const { data } = await supabase.auth.getSession();
           const tok = data?.session?.access_token;
-          if (tok) req.setHeader('Authorization', `Bearer ${tok}`);
+          if (looksLikeJwt(tok)) req.setHeader('Authorization', `Bearer ${tok}`);
         } catch {}
       },
       uploadDataDuringCreation: true,
