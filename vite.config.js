@@ -99,6 +99,7 @@ export default defineConfig({
         memory: resolve(__dirname, 'memory/index.html'),
         falling: resolve(__dirname, 'falling/index.html'),
         laserspace: resolve(__dirname, 'laserspace/index.html'),
+        prawn: resolve(__dirname, 'prawn/index.html'),
       },
     },
   },

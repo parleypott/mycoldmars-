@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>🦐 PRAWN WEEKEND 🦐 :: ENTER YR DETAILS</title>
+
+<style>
+  /* ===================================================================
+     PRAWN WEEKEND — 1995 GeoCities / Windows 95 collage aesthetic
+     - Comic Sans + Times. Tiled background. Marquees. Sparkle GIFs.
+     - Polaroids and stickers rotated at chaos angles.
+     - Drop-shadow EVERYTHING. Tile, repeat, abuse.
+     =================================================================== */
+
+  :root {
+    --teal: #008080;
+    --teal-d: #004f4f;
+    --gray: #c0c0c0;
+    --gray-d: #808080;
+    --hot: #ff00aa;
+    --lime: #b6ff00;
+    --yellow: #fff200;
+    --shadow: #000;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background:
+      repeating-linear-gradient(45deg,
+        #ffd1dc 0 18px, #ffe6ee 18px 36px, #d8f3ff 36px 54px, #fff4b3 54px 72px),
+      var(--teal);
+    background-attachment: fixed;
+    font-family: "Comic Sans MS", "Comic Sans", "Chalkboard SE", cursive;
+    color: #111;
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28'><text y='22' font-size='22'>🦐</text></svg>") 4 4, auto;
+  }
+
+  /* one wide loose page, no real grid */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 18px 12px 80px;
+  }
+
+  /* ----- the top banner ----- */
+  .banner {
+    background: var(--yellow);
+    border-top: 6px ridge #fff;
+    border-bottom: 6px ridge #fff;
+    text-align: center;
+    padding: 8px 6px;
+    color: #c00;
+    font-family: "Impact", "Arial Black", sans-serif;
+    text-shadow: 2px 2px 0 #fff, 4px 4px 0 #000;
+    font-size: 22px;
+    letter-spacing: 2px;
+  }
+  .banner marquee { font-family: inherit; }
+
+  /* ----- big header with rotated word art ----- */
+  .header {
+    text-align: center;
+    margin: 18px 0 6px;
+    position: relative;
+  }
+  .header h1 {
+    font-family: "Impact", "Arial Black", sans-serif;
+    font-size: clamp(48px, 8vw, 110px);
+    margin: 0;
+    color: #ff2a6d;
+    text-shadow:
+      3px 3px 0 #fff,
+      6px 6px 0 #2bd6c4,
+      9px 9px 0 #000;
+    letter-spacing: 4px;
+    transform: rotate(-2deg);
+    line-height: 0.9;
+  }
+  .header .sub {
+    display: inline-block;
+    margin-top: 8px;
+    font-family: "Comic Sans MS", cursive;
+    font-size: 22px;
+    background: #fff;
+    border: 4px dashed var(--hot);
+    padding: 6px 14px;
+    transform: rotate(1.4deg);
+    box-shadow: 6px 6px 0 #000;
+  }
+
+  /* sparkle stars scattered */
+  .star {
+    position: absolute;
+    font-size: 28px;
+    user-select: none;
+    text-shadow: 0 0 6px #fff;
+    animation: spin 6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ----- the tab bar ----- */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin: 24px 0 0;
+    padding: 0 18px;
+  }
+  .tab {
+    font-family: "Comic Sans MS", cursive;
+    font-size: 22px;
+    padding: 10px 22px 14px;
+    background: var(--gray);
+    border-top: 4px outset #fff;
+    border-left: 4px outset #fff;
+    border-right: 4px outset #555;
+    border-bottom: 0;
+    cursor: pointer;
+    color: #003;
+    position: relative;
+    top: 4px;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 4px -2px 0 #000;
+    transform: rotate(-0.5deg);
+  }
+  .tab:nth-child(2) { transform: rotate(0.7deg); background: #ffe9a8; }
+  .tab.active {
+    background: var(--yellow);
+    top: 0;
+    padding-top: 14px;
+    color: #c00;
+    text-shadow: 1px 1px 0 #fff;
+  }
+  .tab:hover { background: var(--lime); }
+
+  /* ----- the page panels (the "windows") ----- */
+  .panel {
+    background: var(--gray);
+    border-top: 4px outset #fff;
+    border-left: 4px outset #fff;
+    border-right: 4px outset #555;
+    border-bottom: 4px outset #555;
+    padding: 0;
+    box-shadow: 10px 10px 0 #000;
+  }
+
+  .titlebar {
+    background: linear-gradient(90deg, #000080 0%, #1084d0 100%);
+    color: #fff;
+    font-family: "MS Sans Serif", "Tahoma", sans-serif;
+    font-weight: bold;
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    letter-spacing: 0.5px;
+  }
+  .titlebar .controls span {
+    display: inline-block;
+    width: 18px; height: 18px;
+    background: var(--gray);
+    border-top: 2px outset #fff;
+    border-left: 2px outset #fff;
+    border-right: 2px outset #555;
+    border-bottom: 2px outset #555;
+    margin-left: 2px;
+    text-align: center;
+    font-size: 12px;
+    color: #000;
+    line-height: 14px;
+  }
+
+  .panel-body {
+    padding: 22px 22px 30px;
+    position: relative;
+  }
+
+  /* ----- the form ----- */
+  form { display: grid; gap: 14px; max-width: 720px; margin: 0 auto; }
+  .row { display: grid; gap: 6px; }
+  label {
+    font-family: "Times New Roman", Times, serif;
+    font-style: italic;
+    font-size: 22px;
+    color: #003;
+    background: #fff79a;
+    padding: 2px 8px;
+    border-left: 6px solid var(--hot);
+    width: fit-content;
+    transform: rotate(-0.4deg);
+  }
+  .hint {
+    font-family: "Comic Sans MS", cursive;
+    font-size: 13px;
+    color: #555;
+    margin: -2px 0 2px 6px;
+  }
+  input[type="text"], textarea {
+    font-family: "Courier New", monospace;
+    font-size: 17px;
+    padding: 10px 12px;
+    background: #fff;
+    border-top: 3px inset #555;
+    border-left: 3px inset #555;
+    border-right: 3px inset #fff;
+    border-bottom: 3px inset #fff;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  textarea { min-height: 90px; resize: vertical; line-height: 1.4; }
+  input:focus, textarea:focus { background: #ffffd0; }
+
+  .two-up { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 640px) { .two-up { grid-template-columns: 1fr; } }
+
+  .submit-wrap { text-align: center; margin-top: 12px; }
+  button.submit {
+    font-family: "Impact", "Arial Black", sans-serif;
+    font-size: 30px;
+    padding: 12px 36px;
+    background: var(--lime);
+    color: #c00;
+    text-shadow: 2px 2px 0 #fff;
+    border-top: 6px outset #fff;
+    border-left: 6px outset #fff;
+    border-right: 6px outset #444;
+    border-bottom: 6px outset #444;
+    cursor: pointer;
+    letter-spacing: 3px;
+    box-shadow: 6px 6px 0 #000;
+    transform: rotate(-1deg);
+  }
+  button.submit:hover { background: var(--yellow); transform: rotate(1deg) scale(1.02); }
+  button.submit:active {
+    border-top: 6px inset #444;
+    border-left: 6px inset #444;
+    border-right: 6px inset #fff;
+    border-bottom: 6px inset #fff;
+  }
+
+  /* ----- collage decoration slots ----- */
+  /* Drop images into /prawn/img/ named slot-1.png ... slot-8.png and they auto-appear */
+  .collage {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+  }
+  .sticker {
+    position: absolute;
+    background: #fff;
+    padding: 8px 8px 30px;
+    box-shadow: 6px 6px 0 #000, inset 0 0 0 1px #aaa;
+    border-top: 1px solid #ddd;
+    transform: rotate(var(--rot, -4deg));
+    font-family: "Comic Sans MS", cursive;
+    font-size: 14px;
+    text-align: center;
+    color: #333;
+  }
+  .sticker img {
+    display: block;
+    width: var(--w, 160px);
+    height: var(--h, 160px);
+    object-fit: cover;
+    background:
+      repeating-linear-gradient(45deg, #eee 0 10px, #ddd 10px 20px);
+  }
+  .sticker .cap { margin-top: 6px; }
+
+  /* arrange them around the page chaotically */
+  .s1 { top: -40px; left: -70px; --rot: -8deg; --w: 170px; --h: 170px; }
+  .s2 { top: -50px; right: -60px; --rot: 6deg; --w: 150px; --h: 200px; }
+  .s3 { bottom: -40px; left: -60px; --rot: 5deg; --w: 180px; --h: 130px; }
+  .s4 { bottom: -50px; right: -70px; --rot: -7deg; --w: 160px; --h: 170px; }
+  .s5 { top: 35%; left: -90px; --rot: 12deg; --w: 140px; --h: 140px; }
+  .s6 { top: 30%; right: -100px; --rot: -10deg; --w: 150px; --h: 150px; }
+  @media (max-width: 900px) {
+    .sticker { display: none; }
+  }
+
+  /* ----- "what others said" list ----- */
+  .list-empty {
+    text-align: center;
+    font-family: "Times New Roman", serif;
+    font-style: italic;
+    color: #444;
+    padding: 40px;
+  }
+  .prawn-card {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 14px;
+    align-items: start;
+    background: #fff;
+    border-top: 3px outset #fff;
+    border-left: 3px outset #fff;
+    border-right: 3px outset #888;
+    border-bottom: 3px outset #888;
+    padding: 14px 16px;
+    margin: 14px 0;
+    box-shadow: 6px 6px 0 rgba(0,0,0,0.5);
+    position: relative;
+  }
+  .prawn-card:nth-child(odd) { transform: rotate(-0.4deg); background: #fffde8; }
+  .prawn-card:nth-child(even) { transform: rotate(0.5deg); background: #e8fff5; }
+
+  .prawn-emoji {
+    font-size: 60px;
+    line-height: 1;
+    text-align: center;
+    user-select: none;
+    filter: drop-shadow(2px 2px 0 #000);
+  }
+  .prawn-card h3 {
+    margin: 0 0 6px;
+    font-family: "Impact", sans-serif;
+    font-size: 28px;
+    color: #c0006a;
+    text-shadow: 1px 1px 0 #fff, 2px 2px 0 #000;
+    letter-spacing: 1px;
+  }
+  .prawn-meta {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 4px 10px;
+    font-family: "Courier New", monospace;
+    font-size: 14px;
+    color: #002;
+  }
+  .prawn-meta .k {
+    background: var(--yellow);
+    padding: 1px 6px;
+    border: 1px solid #000;
+    font-weight: bold;
+    text-align: center;
+  }
+  .prawn-meta .v {
+    background: #fff;
+    padding: 1px 6px;
+    border: 1px dashed #999;
+    word-wrap: break-word;
+  }
+  .prawn-meta .v.empty { color: #aaa; font-style: italic; }
+
+  /* ----- status / toast ----- */
+  .status {
+    position: fixed;
+    left: 50%;
+    bottom: 30px;
+    transform: translateX(-50%);
+    background: var(--lime);
+    border-top: 4px outset #fff;
+    border-left: 4px outset #fff;
+    border-right: 4px outset #555;
+    border-bottom: 4px outset #555;
+    padding: 12px 24px;
+    font-family: "Comic Sans MS", cursive;
+    font-size: 20px;
+    box-shadow: 6px 6px 0 #000;
+    z-index: 50;
+    display: none;
+  }
+  .status.show { display: block; animation: bob 0.6s ease-in-out infinite alternate; }
+  .status.err { background: #ff6b6b; color: #fff; text-shadow: 1px 1px 0 #000; }
+  @keyframes bob { from { transform: translateX(-50%) translateY(0); } to { transform: translateX(-50%) translateY(-6px); } }
+
+  /* ----- footer ----- */
+  footer {
+    margin-top: 40px;
+    text-align: center;
+    font-family: "Times New Roman", serif;
+    color: #fff;
+    text-shadow: 1px 1px 0 #000;
+    font-size: 14px;
+  }
+  footer .hits {
+    display: inline-block;
+    background: #000;
+    color: var(--lime);
+    font-family: "Courier New", monospace;
+    padding: 2px 10px;
+    border: 2px ridge #888;
+    letter-spacing: 4px;
+  }
+
+  /* hidden tab content */
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* tiny under-the-rug grid for image slots overlay */
+  .img-credits {
+    margin: 18px auto 0;
+    max-width: 720px;
+    font-size: 12px;
+    color: #444;
+    background: #fff;
+    border: 2px dashed #888;
+    padding: 8px 12px;
+    font-family: "Courier New", monospace;
+  }
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <marquee scrollamount="6">
+    🦐  PRAWN WEEKEND HQ  🦐  TELL JOHNNY WHEN U LAND  🍔  TELL JOHNNY WHAT U EAT  🍺  TELL JOHNNY WHAT U DRINK  🦐  IF U DON'T FILL THIS OUT U WILL STARVE  🦐  GET HYPE  🦐
+  </marquee>
+</div>
+
+<main>
+
+  <div class="header">
+    <span class="star" style="top:-20px; left:8%;">✨</span>
+    <span class="star" style="top:60px; right:6%; animation-duration: 9s;">⭐</span>
+    <span class="star" style="top:-10px; right:24%; animation-duration: 4s;">💫</span>
+    <h1>PRAWN WEEKEND</h1>
+    <div class="sub">a totally official RSVP-zone for the lads &amp; legends 🦐</div>
+  </div>
+
+  <!-- ============= TABS ============= -->
+  <div class="tabs" role="tablist">
+    <div class="tab active" data-tab="rsvp" role="tab">📝 ENTER YR INFO</div>
+    <div class="tab" data-tab="see" role="tab">👀 SEE WHAT OTHER PRAWNS SAID</div>
+  </div>
+
+  <!-- ============= RSVP PANEL ============= -->
+  <section class="tab-content active" data-content="rsvp">
+    <div class="panel">
+      <div class="titlebar">
+        <span>🦐 PRAWN-RSVP.EXE — please fill out completely</span>
+        <span class="controls"><span>_</span><span>□</span><span>x</span></span>
+      </div>
+      <div class="panel-body">
+
+        <!-- collage stickers (drop /prawn/img/slot-1.png etc) -->
+        <div class="collage" aria-hidden="true">
+          <div class="sticker s1"><img data-slot="1" alt=""><div class="cap">~ a prawn ~</div></div>
+          <div class="sticker s2"><img data-slot="2" alt=""><div class="cap">circa 1998</div></div>
+          <div class="sticker s3"><img data-slot="3" alt=""><div class="cap">vacay 🍹</div></div>
+          <div class="sticker s4"><img data-slot="4" alt=""><div class="cap">the boys</div></div>
+          <div class="sticker s5"><img data-slot="5" alt=""><div class="cap">cool!</div></div>
+          <div class="sticker s6"><img data-slot="6" alt=""><div class="cap">good times</div></div>
+        </div>
+
+        <form id="prawn-form" autocomplete="off">
+
+          <div class="row">
+            <label for="f-name">🦐 your name (which prawn r u)</label>
+            <input id="f-name" name="name" type="text" maxlength="80" required placeholder="e.g. Big Steve" />
+          </div>
+
+          <div class="two-up">
+            <div class="row">
+              <label for="f-arrive">🛬 when u arriving</label>
+              <div class="hint">date + time, however u wanna write it</div>
+              <input id="f-arrive" name="arrive_when" type="text" maxlength="200" placeholder="Fri Sept 12 around 6:45pm" />
+            </div>
+            <div class="row">
+              <label for="f-depart">🛫 when u leaving</label>
+              <div class="hint">date + time</div>
+              <input id="f-depart" name="depart_when" type="text" maxlength="200" placeholder="Sun Sept 14 mid-afternoon" />
+            </div>
+          </div>
+
+          <div class="two-up">
+            <div class="row">
+              <label for="f-fin">✈️ flight in (optional)</label>
+              <div class="hint">airline + flight #</div>
+              <input id="f-fin" name="flight_in" type="text" maxlength="60" placeholder="UA 2410" />
+            </div>
+            <div class="row">
+              <label for="f-fout">✈️ flight out (optional)</label>
+              <div class="hint">airline + flight #</div>
+              <input id="f-fout" name="flight_out" type="text" maxlength="60" placeholder="DL 819" />
+            </div>
+          </div>
+
+          <hr style="border:0; border-top:3px dashed #c00006; margin:8px 0;" />
+
+          <div class="row">
+            <label for="f-food">🍔 FOOD ZONE — what do u want to eat</label>
+            <div class="hint">favorites, hates, allergies, weird requests, the works</div>
+            <textarea id="f-food" name="food" maxlength="2000" placeholder="bagels in the morning. no mushrooms ever. obsessed with breakfast burritos. one (1) really good steak at some point."></textarea>
+          </div>
+
+          <div class="row">
+            <label for="f-drink">🍺 DRINK ZONE — what r u sippin</label>
+            <div class="hint">coffee order, beer/wine pref, the obscure soda u've been chasing</div>
+            <textarea id="f-drink" name="drink" maxlength="2000" placeholder="cortado in the morning. spicy marg at golden hour. one diet dr pepper per day."></textarea>
+          </div>
+
+          <div class="row">
+            <label for="f-notes">📝 anything else (optional)</label>
+            <textarea id="f-notes" name="notes" maxlength="2000" placeholder="bringing my guitar / can't do red-eye / need a power adapter / blah blah"></textarea>
+          </div>
+
+          <div class="submit-wrap">
+            <button class="submit" type="submit">SUBMIT! 🦐</button>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+
+    <div class="img-credits">
+      <strong>collage slots:</strong>
+      drop images into <code>/prawn/img/slot-1.png</code> through <code>slot-6.png</code> and they auto-appear at the polaroid angles. any common extension works (png / jpg / gif / webp).
+    </div>
+  </section>
+
+  <!-- ============= SEE PANEL ============= -->
+  <section class="tab-content" data-content="see">
+    <div class="panel">
+      <div class="titlebar">
+        <span>👀 WHO-IS-PRAWN.TXT — refreshing live from the database</span>
+        <span class="controls"><span>_</span><span>□</span><span>x</span></span>
+      </div>
+      <div class="panel-body">
+        <div id="prawn-list">
+          <div class="list-empty">~ loading the prawn-pile ~</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <marquee direction="left" scrollamount="3" style="max-width:900px; margin:0 auto;">
+      ★ best viewed in NETSCAPE NAVIGATOR 4.0 or higher ★ © 1995-FOREVER ★ prawnweekend@mycoldmars.com ★
+    </marquee>
+    <div style="margin-top:8px;">
+      visitors: <span class="hits" id="hits">00042</span>
+    </div>
+  </footer>
+
+</main>
+
+<div class="status" id="status"></div>
+
+<script>
+  // tab switching
+  const tabs = document.querySelectorAll('.tab');
+  const contents = document.querySelectorAll('.tab-content');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    contents.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.querySelector(`[data-content="${t.dataset.tab}"]`).classList.add('active');
+    if (t.dataset.tab === 'see') loadPrawns();
+  }));
+
+  // status toast
+  const statusEl = document.getElementById('status');
+  let statusTimer = null;
+  function toast(msg, err = false) {
+    statusEl.textContent = msg;
+    statusEl.classList.toggle('err', !!err);
+    statusEl.classList.add('show');
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => statusEl.classList.remove('show'), 3200);
+  }
+
+  // image slot loader — try common extensions in order
+  async function tryImage(slot, img) {
+    const exts = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+    for (const ext of exts) {
+      const url = `/prawn/img/slot-${slot}.${ext}`;
+      const ok = await new Promise(res => {
+        const probe = new Image();
+        probe.onload = () => res(true);
+        probe.onerror = () => res(false);
+        probe.src = url;
+      });
+      if (ok) { img.src = url; return; }
+    }
+    // no image found — leave the placeholder pattern visible
+  }
+  document.querySelectorAll('img[data-slot]').forEach(img => {
+    tryImage(img.dataset.slot, img);
+  });
+
+  // form submit
+  const form = document.getElementById('prawn-form');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const payload = Object.fromEntries(fd.entries());
+    if (!payload.name || !payload.name.trim()) {
+      toast('need yr name first!', true);
+      return;
+    }
+    const btn = form.querySelector('button.submit');
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'SUBMITTING...';
+    try {
+      const r = await fetch('/api/prawn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.error || 'save failed');
+      toast('SAVED 🦐 thank u prawn');
+      form.reset();
+      // also refresh the see-tab in the background so it's warm
+      prawnsCache = null;
+    } catch (err) {
+      toast('save failed: ' + err.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
+  });
+
+  // load prawn list
+  let prawnsCache = null;
+  async function loadPrawns(force = false) {
+    const listEl = document.getElementById('prawn-list');
+    if (!force && prawnsCache) { renderPrawns(prawnsCache); return; }
+    listEl.innerHTML = '<div class="list-empty">~ loading the prawn-pile ~</div>';
+    try {
+      const r = await fetch('/api/prawn');
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'load failed');
+      prawnsCache = j.prawns || [];
+      renderPrawns(prawnsCache);
+    } catch (err) {
+      listEl.innerHTML = `<div class="list-empty" style="color:#c00;">~ couldn't load the prawn-pile: ${escapeHtml(err.message)} ~</div>`;
+    }
+  }
+  function renderPrawns(rows) {
+    const listEl = document.getElementById('prawn-list');
+    if (!rows.length) {
+      listEl.innerHTML = '<div class="list-empty">~ no prawns yet. be the first prawn. ~</div>';
+      return;
+    }
+    const emojis = ['🦐','🦞','🍤','🦀','🐟','🐡','🦑','🐙','🐚','🪸'];
+    listEl.innerHTML = rows.map((p, i) => {
+      const e = emojis[i % emojis.length];
+      const row = (k, v) =>
+        `<div class="k">${k}</div><div class="v ${v ? '' : 'empty'}">${v ? escapeHtml(v) : '—'}</div>`;
+      return `
+        <div class="prawn-card">
+          <div class="prawn-emoji">${e}</div>
+          <div>
+            <h3>${escapeHtml(p.name || '???')}</h3>
+            <div class="prawn-meta">
+              ${row('arrives', p.arrive_when)}
+              ${row('leaves', p.depart_when)}
+              ${row('flight in', p.flight_in)}
+              ${row('flight out', p.flight_out)}
+              ${row('🍔 food', p.food)}
+              ${row('🍺 drink', p.drink)}
+              ${p.notes ? row('📝 notes', p.notes) : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  // fake hit counter, increments per visit
+  try {
+    const k = 'prawn_hits';
+    const n = (parseInt(localStorage.getItem(k) || '42', 10) + 1) % 99999;
+    localStorage.setItem(k, String(n));
+    document.getElementById('hits').textContent = String(n).padStart(5, '0');
+  } catch {}
+
+  // warm the see-tab cache in the background
+  loadPrawns();
+</script>
+
+</body>
+</html>
