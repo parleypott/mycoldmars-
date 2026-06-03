@@ -1493,6 +1493,7 @@
         x: 0, y: 0, w: 0, h: 0,
         vx: 0, vy: 0, rot: 0, vrot: 0,
         restingSince: 0,
+        releasedAt: 0,
         rocketStart: 0,
         lastPuff: 0,
         floatStart: 0,
@@ -1573,10 +1574,11 @@
         e.preventDefault();
         if (it.state === 'idle') adopt(it);
         // if rocket or hover is in progress, abort it; the user is in
-        // charge again. Also wipe restingSince so the dwell timer
-        // restarts cleanly on the next floor landing.
+        // charge again. Wipe both dwell timers so the next release
+        // starts fresh.
         if (it.state === 'rocketing') exitRocket(it);
         it.restingSince = 0;
+        it.releasedAt = 0;
         it.state = 'dragging';
         it.vx = 0; it.vy = 0; it.vrot = 0;
         it.el.classList.add('is-grabbed');
@@ -1614,6 +1616,10 @@
       // spin based on horizontal flick speed + a little noise
       it.vrot = it.vx * 0.35 + (Math.random() - 0.5) * 4;
       it.state = 'physics';
+      // start the rocket countdown from the moment of release, not
+      // from the moment the bounce finishes settling — otherwise the
+      // visible wait is more like 6s and feels broken.
+      it.releasedAt = performance.now();
       it.el.classList.remove('is-grabbed');
       drag = null;
     }
@@ -1670,13 +1676,18 @@
           }
           apply(it);
 
-          // dwell-on-floor timer → fire rockets
-          if (it.restingSince && now - it.restingSince > FLOOR_DWELL_MS) {
+          // dwell timer → fire rockets. Counts from RELEASE, not from
+          // full-settle — otherwise wait time blows past 6s once you
+          // include the bounce-settle. If the float is still bouncing
+          // when the timer runs out, that's fine — the rocket lights
+          // mid-bounce and it's even zanier.
+          if (it.releasedAt && now - it.releasedAt > FLOOR_DWELL_MS) {
             pickHome(it);
             it.state = 'rocketing';
             it.rocketStart = now;
             it.lastPuff = 0;
             it.restingSince = 0;
+            it.releasedAt = 0;
             it.el.classList.add('is-rocket');
             it.el.style.overflow = 'visible';
             // launch jolt: hard upward + slight aim at home + spin
