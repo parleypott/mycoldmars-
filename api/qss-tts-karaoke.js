@@ -21,8 +21,12 @@ const VOICES = {
   george:    'JBFqnCBsd6RMkjVDRZzb',   // warm adult male, British
   daniel:    'onwK4e9ZLuTAKqWW03F9',   // deep adult male, UK
   dorothy:   'ThT5KcBeYPX3keUQqHPh',   // older female, warm
+  adam:      'pNInz6obpgDQGcFmaJgB',   // deep adult male, consultant voice
+  charlotte: 'XB0fDUnXU5powFXDhCwa',   // soft adult female, narrator
   parley:    'ZF6FPAbjXT4488VcRRnw',   // Johnny's voice
 };
+
+const ELEVEN_VOICE_ID_SHAPE = /^[A-Za-z0-9]{20}$/;
 
 const DEFAULT_VOICE = VOICES.matilda;
 
@@ -50,7 +54,7 @@ export default async function handler(req) {
 
   let voiceId = (body.voice || '').toString().trim();
   if (VOICES[voiceId]) voiceId = VOICES[voiceId];
-  if (!voiceId) voiceId = DEFAULT_VOICE;
+  else if (!ELEVEN_VOICE_ID_SHAPE.test(voiceId)) voiceId = DEFAULT_VOICE;
 
   // Use flash for speed — Henry tolerates slight quality dip for the
   // read-along snappiness. Format must be mp3 for browser <audio>.
