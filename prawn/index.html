@@ -275,6 +275,64 @@
   /* once a float enters physics mode, lift it above the form panel
      so dragging across the form is visible the whole way. */
   .vfloat.is-physics { z-index: 9; opacity: 1 !important; }
+
+  /* ============================================================
+     ROCKET MODE — when a video has been resting on the floor for
+     3s, it pops up with a flame on its underside and a smoke trail
+     behind. Pseudo-element flame needs overflow:visible to escape
+     the vfloat's normal hidden clip.
+     ============================================================ */
+  .vfloat.is-rocket { overflow: visible; }
+  .vfloat.is-rocket::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -38px;
+    transform: translateX(-50%);
+    width: 70%;
+    height: 60px;
+    background:
+      radial-gradient(ellipse at top,
+        #fff 0%,
+        #fff200 14%,
+        #ff8a00 42%,
+        #ff2a00 72%,
+        rgba(255,42,0,0) 100%);
+    filter: blur(3px);
+    opacity: 0.95;
+    animation: flame-flicker 0.08s steps(2, end) infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+  @keyframes flame-flicker {
+    0%, 100% { transform: translateX(-50%) scaleY(1) scaleX(1); }
+    50%      { transform: translateX(-52%) scaleY(0.7) scaleX(0.92); }
+  }
+
+  /* smoke puff: spawned at the rocket's bottom by JS, fades up + out
+     while drifting downward (so it looks like trail left behind a
+     rising rocket). */
+  .rocket-puff {
+    position: fixed;
+    width: var(--s, 36px);
+    height: var(--s, 36px);
+    margin-left: calc(var(--s, 36px) * -0.5);
+    margin-top: calc(var(--s, 36px) * -0.5);
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      rgba(255,255,255,0.95) 0%,
+      rgba(220,220,230,0.55) 50%,
+      rgba(180,180,200,0) 100%);
+    pointer-events: none;
+    z-index: 8;
+    animation: puff-rise 1.4s ease-out forwards;
+    will-change: transform, opacity;
+  }
+  @keyframes puff-rise {
+    0%   { transform: translate(0,0) scale(0.35); opacity: 0.9; }
+    25%  { opacity: 1; }
+    100% { transform: translate(var(--dx,0), var(--dy,80px)) scale(2.4); opacity: 0; }
+  }
   .vfloat video { pointer-events: none; }
   .vfloat video {
     width: 100%;
@@ -1420,6 +1478,13 @@
     const FLOOR_DRAG = 0.92;  // horizontal scrub once a video lands on the floor
     const THROW_GAIN = 18;    // how hard a flick translates to launch velocity
     const MIN_V     = 0.08;   // sleep threshold once at rest on the floor
+    const FLOOR_DWELL_MS = 3000; // time at rest before rocket fires
+    const ROCKET_LIFT    = 0.86;  // upward thrust per frame (overrides gravity)
+    const ROCKET_DAMP    = 0.945; // velocity damping during rocket cruise
+    const HOME_K         = 0.0035;// spring strength pulling toward homeX/homeY
+    const PUFF_MS        = 20;    // ms between smoke puffs while rocketing
+    const ARRIVE_DIST    = 70;    // px from home before we switch to floating
+    const INIT_BURST     = 18;    // how many puffs at launch
 
     const items = [];
     document.querySelectorAll('.vfloat').forEach((el) => {
@@ -1427,8 +1492,50 @@
         el, state: 'idle',
         x: 0, y: 0, w: 0, h: 0,
         vx: 0, vy: 0, rot: 0, vrot: 0,
+        restingSince: 0,
+        rocketStart: 0,
+        lastPuff: 0,
+        floatStart: 0,
+        homeX: 0, homeY: 0, homeRot: 0,
       });
     });
+
+    // pick a chaotic new resting place somewhere in the upper-mid of
+    // the viewport. Picked fresh each rocket-launch so the prawn-cams
+    // never end up in the same spot twice.
+    function pickHome(it) {
+      const W = window.innerWidth, H = window.innerHeight;
+      const margin = 40;
+      it.homeX = margin + Math.random() * Math.max(40, W - it.w - margin * 2);
+      it.homeY = 60 + Math.random() * Math.max(60, H * 0.45);
+      it.homeRot = (Math.random() - 0.5) * 14;
+    }
+
+    // spawn a single smoke puff at the bottom-center of the rocket.
+    // Uses CSS custom props for size + drift so the keyframe handles
+    // animation; we just stamp the position and let the GPU do it.
+    function spawnPuff(it, scale) {
+      const p = document.createElement('div');
+      p.className = 'rocket-puff';
+      const cx = it.x + it.w / 2 + (Math.random() - 0.5) * it.w * 0.35;
+      const cy = it.y + it.h - 2;
+      const size = (22 + Math.random() * 30) * (scale || 1);
+      const dx = (Math.random() - 0.5) * 100;
+      const dy = 50 + Math.random() * 80;
+      p.style.left = cx + 'px';
+      p.style.top = cy + 'px';
+      p.style.setProperty('--s', size + 'px');
+      p.style.setProperty('--dx', dx + 'px');
+      p.style.setProperty('--dy', dy + 'px');
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 1450);
+    }
+
+    // wipe rocket visual state — used on arrival OR re-grab mid-flight
+    function exitRocket(it) {
+      it.el.classList.remove('is-rocket');
+      it.el.style.overflow = '';
+    }
 
     function apply(it) {
       it.el.style.transform =
@@ -1465,6 +1572,11 @@
         if (e.button !== undefined && e.button !== 0) return;
         e.preventDefault();
         if (it.state === 'idle') adopt(it);
+        // if rocket or hover is in progress, abort it; the user is in
+        // charge again. Also wipe restingSince so the dwell timer
+        // restarts cleanly on the next floor landing.
+        if (it.state === 'rocketing') exitRocket(it);
+        it.restingSince = 0;
         it.state = 'dragging';
         it.vx = 0; it.vy = 0; it.vrot = 0;
         it.el.classList.add('is-grabbed');
@@ -1511,47 +1623,127 @@
     function tick() {
       const W = window.innerWidth;
       const H = window.innerHeight;
+      const now = performance.now();
       for (const it of items) {
-        if (it.state !== 'physics') continue;
-        it.vy += GRAVITY;
-        it.vx *= FRICTION;
-        it.vy *= FRICTION;
-        it.vrot *= ANG_FRIC;
-        it.x += it.vx;
-        it.y += it.vy;
-        it.rot += it.vrot;
 
-        // edge collisions, viewport-relative
-        if (it.x < 0) {
-          it.x = 0;
-          it.vx = -it.vx * BOUNCE;
-          it.vrot += it.vy * 0.04;
-        }
-        if (it.x + it.w > W) {
-          it.x = W - it.w;
-          it.vx = -it.vx * BOUNCE;
-          it.vrot -= it.vy * 0.04;
-        }
-        if (it.y < 0) {
-          it.y = 0;
-          it.vy = -it.vy * BOUNCE;
-        }
-        if (it.y + it.h > H) {
-          it.y = H - it.h;
-          it.vy = -it.vy * BOUNCE;
-          it.vx *= FLOOR_DRAG;
-        }
-        apply(it);
+        // ---- physics: gravity, bounce, settle, dwell timer ----
+        if (it.state === 'physics') {
+          it.vy += GRAVITY;
+          it.vx *= FRICTION;
+          it.vy *= FRICTION;
+          it.vrot *= ANG_FRIC;
+          it.x += it.vx;
+          it.y += it.vy;
+          it.rot += it.vrot;
 
-        // settle: once velocity is tiny and we're on the floor, freeze
-        const onFloor = it.y + it.h >= H - 0.5;
-        if (
-          onFloor &&
-          Math.abs(it.vx) < MIN_V &&
-          Math.abs(it.vy) < MIN_V &&
-          Math.abs(it.vrot) < MIN_V
-        ) {
-          it.vx = 0; it.vy = 0; it.vrot = 0;
+          if (it.x < 0) {
+            it.x = 0;
+            it.vx = -it.vx * BOUNCE;
+            it.vrot += it.vy * 0.04;
+          }
+          if (it.x + it.w > W) {
+            it.x = W - it.w;
+            it.vx = -it.vx * BOUNCE;
+            it.vrot -= it.vy * 0.04;
+          }
+          if (it.y < 0) {
+            it.y = 0;
+            it.vy = -it.vy * BOUNCE;
+          }
+          if (it.y + it.h > H) {
+            it.y = H - it.h;
+            it.vy = -it.vy * BOUNCE;
+            it.vx *= FLOOR_DRAG;
+          }
+
+          const onFloor = it.y + it.h >= H - 0.5;
+          if (
+            onFloor &&
+            Math.abs(it.vx) < MIN_V &&
+            Math.abs(it.vy) < MIN_V &&
+            Math.abs(it.vrot) < MIN_V
+          ) {
+            it.vx = 0; it.vy = 0; it.vrot = 0;
+            if (!it.restingSince) it.restingSince = now;
+          } else if (!onFloor) {
+            it.restingSince = 0;
+          }
+          apply(it);
+
+          // dwell-on-floor timer → fire rockets
+          if (it.restingSince && now - it.restingSince > FLOOR_DWELL_MS) {
+            pickHome(it);
+            it.state = 'rocketing';
+            it.rocketStart = now;
+            it.lastPuff = 0;
+            it.restingSince = 0;
+            it.el.classList.add('is-rocket');
+            it.el.style.overflow = 'visible';
+            // launch jolt: hard upward + slight aim at home + spin
+            it.vy = -12 - Math.random() * 3;
+            it.vx = (it.homeX - (it.x + it.w / 2)) * 0.025
+                    + (Math.random() - 0.5) * 3.5;
+            it.vrot = (Math.random() - 0.5) * 8;
+            // big initial smoke burst
+            for (let i = 0; i < INIT_BURST; i++) {
+              spawnPuff(it, 1.1 + Math.random() * 0.8);
+            }
+          }
+          continue;
+        }
+
+        // ---- rocketing: thrust + spring toward home + smoke trail ----
+        if (it.state === 'rocketing') {
+          const t = (now - it.rocketStart) / 1000;
+          // net upward thrust = gravity - ROCKET_LIFT (negative = up)
+          it.vy += GRAVITY - ROCKET_LIFT;
+          // weak spring pulling toward home (so it actually arrives)
+          it.vx += (it.homeX - it.x) * HOME_K + Math.sin(t * 6) * 0.45;
+          it.vy += (it.homeY - it.y) * HOME_K;
+          it.vx *= ROCKET_DAMP;
+          it.vy *= ROCKET_DAMP;
+          it.vrot += Math.sin(t * 4.5) * 0.25;
+          it.vrot *= 0.94;
+          it.x += it.vx;
+          it.y += it.vy;
+          it.rot += it.vrot;
+
+          // sky-ceiling still bounces so it doesn't escape
+          if (it.y < 0) { it.y = 0; it.vy = Math.abs(it.vy) * 0.5; }
+          if (it.x < 0) { it.x = 0; it.vx = Math.abs(it.vx) * 0.5; }
+          if (it.x + it.w > W) { it.x = W - it.w; it.vx = -Math.abs(it.vx) * 0.5; }
+
+          apply(it);
+
+          if (now - it.lastPuff > PUFF_MS) {
+            spawnPuff(it);
+            it.lastPuff = now;
+          }
+
+          // arrived? switch to gentle floating
+          const dx = it.homeX - it.x;
+          const dy = it.homeY - it.y;
+          if (
+            dx * dx + dy * dy < ARRIVE_DIST * ARRIVE_DIST &&
+            Math.abs(it.vx) < 2 && Math.abs(it.vy) < 2
+          ) {
+            it.state = 'floating';
+            it.floatStart = now;
+            it.homeRot = it.rot;
+            it.vx = 0; it.vy = 0; it.vrot = 0;
+            exitRocket(it);
+          }
+          continue;
+        }
+
+        // ---- floating: gentle sinusoidal bob around home ----
+        if (it.state === 'floating') {
+          const t = (now - it.floatStart) / 1000;
+          it.x = it.homeX + Math.sin(t * 0.55) * 24;
+          it.y = it.homeY + Math.cos(t * 0.42) * 18;
+          it.rot = it.homeRot + Math.sin(t * 0.32) * 5;
+          apply(it);
+          continue;
         }
       }
       requestAnimationFrame(tick);
