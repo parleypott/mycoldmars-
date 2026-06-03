@@ -67,6 +67,7 @@
     text-align: center;
     margin: 18px 0 6px;
     position: relative;
+    z-index: 8; /* over the side floats (z-index 7), under physics floats (9) */
   }
   .header h1 {
     font-family: "Impact", "Arial Black", sans-serif;
@@ -91,6 +92,44 @@
     padding: 6px 14px;
     transform: rotate(1.4deg);
     box-shadow: 6px 6px 0 #000;
+  }
+
+  /* ----- big date banner under the headline ----- */
+  .prawn-date {
+    display: inline-flex;
+    align-items: center;
+    gap: clamp(10px, 1.4vw, 22px);
+    margin: 10px auto 4px;
+    padding: 8px clamp(18px, 2vw, 32px) 10px;
+    background: #000;
+    color: var(--yellow);
+    font-family: "Impact", "Arial Black", sans-serif;
+    font-size: clamp(34px, 5vw, 68px);
+    letter-spacing: 4px;
+    line-height: 1;
+    border-top: 5px solid #fff;
+    border-bottom: 5px solid #fff;
+    transform: rotate(-1.2deg);
+    box-shadow: 6px 6px 0 var(--hot), 12px 12px 0 #000;
+    text-shadow: 3px 3px 0 var(--hot), 5px 5px 0 #2bd6c4;
+  }
+  .prawn-date .date-deco {
+    color: #fff;
+    font-size: 0.7em;
+    text-shadow: 2px 2px 0 var(--hot);
+    animation: spin 6s linear infinite;
+    display: inline-block;
+  }
+  @media (max-width: 640px) {
+    .prawn-date {
+      font-size: clamp(22px, 8vw, 36px);
+      letter-spacing: 2px;
+      padding: 5px 12px 7px;
+      border-top-width: 3px;
+      border-bottom-width: 3px;
+      gap: 8px;
+      box-shadow: 4px 4px 0 var(--hot), 8px 8px 0 #000;
+    }
   }
 
   /* sparkle stars scattered */
@@ -437,33 +476,34 @@
     z-index: 1;
   }
 
-  /* per-float position + drift. Four floats now flank the form
-     panel — 2 on the left, 2 on the right. All at z-index 1 so the
-     panel (z-index 2) hides whatever overlaps; only the peeking
-     edge of each float is visible. Once grabbed they pop to
-     z-index 9 via .is-physics. */
+  /* per-float position + drift. Four floats sitting AS A LAYER over
+     the form panel (z-index 7 > panel's 2), but tucked deep against
+     the side edges so only a ~200px strip peeks past the form on
+     each side. Two flank the header (upper), two flank the submit
+     area (lower). Header (z-index 8) stays above them. Once grabbed,
+     .is-physics pops to z-index 9 for the throw + rocket. */
   .vfloat--a {
-    /* upper-left */
-    top: 60px;  left: -230px;
-    z-index: 1;
+    /* upper-left peek */
+    top: 60px;  left: -490px;
+    z-index: 7;
     animation: drift-a 11s ease-in-out infinite;
   }
   .vfloat--b {
-    /* upper-right */
-    top: 80px;  right: -240px;
-    z-index: 1;
+    /* upper-right peek */
+    top: 80px;  right: -510px;
+    z-index: 7;
     animation: drift-b 13s ease-in-out infinite;
   }
   .vfloat--c {
-    /* lower-right */
-    top: 1040px; right: -210px;
-    z-index: 1;
+    /* lower-right peek */
+    top: 1040px; right: -470px;
+    z-index: 7;
     animation: drift-c 9.5s ease-in-out infinite;
   }
   .vfloat--d {
-    /* lower-left */
-    top: 1080px; left: -200px;
-    z-index: 1;
+    /* lower-left peek */
+    top: 1080px; left: -500px;
+    z-index: 7;
     animation: drift-d 12s ease-in-out infinite;
   }
 
@@ -997,6 +1037,11 @@
     <span class="star" style="top:60px; right:6%; animation-duration: 9s;">⭐</span>
     <span class="star" style="top:-10px; right:24%; animation-duration: 4s;">💫</span>
     <h1>PRAWN WEEKEND</h1>
+    <div class="prawn-date">
+      <span class="date-deco" aria-hidden="true">★</span>
+      <span class="date-text">JUNE 25&ndash;28</span>
+      <span class="date-deco" aria-hidden="true">★</span>
+    </div>
     <div class="sub">OH MY GOD, I'm Lovely 🦐</div>
     <br>
     <button class="vibe-btn" id="vibe-btn" type="button">✨ NEW VIBE ✨</button>
