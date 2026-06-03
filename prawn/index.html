@@ -309,6 +309,75 @@
     50%      { transform: translateX(-52%) scaleY(0.7) scaleX(0.92); }
   }
 
+  /* ============================================================
+     STOP-THE-ROCKETS BUTTON — only appears after the first rocket
+     has fired. Garish, 90s, fixed bottom-center. Click drops every
+     float to the floor and disables further rockets for the rest of
+     the session.
+     ============================================================ */
+  #stop-rocket-btn {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%) rotate(-2deg);
+    z-index: 100;
+    font-family: "Comic Sans MS", "Comic Sans", "Chalkboard SE", cursive;
+    font-size: 22px;
+    font-weight: 900;
+    padding: 14px 26px;
+    background: linear-gradient(135deg, #ff0080 0%, #fff200 50%, #00ff66 100%);
+    background-size: 200% 200%;
+    color: #000;
+    text-shadow: 2px 2px 0 #fff;
+    border-top: 6px outset #fff;
+    border-left: 6px outset #fff;
+    border-right: 6px outset #444;
+    border-bottom: 6px outset #444;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    box-shadow: 6px 6px 0 #000, 0 0 22px rgba(255, 0, 128, 0.6);
+    animation: stop-shimmer 2s linear infinite,
+               stop-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  #stop-rocket-btn:hover {
+    transform: translateX(-50%) rotate(2deg) scale(1.04);
+  }
+  #stop-rocket-btn:active {
+    border-top: 6px inset #444;
+    border-left: 6px inset #444;
+    border-right: 6px inset #fff;
+    border-bottom: 6px inset #fff;
+  }
+  #stop-rocket-btn.clicked {
+    background: #1a1a1a;
+    color: #ff6b6b;
+    animation: none;
+    text-shadow: 1px 1px 0 #000;
+    transform: translateX(-50%) rotate(-2deg);
+  }
+  @keyframes stop-shimmer {
+    from { background-position: 0% 50%; }
+    to   { background-position: 200% 50%; }
+  }
+  @keyframes stop-pop {
+    0%   { transform: translateX(-50%) rotate(-18deg) scale(0.35); opacity: 0; }
+    60%  { transform: translateX(-50%) rotate(8deg)   scale(1.18); opacity: 1; }
+    100% { transform: translateX(-50%) rotate(-2deg)  scale(1);    opacity: 1; }
+  }
+  @media (max-width: 640px) {
+    #stop-rocket-btn {
+      font-size: 14px;
+      padding: 10px 14px;
+      bottom: 16px;
+      letter-spacing: 0.5px;
+      border-width: 4px;
+      box-shadow: 4px 4px 0 #000, 0 0 14px rgba(255,0,128,0.6);
+      max-width: 92vw;
+      white-space: normal;
+      line-height: 1.15;
+    }
+  }
+
   /* smoke puff: spawned at the rocket's bottom by JS, fades up + out
      while drifting downward (so it looks like trail left behind a
      rising rocket). */
@@ -1538,6 +1607,44 @@
       it.el.style.overflow = '';
     }
 
+    // ---- STOP-THE-ROCKETS button ----
+    let rocketsEverFired = false;
+    let rocketsDisabled  = false;
+    let stopBtn = null;
+
+    function showStopButton() {
+      if (stopBtn) return;
+      stopBtn = document.createElement('button');
+      stopBtn.id = 'stop-rocket-btn';
+      stopBtn.type = 'button';
+      stopBtn.textContent = 'STOP THE ROCKET SHIP THING NOW!!!';
+      stopBtn.addEventListener('click', disableRockets);
+      document.body.appendChild(stopBtn);
+    }
+
+    // Click handler: flip the global flag, drop every airborne float
+    // back into plain gravity-only physics with a little random kick
+    // so they don't all fall in a stripe. Future rocket dwells are
+    // suppressed by the flag check in the tick loop.
+    function disableRockets() {
+      rocketsDisabled = true;
+      for (const it of items) {
+        if (it.state === 'rocketing' || it.state === 'floating') {
+          exitRocket(it);
+          it.state = 'physics';
+          it.vx = (Math.random() - 0.5) * 5;
+          it.vy = 1 + Math.random() * 2;
+          it.vrot = (Math.random() - 0.5) * 3;
+          it.releasedAt = 0;
+          it.restingSince = 0;
+        }
+      }
+      if (stopBtn) {
+        stopBtn.textContent = 'OK GRAVITY WINS 🦐💀';
+        stopBtn.classList.add('clicked');
+      }
+    }
+
     function apply(it) {
       it.el.style.transform =
         `translate(${it.x}px, ${it.y}px) rotate(${it.rot}deg)`;
@@ -1681,7 +1788,10 @@
           // include the bounce-settle. If the float is still bouncing
           // when the timer runs out, that's fine — the rocket lights
           // mid-bounce and it's even zanier.
-          if (it.releasedAt && now - it.releasedAt > FLOOR_DWELL_MS) {
+          if (
+            !rocketsDisabled &&
+            it.releasedAt && now - it.releasedAt > FLOOR_DWELL_MS
+          ) {
             pickHome(it);
             it.state = 'rocketing';
             it.rocketStart = now;
@@ -1698,6 +1808,11 @@
             // big initial smoke burst
             for (let i = 0; i < INIT_BURST; i++) {
               spawnPuff(it, 1.1 + Math.random() * 0.8);
+            }
+            // first time we ever fire? reveal the panic button.
+            if (!rocketsEverFired) {
+              rocketsEverFired = true;
+              showStopButton();
             }
           }
           continue;
