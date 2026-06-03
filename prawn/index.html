@@ -262,10 +262,20 @@
     border: 6px solid #fff;
     box-shadow: 8px 8px 0 #000, inset 0 0 0 1px #000;
     overflow: hidden;
-    pointer-events: none;
+    /* grabbable: cursor + touch-action so drags don't fight scroll */
+    pointer-events: auto;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
     will-change: transform;
     backface-visibility: hidden;
   }
+  .vfloat.is-grabbed { cursor: grabbing; }
+  /* once a float enters physics mode, lift it above the form panel
+     so dragging across the form is visible the whole way. */
+  .vfloat.is-physics { z-index: 9; opacity: 1 !important; }
+  .vfloat video { pointer-events: none; }
   .vfloat video {
     width: 100%;
     height: 100%;
@@ -1394,6 +1404,173 @@
 
   // warm the see-tab cache in the background
   loadPrawns();
+
+  // ============================================================
+  // PRAWN PHYSICS — grab a video, fling it, watch it bounce off
+  // the viewport edges with rotation + gravity + friction. Once a
+  // video has been grabbed, it switches to position:fixed and JS
+  // owns its transform; the CSS drift animation is killed for
+  // that one. Other untouched floats keep drifting until grabbed.
+  // ============================================================
+  (function() {
+    const FRICTION  = 0.985;  // air drag per frame
+    const ANG_FRIC  = 0.965;  // rotational drag
+    const GRAVITY   = 0.55;   // px/frame^2 — heavier feels good with bigger floats
+    const BOUNCE    = 0.74;   // edge restitution (1 = perfectly elastic)
+    const FLOOR_DRAG = 0.92;  // horizontal scrub once a video lands on the floor
+    const THROW_GAIN = 18;    // how hard a flick translates to launch velocity
+    const MIN_V     = 0.08;   // sleep threshold once at rest on the floor
+
+    const items = [];
+    document.querySelectorAll('.vfloat').forEach((el) => {
+      items.push({
+        el, state: 'idle',
+        x: 0, y: 0, w: 0, h: 0,
+        vx: 0, vy: 0, rot: 0, vrot: 0,
+      });
+    });
+
+    function apply(it) {
+      it.el.style.transform =
+        `translate(${it.x}px, ${it.y}px) rotate(${it.rot}deg)`;
+    }
+
+    // freeze a vfloat at its current on-screen position and hand it
+    // over to the physics loop. Switches absolute→fixed so the float
+    // bounces against the VIEWPORT, not the page content column.
+    function adopt(it) {
+      const r = it.el.getBoundingClientRect();
+      it.x = r.left;
+      it.y = r.top;
+      it.w = r.width;
+      it.h = r.height;
+      it.rot = 0;          // we lose the css-anim rotation; that's fine
+      it.vx = 0; it.vy = 0; it.vrot = 0;
+      it.el.style.animation = 'none';
+      it.el.style.transition = 'none';
+      it.el.style.position = 'fixed';
+      it.el.style.top = '0px';
+      it.el.style.left = '0px';
+      it.el.style.right = 'auto';
+      it.el.style.bottom = 'auto';
+      it.el.style.opacity = '1';
+      it.el.classList.add('is-physics');
+      apply(it);
+    }
+
+    let drag = null;
+    items.forEach((it) => {
+      it.el.addEventListener('pointerdown', (e) => {
+        // only primary button / single touch
+        if (e.button !== undefined && e.button !== 0) return;
+        e.preventDefault();
+        if (it.state === 'idle') adopt(it);
+        it.state = 'dragging';
+        it.vx = 0; it.vy = 0; it.vrot = 0;
+        it.el.classList.add('is-grabbed');
+        try { it.el.setPointerCapture(e.pointerId); } catch {}
+        const r = it.el.getBoundingClientRect();
+        const now = performance.now();
+        drag = {
+          it,
+          offX: e.clientX - r.left,
+          offY: e.clientY - r.top,
+          last: { x: e.clientX, y: e.clientY, t: now },
+          prev: { x: e.clientX, y: e.clientY, t: now },
+        };
+      });
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const now = performance.now();
+      drag.prev = drag.last;
+      drag.last = { x: e.clientX, y: e.clientY, t: now };
+      const it = drag.it;
+      it.x = e.clientX - drag.offX;
+      it.y = e.clientY - drag.offY;
+      apply(it);
+    });
+
+    function release(e) {
+      if (!drag) return;
+      const it = drag.it;
+      const dt = Math.max(1, drag.last.t - drag.prev.t);
+      // pixels-per-ms → pixels-per-frame (assume 60fps target)
+      it.vx = ((drag.last.x - drag.prev.x) / dt) * THROW_GAIN;
+      it.vy = ((drag.last.y - drag.prev.y) / dt) * THROW_GAIN;
+      // spin based on horizontal flick speed + a little noise
+      it.vrot = it.vx * 0.35 + (Math.random() - 0.5) * 4;
+      it.state = 'physics';
+      it.el.classList.remove('is-grabbed');
+      drag = null;
+    }
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+
+    function tick() {
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      for (const it of items) {
+        if (it.state !== 'physics') continue;
+        it.vy += GRAVITY;
+        it.vx *= FRICTION;
+        it.vy *= FRICTION;
+        it.vrot *= ANG_FRIC;
+        it.x += it.vx;
+        it.y += it.vy;
+        it.rot += it.vrot;
+
+        // edge collisions, viewport-relative
+        if (it.x < 0) {
+          it.x = 0;
+          it.vx = -it.vx * BOUNCE;
+          it.vrot += it.vy * 0.04;
+        }
+        if (it.x + it.w > W) {
+          it.x = W - it.w;
+          it.vx = -it.vx * BOUNCE;
+          it.vrot -= it.vy * 0.04;
+        }
+        if (it.y < 0) {
+          it.y = 0;
+          it.vy = -it.vy * BOUNCE;
+        }
+        if (it.y + it.h > H) {
+          it.y = H - it.h;
+          it.vy = -it.vy * BOUNCE;
+          it.vx *= FLOOR_DRAG;
+        }
+        apply(it);
+
+        // settle: once velocity is tiny and we're on the floor, freeze
+        const onFloor = it.y + it.h >= H - 0.5;
+        if (
+          onFloor &&
+          Math.abs(it.vx) < MIN_V &&
+          Math.abs(it.vy) < MIN_V &&
+          Math.abs(it.vrot) < MIN_V
+        ) {
+          it.vx = 0; it.vy = 0; it.vrot = 0;
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    // keep floats in-bounds when the viewport resizes
+    window.addEventListener('resize', () => {
+      const W = window.innerWidth, H = window.innerHeight;
+      for (const it of items) {
+        if (it.state === 'idle') continue;
+        if (it.x + it.w > W) it.x = W - it.w;
+        if (it.y + it.h > H) it.y = H - it.h;
+        if (it.x < 0) it.x = 0;
+        if (it.y < 0) it.y = 0;
+        apply(it);
+      }
+    });
+  })();
 </script>
 
 </body>
