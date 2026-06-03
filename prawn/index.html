@@ -437,36 +437,33 @@
     z-index: 1;
   }
 
-  /* per-float position + drift. Top values land each video at a
-     different vertical slice of the long page. Behind-floats at
-     z-index 1 (the panel covers them at z-index 2); front-floats
-     at z-index 7 with slight transparency. */
+  /* per-float position + drift. Four floats now flank the form
+     panel — 2 on the left, 2 on the right. All at z-index 1 so the
+     panel (z-index 2) hides whatever overlaps; only the peeking
+     edge of each float is visible. Once grabbed they pop to
+     z-index 9 via .is-physics. */
   .vfloat--a {
-    top: 80px; left: -70px;
+    /* upper-left */
+    top: 60px;  left: -230px;
     z-index: 1;
     animation: drift-a 11s ease-in-out infinite;
   }
   .vfloat--b {
-    /* moved out from behind the form panel — at 720px wide it was
-       entirely swallowed by the centered panel. Peeks from the
-       LEFT now (CAM-C still peeks from the right), in front of
-       the panel at z-index 7 with the same opacity treatment as
-       the other front floats. */
-    top: 560px; left: -110px;
-    z-index: 7;
-    opacity: 0.92;
+    /* upper-right */
+    top: 80px;  right: -240px;
+    z-index: 1;
     animation: drift-b 13s ease-in-out infinite;
   }
   .vfloat--c {
-    top: 1080px; right: -30px;
-    z-index: 7;
-    opacity: 0.92;
+    /* lower-right */
+    top: 1040px; right: -210px;
+    z-index: 1;
     animation: drift-c 9.5s ease-in-out infinite;
   }
   .vfloat--d {
-    top: 1520px; left: -40px;
-    z-index: 7;
-    opacity: 0.92;
+    /* lower-left */
+    top: 1080px; left: -200px;
+    z-index: 1;
     animation: drift-d 12s ease-in-out infinite;
   }
 
@@ -559,10 +556,12 @@
       border-width: 5px;
       box-shadow: 6px 6px 0 #000;
     }
-    .vfloat--a { top: 320px;  left: -40px;  right: auto; }
-    .vfloat--b { top: 940px;  left: -50px;  right: auto; }
-    .vfloat--c { top: 1620px; right: -40px; left: auto;  }
-    .vfloat--d { top: 2280px; left: -50px;  right: auto; }
+    /* phone: 2 left + 2 right alongside the form, big negative
+       offsets so only the inner ~third peeks past the edge. */
+    .vfloat--a { top: 320px;  left: -200px; right: auto; }
+    .vfloat--b { top: 380px;  right: -200px; left: auto;  }
+    .vfloat--c { top: 1320px; right: -210px; left: auto;  }
+    .vfloat--d { top: 1380px; left: -210px; right: auto; }
     .polaroid img { width: 92px; height: 118px; }
     .polaroid { padding: 6px 6px 10px; box-shadow: 4px 4px 0 #000; }
     .boys-rail { gap: 10px 12px; padding: 10px 4px; }
