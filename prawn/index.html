@@ -44,6 +44,7 @@
     max-width: 1100px;
     margin: 0 auto;
     padding: 18px 12px 80px;
+    position: relative; /* anchors the floating video swarm */
   }
 
   /* ----- the top banner ----- */
@@ -146,6 +147,8 @@
     border-bottom: 4px outset #555;
     padding: 0;
     box-shadow: 10px 10px 0 #000;
+    position: relative; /* sit in its own stacking ctx so back-floats hide behind it */
+    z-index: 2;
   }
 
   .titlebar {
@@ -244,70 +247,34 @@
   }
 
   /* ============================================================
-     VIDEO HERO — the big prominent looping video block
+     FLOATING VIDEO SWARM — prawn cameras scattered across the
+     page at chaos angles, drifting in place. Two sit BEHIND the
+     form panel (z-index 1) and two sit IN FRONT (z-index 7) but
+     pointer-events:none so the form is never blocked. Tucked
+     near the page edges so they orbit the form without ever
+     covering the inputs.
      ============================================================ */
-  .video-hero {
-    margin: 20px auto 24px;
-    padding: 14px;
-    background: linear-gradient(180deg, #2a2a2a 0%, #0a0a0a 100%);
-    border-top: 5px outset #888;
-    border-left: 5px outset #888;
-    border-right: 5px outset #222;
-    border-bottom: 5px outset #222;
-    box-shadow: 8px 8px 0 #000;
-  }
-  .video-hero-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin: 0 4px 10px;
-    font-family: "Courier New", monospace;
-    color: #00ff66;
-    font-size: 13px;
-    letter-spacing: 2px;
-    text-shadow: 0 0 4px rgba(0,255,102,0.5);
-  }
-  .video-hero-head .rec {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: #ff0033;
-    text-shadow: 0 0 4px #ff0033;
-  }
-  .video-hero-head .rec::before {
-    content: '';
-    display: inline-block;
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    background: #ff0033;
-    box-shadow: 0 0 8px #ff0033;
-    animation: led-blink 1s steps(2, end) infinite;
-  }
-  .video-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .video-cell {
-    position: relative;
+  .vfloat {
+    position: absolute;
+    width: clamp(140px, 18vw, 240px);
     aspect-ratio: 16 / 9;
     background: #000;
+    border: 6px solid #fff;
+    box-shadow: 8px 8px 0 #000, inset 0 0 0 1px #000;
     overflow: hidden;
-    border-top: 2px inset #444;
-    border-left: 2px inset #444;
-    border-right: 2px inset #888;
-    border-bottom: 2px inset #888;
+    pointer-events: none;
+    will-change: transform;
+    backface-visibility: hidden;
   }
-  .video-cell video {
+  .vfloat video {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
   }
-  .video-cell .vlabel {
+  .vfloat .vlabel {
     position: absolute;
-    top: 6px; left: 8px;
+    top: 4px; left: 6px;
     font-family: "Courier New", monospace;
     font-size: 10px;
     color: #00ff66;
@@ -318,7 +285,7 @@
     border: 1px solid rgba(0,255,102,0.4);
     z-index: 2;
   }
-  .video-cell .scanlines {
+  .vfloat .scanlines {
     position: absolute;
     inset: 0;
     pointer-events: none;
@@ -331,6 +298,58 @@
         rgba(0,0,0,0) 4px
       );
     z-index: 1;
+  }
+
+  /* per-float position + drift. Top values land each video at a
+     different vertical slice of the long page. Behind-floats at
+     z-index 1 (the panel covers them at z-index 2); front-floats
+     at z-index 7 with slight transparency. */
+  .vfloat--a {
+    top: 80px; left: -70px;
+    z-index: 1;
+    animation: drift-a 11s ease-in-out infinite;
+  }
+  .vfloat--b {
+    top: 560px; right: -60px;
+    z-index: 1;
+    animation: drift-b 13s ease-in-out infinite;
+  }
+  .vfloat--c {
+    top: 1080px; right: -30px;
+    z-index: 7;
+    opacity: 0.92;
+    animation: drift-c 9.5s ease-in-out infinite;
+  }
+  .vfloat--d {
+    top: 1520px; left: -40px;
+    z-index: 7;
+    opacity: 0.92;
+    animation: drift-d 12s ease-in-out infinite;
+  }
+
+  @keyframes drift-a {
+    0%   { transform: translate(0,0) rotate(-8deg); }
+    50%  { transform: translate(28px, -28px) rotate(-3deg); }
+    100% { transform: translate(0,0) rotate(-8deg); }
+  }
+  @keyframes drift-b {
+    0%   { transform: translate(0,0) rotate(7deg); }
+    33%  { transform: translate(-30px, 26px) rotate(11deg); }
+    66%  { transform: translate(-44px, -14px) rotate(3deg); }
+    100% { transform: translate(0,0) rotate(7deg); }
+  }
+  @keyframes drift-c {
+    0%   { transform: translate(0,0) rotate(-5deg); }
+    50%  { transform: translate(-36px, -22px) rotate(2deg); }
+    100% { transform: translate(0,0) rotate(-5deg); }
+  }
+  @keyframes drift-d {
+    0%   { transform: translate(0,0) rotate(10deg); }
+    50%  { transform: translate(30px, -20px) rotate(4deg); }
+    100% { transform: translate(0,0) rotate(10deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .vfloat { animation: none !important; }
   }
 
   /* ============================================================
@@ -389,11 +408,18 @@
     .boys-strip-title { font-size: 28px; letter-spacing: 3px; }
   }
 
-  /* phone — video grid stacks single column */
+  /* phone — shrink floats, pin them to extreme edges so they
+     drift in the margins without ever crossing the form. */
   @media (max-width: 640px) {
-    .video-grid { grid-template-columns: 1fr; gap: 8px; }
-    .video-hero { padding: 10px; margin: 14px auto 18px; box-shadow: 5px 5px 0 #000; }
-    .video-hero-head { font-size: 11px; letter-spacing: 1px; }
+    .vfloat {
+      width: clamp(96px, 32vw, 150px);
+      border-width: 4px;
+      box-shadow: 5px 5px 0 #000;
+    }
+    .vfloat--a { top: 340px;  left: -24px;  }
+    .vfloat--b { top: 880px;  right: -22px; }
+    .vfloat--c { top: 1480px; right: -18px; }
+    .vfloat--d { top: 2040px; left: -22px;  }
     .polaroid img { width: 92px; height: 118px; }
     .polaroid { padding: 6px 6px 10px; box-shadow: 4px 4px 0 #000; }
     .boys-rail { gap: 10px 12px; padding: 10px 4px; }
@@ -841,35 +867,31 @@
     </div>
   </div>
 
-  <!-- ============= VIDEO HERO ============= -->
-  <section class="video-hero" aria-label="Prawn footage">
-    <div class="video-hero-head">
-      <span>📼 PRAWN-TV.CH — LIVE FEED</span>
-      <span class="rec">REC</span>
-    </div>
-    <div class="video-grid">
-      <div class="video-cell">
-        <span class="vlabel">CAM-01</span>
-        <video src="/prawn/video/clip-1.mp4" autoplay muted loop playsinline preload="auto"></video>
-        <span class="scanlines" aria-hidden="true"></span>
-      </div>
-      <div class="video-cell">
-        <span class="vlabel">CAM-02</span>
-        <video src="/prawn/video/clip-2.mp4" autoplay muted loop playsinline preload="auto"></video>
-        <span class="scanlines" aria-hidden="true"></span>
-      </div>
-      <div class="video-cell">
-        <span class="vlabel">CAM-03</span>
-        <video src="/prawn/video/clip-3.mp4" autoplay muted loop playsinline preload="auto"></video>
-        <span class="scanlines" aria-hidden="true"></span>
-      </div>
-      <div class="video-cell">
-        <span class="vlabel">CAM-04</span>
-        <video src="/prawn/video/clip-4.mp4" autoplay muted loop playsinline preload="auto"></video>
-        <span class="scanlines" aria-hidden="true"></span>
-      </div>
-    </div>
-  </section>
+  <!-- ============= FLOATING VIDEO SWARM ============= -->
+  <!-- Four prawn-cams scattered around the page, drifting at chaos
+       angles. Two sit behind the form panel, two sit in front but
+       can't be clicked (pointer-events:none). The form is always
+       the boss. -->
+  <div class="vfloat vfloat--a" aria-hidden="true">
+    <span class="vlabel">CAM-01</span>
+    <video src="/prawn/video/clip-1.mp4" autoplay muted loop playsinline preload="auto"></video>
+    <span class="scanlines"></span>
+  </div>
+  <div class="vfloat vfloat--b" aria-hidden="true">
+    <span class="vlabel">CAM-02</span>
+    <video src="/prawn/video/clip-2.mp4" autoplay muted loop playsinline preload="auto"></video>
+    <span class="scanlines"></span>
+  </div>
+  <div class="vfloat vfloat--c" aria-hidden="true">
+    <span class="vlabel">CAM-03</span>
+    <video src="/prawn/video/clip-3.mp4" autoplay muted loop playsinline preload="auto"></video>
+    <span class="scanlines"></span>
+  </div>
+  <div class="vfloat vfloat--d" aria-hidden="true">
+    <span class="vlabel">CAM-04</span>
+    <video src="/prawn/video/clip-4.mp4" autoplay muted loop playsinline preload="auto"></video>
+    <span class="scanlines"></span>
+  </div>
 
   <!-- ============= TABS ============= -->
   <div class="tabs" role="tablist">
@@ -1009,35 +1031,193 @@
     statusTimer = setTimeout(() => statusEl.classList.remove('show'), 3200);
   }
 
-  // form submit
+  // ============================================================
+  // DATA SAFETY — the friend who is filling this out will NOT
+  // lose their typing. Five guards stacked together:
+  //   1. every keystroke is autosaved to localStorage (debounced)
+  //   2. on page load, any saved draft is restored into the form
+  //   3. on tab close / refresh with unsaved content, browser warns
+  //   4. submit button can't be double-fired (flag + disabled)
+  //   5. network blip = one silent auto-retry before showing error
+  //   6. after success, the submitted payload is archived locally
+  //      so even if the server later loses it, the friend has a
+  //      personal copy. Draft is then cleared.
+  // ============================================================
   const form = document.getElementById('prawn-form');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  const DRAFT_KEY = 'prawn_draft_v1';
+  const ARCHIVE_KEY = 'prawn_last_submission_v1';
+
+  // localStorage might throw in private mode — wrap every call.
+  function safeGet(k) {
+    try { return localStorage.getItem(k); } catch { return null; }
+  }
+  function safeSet(k, v) {
+    try { localStorage.setItem(k, v); } catch {}
+  }
+  function safeDel(k) {
+    try { localStorage.removeItem(k); } catch {}
+  }
+
+  // serialize the form into a plain object (only non-empty fields)
+  function readForm() {
     const fd = new FormData(form);
-    const payload = Object.fromEntries(fd.entries());
-    if (!payload.name || !payload.name.trim()) {
-      toast('need yr name first!', true);
-      return;
+    const out = {};
+    for (const [k, v] of fd.entries()) {
+      const s = String(v || '').trim();
+      if (s) out[k] = String(v); // keep raw value (not trimmed) so cursor pos isn't ruined
     }
-    const btn = form.querySelector('button.submit');
-    const orig = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'SUBMITTING...';
-    try {
+    return out;
+  }
+
+  // restore a saved draft into the inputs
+  function restoreDraft() {
+    const raw = safeGet(DRAFT_KEY);
+    if (!raw) return false;
+    let saved;
+    try { saved = JSON.parse(raw); } catch { return false; }
+    if (!saved || typeof saved !== 'object') return false;
+    let restored = 0;
+    for (const [k, v] of Object.entries(saved)) {
+      const el = form.elements.namedItem(k);
+      if (el && typeof v === 'string') {
+        el.value = v;
+        restored++;
+      }
+    }
+    return restored > 0;
+  }
+
+  // debounced autosave on every input
+  let saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      const data = readForm();
+      if (Object.keys(data).length === 0) {
+        safeDel(DRAFT_KEY);
+      } else {
+        safeSet(DRAFT_KEY, JSON.stringify(data));
+      }
+    }, 300);
+  }
+  form.addEventListener('input', scheduleSave);
+
+  // restore on boot
+  const wasRestored = restoreDraft();
+  if (wasRestored) {
+    // friendly hint at the top of the form
+    const hint = document.createElement('div');
+    hint.id = 'prawn-draft-hint';
+    hint.style.cssText =
+      'background:#fff79a;border:3px dashed #c0006a;padding:8px 12px;' +
+      'margin:0 0 10px;font-family:"Comic Sans MS",cursive;font-size:14px;' +
+      'color:#003;display:flex;align-items:center;gap:10px;flex-wrap:wrap;' +
+      'transform:rotate(-0.3deg);box-shadow:4px 4px 0 #000;';
+    hint.innerHTML =
+      '<span>📝 we kept yr last draft on this device</span>' +
+      '<button type="button" id="prawn-discard" style="' +
+        'font-family:\'Comic Sans MS\',cursive;font-size:13px;cursor:pointer;' +
+        'background:#fff;border:2px outset #fff;padding:3px 10px;color:#c00;' +
+        'box-shadow:2px 2px 0 #000;">discard</button>';
+    form.prepend(hint);
+    document.getElementById('prawn-discard').addEventListener('click', () => {
+      form.reset();
+      safeDel(DRAFT_KEY);
+      hint.remove();
+      toast('draft cleared 🦐');
+    });
+  }
+
+  // browser-level "are you sure" prompt if user tries to leave with
+  // unsaved typing. Cleared after a successful submit.
+  let cleanState = !wasRestored; // restored draft counts as dirty
+  function markDirty() { cleanState = false; }
+  function markClean() { cleanState = true; }
+  form.addEventListener('input', markDirty);
+  window.addEventListener('beforeunload', (e) => {
+    if (cleanState) return;
+    const data = readForm();
+    if (!Object.keys(data).length) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+
+  // post helper with one auto-retry on network error.
+  // Retries only on TypeError (fetch network failure), NOT on 4xx/5xx
+  // — server errors get bubbled up so the friend sees the real reason.
+  async function postPrawn(payload) {
+    async function once() {
       const r = await fetch('/api/prawn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const j = await r.json();
-      if (!r.ok || !j.ok) throw new Error(j.error || 'save failed');
-      toast('SAVED 🦐 thank u prawn');
+      const text = await r.text();
+      let j = {};
+      try { j = JSON.parse(text); } catch {}
+      return { ok: r.ok && j.ok, status: r.status, body: j, raw: text };
+    }
+    try {
+      return await once();
+    } catch (netErr) {
+      // network blip — wait a beat and try once more
+      await new Promise((res) => setTimeout(res, 1500));
+      return await once();
+    }
+  }
+
+  // submit-once guard outside the listener so it can't be confused
+  // by re-entry through enter-key or double-click.
+  let isSubmitting = false;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    const payload = Object.fromEntries(new FormData(form).entries());
+    if (!payload.name || !String(payload.name).trim()) {
+      toast('need yr name first!', true);
+      return;
+    }
+
+    const btn = form.querySelector('button.submit');
+    const orig = btn.textContent;
+    isSubmitting = true;
+    btn.disabled = true;
+    btn.textContent = 'SUBMITTING...';
+
+    try {
+      const res = await postPrawn(payload);
+      if (!res.ok) {
+        const reason =
+          (res.body && (res.body.error || res.body.detail)) ||
+          ('http ' + res.status);
+        throw new Error(reason);
+      }
+      // success — archive a local copy of what we just sent so the
+      // friend has personal proof of submission even if the row is
+      // somehow lost server-side later.
+      safeSet(ARCHIVE_KEY, JSON.stringify({
+        at: new Date().toISOString(),
+        payload,
+        saved: res.body && res.body.prawn ? res.body.prawn : null,
+      }));
+      safeDel(DRAFT_KEY);
+      markClean();
       form.reset();
-      // also refresh the see-tab in the background so it's warm
+      const restoredHint = document.getElementById('prawn-draft-hint');
+      if (restoredHint) restoredHint.remove();
+      toast('SAVED 🦐 thank u prawn');
+      // refresh the see-tab and switch to it so the friend can
+      // verify their entry actually landed in the list.
       prawnsCache = null;
+      const seeTab = document.querySelector('.tab[data-tab="see"]');
+      if (seeTab) seeTab.click();
     } catch (err) {
-      toast('save failed: ' + err.message, true);
+      // typed data stays in the form; draft is still in localStorage;
+      // friend can press submit again.
+      toast('save failed: ' + err.message + ' — yr text is safe, try again', true);
     } finally {
+      isSubmitting = false;
       btn.disabled = false;
       btn.textContent = orig;
     }
