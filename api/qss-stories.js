@@ -758,7 +758,7 @@ function sanitizeChat(chat) {
 function jsonOk(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS_HEADERS },
   });
 }
 function jsonError(status, code, message, extra = null) {

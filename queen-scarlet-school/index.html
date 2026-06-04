@@ -13878,10 +13878,16 @@
       // Compute the text for a given storybook cue — what gets spoken.
       function textForCue(cue) {
         if (!cue) return '';
-        if (typeof cue.source_text === 'string' && cue.source_text.trim().length > 4) return cue.source_text.trim();
-        // Fallback: slice block.text from this cue's offset to next cue's offset
+        // Always slice from block.text using cue offsets. source_text on the
+        // first cue of each block contains the FULL block text (not the slice),
+        // which caused TTS to read the tail portion twice — once as part of
+        // cue 1's bloated source_text, again as cue 2's correct slice.
         const block = (state.blocks || []).find(b => b.id === cue.blockId);
-        if (!block || !block.text) return '';
+        if (!block || !block.text) {
+          // No block found — source_text is the only fallback
+          if (typeof cue.source_text === 'string' && cue.source_text.trim().length > 4) return cue.source_text.trim();
+          return '';
+        }
         const cues = (block.__cues || []).slice().sort((a, c) => (a.offset || 0) - (c.offset || 0));
         const myIdx = cues.findIndex(c => c.id === cue.id);
         const start = Math.max(0, cues[myIdx]?.offset || 0);
