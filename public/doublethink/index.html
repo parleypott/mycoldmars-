@@ -265,6 +265,46 @@
   }
   .img-download-icon { font-size: 11px; letter-spacing: 0; }
 
+  /* Inline video player */
+  .video-frame {
+    margin-top: 18px;
+    padding: 14px 14px 16px;
+    border: 1px solid rgba(244,67,21,0.32);
+    background: rgba(244,67,21,0.04);
+    border-radius: 2px;
+    position: relative;
+  }
+  .video-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.28em;
+    color: var(--orange);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  .video-player {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    background: #000;
+    border-radius: 2px;
+    outline: none;
+  }
+  .video-actions {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+  }
+  .video-caption {
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.55;
+    color: var(--cream-dim);
+    margin: 12px 0 0;
+  }
+
   .block-source { min-width: 0; }
   .block-annotation { min-width: 0; }
 
@@ -841,6 +881,21 @@
       </div>
     </div>
     <figcaption class="img-caption">Two influencer-style short videos with eyes redacted, identical framing.</figcaption>
+    
+    <div class="video-frame">
+      <span class="video-tag">▶ SOURCE VIDEO</span>
+      <video class="video-player" controls preload="metadata" playsinline>
+        <source src="media/influencer-indian-workers.mp4" type="video/mp4" />
+        Your browser cannot play this video.
+      </video>
+      <div class="video-actions">
+        <a class="img-download" href="media/influencer-indian-workers.mp4" download="entry-003-influencer-indian-workers-source.mp4" title="Download source video">
+          <span class="img-download-icon">↓</span>
+          <span class="img-download-label">DOWNLOAD VIDEO</span>
+        </a>
+      </div>
+      <p class="video-caption">The original 12-second clip the screenshot was pulled from — both Taiwanese influencers running the same &#39;印度移工來臺 / Indian migrant workers coming to Taiwan&#39; script in lockstep.</p>
+    </div>
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T1-paid-influencer" style="--tag:#F4B400">PAID INFLUENCER</span></div>
@@ -912,6 +967,7 @@
       </div>
     </div>
     <figcaption class="img-caption">Three influencer-style night-scene videos with redacted faces.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T1-paid-influencer" style="--tag:#F4B400">PAID INFLUENCER</span></div>
@@ -1010,6 +1066,7 @@
       </div>
     </div>
     <figcaption class="img-caption">Grid of Facebook posts using identical hashtag #DeclareMyVotingWill, posted by different influencers within the same window.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T1-paid-influencer" style="--tag:#F4B400">PAID INFLUENCER</span></div>
@@ -1062,6 +1119,7 @@
       </div>
     </div>
     <figcaption class="img-caption">Leaked PR-agency briefing showing the exact instructions sent to paid influencers.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T1-paid-influencer" style="--tag:#F4B400">PAID INFLUENCER</span></div>
@@ -1146,6 +1204,7 @@ HASHTAGS: &#39;#DeclareMyVotingWill (REQUIRED, do not change). #YouCanOwnAHomeWi
       </div>
     </div>
     <figcaption class="img-caption">Three Threads posts dated April 24 2025, identical wording, three different stolen profile photos.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T2-inauthentic-accounts" style="--tag:#F44315">FAKE TAIWANESE</span></div>
@@ -1251,6 +1310,7 @@ HASHTAGS: &#39;#DeclareMyVotingWill (REQUIRED, do not change). #YouCanOwnAHomeWi
       </div>
     </div>
     <figcaption class="img-caption">Facebook page transparency panel for 經典語錄 (Classic Quotations).</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T3-content-farm-prc" style="--tag:#E91E63">CONTENT FARM</span></div>
@@ -1352,6 +1412,7 @@ People who manage this Page: Primary country / region — Hong Kong (17)</pre></
       </div>
     </div>
     <figcaption class="img-caption">Network visualization of COVID disinformation amplification — small red core of seed pages, large blue cloud of amplifier accounts.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T9-covid-disinfo-network" style="--tag:#FF9800">COVID NETWORK</span></div>
@@ -1431,6 +1492,7 @@ People who manage this Page: Primary country / region — Hong Kong (17)</pre></
       </div>
     </div>
     <figcaption class="img-caption">Chord diagram showing traffic flow from Taiwan-named Facebook fan pages (left) to content-farm domains (right).</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T3-content-farm-prc" style="--tag:#E91E63">CONTENT FARM</span></div>
@@ -1539,6 +1601,7 @@ The numbers are share-counts. You can SEE the laundering pipeline: &#39;Taiwanes
       </div>
     </div>
     <figcaption class="img-caption">EEAS Figure 16 — Self-reinforcing analysis workflow for FIMI incidents.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T10-research-method" style="--tag:#8BC34A">RESEARCH METHOD</span></div>
@@ -1591,6 +1654,7 @@ The numbers are share-counts. You can SEE the laundering pipeline: &#39;Taiwanes
       </div>
     </div>
     <figcaption class="img-caption">Line chart of news volume from the Information Security Institute&#39;s monitoring tool.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T10-research-method" style="--tag:#8BC34A">RESEARCH METHOD</span></div>
@@ -1670,6 +1734,7 @@ The numbers are share-counts. You can SEE the laundering pipeline: &#39;Taiwanes
       </div>
     </div>
     <figcaption class="img-caption">DTL chart — number of observed incidents and topic share per week during the 2024 election period.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T10-research-method" style="--tag:#8BC34A">RESEARCH METHOD</span></div>
@@ -1749,6 +1814,7 @@ The numbers are share-counts. You can SEE the laundering pipeline: &#39;Taiwanes
       </div>
     </div>
     <figcaption class="img-caption">CrowdTangle search for vote-monitoring and 18-year-old-suffrage referendum keywords. 194,945 interactions across 2,679 posts, Aug 16 – Nov 25, 2022.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T10-research-method" style="--tag:#8BC34A">RESEARCH METHOD</span></div>
@@ -1854,6 +1920,7 @@ The numbers are share-counts. You can SEE the laundering pipeline: &#39;Taiwanes
       </div>
     </div>
     <figcaption class="img-caption">DTL bar chart: &#39;Who is to blame for the war in Ukraine?&#39; by Taiwanese party affiliation.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T11-narrative-impact" style="--tag:#FFD700">IDENTITY IMPACT</span></div>
@@ -1906,6 +1973,7 @@ The numbers are share-counts. You can SEE the laundering pipeline: &#39;Taiwanes
       </div>
     </div>
     <figcaption class="img-caption">Watchout (沃草) poll: &quot;Do you agree with new KMT chair Cheng Li-wun&#39;s claim, &#39;We are all Chinese&#39;?&quot;</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T11-narrative-impact" style="--tag:#FFD700">IDENTITY IMPACT</span></div>
@@ -2023,6 +2091,7 @@ TPP 52.6% 反對 / 46.0% 認同</pre></div>
       </div>
     </div>
     <figcaption class="img-caption">Threads @hunks003 — AI-generated MAN holding a Taiwan passport at an airport, claiming PRC saved him from the Middle East.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T2-inauthentic-accounts" style="--tag:#F44315">FAKE TAIWANESE</span></div>
@@ -2061,6 +2130,7 @@ TPP 52.6% 反對 / 46.0% 認同</pre></div>
       </div>
     </div>
     <figcaption class="img-caption">Same account, same script, AI-generated WOMAN holding the same Taiwan passport.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T2-inauthentic-accounts" style="--tag:#F44315">FAKE TAIWANESE</span></div>
@@ -2205,6 +2275,7 @@ TPP 52.6% 反對 / 46.0% 認同</pre></div>
       </div>
     </div>
     <figcaption class="img-caption">Grid of AI-generated short videos from the 2025 recall election. Frogs, zombies, peasants, Yoda-like creatures — visual political symbolism, not claim-based content.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T4-ai-symbolic-video" style="--tag:#9C27B0">AI VIDEO</span></div>
@@ -2552,6 +2623,7 @@ TPP 52.6% 反對 / 46.0% 認同</pre></div>
       </div>
     </div>
     <figcaption class="img-caption">Grid of 12 thumbnail/title pairs from the 樂齡指南 (Senior&#39;s Guide) YouTube channel.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T5-ai-farm-targeting-elderly" style="--tag:#673AB7">ELDERLY TARGETING</span></div>
@@ -2696,6 +2768,7 @@ Every thumbnail engineered for elderly anxiety + curiosity. Every video AI-narra
       </div>
     </div>
     <figcaption class="img-caption">Threads post from @enum.dev (the developer) describing the prompt-injection unmask trick, plus screenshots of the bot&#39;s compliant reply.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T6-ai-comment-bot" style="--tag:#3F51B5">COMMENT BOT</span></div>
@@ -2748,6 +2821,7 @@ Every thumbnail engineered for elderly anxiety + curiosity. Every video AI-narra
       </div>
     </div>
     <figcaption class="img-caption">AI bot @moose.1610726 (now deleted) posting political content about Taiwan&#39;s energy policy.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T6-ai-comment-bot" style="--tag:#3F51B5">COMMENT BOT</span></div>
@@ -2803,6 +2877,7 @@ Every thumbnail engineered for elderly anxiety + curiosity. Every video AI-narra
       </div>
     </div>
     <figcaption class="img-caption">@apocrypha.hiya replies to the bot post with a prompt-injection trick — and the bot complies by writing bubble-sort code.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T6-ai-comment-bot" style="--tag:#3F51B5">COMMENT BOT</span></div>
@@ -2922,6 +2997,7 @@ THE BOT OBEDIENTLY REPLIES with a perfect Python bubble-sort implementation — 
       </div>
     </div>
     <figcaption class="img-caption">Threads @jennie19991031 (a &#39;Taiwanese&#39; bot) posts about a helicopter crash near Mount Aso, then complies with a Japanese-language injection.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T6-ai-comment-bot" style="--tag:#3F51B5">COMMENT BOT</span></div>
@@ -2976,6 +3052,7 @@ Bot&#39;s compliant reply (in Japanese): writes a sentimental Japanese travel me
       </div>
     </div>
     <figcaption class="img-caption">Repeat capture of the same @jennie19991031 thread, full Japanese-compliance reply visible.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T6-ai-comment-bot" style="--tag:#3F51B5">COMMENT BOT</span></div>
@@ -3101,6 +3178,7 @@ Bot&#39;s compliant reply (in Japanese): writes a sentimental Japanese travel me
       </div>
     </div>
     <figcaption class="img-caption">Facebook post from &#39;人物故事奇談&#39; (Character Story Wonders) about a 90-year-old Communist-revolutionary woman — with the AI prompt instructions accidentally left in the body of the published article.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T7-ai-translation-leak" style="--tag:#00BCD4">LEAKED PROMPT</span></div>
@@ -3156,6 +3234,7 @@ Bot&#39;s compliant reply (in Japanese): writes a sentimental Japanese travel me
       </div>
     </div>
     <figcaption class="img-caption">Same operator, different Facebook page — a parenting-themed post with the AI instructions visible in the edit history.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T7-ai-translation-leak" style="--tag:#00BCD4">LEAKED PROMPT</span></div>
@@ -3300,6 +3379,7 @@ Bot&#39;s compliant reply (in Japanese): writes a sentimental Japanese travel me
       </div>
     </div>
     <figcaption class="img-caption">&#39;我是台北人&#39; (I am Taipei-er) Facebook page — a post that begins with the AI&#39;s own meta-instructions visible at the top of the article.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T7-ai-translation-leak" style="--tag:#00BCD4">LEAKED PROMPT</span></div>
@@ -3400,6 +3480,7 @@ Bot&#39;s compliant reply (in Japanese): writes a sentimental Japanese travel me
       </div>
     </div>
     <figcaption class="img-caption">GoLaxy internal slide: a database of Taiwanese political figures with personal-data columns.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T8-industrial-platform" style="--tag:#3BC773">STATE PLATFORM</span></div>
@@ -3453,6 +3534,7 @@ T政要數據, 含黨派、電話、傳真、郵箱、出生地點、工作地�
       </div>
     </div>
     <figcaption class="img-caption">GoLaxy Figure 3 — AI-generated Christmas posts (Santa-hatted cats and dogs) posted in coordination by 4 confirmed/suspected GoLaxy-operated Facebook accounts on Dec 14, 2025 within minutes of each other.</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T8-industrial-platform" style="--tag:#3BC773">STATE PLATFORM</span></div>
@@ -3486,6 +3568,7 @@ T政要數據, 含黨派、電話、傳真、郵箱、出生地點、工作地�
       </div>
     </div>
     <figcaption class="img-caption">GoLaxy Figure 5 — table of ten virtual personas used to seed accounts across platforms (page 280 of the leaked dossier).</figcaption>
+    
   </figure>
   <aside class="block-annotation">
     <div class="tactic-tags"><span class="tactic-tag" data-tactic="T8-industrial-platform" style="--tag:#3BC773">STATE PLATFORM</span></div>
