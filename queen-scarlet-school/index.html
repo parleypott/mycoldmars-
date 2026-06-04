@@ -14074,9 +14074,9 @@
                        'scene=', session.sceneIdx, 'cueId=', sc.cueId,
                        'spans=', sceneEl?.querySelectorAll('.ks-w').length,
                        'words[0..2]=', wsSample || '(empty)');
-          try { sbToast('karaoke timing missing — words wrapped, but no highlight'); } catch {}
+          // (toast removed — dev diagnostic only, was spamming Henry's screen)
         }
-        if (idx >= 0) session._stallReported = false;
+        // _stallReported stays true for the rest of this scene to avoid repeat warnings
 
         updateUI();
         session.rafHandle = requestAnimationFrame(rafLoop);
@@ -14087,6 +14087,7 @@
         const sc = session.scenes[sceneIdx];
         if (!sc) return false;
         session.sceneIdx = sceneIdx;
+        session._stallReported = false; // reset for new scene
 
         // Activate the cue in the rest of the UI (art frame, rail dot, scroll)
         const cueIdx = storybook.cues.findIndex(c => c.id === sc.cueId);
