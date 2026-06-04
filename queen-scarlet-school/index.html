@@ -13895,7 +13895,14 @@
       // Disables contenteditable during playback. Restores on teardown.
       function decorateSceneCard(cueId, text, words) {
         const el = document.querySelector(`.sb-scene-text[data-cue-id="${cueId}"]`);
-        if (!el) return null;
+        if (!el) {
+          console.warn('[sb-player] decorate skipped — no .sb-scene-text for cueId', cueId);
+          return null;
+        }
+        if (!Array.isArray(words) || words.length === 0) {
+          console.warn('[sb-player] decorate skipped — empty words array for cueId', cueId);
+          return null;
+        }
         el.dataset._origEditable = el.getAttribute('contenteditable') || 'true';
         el.setAttribute('contenteditable', 'false');
         el.classList.add('is-playing');
@@ -14031,16 +14038,46 @@
         }
         const sc = session.scenes[session.sceneIdx];
         if (!sc || !sc.audio) { session.rafHandle = requestAnimationFrame(rafLoop); return; }
+
+        // Repair: if the active scene's DOM lost its karaoke spans (e.g.
+        // renderStorybookProse fired while audio was playing — edits,
+        // cue updates, scroll sync), re-decorate on the fly. Without this,
+        // audio plays but nothing highlights and the failure is silent.
+        const sceneEl = document.querySelector(`.sb-scene-text[data-cue-id="${sc.cueId}"]`);
+        if (sceneEl && Array.isArray(sc.words) && sc.words.length
+            && sceneEl.querySelectorAll('.ks-w').length === 0) {
+          decorateSceneCard(sc.cueId, sc.text, sc.words);
+        }
+
         const t = sc.audio.currentTime;
-        // Find current word in this scene's words array
+        // Find current word in this scene's words array. Skip words with
+        // invalid timing (-1 markers from missing alignment data) so a
+        // sparse first word can't poison the whole search.
         let idx = -1;
         const ws = sc.words || [];
         for (let i = 0; i < ws.length; i++) {
-          if (t >= ws[i].start && t <= ws[i].end + 0.05) { idx = i; break; }
-          if (ws[i].start > t) break;
+          const ws_i = ws[i];
+          if (typeof ws_i.start !== 'number' || ws_i.start < 0) continue;
+          if (t >= ws_i.start && t <= (ws_i.end || ws_i.start) + 0.05) { idx = i; break; }
+          if (ws_i.start > t) break;
         }
-        if (idx < 0 && ws.length && t >= ws[ws.length - 1].end) idx = ws.length - 1;
+        if (idx < 0 && ws.length && t >= (ws[ws.length - 1].end || 0)) idx = ws.length - 1;
         if (idx >= 0) highlightActiveWord(session.sceneIdx, idx);
+
+        // Watchdog: audio is playing past the first second but we still
+        // haven't highlighted a single word — surface the failure so it
+        // doesn't stay silent like the 15-time portrait bug.
+        if (idx < 0 && t > 1.2 && !session._stallReported) {
+          session._stallReported = true;
+          const wsSample = ws.slice(0, 3).map(w => `${w.text}@${w.start}-${w.end}`).join(' | ');
+          console.warn('[sb-player] karaoke stall — audio.currentTime=', t.toFixed(2),
+                       'scene=', session.sceneIdx, 'cueId=', sc.cueId,
+                       'spans=', sceneEl?.querySelectorAll('.ks-w').length,
+                       'words[0..2]=', wsSample || '(empty)');
+          try { sbToast('karaoke timing missing — words wrapped, but no highlight'); } catch {}
+        }
+        if (idx >= 0) session._stallReported = false;
+
         updateUI();
         session.rafHandle = requestAnimationFrame(rafLoop);
       }
@@ -14066,8 +14103,12 @@
           try {
             const data = await fetchTTS(sc.text, session.voice);
             if (myToken !== session.token) { setLoading(false); return false; }
-            sc.words = data.words;
+            sc.words = Array.isArray(data.words) ? data.words : [];
             sc.duration = data.duration || (sc.words.length ? sc.words[sc.words.length - 1].end : 0);
+            console.info('[sb-player] tts ready — scene', sceneIdx,
+                         'words:', sc.words.length,
+                         'duration:', (sc.duration || 0).toFixed(2),
+                         'firstWord:', sc.words[0]?.text, '@', sc.words[0]?.start);
             sc.audio = new Audio(`data:${data.mime || 'audio/mpeg'};base64,${data.audio_base64}`);
             sc.audio.preload = 'auto';
             // Recompute total + marks now that we know this scene's duration
