@@ -1,5 +1,85 @@
 [
   {
+    "id": "F0B8P910GQL",
+    "name": "Screenshot 2026-06-05 at 9.41.41 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 46951,
+    "local_path": "images/F0B8P910GQL.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1780666966.681869",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1780666966681869",
+    "posted_at": "2026-06-05T13:42:46.681Z",
+    "analysis": {
+      "comment_text": "Damn! The Ad was so good, I didn't even use Jump Ahead",
+      "commenter": "j-amen",
+      "sentiment": "praise",
+      "themes": [
+        "ad quality",
+        "engagement",
+        "retention",
+        "jump ahead"
+      ],
+      "video_hint": "A video containing a notably well-produced advertisement",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-05T13:51:54.958Z"
+  },
+  {
+    "id": "F0B8HJBGBFY",
+    "name": "Screenshot 2026-06-05 at 9.40.02 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 39093,
+    "local_path": "images/F0B8HJBGBFY.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1780666966.681869",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1780666966681869",
+    "posted_at": "2026-06-05T13:42:46.681Z",
+    "analysis": {
+      "comment_text": "Sometimes all it takes is an open mind, a shift in perspective and a Max Fisher video",
+      "commenter": "@minascholevas",
+      "sentiment": "praise",
+      "themes": [
+        "perspective",
+        "open-mindedness",
+        "host",
+        "impact"
+      ],
+      "video_hint": "A Max Fisher (Vox/The Interpreter) video, specific title unknown",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-05T13:51:55.236Z"
+  },
+  {
+    "id": "F0B8KLE66H0",
+    "name": "Screenshot 2026-06-05 at 8.15.25 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 32420,
+    "local_path": "images/F0B8KLE66H0.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1780666966.681869",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1780666966681869",
+    "posted_at": "2026-06-05T13:42:46.681Z",
+    "analysis": {
+      "comment_text": "Max Fisher: Journalist who Fishes for good stories to his Maximum capacity",
+      "commenter": "@manubhatt3",
+      "sentiment": "funny",
+      "themes": [
+        "host",
+        "wordplay",
+        "journalism"
+      ],
+      "video_hint": "Video likely features journalist Max Fisher",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-05T13:51:57.324Z"
+  },
+  {
     "id": "F0B6NEZ61SB",
     "name": "IMG_3040",
     "ext": "png",
