@@ -1,5 +1,137 @@
 [
   {
+    "id": "F0B8MR2S8QH",
+    "name": "Screenshot 2026-06-05 at 10.20.27 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 28663,
+    "local_path": "images/F0B8MR2S8QH.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1780669366.550939",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1780669366550939",
+    "posted_at": "2026-06-05T14:22:46.550Z",
+    "analysis": {
+      "comment_text": "Great take!",
+      "commenter": "@lifeafteraiesec",
+      "sentiment": "praise",
+      "themes": [
+        "agreement",
+        "positive feedback"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-05T16:29:32.192Z"
+  },
+  {
+    "id": "F0B84G6VDMM",
+    "name": "Screenshot 2026-06-05 at 10.19.48 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 33206,
+    "local_path": "images/F0B84G6VDMM.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1780669366.550939",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1780669366550939",
+    "posted_at": "2026-06-05T14:22:46.550Z",
+    "analysis": {
+      "comment_text": "This is such a refreshing piece of real journalism. Such a change from the nonsense pushed by the manosphere.",
+      "commenter": "topher6410",
+      "sentiment": "praise",
+      "themes": [
+        "journalism",
+        "manosphere",
+        "media criticism",
+        "authenticity"
+      ],
+      "video_hint": "likely a journalism or gender-related commentary video addressing manosphere content",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-05T16:29:33.305Z"
+  },
+  {
+    "id": "F0B9E9286M6",
+    "name": "Screenshot 2026-06-05 at 10.18.27 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 21996,
+    "local_path": "images/F0B9E9286M6.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1780669366.550939",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1780669366550939",
+    "posted_at": "2026-06-05T14:22:46.550Z",
+    "analysis": {
+      "comment_text": "I think I needed this. Thanks!",
+      "commenter": "colinwinslow3868",
+      "sentiment": "personal_story",
+      "themes": [
+        "gratitude",
+        "emotional resonance",
+        "personal need"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-05T16:29:34.594Z"
+  },
+  {
+    "id": "F0B8L0MBVAN",
+    "name": "Screenshot 2026-06-05 at 10.20.07 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 80940,
+    "local_path": "images/F0B8L0MBVAN.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1780669366.550939",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1780669366550939",
+    "posted_at": "2026-06-05T14:22:46.550Z",
+    "analysis": {
+      "comment_text": "Max, thank you for your content. The care you put into your work is astonishing, and I can tell that each statement is heavily researched and genuinely insightful. In an era where AI content is surging, and short form content grabs the most attention, your effort in long form content is truly amazing, thank you so much for your hard work!!",
+      "commenter": "Rangerscope03",
+      "sentiment": "praise",
+      "themes": [
+        "long form content",
+        "research quality",
+        "ai content",
+        "creator appreciation"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-05T16:29:34.911Z"
+  },
+  {
+    "id": "F0B9E91UPME",
+    "name": "Screenshot 2026-06-05 at 10.20.00 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 74583,
+    "local_path": "images/F0B9E91UPME.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1780669366.550939",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1780669366550939",
+    "posted_at": "2026-06-05T14:22:46.550Z",
+    "analysis": {
+      "comment_text": "Man, this is so good! Would love a dive into the other aspects of society that are causing isolation too. Designing our cities to prioritize cars, social media making it feel easier to leave town without the risk of losing touch with people, and the demise of monoculture making it so everyone has deep niche interests that often cannot be shared easily with others.",
+      "commenter": "Dullydude",
+      "sentiment": "insightful",
+      "themes": [
+        "social isolation",
+        "urban design",
+        "social media",
+        "monoculture"
+      ],
+      "video_hint": "Video about loneliness or social isolation in modern society",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-05T16:29:35.380Z"
+  },
+  {
     "id": "F0B8P910GQL",
     "name": "Screenshot 2026-06-05 at 9.41.41 AM.png",
     "ext": "png",
