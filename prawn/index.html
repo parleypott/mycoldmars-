@@ -775,6 +775,110 @@
   .tab-content.active { display: block; }
 
   /* ============================================================
+     BOSS MODE — readable prep dashboard inside geocities chrome
+     ============================================================ */
+
+  .prep-body { background: #fffaf0; font-family: "Courier New", "Lucida Console", monospace; color: #1a1a1a; }
+  .prep-stats {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .prep-stat {
+    background: var(--teal); color: #fff;
+    border: 3px solid #000; box-shadow: 4px 4px 0 #000;
+    padding: 8px 14px; min-width: 110px;
+  }
+  .prep-stat b { font-size: 28px; font-family: "Comic Sans MS", cursive; display:block; line-height: 1; }
+  .prep-stat span { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; }
+
+  .prep-section {
+    background: #fff; border: 3px solid #000; box-shadow: 5px 5px 0 #000;
+    padding: 12px 14px; margin: 14px 0;
+  }
+  .prep-section h3 {
+    font-family: "Comic Sans MS", cursive;
+    font-size: 18px; margin: 0 0 10px; padding-bottom: 6px;
+    border-bottom: 2px dashed var(--hot); color: var(--teal-d);
+  }
+
+  /* Timeline */
+  .timeline-grid {
+    display: grid;
+    grid-template-columns: 110px repeat(var(--days, 4), 1fr);
+    gap: 1px;
+    background: #000;
+    border: 2px solid #000;
+  }
+  .timeline-grid > div { background: #fff; padding: 6px 8px; font-size: 12px; }
+  .timeline-grid .tl-header {
+    background: var(--teal); color: #fff;
+    font-family: "Comic Sans MS", cursive; text-align: center;
+    text-transform: uppercase; letter-spacing: 2px;
+  }
+  .timeline-grid .tl-row-lbl {
+    background: var(--gray); font-weight: bold;
+    text-transform: uppercase; letter-spacing: 1px; font-size: 11px;
+  }
+  .timeline-grid .tl-cell { min-height: 38px; display: flex; flex-direction: column; gap: 3px; }
+  .tl-pill {
+    display: inline-block; padding: 2px 8px; font-size: 11px;
+    border: 2px solid #000; box-shadow: 2px 2px 0 #000;
+    font-family: "Comic Sans MS", cursive;
+  }
+  .tl-pill.arrive { background: var(--lime); }
+  .tl-pill.depart { background: var(--yellow); }
+  .tl-pill .who { font-weight: bold; }
+  .tl-pill .when { color: #444; font-size: 10px; display: block; }
+  .tl-unparsed {
+    background: #fff3cc; border: 2px dashed #c0a000;
+    padding: 8px; margin-top: 10px; font-size: 12px;
+  }
+  .tl-unparsed b { font-family: "Comic Sans MS", cursive; }
+
+  /* Shopping list */
+  .prep-shop { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .prep-shop-col h4 {
+    font-family: "Comic Sans MS", cursive; font-size: 14px;
+    background: var(--hot); color: #fff; padding: 4px 8px;
+    border: 2px solid #000; margin: 0 0 6px;
+  }
+  .prep-shop ul {
+    list-style: none; margin: 0; padding: 0;
+    border: 2px solid #000; background: #fff;
+  }
+  .prep-shop li {
+    padding: 6px 8px; border-bottom: 1px dashed #999;
+    display: flex; gap: 8px; align-items: flex-start;
+    font-size: 13px; line-height: 1.35;
+  }
+  .prep-shop li:last-child { border-bottom: 0; }
+  .prep-shop li input[type=checkbox] {
+    margin-top: 3px; transform: scale(1.15); accent-color: var(--teal-d);
+  }
+  .prep-shop .who-tag {
+    font-size: 10px; color: #666;
+    text-transform: uppercase; letter-spacing: 1px;
+    display: block; margin-top: 2px;
+  }
+
+  /* Notes list */
+  .prep-notes { display: flex; flex-direction: column; gap: 8px; }
+  .prep-note {
+    background: #fff8c2; border: 2px solid #000;
+    box-shadow: 3px 3px 0 #000;
+    padding: 8px 10px; font-size: 13px;
+    transform: rotate(-0.4deg);
+  }
+  .prep-note:nth-child(2n) { transform: rotate(0.5deg); background: #d6f0ff; }
+  .prep-note:nth-child(3n) { transform: rotate(-0.2deg); background: #ffe1f0; }
+  .prep-note .who-tag { display: block; font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+  @media (max-width: 720px) {
+    .prep-shop { grid-template-columns: 1fr; }
+    .timeline-grid { font-size: 10px; }
+  }
+
+  /* ============================================================
      VIBE BUTTON — sits next to the subtitle, cycles palettes
      ============================================================ */
   .vibe-btn {
@@ -1084,6 +1188,7 @@
   <div class="tabs" role="tablist">
     <div class="tab active" data-tab="rsvp" role="tab">📝 ENTER YR INFO</div>
     <div class="tab" data-tab="see" role="tab">👀 SEE WHAT OTHER PRAWNS SAID</div>
+    <div class="tab" data-tab="prep" role="tab">🛒 BOSS MODE</div>
   </div>
 
   <!-- ============= RSVP PANEL ============= -->
@@ -1168,6 +1273,21 @@
     </div>
   </section>
 
+  <!-- ============= PREP PANEL (BOSS MODE) ============= -->
+  <section class="tab-content" data-content="prep">
+    <div class="panel">
+      <div class="titlebar">
+        <span>🛒 BOSS-MODE.EXE — everything you need to prep the weekend</span>
+        <span class="controls"><span>_</span><span>□</span><span>x</span></span>
+      </div>
+      <div class="panel-body prep-body">
+        <div id="prep-root">
+          <div class="list-empty">~ loading boss mode ~</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ============= THE BOYS POLAROID STRIP ============= -->
   <section class="boys-strip" aria-label="The Prawns">
     <h2 class="boys-strip-title">★ THE BOYS ★</h2>
@@ -1205,6 +1325,7 @@
     t.classList.add('active');
     document.querySelector(`[data-content="${t.dataset.tab}"]`).classList.add('active');
     if (t.dataset.tab === 'see') loadPrawns();
+    if (t.dataset.tab === 'prep') loadPrep();
   }));
 
   // status toast
@@ -1460,6 +1581,218 @@
     return String(s).replace(/[&<>"']/g, c => ({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
     }[c]));
+  }
+
+  // ============================================================
+  // BOSS MODE — aggregate timeline + shopping list + notes
+  // ============================================================
+  const DAYS = [
+    { key: 'thu', label: 'THU', rx: /\b(thu|thurs|thursday)\b/i },
+    { key: 'fri', label: 'FRI', rx: /\b(fri|friday)\b/i },
+    { key: 'sat', label: 'SAT', rx: /\b(sat|saturday)\b/i },
+    { key: 'sun', label: 'SUN', rx: /\b(sun|sunday)\b/i },
+  ];
+
+  function detectDay(text) {
+    if (!text) return null;
+    for (const d of DAYS) if (d.rx.test(text)) return d.key;
+    return null;
+  }
+  function shortTime(text) {
+    if (!text) return '';
+    const t = text.match(/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm))\b/i);
+    if (t) return t[1].toLowerCase().replace(/\s+/g, '');
+    const fuzzy = text.match(/\b(morning|noon|afternoon|evening|night|late|early)\b/i);
+    return fuzzy ? fuzzy[1].toLowerCase() : '';
+  }
+
+  // Best-effort line splitter — newlines, semicolons, commas, " and ",
+  // bullets, dashes. We want each "want" as its own item.
+  function splitItems(text) {
+    if (!text) return [];
+    return text
+      .split(/\n+|;+|(?:^|[\s,])(?:-|•|\*)\s+|\s+(?:and|&)\s+|,\s*/i)
+      .map(s => s.trim())
+      .filter(s => s && s.length > 1 && s.length < 200);
+  }
+
+  async function loadPrep() {
+    const root = document.getElementById('prep-root');
+    root.innerHTML = '<div class="list-empty">~ loading boss mode ~</div>';
+    let rows = prawnsCache;
+    if (!rows) {
+      try {
+        const r = await fetch('/api/prawn');
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || 'load failed');
+        rows = j.prawns || [];
+        prawnsCache = rows;
+      } catch (err) {
+        root.innerHTML = `<div class="list-empty" style="color:#c00;">~ couldn't load: ${escapeHtml(err.message)} ~</div>`;
+        return;
+      }
+    }
+    renderPrep(rows);
+  }
+
+  function renderPrep(rows) {
+    const root = document.getElementById('prep-root');
+    if (!rows.length) {
+      root.innerHTML = '<div class="list-empty">~ no prawns yet — nothing to prep ~</div>';
+      return;
+    }
+
+    // ── Stats ─────────────────────────────────────────────
+    const total = rows.length;
+    const withFood = rows.filter(p => p.food && p.food.trim()).length;
+    const withFlight = rows.filter(p => (p.flight_in || p.flight_out)).length;
+    const withNotes = rows.filter(p => p.notes && p.notes.trim()).length;
+
+    const stats = `
+      <div class="prep-stats">
+        <div class="prep-stat"><b>${total}</b><span>prawns in</span></div>
+        <div class="prep-stat"><b>${withFood}</b><span>food requests</span></div>
+        <div class="prep-stat"><b>${withFlight}</b><span>flying in</span></div>
+        <div class="prep-stat"><b>${withNotes}</b><span>w/ notes</span></div>
+      </div>
+    `;
+
+    // ── Timeline ───────────────────────────────────────────
+    const buckets = {};
+    DAYS.forEach(d => buckets[d.key] = { arrive: [], depart: [] });
+    const unparsed = [];
+
+    rows.forEach(p => {
+      const arriveDay = detectDay(p.arrive_when);
+      const departDay = detectDay(p.depart_when);
+      const flightIn = p.flight_in && p.flight_in.trim();
+      const flightOut = p.flight_out && p.flight_out.trim();
+      if (arriveDay) {
+        buckets[arriveDay].arrive.push({
+          name: p.name,
+          when: shortTime(p.arrive_when),
+          flight: flightIn,
+          raw: p.arrive_when,
+        });
+      } else if (p.arrive_when) {
+        unparsed.push({ name: p.name, kind: 'arrive', text: p.arrive_when, flight: flightIn });
+      }
+      if (departDay) {
+        buckets[departDay].depart.push({
+          name: p.name,
+          when: shortTime(p.depart_when),
+          flight: flightOut,
+          raw: p.depart_when,
+        });
+      } else if (p.depart_when) {
+        unparsed.push({ name: p.name, kind: 'depart', text: p.depart_when, flight: flightOut });
+      }
+    });
+
+    const cell = (items, cls) => items.length
+      ? items.map(i => `
+          <span class="tl-pill ${cls}">
+            <span class="who">${escapeHtml(i.name || '???')}</span>
+            ${i.when ? `<span class="when">${escapeHtml(i.when)}${i.flight ? ' · ' + escapeHtml(i.flight) : ''}</span>` : (i.flight ? `<span class="when">${escapeHtml(i.flight)}</span>` : '')}
+          </span>`).join('')
+      : '<span style="color:#bbb;">—</span>';
+
+    const tlHeaders = DAYS.map(d => `<div class="tl-header">${d.label}</div>`).join('');
+    const arriveCells = DAYS.map(d => `<div class="tl-cell">${cell(buckets[d.key].arrive, 'arrive')}</div>`).join('');
+    const departCells = DAYS.map(d => `<div class="tl-cell">${cell(buckets[d.key].depart, 'depart')}</div>`).join('');
+
+    const timeline = `
+      <div class="prep-section">
+        <h3>📅 timeline — who's where, when</h3>
+        <div class="timeline-grid" style="--days:${DAYS.length};">
+          <div class="tl-header" style="background:#000;color:var(--lime);">PRAWN</div>
+          ${tlHeaders}
+          <div class="tl-row-lbl">🛬 arriving</div>
+          ${arriveCells}
+          <div class="tl-row-lbl">🛫 leaving</div>
+          ${departCells}
+        </div>
+        ${unparsed.length ? `
+          <div class="tl-unparsed">
+            <b>fuzzy entries (no day detected — eyeball it):</b><br/>
+            ${unparsed.map(u => `<div>• <b>${escapeHtml(u.name)}</b> ${u.kind === 'arrive' ? '🛬' : '🛫'} ${escapeHtml(u.text)}${u.flight ? ' <span style="color:#666;">(' + escapeHtml(u.flight) + ')</span>' : ''}</div>`).join('')}
+          </div>` : ''}
+      </div>
+    `;
+
+    // ── Shopping lists ────────────────────────────────────
+    const foodItems = [];
+    const drinkItems = [];
+    rows.forEach(p => {
+      splitItems(p.food).forEach(text => foodItems.push({ text, who: p.name }));
+      splitItems(p.drink).forEach(text => drinkItems.push({ text, who: p.name }));
+    });
+
+    const renderShop = (items) => items.length
+      ? `<ul>${items.map((it, idx) => `
+          <li>
+            <input type="checkbox" data-shop-idx="${idx}" />
+            <div>
+              ${escapeHtml(it.text)}
+              <span class="who-tag">— ${escapeHtml(it.who || '???')}</span>
+            </div>
+          </li>`).join('')}</ul>`
+      : '<div style="padding:10px; color:#888;">~ nobody requested anything yet ~</div>';
+
+    const shopping = `
+      <div class="prep-section">
+        <h3>🛒 shopping list — every request, attributed</h3>
+        <div class="prep-shop">
+          <div class="prep-shop-col">
+            <h4>🍔 food (${foodItems.length})</h4>
+            ${renderShop(foodItems)}
+          </div>
+          <div class="prep-shop-col">
+            <h4>🍺 drink (${drinkItems.length})</h4>
+            ${renderShop(drinkItems)}
+          </div>
+        </div>
+      </div>
+    `;
+
+    // ── Notes ─────────────────────────────────────────────
+    const notes = rows.filter(p => p.notes && p.notes.trim());
+    const notesBlock = `
+      <div class="prep-section">
+        <h3>📝 misc notes — heads-ups, requests, weird vibes</h3>
+        ${notes.length
+          ? `<div class="prep-notes">${notes.map(p => `
+              <div class="prep-note">
+                ${escapeHtml(p.notes)}
+                <span class="who-tag">— ${escapeHtml(p.name || '???')}</span>
+              </div>`).join('')}</div>`
+          : '<div style="color:#888;">~ no notes from the boys yet ~</div>'}
+      </div>
+    `;
+
+    root.innerHTML = stats + timeline + shopping + notesBlock;
+
+    // checkbox persistence so checking off items survives reloads
+    const key = 'prawn_shop_checks';
+    let checks = {};
+    try { checks = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
+    root.querySelectorAll('input[type=checkbox]').forEach((cb, i) => {
+      const colItem = cb.closest('.prep-shop-col')?.querySelector('h4')?.textContent || '';
+      const text = cb.parentElement.innerText.trim().slice(0, 80);
+      const id = `${colItem}::${text}`;
+      cb.dataset.id = id;
+      if (checks[id]) {
+        cb.checked = true;
+        cb.parentElement.style.opacity = 0.45;
+        cb.parentElement.style.textDecoration = 'line-through';
+      }
+      cb.addEventListener('change', () => {
+        checks[cb.dataset.id] = cb.checked;
+        try { localStorage.setItem(key, JSON.stringify(checks)); } catch {}
+        cb.parentElement.style.opacity = cb.checked ? 0.45 : 1;
+        cb.parentElement.style.textDecoration = cb.checked ? 'line-through' : 'none';
+      });
+    });
   }
 
   // fake hit counter, increments per visit
