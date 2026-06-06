@@ -2,6 +2,72 @@ import { checkAccess } from './_lib/access.js';
 
 export const config = { runtime: 'edge', maxDuration: 30 };
 
+// Cache schema version. Bump this string to invalidate all cached scores
+// (e.g. when the system prompt below changes in a way that should re-score).
+const SCORE_PROMPT_VERSION = 'v1-2026-06-06';
+
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ||
+  process.env.QSS_SUPABASE_URL ||
+  process.env.VITE_SUPABASE_URL ||
+  '';
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.QSS_SUPABASE_SERVICE_KEY ||
+  '';
+
+async function sha256Hex(s) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function readCache(cacheKey) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return null;
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/whh_score_cache?cache_key=eq.${encodeURIComponent(cacheKey)}&select=payload`,
+      {
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          Accept: 'application/json',
+        },
+      }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows?.[0]?.payload || null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCache(cacheKey, payload, pinAddress) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/whh_score_cache?on_conflict=cache_key`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({
+        cache_key: cacheKey,
+        payload,
+        pin_address: pinAddress || null,
+        model: 'claude-sonnet-4-6',
+      }),
+    });
+  } catch {
+    /* cache write best-effort */
+  }
+}
+
 /**
  * Westchester House Hunter — per-home scoring against the family-criteria doctrine.
  *
@@ -99,6 +165,22 @@ ${JSON.stringify(pin, null, 0)}
 
 Score this home now. Output the JSON object and nothing else.`;
 
+  // Cache lookup — identical (system version + user message) deterministically
+  // produces the same Claude response, so short-circuit if we've seen this exact
+  // prompt before. ?force=1 in the query string bypasses the cache.
+  const url = new URL(req.url);
+  const force = url.searchParams.get('force') === '1';
+  const cacheKey = await sha256Hex(`${SCORE_PROMPT_VERSION}|${userMsg}`);
+  if (!force) {
+    const hit = await readCache(cacheKey);
+    if (hit) {
+      return new Response(JSON.stringify({ ...hit, _ts: Date.now(), _cached: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+      });
+    }
+  }
+
   let response;
   try {
     response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -125,7 +207,9 @@ Score this home now. Output the JSON object and nothing else.`;
   let parsed;
   try { parsed = JSON.parse(cleaned); }
   catch { return jsonError(502, 'parse_failed', 'Claude returned non-JSON: ' + cleaned.slice(0, 200)); }
-  return new Response(JSON.stringify({ ...parsed, _ts: Date.now() }), {
+  // Best-effort cache write — don't block the response on it.
+  writeCache(cacheKey, parsed, pin.address);
+  return new Response(JSON.stringify({ ...parsed, _ts: Date.now(), _cached: false }), {
     status: 200,
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' }
   });
