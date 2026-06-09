@@ -1,5 +1,108 @@
 [
   {
+    "id": "F0BA9L8GL7J",
+    "name": "Screenshot 2026-06-09 at 5.54.41 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 25554,
+    "local_path": "images/F0BA9L8GL7J.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781042277.292229",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781042277292229",
+    "posted_at": "2026-06-09T21:57:57.292Z",
+    "analysis": {
+      "comment_text": "Awesome editing",
+      "commenter": "Snorrismorris",
+      "sentiment": "praise",
+      "themes": [
+        "editing"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-09T22:58:02.472Z"
+  },
+  {
+    "id": "F0B9D9PUN14",
+    "name": "Screenshot 2026-06-09 at 5.54.55 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 43007,
+    "local_path": "images/F0B9D9PUN14.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781042277.292229",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781042277292229",
+    "posted_at": "2026-06-09T21:57:57.292Z",
+    "analysis": {
+      "comment_text": "Great video, really appreciate the kind of journalism you do, keep going ❤️",
+      "commenter": "wavegamer4465",
+      "sentiment": "praise",
+      "themes": [
+        "journalism",
+        "encouragement",
+        "content quality"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-09T22:58:03.019Z"
+  },
+  {
+    "id": "F0B990Y5AH1",
+    "name": "Screenshot 2026-06-09 at 4.45.07 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 34200,
+    "local_path": "images/F0B990Y5AH1.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781042277.292229",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781042277292229",
+    "posted_at": "2026-06-09T21:57:57.292Z",
+    "analysis": {
+      "comment_text": "Dude I love your videos so much!!!!",
+      "commenter": "haroonahmad6950",
+      "sentiment": "praise",
+      "themes": [
+        "general praise",
+        "enthusiasm",
+        "content appreciation"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-09T22:58:03.140Z"
+  },
+  {
+    "id": "F0B9H71QNBB",
+    "name": "Screenshot 2026-06-09 at 5.55.01 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 30876,
+    "local_path": "images/F0B9H71QNBB.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781042277.292229",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781042277292229",
+    "posted_at": "2026-06-09T21:57:57.292Z",
+    "analysis": {
+      "comment_text": "How much RAM do you use for motion graphics? This is impressive journalism.",
+      "commenter": "shanerowe5757",
+      "sentiment": "question",
+      "themes": [
+        "motion graphics",
+        "ram",
+        "technical setup",
+        "journalism"
+      ],
+      "video_hint": "likely a video about journalism or video production/motion graphics workflow",
+      "is_question": true,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-09T22:58:03.449Z"
+  },
+  {
     "id": "F0B8MR2S8QH",
     "name": "Screenshot 2026-06-05 at 10.20.27 AM.png",
     "ext": "png",
