@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>35 Walden Rd — interactive plat &amp; site planner</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#1c1917; --ink2:#44403c; --mute:#78716c; --faint:#a8a29e;
+    --line:#e7e5e4; --line2:#d6d3d1; --bg:#faf9f7; --card:#ffffff;
+    --accent:#c2410c; --accent2:#ea580c; --good:#15803d; --goodbg:#f0fdf4;
+    --bad:#b91c1c; --badbg:#fef2f2; --warn:#a16207; --warnbg:#fefce8;
+    --sky:#0369a1; --skybg:#f0f9ff;
+    --pool:#0891b2; --struct:#7c3aed; --measure:#be123c;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:var(--sans);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+  #app{display:grid;grid-template-columns:1fr 384px;height:100vh;width:100vw}
+  @media (max-width:900px){#app{grid-template-columns:1fr;grid-template-rows:55vh 45vh}}
+
+  /* ---------- map ---------- */
+  #mapwrap{position:relative;overflow:hidden}
+  #map{position:absolute;inset:0}
+  .maplibregl-ctrl-attrib{font-size:9px!important;opacity:.65}
+  .maplibregl-popup-content{font-family:var(--sans);font-size:12px;border-radius:6px;padding:10px 12px;box-shadow:0 4px 18px rgba(0,0,0,.18)}
+  .maplibregl-popup-content b{color:var(--ink)}
+
+  /* floating draw toolbar */
+  #toolbar{position:absolute;top:12px;left:12px;z-index:5;display:flex;flex-direction:column;gap:6px;
+    background:rgba(255,255,255,.94);backdrop-filter:blur(6px);border:1px solid var(--line2);border-radius:10px;padding:7px;box-shadow:0 2px 14px rgba(0,0,0,.12)}
+  #toolbar .grp{display:flex;gap:4px}
+  .tool{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:54px;height:50px;border:1px solid var(--line2);
+    background:var(--card);border-radius:8px;cursor:pointer;font-size:9.5px;font-weight:600;color:var(--ink2);letter-spacing:.02em;transition:.12s;line-height:1.1;text-align:center}
+  .tool:hover{border-color:var(--ink);transform:translateY(-1px)}
+  .tool.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .tool svg{width:20px;height:20px}
+  .tool.danger:hover{border-color:var(--bad);color:var(--bad)}
+
+  #hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;background:rgba(28,25,23,.9);color:#fff;
+    font-size:12px;padding:7px 14px;border-radius:20px;pointer-events:none;opacity:0;transition:.2s;white-space:nowrap;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+  #hint.show{opacity:1}
+
+  /* ---------- sidebar ---------- */
+  #side{border-left:1px solid var(--line);background:var(--bg);overflow-y:auto;display:flex;flex-direction:column}
+  #side::-webkit-scrollbar{width:10px}
+  #side::-webkit-scrollbar-thumb{background:var(--line2);border-radius:5px;border:3px solid var(--bg)}
+
+  header.head{padding:16px 18px 14px;border-bottom:1px solid var(--line);background:var(--card)}
+  header.head .kicker{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.16em;color:var(--mute)}
+  header.head h1{margin:5px 0 3px;font-size:19px;font-weight:650;letter-spacing:-.01em;line-height:1.15}
+  header.head .sub{font-size:12px;color:var(--ink2);line-height:1.4}
+  header.head .sub b{color:var(--ink)}
+  .badge{display:inline-block;font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;padding:1px 5px;border-radius:3px;vertical-align:middle}
+  .badge.gis{background:#e0f2fe;color:#075985}
+  .badge.assume{background:#fef9c3;color:#854d0e}
+  .badge.verified{background:#dcfce7;color:#166534}
+
+  .disclaimer{margin:0;padding:9px 18px;background:var(--warnbg);border-bottom:1px solid #fde68a;font-size:11.5px;color:#854d0e;line-height:1.4}
+  .disclaimer b{color:#713f12}
+
+  section.panel{border-bottom:1px solid var(--line)}
+  .panel > .ptitle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;
+    padding:11px 18px;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--mute);background:var(--bg)}
+  .panel > .ptitle:hover{color:var(--ink)}
+  .panel > .ptitle .chev{transition:.18s;color:var(--faint)}
+  .panel.collapsed > .ptitle .chev{transform:rotate(-90deg)}
+  .panel > .pbody{padding:4px 18px 16px}
+  .panel.collapsed > .pbody{display:none}
+
+  /* layer rows */
+  .lgroup{margin-top:10px}
+  .lgroup:first-child{margin-top:2px}
+  .lgroup .glab{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin:0 0 4px}
+  .lrow{display:flex;align-items:center;gap:9px;padding:5px 0}
+  .lrow .sw{width:26px;height:14px;border-radius:3px;flex:none;border:1px solid var(--line2)}
+  .lrow label{flex:1;font-size:12.5px;color:var(--ink2);cursor:pointer}
+  .lrow input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+  .lrow .op{width:64px;accent-color:var(--accent);cursor:pointer}
+  .lrow.off label{color:var(--faint)}
+  .basebar{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .basebtn{font-size:11px;padding:5px 9px;border:1px solid var(--line2);border-radius:6px;background:var(--card);cursor:pointer;color:var(--ink2);font-weight:500}
+  .basebtn.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .yearwrap{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;color:var(--ink2)}
+  .yearwrap select{flex:1;font-family:var(--mono);font-size:12px;padding:4px 6px;border:1px solid var(--line2);border-radius:6px;background:var(--card)}
+
+  /* object list */
+  .obj{border:1px solid var(--line2);border-radius:9px;padding:9px 10px;margin-bottom:8px;background:var(--card);transition:.12s}
+  .obj.sel{border-color:var(--ink);box-shadow:0 0 0 2px rgba(28,25,23,.07)}
+  .obj .otop{display:flex;align-items:center;gap:8px}
+  .obj .dot{width:11px;height:11px;border-radius:3px;flex:none}
+  .obj .oname{flex:1;font-size:13px;font-weight:600;border:none;background:transparent;color:var(--ink);padding:2px 0;outline:none;min-width:0}
+  .obj .oname:focus{border-bottom:1px solid var(--line2)}
+  .obj .otype{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);background:var(--bg);padding:2px 5px;border-radius:3px}
+  .obj .odel{border:none;background:none;color:var(--faint);cursor:pointer;font-size:15px;line-height:1;padding:2px}
+  .obj .odel:hover{color:var(--bad)}
+  .obj .dims{display:flex;gap:7px;margin-top:7px;flex-wrap:wrap}
+  .obj .dim{display:flex;flex-direction:column;gap:1px}
+  .obj .dim span{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+  .obj .dim input{width:58px;font-family:var(--mono);font-size:12px;padding:3px 5px;border:1px solid var(--line2);border-radius:5px;text-align:right;background:var(--bg)}
+  .obj .dim input:focus{border-color:var(--ink);outline:none;background:#fff}
+  .obj .ometa{margin-top:7px;font-size:11px;color:var(--mute);display:flex;justify-content:space-between;gap:6px}
+  .obj .ometa b{font-family:var(--mono);color:var(--ink2);font-weight:600}
+  .obj .viol{margin-top:6px;font-size:11px;color:var(--bad);line-height:1.35}
+  .obj .okline{margin-top:6px;font-size:11px;color:var(--good)}
+  .empty{font-size:12px;color:var(--mute);text-align:center;padding:14px 8px;line-height:1.5}
+
+  /* number rows */
+  .nrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0}
+  .nrow label{flex:1;font-size:12.5px;color:var(--ink2)}
+  .nrow .note{font-size:10.5px;color:var(--mute);margin-top:1px}
+  .nrow input[type=number]{width:74px;font-family:var(--mono);font-size:12.5px;padding:5px 7px;border:1px solid var(--line2);border-radius:6px;text-align:right;background:var(--card)}
+  .nrow input:focus{border-color:var(--ink);outline:none}
+  .toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;color:var(--ink2)}
+  .toggle input{width:15px;height:15px;accent-color:var(--accent)}
+
+  /* scenario bar */
+  .btnrow{display:flex;flex-wrap:wrap;gap:6px}
+  .btn{font-size:12px;padding:6px 11px;border:1px solid var(--line2);border-radius:7px;background:var(--card);cursor:pointer;color:var(--ink2);font-weight:500}
+  .btn:hover{border-color:var(--ink)}
+  .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .btn.danger{color:var(--bad)}
+  .selrow{display:flex;gap:6px;margin-top:8px}
+  .selrow select{flex:1;font-size:12px;padding:5px 7px;border:1px solid var(--line2);border-radius:6px;background:var(--card)}
+
+  /* reference */
+  .acc{border-top:1px solid var(--line)}
+  .acc:first-child{border-top:none}
+  .acc summary{cursor:pointer;padding:9px 0;font-size:12.5px;font-weight:600;color:var(--ink2);list-style:none;display:flex;justify-content:space-between;align-items:center}
+  .acc summary::-webkit-details-marker{display:none}
+  .acc summary .c{font-family:var(--mono);color:var(--faint);transition:.18s}
+  .acc[open] summary .c{transform:rotate(90deg)}
+  .acc .abody{font-size:12px;line-height:1.5;color:var(--ink2);padding:2px 0 12px}
+  .acc .abody ul{margin:4px 0;padding-left:18px}
+  .acc .abody li{margin:3px 0}
+  .acc .abody a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(194,65,12,.3)}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid var(--line);font-size:12px}
+  .kv:last-child{border-bottom:none}
+  .kv .k{color:var(--mute)}
+  .kv .v{font-family:var(--mono);color:var(--ink);text-align:right}
+
+  .foot{padding:14px 18px 26px;font-size:11px;color:var(--faint);line-height:1.5}
+
+  /* print */
+  @media print{
+    #app{display:block;height:auto}
+    #side,#toolbar,#hint,.maplibregl-ctrl{display:none!important}
+    #mapwrap{position:relative;height:92vh;page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="mapwrap">
+    <div id="map"></div>
+    <div id="toolbar">
+      <div class="grp">
+        <button class="tool" data-tool="pool-rect" title="Rectangular pool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="7" width="16" height="10" rx="1.5"/></svg>Pool ▭</button>
+        <button class="tool" data-tool="pool-oval" title="Oval / kidney pool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="8" ry="5.5"/></svg>Pool ◯</button>
+      </div>
+      <div class="grp">
+        <button class="tool" data-tool="rect" title="Rectangle: addition, shed, court, driveway"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="1"/></svg>Box</button>
+        <button class="tool" data-tool="polygon" title="Freeform polygon — click to add points, double-click to finish"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l5-3 9 4-2 9-10 1z"/></svg>Shape</button>
+      </div>
+      <div class="grp">
+        <button class="tool" data-tool="line" title="Measure distance — click points, double-click to finish"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20L20 4"/><path d="M4 20l3-1M9 15l2-2M15 9l2-2"/></svg>Measure</button>
+        <button class="tool danger" data-tool="clear" title="Clear all drawn objects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 7h12M9 7V5h6v2M8 7l1 12h6l1-12"/></svg>Clear</button>
+      </div>
+    </div>
+    <div id="hint"></div>
+  </div>
+
+  <aside id="side">
+    <header class="head">
+      <div class="kicker">Interactive plat · site planner</div>
+      <h1>35 Walden Road</h1>
+      <div class="sub">Tarrytown, NY 10591 · <b>parcel 1.50-20-43</b> · <span id="h-area">0.54 ac (23,527 sf)</span> · zoning <b>R-20</b> <span class="badge gis">county gis</span></div>
+    </header>
+
+    <p class="disclaimer"><b>Planning aid only.</b> Boundaries come from Westchester County GIS and are <b>approximate</b> — not a survey. Setback values are editable placeholders; confirm zoning &amp; setbacks with the Village of Tarrytown and a licensed survey before any design or permit work.</p>
+
+    <!-- DRAW / OBJECTS -->
+    <section class="panel" data-panel="objects">
+      <div class="ptitle">Drawn objects <span class="chev">▾</span></div>
+      <div class="pbody">
+        <div id="objlist"></div>
+      </div>
+    </section>
+
+    <!-- SETBACKS -->
+    <section class="panel" data-panel="setbacks">
+      <div class="ptitle">Setbacks &amp; envelope <span class="chev">▾</span></div>
+      <div class="pbody">
+        <label class="toggle" style="margin-bottom:8px"><input type="checkbox" id="env-on" checked> Show buildable envelope (lot − structure setback)</label>
+        <div class="nrow"><div><label>Structure setback (ft)</label><div class="note">uniform inset from every lot line <span class="badge assume">assumption</span></div></div><input type="number" id="sb-struct" value="25" min="0" max="200" step="1"></div>
+        <label class="toggle" style="margin:8px 0"><input type="checkbox" id="poolring-on"> Show pool setback ring</label>
+        <div class="nrow"><div><label>Pool setback (ft)</label><div class="note">min distance pool → any lot line <span class="badge assume">assumption</span></div></div><input type="number" id="sb-pool" value="15" min="0" max="200" step="1"></div>
+      </div>
+    </section>
+
+    <!-- LAYERS -->
+    <section class="panel" data-panel="layers">
+      <div class="ptitle">GIS layers <span class="chev">▾</span></div>
+      <div class="pbody">
+        <div class="lgroup">
+          <div class="glab">Basemap</div>
+          <div class="basebar" id="basebar"></div>
+          <div class="yearwrap" id="yearwrap"><span>Aerial year</span><select id="yearsel"></select></div>
+        </div>
+        <div id="overlaygroups"></div>
+      </div>
+    </section>
+
+    <!-- SCENARIOS -->
+    <section class="panel" data-panel="scenarios">
+      <div class="ptitle">Scenarios <span class="chev">▾</span></div>
+      <div class="pbody">
+        <div class="btnrow">
+          <button class="btn primary" id="sc-save">Save current…</button>
+          <button class="btn" id="sc-print">Print / PDF</button>
+          <button class="btn danger" id="sc-reset">Reset</button>
+        </div>
+        <div class="selrow" id="sc-loadrow" style="display:none">
+          <select id="sc-sel"><option value="">— saved —</option></select>
+          <button class="btn" id="sc-load">Load</button>
+          <button class="btn danger" id="sc-del">Del</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- REFERENCE -->
+    <section class="panel" data-panel="ref">
+      <div class="ptitle">Reference <span class="chev">▾</span></div>
+      <div class="pbody">
+        <details class="acc" open><summary>Parcel facts <span class="c">›</span></summary><div class="abody" id="ref-facts"></div></details>
+        <details class="acc"><summary>Zoning — R-20 <span class="c">›</span></summary><div class="abody" id="ref-zoning"></div></details>
+        <details class="acc"><summary>GIS sources &amp; viewers <span class="c">›</span></summary><div class="abody" id="ref-sources"></div></details>
+        <details class="acc"><summary>How to use this <span class="c">›</span></summary><div class="abody">
+          <ul>
+            <li>Pick a <b>draw tool</b> (top-left of the map). Pool, box, freeform shape, or a measuring line.</li>
+            <li>Rectangles &amp; pools drop into the center of the view — then <b>drag</b> to move, grab a <b>corner</b> to resize, or the <b>top dot</b> to rotate.</li>
+            <li>Shapes &amp; measure lines: <b>click</b> to drop points, <b>double-click</b> to finish. Drag any vertex after.</li>
+            <li>Every object shows live <b>dimensions &amp; area in feet</b>. Edit the numbers in the object card for exact sizes.</li>
+            <li>Turn the <b>buildable envelope</b> on to see where things can legally sit. Objects glow red when they cross a setback or the lot line.</li>
+            <li>Flip <b>GIS layers</b> on/off — aerials by year, contours, building footprints, wetlands, flood, soils, slopes and more.</li>
+          </ul>
+        </div></details>
+      </div>
+    </section>
+
+    <div class="foot">
+      Geometry &amp; imagery © Westchester County GIS (giswww.westchestergov.com). Runs entirely in your browser; nothing is uploaded. Built for Johnny — planning sketch, not a survey.
+    </div>
+  </aside>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@turf/turf@7/turf.min.js" crossorigin="anonymous"></script>
+<script>
+/* ============================================================ DATA ============================================================ */
+const ARC = "https://giswww.westchestergov.com/arcgis/rest/services";
+const PARCEL_LAYER = ARC + "/MunicipalTaxParcels/MapServer/463"; // Tarrytown parcels
+
+const PARCEL = {
+  address:"35 Walden Road, Tarrytown, NY 10591", printkey:"1.50-20-43",
+  sbl:"00105000200430000000", swis:"552611", owner:"Germa, Eric",
+  muni:"Tarrytown (Town of Greenburgh)", school:"Tarrytowns UFSD",
+  propClass:"210 — One-Family Residence", areaSf:23527, acres:0.54,
+};
+const ZONING = { code:"R-20", name:"One-Family Residence", minLot:20000, maxHeight:30, bldgCover:23, source:"Westchester County generalized zoning (2011) — verify w/ Village of Tarrytown code" };
+
+// Subject parcel — embedded for instant, reliable render (WGS84, from county GIS)
+const SUBJECT = {"type":"Feature","properties":PARCEL,"geometry":{"type":"Polygon","coordinates":[[[-73.85469205594053,41.08135567724174],[-73.85509803319214,41.08152624415736],[-73.8551044904056,41.08151512776188],[-73.85525899612622,41.08124923029647],[-73.85529512910303,41.08117068850776],[-73.85539264516026,41.0809593689675],[-73.85519595566598,41.080925333284064],[-73.85467856353337,41.08120480912135],[-73.85468841591367,41.081217901805374],[-73.85469733803298,41.081232875091196],[-73.85470421505129,41.08124852705739],[-73.8547088155657,41.081264677949115],[-73.85471114905612,41.081280987363535],[-73.85471121667977,41.081297457114005],[-73.85470924166762,41.08131391466688],[-73.85470477761228,41.081330015988065],[-73.85469205594053,41.08135567724174]]]}};
+const CENTER = [-73.854885, 41.081262];
+
+/* ---------- layer catalog (verified endpoints) ---------- */
+const AERIAL_YEARS = [2025,2023,2021,2018,2016,2013,2010,2007,2004,2000,1990,1976,1960,1947];
+function aerialUrl(year){
+  return `${ARC}/MappingWestchesterCounty_AerialPhoto${year}/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=jpg&f=image`;
+}
+function envExport(layerId){
+  return `${ARC}/DataHub_EnvironmentandPlanning/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=png&transparent=true&dpi=180&layers=show:${layerId}&f=image`;
+}
+const BASEMAPS = {
+  aerial:{ label:"Aerial (county)", type:"raster-fn" },
+  esri:{ label:"Aerial (Esri)", type:"raster", tiles:["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize:256 },
+  light:{ label:"Clean map", type:"raster", tiles:["https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png"], tileSize:256 },
+};
+
+// overlay groups -> [id, label, swatch, url, defaultOn, defaultOpacity]
+const OVERLAYS = [
+  ["Property", [
+    ["parcels","Neighboring parcels","#9a3412","__VECTOR__",true,1],
+  ]],
+  ["Built environment", [
+    ["planimetric","Buildings · pavement · walls",  "#525252", `${ARC}/Planimetric_Basemap_WGS84/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=png&transparent=true&dpi=180&f=image`, false, .9],
+    ["roads","Road centerlines + names","#1f2937", `${ARC}/MappingWestchesterCounty_Roads/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=png&transparent=true&dpi=180&f=image`, false, .85],
+    ["zoning","Zoning districts","#b45309", envExport(207), false, .55],
+    ["landuse","Land use","#0d9488", envExport(210), false, .55],
+  ]],
+  ["Terrain & water", [
+    ["contours","2 ft contours","#92400e", `${ARC}/2FtContours_WGS84/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=png&transparent=true&f=image`, false, .8],
+    ["slopes","Steep slopes","#9f1239", envExport(152), false, .6],
+    ["flood","Flood plains (FEMA)","#1d4ed8", envExport(157), false, .55],
+    ["drainage","Drainage divides","#0e7490", envExport(177), false, .7],
+    ["watersheds","Watersheds","#0891b2", envExport(148), false, .45],
+    ["aquifers","Aquifers","#2563eb", envExport(158), false, .45],
+  ]],
+  ["Environmental", [
+    ["wetnys","NYS regulated wetlands","#047857", envExport(217), false, .6],
+    ["wetnwi","National wetlands inventory","#059669", envExport(154), false, .55],
+    ["hydric","Hydric soils","#0f766e", envExport(156), false, .5],
+    ["soils","USDA soil survey","#78350f", envExport(159), false, .5],
+    ["habitat","Fish & wildlife habitats","#65a30d", envExport(175), false, .55],
+  ]],
+  ["Planning & geology", [
+    ["openspace","Open space","#16a34a", envExport(209), false, .5],
+    ["trails","County trail system","#7c2d12", envExport(212), false, .85],
+    ["bedrock","Bedrock geology","#7c3aed", envExport(196), false, .45],
+    ["surfgeo","Surface geology","#a21caf", envExport(201), false, .45],
+  ]],
+];
+const OVERLAY_BY_ID = {};
+OVERLAYS.forEach(([,arr])=>arr.forEach(o=>OVERLAY_BY_ID[o[0]]=o));
+
+/* ============================================================ STATE ============================================================ */
+const FT_PER_M = 3.28084, M2_TO_SF = 10.7639104;
+let map, currentBase="aerial", currentYear=2025;
+let objects = [];          // drawn objects
+let selectedId = null;
+let tool = null;           // active draw tool
+let draftPts = null;       // in-progress polygon/line points
+let drag = null;           // active drag state
+let uid = 1;
+const STORE="walden-plat:v1", SCENES="walden-plat:scenes";
+
+/* ============================================================ GEO HELPERS ============================================================ */
+function mPerDeg(lat){ return { lng:111320*Math.cos(lat*Math.PI/180), lat:110540 }; }
+function localToLngLat(center, dxFt, dyFt){
+  const m = mPerDeg(center[1]);
+  return [ center[0] + (dxFt/FT_PER_M)/m.lng, center[1] + (dyFt/FT_PER_M)/m.lat ];
+}
+function lngLatToLocal(center, pt){
+  const m = mPerDeg(center[1]);
+  return [ (pt[0]-center[0])*m.lng*FT_PER_M, (pt[1]-center[1])*m.lat*FT_PER_M ];
+}
+function rotate(dx,dy,deg){ const r=deg*Math.PI/180,c=Math.cos(r),s=Math.sin(r); return [dx*c-dy*s, dx*s+dy*c]; }
+
+function rectRing(o){
+  const hw=o.wFt/2, hl=o.lFt/2;
+  const pts=[[-hw,-hl],[hw,-hl],[hw,hl],[-hw,hl]].map(([x,y])=>{ const [rx,ry]=rotate(x,y,o.rot||0); return localToLngLat(o.center,rx,ry); });
+  pts.push(pts[0]); return pts;
+}
+function ovalRing(o,n=64){
+  const hw=o.wFt/2, hl=o.lFt/2, pts=[];
+  for(let i=0;i<n;i++){ const a=2*Math.PI*i/n; const [rx,ry]=rotate(hw*Math.cos(a),hl*Math.sin(a),o.rot||0); pts.push(localToLngLat(o.center,rx,ry)); }
+  pts.push(pts[0]); return pts;
+}
+function objRing(o){
+  if(o.type==='polygon'||o.type==='line') return o.coords;
+  return o.type==='oval'? ovalRing(o) : rectRing(o);
+}
+function objPolygon(o){
+  if(o.type==='line') return null;
+  const ring = o.type==='polygon' ? [...o.coords, o.coords[0]] : objRing(o);
+  return turf.polygon([ring]);
+}
+function objCentroid(o){
+  if(o.center) return o.center;
+  try{ return turf.centroid(turf.lineString(o.coords)).geometry.coordinates; }catch(e){ return o.coords[0]; }
+}
+
+/* dimensions */
+function edgeLensFt(ring){
+  const out=[];
+  for(let i=0;i<ring.length-1;i++) out.push(turf.distance(ring[i],ring[i+1],{units:'feet'}));
+  return out;
+}
+function objArea(o){
+  if(o.type==='rect') return o.wFt*o.lFt;
+  if(o.type==='oval') return Math.PI*(o.wFt/2)*(o.lFt/2);
+  if(o.type==='polygon'){ try{ return turf.area(objPolygon(o))*M2_TO_SF; }catch(e){ return 0; } }
+  return 0;
+}
+function objPerimeter(o){
+  if(o.type==='rect') return 2*(o.wFt+o.lFt);
+  const ring = o.type==='line'? o.coords : objRing(o);
+  return edgeLensFt(ring).reduce((a,b)=>a+b,0);
+}
+
+/* ============================================================ SETBACKS ============================================================ */
+const subjectPoly = turf.polygon(SUBJECT.geometry.coordinates);
+const subjectLine = turf.polygonToLine(subjectPoly);
+function envelope(setbackFt){
+  if(setbackFt<=0) return subjectPoly;
+  try{ const b=turf.buffer(subjectPoly, -setbackFt, {units:'feet'}); return (b&&b.geometry&&b.geometry.coordinates.length)? b : null; }catch(e){ return null; }
+}
+function nearestLotLineFt(o){
+  const ring = objRing(o);
+  let min=Infinity;
+  ring.forEach(p=>{ try{ const d=turf.pointToLineDistance(p, subjectLine, {units:'feet'}); if(d<min)min=d; }catch(e){} });
+  return min;
+}
+function anyVertexOutsideLot(o){
+  return objRing(o).some(p=>!turf.booleanPointInPolygon(p, subjectPoly));
+}
+function evaluate(o){
+  // returns {ok, reasons[], clearance, insideEnvelope}
+  if(o.type==='line') return null;
+  const reasons=[]; let ok=true;
+  const poolReq = +($('#sb-pool').value||0);
+  const structReq = +($('#sb-struct').value||0);
+  const isPool = o.type.startsWith('pool')||o.kind==='pool';
+  const req = isPool? poolReq : structReq;
+  const clearance = nearestLotLineFt(o);
+  if(anyVertexOutsideLot(o)){ reasons.push("extends beyond the lot line"); ok=false; }
+  else if(clearance < req - 0.05){ reasons.push(`${(req-clearance).toFixed(1)} ft inside the ${req} ft setback (nearest lot line ${clearance.toFixed(1)} ft)`); ok=false; }
+  // a pool overlapping any structure (box / shape) is flagged
+  if(isPool){
+    objects.forEach(other=>{
+      if(other.id===o.id || other.kind!=='struct') return;
+      try{ if(turf.booleanIntersects(objPolygon(o), objPolygon(other))){ reasons.push(`overlaps “${other.name}”`); ok=false; } }catch(e){}
+    });
+  }
+  return { ok, reasons, clearance, req, isPool };
+}
+
+/* ============================================================ MAP INIT ============================================================ */
+function baseSource(){
+  if(currentBase==='aerial') return { type:'raster', tiles:[aerialUrl(currentYear)], tileSize:512, attribution:'Westchester County GIS' };
+  const b=BASEMAPS[currentBase];
+  return { type:'raster', tiles:b.tiles, tileSize:b.tileSize, attribution: currentBase==='esri'?'Esri':'CARTO' };
+}
+function initMap(){
+  map = new maplibregl.Map({
+    container:'map',
+    style:{ version:8, glyphs:"https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf", sources:{}, layers:[{id:'bg',type:'background',paint:{'background-color':'#e7e5e4'}}] },
+    center:CENTER, zoom:18.4, maxZoom:22, attributionControl:{compact:true}
+  });
+  map.addControl(new maplibregl.NavigationControl({showCompass:true,visualizePitch:false}),'bottom-right');
+  map.addControl(new maplibregl.ScaleControl({maxWidth:120,unit:'imperial'}),'bottom-left');
+  map.on('load', onMapLoad);
+}
+
+function onMapLoad(){
+  // basemap
+  map.addSource('base', baseSource());
+  map.addLayer({id:'base',type:'raster',source:'base'});
+
+  // overlay raster sources (added once, visibility toggled)
+  OVERLAYS.forEach(([,arr])=>arr.forEach(([id,label,sw,url,on,op])=>{
+    if(url==='__VECTOR__') return;
+    map.addSource('ov-'+id,{type:'raster',tiles:[url],tileSize:512});
+    map.addLayer({id:'ov-'+id,type:'raster',source:'ov-'+id,layout:{visibility:on?'visible':'none'},paint:{'raster-opacity':op}});
+  }));
+
+  // neighbor parcels (vector)
+  map.addSource('neighbors',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'neighbors-fill',type:'fill',source:'neighbors',paint:{'fill-color':'#9a3412','fill-opacity':0.04}});
+  map.addLayer({id:'neighbors-line',type:'line',source:'neighbors',paint:{'line-color':'#9a3412','line-width':1,'line-opacity':0.55}});
+  map.addLayer({id:'neighbors-lbl',type:'symbol',source:'neighbors',minzoom:18,layout:{'text-field':['get','PRINTKEY'],'text-size':9,'text-font':['Noto Sans Regular'],'text-allow-overlap':false},paint:{'text-color':'#7c2d12','text-halo-color':'#fff','text-halo-width':1.2,'text-opacity':0.7}});
+
+  // setback envelope + pool ring
+  map.addSource('env',{type:'geojson',data:turf.featureCollection([])});
+  map.addLayer({id:'env-fill',type:'fill',source:'env',paint:{'fill-color':'#22c55e','fill-opacity':0.14}});
+  map.addLayer({id:'env-glow',type:'line',source:'env',paint:{'line-color':'#052e16','line-width':4,'line-opacity':0.35,'line-blur':1.5}});
+  map.addLayer({id:'env-line',type:'line',source:'env',paint:{'line-color':'#4ade80','line-width':2,'line-dasharray':[3,2],'line-opacity':1}});
+  map.addSource('poolring',{type:'geojson',data:turf.featureCollection([])});
+  map.addLayer({id:'poolring-line',type:'line',source:'poolring',layout:{visibility:'none'},paint:{'line-color':'#0891b2','line-width':1.3,'line-dasharray':[2,2],'line-opacity':0.85}});
+
+  // subject parcel (drawn on top of overlays, under draw objects)
+  map.addSource('subject',{type:'geojson',data:SUBJECT});
+  map.addLayer({id:'subject-fill',type:'fill',source:'subject',paint:{'fill-color':'#c2410c','fill-opacity':0.05}});
+  map.addLayer({id:'subject-line',type:'line',source:'subject',paint:{'line-color':'#c2410c','line-width':2.6}});
+  map.addLayer({id:'subject-glow',type:'line',source:'subject',paint:{'line-color':'#fb923c','line-width':6,'line-opacity':0.25,'line-blur':2}});
+
+  // draw objects
+  map.addSource('draw',{type:'geojson',data:turf.featureCollection([])});
+  map.addLayer({id:'draw-fill',type:'fill',source:'draw',filter:['==','$type','Polygon'],paint:{'fill-color':['get','color'],'fill-opacity':['case',['get','bad'],0.18,0.16]}});
+  map.addLayer({id:'draw-line',type:'line',source:'draw',paint:{'line-color':['case',['get','bad'],'#b91c1c',['get','color']],'line-width':['case',['get','sel'],2.6,1.8]}});
+  // dimension labels
+  map.addSource('dimlbl',{type:'geojson',data:turf.featureCollection([])});
+  map.addLayer({id:'dimlbl',type:'symbol',source:'dimlbl',layout:{'text-field':['get','t'],'text-size':['get','sz'],'text-font':['Noto Sans Bold'],'text-allow-overlap':true,'text-anchor':'center'},paint:{'text-color':['get','col'],'text-halo-color':'#fff','text-halo-width':1.6}});
+  // handles for selected object
+  map.addSource('handles',{type:'geojson',data:turf.featureCollection([])});
+  map.addLayer({id:'handles',type:'circle',source:'handles',paint:{'circle-radius':['case',['==',['get','role'],'rotate'],6,5],'circle-color':['case',['==',['get','role'],'rotate'],'#fff',['get','color']],'circle-stroke-color':['get','color'],'circle-stroke-width':2}});
+
+  // interactions
+  wireMapInteractions();
+
+  // initial data + render
+  fitToParcel();
+  loadNeighbors();
+  // seed one pool so the tool isn't empty
+  const seeded = loadState();
+  if(!seeded){ addObject('pool-rect',{center:[...CENTER], wFt:18, lFt:36, name:'Pool'}); }
+  redraw();
+  renderEnvelope();
+  buildLayerUI(); buildRefUI(); restoreSceneList();
+  $('#h-area').textContent = `${PARCEL.acres} ac (${PARCEL.areaSf.toLocaleString()} sf)`;
+}
+
+function fitToParcel(){
+  const b=turf.bbox(subjectPoly);
+  map.fitBounds([[b[0],b[1]],[b[2],b[3]]],{padding:90,duration:0,maxZoom:20});
+}
+async function loadNeighbors(){
+  try{
+    const env="-73.8595,41.0782,-73.8503,41.0843";
+    const u=`${PARCEL_LAYER}/query?geometry=${env}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=PRINTKEY,PROPADDRESS,OWNERNAME&returnGeometry=true&outSR=4326&f=geojson`;
+    const r=await fetch(u); const j=await r.json();
+    const feats=(j.features||[]).filter(f=>f.properties.PRINTKEY!==PARCEL.printkey);
+    map.getSource('neighbors').setData({type:'FeatureCollection',features:feats});
+  }catch(e){ console.warn('neighbors',e); }
+}
+
+/* ============================================================ DRAW ENGINE ============================================================ */
+function addObject(kind, opts={}){
+  const colors={pool:'#0891b2',struct:'#7c3aed',line:'#be123c'};
+  let o={ id:uid++, rot:0 };
+  if(kind==='pool-rect'){ o.type='rect'; o.kind='pool'; o.color=colors.pool; o.wFt=opts.wFt||18; o.lFt=opts.lFt||36; o.center=opts.center||mapCenterLngLat(); o.name=opts.name||nextName('Pool'); }
+  else if(kind==='pool-oval'){ o.type='oval'; o.kind='pool'; o.color=colors.pool; o.wFt=opts.wFt||18; o.lFt=opts.lFt||34; o.center=opts.center||mapCenterLngLat(); o.name=opts.name||nextName('Pool'); }
+  else if(kind==='rect'){ o.type='rect'; o.kind='struct'; o.color=colors.struct; o.wFt=opts.wFt||24; o.lFt=opts.lFt||24; o.center=opts.center||mapCenterLngLat(); o.name=opts.name||nextName('Box'); }
+  else if(kind==='polygon'){ o.type='polygon'; o.kind='struct'; o.color=colors.struct; o.coords=opts.coords; o.name=opts.name||nextName('Shape'); }
+  else if(kind==='line'){ o.type='line'; o.kind='line'; o.color=colors.line; o.coords=opts.coords; o.name=opts.name||nextName('Measure'); }
+  objects.push(o); selectedId=o.id; saveState(); return o;
+}
+function nextName(base){ const n=objects.filter(o=>o.name&&o.name.startsWith(base)).length; return n? `${base} ${n+1}`:base; }
+function mapCenterLngLat(){ const c=map.getCenter(); return [c.lng,c.lat]; }
+function selected(){ return objects.find(o=>o.id===selectedId); }
+function deleteObject(id){ objects=objects.filter(o=>o.id!==id); if(selectedId===id)selectedId=null; saveState(); redraw(); }
+
+/* build GeoJSON + labels + handles, push to map, render sidebar */
+function redraw(){
+  const feats=[], labels=[];
+  objects.forEach(o=>{
+    const sel=o.id===selectedId;
+    let geom, ev=null;
+    if(o.type==='line'){ geom={type:'LineString',coordinates:o.coords}; }
+    else { ev=evaluate(o); geom={type:'Polygon',coordinates:[objRing(o)]}; }
+    feats.push({type:'Feature',geometry:geom,properties:{id:o.id,color:o.color,sel,bad: ev? !ev.ok:false}});
+    // labels
+    if(o.type==='rect'||o.type==='oval'){
+      const c=o.center, area=objArea(o);
+      labels.push(labelFeat(c, `${o.name}\n${fmt(o.wFt)}′×${fmt(o.lFt)}′ · ${fmt(area)} sf`, sel?12:11, ev&&!ev.ok?'#b91c1c':o.color));
+    } else if(o.type==='polygon'){
+      const c=objCentroid(o), area=objArea(o);
+      labels.push(labelFeat(c, `${o.name}\n${fmt(area)} sf`, sel?12:11, ev&&!ev.ok?'#b91c1c':o.color));
+      if(sel){ const ring=[...o.coords,o.coords[0]]; for(let i=0;i<ring.length-1;i++){ const mid=midpt(ring[i],ring[i+1]); const d=turf.distance(ring[i],ring[i+1],{units:'feet'}); labels.push(labelFeat(mid,`${fmt(d)}′`,10,'#44403c')); } }
+    } else if(o.type==='line'){
+      let tot=0; const segs=[];
+      for(let i=0;i<o.coords.length-1;i++){ const d=turf.distance(o.coords[i],o.coords[i+1],{units:'feet'}); tot+=d; if(sel){ const mid=midpt(o.coords[i],o.coords[i+1]); labels.push(labelFeat(mid,`${fmt(d)}′`,10,'#be123c')); } }
+      const end=o.coords[o.coords.length-1];
+      labels.push(labelFeat(end,`${o.name}: ${fmt(tot)}′`,sel?12:11,'#be123c'));
+    }
+  });
+  // draft in-progress
+  if(draftPts&&draftPts.length){
+    const dgeom = tool==='polygon' && draftPts.length>=3 ? {type:'Polygon',coordinates:[[...draftPts,draftPts[0]]]} : {type:'LineString',coordinates:draftPts};
+    feats.push({type:'Feature',geometry:dgeom,properties:{color: tool==='line'?'#be123c':'#7c3aed',sel:true,bad:false}});
+  }
+  if(map.getSource('draw')) map.getSource('draw').setData({type:'FeatureCollection',features:feats});
+  if(map.getSource('dimlbl')) map.getSource('dimlbl').setData({type:'FeatureCollection',features:labels});
+  renderHandles();
+  renderObjList();
+  renderPoolRing();
+}
+function labelFeat(c,t,sz,col){ return {type:'Feature',geometry:{type:'Point',coordinates:c},properties:{t,sz,col}}; }
+function midpt(a,b){ return [(a[0]+b[0])/2,(a[1]+b[1])/2]; }
+function fmt(n){ return Math.round(n).toLocaleString(); }
+
+function renderHandles(){
+  const o=selected(); const feats=[];
+  if(o){
+    if(o.type==='rect'||o.type==='oval'){
+      const hw=o.wFt/2,hl=o.lFt/2;
+      [['nw',-hw,hl],['ne',hw,hl],['se',hw,-hl],['sw',-hw,-hl]].forEach(([role,x,y])=>{ const [rx,ry]=rotate(x,y,o.rot||0); feats.push(handleFeat(localToLngLat(o.center,rx,ry),role,o.color,o.id)); });
+      const [rx,ry]=rotate(0,hl+Math.max(8,o.lFt*0.18),o.rot||0); feats.push(handleFeat(localToLngLat(o.center,rx,ry),'rotate',o.color,o.id));
+    } else if(o.type==='polygon'||o.type==='line'){
+      o.coords.forEach((p,i)=>feats.push(handleFeat(p,'vtx',o.color,o.id,i)));
+    }
+  }
+  if(map.getSource('handles')) map.getSource('handles').setData({type:'FeatureCollection',features:feats});
+}
+function handleFeat(c,role,color,id,idx){ return {type:'Feature',geometry:{type:'Point',coordinates:c},properties:{role,color,id,idx:idx==null?-1:idx}}; }
+
+/* ---------- pointer interactions ---------- */
+function wireMapInteractions(){
+  const cv=map.getCanvas();
+  map.on('mousedown',onDown); map.on('touchstart',onDown);
+  map.on('mousemove',onMove); map.on('touchmove',onMove);
+  window.addEventListener('mouseup',onUp); window.addEventListener('touchend',onUp);
+  map.on('click',onClick);
+  map.on('dblclick',onDbl);
+  map.on('mousemove',(e)=>{
+    if(drag||draftPts) return;
+    const h=map.queryRenderedFeatures(e.point,{layers:['handles']});
+    const f=map.queryRenderedFeatures(e.point,{layers:['draw-fill','draw-line']});
+    cv.style.cursor = h.length? (h[0].properties.role==='rotate'?'grab':'nwse-resize') : (f.length?'move': (tool?'crosshair':''));
+  });
+}
+function onClick(e){
+  if(tool==='polygon'||tool==='line'){
+    draftPts=draftPts||[]; draftPts.push([e.lngLat.lng,e.lngLat.lat]); redraw(); showHint(tool==='line'?'Click to add points · double-click to finish':'Click to add points · double-click to close shape'); return;
+  }
+  if(tool&&(tool.startsWith('pool')||tool==='rect')){
+    addObject(tool,{center:[e.lngLat.lng,e.lngLat.lat]}); setTool(null); redraw(); return;
+  }
+  // select / deselect
+  const f=map.queryRenderedFeatures(e.point,{layers:['draw-fill','draw-line']});
+  if(f.length){ selectedId=f[0].properties.id; redraw(); }
+  else if(!drag){ selectedId=null; redraw(); }
+}
+function onDbl(e){
+  if((tool==='polygon'||tool==='line')&&draftPts&&draftPts.length>= (tool==='line'?2:3)){
+    e.preventDefault();
+    addObject(tool,{coords:draftPts.slice()}); draftPts=null; setTool(null); redraw();
+  }
+}
+function onDown(e){
+  if(tool) return; // drawing handled by click
+  const pt=e.point;
+  const h=map.queryRenderedFeatures(pt,{layers:['handles']});
+  if(h.length){
+    const p=h[0].properties; const o=objects.find(x=>x.id===p.id); if(!o)return;
+    map.dragPan.disable(); e.preventDefault&&e.preventDefault();
+    drag={mode:p.role==='rotate'?'rotate':(p.role==='vtx'?'vertex':'resize'), role:p.role, idx:p.idx, o, start:snapshot(o), startLngLat:[e.lngLat.lng,e.lngLat.lat]};
+    return;
+  }
+  const f=map.queryRenderedFeatures(pt,{layers:['draw-fill','draw-line']});
+  if(f.length){
+    const o=objects.find(x=>x.id===f[0].properties.id); if(!o)return;
+    selectedId=o.id; map.dragPan.disable(); e.preventDefault&&e.preventDefault();
+    drag={mode:'move',o,start:snapshot(o),startLngLat:[e.lngLat.lng,e.lngLat.lat]}; redraw();
+  }
+}
+function onMove(e){
+  if(!drag) return;
+  const ll=[e.lngLat.lng,e.lngLat.lat], o=drag.o, st=drag.start;
+  if(drag.mode==='move'){
+    const dLng=ll[0]-drag.startLngLat[0], dLat=ll[1]-drag.startLngLat[1];
+    if(o.center){ o.center=[st.center[0]+dLng, st.center[1]+dLat]; }
+    else { o.coords=st.coords.map(p=>[p[0]+dLng,p[1]+dLat]); }
+  } else if(drag.mode==='vertex'){
+    o.coords=st.coords.map((p,i)=>i===drag.idx?ll:p);
+  } else if(drag.mode==='rotate'){
+    const loc=lngLatToLocal(st.center, ll); let ang=Math.atan2(loc[0],loc[1])*180/Math.PI; o.rot=-ang;
+  } else if(drag.mode==='resize'){
+    // work in object's local (un-rotated) frame; keep opposite corner fixed
+    const locPtr=lngLatToLocal(st.center, ll);
+    const un=rotate(locPtr[0],locPtr[1],-(st.rot||0));
+    const sx = drag.role.includes('e')?1:-1, sy = drag.role.includes('n')?1:-1;
+    const oppX=-sx*st.wFt/2, oppY=-sy*st.lFt/2;
+    o.wFt=Math.max(4,Math.abs(un[0]-oppX)); o.lFt=Math.max(4,Math.abs(un[1]-oppY));
+    const cx=(un[0]+oppX)/2, cy=(un[1]+oppY)/2;
+    const [rx,ry]=rotate(cx,cy,st.rot||0);
+    o.center=localToLngLat(st.center,rx,ry);
+  }
+  redraw();
+}
+function onUp(){ if(drag){ map.dragPan.enable(); drag=null; saveState(); redraw(); } }
+function snapshot(o){ return JSON.parse(JSON.stringify({center:o.center,coords:o.coords,wFt:o.wFt,lFt:o.lFt,rot:o.rot})); }
+
+/* ============================================================ TOOLBAR ============================================================ */
+function setTool(t){
+  tool=t; draftPts=null;
+  document.querySelectorAll('.tool').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));
+  if(t){ selectedId=null; map.getCanvas().style.cursor='crosshair'; showHint(
+    t==='polygon'?'Click to drop points · double-click to close shape':
+    t==='line'?'Click to drop points · double-click to finish line':
+    'Click on the map to place — then drag to move, corner to resize, top dot to rotate'); }
+  else { map.getCanvas().style.cursor=''; hideHint(); }
+  if(t==='polygon'||t==='line') map.doubleClickZoom.disable(); else map.doubleClickZoom.enable();
+  redraw();
+}
+document.querySelectorAll('.tool').forEach(b=>b.addEventListener('click',()=>{
+  const t=b.dataset.tool;
+  if(t==='clear'){ if(objects.length&&confirm('Clear all drawn objects?')){ objects=[];selectedId=null;saveState();redraw(); } return; }
+  setTool(tool===t?null:t);
+}));
+let hintTimer=null;
+function showHint(msg){ const h=$('#hint'); h.textContent=msg; h.classList.add('show'); }
+function hideHint(){ $('#hint').classList.remove('show'); }
+
+/* ============================================================ SIDEBAR: OBJECTS ============================================================ */
+function renderObjList(){
+  const box=$('#objlist');
+  if(!objects.length){ box.innerHTML='<div class="empty">No objects yet.<br>Pick a draw tool above the map — a pool, a box, a freeform shape, or a measuring line — and drop it on the lot.</div>'; return; }
+  box.innerHTML='';
+  objects.forEach(o=>{
+    const ev=evaluate(o);
+    const el=document.createElement('div'); el.className='obj'+(o.id===selectedId?' sel':'');
+    el.onclick=(e)=>{ if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON')return; selectedId=o.id; redraw(); flyToObj(o); };
+    let dims='';
+    if(o.type==='rect'||o.type==='oval'){
+      dims=`<div class="dims">
+        <div class="dim"><span>width ft</span><input type="number" min="4" value="${Math.round(o.wFt)}" data-k="wFt" data-id="${o.id}"></div>
+        <div class="dim"><span>length ft</span><input type="number" min="4" value="${Math.round(o.lFt)}" data-k="lFt" data-id="${o.id}"></div>
+        <div class="dim"><span>rotate °</span><input type="number" step="5" value="${Math.round(o.rot||0)}" data-k="rot" data-id="${o.id}"></div>
+      </div>`;
+    }
+    const area=o.type==='line'?null:objArea(o);
+    const peri=objPerimeter(o);
+    let meta = o.type==='line'
+      ? `<div class="ometa"><span>total length</span><b>${fmt(peri)} ft</b></div>`
+      : `<div class="ometa"><span>area</span><b>${fmt(area)} sf</b></div><div class="ometa"><span>perimeter</span><b>${fmt(peri)} ft</b></div>`;
+    let status='';
+    if(ev){ status = ev.ok
+      ? `<div class="okline">✓ clears ${ev.req} ft setback · nearest lot line ${ev.clearance.toFixed(1)} ft</div>`
+      : `<div class="viol">⚠ ${ev.reasons.join('; ')}</div>`; }
+    el.innerHTML=`<div class="otop"><span class="dot" style="background:${o.color}"></span>
+      <input class="oname" value="${o.name}" data-id="${o.id}" data-k="name">
+      <span class="otype">${o.kind==='pool'?'pool':o.type}</span>
+      <button class="odel" data-del="${o.id}" title="Delete">✕</button></div>
+      ${dims}${meta}${status}`;
+    box.appendChild(el);
+  });
+  box.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input',()=>{
+      const o=objects.find(x=>x.id==inp.dataset.id); if(!o)return;
+      const k=inp.dataset.k;
+      if(k==='name'){ o.name=inp.value; }
+      else { o[k]=parseFloat(inp.value)||0; }
+      saveState();
+      if(k==='name') return; redraw();
+    });
+    inp.addEventListener('click',e=>e.stopPropagation());
+  });
+  box.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); deleteObject(+b.dataset.del); }));
+}
+function flyToObj(o){ try{ const c=objCentroid(o); map.easeTo({center:c,duration:300}); }catch(e){} }
+
+/* ============================================================ ENVELOPE / RING ============================================================ */
+function renderEnvelope(){
+  const on=$('#env-on').checked, sb=+$('#sb-struct').value||0;
+  if(!map.getSource('env'))return;
+  const e = on? envelope(sb):null;
+  map.getSource('env').setData(e?turf.featureCollection([e]):turf.featureCollection([]));
+  ['env-fill','env-glow','env-line'].forEach(l=>map.setLayoutProperty(l,'visibility',on?'visible':'none'));
+}
+function renderPoolRing(){
+  if(!map.getSource('poolring'))return;
+  const on=$('#poolring-on').checked, sb=+$('#sb-pool').value||0;
+  const e=on?envelope(sb):null;
+  map.getSource('poolring').setData(e?turf.featureCollection([turf.polygonToLine(e)]):turf.featureCollection([]));
+  map.setLayoutProperty('poolring-line','visibility',on?'visible':'none');
+}
+['env-on','sb-struct','poolring-on','sb-pool'].forEach(id=>$('#'+id).addEventListener('input',()=>{ renderEnvelope(); renderPoolRing(); redraw(); saveState(); }));
+
+/* ============================================================ LAYER UI ============================================================ */
+function buildLayerUI(){
+  // basemap buttons
+  const bb=$('#basebar'); bb.innerHTML='';
+  Object.entries(BASEMAPS).forEach(([k,v])=>{
+    const b=document.createElement('button'); b.className='basebtn'+(k===currentBase?' active':''); b.textContent=v.label;
+    b.onclick=()=>setBasemap(k); bb.appendChild(b);
+  });
+  // year select
+  const ys=$('#yearsel'); ys.innerHTML='';
+  AERIAL_YEARS.forEach(y=>{ const o=document.createElement('option'); o.value=y;o.textContent=y; if(y===currentYear)o.selected=true; ys.appendChild(o); });
+  ys.onchange=()=>{ currentYear=+ys.value; if(currentBase==='aerial') setBasemap('aerial'); };
+  $('#yearwrap').style.display = currentBase==='aerial'?'flex':'none';
+
+  // overlay groups
+  const wrap=$('#overlaygroups'); wrap.innerHTML='';
+  OVERLAYS.forEach(([group,arr])=>{
+    const g=document.createElement('div'); g.className='lgroup';
+    g.innerHTML=`<div class="glab">${group}</div>`;
+    arr.forEach(([id,label,sw,url,on,op])=>{
+      const row=document.createElement('div'); row.className='lrow'+(on?'':' off');
+      row.innerHTML=`<input type="checkbox" id="lk-${id}" ${on?'checked':''}>
+        <span class="sw" style="background:${sw}"></span>
+        <label for="lk-${id}">${label}</label>
+        <input class="op" type="range" min="0" max="1" step="0.05" value="${op}" id="op-${id}">`;
+      g.appendChild(row);
+    });
+    wrap.appendChild(g);
+  });
+  OVERLAYS.forEach(([,arr])=>arr.forEach(([id])=>{
+    const ck=$('#lk-'+id), op=$('#op-'+id);
+    ck.addEventListener('change',()=>{ toggleOverlay(id,ck.checked); ck.closest('.lrow').classList.toggle('off',!ck.checked); });
+    op.addEventListener('input',()=>setOverlayOpacity(id,+op.value));
+  }));
+}
+function setBasemap(k){
+  currentBase=k;
+  if(map.getLayer('base'))map.removeLayer('base');
+  if(map.getSource('base'))map.removeSource('base');
+  map.addSource('base',baseSource());
+  map.addLayer({id:'base',type:'raster',source:'base'},'ov-'+firstOverlayId());
+  document.querySelectorAll('.basebtn').forEach(b=>b.classList.toggle('active',b.textContent===BASEMAPS[k].label));
+  $('#yearwrap').style.display = k==='aerial'?'flex':'none';
+}
+function firstOverlayId(){ for(const [,arr] of OVERLAYS) for(const o of arr){ if(o[3]!=='__VECTOR__') return o[0]; } return undefined; }
+function toggleOverlay(id,on){
+  if(id==='parcels'){ ['neighbors-fill','neighbors-line','neighbors-lbl'].forEach(l=>map.setLayoutProperty(l,'visibility',on?'visible':'none')); return; }
+  if(map.getLayer('ov-'+id)) map.setLayoutProperty('ov-'+id,'visibility',on?'visible':'none');
+}
+function setOverlayOpacity(id,v){
+  if(id==='parcels'){ map.setPaintProperty('neighbors-line','line-opacity',Math.min(1,v)); map.setPaintProperty('neighbors-fill','fill-opacity',0.05*v); return; }
+  if(map.getLayer('ov-'+id)) map.setPaintProperty('ov-'+id,'raster-opacity',v);
+}
+
+/* ============================================================ SCENARIOS / PERSIST ============================================================ */
+function stateObj(){
+  return { objects, uid, base:currentBase, year:currentYear,
+    sb:{struct:+$('#sb-struct').value, pool:+$('#sb-pool').value, env:$('#env-on').checked, ring:$('#poolring-on').checked} };
+}
+function applyState(s){
+  objects=s.objects||[]; uid=s.uid||(objects.reduce((m,o)=>Math.max(m,o.id),0)+1);
+  if(s.sb){ $('#sb-struct').value=s.sb.struct; $('#sb-pool').value=s.sb.pool; $('#env-on').checked=s.sb.env; $('#poolring-on').checked=s.sb.ring; }
+  if(s.base){ currentYear=s.year||2025; setBasemap(s.base); }
+}
+function saveState(){ try{ localStorage.setItem(STORE,JSON.stringify(stateObj())); }catch(e){} }
+function loadState(){ try{ const r=localStorage.getItem(STORE); if(!r)return false; applyState(JSON.parse(r)); return true; }catch(e){ return false; } }
+
+$('#sc-save').onclick=()=>{ const n=prompt('Save scenario as:','scenario '+(sceneNames().length+1)); if(!n)return; const o=scenes(); o[n]=stateObj(); localStorage.setItem(SCENES,JSON.stringify(o)); restoreSceneList(); };
+$('#sc-print').onclick=()=>window.print();
+$('#sc-reset').onclick=()=>{ if(confirm('Reset to a single default pool?')){ objects=[]; uid=1; addObject('pool-rect',{center:[...CENTER],wFt:18,lFt:36,name:'Pool'}); $('#sb-struct').value=25;$('#sb-pool').value=15;$('#env-on').checked=true;$('#poolring-on').checked=false; saveState(); renderEnvelope(); redraw(); } };
+$('#sc-load').onclick=()=>{ const n=$('#sc-sel').value; if(!n)return; const o=scenes(); if(o[n]){ applyState(JSON.parse(JSON.stringify(o[n]))); renderEnvelope(); redraw(); saveState(); } };
+$('#sc-del').onclick=()=>{ const n=$('#sc-sel').value; if(!n)return; if(confirm(`Delete "${n}"?`)){ const o=scenes(); delete o[n]; localStorage.setItem(SCENES,JSON.stringify(o)); restoreSceneList(); } };
+function scenes(){ try{ return JSON.parse(localStorage.getItem(SCENES)||'{}'); }catch(e){ return {}; } }
+function sceneNames(){ return Object.keys(scenes()); }
+function restoreSceneList(){ const names=sceneNames(); const sel=$('#sc-sel'); sel.innerHTML='<option value="">— saved —</option>'+names.map(n=>`<option>${n}</option>`).join(''); $('#sc-loadrow').style.display=names.length?'flex':'none'; }
+
+/* ============================================================ REFERENCE UI ============================================================ */
+function buildRefUI(){
+  $('#ref-facts').innerHTML = [
+    ['Address',PARCEL.address],['Owner',PARCEL.owner],['Tax parcel (print key)',PARCEL.printkey],
+    ['SBL',PARCEL.sbl],['SWIS',PARCEL.swis],['Municipality',PARCEL.muni],['School district',PARCEL.school],
+    ['Property class',PARCEL.propClass],['Lot area',`${PARCEL.areaSf.toLocaleString()} sf (${PARCEL.acres} ac)`],
+  ].map(([k,v])=>`<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+  $('#ref-zoning').innerHTML = `
+    <div class="kv"><span class="k">District</span><span class="v">${ZONING.code} — ${ZONING.name}</span></div>
+    <div class="kv"><span class="k">Min lot area</span><span class="v">${ZONING.minLot.toLocaleString()} sf</span></div>
+    <div class="kv"><span class="k">This lot</span><span class="v">${PARCEL.areaSf.toLocaleString()} sf ✓</span></div>
+    <div class="kv"><span class="k">Max height</span><span class="v">${ZONING.maxHeight} ft</span></div>
+    <div class="kv"><span class="k">Max bldg coverage</span><span class="v">${ZONING.bldgCover}%</span></div>
+    <p style="margin-top:8px;color:var(--mute);font-size:11.5px">${ZONING.source}. Setback values in this tool are <b>editable placeholders</b> — pull the real front/side/rear &amp; pool setbacks from the Village of Tarrytown zoning code, then dial them in above.</p>`;
+  $('#ref-sources').innerHTML = `<ul>
+    <li>Parcel geometry — <a href="${PARCEL_LAYER}" target="_blank" rel="noreferrer">Westchester County Municipal Tax Parcels · Tarrytown (layer 463)</a></li>
+    <li>Aerials, contours, planimetrics — Westchester County GIS map services</li>
+    <li>Zoning, wetlands, flood, soils, slopes — Westchester DataHub Environment &amp; Planning</li>
+    <li><a href="https://giswww.westchestergov.com/gallery/" target="_blank" rel="noreferrer">Westchester County GIS gallery / parcel viewer</a></li>
+  </ul><p style="color:var(--mute);font-size:11.5px">County boundaries are approximate and not a survey.</p>`;
+}
+
+/* ============================================================ utils + boot ============================================================ */
+function $(s){ return document.querySelector(s); }
+// panel collapse
+document.querySelectorAll('.panel > .ptitle').forEach(t=>t.addEventListener('click',()=>t.parentElement.classList.toggle('collapsed')));
+initMap();
+</script>
+</body>
+</html>
