@@ -3,854 +3,609 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>35 Walden Rd — interactive plat &amp; site planner</title>
+<title>35 Walden — landscape studio</title>
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600&family=IBM+Plex+Mono:wght@400;450;500&family=Newsreader:ital,opt@1,8..60&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#1c1917; --ink2:#44403c; --mute:#78716c; --faint:#a8a29e;
-    --line:#e7e5e4; --line2:#d6d3d1; --bg:#faf9f7; --card:#ffffff;
-    --accent:#c2410c; --accent2:#ea580c; --good:#15803d; --goodbg:#f0fdf4;
-    --bad:#b91c1c; --badbg:#fef2f2; --warn:#a16207; --warnbg:#fefce8;
-    --sky:#0369a1; --skybg:#f0f9ff;
-    --pool:#0891b2; --struct:#7c3aed; --measure:#be123c;
-    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    --paper:#FAF8F3; --paper-2:#F6F3EC; --surface:#fff; --surface-2:#EDE8DF;
+    --ink:#2B2722; --ink-2:#5A534A; --ink-mute:#8A8175; --ink-faint:#B5AD9F;
+    --line:#E7E2D8; --line-2:#DDD6C9;
+    --accent:#B0552E; --accent-ink:#8F4322; --accent-bg:#F7ECE4;
+    --ok:#4F7A4A; --ok-bg:#EDF3EA; --warn:#9A6B1E; --warn-bg:#FBF3E2; --bad:#A8412F; --bad-bg:#F8ECE8;
+    --survey-sat:#ffffff; --survey-paper:#3F3A33;
+    --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --serif:"Newsreader",Georgia,serif;
+    --mono:"IBM Plex Mono","SF Mono",ui-monospace,Menlo,monospace;
+    --r-sm:6px; --r-md:9px; --r-lg:14px; --r-xl:18px; --r-pill:999px;
+    --sh-1:0 1px 2px rgba(43,39,34,.06);
+    --sh-2:0 2px 10px rgba(43,39,34,.08),0 1px 3px rgba(43,39,34,.05);
+    --sh-3:0 8px 30px rgba(43,39,34,.12),0 2px 8px rgba(43,39,34,.06);
+    --sh-lift:0 12px 40px rgba(43,39,34,.18);
   }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%;font-family:var(--sans);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
-  #app{display:grid;grid-template-columns:1fr 384px;height:100vh;width:100vw}
-  @media (max-width:900px){#app{grid-template-columns:1fr;grid-template-rows:55vh 45vh}}
+  html,body{margin:0;height:100%;font-family:var(--font);color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased;overflow:hidden}
+  button{font-family:inherit}
+  #app{display:grid;grid-template-columns:74px 1fr 384px;grid-template-rows:56px 1fr 28px;height:100vh;width:100vw}
+  .span{grid-column:1/-1}
 
-  /* ---------- map ---------- */
-  #mapwrap{position:relative;overflow:hidden}
+  /* ---------- topbar ---------- */
+  #topbar{grid-column:1/-1;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--line);z-index:30}
+  .wordmark{font-size:15px;font-weight:600;letter-spacing:-.01em}
+  .pchip{font-family:var(--mono);font-size:10.5px;color:var(--ink-mute);background:var(--paper-2);border:1px solid var(--line);padding:3px 7px;border-radius:var(--r-sm)}
+  .tb-spacer{flex:1}
+  .modepill{display:flex;background:var(--paper-2);border:1px solid var(--line-2);border-radius:var(--r-pill);padding:3px;position:relative}
+  .modepill button{position:relative;z-index:2;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:var(--ink-2);padding:6px 16px;border-radius:var(--r-pill);transition:color .2s;display:flex;align-items:center;gap:6px}
+  .modepill button.active{color:#fff}
+  .modepill .glider{position:absolute;top:3px;left:3px;height:calc(100% - 6px);background:var(--ink);border-radius:var(--r-pill);transition:transform .22s cubic-bezier(.22,.61,.36,1),width .22s;z-index:1}
+  .tbtn{border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);font-size:12.5px;font-weight:500;padding:7px 11px;border-radius:var(--r-sm);cursor:pointer;display:flex;align-items:center;gap:6px}
+  .tbtn:hover{border-color:var(--ink);color:var(--ink)}
+  .tbtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .tbtn.ghost{border-color:transparent;background:none}
+  .tbtn.ghost:hover{background:var(--surface-2)}
+  .tb-hair{width:1px;height:22px;background:var(--line-2)}
+  .tbtn svg{width:15px;height:15px}
+
+  /* ---------- palette rail ---------- */
+  #rail{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:3px;overflow-y:auto;z-index:20}
+  #rail::-webkit-scrollbar{width:0}
+  .pcard{width:60px;height:58px;border:1px solid transparent;border-radius:var(--r-md);background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ink-2);transition:.12s}
+  .pcard:hover{background:var(--paper-2);transform:translateY(-1px)}
+  .pcard.active{background:var(--ink);color:#fff}
+  .pcard svg{width:22px;height:22px}
+  .pcard span{font-size:9px;font-weight:500;letter-spacing:.01em}
+  .rail-div{width:36px;height:1px;background:var(--line);margin:5px 0}
+
+  /* ---------- canvas ---------- */
+  #canvaswrap{position:relative;overflow:hidden;background:var(--paper-2)}
   #map{position:absolute;inset:0}
-  .maplibregl-ctrl-attrib{font-size:9px!important;opacity:.65}
-  .maplibregl-popup-content{font-family:var(--sans);font-size:12px;border-radius:6px;padding:10px 12px;box-shadow:0 4px 18px rgba(0,0,0,.18)}
-  .maplibregl-popup-content b{color:var(--ink)}
-
-  /* floating draw toolbar */
-  #toolbar{position:absolute;top:12px;left:12px;z-index:5;display:flex;flex-direction:column;gap:6px;
-    background:rgba(255,255,255,.94);backdrop-filter:blur(6px);border:1px solid var(--line2);border-radius:10px;padding:7px;box-shadow:0 2px 14px rgba(0,0,0,.12)}
-  #toolbar .grp{display:flex;gap:4px}
-  .tool{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:54px;height:50px;border:1px solid var(--line2);
-    background:var(--card);border-radius:8px;cursor:pointer;font-size:9.5px;font-weight:600;color:var(--ink2);letter-spacing:.02em;transition:.12s;line-height:1.1;text-align:center}
-  .tool:hover{border-color:var(--ink);transform:translateY(-1px)}
-  .tool.active{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .tool svg{width:20px;height:20px}
-  .tool.danger:hover{border-color:var(--bad);color:var(--bad)}
-
-  #hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;background:rgba(28,25,23,.9);color:#fff;
-    font-size:12px;padding:7px 14px;border-radius:20px;pointer-events:none;opacity:0;transition:.2s;white-space:nowrap;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+  .maplibregl-ctrl-attrib{font-size:9px!important;opacity:.6}
+  .maplibregl-ctrl-bottom-right{margin-bottom:34px}
+  #hint{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);background:rgba(43,39,34,.92);color:#fff;font-size:12px;padding:7px 15px;border-radius:var(--r-pill);pointer-events:none;opacity:0;transition:.2s;white-space:nowrap;box-shadow:var(--sh-3);z-index:6}
   #hint.show{opacity:1}
+  #northarrow{position:absolute;top:14px;right:14px;width:34px;height:34px;z-index:5;opacity:.7;transition:transform .6s cubic-bezier(.22,.61,.36,1)}
+  #toast{position:absolute;top:14px;left:50%;transform:translateX(-50%) translateY(-12px);background:var(--ink);color:#fff;font-size:12.5px;padding:8px 16px;border-radius:var(--r-pill);opacity:0;transition:.3s;z-index:8;pointer-events:none;box-shadow:var(--sh-3)}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  /* render overlay */
+  #renderlayer{position:absolute;inset:0;z-index:7;pointer-events:none;display:none}
+  #renderlayer img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--paper)}
+  #renderctl{position:absolute;bottom:46px;left:50%;transform:translateX(-50%);z-index:9;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border:1px solid var(--line-2);border-radius:var(--r-pill);padding:8px 14px;display:none;align-items:center;gap:12px;box-shadow:var(--sh-3)}
+  #renderctl.show{display:flex}
+  #renderctl input[type=range]{width:150px;accent-color:var(--accent)}
+  #renderctl .rl{font-size:11px;font-family:var(--mono);color:var(--ink-mute)}
+  #renderctl button{border:none;background:none;cursor:pointer;color:var(--ink-2);font-size:12px;font-weight:500}
+  #renderctl button:hover{color:var(--accent)}
 
-  /* ---------- sidebar ---------- */
-  #side{border-left:1px solid var(--line);background:var(--bg);overflow-y:auto;display:flex;flex-direction:column}
-  #side::-webkit-scrollbar{width:10px}
-  #side::-webkit-scrollbar-thumb{background:var(--line2);border-radius:5px;border:3px solid var(--bg)}
-
-  header.head{padding:16px 18px 14px;border-bottom:1px solid var(--line);background:var(--card)}
-  header.head .kicker{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.16em;color:var(--mute)}
-  header.head h1{margin:5px 0 3px;font-size:19px;font-weight:650;letter-spacing:-.01em;line-height:1.15}
-  header.head .sub{font-size:12px;color:var(--ink2);line-height:1.4}
-  header.head .sub b{color:var(--ink)}
-  .badge{display:inline-block;font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;padding:1px 5px;border-radius:3px;vertical-align:middle}
-  .badge.gis{background:#e0f2fe;color:#075985}
-  .badge.assume{background:#fef9c3;color:#854d0e}
-  .badge.verified{background:#dcfce7;color:#166534}
-
-  .disclaimer{margin:0;padding:9px 18px;background:var(--warnbg);border-bottom:1px solid #fde68a;font-size:11.5px;color:#854d0e;line-height:1.4}
-  .disclaimer b{color:#713f12}
-
-  section.panel{border-bottom:1px solid var(--line)}
-  .panel > .ptitle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;
-    padding:11px 18px;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--mute);background:var(--bg)}
-  .panel > .ptitle:hover{color:var(--ink)}
-  .panel > .ptitle .chev{transition:.18s;color:var(--faint)}
-  .panel.collapsed > .ptitle .chev{transform:rotate(-90deg)}
-  .panel > .pbody{padding:4px 18px 16px}
-  .panel.collapsed > .pbody{display:none}
-
-  /* layer rows */
-  .lgroup{margin-top:10px}
-  .lgroup:first-child{margin-top:2px}
-  .lgroup .glab{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin:0 0 4px}
-  .lrow{display:flex;align-items:center;gap:9px;padding:5px 0}
-  .lrow .sw{width:26px;height:14px;border-radius:3px;flex:none;border:1px solid var(--line2)}
-  .lrow label{flex:1;font-size:12.5px;color:var(--ink2);cursor:pointer}
-  .lrow input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
-  .lrow .op{width:64px;accent-color:var(--accent);cursor:pointer}
-  .lrow.off label{color:var(--faint)}
-  .basebar{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
-  .basebtn{font-size:11px;padding:5px 9px;border:1px solid var(--line2);border-radius:6px;background:var(--card);cursor:pointer;color:var(--ink2);font-weight:500}
+  /* layers/scenarios popover */
+  .pop{position:absolute;top:54px;right:8px;width:300px;max-height:78vh;overflow-y:auto;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-lg);box-shadow:var(--sh-3);z-index:40;padding:12px 14px;display:none}
+  .pop.show{display:block}
+  .pop h3{margin:0 0 8px;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--ink-mute)}
+  .lgroup{margin-top:10px}.lgroup .gl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint);margin-bottom:3px}
+  .lrow{display:flex;align-items:center;gap:8px;padding:4px 0}
+  .lrow .sw{width:22px;height:12px;border-radius:3px;border:1px solid var(--line-2);flex:none}
+  .lrow label{flex:1;font-size:12px;color:var(--ink-2);cursor:pointer}
+  .lrow input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px}
+  .lrow .op{width:54px;accent-color:var(--accent)}
+  .basebar{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+  .basebtn{font-size:11px;padding:4px 8px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;color:var(--ink-2)}
   .basebtn.active{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .yearwrap{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;color:var(--ink2)}
-  .yearwrap select{flex:1;font-family:var(--mono);font-size:12px;padding:4px 6px;border:1px solid var(--line2);border-radius:6px;background:var(--card)}
+  .yr{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2);margin-bottom:6px}
+  .yr select,.scsel{font-family:var(--mono);font-size:12px;padding:4px 6px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--surface);flex:1}
+  .nrow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0}
+  .nrow label{font-size:12.5px;color:var(--ink-2)}
+  .nrow .note{font-size:10px;color:var(--ink-mute)}
+  .nrow input[type=number]{width:64px;font-family:var(--mono);font-size:12.5px;padding:5px 7px;border:1px solid var(--line-2);border-radius:var(--r-sm);text-align:right}
+  .badge{font-family:var(--mono);font-size:8.5px;text-transform:uppercase;letter-spacing:.06em;padding:1px 4px;border-radius:3px;background:var(--warn-bg);color:var(--warn)}
+  .toggle{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2);cursor:pointer;padding:4px 0}
+  .toggle input{accent-color:var(--accent);width:14px;height:14px}
+  .btn{font-size:12px;padding:6px 11px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;color:var(--ink-2);font-weight:500}
+  .btn:hover{border-color:var(--ink)} .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)} .btn.danger{color:var(--bad)}
 
-  /* object list */
-  .obj{border:1px solid var(--line2);border-radius:9px;padding:9px 10px;margin-bottom:8px;background:var(--card);transition:.12s}
-  .obj.sel{border-color:var(--ink);box-shadow:0 0 0 2px rgba(28,25,23,.07)}
-  .obj .otop{display:flex;align-items:center;gap:8px}
-  .obj .dot{width:11px;height:11px;border-radius:3px;flex:none}
-  .obj .oname{flex:1;font-size:13px;font-weight:600;border:none;background:transparent;color:var(--ink);padding:2px 0;outline:none;min-width:0}
-  .obj .oname:focus{border-bottom:1px solid var(--line2)}
-  .obj .otype{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);background:var(--bg);padding:2px 5px;border-radius:3px}
-  .obj .odel{border:none;background:none;color:var(--faint);cursor:pointer;font-size:15px;line-height:1;padding:2px}
-  .obj .odel:hover{color:var(--bad)}
-  .obj .dims{display:flex;gap:7px;margin-top:7px;flex-wrap:wrap}
-  .obj .dim{display:flex;flex-direction:column;gap:1px}
-  .obj .dim span{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
-  .obj .dim input{width:58px;font-family:var(--mono);font-size:12px;padding:3px 5px;border:1px solid var(--line2);border-radius:5px;text-align:right;background:var(--bg)}
-  .obj .dim input:focus{border-color:var(--ink);outline:none;background:#fff}
-  .obj .ometa{margin-top:7px;font-size:11px;color:var(--mute);display:flex;justify-content:space-between;gap:6px}
-  .obj .ometa b{font-family:var(--mono);color:var(--ink2);font-weight:600}
-  .obj .viol{margin-top:6px;font-size:11px;color:var(--bad);line-height:1.35}
-  .obj .okline{margin-top:6px;font-size:11px;color:var(--good)}
-  .empty{font-size:12px;color:var(--mute);text-align:center;padding:14px 8px;line-height:1.5}
+  /* ---------- chat panel ---------- */
+  #chat{background:var(--paper);border-left:1px solid var(--line);display:flex;flex-direction:column;z-index:20;min-height:0}
+  #chat.collapsed{display:none}
+  #chathead{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--line)}
+  #chathead .ct{font-size:13px;font-weight:600}
+  #chathead .cd{font-size:10px;color:var(--ink-mute);font-family:var(--mono)}
+  #chathead button{border:none;background:none;cursor:pointer;color:var(--ink-mute);font-size:16px;padding:4px}
+  #stream{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:0}
+  #stream::-webkit-scrollbar{width:8px}#stream::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:4px;border:2px solid var(--paper)}
+  .msg{font-size:14px;line-height:1.55}
+  .msg.agent{color:var(--ink);font-family:var(--serif)}
+  .msg.agent::before{content:"•";color:var(--accent);margin-right:7px;font-weight:700}
+  .msg.user{align-self:flex-end;max-width:82%;background:var(--surface-2);color:var(--ink);padding:8px 13px;border-radius:var(--r-lg);font-size:13.5px}
+  .msg.sys{align-self:center;font-family:var(--mono);font-size:11px;color:var(--ink-mute)}
+  .opcard{border:1px solid var(--line-2);border-radius:var(--r-lg);background:var(--surface);padding:10px 12px;box-shadow:var(--sh-1)}
+  .opcard .oc-h{font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:7px}
+  .opcard .oc-h .dot{width:10px;height:10px;border-radius:3px}
+  .opcard .oc-sub{font-size:11.5px;color:var(--ink-mute);margin-top:3px}
+  .rendercard{border:1px solid var(--line-2);border-radius:var(--r-xl);overflow:hidden;background:var(--paper-2);box-shadow:var(--sh-2)}
+  .rendercard .rc-img{width:100%;display:block;background:var(--paper)}
+  .rendercard .rc-load{aspect-ratio:1/1;position:relative;background:var(--paper-2) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="6" height="6"><rect width="6" height="6" fill="%23f2ede2"/><circle cx="1" cy="1" r=".5" fill="%23e6ddc9"/></svg>')}
+  .rendercard .rc-load::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(122,150,90,.28) 50%,transparent 70%);transform:translateX(-100%);animation:wash 1.7s ease-in-out infinite}
+  @keyframes wash{to{transform:translateX(100%)}}
+  .rendercard .rc-cap{padding:8px 12px;font-family:var(--mono);font-size:10.5px;color:var(--ink-mute);display:flex;justify-content:space-between;align-items:center}
+  .rendercard .rc-cap .rc-acts{display:flex;gap:10px}
+  .rendercard .rc-cap button{border:none;background:none;cursor:pointer;color:var(--accent);font-family:var(--font);font-size:11px;font-weight:500}
+  .loadphrase{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-family:var(--mono);font-size:11px;color:var(--ink-2);z-index:2}
+  #chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px 0}
+  .chip{font-size:11.5px;padding:5px 10px;border:1px solid var(--line-2);border-radius:var(--r-pill);background:var(--surface);cursor:pointer;color:var(--ink-2)}
+  .chip:hover{background:var(--surface-2)}
+  #composer{padding:12px 16px 16px;display:flex;gap:8px;align-items:flex-end}
+  #composer textarea{flex:1;resize:none;border:1px solid var(--line-2);border-radius:var(--r-md);padding:9px 11px;font-family:var(--font);font-size:13.5px;color:var(--ink);background:var(--surface);max-height:120px;line-height:1.4}
+  #composer textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+  .cbtn{width:34px;height:34px;border-radius:var(--r-md);border:1px solid var(--line-2);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink-2);flex:none}
+  .cbtn:hover{border-color:var(--ink);color:var(--ink)}
+  .cbtn.send{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .cbtn svg{width:16px;height:16px}
 
-  /* number rows */
-  .nrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0}
-  .nrow label{flex:1;font-size:12.5px;color:var(--ink2)}
-  .nrow .note{font-size:10.5px;color:var(--mute);margin-top:1px}
-  .nrow input[type=number]{width:74px;font-family:var(--mono);font-size:12.5px;padding:5px 7px;border:1px solid var(--line2);border-radius:6px;text-align:right;background:var(--card)}
-  .nrow input:focus{border-color:var(--ink);outline:none}
-  .toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12.5px;color:var(--ink2)}
-  .toggle input{width:15px;height:15px;accent-color:var(--accent)}
+  /* inspector drawer */
+  #inspector{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line-2);box-shadow:0 -4px 20px rgba(43,39,34,.08);padding:12px 16px;transform:translateY(110%);transition:transform .26s cubic-bezier(.22,.61,.36,1);z-index:15}
+  #inspector.show{transform:translateY(0)}
+  #inspector .it{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  #inspector .dot{width:11px;height:11px;border-radius:3px}
+  #inspector .iname{flex:1;font-size:13.5px;font-weight:600;border:none;background:none;outline:none;color:var(--ink)}
+  #inspector .otype{font-family:var(--mono);font-size:9px;text-transform:uppercase;color:var(--ink-mute);background:var(--paper-2);padding:2px 5px;border-radius:3px}
+  #inspector .idel{border:none;background:none;color:var(--ink-faint);cursor:pointer;font-size:15px}#inspector .idel:hover{color:var(--bad)}
+  #inspector .dims{display:flex;gap:8px;flex-wrap:wrap}
+  #inspector .dim{display:flex;flex-direction:column;gap:2px}
+  #inspector .dim span{font-family:var(--mono);font-size:9px;text-transform:uppercase;color:var(--ink-faint)}
+  #inspector .dim input{width:56px;font-family:var(--mono);font-size:12.5px;padding:4px 6px;border:1px solid var(--line-2);border-radius:var(--r-sm);text-align:right;background:var(--paper-2)}
+  #inspector .dim input:focus{outline:none;border-color:var(--accent);background:#fff}
+  #inspector .status{margin-top:8px;font-size:11.5px}
+  #inspector .status.ok{color:var(--ok)}#inspector .status.bad{color:var(--bad)}
+  #inspector .meta{margin-top:6px;font-size:11px;color:var(--ink-mute);display:flex;gap:14px}
+  #inspector .meta b{font-family:var(--mono);color:var(--ink-2)}
 
-  /* scenario bar */
-  .btnrow{display:flex;flex-wrap:wrap;gap:6px}
-  .btn{font-size:12px;padding:6px 11px;border:1px solid var(--line2);border-radius:7px;background:var(--card);cursor:pointer;color:var(--ink2);font-weight:500}
-  .btn:hover{border-color:var(--ink)}
-  .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .btn.danger{color:var(--bad)}
-  .selrow{display:flex;gap:6px;margin-top:8px}
-  .selrow select{flex:1;font-size:12px;padding:5px 7px;border:1px solid var(--line2);border-radius:6px;background:var(--card)}
+  /* statusbar */
+  #statusbar{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:0 16px;background:var(--surface);border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--ink-mute);z-index:20}
+  #statusbar .lock{display:flex;align-items:center;gap:5px;color:var(--ok)}
+  #statusbar .sb-r{margin-left:auto;display:flex;gap:16px}
 
-  /* reference */
-  .acc{border-top:1px solid var(--line)}
-  .acc:first-child{border-top:none}
-  .acc summary{cursor:pointer;padding:9px 0;font-size:12.5px;font-weight:600;color:var(--ink2);list-style:none;display:flex;justify-content:space-between;align-items:center}
-  .acc summary::-webkit-details-marker{display:none}
-  .acc summary .c{font-family:var(--mono);color:var(--faint);transition:.18s}
-  .acc[open] summary .c{transform:rotate(90deg)}
-  .acc .abody{font-size:12px;line-height:1.5;color:var(--ink2);padding:2px 0 12px}
-  .acc .abody ul{margin:4px 0;padding-left:18px}
-  .acc .abody li{margin:3px 0}
-  .acc .abody a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(194,65,12,.3)}
-  .kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid var(--line);font-size:12px}
-  .kv:last-child{border-bottom:none}
-  .kv .k{color:var(--mute)}
-  .kv .v{font-family:var(--mono);color:var(--ink);text-align:right}
-
-  .foot{padding:14px 18px 26px;font-size:11px;color:var(--faint);line-height:1.5}
-
-  /* print */
-  @media print{
-    #app{display:block;height:auto}
-    #side,#toolbar,#hint,.maplibregl-ctrl{display:none!important}
-    #mapwrap{position:relative;height:92vh;page-break-inside:avoid}
-  }
+  @media (max-width:1199px){#app{grid-template-columns:74px 1fr 0}#chat{position:fixed;right:0;top:56px;bottom:28px;width:384px;box-shadow:var(--sh-3)}#chat.collapsed{display:none}}
 </style>
 </head>
 <body>
 <div id="app">
-  <div id="mapwrap">
+  <!-- TOPBAR -->
+  <header id="topbar">
+    <span class="wordmark">35 walden</span>
+    <span class="pchip">1.50-20-43 · R-20 · 0.54 ac</span>
+    <div class="tb-spacer"></div>
+    <div class="modepill" id="modepill">
+      <div class="glider" id="glider"></div>
+      <button data-mode="satellite" class="active">satellite</button>
+      <button data-mode="design">design</button>
+    </div>
+    <div class="tb-spacer"></div>
+    <button class="tbtn" id="gridbtn" title="square to house"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="1" transform="rotate(10 12 12)"/></svg>grid</button>
+    <button class="tbtn ghost" id="layersbtn">layers</button>
+    <button class="tbtn ghost" id="scenebtn">scenarios</button>
+    <div class="tb-hair"></div>
+    <button class="tbtn ghost" id="printbtn">print</button>
+    <button class="tbtn ghost" id="chattoggle" title="toggle co-designer">✎</button>
+  </header>
+
+  <!-- PALETTE RAIL -->
+  <nav id="rail"></nav>
+
+  <!-- CANVAS -->
+  <div id="canvaswrap">
     <div id="map"></div>
-    <div id="toolbar">
-      <div class="grp">
-        <button class="tool" data-tool="pool-rect" title="Rectangular pool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="7" width="16" height="10" rx="1.5"/></svg>Pool ▭</button>
-        <button class="tool" data-tool="pool-oval" title="Oval / kidney pool"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="8" ry="5.5"/></svg>Pool ◯</button>
-      </div>
-      <div class="grp">
-        <button class="tool" data-tool="rect" title="Rectangle: addition, shed, court, driveway"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="1"/></svg>Box</button>
-        <button class="tool" data-tool="polygon" title="Freeform polygon — click to add points, double-click to finish"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l5-3 9 4-2 9-10 1z"/></svg>Shape</button>
-      </div>
-      <div class="grp">
-        <button class="tool" data-tool="line" title="Measure distance — click points, double-click to finish"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20L20 4"/><path d="M4 20l3-1M9 15l2-2M15 9l2-2"/></svg>Measure</button>
-        <button class="tool danger" data-tool="clear" title="Clear all drawn objects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 7h12M9 7V5h6v2M8 7l1 12h6l1-12"/></svg>Clear</button>
-      </div>
+    <svg id="northarrow" viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="rgba(255,255,255,.7)" stroke="#3F3A33" stroke-width=".7"/><path d="M20 8 L24 22 L20 19 L16 22 Z" fill="#3F3A33"/><text x="20" y="33" font-size="8" text-anchor="middle" fill="#3F3A33" font-family="monospace">n</text></svg>
+    <div id="renderlayer"><img id="renderimg" alt="watercolor render"></div>
+    <div id="renderctl">
+      <span class="rl">watercolor</span>
+      <input type="range" id="renderop" min="0" max="1" step="0.02" value="1">
+      <button id="renderclose">remove</button>
     </div>
     <div id="hint"></div>
+    <div id="toast"></div>
   </div>
 
-  <aside id="side">
-    <header class="head">
-      <div class="kicker">Interactive plat · site planner</div>
-      <h1>35 Walden Road</h1>
-      <div class="sub">Tarrytown, NY 10591 · <b>parcel 1.50-20-43</b> · <span id="h-area">0.54 ac (23,527 sf)</span> · zoning <b>R-20</b> <span class="badge gis">county gis</span></div>
-    </header>
-
-    <p class="disclaimer"><b>Planning aid only.</b> Boundaries come from Westchester County GIS and are <b>approximate</b> — not a survey. Setback values are editable placeholders; confirm zoning &amp; setbacks with the Village of Tarrytown and a licensed survey before any design or permit work.</p>
-
-    <!-- DRAW / OBJECTS -->
-    <section class="panel" data-panel="objects">
-      <div class="ptitle">Drawn objects <span class="chev">▾</span></div>
-      <div class="pbody">
-        <div id="objlist"></div>
-      </div>
-    </section>
-
-    <!-- SETBACKS -->
-    <section class="panel" data-panel="setbacks">
-      <div class="ptitle">Setbacks &amp; envelope <span class="chev">▾</span></div>
-      <div class="pbody">
-        <label class="toggle" style="margin-bottom:8px"><input type="checkbox" id="env-on" checked> Show buildable envelope (lot − structure setback)</label>
-        <div class="nrow"><div><label>Structure setback (ft)</label><div class="note">uniform inset from every lot line <span class="badge assume">assumption</span></div></div><input type="number" id="sb-struct" value="25" min="0" max="200" step="1"></div>
-        <label class="toggle" style="margin:8px 0"><input type="checkbox" id="poolring-on"> Show pool setback ring</label>
-        <div class="nrow"><div><label>Pool setback (ft)</label><div class="note">min distance pool → any lot line <span class="badge assume">assumption</span></div></div><input type="number" id="sb-pool" value="15" min="0" max="200" step="1"></div>
-      </div>
-    </section>
-
-    <!-- LAYERS -->
-    <section class="panel" data-panel="layers">
-      <div class="ptitle">GIS layers <span class="chev">▾</span></div>
-      <div class="pbody">
-        <div class="lgroup">
-          <div class="glab">Basemap</div>
-          <div class="basebar" id="basebar"></div>
-          <div class="yearwrap" id="yearwrap"><span>Aerial year</span><select id="yearsel"></select></div>
-        </div>
-        <div id="overlaygroups"></div>
-      </div>
-    </section>
-
-    <!-- SCENARIOS -->
-    <section class="panel" data-panel="scenarios">
-      <div class="ptitle">Scenarios <span class="chev">▾</span></div>
-      <div class="pbody">
-        <div class="btnrow">
-          <button class="btn primary" id="sc-save">Save current…</button>
-          <button class="btn" id="sc-print">Print / PDF</button>
-          <button class="btn danger" id="sc-reset">Reset</button>
-        </div>
-        <div class="selrow" id="sc-loadrow" style="display:none">
-          <select id="sc-sel"><option value="">— saved —</option></select>
-          <button class="btn" id="sc-load">Load</button>
-          <button class="btn danger" id="sc-del">Del</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- REFERENCE -->
-    <section class="panel" data-panel="ref">
-      <div class="ptitle">Reference <span class="chev">▾</span></div>
-      <div class="pbody">
-        <details class="acc" open><summary>Parcel facts <span class="c">›</span></summary><div class="abody" id="ref-facts"></div></details>
-        <details class="acc"><summary>Zoning — R-20 <span class="c">›</span></summary><div class="abody" id="ref-zoning"></div></details>
-        <details class="acc"><summary>GIS sources &amp; viewers <span class="c">›</span></summary><div class="abody" id="ref-sources"></div></details>
-        <details class="acc"><summary>How to use this <span class="c">›</span></summary><div class="abody">
-          <ul>
-            <li>Pick a <b>draw tool</b> (top-left of the map). Pool, box, freeform shape, or a measuring line.</li>
-            <li>Rectangles &amp; pools drop into the center of the view — then <b>drag</b> to move, grab a <b>corner</b> to resize, or the <b>top dot</b> to rotate.</li>
-            <li>Shapes &amp; measure lines: <b>click</b> to drop points, <b>double-click</b> to finish. Drag any vertex after.</li>
-            <li>Every object shows live <b>dimensions &amp; area in feet</b>. Edit the numbers in the object card for exact sizes.</li>
-            <li>Turn the <b>buildable envelope</b> on to see where things can legally sit. Objects glow red when they cross a setback or the lot line.</li>
-            <li>Flip <b>GIS layers</b> on/off — aerials by year, contours, building footprints, wetlands, flood, soils, slopes and more.</li>
-          </ul>
-        </div></details>
-      </div>
-    </section>
-
-    <div class="foot">
-      Geometry &amp; imagery © Westchester County GIS (giswww.westchestergov.com). Runs entirely in your browser; nothing is uploaded. Built for Johnny — planning sketch, not a survey.
+  <!-- CHAT PANEL -->
+  <aside id="chat">
+    <div id="chathead"><div><span class="ct">co-designer</span> <span class="cd">nano banana</span></div><button id="chatcollapse">›</button></div>
+    <div id="stream"></div>
+    <div id="chips"></div>
+    <div id="composer">
+      <textarea id="cinput" rows="1" placeholder="place a pool, screen the west line, ask where things fit…"></textarea>
+      <button class="cbtn" id="renderbtn" title="render watercolor board">🎨</button>
+      <button class="cbtn send" id="sendbtn" title="send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
     </div>
+    <div id="inspector"></div>
   </aside>
+
+  <!-- STATUSBAR -->
+  <footer id="statusbar">
+    <span id="sb-scale">—</span>
+    <span id="sb-grid">grid 0°</span>
+    <span class="lock">⛓ survey locked</span>
+    <span class="sb-r"><span id="sb-cursor"></span><span id="sb-zoom"></span></span>
+  </footer>
+
+  <!-- POPOVERS -->
+  <div class="pop" id="layerpop"><h3>basemap</h3><div class="basebar" id="basebar"></div><div class="yr" id="yrwrap"><span>aerial year</span><select id="yrsel"></select></div><div id="ovgroups"></div></div>
+  <div class="pop" id="scenepop">
+    <h3>site setbacks</h3>
+    <label class="toggle"><input type="checkbox" id="env-on" checked> show buildable envelope</label>
+    <div class="nrow"><div><label>structure setback (ft)</label><div class="note"><span class="badge">assumption</span> confirm w/ village</div></div><input type="number" id="sb-struct" value="25" min="0" max="200"></div>
+    <label class="toggle"><input type="checkbox" id="poolring-on"> show pool setback ring</label>
+    <div class="nrow"><div><label>pool setback (ft)</label></div><input type="number" id="sb-pool" value="15" min="0" max="200"></div>
+    <h3 style="margin-top:14px">scenarios</h3>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" id="sc-save">save…</button><button class="btn" id="sc-clear">clear drawn</button><button class="btn danger" id="sc-reset">reset</button></div>
+    <div style="display:flex;gap:6px;margin-top:8px" id="sc-loadrow"><select class="scsel" id="sc-sel"><option value="">— saved —</option></select><button class="btn" id="sc-load">load</button><button class="btn danger" id="sc-del">del</button></div>
+  </div>
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@turf/turf@7/turf.min.js" crossorigin="anonymous"></script>
 <script>
-/* ============================================================ DATA ============================================================ */
-const ARC = "https://giswww.westchestergov.com/arcgis/rest/services";
-const PARCEL_LAYER = ARC + "/MunicipalTaxParcels/MapServer/463"; // Tarrytown parcels
+/* ====================== DATA (embedded truth) ====================== */
+const ARC="https://giswww.westchestergov.com/arcgis/rest/services";
+const PARCEL_LAYER=ARC+"/MunicipalTaxParcels/MapServer/463";
+const PARCEL_RING=[[-73.854692055940532,41.081355677241739],[-73.855098033192135,41.081526244157359],[-73.855104490405594,41.081515127761882],[-73.855258996126224,41.081249230296471],[-73.855295129103027,41.081170688507761],[-73.855392645160265,41.080959368967498],[-73.855195955665977,41.080925333284064],[-73.854678563533369,41.081204809121353],[-73.854688415913671,41.081217901805374],[-73.854697338032977,41.081232875091196],[-73.854704215051285,41.08124852705739],[-73.854708815565701,41.081264677949115],[-73.854711149056115,41.081280987363535],[-73.854711216679775,41.081297457114005],[-73.854709241667621,41.081313914666879],[-73.854704777612284,41.081330015988065],[-73.854692055940532,41.081355677241739]];
+const HOUSE_RING=[[-73.8548987,41.0813772],[-73.8549925,41.0813638],[-73.8549796,41.0813144],[-73.8549828,41.0813095],[-73.8549966,41.0813077],[-73.8549853,41.0812455],[-73.8550087,41.0812388],[-73.8549974,41.0811956],[-73.8549723,41.0811968],[-73.8549626,41.0811554],[-73.8548519,41.0811706],[-73.8548979,41.0813766],[-73.8548987,41.0813772]];
+const WALL_BEARING=-9.55;       // long house wall bearing (used to square the map)
+const FRAME_BEARING=-99.55;     // local-frame +y points toward the open west yard ("away from back wall")
+const GRID_BEARING=FRAME_BEARING;
+const PARCEL_INFO={address:"35 Walden Road, Tarrytown NY 10591",printkey:"1.50-20-43",owner:"Germa, Eric",zoning:"R-20",areaSf:23527,acres:0.54,school:"Tarrytowns"};
 
-const PARCEL = {
-  address:"35 Walden Road, Tarrytown, NY 10591", printkey:"1.50-20-43",
-  sbl:"00105000200430000000", swis:"552611", owner:"Germa, Eric",
-  muni:"Tarrytown (Town of Greenburgh)", school:"Tarrytowns UFSD",
-  propClass:"210 — One-Family Residence", areaSf:23527, acres:0.54,
+const subjectPoly=turf.polygon([PARCEL_RING]);
+const subjectLine=turf.polygonToLine(subjectPoly);
+const housePoly=turf.polygon([HOUSE_RING]);
+const CENTER=turf.centroid(subjectPoly).geometry.coordinates;
+const HOUSE_C=turf.centroid(housePoly).geometry.coordinates;
+
+/* ====================== LOCAL SITE FRAME (feet, anchored to house) ====================== */
+const FT=3.28084, M2SF=10.7639104;
+const mPerDeg=lat=>({lng:111320*Math.cos(lat*Math.PI/180),lat:110540});
+const bn=GRID_BEARING*Math.PI/180;
+const dN=[Math.sin(bn),Math.cos(bn)], dE=[Math.cos(bn),-Math.sin(bn)];
+function local2ll(x,y){ // x=grid-east ft, y=grid-north ft
+  const m=mPerDeg(HOUSE_C[1]);
+  const te=x*dE[0]+y*dN[0], tn=x*dE[1]+y*dN[1];
+  return [HOUSE_C[0]+(te/FT)/m.lng, HOUSE_C[1]+(tn/FT)/m.lat];
+}
+function ll2local(lng,lat){
+  const m=mPerDeg(HOUSE_C[1]);
+  const te=(lng-HOUSE_C[0])*m.lng*FT, tn=(lat-HOUSE_C[1])*m.lat*FT;
+  return [te*dE[0]+tn*dE[1], te*dN[0]+tn*dN[1]]; // inverse rotation (dE,dN orthonormal)
+}
+function rot2(x,y,deg){const r=deg*Math.PI/180,c=Math.cos(r),s=Math.sin(r);return [x*c-y*s,x*s+y*c];}
+// house local bbox (for AI "off the back wall")
+const houseLocal=HOUSE_RING.map(p=>ll2local(p[0],p[1]));
+const HBB={minx:Math.min(...houseLocal.map(p=>p[0])),maxx:Math.max(...houseLocal.map(p=>p[0])),miny:Math.min(...houseLocal.map(p=>p[1])),maxy:Math.max(...houseLocal.map(p=>p[1]))};
+
+/* ====================== ELEMENT DEFS ====================== */
+// family: 'box' (center+w+l+rot) or 'poly' (local pts + optional width)
+const DEFS={
+  pool:{label:'pool',family:'box',kind:'rect',w:16,l:36,color:'#2f8f9d',fill:'#7fb6bd'},
+  spa:{label:'spa',family:'box',kind:'oval',w:8,l:8,color:'#2f8f9d',fill:'#7fb6bd'},
+  deck:{label:'deck',family:'box',kind:'rect',w:16,l:20,color:'#9c7a45',fill:'#c9a878'},
+  patio:{label:'patio',family:'box',kind:'rect',w:18,l:18,color:'#8a8268',fill:'#ccc6b4'},
+  bed:{label:'bed',family:'box',kind:'oval',w:6,l:14,color:'#6c7d45',fill:'#9aa86a'},
+  hedge:{label:'hedge',family:'poly',kind:'line',width:2.5,color:'#4c5d38',fill:'#5f7245'},
+  tree:{label:'tree',family:'box',kind:'oval',w:18,l:18,color:'#5d6b3a',fill:'#84945a'},
+  firepit:{label:'fire pit',family:'box',kind:'oval',w:6,l:6,color:'#9a4f33',fill:'#b06a4a'},
+  path:{label:'path',family:'poly',kind:'line',width:4,color:'#a99a72',fill:'#d8cdae'},
+  box:{label:'box',family:'box',kind:'rect',w:20,l:20,color:'#6d5bd0',fill:'#9d8cf0'},
+  shape:{label:'shape',family:'poly',kind:'polygon',color:'#6d5bd0',fill:'#9d8cf0'},
+  measure:{label:'measure',family:'poly',kind:'line',width:0,color:'#be123c',fill:'#be123c'},
 };
-const ZONING = { code:"R-20", name:"One-Family Residence", minLot:20000, maxHeight:30, bldgCover:23, source:"Westchester County generalized zoning (2011) — verify w/ Village of Tarrytown code" };
+const PALETTE=[['pool','◭'],['spa','◯'],['deck','▭'],['patio','▦'],['bed','⬭'],['hedge','∿'],['tree','♣'],['firepit','◉'],['path','⌇'],['__div__'],['box','□'],['shape','⬠'],['measure','📏'],['clear','🗑']];
+function icon(t){const m={pool:'<rect x="4" y="7" width="16" height="10" rx="2"/>',spa:'<ellipse cx="12" cy="12" rx="7" ry="6"/>',deck:'<rect x="5" y="5" width="14" height="14" rx="1"/><path d="M9 5v14M14 5v14"/>',patio:'<rect x="5" y="5" width="14" height="14" rx="1"/><path d="M5 10h14M5 15h14M10 5v14M15 5v14"/>',bed:'<ellipse cx="12" cy="12" rx="5" ry="8"/>',hedge:'<path d="M4 14c2-4 4-4 6 0s4 4 6 0 4-4 4 0"/>',tree:'<circle cx="12" cy="11" r="6"/><path d="M12 17v4"/>',firepit:'<circle cx="12" cy="13" r="5"/><path d="M12 8c2 1 2 3 0 4"/>',path:'<path d="M5 19c4-2 4-8 8-10s6-4 6-4"/>',box:'<rect x="5" y="5" width="14" height="14" rx="1"/>',shape:'<path d="M6 8l5-3 8 4-2 9-9 1z"/>',measure:'<path d="M4 20L20 4M6 18l2-1M11 13l2-1"/>',clear:'<path d="M6 7h12M9 7V5h6v2M8 7l1 12h6l1-12"/>'};return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${m[t]||''}</svg>`;}
 
-// Subject parcel — embedded for instant, reliable render (WGS84, from county GIS)
-const SUBJECT = {"type":"Feature","properties":PARCEL,"geometry":{"type":"Polygon","coordinates":[[[-73.85469205594053,41.08135567724174],[-73.85509803319214,41.08152624415736],[-73.8551044904056,41.08151512776188],[-73.85525899612622,41.08124923029647],[-73.85529512910303,41.08117068850776],[-73.85539264516026,41.0809593689675],[-73.85519595566598,41.080925333284064],[-73.85467856353337,41.08120480912135],[-73.85468841591367,41.081217901805374],[-73.85469733803298,41.081232875091196],[-73.85470421505129,41.08124852705739],[-73.8547088155657,41.081264677949115],[-73.85471114905612,41.081280987363535],[-73.85471121667977,41.081297457114005],[-73.85470924166762,41.08131391466688],[-73.85470477761228,41.081330015988065],[-73.85469205594053,41.08135567724174]]]}};
-const CENTER = [-73.854885, 41.081262];
+/* ====================== STATE ====================== */
+let map, mode='satellite', gridOn=false, currentBase='aerial', currentYear=2025;
+let elements=[], selectedId=null, tool=null, draftPts=null, drag=null, uid=1;
+let chatHistory=[];
+const $=s=>document.querySelector(s);
+const STORE='walden-studio:v1', SCENES='walden-studio:scenes';
 
-/* ---------- layer catalog (verified endpoints) ---------- */
-const AERIAL_YEARS = [2025,2023,2021,2018,2016,2013,2010,2007,2004,2000,1990,1976,1960,1947];
-function aerialUrl(year){
-  return `${ARC}/MappingWestchesterCounty_AerialPhoto${year}/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=jpg&f=image`;
+/* ====================== GEOMETRY ====================== */
+function boxRingLocal(e){const hw=e.wFt/2,hl=e.lFt/2;return [[-hw,-hl],[hw,-hl],[hw,hl],[-hw,hl]].map(([x,y])=>{const[rx,ry]=rot2(x,y,e.rot||0);return [e.cx+rx,e.cy+ry];});}
+function ovalRingLocal(e,n=48){const hw=e.wFt/2,hl=e.lFt/2,r=[];for(let i=0;i<n;i++){const a=2*Math.PI*i/n;const[rx,ry]=rot2(hw*Math.cos(a),hl*Math.sin(a),e.rot||0);r.push([e.cx+rx,e.cy+ry]);}return r;}
+function elemLocalRing(e){ // returns array of local pts (open for poly-line, closed-ish for areas)
+  if(e.family==='box') return e.kind==='oval'?ovalRingLocal(e):boxRingLocal(e);
+  return e.pts; // poly: local pts
 }
-function envExport(layerId){
-  return `${ARC}/DataHub_EnvironmentandPlanning/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=png&transparent=true&dpi=180&layers=show:${layerId}&f=image`;
+function elemLngLatRing(e){return elemLocalRing(e).map(([x,y])=>local2ll(x,y));}
+function elemGeoJSON(e){
+  if(e.family==='box'){const ring=elemLngLatRing(e);return turf.polygon([[...ring,ring[0]]]);}
+  // poly
+  const ll=elemLngLatRing(e);
+  if(e.kind==='polygon'&&ll.length>=3){return turf.polygon([[...ll,ll[0]]]);}
+  // line: buffer by width/2 if width>0, else line
+  const line=turf.lineString(ll.length>=2?ll:[ll[0],ll[0]]);
+  if(e.width>0){try{const b=turf.buffer(line,e.width/2,{units:'feet'});if(b)return b;}catch(_){}}
+  return line;
 }
-const BASEMAPS = {
-  aerial:{ label:"Aerial (county)", type:"raster-fn" },
-  esri:{ label:"Aerial (Esri)", type:"raster", tiles:["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize:256 },
-  light:{ label:"Clean map", type:"raster", tiles:["https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png"], tileSize:256 },
-};
+function elemCentroidLocal(e){if(e.family==='box')return [e.cx,e.cy];const xs=e.pts.map(p=>p[0]),ys=e.pts.map(p=>p[1]);return [xs.reduce((a,b)=>a+b,0)/xs.length, ys.reduce((a,b)=>a+b,0)/ys.length];}
+function elemArea(e){if(e.family==='box')return e.kind==='oval'?Math.PI*(e.wFt/2)*(e.lFt/2):e.wFt*e.lFt;if(e.kind==='polygon'){try{return turf.area(elemGeoJSON(e))*M2SF;}catch(_){return 0;}}return 0;}
+function elemLen(e){const ll=elemLngLatRing(e);let t=0;for(let i=0;i<ll.length-1;i++)t+=turf.distance(ll[i],ll[i+1],{units:'feet'});if(e.family==='box')t+=turf.distance(ll[ll.length-1],ll[0],{units:'feet'});return t;}
 
-// overlay groups -> [id, label, swatch, url, defaultOn, defaultOpacity]
-const OVERLAYS = [
-  ["Property", [
-    ["parcels","Neighboring parcels","#9a3412","__VECTOR__",true,1],
-  ]],
-  ["Built environment", [
-    ["planimetric","Buildings · pavement · walls",  "#525252", `${ARC}/Planimetric_Basemap_WGS84/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=png&transparent=true&dpi=180&f=image`, false, .9],
-    ["roads","Road centerlines + names","#1f2937", `${ARC}/MappingWestchesterCounty_Roads/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=png&transparent=true&dpi=180&f=image`, false, .85],
-    ["zoning","Zoning districts","#b45309", envExport(207), false, .55],
-    ["landuse","Land use","#0d9488", envExport(210), false, .55],
-  ]],
-  ["Terrain & water", [
-    ["contours","2 ft contours","#92400e", `${ARC}/2FtContours_WGS84/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=png&transparent=true&f=image`, false, .8],
-    ["slopes","Steep slopes","#9f1239", envExport(152), false, .6],
-    ["flood","Flood plains (FEMA)","#1d4ed8", envExport(157), false, .55],
-    ["drainage","Drainage divides","#0e7490", envExport(177), false, .7],
-    ["watersheds","Watersheds","#0891b2", envExport(148), false, .45],
-    ["aquifers","Aquifers","#2563eb", envExport(158), false, .45],
-  ]],
-  ["Environmental", [
-    ["wetnys","NYS regulated wetlands","#047857", envExport(217), false, .6],
-    ["wetnwi","National wetlands inventory","#059669", envExport(154), false, .55],
-    ["hydric","Hydric soils","#0f766e", envExport(156), false, .5],
-    ["soils","USDA soil survey","#78350f", envExport(159), false, .5],
-    ["habitat","Fish & wildlife habitats","#65a30d", envExport(175), false, .55],
-  ]],
-  ["Planning & geology", [
-    ["openspace","Open space","#16a34a", envExport(209), false, .5],
-    ["trails","County trail system","#7c2d12", envExport(212), false, .85],
-    ["bedrock","Bedrock geology","#7c3aed", envExport(196), false, .45],
-    ["surfgeo","Surface geology","#a21caf", envExport(201), false, .45],
-  ]],
-];
-const OVERLAY_BY_ID = {};
-OVERLAYS.forEach(([,arr])=>arr.forEach(o=>OVERLAY_BY_ID[o[0]]=o));
-
-/* ============================================================ STATE ============================================================ */
-const FT_PER_M = 3.28084, M2_TO_SF = 10.7639104;
-let map, currentBase="aerial", currentYear=2025;
-let objects = [];          // drawn objects
-let selectedId = null;
-let tool = null;           // active draw tool
-let draftPts = null;       // in-progress polygon/line points
-let drag = null;           // active drag state
-let uid = 1;
-const STORE="walden-plat:v1", SCENES="walden-plat:scenes";
-
-/* ============================================================ GEO HELPERS ============================================================ */
-function mPerDeg(lat){ return { lng:111320*Math.cos(lat*Math.PI/180), lat:110540 }; }
-function localToLngLat(center, dxFt, dyFt){
-  const m = mPerDeg(center[1]);
-  return [ center[0] + (dxFt/FT_PER_M)/m.lng, center[1] + (dyFt/FT_PER_M)/m.lat ];
-}
-function lngLatToLocal(center, pt){
-  const m = mPerDeg(center[1]);
-  return [ (pt[0]-center[0])*m.lng*FT_PER_M, (pt[1]-center[1])*m.lat*FT_PER_M ];
-}
-function rotate(dx,dy,deg){ const r=deg*Math.PI/180,c=Math.cos(r),s=Math.sin(r); return [dx*c-dy*s, dx*s+dy*c]; }
-
-function rectRing(o){
-  const hw=o.wFt/2, hl=o.lFt/2;
-  const pts=[[-hw,-hl],[hw,-hl],[hw,hl],[-hw,hl]].map(([x,y])=>{ const [rx,ry]=rotate(x,y,o.rot||0); return localToLngLat(o.center,rx,ry); });
-  pts.push(pts[0]); return pts;
-}
-function ovalRing(o,n=64){
-  const hw=o.wFt/2, hl=o.lFt/2, pts=[];
-  for(let i=0;i<n;i++){ const a=2*Math.PI*i/n; const [rx,ry]=rotate(hw*Math.cos(a),hl*Math.sin(a),o.rot||0); pts.push(localToLngLat(o.center,rx,ry)); }
-  pts.push(pts[0]); return pts;
-}
-function objRing(o){
-  if(o.type==='polygon'||o.type==='line') return o.coords;
-  return o.type==='oval'? ovalRing(o) : rectRing(o);
-}
-function objPolygon(o){
-  if(o.type==='line') return null;
-  const ring = o.type==='polygon' ? [...o.coords, o.coords[0]] : objRing(o);
-  return turf.polygon([ring]);
-}
-function objCentroid(o){
-  if(o.center) return o.center;
-  try{ return turf.centroid(turf.lineString(o.coords)).geometry.coordinates; }catch(e){ return o.coords[0]; }
+/* ====================== SETBACKS ====================== */
+function envelope(ft){if(ft<=0)return subjectPoly;try{const b=turf.buffer(subjectPoly,-ft,{units:'feet'});return (b&&b.geometry&&b.geometry.coordinates.length)?b:null;}catch(_){return null;}}
+function nearestLotLine(e){const ring=elemLngLatRing(e);let mn=Infinity;ring.forEach(p=>{try{const d=turf.pointToLineDistance(p,subjectLine,{units:'feet'});if(d<mn)mn=d;}catch(_){}});return mn;}
+function outsideLot(e){return elemLngLatRing(e).some(p=>!turf.booleanPointInPolygon(p,subjectPoly));}
+function evaluate(e){
+  if(e.type==='measure')return null;
+  const isPool=e.type==='pool'||e.type==='spa';
+  const req=isPool?(+$('#sb-pool').value||0):(+$('#sb-struct').value||0);
+  const clr=nearestLotLine(e); const reasons=[]; let ok=true;
+  if(outsideLot(e)){reasons.push('extends beyond the lot line');ok=false;}
+  else if(clr<req-0.05){reasons.push(`${(req-clr).toFixed(1)} ft inside the ${req} ft setback`);ok=false;}
+  return {ok,reasons,clr,req,isPool};
 }
 
-/* dimensions */
-function edgeLensFt(ring){
-  const out=[];
-  for(let i=0;i<ring.length-1;i++) out.push(turf.distance(ring[i],ring[i+1],{units:'feet'}));
-  return out;
-}
-function objArea(o){
-  if(o.type==='rect') return o.wFt*o.lFt;
-  if(o.type==='oval') return Math.PI*(o.wFt/2)*(o.lFt/2);
-  if(o.type==='polygon'){ try{ return turf.area(objPolygon(o))*M2_TO_SF; }catch(e){ return 0; } }
-  return 0;
-}
-function objPerimeter(o){
-  if(o.type==='rect') return 2*(o.wFt+o.lFt);
-  const ring = o.type==='line'? o.coords : objRing(o);
-  return edgeLensFt(ring).reduce((a,b)=>a+b,0);
-}
+/* ====================== MAP ====================== */
+const AERIAL_YEARS=[2025,2023,2021,2018,2016,2013,2010,2007,2004,2000,1990,1976,1960,1947];
+const aerialUrl=y=>`${ARC}/MappingWestchesterCounty_AerialPhoto${y}/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=jpg&f=image`;
+const envExp=id=>`${ARC}/DataHub_EnvironmentandPlanning/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=png&transparent=true&dpi=180&layers=show:${id}&f=image`;
+const BASEMAPS={aerial:{label:'aerial'},esri:{label:'esri',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256},light:{label:'street',tiles:['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png'],tileSize:256}};
+const OVERLAYS=[['Property',[['parcels','neighboring parcels','#9a3412','__V__',false,1]]],
+ ['Built',[['planimetric','buildings · pavement','#525252',`${ARC}/Planimetric_Basemap_WGS84/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=png&transparent=true&dpi=180&f=image`,false,.85],['zoning','zoning districts','#b45309',envExp(207),false,.5]]],
+ ['Terrain & water',[['contours','2 ft contours','#92400e',`${ARC}/2FtContours_WGS84/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=png&transparent=true&f=image`,false,.8],['slopes','steep slopes','#9f1239',envExp(152),false,.55],['flood','flood plains','#1d4ed8',envExp(157),false,.5]]],
+ ['Environmental',[['wetnys','NYS wetlands','#047857',envExp(217),false,.55],['soils','USDA soils','#78350f',envExp(159),false,.45]]]];
 
-/* ============================================================ SETBACKS ============================================================ */
-const subjectPoly = turf.polygon(SUBJECT.geometry.coordinates);
-const subjectLine = turf.polygonToLine(subjectPoly);
-function envelope(setbackFt){
-  if(setbackFt<=0) return subjectPoly;
-  try{ const b=turf.buffer(subjectPoly, -setbackFt, {units:'feet'}); return (b&&b.geometry&&b.geometry.coordinates.length)? b : null; }catch(e){ return null; }
-}
-function nearestLotLineFt(o){
-  const ring = objRing(o);
-  let min=Infinity;
-  ring.forEach(p=>{ try{ const d=turf.pointToLineDistance(p, subjectLine, {units:'feet'}); if(d<min)min=d; }catch(e){} });
-  return min;
-}
-function anyVertexOutsideLot(o){
-  return objRing(o).some(p=>!turf.booleanPointInPolygon(p, subjectPoly));
-}
-function evaluate(o){
-  // returns {ok, reasons[], clearance, insideEnvelope}
-  if(o.type==='line') return null;
-  const reasons=[]; let ok=true;
-  const poolReq = +($('#sb-pool').value||0);
-  const structReq = +($('#sb-struct').value||0);
-  const isPool = o.type.startsWith('pool')||o.kind==='pool';
-  const req = isPool? poolReq : structReq;
-  const clearance = nearestLotLineFt(o);
-  if(anyVertexOutsideLot(o)){ reasons.push("extends beyond the lot line"); ok=false; }
-  else if(clearance < req - 0.05){ reasons.push(`${(req-clearance).toFixed(1)} ft inside the ${req} ft setback (nearest lot line ${clearance.toFixed(1)} ft)`); ok=false; }
-  // a pool overlapping any structure (box / shape) is flagged
-  if(isPool){
-    objects.forEach(other=>{
-      if(other.id===o.id || other.kind!=='struct') return;
-      try{ if(turf.booleanIntersects(objPolygon(o), objPolygon(other))){ reasons.push(`overlaps “${other.name}”`); ok=false; } }catch(e){}
-    });
-  }
-  return { ok, reasons, clearance, req, isPool };
-}
+function baseSource(){if(currentBase==='aerial')return{type:'raster',tiles:[aerialUrl(currentYear)],tileSize:512,attribution:'Westchester County GIS'};const b=BASEMAPS[currentBase];return{type:'raster',tiles:b.tiles,tileSize:b.tileSize,attribution:currentBase==='esri'?'Esri':'CARTO'};}
 
-/* ============================================================ MAP INIT ============================================================ */
-function baseSource(){
-  if(currentBase==='aerial') return { type:'raster', tiles:[aerialUrl(currentYear)], tileSize:512, attribution:'Westchester County GIS' };
-  const b=BASEMAPS[currentBase];
-  return { type:'raster', tiles:b.tiles, tileSize:b.tileSize, attribution: currentBase==='esri'?'Esri':'CARTO' };
-}
 function initMap(){
-  map = new maplibregl.Map({
-    container:'map',
-    style:{ version:8, glyphs:"https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf", sources:{}, layers:[{id:'bg',type:'background',paint:{'background-color':'#e7e5e4'}}] },
-    center:CENTER, zoom:18.4, maxZoom:22, attributionControl:{compact:true}
-  });
-  map.addControl(new maplibregl.NavigationControl({showCompass:true,visualizePitch:false}),'bottom-right');
+  map=new maplibregl.Map({container:'map',preserveDrawingBuffer:true,
+    style:{version:8,glyphs:"https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",sources:{},layers:[{id:'bg',type:'background',paint:{'background-color':'#F6F3EC'}}]},
+    center:CENTER,zoom:18.7,maxZoom:22,attributionControl:{compact:true}});
+  map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-right');
   map.addControl(new maplibregl.ScaleControl({maxWidth:120,unit:'imperial'}),'bottom-left');
-  map.on('load', onMapLoad);
+  map.on('load',onLoad);
+  map.on('rotate',updateNorth);
+  map.on('move',updateStatus);
+  map.on('mousemove',e=>{$('#sb-cursor').textContent=`${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}`;});
 }
 
-function onMapLoad(){
-  // basemap
-  map.addSource('base', baseSource());
-  map.addLayer({id:'base',type:'raster',source:'base'});
-
-  // overlay raster sources (added once, visibility toggled)
-  OVERLAYS.forEach(([,arr])=>arr.forEach(([id,label,sw,url,on,op])=>{
-    if(url==='__VECTOR__') return;
-    map.addSource('ov-'+id,{type:'raster',tiles:[url],tileSize:512});
-    map.addLayer({id:'ov-'+id,type:'raster',source:'ov-'+id,layout:{visibility:on?'visible':'none'},paint:{'raster-opacity':op}});
-  }));
-
-  // neighbor parcels (vector)
-  map.addSource('neighbors',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
-  map.addLayer({id:'neighbors-fill',type:'fill',source:'neighbors',paint:{'fill-color':'#9a3412','fill-opacity':0.04}});
-  map.addLayer({id:'neighbors-line',type:'line',source:'neighbors',paint:{'line-color':'#9a3412','line-width':1,'line-opacity':0.55}});
-  map.addLayer({id:'neighbors-lbl',type:'symbol',source:'neighbors',minzoom:18,layout:{'text-field':['get','PRINTKEY'],'text-size':9,'text-font':['Noto Sans Regular'],'text-allow-overlap':false},paint:{'text-color':'#7c2d12','text-halo-color':'#fff','text-halo-width':1.2,'text-opacity':0.7}});
-
-  // setback envelope + pool ring
+function onLoad(){
+  map.addSource('base',baseSource());
+  map.addLayer({id:'base',type:'raster',source:'base',paint:{'raster-opacity':1}});
+  // GIS overlays
+  OVERLAYS.forEach(([,arr])=>arr.forEach(([id,l,sw,url,on,op])=>{if(url==='__V__')return;map.addSource('ov-'+id,{type:'raster',tiles:[url],tileSize:512});map.addLayer({id:'ov-'+id,type:'raster',source:'ov-'+id,layout:{visibility:on?'visible':'none'},paint:{'raster-opacity':op}});}));
+  // neighbors
+  map.addSource('neighbors',{type:'geojson',data:turf.featureCollection([])});
+  map.addLayer({id:'neighbors-line',type:'line',source:'neighbors',layout:{visibility:'none'},paint:{'line-color':'#9a3412','line-width':1,'line-opacity':.4}});
+  // envelope + ring
   map.addSource('env',{type:'geojson',data:turf.featureCollection([])});
-  map.addLayer({id:'env-fill',type:'fill',source:'env',paint:{'fill-color':'#22c55e','fill-opacity':0.14}});
-  map.addLayer({id:'env-glow',type:'line',source:'env',paint:{'line-color':'#052e16','line-width':4,'line-opacity':0.35,'line-blur':1.5}});
-  map.addLayer({id:'env-line',type:'line',source:'env',paint:{'line-color':'#4ade80','line-width':2,'line-dasharray':[3,2],'line-opacity':1}});
+  map.addLayer({id:'env-fill',type:'fill',source:'env',paint:{'fill-color':'#22c55e','fill-opacity':.1}});
+  map.addLayer({id:'env-line',type:'line',source:'env',paint:{'line-color':'#3fae5a','line-width':1.6,'line-dasharray':[3,2],'line-opacity':.9}});
   map.addSource('poolring',{type:'geojson',data:turf.featureCollection([])});
-  map.addLayer({id:'poolring-line',type:'line',source:'poolring',layout:{visibility:'none'},paint:{'line-color':'#0891b2','line-width':1.3,'line-dasharray':[2,2],'line-opacity':0.85}});
-
-  // subject parcel (drawn on top of overlays, under draw objects)
-  map.addSource('subject',{type:'geojson',data:SUBJECT});
-  map.addLayer({id:'subject-fill',type:'fill',source:'subject',paint:{'fill-color':'#c2410c','fill-opacity':0.05}});
-  map.addLayer({id:'subject-line',type:'line',source:'subject',paint:{'line-color':'#c2410c','line-width':2.6}});
-  map.addLayer({id:'subject-glow',type:'line',source:'subject',paint:{'line-color':'#fb923c','line-width':6,'line-opacity':0.25,'line-blur':2}});
-
-  // draw objects
-  map.addSource('draw',{type:'geojson',data:turf.featureCollection([])});
-  map.addLayer({id:'draw-fill',type:'fill',source:'draw',filter:['==','$type','Polygon'],paint:{'fill-color':['get','color'],'fill-opacity':['case',['get','bad'],0.18,0.16]}});
-  map.addLayer({id:'draw-line',type:'line',source:'draw',paint:{'line-color':['case',['get','bad'],'#b91c1c',['get','color']],'line-width':['case',['get','sel'],2.6,1.8]}});
-  // dimension labels
+  map.addLayer({id:'poolring-line',type:'line',source:'poolring',layout:{visibility:'none'},paint:{'line-color':'#2f8f9d','line-width':1.3,'line-dasharray':[2,2],'line-opacity':.85}});
+  // survey: house + parcel
+  map.addSource('house',{type:'geojson',data:housePoly});
+  map.addLayer({id:'house-fill',type:'fill',source:'house',paint:{'fill-color':'#e6ddc9','fill-opacity':.55}});
+  map.addLayer({id:'house-line',type:'line',source:'house',paint:{'line-color':'#3F3A33','line-width':2}});
+  map.addSource('parcel',{type:'geojson',data:subjectPoly});
+  map.addLayer({id:'parcel-line',type:'line',source:'parcel',paint:{'line-color':'#3F3A33','line-width':2.6}});
+  // elements
+  map.addSource('elems',{type:'geojson',data:turf.featureCollection([])});
+  map.addLayer({id:'elems-fill',type:'fill',source:'elems',filter:['==','$type','Polygon'],paint:{'fill-color':['get','fill'],'fill-opacity':['case',['get','bad'],.2,['case',['get','design'],.62,.34]]}});
+  map.addLayer({id:'elems-line',type:'line',source:'elems',paint:{'line-color':['case',['get','bad'],'#b91c1c',['get','color']],'line-width':['case',['get','sel'],2.6,1.6]}});
   map.addSource('dimlbl',{type:'geojson',data:turf.featureCollection([])});
-  map.addLayer({id:'dimlbl',type:'symbol',source:'dimlbl',layout:{'text-field':['get','t'],'text-size':['get','sz'],'text-font':['Noto Sans Bold'],'text-allow-overlap':true,'text-anchor':'center'},paint:{'text-color':['get','col'],'text-halo-color':'#fff','text-halo-width':1.6}});
-  // handles for selected object
+  map.addLayer({id:'dimlbl',type:'symbol',source:'dimlbl',layout:{'text-field':['get','t'],'text-size':['get','sz'],'text-font':['Noto Sans Bold'],'text-allow-overlap':true},paint:{'text-color':['get','col'],'text-halo-color':'#fff','text-halo-width':1.6}});
   map.addSource('handles',{type:'geojson',data:turf.featureCollection([])});
-  map.addLayer({id:'handles',type:'circle',source:'handles',paint:{'circle-radius':['case',['==',['get','role'],'rotate'],6,5],'circle-color':['case',['==',['get','role'],'rotate'],'#fff',['get','color']],'circle-stroke-color':['get','color'],'circle-stroke-width':2}});
+  map.addLayer({id:'handles',type:'circle',source:'handles',paint:{'circle-radius':['case',['==',['get','role'],'rotate'],6,5],'circle-color':'#fff','circle-stroke-color':'#B0552E','circle-stroke-width':2}});
 
-  // interactions
-  wireMapInteractions();
-
-  // initial data + render
-  fitToParcel();
+  wireMap();
+  fitParcel();
   loadNeighbors();
-  // seed one pool so the tool isn't empty
-  const seeded = loadState();
-  if(!seeded){ addObject('pool-rect',{center:[...CENTER], wFt:18, lFt:36, name:'Pool'}); }
+  if(!loadState()) addElement('pool',{cx:0,cy:HBB.maxy+22,name:'Pool'});
+  redraw(); renderEnv();
+  buildRail(); buildLayerUI(); restoreScenes();
+  applyMode(); updateNorth(); updateStatus();
+  greet();
+}
+
+function fitParcel(){const b=turf.bbox(subjectPoly);map.fitBounds([[b[0],b[1]],[b[2],b[3]]],{padding:80,duration:0,maxZoom:20,bearing:gridOn?-WALL_BEARING:0});}
+async function loadNeighbors(){try{const env="-73.8595,41.0782,-73.8503,41.0843";const u=`${PARCEL_LAYER}/query?geometry=${env}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=PRINTKEY&returnGeometry=true&outSR=4326&f=geojson`;const r=await fetch(u);const j=await r.json();const feats=(j.features||[]).filter(f=>f.properties.PRINTKEY!==PARCEL_INFO.printkey);map.getSource('neighbors').setData({type:'FeatureCollection',features:feats});}catch(e){}}
+
+/* ====================== MODE + GRID ====================== */
+function applyMode(){
+  const design=mode==='design';
+  // basemap fade
+  if(map.getLayer('base'))map.setPaintProperty('base','raster-opacity',design?0:1);
+  // background paper visible in design
+  map.setPaintProperty('bg','background-color',design?'#F6F3EC':'#1a1a1a');
+  // survey line color
+  const sc=design?'#3F3A33':'#ffffff';
+  map.setPaintProperty('parcel-line','line-color',sc);
+  map.setPaintProperty('house-line','line-color',sc);
+  map.setPaintProperty('house-fill','fill-color',design?'#e6ddc9':'#ffffff');
+  map.setPaintProperty('house-fill','fill-opacity',design?.55:.12);
+  // glider
+  const mp=$('#modepill'),btns=[...mp.querySelectorAll('button')],gl=$('#glider');
+  btns.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+  const act=mp.querySelector('button.active');gl.style.width=act.offsetWidth+'px';gl.style.transform=`translateX(${act.offsetLeft-3}px)`;
   redraw();
-  renderEnvelope();
-  buildLayerUI(); buildRefUI(); restoreSceneList();
-  $('#h-area').textContent = `${PARCEL.acres} ac (${PARCEL.areaSf.toLocaleString()} sf)`;
 }
+function toggleGrid(){gridOn=!gridOn;$('#gridbtn').classList.toggle('on',gridOn);map.easeTo({bearing:gridOn?-WALL_BEARING:0,duration:600,easing:t=>1-Math.pow(1-t,3)});if(gridOn)toast('squared to house · north ↗');}
+function updateNorth(){const b=map.getBearing();$('#northarrow').style.transform=`rotate(${-b}deg)`;$('#sb-grid').textContent=`grid ${(-b).toFixed(0)}°`;}
+function updateStatus(){$('#sb-zoom').textContent='z'+map.getZoom().toFixed(1);}
 
-function fitToParcel(){
-  const b=turf.bbox(subjectPoly);
-  map.fitBounds([[b[0],b[1]],[b[2],b[3]]],{padding:90,duration:0,maxZoom:20});
+/* ====================== ELEMENTS ====================== */
+function addElement(type,opts={}){
+  const d=DEFS[type];const e={id:'el_'+(uid++),type,family:d.family,kind:opts.kind||d.kind,color:d.color,fill:d.fill,name:opts.name||nextName(d.label),rot:opts.rot||0};
+  if(d.family==='box'){e.cx=opts.cx??0;e.cy=opts.cy??0;e.wFt=opts.wFt||d.w;e.lFt=opts.lFt||d.l;}
+  else {e.pts=opts.pts||[];e.width=opts.width??d.width??0;}
+  elements.push(e);selectedId=e.id;save();return e;
 }
-async function loadNeighbors(){
-  try{
-    const env="-73.8595,41.0782,-73.8503,41.0843";
-    const u=`${PARCEL_LAYER}/query?geometry=${env}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=PRINTKEY,PROPADDRESS,OWNERNAME&returnGeometry=true&outSR=4326&f=geojson`;
-    const r=await fetch(u); const j=await r.json();
-    const feats=(j.features||[]).filter(f=>f.properties.PRINTKEY!==PARCEL.printkey);
-    map.getSource('neighbors').setData({type:'FeatureCollection',features:feats});
-  }catch(e){ console.warn('neighbors',e); }
-}
+function nextName(base){const n=elements.filter(e=>e.name&&e.name.toLowerCase().startsWith(base.toLowerCase())).length;return n?`${base} ${n+1}`:base;}
+function selected(){return elements.find(e=>e.id===selectedId);}
+function delElement(id){elements=elements.filter(e=>e.id!==id);if(selectedId===id)selectedId=null;save();redraw();closeInspector();}
+function mapCenterLocal(){const c=map.getCenter();return ll2local(c.lng,c.lat);}
 
-/* ============================================================ DRAW ENGINE ============================================================ */
-function addObject(kind, opts={}){
-  const colors={pool:'#0891b2',struct:'#7c3aed',line:'#be123c'};
-  let o={ id:uid++, rot:0 };
-  if(kind==='pool-rect'){ o.type='rect'; o.kind='pool'; o.color=colors.pool; o.wFt=opts.wFt||18; o.lFt=opts.lFt||36; o.center=opts.center||mapCenterLngLat(); o.name=opts.name||nextName('Pool'); }
-  else if(kind==='pool-oval'){ o.type='oval'; o.kind='pool'; o.color=colors.pool; o.wFt=opts.wFt||18; o.lFt=opts.lFt||34; o.center=opts.center||mapCenterLngLat(); o.name=opts.name||nextName('Pool'); }
-  else if(kind==='rect'){ o.type='rect'; o.kind='struct'; o.color=colors.struct; o.wFt=opts.wFt||24; o.lFt=opts.lFt||24; o.center=opts.center||mapCenterLngLat(); o.name=opts.name||nextName('Box'); }
-  else if(kind==='polygon'){ o.type='polygon'; o.kind='struct'; o.color=colors.struct; o.coords=opts.coords; o.name=opts.name||nextName('Shape'); }
-  else if(kind==='line'){ o.type='line'; o.kind='line'; o.color=colors.line; o.coords=opts.coords; o.name=opts.name||nextName('Measure'); }
-  objects.push(o); selectedId=o.id; saveState(); return o;
-}
-function nextName(base){ const n=objects.filter(o=>o.name&&o.name.startsWith(base)).length; return n? `${base} ${n+1}`:base; }
-function mapCenterLngLat(){ const c=map.getCenter(); return [c.lng,c.lat]; }
-function selected(){ return objects.find(o=>o.id===selectedId); }
-function deleteObject(id){ objects=objects.filter(o=>o.id!==id); if(selectedId===id)selectedId=null; saveState(); redraw(); }
-
-/* build GeoJSON + labels + handles, push to map, render sidebar */
 function redraw(){
-  const feats=[], labels=[];
-  objects.forEach(o=>{
-    const sel=o.id===selectedId;
-    let geom, ev=null;
-    if(o.type==='line'){ geom={type:'LineString',coordinates:o.coords}; }
-    else { ev=evaluate(o); geom={type:'Polygon',coordinates:[objRing(o)]}; }
-    feats.push({type:'Feature',geometry:geom,properties:{id:o.id,color:o.color,sel,bad: ev? !ev.ok:false}});
-    // labels
-    if(o.type==='rect'||o.type==='oval'){
-      const c=o.center, area=objArea(o);
-      labels.push(labelFeat(c, `${o.name}\n${fmt(o.wFt)}′×${fmt(o.lFt)}′ · ${fmt(area)} sf`, sel?12:11, ev&&!ev.ok?'#b91c1c':o.color));
-    } else if(o.type==='polygon'){
-      const c=objCentroid(o), area=objArea(o);
-      labels.push(labelFeat(c, `${o.name}\n${fmt(area)} sf`, sel?12:11, ev&&!ev.ok?'#b91c1c':o.color));
-      if(sel){ const ring=[...o.coords,o.coords[0]]; for(let i=0;i<ring.length-1;i++){ const mid=midpt(ring[i],ring[i+1]); const d=turf.distance(ring[i],ring[i+1],{units:'feet'}); labels.push(labelFeat(mid,`${fmt(d)}′`,10,'#44403c')); } }
-    } else if(o.type==='line'){
-      let tot=0; const segs=[];
-      for(let i=0;i<o.coords.length-1;i++){ const d=turf.distance(o.coords[i],o.coords[i+1],{units:'feet'}); tot+=d; if(sel){ const mid=midpt(o.coords[i],o.coords[i+1]); labels.push(labelFeat(mid,`${fmt(d)}′`,10,'#be123c')); } }
-      const end=o.coords[o.coords.length-1];
-      labels.push(labelFeat(end,`${o.name}: ${fmt(tot)}′`,sel?12:11,'#be123c'));
-    }
+  const design=mode==='design';const feats=[],labels=[];
+  elements.forEach(e=>{
+    const sel=e.id===selectedId, ev=evaluate(e);
+    const g=elemGeoJSON(e);
+    feats.push({type:'Feature',geometry:g.geometry,properties:{id:e.id,color:e.color,fill:e.fill,sel,design,bad:ev?!ev.ok:false}});
+    const cLL=local2ll(...elemCentroidLocal(e));
+    if(e.type==='measure'){let t=0;const ll=elemLngLatRing(e);for(let i=0;i<ll.length-1;i++)t+=turf.distance(ll[i],ll[i+1],{units:'feet'});labels.push(lbl(cLL,`${e.name}: ${Math.round(t)}′`,11,'#be123c'));}
+    else if(e.family==='box'){const area=elemArea(e);const txt=e.type==='tree'?`${e.name}\n⌀${Math.round(e.wFt)}′`:`${e.name}\n${Math.round(e.wFt)}′×${Math.round(e.lFt)}′`;labels.push(lbl(cLL,txt,sel?12:11,ev&&!ev.ok?'#b91c1c':e.color));}
+    else {const area=elemArea(e);labels.push(lbl(cLL,e.kind==='polygon'?`${e.name}\n${Math.round(area)} sf`:`${e.name}`,sel?12:11,e.color));}
   });
-  // draft in-progress
-  if(draftPts&&draftPts.length){
-    const dgeom = tool==='polygon' && draftPts.length>=3 ? {type:'Polygon',coordinates:[[...draftPts,draftPts[0]]]} : {type:'LineString',coordinates:draftPts};
-    feats.push({type:'Feature',geometry:dgeom,properties:{color: tool==='line'?'#be123c':'#7c3aed',sel:true,bad:false}});
-  }
-  if(map.getSource('draw')) map.getSource('draw').setData({type:'FeatureCollection',features:feats});
-  if(map.getSource('dimlbl')) map.getSource('dimlbl').setData({type:'FeatureCollection',features:labels});
-  renderHandles();
-  renderObjList();
-  renderPoolRing();
+  if(draftPts&&draftPts.length){const ll=draftPts.map(([x,y])=>local2ll(x,y));const geom=(tool==='shape'&&ll.length>=3)?{type:'Polygon',coordinates:[[...ll,ll[0]]]}:{type:'LineString',coordinates:ll};feats.push({type:'Feature',geometry:geom,properties:{color:DEFS[tool].color,fill:DEFS[tool].fill,sel:true,design,bad:false}});}
+  map.getSource('elems').setData({type:'FeatureCollection',features:feats});
+  map.getSource('dimlbl').setData({type:'FeatureCollection',features:labels});
+  renderHandles(); renderPoolRing();
 }
-function labelFeat(c,t,sz,col){ return {type:'Feature',geometry:{type:'Point',coordinates:c},properties:{t,sz,col}}; }
-function midpt(a,b){ return [(a[0]+b[0])/2,(a[1]+b[1])/2]; }
-function fmt(n){ return Math.round(n).toLocaleString(); }
+function lbl(c,t,sz,col){return{type:'Feature',geometry:{type:'Point',coordinates:c},properties:{t,sz,col}};}
+function renderHandles(){const e=selected();const f=[];if(e){if(e.family==='box'){const hw=e.wFt/2,hl=e.lFt/2;[['nw',-hw,hl],['ne',hw,hl],['se',hw,-hl],['sw',-hw,-hl]].forEach(([role,x,y])=>{const[rx,ry]=rot2(x,y,e.rot||0);f.push(hf(local2ll(e.cx+rx,e.cy+ry),role,e.id));});const[rx,ry]=rot2(0,hl+Math.max(7,e.lFt*.16),e.rot||0);f.push(hf(local2ll(e.cx+rx,e.cy+ry),'rotate',e.id));}else{e.pts.forEach((p,i)=>f.push(hf(local2ll(p[0],p[1]),'vtx',e.id,i)));}}map.getSource('handles').setData({type:'FeatureCollection',features:f});}
+function hf(c,role,id,idx){return{type:'Feature',geometry:{type:'Point',coordinates:c},properties:{role,id,idx:idx==null?-1:idx}};}
 
-function renderHandles(){
-  const o=selected(); const feats=[];
-  if(o){
-    if(o.type==='rect'||o.type==='oval'){
-      const hw=o.wFt/2,hl=o.lFt/2;
-      [['nw',-hw,hl],['ne',hw,hl],['se',hw,-hl],['sw',-hw,-hl]].forEach(([role,x,y])=>{ const [rx,ry]=rotate(x,y,o.rot||0); feats.push(handleFeat(localToLngLat(o.center,rx,ry),role,o.color,o.id)); });
-      const [rx,ry]=rotate(0,hl+Math.max(8,o.lFt*0.18),o.rot||0); feats.push(handleFeat(localToLngLat(o.center,rx,ry),'rotate',o.color,o.id));
-    } else if(o.type==='polygon'||o.type==='line'){
-      o.coords.forEach((p,i)=>feats.push(handleFeat(p,'vtx',o.color,o.id,i)));
-    }
-  }
-  if(map.getSource('handles')) map.getSource('handles').setData({type:'FeatureCollection',features:feats});
-}
-function handleFeat(c,role,color,id,idx){ return {type:'Feature',geometry:{type:'Point',coordinates:c},properties:{role,color,id,idx:idx==null?-1:idx}}; }
-
-/* ---------- pointer interactions ---------- */
-function wireMapInteractions(){
-  const cv=map.getCanvas();
-  map.on('mousedown',onDown); map.on('touchstart',onDown);
-  map.on('mousemove',onMove); map.on('touchmove',onMove);
-  window.addEventListener('mouseup',onUp); window.addEventListener('touchend',onUp);
-  map.on('click',onClick);
-  map.on('dblclick',onDbl);
-  map.on('mousemove',(e)=>{
-    if(drag||draftPts) return;
-    const h=map.queryRenderedFeatures(e.point,{layers:['handles']});
-    const f=map.queryRenderedFeatures(e.point,{layers:['draw-fill','draw-line']});
-    cv.style.cursor = h.length? (h[0].properties.role==='rotate'?'grab':'nwse-resize') : (f.length?'move': (tool?'crosshair':''));
-  });
+/* ====================== POINTER INTERACTION ====================== */
+function wireMap(){
+  map.on('mousedown',onDown);map.on('touchstart',onDown);
+  map.on('mousemove',onMove);map.on('touchmove',onMove);
+  window.addEventListener('mouseup',onUp);window.addEventListener('touchend',onUp);
+  map.on('click',onClick);map.on('dblclick',onDbl);
+  map.on('mousemove',e=>{if(drag||draftPts)return;const h=map.queryRenderedFeatures(e.point,{layers:['handles']});const fr=map.queryRenderedFeatures(e.point,{layers:['elems-fill','elems-line']});map.getCanvas().style.cursor=h.length?(h[0].properties.role==='rotate'?'grab':'nwse-resize'):(fr.length?'move':(tool?'crosshair':''));});
 }
 function onClick(e){
-  if(tool==='polygon'||tool==='line'){
-    draftPts=draftPts||[]; draftPts.push([e.lngLat.lng,e.lngLat.lat]); redraw(); showHint(tool==='line'?'Click to add points · double-click to finish':'Click to add points · double-click to close shape'); return;
-  }
-  if(tool&&(tool.startsWith('pool')||tool==='rect')){
-    addObject(tool,{center:[e.lngLat.lng,e.lngLat.lat]}); setTool(null); redraw(); return;
-  }
-  // select / deselect
-  const f=map.queryRenderedFeatures(e.point,{layers:['draw-fill','draw-line']});
-  if(f.length){ selectedId=f[0].properties.id; redraw(); }
-  else if(!drag){ selectedId=null; redraw(); }
+  const ll=ll2local(e.lngLat.lng,e.lngLat.lat);
+  if(tool==='shape'||tool==='path'||tool==='hedge'||tool==='measure'){draftPts=draftPts||[];draftPts.push(ll);redraw();hint(tool==='shape'?'click to add points · double-click to close':'click to add points · double-click to finish');return;}
+  if(tool&&DEFS[tool]&&DEFS[tool].family==='box'){addElement(tool,{cx:ll[0],cy:ll[1]});setTool(null);redraw();openInspector();return;}
+  const fr=map.queryRenderedFeatures(e.point,{layers:['elems-fill','elems-line']});
+  if(fr.length){selectedId=fr[0].properties.id;redraw();openInspector();}else if(!drag){selectedId=null;redraw();closeInspector();}
 }
-function onDbl(e){
-  if((tool==='polygon'||tool==='line')&&draftPts&&draftPts.length>= (tool==='line'?2:3)){
-    e.preventDefault();
-    addObject(tool,{coords:draftPts.slice()}); draftPts=null; setTool(null); redraw();
-  }
-}
+function onDbl(e){if((tool==='shape'||tool==='path'||tool==='hedge'||tool==='measure')&&draftPts&&draftPts.length>=(tool==='shape'?3:2)){e.preventDefault();const type=tool;addElement(type,{pts:draftPts.slice(),kind:type==='shape'?'polygon':'line'});draftPts=null;setTool(null);redraw();openInspector();}}
 function onDown(e){
-  if(tool) return; // drawing handled by click
-  const pt=e.point;
-  const h=map.queryRenderedFeatures(pt,{layers:['handles']});
-  if(h.length){
-    const p=h[0].properties; const o=objects.find(x=>x.id===p.id); if(!o)return;
-    map.dragPan.disable(); e.preventDefault&&e.preventDefault();
-    drag={mode:p.role==='rotate'?'rotate':(p.role==='vtx'?'vertex':'resize'), role:p.role, idx:p.idx, o, start:snapshot(o), startLngLat:[e.lngLat.lng,e.lngLat.lat]};
-    return;
-  }
-  const f=map.queryRenderedFeatures(pt,{layers:['draw-fill','draw-line']});
-  if(f.length){
-    const o=objects.find(x=>x.id===f[0].properties.id); if(!o)return;
-    selectedId=o.id; map.dragPan.disable(); e.preventDefault&&e.preventDefault();
-    drag={mode:'move',o,start:snapshot(o),startLngLat:[e.lngLat.lng,e.lngLat.lat]}; redraw();
-  }
+  if(tool)return;
+  const h=map.queryRenderedFeatures(e.point,{layers:['handles']});
+  if(h.length){const p=h[0].properties;const el=elements.find(x=>x.id===p.id);if(!el)return;map.dragPan.disable();drag={mode:p.role==='rotate'?'rotate':(p.role==='vtx'?'vertex':'resize'),role:p.role,idx:p.idx,e:el,start:snap(el),sLL:ll2local(e.lngLat.lng,e.lngLat.lat)};return;}
+  const fr=map.queryRenderedFeatures(e.point,{layers:['elems-fill','elems-line']});
+  if(fr.length){const el=elements.find(x=>x.id===fr[0].properties.id);if(!el)return;selectedId=el.id;map.dragPan.disable();drag={mode:'move',e:el,start:snap(el),sLL:ll2local(e.lngLat.lng,e.lngLat.lat)};redraw();openInspector();}
 }
 function onMove(e){
-  if(!drag) return;
-  const ll=[e.lngLat.lng,e.lngLat.lat], o=drag.o, st=drag.start;
-  if(drag.mode==='move'){
-    const dLng=ll[0]-drag.startLngLat[0], dLat=ll[1]-drag.startLngLat[1];
-    if(o.center){ o.center=[st.center[0]+dLng, st.center[1]+dLat]; }
-    else { o.coords=st.coords.map(p=>[p[0]+dLng,p[1]+dLat]); }
-  } else if(drag.mode==='vertex'){
-    o.coords=st.coords.map((p,i)=>i===drag.idx?ll:p);
-  } else if(drag.mode==='rotate'){
-    const loc=lngLatToLocal(st.center, ll); let ang=Math.atan2(loc[0],loc[1])*180/Math.PI; o.rot=-ang;
-  } else if(drag.mode==='resize'){
-    // work in object's local (un-rotated) frame; keep opposite corner fixed
-    const locPtr=lngLatToLocal(st.center, ll);
-    const un=rotate(locPtr[0],locPtr[1],-(st.rot||0));
-    const sx = drag.role.includes('e')?1:-1, sy = drag.role.includes('n')?1:-1;
-    const oppX=-sx*st.wFt/2, oppY=-sy*st.lFt/2;
-    o.wFt=Math.max(4,Math.abs(un[0]-oppX)); o.lFt=Math.max(4,Math.abs(un[1]-oppY));
-    const cx=(un[0]+oppX)/2, cy=(un[1]+oppY)/2;
-    const [rx,ry]=rotate(cx,cy,st.rot||0);
-    o.center=localToLngLat(st.center,rx,ry);
-  }
+  if(!drag)return;const cur=ll2local(e.lngLat.lng,e.lngLat.lat),el=drag.e,st=drag.start;
+  const dx=cur[0]-drag.sLL[0],dy=cur[1]-drag.sLL[1];
+  if(drag.mode==='move'){if(el.family==='box'){el.cx=st.cx+dx;el.cy=st.cy+dy;}else{el.pts=st.pts.map(p=>[p[0]+dx,p[1]+dy]);}}
+  else if(drag.mode==='vertex'){el.pts=st.pts.map((p,i)=>i===drag.idx?cur:p);}
+  else if(drag.mode==='rotate'){const ang=Math.atan2(cur[0]-st.cx,cur[1]-st.cy)*180/Math.PI;el.rot=-ang;}
+  else if(drag.mode==='resize'){const un=rot2(cur[0]-st.cx,cur[1]-st.cy,-(st.rot||0));const sx=drag.role.includes('e')?1:-1,sy=drag.role.includes('n')?1:-1;const ox=-sx*st.wFt/2,oy=-sy*st.lFt/2;el.wFt=Math.max(2,Math.abs(un[0]-ox));el.lFt=Math.max(2,Math.abs(un[1]-oy));const cxL=(un[0]+ox)/2,cyL=(un[1]+oy)/2;const[rx,ry]=rot2(cxL,cyL,st.rot||0);el.cx=st.cx+rx;el.cy=st.cy+ry;}
   redraw();
 }
-function onUp(){ if(drag){ map.dragPan.enable(); drag=null; saveState(); redraw(); } }
-function snapshot(o){ return JSON.parse(JSON.stringify({center:o.center,coords:o.coords,wFt:o.wFt,lFt:o.lFt,rot:o.rot})); }
+function onUp(){if(drag){map.dragPan.enable();drag=null;save();redraw();if(selected())openInspector();}}
+function snap(e){return JSON.parse(JSON.stringify(e));}
 
-/* ============================================================ TOOLBAR ============================================================ */
-function setTool(t){
-  tool=t; draftPts=null;
-  document.querySelectorAll('.tool').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));
-  if(t){ selectedId=null; map.getCanvas().style.cursor='crosshair'; showHint(
-    t==='polygon'?'Click to drop points · double-click to close shape':
-    t==='line'?'Click to drop points · double-click to finish line':
-    'Click on the map to place — then drag to move, corner to resize, top dot to rotate'); }
-  else { map.getCanvas().style.cursor=''; hideHint(); }
-  if(t==='polygon'||t==='line') map.doubleClickZoom.disable(); else map.doubleClickZoom.enable();
-  redraw();
-}
-document.querySelectorAll('.tool').forEach(b=>b.addEventListener('click',()=>{
-  const t=b.dataset.tool;
-  if(t==='clear'){ if(objects.length&&confirm('Clear all drawn objects?')){ objects=[];selectedId=null;saveState();redraw(); } return; }
-  setTool(tool===t?null:t);
-}));
-let hintTimer=null;
-function showHint(msg){ const h=$('#hint'); h.textContent=msg; h.classList.add('show'); }
-function hideHint(){ $('#hint').classList.remove('show'); }
+/* ====================== PALETTE / TOOLS ====================== */
+function buildRail(){const r=$('#rail');r.innerHTML='';PALETTE.forEach(([t])=>{if(t==='__div__'){const d=document.createElement('div');d.className='rail-div';r.appendChild(d);return;}const b=document.createElement('button');b.className='pcard';b.dataset.tool=t;b.innerHTML=icon(t)+`<span>${t==='clear'?'clear':(DEFS[t]?DEFS[t].label:t)}</span>`;b.onclick=()=>{if(t==='clear'){if(elements.length&&confirm('clear everything you\'ve drawn?')){elements=[];selectedId=null;save();redraw();closeInspector();}return;}setTool(tool===t?null:t);};r.appendChild(b);});}
+function setTool(t){tool=t;draftPts=null;document.querySelectorAll('.pcard').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));if(t){selectedId=null;closeInspector();map.getCanvas().style.cursor='crosshair';const f=DEFS[t];hint(f.family==='box'?'click on the plan to place — then drag, resize, rotate':'click to drop points · double-click to finish');}else{map.getCanvas().style.cursor='';hideHint();}if(t==='shape'||t==='path'||t==='hedge'||t==='measure')map.doubleClickZoom.disable();else map.doubleClickZoom.enable();redraw();}
+let hintT;function hint(m){const h=$('#hint');h.textContent=m;h.classList.add('show');}function hideHint(){$('#hint').classList.remove('show');}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(hintT);hintT=setTimeout(()=>t.classList.remove('show'),2400);}
 
-/* ============================================================ SIDEBAR: OBJECTS ============================================================ */
-function renderObjList(){
-  const box=$('#objlist');
-  if(!objects.length){ box.innerHTML='<div class="empty">No objects yet.<br>Pick a draw tool above the map — a pool, a box, a freeform shape, or a measuring line — and drop it on the lot.</div>'; return; }
-  box.innerHTML='';
-  objects.forEach(o=>{
-    const ev=evaluate(o);
-    const el=document.createElement('div'); el.className='obj'+(o.id===selectedId?' sel':'');
-    el.onclick=(e)=>{ if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON')return; selectedId=o.id; redraw(); flyToObj(o); };
-    let dims='';
-    if(o.type==='rect'||o.type==='oval'){
-      dims=`<div class="dims">
-        <div class="dim"><span>width ft</span><input type="number" min="4" value="${Math.round(o.wFt)}" data-k="wFt" data-id="${o.id}"></div>
-        <div class="dim"><span>length ft</span><input type="number" min="4" value="${Math.round(o.lFt)}" data-k="lFt" data-id="${o.id}"></div>
-        <div class="dim"><span>rotate °</span><input type="number" step="5" value="${Math.round(o.rot||0)}" data-k="rot" data-id="${o.id}"></div>
-      </div>`;
-    }
-    const area=o.type==='line'?null:objArea(o);
-    const peri=objPerimeter(o);
-    let meta = o.type==='line'
-      ? `<div class="ometa"><span>total length</span><b>${fmt(peri)} ft</b></div>`
-      : `<div class="ometa"><span>area</span><b>${fmt(area)} sf</b></div><div class="ometa"><span>perimeter</span><b>${fmt(peri)} ft</b></div>`;
-    let status='';
-    if(ev){ status = ev.ok
-      ? `<div class="okline">✓ clears ${ev.req} ft setback · nearest lot line ${ev.clearance.toFixed(1)} ft</div>`
-      : `<div class="viol">⚠ ${ev.reasons.join('; ')}</div>`; }
-    el.innerHTML=`<div class="otop"><span class="dot" style="background:${o.color}"></span>
-      <input class="oname" value="${o.name}" data-id="${o.id}" data-k="name">
-      <span class="otype">${o.kind==='pool'?'pool':o.type}</span>
-      <button class="odel" data-del="${o.id}" title="Delete">✕</button></div>
-      ${dims}${meta}${status}`;
-    box.appendChild(el);
-  });
-  box.querySelectorAll('input').forEach(inp=>{
-    inp.addEventListener('input',()=>{
-      const o=objects.find(x=>x.id==inp.dataset.id); if(!o)return;
-      const k=inp.dataset.k;
-      if(k==='name'){ o.name=inp.value; }
-      else { o[k]=parseFloat(inp.value)||0; }
-      saveState();
-      if(k==='name') return; redraw();
-    });
-    inp.addEventListener('click',e=>e.stopPropagation());
-  });
-  box.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); deleteObject(+b.dataset.del); }));
+/* ====================== INSPECTOR ====================== */
+function openInspector(){const e=selected();if(!e){closeInspector();return;}const ev=evaluate(e);const ins=$('#inspector');
+  let dims='';
+  if(e.family==='box'){dims=`<div class="dims">
+    <div class="dim"><span>${e.type==='tree'?'canopy ⌀':'width'} ft</span><input type="number" value="${Math.round(e.wFt)}" data-k="wFt"></div>
+    ${e.type==='tree'?'':`<div class="dim"><span>length ft</span><input type="number" value="${Math.round(e.lFt)}" data-k="lFt"></div>`}
+    <div class="dim"><span>rotate °</span><input type="number" step="5" value="${Math.round(e.rot||0)}" data-k="rot"></div></div>`;}
+  const area=e.type==='measure'?null:elemArea(e);
+  let meta=e.type==='measure'?`<div class="meta"><span>length <b>${Math.round(elemLen(e))} ft</b></span></div>`:(e.family==='box'||e.kind==='polygon'?`<div class="meta"><span>area <b>${Math.round(area)} sf</b></span><span>nearest line <b>${ev?ev.clr.toFixed(1):'—'} ft</b></span></div>`:`<div class="meta"><span>length <b>${Math.round(elemLen(e))} ft</b></span></div>`);
+  let status=ev?(ev.ok?`<div class="status ok">✓ clears ${ev.req} ft setback</div>`:`<div class="status bad">⚠ ${ev.reasons.join('; ')}</div>`):'';
+  ins.innerHTML=`<div class="it"><span class="dot" style="background:${e.fill}"></span><input class="iname" value="${e.name}"><span class="otype">${e.type}</span><button class="idel">✕</button></div>${dims}${meta}${status}`;
+  ins.classList.add('show');
+  ins.querySelector('.iname').oninput=ev2=>{e.name=ev2.target.value;save();redraw();};
+  ins.querySelectorAll('.dim input').forEach(inp=>inp.oninput=()=>{e[inp.dataset.k]=parseFloat(inp.value)||0;save();redraw();});
+  ins.querySelector('.idel').onclick=()=>delElement(e.id);
 }
-function flyToObj(o){ try{ const c=objCentroid(o); map.easeTo({center:c,duration:300}); }catch(e){} }
+function closeInspector(){$('#inspector').classList.remove('show');}
 
-/* ============================================================ ENVELOPE / RING ============================================================ */
-function renderEnvelope(){
-  const on=$('#env-on').checked, sb=+$('#sb-struct').value||0;
-  if(!map.getSource('env'))return;
-  const e = on? envelope(sb):null;
-  map.getSource('env').setData(e?turf.featureCollection([e]):turf.featureCollection([]));
-  ['env-fill','env-glow','env-line'].forEach(l=>map.setLayoutProperty(l,'visibility',on?'visible':'none'));
-}
-function renderPoolRing(){
-  if(!map.getSource('poolring'))return;
-  const on=$('#poolring-on').checked, sb=+$('#sb-pool').value||0;
-  const e=on?envelope(sb):null;
-  map.getSource('poolring').setData(e?turf.featureCollection([turf.polygonToLine(e)]):turf.featureCollection([]));
-  map.setLayoutProperty('poolring-line','visibility',on?'visible':'none');
-}
-['env-on','sb-struct','poolring-on','sb-pool'].forEach(id=>$('#'+id).addEventListener('input',()=>{ renderEnvelope(); renderPoolRing(); redraw(); saveState(); }));
+/* ====================== ENVELOPE ====================== */
+function renderEnv(){const on=$('#env-on').checked,sb=+$('#sb-struct').value||0;const e=on?envelope(sb):null;map.getSource('env').setData(e?turf.featureCollection([e]):turf.featureCollection([]));['env-fill','env-line'].forEach(l=>map.setLayoutProperty(l,'visibility',on?'visible':'none'));}
+function renderPoolRing(){if(!map.getSource('poolring'))return;const on=$('#poolring-on').checked,sb=+$('#sb-pool').value||0;const e=on?envelope(sb):null;map.getSource('poolring').setData(e?turf.featureCollection([turf.polygonToLine(e)]):turf.featureCollection([]));map.setLayoutProperty('poolring-line','visibility',on?'visible':'none');}
+['env-on','sb-struct','poolring-on','sb-pool'].forEach(id=>$('#'+id).addEventListener('input',()=>{renderEnv();renderPoolRing();redraw();save();}));
 
-/* ============================================================ LAYER UI ============================================================ */
-function buildLayerUI(){
-  // basemap buttons
-  const bb=$('#basebar'); bb.innerHTML='';
-  Object.entries(BASEMAPS).forEach(([k,v])=>{
-    const b=document.createElement('button'); b.className='basebtn'+(k===currentBase?' active':''); b.textContent=v.label;
-    b.onclick=()=>setBasemap(k); bb.appendChild(b);
-  });
-  // year select
-  const ys=$('#yearsel'); ys.innerHTML='';
-  AERIAL_YEARS.forEach(y=>{ const o=document.createElement('option'); o.value=y;o.textContent=y; if(y===currentYear)o.selected=true; ys.appendChild(o); });
-  ys.onchange=()=>{ currentYear=+ys.value; if(currentBase==='aerial') setBasemap('aerial'); };
-  $('#yearwrap').style.display = currentBase==='aerial'?'flex':'none';
+/* ====================== LAYERS UI ====================== */
+function buildLayerUI(){const bb=$('#basebar');bb.innerHTML='';Object.entries(BASEMAPS).forEach(([k,v])=>{const b=document.createElement('button');b.className='basebtn'+(k===currentBase?' active':'');b.textContent=v.label;b.onclick=()=>setBasemap(k);bb.appendChild(b);});const ys=$('#yrsel');ys.innerHTML='';AERIAL_YEARS.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;if(y===currentYear)o.selected=true;ys.appendChild(o);});ys.onchange=()=>{currentYear=+ys.value;if(currentBase==='aerial')setBasemap('aerial');};const w=$('#ovgroups');w.innerHTML='';OVERLAYS.forEach(([g,arr])=>{const gd=document.createElement('div');gd.className='lgroup';gd.innerHTML=`<div class="gl">${g}</div>`;arr.forEach(([id,l,sw,url,on,op])=>{const row=document.createElement('div');row.className='lrow';row.innerHTML=`<input type="checkbox" id="lk-${id}" ${on?'checked':''}><span class="sw" style="background:${sw}"></span><label for="lk-${id}">${l}</label><input class="op" type="range" min="0" max="1" step="0.05" value="${op}" id="op-${id}">`;gd.appendChild(row);});w.appendChild(gd);});OVERLAYS.forEach(([,arr])=>arr.forEach(([id])=>{$('#lk-'+id).onchange=e=>toggleOv(id,e.target.checked);$('#op-'+id).oninput=e=>setOvOp(id,+e.target.value);}));}
+function setBasemap(k){currentBase=k;if(map.getLayer('base'))map.removeLayer('base');if(map.getSource('base'))map.removeSource('base');map.addSource('base',baseSource());const first=map.getLayer('ov-planimetric')?'ov-planimetric':'neighbors-line';map.addLayer({id:'base',type:'raster',source:'base',paint:{'raster-opacity':mode==='design'?0:1}},first);document.querySelectorAll('.basebtn').forEach(b=>b.classList.toggle('active',b.textContent===BASEMAPS[k].label));$('#yrwrap').style.display=k==='aerial'?'flex':'none';}
+function toggleOv(id,on){if(id==='parcels'){map.setLayoutProperty('neighbors-line','visibility',on?'visible':'none');return;}if(map.getLayer('ov-'+id))map.setLayoutProperty('ov-'+id,'visibility',on?'visible':'none');}
+function setOvOp(id,v){if(id==='parcels'){map.setPaintProperty('neighbors-line','line-opacity',v*.4);return;}if(map.getLayer('ov-'+id))map.setPaintProperty('ov-'+id,'raster-opacity',v);}
 
-  // overlay groups
-  const wrap=$('#overlaygroups'); wrap.innerHTML='';
-  OVERLAYS.forEach(([group,arr])=>{
-    const g=document.createElement('div'); g.className='lgroup';
-    g.innerHTML=`<div class="glab">${group}</div>`;
-    arr.forEach(([id,label,sw,url,on,op])=>{
-      const row=document.createElement('div'); row.className='lrow'+(on?'':' off');
-      row.innerHTML=`<input type="checkbox" id="lk-${id}" ${on?'checked':''}>
-        <span class="sw" style="background:${sw}"></span>
-        <label for="lk-${id}">${label}</label>
-        <input class="op" type="range" min="0" max="1" step="0.05" value="${op}" id="op-${id}">`;
-      g.appendChild(row);
-    });
-    wrap.appendChild(g);
-  });
-  OVERLAYS.forEach(([,arr])=>arr.forEach(([id])=>{
-    const ck=$('#lk-'+id), op=$('#op-'+id);
-    ck.addEventListener('change',()=>{ toggleOverlay(id,ck.checked); ck.closest('.lrow').classList.toggle('off',!ck.checked); });
-    op.addEventListener('input',()=>setOverlayOpacity(id,+op.value));
-  }));
+/* ====================== AI CHAT ====================== */
+const API='/api/walden-design';
+function greet(){addMsg('agent',"hey — this is your back yard at 35 walden. tell me what you're imagining: a pool off the back, hedges to screen the west line, a fire-pit corner. i'll place real, measured things on the plan and you can drag them anywhere. when it feels right, hit 🎨 and i'll paint the whole thing as a watercolor board.");setChips(['pool off the back','screen the west line with hedges','where would a pool fit?','render this as a watercolor']);}
+function addMsg(role,text){const s=$('#stream');const d=document.createElement('div');d.className='msg '+role;d.textContent=text;s.appendChild(d);s.scrollTop=s.scrollHeight;return d;}
+function setChips(arr){const c=$('#chips');c.innerHTML='';arr.forEach(t=>{const b=document.createElement('button');b.className='chip';b.textContent=t;b.onclick=()=>{$('#cinput').value=t;send();};c.appendChild(b);});}
+function planSummary(){return{units:'feet',gridBearing:GRID_BEARING,house:{centerLocal:[0,0],bbox:HBB,note:'+y points into the open back yard (west); the back wall faces +y at the maxy edge; the street/driveway is toward miny. place yard features at positive cy.'},setbacks:{structure:+$('#sb-struct').value,pool:+$('#sb-pool').value},elements:elements.map(e=>{const c=elemCentroidLocal(e);const bx=e.family==='box';return{id:e.id,type:e.type,kind:e.kind,name:e.name,cx:Math.round((bx?e.cx:c[0])*10)/10,cy:Math.round((bx?e.cy:c[1])*10)/10,wFt:Math.round(bx?e.wFt:bboxW(e)),lFt:Math.round(bx?e.lFt:bboxL(e)),rot:Math.round(e.rot||0)};})};}
+function bboxW(e){const xs=e.pts.map(p=>p[0]);return Math.max(...xs)-Math.min(...xs);}
+function bboxL(e){const ys=e.pts.map(p=>p[1]);return Math.max(...ys)-Math.min(...ys);}
+async function send(){const inp=$('#cinput');const msg=inp.value.trim();if(!msg)return;inp.value='';inp.style.height='auto';addMsg('user',msg);chatHistory.push({role:'user',content:msg});const thinking=addMsg('sys','thinking…');
+  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'chat',message:msg,plan:planSummary(),history:chatHistory.slice(-12)})});const j=await r.json();thinking.remove();
+    if(j.error){addMsg('sys','⚠ '+j.error);return;}
+    if(j.reply){addMsg('agent',j.reply);chatHistory.push({role:'assistant',content:j.reply});}
+    if(j.ops&&j.ops.length){applyOps(j.ops);}
+  }catch(e){thinking.remove();addMsg('sys','⚠ '+e.message);}
 }
-function setBasemap(k){
-  currentBase=k;
-  if(map.getLayer('base'))map.removeLayer('base');
-  if(map.getSource('base'))map.removeSource('base');
-  map.addSource('base',baseSource());
-  map.addLayer({id:'base',type:'raster',source:'base'},'ov-'+firstOverlayId());
-  document.querySelectorAll('.basebtn').forEach(b=>b.classList.toggle('active',b.textContent===BASEMAPS[k].label));
-  $('#yearwrap').style.display = k==='aerial'?'flex':'none';
-}
-function firstOverlayId(){ for(const [,arr] of OVERLAYS) for(const o of arr){ if(o[3]!=='__VECTOR__') return o[0]; } return undefined; }
-function toggleOverlay(id,on){
-  if(id==='parcels'){ ['neighbors-fill','neighbors-line','neighbors-lbl'].forEach(l=>map.setLayoutProperty(l,'visibility',on?'visible':'none')); return; }
-  if(map.getLayer('ov-'+id)) map.setLayoutProperty('ov-'+id,'visibility',on?'visible':'none');
-}
-function setOverlayOpacity(id,v){
-  if(id==='parcels'){ map.setPaintProperty('neighbors-line','line-opacity',Math.min(1,v)); map.setPaintProperty('neighbors-fill','fill-opacity',0.05*v); return; }
-  if(map.getLayer('ov-'+id)) map.setPaintProperty('ov-'+id,'raster-opacity',v);
-}
+function applyOps(ops){let placed=0,last=null;ops.forEach(o=>{
+  if(o.op==='add'){const e=addElement(o.type,{kind:o.kind,name:o.name,cx:o.cx,cy:o.cy,wFt:o.wFt,lFt:o.lFt,rot:o.rot});placed++;last=e;opReceipt(o);}
+  else if(o.op==='move'){const e=elements.find(x=>x.id===o.id);if(e&&e.family==='box'){e.cx=o.cx;e.cy=o.cy;last=e;}}
+  else if(o.op==='resize'){const e=elements.find(x=>x.id===o.id);if(e&&e.family==='box'){e.wFt=o.wFt;e.lFt=o.lFt;last=e;}}
+  else if(o.op==='rotate'){const e=elements.find(x=>x.id===o.id);if(e){e.rot=o.rot;last=e;}}
+  else if(o.op==='delete'){elements=elements.filter(x=>x.id!==o.id);}
+  else if(o.op==='rename'){const e=elements.find(x=>x.id===o.id);if(e)e.name=o.name;}
+});save();if(last){selectedId=last.id;const c=local2ll(...elemCentroidLocal(last));map.easeTo({center:c,duration:400});}redraw();if(selected())openInspector();}
+function opReceipt(o){const s=$('#stream');const d=document.createElement('div');d.className='opcard';d.innerHTML=`<div class="oc-h"><span class="dot" style="background:${(DEFS[o.type]||{}).fill||'#888'}"></span>${o.name||o.type} · ${Math.round(o.wFt)}×${Math.round(o.lFt)} ft</div><div class="oc-sub">placed ${o.rot?('rotated '+Math.round(o.rot)+'°'):'squared to house'}</div>`;s.appendChild(d);s.scrollTop=s.scrollHeight;}
 
-/* ============================================================ SCENARIOS / PERSIST ============================================================ */
-function stateObj(){
-  return { objects, uid, base:currentBase, year:currentYear,
-    sb:{struct:+$('#sb-struct').value, pool:+$('#sb-pool').value, env:$('#env-on').checked, ring:$('#poolring-on').checked} };
+/* ====================== RENDER (watercolor) ====================== */
+async function renderBoard(extra){
+  const wasDesign=mode==='design';if(!wasDesign){mode='design';applyMode();await new Promise(r=>setTimeout(r,400));}
+  await new Promise(r=>map.once('idle',r));
+  const png=map.getCanvas().toDataURL('image/png');
+  const s=$('#stream');const card=document.createElement('div');card.className='rendercard';card.innerHTML=`<div class="rc-load"><div class="loadphrase">washing in greens…</div></div>`;s.appendChild(card);s.scrollTop=s.scrollHeight;
+  const phrases=['washing in greens…','softening the edges…','letting it dry…'];let pi=0;const ph=setInterval(()=>{pi=(pi+1)%phrases.length;const el=card.querySelector('.loadphrase');if(el)el.textContent=phrases[pi];},3500);
+  const ctx=`~0.5-acre R-20 parcel in Tarrytown NY. Elements present: ${elements.map(e=>e.name).join(', ')||'bare lot'}. Keep orientation as shown.`;
+  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'render',image:png,context:ctx,instruction:extra||''})});const j=await r.json();clearInterval(ph);
+    if(j.error||!j.image){card.innerHTML=`<div class="rc-cap">⚠ ${j.error||'render failed'}</div>`;return;}
+    const src=`data:${j.mimeType||'image/png'};base64,${j.image}`;
+    card.innerHTML=`<img class="rc-img" src="${src}"><div class="rc-cap"><span>watercolor · ${Math.round((j.ms||0)/1000)}s</span><span class="rc-acts"><button data-act="overlay">overlay</button><button data-act="open">open</button><button data-act="dl">download</button></span></div>`;
+    card.querySelector('[data-act="overlay"]').onclick=()=>showOverlay(src);
+    card.querySelector('[data-act="open"]').onclick=()=>window.open(src,'_blank');
+    card.querySelector('[data-act="dl"]').onclick=()=>{const a=document.createElement('a');a.href=src;a.download='walden-watercolor.png';a.click();};
+    showOverlay(src);
+  }catch(e){clearInterval(ph);card.innerHTML=`<div class="rc-cap">⚠ ${e.message}</div>`;}
 }
-function applyState(s){
-  objects=s.objects||[]; uid=s.uid||(objects.reduce((m,o)=>Math.max(m,o.id),0)+1);
-  if(s.sb){ $('#sb-struct').value=s.sb.struct; $('#sb-pool').value=s.sb.pool; $('#env-on').checked=s.sb.env; $('#poolring-on').checked=s.sb.ring; }
-  if(s.base){ currentYear=s.year||2025; setBasemap(s.base); }
-}
-function saveState(){ try{ localStorage.setItem(STORE,JSON.stringify(stateObj())); }catch(e){} }
-function loadState(){ try{ const r=localStorage.getItem(STORE); if(!r)return false; applyState(JSON.parse(r)); return true; }catch(e){ return false; } }
+function showOverlay(src){$('#renderimg').src=src;$('#renderlayer').style.display='block';$('#renderctl').classList.add('show');$('#renderop').value=1;$('#renderimg').style.opacity=1;}
+$('#renderop').oninput=e=>{$('#renderimg').style.opacity=e.target.value;};
+$('#renderclose').onclick=()=>{$('#renderlayer').style.display='none';$('#renderctl').classList.remove('show');};
 
-$('#sc-save').onclick=()=>{ const n=prompt('Save scenario as:','scenario '+(sceneNames().length+1)); if(!n)return; const o=scenes(); o[n]=stateObj(); localStorage.setItem(SCENES,JSON.stringify(o)); restoreSceneList(); };
-$('#sc-print').onclick=()=>window.print();
-$('#sc-reset').onclick=()=>{ if(confirm('Reset to a single default pool?')){ objects=[]; uid=1; addObject('pool-rect',{center:[...CENTER],wFt:18,lFt:36,name:'Pool'}); $('#sb-struct').value=25;$('#sb-pool').value=15;$('#env-on').checked=true;$('#poolring-on').checked=false; saveState(); renderEnvelope(); redraw(); } };
-$('#sc-load').onclick=()=>{ const n=$('#sc-sel').value; if(!n)return; const o=scenes(); if(o[n]){ applyState(JSON.parse(JSON.stringify(o[n]))); renderEnvelope(); redraw(); saveState(); } };
-$('#sc-del').onclick=()=>{ const n=$('#sc-sel').value; if(!n)return; if(confirm(`Delete "${n}"?`)){ const o=scenes(); delete o[n]; localStorage.setItem(SCENES,JSON.stringify(o)); restoreSceneList(); } };
-function scenes(){ try{ return JSON.parse(localStorage.getItem(SCENES)||'{}'); }catch(e){ return {}; } }
-function sceneNames(){ return Object.keys(scenes()); }
-function restoreSceneList(){ const names=sceneNames(); const sel=$('#sc-sel'); sel.innerHTML='<option value="">— saved —</option>'+names.map(n=>`<option>${n}</option>`).join(''); $('#sc-loadrow').style.display=names.length?'flex':'none'; }
+/* ====================== PERSIST ====================== */
+function stateObj(){return{elements,uid,mode,gridOn,base:currentBase,year:currentYear,sb:{struct:+$('#sb-struct').value,pool:+$('#sb-pool').value,env:$('#env-on').checked,ring:$('#poolring-on').checked}};}
+function applyState(s){elements=s.elements||[];uid=s.uid||(elements.reduce((m,e)=>Math.max(m,+(''+e.id).replace('el_','')||0),0)+1);if(s.sb){$('#sb-struct').value=s.sb.struct;$('#sb-pool').value=s.sb.pool;$('#env-on').checked=s.sb.env;$('#poolring-on').checked=s.sb.ring;}}
+function save(){try{localStorage.setItem(STORE,JSON.stringify(stateObj()));}catch(_){}}
+function loadState(){try{const r=localStorage.getItem(STORE);if(!r)return false;applyState(JSON.parse(r));return true;}catch(_){return false;}}
+function scenes(){try{return JSON.parse(localStorage.getItem(SCENES)||'{}');}catch(_){return{};}}
+function restoreScenes(){const n=Object.keys(scenes());const sel=$('#sc-sel');sel.innerHTML='<option value="">— saved —</option>'+n.map(x=>`<option>${x}</option>`).join('');}
+$('#sc-save').onclick=()=>{const n=prompt('save scenario as:','scheme '+(Object.keys(scenes()).length+1));if(!n)return;const o=scenes();o[n]=stateObj();localStorage.setItem(SCENES,JSON.stringify(o));restoreScenes();};
+$('#sc-load').onclick=()=>{const n=$('#sc-sel').value;if(!n)return;const o=scenes();if(o[n]){applyState(JSON.parse(JSON.stringify(o[n])));renderEnv();redraw();save();closeInspector();}};
+$('#sc-del').onclick=()=>{const n=$('#sc-sel').value;if(!n)return;if(confirm(`delete "${n}"?`)){const o=scenes();delete o[n];localStorage.setItem(SCENES,JSON.stringify(o));restoreScenes();}};
+$('#sc-clear').onclick=()=>{if(elements.length&&confirm('clear everything you\'ve drawn?')){elements=[];selectedId=null;save();redraw();closeInspector();}};
+$('#sc-reset').onclick=()=>{if(confirm('reset to a single pool?')){elements=[];uid=1;addElement('pool',{cx:0,cy:HBB.maxy+22,name:'Pool'});$('#sb-struct').value=25;$('#sb-pool').value=15;save();renderEnv();redraw();}};
 
-/* ============================================================ REFERENCE UI ============================================================ */
-function buildRefUI(){
-  $('#ref-facts').innerHTML = [
-    ['Address',PARCEL.address],['Owner',PARCEL.owner],['Tax parcel (print key)',PARCEL.printkey],
-    ['SBL',PARCEL.sbl],['SWIS',PARCEL.swis],['Municipality',PARCEL.muni],['School district',PARCEL.school],
-    ['Property class',PARCEL.propClass],['Lot area',`${PARCEL.areaSf.toLocaleString()} sf (${PARCEL.acres} ac)`],
-  ].map(([k,v])=>`<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
-  $('#ref-zoning').innerHTML = `
-    <div class="kv"><span class="k">District</span><span class="v">${ZONING.code} — ${ZONING.name}</span></div>
-    <div class="kv"><span class="k">Min lot area</span><span class="v">${ZONING.minLot.toLocaleString()} sf</span></div>
-    <div class="kv"><span class="k">This lot</span><span class="v">${PARCEL.areaSf.toLocaleString()} sf ✓</span></div>
-    <div class="kv"><span class="k">Max height</span><span class="v">${ZONING.maxHeight} ft</span></div>
-    <div class="kv"><span class="k">Max bldg coverage</span><span class="v">${ZONING.bldgCover}%</span></div>
-    <p style="margin-top:8px;color:var(--mute);font-size:11.5px">${ZONING.source}. Setback values in this tool are <b>editable placeholders</b> — pull the real front/side/rear &amp; pool setbacks from the Village of Tarrytown zoning code, then dial them in above.</p>`;
-  $('#ref-sources').innerHTML = `<ul>
-    <li>Parcel geometry — <a href="${PARCEL_LAYER}" target="_blank" rel="noreferrer">Westchester County Municipal Tax Parcels · Tarrytown (layer 463)</a></li>
-    <li>Aerials, contours, planimetrics — Westchester County GIS map services</li>
-    <li>Zoning, wetlands, flood, soils, slopes — Westchester DataHub Environment &amp; Planning</li>
-    <li><a href="https://giswww.westchestergov.com/gallery/" target="_blank" rel="noreferrer">Westchester County GIS gallery / parcel viewer</a></li>
-  </ul><p style="color:var(--mute);font-size:11.5px">County boundaries are approximate and not a survey.</p>`;
-}
+/* ====================== UI WIRING ====================== */
+$('#modepill').querySelectorAll('button').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;applyMode();if(mode==='design'&&currentBase==='aerial')map.setPaintProperty('base','raster-opacity',0);});
+$('#gridbtn').onclick=toggleGrid;
+$('#printbtn').onclick=()=>window.print();
+function togglePop(id){['layerpop','scenepop'].forEach(p=>{if(p===id)$('#'+p).classList.toggle('show');else $('#'+p).classList.remove('show');});}
+$('#layersbtn').onclick=()=>togglePop('layerpop');
+$('#scenebtn').onclick=()=>togglePop('scenepop');
+$('#chattoggle').onclick=()=>$('#chat').classList.toggle('collapsed');
+$('#chatcollapse').onclick=()=>$('#chat').classList.toggle('collapsed');
+$('#sendbtn').onclick=send;
+$('#renderbtn').onclick=()=>renderBoard('');
+$('#cinput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+$('#cinput').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(120,e.target.scrollHeight)+'px';});
+document.addEventListener('click',e=>{if(!e.target.closest('.pop')&&!e.target.closest('#layersbtn')&&!e.target.closest('#scenebtn')){$('#layerpop').classList.remove('show');$('#scenepop').classList.remove('show');}});
 
-/* ============================================================ utils + boot ============================================================ */
-function $(s){ return document.querySelector(s); }
-// panel collapse
-document.querySelectorAll('.panel > .ptitle').forEach(t=>t.addEventListener('click',()=>t.parentElement.classList.toggle('collapsed')));
 initMap();
 </script>
 </body>
