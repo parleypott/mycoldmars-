@@ -109,6 +109,7 @@
   <input id="key" type="text" placeholder="paste Maps key (AIza…)" spellcheck="false">
   <button id="go">load my property</button>
   <p style="font-size:11px;color:var(--mute)">Key stays in this browser only.</p>
+  <p style="text-align:center;margin-top:10px"><a id="skip2d" href="#" style="font-size:13px;color:var(--accent);text-decoration:none">skip — just design in 2D →</a></p>
 </div></div>
 
 <script src="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Cesium.js"></script>
@@ -187,7 +188,8 @@ async function boot(key){
   ctl.maximumZoomDistance=320; // can't zoom out to the globe
   $('#loading').remove();
 }
-$('#go').onclick=()=>{const k=$('#key').value.trim();if(!k)return;localStorage.setItem('walden-maps-key',k);boot(k);};
+$('#go').onclick=()=>{const k=$('#key').value.trim();if(!k)return;localStorage.setItem('walden-maps-key',k);boot(k);setMode('3d');};
+$('#skip2d').onclick=(e)=>{e.preventDefault();$('#gate').classList.add('hide');setMode('2d');};
 $('#key').addEventListener('keydown',e=>{if(e.key==='Enter')$('#go').click();});
 
 /* ============ 2D schematic (clean drawing of the SAME lot + house) ============ */
@@ -349,14 +351,14 @@ function setMode(m){
   document.querySelectorAll('#bar button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
   const act=document.querySelector('#bar button.on');$('#bar .gl').style.width=act.offsetWidth+'px';$('#bar .gl').style.transform=`translateX(${act.offsetLeft-4}px)`;
   if(m==='2d'){build2D();buildDesignUI();$('#c2d').classList.add('show');$('#title').classList.add('dark');$('#subt').textContent='design · place, drag, measure setbacks';$('#hint').style.display='none';applyRot2d();}
-  else{$('#c2d').classList.remove('show');$('#title').classList.remove('dark');$('#subt').textContent='photoreal · isolated to your lot';$('#hint').style.display='';setPlace(null);}
+  else{$('#c2d').classList.remove('show');$('#title').classList.remove('dark');$('#subt').textContent='photoreal · isolated to your lot';$('#hint').style.display='';setPlace(null);if(!localStorage.getItem('walden-maps-key'))$('#gate').classList.remove('hide');}
 }
 document.querySelectorAll('#bar button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
 
 /* boot: reuse stored key if present (same origin as photoreal.html) */
 const saved=localStorage.getItem('walden-maps-key');
-if(saved){$('#key').value=saved;boot(saved);}
-setMode('3d');
+if(saved){$('#key').value=saved;boot(saved);setMode('3d');}
+else{$('#gate').classList.add('hide');setMode('2d');}  // design works without the Google key; only 3D photoreal needs it
 </script>
 </body>
 </html>
