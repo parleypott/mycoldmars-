@@ -30,11 +30,28 @@
   #card button{margin-top:10px;width:100%;padding:12px;border:none;border-radius:9px;background:var(--ink);color:#fff;font-weight:600;cursor:pointer}
   .cesium-viewer-bottom,.cesium-widget-credits{display:none!important}
   #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#9a8;font-family:ui-monospace,monospace;z-index:5}
+  /* 2D compass + lock */
+  #compass{position:absolute;top:64px;right:22px;width:64px;height:64px;z-index:12;cursor:grab;touch-action:none;filter:drop-shadow(0 2px 6px rgba(43,39,34,.18))}
+  #compass.locked{cursor:not-allowed;opacity:.92}
+  #compass.dragging{cursor:grabbing}
+  #compass svg{width:100%;height:100%}
+  #lockBtn{position:absolute;top:130px;right:30px;z-index:12;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:15px;box-shadow:0 2px 6px rgba(43,39,34,.18)}
+  #lockBtn.locked{background:#2B2722}
+  #c2d:not(.show) #compass,#c2d:not(.show) #lockBtn,#c2d:not(.show) #scalebar2d{display:none}
+  #scalebar2d{position:absolute;bottom:24px;left:24px;z-index:12;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--ink2)}
+  #scalebar2d .sb-tick{display:inline-block;width:60px;height:5px;background:linear-gradient(90deg,#2B2722 50%,transparent 50%);background-size:30px 5px;border:1px solid #2B2722;vertical-align:middle}
+  #scalebar2d .sb-l{margin:0 4px}
 </style>
 </head>
 <body>
 <div id="c3d"></div>
-<div id="c2d"><div id="svgwrap"></div></div>
+<div id="c2d"><div id="svgwrap"></div>
+  <div id="compass" title="drag to rotate the plan">
+    <svg viewBox="-30 -30 60 60" id="compassSvg"><circle r="26" fill="#fff" stroke="#2B2722" stroke-width="1"/><g id="needle"><path d="M0,-20 L5,8 L0,3 L-5,8 Z" fill="#B0552E"/><path d="M0,20 L4,-3 L0,1 L-4,-3 Z" fill="#9c948a"/></g><text y="-19" font-size="7" text-anchor="middle" fill="#2B2722" font-weight="700" font-family="ui-monospace,monospace">N</text></svg>
+  </div>
+  <button id="lockBtn" title="lock this orientation">🔓</button>
+  <div id="scalebar2d"><span class="sb-tick"></span><span class="sb-l">0</span><span class="sb-r">20 ft</span></div>
+</div>
 <div id="loading">isolating your property…</div>
 <div id="title"><div class="t">35 Walden Road</div><div class="s" id="subt">photoreal · isolated to your lot</div></div>
 <div id="bar"><div class="gl"></div><button data-m="3d" class="on">3D model</button><button data-m="2d">2D schematic</button></div>
@@ -59,6 +76,9 @@ const PARCEL_EN=[[73.9,30.7],[-37.9,92.6],[-39.6,88.5],[-82.2,-7.9],[-92.1,-36.4
 const HOUSE_EN=[[17,38.5],[-8.8,33.7],[-5.3,15.7],[-6.1,14],[-9.9,13.3],[-6.8,-9.2],[-13.3,-11.7],[-10.2,-27.3],[-3.2,-26.9],[-0.6,-41.9],[29.9,-36.4],[17.2,38.3],[17,38.5]];
 const $=s=>document.querySelector(s);
 function showErr(m){const e=$('#err');e.textContent=m;e.style.display='block';}
+/* 2D orientation state — persisted "forever until unlock" */
+let plan2dRot=+(localStorage.getItem('walden-2d-rot')||0);
+let plan2dLocked=localStorage.getItem('walden-2d-locked')==='1';
 
 /* ============ 3D ============ */
 let viewer;
@@ -117,6 +137,9 @@ function build2D(){
   const lotW=Math.round(maxE-minE), lotH=Math.round(maxN-minN);
   // dimension line helper (horizontal, along bottom)
   const dimY=Y(minN)+12;
+  const cx=W/2, cy=H/2; // rotation pivot = sheet center
+  const hcx=(Math.min(...HOUSE_EN.map(p=>p[0]))+Math.max(...HOUSE_EN.map(p=>p[0])))/2;
+  const hcy=(Math.min(...HOUSE_EN.map(p=>p[1]))+Math.max(...HOUSE_EN.map(p=>p[1])))/2;
   const svg=`
   <svg viewBox="0 0 ${W} ${H}" style="width:min(92vw,${W*5}px);height:auto;max-height:88vh;font-family:ui-monospace,Menlo,monospace" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -124,35 +147,46 @@ function build2D(){
         <line x1="0" y1="0" x2="0" y2="3" stroke="#b9ad8e" stroke-width="0.5"/>
       </pattern>
     </defs>
-    <!-- lot fill (subtle) -->
-    <polygon points="${ptsStr(PARCEL_EN)}" fill="#eadfc4" stroke="none"/>
-    <!-- property line: heavy -->
-    <polyline points="${ptsStr(PARCEL_EN)}" fill="none" stroke="#2B2722" stroke-width="1.4" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
-    <!-- house footprint: poché -->
-    <polygon points="${ptsStr(HOUSE_EN)}" fill="url(#hatch)" stroke="#2B2722" stroke-width="1" vector-effect="non-scaling-stroke"/>
-    <text x="${X((Math.min(...HOUSE_EN.map(p=>p[0]))+Math.max(...HOUSE_EN.map(p=>p[0])))/2)}" y="${Y((Math.min(...HOUSE_EN.map(p=>p[1]))+Math.max(...HOUSE_EN.map(p=>p[1])))/2)}" font-size="5" text-anchor="middle" fill="#2B2722" font-weight="bold">HOUSE</text>
-    <!-- overall lot dimension (bounding) -->
-    <line x1="${X(minE)}" y1="${dimY}" x2="${X(maxE)}" y2="${dimY}" stroke="#8a7a5c" stroke-width="0.6" vector-effect="non-scaling-stroke"/>
-    <line x1="${X(minE)}" y1="${dimY-3}" x2="${X(minE)}" y2="${dimY+3}" stroke="#8a7a5c" stroke-width="0.6" vector-effect="non-scaling-stroke"/>
-    <line x1="${X(maxE)}" y1="${dimY-3}" x2="${X(maxE)}" y2="${dimY+3}" stroke="#8a7a5c" stroke-width="0.6" vector-effect="non-scaling-stroke"/>
-    <rect x="${X((minE+maxE)/2)-13}" y="${dimY-3}" width="26" height="6" fill="#F4ECD8"/>
-    <text x="${X((minE+maxE)/2)}" y="${dimY+1.6}" font-size="4.4" text-anchor="middle" fill="#5A534A">${lotW}'-0" (E–W)</text>
-    <!-- north arrow -->
-    <g transform="translate(${W-16},16)"><circle r="6" fill="#fff" stroke="#2B2722" stroke-width="0.5"/><path d="M0,-5 L2,3 L0,1 L-2,3 Z" fill="#2B2722"/><text y="-7" font-size="4" text-anchor="middle" fill="#2B2722">N</text></g>
-    <!-- scale bar (20 ft) -->
-    <g transform="translate(${pad},${H-8})"><rect x="0" y="0" width="10" height="1.6" fill="#2B2722"/><rect x="10" y="0" width="10" height="1.6" fill="none" stroke="#2B2722" stroke-width="0.4"/><text x="0" y="5.5" font-size="3.6" fill="#5A534A">0</text><text x="20" y="5.5" font-size="3.6" fill="#5A534A" text-anchor="middle">20 ft</text></g>
-    <!-- title -->
-    <text x="${pad}" y="${pad-8}" font-size="5" fill="#2B2722" font-weight="bold">35 WALDEN ROAD — SITE PLAN</text>
-    <text x="${pad}" y="${pad-2.5}" font-size="3.4" fill="#8a7a5c">TARRYTOWN NY · 0.54 ac · R-20 · existing condition</text>
+    <g id="rot2dG" transform="rotate(${plan2dRot} ${cx} ${cy})">
+      <polygon points="${ptsStr(PARCEL_EN)}" fill="#eadfc4" stroke="none"/>
+      <polyline points="${ptsStr(PARCEL_EN)}" fill="none" stroke="#2B2722" stroke-width="1.4" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+      <polygon points="${ptsStr(HOUSE_EN)}" fill="url(#hatch)" stroke="#2B2722" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      <text x="${X(hcx)}" y="${Y(hcy)}" font-size="5" text-anchor="middle" fill="#2B2722" font-weight="bold" transform="rotate(${-plan2dRot} ${X(hcx)} ${Y(hcy)})">HOUSE</text>
+      <line x1="${X(minE)}" y1="${dimY}" x2="${X(maxE)}" y2="${dimY}" stroke="#8a7a5c" stroke-width="0.6" vector-effect="non-scaling-stroke"/>
+      <line x1="${X(minE)}" y1="${dimY-3}" x2="${X(minE)}" y2="${dimY+3}" stroke="#8a7a5c" stroke-width="0.6" vector-effect="non-scaling-stroke"/>
+      <line x1="${X(maxE)}" y1="${dimY-3}" x2="${X(maxE)}" y2="${dimY+3}" stroke="#8a7a5c" stroke-width="0.6" vector-effect="non-scaling-stroke"/>
+      <rect x="${X((minE+maxE)/2)-13}" y="${dimY-3}" width="26" height="6" fill="#F4ECD8" transform="rotate(${-plan2dRot} ${X((minE+maxE)/2)} ${dimY})"/>
+      <text x="${X((minE+maxE)/2)}" y="${dimY+1.6}" font-size="4.4" text-anchor="middle" fill="#5A534A" transform="rotate(${-plan2dRot} ${X((minE+maxE)/2)} ${dimY})">${lotW}'-0" (E–W)</text>
+    </g>
   </svg>`;
   $('#svgwrap').innerHTML=svg;
+  applyRot2d();
 }
+
+/* ============ compass: drag to orient, lock to freeze ============ */
+function applyRot2d(){
+  const svg=$('#svgwrap svg'); if(svg){const g=svg.querySelector('#rot2dG');const vb=svg.viewBox.baseVal;if(g)g.setAttribute('transform',`rotate(${plan2dRot} ${vb.width/2} ${vb.height/2})`);}
+  const n=$('#needle'); if(n) n.setAttribute('transform',`rotate(${-plan2dRot})`);
+  $('#compass').classList.toggle('locked',plan2dLocked);
+  $('#lockBtn').classList.toggle('locked',plan2dLocked);
+  $('#lockBtn').textContent=plan2dLocked?'🔒':'🔓';
+  $('#lockBtn').title=plan2dLocked?'unlock orientation':'lock this orientation';
+}
+(function(){
+  const comp=$('#compass'); let drag=null;
+  const ang=e=>{const r=comp.getBoundingClientRect();return Math.atan2(e.clientY-(r.top+r.height/2),e.clientX-(r.left+r.width/2))*180/Math.PI;};
+  comp.addEventListener('pointerdown',e=>{if(plan2dLocked)return;e.preventDefault();comp.setPointerCapture(e.pointerId);comp.classList.add('dragging');drag={a:ang(e),r:plan2dRot};});
+  comp.addEventListener('pointermove',e=>{if(!drag)return;plan2dRot=Math.round(drag.r+(ang(e)-drag.a));applyRot2d();});
+  const end=()=>{if(!drag)return;comp.classList.remove('dragging');drag=null;localStorage.setItem('walden-2d-rot',plan2dRot);build2D();};
+  comp.addEventListener('pointerup',end);comp.addEventListener('pointercancel',end);
+  $('#lockBtn').addEventListener('click',()=>{plan2dLocked=!plan2dLocked;localStorage.setItem('walden-2d-locked',plan2dLocked?'1':'0');localStorage.setItem('walden-2d-rot',plan2dRot);applyRot2d();});
+})();
 
 /* ============ toggle ============ */
 function setMode(m){
   document.querySelectorAll('#bar button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
   const act=document.querySelector('#bar button.on');$('#bar .gl').style.width=act.offsetWidth+'px';$('#bar .gl').style.transform=`translateX(${act.offsetLeft-4}px)`;
-  if(m==='2d'){if(!$('#svgwrap').innerHTML)build2D();$('#c2d').classList.add('show');$('#title').classList.add('dark');$('#subt').textContent='schematic · same lot, top-down';$('#hint').style.display='none';}
+  if(m==='2d'){if(!$('#svgwrap').innerHTML)build2D();$('#c2d').classList.add('show');$('#title').classList.add('dark');$('#subt').textContent='schematic · drag the compass to orient';$('#hint').style.display='none';applyRot2d();}
   else{$('#c2d').classList.remove('show');$('#title').classList.remove('dark');$('#subt').textContent='photoreal · isolated to your lot';$('#hint').style.display='';}
 }
 document.querySelectorAll('#bar button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
