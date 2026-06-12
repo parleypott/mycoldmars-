@@ -41,6 +41,38 @@
   #scalebar2d{position:absolute;bottom:24px;left:24px;z-index:12;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--ink2)}
   #scalebar2d .sb-tick{display:inline-block;width:60px;height:5px;background:linear-gradient(90deg,#2B2722 50%,transparent 50%);background-size:30px 5px;border:1px solid #2B2722;vertical-align:middle}
   #scalebar2d .sb-l{margin:0 4px}
+  /* ---- design UI ---- */
+  #palette{position:absolute;top:64px;left:18px;z-index:13;display:none;flex-direction:column;gap:3px;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:14px;padding:7px;box-shadow:0 6px 24px rgba(43,39,34,.18);max-height:80vh;overflow:auto}
+  #c2d.show #palette{display:flex}
+  #palette .pbtn{display:flex;align-items:center;gap:8px;border:1px solid transparent;background:none;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--ink2);padding:7px 13px 7px 8px;border-radius:9px;text-align:left;white-space:nowrap}
+  #palette .pbtn:hover{background:var(--paper)}
+  #palette .pbtn.on{background:var(--ink);color:#fff}
+  #palette .pico{font-size:14px;width:17px;text-align:center}
+  #palette .pclear{margin-top:3px;color:var(--mute);justify-content:center;font-size:13px}
+  #dhint{position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:16;background:var(--accent);color:#fff;font-size:12.5px;padding:7px 15px;border-radius:999px;display:none;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+  #dropz{position:absolute;top:64px;right:100px;z-index:13;display:none;align-items:center;gap:6px;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border:1px dashed var(--accent);border-radius:11px;padding:9px 14px;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--accent);box-shadow:0 4px 16px rgba(43,39,34,.14)}
+  #c2d.show #dropz{display:flex}
+  #dropz.busy{opacity:.7;cursor:wait}#dropz.drag{background:var(--accent);color:#fff}
+  #layers{position:absolute;bottom:24px;right:22px;z-index:13;display:none;flex-direction:column;gap:5px;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;padding:11px 13px;box-shadow:0 6px 24px rgba(43,39,34,.18);font-size:12px;color:var(--ink2);min-width:148px}
+  #c2d.show #layers{display:flex}
+  #layers .lh{font-family:ui-monospace,monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-bottom:1px}
+  #layers label{display:flex;align-items:center;gap:7px;cursor:pointer}
+  #layers .sbrow{display:flex;align-items:center;gap:6px;margin-top:2px}
+  #layers .sbrow span{flex:1}
+  #layers .sbrow input{width:46px;padding:3px 5px;border:1px solid var(--line);border-radius:5px;font-size:11px;font-family:ui-monospace,monospace;color:var(--ink)}
+  #dinspect{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:16;background:rgba(255,255,255,.97);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:13px;padding:12px 16px;box-shadow:0 8px 28px rgba(43,39,34,.22);display:none;min-width:290px}
+  #dinspect.show{display:block}
+  #dinspect .dh{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink)}
+  #dinspect .dh b{flex:1;text-transform:capitalize}
+  #dinspect .dsw{width:14px;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.18)}
+  #dinspect #ddel{border:none;background:none;cursor:pointer;font-size:16px;color:var(--mute);line-height:1}
+  #dinspect #ddel:hover{color:#b91c1c}
+  #dinspect .drow{display:flex;gap:13px;margin:10px 0 7px}
+  #dinspect .drow label{font-size:10.5px;color:var(--mute);display:flex;flex-direction:column;gap:3px;font-family:ui-monospace,monospace}
+  #dinspect .drow input{width:64px;padding:5px 7px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:ui-monospace,monospace;color:var(--ink)}
+  #dinspect .dclear{font-size:11.5px;font-family:ui-monospace,monospace;padding:6px 10px;border-radius:7px}
+  #dinspect .dclear.ok{background:#EDF6EC;color:#3f7a44}
+  #dinspect .dclear.bad{background:#FBEAE7;color:#b91c1c}
 </style>
 </head>
 <body>
@@ -51,6 +83,20 @@
   </div>
   <button id="lockBtn" title="lock this orientation">🔓</button>
   <div id="scalebar2d"><span class="sb-tick"></span><span class="sb-l">0</span><span class="sb-r">20 ft</span></div>
+  <div id="palette"></div>
+  <div id="dropz" title="drop a render or photo — I'll draw it to scale on your lot"><span>＋ drop a photo</span><input type="file" id="dropfile" accept="image/*"></div>
+  <div id="dhint"></div>
+  <div id="layers">
+    <div class="lh">layers</div>
+    <label><input type="checkbox" data-l="hardscape" checked> hardscape</label>
+    <label><input type="checkbox" data-l="planting" checked> planting</label>
+    <label><input type="checkbox" data-l="setback" checked> setback lines</label>
+    <label><input type="checkbox" data-l="dims" checked> dimensions</label>
+    <div class="lh" style="margin-top:6px">setbacks · ft</div>
+    <div class="sbrow"><span>building</span><input type="number" id="sb-struct2" min="0"></div>
+    <div class="sbrow"><span>pool</span><input type="number" id="sb-pool2" min="0"></div>
+  </div>
+  <div id="dinspect"></div>
 </div>
 <div id="loading">isolating your property…</div>
 <div id="title"><div class="t">35 Walden Road</div><div class="s" id="subt">photoreal · isolated to your lot</div></div>
@@ -79,6 +125,26 @@ function showErr(m){const e=$('#err');e.textContent=m;e.style.display='block';}
 /* 2D orientation state — persisted "forever until unlock" */
 let plan2dRot=+(localStorage.getItem('walden-2d-rot')||0);
 let plan2dLocked=localStorage.getItem('walden-2d-locked')==='1';
+/* ===== design engine (2D) — elements in EN feet, shared frame ===== */
+const _ALL=[...PARCEL_EN,...HOUSE_EN];
+const MIN_E=Math.min(..._ALL.map(p=>p[0])),MAX_E=Math.max(..._ALL.map(p=>p[0])),MIN_N=Math.min(..._ALL.map(p=>p[1])),MAX_N=Math.max(..._ALL.map(p=>p[1]));
+const PAD=22, W2D=(MAX_E-MIN_E)+PAD*2, H2D=(MAX_N-MIN_N)+PAD*2;
+const FX=e=>e-MIN_E+PAD, FY=n=>MAX_N-n+PAD;            // feet -> svg
+const DDEFS={
+  pool:{label:'pool',w:16,l:36,fill:'#7fb6bd',stroke:'#3f7e88',kind:'rrect',ico:'◭'},
+  spa:{label:'spa',w:8,l:8,fill:'#7fb6bd',stroke:'#3f7e88',kind:'ell',ico:'◯'},
+  deck:{label:'deck',w:16,l:20,fill:'#cdb389',stroke:'#9c7a45',kind:'rect',ico:'▭'},
+  patio:{label:'patio',w:18,l:18,fill:'#ccc6b4',stroke:'#8a8268',kind:'rect',ico:'▦'},
+  bed:{label:'bed',w:6,l:14,fill:'#9aa86a',stroke:'#6c7d45',kind:'ell',ico:'⬭'},
+  hedge:{label:'hedge',w:2.5,l:20,fill:'#5f7245',stroke:'#4c5d38',kind:'rect',ico:'∿'},
+  tree:{label:'tree',w:18,l:18,fill:'#84945a',stroke:'#5d6b3a',kind:'circ',ico:'♣'},
+  firepit:{label:'fire pit',w:6,l:6,fill:'#b06a4a',stroke:'#7a3f2a',kind:'circ',ico:'◉'},
+  path:{label:'path',w:4,l:24,fill:'#d8cdae',stroke:'#a99a72',kind:'rect',ico:'⌇'},
+};
+const DORDER=['pool','spa','deck','patio','bed','hedge','tree','firepit','path'];
+let dElements=[], dSel=null, dUid=1, placeType=null;
+(function(){try{const s=JSON.parse(localStorage.getItem('walden-design')||'null');if(s&&s.els){dElements=s.els;dUid=s.uid||(dElements.length+1);}}catch(_){}})();
+function dSave(){try{localStorage.setItem('walden-design',JSON.stringify({els:dElements,uid:dUid}));}catch(_){}}
 
 /* ============ 3D ============ */
 let viewer;
@@ -157,10 +223,13 @@ function build2D(){
       <line x1="${X(maxE)}" y1="${dimY-3}" x2="${X(maxE)}" y2="${dimY+3}" stroke="#8a7a5c" stroke-width="0.6" vector-effect="non-scaling-stroke"/>
       <rect x="${X((minE+maxE)/2)-13}" y="${dimY-3}" width="26" height="6" fill="#F4ECD8" transform="rotate(${-plan2dRot} ${X((minE+maxE)/2)} ${dimY})"/>
       <text x="${X((minE+maxE)/2)}" y="${dimY+1.6}" font-size="4.4" text-anchor="middle" fill="#5A534A" transform="rotate(${-plan2dRot} ${X((minE+maxE)/2)} ${dimY})">${lotW}'-0" (E–W)</text>
+      <g id="setbackG"></g>
+      <g id="designG"></g>
     </g>
   </svg>`;
   $('#svgwrap').innerHTML=svg;
   applyRot2d();
+  renderDesign();
 }
 
 /* ============ compass: drag to orient, lock to freeze ============ */
@@ -182,12 +251,105 @@ function applyRot2d(){
   $('#lockBtn').addEventListener('click',()=>{plan2dLocked=!plan2dLocked;localStorage.setItem('walden-2d-locked',plan2dLocked?'1':'0');localStorage.setItem('walden-2d-rot',plan2dRot);applyRot2d();});
 })();
 
+/* ============ DESIGN ENGINE (2D) ============ */
+let sbStruct=+(localStorage.getItem('walden-sb-struct')||25), sbPool=+(localStorage.getItem('walden-sb-pool')||15);
+let dLayers={planting:true,hardscape:true,setback:true,dims:true};
+function svgEl(){return $('#svgwrap svg');}
+function screenToFeet(cx,cy){const svg=svgEl(),g=svg&&svg.querySelector('#rot2dG');if(!g)return null;const pt=svg.createSVGPoint();pt.x=cx;pt.y=cy;const m=g.getScreenCTM();if(!m)return null;const loc=pt.matrixTransform(m.inverse());return [loc.x-PAD+MIN_E, MAX_N-(loc.y-PAD)];}
+function elCorners(el){const hw=el.wFt/2,hl=el.lFt/2,r=(el.rot||0)*Math.PI/180,c=Math.cos(r),s=Math.sin(r);return [[-hw,-hl],[hw,-hl],[hw,hl],[-hw,hl]].map(([x,y])=>[el.e+(x*c-y*s),el.n+(x*s+y*c)]);}
+function pSeg(px,py,ax,ay,bx,by){const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;let t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0;t=Math.max(0,Math.min(1,t));return Math.hypot(px-(ax+t*dx),py-(ay+t*dy));}
+function distToLotLine(e,n){let m=Infinity;for(let i=0;i<PARCEL_EN.length-1;i++){const d=pSeg(e,n,PARCEL_EN[i][0],PARCEL_EN[i][1],PARCEL_EN[i+1][0],PARCEL_EN[i+1][1]);if(d<m)m=d;}return m;}
+function elClearance(el){let m=Infinity;elCorners(el).forEach(c=>{const d=distToLotLine(c[0],c[1]);if(d<m)m=d;});return m;}
+function lineInt(a,b){const[x1,y1,x2,y2]=a,[x3,y3,x4,y4]=b;const den=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);if(Math.abs(den)<1e-6)return null;const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/den;return [x1+t*(x2-x1),y1+t*(y2-y1)];}
+function insetPolygon(ring,d){const pts=ring.slice(0,-1),n=pts.length;let area=0;for(let i=0;i<n;i++){const a=pts[i],b=pts[(i+1)%n];area+=a[0]*b[1]-b[0]*a[1];}const ccw=area>0?1:-1;const lines=[];for(let i=0;i<n;i++){const a=pts[i],b=pts[(i+1)%n];const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;const nx=(-dy/len)*ccw,ny=(dx/len)*ccw;lines.push([a[0]+nx*d,a[1]+ny*d,b[0]+nx*d,b[1]+ny*d]);}const out=[];for(let i=0;i<n;i++){const p=lineInt(lines[(i-1+n)%n],lines[i]);out.push(p||pts[i]);}out.push(out[0]);return out;}
+const isPlanting=t=>(t==='bed'||t==='hedge'||t==='tree');
+function addElem(type,e,n){const d=DDEFS[type];const el={id:'d'+(dUid++),type,e:Math.round(e*10)/10,n:Math.round(n*10)/10,wFt:d.w,lFt:d.l,rot:0};dElements.push(el);dSave();return el;}
+function setPlace(t){placeType=t;document.querySelectorAll('#palette .pbtn').forEach(b=>b.classList.toggle('on',b.dataset.t===t));$('#svgwrap').style.cursor=t?'crosshair':'';$('#dhint').style.display=t?'block':'none';if(t)$('#dhint').textContent='click on the plan to place the '+(DDEFS[t].label);}
+function renderDesign(){
+  const svg=svgEl();if(!svg)return;const dg=svg.querySelector('#designG'),sg=svg.querySelector('#setbackG');if(!dg||!sg)return;
+  sg.innerHTML = (dLayers.setback) ? `<polygon points="${insetPolygon(PARCEL_EN,sbStruct).map(p=>`${FX(p[0]).toFixed(1)},${FY(p[1]).toFixed(1)}`).join(' ')}" fill="#3fae5a" fill-opacity="0.06" stroke="#3fae5a" stroke-width="1" stroke-dasharray="3 2" vector-effect="non-scaling-stroke"/>` : '';
+  let html='';
+  dElements.forEach(el=>{
+    const d=DDEFS[el.type]||{};const sel=el.id===dSel;const cxs=FX(el.e),cys=FY(el.n),w=el.wFt,l=el.lFt;
+    if(isPlanting(el.type)&&!dLayers.planting)return;
+    if(!isPlanting(el.type)&&!dLayers.hardscape)return;
+    const req=(el.type==='pool'||el.type==='spa')?sbPool:sbStruct;const ev=elClearance(el);const bad=ev<req-0.05;
+    const stroke=bad?'#b91c1c':d.stroke;const rot=`transform="rotate(${-(el.rot||0)} ${cxs} ${cys})"`;
+    let shape;
+    if(el.type==='tree'||el.type==='firepit'||d.kind==='circ')shape=`<circle cx="${cxs}" cy="${cys}" r="${w/2}" fill="${d.fill}" fill-opacity=".82" stroke="${stroke}" stroke-width="${sel?1.6:1}" vector-effect="non-scaling-stroke"/>`;
+    else if(d.kind==='ell')shape=`<ellipse cx="${cxs}" cy="${cys}" rx="${w/2}" ry="${l/2}" ${rot} fill="${d.fill}" fill-opacity=".8" stroke="${stroke}" stroke-width="${sel?1.6:1}" vector-effect="non-scaling-stroke"/>`;
+    else shape=`<rect x="${cxs-w/2}" y="${cys-l/2}" width="${w}" height="${l}" rx="${d.kind==='rrect'?2:0}" ${rot} fill="${d.fill}" fill-opacity=".8" stroke="${stroke}" stroke-width="${sel?1.8:1}" vector-effect="non-scaling-stroke"/>`;
+    html+=`<g class="delem" data-id="${el.id}">${shape}`;
+    if(dLayers.dims){const t=el.type==='tree'?`⌀${Math.round(w)}'`:`${Math.round(w)}'×${Math.round(l)}'`;html+=`<text x="${cxs}" y="${cys}" font-size="3.4" text-anchor="middle" dominant-baseline="middle" fill="#2B2722" transform="rotate(${-plan2dRot} ${cxs} ${cys})" style="pointer-events:none">${t}</text>`;}
+    if(sel)html+=`<text x="${cxs}" y="${cys-l/2-2.5}" font-size="3.2" text-anchor="middle" fill="${bad?'#b91c1c':'#3f7a44'}" transform="rotate(${-plan2dRot} ${cxs} ${cys-l/2-2.5})" style="pointer-events:none">${bad?('⚠ '+(req-ev).toFixed(1)+'ft into setback'):('✓ '+ev.toFixed(0)+'ft to line')}</text>`;
+    html+=`</g>`;
+  });
+  dg.innerHTML=html;
+}
+function openDInspect(){const el=dElements.find(x=>x.id===dSel),box=$('#dinspect');if(!el){box.classList.remove('show');return;}const d=DDEFS[el.type],req=(el.type==='pool'||el.type==='spa')?sbPool:sbStruct,ev=elClearance(el),bad=ev<req-0.05;
+  box.innerHTML=`<div class="dh"><span class="dsw" style="background:${d.fill}"></span><b>${d.label}</b><button id="ddel" title="delete">✕</button></div>
+  <div class="drow"><label>w ft<input type="number" min="2" value="${Math.round(el.wFt)}" data-k="wFt"></label><label>${el.type==='tree'?'⌀':'l ft'}<input type="number" min="2" value="${Math.round(el.lFt)}" data-k="lFt"></label><label>rot°<input type="number" step="5" value="${Math.round(el.rot||0)}" data-k="rot"></label></div>
+  <div class="dclear ${bad?'bad':'ok'}">${bad?('⚠ '+(req-ev).toFixed(1)+' ft inside the '+req+' ft setback'):('✓ '+ev.toFixed(1)+' ft to nearest lot line (setback '+req+' ft)')}</div>`;
+  box.classList.add('show');
+  box.querySelectorAll('input').forEach(i=>i.oninput=()=>{el[i.dataset.k]=parseFloat(i.value)||0;dSave();renderDesign();openDInspect();});
+  $('#ddel').onclick=()=>{dElements=dElements.filter(x=>x.id!==el.id);dSel=null;dSave();renderDesign();closeDInspect();};
+}
+function closeDInspect(){$('#dinspect').classList.remove('show');}
+/* pointer: place / select / drag */
+(function(){const c2d=$('#c2d');let dr=null;
+  c2d.addEventListener('pointerdown',e=>{
+    if(e.target.closest('#compass')||e.target.closest('#lockBtn')||e.target.closest('#palette')||e.target.closest('#dinspect')||e.target.closest('#layers')||e.target.closest('#sbctl'))return;
+    const f=screenToFeet(e.clientX,e.clientY);if(!f)return;
+    if(placeType){const el=addElem(placeType,f[0],f[1]);setPlace(null);dSel=el.id;renderDesign();openDInspect();return;}
+    const g=e.target.closest('.delem');
+    if(g){dSel=g.getAttribute('data-id');const el=dElements.find(x=>x.id===dSel);if(el){dr={id:dSel,sx:f[0],sy:f[1],e0:el.e,n0:el.n};}renderDesign();openDInspect();}
+    else{dSel=null;renderDesign();closeDInspect();}
+  });
+  c2d.addEventListener('pointermove',e=>{if(!dr)return;const f=screenToFeet(e.clientX,e.clientY);if(!f)return;const el=dElements.find(x=>x.id===dr.id);if(!el)return;el.e=Math.round((dr.e0+(f[0]-dr.sx))*10)/10;el.n=Math.round((dr.n0+(f[1]-dr.sy))*10)/10;renderDesign();openDInspect();});
+  c2d.addEventListener('pointerup',()=>{if(dr){dr=null;dSave();}});
+  addEventListener('keydown',e=>{if((e.key==='Backspace'||e.key==='Delete')&&dSel&&!/input|textarea/i.test(e.target.tagName)){dElements=dElements.filter(x=>x.id!==dSel);dSel=null;dSave();renderDesign();closeDInspect();}});
+})();
+/* palette + layers + setback wiring (built after DOM ready below) */
+function buildDesignUI(){
+  const pal=$('#palette');if(pal&&!pal.dataset.built){pal.dataset.built='1';pal.innerHTML=DORDER.map(t=>`<button class="pbtn" data-t="${t}" title="${DDEFS[t].label}"><span class="pico">${DDEFS[t].ico}</span><span>${DDEFS[t].label}</span></button>`).join('')+`<button class="pbtn pclear" id="pclear" title="clear all">🗑</button>`;
+    pal.querySelectorAll('.pbtn').forEach(b=>{if(b.id==='pclear'){b.onclick=()=>{if(dElements.length&&confirm('clear everything you have placed?')){dElements=[];dSel=null;dSave();renderDesign();closeDInspect();}};return;}b.onclick=()=>setPlace(placeType===b.dataset.t?null:b.dataset.t);});
+  }
+  const lay=$('#layers');if(lay&&!lay.dataset.built){lay.dataset.built='1';lay.querySelectorAll('input[data-l]').forEach(i=>i.onchange=()=>{dLayers[i.dataset.l]=i.checked;renderDesign();});}
+  const ss=$('#sb-struct2'),sp=$('#sb-pool2');if(ss&&!ss.dataset.b){ss.dataset.b='1';ss.value=sbStruct;sp.value=sbPool;ss.oninput=()=>{sbStruct=+ss.value||0;localStorage.setItem('walden-sb-struct',sbStruct);renderDesign();openDInspect();};sp.oninput=()=>{sbPool=+sp.value||0;localStorage.setItem('walden-sb-pool',sbPool);renderDesign();openDInspect();};}
+  wireDropzone();
+}
+/* ===== drop a photo/render -> AI draws it to scale on the fixed lot ===== */
+function showErr2(m){const e=$('#err');e.textContent=m;e.style.display='block';setTimeout(()=>e.style.display='none',7000);}
+function wireDropzone(){const dz=$('#dropz'),fi=$('#dropfile');if(!dz||dz.dataset.b)return;dz.dataset.b='1';
+  dz.onclick=e=>{if(e.target!==fi)fi.click();};
+  fi.onchange=()=>{if(fi.files[0])handlePhoto(fi.files[0]);};
+  ['dragover','dragenter'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');}));
+  ['dragleave'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');const f=e.dataTransfer&&e.dataTransfer.files[0];if(f)handlePhoto(f);});
+}
+async function handlePhoto(file){const dz=$('#dropz'),lbl=dz.querySelector('span');dz.classList.add('busy');lbl.textContent='reading the photo…';
+  try{
+    const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});
+    lbl.textContent='drawing to scale…';
+    const resp=await fetch('/api/analyze-render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:dataUrl,houseEN:HOUSE_EN,parcelEN:PARCEL_EN})});
+    const j=await resp.json();
+    if(!resp.ok||j.error){showErr2(j.error||('analyze failed ('+resp.status+')'));lbl.textContent='＋ drop a photo';dz.classList.remove('busy');return;}
+    let added=0;
+    (j.elements||[]).forEach(el=>{const d=DDEFS[el.type];if(!d)return;dElements.push({id:'d'+(dUid++),type:el.type,e:Math.round((+el.e||0)*10)/10,n:Math.round((+el.n||0)*10)/10,wFt:+el.wFt||d.w,lFt:+el.lFt||d.l,rot:+el.rot||0});added++;});
+    dSave();renderDesign();
+    lbl.textContent='✓ '+added+' placed — drag to fix';
+    if(j.reply)showErr2('🪄 '+j.reply);
+    setTimeout(()=>{lbl.textContent='＋ drop a photo';},4000);
+  }catch(err){showErr2('photo failed: '+(err.message||err));lbl.textContent='＋ drop a photo';}
+  finally{dz.classList.remove('busy');$('#dropfile').value='';}
+}
+
 /* ============ toggle ============ */
 function setMode(m){
   document.querySelectorAll('#bar button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
   const act=document.querySelector('#bar button.on');$('#bar .gl').style.width=act.offsetWidth+'px';$('#bar .gl').style.transform=`translateX(${act.offsetLeft-4}px)`;
-  if(m==='2d'){if(!$('#svgwrap').innerHTML)build2D();$('#c2d').classList.add('show');$('#title').classList.add('dark');$('#subt').textContent='schematic · drag the compass to orient';$('#hint').style.display='none';applyRot2d();}
-  else{$('#c2d').classList.remove('show');$('#title').classList.remove('dark');$('#subt').textContent='photoreal · isolated to your lot';$('#hint').style.display='';}
+  if(m==='2d'){build2D();buildDesignUI();$('#c2d').classList.add('show');$('#title').classList.add('dark');$('#subt').textContent='design · place, drag, measure setbacks';$('#hint').style.display='none';applyRot2d();}
+  else{$('#c2d').classList.remove('show');$('#title').classList.remove('dark');$('#subt').textContent='photoreal · isolated to your lot';$('#hint').style.display='';setPlace(null);}
 }
 document.querySelectorAll('#bar button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
 
