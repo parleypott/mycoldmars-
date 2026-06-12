@@ -61,7 +61,7 @@ ALL COORDINATES are image fractions: x from 0 (left) to 1 (right), y from 0 (top
 
 Also report 'view': 'top_down' (plan/satellite straight down), 'aerial_oblique' (tilted bird's-eye), or 'eye_level' (ground photo).
 
-Be thorough but honest. Only report elements you can actually see. Give a confidence 0..1 per element.`;
+Be thorough but honest. Only report elements you can actually see. Give a confidence 0..1 per element. Report the most significant elements, up to about 25 — prioritize big hardscape (pool, spa, patio, deck) and major plantings/trees over tiny repeated details. Keep the optional 'note' very short or omit it.`;
 
 const VISION_SCHEMA = {
   type: 'object',
@@ -263,7 +263,7 @@ async function callVision(image, apiKey) {
       { text: 'Survey this property. Anchor on the house (4 ground corners), then inventory every landscape element as a ground-footprint bbox. Image fractions only.' },
     ] }],
     systemInstruction: { parts: [{ text: VISION_SYSTEM }] },
-    generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: VISION_SCHEMA, maxOutputTokens: 4000 },
+    generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: VISION_SCHEMA, maxOutputTokens: 12000 },
   };
 
   let res;
@@ -282,10 +282,37 @@ async function callVision(image, apiKey) {
     return { error: quota ? 'Gemini quota exhausted — wait a minute.' : `Gemini ${res.status}: ${t.slice(0, 300)}` };
   }
   const data = await res.json().catch(() => null);
-  const txt = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
-  if (!txt) return { error: 'Vision returned nothing.' };
-  try { return { vision: JSON.parse(txt) }; }
-  catch { return { error: 'Vision returned malformed JSON.' }; }
+  const cand = data?.candidates?.[0];
+  const txt = cand?.content?.parts?.map((p) => p.text || '').join('') || '';
+  const finish = cand?.finishReason || '';
+  if (!txt) return { error: `Vision returned nothing${finish ? ' (' + finish + ')' : ''}.` };
+  const vision = parseVisionTolerant(txt);
+  if (!vision) return { error: `Vision returned unrecoverable JSON (${finish || 'parse fail'}).` };
+  vision._finish = finish;
+  return { vision };
+}
+
+// Tolerant parse: handles markdown fences AND truncated responses (MAX_TOKENS)
+// by salvaging the house anchor + every complete element object.
+function parseVisionTolerant(raw) {
+  let s = String(raw).trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+  try { return JSON.parse(s); } catch (_) { /* fall through to salvage */ }
+  const out = { house: { corners: [] }, elements: [], reply: '' };
+  // house corners — first "corners":[ ... ]
+  const hm = s.match(/"corners"\s*:\s*\[([\s\S]*?)\]/);
+  if (hm) {
+    const cs = [...hm[1].matchAll(/\{[^{}]*?"x"\s*:\s*(-?[\d.]+)[^{}]*?"y"\s*:\s*(-?[\d.]+)[^{}]*?\}/g)];
+    out.house.corners = cs.map((m) => ({ x: +m[1], y: +m[2] }));
+  }
+  // every flat object that has an x0 + a type → an element (no nesting, so [^{}] is safe)
+  const objs = [...s.matchAll(/\{[^{}]*\}/g)];
+  for (const m of objs) {
+    if (!/"x0"/.test(m[0]) || !/"type"/.test(m[0])) continue;
+    try { out.elements.push(JSON.parse(m[0])); } catch (_) { /* skip partial */ }
+  }
+  const vm = s.match(/"view"\s*:\s*"([a-z_]+)"/); if (vm) out.view = vm[1];
+  const rm = s.match(/"reply"\s*:\s*"([^"]*)"/); if (rm) out.reply = rm[1];
+  return (out.house.corners.length >= 3 || out.elements.length) ? out : null;
 }
 
 function parseImageInput(input) {
