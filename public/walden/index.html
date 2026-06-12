@@ -202,6 +202,7 @@
     <button class="tbtn" id="gridbtn" title="square to house"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="1" transform="rotate(10 12 12)"/></svg>grid</button>
     <button class="tbtn ghost" id="layersbtn">layers</button>
     <button class="tbtn ghost" id="scenebtn">scenarios</button>
+    <button class="tbtn ghost" id="checkbtn" title="site check — setbacks, walls, coverage">✓ check</button>
     <div class="tb-hair"></div>
     <button class="tbtn ghost" id="printbtn">print</button>
     <button class="tbtn ghost" id="chattoggle" title="toggle co-designer">✎</button>
@@ -263,6 +264,7 @@
     <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" id="sc-save">save…</button><button class="btn" id="sc-clear">clear drawn</button><button class="btn danger" id="sc-reset">reset</button></div>
     <div style="display:flex;gap:6px;margin-top:8px" id="sc-loadrow"><select class="scsel" id="sc-sel"><option value="">— saved —</option></select><button class="btn" id="sc-load">load</button><button class="btn danger" id="sc-del">del</button></div>
   </div>
+  <div class="pop" id="checkpop"><h3>site check</h3><div id="checkbody"></div></div>
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin="anonymous"></script>
@@ -316,12 +318,13 @@ const DEFS={
   tree:{label:'tree',family:'box',kind:'oval',w:18,l:18,color:'#5d6b3a',fill:'#84945a'},
   firepit:{label:'fire pit',family:'box',kind:'oval',w:6,l:6,color:'#9a4f33',fill:'#b06a4a'},
   path:{label:'path',family:'poly',kind:'line',width:4,color:'#a99a72',fill:'#d8cdae'},
+  wall:{label:'retaining wall',family:'poly',kind:'line',width:1.6,color:'#6b5d44',fill:'#8a7a5c',isWall:true,defH:3},
   box:{label:'box',family:'box',kind:'rect',w:20,l:20,color:'#6d5bd0',fill:'#9d8cf0'},
   shape:{label:'shape',family:'poly',kind:'polygon',color:'#6d5bd0',fill:'#9d8cf0'},
   measure:{label:'measure',family:'poly',kind:'line',width:0,color:'#be123c',fill:'#be123c'},
 };
-const PALETTE=[['pool','◭'],['spa','◯'],['deck','▭'],['patio','▦'],['bed','⬭'],['hedge','∿'],['tree','♣'],['firepit','◉'],['path','⌇'],['__div__'],['box','□'],['shape','⬠'],['measure','📏'],['clear','🗑']];
-function icon(t){const m={pool:'<rect x="4" y="7" width="16" height="10" rx="2"/>',spa:'<ellipse cx="12" cy="12" rx="7" ry="6"/>',deck:'<rect x="5" y="5" width="14" height="14" rx="1"/><path d="M9 5v14M14 5v14"/>',patio:'<rect x="5" y="5" width="14" height="14" rx="1"/><path d="M5 10h14M5 15h14M10 5v14M15 5v14"/>',bed:'<ellipse cx="12" cy="12" rx="5" ry="8"/>',hedge:'<path d="M4 14c2-4 4-4 6 0s4 4 6 0 4-4 4 0"/>',tree:'<circle cx="12" cy="11" r="6"/><path d="M12 17v4"/>',firepit:'<circle cx="12" cy="13" r="5"/><path d="M12 8c2 1 2 3 0 4"/>',path:'<path d="M5 19c4-2 4-8 8-10s6-4 6-4"/>',box:'<rect x="5" y="5" width="14" height="14" rx="1"/>',shape:'<path d="M6 8l5-3 8 4-2 9-9 1z"/>',measure:'<path d="M4 20L20 4M6 18l2-1M11 13l2-1"/>',clear:'<path d="M6 7h12M9 7V5h6v2M8 7l1 12h6l1-12"/>'};return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${m[t]||''}</svg>`;}
+const PALETTE=[['pool','◭'],['spa','◯'],['deck','▭'],['patio','▦'],['wall','▤'],['bed','⬭'],['hedge','∿'],['tree','♣'],['firepit','◉'],['path','⌇'],['__div__'],['box','□'],['shape','⬠'],['measure','📏'],['clear','🗑']];
+function icon(t){const m={pool:'<rect x="4" y="7" width="16" height="10" rx="2"/>',spa:'<ellipse cx="12" cy="12" rx="7" ry="6"/>',deck:'<rect x="5" y="5" width="14" height="14" rx="1"/><path d="M9 5v14M14 5v14"/>',patio:'<rect x="5" y="5" width="14" height="14" rx="1"/><path d="M5 10h14M5 15h14M10 5v14M15 5v14"/>',bed:'<ellipse cx="12" cy="12" rx="5" ry="8"/>',hedge:'<path d="M4 14c2-4 4-4 6 0s4 4 6 0 4-4 4 0"/>',tree:'<circle cx="12" cy="11" r="6"/><path d="M12 17v4"/>',firepit:'<circle cx="12" cy="13" r="5"/><path d="M12 8c2 1 2 3 0 4"/>',path:'<path d="M5 19c4-2 4-8 8-10s6-4 6-4"/>',wall:'<path d="M3 9h18M3 15h18M9 9v6M15 9v6M6 15v4M12 15v4M18 15v4"/>',box:'<rect x="5" y="5" width="14" height="14" rx="1"/>',shape:'<path d="M6 8l5-3 8 4-2 9-9 1z"/>',measure:'<path d="M4 20L20 4M6 18l2-1M11 13l2-1"/>',clear:'<path d="M6 7h12M9 7V5h6v2M8 7l1 12h6l1-12"/>'};return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${m[t]||''}</svg>`;}
 
 /* ====================== STATE ====================== */
 let map, mode='satellite', gridOn=false, currentBase='aerial', currentYear=2025;
@@ -461,6 +464,8 @@ function addElement(type,opts={}){
   const d=DEFS[type];const e={id:'el_'+(uid++),type,family:d.family,kind:opts.kind||d.kind,color:d.color,fill:d.fill,name:opts.name||nextName(d.label),rot:opts.rot||0};
   if(d.family==='box'){e.cx=opts.cx??0;e.cy=opts.cy??0;e.wFt=opts.wFt||d.w;e.lFt=opts.lFt||d.l;}
   else {e.pts=opts.pts||[];e.width=opts.width??d.width??0;}
+  if(d.isWall) e.heightFt=opts.heightFt??d.defH;
+  if(opts.levelFt!=null) e.levelFt=opts.levelFt;
   elements.push(e);selectedId=e.id;save();return e;
 }
 function nextName(base){const n=elements.filter(e=>e.name&&e.name.toLowerCase().startsWith(base.toLowerCase())).length;return n?`${base} ${n+1}`:base;}
@@ -477,12 +482,14 @@ function redraw(){
     const cLL=local2ll(...elemCentroidLocal(e));
     if(e.type==='measure'){let t=0;const ll=elemLngLatRing(e);for(let i=0;i<ll.length-1;i++)t+=turf.distance(ll[i],ll[i+1],{units:'feet'});labels.push(lbl(cLL,`${e.name}: ${Math.round(t)}′`,11,'#be123c'));}
     else if(e.family==='box'){const area=elemArea(e);const txt=e.type==='tree'?`${e.name}\n⌀${Math.round(e.wFt)}′`:`${e.name}\n${Math.round(e.wFt)}′×${Math.round(e.lFt)}′`;labels.push(lbl(cLL,txt,sel?12:11,ev&&!ev.ok?'#b91c1c':e.color));}
+    else if(e.type==='wall'){const h=e.heightFt||0;labels.push(lbl(cLL,`R.W. H=${h}'-0"`,sel?11:10,h>4?'#b91c1c':e.color));}
     else {const area=elemArea(e);labels.push(lbl(cLL,e.kind==='polygon'?`${e.name}\n${Math.round(area)} sf`:`${e.name}`,sel?12:11,e.color));}
   });
   if(draftPts&&draftPts.length){const ll=draftPts.map(([x,y])=>local2ll(x,y));const geom=(tool==='shape'&&ll.length>=3)?{type:'Polygon',coordinates:[[...ll,ll[0]]]}:{type:'LineString',coordinates:ll};feats.push({type:'Feature',geometry:geom,properties:{color:DEFS[tool].color,fill:DEFS[tool].fill,sel:true,design,bad:false}});}
   map.getSource('elems').setData({type:'FeatureCollection',features:feats});
   map.getSource('dimlbl').setData({type:'FeatureCollection',features:labels});
   renderHandles(); renderPoolRing();
+  if($('#checkpop')&&$('#checkpop').classList.contains('show')) renderCheck();
 }
 function lbl(c,t,sz,col){return{type:'Feature',geometry:{type:'Point',coordinates:c},properties:{t,sz,col}};}
 function renderHandles(){const e=selected();const f=[];if(e){if(e.family==='box'){const hw=e.wFt/2,hl=e.lFt/2;[['nw',-hw,hl],['ne',hw,hl],['se',hw,-hl],['sw',-hw,-hl]].forEach(([role,x,y])=>{const[rx,ry]=rot2(x,y,e.rot||0);f.push(hf(local2ll(e.cx+rx,e.cy+ry),role,e.id));});const[rx,ry]=rot2(0,hl+Math.max(7,e.lFt*.16),e.rot||0);f.push(hf(local2ll(e.cx+rx,e.cy+ry),'rotate',e.id));}else{e.pts.forEach((p,i)=>f.push(hf(local2ll(p[0],p[1]),'vtx',e.id,i)));}}map.getSource('handles').setData({type:'FeatureCollection',features:f});}
@@ -498,12 +505,12 @@ function wireMap(){
 }
 function onClick(e){
   const ll=ll2local(e.lngLat.lng,e.lngLat.lat);
-  if(tool==='shape'||tool==='path'||tool==='hedge'||tool==='measure'){draftPts=draftPts||[];draftPts.push(ll);redraw();hint(tool==='shape'?'click to add points · double-click to close':'click to add points · double-click to finish');return;}
+  if(tool==='shape'||tool==='path'||tool==='hedge'||tool==='measure'||tool==='wall'){draftPts=draftPts||[];draftPts.push(ll);redraw();hint(tool==='shape'?'click to add points · double-click to close':'click to add points · double-click to finish');return;}
   if(tool&&DEFS[tool]&&DEFS[tool].family==='box'){addElement(tool,{cx:ll[0],cy:ll[1]});setTool(null);redraw();openInspector();return;}
   const fr=map.queryRenderedFeatures(e.point,{layers:['elems-fill','elems-line']});
   if(fr.length){selectedId=fr[0].properties.id;redraw();openInspector();}else if(!drag){selectedId=null;redraw();closeInspector();}
 }
-function onDbl(e){if((tool==='shape'||tool==='path'||tool==='hedge'||tool==='measure')&&draftPts&&draftPts.length>=(tool==='shape'?3:2)){e.preventDefault();const type=tool;addElement(type,{pts:draftPts.slice(),kind:type==='shape'?'polygon':'line'});draftPts=null;setTool(null);redraw();openInspector();}}
+function onDbl(e){if((tool==='shape'||tool==='path'||tool==='hedge'||tool==='measure'||tool==='wall')&&draftPts&&draftPts.length>=(tool==='shape'?3:2)){e.preventDefault();const type=tool;addElement(type,{pts:draftPts.slice(),kind:type==='shape'?'polygon':'line'});draftPts=null;setTool(null);redraw();openInspector();}}
 function onDown(e){
   if(tool)return;
   const h=map.queryRenderedFeatures(e.point,{layers:['handles']});
@@ -525,7 +532,7 @@ function snap(e){return JSON.parse(JSON.stringify(e));}
 
 /* ====================== PALETTE / TOOLS ====================== */
 function buildRail(){const r=$('#rail');r.innerHTML='';PALETTE.forEach(([t])=>{if(t==='__div__'){const d=document.createElement('div');d.className='rail-div';r.appendChild(d);return;}const b=document.createElement('button');b.className='pcard';b.dataset.tool=t;b.innerHTML=icon(t)+`<span>${t==='clear'?'clear':(DEFS[t]?DEFS[t].label:t)}</span>`;b.onclick=()=>{if(t==='clear'){if(elements.length&&confirm('clear everything you\'ve drawn?')){elements=[];selectedId=null;save();redraw();closeInspector();}return;}setTool(tool===t?null:t);};r.appendChild(b);});}
-function setTool(t){tool=t;draftPts=null;document.querySelectorAll('.pcard').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));if(t){selectedId=null;closeInspector();map.getCanvas().style.cursor='crosshair';const f=DEFS[t];hint(f.family==='box'?'click on the plan to place — then drag, resize, rotate':'click to drop points · double-click to finish');}else{map.getCanvas().style.cursor='';hideHint();}if(t==='shape'||t==='path'||t==='hedge'||t==='measure')map.doubleClickZoom.disable();else map.doubleClickZoom.enable();redraw();}
+function setTool(t){tool=t;draftPts=null;document.querySelectorAll('.pcard').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));if(t){selectedId=null;closeInspector();map.getCanvas().style.cursor='crosshair';const f=DEFS[t];hint(f.family==='box'?'click on the plan to place — then drag, resize, rotate':'click to drop points · double-click to finish');}else{map.getCanvas().style.cursor='';hideHint();}if(t==='shape'||t==='path'||t==='hedge'||t==='measure'||t==='wall')map.doubleClickZoom.disable();else map.doubleClickZoom.enable();redraw();}
 let hintT;function hint(m){const h=$('#hint');h.textContent=m;h.classList.add('show');}function hideHint(){$('#hint').classList.remove('show');}
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(hintT);hintT=setTimeout(()=>t.classList.remove('show'),2400);}
 
@@ -536,9 +543,16 @@ function openInspector(){const e=selected();if(!e){closeInspector();return;}cons
     <div class="dim"><span>${e.type==='tree'?'canopy ⌀':'width'} ft</span><input type="number" value="${Math.round(e.wFt)}" data-k="wFt"></div>
     ${e.type==='tree'?'':`<div class="dim"><span>length ft</span><input type="number" value="${Math.round(e.lFt)}" data-k="lFt"></div>`}
     <div class="dim"><span>rotate °</span><input type="number" step="5" value="${Math.round(e.rot||0)}" data-k="rot"></div></div>`;}
+  else if(e.type==='wall'){dims=`<div class="dims">
+    <div class="dim"><span>height ft</span><input type="number" step="0.5" min="0" value="${e.heightFt||0}" data-k="heightFt"></div>
+    <div class="dim"><span>top level ft</span><input type="number" step="0.5" value="${e.levelFt||0}" data-k="levelFt"></div></div>`;}
   const area=e.type==='measure'?null:elemArea(e);
-  let meta=e.type==='measure'?`<div class="meta"><span>length <b>${Math.round(elemLen(e))} ft</b></span></div>`:(e.family==='box'||e.kind==='polygon'?`<div class="meta"><span>area <b>${Math.round(area)} sf</b></span><span>nearest line <b>${ev?ev.clr.toFixed(1):'—'} ft</b></span></div>`:`<div class="meta"><span>length <b>${Math.round(elemLen(e))} ft</b></span></div>`);
-  let status=ev?(ev.ok?`<div class="status ok">✓ clears ${ev.req} ft setback</div>`:`<div class="status bad">⚠ ${ev.reasons.join('; ')}</div>`):'';
+  let meta=e.type==='measure'?`<div class="meta"><span>length <b>${Math.round(elemLen(e))} ft</b></span></div>`
+    :e.type==='wall'?`<div class="meta"><span>run <b>${Math.round(elemLen(e))} ft</b></span><span>holds <b>${e.heightFt||0} ft</b></span></div>`
+    :(e.family==='box'||e.kind==='polygon'?`<div class="meta"><span>area <b>${Math.round(area)} sf</b></span><span>nearest line <b>${ev?ev.clr.toFixed(1):'—'} ft</b></span></div>`:`<div class="meta"><span>length <b>${Math.round(elemLen(e))} ft</b></span></div>`);
+  let status='';
+  if(e.type==='wall'&&(e.heightFt||0)>4) status+=`<div class="status bad">⚠ ${e.heightFt} ft wall — over 4 ft typically needs an engineer's stamp; consider splitting into terraces</div>`;
+  if(ev) status+=ev.ok?`<div class="status ok">✓ clears ${ev.req} ft setback</div>`:`<div class="status bad">⚠ ${ev.reasons.join('; ')}</div>`;
   ins.innerHTML=`<div class="it"><span class="dot" style="background:${e.fill}"></span><input class="iname" value="${e.name}"><span class="otype">${e.type}</span><button class="idel">✕</button></div>${dims}${meta}${status}`;
   ins.classList.add('show');
   ins.querySelector('.iname').oninput=ev2=>{e.name=ev2.target.value;save();redraw();};
@@ -552,6 +566,29 @@ function renderEnv(){const on=$('#env-on').checked,sb=+$('#sb-struct').value||0;
 function renderPoolRing(){if(!map.getSource('poolring'))return;const on=$('#poolring-on').checked,sb=+$('#sb-pool').value||0;const e=on?envelope(sb):null;map.getSource('poolring').setData(e?turf.featureCollection([turf.polygonToLine(e)]):turf.featureCollection([]));map.setLayoutProperty('poolring-line','visibility',on?'visible':'none');}
 ['env-on','sb-struct','poolring-on','sb-pool'].forEach(id=>$('#'+id).addEventListener('input',()=>{renderEnv();renderPoolRing();redraw();save();}));
 
+/* ====================== SITE CHECK (constraint oracle) ====================== */
+const COVERAGE_TYPES=['deck','patio','pool','spa','box','firepit'];
+const MAX_COVER_PCT=20; // R-20 assumption — confirm w/ village
+function siteCheck(){
+  const flags=[];
+  elements.filter(e=>e.type==='wall').forEach(w=>{ if((w.heightFt||0)>4) flags.push(`${w.name}: ${w.heightFt} ft wall — over 4 ft usually needs an engineer's stamp; consider splitting into terraces`); });
+  elements.forEach(e=>{ const ev=evaluate(e); if(ev&&!ev.ok) flags.push(`${e.name}: ${ev.reasons.join('; ')}`); });
+  let cover=0; try{cover+=turf.area(housePoly)*M2SF;}catch(_){}
+  elements.filter(e=>COVERAGE_TYPES.includes(e.type)).forEach(e=>{cover+=elemArea(e)||0;});
+  const pct=cover/PARCEL_INFO.areaSf*100;
+  if(pct>MAX_COVER_PCT) flags.push(`lot coverage ${pct.toFixed(1)}% exceeds R-20 ~${MAX_COVER_PCT}% (confirm w/ village)`);
+  return {flags, coverPct:pct, coverSf:cover};
+}
+function renderCheck(){
+  const box=$('#checkbody'); if(!box)return;
+  const r=siteCheck();
+  let html=`<div style="font-size:12.5px;color:var(--ink-2);margin-bottom:8px">coverage <b style="font-family:var(--mono)">${r.coverPct.toFixed(1)}%</b> of lot <span style="color:var(--ink-mute)">(${Math.round(r.coverSf).toLocaleString()} sf incl. house; R-20 max ~${MAX_COVER_PCT}%)</span></div>`;
+  if(!r.flags.length){ html+=`<div class="status ok" style="font-size:12.5px">✓ no flags — setbacks clear, walls under 4  ft, coverage ok</div>`; }
+  else { html+=r.flags.map(f=>`<div style="font-size:12px;color:var(--bad);padding:6px 0;border-top:1px solid var(--line);line-height:1.4">⚠ ${f}</div>`).join(''); }
+  html+=`<p style="font-size:10.5px;color:var(--ink-mute);margin-top:10px;font-family:var(--sans);line-height:1.4">Heads-up only — confirm setbacks, wall engineering, and coverage with the Village of Tarrytown. This is an early-warning check, not a permit.</p>`;
+  box.innerHTML=html;
+}
+
 /* ====================== LAYERS UI ====================== */
 function buildLayerUI(){const bb=$('#basebar');bb.innerHTML='';Object.entries(BASEMAPS).forEach(([k,v])=>{const b=document.createElement('button');b.className='basebtn'+(k===currentBase?' active':'');b.textContent=v.label;b.onclick=()=>setBasemap(k);bb.appendChild(b);});const ys=$('#yrsel');ys.innerHTML='';AERIAL_YEARS.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;if(y===currentYear)o.selected=true;ys.appendChild(o);});ys.onchange=()=>{currentYear=+ys.value;if(currentBase==='aerial')setBasemap('aerial');};const w=$('#ovgroups');w.innerHTML='';OVERLAYS.forEach(([g,arr])=>{const gd=document.createElement('div');gd.className='lgroup';gd.innerHTML=`<div class="gl">${g}</div>`;arr.forEach(([id,l,sw,url,on,op])=>{const row=document.createElement('div');row.className='lrow';row.innerHTML=`<input type="checkbox" id="lk-${id}" ${on?'checked':''}><span class="sw" style="background:${sw}"></span><label for="lk-${id}">${l}</label><input class="op" type="range" min="0" max="1" step="0.05" value="${op}" id="op-${id}">`;gd.appendChild(row);});w.appendChild(gd);});OVERLAYS.forEach(([,arr])=>arr.forEach(([id])=>{$('#lk-'+id).onchange=e=>toggleOv(id,e.target.checked);$('#op-'+id).oninput=e=>setOvOp(id,+e.target.value);}));}
 function setBasemap(k){currentBase=k;if(map.getLayer('base'))map.removeLayer('base');if(map.getSource('base'))map.removeSource('base');map.addSource('base',baseSource());const first=map.getLayer('ov-planimetric')?'ov-planimetric':'neighbors-line';map.addLayer({id:'base',type:'raster',source:'base',paint:{'raster-opacity':mode==='design'?0:1}},first);document.querySelectorAll('.basebtn').forEach(b=>b.classList.toggle('active',b.textContent===BASEMAPS[k].label));$('#yrwrap').style.display=k==='aerial'?'flex':'none';}
@@ -563,7 +600,7 @@ const API='/api/walden-design';
 function greet(){addMsg('agent',"hey — this is your back yard at 35 walden. tell me what you're imagining: a pool off the back, hedges to screen the west line, a fire-pit corner. i'll place real, measured things on the plan and you can drag them anywhere. when it feels right, hit 🎨 and i'll paint the whole thing as a watercolor board.");setChips(['pool off the back','screen the west line with hedges','where would a pool fit?','render this as a watercolor']);}
 function addMsg(role,text){const s=$('#stream');const d=document.createElement('div');d.className='msg '+role;d.textContent=text;s.appendChild(d);s.scrollTop=s.scrollHeight;return d;}
 function setChips(arr){const c=$('#chips');c.innerHTML='';arr.forEach(t=>{const b=document.createElement('button');b.className='chip';b.textContent=t;b.onclick=()=>{$('#cinput').value=t;send();};c.appendChild(b);});}
-function planSummary(){return{units:'feet',gridBearing:GRID_BEARING,house:{centerLocal:[0,0],bbox:HBB,note:'+y points into the open back yard (west); the back wall faces +y at the maxy edge; the street/driveway is toward miny. place yard features at positive cy.'},setbacks:{structure:+$('#sb-struct').value,pool:+$('#sb-pool').value},elements:elements.map(e=>{const c=elemCentroidLocal(e);const bx=e.family==='box';return{id:e.id,type:e.type,kind:e.kind,name:e.name,cx:Math.round((bx?e.cx:c[0])*10)/10,cy:Math.round((bx?e.cy:c[1])*10)/10,wFt:Math.round(bx?e.wFt:bboxW(e)),lFt:Math.round(bx?e.lFt:bboxL(e)),rot:Math.round(e.rot||0)};})};}
+function planSummary(){return{units:'feet',gridBearing:GRID_BEARING,house:{centerLocal:[0,0],bbox:HBB,note:'+y points into the open back yard (west); the back wall faces +y at the maxy edge; the street/driveway is toward miny. place yard features at positive cy.'},setbacks:{structure:+$('#sb-struct').value,pool:+$('#sb-pool').value},elements:elements.map(e=>{const c=elemCentroidLocal(e);const bx=e.family==='box';const o={id:e.id,type:e.type,kind:e.kind,name:e.name,cx:Math.round((bx?e.cx:c[0])*10)/10,cy:Math.round((bx?e.cy:c[1])*10)/10,wFt:Math.round(bx?e.wFt:bboxW(e)),lFt:Math.round(bx?e.lFt:bboxL(e)),rot:Math.round(e.rot||0)};if(e.heightFt!=null)o.heightFt=e.heightFt;if(e.levelFt!=null)o.levelFt=e.levelFt;return o;})};}
 function bboxW(e){const xs=e.pts.map(p=>p[0]);return Math.max(...xs)-Math.min(...xs);}
 function bboxL(e){const ys=e.pts.map(p=>p[1]);return Math.max(...ys)-Math.min(...ys);}
 async function send(){const inp=$('#cinput');const msg=inp.value.trim();if(!msg&&!attachments.length)return;
@@ -637,9 +674,10 @@ $('#sc-reset').onclick=()=>{if(confirm('reset to a single pool?')){elements=[];u
 $('#modepill').querySelectorAll('button').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;applyMode();if(mode==='design'&&currentBase==='aerial')map.setPaintProperty('base','raster-opacity',0);});
 $('#gridbtn').onclick=toggleGrid;
 $('#printbtn').onclick=()=>window.print();
-function togglePop(id){['layerpop','scenepop'].forEach(p=>{if(p===id)$('#'+p).classList.toggle('show');else $('#'+p).classList.remove('show');});}
+function togglePop(id){['layerpop','scenepop','checkpop'].forEach(p=>{if(p===id)$('#'+p).classList.toggle('show');else $('#'+p).classList.remove('show');});}
 $('#layersbtn').onclick=()=>togglePop('layerpop');
 $('#scenebtn').onclick=()=>togglePop('scenepop');
+$('#checkbtn').onclick=()=>{togglePop('checkpop');renderCheck();};
 function toggleChat(){const c=$('#app').classList.toggle('chat-collapsed');$('#chat').classList.toggle('collapsed',c);setTimeout(()=>map.resize(),320);}
 $('#chattoggle').onclick=toggleChat;
 $('#chatcollapse').onclick=toggleChat;
@@ -657,7 +695,7 @@ function setChatW(w){w=Math.max(320,Math.min(900,Math.round(w)));document.docume
 $('#chatexpand').onclick=()=>{const cur=$('#chat').offsetWidth,big=Math.min(900,Math.round(window.innerWidth*0.55));setChatW(cur<big-20?big:384);setTimeout(()=>map.resize(),320);};
 $('#cinput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
 $('#cinput').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(120,e.target.scrollHeight)+'px';});
-document.addEventListener('click',e=>{if(!e.target.closest('.pop')&&!e.target.closest('#layersbtn')&&!e.target.closest('#scenebtn')){$('#layerpop').classList.remove('show');$('#scenepop').classList.remove('show');}});
+document.addEventListener('click',e=>{if(!e.target.closest('.pop')&&!e.target.closest('#layersbtn')&&!e.target.closest('#scenebtn')&&!e.target.closest('#checkbtn')){$('#layerpop').classList.remove('show');$('#scenepop').classList.remove('show');$('#checkpop').classList.remove('show');}});
 
 initMap();
 </script>

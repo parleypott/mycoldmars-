@@ -40,6 +40,7 @@ const ELEMENT_TYPES = {
   tree: ['point'],
   firepit: ['oval', 'rect'],
   path: ['line'],
+  wall: ['line'],   // retaining wall — line with a heightFt
 };
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -83,13 +84,14 @@ You have these tools. Call as many as the request needs, in order:
   • delete_element(id) — remove it.
   • rename_element(id, name) — give it a clearer label.
 
-VALID type values: pool, spa, deck, patio, bed, hedge, tree, firepit, path.
+VALID type values: pool, spa, deck, patio, bed, hedge, tree, firepit, path, wall.
 VALID kind values by type:
   pool: rect | oval     spa: rect | oval
   deck: rect | polygon  patio: rect | polygon
   bed: rect | oval | polygon
   hedge: line | rect    tree: point
   firepit: oval | rect  path: line
+  wall: line  (a RETAINING WALL — a line where wFt = wall thickness, lFt = wall run/length. This is a sloped, terraced site; use walls to hold grade changes between terrace levels. Walls over 4 ft typically need engineering — prefer splitting a big drop into stacked terraces.)
 
 To MOVE/RESIZE/ROTATE/DELETE/RENAME an existing element you MUST use its real id from the plan JSON. If the homeowner refers to "the pool" and there's exactly one pool, use that one. If it's ambiguous (two beds, "the bed"), ask which one in your reply and don't guess.
 
