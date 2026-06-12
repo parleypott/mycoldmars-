@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>35 Walden — property studio</title>
+<link href="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+<style>
+  :root{--paper:#F4ECD8;--ink:#2B2722;--ink2:#5A534A;--mute:#8A8175;--line:#DDD6C9;--accent:#B0552E;}
+  *{box-sizing:border-box}html,body{margin:0;height:100%;width:100%;overflow:hidden;background:#0d0f12;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  #c3d{position:fixed;inset:0}
+  /* 2D schematic overlay */
+  #c2d{position:fixed;inset:0;background:var(--paper);display:none;z-index:8}
+  #c2d.show{display:block}
+  #svgwrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  /* topbar toggle */
+  #bar{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:20;display:flex;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:999px;padding:4px;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+  #bar button{border:none;background:none;cursor:pointer;font-size:14px;font-weight:600;color:var(--ink2);padding:8px 20px;border-radius:999px;position:relative;z-index:2;transition:color .2s}
+  #bar button.on{color:#fff}
+  #bar .gl{position:absolute;top:4px;height:calc(100% - 8px);background:var(--ink);border-radius:999px;transition:transform .25s cubic-bezier(.22,.61,.36,1),width .25s;z-index:1}
+  #title{position:fixed;top:16px;left:18px;z-index:20;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+  #title.dark{color:var(--ink);text-shadow:none}
+  #title .t{font-size:16px;font-weight:600}#title .s{font-size:11px;font-family:ui-monospace,Menlo,monospace;opacity:.85}
+  #hint{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(43,39,34,.82);color:#fff;font-size:12.5px;padding:8px 16px;border-radius:999px}
+  #err{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:30;background:#A8412F;color:#fff;font-size:13px;padding:9px 16px;border-radius:10px;display:none;max-width:80vw;text-align:center}
+  #gate{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#1c2230,#0d0f12)}
+  #gate.hide{display:none}
+  #card{background:#fff;border-radius:16px;padding:24px 26px;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  #card h1{margin:0 0 6px;font-size:20px;color:var(--ink)}#card p{font-size:14px;color:var(--ink2);line-height:1.5;margin:8px 0}#card a{color:var(--accent)}
+  #card input{width:100%;margin-top:8px;padding:11px;border:1px solid var(--line);border-radius:9px;font-family:ui-monospace,monospace;font-size:13px}
+  #card button{margin-top:10px;width:100%;padding:12px;border:none;border-radius:9px;background:var(--ink);color:#fff;font-weight:600;cursor:pointer}
+  .cesium-viewer-bottom,.cesium-widget-credits{display:none!important}
+  #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#9a8;font-family:ui-monospace,monospace;z-index:5}
+</style>
+</head>
+<body>
+<div id="c3d"></div>
+<div id="c2d"><div id="svgwrap"></div></div>
+<div id="loading">isolating your property…</div>
+<div id="title"><div class="t">35 Walden Road</div><div class="s" id="subt">photoreal · isolated to your lot</div></div>
+<div id="bar"><div class="gl"></div><button data-m="3d" class="on">3D model</button><button data-m="2d">2D schematic</button></div>
+<div id="hint" id="hint">drag to orbit your yard · scroll to zoom · you can't fly away</div>
+<div id="err"></div>
+<div id="gate"><div id="card">
+  <h1>Load your property</h1>
+  <p>This pulls Google's photoreal mesh of <b>35 Walden</b> and clips it to your lot. Needs your Maps Platform key (Map Tiles API).</p>
+  <input id="key" type="text" placeholder="paste Maps key (AIza…)" spellcheck="false">
+  <button id="go">load my property</button>
+  <p style="font-size:11px;color:var(--mute)">Key stays in this browser only.</p>
+</div></div>
+
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Cesium.js"></script>
+<script src="https://unpkg.com/@turf/turf@7/turf.min.js"></script>
+<script>
+/* ---- real data ---- */
+const HOUSE_LL=[-73.854885,41.081262];
+const PARCEL_LL=[[-73.854692055940532,41.081355677241739],[-73.855098033192135,41.081526244157359],[-73.855104490405594,41.081515127761882],[-73.855258996126224,41.081249230296471],[-73.855295129103027,41.081170688507761],[-73.855392645160265,41.080959368967498],[-73.855195955665977,41.080925333284064],[-73.854678563533369,41.081204809121353],[-73.854688415913671,41.081217901805374],[-73.854697338032977,41.081232875091196],[-73.854704215051285,41.08124852705739],[-73.854708815565701,41.081264677949115],[-73.854711149056115,41.081280987363535],[-73.854711216679775,41.081297457114005],[-73.854709241667621,41.081313914666879],[-73.854704777612284,41.081330015988065],[-73.854692055940532,41.081355677241739]];
+/* east/north feet from house centroid — for the 2D schematic */
+const PARCEL_EN=[[73.9,30.7],[-37.9,92.6],[-39.6,88.5],[-82.2,-7.9],[-92.1,-36.4],[-119,-113],[-64.8,-125.4],[77.6,-24],[74.9,-19.3],[72.5,-13.8],[70.6,-8.1],[69.3,-2.3],[68.7,3.6],[68.6,9.6],[69.2,15.6],[70.4,21.4],[73.9,30.7]];
+const HOUSE_EN=[[17,38.5],[-8.8,33.7],[-5.3,15.7],[-6.1,14],[-9.9,13.3],[-6.8,-9.2],[-13.3,-11.7],[-10.2,-27.3],[-3.2,-26.9],[-0.6,-41.9],[29.9,-36.4],[17.2,38.3],[17,38.5]];
+const $=s=>document.querySelector(s);
+function showErr(m){const e=$('#err');e.textContent=m;e.style.display='block';}
+
+/* ============ 3D ============ */
+let viewer;
+async function boot(key){
+  $('#gate').classList.add('hide');
+  try{
+    viewer=new Cesium.Viewer('c3d',{baseLayerPicker:false,geocoder:false,homeButton:false,sceneModePicker:false,navigationHelpButton:false,animation:false,timeline:false,fullscreenButton:false,infoBox:false,selectionIndicator:false,globe:false,skyAtmosphere:false,creditContainer:document.createElement('div')});
+    viewer.scene.skyAtmosphere=undefined;viewer.scene.backgroundColor=Cesium.Color.fromCssColorString('#aebfcb');
+  }catch(e){showErr('Cesium init failed: '+e.message);return;}
+  let tileset;
+  try{
+    try{ tileset=await Cesium.createGooglePhotorealistic3DTileset({key}); }
+    catch(_){ tileset=await Cesium.createGooglePhotorealistic3DTileset(key); }
+    viewer.scene.primitives.add(tileset);
+  }catch(e){showErr('Could not load Google 3D Tiles — check Map Tiles API + billing on the key. ('+(e.message||e)+')');$('#gate').classList.remove('hide');return;}
+
+  /* ---- isolate: clip to parcel + ~8m context halo (inverse = keep inside, hide outside) ---- */
+  try{
+    const poly=turf.polygon([PARCEL_LL]);
+    const buffered=turf.buffer(poly,8,{units:'meters'});
+    const ring=buffered.geometry.coordinates[0];
+    const positions=Cesium.Cartesian3.fromDegreesArray(ring.flat());
+    tileset.clippingPolygons=new Cesium.ClippingPolygonCollection({
+      polygons:[new Cesium.ClippingPolygon({positions})],
+      inverse:true   // hide everything OUTSIDE the lot+halo
+    });
+  }catch(e){console.warn('clip failed',e);showErr('Loaded, but clip-to-lot failed: '+(e.message||e));}
+
+  /* ---- bright true lot line, draped on the mesh ---- */
+  try{
+    viewer.entities.add({polyline:{positions:Cesium.Cartesian3.fromDegreesArray(PARCEL_LL.flat()),width:4,material:Cesium.Color.fromCssColorString('#ffd23f'),clampToHeight:true,classificationType:Cesium.ClassificationType.CESIUM_3D_TILE}});
+  }catch(_){}
+
+  /* ---- camera: fly oblique, then LEASH (orbit + zoom only, no fly-away) ---- */
+  viewer.scene.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(HOUSE_LL[0],HOUSE_LL[1]-0.0010,210),orientation:{heading:0,pitch:Cesium.Math.toRadians(-34),roll:0},duration:0});
+  const ctl=viewer.scene.screenSpaceCameraController;
+  ctl.enableTranslate=false;   // no panning across the surface
+  ctl.enableLook=false;        // no free FPS look
+  ctl.minimumZoomDistance=45;
+  ctl.maximumZoomDistance=320; // can't zoom out to the globe
+  $('#loading').remove();
+}
+$('#go').onclick=()=>{const k=$('#key').value.trim();if(!k)return;localStorage.setItem('walden-maps-key',k);boot(k);};
+$('#key').addEventListener('keydown',e=>{if(e.key==='Enter')$('#go').click();});
+
+/* ============ 2D schematic (clean drawing of the SAME lot + house) ============ */
+function build2D(){
+  // bounds in feet
+  const all=[...PARCEL_EN,...HOUSE_EN];
+  const minE=Math.min(...all.map(p=>p[0])),maxE=Math.max(...all.map(p=>p[0]));
+  const minN=Math.min(...all.map(p=>p[1])),maxN=Math.max(...all.map(p=>p[1]));
+  const pad=22, W=(maxE-minE)+pad*2, H=(maxN-minN)+pad*2;
+  // feet -> svg (east=x, north=up => svg y flips)
+  const X=e=>e-minE+pad, Y=n=>(maxN-n)+pad;
+  const ptsStr=arr=>arr.map(p=>`${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(' ');
+  const lotW=Math.round(maxE-minE), lotH=Math.round(maxN-minN);
+  // dimension line helper (horizontal, along bottom)
+  const dimY=Y(minN)+12;
+  const svg=`
+  <svg viewBox="0 0 ${W} ${H}" style="width:min(92vw,${W*5}px);height:auto;max-height:88vh;font-family:ui-monospace,Menlo,monospace" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="hatch" width="3" height="3" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+        <line x1="0" y1="0" x2="0" y2="3" stroke="#b9ad8e" stroke-width="0.5"/>
+      </pattern>
+    </defs>
+    <!-- lot fill (subtle) -->
+    <polygon points="${ptsStr(PARCEL_EN)}" fill="#eadfc4" stroke="none"/>
+    <!-- property line: heavy -->
+    <polyline points="${ptsStr(PARCEL_EN)}" fill="none" stroke="#2B2722" stroke-width="1.4" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+    <!-- house footprint: poché -->
+    <polygon points="${ptsStr(HOUSE_EN)}" fill="url(#hatch)" stroke="#2B2722" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    <text x="${X((Math.min(...HOUSE_EN.map(p=>p[0]))+Math.max(...HOUSE_EN.map(p=>p[0])))/2)}" y="${Y((Math.min(...HOUSE_EN.map(p=>p[1]))+Math.max(...HOUSE_EN.map(p=>p[1])))/2)}" font-size="5" text-anchor="middle" fill="#2B2722" font-weight="bold">HOUSE</text>
+    <!-- overall lot dimension (bounding) -->
+    <line x1="${X(minE)}" y1="${dimY}" x2="${X(maxE)}" y2="${dimY}" stroke="#8a7a5c" stroke-width="0.6" vector-effect="non-scaling-stroke"/>
+    <line x1="${X(minE)}" y1="${dimY-3}" x2="${X(minE)}" y2="${dimY+3}" stroke="#8a7a5c" stroke-width="0.6" vector-effect="non-scaling-stroke"/>
+    <line x1="${X(maxE)}" y1="${dimY-3}" x2="${X(maxE)}" y2="${dimY+3}" stroke="#8a7a5c" stroke-width="0.6" vector-effect="non-scaling-stroke"/>
+    <rect x="${X((minE+maxE)/2)-13}" y="${dimY-3}" width="26" height="6" fill="#F4ECD8"/>
+    <text x="${X((minE+maxE)/2)}" y="${dimY+1.6}" font-size="4.4" text-anchor="middle" fill="#5A534A">${lotW}'-0" (E–W)</text>
+    <!-- north arrow -->
+    <g transform="translate(${W-16},16)"><circle r="6" fill="#fff" stroke="#2B2722" stroke-width="0.5"/><path d="M0,-5 L2,3 L0,1 L-2,3 Z" fill="#2B2722"/><text y="-7" font-size="4" text-anchor="middle" fill="#2B2722">N</text></g>
+    <!-- scale bar (20 ft) -->
+    <g transform="translate(${pad},${H-8})"><rect x="0" y="0" width="10" height="1.6" fill="#2B2722"/><rect x="10" y="0" width="10" height="1.6" fill="none" stroke="#2B2722" stroke-width="0.4"/><text x="0" y="5.5" font-size="3.6" fill="#5A534A">0</text><text x="20" y="5.5" font-size="3.6" fill="#5A534A" text-anchor="middle">20 ft</text></g>
+    <!-- title -->
+    <text x="${pad}" y="${pad-8}" font-size="5" fill="#2B2722" font-weight="bold">35 WALDEN ROAD — SITE PLAN</text>
+    <text x="${pad}" y="${pad-2.5}" font-size="3.4" fill="#8a7a5c">TARRYTOWN NY · 0.54 ac · R-20 · existing condition</text>
+  </svg>`;
+  $('#svgwrap').innerHTML=svg;
+}
+
+/* ============ toggle ============ */
+function setMode(m){
+  document.querySelectorAll('#bar button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  const act=document.querySelector('#bar button.on');$('#bar .gl').style.width=act.offsetWidth+'px';$('#bar .gl').style.transform=`translateX(${act.offsetLeft-4}px)`;
+  if(m==='2d'){if(!$('#svgwrap').innerHTML)build2D();$('#c2d').classList.add('show');$('#title').classList.add('dark');$('#subt').textContent='schematic · same lot, top-down';$('#hint').style.display='none';}
+  else{$('#c2d').classList.remove('show');$('#title').classList.remove('dark');$('#subt').textContent='photoreal · isolated to your lot';$('#hint').style.display='';}
+}
+document.querySelectorAll('#bar button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+
+/* boot: reuse stored key if present (same origin as photoreal.html) */
+const saved=localStorage.getItem('walden-maps-key');
+if(saved){$('#key').value=saved;boot(saved);}
+setMode('3d');
+</script>
+</body>
+</html>
