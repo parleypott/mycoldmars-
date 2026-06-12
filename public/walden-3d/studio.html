@@ -73,6 +73,27 @@
   #dinspect .dclear{font-size:11.5px;font-family:ui-monospace,monospace;padding:6px 10px;border-radius:7px}
   #dinspect .dclear.ok{background:#EDF6EC;color:#3f7a44}
   #dinspect .dclear.bad{background:#FBEAE7;color:#b91c1c}
+  /* ---- generate-plan: progress + lightbox ---- */
+  #analyzing{position:fixed;inset:0;z-index:42;display:none;align-items:center;justify-content:center;background:rgba(244,236,216,.82);backdrop-filter:blur(7px)}
+  #analyzing.show{display:flex}
+  .acard{width:300px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:26px 28px 22px;box-shadow:0 18px 50px rgba(43,39,34,.24);text-align:center}
+  .ascan{width:104px;height:104px;margin:0 auto 16px}
+  .atitle{font-size:16px;font-weight:700;color:var(--ink)}
+  .astage{font-size:12.5px;font-family:ui-monospace,Menlo,monospace;color:var(--accent);height:16px;margin:7px 0 13px;transition:opacity .28s}
+  .abar{height:5px;background:#ece3cf;border-radius:3px;overflow:hidden}
+  .abar i{display:block;height:100%;width:5%;background:linear-gradient(90deg,var(--accent),#d98a4e);border-radius:3px;transition:width .45s ease}
+  .ahint{font-size:10.5px;color:var(--mute);margin-top:10px;font-family:ui-monospace,monospace}
+  .ascan .lot{fill:#faf6ec;stroke:var(--ink);stroke-width:2.4;stroke-dasharray:340;stroke-dashoffset:340;animation:draw 2.8s ease-in-out infinite}
+  .ascan .bm{animation:sweep 1.9s linear infinite}
+  @keyframes draw{0%{stroke-dashoffset:340}62%,100%{stroke-dashoffset:0}}
+  @keyframes sweep{0%{transform:translateX(-28px)}100%{transform:translateX(104px)}}
+  #planview{position:fixed;inset:0;z-index:46;display:none;align-items:center;justify-content:center;background:rgba(20,18,15,.8);backdrop-filter:blur(4px)}
+  #planview.show{display:flex}
+  .pvinner{max-width:92vw;max-height:92vh;display:flex;flex-direction:column;gap:11px;align-items:center}
+  #planimg{max-width:92vw;max-height:80vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.55);background:#fff}
+  .pvbar{display:flex;align-items:center;gap:12px;color:#fff;font-size:13px}
+  .pvbtn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none}
+  .pvbtn:hover{background:rgba(255,255,255,.3)}
 </style>
 </head>
 <body>
@@ -84,7 +105,7 @@
   <button id="lockBtn" title="lock this orientation">🔓</button>
   <div id="scalebar2d"><span class="sb-tick"></span><span class="sb-l">0</span><span class="sb-r">20 ft</span></div>
   <div id="palette"></div>
-  <div id="dropz" title="drop a render or photo — I'll draw it to scale on your lot"><span>＋ drop a photo</span><input type="file" id="dropfile" accept="image/*"></div>
+  <div id="dropz" title="drop a backyard photo or render — I'll draw a plan that fits your real lot"><span>✨ photo → plan</span><input type="file" id="dropfile" accept="image/*"></div>
   <div id="dhint"></div>
   <div id="layers">
     <div class="lh">layers</div>
@@ -98,6 +119,25 @@
     <div class="sbrow"><span>pool</span><input type="number" id="sb-pool2" min="0"></div>
   </div>
   <div id="dinspect"></div>
+  <div id="analyzing"><div class="acard">
+    <svg class="ascan" viewBox="0 0 108 108">
+      <defs><linearGradient id="bmg" x1="0" x2="1"><stop offset="0" stop-color="#f4a35e" stop-opacity="0"/><stop offset=".5" stop-color="#f4a35e" stop-opacity=".5"/><stop offset="1" stop-color="#f4a35e" stop-opacity="0"/></linearGradient>
+      <clipPath id="cc"><rect x="6" y="6" width="96" height="96" rx="10"/></clipPath></defs>
+      <g clip-path="url(#cc)">
+        <polygon class="lot" points="54,14 92,46 80,92 28,90 18,44"/>
+        <rect x="44" y="40" width="22" height="20" fill="#bcb4a4"/>
+        <rect class="bm" x="0" y="6" width="20" height="96" fill="url(#bmg)"/>
+      </g>
+    </svg>
+    <div class="atitle">drawing your plan</div>
+    <div class="astage" id="aStage">reading your photo…</div>
+    <div class="abar"><i id="aFill"></i></div>
+    <div class="ahint">fitting the design to your real lot · ~20s</div>
+  </div></div>
+  <div id="planview"><div class="pvinner">
+    <img id="planimg" alt="your fitted plan">
+    <div class="pvbar"><span>your plan · fitted to your real lot</span><a id="plandl" class="pvbtn" download="35-walden-plan.png">↓ download</a><button id="pvclose" class="pvbtn">close</button></div>
+  </div></div>
 </div>
 <div id="loading">isolating your property…</div>
 <div id="title"><div class="t">35 Walden Road</div><div class="s" id="subt">photoreal · isolated to your lot</div></div>
@@ -333,6 +373,7 @@ function buildDesignUI(){
   const lay=$('#layers');if(lay&&!lay.dataset.built){lay.dataset.built='1';lay.querySelectorAll('input[data-l]').forEach(i=>i.onchange=()=>{dLayers[i.dataset.l]=i.checked;renderDesign();});}
   const ss=$('#sb-struct2'),sp=$('#sb-pool2');if(ss&&!ss.dataset.b){ss.dataset.b='1';ss.value=sbStruct;sp.value=sbPool;ss.oninput=()=>{sbStruct=+ss.value||0;localStorage.setItem('walden-sb-struct',sbStruct);renderDesign();openDInspect();};sp.oninput=()=>{sbPool=+sp.value||0;localStorage.setItem('walden-sb-pool',sbPool);renderDesign();openDInspect();};}
   wireDropzone();
+  const pv=$('#planview');if(pv&&!pv.dataset.b){pv.dataset.b='1';$('#pvclose').onclick=()=>pv.classList.remove('show');pv.addEventListener('click',e=>{if(e.target===pv)pv.classList.remove('show');});}
 }
 /* ===== drop a photo/render -> AI draws it to scale on the fixed lot ===== */
 function showErr2(m){const e=$('#err');e.textContent=m;e.style.display='block';setTimeout(()=>e.style.display='none',7000);}
@@ -343,21 +384,48 @@ function wireDropzone(){const dz=$('#dropz'),fi=$('#dropfile');if(!dz||dz.datase
   ['dragleave'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
   dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');const f=e.dataTransfer&&e.dataTransfer.files[0];if(f)handlePhoto(f);});
 }
-async function handlePhoto(file){const dz=$('#dropz'),lbl=dz.querySelector('span');dz.classList.add('busy');lbl.textContent='reading the photo…';
+function lotDims(){return {w:Math.round(MAX_E-MIN_E), h:Math.round(MAX_N-MIN_N)};}
+// rasterize the real lot + house (at the locked orientation) to a clean high-contrast PNG
+function makeBoundaryPng(){
+  const W=W2D,H=H2D,cx=W/2,cy=H/2,{w,h}=lotDims();
+  const pp=a=>a.map(p=>FX(p[0]).toFixed(1)+','+FY(p[1]).toFixed(1)).join(' ');
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}">
+    <rect width="${W}" height="${H}" fill="#ffffff"/>
+    <g transform="rotate(${plan2dRot} ${cx} ${cy})">
+      <polygon points="${pp(PARCEL_EN)}" fill="#f3f4ef" stroke="#111111" stroke-width="1.7" stroke-linejoin="round"/>
+      <polygon points="${pp(HOUSE_EN)}" fill="#bcbcbc" stroke="#111111" stroke-width="1"/>
+      <text x="${FX(8)}" y="${FY(8)}" font-family="Arial" font-size="6" font-weight="bold" fill="#111" text-anchor="middle" transform="rotate(${-plan2dRot} ${FX(8)} ${FY(8)})">HOUSE</text>
+    </g>
+    <text x="${(W/2).toFixed(1)}" y="${(H-4).toFixed(1)}" font-family="Arial" font-size="5.5" fill="#555" text-anchor="middle">${w} ft (E–W) × ${h} ft (N–S) — REAL PROPERTY LINE</text>
+  </svg>`;
+  return new Promise((res,rej)=>{
+    const img=new Image();const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));const sc=6;
+    img.onload=()=>{const c=document.createElement('canvas');c.width=Math.round(W*sc);c.height=Math.round(H*sc);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);res(c.toDataURL('image/png'));};
+    img.onerror=e=>{URL.revokeObjectURL(url);rej(e);};
+    img.src=url;
+  });
+}
+let _anT=[];
+const A_STAGES=['reading your photo…','reading your lot lines…','laying out the design…','fitting it to your property…','drawing the plan…','almost there…'];
+function showAnalyzing(){const ov=$('#analyzing');if(!ov)return;ov.classList.add('show');const st=$('#aStage'),fl=$('#aFill');let si=0,pct=5;st.textContent=A_STAGES[0];fl.style.width='5%';
+  const sc=setInterval(()=>{si=(si+1)%A_STAGES.length;st.style.opacity=0;setTimeout(()=>{st.textContent=A_STAGES[si];st.style.opacity=1;},280);},2900);
+  const pc=setInterval(()=>{pct+=Math.max(0.5,(93-pct)*0.05);fl.style.width=Math.min(93,pct).toFixed(1)+'%';},450);
+  _anT=[sc,pc];}
+function hideAnalyzing(ok){const ov=$('#analyzing');if(!ov)return;_anT.forEach(clearInterval);_anT=[];const fl=$('#aFill');if(fl)fl.style.width='100%';setTimeout(()=>ov.classList.remove('show'),ok?450:150);}
+function showPlan(src){const pv=$('#planview');if(!pv)return;$('#planimg').src=src;$('#plandl').href=src;pv.classList.add('show');}
+async function handlePhoto(file){
+  setPlace(null);showAnalyzing();
   try{
-    const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});
-    lbl.textContent='drawing to scale…';
-    const resp=await fetch('/api/analyze-render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:dataUrl,houseEN:HOUSE_EN,parcelEN:PARCEL_EN})});
+    const photo=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});
+    const boundary=await makeBoundaryPng();
+    const {w,h}=lotDims();
+    const resp=await fetch('/api/generate-plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo,boundary,context:`Real lot ~${w} ft (E-W) x ${h} ft (N-S). Fit the landscape design entirely inside this exact boundary, at the orientation shown.`})});
     const j=await resp.json();
-    if(!resp.ok||j.error){showErr2(j.error||('analyze failed ('+resp.status+')'));lbl.textContent='＋ drop a photo';dz.classList.remove('busy');return;}
-    let added=0;
-    (j.elements||[]).forEach(el=>{const d=DDEFS[el.type];if(!d)return;dElements.push({id:'d'+(dUid++),type:el.type,e:Math.round((+el.e||0)*10)/10,n:Math.round((+el.n||0)*10)/10,wFt:+el.wFt||d.w,lFt:+el.lFt||d.l,rot:+el.rot||0});added++;});
-    dSave();renderDesign();
-    lbl.textContent='✓ '+added+' placed — drag to fix';
-    if(j.reply)showErr2('🪄 '+j.reply);
-    setTimeout(()=>{lbl.textContent='＋ drop a photo';},4000);
-  }catch(err){showErr2('photo failed: '+(err.message||err));lbl.textContent='＋ drop a photo';}
-  finally{dz.classList.remove('busy');$('#dropfile').value='';}
+    if(!resp.ok||j.error){hideAnalyzing(false);showErr2(j.error||('generate failed ('+resp.status+')'));return;}
+    hideAnalyzing(true);
+    setTimeout(()=>showPlan('data:'+(j.mimeType||'image/png')+';base64,'+j.image),500);
+  }catch(err){hideAnalyzing(false);showErr2('plan failed: '+(err.message||err));}
+  finally{$('#dropfile').value='';}
 }
 
 /* ============ toggle ============ */
