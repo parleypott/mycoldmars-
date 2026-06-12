@@ -224,7 +224,8 @@ function groundOne(H, e) {
     const target = nearestSnap(SNAP[e.type], wFt, lFt);
     if (target) { wFt = target[0]; lFt = target[1]; assumed = true; }
   }
-  if (e.type === 'tree') { const d = (wFt + lFt) / 2; wFt = d; lFt = d; }
+  if (e.type === 'tree') { let d = Math.max(8, Math.min(38, (wFt + lFt) / 2)); wFt = d; lFt = d; }
+  if (e.type === 'firepit') { const d = Math.max(3, Math.min(9, (wFt + lFt) / 2)); wFt = d; lFt = d; }
   return {
     type: e.type,
     e: round1(center[0]), n: round1(center[1]),
