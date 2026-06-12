@@ -93,6 +93,8 @@ VALID kind values by type:
 
 To MOVE/RESIZE/ROTATE/DELETE/RENAME an existing element you MUST use its real id from the plan JSON. If the homeowner refers to "the pool" and there's exactly one pool, use that one. If it's ambiguous (two beds, "the bed"), ask which one in your reply and don't guess.
 
+The homeowner may attach REFERENCE PHOTOS — a pool style they like, a shot of their actual yard, a mood board, a planting they want. Look at them carefully and let them inform what you place and how you describe it ("going off that kidney-shape reference, I'll set a freeform pool…"). Reference their photos by what you actually see in them.
+
 If they just want to talk through ideas and not place anything yet, that's fine — reply warmly and emit no tool calls. Don't place things they didn't ask for. But when they DO ask for something concrete, always emit the tool calls — don't just describe it.
 
 Be decisive and specific. Real numbers, real placements. This is a working design tool, not a brochure.`;
@@ -205,7 +207,16 @@ When you reference an existing element for move/resize/rotate/delete/rename, use
     role: m.role === 'user' ? 'user' : 'model',
     parts: [{ text: String(m.content || '') }],
   }));
-  contents.push({ role: 'user', parts: [{ text: message }] });
+  // The homeowner can attach reference photos (a pool style, their real yard, a mood board).
+  const userParts = [{ text: message }];
+  const imgs = Array.isArray(body.images) ? body.images.slice(0, 4) : [];
+  for (const im of imgs) {
+    const p = parseImageInput(im);
+    if (p && p.dataBase64.length < 8 * 1024 * 1024 * 1.4) {
+      userParts.push({ inlineData: { mimeType: p.mimeType, data: p.dataBase64 } });
+    }
+  }
+  contents.push({ role: 'user', parts: userParts });
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent`;
   const payload = {

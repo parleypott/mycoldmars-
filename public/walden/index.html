@@ -19,6 +19,7 @@
     --serif:"Newsreader",Georgia,serif;
     --mono:"IBM Plex Mono","SF Mono",ui-monospace,Menlo,monospace;
     --r-sm:6px; --r-md:9px; --r-lg:14px; --r-xl:18px; --r-pill:999px;
+    --chatw:384px;
     --sh-1:0 1px 2px rgba(43,39,34,.06);
     --sh-2:0 2px 10px rgba(43,39,34,.08),0 1px 3px rgba(43,39,34,.05);
     --sh-3:0 8px 30px rgba(43,39,34,.12),0 2px 8px rgba(43,39,34,.06);
@@ -27,7 +28,8 @@
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;font-family:var(--font);color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased;overflow:hidden}
   button{font-family:inherit}
-  #app{display:grid;grid-template-columns:74px 1fr 384px;grid-template-rows:56px 1fr 28px;height:100vh;width:100vw}
+  #app{display:grid;grid-template-columns:74px 1fr var(--chatw);grid-template-rows:56px 1fr 28px;height:100vh;width:100vw}
+  #app.chat-collapsed{grid-template-columns:74px 1fr 0}
   .span{grid-column:1/-1}
 
   /* ---------- topbar ---------- */
@@ -103,9 +105,24 @@
   .btn:hover{border-color:var(--ink)} .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)} .btn.danger{color:var(--bad)}
 
   /* ---------- chat panel ---------- */
-  #chat{background:var(--paper);border-left:1px solid var(--line);display:flex;flex-direction:column;z-index:20;min-height:0}
+  #chat{position:relative;background:var(--paper);border-left:1px solid var(--line);display:flex;flex-direction:column;z-index:20;min-height:0}
   #chat.collapsed{display:none}
+  /* left-edge resize handle */
+  #chatresize{position:absolute;left:-4px;top:0;bottom:0;width:9px;cursor:col-resize;z-index:25}
+  #chatresize::after{content:"";position:absolute;left:3px;top:50%;transform:translateY(-50%);width:3px;height:42px;border-radius:3px;background:var(--line-2);transition:.15s}
+  #chatresize:hover::after,#chatresize.drag::after{background:var(--accent);height:64px}
   #chathead{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--line)}
+  #chathead .hbtns{display:flex;gap:2px}
+  /* attachments */
+  #attachments{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px}
+  #attachments:empty{display:none}
+  #attachments .att{position:relative;width:48px;height:48px;border-radius:var(--r-sm);overflow:hidden;border:1px solid var(--line-2)}
+  #attachments .att img{width:100%;height:100%;object-fit:cover}
+  #attachments .att button{position:absolute;top:1px;right:1px;width:16px;height:16px;border:none;border-radius:50%;background:rgba(43,39,34,.82);color:#fff;font-size:11px;line-height:1;cursor:pointer;padding:0}
+  .msg.user .uimgs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+  .msg.user .uimgs img{width:64px;height:64px;object-fit:cover;border-radius:6px}
+  #chatdrop{position:absolute;inset:0;background:var(--accent-bg);border:2px dashed var(--accent);border-radius:12px;display:none;align-items:center;justify-content:center;color:var(--accent-ink);font-size:14px;font-weight:600;z-index:30;pointer-events:none}
+  #chatdrop.show{display:flex}
   #chathead .ct{font-size:13px;font-weight:600}
   #chathead .cd{font-size:10px;color:var(--ink-mute);font-family:var(--mono)}
   #chathead button{border:none;background:none;cursor:pointer;color:var(--ink-mute);font-size:16px;padding:4px}
@@ -139,6 +156,9 @@
   .cbtn:hover{border-color:var(--ink);color:var(--ink)}
   .cbtn.send{background:var(--ink);color:#fff;border-color:var(--ink)}
   .cbtn svg{width:16px;height:16px}
+  #framebtn{position:absolute;top:54px;right:14px;display:flex;align-items:center;gap:6px;z-index:5;background:rgba(255,255,255,.94);backdrop-filter:blur(6px);border:1px solid var(--line-2);border-radius:var(--r-pill);padding:6px 12px 6px 9px;cursor:pointer;color:var(--ink-2);font-size:12px;font-weight:500;box-shadow:var(--sh-2)}
+  #framebtn:hover{border-color:var(--ink);color:var(--ink)}
+  #framebtn svg{width:16px;height:16px}
 
   /* inspector drawer */
   #inspector{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line-2);box-shadow:0 -4px 20px rgba(43,39,34,.08);padding:12px 16px;transform:translateY(110%);transition:transform .26s cubic-bezier(.22,.61,.36,1);z-index:15}
@@ -163,7 +183,7 @@
   #statusbar .lock{display:flex;align-items:center;gap:5px;color:var(--ok)}
   #statusbar .sb-r{margin-left:auto;display:flex;gap:16px}
 
-  @media (max-width:1199px){#app{grid-template-columns:74px 1fr 0}#chat{position:fixed;right:0;top:56px;bottom:28px;width:384px;box-shadow:var(--sh-3)}#chat.collapsed{display:none}}
+  @media (max-width:1199px){#app{grid-template-columns:74px 1fr 0}#chat{position:fixed;right:0;top:56px;bottom:28px;width:var(--chatw);box-shadow:var(--sh-3)}#chat.collapsed{display:none}#chatresize{display:none}}
 </style>
 </head>
 <body>
@@ -194,6 +214,7 @@
   <div id="canvaswrap">
     <div id="map"></div>
     <svg id="northarrow" viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="rgba(255,255,255,.7)" stroke="#3F3A33" stroke-width=".7"/><path d="M20 8 L24 22 L20 19 L16 22 Z" fill="#3F3A33"/><text x="20" y="33" font-size="8" text-anchor="middle" fill="#3F3A33" font-family="monospace">n</text></svg>
+    <button id="framebtn" title="rotate square + zoom to the back yard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12l4.5-4.5L12 16l-4.5-3.5z" fill="currentColor" stroke="none"/></svg>frame backyard</button>
     <div id="renderlayer"><img id="renderimg" alt="watercolor render"></div>
     <div id="renderctl">
       <span class="rl">watercolor</span>
@@ -206,10 +227,15 @@
 
   <!-- CHAT PANEL -->
   <aside id="chat">
-    <div id="chathead"><div><span class="ct">co-designer</span> <span class="cd">nano banana</span></div><button id="chatcollapse">›</button></div>
+    <div id="chatresize" title="drag to resize"></div>
+    <div id="chatdrop">drop photos to attach</div>
+    <div id="chathead"><div><span class="ct">co-designer</span> <span class="cd">nano banana</span></div><div class="hbtns"><button id="chatexpand" title="expand">⤢</button><button id="chatcollapse" title="collapse">›</button></div></div>
     <div id="stream"></div>
     <div id="chips"></div>
+    <div id="attachments"></div>
     <div id="composer">
+      <input type="file" id="filein" accept="image/*" multiple hidden>
+      <button class="cbtn" id="attachbtn" title="attach photos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5l-8.5 8.5a5 5 0 01-7-7l8.5-8.5a3.5 3.5 0 015 5l-8.5 8.5a2 2 0 01-3-3l8-8"/></svg></button>
       <textarea id="cinput" rows="1" placeholder="place a pool, screen the west line, ask where things fit…"></textarea>
       <button class="cbtn" id="renderbtn" title="render watercolor board">🎨</button>
       <button class="cbtn send" id="sendbtn" title="send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
@@ -301,6 +327,7 @@ function icon(t){const m={pool:'<rect x="4" y="7" width="16" height="10" rx="2"/
 let map, mode='satellite', gridOn=false, currentBase='aerial', currentYear=2025;
 let elements=[], selectedId=null, tool=null, draftPts=null, drag=null, uid=1;
 let chatHistory=[];
+let attachments=[]; // data-URL strings of pending reference photos
 const $=s=>document.querySelector(s);
 const STORE='walden-studio:v1', SCENES='walden-studio:scenes';
 
@@ -539,12 +566,27 @@ function setChips(arr){const c=$('#chips');c.innerHTML='';arr.forEach(t=>{const 
 function planSummary(){return{units:'feet',gridBearing:GRID_BEARING,house:{centerLocal:[0,0],bbox:HBB,note:'+y points into the open back yard (west); the back wall faces +y at the maxy edge; the street/driveway is toward miny. place yard features at positive cy.'},setbacks:{structure:+$('#sb-struct').value,pool:+$('#sb-pool').value},elements:elements.map(e=>{const c=elemCentroidLocal(e);const bx=e.family==='box';return{id:e.id,type:e.type,kind:e.kind,name:e.name,cx:Math.round((bx?e.cx:c[0])*10)/10,cy:Math.round((bx?e.cy:c[1])*10)/10,wFt:Math.round(bx?e.wFt:bboxW(e)),lFt:Math.round(bx?e.lFt:bboxL(e)),rot:Math.round(e.rot||0)};})};}
 function bboxW(e){const xs=e.pts.map(p=>p[0]);return Math.max(...xs)-Math.min(...xs);}
 function bboxL(e){const ys=e.pts.map(p=>p[1]);return Math.max(...ys)-Math.min(...ys);}
-async function send(){const inp=$('#cinput');const msg=inp.value.trim();if(!msg)return;inp.value='';inp.style.height='auto';addMsg('user',msg);chatHistory.push({role:'user',content:msg});const thinking=addMsg('sys','thinking…');
-  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'chat',message:msg,plan:planSummary(),history:chatHistory.slice(-12)})});const j=await r.json();thinking.remove();
+async function send(){const inp=$('#cinput');const msg=inp.value.trim();if(!msg&&!attachments.length)return;
+  const imgs=attachments.slice();inp.value='';inp.style.height='auto';
+  addUserMsg(msg||'(photos)',imgs);chatHistory.push({role:'user',content:msg||'[reference photos attached]'});
+  attachments=[];renderAttachments();
+  const thinking=addMsg('sys','thinking…');
+  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'chat',message:msg||'Here are some reference photos.',plan:planSummary(),history:chatHistory.slice(-12),images:imgs})});const j=await r.json();thinking.remove();
     if(j.error){addMsg('sys','⚠ '+j.error);return;}
     if(j.reply){addMsg('agent',j.reply);chatHistory.push({role:'assistant',content:j.reply});}
     if(j.ops&&j.ops.length){applyOps(j.ops);}
   }catch(e){thinking.remove();addMsg('sys','⚠ '+e.message);}
+}
+function addUserMsg(text,imgs){const s=$('#stream');const d=document.createElement('div');d.className='msg user';if(imgs&&imgs.length){const w=document.createElement('div');w.className='uimgs';imgs.forEach(src=>{const im=document.createElement('img');im.src=src;w.appendChild(im);});d.appendChild(w);}if(text){const t=document.createElement('div');t.textContent=text;d.appendChild(t);}s.appendChild(d);s.scrollTop=s.scrollHeight;}
+function renderAttachments(){const box=$('#attachments');box.innerHTML='';attachments.forEach((src,i)=>{const a=document.createElement('div');a.className='att';a.innerHTML=`<img src="${src}"><button>×</button>`;a.querySelector('button').onclick=()=>{attachments.splice(i,1);renderAttachments();};box.appendChild(a);});}
+function addFiles(files){[...files].filter(f=>f&&f.type&&f.type.startsWith('image/')).slice(0,6).forEach(f=>{const rd=new FileReader();rd.onload=()=>{if(attachments.length<6){attachments.push(rd.result);renderAttachments();}};rd.readAsDataURL(f);});}
+function frameBackyard(){gridOn=true;$('#gridbtn').classList.add('on');
+  const corners=[[-85,HBB.miny-20],[85,HBB.miny-20],[85,HBB.maxy+105],[-85,HBB.maxy+105]].map(([x,y])=>local2ll(x,y));corners.push(corners[0]);
+  let focus=turf.polygon([corners]);
+  try{const ix=turf.intersect(turf.featureCollection([turf.polygon([corners]),subjectPoly]));if(ix)focus=ix;}catch(_){}
+  const b=turf.bbox(focus);
+  map.fitBounds([[b[0],b[1]],[b[2],b[3]]],{bearing:-WALL_BEARING,duration:850,padding:50,maxZoom:20.5});
+  toast('framed the backyard');
 }
 function applyOps(ops){let placed=0,last=null;ops.forEach(o=>{
   if(o.op==='add'){const e=addElement(o.type,{kind:o.kind,name:o.name,cx:o.cx,cy:o.cy,wFt:o.wFt,lFt:o.lFt,rot:o.rot});placed++;last=e;opReceipt(o);}
@@ -598,10 +640,21 @@ $('#printbtn').onclick=()=>window.print();
 function togglePop(id){['layerpop','scenepop'].forEach(p=>{if(p===id)$('#'+p).classList.toggle('show');else $('#'+p).classList.remove('show');});}
 $('#layersbtn').onclick=()=>togglePop('layerpop');
 $('#scenebtn').onclick=()=>togglePop('scenepop');
-$('#chattoggle').onclick=()=>$('#chat').classList.toggle('collapsed');
-$('#chatcollapse').onclick=()=>$('#chat').classList.toggle('collapsed');
+function toggleChat(){const c=$('#app').classList.toggle('chat-collapsed');$('#chat').classList.toggle('collapsed',c);setTimeout(()=>map.resize(),320);}
+$('#chattoggle').onclick=toggleChat;
+$('#chatcollapse').onclick=toggleChat;
 $('#sendbtn').onclick=send;
 $('#renderbtn').onclick=()=>renderBoard('');
+$('#framebtn').onclick=frameBackyard;
+// attachments: pick / paste / drop
+$('#attachbtn').onclick=()=>$('#filein').click();
+$('#filein').onchange=e=>{addFiles(e.target.files);e.target.value='';};
+$('#cinput').addEventListener('paste',e=>{const items=[...((e.clipboardData||{}).items||[])];const imgs=items.filter(i=>i.type&&i.type.startsWith('image/'));if(imgs.length){e.preventDefault();addFiles(imgs.map(i=>i.getAsFile()).filter(Boolean));}});
+(function(){const chat=$('#chat'),dz=$('#chatdrop');let c=0;chat.addEventListener('dragover',e=>e.preventDefault());chat.addEventListener('dragenter',e=>{e.preventDefault();c++;dz.classList.add('show');});chat.addEventListener('dragleave',()=>{c--;if(c<=0){c=0;dz.classList.remove('show');}});chat.addEventListener('drop',e=>{e.preventDefault();c=0;dz.classList.remove('show');if(e.dataTransfer&&e.dataTransfer.files.length)addFiles(e.dataTransfer.files);});})();
+// chat resize (drag left edge) + persist
+function setChatW(w){w=Math.max(320,Math.min(900,Math.round(w)));document.documentElement.style.setProperty('--chatw',w+'px');try{localStorage.setItem('walden-chatw',w);}catch(_){}}
+(function(){const saved=+localStorage.getItem('walden-chatw');if(saved)setChatW(saved);const h=$('#chatresize');let rz=null;h.addEventListener('mousedown',e=>{e.preventDefault();rz={x:e.clientX,w:$('#chat').offsetWidth};h.classList.add('drag');document.body.style.cursor='col-resize';});window.addEventListener('mousemove',e=>{if(!rz)return;setChatW(rz.w+(rz.x-e.clientX));if(map&&map.resize)map.resize();});window.addEventListener('mouseup',()=>{if(rz){rz=null;h.classList.remove('drag');document.body.style.cursor='';if(map)map.resize();}});})();
+$('#chatexpand').onclick=()=>{const cur=$('#chat').offsetWidth,big=Math.min(900,Math.round(window.innerWidth*0.55));setChatW(cur<big-20?big:384);setTimeout(()=>map.resize(),320);};
 $('#cinput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
 $('#cinput').addEventListener('input',e=>{e.target.style.height='auto';e.target.style.height=Math.min(120,e.target.scrollHeight)+'px';});
 document.addEventListener('click',e=>{if(!e.target.closest('.pop')&&!e.target.closest('#layersbtn')&&!e.target.closest('#scenebtn')){$('#layerpop').classList.remove('show');$('#scenepop').classList.remove('show');}});
