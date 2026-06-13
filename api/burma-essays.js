@@ -146,13 +146,40 @@ async function create(body) {
   const voiceId = VOICES[voice];
   const q = QUALITY[body.quality] ? body.quality : DEFAULT_QUALITY;
 
-  // 1) synth audio (chunked, concurrency-limited, order preserved)
+  // 1) synth audio + word timings (chunked, concurrency-limited, order preserved)
   const chunks = chunkText(clean);
-  const pieces = await mapLimit(chunks, CONCURRENCY, (c) => synth(c, voiceId, q));
-  const failed = pieces.findIndex((p) => !p);
+  const results = await mapLimit(chunks, CONCURRENCY, (c) => synth(c, voiceId, q));
+  const failed = results.findIndex((r) => !r);
   if (failed !== -1) return err(502, 'TTS_FAILED', `ElevenLabs failed on chunk ${failed + 1}`);
 
-  const merged = concat(pieces);
+  // assemble one clean mp3 (ID3-stripped frames) + a single global word timeline
+  const audioPieces = [];
+  const words = [];
+  let narration = '';
+  let offset = 0; // cumulative audio seconds across chunks
+  for (const r of results) {
+    audioPieces.push(r.audio);
+    if (narration.length) narration += '\n\n'; // keep paragraph breaks at chunk seams
+    const base = narration.length;
+    const n = r.chars.length;
+    let wi = -1; // index of current word's first char within this chunk
+    for (let i = 0; i <= n; i++) {
+      const isSpace = i === n || /\s/.test(r.chars[i]);
+      if (!isSpace && wi < 0) wi = i;
+      if (isSpace && wi >= 0) {
+        words.push({
+          s: +(r.starts[wi] + offset).toFixed(3),
+          e: +(r.ends[i - 1] + offset).toFixed(3),
+          a: base + wi, b: base + i,
+        });
+        wi = -1;
+      }
+    }
+    narration += r.chars.join('');
+    offset += r.ends.length ? r.ends[r.ends.length - 1] : 0;
+  }
+  const merged = concat(audioPieces);
+  const duration = +offset.toFixed(3);
 
   // 2) upload single mp3 to public bucket
   const path = `${Date.now()}-${slug(title)}.mp3`;
@@ -176,6 +203,7 @@ async function create(body) {
     body: JSON.stringify({
       title, body: text, audio_path: path, voice,
       char_count: clean.length, status: 'ready',
+      narration_text: narration, words, duration_sec: duration,
     }),
   });
   if (!ins.ok) return err(502, 'DB_WRITE', await ins.text());
@@ -217,11 +245,13 @@ async function remove(body) {
 
 async function synth(text, voiceId, quality) {
   const { model, fmt } = QUALITY[quality];
+  // with-timestamps returns audio + per-character alignment in one JSON response,
+  // same credit cost as plain TTS. Drives karaoke + click-to-seek.
   const call = (modelId) => fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=${fmt}`,
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps?output_format=${fmt}`,
     {
       method: 'POST',
-      headers: { 'xi-api-key': ELEVEN_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+      headers: { 'xi-api-key': ELEVEN_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         text,
         model_id: modelId,
@@ -234,7 +264,31 @@ async function synth(text, voiceId, quality) {
     res = await call('eleven_multilingual_v2'); // fall back to flagship if model unavailable on account
   }
   if (!res.ok) return null;
-  return new Uint8Array(await res.arrayBuffer());
+  let j; try { j = await res.json(); } catch { return null; }
+  const al = j.alignment || {};
+  return {
+    audio: stripId3(b64ToBytes(j.audio_base64 || '')),
+    chars: al.characters || [],
+    starts: al.character_start_times_seconds || [],
+    ends: al.character_end_times_seconds || [],
+  };
+}
+
+function b64ToBytes(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+// Strip a leading ID3v2 tag so concatenated chunks form one continuous mp3 stream.
+// A mid-stream ID3 header is what made iOS loop the first segment forever.
+function stripId3(bytes) {
+  if (bytes.length > 10 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) {
+    const size = ((bytes[6] & 0x7f) << 21) | ((bytes[7] & 0x7f) << 14) | ((bytes[8] & 0x7f) << 7) | (bytes[9] & 0x7f);
+    return bytes.subarray(10 + size);
+  }
+  return bytes;
 }
 
 /* -------------------------------------------------------------- helpers */
@@ -249,7 +303,11 @@ function shape(row, withBody = false) {
     created_at: row.created_at, updated_at: row.updated_at,
     audio_url: row.audio_path ? `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${row.audio_path}` : null,
   };
-  if (withBody) out.body = row.body || '';
+  if (withBody) {
+    out.body = row.body || '';
+    out.narration_text = row.narration_text || '';
+    out.words = row.words || [];
+  }
   return out;
 }
 

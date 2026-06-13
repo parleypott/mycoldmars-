@@ -139,6 +139,36 @@
   .hl .m{font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.04em;margin-top:9px}
   .hl .x{position:absolute;top:10px;right:10px;color:var(--faint);font-family:var(--mono);font-size:16px;padding:5px;line-height:1}
   .hl:hover{border-left-color:#f0b94a}
+  .hl.sel{background:#211c0e;border-left-color:var(--accent)}
+  .hl .tools{position:absolute;top:9px;right:8px;display:flex;gap:2px;align-items:center}
+  .hl .tool{color:var(--faint);font-family:var(--mono);font-size:14px;padding:5px 6px;line-height:1;cursor:pointer;border-radius:6px}
+  .hl .tool:hover{color:var(--ink);background:#2a2616}
+  .hl .pick{position:absolute;top:0;left:0;bottom:0;width:30px;display:grid;place-items:center;cursor:pointer;color:var(--faint)}
+  .hl.sel .pick{color:var(--accent)}
+  .hl{padding-left:34px}
+  /* multi-select action bar */
+  #hlActions{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom));z-index:25;display:none;
+    align-items:center;justify-content:space-between;gap:12px;margin-top:14px;
+    background:var(--accent);color:#1a1304;border-radius:12px;padding:11px 14px;box-shadow:0 8px 30px rgba(0,0,0,.45)}
+  #hlActions.show{display:flex}
+  #hlActions .lbl{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.04em}
+  #hlActions .acts{display:flex;gap:8px}
+  #hlActions button{appearance:none;border:none;cursor:pointer;font-family:var(--mono);font-size:12px;font-weight:600;
+    border-radius:8px;padding:8px 12px}
+  #hlActions .copy{background:#1a1304;color:var(--accent)}
+  #hlActions .clear{background:transparent;color:#1a1304}
+
+  /* karaoke word-synced reader */
+  #readerBody.karaoke{font-size:19px;line-height:1.7}
+  #readerBody.karaoke .w{cursor:pointer;border-radius:3px;transition:background .12s,color .12s;padding:0 .5px}
+  #readerBody.karaoke .w:hover{background:rgba(224,164,34,.14)}
+  #readerBody.karaoke .w.hl{background:linear-gradient(transparent 60%, rgba(224,164,34,.30) 60%)}
+  #readerBody.karaoke .w.on{background:var(--accent);color:#1a1304}
+  #readerBody.karaoke .w.hl.on{background:var(--accent)}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(220px + env(safe-area-inset-bottom));
+    background:#16150f;border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:12px;
+    padding:9px 14px;border-radius:20px;z-index:40;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
 </style>
 </head>
 <body>
@@ -201,10 +231,18 @@
 
   <div id="viewHighlights" class="hidden">
     <div id="hlList"></div>
+    <div id="hlActions">
+      <span class="lbl" id="hlActionsLbl">0 selected</span>
+      <span class="acts">
+        <button class="clear" id="hlClear">Clear</button>
+        <button class="copy" id="hlCopy">Copy selected</button>
+      </span>
+    </div>
   </div>
 </div>
 
 <button id="savePill">✦ Save highlight</button>
+<div class="toast" id="toast"></div>
 
 <div id="player">
   <div class="pl">
@@ -389,6 +427,7 @@ audio.addEventListener('timeupdate', () => {
     setLocalPos(current.id, c);
     if (Date.now() - lastSavedAt > 5000) savePosition(false);
   }
+  updateKaraoke();
   updateMSPosition();
 });
 audio.addEventListener('ended', () => { if (current) { setLocalPos(current.id, 0); savePosition(true); } });
@@ -446,10 +485,64 @@ function switchView(v) {
 $('tabLib').onclick = () => switchView('library');
 $('tabHl').onclick  = () => switchView('highlights');
 
-/* ---- reader with highlight marks ---- */
+/* ---- reader: word-synced karaoke when timings exist, else plain marks ---- */
+let wordSpans = [];
+let activeWord = -1;
 function renderReader() {
   if (!current) return;
-  $('readerBody').innerHTML = markup(current.body || '', (current.highlights || []).map(h => h.quote));
+  const rb = $('readerBody');
+  const words = current.words || [];
+  const text = current.narration_text || '';
+  if (words.length && text) {
+    rb.classList.add('karaoke');
+    const hlR = highlightRanges(text);
+    let html = '', pos = 0;
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      if (w.a > pos) html += esc(text.slice(pos, w.a));
+      const isHl = hlR.some(r => w.a < r[1] && w.b > r[0]);
+      html += `<span class="w${isHl ? ' hl' : ''}" data-i="${i}">${esc(text.slice(w.a, w.b))}</span>`;
+      pos = w.b;
+    }
+    if (pos < text.length) html += esc(text.slice(pos));
+    rb.innerHTML = html;
+    wordSpans = [...rb.querySelectorAll('.w')];
+    activeWord = -1;
+    updateKaraoke();
+  } else {
+    rb.classList.remove('karaoke');
+    rb.innerHTML = markup(current.body || '', (current.highlights || []).map(h => h.quote));
+    wordSpans = [];
+  }
+}
+function highlightRanges(text) {
+  const out = [];
+  for (const h of (current.highlights || [])) { const i = text.indexOf(h.quote); if (i >= 0) out.push([i, i + h.quote.length]); }
+  return out;
+}
+/* click a word → jump the audio there */
+$('readerBody').addEventListener('click', (ev) => {
+  const sp = ev.target.closest('.w');
+  if (!sp || !current || !current.words) return;
+  if (document.getSelection() && document.getSelection().toString().trim()) return; // mid-selection, don't seek
+  const w = current.words[+sp.dataset.i];
+  if (!w) return;
+  audio.currentTime = w.s;
+  if (audio.paused) audio.play().catch(() => {});
+});
+function updateKaraoke() {
+  if (!wordSpans.length || !current || !current.words) return;
+  const t = audio.currentTime, words = current.words;
+  let lo = 0, hi = words.length - 1, idx = -1;
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (words[m].s <= t) { idx = m; lo = m + 1; } else hi = m - 1; }
+  if (idx === activeWord) return;
+  if (activeWord >= 0 && wordSpans[activeWord]) wordSpans[activeWord].classList.remove('on');
+  activeWord = idx;
+  if (idx >= 0 && wordSpans[idx]) { wordSpans[idx].classList.add('on'); if (!audio.paused) autoScrollWord(wordSpans[idx]); }
+}
+function autoScrollWord(el) {
+  const r = el.getBoundingClientRect();
+  if (r.top < 80 || r.bottom > window.innerHeight - 240) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 function markup(body, quotes) {
   const ranges = [];
@@ -512,9 +605,11 @@ async function loadHighlights() {
 function updateHlCount() { $('hlCount').textContent = allHighlights.length ? '· ' + allHighlights.length : ''; }
 function fmtDate(iso) { try { return new Date(iso).toLocaleDateString(undefined, { month:'short', day:'numeric' }); } catch { return ''; } }
 
+let selectedHl = new Set();
 function renderHighlights() {
   const el = $('hlList');
-  if (!allHighlights.length) { el.innerHTML = '<div class="empty">No highlights yet. Open an essay, select a passage, tap ✦ Save highlight.</div>'; return; }
+  selectedHl = new Set([...selectedHl].filter(id => allHighlights.some(h => h.id === id)));
+  if (!allHighlights.length) { el.innerHTML = '<div class="empty">No highlights yet. Open an essay, select a passage, tap ✦ Save highlight.</div>'; updateHlActions(); return; }
   const groups = [], idx = {};
   for (const h of allHighlights) {
     if (!(h.essay_id in idx)) { idx[h.essay_id] = groups.length; groups.push({ id: h.essay_id, title: h.essay_title, items: [] }); }
@@ -527,15 +622,51 @@ function renderHighlights() {
     gh.onclick = () => openHighlight(g.items[0]);
     wrap.appendChild(gh);
     for (const h of g.items) {
-      const c = document.createElement('div'); c.className = 'hl';
-      c.innerHTML = `<div class="q">${esc(h.quote)}</div><div class="m">${fmtDate(h.created_at)}</div><div class="x" title="Remove">✕</div>`;
+      const c = document.createElement('div'); c.className = 'hl' + (selectedHl.has(h.id) ? ' sel' : '');
+      c.innerHTML = `
+        <div class="pick">${selectedHl.has(h.id) ? '◼' : '◻'}</div>
+        <div class="q">${esc(h.quote)}</div>
+        <div class="m">${fmtDate(h.created_at)}</div>
+        <div class="tools"><span class="tool copyOne" title="Copy passage">⧉</span><span class="tool x" title="Remove">✕</span></div>`;
       c.onclick = () => openHighlight(h);
+      c.querySelector('.pick').onclick = (ev) => { ev.stopPropagation(); toggleSelect(h.id, c); };
+      c.querySelector('.copyOne').onclick = (ev) => { ev.stopPropagation(); copyText(h.quote, 'Passage copied'); };
       c.querySelector('.x').onclick = (ev) => { ev.stopPropagation(); delHighlight(h); };
       wrap.appendChild(c);
     }
     el.appendChild(wrap);
   }
+  updateHlActions();
 }
+function toggleSelect(id, card) {
+  if (selectedHl.has(id)) selectedHl.delete(id); else selectedHl.add(id);
+  const on = selectedHl.has(id);
+  card.classList.toggle('sel', on);
+  card.querySelector('.pick').textContent = on ? '◼' : '◻';
+  updateHlActions();
+}
+function updateHlActions() {
+  const n = selectedHl.size;
+  $('hlActions').classList.toggle('show', n > 0);
+  $('hlActionsLbl').textContent = n + ' selected';
+}
+$('hlClear').onclick = () => { selectedHl.clear(); renderHighlights(); };
+$('hlCopy').onclick = () => {
+  const texts = allHighlights.filter(h => selectedHl.has(h.id)).map(h => h.quote);
+  if (!texts.length) return;
+  copyText(texts.join('\n\n'), `${texts.length} passage${texts.length > 1 ? 's' : ''} copied`);
+};
+async function copyText(text, msg) {
+  try { await navigator.clipboard.writeText(text); toast(msg || 'Copied'); }
+  catch {
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast(msg || 'Copied'); } catch { toast('Copy failed'); }
+    ta.remove();
+  }
+}
+let toastT;
+function toast(m) { const el = $('toast'); el.textContent = m; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 1600); }
 async function openHighlight(h) {
   switchView('library');
   await play(h.essay_id, false);
