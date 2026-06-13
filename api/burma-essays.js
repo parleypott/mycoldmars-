@@ -1,0 +1,291 @@
+export const config = { runtime: 'edge', maxDuration: 120 };
+
+/**
+ * Burma Essays — paste an essay, get a narrated library item you can scrub.
+ *
+ *   GET  /api/burma-essays                 -> { essays: [ {id,title,duration_sec,position_sec,char_count,created_at,audio_url} ] }
+ *   GET  /api/burma-essays?id=<uuid>        -> { essay: { ...full, body, audio_url } }
+ *   POST /api/burma-essays  {action:'create',   title, body, voice?, quality?} -> { essay }
+ *   POST /api/burma-essays  {action:'position', id, position, duration?}        -> { ok:true }
+ *   POST /api/burma-essays  {action:'delete',   id}                             -> { ok:true }
+ *
+ * Audio is generated once via ElevenLabs (chunked + concatenated into a single
+ * mp3), stored in the public `burma-audio` bucket, and streamed straight to an
+ * <audio> tag — which is what lets iOS keep playing with the screen locked.
+ * Single-user tool, last-write-wins, no auth gate.
+ */
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ELEVEN_KEY  = process.env.ELEVENLABS_API_KEY;
+
+const BUCKET = 'burma-audio';
+const MAX_CHARS = 80_000;          // ~70 min of audio; generous for an essay
+const CHUNK_LIMIT = 4800;          // ElevenLabs comfortable per-request size
+const CONCURRENCY = 4;             // keep under ElevenLabs parallel-request cap
+
+// Warm narrator voices. Keys are what the UI sends.
+const VOICES = {
+  parley:    'ZF6FPAbjXT4488VcRRnw', // Johnny's voice
+  charlotte: 'XB0fDUnXU5powFXDhCwa', // soft adult female narrator
+  george:    'JBFqnCBsd6RMkjVDRZzb', // warm adult male, British
+  daniel:    'onwK4e9ZLuTAKqWW03F9', // deep adult male, UK
+  matilda:   'XrExE9yKIg1WjnnlVkGX', // warm adult female
+  adam:      'pNInz6obpgDQGcFmaJgB', // deep adult male
+};
+const DEFAULT_VOICE = 'charlotte';
+
+// quality -> model + bitrate. 'mid' (turbo) is the default: good voice, half-ish credits.
+const QUALITY = {
+  fast: { model: 'eleven_flash_v2_5',      fmt: 'mp3_44100_128' },
+  mid:  { model: 'eleven_turbo_v2_5',      fmt: 'mp3_44100_128' },
+  rich: { model: 'eleven_multilingual_v2', fmt: 'mp3_44100_192' },
+};
+const DEFAULT_QUALITY = 'mid';
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Max-Age': '86400',
+};
+
+export default async function handler(req) {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+  if (!SUPABASE_URL || !SUPABASE_KEY) return err(500, 'NO_DB', 'Supabase env not configured');
+
+  try {
+    if (req.method === 'GET') {
+      const id = new URL(req.url).searchParams.get('id');
+      return id ? await getOne(id) : await list();
+    }
+    if (req.method === 'POST') {
+      let body;
+      try { body = await req.json(); } catch { return err(400, 'BAD_JSON', 'Body must be JSON'); }
+      const action = body?.action || 'create';
+      if (action === 'create')   return await create(body);
+      if (action === 'position') return await savePosition(body);
+      if (action === 'delete')   return await remove(body);
+      return err(400, 'BAD_ACTION', `Unknown action: ${action}`);
+    }
+    return err(405, 'METHOD', `Method ${req.method} not allowed`);
+  } catch (e) {
+    return err(500, 'INTERNAL', e?.message || 'unknown error');
+  }
+}
+
+/* ----------------------------------------------------------------- reads */
+
+async function list() {
+  const r = await sb(`/rest/v1/burma_essays?select=id,title,duration_sec,position_sec,char_count,voice,status,audio_path,created_at,updated_at&order=created_at.desc`);
+  if (!r.ok) return err(502, 'DB_READ', await r.text());
+  const rows = await r.json();
+  return ok({ essays: rows.map(shape) });
+}
+
+async function getOne(id) {
+  const r = await sb(`/rest/v1/burma_essays?id=eq.${id}&select=*`);
+  if (!r.ok) return err(502, 'DB_READ', await r.text());
+  const rows = await r.json();
+  if (!rows.length) return err(404, 'NOT_FOUND', 'no such essay');
+  return ok({ essay: shape(rows[0], true) });
+}
+
+/* --------------------------------------------------------------- writes */
+
+async function create(body) {
+  if (!ELEVEN_KEY) return err(500, 'NO_TTS', 'ELEVENLABS_API_KEY not configured on the server');
+
+  let text = (body.body || '').toString();
+  const title = (body.title || '').toString().trim() || firstLine(text) || 'Untitled essay';
+  const clean = stripMarkdown(text).trim();
+  if (!clean) return err(400, 'EMPTY', 'essay body is empty');
+  if (clean.length > MAX_CHARS) return err(413, 'TOO_LONG', `essay is ${clean.length} chars (max ${MAX_CHARS})`);
+
+  const voice = VOICES[body.voice] ? body.voice : DEFAULT_VOICE;
+  const voiceId = VOICES[voice];
+  const q = QUALITY[body.quality] ? body.quality : DEFAULT_QUALITY;
+
+  // 1) synth audio (chunked, concurrency-limited, order preserved)
+  const chunks = chunkText(clean);
+  const pieces = await mapLimit(chunks, CONCURRENCY, (c) => synth(c, voiceId, q));
+  const failed = pieces.findIndex((p) => !p);
+  if (failed !== -1) return err(502, 'TTS_FAILED', `ElevenLabs failed on chunk ${failed + 1}`);
+
+  const merged = concat(pieces);
+
+  // 2) upload single mp3 to public bucket
+  const path = `${Date.now()}-${slug(title)}.mp3`;
+  const up = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'audio/mpeg',
+      'x-upsert': 'true',
+      'cache-control': '31536000',
+    },
+    body: merged,
+  });
+  if (!up.ok) return err(502, 'UPLOAD', await up.text());
+
+  // 3) insert row
+  const ins = await sb(`/rest/v1/burma_essays`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    body: JSON.stringify({
+      title, body: text, audio_path: path, voice,
+      char_count: clean.length, status: 'ready',
+    }),
+  });
+  if (!ins.ok) return err(502, 'DB_WRITE', await ins.text());
+  const row = (await ins.json())[0];
+  return ok({ essay: shape(row, true) });
+}
+
+async function savePosition(body) {
+  const { id } = body;
+  if (!id) return err(400, 'NO_ID', 'id required');
+  const patch = { position_sec: clampNum(body.position), updated_at: new Date().toISOString() };
+  if (body.duration != null) patch.duration_sec = clampNum(body.duration);
+  const r = await sb(`/rest/v1/burma_essays?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify(patch),
+  });
+  if (!r.ok) return err(502, 'DB_WRITE', await r.text());
+  return ok({ ok: true });
+}
+
+async function remove(body) {
+  const { id } = body;
+  if (!id) return err(400, 'NO_ID', 'id required');
+  const r = await sb(`/rest/v1/burma_essays?id=eq.${id}&select=audio_path`);
+  const rows = r.ok ? await r.json() : [];
+  if (rows[0]?.audio_path) {
+    await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${rows[0].audio_path}`, {
+      method: 'DELETE',
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+    }).catch(() => {});
+  }
+  const del = await sb(`/rest/v1/burma_essays?id=eq.${id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+  if (!del.ok) return err(502, 'DB_WRITE', await del.text());
+  return ok({ ok: true });
+}
+
+/* ---------------------------------------------------------- ElevenLabs */
+
+async function synth(text, voiceId, quality) {
+  const { model, fmt } = QUALITY[quality];
+  const call = (modelId) => fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=${fmt}`,
+    {
+      method: 'POST',
+      headers: { 'xi-api-key': ELEVEN_KEY, 'Content-Type': 'application/json', Accept: 'audio/mpeg' },
+      body: JSON.stringify({
+        text,
+        model_id: modelId,
+        voice_settings: { stability: 0.45, similarity_boost: 0.85, style: 0.3, use_speaker_boost: true },
+      }),
+    },
+  );
+  let res = await call(model);
+  if (!res.ok && model !== 'eleven_multilingual_v2' && [400, 403, 404].includes(res.status)) {
+    res = await call('eleven_multilingual_v2'); // fall back to flagship if model unavailable on account
+  }
+  if (!res.ok) return null;
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+/* -------------------------------------------------------------- helpers */
+
+function shape(row, withBody = false) {
+  const out = {
+    id: row.id, title: row.title,
+    duration_sec: row.duration_sec || 0,
+    position_sec: row.position_sec || 0,
+    char_count: row.char_count || 0,
+    voice: row.voice, status: row.status,
+    created_at: row.created_at, updated_at: row.updated_at,
+    audio_url: row.audio_path ? `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${row.audio_path}` : null,
+  };
+  if (withBody) out.body = row.body || '';
+  return out;
+}
+
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let i = 0;
+  async function worker() {
+    while (i < items.length) {
+      const idx = i++;
+      out[idx] = await fn(items[idx], idx);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+function concat(pieces) {
+  const total = pieces.reduce((n, p) => n + p.length, 0);
+  const merged = new Uint8Array(total);
+  let off = 0;
+  for (const p of pieces) { merged.set(p, off); off += p.length; }
+  return merged;
+}
+
+function chunkText(text, max = CHUNK_LIMIT) {
+  if (text.length <= max) return [text];
+  const out = [];
+  let buf = '';
+  for (const p of text.split(/\n\n+/)) {
+    if (p.length > max) {
+      const sentences = p.match(/[^.!?]+[.!?]+/g) ?? [p];
+      for (const s of sentences) {
+        if ((buf + ' ' + s).trim().length > max) { if (buf) out.push(buf.trim()); buf = s; }
+        else buf = buf ? buf + ' ' + s : s;
+      }
+    } else if ((buf + '\n\n' + p).length > max) { out.push(buf.trim()); buf = p; }
+    else buf = buf ? buf + '\n\n' + p : p;
+  }
+  if (buf.trim()) out.push(buf.trim());
+  return out;
+}
+
+function stripMarkdown(md) {
+  return md
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^#+\s*/gm, '')
+    .replace(/^\s*[-*]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/^>+\s*/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function firstLine(t) { return (t || '').split('\n').map((s) => s.trim()).find(Boolean)?.slice(0, 80); }
+function slug(t) { return (t || 'essay').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'essay'; }
+function clampNum(n) { n = Number(n); return Number.isFinite(n) && n >= 0 ? n : 0; }
+
+async function sb(path, init = {}) {
+  const headers = new Headers(init.headers || {});
+  headers.set('apikey', SUPABASE_KEY);
+  headers.set('Authorization', `Bearer ${SUPABASE_KEY}`);
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+  return fetch(`${SUPABASE_URL}${path}`, { ...init, headers, signal: AbortSignal.timeout(115_000) });
+}
+
+function ok(payload, status = 200) {
+  return new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json', ...CORS } });
+}
+function err(status, code, message) {
+  return new Response(JSON.stringify({ error: { code, message } }), {
+    status, headers: { 'Content-Type': 'application/json', ...CORS },
+  });
+}

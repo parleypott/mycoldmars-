@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0e0e0c" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Burma Essays</title>
+<style>
+  :root{
+    --bg:#0e0e0c; --panel:#16150f; --line:#2a2820;
+    --ink:#ece7dd; --dim:#9a9485; --faint:#6a655a;
+    --accent:#e0a422; --accent-soft:#3a2f12;
+    --serif:"Iowan Old Style",Palatino,Georgia,"Times New Roman",serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink)}
+  body{font-family:var(--serif);-webkit-font-smoothing:antialiased;
+    padding:0 0 calc(190px + env(safe-area-inset-bottom));}
+  a{color:inherit}
+  .wrap{max-width:760px;margin:0 auto;padding:0 18px}
+
+  header{padding:34px 0 18px;border-bottom:1px solid var(--line);margin-bottom:22px}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:30px;margin:8px 0 4px;font-weight:600;letter-spacing:-.01em}
+  .sub{color:var(--dim);font-size:14.5px}
+
+  /* composer */
+  .composer{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:26px}
+  .composer.collapsed .body-fields{display:none}
+  .composer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}
+  .composer-head .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+  .composer-head .tog{font-family:var(--mono);font-size:12px;color:var(--accent)}
+  input[type=text],textarea,select{
+    width:100%;background:#0b0b08;border:1px solid var(--line);color:var(--ink);
+    border-radius:10px;padding:12px 13px;font-family:var(--serif);font-size:16px;outline:none}
+  input::placeholder,textarea::placeholder{color:var(--faint)}
+  textarea{min-height:150px;resize:vertical;line-height:1.5;margin-top:10px}
+  input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+  .row{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .row .fld{flex:1;min-width:130px}
+  .fld label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:0 0 5px 2px}
+  select{font-size:14.5px;padding:10px 12px;appearance:none}
+  .btn{appearance:none;border:none;cursor:pointer;font-family:var(--mono);font-size:13px;letter-spacing:.05em;
+    background:var(--accent);color:#1a1304;font-weight:600;border-radius:10px;padding:13px 18px}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.full{width:100%;margin-top:12px}
+  .btn.ghost{background:transparent;color:var(--dim);border:1px solid var(--line)}
+  .status{font-family:var(--mono);font-size:12.5px;color:var(--dim);margin-top:10px;min-height:16px}
+  .status.err{color:#e0735a}
+
+  /* library */
+  .lib-lbl{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin:0 2px 12px}
+  .card{display:flex;align-items:center;gap:14px;padding:15px 14px;border:1px solid var(--line);
+    border-radius:12px;margin-bottom:11px;background:var(--panel);cursor:pointer;transition:border-color .15s}
+  .card:hover{border-color:#3d3a2c}
+  .card.active{border-color:var(--accent);background:#1b190f}
+  .card .play{flex:none;width:42px;height:42px;border-radius:50%;border:1px solid var(--line);
+    display:grid;place-items:center;color:var(--accent)}
+  .card.active .play{background:var(--accent);color:#1a1304;border-color:var(--accent)}
+  .card .meta{flex:1;min-width:0}
+  .card .t{font-size:17px;line-height:1.25;margin-bottom:3px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card .d{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.04em}
+  .card .d .resume{color:var(--accent)}
+  .card .x{flex:none;color:var(--faint);font-family:var(--mono);font-size:18px;padding:6px;line-height:1}
+  .card .bar{height:2px;background:var(--accent);border-radius:2px;margin-top:7px;width:0}
+  .empty{color:var(--faint);font-style:italic;padding:18px 2px}
+
+  /* reading pane */
+  #reader{margin-top:8px}
+  #reader h2{font-size:23px;margin:18px 0 12px;font-weight:600}
+  #reader .essay{font-size:18px;line-height:1.62;color:#d8d2c6;white-space:pre-wrap}
+  #reader.hidden{display:none}
+
+  /* player */
+  #player{position:fixed;left:0;right:0;bottom:0;background:rgba(14,14,12,.96);
+    backdrop-filter:blur(14px);border-top:1px solid var(--line);
+    padding:12px 0 calc(12px + env(safe-area-inset-bottom));transform:translateY(110%);transition:transform .28s ease}
+  #player.up{transform:translateY(0)}
+  .pl{max-width:760px;margin:0 auto;padding:0 18px}
+  .pl-top{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .pl-title{flex:1;min-width:0;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pl-voice{font-family:var(--mono);font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.12em}
+  .scrub{display:flex;align-items:center;gap:10px}
+  .scrub .time{font-family:var(--mono);font-size:11px;color:var(--dim);min-width:42px;text-align:center}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:24px;background:transparent}
+  input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:3px;
+    background:linear-gradient(var(--accent),var(--accent)) no-repeat,#33301f;background-size:var(--fill,0%) 100%}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--accent);margin-top:-6px;box-shadow:0 0 0 4px rgba(224,164,34,.18)}
+  input[type=range]::-moz-range-track{height:4px;border-radius:3px;background:#33301f}
+  input[type=range]::-moz-range-progress{height:4px;border-radius:3px;background:var(--accent)}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:var(--accent)}
+  .controls{display:flex;align-items:center;justify-content:center;gap:26px;margin-top:6px}
+  .controls button{appearance:none;background:none;border:none;color:var(--ink);cursor:pointer;
+    font-family:var(--mono);font-size:12px;display:flex;flex-direction:column;align-items:center;gap:3px}
+  .controls .skip{color:var(--dim)}
+  .controls .big{width:58px;height:58px;border-radius:50%;background:var(--accent);color:#1a1304;
+    display:grid;place-items:center}
+  .controls .big svg{width:26px;height:26px}
+  .controls .rate{min-width:40px}
+  svg{display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Listen · Library</div>
+    <h1>Burma Essays</h1>
+    <div class="sub">Paste an essay. It gets a voice. Pick up wherever you left off — even with your phone locked.</div>
+  </header>
+
+  <div class="composer collapsed" id="composer">
+    <div class="composer-head" id="composerHead">
+      <span class="lbl">＋ Add an essay</span>
+      <span class="tog" id="composerTog">open</span>
+    </div>
+    <div class="body-fields">
+      <input type="text" id="title" placeholder="Title (optional — I'll guess from the first line)" />
+      <textarea id="body" placeholder="Paste the whole essay here…"></textarea>
+      <div class="row">
+        <div class="fld">
+          <label>Voice</label>
+          <select id="voice">
+            <option value="charlotte">Charlotte — soft narrator</option>
+            <option value="george">George — warm British</option>
+            <option value="daniel">Daniel — deep UK</option>
+            <option value="matilda">Matilda — warm female</option>
+            <option value="adam">Adam — deep male</option>
+            <option value="parley">Parley — your voice</option>
+          </select>
+        </div>
+        <div class="fld">
+          <label>Quality</label>
+          <select id="quality">
+            <option value="mid">Balanced (turbo)</option>
+            <option value="rich">Richest (slower)</option>
+            <option value="fast">Fastest / cheapest</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn full" id="addBtn">Add to library</button>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <div class="lib-lbl">Library</div>
+  <div id="list"></div>
+
+  <div id="reader" class="hidden">
+    <h2 id="readerTitle"></h2>
+    <div class="essay" id="readerBody"></div>
+  </div>
+</div>
+
+<div id="player">
+  <div class="pl">
+    <div class="pl-top">
+      <div class="pl-title" id="plTitle">—</div>
+      <div class="pl-voice" id="plVoice"></div>
+    </div>
+    <div class="scrub">
+      <span class="time" id="cur">0:00</span>
+      <input type="range" id="seek" min="0" max="1000" value="0" step="1" />
+      <span class="time" id="dur">0:00</span>
+    </div>
+    <div class="controls">
+      <button class="skip" id="back15">↺<span>15</span></button>
+      <button class="big" id="toggle" aria-label="Play/Pause">
+        <svg id="icoPlay" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <svg id="icoPause" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+      </button>
+      <button class="skip" id="fwd30">↻<span>30</span></button>
+      <button class="rate" id="rate">1×</button>
+    </div>
+  </div>
+</div>
+
+<audio id="audio" preload="metadata"></audio>
+
+<script>
+const API = '/api/burma-essays';
+const $ = (id) => document.getElementById(id);
+const audio = $('audio');
+let essays = [];
+let current = null;          // current essay object
+let lastSavedAt = 0;         // throttle server position writes
+const RATES = [1, 1.25, 1.5, 1.75, 2, 0.85];
+
+/* ---- utils ---- */
+const fmt = (s) => {
+  s = Math.max(0, Math.floor(s || 0));
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), ss = s%60;
+  return (h ? h+':'+String(m).padStart(2,'0') : m) + ':' + String(ss).padStart(2,'0');
+};
+const lsKey = (id) => 'burma:pos:' + id;
+const localPos = (id) => { const v = parseFloat(localStorage.getItem(lsKey(id))); return Number.isFinite(v) ? v : 0; };
+const setLocalPos = (id, p) => localStorage.setItem(lsKey(id), String(p));
+
+/* ---- library ---- */
+async function load() {
+  try {
+    const r = await fetch(API);
+    const j = await r.json();
+    essays = j.essays || [];
+  } catch { essays = []; }
+  renderList();
+}
+
+function renderList() {
+  const el = $('list');
+  if (!essays.length) { el.innerHTML = '<div class="empty">Nothing yet. Paste an essay above to start your library.</div>'; return; }
+  el.innerHTML = '';
+  for (const e of essays) {
+    const resume = Math.max(localPos(e.id), e.position_sec || 0);
+    const dur = e.duration_sec || 0;
+    const pct = dur ? Math.min(100, (resume/dur)*100) : 0;
+    const card = document.createElement('div');
+    card.className = 'card' + (current && current.id === e.id ? ' active' : '');
+    card.innerHTML = `
+      <div class="play"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
+      <div class="meta">
+        <div class="t">${esc(e.title)}</div>
+        <div class="d">${dur ? fmt(dur) : '—'} · ${(e.char_count||0).toLocaleString()} chars${resume > 5 && (!dur || resume < dur-2) ? ` · <span class="resume">resume ${fmt(resume)}</span>` : ''}</div>
+        <div class="bar" style="width:${pct}%"></div>
+      </div>
+      <div class="x" title="Delete">✕</div>`;
+    card.querySelector('.meta').onclick = () => play(e.id);
+    card.querySelector('.play').onclick = () => play(e.id);
+    card.querySelector('.x').onclick = (ev) => { ev.stopPropagation(); del(e.id); };
+    el.appendChild(card);
+  }
+}
+
+function esc(s){ return (s||'').replace(/[&<>"]/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---- add ---- */
+$('composerHead').onclick = () => {
+  const c = $('composer');
+  c.classList.toggle('collapsed');
+  $('composerTog').textContent = c.classList.contains('collapsed') ? 'open' : 'close';
+};
+$('addBtn').onclick = addEssay;
+async function addEssay() {
+  const body = $('body').value.trim();
+  if (!body) { setStatus('Paste an essay first.', true); return; }
+  const title = $('title').value.trim();
+  const voice = $('voice').value, quality = $('quality').value;
+  $('addBtn').disabled = true;
+  const t0 = Date.now();
+  const tick = setInterval(() => setStatus(`Recording the narration… ${Math.round((Date.now()-t0)/1000)}s (longer essays take a bit)`), 400);
+  try {
+    const r = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'create', title, body, voice, quality }) });
+    const j = await r.json();
+    clearInterval(tick);
+    if (!r.ok) { setStatus('Failed: ' + (j.error?.message || r.status), true); $('addBtn').disabled=false; return; }
+    setStatus('Added ✓');
+    $('title').value=''; $('body').value='';
+    essays.unshift(j.essay); renderList();
+    $('composer').classList.add('collapsed'); $('composerTog').textContent='open';
+    play(j.essay.id);
+  } catch (e) {
+    clearInterval(tick); setStatus('Error: ' + e.message, true);
+  }
+  $('addBtn').disabled = false;
+}
+function setStatus(msg, isErr){ const s=$('status'); s.textContent=msg; s.className='status'+(isErr?' err':''); }
+
+/* ---- delete ---- */
+async function del(id) {
+  if (!confirm('Delete this essay and its audio?')) return;
+  essays = essays.filter(e => e.id !== id);
+  if (current && current.id === id) { audio.pause(); current=null; $('player').classList.remove('up'); $('reader').classList.add('hidden'); }
+  renderList();
+  try { await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'delete', id }) }); } catch {}
+}
+
+/* ---- play ---- */
+async function play(id) {
+  let e = essays.find(x => x.id === id);
+  // fetch full body for the reading pane
+  if (!e || e.body === undefined) {
+    try { const r = await fetch(API + '?id=' + id); const j = await r.json(); if (j.essay) e = j.essay; } catch {}
+  }
+  if (!e || !e.audio_url) { setStatus('No audio for this one.', true); return; }
+  current = e;
+  renderList();
+  $('plTitle').textContent = e.title;
+  $('plVoice').textContent = e.voice || '';
+  $('readerTitle').textContent = e.title;
+  $('readerBody').textContent = e.body || '';
+  $('reader').classList.remove('hidden');
+
+  const resume = Math.max(localPos(id), e.position_sec || 0);
+  if (audio.src !== e.audio_url) audio.src = e.audio_url;
+  audio.playbackRate = currentRate();
+  const seekTo = () => { if (resume > 1 && (!audio.duration || resume < audio.duration - 2)) audio.currentTime = resume; };
+  if (audio.readyState >= 1) seekTo();
+  else audio.addEventListener('loadedmetadata', seekTo, { once: true });
+
+  try { await audio.play(); } catch {}
+  setupMediaSession(e);
+  $('player').classList.add('up');
+}
+
+/* ---- transport ---- */
+$('toggle').onclick = () => { audio.paused ? audio.play() : audio.pause(); };
+$('back15').onclick = () => { audio.currentTime = Math.max(0, audio.currentTime - 15); };
+$('fwd30').onclick = () => { audio.currentTime = Math.min(audio.duration||1e9, audio.currentTime + 30); };
+$('rate').onclick = () => {
+  const i = (RATES.indexOf(currentRate()) + 1) % RATES.length;
+  const r = RATES[i]; localStorage.setItem('burma:rate', String(r));
+  audio.playbackRate = r; $('rate').textContent = r + '×';
+};
+function currentRate(){ const r = parseFloat(localStorage.getItem('burma:rate')); return RATES.includes(r) ? r : 1; }
+$('rate').textContent = currentRate() + '×';
+
+let seeking = false;
+$('seek').addEventListener('input', () => { seeking = true; const d = audio.duration||0; $('cur').textContent = fmt((+$('seek').value/1000)*d); });
+$('seek').addEventListener('change', () => { const d = audio.duration||0; audio.currentTime = (+$('seek').value/1000)*d; seeking = false; });
+
+audio.addEventListener('play',  () => { swapIcon(true); updateMSPlayback(); });
+audio.addEventListener('pause', () => { swapIcon(false); savePosition(true); updateMSPlayback(); });
+audio.addEventListener('loadedmetadata', () => {
+  $('dur').textContent = fmt(audio.duration);
+  if (current && (!current.duration_sec || Math.abs(current.duration_sec - audio.duration) > 1)) {
+    current.duration_sec = audio.duration; savePosition(true);  // persist real duration once known
+  }
+});
+audio.addEventListener('timeupdate', () => {
+  const d = audio.duration || 0, c = audio.currentTime || 0;
+  if (!seeking) { $('seek').value = d ? (c/d)*1000 : 0; $('seek').style.setProperty('--fill', (d?(c/d)*100:0)+'%'); $('cur').textContent = fmt(c); }
+  if (current) {
+    setLocalPos(current.id, c);
+    if (Date.now() - lastSavedAt > 5000) savePosition(false);
+  }
+  updateMSPosition();
+});
+audio.addEventListener('ended', () => { if (current) { setLocalPos(current.id, 0); savePosition(true); } });
+function swapIcon(playing){ $('icoPlay').style.display = playing?'none':'block'; $('icoPause').style.display = playing?'block':'none'; }
+
+/* ---- position persistence ---- */
+async function savePosition(immediate) {
+  if (!current) return;
+  lastSavedAt = Date.now();
+  const payload = { action:'position', id: current.id, position: audio.currentTime || 0, duration: audio.duration || 0 };
+  // update local list copy so the resume chip is fresh
+  current.position_sec = payload.position;
+  const body = JSON.stringify(payload);
+  try {
+    if (immediate && navigator.sendBeacon) navigator.sendBeacon(API, new Blob([body], { type:'application/json' }));
+    else await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body, keepalive:true });
+  } catch {}
+}
+window.addEventListener('pagehide', () => savePosition(true));
+window.addEventListener('beforeunload', () => savePosition(true));
+document.addEventListener('visibilitychange', () => { if (document.hidden) savePosition(true); });
+
+/* ---- iOS lock-screen / MediaSession ---- */
+function setupMediaSession(e) {
+  if (!('mediaSession' in navigator)) return;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: e.title, artist: 'Burma Essays', album: 'Library',
+  });
+  const ms = navigator.mediaSession;
+  ms.setActionHandler('play',  () => audio.play());
+  ms.setActionHandler('pause', () => audio.pause());
+  ms.setActionHandler('seekbackward', (d) => { audio.currentTime = Math.max(0, audio.currentTime - (d.seekOffset||15)); });
+  ms.setActionHandler('seekforward',  (d) => { audio.currentTime = Math.min(audio.duration||1e9, audio.currentTime + (d.seekOffset||30)); });
+  ms.setActionHandler('seekto', (d) => { if (d.fastSeek && 'fastSeek' in audio) audio.fastSeek(d.seekTime); else audio.currentTime = d.seekTime; });
+  try { ms.setActionHandler('previoustrack', () => $('back15').click()); ms.setActionHandler('nexttrack', () => $('fwd30').click()); } catch {}
+}
+function updateMSPlayback(){ if ('mediaSession' in navigator) navigator.mediaSession.playbackState = audio.paused ? 'paused' : 'playing'; }
+function updateMSPosition(){
+  if (!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
+  if (audio.duration && isFinite(audio.duration)) {
+    try { navigator.mediaSession.setPositionState({ duration: audio.duration, playbackRate: audio.playbackRate, position: Math.min(audio.currentTime, audio.duration) }); } catch {}
+  }
+}
+
+load();
+</script>
+</body>
+</html>
