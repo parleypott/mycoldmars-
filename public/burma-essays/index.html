@@ -103,6 +103,42 @@
   .controls .big svg{width:26px;height:26px}
   .controls .rate{min-width:40px}
   svg{display:block}
+
+  /* tabs */
+  .tabs{display:flex;gap:6px;margin:0 0 22px;border-bottom:1px solid var(--line)}
+  .tab{appearance:none;background:none;border:none;cursor:pointer;color:var(--dim);
+    font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;
+    padding:11px 14px;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+  .tab .count{color:var(--faint);margin-left:6px}
+  .hidden{display:none}
+
+  /* highlight marks inside the reader */
+  #readerBody mark{background:linear-gradient(transparent 58%, rgba(224,164,34,.32) 58%);
+    color:inherit;border-radius:2px;padding:0 1px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+  #readerBody mark.flash{animation:flash 1.4s ease}
+  @keyframes flash{0%,40%{background:rgba(224,164,34,.6)}100%{background:linear-gradient(transparent 58%, rgba(224,164,34,.32) 58%)}}
+  .reader-hint{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.04em;margin:0 0 10px}
+
+  /* floating save-highlight pill */
+  #savePill{position:fixed;left:50%;transform:translateX(-50%) translateY(20px);
+    bottom:calc(210px + env(safe-area-inset-bottom));z-index:30;opacity:0;pointer-events:none;
+    background:var(--accent);color:#1a1304;font-family:var(--mono);font-size:13px;font-weight:600;
+    letter-spacing:.04em;border:none;border-radius:30px;padding:12px 20px;cursor:pointer;
+    box-shadow:0 8px 30px rgba(0,0,0,.5);transition:opacity .16s, transform .16s}
+  #savePill.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+  #player:not(.up) ~ #savePill.show{bottom:calc(28px + env(safe-area-inset-bottom))}
+
+  /* highlights collection */
+  .hl-group{margin-bottom:26px}
+  .hl-group .gh{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);margin:0 2px 11px;cursor:pointer}
+  .hl{position:relative;border-left:2px solid var(--accent);background:var(--panel);
+    border-radius:0 12px 12px 0;padding:15px 42px 15px 17px;margin-bottom:11px;cursor:pointer}
+  .hl .q{font-family:var(--serif);font-size:18px;line-height:1.5;color:#e6e0d4}
+  .hl .m{font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.04em;margin-top:9px}
+  .hl .x{position:absolute;top:10px;right:10px;color:var(--faint);font-family:var(--mono);font-size:16px;padding:5px;line-height:1}
+  .hl:hover{border-left-color:#f0b94a}
 </style>
 </head>
 <body>
@@ -113,6 +149,12 @@
     <div class="sub">Paste an essay. It gets a voice. Pick up wherever you left off — even with your phone locked.</div>
   </header>
 
+  <div class="tabs">
+    <button class="tab on" id="tabLib" data-view="library">Library</button>
+    <button class="tab" id="tabHl" data-view="highlights">Highlights <span class="count" id="hlCount"></span></button>
+  </div>
+
+  <div id="viewLibrary">
   <div class="composer collapsed" id="composer">
     <div class="composer-head" id="composerHead">
       <span class="lbl">＋ Add an essay</span>
@@ -152,9 +194,17 @@
 
   <div id="reader" class="hidden">
     <h2 id="readerTitle"></h2>
+    <div class="reader-hint">Select any text to save a highlight ✦</div>
     <div class="essay" id="readerBody"></div>
   </div>
+  </div><!-- /viewLibrary -->
+
+  <div id="viewHighlights" class="hidden">
+    <div id="hlList"></div>
+  </div>
 </div>
+
+<button id="savePill">✦ Save highlight</button>
 
 <div id="player">
   <div class="pl">
@@ -280,19 +330,20 @@ async function del(id) {
 }
 
 /* ---- play ---- */
-async function play(id) {
+async function play(id, autoplay = true) {
   let e = essays.find(x => x.id === id);
-  // fetch full body for the reading pane
-  if (!e || e.body === undefined) {
+  // fetch full body + highlights for the reading pane
+  if (!e || e.body === undefined || e.highlights === undefined) {
     try { const r = await fetch(API + '?id=' + id); const j = await r.json(); if (j.essay) e = j.essay; } catch {}
   }
   if (!e || !e.audio_url) { setStatus('No audio for this one.', true); return; }
   current = e;
+  current.highlights = e.highlights || [];
   renderList();
   $('plTitle').textContent = e.title;
   $('plVoice').textContent = e.voice || '';
   $('readerTitle').textContent = e.title;
-  $('readerBody').textContent = e.body || '';
+  renderReader();
   $('reader').classList.remove('hidden');
 
   const resume = Math.max(localPos(id), e.position_sec || 0);
@@ -302,7 +353,7 @@ async function play(id) {
   if (audio.readyState >= 1) seekTo();
   else audio.addEventListener('loadedmetadata', seekTo, { once: true });
 
-  try { await audio.play(); } catch {}
+  if (autoplay) { try { await audio.play(); } catch {} }
   setupMediaSession(e);
   $('player').classList.add('up');
 }
@@ -382,7 +433,128 @@ function updateMSPosition(){
   }
 }
 
+/* ---- tabs ---- */
+let allHighlights = [];
+function switchView(v) {
+  const lib = v === 'library';
+  $('viewLibrary').classList.toggle('hidden', !lib);
+  $('viewHighlights').classList.toggle('hidden', lib);
+  $('tabLib').classList.toggle('on', lib);
+  $('tabHl').classList.toggle('on', !lib);
+  if (!lib) loadHighlights();
+}
+$('tabLib').onclick = () => switchView('library');
+$('tabHl').onclick  = () => switchView('highlights');
+
+/* ---- reader with highlight marks ---- */
+function renderReader() {
+  if (!current) return;
+  $('readerBody').innerHTML = markup(current.body || '', (current.highlights || []).map(h => h.quote));
+}
+function markup(body, quotes) {
+  const ranges = [];
+  for (const q of quotes) {
+    if (!q) continue;
+    let from = 0;
+    while (true) {
+      const i = body.indexOf(q, from);
+      if (i < 0) break;
+      const j = i + q.length;
+      if (!ranges.some(r => i < r.e && j > r.s)) { ranges.push({ s: i, e: j }); break; }
+      from = i + 1;
+    }
+  }
+  ranges.sort((a, b) => a.s - b.s);
+  let out = '', pos = 0;
+  for (const r of ranges) { out += esc(body.slice(pos, r.s)) + '<mark>' + esc(body.slice(r.s, r.e)) + '</mark>'; pos = r.e; }
+  return out + esc(body.slice(pos));
+}
+
+/* ---- select-to-highlight ---- */
+let pendingQuote = '';
+document.addEventListener('selectionchange', () => {
+  const sel = document.getSelection();
+  const pill = $('savePill');
+  if (!sel || sel.isCollapsed || !sel.rangeCount || !current) { pendingQuote = ''; pill.classList.remove('show'); return; }
+  const rb = $('readerBody');
+  const inReader = rb.contains(sel.anchorNode) && rb.contains(sel.focusNode);
+  const text = sel.toString();
+  if (inReader && text.trim().length > 0) { pendingQuote = text; pill.classList.add('show'); }
+  else { pendingQuote = ''; pill.classList.remove('show'); }
+});
+$('savePill').addEventListener('mousedown', (e) => e.preventDefault()); // keep selection on desktop
+$('savePill').onclick = saveHighlight;
+async function saveHighlight() {
+  const q = pendingQuote.trim();
+  if (!q || !current) return;
+  $('savePill').classList.remove('show');
+  try {
+    const r = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'highlight', essay_id: current.id, quote: q }) });
+    const j = await r.json();
+    if (j.highlight) {
+      (current.highlights = current.highlights || []).push(j.highlight);
+      renderReader();
+      allHighlights.unshift({ ...j.highlight, essay_id: current.id, essay_title: current.title });
+      updateHlCount();
+    }
+  } catch {}
+  const sel = document.getSelection(); if (sel) sel.removeAllRanges();
+  pendingQuote = '';
+}
+
+/* ---- highlights collection ---- */
+async function loadHighlights() {
+  try { const r = await fetch(API + '?highlights=1'); const j = await r.json(); allHighlights = j.highlights || []; }
+  catch { allHighlights = []; }
+  renderHighlights(); updateHlCount();
+}
+function updateHlCount() { $('hlCount').textContent = allHighlights.length ? '· ' + allHighlights.length : ''; }
+function fmtDate(iso) { try { return new Date(iso).toLocaleDateString(undefined, { month:'short', day:'numeric' }); } catch { return ''; } }
+
+function renderHighlights() {
+  const el = $('hlList');
+  if (!allHighlights.length) { el.innerHTML = '<div class="empty">No highlights yet. Open an essay, select a passage, tap ✦ Save highlight.</div>'; return; }
+  const groups = [], idx = {};
+  for (const h of allHighlights) {
+    if (!(h.essay_id in idx)) { idx[h.essay_id] = groups.length; groups.push({ id: h.essay_id, title: h.essay_title, items: [] }); }
+    groups[idx[h.essay_id]].items.push(h);
+  }
+  el.innerHTML = '';
+  for (const g of groups) {
+    const wrap = document.createElement('div'); wrap.className = 'hl-group';
+    const gh = document.createElement('div'); gh.className = 'gh'; gh.textContent = g.title;
+    gh.onclick = () => openHighlight(g.items[0]);
+    wrap.appendChild(gh);
+    for (const h of g.items) {
+      const c = document.createElement('div'); c.className = 'hl';
+      c.innerHTML = `<div class="q">${esc(h.quote)}</div><div class="m">${fmtDate(h.created_at)}</div><div class="x" title="Remove">✕</div>`;
+      c.onclick = () => openHighlight(h);
+      c.querySelector('.x').onclick = (ev) => { ev.stopPropagation(); delHighlight(h); };
+      wrap.appendChild(c);
+    }
+    el.appendChild(wrap);
+  }
+}
+async function openHighlight(h) {
+  switchView('library');
+  await play(h.essay_id, false);
+  setTimeout(() => scrollToQuote(h.quote), 60);
+}
+function scrollToQuote(q) {
+  const marks = [...$('readerBody').querySelectorAll('mark')];
+  const target = marks.find(m => m.textContent === q) || marks.find(m => m.textContent.includes(q.slice(0, 40)));
+  if (target) { target.scrollIntoView({ behavior:'smooth', block:'center' }); target.classList.add('flash'); setTimeout(() => target.classList.remove('flash'), 1500); }
+}
+async function delHighlight(h) {
+  allHighlights = allHighlights.filter(x => x.id !== h.id);
+  if (current && current.highlights) current.highlights = current.highlights.filter(x => x.id !== h.id);
+  renderHighlights(); updateHlCount(); if (current) renderReader();
+  try { await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'unhighlight', id: h.id }) }); } catch {}
+}
+
 load();
+loadHighlights();   // populate the Highlights count badge on first paint
 </script>
 </body>
 </html>

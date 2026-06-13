@@ -56,16 +56,20 @@ export default async function handler(req) {
 
   try {
     if (req.method === 'GET') {
-      const id = new URL(req.url).searchParams.get('id');
+      const u = new URL(req.url).searchParams;
+      if (u.get('highlights') != null) return await listHighlights();
+      const id = u.get('id');
       return id ? await getOne(id) : await list();
     }
     if (req.method === 'POST') {
       let body;
       try { body = await req.json(); } catch { return err(400, 'BAD_JSON', 'Body must be JSON'); }
       const action = body?.action || 'create';
-      if (action === 'create')   return await create(body);
-      if (action === 'position') return await savePosition(body);
-      if (action === 'delete')   return await remove(body);
+      if (action === 'create')      return await create(body);
+      if (action === 'position')    return await savePosition(body);
+      if (action === 'delete')      return await remove(body);
+      if (action === 'highlight')   return await addHighlight(body);
+      if (action === 'unhighlight') return await delHighlight(body);
       return err(400, 'BAD_ACTION', `Unknown action: ${action}`);
     }
     return err(405, 'METHOD', `Method ${req.method} not allowed`);
@@ -88,7 +92,43 @@ async function getOne(id) {
   if (!r.ok) return err(502, 'DB_READ', await r.text());
   const rows = await r.json();
   if (!rows.length) return err(404, 'NOT_FOUND', 'no such essay');
-  return ok({ essay: shape(rows[0], true) });
+  const essay = shape(rows[0], true);
+  const hr = await sb(`/rest/v1/burma_highlights?essay_id=eq.${id}&select=id,quote,note,color,created_at&order=created_at.asc`);
+  essay.highlights = hr.ok ? await hr.json() : [];
+  return ok({ essay });
+}
+
+async function listHighlights() {
+  // all highlights, newest first, with their essay's title for the collection tab
+  const r = await sb(`/rest/v1/burma_highlights?select=id,quote,note,color,created_at,essay_id,burma_essays(title)&order=created_at.desc`);
+  if (!r.ok) return err(502, 'DB_READ', await r.text());
+  const rows = await r.json();
+  return ok({ highlights: rows.map((h) => ({
+    id: h.id, quote: h.quote, note: h.note || '', color: h.color || 'gold',
+    created_at: h.created_at, essay_id: h.essay_id,
+    essay_title: h.burma_essays?.title || 'Essay',
+  })) });
+}
+
+async function addHighlight(body) {
+  const essay_id = body.essay_id;
+  const quote = (body.quote || '').toString().trim();
+  if (!essay_id) return err(400, 'NO_ID', 'essay_id required');
+  if (!quote) return err(400, 'EMPTY', 'quote required');
+  const ins = await sb(`/rest/v1/burma_highlights`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    body: JSON.stringify({ essay_id, quote: quote.slice(0, 6000), note: (body.note || '').toString().slice(0, 2000), color: body.color || 'gold' }),
+  });
+  if (!ins.ok) return err(502, 'DB_WRITE', await ins.text());
+  return ok({ highlight: (await ins.json())[0] });
+}
+
+async function delHighlight(body) {
+  if (!body.id) return err(400, 'NO_ID', 'id required');
+  const r = await sb(`/rest/v1/burma_highlights?id=eq.${body.id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+  if (!r.ok) return err(502, 'DB_WRITE', await r.text());
+  return ok({ ok: true });
 }
 
 /* --------------------------------------------------------------- writes */
