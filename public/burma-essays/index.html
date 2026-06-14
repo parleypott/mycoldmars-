@@ -6,6 +6,9 @@
 <meta name="theme-color" content="#0e0e0c" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Burma Essays" />
+<link rel="apple-touch-icon" href="/burma-essays/apple-touch-icon.png" />
+<link rel="icon" type="image/png" href="/burma-essays/apple-touch-icon.png" />
 <link rel="manifest" href="/burma-essays/manifest.json" />
 <title>Burma Essays</title>
 <style>
@@ -189,6 +192,18 @@
     border-radius:10px;padding:9px 13px;margin:0 0 18px;font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.04em}
   #offlineBar.show{display:flex}
   #offlineBar .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+
+  /* iOS "add to home screen" hint */
+  #iosInstall{display:none;position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:60;
+    background:#1b190f;border:1px solid var(--accent-soft);border-radius:14px;padding:14px 16px;
+    box-shadow:0 12px 40px rgba(0,0,0,.55);max-width:520px;margin:0 auto}
+  #iosInstall.show{display:block}
+  #iosInstall .t{font-family:var(--serif);font-size:16px;color:var(--ink);margin-bottom:5px}
+  #iosInstall .s{font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--dim)}
+  #iosInstall .s b{color:var(--accent);font-weight:600}
+  #iosInstall .shareico{display:inline-block;width:14px;height:14px;vertical-align:-2px;margin:0 1px}
+  #iosInstall .x{position:absolute;top:9px;right:11px;color:var(--faint);font-family:var(--mono);font-size:17px;padding:5px;cursor:pointer;line-height:1}
+  #iosInstall .x:hover{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -265,6 +280,14 @@
 
 <button id="savePill">✦ Save highlight</button>
 <div class="toast" id="toast"></div>
+
+<div id="iosInstall">
+  <span class="x" id="iosInstallX">✕</span>
+  <div class="t">Keep this on your phone ✦</div>
+  <div class="s">Tap the Share button
+    <svg class="shareico" viewBox="0 0 24 24" fill="none" stroke="#e0a422" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg>
+    at the bottom of Safari, then <b>Add to Home Screen</b>. It opens fullscreen and your saved essays play with no internet.</div>
+</div>
 
 <div id="player">
   <div class="pl">
@@ -822,6 +845,21 @@ async function delHighlight(h) {
 }
 
 $('offlineBar').classList.toggle('show', !navigator.onLine);
+
+/* iOS: nudge "Add to Home Screen" (Safari has no install prompt of its own) */
+function maybeShowIosInstall() {
+  const ua = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isSafari = !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);   // Chrome/FF/Edge on iOS use different share flows
+  const standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  const dismissed = localStorage.getItem('burma:iosHintDismissed') === '1';
+  if (isIOS && isSafari && !standalone && !dismissed) {
+    setTimeout(() => $('iosInstall').classList.add('show'), 1400);
+  }
+}
+$('iosInstallX').onclick = () => { $('iosInstall').classList.remove('show'); localStorage.setItem('burma:iosHintDismissed', '1'); };
+maybeShowIosInstall();
+
 load();
 loadHighlights();   // populate the Highlights count badge on first paint
 </script>
