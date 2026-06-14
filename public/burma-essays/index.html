@@ -65,7 +65,11 @@
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .card .d{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.04em}
   .card .d .resume{color:var(--accent)}
+  .card .re{flex:none;color:var(--faint);font-family:var(--mono);font-size:16px;padding:6px;line-height:1}
+  .card .re:hover{color:var(--accent)}
   .card .x{flex:none;color:var(--faint);font-family:var(--mono);font-size:18px;padding:6px;line-height:1}
+  .spin{display:inline-block;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
   .card .bar{height:2px;background:var(--accent);border-radius:2px;margin-top:7px;width:0}
   .empty{color:var(--faint);font-style:italic;padding:18px 2px}
 
@@ -315,9 +319,12 @@ function renderList() {
         <div class="d">${dur ? fmt(dur) : '—'} · ${(e.char_count||0).toLocaleString()} chars${resume > 5 && (!dur || resume < dur-2) ? ` · <span class="resume">resume ${fmt(resume)}</span>` : ''}</div>
         <div class="bar" style="width:${pct}%"></div>
       </div>
+      <div class="re" title="Re-voice (fix / change voice)">↻</div>
       <div class="x" title="Delete">✕</div>`;
     card.querySelector('.meta').onclick = () => play(e.id);
     card.querySelector('.play').onclick = () => play(e.id);
+    const reBtn = card.querySelector('.re');
+    reBtn.onclick = (ev) => { ev.stopPropagation(); regen(e.id, reBtn); };
     card.querySelector('.x').onclick = (ev) => { ev.stopPropagation(); del(e.id); };
     el.appendChild(card);
   }
@@ -357,6 +364,31 @@ async function addEssay() {
   $('addBtn').disabled = false;
 }
 function setStatus(msg, isErr){ const s=$('status'); s.textContent=msg; s.className='status'+(isErr?' err':''); }
+
+/* ---- regenerate (rebuild narration: fixes old audio, adds word-tracking) ---- */
+async function regen(id, btn) {
+  if (!confirm('Re-generate this narration? Fixes playback, adds word-tracking, uses ElevenLabs credits, and resets your spot.')) return;
+  if (btn) { btn.innerHTML = '<span class="spin">↻</span>'; btn.style.pointerEvents = 'none'; }
+  toast('Re-voicing… this can take a minute for a long essay');
+  try {
+    const r = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'regenerate', id }) });
+    const j = await r.json();
+    if (!r.ok) { toast('Failed: ' + (j.error?.message || r.status)); }
+    else {
+      const idx = essays.findIndex(e => e.id === id);
+      if (idx >= 0) Object.assign(essays[idx], j.essay);
+      localStorage.removeItem(lsKey(id)); // timeline changed, drop stale local position
+      toast('Re-voiced ✓ — fixed + karaoke ready');
+      if (current && current.id === id) {
+        current = Object.assign(current, j.essay);
+        current.highlights = j.essay.highlights || current.highlights || [];
+        audio.src = j.essay.audio_url;
+        renderReader();
+      }
+    }
+  } catch (e) { toast('Error: ' + e.message); }
+  renderList();
+}
 
 /* ---- delete ---- */
 async function del(id) {

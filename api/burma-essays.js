@@ -68,6 +68,7 @@ export default async function handler(req) {
       if (action === 'create')      return await create(body);
       if (action === 'position')    return await savePosition(body);
       if (action === 'delete')      return await remove(body);
+      if (action === 'regenerate')  return await regenerate(body);
       if (action === 'highlight')   return await addHighlight(body);
       if (action === 'unhighlight') return await delHighlight(body);
       return err(400, 'BAD_ACTION', `Unknown action: ${action}`);
@@ -146,40 +147,10 @@ async function create(body) {
   const voiceId = VOICES[voice];
   const q = QUALITY[body.quality] ? body.quality : DEFAULT_QUALITY;
 
-  // 1) synth audio + word timings (chunked, concurrency-limited, order preserved)
-  const chunks = chunkText(clean);
-  const results = await mapLimit(chunks, CONCURRENCY, (c) => synth(c, voiceId, q));
-  const failed = results.findIndex((r) => !r);
-  if (failed !== -1) return err(502, 'TTS_FAILED', `ElevenLabs failed on chunk ${failed + 1}`);
-
-  // assemble one clean mp3 (ID3-stripped frames) + a single global word timeline
-  const audioPieces = [];
-  const words = [];
-  let narration = '';
-  let offset = 0; // cumulative audio seconds across chunks
-  for (const r of results) {
-    audioPieces.push(r.audio);
-    if (narration.length) narration += '\n\n'; // keep paragraph breaks at chunk seams
-    const base = narration.length;
-    const n = r.chars.length;
-    let wi = -1; // index of current word's first char within this chunk
-    for (let i = 0; i <= n; i++) {
-      const isSpace = i === n || /\s/.test(r.chars[i]);
-      if (!isSpace && wi < 0) wi = i;
-      if (isSpace && wi >= 0) {
-        words.push({
-          s: +(r.starts[wi] + offset).toFixed(3),
-          e: +(r.ends[i - 1] + offset).toFixed(3),
-          a: base + wi, b: base + i,
-        });
-        wi = -1;
-      }
-    }
-    narration += r.chars.join('');
-    offset += r.ends.length ? r.ends[r.ends.length - 1] : 0;
-  }
-  const merged = concat(audioPieces);
-  const duration = +offset.toFixed(3);
+  // 1) synth audio + word timings
+  const gen = await generateAudio(clean, voiceId, q);
+  if (gen.error) return err(502, 'TTS_FAILED', gen.error);
+  const { merged, words, narration, duration } = gen;
 
   // 2) upload single mp3 to public bucket
   const path = `${Date.now()}-${slug(title)}.mp3`;
@@ -211,6 +182,53 @@ async function create(body) {
   return ok({ essay: shape(row, true) });
 }
 
+async function regenerate(body) {
+  if (!ELEVEN_KEY) return err(500, 'NO_TTS', 'ELEVENLABS_API_KEY not configured on the server');
+  const id = body.id;
+  if (!id) return err(400, 'NO_ID', 'id required');
+  const r = await sb(`/rest/v1/burma_essays?id=eq.${id}&select=*`);
+  if (!r.ok) return err(502, 'DB_READ', await r.text());
+  const rows = await r.json();
+  if (!rows.length) return err(404, 'NOT_FOUND', 'no such essay');
+  const row = rows[0];
+
+  const clean = stripMarkdown((row.body || '').toString()).trim();
+  if (!clean) return err(400, 'EMPTY', 'stored essay body is empty');
+  if (clean.length > MAX_CHARS) return err(413, 'TOO_LONG', `essay is ${clean.length} chars (max ${MAX_CHARS})`);
+
+  const voice = VOICES[body.voice] ? body.voice : (VOICES[row.voice] ? row.voice : DEFAULT_VOICE);
+  const q = QUALITY[body.quality] ? body.quality : DEFAULT_QUALITY;
+
+  const gen = await generateAudio(clean, VOICES[voice], q);
+  if (gen.error) return err(502, 'TTS_FAILED', gen.error);
+
+  const path = `${Date.now()}-${slug(row.title)}.mp3`;
+  const up = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'audio/mpeg', 'x-upsert': 'true', 'cache-control': '31536000' },
+    body: gen.merged,
+  });
+  if (!up.ok) return err(502, 'UPLOAD', await up.text());
+
+  const u = await sb(`/rest/v1/burma_essays?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    body: JSON.stringify({
+      audio_path: path, voice, narration_text: gen.narration, words: gen.words,
+      duration_sec: gen.duration, position_sec: 0, status: 'ready', updated_at: new Date().toISOString(),
+    }),
+  });
+  if (!u.ok) return err(502, 'DB_WRITE', await u.text());
+
+  // best-effort: remove the stale (buggy) audio file
+  if (row.audio_path && row.audio_path !== path) {
+    fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${row.audio_path}`, {
+      method: 'DELETE', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+    }).catch(() => {});
+  }
+  return ok({ essay: shape((await u.json())[0], true) });
+}
+
 async function savePosition(body) {
   const { id } = body;
   if (!id) return err(400, 'NO_ID', 'id required');
@@ -239,6 +257,39 @@ async function remove(body) {
   const del = await sb(`/rest/v1/burma_essays?id=eq.${id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
   if (!del.ok) return err(502, 'DB_WRITE', await del.text());
   return ok({ ok: true });
+}
+
+/* ---------------------------------------------------- audio assembly */
+
+// Synth every chunk, then stitch into one clean mp3 + a single global word timeline.
+async function generateAudio(clean, voiceId, q) {
+  const chunks = chunkText(clean);
+  const results = await mapLimit(chunks, CONCURRENCY, (c) => synth(c, voiceId, q));
+  const failed = results.findIndex((r) => !r);
+  if (failed !== -1) return { error: `ElevenLabs failed on chunk ${failed + 1}` };
+
+  const audioPieces = [];
+  const words = [];
+  let narration = '';
+  let offset = 0; // cumulative audio seconds across chunks
+  for (const r of results) {
+    audioPieces.push(r.audio);
+    if (narration.length) narration += '\n\n'; // keep paragraph breaks at chunk seams
+    const base = narration.length;
+    const n = r.chars.length;
+    let wi = -1; // first char of the current word within this chunk
+    for (let i = 0; i <= n; i++) {
+      const isSpace = i === n || /\s/.test(r.chars[i]);
+      if (!isSpace && wi < 0) wi = i;
+      if (isSpace && wi >= 0) {
+        words.push({ s: +(r.starts[wi] + offset).toFixed(3), e: +(r.ends[i - 1] + offset).toFixed(3), a: base + wi, b: base + i });
+        wi = -1;
+      }
+    }
+    narration += r.chars.join('');
+    offset += r.ends.length ? r.ends[r.ends.length - 1] : 0;
+  }
+  return { merged: concat(audioPieces), words, narration, duration: +offset.toFixed(3) };
 }
 
 /* ---------------------------------------------------------- ElevenLabs */
