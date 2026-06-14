@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0e0e0c" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="/burma-essays/manifest.json" />
 <title>Burma Essays</title>
 <style>
   :root{
@@ -67,6 +68,15 @@
   .card .d .resume{color:var(--accent)}
   .card .re{flex:none;color:var(--faint);font-family:var(--mono);font-size:16px;padding:6px;line-height:1}
   .card .re:hover{color:var(--accent)}
+  /* offline download control */
+  .card .dl{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;
+    color:var(--faint);font-family:var(--mono);font-size:15px;line-height:1;cursor:pointer;position:relative}
+  .card .dl:hover{color:var(--accent)}
+  .card .dl.saved{color:var(--accent)}
+  .card .dl.busy{color:var(--accent);cursor:default}
+  .card .dl .pct{font-size:9px;letter-spacing:0}
+  .card.gone{opacity:.4}
+  .card.gone .play{border-style:dashed}
   .card .x{flex:none;color:var(--faint);font-family:var(--mono);font-size:18px;padding:6px;line-height:1}
   .spin{display:inline-block;animation:spin 1s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -173,6 +183,12 @@
     background:#16150f;border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:12px;
     padding:9px 14px;border-radius:20px;z-index:40;opacity:0;transition:opacity .2s;pointer-events:none}
   .toast.show{opacity:1}
+
+  /* offline banner */
+  #offlineBar{display:none;align-items:center;gap:8px;background:#211c0e;border:1px solid var(--accent-soft);
+    border-radius:10px;padding:9px 13px;margin:0 0 18px;font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.04em}
+  #offlineBar.show{display:flex}
+  #offlineBar .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
 </style>
 </head>
 <body>
@@ -182,6 +198,8 @@
     <h1>Burma Essays</h1>
     <div class="sub">Paste an essay. It gets a voice. Pick up wherever you left off — even with your phone locked.</div>
   </header>
+
+  <div id="offlineBar"><span class="dot"></span><span id="offlineMsg">Offline — playing essays saved to this device.</span></div>
 
   <div class="tabs">
     <button class="tab on" id="tabLib" data-view="library">Library</button>
@@ -292,13 +310,44 @@ const lsKey = (id) => 'burma:pos:' + id;
 const localPos = (id) => { const v = parseFloat(localStorage.getItem(lsKey(id))); return Number.isFinite(v) ? v : 0; };
 const setLocalPos = (id, p) => localStorage.setItem(lsKey(id), String(p));
 
+/* ---- offline store ----
+   Saved essays live in: Cache Storage (the audio blob) + localStorage (text/metadata).
+   This lets the whole app work on a plane with no signal. */
+const AUDIO_CACHE = 'burma-audio-v1';
+const offlineIds = () => { try { return JSON.parse(localStorage.getItem('burma:offline') || '[]'); } catch { return []; } };
+const isOffline = (id) => offlineIds().includes(id);
+function setOfflineId(id, on) {
+  const s = new Set(offlineIds());
+  on ? s.add(id) : s.delete(id);
+  localStorage.setItem('burma:offline', JSON.stringify([...s]));
+}
+const saveDetailLocal = (e) => { try { localStorage.setItem('burma:detail:' + e.id, JSON.stringify(e)); } catch {} };
+const getDetailLocal  = (id) => { try { return JSON.parse(localStorage.getItem('burma:detail:' + id) || 'null'); } catch { return null; } };
+const dropDetailLocal = (id) => localStorage.removeItem('burma:detail:' + id);
+
+/* register the service worker that makes the page + audio available offline */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/burma-essays/sw.js', { scope: '/burma-essays/' }).catch(() => {});
+}
+
+/* online / offline awareness */
+function refreshOnline() {
+  $('offlineBar').classList.toggle('show', !navigator.onLine);
+  renderList();
+}
+window.addEventListener('online', refreshOnline);
+window.addEventListener('offline', refreshOnline);
+
 /* ---- library ---- */
 async function load() {
   try {
     const r = await fetch(API);
     const j = await r.json();
     essays = j.essays || [];
-  } catch { essays = []; }
+    localStorage.setItem('burma:list', JSON.stringify(essays));   // keep a copy for offline cold-starts
+  } catch {
+    try { essays = JSON.parse(localStorage.getItem('burma:list') || '[]'); } catch { essays = []; }
+  }
   renderList();
 }
 
@@ -310,19 +359,24 @@ function renderList() {
     const resume = Math.max(localPos(e.id), e.position_sec || 0);
     const dur = e.duration_sec || 0;
     const pct = dur ? Math.min(100, (resume/dur)*100) : 0;
+    const saved = isOffline(e.id);
+    const gone = !navigator.onLine && !saved;   // can't stream this one without signal
     const card = document.createElement('div');
-    card.className = 'card' + (current && current.id === e.id ? ' active' : '');
+    card.className = 'card' + (current && current.id === e.id ? ' active' : '') + (gone ? ' gone' : '');
     card.innerHTML = `
       <div class="play"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
       <div class="meta">
         <div class="t">${esc(e.title)}</div>
-        <div class="d">${dur ? fmt(dur) : '—'} · ${(e.char_count||0).toLocaleString()} chars${resume > 5 && (!dur || resume < dur-2) ? ` · <span class="resume">resume ${fmt(resume)}</span>` : ''}</div>
+        <div class="d">${dur ? fmt(dur) : '—'} · ${(e.char_count||0).toLocaleString()} chars${saved ? ' · <span class="resume">offline ✓</span>' : ''}${resume > 5 && (!dur || resume < dur-2) ? ` · <span class="resume">resume ${fmt(resume)}</span>` : ''}</div>
         <div class="bar" style="width:${pct}%"></div>
       </div>
+      <div class="dl${saved ? ' saved' : ''}" title="${saved ? 'Saved on this device — tap to remove' : 'Save for offline (airplane)'}">${saved ? '✓' : '⬇'}</div>
       <div class="re" title="Re-voice (fix / change voice)">↻</div>
       <div class="x" title="Delete">✕</div>`;
     card.querySelector('.meta').onclick = () => play(e.id);
     card.querySelector('.play').onclick = () => play(e.id);
+    const dlBtn = card.querySelector('.dl');
+    dlBtn.onclick = (ev) => { ev.stopPropagation(); saved ? removeOffline(e.id) : saveOffline(e.id, dlBtn); };
     const reBtn = card.querySelector('.re');
     reBtn.onclick = (ev) => { ev.stopPropagation(); regen(e.id, reBtn); };
     card.querySelector('.x').onclick = (ev) => { ev.stopPropagation(); del(e.id); };
@@ -399,14 +453,65 @@ async function del(id) {
   try { await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'delete', id }) }); } catch {}
 }
 
+/* ---- save / remove for offline (airplane mode) ---- */
+async function saveOffline(id, btn) {
+  if (!('caches' in window)) { toast('This browser can’t save offline'); return; }
+  // grab the full essay (audio_url + body + words) so the reader works offline too
+  let e = essays.find(x => x.id === id) || {};
+  try { const r = await fetch(API + '?id=' + id); const j = await r.json(); if (j.essay) e = { ...e, ...j.essay }; } catch {}
+  if (!e.audio_url) { toast('No audio to save yet — re-voice it first'); return; }
+
+  btn.classList.add('busy'); btn.innerHTML = '<span class="pct">0%</span>';
+  try {
+    const resp = await fetch(e.audio_url);
+    if (!resp.ok || !resp.body) throw new Error('download failed');
+    const total = +resp.headers.get('content-length') || 0;
+    const reader = resp.body.getReader();
+    const chunks = []; let got = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value); got += value.length;
+      if (total) btn.innerHTML = `<span class="pct">${Math.round(got / total * 100)}%</span>`;
+    }
+    const blob = new Blob(chunks, { type: 'audio/mpeg' });
+    const cache = await caches.open(AUDIO_CACHE);
+    await cache.put(e.audio_url, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg', 'Content-Length': String(blob.size) } }));
+    saveDetailLocal(e);
+    setOfflineId(id, true);
+    // keep the library summary fresh too
+    const idx = essays.findIndex(x => x.id === id); if (idx >= 0) Object.assign(essays[idx], { duration_sec: e.duration_sec });
+    localStorage.setItem('burma:list', JSON.stringify(essays));
+    toast('Saved for offline ✓');
+  } catch (err) {
+    toast('Save failed: ' + err.message);
+  } finally {
+    btn.classList.remove('busy');
+    renderList();
+  }
+}
+async function removeOffline(id) {
+  if (!confirm('Remove this download from your device? (The essay stays in your library.)')) return;
+  const d = getDetailLocal(id);
+  try { if (d && d.audio_url && 'caches' in window) { const c = await caches.open(AUDIO_CACHE); await c.delete(d.audio_url); } } catch {}
+  setOfflineId(id, false);
+  dropDetailLocal(id);
+  toast('Download removed');
+  renderList();
+}
+
 /* ---- play ---- */
 async function play(id, autoplay = true) {
   let e = essays.find(x => x.id === id);
   // fetch full body + highlights for the reading pane
   if (!e || e.body === undefined || e.highlights === undefined) {
-    try { const r = await fetch(API + '?id=' + id); const j = await r.json(); if (j.essay) e = j.essay; } catch {}
+    try { const r = await fetch(API + '?id=' + id); const j = await r.json(); if (j.essay) e = j.essay; }
+    catch { const d = getDetailLocal(id); if (d) e = d; }   // offline: use the saved copy
   }
-  if (!e || !e.audio_url) { setStatus('No audio for this one.', true); return; }
+  if (!e || !e.audio_url) {
+    setStatus(navigator.onLine ? 'No audio for this one.' : 'Not saved for offline — connect to play this one.', true);
+    return;
+  }
   current = e;
   current.highlights = e.highlights || [];
   renderList();
@@ -716,6 +821,7 @@ async function delHighlight(h) {
   try { await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'unhighlight', id: h.id }) }); } catch {}
 }
 
+$('offlineBar').classList.toggle('show', !navigator.onLine);
 load();
 loadHighlights();   // populate the Highlights count badge on first paint
 </script>
