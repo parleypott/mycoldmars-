@@ -6,7 +6,12 @@
 
 import { parseScript } from "./parser";
 import { Block, ScriptDoc } from "./schema";
-import { stripSpanScaffolding } from "./src/document-builder.js";
+import { stripSpanScaffolding, buildEditorDocument, docToBlocks } from "./src/document-builder.js";
+import { getSchema } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import { EditorState } from "@tiptap/pm/state";
+import { BURMA_NODES } from "./src/extensions/blocks.js";
+import { BURMA_MARKS } from "./src/extensions/marks.js";
 
 type Fail = { check: string; detail: string };
 const fails: Fail[] = [];
@@ -96,15 +101,106 @@ function checkWorklistUnwrap() {
   }
 }
 
+// ---- drag-reorder smoke: a REAL ProseMirror transaction moves a block, and the move
+// survives the exact persistence path the editor uses (onUpdate -> localStorage). The
+// fuzz above proves the schema-array model never corrupts; this proves the LIVE engine
+// path does the same — a node moved by a PM transaction lands at the new index, no block
+// lost or invented, and the reordered doc round-trips through localStorage byte-stable.
+// Mirrors Editor.jsx: build the doc, mutate via tr.delete+tr.insert (what PM's native
+// drag does under the hood), getJSON(), JSON.stringify into LS_DOC, reload, assert.
+const burmaSchema = getSchema([
+  StarterKit.configure({
+    heading: false, blockquote: false, codeBlock: false, code: false,
+    bulletList: false, orderedList: false, listItem: false, horizontalRule: false,
+    dropcursor: false, gapcursor: false,
+  }),
+  ...BURMA_NODES,
+  ...BURMA_MARKS,
+]);
+
+// absolute doc position of the Nth top-level block (sum of preceding nodeSizes)
+const blockStart = (doc: any, index: number) => {
+  let p = 0;
+  for (let i = 0; i < index; i++) p += doc.child(i).nodeSize;
+  return p;
+};
+
+function checkReorderPersists(scriptDoc: ScriptDoc) {
+  // A faithful localStorage stand-in — same keys the editor writes (Editor.jsx).
+  const LS: Record<string, string> = {};
+  const LS_DOC = "wp01_burma_doc_v1";
+  const LS_BLOCKS = "wp01_burma_blocks_v1";
+
+  let pmDoc;
+  try {
+    pmDoc = burmaSchema.nodeFromJSON(buildEditorDocument(scriptDoc.blocks));
+  } catch (e) {
+    fails.push({ check: "reorder: doc builds against live schema", detail: String(e) });
+    return;
+  }
+  let state = EditorState.create({ schema: burmaSchema, doc: pmDoc });
+
+  const total = state.doc.childCount;
+  assert(total > 5, "reorder: enough blocks to move", String(total));
+  if (total <= 5) return;
+
+  const idsAt = (doc: any) => {
+    const out: string[] = [];
+    doc.forEach((n: any) => out.push(n.attrs?.blockId));
+    return out;
+  };
+  const before = idsAt(state.doc);
+  const fromIndex = 1;          // move the second block...
+  const toIndex = total - 2;    // ...to near the end
+  const movedId = before[fromIndex];
+
+  // Dispatch a real transaction: delete the node, then insert it at the new index
+  // (positions recomputed against the post-delete doc — exactly PM's own move).
+  const moved = state.doc.child(fromIndex);
+  const tr = state.tr;
+  const start = blockStart(state.doc, fromIndex);
+  tr.delete(start, start + moved.nodeSize);
+  const insertPos = blockStart(tr.doc, toIndex);
+  tr.insert(insertPos, moved);
+  assert(tr.docChanged, "reorder: transaction mutated the doc");
+  state = state.apply(tr);
+
+  const after = idsAt(state.doc);
+  assert(after.length === before.length, "reorder: no block gained/lost", `${before.length} -> ${after.length}`);
+  assert(new Set(after).size === new Set(before).size, "reorder: id set preserved");
+  assert(after[toIndex] === movedId, "reorder: moved block landed at target index", `want ${movedId} at ${toIndex}, got ${after[toIndex]}`);
+  assert(before[fromIndex] !== after[fromIndex] || total <= 2, "reorder: source slot actually changed");
+
+  // ---- now persist exactly as Editor.onUpdate does, then reload (seedDoc path) ----
+  const json = state.doc.toJSON();
+  LS[LS_DOC] = JSON.stringify(json);
+  LS[LS_BLOCKS] = JSON.stringify(docToBlocks(json));
+
+  const reloaded = JSON.parse(LS[LS_DOC]);
+  assert(LS[LS_DOC] === JSON.stringify(reloaded), "reorder: doc round-trips localStorage byte-stable");
+  const reloadedOrder = (reloaded.content || []).map((n: any) => n.attrs?.blockId);
+  assert(JSON.stringify(reloadedOrder) === JSON.stringify(after), "reorder: persisted order == live order", `${reloadedOrder.indexOf(movedId)} vs ${toIndex}`);
+
+  // The derived schema-faithful blocks export must reflect the same order, no loss.
+  const reloadedBlocks: any[] = JSON.parse(LS[LS_BLOCKS]);
+  assert(reloadedBlocks.length === after.length, "reorder: derived blocks count matches", `${reloadedBlocks.length} vs ${after.length}`);
+  assert(reloadedBlocks[toIndex]?.id === movedId, "reorder: derived blocks reflect the move", `${reloadedBlocks[toIndex]?.id} vs ${movedId}`);
+
+  // Rehydrating the persisted doc must yield an identical doc (the editor's seedDoc).
+  const rehydrated = burmaSchema.nodeFromJSON(reloaded);
+  assert(JSON.stringify(rehydrated.toJSON()) === JSON.stringify(json), "reorder: rehydrated doc identical to saved");
+}
+
 const src = await Bun.file(new URL("./sample-script.txt", import.meta.url)).text();
 const { doc } = parseScript(src);
 checkInvariants(doc, "parse");
 fuzz(doc, 5000);
 roundTrip(doc);
 checkWorklistUnwrap();
+checkReorderPersists(doc);
 
 const ok = fails.length === 0;
 const stamp = process.argv[2] || "manual";
-const report = { ok, when: stamp, blocks: doc.blocks.length, fuzzRounds: 5000, fails };
+const report = { ok, when: stamp, blocks: doc.blocks.length, fuzzRounds: 5000, reorderSmoke: ok ? "pass" : "see fails", fails };
 console.log(JSON.stringify(report, null, 2));
 if (!ok) process.exit(1);
