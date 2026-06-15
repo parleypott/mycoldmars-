@@ -49,6 +49,10 @@ export function cleanQuote(text) {
   t = t.replace(/^DAY\s*\d+\s*SOT\s*[:.-]?\s*/i, '');       // "DAY 1 SOT:"
   t = t.replace(/^SOT\s*[:.-]\s*/i, '');                    // "SOT:"
   t = t.replace(/^\d{1,2}:\d{2}:\d{2}:\d{2}\s*–?\s*/, '');  // leading echoed timecode
+  // Re-strip leading separators: a bullet often sits AFTER the label/timecode we just
+  // peeled (e.g. "DAY 1 SOT: 02:… – ⁃ quote"), so the first pass at the top can't catch
+  // it. Run the leading-separator strip again now that the lead-ins are gone.
+  t = t.replace(/^[\s–—-]+/, '');
   t = t.replace(/\s+–\s+/g, ' — ');                         // tidy inner separators to em-dash
   return t.trim();
 }
