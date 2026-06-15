@@ -32,7 +32,7 @@
       "id": "ch_3_5mb",
       "type": "chapter",
       "genre": "coldopen",
-      "title": "COLD OPEN FROM JH: Still thinking what this should be. But let’s cut in some footage to play with. Caididates: 1. DAY 2 ",
+      "title": "COLD OPEN FROM JH",
       "depth": 0,
       "rawSource": "CH: COLD OPEN FROM JH: Still thinking what this should be. But let’s cut in some footage to play with. Caididates: 1. DAY 2 ONCAM 02:32:21:22 - 02:33:30:10 some cold open vibes 2. DAY 2 ONCAM 03:05:22:15 we’re filming highway and we get warned that military is coming… that could be the ending of this cold open 2. maybe: Shots of Empty Capital in a civil war, drone gets knocked down…"
     },
@@ -40,15 +40,15 @@
       "id": "ch_4_x7o",
       "type": "chapter",
       "genre": "latm",
-      "title": "LOOK AT THIS MAP ON CAM MONOLOGUE: “Look at this map: Myanmar. But really, it’s THIS” \\[fractured\\] “This place also cal",
+      "title": "LOOK AT THIS MAP ON CAM MONOLOGUE",
       "depth": 0,
-      "rawSource": "CH: LOOK AT THIS MAP ON CAM MONOLOGUE: “Look at this map: Myanmar. But really, it’s THIS” \\[fractured\\] “This place also called Burma sits at one of the most important cross roads between great powers” “It’s home to some of th e oldest civilization” “It was once a great power. “ “But today it’s Fractured in a seemingly endless civil war. The ruling military government only controls a sliver of the country. The rest is controlled by {TK number of groups, many of them armed and actively fighting} all vying for the future of this place. Drivng Question: the world focuses almost only on THIS. But what is really going on here. How does it feel to live in a country that is constantly ripping itself apart. And what can we learn about this place that almost none of us really understand."
+      "rawSource": "CH: LOOK AT THIS MAP ON CAM MONOLOGUE: “Look at this map: Myanmar. But really, it’s THIS” \\[fractured\\] “This place also called Burma sits at one of the most important cross roads between great powers” “It’s home to some of th e oldest civilization” “It was once a great power. “ “But today it’s Fractured in a seemingly endless civil war. The ruling military government only controls a sliver of the country. The rest is controlled by {fc number of armed groups currently fighting in Myanmar} all vying for the future of this place. Drivng Question: the world focuses almost only on THIS. But what is really going on here. How does it feel to live in a country that is constantly ripping itself apart. And what can we learn about this place that almost none of us really understand."
     },
     {
       "id": "ch_5_1ot1",
       "type": "chapter",
       "genre": "inquiry",
-      "title": "INQUIRY. Some of this is shot (I think) but here are some themes for the inquiry section -Civil war, can I go -factoids ",
+      "title": "INQUIRY",
       "depth": 0,
       "rawSource": "CH: INQUIRY. Some of this is shot (I think) but here are some themes for the inquiry section -Civil war, can I go -factoids about the place -drew binsky the master of these kinds of trips. -expert interviews -Google Maps says its “Myanmar (Bruma)” I got to get the bottom of that. -ok its time to go…"
     },
@@ -56,7 +56,7 @@
       "id": "ch_6_b8m",
       "type": "chapter",
       "genre": "history",
-      "title": "HISTORY 1. beautiful mystical pre British",
+      "title": "HISTORY 1",
       "depth": 0,
       "rawSource": "CH: HISTORY 1. beautiful mystical pre British"
     },
@@ -108,15 +108,15 @@
     {
       "id": "vo_e_i6",
       "type": "vo",
-      "text": "\\-VO: but this long before that. {TK shows years of some of these initial civilizations} while people on the European continent were still {TK some indication of how primitive europe was while asian civilizations were rising} along this river cropped up kings who {TK TK TK unique epic descriptions of kingdoms that cropped up here, TK description of themes and patters of how they rules. What it looked like. What culture cropped up here } VO: {TK description of how kingdoms would fight with each other and fracture the country only to unify around a new king leading to another era of glory}",
+      "text": "\\-VO: but this long before that. {fc dates of the earliest civilizations in this region} while people on the European continent were still {TK some indication of how primitive europe was while asian civilizations were rising} along this river cropped up kings who {TK TK TK unique epic descriptions of kingdoms that cropped up here, TK description of themes and patters of how they rules. What it looked like. What culture cropped up here } VO: {TK description of how kingdoms would fight with each other and fracture the country only to unify around a new king leading to another era of glory}",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "tk_f_s3j",
-          "kind": "tk",
+          "id": "fc_f_s3j",
+          "kind": "factcheck",
           "start": 33,
           "end": 88,
-          "raw": "{TK shows years of some of these initial civilizations}"
+          "raw": "{fc dates of the earliest civilizations in this region}"
         },
         {
           "id": "tk_g_1jow",
@@ -140,12 +140,12 @@
           "raw": "{TK description of how kingdoms would fight with each other and fracture the country only to unify around a new king leading to another era of glory}"
         }
       ],
-      "rawSource": "\\-VO: but this long before that. {TK shows years of some of these initial civilizations} while people on the European continent were still {TK some indication of how primitive europe was while asian civilizations were rising} along this river cropped up kings who {TK TK TK unique epic descriptions of kingdoms that cropped up here, TK description of themes and patters of how they rules. What it looked like. What culture cropped up here } VO: {TK description of how kingdoms would fight with each other and fracture the country only to unify around a new king leading to another era of glory}"
+      "rawSource": "\\-VO: but this long before that. {fc dates of the earliest civilizations in this region} while people on the European continent were still {TK some indication of how primitive europe was while asian civilizations were rising} along this river cropped up kings who {TK TK TK unique epic descriptions of kingdoms that cropped up here, TK description of themes and patters of how they rules. What it looked like. What culture cropped up here } VO: {TK description of how kingdoms would fight with each other and fracture the country only to unify around a new king leading to another era of glory}"
     },
     {
       "id": "vo_j_1pb7",
       "type": "vo",
-      "text": "\\-VO: but through all the many rulers, one through line stayed, a deep connection to {TK describe the unique features of spiritual traditions and beliefs.} VO: then around {TK year} a new spiritual tradition arrived: Buddhism arrived. VO: {TK description of how this happened. Transmitted via whom? Any major event that marks the arrival of Buddhism here?} -VO: the people adopted a unique interpretation of the buddha’s teaching, one where {TK description of their unique beliefs keep it focused on what affect it has on behavior, specifically the roots of the belief that “you showed your devotion by building things and placing gold on the buddha, explain the role of temples or pagodas } . VO: {TK description of the belief in very broad terms something like “No matter how poor you were you found a way to get a leaf of gold and press it onto a statue of the buddha to buy yourself good fortune for future lives. Building a temple is how you show your righteousness. Insurance for the lives beyond this one.” VO: the kings did this too. {TK summary of how the kings would build new capitals everywhere and what the goal was} \\[Mapping all the capitals over the years\\] This place",
+      "text": "\\-VO: but through all the many rulers, one through line stayed, a deep connection to {TK describe the unique features of spiritual traditions and beliefs.} VO: then around {fc year Buddhism arrived in Burma} a new spiritual tradition arrived: Buddhism arrived. VO: {TK description of how this happened. Transmitted via whom? Any major event that marks the arrival of Buddhism here?} -VO: the people adopted a unique interpretation of the buddha’s teaching, one where {TK description of their unique beliefs keep it focused on what affect it has on behavior, specifically the roots of the belief that “you showed your devotion by building things and placing gold on the buddha, explain the role of temples or pagodas } . VO: {TK description of the belief in very broad terms something like “No matter how poor you were you found a way to get a leaf of gold and press it onto a statue of the buddha to buy yourself good fortune for future lives. Building a temple is how you show your righteousness. Insurance for the lives beyond this one.” VO: the kings did this too. {TK summary of how the kings would build new capitals everywhere and what the goal was} \\[Mapping all the capitals over the years\\] This place",
       "voStatus": "todo",
       "spans": [
         {
@@ -156,48 +156,48 @@
           "raw": "{TK describe the unique features of spiritual traditions and beliefs.}"
         },
         {
-          "id": "tk_l_13c5",
-          "kind": "tk",
+          "id": "fc_l_13c5",
+          "kind": "factcheck",
           "start": 172,
-          "end": 181,
-          "raw": "{TK year}"
+          "end": 207,
+          "raw": "{fc year Buddhism arrived in Burma}"
         },
         {
           "id": "tk_m_1uxi",
           "kind": "tk",
-          "start": 239,
-          "end": 356,
+          "start": 265,
+          "end": 382,
           "raw": "{TK description of how this happened. Transmitted via whom? Any major event that marks the arrival of Buddhism here?}"
         },
         {
           "id": "tk_n_hd3",
           "kind": "tk",
-          "start": 441,
-          "end": 691,
+          "start": 467,
+          "end": 717,
           "raw": "{TK description of their unique beliefs keep it focused on what affect it has on behavior, specifically the roots of the belief that “you showed your devotion by building things and placing gold on the buddha, explain the role of temples or pagodas }"
         },
         {
           "id": "tk_o_18yg",
           "kind": "tk",
-          "start": 1042,
-          "end": 1129,
+          "start": 1068,
+          "end": 1155,
           "raw": "{TK summary of how the kings would build new capitals everywhere and what the goal was}"
         },
         {
           "id": "vis_p_20jt",
           "kind": "visual",
-          "start": 1131,
-          "end": 1173,
+          "start": 1157,
+          "end": 1199,
           "raw": "[Mapping all the capitals over the years\\]"
         }
       ],
-      "rawSource": "\\-VO: but through all the many rulers, one through line stayed, a deep connection to {TK describe the unique features of spiritual traditions and beliefs.} VO: then around {TK year} a new spiritual tradition arrived: Buddhism arrived. VO: {TK description of how this happened. Transmitted via whom? Any major event that marks the arrival of Buddhism here?} -VO: the people adopted a unique interpretation of the buddha’s teaching, one where {TK description of their unique beliefs keep it focused on what affect it has on behavior, specifically the roots of the belief that “you showed your devotion by building things and placing gold on the buddha, explain the role of temples or pagodas } . VO: {TK description of the belief in very broad terms something like “No matter how poor you were you found a way to get a leaf of gold and press it onto a statue of the buddha to buy yourself good fortune for future lives. Building a temple is how you show your righteousness. Insurance for the lives beyond this one.” VO: the kings did this too. {TK summary of how the kings would build new capitals everywhere and what the goal was} \\[Mapping all the capitals over the years\\] This place"
+      "rawSource": "\\-VO: but through all the many rulers, one through line stayed, a deep connection to {TK describe the unique features of spiritual traditions and beliefs.} VO: then around {fc year Buddhism arrived in Burma} a new spiritual tradition arrived: Buddhism arrived. VO: {TK description of how this happened. Transmitted via whom? Any major event that marks the arrival of Buddhism here?} -VO: the people adopted a unique interpretation of the buddha’s teaching, one where {TK description of their unique beliefs keep it focused on what affect it has on behavior, specifically the roots of the belief that “you showed your devotion by building things and placing gold on the buddha, explain the role of temples or pagodas } . VO: {TK description of the belief in very broad terms something like “No matter how poor you were you found a way to get a leaf of gold and press it onto a statue of the buddha to buy yourself good fortune for future lives. Building a temple is how you show your righteousness. Insurance for the lives beyond this one.” VO: the kings did this too. {TK summary of how the kings would build new capitals everywhere and what the goal was} \\[Mapping all the capitals over the years\\] This place"
     },
     {
       "id": "ch_q_mze",
       "type": "chapter",
       "genre": "ground",
-      "title": "GROUND 1. Yongon ⁃ Arrival and lay of the land",
+      "title": "GROUND 1",
       "depth": 0,
       "rawSource": "CH: GROUND 1. Yongon ⁃ Arrival and lay of the land"
     },
@@ -226,7 +226,7 @@
     {
       "id": "sc_u_1k72",
       "type": "scene",
-      "title": "Golden Pagoda ⁃ TK THIS IS A WORK IN PROGRESS I haven’t gone thru the footage yet. ⁃ Learn about monastic culture ⁃ Gold",
+      "title": "Golden Pagoda ⁃ TK THIS IS A WORK IN PROGRESS I haven’t gone",
       "depth": 1,
       "rawSource": "⁃ SCENE: Golden Pagoda ⁃ TK THIS IS A WORK IN PROGRESS I haven’t gone thru the footage yet. ⁃ Learn about monastic culture ⁃ Gold ⁃ Karma ⁃ Day 1 — 00:52:04:14 Jack talks GOLD"
     },
@@ -264,18 +264,18 @@
     {
       "id": "vo_y_c8y",
       "type": "vo",
-      "text": "the kingdoms met their rival when {tk happened, some event that marks the start of the British conquering Burma}",
+      "text": "the kingdoms met their rival when {fc event and year that began the British conquest of Burma}",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "tk_z_13ub",
-          "kind": "tk",
+          "id": "fc_z_13ub",
+          "kind": "factcheck",
           "start": 34,
-          "end": 112,
-          "raw": "{tk happened, some event that marks the start of the British conquering Burma}"
+          "end": 94,
+          "raw": "{fc event and year that began the British conquest of Burma}"
         }
       ],
-      "rawSource": "VO: the kingdoms met their rival when {tk happened, some event that marks the start of the British conquering Burma}"
+      "rawSource": "VO: the kingdoms met their rival when {fc event and year that began the British conquest of Burma}"
     },
     {
       "id": "map_10_1vfo",
@@ -435,7 +435,7 @@
       "id": "ch_1g_19ys",
       "type": "chapter",
       "genre": "ground",
-      "title": "GROUND 2: ROAD TRIP",
+      "title": "GROUND 2",
       "depth": 0,
       "rawSource": "CH: GROUND 2: ROAD TRIP"
     },
@@ -758,18 +758,18 @@
     {
       "id": "vo_2c_310",
       "type": "vo",
-      "text": "So the British leave the {TK million people} within this shape with an impossible situation, a shape that concludes many competing groups. 100 years of exploitation leaving all of these groups distrusting of each other, armed, and paranoid of having their land once again taken by outsider.",
+      "text": "So the British leave the {fc population of Burma at independence} within this shape with an impossible situation, a shape that concludes many competing groups. 100 years of exploitation leaving all of these groups distrusting of each other, armed, and paranoid of having their land once again taken by outsider.",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "tk_2d_umd",
-          "kind": "tk",
+          "id": "fc_2d_umd",
+          "kind": "factcheck",
           "start": 25,
-          "end": 44,
-          "raw": "{TK million people}"
+          "end": 65,
+          "raw": "{fc population of Burma at independence}"
         }
       ],
-      "rawSource": "VO: So the British leave the {TK million people} within this shape with an impossible situation, a shape that concludes many competing groups. 100 years of exploitation leaving all of these groups distrusting of each other, armed, and paranoid of having their land once again taken by outsider."
+      "rawSource": "VO: So the British leave the {fc population of Burma at independence} within this shape with an impossible situation, a shape that concludes many competing groups. 100 years of exploitation leaving all of these groups distrusting of each other, armed, and paranoid of having their land once again taken by outsider."
     },
     {
       "id": "vo_2e_1m7q",
@@ -942,7 +942,7 @@
       "id": "ch_30_1bzg",
       "type": "chapter",
       "genre": "ground",
-      "title": "GROUND 3: THE CAPITAL",
+      "title": "GROUND 3",
       "depth": 0,
       "rawSource": "CH: GROUND 3: THE CAPITAL"
     },
@@ -1016,7 +1016,7 @@
     {
       "id": "sc_37_9nn",
       "type": "scene",
-      "title": "20 Lane Highway: arriving, establishing, reacting.",
+      "title": "20 Lane Highway: arriving, establishing, reacting",
       "depth": 1,
       "rawSource": "⁃ SCENE: 20 Lane Highway: arriving, establishing, reacting."
     },
@@ -1150,7 +1150,7 @@
     {
       "id": "sc_3j_w4v",
       "type": "scene",
-      "title": "DRONE INCIDENT ⁃ B ROLL Day 1: ⁃ JH running off to fly drone: 04:21:05:01 ⁃ JH looking stressed: 04:20:58:10 ⁃ JH walkin",
+      "title": "DRONE INCIDENT ⁃ B ROLL Day 1: ⁃ JH running off to fly drone",
       "depth": 1,
       "rawSource": "SCENE: DRONE INCIDENT ⁃ B ROLL Day 1: ⁃ JH running off to fly drone: 04:21:05:01 ⁃ JH looking stressed: 04:20:58:10 ⁃ JH walking along road 04:22:36:13 ⁃ JH crouched down about to fly drone, gets out controller: 04:25:49:08 ⁃ Drone start up sound then launching the drone 04:26:21:17, ⁃ Launches at 04:27:20:23 ⁃ JH leaning as drone goes out of control: 04:28:37:15 \\< zoom in on stressed face ⁃ Drone crashes, JH: F\\*ck \\<bleep 04:29:02:01 , then stressed face ⁃ Deep breath 04:30:03:14 ⁃ JH thinks the rotor came off 04:31:39:01 ⁃ Chatter about going to retrieve it/showing map 04:32:45:09 ⁃ “Want me to take yours off” 04:33:04:06 ⁃ 04:38:50:20 Drew: “put it away”"
     },
@@ -1232,7 +1232,7 @@
     {
       "id": "sc_3q_1yyu",
       "type": "scene",
-      "title": "HOTELS VO: We continue to drive around this empty capital and notice that enervwhere you look there are hotels, each wit",
+      "title": "HOTELS VO",
       "depth": 1,
       "rawSource": "⁃ SCENE: HOTELS VO: We continue to drive around this empty capital and notice that enervwhere you look there are hotels, each with a distinctive \\[B ROLL: can use b roll from before 20 lane high way when we’re driving and shooting selfie and out the car window There’s also drive by b roll of hotels on DAY 2 00:09:19:03\\]"
     },
@@ -1377,7 +1377,7 @@
     {
       "id": "sc_42_gaa",
       "type": "scene",
-      "title": "Jamine Hotel \\[Ending the night at our hotel 05:37:40:06: unwind in luxury we’re gunna unwind in luxury we’re staying at",
+      "title": "Jamine Hotel \\[Ending the night at our hotel 05:37:40:06: un",
       "depth": 1,
       "rawSource": "⁃ SCENE: Jamine Hotel \\[Ending the night at our hotel 05:37:40:06: unwind in luxury we’re gunna unwind in luxury we’re staying at this hotel” ALT: 05:37:53:12\\] \\[05:38:05:18 JH “there’s hotels everywhere here”"
     },
@@ -1468,7 +1468,7 @@
     {
       "id": "sc_4d_b65",
       "type": "scene",
-      "title": "The Zoo \\[establishing of the Zoo: DAY 2 — 03:20:17:05 \\[B roll of approach and then the panda dancer: DAY 2 — 03:16:28:",
+      "title": "The Zoo \\[establishing of the Zoo: DAY 2 — 03:20:17:05 \\[B r",
       "depth": 1,
       "rawSource": "SCENE: The Zoo \\[establishing of the Zoo: DAY 2 — 03:20:17:05 \\[B roll of approach and then the panda dancer: DAY 2 — 03:16:28:00 \\[Then cut to 03:17:55:05 Jh says “Jezubah (thank you) and waves)\\] \\[cuts of empty empty empty stuff like 03:19:00:20, 03:19:18:02, 03:19:35:04\\]"
     },
@@ -1491,7 +1491,7 @@
     {
       "id": "sc_4f_1ucv",
       "type": "scene",
-      "title": "(fake) PAGODA: DAY 2 02:45:36:15 JH runs into the scene. Cut to some shots of me and drew looking at it. And some B roll",
+      "title": "(fake) PAGODA: DAY 2 02:45:36:15 JH runs into the scene",
       "depth": 1,
       "rawSource": "SCENE: (fake) PAGODA: DAY 2 02:45:36:15 JH runs into the scene. Cut to some shots of me and drew looking at it. And some B roll of the pagoda"
     },
@@ -1568,14 +1568,14 @@
     {
       "id": "sc_4m_s12",
       "type": "scene",
-      "title": "GIANT BUDDAH: \\[Cut selects of the best coverage of the giant Buddha\\] VO: This is a giant buddha a perfect replica of {",
+      "title": "GIANT BUDDAH",
       "depth": 1,
       "rawSource": "⁃ SCENE: GIANT BUDDAH: \\[Cut selects of the best coverage of the giant Buddha\\] VO: This is a giant buddha a perfect replica of {TK holy site in TK location with one line of context on why its important} ⁃ \\[Sound up to the nun singing at 00:38:17:01\\]"
     },
     {
       "id": "sc_4n_1jmf",
       "type": "scene",
-      "title": "LARGEST BOOK (starts at DAY 2 00:55:58:00): VO: And right next to it the world largest book, that are a perfect replica ",
+      "title": "LARGEST BOOK (starts at DAY 2 00:55:58:00): VO: And right ne",
       "depth": 1,
       "rawSource": "⁃ SCENE: LARGEST BOOK (starts at DAY 2 00:55:58:00): VO: And right next to it the world largest book, that are a perfect replica of {TK monument that is in mandalay} ⁃ DAY 2 01:06:21:17 JH “rows and rows and rows of actually records,"
     },
@@ -1695,7 +1695,7 @@
       "id": "ch_4z_xv",
       "type": "chapter",
       "genre": "ground",
-      "title": "GROUND 4: RURAL BURMA",
+      "title": "GROUND 4",
       "depth": 0,
       "rawSource": "CH: GROUND 4: RURAL BURMA"
     },
@@ -1833,7 +1833,7 @@
       "timecode": {
         "day": 3,
         "tc": "02:57:07:20",
-        "tcOut": "03:01:32:12",
+        "tcOut": "02:58:07:01",
         "ambiguous": false,
         "raw": "VO: they invite us in where I get an answer to a question I’ve had since I got here which is THIS \\[show women/kids we’ve previous filmed with the sunscreen stuff on\\]. What exactly is it. inside this"
       },
@@ -2054,7 +2054,7 @@
     {
       "id": "sc_5t_1l4x",
       "type": "scene",
-      "title": "Capital Market: \\[DAY 2 01:44:12:16: this market b roll is very diverse and beautiful. Please cut together some selects ",
+      "title": "Capital Market: \\[DAY 2 01:44:12:16: this market b roll is v",
       "depth": 1,
       "rawSource": "SCENE: Capital Market: \\[DAY 2 01:44:12:16: this market b roll is very diverse and beautiful. Please cut together some selects of the best footage trying to get diversity of angles, movement, people, food, trying to capture the energy. You can put this in a general selects called “Capital Market General” and I may use that here for montage.\\] \\[Cut in any little soundbites like DAY 2: 02:05:43:18 “im in love with this energy\\! Everyone is smiling laughing and yelling at each other…. And 02:08:52:20 trying fruit and reacting\\]"
     },
@@ -2081,10 +2081,18 @@
       "rawSource": "VO the Myanmar out here is the opposite of the desolate capital. people gather to buy and sell. To chat and gossip to laugh."
     },
     {
-      "id": "oncam_5w_1qr8",
-      "type": "oncam",
+      "id": "sot_5w_1qr8",
+      "type": "sot",
+      "timecode": {
+        "day": 2,
+        "tc": "02:17:09:07",
+        "ambiguous": false,
+        "raw": "DAY 2 JH ON CAM02:17:09:07: “Jh talks about the abundance of this land”"
+      },
+      "speaker": "JH",
+      "done": false,
+      "width": "full",
       "text": "DAY 2 JH ON CAM02:17:09:07: “Jh talks about the abundance of this land”",
-      "spans": [],
       "rawSource": "DAY 2 JH ON CAM02:17:09:07: “Jh talks about the abundance of this land”"
     },
     {
@@ -2135,7 +2143,7 @@
     {
       "id": "sc_63_off",
       "type": "scene",
-      "title": "VILLAGE 2: Village 2 starts at 03:26:23:12 ⁃ Cut together a little scene of: ⁃ Establihisng, ⁃ Kids on bike ⁃ Cows ⁃ Com",
+      "title": "VILLAGE 2",
       "depth": 1,
       "rawSource": "SCENE: VILLAGE 2: Village 2 starts at 03:26:23:12 ⁃ Cut together a little scene of: ⁃ Establihisng, ⁃ Kids on bike ⁃ Cows ⁃ Community gathering, smiling ⁃ Remember to add in “people general” ⁃ 03:36:23:19 shaking hands"
     },
@@ -2427,7 +2435,7 @@
     {
       "id": "sc_6q_15si",
       "type": "scene",
-      "title": "\\[SCENE: Meditation\\] \\[general driving VO: something a of you asked when I told you you I was headed to Myanmar is how ",
+      "title": "\\[SCENE",
       "depth": 1,
       "rawSource": "\\[SCENE: Meditation\\] \\[general driving VO: something a of you asked when I told you you I was headed to Myanmar is how can country that is known for so much violence, violence against the Rohingya, violence in a civilal war, how can that be associated with buddhism which teaches non-violence and peace. I thought a lot about that as I roamed this country."
     },
@@ -2492,7 +2500,7 @@
     {
       "id": "sc_6w_1h14",
       "type": "scene",
-      "title": "Dinner and Beer. (Nice little alt angle for B roll at 05:51:21:14 secondary camera) ⁃ Cheers starts at DAY 2 — 05:23:26:",
+      "title": "Dinner and Beer",
       "depth": 1,
       "rawSource": "SCENE: Dinner and Beer. (Nice little alt angle for B roll at 05:51:21:14 secondary camera) ⁃ Cheers starts at DAY 2 — 05:23:26:22 ⁃ 05:26:03:06 JACK “ Conetments is the wealthiest, how do you get"
     },

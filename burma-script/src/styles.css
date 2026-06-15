@@ -486,6 +486,29 @@ body {
   transition: background .12s, border-color .12s, color .12s;
 }
 .wp-tk:hover { color: var(--red-ink); border-bottom-color: var(--red); background: rgba(226,0,26,.06); }
+/* {TK} writing helper carries a tiny red diamond marker before the phrase — the "write me"
+   affordance. Distinct icon + Swiss red separates it cleanly from fact-check (amber ?). */
+.wp-tk::before {
+  content: "✎"; font-size: .72em; color: var(--red);
+  margin-right: .28em; vertical-align: .04em; opacity: .85;
+}
+
+/* ---- FACT-CHECK span: the SECOND marker kind. AMBER, dotted underline, "?" icon — clearly
+   NOT the red {TK} writing helper. Clicking opens the Workshop in VERIFY mode. ---- */
+.wp-fc {
+  color: var(--ink);
+  border-bottom: 1px dotted #b8860b;
+  background: rgba(214,158,46,.10);
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.wp-fc::before {
+  content: "?"; font-family: var(--mono); font-weight: 700; font-size: .72em;
+  color: #b8860b; margin-right: .3em; vertical-align: .04em;
+  border: 1px solid #b8860b; border-radius: 50%;
+  display: inline-block; width: 1.15em; height: 1.15em; line-height: 1.05em; text-align: center;
+}
+.wp-fc:hover { background: rgba(214,158,46,.20); border-bottom-color: #8a6508; }
 .wp-visual {
   color: var(--faint); font-style: italic;
   border-bottom: 1px dotted var(--faint-2);
@@ -516,6 +539,8 @@ body {
 .wp-bbtn.active { background: #fff; color: var(--ink); }
 .wp-bbtn-tk.active { background: var(--red); color: #fff; }
 .wp-bbtn-tk { color: #ff8a96; }
+.wp-bbtn-fc { color: #e3b85c; }
+.wp-bbtn-fc.active { background: #b8860b; color: #fff; }
 .wp-bbtn-visual { color: #cfcfca; }
 .wp-bsep { width: 1px; height: 16px; background: rgba(255,255,255,.18); margin: 0 3px; }
 
@@ -538,6 +563,7 @@ body {
   text-transform: uppercase; color: var(--red);
 }
 .wp-workshop[data-kind="visual"] .wp-ws-kind { color: var(--faint); }
+.wp-workshop[data-kind="fc"] .wp-ws-kind { color: #b8860b; }
 .wp-ws-close {
   margin-left: auto; width: 24px; height: 24px; line-height: 1;
   font-size: 18px; border: 0; background: transparent; color: var(--faint);
@@ -551,6 +577,7 @@ body {
   word-break: break-word;
 }
 .wp-workshop[data-kind="visual"] .wp-ws-span { border-left-color: var(--faint); font-style: italic; }
+.wp-workshop[data-kind="fc"] .wp-ws-span { border-left-color: #b8860b; }
 .wp-ws-label {
   font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em;
   text-transform: uppercase; color: var(--faint);
@@ -570,6 +597,75 @@ body {
 }
 .wp-ws-resolve:hover { border-color: var(--ink); }
 .wp-ws-resolve.is-resolved { background: var(--done); border-color: var(--done); color: #fff; }
+
+/* ---- the real {TK}/{fc} action: GENERATE 5 / VERIFY ---- */
+.wp-workshop { overflow-y: auto; }
+.wp-ws-generate {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  padding: 11px; border: 0; border-radius: 6px; cursor: pointer;
+  background: var(--ink); color: #fff; transition: background .12s, opacity .12s;
+}
+.wp-ws-generate:hover { background: #000; }
+.wp-ws-generate[disabled] { opacity: .55; cursor: progress; }
+.wp-ws-generate[data-kind="fc"] { background: #b8860b; }
+.wp-ws-generate[data-kind="fc"]:hover { background: #8a6508; }
+
+.wp-ws-error {
+  font-family: var(--mono); font-size: 11px; line-height: 1.5;
+  color: var(--red-ink); background: rgba(226,0,26,.07);
+  border-left: 2px solid var(--red); padding: 8px 10px; border-radius: 0 4px 4px 0;
+}
+
+.wp-ws-options { display: flex; flex-direction: column; gap: 9px; }
+.wp-ws-hint {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .04em;
+  color: var(--faint); text-transform: uppercase;
+}
+.wp-opt {
+  text-align: left; width: 100%; cursor: pointer;
+  background: var(--paper); border: 1px solid var(--line-strong); border-radius: 7px;
+  padding: 11px 12px; display: flex; flex-direction: column; gap: 6px;
+  transition: border-color .12s, background .12s, box-shadow .12s;
+}
+.wp-opt:hover { border-color: var(--ink); background: #fff; box-shadow: 0 6px 18px -12px rgba(0,0,0,.4); }
+.wp-opt-top { display: flex; align-items: center; gap: 8px; }
+.wp-opt-n {
+  font-family: var(--mono); font-size: 10px; font-weight: 700; color: #fff;
+  background: var(--red); width: 17px; height: 17px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+}
+.wp-opt-angle {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--faint);
+}
+.wp-opt-pick {
+  margin-left: auto; font-family: var(--mono); font-size: 9px; letter-spacing: .1em;
+  color: var(--red-ink); opacity: 0; transition: opacity .12s;
+}
+.wp-opt:hover .wp-opt-pick { opacity: 1; }
+.wp-opt-text { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: var(--ink); }
+.wp-opt-source {
+  font-family: var(--mono); font-size: 10px; line-height: 1.45; color: var(--faint);
+  border-top: 1px solid var(--line); padding-top: 6px;
+}
+
+/* ---- fact-check verdict ---- */
+.wp-ws-verdict { display: flex; flex-direction: column; gap: 11px; }
+.wp-verdict-badge {
+  align-self: flex-start; font-family: var(--mono); font-size: 11px; font-weight: 700;
+  letter-spacing: .1em; padding: 5px 11px; border-radius: 4px; color: #fff;
+}
+.wp-verdict-badge.v-true { background: var(--done); }
+.wp-verdict-badge.v-false { background: var(--red); }
+.wp-verdict-badge.v-partly { background: #b8860b; }
+.wp-verdict-badge.v-unclear { background: var(--faint); }
+.wp-verdict-finding { font-family: var(--sans); font-size: 14px; line-height: 1.55; color: var(--ink); }
+.wp-opt-edit { border-color: #b8860b; }
+.wp-opt-edit .wp-opt-pick { color: #8a6508; }
+.wp-ws-sources { display: flex; flex-direction: column; gap: 4px; }
+.wp-src { font-family: var(--mono); font-size: 11px; line-height: 1.5; word-break: break-word; }
+.wp-src a { color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; }
+.wp-src a:hover { color: var(--red-ink); }
 
 /* ============================================================
    OUTLINE RAIL — minimal monochrome spine (DESIGN.md STRUCTURE)
