@@ -157,7 +157,11 @@ function para(content) {
 }
 
 // ---- per-block -> node ---------------------------------------------------
-function blockToNode(b) {
+// `opts.scaffold` marks a leading BIN block that sits BEFORE the first chapter — author
+// setup notes ("read this only after…", "this is the actual script…"). They are real data
+// (kept, editable, round-tripping), but the script must OPEN on the masthead then CH 01, not
+// on instructions-to-self. We tag them so the BIN node renders a quiet collapsed strip.
+function blockToNode(b, opts) {
   const id = b.id;
   switch (b.type) {
     case 'chapter':
@@ -237,16 +241,19 @@ function blockToNode(b) {
     default:
       return {
         type: 'binBlock',
-        attrs: { blockId: id },
+        attrs: { blockId: id, scaffold: !!(opts && opts.scaffold) },
         content: [para([{ type: 'text', text: clean(b.text) || ' ' }])],
       };
   }
 }
 
 export function buildEditorDocument(blocks) {
-  const content = (blocks || [])
-    .filter(Boolean)
-    .map(blockToNode)
+  const list = (blocks || []).filter(Boolean);
+  // Everything before the first chapter is pre-script author scaffolding. Flag the
+  // leading BIN notes so the FIELD NOTE opens calm (masthead → CH 01), not on setup text.
+  const firstChapter = list.findIndex((b) => b.type === 'chapter');
+  const content = list
+    .map((b, i) => blockToNode(b, { scaffold: b.type === 'bin' && firstChapter > 0 && i < firstChapter }))
     .filter(Boolean);
   // ProseMirror requires at least one child.
   if (!content.length) content.push({ type: 'binBlock', attrs: { blockId: 'empty' }, content: [para([{ type: 'text', text: ' ' }])] });

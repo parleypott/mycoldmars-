@@ -551,20 +551,27 @@ export const BinBlock = Node.create({
   group: 'block',
   content: 'paragraph+',
   draggable: true,
-  addAttributes() { return baseAttrs(); },
+  // `scaffold` = a leading pre-CH01 author setup note. Display-only (docToBlocks ignores it,
+  // so the block round-trips as a plain bin); it just lets the quiet collapsed strip render.
+  addAttributes() { return { ...baseAttrs(), scaffold: { default: false } }; },
   parseHTML() { return [{ tag: 'div[data-bin]' }]; },
   renderHTML({ node }) {
     return ['div', mergeAttributes({
-      'data-bin': '', 'data-block-id': node.attrs.blockId || '', class: 'wp-block wp-bin',
+      'data-bin': '', 'data-block-id': node.attrs.blockId || '',
+      'data-scaffold': node.attrs.scaffold ? '1' : '0',
+      class: 'wp-block wp-bin' + (node.attrs.scaffold ? ' is-scaffold' : ''),
     }),
-      ['div', { class: 'wp-gutter', contenteditable: 'false' }, ['span', { class: 'wp-kind' }, 'BIN']],
+      ['div', { class: 'wp-gutter', contenteditable: 'false' }, ['span', { class: 'wp-kind' }, node.attrs.scaffold ? 'SETUP' : 'BIN']],
       ['div', { class: 'wp-body' }, 0],
     ];
   },
   addNodeView() {
     return ({ node, editor, getPos }) => {
-      const kind = Object.assign(el('span', 'wp-kind'), { textContent: 'BIN' });
-      return shellView({ blockClass: 'wp-block wp-bin', dataAttr: 'data-bin', node, editor, getPos, gutterChildren: [kind] });
+      const scaffold = !!node.attrs.scaffold;
+      const kind = Object.assign(el('span', 'wp-kind'), { textContent: scaffold ? 'SETUP' : 'BIN' });
+      const view = shellView({ blockClass: 'wp-block wp-bin' + (scaffold ? ' is-scaffold' : ''), dataAttr: 'data-bin', node, editor, getPos, gutterChildren: [kind] });
+      view.dom.setAttribute('data-scaffold', scaffold ? '1' : '0');
+      return view;
     };
   },
 });

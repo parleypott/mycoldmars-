@@ -139,7 +139,7 @@ function App() {
           <span class="wp-tag">SCRIPT</span>
         </div>
         <div class="wp-ctl">
-          <div class="wp-ctl-row"><span class="wp-l">Size</span><span class="wp-bignum">15.5</span><span class="wp-l" style={{ marginLeft: '6px' }}>Weight</span></div>
+          <div class="wp-ctl-row"><span class="wp-l">Size</span><span class="wp-bignum">11.5</span><span class="wp-l" style={{ marginLeft: '6px' }}>Weight</span></div>
           <div class="wp-ctl-row wp-slider-row">
             <span class="wp-l2">LIGHT</span>
             <div class="wp-slider"><span class="wp-slider-fill" style={{ width: '45%' }} /><span class="wp-knob" style={{ left: '45%' }} /></div>
@@ -152,7 +152,7 @@ function App() {
           <span class="wp-l2">DIAL · TRACKING</span>
         </div>
         <div class="wp-ctl">
-          <div class="wp-ctl-row" style={{ justifyContent: 'space-between' }}><span class="wp-l">Line Height</span><span class="wp-bignum" style={{ fontSize: '16px' }}>1.62</span></div>
+          <div class="wp-ctl-row" style={{ justifyContent: 'space-between' }}><span class="wp-l">Line Height</span><span class="wp-bignum" style={{ fontSize: '16px' }}>1.42</span></div>
           <span class="wp-l2">WORDS {words.toLocaleString()} · READING {reading}:{String((words % 160) % 60).padStart(2, '0')}</span>
           <div class="wp-seg">
             {['DRAFT', 'EDIT', 'REVISE'].map((m) => (
