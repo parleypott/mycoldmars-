@@ -110,7 +110,11 @@
       display: block;
       transition: background 0.25s ease, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
     }
-    .dot:hover { background: var(--ivory-bright); transform: scale(1.06); }
+    .dot:hover,
+    .dot:focus-visible { background: var(--ivory-bright); transform: scale(1.06); }
+    /* keyboard users get the same affordance as hover: a ring + the project label */
+    .dot:focus-visible { outline: 2px solid var(--ivory-bright); outline-offset: 5px; }
+    .dot:focus { outline: none; } /* mouse clicks shouldn't leave a stuck ring */
 
     .dot-label {
       position: absolute;
@@ -127,7 +131,8 @@
       pointer-events: none;
       transition: opacity 0.25s ease;
     }
-    .dot:hover .dot-label { opacity: 1; }
+    .dot:hover .dot-label,
+    .dot:focus-visible .dot-label { opacity: 1; }
 
     /* ── Bouncing globe ── */
     .globe-wrap {
@@ -154,6 +159,12 @@
       .meta { font-size: 10px; }
       .dots { flex-wrap: wrap; justify-content: center; gap: 18px; max-width: 320px; }
       .globe-wrap { width: 64px; height: 64px; }
+    }
+
+    /* respect reduced-motion: no spin, no dot pop. the bounce is killed in JS. */
+    @media (prefers-reduced-motion: reduce) {
+      .globe { animation: none; }
+      .dot { transition: none; }
     }
   </style>
 </head>
@@ -238,6 +249,11 @@
 
       window.addEventListener('resize', () => { w = window.innerWidth - size; h = window.innerHeight - size; });
       reset();
+      // respect reduced-motion: park the globe in a calm resting spot instead of bouncing
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        el.style.transform = `translate(${w / 2}px, ${h * 0.78}px)`;
+        return;
+      }
       tick();
     })();
   </script>
