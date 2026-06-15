@@ -40,7 +40,7 @@ function seedDoc(sourceBlocks) {
 // Also derives the OUTLINE (chapter/scene spine) for the left rail — monochrome,
 // indented titles, keyed by blockId so a click can scroll the matching node into view.
 function telemetry(doc) {
-  let words = 0, blocks = 0, done = 0, sot = 0;
+  let words = 0, blocks = 0, done = 0, sot = 0, scaffold = 0;
   const outline = [];
   for (const n of doc?.content || []) {
     blocks++;
@@ -49,12 +49,13 @@ function telemetry(doc) {
       if (t) words += t.split(/\s+/).filter((w) => /\w/.test(w)).length;
     }
     if (n.type === 'sotBlock') { sot++; if (n.attrs?.done) done++; }
+    if (n.type === 'binBlock' && n.attrs?.scaffold) scaffold++;
     if (n.type === 'chapterBlock' || n.type === 'sceneBlock') {
       const title = nodeText(n).replace(/\s+/g, ' ').trim();
       if (title) outline.push({ id: n.attrs?.blockId || '', title, level: n.type === 'chapterBlock' ? 0 : 1 });
     }
   }
-  return { words, blocks, sot, done, outline };
+  return { words, blocks, sot, done, scaffold, outline };
 }
 
 export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {

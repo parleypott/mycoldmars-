@@ -87,6 +87,7 @@ function App() {
   const [tel, setTel] = useState(null);
   const [savedAgo, setSavedAgo] = useState(0);
   const [mode, setMode] = useState('EDIT');
+  const [scaffoldOpen, setScaffoldOpen] = useState(false);
   const editorRef = useRef(null);
 
   // SAVED · NN AGO ticker — purely cosmetic instrument telemetry; resets on each autosave.
@@ -107,6 +108,7 @@ function App() {
   const blocks = tel?.blocks || 0;
   const sot = tel?.sot || 0;
   const done = tel?.done || 0;
+  const scaffold = tel?.scaffold || 0;
   const draftPct = pct(done, sot);
   const reading = Math.max(1, Math.round(words / 160)); // ~160 wpm script read
   const savedMin = String(Math.floor(savedAgo / 60)).padStart(2, '0');
@@ -187,7 +189,7 @@ function App() {
         <main class="wp-panel wp-doc">
           <span class="wp-cap">Field Note</span>
           <div class="wp-doc-scroll">
-            <div class="wp-doc-inner">
+            <div class={`wp-doc-inner${scaffoldOpen ? '' : ' scaffold-collapsed'}`}>
               <div class="wp-doc-head" contenteditable={false}>
                 <div class="wp-eyebrow">untitled field note · the human element</div>
                 <h1 class="wp-title">{DOC_TITLE}</h1>
@@ -198,6 +200,18 @@ function App() {
                   </span>
                 ))}</div>
               </div>
+              {scaffold > 0 && (
+                <button
+                  class={`wp-scaffold-toggle${scaffoldOpen ? ' is-open' : ''}`}
+                  contenteditable={false}
+                  onClick={() => setScaffoldOpen((v) => !v)}
+                  title={scaffoldOpen ? 'Collapse setup notes' : 'Expand setup notes'}
+                >
+                  <span class="wp-scaffold-glyph">{scaffoldOpen ? '⊖' : '⊕'}</span>
+                  <span class="wp-scaffold-lab">SETUP NOTES</span>
+                  <span class="wp-scaffold-n">({scaffold})</span>
+                </button>
+              )}
               <BurmaEditor
                 sourceBlocks={SOURCE_BLOCKS}
                 onTelemetry={setTel}

@@ -58,16 +58,26 @@ body {
    notch tabs, rounded corners. FLAT. No shadow.
    ============================================================ */
 .wp-app, .wp-sheet { min-height: 100%; }
+/* THE INSTRUMENT SHELL — one fixed fig.01 object. The sheet is capped to the
+   viewport so the CONTROL SURFACE pins to the top and the FUNCTION-KEY strip
+   pins to the bottom; only .wp-doc-scroll (the script) scrolls inside the frame.
+   This keeps the whole tool reading as a single labelled instrument while the
+   script scrolls — exactly the mock's single-screen gestalt. */
 .wp-sheet {
   max-width: 1320px;
-  margin: 0 auto;
+  height: calc(100vh - 20px);
+  margin: 10px auto;
   background: var(--ground);
   border: 1.4px solid var(--hair);
   border-radius: 22px;
   padding: 14px 26px 13px;
   position: relative;
   display: flex; flex-direction: column;
+  overflow: hidden;            /* frame clips; inner scrollers handle overflow */
 }
+/* the three-column working area grows to fill the shell; its children scroll inside */
+.wp-cols { flex: 1 1 auto; min-height: 0; }
+.wp-head, .wp-control, .wp-fnstrip, .wp-caption { flex: 0 0 auto; }
 .wp-sheet::before {
   content: ""; position: absolute; inset: 6px;
   border: 1px solid var(--hair); opacity: .42; border-radius: 16px;
@@ -167,6 +177,7 @@ body {
 .wp-cols {
   display: grid; grid-template-columns: 1fr 2.6fr 1.3fr; gap: 14px;
   align-items: stretch;
+  min-height: 0;               /* let the columns scroll inside the capped shell */
 }
 .wp-col { padding: 26px 14px 16px; display: flex; flex-direction: column; min-height: 0; }
 
@@ -223,7 +234,7 @@ body {
    CENTER: FIELD NOTE — the SCRIPT. Serif body. The TipTap editor
    lives inside .wp-doc-scroll; the panel frames it, never invades it.
    ============================================================ */
-.wp-doc { padding: 0; overflow: visible; display: flex; flex-direction: column; min-height: 560px; }
+.wp-doc { padding: 0; overflow: visible; display: flex; flex-direction: column; min-height: 0; }
 .wp-doc-scroll {
   flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin;
   border-radius: 10px 10px 0 0;
@@ -231,6 +242,10 @@ body {
 .wp-doc-inner {
   padding: 28px 38px 22px 42px; position: relative;
   display: flex; flex-direction: column;
+  /* Contained field-note measure — the mock's tighter block, not a wide loose panel.
+     Caps the script + carded blocks to ~40rem so they read as a dense instrument
+     panel instead of floating in dead horizontal space. */
+  max-width: 44rem;
 }
 /* faint left ruler — the calibrated margin (mock's dotted spine) */
 .wp-doc-inner::before {
@@ -511,6 +526,24 @@ body {
 .wp-bin.is-scaffold:hover > .wp-gutter,
 .wp-bin.is-scaffold:hover > .wp-body { border-color: transparent; }
 .wp-bin.is-scaffold:hover > .wp-body { border-left-color: var(--label-2); color: var(--label); }
+
+/* ---- SCAFFOLD COLLAPSE — a one-line mono toggle so the field-note opens
+   masthead → CH 01 with no author-notes-to-self in the reading path. The setup
+   bins are real, editable data; they're just folded behind '⊕ SETUP NOTES (N)'.
+   FLAT — hairline border, no shadow. */
+.wp-scaffold-toggle {
+  display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+  margin: 0 0 8px; padding: 5px 11px;
+  background: transparent; border: 1px dotted var(--hair-soft); border-radius: 5px;
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--label-2); cursor: pointer; transition: color .12s, border-color .12s;
+}
+.wp-scaffold-toggle:hover { color: var(--ink-soft); border-color: var(--label-2); }
+.wp-scaffold-toggle.is-open { border-style: solid; color: var(--label); }
+.wp-scaffold-glyph { font-size: 11px; line-height: 1; color: var(--label); }
+.wp-scaffold-n { color: var(--label-2); letter-spacing: .08em; }
+/* when collapsed, fold the leading scaffold bins out of the reading path entirely */
+.wp-doc-inner.scaffold-collapsed .wp-editor-content > .wp-bin.is-scaffold { display: none; }
 
 /* ============================================================
    INLINE SPANS — {TK} writing helper (orange) + fact-check (amber)
