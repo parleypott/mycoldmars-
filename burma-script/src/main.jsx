@@ -129,7 +129,8 @@ function App() {
         </div>
       </header>
 
-      {/* ── CONTROL SURFACE ── */}
+      {/* ── CONTROL SURFACE ── matches the mock: typeface · size/weight · dial · line-height,
+            with live telemetry threaded through the instrument readouts. */}
       <section class="wp-panel wp-control">
         <span class="wp-cap">Control Surface</span>
         <div class="wp-ctl">
@@ -138,21 +139,21 @@ function App() {
           <span class="wp-tag">SCRIPT</span>
         </div>
         <div class="wp-ctl">
-          <div class="wp-ctl-row"><span class="wp-l">Words</span><span class="wp-bignum">{words.toLocaleString()}</span></div>
+          <div class="wp-ctl-row"><span class="wp-l">Size</span><span class="wp-bignum">15.5</span><span class="wp-l" style={{ marginLeft: '6px' }}>Weight</span></div>
           <div class="wp-ctl-row wp-slider-row">
-            <span class="wp-l2">DRAFT</span>
-            <div class="wp-slider"><span class="wp-slider-fill" style={{ width: `${Math.min(100, draftPct)}%` }} /><span class="wp-knob" style={{ left: `${Math.min(100, draftPct)}%` }} /></div>
+            <span class="wp-l2">LIGHT</span>
+            <div class="wp-slider"><span class="wp-slider-fill" style={{ width: '45%' }} /><span class="wp-knob" style={{ left: '45%' }} /></div>
             <span class="wp-chip-orange" />
-            <span class="wp-l2">FINAL</span>
+            <span class="wp-l2">BOLD</span>
           </div>
         </div>
         <div class="wp-ctl wp-ctl-dial">
           <div class="wp-dial"><div class="wp-dial-ticks" id="wp-ticks" /><div class="wp-dial-odot" /></div>
-          <span class="wp-l2">DIAL · DENSITY</span>
+          <span class="wp-l2">DIAL · TRACKING</span>
         </div>
         <div class="wp-ctl">
-          <div class="wp-ctl-row" style={{ justifyContent: 'space-between' }}><span class="wp-l">Reading</span><span class="wp-bignum" style={{ fontSize: '16px' }}>{reading}:{String((words % 160) % 60).padStart(2, '0')}</span></div>
-          <span class="wp-l2">LANGUAGE ENGINE · EN</span>
+          <div class="wp-ctl-row" style={{ justifyContent: 'space-between' }}><span class="wp-l">Line Height</span><span class="wp-bignum" style={{ fontSize: '16px' }}>1.62</span></div>
+          <span class="wp-l2">WORDS {words.toLocaleString()} · READING {reading}:{String((words % 160) % 60).padStart(2, '0')}</span>
           <div class="wp-seg">
             {['DRAFT', 'EDIT', 'REVISE'].map((m) => (
               <span key={m} class={mode === m ? 'on' : ''} onClick={() => setMode(m)}>{m}</span>

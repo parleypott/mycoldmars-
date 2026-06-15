@@ -71,7 +71,7 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
         // We own dropcursor/gapcursor below so we can Swiss-red the dropcursor.
         dropcursor: false, gapcursor: false,
       }),
-      Dropcursor.configure({ color: '#e2001a', width: 2 }),
+      Dropcursor.configure({ color: '#d23b2c', width: 2 }),
       Gapcursor,
       ...BURMA_NODES,
       ...BURMA_MARKS,
