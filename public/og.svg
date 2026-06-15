@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="vig" cx="32%" cy="42%" r="85%">
+      <stop offset="55%" stop-color="#d42e05"/>
+      <stop offset="100%" stop-color="#a82303"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#vig)"/>
+  
+  <g fill="none" stroke-width="2.4" stroke-linecap="round">
+    <circle cx="1010" cy="315" r="300" stroke="#faf7f2"/>
+    <ellipse cx="1010" cy="315" rx="300" ry="300" stroke="#faf7f2" opacity="1"/>
+    <ellipse cx="1010" cy="315" rx="186" ry="300" stroke="#faf7f2" opacity="0.7"/>
+    <ellipse cx="1010" cy="315" rx="66" ry="300" stroke="#faf7f2" opacity="0.5"/>
+    <line x1="710" y1="315" x2="1310" y2="315" stroke="#faf7f2"/>
+    <ellipse cx="1010" cy="150" rx="249" ry="39.84" stroke="#faf7f2" opacity="0.55"/>
+    <ellipse cx="1010" cy="480" rx="249" ry="39.84" stroke="#faf7f2" opacity="0.55"/>
+  </g>
+
+  <!-- corner meta frame, echoing the live page -->
+  <text x="56" y="64" font-family="DejaVu Sans Mono" font-size="22" letter-spacing="4"
+    fill="#faf7f2" opacity="1" text-anchor="start"
+    style="text-transform:uppercase">MYCOLDMARS</text>
+  <text x="1144" y="64" font-family="DejaVu Sans Mono" font-size="22" letter-spacing="4"
+    fill="#faf7f2" opacity="1" text-anchor="end"
+    style="text-transform:uppercase">TOOLS</text>
+  <text x="56" y="586" font-family="DejaVu Sans Mono" font-size="22" letter-spacing="4"
+    fill="#faf7f2" opacity="1" text-anchor="start"
+    style="text-transform:uppercase">2026</text>
+  <text x="1144" y="586" font-family="DejaVu Sans Mono" font-size="22" letter-spacing="4"
+    fill="#faf7f2" opacity="0.55" text-anchor="end"
+    style="text-transform:uppercase">↗</text>
+
+  <!-- hero wordmark + tagline -->
+  <text x="88" y="332" font-family="DejaVu Sans Mono" font-size="108" letter-spacing="2"
+    fill="#faf7f2">mycoldmars</text>
+  <rect x="92" y="372" width="86" height="3" fill="#faf7f2" opacity="0.85"/>
+  <text x="92" y="424" font-family="DejaVu Sans Mono" font-size="27" letter-spacing="0.5"
+    fill="rgba(245,240,232,0.82)">tools, toys &amp; experiments</text>
+  <text x="92" y="462" font-family="DejaVu Sans Mono" font-size="27" letter-spacing="0.5"
+    fill="rgba(245,240,232,0.82)">a workshop by johnny harris</text>
+</svg>
