@@ -624,6 +624,20 @@ $('rate').onclick = () => {
 function currentRate(){ const r = parseFloat(localStorage.getItem('burma:rate')); return RATES.includes(r) ? r : 1; }
 $('rate').textContent = currentRate() + '×';
 
+/* keyboard transport — Space/K play-pause, J/← back 15, L/→ forward 30.
+   Reuses the button handlers so behaviour stays identical to clicking.
+   Only fires while a player is active, never while typing or with a modifier held. */
+document.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.target && e.target.closest && e.target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
+  if (!$('player').classList.contains('up')) return;
+  switch (e.key) {
+    case ' ': case 'k': case 'K': e.preventDefault(); $('toggle').click(); break;
+    case 'ArrowLeft':  case 'j': case 'J': e.preventDefault(); $('back15').click(); break;
+    case 'ArrowRight': case 'l': case 'L': e.preventDefault(); $('fwd30').click(); break;
+  }
+});
+
 let seeking = false;
 $('seek').addEventListener('input', () => { seeking = true; const d = audio.duration||0; $('cur').textContent = fmt((+$('seek').value/1000)*d); });
 $('seek').addEventListener('change', () => { const d = audio.duration||0; audio.currentTime = (+$('seek').value/1000)*d; seeking = false; });
