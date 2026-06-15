@@ -33,7 +33,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body {
-  background: #e9e9e4;
+  background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
@@ -75,31 +75,40 @@ body {
 /* ============================================================
    PAGE — clean Swiss paper, single calm column
    ============================================================ */
+/* Full-bleed Swiss paper — the page IS the surface. No floating card, no soft drop
+   shadow (that read Google-Docs, not International Typographic). Content is held by the
+   grid margin; the only frame is generous whitespace. Flat, registered, crisp. */
 .wp-stage {
   display: flex; justify-content: center;
-  padding: 40px 20px 160px;
+  padding: 52px 40px 200px;
 }
 .wp-page {
   width: 100%;
   max-width: calc(var(--col-w) + var(--grip-w) + var(--gutter-w) + 6rem);
   background: var(--paper);
-  border: 1px solid var(--paper-edge);
-  box-shadow: 0 1px 0 var(--line), 0 30px 70px -40px rgba(0,0,0,.35);
-  padding: 60px 56px 100px;
+  padding: 0 24px;
 }
 
+/* Calm Swiss masthead: the red eyebrow is the single accent. The rule drops to a 1px
+   hairline shortened to the column grid (not full width), so it no longer competes with
+   the red accent system as the heaviest line on the page. */
 .wp-doc-head {
-  margin-bottom: 40px; padding-bottom: 22px;
-  border-bottom: 2px solid var(--ink);
+  margin-bottom: 48px; padding-bottom: 24px;
+  border-bottom: none;
   margin-left: calc(var(--grip-w) + var(--gutter-w));
+  position: relative;
+}
+.wp-doc-head::after {
+  content: ""; position: absolute; left: 0; bottom: 0;
+  width: 64px; height: 1px; background: var(--line-strong);
 }
 .wp-eyebrow {
   font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
   text-transform: uppercase; color: var(--red);
 }
 .wp-title {
-  font-size: 30px; font-weight: 700; letter-spacing: -.02em;
-  margin: 10px 0 8px; line-height: 1.08;
+  font-size: 28px; font-weight: 700; letter-spacing: -.02em;
+  margin: 12px 0 10px; line-height: 1.08;
 }
 .wp-seq {
   font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
@@ -203,40 +212,62 @@ body {
 .wp-kind { white-space: nowrap; }
 .wp-body { grid-column: 3; min-width: 0; }
 
-/* ---- CHAPTER — quiet weighted heading. Genre = FAINT gutter mark only ---- */
-.wp-chapter { padding: 34px 0 8px; }
-.wp-chapter:first-child { padding-top: 4px; }
+/* ---- CHAPTER — quiet weighted heading. Hierarchy through SPACE + weight, not a red bar
+   under every line (Swiss restraint, correction #1: no rule zoo). Generous top padding
+   groups the chapter to the section below it; the eye reads structure from rhythm. ---- */
+.wp-chapter { padding: 46px 0 8px; }
+.wp-chapter:first-child { padding-top: 6px; }
+/* consecutive chapters (the source has many short runs) tighten so a stack of titles
+   reads as ONE group, not four separate loud sections. */
+.wp-chapter + .wp-chapter { padding-top: 22px; }
 .wp-chapter-inner {
   grid-column: 3;
-  font-size: 20px; font-weight: 700; letter-spacing: -.01em;
-  line-height: 1.25; color: var(--ink);
+  font-size: 16px; font-weight: 600; letter-spacing: 0;
+  line-height: 1.34; color: var(--ink);
+  text-transform: none;
 }
 /* genre + scene marks now ride in a real gutter cell (top-aligned, tracks wrapping) */
-.wp-gutter-head { grid-column: 2; padding-top: 6px; align-items: flex-start; }
+.wp-gutter-head { grid-column: 2; padding-top: 5px; align-items: flex-start; }
 .wp-gutter-head .wp-kind {
   font-size: var(--label); letter-spacing: .12em; color: var(--faint-2);
 }
-.wp-chapter > .wp-grip { margin-top: 38px; }
-/* a hairline red rule under the chapter title — disciplined accent */
-.wp-chapter-inner::after {
-  content: ""; display: block; height: 2px; width: 36px;
-  background: var(--red); margin-top: 12px;
+.wp-chapter > .wp-grip { margin-top: 50px; }
+.wp-chapter + .wp-chapter > .wp-grip { margin-top: 26px; }
+/* a SINGLE thin red rule marks the START of a chapter run — only on a chapter that is
+   NOT immediately preceded by another chapter. One accent per section, not per line. */
+.wp-chapter::before {
+  content: ""; position: absolute; top: 0; left: var(--grip-w); width: 24px; height: 1px;
+  background: var(--red);
 }
+.wp-chapter + .wp-chapter::before { display: none; }
+.wp-chapter:first-child::before { display: none; }
 
 /* ---- SCENE — quieter sub-heading ---- */
-.wp-scene { padding: 18px 0 4px; }
+.wp-scene { padding: 20px 0 4px; }
 .wp-scene > .wp-grip { margin-top: 1px; }
 .wp-scene-inner {
   grid-column: 3;
-  font-size: 14px; font-weight: 600; letter-spacing: 0;
-  line-height: 1.35; color: var(--ink-2);
+  font-size: 13.5px; font-weight: 600; letter-spacing: 0;
+  line-height: 1.4; color: var(--ink-2);
 }
 .wp-scene .wp-gutter-head .wp-kind { letter-spacing: .14em; }
 
-/* ---- VO / ONCAM — clean editable prose, the heart of the document ---- */
+/* ---- UNIFORM BODY PROSE — correction #1: ONE family, ONE size for ALL body text.
+   Mono is a SIGNAL font reserved strictly for codes/labels (the timecode hero, gutter
+   kinds), NEVER for paragraphs. SOT/broll/service/bin prose now reads in the SAME clean
+   grotesque at the SAME size as VO/ONCAM, so scrolling the page is one calm rhythm —
+   no sans→mono→sans jolt. Differentiation comes from gutter marks + subtle color, not
+   from a family/size jump. ---- */
 .wp-vo .wp-body,
-.wp-oncam .wp-body {
-  font-size: 16px; line-height: 1.6; color: var(--ink);
+.wp-oncam .wp-body,
+.wp-sot .wp-body,
+.wp-broll .wp-body,
+.wp-service .wp-body,
+.wp-note .wp-body,
+.wp-bin .wp-body {
+  font-family: var(--sans);
+  font-size: 15px; line-height: 1.6; color: var(--ink);
+  white-space: normal;
 }
 .wp-oncam .wp-body { color: var(--ink-2); }
 .wp-vo .wp-gutter .wp-kind,
@@ -279,12 +310,12 @@ body {
 }
 .wp-spacer { flex: 1 1 auto; }
 /* Body sits in COLUMN 3 — the SAME left baseline as VO/ONCAM prose, so scanning down
-   the page there is ONE locked left margin for all body text (Swiss grid registration,
-   fixes the "almost aligned" mis-registration). Only the timecode HEAD spans 2/-1. */
+   the page there is ONE locked left margin for all body text (Swiss grid registration).
+   Only the timecode HEAD spans 2/-1. Family/size inherit the uniform body rule above;
+   here we only set column + a quiet ink shade so SOT/broll read as transcribed quotes. */
 .wp-sot .wp-body, .wp-broll .wp-body {
   grid-column: 3;
-  font-family: var(--mono); font-size: 13.5px; line-height: 1.6;
-  color: var(--ink-2); white-space: pre-wrap;
+  color: var(--ink-2);
 }
 
 /* icon-only copy (correction #4) */
@@ -304,43 +335,45 @@ body {
 }
 .wp-sot.is-done, .wp-broll.is-done { opacity: .55; }
 
-/* ---- SERVICE (map-need / archive-req) — calm utility ---- */
+/* ---- SERVICE (map-need / archive-req) — calm utility. Same family/size as body;
+   a quiet hairline rail + faded ink signal "support material", not a font switch. ---- */
 .wp-service .wp-body {
-  font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
-  color: var(--faint); white-space: pre-wrap;
-  border-left: 2px solid var(--line-strong); padding-left: 12px;
+  color: var(--faint);
+  border-left: 1px solid var(--line-strong); padding-left: 14px;
 }
 .wp-service .wp-kind { color: var(--faint-2); }
 
-/* ---- NOTE / JH-NOTE — margin-voice aside ---- */
+/* ---- NOTE / JH-NOTE — margin-voice aside. Italic carries the voice; a thin red rail. ---- */
 .wp-note .wp-body {
-  font-size: 13.5px; line-height: 1.55; color: var(--ink-2);
-  font-style: italic;
-  border-left: 2px solid var(--red); padding-left: 12px;
+  color: var(--ink-2); font-style: italic;
+  border-left: 1px solid var(--red); padding-left: 14px;
 }
 .wp-note[data-kind="jh-note"] .wp-body { border-left-color: var(--ink); }
 .wp-note .wp-kind { color: var(--red); font-weight: 600; }
 .wp-note[data-kind="jh-note"] .wp-kind { color: var(--ink); }
 
-/* ---- BIN — quietest, unplaced holding material ---- */
-.wp-bin .wp-body {
-  font-size: 12.5px; line-height: 1.5; color: var(--faint);
-  white-space: pre-wrap;
-}
+/* ---- BIN — quietest, unplaced holding material. Faded ink, same family/size. ---- */
+.wp-bin .wp-body { color: var(--faint); }
 .wp-bin .wp-kind { color: var(--faint-2); }
 
-/* ---- inline spans: subtle Swiss-red marker (correction: not loud) ---- */
+/* ---- inline spans: subtle Swiss-red marker (correction #10: reads CLEAN, not loud).
+   The structural {tk …} braces are a parser artifact — we keep them in the text for
+   export round-trip but de-emphasize the presentation so they read as a faint marked
+   phrase, not bright-red curly noise mid-sentence. Ink stays near-black; a thin red
+   underline is the only signal until hover/click opens the workshop hub. ---- */
 .wp-tk {
-  color: var(--red-ink);
-  border-bottom: 1px solid rgba(226,0,26,.35);
+  color: var(--ink);
+  border-bottom: 1px solid rgba(226,0,26,.45);
   cursor: pointer;
+  transition: background .12s, border-color .12s;
 }
-.wp-tk:hover { border-bottom-color: var(--red); background: rgba(226,0,26,.05); }
+.wp-tk:hover { color: var(--red-ink); border-bottom-color: var(--red); background: rgba(226,0,26,.06); }
 .wp-visual {
   color: var(--faint); font-style: italic;
+  border-bottom: 1px dotted var(--faint-2);
   cursor: pointer;
 }
-.wp-visual:hover { color: var(--ink-2); }
+.wp-visual:hover { color: var(--ink-2); border-bottom-color: var(--ink-2); }
 
 /* ---- text selection in Swiss red wash ---- */
 ::selection { background: rgba(226,0,26,.16); }
@@ -420,9 +453,66 @@ body {
 .wp-ws-resolve:hover { border-color: var(--ink); }
 .wp-ws-resolve.is-resolved { background: var(--done); border-color: var(--done); color: #fff; }
 
+/* ============================================================
+   OUTLINE RAIL — minimal monochrome spine (DESIGN.md STRUCTURE)
+   Indented chapter/scene titles, no genre color. Fixed left, quiet,
+   scannable for a 225-block document. The ping-pong is felt through
+   structure (indent), not loud chips.
+   ============================================================ */
+.wp-outline {
+  position: fixed; top: 41px; left: 0; bottom: 0; z-index: 20;
+  width: 220px;
+  padding: 26px 18px 40px 26px;
+  overflow-y: auto;
+  background: var(--paper);
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 10px;
+  scrollbar-width: thin;
+}
+.wp-outline-head {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .22em;
+  text-transform: uppercase; color: var(--faint-2);
+  padding-bottom: 2px;
+}
+.wp-outline-list { display: flex; flex-direction: column; }
+.wp-outline-item {
+  display: block; width: 100%; text-align: left;
+  font-family: var(--sans);
+  background: transparent; border: 0; padding: 4px 0; cursor: pointer;
+  color: var(--faint); line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: color .1s;
+}
+.wp-outline-item.lvl-0 {
+  font-size: 11.5px; font-weight: 600; color: var(--ink-2);
+  text-transform: uppercase; letter-spacing: .02em;
+  margin-top: 12px; padding-bottom: 2px;
+}
+.wp-outline-item.lvl-0:first-child { margin-top: 0; }
+.wp-outline-item.lvl-1 {
+  font-size: 11.5px; padding-left: 12px; color: var(--faint);
+}
+.wp-outline-item:hover { color: var(--red); }
+/* a hairline red tick on the active chapter marker — single accent, disciplined */
+.wp-outline-item.lvl-0::before {
+  content: ""; display: inline-block; width: 10px; height: 1px;
+  background: var(--red); vertical-align: middle; margin-right: 8px;
+}
+
+/* room for the rail: nudge the centered stage right so it stays optically centered
+   in the remaining space without overlapping the rail. */
+@media (min-width: 1180px) {
+  .wp-stage { padding-left: 240px; }
+}
+
+@media (max-width: 1180px) {
+  .wp-outline { display: none; }
+}
+
 @media (max-width: 720px) {
   :root { --gutter-w: 2.6rem; --grip-w: 1.2rem; }
-  .wp-page { padding: 40px 18px 80px; }
+  .wp-page { padding: 0 4px; }
   .wp-doc-head { margin-left: 0; }
   .wp-workshop { width: 100%; }
+  .wp-stage { padding: 28px 14px 120px; }
 }

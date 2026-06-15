@@ -31,6 +31,28 @@ function stripLead(text, type) {
   return t.trim();
 }
 
+// SOT/broll transcript prose arrives with parser leftovers: a leading bullet dash, an
+// inline "SOT:" / "Day N SOT:" / "string out" label, and a stray timecode echo (the
+// timecode already lives in the HERO head). Strip those so the quote reads clean — the
+// hero datum stays in attrs, the body is just the words. Keeps export faithful (the
+// timecode round-trips from attrs, not from the prose).
+function cleanQuote(text) {
+  let t = clean(text);
+  // Normalise the U+2043 hyphen-bullet (and friends) the parser used as item separators
+  // to a clean spaced en-dash so the transcript reads as connected prose, not a bullet wall.
+  t = t.replace(/[⁃•]/g, '–');
+  // Drop a leading separator, then peel off the "SCENE …" / "SOT: Day N string out" /
+  // "DAY N SOT:" lead-in labels and any echoed timecode (the timecode is the HERO in attrs).
+  t = t.replace(/^[\s–-]+/, '');
+  t = t.replace(/^SCENE\b[^–]*–\s*/i, '');                  // "SCENE Breakfast … –"
+  t = t.replace(/^SOT:\s*Day\s*\d+\s*string\s*out\s*–?\s*/i, ''); // "SOT: Day 1 string out –"
+  t = t.replace(/^DAY\s*\d+\s*SOT\s*[:.-]?\s*/i, '');       // "DAY 1 SOT:"
+  t = t.replace(/^SOT\s*[:.-]\s*/i, '');                    // "SOT:"
+  t = t.replace(/^\d{1,2}:\d{2}:\d{2}:\d{2}\s*–?\s*/, '');  // leading echoed timecode
+  t = t.replace(/\s+–\s+/g, ' — ');                         // tidy inner separators to em-dash
+  return t.trim();
+}
+
 // ---- timecode formatting -------------------------------------------------
 // The HERO element on SOT/broll. Keep the full broadcast timecode HH:MM:SS:FF
 // (frame-accurate — editors live by it). Just normalise spacing.
@@ -58,9 +80,16 @@ function inlineContent(rawText, type) {
     if (m.index > last) out.push({ type: 'text', text: text.slice(last, m.index) });
     const tok = m[0];
     const isTk = tok[0] === '{';
+    // Strip the STRUCTURAL braces + the leading "tk" keyword from the VISIBLE text so the
+    // script reads clean (correction #10) — no bright "{tk" curly noise mid-sentence.
+    // The mark still carries the span; document-builder.nodeText.wrapToken re-adds the
+    // {tk …}/[…] token on export, so the blocks round-trip stays faithful.
+    const inner = isTk
+      ? tok.replace(/^\{\s*tk\b[:\s]*/i, '').replace(/\}$/, '').trim()
+      : tok.replace(/^\[\s*/, '').replace(/\]$/, '').trim();
     out.push({
       type: 'text',
-      text: tok,
+      text: inner || tok,
       marks: [{ type: isTk ? 'tkSpan' : 'visualSpan' }],
     });
     last = m.index + tok.length;
@@ -117,7 +146,7 @@ function blockToNode(b) {
           speaker: b.speaker || '',
           done: !!b.done,
         },
-        content: [para([{ type: 'text', text: clean(b.text) || ' ' }])],
+        content: [para(inlineContent(cleanQuote(b.text), 'plain'))],
       };
 
     case 'broll':
@@ -131,7 +160,7 @@ function blockToNode(b) {
           ambiguous: !!b.timecode?.ambiguous,
           done: !!b.done,
         },
-        content: [para([{ type: 'text', text: clean(b.text) || ' ' }])],
+        content: [para(inlineContent(cleanQuote(b.text), 'plain'))],
       };
 
     case 'map-need':

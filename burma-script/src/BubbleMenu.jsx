@@ -68,26 +68,17 @@ export function BurmaBubbleMenu({ editor }) {
 
   if (!visible || !editor) return null;
 
-  // Apply (or clear) an inline span mark. We wrap the selected text in literal braces
-  // AND carry the real mark on those braces — so it renders red, is clickable, and the
-  // blocks export round-trips the {tk …}/[…] token. Toggling off unwraps both.
-  const applySpan = (markName, open, close) => {
-    if (editor.isActive(markName)) {
-      // already a span here → strip the mark (braces stay as plain text; harmless)
-      editor.chain().focus().unsetMark(markName).run();
-      return;
-    }
-    const { from, to } = editor.state.selection;
-    let inner = editor.state.doc.textBetween(from, to, '');
-    inner = inner.replace(/^[\[{]+|[\]}]+$/g, ''); // avoid double-bracing
-    const wrapped = open + inner + close;
-    editor
-      .chain()
-      .focus()
-      .insertContentAt({ from, to }, wrapped)
-      .setTextSelection({ from, to: from + wrapped.length })
-      .setMark(markName)
-      .run();
+  // Apply (or clear) an inline span mark over the LIVE selection — no text re-insertion.
+  // The old path replaced the selection with a fresh plain text node, dropping any
+  // coexisting bold/italic and misbehaving across block boundaries. We now just toggle
+  // the mark over the existing range, preserving sibling marks. The {tk …}/[…] braces
+  // are NOT written into the live text; document-builder.nodeText's wrapToken adds them
+  // on export so the blocks round-trip stays faithful while the script READS clean.
+  const applySpan = (markName) => {
+    editor.chain().focus().setMark(markName).run();
+  };
+  const clearSpan = (markName) => {
+    editor.chain().focus().unsetMark(markName).run();
   };
 
   const tkActive = editor.isActive('tkSpan');
@@ -102,8 +93,8 @@ export function BurmaBubbleMenu({ editor }) {
       <button class="wp-bbtn" title="Bold" onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBold().run(); }}><b>B</b></button>
       <button class="wp-bbtn" title="Italic" onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleItalic().run(); }}><i>I</i></button>
       <span class="wp-bsep" />
-      <button class={`wp-bbtn wp-bbtn-tk ${tkActive ? 'active' : ''}`} title="Mark as {TK} research" onMouseDown={(e) => { e.preventDefault(); applySpan('tkSpan', '{tk ', '}'); }}>TK</button>
-      <button class={`wp-bbtn wp-bbtn-visual ${visActive ? 'active' : ''}`} title="Mark as [visual] direction" onMouseDown={(e) => { e.preventDefault(); applySpan('visualSpan', '[', ']'); }}>VIS</button>
+      <button class={`wp-bbtn wp-bbtn-tk ${tkActive ? 'active' : ''}`} title="Mark as {TK} research" onMouseDown={(e) => { e.preventDefault(); tkActive ? clearSpan('tkSpan') : applySpan('tkSpan'); }}>TK</button>
+      <button class={`wp-bbtn wp-bbtn-visual ${visActive ? 'active' : ''}`} title="Mark as [visual] direction" onMouseDown={(e) => { e.preventDefault(); visActive ? clearSpan('visualSpan') : applySpan('visualSpan'); }}>VIS</button>
     </div>
   );
 }

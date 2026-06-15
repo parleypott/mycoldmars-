@@ -20,6 +20,7 @@ import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { Workshop } from './Workshop.jsx';
 
 const LS_DOC = 'wp01_burma_doc_v1';
+const LS_BLOCKS = 'wp01_burma_blocks_v1'; // derived schema-faithful export (exercises docToBlocks)
 
 // Seed the working copy: prefer the persisted localStorage doc; else build fresh
 // from the read-only blocks. The source blocks array is NEVER mutated.
@@ -36,8 +37,11 @@ function seedDoc(sourceBlocks) {
 
 // Telemetry off the live doc — walks the node tree (reusing nodeText) rather than
 // regex-scraping stringified JSON, so it counts correctly through marks/escapes.
+// Also derives the OUTLINE (chapter/scene spine) for the left rail — monochrome,
+// indented titles, keyed by blockId so a click can scroll the matching node into view.
 function telemetry(doc) {
   let words = 0, blocks = 0, done = 0, sot = 0;
+  const outline = [];
   for (const n of doc?.content || []) {
     blocks++;
     if (n.type === 'voBlock' || n.type === 'oncamBlock') {
@@ -45,8 +49,12 @@ function telemetry(doc) {
       if (t) words += t.split(/\s+/).filter((w) => /\w/.test(w)).length;
     }
     if (n.type === 'sotBlock') { sot++; if (n.attrs?.done) done++; }
+    if (n.type === 'chapterBlock' || n.type === 'sceneBlock') {
+      const title = nodeText(n).replace(/\s+/g, ' ').trim();
+      if (title) outline.push({ id: n.attrs?.blockId || '', title, level: n.type === 'chapterBlock' ? 0 : 1 });
+    }
   }
-  return { words, blocks, sot, done };
+  return { words, blocks, sot, done, outline };
 }
 
 export function BurmaEditor({ sourceBlocks, onTelemetry }) {
@@ -78,7 +86,14 @@ export function BurmaEditor({ sourceBlocks, onTelemetry }) {
       onTelemetry?.(telemetry(json));
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
-        try { localStorage.setItem(LS_DOC, JSON.stringify(json)); } catch {}
+        try {
+          localStorage.setItem(LS_DOC, JSON.stringify(json));
+          // Derived schema-faithful blocks export — keeps docToBlocks() exercised at
+          // runtime (the round-trip the schema's persistence contract promises), and
+          // gives a clean blocks array any downstream tool can consume. The doc JSON
+          // stays canonical; this is a read-only derived view.
+          localStorage.setItem(LS_BLOCKS, JSON.stringify(docToBlocks(json)));
+        } catch {}
       }, 400);
     },
     editorProps: {

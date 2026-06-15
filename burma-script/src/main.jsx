@@ -24,6 +24,34 @@ function Telem({ t }) {
   );
 }
 
+// Minimal monochrome OUTLINE RAIL (DESIGN.md STRUCTURE): indented chapter/scene titles,
+// NO genre color — the ping-pong is felt through structure, not loud chips. Click a row
+// to scroll its block into view. Quiet, fixed, scannable for a 225-block document.
+function Outline({ items }) {
+  if (!items || !items.length) return null;
+  const jump = (id) => {
+    const node = document.querySelector(`[data-block-id="${id}"]`);
+    if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  return (
+    <nav class="wp-outline" aria-label="Script outline">
+      <div class="wp-outline-head">OUTLINE</div>
+      <div class="wp-outline-list">
+        {items.map((it) => (
+          <button
+            key={it.id}
+            class={`wp-outline-item lvl-${it.level}`}
+            title={it.title}
+            onClick={() => jump(it.id)}
+          >
+            {it.title}
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
 function App() {
   const [tel, setTel] = useState(null);
 
@@ -39,6 +67,8 @@ function App() {
         <Telem t={tel} />
         <button class="wp-reset" onClick={resetDoc} title="Reset to source script">RESET</button>
       </header>
+
+      <Outline items={tel?.outline} />
 
       <main class="wp-stage">
         <div class="wp-page">

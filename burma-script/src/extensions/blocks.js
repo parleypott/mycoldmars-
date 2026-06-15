@@ -104,12 +104,20 @@ function changeBlockType(editor, getPos, typeName) {
   if (!node) return;
   const target = state.schema.nodes[typeName];
   if (!target) return;
-  // Build the target's default attrs from the schema, then carry over what survives.
+  // Build the target's default attrs from the schema, then INTERSECTION-MERGE every
+  // source attr whose key also exists on the target. This preserves the hero datum
+  // (timecode/day/ambiguous/speaker/done/status) when converting between metadata-
+  // bearing blocks (broll <-> sot), instead of silently dropping the editor's primary
+  // tool. Keys absent on the target fall away; the rest survive content-and-data intact.
   const defaults = {};
   const specAttrs = target.spec.attrs || {};
   for (const k in specAttrs) defaults[k] = specAttrs[k].default ?? null;
   const next = { ...defaults, blockId: node.attrs.blockId };
-  if ('status' in defaults && node.attrs.status) next.status = node.attrs.status;
+  for (const k in specAttrs) {
+    if (k === 'blockId') continue;
+    const v = node.attrs[k];
+    if (v !== undefined && v !== null && v !== '') next[k] = v;
+  }
   // setNodeMarkup re-types the node, keeping its paragraph content intact.
   view.dispatch(state.tr.setNodeMarkup(pos, target, next));
 }
@@ -128,7 +136,17 @@ function deleteBlock(editor, getPos) {
 // A tiny floating menu anchored to the handle. Plain DOM (NodeView-owned), one open
 // at a time. Change-type list + delete.
 let openMenuEl = null;
-function closeBlockMenu() { if (openMenuEl) { openMenuEl.remove(); openMenuEl = null; document.removeEventListener('mousedown', onDocDown, true); } }
+let openMenuReposition = null;
+function closeBlockMenu() {
+  if (!openMenuEl) return;
+  openMenuEl.remove(); openMenuEl = null;
+  document.removeEventListener('mousedown', onDocDown, true);
+  if (openMenuReposition) {
+    window.removeEventListener('scroll', openMenuReposition, true);
+    window.removeEventListener('resize', openMenuReposition);
+    openMenuReposition = null;
+  }
+}
 function onDocDown(e) { if (openMenuEl && !openMenuEl.contains(e.target)) closeBlockMenu(); }
 function openBlockMenu(editor, getPos, anchor) {
   closeBlockMenu();
@@ -152,11 +170,21 @@ function openBlockMenu(editor, getPos, anchor) {
   menu.appendChild(del);
 
   document.body.appendChild(menu);
-  const r = anchor.getBoundingClientRect();
   menu.style.position = 'fixed';
-  menu.style.top = `${r.bottom + 4}px`;
-  menu.style.left = `${r.left}px`;
+  // Re-read the handle's live rect on every scroll/resize so the menu tracks its
+  // anchor (mirrors BubbleMenu's scroll-reposition — the buttery bar). If the anchor
+  // scrolls offscreen, fold the menu away rather than leave it floating.
+  const place = () => {
+    const r = anchor.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > window.innerHeight) { closeBlockMenu(); return; }
+    menu.style.top = `${r.bottom + 4}px`;
+    menu.style.left = `${r.left}px`;
+  };
+  place();
   openMenuEl = menu;
+  openMenuReposition = place;
+  window.addEventListener('scroll', place, true); // capture: catch the .wp-stage scroller too
+  window.addEventListener('resize', place);
   setTimeout(() => document.addEventListener('mousedown', onDocDown, true), 0);
 }
 
