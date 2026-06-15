@@ -183,14 +183,37 @@ const NODE_TO_TYPE = {
   binBlock: 'bin',
 };
 
-// Tree-walk a node to its plain text. CONTRACT: inlineContent() keeps the literal
-// {…}/[…] braces in the text and only ADDS marks for styling — so the concatenated
-// text already round-trips the {TK}/[visual] tokens faithfully. We don't need to
-// re-serialize marks; reading the text back is lossless for the span vocabulary.
+// Tree-walk a node to its plain text, RE-SERIALIZING the inline span marks back into
+// their {tk …}/[…] tokens. Two cases must round-trip:
+//   (a) seed + bubble-menu spans already carry literal braces inside the marked text →
+//       we must NOT double-wrap them.
+//   (b) a mark applied to bare text (e.g. via an input rule on a fragment, or a future
+//       command that marks without braces) → we wrap it so the blocks export stays
+//       faithful (low-priority round-trip fix). The doc JSON remains canonical; this
+//       keeps docToBlocks() a faithful derived/export view.
+function wrapToken(text, kind) {
+  const t = text;
+  if (kind === 'tkSpan') {
+    if (/^\{.*\}$/s.test(t.trim())) return t;        // already braced
+    return '{tk ' + t.replace(/^\s+|\s+$/g, '') + '}';
+  }
+  if (kind === 'visualSpan') {
+    if (/^\[.*\]$/s.test(t.trim())) return t;        // already bracketed
+    return '[' + t.replace(/^\s+|\s+$/g, '') + ']';
+  }
+  return t;
+}
+
 export function nodeText(node) {
   let s = '';
   (function walk(n) {
-    if (n.text) s += n.text;
+    if (n.text) {
+      let piece = n.text;
+      const marks = n.marks || [];
+      const span = marks.find((m) => m.type === 'tkSpan' || m.type === 'visualSpan');
+      if (span) piece = wrapToken(piece, span.type);
+      s += piece;
+    }
     if (n.content) n.content.forEach(walk);
   })(node);
   return s.trim();

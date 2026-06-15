@@ -32,10 +32,132 @@ function el(tag, cls, attrs) {
 // The Notion-style drag grip. draggable=true + data-drag-handle tells the PM
 // view to start a node drag from the OUTER node, so the whole block (chrome +
 // content) moves as a unit and the dropcursor shows the drop target.
-function makeGrip() {
-  const grip = el('div', 'wp-grip', { contenteditable: 'false', 'data-drag-handle': '', draggable: 'true', title: 'Drag to move block', 'aria-label': 'Drag to move block' });
-  grip.textContent = '∷';
-  return grip;
+//
+// The grip rail also hosts the Notion controls: "+" to insert a fresh block below,
+// and the "∷" handle itself opens the block menu (change type / delete) on click,
+// drags on drag. All actions dispatch real ProseMirror transactions.
+function makeGrip(editor, getPos) {
+  const rail = el('div', 'wp-grip', { contenteditable: 'false' });
+
+  // "+" — insert a new editable paragraph-bearing block directly BELOW this one.
+  const add = el('button', 'wp-add', { type: 'button', contenteditable: 'false', title: 'Add block below', 'aria-label': 'Add block below', tabindex: '-1' });
+  add.textContent = '+';
+  add.addEventListener('mousedown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    insertBlockBelow(editor, getPos);
+  });
+
+  // "∷" — the real drag handle. data-drag-handle + draggable lets PM move the whole
+  // node. A plain click (no drag) opens the block menu.
+  const handle = el('button', 'wp-handle', { type: 'button', contenteditable: 'false', 'data-drag-handle': '', draggable: 'true', title: 'Drag to move · click for menu', 'aria-label': 'Move or open block menu', tabindex: '-1' });
+  handle.textContent = '∷';
+  let dragged = false;
+  handle.addEventListener('dragstart', () => { dragged = true; });
+  handle.addEventListener('mousedown', () => { dragged = false; });
+  handle.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (dragged) { dragged = false; return; }
+    openBlockMenu(editor, getPos, handle);
+  });
+
+  rail.appendChild(add);
+  rail.appendChild(handle);
+  return rail;
+}
+
+// Insert a fresh paragraph block (defaults to a VO-style writing block) below `getPos`.
+function insertBlockBelow(editor, getPos) {
+  const pos = typeof getPos === 'function' ? getPos() : getPos;
+  if (typeof pos !== 'number') return;
+  const { state, view } = editor;
+  const node = state.doc.nodeAt(pos);
+  if (!node) return;
+  const after = pos + node.nodeSize;
+  const fresh = state.schema.nodes.voBlock.createAndFill({ blockId: 'blk_' + Math.random().toString(36).slice(2, 9), status: 'todo' });
+  if (!fresh) return;
+  let tr = state.tr.insert(after, fresh);
+  // drop the cursor into the new block's editable body (after + 2 lands inside the paragraph)
+  try {
+    const Selection = state.selection.constructor;
+    tr = tr.setSelection(Selection.near(tr.doc.resolve(after + 2)));
+  } catch {}
+  view.dispatch(tr.scrollIntoView());
+  view.focus();
+}
+
+// Change a block's TYPE in place — preserves its editable content + blockId.
+const TYPE_MENU = [
+  ['voBlock', 'VO — voiceover'],
+  ['oncamBlock', 'On camera'],
+  ['sotBlock', 'SOT — sound on tape'],
+  ['brollBlock', 'B-roll'],
+  ['sceneBlock', 'Scene heading'],
+  ['chapterBlock', 'Chapter heading'],
+  ['noteBlock', 'Note'],
+  ['binBlock', 'Bin — holding'],
+];
+function changeBlockType(editor, getPos, typeName) {
+  const pos = typeof getPos === 'function' ? getPos() : getPos;
+  if (typeof pos !== 'number') return;
+  const { state, view } = editor;
+  const node = state.doc.nodeAt(pos);
+  if (!node) return;
+  const target = state.schema.nodes[typeName];
+  if (!target) return;
+  // Build the target's default attrs from the schema, then carry over what survives.
+  const defaults = {};
+  const specAttrs = target.spec.attrs || {};
+  for (const k in specAttrs) defaults[k] = specAttrs[k].default ?? null;
+  const next = { ...defaults, blockId: node.attrs.blockId };
+  if ('status' in defaults && node.attrs.status) next.status = node.attrs.status;
+  // setNodeMarkup re-types the node, keeping its paragraph content intact.
+  view.dispatch(state.tr.setNodeMarkup(pos, target, next));
+}
+
+function deleteBlock(editor, getPos) {
+  const pos = typeof getPos === 'function' ? getPos() : getPos;
+  if (typeof pos !== 'number') return;
+  const { state, view } = editor;
+  const node = state.doc.nodeAt(pos);
+  if (!node) return;
+  if (state.doc.childCount <= 1) return; // never empty the doc
+  view.dispatch(state.tr.delete(pos, pos + node.nodeSize).scrollIntoView());
+  view.focus();
+}
+
+// A tiny floating menu anchored to the handle. Plain DOM (NodeView-owned), one open
+// at a time. Change-type list + delete.
+let openMenuEl = null;
+function closeBlockMenu() { if (openMenuEl) { openMenuEl.remove(); openMenuEl = null; document.removeEventListener('mousedown', onDocDown, true); } }
+function onDocDown(e) { if (openMenuEl && !openMenuEl.contains(e.target)) closeBlockMenu(); }
+function openBlockMenu(editor, getPos, anchor) {
+  closeBlockMenu();
+  const menu = el('div', 'wp-blockmenu', { contenteditable: 'false' });
+  const curPos = typeof getPos === 'function' ? getPos() : getPos;
+  const curNode = editor.state.doc.nodeAt(curPos);
+  const curType = curNode?.type.name;
+
+  const head = el('div', 'wp-bm-head'); head.textContent = 'Turn into';
+  menu.appendChild(head);
+  TYPE_MENU.forEach(([name, label]) => {
+    const item = el('button', 'wp-bm-item' + (name === curType ? ' is-current' : ''), { type: 'button' });
+    item.textContent = label;
+    item.addEventListener('mousedown', (e) => { e.preventDefault(); changeBlockType(editor, getPos, name); closeBlockMenu(); });
+    menu.appendChild(item);
+  });
+  const sep = el('div', 'wp-bm-sep'); menu.appendChild(sep);
+  const del = el('button', 'wp-bm-item wp-bm-del', { type: 'button' });
+  del.textContent = 'Delete block';
+  del.addEventListener('mousedown', (e) => { e.preventDefault(); deleteBlock(editor, getPos); closeBlockMenu(); });
+  menu.appendChild(del);
+
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.position = 'fixed';
+  menu.style.top = `${r.bottom + 4}px`;
+  menu.style.left = `${r.left}px`;
+  openMenuEl = menu;
+  setTimeout(() => document.addEventListener('mousedown', onDocDown, true), 0);
 }
 
 // Position the node, then dispatch a markup change to its attrs.
@@ -49,12 +171,12 @@ function setAttr(editor, getPos, patch) {
 }
 
 // Shared shell: outer block dom + grip + (optional head row) + gutter + body.
-function shellView({ blockClass, dataAttr, node, gutterChildren, headChildren }) {
+function shellView({ blockClass, dataAttr, node, editor, getPos, gutterChildren, headChildren }) {
   const dom = el('div', blockClass);
   dom.setAttribute(dataAttr, '');
   if (node.attrs.blockId) dom.setAttribute('data-block-id', node.attrs.blockId);
 
-  dom.appendChild(makeGrip());
+  dom.appendChild(makeGrip(editor, getPos));
 
   if (headChildren && headChildren.length) {
     const head = el('div', 'wp-tc-head', { contenteditable: 'false' });
@@ -90,12 +212,12 @@ export const ChapterBlock = Node.create({
     }), ['div', { class: 'wp-chapter-inner' }, 0]];
   },
   addNodeView() {
-    return ({ node }) => {
+    return ({ node, editor, getPos }) => {
       const dom = el('section', 'wp-chapter');
       dom.setAttribute('data-chapter', '');
       dom.setAttribute('data-genre', node.attrs.genre || 'other');
       if (node.attrs.blockId) dom.setAttribute('data-block-id', node.attrs.blockId);
-      dom.appendChild(makeGrip());
+      dom.appendChild(makeGrip(editor, getPos));
       // faint monochrome genre marker in a real gutter cell so it tracks the row
       // and wraps with multi-line titles (uniformity, correction #1).
       const gutter = el('div', 'wp-gutter wp-gutter-head', { contenteditable: 'false' });
@@ -124,11 +246,11 @@ export const SceneBlock = Node.create({
     }), ['div', { class: 'wp-scene-inner' }, 0]];
   },
   addNodeView() {
-    return ({ node }) => {
+    return ({ node, editor, getPos }) => {
       const dom = el('section', 'wp-scene');
       dom.setAttribute('data-scene', '');
       if (node.attrs.blockId) dom.setAttribute('data-block-id', node.attrs.blockId);
-      dom.appendChild(makeGrip());
+      dom.appendChild(makeGrip(editor, getPos));
       const gutter = el('div', 'wp-gutter wp-gutter-head', { contenteditable: 'false' });
       gutter.appendChild(Object.assign(el('span', 'wp-kind'), { textContent: 'SCENE' }));
       dom.appendChild(gutter);
@@ -172,7 +294,7 @@ export const VoBlock = Node.create({
         const cur = editor.state.doc.nodeAt(getPos())?.attrs.status || 'todo';
         setAttr(editor, getPos, { status: VO_ORDER[(VO_ORDER.indexOf(cur) + 1) % VO_ORDER.length] });
       });
-      const view = shellView({ blockClass: 'wp-block wp-vo', dataAttr: 'data-vo', node, gutterChildren: [kind, dot] });
+      const view = shellView({ blockClass: 'wp-block wp-vo', dataAttr: 'data-vo', node, editor, getPos, gutterChildren: [kind, dot] });
       view.dom.setAttribute('data-status', node.attrs.status || 'todo');
       return {
         ...view,
@@ -204,9 +326,9 @@ export const OncamBlock = Node.create({
     ];
   },
   addNodeView() {
-    return ({ node }) => {
+    return ({ node, editor, getPos }) => {
       const kind = Object.assign(el('span', 'wp-kind'), { textContent: 'OC' });
-      return shellView({ blockClass: 'wp-block wp-oncam', dataAttr: 'data-oncam', node, gutterChildren: [kind] });
+      return shellView({ blockClass: 'wp-block wp-oncam', dataAttr: 'data-oncam', node, editor, getPos, gutterChildren: [kind] });
     };
   },
 });
@@ -277,7 +399,7 @@ export const SotBlock = Node.create({
   addNodeView() {
     return ({ node, editor, getPos }) => {
       const built = timecodeHead({ node, editor, getPos, isBroll: false });
-      const view = shellView({ blockClass: 'wp-block wp-sot' + (node.attrs.done ? ' is-done' : ''), dataAttr: 'data-sot', node, headChildren: built.children });
+      const view = shellView({ blockClass: 'wp-block wp-sot' + (node.attrs.done ? ' is-done' : ''), dataAttr: 'data-sot', node, editor, getPos, headChildren: built.children });
       view.dom.setAttribute('data-done', node.attrs.done ? '1' : '0');
       return {
         ...view,
@@ -317,7 +439,7 @@ export const BrollBlock = Node.create({
   addNodeView() {
     return ({ node, editor, getPos }) => {
       const built = timecodeHead({ node, editor, getPos, isBroll: true });
-      const view = shellView({ blockClass: 'wp-block wp-broll' + (node.attrs.done ? ' is-done' : ''), dataAttr: 'data-broll', node, headChildren: built.children });
+      const view = shellView({ blockClass: 'wp-block wp-broll' + (node.attrs.done ? ' is-done' : ''), dataAttr: 'data-broll', node, editor, getPos, headChildren: built.children });
       view.dom.setAttribute('data-done', node.attrs.done ? '1' : '0');
       return {
         ...view,
@@ -353,9 +475,9 @@ export const ServiceBlock = Node.create({
     ];
   },
   addNodeView() {
-    return ({ node }) => {
+    return ({ node, editor, getPos }) => {
       const kind = Object.assign(el('span', 'wp-kind'), { textContent: node.attrs.kind === 'archive-req' ? 'ARCHIVE' : 'MAP' });
-      const view = shellView({ blockClass: 'wp-block wp-service', dataAttr: 'data-service', node, gutterChildren: [kind] });
+      const view = shellView({ blockClass: 'wp-block wp-service', dataAttr: 'data-service', node, editor, getPos, gutterChildren: [kind] });
       view.dom.setAttribute('data-kind', node.attrs.kind);
       return view;
     };
@@ -380,9 +502,9 @@ export const NoteBlock = Node.create({
     ];
   },
   addNodeView() {
-    return ({ node }) => {
+    return ({ node, editor, getPos }) => {
       const kind = Object.assign(el('span', 'wp-kind'), { textContent: node.attrs.kind === 'jh-note' ? 'JH' : 'NOTE' });
-      const view = shellView({ blockClass: 'wp-block wp-note', dataAttr: 'data-note', node, gutterChildren: [kind] });
+      const view = shellView({ blockClass: 'wp-block wp-note', dataAttr: 'data-note', node, editor, getPos, gutterChildren: [kind] });
       view.dom.setAttribute('data-kind', node.attrs.kind);
       return view;
     };
@@ -406,9 +528,9 @@ export const BinBlock = Node.create({
     ];
   },
   addNodeView() {
-    return ({ node }) => {
+    return ({ node, editor, getPos }) => {
       const kind = Object.assign(el('span', 'wp-kind'), { textContent: 'BIN' });
-      return shellView({ blockClass: 'wp-block wp-bin', dataAttr: 'data-bin', node, gutterChildren: [kind] });
+      return shellView({ blockClass: 'wp-block wp-bin', dataAttr: 'data-bin', node, editor, getPos, gutterChildren: [kind] });
     };
   },
 });

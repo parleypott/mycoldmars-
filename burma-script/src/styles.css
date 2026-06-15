@@ -8,7 +8,7 @@
   --paper: #f6f6f3;
   --paper-edge: #ecece8;
   --ink: #111111;
-  --ink-2: #3a3a3a;
+  --ink-2: #333330;
   --faint: #8a8a85;
   --faint-2: #b4b4ae;
   --line: #e2e2dc;
@@ -21,8 +21,13 @@
   --mono: "SF Mono", "JetBrains Mono", ui-monospace, "Roboto Mono", Menlo, monospace;
 
   --col-w: 50rem;     /* the script column */
-  --grip-w: 1.6rem;   /* the drag grip rail */
+  --grip-w: 2.0rem;   /* the drag grip rail (now holds + and handle) */
   --gutter-w: 4.6rem; /* left gutter for tiny markers */
+
+  /* TIGHT type scale — collapse the seven hand-tuned mono micro-sizes to TWO tokens
+     so the gutter/telemetry micro-type reads as one system (Swiss discipline). */
+  --label: 9px;       /* gutter kinds, day, genre marks */
+  --label-lg: 11px;   /* speaker, telemetry, service labels */
 }
 
 * { box-sizing: border-box; }
@@ -54,7 +59,7 @@ body {
 .wp-model b { color: var(--ink); font-weight: 600; }
 .wp-telem {
   display: flex; gap: 18px; margin-left: auto;
-  font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em;
+  font-family: var(--mono); font-size: var(--label-lg); letter-spacing: .08em;
   text-transform: uppercase; color: var(--faint);
 }
 .wp-telem .wp-t b { color: var(--ink); font-weight: 600; }
@@ -127,29 +132,70 @@ body {
 .wp-chapter:hover,
 .wp-scene:hover { background: rgba(0,0,0,.018); }
 
-/* ---- REAL drag grip (correction #8: movable, not a CSS fake) ---- */
+/* ---- REAL drag grip rail (correction #8: movable + insert + menu, not a CSS fake) ----
+   Holds the "+" insert and the "∷" drag handle. Hidden until block hover (Notion feel). */
 .wp-grip {
   grid-column: 1;
   align-self: start;
   justify-self: start;
-  margin-top: 3px;
-  font-size: 14px; line-height: 1;
-  color: var(--faint-2);
-  opacity: 0; cursor: grab;
-  padding: 2px 4px; user-select: none;
-  transition: opacity .12s, color .12s;
+  margin-top: 2px;
+  display: flex; align-items: center; gap: 1px;
+  opacity: 0;
+  transition: opacity .12s;
+  user-select: none;
 }
 .wp-block:hover > .wp-grip,
 .wp-chapter:hover > .wp-grip,
 .wp-scene:hover > .wp-grip { opacity: 1; }
-.wp-grip:hover { color: var(--ink); }
-.wp-grip:active { cursor: grabbing; }
+
+.wp-add, .wp-handle {
+  font-family: var(--sans); line-height: 1;
+  background: transparent; border: 0; padding: 1px 2px;
+  color: var(--faint-2); cursor: pointer; border-radius: 3px;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color .1s, background .1s;
+}
+.wp-add { font-size: 15px; font-weight: 400; }
+.wp-handle { font-size: 13px; cursor: grab; }
+.wp-handle:active { cursor: grabbing; }
+.wp-add:hover, .wp-handle:hover { color: var(--ink); background: rgba(0,0,0,.05); }
 .ProseMirror-selectednode { outline: 1px solid rgba(226,0,26,.35); outline-offset: 2px; border-radius: 3px; }
+
+/* On timecode blocks the grip aligns to the hero head row baseline so the drag rail
+   forms one clean vertical line regardless of block type (calm hover-scan). */
+.wp-sot > .wp-grip, .wp-broll > .wp-grip { margin-top: 1px; }
+
+/* ---- block menu (change type / delete) — floats from the handle ---- */
+.wp-blockmenu {
+  z-index: 300;
+  min-width: 184px;
+  background: #fff; color: var(--ink);
+  border: 1px solid var(--line-strong); border-radius: 8px;
+  box-shadow: 0 14px 40px -16px rgba(0,0,0,.5);
+  padding: 6px;
+  font-family: var(--sans);
+}
+.wp-bm-head {
+  font-family: var(--mono); font-size: var(--label); letter-spacing: .14em;
+  text-transform: uppercase; color: var(--faint); padding: 4px 8px 6px;
+}
+.wp-bm-item {
+  display: block; width: 100%; text-align: left;
+  font-size: 13px; color: var(--ink-2);
+  background: transparent; border: 0; border-radius: 5px;
+  padding: 7px 8px; cursor: pointer;
+  transition: background .1s, color .1s;
+}
+.wp-bm-item:hover { background: var(--paper); color: var(--ink); }
+.wp-bm-item.is-current { color: var(--red); font-weight: 600; }
+.wp-bm-sep { height: 1px; background: var(--line); margin: 5px 4px; }
+.wp-bm-del { color: var(--red-ink); }
+.wp-bm-del:hover { background: rgba(226,0,26,.07); color: var(--red); }
 
 /* gutter cell — tiny mono kind label + status dots, never loud */
 .wp-gutter {
   grid-column: 2;
-  font-family: var(--mono); font-size: 9px; letter-spacing: .1em;
+  font-family: var(--mono); font-size: var(--label); letter-spacing: .1em;
   text-transform: uppercase; color: var(--faint-2);
   padding-top: 4px; user-select: none;
   display: flex; align-items: center; gap: 6px;
@@ -168,7 +214,7 @@ body {
 /* genre + scene marks now ride in a real gutter cell (top-aligned, tracks wrapping) */
 .wp-gutter-head { grid-column: 2; padding-top: 6px; align-items: flex-start; }
 .wp-gutter-head .wp-kind {
-  font-size: 8.5px; letter-spacing: .12em; color: var(--faint-2);
+  font-size: var(--label); letter-spacing: .12em; color: var(--faint-2);
 }
 .wp-chapter > .wp-grip { margin-top: 38px; }
 /* a hairline red rule under the chapter title — disciplined accent */
@@ -220,21 +266,24 @@ body {
 .wp-sot .wp-tc { color: var(--red-ink); }     /* SOT timecode = the hero, in Swiss red */
 .wp-tc-amb { color: var(--red) !important; }
 .wp-day {
-  font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  font-family: var(--mono); font-size: var(--label); letter-spacing: .1em;
   text-transform: uppercase; color: var(--faint);
 }
 .wp-speaker {
-  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+  font-family: var(--mono); font-size: var(--label-lg); letter-spacing: .04em;
   text-transform: uppercase; font-weight: 600; color: var(--ink-2);
 }
 .wp-kind-broll {
-  font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em;
+  font-family: var(--mono); font-size: var(--label); letter-spacing: .14em;
   color: var(--faint); font-weight: 600;
 }
 .wp-spacer { flex: 1 1 auto; }
+/* Body sits in COLUMN 3 — the SAME left baseline as VO/ONCAM prose, so scanning down
+   the page there is ONE locked left margin for all body text (Swiss grid registration,
+   fixes the "almost aligned" mis-registration). Only the timecode HEAD spans 2/-1. */
 .wp-sot .wp-body, .wp-broll .wp-body {
-  grid-column: 2 / -1;
-  font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+  grid-column: 3;
+  font-family: var(--mono); font-size: 13.5px; line-height: 1.6;
   color: var(--ink-2); white-space: pre-wrap;
 }
 
@@ -257,7 +306,7 @@ body {
 
 /* ---- SERVICE (map-need / archive-req) — calm utility ---- */
 .wp-service .wp-body {
-  font-family: var(--mono); font-size: 12px; line-height: 1.55;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
   color: var(--faint); white-space: pre-wrap;
   border-left: 2px solid var(--line-strong); padding-left: 12px;
 }
