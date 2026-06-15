@@ -1,0 +1,135 @@
+// Burma Script Tool — the importer. Turns JH's messy script text into structured blocks.
+// Goal (his words): "develop some context and flexibility with the goal of standardizing it."
+// Never guesses a DAY it isn't sure of — flags it instead.
+
+import { Block, Timecode, InlineSpan, ScriptDoc, ChapterGenre, DAY_SEQUENCES } from "./schema";
+
+let _id = 0;
+const uid = (p: string) => `${p}_${(++_id).toString(36)}_${(_id * 2654435761 % 100000).toString(36)}`;
+
+const TC = /\b(\d{2}:\d{2}:\d{2}:\d{2})\b/g;
+const DAY_RE = /\bDAY\s*([123])\b/i;
+
+function genreOf(label: string): ChapterGenre {
+  const u = label.toUpperCase();
+  if (u.includes("COLD OPEN")) return "coldopen";
+  if (u.includes("HISTORY")) return "history";
+  if (u.includes("GROUND")) return "ground";
+  if (u.includes("INQUIRY")) return "inquiry";
+  if (u.includes("LOOK AT THIS MAP") || u.includes("LATM") || u.includes("MAP ROOM") || u.includes("MAP ON CAM")) return "latm";
+  return "other";
+}
+
+// Pull inline {TK ...} and [ ... ] spans out of a writing-surface string.
+function extractSpans(text: string): InlineSpan[] {
+  const spans: InlineSpan[] = [];
+  const tk = /\{[^{}]*\}/g; let m: RegExpExecArray | null;
+  while ((m = tk.exec(text))) spans.push({ id: uid("tk"), kind: "tk", start: m.index, end: m.index + m[0].length, raw: m[0] });
+  const br = /\[[^\[\]]*\]/g;
+  while ((m = br.exec(text))) spans.push({ id: uid("vis"), kind: "visual", start: m.index, end: m.index + m[0].length, raw: m[0] });
+  return spans.sort((a, b) => a.start - b.start);
+}
+
+// Resolve a DAY for a timecode using nearest explicit DAY in the surrounding window.
+function timecodeFrom(raw: string, contextDay: 1 | 2 | 3 | null): Timecode {
+  TC.lastIndex = 0;
+  const all = [...raw.matchAll(TC)].map((x) => x[1]);
+  const localDay = raw.match(DAY_RE);
+  const day = localDay ? (Number(localDay[1]) as 1 | 2 | 3) : contextDay;
+  return {
+    day,
+    tc: all[0],
+    tcOut: all[1],
+    ambiguous: day === null,
+    raw: raw.trim().slice(0, 200),
+  };
+}
+
+export function parseScript(srcText: string): { doc: ScriptDoc; stats: any; ambiguous: Timecode[] } {
+  _id = 0;
+  // JH separates beats by blank lines; treat each non-empty paragraph as a unit.
+  const paras = srcText.split(/\n{1,}/).map((s) => s.trim()).filter(Boolean);
+  const blocks: Block[] = [];
+  const ambiguous: Timecode[] = [];
+  let contextDay: 1 | 2 | 3 | null = null;
+
+  for (const p of paras) {
+    const dm = p.match(DAY_RE);
+    if (dm) contextDay = Number(dm[1]) as 1 | 2 | 3; // update running day context
+
+    // --- structural ---
+    if (/^CH:/i.test(p)) {
+      const title = p.replace(/^CH:\s*/i, "").split(/\n/)[0].slice(0, 120);
+      blocks.push({ id: uid("ch"), type: "chapter", genre: genreOf(p), title, depth: 0, rawSource: p });
+      continue;
+    }
+    if (/^(✨|⁃?\s*SCENE:|SCENE:)/i.test(p) || /\bSCENE:/i.test(p.slice(0, 12))) {
+      const title = p.replace(/^[✨⁃\s]*SCENE:\s*/i, "").split(/\n/)[0].slice(0, 120);
+      blocks.push({ id: uid("sc"), type: "scene", title, depth: 1, rawSource: p });
+      continue;
+    }
+    // --- service boxes ---
+    if (/\[Mapping data needs/i.test(p) || /\[MAP\b/i.test(p) || /Map Data Need/i.test(p)) {
+      blocks.push({ id: uid("map"), type: "map-need", title: "Mapping data needs", text: p, rawSource: p });
+      continue;
+    }
+    if (/\[Archive request/i.test(p) || /\bARCHIVE:/i.test(p)) {
+      blocks.push({ id: uid("arc"), type: "archive-req", title: "Archive request", text: p, rawSource: p });
+      continue;
+    }
+    // --- editor note ---
+    if (/!\s*NOTE/i.test(p) || /^\\?\[?!NOTE/i.test(p)) {
+      blocks.push({ id: uid("note"), type: "note", text: p, done: false, rawSource: p });
+      continue;
+    }
+    // --- SOT / timecode-bearing direction ---
+    if (TC.test(p)) {
+      TC.lastIndex = 0;
+      const tcode = timecodeFrom(p, contextDay);
+      if (tcode.ambiguous) ambiguous.push(tcode);
+      const speaker = /JACK|Jack/.test(p) ? "Jack" : /DREW|Drew/.test(p) ? "Drew" : /JH|Johnny/.test(p) ? "JH" : undefined;
+      const isBroll = /b[\s-]?roll|\[.*roll|establish|montage/i.test(p) && !/SOT|ONCAM|ON CAM|JH\s*[":]/i.test(p);
+      blocks.push({
+        id: uid(isBroll ? "broll" : "sot"),
+        type: isBroll ? "broll" : "sot",
+        timecode: tcode, speaker, done: false, width: "full",
+        text: p.slice(0, 400), rawSource: p,
+      });
+      continue;
+    }
+    // --- VO / ONCAM writing surface ---
+    if (/^-?\s*VO:/i.test(p) || /\bVO:/i.test(p.slice(0, 8))) {
+      const text = p.replace(/^-?\s*VO:\s*/i, "");
+      blocks.push({ id: uid("vo"), type: "vo", text, voStatus: "todo", spans: extractSpans(text), rawSource: p });
+      continue;
+    }
+    if (/ON\s?CAM|MONOLOGUE/i.test(p)) {
+      blocks.push({ id: uid("oncam"), type: "oncam", text: p, spans: extractSpans(p), rawSource: p });
+      continue;
+    }
+    if (/^Notes? from JH|^NOTES?:/i.test(p)) {
+      blocks.push({ id: uid("jh"), type: "jh-note", text: p, rawSource: p });
+      continue;
+    }
+    // --- fallback: prose with {TK}/[..] => treat as VO-ish writing; else holding bin ---
+    if (/\{|\[/.test(p)) {
+      blocks.push({ id: uid("vo"), type: "vo", text: p, voStatus: "todo", spans: extractSpans(p), rawSource: p });
+    } else {
+      blocks.push({ id: uid("bin"), type: "bin", text: p, rawSource: p });
+    }
+  }
+
+  const by = (t: string) => blocks.filter((b) => b.type === t).length;
+  const stats = {
+    total: blocks.length,
+    chapters: by("chapter"), scenes: by("scene"),
+    vo: by("vo"), oncam: by("oncam"), sot: by("sot"), broll: by("broll"),
+    mapNeeds: by("map-need"), archive: by("archive-req"), notes: by("note"), bin: by("bin"),
+    tkSpans: blocks.reduce((n, b) => n + (b.spans?.filter((s) => s.kind === "tk").length || 0), 0),
+    visualSpans: blocks.reduce((n, b) => n + (b.spans?.filter((s) => s.kind === "visual").length || 0), 0),
+    ambiguousTimecodes: ambiguous.length,
+  };
+
+  const doc: ScriptDoc = { version: 1, title: "Burma — The Human Element", sequences: DAY_SEQUENCES, blocks };
+  return { doc, stats, ambiguous };
+}
