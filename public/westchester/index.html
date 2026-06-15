@@ -2632,6 +2632,27 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 .ag-watch .ag-decision-btn { border-color: var(--accent); color: var(--accent); }
 .ag-watch .ag-decision-btn:hover { background: var(--accent); color: #FFF; }
 .ag-watch .ag-watch-btn:hover { background: var(--ink); color: var(--bg); }
+
+/* ---------- HEADER NEW-TODAY BADGE ---------- */
+#header-new-badge {
+  display: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--muted);
+  white-space: nowrap;
+  align-self: center;
+  transition: color 150ms, border-color 150ms, background 150ms;
+}
+#header-new-badge.has-new {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(181,51,30,0.06);
+}
 </style>
 </head>
 <body>
@@ -2642,6 +2663,7 @@ body.basemap-blank #map-canvas { filter: contrast(0.96) saturate(0.88); }
 
 <header>
   <div class="brand">Westchester House Hunter</div>
+  <span id="header-new-badge" title="Properties added since yesterday's watch run"></span>
   <nav>
     <button class="tab-btn" data-tab="money">Money Mode</button>
     <button class="tab-btn active" data-tab="map">Map</button>
@@ -8441,16 +8463,45 @@ function showXrefToast(deltas) {
 }
 
 // ===================== DAILY WATCH (manual trigger UI) =====================
+
+function applyWatchData(data) {
+  const meta = document.getElementById('ag-watch-meta');
+  const badge = document.getElementById('header-new-badge');
+  const n = data.newListings?.length || 0;
+  const lastRun = data.lastRun ? new Date(data.lastRun).toLocaleString() : 'never';
+  if (meta) {
+    meta.innerHTML = `<strong>Last run:</strong> ${lastRun} · <strong>New today:</strong> ${n}<br><span style="font-size:10px;">${escapeHtml(data.note || '')}</span>`;
+  }
+  if (badge) {
+    badge.textContent = n > 0 ? `${n} new today` : '0 new today';
+    badge.style.display = 'inline-block';
+    badge.classList.toggle('has-new', n > 0);
+  }
+}
+
+// Auto-fetch on page load — show new-today count in header badge and agent sidebar
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(async () => {
+    try {
+      const res = await whhFetch('/api/whh-daily-watch', {}, { label: 'whh-daily-watch-init', timeoutMs: 10000, retries: 1 });
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        applyWatchData(data);
+      }
+    } catch { /* silent — badge stays hidden if watch endpoint unreachable */ }
+  }, 800); // slight delay so auth warms first
+});
+
 document.getElementById('ag-watch-run')?.addEventListener('click', async () => {
   const btn = document.getElementById('ag-watch-run');
-  const meta = document.getElementById('ag-watch-meta');
   btn.disabled = true; const orig = btn.textContent; btn.textContent = 'running…';
   try {
     const res = await whhFetch('/api/whh-daily-watch', { method: 'POST' }, { label: 'whh-daily-watch', timeoutMs: 30000, retries: 1 });
     const data = await res.json().catch(() => ({}));
-    meta.innerHTML = `<strong>Last run:</strong> ${new Date(data.lastRun || Date.now()).toLocaleString()} · <strong>New:</strong> ${data.newListings?.length || 0}<br><span style="font-size:10px;">${escapeHtml(data.note || '')}</span>`;
+    applyWatchData(data);
   } catch (err) {
-    meta.innerHTML = '<span style="color:var(--accent);">Watch failed — ' + escapeHtml(err.message) + '</span>';
+    const meta = document.getElementById('ag-watch-meta');
+    if (meta) meta.innerHTML = '<span style="color:var(--accent);">Watch failed — ' + escapeHtml(err.message) + '</span>';
   } finally {
     btn.textContent = orig; btn.disabled = false;
   }
