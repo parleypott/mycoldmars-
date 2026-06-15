@@ -57,7 +57,7 @@ function telemetry(doc) {
   return { words, blocks, sot, done, outline };
 }
 
-export function BurmaEditor({ sourceBlocks, onTelemetry }) {
+export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
   const initial = useMemo(() => seedDoc(sourceBlocks), [sourceBlocks]);
   const saveTimer = useRef(null);
 
@@ -80,6 +80,9 @@ export function BurmaEditor({ sourceBlocks, onTelemetry }) {
     autofocus: false,
     onCreate({ editor }) {
       onTelemetry?.(telemetry(editor.getJSON()));
+      // Hand the live editor up so the Exports panel can read the current doc JSON
+      // (docToBlocks) for the worklist exports — always reflecting live edits/reorders.
+      onEditorReady?.(editor);
     },
     onUpdate({ editor }) {
       const json = editor.getJSON();

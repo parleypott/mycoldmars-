@@ -5,8 +5,9 @@
 // stays read-only.
 
 import { render } from 'preact';
-import { useState } from 'preact/hooks';
+import { useState, useRef } from 'preact/hooks';
 import { BurmaEditor, LS_DOC } from './Editor.jsx';
+import { Exports } from './Exports.jsx';
 import scriptData from '../sample-blocks.json';
 
 const SOURCE_BLOCKS = scriptData.blocks || [];
@@ -54,17 +55,23 @@ function Outline({ items }) {
 
 function App() {
   const [tel, setTel] = useState(null);
+  // Hold the live editor so the Exports panel can read the current doc on demand.
+  const editorRef = useRef(null);
 
   function resetDoc() {
     try { localStorage.removeItem(LS_DOC); } catch {}
     location.reload();
   }
 
+  // The EXPORT control just broadcasts — the Exports panel listens and reads the live doc.
+  function openExports() { window.dispatchEvent(new CustomEvent('wp-open-exports')); }
+
   return (
     <div class="wp-app">
       <header class="wp-bar">
         <span class="wp-model">WP&#8209;01 <b>BURMA</b> · SCRIPT</span>
         <Telem t={tel} />
+        <button class="wp-export" onClick={openExports} title="Export — print PDF or worklists">EXPORT</button>
         <button class="wp-reset" onClick={resetDoc} title="Reset to source script">RESET</button>
       </header>
 
@@ -77,9 +84,15 @@ function App() {
             <h1 class="wp-title">{DOC_TITLE}</h1>
             <div class="wp-seq">{SEQUENCES.map(s => s.name).join('  ·  ')}</div>
           </div>
-          <BurmaEditor sourceBlocks={SOURCE_BLOCKS} onTelemetry={setTel} />
+          <BurmaEditor
+            sourceBlocks={SOURCE_BLOCKS}
+            onTelemetry={setTel}
+            onEditorReady={(ed) => { editorRef.current = ed; }}
+          />
         </div>
       </main>
+
+      <Exports getDoc={() => editorRef.current?.getJSON() || { type: 'doc', content: [] }} docTitle={DOC_TITLE} />
     </div>
   );
 }

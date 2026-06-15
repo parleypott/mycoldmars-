@@ -72,6 +72,17 @@ body {
 }
 .wp-reset:hover { color: var(--red); border-color: var(--red); }
 
+/* EXPORT — the primary frame action: print/PDF + worklists. Quiet by default, red on
+   hover (single accent), sits just left of RESET in the bar. */
+.wp-export {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink);
+  background: transparent; border: 1px solid var(--ink);
+  border-radius: 3px; padding: 5px 12px; cursor: pointer;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.wp-export:hover { color: #fff; background: var(--red); border-color: var(--red); }
+
 /* ============================================================
    PAGE — clean Swiss paper, single calm column
    ============================================================ */
@@ -515,4 +526,265 @@ body {
   .wp-doc-head { margin-left: 0; }
   .wp-workshop { width: 100%; }
   .wp-stage { padding: 28px 14px 120px; }
+}
+
+/* ============================================================
+   EXPORTS PANEL — a calm near-white overlay. Print/PDF the whole
+   script, or pull the three worklists (map needs / archive /
+   translation) as printable + downloadable sheets. Swiss restraint:
+   mono labels, one red accent, no modal chrome zoo.
+   ============================================================ */
+.wp-ex-overlay {
+  position: fixed; inset: 0; z-index: 400;
+  display: flex; justify-content: center; align-items: flex-start;
+  padding: 5vh 24px 24px;
+  background: rgba(20,20,18,.34);
+  backdrop-filter: blur(2px);
+  animation: wp-ex-fade .14s ease;
+  overflow-y: auto;
+}
+@keyframes wp-ex-fade { from { opacity: 0; } to { opacity: 1; } }
+.wp-ex-panel {
+  width: 100%; max-width: 680px;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 30px 80px -30px rgba(0,0,0,.55);
+  padding: 24px 28px 22px;
+  display: flex; flex-direction: column;
+  animation: wp-ex-rise .18s ease;
+}
+@keyframes wp-ex-rise { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.wp-ex-head { display: flex; align-items: center; margin-bottom: 18px; }
+.wp-ex-eyebrow {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--red);
+}
+.wp-ex-close {
+  margin-left: auto; width: 26px; height: 26px; line-height: 1;
+  font-size: 20px; border: 0; background: transparent; color: var(--faint);
+  cursor: pointer; border-radius: 4px;
+}
+.wp-ex-close:hover { color: var(--ink); background: var(--paper-edge); }
+
+/* PRINT / PDF row — the whole-script export. */
+.wp-ex-print-row {
+  display: flex; align-items: center; gap: 18px;
+  padding: 4px 0 16px;
+}
+.wp-ex-print-copy { flex: 1 1 auto; min-width: 0; }
+.wp-ex-print-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+.wp-ex-print-sub { font-size: 12.5px; line-height: 1.45; color: var(--faint); margin-top: 3px; }
+
+.wp-ex-btn {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; white-space: nowrap;
+  color: var(--ink); background: transparent;
+  border: 1px solid var(--line-strong); border-radius: 5px;
+  padding: 9px 14px; cursor: pointer;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.wp-ex-btn:hover:not(:disabled) { border-color: var(--ink); }
+.wp-ex-btn:disabled { opacity: .4; cursor: default; }
+.wp-ex-btn-red {
+  color: #fff; background: var(--red); border-color: var(--red); font-weight: 600;
+}
+.wp-ex-btn-red:hover { background: var(--red-ink); border-color: var(--red-ink); }
+
+.wp-ex-rule { height: 1px; background: var(--line); margin: 0 -28px 18px; }
+
+/* WORKLIST tabs */
+.wp-ex-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+.wp-ex-tab {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--faint);
+  background: transparent; border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 6px 10px 8px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+  transition: color .12s, border-color .12s;
+}
+.wp-ex-tab:hover { color: var(--ink-2); }
+.wp-ex-tab.is-active { color: var(--ink); border-bottom-color: var(--red); }
+.wp-ex-count {
+  font-size: 9px; min-width: 16px; height: 16px; padding: 0 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px; background: var(--paper-edge); color: var(--faint);
+  letter-spacing: 0;
+}
+.wp-ex-tab.is-active .wp-ex-count { background: var(--red); color: #fff; }
+
+/* the worklist sheet — also the print target when printing a single list */
+.wp-ex-sheet {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 22px 24px;
+  max-height: 52vh; overflow-y: auto;
+  scrollbar-width: thin;
+}
+.wp-ex-sheet-head { margin-bottom: 16px; }
+.wp-ex-sheet-title { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+.wp-ex-sheet-meta {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--faint); margin-top: 5px;
+}
+.wp-ex-empty {
+  font-family: var(--mono); font-size: 12px; color: var(--faint);
+  padding: 24px 0; text-align: center;
+}
+.wp-ex-list { list-style: none; margin: 0; padding: 0; counter-reset: ex; }
+.wp-ex-row {
+  counter-increment: ex;
+  padding: 12px 0 12px 34px; position: relative;
+  border-top: 1px solid var(--line);
+}
+.wp-ex-row:first-child { border-top: 0; }
+.wp-ex-row::before {
+  content: counter(ex, decimal-leading-zero);
+  position: absolute; left: 0; top: 13px;
+  font-family: var(--mono); font-size: 11px; color: var(--faint-2);
+  font-variant-numeric: tabular-nums;
+}
+.wp-ex-primary {
+  font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.4;
+  display: flex; align-items: baseline; gap: 10px;
+}
+/* on the TRANSLATION sheet the primary is a timecode — render it as the mono hero */
+.wp-ex-sheet[data-worklist="translation"] .wp-ex-primary {
+  font-family: var(--mono); color: var(--red-ink); letter-spacing: .01em;
+  font-variant-numeric: tabular-nums;
+}
+.wp-ex-doneflag {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+  color: #fff; background: var(--done); padding: 2px 6px; border-radius: 3px; font-weight: 600;
+}
+.wp-ex-meta {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--faint); margin-top: 4px;
+}
+.wp-ex-body { font-size: 13px; line-height: 1.55; color: var(--ink-2); margin-top: 6px; }
+.wp-ex-body > div { white-space: pre-wrap; }
+.wp-ex-row.is-done .wp-ex-primary { opacity: .5; }
+.wp-ex-row.is-done .wp-ex-body { opacity: .55; }
+
+.wp-ex-foot { display: flex; gap: 10px; margin-top: 18px; }
+
+@media (max-width: 720px) {
+  .wp-ex-overlay { padding: 0; }
+  .wp-ex-panel { border-radius: 0; min-height: 100%; max-width: 100%; }
+}
+
+/* ============================================================
+   PRINT / PDF STYLESHEET
+   window.print() (or Save-as-PDF) yields a professional script
+   document: all chrome off, black ink on white, page breaks at
+   chapters, timecodes legible. TWO print targets:
+     • default            → print the SCRIPT document
+     • .wp-print-worklist  → print only the active worklist sheet
+   ============================================================ */
+@media print {
+  @page { margin: 18mm 16mm; }
+
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* --- kill ALL editor chrome --- */
+  .wp-bar, .wp-outline, .wp-grip, .wp-vodot, .wp-copy, .wp-done,
+  .wp-bubble, .wp-blockmenu, .wp-workshop,
+  .wp-export, .wp-reset, .wp-telem { display: none !important; }
+
+  /* drop the fixed/sticky positioning so the doc flows as printed pages */
+  .wp-app { display: block !important; }
+  .wp-stage { display: block !important; padding: 0 !important; }
+  .wp-page { max-width: none !important; width: auto !important; padding: 0 !important; background: #fff !important; }
+
+  /* --- script masthead --- */
+  .wp-doc-head { margin: 0 0 18pt !important; padding-bottom: 10pt; border-bottom: 1pt solid #000; }
+  .wp-doc-head::after { display: none; }
+  .wp-eyebrow { color: #000 !important; }
+  .wp-title { font-size: 22pt !important; color: #000 !important; }
+  .wp-seq { color: #333 !important; }
+
+  /* --- uniform block grid: collapse the grip column, keep gutter + body --- */
+  .wp-block, .wp-chapter, .wp-scene {
+    grid-template-columns: var(--gutter-w) minmax(0, 1fr) !important;
+    background: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .wp-gutter, .wp-gutter-head { grid-column: 1 !important; color: #555 !important; }
+  .wp-body, .wp-chapter-inner, .wp-scene-inner { grid-column: 2 !important; }
+
+  /* every block prints black ink — no faded greys, no red washes on body text */
+  .wp-vo .wp-body, .wp-oncam .wp-body, .wp-sot .wp-body, .wp-broll .wp-body,
+  .wp-service .wp-body, .wp-note .wp-body, .wp-bin .wp-body {
+    color: #000 !important; font-size: 11pt !important; line-height: 1.5 !important;
+  }
+  .wp-service .wp-body { border-left: 1pt solid #999 !important; }
+  .wp-note .wp-body { border-left: 1.5pt solid #000 !important; font-style: italic; }
+
+  /* CHAPTERS start a new page so the script reads as sections (editor's request) */
+  .wp-chapter {
+    break-before: page; page-break-before: always;
+    padding: 0 0 8pt !important;
+  }
+  .wp-chapter:first-child { break-before: auto; page-break-before: avoid; }
+  /* a stack of consecutive chapter titles should NOT each force a page */
+  .wp-chapter + .wp-chapter { break-before: auto; page-break-before: avoid; padding-top: 14pt !important; }
+  .wp-chapter::before { background: #000 !important; }
+  .wp-chapter-inner { font-size: 15pt !important; color: #000 !important; }
+  .wp-scene-inner { font-size: 12pt !important; color: #000 !important; }
+
+  /* SCENES + SOT/broll heads stay with their following content */
+  .wp-scene { break-after: avoid; page-break-after: avoid; }
+  .wp-tc-head { break-after: avoid; page-break-after: avoid; }
+
+  /* TIMECODE stays the legible mono hero — black, bold, tabular */
+  .wp-tc { color: #000 !important; font-size: 12pt !important; font-weight: 700 !important; }
+  .wp-sot .wp-tc { color: #000 !important; }
+  .wp-tc-amb { color: #000 !important; }
+  .wp-tc-amb::after { content: " (?)"; font-size: 8pt; }
+  .wp-day, .wp-speaker, .wp-kind, .wp-kind-broll { color: #333 !important; }
+
+  /* inline spans print as plain underlined ink — no color wash */
+  .wp-tk { color: #000 !important; border-bottom: 1pt solid #000 !important; background: none !important; }
+  .wp-visual { color: #333 !important; border-bottom: 1pt dotted #666 !important; }
+
+  /* done SOT/broll: print but de-emphasize lightly (kept legible) */
+  .wp-sot.is-done, .wp-broll.is-done { opacity: 1 !important; }
+  .wp-sot.is-done .wp-tc::after, .wp-broll.is-done .wp-tc::after { content: "  ✓"; font-size: 9pt; }
+
+  /* --- when printing a single WORKLIST: hide the script, show only the sheet --- */
+  .wp-print-worklist .wp-stage,
+  .wp-print-worklist .wp-doc-head { display: none !important; }
+  .wp-print-worklist .wp-ex-overlay {
+    position: static !important; inset: auto !important;
+    background: none !important; backdrop-filter: none !important;
+    padding: 0 !important; display: block !important;
+  }
+  .wp-print-worklist .wp-ex-panel {
+    box-shadow: none !important; border: 0 !important; border-radius: 0 !important;
+    max-width: none !important; padding: 0 !important; background: #fff !important;
+  }
+  /* drop everything in the panel except the active worklist sheet */
+  .wp-print-worklist .wp-ex-head,
+  .wp-print-worklist .wp-ex-print-row,
+  .wp-print-worklist .wp-ex-rule,
+  .wp-print-worklist .wp-ex-tabs,
+  .wp-print-worklist .wp-ex-foot { display: none !important; }
+  .wp-print-worklist .wp-ex-sheet {
+    border: 0 !important; border-radius: 0 !important; padding: 0 !important;
+    max-height: none !important; overflow: visible !important;
+  }
+  .wp-print-worklist .wp-ex-sheet-title { color: #000 !important; }
+  .wp-print-worklist .wp-ex-row { break-inside: avoid; page-break-inside: avoid; }
+  .wp-print-worklist .wp-ex-primary,
+  .wp-print-worklist .wp-ex-body { color: #000 !important; }
+  .wp-print-worklist .wp-ex-sheet[data-worklist="translation"] .wp-ex-primary { color: #000 !important; }
 }
