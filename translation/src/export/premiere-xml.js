@@ -11,12 +11,12 @@
  */
 export function buildPremiereXML(highlights, segments, transcriptName, opts = {}) {
   const fps = opts.fps || 23.976;
-  // Premiere/FCP XML rate: timebase = ceiling integer fps; ntsc = TRUE for
-  // drop-frame fractional rates (23.976, 29.97, 59.94), FALSE for integer.
-  const timebase = Math.round(fps);
-  const isNtsc = (Math.abs(fps - 23.976) < 0.01) ||
-                 (Math.abs(fps - 29.97)  < 0.01) ||
-                 (Math.abs(fps - 59.94)  < 0.01);
+  // Premiere/FCP XML rate: integer timebase + ntsc=TRUE for the NTSC-fractional
+  // rates (23.976, 29.97, 59.94), integer timebase + ntsc=FALSE otherwise.
+  // Shared helpers so all three builders agree (see isNtscRate's note on why
+  // tolerance, not strict equality, is load-bearing).
+  const timebase = ntscIntegerTimebase(fps);
+  const isNtsc = isNtscRate(fps);
 
   const markers = [];
 
@@ -125,6 +125,17 @@ function ntscIntegerTimebase(fps) {
   return Math.round(fps);
 }
 
+// True for the NTSC-fractional rates (23.976, 29.97, 59.94). Tolerance-based,
+// NOT strict equality — ffprobe reports these as 24000/1001 = 23.97602...,
+// 30000/1001, 60000/1001, which a `fps === 23.976` check silently misses,
+// mislabeling the sequence as a whole-number rate and reintroducing the
+// ~0.1%/hour drift the integer-timebase + ntsc convention exists to prevent.
+function isNtscRate(fps) {
+  return (Math.abs(fps - 23.976) < 0.01) ||
+         (Math.abs(fps - 29.97)  < 0.01) ||
+         (Math.abs(fps - 59.94)  < 0.01);
+}
+
 function tagColorToPremiereColor(hex) {
   // Map to Premiere's limited color palette
   const colorMap = {
@@ -165,8 +176,8 @@ export function buildPremiereSequenceXML(opts) {
     fps = 23.976,
   } = opts;
 
-  const timebase = Math.round(fps);
-  const isNtsc = (fps === 23.976 || fps === 29.97 || fps === 59.94);
+  const timebase = ntscIntegerTimebase(fps);
+  const isNtsc = isNtscRate(fps);
 
   // Determine which segments to include
   let includedSegments = segments.filter(seg => {
@@ -354,8 +365,8 @@ ${clipItems.map((clip, i) => `          <clipitem id="clip-audio-${i + 1}">
  * Changes to the sacred sequence (captions, SRT, etc.) propagate into these nests.
  */
 export function buildSacredSequencerXML({ soundbites, sacredSequenceName, outputName, fps = 23.976, gapFrames = 12, sourceSequenceXML = null }) {
-  const timebase = Math.round(fps);
-  const isNtsc = (fps === 23.976 || fps === 29.97 || fps === 59.94);
+  const timebase = ntscIntegerTimebase(fps);
+  const isNtsc = isNtscRate(fps);
 
   // Find total sacred sequence duration (max of all clip out frames)
   let maxOutFrame = 0;
