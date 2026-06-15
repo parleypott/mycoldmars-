@@ -1,0 +1,12 @@
+# mycoldmars
+User-agent: *
+Allow: /
+
+# Gated / work-in-progress tools (also noindex'd per-page)
+Disallow: /hunter/
+Disallow: /translation/
+Disallow: /burma-script/
+Disallow: /westchester/
+Disallow: /pinglobe-feedback/
+
+Sitemap: https://mycoldmars.com/sitemap.xml
