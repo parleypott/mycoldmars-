@@ -5,7 +5,7 @@
 // stays read-only.
 
 import { render } from 'preact';
-import { useState, useRef } from 'preact/hooks';
+import { useState, useRef, useEffect } from 'preact/hooks';
 import { BurmaEditor, LS_DOC } from './Editor.jsx';
 import { Exports } from './Exports.jsx';
 import scriptData from '../sample-blocks.json';
@@ -28,7 +28,43 @@ function Telem({ t }) {
 // Minimal monochrome OUTLINE RAIL (DESIGN.md STRUCTURE): indented chapter/scene titles,
 // NO genre color — the ping-pong is felt through structure, not loud chips. Click a row
 // to scroll its block into view. Quiet, fixed, scannable for a 225-block document.
+//
+// Scroll-spy: the rail tracks the chapter currently scrolled into the reading band and
+// marks it `.is-active`. That active chapter is the ONLY place Swiss red survives in the
+// rail (one red tick max) — every other chapter reads in monochrome ink, hierarchy carried
+// by the size + indent step, not color. Red stays an accent, never a per-line bullet glyph.
 function Outline({ items }) {
+  const [activeId, setActiveId] = useState('');
+
+  // Find the chapter whose block sits highest above the reading band (~28% down the
+  // viewport). Cheap rAF-throttled scan over the chapter anchors — 225 blocks, ~30 chapters.
+  useEffect(() => {
+    if (!items || !items.length) return;
+    const chapters = items.filter((it) => it.level === 0);
+    if (!chapters.length) return;
+    let ticking = false;
+    const band = () => window.innerHeight * 0.28;
+    const compute = () => {
+      ticking = false;
+      let current = chapters[0].id;
+      for (const c of chapters) {
+        const node = document.querySelector(`[data-block-id="${c.id}"]`);
+        if (!node) continue;
+        if (node.getBoundingClientRect().top <= band()) current = c.id;
+        else break;
+      }
+      setActiveId(current);
+    };
+    const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(compute); } };
+    compute();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [items]);
+
   if (!items || !items.length) return null;
   const jump = (id) => {
     const node = document.querySelector(`[data-block-id="${id}"]`);
@@ -41,7 +77,7 @@ function Outline({ items }) {
         {items.map((it) => (
           <button
             key={it.id}
-            class={`wp-outline-item lvl-${it.level}`}
+            class={`wp-outline-item lvl-${it.level} ${it.id === activeId ? 'is-active' : ''}`}
             title={it.title}
             onClick={() => jump(it.id)}
           >

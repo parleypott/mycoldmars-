@@ -115,7 +115,7 @@ body {
 }
 .wp-eyebrow {
   font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
-  text-transform: uppercase; color: var(--red);
+  text-transform: uppercase; color: var(--faint);
 }
 .wp-title {
   font-size: 28px; font-weight: 700; letter-spacing: -.02em;
@@ -357,10 +357,10 @@ body {
 /* ---- NOTE / JH-NOTE — margin-voice aside. Italic carries the voice; a thin red rail. ---- */
 .wp-note .wp-body {
   color: var(--ink-2); font-style: italic;
-  border-left: 1px solid var(--red); padding-left: 14px;
+  border-left: 1px solid var(--faint-2); padding-left: 14px;
 }
 .wp-note[data-kind="jh-note"] .wp-body { border-left-color: var(--ink); }
-.wp-note .wp-kind { color: var(--red); font-weight: 600; }
+.wp-note .wp-kind { color: var(--faint); font-weight: 600; }
 .wp-note[data-kind="jh-note"] .wp-kind { color: var(--ink); }
 
 /* ---- BIN — quietest, unplaced holding material. Faded ink, same family/size. ---- */
@@ -374,9 +374,9 @@ body {
    underline is the only signal until hover/click opens the workshop hub. ---- */
 .wp-tk {
   color: var(--ink);
-  border-bottom: 1px solid rgba(226,0,26,.45);
+  border-bottom: 1px solid var(--faint-2);
   cursor: pointer;
-  transition: background .12s, border-color .12s;
+  transition: background .12s, border-color .12s, color .12s;
 }
 .wp-tk:hover { color: var(--red-ink); border-bottom-color: var(--red); background: rgba(226,0,26,.06); }
 .wp-visual {
@@ -494,21 +494,29 @@ body {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   transition: color .1s;
 }
+/* Chapter (lvl-0): the spine tier — darker ink, heavier weight, larger size, a monochrome
+   ink tick. Scenes (lvl-1) step DOWN: smaller, deeper indent, fainter ink, no tick. The
+   chapter/scene ping-pong is read through size + indent + weight, never color. */
 .wp-outline-item.lvl-0 {
   font-size: 11.5px; font-weight: 600; color: var(--ink-2);
   text-transform: uppercase; letter-spacing: .02em;
-  margin-top: 12px; padding-bottom: 2px;
+  margin-top: 14px; padding-bottom: 2px;
 }
 .wp-outline-item.lvl-0:first-child { margin-top: 0; }
 .wp-outline-item.lvl-1 {
-  font-size: 11.5px; padding-left: 12px; color: var(--faint);
+  font-size: 10.5px; padding-left: 18px; color: var(--faint-2);
 }
 .wp-outline-item:hover { color: var(--red); }
-/* a hairline red tick on the active chapter marker — single accent, disciplined */
+/* a hairline INK tick marks every chapter — structural, monochrome, not an accent */
 .wp-outline-item.lvl-0::before {
   content: ""; display: inline-block; width: 10px; height: 1px;
-  background: var(--red); vertical-align: middle; margin-right: 8px;
+  background: var(--faint-2); vertical-align: middle; margin-right: 8px;
+  transition: background .12s, width .12s;
 }
+/* ONLY the chapter currently scrolled into view earns the single red tick + darker ink —
+   one red mark in the whole rail, so the accent stays an accent. */
+.wp-outline-item.lvl-0.is-active { color: var(--ink); }
+.wp-outline-item.lvl-0.is-active::before { background: var(--red); width: 14px; }
 
 /* room for the rail: nudge the centered stage right so it stays optically centered
    in the remaining space without overlapping the rail. */
@@ -559,7 +567,7 @@ body {
 .wp-ex-head { display: flex; align-items: center; margin-bottom: 18px; }
 .wp-ex-eyebrow {
   font-family: var(--mono); font-size: 10px; letter-spacing: .2em;
-  text-transform: uppercase; color: var(--red);
+  text-transform: uppercase; color: var(--faint);
 }
 .wp-ex-close {
   margin-left: auto; width: 26px; height: 26px; line-height: 1;
@@ -613,7 +621,9 @@ body {
   border-radius: 8px; background: var(--paper-edge); color: var(--faint);
   letter-spacing: 0;
 }
-.wp-ex-tab.is-active .wp-ex-count { background: var(--red); color: #fff; }
+/* active tab is already marked by the red underline — keep the count chip neutral so the
+   panel doesn't carry a second red alert next to the PRINT button. */
+.wp-ex-tab.is-active .wp-ex-count { background: var(--paper-edge); color: var(--ink); }
 
 /* the worklist sheet — also the print target when printing a single list */
 .wp-ex-sheet {

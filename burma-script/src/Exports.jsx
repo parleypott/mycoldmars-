@@ -16,7 +16,25 @@
 // near-white overlay, mono labels, the single red accent, no modal chrome zoo.
 
 import { useState, useMemo, useEffect, useCallback } from 'preact/hooks';
-import { docToBlocks } from './document-builder.js';
+import { docToBlocks, cleanQuote } from './document-builder.js';
+
+// Worklists are READ-ONLY handoff views — no round-trip back to blocks — so we can safely
+// unwrap the inline span scaffolding for display. The docToBlocks/nodeText path re-wraps
+// marked spans into literal '{tk …}' / '[…]' tokens so the doc round-trips; but a producer
+// reading a checklist shouldn't see that markup. Strip the braces/brackets, keep inner text.
+function stripSpanScaffolding(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/\{\s*tk\b[:\s]*([^{}]*)\}/gi, '$1') // {tk unique feature} -> unique feature
+    .replace(/\[([^\[\]]*)\]/g, '$1')             // [highlights India] -> highlights India
+    // The parser sometimes leaves an UNTERMINATED span — '{tk note that runs to EOL' with no
+    // closing brace, or a stray '[' with no ']'. Peel the bare scaffolding chars too so no
+    // raw markup leaks into the handoff view.
+    .replace(/\{\s*tk\b[:\s]*/gi, '')             // unterminated '{tk …'
+    .replace(/[{}\[\]]/g, '')                     // any stray lone brace/bracket
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
 
 // ---- worklist extraction -------------------------------------------------
 // Pull the three worklists out of a live blocks array. Each entry is normalized to
@@ -34,20 +52,31 @@ function buildWorklists(blocks) {
     if (b.type === 'chapter') { chapter = (b.title || '').trim(); continue; }
 
     if (b.type === 'map-need') {
-      maps.push({ id: b.id, primary: b.title || 'Mapping data needs', body: cleanBody(b.text), meta: chapter });
+      const primary = b.title || 'Mapping data needs';
+      const body = stripSpanScaffolding(cleanBody(b.text));
+      // A bare generic-default row with no items reads like a broken placeholder on an
+      // otherwise clean sheet — surface an explicit, intentional "no items" note instead.
+      const bodyOrNote = body || (primary === 'Mapping data needs' ? '— no items specified —' : '');
+      maps.push({ id: b.id, primary, body: bodyOrNote, meta: chapter });
     } else if (b.type === 'archive-req') {
-      archive.push({ id: b.id, primary: b.title || 'Archive request', body: cleanBody(b.text), meta: chapter });
+      archive.push({ id: b.id, primary: b.title || 'Archive request', body: stripSpanScaffolding(cleanBody(b.text)), meta: chapter });
     } else if (b.type === 'sot') {
       // SOT = sound-on-tape — the interview quotes that get translated / subtitled. The
       // timecode is the hero datum the editor matches against; speaker tells the translator
       // who's talking. Done-flagged quotes are kept but marked, so the translator can skip
       // what's already handled.
       const tc = b.timecode?.tc || '';
+      // The quote body is what a translator actually subtitles — run it through the SAME
+      // hygiene the editor uses (cleanQuote) so the worklist matches what's on screen:
+      // no leading bullet dashes, no inline 'DAY 1 SOT:' / 'SCENE …' lead-ins, no echoed
+      // timecode (the hero already carries it). Then unwrap span markup for the handoff view.
       translation.push({
         id: b.id,
         primary: tc || '——:——:——:——',
-        body: cleanBody(b.text),
-        meta: [b.speaker, chapter].filter(Boolean).join(' · '),
+        body: stripSpanScaffolding(cleanQuote(b.text)),
+        // surface a TBD anchor when the speaker is missing so the "who's talking" gap is
+        // explicit rather than silently collapsing to chapter-only meta.
+        meta: [b.speaker || '(speaker TBD)', chapter].filter(Boolean).join(' · '),
         done: !!b.done,
       });
     }

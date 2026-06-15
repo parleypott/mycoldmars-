@@ -36,7 +36,7 @@ function stripLead(text, type) {
 // timecode already lives in the HERO head). Strip those so the quote reads clean — the
 // hero datum stays in attrs, the body is just the words. Keeps export faithful (the
 // timecode round-trips from attrs, not from the prose).
-function cleanQuote(text) {
+export function cleanQuote(text) {
   let t = clean(text);
   // Normalise the U+2043 hyphen-bullet (and friends) the parser used as item separators
   // to a clean spaced en-dash so the transcript reads as connected prose, not a bullet wall.
