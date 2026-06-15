@@ -7,7 +7,7 @@
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
 import { BurmaEditor, LS_DOC } from './Editor.jsx';
-import scriptData from '../../sample-blocks.json';
+import scriptData from '../sample-blocks.json';
 
 const SOURCE_BLOCKS = scriptData.blocks || [];
 const DOC_TITLE = scriptData.title || 'Burma — The Human Element';

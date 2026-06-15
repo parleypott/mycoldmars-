@@ -111,6 +111,7 @@ function blockToNode(b) {
         attrs: {
           blockId: id,
           timecode: formatTimecode(b.timecode?.tc),
+          rawTimecode: b.timecode?.raw || b.timecode?.tc || '',
           day: b.timecode?.day ?? null,
           ambiguous: !!b.timecode?.ambiguous,
           speaker: b.speaker || '',
@@ -125,6 +126,7 @@ function blockToNode(b) {
         attrs: {
           blockId: id,
           timecode: formatTimecode(b.timecode?.tc),
+          rawTimecode: b.timecode?.raw || b.timecode?.tc || '',
           day: b.timecode?.day ?? null,
           ambiguous: !!b.timecode?.ambiguous,
           done: !!b.done,
@@ -181,7 +183,11 @@ const NODE_TO_TYPE = {
   binBlock: 'bin',
 };
 
-function nodeText(node) {
+// Tree-walk a node to its plain text. CONTRACT: inlineContent() keeps the literal
+// {…}/[…] braces in the text and only ADDS marks for styling — so the concatenated
+// text already round-trips the {TK}/[visual] tokens faithfully. We don't need to
+// re-serialize marks; reading the text back is lossless for the span vocabulary.
+export function nodeText(node) {
   let s = '';
   (function walk(n) {
     if (n.text) s += n.text;
@@ -204,7 +210,7 @@ export function docToBlocks(doc) {
     else if (node.type === 'sceneBlock') { block.title = text; }
     else if (node.type === 'sotBlock' || node.type === 'brollBlock') {
       block.text = text;
-      block.timecode = { tc: a.timecode || '', day: a.day ?? null, ambiguous: !!a.ambiguous, raw: '' };
+      block.timecode = { tc: a.timecode || '', day: a.day ?? null, ambiguous: !!a.ambiguous, raw: a.rawTimecode || a.timecode || '' };
       if (a.speaker) block.speaker = a.speaker;
       block.done = !!a.done;
     } else if (node.type === 'voBlock') { block.text = text; block.voStatus = a.status || 'todo'; }

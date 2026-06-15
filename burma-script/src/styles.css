@@ -17,11 +17,12 @@
   --red-ink: #c00016;
   --done: #1f8a4c;
 
-  --sans: "Helvetica Neue", "Inter", system-ui, -apple-system, Arial, sans-serif;
+  --sans: "Inter", "Helvetica Neue", system-ui, -apple-system, Arial, sans-serif;
   --mono: "SF Mono", "JetBrains Mono", ui-monospace, "Roboto Mono", Menlo, monospace;
 
   --col-w: 50rem;     /* the script column */
-  --gutter-w: 5.5rem; /* left gutter for tiny markers */
+  --grip-w: 1.6rem;   /* the drag grip rail */
+  --gutter-w: 4.6rem; /* left gutter for tiny markers */
 }
 
 * { box-sizing: border-box; }
@@ -75,7 +76,7 @@ body {
 }
 .wp-page {
   width: 100%;
-  max-width: calc(var(--col-w) + var(--gutter-w) + 6rem);
+  max-width: calc(var(--col-w) + var(--grip-w) + var(--gutter-w) + 6rem);
   background: var(--paper);
   border: 1px solid var(--paper-edge);
   box-shadow: 0 1px 0 var(--line), 0 30px 70px -40px rgba(0,0,0,.35);
@@ -85,7 +86,7 @@ body {
 .wp-doc-head {
   margin-bottom: 40px; padding-bottom: 22px;
   border-bottom: 2px solid var(--ink);
-  margin-left: var(--gutter-w);
+  margin-left: calc(var(--grip-w) + var(--gutter-w));
 }
 .wp-eyebrow {
   font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
@@ -107,13 +108,14 @@ body {
 .wp-editor-content { outline: none; }
 .wp-editor-content p { margin: 0; }
 
-/* THE UNIFORM GRID: every block is [gutter | body], flush-left, one rhythm.
-   The gutter holds tiny monochrome markers; the body holds the script. */
+/* THE UNIFORM GRID: every block is [grip | gutter | body], flush-left, one rhythm.
+   The grip is the real Notion drag handle; the gutter holds tiny monochrome markers;
+   the body holds the editable script. */
 .wp-block,
 .wp-chapter,
 .wp-scene {
   display: grid;
-  grid-template-columns: var(--gutter-w) minmax(0, 1fr);
+  grid-template-columns: var(--grip-w) var(--gutter-w) minmax(0, 1fr);
   column-gap: 0;
   align-items: start;
   padding: 7px 0;
@@ -124,47 +126,51 @@ body {
 .wp-block:hover,
 .wp-chapter:hover,
 .wp-scene:hover { background: rgba(0,0,0,.018); }
-.wp-block::before,
-.wp-chapter::before,
-.wp-scene::before {
-  content: "⠿";
-  position: absolute; left: 8px; top: 9px;
-  font-size: 12px; color: var(--faint-2);
-  opacity: 0; cursor: grab; transition: opacity .12s;
-  line-height: 1.4;
+
+/* ---- REAL drag grip (correction #8: movable, not a CSS fake) ---- */
+.wp-grip {
+  grid-column: 1;
+  align-self: start;
+  justify-self: start;
+  margin-top: 3px;
+  font-size: 14px; line-height: 1;
+  color: var(--faint-2);
+  opacity: 0; cursor: grab;
+  padding: 2px 4px; user-select: none;
+  transition: opacity .12s, color .12s;
 }
-.wp-block:hover::before,
-.wp-chapter:hover::before,
-.wp-scene:hover::before { opacity: 1; }
+.wp-block:hover > .wp-grip,
+.wp-chapter:hover > .wp-grip,
+.wp-scene:hover > .wp-grip { opacity: 1; }
+.wp-grip:hover { color: var(--ink); }
+.wp-grip:active { cursor: grabbing; }
+.ProseMirror-selectednode { outline: 1px solid rgba(226,0,26,.35); outline-offset: 2px; border-radius: 3px; }
 
 /* gutter cell — tiny mono kind label + status dots, never loud */
 .wp-gutter {
-  grid-column: 1;
+  grid-column: 2;
   font-family: var(--mono); font-size: 9px; letter-spacing: .1em;
   text-transform: uppercase; color: var(--faint-2);
   padding-top: 4px; user-select: none;
   display: flex; align-items: center; gap: 6px;
 }
 .wp-kind { white-space: nowrap; }
-.wp-body { grid-column: 2; min-width: 0; }
+.wp-body { grid-column: 3; min-width: 0; }
 
 /* ---- CHAPTER — quiet weighted heading. Genre = FAINT gutter mark only ---- */
 .wp-chapter { padding: 34px 0 8px; }
 .wp-chapter:first-child { padding-top: 4px; }
 .wp-chapter-inner {
-  grid-column: 2;
+  grid-column: 3;
   font-size: 20px; font-weight: 700; letter-spacing: -.01em;
   line-height: 1.25; color: var(--ink);
 }
-/* faint monochrome genre marker in the gutter (correction #2: NO loud chips) */
-.wp-chapter::after {
-  content: attr(data-genre);
-  position: absolute; left: 0; top: 38px;
-  width: var(--gutter-w);
-  font-family: var(--mono); font-size: 8.5px; letter-spacing: .12em;
-  text-transform: uppercase; color: var(--faint-2);
+/* genre + scene marks now ride in a real gutter cell (top-aligned, tracks wrapping) */
+.wp-gutter-head { grid-column: 2; padding-top: 6px; align-items: flex-start; }
+.wp-gutter-head .wp-kind {
+  font-size: 8.5px; letter-spacing: .12em; color: var(--faint-2);
 }
-.wp-chapter[data-genre="other"]::after { content: ""; }
+.wp-chapter > .wp-grip { margin-top: 38px; }
 /* a hairline red rule under the chapter title — disciplined accent */
 .wp-chapter-inner::after {
   content: ""; display: block; height: 2px; width: 36px;
@@ -173,18 +179,13 @@ body {
 
 /* ---- SCENE — quieter sub-heading ---- */
 .wp-scene { padding: 18px 0 4px; }
-.wp-scene::before { top: 22px; }
+.wp-scene > .wp-grip { margin-top: 1px; }
 .wp-scene-inner {
-  grid-column: 2;
+  grid-column: 3;
   font-size: 14px; font-weight: 600; letter-spacing: 0;
   line-height: 1.35; color: var(--ink-2);
 }
-.wp-scene::after {
-  content: "SCENE";
-  position: absolute; left: 0; top: 22px; width: var(--gutter-w);
-  font-family: var(--mono); font-size: 8.5px; letter-spacing: .14em;
-  color: var(--faint-2);
-}
+.wp-scene .wp-gutter-head .wp-kind { letter-spacing: .14em; }
 
 /* ---- VO / ONCAM — clean editable prose, the heart of the document ---- */
 .wp-vo .wp-body,
@@ -207,7 +208,7 @@ body {
 /* ---- SOT / B-ROLL — TIMECODE IS THE HERO (correction #3) ---- */
 .wp-sot, .wp-broll { padding: 9px 0; }
 .wp-tc-head {
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
   display: flex; align-items: center; gap: 14px;
   margin-bottom: 3px; user-select: none;
 }
@@ -232,7 +233,7 @@ body {
 }
 .wp-spacer { flex: 1 1 auto; }
 .wp-sot .wp-body, .wp-broll .wp-body {
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
   font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
   color: var(--ink-2); white-space: pre-wrap;
 }
@@ -295,8 +296,84 @@ body {
 /* ---- text selection in Swiss red wash ---- */
 ::selection { background: rgba(226,0,26,.16); }
 
+/* ============================================================
+   BUBBLE MENU — floats above the selection (mirrors translation/BubbleMenu)
+   ============================================================ */
+.wp-bubble {
+  display: inline-flex; align-items: center; gap: 2px;
+  background: var(--ink); color: #fff;
+  border-radius: 6px; padding: 3px;
+  box-shadow: 0 8px 24px -8px rgba(0,0,0,.5);
+}
+.wp-bbtn {
+  font-family: var(--sans); font-size: 12px; font-weight: 600;
+  min-width: 26px; height: 26px; padding: 0 8px;
+  background: transparent; color: #fff; border: 0; border-radius: 4px;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  letter-spacing: .04em; transition: background .12s, color .12s;
+}
+.wp-bbtn:hover { background: rgba(255,255,255,.14); }
+.wp-bbtn.active { background: #fff; color: var(--ink); }
+.wp-bbtn-tk.active { background: var(--red); color: #fff; }
+.wp-bbtn-tk { color: #ff8a96; }
+.wp-bbtn-visual { color: #cfcfca; }
+.wp-bsep { width: 1px; height: 16px; background: rgba(255,255,255,.18); margin: 0 3px; }
+
+/* ============================================================
+   WORKSHOP HUB — right-margin drawer for {TK}/[visual] spans
+   ============================================================ */
+.wp-workshop {
+  position: fixed; top: 0; right: 0; z-index: 150;
+  width: 340px; height: 100vh;
+  background: #fff; border-left: 2px solid var(--ink);
+  box-shadow: -16px 0 50px -30px rgba(0,0,0,.4);
+  padding: 22px 22px 30px;
+  display: flex; flex-direction: column; gap: 14px;
+  animation: wp-ws-in .16s ease;
+}
+@keyframes wp-ws-in { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+.wp-ws-head { display: flex; align-items: center; }
+.wp-ws-kind {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--red);
+}
+.wp-workshop[data-kind="visual"] .wp-ws-kind { color: var(--faint); }
+.wp-ws-close {
+  margin-left: auto; width: 24px; height: 24px; line-height: 1;
+  font-size: 18px; border: 0; background: transparent; color: var(--faint);
+  cursor: pointer; border-radius: 4px;
+}
+.wp-ws-close:hover { color: var(--ink); background: var(--paper-edge); }
+.wp-ws-span {
+  font-family: var(--mono); font-size: 13px; line-height: 1.5;
+  color: var(--ink); background: var(--paper);
+  border-left: 2px solid var(--red); padding: 10px 12px; border-radius: 0 4px 4px 0;
+  word-break: break-word;
+}
+.wp-workshop[data-kind="visual"] .wp-ws-span { border-left-color: var(--faint); font-style: italic; }
+.wp-ws-label {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--faint);
+}
+.wp-ws-textarea {
+  flex: 1 1 auto; min-height: 140px; resize: none;
+  font-family: var(--sans); font-size: 14px; line-height: 1.55; color: var(--ink);
+  border: 1px solid var(--line-strong); border-radius: 6px; padding: 12px;
+  background: var(--paper); outline: none;
+}
+.wp-ws-textarea:focus { border-color: var(--ink); }
+.wp-ws-resolve {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  padding: 10px; border: 1px solid var(--line-strong); border-radius: 6px;
+  background: var(--paper); color: var(--ink-2); cursor: pointer;
+  transition: all .12s;
+}
+.wp-ws-resolve:hover { border-color: var(--ink); }
+.wp-ws-resolve.is-resolved { background: var(--done); border-color: var(--done); color: #fff; }
+
 @media (max-width: 720px) {
-  :root { --gutter-w: 3rem; }
-  .wp-page { padding: 40px 22px 80px; }
+  :root { --gutter-w: 2.6rem; --grip-w: 1.2rem; }
+  .wp-page { padding: 40px 18px 80px; }
   .wp-doc-head { margin-left: 0; }
+  .wp-workshop { width: 100%; }
 }
