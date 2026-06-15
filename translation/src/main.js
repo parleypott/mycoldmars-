@@ -45,6 +45,7 @@ let editorState = null;       // Tiptap JSON document
 let editorInstance = null;    // mounted editor reference
 let mediaDeck = null;         // mounted Trint-style video+waveform deck (when transcript has media)
 let currentMediaUploadId = null; // hydrated from transcripts.media_upload_id on load
+let currentMediaFps = null;      // real source fps probed by the transcode worker (null until media row loads)
 let pendingTargetLanguage = null;     // user pick from Step 2 language card
 let pendingSourceLanguage = null;     // user pick from Step 2 language card
 let pendingTranslationEnabled = null; // tri-state: null=unknown, true/false=user chose
@@ -1476,6 +1477,7 @@ function applyTranscriptToState(t) {
   currentTranscriptName = t.name;
   currentSlug = t.slug || null;
   currentMediaUploadId = t.media_upload_id || null;
+  currentMediaFps = null; // re-probed from the media row in mountMediaDeckForCurrent
   currentTargetLanguage = t.target_language || null;
   currentTranslationEnabled = (typeof t.translation_enabled === 'boolean') ? t.translation_enabled : null;
   // Reset pending* — they're only set during the current session's flow.
@@ -2898,11 +2900,17 @@ function openConflictModal() {
   });
 }
 
-// Best-guess source frame rate for export. Newpress shoots 23.976 by
-// default. Single place to flip later (or to plumb a real probed value
-// from media_uploads.metadata once we extract that on upload).
+// Source frame rate for export. The transcode worker probes the real fps
+// off the source video (media_uploads.fps) and we cache it when the media
+// row loads; if it's missing (audio-only, pre-probe upload, ffprobe failed)
+// we fall back to Newpress's house default of 23.976. The Premiere XML
+// builders use tolerance-based NTSC detection, so a raw probed rate like
+// 23.97602 (= 24000/1001) labels the sequence correctly.
+const DEFAULT_EXPORT_FPS = 23.976;
 function getExportFps() {
-  return 23.976;
+  return (typeof currentMediaFps === 'number' && currentMediaFps > 0)
+    ? currentMediaFps
+    : DEFAULT_EXPORT_FPS;
 }
 
 function getSeqMeta() {
@@ -4682,6 +4690,11 @@ async function mountMediaDeckForCurrent(editorContainer) {
     return;
   }
   if (!media || !media.storage_path) return;
+
+  // Cache the worker-probed source frame rate so getExportFps() can label
+  // the Premiere sequence with the real fps. Null until the worker has
+  // probed it (older uploads / audio-only) → getExportFps falls back.
+  currentMediaFps = (typeof media.fps === 'number' && media.fps > 0) ? media.fps : null;
 
   // Prefer the worker-produced H.264 transcode when ready — Chrome can
   // decode it where the original ProRes/MOV/MXF can't. While it's still
@@ -6830,6 +6843,7 @@ function renderRevisionList(container, revisions) {
         editorState = null;
         wordTimingsMap = null;
         currentMediaUploadId = null;
+        currentMediaFps = null;
         currentTargetLanguage = null;
         currentTranslationEnabled = null;
         currentSummary = null;

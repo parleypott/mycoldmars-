@@ -34,6 +34,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
+import { probeVideoMeta } from './ffprobe-meta';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -123,6 +124,15 @@ async function processJob(row: MediaRow): Promise<void> {
     await downloadFromStorage(row.storage_bucket || BUCKET, row.storage_path, inputPath);
     console.log(`[transcode-worker] downloaded → ${inputPath}`);
 
+    // 1b) Probe the SOURCE video's real frame rate + dimensions before we
+    //     transcode (the transcode preserves fps, but probing the original
+    //     is unambiguous). Best-effort — a null result just leaves the
+    //     columns empty and the Premiere export falls back to its default.
+    const videoMeta = await probeVideoMeta(inputPath);
+    if (videoMeta?.fps) {
+      console.log(`[transcode-worker] probed fps=${videoMeta.fps.toFixed(3)} · ${videoMeta.width ?? '?'}x${videoMeta.height ?? '?'}`);
+    }
+
     // 2) Transcode with ffmpeg. H.264 baseline + AAC, web-friendly defaults.
     //    -movflags +faststart so the moov atom is at the head (browsers can
     //    start playback before the full file lands).
@@ -146,15 +156,20 @@ async function processJob(row: MediaRow): Promise<void> {
     await uploadToStorage(row.storage_bucket || BUCKET, transcodePath, outputPath);
     console.log(`[transcode-worker] uploaded → ${transcodePath}`);
 
-    // 4) Mark done.
+    // 4) Mark done — and persist the probed source metadata alongside, so
+    //    the Premiere XML export can label the sequence with the real fps.
+    const doneUpdate: Record<string, unknown> = {
+      transcode_status: 'done',
+      transcode_path: transcodePath,
+      transcode_completed_at: new Date().toISOString(),
+      transcode_error: null,
+    };
+    if (videoMeta?.fps != null)    doneUpdate.fps = videoMeta.fps;
+    if (videoMeta?.width != null)  doneUpdate.width = videoMeta.width;
+    if (videoMeta?.height != null) doneUpdate.height = videoMeta.height;
     const { error: doneErr } = await supabase
       .from('media_uploads')
-      .update({
-        transcode_status: 'done',
-        transcode_path: transcodePath,
-        transcode_completed_at: new Date().toISOString(),
-        transcode_error: null,
-      })
+      .update(doneUpdate)
       .eq('id', row.id);
     if (doneErr) throw new Error(`mark done: ${doneErr.message}`);
 
