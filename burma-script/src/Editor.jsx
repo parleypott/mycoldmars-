@@ -96,6 +96,7 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
           // gives a clean blocks array any downstream tool can consume. The doc JSON
           // stays canonical; this is a read-only derived view.
           localStorage.setItem(LS_BLOCKS, JSON.stringify(docToBlocks(json)));
+          window.dispatchEvent(new CustomEvent('wp-saved'));
         } catch {}
       }, 400);
     },

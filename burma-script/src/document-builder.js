@@ -77,6 +77,31 @@ export function stripSpanScaffolding(text) {
     .trim();
 }
 
+// ---- chapter / scene heading clause --------------------------------------
+// THE CHAPTER-TITLE BUG (DESIGN LAW v3): a chapter must show the HEADING CLAUSE ONLY —
+// never its whole paragraph rendered at 38px. The parser sometimes hands a chapter a long
+// run of prose as its "title". Clamp to the first clause: cut at the first hard line break,
+// then at the first sentence-ending punctuation, then hard-cap the length on a word boundary
+// so a giant title can never blow out the big-type heading. The full text still round-trips
+// out of the live doc (docToBlocks reads node text), so nothing is lost on export.
+function headingClause(text, cap) {
+  let t = clean(text);
+  if (!t) return '';
+  // first line wins (parser often packs the heading on line 1, body after a break)
+  const nl = t.search(/[\r\n]/);
+  if (nl > 0) t = t.slice(0, nl).trim();
+  // then the first sentence clause, but only if there's a long tail after it
+  const sent = t.match(/^(.{8,}?[.!?:;])\s+\S/);
+  if (sent && t.length > cap) t = sent[1].trim();
+  // hard cap on a word boundary as the final guard
+  if (t.length > cap) {
+    const cut = t.slice(0, cap);
+    const sp = cut.lastIndexOf(' ');
+    t = (sp > cap * 0.6 ? cut.slice(0, sp) : cut).trim().replace(/[\s,;:–—-]+$/, '') + '…';
+  }
+  return t;
+}
+
 // ---- timecode formatting -------------------------------------------------
 // The HERO element on SOT/broll. Keep the full broadcast timecode HH:MM:SS:FF
 // (frame-accurate — editors live by it). Just normalise spacing.
@@ -139,14 +164,14 @@ function blockToNode(b) {
       return {
         type: 'chapterBlock',
         attrs: { blockId: id, genre: b.genre || 'other' },
-        content: [para([{ type: 'text', text: clean(b.title) || 'Chapter' }])],
+        content: [para([{ type: 'text', text: headingClause(b.title, 64) || 'Chapter' }])],
       };
 
     case 'scene':
       return {
         type: 'sceneBlock',
         attrs: { blockId: id },
-        content: [para([{ type: 'text', text: clean(b.title) || 'Scene' }])],
+        content: [para([{ type: 'text', text: headingClause(b.title, 80) || 'Scene' }])],
       };
 
     case 'vo':
