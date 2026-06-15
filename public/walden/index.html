@@ -264,6 +264,8 @@
     <h3 style="margin-top:14px">scenarios</h3>
     <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" id="sc-save">save…</button><button class="btn" id="sc-clear">clear drawn</button><button class="btn danger" id="sc-reset">reset</button></div>
     <div style="display:flex;gap:6px;margin-top:8px" id="sc-loadrow"><select class="scsel" id="sc-sel"><option value="">— saved —</option></select><button class="btn" id="sc-load">load</button><button class="btn danger" id="sc-del">del</button></div>
+    <div class="note" style="margin-top:10px">backup — designs live in this browser only</div>
+    <div style="display:flex;gap:6px;margin-top:4px"><button class="btn" id="wd-export">export plan</button><button class="btn" id="wd-import">import plan</button><input type="file" id="wd-import-file" accept="application/json,.json" style="display:none"></div>
   </div>
   <div class="pop" id="checkpop"><h3>site check</h3><div id="checkbody"></div></div>
 </div>
@@ -668,6 +670,9 @@ function restoreScenes(){const n=Object.keys(scenes());const sel=$('#sc-sel');se
 $('#sc-save').onclick=()=>{const n=prompt('save scenario as:','scheme '+(Object.keys(scenes()).length+1));if(!n)return;const o=scenes();o[n]=stateObj();localStorage.setItem(SCENES,JSON.stringify(o));restoreScenes();};
 $('#sc-load').onclick=()=>{const n=$('#sc-sel').value;if(!n)return;const o=scenes();if(o[n]){applyState(JSON.parse(JSON.stringify(o[n])));renderEnv();redraw();save();closeInspector();}};
 $('#sc-del').onclick=()=>{const n=$('#sc-sel').value;if(!n)return;if(confirm(`delete "${n}"?`)){const o=scenes();delete o[n];localStorage.setItem(SCENES,JSON.stringify(o));restoreScenes();}};
+$('#wd-export').onclick=()=>{const payload={app:'walden-studio',v:1,exported:new Date().toISOString(),plan:stateObj(),scenes:scenes()};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='walden-plan-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('#wd-import').onclick=()=>$('#wd-import-file').click();
+$('#wd-import-file').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);const plan=d&&d.plan?d.plan:d;if(!plan||!Array.isArray(plan.elements))throw new Error('no elements');if(d&&d.scenes&&typeof d.scenes==='object'){const cur=scenes();localStorage.setItem(SCENES,JSON.stringify(Object.assign(cur,d.scenes)));restoreScenes();}applyState(JSON.parse(JSON.stringify(plan)));renderEnv();redraw();save();closeInspector();}catch(err){alert('could not import this file — '+(err.message||'invalid plan'));}};rd.readAsText(f);e.target.value='';};
 $('#sc-clear').onclick=()=>{if(elements.length&&confirm('clear everything you\'ve drawn?')){elements=[];selectedId=null;save();redraw();closeInspector();}};
 $('#sc-reset').onclick=()=>{if(confirm('reset to a single pool?')){elements=[];uid=1;addElement('pool',{cx:0,cy:HBB.maxy+22,name:'Pool'});$('#sb-struct').value=25;$('#sb-pool').value=15;save();renderEnv();redraw();}};
 
