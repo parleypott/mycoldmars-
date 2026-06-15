@@ -23,7 +23,10 @@
     { "source": "/universe/:world/story/:story", "destination": "/queen-scarlet-school/index.html?story=:story" },
 
     { "source": "/universe/:world", "destination": "/queen-scarlet-school/library/index.html" },
-    { "source": "/universe/:world/", "destination": "/queen-scarlet-school/library/index.html" }
+    { "source": "/universe/:world/", "destination": "/queen-scarlet-school/library/index.html" },
+
+    { "source": "/burma-script", "destination": "/burma-script/index.html" },
+    { "source": "/burma-script/", "destination": "/burma-script/index.html" }
   ],
   "redirects": [
     { "source": "/queen-scarlet-school", "destination": "/universe/queen-scarlet/write", "permanent": false },
