@@ -678,6 +678,14 @@ body {
 .wp-ex-body > div { white-space: pre-wrap; }
 .wp-ex-row.is-done .wp-ex-primary { opacity: .5; }
 .wp-ex-row.is-done .wp-ex-body { opacity: .55; }
+/* empty map-need stub: present but quiet — a section HAS a map-need, just nothing filled in.
+   Demoted to faint metadata; counts and the .txt handoff skip it (see actionable()). */
+.wp-ex-row.is-placeholder { opacity: .45; }
+.wp-ex-row.is-placeholder .wp-ex-primary { font-weight: 400; }
+.wp-ex-placeholder {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--faint); margin-top: 6px;
+}
 
 .wp-ex-foot { display: flex; gap: 10px; margin-top: 18px; }
 
@@ -794,6 +802,8 @@ body {
   }
   .wp-print-worklist .wp-ex-sheet-title { color: #000 !important; }
   .wp-print-worklist .wp-ex-row { break-inside: avoid; page-break-inside: avoid; }
+  /* the printed sheet is the producer's handoff — match the .txt: actionable rows only */
+  .wp-print-worklist .wp-ex-row.is-placeholder { display: none !important; }
   .wp-print-worklist .wp-ex-primary,
   .wp-print-worklist .wp-ex-body { color: #000 !important; }
   .wp-print-worklist .wp-ex-sheet[data-worklist="translation"] .wp-ex-primary { color: #000 !important; }
