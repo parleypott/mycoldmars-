@@ -121,10 +121,18 @@ body {
   font-size: 28px; font-weight: 700; letter-spacing: -.02em;
   margin: 12px 0 10px; line-height: 1.08;
 }
+/* Sequence line: flex-wrap so a long sequence list folds onto the next row inside
+   the column instead of bleeding off the right edge. Each name is an atomic item;
+   the dot separator is its own element so a name never breaks across a wrap. */
 .wp-seq {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  column-gap: .55em; row-gap: .3em;
   font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
   text-transform: uppercase; color: var(--faint); line-height: 1.6;
 }
+.wp-seq-item { display: inline-flex; align-items: baseline; gap: .55em; }
+.wp-seq-name { overflow-wrap: anywhere; }
+.wp-seq-sep { color: var(--faint-2); }
 
 /* ============================================================
    EDITOR SURFACE
