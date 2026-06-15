@@ -82,6 +82,7 @@ export function BurmaBubbleMenu({ editor }) {
   };
 
   const tkActive = editor.isActive('tkSpan');
+  const fcActive = editor.isActive('factCheckSpan');
   const visActive = editor.isActive('visualSpan');
 
   return (
@@ -93,7 +94,8 @@ export function BurmaBubbleMenu({ editor }) {
       <button class="wp-bbtn" title="Bold" onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBold().run(); }}><b>B</b></button>
       <button class="wp-bbtn" title="Italic" onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleItalic().run(); }}><i>I</i></button>
       <span class="wp-bsep" />
-      <button class={`wp-bbtn wp-bbtn-tk ${tkActive ? 'active' : ''}`} title="Mark as {TK} research" onMouseDown={(e) => { e.preventDefault(); tkActive ? clearSpan('tkSpan') : applySpan('tkSpan'); }}>TK</button>
+      <button class={`wp-bbtn wp-bbtn-tk ${tkActive ? 'active' : ''}`} title="Mark as {TK} writing helper" onMouseDown={(e) => { e.preventDefault(); tkActive ? clearSpan('tkSpan') : applySpan('tkSpan'); }}>TK</button>
+      <button class={`wp-bbtn wp-bbtn-fc ${fcActive ? 'active' : ''}`} title="Mark as {fc} fact-check" onMouseDown={(e) => { e.preventDefault(); fcActive ? clearSpan('factCheckSpan') : applySpan('factCheckSpan'); }}>FC</button>
       <button class={`wp-bbtn wp-bbtn-visual ${visActive ? 'active' : ''}`} title="Mark as [visual] direction" onMouseDown={(e) => { e.preventDefault(); visActive ? clearSpan('visualSpan') : applySpan('visualSpan'); }}>VIS</button>
     </div>
   );

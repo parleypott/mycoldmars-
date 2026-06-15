@@ -104,6 +104,33 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
     },
   });
 
+  // The Workshop hub picks an option and asks us to INSERT it where the {TK}/{fc} marker
+  // was — the marker dispatched its own {from,to} range, so we replace exactly that range
+  // with the chosen prose. We drop the span mark on the replacement (plain text node) so the
+  // resolved line reads as finished script, not a still-pending marker. This is the real
+  // insert-replace flow the punch-list (#6) demands — a genuine PM transaction over the
+  // range the mark already provides, not a stub.
+  useEffect(() => {
+    if (!editor) return;
+    const onReplace = (e) => {
+      const { from, to, text } = e.detail || {};
+      if (typeof from !== 'number' || typeof to !== 'number' || !text) return;
+      const size = editor.state.doc.content.size;
+      const a = Math.max(0, Math.min(from, size));
+      const b = Math.max(a, Math.min(to, size));
+      editor
+        .chain()
+        .focus()
+        .insertContentAt(
+          { from: a, to: b },
+          [{ type: 'text', text: String(text), marks: [] }],
+        )
+        .run();
+    };
+    window.addEventListener('wp-replace-span', onReplace);
+    return () => window.removeEventListener('wp-replace-span', onReplace);
+  }, [editor]);
+
   // Flush a final save when unmounting.
   useEffect(() => () => {
     if (!editor) return;

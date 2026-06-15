@@ -118,7 +118,12 @@ function App() {
           <div class="wp-doc-head" contenteditable={false}>
             <div class="wp-eyebrow">the human element</div>
             <h1 class="wp-title">{DOC_TITLE}</h1>
-            <div class="wp-seq">{SEQUENCES.map(s => s.name).join('  ·  ')}</div>
+            <div class="wp-seq">{SEQUENCES.map((s, i) => (
+              <span class="wp-seq-item" key={s.name}>
+                {i > 0 && <span class="wp-seq-sep" aria-hidden="true">·</span>}
+                <span class="wp-seq-name">{s.name}</span>
+              </span>
+            ))}</div>
           </div>
           <BurmaEditor
             sourceBlocks={SOURCE_BLOCKS}

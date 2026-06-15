@@ -362,26 +362,30 @@ export const OncamBlock = Node.create({
 });
 
 // Build the hero head row shared by SOT + B-roll. Returns { children, copy, done }.
+// ROW ORDER (punch-list #3/#4/#5): [done-CHECKBOX, LEFT edge] → [TIMECODE, prominent]
+// → [TINY copy, right next to the timecode] → [day] → [speaker]. Anchored, scannable,
+// one locked left margin down the page.
 function timecodeHead({ node, editor, getPos, isBroll }) {
   const children = [];
-  if (isBroll) children.push(Object.assign(el('span', 'wp-kind wp-kind-broll'), { textContent: 'B-ROLL' }));
 
+  // 1) DONE CHECKBOX — far LEFT edge of the row (correction #5).
+  const done = el('button', 'wp-done' + (node.attrs.done ? ' is-done' : ''), { type: 'button', contenteditable: 'false', title: 'Mark done', 'aria-label': 'Mark done' });
+  done.textContent = '✓';
+  done.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const cur = editor.state.doc.nodeAt(getPos());
+    setAttr(editor, getPos, { done: !cur?.attrs.done });
+  });
+  children.push(done);
+
+  // 2) TIMECODE — the prominent anchor, immediately after the checkbox (correction #3).
   const tc = el('span', 'wp-tc' + (node.attrs.ambiguous ? ' wp-tc-amb' : ''));
   tc.textContent = node.attrs.timecode || '——:——:——:——';
   children.push(tc);
 
-  const day = el('span', 'wp-day');
-  day.textContent = node.attrs.ambiguous ? 'DAY ?' : (node.attrs.day ? 'DAY ' + node.attrs.day : '');
-  children.push(day);
-
-  if (!isBroll && node.attrs.speaker) {
-    children.push(Object.assign(el('span', 'wp-speaker'), { textContent: node.attrs.speaker }));
-  }
-
-  children.push(el('span', 'wp-spacer'));
-
-  const copy = el('button', 'wp-copy', { type: 'button', title: 'Copy timecode', 'aria-label': 'Copy timecode' });
-  copy.textContent = '⧉'; // icon-only (correction #4)
+  // 3) TINY copy button — sits RIGHT next to the timecode (correction #4), no right-side stack.
+  const copy = el('button', 'wp-copy', { type: 'button', contenteditable: 'false', title: 'Copy timecode', 'aria-label': 'Copy timecode' });
+  copy.textContent = '⧉'; // icon-only
   copy.addEventListener('mousedown', (e) => {
     e.preventDefault();
     const raw = editor.state.doc.nodeAt(getPos())?.attrs.timecode || '';
@@ -391,14 +395,16 @@ function timecodeHead({ node, editor, getPos, isBroll }) {
   });
   children.push(copy);
 
-  const done = el('button', 'wp-done' + (node.attrs.done ? ' is-done' : ''), { type: 'button', title: 'Mark done', 'aria-label': 'Mark done' });
-  done.textContent = '✓';
-  done.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    const cur = editor.state.doc.nodeAt(getPos());
-    setAttr(editor, getPos, { done: !cur?.attrs.done });
-  });
-  children.push(done);
+  // 4) kind (B-ROLL) + day + speaker — quiet metadata trailing the anchor.
+  if (isBroll) children.push(Object.assign(el('span', 'wp-kind wp-kind-broll'), { textContent: 'B-ROLL' }));
+
+  const day = el('span', 'wp-day');
+  day.textContent = node.attrs.ambiguous ? 'DAY ?' : (node.attrs.day ? 'DAY ' + node.attrs.day : '');
+  children.push(day);
+
+  if (!isBroll && node.attrs.speaker) {
+    children.push(Object.assign(el('span', 'wp-speaker'), { textContent: node.attrs.speaker }));
+  }
 
   return { children, copy, done };
 }

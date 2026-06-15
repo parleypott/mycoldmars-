@@ -16,25 +16,11 @@
 // near-white overlay, mono labels, the single red accent, no modal chrome zoo.
 
 import { useState, useMemo, useEffect, useCallback } from 'preact/hooks';
-import { docToBlocks, cleanQuote } from './document-builder.js';
+import { docToBlocks, cleanQuote, stripSpanScaffolding } from './document-builder.js';
 
-// Worklists are READ-ONLY handoff views — no round-trip back to blocks — so we can safely
-// unwrap the inline span scaffolding for display. The docToBlocks/nodeText path re-wraps
-// marked spans into literal '{tk …}' / '[…]' tokens so the doc round-trips; but a producer
-// reading a checklist shouldn't see that markup. Strip the braces/brackets, keep inner text.
-function stripSpanScaffolding(text) {
-  if (!text) return '';
-  return String(text)
-    .replace(/\{\s*tk\b[:\s]*([^{}]*)\}/gi, '$1') // {tk unique feature} -> unique feature
-    .replace(/\[([^\[\]]*)\]/g, '$1')             // [highlights India] -> highlights India
-    // The parser sometimes leaves an UNTERMINATED span — '{tk note that runs to EOL' with no
-    // closing brace, or a stray '[' with no ']'. Peel the bare scaffolding chars too so no
-    // raw markup leaks into the handoff view.
-    .replace(/\{\s*tk\b[:\s]*/gi, '')             // unterminated '{tk …'
-    .replace(/[{}\[\]]/g, '')                     // any stray lone brace/bracket
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim();
-}
+// Worklist bodies unwrap the inline span scaffolding ({tk …} / [visual …]) to inner text —
+// stripSpanScaffolding lives beside its inverse (inlineContent/wrapToken) in document-builder.js
+// and is guarded by the worklist-unwrap checks in integrity-check.ts.
 
 // ---- worklist extraction -------------------------------------------------
 // Pull the three worklists out of a live blocks array. Each entry is normalized to
@@ -54,10 +40,12 @@ function buildWorklists(blocks) {
     if (b.type === 'map-need') {
       const primary = b.title || 'Mapping data needs';
       const body = stripSpanScaffolding(cleanBody(b.text));
-      // A bare generic-default row with no items reads like a broken placeholder on an
-      // otherwise clean sheet — surface an explicit, intentional "no items" note instead.
-      const bodyOrNote = body || (primary === 'Mapping data needs' ? '— no items specified —' : '');
-      maps.push({ id: b.id, primary, body: bodyOrNote, meta: chapter });
+      // A generic-default row with no items isn't actionable work — it's a map-need block
+      // the writer dropped in but never filled. Flag it `empty` so it renders as a quiet,
+      // faint placeholder (still visible: the section HAS a map-need), drops out of the
+      // actionable count, and never pollutes the producer's .txt handoff checklist.
+      const empty = !body && primary === 'Mapping data needs';
+      maps.push({ id: b.id, primary, body, meta: chapter, empty });
     } else if (b.type === 'archive-req') {
       archive.push({ id: b.id, primary: b.title || 'Archive request', body: stripSpanScaffolding(cleanBody(b.text)), meta: chapter });
     } else if (b.type === 'sot') {
@@ -134,16 +122,22 @@ function download(filename, text) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// Actionable rows = everything except faint empty placeholders. Drives the counts and the
+// .txt handoff so a producer's checklist reflects real work, not unfilled map-need stubs.
+const actionable = (rows) => rows.filter((r) => !r.empty);
+
 // ---- the worklist render -------------------------------------------------
 function Worklist({ rows, empty, showDone }) {
   if (!rows.length) return <div class="wp-ex-empty">{empty}</div>;
   return (
     <ol class="wp-ex-list">
       {rows.map((r) => (
-        <li class={`wp-ex-row ${showDone && r.done ? 'is-done' : ''}`} key={r.id}>
+        <li class={`wp-ex-row ${r.empty ? 'is-placeholder' : ''} ${showDone && r.done ? 'is-done' : ''}`} key={r.id}>
           <div class="wp-ex-primary">{r.primary}{showDone && r.done ? <span class="wp-ex-doneflag">done</span> : null}</div>
           {r.meta ? <div class="wp-ex-meta">{r.meta}</div> : null}
-          {r.body ? <div class="wp-ex-body">{r.body.split('\n').map((bl, i) => <div key={i}>{bl}</div>)}</div> : null}
+          {r.empty
+            ? <div class="wp-ex-placeholder">no mapping data specified</div>
+            : (r.body ? <div class="wp-ex-body">{r.body.split('\n').map((bl, i) => <div key={i}>{bl}</div>)}</div> : null)}
         </li>
       ))}
     </ol>
@@ -183,6 +177,7 @@ export function Exports({ getDoc, docTitle }) {
 
   const current = useMemo(() => TABS.find((t) => t.key === tab) || TABS[0], [tab]);
   const rows = lists[tab] || [];
+  const liveRows = actionable(rows); // excludes faint empty-map-need placeholders
   const showDone = tab === 'translation';
 
   // PRINT THE WHOLE SCRIPT: drop the export overlay, mark <html> so the print stylesheet
@@ -204,7 +199,7 @@ export function Exports({ getDoc, docTitle }) {
   }
 
   function downloadWorklist() {
-    download(current.file, toPlainText(current.heading, docTitle, rows, { done: showDone }));
+    download(current.file, toPlainText(current.heading, docTitle, liveRows, { done: showDone }));
   }
 
   if (!open) return null;
@@ -237,7 +232,7 @@ export function Exports({ getDoc, docTitle }) {
               class={`wp-ex-tab ${tab === t.key ? 'is-active' : ''}`}
               onClick={() => setTab(t.key)}
             >
-              {t.label}<span class="wp-ex-count">{(lists[t.key] || []).length}</span>
+              {t.label}<span class="wp-ex-count">{actionable(lists[t.key] || []).length}</span>
             </button>
           ))}
         </nav>
@@ -245,14 +240,14 @@ export function Exports({ getDoc, docTitle }) {
         <div class="wp-ex-sheet" data-worklist={tab}>
           <div class="wp-ex-sheet-head">
             <h2 class="wp-ex-sheet-title">{current.heading}</h2>
-            <div class="wp-ex-sheet-meta">{docTitle} · {rows.length} items</div>
+            <div class="wp-ex-sheet-meta">{docTitle} · {liveRows.length} items</div>
           </div>
           <Worklist rows={rows} empty={current.empty} showDone={showDone} />
         </div>
 
         <footer class="wp-ex-foot">
-          <button class="wp-ex-btn" onClick={downloadWorklist} disabled={!rows.length}>DOWNLOAD .TXT</button>
-          <button class="wp-ex-btn" onClick={printWorklist} disabled={!rows.length}>PRINT LIST</button>
+          <button class="wp-ex-btn" onClick={downloadWorklist} disabled={!liveRows.length}>DOWNLOAD .TXT</button>
+          <button class="wp-ex-btn" onClick={printWorklist} disabled={!liveRows.length}>PRINT LIST</button>
         </footer>
       </div>
     </div>

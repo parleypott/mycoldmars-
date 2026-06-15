@@ -49,8 +49,32 @@ export function cleanQuote(text) {
   t = t.replace(/^DAY\s*\d+\s*SOT\s*[:.-]?\s*/i, '');       // "DAY 1 SOT:"
   t = t.replace(/^SOT\s*[:.-]\s*/i, '');                    // "SOT:"
   t = t.replace(/^\d{1,2}:\d{2}:\d{2}:\d{2}\s*–?\s*/, '');  // leading echoed timecode
+  // Re-strip leading separators: a bullet often sits AFTER the label/timecode we just
+  // peeled (e.g. "DAY 1 SOT: 02:… – ⁃ quote"), so the first pass at the top can't catch
+  // it. Run the leading-separator strip again now that the lead-ins are gone.
+  t = t.replace(/^[\s–—-]+/, '');
   t = t.replace(/\s+–\s+/g, ' — ');                         // tidy inner separators to em-dash
   return t.trim();
+}
+
+// Worklists are READ-ONLY handoff views — no round-trip back to blocks — so we can safely
+// unwrap the inline span scaffolding for display. nodeText/wrapToken re-wrap the marked
+// spans into literal '{tk …}' / '[visual …]' tokens so the live doc round-trips; but a
+// producer reading a checklist shouldn't see that markup. Strip the braces/brackets and
+// keep the inner text. This is the INVERSE of inlineContent/wrapToken above — keep the two
+// in sync (guarded by the worklist-unwrap checks in integrity-check.ts).
+export function stripSpanScaffolding(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/\{\s*(?:tk|fc|fact)\b[:\s]*([^{}]*)\}/gi, '$1') // {tk unique feature}/{fc claim} -> inner
+    .replace(/\[([^\[\]]*)\]/g, '$1')             // [highlights India] -> highlights India
+    // The parser sometimes leaves an UNTERMINATED span — '{tk note that runs to EOL' with no
+    // closing brace, or a stray '[' with no ']'. Peel the bare scaffolding chars too so no
+    // raw markup leaks into the handoff view.
+    .replace(/\{\s*tk\b[:\s]*/gi, '')             // unterminated '{tk …'
+    .replace(/[{}\[\]]/g, '')                     // any stray lone brace/bracket
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
 }
 
 // ---- timecode formatting -------------------------------------------------
@@ -79,18 +103,23 @@ function inlineContent(rawText, type) {
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) out.push({ type: 'text', text: text.slice(last, m.index) });
     const tok = m[0];
-    const isTk = tok[0] === '{';
-    // Strip the STRUCTURAL braces + the leading "tk" keyword from the VISIBLE text so the
-    // script reads clean (correction #10) — no bright "{tk" curly noise mid-sentence.
-    // The mark still carries the span; document-builder.nodeText.wrapToken re-adds the
-    // {tk …}/[…] token on export, so the blocks round-trip stays faithful.
-    const inner = isTk
-      ? tok.replace(/^\{\s*tk\b[:\s]*/i, '').replace(/\}$/, '').trim()
+    const isBrace = tok[0] === '{';
+    // A {…} brace token is EITHER a fact-check ask ({fc …}/{fact …}) or a {tk …} writing
+    // ask. Sniff the keyword to route to the right mark — the two are visually distinct and
+    // open the Workshop hub in different modes (fc → verify; tk → 5 options).
+    const isFc = isBrace && /^\{\s*(?:fc|fact)\b/i.test(tok);
+    const markType = isBrace ? (isFc ? 'factCheckSpan' : 'tkSpan') : 'visualSpan';
+    // Strip the STRUCTURAL braces + the leading keyword from the VISIBLE text so the script
+    // reads clean (correction #10) — no bright "{tk"/"{fc" curly noise mid-sentence. The
+    // mark still carries the span; nodeText.wrapToken re-adds the token on export so the
+    // blocks round-trip stays faithful.
+    const inner = isBrace
+      ? tok.replace(/^\{\s*(?:tk|fc|fact)\b[:\s]*/i, '').replace(/^\{\s*/, '').replace(/\}$/, '').trim()
       : tok.replace(/^\[\s*/, '').replace(/\]$/, '').trim();
     out.push({
       type: 'text',
       text: inner || tok,
-      marks: [{ type: isTk ? 'tkSpan' : 'visualSpan' }],
+      marks: [{ type: markType }],
     });
     last = m.index + tok.length;
   }
@@ -226,6 +255,10 @@ function wrapToken(text, kind) {
     if (/^\{.*\}$/s.test(t.trim())) return t;        // already braced
     return '{tk ' + t.replace(/^\s+|\s+$/g, '') + '}';
   }
+  if (kind === 'factCheckSpan') {
+    if (/^\{.*\}$/s.test(t.trim())) return t;        // already braced
+    return '{fc ' + t.replace(/^\s+|\s+$/g, '') + '}';
+  }
   if (kind === 'visualSpan') {
     if (/^\[.*\]$/s.test(t.trim())) return t;        // already bracketed
     return '[' + t.replace(/^\s+|\s+$/g, '') + ']';
@@ -239,7 +272,7 @@ export function nodeText(node) {
     if (n.text) {
       let piece = n.text;
       const marks = n.marks || [];
-      const span = marks.find((m) => m.type === 'tkSpan' || m.type === 'visualSpan');
+      const span = marks.find((m) => m.type === 'tkSpan' || m.type === 'factCheckSpan' || m.type === 'visualSpan');
       if (span) piece = wrapToken(piece, span.type);
       s += piece;
     }

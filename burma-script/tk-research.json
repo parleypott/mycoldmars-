@@ -1,0 +1,531 @@
+{
+  "1": {
+    "marker": "{TK number of groups, many of them armed and actively fighting}",
+    "chapter": "LOOK AT THIS MAP ON CAM MONOLOGUE",
+    "options": [
+      "more than twenty ethnic armies — and hundreds of newer militias that rose up after the last coup —",
+      "a patchwork of more than twenty ethnic armies and hundreds of homegrown militias,",
+      "dozens of armed factions — ethnic armies, the biggest tens of thousands strong, and hundreds of newer resistance groups —",
+      "roughly twenty established ethnic armies, plus hundreds of fighting groups born after the coup,",
+      "a constellation of armed groups — some twenty ethnic armies and hundreds of newer ones —"
+    ],
+    "sources": [
+      { "claim": "Around 20 ethnic armed organizations are active in Myanmar; major troop strengths: Arakan Army ~40,000; KIA up to ~30,000; UWSA ~30,000; KNU ~15,000; MNDAA 8,000-10,000 — the largest are tens of thousands strong but most EAOs are far smaller.", "url": "https://www.aljazeera.com/features/2026/3/27/who-is-fighting-in-myanmars-multi-front-civil-war" },
+      { "claim": "Around 20 ethnic armed organizations operate nationwide; the index lists roughly 20 profiled armed ethnic groups.", "url": "https://mmpeacemonitor.org/en/eng-eros-profile/armed-ethnic-groups/" },
+      { "claim": "Hundreds of post-coup armed groups emerged: ~300 PDF battalions/columns, over 400 Local Defense Forces, People's Defense Teams in 250 of 330 townships; total PDF strength ~100,000 (Feb 2024).", "url": "https://en.wikipedia.org/wiki/People%27s_Defence_Force_(Myanmar)" },
+      { "claim": "The junta controls only a sliver of Myanmar: ~21% per a 2026 UN Security Council briefing, closer to a third per independent mapping, with ~80% of territory contested or held by resistance.", "url": "https://www.mappr.co/myanmar-conflict-zones-control/" }
+    ]
+  },
+  "2": {
+    "marker": "{tk unique defining feature of this river}",
+    "chapter": "HISTORY 1. beautiful mystical pre British",
+    "options": [
+      "single, enormous",
+      "great elephant-named",
+      "single life-giving",
+      "vast, country-long",
+      "shifting, silt-heavy"
+    ],
+    "sources": [
+      { "claim": "The Irrawaddy is the principal river of Myanmar, ~2,170 km long, originating from the confluence of the N'mai and Mali rivers in Kachin State near the Himalaya, flowing north to south through the centre of the country to the Andaman Sea.", "url": "https://en.wikipedia.org/wiki/Irrawaddy_River" },
+      { "claim": "The name 'Irrawaddy' derives from Pali Iravati/Airavati, the elephant mount of Indra — hence the common gloss 'elephant river'; a competing scholarly rendering is 'river that brings blessings to the people.'", "url": "https://en.wikipedia.org/wiki/Irrawaddy" },
+      { "claim": "The Irrawaddy is heavily silt-laden: sandbars change by the day and even the hour; channels fifty feet deep in the morning silt up by evening, frequently shifting the river's course.", "url": "https://factsanddetails.com/southeast-asia/Myanmar/sub5_5j/entry-3538.html" }
+    ]
+  },
+  "3": {
+    "marker": "{TK description of the boundary of influence of these many kingdoms}",
+    "chapter": "HISTORY 1. beautiful mystical pre British",
+    "options": [
+      "the dry lowlands along the river, the flat rice country where the water reached.",
+      "the central river valley and its plains, the dry heartland where the water ran and the rice grew. The hills beyond belonged to other peoples.",
+      "the dry plains along the river, the flat heart of the land. The hills that ringed it were a world apart.",
+      "the lowlands of the central valley, where the river fed the rice and the kings held the ground.",
+      "the river valley and its rice plains, the dry heartland. The encircling hills were never fully theirs."
+    ],
+    "sources": [
+      { "claim": "Upper Burma is the heartland of the country, corresponding roughly to Burma's dry zone, the area of earliest Burman settlement and the domain of the Burman kings.", "url": "https://www.britannica.com/place/Upper-Burma" },
+      { "claim": "The central Dry Zone (Magway, Mandalay, Sagaing) is the ancestral heartland of the Bamar and the power centre throughout Myanmar's history; rainfall ~722mm/year; Pagan-era irrigation enabled intensive rice cultivation.", "url": "https://en.wikipedia.org/wiki/Dry_Zone_(Myanmar)" },
+      { "claim": "Anawrahta unified the entire Irrawaddy valley, placed peripheral regions (Shan States, Arakan) under loose suzerainty, and built 43 forts along the eastern hills to prevent Shan incursions.", "url": "https://en.wikipedia.org/wiki/Anawrahta" },
+      { "claim": "The Shan Plateau forms a natural highland frontier separating the central dry zone from the eastern highlands — the hills as a world apart from the valley heartland.", "url": "https://www.britannica.com/place/Shan-Plateau" }
+    ]
+  },
+  "4": {
+    "marker": "{TK shows years of some of these initial civilizations}",
+    "chapter": "HISTORY 1. beautiful mystical pre British",
+    "options": [
+      "More than two thousand years ago,",
+      "Over two thousand years ago — walled cities already rising along the river",
+      "More than twenty centuries ago,",
+      "Twenty centuries ago, before Rome was an empire,",
+      "This was the second century before Christ — and along this river the first cities were already going up"
+    ],
+    "sources": [
+      { "claim": "The Pyu began entering the Irrawaddy valley in about the 2nd century BCE — the earliest documented civilization in the valley, more than 2,000 years ago.", "url": "https://en.wikipedia.org/wiki/Pyu_city-states" },
+      { "claim": "Beikthano, the oldest excavated urban site in the Irrawaddy basin, has remains from 200 BCE; its walls are radiocarbon-dated from 180 BCE — i.e. ~2,200 years before present.", "url": "https://en.wikipedia.org/wiki/Beikthano" },
+      { "claim": "Rome became an empire in 27 BCE when Augustus became the first Roman emperor, confirming the Pyu cities (c. 180-200 BCE) predate the Roman Empire.", "url": "https://www.britannica.com/biography/Augustus-Roman-emperor" }
+    ]
+  },
+  "5": {
+    "marker": "{TK some indication of how primitive europe was while asian civilizations were rising}",
+    "chapter": "HISTORY 1. beautiful mystical pre British",
+    "options": [
+      "living in timber huts and burying their Roman ruins under weeds,",
+      "building in mud and timber, their old Roman cities crumbling into pasture,",
+      "living in wood-and-thatch villages, their coasts raided by Vikings off the sea,",
+      "huddled in thatched towns while the old Roman roads cracked and went to grass,",
+      "scratching out a living in timber villages, centuries from their first great Gothic cathedrals,"
+    ],
+    "sources": [
+      { "claim": "The dominant early-medieval building type was timber-framed, often wattle-and-daub with thatch — confirming 'timber huts,' 'mud and timber,' 'wood-and-thatch villages,' 'thatched towns.'", "url": "https://www.medievalists.net/2020/07/roman-infrastructure-middle-ages/" },
+      { "claim": "Early Middle Ages saw urban and trade decline; most old Roman cities survived 'even if grass grew in their streets,' largely as thin administrative centres.", "url": "https://en.wikipedia.org/wiki/Early_Middle_Ages" },
+      { "claim": "Viking raids began at Lindisfarne in 793 and continued until the mid-11th century, hitting coastal monasteries first then spreading by river and sea — concurrent with Bagan's rise.", "url": "https://www.britannica.com/event/Lindisfarne-Raid" },
+      { "claim": "The first Gothic cathedral was Saint-Denis (~1135-1144); the 'first great GOTHIC cathedrals' came roughly a century after Bagan's founding (Aachen Cathedral ~800 means Europe was NOT centuries from its first great cathedrals generally — must say 'Gothic').", "url": "https://human.libretexts.org/Bookshelves/Art/Art_History_(Boundless)/18:_Gothic_Art/18.02:_Gothic_Architecture" }
+    ]
+  },
+  "6": {
+    "marker": "{TK unique epic descriptions of kingdoms, how they ruled, what it looked like, what culture cropped up here}",
+    "chapter": "HISTORY 1. beautiful mystical pre British",
+    "options": [
+      "raised whole civilizations out of the mud of this river. Walled cities first. Then golden ones. A king named Anawrahta unified the valley by force and faith and set off a building boom that never really stopped — over ten thousand temples on the plain at Bagan alone, gilded Buddhas inside, gleaming spires above. Here the kings ruled as both warlords and holy men, and glory meant the same thing as gold.",
+      "turned this river valley into something out of a dream. They built walled cities, then crowned them with temples — thousands of them. On the plain at Bagan, kings raised over ten thousand pagodas, their domes gilded and glittering above the red earth. They ruled by faith and rice and gold, and they believed the more you built for the Buddha, the more righteous you were.",
+      "made the riverbank glow. They built walled cities, then filled them with temples until the skyline was nothing but spires — at Bagan, more than ten thousand of them, domes wrapped in gold above the red soil and the green. These were kings who ruled as holy men, through devotion as much as armies, certain that a man proved his righteousness by building beauty for the Buddha and gilding it for the lives to come.",
+      "built cities here while much of Europe was still villages and mud. First walled towns rising out of the floodplain. Then, by the river at Bagan, a kingdom that put up more than ten thousand temples on one plain — domes covered in gold, statues covered in gold. The kings ruled through Buddhism. And the way you showed your power was the way you showed your faith: you built, and you gilded, and you left something glorious behind.",
+      "built walled cities out of the floodplain, then golden cities on top of them. Kings who measured their greatness in temples. At its height one of these kingdoms, Bagan, raised more than ten thousand pagodas across a single plain by the river — so many gilded spires that medieval travelers remembered it as one of the finest sights in the world. This was a culture where power and devotion were the same thing, where a king proved he was righteous by covering the land in gold."
+    ],
+    "sources": [
+      { "claim": "King Anawrahta's reign began 16 December 1044; he unified the entire Irrawaddy valley for the first time by military force, was converted to Theravada Buddhism in 1056, and was the first of Bagan's 'Temple Builders.'", "url": "https://en.wikipedia.org/wiki/Anawrahta" },
+      { "claim": "Over 10,000 Buddhist temples, pagodas and monasteries once stood on the ~100 sq km Bagan plain on the Irrawaddy; remains of over 2,200 survive; Bagan was capital of the Kingdom of Pagan 9th-13th c., sacked by the Mongols 1287.", "url": "https://www.amusingplanet.com/2013/04/the-many-thousand-temples-of-bagan.html" },
+      { "claim": "Marco Polo's 'one of the finest sights in the world' referred specifically to two gold- and silver-plated tomb towers built by a king of Mien, not the whole skyline — so attribute the famed description as a general medieval memory, tied to the gilded towers, not the 10,000 pagodas.", "url": "https://en.wikipedia.org/wiki/Marco_Polo" }
+    ]
+  },
+  "7": {
+    "marker": "{TK how kingdoms fight, fracture, then unify around a new king into another era of glory}",
+    "chapter": "HISTORY 1. beautiful mystical pre British",
+    "options": [
+      "These kingdoms rose, then turned on each other. A great king would pull the land together under one crown, build a golden capital, and call it an age of glory. Then he died, and it all came apart again. The pieces fought until the next strong king rose to gather them back. This happened over and over, for a thousand years.",
+      "The land would come together under one strong king, then break apart when he was gone. Rival lords fought over the pieces. Eventually another king rose, conquered the others, and built a new capital and a new golden age. Then that one fell too. Unite, fracture, unite again. Three times across a thousand years.",
+      "They fought. They split the country into warring pieces. And then, every few generations, one king would rise strong enough to gather it all back under a single crown, and the gold would flow and the temples would rise and they would call it a golden age. Until the crown slipped, and it broke apart, and the fighting began again.",
+      "These kings fought each other constantly, breaking the land into rival statelets. Then a conqueror would emerge, crush the others, and forge a single empire all over again. Pagan. Then Toungoo. Then Konbaung. Each one a new golden age. Each one undone by the same fighting that built it.",
+      "The country never stayed whole for long. A king would unite it, build something magnificent, and rule a golden age. Then it would shatter back into warring kingdoms, each fighting the others, until the next king rose to bind them together again. Boom and bust. Over and over."
+    ],
+    "sources": [
+      { "claim": "Three successive unifications of the Irrawaddy valley: Pagan (Anawrahta, accession 1044), Toungoo (1510-1752, Tabinshwehti and Bayinnaung), and Konbaung (1752-1885, Alaungpaya), the last Burmese royal dynasty.", "url": "https://www.britannica.com/place/Myanmar/The-unification-of-Myanmar" },
+      { "claim": "After Pagan's collapse in 1287 the region broke into ~250 years of fragmentation (Ava, Hanthawaddy, Shan states) until the Toungoo dynasty reunified them and founded the largest empire in Southeast Asian history.", "url": "https://en.wikipedia.org/wiki/History_of_Myanmar" },
+      { "claim": "The Konbaung dynasty (1752-1885), founded by Alaungpaya, was the Third Burmese Empire and last royal dynasty, fostering a golden age before collapse to the British.", "url": "https://www.newworldencyclopedia.org/entry/Konbaung_dynasty" }
+    ]
+  },
+  "8": {
+    "marker": "{TK unique features of spiritual traditions and beliefs}",
+    "chapter": "HISTORY 1. beautiful mystical pre British",
+    "options": [
+      "the spirits in the land itself. Long before any temple, the people here believed the world was alive with nats — spirits that lived in the rivers, the old trees, the hills. You left them offerings. You kept them happy. You did not cut down a great tree without thinking about what lived inside it.",
+      "the spirits of the land. They called them nats — the spirits that lived in the rivers and the trees and the high places, that had to be fed and honored and never crossed.",
+      "the spirits in the trees and the water. Before Buddha, the people here lived among the nats — spirits of the river, the forest, the mountain, the dead. The land was crowded with them. You made offerings so they would let you alone.",
+      "the unseen world all around them — the nats, spirits that filled the rivers and the trees and the hills, spirits you fed and feared in equal measure, who could bless a harvest or break it.",
+      "the spirits of the land. The people here believed in nats — the spirits in the water, the trees, the earth under the house. Some were nature itself. Some were the souls of people who had died badly. All of them had to be honored."
+    ],
+    "sources": [
+      { "claim": "Before King Anawrahta, nat worship was the main belief system of Burma; nat shrines predate Buddhism; Anawrahta formalized 37 Great Nats subordinate to the Buddha.", "url": "https://en.wikipedia.org/wiki/Burmese_folk_religion" },
+      { "claim": "Nats are animistic spirits inhabiting mountains, rivers, trees, fields and villages; almost every large tree has a spirit shelf; they bring luck to those who appease them and misfortune to those who don't.", "url": "https://factsanddetails.com/southeast-asia/Myanmar/sub5_5c/entry-3036.html" },
+      { "claim": "Two types of nats: nat sein (humans deified after death, often those who died violent/tragic deaths) and nature spirits (water, trees, etc.).", "url": "https://en.wikipedia.org/wiki/Nat_(deity)" }
+    ]
+  },
+  "9": {
+    "marker": "{TK year} Buddhism arrived",
+    "chapter": "HISTORY 1. beautiful mystical pre British",
+    "options": [
+      "1057",
+      "the year 1057",
+      "nearly a thousand years ago, in 1057",
+      "the eleventh century",
+      "1057 — almost exactly a thousand years ago"
+    ],
+    "sources": [
+      { "claim": "Anawrahta's forces conquered the Mon city of Thaton in 1057 (siege ended 17 May 1057); Shin Arahan had converted him in 1056, and the conquest brought scriptures and clergy that established Theravada Buddhism in Upper Burma.", "url": "https://en.wikipedia.org/wiki/Anawrahta" },
+      { "claim": "The introduction of Theravada Buddhism to Upper Burma via the 1057 conquest of Thaton is Anawrahta's greatest and most lasting achievement.", "url": "https://factsanddetails.com/southeast-asia/Myanmar/sub5_5a/entry-2999.html" }
+    ]
+  },
+  "10": {
+    "marker": "{TK how Buddhism arrived. Transmitted via whom? Major event marking the arrival?}",
+    "chapter": "HISTORY 1. beautiful mystical pre British",
+    "options": [
+      "It came up the river the way power always did. A monk named Shin Arahan brought the teaching to King Anawrahta at Bagan, and the king made it his own. In 1057 he conquered the southern city of Thaton, seized its scriptures and its monks, and built a kingdom around them. From then on, the faith and the throne would rise and fall together.",
+      "It came slowly, then all at once. For centuries the teaching had drifted in from India along the trade routes, mixed with older spirits and gods. Then, in the eleventh century, a single monk named Shin Arahan reached the king at Bagan and turned the whole kingdom toward it. The king sacked a southern city for its sacred books and made the faith the soul of his rule.",
+      "It came the way most things came here: with a king who needed proof of his righteousness. A wandering monk named Shin Arahan walked into the court at Bagan and turned its ruler, Anawrahta, away from the old Ari cults. Then the king went to war for it. In 1057 he marched south, sacked the Mon city of Thaton, and hauled the sacred scriptures home on the backs of elephants.",
+      "It arrived through a single monk. In the eleventh century a Theravada monk, Shin Arahan, reached the court at Bagan and converted its king, Anawrahta. But the king wanted the scriptures too, and they were held in the city of Thaton to the south. So in 1057 he took them by force, and carried the holy books back up the river to his capital.",
+      "A monk called Shin Arahan walked into Bagan and convinced its king, Anawrahta, that the Buddhism he practiced had gone corrupt. The king believed him completely. He wanted the true scriptures, held in a city to the south, so badly that in 1057 he went to war and carried them home by the elephant-load."
+    ],
+    "sources": [
+      { "claim": "In 1056 the Theravada monk Shin Arahan converted Anawrahta from Ari Buddhism (a Tantric Mahayana sect); Pagan armies conquered Thaton on 17 May 1057, bringing back scriptures, clergy and artisans.", "url": "https://en.wikipedia.org/wiki/Anawrahta" },
+      { "claim": "After conquering Thaton, Anawrahta seized 30 elephant-loads of Buddhist scripture and built the Pitakataik library in 1058 to house them.", "url": "https://en.wikipedia.org/wiki/Pitakataik_(Bagan)" },
+      { "claim": "Shin Arahan converted Anawrahta to Theravada from Ari Buddhism; scriptures and clergy from vanquished Thaton drove the reforms, making Theravada the dominant religion of Myanmar.", "url": "https://factsanddetails.com/southeast-asia/Myanmar/sub5_5a/entry-2999.html" }
+    ]
+  },
+  "11": {
+    "marker": "{TK unique beliefs: showing devotion by building and gilding the Buddha; role of temples/pagodas}",
+    "chapter": "HISTORY 1. beautiful mystical pre British",
+    "options": [
+      "merit was something you could earn and store, like savings carried from one life into the next. And the surest way to earn it was to give, and the greatest giving of all was to build something for the Buddha",
+      "the way to a better next life wasn't only in your head, it was in your hands. You earned good fortune by giving, and the highest form of giving was to build. A temple, a pagoda, a leaf of gold pressed onto the Buddha",
+      "your fate in the next life was not fixed. You could improve it, deed by deed, by giving. And nothing earned more merit than building, so kings and farmers alike raised temples and gilded the Buddha in gold",
+      "good fortune was something you bought with devotion, paid not in words but in stone and gold. You built temples, you raised pagodas, you pressed gold leaf onto the Buddha, and each act was credited to your next life",
+      "you kept a ledger across lifetimes, and you could fill it with good deeds. Giving earned the most, and building earned the most of all. So the land filled with temples, and the Buddha disappeared under layers of gold"
+    ],
+    "sources": [
+      { "claim": "In Burmese Theravada, building or renovating a pagoda is a major form of dana that accumulates merit for better rebirths; 'in Myanmar no deed is considered more worthy than to build a pagoda.'", "url": "https://www.buddhistdoor.net/features/curating-the-shwedagon-pagoda-museum-in-myanmar/" },
+      { "claim": "In Myanmar people buy gold leaf as temple offerings — 'a different kind of savings account, one for your next life by building merit'; gold leaf is pressed onto Buddha statues as devotion and merit transfer.", "url": "https://wanderlustandlipstick.com/blogs/wandershopper/2013/04/12/myanmar-gold-leaf-traditions-and-visiting-king-galon/" },
+      { "claim": "The Mahamuni Buddha is covered with ~15cm of gold leaf applied by generations of pilgrims, distorting the shape of the image — the Buddha literally disappearing under gold.", "url": "https://www.insightguides.com/inspire-me/blog/visual/mahamuni-buddha-statue-mahamuni-temple-mandalay" }
+    ]
+  },
+  "12": {
+    "marker": "{TK how kings built new capitals everywhere and what the goal was}",
+    "chapter": "HISTORY 1. beautiful mystical pre British",
+    "options": [
+      "Where a poor man pressed a single leaf of gold, a king built a whole new city. A new palace, a new golden pagoda, a new capital raised from nothing to prove he was the rightful one, the righteous one, chosen to rule. So they built. And built. And moved. King after king founding a fresh capital to announce his mandate to the heavens.",
+      "And kings did it on the scale of cities. A new ruler would found a whole new capital, a new palace, a new golden pagoda, to prove his righteousness and his right to rule. So the capital moved again and again, king after king raising a new one to show the heavens he was the chosen one.",
+      "Where a peasant pressed one leaf of gold, a king raised an entire capital. A new palace. A new gilded pagoda. A new city built from nothing to broadcast his merit and his mandate to rule. Over and over, king after king, the capital picked up and moved, each one to prove he was the righteous one.",
+      "And the kings built on the largest scale of all. A new king would raise a whole new capital, a new palace, a new golden pagoda, declaring himself both world conqueror and world renouncer, the rightful ruler chosen by his merit. So the capital wandered, king after king founding fresh cities to prove the king's righteousness to earth and heaven alike.",
+      "A poor man pressed a leaf of gold. A king built a city. He'd found a whole new capital, a new palace, a new golden pagoda, just to prove he deserved the throne, that he was the righteous one fit to rule. And so they kept moving it, king after king raising new capitals to show the world his merit."
+    ],
+    "sources": [
+      { "claim": "Burmese kings announced new capitals by building a palace and a pagoda, proclaiming the ruler 'World Conqueror and World Renouncer' (Cakkavattin and Bodhisattva); Naypyidaw deliberately followed this ancient precedent.", "url": "https://averyreview.com/issues/24/auspicious-urbanisms" },
+      { "claim": "Burmese monarchs legitimized rule as righteous Buddhist cakkavartins; merit-making by building pagodas signaled superior spiritual power and the right to rule.", "url": "https://blogs.lse.ac.uk/southasia/2023/07/17/buddhist-kingship-as-a-source-of-political-legitimacy-in-times-of-crisis-in-myanmar/" },
+      { "claim": "Moving the capital was a recurring Burmese tradition spanning multiple reigns: Ava -> Amarapura (1782) -> Ava (1823) -> Amarapura (1841) -> Mandalay (1857), the whole town dismantled and rebuilt for religious and political reasons.", "url": "https://en.wikipedia.org/wiki/Amarapura" },
+      { "claim": "King Mindon founded Mandalay as a new royal capital on 13 February 1857 to fulfill a prophecy of a centre of Buddhism on the 2,400th anniversary of Buddhism.", "url": "https://en.wikipedia.org/wiki/Mandalay" }
+    ]
+  },
+  "13": {
+    "marker": "{TK one liner reason} for the gas shortage",
+    "chapter": "GROUND 1. Yongon — Arrival",
+    "options": [
+      "the country imports almost all its fuel, and the war broke the money it takes to buy it.",
+      "the kyat has collapsed, dollars have dried up, and a country that imports nearly all its fuel can no longer afford it.",
+      "the war wrecked the currency, and a country that buys almost all its fuel from abroad ran out of dollars to pay.",
+      "the generals broke the economy, the currency cratered, and there aren't enough dollars left to import the fuel.",
+      "in a country that imports nearly all its fuel, the war dried up the money to buy it."
+    ],
+    "sources": [
+      { "claim": "Approximately 95% of Myanmar's fuel demand is met by imports; domestic production is only ~5%.", "url": "https://ispmyanmar.com/op2026-01/" },
+      { "claim": "The fuel shortage is driven by the plummeting kyat and a foreign-currency shortage: free-market rate ~6,000 kyat/USD vs the central bank's fixed 2,100, starving fuel importers of dollars.", "url": "https://www.rfa.org/english/news/myanmar/gasoline-shortage-economy-08142024074039.html" },
+      { "claim": "Myanmar plunged into a dollar crisis after the 2021 coup as sanctions, withdrawal of investment, and civil war hit; the kyat is down ~80% against the dollar since the coup.", "url": "https://www.lowyinstitute.org/the-interpreter/myanmar-s-other-war-battle-financial-control" }
+    ]
+  },
+  "14": {
+    "marker": "{tk event that marks the start of the British conquering Burma}",
+    "chapter": "HISTORY 2 BRITISH x walk and talk",
+    "options": [
+      "their empire pushed west and ran straight into the edge of British India.",
+      "their armies pushed west — Arakan, Manipur, Assam — until the empire's new edge ran right up against British India.",
+      "a Burmese empire still hungry for land pushed west and bumped up against the British, who had been quietly swallowing India next door.",
+      "in 1823 it came down to a speck of mud at the mouth of the Naf River. The British posted a guard and raised their flag; the Burmese drove them off. The British declared war the next spring.",
+      "the Burmese kept expanding west until they were standing on the doorstep of British India — the most powerful empire in Asia."
+    ],
+    "sources": [
+      { "claim": "Konbaung Burma conquered Arakan (1784), Manipur (1814), and Assam (1817), creating a long, ill-defined border with British India that led to the First Anglo-Burmese War.", "url": "https://en.wikipedia.org/wiki/Konbaung_dynasty" },
+      { "claim": "The Sept 1823 Shahpuri Island incident near Chittagong (British sepoys raised a flag, Burmese drove them out) was the immediate trigger; Britain declared war 5 March 1824; war ended with the Treaty of Yandabo 24 Feb 1826.", "url": "https://en.wikipedia.org/wiki/First_Anglo-Burmese_War" },
+      { "claim": "Shahpuri Island sits at the mouth of the Naf River dividing Chittagong and Arakan — a small disputed border island, not a conquest target.", "url": "https://www.openwaterpedia.com/wiki/Shahpuri_Island" }
+    ]
+  },
+  "15": {
+    "marker": "{TK motive that brought them into Burma}",
+    "chapter": "HISTORY 2 BRITISH x walk and talk",
+    "options": [
+      "its teak and its rivers — and a back door into the markets of China",
+      "what every empire wants: the timber, the rice, the trade routes, and a road to China",
+      "the river. It runs to the edge of China, and the British wanted the markets on the other side",
+      "the teak forests, the rice fields, and the Irrawaddy as a highway to China — before the French could get there first",
+      "a way in: to the teak, to the trade, to China just beyond the mountains"
+    ],
+    "sources": [
+      { "claim": "British interests in northern Burma centered on teak, oil, and rubies; some officials viewed Burma as a 'highway to China'; French influence drove intervention culminating in 1885.", "url": "https://www.encyclopedia.com/history/encyclopedias-almanacs-transcripts-and-maps/anglo-burmese-wars" },
+      { "claim": "Burma served as a 'back door' to Yunnan; Britain and France competed in a 'Race to Yunnan' to reach southwestern Chinese markets — a contest for trade access, not for seizing Burma from France.", "url": "https://southeastasiaglobe.com/the-race-to-yunnan-railway/" },
+      { "claim": "The opening of the Suez Canal in 1869 spiked international demand for Burma's rice, supporting rice as a documented commercial draw.", "url": "https://www.britannica.com/topic/history-of-Myanmar/The-British-in-Burma-1885-1948" }
+    ]
+  },
+  "16": {
+    "marker": "{TK color or details of the final conquest, shipping the king and queen off}",
+    "chapter": "HISTORY 2 BRITISH x walk and talk",
+    "options": [
+      "— a king and his pregnant queen given a few hours to leave their palace forever, loaded onto an ordinary ox cart, rolled out through the city gates while thousands of their subjects threw themselves on the ground and wept",
+      ", in an ordinary bullock cart, the kind a farmer might use, past crowds who only now understood what was happening and fell to the ground as he passed",
+      ", down to a steamer waiting three miles off, escorted by British soldiers, while his people prostrated themselves in the dust along the road to the pier",
+      ". They gave him a few hours to pack a thousand years of kings into a single afternoon, then put him in an ox cart and drove him to the steamer through streets of weeping people",
+      ". No throne, no escort of his own, just a common ox cart and a few hours' notice — the king of Burma, his pregnant queen beside him, carried out past a city going down on its knees"
+    ],
+    "sources": [
+      { "claim": "On 29 November 1885 Thibaw was given 'a few more hours to collect his possessions and leave his kingdom forever,' left in an 'ordinary ox-drawn carriage,' the steamer Thooreah anchored three miles away, escorted by the 67th Hampshire Regiment, while 'thousands prostrated themselves on the ground alongside the road to the pier.'", "url": "https://www.cambridge.org/core/books/making-of-modern-burma/introduction-the-fall-of-mandalay/8BA856FB58F78C37CF9EFF0902D65006" },
+      { "claim": "Thibaw, last king of the Konbaung dynasty (reigned 1878-1885), was forced onto a bullock cart with his family and taken to a steamer on the Irrawaddy before a huge crowd of subjects, then exiled to Ratnagiri, India.", "url": "https://en.wikipedia.org/wiki/Thibaw_Min" },
+      { "claim": "The heavily pregnant Queen Supayalat was exiled in November 1885 and gave birth at Madras in March 1886, confirming she was pregnant at removal.", "url": "https://kids.kiddle.co/Thibaw_Min" }
+    ]
+  },
+  "17": {
+    "marker": "{TK how the British ruled: ~100 years, modernized but dominated and divided}",
+    "chapter": "HISTORY 2 BRITISH x walk and talk",
+    "options": [
+      "For the next fifty years, they didn't even rule it as a country. Burma was just a province of British India, run from Calcutta and London. They built railways up the Irrawaddy and turned the delta into the largest rice exporter on Earth. They brought schools, hospitals, English, ledgers. But the rice money flowed out, the best jobs went to Indians they shipped in, and the old monastic schools that had taught the country for centuries withered. And quietly, deliberately, they governed the lowland Burmans one way and the hill peoples another, recruiting the minorities into the army and setting every group against the next.",
+      "They ruled it for about a century, and they ruled it as a possession. For most of that time Burma wasn't even its own colony, just a province of British India. They laid railways, opened schools and hospitals, and made the delta the rice bowl of the world. And they took the profit out, gave the good jobs to Indians they brought in, let the monastery schools die, and split the country in two: the Burmans in the center, the hill peoples on the frontier, governed apart and turned against each other.",
+      "A hundred years. Long enough to lay the rails, build the schools, raise the hospitals, and ship more rice from this delta than from anywhere on the planet. Long enough, too, to drain the wealth back to Britain, hand the work to migrants from India, and let the old monk-taught learning fade. And long enough to draw a line through the people themselves: Burmans ruled from the center, the hill tribes held apart on the frontier, each taught to fear the other.",
+      "They stayed for roughly a hundred years, and they remade the place to serve them. They didn't govern Burma as a nation at all, just a province of India, run from afar. Railways climbed the river. The delta became the greatest rice exporter in the world. Schools and clinics went up. But so did a system that pulled the riches out, favored the Indians who ran its trade and its offices, and starved the monasteries that had taught the country for a thousand years. And it cut the population down the middle, Burman lowlands against frontier hill peoples, divided on purpose so they'd never unite.",
+      "For a hundred years they held it, and the story was always two stories at once. They built the railways and the rice trade that made this the rice bowl of Asia. They brought new schools, new medicine, a new language. And at the same time they ran the country as an outpost of India, sent the profits home, let the old learning of the monasteries fall away, and ruled the Burman heartland and the ethnic highlands as separate worlds, each set quietly against the other."
+    ],
+    "sources": [
+      { "claim": "Burma was a province of British India from 1886 until 1937 (51 years), becoming a separate Crown Colony on 1 April 1937 — refuting 'sixty years' and supporting 'about a century'/'province of India.'", "url": "https://www.britannica.com/topic/history-of-Myanmar/The-British-in-Burma-1885-1948" },
+      { "claim": "Rail transport began in British Burma on 2 May 1877 with the Rangoon-to-Prome line built by the Irrawaddy Valley State Railway, following the Irrawaddy; the delta became the world's largest rice exporter.", "url": "https://en.wikipedia.org/wiki/History_of_rail_transport_in_Myanmar" },
+      { "claim": "Ethnic Indians formed the backbone of colonial Burma's government and economy; Chettiar moneylenders dominated rural credit and by 1938 Indian landlords owned ~25% of fertile land.", "url": "https://en.wikipedia.org/wiki/Burmese_Indians" },
+      { "claim": "The British split Burma into directly ruled 'Ministerial Burma' and indirectly ruled 'Frontier Areas,' recruited minorities into the colonial military and used them to suppress Burman rebellions, hardening ethnic divisions.", "url": "https://en.wikipedia.org/wiki/Karen_conflict" }
+    ]
+  },
+  "18": {
+    "marker": "{TK monastic life and its role in Myanmar}",
+    "chapter": "HISTORY 2 BRITISH x walk and talk",
+    "options": [
+      "in robes — shaving their heads, taking vows of poverty, and spending their days chanting, studying, and begging for rice, earning merit for a country that treats the holy life as the highest thing a person can do.",
+      "in robes, head shaved, owning almost nothing, days spent in prayer and study and walking out at dawn with a bowl to beg for their food. Here the monastery is the spine of every town — school, shelter, and conscience all at once.",
+      "inside the monastery, shaved and robed and fed by whatever the village can spare, building merit one day at a time. In Burma the monks and nuns aren't on the edge of society. They're at the center of it.",
+      "renouncing almost everything — hair, money, marriage — to chant and meditate and carry an alms bowl through the streets each morning, holding a moral order the country has leaned on for a thousand years.",
+      "in the robes, eating only what's given, sleeping in a bare cell, spending the hours in prayer. Nearly every Burmese family sends a child into this at least once. The monastery is where the country goes to be good."
+    ],
+    "sources": [
+      { "claim": "Per 2016 Sangha Council data, Myanmar's monastic community included 282,000+ monks, 253,000 novices, and ~60,000 nuns — around 600,000 total, one of the largest monastic populations in the world.", "url": "https://www.crisisgroup.org/rpt/asia/south-east-asia/myanmar/330-silent-sangha-buddhist-monks-post-coup-myanmar" },
+      { "claim": "Burmese nuns (thilashin) wear pink robes, shave their heads, own almost nothing, observe the ten precepts, and go on alms rounds; Burmese law bars women's full ordination.", "url": "https://en.wikipedia.org/wiki/Thilashin" },
+      { "claim": "Burmese monks file out at dawn with a bowl to receive food alms; laypeople gain merit by donating rice; monks eat only between dawn and noon.", "url": "https://factsanddetails.com/southeast-asia/Myanmar/sub5_5c/entry-3035.html" }
+    ]
+  },
+  "19": {
+    "marker": "{TK million people} the British leave behind",
+    "chapter": "HISTORY 3 (post independence)",
+    "options": [
+      "some seventeen million people",
+      "seventeen million people",
+      "roughly seventeen million people",
+      "nearly seventeen million people",
+      "seventeen million people, dozens of peoples speaking a hundred languages,"
+    ],
+    "sources": [
+      { "claim": "The 1941 census, the last colonial census of Burma, recorded a total population of 16,823,798 (~16.8M); detailed results were destroyed in the 1942 Japanese invasion.", "url": "https://en.wikipedia.org/wiki/Census_in_Myanmar" },
+      { "claim": "Burma gained independence on 4 January 1948 — the moment 'the British leave' refers to.", "url": "https://en.wikipedia.org/wiki/Burmese_Declaration_of_Independence" },
+      { "claim": "By 1950 Burma's population was ~17.8 million; interpolating from the 1941 census puts the 1948 population at roughly 17.4-17.6M, making 'seventeen million' accurate.", "url": "https://www.ceicdata.com/en/indicator/myanmar/population" }
+    ]
+  },
+  "20": {
+    "marker": "{TK 1-2 lines on why it didn't work}",
+    "chapter": "HISTORY 3 (post independence)",
+    "options": [
+      "But the promise was thinner than it looked. The autonomy was written on paper and never handed over in practice, and the right to leave applied to some regions and not others. The trust it was supposed to buy never arrived.",
+      "But it was federalism in form and central control in fact. The freedom that looked so generous on paper was never really delivered, and the new government held the power it had promised to give away.",
+      "But you can't unify a place by writing freedom into a document and then keeping it for yourself. The autonomy stayed on the page. The capital kept the real power. And the regions noticed.",
+      "It didn't hold. Some of the biggest groups had never agreed to the deal in the first place, and the freedom the rest were promised existed mostly in the text, not on the ground.",
+      "But a promise of freedom is only as good as the hand that keeps it. The autonomy never left the page, the right to break away came with conditions, and some of the largest groups had never signed on at all."
+    ],
+    "sources": [
+      { "claim": "The 1947 constitution was federal in theory but unitary in structure; the autonomy promised at Panglong was never genuinely implemented, leading to decades of civil war.", "url": "https://www.tni.org/en/article/the-creation-of-new-constituent-units-in-the-myanmar-context" },
+      { "claim": "Under the 1947 constitution only the Shan and Karenni/Kayah states received the right of secession after a 10-year trial; Kachin did not, having traded it for extra territory.", "url": "https://www.academia.edu/116599721/The_Right_of_Secession_in_Burmas_First_Constitution" },
+      { "claim": "The Karen (KNU) boycotted the Feb 1947 Panglong Conference; Karen, Mon and Rakhine were not represented; the KNU declared war on the government on 31 January 1949.", "url": "https://en.wikipedia.org/wiki/Panglong_Conference" }
+    ]
+  },
+  "21": {
+    "marker": "{TK.. can I say \"the center and the periphery\"}",
+    "chapter": "HISTORY 3 (post independence)",
+    "options": [
+      "the center and the periphery",
+      "the Burman center and the ethnic periphery",
+      "the central government and the regions on its edges",
+      "the lowland center and the hill peoples on the frontier",
+      "the capital and the periphery it was supposed to hold together"
+    ],
+    "sources": [
+      { "claim": "Independence (4 Jan 1948) revived WWII-era guerrilla organizations including the Communists and the Karens; Karen forces attacked Insein just south of Rangoon on 31 January 1949, and ethnic minority groups held the periphery while the army held the center.", "url": "https://www.ebsco.com/research-starters/history/burmese-civil-wars-1948-1958" },
+      { "claim": "The British had split Burma into a directly ruled lowland center ('Ministerial Burma') and indirectly ruled hill 'Frontier Areas,' institutionalizing the center-periphery divide the post-independence war ran along.", "url": "https://en.wikipedia.org/wiki/Karen_conflict" },
+      { "claim": "Karen nationalists could not agree with the Rangoon government over a Karen State; frustrated, they took up arms; through the 1950s the army regained territory but armed minorities held a stronghold in the country's periphery.", "url": "https://www.culturalsurvival.org/publications/cultural-survival-quarterly/overview-burmas-ethnic-politics" }
+    ]
+  },
+  "22": {
+    "marker": "{TK broad summary of the boom-and-bust cycle between democracy and military rule, nationalism, closing the country}",
+    "chapter": "HISTORY 3 (post independence)",
+    "options": [
+      "VO: What came next was the same story on repeat, just faster. A few years of fragile civilian rule, then the army stepping in to save the union from falling apart — and once that logic took hold, there was no room left for compromise, no room to hand the outer regions any real freedom, and the emergency became the way the country was governed. In 1962 the generals took over for good. They shut the borders, threw out the foreigners, and tried to build a pure, self-reliant Burma on the wreckage of the colonial one. The economy collapsed. The army kept moving the capital and raising new monuments, just like the old kings. And every time the country tried to open back up, the same thing happened: a flicker of democracy, then the tanks again. Each round pushed the ethnic regions further away, and convinced the generals all over again that only the army could hold this place together.",
+      "VO: For the next sixty years it was a loop. Democracy, then a coup. An opening, then a crackdown. The army's argument never changed — that it alone could keep the union from breaking into pieces — and that single idea justified everything: the permanent emergency, the refusal to share power with the regions, the soldiers in every ministry. In 1962 they sealed the country off entirely. Foreigners out, borders closed, a homegrown 'Burmese Way to Socialism' that drove one of Asia's richest countries into the ground. They renamed it, they moved the capital, they built new monuments to themselves, echoing the kings of old. But unity by force only made the country less unified. Every uprising they crushed, every region they squeezed, pushed the edges of the country further from the center.",
+      "VO: The pattern hardened into a machine. A little democracy, then the military taking back over, always with the same justification: only the army could stop the country from disintegrating. And once you believe that, you can't give the regions autonomy, you can't compromise, you can't ever really stop — the emergency just becomes the government. In 1962 the generals seized full control and slammed the country shut. They expelled foreigners, cut off the outside world, and chased a nationalist dream of a strong, pure, self-sufficient Burma. It bankrupted the nation. And like the kings before them, they moved capitals and built monuments to their own legitimacy. Each turn of the cycle drove the ethnic regions another step away.",
+      "VO: After that, the country fell into a rhythm it still hasn't broken. Civilian rule, then a coup. Hope, then a boot. The military always said the same thing — that it was the only thing holding the union together — and that belief became a trap, because if only the army can save the country, then the army can never leave, the regions can never be free, and the emergency never ends. In 1962 they shut the whole place down: foreigners expelled, the door bolted, a nationalist project to make Burma strong and self-reliant again that instead made it poor and isolated. They even revived the old royal habit of building new capitals to prove their right to rule. And with every cycle the outer regions drifted further from the center.",
+      "VO: From there it became a cycle you could set a clock to. A brief democracy. Then the generals, stepping in to rescue the union from collapse. And that rescue logic was total — it left no space for compromise, no space to give the frontier regions real autonomy, so the state of emergency simply became the state. In 1962 the army took over completely and closed Burma to the world, expelling outsiders and turning inward toward a nationalist dream of a strong, self-sufficient nation purified of foreign hands. The dream wrecked the economy. The generals moved the capital and built grand new monuments, just as the kings had done for a thousand years. And every loop of democracy-then-dictatorship shoved the ethnic regions one step further out."
+    ],
+    "sources": [
+      { "claim": "General Ne Win seized power in a 1962 coup, establishing military rule and the isolationist 'Burmese Way to Socialism,' which nationalized the economy, expelled foreigners (especially Indians), closed the country to outsiders, and turned one of Asia's wealthier nations into one of its poorest.", "url": "https://www.britannica.com/place/Myanmar/The-socialist-state" },
+      { "claim": "Myanmar's modern history runs in a boom-and-bust cycle between civilian/democratic openings and military takeovers (1958 caretaker, 1962 coup, 1988 uprising and crackdown, 2011 opening, 2021 coup), the army repeatedly justifying takeover as the only guarantor of national unity.", "url": "https://www.csis.org/analysis/myanmars-military-seizes-power" },
+      { "claim": "Successive Burmese regimes, including the modern junta, revived the old royal practice of founding new capitals and building grand monuments to assert legitimacy and the right to rule.", "url": "https://averyreview.com/issues/24/auspicious-urbanisms" }
+    ]
+  },
+  "23": {
+    "marker": "{TK few short lines on the junta that built Naypyidaw, their goal, vision, the huge roads and why}",
+    "chapter": "HISTORY 3 (post independence)",
+    "options": [
+      "VO: In 2005, the generals did the most Burmese thing imaginable: they built a brand-new capital from scratch, in the empty scrubland in the middle of the country, and called it Naypyidaw — 'abode of kings.' Almost overnight the entire government packed up and moved there, away from the crowds and the protests of the old city. They laid down twenty-lane highways with almost no cars on them — roads built less for traffic than for tanks, and to keep people from ever gathering. It was security and legitimacy poured into concrete, the old habit of building a new capital to prove you're the rightful ruler.",
+      "VO: In 2005, the ruling generals abruptly moved the whole government out of Yangon to a purpose-built capital in the center of the country: Naypyidaw, the 'abode of kings.' The vision was a fortress capital, isolated from the protests and the pro-democracy movements of the big city, defensible and controllable. They built it on a giant scale — twenty-lane boulevards running empty through a city designed so crowds could never form. Like the kings before them, they were building a new capital to announce that they, and only they, had the right to rule.",
+      "VO: Then, in 2005, the military did what Burmese rulers had done for a thousand years: they built a new capital. In a few short years a whole city rose out of empty fields — Naypyidaw, 'abode of kings.' They moved the government there overnight, far from the unrest of Yangon. They paved enormous twenty-lane highways that sit nearly empty to this day, wide enough to land planes on, built for security and for show. It was the old royal instinct, updated in concrete: a new capital to prove the regime's right to rule and keep its people from ever gathering against it.",
+      "VO: In 2005 the generals announced they were leaving Yangon and moving the capital to a patch of empty land in the country's center. They called it Naypyidaw — 'abode of kings' — and built it almost from nothing: ministries, palaces, and twenty-lane roads running through a city with hardly anyone on them. The point wasn't congestion. The point was control: a remote, defensible capital insulated from protest, where the vastness itself was the message. It was the ancient habit of a new king building a new city to prove he was the chosen one, rendered in fresh concrete.",
+      "VO: In 2005 the junta picked up the entire government and moved it 200 miles north, to a new capital they raised from scratch in the dry interior: Naypyidaw, the 'abode of kings.' The vision was a capital they alone controlled — far from the crowds, the universities, and the protests of Yangon. They built it impossibly wide, with twenty-lane highways that stay empty, a city engineered so people can't easily assemble. It was security, propaganda, and the right to rule poured into concrete, the same move Burmese kings had made for centuries."
+    ],
+    "sources": [
+      { "claim": "In November 2005 the military junta under Than Shwe abruptly moved the capital from Yangon to a purpose-built city ~320 km north, officially named Naypyidaw ('abode of kings') in 2006, partly to isolate the government from the Yangon-centered pro-democracy movement.", "url": "https://factsanddetails.com/southeast-asia/Myanmar/sub5_5f/entry-3101.html" },
+      { "claim": "Naypyidaw features enormous 20-lane highways with virtually no traffic and vast government buildings; the city remains largely empty, designed for security and to prevent mass gatherings.", "url": "https://www.thedailybeast.com/they-built-a-capital-and-no-one-came-inside-burmas-ghost-city/" },
+      { "claim": "Naypyidaw was designed as a fortress of security, propaganda and ritual power expressed in concrete and urban planning, consciously echoing the Burmese royal tradition of new capitals proclaiming the ruler's right to rule.", "url": "https://averyreview.com/issues/24/auspicious-urbanisms" }
+    ]
+  },
+  "24": {
+    "marker": "{TK summary of 2010s democratization, opening up, Suu Kyi, Obama, hope}",
+    "chapter": "HISTORY 3 (post independence)",
+    "options": [
+      "VO: in the 2010s, something almost unthinkable happened: the generals loosened their grip. They let elections happen. Aung San Suu Kyi — the dissident they'd kept under house arrest for fifteen years — walked free and into parliament. The borders opened. Phones and the internet flooded in. Obama flew to Yangon, the first sitting U.S. president to set foot here, and the whole world decided Myanmar was a democracy reborn. There was real hope, the kind that makes people believe the cycle might finally be broken.",
+      "VO: in the 2010s the door cracked open. After half a century sealed shut, Myanmar started to let the world back in — reforms, elections, foreign business, the internet. Aung San Suu Kyi, freed at last from house arrest, led her party to a landslide and became the face of a new democratic Myanmar. Obama visited. Tourists came. For a few years it really did feel like the country was turning a corner, like this time the boom might not bust.",
+      "VO: then, in the 2010s, the generals did something no one expected: they opened the country. They released Aung San Suu Kyi, the woman they'd locked away for years, and let her win a seat, then an election. They let in phones, the internet, foreign money, foreign visitors. President Obama came to Yangon and spoke of a new dawn. After fifty years of isolation, the whole world wanted to believe Myanmar was finally becoming free.",
+      "VO: in the 2010s the impossible seemed to happen — Myanmar opened up. The army eased its grip, called elections, and freed Aung San Suu Kyi, the icon of the democracy movement, who swept to victory and stepped into government. The country that had bolted its doors for half a century suddenly had smartphones, foreign investment, and an American president walking its streets. Hope was everywhere. People let themselves believe the long cycle was finally ending.",
+      "VO: and then, in the 2010s, came the opening everyone had waited for. The generals stepped back just enough to let democracy breathe. Aung San Suu Kyi went from house arrest to leading the country. The borders came down, the internet came in, business and tourists came flooding back, and Obama landed in Yangon promising a new chapter. For a moment, after decades of darkness, it looked like Myanmar had finally broken out of the loop."
+    ],
+    "sources": [
+      { "claim": "Myanmar's 2010s transition opened the country after decades of isolation; Aung San Suu Kyi, released from years of house arrest, won her seat in the 1 April 2012 by-elections, and her NLD won a historic supermajority in the November 2015 election.", "url": "https://www.cnn.com/2015/11/11/asia/myanmar-elections" },
+      { "claim": "Barack Obama visited Myanmar in 2012, the first visit by a sitting U.S. president, meeting Aung San Suu Kyi and urging continued democratic reforms.", "url": "https://www.britannica.com/biography/Aung-San-Suu-Kyi/Greater-freedom" },
+      { "claim": "The 2008 constitution paved the way for the first multiparty elections since 1990 and a gradual opening, accompanied by an influx of foreign business, telecoms and internet access after decades of closure.", "url": "https://www.csis.org/analysis/myanmars-military-seizes-power" }
+    ]
+  },
+  "25": {
+    "marker": "{TK power the generals were giving up and why they didn't want to}",
+    "chapter": "HISTORY 3 (post independence)",
+    "options": [
+      "VO: the opening had a limit, and the generals had drawn it themselves. Even as they let democracy in, they'd written a constitution that handed the army a quarter of every parliament, control of the key ministries, and a permanent veto over its own power — a door they could always slam shut. And when Suu Kyi's party kept winning by landslides, the generals saw where it was heading: a country that no longer needed them. They were being asked to give up the one thing the army had clung to for sixty years — control — and they decided they would not.",
+      "VO: but the army had never really let go. Its own constitution guaranteed it 25 percent of parliament and the ministries that hold the guns, enough to block any change to its power forever. The opening was always meant to be controlled. And when the people kept voting overwhelmingly for Suu Kyi and against the military, the generals watched their grip slipping and panicked. They were being asked to surrender the control they'd spent half a century defending, and that was the one thing they could not stomach.",
+      "VO: the generals had only ever opened the door so far. The 2008 constitution they wrote reserved a quarter of parliament for the military, kept defense and security in their hands, and gave them a veto no election could overcome. But democracy has its own momentum. Suu Kyi's party won, and won bigger, and the army began to fear a future where it answered to the people instead of the other way around. Letting go of that power was unthinkable to men who believed they were the only thing keeping the country whole.",
+      "VO: what the generals were really being asked to give up was control itself. They'd built a system where the army held 25 percent of parliament and the most powerful ministries no matter who won an election — a safety valve they could open or close at will. But the landslides kept coming for Suu Kyi, the calls to cut the military's power grew louder, and the generals saw the ground shifting under them. To men who had ruled for sixty years on the belief that only they could hold the union together, surrendering that grip felt like surrendering the country.",
+      "VO: the army had rigged the opening from the start. Its own charter locked in a quarter of every parliament for the military and put the security ministries beyond any civilian's reach, a built-in veto on its own dismantling. The deal was supposed to be controlled democracy. But Suu Kyi kept winning by margins that made the generals nervous, and demands to strip back military power grew. They were being asked to hand over the one thing they'd never share — control of the state — and they refused."
+    ],
+    "sources": [
+      { "claim": "Myanmar's 2008 constitution reserves 25% of parliamentary seats for the military and gives it control of the Home Affairs, Defense and Border Affairs ministries, plus an effective veto: amendments require more than 75% of parliament.", "url": "https://en.wikipedia.org/wiki/2008_Constitution_of_Myanmar" },
+      { "claim": "In early 2020 the NLD-led parliament failed to pass amendments that would have gradually reduced the military's reserved seats; the military bloc blocked any reduction of its power.", "url": "https://www.jurist.org/news/2020/03/myanmar-parliament-rejects-constitutional-amendment-to-reduce-military-political-power/" },
+      { "claim": "The military retained a firm grip on Myanmar's democratic transition through constitutional guarantees, and grew alarmed as the NLD's repeated landslide victories threatened its institutional power.", "url": "https://carnegieendowment.org/research/2015/06/myanmars-military-keeps-firm-grip-on-democratic-transition?lang=en" }
+    ]
+  },
+  "26": {
+    "marker": "{TK active description of what the military did that day in 2021}",
+    "chapter": "HISTORY 3 (post independence)",
+    "options": [
+      "rolled in before dawn, seized the government buildings, arrested Aung San Suu Kyi and the elected leaders in their beds, declared a state of emergency, and handed the whole country back to the commander-in-chief —",
+      "stormed the capital in the dark hours of the morning, detained Suu Kyi and the president, cut the phones and the internet, declared a year-long emergency, and put the general back in charge —",
+      "moved before sunrise — soldiers arresting the elected leaders, Suu Kyi hauled away, parliament blocked from ever convening, a state of emergency announced on military TV, the country seized back overnight —",
+      "swept into the new capital before dawn, rounded up Suu Kyi and the men and women the country had just voted for, declared the election a fraud and a state of emergency, and dropped the whole government into the hands of one general —",
+      "came for them in the dark — detaining Aung San Suu Kyi and the president, severing the phone lines, halting the broadcasts, and declaring a state of emergency that handed every power to the army's commander-in-chief —"
+    ],
+    "sources": [
+      { "claim": "On 1 February 2021, before dawn, the military detained Aung San Suu Kyi, President Win Myint and NLD leaders in early-morning raids, declared a one-year state of emergency under section 417, and transferred all power to Commander-in-Chief Min Aung Hlaing.", "url": "https://en.wikipedia.org/wiki/2021_Myanmar_coup_d'%C3%A9tat" },
+      { "claim": "The coup occurred the day before Parliament was to swear in members elected in the 2020 election, preventing it from convening; the junta alleged voter fraud already rejected by the Union Election Commission.", "url": "https://constitutionnet.org/news/constitutional-implications-myanmars-coup-1-february-2021" },
+      { "claim": "Around 3 a.m. phone lines to Naypyidaw were cut, state broadcaster MRTV went off air citing technical issues, and widespread internet disruptions were reported.", "url": "https://abcnews.go.com/International/myanmar-army-seizes-power-apparent-coup-declares-state/story?id=75604602" }
+    ]
+  },
+  "27": {
+    "marker": "{TK did they state their hope of unifying the country?}",
+    "chapter": "HISTORY 3 (post independence)",
+    "options": [
+      "they alone could restore order and hold the union together,",
+      "only the army could keep the country from breaking apart, the same promise the generals had been making for sixty years,",
+      "by taking back control they would protect the union from collapse and disorder,",
+      "the army was once again the only thing standing between this country and chaos,",
+      "they were saving the union, restoring stability and discipline to a country they claimed was falling apart,"
+    ],
+    "sources": [
+      { "claim": "The junta justified the 2021 coup as necessary to protect national stability and the union, casting the military as the guardian against fraud and disorder — the same unity-guardian rationale used in past takeovers.", "url": "https://www.csis.org/analysis/myanmars-military-seizes-power" },
+      { "claim": "The military's recurring justification across Myanmar's coups is that it alone can keep the multi-ethnic union from disintegrating.", "url": "https://blogs.lse.ac.uk/lseupr/2023/03/07/a-guide-to-the-2021-myanmar-military-coup/" }
+    ]
+  },
+  "28": {
+    "marker": "{TK reaction by the people, how it became today's civil war and how this one is different}",
+    "chapter": "HISTORY 3 (post independence)",
+    "options": [
+      "VO: but instead of falling into line, the country rose up. First peaceful protests filled the streets, and when the army answered with bullets, a generation that had tasted freedom refused to give it back. The young fled to the jungles and the borderlands, picked up guns, and joined the ethnic armies that had been fighting the military for decades. This time it wasn't a scatter of separate ethnic conflicts. For the first time, the lowland Burmans and the hill peoples were fighting the same enemy, and the old patchwork of border wars became one nationwide revolution — bigger, more unified, and more determined to win than anything the generals had faced before.",
+      "VO: but it backfired completely. The people who had glimpsed a freer life would not surrender it. When peaceful protest was met with massacres, an entire generation took up arms — fleeing to the frontiers, forming new resistance forces, and linking up with the ethnic armies who had resisted the military for half a century. And here the pattern broke. What the world had always filed away as scattered 'ethnic conflicts' became, after the coup, a single national civil war: the Burman heartland and the borderlands fighting side by side, no longer for separate states but for a different kind of country altogether — one where power flows up from the people, not down from the generals.",
+      "VO: but the country didn't surrender — it ignited. The protests came first, then the crackdowns, and then something the generals never expected: ordinary people, students and shopkeepers and office workers, arming themselves and slipping away to the borderlands to fight. They joined ethnic armies that had been at war with the military for generations, and suddenly the fight wasn't a dozen separate insurgencies anymore. It was one war, the whole country against the army at the center — the most unified, most widespread resistance the military had ever had to face, because this time the dream wasn't just autonomy, it was a federal nation built from the ground up.",
+      "VO: but it triggered the opposite of unity. The people refused to accept the coup, and when the soldiers fired on protesters, a new resistance was born overnight. Young people poured into the jungles and the hills, took up arms, and joined forces with the ethnic armies who had been fighting the military for decades. This time was different. The old wars had been the periphery against the center, each group fighting for itself. Now the center had joined the periphery. The Burmans and the hill peoples turned on the army together, and a tangle of border conflicts became a single national war — and the military has been losing ground across the country ever since.",
+      "VO: but instead it lit the whole country on fire. The protests were crushed, and out of the crackdown came a resistance unlike any before it. People fled to the borderlands and armed themselves, joining the ethnic forces who had fought the military for half a century. What had always been dismissed abroad as separate 'ethnic conflicts' became, after the coup, one nationwide civil war — the lowland Burmans and the highland peoples fighting the same army at last. And this resistance carried something new: not just a demand to break away, but a charter for a different country, one where sovereignty rises from the states and the people rather than being handed down by a military in the capital."
+    ],
+    "sources": [
+      { "claim": "After the 2021 coup, peaceful protests were met with lethal force; a nationwide armed resistance formed as civilians fled and took up arms, joining ethnic armed organizations that had fought the military for decades, turning scattered ethnic conflicts into a national civil war.", "url": "https://www.tandfonline.com/doi/full/10.1080/00472336.2025.2494109" },
+      { "claim": "The post-coup conflict has killed an estimated 90,000 people and displaced more than 3.5 million; for much of the period the military lost ground to ethnic armies and resistance forces, compressing its control toward the central lowlands.", "url": "https://www.britannica.com/event/Myanmar-Civil-War" },
+      { "claim": "Key ethnic armed organizations (KIA, KNU, KNPP, CNF, ABSDF) openly allied with the National Unity Government and People's Defense Forces, and the post-coup resistance articulated a new federal founding principle through the Federal Democracy Charter — sovereignty originating in states and peoples.", "url": "https://www.cfr.org/blog/myanmars-military-losing-ground-rebels-and-ethnic-armies-part-1" }
+    ]
+  },
+  "29": {
+    "marker": "{TK British rule producing a nationalist backlash, weaving insecurity and sovereignty}",
+    "chapter": "GROUND 3: THE CAPITAL",
+    "options": [
+      "a hundred years of being ruled by foreigners, of being a province of someone else's empire, of watching outsiders carry off the country's wealth and run its affairs. That humiliation never fully healed. It hardened into a deep, defensive nationalism — a vow that Burma would never again be owned by anyone, and that the men with the guns would be the ones to guarantee it.",
+      "a hundred years of colonial rule that stripped this proud, ancient country of its sovereignty and turned it into a possession. The wound of that humiliation runs through everything here. It became a nationalism built on insecurity — a refusal to ever be controlled by outsiders again — and a conviction that only an iron grip from the center could keep the country from being taken a second time.",
+      "a century of foreign domination — the kings deposed, the wealth shipped out, the country governed as an afterthought of British India. That left a scar that still aches: a fierce, suspicious nationalism that treats any outside influence as a threat to sovereignty, and that trusts only the army to make sure Burma is never conquered again.",
+      "a hundred years of humiliation under the British, who took the throne, the riches, and the right of this country to rule itself. The generals are still answering that wound. Their nationalism is the nationalism of the once-conquered: never again, never trust the outsider, never let the center grow weak enough to be taken — even if holding it that tightly means holding it alone.",
+      "a hundred years of being owned by a foreign empire that erased the monarchy, drained the country's wealth, and ran it from another continent. That memory never left. It curdled into a nationalism rooted in fear — fear of being conquered again, fear of the outsider, fear of any weakness at the center — and into the belief that only the army, only absolute control, could keep Burma sovereign."
+    ],
+    "sources": [
+      { "claim": "Colonial humiliation paved the way for extreme nationalist militarism in Burma; British rule shattered Burmese pride and sovereignty, reducing a proud people to subjects of a foreign empire that extracted the country's wealth.", "url": "https://www.newmandala.org/colonialism-and-ethnic-conflict-in-burma/" },
+      { "claim": "The conquest deposed the monarchy and ran Burma as a province of British India; the resulting loss of sovereignty fueled lasting nationalist sentiment centered on reclaiming and defending the nation's independence from foreign influence.", "url": "https://www.britannica.com/place/Myanmar/The-initial-impact-of-colonialism" },
+      { "claim": "Post-independence Burmese nationalism is marked by deep suspicion of foreign manipulation and a defensive concern for sovereignty and national unity, invoked to justify central control against perceived outside threats.", "url": "https://factsanddetails.com/southeast-asia/myanmar/sub5_5a/entry-3007.html" }
+    ]
+  },
+  "30": {
+    "marker": "{tk half line on why the gas shortage}",
+    "chapter": "GROUND 3: THE CAPITAL",
+    "options": [
+      "come from a regime that broke the economy and can't buy the fuel anymore,",
+      "are what happens when the generals run a country that imports almost all its fuel into the ground,",
+      "are the regime mismanaging the economy until the dollars to buy fuel ran out,",
+      "are the wreckage of an economy the junta crashed, in a country that buys nearly all its fuel from abroad,",
+      "trace back to a regime that wrecked the currency until there was no money left to import the fuel,"
+    ],
+    "sources": [
+      { "claim": "Approximately 95% of Myanmar's fuel demand is met by imports; domestic production is only ~5%.", "url": "https://ispmyanmar.com/op2026-01/" },
+      { "claim": "The fuel shortage is driven by the collapsing kyat and a foreign-currency shortage that starves importers of dollars; the economy was crippled by post-coup sanctions, lost investment and civil war.", "url": "https://www.rfa.org/english/news/myanmar/gasoline-shortage-economy-08142024074039.html" },
+      { "claim": "The kyat is down ~80% against the dollar since the 2021 coup, a collapse driven by regime mismanagement, sanctions and war.", "url": "https://www.lowyinstitute.org/the-interpreter/myanmar-s-other-war-battle-financial-control" }
+    ]
+  },
+  "31": {
+    "marker": "{TK holy site in TK location with one line on why it's important}",
+    "chapter": "GROUND 3: THE CAPITAL",
+    "options": [
+      "the Mahamuni Buddha in Mandalay, the holiest Buddha image in the country, said to have been cast in the Buddha's own lifetime",
+      "the Mahamuni Buddha of Mandalay — the most sacred Buddha image in Myanmar, so revered that pilgrims have buried it under inches of gold leaf",
+      "the Mahamuni in Mandalay, the most venerated Buddha statue in the land, believed to be one of only a handful made while the Buddha still lived",
+      "the Mahamuni Buddha far away in Mandalay, the country's most sacred image, the one true Buddha every Burmese pilgrim dreams of touching",
+      "the Mahamuni Buddha in Mandalay, the holiest object in Burmese Buddhism, a statue worshippers gild with gold until its shape disappears"
+    ],
+    "sources": [
+      { "claim": "The Mahamuni Buddha image in Mandalay is the most highly revered Buddha image in the country, a ~3.8m brass statue traditionally counted among the five likenesses of the Buddha made during his lifetime.", "url": "https://en.wikipedia.org/wiki/Mahamuni_Buddha_Temple" },
+      { "claim": "The Mahamuni image is covered with ~15cm of gold leaf applied by generations of male pilgrims, distorting the shape of the figure; it is Myanmar's holiest Buddhist statue, housed in the Mahamuni pagoda built 1785 by King Bodawpaya.", "url": "https://myanmar.com/travel/destinations/mandalay/mahamuni-buddha-temple/" },
+      { "claim": "Naypyidaw was built filled with deliberate replicas of the country's holiest sites (e.g. the Uppatasanti Pagoda copies Yangon's Shwedagon), part of the regime's strategy of replicating sacred legitimacy in the new capital.", "url": "https://en.wikipedia.org/wiki/Uppatasanti_Pagoda" }
+    ]
+  },
+  "32": {
+    "marker": "{TK monument that is in mandalay} the largest book is a replica of",
+    "chapter": "GROUND 3: THE CAPITAL",
+    "options": [
+      "the Kuthodaw Pagoda in Mandalay, where the entire Buddhist scripture is carved into 729 marble slabs — the real world's largest book",
+      "Mandalay's Kuthodaw Pagoda, 729 marble tablets holding the whole Buddhist canon, the original 'world's largest book'",
+      "the Kuthodaw Pagoda in Mandalay, where a king once carved all of Buddhism's scripture into stone so it could never be lost — 729 marble pages in all",
+      "the real one in Mandalay: the Kuthodaw Pagoda, the complete Buddhist canon inscribed across 729 marble slabs, each in its own little white shrine",
+      "the Kuthodaw Pagoda in Mandalay, 729 marble slabs of scripture built by King Mindon to outlast the British — the original world's largest book"
+    ],
+    "sources": [
+      { "claim": "Kuthodaw Pagoda in Mandalay houses the world's largest book: 729 marble slabs inscribed with the complete Tipitaka (Theravada Pali Canon), built during the reign of King Mindon as part of the founding of Mandalay in 1857.", "url": "https://www.amusingplanet.com/2015/05/kuthodaw-pagoda-and-world-largest-book.html" },
+      { "claim": "Each of the 729 marble tablets is enshrined in an individual white shrine (kyauksa gu) arranged in concentric rings; King Mindon conceived it to preserve the scripture, worried it might be lost amid the British invasion.", "url": "https://www.ancientpages.com/2018/02/24/kuthodaw-pagoda-worlds-largest-book-carved-729-marble-slabs/" }
+    ]
+  },
+  "33": {
+    "marker": "{TK summary emphasizing people's lives are affected by, but not entirely dictated by, the regime}",
+    "chapter": "GROUND 4: RURAL BURMA",
+    "options": [
+      "VO: people whose lives are shaped by the regime, but not owned by it. The dictatorship is the weather they live under — the gas lines, the censored papers, the soldiers somewhere out there — but it isn't the whole sky. Out here, life is still mostly life: the haggling, the laughing, the gossip, the abundance of the land. The regime sets the limits. The people fill in everything else.",
+      "VO: people living their lives in the shadow of the regime, but never entirely under its thumb. Yes, the dictatorship is here — in the price of rice, in the propaganda, in the fear of saying too much. But it doesn't reach all the way down. The market still hums. People still trade and tease and gather. The military rules the country, but it has never managed to rule the day-to-day.",
+      "VO: people whose ordinary lives go on in spite of the men in charge. The regime touches everything — what fuel they can buy, what they can say out loud, what newspapers they can read — and still it doesn't define them. Out here there's laughter, abundance, the small loud business of being alive. The dictatorship is a fact of life. It just isn't all of life.",
+      "VO: people getting on with the business of living, even with a dictatorship pressing down on them. The regime is real and it is everywhere — the shortages, the state papers, the watching — but it doesn't reach into the heart of things. The market is full. People gather, buy, sell, gossip, laugh. Their lives are bent by the regime, but they're not handed over to it.",
+      "VO: people whose days are touched by the regime but not surrendered to it. The dictatorship sets the boundaries — the gas you can't get, the politics you can't speak — and inside those boundaries, life keeps going, stubborn and full. There's trade and teasing and the easy abundance of this land. The generals control the country. They've never quite controlled the people."
+    ],
+    "sources": [
+      { "claim": "Myanmar's population shows high resilience and self-help after the 2021 coup; despite severe hardship, daily life is increasingly defined by community networks, small enterprise, markets and mutual support rather than solely by regime oppression.", "url": "https://thediplomat.com/2025/10/the-military-junta-will-never-break-the-myanmar-peoples-resilience/" },
+      { "claim": "Ordinary Burmese face severe economic hardship — low-quality rice surged from ~2,000 kyats before the coup to more than 5,000 — yet markets, small shops and community solidarity continue across the country.", "url": "https://goodmenproject.com/featured-content/life-under-military-rule-in-myanmars-biggest-city/" }
+    ]
+  }
+}
