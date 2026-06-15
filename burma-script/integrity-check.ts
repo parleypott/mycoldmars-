@@ -6,6 +6,7 @@
 
 import { parseScript } from "./parser";
 import { Block, ScriptDoc } from "./schema";
+import { stripSpanScaffolding } from "./src/document-builder.js";
 
 type Fail = { check: string; detail: string };
 const fails: Fail[] = [];
@@ -69,11 +70,38 @@ function roundTrip(doc: ScriptDoc) {
   assert(a === b, "round-trip JSON stable", `${a.length} vs ${b.length}`);
 }
 
+// ---- worklist unwrap: {tk …} / [visual …] -> inner text, no markup leak --------
+// The three producer worklists are read-only handoff views: stripSpanScaffolding unwraps
+// the inline span scaffolding the live doc round-trips on (nodeText/wrapToken re-wrap the
+// marks into literal '{tk …}' / '[…]' tokens). A handoff checklist must show inner text
+// only — never a raw brace/bracket. These cases lock that contract so the unwrap and the
+// re-wrap can't silently drift apart.
+function checkWorklistUnwrap() {
+  const cases: [string, string][] = [
+    ["{tk unique feature}", "unique feature"],            // research span -> inner
+    ["{tk: needs a stat}", "needs a stat"],               // colon form
+    ["[highlights India border]", "highlights India border"], // visual span -> inner
+    ["[visual: map push-in]", "visual: map push-in"],     // visual keyword kept (it's content)
+    ["He arrived {tk when?} at dawn.", "He arrived when? at dawn."], // mid-sentence
+    ["A line with [b-roll] and {tk fact}.", "A line with b-roll and fact."], // both kinds
+    ["unterminated {tk note to EOL", "unterminated note to EOL"], // dropped closing brace, '{tk' peeled
+    ["stray ] bracket and [ open", "stray bracket and open"], // lone chars peeled, double space collapsed
+    ["plain quote, nothing to strip", "plain quote, nothing to strip"],
+    ["", ""],
+  ];
+  for (const [input, want] of cases) {
+    const got = stripSpanScaffolding(input);
+    assert(got === want, "worklist unwrap exact", `in=${JSON.stringify(input)} got=${JSON.stringify(got)} want=${JSON.stringify(want)}`);
+    assert(!/[{}\[\]]/.test(got), "worklist unwrap leaves no raw markup", `in=${JSON.stringify(input)} got=${JSON.stringify(got)}`);
+  }
+}
+
 const src = await Bun.file(new URL("./sample-script.txt", import.meta.url)).text();
 const { doc } = parseScript(src);
 checkInvariants(doc, "parse");
 fuzz(doc, 5000);
 roundTrip(doc);
+checkWorklistUnwrap();
 
 const ok = fails.length === 0;
 const stamp = process.argv[2] || "manual";

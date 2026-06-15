@@ -57,6 +57,26 @@ export function cleanQuote(text) {
   return t.trim();
 }
 
+// Worklists are READ-ONLY handoff views — no round-trip back to blocks — so we can safely
+// unwrap the inline span scaffolding for display. nodeText/wrapToken re-wrap the marked
+// spans into literal '{tk …}' / '[visual …]' tokens so the live doc round-trips; but a
+// producer reading a checklist shouldn't see that markup. Strip the braces/brackets and
+// keep the inner text. This is the INVERSE of inlineContent/wrapToken above — keep the two
+// in sync (guarded by the worklist-unwrap checks in integrity-check.ts).
+export function stripSpanScaffolding(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/\{\s*tk\b[:\s]*([^{}]*)\}/gi, '$1') // {tk unique feature} -> unique feature
+    .replace(/\[([^\[\]]*)\]/g, '$1')             // [highlights India] -> highlights India
+    // The parser sometimes leaves an UNTERMINATED span — '{tk note that runs to EOL' with no
+    // closing brace, or a stray '[' with no ']'. Peel the bare scaffolding chars too so no
+    // raw markup leaks into the handoff view.
+    .replace(/\{\s*tk\b[:\s]*/gi, '')             // unterminated '{tk …'
+    .replace(/[{}\[\]]/g, '')                     // any stray lone brace/bracket
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
 // ---- timecode formatting -------------------------------------------------
 // The HERO element on SOT/broll. Keep the full broadcast timecode HH:MM:SS:FF
 // (frame-accurate — editors live by it). Just normalise spacing.

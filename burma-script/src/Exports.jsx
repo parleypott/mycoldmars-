@@ -16,25 +16,11 @@
 // near-white overlay, mono labels, the single red accent, no modal chrome zoo.
 
 import { useState, useMemo, useEffect, useCallback } from 'preact/hooks';
-import { docToBlocks, cleanQuote } from './document-builder.js';
+import { docToBlocks, cleanQuote, stripSpanScaffolding } from './document-builder.js';
 
-// Worklists are READ-ONLY handoff views — no round-trip back to blocks — so we can safely
-// unwrap the inline span scaffolding for display. The docToBlocks/nodeText path re-wraps
-// marked spans into literal '{tk …}' / '[…]' tokens so the doc round-trips; but a producer
-// reading a checklist shouldn't see that markup. Strip the braces/brackets, keep inner text.
-function stripSpanScaffolding(text) {
-  if (!text) return '';
-  return String(text)
-    .replace(/\{\s*tk\b[:\s]*([^{}]*)\}/gi, '$1') // {tk unique feature} -> unique feature
-    .replace(/\[([^\[\]]*)\]/g, '$1')             // [highlights India] -> highlights India
-    // The parser sometimes leaves an UNTERMINATED span — '{tk note that runs to EOL' with no
-    // closing brace, or a stray '[' with no ']'. Peel the bare scaffolding chars too so no
-    // raw markup leaks into the handoff view.
-    .replace(/\{\s*tk\b[:\s]*/gi, '')             // unterminated '{tk …'
-    .replace(/[{}\[\]]/g, '')                     // any stray lone brace/bracket
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim();
-}
+// Worklist bodies unwrap the inline span scaffolding ({tk …} / [visual …]) to inner text —
+// stripSpanScaffolding lives beside its inverse (inlineContent/wrapToken) in document-builder.js
+// and is guarded by the worklist-unwrap checks in integrity-check.ts.
 
 // ---- worklist extraction -------------------------------------------------
 // Pull the three worklists out of a live blocks array. Each entry is normalized to
