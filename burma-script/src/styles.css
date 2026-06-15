@@ -306,7 +306,12 @@ body {
   font-variant-numeric: tabular-nums;
 }
 .wp-sot .wp-tc { color: var(--red-ink); }     /* SOT timecode = the hero, in Swiss red */
-.wp-tc-amb { color: var(--red) !important; }
+/* ambiguous timecode: demoted off red to ink + a faint (?) — red is reserved for the SOT hero alone */
+.wp-tc-amb { color: var(--ink) !important; }
+.wp-tc-amb::after {
+  content: " (?)"; font-size: .6em; font-weight: 400;
+  letter-spacing: .04em; color: var(--faint);
+}
 .wp-day {
   font-family: var(--mono); font-size: var(--label); letter-spacing: .1em;
   text-transform: uppercase; color: var(--faint);
