@@ -10,10 +10,29 @@ const uid = (p: string) => `${p}_${(++_id).toString(36)}_${(_id * 2654435761 % 1
 // Timecode detector. The old /\b…\b/ word-boundary form MISSED any timecode glued to a
 // backslash-escape or stray bracket (e.g. "\02:02:01:07", "[02:02:01:07", "]01:57:38:07")
 // because the adjacent non-word char defeated \b. Johnny lost real timecodes to this.
-// New form: lookbehind/lookahead that only forbid a DIGIT or another COLON on either side
-// (so we never bite a sub-field of a longer numeric run) but allow ANY other neighbour —
-// backslash, bracket, paren, quote, letter. This catches every HH:MM:SS:FF in the script.
-const TC = /(?<!\d)(?<!\d:)(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)/g;
+// Two guards, each load-bearing and each tested against the real script's edge cases:
+//   lookbehind (?<!\d)(?<!\d:) — reject a DIGIT, or a "digit:" pair, immediately before. This
+//                            rejects a sub-field of a longer numeric run ("102:02:01:070",
+//                            "1:02:02:01:07") WITHOUT rejecting a LABEL colon — so the common
+//                            "ALT:03:19:40:07" / "DAY 2 SOT:01:08:54:15" forms still match.
+//                            (Bug found: a blanket (?<![\d:]) also kills the label-colon form
+//                            and silently dropped the leading TC of every "LABEL:tc" line.)
+//   lookahead  (?!:?\d)    — reject only if what follows continues the run as ":<digit>" (a 5th
+//                            HH:MM:SS:FF:FF field) or a bare digit. A trailing colon before a
+//                            NON-digit ("04:36:46:01: long shot") is the "timecode: description"
+//                            form and MUST be kept. (A blanket (?![\d:]) dropped every such line.)
+// Net: catches HH:MM:SS:FF glued to a backslash, bracket, paren, quote, letter, em-dash, or a
+// label-colon, while still rejecting genuine longer numeric runs.
+//
+// TWO regex instances on purpose. TC (global) is for matchAll/extraction; TC_HAS (non-global)
+// is for .test() routing. A SINGLE /g regex shared between matchAll and .test() is THE bug that
+// was losing timecodes: RegExp.prototype.test() on a /g regex advances .lastIndex, so
+// consecutive .test() calls alternate true/false and silently SKIP every other timecode-bearing
+// paragraph — dropping real SOTs into the holding bin. Never call .test() on the /g instance.
+export const TC = /(?<!\d)(?<!\d:)(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)/g;
+export const TC_HAS = /(?<!\d)(?<!\d:)(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)/; // non-global — safe for .test()
+/** Find every HH:MM:SS:FF in a string, bracket/backslash/colon-adjacent included. */
+export const findTimecodes = (s: string): string[] => [...s.matchAll(TC)].map((m) => m[1]);
 const DAY_RE = /\bDAY\s*([123])\b/i;
 
 // Chapter/scene titles must read as TITLES, not blown-up paragraphs. The raw CH:/SCENE:
@@ -67,6 +86,7 @@ function extractSpans(text: string): InlineSpan[] {
 
 // Resolve a DAY for a timecode using nearest explicit DAY in the surrounding window.
 function timecodeFrom(raw: string, contextDay: 1 | 2 | 3 | null): Timecode {
+  // matchAll ignores/maintains lastIndex internally, but reset defensively anyway.
   TC.lastIndex = 0;
   const all = [...raw.matchAll(TC)].map((x) => x[1]);
   const localDay = raw.match(DAY_RE);
@@ -118,8 +138,9 @@ export function parseScript(srcText: string): { doc: ScriptDoc; stats: any; ambi
       continue;
     }
     // --- SOT / timecode-bearing direction ---
-    if (TC.test(p)) {
-      TC.lastIndex = 0;
+    // Use the NON-global TC_HAS for routing — never the /g TC (its .lastIndex would advance
+    // and make every other timecode paragraph fall through to the bin).
+    if (TC_HAS.test(p)) {
       const tcode = timecodeFrom(p, contextDay);
       if (tcode.ambiguous) ambiguous.push(tcode);
       const speaker = /JACK|Jack/.test(p) ? "Jack" : /DREW|Drew/.test(p) ? "Drew" : /JH|Johnny/.test(p) ? "JH" : undefined;
