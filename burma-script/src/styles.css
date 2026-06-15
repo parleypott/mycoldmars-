@@ -155,10 +155,63 @@ body {
   position: relative;
 }
 
-/* hover rail — the Notion "this is a movable block" cue */
-.wp-block:hover,
+/* MORE PROMINENT BORDER (punch-list #2): every content block reads as a distinct module —
+   a real card with a clear edge, sitting on white, demarcated from the scroll. The card
+   spans gutter+body (the grip rail stays in the margin so dragging still feels Notion-like).
+   Chapters/scenes are NOT carded — they're section headers that frame the cards below. */
+.wp-block {
+  padding: 0;
+  margin: 9px 0;
+  align-items: stretch;
+}
+.wp-block > .wp-gutter,
+.wp-block > .wp-tc-head,
+.wp-block > .wp-body {
+  background: #fff;
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
+}
+.wp-block > .wp-gutter {
+  grid-column: 2;
+  border-left: 1px solid var(--line-strong);
+  border-radius: 6px 0 0 6px;
+  padding: 12px 0 12px 12px;
+}
+.wp-block > .wp-body {
+  grid-column: 3;
+  border-right: 1px solid var(--line-strong);
+  border-radius: 0 6px 6px 0;
+  padding: 12px 16px 12px 12px;
+}
+/* SOT/broll lead with a full-width head row that owns the top edge; the body closes it off */
+.wp-block > .wp-tc-head {
+  grid-column: 2 / -1;
+  border-left: 1px solid var(--line-strong);
+  border-right: 1px solid var(--line-strong);
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  padding: 11px 16px 8px 12px;
+}
+.wp-sot > .wp-body, .wp-broll > .wp-body {
+  grid-column: 2 / -1 !important;
+  border-top: 0;
+  border-left: 1px solid var(--line-strong);
+  border-radius: 0 0 6px 6px;
+  padding: 2px 16px 12px 12px;
+}
+/* SOT/broll lead with the full-width head row, so the always-rendered (empty) gutter cell
+   would punch a stray bordered notch — collapse it. */
+.wp-sot > .wp-gutter, .wp-broll > .wp-gutter { display: none; }
+
+/* hover rail — the Notion "this is a movable block" cue (now a subtle border lift, since
+   blocks already carry edges) */
 .wp-chapter:hover,
 .wp-scene:hover { background: rgba(0,0,0,.018); }
+.wp-block:hover > .wp-gutter,
+.wp-block:hover > .wp-tc-head,
+.wp-block:hover > .wp-body { border-color: var(--line-strong); background: #fff; }
+.wp-block:hover { filter: none; }
+.wp-block:hover > .wp-gutter { box-shadow: -1px 0 0 var(--faint-2); }
 
 /* ---- REAL drag grip rail (correction #8: movable + insert + menu, not a CSS fake) ----
    Holds the "+" insert and the "∷" drag handle. Hidden until block hover (Notion feel). */
@@ -231,44 +284,78 @@ body {
 .wp-kind { white-space: nowrap; }
 .wp-body { grid-column: 3; min-width: 0; }
 
-/* ---- CHAPTER — quiet weighted heading. Hierarchy through SPACE + weight, not a red bar
-   under every line (Swiss restraint, correction #1: no rule zoo). Generous top padding
-   groups the chapter to the section below it; the eye reads structure from rhythm. ---- */
-.wp-chapter { padding: 46px 0 8px; }
-.wp-chapter:first-child { padding-top: 6px; }
-/* consecutive chapters (the source has many short runs) tighten so a stack of titles
-   reads as ONE group, not four separate loud sections. */
-.wp-chapter + .wp-chapter { padding-top: 22px; }
+/* ---- CHAPTER — A REAL ARRIVAL (punch-list #1). A new chapter must FEEL like landing
+   somewhere: a big auto-numbered title, generous air above, and a full-width divider that
+   declares the section break. Hierarchy is read from SIZE + SPACE + a single red marker —
+   loud enough to anchor a 225-block scroll, still Swiss-disciplined (one accent, no zoo). ---- */
+.wp-page { counter-reset: wp-chap; } /* drives the auto chapter number */
+.wp-chapter { padding: 84px 0 14px; }
+.wp-chapter:first-child { padding-top: 28px; }
+/* consecutive chapters (the source has short runs) tighten so a stack reads as one group,
+   but still keep real presence — these are arrivals, not subheads. */
+.wp-chapter + .wp-chapter { padding-top: 40px; }
+
+/* The full-width DIVIDER above every chapter — a clear break/arrival rule across the grid.
+   A thin ink hairline carrying a bold red segment at the left margin: the Swiss section mark. */
+.wp-chapter::before {
+  content: ""; position: absolute; top: 28px; left: var(--grip-w); right: 0; height: 1px;
+  background: var(--line-strong);
+}
+.wp-chapter::after {
+  content: ""; position: absolute; top: 27px; left: var(--grip-w); width: 56px; height: 3px;
+  background: var(--red);
+}
+.wp-chapter:first-child::before,
+.wp-chapter:first-child::after { display: none; }
+
 .wp-chapter-inner {
-  grid-column: 3;
-  font-size: 16px; font-weight: 600; letter-spacing: 0;
-  line-height: 1.34; color: var(--ink);
+  grid-column: 2 / -1;          /* the big title spans gutter + body — full chapter width */
+  counter-increment: wp-chap;
+  position: relative;
+  padding-top: 20px;
+  font-size: 38px; font-weight: 700; letter-spacing: -.02em;
+  line-height: 1.06; color: var(--ink);
   text-transform: none;
 }
-/* genre + scene marks now ride in a real gutter cell (top-aligned, tracks wrapping) */
+/* the chapter NUMBER — a mono eyebrow sitting above the big title (CHAPTER 01) */
+.wp-chapter-inner::before {
+  content: "CH " counter(wp-chap, decimal-leading-zero);
+  display: block;
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: .22em; text-transform: uppercase; color: var(--red);
+  margin-bottom: 12px;
+}
+/* genre + scene marks ride in a real gutter cell (top-aligned, tracks wrapping) */
 .wp-gutter-head { grid-column: 2; padding-top: 5px; align-items: flex-start; }
 .wp-gutter-head .wp-kind {
   font-size: var(--label); letter-spacing: .12em; color: var(--faint-2);
 }
-.wp-chapter > .wp-grip { margin-top: 50px; }
-.wp-chapter + .wp-chapter > .wp-grip { margin-top: 26px; }
-/* a SINGLE thin red rule marks the START of a chapter run — only on a chapter that is
-   NOT immediately preceded by another chapter. One accent per section, not per line. */
-.wp-chapter::before {
-  content: ""; position: absolute; top: 0; left: var(--grip-w); width: 24px; height: 1px;
-  background: var(--red);
-}
-.wp-chapter + .wp-chapter::before { display: none; }
-.wp-chapter:first-child::before { display: none; }
+/* the genre marker on a chapter rides in the title block (gutter cell is now visually
+   subsumed by the full-width title) — hide the empty head gutter so it doesn't add a notch */
+.wp-chapter .wp-gutter-head { display: none; }
+.wp-chapter > .wp-grip { margin-top: 100px; }
+.wp-chapter:first-child > .wp-grip { margin-top: 44px; }
+.wp-chapter + .wp-chapter > .wp-grip { margin-top: 56px; }
 
-/* ---- SCENE — quieter sub-heading ---- */
-.wp-scene { padding: 20px 0 4px; }
-.wp-scene > .wp-grip { margin-top: 1px; }
+/* ---- SCENE — a clear, STRONG second tier (punch-list #1). Substantial, not a tiny
+   subhead: a SCENE eyebrow + a real heading size, clearly below chapter but clearly a
+   header. The eye reads chapter → scene → body as three distinct tiers. ---- */
+.wp-scene { padding: 34px 0 8px; }
+.wp-scene > .wp-grip { margin-top: 4px; }
 .wp-scene-inner {
-  grid-column: 3;
-  font-size: 13.5px; font-weight: 600; letter-spacing: 0;
-  line-height: 1.4; color: var(--ink-2);
+  grid-column: 2 / -1;
+  position: relative;
+  font-size: 20px; font-weight: 700; letter-spacing: -.01em;
+  line-height: 1.24; color: var(--ink);
 }
+.wp-scene-inner::before {
+  content: "SCENE";
+  display: block;
+  font-family: var(--mono); font-size: 9.5px; font-weight: 600;
+  letter-spacing: .2em; text-transform: uppercase; color: var(--faint);
+  margin-bottom: 6px;
+}
+.wp-scene .wp-gutter-head { display: none; }
 .wp-scene .wp-gutter-head .wp-kind { letter-spacing: .14em; }
 
 /* ---- UNIFORM BODY PROSE — correction #1: ONE family, ONE size for ALL body text.
@@ -301,16 +388,17 @@ body {
 .wp-vodot[data-status="recorded"] { border-color: var(--red); background: var(--red); }
 .wp-vodot[data-status="in-edit"] { border-color: var(--done); background: var(--done); }
 
-/* ---- SOT / B-ROLL — TIMECODE IS THE HERO (correction #3) ---- */
-.wp-sot, .wp-broll { padding: 9px 0; }
+/* ---- SOT / B-ROLL — ANCHORED ROW (punch-list #3/#4/#5):
+   [done-CHECKBOX, LEFT edge] → [TIMECODE, prominent] → [TINY copy] → [day] → [speaker].
+   Everything reads left-to-right off one fixed anchor. No right-side control stack. ---- */
 .wp-tc-head {
   grid-column: 2 / -1;
-  display: flex; align-items: center; gap: 14px;
-  margin-bottom: 3px; user-select: none;
+  display: flex; align-items: center; gap: 11px;
+  user-select: none;
 }
 .wp-tc {
-  font-family: var(--mono); font-weight: 600;
-  font-size: 19px; letter-spacing: .01em; color: var(--ink);
+  font-family: var(--mono); font-weight: 700;
+  font-size: 20px; letter-spacing: .01em; color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 .wp-sot .wp-tc { color: var(--red-ink); }     /* SOT timecode = the hero, in Swiss red */
@@ -332,20 +420,29 @@ body {
   font-family: var(--mono); font-size: var(--label); letter-spacing: .14em;
   color: var(--faint); font-weight: 600;
 }
-.wp-spacer { flex: 1 1 auto; }
-/* Body sits in COLUMN 3 — the SAME left baseline as VO/ONCAM prose, so scanning down
-   the page there is ONE locked left margin for all body text (Swiss grid registration).
-   Only the timecode HEAD spans 2/-1. Family/size inherit the uniform body rule above;
-   here we only set column + a quiet ink shade so SOT/broll read as transcribed quotes. */
-.wp-sot .wp-body, .wp-broll .wp-body {
-  grid-column: 3;
-  color: var(--ink-2);
+/* Body sits full-width under the head (column 2/-1, set above) so the quote reads as one
+   transcribed block under its anchored timecode row. Quiet ink shade marks it as a quote. */
+.wp-sot .wp-body, .wp-broll .wp-body { color: var(--ink-2); }
+
+/* DONE CHECKBOX — a real checkbox on the LEFT edge of the row (correction #5). Square,
+   clear, the first thing the eye lands on; ticks green when done. */
+.wp-done {
+  font-family: var(--sans); font-size: 13px; line-height: 1;
+  width: 19px; height: 19px; border-radius: 4px; flex: 0 0 auto;
+  border: 1.5px solid var(--faint-2); background: #fff;
+  color: transparent; cursor: pointer; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.wp-done:hover { border-color: var(--done); color: var(--faint-2); }
+.wp-done.is-done, .wp-sot.is-done .wp-done, .wp-broll.is-done .wp-done {
+  color: #fff; background: var(--done); border-color: var(--done);
 }
 
-/* icon-only copy (correction #4) */
-.wp-copy, .wp-done {
-  font-family: var(--sans); font-size: 13px; line-height: 1;
-  width: 22px; height: 22px; border-radius: 4px;
+/* TINY copy button — sits right next to the timecode (correction #4), small + quiet. */
+.wp-copy {
+  font-family: var(--sans); font-size: 11px; line-height: 1;
+  width: 18px; height: 18px; border-radius: 4px; flex: 0 0 auto;
   border: 1px solid var(--line-strong); background: var(--paper);
   color: var(--faint); cursor: pointer; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -353,10 +450,7 @@ body {
 }
 .wp-copy:hover { color: var(--ink); border-color: var(--ink); }
 .wp-copy.copied { color: var(--done); border-color: var(--done); }
-.wp-done:hover { color: var(--done); border-color: var(--done); }
-.wp-done.is-done, .wp-sot.is-done .wp-done, .wp-broll.is-done .wp-done {
-  color: #fff; background: var(--done); border-color: var(--done);
-}
+
 .wp-sot.is-done, .wp-broll.is-done { opacity: .55; }
 
 /* ---- SERVICE (map-need / archive-req) — calm utility. Same family/size as body;
@@ -746,11 +840,21 @@ body {
   .wp-block, .wp-chapter, .wp-scene {
     grid-template-columns: var(--gutter-w) minmax(0, 1fr) !important;
     background: none !important;
+    margin: 0 !important;
     break-inside: avoid;
     page-break-inside: avoid;
   }
+  /* strip the screen card chrome — print is flat black ink on white, no borders/radii */
+  .wp-block > .wp-gutter, .wp-block > .wp-body, .wp-block > .wp-tc-head {
+    background: none !important; border: 0 !important; border-radius: 0 !important;
+    padding: 2pt 0 !important;
+  }
   .wp-gutter, .wp-gutter-head { grid-column: 1 !important; color: #555 !important; }
   .wp-body, .wp-chapter-inner, .wp-scene-inner { grid-column: 2 !important; }
+  /* SOT/broll full-width head + body span the printed text column */
+  .wp-tc-head { grid-column: 1 / -1 !important; }
+  .wp-sot > .wp-body, .wp-broll > .wp-body { grid-column: 1 / -1 !important; }
+  .wp-sot > .wp-gutter, .wp-broll > .wp-gutter { display: none !important; }
 
   /* every block prints black ink — no faded greys, no red washes on body text */
   .wp-vo .wp-body, .wp-oncam .wp-body, .wp-sot .wp-body, .wp-broll .wp-body,
