@@ -5,7 +5,7 @@
 // Later tasks layer interaction onto these same components.
 
 import { render } from "preact";
-import { useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { parseScript } from "../../parser.ts";
 import sampleScript from "../../sample-script.txt?raw";
 
@@ -133,7 +133,93 @@ function BlockView({ block }) {
   }
 }
 
-function Telem({ tel, loaded }) {
+// ---- OUTLINE VIEW (PLAN task 2) ----
+// Collapse the document to its CH:/SCENE: spine: genre-colored chapters, indented
+// scenes, and a per-section block tally. Chapter counts roll up their scenes.
+function emptyCounts() {
+  return { total: 0, vo: 0, oncam: 0, sot: 0, broll: 0, service: 0 };
+}
+function tallyBlock(counts, b) {
+  counts.total++;
+  if (b.type === "vo") counts.vo++;
+  else if (b.type === "oncam") counts.oncam++;
+  else if (b.type === "sot") counts.sot++;
+  else if (b.type === "broll") counts.broll++;
+  else counts.service++; // map-need / archive-req / note / jh-note / bin
+}
+
+function buildOutline(blocks) {
+  const chapters = [];
+  let curCh = null;
+  let curScene = null;
+  const openChapter = (block, id, genre, title) => {
+    curCh = { block, id, genre, title, scenes: [], counts: emptyCounts() };
+    curScene = null;
+    chapters.push(curCh);
+  };
+  for (const b of blocks) {
+    if (b.type === "chapter") {
+      openChapter(b, b.id, b.genre || "other", b.title);
+      continue;
+    }
+    if (b.type === "scene") {
+      if (!curCh) openChapter(null, "pre", "other", "Front matter");
+      curScene = { block: b, id: b.id, title: b.title, counts: emptyCounts() };
+      curCh.scenes.push(curScene);
+      continue;
+    }
+    if (!curCh) openChapter(null, "pre", "other", "Front matter");
+    tallyBlock(curCh.counts, b);           // chapter total = rollup incl. scenes
+    if (curScene) tallyBlock(curScene.counts, b);
+  }
+  return chapters;
+}
+
+const COUNT_LABELS = [
+  ["vo", "VO"], ["oncam", "OC"], ["sot", "SOT"], ["broll", "B"], ["service", "SVC"],
+];
+function CountChips({ counts }) {
+  return (
+    <span class="ol-counts mono">
+      <b class="ol-total">{counts.total}</b>
+      {COUNT_LABELS.filter(([k]) => counts[k] > 0).map(([k, lab]) => (
+        <span class="ol-chip">{counts[k]}<i>{lab}</i></span>
+      ))}
+    </span>
+  );
+}
+
+function Outline({ blocks, onJump }) {
+  const tree = useMemo(() => buildOutline(blocks), [blocks]);
+  return (
+    <div id="outline">
+      <div class="ol-head mono">Outline · spine</div>
+      {tree.map((ch) => {
+        const g = GENRE[ch.genre] || GENRE.other;
+        return (
+          <div class="ol-chapter" key={ch.id}>
+            <button class="ol-row ol-ch" onClick={() => onJump(ch.id)} disabled={ch.id === "pre"}>
+              <span class="ol-bar" style={{ background: g.c }} />
+              <span class="ol-tag mono" style={{ color: g.c }}>{g.label}</span>
+              <span class="ol-title">{ch.title}</span>
+              <CountChips counts={ch.counts} />
+            </button>
+            {ch.scenes.map((sc) => (
+              <button class="ol-row ol-sc" key={sc.id} onClick={() => onJump(sc.id)}>
+                <span class="ol-bar ghost" style={{ background: g.c }} />
+                <span class="ol-sclab mono">SCENE</span>
+                <span class="ol-title">{sc.title}</span>
+                <CountChips counts={sc.counts} />
+              </button>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Telem({ tel, loaded, view }) {
   return (
     <div class="telem">
       {loaded ? (
@@ -142,7 +228,7 @@ function Telem({ tel, loaded }) {
           <span class="t">READ <b>{tel.mins}m</b></span>
           <span class="t">BLOCKS <b>{tel.blocks}</b></span>
           <span class="t">% DONE <b>0</b></span>
-          <span class="t">MODE <b>READ-ONLY</b></span>
+          <span class="t">VIEW <b>{view === "outline" ? "OUTLINE" : "DOCUMENT"}</b></span>
         </>
       ) : (
         <span class="t">STANDBY · NO SCRIPT LOADED</span>
@@ -151,23 +237,34 @@ function Telem({ tel, loaded }) {
   );
 }
 
-function FnBay() {
-  // Function-key bay — chrome shell. Wiring lands in later PLAN tasks.
+function FnBay({ view, onOutline, enabled }) {
+  // Function-key bay — chrome shell. F2 OUTLINE is live; the rest wire in later tasks.
   const keys = [
-    ["F1", "SAVE"], ["F2", "OUTLINE"], ["F3", "COMMENT"],
-    ["F4", "REFERENCE"], ["F5", "FOCUS"], ["F7", "EXPORT"],
+    ["F1", "SAVE", null], ["F2", "OUTLINE", "outline"], ["F3", "COMMENT", null],
+    ["F4", "REFERENCE", null], ["F5", "FOCUS", null], ["F7", "EXPORT", null],
   ];
   return (
     <div class="fnbay">
-      {keys.map(([k, label]) => (
-        <span class="fk ghost"><span class="key">{k}</span><b>{label}</b></span>
-      ))}
+      {keys.map(([k, label, fn]) => {
+        const live = fn === "outline" && enabled;
+        const active = fn === "outline" && view === "outline";
+        return (
+          <button
+            class={"fk" + (live ? "" : " ghost") + (active ? " active" : "")}
+            disabled={!live}
+            onClick={live ? onOutline : undefined}
+          >
+            <span class="key">{k}</span><b>{label}</b>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
 function App() {
   const [parsed, setParsed] = useState(null);
+  const [view, setView] = useState("doc"); // "doc" | "outline"
   const tel = useMemo(
     () => (parsed ? telemetry(parsed.doc, parsed.stats) : null),
     [parsed]
@@ -177,13 +274,42 @@ function App() {
     setParsed(parseScript(sampleScript));
   }
 
+  function toggleOutline() {
+    setView((v) => (v === "outline" ? "doc" : "outline"));
+  }
+
+  // jump from an outline row to the block in document view
+  function jump(blockId) {
+    setView("doc");
+    requestAnimationFrame(() => {
+      const el = document.getElementById("blk-" + blockId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("blk-flash");
+        setTimeout(() => el.classList.remove("blk-flash"), 900);
+      }
+    });
+  }
+
+  // F2 = OUTLINE (hardware-key feel: the actual key works once a script is loaded)
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "F2" && parsed) {
+        e.preventDefault();
+        toggleOutline();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [parsed]);
+
   return (
     <>
       <div id="bar">
         <span class="model">MODEL <b>WP-01</b> · BURMA SCRIPT TOOL</span>
-        <Telem tel={tel} loaded={!!parsed} />
+        <Telem tel={tel} loaded={!!parsed} view={view} />
       </div>
-      <FnBay />
+      <FnBay view={view} onOutline={toggleOutline} enabled={!!parsed} />
 
       <div id="stage">
         <div id="page">
@@ -200,6 +326,8 @@ function App() {
                 <span class="num">01/</span> Load sample script
               </button>
             </div>
+          ) : view === "outline" ? (
+            <Outline blocks={parsed.doc.blocks} onJump={jump} />
           ) : (
             <>
               <div id="doc">
@@ -211,7 +339,9 @@ function App() {
                   </div>
                 </div>
                 {parsed.doc.blocks.map((b) => (
-                  <BlockView key={b.id} block={b} />
+                  <div id={"blk-" + b.id} key={b.id}>
+                    <BlockView block={b} />
+                  </div>
                 ))}
               </div>
               <div id="hublane">

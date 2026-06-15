@@ -96,10 +96,18 @@ body {
   background:#1c1a13; border:1px solid var(--instrument-line);
   border-radius:4px; padding:4px 9px;
   display:inline-flex; align-items:center; gap:6px;
+  cursor:pointer;
+  transition:transform .05s ease, border-color .15s ease, background .15s ease;
 }
 .fk b { color:var(--instrument-ink); font-weight:600; }
 .fk .key { color:var(--accent); font-weight:700; }
-.fk.ghost { opacity:.45; }
+.fk.ghost { opacity:.45; cursor:default; }
+.fk:not(.ghost):hover { border-color:var(--accent); }
+.fk:not(.ghost):active { transform:translateY(1px); } /* hardware-key press */
+.fk.active {
+  background:var(--accent); border-color:var(--accent);
+}
+.fk.active b, .fk.active .key { color:var(--instrument-2); }
 
 /* ============================================================
    LAYER A — THE PAGE (the calm center column where script lives)
@@ -223,6 +231,64 @@ body {
   font-size:13px; line-height:1.55; color:var(--faint);
   border:1px dotted var(--line); border-radius:4px; padding:8px 12px;
   white-space:pre-wrap;
+}
+
+/* ---------- OUTLINE VIEW — the spine (PLAN task 2) ---------- */
+#outline { grid-column:1 / -1; min-width:0; }
+.ol-head {
+  font-size:10px; letter-spacing:.16em; color:var(--accent);
+  border-bottom:1px solid var(--line); padding-bottom:10px; margin-bottom:8px;
+}
+.ol-chapter { margin-bottom:6px; }
+
+/* a row is a tactile, full-width target — calm, but instrument-precise */
+.ol-row {
+  width:100%; text-align:left; background:transparent; border:0; cursor:pointer;
+  display:flex; align-items:baseline; gap:12px;
+  padding:8px 8px; border-radius:4px; color:var(--ink);
+  transition:background .12s ease;
+}
+.ol-row:hover:not(:disabled) { background:rgba(0,0,0,.035); }
+.ol-row:disabled { cursor:default; }
+.ol-row:active:not(:disabled) { background:rgba(0,0,0,.06); }
+
+/* genre-colored bar at the head of each row */
+.ol-bar { flex:0 0 auto; width:4px; align-self:stretch; border-radius:2px; }
+.ol-bar.ghost { opacity:.35; width:3px; }
+
+.ol-ch { padding-top:14px; }
+.ol-tag {
+  flex:0 0 auto; font-size:9.5px; letter-spacing:.12em; font-weight:700;
+  align-self:center; min-width:7.5rem;
+}
+.ol-sc { padding-left:22px; }
+.ol-sclab {
+  flex:0 0 auto; font-size:9px; letter-spacing:.12em; color:var(--faint);
+  align-self:center; min-width:7.5rem;
+}
+.ol-title {
+  flex:1 1 auto; min-width:0; font-family:var(--serif); color:var(--ink);
+}
+.ol-ch .ol-title { font-size:16px; font-weight:600; letter-spacing:-.01em; }
+.ol-sc .ol-title { font-size:13.5px; font-weight:500; color:#3a342b; }
+
+/* count tally — mono chips, calm */
+.ol-counts {
+  flex:0 0 auto; align-self:center;
+  display:inline-flex; align-items:center; gap:7px;
+  font-size:9.5px; letter-spacing:.04em; color:var(--faint);
+}
+.ol-counts .ol-total {
+  color:var(--ink); font-weight:700; font-size:11px;
+  min-width:1.4rem; text-align:right;
+}
+.ol-chip i { font-style:normal; color:var(--faint); opacity:.7; margin-left:1px; }
+
+/* jump-to-block flash when arriving from the outline */
+.blk-flash > .block { animation:blkflash .9s ease; }
+@keyframes blkflash {
+  0% { background:rgba(255,90,31,.16); }
+  100% { background:transparent; }
 }
 
 /* hub lane placeholder */
