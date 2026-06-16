@@ -121,7 +121,12 @@ export function parseCSV(text) {
   // line keeps a trailing \r that contaminates field values and breaks
   // strict-equality lookups elsewhere.
   text = text.replace(/\r\n?/g, '\n');
-  const lines = text.trim().split('\n');
+  // Quote-aware row split. A naive `split('\n')` shears any quoted field
+  // that contains a line break (a multi-line transcript cell) — the second
+  // physical line drops out as an orphan row and the cell's text is silently
+  // truncated. splitRows only breaks on newlines OUTSIDE quotes, so a
+  // multi-line cell survives as a single row.
+  const lines = splitRows(text.trim());
   if (lines.length < 2) throw new Error('CSV file appears empty');
 
   // Detect delimiter — Happy Scribe uses semicolons; tab covers TSV
@@ -167,6 +172,39 @@ export function parseCSV(text) {
 
   if (segments.length === 0) throw new Error('No segments found in CSV');
   return segments;
+}
+
+/**
+ * Split raw CSV text into rows, respecting quoted fields that span newlines.
+ * Only an unquoted newline ends a row; a `\n` inside a "..." field is kept as
+ * part of that field's value. Doubled quotes ("") inside a quoted field are an
+ * escaped literal quote and must NOT flip quote state.
+ */
+function splitRows(text) {
+  const rows = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (inQuotes && text[i + 1] === '"') {
+        // Escaped quote — consume both, stay inside the field.
+        current += '""';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+        current += ch;
+      }
+    } else if (ch === '\n' && !inQuotes) {
+      rows.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  if (current.length > 0) rows.push(current);
+  return rows;
 }
 
 /** Parse a single CSV line, respecting quoted fields */
