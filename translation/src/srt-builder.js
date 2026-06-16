@@ -211,27 +211,33 @@ function findBreakPoint(words, currentIdx, targetLen, lookahead, patterns) {
   return currentIdx;
 }
 
-/** Parse various timecode formats to seconds */
-function timeToSeconds(tc) {
+/** Parse various timecode formats to seconds.
+ *
+ * Patterns are ANCHORED (^…$) and the fractional part is OPTIONAL. The
+ * previous version required a fraction for the colon-separated forms, so a
+ * fraction-less HH:MM:SS (the common Happy Scribe / Trint export shape) fell
+ * through to an UN-anchored MM:SS matcher that latched onto the trailing
+ * "MM:SS" — silently dropping the hours. "01:02:03" parsed as 00:02:03,
+ * shifting every cue past the first hour back by a full hour. Anchoring +
+ * optional fraction makes each form match exactly one shape.
+ */
+export function timeToSeconds(tc) {
   if (!tc) return 0;
+  tc = String(tc).trim();
+  const msFrac = (ms) => ms ? parseInt(ms.padEnd(3, '0').slice(0, 3), 10) / 1000 : 0;
 
-  const match = tc.match(/(\d+):(\d+):(\d+)[.,](\d+)/);
-  if (match) {
-    const [, h, m, s, ms] = match;
-    const msNorm = ms.padEnd(3, '0').slice(0, 3);
-    return parseInt(h) * 3600 + parseInt(m) * 60 + parseInt(s) + parseInt(msNorm) / 1000;
+  // HH:MM:SS(.mmm) — single- or multi-digit hours, optional fraction
+  const m3 = tc.match(/^(\d+):(\d+):(\d+)(?:[.,](\d+))?$/);
+  if (m3) {
+    const [, h, m, s, ms] = m3;
+    return parseInt(h, 10) * 3600 + parseInt(m, 10) * 60 + parseInt(s, 10) + msFrac(ms);
   }
 
-  const match2 = tc.match(/(\d+):(\d+)[.,](\d+)/);
-  if (match2) {
-    const [, m, s, ms] = match2;
-    const msNorm = ms.padEnd(3, '0').slice(0, 3);
-    return parseInt(m) * 60 + parseInt(s) + parseInt(msNorm) / 1000;
-  }
-
-  const match3 = tc.match(/(\d+):(\d+)$/);
-  if (match3) {
-    return parseInt(match3[1]) * 60 + parseInt(match3[2]);
+  // MM:SS(.mmm)
+  const m2 = tc.match(/^(\d+):(\d+)(?:[.,](\d+))?$/);
+  if (m2) {
+    const [, m, s, ms] = m2;
+    return parseInt(m, 10) * 60 + parseInt(s, 10) + msFrac(ms);
   }
 
   const f = parseFloat(tc);
@@ -246,7 +252,7 @@ function timeToSeconds(tc) {
  *     For a transcript that long we cap at 99:59:59,999 — the file is
  *     way past usable territory anyway, but a malformed cue is worse.
  */
-function formatSRT(sec) {
+export function formatSRT(sec) {
   if (!Number.isFinite(sec) || sec < 0) sec = 0;
   let totalMs = Math.round(sec * 1000);
   // 99:59:59,999 cap so the timecode always fits HH:MM:SS,mmm
