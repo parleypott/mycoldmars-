@@ -173,19 +173,25 @@ function detectFixation(blocks, extraCharacters = []) {
   const dominantSetting = Object.entries(settingStreaks).sort((a, b) => b[1] - a[1])[0];
   const sameSettingStreak = dominantSetting ? dominantSetting[1] : 0;
 
-  // Escalation trajectory — strictly monotonic upward over last 3+?
+  // Escalation trajectory — is the score actually climbing toward the end?
+  // A run counts as escalation only if it is (a) non-decreasing for 3+
+  // blocks AND (b) shows a NET increase end-over-start. A flat steady
+  // state of violence (e.g. 5,5,5) is NOT escalation — it is holding
+  // steady, and is already caught by EXTREME_DENSITY below. ESCALATION_RUN
+  // means specifically "trending up." Without the net-increase check a
+  // flat run falsely fired the "Henry is in a make-it-more-extreme loop"
+  // hint when the story wasn't escalating at all.
   const escs = perBlock.map(s => s.escalation);
-  let monotonicUpRun = 1;
-  for (let i = 1; i < escs.length; i++) {
-    if (escs[i] >= escs[i - 1] && escs[i] > 0) monotonicUpRun++;
-    else break;
-  }
-  // Reverse — look from the end back
+  // Length of the non-decreasing run ending at the most recent block.
   let endRun = 1;
   for (let i = escs.length - 1; i > 0; i--) {
     if (escs[i] >= escs[i - 1] && escs[i] > 0) endRun++;
     else break;
   }
+  const runStartEsc = escs[escs.length - endRun];
+  const lastEsc = escs[escs.length - 1];
+  // Climbing = a long-enough run that actually rose across its span.
+  const climbing = endRun >= 3 && lastEsc > runStartEsc;
 
   // Extreme-category density — % of recent blocks where 'extreme' fired
   const extremeBlocks = perBlock.filter(s => (s.categories.extreme || 0) > 0).length;
@@ -194,7 +200,7 @@ function detectFixation(blocks, extraCharacters = []) {
   const flags = [];
   if (sameCharStreak >= 4 && dominantChar) flags.push(`SAME_CHARACTER:${dominantChar[0]}:${sameCharStreak}`);
   if (sameSettingStreak >= 4 && dominantSetting) flags.push(`SAME_SETTING:${dominantSetting[0]}:${sameSettingStreak}`);
-  if (endRun >= 3) flags.push(`ESCALATION_RUN:${endRun}`);
+  if (climbing) flags.push(`ESCALATION_RUN:${endRun}`);
   if (extremeDensity >= 0.6 && recent.length >= 3) flags.push(`EXTREME_DENSITY:${Math.round(extremeDensity*100)}%`);
 
   // Build human-readable hints that go into the prompt
@@ -205,8 +211,8 @@ function detectFixation(blocks, extraCharacters = []) {
   if (dominantSetting && sameSettingStreak >= 4) {
     hints.push(`The last ${sameSettingStreak} blocks are all set in "${dominantSetting[0]}". Henry is fixating on this location — propose at least one direction in a new setting.`);
   }
-  if (endRun >= 3) {
-    hints.push(`The escalation score has climbed every block for ${endRun} blocks in a row. Henry is in a "make it more extreme" loop. Propose at least one direction that DEFUSES instead of escalates — a quiet moment, an unexpected callback, a tonal shift.`);
+  if (climbing) {
+    hints.push(`The escalation score has climbed across the last ${endRun} blocks. Henry is in a "make it more extreme" loop. Propose at least one direction that DEFUSES instead of escalates — a quiet moment, an unexpected callback, a tonal shift.`);
   }
   if (extremeDensity >= 0.6 && recent.length >= 3) {
     hints.push(`${Math.round(extremeDensity*100)}% of recent blocks contain explosions / destruction / yelling. Henry's voice is great when it's dark AND varied — propose at least one direction with a different texture (a quiet beat, a character revealing something, a sincerity-then-undercut, a tiny mundane joke).`);
