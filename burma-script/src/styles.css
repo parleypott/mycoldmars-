@@ -869,3 +869,28 @@ body {
   .wp-ex-overlay { padding: 0; }
   .wp-ex-panel { border-radius: 0; min-height: 100%; max-width: 100%; }
 }
+
+/* ---- Workshop hub: expandable + vetted research surfacing (FLAT, hairline only) ---- */
+.wp-workshop { transition: width .16s ease; }
+.wp-workshop.is-expanded { width: min(640px, 48vw); max-width: 640px; }
+.wp-ws-actions { display: inline-flex; gap: 6px; align-items: center; }
+.wp-ws-expand {
+  background: transparent; border: 1px solid var(--hair); color: var(--label);
+  border-radius: 5px; width: 22px; height: 22px; line-height: 1; cursor: pointer; font-size: 12px;
+}
+.wp-ws-expand:hover { border-color: var(--orange); color: var(--orange); }
+.wp-ws-vetted {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: .12em; color: #4a7a3e;
+  background: rgba(95,138,78,.10); border: 1px solid rgba(95,138,78,.4);
+  border-radius: 5px; padding: 5px 8px; margin: 8px 0 4px;
+}
+.wp-ws-generate[data-secondary="1"] {
+  background: transparent; color: var(--label); border: 1px solid var(--hair);
+}
+.wp-ws-generate[data-secondary="1"]:hover { border-color: var(--orange); color: var(--orange); }
+.wp-ws-sources { margin-top: 12px; border-top: 1px solid var(--hair-soft); padding-top: 10px; }
+.wp-ws-sources .wp-ws-label { margin-bottom: 6px; }
+.wp-src { font-size: 11px; line-height: 1.45; color: var(--label); margin: 0 0 7px; }
+.wp-src a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px solid var(--hair-soft); }
+.wp-src a:hover { color: var(--orange); border-color: var(--orange); }
+.wp-ws-actions { margin-left: auto; }

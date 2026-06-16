@@ -1,39 +1,77 @@
 // Burma Script Tool — the margin WORKSHOP HUB.
 // Opens when a {TK} writing-helper, {fc} fact-check, or [visual] direction span is clicked
 // (the marks dispatch a 'wp-open-workshop' CustomEvent with { kind, text, from, to, block,
-// context }). It's the side panel where a span gets WORKED — and now it actually does the work:
+// context }). It's the side panel where a span gets WORKED.
 //
-//   tk     → calls /api/burma-tk (mode:'tk'), renders FIVE pick-able option cards; picking one
-//            dispatches 'wp-replace-span' so the Editor replaces the {TK} marker in place.
-//   fc     → calls /api/burma-tk (mode:'fc') with web search, shows a verdict + finding +
-//            sources + a suggested corrected edit the writer can drop in over the {fc} marker.
-//   visual → the quiet notes textarea (visual direction isn't a writing/verify task).
+//   tk     → shows the PRE-COMPUTED, fact-checked research for that marker INSTANTLY (5 vetted
+//            options + sources, woven in from tk-research.json). "Regenerate live" re-runs
+//            /api/burma-tk for a fresh take. Picking a card replaces the {TK} marker in place.
+//   fc     → calls /api/burma-tk (mode:'fc') with web search → verdict + finding + sources + edit.
+//   visual → the quiet notes textarea.
 //
-// Swiss restraint — a calm drawer on the right, not a loud modal. Notes/picks persist per-span
-// in localStorage so the workshop survives reloads alongside the autosaved doc.
+// The hub is EXPANDABLE (⤢) so long options + sources have room. Picks/notes persist per-span.
 
 import { useState, useEffect } from 'preact/hooks';
+import RESEARCH from '../tk-research.json';
 
 const LS_WORKSHOP = 'wp01_burma_workshop_v1';
+// Normalize a marker to its inner content so the doc span ("shows years of…") matches the
+// research key ("{TK shows years of…}"): strip outer braces/brackets + any leading TK/tk runs.
+const norm = (s) => (s || '')
+  .replace(/^[\s{[]+/, '')
+  .replace(/[\s}\]]+$/, '')
+  .replace(/^(tk[:\s]*)+/i, '')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toLowerCase();
 
-function loadAll() {
-  try { return JSON.parse(localStorage.getItem(LS_WORKSHOP) || '{}'); } catch { return {}; }
+// Fuzzy matcher: the live parser's span text and the research marker text are the same writing
+// but formatted differently (braces/TK stripped, whitespace, even counts differ), so match by
+// token overlap instead of exact string. Robust to the two-pipeline mismatch.
+const words = (s) => norm(s).split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+const RESEARCH_LIST = Object.keys(RESEARCH || {})
+  .map((id) => {
+    const e = RESEARCH[id];
+    if (!e || !e.marker) return null;
+    return {
+      tokens: new Set(words(e.marker)),
+      options: (e.options || []).map((o) => (typeof o === 'string' ? { text: o } : o)),
+      sources: e.sources || [],
+      chapter: e.chapter || '',
+    };
+  })
+  .filter(Boolean);
+
+function matchResearch(spanText) {
+  const st = new Set(words(spanText));
+  if (!st.size) return null;
+  let best = null, bestScore = 0;
+  for (const entry of RESEARCH_LIST) {
+    let overlap = 0;
+    for (const t of entry.tokens) if (st.has(t)) overlap++;
+    const score = overlap / Math.max(1, Math.min(st.size, entry.tokens.size));
+    if (score > bestScore) { bestScore = score; best = entry; }
+  }
+  return bestScore >= 0.6 ? best : null;
 }
-function saveAll(map) {
-  try { localStorage.setItem(LS_WORKSHOP, JSON.stringify(map)); } catch {}
-}
+
+function loadAll() { try { return JSON.parse(localStorage.getItem(LS_WORKSHOP) || '{}'); } catch { return {}; } }
+function saveAll(map) { try { localStorage.setItem(LS_WORKSHOP, JSON.stringify(map)); } catch {} }
 
 export function Workshop() {
   const [open, setOpen] = useState(false);
-  const [span, setSpan] = useState(null);   // { kind, text, from, to, block, context }
+  const [span, setSpan] = useState(null);
   const [note, setNote] = useState('');
   const [resolved, setResolved] = useState(false);
 
-  // generated state (per-open)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [options, setOptions] = useState([]);   // tk: [{text, angle, source}]
-  const [verdict, setVerdict] = useState(null);  // fc: {verdict, finding, suggestedEdit, sources}
+  const [options, setOptions] = useState([]);   // [{text, angle?}]
+  const [sources, setSources] = useState([]);   // [{claim, url}]
+  const [vetted, setVetted] = useState(false);   // options came from the fact-checked research
+  const [chapter, setChapter] = useState('');
+  const [verdict, setVerdict] = useState(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const onOpen = (e) => {
@@ -43,12 +81,20 @@ export function Workshop() {
       const rec = all[detail.text] || {};
       setNote(rec.note || '');
       setResolved(!!rec.resolved);
-      // restore any previously generated work for this span
-      setOptions(rec.options || []);
+      setExpanded(false);
+
+      const research = detail.kind === 'tk' ? matchResearch(detail.text) : null;
+      if (rec.options && rec.options.length) {
+        // the writer already generated/edited this span — keep their work
+        setOptions(rec.options); setSources(rec.sources || []); setVetted(false);
+      } else if (research) {
+        // surface the pre-computed, fact-checked options immediately — no click needed
+        setOptions(research.options); setSources(research.sources); setVetted(true); setChapter(research.chapter);
+      } else {
+        setOptions([]); setSources([]); setVetted(false); setChapter('');
+      }
       setVerdict(rec.verdict || null);
-      setError('');
-      setLoading(false);
-      setOpen(true);
+      setError(''); setLoading(false); setOpen(true);
     };
     window.addEventListener('wp-open-workshop', onOpen);
     return () => window.removeEventListener('wp-open-workshop', onOpen);
@@ -61,12 +107,12 @@ export function Workshop() {
     saveAll(all);
   }
 
-  // Call the backend. mode 'tk' → 5 options; mode 'fc' → verdict.
+  // Regenerate live via the backend. mode 'tk' → 5 options; mode 'fc' → verdict.
   async function generate() {
     if (!span) return;
     const mode = span.kind === 'fc' ? 'fc' : 'tk';
     setLoading(true); setError('');
-    if (mode === 'tk') setOptions([]); else setVerdict(null);
+    if (mode === 'tk') { setOptions([]); setVetted(false); } else setVerdict(null);
     try {
       const res = await fetch('/api/burma-tk', {
         method: 'POST',
@@ -76,12 +122,11 @@ export function Workshop() {
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
       if (mode === 'tk') {
-        const opts = Array.isArray(data.options) ? data.options : [];
-        setOptions(opts);
-        persist({ options: opts });
+        const opts = (Array.isArray(data.options) ? data.options : []).map((o) => (typeof o === 'string' ? { text: o } : o));
+        setOptions(opts); setSources(data.sources || []); setVetted(false);
+        persist({ options: opts, sources: data.sources || [] });
       } else {
-        setVerdict(data);
-        persist({ verdict: data });
+        setVerdict(data); persist({ verdict: data });
       }
     } catch (err) {
       setError(err?.message || String(err));
@@ -93,9 +138,7 @@ export function Workshop() {
   // Pick an option (or the fc suggested edit) → ask the Editor to replace the marker range.
   function pick(text) {
     if (!span || typeof span.from !== 'number') return;
-    window.dispatchEvent(new CustomEvent('wp-replace-span', {
-      detail: { from: span.from, to: span.to, text },
-    }));
+    window.dispatchEvent(new CustomEvent('wp-replace-span', { detail: { from: span.from, to: span.to, text } }));
     persist({ resolved: true, chosen: text });
     setResolved(true);
     setOpen(false);
@@ -108,46 +151,51 @@ export function Workshop() {
   const isVisual = span.kind === 'visual';
 
   const kindLabel = isTk ? 'TK · WRITING HELPER' : isFc ? 'FACT-CHECK · VERIFY' : 'VISUAL · DIRECTION';
-  const genLabel = isFc ? 'VERIFY CLAIM' : 'GENERATE 5';
+  const genLabel = isFc ? 'VERIFY CLAIM' : (options.length ? 'REGENERATE LIVE' : 'GENERATE 5');
 
   return (
-    <aside class="wp-workshop" data-kind={span.kind}>
+    <aside class={`wp-workshop ${expanded ? 'is-expanded' : ''}`} data-kind={span.kind}>
       <div class="wp-ws-head">
         <span class="wp-ws-kind">{kindLabel}</span>
-        <button class="wp-ws-close" title="Close" onClick={() => setOpen(false)}>×</button>
+        <span class="wp-ws-actions">
+          <button class="wp-ws-expand" title={expanded ? 'Collapse' : 'Expand'} onClick={() => setExpanded(!expanded)}>
+            {expanded ? '⤡' : '⤢'}
+          </button>
+          <button class="wp-ws-close" title="Close" onClick={() => setOpen(false)}>×</button>
+        </span>
       </div>
 
       <div class="wp-ws-span">{span.text}</div>
 
-      {/* ---- VISUAL: quiet notes only ---- */}
+      {/* VISUAL: quiet notes only */}
       {isVisual && (
         <>
           <label class="wp-ws-label">Visual treatment</label>
-          <textarea
-            class="wp-ws-textarea"
+          <textarea class="wp-ws-textarea"
             placeholder="How does this look on screen? Map move, archive, b-roll…"
-            value={note}
-            onInput={(e) => { setNote(e.target.value); persist({ note: e.target.value }); }}
-          />
-          <button
-            class={`wp-ws-resolve ${resolved ? 'is-resolved' : ''}`}
-            onClick={() => { const v = !resolved; setResolved(v); persist({ resolved: v }); }}
-          >
+            value={note} onInput={(e) => { setNote(e.target.value); persist({ note: e.target.value }); }} />
+          <button class={`wp-ws-resolve ${resolved ? 'is-resolved' : ''}`}
+            onClick={() => { const v = !resolved; setResolved(v); persist({ resolved: v }); }}>
             {resolved ? '✓ Resolved' : 'Mark resolved'}
           </button>
         </>
       )}
 
-      {/* ---- TK / FC: the real generate action ---- */}
+      {/* TK: vetted badge when the options are the fact-checked research */}
+      {isTk && vetted && !!options.length && (
+        <div class="wp-ws-vetted">✓ RESEARCHED &amp; FACT-CHECKED · 5 OPTIONS{chapter ? ` · ${chapter.slice(0, 28).toUpperCase()}` : ''}</div>
+      )}
+
+      {/* TK / FC: the live action (regenerate / verify) */}
       {(isTk || isFc) && (
-        <button class="wp-ws-generate" onClick={generate} disabled={loading} data-kind={span.kind}>
+        <button class="wp-ws-generate" onClick={generate} disabled={loading} data-kind={span.kind} data-secondary={isTk && vetted ? '1' : null}>
           {loading ? (isFc ? 'Checking…' : 'Writing 5…') : genLabel}
         </button>
       )}
 
       {error && <div class="wp-ws-error">{error}</div>}
 
-      {/* ---- TK: five pick-able option cards ---- */}
+      {/* TK: five pick-able option cards */}
       {isTk && !!options.length && (
         <div class="wp-ws-options">
           <div class="wp-ws-hint">Pick one to drop it in — it replaces the {'{TK}'} marker.</div>
@@ -165,7 +213,19 @@ export function Workshop() {
         </div>
       )}
 
-      {/* ---- FC: verdict + finding + sources + suggested edit ---- */}
+      {/* TK + FC shared: sources */}
+      {((isTk && !!sources.length) || (isFc && verdict && verdict.sources && verdict.sources.length)) && (
+        <div class="wp-ws-sources">
+          <div class="wp-ws-label">Sources</div>
+          {(isTk ? sources : verdict.sources).map((s, i) => (
+            <div class="wp-src" key={i}>
+              {s.url ? <a href={s.url} target="_blank" rel="noopener noreferrer">{s.claim || s.label || s.url}</a> : (s.claim || s.label || '')}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* FC: verdict + finding + suggested edit */}
       {isFc && verdict && (
         <div class="wp-ws-verdict">
           <div class={`wp-verdict-badge v-${verdict.verdict}`}>{(verdict.verdict || 'unclear').toUpperCase()}</div>
@@ -178,16 +238,6 @@ export function Workshop() {
               </div>
               <div class="wp-opt-text">{verdict.suggestedEdit}</div>
             </button>
-          )}
-          {!!(verdict.sources && verdict.sources.length) && (
-            <div class="wp-ws-sources">
-              <div class="wp-ws-label">Sources</div>
-              {verdict.sources.map((s, i) => (
-                <div class="wp-src" key={i}>
-                  {s.url ? <a href={s.url} target="_blank" rel="noopener noreferrer">{s.label || s.url}</a> : (s.label || '')}
-                </div>
-              ))}
-            </div>
           )}
         </div>
       )}
