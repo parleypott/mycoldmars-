@@ -284,6 +284,56 @@ body {
 .wp-foot-btn:hover { background: var(--ink); color: var(--frame); }
 
 /* ============================================================
+   TABLE SPINE (SPINE #1) — the document IS one table; every row is a
+   script line. The table is INVISIBLE chrome: no gridlines, no zebra,
+   no shadow, no bevel. Cells are transparent full-width frames; each
+   cartridge keeps its own hairline border + warm cream fill. A split
+   row (later) shows ONE hairline between its two columns — nothing else.
+   ============================================================ */
+.wp-script-table {
+  width: 100%;
+  border-collapse: collapse;       /* no doubled borders, no cell gaps */
+  border-spacing: 0;
+  table-layout: fixed;             /* full-width rows, predictable splits */
+  background: none;                /* the table itself paints nothing */
+  margin: 0;
+}
+.wp-script-table > tbody { border: 0; }
+.wp-script-row { border: 0; background: none; }   /* NO zebra, NO row rule */
+
+/* A cell is a transparent frame. padding 0 so the cartridge's own margin/border is the
+   only visible structure. NO spreadsheet gridline — border:0 on every side. The cartridge
+   inside owns the hairline look. vertical-align top so a future taller column doesn't
+   center its shorter neighbour. */
+.wp-script-cell {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: none;
+  vertical-align: top;
+  position: relative;
+}
+/* Default full-width row: the single cell spans the whole table. */
+.wp-script-cell[data-col="full"] { width: 100%; }
+
+/* SPLIT-ROW SCAFFOLDING (schema-ready; SPINE #1 never emits these, downstream split does):
+   two cells side by side — LEFT = said / narration-VO, RIGHT = shown / visual direction —
+   with a SINGLE hairline rule between them and nothing else. */
+.wp-script-cell[data-col="said"]  { width: 50%; }
+.wp-script-cell[data-col="shown"] { width: 50%; }
+.wp-script-row:has(> [data-col="shown"]) > [data-col="shown"] {
+  border-left: 1px solid var(--hair, rgba(31,29,24,.22));   /* the one rule between columns */
+  padding-left: 12px;
+}
+.wp-script-row:has(> [data-col="shown"]) > [data-col="said"] {
+  padding-right: 12px;
+}
+
+/* The cartridge already carries margin-bottom: 11px for rhythm. Inside a single-cell row
+   that spacing is exactly the inter-row gap we want, so we leave it. (No collapsing issues:
+   the cartridge is a flex block, its margin lives inside the cell.) */
+
+/* ============================================================
    CARTRIDGE ANATOMY — shared by all block types
    ============================================================ */
 .wp-cart {

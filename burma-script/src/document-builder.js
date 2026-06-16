@@ -430,7 +430,53 @@ export function buildEditorDocument(blocks) {
 
   // ProseMirror requires at least one child.
   if (!content.length) content.push({ type: 'binBlock', attrs: { blockId: 'empty' }, content: [para([{ type: 'text', text: ' ' }])] });
-  return { type: 'doc', content };
+  // TABLE SPINE (SPINE #1): the doc is now ONE table whose every row is a single full-width
+  // cell wrapping exactly one cartridge. Chapters/scenes ride in the same full-width rows
+  // (they render their own header chrome). 2/3-column splits are a downstream data change.
+  return { type: 'doc', content: [wrapRowsTable(content)] };
+}
+
+// ---- TABLE-SPINE wrap / unwrap (SPINE #1) ---------------------------------
+// Wrap a flat array of top-level block nodes into ONE table: each block → a tableRow with
+// a SINGLE full-width tableCell (col:'full'). This is the only shape SPINE #1 emits; the
+// schema already supports 2 cells per row (said|shown) for the later split feature.
+export function wrapRowsTable(blocks) {
+  const rows = (blocks || []).map((node) => ({
+    type: 'tableRow',
+    content: [{ type: 'tableCell', attrs: { col: 'full', colspan: 1, rowspan: 1, colwidth: null }, content: [node] }],
+  }));
+  if (!rows.length) {
+    rows.push({
+      type: 'tableRow',
+      content: [{ type: 'tableCell', attrs: { col: 'full', colspan: 1, rowspan: 1, colwidth: null }, content: [{ type: 'binBlock', attrs: { blockId: 'empty' }, content: [para([{ type: 'text', text: ' ' }])] }] }],
+    });
+  }
+  return { type: 'table', content: rows };
+}
+
+// The persisted doc may be in EITHER shape: the new table spine OR a legacy flat list
+// (a doc saved before this build). Flatten both to the ordered array of cartridge nodes,
+// reaching INTO table rows/cells. Order is preserved (reading order = row order, then
+// left→right within a split row). Nothing is dropped — every cell's children come through.
+export function flattenSpine(doc) {
+  const out = [];
+  for (const node of doc?.content || []) {
+    if (node.type === 'table') {
+      for (const row of node.content || []) {
+        if (row.type !== 'tableRow') { out.push(row); continue; }
+        for (const cell of row.content || []) {
+          if (cell.type === 'tableCell' || cell.type === 'tableHeader') {
+            for (const child of cell.content || []) out.push(child);
+          } else {
+            out.push(cell);
+          }
+        }
+      }
+    } else {
+      out.push(node);
+    }
+  }
+  return out;
 }
 
 // ---- read the live doc back to a blocks array (for persistence) ----------
@@ -492,7 +538,9 @@ export function nodeText(node) {
 export function docToBlocks(doc) {
   if (!doc?.content) return [];
   const out = [];
-  doc.content.forEach((node, i) => {
+  // Reach THROUGH the table spine: flatten table>row>cell down to the ordered cartridge
+  // nodes so the blocks export is identical to the pre-table shape (round-trip faithful).
+  flattenSpine(doc).forEach((node, i) => {
     // scriptStart is a decorative divider — no source content, no block.
     if (node.type === 'scriptStart') return;
     // serviceGroup (feature D) holds N serviceItem rows — UNWRAP each back into its own
