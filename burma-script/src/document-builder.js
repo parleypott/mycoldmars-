@@ -24,10 +24,48 @@ function clean(text) {
 
 // Strip a leading speaker/role prefix the parser embedded in prose, e.g.
 // "-VO: text" / "VO: text" / "DAY 2 JH ON CAM 02:.. :". Keeps the meaningful body.
+// The parser also kept INLINE "VO:" / "-VO:" beat markers mid-paragraph (run-on
+// dictation: "...stand out. - VO: First:..."), plus leading "◦/•/-" item bullets.
+// The reference shows clean connected prose, so strip ALL of those — the text is
+// display-only here (the doc JSON round-trips), so tidying the read never loses data.
+function stripBeatMarkers(t) {
+  return String(t)
+    // leading item bullet/dash on a fragment ("◦ River shape", "- VO: ...")
+    .replace(/^[\s◦•‣⁃·–—-]+/, '')
+    // inline "VO:" beat marker the dictation left mid-sentence ("stand out. ⁃ VO: First:").
+    // Keep any sentence punctuation before it, drop an optional leading bullet/dash + the
+    // "VO:" marker, leave a clean space. The bullet class covers ASCII/en/em dash AND the
+    // U+2043 hyphen-bullet / U+2022 bullet the parser used as beat separators.
+    .replace(/\s*[-‐‑‒–—•⁃·]?\s*\bVO\s*:\s*/gi, ' ')
+    // an orphan trailing "VO" the parser left dangling after a sentence ("... behavior. VO")
+    .replace(/([.!?])\s+VO\b(?=\s|$)/gi, '$1')
+    // dictation beat dashes: a bare hyphen flanked by spaces ("stand out. - First:") is a
+    // spoken-beat separator, not prose punctuation. Catch the ASCII hyphen AND the unicode
+    // hyphen/non-breaking-hyphen/figure-dash variants the parser emitted (U+2010–U+2012,
+    // U+2011). Real prose em/en-dashes (U+2013/U+2014) are intentionally left untouched.
+    .replace(/\s+[-‐‑‒•⁃·]\s+/g, ' ')
+    // UNTERMINATED chip openers ("{TK description… " with no closing brace): inlineContent's
+    // {…}/[…] regex needs a closer, so these would leak raw curly noise into the prose. Peel
+    // the bare opener so the inner text reads as clean prose (a real terminated {tk …}/[…]
+    // still has its braces intact and is untouched here, so it still becomes a chip).
+    .replace(/\{\s*(?:tk|fc|fact)\b[:\s]*(?![^{}]*\})/gi, '')
+    // collapse the double-spaces the strips can leave, and a space before punctuation
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([.,;:])/g, '$1')
+    .trim();
+}
+
 function stripLead(text, type) {
   let t = clean(text);
-  if (type === 'vo') t = t.replace(/^[-‐‑‒–—\s]*VO:\s*/i, '');
-  if (type === 'oncam') t = t.replace(/^DAY\s*\d+\s*/i, '').replace(/\bON\s*CAM\b/i, 'On camera —');
+  if (type === 'vo') {
+    t = t.replace(/^[-‐‑‒–—\s]*VO:\s*/i, '');
+    t = stripBeatMarkers(t);
+  }
+  if (type === 'oncam') {
+    t = t.replace(/^DAY\s*\d+\s*/i, '').replace(/\bON\s*CAM\b/i, 'On camera —');
+    t = stripBeatMarkers(t);
+  }
+  if (type === 'plain') t = stripBeatMarkers(t);
   return t.trim();
 }
 
