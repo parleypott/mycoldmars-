@@ -256,11 +256,11 @@ body {
   display: inline-flex; align-items: center; gap: 3px;
   background: var(--panel); border: 1.5px solid var(--ink); border-radius: 20px; padding: 2px;
 }
-/* three discernible 15x12 positions — a flat 1px ink-tint hairline keeps every inactive
-   pip visible against the pill (a hairline is not a shadow/bevel), so the control reads as
-   the spec's 3-position pill rather than a 2-state knob. The active pip fills orange. */
-.wp-rec-pip { width: 15px; height: 12px; border-radius: 10px; display: block; background: var(--page); border: 1px solid rgba(31,29,24,.18); }
-.wp-rec-pip.on { background: var(--orange); border-color: var(--orange); }
+/* three 15x12 positions, strict token parity (spec line 53): inactive pips are plain
+   #e7e1d3 fill — no hairline — and stay discernible against the lighter #f1ede2 pill via
+   the pill's internal 3px gaps. Active pip fills orange. FLAT: no border/shadow/bevel. */
+.wp-rec-pip { width: 15px; height: 12px; border-radius: 10px; display: block; background: var(--page); }
+.wp-rec-pip.on { background: var(--orange); }
 .wp-rec-label { min-width: 24px; font-weight: 700; color: var(--label-5); }
 .wp-rec[data-status="recorded"] .wp-rec-label { color: var(--arm); }
 .wp-rec[data-status="in-edit"]  .wp-rec-label { color: var(--red); }
@@ -288,8 +288,8 @@ body {
   font-family: var(--mono); font-size: 16px; color: var(--ivory); letter-spacing: .06em;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.wp-sot-mid { min-width: 0; }
-.wp-sot-spk { font-family: var(--mono); font-size: 8px; letter-spacing: .12em; color: var(--orange); margin-bottom: 3px; text-transform: uppercase; }
+.wp-sot-mid { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.wp-sot-spk { font-family: var(--mono); font-size: 8px; letter-spacing: .12em; color: var(--orange); text-transform: uppercase; line-height: 1.1; }
 .wp-sot .wp-body { font-size: 15px; line-height: 1.5; }
 .wp-done {
   width: 34px; height: 30px; border-radius: 7px; flex: none;
