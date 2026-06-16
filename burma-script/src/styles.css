@@ -11,6 +11,10 @@
    ============================================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+/* READING TYPEFACES — the 9-font selector in THE CONTROL UNIT. Serif + sans,
+   all reading/word-processing optimized. System faces (Georgia, Palatino, Iowan,
+   Helvetica Neue, system-ui) need no load; the rest come from Google Fonts here. */
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500&family=Literata:opsz,wght@7..72,400;7..72,500&family=IBM+Plex+Sans:wght@400;500&family=Inter:wght@400;500&display=swap');
 
 :root {
   --page:      #e7e1d3;  /* page behind the frame */
@@ -55,6 +59,53 @@
   --sans:  "Helvetica Neue", Arial, "Inter", system-ui, sans-serif;
 
   --ease:  cubic-bezier(0.2, 0.6, 0.2, 1);
+
+  /* ── READING INSTRUMENT — driven live by THE CONTROL UNIT (feature E).
+     The control unit writes these on .wp-page; the prose consumes them so the
+     whole script re-skins instantly. --doc-read is the chosen reading typeface;
+     --doc-size / --doc-lead scale body size + line spacing. Defaults below mirror
+     the locked cartridges look so an un-touched doc renders exactly as before. */
+  --doc-read:  var(--sans);   /* reading typeface (font selector) */
+  --doc-size:  15px;          /* base body size (TEXT SIZE knob) */
+  --doc-lead:  1.62;          /* line-height (LEAD knob) */
+}
+
+/* ============================================================
+   COLOR SCHEMES — the flipper in THE CONTROL UNIT. Each re-skins the whole
+   instrument by re-declaring the core surface/ink tokens on .wp-page. All FLAT,
+   all tasteful neutrals — no garish hues. The brand orange/accent chips stay put
+   (they read as hardware accents, not theme). scheme="cream" = locked default.
+   ============================================================ */
+[data-scheme="cool"] {
+  --page:#e4e5e7; --frame:#f4f5f6; --face:#fdfdfe; --face-hover:#eef0f2; --panel:#eceef0;
+  --ink:#22252b; --ch-ink:#20242b; --ch-text:#eef0f2; --ivory:#e6e8ea; --lcd-bg:#21242a;
+  --body:#22262c; --mono-body:#454a52;
+  --label:#646b76; --label-2:#737a85; --label-3:#838a94; --label-4:#949aa3; --label-5:#969ba4;
+  --grip-grad: repeating-linear-gradient(0deg,#d6d8dc,#d6d8dc 2px,#e8eaed 2px,#e8eaed 4px);
+}
+[data-scheme="sepia"] {
+  --page:#e3d4ba; --frame:#f3e7cf; --face:#fbf3e1; --face-hover:#efe2c8; --panel:#eee1c5;
+  --ink:#3a2f1e; --ch-ink:#352b1c; --ch-text:#f3e7cf; --ivory:#ecddc0; --lcd-bg:#2c2316;
+  --body:#3c3120; --mono-body:#5e5037;
+  --label:#7d6c4d; --label-2:#8a7956; --label-3:#978665; --label-4:#a59575; --label-5:#a89878;
+  --grip-grad: repeating-linear-gradient(0deg,#d8c8a4,#d8c8a4 2px,#e7d9ba 2px,#e7d9ba 4px);
+}
+[data-scheme="slate"] {
+  --page:#1b1d21; --frame:#26282d; --face:#2e3036; --face-hover:#34373d; --panel:#2b2e34;
+  --ink:#e7e8ea; --ch-ink:#3a3d44; --ch-text:#eceef0; --ivory:#cfd2d6; --lcd-bg:#17181b;
+  --body:#dadce0; --mono-body:#aeb2b9;
+  --label:#9298a1; --label-2:#888e97; --label-3:#7d838c; --label-4:#727882; --label-5:#888e97;
+  --note-fill:#34321f; --note-text:#e8dca0; --note-lab:#c9b96e;
+  --tk-bg:#3a3520; --tk-text:#e8d488; --vis-bg:#3a2926; --vis-text:#e0a59a;
+  --grip-grad: repeating-linear-gradient(0deg,#34373d,#34373d 2px,#3d4047 2px,#3d4047 4px);
+  --grip-grad-dark: repeating-linear-gradient(0deg,#1f2024,#1f2024 2px,#2a2b30 2px,#2a2b30 4px);
+}
+[data-scheme="manila"] {
+  --page:#ddcfac; --frame:#ece0c1; --face:#f6ecd2; --face-hover:#e9dcb9; --panel:#e7dab7;
+  --ink:#332b1a; --ch-ink:#2f2818; --ch-text:#ece0c1; --ivory:#e6d8b6; --lcd-bg:#272013;
+  --body:#352d1c; --mono-body:#574a31;
+  --label:#776744; --label-2:#84744f; --label-3:#92825e; --label-4:#a0906c; --label-5:#a39370;
+  --grip-grad: repeating-linear-gradient(0deg,#d2c298,#d2c298 2px,#e1d3ab 2px,#e1d3ab 4px);
 }
 
 * { box-sizing: border-box; }
@@ -70,7 +121,9 @@ body {
 /* ============================================================
    PAGE + DEVICE FRAME
    ============================================================ */
-.wp-page { min-height: 100vh; padding: 26px 20px 40px; position: relative; }
+/* .wp-page carries the scheme tokens (set by THE CONTROL UNIT via data-scheme) and
+   paints the page background so the gutter re-skins with the active scheme too. */
+.wp-page { min-height: 100vh; padding: 26px 20px 40px; position: relative; background: var(--page); }
 
 .wp-device {
   max-width: 1040px; margin: 0 auto;
@@ -267,13 +320,14 @@ body {
 .wp-rec[data-status="recorded"] .wp-rec-label { color: var(--arm); }
 .wp-rec[data-status="in-edit"]  .wp-rec-label { color: var(--red); }
 
-/* ---- PROSE BODY — sans, the readable script ---- */
+/* ---- PROSE BODY — the readable script. Reading typeface + size + lead are
+   driven by THE CONTROL UNIT via --doc-read / --doc-size / --doc-lead. ---- */
 .wp-vo .wp-body, .wp-oncam .wp-body,
 .wp-sot .wp-body, .wp-broll .wp-body,
 .wp-note .wp-body, .wp-service .wp-body, .wp-bin .wp-body {
-  font-family: var(--sans); font-size: 15px; line-height: 1.62; color: var(--body);
+  font-family: var(--doc-read); font-size: var(--doc-size); line-height: var(--doc-lead); color: var(--body);
 }
-.wp-oncam .wp-body { color: #34322c; }
+.wp-oncam .wp-body { color: var(--body); }
 
 /* ---- SOT — orange cap + LCD window + speaker/quote + done toggle ---- */
 .wp-sot .wp-cart-body.wp-sot-grid {
@@ -292,7 +346,7 @@ body {
 }
 .wp-sot-mid { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .wp-sot-spk { font-family: var(--mono); font-size: 8px; letter-spacing: .12em; color: var(--orange); text-transform: uppercase; line-height: 1.1; }
-.wp-sot .wp-body { font-size: 15px; line-height: 1.5; }
+.wp-sot .wp-body { font-family: var(--doc-read); font-size: var(--doc-size); line-height: calc(var(--doc-lead) - 0.12); }
 .wp-done {
   width: 34px; height: 30px; border-radius: 7px; flex: none;
   border: 1.5px solid var(--ink); background: #f1ede2; color: var(--ink);
@@ -322,7 +376,7 @@ body {
 .wp-note .wp-grip { color: #b8a24a; }
 .wp-note-head { margin-bottom: 5px; }
 .wp-note-kind { font-size: 8px; letter-spacing: .12em; color: var(--note-lab); text-transform: uppercase; }
-.wp-note .wp-body { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: var(--note-text); font-style: italic; }
+.wp-note .wp-body { font-family: var(--doc-read); font-size: calc(var(--doc-size) - 1px); line-height: calc(var(--doc-lead) - 0.12); color: var(--note-text); font-style: italic; }
 
 /* ---- SERVICE — light utility ---- */
 .wp-svc-head { margin-bottom: 5px; }
@@ -447,6 +501,131 @@ body {
 @media (min-width: 1100px) {
   .wp-device.outline-open { transform: translateX(140px); }
 }
+
+/* ============================================================
+   THE CONTROL UNIT — sticky LEFT reading instrument (feature E)
+   Flat fig.01 box, Teenage-Engineering tactile knobs. position:fixed so it stays
+   put through scroll; lives in the left gutter beside the 1040px device. Collapses
+   to a small TE knob icon and re-expands with a smooth ~200ms ease (no bounce).
+   FLAT: hairline borders, no shadow, no bevel. Re-skins with the active scheme.
+   ============================================================ */
+.wp-control {
+  position: fixed; left: 16px; top: 88px; z-index: 140;
+  width: 188px;
+  font-family: var(--mono);
+  transition: transform .2s var(--ease), left .2s var(--ease);
+}
+/* expanded box */
+.wp-control-body {
+  background: var(--frame); border: 1.5px solid var(--ink); border-radius: 12px;
+  padding: 12px 13px 14px;
+  display: flex; flex-direction: column; gap: 12px;
+  /* collapse/expand: clip to a small disc with a smooth fade+scale. ~200ms, no bounce. */
+  transform-origin: 18px 18px;
+  opacity: 1; transform: scale(1);
+  transition: opacity .2s var(--ease), transform .2s var(--ease);
+}
+.wp-control.is-collapsed .wp-control-body {
+  opacity: 0; transform: scale(.55); pointer-events: none;
+  position: absolute; inset: 0;
+}
+.wp-control-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1.5px solid var(--ink); }
+.wp-control-ttl { font-size: 9px; letter-spacing: .22em; color: var(--ink); font-weight: 700; }
+.wp-control-collapse {
+  width: 22px; height: 22px; border: 1.5px solid var(--ink); border-radius: 6px; background: transparent;
+  font-family: var(--mono); font-size: 15px; line-height: 1; color: var(--label); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; padding: 0;
+}
+.wp-control-collapse:hover { background: var(--ink); color: var(--frame); }
+
+/* ── TE KNOB ROW ── */
+.wp-control-knobs { display: flex; gap: 10px; justify-content: space-around; }
+.wp-knob { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; }
+.wp-knob-dial {
+  position: relative; width: 50px; height: 50px; border-radius: 50%;
+  border: 1.5px solid var(--ink); background: var(--face);
+  cursor: ns-resize; outline: none;
+  /* knurl ring — flat repeating gradient, the only allowed gradient */
+  background-image:
+    radial-gradient(circle at 50% 50%, var(--face) 0 56%, transparent 56%),
+    repeating-conic-gradient(var(--ink) 0deg 1.2deg, transparent 1.2deg 9deg);
+  background-clip: padding-box;
+}
+.wp-knob-dial:focus-visible { border-color: var(--orange); }
+.wp-knob-tick {
+  position: absolute; left: 50%; top: 50%; width: 2.5px; height: 17px;
+  background: var(--orange); border-radius: 2px;
+  transform-origin: 50% 100%; margin-left: -1.25px; margin-top: -17px;
+}
+.wp-knob-lab { font-size: 8px; letter-spacing: .14em; color: var(--label); }
+.wp-knob-val { font-size: 10px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ── FONT SELECTOR ── */
+.wp-control-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wp-control-row.col { flex-direction: column; align-items: stretch; gap: 7px; }
+.wp-control-rowlab { font-size: 8px; letter-spacing: .16em; color: var(--label); }
+.wp-font-sel { display: flex; align-items: center; gap: 2px; border: 1.5px solid var(--ink); border-radius: 7px; overflow: hidden; flex: 0 1 auto; }
+.wp-font-step {
+  width: 20px; height: 26px; border: 0; background: transparent; cursor: pointer;
+  font-family: var(--mono); font-size: 13px; line-height: 1; color: var(--label); padding: 0;
+}
+.wp-font-step:hover { background: var(--ink); color: var(--frame); }
+.wp-font-name {
+  min-width: 86px; text-align: center; font-size: 11px; color: var(--ink); line-height: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px;
+}
+.wp-font-name.mono { font-size: 10px; }
+
+/* ── SCHEME FLIPPER ── */
+.wp-scheme-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+.wp-scheme-sw {
+  width: 28px; height: 24px; border: 1.5px solid var(--ink); border-radius: 6px; cursor: pointer;
+  padding: 0; display: flex; align-items: center; justify-content: center;
+  transition: transform .12s var(--ease);
+}
+.wp-scheme-sw:hover { transform: translateY(-1px); }
+.wp-scheme-sw.is-active { border-width: 2.5px; }
+.wp-scheme-dot { width: 6px; height: 6px; border-radius: 50%; opacity: 0; transition: opacity .12s; }
+.wp-scheme-sw.is-active .wp-scheme-dot { opacity: 1; }
+
+/* ── COLLAPSED — the TE knob icon ── */
+.wp-control-knobicon {
+  position: absolute; left: 0; top: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  width: 56px; padding: 7px 0; border: 1.5px solid var(--ink); border-radius: 12px;
+  background: var(--frame); cursor: pointer; font-family: var(--mono);
+  opacity: 0; transform: scale(.7); pointer-events: none;
+  transition: opacity .2s var(--ease), transform .2s var(--ease);
+}
+.wp-control.is-collapsed .wp-control-knobicon { opacity: 1; transform: scale(1); pointer-events: auto; }
+.wp-knobicon-dial {
+  position: relative; width: 30px; height: 30px; border-radius: 50%;
+  border: 1.5px solid var(--ink); background: var(--face);
+  background-image: repeating-conic-gradient(var(--ink) 0deg 1.2deg, transparent 1.2deg 9deg);
+}
+.wp-knobicon-dial::after {
+  content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--face);
+}
+.wp-knobicon-tick {
+  position: absolute; left: 50%; top: 4px; width: 2px; height: 9px; background: var(--orange);
+  border-radius: 2px; margin-left: -1px; z-index: 1;
+}
+.wp-knobicon-lab { font-size: 7px; letter-spacing: .14em; color: var(--label); }
+.wp-control-knobicon:hover .wp-knobicon-lab { color: var(--ink); }
+
+/* coexist with the OUTLINE slide-out — slide the control unit right when outline opens */
+.wp-control.outline-open { left: 296px; }
+
+/* narrow screens: the gutter disappears — dock the control unit bottom-left, compact */
+@media (max-width: 1280px) {
+  .wp-control { left: 12px; top: auto; bottom: 16px; }
+  .wp-control.outline-open { left: 296px; }
+}
+@media (max-width: 720px) {
+  .wp-control, .wp-control.outline-open { left: 10px; bottom: 10px; width: 170px; }
+}
+/* print: hide the instrument */
+@media print { .wp-control { display: none !important; } }
 
 /* ============================================================
    BLOCK MENU (change type / insert / delete) — FLAT hairline card
