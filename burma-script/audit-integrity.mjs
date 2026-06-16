@@ -12,7 +12,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const url = process.argv[2] || 'http://localhost:5173/burma-script/';
 const orig = fs.readFileSync(path.join(__dirname, 'sample-script.txt'), 'utf8');
 
-const TC = /\b\d{1,2}:\d{2}:\d{2}:\d{2}\b/g;
+// TIMECODE detector — MUST stay byte-identical to parser.ts's exported `TC` so the audit's
+// "untagged" math sees exactly what the app chips. The old /\b…\b/ word-boundary form (a) let a
+// 1-digit hour through and (b) MISSED any timecode glued to a backslash/bracket/letter/label-colon
+// (the parser/builder now chip those via lookbehind/lookahead), so the app could tag a glued
+// timecode the audit never counted — a latent silent-loss gap. This is the parser's canonical
+// regex verbatim: lookbehind (?<!\d)(?<!\d:) rejects a longer numeric run but keeps a LABEL colon;
+// lookahead (?!:?\d) rejects a 5th field / trailing digit but keeps the "tc: description" form.
+// The timecode is CAPTURE GROUP 1 here, so every matchAll below reads m[1], not m[0].
+const TC = /(?<!\d)(?<!\d:)(\d{2}:\d{2}:\d{2}:\d{2})(?!:?\d)/g;
 const norm = (s) => s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 
 const b = await chromium.launch();
@@ -92,9 +100,9 @@ function tokensPresent(tokens) {
 // 1) TIMECODE integrity — scan the whole-PM text PLUS every cell's text so a timecode that
 // lives inside a split cell is still counted as on-page.
 const allPageText = data.txt + ' ' + (data.cellTexts || []).join(' ');
-const origTc = [...orig.matchAll(TC)].map((m) => m[0]);
-const pageTc = [...allPageText.matchAll(TC)].map((m) => m[0]);
-const taggedTc = [...data.tagged.matchAll(TC)].map((m) => m[0]);
+const origTc = [...orig.matchAll(TC)].map((m) => m[1]);
+const pageTc = [...allPageText.matchAll(TC)].map((m) => m[1]);
+const taggedTc = [...data.tagged.matchAll(TC)].map((m) => m[1]);
 const origTcSet = new Set(origTc), pageTcSet = new Set(pageTc), taggedSet = new Set(taggedTc);
 const missingTc = [...origTcSet].filter((t) => !pageTcSet.has(t));
 const untaggedTc = [...pageTcSet].filter((t) => !taggedSet.has(t));
