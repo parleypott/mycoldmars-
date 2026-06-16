@@ -5110,15 +5110,9 @@ async function exportMoneyXlsx() {
     const D1_DOWN = setRow('Down payment',
       { formula: `B${NH_DPD}`, result: s.buyPrice*s.downPct/100 },
       { numFmt: FMT_USD, note: 'derived from down %' });
-    const mansionVal = (() => {
-      const p = s.buyPrice;
-      let rate = 0;
-      if (p >= 1_000_000) rate = 0.01;
-      if (p >= 5_000_000) rate = 0.0175;
-      if (p >= 10_000_000) rate = 0.0225;
-      return p * rate;
-    })();
-    const D1_MAN  = setRow('Mansion tax (NY)', mansionVal, { numFmt: FMT_USD, input: true, note: 'tiered — re-edit if price crosses $1M/$5M/$10M tier' });
+    // Flat 1% on $1M+ — see mansionTax(); progressive brackets are NYC-only, not Westchester.
+    const mansionVal = mansionTax(s.buyPrice);
+    const D1_MAN  = setRow('Mansion tax (NY)', mansionVal, { numFmt: FMT_USD, input: true, note: 'flat 1% on $1M+ (Westchester; NYC progressive brackets do not apply)' });
     const D1_CLO  = setRow('NY closing costs', s.nyClosing || 0, { numFmt: FMT_USD, input: true, note: 'title ins + mort rec tax + fixed fees' });
     const D1_MOV  = setRow('Moving + upstart', s.moving, { numFmt: FMT_USD, input: true, note: 'editable' });
     const D1_NEED = setRow('Cash needed',
