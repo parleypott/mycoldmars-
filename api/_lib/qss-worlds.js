@@ -201,10 +201,16 @@ function stringPick(...candidates) {
   return '';
 }
 
-function sanitizeSlug(raw) {
+// Resolve an arbitrary slug to a KNOWN world key, driven by the WORLDS
+// registry itself — NOT a hardcoded allowlist. This is the same logic
+// resolveWorld() uses; keeping the two in sync is the whole point.
+// Previously this was `if (s === 'burgundy') return 'burgundy'`, which
+// silently mis-routed any future third world (carried on a story's
+// world_slug) into queen-scarlet's art register. Registry-driven means
+// adding a world to WORLDS above is the only edit ever needed.
+export function sanitizeSlug(raw) {
   const s = String(raw || '').trim().toLowerCase();
-  if (s === 'burgundy') return 'burgundy';
-  return DEFAULT_WORLD;
+  return WORLDS[s] ? s : DEFAULT_WORLD;
 }
 
 // Cache-bust hook — call from PUT handler after writing so the next
