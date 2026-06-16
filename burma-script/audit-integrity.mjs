@@ -1,7 +1,7 @@
 // WP-01 content-integrity AUDIT — the hard gate for "every word + every timecode is on the page."
 // Usage: node audit-integrity.mjs <url>   (defaults to http://localhost:5173/burma-script/)
 // Loads the live editor, extracts the rendered text, and diffs it against the ORIGINAL script
-// (burma-script/sample-script.txt). PASS requires: missing-content lines ~0 AND every timecode
+// (burma-script/sample-script.txt). PASS requires: ZERO missing-content lines AND every timecode
 // present AND every timecode inside a clickable tag (.wp-tc-tag / .wp-lcd / [data-tc]).
 import { chromium } from 'playwright';
 import fs from 'fs';
@@ -117,7 +117,11 @@ const report = {
   timecodes: { original: origTcSet.size, onPage: pageTcSet.size, missing: missingTc.length, untagged: untaggedTc.length },
   content: { missingLines: missingLines.length },
   visuallyClipped: data.clipped.length,
-  PASS: missingTc.length === 0 && untaggedTc.length === 0 && missingLines.length <= 3 && data.clipped.length === 0,
+  // ZERO-LOSS GATE: this is a "no word is ever lost" tool, so the content gate is STRICT —
+  // a single genuinely-missing line fails the audit. (The token-set probe above is already
+  // robust to a line being split across said/shown cells, so a real PASS means zero loss,
+  // not "close enough". No tolerance budget to silently consume.)
+  PASS: missingTc.length === 0 && untaggedTc.length === 0 && missingLines.length === 0 && data.clipped.length === 0,
 };
 console.log(JSON.stringify(report, null, 2));
 if (data.clipped.length) console.log('VISUALLY CLIPPED (text hidden by CSS — first 10):\n  ' + data.clipped.slice(0, 10).join('\n  '));
