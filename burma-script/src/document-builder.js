@@ -540,6 +540,17 @@ export function nodeText(node) {
   return s.trim();
 }
 
+// A bare placeholder paragraph carries no words and no block identity. doSplitRow opens a
+// brand-new SHOWN lane with exactly one empty paragraph (cursor-ready), so a freshly split row
+// — the state on EVERY split, before the author types — has an empty bare paragraph as the
+// shown cell's only child. Flattening it into a block would mint a phantom { type:'bin', text:'' }
+// in the exported blocks array on every autosave. doMergeRow already drops this placeholder on
+// the way back; docToBlocks must drop it on flatten too so the two agree. A shown paragraph the
+// author HAS typed into still carries its words → kept (becomes a bin block, audit-safe).
+const isEmptyPlaceholderPara = (n) =>
+  n?.type === 'paragraph' &&
+  (!Array.isArray(n.content) || n.content.every((c) => !c.text || !c.text.trim()));
+
 export function docToBlocks(doc) {
   if (!doc?.content) return [];
   const out = [];
@@ -552,8 +563,11 @@ export function docToBlocks(doc) {
   for (const node of doc.content) {
     if (node?.type === 'tableRow') {
       for (const cell of node.content || []) {
-        if (cell?.type === 'tableCell') for (const blk of cell.content || []) flat.push(blk);
-        else flat.push(cell);
+        if (cell?.type === 'tableCell') {
+          // Skip the empty SHOWN-lane placeholder paragraph (no words, no block) so a split row
+          // doesn't leak a phantom empty bin block; keep everything else verbatim.
+          for (const blk of cell.content || []) if (!isEmptyPlaceholderPara(blk)) flat.push(blk);
+        } else flat.push(cell);
       }
     } else {
       flat.push(node);

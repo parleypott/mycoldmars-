@@ -16,7 +16,7 @@
  * The fix coalesces consecutive same-span text fragments into ONE token before wrapping.
  * The surrounding cases lock in the already-correct round-trip so the fix can't regress.
  */
-import { buildEditorDocument, docToBlocks, nodeText } from './document-builder.js';
+import { buildEditorDocument, docToBlocks, nodeText, ensureTableDoc } from './document-builder.js';
 
 let pass = 0, fail = 0;
 const eq = (got, want, label) => {
@@ -118,6 +118,67 @@ eq(
   const blocks = docToBlocks(doc);
   ok(blocks.some((b) => b.type === 'chapter'), 'chapter block survives round-trip');
   ok(blocks.some((b) => b.type === 'sot' && /02:02:01:07/.test(b.text)), 'sot timecode text survives round-trip');
+}
+
+// ── TABLE SPINE: flatten said|shown split rows back to blocks ──
+// Mirror exactly what doSplitRow (extensions/table.js) produces: said cell keeps the existing
+// cartridge block, shown cell opens with ONE empty placeholder paragraph (cursor-ready).
+const splitRow = (saidBlock, shownContent) => ({ type: 'doc', content: [
+  { type: 'tableRow', attrs: { cols: 2 }, content: [
+    { type: 'tableCell', attrs: { role: 'said' }, content: [saidBlock] },
+    { type: 'tableCell', attrs: { role: 'shown' }, content: [shownContent] },
+  ]},
+]});
+const voNode = { type: 'voBlock', attrs: { blockId: 'v1', status: 'todo' },
+  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'we begin here' }] }] };
+
+// THE BUG: a freshly split row (empty shown lane) must NOT leak a phantom empty bin block.
+{
+  const out = docToBlocks(splitRow(voNode, { type: 'paragraph' }));
+  eq(out.length, 1, 'empty shown lane drops its placeholder — no phantom bin block');
+  eq(out[0].type, 'vo', 'said lane survives the split flatten');
+  eq(out[0].text, 'we begin here', 'said words intact after split');
+}
+// A whitespace-only placeholder is also dropped (carries no words).
+{
+  const out = docToBlocks(splitRow(voNode, { type: 'paragraph', content: [{ type: 'text', text: '  ' }] }));
+  eq(out.length, 1, 'whitespace-only shown placeholder dropped too');
+}
+// No-regression: a shown lane the author TYPED into keeps its words (becomes a bin block, audit-safe).
+{
+  const out = docToBlocks(splitRow(voNode, { type: 'paragraph', content: [{ type: 'text', text: 'wide drone of the valley' }] }));
+  eq(out.length, 2, 'filled shown lane is kept as its own block');
+  eq(out[1].text, 'wide drone of the valley', 'shown words survive the flatten (no loss)');
+}
+// Reading order: said block first, then shown block.
+{
+  const out = docToBlocks(splitRow(voNode, { type: 'paragraph', content: [{ type: 'text', text: 'B-roll here' }] }));
+  eq(out[0].text, 'we begin here', 'reading order — said comes first');
+  eq(out[1].text, 'B-roll here', 'reading order — shown comes second');
+}
+
+// ── ensureTableDoc: flat pre-table doc -> rows; idempotent on already-rowed ──
+{
+  const flat = { type: 'doc', content: [voNode] };
+  const wrapped = ensureTableDoc(flat);
+  ok(wrapped.content.every((n) => n.type === 'tableRow'), 'ensureTableDoc wraps flat blocks into rows');
+  // Word-for-word survival across the wrap (this is the gate migrate-doc.js leans on).
+  eq(JSON.stringify(docToBlocks(flat)), JSON.stringify(docToBlocks(wrapped)),
+    'ensureTableDoc preserves blocks exactly (migration text-equality gate)');
+  // Idempotent — wrapping an already-rowed doc is a no-op.
+  eq(JSON.stringify(ensureTableDoc(wrapped)), JSON.stringify(wrapped),
+    'ensureTableDoc is idempotent on an already-rowed doc');
+}
+
+// ── serviceGroup unwrap: each serviceItem round-trips back to its own block ──
+{
+  const doc = buildEditorDocument([
+    { id: 'm1', type: 'map-need', title: 'Mapping', text: 'show Irrawaddy delta' },
+    { id: 'a1', type: 'archive-req', title: 'Archive', text: '1962 coup footage' },
+  ]);
+  const blocks = docToBlocks(doc);
+  ok(blocks.some((b) => b.type === 'map-need' && /Irrawaddy/.test(b.text)), 'map-need unwraps from serviceGroup');
+  ok(blocks.some((b) => b.type === 'archive-req' && /1962 coup/.test(b.text)), 'archive-req unwraps from serviceGroup');
 }
 
 console.log(`\ndocument-builder: ${pass} passed, ${fail} failed`);
