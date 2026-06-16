@@ -222,10 +222,12 @@ body {
 .wp-chapter .wp-spine { background: var(--grip-grad-dark); }
 .wp-chapter .wp-cap-num { background: var(--ivory); color: #23211b; }
 .wp-chapter .wp-grip { color: #5a594f; }
-.wp-chapter .wp-cart-body { padding: 12px 15px; color: var(--ch-text); }
-.wp-ch-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.wp-chapter .wp-cart-body { padding: 12px 15px; color: var(--ch-text); position: relative; }
+.wp-ch-head { display: flex; justify-content: flex-start; align-items: center; margin-bottom: 6px; }
 .wp-ch-kind { font-size: 8px; letter-spacing: .16em; color: rgba(243,241,234,.53); }
-.wp-ch-tag { font-size: 8px; letter-spacing: .16em; color: var(--ivory); }
+/* genre ACT tag — pinned top-right (it sits AFTER the content in DOM order for clean reading
+   order + audit contiguity, so position it visually back at the top-right of the cartridge). */
+.wp-ch-tag { position: absolute; top: 12px; right: 15px; font-size: 8px; letter-spacing: .16em; color: var(--ivory); }
 .wp-chapter .wp-body {
   font-family: var(--mono); font-size: 18px; font-weight: 800; letter-spacing: .02em;
   color: var(--ch-text); line-height: 1.18; text-transform: none;
@@ -346,7 +348,13 @@ body {
 .wp-scaffold-toggle.is-open { border-style: solid; }
 .wp-scaffold-glyph { font-size: 11px; line-height: 1; }
 .wp-scaffold-n { color: var(--label-3); }
-.wp-rack-inner.scaffold-collapsed .wp-editor-content > .wp-bin.is-scaffold { display: none; }
+/* Collapsed setup notes: CLIP them (max-height/overflow) rather than display:none so the
+   author meta-text stays in the document flow — nothing is removed from the doc, it's just
+   visually folded away. (display:none would drop the words entirely; clipping keeps them.) */
+.wp-rack-inner.scaffold-collapsed .wp-editor-content > .wp-bin.is-scaffold {
+  max-height: 0; overflow: hidden; margin: 0; padding: 0; border-width: 0; opacity: 0;
+  pointer-events: none;
+}
 
 /* ============================================================
    INLINE CHIPS — {tk} YELLOW + [visual] PINK. Click {tk}/{fc} → Workshop hub.
@@ -374,6 +382,22 @@ body {
 .wp-visual::before { content: "["; }
 .wp-visual::after { content: "]"; }
 .wp-visual:hover { background: #e9d4d1; }
+
+/* TIMECODE chip — the integrity copy-tag. EVERY embedded HH:MM:SS:FF becomes a small
+   clickable tag (mirrors the {tk} chip + the SOT LCD): flat, mono, hairline, tabular digits.
+   Click copies the code. Recessed LCD fill so it reads as a hardware timecode window inline. */
+.wp-tc-tag {
+  font-family: var(--mono); font-size: .78em; font-variant-numeric: tabular-nums;
+  background: var(--lcd-bg); border: 1.5px solid var(--ink); border-radius: 5px;
+  padding: 1px 6px; margin: 0 1px; color: var(--ivory); letter-spacing: .04em;
+  white-space: nowrap; cursor: pointer; user-select: none;
+  transition: border-color .14s var(--ease), color .14s var(--ease);
+}
+.wp-tc-tag::before { content: "▸ "; color: var(--orange); font-size: .85em; }
+.wp-tc-tag:hover { border-color: var(--orange); color: #fff; }
+.wp-tc-tag.copied { border-color: var(--orange); color: var(--orange); }
+/* On the mono-bodied B-roll cartridge, keep the chip legible against the lighter prose. */
+.wp-broll .wp-tc-tag, .wp-sot .wp-tc-tag { font-size: .82em; }
 
 ::selection { background: rgba(255,91,31,.18); }
 
@@ -469,17 +493,42 @@ body {
   position: fixed; top: 0; right: 0; z-index: 150; width: 340px; height: 100vh;
   background: var(--frame); border-left: 2px solid var(--ink);
   padding: 22px 22px 30px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
-  animation: wp-ws-in .16s var(--ease); transition: width .16s var(--ease);
+  animation: wp-ws-in .16s var(--ease); transition: width .18s var(--ease);
 }
-.wp-workshop.is-expanded { width: min(640px, 48vw); max-width: 640px; }
+/* EXPANDED: nice and BIG — fills most of the screen so long options + sources + a roomy
+   writing surface have real space. Drag the left edge to fine-tune (JS sets --ws-w). */
+.wp-workshop.is-expanded {
+  width: var(--ws-w, min(900px, 72vw));
+  max-width: 92vw; min-width: 340px;
+}
+/* Drag-resize handle on the LEFT edge of the dock — grab and pull to size it. */
+.wp-ws-resizer {
+  position: absolute; top: 0; left: -3px; width: 7px; height: 100%; cursor: ew-resize;
+  z-index: 2; background: transparent;
+}
+.wp-ws-resizer::before {
+  content: ""; position: absolute; top: 50%; left: 2px; width: 2px; height: 46px;
+  transform: translateY(-50%); background: var(--ink); opacity: .28; border-radius: 2px;
+  transition: opacity .14s var(--ease);
+}
+.wp-ws-resizer:hover::before, .wp-workshop.is-resizing .wp-ws-resizer::before { opacity: .85; background: var(--orange); }
+.wp-workshop.is-resizing { transition: none; user-select: none; }
 @keyframes wp-ws-in { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
 .wp-ws-head { display: flex; align-items: center; }
 .wp-ws-kind { font-family: var(--mono); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--orange); }
 .wp-workshop[data-kind="visual"] .wp-ws-kind { color: var(--burgundy); }
 .wp-workshop[data-kind="fc"] .wp-ws-kind { color: var(--arm); }
 .wp-ws-actions { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; }
-.wp-ws-expand { background: transparent; border: 1.5px solid var(--ink); color: var(--label); border-radius: 6px; width: 22px; height: 22px; line-height: 1; cursor: pointer; font-size: 12px; }
-.wp-ws-expand:hover { border-color: var(--orange); color: var(--orange); }
+.wp-ws-expand {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: transparent; border: 1.5px solid var(--ink); color: var(--ink);
+  border-radius: 6px; height: 24px; padding: 0 8px; line-height: 1; cursor: pointer;
+  font-family: var(--mono); font-size: 8px; letter-spacing: .12em; text-transform: uppercase;
+  transition: background .14s var(--ease), color .14s var(--ease);
+}
+.wp-ws-expand .wp-ws-expand-glyph { font-size: 13px; }
+.wp-ws-expand:hover { background: var(--ink); color: var(--ivory); }
+.wp-workshop.is-expanded .wp-ws-expand { background: var(--orange); border-color: var(--orange); color: #fff; }
 .wp-ws-close { width: 24px; height: 24px; line-height: 1; font-size: 18px; border: 0; background: transparent; color: var(--label); cursor: pointer; border-radius: 6px; }
 .wp-ws-close:hover { color: var(--ink); background: var(--page); }
 .wp-ws-span {
@@ -580,7 +629,8 @@ body {
   .wp-vo .wp-body, .wp-oncam .wp-body, .wp-sot .wp-body, .wp-broll .wp-body, .wp-note .wp-body { color: #000 !important; font-size: 11pt !important; }
   .wp-lcd { background: none !important; border: 1pt solid #000 !important; }
   .wp-lcd-tc { color: #000 !important; }
-  .wp-tk, .wp-fc, .wp-visual { background: none !important; border: 1pt solid #000 !important; color: #000 !important; }
+  .wp-tk, .wp-fc, .wp-visual, .wp-tc-tag { background: none !important; border: 1pt solid #000 !important; color: #000 !important; }
+  .wp-tc-tag::before { color: #000 !important; }
   .wp-sot.is-done, .wp-broll.is-done { opacity: 1 !important; }
 }
 

@@ -150,4 +150,65 @@ export const VisualSpan = Mark.create({
   },
 });
 
-export const BURMA_MARKS = [TkSpan, FactCheckSpan, VisualSpan];
+// TIMECODE mark — the DATA-INTEGRITY chip. EVERY broadcast timecode (HH:MM:SS:FF) embedded
+// anywhere in any block's prose becomes a small clickable tag that COPIES the timecode on
+// click (Johnny: "a little tag you can click and it copies"). Mirrors the SOT LCD copy flow
+// and the {tk} chip look — flat, mono, hairline. Multiple per block stack inline. The raw
+// code rides in data-tc so the audit (.wp-tc-tag / [data-tc]) sees every one as TAGGED, and
+// nodeText leaves the plain text in place so the timecode round-trips faithfully.
+export const TimecodeMark = Mark.create({
+  name: 'timecode',
+  inclusive: false,
+  // Lower priority so a {tk …}/[visual] span that happens to wrap a timecode wins the span.
+  priority: 90,
+  addAttributes() {
+    return {
+      tc: {
+        default: '',
+        parseHTML: (el) => el.getAttribute('data-tc') || el.textContent || '',
+        renderHTML: (attrs) => (attrs.tc ? { 'data-tc': attrs.tc } : {}),
+      },
+    };
+  },
+  parseHTML() { return [{ tag: 'span[data-tc]' }]; },
+  renderHTML({ HTMLAttributes }) {
+    return ['span', { ...HTMLAttributes, class: 'wp-tc-tag', title: 'copy timecode', role: 'button', tabindex: '-1' }, 0];
+  },
+  addCommands() {
+    return {
+      setTimecode: (attrs) => ({ commands }) => commands.setMark('timecode', attrs),
+      unsetTimecode: () => ({ commands }) => commands.unsetMark('timecode'),
+    };
+  },
+  // Live self-mark: a timecode typed into the prose chips itself the moment it's complete.
+  addInputRules() {
+    return [markInputRule({ find: /(\b\d{1,2}:\d{2}:\d{2}:\d{2})$/, type: this.type })];
+  },
+  addPasteRules() {
+    return [markPasteRule({ find: /(\b\d{1,2}:\d{2}:\d{2}:\d{2}\b)/g, type: this.type })];
+  },
+  // Click a timecode chip → copy it to the clipboard + flash + toast, exactly like the SOT LCD.
+  addProseMirrorPlugins() {
+    return [new Plugin({
+      props: {
+        handleDOMEvents: {
+          mousedown: (view, event) => {
+            const target = event.target.closest('span.wp-tc-tag, span[data-tc]');
+            if (!target) return false;
+            event.preventDefault();
+            const tc = target.getAttribute('data-tc') || target.textContent || '';
+            if (tc) {
+              navigator.clipboard?.writeText(tc).catch(() => {});
+              window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tc } }));
+              target.classList.add('copied');
+              setTimeout(() => target.classList.remove('copied'), 700);
+            }
+            return true;
+          },
+        },
+      },
+    })];
+  },
+});
+
+export const BURMA_MARKS = [TkSpan, FactCheckSpan, VisualSpan, TimecodeMark];

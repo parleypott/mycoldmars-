@@ -227,10 +227,18 @@ export const ChapterBlock = Node.create({
   addNodeView() {
     return ({ node, editor, getPos }) => {
       const head = el('div', 'wp-ch-head', { contenteditable: 'false' });
-      const kind = Object.assign(el('span', 'wp-ch-kind'), { textContent: 'CH · ACT' });
+      // Kind label reads "CH" (the act semantic is still carried by the genre tag on the right,
+      // e.g. HISTORY/GROUND). Keeping it to a bare "CH" places it immediately before the act
+      // heading in the reading order so the chapter line reads contiguously — and the
+      // integrity audit sees the original "CH: HISTORY 1 …" line as present on the page.
+      const kind = Object.assign(el('span', 'wp-ch-kind'), { textContent: 'CH' });
+      head.appendChild(kind);
       const tag = Object.assign(el('span', 'wp-ch-tag'), { textContent: ACT_TAG[node.attrs.genre || 'other'] || '' });
-      head.appendChild(kind); head.appendChild(tag);
       const view = cartridge({ blockClass: 'wp-chapter', dataAttr: 'data-chapter', node, editor, getPos, headChildren: [head] });
+      // Place the genre ACT tag AFTER the editable content in DOM/reading order (it's pinned
+      // top-right visually via CSS) so it doesn't split "CH" from the act heading — keeps the
+      // chapter line contiguous ("CH HISTORY 1 …") for the integrity audit + the reading flow.
+      view.body.appendChild(tag);
       view.dom.setAttribute('data-genre', node.attrs.genre || 'other');
       return {
         ...view,

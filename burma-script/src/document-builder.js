@@ -10,89 +10,37 @@
 // SOT/B-roll = a tight row where the TIMECODE is the hero. Genre = faint gutter metadata only.
 
 // ---- text hygiene -------------------------------------------------------
-// The parser left markdown-escape backslashes in the raw text (\-, \[, \], \!).
-// Strip them so the script reads clean. Also collapses the leading "VO:" / "-VO:"
-// type prefixes that the parser kept inside .text for some blocks.
+// DATA-INTEGRITY LAW (WP-01 integrity fix): KEEP EVERY WORD. The old pipeline
+// deleted leading timecodes, "SOT:"/"DAY n" labels, beat markers, bullets, and
+// unterminated chip openers — and never restored them, so they vanished from the
+// doc (docToBlocks reads the stripped node). That dropped 57 timecodes + 104 lines.
+//
+// The ONLY transforms allowed now: unescape markdown backslashes + collapse runs of
+// whitespace. Nothing is deleted. The text is the source of truth — every word the
+// parser handed us must reach the page (and round-trip back out).
 function clean(text) {
   if (!text) return '';
   return String(text)
     .replace(/\\([\-\[\]\!\(\)\.\*_`#>~])/g, '$1') // unescape markdown escapes
-    .replace(/⁠/g, '')                          // word-joiner noise
-    .replace(/[ \t]+\n/g, '\n')
+    .replace(/⁠/g, '')                          // word-joiner noise (zero-width, no content)
+    .replace(/[ \t]+\n/g, '\n')                    // trailing space before a hard break
+    .replace(/[ \t]{2,}/g, ' ')                    // collapse runs of spaces — no words lost
     .trim();
 }
 
-// Strip a leading speaker/role prefix the parser embedded in prose, e.g.
-// "-VO: text" / "VO: text" / "DAY 2 JH ON CAM 02:.. :". Keeps the meaningful body.
-// The parser also kept INLINE "VO:" / "-VO:" beat markers mid-paragraph (run-on
-// dictation: "...stand out. - VO: First:..."), plus leading "◦/•/-" item bullets.
-// The reference shows clean connected prose, so strip ALL of those — the text is
-// display-only here (the doc JSON round-trips), so tidying the read never loses data.
-function stripBeatMarkers(t) {
-  return String(t)
-    // leading item bullet/dash on a fragment ("◦ River shape", "- VO: ...")
-    .replace(/^[\s◦•‣⁃·–—-]+/, '')
-    // inline "VO:" beat marker the dictation left mid-sentence ("stand out. ⁃ VO: First:").
-    // Keep any sentence punctuation before it, drop an optional leading bullet/dash + the
-    // "VO:" marker, leave a clean space. The bullet class covers ASCII/en/em dash AND the
-    // U+2043 hyphen-bullet / U+2022 bullet the parser used as beat separators.
-    .replace(/\s*[-‐‑‒–—•⁃·]?\s*\bVO\s*:\s*/gi, ' ')
-    // an orphan trailing "VO" the parser left dangling after a sentence ("... behavior. VO")
-    .replace(/([.!?])\s+VO\b(?=\s|$)/gi, '$1')
-    // dictation beat dashes: a bare hyphen flanked by spaces ("stand out. - First:") is a
-    // spoken-beat separator, not prose punctuation. Catch the ASCII hyphen AND the unicode
-    // hyphen/non-breaking-hyphen/figure-dash variants the parser emitted (U+2010–U+2012,
-    // U+2011). Real prose em/en-dashes (U+2013/U+2014) are intentionally left untouched.
-    .replace(/\s+[-‐‑‒•⁃·]\s+/g, ' ')
-    // UNTERMINATED chip openers ("{TK description… " with no closing brace): inlineContent's
-    // {…}/[…] regex needs a closer, so these would leak raw curly noise into the prose. Peel
-    // the bare opener so the inner text reads as clean prose (a real terminated {tk …}/[…]
-    // still has its braces intact and is untouched here, so it still becomes a chip).
-    .replace(/\{\s*(?:tk|fc|fact)\b[:\s]*(?![^{}]*\})/gi, '')
-    // collapse the double-spaces the strips can leave, and a space before punctuation
-    .replace(/\s{2,}/g, ' ')
-    .replace(/\s+([.,;:])/g, '$1')
-    .trim();
+// Light read-tidy ONLY: unescape + collapse whitespace. KEEPS every word, every
+// label, every timecode (they become clickable chips downstream via inlineContent).
+// No deletion — this is the integrity-safe replacement for the old strip functions.
+function stripLead(text /*, type */) {
+  return clean(text);
 }
 
-function stripLead(text, type) {
-  let t = clean(text);
-  if (type === 'vo') {
-    t = t.replace(/^[-‐‑‒–—\s]*VO:\s*/i, '');
-    t = stripBeatMarkers(t);
-  }
-  if (type === 'oncam') {
-    t = t.replace(/^DAY\s*\d+\s*/i, '').replace(/\bON\s*CAM\b/i, 'On camera —');
-    t = stripBeatMarkers(t);
-  }
-  if (type === 'plain') t = stripBeatMarkers(t);
-  return t.trim();
-}
-
-// SOT/broll transcript prose arrives with parser leftovers: a leading bullet dash, an
-// inline "SOT:" / "Day N SOT:" / "string out" label, and a stray timecode echo (the
-// timecode already lives in the HERO head). Strip those so the quote reads clean — the
-// hero datum stays in attrs, the body is just the words. Keeps export faithful (the
-// timecode round-trips from attrs, not from the prose).
+// SOT/broll body prose. The HERO timecode lives in attrs (the LCD), but the body may
+// ALSO carry labels ("DAY 1 SOT:"), bullets, AND additional embedded timecodes — all of
+// which we KEEP. Extra timecodes become stacked chips (inlineContent tags them); the
+// labels are real authoring context. Integrity-safe: unescape + collapse only.
 export function cleanQuote(text) {
-  let t = clean(text);
-  // Normalise the U+2043 hyphen-bullet (and friends) the parser used as item separators
-  // to a clean spaced en-dash so the transcript reads as connected prose, not a bullet wall.
-  t = t.replace(/[⁃•]/g, '–');
-  // Drop a leading separator, then peel off the "SCENE …" / "SOT: Day N string out" /
-  // "DAY N SOT:" lead-in labels and any echoed timecode (the timecode is the HERO in attrs).
-  t = t.replace(/^[\s–-]+/, '');
-  t = t.replace(/^SCENE\b[^–]*–\s*/i, '');                  // "SCENE Breakfast … –"
-  t = t.replace(/^SOT:\s*Day\s*\d+\s*string\s*out\s*–?\s*/i, ''); // "SOT: Day 1 string out –"
-  t = t.replace(/^DAY\s*\d+\s*SOT\s*[:.-]?\s*/i, '');       // "DAY 1 SOT:"
-  t = t.replace(/^SOT\s*[:.-]\s*/i, '');                    // "SOT:"
-  t = t.replace(/^\d{1,2}:\d{2}:\d{2}:\d{2}\s*–?\s*/, '');  // leading echoed timecode
-  // Re-strip leading separators: a bullet often sits AFTER the label/timecode we just
-  // peeled (e.g. "DAY 1 SOT: 02:… – ⁃ quote"), so the first pass at the top can't catch
-  // it. Run the leading-separator strip again now that the lead-ins are gone.
-  t = t.replace(/^[\s–—-]+/, '');
-  t = t.replace(/\s+–\s+/g, ' — ');                         // tidy inner separators to em-dash
-  return t.trim();
+  return clean(text);
 }
 
 // Worklists are READ-ONLY handoff views — no round-trip back to blocks — so we can safely
@@ -154,39 +102,79 @@ function formatTimecode(tc) {
 // text into TipTap text nodes, marking the spans so the editor can render the Swiss-red
 // underline workshop affordance. Works off literal {…}/[…] in the cleaned text so it
 // survives editing (the schema offsets would drift once the user types).
+// Any broadcast timecode anywhere in the prose: HH:MM:SS:FF or H:MM:SS:FF. Matches the
+// audit's detector (\b\d{1,2}:\d{2}:\d{2}:\d{2}\b). EVERY one becomes a clickable copy-chip.
+const TIMECODE_RE = /\b\d{1,2}:\d{2}:\d{2}:\d{2}\b/;
+const TIMECODE_RE_G = /\b\d{1,2}:\d{2}:\d{2}:\d{2}\b/g;
+
+// Push `text` onto `out` as TipTap text nodes, splitting out EVERY embedded timecode into its
+// own node carrying the 'timecode' mark (a clickable copy-chip) — ON TOP of any base marks the
+// surrounding span supplies. This is what tags timecodes nested INSIDE a {tk …}/[visual …] span
+// (e.g. "[B roll of hotels on DAY 2 00:09:19:03]") as well as in bare prose. baseMarks may be
+// undefined (bare prose) or a span mark array.
+function pushTextWithTimecodes(out, text, baseMarks) {
+  if (!text) return;
+  let last = 0, m;
+  TIMECODE_RE_G.lastIndex = 0;
+  while ((m = TIMECODE_RE_G.exec(text)) !== null) {
+    if (m.index > last) out.push({ type: 'text', text: text.slice(last, m.index), ...(baseMarks ? { marks: baseMarks } : {}) });
+    const tcMark = { type: 'timecode', attrs: { tc: m[0] } };
+    out.push({ type: 'text', text: m[0], marks: baseMarks ? [...baseMarks, tcMark] : [tcMark] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push({ type: 'text', text: text.slice(last), ...(baseMarks ? { marks: baseMarks } : {}) });
+}
+
+// A heading (chapter/scene) is plain text — but the parser sometimes packs a timecode into the
+// title clause ("(fake) PAGODA: DAY 2 02:45:36:15 …"). Tag those so every timecode is a chip.
+function headingNodes(heading) {
+  const out = [];
+  pushTextWithTimecodes(out, heading || ' ');
+  return out.length ? out : [{ type: 'text', text: heading || ' ' }];
+}
+
 function inlineContent(rawText, type) {
   const text = stripLead(rawText, type);
   if (!text) return [{ type: 'text', text: ' ' }];
 
   const out = [];
-  // matches {tk ...} or [visual ...]; non-greedy, no nesting
+  // Combined splitter: {tk …}/{fc …} brace tokens, [visual] brackets, AND every embedded
+  // broadcast timecode. Order in the alternation lets a timecode INSIDE a {tk …} stay part
+  // of the brace token (the brace alternative wins because it starts earlier / is matched
+  // first at that index). Standalone timecodes in plain prose get their own chip.
   const re = /(\{[^{}]*\}|\[[^\[\]]*\])/g;
   let last = 0;
   let m;
   while ((m = re.exec(text)) !== null) {
-    if (m.index > last) out.push({ type: 'text', text: text.slice(last, m.index) });
+    // Plain prose between spans — split out any bare timecodes as their own copy-chips.
+    if (m.index > last) pushTextWithTimecodes(out, text.slice(last, m.index));
     const tok = m[0];
+
     const isBrace = tok[0] === '{';
     // A {…} brace token is EITHER a fact-check ask ({fc …}/{fact …}) or a {tk …} writing
     // ask. Sniff the keyword to route to the right mark — the two are visually distinct and
     // open the Workshop hub in different modes (fc → verify; tk → 5 options).
     const isFc = isBrace && /^\{\s*(?:fc|fact)\b/i.test(tok);
     const markType = isBrace ? (isFc ? 'factCheckSpan' : 'tkSpan') : 'visualSpan';
-    // Strip the STRUCTURAL braces + the leading keyword from the VISIBLE text so the script
-    // reads clean (correction #10) — no bright "{tk"/"{fc" curly noise mid-sentence. The
-    // mark still carries the span; nodeText.wrapToken re-adds the token on export so the
-    // blocks round-trip stays faithful.
+    // Strip only the STRUCTURAL braces/brackets — KEEP the leading keyword ("tk"/"fc") in the
+    // visible chip text, matching the CARTRIDGES reference ("tk fractured-shape", "tk ~one
+    // fifth"). This is also the integrity-correct behaviour: the keyword is a real word in the
+    // original script, so keeping it means no words are dropped (the audit sees every word).
+    // nodeText.wrapToken is keyword-aware so the export round-trip stays single-keyword.
     const inner = isBrace
-      ? tok.replace(/^\{\s*(?:tk|fc|fact)\b[:\s]*/i, '').replace(/^\{\s*/, '').replace(/\}$/, '').trim()
+      ? tok.replace(/^\{\s*/, '').replace(/\}$/, '').trim()
       : tok.replace(/^\[\s*/, '').replace(/\]$/, '').trim();
-    out.push({
-      type: 'text',
-      text: inner || tok,
-      marks: [{ type: markType }],
-    });
+    // Emit the span — but a timecode embedded INSIDE the span ("[… DAY 2 00:09:19:03]") gets
+    // BOTH the span mark AND a timecode chip mark, so every timecode is clickable/copyable.
+    const spanMark = { type: markType };
+    if (TIMECODE_RE.test(inner)) {
+      pushTextWithTimecodes(out, inner || tok, [spanMark]);
+    } else {
+      out.push({ type: 'text', text: inner || tok, marks: [spanMark] });
+    }
     last = m.index + tok.length;
   }
-  if (last < text.length) out.push({ type: 'text', text: text.slice(last) });
+  if (last < text.length) pushTextWithTimecodes(out, text.slice(last));
   return out.length ? out : [{ type: 'text', text: ' ' }];
 }
 
@@ -210,13 +198,47 @@ const DIRECTION_WORDS = /\b(ON[\s-]?CAM|MONOLOGUE|WALK\s*AND\s*TALK|WALK\s*&\s*T
 
 // Trim a divider title down to its clean act label, dropping any directing tail the parser
 // glued on ("HISTORY 2 BRITISH x walk and talk" → "HISTORY 2"). Keeps the dark cartridge
-// reading as a crisp section marker; the full text still round-trips out via docToBlocks
-// (nodeText reads the live node), so nothing is lost on export — only the *display* tightens.
+// reading as a crisp section marker. The tail is NOT lost — chapterBody() emits it as a
+// paragraph under the heading (integrity fix: the chapter's body text reaches the page).
 function actLabel(title) {
   let t = clean(title).replace(/\s+/g, ' ').trim();
   const m = t.match(/^(COLD\s*OPEN|HISTORY|GROUND|INQUIRY|LATM|ACT|EPILOGUE|OUTRO|TEASER|INTRO)(\s*\d+)?/i);
   if (m) return m[0].toUpperCase().replace(/\s+/g, ' ').trim();
   return t;
+}
+
+// THE SOURCE-OF-TRUTH FIX. The upstream parser TRUNCATED long content into b.title / b.text
+// but preserved the COMPLETE original line in b.rawSource (verified: 57 timecodes + many
+// lines live ONLY in rawSource). rawSource is therefore the authoritative, lossless content.
+// bodyText returns the richest available text — rawSource when it carries more than text/title,
+// else the cleaned text/title. Nothing the parser captured is dropped.
+function bodyText(b) {
+  const text = clean(b.text || '');
+  const title = clean(b.title || '');
+  const raw = clean(b.rawSource || '');
+  const base = text || title;
+  // rawSource wins whenever it carries MORE than the (possibly truncated / prefix-stripped)
+  // body — even a small delta like a leading "VO:" the parser dropped is real content the
+  // integrity audit counts. Only fall back to base when rawSource adds nothing.
+  if (raw && raw.length > base.length) return raw;
+  return base;
+}
+
+// THE CHAPTER/SCENE-BODY INTEGRITY FIX: a chapter rendered ONLY its act label, throwing away
+// the rest (COLD OPEN's "Candidates: 1. DAY 2 … 02:32:21:22 …" notes, INQUIRY's theme list).
+// Strip the structural leading label ("CH:", "SCENE:") + the recognized act head off the front
+// of the FULL source text and return EVERYTHING after it as body prose — nothing dropped.
+function headBodySplit(rawTitle, headLabel) {
+  let t = clean(rawTitle).replace(/\s+/g, ' ').trim();
+  // Peel the structural section markers the parser kept ("CH:", "⁃ SCENE:", "SCENE").
+  t = t.replace(/^[⁃•‣·\s-]*CH\s*[:.]?\s*/i, '').replace(/^[⁃•‣·\s-]*SCENE\s*[:.]?\s*/i, '').trim();
+  const head = clean(headLabel).replace(/\s+/g, ' ').trim();
+  let body = t;
+  // Try to peel the recognized act head (e.g. "HISTORY 2") off the front.
+  const m = t.match(/^(COLD\s*OPEN|HISTORY|GROUND|INQUIRY|LATM|ACT|EPILOGUE|OUTRO|TEASER|INTRO)(\s*\d+)?\s*[.:–—-]?\s*/i);
+  if (m) body = t.slice(m[0].length).trim();
+  else if (head && t.toUpperCase().startsWith(head.toUpperCase())) body = t.slice(head.length).replace(/^\s*[.:–—-]\s*/, '').trim();
+  return body;
 }
 
 // Decide what a parser-labelled `chapter` REALLY is.
@@ -252,34 +274,39 @@ function blockToNode(b, opts) {
     else if (real === 'scene') b = { ...b, type: 'scene', title: b.title };
   }
   switch (b.type) {
-    case 'chapter':
-      return {
-        type: 'chapterBlock',
-        attrs: { blockId: id, genre: b.genre || 'other' },
-        // Display the clean act label (actLabel clamps any directing tail); fall back to the
-        // general heading clamp, then a literal 'Chapter'. Full text round-trips via nodeText.
-        content: [para([{ type: 'text', text: actLabel(b.title) || headingClause(b.title, 64) || 'Chapter' }])],
-      };
+    case 'chapter': {
+      // Heading = clean act label. BODY = the remaining title text (COLD OPEN's candidate
+      // notes, INQUIRY's theme list, embedded timecodes) — emitted as prose so NOTHING is
+      // dropped. inlineContent tags every embedded timecode/{tk}/[visual] as a chip.
+      const heading = actLabel(b.title) || headingClause(b.title, 64) || 'Chapter';
+      // Body = the FULL source (rawSource) minus the heading clause — keeps every candidate
+      // note + embedded timecode the parser truncated out of b.title.
+      const body = headBodySplit(bodyText(b), heading);
+      const content = [para(headingNodes(heading))];
+      if (body) content.push(para(inlineContent(body, 'plain')));
+      return { type: 'chapterBlock', attrs: { blockId: id, genre: b.genre || 'other' }, content };
+    }
 
-    case 'scene':
-      return {
-        type: 'sceneBlock',
-        attrs: { blockId: id },
-        content: [para([{ type: 'text', text: headingClause(b.title, 80) || 'Scene' }])],
-      };
+    case 'scene': {
+      const heading = headingClause(b.title, 80) || 'Scene';
+      const body = headBodySplit(bodyText(b), heading);
+      const content = [para(headingNodes(heading))];
+      if (body) content.push(para(inlineContent(body, 'plain')));
+      return { type: 'sceneBlock', attrs: { blockId: id }, content };
+    }
 
     case 'vo':
       return {
         type: 'voBlock',
         attrs: { blockId: id, status: b.voStatus || 'todo' },
-        content: [para(inlineContent(b.text, 'vo'))],
+        content: [para(inlineContent(bodyText(b), 'vo'))],
       };
 
     case 'oncam':
       return {
         type: 'oncamBlock',
         attrs: { blockId: id },
-        content: [para(inlineContent(b.text, 'oncam'))],
+        content: [para(inlineContent(bodyText(b), 'oncam'))],
       };
 
     case 'sot':
@@ -294,7 +321,7 @@ function blockToNode(b, opts) {
           speaker: b.speaker || '',
           done: !!b.done,
         },
-        content: [para(inlineContent(cleanQuote(b.text), 'plain'))],
+        content: [para(inlineContent(cleanQuote(bodyText(b)), 'plain'))],
       };
 
     case 'broll':
@@ -308,7 +335,7 @@ function blockToNode(b, opts) {
           ambiguous: !!b.timecode?.ambiguous,
           done: !!b.done,
         },
-        content: [para(inlineContent(cleanQuote(b.text), 'plain'))],
+        content: [para(inlineContent(cleanQuote(bodyText(b)), 'plain'))],
       };
 
     case 'map-need':
@@ -318,7 +345,7 @@ function blockToNode(b, opts) {
         attrs: { blockId: id, kind: b.type, label: b.title || (b.type === 'map-need' ? 'Mapping data needs' : 'Archive request') },
         // Route through inlineContent so {tk}/[visual] markers baked into the raw text become
         // clickable chips that reach the Workshop hub — every marker is a chip (punch-list #6).
-        content: [para(inlineContent(b.text, 'plain'))],
+        content: [para(inlineContent(bodyText(b), 'plain'))],
       };
 
     case 'note':
@@ -326,7 +353,7 @@ function blockToNode(b, opts) {
       return {
         type: 'noteBlock',
         attrs: { blockId: id, kind: b.type },
-        content: [para(inlineContent(b.text, 'plain'))],
+        content: [para(inlineContent(bodyText(b), 'plain'))],
       };
 
     case 'bin':
@@ -334,7 +361,7 @@ function blockToNode(b, opts) {
       return {
         type: 'binBlock',
         attrs: { blockId: id, scaffold: !!(opts && opts.scaffold) },
-        content: [para(inlineContent(b.text, 'plain'))],
+        content: [para(inlineContent(bodyText(b), 'plain'))],
       };
   }
 }
@@ -377,11 +404,14 @@ function wrapToken(text, kind) {
   const t = text;
   if (kind === 'tkSpan') {
     if (/^\{.*\}$/s.test(t.trim())) return t;        // already braced
-    return '{tk ' + t.replace(/^\s+|\s+$/g, '') + '}';
+    const inner = t.replace(/^\s+|\s+$/g, '');
+    // The visible chip now KEEPS its "tk" keyword, so don't double-add it on export.
+    return /^tk\b/i.test(inner) ? '{' + inner + '}' : '{tk ' + inner + '}';
   }
   if (kind === 'factCheckSpan') {
     if (/^\{.*\}$/s.test(t.trim())) return t;        // already braced
-    return '{fc ' + t.replace(/^\s+|\s+$/g, '') + '}';
+    const inner = t.replace(/^\s+|\s+$/g, '');
+    return /^(?:fc|fact)\b/i.test(inner) ? '{' + inner + '}' : '{fc ' + inner + '}';
   }
   if (kind === 'visualSpan') {
     if (/^\[.*\]$/s.test(t.trim())) return t;        // already bracketed

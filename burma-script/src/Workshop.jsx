@@ -11,8 +11,10 @@
 //
 // The hub is EXPANDABLE (⤢) so long options + sources have room. Picks/notes persist per-span.
 
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import RESEARCH from '../tk-research.json';
+
+const LS_WS_WIDTH = 'wp01_burma_workshop_width_v1';
 
 const LS_WORKSHOP = 'wp01_burma_workshop_v1';
 // Normalize a marker to its inner content so the doc span ("shows years of…") matches the
@@ -72,6 +74,38 @@ export function Workshop() {
   const [chapter, setChapter] = useState('');
   const [verdict, setVerdict] = useState(null);
   const [expanded, setExpanded] = useState(false);
+  const [width, setWidth] = useState(() => {
+    const v = parseInt(localStorage.getItem(LS_WS_WIDTH) || '', 10);
+    return Number.isFinite(v) && v >= 340 ? v : 0; // 0 → use the CSS default
+  });
+  const asideRef = useRef(null);
+  const resizing = useRef(false);
+
+  // Drag the LEFT edge to resize the dock. Width is clamped to [340, 92vw], persisted so
+  // Johnny's chosen size sticks across sessions. Dragging implies expanded.
+  useEffect(() => {
+    function onMove(e) {
+      if (!resizing.current) return;
+      const w = Math.max(340, Math.min(window.innerWidth * 0.92, window.innerWidth - e.clientX));
+      setWidth(w);
+    }
+    function onUp() {
+      if (!resizing.current) return;
+      resizing.current = false;
+      asideRef.current?.classList.remove('is-resizing');
+      try { localStorage.setItem(LS_WS_WIDTH, String(width)); } catch {}
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, [width]);
+
+  function startResize(e) {
+    e.preventDefault();
+    if (!expanded) setExpanded(true);
+    resizing.current = true;
+    asideRef.current?.classList.add('is-resizing');
+  }
 
   useEffect(() => {
     const onOpen = (e) => {
@@ -154,12 +188,20 @@ export function Workshop() {
   const genLabel = isFc ? 'VERIFY CLAIM' : (options.length ? 'REGENERATE LIVE' : 'GENERATE 5');
 
   return (
-    <aside class={`wp-workshop ${expanded ? 'is-expanded' : ''}`} data-kind={span.kind}>
+    <aside
+      ref={asideRef}
+      class={`wp-workshop ${expanded ? 'is-expanded' : ''}`}
+      data-kind={span.kind}
+      style={expanded && width ? { '--ws-w': width + 'px' } : undefined}
+    >
+      {/* drag the left edge to resize the dock */}
+      <div class="wp-ws-resizer" title="Drag to resize" onMouseDown={startResize} />
       <div class="wp-ws-head">
         <span class="wp-ws-kind">{kindLabel}</span>
         <span class="wp-ws-actions">
-          <button class="wp-ws-expand" title={expanded ? 'Collapse' : 'Expand'} onClick={() => setExpanded(!expanded)}>
-            {expanded ? '⤡' : '⤢'}
+          <button class="wp-ws-expand" title={expanded ? 'Collapse panel' : 'Expand panel — make it big'} onClick={() => setExpanded(!expanded)}>
+            <span class="wp-ws-expand-glyph">{expanded ? '⤡' : '⤢'}</span>
+            <span>{expanded ? 'Collapse' : 'Expand'}</span>
           </button>
           <button class="wp-ws-close" title="Close" onClick={() => setOpen(false)}>×</button>
         </span>
