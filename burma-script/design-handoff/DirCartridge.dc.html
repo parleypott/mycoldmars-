@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;0,800&display=swap" rel="stylesheet">
+</helmet>
+
+<div style="max-width:1040px;margin:0 auto;background:#efeadd;border-radius:16px;padding:22px;border:2px solid #1f1d18;position:relative;font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;color:#1f1d18">
+
+  <span style="position:absolute;top:9px;left:9px;width:14px;height:14px;border:1.5px solid #1f1d18;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="width:8px;height:1.5px;background:#1f1d18;transform:rotate(-45deg)"></span></span>
+  <span style="position:absolute;top:9px;right:9px;width:14px;height:14px;border:1.5px solid #1f1d18;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="width:8px;height:1.5px;background:#1f1d18;transform:rotate(-45deg)"></span></span>
+  <span style="position:absolute;bottom:9px;left:9px;width:14px;height:14px;border:1.5px solid #1f1d18;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="width:8px;height:1.5px;background:#1f1d18;transform:rotate(-45deg)"></span></span>
+  <span style="position:absolute;bottom:9px;right:9px;width:14px;height:14px;border:1.5px solid #1f1d18;border-radius:50%;display:flex;align-items:center;justify-content:center"><span style="width:8px;height:1.5px;background:#1f1d18;transform:rotate(-45deg)"></span></span>
+
+  <!-- header -->
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:0 2px 14px">
+    <div style="display:flex;align-items:baseline;gap:9px">
+      <span style="font-size:18px;font-weight:800">WP·<b style="color:#ff5b1f">01</b></span>
+      <span style="font-size:7px;color:#7d7768;letter-spacing:.14em">fig.03 — CARTRIDGE RACK</span>
+    </div>
+    <div style="font-size:8px;letter-spacing:.16em;color:#6b6658">2,305 WORDS · 225 BLOCKS · <span style="color:#6e1f1a">07/79 SOT</span> · DRAFT</div>
+  </div>
+
+  <sc-for list="{{ blocks }}" as="b" hint-placeholder-count="6">
+
+    <!-- CHAPTER cartridge -->
+    <sc-if value="{{ b.isChapter }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;margin:18px 0 11px;border-radius:11px;overflow:hidden;border:1.5px solid #1f1d18;background:#1a1a18">
+        <div style="width:30px;flex:none;background:repeating-linear-gradient(0deg,#2a2a26,#2a2a26 2px,#36352f 2px,#36352f 4px);display:flex;flex-direction:column;align-items:center;border-right:1.5px solid #1f1d18">
+          <div style="width:100%;background:#efe9da;color:#23211b;font-size:8px;text-align:center;padding:3px 0;letter-spacing:.04em;font-weight:700;border-bottom:1.5px solid #1f1d18">{{ b.num }}</div>
+          <div style="flex:1;display:flex;align-items:center;color:#5a594f;font-size:12px">⠿</div>
+        </div>
+        <div style="flex:1;padding:12px 15px;color:#f3f1ea">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:8px;letter-spacing:.16em;color:#f3f1ea88">{{ b.kind }}</span>
+            <span style="font-size:8px;letter-spacing:.16em;color:#efe9da">{{ b.tag }}</span>
+          </div>
+          <div style="font-size:18px;font-weight:800;letter-spacing:.02em">{{ b.title }}</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- VO cartridge -->
+    <sc-if value="{{ b.isVo }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;margin:0 0 11px;border-radius:11px;overflow:hidden;border:1.5px solid #1f1d18;background:#fbfaf5;transition:background .16s" style-hover="background:#f1ece0">
+        <div style="width:30px;flex:none;background:repeating-linear-gradient(0deg,#ddd7c8,#ddd7c8 2px,#ece7da 2px,#ece7da 4px);display:flex;flex-direction:column;align-items:center;border-right:1.5px solid #1f1d18">
+          <div style="width:100%;background:#2f6fb0;color:#fff;font-size:8px;text-align:center;padding:3px 0;letter-spacing:.04em;border-bottom:1.5px solid #1f1d18">{{ b.num }}</div>
+          <div style="flex:1;display:flex;align-items:center;color:#9a958a;font-size:12px;cursor:grab">⠿</div>
+        </div>
+        <div style="flex:1;padding:11px 14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+            <span style="font-size:8px;letter-spacing:.12em;color:#5c584e">{{ b.kind }}</span>
+            <span onClick="{{ b.onToggle }}" title="cycle record state" style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:8px;letter-spacing:.12em;color:#5c584e">REC
+              <span style="display:inline-flex;background:#e7e1d3;border-radius:20px;padding:2px;gap:3px;border:1.5px solid #1f1d18">
+                <i style="width:15px;height:12px;border-radius:10px;display:block;background:{{ b.pip0bg }}"></i>
+                <i style="width:15px;height:12px;border-radius:10px;display:block;background:{{ b.pip1bg }}"></i>
+                <i style="width:15px;height:12px;border-radius:10px;display:block;background:{{ b.pip2bg }}"></i>
+              </span>
+              <span style="min-width:24px;font-weight:700;color:{{ b.voLabelColor }}">{{ b.voLabel }}</span>
+            </span>
+          </div>
+          <div style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;line-height:1.62;color:#23211d">
+            <sc-for list="{{ b.segs }}" as="s" hint-placeholder-count="3">
+              <sc-if value="{{ s.isText }}" hint-placeholder-val="{{ true }}"><span>{{ s.v }}</span></sc-if>
+              <sc-if value="{{ s.isTk }}" hint-placeholder-val="{{ true }}"><span style="font-family:'JetBrains Mono',monospace;font-size:.8em;background:#fff2cf;border:1.5px solid #1f1d18;border-radius:5px;padding:1px 6px;color:#8a6d00;white-space:nowrap">{{ s.v }}</span></sc-if>
+              <sc-if value="{{ s.isVis }}" hint-placeholder-val="{{ true }}"><span style="font-family:'JetBrains Mono',monospace;font-size:.8em;background:#f1e3e1;border:1.5px solid #1f1d18;border-radius:5px;padding:1px 6px;color:#6e1f1a;white-space:nowrap">[{{ s.v }}]</span></sc-if>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- SOT cartridge -->
+    <sc-if value="{{ b.isSot }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;margin:0 0 11px;border-radius:11px;overflow:hidden;border:1.5px solid #1f1d18;background:#fbfaf5;transition:background .16s" style-hover="background:#f1ece0">
+        <div style="width:30px;flex:none;background:repeating-linear-gradient(0deg,#ddd7c8,#ddd7c8 2px,#ece7da 2px,#ece7da 4px);display:flex;flex-direction:column;align-items:center;border-right:1.5px solid #1f1d18">
+          <div style="width:100%;background:#ff5b1f;color:#fff;font-size:8px;text-align:center;padding:3px 0;letter-spacing:.04em;border-bottom:1.5px solid #1f1d18">{{ b.num }}</div>
+          <div style="flex:1;display:flex;align-items:center;color:#9a958a;font-size:12px;cursor:grab">⠿</div>
+        </div>
+        <div style="flex:1;padding:11px 14px;display:grid;grid-template-columns:auto 1fr auto;gap:13px;align-items:center">
+          <div onClick="{{ b.onCopy }}" title="copy timecode" style="background:#23211b;border:1.5px solid #1f1d18;border-radius:6px;padding:6px 10px;cursor:pointer">
+            <div style="font-size:6px;color:#9a917e;letter-spacing:.14em">{{ b.day }}</div>
+            <div style="font-size:16px;color:#efe9da;letter-spacing:.06em">{{ b.tc }}</div>
+          </div>
+          <div>
+            <div style="font-size:8px;letter-spacing:.12em;color:#ff5b1f;margin-bottom:3px">{{ b.spk }}</div>
+            <div style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:15px;line-height:1.5;color:#23211d">{{ b.quote }}</div>
+          </div>
+          <div onClick="{{ b.onDone }}" title="mark done" style="width:34px;height:30px;border-radius:7px;background:{{ b.doneBg }};color:{{ b.doneFg }};border:1.5px solid {{ b.doneBorder }};display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer">✓</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- B-ROLL cartridge -->
+    <sc-if value="{{ b.isBroll }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;margin:0 0 11px;border-radius:11px;overflow:hidden;border:1.5px solid #1f1d18;background:#fbfaf5;transition:background .16s" style-hover="background:#f1ece0">
+        <div style="width:30px;flex:none;background:repeating-linear-gradient(0deg,#ddd7c8,#ddd7c8 2px,#ece7da 2px,#ece7da 4px);display:flex;flex-direction:column;align-items:center;border-right:1.5px solid #1f1d18">
+          <div style="width:100%;background:#6e1f1a;color:#fff;font-size:8px;text-align:center;padding:3px 0;letter-spacing:.04em;border-bottom:1.5px solid #1f1d18">{{ b.num }}</div>
+          <div style="flex:1;display:flex;align-items:center;color:#9a958a;font-size:12px;cursor:grab">⠿</div>
+        </div>
+        <div style="flex:1;padding:11px 14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:8px;letter-spacing:.12em;color:#5c584e">{{ b.kind }}</span>
+            <span onClick="{{ b.onCopy }}" title="copy timecode" style="font-size:8px;letter-spacing:.1em;color:#6e1f1a;cursor:pointer">{{ b.day }} · {{ b.tc }} ⧉</span>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#4a463d;line-height:1.5">{{ b.body }} <span style="font-size:.92em;background:#f1e3e1;border:1.5px solid #1f1d18;border-radius:5px;padding:1px 6px;color:#6e1f1a;white-space:nowrap">[{{ b.vis }}]</span></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- NOTE cartridge -->
+    <sc-if value="{{ b.isNote }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;margin:0 0 11px;border-radius:11px;overflow:hidden;border:1.5px solid #1f1d18;background:#fff8e0">
+        <div style="width:30px;flex:none;background:repeating-linear-gradient(0deg,#f0e2a8,#f0e2a8 2px,#f6ecbf 2px,#f6ecbf 4px);display:flex;flex-direction:column;align-items:center;border-right:1.5px solid #1f1d18">
+          <div style="width:100%;background:#f5c518;color:#5a4a00;font-size:8px;text-align:center;padding:3px 0;letter-spacing:.04em;border-bottom:1.5px solid #1f1d18">{{ b.num }}</div>
+          <div style="flex:1;display:flex;align-items:center;color:#b8a24a;font-size:12px">⠿</div>
+        </div>
+        <div style="flex:1;padding:11px 14px">
+          <div style="font-size:8px;letter-spacing:.12em;color:#8a6d00;margin-bottom:5px">{{ b.kind }}</div>
+          <div style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:14px;line-height:1.5;color:#5a4a00;font-style:italic">{{ b.body }}</div>
+        </div>
+      </div>
+    </sc-if>
+
+  </sc-for>
+
+  <!-- add block affordance -->
+  <div style="display:flex;align-items:center;gap:10px;margin:6px 2px 0;color:#8a857a;cursor:pointer;font-size:8px;letter-spacing:.16em">
+    <span style="width:26px;height:26px;border-radius:8px;border:1.5px dashed #a39e92;display:flex;align-items:center;justify-content:center;font-size:15px;color:#7d7768">+</span>
+    INSERT BLOCK — CHAPTER · VO · SOT · B-ROLL · NOTE
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:1400},&quot;blocks&quot;:{&quot;editor&quot;:null,&quot;default&quot;:[]}}"></script>
+</body>
+</html>
