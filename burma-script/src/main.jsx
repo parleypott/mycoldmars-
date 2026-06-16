@@ -9,6 +9,7 @@ import { render } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { BurmaEditor, LS_DOC } from './Editor.jsx';
 import { Exports } from './Exports.jsx';
+import { migrateStoredDoc, snapshotDoc } from './migrate-doc.js';
 import scriptData from '../sample-blocks.json';
 
 const SOURCE_BLOCKS = scriptData.blocks || [];
@@ -355,6 +356,9 @@ function App() {
   const editorRef = useRef(null);
 
   function resetDoc() {
+    // SACRED #1 — never wipe Johnny's fills without a recoverable copy. Snapshot the current
+    // saved doc to a timestamped backup BEFORE removing it, so a RESET is always reversible.
+    try { snapshotDoc(); } catch {}
     try { localStorage.removeItem(LS_DOC); } catch {}
     location.reload();
   }
@@ -365,8 +369,12 @@ function App() {
     ed.chain().focus('end').run();
     const { state } = ed;
     const end = state.doc.content.size;
-    const fresh = state.schema.nodes.voBlock.createAndFill({ blockId: 'blk_' + Math.random().toString(36).slice(2, 9), status: 'todo' });
-    if (fresh) ed.view.dispatch(state.tr.insert(end, fresh).scrollIntoView());
+    // TABLE SPINE — new blocks are inserted as a full-width ROW so the doc stays a uniform
+    // stack of rows (tableRow > tableCell(full) > voBlock).
+    const vo = state.schema.nodes.voBlock.createAndFill({ blockId: 'blk_' + Math.random().toString(36).slice(2, 9), status: 'todo' });
+    const cell = vo && state.schema.nodes.tableCell.createAndFill({ role: 'full' }, vo);
+    const row = cell && state.schema.nodes.tableRow.createAndFill({ cols: 1 }, cell);
+    if (row) ed.view.dispatch(state.tr.insert(end, row).scrollIntoView());
   }
 
   const words = tel?.words || 0;
@@ -452,6 +460,21 @@ function App() {
       <CopyToast />
     </div>
   );
+}
+
+// SACRED #1 — SAFE MIGRATION (tbl-dim-migrate). Run ONCE before the editor mounts: back up
+// Johnny's saved doc, wrap pre-table flat blocks into full-width rows, validate (text-equality
+// + live-schema round-trip), and only persist the rowed doc on success — otherwise keep the
+// original untouched. Version-gated + idempotent, so a healthy doc is never re-wrapped. The
+// editor then seeds the already-migrated doc; its downstream ensureTableDoc is a clean no-op.
+try {
+  const r = migrateStoredDoc();
+  if (!r.ok) console.warn('[burma] safe migration held back original doc:', r.reason, r.error || '');
+  else if (r.migrated) console.info('[burma] safe migration applied + validated (backup:', r.bakKey + ')');
+} catch (e) {
+  // Never let migration failure block the app — the editor's own ensureTableDoc still wraps at
+  // render time as a fallback, and the original saved doc was never overwritten.
+  console.warn('[burma] safe migration errored — original doc untouched:', e);
 }
 
 render(<App />, document.getElementById('app'));

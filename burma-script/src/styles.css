@@ -30,6 +30,13 @@
   --body:      #23211d;  /* body prose */
   --mono-body: #4a463d;  /* mono body */
 
+  /* TABLE LAYER — flat google-docs rows. The single hairline a split row shows,
+     plus the two faint lane tints. All warm/cream, all flat — never a gridline. */
+  --rule:      #cdc6b4;  /* the ONE hairline between split columns */
+  --said-tint: transparent;            /* LEFT / narration-VO lane — paper, no tint */
+  --shown-tint:rgba(110, 31, 26, .028);/* RIGHT / visual lane — faintest burgundy wash */
+  --lane-lab:  #8a857a;  /* column lane label (SAID / SHOWN) */
+
   --label:     #6b6658;
   --label-2:   #7d7768;
   --label-3:   #8a857a;
@@ -282,6 +289,136 @@ body {
   transition: background .14s var(--ease), color .14s var(--ease);
 }
 .wp-foot-btn:hover { background: var(--ink); color: var(--frame); }
+
+/* ============================================================
+   TABLE SPINE — google-docs-style ROWS (SPINE BUILDER #3)
+   The doc is a vertical stack of full-width ROWS; each ROW holds one-or-more
+   CELLS; each CELL wraps cartridge blocks. FLAT: no gridlines, no zebra, no
+   shadow. A full-width (1-col) row is an invisible band — reads identically to
+   the old linear rack. A SPLIT row shows exactly ONE hairline between columns.
+   ============================================================ */
+/* ---- RESET ALL TABLE CHROME -------------------------------------------------
+   These are <div> nodes (custom row/cell, NOT prosemirror-tables), but we still
+   neutralize every browser/table default so nothing can sneak in a gridline,
+   collapse, shadow, or zebra band. FLAT IS LAW. */
+.wp-trow, .wp-trow-cells, .wp-tcell, .wp-tcell-content {
+  border-collapse: separate;   /* never collapse — no shared gridlines */
+  border-spacing: 0;
+  border: 0;                   /* no default cell/row borders */
+  background: none;            /* no fill — the paper shows through */
+  box-shadow: none;            /* no bevel, no shadow, ever */
+}
+/* Kill any zebra/nth-child striping a future table lib might inject. */
+.wp-trow:nth-child(odd), .wp-trow:nth-child(even),
+.wp-tcell:nth-child(odd), .wp-tcell:nth-child(even) { background: none; }
+
+/* ---- ROW = a full-width invisible band ------------------------------------- */
+.wp-trow { display: block; margin: 0; position: relative; }
+.wp-trow-cells { display: flex; align-items: stretch; gap: 0; }
+
+/* ---- ROW SPINE: the SPLIT / MERGE affordance -------------------------------
+   A flat grip in the row's left gutter. ⊟ on a full-width row = "split into
+   said / shown"; ⊞ on a split row = "merge back to one". Dead flat — no box,
+   no shadow. Faint by default, the ONE orange accent on hover. Reveals on row
+   hover so the rack stays calm until you reach for it. */
+.wp-row-spine {
+  position: absolute;
+  left: -26px;
+  top: 0;
+  width: 22px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 1px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.wp-row-split {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--lane-lab);
+  opacity: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: opacity .14s var(--ease), color .14s var(--ease);
+}
+.wp-trow:hover .wp-row-split { opacity: .55; }
+.wp-row-split:hover { opacity: 1; color: var(--orange); }   /* the ONE orange accent */
+.wp-row-split.is-merge { opacity: .7; }                      /* split rows show the merge grip a touch more */
+.wp-trow[data-cols="2"]:hover .wp-row-split,
+.wp-trow[data-cols="3"]:hover .wp-row-split { opacity: 1; }
+
+/* ---- CELL = a flex column slot --------------------------------------------- */
+.wp-tcell { flex: 1 1 0; min-width: 0; display: block; position: relative; }
+.wp-tcell-content { min-width: 0; }
+
+/* ---- FULL-WIDTH (1-col) row: reads EXACTLY like the old linear rack ---------
+   No border, no tint, no lane label. The cartridge owns its own 11px bottom
+   gap; that trailing margin becomes the row rhythm. Chapters & scenes are
+   full-width header rows and keep their cartridge header energy untouched. */
+.wp-trow[data-cols="1"] .wp-tcell-content > .wp-cart:last-child,
+.wp-trow[data-cols="1"] .wp-tcell-content > .wp-chapter:last-child { margin-bottom: 11px; }
+
+/* ---- SPLIT row: LEFT = SAID (narration/VO) · RIGHT = SHOWN (visual) ---------
+   The ONLY divider a row ever shows: a single 1px hairline between columns,
+   painted on cells after the first. No outer border, no grid. */
+.wp-trow[data-cols="2"] .wp-trow-cells,
+.wp-trow[data-cols="3"] .wp-trow-cells { align-items: stretch; }
+
+.wp-tcell + .wp-tcell {
+  border-left: 1px solid var(--rule);   /* the one hairline */
+  margin-left: 22px;
+  padding-left: 22px;
+}
+
+/* Subtle, tasteful lane distinction — still dead flat. SAID = bare paper;
+   SHOWN = the faintest burgundy wash (echoes the visual/SOT family) so the eye
+   reads "what's on screen" without a box, a border, or a shadow. */
+.wp-trow[data-cols="2"] .wp-tcell[data-role="said"],
+.wp-trow[data-cols="3"] .wp-tcell[data-role="said"]  { background: var(--said-tint); }
+.wp-trow[data-cols="2"] .wp-tcell[data-role="shown"],
+.wp-trow[data-cols="3"] .wp-tcell[data-role="shown"] { background: var(--shown-tint); }
+
+/* Lane labels — JetBrains Mono, uppercase, one tracking. Only on SPLIT rows, and
+   only on the first row of a split run would be ideal, but per-cell is honest and
+   cheap; kept faint so it never competes with the orange accent. The ▍ tick on
+   SHOWN is the single orange accent that marks the visual lane. */
+.wp-trow[data-cols="2"] .wp-tcell[data-role]::before,
+.wp-trow[data-cols="3"] .wp-tcell[data-role]::before {
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--lane-lab);
+  display: block;
+  margin: 0 0 7px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.wp-trow[data-cols="2"] .wp-tcell[data-role="said"]::before,
+.wp-trow[data-cols="3"] .wp-tcell[data-role="said"]::before  { content: "SAID · NARRATION"; }
+.wp-trow[data-cols="2"] .wp-tcell[data-role="shown"]::before,
+.wp-trow[data-cols="3"] .wp-tcell[data-role="shown"]::before {
+  content: "▍ SHOWN · VISUAL";
+  color: var(--orange);                 /* the ONE orange accent */
+}
+/* Full-width cells never show a lane label — they're not a split. */
+.wp-trow[data-cols="1"] .wp-tcell[data-role]::before,
+.wp-tcell[data-role="full"]::before { content: none; display: none; }
+
+/* In a split, stacked cartridges inside a cell keep their own 11px gaps; the
+   last one's trailing margin is the row gap, same rhythm as full-width. */
+.wp-trow[data-cols="2"] .wp-tcell-content > .wp-cart:last-child,
+.wp-trow[data-cols="3"] .wp-tcell-content > .wp-cart:last-child { margin-bottom: 11px; }
 
 /* ============================================================
    CARTRIDGE ANATOMY — shared by all block types
@@ -809,6 +946,9 @@ body {
 .wp-bbtn-fc { color: #e6b54a; }
 .wp-bbtn-fc.active { background: var(--arm); color: #fff; }
 .wp-bbtn-visual { color: #d8b6ad; }
+/* SPLIT / MERGE in the bubble — flat, the ⊟/⊞ glyph + a short label, one orange accent. */
+.wp-bbtn-split, .wp-bbtn-merge { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; color: #f3a878; }
+.wp-bbtn-split:hover, .wp-bbtn-merge:hover { background: var(--orange); color: #fff; }
 .wp-bsep { width: 1px; height: 16px; background: rgba(255,255,255,.18); margin: 0 3px; }
 
 /* ============================================================
@@ -957,6 +1097,12 @@ body {
   .wp-tk, .wp-fc, .wp-visual, .wp-tc-tag { background: none !important; border: 1pt solid #000 !important; color: #000 !important; }
   .wp-tc-tag::before { color: #000 !important; }
   .wp-sot.is-done, .wp-broll.is-done { opacity: 1 !important; }
+  /* TABLE LAYER in print: drop lane tints, keep the single hairline as black ink,
+     keep lane labels (in black, no orange) so SAID/SHOWN columns stay legible. */
+  .wp-tcell { background: none !important; }
+  .wp-tcell + .wp-tcell { border-left: 1px solid #000 !important; margin-left: 14pt !important; padding-left: 14pt !important; }
+  .wp-trow[data-cols="2"] .wp-tcell[data-role]::before,
+  .wp-trow[data-cols="3"] .wp-tcell[data-role]::before { color: #000 !important; }
 }
 
 /* ============================================================
