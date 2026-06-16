@@ -21,6 +21,11 @@ export const QSS_CANON = {
   // these facts on top of whatever the model thinks it knows.
   characters: {
     'queen scarlet': {
+      // Henry almost always calls her just "Scarlet". Without these aliases
+      // the canon overlay (esp. the must-not-draw-her-cute guardrail below)
+      // silently dropped whenever he used the short name — so the image
+      // generator was free to render the cartoon-mascot version we forbid.
+      aliases: ['scarlet'],
       species: 'red dragon',
       look: "A genuinely fierce, kinda-scary RED DRAGON. Big. Yellow horns. Sharp teeth. The school's brand depicts her as a friendly cartoon mascot (red dragon with a yellow tooth showing, teal-and-orange wings), but in the actual story she is intimidating and powerful — not cute.",
       role: 'Headmistress / founder of Queen Scarlet\'s Academy. Total authority. Faintly threatening even when she\'s being polite.',
@@ -33,16 +38,39 @@ export const QSS_CANON = {
   },
 };
 
+// Every term that should resolve to a given canon key: the key itself plus
+// any declared aliases, all lower-cased.
+function matchTerms(key, ch) {
+  const terms = [key, ...(Array.isArray(ch.aliases) ? ch.aliases : [])];
+  return terms.map(t => String(t || '').toLowerCase().trim()).filter(Boolean);
+}
+
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Whole-word match so "Scarlet" doesn't fire inside "scarletina" and a short
+// alias can't latch onto a longer word — same \b discipline as the b-roll and
+// voice-segmenter fixes. `includes()` was both too loose (substring) and too
+// strict (only ever tested the full key, never the short names Henry uses).
+function termMatchesText(term, lowerText) {
+  return new RegExp(`\\b${escapeRegExp(term)}\\b`).test(lowerText);
+}
+
 // Match characters by name in arbitrary user text. Returns matched canon
-// entries (deduped). Used by prompts that don't already have a character
-// list (e.g. Wordy's tutor calls — we just scan the user's message + recent
-// blocks for canon names).
+// entries (deduped by canonical key). Used by prompts that don't already have
+// a character list (e.g. Wordy's tutor calls — we just scan the user's message
+// + recent blocks for canon names). Matches the canonical name AND any alias,
+// but always returns the canonical `name` so downstream canonContextBlock()
+// filtering (which keys off the canonical name) keeps working.
 export function findCanonCharactersInText(text) {
   if (!text) return [];
   const lower = String(text).toLowerCase();
   const hits = [];
   for (const [key, ch] of Object.entries(QSS_CANON.characters)) {
-    if (lower.includes(key)) hits.push({ name: titleCase(key), ...ch });
+    if (matchTerms(key, ch).some(term => termMatchesText(term, lower))) {
+      hits.push({ name: titleCase(key), ...ch });
+    }
   }
   return hits;
 }
@@ -59,8 +87,10 @@ export function canonContextBlock(relevantNames = null) {
   }
   let chars = Object.entries(QSS_CANON.characters);
   if (Array.isArray(relevantNames) && relevantNames.length) {
-    const want = new Set(relevantNames.map(n => String(n || '').toLowerCase().trim()));
-    chars = chars.filter(([k]) => want.has(k));
+    const want = new Set(
+      relevantNames.map(n => String(n || '').toLowerCase().trim()).filter(Boolean)
+    );
+    chars = chars.filter(([k, ch]) => matchTerms(k, ch).some(t => want.has(t)));
   }
   if (chars.length) {
     lines.push('CHARACTER CANON (overlays anything the user wrote — these traits are non-negotiable):');
@@ -77,9 +107,18 @@ export function canonContextBlock(relevantNames = null) {
 }
 
 // Get the canon entry for one specific character by name, case-insensitive.
+// Resolves aliases too, so canonForName('Scarlet') returns the Queen Scarlet
+// entry just like canonForName('Queen Scarlet') does.
 export function canonForName(name) {
   if (!name) return null;
-  return QSS_CANON.characters[String(name).toLowerCase().trim()] || null;
+  const want = String(name).toLowerCase().trim();
+  if (!want) return null;
+  const direct = QSS_CANON.characters[want];
+  if (direct) return direct;
+  for (const [key, ch] of Object.entries(QSS_CANON.characters)) {
+    if (matchTerms(key, ch).includes(want)) return ch;
+  }
+  return null;
 }
 
 function titleCase(s) {
