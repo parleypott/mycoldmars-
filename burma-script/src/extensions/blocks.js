@@ -387,7 +387,10 @@ export const SotBlock = Node.create({
       win.addEventListener('mousedown', (e) => {
         e.preventDefault();
         const raw = editor.state.doc.nodeAt(getPos())?.attrs.timecode || '';
-        if (raw) navigator.clipboard?.writeText(raw).catch(() => {});
+        if (raw) {
+          navigator.clipboard?.writeText(raw).catch(() => {});
+          window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tc: raw } }));
+        }
         win.classList.add('copied');
         setTimeout(() => win.classList.remove('copied'), 700);
       });
@@ -459,7 +462,10 @@ export const BrollBlock = Node.create({
       tcStr.addEventListener('mousedown', (e) => {
         e.preventDefault();
         const raw = editor.state.doc.nodeAt(getPos())?.attrs.timecode || '';
-        if (raw) navigator.clipboard?.writeText(raw).catch(() => {});
+        if (raw) {
+          navigator.clipboard?.writeText(raw).catch(() => {});
+          window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tc: raw } }));
+        }
         tcStr.classList.add('copied');
         setTimeout(() => tcStr.classList.remove('copied'), 700);
       });

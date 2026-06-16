@@ -128,12 +128,16 @@ export const VisualSpan = Mark.create({
       toggleVisualSpan: () => ({ commands }) => commands.toggleMark('visualSpan'),
     };
   },
-  // Live self-mark: a [visual] direction wraps the moment the bracket closes.
+  // Live self-mark: a [visual] direction wraps the moment the bracket closes. ONE source of
+  // truth for the brackets: the CSS chip supplies them via ::before/::after, so we capture
+  // only the INNER text here (the markInputRule replaces the match with the captured group),
+  // stripping the literal brackets — exactly how document-builder stores loaded chips. This
+  // kills the double-bracket [[montage]] a live-typed [montage] used to produce.
   addInputRules() {
-    return [markInputRule({ find: /(\[[^\[\]]+\])$/, type: this.type })];
+    return [markInputRule({ find: /\[([^\[\]]+)\]$/, type: this.type })];
   },
   addPasteRules() {
-    return [markPasteRule({ find: /(\[[^\[\]]+\])/g, type: this.type })];
+    return [markPasteRule({ find: /\[([^\[\]]+)\]/g, type: this.type })];
   },
   addProseMirrorPlugins() {
     return [new Plugin({

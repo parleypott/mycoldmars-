@@ -55,7 +55,7 @@ function OutlinePanel({ items, open, onClose }) {
     <aside class={`wp-outline${open ? ' is-open' : ''}`} aria-hidden={!open}>
       <div class="wp-outline-head">
         <span class="wp-outline-ttl">OUTLINE</span>
-        <button class="wp-outline-collapse" title="Collapse outline" aria-label="Collapse outline" onClick={onClose}>‹</button>
+        <button class="wp-outline-collapse" title="Collapse outline" aria-label="Collapse outline" tabindex={open ? 0 : -1} onClick={onClose}>‹</button>
       </div>
       <div class="wp-outline-list">
         {(!items || !items.length) && <div class="wp-outline-empty">OUTLINE · LOADING</div>}
@@ -64,6 +64,7 @@ function OutlinePanel({ items, open, onClose }) {
             key={it.id}
             class={`wp-outline-item lvl-${it.level}${it.id === activeId ? ' is-active' : ''}`}
             title={it.title}
+            tabindex={open ? 0 : -1}
             onClick={() => jump(it.id)}
           >
             <span class="wp-outline-txt">{it.title}</span>
@@ -71,6 +72,45 @@ function OutlinePanel({ items, open, onClose }) {
         ))}
       </div>
     </aside>
+  );
+}
+
+// ── COPY TOAST — a single shared dark pill. Every timecode copy (SOT LCD or B-roll
+// string) dispatches `wp-toast` with the HH:MM:SS:FF value; this fades + translates up
+// ~8px over ~160ms, holds, then auto-dismisses ~1.3s. Copy is the editor's primary
+// action — this is the obvious, forgiving confirmation the spec asks for. FLAT.
+function CopyToast() {
+  const [tc, setTc] = useState(null);
+  const [up, setUp] = useState(false);
+  const hideTimer = useRef(null);
+  const clearTimer = useRef(null);
+
+  useEffect(() => {
+    const onToast = (e) => {
+      const val = e.detail?.tc;
+      if (!val) return;
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      if (clearTimer.current) clearTimeout(clearTimer.current);
+      setTc(val);
+      // next frame: flip to the raised/visible state so the transition runs.
+      requestAnimationFrame(() => requestAnimationFrame(() => setUp(true)));
+      hideTimer.current = setTimeout(() => setUp(false), 1300);
+      clearTimer.current = setTimeout(() => setTc(null), 1300 + 200);
+    };
+    window.addEventListener('wp-toast', onToast);
+    return () => {
+      window.removeEventListener('wp-toast', onToast);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      if (clearTimer.current) clearTimeout(clearTimer.current);
+    };
+  }, []);
+
+  if (!tc) return null;
+  return (
+    <div class={`wp-toast${up ? ' is-up' : ''}`} role="status" aria-live="polite">
+      <span class="wp-toast-lab">COPIED</span>
+      <span class="wp-toast-tc">{tc}</span>
+    </div>
   );
 }
 
@@ -168,6 +208,7 @@ function App() {
       </div>
 
       <Exports getDoc={() => editorRef.current?.getJSON() || { type: 'doc', content: [] }} docTitle={DOC_TITLE} />
+      <CopyToast />
     </div>
   );
 }
