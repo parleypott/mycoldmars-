@@ -66,7 +66,7 @@ function logFeedback(entry) {
   saveFeedback(all);
 }
 
-function fmtTimecode(tc) {
+export function fmtTimecode(tc) {
   if (tc == null || tc === '') return '';
   const s = typeof tc === 'string' ? tc : String(tc);
   if (/^\d+(\.\d+)?$/.test(s)) return formatPreciseTimecode(parseFloat(s));
@@ -87,7 +87,7 @@ function buildTranscriptForPrompt(segments) {
 // translation. The hunter only ever shows English to the user, and matches
 // against English so the user can paste/think in English regardless of the
 // original language.
-function buildEnglishSegments(segments, translations) {
+export function buildEnglishSegments(segments, translations) {
   if (!translations || translations.length === 0) return segments;
   const byNum = new Map();
   for (const t of translations) {
@@ -295,16 +295,29 @@ Rules:
   return Array.isArray(parsed?.soundbites) ? parsed.soundbites : [];
 }
 
-function parseHunterJSON(text) {
+export function parseHunterJSON(text) {
   try { return JSON.parse(text.trim()); } catch {}
   const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
   if (fenced) try { return JSON.parse(fenced[1].trim()); } catch {}
   const start = text.indexOf('{');
   if (start !== -1) {
-    let depth = 0;
+    // String-aware brace matcher. A naive depth counter miscounts when a JSON
+    // string VALUE contains a literal { or } (e.g. a soundbite quote like
+    // `the cost was high }`) — it would close the object early and fail to
+    // parse. Track whether we're inside a quoted string and skip escaped
+    // characters so only structural braces move the depth.
+    let depth = 0, inStr = false, esc = false;
     for (let i = start; i < text.length; i++) {
-      if (text[i] === '{') depth++;
-      else if (text[i] === '}') { depth--; if (depth === 0) {
+      const ch = text[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') inStr = true;
+      else if (ch === '{') depth++;
+      else if (ch === '}') { depth--; if (depth === 0) {
         try { return JSON.parse(text.slice(start, i + 1)); } catch { break; }
       }}
     }
@@ -312,7 +325,7 @@ function parseHunterJSON(text) {
   throw new Error('Could not parse hunter response');
 }
 
-function confidenceLabel(c) {
+export function confidenceLabel(c) {
   if (c >= 80) return 'Locked on';
   if (c >= 50) return 'Probable';
   if (c >= 20) return 'Best guess';
@@ -355,7 +368,7 @@ function clearHighlights() {
 //   [260322-04-113-Matzu | 22:55.3 → 23:00.5]: TEXT
 // `seqMeta` comes from getSequenceMetadata(segments). When the soundbite's
 // speaker differs from the primary speaker we append ` - SPEAKER` to the base.
-function formatSoundbiteLine(segments, segNums, seqMeta, polishedText) {
+export function formatSoundbiteLine(segments, segNums, seqMeta, polishedText) {
   if (!segNums || segNums.length === 0) return '';
   const matched = segments.filter(s => segNums.includes(s.number));
   if (matched.length === 0) return '';
@@ -381,7 +394,7 @@ function formatSoundbiteLine(segments, segNums, seqMeta, polishedText) {
   return head ? `[${head}]: ${text}` : text;
 }
 
-function buildMatchSnippet(segments, segNums, polishedText) {
+export function buildMatchSnippet(segments, segNums, polishedText) {
   if (!segNums || segNums.length === 0) return '';
   const matched = segments.filter(s => segNums.includes(s.number));
   if (matched.length === 0) return '';
