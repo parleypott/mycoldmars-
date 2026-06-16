@@ -340,6 +340,10 @@ function blockToNode(b, opts) {
 
     case 'map-need':
     case 'archive-req':
+      // NOTE: when buildEditorDocument runs the consolidation pass (feature D), map-need /
+      // archive-req blocks are gathered into ONE serviceGroup (serviceItem rows) and never
+      // reach this branch. This standalone serviceBlock is kept as a fallback for any service
+      // block produced OUTSIDE the pass (e.g. a future single-block rebuild or change-type).
       return {
         type: 'serviceBlock',
         attrs: { blockId: id, kind: b.type, label: b.title || (b.type === 'map-need' ? 'Mapping data needs' : 'Archive request') },
@@ -366,14 +370,64 @@ function blockToNode(b, opts) {
   }
 }
 
+// ---- service consolidation (FEATURE D) -----------------------------------
+// One serviceItem row inside the consolidated serviceGroup. Keeps the source block's id,
+// kind, and FULL content (every word → inlineContent, so {tk}/[visual]/timecode chips all
+// survive and the integrity audit stays green). The row carries its own kind so the group
+// can label each line MAP / ARCHIVE.
+function serviceItem(b) {
+  return {
+    type: 'serviceItem',
+    attrs: { blockId: b.id, kind: b.type },
+    content: [para(inlineContent(bodyText(b), 'plain'))],
+  };
+}
+
+// Build the ONE consolidated service panel from every map-need / archive-req block in the
+// script. A DIFFERENT FLAVOR from the script cartridges — a single bordered "SERVICE NEEDS"
+// panel listing each need as its own row, so mapping/archive needs read as one clean box,
+// clearly a production service note rather than script. Keeps every word (audit-safe).
+function serviceGroupNode(serviceBlocks) {
+  return {
+    type: 'serviceGroup',
+    attrs: { blockId: 'svc_group' },
+    content: serviceBlocks.map(serviceItem),
+  };
+}
+
+const SERVICE_TYPES = new Set(['map-need', 'archive-req']);
+
 export function buildEditorDocument(blocks) {
   const list = (blocks || []).filter(Boolean);
   // Everything before the first chapter is pre-script author scaffolding. Flag the
-  // leading BIN notes so the FIELD NOTE opens calm (masthead → CH 01), not on setup text.
+  // leading BIN notes so they surface as PRE-SCRIPT NOTE boxes (masthead → notes →
+  // ▸ SCRIPT BEGINS → CH 01), not buried under a collapsed toggle.
   const firstChapter = list.findIndex((b) => b.type === 'chapter');
-  const content = list
-    .map((b, i) => blockToNode(b, { scaffold: b.type === 'bin' && firstChapter > 0 && i < firstChapter }))
-    .filter(Boolean);
+
+  // FEATURE D — consolidate ALL map-need / archive-req blocks into ONE serviceGroup.
+  // We emit the whole group inline at the position of the FIRST service block, and skip
+  // every other service block where it originally sat (its words still reach the page, just
+  // inside the single grouped panel). No words dropped → audit stays PASS:true.
+  const serviceBlocks = list.filter((b) => SERVICE_TYPES.has(b.type));
+  const firstServiceIdx = list.findIndex((b) => SERVICE_TYPES.has(b.type));
+
+  const content = [];
+  list.forEach((b, i) => {
+    // FEATURE B — emit the ▸ SCRIPT BEGINS divider right before the first real chapter,
+    // visually starting the script after the pre-script (masthead lives in chrome; the
+    // leading scaffold bins render as open NOTE boxes via their is-scaffold flag).
+    if (firstChapter > 0 && i === firstChapter) {
+      content.push({ type: 'scriptStart', attrs: {} });
+    }
+    if (SERVICE_TYPES.has(b.type)) {
+      // Drop the consolidated group in at the first service block's slot; skip the rest.
+      if (i === firstServiceIdx) content.push(serviceGroupNode(serviceBlocks));
+      return;
+    }
+    const node = blockToNode(b, { scaffold: b.type === 'bin' && firstChapter > 0 && i < firstChapter });
+    if (node) content.push(node);
+  });
+
   // ProseMirror requires at least one child.
   if (!content.length) content.push({ type: 'binBlock', attrs: { blockId: 'empty' }, content: [para([{ type: 'text', text: ' ' }])] });
   return { type: 'doc', content };
@@ -437,23 +491,40 @@ export function nodeText(node) {
 
 export function docToBlocks(doc) {
   if (!doc?.content) return [];
-  return doc.content.map((node, i) => {
-    const a = node.attrs || {};
-    const id = a.blockId || `blk_${i}`;
-    const text = nodeText(node);
-    let type = NODE_TO_TYPE[node.type];
-    if (node.type === 'serviceBlock') type = a.kind || 'map-need';
-    if (node.type === 'noteBlock') type = a.kind || 'note';
-    const block = { id, type: type || 'bin' };
-    if (node.type === 'chapterBlock') { block.title = text; block.genre = a.genre; }
-    else if (node.type === 'sceneBlock') { block.title = text; }
-    else if (node.type === 'sotBlock' || node.type === 'brollBlock') {
-      block.text = text;
-      block.timecode = { tc: a.timecode || '', day: a.day ?? null, ambiguous: !!a.ambiguous, raw: a.rawTimecode || a.timecode || '' };
-      if (a.speaker) block.speaker = a.speaker;
-      block.done = !!a.done;
-    } else if (node.type === 'voBlock') { block.text = text; block.voStatus = a.status || 'todo'; }
-    else { block.text = text; }
-    return block;
+  const out = [];
+  doc.content.forEach((node, i) => {
+    // scriptStart is a decorative divider — no source content, no block.
+    if (node.type === 'scriptStart') return;
+    // serviceGroup (feature D) holds N serviceItem rows — UNWRAP each back into its own
+    // map-need / archive-req block so the persisted blocks array round-trips faithfully.
+    if (node.type === 'serviceGroup') {
+      (node.content || []).forEach((item, j) => {
+        const ia = item.attrs || {};
+        out.push({ id: ia.blockId || `svc_${i}_${j}`, type: ia.kind || 'map-need', text: nodeText(item) });
+      });
+      return;
+    }
+    out.push(nodeToBlock(node, i));
   });
+  return out;
+}
+
+function nodeToBlock(node, i) {
+  const a = node.attrs || {};
+  const id = a.blockId || `blk_${i}`;
+  const text = nodeText(node);
+  let type = NODE_TO_TYPE[node.type];
+  if (node.type === 'serviceBlock') type = a.kind || 'map-need';
+  if (node.type === 'noteBlock') type = a.kind || 'note';
+  const block = { id, type: type || 'bin' };
+  if (node.type === 'chapterBlock') { block.title = text; block.genre = a.genre; }
+  else if (node.type === 'sceneBlock') { block.title = text; }
+  else if (node.type === 'sotBlock' || node.type === 'brollBlock') {
+    block.text = text;
+    block.timecode = { tc: a.timecode || '', day: a.day ?? null, ambiguous: !!a.ambiguous, raw: a.rawTimecode || a.timecode || '' };
+    if (a.speaker) block.speaker = a.speaker;
+    block.done = !!a.done;
+  } else if (node.type === 'voBlock') { block.text = text; block.voStatus = a.status || 'todo'; }
+  else { block.text = text; }
+  return block;
 }

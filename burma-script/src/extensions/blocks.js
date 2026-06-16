@@ -525,6 +525,103 @@ export const ServiceBlock = Node.create({
   },
 });
 
+// --- SERVICE GROUP (feature D) — ONE consolidated production-needs panel ----
+// All map-need + archive-req blocks fold into a SINGLE distinctly-flavored box (dashed
+// frame, tinted fill, "SERVICE NEEDS" cap) — clearly NOT a script cartridge. Each original
+// block becomes a serviceItem row carrying its full editable content (chips intact). FLAT.
+export const ServiceItem = Node.create({
+  name: 'serviceItem',
+  group: 'serviceRow',
+  content: 'paragraph+',
+  defining: true,
+  addAttributes() { return { ...baseAttrs(), kind: { default: 'map-need' } }; },
+  parseHTML() { return [{ tag: 'div[data-service-item]' }]; },
+  renderHTML({ node }) {
+    const a = node.attrs;
+    return ['div', mergeAttributes({
+      'data-service-item': '', 'data-kind': a.kind, 'data-block-id': a.blockId || '', class: 'wp-svc-item',
+    }), ['div', { class: 'wp-svc-item-body' }, 0]];
+  },
+  addNodeView() {
+    return ({ node }) => {
+      const dom = el('div', 'wp-svc-item');
+      dom.setAttribute('data-kind', node.attrs.kind);
+      if (node.attrs.blockId) dom.setAttribute('data-block-id', node.attrs.blockId);
+      const tag = el('span', 'wp-svc-item-tag', { contenteditable: 'false' });
+      tag.textContent = node.attrs.kind === 'archive-req' ? 'ARCHIVE' : 'MAP';
+      dom.appendChild(tag);
+      const body = el('div', 'wp-svc-item-body');
+      dom.appendChild(body);
+      return {
+        dom, contentDOM: body,
+        update(updated) {
+          if (updated.type.name !== 'serviceItem') return false;
+          tag.textContent = updated.attrs.kind === 'archive-req' ? 'ARCHIVE' : 'MAP';
+          dom.setAttribute('data-kind', updated.attrs.kind);
+          return true;
+        },
+      };
+    };
+  },
+});
+
+export const ServiceGroup = Node.create({
+  name: 'serviceGroup',
+  group: 'block',
+  content: 'serviceRow+',
+  defining: true,
+  draggable: true,
+  addAttributes() { return baseAttrs(); },
+  parseHTML() { return [{ tag: 'section[data-service-group]' }]; },
+  renderHTML({ node }) {
+    return ['section', mergeAttributes({
+      'data-service-group': '', 'data-block-id': node.attrs.blockId || '', class: 'wp-cart wp-svc-group',
+    }), ['div', { class: 'wp-svc-group-body' }, 0]];
+  },
+  addNodeView() {
+    return ({ node, editor, getPos }) => {
+      const dom = el('div', 'wp-cart wp-svc-group');
+      dom.setAttribute('data-service-group', '');
+      if (node.attrs.blockId) dom.setAttribute('data-block-id', node.attrs.blockId);
+      dom.appendChild(makeSpine(editor, getPos));
+      const body = el('div', 'wp-svc-group-body');
+      // non-editable header cap — labels the panel as a distinct service flavor.
+      const head = el('div', 'wp-svc-group-head', { contenteditable: 'false' });
+      head.appendChild(Object.assign(el('span', 'wp-svc-group-kind'), { textContent: 'SERVICE NEEDS' }));
+      head.appendChild(Object.assign(el('span', 'wp-svc-group-sub'), { textContent: 'MAPPING · ARCHIVE — production handoff' }));
+      body.appendChild(head);
+      const rows = el('div', 'wp-svc-group-rows');
+      body.appendChild(rows);
+      dom.appendChild(body);
+      return { dom, contentDOM: rows };
+    };
+  },
+});
+
+// --- SCRIPT BEGINS divider (feature B) — a flat marker row that visually starts the
+// script after the pre-script (masthead + setup NOTE boxes). Atom, non-editable. ---
+export const ScriptStart = Node.create({
+  name: 'scriptStart',
+  group: 'block',
+  atom: true,
+  selectable: false,
+  draggable: false,
+  parseHTML() { return [{ tag: 'div[data-script-start]' }]; },
+  renderHTML() {
+    return ['div', { 'data-script-start': '', class: 'wp-script-begins', contenteditable: 'false' },
+      ['span', { class: 'wp-script-begins-mark' }, '▸ SCRIPT BEGINS']];
+  },
+  addNodeView() {
+    return () => {
+      const dom = el('div', 'wp-script-begins', { contenteditable: 'false' });
+      const mark = el('span', 'wp-script-begins-mark');
+      mark.textContent = '▸ SCRIPT BEGINS';
+      dom.appendChild(mark);
+      return { dom };
+    };
+  },
+});
+
 // --- NOTE / JH-NOTE — yellow cap, tinted cartridge, italic note ---
 export const NoteBlock = Node.create({
   name: 'noteBlock',
@@ -579,5 +676,5 @@ export const BinBlock = Node.create({
 
 export const BURMA_NODES = [
   ChapterBlock, SceneBlock, VoBlock, OncamBlock,
-  SotBlock, BrollBlock, ServiceBlock, NoteBlock, BinBlock,
+  SotBlock, BrollBlock, ServiceBlock, ServiceGroup, ServiceItem, ScriptStart, NoteBlock, BinBlock,
 ];

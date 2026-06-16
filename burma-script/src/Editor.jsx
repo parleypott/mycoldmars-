@@ -43,6 +43,8 @@ function telemetry(doc) {
   let words = 0, blocks = 0, done = 0, sot = 0, scaffold = 0;
   const outline = [];
   for (const n of doc?.content || []) {
+    // scriptStart is a decorative divider, not a content block — don't count it.
+    if (n.type === 'scriptStart') continue;
     blocks++;
     if (n.type === 'voBlock' || n.type === 'oncamBlock') {
       const t = nodeText(n);
