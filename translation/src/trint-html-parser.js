@@ -101,7 +101,7 @@ export function parseTrintHTML(htmlText) {
   return { segments, wordTimings };
 }
 
-function splitIntoSubGroups(words) {
+export function splitIntoSubGroups(words) {
   const groups = [];
   let current = [];
 
@@ -118,21 +118,23 @@ function splitIntoSubGroups(words) {
     }
   }
 
-  if (current.length > 0) {
-    if (groups.length > 0 && current.length <= 2) {
-      groups[groups.length - 1].push(...current);
-    } else {
-      groups.push(current);
-    }
+  // Avoid orphan micro-segments: if the final group came out tiny (<=2 words),
+  // fold it back into the previous one. The loop always flushes the last group
+  // on `isLast`, so by here `current` is empty and the merge must run on
+  // `groups` — the previous version checked `current.length > 0` here, which was
+  // permanently false, so the merge never happened and 1-2 word orphans shipped.
+  if (groups.length > 1 && groups[groups.length - 1].length <= 2) {
+    const tail = groups.pop();
+    groups[groups.length - 1].push(...tail);
   }
   return groups;
 }
 
-function cleanText(s) {
+export function cleanText(s) {
   return (s || '').replace(/\s+/g, ' ').trim();
 }
 
-function msToSec(msAttr) {
+export function msToSec(msAttr) {
   const ms = parseFloat(msAttr);
   return isFinite(ms) ? ms / 1000 : 0;
 }
