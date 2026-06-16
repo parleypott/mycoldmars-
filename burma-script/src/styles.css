@@ -284,6 +284,26 @@ body {
 .wp-foot-btn:hover { background: var(--ink); color: var(--frame); }
 
 /* ============================================================
+   TABLE SPINE — google-docs-style ROWS (SPINE BUILDER #3)
+   The doc is a vertical stack of full-width ROWS; each ROW holds one-or-more
+   CELLS; each CELL wraps cartridge blocks. FLAT: no gridlines, no zebra, no
+   shadow. A full-width (1-col) row is an invisible band — reads identically to
+   the old linear rack. A SPLIT row shows exactly ONE hairline between columns.
+   ============================================================ */
+.wp-trow { display: block; margin: 0; }
+.wp-trow-cells { display: flex; align-items: stretch; gap: 0; }
+.wp-tcell { flex: 1 1 0; min-width: 0; display: block; }
+.wp-tcell-content { min-width: 0; }
+/* ONE hairline rule between split columns — the only divider a row ever shows. */
+.wp-tcell + .wp-tcell { border-left: 1px solid var(--rule, #cdc6b4); padding-left: 14px; }
+.wp-tcell + .wp-tcell { margin-left: 14px; }
+/* The cartridge already owns its own 11px bottom gap; that becomes the row rhythm. A
+   full-width row therefore needs no extra band spacing. In a SPLIT row, stacked cartridges
+   inside a cell keep their own gaps; the last one's trailing margin is the row gap. */
+.wp-trow[data-cols="1"] .wp-tcell-content > .wp-cart:last-child,
+.wp-trow[data-cols="1"] .wp-tcell-content > .wp-chapter:last-child { margin-bottom: 11px; }
+
+/* ============================================================
    CARTRIDGE ANATOMY — shared by all block types
    ============================================================ */
 .wp-cart {

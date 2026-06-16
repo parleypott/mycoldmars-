@@ -14,8 +14,9 @@ import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { BURMA_NODES } from './extensions/blocks.js';
+import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
-import { buildEditorDocument, docToBlocks, nodeText } from './document-builder.js';
+import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { Workshop } from './Workshop.jsx';
 
@@ -29,7 +30,10 @@ function seedDoc(sourceBlocks) {
     const saved = localStorage.getItem(LS_DOC);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed?.content?.length) return parsed;
+      // MIGRATION-SAFE: a doc saved before the table spine has flat block nodes at the top
+      // level. ensureTableDoc wraps them into full-width rows so the existing edited doc
+      // (Johnny's filled answers) keeps rendering — no content touched, marks ride along.
+      if (parsed?.content?.length) return ensureTableDoc(parsed);
     }
   } catch {}
   return buildEditorDocument(sourceBlocks);
@@ -42,7 +46,20 @@ function seedDoc(sourceBlocks) {
 function telemetry(doc) {
   let words = 0, blocks = 0, done = 0, sot = 0, scaffold = 0;
   const outline = [];
-  for (const n of doc?.content || []) {
+  // TABLE SPINE — the doc top level is tableRow+. Flatten rows→cells→blocks so telemetry counts
+  // the cartridge nodes exactly as before (and the outline keys by the cartridge's blockId).
+  const flat = [];
+  for (const row of doc?.content || []) {
+    if (row?.type === 'tableRow') {
+      for (const cell of row.content || []) {
+        if (cell?.type === 'tableCell') for (const b of cell.content || []) flat.push(b);
+        else flat.push(cell);
+      }
+    } else {
+      flat.push(row);
+    }
+  }
+  for (const n of flat) {
     // scriptStart is a decorative divider, not a content block — don't count it.
     if (n.type === 'scriptStart') continue;
     blocks++;
@@ -76,6 +93,7 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
       }),
       Dropcursor.configure({ color: '#d23b2c', width: 2 }),
       Gapcursor,
+      ...BURMA_TABLE_NODES,
       ...BURMA_NODES,
       ...BURMA_MARKS,
     ],

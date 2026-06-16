@@ -365,8 +365,12 @@ function App() {
     ed.chain().focus('end').run();
     const { state } = ed;
     const end = state.doc.content.size;
-    const fresh = state.schema.nodes.voBlock.createAndFill({ blockId: 'blk_' + Math.random().toString(36).slice(2, 9), status: 'todo' });
-    if (fresh) ed.view.dispatch(state.tr.insert(end, fresh).scrollIntoView());
+    // TABLE SPINE — new blocks are inserted as a full-width ROW so the doc stays a uniform
+    // stack of rows (tableRow > tableCell(full) > voBlock).
+    const vo = state.schema.nodes.voBlock.createAndFill({ blockId: 'blk_' + Math.random().toString(36).slice(2, 9), status: 'todo' });
+    const cell = vo && state.schema.nodes.tableCell.createAndFill({ role: 'full' }, vo);
+    const row = cell && state.schema.nodes.tableRow.createAndFill({ cols: 1 }, cell);
+    if (row) ed.view.dispatch(state.tr.insert(end, row).scrollIntoView());
   }
 
   const words = tel?.words || 0;

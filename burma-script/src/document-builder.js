@@ -397,6 +397,27 @@ function serviceGroupNode(serviceBlocks) {
 
 const SERVICE_TYPES = new Set(['map-need', 'archive-req']);
 
+// ---- TABLE SPINE wrapping (SPINE BUILDER #3) ----------------------------
+// The document is now a STACK OF ROWS. Every top-level block node is wrapped into
+//   tableRow(cols:1) > tableCell(role:'full') > [ block ]
+// so the whole doc renders as a vertical stack of FULL-WIDTH rows (one full-width cell
+// each) wrapping the existing cartridge content. Chapters/scenes are full-width header
+// rows by the same wrapping. The split/merge feature later turns a 1-cell row into a
+// 2-cell row (LEFT said / RIGHT shown) — the schema already allows tableCell+.
+//
+// scriptStart is a decorative divider that lives at the doc's top level too — wrap it the
+// same way so the schema stays uniform (doc content is tableRow+). It carries no words, so
+// the audit is unaffected.
+function fullWidthRow(blockNode) {
+  return {
+    type: 'tableRow',
+    attrs: { cols: 1 },
+    content: [
+      { type: 'tableCell', attrs: { role: 'full' }, content: [blockNode] },
+    ],
+  };
+}
+
 export function buildEditorDocument(blocks) {
   const list = (blocks || []).filter(Boolean);
   // Everything before the first chapter is pre-script author scaffolding. Flag the
@@ -430,7 +451,24 @@ export function buildEditorDocument(blocks) {
 
   // ProseMirror requires at least one child.
   if (!content.length) content.push({ type: 'binBlock', attrs: { blockId: 'empty' }, content: [para([{ type: 'text', text: ' ' }])] });
-  return { type: 'doc', content };
+
+  // TABLE SPINE — wrap every top-level block into a full-width row/cell band.
+  return { type: 'doc', content: content.map(fullWidthRow) };
+}
+
+// ---- migrate a PRE-TABLE saved doc (flat blocks at top level) into rows ----
+// A localStorage doc saved before the table spine existed has block nodes directly under
+// `doc`. Detect that shape and wrap each top-level block into a full-width row so an existing
+// edited doc (Johnny's filled-in {tk}/{fc} answers) keeps rendering — NOTHING is dropped, the
+// inline marks ride along untouched inside the wrapped block. Already-rowed docs pass through.
+export function ensureTableDoc(doc) {
+  if (!doc || doc.type !== 'doc' || !Array.isArray(doc.content)) return doc;
+  const allRows = doc.content.length > 0 && doc.content.every((n) => n && n.type === 'tableRow');
+  if (allRows) return doc;
+  // Mixed or flat — wrap any non-row top-level node into a full-width row (idempotent: a node
+  // that is already a tableRow is kept as-is so a partially-migrated doc still normalises).
+  const content = doc.content.map((n) => (n && n.type === 'tableRow' ? n : fullWidthRow(n)));
+  return { ...doc, content };
 }
 
 // ---- read the live doc back to a blocks array (for persistence) ----------
@@ -492,7 +530,23 @@ export function nodeText(node) {
 export function docToBlocks(doc) {
   if (!doc?.content) return [];
   const out = [];
-  doc.content.forEach((node, i) => {
+  // TABLE SPINE — the doc top level is now tableRow+. FLATTEN every row's cells back into the
+  // stream of cartridge block nodes so the persisted/exported blocks array round-trips EXACTLY
+  // as before (downstream tools + the schema contract never see the row scaffold). A full-width
+  // row yields its one cell's blocks; a future split row yields LEFT then RIGHT cell blocks in
+  // reading order. Backwards-safe: a bare (pre-table) block node is handled by the else branch.
+  const flat = [];
+  for (const node of doc.content) {
+    if (node?.type === 'tableRow') {
+      for (const cell of node.content || []) {
+        if (cell?.type === 'tableCell') for (const blk of cell.content || []) flat.push(blk);
+        else flat.push(cell);
+      }
+    } else {
+      flat.push(node);
+    }
+  }
+  flat.forEach((node, i) => {
     // scriptStart is a decorative divider — no source content, no block.
     if (node.type === 'scriptStart') return;
     // serviceGroup (feature D) holds N serviceItem rows — UNWRAP each back into its own
