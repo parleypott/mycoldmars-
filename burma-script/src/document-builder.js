@@ -504,6 +504,13 @@ export function docToBlocks(doc) {
       });
       return;
     }
+    // avPair (the A/V two-column container) holds two child cartridges — UNWRAP each back
+    // into its own block so the persisted blocks array stays flat + faithful (no column's
+    // content is hidden or merged). The two columns round-trip as ordinary blocks.
+    if (node.type === 'avPair') {
+      (node.content || []).forEach((col, j) => out.push(nodeToBlock(col, `${i}_${j}`)));
+      return;
+    }
     out.push(nodeToBlock(node, i));
   });
   return out;

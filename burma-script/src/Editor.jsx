@@ -13,7 +13,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
 import { useEffect, useMemo, useRef } from 'preact/hooks';
-import { BURMA_NODES } from './extensions/blocks.js';
+import { BURMA_NODES, BlockDragExtension } from './extensions/blocks.js';
 import { BURMA_MARKS } from './extensions/marks.js';
 import { buildEditorDocument, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
@@ -42,10 +42,10 @@ function seedDoc(sourceBlocks) {
 function telemetry(doc) {
   let words = 0, blocks = 0, done = 0, sot = 0, scaffold = 0;
   const outline = [];
-  for (const n of doc?.content || []) {
-    // scriptStart is a decorative divider, not a content block — don't count it.
-    if (n.type === 'scriptStart') continue;
-    blocks++;
+  // Per-node accounting. avPair is a CONTAINER (two column cartridges) — its words/sot/
+  // scaffold tallies live in the children, so we recurse one level into a pair. The pair
+  // itself counts as ONE structural block (the row), matching how the writer reads it.
+  const account = (n) => {
     if (n.type === 'voBlock' || n.type === 'oncamBlock') {
       const t = nodeText(n);
       if (t) words += t.split(/\s+/).filter((w) => /\w/.test(w)).length;
@@ -56,6 +56,13 @@ function telemetry(doc) {
       const title = nodeText(n).replace(/\s+/g, ' ').trim();
       if (title) outline.push({ id: n.attrs?.blockId || '', title, level: n.type === 'chapterBlock' ? 0 : 1 });
     }
+  };
+  for (const n of doc?.content || []) {
+    // scriptStart is a decorative divider, not a content block — don't count it.
+    if (n.type === 'scriptStart') continue;
+    blocks++;
+    if (n.type === 'avPair') { for (const col of n.content || []) account(col); continue; }
+    account(n);
   }
   return { words, blocks, sot, done, scaffold, outline };
 }
@@ -78,6 +85,7 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
       Gapcursor,
       ...BURMA_NODES,
       ...BURMA_MARKS,
+      BlockDragExtension,
     ],
     content: initial,
     autofocus: false,
@@ -86,6 +94,9 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
       // Hand the live editor up so the Exports panel can read the current doc JSON
       // (docToBlocks) for the worklist exports — always reflecting live edits/reorders.
       onEditorReady?.(editor);
+      // Expose the live editor for the Playwright DRAG TEST + any external tooling. The
+      // drag test reads window.__EDITOR__.getJSON() to assert merge/pair/reorder results.
+      try { window.__EDITOR__ = editor; } catch {}
     },
     onUpdate({ editor }) {
       const json = editor.getJSON();

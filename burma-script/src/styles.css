@@ -323,6 +323,70 @@ body {
 .wp-body { min-width: 0; }
 .ProseMirror-selectednode { outline: 2px solid rgba(255,91,31,.5); outline-offset: 2px; border-radius: 11px; }
 
+/* ============================================================
+   AV PAIR — the A/V two-column row (words LEFT, picture RIGHT).
+   A flat hairline-framed container; the two columns are normal cartridges
+   sitting in a flex row. DESIGN LAW: FLAT — one rule between columns, no shadow.
+   ============================================================ */
+.wp-avpair {
+  position: relative;
+  display: block;                 /* override .wp-cart flex — this is a row container */
+  border: 1.5px solid var(--ink); border-radius: 11px; overflow: hidden;
+  background: var(--panel);
+  margin: 14px 0 11px; padding: 0;
+}
+.wp-avpair-rail {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 3px 8px 3px 10px;
+  border-bottom: 1.5px solid var(--ink);
+  background: var(--frame);
+  user-select: none;
+}
+.wp-avpair-tag {
+  font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: .14em;
+  color: var(--label-3);
+}
+.wp-avpair-split {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 16px; padding: 0;
+  background: transparent; border: 1.5px solid var(--ink); border-radius: 5px;
+  font-size: 11px; line-height: 1; color: var(--ink); cursor: pointer;
+  transition: background .14s var(--ease);
+}
+.wp-avpair-split:hover { background: var(--red); color: #fff; border-color: var(--red); }
+/* the two columns: equal flex cells, a single hairline rule between them. */
+.wp-avpair-cols {
+  display: flex; align-items: stretch; gap: 0;
+}
+.wp-avpair-cols > * {
+  flex: 1 1 0; min-width: 0; margin: 0 !important; border-radius: 0 !important;
+  border: 0 !important; border-right: 1.5px solid var(--ink) !important;
+}
+.wp-avpair-cols > *:last-child { border-right: 0 !important; }
+/* inner cartridges keep their own spine + chrome but lose their outer frame so the
+   pair reads as ONE framed module split by a rule. */
+
+/* ============================================================
+   DROP-ZONE AFFORDANCE — flat hints painted while pointer-dragging.
+   PAIR = a Swiss-red right-edge BAR · REORDER = a red LINE above/below ·
+   MERGE = a faint red FILL. No shadow, no blur — solid fills + hairlines only.
+   ============================================================ */
+body.wp-dragging, body.wp-dragging * { cursor: grabbing !important; }
+body.wp-dragging .ProseMirror { user-select: none; }
+.wp-cart.wp-drop, .wp-avpair.wp-drop { position: relative; }
+.wp-cart.wp-drop::after, .wp-avpair.wp-drop::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 5;
+  border-radius: inherit;
+  transition: background .12s var(--ease), box-shadow .12s var(--ease);
+}
+/* MERGE — faint red fill across the whole target. */
+.wp-drop-merge::after { background: rgba(232,65,43,.12); box-shadow: inset 0 0 0 1.5px var(--red); }
+/* PAIR — solid red bar pinned to the RIGHT edge (where the picture will dock). */
+.wp-drop-pair::after { background: linear-gradient(to right, transparent 68%, rgba(232,65,43,.16) 68%); box-shadow: inset -4px 0 0 0 var(--red); }
+/* REORDER — a single red rule on the leading edge (above or below). */
+.wp-drop-reorder.wp-drop-above::after  { box-shadow: inset 0 3px 0 0 var(--red); }
+.wp-drop-reorder.wp-drop-below::after  { box-shadow: inset 0 -3px 0 0 var(--red); }
+
 /* per-kind cap colour */
 .wp-vo      .wp-cap-num { background: var(--blue); }
 .wp-oncam   .wp-cap-num { background: var(--blue); }
@@ -348,7 +412,8 @@ body {
 .wp-chapter .wp-body {
   font-family: var(--mono); font-size: 18px; font-weight: 800; letter-spacing: .02em;
   color: var(--ch-text); line-height: 1.18; text-transform: none;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  /* NO line-clamp — this is an editable script. Every word must stay visible. */
+  overflow-wrap: anywhere;
 }
 .wp-chapter .wp-body p { margin: 0; }
 
@@ -358,7 +423,8 @@ body {
 .wp-scene .wp-body {
   font-family: var(--mono); font-size: 14px; font-weight: 700; letter-spacing: .01em; color: var(--ink);
   line-height: 1.25; text-transform: uppercase;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  /* NO line-clamp — full scene text must stay visible + editable. */
+  overflow-wrap: anywhere;
 }
 .wp-scene .wp-body p { margin: 0; }
 

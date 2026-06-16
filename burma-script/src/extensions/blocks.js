@@ -9,7 +9,17 @@
 // DESIGN LAW: FLAT. No drop shadow, no bevel, no gradients-as-shadow. The knurl is a
 // flat repeating-linear-gradient texture and is the only gradient allowed.
 
-import { Node, mergeAttributes } from '@tiptap/core';
+import { Node, Extension, mergeAttributes } from '@tiptap/core';
+import { startBlockDrag, blockDragPlugin, unwrapPair } from './drag.js';
+
+// The unified POINTER-drag plugin, packaged as a TipTap Extension so it joins the
+// schema/plugin pipeline alongside the block nodes. Owns drag STATE + the flat
+// drop-zone DECORATIONS; the grip NodeView feeds it pointer events. MERGE / REORDER /
+// PAIR / UNWRAP all live in drag.js — the grip just starts the gesture.
+export const BlockDragExtension = Extension.create({
+  name: 'burmaBlockDrag',
+  addProseMirrorPlugins() { return [blockDragPlugin()]; },
+});
 
 const baseAttrs = () => ({ blockId: { default: null } });
 
@@ -40,19 +50,46 @@ function makeSpine(editor, getPos) {
   // tracks reorder/insert without us threading an index through the NodeView.
   const cap = el('div', 'wp-cap-num');
 
-  // ⠿ grip — the real drag handle. A plain click opens the block menu (change type /
-  // insert below / delete); a drag reorders. The spine stays clean (just the grip glyph).
+  // ⠿ grip — the real drag handle, POINTER-driven (not HTML5 DnD). A plain click (press +
+  // release with no movement) opens the block menu (change type / insert below / delete).
+  // A press + drag past a small threshold starts the unified pointer-drag:
+  //   center → MERGE · top/bottom → REORDER · right edge → PAIR (avPair two-column).
+  // We keep data-drag-handle for selectors but set draggable:false so native DnD can't fight
+  // the pointer gesture (and so it stays driveable by a synthetic pointer-event stream).
   const grip = el('button', 'wp-grip', {
-    type: 'button', contenteditable: 'false', 'data-drag-handle': '', draggable: 'true',
-    title: 'Drag to move · click for menu', 'aria-label': 'Move or open block menu', tabindex: '-1',
+    type: 'button', contenteditable: 'false', 'data-drag-handle': '', draggable: 'false',
+    title: 'Drag to move / merge / pair · click for menu', 'aria-label': 'Move or open block menu', tabindex: '-1',
   });
   grip.textContent = '⠿';
-  let dragged = false;
-  grip.addEventListener('dragstart', () => { dragged = true; });
-  grip.addEventListener('mousedown', () => { dragged = false; });
+  let suppressClick = false;
+  // Hard-block any native HTML5 drag originating at the grip.
+  grip.addEventListener('dragstart', (e) => { e.preventDefault(); e.stopPropagation(); });
+  const onDown = (e) => {
+    if (e.button != null && e.button !== 0) return;
+    // STOP the event reaching ProseMirror so PM never arms its own native node drag.
+    e.stopPropagation();
+    startBlockDrag(editor.view, getPos, e, (moved) => { suppressClick = moved; });
+  };
+  // pointerdown is primary; mousedown is the fallback. A per-press flag prevents the two
+  // from double-starting the same gesture.
+  let pressActive = false;
+  const guardedDown = (e) => {
+    if (pressActive) return;
+    pressActive = true;
+    onDown(e);
+    const release = () => {
+      pressActive = false;
+      window.removeEventListener('pointerup', release, true);
+      window.removeEventListener('mouseup', release, true);
+    };
+    window.addEventListener('pointerup', release, true);
+    window.addEventListener('mouseup', release, true);
+  };
+  grip.addEventListener('pointerdown', guardedDown);
+  grip.addEventListener('mousedown', guardedDown);
   grip.addEventListener('click', (e) => {
     e.preventDefault(); e.stopPropagation();
-    if (dragged) { dragged = false; return; }
+    if (suppressClick) { suppressClick = false; return; }
     openBlockMenu(editor, getPos, grip);
   });
 
@@ -674,7 +711,63 @@ export const BinBlock = Node.create({
   },
 });
 
+// --- AV PAIR — the A/V two-column container the writer has wanted from day one. ---
+// ProseMirror is a LINEAR list, so side-by-side REQUIRES a container node (the same
+// machinery prosemirror-tables uses). avPair holds EXACTLY TWO block children and renders
+// them as a flat flex row of two columns: LEFT = the words (VO / on-cam / SOT), RIGHT =
+// the picture (B-roll / visual). Each column stays a normal, fully editable cartridge —
+// PM just renders them inside the two flex cells. A ⤢ control on the row UNWRAPS it back
+// into two full-width blocks (drag.js → unwrapPair).
+//
+// DESIGN LAW: FLAT. The row is a hairline-framed module; the divider is a single 1.5px
+// rule; no shadow, no bevel. It reads like a printed A/V script: words left, picture right.
+export const AvPair = Node.create({
+  name: 'avPair',
+  group: 'block',
+  // Two block children. The columns themselves are normal cartridge blocks.
+  content: 'block block',
+  draggable: true,
+  isolating: true,
+  addAttributes() { return { pairId: { default: null } }; },
+  parseHTML() { return [{ tag: 'div[data-avpair]' }]; },
+  renderHTML({ node }) {
+    return ['div', mergeAttributes({
+      'data-avpair': '', 'data-pair-id': node.attrs.pairId || '', class: 'wp-avpair',
+    }), ['div', { class: 'wp-avpair-cols' }, 0]];
+  },
+  addNodeView() {
+    return ({ editor, getPos }) => {
+      const dom = el('div', 'wp-cart wp-avpair');
+      dom.setAttribute('data-avpair', '');
+
+      // The two-column hole PM fills with the two child cartridges.
+      const cols = el('div', 'wp-avpair-cols');
+
+      // A/V row label + ⤢ unwrap control. contenteditable:false chrome pinned top-right.
+      const rail = el('div', 'wp-avpair-rail', { contenteditable: 'false' });
+      const tag = Object.assign(el('span', 'wp-avpair-tag'), { textContent: 'A / V' });
+      const split = el('button', 'wp-avpair-split', {
+        type: 'button', contenteditable: 'false', draggable: 'false',
+        title: 'Pull apart into two full-width blocks', 'aria-label': 'Unwrap A/V pair', tabindex: '-1',
+      });
+      split.textContent = '⤢';
+      split.addEventListener('mousedown', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const pos = typeof getPos === 'function' ? getPos() : getPos;
+        if (typeof pos === 'number') unwrapPair(editor.view, pos);
+      });
+      rail.appendChild(tag);
+      rail.appendChild(split);
+
+      dom.appendChild(rail);
+      dom.appendChild(cols);
+      return { dom, contentDOM: cols };
+    };
+  },
+});
+
 export const BURMA_NODES = [
   ChapterBlock, SceneBlock, VoBlock, OncamBlock,
   SotBlock, BrollBlock, ServiceBlock, ServiceGroup, ServiceItem, ScriptStart, NoteBlock, BinBlock,
+  AvPair,
 ];
