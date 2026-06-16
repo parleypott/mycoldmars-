@@ -30,6 +30,13 @@
   --body:      #23211d;  /* body prose */
   --mono-body: #4a463d;  /* mono body */
 
+  /* TABLE LAYER — flat google-docs rows. The single hairline a split row shows,
+     plus the two faint lane tints. All warm/cream, all flat — never a gridline. */
+  --rule:      #cdc6b4;  /* the ONE hairline between split columns */
+  --said-tint: transparent;            /* LEFT / narration-VO lane — paper, no tint */
+  --shown-tint:rgba(110, 31, 26, .028);/* RIGHT / visual lane — faintest burgundy wash */
+  --lane-lab:  #8a857a;  /* column lane label (SAID / SHOWN) */
+
   --label:     #6b6658;
   --label-2:   #7d7768;
   --label-3:   #8a857a;
@@ -290,18 +297,87 @@ body {
    shadow. A full-width (1-col) row is an invisible band — reads identically to
    the old linear rack. A SPLIT row shows exactly ONE hairline between columns.
    ============================================================ */
+/* ---- RESET ALL TABLE CHROME -------------------------------------------------
+   These are <div> nodes (custom row/cell, NOT prosemirror-tables), but we still
+   neutralize every browser/table default so nothing can sneak in a gridline,
+   collapse, shadow, or zebra band. FLAT IS LAW. */
+.wp-trow, .wp-trow-cells, .wp-tcell, .wp-tcell-content {
+  border-collapse: separate;   /* never collapse — no shared gridlines */
+  border-spacing: 0;
+  border: 0;                   /* no default cell/row borders */
+  background: none;            /* no fill — the paper shows through */
+  box-shadow: none;            /* no bevel, no shadow, ever */
+}
+/* Kill any zebra/nth-child striping a future table lib might inject. */
+.wp-trow:nth-child(odd), .wp-trow:nth-child(even),
+.wp-tcell:nth-child(odd), .wp-tcell:nth-child(even) { background: none; }
+
+/* ---- ROW = a full-width invisible band ------------------------------------- */
 .wp-trow { display: block; margin: 0; }
 .wp-trow-cells { display: flex; align-items: stretch; gap: 0; }
-.wp-tcell { flex: 1 1 0; min-width: 0; display: block; }
+
+/* ---- CELL = a flex column slot --------------------------------------------- */
+.wp-tcell { flex: 1 1 0; min-width: 0; display: block; position: relative; }
 .wp-tcell-content { min-width: 0; }
-/* ONE hairline rule between split columns — the only divider a row ever shows. */
-.wp-tcell + .wp-tcell { border-left: 1px solid var(--rule, #cdc6b4); padding-left: 14px; }
-.wp-tcell + .wp-tcell { margin-left: 14px; }
-/* The cartridge already owns its own 11px bottom gap; that becomes the row rhythm. A
-   full-width row therefore needs no extra band spacing. In a SPLIT row, stacked cartridges
-   inside a cell keep their own gaps; the last one's trailing margin is the row gap. */
+
+/* ---- FULL-WIDTH (1-col) row: reads EXACTLY like the old linear rack ---------
+   No border, no tint, no lane label. The cartridge owns its own 11px bottom
+   gap; that trailing margin becomes the row rhythm. Chapters & scenes are
+   full-width header rows and keep their cartridge header energy untouched. */
 .wp-trow[data-cols="1"] .wp-tcell-content > .wp-cart:last-child,
 .wp-trow[data-cols="1"] .wp-tcell-content > .wp-chapter:last-child { margin-bottom: 11px; }
+
+/* ---- SPLIT row: LEFT = SAID (narration/VO) · RIGHT = SHOWN (visual) ---------
+   The ONLY divider a row ever shows: a single 1px hairline between columns,
+   painted on cells after the first. No outer border, no grid. */
+.wp-trow[data-cols="2"] .wp-trow-cells,
+.wp-trow[data-cols="3"] .wp-trow-cells { align-items: stretch; }
+
+.wp-tcell + .wp-tcell {
+  border-left: 1px solid var(--rule);   /* the one hairline */
+  margin-left: 22px;
+  padding-left: 22px;
+}
+
+/* Subtle, tasteful lane distinction — still dead flat. SAID = bare paper;
+   SHOWN = the faintest burgundy wash (echoes the visual/SOT family) so the eye
+   reads "what's on screen" without a box, a border, or a shadow. */
+.wp-trow[data-cols="2"] .wp-tcell[data-role="said"],
+.wp-trow[data-cols="3"] .wp-tcell[data-role="said"]  { background: var(--said-tint); }
+.wp-trow[data-cols="2"] .wp-tcell[data-role="shown"],
+.wp-trow[data-cols="3"] .wp-tcell[data-role="shown"] { background: var(--shown-tint); }
+
+/* Lane labels — JetBrains Mono, uppercase, one tracking. Only on SPLIT rows, and
+   only on the first row of a split run would be ideal, but per-cell is honest and
+   cheap; kept faint so it never competes with the orange accent. The ▍ tick on
+   SHOWN is the single orange accent that marks the visual lane. */
+.wp-trow[data-cols="2"] .wp-tcell[data-role]::before,
+.wp-trow[data-cols="3"] .wp-tcell[data-role]::before {
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--lane-lab);
+  display: block;
+  margin: 0 0 7px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.wp-trow[data-cols="2"] .wp-tcell[data-role="said"]::before,
+.wp-trow[data-cols="3"] .wp-tcell[data-role="said"]::before  { content: "SAID · NARRATION"; }
+.wp-trow[data-cols="2"] .wp-tcell[data-role="shown"]::before,
+.wp-trow[data-cols="3"] .wp-tcell[data-role="shown"]::before {
+  content: "▍ SHOWN · VISUAL";
+  color: var(--orange);                 /* the ONE orange accent */
+}
+/* Full-width cells never show a lane label — they're not a split. */
+.wp-trow[data-cols="1"] .wp-tcell[data-role]::before,
+.wp-tcell[data-role="full"]::before { content: none; display: none; }
+
+/* In a split, stacked cartridges inside a cell keep their own 11px gaps; the
+   last one's trailing margin is the row gap, same rhythm as full-width. */
+.wp-trow[data-cols="2"] .wp-tcell-content > .wp-cart:last-child,
+.wp-trow[data-cols="3"] .wp-tcell-content > .wp-cart:last-child { margin-bottom: 11px; }
 
 /* ============================================================
    CARTRIDGE ANATOMY — shared by all block types
@@ -977,6 +1053,12 @@ body {
   .wp-tk, .wp-fc, .wp-visual, .wp-tc-tag { background: none !important; border: 1pt solid #000 !important; color: #000 !important; }
   .wp-tc-tag::before { color: #000 !important; }
   .wp-sot.is-done, .wp-broll.is-done { opacity: 1 !important; }
+  /* TABLE LAYER in print: drop lane tints, keep the single hairline as black ink,
+     keep lane labels (in black, no orange) so SAID/SHOWN columns stay legible. */
+  .wp-tcell { background: none !important; }
+  .wp-tcell + .wp-tcell { border-left: 1px solid #000 !important; margin-left: 14pt !important; padding-left: 14pt !important; }
+  .wp-trow[data-cols="2"] .wp-tcell[data-role]::before,
+  .wp-trow[data-cols="3"] .wp-tcell[data-role]::before { color: #000 !important; }
 }
 
 /* ============================================================
