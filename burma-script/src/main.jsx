@@ -14,6 +14,202 @@ import scriptData from '../sample-blocks.json';
 const SOURCE_BLOCKS = scriptData.blocks || [];
 const DOC_TITLE = scriptData.title || 'Burma — The Human Element';
 
+// ── THE CONTROL UNIT (feature E) — reading instrument ────────────────────────
+// A sticky LEFT panel, flat fig.01 box with Teenage-Engineering tactile knobs that
+// drive CSS variables on .wp-page: TEXT SIZE, LEAD (line-height), a 9-font reading
+// selector (serif + sans), and a tasteful-neutral COLOR SCHEME flipper. Everything
+// persists to localStorage and re-skins the whole instrument instantly. The unit
+// collapses into a small TE knob icon and re-expands with a smooth ~200ms ease.
+const LS_CTRL = 'wp01.controls.v1';
+
+// 9 classic reading / word-processing faces — serif + sans. System faces need no
+// load; Newsreader / Source Serif / Literata / IBM Plex / Inter come from @import.
+const READ_FONTS = [
+  { id: 'newsreader',  label: 'Newsreader',   stack: '"Newsreader", Georgia, serif',            cls: 'serif' },
+  { id: 'source',      label: 'Source Serif', stack: '"Source Serif 4", Georgia, serif',        cls: 'serif' },
+  { id: 'literata',    label: 'Literata',     stack: '"Literata", Georgia, serif',              cls: 'serif' },
+  { id: 'charter',     label: 'Charter',      stack: 'Charter, Georgia, "Times New Roman", serif', cls: 'serif' },
+  { id: 'iowan',       label: 'Iowan',        stack: '"Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif', cls: 'serif' },
+  { id: 'iaq',         label: 'iA Quattro',   stack: 'iA Writer Quattro, "iA Writer Duospace", ui-monospace, Menlo, monospace', cls: 'mono' },
+  { id: 'inter',       label: 'Inter',        stack: '"Inter", system-ui, sans-serif',          cls: 'sans' },
+  { id: 'system',      label: 'System Sans',  stack: '"Helvetica Neue", system-ui, Arial, sans-serif', cls: 'sans' },
+  { id: 'plex',        label: 'IBM Plex',     stack: '"IBM Plex Sans", system-ui, sans-serif',  cls: 'sans' },
+];
+
+const SCHEMES = [
+  { id: 'cream',  label: 'Cream / Ink', sw: '#efeadd', ink: '#1f1d18' },
+  { id: 'cool',   label: 'Cool Paper',  sw: '#f4f5f6', ink: '#22252b' },
+  { id: 'sepia',  label: 'Sepia',       sw: '#f3e7cf', ink: '#3a2f1e' },
+  { id: 'slate',  label: 'Slate',       sw: '#2e3036', ink: '#e7e8ea' },
+  { id: 'manila', label: 'Manila',      sw: '#ece0c1', ink: '#332b1a' },
+];
+
+const SIZE_MIN = 14, SIZE_MAX = 22;
+const LEAD_MIN = 1.3, LEAD_MAX = 2.0;
+const DEFAULTS = { size: 15, lead: 1.62, font: 'system', scheme: 'cream', collapsed: false };
+
+function loadCtrl() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS_CTRL) || '{}');
+    return { ...DEFAULTS, ...raw };
+  } catch { return { ...DEFAULTS }; }
+}
+
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+// TACTILE KNOB — a TE-style rotary. The indicator sweeps ~270° across the range.
+// Drag vertically (up = increase) or scroll to turn; arrow keys for a11y. Flat: a
+// ringed disc with a tick, a value readout below. No shadow, no bevel.
+function Knob({ label, value, min, max, step, unit, onChange, format }) {
+  const dragRef = useRef(null);
+  const ang = -135 + ((value - min) / (max - min)) * 270; // -135°..+135°
+  const startDrag = (e) => {
+    e.preventDefault();
+    const startY = (e.touches ? e.touches[0].clientY : e.clientY);
+    const startV = value;
+    const span = max - min;
+    const move = (ev) => {
+      const y = (ev.touches ? ev.touches[0].clientY : ev.clientY);
+      const dv = ((startY - y) / 160) * span; // 160px full sweep
+      onChange(clamp(Math.round((startV + dv) / step) * step, min, max));
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      window.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('touchend', up);
+  };
+  const wheel = (e) => {
+    e.preventDefault();
+    onChange(clamp(Math.round((value - Math.sign(e.deltaY) * step) / step) * step, min, max));
+  };
+  const key = (e) => {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); onChange(clamp(+(value + step).toFixed(2), min, max)); }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); onChange(clamp(+(value - step).toFixed(2), min, max)); }
+  };
+  return (
+    <div class="wp-knob">
+      <div
+        class="wp-knob-dial"
+        ref={dragRef}
+        role="slider"
+        tabindex={0}
+        aria-label={label}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={value}
+        onMouseDown={startDrag}
+        onTouchStart={startDrag}
+        onWheel={wheel}
+        onKeyDown={key}
+      >
+        <span class="wp-knob-tick" style={{ transform: `rotate(${ang}deg)` }} />
+      </div>
+      <span class="wp-knob-lab">{label}</span>
+      <span class="wp-knob-val">{format ? format(value) : value}{unit || ''}</span>
+    </div>
+  );
+}
+
+function ControlUnit({ outlineOpen }) {
+  const [s, setS] = useState(loadCtrl);
+
+  // Apply settings to the doc as CSS variables + scheme attribute. Persist.
+  useEffect(() => {
+    const page = document.querySelector('.wp-page');
+    if (!page) return;
+    const font = READ_FONTS.find((f) => f.id === s.font) || READ_FONTS.find((f) => f.id === 'system');
+    page.style.setProperty('--doc-read', font.stack);
+    page.style.setProperty('--doc-size', s.size + 'px');
+    page.style.setProperty('--doc-lead', String(s.lead));
+    page.setAttribute('data-scheme', s.scheme);
+    // mirror scheme onto <html> so the body/overscroll area re-skins too
+    document.documentElement.setAttribute('data-scheme', s.scheme);
+    try { localStorage.setItem(LS_CTRL, JSON.stringify(s)); } catch {}
+  }, [s.font, s.size, s.lead, s.scheme, s.collapsed]);
+
+  const set = (patch) => setS((prev) => ({ ...prev, ...patch }));
+  const cycleFont = (dir) => {
+    const i = READ_FONTS.findIndex((f) => f.id === s.font);
+    const n = (i + dir + READ_FONTS.length) % READ_FONTS.length;
+    set({ font: READ_FONTS[n].id });
+  };
+  const font = READ_FONTS.find((f) => f.id === s.font) || READ_FONTS[7];
+
+  return (
+    <aside
+      class={`wp-control${s.collapsed ? ' is-collapsed' : ''}${outlineOpen ? ' outline-open' : ''}`}
+      aria-label="Reading control unit"
+    >
+      {/* collapsed dot — a TE knob icon. Click re-expands. */}
+      <button
+        class="wp-control-knobicon"
+        title="Reading controls"
+        aria-label="Open reading controls"
+        onClick={() => set({ collapsed: false })}
+        tabindex={s.collapsed ? 0 : -1}
+      >
+        <span class="wp-knobicon-dial"><span class="wp-knobicon-tick" /></span>
+        <span class="wp-knobicon-lab">READ</span>
+      </button>
+
+      {/* expanded unit */}
+      <div class="wp-control-body" aria-hidden={s.collapsed} inert={s.collapsed ? '' : undefined}>
+        <div class="wp-control-head">
+          <span class="wp-control-ttl">READING</span>
+          <button
+            class="wp-control-collapse"
+            title="Collapse"
+            aria-label="Collapse reading controls"
+            tabindex={s.collapsed ? -1 : 0}
+            onClick={() => set({ collapsed: true })}
+          >–</button>
+        </div>
+
+        <div class="wp-control-knobs">
+          <Knob label="SIZE" value={s.size} min={SIZE_MIN} max={SIZE_MAX} step={1} unit="px"
+            onChange={(v) => set({ size: v })} />
+          <Knob label="LEAD" value={s.lead} min={LEAD_MIN} max={LEAD_MAX} step={0.05}
+            onChange={(v) => set({ lead: +v.toFixed(2) })} format={(v) => v.toFixed(2)} />
+        </div>
+
+        <div class="wp-control-row">
+          <span class="wp-control-rowlab">FONT</span>
+          <div class="wp-font-sel">
+            <button class="wp-font-step" title="Previous font" aria-label="Previous font" onClick={() => cycleFont(-1)}>‹</button>
+            <span class={`wp-font-name ${font.cls}`} style={{ fontFamily: font.stack }}>{font.label}</span>
+            <button class="wp-font-step" title="Next font" aria-label="Next font" onClick={() => cycleFont(1)}>›</button>
+          </div>
+        </div>
+
+        <div class="wp-control-row col">
+          <span class="wp-control-rowlab">SCHEME</span>
+          <div class="wp-scheme-grid">
+            {SCHEMES.map((sc) => (
+              <button
+                key={sc.id}
+                class={`wp-scheme-sw${s.scheme === sc.id ? ' is-active' : ''}`}
+                title={sc.label}
+                aria-label={sc.label}
+                aria-pressed={s.scheme === sc.id}
+                style={{ background: sc.sw, color: sc.ink }}
+                onClick={() => set({ scheme: sc.id })}
+              >
+                <span class="wp-scheme-dot" style={{ background: sc.ink }} />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 // ── OUTLINE PANEL — slides out from the LEFT. Default hidden. Monochrome indented
 // chapter/scene spine; scroll-spy marks the chapter currently in the reading band.
 function OutlinePanel({ items, open, onClose }) {
@@ -144,6 +340,7 @@ function App() {
   return (
     <div class="wp-page">
       <OutlinePanel items={tel?.outline} open={outlineOpen} onClose={() => setOutlineOpen(false)} />
+      <ControlUnit outlineOpen={outlineOpen} />
 
       <div class={`wp-device${outlineOpen ? ' outline-open' : ''}`}>
         {/* registration screws */}
