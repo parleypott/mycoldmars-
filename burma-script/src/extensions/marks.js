@@ -165,13 +165,31 @@ export const TimecodeMark = Mark.create({
     return {
       tc: {
         default: '',
-        parseHTML: (el) => el.getAttribute('data-tc') || el.textContent || '',
+        // The BARE broadcast timecode (HH:MM:SS:FF). This is the ONLY thing a click copies —
+        // never the day. Rides in data-tc so the integrity audit ([data-tc]) sees every chip
+        // as TAGGED and the clipboard write copies exactly the code.
+        parseHTML: (el) => el.getAttribute('data-tc') || (el.textContent || '').match(/\d{1,2}:\d{2}:\d{2}:\d{2}/)?.[0] || '',
         renderHTML: (attrs) => (attrs.tc ? { 'data-tc': attrs.tc } : {}),
+      },
+      // The running DAY this timecode belongs to (1|2|3 or null). Folded into the chip at
+      // BUILD time from the surrounding contextDay / block day (#2). When known the chip reads
+      // "DAY N · HH:MM:SS:FF" with the DAY prominent; when null it shows just the timecode
+      // (NEVER "DAY null"). Preserved through parse/serialize so it round-trips.
+      day: {
+        default: null,
+        parseHTML: (el) => {
+          const d = el.getAttribute('data-day');
+          return d ? Number(d) : null;
+        },
+        renderHTML: (attrs) => (attrs.day != null ? { 'data-day': String(attrs.day) } : {}),
       },
     };
   },
   parseHTML() { return [{ tag: 'span[data-tc]' }]; },
   renderHTML({ HTMLAttributes }) {
+    // The chip's VISIBLE text is supplied by CSS (::before = "DAY N · " when data-day is set);
+    // the editable text node it wraps is the bare timecode, so the body prose still reads the
+    // raw HH:MM:SS:FF and the audit counts it on-page. data-day drives the DAY prefix display.
     return ['span', { ...HTMLAttributes, class: 'wp-tc-tag', title: 'copy timecode', role: 'button', tabindex: '-1' }, 0];
   },
   addCommands() {
@@ -180,12 +198,15 @@ export const TimecodeMark = Mark.create({
       unsetTimecode: () => ({ commands }) => commands.unsetMark('timecode'),
     };
   },
-  // Live self-mark: a timecode typed into the prose chips itself the moment it's complete.
+  // Live self-mark: a timecode typed into the prose chips itself the moment it's complete —
+  // even when GLUED to a letter/@/bracket/punct with no leading space (matches parser.ts's TC:
+  // a non-\b detector with a lookbehind rejecting a longer numeric run and a lookahead rejecting
+  // a 5th :FF field). So "ON CAM02:17:09:07" and "03:49:59:08@" chip correctly.
   addInputRules() {
-    return [markInputRule({ find: /(\b\d{1,2}:\d{2}:\d{2}:\d{2})$/, type: this.type })];
+    return [markInputRule({ find: /((?<!\d)(?<!\d:)\d{1,2}:\d{2}:\d{2}:\d{2}(?!:?\d))$/, type: this.type })];
   },
   addPasteRules() {
-    return [markPasteRule({ find: /(\b\d{1,2}:\d{2}:\d{2}:\d{2}\b)/g, type: this.type })];
+    return [markPasteRule({ find: /((?<!\d)(?<!\d:)\d{1,2}:\d{2}:\d{2}:\d{2}(?!:?\d))/g, type: this.type })];
   },
   // Click a timecode chip → copy it to the clipboard + flash + toast, exactly like the SOT LCD.
   addProseMirrorPlugins() {

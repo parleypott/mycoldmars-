@@ -157,9 +157,20 @@ export function parseScript(srcText: string): { doc: ScriptDoc; stats: any; ambi
       continue;
     }
     // --- VO / ONCAM writing surface ---
-    // Catch VO lines that lead with a visual cue too, e.g. "-[MAP] + VO: our story…".
-    if (/^-?\s*(\[[^\]]*\]\s*\+?\s*)?VO:/i.test(p) || /\bVO:/i.test(p.slice(0, 8))) {
-      const text = p.replace(/^-?\s*/, "").replace(/^VO:\s*/i, "");
+    // Catch VO lines in ALL their forms (#4):
+    //   "VO: …"                      — classic colon
+    //   "VO the Myanmar out here…"   — COLONLESS, "VO" then whitespace (blocks 161/163)
+    //   "-[MAP] + VO: …"             — leads with an optional '-' and a "[cue] +" visual cue
+    //   "-[MAP] + VO our story…"     — same, colonless
+    // Rule: after an optional '-', an optional "[cue] +", and whitespace, the paragraph starts
+    // with the WORD "VO" followed by ':' OR whitespace. The word boundary (\bVO\b-style: "VO"
+    // then a non-letter) stops it firing on "VOLUME" / "VOICE". The leading cue + optional '-'
+    // is stripped from the stored text exactly as before.
+    const VO_LEAD = /^-?\s*(?:\[[^\]]*\]\s*\+?\s*)?VO(?=[:\s])/i;
+    if (VO_LEAD.test(p)) {
+      const text = p
+        .replace(/^-?\s*(?:\[[^\]]*\]\s*\+?\s*)?/, "") // peel leading '-' + "[cue] +"
+        .replace(/^VO\s*:?\s*/i, "");                   // peel "VO:" or colonless "VO "
       blocks.push({ id: uid("vo"), type: "vo", text, voStatus: "todo", spans: extractSpans(text), rawSource: p });
       continue;
     }

@@ -81,15 +81,19 @@ function insertBlockBelow(editor, getPos) {
 }
 
 // Change a block's TYPE in place — preserves its editable content + blockId + hero datum.
+// COLLAPSED PICKER (#3): the old per-type menu (SOT / B-roll / On camera / Bin) is gone —
+// they all render as ONE generic "DIRECTION" block now, so the writer only ever picks between
+// Chapter / Direction / VO / Scene / Note. "Direction" maps to oncamBlock (the neutral
+// direction node with no hero-timecode attrs to lose). The sot/broll/bin node types stay
+// REGISTERED in the schema (Johnny's saved doc + the migration still use them); they simply
+// share the unified DIRECTION NodeView, and a writer turning a block INTO a direction lands on
+// oncamBlock.
 const TYPE_MENU = [
   ['chapterBlock', 'CHAPTER'],
   ['voBlock', 'VO — narration'],
-  ['oncamBlock', 'On camera'],
-  ['sotBlock', 'SOT — soundbite'],
-  ['brollBlock', 'B-roll'],
+  ['oncamBlock', 'Direction'],
   ['sceneBlock', 'Scene heading'],
   ['noteBlock', 'Note'],
-  ['binBlock', 'Bin — holding'],
 ];
 function changeBlockType(editor, getPos, typeName) {
   const pos = typeof getPos === 'function' ? getPos() : getPos;
@@ -111,6 +115,13 @@ function changeBlockType(editor, getPos, typeName) {
   view.dispatch(state.tr.setNodeMarkup(pos, target, next));
 }
 
+// SCROLL-SNAP-ON-DELETE FIX (#6). Deleting a block/row at the TOP of the doc used to snap the
+// viewport DOWN to the prior edit spot: the transaction carried .scrollIntoView(), which scrolls
+// the doc so the NEW selection (which PM places near where content was, i.e. the previous edit
+// position) is in view. The user is acting at the top; the viewport should STAY at the top.
+// Fix: never .scrollIntoView() on a delete, and pin window.scrollY across the dispatch +
+// focus() (focus() alone can also nudge the scroll). The page scrolls on window (.wp-page has
+// no overflow container), so window.scrollY is the source of truth.
 function deleteBlock(editor, getPos) {
   const pos = typeof getPos === 'function' ? getPos() : getPos;
   if (typeof pos !== 'number') return;
@@ -118,8 +129,14 @@ function deleteBlock(editor, getPos) {
   const node = state.doc.nodeAt(pos);
   if (!node) return;
   if (state.doc.childCount <= 1) return;
-  view.dispatch(state.tr.delete(pos, pos + node.nodeSize).scrollIntoView());
+  const savedY = window.scrollY;
+  // NO .scrollIntoView() — that's what snapped the viewport to the old edit spot.
+  view.dispatch(state.tr.delete(pos, pos + node.nodeSize));
+  // Restore the viewport: focus() and PM's selection sync can both nudge scroll; pin it now and
+  // again on the next frame (after layout settles) so the user stays exactly where they acted.
   view.focus();
+  window.scrollTo(window.scrollX, savedY);
+  requestAnimationFrame(() => window.scrollTo(window.scrollX, savedY));
 }
 
 // A tiny floating menu anchored to the grip. Plain DOM (NodeView-owned), one open at a
@@ -205,6 +222,51 @@ function cartridge({ blockClass, dataAttr, node, editor, getPos, headChildren, b
   dom.appendChild(body);
 
   return { dom, contentDOM: prose, body };
+}
+
+// ---------------------------------------------------------------------------
+// UNIFIED DIRECTION NodeView (#3). sot / broll / oncam / bin all collapse into ONE generic
+// "DIRECTION" cartridge — SAME flat chrome, NO type-specific badge/colour, NO hero timecode and
+// NO recessed LCD (#1). Timecodes appear ONLY as inline chips in the body prose (the body routes
+// through inlineContent which tags every one). The node TYPES stay registered + keep their attrs
+// (day/timecode/speaker/done/scaffold) so the saved doc + migration still round-trip — we simply
+// render them identically. A `done` toggle is shown only when the node carries a `done` attr
+// (sot/broll), rendered the same flat tick used before, with no colour distinction.
+function directionNodeView({ node, editor, getPos }) {
+  const a = node.attrs;
+  const hasDone = Object.prototype.hasOwnProperty.call(node.type.spec.attrs || {}, 'done');
+
+  const head = el('div', 'wp-dir-head', { contenteditable: 'false' });
+  head.appendChild(Object.assign(el('span', 'wp-dir-kind'), { textContent: 'DIRECTION' }));
+
+  let done = null;
+  if (hasDone) {
+    done = el('button', 'wp-done' + (a.done ? ' is-done' : ''), {
+      type: 'button', contenteditable: 'false', title: 'mark done', 'aria-label': 'mark done', tabindex: '-1',
+    });
+    done.textContent = '✓';
+    done.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const cur = editor.state.doc.nodeAt(getPos());
+      setAttr(editor, getPos, { done: !cur?.attrs.done });
+    });
+    head.appendChild(done);
+  }
+
+  const view = cartridge({ blockClass: 'wp-dir', dataAttr: 'data-direction', node, editor, getPos, headChildren: [head] });
+  if (hasDone) view.dom.setAttribute('data-done', a.done ? '1' : '0');
+  return {
+    ...view,
+    update(updated) {
+      if (updated.type.name !== node.type.name) return false;
+      if (hasDone) {
+        view.dom.classList.toggle('is-done', !!updated.attrs.done);
+        view.dom.setAttribute('data-done', updated.attrs.done ? '1' : '0');
+        if (done) done.classList.toggle('is-done', !!updated.attrs.done);
+      }
+      return true;
+    },
+  };
 }
 
 // --- CHAPTER — inverted dark cartridge, ivory cap, ACT tag ---
@@ -357,12 +419,9 @@ export const OncamBlock = Node.create({
       'data-oncam': '', 'data-block-id': node.attrs.blockId || '', class: 'wp-cart wp-oncam',
     }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
+  // Unified DIRECTION rendering (#3) — flat, no type badge/colour, no hero timecode.
   addNodeView() {
-    return ({ node, editor, getPos }) => {
-      const head = el('div', 'wp-vo-head', { contenteditable: 'false' });
-      head.appendChild(Object.assign(el('span', 'wp-vo-kind'), { textContent: 'ON CAMERA' }));
-      return cartridge({ blockClass: 'wp-oncam', dataAttr: 'data-oncam', node, editor, getPos, headChildren: [head] });
-    };
+    return directionNodeView;
   },
 });
 
@@ -387,57 +446,12 @@ export const SotBlock = Node.create({
       class: 'wp-cart wp-sot' + (a.done ? ' is-done' : ''),
     }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
+  // Unified DIRECTION rendering (#1 + #3): NO recessed LCD / hero timecode, NO speaker badge,
+  // NO type-specific colour — same flat DIRECTION chrome as every other direction block. The
+  // timecode + speaker still live in attrs (round-trip), but timecodes are surfaced ONLY as
+  // inline chips in the body prose; the done toggle is kept (flat, uniform).
   addNodeView() {
-    return ({ node, editor, getPos }) => {
-      const a = node.attrs;
-
-      // recessed LCD window — day label over ivory timecode digits. Click copies.
-      const win = el('div', 'wp-lcd', { contenteditable: 'false', title: 'copy timecode', role: 'button', tabindex: '-1' });
-      const dayLabel = Object.assign(el('div', 'wp-lcd-day'), { textContent: a.ambiguous ? 'DAY ?' : (a.day ? 'DAY ' + a.day : 'DAY') });
-      const digits = Object.assign(el('div', 'wp-lcd-tc'), { textContent: a.timecode || '——:——:——:——' });
-      win.appendChild(dayLabel); win.appendChild(digits);
-      win.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        const raw = editor.state.doc.nodeAt(getPos())?.attrs.timecode || '';
-        if (raw) {
-          navigator.clipboard?.writeText(raw).catch(() => {});
-          window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tc: raw } }));
-        }
-        win.classList.add('copied');
-        setTimeout(() => win.classList.remove('copied'), 700);
-      });
-
-      // speaker label sits above the quote — built into a middle column wrapper.
-      const mid = el('div', 'wp-sot-mid', { contenteditable: 'false' });
-      const spk = Object.assign(el('div', 'wp-sot-spk'), { textContent: a.speaker || 'SOT' });
-      mid.appendChild(spk);
-
-      // done toggle (right).
-      const done = el('button', 'wp-done' + (a.done ? ' is-done' : ''), { type: 'button', contenteditable: 'false', title: 'mark done', 'aria-label': 'mark done', tabindex: '-1' });
-      done.textContent = '✓';
-      done.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        const cur = editor.state.doc.nodeAt(getPos());
-        setAttr(editor, getPos, { done: !cur?.attrs.done });
-      });
-
-      // 3-column grid: [LCD] [speaker+quote] [done]. The quote prose IS the editable body,
-      // so we place it inside the middle column after the speaker label.
-      const view = cartridge({ blockClass: 'wp-sot', dataAttr: 'data-sot', node, editor, getPos, headChildren: [win, mid, done], bodyClass: 'wp-sot-grid' });
-      // move the editable .wp-body INTO the middle column under the speaker label.
-      mid.appendChild(view.contentDOM);
-      view.dom.setAttribute('data-done', a.done ? '1' : '0');
-      return {
-        ...view,
-        update(updated) {
-          if (updated.type.name !== 'sotBlock') return false;
-          view.dom.classList.toggle('is-done', !!updated.attrs.done);
-          view.dom.setAttribute('data-done', updated.attrs.done ? '1' : '0');
-          done.classList.toggle('is-done', !!updated.attrs.done);
-          return true;
-        },
-      };
-    };
+    return directionNodeView;
   },
 });
 
@@ -462,39 +476,10 @@ export const BrollBlock = Node.create({
       class: 'wp-cart wp-broll' + (a.done ? ' is-done' : ''),
     }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
+  // Unified DIRECTION rendering (#1 + #3): NO hero copy-timecode string — timecodes appear only
+  // as inline chips in the body prose. Same flat DIRECTION chrome, no burgundy badge/colour.
   addNodeView() {
-    return ({ node, editor, getPos }) => {
-      const a = node.attrs;
-      const head = el('div', 'wp-broll-head', { contenteditable: 'false' });
-      head.appendChild(Object.assign(el('span', 'wp-broll-kind'), { textContent: 'B-ROLL' }));
-
-      const tcStr = el('span', 'wp-broll-tc', { title: 'copy timecode', role: 'button', tabindex: '-1' });
-      const dayTxt = a.ambiguous ? 'DAY ?' : (a.day ? 'DAY ' + a.day : 'DAY');
-      tcStr.textContent = `${dayTxt} · ${a.timecode || '——:——:——:——'} ⧉`;
-      tcStr.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        const raw = editor.state.doc.nodeAt(getPos())?.attrs.timecode || '';
-        if (raw) {
-          navigator.clipboard?.writeText(raw).catch(() => {});
-          window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tc: raw } }));
-        }
-        tcStr.classList.add('copied');
-        setTimeout(() => tcStr.classList.remove('copied'), 700);
-      });
-      head.appendChild(tcStr);
-
-      const view = cartridge({ blockClass: 'wp-broll', dataAttr: 'data-broll', node, editor, getPos, headChildren: [head] });
-      view.dom.setAttribute('data-done', a.done ? '1' : '0');
-      return {
-        ...view,
-        update(updated) {
-          if (updated.type.name !== 'brollBlock') return false;
-          view.dom.classList.toggle('is-done', !!updated.attrs.done);
-          view.dom.setAttribute('data-done', updated.attrs.done ? '1' : '0');
-          return true;
-        },
-      };
-    };
+    return directionNodeView;
   },
 });
 
@@ -662,14 +647,21 @@ export const BinBlock = Node.create({
       class: 'wp-cart wp-bin' + (node.attrs.scaffold ? ' is-scaffold' : ''),
     }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
+  // Unified DIRECTION rendering (#3). A normal bin collapses into the generic DIRECTION
+  // cartridge. A SCAFFOLD bin (pre-script author setup that sits BEFORE the first chapter) keeps
+  // its quiet SETUP treatment — that's a pre-script-vs-script distinction, not a type
+  // badge/colour, so it stays so the script still opens on masthead → SETUP notes → SCRIPT BEGINS.
   addNodeView() {
     return ({ node, editor, getPos }) => {
       const scaffold = !!node.attrs.scaffold;
-      const head = el('div', 'wp-bin-head', { contenteditable: 'false' });
-      head.appendChild(Object.assign(el('span', 'wp-bin-kind'), { textContent: scaffold ? 'SETUP' : 'BIN' }));
-      const view = cartridge({ blockClass: 'wp-bin' + (scaffold ? ' is-scaffold' : ''), dataAttr: 'data-bin', node, editor, getPos, headChildren: [head] });
-      view.dom.setAttribute('data-scaffold', scaffold ? '1' : '0');
-      return view;
+      if (scaffold) {
+        const head = el('div', 'wp-bin-head', { contenteditable: 'false' });
+        head.appendChild(Object.assign(el('span', 'wp-bin-kind'), { textContent: 'SETUP' }));
+        const view = cartridge({ blockClass: 'wp-bin is-scaffold', dataAttr: 'data-bin', node, editor, getPos, headChildren: [head] });
+        view.dom.setAttribute('data-scaffold', '1');
+        return view;
+      }
+      return directionNodeView({ node, editor, getPos });
     };
   },
 });
