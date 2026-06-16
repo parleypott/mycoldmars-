@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Glossary — a taste library</title>
+<meta name="description" content="A tour through design history that doubles as a menu for defining taste profiles — and the kingdom where the chosen ones get locked in.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..800,0..100,0..1;1,9..144,300..800,0..100,0..1&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Caveat:wght@500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#161310; --paper:#f3ece0; --wall:#1d1916; --wall2:#241f1a;
+  --cream:#efe3cc; --mut:#9a8f7e; --line:#3a322a; --accent:#c9532d;
+  --gold:#d6a23e;
+  /* teenage soul */
+  --ts-ink:#1c1611; --ts-cream:#efe3cc; --ts-oxblood:#6e241c; --ts-orange:#c9532d;
+  --ts-gold:#d6a23e; --ts-teal:#3c645c; --ts-rose:#c25c72;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--wall); color:var(--cream);
+  font-family:"Newsreader",Georgia,serif; font-size:18px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:"Space Mono",ui-monospace,monospace}
+.wrap{max-width:1180px; margin:0 auto; padding:0 26px}
+
+/* ---- top ---- */
+header.top{padding:54px 0 0; border-bottom:1px solid var(--line)}
+.eyebrow{font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.28em; text-transform:uppercase; color:var(--mut); margin:0 0 18px}
+h1.title{font-family:"Fraunces",serif; font-weight:300; font-size:clamp(44px,8vw,92px); line-height:.96; letter-spacing:-.02em; margin:0 0 10px; font-variation-settings:"SOFT" 40,"WONK" 1}
+h1.title em{font-style:italic; color:var(--gold)}
+.lede{font-family:"Newsreader",serif; font-size:clamp(18px,2.2vw,22px); color:#d8cdb9; max-width:680px; margin:0 0 34px; font-weight:300}
+/* tabs */
+.tabs{display:flex; gap:0; margin:0}
+.tab{
+  font-family:"Space Mono",monospace; font-size:13px; letter-spacing:.12em; text-transform:uppercase;
+  background:none; border:0; color:var(--mut); cursor:pointer; padding:16px 22px 18px;
+  border-bottom:2px solid transparent; transition:color .2s, border-color .2s; position:relative;
+}
+.tab .n{font-size:10px; vertical-align:super; opacity:.6; margin-left:5px}
+.tab:hover{color:var(--cream)}
+.tab.on{color:var(--cream); border-color:var(--accent)}
+.tab.kingdom.on{border-color:var(--ts-rose)}
+
+/* ---- panels ---- */
+.panel{display:none; padding:44px 0 90px}
+.panel.on{display:block; animation:fade .5s ease}
+@keyframes fade{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+.panel-intro{display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:18px; margin:0 0 30px}
+.panel-intro p{max-width:560px; margin:0; color:#cabfac; font-size:17px}
+h2.sec{font-family:"Fraunces",serif; font-weight:300; font-size:30px; margin:0; letter-spacing:-.01em}
+
+/* filter chips */
+.filters{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.fchip{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+  background:var(--wall2); color:var(--mut); border:1px solid var(--line); border-radius:30px; padding:6px 13px; cursor:pointer}
+.fchip.on{background:var(--accent); color:#1a1410; border-color:var(--accent)}
+
+/* tradition grid */
+.grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(285px,1fr)); gap:18px}
+.trad{
+  background:var(--wall2); border:1px solid var(--line); border-radius:12px; padding:22px 22px 18px;
+  display:flex; flex-direction:column; transition:transform .25s, border-color .25s; position:relative; overflow:hidden;
+}
+.trad:hover{transform:translateY(-3px); border-color:#5a4f42}
+.trad .era{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--mut); margin:0 0 8px}
+.trad h3{font-family:"Fraunces",serif; font-weight:400; font-size:25px; line-height:1.05; margin:0 0 8px; letter-spacing:-.01em; font-variation-settings:"SOFT" 30}
+.trad .ess{font-size:15.5px; color:#cdc2af; margin:0 0 14px; flex:1; line-height:1.5}
+.dots{display:flex; gap:6px; margin:0 0 13px}
+.dots span{width:17px; height:17px; border-radius:4px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.trad .meta{font-size:13px; color:var(--mut); line-height:1.5; margin:0 0 4px}
+.trad .meta b{color:#cabfac; font-weight:400}
+.trad .feels{font-family:"Caveat",cursive; font-size:21px; color:var(--gold); margin:10px 0 14px; line-height:1.15}
+.usebtn{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+  background:none; color:var(--accent); border:1px solid var(--line); border-radius:7px; padding:9px 12px; cursor:pointer; transition:.2s; text-align:left}
+.usebtn:hover{background:var(--accent); color:#1a1410; border-color:var(--accent)}
+
+/* ---- KINGDOM ---- */
+.kingdom-head p{color:#cabfac}
+.room{
+  position:relative; border-radius:18px; overflow:hidden; margin:0 0 30px;
+  border:1px solid #5a3a30;
+  background:
+    radial-gradient(120% 90% at 12% 0%, rgba(214,162,62,.20), transparent 55%),
+    radial-gradient(130% 100% at 100% 100%, rgba(110,36,28,.55), transparent 60%),
+    linear-gradient(160deg,#2a1c15 0%, #3a241c 55%, #45271d 100%);
+}
+.room .grain{position:absolute; inset:0; opacity:.5; mix-blend-mode:overlay; pointer-events:none}
+.room .inner{position:relative; padding:38px 38px 40px}
+.room .invoke-row{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:0 0 6px}
+.room .num{font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.2em; color:#e9b97a}
+.room .lock{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:#e0c39b; border:1px solid #6e4a3a; border-radius:30px; padding:4px 12px}
+.room h2.ts-name{font-family:"Fraunces",serif; font-weight:300; font-style:italic; font-size:clamp(46px,8vw,82px); line-height:.95; margin:6px 0 6px; color:#f6ead3; letter-spacing:-.02em; font-variation-settings:"SOFT" 60,"WONK" 1}
+.room .invoke{font-family:"Caveat",cursive; font-size:25px; color:#f0c97c; margin:0 0 18px}
+.room .feeling{font-family:"Newsreader",serif; font-size:19px; line-height:1.6; color:#f1e6d2; max-width:660px; margin:0 0 8px; font-weight:300}
+.room .moodwords{font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.06em; color:#e7b98a; margin:14px 0 30px}
+
+.ts-grid{display:grid; grid-template-columns:1.15fr .85fr; gap:30px}
+@media(max-width:820px){.ts-grid{grid-template-columns:1fr}}
+.block-label{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:#e0b07e; margin:0 0 12px; padding-bottom:7px; border-bottom:1px solid rgba(240,200,140,.25)}
+
+/* swatches */
+.swatches{display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; margin:0 0 26px}
+.sw{border-radius:10px; overflow:hidden; cursor:pointer; border:1px solid rgba(0,0,0,.25); transition:transform .18s}
+.sw:hover{transform:translateY(-2px)}
+.sw .chip{height:62px}
+.sw .lab{background:rgba(20,12,8,.55); padding:7px 9px}
+.sw .lab .nm{font-family:"Newsreader",serif; font-size:13.5px; color:#f3e6d0; display:block; line-height:1.2}
+.sw .lab .hx{font-family:"Space Mono",monospace; font-size:10.5px; color:#cda; letter-spacing:.04em}
+.copied{color:#7fdca0 !important}
+
+/* type previews */
+.typrow{margin:0 0 16px; padding-bottom:14px; border-bottom:1px dashed rgba(240,200,140,.2)}
+.typrow .k{font-family:"Space Mono",monospace; font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:#cfa; opacity:.7; margin:0 0 4px}
+.t-disp{font-family:"Fraunces",serif; font-weight:300; font-size:34px; color:#f6ead3; line-height:1; font-variation-settings:"SOFT" 50,"WONK" 1}
+.t-body{font-family:"Newsreader",serif; font-size:17px; color:#ece0cb; line-height:1.45}
+.t-hand{font-family:"Caveat",cursive; font-size:28px; color:#f0c97c}
+
+/* chips */
+.tag-wrap{display:flex; gap:8px; flex-wrap:wrap; margin:0 0 26px}
+.tag{font-family:"Space Mono",monospace; font-size:11.5px; letter-spacing:.04em; background:rgba(240,200,140,.1); border:1px solid rgba(240,200,140,.28); color:#f0d9b4; border-radius:7px; padding:6px 11px}
+.dodont{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:0 0 26px}
+@media(max-width:560px){.dodont{grid-template-columns:1fr}}
+.dodont .col h4{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; margin:0 0 8px}
+.dodont .do h4{color:#9ad6a8} .dodont .dont h4{color:#e29}
+.dodont ul{margin:0; padding-left:18px} .dodont li{font-size:15px; color:#ece0cb; margin:0 0 4px}
+.lineage{font-size:15px; color:#e9dcc6; line-height:1.6; margin:0 0 8px}
+.lineage b{color:#f0c97c; font-weight:400; font-style:italic; font-family:"Newsreader",serif}
+
+/* product / download */
+.product{
+  margin:30px 38px 38px; position:relative; z-index:2;
+  background:rgba(20,13,9,.5); border:1px solid #6e4a3a; border-radius:14px; padding:26px 28px;
+  display:flex; justify-content:space-between; align-items:center; gap:24px; flex-wrap:wrap;
+}
+.product .copy{max-width:560px}
+.product h3{font-family:"Fraunces",serif; font-weight:400; font-size:23px; margin:0 0 8px; color:#f6ead3}
+.product p{margin:0; font-size:15px; color:#d9ccb6; line-height:1.55}
+.product p code{font-family:"Space Mono",monospace; font-size:13px; background:rgba(201,83,45,.22); color:#f3c39e; padding:2px 7px; border-radius:5px}
+.dl{font-family:"Space Mono",monospace; font-size:13px; letter-spacing:.06em; text-transform:uppercase; text-decoration:none;
+  background:var(--ts-orange); color:#1a0f08; font-weight:700; border-radius:10px; padding:16px 22px; white-space:nowrap;
+  display:inline-flex; align-items:center; gap:9px; transition:transform .18s, box-shadow .18s; box-shadow:0 6px 0 #7a2f17}
+.dl:hover{transform:translateY(-2px); box-shadow:0 8px 0 #7a2f17}
+.dl:active{transform:translateY(4px); box-shadow:0 2px 0 #7a2f17}
+
+.empty{border:1px dashed var(--line); border-radius:14px; padding:34px; text-align:center; color:var(--mut); font-family:"Space Mono",monospace; font-size:13px; letter-spacing:.05em}
+.empty .big{font-family:"Fraunces",serif; font-size:24px; color:#cabfac; letter-spacing:0; text-transform:none; margin:0 0 8px; display:block}
+
+footer{border-top:1px solid var(--line); padding:30px 0 60px; color:var(--mut); font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.04em; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+
+/* toast */
+#toast{position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--ts-ink); color:var(--ts-cream); border:1px solid var(--ts-orange); border-radius:9px; padding:12px 20px; font-family:"Space Mono",monospace; font-size:13px; transition:transform .3s; z-index:99}
+#toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <p class="eyebrow">mycoldmars · taste library · v1</p>
+    <h1 class="title">The <em>Glossary</em></h1>
+    <p class="lede">A walk through design history that doubles as a menu — browse the traditions, then crown the ones we love into a kingdom of locked, invokable taste profiles.</p>
+    <div class="tabs" role="tablist">
+      <button class="tab on" id="tab-glossary" role="tab" aria-selected="true">The Glossary<span class="n">menu</span></button>
+      <button class="tab kingdom" id="tab-kingdom" role="tab" aria-selected="false">Taste Kingdom<span class="n">001</span></button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ TAB 1 ============ -->
+<section class="panel on" id="panel-glossary" role="tabpanel">
+  <div class="wrap">
+    <div class="panel-intro">
+      <div>
+        <h2 class="sec">The menu of traditions</h2>
+      </div>
+      <p>Each card is a real movement with real masters. Find a feeling you want, then send it to the Kingdom to start defining a profile.</p>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div style="height:22px"></div>
+    <div class="grid" id="tradGrid"></div>
+  </div>
+</section>
+
+<!-- ============ TAB 2 ============ -->
+<section class="panel" id="panel-kingdom" role="tabpanel">
+  <div class="wrap">
+    <div class="panel-intro kingdom-head">
+      <div><h2 class="sec">Taste Kingdom</h2></div>
+      <p>The chosen profiles, locked. Each one is a real swatch of the vibe and a downloadable card you hand any agent to invoke it.</p>
+    </div>
+
+    <!-- TEENAGE SOUL ROOM -->
+    <article class="room">
+      <svg class="grain" xmlns="http://www.w3.org/2000/svg"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>
+      <div class="inner">
+        <div class="invoke-row">
+          <span class="num">PROFILE 001</span>
+          <span class="lock">◆ locked · burma script</span>
+        </div>
+        <h2 class="ts-name">Teenage Soul</h2>
+        <p class="invoke">say "build this in teenage soul" — or hand over the card ↓</p>
+        <p class="feeling">It's a sun-faded 45 sleeve found in a teenager's bedroom. Big, unguarded emotion with no irony — the way you feel things at fifteen — carried on the warmth of soul music: analog tape, gospel roots, a needle dropping on vinyl. The exact opposite of clean, cold, corporate. For a Myanmar human story it makes you <em>feel</em> your way in before you're explained a thing.</p>
+        <p class="moodwords">yearning · warm · sincere · worn · intimate · soulful · unguarded · handmade · nostalgic-but-alive</p>
+
+        <div class="ts-grid">
+          <div>
+            <p class="block-label">Palette — tap a swatch to copy</p>
+            <div class="swatches" id="tsSwatches"></div>
+
+            <p class="block-label">Lineage — blended from the menu</p>
+            <p class="lineage"><b>70s Soul sleeve art</b> (Stax, Hi, Motown, Curtis Mayfield) for the warmth and gold · <b>Teenage zine cut-and-paste</b> for the raw felt-tip honesty · <b>New Hollywood grain</b> for the film texture · <b>Soul cinema</b> (Spike Lee, Barry Jenkins, Gordon Parks) for intimacy and dignity.</p>
+          </div>
+
+          <div>
+            <p class="block-label">Type</p>
+            <div class="typrow"><p class="k">Display · Fraunces</p><div class="t-disp">A soulful serif.</div></div>
+            <div class="typrow"><p class="k">Body · Newsreader</p><div class="t-body">Warm and book-like, the way you'd actually read liner notes on the floor of your room.</div></div>
+            <div class="typrow" style="border:0"><p class="k">Hand · Caveat</p><div class="t-hand">notes in the margin, in felt-tip</div></div>
+
+            <p class="block-label">Texture &amp; motion</p>
+            <div class="tag-wrap">
+              <span class="tag">35mm grain</span><span class="tag">halftone</span><span class="tag">tape edges</span>
+              <span class="tag">sun-fade</span><span class="tag">vinyl crackle</span><span class="tag">light leaks</span>
+              <span class="tag">slow fades</span><span class="tag">needle-drop</span><span class="tag">no springs</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dodont">
+          <div class="col do"><h4>✓ do</h4><ul><li>warmth &amp; grain</li><li>one hot accent, held</li><li>handmade marks</li><li>faded saturation</li><li>sincerity over slick</li></ul></div>
+          <div class="col dont"><h4>✕ don't</h4><ul><li>cold minimalism</li><li>slick gradients</li><li>irony · neon · glass</li><li>perfect geometry</li><li>startup-landing-page energy</li></ul></div>
+        </div>
+      </div>
+
+      <div class="product">
+        <div class="copy">
+          <h3>The product → a Taste Card</h3>
+          <p>One self-contained <code>.md</code> style contract: palette, type, texture, motion, do/don'ts, lineage, and instructions for the agent. To invoke a taste, you either say <code>"in Teenage Soul"</code> or drop this file on any agent. That's the whole handoff — no re-explaining the vibe ever again.</p>
+        </div>
+        <a class="dl" href="/glossary/cards/teenage-soul.md" download="teenage-soul.taste.md">⬇ download taste card</a>
+      </div>
+    </article>
+
+    <div class="empty">
+      <span class="big">More thrones, empty for now.</span>
+      Browse The Glossary, find a feeling, and send it here to crown the next profile.
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap" style="display:flex; justify-content:space-between; width:100%; gap:16px; flex-wrap:wrap">
+    <span>the glossary · a living taste library</span>
+    <span>profile 001 — teenage soul · locked 2026·06·16</span>
+  </div>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+/* ---------- data: the menu ---------- */
+const TRADITIONS = [
+  {era:"1919–33 · Germany", name:"Bauhaus", warmth:"cool", ess:"Form follows function, joy in the grid. Primary colors, circles, type as system.", pal:["#e4002b","#ffd400","#005bbb","#111","#f4f1e8"], masters:"Moholy-Nagy · Herbert Bayer · Albers", feels:"a red circle that means business"},
+  {era:"1950s · Switzerland", name:"Swiss / International", warmth:"cool", ess:"Helvetica, the grid, mathematical order. Objectivity as a moral position.", pal:["#d50032","#000","#fff","#888","#e8e8e8"], masters:"Müller-Brockmann · Hofmann", feels:"silence, perfectly aligned"},
+  {era:"1920s · USSR", name:"Constructivism", warmth:"warm", ess:"Diagonal energy, photomontage, red and black shouting from a wall.", pal:["#c1121f","#0b0b0b","#f2e9d8","#444"], masters:"Rodchenko · El Lissitzky", feels:"a poster that wants a revolution"},
+  {era:"1890s · France", name:"Art Nouveau", warmth:"warm", ess:"Whiplash curves, botanical ornament, the woman as goddess.", pal:["#5b6e4f","#caa05a","#7a3b2e","#e9ddc3","#2e2a22"], masters:"Mucha · Toulouse-Lautrec", feels:"a vine that became a letterform"},
+  {era:"1950s–60s · USA", name:"Mid-Century American", warmth:"warm", ess:"Optimism with wit. Cut-paper, flat color, the smart simple mark.", pal:["#e8552d","#f3b61f","#2a9d8f","#1d1d1b","#efe7d6"], masters:"Saul Bass · Paul Rand · Charley Harper", feels:"a title sequence with a cocktail"},
+  {era:"1966–71 · S.F.", name:"Psychedelic", warmth:"warm", ess:"Melting type, vibrating complementary color, the gig poster as trip.", pal:["#ff2e88","#ff8a00","#00b3a4","#7b2ff7","#1a0033"], masters:"Wes Wilson · Victor Moscoso", feels:"a font on the verge of a feeling"},
+  {era:"1970s · USA", name:"70s Soul & Funk Sleeve", warmth:"warm", ess:"Album-art warmth: gold, brown, analog photography, gospel-rooted heat.", pal:["#6e241c","#c9532d","#d6a23e","#3c645c","#efe3cc"], masters:"Stax · Hi · Motown · Curtis Mayfield", feels:"a record you've played a hundred times", key:true},
+  {era:"1976 · UK", name:"Punk / Xerox", warmth:"warm", ess:"Ransom-note type, photocopied degradation, cut-and-paste rage. No rules.", pal:["#ff2a00","#ff0090","#000","#fff","#bdb7a4"], masters:"Jamie Reid · Linder", feels:"a threat made of newspaper"},
+  {era:"1972–82 · USA", name:"New Hollywood Grain", warmth:"warm", ess:"35mm warmth, available light, faces in soft amber. Cinema that breathes.", pal:["#3a241c","#c4622e","#caa14e","#7a5236","#ecd9b8"], masters:"Gordon Willis · Vilmos Zsigmond", feels:"dust in a sunbeam", key:true},
+  {era:"1980s · Italy", name:"Memphis / Postmodern", warmth:"warm", ess:"Squiggles, terrazzo, clashing pastels. Anti-good-taste as a stance.", pal:["#ff5d8f","#27c4c4","#ffd23f","#1b1b1b","#f5f0e6"], masters:"Sottsass · Memphis Group", feels:"a fax machine on vacation"},
+  {era:"1970s–80s · Switz.", name:"New Wave / Weingart", warmth:"cool", ess:"The grid, broken on purpose. Letterspacing, layers, controlled chaos.", pal:["#111","#00e0ff","#ff0058","#f0f0f0"], masters:"Wolfgang Weingart · April Greiman", feels:"Swiss order having a nightmare"},
+  {era:"1990s · USA", name:"Grunge / Carson", warmth:"cool", ess:"Type as texture, legibility optional, emotion over the grid. Ray Gun.", pal:["#2b2b2b","#b5a642","#7d4a2e","#d8d2c4"], masters:"David Carson", feels:"a magazine that fell in a puddle"},
+  {era:"1960s · Japan", name:"Japanese Editorial", warmth:"cool", ess:"Negative space as luxury, geometric crests, restraint with one bold mark.", pal:["#bc002d","#1a1a1a","#f7f4ee","#9a9a9a"], masters:"Ikko Tanaka · Yusaku Kamekura", feels:"one perfect red against white"},
+  {era:"1980s · Tokyo/NY", name:"City Pop / Neon", warmth:"warm", ess:"Sunset gradients, chrome, palm-tree melancholy, late-night glow.", pal:["#ff7eb0","#7b5cff","#ffb24d","#16123a","#21d4d4"], masters:"Hiroshi Nagai", feels:"a drive home at 2am"},
+  {era:"2010s · web", name:"Brutalist Web", warmth:"cool", ess:"Raw HTML honesty, system fonts, hard borders, no decoration as decoration.", pal:["#0000ff","#ff0000","#000","#fff","#c0c0c0"], masters:"Bloomberg · Balenciaga sites", feels:"a spreadsheet that's proud of itself"},
+  {era:"2010s · risograph", name:"Riso / Zine", warmth:"warm", ess:"Two-spot-color overprint, misregistration, the handmade DIY page.", pal:["#ff4f00","#0077ff","#ffd400","#1a1a1a","#f4eede"], masters:"indie presses · art-school zines", feels:"ink that didn't quite line up"},
+  {era:"2000s · digital", name:"Y2K Chrome", warmth:"cool", ess:"Liquid metal, lens flare, frosted blue, the future as imagined in 1999.", pal:["#b9c6d6","#7fdfff","#c0c0c0","#ff5ed2","#0a1a2f"], masters:"The Matrix DVD menus", feels:"a screensaver with ambitions"},
+  {era:"2010s · film", name:"Soul Cinema", warmth:"warm", ess:"Black life in saturated tenderness — teal night, amber skin, dignity.", pal:["#0e3b3a","#c4622e","#d99a3c","#7a2740","#ead9bf"], masters:"Barry Jenkins · Spike Lee · Bradford Young", feels:"moonlight on a face", key:true},
+];
+
+/* ---------- data: teenage soul palette ---------- */
+const TS_PAL = [
+  {nm:"Warm Ink", hx:"#1C1611"},
+  {nm:"Newsprint Cream", hx:"#EFE3CC"},
+  {nm:"Oxblood", hx:"#6E241C"},
+  {nm:"Soul Orange", hx:"#C9532D"},
+  {nm:"Aged Gold", hx:"#D6A23E"},
+  {nm:"Pressed Teal", hx:"#3C645C"},
+  {nm:"Faded Rose", hx:"#C25C72"},
+];
+
+/* ---------- render menu ---------- */
+const grid = document.getElementById('tradGrid');
+function renderGrid(filter){
+  grid.innerHTML = '';
+  TRADITIONS.filter(t => !filter || filter==='all' || t.warmth===filter || (filter==='key' && t.key)).forEach(t=>{
+    const dots = t.pal.map(c=>`<span style="background:${c}"></span>`).join('');
+    const el = document.createElement('div');
+    el.className = 'trad';
+    el.innerHTML = `
+      <p class="era">${t.era}${t.key?' · <span style="color:#d6a23e">in teenage soul</span>':''}</p>
+      <h3>${t.name}</h3>
+      <p class="ess">${t.ess}</p>
+      <div class="dots">${dots}</div>
+      <p class="meta"><b>${t.masters}</b></p>
+      <p class="feels">“${t.feels}”</p>
+      <button class="usebtn" data-name="${t.name}">↳ Use as a base for a profile</button>`;
+    grid.appendChild(el);
+  });
+  grid.querySelectorAll('.usebtn').forEach(b=> b.onclick=()=>sendToKingdom(b.dataset.name));
+}
+
+/* ---------- filters ---------- */
+const FILTERS = [["all","everything"],["warm","warm"],["cool","cool"],["key","◆ in teenage soul"]];
+const fwrap = document.getElementById('filters');
+FILTERS.forEach((f,i)=>{
+  const b=document.createElement('button'); b.className='fchip'+(i===0?' on':''); b.textContent=f[1]; b.dataset.f=f[0];
+  b.onclick=()=>{ fwrap.querySelectorAll('.fchip').forEach(x=>x.classList.remove('on')); b.classList.add('on'); renderGrid(f[0]); };
+  fwrap.appendChild(b);
+});
+renderGrid('all');
+
+/* ---------- swatches ---------- */
+const sw = document.getElementById('tsSwatches');
+TS_PAL.forEach(c=>{
+  const el=document.createElement('div'); el.className='sw';
+  el.innerHTML=`<div class="chip" style="background:${c.hx}"></div><div class="lab"><span class="nm">${c.nm}</span><span class="hx">${c.hx}</span></div>`;
+  el.onclick=()=>{ navigator.clipboard?.writeText(c.hx); const hx=el.querySelector('.hx'); const o=hx.textContent; hx.textContent='copied ✓'; hx.classList.add('copied'); toast('copied '+c.hx); setTimeout(()=>{hx.textContent=o; hx.classList.remove('copied')},1100); };
+  sw.appendChild(el);
+});
+
+/* ---------- tabs ---------- */
+const tabs={glossary:document.getElementById('tab-glossary'), kingdom:document.getElementById('tab-kingdom')};
+const panels={glossary:document.getElementById('panel-glossary'), kingdom:document.getElementById('panel-kingdom')};
+function show(which){
+  Object.keys(tabs).forEach(k=>{ tabs[k].classList.toggle('on', k===which); tabs[k].setAttribute('aria-selected', k===which); panels[k].classList.toggle('on', k===which); });
+  history.replaceState(null,'', which==='kingdom'?'#kingdom':'#glossary');
+}
+tabs.glossary.onclick=()=>show('glossary');
+tabs.kingdom.onclick=()=>show('kingdom');
+if(location.hash==='#kingdom') show('kingdom');
+
+function sendToKingdom(name){ show('kingdom'); toast('“'+name+'” noted — a base for the next profile'); window.scrollTo({top:document.querySelector('.empty').offsetTop-200, behavior:'smooth'}); }
+
+/* ---------- toast ---------- */
+let tt; const toastEl=document.getElementById('toast');
+function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>toastEl.classList.remove('show'),1600); }
+</script>
+</body>
+</html>
