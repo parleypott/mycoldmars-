@@ -147,7 +147,13 @@ export function parseScript(srcText: string): { doc: ScriptDoc; stats: any; ambi
       const tcode = timecodeFrom(p, contextDay);
       if (tcode.ambiguous) ambiguous.push(tcode);
       const speaker = /JACK|Jack/.test(p) ? "Jack" : /DREW|Drew/.test(p) ? "Drew" : /JH|Johnny/.test(p) ? "JH" : undefined;
-      const isBroll = /b[\s-]?roll|\[.*roll|establish|montage/i.test(p) && !/SOT|ONCAM|ON CAM|JH\s*[":]/i.test(p);
+      // Footage cue detector. "roll" MUST be word-bounded: the old /\[.*roll/ matched the
+      // bare substring inside common prose words ("cont​rolled", "pat​rolled", "en​rolled",
+      // "pay​roll"), so any bracketed-timecode SOT mentioning a "controlled"/"patrolled"
+      // border (constant in this military/border story) was silently misfiled as B-ROLL —
+      // a real soundbite vanishing from the producer's SOT list. \broll\b keeps the genuine
+      // "[02:02:01:07] aerial roll" footage cue while rejecting the substring false positives.
+      const isBroll = /b[\s-]?roll|\[.*\broll\b|establish|montage/i.test(p) && !/SOT|ONCAM|ON CAM|JH\s*[":]/i.test(p);
       blocks.push({
         id: uid(isBroll ? "broll" : "sot"),
         type: isBroll ? "broll" : "sot",
