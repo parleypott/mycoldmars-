@@ -102,23 +102,43 @@ function formatTimecode(tc) {
 // text into TipTap text nodes, marking the spans so the editor can render the Swiss-red
 // underline workshop affordance. Works off literal {…}/[…] in the cleaned text so it
 // survives editing (the schema offsets would drift once the user types).
-// Any broadcast timecode anywhere in the prose: HH:MM:SS:FF or H:MM:SS:FF. Matches the
-// audit's detector (\b\d{1,2}:\d{2}:\d{2}:\d{2}\b). EVERY one becomes a clickable copy-chip.
-const TIMECODE_RE = /\b\d{1,2}:\d{2}:\d{2}:\d{2}\b/;
-const TIMECODE_RE_G = /\b\d{1,2}:\d{2}:\d{2}:\d{2}\b/g;
+// Any broadcast timecode anywhere in the prose: HH:MM:SS:FF or H:MM:SS:FF — INCLUDING when
+// glued to a letter/@/bracket/punct with NO leading space ("ON CAM02:17:09:07", "03:49:59:08@").
+// MIRRORS parser.ts's TC: a non-\b detector with a lookbehind rejecting a longer numeric run
+// ("102:02:01:070") or a "digit:" sub-field, and a lookahead rejecting a 5th ":FF" field — so a
+// label-colon ("ALT:03:19:40:07") and a trailing "tc: description" colon are kept. The old \b
+// form silently dropped every glued timecode (#4); these two regexes now match the audit + parser.
+const TIMECODE_RE = /(?<!\d)(?<!\d:)\d{1,2}:\d{2}:\d{2}:\d{2}(?!:?\d)/;
+const TIMECODE_RE_G = /(?<!\d)(?<!\d:)\d{1,2}:\d{2}:\d{2}:\d{2}(?!:?\d)/g;
+
+// Running DAY context for the timecode chip's `day` attr (#2). Set per-block by inlineContent /
+// headingNodes from the block's own day (sot/broll) or the nearest preceding DAY N. A bare module
+// variable is safe here because buildEditorDocument walks blocks strictly in order, single-threaded.
+let _ctxDay = null;
 
 // Push `text` onto `out` as TipTap text nodes, splitting out EVERY embedded timecode into its
-// own node carrying the 'timecode' mark (a clickable copy-chip) — ON TOP of any base marks the
-// surrounding span supplies. This is what tags timecodes nested INSIDE a {tk …}/[visual …] span
-// (e.g. "[B roll of hotels on DAY 2 00:09:19:03]") as well as in bare prose. baseMarks may be
-// undefined (bare prose) or a span mark array.
+// own node carrying the 'timecode' mark (a clickable copy-chip carrying the bare tc + the running
+// DAY) — ON TOP of any base marks the surrounding span supplies. This is what tags timecodes
+// nested INSIDE a {tk …}/[visual …] span (e.g. "[B roll of hotels on DAY 2 00:09:19:03]") as well
+// as in bare prose, and now those glued to a word with no space. baseMarks may be undefined (bare
+// prose) or a span mark array. The chip's `tc` is the bare code (the only thing a click copies);
+// `day` is the running context day so the chip can DISPLAY "DAY N · …" (never "DAY null").
 function pushTextWithTimecodes(out, text, baseMarks) {
   if (!text) return;
+  // A local "DAY N" inside this very fragment overrides the block/running context for chips
+  // that follow it in the same fragment (so "shot DAY 3 02:00:00:00" tags as DAY 3).
+  let localDay = _ctxDay;
   let last = 0, m;
   TIMECODE_RE_G.lastIndex = 0;
+  const DAY_LOCAL = /\bDAY\s*([123])\b/i;
   while ((m = TIMECODE_RE_G.exec(text)) !== null) {
-    if (m.index > last) out.push({ type: 'text', text: text.slice(last, m.index), ...(baseMarks ? { marks: baseMarks } : {}) });
-    const tcMark = { type: 'timecode', attrs: { tc: m[0] } };
+    if (m.index > last) {
+      const seg = text.slice(last, m.index);
+      const dm = seg.match(DAY_LOCAL);
+      if (dm) localDay = Number(dm[1]);
+      out.push({ type: 'text', text: seg, ...(baseMarks ? { marks: baseMarks } : {}) });
+    }
+    const tcMark = { type: 'timecode', attrs: { tc: m[0], day: localDay ?? null } };
     out.push({ type: 'text', text: m[0], marks: baseMarks ? [...baseMarks, tcMark] : [tcMark] });
     last = m.index + m[0].length;
   }
@@ -132,6 +152,10 @@ function headingNodes(heading) {
   pushTextWithTimecodes(out, heading || ' ');
   return out.length ? out : [{ type: 'text', text: heading || ' ' }];
 }
+
+// Set the running DAY for chips emitted by the next inlineContent/headingNodes call. Derived from
+// the block's own timecode day (sot/broll) or the nearest preceding "DAY N" the builder has seen.
+function setContextDay(day) { _ctxDay = day ?? null; }
 
 function inlineContent(rawText, type) {
   const text = stripLead(rawText, type);
@@ -433,7 +457,20 @@ export function buildEditorDocument(blocks) {
   const firstServiceIdx = list.findIndex((b) => SERVICE_TYPES.has(b.type));
 
   const content = [];
+  // Running DAY context for inline timecode chips (#2). Threads the nearest preceding DAY N
+  // across blocks exactly like parser.ts's contextDay, so a chip with no explicit local day
+  // still shows the right "DAY N · …". A block's own timecode.day (sot/broll) takes precedence.
+  let runningDay = null;
+  const DAY_BLOCK = /\bDAY\s*([123])\b/i;
   list.forEach((b, i) => {
+    // Update the running day from this block's explicit DAY N (in its timecode or its text).
+    const blockDay = b?.timecode?.day ?? (() => {
+      const src = (b.rawSource || b.text || b.title || '');
+      const dm = String(src).match(DAY_BLOCK);
+      return dm ? Number(dm[1]) : null;
+    })();
+    if (blockDay != null) runningDay = blockDay;
+    setContextDay(runningDay);
     // FEATURE B — emit the ▸ SCRIPT BEGINS divider right before the first real chapter,
     // visually starting the script after the pre-script (masthead lives in chrome; the
     // leading scaffold bins render as open NOTE boxes via their is-scaffold flag).
@@ -448,6 +485,7 @@ export function buildEditorDocument(blocks) {
     const node = blockToNode(b, { scaffold: b.type === 'bin' && firstChapter > 0 && i < firstChapter });
     if (node) content.push(node);
   });
+  setContextDay(null);
 
   // ProseMirror requires at least one child.
   if (!content.length) content.push({ type: 'binBlock', attrs: { blockId: 'empty' }, content: [para([{ type: 'text', text: ' ' }])] });

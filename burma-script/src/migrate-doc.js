@@ -61,6 +61,96 @@ function buildSchema() {
   ]);
 }
 
+// ── ADDITIVE FILL-SAFE TRANSFORMS (punch-list migration) ──────────────────────────────────
+// His already-saved (now table-migrated) doc keeps the OLD node shapes (sot/broll/bin) and OLD
+// timecode marks (no `day` attr). Two render/seed changes need to reach his saved fills too, and
+// BOTH are provably text-preserving (so the text-equality gate still passes) and schema-valid:
+//
+//   (A) DAY on timecode marks (#2): every existing `timecode` mark gets a `day` attr derived
+//       from the nearest preceding "DAY N" within the SAME cartridge block (or the block's own
+//       day attr for sot/broll). Adding an attribute changes NO text — the chip just gains its
+//       DAY prefix. Marks with a day already set are left alone.
+//   (B) Colonless-VO reclassification (#4): a `binBlock` whose prose is really a colonless VO
+//       line ("VO the Myanmar out here…", "-[MAP] + VO …") is retyped to `voBlock`. Same text,
+//       same blockId, gains the default VO status — it just renders as narration, not holding.
+//
+// Anything NOT provably safe is left to the fresh-seed path (see migrateStoredDoc's notes).
+// These run on the WRAPPED doc, walking rows → cells → blocks, mutating a deep clone only.
+const DAY_IN_TEXT = /\bDAY\s*([123])\b/i;
+
+// Walk a paragraph's inline content, threading a running day from any "DAY N" word, and stamp a
+// `day` attr onto every timecode mark that doesn't already carry one. Returns true if it changed
+// anything. `seedDay` is the block-level day (sot/broll attr) used before any in-prose DAY N.
+function stampDaysInParagraph(paraNode, seedDay) {
+  let changed = false;
+  let day = seedDay ?? null;
+  for (const inline of paraNode.content || []) {
+    if (!inline || inline.type !== 'text') continue;
+    const dm = (inline.text || '').match(DAY_IN_TEXT);
+    if (dm) day = Number(dm[1]);
+    const marks = inline.marks;
+    if (!Array.isArray(marks)) continue;
+    for (const mk of marks) {
+      if (mk && mk.type === 'timecode') {
+        mk.attrs = mk.attrs || {};
+        if (mk.attrs.day == null && day != null) { mk.attrs.day = day; changed = true; }
+      }
+    }
+  }
+  return changed;
+}
+
+// Is this binBlock really a colonless (or cued) VO line? Mirror parser.ts's VO_LEAD against the
+// block's flattened prose. Only the FIRST paragraph's lead matters (the cue + "VO").
+const VO_LEAD_MIG = /^-?\s*(?:\[[^\]]*\]\s*\+?\s*)?VO(?=[:\s])/i;
+function binLooksLikeVo(blockNode) {
+  const firstPara = (blockNode.content || []).find((n) => n && n.type === 'paragraph');
+  if (!firstPara) return false;
+  const lead = (firstPara.content || [])
+    .filter((n) => n && n.type === 'text')
+    .map((n) => n.text || '')
+    .join('')
+    .slice(0, 120);
+  return VO_LEAD_MIG.test(lead);
+}
+
+// Apply the additive transforms to a cartridge block node IN PLACE (clone supplied by caller).
+function transformBlockNode(node) {
+  if (!node || !node.type) return false;
+  let changed = false;
+  // (B) colonless-VO bin → vo (text-preserving: same content, gains status attr).
+  if (node.type === 'binBlock' && !node.attrs?.scaffold && binLooksLikeVo(node)) {
+    node.type = 'voBlock';
+    node.attrs = { blockId: node.attrs?.blockId ?? null, status: 'todo' };
+    changed = true;
+  }
+  // (A) stamp DAY on this block's timecode marks. sot/broll carry a block-level day to seed from.
+  const seedDay = (node.type === 'sotBlock' || node.type === 'brollBlock') ? (node.attrs?.day ?? null) : null;
+  for (const child of node.content || []) {
+    if (child && child.type === 'paragraph') {
+      if (stampDaysInParagraph(child, seedDay)) changed = true;
+    }
+  }
+  return changed;
+}
+
+// Deep-clone the wrapped doc and apply additive transforms across every cell's blocks. Returns a
+// NEW doc (original untouched) plus a changed flag. Text-preserving by construction.
+function applyAdditiveTransforms(doc) {
+  const clone = JSON.parse(JSON.stringify(doc));
+  let changed = false;
+  for (const row of clone.content || []) {
+    if (row?.type !== 'tableRow') continue;
+    for (const cell of row.content || []) {
+      if (cell?.type !== 'tableCell') continue;
+      for (const block of cell.content || []) {
+        if (transformBlockNode(block)) changed = true;
+      }
+    }
+  }
+  return { doc: clone, changed };
+}
+
 // Normalized plain text of a whole doc. We reuse the spine's docToBlocks (which flattens rows
 // → cells → blocks and re-serializes inline {tk …}/[…] span marks back into their literal
 // tokens) so the comparison runs over the SAME canonical text on both sides of the wrap. Then
@@ -160,13 +250,10 @@ export function migrateStoredDoc() {
     return { ok: false, reason: 'saved doc not a non-empty doc — left untouched' };
   }
 
-  // Already all-rows (e.g. saved by a newer build) → just set the marker and pass through. No
-  // wrap, no rewrite — the doc is already in the target shape.
+  // Already all-rows (e.g. saved by a newer build) → the wrap is a no-op, but the ADDITIVE
+  // transforms (DAY attrs + colonless-VO reclass) may still be pending on his saved fills. Run
+  // them through the SAME backup + gates + fallback contract; only persist if both gates pass.
   const allRows = original.content.every((n) => n && n.type === 'tableRow');
-  if (allRows) {
-    try { localStorage.setItem(LS_MIGRATED, '1'); } catch {}
-    return { ok: true, reason: 'saved doc already all-rows', migrated: false };
-  }
 
   // ── STEP 1: BACK UP before touching anything. No backup → no migration. ──────────────────
   const bakKey = backupRaw(raw);
@@ -175,10 +262,20 @@ export function migrateStoredDoc() {
   }
 
   try {
-    // ── STEP 2: WRAP (structurally non-destructive, idempotent). ──────────────────────────
-    const migrated = ensureTableDoc(original);
+    // ── STEP 2: WRAP (structurally non-destructive, idempotent), THEN apply the additive,
+    //    text-preserving transforms (DAY-attr stamping + colonless-VO bin→vo). ─────────────
+    const wrapped = ensureTableDoc(original);
+    const { doc: migrated, changed: additiveChanged } = applyAdditiveTransforms(wrapped);
 
-    // ── STEP 3a: TEXT-EQUALITY GATE — every word + every {tk}/{fc} fill must survive. ─────
+    // If the doc was already all-rows AND the additive pass changed nothing, there is genuinely
+    // nothing to do — set the marker and pass through without a rewrite.
+    if (allRows && !additiveChanged) {
+      try { localStorage.setItem(LS_MIGRATED, '1'); } catch {}
+      return { ok: true, reason: 'already migrated; no additive changes', migrated: false, bakKey };
+    }
+
+    // ── STEP 3a: TEXT-EQUALITY GATE — every word + every {tk}/{fc} fill must survive. The
+    //    additive transforms are text-preserving by construction; this gate PROVES it. ──────
     const beforeText = docPlainText(original);
     const afterText = docPlainText(migrated);
     if (beforeText !== afterText) {

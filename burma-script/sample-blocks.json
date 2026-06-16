@@ -225,10 +225,9 @@
       "rawSource": "CH: GROUND 1. Yongon ⁃ Arrival and lay of the land"
     },
     {
-      "id": "vo_u_1k72",
-      "type": "vo",
+      "id": "oncam_u_1k72",
+      "type": "oncam",
       "text": "⁃ VO: I’ve arrived to Myanmar, to the city of Yangon were the important river meets the sea. and immediately a few things stand out. ⁃ VO: First: Gas station line, there’s a shortage of gas because {TK one liner reason} ⁃ VO: Second: Nearly every woman and child covers their faces with this lotion made from ground up wood of a special tree. Half decorative make up, half sunscreen ⁃ VO: and Third, No one talks about politics, at least not on camera. Which is fine because my goal here is to understand the",
-      "voStatus": "todo",
       "spans": [
         {
           "id": "tk_v_6mn",
@@ -392,14 +391,14 @@
     {
       "id": "vo_1c_cr4",
       "type": "vo",
-      "text": "VO + Achive: {TK description of how the British ruled. How can we characterize their 100 years here. What did they do to the society. modernize education, medicine, but also dominate the people, divide the ethnic groups against each other?}",
+      "text": "+ Achive: {TK description of how the British ruled. How can we characterize their 100 years here. What did they do to the society. modernize education, medicine, but also dominate the people, divide the ethnic groups against each other?}",
       "voStatus": "todo",
       "spans": [
         {
           "id": "tk_1d_14ch",
           "kind": "tk",
-          "start": 13,
-          "end": 240,
+          "start": 10,
+          "end": 237,
           "raw": "{TK description of how the British ruled. How can we characterize their 100 years here. What did they do to the society. modernize education, medicine, but also dominate the people, divide the ethnic groups against each other?}"
         }
       ],
@@ -1483,9 +1482,11 @@
       "rawSource": "\\[Cut to driving and shot of JH pensively looking out window\\]"
     },
     {
-      "id": "bin_4f_1ucv",
-      "type": "bin",
-      "text": "VO on our way out of town Jack says we have to see a few more the capitals top attractions, including the national zoo.",
+      "id": "vo_4f_1ucv",
+      "type": "vo",
+      "text": "on our way out of town Jack says we have to see a few more the capitals top attractions, including the national zoo.",
+      "voStatus": "todo",
+      "spans": [],
       "rawSource": "VO on our way out of town Jack says we have to see a few more the capitals top attractions, including the national zoo."
     },
     {
@@ -2098,9 +2099,11 @@
       "rawSource": "\\[\\!PLEASE NOTE: the JH DJI Osmo footage starting at DAY 2 02:04:13:22 is in 60fps and can be slowed down (command R and change to 40%) try it out to see if some of that footage looks better in slow mo (the first clip in 60 is DJI\\_20260331210711\\_0195\\_D.MP4) Like the woman smiling and waving at DAY 2 02:12:36:13 looks great at 40% speed. \\]"
     },
     {
-      "id": "bin_5y_14s6",
-      "type": "bin",
-      "text": "VO the Myanmar out here is the opposite of the desolate capital. people gather to buy and sell. To chat and gossip to laugh.",
+      "id": "vo_5y_14s6",
+      "type": "vo",
+      "text": "the Myanmar out here is the opposite of the desolate capital. people gather to buy and sell. To chat and gossip to laugh.",
+      "voStatus": "todo",
+      "spans": [],
       "rawSource": "VO the Myanmar out here is the opposite of the desolate capital. people gather to buy and sell. To chat and gossip to laugh."
     },
     {
@@ -2119,9 +2122,11 @@
       "rawSource": "DAY 2 JH ON CAM02:17:09:07: “Jh talks about the abundance of this land”"
     },
     {
-      "id": "bin_60_it4",
-      "type": "bin",
-      "text": "VO playing under the market scene: ‘And yes the presence of the military dictatorship is here in the form of a bunch of state controlled newspapers, but",
+      "id": "vo_60_it4",
+      "type": "vo",
+      "text": "playing under the market scene: ‘And yes the presence of the military dictatorship is here in the form of a bunch of state controlled newspapers, but",
+      "voStatus": "todo",
+      "spans": [],
       "rawSource": "VO playing under the market scene: ‘And yes the presence of the military dictatorship is here in the form of a bunch of state controlled newspapers, but"
     },
     {
