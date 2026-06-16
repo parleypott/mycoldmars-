@@ -1,15 +1,9 @@
-// Burma Script Tool — app entry (WP-01).
-// DESIGN LAW v3 — TEENAGE SOUL. A FLAT technical fig.01 "WORD PROCESSING INSTRUMENT":
-// cream ground, hairline-outlined panels, mono uppercase labels in the chrome, serif ONLY
-// in the script body. NO drop shadow / bevel anywhere — flat fills + hairline borders only.
-// The TE instrument FRAMES the script; it never invades the prose.
-//
-// Layout maps the approved mock (/tmp/te-mock/index.html) onto the real editor:
-//   TOP    = CONTROL SURFACE bar (typeface/size readouts, mode segmented DRAFT/EDIT/REVISE)
-//   LEFT   = INPUT BAY (outline/nav, FOCUS LOCK, SAVED status)
-//   CENTER = FIELD NOTE panel = the real TipTap editor (225 blocks, editable + movable)
-//   RIGHT  = OUTPUT + TELEMETRY (export cartridges, draft-pressure gauge, schema)
-//   BOTTOM = FUNCTION-KEY strip (F1 SAVE … ESC)
+// Burma Script Tool — app entry (WP-01 · CARTRIDGES).
+// fig.03 CARTRIDGE RACK. Every script block is a tactile hardware CARTRIDGE inside a warm
+// outlined DEVICE FRAME (max-width 1040px, #efeadd paper, 2px ink border, registration-screw
+// corner marks) over an #e7e1d3 page. Header = WP·01 wordmark + "fig.03 — CARTRIDGE RACK" +
+// telemetry. Footer = "+ INSERT BLOCK …". FLAT — no shadow, no bevel; JetBrains Mono chrome,
+// sans prose. A hidden OUTLINE panel slides out from the LEFT (default collapsed).
 
 import { render } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
@@ -19,11 +13,10 @@ import scriptData from '../sample-blocks.json';
 
 const SOURCE_BLOCKS = scriptData.blocks || [];
 const DOC_TITLE = scriptData.title || 'Burma — The Human Element';
-const SEQUENCES = scriptData.sequences || [];
 
-// ── INPUT BAY: outline/nav. Monochrome indented chapter/scene spine + primary keys.
-// Scroll-spy marks the chapter currently in the reading band (the one red tick in the rail).
-function Outline({ items }) {
+// ── OUTLINE PANEL — slides out from the LEFT. Default hidden. Monochrome indented
+// chapter/scene spine; scroll-spy marks the chapter currently in the reading band.
+function OutlinePanel({ items, open, onClose }) {
   const [activeId, setActiveId] = useState('');
 
   useEffect(() => {
@@ -44,15 +37,12 @@ function Outline({ items }) {
       setActiveId(current);
     };
     const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(compute); } };
-    const scroller = document.querySelector('.wp-doc-scroll');
     compute();
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll, { passive: true });
-    if (scroller) scroller.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
-      if (scroller) scroller.removeEventListener('scroll', onScroll);
     };
   }, [items]);
 
@@ -61,237 +51,166 @@ function Outline({ items }) {
     if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  if (!items || !items.length) {
-    return <div class="wp-bay-empty">OUTLINE · LOADING</div>;
-  }
   return (
-    <div class="wp-bay-outline">
-      {items.map((it) => (
-        <button
-          key={it.id}
-          class={`wp-bay-item lvl-${it.level} ${it.id === activeId ? 'is-active' : ''}`}
-          title={it.title}
-          onClick={() => jump(it.id)}
-        >
-          <span class="wp-bay-item-txt">{it.title}</span>
-        </button>
-      ))}
+    <aside class={`wp-outline${open ? ' is-open' : ''}`} aria-hidden={!open} inert={open ? undefined : ''}>
+      <div class="wp-outline-head">
+        <span class="wp-outline-ttl">OUTLINE</span>
+        <button class="wp-outline-collapse" title="Collapse outline" aria-label="Collapse outline" tabindex={open ? 0 : -1} onClick={onClose}>‹</button>
+      </div>
+      <div class="wp-outline-list">
+        {(!items || !items.length) && <div class="wp-outline-empty">OUTLINE · LOADING</div>}
+        {(items || []).map((it) => (
+          <button
+            key={it.id}
+            class={`wp-outline-item lvl-${it.level}${it.id === activeId ? ' is-active' : ''}`}
+            title={it.title}
+            tabindex={open ? 0 : -1}
+            onClick={() => jump(it.id)}
+          >
+            <span class="wp-outline-txt">{it.title}</span>
+          </button>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+// ── COPY TOAST — a single shared dark pill. Every timecode copy (SOT LCD or B-roll
+// string) dispatches `wp-toast` with the HH:MM:SS:FF value; this fades + translates up
+// ~8px over ~160ms, holds, then auto-dismisses ~1.3s. Copy is the editor's primary
+// action — this is the obvious, forgiving confirmation the spec asks for. FLAT.
+function CopyToast() {
+  const [tc, setTc] = useState(null);
+  const [up, setUp] = useState(false);
+  const hideTimer = useRef(null);
+  const clearTimer = useRef(null);
+
+  useEffect(() => {
+    const onToast = (e) => {
+      const val = e.detail?.tc;
+      if (!val) return;
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      if (clearTimer.current) clearTimeout(clearTimer.current);
+      setTc(val);
+      // next frame: flip to the raised/visible state so the transition runs.
+      requestAnimationFrame(() => requestAnimationFrame(() => setUp(true)));
+      hideTimer.current = setTimeout(() => setUp(false), 1300);
+      clearTimer.current = setTimeout(() => setTc(null), 1300 + 200);
+    };
+    window.addEventListener('wp-toast', onToast);
+    return () => {
+      window.removeEventListener('wp-toast', onToast);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      if (clearTimer.current) clearTimeout(clearTimer.current);
+    };
+  }, []);
+
+  if (!tc) return null;
+  return (
+    <div class={`wp-toast${up ? ' is-up' : ''}`} role="status" aria-live="polite">
+      <span class="wp-toast-lab">COPIED</span>
+      <span class="wp-toast-tc">{tc}</span>
     </div>
   );
 }
 
-// ── TELEMETRY readouts (right rail). Derived live from the doc.
-function pct(done, total) { return total ? Math.round((done / total) * 100) : 0; }
-
 function App() {
   const [tel, setTel] = useState(null);
-  const [savedAgo, setSavedAgo] = useState(0);
-  const [mode, setMode] = useState('EDIT');
   const [scaffoldOpen, setScaffoldOpen] = useState(false);
+  const [outlineOpen, setOutlineOpen] = useState(false);
   const editorRef = useRef(null);
-
-  // SAVED · NN AGO ticker — purely cosmetic instrument telemetry; resets on each autosave.
-  useEffect(() => {
-    const t = setInterval(() => setSavedAgo((s) => Math.min(s + 1, 5999)), 1000);
-    const onSave = () => setSavedAgo(0);
-    window.addEventListener('wp-saved', onSave);
-    return () => { clearInterval(t); window.removeEventListener('wp-saved', onSave); };
-  }, []);
 
   function resetDoc() {
     try { localStorage.removeItem(LS_DOC); } catch {}
     location.reload();
   }
   function openExports() { window.dispatchEvent(new CustomEvent('wp-open-exports')); }
+  function insertFromFooter() {
+    const ed = editorRef.current;
+    if (!ed) return;
+    ed.chain().focus('end').run();
+    const { state } = ed;
+    const end = state.doc.content.size;
+    const fresh = state.schema.nodes.voBlock.createAndFill({ blockId: 'blk_' + Math.random().toString(36).slice(2, 9), status: 'todo' });
+    if (fresh) ed.view.dispatch(state.tr.insert(end, fresh).scrollIntoView());
+  }
 
   const words = tel?.words || 0;
   const blocks = tel?.blocks || 0;
   const sot = tel?.sot || 0;
   const done = tel?.done || 0;
   const scaffold = tel?.scaffold || 0;
-  const draftPct = pct(done, sot);
-  const reading = Math.max(1, Math.round(words / 160)); // ~160 wpm script read
-  const savedMin = String(Math.floor(savedAgo / 60)).padStart(2, '0');
-  const savedSec = String(savedAgo % 60).padStart(2, '0');
 
   return (
-    <div class="wp-sheet">
-      <div class="wp-tab-notch l" /><div class="wp-tab-notch r" />
+    <div class="wp-page">
+      <OutlinePanel items={tel?.outline} open={outlineOpen} onClose={() => setOutlineOpen(false)} />
 
-      {/* ── TOP HEADER ── */}
-      <header class="wp-head">
-        <div class="wp-head-id">
-          <div class="wp-head-ttl">WORD PROCESSING INSTRUMENT / MODEL WP&#8209;01 · BURMA</div>
-          <div class="wp-head-sub">TEXT IS A MATERIAL · FORMAT IS A TOOL · DOCUMENT AS OBJECT</div>
-        </div>
-        <div class="wp-head-right">
-          <small class="wp-head-note">INTERFACE<br/>STUDY DRAWING</small>
-          <div class="wp-head-fig">fig.01</div>
-          <div class="wp-head-dots"><i class="d-orange" /><i class="d-red" /></div>
-        </div>
-      </header>
+      <div class={`wp-device${outlineOpen ? ' outline-open' : ''}`}>
+        {/* registration screws */}
+        <span class="wp-screw tl"><i /></span>
+        <span class="wp-screw tr"><i /></span>
+        <span class="wp-screw bl"><i /></span>
+        <span class="wp-screw br"><i /></span>
 
-      {/* ── CONTROL SURFACE ── matches the mock: typeface · size/weight · dial · line-height,
-            with live telemetry threaded through the instrument readouts. */}
-      <section class="wp-panel wp-control">
-        <span class="wp-cap">Control Surface</span>
-        <div class="wp-ctl">
-          <span class="wp-l">Typeface</span>
-          <div class="wp-dropdown"><span>IOWAN · SERIF</span><span class="wp-car">▾</span></div>
-          <span class="wp-tag">SCRIPT</span>
-        </div>
-        <div class="wp-ctl">
-          <div class="wp-ctl-row"><span class="wp-l">Size</span><span class="wp-bignum">11.5</span><span class="wp-l" style={{ marginLeft: '6px' }}>Weight</span></div>
-          <div class="wp-ctl-row wp-slider-row">
-            <span class="wp-l2">LIGHT</span>
-            <div class="wp-slider"><span class="wp-slider-fill" style={{ width: '45%' }} /><span class="wp-knob" style={{ left: '45%' }} /></div>
-            <span class="wp-chip-orange" />
-            <span class="wp-l2">BOLD</span>
+        {/* header */}
+        <header class="wp-rack-head">
+          <div class="wp-rack-id">
+            <button
+              class={`wp-outline-btn${outlineOpen ? ' is-open' : ''}`}
+              onClick={() => setOutlineOpen((v) => !v)}
+              title={outlineOpen ? 'Hide outline' : 'Show outline'}
+            >
+              <span class="wp-outline-glyph">{outlineOpen ? '‹' : '☰'}</span> OUTLINE
+            </button>
+            <span class="wp-wordmark">WP·<b>01</b></span>
+            <span class="wp-rack-fig">fig.03 — CARTRIDGE RACK</span>
           </div>
-        </div>
-        <div class="wp-ctl wp-ctl-dial">
-          <div class="wp-dial"><div class="wp-dial-ticks" id="wp-ticks" /><div class="wp-dial-odot" /></div>
-          <span class="wp-l2">DIAL · TRACKING</span>
-        </div>
-        <div class="wp-ctl">
-          <div class="wp-ctl-row" style={{ justifyContent: 'space-between' }}><span class="wp-l">Line Height</span><span class="wp-bignum" style={{ fontSize: '16px' }}>1.42</span></div>
-          <span class="wp-l2">WORDS {words.toLocaleString()} · READING {reading}:{String((words % 160) % 60).padStart(2, '0')}</span>
-          <div class="wp-seg">
-            {['DRAFT', 'EDIT', 'REVISE'].map((m) => (
-              <span key={m} class={mode === m ? 'on' : ''} onClick={() => setMode(m)}>{m}</span>
-            ))}
+          <div class="wp-telemetry">
+            {words.toLocaleString()} WORDS · {blocks} BLOCKS · <span class="wp-tel-sot">{String(done).padStart(2, '0')}/{String(sot).padStart(2, '0')} SOT</span> · DRAFT
           </div>
-        </div>
-      </section>
+        </header>
 
-      {/* ── THREE COLUMNS ── */}
-      <div class="wp-cols">
-
-        {/* LEFT: INPUT BAY */}
-        <aside class="wp-panel wp-col wp-bay">
-          <span class="wp-cap">Input Bay</span>
-          <div class="wp-tabs"><span class="wp-tab on">OUTLINE</span><span class="wp-tab">NOTES</span></div>
-          <div class="wp-bay-sec">PRIMARY KEYS · DOCUMENT FLOW</div>
-          <div class="wp-bay-keys">
-            <div class="wp-bay-li"><span>OUTLINE</span><span class="k">⌘ O</span></div>
-            <div class="wp-bay-li"><span>FOOTNOTES</span><span class="k">⌘ F</span></div>
-            <div class="wp-bay-li"><span>VERSION</span><span class="k">⌘ V</span></div>
+        {/* the cartridge rack = the live editor */}
+        <main class="wp-rack">
+          <div class={`wp-rack-inner${scaffoldOpen ? '' : ' scaffold-collapsed'}`}>
+            {scaffold > 0 && (
+              <button
+                class={`wp-scaffold-toggle${scaffoldOpen ? ' is-open' : ''}`}
+                contenteditable={false}
+                onClick={() => setScaffoldOpen((v) => !v)}
+                title={scaffoldOpen ? 'Collapse setup notes' : 'Expand setup notes'}
+              >
+                <span class="wp-scaffold-glyph">{scaffoldOpen ? '⊖' : '⊕'}</span>
+                <span class="wp-scaffold-lab">SETUP NOTES</span>
+                <span class="wp-scaffold-n">({scaffold})</span>
+              </button>
+            )}
+            <BurmaEditor
+              sourceBlocks={SOURCE_BLOCKS}
+              onTelemetry={setTel}
+              onEditorReady={(ed) => { editorRef.current = ed; }}
+            />
           </div>
-          <div class="wp-bay-sec">SCRIPT SPINE</div>
-          <div class="wp-bay-scroll">
-            <Outline items={tel?.outline} />
-          </div>
-          <button class="wp-btn-orange" onClick={resetDoc} title="Reset to source script">FOCUS LOCK</button>
-          <div class="wp-saved">SAVED · {savedMin}:{savedSec} AGO</div>
-        </aside>
 
-        {/* CENTER: FIELD NOTE = the real editor */}
-        <main class="wp-panel wp-doc">
-          <span class="wp-cap">Field Note</span>
-          <div class="wp-doc-scroll">
-            <div class={`wp-doc-inner${scaffoldOpen ? '' : ' scaffold-collapsed'}`}>
-              <div class="wp-doc-head" contenteditable={false}>
-                <div class="wp-eyebrow">untitled field note · the human element</div>
-                <h1 class="wp-title">{DOC_TITLE}</h1>
-                <div class="wp-seq">{SEQUENCES.map((s, i) => (
-                  <span class="wp-seq-item" key={s.name}>
-                    {i > 0 && <span class="wp-seq-sep" aria-hidden="true">·</span>}
-                    <span class="wp-seq-name">{s.name}</span>
-                  </span>
-                ))}</div>
-              </div>
-              {scaffold > 0 && (
-                <button
-                  class={`wp-scaffold-toggle${scaffoldOpen ? ' is-open' : ''}`}
-                  contenteditable={false}
-                  onClick={() => setScaffoldOpen((v) => !v)}
-                  title={scaffoldOpen ? 'Collapse setup notes' : 'Expand setup notes'}
-                >
-                  <span class="wp-scaffold-glyph">{scaffoldOpen ? '⊖' : '⊕'}</span>
-                  <span class="wp-scaffold-lab">SETUP NOTES</span>
-                  <span class="wp-scaffold-n">({scaffold})</span>
-                </button>
-              )}
-              <BurmaEditor
-                sourceBlocks={SOURCE_BLOCKS}
-                onTelemetry={setTel}
-                onEditorReady={(ed) => { editorRef.current = ed; }}
-              />
+          {/* footer affordance */}
+          <div class="wp-rack-foot">
+            <button class="wp-insert" onClick={insertFromFooter} title="Insert a block">
+              <span class="wp-insert-box">+</span>
+              <span class="wp-insert-lab">INSERT BLOCK — CHAPTER · VO · SOT · B-ROLL · NOTE</span>
+            </button>
+            <div class="wp-rack-foot-right">
+              <button class="wp-foot-btn" onClick={openExports} title="Export worklists">EXPORT</button>
+              <button class="wp-foot-btn" onClick={() => window.print()} title="Print / PDF">PRINT</button>
+              <button class="wp-foot-btn" onClick={resetDoc} title="Reset to source script">RESET</button>
             </div>
-          </div>
-          <div class="wp-doc-foot">
-            <span>WORDS {words.toLocaleString()} · READING {reading}:00 · BLOCKS {blocks}</span>
-            <span>MODE: {mode === 'EDIT' ? 'PRECISE' : mode}</span>
           </div>
         </main>
-
-        {/* RIGHT: OUTPUT + TELEMETRY */}
-        <aside class="wp-panel wp-col wp-out">
-          <span class="wp-cap">Output + Telemetry</span>
-
-          <div class="wp-schema">
-            <div class="wp-schema-box" style={{ left: '8px', top: '18px' }} />
-            <div class="wp-schema-lab" style={{ left: '8px', top: '5px' }}>SOURCE</div>
-            <div class="wp-schema-ln" style={{ left: '42px', top: '30px', width: '16px' }} />
-            <div class="wp-schema-box" style={{ left: '58px', top: '18px' }} />
-            <div class="wp-schema-lab" style={{ left: '58px', top: '5px' }}>FORMAT</div>
-            <div class="wp-schema-ln" style={{ left: '92px', top: '30px', width: '16px' }} />
-            <div class="wp-schema-box" style={{ left: '108px', top: '18px' }} />
-            <div class="wp-schema-lab" style={{ left: '108px', top: '5px' }}>RENDER</div>
-            <div class="wp-schema-ln wp-orange-ln" style={{ left: '142px', top: '30px', width: '16px' }} />
-            <div class="wp-schema-box wp-orange-box" style={{ left: '158px', top: '18px' }} />
-            <div class="wp-schema-lab wp-orange-lab" style={{ left: '158px', top: '5px' }}>OUT</div>
-            <div class="wp-schema-od" style={{ left: '171px', top: '27px' }} />
-            <div class="wp-schema-lab" style={{ left: '8px', bottom: '6px' }}>RULER · 01 · CALIBRATED</div>
-          </div>
-
-          <div class="wp-pressure">
-            <span class="wp-l">Draft Pressure · SOT {done}/{sot}</span>
-            <div class="wp-pbar"><span class="wp-pbar-fill" style={{ width: `${Math.min(100, draftPct)}%` }} /><span class="wp-pk" style={{ left: `${Math.min(100, draftPct)}%` }} /></div>
-            <div class="wp-pends"><span>ROUGH</span><span>FINAL</span></div>
-          </div>
-
-          <div class="wp-exports">
-            <span class="wp-l">Export Cartridges</span>
-            <div class="wp-exp-grid">
-              <button class="wp-exp on" onClick={openExports}>FINAL</button>
-              <button class="wp-exp" onClick={openExports}>PDF</button>
-              <button class="wp-exp" onClick={openExports}>MD</button>
-              <button class="wp-exp" onClick={openExports}>DOCX</button>
-            </div>
-          </div>
-        </aside>
       </div>
-
-      {/* ── BOTTOM FUNCTION STRIP ── */}
-      <div class="wp-fnstrip">
-        <button class="wp-fn"><b>F1</b>SAVE</button>
-        <button class="wp-fn" onClick={() => { const el = document.querySelector('.wp-bay-scroll'); if (el) el.scrollTop = 0; }}><b>F2</b>OUTLINE</button>
-        <button class="wp-fn"><b>F3</b>COMMENT</button>
-        <button class="wp-fn"><b>F4</b>REFERENCE</button>
-        <button class="wp-fn"><b>F5</b>FOCUS</button>
-        <button class="wp-fn" onClick={() => window.print()}><b>F6</b>PRINT</button>
-        <button class="wp-fn" onClick={openExports}><b>F7</b>EXPORT</button>
-        <button class="wp-fn" onClick={resetDoc}><b>ESC</b>RESET</button>
-      </div>
-
-      <div class="wp-caption">DESIGNED AS A BEAUTIFUL LABELLED INSTRUMENT — HYPER-FUNCTIONAL WORD PROCESSOR · BURMA SCRIPT · 225 BLOCKS</div>
 
       <Exports getDoc={() => editorRef.current?.getJSON() || { type: 'doc', content: [] }} docTitle={DOC_TITLE} />
+      <CopyToast />
     </div>
   );
 }
 
 render(<App />, document.getElementById('app'));
-
-// draw the dial ticks once mounted
-requestAnimationFrame(() => {
-  const t = document.getElementById('wp-ticks');
-  if (t && !t.childElementCount) {
-    for (let i = 0; i < 12; i++) {
-      const s = document.createElement('i');
-      s.style.transform = `translate(-50%,0) rotate(${i * 30}deg)`;
-      t.appendChild(s);
-    }
-  }
-});

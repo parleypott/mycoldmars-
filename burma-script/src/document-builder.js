@@ -156,6 +156,49 @@ function para(content) {
   return { type: 'paragraph', content: content && content.length ? content : undefined };
 }
 
+// ---- chapter reclassification (THE CADENCE FIX) --------------------------
+// The upstream parser is greedy about CHAPTER: any short ALL-CAPS-ish line that *looks*
+// like a divider ("LOOK AT THIS MAP ON CAM MONOLOGUE", "HISTORY 2 BRITISH x walk and talk")
+// got tagged `chapter`, so the rack opened on a wall of FOUR dark inverted cartridges, not
+// the loved reference's CHAPTER → VO → SOT cadence. We can't (and shouldn't) re-run the
+// parser; instead we reclassify at build time, the same place we already clamp titles and
+// flag scaffold bins. A TRUE act divider is a short section label — COLD OPEN / HISTORY n /
+// GROUND n / INQUIRY / LATM / ACT — with no scene-direction tail. Anything carrying on-cam,
+// monologue, walk-and-talk, or other directing language is narration mis-filed as a divider:
+// demote it to ONCAM (it's a person on camera / a spoken beat), so the colour returns to the
+// rack and the dark CHAPTER bar is reserved for genuine new sections.
+const ACT_HEAD = /^(COLD\s*OPEN|HISTORY|GROUND|INQUIRY|LATM|ACT|EPILOGUE|OUTRO|TEASER|INTRO)\b/i;
+const DIRECTION_WORDS = /\b(ON[\s-]?CAM|MONOLOGUE|WALK\s*AND\s*TALK|WALK\s*&\s*TALK|VOICEOVER|\bVO\b|PIECE\s*TO\s*CAMERA|PTC|SEQUENCE|MAP\b)/i;
+
+// Trim a divider title down to its clean act label, dropping any directing tail the parser
+// glued on ("HISTORY 2 BRITISH x walk and talk" → "HISTORY 2"). Keeps the dark cartridge
+// reading as a crisp section marker; the full text still round-trips out via docToBlocks
+// (nodeText reads the live node), so nothing is lost on export — only the *display* tightens.
+function actLabel(title) {
+  let t = clean(title).replace(/\s+/g, ' ').trim();
+  const m = t.match(/^(COLD\s*OPEN|HISTORY|GROUND|INQUIRY|LATM|ACT|EPILOGUE|OUTRO|TEASER|INTRO)(\s*\d+)?/i);
+  if (m) return m[0].toUpperCase().replace(/\s+/g, ' ').trim();
+  return t;
+}
+
+// Decide what a parser-labelled `chapter` REALLY is.
+//   'chapter' → keep (true act divider; title will be clamped to the act label)
+//   'oncam'   → demote (it's narration / a directed on-cam beat, not a section)
+function reclassifyChapter(b) {
+  const title = clean(b.title || '');
+  const head = ACT_HEAD.test(title);
+  const hasDirection = DIRECTION_WORDS.test(title);
+  // Pure act head (e.g. "HISTORY 1", "GROUND 1", "INQUIRY", "COLD OPEN FROM JH") → keep,
+  // even if a directing word trails it ("HISTORY 2 … walk and talk") — actLabel will clamp it.
+  if (head) return 'chapter';
+  // No act head + directing language ("LOOK AT THIS MAP ON CAM MONOLOGUE") → demote to oncam.
+  if (hasDirection) return 'oncam';
+  // No act head, no directing words, but long/sentence-like → it's a stray prose line the
+  // parser over-promoted; demote to scene so it reads as a quiet sub-heading, not a dark act.
+  if (title.length > 40 || /[.!?]/.test(title)) return 'scene';
+  return 'chapter';
+}
+
 // ---- per-block -> node ---------------------------------------------------
 // `opts.scaffold` marks a leading BIN block that sits BEFORE the first chapter — author
 // setup notes ("read this only after…", "this is the actual script…"). They are real data
@@ -163,12 +206,21 @@ function para(content) {
 // on instructions-to-self. We tag them so the BIN node renders a quiet collapsed strip.
 function blockToNode(b, opts) {
   const id = b.id;
+  // Reclassify over-eager CHAPTER labels BEFORE the switch so demoted ones flow into the
+  // right node branch (oncam / scene) and pick up colour instead of a dark divider bar.
+  if (b.type === 'chapter') {
+    const real = reclassifyChapter(b);
+    if (real === 'oncam') b = { ...b, type: 'oncam', text: b.text || b.title };
+    else if (real === 'scene') b = { ...b, type: 'scene', title: b.title };
+  }
   switch (b.type) {
     case 'chapter':
       return {
         type: 'chapterBlock',
         attrs: { blockId: id, genre: b.genre || 'other' },
-        content: [para([{ type: 'text', text: headingClause(b.title, 64) || 'Chapter' }])],
+        // Display the clean act label (actLabel clamps any directing tail); fall back to the
+        // general heading clamp, then a literal 'Chapter'. Full text round-trips via nodeText.
+        content: [para([{ type: 'text', text: actLabel(b.title) || headingClause(b.title, 64) || 'Chapter' }])],
       };
 
     case 'scene':
@@ -226,7 +278,9 @@ function blockToNode(b, opts) {
       return {
         type: 'serviceBlock',
         attrs: { blockId: id, kind: b.type, label: b.title || (b.type === 'map-need' ? 'Mapping data needs' : 'Archive request') },
-        content: [para([{ type: 'text', text: clean(b.text) || ' ' }])],
+        // Route through inlineContent so {tk}/[visual] markers baked into the raw text become
+        // clickable chips that reach the Workshop hub — every marker is a chip (punch-list #6).
+        content: [para(inlineContent(b.text, 'plain'))],
       };
 
     case 'note':
@@ -234,7 +288,7 @@ function blockToNode(b, opts) {
       return {
         type: 'noteBlock',
         attrs: { blockId: id, kind: b.type },
-        content: [para([{ type: 'text', text: clean(b.text) || ' ' }])],
+        content: [para(inlineContent(b.text, 'plain'))],
       };
 
     case 'bin':
@@ -242,7 +296,7 @@ function blockToNode(b, opts) {
       return {
         type: 'binBlock',
         attrs: { blockId: id, scaffold: !!(opts && opts.scaffold) },
-        content: [para([{ type: 'text', text: clean(b.text) || ' ' }])],
+        content: [para(inlineContent(b.text, 'plain'))],
       };
   }
 }
