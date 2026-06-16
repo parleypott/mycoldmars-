@@ -94,7 +94,7 @@ export const CHARACTER_LOOKBOOK = {
   },
   'mark rober': {
     name: 'Mark Rober',
-    aliases: ['mark', 'mr rober'],
+    aliases: ['mark rober', 'mr rober'],
     signature: 'A normal Earth man in his late thirties — friendly face, short brown hair, light beard stubble or clean-shaven, blue or teal polo shirt, jeans. Average build. Looks like a real YouTuber filming in his studio. Normal hands. Normal expressions.',
     do: 'Looks like a regular guy. Earnest. Slightly anxious in awkward moments. Holds normal objects like a clipboard or a phone.',
     dont: 'NEVER wears a calculator-helmet. NEVER wears any helmet. NEVER has oversized props, antennae, or non-human features. He is a NORMAL HUMAN. If the model is tempted to give him a calculator-helmet, the answer is no — that\'s Kevin\'s.',
