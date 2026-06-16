@@ -28,9 +28,9 @@ const READ_FONTS = [
   { id: 'newsreader',  label: 'Newsreader',   stack: '"Newsreader", Georgia, serif',            cls: 'serif' },
   { id: 'source',      label: 'Source Serif', stack: '"Source Serif 4", Georgia, serif',        cls: 'serif' },
   { id: 'literata',    label: 'Literata',     stack: '"Literata", Georgia, serif',              cls: 'serif' },
-  { id: 'charter',     label: 'Charter',      stack: 'Charter, Georgia, "Times New Roman", serif', cls: 'serif' },
-  { id: 'iowan',       label: 'Iowan',        stack: '"Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif', cls: 'serif' },
-  { id: 'iaq',         label: 'iA Quattro',   stack: 'iA Writer Quattro, "iA Writer Duospace", ui-monospace, Menlo, monospace', cls: 'mono' },
+  { id: 'lora',        label: 'Lora',         stack: '"Lora", Georgia, serif',                  cls: 'serif' },
+  { id: 'spectral',    label: 'Spectral',     stack: '"Spectral", "Palatino Linotype", Palatino, Georgia, serif', cls: 'serif' },
+  { id: 'crimson',     label: 'Crimson',      stack: '"Crimson Pro", "Iowan Old Style", Georgia, serif', cls: 'serif' },
   { id: 'inter',       label: 'Inter',        stack: '"Inter", system-ui, sans-serif',          cls: 'sans' },
   { id: 'system',      label: 'System Sans',  stack: '"Helvetica Neue", system-ui, Arial, sans-serif', cls: 'sans' },
   { id: 'plex',        label: 'IBM Plex',     stack: '"IBM Plex Sans", system-ui, sans-serif',  cls: 'sans' },
@@ -46,7 +46,7 @@ const SCHEMES = [
 
 const SIZE_MIN = 14, SIZE_MAX = 22;
 const LEAD_MIN = 1.3, LEAD_MAX = 2.0;
-const DEFAULTS = { size: 15, lead: 1.62, font: 'system', scheme: 'cream', collapsed: false };
+const DEFAULTS = { size: 16, lead: 1.62, font: 'newsreader', scheme: 'sepia', collapsed: false };
 
 function loadCtrl() {
   try {
@@ -310,9 +310,43 @@ function CopyToast() {
   );
 }
 
+// ── TIPS & TRICKS (feature C) — a tiny collapsed toggle in the pre-script zone that
+// expands a short, plain-voice how-to. No marketing register — just the affordances.
+const TIPS = [
+  ['click a timecode', 'every HH:MM:SS:FF chip copies itself to your clipboard on click.'],
+  ['click a yellow {tk} chip', 'opens the Workshop with 5 researched options to drop in.'],
+  ['drag a block by its spine', 'grab the ⠿ grip on the left rail to reorder; click it for the block menu.'],
+  ['the knobs on the left', 'change font, size, line-spacing and colour scheme — your reading, your way.'],
+];
+
+function TipsToggle() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div class={`wp-tips${open ? ' is-open' : ''}`}>
+      <button
+        class="wp-tips-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        title={open ? 'Hide tips' : 'Show tips'}
+      >
+        <span class="wp-tips-glyph">{open ? '–' : '?'}</span>
+        <span class="wp-tips-lab">tips &amp; tricks</span>
+      </button>
+      <div class="wp-tips-body" aria-hidden={!open}>
+        <ul class="wp-tips-list">
+          {TIPS.map(([k, v]) => (
+            <li key={k} class="wp-tips-item">
+              <b>{k}</b> — {v}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [tel, setTel] = useState(null);
-  const [scaffoldOpen, setScaffoldOpen] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const editorRef = useRef(null);
 
@@ -349,6 +383,15 @@ function App() {
         <span class="wp-screw bl"><i /></span>
         <span class="wp-screw br"><i /></span>
 
+        {/* MASTHEAD (feature A) — the script's name, big + bold, the page headline. */}
+        <div class="wp-masthead">
+          <h1 class="wp-masthead-title">{DOC_TITLE}</h1>
+          <div class="wp-masthead-meta">
+            <span class="wp-masthead-tag">SCRIPT · DRAFT</span>
+            <TipsToggle />
+          </div>
+        </div>
+
         {/* header */}
         <header class="wp-rack-head">
           <div class="wp-rack-id">
@@ -367,20 +410,17 @@ function App() {
           </div>
         </header>
 
-        {/* the cartridge rack = the live editor */}
+        {/* the cartridge rack = the live editor. PRE-SCRIPT zone (masthead → setup NOTE
+            boxes → ▸ SCRIPT BEGINS) is built INSIDE the doc: the leading scaffold bins now
+            render as open NOTE boxes (is-scaffold) and a scriptStart divider node marks the
+            start of the script. The scaffold count drives a quiet "author setup" caption. */}
         <main class="wp-rack">
-          <div class={`wp-rack-inner${scaffoldOpen ? '' : ' scaffold-collapsed'}`}>
+          <div class="wp-rack-inner">
             {scaffold > 0 && (
-              <button
-                class={`wp-scaffold-toggle${scaffoldOpen ? ' is-open' : ''}`}
-                contenteditable={false}
-                onClick={() => setScaffoldOpen((v) => !v)}
-                title={scaffoldOpen ? 'Collapse setup notes' : 'Expand setup notes'}
-              >
-                <span class="wp-scaffold-glyph">{scaffoldOpen ? '⊖' : '⊕'}</span>
-                <span class="wp-scaffold-lab">SETUP NOTES</span>
-                <span class="wp-scaffold-n">({scaffold})</span>
-              </button>
+              <div class="wp-prescript-cap" contenteditable={false}>
+                <span class="wp-prescript-glyph">✎</span>
+                <span class="wp-prescript-lab">AUTHOR SETUP · NOTES TO EDITOR</span>
+              </div>
             )}
             <BurmaEditor
               sourceBlocks={SOURCE_BLOCKS}

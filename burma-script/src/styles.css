@@ -14,7 +14,7 @@
 /* READING TYPEFACES — the 9-font selector in THE CONTROL UNIT. Serif + sans,
    all reading/word-processing optimized. System faces (Georgia, Palatino, Iowan,
    Helvetica Neue, system-ui) need no load; the rest come from Google Fonts here. */
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500&family=Literata:opsz,wght@7..72,400;7..72,500&family=IBM+Plex+Sans:wght@400;500&family=Inter:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500&family=Literata:opsz,wght@7..72,400;7..72,500&family=Lora:wght@400;500&family=Spectral:wght@400;500&family=Crimson+Pro:wght@400;500&family=IBM+Plex+Sans:wght@400;500&family=Inter:wght@400;500&display=swap');
 
 :root {
   --page:      #e7e1d3;  /* page behind the frame */
@@ -162,6 +162,57 @@ body {
 .wp-toast.is-up { opacity: 1; transform: translate(-50%, 0); }
 .wp-toast-lab { font-size: 7px; letter-spacing: .2em; color: var(--label-4); text-transform: uppercase; }
 .wp-toast-tc { font-size: 14px; color: var(--ivory); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   MASTHEAD (feature A) — the script's name, big + bold, the page headline
+   ============================================================ */
+.wp-masthead {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 18px;
+  padding: 4px 2px 16px; margin-bottom: 14px; border-bottom: 2px solid var(--ink); flex-wrap: wrap;
+}
+.wp-masthead-title {
+  margin: 0; font-family: var(--mono);
+  font-size: clamp(34px, 5.2vw, 52px); font-weight: 800; line-height: 1.02;
+  letter-spacing: -0.01em; color: var(--ink);
+}
+.wp-masthead-meta { display: flex; align-items: center; gap: 12px; flex: none; padding-bottom: 4px; }
+.wp-masthead-tag {
+  font-family: var(--mono); font-size: 8px; letter-spacing: .18em; text-transform: uppercase; color: var(--label-2);
+}
+
+/* ---- TIPS & TRICKS (feature C) — tiny collapsed toggle that expands a plain how-to ---- */
+.wp-tips { position: relative; }
+.wp-tips-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: transparent; border: 1.5px solid var(--ink); border-radius: 7px; padding: 5px 10px; cursor: pointer;
+  font-family: var(--mono); font-size: 8px; letter-spacing: .12em; text-transform: lowercase; color: var(--label);
+  transition: background .14s var(--ease), color .14s var(--ease);
+}
+.wp-tips-toggle:hover { background: var(--panel); color: var(--ink); }
+.wp-tips.is-open .wp-tips-toggle { background: var(--ink); color: var(--frame); }
+.wp-tips-glyph {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 13px; height: 13px; border: 1.5px solid currentColor; border-radius: 50%;
+  font-size: 8px; font-weight: 700; line-height: 1;
+}
+.wp-tips-body {
+  overflow: hidden; max-height: 0; opacity: 0;
+  transition: max-height .2s var(--ease), opacity .2s var(--ease), margin .2s var(--ease);
+}
+.wp-tips.is-open .wp-tips-body {
+  max-height: 320px; opacity: 1;
+  position: absolute; left: 0; top: calc(100% + 7px); z-index: 30;
+  width: min(440px, 70vw);
+  background: var(--frame); border: 1.5px solid var(--ink); border-radius: 11px; padding: 12px 14px;
+}
+.wp-tips-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.wp-tips-item {
+  font-family: var(--doc-read); font-size: 13px; line-height: 1.42; color: var(--body);
+}
+.wp-tips-item b {
+  font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .02em;
+  text-transform: uppercase; color: var(--ink);
+}
 
 /* ---- header row ---- */
 .wp-rack-head {
@@ -378,36 +429,93 @@ body {
 .wp-note-kind { font-size: 8px; letter-spacing: .12em; color: var(--note-lab); text-transform: uppercase; }
 .wp-note .wp-body { font-family: var(--doc-read); font-size: calc(var(--doc-size) - 1px); line-height: calc(var(--doc-lead) - 0.12); color: var(--note-text); font-style: italic; }
 
-/* ---- SERVICE — light utility ---- */
+/* ---- SERVICE — light utility (single-block fallback) ---- */
 .wp-svc-head { margin-bottom: 5px; }
 .wp-svc-kind { font-size: 8px; letter-spacing: .14em; color: var(--label); text-transform: uppercase; }
 .wp-service .wp-body { color: var(--mono-body); }
+
+/* ---- SERVICE GROUP (feature D) — ONE consolidated production-needs panel, a DIFFERENT
+   FLAVOR from the script cartridges: a DASHED frame + cool tinted fill + a SERVICE NEEDS
+   cap, with each map/archive need on its own divided row. Reads instantly as a service
+   handoff, not script. FLAT — no shadow; the dashed border is the only differentiator. ---- */
+.wp-svc-group {
+  margin: 16px 0; border: 1.5px dashed var(--ink); background: var(--panel);
+}
+.wp-svc-group .wp-spine { background: var(--grip-grad); }
+.wp-svc-group-body { flex: 1 1 auto; min-width: 0; padding: 12px 16px 14px; }
+.wp-svc-group-head {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding-bottom: 9px; margin-bottom: 6px; border-bottom: 1.5px dashed var(--label-3);
+}
+.wp-svc-group-kind {
+  font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink);
+}
+.wp-svc-group-sub {
+  font-family: var(--mono); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; color: var(--label-2);
+}
+.wp-svc-group-rows { display: flex; flex-direction: column; }
+.wp-svc-item {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 9px 0; border-top: 1px dotted var(--label-4);
+}
+.wp-svc-item:first-child { border-top: 0; padding-top: 2px; }
+.wp-svc-item-tag {
+  flex: none; margin-top: 2px; padding: 2px 7px;
+  border: 1.5px solid var(--ink); border-radius: 5px; background: transparent;
+  font-family: var(--mono); font-size: 7px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--label);
+}
+.wp-svc-item[data-kind="archive-req"] .wp-svc-item-tag { color: var(--burgundy); border-color: var(--burgundy); }
+.wp-svc-item-body {
+  min-width: 0; flex: 1 1 auto;
+  font-family: var(--doc-read); font-size: calc(var(--doc-size) - 1px); line-height: calc(var(--doc-lead) - 0.06); color: var(--mono-body);
+}
+.wp-svc-item-body p { margin: 0; }
 
 /* ---- BIN — quietest ---- */
 .wp-bin-head { margin-bottom: 5px; }
 .wp-bin-kind { font-size: 8px; letter-spacing: .14em; color: var(--label-3); text-transform: uppercase; }
 .wp-bin .wp-body { color: var(--label); }
 
-/* SCAFFOLD bins — pre-CH01 author setup, demoted to a quiet mono strip, foldable */
-.wp-bin.is-scaffold .wp-cart-body { padding: 7px 14px; }
-.wp-bin.is-scaffold .wp-body { font-family: var(--mono); font-size: 10px; line-height: 1.5; color: var(--label-2); font-style: normal; }
-.wp-scaffold-toggle {
-  display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
-  margin: 0 2px 10px; padding: 5px 11px;
-  background: transparent; border: 1.5px dashed #a39e92; border-radius: 7px;
-  font-family: var(--mono); font-size: 8px; letter-spacing: .16em; text-transform: uppercase;
-  color: var(--label-3); cursor: pointer; transition: color .14s var(--ease), border-color .14s var(--ease);
+/* ============================================================
+   PRE-SCRIPT ZONE (feature B) — masthead → setup NOTE boxes → ▸ SCRIPT BEGINS
+   ============================================================ */
+/* SCAFFOLD bins — pre-CH01 author setup. SURFACED (no longer hidden behind a toggle) as
+   open NOTE boxes: the note-fill paper, yellow knurl spine, italic editor voice. These are
+   the author's notes-to-editor ("read this after the prompt", "no Drew Binsky footage"). */
+.wp-bin.is-scaffold { background: var(--note-fill); margin: 0 0 9px; }
+.wp-bin.is-scaffold:hover { background: #fff4d4; }
+.wp-bin.is-scaffold .wp-spine { background: var(--grip-grad-note); }
+.wp-bin.is-scaffold .wp-grip { color: #b8a24a; }
+.wp-bin.is-scaffold .wp-cart-body { padding: 9px 14px; }
+.wp-bin.is-scaffold .wp-bin-kind { color: var(--note-lab); }
+.wp-bin.is-scaffold .wp-body {
+  font-family: var(--doc-read); font-size: calc(var(--doc-size) - 1px); line-height: calc(var(--doc-lead) - 0.1);
+  color: var(--note-text); font-style: italic;
 }
-.wp-scaffold-toggle:hover { color: var(--ink); border-color: var(--ink); }
-.wp-scaffold-toggle.is-open { border-style: solid; }
-.wp-scaffold-glyph { font-size: 11px; line-height: 1; }
-.wp-scaffold-n { color: var(--label-3); }
-/* Collapsed setup notes: CLIP them (max-height/overflow) rather than display:none so the
-   author meta-text stays in the document flow — nothing is removed from the doc, it's just
-   visually folded away. (display:none would drop the words entirely; clipping keeps them.) */
-.wp-rack-inner.scaffold-collapsed .wp-editor-content > .wp-bin.is-scaffold {
-  max-height: 0; overflow: hidden; margin: 0; padding: 0; border-width: 0; opacity: 0;
-  pointer-events: none;
+
+/* the quiet caption that opens the pre-script zone (the author-setup label above the notes) */
+.wp-prescript-cap {
+  display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+  margin: 0 2px 9px; padding: 4px 11px;
+  border: 1.5px dashed #cbb96a; border-radius: 7px; background: var(--note-fill);
+  font-family: var(--mono); font-size: 8px; letter-spacing: .16em; text-transform: uppercase; color: var(--note-lab);
+}
+.wp-prescript-glyph { font-size: 10px; line-height: 1; }
+
+/* ▸ SCRIPT BEGINS — a flat divider row that visually starts the script. A hairline rule on
+   each side of a small mono pill. FLAT — no shadow. Clearly separates pre-script from CH 01. */
+.wp-script-begins {
+  display: flex; align-items: center; gap: 12px;
+  margin: 20px 2px 14px; user-select: none;
+}
+.wp-script-begins::before, .wp-script-begins::after {
+  content: ''; flex: 1 1 auto; height: 0; border-top: 1.5px solid var(--ink);
+}
+.wp-script-begins-mark {
+  flex: none; padding: 5px 13px;
+  border: 1.5px solid var(--ink); border-radius: 7px; background: var(--ink); color: var(--frame);
+  font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase;
 }
 
 /* ============================================================
@@ -797,7 +905,7 @@ body {
   @page { margin: 16mm 14mm; }
   html, body { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .wp-screw, .wp-rack-head, .wp-rack-foot, .wp-outline, .wp-spine, .wp-grip, .wp-cap-num,
-  .wp-rec, .wp-done, .wp-bubble, .wp-blockmenu, .wp-workshop, .wp-scaffold-toggle { display: none !important; }
+  .wp-rec, .wp-done, .wp-bubble, .wp-blockmenu, .wp-workshop, .wp-tips, .wp-masthead-meta { display: none !important; }
   .wp-page { padding: 0 !important; }
   .wp-device { border: 0 !important; border-radius: 0 !important; padding: 0 !important; max-width: none !important; background: #fff !important; transform: none !important; }
   .wp-cart { border: 0 !important; border-radius: 0 !important; margin: 0 0 6pt !important; background: none !important; break-inside: avoid; page-break-inside: avoid; }
