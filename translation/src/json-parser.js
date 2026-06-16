@@ -82,9 +82,14 @@ export function parseJSON(text) {
       const group = subGroups[g];
       const start = String(group[0].data_start ?? '0');
       const end = String(group[group.length - 1].data_end ?? '0');
-      const text = chineseChunks
-        ? chineseChunks[g]
-        : group.map(w => w.text || '').join(' ');
+      // distributeToCount can emit an empty chunk for an overflow group when the
+      // Chinese original has fewer clauses than English sub-groups. Its own
+      // comment promises those "show English fallback" — so honor that here
+      // instead of shipping a blank segment. Matches the chineseText || english
+      // fallback used on every other path in this file.
+      const englishText = group.map(w => w.text || '').join(' ');
+      const chunk = chineseChunks ? chineseChunks[g] : '';
+      const text = chunk && chunk.trim() ? chunk : englishText;
       const num = seqNum++;
       segments.push({ number: num, speaker, start, end, text, duration: '' });
       wordTimings[num] = { start: parseFloat(start) || 0, end: parseFloat(end) || 0 };
