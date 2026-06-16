@@ -475,17 +475,30 @@ function wrapToken(text, kind) {
 }
 
 export function nodeText(node) {
-  let s = '';
+  // Collect inline pieces tagged with their span-mark type, THEN coalesce consecutive
+  // text nodes that share the same span type into ONE token before re-wrapping.
+  // Why: inlineContent splits a span that contains an embedded timecode into multiple
+  // text nodes (the timecode fragment gets an extra 'timecode' chip mark), but every
+  // fragment still carries the span mark. Wrapping per-fragment exploded a single span
+  // into several tokens on the round-trip — "[B roll … 00:09:19:03]" became
+  // "[B roll …][00:09:19:03]" and "{tk … 02:02:01:07 …}" became three {tk …} tokens.
+  // Reuniting same-span runs first re-serializes each span as exactly one token.
+  const pieces = []; // { span: 'tkSpan'|'factCheckSpan'|'visualSpan'|null, text }
   (function walk(n) {
     if (n.text) {
-      let piece = n.text;
       const marks = n.marks || [];
       const span = marks.find((m) => m.type === 'tkSpan' || m.type === 'factCheckSpan' || m.type === 'visualSpan');
-      if (span) piece = wrapToken(piece, span.type);
-      s += piece;
+      const spanType = span ? span.type : null;
+      const prev = pieces[pieces.length - 1];
+      // Merge into the previous piece only when both carry the SAME (non-null) span —
+      // that's a span fragmented by a timecode chip, never two distinct adjacent spans.
+      if (prev && spanType !== null && prev.span === spanType) prev.text += n.text;
+      else pieces.push({ span: spanType, text: n.text });
     }
     if (n.content) n.content.forEach(walk);
   })(node);
+  let s = '';
+  for (const p of pieces) s += p.span ? wrapToken(p.text, p.span) : p.text;
   return s.trim();
 }
 
