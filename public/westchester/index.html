@@ -4796,14 +4796,12 @@ function computePinMonthly(pin) {
     rate, term, downPct
   };
 }
+// NY mansion tax = FLAT 1% on residential conveyances of $1M+ (NY Tax Law §1402-a).
+// The progressive supplemental brackets (1.25%–3.9%) added in 2019 apply ONLY to
+// property inside NYC's five boroughs (§1402-b, a city of 1M+ population) — they do
+// NOT apply in Westchester. Canonical spec + tests: lib/ny-mansion-tax.test.mjs.
 function mansionTax(p) {
-  if (p < 1_000_000) return 0;
-  let rate = 0.01;
-  if (p >= 2_000_000) rate = 0.0125;
-  if (p >= 3_000_000) rate = 0.015;
-  if (p >= 5_000_000) rate = 0.0175;
-  if (p >= 10_000_000) rate = 0.0225;
-  return p * rate;
+  return p >= 1_000_000 ? p * 0.01 : 0;
 }
 function moneyRecalc() {
   const s = moneyState;
