@@ -36,12 +36,16 @@ const READ_FONTS = [
   { id: 'plex',        label: 'IBM Plex',     stack: '"IBM Plex Sans", system-ui, sans-serif',  cls: 'sans' },
 ];
 
+// 6 tasteful neutrals (Johnny's 4–6 range, top end for flipper range). All FLAT, no garish
+// hues; the brand orange stays a hardware accent, never a theme colour. sw = swatch paper,
+// ink = swatch dot. cream = locked default look.
 const SCHEMES = [
-  { id: 'cream',  label: 'Cream / Ink', sw: '#efeadd', ink: '#1f1d18' },
-  { id: 'cool',   label: 'Cool Paper',  sw: '#f4f5f6', ink: '#22252b' },
-  { id: 'sepia',  label: 'Sepia',       sw: '#f3e7cf', ink: '#3a2f1e' },
-  { id: 'slate',  label: 'Slate',       sw: '#2e3036', ink: '#e7e8ea' },
-  { id: 'manila', label: 'Manila',      sw: '#ece0c1', ink: '#332b1a' },
+  { id: 'cream',    label: 'Cream / Ink', sw: '#efeadd', ink: '#1f1d18' },
+  { id: 'graphite', label: 'Graphite',    sw: '#e8e9eb', ink: '#1c1e22' },
+  { id: 'cool',     label: 'Cool Paper',  sw: '#f4f5f6', ink: '#22252b' },
+  { id: 'sepia',    label: 'Sepia',       sw: '#f3e7cf', ink: '#3a2f1e' },
+  { id: 'manila',   label: 'Manila',      sw: '#ece0c1', ink: '#332b1a' },
+  { id: 'slate',    label: 'Slate',       sw: '#2e3036', ink: '#e7e8ea' },
 ];
 
 const SIZE_MIN = 14, SIZE_MAX = 22;
