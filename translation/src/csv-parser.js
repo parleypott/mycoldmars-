@@ -18,6 +18,12 @@ export function cleanSpeakerName(raw) {
   // No digits → assume the whole string is the speaker name. Preserve casing.
   if (!/\d/.test(trimmed)) return trimmed;
 
+  // A generic diarization label ("Speaker 1", "Speaker 2", …) has a digit but
+  // no real name. The backward walk below would collapse it to the bare word
+  // "Speaker" — erasing the 1/2/3 distinction and merging every distinct
+  // unnamed speaker into one display name. Keep generic labels intact.
+  if (isGenericSpeaker(trimmed)) return trimmed;
+
   // Has digits → likely a sequence prefix with trailing speaker. Walk backward
   // for the last all-alpha word.
   const words = trimmed.split(/[\s\-_]+/);
