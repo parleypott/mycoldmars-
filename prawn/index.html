@@ -2190,6 +2190,30 @@
           prev: { x: e.clientX, y: e.clientY, t: now },
         };
       });
+
+      // DOUBLE-CLICK = POOF. The float vanishes in a puff of smoke and
+      // is removed for the rest of the session. Marked 'gone' so the
+      // tick loop skips it and stops overwriting our shrink transform.
+      it.el.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        if (it.state === 'gone') return;
+        // make sure it's adopted so we have real x/y/w/h coords for the
+        // smoke + a fixed-position base to scale from.
+        if (it.state === 'idle' || !it.w) adopt(it);
+        if (drag && drag.it === it) drag = null;   // cancel any in-flight drag
+        exitRocket(it);
+        it.state = 'gone';
+        // farewell smoke burst
+        for (let i = 0; i < 10; i++) spawnPuff(it, 0.6 + Math.random() * 0.7);
+        // shrink + fade out, then yank from the DOM
+        it.el.style.transition = 'transform 0.3s ease-in, opacity 0.3s ease-in';
+        it.el.style.transformOrigin = 'center center';
+        it.el.style.transform =
+          `translate(${it.x}px, ${it.y}px) rotate(${it.rot + 90}deg) scale(0)`;
+        it.el.style.opacity = '0';
+        it.el.style.pointerEvents = 'none';
+        setTimeout(() => it.el.remove(), 340);
+      });
     });
 
     window.addEventListener('pointermove', (e) => {
@@ -2228,6 +2252,9 @@
       const H = window.innerHeight;
       const now = performance.now();
       for (const it of items) {
+
+        // poofed via double-click — skip forever
+        if (it.state === 'gone') continue;
 
         // ---- physics: gravity, bounce, settle, dwell timer ----
         if (it.state === 'physics') {
