@@ -85,6 +85,17 @@ export function BurmaBubbleMenu({ editor }) {
   const fcActive = editor.isActive('factCheckSpan');
   const visActive = editor.isActive('visualSpan');
 
+  // Is the selection's row already a split (2+ columns)? Walk the selection up to its
+  // tableRow ancestor — drives whether the bubble offers SPLIT (⊟) or MERGE (⊞).
+  const rowIsSplit = (() => {
+    const $from = editor.state.selection.$from;
+    for (let d = $from.depth; d > 0; d--) {
+      const n = $from.node(d);
+      if (n.type.name === 'tableRow') return (n.childCount || n.attrs.cols || 1) > 1;
+    }
+    return false;
+  })();
+
   return (
     <div
       ref={ref}
@@ -97,6 +108,10 @@ export function BurmaBubbleMenu({ editor }) {
       <button class={`wp-bbtn wp-bbtn-tk ${tkActive ? 'active' : ''}`} title="Mark as {TK} writing helper" onMouseDown={(e) => { e.preventDefault(); tkActive ? clearSpan('tkSpan') : applySpan('tkSpan'); }}>TK</button>
       <button class={`wp-bbtn wp-bbtn-fc ${fcActive ? 'active' : ''}`} title="Mark as {fc} fact-check" onMouseDown={(e) => { e.preventDefault(); fcActive ? clearSpan('factCheckSpan') : applySpan('factCheckSpan'); }}>FC</button>
       <button class={`wp-bbtn wp-bbtn-visual ${visActive ? 'active' : ''}`} title="Mark as [visual] direction" onMouseDown={(e) => { e.preventDefault(); visActive ? clearSpan('visualSpan') : applySpan('visualSpan'); }}>VIS</button>
+      <span class="wp-bsep" />
+      {rowIsSplit
+        ? <button class="wp-bbtn wp-bbtn-merge" title="Merge said / shown columns back into one full-width row" onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().mergeRow().run(); }}>⊞ MERGE</button>
+        : <button class="wp-bbtn wp-bbtn-split" title="Split this row into said / shown columns" onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().splitRow().run(); }}>⊟ SPLIT</button>}
     </div>
   );
 }
