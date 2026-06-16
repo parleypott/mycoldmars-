@@ -360,9 +360,16 @@ function elemArea(e){if(e.family==='box')return e.kind==='oval'?Math.PI*(e.wFt/2
 function elemLen(e){const ll=elemLngLatRing(e);let t=0;for(let i=0;i<ll.length-1;i++)t+=turf.distance(ll[i],ll[i+1],{units:'feet'});if(e.family==='box')t+=turf.distance(ll[ll.length-1],ll[0],{units:'feet'});return t;}
 
 /* ====================== SETBACKS ====================== */
+// Setback/lot checks must sample the element's whole BOUNDARY, not just its corners.
+// A rotated box near a lot-line corner is closest to it mid-edge, and a box edge can
+// cross a concave notch in the parcel while all 4 corners stay inside. Densify in local
+// feet (exact euclidean) so every sampled point sits on the true edge — this only ever
+// catches a violation vertex-only sampling missed, never invents one.
+function densifyLocalRing(pts,closed,step){step=step||1.5;const out=[],N=pts.length;if(!N)return out;const last=closed?N:N-1;for(let i=0;i<last;i++){const a=pts[i],b=pts[(i+1)%N];out.push(a);const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy),n=Math.floor(len/step);for(let k=1;k<=n;k++){const t=k*step/len;out.push([a[0]+dx*t,a[1]+dy*t]);}}if(!closed)out.push(pts[N-1]);return out;}
+function sampledLngLatRing(e){const closed=e.family==='box'||e.kind==='polygon';return densifyLocalRing(elemLocalRing(e),closed,1.5).map(([x,y])=>local2ll(x,y));}
 function envelope(ft){if(ft<=0)return subjectPoly;try{const b=turf.buffer(subjectPoly,-ft,{units:'feet'});return (b&&b.geometry&&b.geometry.coordinates.length)?b:null;}catch(_){return null;}}
-function nearestLotLine(e){const ring=elemLngLatRing(e);let mn=Infinity;ring.forEach(p=>{try{const d=turf.pointToLineDistance(p,subjectLine,{units:'feet'});if(d<mn)mn=d;}catch(_){}});return mn;}
-function outsideLot(e){return elemLngLatRing(e).some(p=>!turf.booleanPointInPolygon(p,subjectPoly));}
+function nearestLotLine(e){const ring=sampledLngLatRing(e);let mn=Infinity;ring.forEach(p=>{try{const d=turf.pointToLineDistance(p,subjectLine,{units:'feet'});if(d<mn)mn=d;}catch(_){}});return mn;}
+function outsideLot(e){return sampledLngLatRing(e).some(p=>!turf.booleanPointInPolygon(p,subjectPoly));}
 function evaluate(e){
   if(e.type==='measure')return null;
   const isPool=e.type==='pool'||e.type==='spa';
