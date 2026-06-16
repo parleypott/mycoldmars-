@@ -11,7 +11,7 @@
 /**
  * Convert HH:MM:SS.mmm or M:SS.mmm timecode to seconds.
  */
-function tcToSeconds(tc) {
+export function tcToSeconds(tc) {
   if (!tc) return 0;
   const parts = tc.replace(',', '.').split(':');
   if (parts.length === 3) {
@@ -41,7 +41,11 @@ export function buildPremiereScript({ soundbites, sacredSequenceName, outputName
   const bites = soundbites.map((b, i) => ({
     inSec: tcToSeconds(b.start),
     outSec: tcToSeconds(b.end),
-    name: (b.prefix || 'Soundbite ' + (i + 1)).replace(/'/g, "\\'"),
+    // No manual quote-escaping here: this name is embedded via JSON.stringify
+    // into a DOUBLE-quoted JS string literal, so JSON handles all escaping.
+    // (SACRED_NAME / OUTPUT_NAME below go into SINGLE-quoted literals and DO
+    // need the \' escaping — that's why they keep their .replace.)
+    name: b.prefix || 'Soundbite ' + (i + 1),
   }));
 
   // JSON-encode the soundbite array for embedding in the script
