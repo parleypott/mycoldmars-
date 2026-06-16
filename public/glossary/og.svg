@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#1d1916"/>
+  <rect x="28" y="28" width="1144" height="574" rx="18" fill="#241f1a" stroke="#3a322a" stroke-width="2"/>
+
+  <rect x="686" y="120" width="54" height="44" fill="#e4002b"/><rect x="686" y="164" width="54" height="44" fill="#ffd400"/><rect x="686" y="208" width="54" height="44" fill="#005bbb"/><rect x="686" y="120" width="54" height="132" fill="none"
+      stroke="#1d1916" stroke-width="2"/><rect x="752" y="120" width="54" height="44" fill="#6e241c"/><rect x="752" y="164" width="54" height="44" fill="#c9532d"/><rect x="752" y="208" width="54" height="44" fill="#d6a23e"/><rect x="752" y="120" width="54" height="132" fill="none"
+      stroke="#1d1916" stroke-width="2"/><rect x="818" y="120" width="54" height="44" fill="#3a241c"/><rect x="818" y="164" width="54" height="44" fill="#c4622e"/><rect x="818" y="208" width="54" height="44" fill="#caa14e"/><rect x="818" y="120" width="54" height="132" fill="none"
+      stroke="#1d1916" stroke-width="2"/><rect x="884" y="120" width="54" height="44" fill="#0e3b3a"/><rect x="884" y="164" width="54" height="44" fill="#c4622e"/><rect x="884" y="208" width="54" height="44" fill="#d99a3c"/><rect x="884" y="120" width="54" height="132" fill="none"
+      stroke="#1d1916" stroke-width="2"/><rect x="950" y="120" width="54" height="44" fill="#ff2e88"/><rect x="950" y="164" width="54" height="44" fill="#ff8a00"/><rect x="950" y="208" width="54" height="44" fill="#7b2ff7"/><rect x="950" y="120" width="54" height="132" fill="none"
+      stroke="#1d1916" stroke-width="2"/><rect x="1016" y="120" width="54" height="44" fill="#bc002d"/><rect x="1016" y="164" width="54" height="44" fill="#1a1a1a"/><rect x="1016" y="208" width="54" height="44" fill="#f7f4ee"/><rect x="1016" y="120" width="54" height="132" fill="none"
+      stroke="#1d1916" stroke-width="2"/><rect x="1082" y="120" width="54" height="44" fill="#ff4f00"/><rect x="1082" y="164" width="54" height="44" fill="#0077ff"/><rect x="1082" y="208" width="54" height="44" fill="#ffd400"/><rect x="1082" y="120" width="54" height="132" fill="none"
+      stroke="#1d1916" stroke-width="2"/>
+
+  <text x="64" y="74" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="rgba(216,205,185,0.92)" opacity="1" text-anchor="start"
+    style="text-transform:uppercase">MYCOLDMARS</text>
+  <text x="1136" y="74" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="#d6a23e" opacity="1" text-anchor="end"
+    style="text-transform:uppercase">TASTE LIBRARY</text>
+  <text x="64" y="578" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="rgba(154,143,126,0.85)" opacity="1" text-anchor="start"
+    style="text-transform:uppercase">2026</text>
+  <text x="1136" y="578" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="rgba(216,205,185,0.92)" opacity="0.6" text-anchor="end"
+    style="text-transform:uppercase">↗</text>
+
+  <text x="64" y="176" font-family="DejaVu Sans Mono" font-size="22" letter-spacing="7"
+    fill="#c9532d" style="text-transform:uppercase">A walk through design history</text>
+
+  <text x="60" y="300" font-family="DejaVu Serif" font-size="120" fill="#efe3cc">The</text>
+  <text x="60" y="416" font-family="DejaVu Serif" font-style="italic" font-size="120"
+    fill="#d6a23e">Glossary</text>
+
+  <rect x="66" y="452" width="86" height="5" rx="2.5" fill="#c9532d"/>
+
+  <text x="64" y="512" font-family="DejaVu Serif" font-size="33" fill="#efe3cc" opacity="0.92">Browse the traditions. Crown the ones we love.</text>
+  <text x="64" y="552" font-family="DejaVu Sans Mono" font-size="19" letter-spacing="0.5"
+    fill="rgba(216,205,185,0.92)">locked, invokable taste profiles · mycoldmars</text>
+</svg>
