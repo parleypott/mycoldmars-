@@ -5,11 +5,16 @@
 export function formatPreciseTimecode(seconds) {
   if (!isFinite(seconds) || seconds < 0) return '0:00.0';
 
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  const sWhole = Math.floor(s);
-  const frac = Math.round((s - sWhole) * 10); // one decimal place
+  // Round to tenths FIRST, then decompose — so a sub-second that rounds up to a
+  // full second carries into seconds → minutes → hours (59.96 → 1:00.0), instead
+  // of emitting a bogus ".10" tenths field (the old "0:59.10" / "59:59.10" bug).
+  const totalTenths = Math.round(seconds * 10);
+  const frac = totalTenths % 10;
+  const whole = (totalTenths - frac) / 10;
+
+  const h = Math.floor(whole / 3600);
+  const m = Math.floor((whole % 3600) / 60);
+  const sWhole = whole % 60;
 
   const sPad = sWhole < 10 && (h > 0 || m > 0) ? `0${sWhole}` : `${sWhole}`;
 
