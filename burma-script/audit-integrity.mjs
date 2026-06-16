@@ -25,7 +25,19 @@ const data = await p.evaluate(() => {
   const txt = pm ? pm.innerText : (document.body.innerText || '');
   const tagged = [...document.querySelectorAll('.wp-tc-tag, .wp-lcd, .wp-broll-tc, [data-tc]')]
     .map((e) => e.innerText).join(' ');
-  return { txt, tagged };
+  // VISUAL-TRUNCATION guard: text that lives in the DOM but is hidden by CSS
+  // (line-clamp / overflow:hidden) reads fine to innerText yet is invisible to Johnny.
+  // Catch it so a clamp can never silently swallow the cold open again.
+  const clipped = [];
+  for (const el of document.querySelectorAll('.wp-body, .wp-cart-body, .wp-note, .wp-svc-group, .wp-vo-body, .ProseMirror p')) {
+    const cs = getComputedStyle(el);
+    const lineClamped = cs.webkitLineClamp && cs.webkitLineClamp !== 'none';
+    const overflowClipped = (cs.overflow === 'hidden' || cs.overflowY === 'hidden') && (el.scrollHeight - el.clientHeight > 4);
+    if (lineClamped || overflowClipped) {
+      clipped.push((el.innerText || '').slice(0, 70) + ` [clamp=${cs.webkitLineClamp} sh=${el.scrollHeight} ch=${el.clientHeight}]`);
+    }
+  }
+  return { txt, tagged, clipped };
 });
 await b.close();
 
@@ -54,9 +66,11 @@ for (const raw of orig.split('\n')) {
 const report = {
   timecodes: { original: origTcSet.size, onPage: pageTcSet.size, missing: missingTc.length, untagged: untaggedTc.length },
   content: { missingLines: missingLines.length },
-  PASS: missingTc.length === 0 && untaggedTc.length === 0 && missingLines.length <= 3,
+  visuallyClipped: data.clipped.length,
+  PASS: missingTc.length === 0 && untaggedTc.length === 0 && missingLines.length <= 3 && data.clipped.length === 0,
 };
 console.log(JSON.stringify(report, null, 2));
+if (data.clipped.length) console.log('VISUALLY CLIPPED (text hidden by CSS — first 10):\n  ' + data.clipped.slice(0, 10).join('\n  '));
 if (missingTc.length) console.log('MISSING TIMECODES (first 20):', missingTc.slice(0, 20).join(' '));
 if (untaggedTc.length) console.log('UNTAGGED TIMECODES (first 20):', untaggedTc.slice(0, 20).join(' '));
 if (missingLines.length) console.log('MISSING CONTENT (first 15):\n  ' + missingLines.slice(0, 15).join('\n  '));

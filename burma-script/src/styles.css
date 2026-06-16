@@ -348,7 +348,9 @@ body {
 .wp-chapter .wp-body {
   font-family: var(--mono); font-size: 18px; font-weight: 800; letter-spacing: .02em;
   color: var(--ch-text); line-height: 1.18; text-transform: none;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  /* NO line-clamp — this is an editable script; every word of the cold open
+     (and any long chapter note) must stay visible. */
+  overflow-wrap: anywhere;
 }
 .wp-chapter .wp-body p { margin: 0; }
 
@@ -358,7 +360,8 @@ body {
 .wp-scene .wp-body {
   font-family: var(--mono); font-size: 14px; font-weight: 700; letter-spacing: .01em; color: var(--ink);
   line-height: 1.25; text-transform: uppercase;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  /* NO line-clamp — full scene text must stay visible + editable. */
+  overflow-wrap: anywhere;
 }
 .wp-scene .wp-body p { margin: 0; }
 

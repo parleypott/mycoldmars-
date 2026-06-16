@@ -124,7 +124,10 @@ export function parseScript(srcText: string): { doc: ScriptDoc; stats: any; ambi
       continue;
     }
     // --- service boxes ---
-    if (/\[Mapping data needs/i.test(p) || /\[MAP\b/i.test(p) || /Map Data Need/i.test(p)) {
+    // A bare [MAP] tag inside VO narration ("[MAP] + VO: ...") is a visual cue, NOT a
+    // standalone mapping-needs service block — let it fall through to VO so it isn't
+    // swept into the consolidated SERVICE NEEDS box.
+    if (/\[Mapping data needs/i.test(p) || (/\[MAP\b/i.test(p) && !/\bVO:/i.test(p)) || /Map Data Need/i.test(p)) {
       blocks.push({ id: uid("map"), type: "map-need", title: "Mapping data needs", text: p, rawSource: p });
       continue;
     }
@@ -154,8 +157,9 @@ export function parseScript(srcText: string): { doc: ScriptDoc; stats: any; ambi
       continue;
     }
     // --- VO / ONCAM writing surface ---
-    if (/^-?\s*VO:/i.test(p) || /\bVO:/i.test(p.slice(0, 8))) {
-      const text = p.replace(/^-?\s*VO:\s*/i, "");
+    // Catch VO lines that lead with a visual cue too, e.g. "-[MAP] + VO: our story…".
+    if (/^-?\s*(\[[^\]]*\]\s*\+?\s*)?VO:/i.test(p) || /\bVO:/i.test(p.slice(0, 8))) {
+      const text = p.replace(/^-?\s*/, "").replace(/^VO:\s*/i, "");
       blocks.push({ id: uid("vo"), type: "vo", text, voStatus: "todo", spans: extractSpans(text), rawSource: p });
       continue;
     }

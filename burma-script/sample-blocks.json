@@ -93,47 +93,70 @@
       "rawSource": "\\[Archive request for this section: ⁃ Depictions of the many kingdoms that cropped up in this region over the years. ⁃ Depictions of grand cities built ⁃ Depictions of the kings ⁃ GOLD\\!\\! And temples ⁃ Buddhism in Burma.\\]"
     },
     {
-      "id": "map_c_mh8",
-      "type": "map-need",
-      "title": "Mapping data needs",
+      "id": "vo_c_mh8",
+      "type": "vo",
       "text": "\\-\\[MAP\\] + VO: our story resolves around a {tk unique defining feature of this river} river that flows from high in the Himalaya down through this land between the two giants centers of civilization \\[highlights India and China\\]. -there weren’t countries in the way we think of them today but the influence of these kings mostly stretched around here {TK description of the boundary",
+      "voStatus": "todo",
+      "spans": [
+        {
+          "id": "vis_e_i6",
+          "kind": "visual",
+          "start": 3,
+          "end": 9,
+          "raw": "[MAP\\]"
+        },
+        {
+          "id": "tk_d_1e2l",
+          "kind": "tk",
+          "start": 44,
+          "end": 86,
+          "raw": "{tk unique defining feature of this river}"
+        },
+        {
+          "id": "vis_f_s3j",
+          "kind": "visual",
+          "start": 201,
+          "end": 230,
+          "raw": "[highlights India and China\\]"
+        }
+      ],
       "rawSource": "\\-\\[MAP\\] + VO: our story resolves around a {tk unique defining feature of this river} river that flows from high in the Himalaya down through this land between the two giants centers of civilization \\[highlights India and China\\]. -there weren’t countries in the way we think of them today but the influence of these kings mostly stretched around here {TK description of the boundary"
     },
     {
-      "id": "bin_d_1e2l",
+      "id": "bin_g_1jow",
       "type": "bin",
       "text": "of influence of these many kingdoms, like “the lowlands around the river” or something} -VO: nowhere near the size of the huge shape the British will later draw for the modern country of Myanmar…but we’ll get to that",
       "rawSource": "of influence of these many kingdoms, like “the lowlands around the river” or something} -VO: nowhere near the size of the huge shape the British will later draw for the modern country of Myanmar…but we’ll get to that"
     },
     {
-      "id": "vo_e_i6",
+      "id": "vo_h_64h",
       "type": "vo",
       "text": "\\-VO: but this long before that. {fc dates of the earliest civilizations in this region} while people on the European continent were still {TK some indication of how primitive europe was while asian civilizations were rising} along this river cropped up kings who {TK TK TK unique epic descriptions of kingdoms that cropped up here, TK description of themes and patters of how they rules. What it looked like. What culture cropped up here } VO: {TK description of how kingdoms would fight with each other and fracture the country only to unify around a new king leading to another era of glory}",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "fc_f_s3j",
+          "id": "fc_i_xpu",
           "kind": "factcheck",
           "start": 33,
           "end": 88,
           "raw": "{fc dates of the earliest civilizations in this region}"
         },
         {
-          "id": "tk_g_1jow",
+          "id": "tk_j_1pb7",
           "kind": "tk",
           "start": 139,
           "end": 225,
           "raw": "{TK some indication of how primitive europe was while asian civilizations were rising}"
         },
         {
-          "id": "tk_h_64h",
+          "id": "tk_k_bqs",
           "kind": "tk",
           "start": 264,
           "end": 440,
           "raw": "{TK TK TK unique epic descriptions of kingdoms that cropped up here, TK description of themes and patters of how they rules. What it looked like. What culture cropped up here }"
         },
         {
-          "id": "tk_i_xpu",
+          "id": "tk_l_13c5",
           "kind": "tk",
           "start": 445,
           "end": 594,
@@ -143,48 +166,48 @@
       "rawSource": "\\-VO: but this long before that. {fc dates of the earliest civilizations in this region} while people on the European continent were still {TK some indication of how primitive europe was while asian civilizations were rising} along this river cropped up kings who {TK TK TK unique epic descriptions of kingdoms that cropped up here, TK description of themes and patters of how they rules. What it looked like. What culture cropped up here } VO: {TK description of how kingdoms would fight with each other and fracture the country only to unify around a new king leading to another era of glory}"
     },
     {
-      "id": "vo_j_1pb7",
+      "id": "vo_m_1uxi",
       "type": "vo",
       "text": "\\-VO: but through all the many rulers, one through line stayed, a deep connection to {TK describe the unique features of spiritual traditions and beliefs.} VO: then around {fc year Buddhism arrived in Burma} a new spiritual tradition arrived: Buddhism arrived. VO: {TK description of how this happened. Transmitted via whom? Any major event that marks the arrival of Buddhism here?} -VO: the people adopted a unique interpretation of the buddha’s teaching, one where {TK description of their unique beliefs keep it focused on what affect it has on behavior, specifically the roots of the belief that “you showed your devotion by building things and placing gold on the buddha, explain the role of temples or pagodas } . VO: {TK description of the belief in very broad terms something like “No matter how poor you were you found a way to get a leaf of gold and press it onto a statue of the buddha to buy yourself good fortune for future lives. Building a temple is how you show your righteousness. Insurance for the lives beyond this one.” VO: the kings did this too. {TK summary of how the kings would build new capitals everywhere and what the goal was} \\[Mapping all the capitals over the years\\] This place",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "tk_k_bqs",
+          "id": "tk_n_hd3",
           "kind": "tk",
           "start": 85,
           "end": 155,
           "raw": "{TK describe the unique features of spiritual traditions and beliefs.}"
         },
         {
-          "id": "fc_l_13c5",
+          "id": "fc_o_18yg",
           "kind": "factcheck",
           "start": 172,
           "end": 207,
           "raw": "{fc year Buddhism arrived in Burma}"
         },
         {
-          "id": "tk_m_1uxi",
+          "id": "tk_p_20jt",
           "kind": "tk",
           "start": 265,
           "end": 382,
           "raw": "{TK description of how this happened. Transmitted via whom? Any major event that marks the arrival of Buddhism here?}"
         },
         {
-          "id": "tk_n_hd3",
+          "id": "tk_q_mze",
           "kind": "tk",
           "start": 467,
           "end": 717,
           "raw": "{TK description of their unique beliefs keep it focused on what affect it has on behavior, specifically the roots of the belief that “you showed your devotion by building things and placing gold on the buddha, explain the role of temples or pagodas }"
         },
         {
-          "id": "tk_o_18yg",
+          "id": "tk_r_1ekr",
           "kind": "tk",
           "start": 1068,
           "end": 1155,
           "raw": "{TK summary of how the kings would build new capitals everywhere and what the goal was}"
         },
         {
-          "id": "vis_p_20jt",
+          "id": "vis_s_10c",
           "kind": "visual",
           "start": 1157,
           "end": 1199,
@@ -194,7 +217,7 @@
       "rawSource": "\\-VO: but through all the many rulers, one through line stayed, a deep connection to {TK describe the unique features of spiritual traditions and beliefs.} VO: then around {fc year Buddhism arrived in Burma} a new spiritual tradition arrived: Buddhism arrived. VO: {TK description of how this happened. Transmitted via whom? Any major event that marks the arrival of Buddhism here?} -VO: the people adopted a unique interpretation of the buddha’s teaching, one where {TK description of their unique beliefs keep it focused on what affect it has on behavior, specifically the roots of the belief that “you showed your devotion by building things and placing gold on the buddha, explain the role of temples or pagodas } . VO: {TK description of the belief in very broad terms something like “No matter how poor you were you found a way to get a leaf of gold and press it onto a statue of the buddha to buy yourself good fortune for future lives. Building a temple is how you show your righteousness. Insurance for the lives beyond this one.” VO: the kings did this too. {TK summary of how the kings would build new capitals everywhere and what the goal was} \\[Mapping all the capitals over the years\\] This place"
     },
     {
-      "id": "ch_q_mze",
+      "id": "ch_t_slp",
       "type": "chapter",
       "genre": "ground",
       "title": "GROUND 1",
@@ -202,13 +225,13 @@
       "rawSource": "CH: GROUND 1. Yongon ⁃ Arrival and lay of the land"
     },
     {
-      "id": "vo_r_1ekr",
+      "id": "vo_u_1k72",
       "type": "vo",
       "text": "⁃ VO: I’ve arrived to Myanmar, to the city of Yangon were the important river meets the sea. and immediately a few things stand out. ⁃ VO: First: Gas station line, there’s a shortage of gas because {TK one liner reason} ⁃ VO: Second: Nearly every woman and child covers their faces with this lotion made from ground up wood of a special tree. Half decorative make up, half sunscreen ⁃ VO: and Third, No one talks about politics, at least not on camera. Which is fine because my goal here is to understand the",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "tk_s_10c",
+          "id": "tk_v_6mn",
           "kind": "tk",
           "start": 198,
           "end": 219,
@@ -218,20 +241,20 @@
       "rawSource": "⁃ VO: I’ve arrived to Myanmar, to the city of Yangon were the important river meets the sea. and immediately a few things stand out. ⁃ VO: First: Gas station line, there’s a shortage of gas because {TK one liner reason} ⁃ VO: Second: Nearly every woman and child covers their faces with this lotion made from ground up wood of a special tree. Half decorative make up, half sunscreen ⁃ VO: and Third, No one talks about politics, at least not on camera. Which is fine because my goal here is to understand the"
     },
     {
-      "id": "bin_t_slp",
+      "id": "bin_w_y80",
       "type": "bin",
       "text": "side of this country I can’t get from the news.",
       "rawSource": "side of this country I can’t get from the news."
     },
     {
-      "id": "sc_u_1k72",
+      "id": "sc_x_1ptd",
       "type": "scene",
       "title": "Golden Pagoda ⁃ TK THIS IS A WORK IN PROGRESS I haven’t gone",
       "depth": 1,
       "rawSource": "⁃ SCENE: Golden Pagoda ⁃ TK THIS IS A WORK IN PROGRESS I haven’t gone thru the footage yet. ⁃ Learn about monastic culture ⁃ Gold ⁃ Karma ⁃ Day 1 — 00:52:04:14 Jack talks GOLD"
     },
     {
-      "id": "sot_v_6mn",
+      "id": "sot_y_c8y",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -247,7 +270,7 @@
       "rawSource": "⁃ SCENE Breakfast and Walking ⁃ Breakfast, leaving breakfast and then ⁃ DAY 1 SOT: 02:02:01:07 JH “there’s British buildings everwywehree” ⁃ \\[montage of British buildings\\] ⁃ DAY 1 SOT: 01:27:17:06 Jack talks about English colonizing the country."
     },
     {
-      "id": "ch_w_y80",
+      "id": "ch_z_13ub",
       "type": "chapter",
       "genre": "history",
       "title": "HISTORY 2 BRITISH x walk and talk",
@@ -255,20 +278,20 @@
       "rawSource": "CH: HISTORY 2 BRITISH x walk and talk"
     },
     {
-      "id": "arc_x_1ptd",
+      "id": "arc_10_1vfo",
       "type": "archive-req",
       "title": "Archive request",
       "text": "\\[Archive request: old timey British documentary SOT about British Burma\\]",
       "rawSource": "\\[Archive request: old timey British documentary SOT about British Burma\\]"
     },
     {
-      "id": "vo_y_c8y",
+      "id": "vo_11_hv9",
       "type": "vo",
       "text": "the kingdoms met their rival when {fc event and year that began the British conquest of Burma}",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "fc_z_13ub",
+          "id": "fc_12_19gm",
           "kind": "factcheck",
           "start": 34,
           "end": 94,
@@ -278,27 +301,27 @@
       "rawSource": "VO: the kingdoms met their rival when {fc event and year that began the British conquest of Burma}"
     },
     {
-      "id": "map_10_1vfo",
+      "id": "map_13_211z",
       "type": "map-need",
       "title": "Mapping data needs",
       "text": "\\-\\[map showing conquest of Burma three wars\\]",
       "rawSource": "\\-\\[map showing conquest of Burma three wars\\]"
     },
     {
-      "id": "vo_11_hv9",
+      "id": "vo_14_nhk",
       "type": "vo",
       "text": "The British want {TK motive that brought them into Burma}. So they send in soldiers to fight three wars. 1826 took Burma's edges, 1852 took its coast, 1885 took its center and its king. -they ship the king and queen out on a boat down the river {TK color or details of the accounts of this final conquest of the king and queen, shipping them off}. it was to be the end of the last king of Burma. But as we’ll see, it wasn’t.",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "tk_12_19gm",
+          "id": "tk_15_1f2x",
           "kind": "tk",
           "start": 17,
           "end": 57,
           "raw": "{TK motive that brought them into Burma}"
         },
         {
-          "id": "tk_13_211z",
+          "id": "tk_16_1ii",
           "kind": "tk",
           "start": 245,
           "end": 346,
@@ -308,7 +331,7 @@
       "rawSource": "VO: The British want {TK motive that brought them into Burma}. So they send in soldiers to fight three wars. 1826 took Burma's edges, 1852 took its coast, 1885 took its center and its king. -they ship the king and queen out on a boat down the river {TK color or details of the accounts of this final conquest of the king and queen, shipping them off}. it was to be the end of the last king of Burma. But as we’ll see, it wasn’t."
     },
     {
-      "id": "sot_14_nhk",
+      "id": "sot_17_t3v",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -323,7 +346,7 @@
       "rawSource": "⁃ SOT: Day 1 string out ⁃ 01:57:38:07 “this is the Bruma telegraph office ⁃ 01:27:52:23 “they thought they would be here forever”"
     },
     {
-      "id": "vo_15_1f2x",
+      "id": "vo_18_1kp8",
       "type": "vo",
       "text": "They do what colonizer do which is draw lines and start to tabulate what they could extract from this place to enrich their people and expand their power.",
       "voStatus": "todo",
@@ -331,7 +354,7 @@
       "rawSource": "VO: They do what colonizer do which is draw lines and start to tabulate what they could extract from this place to enrich their people and expand their power."
     },
     {
-      "id": "sot_16_1ii",
+      "id": "sot_19_74t",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -346,7 +369,7 @@
       "rawSource": "⁃ SOT: Day 1 string out ⁃ 01:49:53:01 “one of the reason British invade is because of RESOURCES ⁃ 01:50:38:11 “very rich in natural resource.. pigeon blood rub y is the best ⁃ …Teak wood ⁃ 01:50:23:20 they use so many elephants to pull it out \\[can we find archive of that\\] ⁃ The British {tk innovations that made it possible to farm more rice and dont say"
     },
     {
-      "id": "sot_17_t3v",
+      "id": "sot_1a_yq6",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -360,20 +383,20 @@
       "rawSource": "“they drained the delta” that doesn’t mean anything to anyone. Describe what they build and what that allowed them to do” ⁃ 01:49:15:20 “we are the rice bowl of Asia”"
     },
     {
-      "id": "arc_18_1kp8",
+      "id": "arc_1b_1qbj",
       "type": "archive-req",
       "title": "Archive request",
       "text": "\\[ARCHIVE: some British era movie about Burma\\] ⁃⁃ SOT: Day 1 string out ⁃ 01:51:22:15 JH tries Betel Nut ⁃ 02:00:53:04 “yolo cross the street with Jack” ⁃ 02:04:31:12 Book shop, JH reacts explore books. “It’s in Burmese how are you going to read?? “Ai. .haha” ⁃ …he’s taking me to the map store\\! He has a map guy\\!\\! ⁃ “Im feeling the betel nut” plus the book store",
       "rawSource": "\\[ARCHIVE: some British era movie about Burma\\] ⁃⁃ SOT: Day 1 string out ⁃ 01:51:22:15 JH tries Betel Nut ⁃ 02:00:53:04 “yolo cross the street with Jack” ⁃ 02:04:31:12 Book shop, JH reacts explore books. “It’s in Burmese how are you going to read?? “Ai. .haha” ⁃ …he’s taking me to the map store\\! He has a map guy\\!\\! ⁃ “Im feeling the betel nut” plus the book store"
     },
     {
-      "id": "vo_19_74t",
+      "id": "vo_1c_cr4",
       "type": "vo",
       "text": "VO + Achive: {TK description of how the British ruled. How can we characterize their 100 years here. What did they do to the society. modernize education, medicine, but also dominate the people, divide the ethnic groups against each other?}",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "tk_1a_yq6",
+          "id": "tk_1d_14ch",
           "kind": "tk",
           "start": 13,
           "end": 240,
@@ -383,7 +406,7 @@
       "rawSource": "VO + Achive: {TK description of how the British ruled. How can we characterize their 100 years here. What did they do to the society. modernize education, medicine, but also dominate the people, divide the ethnic groups against each other?}"
     },
     {
-      "id": "sot_1b_1qbj",
+      "id": "sot_1e_1vxu",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -398,7 +421,7 @@
       "rawSource": "VO: We walk to the map store passing a nun who is one of millions who spend their life {TK description of monastic life and its role in Myanmar} ⁃ 02:12:39:21 JH”how to you feel about the British legacy here” JACK “its"
     },
     {
-      "id": "sot_1c_cr4",
+      "id": "sot_1f_idf",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -414,25 +437,25 @@
       "rawSource": "always good and bad pro and con. They teach us some things and also take out some riches from here, so its mixed” ⁃ SOT: Day 1 string out ⁃ 02:15:40:04 We arrive to Jack’s road “this is my road thank you for visiting my street” ⁃ 02:16:38:06 jack you’re good vibes ⁃ 02:16:55:17 are you proud of your city, yes very proud ⁃ VO: jack tells me it’s time to hit the road so we aren’t caught out past dark. So I"
     },
     {
-      "id": "bin_1d_14ch",
+      "id": "bin_1g_19ys",
       "type": "bin",
       "text": "quickly look through some maps. And its time to get out",
       "rawSource": "quickly look through some maps. And its time to get out"
     },
     {
-      "id": "bin_1e_1vxu",
+      "id": "bin_1h_21k5",
       "type": "bin",
       "text": "⁃ It’s time to hit the road but we quickly run into huge lines all over the city",
       "rawSource": "⁃ It’s time to hit the road but we quickly run into huge lines all over the city"
     },
     {
-      "id": "bin_1f_idf",
+      "id": "bin_1i_nzq",
       "type": "bin",
       "text": "everyone waiting for gas.",
       "rawSource": "everyone waiting for gas."
     },
     {
-      "id": "ch_1g_19ys",
+      "id": "ch_1j_1fl3",
       "type": "chapter",
       "genre": "ground",
       "title": "GROUND 2",
@@ -440,7 +463,7 @@
       "rawSource": "CH: GROUND 2: ROAD TRIP"
     },
     {
-      "id": "vo_1h_21k5",
+      "id": "vo_1k_20o",
       "type": "vo",
       "text": "this isn’t a war zone. It’s a city with with layers of culture. Deep spirituality woven around with the skeletons of British Rule. We leave the city to hear north into the rural areas where surely the conflict is felt more. ..",
       "voStatus": "todo",
@@ -448,13 +471,13 @@
       "rawSource": "VO: this isn’t a war zone. It’s a city with with layers of culture. Deep spirituality woven around with the skeletons of British Rule. We leave the city to hear north into the rural areas where surely the conflict is felt more. .."
     },
     {
-      "id": "vo_1i_nzq",
+      "id": "vo_1l_tm1",
       "type": "vo",
       "text": "\\[Driving\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_1j_1fl3",
+          "id": "vis_1m_1l7e",
           "kind": "visual",
           "start": 1,
           "end": 11,
@@ -464,7 +487,7 @@
       "rawSource": "\\[Driving\\]"
     },
     {
-      "id": "sot_1k_20o",
+      "id": "sot_1n_7mz",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -479,7 +502,7 @@
       "rawSource": "SOT: Day 1 string out 02:46:41:17 \\[Jack explains the unique measuring system of Myanmar how they use “Vis” or something like that to measure weight\\] “Burmese own measurement"
     },
     {
-      "id": "sot_1l_tm1",
+      "id": "sot_1o_z8c",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -494,13 +517,13 @@
       "rawSource": "VO: Jack is explaining Myanmar’s measurement system to me. Reminding me that this is the only other place in addition to the US, that uses feet and miles instead of the metric system. “We use feet I am 5 feet four inches tall” “Why do you use it” “its because our king. Whenever we have a new king even our calendar changes...new king comes out and changes the year” 02:49:18:20 “JH it seems like the leaders come and they want to start something fresh… “ “exactly"
     },
     {
-      "id": "vo_1m_1l7e",
+      "id": "vo_1p_1qtp",
       "type": "vo",
       "text": "\\[driving\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_1n_7mz",
+          "id": "vis_1q_d9a",
           "kind": "visual",
           "start": 1,
           "end": 11,
@@ -510,7 +533,7 @@
       "rawSource": "\\[driving\\]"
     },
     {
-      "id": "vo_1o_z8c",
+      "id": "vo_1r_14un",
       "type": "vo",
       "text": "We pull off at a rest stop to find this boy selling birds",
       "voStatus": "todo",
@@ -518,7 +541,7 @@
       "rawSource": "VO: We pull off at a rest stop to find this boy selling birds"
     },
     {
-      "id": "sot_1p_1qtp",
+      "id": "sot_1s_1wg0",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -534,7 +557,7 @@
       "rawSource": "SOT: Day 1 string out 02:56:05:06 JH “what are the birds for” Jack 02:56:24:04 “ for them its survival and for those who have a beautiful mind they like to let it go and and you feel happy. Especially for members who are away from home. They do it for freedom by releasing bird you will get it back. “They catch them with a net” “Do you catch them” “yeah” 03:00:21:20’ good bye little bird, go live a life…” Releases it.. “sadoo sadoo… 03:00:50:13 “represent freedom, you let it go you see the happy bird, that reflects your mind”"
     },
     {
-      "id": "sot_1q_d9a",
+      "id": "sot_1t_ivl",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -548,13 +571,13 @@
       "rawSource": "\\[rest stop meal scene featuring the teenagers working there, shots of the food and SOT of jack talking about eating tea leaves. And then reaction 03:30:26:10 “so far im in love with burmese food… etc \\]"
     },
     {
-      "id": "vo_1r_14un",
+      "id": "vo_1u_1agy",
       "type": "vo",
       "text": "\\[back on the road\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_1s_1wg0",
+          "id": "vis_1v_222b",
           "kind": "visual",
           "start": 1,
           "end": 20,
@@ -564,7 +587,7 @@
       "rawSource": "\\[back on the road\\]"
     },
     {
-      "id": "broll_1t_ivl",
+      "id": "broll_1w_ohw",
       "type": "broll",
       "timecode": {
         "day": 1,
@@ -579,7 +602,7 @@
       "rawSource": "VO: As we keep driving north we share the nearly empty roads with military convoys (b roll at 03:31:46:11-03:32:49:01)"
     },
     {
-      "id": "sot_1u_1agy",
+      "id": "sot_1x_1g39",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -593,13 +616,13 @@
       "rawSource": "SOT: Day 1 \\[03:33:46:16 stopping for gas there’s a half a mile line\\]"
     },
     {
-      "id": "vo_1v_222b",
+      "id": "vo_1y_2iu",
       "type": "vo",
       "text": "\\[more driving Montage\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_1w_ohw",
+          "id": "vis_1z_u47",
           "kind": "visual",
           "start": 1,
           "end": 24,
@@ -609,7 +632,7 @@
       "rawSource": "\\[more driving Montage\\]"
     },
     {
-      "id": "sot_1x_1g39",
+      "id": "sot_20_1lpk",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -623,7 +646,7 @@
       "rawSource": "\\[ SOT: Day 1 03:38:03:14 another long line for gas (include drone shots from this line\\]"
     },
     {
-      "id": "sot_1y_2iu",
+      "id": "sot_21_855",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -637,7 +660,7 @@
       "rawSource": "\\[more driving then 03:40:47:22 check points\\]"
     },
     {
-      "id": "sot_1z_u47",
+      "id": "sot_22_zqi",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -652,7 +675,7 @@
       "rawSource": "SOT: Day 1 03:41:08:20 DREW: “we are in the middle of absolute nowhere”"
     },
     {
-      "id": "sot_20_1lpk",
+      "id": "sot_23_1rbv",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -668,13 +691,13 @@
       "rawSource": "\\[driving continues and we hear jack around SOT: Day 1 03:48:34:19 talking but we dont really hear it loud enough then VO\\] VO: as we get deeper into the country Jack turns to teaching us about the principles of Buddhism 03:48:33:01 “everything in this life is happening then gone. Everything is in permanent….. 03:48:50:13 “stay your life with mindfulness and awareness at all times” 03:48:58:23 “what I know is that I know nothing what that means isn’t he doesn’t know nothing. Everything is nothing.” 03:49:48:19 “just live every moment peacefully naturally and with awareness” “do you do that” “I am an observer. The buddha said dont believe your teacher or grandfather just believe yourself and observe more and more \\[keeps going but fades out as driving montage continues\\["
     },
     {
-      "id": "vo_21_855",
+      "id": "vo_24_drg",
       "type": "vo",
       "text": "\\[driving montage\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_22_zqi",
+          "id": "vis_25_15ct",
           "kind": "visual",
           "start": 1,
           "end": 19,
@@ -684,13 +707,13 @@
       "rawSource": "\\[driving montage\\]"
     },
     {
-      "id": "vo_23_1rbv",
+      "id": "vo_26_1wy6",
       "type": "vo",
       "text": "The sun’s is going down and things on the road are getting a little more tense. More check points. It’s because we’re getting close to the capital. At least the most recent capital. A place where the current regime rules from. we’re approaching the final check point to get into the city… \\[little tease\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_24_drg",
+          "id": "vis_27_jdr",
           "kind": "visual",
           "start": 290,
           "end": 305,
@@ -700,7 +723,7 @@
       "rawSource": "VO: The sun’s is going down and things on the road are getting a little more tense. More check points. It’s because we’re getting close to the capital. At least the most recent capital. A place where the current regime rules from. we’re approaching the final check point to get into the city… \\[little tease\\]"
     },
     {
-      "id": "ch_25_15ct",
+      "id": "ch_28_1az4",
       "type": "chapter",
       "genre": "history",
       "title": "HISTORY 3 (post independence )",
@@ -708,13 +731,13 @@
       "rawSource": "CH: HISTORY 3 (post independence )"
     },
     {
-      "id": "vo_26_1wy6",
+      "id": "vo_29_22kh",
       "type": "vo",
       "text": "\\[music cue and we’re in history again\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_27_jdr",
+          "id": "vis_2a_p02",
           "kind": "visual",
           "start": 1,
           "end": 40,
@@ -724,7 +747,7 @@
       "rawSource": "\\[music cue and we’re in history again\\]"
     },
     {
-      "id": "vo_28_1az4",
+      "id": "vo_2b_1glf",
       "type": "vo",
       "text": "After 100 years of dividing, dominating and harvesting value out of these people and their soil the locals rose up and kicked them out through a decades long struggle and uprising. They declared a new country four days in the year 1948. The shape on the maps would be the lines the British drew at the height of their imperial control, a set of colonial lines that contained not only the river basin that has always been the cradle of power here but also draws these mounts areas. The places that had never been ruled by powers in the river valleys, the British themselves had two different sets of rules for these two.",
       "voStatus": "todo",
@@ -732,7 +755,7 @@
       "rawSource": "VO: After 100 years of dividing, dominating and harvesting value out of these people and their soil the locals rose up and kicked them out through a decades long struggle and uprising. They declared a new country four days in the year 1948. The shape on the maps would be the lines the British drew at the height of their imperial control, a set of colonial lines that contained not only the river basin that has always been the cradle of power here but also draws these mounts areas. The places that had never been ruled by powers in the river valleys, the British themselves had two different sets of rules for these two."
     },
     {
-      "id": "vo_29_22kh",
+      "id": "vo_2c_310",
       "type": "vo",
       "text": "So like many instances of ‘British guy draws a shape on a map’ this shape includes hundreds of different peoples, cultures and power systems. Many of which have never been ruled by the people here in the center.",
       "voStatus": "todo",
@@ -740,13 +763,13 @@
       "rawSource": "VO: So like many instances of ‘British guy draws a shape on a map’ this shape includes hundreds of different peoples, cultures and power systems. Many of which have never been ruled by the people here in the center."
     },
     {
-      "id": "vo_2a_p02",
+      "id": "vo_2d_umd",
       "type": "vo",
       "text": "\\[SOURCE NOTES FOR CITATION: Under the Burma Act of 1935, “Ministerial Burma” and the “Frontier Areas” were governed differently, with the frontier highlands left outside the normal reach of the Burmese cabinet and under the governor’s direct supervision. International IDEA’s constitutional history argues that this split left “enduring problems” that have never been resolved, because the relationship between people and state became fundamentally different across the territory. \\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_2b_1glf",
+          "id": "vis_2e_1m7q",
           "kind": "visual",
           "start": 1,
           "end": 484,
@@ -756,13 +779,13 @@
       "rawSource": "\\[SOURCE NOTES FOR CITATION: Under the Burma Act of 1935, “Ministerial Burma” and the “Frontier Areas” were governed differently, with the frontier highlands left outside the normal reach of the Burmese cabinet and under the governor’s direct supervision. International IDEA’s constitutional history argues that this split left “enduring problems” that have never been resolved, because the relationship between people and state became fundamentally different across the territory. \\]"
     },
     {
-      "id": "vo_2c_310",
+      "id": "vo_2f_8nb",
       "type": "vo",
       "text": "So the British leave the {fc population of Burma at independence} within this shape with an impossible situation, a shape that concludes many competing groups. 100 years of exploitation leaving all of these groups distrusting of each other, armed, and paranoid of having their land once again taken by outsider.",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "fc_2d_umd",
+          "id": "fc_2g_108o",
           "kind": "factcheck",
           "start": 25,
           "end": 65,
@@ -772,20 +795,20 @@
       "rawSource": "VO: So the British leave the {fc population of Burma at independence} within this shape with an impossible situation, a shape that concludes many competing groups. 100 years of exploitation leaving all of these groups distrusting of each other, armed, and paranoid of having their land once again taken by outsider."
     },
     {
-      "id": "vo_2e_1m7q",
+      "id": "vo_2h_1ru1",
       "type": "vo",
       "text": "The leaders of this new independent country tried to control for this by giving these major regions lots of independent freedom and even the chance to break away after ten years. {TK 1-2 lines on why it didn’t work} The result was war between the {TK.. can I say “the center and the periphery”} right away, like not even a year after independence. \\[Sourcing for this section ”1948: Shan, Kachin, and Karenni received wider powers in the original constitution”",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "tk_2f_8nb",
+          "id": "tk_2i_e9m",
           "kind": "tk",
           "start": 179,
           "end": 215,
           "raw": "{TK 1-2 lines on why it didn’t work}"
         },
         {
-          "id": "tk_2g_108o",
+          "id": "tk_2j_15uz",
           "kind": "tk",
           "start": 247,
           "end": 294,
@@ -795,14 +818,14 @@
       "rawSource": "VO: The leaders of this new independent country tried to control for this by giving these major regions lots of independent freedom and even the chance to break away after ten years. {TK 1-2 lines on why it didn’t work} The result was war between the {TK.. can I say “the center and the periphery”} right away, like not even a year after independence. \\[Sourcing for this section ”1948: Shan, Kachin, and Karenni received wider powers in the original constitution”"
     },
     {
-      "id": "map_2h_1ru1",
+      "id": "map_2k_1xgc",
       "type": "map-need",
       "title": "Mapping data needs",
       "text": "\\[Map Data Need: how are we going to visualize the autonomous regions, and the many languages and ethnicities.\\]",
       "rawSource": "\\[Map Data Need: how are we going to visualize the autonomous regions, and the many languages and ethnicities.\\]"
     },
     {
-      "id": "vo_2i_e9m",
+      "id": "vo_2l_jvx",
       "type": "vo",
       "text": "{TK summary of the next few decades, not a play-by-play like “this democracy movement, then this coup, then this uprising, then this massacre,",
       "voStatus": "todo",
@@ -810,13 +833,13 @@
       "rawSource": "VO: {TK summary of the next few decades, not a play-by-play like “this democracy movement, then this coup, then this uprising, then this massacre,"
     },
     {
-      "id": "bin_2j_15uz",
+      "id": "bin_2m_1bha",
       "type": "bin",
       "text": "then this other coup in this year” \\<\\<NOT THAT\\! But rather a very broad summary whose goal is to show a pattern of the boom and bust cycle between democracy and the military always eventually taking back over. And weaving in how these British colonial foundations keep this rerun going. I could see a line in this section being: “The army eventually justifies taking over by claiming it alone could save the union from disintegration. Once that logic takes hold, there’s no room for compromise, for giving autonomy to the outer regions, and emergency beceoms the the permanent governing style.” This should also weave in the rhetoric and beliefs that led the leaders to close the country, some description of the nationalist sentiment of make Burma great again. What was it invoking? And what did it do to the country. This section should establish two three big things 1. How NOT unified this place is and how each war pushes the outer regions further and further away 2. The boom and bust of democracy then military (we want to really see that pattern so when it happens in the most recent episode we see it as part of a cycle) and 3. The closing of the country to outsiders what led to it, what “justified” it, what the goals were and what the result was (I think this includes the “move the capital and build new stuff” habit too which can be a reference back to old burmese habits.}",
       "rawSource": "then this other coup in this year” \\<\\<NOT THAT\\! But rather a very broad summary whose goal is to show a pattern of the boom and bust cycle between democracy and the military always eventually taking back over. And weaving in how these British colonial foundations keep this rerun going. I could see a line in this section being: “The army eventually justifies taking over by claiming it alone could save the union from disintegration. Once that logic takes hold, there’s no room for compromise, for giving autonomy to the outer regions, and emergency beceoms the the permanent governing style.” This should also weave in the rhetoric and beliefs that led the leaders to close the country, some description of the nationalist sentiment of make Burma great again. What was it invoking? And what did it do to the country. This section should establish two three big things 1. How NOT unified this place is and how each war pushes the outer regions further and further away 2. The boom and bust of democracy then military (we want to really see that pattern so when it happens in the most recent episode we see it as part of a cycle) and 3. The closing of the country to outsiders what led to it, what “justified” it, what the goals were and what the result was (I think this includes the “move the capital and build new stuff” habit too which can be a reference back to old burmese habits.}"
     },
     {
-      "id": "vo_2k_1xgc",
+      "id": "vo_2n_232n",
       "type": "vo",
       "text": "but of course the regime’s insistence that it alone guarded unity did not create unity, it created endless civil war with the many groups hardening their position and control over their part of the country, while the regime in the center became more and more paranoid, closed off, militarized, and divided from the very people they are alleging to try to unify into the country.",
       "voStatus": "todo",
@@ -824,7 +847,7 @@
       "rawSource": "VO: but of course the regime’s insistence that it alone guarded unity did not create unity, it created endless civil war with the many groups hardening their position and control over their part of the country, while the regime in the center became more and more paranoid, closed off, militarized, and divided from the very people they are alleging to try to unify into the country."
     },
     {
-      "id": "vo_2l_jvx",
+      "id": "vo_2o_pi8",
       "type": "vo",
       "text": "This is a pattern this place has experienced for thousands of years. Uniting leading to fracture, back and forth every few generations. Today the pattern ping ponged between representative democracy and military dictator ship.",
       "voStatus": "todo",
@@ -832,20 +855,20 @@
       "rawSource": "VO: This is a pattern this place has experienced for thousands of years. Uniting leading to fracture, back and forth every few generations. Today the pattern ping ponged between representative democracy and military dictator ship."
     },
     {
-      "id": "vo_2m_1bha",
+      "id": "vo_2p_1h3l",
       "type": "vo",
       "text": "The most recent episode of this pattern of this is what’s been happening over the last few decades here. {TK few short lines about the military Junta that decided to build Napidaw the new capital, state what they’re goal was, their vision for it, mention the huge roads that were built and why} VO: and then in the 2010s when {TK summary of (not play by play) democratization, opening up, maybe aung sung su chi gets one line?? Obama goes and is all hopeful, business and internet coming to Myanmar. Hope\\!}",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "tk_2n_232n",
+          "id": "tk_2q_3j6",
           "kind": "tk",
           "start": 105,
           "end": 294,
           "raw": "{TK few short lines about the military Junta that decided to build Napidaw the new capital, state what they’re goal was, their vision for it, mention the huge roads that were built and why}"
         },
         {
-          "id": "tk_2o_pi8",
+          "id": "tk_2r_v4j",
           "kind": "tk",
           "start": 326,
           "end": 507,
@@ -855,13 +878,13 @@
       "rawSource": "VO: The most recent episode of this pattern of this is what’s been happening over the last few decades here. {TK few short lines about the military Junta that decided to build Napidaw the new capital, state what they’re goal was, their vision for it, mention the huge roads that were built and why} VO: and then in the 2010s when {TK summary of (not play by play) democratization, opening up, maybe aung sung su chi gets one line?? Obama goes and is all hopeful, business and internet coming to Myanmar. Hope\\!}"
     },
     {
-      "id": "vo_2p_1h3l",
+      "id": "vo_2s_1mpw",
       "type": "vo",
       "text": "But {TK description of the power the military generals were giving up and how they didn’t want to because TK}. They doubled down on asserting their power and the power of the ruling center, the most extreme expression of which was the force expulsion of and genocide of a million citizens from one of these",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "tk_2q_3j6",
+          "id": "tk_2t_95h",
           "kind": "tk",
           "start": 4,
           "end": 109,
@@ -871,20 +894,20 @@
       "rawSource": "VO: But {TK description of the power the military generals were giving up and how they didn’t want to because TK}. They doubled down on asserting their power and the power of the ruling center, the most extreme expression of which was the force expulsion of and genocide of a million citizens from one of these"
     },
     {
-      "id": "vo_2r_v4j",
+      "id": "vo_2u_10qu",
       "type": "vo",
       "text": "regional zones \\[Rohingya\\]. {Evaluate if this Rohingya beat is too much of an unrelated side bar}",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_2t_95h",
+          "id": "vis_2w_ers",
           "kind": "visual",
           "start": 16,
           "end": 27,
           "raw": "[Rohingya\\]"
         },
         {
-          "id": "tk_2s_1mpw",
+          "id": "tk_2v_1sc7",
           "kind": "tk",
           "start": 29,
           "end": 98,
@@ -894,34 +917,34 @@
       "rawSource": "regional zones \\[Rohingya\\]. {Evaluate if this Rohingya beat is too much of an unrelated side bar}"
     },
     {
-      "id": "vo_2u_10qu",
+      "id": "vo_2x_16d5",
       "type": "vo",
       "text": "And then it all once again came crashing down one morning in 2021 here in the newly built capital where when a YouTuber was recording an exercise video, the military behind her {TK description of what the military did that day, not “committed a coup” but something more active like “rushed the parliament and arrested TK and declared TK} the pattern repeats, the country is once again under a the control of the military leaders who took over. Their hope was that {TK did they state their hope of unifying the country?} but instead it backfired and {tk description of what the reaction was by the people, like they fled and armed in insurgent groups, many of which already existed and had been fighting of years. But now they TK description of how this became the civil war we know today and how this one is different. The resistance is greater than ever because TK here’s some sourcing for this \\[The 2021 coup changed the scale of this pattern. Reuters’ reporting from early 2025 described a military that had “steadily lost ground nationwide,” with ethnic armies and new resistance forces pushing it out of many border areas and compressing its control into the central lowlands. What had long been seen abroad as a set of “ethnic conflicts” became, after the coup, a national civil war. Yet the post-coup resistance has not simply revived older insurgencies. The Federal Democracy Charter, in its official and analytical versions, marks an attempt to articulate a different founding principle: sovereignty originating in states and peoples, not merely delegated downward by a central military state.\\]}",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "tk_2v_1sc7",
+          "id": "tk_2y_1xyi",
           "kind": "tk",
           "start": 177,
           "end": 337,
           "raw": "{TK description of what the military did that day, not “committed a coup” but something more active like “rushed the parliament and arrested TK and declared TK}"
         },
         {
-          "id": "tk_2w_ers",
+          "id": "tk_2z_ke3",
           "kind": "tk",
           "start": 464,
           "end": 519,
           "raw": "{TK did they state their hope of unifying the country?}"
         },
         {
-          "id": "tk_2x_16d5",
+          "id": "tk_30_1bzg",
           "kind": "tk",
           "start": 549,
           "end": 1606,
           "raw": "{tk description of what the reaction was by the people, like they fled and armed in insurgent groups, many of which already existed and had been fighting of years. But now they TK description of how this became the civil war we know today and how this one is different. The resistance is greater than ever because TK here’s some sourcing for this \\[The 2021 coup changed the scale of this pattern. Reuters’ reporting from early 2025 described a military that had “steadily lost ground nationwide,” with ethnic armies and new resistance forces pushing it out of many border areas and compressing its control into the central lowlands. What had long been seen abroad as a set of “ethnic conflicts” became, after the coup, a national civil war. Yet the post-coup resistance has not simply revived older insurgencies. The Federal Democracy Charter, in its official and analytical versions, marks an attempt to articulate a different founding principle: sovereignty originating in states and peoples, not merely delegated downward by a central military state.\\]}"
         },
         {
-          "id": "vis_2y_1xyi",
+          "id": "vis_31_23kt",
           "kind": "visual",
           "start": 897,
           "end": 1605,
@@ -931,7 +954,7 @@
       "rawSource": "VO: And then it all once again came crashing down one morning in 2021 here in the newly built capital where when a YouTuber was recording an exercise video, the military behind her {TK description of what the military did that day, not “committed a coup” but something more active like “rushed the parliament and arrested TK and declared TK} the pattern repeats, the country is once again under a the control of the military leaders who took over. Their hope was that {TK did they state their hope of unifying the country?} but instead it backfired and {tk description of what the reaction was by the people, like they fled and armed in insurgent groups, many of which already existed and had been fighting of years. But now they TK description of how this became the civil war we know today and how this one is different. The resistance is greater than ever because TK here’s some sourcing for this \\[The 2021 coup changed the scale of this pattern. Reuters’ reporting from early 2025 described a military that had “steadily lost ground nationwide,” with ethnic armies and new resistance forces pushing it out of many border areas and compressing its control into the central lowlands. What had long been seen abroad as a set of “ethnic conflicts” became, after the coup, a national civil war. Yet the post-coup resistance has not simply revived older insurgencies. The Federal Democracy Charter, in its official and analytical versions, marks an attempt to articulate a different founding principle: sovereignty originating in states and peoples, not merely delegated downward by a central military state.\\]}"
     },
     {
-      "id": "vo_2z_ke3",
+      "id": "vo_32_q0e",
       "type": "vo",
       "text": "The military Junta today controls only 20% of this British shape and they do so from this grand capital…",
       "voStatus": "todo",
@@ -939,7 +962,7 @@
       "rawSource": "VO: The military Junta today controls only 20% of this British shape and they do so from this grand capital…"
     },
     {
-      "id": "ch_30_1bzg",
+      "id": "ch_33_1hlr",
       "type": "chapter",
       "genre": "ground",
       "title": "GROUND 3",
@@ -947,13 +970,13 @@
       "rawSource": "CH: GROUND 3: THE CAPITAL"
     },
     {
-      "id": "bin_31_23kt",
+      "id": "bin_34_41c",
       "type": "bin",
       "text": "b roll selects categories for the B roll selects sequence (you can cut stuff into both the assembly and the b roll selects sequence if it fits both. : ⁃ 20 lane high way (from both days, lots of different times we shot it while driving around) ⁃ THE CAPITAL General ⁃ Military General (you’ll see all kind of military vehicles and check point stuff",
       "rawSource": "b roll selects categories for the B roll selects sequence (you can cut stuff into both the assembly and the b roll selects sequence if it fits both. : ⁃ 20 lane high way (from both days, lots of different times we shot it while driving around) ⁃ THE CAPITAL General ⁃ Military General (you’ll see all kind of military vehicles and check point stuff"
     },
     {
-      "id": "broll_32_q0e",
+      "id": "broll_35_vmp",
       "type": "broll",
       "timecode": {
         "day": 2,
@@ -968,13 +991,13 @@
       "rawSource": "throughout the capital (like at DAY 2 — 02:58:21:17, and DAY 2 — 03:14:27:18 make sure to put that in its own selects category in the b roll selects sequence. It usually quick and easy to miss. ⁃ Hotels"
     },
     {
-      "id": "vo_33_1hlr",
+      "id": "vo_36_1n82",
       "type": "vo",
       "text": "\\[We’re now in intro establishing of the empty road. Eerie establishing of emptiness\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_34_41c",
+          "id": "vis_37_9nn",
           "kind": "visual",
           "start": 1,
           "end": 86,
@@ -984,7 +1007,7 @@
       "rawSource": "\\[We’re now in intro establishing of the empty road. Eerie establishing of emptiness\\]"
     },
     {
-      "id": "broll_35_vmp",
+      "id": "broll_38_1190",
       "type": "broll",
       "timecode": {
         "day": 2,
@@ -999,7 +1022,7 @@
       "rawSource": "\\[B ROLL General Capital Footage: ⁃ 04:41:32:04 round about ⁃ 04:45:48:08 - 04:47:30:16 shot of 20 lane high way"
     },
     {
-      "id": "sot_36_1n82",
+      "id": "sot_39_1sud",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1014,27 +1037,27 @@
       "rawSource": "SOT: 04:11:30:01 JACK: “we have a long tradition of building new palace all the nations best have to come work on it. That same thing happened here”"
     },
     {
-      "id": "sc_37_9nn",
+      "id": "sc_3a_f9y",
       "type": "scene",
       "title": "20 Lane Highway: arriving, establishing, reacting",
       "depth": 1,
       "rawSource": "⁃ SCENE: 20 Lane Highway: arriving, establishing, reacting."
     },
     {
-      "id": "note_38_1190",
+      "id": "note_3b_16vb",
       "type": "note",
       "text": "\\!NOTE: let’s make a section in the B roll selects sequence of all the best coverage of the 20 lane highway before we cut it into the assembly. There’s lots of stuff from both day one and DAY 2 starting at 02:30:01:16 (love that shot of the guys on the truck) Ill call out a few of my favs: ⁃ Day 1 — 04:14:11:19 good perspective ⁃ DAY 2 — 02:30:38:21 since we lost the audio just the shot of me looking confused with the one biker there is great. ⁃ DAY 2 — 02:31:03:17 really good symmetry ⁃ DAY 2 — 02:32:09:03 I like the motion of camera panning fast here ⁃ DAY 2 — 02:42:18:09 great angle from above the car. Goes on for a while grab some of each angle and scene ⁃ DAY 2 — 02:59:45:00 ⁃ DAY 2 — 03:07:51:23 ⁃ Please note: these are just some of my favs, please selects out anything",
       "done": false,
       "rawSource": "\\!NOTE: let’s make a section in the B roll selects sequence of all the best coverage of the 20 lane highway before we cut it into the assembly. There’s lots of stuff from both day one and DAY 2 starting at 02:30:01:16 (love that shot of the guys on the truck) Ill call out a few of my favs: ⁃ Day 1 — 04:14:11:19 good perspective ⁃ DAY 2 — 02:30:38:21 since we lost the audio just the shot of me looking confused with the one biker there is great. ⁃ DAY 2 — 02:31:03:17 really good symmetry ⁃ DAY 2 — 02:32:09:03 I like the motion of camera panning fast here ⁃ DAY 2 — 02:42:18:09 great angle from above the car. Goes on for a while grab some of each angle and scene ⁃ DAY 2 — 02:59:45:00 ⁃ DAY 2 — 03:07:51:23 ⁃ Please note: these are just some of my favs, please selects out anything"
     },
     {
-      "id": "bin_39_1sud",
+      "id": "bin_3c_1ygo",
       "type": "bin",
       "text": "else you see that’s good coverage of the highway.",
       "rawSource": "else you see that’s good coverage of the highway."
     },
     {
-      "id": "sot_3a_f9y",
+      "id": "sot_3d_kw9",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -1048,7 +1071,7 @@
       "rawSource": "ON CAM OPTIONS: 1. SOT: Day 1 04:15:13:06 it is completely empty minus the occasional tiny"
     },
     {
-      "id": "sot_3b_16vb",
+      "id": "sot_3e_1chm",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -1062,7 +1085,7 @@
       "rawSource": "car, what is this place 2. Day 1 04:16:26:00 “what is this place, im walking on a highway that has no"
     },
     {
-      "id": "sot_3c_1ygo",
+      "id": "sot_3f_242z",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -1077,7 +1100,7 @@
       "rawSource": "cars but twenty lanes it feels very disorienting 3. Day 1 04:22:51:05 JH walking across the whole of the highway at clear"
     },
     {
-      "id": "sot_3d_kw9",
+      "id": "sot_3g_qik",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -1091,7 +1114,7 @@
       "rawSource": "angle 4. Day 1 04:36:46:01: long shot with zoom out and rack focus and ON CAM"
     },
     {
-      "id": "sot_3e_1chm",
+      "id": "sot_3h_1i3x",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1105,7 +1128,7 @@
       "rawSource": "line 5. DAY 2: 02:31:47:00 “by the way its not just this one highway there’s"
     },
     {
-      "id": "sot_3f_242z",
+      "id": "sot_3i_4ji",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1120,13 +1143,13 @@
       "rawSource": "another ten lanes…there’s a car we got one car.. 6. DAY 2 — 03:10:00:23 JH “in addition to a few cars we’ve got some water"
     },
     {
-      "id": "bin_3g_qik",
+      "id": "bin_3j_w4v",
       "type": "bin",
       "text": "buffalo”",
       "rawSource": "buffalo”"
     },
     {
-      "id": "sot_3h_1i3x",
+      "id": "sot_3k_1nq8",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1142,20 +1165,20 @@
       "rawSource": "7\\. \\[cover most of that on cam with the nice B roll at 03:10:46:13\\] 8. DAY 2: 02:32:16:10 “ha what is this place?? 9. DAY 2: 02:40:07:02 THE CONVO ROLLS THRU (both JH shot and drew"
     },
     {
-      "id": "bin_3i_4ji",
+      "id": "bin_3l_a5t",
       "type": "bin",
       "text": "iPhone shot zoomed in) JH “the most activity ive seen all day” 10.",
       "rawSource": "iPhone shot zoomed in) JH “the most activity ive seen all day” 10."
     },
     {
-      "id": "sc_3j_w4v",
+      "id": "sc_3m_11r6",
       "type": "scene",
       "title": "DRONE INCIDENT ⁃ B ROLL Day 1: ⁃ JH running off to fly drone",
       "depth": 1,
       "rawSource": "SCENE: DRONE INCIDENT ⁃ B ROLL Day 1: ⁃ JH running off to fly drone: 04:21:05:01 ⁃ JH looking stressed: 04:20:58:10 ⁃ JH walking along road 04:22:36:13 ⁃ JH crouched down about to fly drone, gets out controller: 04:25:49:08 ⁃ Drone start up sound then launching the drone 04:26:21:17, ⁃ Launches at 04:27:20:23 ⁃ JH leaning as drone goes out of control: 04:28:37:15 \\< zoom in on stressed face ⁃ Drone crashes, JH: F\\*ck \\<bleep 04:29:02:01 , then stressed face ⁃ Deep breath 04:30:03:14 ⁃ JH thinks the rotor came off 04:31:39:01 ⁃ Chatter about going to retrieve it/showing map 04:32:45:09 ⁃ “Want me to take yours off” 04:33:04:06 ⁃ 04:38:50:20 Drew: “put it away”"
     },
     {
-      "id": "sot_3k_1nq8",
+      "id": "sot_3n_1tcj",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1170,7 +1193,7 @@
       "rawSource": "VO: I try again with Drews drone. \\[show the clip from that drone flying above the highway\\] And I get the shot, the scale of these streets from above. The massive effort, and just when I’m marveling at the effort that has gone into the empty city \\[DAY 2 - 02:34:33:19 drone clip jerks and starts to fall\\]… the drone once again starts to spin out of control. \\[let the clip play as it depends and crashes.\\]"
     },
     {
-      "id": "vo_3l_a5t",
+      "id": "vo_3o_fs4",
       "type": "vo",
       "text": "\\[JH / drew react freaked out “its being jammed”",
       "voStatus": "todo",
@@ -1178,7 +1201,7 @@
       "rawSource": "\\[JH / drew react freaked out “its being jammed”"
     },
     {
-      "id": "sot_3m_11r6",
+      "id": "sot_3p_17dh",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1193,7 +1216,7 @@
       "rawSource": "\\[DAY 2 Sot 02:30:54:16 JH “dude I’M shaking again”"
     },
     {
-      "id": "sot_3n_1tcj",
+      "id": "sot_3q_1yyu",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1208,7 +1231,7 @@
       "rawSource": "VO: We have to leave, we’re too close to the parliament and attracting attention \\[you can seee soldiers barely at 04:42:45:09\\] 04:42:52:13 jack says: “its the way to parliament and not allowed for visitors”"
     },
     {
-      "id": "sot_3o_fs4",
+      "id": "sot_3r_lef",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1223,21 +1246,21 @@
       "rawSource": "\\[Cut to driving now, stress in the air\\] \\[JH way stressed out 04:43:41:10\\]"
     },
     {
-      "id": "note_3p_17dh",
+      "id": "note_3s_1czs",
       "type": "note",
       "text": "\\[More JH drone stress and map at 05:36:48:12\\] \\[\\!NOTE I don’t have access to Drews cam or audio so please check to see if there’s any audio or footage of me or him stressing after the loss of the drone\\] \\[JH: “eerie eerie eerie”\\]",
       "done": false,
       "rawSource": "\\[More JH drone stress and map at 05:36:48:12\\] \\[\\!NOTE I don’t have access to Drews cam or audio so please check to see if there’s any audio or footage of me or him stressing after the loss of the drone\\] \\[JH: “eerie eerie eerie”\\]"
     },
     {
-      "id": "sc_3q_1yyu",
+      "id": "sc_3t_24l5",
       "type": "scene",
       "title": "HOTELS VO",
       "depth": 1,
       "rawSource": "⁃ SCENE: HOTELS VO: We continue to drive around this empty capital and notice that enervwhere you look there are hotels, each with a distinctive \\[B ROLL: can use b roll from before 20 lane high way when we’re driving and shooting selfie and out the car window There’s also drive by b roll of hotels on DAY 2 00:09:19:03\\]"
     },
     {
-      "id": "broll_3r_lef",
+      "id": "broll_3u_r0q",
       "type": "broll",
       "timecode": {
         "day": 2,
@@ -1251,7 +1274,7 @@
       "rawSource": "\\[Grab hotel B roll from anywhere like 05:37:06:20\\]"
     },
     {
-      "id": "sot_3s_1czs",
+      "id": "sot_3v_1im3",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1267,7 +1290,7 @@
       "rawSource": "\\[Arriving to the first hotel 05:02:38:14 + use stuff from after like 05:11:12:00 for establishing \\] \\[05:03:30:17 entering the hotel. Lets see all the shots with the flash light and jack beating the drum and all the establishing super eerie and creepy…and lets hear the JH ONCAM at 05:12:03:15 “there’s something really eerie about an empty grand space, its just silent and empty and there were big dreams here that never came true”"
     },
     {
-      "id": "sot_3t_24l5",
+      "id": "sot_3w_51o",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1282,7 +1305,7 @@
       "rawSource": "And then cut to earlier in the sequence at 05:05:09:12 ”we hear screaming and then…oh it’s for the pool…”\\[ see shot of pool 05:06:57:17\\] tension breaks."
     },
     {
-      "id": "vo_3u_r0q",
+      "id": "vo_3x_wn1",
       "type": "vo",
       "text": "turns out a bunch of government officials kids are having skim practice in the abandoned hotels pool. Not as sinister as we thought, but much more bizarre. We continue our tour through these hotels",
       "voStatus": "todo",
@@ -1290,7 +1313,7 @@
       "rawSource": "VO: turns out a bunch of government officials kids are having skim practice in the abandoned hotels pool. Not as sinister as we thought, but much more bizarre. We continue our tour through these hotels"
     },
     {
-      "id": "sot_3v_1im3",
+      "id": "sot_3y_1o8e",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1306,7 +1329,7 @@
       "rawSource": "\\[Put this hotel’s visit next: 05:20:35:03\\] \\[JH ONCAM INTROING HOTEL 2 1. 05:21:25:18: JH on cam “here’s another one.. big epic hotel, landscaping"
     },
     {
-      "id": "broll_3w_51o",
+      "id": "broll_3z_anz",
       "type": "broll",
       "timecode": {
         "day": 2,
@@ -1322,7 +1345,7 @@
       "rawSource": "and grounds, but as you get closer you see that its also a ghost town” 2. Option two for into 05:26:00:18 you can choose which is best or put both in 05:26:24:08 good establishing of hotel 05:26:51:09 I really like the zoom out and “why do they leave the doors open??” All that camera movement is nice to keep in. 05:22:20:17 entering and cut through some shots of the inside. 05:24:07:20 JH “im out” then Jh reacts “these places are strange, what is going on here”"
     },
     {
-      "id": "sot_3x_wn1",
+      "id": "sot_40_129c",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1336,7 +1359,7 @@
       "rawSource": "\\[05:17:12:11 “this is nuts”\\]"
     },
     {
-      "id": "vo_3y_1o8e",
+      "id": "vo_41_1tup",
       "type": "vo",
       "text": "After a few of these empty hotels it hit me what’s going on here:",
       "voStatus": "todo",
@@ -1344,7 +1367,7 @@
       "rawSource": "VO: After a few of these empty hotels it hit me what’s going on here:"
     },
     {
-      "id": "sot_3z_anz",
+      "id": "sot_42_gaa",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1359,13 +1382,13 @@
       "rawSource": "\\[05:15:12:03: shots of the receptionists and then the big gran mural and JH sounds off on “this whole city is Burmese nationalism, we control our own destiny”"
     },
     {
-      "id": "vo_40_129c",
+      "id": "vo_43_17vn",
       "type": "vo",
       "text": "The regime isn’t just doing what bireme kings did in the past by building new capital to leave a legacy, they are also responding to 100 years of {TK elegant line or two that is a description of British Rule over them that produced a nationalist backlash, and weaving in some of the themes of insecurity and sovereignty} This isn’t a city meant for people, it’s a place meant to ensure people DONT gather, its security, propaganda, and the ritual power, expressed in concrete and urban planning”",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "tk_41_1tup",
+          "id": "tk_44_1zh0",
           "kind": "tk",
           "start": 146,
           "end": 320,
@@ -1375,14 +1398,14 @@
       "rawSource": "VO: The regime isn’t just doing what bireme kings did in the past by building new capital to leave a legacy, they are also responding to 100 years of {TK elegant line or two that is a description of British Rule over them that produced a nationalist backlash, and weaving in some of the themes of insecurity and sovereignty} This isn’t a city meant for people, it’s a place meant to ensure people DONT gather, its security, propaganda, and the ritual power, expressed in concrete and urban planning”"
     },
     {
-      "id": "sc_42_gaa",
+      "id": "sc_45_lwl",
       "type": "scene",
       "title": "Jamine Hotel \\[Ending the night at our hotel 05:37:40:06: un",
       "depth": 1,
       "rawSource": "⁃ SCENE: Jamine Hotel \\[Ending the night at our hotel 05:37:40:06: unwind in luxury we’re gunna unwind in luxury we’re staying at this hotel” ALT: 05:37:53:12\\] \\[05:38:05:18 JH “there’s hotels everywhere here”"
     },
     {
-      "id": "broll_43_17vn",
+      "id": "broll_46_1dhy",
       "type": "broll",
       "timecode": {
         "day": 1,
@@ -1398,13 +1421,13 @@
       "rawSource": "\\[approachign and entering hotel\\] \\[05:40:44:05 JH reacts, this is nice\\] \\[05:41:16:20 bell boy with bags//SWIPE to JH “im getting the white glove service here, but there’s no one in the lobby”\\] \\[cut to establishing of the lobby, note that some of it is after all the talking like at 05:44:55:10 and beyond \\] \\[05:46:51:07 JH “Oh Obama came here” \\[shot of Obama on the wall\\] \\[05:43:13:11 Drew “I can’t even grasp how nice it is in here” \\[mural on the wall, totally empty, guy serves us juice, cheers\\] \\[find shot of the piano empty and then 05:45:54:03 JH” is there any way I can play their piano?\\] \\[JH plays Piano, keep on string of audio and cut to multiple angles from drew clip. Only need 20 sec, make it a montage of the remaining establishing footage of the lobby. Kinda silly and surreal.\\] \\[end the piano scene by cutting to DAY 1 05:57:08:21 with JH jumping onto the bed and that’s the end of the scene.\\]"
     },
     {
-      "id": "vo_44_1zh0",
+      "id": "vo_47_253b",
       "type": "vo",
       "text": "\\[CUTS TO BLACK\\] VO: I went to bed thinking about what I saw today",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_45_lwl",
+          "id": "vis_48_riw",
           "kind": "visual",
           "start": 1,
           "end": 17,
@@ -1414,27 +1437,27 @@
       "rawSource": "\\[CUTS TO BLACK\\] VO: I went to bed thinking about what I saw today"
     },
     {
-      "id": "vo_46_1dhy",
+      "id": "vo_49_1j49",
       "type": "vo",
       "text": "\\[B roll of each like a dreamy recap\\]: VO: this situation, these long gas lines that {tk half line that explains why the shortage of gas like “these gas lines that result from the regime mismanaging the economy} this division, this endless civil war, the empty propaganda capital, this what the news wants you to think Myanmar is. \\[cut to black\\] But I came here not just to confirm those views. But to see another side of this country. One that doesn’t make the news but is as or MORE real than all the conflict. That’s my goal for the remainder of my time here",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_48_riw",
+          "id": "vis_4b_x57",
           "kind": "visual",
           "start": 1,
           "end": 38,
           "raw": "[B roll of each like a dreamy recap\\]"
         },
         {
-          "id": "tk_47_253b",
+          "id": "tk_4a_5ju",
           "kind": "tk",
           "start": 86,
           "end": 212,
           "raw": "{tk half line that explains why the shortage of gas like “these gas lines that result from the regime mismanaging the economy}"
         },
         {
-          "id": "vis_49_1j49",
+          "id": "vis_4c_1oqk",
           "kind": "visual",
           "start": 333,
           "end": 348,
@@ -1444,13 +1467,13 @@
       "rawSource": "\\[B roll of each like a dreamy recap\\]: VO: this situation, these long gas lines that {tk half line that explains why the shortage of gas like “these gas lines that result from the regime mismanaging the economy} this division, this endless civil war, the empty propaganda capital, this what the news wants you to think Myanmar is. \\[cut to black\\] But I came here not just to confirm those views. But to see another side of this country. One that doesn’t make the news but is as or MORE real than all the conflict. That’s my goal for the remainder of my time here"
     },
     {
-      "id": "vo_4a_5ju",
+      "id": "vo_4d_b65",
       "type": "vo",
       "text": "\\[Cut to driving and shot of JH pensively looking out window\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_4b_x57",
+          "id": "vis_4e_12ri",
           "kind": "visual",
           "start": 1,
           "end": 62,
@@ -1460,20 +1483,20 @@
       "rawSource": "\\[Cut to driving and shot of JH pensively looking out window\\]"
     },
     {
-      "id": "bin_4c_1oqk",
+      "id": "bin_4f_1ucv",
       "type": "bin",
       "text": "VO on our way out of town Jack says we have to see a few more the capitals top attractions, including the national zoo.",
       "rawSource": "VO on our way out of town Jack says we have to see a few more the capitals top attractions, including the national zoo."
     },
     {
-      "id": "sc_4d_b65",
+      "id": "sc_4g_gsg",
       "type": "scene",
       "title": "The Zoo \\[establishing of the Zoo: DAY 2 — 03:20:17:05 \\[B r",
       "depth": 1,
       "rawSource": "SCENE: The Zoo \\[establishing of the Zoo: DAY 2 — 03:20:17:05 \\[B roll of approach and then the panda dancer: DAY 2 — 03:16:28:00 \\[Then cut to 03:17:55:05 Jh says “Jezubah (thank you) and waves)\\] \\[cuts of empty empty empty stuff like 03:19:00:20, 03:19:18:02, 03:19:35:04\\]"
     },
     {
-      "id": "sot_4e_12ri",
+      "id": "sot_4h_18dt",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1489,20 +1512,20 @@
       "rawSource": "\\[JH selfie walk no talking\\] \\[Elephants first this : 03:22:32:05 and then: 03:23:32:17 , very short like cut in 8 seconds of the most descriptive clips, ditch most of the footage \\[Deer: 03:27:37:17 (again super short)\\] \\[REd Panda 03:28:57:20\\] \\[Lion yawning 03:31:25:03\\] \\[DAY 2 — 03:18:44:15 cut to this empty shot (no JH) to remind people how empty is is. \\[cut back to our guys as we’re leaving DAY 2 — 03:18:33:11 then this clip 03:34:24:12 waving and “thank you good bye” as they put on their costumes again 03:34:31:17 JH “Bye Boys...” \\[don’t cut clip\\] “…ok that’s the zoo”\\]"
     },
     {
-      "id": "sc_4f_1ucv",
+      "id": "sc_4i_1zz6",
       "type": "scene",
       "title": "(fake) PAGODA: DAY 2 02:45:36:15 JH runs into the scene",
       "depth": 1,
       "rawSource": "SCENE: (fake) PAGODA: DAY 2 02:45:36:15 JH runs into the scene. Cut to some shots of me and drew looking at it. And some B roll of the pagoda"
     },
     {
-      "id": "vo_4g_gsg",
+      "id": "vo_4j_mer",
       "type": "vo",
       "text": "and more holy site…like this ancient golden pagoda…that actually is totally fake. It’s a full sized replica of the real golden Pagoda I was just at… but its brand new\\[B roll of the real one from DAY 1\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_4h_18dt",
+          "id": "vis_4k_1e04",
           "kind": "visual",
           "start": 167,
           "end": 203,
@@ -1512,7 +1535,7 @@
       "rawSource": "VO: and more holy site…like this ancient golden pagoda…that actually is totally fake. It’s a full sized replica of the real golden Pagoda I was just at… but its brand new\\[B roll of the real one from DAY 1\\]"
     },
     {
-      "id": "vo_4i_1zz6",
+      "id": "vo_4l_fp",
       "type": "vo",
       "text": "but what’s absolutely not fake though is the generosity of these people which I see as locals walking by randomly decide to approach us offering us Mangos.",
       "voStatus": "todo",
@@ -1520,7 +1543,7 @@
       "rawSource": "VO: but what’s absolutely not fake though is the generosity of these people which I see as locals walking by randomly decide to approach us offering us Mangos."
     },
     {
-      "id": "sot_4j_mer",
+      "id": "sot_4m_s12",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1534,7 +1557,7 @@
       "rawSource": "DAY 2 02:46:27:23 \\[locals randomly give us mangos\\]"
     },
     {
-      "id": "sot_4k_1e04",
+      "id": "sot_4n_1jmf",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1550,7 +1573,7 @@
       "rawSource": "DAY 2 SOT 02:47:40:11 JH “so its one meter less than the original…” DAY 2 ONCAM 02:47:50:06 JH: “its not 1:1 replica its a 99:100” etc… 02:48:08:06 “this is Bizarre” VO: the newest addition is this huge set of monuments you can see from space. \\[sat photo of the buddha and worlds largest book, then establishing B roll\\]"
     },
     {
-      "id": "sot_4l_fp",
+      "id": "sot_4o_620",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1566,21 +1589,21 @@
       "rawSource": "DAY 2 JH ONCAM: 01:11:03:15 “yet another empty place”…01:11:11:16 “another incredibly stunning building:”…01:11:17:22 “the plastic is still on the seats” (few takes of that)"
     },
     {
-      "id": "sc_4m_s12",
+      "id": "sc_4p_xnd",
       "type": "scene",
       "title": "GIANT BUDDAH",
       "depth": 1,
       "rawSource": "⁃ SCENE: GIANT BUDDAH: \\[Cut selects of the best coverage of the giant Buddha\\] VO: This is a giant buddha a perfect replica of {TK holy site in TK location with one line of context on why its important} ⁃ \\[Sound up to the nun singing at 00:38:17:01\\]"
     },
     {
-      "id": "sc_4n_1jmf",
+      "id": "sc_4q_1p8q",
       "type": "scene",
       "title": "LARGEST BOOK (starts at DAY 2 00:55:58:00): VO: And right ne",
       "depth": 1,
       "rawSource": "⁃ SCENE: LARGEST BOOK (starts at DAY 2 00:55:58:00): VO: And right next to it the world largest book, that are a perfect replica of {TK monument that is in mandalay} ⁃ DAY 2 01:06:21:17 JH “rows and rows and rows of actually records,"
     },
     {
-      "id": "broll_4o_620",
+      "id": "broll_4r_bob",
       "type": "broll",
       "timecode": {
         "day": 2,
@@ -1596,13 +1619,13 @@
       "rawSource": "buddhist religious texts” … 01:06:30:18 the largest book in the world they call it and again this isn’t the real one, its just a replica ⁃ DAY 2 01:05:16:13 JH “it just sits here, not a soul in site” ⁃ the two fake moments are connected by a street called “Loyalist Street” \\[DAY 2 DAY 2 00:27:43:20 “B roll of “loyalist street”\\] ⁃ DAY 2 00:53:39:14 JH “just yestedday the military general who made this"
     },
     {
-      "id": "bin_4p_xnd",
+      "id": "bin_4s_139o",
       "type": "bin",
       "text": "happen was elected…sorry “elected” to be vice president. ...its beautiful but its a reminder that this place is ruled by generals who use this as vanity project",
       "rawSource": "happen was elected…sorry “elected” to be vice president. ...its beautiful but its a reminder that this place is ruled by generals who use this as vanity project"
     },
     {
-      "id": "sot_4q_1p8q",
+      "id": "sot_4t_1uv1",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1617,7 +1640,7 @@
       "rawSource": "VO: on my way out I get approached by a young university student DAY 2 SOT: 01:06:50:10 cut in small talk “im a uni student” ... 01:08:42:15 “I am 22” 01:09:15:21 SOT: “I am born here, I have never left this place…”"
     },
     {
-      "id": "vo_4r_bob",
+      "id": "vo_4u_ham",
       "type": "vo",
       "text": "We asked what he thinks of the new capital..",
       "voStatus": "todo",
@@ -1625,7 +1648,7 @@
       "rawSource": "VO: We asked what he thinks of the new capital.."
     },
     {
-      "id": "sot_4s_139o",
+      "id": "sot_4v_18vz",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1639,7 +1662,7 @@
       "rawSource": "DAY 2 SOT: 01:08:54:15 “it’s a really nice place…but as you see in the news.. you know..the news \\[gives a knowing glance…hold on his face and nod to get the full effect of the knowing self censoring, don’t cut away from him and let the VO play under while he looks for the next question\\]"
     },
     {
-      "id": "vo_4t_1uv1",
+      "id": "vo_4w_20hc",
       "type": "vo",
       "text": "He’s reminding us that there’s no talking politics here or anywhere.",
       "voStatus": "todo",
@@ -1647,19 +1670,19 @@
       "rawSource": "VO: He’s reminding us that there’s no talking politics here or anywhere."
     },
     {
-      "id": "bin_4u_ham",
+      "id": "bin_4x_mwx",
       "type": "bin",
       "text": "SOT: JH “are you hopeful? “ Yes because We are the youth, we are the only ones that can build this again...I wanna build myanmar with education and technology”",
       "rawSource": "SOT: JH “are you hopeful? “ Yes because We are the youth, we are the only ones that can build this again...I wanna build myanmar with education and technology”"
     },
     {
-      "id": "vo_4v_18vz",
+      "id": "vo_4y_1eia",
       "type": "vo",
       "text": "\\[stay on his face while he’s not talking. Music cue as we get into pensive mode\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_4w_20hc",
+          "id": "vis_4z_xv",
           "kind": "visual",
           "start": 1,
           "end": 82,
@@ -1669,7 +1692,7 @@
       "rawSource": "\\[stay on his face while he’s not talking. Music cue as we get into pensive mode\\]"
     },
     {
-      "id": "sot_4x_mwx",
+      "id": "sot_50_sj8",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1684,7 +1707,7 @@
       "rawSource": "\\[\\[JH walking, then 01:13:30:07 \\[giving badge back to military guy\\], JH in car, car driving, drone of driving, then inside of driving during this VO:\\]"
     },
     {
-      "id": "vo_4y_1eia",
+      "id": "vo_51_1k4l",
       "type": "vo",
       "text": "It was time to leave this place. To move away from the version of this country the government wants us to see. We drive for hours deep into the rural areas.",
       "voStatus": "todo",
@@ -1692,7 +1715,7 @@
       "rawSource": "VO: It was time to leave this place. To move away from the version of this country the government wants us to see. We drive for hours deep into the rural areas."
     },
     {
-      "id": "ch_4z_xv",
+      "id": "ch_52_6k6",
       "type": "chapter",
       "genre": "ground",
       "title": "GROUND 4",
@@ -1700,13 +1723,13 @@
       "rawSource": "CH: GROUND 4: RURAL BURMA"
     },
     {
-      "id": "bin_50_sj8",
+      "id": "bin_53_y5j",
       "type": "bin",
       "text": "Selects that will be useful for this chapter 1. Road Trip General: shots of outside the car. Shot of us in the car. Shots of",
       "rawSource": "Selects that will be useful for this chapter 1. Road Trip General: shots of outside the car. Shot of us in the car. Shots of"
     },
     {
-      "id": "sot_51_1k4l",
+      "id": "sot_54_1pqw",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1721,19 +1744,19 @@
       "rawSource": "the road trip going by (stuff like DAY 2 — 03:43:24:20) 1. Make sure to include some abstract camera motion like DAY 2 03:46:35:14"
     },
     {
-      "id": "bin_52_6k6",
+      "id": "bin_55_c6h",
       "type": "bin",
       "text": "where I pan the camera. That’s useful zest to add into the road trip montages. 2. People General: this will be useful general selects to have for other parts of",
       "rawSource": "where I pan the camera. That’s useful zest to add into the road trip montages. 2. People General: this will be useful general selects to have for other parts of"
     },
     {
-      "id": "bin_53_y5j",
+      "id": "bin_56_13ru",
       "type": "bin",
       "text": "the story and for show promo 1. This can include random scenes of people wide that dont have a clear",
       "rawSource": "the story and for show promo 1. This can include random scenes of people wide that dont have a clear"
     },
     {
-      "id": "sot_54_1pqw",
+      "id": "sot_57_1vd7",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1747,13 +1770,13 @@
       "rawSource": "place in any scene like DAY 2 — 03:49:13:13 3. RURAL GENERAL:"
     },
     {
-      "id": "bin_55_c6h",
+      "id": "bin_58_hss",
       "type": "bin",
       "text": "1\\. You still stumble upon some establishing shots of rural places (like DAY 3",
       "rawSource": "1\\. You still stumble upon some establishing shots of rural places (like DAY 3"
     },
     {
-      "id": "sot_56_13ru",
+      "id": "sot_59_19e5",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1767,7 +1790,7 @@
       "rawSource": "— 02:37:28:05) you can cut this into a rural general category 4. Military general (we’ll see military convoys and check points too like DAY 2"
     },
     {
-      "id": "sot_57_1vd7",
+      "id": "sot_5a_20zi",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1782,13 +1805,13 @@
       "rawSource": "— 03:54:03:04 and even little bits like DAY 2: 01:14:21:20. Keep an eye out )"
     },
     {
-      "id": "vo_58_hss",
+      "id": "vo_5b_nf3",
       "type": "vo",
       "text": "\\[Road Trip montage: 20-30 sec of misc road tripping vibes\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_59_19e5",
+          "id": "vis_5c_1f0g",
           "kind": "visual",
           "start": 1,
           "end": 60,
@@ -1798,7 +1821,7 @@
       "rawSource": "\\[Road Trip montage: 20-30 sec of misc road tripping vibes\\]"
     },
     {
-      "id": "broll_5a_20zi",
+      "id": "broll_5d_1g1",
       "type": "broll",
       "timecode": {
         "day": 3,
@@ -1812,7 +1835,7 @@
       "rawSource": "SCENE VILLAGE 1: This is a scene shot on day 3 that we are going to put here It starts at DAY 3 — 02:52:02:09 \\[cut in some establishing of the village. The cows. The house, the people cooking,\\]"
     },
     {
-      "id": "sot_5b_nf3",
+      "id": "sot_5e_t1e",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -1828,7 +1851,7 @@
       "rawSource": "Some establishing of the house I shot after so its at DAY 3 - 03:04:26:21 Some establishing of the man in his field DAY 3 -03:07:48:15 VO: we pull off in a random village and immediately are invited into a home. This family farms out here and is taking a break for lunch. DAY 3 - 02:55:54:12 JH ONCAM reacting to the house and vibes"
     },
     {
-      "id": "sot_5c_1f0g",
+      "id": "sot_5f_1kmr",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -1844,7 +1867,7 @@
       "rawSource": "VO: they invite us in where I get an answer to a question I’ve had since I got here which is THIS \\[show women/kids we’ve previous filmed with the sunscreen stuff on\\]. What exactly is it. inside this house I get my answer \\[we’re looking at DAY 3 — 02:57:07:20\\] 02:58:07:01JH “it comes from literal wood that they grind up, it products them from the sun and its expression of style and beauty as well” \\[ALT explanation on cam 03:01:32:12\\] \\[And during JH’s explanation we’re looking at b rolll from DAY 3 — 02:58:38:22 -02:59:46:02 of the process. -DAY 3 — 03:03:19:19 sunscreen face -DAY 3 — 03:03:06:01 waving goodbye"
     },
     {
-      "id": "broll_5d_1g1",
+      "id": "broll_5g_72c",
       "type": "broll",
       "timecode": {
         "day": 3,
@@ -1859,7 +1882,7 @@
       "rawSource": "Cut to the truck running at DAY 3 — 03:08:33:13 Establish this new group we’re talking to including close up on the people like DAY 3 — 03:10:17:06"
     },
     {
-      "id": "sot_5e_t1e",
+      "id": "sot_5h_ynp",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -1873,14 +1896,14 @@
       "rawSource": "VO: This guy is the village mechanic, \\[DAY 3— 03:13:09:20\\] and is telling us how he fixes cars and trucks with whatever parts he can get his hands on."
     },
     {
-      "id": "note_5f_1kmr",
+      "id": "note_5i_1q92",
       "type": "note",
       "text": "\\! NOTE \\[in addition to cutting this in, Bring this guy’s (03:12:55:04) SOTs over to a new sequence called “burmese translation” and lets output at the end for translation.",
       "done": false,
       "rawSource": "\\! NOTE \\[in addition to cutting this in, Bring this guy’s (03:12:55:04) SOTs over to a new sequence called “burmese translation” and lets output at the end for translation."
     },
     {
-      "id": "vo_5g_72c",
+      "id": "vo_5j_con",
       "type": "vo",
       "text": "and while he’s not clocked into the civil war or the geopolitics he still feels the effects of the military mis managing the economy",
       "voStatus": "todo",
@@ -1888,7 +1911,7 @@
       "rawSource": "VO: and while he’s not clocked into the civil war or the geopolitics he still feels the effects of the military mis managing the economy"
     },
     {
-      "id": "sot_5h_ynp",
+      "id": "sot_5k_14a0",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -1904,7 +1927,7 @@
       "rawSource": "03:13:44:04 Jack says “the price is going up right now” 03:13:48:16 - 03:14:06:04 talking about the price going up 5x 03:14:40:03 it just keeps going up"
     },
     {
-      "id": "sot_5i_1q92",
+      "id": "sot_5l_1vvd",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -1919,7 +1942,7 @@
       "rawSource": "03:15:11:03- 03:15:38:05 lets translate this too. I want to know what they are saying here"
     },
     {
-      "id": "sot_5j_con",
+      "id": "sot_5m_iay",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -1934,7 +1957,7 @@
       "rawSource": "DAY 3 — 03:16:50:23 make sure to cut clips like this into “people general” in addition to cutting it into this scene. And watch the clip the whole way thru looking for little moments of expression like at 03:17:40:05. Easy to miss little people general moments like 03:18:44:08"
     },
     {
-      "id": "sot_5k_14a0",
+      "id": "sot_5n_19wb",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -1950,7 +1973,7 @@
       "rawSource": "DAY 3 — JH ON CAM 03:22:44:17 - 03:23:34:10 this whole line"
     },
     {
-      "id": "broll_5l_1vvd",
+      "id": "broll_5o_21ho",
       "type": "broll",
       "timecode": {
         "day": 3,
@@ -1965,7 +1988,7 @@
       "rawSource": "\\[B roll of this : DAY 3 — 03:19:09:14 (cover a few clips of the guys playing cards), and more stuff from this little moment like 03:22:16:05 kids laughing. We say goodbye at 03:22:34:05. And more goodbyes at 03:23:55:22"
     },
     {
-      "id": "sot_5m_iay",
+      "id": "sot_5p_nx9",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -1980,7 +2003,7 @@
       "rawSource": "ALT:03:19:40:07 ‘here in this village people are just hangin gout playing card smoking cigs. Such good vibes….cut to DAY 3 — 03:21:45:19 life is hard, prices are going up. There’s a war here, but somehow they find a way to connect to laugh to play. And be together and it is a beautiful thing to see."
     },
     {
-      "id": "sot_5n_19wb",
+      "id": "sot_5q_1fim",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -1994,7 +2017,7 @@
       "rawSource": "\\[BACK TO THE ROAD TRIP more road trip montage vibes butting between b roll of car driving and little stop and on cam sound ups. \\] ⁃ \\[ B-ROLL of driving (tons of stuff around DAY 2 — 03:43:24:02 -"
     },
     {
-      "id": "broll_5o_21ho",
+      "id": "broll_5r_1y7",
       "type": "broll",
       "timecode": {
         "day": 2,
@@ -2009,13 +2032,13 @@
       "rawSource": "03:53:59:18, make sure all that is in road trip general in b roll selects sequence and you can put some of those clips throughout this section\\] ⁃ \\[ELEPHANTS IN THE TRUCK: DAY 2 — 03:35:49:21 \\] ⁃ \\[Abstract b roll like DAY 2 — 03:37:21:19 is actually really nice for this"
     },
     {
-      "id": "bin_5p_nx9",
+      "id": "bin_5s_tjk",
       "type": "bin",
       "text": "sequence\\]",
       "rawSource": "sequence\\]"
     },
     {
-      "id": "sot_5q_1fim",
+      "id": "sot_5t_1l4x",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -2029,7 +2052,7 @@
       "rawSource": "⁃ \\[Pit Stop Sound up : DAY 2 ---03:38:37:11 “little road side stop here. The"
     },
     {
-      "id": "sot_5r_1y7",
+      "id": "sot_5u_7ki",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -2045,21 +2068,21 @@
       "rawSource": "snack options are incredible” \\[b roll just cut thru some footage of snacks\\] really quick no need to cut in all the convo with Jack, and then at 03:41:15:06 we see that family running this.\\] ⁃ \\[And then at 03:41:46:09 we’re walking out and jack smiling \\] ⁃ \\[Then boom back the far driving \\] ⁃ \\[Few clips of JH eating snacks real quick like at 03:42:12:16 ⁃ \\[ DAY 2 SOT JH 03:42:34:07 “these cookies expired in November of 2025” ⁃ \\[More Driving\\] ⁃ \\[JH sleeping DAY 2 03:54:43:07\\] ⁃ \\[Very quick blast thru the meal at DAY 2 — 01:15:29:03 with stuff like “this tea is so good” and us eating noodles and reacting. you can also cut some of this footage into “Johnny General” selects”\\] ⁃ \\[Another big long line for gas, on cam and b roll: DAY 2 — 03:50:30:03\\]"
     },
     {
-      "id": "note_5s_tjk",
+      "id": "note_5v_z5v",
       "type": "note",
       "text": "\\! Note: footage from DAY 3 — 03:24:43:16 - 03:25:21:06 can just be used for people general and sunscreen/makeup imagery",
       "done": false,
       "rawSource": "\\! Note: footage from DAY 3 — 03:24:43:16 - 03:25:21:06 can just be used for people general and sunscreen/makeup imagery"
     },
     {
-      "id": "sc_5t_1l4x",
+      "id": "sc_5w_1qr8",
       "type": "scene",
       "title": "Capital Market: \\[DAY 2 01:44:12:16: this market b roll is v",
       "depth": 1,
       "rawSource": "SCENE: Capital Market: \\[DAY 2 01:44:12:16: this market b roll is very diverse and beautiful. Please cut together some selects of the best footage trying to get diversity of angles, movement, people, food, trying to capture the energy. You can put this in a general selects called “Capital Market General” and I may use that here for montage.\\] \\[Cut in any little soundbites like DAY 2: 02:05:43:18 “im in love with this energy\\! Everyone is smiling laughing and yelling at each other…. And 02:08:52:20 trying fruit and reacting\\]"
     },
     {
-      "id": "sot_5u_7ki",
+      "id": "sot_5x_d6t",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -2075,13 +2098,13 @@
       "rawSource": "\\[\\!PLEASE NOTE: the JH DJI Osmo footage starting at DAY 2 02:04:13:22 is in 60fps and can be slowed down (command R and change to 40%) try it out to see if some of that footage looks better in slow mo (the first clip in 60 is DJI\\_20260331210711\\_0195\\_D.MP4) Like the woman smiling and waving at DAY 2 02:12:36:13 looks great at 40% speed. \\]"
     },
     {
-      "id": "bin_5v_z5v",
+      "id": "bin_5y_14s6",
       "type": "bin",
       "text": "VO the Myanmar out here is the opposite of the desolate capital. people gather to buy and sell. To chat and gossip to laugh.",
       "rawSource": "VO the Myanmar out here is the opposite of the desolate capital. people gather to buy and sell. To chat and gossip to laugh."
     },
     {
-      "id": "sot_5w_1qr8",
+      "id": "sot_5z_1wdj",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -2096,19 +2119,19 @@
       "rawSource": "DAY 2 JH ON CAM02:17:09:07: “Jh talks about the abundance of this land”"
     },
     {
-      "id": "bin_5x_d6t",
+      "id": "bin_60_it4",
       "type": "bin",
       "text": "VO playing under the market scene: ‘And yes the presence of the military dictatorship is here in the form of a bunch of state controlled newspapers, but",
       "rawSource": "VO playing under the market scene: ‘And yes the presence of the military dictatorship is here in the form of a bunch of state controlled newspapers, but"
     },
     {
-      "id": "vo_5y_14s6",
+      "id": "vo_61_1aeh",
       "type": "vo",
       "text": "mostly these are people {TK help me write a summary that helps emphasize the fact that these people lives are affected. By but not entirely dictated by the regime}",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "tk_5z_1wdj",
+          "id": "tk_62_21zu",
           "kind": "tk",
           "start": 24,
           "end": 163,
@@ -2118,20 +2141,20 @@
       "rawSource": "mostly these are people {TK help me write a summary that helps emphasize the fact that these people lives are affected. By but not entirely dictated by the regime}"
     },
     {
-      "id": "note_60_it4",
+      "id": "note_63_off",
       "type": "note",
       "text": "\\[\\!NOTE Skip all golf footage, no need to select anything in\\] \\[\\!NOTE DAY 2 — 03:06:17:12 some good Johnny general for selects\\] \\[\\!NOTE DAY 2 — 03:08:51:05 good footage of JH and Drew in the car for selects sequence\\]",
       "done": false,
       "rawSource": "\\[\\!NOTE Skip all golf footage, no need to select anything in\\] \\[\\!NOTE DAY 2 — 03:06:17:12 some good Johnny general for selects\\] \\[\\!NOTE DAY 2 — 03:08:51:05 good footage of JH and Drew in the car for selects sequence\\]"
     },
     {
-      "id": "vo_61_1aeh",
+      "id": "vo_64_1g0s",
       "type": "vo",
       "text": "\\[micro-SCENE: 6 am elephant\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_62_21zu",
+          "id": "vis_65_2gd",
           "kind": "visual",
           "start": 1,
           "end": 30,
@@ -2141,14 +2164,14 @@
       "rawSource": "\\[micro-SCENE: 6 am elephant\\]"
     },
     {
-      "id": "sc_63_off",
+      "id": "sc_66_u1q",
       "type": "scene",
       "title": "VILLAGE 2",
       "depth": 1,
       "rawSource": "SCENE: VILLAGE 2: Village 2 starts at 03:26:23:12 ⁃ Cut together a little scene of: ⁃ Establihisng, ⁃ Kids on bike ⁃ Cows ⁃ Community gathering, smiling ⁃ Remember to add in “people general” ⁃ 03:36:23:19 shaking hands"
     },
     {
-      "id": "vo_64_1g0s",
+      "id": "vo_67_1ln3",
       "type": "vo",
       "text": "we stop off at another village and once again are warmly invited in anywhere we go.",
       "voStatus": "todo",
@@ -2156,7 +2179,7 @@
       "rawSource": "VO: we stop off at another village and once again are warmly invited in anywhere we go."
     },
     {
-      "id": "sot_65_2gd",
+      "id": "sot_68_82o",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -2171,7 +2194,7 @@
       "rawSource": "DAY 3 - 03:33:25:23 jack: “shes collecting fire wood for cooking” 03:33:32:02 add everythung she says to the Burmese translation sequence and add her to people general"
     },
     {
-      "id": "broll_66_u1q",
+      "id": "broll_69_zo1",
       "type": "broll",
       "timecode": {
         "day": 3,
@@ -2187,7 +2210,7 @@
       "rawSource": "Montage of the village, just pull out selects of visuals and some sound bites and reactions like: ⁃ 04:20:32:02 really good establishing of village ⁃ Playing this game 03:38:30:03 ⁃ 03:40:34:22 JH “what do they think of gas shortage” “… problem everyday” ⁃ In credible shot at 03:41:55:21 paired with 03:42:10:00 JH “we got a bunch of cattle coming thru” and cover the horse drawn carriage ⁃ The guys with two kids following us. 03:44:30:14 ⁃ JH reflection at 03:46:12:08"
     },
     {
-      "id": "broll_67_1ln3",
+      "id": "broll_6a_1r9e",
       "type": "broll",
       "timecode": {
         "day": 3,
@@ -2203,7 +2226,7 @@
       "rawSource": "⁃ 03:47:47:01 more establishing and people general ⁃ 03:47:56:15 add to translation sequence ⁃ 04:08:48:02 general Jh walks thru village ⁃ 04:19:38:16 drew and Johnny walk thru village ⁃ 04:12:16:15 JH “someone caught a pigeon” b roll of pigeon ⁃ 04:15:54:00 cat"
     },
     {
-      "id": "sot_68_82o",
+      "id": "sot_6b_doz",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -2219,19 +2242,19 @@
       "rawSource": "⁃ End with DAY 3 - 04:22:39:06 and add this clip to JH general selects category and show promo ⁃ DAY 3 - 04:25:46:02 not sure where to put this so you can just put in rural"
     },
     {
-      "id": "bin_69_zo1",
+      "id": "bin_6c_15ac",
       "type": "bin",
       "text": "general and people general",
       "rawSource": "general and people general"
     },
     {
-      "id": "bin_6a_1r9e",
+      "id": "bin_6d_1wvp",
       "type": "bin",
       "text": "We learn that this community is a mix of buddhists and muslims and we soon meet the imam of the local mosque",
       "rawSource": "We learn that this community is a mix of buddhists and muslims and we soon meet the imam of the local mosque"
     },
     {
-      "id": "broll_6b_doz",
+      "id": "broll_6e_jba",
       "type": "broll",
       "timecode": {
         "day": 3,
@@ -2246,7 +2269,7 @@
       "rawSource": "B roll: DAY 3 — 03:49:59:08 we meet the imam you can just cut in a few shot of him smiling and chatting 03:55:05:18 shows us the mosque"
     },
     {
-      "id": "vo_6c_15ac",
+      "id": "vo_6f_1awn",
       "type": "vo",
       "text": "and then something extraordinary happens. Jack who like us arrived randomly to this village for the first time. Doesn’t know anyone here, suddenly starts touching this mans belly. ⁃ I dont know where this part is cuz it’s on Drews camera but somewhere",
       "voStatus": "todo",
@@ -2254,7 +2277,7 @@
       "rawSource": "VO: and then something extraordinary happens. Jack who like us arrived randomly to this village for the first time. Doesn’t know anyone here, suddenly starts touching this mans belly. ⁃ I dont know where this part is cuz it’s on Drews camera but somewhere"
     },
     {
-      "id": "sot_6d_1wvp",
+      "id": "sot_6g_22i0",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -2270,7 +2293,7 @@
       "rawSource": "around DAY 3 — 04:16:36:13 where jack touches his belly and Jh asks why he’s doing it. ⁃ 04:17:37:23 jack explains that in a previous life they were brothers ⁃ 04:17:50:17 lets get this exchange translated ⁃ 04:18:14:10 JH “your brother\\!\\! Yeah my brother”"
     },
     {
-      "id": "sot_6e_jba",
+      "id": "sot_6h_oxl",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -2285,7 +2308,7 @@
       "rawSource": "DAY 3 — 03:57:52:12 JH ONCAM about the earthquake"
     },
     {
-      "id": "sot_6f_1awn",
+      "id": "sot_6i_1giy",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -2301,7 +2324,7 @@
       "rawSource": "⁃ 03:59:10:00 kids on bikes ⁃ 04:01:27:07 JH “talks about hats and Friday prayers"
     },
     {
-      "id": "sot_6g_22i0",
+      "id": "sot_6j_2yj",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -2315,7 +2338,7 @@
       "rawSource": "⁃ 04:11:36:19 lets get this woman’s SOTS translated"
     },
     {
-      "id": "broll_6h_oxl",
+      "id": "broll_6k_ujw",
       "type": "broll",
       "timecode": {
         "day": 3,
@@ -2330,13 +2353,13 @@
       "rawSource": "\\[More Road Trip\\] DAY 3 — 02:15:42:12 cut some selects that show the side of the road bread place and me and drew drinking tea. Much much shorter than what we have now . Very quick just b roll coverage and reaction. Cut in all the angles we shot of the scene including close ups like DAY 3 — 02:30:41:16"
     },
     {
-      "id": "vo_6i_1giy",
+      "id": "vo_6l_1m59",
       "type": "vo",
       "text": "\\[more driving\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_6j_2yj",
+          "id": "vis_6m_8ku",
           "kind": "visual",
           "start": 1,
           "end": 16,
@@ -2346,7 +2369,7 @@
       "rawSource": "\\[more driving\\]"
     },
     {
-      "id": "sot_6k_ujw",
+      "id": "sot_6n_1067",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -2362,7 +2385,7 @@
       "rawSource": "\\[Side the road ice cream: DAY 3 — 02:39:25:03\\] ⁃ \\! Dont forget to put DAY 3 — 02:39:32:20 into people general ⁃ DAY 3 — 02:41:44:12: JH tried ice cream"
     },
     {
-      "id": "sot_6l_1m59",
+      "id": "sot_6o_1rrk",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -2376,7 +2399,7 @@
       "rawSource": "\\[The scene around DAY 3 - 02:51:36:13 we dont need to include. You can just use that for rural general and people general\\]"
     },
     {
-      "id": "sot_6m_8ku",
+      "id": "sot_6p_e75",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -2390,7 +2413,7 @@
       "rawSource": "BAGAN starts at DAY 2 — 03:59:41:17"
     },
     {
-      "id": "broll_6n_1067",
+      "id": "broll_6q_15si",
       "type": "broll",
       "timecode": {
         "day": 2,
@@ -2404,7 +2427,7 @@
       "rawSource": "There is also some temple b roll from Bagan on DAY 2 — 01:28:50:05"
     },
     {
-      "id": "sot_6o_1rrk",
+      "id": "sot_6r_1xdv",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -2419,7 +2442,7 @@
       "rawSource": "Some Jack SOTs ⁃ DAY 2 — 05:37:02:16 “bagan is the beginning of myanmar literature, and"
     },
     {
-      "id": "sot_6p_e75",
+      "id": "sot_6s_jtg",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -2433,14 +2456,14 @@
       "rawSource": "culture and etc…05:37:27:07 “dating back to 11th century”"
     },
     {
-      "id": "sc_6q_15si",
+      "id": "sc_6t_1bet",
       "type": "scene",
       "title": "\\[SCENE",
       "depth": 1,
       "rawSource": "\\[SCENE: Meditation\\] \\[general driving VO: something a of you asked when I told you you I was headed to Myanmar is how can country that is known for so much violence, violence against the Rohingya, violence in a civilal war, how can that be associated with buddhism which teaches non-violence and peace. I thought a lot about that as I roamed this country."
     },
     {
-      "id": "broll_6r_1xdv",
+      "id": "broll_6u_2306",
       "type": "broll",
       "timecode": {
         "day": 3,
@@ -2456,7 +2479,7 @@
       "rawSource": "⁃ DAY 3 — 02:07:06:08 -JH reading ⁃ 02:08:18:12 tight shot ⁃ DAY 3 — 01:28:36:22 monks walking ⁃ DAY 3 — 02:05:10:10 establishing the monk and monestrary ⁃ DAY 3 — 02:06:02:19 “we have come to a monestraary ⁃ DAY 3 - 02:06:16:20 “the monks here are going to let us…sit in a"
     },
     {
-      "id": "broll_6s_jtg",
+      "id": "broll_6v_pfr",
       "type": "broll",
       "timecode": {
         "day": 3,
@@ -2471,13 +2494,13 @@
       "rawSource": "meditation with them. I’ve been practicing meditation and Buddhism for the last three years and ive never done it in a formal setting before.. ⁃ DAY 3 — 01:36:38:17 walking into a cave monestrary ⁃ 01:37:12:18 nice b roll of wandering thru the cave, 01:37:41:06 jack"
     },
     {
-      "id": "bin_6t_1bet",
+      "id": "bin_6w_1h14",
       "type": "bin",
       "text": "showing",
       "rawSource": "showing"
     },
     {
-      "id": "sot_6u_2306",
+      "id": "sot_6x_3gp",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -2491,21 +2514,21 @@
       "rawSource": "⁃ We start mediating at 01:42:00:13 ⁃ There’s way too much footage of this. Just get a few clear angles of the"
     },
     {
-      "id": "note_6v_pfr",
+      "id": "note_6y_v22",
       "type": "note",
       "text": "meditation and the afterwards reactions. Fish out some audio of the monk’s guiding words ⁃ JACK SOTS: ⁃ DAY 3 02:04:34:03 “the breath supporting your coming down moments right?” “Yeah I could feel it” ⁃ DAY 3 02:04:46:18 “no more worries no more traveling your ind doesn’t travel the you focus on getting here a moment its… totally nothing ⁃\\[SCENE: Hot Air Balloon over Bagan\\] \\!NOTE: all my footage is 60 fps, keep that in mind if you want to slow stuff down especially the jack reaction. Or to stabilize some shots. VO: Jack, who studied history and loves his country so much, we took him up in the hot airbaloon over Bagan something he had never done before. DAY 2 — 01:17:52:20 really sweet shot of jack beaming (60 fps) DAY 2 — 01:27:44:18 really good portrait of jack (slow down if 60fps)",
       "done": false,
       "rawSource": "meditation and the afterwards reactions. Fish out some audio of the monk’s guiding words ⁃ JACK SOTS: ⁃ DAY 3 02:04:34:03 “the breath supporting your coming down moments right?” “Yeah I could feel it” ⁃ DAY 3 02:04:46:18 “no more worries no more traveling your ind doesn’t travel the you focus on getting here a moment its… totally nothing ⁃\\[SCENE: Hot Air Balloon over Bagan\\] \\!NOTE: all my footage is 60 fps, keep that in mind if you want to slow stuff down especially the jack reaction. Or to stabilize some shots. VO: Jack, who studied history and loves his country so much, we took him up in the hot airbaloon over Bagan something he had never done before. DAY 2 — 01:17:52:20 really sweet shot of jack beaming (60 fps) DAY 2 — 01:27:44:18 really good portrait of jack (slow down if 60fps)"
     },
     {
-      "id": "sc_6w_1h14",
+      "id": "sc_6z_1mnf",
       "type": "scene",
       "title": "Dinner and Beer",
       "depth": 1,
       "rawSource": "SCENE: Dinner and Beer. (Nice little alt angle for B roll at 05:51:21:14 secondary camera) ⁃ Cheers starts at DAY 2 — 05:23:26:22 ⁃ 05:26:03:06 JACK “ Conetments is the wealthiest, how do you get"
     },
     {
-      "id": "sot_6x_3gp",
+      "id": "sot_70_930",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -2520,7 +2543,7 @@
       "rawSource": "contemned. JACK: “every village has no proper roads, no bicycle. Every day I walked two house to get to my school...please try this”.. ⁃ VO: Jack pauses his wisdom to introduce us to his special recipe he has the restaurant make: ⁃ 05:27:15:15 = new angle and trying new food its really good what is it."
     },
     {
-      "id": "sot_6y_v22",
+      "id": "sot_71_10od",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -2536,7 +2559,7 @@
       "rawSource": "“Crunch beans onion and lime juice, and peanut wine, a little bit” … 05:27:34:19 JH: “so yo had to walk two hours to get to school…” “yes and then I walk home another two hours..util like grade 8” ⁃ 05:28:33:23: JACK “have you ever lived without electricity, have you ever"
     },
     {
-      "id": "sot_6z_1mnf",
+      "id": "sot_72_1s9q",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -2550,13 +2573,13 @@
       "rawSource": "lived without piped water...when I was little I had to carry water for my family ⁃ 05:29:52:16 “actually buddha teaches not to be greedy. Yo have one"
     },
     {
-      "id": "bin_70_930",
+      "id": "bin_73_epb",
       "type": "bin",
       "text": "camera but drew has two camera and still not happy you only have one camera no\\! Contentment\\! Our greed is non stop",
       "rawSource": "camera but drew has two camera and still not happy you only have one camera no\\! Contentment\\! Our greed is non stop"
     },
     {
-      "id": "sot_71_10od",
+      "id": "sot_74_16ao",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -2572,19 +2595,19 @@
       "rawSource": "⁃ 05:30:21:05 “Buddha said no matter what you will never stop unless you are content with what you have” ⁃ 05:30:33:11 “contentment is the wealthiest” ⁃ 05:41:13:20 “patience is also a part of happiness, be patient. , understand all forgive all…understand all forgive all ⁃ After dispensing buddhist wisdom over this incredible meal, jack finishes the night off with a mysterious food he’s calling… ⁃ 05:47:10:22 “sleeping pill” for sleep easy. Sleeping pill?… this is black soya bean paste. It makes you fall asleep.. ⁃ Nice smiling happy vibes at 05:54:57:21 ⁃ 05:54:59:16 JACK: “please fall in love with our country even more” “oh I have” ⁃ 05:55:38:13 “I tried to convince him and Burma is the bEst\\! ⁃ 05:55:15:06 “I might win the lottery. If I win, ill invite you too come back for forty day trip ⁃\\[FINAL THOUGHTS FROM JH: DAY 3 — 04:35:38:03\\]"
     },
     {
-      "id": "bin_72_1s9q",
+      "id": "bin_75_1xw1",
       "type": "bin",
       "text": "\\_\\_\\_\\_THE END OF SCRIPT\\_\\_\\_\\_\\_",
       "rawSource": "\\_\\_\\_\\_THE END OF SCRIPT\\_\\_\\_\\_\\_"
     },
     {
-      "id": "jh_73_epb",
+      "id": "jh_76_kbm",
       "type": "jh-note",
       "text": "NOTES:",
       "rawSource": "NOTES:"
     },
     {
-      "id": "sot_74_16ao",
+      "id": "sot_77_1bwz",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -2600,7 +2623,7 @@
       "rawSource": "SOT BOX Day 1 string out 02:49:30:08 “the generals act like king he wants to bring a blessing he wants his own milestone so in the future they will say”this general built a new capital city wow he is a great guy” Day 1 string out 02:49:58:15 JACK “when a new king comes in they CHANGE the capital city” jh “wow lots of start new… do it different”"
     },
     {
-      "id": "sot_75_1xw1",
+      "id": "sot_78_23ic",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -2615,7 +2638,7 @@
       "rawSource": "Day 1 string out 02:50:47:00 “they want to be free of external influence...02:51:14:21 he wants to get away form the British influence”"
     },
     {
-      "id": "sot_76_kbm",
+      "id": "sot_79_pxx",
       "type": "sot",
       "timecode": {
         "day": 1,
@@ -2629,7 +2652,7 @@
       "rawSource": "Day 1 string out 02:55:20:03 “seeing is believing. Most of myanmar is safe and peaceful"
     },
     {
-      "id": "sot_77_1bwz",
+      "id": "sot_7a_1hja",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -2644,7 +2667,7 @@
       "rawSource": "DAY 2 SOT 01:13:48:12 Jack “all the kings were always competing on who could do a better job of building temples"
     },
     {
-      "id": "sot_78_23ic",
+      "id": "sot_7b_3yv",
       "type": "sot",
       "timecode": {
         "day": 2,
@@ -2659,7 +2682,7 @@
       "rawSource": "DAY 2 SOT — 05:09:56:10 Jack talks about pride in his country and work and desire to promote the country"
     },
     {
-      "id": "sot_79_pxx",
+      "id": "sot_7c_vk8",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -2674,7 +2697,7 @@
       "rawSource": "DAY 3 — 02:22:43:07 JACK WISDOM: “just live your live today wisely meaningfully and peacefully we cannot control everything. Just be happy and live today.”"
     },
     {
-      "id": "sot_7a_1hja",
+      "id": "sot_7d_1n5l",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -2689,7 +2712,7 @@
       "rawSource": "DAY 3 — 02:26:45:07 JACK WISDOM: everything is permanent let it go just focus on what you are doing, you are nothing. No selfish, no greed no wanting… lets it go peacefully ,. Let it be..like this way"
     },
     {
-      "id": "sot_7b_3yv",
+      "id": "sot_7e_9l6",
       "type": "sot",
       "timecode": {
         "day": 3,
@@ -2704,31 +2727,31 @@
       "rawSource": "DAY 3 — 02:28:42:08 JH “and in a place where there’s a war happening the fact that they can find so much peace and happiness, there’s a lesson for all of us there."
     },
     {
-      "id": "bin_7c_vk8",
+      "id": "bin_7f_116j",
       "type": "bin",
       "text": "WORDS WORDS WORD",
       "rawSource": "WORDS WORDS WORD"
     },
     {
-      "id": "bin_7d_1n5l",
+      "id": "bin_7g_1srw",
       "type": "bin",
       "text": "JH: “The temples are not an alternative politics. They are a reminder that Myanmar has always been more than the armed men who claim to govern it”",
       "rawSource": "JH: “The temples are not an alternative politics. They are a reminder that Myanmar has always been more than the armed men who claim to govern it”"
     },
     {
-      "id": "bin_7e_9l6",
+      "id": "bin_7h_f7h",
       "type": "bin",
       "text": "JH “And yet Myanmar cannot be understood through war alone. Buddhism is not a wallpaper in this story; it is one of the active",
       "rawSource": "JH “And yet Myanmar cannot be understood through war alone. Buddhism is not a wallpaper in this story; it is one of the active"
     },
     {
-      "id": "vo_7f_116j",
+      "id": "vo_7i_16su",
       "type": "vo",
       "text": "languages through which authority, resistance, duty, and daily life are imagined.” \\[CIATION: Matthew J. Walton argues that Theravada Buddhism has provided both raw materials and a conceptual framework for politics in Myanmar, helping people defend authority, contest authority, and imagine forms of democratic morality. Jayde Lin Roberts, writing on Mandalay, shows how neighborhood life coheres around dhamma halls and moral relations that cross official ward boundaries; municipal authority may be inconsistent, but moral authority remains powerfully social. In the nineteenth century, during King Mindon’s reign in Mandalay, political instability and religious merit-making were not opposites: they were intertwined. The city of Buddhism was also a city of strategy. To say that Myanmar is spiritual, then, is true only if one also says that spirituality there has always lived close to politics, sometimes as conscience, sometimes as legitimacy, sometimes—dangerously—as ethnoreligious exclusion.\\]",
       "voStatus": "todo",
       "spans": [
         {
-          "id": "vis_7g_1srw",
+          "id": "vis_7j_1ye7",
           "kind": "visual",
           "start": 84,
           "end": 1003,
@@ -2738,37 +2761,37 @@
       "rawSource": "languages through which authority, resistance, duty, and daily life are imagined.” \\[CIATION: Matthew J. Walton argues that Theravada Buddhism has provided both raw materials and a conceptual framework for politics in Myanmar, helping people defend authority, contest authority, and imagine forms of democratic morality. Jayde Lin Roberts, writing on Mandalay, shows how neighborhood life coheres around dhamma halls and moral relations that cross official ward boundaries; municipal authority may be inconsistent, but moral authority remains powerfully social. In the nineteenth century, during King Mindon’s reign in Mandalay, political instability and religious merit-making were not opposites: they were intertwined. The city of Buddhism was also a city of strategy. To say that Myanmar is spiritual, then, is true only if one also says that spirituality there has always lived close to politics, sometimes as conscience, sometimes as legitimacy, sometimes—dangerously—as ethnoreligious exclusion.\\]"
     },
     {
-      "id": "bin_7h_f7h",
+      "id": "bin_7k_kts",
       "type": "bin",
       "text": "JH: “How can all that coexist with temples, Buddhist spirituality, and human warmth? Because these traditions, these spaces, these communities are the country’s parallel infrastructures of meaning, refuge, and endurance. This is a society that has had to build their own moral worlds, in monasteries, tea shops, village networks, and sacred landscapes, precisely because its government has so often failed to provide TKKTK TK",
       "rawSource": "JH: “How can all that coexist with temples, Buddhist spirituality, and human warmth? Because these traditions, these spaces, these communities are the country’s parallel infrastructures of meaning, refuge, and endurance. This is a society that has had to build their own moral worlds, in monasteries, tea shops, village networks, and sacred landscapes, precisely because its government has so often failed to provide TKKTK TK"
     },
     {
-      "id": "bin_7i_16su",
+      "id": "bin_7l_1cf5",
       "type": "bin",
       "text": "JH “These spiritual places, these practices, they preserve a civilizational depth that makes the modern nation-state seem, by comparison, recent and unfinished. They are the refuge ad meaning the safety, the support that holds these people up while their country continues to be stolen by the British before and now the generals.”",
       "rawSource": "JH “These spiritual places, these practices, they preserve a civilizational depth that makes the modern nation-state seem, by comparison, recent and unfinished. They are the refuge ad meaning the safety, the support that holds these people up while their country continues to be stolen by the British before and now the generals.”"
     },
     {
-      "id": "bin_7j_1ye7",
+      "id": "bin_7m_240i",
       "type": "bin",
       "text": "JH “empty modern avenues built for command, and sacred landscapes built to thicken the world with devotion. The",
       "rawSource": "JH “empty modern avenues built for command, and sacred landscapes built to thicken the world with devotion. The"
     },
     {
-      "id": "bin_7k_kts",
+      "id": "bin_7n_qg3",
       "type": "bin",
       "text": "country’s present is intelligible only if we hold both images at once”",
       "rawSource": "country’s present is intelligible only if we hold both images at once”"
     },
     {
-      "id": "bin_7l_1cf5",
+      "id": "bin_7o_1i1g",
       "type": "bin",
       "text": "JH “So why is Myanmar so divided? Because the state has repeatedly been built as though pluralism were a threat to be managed rather than a fact to be honored.”",
       "rawSource": "JH “So why is Myanmar so divided? Because the state has repeatedly been built as though pluralism were a threat to be managed rather than a fact to be honored.”"
     },
     {
-      "id": "arc_7m_240i",
+      "id": "arc_7p_4h1",
       "type": "archive-req",
       "title": "Archive request",
       "text": "• ⁃ Archive: 1966 The Unknown War : 5:09 shot of rice girl and the shot that floats to the second floor.",
