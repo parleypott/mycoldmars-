@@ -165,6 +165,35 @@ h2.sec{font-family:"Fraunces",serif; font-weight:300; font-size:30px; margin:0; 
 .empty{border:1px dashed var(--line); border-radius:14px; padding:34px; text-align:center; color:var(--mut); font-family:"Space Mono",monospace; font-size:13px; letter-spacing:.05em}
 .empty .big{font-family:"Fraunces",serif; font-size:24px; color:#cabfac; letter-spacing:0; text-transform:none; margin:0 0 8px; display:block}
 
+/* ---- drafting bench ---- */
+.bench{border:1px solid #5a4f42; border-radius:14px; padding:24px 26px 22px; margin:0 0 30px; background:var(--wall2)}
+.bench.empty-state{display:none}
+.bench-head{display:flex; justify-content:space-between; align-items:baseline; gap:14px; flex-wrap:wrap; margin:0 0 4px}
+.bench-head h3{font-family:"Fraunces",serif; font-weight:400; font-size:22px; margin:0; color:#f3e6d0}
+.bench-head .count{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold)}
+.bench-sub{font-size:14.5px; color:#cabfac; margin:0 0 18px; max-width:620px}
+.bench-chips{display:flex; flex-direction:column; gap:10px; margin:0 0 20px}
+.bchip{display:flex; align-items:center; gap:14px; background:rgba(20,13,9,.42); border:1px solid var(--line); border-radius:10px; padding:11px 13px}
+.bchip .strip{display:flex; gap:0; flex:0 0 auto; border-radius:4px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.bchip .strip i{width:15px; height:24px; display:block}
+.bchip .info{flex:1; min-width:0}
+.bchip .info .nm{font-family:"Fraunces",serif; font-size:17px; color:#f3e6d0; line-height:1.1}
+.bchip .info .er{font-family:"Space Mono",monospace; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--mut)}
+.bchip .rm{font-family:"Space Mono",monospace; font-size:16px; line-height:1; color:var(--mut); background:none; border:0; cursor:pointer; padding:6px 8px; border-radius:6px; transition:.15s}
+.bchip .rm:hover{color:#e29; background:rgba(226,153,153,.08)}
+.bench-merged{margin:0 0 20px}
+.bench-merged .ml{font-family:"Space Mono",monospace; font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--mut); margin:0 0 8px}
+.bench-merged .row{display:flex; gap:5px; flex-wrap:wrap}
+.bench-merged .row span{width:24px; height:24px; border-radius:5px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.bench-actions{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+.bench-actions .go{font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.06em; text-transform:uppercase; font-weight:700;
+  background:var(--gold); color:#1a1208; border:0; border-radius:9px; padding:13px 18px; cursor:pointer; transition:transform .15s, box-shadow .15s; box-shadow:0 5px 0 #8a6420}
+.bench-actions .go:hover{transform:translateY(-2px); box-shadow:0 7px 0 #8a6420}
+.bench-actions .go:active{transform:translateY(3px); box-shadow:0 2px 0 #8a6420}
+.bench-actions .clr{font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+  background:none; color:var(--mut); border:1px solid var(--line); border-radius:9px; padding:12px 15px; cursor:pointer; transition:.15s}
+.bench-actions .clr:hover{color:#e29; border-color:#5a4f42}
+
 footer{border-top:1px solid var(--line); padding:30px 0 60px; color:var(--mut); font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.04em; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
 
 /* toast */
@@ -207,6 +236,21 @@ footer{border-top:1px solid var(--line); padding:30px 0 60px; color:var(--mut); 
     <div class="panel-intro kingdom-head">
       <div><h2 class="sec">Taste Kingdom</h2></div>
       <p>The chosen profiles, locked. Each one is a real swatch of the vibe and a downloadable card you hand any agent to invoke it.</p>
+    </div>
+
+    <!-- DRAFTING BENCH -->
+    <div class="bench empty-state" id="bench">
+      <div class="bench-head">
+        <h3>On the drafting bench</h3>
+        <span class="count" id="benchCount"></span>
+      </div>
+      <p class="bench-sub">The traditions you've sent over from the Glossary — the raw lineage for the next profile. Blend them, then copy a starter prompt you can hand any agent to draft the card.</p>
+      <div class="bench-chips" id="benchChips"></div>
+      <div class="bench-merged" id="benchMerged"></div>
+      <div class="bench-actions">
+        <button class="go" id="benchCopy">⧉ copy starter prompt</button>
+        <button class="clr" id="benchClear">clear bench</button>
+      </div>
     </div>
 
     <!-- TEENAGE SOUL ROOM -->
@@ -362,7 +406,49 @@ tabs.glossary.onclick=()=>show('glossary');
 tabs.kingdom.onclick=()=>show('kingdom');
 if(location.hash==='#kingdom') show('kingdom');
 
-function sendToKingdom(name){ show('kingdom'); toast('“'+name+'” noted — a base for the next profile'); window.scrollTo({top:document.querySelector('.empty').offsetTop-200, behavior:'smooth'}); }
+/* ---------- drafting bench ---------- */
+const BENCH_KEY='glossary-bench:v1';
+const benchEl=document.getElementById('bench');
+const benchChips=document.getElementById('benchChips');
+const benchMerged=document.getElementById('benchMerged');
+const benchCount=document.getElementById('benchCount');
+function loadBench(){ try{ return JSON.parse(localStorage.getItem(BENCH_KEY)||'[]'); }catch(e){ return []; } }
+function saveBench(list){ try{ localStorage.setItem(BENCH_KEY, JSON.stringify(list)); }catch(e){} }
+function benchTraditions(){ const names=loadBench(); return names.map(n=>TRADITIONS.find(t=>t.name===n)).filter(Boolean); }
+function renderBench(){
+  const chosen=benchTraditions();
+  benchEl.classList.toggle('empty-state', chosen.length===0);
+  benchCount.textContent = chosen.length ? chosen.length+(chosen.length===1?' base':' bases') : '';
+  benchChips.innerHTML = chosen.map(t=>`
+    <div class="bchip">
+      <div class="strip">${t.pal.map(c=>`<i style="background:${c}"></i>`).join('')}</div>
+      <div class="info"><div class="nm">${t.name}</div><div class="er">${t.era}</div></div>
+      <button class="rm" data-name="${t.name}" title="remove">✕</button>
+    </div>`).join('');
+  benchChips.querySelectorAll('.rm').forEach(b=> b.onclick=()=>removeFromBench(b.dataset.name));
+  const merged=[...new Set(chosen.flatMap(t=>t.pal))];
+  benchMerged.innerHTML = merged.length ? `<p class="ml">merged palette · ${merged.length} colors</p><div class="row">${merged.map(c=>`<span style="background:${c}" title="${c}"></span>`).join('')}</div>` : '';
+}
+function addToBench(name){ const list=loadBench(); if(!list.includes(name)) list.push(name); saveBench(list); renderBench(); }
+function removeFromBench(name){ saveBench(loadBench().filter(n=>n!==name)); renderBench(); }
+function clearBench(){ saveBench([]); renderBench(); toast('bench cleared'); }
+function starterPrompt(){
+  const chosen=benchTraditions();
+  if(!chosen.length) return '';
+  const lineage = chosen.map(t=>`- **${t.name}** (${t.era}) — ${t.ess} Masters: ${t.masters}. Palette: ${t.pal.join(', ')}. Feels like: "${t.feels}".`).join('\n');
+  const merged=[...new Set(chosen.flatMap(t=>t.pal))].join(', ');
+  return `Draft a new Taste Card for mycoldmars' Glossary by blending these design traditions into one coherent profile.\n\nLineage to blend:\n${lineage}\n\nCombined palette to draw from: ${merged}\n\nFollow the exact format of the existing card at /glossary/cards/teenage-soul.taste.md: an invocation line, "The feeling" (one evocative paragraph + mood words), a Palette table (swatch · name · hex · use, with a discipline note), Type (display/body/hand with a pairing rule), Texture & treatment, Motion, Do/Don't, Lineage, and a "For the agent — when invoked" checklist. Keep it warm and specific, never generic. Name the profile, give it one held accent color, and write it so any agent can build in this taste from the card alone.`;
+}
+function copyStarter(){
+  const p=starterPrompt();
+  if(!p){ toast('add a tradition first'); return; }
+  navigator.clipboard?.writeText(p).then(()=>toast('starter prompt copied — hand it to any agent'), ()=>toast('copy failed — select & copy manually'));
+}
+document.getElementById('benchClear').onclick=clearBench;
+document.getElementById('benchCopy').onclick=copyStarter;
+renderBench();
+
+function sendToKingdom(name){ addToBench(name); show('kingdom'); toast('“'+name+'” added to the bench'); benchEl.scrollIntoView({behavior:'smooth', block:'center'}); }
 
 /* ---------- toast ---------- */
 let tt; const toastEl=document.getElementById('toast');
