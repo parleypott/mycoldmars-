@@ -40,8 +40,8 @@ function makeSpine(editor, getPos) {
   // tracks reorder/insert without us threading an index through the NodeView.
   const cap = el('div', 'wp-cap-num');
 
-  // ⠿ grip — the real drag handle. Also the "+ insert below" lives on alt-click / the
-  // block menu so the spine stays clean (just the grip glyph).
+  // ⠿ grip — the real drag handle. A plain click opens the block menu (change type /
+  // insert below / delete); a drag reorders. The spine stays clean (just the grip glyph).
   const grip = el('button', 'wp-grip', {
     type: 'button', contenteditable: 'false', 'data-drag-handle': '', draggable: 'true',
     title: 'Drag to move · click for menu', 'aria-label': 'Move or open block menu', tabindex: '-1',
@@ -188,9 +188,9 @@ function setAttr(editor, getPos, patch) {
   view.dispatch(state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...patch }));
 }
 
-// Shared cartridge shell: [spine][ ...head/body ]. `bodyChildren` are non-editable chrome
-// rows prepended inside the body before the editable contentDOM (the REC row, the
-// timecode head, the kind label). The editable hole is always `.wp-body`.
+// Shared cartridge shell: [spine][ ...head/body ]. `headChildren` are non-editable chrome
+// rows prepended inside the body before the editable contentDOM (the REC row, the kind
+// label). The editable hole is always `.wp-body`.
 function cartridge({ blockClass, dataAttr, node, editor, getPos, headChildren, bodyClass }) {
   const dom = el('div', 'wp-cart ' + blockClass);
   dom.setAttribute(dataAttr, '');
@@ -309,11 +309,15 @@ export const VoBlock = Node.create({
         rec.setAttribute('data-status', st);
       };
       paint(status0);
-      rec.addEventListener('mousedown', (e) => {
+      const cycle = (e) => {
         e.preventDefault();
         const cur = editor.state.doc.nodeAt(getPos())?.attrs.status || 'todo';
         setAttr(editor, getPos, { status: VO_ORDER[(VO_ORDER.indexOf(cur) + 1) % VO_ORDER.length] });
-      });
+      };
+      // mousedown for the snappy feel; click as a fallback so programmatic / AT-driven
+      // activation (a synthetic click with no preceding mousedown) can't be dropped.
+      rec.addEventListener('mousedown', cycle);
+      rec.addEventListener('click', (e) => { e.preventDefault(); });
       head.appendChild(rec);
 
       const view = cartridge({ blockClass: 'wp-vo', dataAttr: 'data-vo', node, editor, getPos, headChildren: [head] });
@@ -332,7 +336,7 @@ export const VoBlock = Node.create({
   },
 });
 
-// --- ONCAM — editable prose, marked on-camera (light cartridge) ---
+// --- ONCAM — editable prose, marked on-camera (light cartridge, blue cap) ---
 export const OncamBlock = Node.create({
   name: 'oncamBlock',
   group: 'block',

@@ -10,6 +10,8 @@
    Fonts: JetBrains Mono (chrome / labels / timecode) + Helvetica Neue (prose).
    ============================================================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+
 :root {
   --page:      #e7e1d3;  /* page behind the frame */
   --frame:     #efeadd;  /* device frame / paper */
@@ -382,7 +384,7 @@ body {
   position: fixed; top: 0; left: 0; z-index: 160; width: 280px; height: 100vh;
   background: var(--frame); border-right: 2px solid var(--ink);
   padding: 22px 18px 26px; display: flex; flex-direction: column; gap: 12px;
-  transform: translateX(-100%); transition: transform .22s var(--ease);
+  transform: translateX(-100%);
   overflow: hidden;
   /* default-hidden: inert + non-interactive while slid off-screen so its focusable
      outline buttons can't catch keyboard focus or pointer events behind the page. */
@@ -558,7 +560,6 @@ body {
   .wp-rack-head { flex-direction: column; align-items: flex-start; gap: 8px; }
   .wp-workshop, .wp-outline { width: 100%; }
   .wp-sot .wp-cart-body.wp-sot-grid { grid-template-columns: 1fr; gap: 9px; }
-  .wp-workshop { width: 100%; }
 }
 
 /* ============================================================

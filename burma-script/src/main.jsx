@@ -52,7 +52,7 @@ function OutlinePanel({ items, open, onClose }) {
   };
 
   return (
-    <aside class={`wp-outline${open ? ' is-open' : ''}`} aria-hidden={!open}>
+    <aside class={`wp-outline${open ? ' is-open' : ''}`} aria-hidden={!open} inert={open ? undefined : ''}>
       <div class="wp-outline-head">
         <span class="wp-outline-ttl">OUTLINE</span>
         <button class="wp-outline-collapse" title="Collapse outline" aria-label="Collapse outline" tabindex={open ? 0 : -1} onClick={onClose}>‹</button>
