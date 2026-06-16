@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#160d14"/>
+  <rect x="28" y="28" width="1144" height="574" rx="18" fill="#1e1019" stroke="#3a2433" stroke-width="2"/>
+
+  <text x="1130" y="534" font-family="WenQuanYi Zen Hei" font-size="360"
+        fill="#ff8a3d" opacity="0.14" text-anchor="end">夜市</text>
+       <text x="1120" y="232" font-family="WenQuanYi Zen Hei" font-size="92"
+        fill="#ff8a3d" text-anchor="end">夜市</text>
+
+  <text x="64" y="74" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="rgba(214,196,178,0.9)" opacity="1" text-anchor="start"
+    style="text-transform:uppercase">MYCOLDMARS</text>
+  <text x="1136" y="74" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="#ff8a3d" opacity="1" text-anchor="end"
+    style="text-transform:uppercase">STUDY · 30 DISHES</text>
+  <text x="64" y="578" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="rgba(150,120,135,0.8)" opacity="1" text-anchor="start"
+    style="text-transform:uppercase">2026</text>
+  <text x="1136" y="578" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="rgba(214,196,178,0.9)" opacity="0.6" text-anchor="end"
+    style="text-transform:uppercase">↗</text>
+
+  <text x="64" y="172" font-family="DejaVu Sans Mono" font-size="22" letter-spacing="7"
+    fill="#ff8a3d" style="text-transform:uppercase">Taiwan</text>
+
+  <text x="64" y="286" font-family="DejaVu Serif" font-weight="normal"
+      font-size="108" fill="#f4eadd" >Night</text>
+  <text x="64" y="404" font-family="DejaVu Serif" font-weight="normal"
+      font-size="108" fill="#f4eadd" >Market</text>
+
+  <rect x="66" y="440" width="86" height="5" rx="2.5" fill="#ff8a3d"/>
+
+  <text x="64" y="496" font-family="DejaVu Serif"
+    font-size="33" fill="#f4eadd" opacity="0.92">Can you name all 30 dishes?</text>
+  <text x="64" y="538" font-family="DejaVu Sans Mono"
+    font-size="19" letter-spacing="0.5" fill="rgba(214,196,178,0.9)">a study-mode field guide · mycoldmars</text>
+</svg>

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#1a1410"/>
+  <rect x="28" y="28" width="1144" height="574" rx="18" fill="#22190f" stroke="#3d2f1d" stroke-width="2"/>
+
+  <text x="1130" y="534" font-family="WenQuanYi Zen Hei" font-size="360"
+        fill="#d98a3d" opacity="0.14" text-anchor="end">客家</text>
+       <text x="1120" y="232" font-family="WenQuanYi Zen Hei" font-size="92"
+        fill="#d98a3d" text-anchor="end">客家</text>
+
+  <text x="64" y="74" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="rgba(206,190,166,0.9)" opacity="1" text-anchor="start"
+    style="text-transform:uppercase">MYCOLDMARS</text>
+  <text x="1136" y="74" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="#d98a3d" opacity="1" text-anchor="end"
+    style="text-transform:uppercase">CULTURE</text>
+  <text x="64" y="578" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="rgba(150,128,96,0.82)" opacity="1" text-anchor="start"
+    style="text-transform:uppercase">2026</text>
+  <text x="1136" y="578" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="rgba(206,190,166,0.9)" opacity="0.6" text-anchor="end"
+    style="text-transform:uppercase">↗</text>
+
+  <text x="64" y="172" font-family="DejaVu Sans Mono" font-size="22" letter-spacing="7"
+    fill="#d98a3d" style="text-transform:uppercase">A People</text>
+
+  <text x="64" y="286" font-family="DejaVu Serif" font-weight="normal"
+      font-size="108" fill="#efe6d6" >Hakka</text>
+
+  <rect x="66" y="322" width="86" height="5" rx="2.5" fill="#d98a3d"/>
+
+  <text x="64" y="378" font-family="DejaVu Serif"
+    font-size="33" fill="#efe6d6" opacity="0.92">The people, the language, the long migration.</text>
+  <text x="64" y="420" font-family="DejaVu Sans Mono"
+    font-size="19" letter-spacing="0.5" fill="rgba(206,190,166,0.9)">culture · history · place · mycoldmars</text>
+</svg>

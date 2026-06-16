@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#FFF6E0"/>
+  <rect x="28" y="28" width="1144" height="574" rx="18" fill="#FFFAEC" stroke="#F0DFB2" stroke-width="2"/>
+
+  
+
+  <text x="64" y="74" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="rgba(53,53,64,0.92)" opacity="1" text-anchor="start"
+    style="text-transform:uppercase">MYCOLDMARS</text>
+  <text x="1136" y="74" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="#E84545" opacity="1" text-anchor="end"
+    style="text-transform:uppercase">SANDBOX</text>
+  <text x="64" y="578" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="rgba(107,107,122,0.85)" opacity="1" text-anchor="start"
+    style="text-transform:uppercase">2026</text>
+  <text x="1136" y="578" font-family="DejaVu Sans Mono" font-size="20" letter-spacing="4"
+    fill="rgba(53,53,64,0.92)" opacity="0.6" text-anchor="end"
+    style="text-transform:uppercase">↗</text>
+
+  <text x="64" y="172" font-family="DejaVu Sans Mono" font-size="22" letter-spacing="7"
+    fill="#E84545" style="text-transform:uppercase">The V-Dem Sandbox</text>
+
+  <text x="64" y="286" font-family="DejaVu Serif" font-weight="normal"
+      font-size="108" fill="#1F1F23" >Democracy,</text>
+  <text x="64" y="404" font-family="DejaVu Serif" font-weight="normal"
+      font-size="108" fill="#1F1F23" >as Data</text>
+
+  <rect x="66" y="440" width="86" height="5" rx="2.5" fill="#E84545"/>
+
+  <text x="64" y="496" font-family="DejaVu Serif"
+    font-size="33" fill="#1F1F23" opacity="0.92">Play with the numbers behind every democracy.</text>
+  <text x="64" y="538" font-family="DejaVu Sans Mono"
+    font-size="19" letter-spacing="0.5" fill="rgba(53,53,64,0.92)">an interactive sandbox · mycoldmars</text>
+</svg>
