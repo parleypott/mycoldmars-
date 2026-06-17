@@ -6,7 +6,7 @@
 /**
  * Map language names from Claude analysis to ISO 639-1 codes.
  */
-function toLangCode(lang) {
+export function toLangCode(lang) {
   if (!lang) return '';
   const l = lang.toLowerCase();
   if (l.includes('chinese') || l.includes('mandarin') || l.includes('cantonese')) return 'ZH';
@@ -34,17 +34,25 @@ function toLangCode(lang) {
 // seconds) into a compact MM:SS or H:MM:SS — drops the hours when zero and
 // drops sub-second precision (the editor margin tag is for orientation, not
 // frame accuracy; the bubble menu still shows the precise version).
-function formatTimecodeForTag(tc) {
+export function formatTimecodeForTag(tc) {
   if (tc == null || tc === '') return '';
 
-  // Parse to absolute seconds first, regardless of input shape.
+  // Parse to absolute seconds first, regardless of input shape. Mirror the
+  // canonical parser in srt-builder.js (timeToSeconds): both colon forms take
+  // an OPTIONAL fraction with either a dot OR comma separator. The previous
+  // MM:SS pattern was anchored with no fraction group, so a sub-hour timecode
+  // carrying a fraction ("1:23.456" / "1:23,456") fell through to parseFloat —
+  // which stops at the colon and returns 1, rendering the orientation tag as
+  // "0:01" instead of "1:23". The SRT export read the SAME seg.start correctly,
+  // so the margin tag silently disagreed with every other consumer.
   let total = NaN;
   if (typeof tc === 'string') {
-    const m3 = tc.match(/^(\d+):(\d{1,2}):(\d{1,2})/);
-    const m2 = tc.match(/^(\d+):(\d{1,2})$/);
+    const s = tc.trim();
+    const m3 = s.match(/^(\d+):(\d+):(\d+)(?:[.,]\d+)?$/);
+    const m2 = s.match(/^(\d+):(\d+)(?:[.,]\d+)?$/);
     if (m3) total = (+m3[1]) * 3600 + (+m3[2]) * 60 + (+m3[3]);
     else if (m2) total = (+m2[1]) * 60 + (+m2[2]);
-    else total = parseFloat(tc);
+    else total = parseFloat(s);
   } else {
     total = Number(tc);
   }
