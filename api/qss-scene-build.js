@@ -99,6 +99,23 @@ function json(status, payload) {
   });
 }
 
+// Trim an oversized source down to maxChars, preferring to cut on a paragraph
+// boundary (\n\n) so we don't slice mid-sentence. Exported for testing.
+//
+// MUST use an explicit -1/<=0 check, NOT `lastIndexOf(...) || maxChars`:
+// lastIndexOf returns -1 when there is no paragraph break in range (a long
+// single-newline / wall-of-text source), and -1 is TRUTHY — so the `||` form
+// kept -1, making `slice(0, -1)` return the ENTIRE oversized source minus one
+// character and defeat the cap completely (token blowout). A break at index 0
+// (source starts with a blank line) is equally useless. Fall back to a hard
+// cut at maxChars in both cases.
+export function capSourceAtParagraph(source, maxChars) {
+  if (typeof source !== 'string' || source.length <= maxChars) return source;
+  let cut = source.lastIndexOf('\n\n', maxChars);
+  if (cut <= 0) cut = maxChars;
+  return source.slice(0, cut);
+}
+
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' });
@@ -124,11 +141,7 @@ export default async function handler(req) {
   const MAX_CHARS = 200_000;
   const rawSource = typeof body.source_text === 'string' ? body.source_text : '';
   if (!rawSource.trim()) return json(400, { error: 'no_source_text' });
-  let source = rawSource;
-  if (source.length > MAX_CHARS) {
-    const cut = source.lastIndexOf('\n\n', MAX_CHARS) || MAX_CHARS;
-    source = source.slice(0, cut);
-  }
+  const source = capSourceAtParagraph(rawSource, MAX_CHARS);
 
   const storyName = String(body.story_name || 'this story').slice(0, 200);
 
