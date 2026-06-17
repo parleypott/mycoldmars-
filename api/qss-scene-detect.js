@@ -34,12 +34,12 @@ function j(status, payload) {
   return new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json', ...CORS } });
 }
 
-async function sb(method, path, body) {
+export async function sb(method, path, body, opts = {}) {
   const headers = {
     apikey: SUPABASE_KEY,
     Authorization: `Bearer ${SUPABASE_KEY}`,
     'Content-Type': 'application/json',
-    Prefer: 'return=representation',
+    Prefer: opts.prefer || 'return=representation',
   };
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     method, headers, body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -50,6 +50,19 @@ async function sb(method, path, body) {
   }
   const ct = res.headers.get('content-type') || '';
   return ct.includes('application/json') ? res.json() : null;
+}
+
+// Upsert one scene row by (story_id, scene_index). The on_conflict target
+// only turns the INSERT into an UPDATE when paired with
+// `resolution=merge-duplicates` — without it PostgREST runs a plain INSERT,
+// so a re-detect (force=true, scenes already present) hits the unique
+// constraint and 409s. merge-duplicates also means columns NOT in `row`
+// (image_url, variations, vote) are left untouched on conflict, which is
+// exactly the "existing image stays put" behavior we want.
+export const SCENE_UPSERT_PATH = 'qss_story_scenes?on_conflict=story_id,scene_index';
+export const SCENE_UPSERT_PREFER = 'return=representation,resolution=merge-duplicates';
+export async function upsertScene(row, sbFn = sb) {
+  return sbFn('POST', SCENE_UPSERT_PATH, row, { prefer: SCENE_UPSERT_PREFER });
 }
 
 export default async function handler(req) {
@@ -185,12 +198,11 @@ Return ~${Math.max(1, Math.min(10, Math.ceil(blocks.length / 4)))} scenes coveri
     }))
     .sort((a, b) => a.scene_index - b.scene_index);
 
-  // Upsert each scene by (story_id, scene_index). Use Prefer:
-  // resolution=merge-duplicates so existing image_url stays put.
-  // We DON'T want to nuke existing variations/vote/image just because
-  // the detect re-ran.
+  // Upsert each scene by (story_id, scene_index) via upsertScene, which
+  // requests resolution=merge-duplicates so existing image_url/variations/
+  // vote stay put and a force re-detect doesn't 409 on the unique constraint.
   for (const row of cleaned) {
-    await sb('POST', 'qss_story_scenes?on_conflict=story_id,scene_index', row);
+    await upsertScene(row);
   }
 
   const after = await sb('GET', `qss_story_scenes?story_id=eq.${encodeURIComponent(storyId)}&order=scene_index.asc&select=*`);
