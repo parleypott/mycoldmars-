@@ -24,6 +24,23 @@ async function sha256Hex(s) {
     .join('');
 }
 
+// Derive the cache key for a score request.
+//
+// CRITICAL: the key folds in the FULL system prompt, not just the manually-bumped
+// SCORE_PROMPT_VERSION string. The version string is now a belt-and-suspenders
+// manual override; the real invalidation is automatic — any edit to the scoring
+// doctrine (weights, hard rules, breakdown keys, the village-connection text)
+// changes `systemPrompt` and therefore the key, so stale pre-edit scores can
+// never be served. Before this, the key ignored the system prompt entirely and
+// relied solely on a human remembering to bump the version on every prompt edit
+// — one forgotten bump = silently wrong scores on a live house hunt.
+//
+// Separators are U+0000 (can't appear in the prompt/text) so the three fields
+// can't bleed into each other and forge a collision.
+export async function computeScoreCacheKey(promptVersion, systemPrompt, userMsg) {
+  return sha256Hex(`${promptVersion}\u0000${systemPrompt}\u0000${userMsg}`);
+}
+
 async function readCache(cacheKey) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return null;
   try {
@@ -76,8 +93,8 @@ async function writeCache(cacheKey, payload, pinAddress) {
  *
  * Returns:
  *   { total: 0-100,
- *     breakdown: { schoolFit, commuteFit, priceFit, sensoryFit, creativeClassFit, henryFit, ollieFit, neighborhoodFit, valueFit },
- *     rationale: "2-3 sentence honest take" }
+ *     breakdown: { villageConnectionFit, schoolFit, henryFit, ollieFit, creativeClassFit, commuteFit, priceFit, lotFit },
+ *     rationale: "2-3 sentence honest take", topStrength, topConcern }
  *
  * Calls Claude Sonnet 4.6 with the family doctrine + school profile + pin data,
  * gets back strict JSON. Cached client-side on pin.score.
@@ -170,7 +187,7 @@ Score this home now. Output the JSON object and nothing else.`;
   // prompt before. ?force=1 in the query string bypasses the cache.
   const url = new URL(req.url);
   const force = url.searchParams.get('force') === '1';
-  const cacheKey = await sha256Hex(`${SCORE_PROMPT_VERSION}|${userMsg}`);
+  const cacheKey = await computeScoreCacheKey(SCORE_PROMPT_VERSION, system, userMsg);
   if (!force) {
     const hit = await readCache(cacheKey);
     if (hit) {
