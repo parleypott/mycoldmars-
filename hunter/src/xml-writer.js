@@ -26,7 +26,13 @@ export function buildHunterSequenceXML(opts) {
   } = opts;
 
   const timebase = Math.round(fps);
-  const isNtsc = (fps === 23.976 || fps === 29.97 || fps === 59.94);
+  // Tolerance-based, NOT strict equality — the matching check in the Interpreter's
+  // premiere-xml.js (isNtscRate) was hardened for exactly this: ffprobe reports the
+  // NTSC rates as 24000/1001 = 23.97602..., 30000/1001, 60000/1001, which a
+  // `fps === 23.976` check silently misses, emitting <ntsc>FALSE</ntsc> so Premiere
+  // reads the sequence as a whole-number rate and reintroduces the ~0.1%/hour drift
+  // the integer-timebase + ntsc convention exists to prevent.
+  const isNtsc = isNtscRate(fps);
 
   // Group units by source file
   const fileMap = new Map();
@@ -208,6 +214,16 @@ export function downloadXML(xml, filename) {
 
 function secondsToFrames(seconds, fps) {
   return Math.round(seconds * fps);
+}
+
+// True for the NTSC-fractional rates (23.976, 29.97, 59.94). Tolerance-based so a
+// probed rate arriving as 23.97602... still matches. Mirrors the Interpreter's
+// isNtscRate in translation/src/export/premiere-xml.js — both write the same FCP7
+// format and must agree on the <ntsc> flag.
+export function isNtscRate(fps) {
+  return (Math.abs(fps - 23.976) < 0.01) ||
+         (Math.abs(fps - 29.97)  < 0.01) ||
+         (Math.abs(fps - 59.94)  < 0.01);
 }
 
 function escapeXml(str) {
