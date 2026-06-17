@@ -1,5 +1,7 @@
 export const config = { runtime: 'edge', maxDuration: 15 };
 
+import { validateStatePayload } from './_lib/winchester-validate.js';
+
 /**
  * Nile flights booking-tracker state sync.
  *
@@ -58,15 +60,19 @@ async function handlePost(req) {
   let body;
   try { body = await req.json(); } catch { return jsonError(400, 'BAD_JSON', 'Body must be valid JSON'); }
 
-  const state = body && body.state;
-  if (state == null || typeof state !== 'object' || Array.isArray(state)) {
-    return jsonError(400, 'BAD_STATE', 'state must be a plain object');
+  // Shared, byte-accurate validation. The cap is a UTF-8 BYTE cap (matching the
+  // MAX_BYTES name + the wire/DB storage size), counted via TextEncoder — NOT
+  // serialized.length, which is UTF-16 code units and silently undercounts every
+  // non-ASCII char (a CJK glyph is 1 unit but 3 bytes), letting an over-cap blob
+  // slip past. (Booking maps are ASCII today, so this is correctness/parity, not
+  // a hot bug — but the name promised bytes and the check counted chars.)
+  const v = validateStatePayload(body, MAX_BYTES);
+  if (!v.ok) {
+    // BAD_BODY collapses to BAD_STATE here — this endpoint only exposes a state blob.
+    const code = v.code === 'BAD_BODY' ? 'BAD_STATE' : v.code;
+    return jsonError(v.status, code, v.message);
   }
-  let serialized;
-  try { serialized = JSON.stringify(state); } catch (err) {
-    return jsonError(400, 'BAD_STATE', 'state not serializable: ' + (err?.message || ''));
-  }
-  if (serialized.length > MAX_BYTES) return jsonError(413, 'STATE_TOO_BIG', `${serialized.length} bytes`);
+  const { state } = v;
 
   const upR = await sb(`/rest/v1/nile_flights_state?on_conflict=id`, {
     method: 'POST',
