@@ -4,34 +4,47 @@ export const config = { runtime: 'edge', maxDuration: 120 };
 const CHUNK_LIMIT = 4800;
 const VOICE_DEFAULT = 'ZF6FPAbjXT4488VcRRnw';
 
-function chunkText(text, max = CHUNK_LIMIT) {
+export function chunkText(text, max = CHUNK_LIMIT) {
   if (text.length <= max) return [text];
   const out = [];
   const paragraphs = text.split(/\n\n+/);
   let buf = '';
+  // Flush the working buffer as a chunk — never push an empty/whitespace chunk
+  // (an empty chunk would be POSTed to ElevenLabs and fail the whole readout).
+  const flush = () => { if (buf.trim()) out.push(buf.trim()); buf = ''; };
   for (const p of paragraphs) {
     if (p.length > max) {
       const sentences = p.match(/[^.!?]+[.!?]+/g) ?? [p];
       for (const s of sentences) {
+        if (s.length > max) {
+          // A single sentence (or a punctuation-less run) longer than the cap:
+          // hard-split it so no chunk can ever exceed `max`.
+          flush();
+          for (let i = 0; i < s.length; i += max) {
+            const piece = s.slice(i, i + max).trim();
+            if (piece) out.push(piece);
+          }
+          continue;
+        }
         if ((buf + ' ' + s).trim().length > max) {
-          if (buf) out.push(buf.trim());
+          flush();
           buf = s;
         } else {
           buf = buf ? buf + ' ' + s : s;
         }
       }
     } else if ((buf + '\n\n' + p).length > max) {
-      out.push(buf.trim());
+      flush();
       buf = p;
     } else {
       buf = buf ? buf + '\n\n' + p : p;
     }
   }
-  if (buf.trim()) out.push(buf.trim());
+  flush();
   return out;
 }
 
-function strip(md) {
+export function strip(md) {
   return md
     .replace(/```[\s\S]*?```/g, '')
     .replace(/`([^`]+)`/g, '$1')
