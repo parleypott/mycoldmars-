@@ -10,6 +10,7 @@
 // Scene detection is handled by qss-scene-detect.
 
 import { checkAccess } from './_lib/access.js';
+import { planActivation, planDeletion } from './_lib/qss-scene-variations.js';
 
 export const config = { runtime: 'edge' };
 
@@ -87,27 +88,13 @@ export default async function handler(req) {
         const rows = await sb('GET', `qss_story_scenes?id=eq.${encodeURIComponent(sceneId)}&select=variations,image_url,storage_path,active_variation_id&limit=1`);
         const scene = rows?.[0];
         if (!scene) return j(404, { error: 'scene_not_found' });
-        const variations = Array.isArray(scene.variations) ? scene.variations : [];
-        const target = variations.find(v => v?.id === varId);
-        if (!target) return j(404, { error: 'variation_not_found' });
-        // Keep the OLD primary in variations[] so Henry can flip back.
-        let nextVariations = variations.filter(v => v?.id !== varId);
-        if (scene.image_url && scene.active_variation_id) {
-          nextVariations.push({
-            id: scene.active_variation_id,
-            image_url: scene.image_url,
-            storage_path: scene.storage_path,
-            generated_at: Date.now(),
-          });
-        }
+        const plan = planActivation(scene, varId);
+        if (plan.error) return j(404, { error: plan.error });
         await sb('PATCH', `qss_story_scenes?id=eq.${encodeURIComponent(sceneId)}`, {
-          image_url: target.image_url,
-          storage_path: target.storage_path || null,
-          active_variation_id: varId,
-          variations: nextVariations,
+          ...plan.patch,
           updated_at: new Date().toISOString(),
         });
-        return j(200, { ok: true, active_variation_id: varId, image_url: target.image_url });
+        return j(200, { ok: true, active_variation_id: varId, image_url: plan.patch.image_url });
       }
 
       if (action === 'delete-variation') {
@@ -117,9 +104,9 @@ export default async function handler(req) {
         const rows = await sb('GET', `qss_story_scenes?id=eq.${encodeURIComponent(sceneId)}&select=variations&limit=1`);
         const scene = rows?.[0];
         if (!scene) return j(404, { error: 'scene_not_found' });
-        const variations = (Array.isArray(scene.variations) ? scene.variations : []).filter(v => v?.id !== varId);
+        const plan = planDeletion(scene, varId);
         await sb('PATCH', `qss_story_scenes?id=eq.${encodeURIComponent(sceneId)}`, {
-          variations, updated_at: new Date().toISOString(),
+          ...plan.patch, updated_at: new Date().toISOString(),
         });
         return j(200, { ok: true });
       }
