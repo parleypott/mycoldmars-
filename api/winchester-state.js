@@ -1,4 +1,5 @@
 import { checkAccess } from './_lib/access.js';
+import { validateStatePayload } from './_lib/winchester-validate.js';
 
 export const config = { runtime: 'edge', maxDuration: 15 };
 
@@ -78,25 +79,11 @@ async function handlePost(req) {
     return jsonError(400, 'BAD_JSON', 'Request body must be valid JSON');
   }
 
-  if (!body || typeof body !== 'object') {
-    return jsonError(400, 'BAD_BODY', 'Body must be an object');
-  }
-
-  const state = body.state;
-  if (state == null || typeof state !== 'object' || Array.isArray(state)) {
-    return jsonError(400, 'BAD_STATE', 'state must be a plain object');
-  }
-
-  // Defensive size cap — JSON.stringify is the wire size proxy.
-  let serialized;
-  try {
-    serialized = JSON.stringify(state);
-  } catch (err) {
-    return jsonError(400, 'BAD_STATE', 'state is not JSON-serializable: ' + (err?.message || ''));
-  }
-  if (serialized.length > MAX_BYTES) {
-    return jsonError(413, 'STATE_TOO_BIG', `state is ${serialized.length} bytes; max ${MAX_BYTES}`);
-  }
+  // Shape + size validation (pure, unit-tested in winchester-validate.test.mjs).
+  // Size cap counts real UTF-8 bytes, matching the MAX_BYTES name + error text.
+  const v = validateStatePayload(body, MAX_BYTES);
+  if (!v.ok) return jsonError(v.status, v.code, v.message);
+  const { state } = v;
 
   // Optimistic concurrency check (optional — caller can omit to last-write-wins)
   if (typeof body.expectedUpdatedAt === 'string' && body.expectedUpdatedAt) {
