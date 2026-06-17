@@ -25,23 +25,18 @@
 
 export const config = { runtime: 'nodejs', maxDuration: 300 };
 
+// Pure op parsing/validation (extracted so it can be unit-tested headlessly).
+// ELEMENT_TYPES is the shared element vocabulary; keep the front-end palette in sync.
+import {
+  ELEMENT_TYPES,
+  functionCallToOp,
+  normalizeOp,
+  sanitizePlan,
+  extractOpsFromText,
+} from './_lib/walden-ops.js';
+
 const TEXT_MODEL = 'gemini-2.5-flash';
 const IMAGE_MODEL = 'gemini-2.5-flash-image';
-
-// Element vocabulary the model is allowed to place. Keep this in sync with
-// the front-end palette. type = primitive shape family; kind = sub-style.
-const ELEMENT_TYPES = {
-  pool: ['rect', 'oval'],
-  spa: ['rect', 'oval'],
-  deck: ['rect', 'polygon'],
-  patio: ['rect', 'polygon'],
-  bed: ['rect', 'oval', 'polygon'],   // planting bed
-  hedge: ['line', 'rect'],
-  tree: ['point'],
-  firepit: ['oval', 'rect'],
-  path: ['line'],
-  wall: ['line'],   // retaining wall — line with a heightFt
-};
 
 // ────────────────────────────────────────────────────────────────────────────
 // System prompt — the design collaborator's brain.
@@ -118,6 +113,8 @@ const TOOL_DECLARATIONS = [
         wFt: { type: 'number', description: 'Width in feet (across). For trees, canopy diameter. For lines, line width.' },
         lFt: { type: 'number', description: 'Length in feet (along). For lines, line length.' },
         rot: { type: 'number', description: 'Rotation in degrees, 0 = squared to house, positive = counter-clockwise.' },
+        heightFt: { type: 'number', description: 'RETAINING WALLS ONLY: how much grade the wall holds, in feet. This is a sloped, terraced site — set the height for any wall you place. Over 4 ft typically needs an engineer; prefer splitting a big drop into stacked terraces.' },
+        levelFt: { type: 'number', description: 'RETAINING WALLS ONLY (optional): the top terrace level in feet relative to house datum, for stacked-terrace grading.' },
       },
       required: ['type', 'kind', 'cx', 'cy', 'wFt', 'lFt'],
     },
@@ -287,161 +284,6 @@ When you reference an existing element for move/resize/rotate/delete/rename, use
   }
 
   return jsonResponse({ reply: reply.trim(), ops: cleanOps, model: TEXT_MODEL });
-}
-
-// Map a Gemini functionCall { name, args } to our op shape.
-function functionCallToOp(fc) {
-  const name = fc?.name;
-  const a = fc?.args || {};
-  if (!name) return null;
-  switch (name) {
-    case 'add_element':
-      return { op: 'add', type: a.type, kind: a.kind, name: a.name, cx: a.cx, cy: a.cy, wFt: a.wFt, lFt: a.lFt, rot: a.rot };
-    case 'move_element':
-      return { op: 'move', id: a.id, cx: a.cx, cy: a.cy };
-    case 'resize_element':
-      return { op: 'resize', id: a.id, wFt: a.wFt, lFt: a.lFt };
-    case 'rotate_element':
-      return { op: 'rotate', id: a.id, rot: a.rot };
-    case 'delete_element':
-      return { op: 'delete', id: a.id };
-    case 'rename_element':
-      return { op: 'rename', id: a.id, name: a.name };
-    default:
-      return null;
-  }
-}
-
-// Validate + coerce one op. Returns null if it's unusable.
-function normalizeOp(o) {
-  if (!o || typeof o !== 'object') return null;
-  const num = (v) => {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  };
-  switch (o.op) {
-    case 'add': {
-      const type = String(o.type || '').toLowerCase();
-      if (!ELEMENT_TYPES[type]) return null;
-      let kind = String(o.kind || '').toLowerCase();
-      const allowed = ELEMENT_TYPES[type];
-      if (!allowed.includes(kind)) kind = allowed[0]; // snap to a valid default
-      const cx = num(o.cx), cy = num(o.cy), wFt = num(o.wFt), lFt = num(o.lFt);
-      if (cx === null || cy === null || wFt === null || lFt === null) return null;
-      return {
-        op: 'add',
-        type,
-        kind,
-        name: String(o.name || defaultName(type)).slice(0, 60),
-        cx, cy,
-        wFt: Math.abs(wFt),
-        lFt: Math.abs(lFt),
-        rot: num(o.rot) ?? 0,
-      };
-    }
-    case 'move': {
-      if (!o.id) return null;
-      const cx = num(o.cx), cy = num(o.cy);
-      if (cx === null || cy === null) return null;
-      return { op: 'move', id: String(o.id), cx, cy };
-    }
-    case 'resize': {
-      if (!o.id) return null;
-      const wFt = num(o.wFt), lFt = num(o.lFt);
-      if (wFt === null || lFt === null) return null;
-      return { op: 'resize', id: String(o.id), wFt: Math.abs(wFt), lFt: Math.abs(lFt) };
-    }
-    case 'rotate': {
-      if (!o.id) return null;
-      const rot = num(o.rot);
-      if (rot === null) return null;
-      return { op: 'rotate', id: String(o.id), rot };
-    }
-    case 'delete':
-      return o.id ? { op: 'delete', id: String(o.id) } : null;
-    case 'rename':
-      return o.id && o.name ? { op: 'rename', id: String(o.id), name: String(o.name).slice(0, 60) } : null;
-    default:
-      return null;
-  }
-}
-
-function defaultName(type) {
-  const labels = {
-    pool: 'Pool', spa: 'Spa', deck: 'Deck', patio: 'Patio', bed: 'Planting bed',
-    hedge: 'Hedge', tree: 'Tree', firepit: 'Fire pit', path: 'Path',
-  };
-  return labels[type] || 'Element';
-}
-
-// Trim the incoming plan to the fields the model needs.
-function sanitizePlan(plan) {
-  const p = plan && typeof plan === 'object' ? plan : {};
-  const elements = Array.isArray(p.elements)
-    ? p.elements.slice(0, 200).map((e) => ({
-        id: String(e.id ?? ''),
-        type: e.type,
-        kind: e.kind,
-        name: e.name,
-        cx: e.cx, cy: e.cy, wFt: e.wFt, lFt: e.lFt, rot: e.rot,
-      }))
-    : [];
-  return {
-    units: 'feet',
-    gridBearing: p.gridBearing ?? 0,
-    house: p.house ?? null,
-    parcel: p.parcel ?? null,
-    setbacks: p.setbacks ?? null,
-    elements,
-  };
-}
-
-// Fallback parser: pull a fenced ```ops / ```json array of operations out of
-// the model's text when it didn't use real function calls.
-function extractOpsFromText(reply) {
-  const fenceRe = /```(?:ops|json)?\s*\n([\s\S]*?)\n```/gi;
-  const out = [];
-  let cleanReply = reply;
-  const ranges = [];
-  let m;
-  while ((m = fenceRe.exec(reply)) !== null) {
-    const parsed = tryParseOpsArray(m[1].trim());
-    if (parsed.length) {
-      out.push(...parsed);
-      ranges.push([m.index, m.index + m[0].length]);
-    }
-  }
-  for (const [s, e] of ranges.reverse()) cleanReply = cleanReply.slice(0, s) + cleanReply.slice(e);
-  return { cleanReply: cleanReply.replace(/\n{3,}/g, '\n\n').trim(), parsedOps: out };
-}
-
-function tryParseOpsArray(raw) {
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    try {
-      parsed = JSON.parse(raw.replace(/,\s*([}\]])/g, '$1')); // strip trailing commas
-    } catch {
-      return [];
-    }
-  }
-  const arr = Array.isArray(parsed) ? parsed : [parsed];
-  const ops = [];
-  for (const item of arr) {
-    if (!item || typeof item !== 'object') continue;
-    if (item.op) { ops.push(item); continue; }
-    if (item.name && item.args) {
-      const o = functionCallToOp(item);
-      if (o) ops.push(o);
-      continue;
-    }
-    for (const key of Object.keys(item)) {
-      const o = functionCallToOp({ name: key, args: item[key] });
-      if (o) ops.push(o);
-    }
-  }
-  return ops;
 }
 
 // ────────────────────────────────────────────────────────────────────────────

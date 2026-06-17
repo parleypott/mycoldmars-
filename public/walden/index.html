@@ -636,7 +636,7 @@ function frameBackyard(){gridOn=true;$('#gridbtn').classList.add('on');
   toast('framed the backyard');
 }
 function applyOps(ops){let placed=0,last=null;ops.forEach(o=>{
-  if(o.op==='add'){const e=addElement(o.type,{kind:o.kind,name:o.name,cx:o.cx,cy:o.cy,wFt:o.wFt,lFt:o.lFt,rot:o.rot});placed++;last=e;opReceipt(o);}
+  if(o.op==='add'){const e=addElement(o.type,{kind:o.kind,name:o.name,cx:o.cx,cy:o.cy,wFt:o.wFt,lFt:o.lFt,rot:o.rot,heightFt:o.heightFt,levelFt:o.levelFt});placed++;last=e;opReceipt(o);}
   else if(o.op==='move'){const e=elements.find(x=>x.id===o.id);if(e&&e.family==='box'){e.cx=o.cx;e.cy=o.cy;last=e;}}
   else if(o.op==='resize'){const e=elements.find(x=>x.id===o.id);if(e&&e.family==='box'){e.wFt=o.wFt;e.lFt=o.lFt;last=e;}}
   else if(o.op==='rotate'){const e=elements.find(x=>x.id===o.id);if(e){e.rot=o.rot;last=e;}}
