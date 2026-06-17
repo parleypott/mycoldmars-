@@ -23,7 +23,7 @@
 
 import { checkAccess } from './_lib/access.js';
 import { BURGUNDY_NOVEL_ACT1 } from './_lib/burgundy-novel-act1.js';
-import { loadWorldStyle } from './_lib/qss-worlds.js';
+import { loadWorldStyle, sanitizeSlug } from './_lib/qss-worlds.js';
 
 // Edge runtime. We surfaced the underlying Anthropic error so we can see
 // why the call is failing fast. The list endpoint no longer pulls
@@ -68,11 +68,16 @@ async function sb(method, path, body) {
   return null;
 }
 
-function sanitizeWorldSlug(raw) {
-  const s = String(raw || '').trim().toLowerCase();
-  if (s === 'burgundy') return 'burgundy';
-  return 'queen-scarlet';
-}
+// World-slug resolution is owned by the shared registry in qss-worlds.js
+// (the single source of truth `sanitizeSlug` uses). This file previously
+// kept its own hardcoded `if (s === 'burgundy')` allowlist — extensionally
+// identical for the two worlds that exist today, but a latent landmine: the
+// moment a 3rd world ships, the local copy would silently route its explorer
+// items to queen-scarlet — showing the WRONG world's atlas on `list`, storing
+// new items under the wrong world on `generate`, and (worst) wiping the wrong
+// world's atlas on `reset`. Routing through the registry closes that: adding a
+// world to qss-worlds.js's WORLDS is the only edit ever needed.
+const sanitizeWorldSlug = sanitizeSlug;
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
