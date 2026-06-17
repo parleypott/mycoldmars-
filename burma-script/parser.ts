@@ -108,6 +108,13 @@ export function parseScript(srcText: string): { doc: ScriptDoc; stats: any; ambi
   const ambiguous: Timecode[] = [];
   let contextDay: 1 | 2 | 3 | null = null;
 
+  // VO-lead detector (#4) — catches every VO writing-surface form: "VO:", colonless "VO ",
+  // and a leading optional '-' + "[cue] +" ("-[MAP] + VO:" AND colonless "-[MAP] + VO our…").
+  // The (?=[:\s]) word boundary after "VO" stops it firing on "VOLUME"/"VOICE". Hoisted here so
+  // the SERVICE-BOX guard below can defer to it: a "[MAP] + VO …" line is VO narration carrying a
+  // visual cue, NOT a standalone mapping-needs box — and that must hold for the colonless form too.
+  const VO_LEAD = /^-?\s*(?:\[[^\]]*\]\s*\+?\s*)?VO(?=[:\s])/i;
+
   for (const p of paras) {
     const dm = p.match(DAY_RE);
     if (dm) contextDay = Number(dm[1]) as 1 | 2 | 3; // update running day context
@@ -124,10 +131,11 @@ export function parseScript(srcText: string): { doc: ScriptDoc; stats: any; ambi
       continue;
     }
     // --- service boxes ---
-    // A bare [MAP] tag inside VO narration ("[MAP] + VO: ...") is a visual cue, NOT a
-    // standalone mapping-needs service block — let it fall through to VO so it isn't
-    // swept into the consolidated SERVICE NEEDS box.
-    if (/\[Mapping data needs/i.test(p) || (/\[MAP\b/i.test(p) && !/\bVO:/i.test(p)) || /Map Data Need/i.test(p)) {
+    // A bare [MAP] tag inside VO narration ("[MAP] + VO: ..." AND colonless "[MAP] + VO our…")
+    // is a visual cue, NOT a standalone mapping-needs service block — let it fall through to VO
+    // so it isn't swept into the consolidated SERVICE NEEDS box. Defer to VO_LEAD (not a bare
+    // /VO:/ test) so the colonless lead-cue form is excluded here too.
+    if (/\[Mapping data needs/i.test(p) || (/\[MAP\b/i.test(p) && !VO_LEAD.test(p)) || /Map Data Need/i.test(p)) {
       blocks.push({ id: uid("map"), type: "map-need", title: "Mapping data needs", text: p, rawSource: p });
       continue;
     }
@@ -171,8 +179,8 @@ export function parseScript(srcText: string): { doc: ScriptDoc; stats: any; ambi
     // Rule: after an optional '-', an optional "[cue] +", and whitespace, the paragraph starts
     // with the WORD "VO" followed by ':' OR whitespace. The word boundary (\bVO\b-style: "VO"
     // then a non-letter) stops it firing on "VOLUME" / "VOICE". The leading cue + optional '-'
-    // is stripped from the stored text exactly as before.
-    const VO_LEAD = /^-?\s*(?:\[[^\]]*\]\s*\+?\s*)?VO(?=[:\s])/i;
+    // is stripped from the stored text exactly as before. (VO_LEAD is hoisted to the top of the
+    // loop so the service-box guard above can defer to it.)
     if (VO_LEAD.test(p)) {
       const text = p
         .replace(/^-?\s*(?:\[[^\]]*\]\s*\+?\s*)?/, "") // peel leading '-' + "[cue] +"
