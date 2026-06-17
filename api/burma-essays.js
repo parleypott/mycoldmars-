@@ -1,5 +1,7 @@
 export const config = { runtime: 'edge', maxDuration: 120 };
 
+import { stripMarkdown, firstLine, slug, clampNum } from './_lib/burma-essays-text.js';
+
 /**
  * Burma Essays — paste an essay, get a narrated library item you can scrub.
  *
@@ -400,27 +402,6 @@ function chunkText(text, max = CHUNK_LIMIT) {
   if (buf.trim()) out.push(buf.trim());
   return out;
 }
-
-function stripMarkdown(md) {
-  return md
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/^#+\s*/gm, '')
-    .replace(/^\s*[-*]\s+/gm, '')
-    .replace(/^\s*\d+\.\s+/gm, '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/_([^_]+)_/g, '$1')
-    .replace(/^>+\s*/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function firstLine(t) { return (t || '').split('\n').map((s) => s.trim()).find(Boolean)?.slice(0, 80); }
-function slug(t) { return (t || 'essay').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'essay'; }
-function clampNum(n) { n = Number(n); return Number.isFinite(n) && n >= 0 ? n : 0; }
 
 async function sb(path, init = {}) {
   const headers = new Headers(init.headers || {});
