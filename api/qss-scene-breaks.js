@@ -94,7 +94,7 @@ function json(status, payload) {
 
 // Find explicit movie-direction cuts in text. Returns array of
 // { offset, label, why, source: 'rule' }. Deterministic — no LLM.
-function findExplicitCuts(text) {
+export function findExplicitCuts(text) {
   const out = [];
   const patterns = [
     { re: /\bCut to:?\s*([^.\n]{2,80})/gi,                                  label: (m) => `cut to ${m[1].trim().slice(0, 60)}` },
@@ -141,7 +141,7 @@ function findExplicitCuts(text) {
 // Strategy: first try snapping FORWARD to the next paragraph/sentence start
 // (LLM offsets often land inside the last sentence of the old scene, not the
 // first sentence of the new one). Fall back to backward sentence-start scan.
-function snapToSentenceStart(text, offset) {
+export function snapToSentenceStart(text, offset) {
   // Forward scan: if there's a paragraph break within 150 chars, snap to
   // the text that starts after it (skipping ⸻ / — separators + whitespace).
   const fwd = Math.min(text.length - 1, offset + 150);
@@ -164,8 +164,12 @@ function snapToSentenceStart(text, offset) {
     if (/[.!?]/.test(c) && /\s/.test(text[i] || '')) {
       let j = i;
       while (j < text.length && /\s/.test(text[j])) j++;
-      // Require a letter or quote to confirm real sentence start (not mid-abbrev.)
-      if (j < text.length && /[A-Za-z”''”]/.test(text[j])) return j;
+      // Require a letter or quote to confirm real sentence start (not mid-abbrev.).
+      // Dialogue beats commonly OPEN a sentence with a quote, so the class must
+      // include OPENING quotes — straight " ' and curly “ ” ‘ ’ — not just closing
+      // ones. (The old class listed only the right-double-quote, so a sentence
+      // starting with "Students!" failed confirmation and snapped backward to 0.)
+      if (j < text.length && /[A-Za-z0-9"'“”‘’]/.test(text[j])) return j;
     }
   }
   // Word-boundary fallback: snap to end of current word so we never land mid-word
