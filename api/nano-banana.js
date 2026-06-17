@@ -1437,11 +1437,51 @@ function tryParseSuggestionArray(raw) {
       const repaired = s.slice(0, lastGoodEnd + 1) + ']';
       try {
         const parsed = JSON.parse(repaired);
-        return normalizeSuggestions(Array.isArray(parsed) ? parsed : [parsed]);
+        const items = normalizeSuggestions(Array.isArray(parsed) ? parsed : [parsed]);
+        if (items.length) return items;
       } catch {}
     }
   }
-  return [];
+
+  // Field-grabber fallback — handles unescaped inner double quotes, the same
+  // real-world failure mode parseDirectionsLenient / tryParseBlockArray guard
+  // against. Without this tier a single stray quote inside visual/audio/
+  // rationale fails JSON.parse, the truncation repair can't help (wrong
+  // problem), and the WHOLE suggestion array is lost. Brace-walk each object,
+  // then pull each field by key. Keep any object with a visual or audio.
+  const objects = sliceBraceObjects(raw);
+  const out = [];
+  for (const obj of objects) {
+    const visual = grabSuggestionField(obj, 'visual');
+    const audio = grabSuggestionField(obj, 'audio');
+    if (!visual && !audio) continue;
+    out.push({ visual, audio, rationale: grabSuggestionField(obj, 'rationale') });
+  }
+  return out;
+}
+
+// Same shape as grabField / grabBlockField but with scene-suggestion keys.
+function grabSuggestionField(objBody, key) {
+  const keyRe = new RegExp('"' + key + '"\\s*:\\s*', 'i');
+  const m = keyRe.exec(objBody);
+  if (!m) return '';
+  const start = m.index + m[0].length;
+  const KNOWN_KEYS = ['visual', 'audio', 'rationale'];
+  let endIdx = objBody.length;
+  for (const k of KNOWN_KEYS) {
+    if (k === key) continue;
+    const nextRe = new RegExp(',\\s*"' + k + '"\\s*:', 'i');
+    const idx = objBody.slice(start).search(nextRe);
+    if (idx >= 0 && (start + idx) < endIdx) endIdx = start + idx;
+  }
+  const closeIdx = objBody.lastIndexOf('}');
+  if (closeIdx >= 0 && closeIdx < endIdx) endIdx = closeIdx;
+  let val = objBody.slice(start, endIdx).trim();
+  if (val.endsWith(',')) val = val.slice(0, -1).trim();
+  if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+    val = val.slice(1, -1);
+  }
+  return val.trim();
 }
 
 function normalizeSuggestions(arr) {
@@ -1620,3 +1660,20 @@ export default async function handler(req, res) {
   // Web-style — Edge runtime (kept for safety in case the runtime config is overridden)
   return innerHandler(req);
 }
+
+// Pure JSON-repair / structured-output parsers, exported for unit testing.
+// These have no dependency on the handler or its imports.
+export {
+  extractDirections,
+  parseDirectionsLenient,
+  sliceBraceObjects,
+  grabField,
+  extractBlockOptions,
+  tryParseBlockArray,
+  grabBlockField,
+  normalizeBlocks,
+  extractSceneSuggestions,
+  tryParseSuggestionArray,
+  grabSuggestionField,
+  normalizeSuggestions,
+};
