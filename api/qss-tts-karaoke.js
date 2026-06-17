@@ -140,7 +140,7 @@ export default async function handler(req) {
 // Returns: [{ text, start, end, charStart, charEnd }]
 //   charStart / charEnd index into the ORIGINAL text so the client can
 //   highlight by substring slice (cheap + collision-free).
-function groupCharsIntoWords(srcText, alignment) {
+export function groupCharsIntoWords(srcText, alignment) {
   const chars = alignment.characters || [];
   const starts = alignment.character_start_times_seconds || [];
   const ends = alignment.character_end_times_seconds || [];
@@ -157,9 +157,16 @@ function groupCharsIntoWords(srcText, alignment) {
     const isWS = /\s/.test(ch);
     if (!isWS) {
       if (buf === '') {
-        bufStartTime = typeof starts[i] === 'number' ? starts[i] : -1;
+        bufStartTime = -1;
         bufCharStart = i;
       }
+      // Anchor the word's start to the FIRST character that actually carries a
+      // timestamp — not blindly to the leading character. If a word's first
+      // glyph has no start time (rare, but ElevenLabs can omit one on an edge
+      // character), taking only the first char would emit start:-1 for the
+      // whole word and the client would highlight it at the wrong moment.
+      // End already keeps the LAST valid end time the same way.
+      if (bufStartTime === -1 && typeof starts[i] === 'number') bufStartTime = starts[i];
       buf += ch;
       bufEndTime = typeof ends[i] === 'number' ? ends[i] : bufEndTime;
       bufCharEnd = i + 1;
