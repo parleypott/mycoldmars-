@@ -462,9 +462,9 @@ body {
 
 /* per-kind cap colour */
 .wp-vo      .wp-cap-num { background: var(--blue); }
-.wp-oncam   .wp-cap-num { background: var(--blue); }
-.wp-sot     .wp-cap-num { background: var(--orange); }
-.wp-broll   .wp-cap-num { background: var(--burgundy); }
+/* DIRECTION (#3) — sot/broll/oncam/bin all share ONE neutral cap colour. No type-specific
+   orange/burgundy/blue badge any more; a direction block is a direction block. */
+.wp-dir     .wp-cap-num { background: var(--ink); }
 .wp-note    .wp-cap-num { background: var(--yellow); color: var(--note-text); }
 .wp-scene   .wp-cap-num { background: var(--ink); }
 .wp-service .wp-cap-num { background: var(--ink); }
@@ -491,12 +491,18 @@ body {
 }
 .wp-chapter .wp-body p { margin: 0; }
 
-/* ---- SCENE — light sub-heading ---- */
-.wp-sc-head { margin-bottom: 5px; }
-.wp-sc-kind { font-size: 8px; letter-spacing: .2em; color: var(--label); text-transform: uppercase; }
+/* ---- SCENE — SECTION HEADER (#5) ----
+   A scene is a full-width section header row above the direction rows below it — markedly
+   larger / heavier / header-like than a direction block, so the eye reads the doc as
+   SCENE → directions → SCENE. Still a FLAT cartridge: no shadow, no bevel, just type weight,
+   a heavier top hairline, and breathing room that signals "new section". */
+.wp-scene { border-width: 1.5px; border-top: 3px solid var(--ink); }
+.wp-scene .wp-cart-body { padding: 16px 16px 14px; }
+.wp-sc-head { margin-bottom: 8px; }
+.wp-sc-kind { font-size: 9px; letter-spacing: .26em; color: var(--ink); text-transform: uppercase; font-weight: 700; }
 .wp-scene .wp-body {
-  font-family: var(--mono); font-size: 14px; font-weight: 700; letter-spacing: .01em; color: var(--ink);
-  line-height: 1.25; text-transform: uppercase;
+  font-family: var(--mono); font-size: 22px; font-weight: 800; letter-spacing: .005em; color: var(--ink);
+  line-height: 1.16; text-transform: uppercase;
   /* NO line-clamp — full scene text must stay visible + editable. */
   overflow-wrap: anywhere;
 }
@@ -526,52 +532,26 @@ body {
 
 /* ---- PROSE BODY — the readable script. Reading typeface + size + lead are
    driven by THE CONTROL UNIT via --doc-read / --doc-size / --doc-lead. ---- */
-.wp-vo .wp-body, .wp-oncam .wp-body,
-.wp-sot .wp-body, .wp-broll .wp-body,
+.wp-vo .wp-body, .wp-dir .wp-body,
 .wp-note .wp-body, .wp-service .wp-body, .wp-bin .wp-body {
   font-family: var(--doc-read); font-size: var(--doc-size); line-height: var(--doc-lead); color: var(--body);
 }
-.wp-oncam .wp-body { color: var(--body); }
 
-/* ---- SOT — orange cap + LCD window + speaker/quote + done toggle ---- */
-.wp-sot .wp-cart-body.wp-sot-grid {
-  display: grid; grid-template-columns: auto 1fr auto; gap: 13px; align-items: center;
-}
-.wp-lcd {
-  background: var(--lcd-bg); border: 1.5px solid var(--ink); border-radius: 6px;
-  padding: 6px 10px; cursor: pointer; transition: border-color .14s var(--ease);
-}
-.wp-lcd:hover { border-color: var(--orange); }
-.wp-lcd.copied { border-color: var(--orange); }
-.wp-lcd-day { font-family: var(--mono); font-size: 6px; color: var(--label-4); letter-spacing: .14em; }
-.wp-lcd-tc {
-  font-family: var(--mono); font-size: 16px; color: var(--ivory); letter-spacing: .06em;
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.wp-sot-mid { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.wp-sot-spk { font-family: var(--mono); font-size: 8px; letter-spacing: .12em; color: var(--orange); text-transform: uppercase; line-height: 1.1; }
-.wp-sot .wp-body { font-family: var(--doc-read); font-size: var(--doc-size); line-height: calc(var(--doc-lead) - 0.12); }
+/* ---- DIRECTION (#1 + #3) — sot / broll / oncam / bin unified into ONE flat block. ----
+   NO recessed LCD, NO hero copy-timecode string, NO type-specific badge or colour. Just a
+   neutral DIRECTION kind label and the editable body; timecodes live ONLY as inline chips in
+   the prose. FLAT: no shadow, no bevel, one ink hairline (inherited from .wp-cart). */
+.wp-dir-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; gap: 12px; }
+.wp-dir-kind { font-size: 8px; letter-spacing: .12em; color: #5c584e; text-transform: uppercase; }
+.wp-dir .wp-body { color: var(--body); }
 .wp-done {
-  width: 34px; height: 30px; border-radius: 7px; flex: none;
+  width: 30px; height: 26px; border-radius: 7px; flex: none;
   border: 1.5px solid var(--ink); background: var(--panel); color: var(--ink);
-  display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: pointer; padding: 0;
   font-family: var(--mono); transition: background .14s var(--ease), color .14s var(--ease);
 }
 .wp-done.is-done { background: var(--ink); color: #fff; }
-.wp-sot.is-done { opacity: .62; }
-
-/* ---- B-ROLL — burgundy cap + copy-timecode string + mono desc + chip ---- */
-.wp-broll-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 12px; }
-.wp-broll-kind { font-size: 8px; letter-spacing: .12em; color: #5c584e; text-transform: uppercase; }
-.wp-broll-tc {
-  font-family: var(--mono); font-size: 8px; letter-spacing: .1em; color: var(--burgundy); cursor: pointer;
-  white-space: nowrap; transition: color .14s var(--ease);
-}
-.wp-broll-tc:hover, .wp-broll-tc.copied { color: var(--orange); }
-.wp-broll .wp-body {
-  font-family: var(--mono); font-size: 12px; color: var(--mono-body); line-height: 1.5;
-}
-.wp-broll.is-done { opacity: .62; }
+.wp-dir.is-done { opacity: .62; }
 
 /* ---- NOTE — yellow cap, tinted cartridge ---- */
 .wp-note { background: var(--note-fill); }
@@ -728,11 +708,16 @@ body {
   white-space: nowrap; cursor: pointer; user-select: none;
   transition: border-color .14s var(--ease), color .14s var(--ease);
 }
+/* DAY folded into the chip (#2): when data-day is known the chip reads "DAY N · HH:MM:SS:FF"
+   with the DAY prominent (orange, bold); when day is null it shows just the timecode behind a
+   plain ▸ marker (NEVER "DAY null"). The bare HH:MM:SS:FF is the chip's real text node — a
+   click copies ONLY that code, never the DAY prefix (the prefix is CSS-generated, uncopyable). */
 .wp-tc-tag::before { content: "▸ "; color: var(--orange); font-size: .85em; }
+.wp-tc-tag[data-day]::before { content: "DAY " attr(data-day) " · "; font-weight: 700; letter-spacing: .06em; }
 .wp-tc-tag:hover { border-color: var(--orange); color: #fff; }
 .wp-tc-tag.copied { border-color: var(--orange); color: var(--orange); }
-/* On the mono-bodied B-roll cartridge, keep the chip legible against the lighter prose. */
-.wp-broll .wp-tc-tag, .wp-sot .wp-tc-tag { font-size: .82em; }
+/* Keep the chip legible against the lighter direction prose. */
+.wp-dir .wp-tc-tag { font-size: .82em; }
 
 ::selection { background: rgba(255,91,31,.18); }
 
@@ -1073,7 +1058,6 @@ body {
   .wp-device { padding: 16px; }
   .wp-rack-head { flex-direction: column; align-items: flex-start; gap: 8px; }
   .wp-workshop, .wp-outline { width: 100%; }
-  .wp-sot .wp-cart-body.wp-sot-grid { grid-template-columns: 1fr; gap: 9px; }
 }
 
 /* ============================================================
@@ -1091,12 +1075,10 @@ body {
   .wp-chapter { color: #000 !important; break-before: page; page-break-before: always; }
   .wp-chapter:first-child { break-before: auto; page-break-before: avoid; }
   .wp-chapter .wp-cart-body, .wp-chapter .wp-body, .wp-ch-kind, .wp-ch-tag { color: #000 !important; }
-  .wp-vo .wp-body, .wp-oncam .wp-body, .wp-sot .wp-body, .wp-broll .wp-body, .wp-note .wp-body { color: #000 !important; font-size: 11pt !important; }
-  .wp-lcd { background: none !important; border: 1pt solid #000 !important; }
-  .wp-lcd-tc { color: #000 !important; }
+  .wp-vo .wp-body, .wp-dir .wp-body, .wp-note .wp-body { color: #000 !important; font-size: 11pt !important; }
   .wp-tk, .wp-fc, .wp-visual, .wp-tc-tag { background: none !important; border: 1pt solid #000 !important; color: #000 !important; }
   .wp-tc-tag::before { color: #000 !important; }
-  .wp-sot.is-done, .wp-broll.is-done { opacity: 1 !important; }
+  .wp-dir.is-done { opacity: 1 !important; }
   /* TABLE LAYER in print: drop lane tints, keep the single hairline as black ink,
      keep lane labels (in black, no orange) so SAID/SHOWN columns stay legible. */
   .wp-tcell { background: none !important; }
