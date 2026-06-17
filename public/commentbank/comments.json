@@ -1,5 +1,482 @@
 [
   {
+    "id": "F0BB9KYC5E2",
+    "name": "Screenshot 2026-06-17 at 9.45.44 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 40972,
+    "local_path": "images/F0BB9KYC5E2.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781727124.528449",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781727124528449",
+    "posted_at": "2026-06-17T20:12:04.528Z",
+    "analysis": {
+      "comment_text": "Amazing video, yet again Chris. Keep up the good journalism work 🙌🙌🙌🙌",
+      "commenter": "@zkMenno",
+      "sentiment": "praise",
+      "themes": [
+        "journalism",
+        "host",
+        "quality",
+        "encouragement"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:26.299Z"
+  },
+  {
+    "id": "F0BC60WT0RE",
+    "name": "Screenshot 2026-06-17 at 4.10.20 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 44314,
+    "local_path": "images/F0BC60WT0RE.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781727124.528449",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781727124528449",
+    "posted_at": "2026-06-17T20:12:04.528Z",
+    "analysis": {
+      "comment_text": "I'm sorry for the stupid question but how do you do your animations? It looks really unique and I like the simple look.",
+      "commenter": "@0-kaia",
+      "sentiment": "question",
+      "themes": [
+        "animations",
+        "style",
+        "editing",
+        "praise"
+      ],
+      "video_hint": null,
+      "is_question": true,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:26.714Z"
+  },
+  {
+    "id": "F0BBBN2G49G",
+    "name": "Screenshot 2026-06-17 at 4.09.40 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 46868,
+    "local_path": "images/F0BBBN2G49G.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781727124.528449",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781727124528449",
+    "posted_at": "2026-06-17T20:12:04.528Z",
+    "analysis": {
+      "comment_text": "i mean, kuddos to the investigation or whatever, but the filmography and editing in this video is top notch just by itself!!",
+      "commenter": "@TheResistance221",
+      "sentiment": "praise",
+      "themes": [
+        "cinematography",
+        "editing",
+        "production quality"
+      ],
+      "video_hint": "an investigative video with notable cinematography and editing",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:26.938Z"
+  },
+  {
+    "id": "F0BBFB4R7KN",
+    "name": "Screenshot 2026-06-17 at 4.10.29 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 57405,
+    "local_path": "images/F0BBFB4R7KN.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781727124.528449",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781727124528449",
+    "posted_at": "2026-06-17T20:12:04.528Z",
+    "analysis": {
+      "comment_text": "Great topic and well communicated, but can we get extra props for the camera and editing work here? Great topics get people to click, the storytelling gets people to stay, but the commitment to the craft and production quality are what keep people coming back",
+      "commenter": "jeffreypinnow",
+      "sentiment": "insightful",
+      "themes": [
+        "production quality",
+        "editing",
+        "cinematography",
+        "retention"
+      ],
+      "video_hint": null,
+      "is_question": true,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:27.384Z"
+  },
+  {
+    "id": "F0BB8A9BA4V",
+    "name": "Screenshot 2026-06-17 at 9.45.21 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 27284,
+    "local_path": "images/F0BB8A9BA4V.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781727124.528449",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781727124528449",
+    "posted_at": "2026-06-17T20:12:04.528Z",
+    "analysis": {
+      "comment_text": "This is a great piece.",
+      "commenter": "@BuildingDataScience",
+      "sentiment": "praise",
+      "themes": [
+        "quality",
+        "content"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:29.336Z"
+  },
+  {
+    "id": "F0BBDHB6UCR",
+    "name": "Screenshot 2026-06-17 at 4.09.59 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 35616,
+    "local_path": "images/F0BBDHB6UCR.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781727124.528449",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781727124528449",
+    "posted_at": "2026-06-17T20:12:04.528Z",
+    "analysis": {
+      "comment_text": "Love the nuance and data here. Thank you for your excellent work!",
+      "commenter": "ujramdas2461",
+      "sentiment": "praise",
+      "themes": [
+        "data",
+        "research",
+        "quality",
+        "appreciation"
+      ],
+      "video_hint": "data or research-heavy video",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:29.353Z"
+  },
+  {
+    "id": "F0BBBN3BH7C",
+    "name": "Screenshot 2026-06-17 at 9.45.13 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 39310,
+    "local_path": "images/F0BBBN3BH7C.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781727124.528449",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781727124528449",
+    "posted_at": "2026-06-17T20:12:04.528Z",
+    "analysis": {
+      "comment_text": "I love the deep dives you do. You're a very good story teller and communicator. Keep it up! 🙏",
+      "commenter": "FelipeZabala",
+      "sentiment": "praise",
+      "themes": [
+        "storytelling",
+        "communication",
+        "deep dives",
+        "host"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:29.861Z"
+  },
+  {
+    "id": "F0BBFB5R7KN",
+    "name": "Screenshot 2026-06-17 at 4.10.02 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 26324,
+    "local_path": "images/F0BBFB5R7KN.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781727124.528449",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781727124528449",
+    "posted_at": "2026-06-17T20:12:04.528Z",
+    "analysis": {
+      "comment_text": "Thank you for the research leg work and excellent communication!",
+      "commenter": "ellienielsen533",
+      "sentiment": "praise",
+      "themes": [
+        "research",
+        "communication",
+        "appreciation"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:30.141Z"
+  },
+  {
+    "id": "F0BBFAE3744",
+    "name": "Screenshot 2026-06-17 at 12.13.33 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 34490,
+    "local_path": "images/F0BBFAE3744.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781726923.948689",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781726923948689",
+    "posted_at": "2026-06-17T20:08:43.948Z",
+    "analysis": {
+      "comment_text": "Just wanna say I really like this channel yo.",
+      "commenter": "masonkullander1934",
+      "sentiment": "praise",
+      "themes": [
+        "channel appreciation",
+        "general praise"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:32.523Z"
+  },
+  {
+    "id": "F0BB5AP435Z",
+    "name": "Screenshot 2026-06-17 at 12.13.42 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 38163,
+    "local_path": "images/F0BB5AP435Z.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781726923.948689",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781726923948689",
+    "posted_at": "2026-06-17T20:08:43.948Z",
+    "analysis": {
+      "comment_text": "Another top quality video. I bet serious planning went into this world cup series and I hope it gets you to a million subs.",
+      "commenter": "korakys",
+      "sentiment": "praise",
+      "themes": [
+        "quality",
+        "planning",
+        "world cup",
+        "growth"
+      ],
+      "video_hint": "World Cup series",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:32.868Z"
+  },
+  {
+    "id": "F0BBBMBQ3DY",
+    "name": "Screenshot 2026-06-17 at 4.04.58 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 47071,
+    "local_path": "images/F0BBBMBQ3DY.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781726923.948689",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781726923948689",
+    "posted_at": "2026-06-17T20:08:43.948Z",
+    "analysis": {
+      "comment_text": "Appreciate the inclusion of Somalia 🇸🇴!! 2034 World Cup champions 👉🟫👉🟫🔥",
+      "commenter": "VSnatch",
+      "sentiment": "praise",
+      "themes": [
+        "somalia",
+        "world cup",
+        "football",
+        "inclusion"
+      ],
+      "video_hint": "Video likely related to the 2034 FIFA World Cup or a football/soccer topic featuring Somalia",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:33.034Z"
+  },
+  {
+    "id": "F0BBFACVDNY",
+    "name": "Screenshot 2026-06-17 at 12.14.08 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 80796,
+    "local_path": "images/F0BBFACVDNY.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781726923.948689",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781726923948689",
+    "posted_at": "2026-06-17T20:08:43.948Z",
+    "analysis": {
+      "comment_text": "Beautiful! Beautiful report! Here in Brazil, some people (very sadly) say that good journalism can't evoke emotion. I think exactly the opposite. I believe that good journalism may not evoke emotion, but excellent journalism not only informs, but also educates, moves, and touches the heart! I learned a lot and was deeply moved by the video. Beautiful report! Truly beautiful!",
+      "commenter": "@iodainsoneoficial",
+      "sentiment": "insightful",
+      "themes": [
+        "journalism",
+        "emotion",
+        "storytelling",
+        "brazil"
+      ],
+      "video_hint": "A journalism/reportage video that the commenter found emotionally moving and educational",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:34.526Z"
+  },
+  {
+    "id": "F0BBFAE8E4U",
+    "name": "Screenshot 2026-06-17 at 12.15.11 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 29722,
+    "local_path": "images/F0BBFAE8E4U.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781726923.948689",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781726923948689",
+    "posted_at": "2026-06-17T20:08:43.948Z",
+    "analysis": {
+      "comment_text": "Beautiful qualifying rounds animation",
+      "commenter": "@intheovaloffice",
+      "sentiment": "praise",
+      "themes": [
+        "animation",
+        "qualifying rounds",
+        "motion graphics",
+        "editing"
+      ],
+      "video_hint": "A video featuring qualifying rounds, likely a sports or competition-related video",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:35.706Z"
+  },
+  {
+    "id": "F0BB9K7E1B8",
+    "name": "Screenshot 2026-06-17 at 12.15.03 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 30216,
+    "local_path": "images/F0BB9K7E1B8.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781726923.948689",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781726923948689",
+    "posted_at": "2026-06-17T20:08:43.948Z",
+    "analysis": {
+      "comment_text": "That ending actually made me tear up",
+      "commenter": "IsmailTaleb",
+      "sentiment": "personal_story",
+      "themes": [
+        "emotional reaction",
+        "ending",
+        "storytelling"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:35.814Z"
+  },
+  {
+    "id": "F0BB89H2NCV",
+    "name": "Screenshot 2026-06-17 at 4.05.33 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 31867,
+    "local_path": "images/F0BB89H2NCV.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781726923.948689",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781726923948689",
+    "posted_at": "2026-06-17T20:08:43.948Z",
+    "analysis": {
+      "comment_text": "absolutely loved the video!! W page ez subscribe found out about you through xQc",
+      "commenter": "@4bdu74z3z",
+      "sentiment": "praise",
+      "themes": [
+        "discovery",
+        "subscription",
+        "xqc",
+        "praise"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:36.005Z"
+  },
+  {
+    "id": "F0BBDGLKWTT",
+    "name": "Screenshot 2026-06-17 at 10.59.44 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 29338,
+    "local_path": "images/F0BBDGLKWTT.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781726923.948689",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781726923948689",
+    "posted_at": "2026-06-17T20:08:43.948Z",
+    "analysis": {
+      "comment_text": "As a Saudi I love this video :) 🤍",
+      "commenter": "Kat52662",
+      "sentiment": "praise",
+      "themes": [
+        "saudi arabia",
+        "positive reaction",
+        "regional identity"
+      ],
+      "video_hint": "Video likely related to Saudi Arabia or the Middle East",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:37.313Z"
+  },
+  {
+    "id": "F0BBFAERY7N",
+    "name": "Screenshot 2026-06-17 at 10.44.19 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 28560,
+    "local_path": "images/F0BBFAERY7N.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781726923.948689",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781726923948689",
+    "posted_at": "2026-06-17T20:08:43.948Z",
+    "analysis": {
+      "comment_text": "Quality report! And the music choice is on point. Thanks for the story!",
+      "commenter": "so1745",
+      "sentiment": "praise",
+      "themes": [
+        "music",
+        "reporting",
+        "storytelling"
+      ],
+      "video_hint": "a news or documentary-style report with notable background music",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:38.617Z"
+  },
+  {
+    "id": "F0BBDGM69ND",
+    "name": "Screenshot 2026-06-17 at 12.15.21 PM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 27411,
+    "local_path": "images/F0BBDGM69ND.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781726923.948689",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781726923948689",
+    "posted_at": "2026-06-17T20:08:43.948Z",
+    "analysis": {
+      "comment_text": "I love your content when you discuss Arabs",
+      "commenter": "@vr-7469",
+      "sentiment": "praise",
+      "themes": [
+        "arab world",
+        "content appreciation",
+        "host",
+        "topic preference"
+      ],
+      "video_hint": "A video or series discussing Arabs or Arab culture",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T21:04:40.400Z"
+  },
+  {
     "id": "F0BC268JK24",
     "name": "Screenshot 2026-06-17 at 8.26.11 AM.png",
     "ext": "png",
