@@ -1,5 +1,270 @@
 [
   {
+    "id": "F0BC268JK24",
+    "name": "Screenshot 2026-06-17 at 8.26.11 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 21923,
+    "local_path": "images/F0BC268JK24.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781701892.387999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781701892387999?thread_ts=1781701892.387999&cid=C084AQ5MNTS",
+    "posted_at": "2026-06-17T13:11:32.387Z",
+    "analysis": {
+      "comment_text": "very interesting video",
+      "commenter": "kuukeli",
+      "sentiment": "insightful",
+      "themes": [
+        "general",
+        "video content"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T16:13:11.066Z"
+  },
+  {
+    "id": "F0BB9NPG2U9",
+    "name": "Screenshot 2026-06-17 at 9.08.24 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 31996,
+    "local_path": "images/F0BB9NPG2U9.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781701892.387999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781701892387999?thread_ts=1781701892.387999&cid=C084AQ5MNTS",
+    "posted_at": "2026-06-17T13:11:32.387Z",
+    "analysis": {
+      "comment_text": "Really well put together, best video I have seen on the topic.",
+      "commenter": "golalislive",
+      "sentiment": "praise",
+      "themes": [
+        "editing",
+        "production quality",
+        "topic coverage",
+        "overall quality"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T16:13:11.528Z"
+  },
+  {
+    "id": "F0BASDDR5BR",
+    "name": "Screenshot 2026-06-17 at 9.08.52 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 50547,
+    "local_path": "images/F0BASDDR5BR.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781701892.387999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781701892387999?thread_ts=1781701892.387999&cid=C084AQ5MNTS",
+    "posted_at": "2026-06-17T13:11:32.387Z",
+    "analysis": {
+      "comment_text": "Informative and amazingly well put together - as always 👋 And now I'm gonna go bet on something, just to try it haha 🙈",
+      "commenter": "AttilaK0326",
+      "sentiment": "praise",
+      "themes": [
+        "quality",
+        "editing",
+        "betting",
+        "humor"
+      ],
+      "video_hint": "likely a video about betting or gambling given the viewer's reaction to try betting",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T16:13:12.875Z"
+  },
+  {
+    "id": "F0BB7TDMNCS",
+    "name": "Screenshot 2026-06-17 at 8.26.02 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 17627,
+    "local_path": "images/F0BB7TDMNCS.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781701892.387999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781701892387999?thread_ts=1781701892.387999&cid=C084AQ5MNTS",
+    "posted_at": "2026-06-17T13:11:32.387Z",
+    "analysis": {
+      "comment_text": "Cool transition!!",
+      "commenter": "zzhhcc",
+      "sentiment": "praise",
+      "themes": [
+        "editing",
+        "transitions"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T16:13:13.801Z"
+  },
+  {
+    "id": "F0BB4FK9ZD3",
+    "name": "Screenshot 2026-06-17 at 9.08.19 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 37794,
+    "local_path": "images/F0BB4FK9ZD3.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781701892.387999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781701892387999?thread_ts=1781701892.387999&cid=C084AQ5MNTS",
+    "posted_at": "2026-06-17T13:11:32.387Z",
+    "analysis": {
+      "comment_text": "really fun video! it saturated the black box i had in mind about these markets",
+      "commenter": "Guilred",
+      "sentiment": "praise",
+      "themes": [
+        "markets",
+        "educational",
+        "clarity",
+        "praise"
+      ],
+      "video_hint": "video about markets (type unspecified)",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T16:13:13.871Z"
+  },
+  {
+    "id": "F0BB9NPA309",
+    "name": "Screenshot 2026-06-17 at 8.25.53 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 41264,
+    "local_path": "images/F0BB9NPA309.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781701892.387999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781701892387999?thread_ts=1781701892.387999&cid=C084AQ5MNTS",
+    "posted_at": "2026-06-17T13:11:32.387Z",
+    "analysis": {
+      "comment_text": "The maturity, depth, and intelligence of this deep dive is genuinely surprising and refreshing",
+      "commenter": "theyruinedyoutubeagain",
+      "sentiment": "praise",
+      "themes": [
+        "depth",
+        "intelligence",
+        "deep dive",
+        "content quality"
+      ],
+      "video_hint": "a long-form analytical or documentary-style video described as a 'deep dive'",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T16:13:16.043Z"
+  },
+  {
+    "id": "F0BB5RA85P0",
+    "name": "Screenshot 2026-06-17 at 8.12.50 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 34693,
+    "local_path": "images/F0BB5RA85P0.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781701892.387999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781701892387999?thread_ts=1781701892.387999&cid=C084AQ5MNTS",
+    "posted_at": "2026-06-17T13:11:32.387Z",
+    "analysis": {
+      "comment_text": "You're so good with your video titles! Feel like I can't stop clicking on them",
+      "commenter": "aether3593",
+      "sentiment": "praise",
+      "themes": [
+        "titles",
+        "clickability",
+        "engagement",
+        "content strategy"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T16:13:16.683Z"
+  },
+  {
+    "id": "F0BB9NR1JQH",
+    "name": "Screenshot 2026-06-17 at 8.12.45 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 56528,
+    "local_path": "images/F0BB9NR1JQH.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781701892.387999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781701892387999?thread_ts=1781701892.387999&cid=C084AQ5MNTS",
+    "posted_at": "2026-06-17T13:11:32.387Z",
+    "analysis": {
+      "comment_text": "I just watched all your videos yesterday and had to rewatch some because your voice is so easy to take information in with. I'm excited to watch a new one already!",
+      "commenter": "@milasommer4369",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "voice",
+        "rewatchability",
+        "engagement"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T16:13:17.264Z"
+  },
+  {
+    "id": "F0BB5R2QXV4",
+    "name": "Screenshot 2026-06-17 at 8.26.06 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 38267,
+    "local_path": "images/F0BB5R2QXV4.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781701892.387999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781701892387999?thread_ts=1781701892.387999&cid=C084AQ5MNTS",
+    "posted_at": "2026-06-17T13:11:32.387Z",
+    "analysis": {
+      "comment_text": "Another excellent video. How do you not have 1M subscribers yet?!",
+      "commenter": "ElectricDuck",
+      "sentiment": "praise",
+      "themes": [
+        "subscriber growth",
+        "channel quality",
+        "praise",
+        "engagement"
+      ],
+      "video_hint": null,
+      "is_question": true,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T16:13:17.381Z"
+  },
+  {
+    "id": "F0BB1GTDP0B",
+    "name": "Screenshot 2026-06-17 at 8.12.55 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 21473,
+    "local_path": "images/F0BB1GTDP0B.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781701892.387999",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781701892387999?thread_ts=1781701892.387999&cid=C084AQ5MNTS",
+    "posted_at": "2026-06-17T13:11:32.387Z",
+    "analysis": {
+      "comment_text": "Love your videos Chris! Thanks for your work.",
+      "commenter": "xtc23",
+      "sentiment": "praise",
+      "themes": [
+        "appreciation",
+        "host",
+        "general"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-17T16:13:18.322Z"
+  },
+  {
     "id": "F0BB0P8NL9F",
     "name": "image.png",
     "ext": "png",
