@@ -17,6 +17,7 @@
 // Auth: same x-access-code perimeter as the rest of /api/qss-*.
 
 import { checkAccess } from './_lib/access.js';
+import { sanitizeSlug } from './_lib/qss-worlds.js';
 
 // Edge runtime. The missing-await bug on checkAccess below was killing
 // every request with a 500 because the async checkAccess Promise was
@@ -416,11 +417,14 @@ async function handleDelete(body, world) {
   return jsonOk({ ok: true });
 }
 
-function sanitizeWorldSlug(raw) {
-  const slug = String(raw || '').trim().toLowerCase();
-  if (slug === 'burgundy') return 'burgundy';
-  return 'queen-scarlet';
-}
+// World-slug resolution routes through the shared registry-driven
+// sanitizeSlug (api/_lib/qss-worlds.js) — NOT a local hardcoded allowlist.
+// This was a third divergent copy of the `if (slug === 'burgundy')` landmine
+// already killed in qss-worlds.js and qss-explorer.js: the hardcoded form
+// silently mis-routes any future third world (carried on ?world / world_slug)
+// into queen-scarlet, so the wrong world's cast would be read AND written.
+// Registry-driven means adding a world to WORLDS is the only edit ever needed.
+const sanitizeWorldSlug = sanitizeSlug;
 
 // ────────────────────── sanitize / row mapping ──────────────────────
 
