@@ -131,7 +131,7 @@ export default async function handler(req) {
 
   // Build a compact context block — Wordy needs to KNOW the world, but
   // we want short context so latency stays chatty.
-  const blockSummary = blocks.slice(-3).map((b, i) => `[${blocks.length - 2 + i}] ${(b.text || '').trim().slice(0, 320)}`).join('\n\n');
+  const blockSummary = buildBlockSummary(blocks);
   const arcLine = arc?.synopsis ? `Story so far (arc cache): ${arc.synopsis}` : '';
   const castLines = cards.slice(0, 8).map(c => {
     const name = String(c?.name || '').trim();
@@ -252,6 +252,21 @@ function splitReplyAndThemes(raw, alreadyCaptured) {
     if (cleaned.length >= 3) break;
   }
   return { reply: reply.trim(), themes: cleaned };
+}
+
+// Render the last (up to) 3 committed blocks as `[N] text` lines for Wordy's
+// context, where N is each block's 1-based position in the full story. The
+// 1-based label matters: Wordy references blocks by number when it brainstorms,
+// so the number must match the block's actual place. Anchor the numbering on
+// the slice's offset, NOT `length - 2`, which only happens to be 1-based for
+// stories of 3+ blocks and emits `[0]` / `[-1]` at a story's 1-2-block opening.
+export function buildBlockSummary(blocks) {
+  const list = Array.isArray(blocks) ? blocks : [];
+  const base = Math.max(0, list.length - 3); // 0-based index of the first shown block
+  return list
+    .slice(-3)
+    .map((b, i) => `[${base + i + 1}] ${(b?.text || '').trim().slice(0, 320)}`)
+    .join('\n\n');
 }
 
 function cryptoId() {
