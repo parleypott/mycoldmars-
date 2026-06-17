@@ -81,7 +81,7 @@ export default async function handler(req) {
   }
 }
 
-function deriveSignals(event, payload, context) {
+export function deriveSignals(event, payload, context) {
   // The block_added / own_block_added / option_added events all involve a
   // text body that's worth full-signal extraction.
   const text =

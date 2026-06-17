@@ -7189,7 +7189,7 @@
       observe('block_added', {
         text: opt.text,
         kind: opt.kind || '',
-        from: 'option',
+        from: opt.fromDirection ? 'direction' : 'option',
         block_index: state.blocks.length - 1,
       });
       persist();
@@ -7607,7 +7607,11 @@
           }));
           state.latestDirections = turn.directions.length ? { turnId: turn.id, items: turn.directions } : null;
         } else {
-          turn.options = (data.blockOptions || []).map(o => ({ id: uid(), kind: o.kind || '', summary: o.summary || '', text: o.text, added: false }));
+          // fromDirection marks options that were generated because the kid
+          // steered through a creative DIRECTION (chooseDirection → askWordy with
+          // opts.direction set). Carried onto the committed block so the parent
+          // dashboard can tell "grabbed an option" from "followed a direction".
+          turn.options = (data.blockOptions || []).map(o => ({ id: uid(), kind: o.kind || '', summary: o.summary || '', text: o.text, added: false, fromDirection: !!opts.direction }));
           if (turn.options.length) state.latestOptions = { turnId: turn.id, items: turn.options };
         }
         state.chat.push(turn);
