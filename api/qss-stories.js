@@ -1,4 +1,5 @@
 import { checkAccess } from './_lib/access.js';
+import { sanitizeSlug } from './_lib/qss-worlds.js';
 
 export const config = { runtime: 'edge', maxDuration: 30 };
 
@@ -285,11 +286,12 @@ function assertWorldSlugPersisted(row, sentSlug) {
 
 // Whitelist active world slugs — anything else falls back to queen-scarlet
 // (the default) so a malformed client can't poison the world_slug column.
-function sanitizeWorldSlug(raw) {
-  const slug = String(raw || '').trim().toLowerCase();
-  if (slug === 'burgundy') return 'burgundy';
-  return 'queen-scarlet';
-}
+// Routes through the SHARED registry-driven resolver in qss-worlds.js (the
+// single source of truth) instead of a local hardcoded allowlist — so the
+// moment a new world is added to WORLDS, story saves/duplicates land it in
+// the right library. A local copy only knowing 'burgundy' silently collapsed
+// every other world to queen-scarlet (the world-routing landmine class).
+const sanitizeWorldSlug = sanitizeSlug;
 
 async function handleRename(body) {
   const id = body.id;
