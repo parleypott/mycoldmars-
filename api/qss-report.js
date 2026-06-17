@@ -74,7 +74,7 @@ export default async function handler(req) {
   }
 }
 
-function summarize(rows) {
+export function summarize(rows) {
   const blockEvents = rows.filter(r => ['block_added', 'own_block_added'].includes(r.event));
   const directionPicks = rows.filter(r => r.event === 'direction_picked');
   const directionRejects = rows.filter(r => r.event === 'direction_rejected');
@@ -182,7 +182,7 @@ function summarize(rows) {
   };
 }
 
-function topN(obj, n) {
+export function topN(obj, n) {
   return Object.entries(obj)
     .sort((a, b) => b[1] - a[1])
     .slice(0, n)
