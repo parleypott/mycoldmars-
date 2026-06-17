@@ -11,6 +11,7 @@ import { getSchema } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { EditorState } from "@tiptap/pm/state";
 import { BURMA_NODES } from "./src/extensions/blocks.js";
+import { BURMA_TABLE_NODES } from "./src/extensions/table.js";
 import { BURMA_MARKS } from "./src/extensions/marks.js";
 
 type Fail = { check: string; detail: string };
@@ -115,6 +116,7 @@ const burmaSchema = getSchema([
     dropcursor: false, gapcursor: false,
   }),
   ...BURMA_NODES,
+  ...BURMA_TABLE_NODES,
   ...BURMA_MARKS,
 ]);
 
@@ -144,23 +146,16 @@ function checkReorderPersists(scriptDoc: ScriptDoc) {
   assert(total > 5, "reorder: enough blocks to move", String(total));
   if (total <= 5) return;
 
-  const idsAt = (doc: any) => {
-    const out: string[] = [];
-    doc.forEach((n: any) => out.push(n.attrs?.blockId));
-    return out;
-  };
-  const before = idsAt(state.doc);
-  // docToBlocks UNWRAPS the consolidated serviceGroup (feature D) back into its N
-  // serviceItem rows, so the DERIVED block count is legitimately higher than the
-  // live doc's TOP-LEVEL node count (e.g. 225 derived vs ~220 top-level). Capture the
-  // baseline derived count so the round-trip check below compares like-with-like and
-  // only fires on a REAL loss — not on the service consolidation.
-  const baselineDerivedLen = docToBlocks(state.doc.toJSON()).length;
-  const fromIndex = 1;          // move the second block...
+  // TABLE WORLD: the top-level nodes are tableRows (not blocks), so identity must come
+  // from docToBlocks — which unwraps rows→cells→blocks AND the consolidated serviceGroup
+  // back to the canonical ordered block list (225). Counting top-level nodes here would be
+  // wrong; deriving the real blocks is correct in both the old and new models.
+  const derivedIds = (doc: any) => docToBlocks(doc.toJSON()).map((b: any) => b.id);
+  const before = derivedIds(state.doc);
+  const fromIndex = 1;          // move the second top-level ROW...
   const toIndex = total - 2;    // ...to near the end
-  const movedId = before[fromIndex];
 
-  // Dispatch a real transaction: delete the node, then insert it at the new index
+  // Dispatch a real transaction: delete the row, then insert it at the new index
   // (positions recomputed against the post-delete doc — exactly PM's own move).
   const moved = state.doc.child(fromIndex);
   const tr = state.tr;
@@ -171,11 +166,12 @@ function checkReorderPersists(scriptDoc: ScriptDoc) {
   assert(tr.docChanged, "reorder: transaction mutated the doc");
   state = state.apply(tr);
 
-  const after = idsAt(state.doc);
+  const after = derivedIds(state.doc);
   assert(after.length === before.length, "reorder: no block gained/lost", `${before.length} -> ${after.length}`);
-  assert(new Set(after).size === new Set(before).size, "reorder: id set preserved");
-  assert(after[toIndex] === movedId, "reorder: moved block landed at target index", `want ${movedId} at ${toIndex}, got ${after[toIndex]}`);
-  assert(before[fromIndex] !== after[fromIndex] || total <= 2, "reorder: source slot actually changed");
+  assert(new Set(after).size === new Set(before).size, "reorder: id set preserved", `${new Set(after).size} vs ${new Set(before).size}`);
+  const missing = before.filter((x: string) => !new Set(after).has(x));
+  assert(missing.length === 0, "reorder: every original block still present", missing.slice(0, 5).join(", "));
+  assert(JSON.stringify(after) !== JSON.stringify(before) || total <= 2, "reorder: order actually changed");
 
   // ---- now persist exactly as Editor.onUpdate does, then reload (seedDoc path) ----
   const json = state.doc.toJSON();
@@ -184,18 +180,11 @@ function checkReorderPersists(scriptDoc: ScriptDoc) {
 
   const reloaded = JSON.parse(LS[LS_DOC]);
   assert(LS[LS_DOC] === JSON.stringify(reloaded), "reorder: doc round-trips localStorage byte-stable");
-  const reloadedOrder = (reloaded.content || []).map((n: any) => n.attrs?.blockId);
-  assert(JSON.stringify(reloadedOrder) === JSON.stringify(after), "reorder: persisted order == live order", `${reloadedOrder.indexOf(movedId)} vs ${toIndex}`);
 
-  // The derived schema-faithful blocks export must lose NOTHING: the same count of
-  // derived blocks as the baseline (compared like-with-like, both unwrapped), and the
-  // moved block must still be present after the persist+reload round-trip. (We compare
-  // against baselineDerivedLen, NOT after.length, because after.length counts the
-  // consolidated serviceGroup as ONE node while docToBlocks unwraps it — line 188 above
-  // already proves the move persisted correctly in consistent top-level terms.)
+  // The derived blocks export must lose NOTHING and reflect the moved order.
   const reloadedBlocks: any[] = JSON.parse(LS[LS_BLOCKS]);
-  assert(reloadedBlocks.length === baselineDerivedLen, "reorder: derived blocks count matches", `${reloadedBlocks.length} vs ${baselineDerivedLen}`);
-  assert(reloadedBlocks.some((b: any) => b.id === movedId), "reorder: moved block survives derived export", movedId);
+  assert(reloadedBlocks.length === before.length, "reorder: derived blocks count matches", `${reloadedBlocks.length} vs ${before.length}`);
+  assert(JSON.stringify(reloadedBlocks.map((b: any) => b.id)) === JSON.stringify(after), "reorder: persisted block order == live order");
 
   // Rehydrating the persisted doc must yield an identical doc (the editor's seedDoc).
   const rehydrated = burmaSchema.nodeFromJSON(reloaded);
