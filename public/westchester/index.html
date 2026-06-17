@@ -5718,7 +5718,11 @@ function normalizeListing(raw, doc) {
     city,
     state,
     zip,
-    price: typeof price === 'string' ? Number(String(price).replace(/[^\d]/g, '')) : price,
+    // Keep the decimal point — schema.org JSON-LD offers.price is canonically a
+    // STRING with cents ("1250000.00"). Stripping every non-digit deleted the dot
+    // and turned $1,250,000.00 into 125,000,000 (a 100x inflation). [^\d.] keeps
+    // the dot so commas/currency symbols still go but cents parse correctly.
+    price: typeof price === 'string' ? Number(String(price).replace(/[^\d.]/g, '')) : price,
     beds: raw.beds ?? raw.bedrooms ?? raw.bedroomCount ?? raw.numberOfBedrooms ?? raw.numberOfRooms,
     baths: raw.baths ?? raw.bathrooms ?? raw.bathroomCount ?? raw.totalBaths ?? raw.numberOfBathroomsTotal,
     sqft: raw.sqft ?? raw.squareFeet ?? raw.livingArea ?? raw.floorSize?.value,
