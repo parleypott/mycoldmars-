@@ -79,9 +79,13 @@ function buildSchema() {
 const DAY_IN_TEXT = /\bDAY\s*([123])\b/i;
 
 // Walk a paragraph's inline content, threading a running day from any "DAY N" word, and stamp a
-// `day` attr onto every timecode mark that doesn't already carry one. Returns true if it changed
-// anything. `seedDay` is the block-level day (sot/broll attr) used before any in-prose DAY N.
-function stampDaysInParagraph(paraNode, seedDay) {
+// `day` attr onto every timecode mark that doesn't already carry one. `seedDay` is the day in
+// force ENTERING this paragraph (the block-level sot/broll day, or the day carried over from an
+// earlier paragraph of the SAME block). Returns { changed, day } — `day` is the running day on
+// EXIT, so the caller can thread it into the next paragraph: a "DAY 2" in a scene/chapter heading
+// must reach an embedded timecode in the block's body paragraph, per this module's stated intent
+// ("the nearest preceding DAY N within the SAME cartridge block").
+export function stampDaysInParagraph(paraNode, seedDay) {
   let changed = false;
   let day = seedDay ?? null;
   for (const inline of paraNode.content || []) {
@@ -97,13 +101,13 @@ function stampDaysInParagraph(paraNode, seedDay) {
       }
     }
   }
-  return changed;
+  return { changed, day };
 }
 
 // Is this binBlock really a colonless (or cued) VO line? Mirror parser.ts's VO_LEAD against the
 // block's flattened prose. Only the FIRST paragraph's lead matters (the cue + "VO").
 const VO_LEAD_MIG = /^-?\s*(?:\[[^\]]*\]\s*\+?\s*)?VO(?=[:\s])/i;
-function binLooksLikeVo(blockNode) {
+export function binLooksLikeVo(blockNode) {
   const firstPara = (blockNode.content || []).find((n) => n && n.type === 'paragraph');
   if (!firstPara) return false;
   const lead = (firstPara.content || [])
@@ -115,7 +119,7 @@ function binLooksLikeVo(blockNode) {
 }
 
 // Apply the additive transforms to a cartridge block node IN PLACE (clone supplied by caller).
-function transformBlockNode(node) {
+export function transformBlockNode(node) {
   if (!node || !node.type) return false;
   let changed = false;
   // (B) colonless-VO bin → vo (text-preserving: same content, gains status attr).
@@ -125,10 +129,14 @@ function transformBlockNode(node) {
     changed = true;
   }
   // (A) stamp DAY on this block's timecode marks. sot/broll carry a block-level day to seed from.
-  const seedDay = (node.type === 'sotBlock' || node.type === 'brollBlock') ? (node.attrs?.day ?? null) : null;
+  // Thread the running day ACROSS the block's paragraphs (a scene/chapter heading's "DAY N" must
+  // reach a timecode in the body paragraph), so it can't reset to null at each paragraph break.
+  let day = (node.type === 'sotBlock' || node.type === 'brollBlock') ? (node.attrs?.day ?? null) : null;
   for (const child of node.content || []) {
     if (child && child.type === 'paragraph') {
-      if (stampDaysInParagraph(child, seedDay)) changed = true;
+      const r = stampDaysInParagraph(child, day);
+      if (r.changed) changed = true;
+      day = r.day;
     }
   }
   return changed;
@@ -136,7 +144,7 @@ function transformBlockNode(node) {
 
 // Deep-clone the wrapped doc and apply additive transforms across every cell's blocks. Returns a
 // NEW doc (original untouched) plus a changed flag. Text-preserving by construction.
-function applyAdditiveTransforms(doc) {
+export function applyAdditiveTransforms(doc) {
   const clone = JSON.parse(JSON.stringify(doc));
   let changed = false;
   for (const row of clone.content || []) {
