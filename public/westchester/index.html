@@ -5471,11 +5471,22 @@ async function blobToResizedDataUrl(blob, maxDim = 1000, quality = 0.72) {
 function parseListingFilename(name) {
   if (!name) return null;
   let s = String(name).trim();
-  s = s.replace(/\s*[_|]\s*MLS\s*#?\s*\d+\s*$/i, '').trim();
+  // Strip a trailing "MLS #..." tag. The ID may be alphanumeric: OneKey/HGMLS
+  // listing numbers (which cover Westchester) start with a letter, e.g. "H6285012",
+  // so a digits-only match would leave the whole tag stuck on the city.
+  s = s.replace(/\s*[_|]\s*MLS\s*#?\s*[A-Za-z]*\d[\dA-Za-z-]*\s*$/i, '').trim();
   // Strip a trailing 5-digit zip (with or without preceding comma)
   let trailingZip = null;
   const zipM = s.match(/(?:,\s*|\s+)(\d{5})\s*$/);
   if (zipM) { trailingZip = zipM[1]; s = s.slice(0, zipM.index).replace(/,\s*$/, '').trim(); }
+  // Strip a trailing spelled-out state name ("New York", "Connecticut") and remember
+  // its abbreviation — the 2-letter patterns below can't see a full name, so without
+  // this it leaks into the city ("Pleasantville, New York"). Same trap normalizeStateAbbrev fixes.
+  let forcedState = null;
+  const STATE_NAMES = { 'new york': 'NY', 'connecticut': 'CT', 'new jersey': 'NJ', 'pennsylvania': 'PA', 'massachusetts': 'MA', 'rhode island': 'RI', 'vermont': 'VT', 'new hampshire': 'NH', 'maine': 'ME' };
+  const stNameRe = new RegExp('(?:,\\s*|\\s+)(' + Object.keys(STATE_NAMES).join('|') + ')\\s*$', 'i');
+  const stM = s.match(stNameRe);
+  if (stM) { forcedState = STATE_NAMES[stM[1].toLowerCase()]; s = s.slice(0, stM.index).replace(/,\s*$/, '').trim(); }
   const clean = (v) => String(v || '').replace(/[\s,]+$/, '').trim();
   const titleCase = (v) => clean(v).split(/\s+/).map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w).join(' ');
   // Recognized street suffixes — anchor the street/city split
@@ -5483,14 +5494,14 @@ function parseListingFilename(name) {
   const suffixRe = new RegExp('^(.+?\\s+' + STREET_SUFFIX + ')\\.?\\s+(.+?)(?:\\s+([A-Za-z]{2}))?\\s*$', 'i');
   // Pattern A: "<street>, <city>, <state>"
   let m = s.match(/^(.+?),\s*([^,]+?),\s*([A-Za-z]{2})\s*$/);
-  if (m) return { street: clean(m[1]), city: titleCase(m[2]), state: m[3].toUpperCase(), zip: trailingZip };
+  if (m) return { street: clean(m[1]), city: titleCase(m[2]), state: forcedState || m[3].toUpperCase(), zip: trailingZip };
   // Pattern B: "<street>, <city> <state>"
   m = s.match(/^(.+?),\s*([^,]+?)\s+([A-Za-z]{2})\s*$/);
-  if (m) return { street: clean(m[1]), city: titleCase(m[2]), state: m[3].toUpperCase(), zip: trailingZip };
+  if (m) return { street: clean(m[1]), city: titleCase(m[2]), state: forcedState || m[3].toUpperCase(), zip: trailingZip };
   // Pattern C: "<street with suffix> <city...> <state>" — anchored on street suffix
   m = s.match(suffixRe);
-  if (m && m[3]) return { street: clean(m[1]), city: titleCase(m[2]), state: m[3].toUpperCase(), zip: trailingZip };
-  if (m && !m[3]) return { street: clean(m[1]), city: titleCase(m[2]), state: 'NY', zip: trailingZip };
+  if (m && m[3]) return { street: clean(m[1]), city: titleCase(m[2]), state: forcedState || m[3].toUpperCase(), zip: trailingZip };
+  if (m && !m[3]) return { street: clean(m[1]), city: titleCase(m[2]), state: forcedState || 'NY', zip: trailingZip };
   // Pattern D: trailing state, no comma anywhere
   m = s.match(/^(.+?)\s+([A-Za-z]{2})\s*$/);
   if (m) {
@@ -5498,12 +5509,16 @@ function parseListingFilename(name) {
     if (parts.length >= 3) {
       const street = parts.slice(0, -1).join(' ');
       const city = parts.slice(-1).join(' ');
-      return { street, city: titleCase(city), state: m[2].toUpperCase(), zip: trailingZip };
+      return { street, city: titleCase(city), state: forcedState || m[2].toUpperCase(), zip: trailingZip };
     }
   }
   // Pattern E: "<street>, <city>" with no state — assume NY
   m = s.match(/^(.+?),\s*(.+?)\s*$/);
-  if (m) return { street: clean(m[1]), city: titleCase(m[2]), state: 'NY', zip: trailingZip };
+  if (m) return { street: clean(m[1]), city: titleCase(m[2]), state: forcedState || 'NY', zip: trailingZip };
+  // No comma, no trailing 2-letter state, but a full state name WAS stripped:
+  // the whole remainder is the street; assume the forced state. (e.g. "8 Maple Ave Rye New York"
+  // already handled by Pattern C/D above; this catches the suffix-less remainder.)
+  if (forcedState && s) return { street: clean(s), city: '', state: forcedState, zip: trailingZip };
   return null;
 }
 
