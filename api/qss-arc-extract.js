@@ -164,16 +164,20 @@ export default async function handler(req) {
   return json(200, { arc, serverUpdatedAt, model: 'claude-haiku-4-5', ms: Date.now() - t0 });
 }
 
-function extractArc(text) {
+export function extractArc(text) {
   if (!text) return null;
   // Prefer the <arc>...</arc> wrapper
   const tagMatch = text.match(/<arc>\s*([\s\S]*?)\s*<\/arc>/i);
   let raw = tagMatch ? tagMatch[1] : null;
-  // Fallback: find a JSON object substring
+  // Fallback: find the JSON object body. If the model was cut off mid-object
+  // there may be no closing brace at all (and no </arc>) — take from the first
+  // `{` to the end and let balanceJson repair the truncated tail.
   if (!raw) {
     const firstBrace = text.indexOf('{');
-    const lastBrace = text.lastIndexOf('}');
-    if (firstBrace >= 0 && lastBrace > firstBrace) raw = text.slice(firstBrace, lastBrace + 1);
+    if (firstBrace >= 0) {
+      const lastBrace = text.lastIndexOf('}');
+      raw = lastBrace > firstBrace ? text.slice(firstBrace, lastBrace + 1) : text.slice(firstBrace);
+    }
   }
   if (!raw) return null;
   // Strip code fences if Claude added them anyway
@@ -193,23 +197,34 @@ function extractArc(text) {
   }
 }
 
-function balanceJson(s) {
-  // Add closing braces/brackets if Claude truncated
-  let opens = 0, closes = 0, openSq = 0, closeSq = 0, inStr = false, esc = false;
+export function balanceJson(s) {
+  // Repair a truncated JSON tail by closing whatever is still open, in the
+  // correct NESTING order. A naive "append all ] then all }" breaks the common
+  // case where truncation lands inside an array-of-objects ({"a":[{"b":1) — that
+  // needs }] not ]}. Track the open delimiters on a stack and close them in
+  // reverse. Also close an unterminated string before the brackets, since an
+  // open quote swallows any closer appended after it.
+  const stack = [];
+  let inStr = false, esc = false;
   for (const c of s) {
     if (esc) { esc = false; continue; }
-    if (c === '\\') { esc = true; continue; }
+    if (c === '\\') { if (inStr) esc = true; continue; }
     if (c === '"') { inStr = !inStr; continue; }
     if (inStr) continue;
-    if (c === '{') opens++;
-    else if (c === '}') closes++;
-    else if (c === '[') openSq++;
-    else if (c === ']') closeSq++;
+    if (c === '{') stack.push('}');
+    else if (c === '[') stack.push(']');
+    else if (c === '}' || c === ']') {
+      // Pop only on a matching closer; ignore a stray unmatched one.
+      if (stack.length && stack[stack.length - 1] === c) stack.pop();
+    }
   }
-  return s + ']'.repeat(Math.max(0, openSq - closeSq)) + '}'.repeat(Math.max(0, opens - closes));
+  let out = s;
+  if (inStr) out += '"';
+  for (let i = stack.length - 1; i >= 0; i--) out += stack[i];
+  return out;
 }
 
-function normalizeArc(a) {
+export function normalizeArc(a) {
   const out = {
     synopsis: String(a?.synopsis || '').trim(),
     characters: Array.isArray(a?.characters) ? a.characters.slice(0, 10).map(c => ({
