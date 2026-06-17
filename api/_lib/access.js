@@ -36,15 +36,33 @@ const _jwtCache = new Map();
 const JWT_CACHE_TTL_MS = 60_000;
 const JWT_CACHE_MAX = 200;
 
+// Keep the per-instance JWT cache bounded. The old version only dropped
+// EXPIRED entries — so a burst of >MAX distinct still-valid tokens within the
+// TTL window deleted nothing and the cache grew without limit (a slow memory
+// leak on a long-lived edge instance). This guarantees forward progress:
+// drop expired entries first (free — they'd be re-validated anyway), then, if
+// still over the cap, evict the OLDEST entries (Map preserves insertion order)
+// down to a low-water mark. Evicting a valid entry is harmless — it only costs
+// one extra /auth/v1/user round-trip the next time that token appears.
+export function pruneJwtCache(cache, now, max = JWT_CACHE_MAX) {
+  if (cache.size <= max) return;
+  const target = Math.floor(max / 2);
+  // Pass 1: expired entries.
+  for (const [k, v] of cache) {
+    if (cache.size <= target) return;
+    if (v.expiresAt <= now) cache.delete(k);
+  }
+  // Pass 2: a burst of all-valid tokens — drop oldest until under the mark.
+  for (const k of cache.keys()) {
+    if (cache.size <= target) return;
+    cache.delete(k);
+  }
+}
+
 async function verifyBearerJwt(token) {
   const now = Date.now();
-  // Trim expired entries lazily (cheap on a hot path)
-  if (_jwtCache.size > JWT_CACHE_MAX) {
-    for (const [k, v] of _jwtCache) {
-      if (v.expiresAt <= now) _jwtCache.delete(k);
-      if (_jwtCache.size <= JWT_CACHE_MAX / 2) break;
-    }
-  }
+  // Trim the cache lazily on the hot path (no-op until it's over the cap).
+  pruneJwtCache(_jwtCache, now);
   const cached = _jwtCache.get(token);
   if (cached && cached.expiresAt > now) return cached.ok;
   const supaUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
