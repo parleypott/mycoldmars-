@@ -16,6 +16,8 @@
 // signing in. Per-call cost is bounded (one Anthropic message per user
 // turn); add IP rate-limiting here if abuse ever surfaces.
 
+import { checkRateLimit } from './_lib/rate-limit.js';
+
 export const config = { runtime: 'edge' };
 
 const MODEL  = 'claude-sonnet-4-6';
@@ -119,17 +121,14 @@ export default async function handler(req) {
 const _devchatBucket = new Map();
 const RATE_LIMIT_PER_MIN = 6;
 const RATE_WINDOW_MS = 60_000;
+// Bounded rate limiter — the backing Map can't grow without bound under a burst
+// of distinct IPs (it prunes expired windows, then evicts oldest over a cap).
+// A falsy IP is allowed through; this is a cost guard, not the DoS boundary.
 function rateLimitOk(ip) {
-  if (!ip) return true; // can't extract IP — let through; not our DoS hardening boundary
-  const now = Date.now();
-  const entry = _devchatBucket.get(ip) || { count: 0, resetAt: now + RATE_WINDOW_MS };
-  if (now > entry.resetAt) {
-    entry.count = 0;
-    entry.resetAt = now + RATE_WINDOW_MS;
-  }
-  entry.count++;
-  _devchatBucket.set(ip, entry);
-  return entry.count <= RATE_LIMIT_PER_MIN;
+  return checkRateLimit(_devchatBucket, ip, Date.now(), {
+    limit: RATE_LIMIT_PER_MIN,
+    windowMs: RATE_WINDOW_MS,
+  });
 }
 function extractIp(req) {
   try {
