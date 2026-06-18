@@ -69,7 +69,7 @@ export default async function handler(req) {
   });
 }
 
-function buildPrompt({ kind, pin, pins, context }) {
+export function buildPrompt({ kind, pin, pins, context }) {
   const family = `Johnny Harris (filmmaker, creative-professional), spouse, Henry (13, autistic 2e), Ollie (9, neurotypical), Remi (Brittany spaniel). Moving from Falls Church VA → NYC metro.`;
   const doctrine = context?.familyCriteria || '(use general best-fit reasoning for a creative-professional family with an autistic teen + neurotypical 9yo)';
   const memory = (context?.memory || []).map((m, i) => `${i+1}. ${m.text || m}`).join('\n') || '(none saved)';
