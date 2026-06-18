@@ -2,6 +2,7 @@ import { checkAccess } from './_lib/access.js';
 import { detectFixation } from './_lib/qss-signals.js';
 import { findCanonCharactersInText, canonContextBlock, QSS_CANON } from './_lib/qss-canon.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
+import { extractBibleCharacters } from './_lib/bible-characters.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // WRITING_DISCIPLINE — prepended to every Wordy-side system prompt.
@@ -837,28 +838,8 @@ DO NOT:
 // Tiny heuristic to surface character-shaped tokens from a free-text bible
 // so the fixation detector recognizes them. Picks capitalized 1-2 word
 // proper-noun-shaped phrases from lines that mention "characters" or names.
-function extractBibleCharacters(bible) {
-  if (!bible || typeof bible !== 'string') return [];
-  const out = new Set();
-  // Match Capitalized words 4-30 chars long, optionally followed by another
-  // Capitalized word ("Queen Scarlet", "Mark Rober"). Filters obvious noise.
-  const re = /\b([A-Z][a-zA-Z]{3,29}(?:\s+[A-Z][a-zA-Z]{2,29})?)\b/g;
-  const STOP = new Set([
-    'The','When','Then','Today','Tomorrow','Yesterday','This','That','These','Those',
-    'Period','Class','Lunch','Final','Story','Bible','Rules','Setting','Tone','Goal',
-    'About','Welcome','Inside','Outside','First','Second','Third','Final','Day',
-    'BIBLE','RULES','GOAL','STYLE','OFFLIMITS','STRUCTURE',
-  ]);
-  let m;
-  while ((m = re.exec(bible)) !== null) {
-    const w = m[1];
-    if (STOP.has(w.split(/\s/)[0])) continue;
-    if (w.length < 4) continue;
-    out.add(w);
-    if (out.size > 30) break;  // hard cap
-  }
-  return [...out];
-}
+// extractBibleCharacters lives in ./_lib/bible-characters.js (shared, tested,
+// single source of truth mirroring the proven client copy). Imported above.
 
 function extractDirections(reply) {
   const closedRe = /```directions\s*\n([\s\S]*?)\n```/gi;
