@@ -16,6 +16,7 @@
 // public). The URL is what gets stored on block.__cues[i].image.url.
 
 import { checkAccess } from './_lib/access.js';
+import { imageStorageMeta } from './_lib/image-storage.js';
 
 export const config = { runtime: 'edge' };
 
@@ -33,7 +34,7 @@ function j(status, payload) {
   return new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json', ...CORS } });
 }
 
-function safeSlug(s, max = 80) {
+export function safeSlug(s, max = 80) {
   return String(s || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, max);
 }
 
@@ -58,8 +59,11 @@ export default async function handler(req) {
 
   const dataBase64 = String(body.dataBase64 || '').trim();
   if (!dataBase64) return j(400, { error: 'dataBase64 required' });
-  const mimeType = String(body.mimeType || 'image/png');
-  const ext = mimeType.includes('jpeg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
+  // Derive a SAFE Content-Type + matching extension from the client's mimeType.
+  // The bucket is public, so we never echo an arbitrary client Content-Type
+  // (e.g. text/html, image/svg+xml) back through the CDN — coerce to a tight
+  // image allow-list. ext + mime always agree (both from the same normalize).
+  const { mime: mimeType, ext } = imageStorageMeta(body.mimeType);
 
   const storyId = safeSlug(body.story_id || 'no-story', 80) || 'no-story';
   const blockId = safeSlug(body.block_id || 'no-block', 80) || 'no-block';
