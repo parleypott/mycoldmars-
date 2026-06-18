@@ -18,6 +18,7 @@
 // Uses SUPABASE_SERVICE_ROLE_KEY to reach Supabase Admin API.
 
 import { checkAccess } from './_lib/access.js';
+import { parseAdminEmails, isAdminEmail, isLoopbackHost } from './_lib/admin-auth.js';
 
 export const config = { runtime: 'edge' };
 
@@ -28,13 +29,6 @@ function json(payload, status = 200) {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
-}
-
-function isLocalhost(req) {
-  try {
-    const u = new URL(req.url);
-    return u.hostname === 'localhost' || u.hostname === '127.0.0.1';
-  } catch { return false; }
 }
 
 async function whoAmI(req) {
@@ -51,14 +45,6 @@ async function whoAmI(req) {
     if (!r.ok) return null;
     return await r.json();
   } catch { return null; }
-}
-
-function isAdminEmail(email) {
-  if (!email) return false;
-  const list = (process.env.ADMIN_EMAILS || '')
-    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-  if (!list.length) return false;
-  return list.includes(String(email).toLowerCase());
 }
 
 async function adminFetch(supaUrl, serviceKey, path, init = {}) {
@@ -99,8 +85,7 @@ export default async function handler(req) {
   // because it only ever creates emails that the server itself listed in
   // ADMIN_EMAILS, and only if they don't already exist.
   if (action === 'bootstrap') {
-    const adminEmails = (process.env.ADMIN_EMAILS || '')
-      .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    const adminEmails = parseAdminEmails(process.env.ADMIN_EMAILS);
     if (!adminEmails.length) {
       return json({ error: 'ADMIN_EMAILS env var not set on the server.' }, 400);
     }
@@ -142,7 +127,7 @@ export default async function handler(req) {
   // and was probed with a spoofed `Host: localhost` header could trip
   // the bypass and hand out admin actions to the open internet.
   const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
-  const localDev = !isProd && isLocalhost(req) && !process.env.ADMIN_EMAILS;
+  const localDev = !isProd && isLoopbackHost(req.url) && !process.env.ADMIN_EMAILS;
   if (!localDev) {
     if (!me) return json({ error: 'Sign in first.' }, 401);
     if (!isAdminEmail(me.email)) return json({ error: 'Only admins can do that.' }, 403);
