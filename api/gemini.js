@@ -1,5 +1,6 @@
 import { checkAccess } from './_lib/access.js';
 import { createClient } from '@supabase/supabase-js';
+import { parseEmbedding, cosineSim } from './_lib/semantic-search.js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
 
@@ -498,26 +499,8 @@ async function tryRpcSearch(supabaseUrl, headers, queryEmbedding, { limit, tier,
   }
 }
 
-function parseEmbedding(emb) {
-  if (Array.isArray(emb)) return emb;
-  if (typeof emb === 'string') {
-    try { return JSON.parse(emb); } catch {}
-    return emb.replace(/[[\]()]/g, '').split(',').map(Number);
-  }
-  return null;
-}
-
-function cosineSim(a, b) {
-  if (!a || !b || a.length !== b.length) return 0;
-  let dot = 0, nA = 0, nB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    nA += a[i] * a[i];
-    nB += b[i] * b[i];
-  }
-  const d = Math.sqrt(nA) * Math.sqrt(nB);
-  return d > 0 ? dot / d : 0;
-}
+// parseEmbedding + cosineSim now live in ./_lib/semantic-search.js (imported
+// above) so the search-fallback math is unit-testable in isolation.
 
 // ── Scene Insights ──
 
