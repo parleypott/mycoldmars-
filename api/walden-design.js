@@ -34,6 +34,7 @@ import {
   sanitizePlan,
   extractOpsFromText,
 } from './_lib/walden-ops.js';
+import { parseImageInput } from './_lib/walden-image-input.js';
 
 const TEXT_MODEL = 'gemini-2.5-flash';
 const IMAGE_MODEL = 'gemini-2.5-flash-image';
@@ -388,19 +389,6 @@ async function handleRender(body, apiKey) {
     model: IMAGE_MODEL,
     ms: result.ms,
   });
-}
-
-function parseImageInput(input) {
-  if (typeof input !== 'string' || !input.trim()) return null;
-  const s = input.trim();
-  const dataUrl = /^data:(image\/(?:png|jpe?g|webp));base64,(.+)$/i.exec(s);
-  if (dataUrl) {
-    return { mimeType: dataUrl[1].toLowerCase(), dataBase64: dataUrl[2] };
-  }
-  if (/^[A-Za-z0-9+/=\s]+$/.test(s) && s.length > 32) {
-    return { mimeType: 'image/png', dataBase64: s.replace(/\s/g, '') };
-  }
-  return null;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
