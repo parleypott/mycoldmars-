@@ -31,6 +31,7 @@ export const config = { runtime: 'nodejs', maxDuration: 300 };
 // Pure geometry + metric-grounding core (planar homography, element grounding).
 // Extracted to api/_lib/render-geometry.js so it can be unit-tested headlessly.
 import { PALETTE, groundElements } from './_lib/render-geometry.js';
+import { parseImageInput } from './_lib/walden-image-input.js';
 
 const VISION_MODEL = 'gemini-2.5-flash';
 
@@ -157,14 +158,10 @@ function parseVisionTolerant(raw) {
   return (out.house.corners.length >= 3 || out.elements.length) ? out : null;
 }
 
-function parseImageInput(input) {
-  if (typeof input !== 'string' || !input.trim()) return null;
-  const s = input.trim();
-  const m = /^data:(image\/(?:png|jpe?g|webp));base64,(.+)$/i.exec(s);
-  if (m) return { mimeType: m[1].toLowerCase(), dataBase64: m[2] };
-  if (/^[A-Za-z0-9+/=\s]+$/.test(s) && s.length > 32) return { mimeType: 'image/png', dataBase64: s.replace(/\s/g, '') };
-  return null;
-}
+// parseImageInput lives in api/_lib/walden-image-input.js (single source of
+// truth) — it normalizes "image/jpg" to the canonical "image/jpeg" Gemini
+// accepts, so a JPEG pasted as data:image/jpg;base64,... no longer 400s the
+// whole vision survey.
 
 // ────────────────────────────────────────────────────────────────────────────
 // Handler

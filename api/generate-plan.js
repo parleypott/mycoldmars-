@@ -19,6 +19,8 @@
 // Runtime: Node serverless. Mirrors api/walden-design.js conventions.
 // ============================================================================
 
+import { parseImageInput } from './_lib/walden-image-input.js';
+
 export const config = { runtime: 'nodejs', maxDuration: 300 };
 
 const IMAGE_MODEL = 'gemini-2.5-flash-image';
@@ -94,14 +96,10 @@ async function callImageGemini(parts, apiKey) {
   return { ok: true, image, ms };
 }
 
-function parseImageInput(input) {
-  if (typeof input !== 'string' || !input.trim()) return null;
-  const s = input.trim();
-  const m = /^data:(image\/(?:png|jpe?g|webp));base64,(.+)$/i.exec(s);
-  if (m) return { mimeType: m[1].toLowerCase(), dataBase64: m[2] };
-  if (/^[A-Za-z0-9+/=\s]+$/.test(s) && s.length > 32) return { mimeType: 'image/png', dataBase64: s.replace(/\s/g, '') };
-  return null;
-}
+// parseImageInput lives in api/_lib/walden-image-input.js (single source of
+// truth) — it normalizes the "image/jpg" spelling to the canonical
+// "image/jpeg" Gemini accepts, so a JPEG reference pasted as
+// data:image/jpg;base64,... no longer 400s the whole plan generation.
 
 // ── response plumbing (permissive CORS — personal tool) ──
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' };
