@@ -1,6 +1,7 @@
 import { checkAccess } from './_lib/access.js';
 import { createClient } from '@supabase/supabase-js';
 import { parseEmbedding, cosineSim } from './_lib/semantic-search.js';
+import { formatSeconds } from './_lib/format-seconds.js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
 
@@ -1816,13 +1817,6 @@ async function handleGetTasteProfile() {
   if (!res.ok) return jsonResponse({ error: 'Failed to fetch taste profile' }, 502);
   const data = await res.json();
   return jsonResponse({ profile: data?.[0] || null });
-}
-
-function formatSeconds(s) {
-  if (s == null) return '--:--';
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
 // ── Job queue handlers ──
