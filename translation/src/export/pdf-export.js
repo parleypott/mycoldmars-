@@ -76,7 +76,9 @@ function renderHighlight(h) {
 // (style="background:..."). The previous version only escaped & < > so a
 // tag color stored as `red;"><script>...` would break out of the attr
 // and inject markup into the PDF preview window.
-function esc(str) {
+// Exported so the XSS-guard contract is locked by a test — every user-typed
+// tag name / color / note flows through here into win.document.write(html).
+export function esc(str) {
   if (str == null) return '';
   return String(str)
     .replace(/&/g, '&amp;')
