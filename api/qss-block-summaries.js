@@ -17,6 +17,7 @@
 
 import { checkAccess } from './_lib/access.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
+import { parseModelObject } from './_lib/model-json.js';
 
 export const config = { runtime: 'edge' };
 
@@ -121,11 +122,8 @@ export default async function handler(req) {
   catch { return json(502, { error: 'anthropic_bad_json' }); }
 
   const rawText = payload?.content?.[0]?.text || '';
-  let parsed;
-  try {
-    const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-    parsed = JSON.parse(cleaned);
-  } catch {
+  const { ok, value: parsed } = parseModelObject(rawText);
+  if (!ok) {
     return json(502, { error: 'parse_failed', detail: 'model returned non-JSON. snippet: ' + rawText.slice(0, 120) });
   }
 
