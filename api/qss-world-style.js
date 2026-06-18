@@ -12,6 +12,7 @@
 // wins, bundled hardcoded defaults are the fallback.
 
 import { checkAccess } from './_lib/access.js';
+import { sanitizeSlug } from './_lib/qss-worlds.js';
 
 export const config = { runtime: 'edge' };
 
@@ -26,11 +27,17 @@ const CORS = {
 
 const SELECT_COLS = 'slug,name,short_name,tagline,art_style,canon_text,updated_at';
 
-function sanitizeWorldSlug(raw) {
-  const s = String(raw || '').trim().toLowerCase();
-  if (s === 'burgundy') return 'burgundy';
-  return 'queen-scarlet';
-}
+// World-slug resolution routes through the SHARED registry-driven
+// sanitizeSlug from api/_lib/qss-worlds.js — the single source of truth
+// also used by qss-explorer / qss-cast / qss-stories. This was the FIFTH
+// and last divergent copy of the `if (s === 'burgundy') return 'burgundy'`
+// allowlist landmine: load-bearing here because the resolved slug routes
+// BOTH the GET (which world's art_style/canon you read) AND the PUT (which
+// world's row you OVERWRITE). The moment a 3rd world ships, the old
+// allowlist would silently read+write queen-scarlet's row for it — worst
+// case clobbering queen-scarlet's style/canon with the 3rd world's edits.
+// Registry-driven means adding a world to WORLDS is the only edit ever needed.
+const sanitizeWorldSlug = sanitizeSlug;
 
 function j(status, payload) {
   return new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json', ...CORS } });
