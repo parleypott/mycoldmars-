@@ -23,6 +23,7 @@
 
 import { checkAccess } from './_lib/access.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
+import { normalizeReport } from './_lib/qss-story-report-normalize.js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
 
@@ -217,69 +218,10 @@ export default async function handler(req) {
     });
   }
 
-  // Sanitize + validate the report shape so the client never has to
-  // guard for missing fields.
-  const ALLOWED_LABEL = new Set(['really strong', 'almost ready', 'getting there', 'needs work', 'needs a redo']);
-  const ALLOWED_CATEGORIES = new Set(['cohesion', 'surprise', 'intention', 'action', 'repetition', 'characters']);
-  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
-
-  const power_score = clamp(Number(parsed.power_score) || 0, 0, 100);
-  const power_label = ALLOWED_LABEL.has(String(parsed.power_label).toLowerCase().trim())
-    ? String(parsed.power_label).toLowerCase().trim()
-    : (power_score >= 85 ? 'really strong'
-      : power_score >= 70 ? 'almost ready'
-      : power_score >= 55 ? 'getting there'
-      : power_score >= 40 ? 'needs work'
-      : 'needs a redo');
-
-  const scores = (Array.isArray(parsed.scores) ? parsed.scores : [])
-    .filter(s => s && typeof s === 'object' && ALLOWED_CATEGORIES.has(String(s.category).toLowerCase().trim()))
-    .map(s => ({
-      category: String(s.category).toLowerCase().trim(),
-      score: clamp(Number(s.score) || 1, 1, 5),
-      comment: String(s.comment || '').slice(0, 220),
-    }))
-    .slice(0, 6);
-
-  const gaps = (Array.isArray(parsed.gaps) ? parsed.gaps : [])
-    .filter(g => g && typeof g === 'object')
-    .map(g => ({
-      from_block: Number(g.from_block) || 0,
-      to_block: Number(g.to_block) || 0,
-      issue: String(g.issue || '').slice(0, 220),
-    }))
-    .slice(0, 8);
-
-  const repetitions = (Array.isArray(parsed.repetitions) ? parsed.repetitions : [])
-    .filter(r => r && typeof r === 'object')
-    .map(r => ({
-      pattern: String(r.pattern || '').slice(0, 180),
-      count: Number(r.count) || 0,
-      where: String(r.where || '').slice(0, 120),
-    }))
-    .slice(0, 6);
-
-  const strengths = (Array.isArray(parsed.strengths) ? parsed.strengths : [])
-    .filter(s => typeof s === 'string' && s.trim())
-    .map(s => s.trim().slice(0, 240))
-    .slice(0, 4);
-
-  const recommendations = (Array.isArray(parsed.recommendations) ? parsed.recommendations : [])
-    .filter(s => typeof s === 'string' && s.trim())
-    .map(s => s.trim().slice(0, 240))
-    .slice(0, 5);
-
-  const one_liner = String(parsed.one_liner || '').slice(0, 280);
-
-  return json(200, {
-    power_score,
-    power_label,
-    one_liner,
-    scores,
-    gaps,
-    repetitions,
-    strengths,
-    recommendations,
-    model: 'claude-sonnet-4-6',
-  });
+  // Sanitize + validate the report shape so the client never has to guard
+  // for missing fields. The pure logic lives in _lib so it's unit-testable
+  // (and a non-object `parsed` — e.g. a literal `null` parse — no longer
+  // throws; it degrades to an all-defaults report).
+  const report = normalizeReport(parsed);
+  return json(200, { ...report, model: 'claude-sonnet-4-6' });
 }
