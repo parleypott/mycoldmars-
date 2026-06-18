@@ -25,6 +25,7 @@ import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.js';
 
 import { parseTimecodeToSeconds } from '../timecode-utils.js';
+import { wordIndexFromCharOffset } from './word-index.js';
 
 const VIDEO_HEIGHT = 200;
 const WAVEFORM_HEIGHT = 72;
@@ -681,13 +682,10 @@ function wordTimeFromClick(e, segEl, segStart, segEnd, wordTimings) {
     offset = Math.floor(ratio * len);
   }
 
-  // Translate character offset → word index within the segment's text.
-  // We approximate by counting how many word boundaries we've crossed.
-  const upTo = text.slice(0, Math.max(0, Math.min(len, offset)));
-  // Word count = number of non-empty whitespace-delimited tokens
-  const wordsBefore = (upTo.match(/\S+/g) || []).length;
-  // Index into wordsInSeg: clamp so we never go past the last word
-  const idx = Math.max(0, Math.min(wordsInSeg.length - 1, wordsBefore));
+  // Translate character offset → the word index the click landed on.
+  // (wordsInSeg is the segment's words in document order; the rendered text
+  // tokens are assumed to align 1:1, and the index is clamped to the range.)
+  const idx = wordIndexFromCharOffset(text, offset, wordsInSeg.length);
   const target = wordsInSeg[idx];
   return target?.start ?? segStart;
 }
