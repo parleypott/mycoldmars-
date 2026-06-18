@@ -2,6 +2,8 @@
 // Uses Anthropic prompt caching so the corpus (~500KB) only gets processed once
 // per cache window (1 hour) instead of on every query — 5-10x faster, ~10% of cost.
 
+import { validateCommentbankInput } from './_lib/commentbank-validate.js';
+
 export const config = { runtime: 'edge' };
 
 const SYSTEM_PROMPT = `You're searching a corpus of YouTube comments for a documentary filmmaker.
@@ -23,42 +25,19 @@ export default async function handler(req) {
   try { body = await req.json(); }
   catch { return new Response('bad json', { status: 400 }); }
 
-  const { question, comments } = body || {};
-  if (!question || !Array.isArray(comments)) {
-    return new Response(JSON.stringify({ error: 'missing question or comments' }), {
-      status: 400, headers: { 'Content-Type': 'application/json' },
-    });
-  }
   // Cost guard: this endpoint is intentionally unauthenticated for the
-  // public /commentbank tool. Cap the input size so a malicious caller
-  // can't drive Anthropic input tokens by POSTing a 5 MB comments array.
-  if (typeof question !== 'string' || question.length > 2000) {
-    return new Response(JSON.stringify({ error: 'question too long (max 2000 chars)' }), {
-      status: 413, headers: { 'Content-Type': 'application/json' },
+  // public /commentbank tool — its input caps ARE the cost boundary, so a
+  // malicious caller can't drive Anthropic input tokens by POSTing a huge
+  // comments array. The corpus cap is a BYTE cap (counts real UTF-8 bytes,
+  // not UTF-16 units — emoji/CJK YouTube comments would otherwise slip a
+  // unit count). See api/_lib/commentbank-validate.js.
+  const valid = validateCommentbankInput(body);
+  if (!valid.ok) {
+    return new Response(JSON.stringify({ error: valid.error }), {
+      status: valid.status, headers: { 'Content-Type': 'application/json' },
     });
   }
-  if (comments.length > 500) {
-    return new Response(JSON.stringify({ error: 'too many comments (max 500)' }), {
-      status: 413, headers: { 'Content-Type': 'application/json' },
-    });
-  }
-  // Per-comment text cap + total-serialized-bytes cap. Without these,
-  // a malicious caller could send 500 comments × 10KB each (5MB)
-  // through Sonnet 4.5 with prompt caching that doesn't actually
-  // discount because the corpus varies per call.
-  for (const c of comments) {
-    if (typeof c?.text === 'string' && c.text.length > 1000) {
-      return new Response(JSON.stringify({ error: 'comment text too long (max 1000 chars per comment)' }), {
-        status: 413, headers: { 'Content-Type': 'application/json' },
-      });
-    }
-  }
-  const serializedSize = JSON.stringify(comments).length;
-  if (serializedSize > 200_000) {
-    return new Response(JSON.stringify({ error: `corpus too large (max 200,000 bytes serialized, got ${serializedSize})` }), {
-      status: 413, headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  const { question, comments } = body;
 
   const corpus = comments.map(c => ({
     id: c.id,
