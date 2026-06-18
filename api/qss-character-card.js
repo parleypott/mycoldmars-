@@ -307,7 +307,7 @@ function cleanSynopsis(s) {
   return stripSurroundingQuotes(labelStripped).trim();
 }
 
-function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, subjectCanon, visualNotes = '', isRevise = false, vibeShift = false, newMessage = '', world = null }) {
+export function buildPortraitPrompt({ name, currentState, themes = [], tones = [], recentBlocks = [], subjectCanon, visualNotes = '', isRevise = false, vibeShift = false, newMessage = '', world = null }) {
   // Per-world art style block. Resolved via api/_lib/qss-worlds.js —
   // each world ships its own styleBlock + references + dontList +
   // paper-treatment. QSS gets sticker register; Burgundy gets
