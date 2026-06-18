@@ -86,7 +86,7 @@ async function callClaude(systemPrompt, userMessage, maxTokens = 2000) {
 }
 
 /** Extract JSON from Claude's text response */
-function extractJSON(text) {
+export function extractJSON(text) {
   try { return JSON.parse(text.trim()); } catch {}
 
   const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
@@ -97,20 +97,36 @@ function extractJSON(text) {
   const start = startArr === -1 ? startObj : startObj === -1 ? startArr : Math.min(startArr, startObj);
   if (start !== -1) {
     const open = text[start], close = open === '[' ? ']' : '}';
-    let depth = 0;
+    // String-aware bracket matcher. A naive depth counter miscounts when a JSON
+    // string VALUE contains a literal bracket — e.g. a transcript string like
+    // `"she said [inaudible"` (lone `[` → depth never returns to 0) or a note
+    // ending in `}` (closes the object early) — and throws away the whole
+    // response. Track whether we're inside a quoted string and skip escaped
+    // characters so only STRUCTURAL brackets move the depth. Runs only after a
+    // clean parse + fenced parse already failed, so it can't regress those.
+    let depth = 0, inStr = false, esc = false;
     for (let i = start; i < text.length; i++) {
-      if (text[i] === open) depth++;
-      else if (text[i] === close) depth--;
-      if (depth === 0) {
-        try { return JSON.parse(text.slice(start, i + 1)); } catch {}
-        break;
+      const ch = text[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') inStr = true;
+      else if (ch === open) depth++;
+      else if (ch === close) {
+        depth--;
+        if (depth === 0) {
+          try { return JSON.parse(text.slice(start, i + 1)); } catch { break; }
+        }
       }
     }
   }
   throw new Error('Could not parse response from Claude');
 }
 
-function isGenericSpeaker(name) {
+export function isGenericSpeaker(name) {
   if (!name) return true;
   return /^speaker\s*\d+$/i.test(name.trim());
 }
