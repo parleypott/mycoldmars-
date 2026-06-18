@@ -7,6 +7,7 @@ import { feature as topoFeature } from 'topojson-client';
 // (coastlines, archipelagos, peninsulas all detailed) instead of low-poly
 // 110m blocks. Worth the payload for a video/animation tool.
 import countriesTopo from 'world-atlas/countries-10m.json';
+import { regularPolygonCoords, KM_PER_DEG_LAT } from './polygon-geom.js';
 import './style.css';
 
 // ─── Country data (loaded once at startup) ───
@@ -528,8 +529,6 @@ const SHAPE_DEFAULTS = {
 
 const SHAPE_FILLS = ['#a8482b', '#b85c3c', '#3b6a4a', '#4a5e8a', '#8a4a6a', '#c69437'];
 
-const KM_PER_DEG_LAT = 111.32;
-
 function shapeSourceIds(id) {
   return {
     fill: `shape-fill-src-${id}`,
@@ -539,25 +538,6 @@ function shapeSourceIds(id) {
     lineLayer: `shape-line-${id}`,
     labelLayer: `shape-label-${id}`,
   };
-}
-
-// Approximate regular polygon ring in lng/lat. Not perfectly geodesic but
-// visually correct at typical zoom levels. Scales lng by 1/cos(lat) so the
-// shape doesn't squash near the poles.
-function regularPolygonCoords(center, sides, radiusKm, rotationDeg) {
-  const [lng0, lat0] = center;
-  const latRad = lat0 * Math.PI / 180;
-  const dLat = radiusKm / KM_PER_DEG_LAT;
-  const dLng = radiusKm / (KM_PER_DEG_LAT * Math.max(0.05, Math.cos(latRad)));
-  const rot = rotationDeg * Math.PI / 180;
-  const ring = [];
-  for (let i = 0; i < sides; i++) {
-    // Start at top so rotation 0 looks "natural" (vertex up)
-    const a = -Math.PI / 2 + (i / sides) * Math.PI * 2 + rot;
-    ring.push([lng0 + Math.cos(a) * dLng, lat0 + Math.sin(a) * dLat]);
-  }
-  ring.push(ring[0]);
-  return ring;
 }
 
 function lineCentroid(coords) {
