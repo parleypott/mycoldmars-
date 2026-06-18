@@ -20,6 +20,12 @@
 //   plain Error            Anything else.
 
 import { createClient } from '@supabase/supabase-js';
+import { needsTranscode, guessExtFromMime, mediaFieldsToRow } from './media-rules.js';
+
+// Re-export so existing importers (e.g. upload/media-flow.js) keep their
+// `import { needsTranscode } from '../db.js'` path working after the pure
+// media rules moved to media-rules.js.
+export { needsTranscode };
 
 let supabase = null;
 let initError = null;
@@ -1115,14 +1121,6 @@ export async function uploadDevchatImage(file) {
   return { url: data.publicUrl, path, mimeType: file.type || 'image/png' };
 }
 
-function guessExtFromMime(mime) {
-  if (!mime) return 'png';
-  if (mime.includes('jpeg')) return 'jpg';
-  if (mime.includes('webp')) return 'webp';
-  if (mime.includes('gif')) return 'gif';
-  return 'png';
-}
-
 /**
  * Realtime subscribe to a single thread's messages. Returns an
  * unsubscribe function. New rows arrive via onMessage(row).
@@ -1228,54 +1226,6 @@ export async function deleteMediaUpload(id, opts = {}) {
   const { error } = await db().from('media_uploads')
     .update({ deleted_at: new Date().toISOString() }).eq('id', id);
   if (error) throw normalizeError(error, 'deleteMediaUpload');
-}
-
-function mediaFieldsToRow(fields) {
-  const row = {};
-  if (fields.projectId !== undefined)        row.project_id = fields.projectId;
-  if (fields.filename !== undefined)          row.filename = fields.filename;
-  if (fields.displayName !== undefined)       row.display_name = fields.displayName;
-  if (fields.mimeType !== undefined)          row.mime_type = fields.mimeType;
-  if (fields.sizeBytes !== undefined)         row.size_bytes = fields.sizeBytes;
-  if (fields.durationSeconds !== undefined)   row.duration_seconds = fields.durationSeconds;
-  if (fields.storageBucket !== undefined)     row.storage_bucket = fields.storageBucket;
-  if (fields.storagePath !== undefined)       row.storage_path = fields.storagePath;
-  if (fields.width !== undefined)             row.width = fields.width;
-  if (fields.height !== undefined)            row.height = fields.height;
-  if (fields.fps !== undefined)               row.fps = fields.fps;
-  if (fields.audioChannels !== undefined)     row.audio_channels = fields.audioChannels;
-  if (fields.audioSampleRate !== undefined)   row.audio_sample_rate = fields.audioSampleRate;
-  if (fields.waveform !== undefined)          row.waveform = fields.waveform;
-  if (fields.transcriptionStatus !== undefined)       row.transcription_status = fields.transcriptionStatus;
-  if (fields.transcriptionProvider !== undefined)     row.transcription_provider = fields.transcriptionProvider;
-  if (fields.transcriptionError !== undefined)        row.transcription_error = fields.transcriptionError;
-  if (fields.transcriptionStartedAt !== undefined)    row.transcription_started_at = fields.transcriptionStartedAt;
-  if (fields.transcriptionCompletedAt !== undefined)  row.transcription_completed_at = fields.transcriptionCompletedAt;
-  if (fields.transcriptionProgress !== undefined)     row.transcription_progress = fields.transcriptionProgress;
-  if (fields.sourceLanguage !== undefined)            row.source_language = fields.sourceLanguage;
-  if (fields.transcodeStatus !== undefined)           row.transcode_status = fields.transcodeStatus;
-  if (fields.transcodePath !== undefined)             row.transcode_path = fields.transcodePath;
-  if (fields.uploadedBy !== undefined)                row.uploaded_by = fields.uploadedBy;
-  return row;
-}
-
-// Decide whether a freshly-uploaded file needs server-side transcode to
-// be playable in the browser. ProRes/DNxHR/MXF and other Premiere-export
-// codecs typically don't decode in Chrome. mp4/mov-with-h264/m4a/mp3/wav
-// are fine. We're conservative: anything we know plays gets 'not_needed',
-// everything else gets 'pending' and the worker decides.
-export function needsTranscode({ mimeType, filename }) {
-  const ext = (filename || '').split('.').pop()?.toLowerCase() || '';
-  const m = (mimeType || '').toLowerCase();
-  // Web-friendly: skip transcoding.
-  if (m === 'video/mp4' || m === 'video/webm') return false;
-  if (m.startsWith('audio/') && (m.includes('mp3') || m.includes('mpeg') || m.includes('mp4') || m.includes('aac') || m.includes('wav'))) return false;
-  if (['mp4', 'm4a', 'mp3', 'wav', 'webm'].includes(ext)) return false;
-  // Premiere proxies + everything else → transcode.
-  if (['mov', 'mxf', 'mkv', 'avi', 'flv', 'mts', 'm2ts', 'wmv', 'prores'].includes(ext)) return true;
-  if (m.startsWith('video/quicktime')) return true;
-  if (m.startsWith('video/')) return true;
-  return false;
 }
 
 // ============================================================
