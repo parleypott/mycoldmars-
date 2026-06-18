@@ -1,12 +1,13 @@
 // Coverage for the Burma Essays narrator text helpers (the markdown the TTS reads aloud).
 // Run: node api/_lib/burma-essays-text.test.mjs   (also auto-discovered by `bun run test`)
-import { stripMarkdown, firstLine, slug, clampNum } from './burma-essays-text.js';
+import { stripMarkdown, firstLine, slug, clampNum, chunkText, CHUNK_LIMIT } from './burma-essays-text.js';
 
 let pass = 0, fail = 0;
 const eq = (got, want, msg) => {
   if (got === want) { pass++; }
   else { fail++; console.error(`FAIL: ${msg}\n  got:  ${JSON.stringify(got)}\n  want: ${JSON.stringify(want)}`); }
 };
+const deepEq = (got, want, msg) => eq(JSON.stringify(got), JSON.stringify(want), msg);
 
 // ---- RED PROOF: the pre-fix stripMarkdown (no __bold__, no ~~strike~~) leaked symbols into the spoken text.
 // Reconstructed verbatim from the shipped function before this fix; asserts it WOULD read stray glyphs aloud.
@@ -84,6 +85,113 @@ eq(clampNum('abc'), 0, 'clampNum NaN -> 0');
 eq(clampNum(Infinity), 0, 'clampNum Infinity -> 0');
 eq(clampNum(null), 0, 'clampNum null -> 0');
 eq(clampNum(0), 0, 'clampNum zero');
+
+// ==================== chunkText ====================
+// chunkText splits an essay into TTS-sized chunks. In generateAudio() a SINGLE bad
+// chunk (synth() returns null) fails the WHOLE essay's audio, so two invariants are
+// load-bearing: NO chunk empty (empty text 400s on ElevenLabs), NO chunk over `max`
+// (rejected by the per-request limit).
+const M = CHUNK_LIMIT;
+
+// ---- RED PROOF: the pre-fix inline chunkText, reconstructed verbatim. Asserts it
+// emitted an empty chunk (near-max leading paragraph) and over-cap chunks (giant
+// sentence / punctuation-less run-on).
+function chunkTextOLD(text, max = M) {
+  if (text.length <= max) return [text];
+  const out = [];
+  let buf = '';
+  for (const p of text.split(/\n\n+/)) {
+    if (p.length > max) {
+      const sentences = p.match(/[^.!?]+[.!?]+/g) ?? [p];
+      for (const s of sentences) {
+        if ((buf + ' ' + s).trim().length > max) { if (buf) out.push(buf.trim()); buf = s; }
+        else buf = buf ? buf + ' ' + s : s;
+      }
+    } else if ((buf + '\n\n' + p).length > max) { out.push(buf.trim()); buf = p; }
+    else buf = buf ? buf + '\n\n' + p : p;
+  }
+  if (buf.trim()) out.push(buf.trim());
+  return out;
+}
+const emptiesIn = (a) => a.filter(c => c.length === 0).length;
+const overIn = (a) => a.filter(c => c.length > M).length;
+
+// near-max first paragraph (<= max, so it skips the giant branch) + a small second one
+const nearMax = 'A'.repeat(M - 1) + '\n\n' + 'B'.repeat(100);
+eq(emptiesIn(chunkTextOLD(nearMax)) > 0, true, 'RED: old chunkText emits an empty chunk on a near-max leading paragraph');
+eq(emptiesIn(chunkText(nearMax)), 0, 'FIX: no empty chunk on near-max leading paragraph');
+eq(overIn(chunkText(nearMax)), 0, 'FIX: near-max case stays under cap');
+
+// punctuation-less run-on longer than max (the `?? [p]` fallback path)
+const runOn = 'word '.repeat(2000).trim(); // ~9999 chars, no . ! ?
+eq(overIn(chunkTextOLD(runOn)) > 0, true, 'RED: old chunkText emits an over-cap chunk on a no-punctuation run-on');
+eq(overIn(chunkText(runOn)), 0, 'FIX: no-punctuation run-on hard-split under cap');
+eq(emptiesIn(chunkText(runOn)), 0, 'FIX: run-on split has no empty chunk');
+
+// a single sentence longer than max
+const bigSentence = 'x'.repeat(6000) + '.';
+eq(overIn(chunkTextOLD(bigSentence)) > 0, true, 'RED: old chunkText emits an over-cap chunk on a giant sentence');
+eq(overIn(chunkText(bigSentence)), 0, 'FIX: giant sentence hard-split under cap');
+
+// ---- INVARIANTS across a battery: every chunk non-empty AND <= max
+const battery = [
+  'short essay, one line.',
+  'p1\n\np2\n\np3',
+  nearMax,
+  runOn,
+  bigSentence,
+  'A'.repeat(M) + '\n\n' + 'B'.repeat(M),               // two exactly-max paragraphs
+  'Intro. ' + 'mid '.repeat(3000) + 'End.',             // long with punctuation
+  ('Para number ' + 'x'.repeat(50) + '. ').repeat(400), // many normal sentences
+  'word '.repeat(5000),                                 // very long run-on
+];
+for (const [i, t] of battery.entries()) {
+  const ch = chunkText(t);
+  eq(emptiesIn(ch), 0, `INVARIANT: battery[${i}] has no empty chunk`);
+  eq(overIn(ch), 0, `INVARIANT: battery[${i}] has no over-cap chunk`);
+}
+
+// ---- NO REGRESSION: for inputs the old code already handled correctly,
+// new output is byte-identical (the only behavior change is the buggy cases).
+const ordinary = [
+  'A single short paragraph that fits comfortably.',
+  'First paragraph here.\n\nSecond paragraph here.\n\nThird one too.',
+  Array.from({ length: 30 }, (_, i) => `Sentence ${i} with some words in it.`).join(' '),
+  'Mandalay. ' + 'The river runs slow. '.repeat(100) + 'The end.',
+];
+for (const [i, t] of ordinary.entries()) {
+  deepEq(chunkText(t), chunkTextOLD(t), `NO-REGRESSION: ordinary[${i}] identical to old chunking`);
+}
+
+// ---- content preservation: no non-whitespace character is ever dropped.
+// (chunks are trimmed + joined, so compare with all whitespace stripped.)
+const dense = (s) => s.replace(/\s+/g, '');
+for (const t of [runOn, bigSentence, battery[6], battery[7], battery[8]]) {
+  eq(dense(chunkText(t).join('')), dense(t), `content preserved across chunks for len=${t.length}`);
+}
+
+// ---- RED PROOF: the old sentence regex dropped a giant paragraph's un-terminated tail.
+// A paragraph > max with a leading sentence then a long tail with NO terminal . ! ?
+const tailDrop = 'Opening sentence. ' + 'trailing words with no period '.repeat(300);
+eq(tailDrop.length > M, true, 'tailDrop fixture exceeds the cap (giant-paragraph path)');
+eq(dense(chunkTextOLD(tailDrop).join('')) === dense(tailDrop), false,
+   'RED: old chunkText drops the un-terminated tail of a giant paragraph');
+eq(dense(chunkText(tailDrop).join('')), dense(tailDrop),
+   'FIX: un-terminated tail of a giant paragraph is preserved');
+eq(overIn(chunkText(tailDrop)), 0, 'FIX: tail-drop fixture stays under cap');
+eq(emptiesIn(chunkText(tailDrop)), 0, 'FIX: tail-drop fixture has no empty chunk');
+
+// ---- edge cases
+deepEq(chunkText(''), [], 'empty string -> no chunks (was [""] -> would 400)');
+deepEq(chunkText('   \n\n  '), [], 'whitespace-only -> no chunks');
+deepEq(chunkText('hi'), ['hi'], 'tiny string -> single chunk');
+deepEq(chunkText(null), [], 'null -> no chunks (no throw)');
+deepEq(chunkText(undefined), [], 'undefined -> no chunks (no throw)');
+eq(chunkText('a'.repeat(M)).length, 1, 'exactly max -> single chunk');
+eq(chunkText('a'.repeat(M)).every(c => c.length <= M), true, 'exactly-max chunk is within cap');
+// custom max honored
+eq(overIn(chunkText('z'.repeat(50), 10)), 0, 'custom small max: no over-cap');
+eq(chunkText('z'.repeat(50), 10).length, 5, 'custom max=10 splits 50 chars into 5');
 
 console.log(`\nburma-essays-text: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

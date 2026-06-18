@@ -34,3 +34,41 @@ export function clampNum(n) {
   n = Number(n);
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
+
+// Default per-request size for the ElevenLabs TTS call (api/burma-essays.js).
+export const CHUNK_LIMIT = 4800;
+
+// Split an essay into TTS-sized chunks. Two hard invariants, because in
+// generateAudio() a SINGLE bad chunk (synth() returns null) fails the WHOLE
+// essay's audio: (1) NO chunk is ever empty — an empty string POSTed to
+// ElevenLabs 400s; (2) NO chunk ever exceeds `max` — an over-cap chunk is
+// rejected by the per-request limit. The old inline version broke both: an
+// empty leading buffer was flushed verbatim when a near-max first paragraph
+// arrived, and a single sentence (or punctuation-less run-on, via the `?? [p]`
+// fallback) longer than `max` was emitted as one over-cap chunk. Same bug
+// class as the research-tts chunker.
+export function chunkText(text, max = CHUNK_LIMIT) {
+  text = typeof text === 'string' ? text : '';
+  if (text.length <= max) return text.trim() ? [text] : [];
+  const out = [];
+  let buf = '';
+  const flush = () => { const t = buf.trim(); if (t) out.push(t); buf = ''; };
+  // Emit a single over-long string in <=max slices, never empty, never over cap.
+  const hardSplit = (s) => { for (let i = 0; i < s.length; i += max) out.push(s.slice(i, i + max)); };
+
+  for (const p of text.split(/\n\n+/)) {
+    if (p.length > max) {
+      // Match terminated sentences AND any un-terminated trailing run, so a
+      // giant paragraph that doesn't end in . ! ? doesn't silently drop its tail.
+      const sentences = p.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [p];
+      for (const s of sentences) {
+        if (s.length > max) { flush(); hardSplit(s.trim()); continue; }
+        if ((buf + ' ' + s).trim().length > max) { flush(); buf = s; }
+        else buf = buf ? buf + ' ' + s : s;
+      }
+    } else if ((buf + '\n\n' + p).length > max) { flush(); buf = p; }
+    else buf = buf ? buf + '\n\n' + p : p;
+  }
+  flush();
+  return out;
+}

@@ -1,6 +1,6 @@
 export const config = { runtime: 'edge', maxDuration: 120 };
 
-import { stripMarkdown, firstLine, slug, clampNum } from './_lib/burma-essays-text.js';
+import { stripMarkdown, firstLine, slug, clampNum, chunkText, CHUNK_LIMIT } from './_lib/burma-essays-text.js';
 
 /**
  * Burma Essays — paste an essay, get a narrated library item you can scrub.
@@ -23,7 +23,6 @@ const ELEVEN_KEY  = process.env.ELEVENLABS_API_KEY;
 
 const BUCKET = 'burma-audio';
 const MAX_CHARS = 80_000;          // ~70 min of audio; generous for an essay
-const CHUNK_LIMIT = 4800;          // ElevenLabs comfortable per-request size
 const CONCURRENCY = 4;             // keep under ElevenLabs parallel-request cap
 
 // Warm narrator voices. Keys are what the UI sends.
@@ -383,24 +382,6 @@ function concat(pieces) {
   let off = 0;
   for (const p of pieces) { merged.set(p, off); off += p.length; }
   return merged;
-}
-
-function chunkText(text, max = CHUNK_LIMIT) {
-  if (text.length <= max) return [text];
-  const out = [];
-  let buf = '';
-  for (const p of text.split(/\n\n+/)) {
-    if (p.length > max) {
-      const sentences = p.match(/[^.!?]+[.!?]+/g) ?? [p];
-      for (const s of sentences) {
-        if ((buf + ' ' + s).trim().length > max) { if (buf) out.push(buf.trim()); buf = s; }
-        else buf = buf ? buf + ' ' + s : s;
-      }
-    } else if ((buf + '\n\n' + p).length > max) { out.push(buf.trim()); buf = p; }
-    else buf = buf ? buf + '\n\n' + p : p;
-  }
-  if (buf.trim()) out.push(buf.trim());
-  return out;
 }
 
 async function sb(path, init = {}) {
