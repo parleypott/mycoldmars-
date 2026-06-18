@@ -13,6 +13,7 @@
 // client treats this as a SUGGESTION — the kid can rename freely.
 
 import { checkAccess } from './_lib/access.js';
+import { stripSurroundingQuotes } from './_lib/strip-quotes.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
 
 export const config = { runtime: 'edge' };
@@ -117,8 +118,9 @@ export default async function handler(req) {
   }
 
   let title = String(parsed.title || '').trim();
-  // Strip surrounding quotes if the model still puts them in
-  title = title.replace(/^["“”'']+|["“”'']+$/g, '').trim();
+  // Strip surrounding quotes (any wrap type, incl. curly singles) if the
+  // model still puts them in — shared with cleanSynopsis via strip-quotes.js.
+  title = stripSurroundingQuotes(title).trim();
   if (title.length > 80) title = title.slice(0, 80).trim();
 
   return json(200, { title });

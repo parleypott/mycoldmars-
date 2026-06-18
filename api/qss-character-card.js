@@ -25,6 +25,7 @@
 import { checkAccess as sharedCheckAccess } from './_lib/access.js';
 import { canonForName, canonContextBlock } from './_lib/qss-canon.js';
 import { canonOverlayForBody, resolveWorld, loadWorldStyle } from './_lib/qss-worlds.js';
+import { stripSurroundingQuotes } from './_lib/strip-quotes.js';
 import { safeImageRef } from './_lib/gemini-image-ref.js';
 
 // Edge runtime. We TRIED moving to Node with a server-side retry to
@@ -299,10 +300,11 @@ export default async function handler(req) {
 }
 
 function cleanSynopsis(s) {
-  return String(s || '')
-    .replace(/^\s*synopsis\s*:\s*/i, '')
-    .replace(/^["'“”]+|["'“”]+$/g, '')
-    .trim();
+  // Strip a leading "synopsis:" label, then any surrounding quotes (any wrap
+  // type, incl. curly singles) the model wraps the text in — shared with
+  // qss-story-title via strip-quotes.js so the quote set never drifts.
+  const labelStripped = String(s || '').replace(/^\s*synopsis\s*:\s*/i, '');
+  return stripSurroundingQuotes(labelStripped).trim();
 }
 
 function buildPortraitPrompt({ name, currentState, themes, tones, recentBlocks, subjectCanon, visualNotes = '', isRevise = false, vibeShift = false, newMessage = '', world = null }) {
