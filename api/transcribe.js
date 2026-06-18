@@ -141,7 +141,7 @@ async function runDeepgram({ mediaUrl, language, prompt, apiKey }) {
 }
 
 // Deepgram's verbose response → Interpreter's normalized shape.
-function normalizeDeepgram(dg) {
+export function normalizeDeepgram(dg) {
   const channel = dg?.results?.channels?.[0] || {};
   const alternative = channel.alternatives?.[0] || {};
   const detectedLang = channel.detected_language || dg?.results?.language || null;
@@ -280,7 +280,7 @@ async function runWhisper({ mediaUrl, language, prompt, apiKey }) {
 }
 
 // ── helpers ─────────────────────────────────────────────────────────
-function extractFilenameFromUrl(url) {
+export function extractFilenameFromUrl(url) {
   try {
     const u = new URL(url);
     return u.pathname.split('/').pop() || null;
@@ -291,7 +291,7 @@ function extractFilenameFromUrl(url) {
 // key sk-proj-XYZ..."). Strip anything that looks like a credential before
 // surfacing to the client. Defense-in-depth: errors should be informative,
 // never authenticating.
-function redactApiErrorText(text) {
+export function redactApiErrorText(text) {
   if (!text) return '';
   return String(text)
     // OpenAI-style keys
