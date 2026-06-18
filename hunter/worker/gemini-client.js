@@ -4,6 +4,7 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
+import { formatClipTime } from '../src/format-tc.js';
 
 let ai = null;
 
@@ -176,7 +177,7 @@ export async function analyzeUnitStructured({ fileUri, startSeconds, endSeconds,
   const transcriptBlock = transcript ? `TRANSCRIPT (pre-generated):\n${transcript}\n\n` : '';
   const tasteBlock = tasteContext ? `EDITORIAL TASTE PROFILE:\n${tasteContext}\n\nUse this taste profile to calibrate your keepability scoring. This editor's actual preferences may differ from generic film conventions.\n\n` : '';
   const timeContext = startSeconds != null
-    ? `Focus on the segment from ${formatTime(startSeconds)} to ${formatTime(endSeconds)}.\n\n`
+    ? `Focus on the segment from ${formatClipTime(startSeconds)} to ${formatClipTime(endSeconds)}.\n\n`
     : '';
 
   const prompt = `${contextBlock}${transcriptBlock}${tasteBlock}${timeContext}Analyze this documentary footage and return a JSON object with the following fields:
@@ -228,7 +229,7 @@ Return ONLY valid JSON, no markdown formatting.`;
  */
 function buildAnalysisPrompt(startSeconds, endSeconds, projectContext, transcript, tasteContext) {
   const timeContext = startSeconds != null
-    ? `Focus on the segment from ${formatTime(startSeconds)} to ${formatTime(endSeconds)}.\n\n`
+    ? `Focus on the segment from ${formatClipTime(startSeconds)} to ${formatClipTime(endSeconds)}.\n\n`
     : '';
 
   const contextBlock = projectContext
@@ -873,8 +874,3 @@ ${corpus}`;
   }
 }
 
-function formatTime(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
-}

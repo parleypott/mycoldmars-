@@ -1,5 +1,6 @@
 import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights, listScenes, listArcSummaries, fetchCorpusContext, getScriptSnapshot, listScriptPasses, runScriptPass, chatWithScript, fetchParseDoc, runGlobalTraining, getGlobalTraining, persistEditorialDecisions, runTasteTraining, getTasteProfile, createJob, listJobs, getWorkerStatus, getUploadUrl, getSupabaseClient } from './db.js';
 import { SCENE_TEMPORAL_GAP_MINUTES, extractDateFromClipName, extractCameraId, groupIntoScenes } from './scene-grouping.js';
+import { formatTc } from './format-tc.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -3569,13 +3570,6 @@ function simpleMarkdown(str) {
     .replace(/---/g, '<hr class="md-hr">')
     .replace(/\n\n/g, '</p><p>')
     .replace(/\n/g, '<br>');
-}
-
-function formatTc(seconds) {
-  if (seconds == null) return '--:--';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
 // ── Delete project ──
