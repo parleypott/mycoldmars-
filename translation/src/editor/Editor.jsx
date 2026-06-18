@@ -11,6 +11,7 @@ import { TagPicker } from './TagPicker.jsx';
 import { SummaryView } from '../copilot/SummaryView.jsx';
 import { extractSequenceBase } from '../csv-parser.js';
 import { formatPreciseTimecode } from '../timecode-utils.js';
+import { truncateLabel } from './margin-note.js';
 
 export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI, onSync, onSequenceNameChange, editorDirty, summary, summaryBullets, interestVotes, onInterestVote, onRegenerateSummary, sequenceInfo, speakerColors, speakerMap, hiddenSpeakers, onSpeakerMapChange, onOpenHistory, viewOnly = false }) {
   const [showTagPicker, setShowTagPicker] = useState(false);
@@ -328,7 +329,7 @@ export function TranscriptEditor({ initialContent, onUpdate, projectId, onAskAI,
 
         const blockRect = blockEl.getBoundingClientRect();
         const text = (bullet.rawText || '').replace(/\[[\d:–\-\s]+\]\s*/g, '');
-        const short = text.length <= 50 ? text : text.slice(0, text.lastIndexOf(' ', 50) || 50) + '…';
+        const short = truncateLabel(text, 50);
 
         notes.push({
           id: bullet.id,
