@@ -25,6 +25,7 @@
 import { checkAccess as sharedCheckAccess } from './_lib/access.js';
 import { canonForName, canonContextBlock } from './_lib/qss-canon.js';
 import { canonOverlayForBody, resolveWorld, loadWorldStyle } from './_lib/qss-worlds.js';
+import { safeImageRef } from './_lib/gemini-image-ref.js';
 
 // Edge runtime. We TRIED moving to Node with a server-side retry to
 // dodge the 25s edge cap, but the combination produced consistent 60s
@@ -124,21 +125,15 @@ export default async function handler(req) {
   const chatHistory = Array.isArray(body.chat) ? body.chat.slice(-12) : [];
   const newMessage = String(body.new_message || '').trim();
   const existingSynopsis = String(body.existing_synopsis || '').trim();
-  // Validate reference images. SAME guards for primary_portrait AND
-  // referenceImages: shape check, no URL fields (SSRF guard), base64 size
-  // cap, mime allowlist. Previously primary_portrait bypassed all of
-  // these — a client could ship arbitrary mimeType and unbounded base64.
+  // Validate reference images via the shared Gemini-image-ref guard. SAME
+  // guards for primary_portrait AND referenceImages: shape check, no URL
+  // fields (SSRF guard), base64 size cap, and a mime allow-list that matches
+  // what Gemini's inlineData actually accepts. Previously the inline copy
+  // admitted "image/jpg" and "image/gif" and handed them to Gemini verbatim —
+  // a jpg/gif reference 400'd the WHOLE portrait. The shared guard normalizes
+  // jpg→jpeg and drops gif so an unusable ref is dropped, not fatal.
   const MAX_REF_BYTES = 6 * 1024 * 1024;
-  const MIME_ALLOWLIST = /^image\/(png|jpe?g|webp|gif)$/i;
-  function safeRef(raw) {
-    if (!raw || typeof raw !== 'object') return null;
-    if (raw.url || raw.uri || raw.fileUri || raw.src) return null; // SSRF guard
-    const dataBase64 = typeof raw.dataBase64 === 'string' ? raw.dataBase64 : '';
-    if (!dataBase64 || dataBase64.length > MAX_REF_BYTES * 1.4) return null;
-    const mimeType = String(raw.mimeType || raw.mime || 'image/png');
-    if (!MIME_ALLOWLIST.test(mimeType)) return null;
-    return { mimeType, dataBase64 };
-  }
+  const safeRef = (raw) => safeImageRef(raw, MAX_REF_BYTES);
   // In vibeShift mode we INTENTIONALLY discard the primary portrait and
   // loved style anchors — they're what's locking the vibe Henry rejected.
   const refPortrait = vibeShift ? null : safeRef(body.primary_portrait);

@@ -22,6 +22,7 @@
 // 4-9s — well under the 25s edge cap.
 
 import { checkAccess } from './_lib/access.js';
+import { safeImageRef } from './_lib/gemini-image-ref.js';
 
 export const config = { runtime: 'edge' };
 
@@ -91,18 +92,15 @@ export default async function handler(req) {
   const characterName = String(body.character_name || 'this character').slice(0, 80);
   const rawImages = Array.isArray(body.images) ? body.images.slice(0, 4) : [];
 
-  // Validate each image — same safeRef-style guards.
+  // Validate each image via the shared Gemini-image-ref guard (SSRF, size,
+  // and a mime allow-list that matches Gemini's inlineData — jpg normalized
+  // to jpeg, gif dropped, so an unusable image is skipped instead of 400ing
+  // the whole compare call).
   const MAX_IMG_BYTES = 6 * 1024 * 1024;
-  const MIME = /^image\/(png|jpe?g|webp|gif)$/i;
   const images = [];
   for (const raw of rawImages) {
-    if (!raw || typeof raw !== 'object') continue;
-    if (raw.url || raw.uri || raw.fileUri || raw.src) continue;
-    const dataBase64 = typeof raw.dataBase64 === 'string' ? raw.dataBase64 : '';
-    if (!dataBase64 || dataBase64.length > MAX_IMG_BYTES * 1.4) continue;
-    const mimeType = String(raw.mimeType || raw.mime || 'image/png');
-    if (!MIME.test(mimeType)) continue;
-    images.push({ mimeType, dataBase64 });
+    const ref = safeImageRef(raw, MAX_IMG_BYTES);
+    if (ref) images.push(ref);
   }
   if (images.length < 2) {
     return json(200, { incompatible: false, reason: '', wordy_message: '' });
