@@ -18,6 +18,7 @@
 
 import { checkAccess } from './_lib/access.js';
 import { sanitizeSlug } from './_lib/qss-worlds.js';
+import { imageStorageMeta } from './_lib/image-storage.js';
 
 // Edge runtime. The missing-await bug on checkAccess below was killing
 // every request with a 500 because the async checkAccess Promise was
@@ -244,8 +245,11 @@ async function uploadPendingPortraitsToStorage(card, world) {
     if (!p || !p.id) continue;
     if (p.image_url) continue;
     if (!p.dataBase64) continue;
-    const mime = p.mime || 'image/png';
-    const ext = mime.includes('jpeg') ? 'jpg' : (mime.includes('webp') ? 'webp' : 'png');
+    // Client-supplied p.mime is echoed into the PUBLIC qss-cast bucket's
+    // Content-Type, so it MUST be validated — imageStorageMeta coerces anything
+    // outside the image allow-list to image/png and pairs ext canonically with
+    // the served mime (shared with qss-image-upload + the two Gemini paths).
+    const { mime, ext } = imageStorageMeta(p.mime);
     const path = `${safe(world)}/${safe(nameKey)}/${safe(p.id)}.${ext}`;
     try {
       const bin = atob(p.dataBase64);

@@ -14,6 +14,7 @@
 
 import { checkAccess } from './_lib/access.js';
 import { loadWorldStyle } from './_lib/qss-worlds.js';
+import { imageStorageMeta } from './_lib/image-storage.js';
 
 // Edge runtime — Node fails on this project. Gemini 2.5-flash-image
 // returns in 5-12s, comfortably inside the 25s Edge cap.
@@ -207,7 +208,10 @@ export default async function handler(req) {
   }
 
   // ── Upload to Storage ─────────────────────────────────────────
-  const ext = imgMime.includes('jpeg') ? 'jpg' : imgMime.includes('webp') ? 'webp' : 'png';
+  // Derive the served Content-Type AND the path extension from ONE normalized
+  // mime so they can never disagree, and so only a canonical image type is ever
+  // served from the public qss-scenes bucket (shared with qss-image-upload).
+  const { mime: storeMime, ext } = imageStorageMeta(imgMime);
   const variationId = isVariation ? `v-${Date.now().toString(36)}` : `primary-${Date.now().toString(36)}`;
   const path = `${worldSlug}/${scene.story_id}/${sceneId}/${variationId}.${ext}`;
   let imageUrl = null, storagePath = null, uploadErr = null;
@@ -221,7 +225,7 @@ export default async function handler(req) {
       headers: {
         apikey: SUPABASE_KEY,
         Authorization: `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': imgMime,
+        'Content-Type': storeMime,
         'x-upsert': 'true',
         'Cache-Control': 'public, max-age=31536000, immutable',
       },
@@ -249,7 +253,7 @@ export default async function handler(req) {
     const variations = Array.isArray(scene.variations) ? scene.variations.slice() : [];
     variations.push({
       id: variationId, image_url: imageUrl, storage_path: storagePath,
-      mime: imgMime, generated_at: Date.now(),
+      mime: storeMime, generated_at: Date.now(),
     });
     await sb('PATCH', `qss_story_scenes?id=eq.${encodeURIComponent(sceneId)}`, {
       status: 'ready', error_msg: null, variations,
@@ -258,7 +262,7 @@ export default async function handler(req) {
   } else {
     await sb('PATCH', `qss_story_scenes?id=eq.${encodeURIComponent(sceneId)}`, {
       status: 'ready', error_msg: null,
-      image_url: imageUrl, storage_path: storagePath, image_mime: imgMime,
+      image_url: imageUrl, storage_path: storagePath, image_mime: storeMime,
       prompt_text: fullPrompt.slice(0, 4000),
       active_variation_id: variationId,
       updated_at: new Date().toISOString(),

@@ -1,8 +1,10 @@
 // ============================================================================
 // /api/_lib/image-storage.js
 //
-// Derive a SAFE { mime, ext } pair for an image we are about to PUT into the
-// PUBLIC `qss-scenes` Supabase Storage bucket and serve from the CDN.
+// Derive a SAFE { mime, ext } pair for an image we are about to PUT into a
+// PUBLIC Supabase Storage bucket and serve from the CDN. Shared by every
+// public-bucket image upload: qss-image-upload (qss-scenes), qss-cast
+// (qss-cast), qss-scene-illustrate (qss-scenes), qss-explorer (qss-explorer).
 //
 // Two jobs, both load-bearing because the bucket is public ("anyone with the
 // URL can read"):

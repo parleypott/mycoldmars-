@@ -24,6 +24,7 @@
 import { checkAccess } from './_lib/access.js';
 import { BURGUNDY_NOVEL_ACT1 } from './_lib/burgundy-novel-act1.js';
 import { loadWorldStyle, sanitizeSlug } from './_lib/qss-worlds.js';
+import { imageStorageMeta } from './_lib/image-storage.js';
 
 // Edge runtime. We surfaced the underlying Anthropic error so we can see
 // why the call is failing fast. The list endpoint no longer pulls
@@ -125,7 +126,7 @@ export default async function handler(req) {
       return new Response(bytes, {
         status: 200,
         headers: {
-          'Content-Type': row.image_mime || 'image/png',
+          'Content-Type': imageStorageMeta(row.image_mime).mime,
           'Cache-Control': 'public, max-age=31536000, immutable',
           ...CORS,
         },
@@ -520,7 +521,10 @@ async function handleGenerate(body) {
   // function at all. Cuts the cold-cache 504 cascade — 48 parallel
   // <img> tags used to saturate the function; now they hit Storage's
   // CDN directly.
-  const ext = imgMime.includes('jpeg') ? 'jpg' : (imgMime.includes('webp') ? 'webp' : 'png');
+  // Derive the served Content-Type AND the path extension from ONE normalized
+  // mime so they can never disagree, and so only a canonical image type is
+  // served from the public qss-explorer bucket (shared with qss-image-upload).
+  const { mime: storeMime, ext } = imageStorageMeta(imgMime);
   const storagePath = `${id}.${ext}`;
   let imageUrl = null;
   let uploadErr = null;
@@ -532,7 +536,7 @@ async function handleGenerate(body) {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': imgMime,
+        'Content-Type': storeMime,
         'x-upsert': 'true',
         'Cache-Control': 'public, max-age=31536000, immutable',
       },
@@ -550,7 +554,7 @@ async function handleGenerate(body) {
   // the image — never lose work because of a transient upload hiccup.
   const patch = {
     status: 'ready',
-    image_mime: imgMime,
+    image_mime: storeMime,
     error_msg: null,
     updated_at: new Date().toISOString(),
   };
