@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy-freshness.sh <page-path> [dist-html-path] [host]
+# deploy-freshness.sh <url-or-path> [dist-html-path] [host]
 #
 # Answers the question HTTP-200 cannot: "is the LIVE deploy actually serving the
 # code I just built, or a stale older build?" It compares the content-hashed
@@ -15,20 +15,37 @@
 # "verified" against a stale deploy because 200/401 looked green. This is the
 # outside signal that actually distinguishes a propagated deploy from a stuck one.
 #
+# ARG 1 accepts EITHER form — same convention as verify-deploy.sh, so the two
+# sibling verifiers can be called identically:
+#   deploy-freshness.sh https://mycoldmars.vercel.app/hunter/   (full URL; host taken from it)
+#   deploy-freshness.sh /hunter/                                (bare path; host from arg3/default)
+# A full URL is the no-footgun form — you can paste the exact link you'd curl.
+#
 # Requires dist/ built from the current HEAD first:  bunx vite build
 # Only meaningful for Vite-built pages (those with hashed asset bundles). Pure
 # static public/*.html copied verbatim have no hash — use verify-deploy.sh (a
 # body grep for the changed text) for those instead.
 set -euo pipefail
 
-PAGE_PATH="${1:-}"
+ARG1="${1:-}"
 DIST_HTML="${2:-}"
 HOST="${3:-https://mycoldmars.com}"
 
-if [[ -z "$PAGE_PATH" ]]; then
-  echo "Usage: deploy-freshness.sh <page-path> [dist-html-path] [host]" >&2
-  echo "  e.g. deploy-freshness.sh /hunter/" >&2
+if [[ -z "$ARG1" ]]; then
+  echo "Usage: deploy-freshness.sh <url-or-path> [dist-html-path] [host]" >&2
+  echo "  e.g. deploy-freshness.sh https://mycoldmars.vercel.app/hunter/" >&2
+  echo "       deploy-freshness.sh /hunter/" >&2
   exit 2
+fi
+
+# Accept a full URL OR a bare path in arg 1 (verify-deploy.sh parity). When arg 1
+# is a full http(s) URL, take the host (scheme://authority) and path FROM it — a
+# host passed in arg 3 is then redundant and ignored, since the URL is unambiguous.
+if [[ "$ARG1" =~ ^https?://([^/]+)(/.*)?$ ]]; then
+  HOST="${ARG1%%"${BASH_REMATCH[2]}"}"   # scheme://authority (strip the path tail)
+  PAGE_PATH="${BASH_REMATCH[2]:-/}"      # path, defaulting to / for a bare origin
+else
+  PAGE_PATH="$ARG1"
 fi
 
 # Normalise the page path and derive the local dist html if not given.
