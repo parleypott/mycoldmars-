@@ -22,6 +22,7 @@
 
 import { checkAccess as sharedCheckAccess } from './_lib/access.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
+import { buildTrimmedBlocks, buildSpine, normalizeTouchBase } from './_lib/touch-base-normalize.js';
 
 // Edge runtime. Sonnet's typical response on this prompt is 8-15s,
 // well under the 25s edge cap. Tried Node + maxDuration: 60 but the
@@ -149,23 +150,12 @@ export default async function handler(req) {
   // one. That summary is the SPINE Henry can see in the story panel —
   // touch-base should ground its read on those events, then look at the
   // full text for tone/voice/detail.
-  const trimmedBlocks = blocks
-    .map((b, i) => {
-      const text = String(b.text || '').slice(0, 800);
-      const summary = String(b.summary || '').trim();
-      const head = summary ? `Block ${i + 1} (what happens: ${summary})` : `Block ${i + 1}`;
-      return `${head}: ${text}`;
-    })
-    .join('\n\n')
-    .slice(0, 30_000);
+  const trimmedBlocks = buildTrimmedBlocks(blocks);
 
   // Build the spine-only view too — a clean list of the block summaries
   // in order. This is what Henry sees on screen and what the touch-base
   // metaphor should react to.
-  const spine = blocks
-    .map((b, i) => `${i + 1}. ${String(b.summary || '').trim() || '(no summary yet)'}`)
-    .join('\n')
-    .slice(0, 4_000);
+  const spine = buildSpine(blocks);
 
   const arc = body.arcContext || null;
   const cards = Array.isArray(body.character_cards) ? body.character_cards.slice(0, 12) : [];
@@ -234,33 +224,18 @@ export default async function handler(req) {
     });
   }
 
-  // Normalize / validate shape so the client never has to guard for missing fields.
-  const ALLOWED_STATUS = new Set(['present', 'partial', 'missing']);
-  const ingredients = Array.isArray(parsed.ingredients) ? parsed.ingredients : [];
-  const safeIngredients = ingredients
-    .filter(i => i && typeof i === 'object')
-    .map(i => ({
-      key: String(i.key || '').slice(0, 32),
-      name: String(i.name || '').slice(0, 80),
-      status: ALLOWED_STATUS.has(i.status) ? i.status : 'partial',
-      note: String(i.note || '').slice(0, 200),
-    }))
-    .slice(0, 12);
-  const suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
-  const safeSuggestions = suggestions
-    .filter(s => typeof s === 'string' && s.trim())
-    .map(s => s.trim().slice(0, 300))
-    .slice(0, 4);
-  const summary = String(parsed.summary || '').slice(0, 1200);
-  const concern = (typeof parsed.concern === 'string' && parsed.concern.trim())
-    ? parsed.concern.trim().slice(0, 400)
-    : null;
+  // Normalize / validate shape so the client never has to guard for missing
+  // fields. normalizeTouchBase also guards a literal-null/array/number parse
+  // (JSON.parse('null') succeeds → the old inline `parsed.ingredients` access
+  // threw a TypeError outside the try/catch → 500 crash) by degrading a
+  // non-object parse to an all-defaults report.
+  const { summary, concern, ingredients, suggestions } = normalizeTouchBase(parsed);
 
   return json(200, {
     summary,
     concern,
-    ingredients: safeIngredients,
-    suggestions: safeSuggestions,
+    ingredients,
+    suggestions,
     modelMs: Date.now() - t0,
     model: 'claude-sonnet-4-6',
   });
