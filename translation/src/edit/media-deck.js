@@ -26,6 +26,7 @@ import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.js';
 
 import { parseTimecodeToSeconds } from '../timecode-utils.js';
 import { wordIndexFromCharOffset } from './word-index.js';
+import { formatClock } from '../format-clock.js';
 
 const VIDEO_HEIGHT = 200;
 const WAVEFORM_HEIGHT = 72;
@@ -262,17 +263,10 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   const regionsPlugin = wavesurfer.registerPlugin(RegionsPlugin.create());
 
   // ── Time sync ──────────────────────────────────────────────────────
-  function pad(n) { return String(Math.floor(n)).padStart(2, '0'); }
-  function fmt(secs) {
-    if (!isFinite(secs)) return '0:00';
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${pad(s)}`;
-  }
   function refreshTimeLabel() {
     const cur = video.currentTime || 0;
     const total = video.duration || 0;
-    timeEl.textContent = `${fmt(cur)} / ${fmt(total)}`;
+    timeEl.textContent = `${formatClock(cur)} / ${formatClock(total)}`;
   }
   video.addEventListener('timeupdate', () => {
     refreshTimeLabel();

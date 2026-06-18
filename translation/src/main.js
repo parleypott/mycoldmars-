@@ -3,6 +3,7 @@ import { parseJSON } from './json-parser.js';
 import { parseTrintHTML } from './trint-html-parser.js';
 import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
+import { formatClock } from './format-clock.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
 import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, releaseLockBeacon, subscribeToTranscript, subscribePresence, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload, listStuckMediaUploads, listShares, addShare, removeShare, updateShareRole, searchUserProfiles } from './db.js';
@@ -3575,9 +3576,9 @@ function formatDuration(bites) {
     };
     totalSec += Math.max(0, parts(b.end) - parts(b.start));
   }
-  const m = Math.floor(totalSec / 60);
-  const s = Math.floor(totalSec % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
+  // Hour-carrying clock format (shared) — a long soundbite sequence can total
+  // over an hour, which the old inline `${m}:${s}` dropped to e.g. "90:00".
+  return formatClock(totalSec);
 }
 
 function tcToFrameNotation(tc, fps) {
