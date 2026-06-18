@@ -1,5 +1,269 @@
 [
   {
+    "id": "F0BBHN7JUE6",
+    "name": "Screenshot 2026-06-18 at 8.07.30 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 33332,
+    "local_path": "images/F0BBHN7JUE6.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781786109.339079",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781786109339079",
+    "posted_at": "2026-06-18T12:35:09.339Z",
+    "analysis": {
+      "comment_text": "a topic maybe well explained by jhonny wait is over",
+      "commenter": "NuanZarin",
+      "sentiment": "other",
+      "themes": [
+        "host",
+        "anticipation",
+        "topic",
+        "explanation"
+      ],
+      "video_hint": "likely a video featuring a host named Johnny covering a specific topic",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-18T12:51:02.678Z"
+  },
+  {
+    "id": "F0BBFL3P7M4",
+    "name": "Screenshot 2026-06-18 at 8.07.16 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 46612,
+    "local_path": "images/F0BBFL3P7M4.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781786109.339079",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781786109339079",
+    "posted_at": "2026-06-18T12:35:09.339Z",
+    "analysis": {
+      "comment_text": "Such an informative video, thank you as always! Also, just got Ground News, and now I'm using it for political news daily, thanks!",
+      "commenter": "ErikRavn",
+      "sentiment": "praise",
+      "themes": [
+        "ground news",
+        "sponsorship",
+        "political news",
+        "appreciation"
+      ],
+      "video_hint": "Video likely features a Ground News sponsorship segment",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-18T12:51:03.282Z"
+  },
+  {
+    "id": "F0BBBBJ504T",
+    "name": "Screenshot 2026-06-18 at 8.31.50 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 47044,
+    "local_path": "images/F0BBBBJ504T.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781786109.339079",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781786109339079",
+    "posted_at": "2026-06-18T12:35:09.339Z",
+    "analysis": {
+      "comment_text": "Of the youtubers i watched, when it comes ot Johnny i put the normal speed 😄. Dude is very good at this thing",
+      "commenter": "its_black_samurai",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "pacing",
+        "presentation style",
+        "engagement"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-18T12:51:03.315Z"
+  },
+  {
+    "id": "F0BBMB9SS3W",
+    "name": "Screenshot 2026-06-18 at 8.32.11 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 39039,
+    "local_path": "images/F0BBMB9SS3W.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781786109.339079",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781786109339079",
+    "posted_at": "2026-06-18T12:35:09.339Z",
+    "analysis": {
+      "comment_text": "This channel is gold and I'm happy to be one of the first to write this down here. Ciao dall'Italia",
+      "commenter": "AlfonsoLucifredi",
+      "sentiment": "praise",
+      "themes": [
+        "channel quality",
+        "early supporter",
+        "italian audience",
+        "community"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-18T12:51:04.202Z"
+  },
+  {
+    "id": "F0BBEAAK2G5",
+    "name": "Screenshot 2026-06-18 at 8.01.49 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 31108,
+    "local_path": "images/F0BBEAAK2G5.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781786109.339079",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781786109339079",
+    "posted_at": "2026-06-18T12:35:09.339Z",
+    "analysis": {
+      "comment_text": "Excellent time to refresh for such an important topic in 2026.",
+      "commenter": "dazurathefirst",
+      "sentiment": "insightful",
+      "themes": [
+        "timeliness",
+        "relevance",
+        "topic importance"
+      ],
+      "video_hint": "An educational or informational video covering a topic deemed important in 2026",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-18T12:51:05.764Z"
+  },
+  {
+    "id": "F0BBFL45LKG",
+    "name": "Screenshot 2026-06-18 at 8.01.55 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 27414,
+    "local_path": "images/F0BBFL45LKG.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781786109.339079",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781786109339079",
+    "posted_at": "2026-06-18T12:35:09.339Z",
+    "analysis": {
+      "comment_text": "damn this is early, but great to finally see you cover this topic",
+      "commenter": "aumshukla3178",
+      "sentiment": "praise",
+      "themes": [
+        "early viewer",
+        "topic request",
+        "anticipation"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-18T12:51:06.071Z"
+  },
+  {
+    "id": "F0BB2863TF1",
+    "name": "Screenshot 2026-06-18 at 8.30.03 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 27641,
+    "local_path": "images/F0BB2863TF1.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781786109.339079",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781786109339079",
+    "posted_at": "2026-06-18T12:35:09.339Z",
+    "analysis": {
+      "comment_text": "Johnny asking the right questions is therapeutic 😊",
+      "commenter": "gee254stephen",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "interviewing",
+        "therapeutic",
+        "engagement"
+      ],
+      "video_hint": "interview-style video featuring a host named Johnny",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-18T12:51:06.530Z"
+  },
+  {
+    "id": "F0BBKHHC7FB",
+    "name": "Screenshot 2026-06-18 at 8.30.22 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 23116,
+    "local_path": "images/F0BBKHHC7FB.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781786109.339079",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781786109339079",
+    "posted_at": "2026-06-18T12:35:09.339Z",
+    "analysis": {
+      "comment_text": "This video is part of a complete breakfast.",
+      "commenter": "NickMenar",
+      "sentiment": "funny",
+      "themes": [
+        "humor",
+        "cereal ad reference",
+        "meta commentary"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-18T12:51:06.613Z"
+  },
+  {
+    "id": "F0BCC12SVMW",
+    "name": "Screenshot 2026-06-18 at 8.31.03 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 22504,
+    "local_path": "images/F0BCC12SVMW.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781786109.339079",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781786109339079",
+    "posted_at": "2026-06-18T12:35:09.339Z",
+    "analysis": {
+      "comment_text": "Goat",
+      "commenter": "M39SI",
+      "sentiment": "praise",
+      "themes": [
+        "host",
+        "praise"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-18T12:51:08.122Z"
+  },
+  {
+    "id": "F0BBHN9E0D8",
+    "name": "Screenshot 2026-06-18 at 8.30.14 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 21043,
+    "local_path": "images/F0BBHN9E0D8.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1781786109.339079",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1781786109339079",
+    "posted_at": "2026-06-18T12:35:09.339Z",
+    "analysis": {
+      "comment_text": "This is real journalism..",
+      "commenter": "khaledahmed2051",
+      "sentiment": "praise",
+      "themes": [
+        "journalism",
+        "quality",
+        "credibility"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-18T12:51:08.760Z"
+  },
+  {
     "id": "F0BB9KYC5E2",
     "name": "Screenshot 2026-06-17 at 9.45.44 AM.png",
     "ext": "png",
