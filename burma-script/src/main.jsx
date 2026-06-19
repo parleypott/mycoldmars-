@@ -11,6 +11,7 @@ import { BurmaEditor, LS_DOC } from './Editor.jsx';
 import { Exports } from './Exports.jsx';
 import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, setReloadingForAdopt } from './migrate-doc.js';
 import { reconcileOnLoad, bootstrapFromCloud } from './cloud-sync.js';
+import { scanRecoverySnapshots, readSnapshot, snapshotToText, dismissSnapshot } from './recovery.js';
 import scriptData from '../sample-blocks.json';
 
 const SOURCE_BLOCKS = scriptData.blocks || [];
@@ -513,6 +514,88 @@ function TipsToggle() {
   );
 }
 
+// ── RECOVERY SURFACE (orphaned-snapshot discoverability) ─────────────────────────────────────────
+// The adopt-cloud / cross-tab / 409 paths snapshot an unsynced local edit to a `.conflict.<ts>` (or
+// `.bak.<ts>`) recovery key and THEN reload — which destroys the React banner that pointed at it. The
+// bytes survive on disk but were reachable only through DevTools, which a dyslexic non-coder will
+// never open. This banner runs the localStorage scan AT STARTUP and surfaces a persistent, plainly
+// worded "you have an unsynced backup" affordance for each orphaned snapshot. It NEVER auto-restores
+// (restoring over the live doc could itself lose work — the cardinal sin); instead it offers a
+// read-only PREVIEW + DOWNLOAD .txt, then a DISMISS once Johnny has saved what he needs. Download
+// reuses the same Blob plumbing the Exports panel uses, kept local here so this stands alone.
+function downloadText(filename, text) {
+  try {
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch {} }, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function recoveryFilename(snap) {
+  const d = new Date(snap.ts || Date.now());
+  const pad = (n) => String(n).padStart(2, '0');
+  const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+  return `burma-recovered-${snap.kind}-${stamp}.txt`;
+}
+
+function RecoveryBanner() {
+  // Scan ONCE on mount. The list only shrinks (as Johnny dismisses), so we hold it in state.
+  const [snaps, setSnaps] = useState(() => {
+    try { return scanRecoverySnapshots(); } catch { return []; }
+  });
+  const [expanded, setExpanded] = useState(false);
+
+  if (!snaps || snaps.length === 0) return null;
+
+  function downloadOne(snap) {
+    const doc = readSnapshot(snap.key);
+    const text = snapshotToText(doc);
+    const ok = downloadText(recoveryFilename(snap), text || '(this backup could not be read as text — open it from the file to inspect raw)');
+    if (!ok) alert('Could not download the backup — your browser blocked the file save. Try again, or copy from the preview.');
+  }
+  function dismissOne(snap) {
+    dismissSnapshot(snap.key);
+    setSnaps((list) => list.filter((s) => s.key !== snap.key));
+  }
+
+  const n = snaps.length;
+  return (
+    <div class="wp-recovery-banner" role="status" aria-live="polite">
+      <div class="wp-recovery-head">
+        <span class="wp-recovery-lab">⤓ UNSYNCED BACKUP{n > 1 ? 'S' : ''} FOUND</span>
+        <span class="wp-recovery-msg">
+          {n === 1
+            ? 'an earlier edit on this device was backed up before a newer version was pulled in. Nothing is lost — you can recover it here.'
+            : `${n} earlier edits on this device were backed up before newer versions were pulled in. Nothing is lost — recover them here.`}
+        </span>
+        <button class="wp-recovery-toggle" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
+          {expanded ? 'HIDE' : 'SHOW'}
+        </button>
+      </div>
+      {expanded && (
+        <ul class="wp-recovery-list">
+          {snaps.map((snap) => (
+            <li key={snap.key} class="wp-recovery-item">
+              <span class="wp-recovery-when">{relTime(snap.ts)}</span>
+              <span class="wp-recovery-size">~{Math.max(1, Math.round(snap.bytes / 1024))} KB</span>
+              <button class="wp-recovery-act" onClick={() => downloadOne(snap)}>DOWNLOAD .TXT</button>
+              <button class="wp-recovery-act is-quiet" onClick={() => dismissOne(snap)} title="I've saved what I need — hide this">DISMISS</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function App() {
   const [tel, setTel] = useState(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
@@ -635,6 +718,7 @@ function App() {
       <Exports getDoc={() => editorRef.current?.getJSON() || { type: 'doc', content: [] }} docTitle={DOC_TITLE} />
       <CopyToast />
       <SaveStatus />
+      <RecoveryBanner />
     </div>
   );
 }

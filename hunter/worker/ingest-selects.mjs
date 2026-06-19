@@ -23,6 +23,7 @@ if (existsSync(envPath)) {
 
 import { createClient } from '@supabase/supabase-js';
 import { analyzeUnit, generateEmbedding } from './gemini-client.js';
+import { buildSelectsAnalysisContext } from './selects-context.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -422,39 +423,6 @@ async function main() {
   // Print cross-reference summary
   const matchRate = total > 0 ? (matched / total * 100).toFixed(1) : 0;
   console.log(`[selects] cross-reference rate: ${matchRate}% of edit decisions matched to raw footage`);
-}
-
-/**
- * Build a textual description of an editorial decision for embedding + analysis.
- * This is what gets embedded and compared against raw footage descriptions.
- */
-function buildSelectsAnalysisContext(unit, rawMatch) {
-  const duration = Math.round((unit.endSeconds - unit.startSeconds) * 100) / 100;
-  const timelineDuration = Math.round((unit.timelineEnd - unit.timelineStart) * 100) / 100;
-
-  let text = `EDITORIAL DECISION — Selects Tier\n`;
-  text += `Sequence: "${unit.sequenceName}"\n`;
-  text += `Source clip: ${unit.sourceClipName}\n`;
-  text += `Source range: ${formatTime(unit.startSeconds)} – ${formatTime(unit.endSeconds)} (${duration}s of source used)\n`;
-  text += `Timeline position: ${formatTime(unit.timelineStart)} – ${formatTime(unit.timelineEnd)} (${timelineDuration}s on timeline)\n`;
-  text += `Track: ${unit.trackLabel}\n`;
-
-  if (rawMatch) {
-    text += `\nCROSS-REFERENCE: This clip matches raw corpus unit ${rawMatch.id}.\n`;
-    text += `The editor selected ${duration}s from a ${Math.round(rawMatch.end_seconds - rawMatch.start_seconds)}s source clip.\n`;
-    const usagePercent = ((duration / (rawMatch.end_seconds - rawMatch.start_seconds)) * 100).toFixed(1);
-    text += `Usage: ${usagePercent}% of source material was used in this edit.\n`;
-  } else {
-    text += `\nNo raw footage match found for this source clip.\n`;
-  }
-
-  return text;
-}
-
-function formatTime(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 main().catch(err => { console.error('[selects] fatal:', err.message); process.exit(1); });

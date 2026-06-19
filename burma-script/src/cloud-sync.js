@@ -283,7 +283,42 @@ export async function reconcileOnLoad(deps = {}) {
   if (decision.action === 'seed-from-cloud' || decision.action === 'adopt-cloud') {
     // On ADOPT (cloud newer than an existing local doc) snapshot the local doc FIRST so it is never
     // lost. On a fresh SEED there is no local doc to snapshot.
-    if (decision.snapshotLocal) { try { snapshotConflict(); } catch {} }
+    //
+    // SILENT-BYTE-LOSS GUARD (adopt-snapshot-must-land): the adopt write below routes through saveDoc,
+    // whose quota loop EVICTS existing .bak/.conflict backups to make room and then succeeds — so a
+    // failed snapshot is NOT a soft "we'll keep local anyway", it is a hard "we are about to overwrite
+    // an unsynced local edit with no recovery copy and no banner". snapshotLocalConflict() returns
+    // null (it does NOT throw) when localStorage refuses (quota full / private mode). The old code
+    // discarded that return inside `try {} catch {}`, so the null branch was unguarded and untested.
+    // We now REQUIRE the snapshot to land before adopting: if snapshotLocal was requested and the
+    // snapshot did not produce a key, we ABORT the adopt entirely — do NOT prime, do NOT write, do NOT
+    // reload. The cloud doc is still safely in the cloud (we never touched it), so refusing to adopt
+    // loses NOTHING; adopting without a snapshot can lose the local word forever. Mirror resetDoc /
+    // saveDoc's "could not back up → abort" contract and fire the loud wp-save-failed banner so a
+    // dyslexic non-coder SEES that their on-screen local copy is the one to trust, then reload later.
+    if (decision.snapshotLocal) {
+      let snapKey = null;
+      try { snapKey = snapshotConflict(); } catch { snapKey = null; }
+      if (!snapKey) {
+        // Could not back up the local doc. Adopting now would evict the safety net and clobber the
+        // unsynced local edit with no recovery copy. Refuse: keep local on screen, warn LOUDLY.
+        emit('wp-save-failed', {
+          reason: 'adopt-snapshot-failed',
+          message: 'A newer cloud version exists, but this device could not back up your current ' +
+            'copy first (storage is full). Keeping your on-screen copy. Free up space, then reload.',
+          action: decision.action,
+          cloudVersion: decision.version,
+        });
+        try {
+          console.warn('[burma] cloud reconcile: ' + decision.action + ' ABORTED — could not snapshot ' +
+            'local before adopt (storage refused / quota). NOT writing cloud doc, NOT reloading. Local ' +
+            'stays on screen; cloud v' + decision.version + ' is untouched and still adoptable after ' +
+            'space is freed.');
+        } catch {}
+        return { action: decision.action, wrote: false, version: decision.version,
+                 shouldReload: false, aborted: true, reason: 'adopt-snapshot-failed' };
+      }
+    }
     // Align the local version stamp to cloud's BEFORE writing, so saveDoc stamps cloud+1 and the
     // subsequent push (after reload) is accepted rather than bouncing as stale. primeVersionFloor
     // raises BOTH the on-disk LS_DOC_VER AND this tab's knownBaseVersion to cloud.version, so the

@@ -254,6 +254,50 @@ body {
 .wp-save-banner-act:hover { background: var(--ink); color: #efeadd; }
 
 /* ============================================================
+   RECOVERY SURFACE — orphaned unsynced-backup discoverability.
+   A CALM, persistent affordance pinned to the BOTTOM (so it never competes with the top failure
+   banners). Nothing was lost here — an earlier edit was backed up before a newer version was pulled
+   in — so this reads reassuring, not alarming. Plain words for a dyslexic non-coder: "unsynced
+   backup found", a clear DOWNLOAD .TXT, and a DISMISS once handled.
+   ============================================================ */
+.wp-recovery-banner {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 998;
+  background: #2f6f57; color: #f3efe2;
+  border-top: 2px solid var(--ink); font-family: var(--mono);
+  padding: 10px 16px;
+}
+.wp-recovery-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.wp-recovery-lab { font-size: 11px; font-weight: 700; letter-spacing: .12em; white-space: nowrap; }
+.wp-recovery-msg { font-size: 11px; letter-spacing: .02em; flex: 1 1 280px; }
+.wp-recovery-toggle {
+  appearance: none; cursor: pointer; margin-left: auto;
+  background: transparent; color: inherit; font-family: var(--mono);
+  font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  border: 1.5px solid #f3efe2; border-radius: 5px; padding: 2px 10px;
+}
+.wp-recovery-toggle:hover { background: #f3efe2; color: #2f6f57; }
+.wp-recovery-list {
+  list-style: none; margin: 10px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.wp-recovery-item {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 6px 8px; border: 1px solid rgba(243,239,226,.35); border-radius: 6px;
+  font-size: 11px;
+}
+.wp-recovery-when { font-weight: 700; letter-spacing: .04em; }
+.wp-recovery-size { opacity: .7; letter-spacing: .04em; }
+.wp-recovery-act {
+  appearance: none; cursor: pointer; margin-left: 4px;
+  background: transparent; color: inherit; font-family: var(--mono);
+  font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  border: 1.5px solid #f3efe2; border-radius: 5px; padding: 3px 9px;
+}
+.wp-recovery-act:hover { background: #f3efe2; color: #2f6f57; }
+.wp-recovery-act.is-quiet { border-color: rgba(243,239,226,.45); opacity: .8; }
+.wp-recovery-act.is-quiet:hover { opacity: 1; }
+
+/* ============================================================
    MASTHEAD (feature A) — the script's name, big + bold, the page headline
    ============================================================ */
 .wp-masthead {
