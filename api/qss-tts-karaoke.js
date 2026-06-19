@@ -1,4 +1,5 @@
 import { checkAccess } from './_lib/access.js';
+import { readJsonBody } from './_lib/read-json-body.js';
 
 // Edge runtime — calls ElevenLabs's WITH-TIMESTAMPS endpoint and returns
 // audio + character/word timing data the client uses for karaoke-style
@@ -42,9 +43,9 @@ export default async function handler(req) {
     });
   }
 
-  let body;
-  try { body = await req.json(); }
-  catch { return new Response(JSON.stringify({ error: 'invalid JSON' }), { status: 400, headers: { 'Content-Type': 'application/json' } }); }
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return new Response(JSON.stringify({ error: parsed.error }), { status: parsed.status, headers: { 'Content-Type': 'application/json' } });
+  const body = parsed.body;
 
   let text = (body.text || '').toString();
   // Don't trim — leading/trailing whitespace would shift word boundaries.

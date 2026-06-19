@@ -1,4 +1,5 @@
 import { checkAccess } from './_lib/access.js';
+import { readJsonBody } from './_lib/read-json-body.js';
 
 // Edge runtime — streaming straight through ElevenLabs's stream endpoint
 // so the browser starts receiving MP3 bytes within ~300-500ms instead of
@@ -48,9 +49,9 @@ export default async function handler(req) {
     });
   }
 
-  let body;
-  try { body = await req.json(); }
-  catch { return new Response(JSON.stringify({ error: 'invalid JSON' }), { status: 400, headers: { 'Content-Type': 'application/json' } }); }
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return new Response(JSON.stringify({ error: parsed.error }), { status: parsed.status, headers: { 'Content-Type': 'application/json' } });
+  const body = parsed.body;
 
   let text = (body.text || '').toString().trim();
   if (!text) return new Response(JSON.stringify({ error: 'text required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });

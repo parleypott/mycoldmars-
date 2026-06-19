@@ -19,6 +19,7 @@
 
 import { checkAccess } from './_lib/access.js';
 import { parseAdminEmails, isAdminEmail, isLoopbackHost } from './_lib/admin-auth.js';
+import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge' };
 
@@ -62,8 +63,9 @@ async function adminFetch(supaUrl, serviceKey, path, init = {}) {
 export default async function handler(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
-  let body = {};
-  try { body = await req.json(); } catch {}
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return json({ error: parsed.error }, parsed.status);
+  const body = parsed.body;
   const action = body.action;
   if (!action) return json({ error: 'action required (list|create|delete|set_password|bootstrap)' }, 400);
 
