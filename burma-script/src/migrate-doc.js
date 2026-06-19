@@ -42,6 +42,80 @@ const LS_MIGRATED = 'wp01_burma_doc_migrated_v1';
 const BAK_PREFIX = LS_DOC + '.bak.';
 const BAK_KEEP = 8;
 
+// ── CROSS-TAB CONFLICT GUARD (crosstab-stale-overwrite) ────────────────────────────────────
+// Two open tabs share localStorage. The durable-flush work (pagehide / visibilitychange) made
+// the loss path WORSE: switching away from a stale tab now eagerly flushes its old in-memory
+// doc over a newer doc another tab just saved — silent last-writer-wins. Closing it for good:
+//
+//   • LS_DOC_VER — a monotonically increasing version number written ALONGSIDE every LS_DOC
+//     write. Each tab remembers the base version it last read or wrote (`knownBaseVersion`).
+//   • Before saveDoc overwrites LS_DOC, it compares the version CURRENTLY in localStorage with
+//     this tab's base. If localStorage is NEWER (another tab wrote since), we DO NOT overwrite:
+//     we snapshot that newer other-tab doc to a `.conflict.<ts>` recovery key (never lose it),
+//     raise the existing wp-save-failed banner ("another tab has newer edits — reload"), and
+//     SKIP the destructive write. Nothing is ever lost — both versions are preserved on disk.
+//   • A `storage` listener (wired in the editor) marks a tab STALE the moment another tab writes
+//     LS_DOC, so it shows a gentle "updated in another tab — reload" indicator and its own flush
+//     hits the guard instead of stomping. We deliberately do NOT silently advance a stale tab's
+//     base on the storage event: advancing it would re-enable the very stomp we're closing.
+const LS_DOC_VER = 'wp01_burma_doc_ver_v1';
+const CONFLICT_PREFIX = LS_DOC + '.conflict.';
+// A per-tab id so a version stamp records WHICH tab wrote it (telemetry / conflict snapshots).
+const TAB_ID = 'tab_' + Math.random().toString(36).slice(2, 10);
+
+// The version this tab believes is the current base — the value it last read at seed or last
+// wrote successfully. Starts at -1 ("haven't read anything yet") so the first read adopts
+// whatever is on disk without tripping the guard.
+let knownBaseVersion = -1;
+
+// Read the current LS_DOC_VER as a number (missing / unparseable → 0, the implicit "v0" a
+// pre-guard doc carries). The stored value is "<version>|<tabId>" so a conflict can name the
+// tab that wrote it; we parse the leading integer. Never throws.
+function readStoredVersion() {
+  try {
+    const raw = localStorage.getItem(LS_DOC_VER);
+    if (raw == null) return 0;
+    const n = parseInt(String(raw), 10);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// The tab id that wrote the current on-disk version (for conflict messaging). "" if none.
+function readStoredVersionTab() {
+  try {
+    const raw = localStorage.getItem(LS_DOC_VER);
+    if (raw == null) return '';
+    const i = String(raw).indexOf('|');
+    return i >= 0 ? String(raw).slice(i + 1) : '';
+  } catch {
+    return '';
+  }
+}
+
+// PUBLIC: adopt the on-disk version as this tab's base. Called by the editor's seedDoc when it
+// loads the saved doc (so the tab's base matches what it actually rendered). NOT called from the
+// storage-event path — see the note above (advancing a stale tab's base would re-enable a stomp).
+// Returns the adopted version.
+export function syncBaseVersion() {
+  knownBaseVersion = readStoredVersion();
+  return knownBaseVersion;
+}
+
+// PUBLIC (test/telemetry): this tab's id and current known base version.
+export function getTabId() { return TAB_ID; }
+export function getKnownBaseVersion() { return knownBaseVersion; }
+
+// Snapshot the newer (other-tab) doc to a conflict recovery key BEFORE we refuse the write, so
+// the work another tab did is never at the mercy of this tab's next action. Returns the key, or
+// null if the snapshot could not be written (storage broken).
+function snapshotConflict(raw) {
+  if (!raw) return null;
+  const key = CONFLICT_PREFIX + Date.now();
+  try { localStorage.setItem(key, raw); return key; } catch { return null; }
+}
+
 // EXACTLY the editor's extension set (Editor.jsx). The schema gate is only meaningful if it
 // is the SAME schema the live editor enforces — mirror the StarterKit config so a doc that
 // passes here is a doc the editor will actually accept. If this list drifts from Editor.jsx
@@ -256,6 +330,30 @@ export function saveDoc(json) {
     return { ok: false, reason: 'serialize-failed' };
   }
 
+  // STEP 0 — CROSS-TAB CONFLICT GUARD. Before we touch LS_DOC, ask: did another tab write a
+  // NEWER doc than the one this tab is based on? If the on-disk version is ahead of this tab's
+  // known base, this tab's in-memory doc is stale — overwriting it would silently stomp the
+  // other tab's newer edits (the crosstab-stale-overwrite loss path the eager flush worsened).
+  // We refuse: snapshot the newer doc to a `.conflict.<ts>` recovery key (never lose it), raise
+  // the loud banner telling Johnny to reload, and skip the destructive write. Both docs survive.
+  const storedVersion = readStoredVersion();
+  if (knownBaseVersion >= 0 && storedVersion > knownBaseVersion) {
+    let newerRaw = null;
+    try { newerRaw = localStorage.getItem(LS_DOC); } catch {}
+    const conflictKey = snapshotConflict(newerRaw);
+    console.warn('[burma] cross-tab conflict — another tab has a newer doc (v' + storedVersion +
+      ' > base v' + knownBaseVersion + '); refusing to overwrite. Newer doc preserved at', conflictKey);
+    notifySaveFailed({
+      kind: 'conflict',
+      message: 'this script was updated in another tab — your edits here were NOT saved over it. Reload to get the latest, then re-apply your change.',
+      conflictKey,
+      storedVersion,
+      baseVersion: knownBaseVersion,
+      byTab: readStoredVersionTab(),
+    });
+    return { ok: false, reason: 'cross-tab-conflict', conflictKey, storedVersion };
+  }
+
   // STEP 1 — once-per-session snapshot of the prior good doc before we ever overwrite it.
   if (!sessionBackedUp) {
     sessionBackedUp = true;
@@ -308,11 +406,21 @@ export function saveDoc(json) {
     return { ok: false, reason: 'invariant-unparseable' };
   }
 
+  // STEP 4 — STAMP THE NEW VERSION. We just wrote LS_DOC durably; bump the monotonic version
+  // past whatever was on disk and record it as this tab's new base. The version stamp is what a
+  // sibling tab's storage listener sees (so it learns its own base went stale), and what the
+  // STEP 0 guard above compares against. A best-effort write: if the tiny version key can't be
+  // written the doc still landed (read-back already confirmed it), so we don't fail the save —
+  // we just keep this tab's base advanced so it never stomps its own just-written doc.
+  const newVersion = Math.max(storedVersion, knownBaseVersion < 0 ? 0 : knownBaseVersion) + 1;
+  knownBaseVersion = newVersion;
+  try { localStorage.setItem(LS_DOC_VER, String(newVersion) + '|' + TAB_ID); } catch {}
+
   // SUCCESS — let any save-status indicator flip back to "saved".
   try {
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('wp-saved'));
   } catch {}
-  return { ok: true, reason: 'saved' };
+  return { ok: true, reason: 'saved', version: newVersion };
 }
 
 // PUBLIC: take a backup snapshot of the current saved doc on demand (used by resetDoc before it
@@ -419,4 +527,4 @@ export function migrateStoredDoc() {
   }
 }
 
-export { LS_DOC, LS_MIGRATED };
+export { LS_DOC, LS_MIGRATED, LS_DOC_VER };

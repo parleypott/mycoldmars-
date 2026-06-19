@@ -315,14 +315,23 @@ function CopyToast() {
   );
 }
 
+// STARTUP-BANNER RACE: the broken-storage failure is detected BEFORE render() (in the migration
+// block at the bottom of this file), but SaveStatus only attaches its wp-save-failed listener on
+// MOUNT — so a pre-render dispatch is missed. We stash that initial failure here; SaveStatus reads
+// it on first mount so the banner survives the gap between detection and listener attach.
+let INITIAL_SAVE_FAILURE = null;
+
 // ── SAVE STATUS — the cardinal-sin guard made visible. Data loss must NEVER be silent.
 // Listens for the durable-save events the editor fires: `wp-dirty` (unsaved keystrokes in
 // volatile state), `wp-saved` (a write landed AND passed the read-back invariant), and
-// `wp-save-failed` (quota / private-mode / invariant failure). A failure raises a PERSISTENT,
-// non-dismissable red banner so Johnny can never believe a save landed when it didn't.
+// `wp-save-failed` (quota / private-mode / invariant / cross-tab-conflict failure). A failure
+// raises a PERSISTENT, non-dismissable red banner so Johnny can never believe a save landed when
+// it didn't. A SEPARATE, gentler `wp-stale-tab` signal (another tab saved a newer doc) shows a
+// quiet amber "reload" notice — nothing was lost, the tab just needs to catch up.
 function SaveStatus() {
   const [state, setState] = useState('saved'); // 'saved' | 'unsaved' | 'failed'
   const [failMsg, setFailMsg] = useState('');
+  const [stale, setStale] = useState(false);
 
   useEffect(() => {
     const onDirty = () => setState((s) => (s === 'failed' ? s : 'unsaved'));
@@ -331,13 +340,24 @@ function SaveStatus() {
       setState('failed');
       setFailMsg(e.detail?.message || 'your edits are NOT being saved.');
     };
+    // A cross-tab update doesn't mean THIS tab's save failed — it just means this tab is behind.
+    // Flip the gentle stale notice; leave the tab's own save state intact.
+    const onStale = () => setStale(true);
     window.addEventListener('wp-dirty', onDirty);
     window.addEventListener('wp-saved', onSaved);
     window.addEventListener('wp-save-failed', onFailed);
+    window.addEventListener('wp-stale-tab', onStale);
+    // RACE FIX: consume a failure detected before this listener existed (pre-render startup).
+    if (INITIAL_SAVE_FAILURE) {
+      setState('failed');
+      setFailMsg(INITIAL_SAVE_FAILURE.message || 'your edits are NOT being saved.');
+      INITIAL_SAVE_FAILURE = null; // consumed once.
+    }
     return () => {
       window.removeEventListener('wp-dirty', onDirty);
       window.removeEventListener('wp-saved', onSaved);
       window.removeEventListener('wp-save-failed', onFailed);
+      window.removeEventListener('wp-stale-tab', onStale);
     };
   }, []);
 
@@ -350,10 +370,22 @@ function SaveStatus() {
     );
   }
   return (
-    <div class={`wp-save-dot is-${state}`} role="status" aria-live="polite" title={state === 'unsaved' ? 'Unsaved changes' : 'Saved'}>
-      <span class="wp-save-dot-mark" />
-      <span class="wp-save-dot-lab">{state === 'unsaved' ? 'UNSAVED' : 'SAVED'}</span>
-    </div>
+    <>
+      {stale && (
+        <div class="wp-save-banner is-stale" role="status" aria-live="polite">
+          <span class="wp-save-banner-lab">↻ UPDATED IN ANOTHER TAB</span>
+          <span class="wp-save-banner-msg">
+            this script was changed in another tab — reload to get the latest. Your edits here are held back, not lost.
+            {' '}
+            <button class="wp-save-banner-act" onClick={() => location.reload()}>RELOAD</button>
+          </span>
+        </div>
+      )}
+      <div class={`wp-save-dot is-${state}`} role="status" aria-live="polite" title={state === 'unsaved' ? 'Unsaved changes' : 'Saved'}>
+        <span class="wp-save-dot-mark" />
+        <span class="wp-save-dot-lab">{state === 'unsaved' ? 'UNSAVED' : 'SAVED'}</span>
+      </div>
+    </>
   );
 }
 
@@ -530,9 +562,15 @@ try {
     // broken — every downstream autosave will fail too. Make that loud + visible up front rather
     // than letting Johnny type into a doc that silently never persists.
     if (/back up|unavailable/i.test(r.reason || '')) {
-      window.dispatchEvent(new CustomEvent('wp-save-failed', {
-        detail: { kind: 'storage', message: 'storage is full or blocked — your edits will NOT be saved.' },
-      }));
+      // STARTUP-BANNER RACE FIX: SaveStatus attaches its wp-save-failed listener on MOUNT, which
+      // happens during render() BELOW — so a wp-save-failed dispatched here (pre-render) is missed
+      // and the banner never shows. Stash the broken-storage state on a module flag that SaveStatus
+      // reads on mount, so the initial failure survives until the listener exists. (We still keep
+      // an event-style detail object so the flag and a live event carry identical shape.)
+      INITIAL_SAVE_FAILURE = {
+        kind: 'storage',
+        message: 'storage is full or blocked — your edits will NOT be saved.',
+      };
     }
   } else if (r.migrated) {
     console.info('[burma] safe migration applied + validated (backup:', r.bakKey + ')');

@@ -19,7 +19,7 @@ import { BURMA_MARKS } from './extensions/marks.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { Workshop } from './Workshop.jsx';
-import { saveDoc, backupRaw } from './migrate-doc.js';
+import { saveDoc, backupRaw, syncBaseVersion, LS_DOC_VER } from './migrate-doc.js';
 
 const LS_DOC = 'wp01_burma_doc_v1';
 const LS_BLOCKS = 'wp01_burma_blocks_v1'; // derived schema-faithful export (exercises docToBlocks)
@@ -43,7 +43,12 @@ function seedDoc(sourceBlocks) {
       // MIGRATION-SAFE: a doc saved before the table spine has flat block nodes at the top
       // level. ensureTableDoc wraps them into full-width rows so the existing edited doc
       // (Johnny's filled answers) keeps rendering — no content touched, marks ride along.
-      if (parsed?.content?.length) return ensureTableDoc(parsed);
+      if (parsed?.content?.length) {
+        // CROSS-TAB BASE: adopt the on-disk version as this tab's base, so the conflict guard
+        // measures every later save against the doc this tab actually rendered from.
+        syncBaseVersion();
+        return ensureTableDoc(parsed);
+      }
       // Parsed but empty/wrong shape — treat as unreadable so we don't autosave over it.
       seededOverUnreadableDoc = true;
     } catch (e) {
@@ -214,6 +219,28 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [editor]);
+
+  // CROSS-TAB STALE DETECTION — the `storage` event fires in OTHER tabs (never the writer) when a
+  // shared localStorage key changes. So when a sibling tab saves the doc, THIS tab hears it and
+  // learns its in-memory copy is now behind. We surface a gentle "updated in another tab — reload"
+  // indicator (wp-stale-tab) and deliberately DO NOT advance this tab's known base version: the
+  // conflict guard in saveDoc keys off that base, so leaving it stale is exactly what stops the
+  // eager on-hidden flush from stomping the sibling's newer doc. Reloading is the clean recovery —
+  // it re-seeds from disk and re-syncs the base. (We never lose anything either way: a stomp
+  // attempt is caught by the guard and snapshotted to a .conflict key.)
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (!e) return;
+      // Only care about the doc itself or its version stamp changing under us.
+      if (e.key !== LS_DOC && e.key !== LS_DOC_VER) return;
+      // A removal (e.newValue == null) is a RESET in another tab — also a reason to reload.
+      window.dispatchEvent(new CustomEvent('wp-stale-tab', {
+        detail: { message: 'this script was just updated in another tab — reload to get the latest.' },
+      }));
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   // Flush a final save on in-SPA unmount (route change / React teardown). Goes through the same
   // guarded writer so an unmount can't silently fail or clobber a protected unreadable doc.

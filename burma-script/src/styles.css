@@ -204,6 +204,17 @@ body {
 }
 .wp-save-banner-lab { font-size: 11px; font-weight: 700; letter-spacing: .12em; white-space: nowrap; }
 .wp-save-banner-msg { font-size: 11px; letter-spacing: .02em; }
+/* CROSS-TAB STALE — a gentler amber sibling of the red SAVE FAILED banner. Nothing was lost; this
+   tab is just behind another tab's newer save. Same flat top-bar chrome, calmer colour, with an
+   inline RELOAD action. Lower z-index than the red banner so a real failure always wins on top. */
+.wp-save-banner.is-stale { background: #c9962c; color: #1f1d18; z-index: 999; }
+.wp-save-banner-act {
+  appearance: none; cursor: pointer; margin-left: 4px;
+  background: transparent; color: inherit; font-family: var(--mono);
+  font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  border: 1.5px solid var(--ink); border-radius: 5px; padding: 2px 8px;
+}
+.wp-save-banner-act:hover { background: var(--ink); color: #efeadd; }
 
 /* ============================================================
    MASTHEAD (feature A) — the script's name, big + bold, the page headline
