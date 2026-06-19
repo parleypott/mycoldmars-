@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { parseEmbedding, cosineSim } from './_lib/semantic-search.js';
 import { formatSeconds } from './_lib/format-seconds.js';
 import { buildGeminiChatContents } from './_lib/gemini-chat-contents.js';
+import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
 
@@ -62,7 +63,14 @@ export default async function handler(req) {
     return new Response('GEMINI_API_KEY not configured', { status: 500 });
   }
 
-  const body = await req.json();
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) {
+    return new Response(JSON.stringify({ error: parsed.error }), {
+      status: parsed.status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  const body = parsed.body;
   const action = body.action;
 
   if (action === 'pattern_surfacing') {
