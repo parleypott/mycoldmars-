@@ -7,6 +7,8 @@
 // No access gate. Friends know the URL; data is non-sensitive food/flight
 // preferences. Service-role key is server-side only.
 
+import { readJsonBody } from './_lib/read-json-body.js';
+
 export const config = { runtime: 'edge' };
 
 const CORS = {
@@ -64,15 +66,14 @@ export default async function handler(req) {
   }
 
   if (req.method === 'POST') {
-    let body;
-    try {
-      body = await req.json();
-    } catch {
-      return new Response(JSON.stringify({ error: 'bad_json' }), {
-        status: 400,
-        headers: JSON_HEADERS,
-      });
+    const parsed = await readJsonBody(req);
+    if (!parsed.ok) {
+      return new Response(
+        JSON.stringify({ error: parsed.error === 'invalid json' ? 'bad_json' : 'bad_body' }),
+        { status: 400, headers: JSON_HEADERS }
+      );
     }
+    const body = parsed.body;
 
     const row = {
       name: clean(body.name, 80),
