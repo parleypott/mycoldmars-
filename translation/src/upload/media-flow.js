@@ -17,6 +17,9 @@
 import { uploadMediaFile, createMediaUpload, updateMediaUpload, getMediaSignedUrl, needsTranscode } from '../db.js';
 import { currentUser } from '../auth.js';
 import { transcribeMedia } from '../api-client.js';
+import { isMediaFile, sanitizeFilename, guessMimeFromExt, secondsToTimecode } from './media-formats.js';
+
+export { isMediaFile };
 
 // Soft warning threshold — over this we tell the user "this'll take a few minutes"
 // because Deepgram is fast but a 1hr file still takes ~5–10 min end-to-end.
@@ -26,24 +29,6 @@ import { transcribeMedia } from '../api-client.js';
 const LARGE_FILE_THRESHOLD = 25 * 1024 * 1024;
 // Absolute ceiling — Deepgram supports up to 2 GB.
 const HARD_LIMIT_BYTES = 2 * 1024 * 1024 * 1024;
-
-const SUPPORTED_MIMES = new Set([
-  'video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska',
-  'audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/x-wav',
-  'audio/webm', 'audio/ogg', 'audio/flac',
-]);
-
-const SUPPORTED_EXTS = new Set([
-  'mp4', 'mov', 'webm', 'mkv',
-  'mp3', 'm4a', 'wav', 'ogg', 'flac',
-]);
-
-export function isMediaFile(file) {
-  if (!file) return false;
-  if (SUPPORTED_MIMES.has(file.type)) return true;
-  const ext = (file.name || '').split('.').pop().toLowerCase();
-  return SUPPORTED_EXTS.has(ext);
-}
 
 /**
  * STEP 1 — Upload a media file to Supabase Storage and create the
@@ -227,34 +212,8 @@ export async function uploadAndTranscribe(file, opts = {}) {
 }
 
 // ── helpers ───────────────────────────────────────────────────────────
-
-function sanitizeFilename(name) {
-  return (name || 'media')
-    .replace(/[^A-Za-z0-9._-]+/g, '_')
-    .replace(/_+/g, '_')
-    .slice(-180); // keep storage path manageable
-}
-
-function guessMimeFromExt(name) {
-  const ext = (name || '').split('.').pop().toLowerCase();
-  const map = {
-    mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', mkv: 'video/x-matroska',
-    mp3: 'audio/mpeg', m4a: 'audio/mp4', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac',
-  };
-  return map[ext] || 'application/octet-stream';
-}
-
-function secondsToTimecode(secs) {
-  if (typeof secs !== 'number' || !isFinite(secs)) return '00:00:00.000';
-  const total = Math.max(0, secs);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = Math.floor(total % 60);
-  const ms = Math.floor((total - Math.floor(total)) * 1000);
-  return `${pad2(h)}:${pad2(m)}:${pad2(s)}.${pad3(ms)}`;
-}
-function pad2(n) { return String(n).padStart(2, '0'); }
-function pad3(n) { return String(n).padStart(3, '0'); }
+// isMediaFile / sanitizeFilename / guessMimeFromExt / secondsToTimecode are
+// pure and live in media-formats.js (imported above) so they're testable.
 
 /**
  * Get duration in seconds via a hidden HTMLMediaElement. Cheap, runs
