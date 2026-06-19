@@ -10,7 +10,7 @@
 // brace — no rebuild-from-source needed. The literal braces stay IN the text so the
 // blocks export round-trips faithfully (see document-builder.nodeText).
 
-import { Mark, markInputRule, markPasteRule } from '@tiptap/core';
+import { Mark, markInputRule, markPasteRule, getMarkRange } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
 
 // Find the marked span the user clicked, resolve its text + range, and emit the
@@ -150,6 +150,113 @@ export const VisualSpan = Mark.create({
 // and the {tk} chip look — flat, mono, hairline. Multiple per block stack inline. The raw
 // code rides in data-tc so the audit (.wp-tc-tag / [data-tc]) sees every one as TAGGED, and
 // nodeText leaves the plain text in place so the timecode round-trips faithfully.
+// ── TIMECODE CHIP CONTEXT MENU (right-click → set shooting DAY / edit the timecode) ──────────────
+// Johnny: right-click a timecode chip and pick DAY 1 / DAY 2 / DAY 3 (or clear it, or retype the
+// code). The `day` + `tc` attrs already round-trip through the saved doc, so a change here flows
+// straight into onUpdate → autosave → saveDoc and survives reload. Reuses the .wp-blockmenu chrome.
+const TC_RE = /^\d{1,2}:\d{2}:\d{2}:\d{2}$/;
+let openTcMenuEl = null;
+function closeTcMenu() {
+  if (!openTcMenuEl) return;
+  openTcMenuEl.remove();
+  openTcMenuEl = null;
+  document.removeEventListener('mousedown', onTcDocDown, true);
+}
+function onTcDocDown(e) { if (openTcMenuEl && !openTcMenuEl.contains(e.target)) closeTcMenu(); }
+
+// Resolve the whole timecode mark covering `pos` and read its current attrs. Robust to boundary
+// positions by reading the marks off the text node at range.from rather than $pos.marks().
+function timecodeMarkAt(state, pos) {
+  const markType = state.schema.marks.timecode;
+  if (!markType) return null;
+  const range = getMarkRange(state.doc.resolve(pos), markType);
+  if (!range) return null;
+  const node = state.doc.nodeAt(range.from);
+  const mark = node && node.marks.find((m) => m.type === markType);
+  return { markType, range, mark };
+}
+
+// Apply { day } and/or { tc } to the WHOLE timecode mark covering `pos`, preserving the other attr.
+// When tc changes we also replace the visible text (the chip wraps the bare code) so body prose +
+// the integrity audit stay in sync. One dispatch → onUpdate → autosave. Returns true on success.
+function patchTimecodeAt(view, pos, patch) {
+  const found = timecodeMarkAt(view.state, pos);
+  if (!found) return false;
+  const { markType, range, mark } = found;
+  const attrs = { tc: mark?.attrs.tc || '', day: mark?.attrs.day ?? null, ...patch };
+  let tr = view.state.tr;
+  const newTc = patch.tc;
+  if (newTc !== undefined && newTc !== (mark?.attrs.tc || '')) {
+    tr = tr.insertText(newTc, range.from, range.to);
+    const to2 = range.from + newTc.length;
+    tr = tr.removeMark(range.from, to2, markType).addMark(range.from, to2, markType.create(attrs));
+  } else {
+    tr = tr.removeMark(range.from, range.to, markType).addMark(range.from, range.to, markType.create(attrs));
+  }
+  view.dispatch(tr);
+  return true;
+}
+
+function openTimecodeMenu(view, pos, anchorRect) {
+  closeTcMenu();
+  const found = timecodeMarkAt(view.state, pos);
+  const curDay = found?.mark?.attrs.day ?? null;
+  const curTc = found?.mark?.attrs.tc || '';
+
+  const menu = document.createElement('div');
+  menu.className = 'wp-blockmenu wp-tcmenu';
+  menu.setAttribute('contenteditable', 'false');
+
+  const head = document.createElement('div');
+  head.className = 'wp-bm-head';
+  head.textContent = 'Shooting day';
+  menu.appendChild(head);
+
+  const addItem = (label, isCurrent, onPick) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'wp-bm-item' + (isCurrent ? ' is-current' : '');
+    item.textContent = label;
+    item.addEventListener('mousedown', (e) => { e.preventDefault(); onPick(); closeTcMenu(); view.focus(); });
+    menu.appendChild(item);
+  };
+
+  [1, 2, 3].forEach((d) => addItem('DAY ' + d, curDay === d, () => patchTimecodeAt(view, pos, { day: d })));
+  addItem('No day', curDay == null, () => patchTimecodeAt(view, pos, { day: null }));
+
+  const sep = document.createElement('div'); sep.className = 'wp-bm-sep'; menu.appendChild(sep);
+
+  const edit = document.createElement('button');
+  edit.type = 'button';
+  edit.className = 'wp-bm-item';
+  edit.textContent = 'Edit timecode…';
+  edit.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    closeTcMenu();
+    const next = (window.prompt('Timecode (HH:MM:SS:FF)', curTc) || '').trim();
+    if (!next || next === curTc) { view.focus(); return; }
+    if (!TC_RE.test(next)) {
+      window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tc: 'not a valid timecode (HH:MM:SS:FF)' } }));
+      view.focus();
+      return;
+    }
+    patchTimecodeAt(view, pos, { tc: next });
+    view.focus();
+  });
+  menu.appendChild(edit);
+
+  document.body.appendChild(menu);
+  menu.style.position = 'fixed';
+  menu.style.top = `${anchorRect.bottom + 4}px`;
+  menu.style.left = `${anchorRect.left}px`;
+  const r = menu.getBoundingClientRect();
+  if (r.right > window.innerWidth - 8) menu.style.left = `${Math.max(8, window.innerWidth - r.width - 8)}px`;
+  if (r.bottom > window.innerHeight - 8) menu.style.top = `${Math.max(8, anchorRect.top - r.height - 4)}px`;
+
+  openTcMenuEl = menu;
+  setTimeout(() => document.addEventListener('mousedown', onTcDocDown, true), 0);
+}
+
 export const TimecodeMark = Mark.create({
   name: 'timecode',
   inclusive: false,
@@ -184,7 +291,7 @@ export const TimecodeMark = Mark.create({
     // The chip's VISIBLE text is supplied by CSS (::before = "DAY N · " when data-day is set);
     // the editable text node it wraps is the bare timecode, so the body prose still reads the
     // raw HH:MM:SS:FF and the audit counts it on-page. data-day drives the DAY prefix display.
-    return ['span', { ...HTMLAttributes, class: 'wp-tc-tag', title: 'copy timecode', role: 'button', tabindex: '-1' }, 0];
+    return ['span', { ...HTMLAttributes, class: 'wp-tc-tag', title: 'click to copy · right-click to set day', role: 'button', tabindex: '-1' }, 0];
   },
   addCommands() {
     return {
@@ -202,12 +309,14 @@ export const TimecodeMark = Mark.create({
   addPasteRules() {
     return [markPasteRule({ find: /((?<!\d)(?<!\d:)\d{1,2}:\d{2}:\d{2}:\d{2}(?!:?\d))/g, type: this.type })];
   },
-  // Click a timecode chip → copy it to the clipboard + flash + toast, exactly like the SOT LCD.
+  // Left-click a timecode chip → copy it (flash + toast), exactly like the SOT LCD. Right-click →
+  // the DAY / edit-timecode menu (the left-click guard keeps copy on button 0 only).
   addProseMirrorPlugins() {
     return [new Plugin({
       props: {
         handleDOMEvents: {
           mousedown: (view, event) => {
+            if (event.button !== 0) return false; // right/middle → contextmenu handles it
             const target = event.target.closest('span.wp-tc-tag, span[data-tc]');
             if (!target) return false;
             event.preventDefault();
@@ -218,6 +327,16 @@ export const TimecodeMark = Mark.create({
               target.classList.add('copied');
               setTimeout(() => target.classList.remove('copied'), 700);
             }
+            return true;
+          },
+          contextmenu: (view, event) => {
+            const target = event.target.closest('span.wp-tc-tag, span[data-tc]');
+            if (!target) return false;
+            event.preventDefault();
+            const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            const pos = coords ? coords.pos : view.posAtDOM(target, 0);
+            if (typeof pos !== 'number' || pos < 0) return false;
+            openTimecodeMenu(view, pos, target.getBoundingClientRect());
             return true;
           },
         },
