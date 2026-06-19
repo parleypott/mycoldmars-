@@ -1,6 +1,7 @@
 import { checkAccess } from './_lib/access.js';
 import { sanitizeSlug } from './_lib/qss-worlds.js';
 import { pruneVariations } from './_lib/prune-variations.js';
+import { capLovedAware } from './_lib/cap-loved.js';
 
 export const config = { runtime: 'edge', maxDuration: 30 };
 
@@ -606,7 +607,7 @@ function sanitizeBlocks(blocks) {
 // version — destroying portrait history, loved flags, and visual notes
 // on round-trip. Now preserved with hard caps so a runaway story can't
 // crash the row.
-function sanitizeCharacterCards(cards) {
+export function sanitizeCharacterCards(cards) {
   const MAX_CARDS = 24;
   const MAX_SYNOPSIS = 1200;
   const MAX_VISUAL_NOTES = 600;
@@ -634,10 +635,13 @@ function sanitizeCharacterCards(cards) {
       }
     }
     // Portraits — preserve full history (Henry refines characters over
-    // many redraws). Drop any portrait whose base64 exceeds the per-image
+    // many redraws). Cap the COUNT loved-aware (keep every loved portrait +
+    // the most-recent unloved) so a loved portrait among the oldest isn't
+    // silently dropped — the same class fixed in qss-cast's sanitizeCard
+    // (5bc471d). Then drop any portrait whose base64 exceeds the per-image
     // cap or stop accumulating once we exceed the total byte budget.
     const portraits = [];
-    const rawPortraits = Array.isArray(c.portraits) ? c.portraits.slice(-MAX_PORTRAITS_PER_CARD) : [];
+    const rawPortraits = capLovedAware(c.portraits, MAX_PORTRAITS_PER_CARD);
     for (const p of rawPortraits) {
       if (!p || typeof p !== 'object') continue;
       const dataBase64 = typeof p.dataBase64 === 'string' ? p.dataBase64 : '';
