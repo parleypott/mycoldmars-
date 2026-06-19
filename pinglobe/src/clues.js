@@ -1,4 +1,4 @@
-const EASY_CLUES = [
+export const EASY_CLUES = [
   // ── existing clues ──
   {
     clue: "Where fishermen still pray to a sea goddess who calmed the strait for her family",
@@ -648,7 +648,7 @@ const EASY_CLUES = [
 ];
 
 
-const HARD_CLUES = [
+export const HARD_CLUES = [
   // ── existing clues ──
   {
     clue: "Where the Toraja people keep their dead in cliff-side caves and bring them out each year to dress them in fresh clothes",
