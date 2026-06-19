@@ -1232,7 +1232,10 @@ async function handleScribe(body, apiKey) {
 function extractChapters(reply) {
   // Match ```chapter title="…" \n …body… \n ``` — supports multiple back-to-back.
   // Also tolerate ``` chapter title=… ``` without quotes, and a truncated trailing block.
-  const closedRe = /```chapter(?:\s+title\s*=\s*"([^"]*)")?\s*\n([\s\S]*?)\n```/gi;
+  // The separator after the title line is [ \t]*\n (horizontal whitespace only),
+  // NOT \s*\n — a greedy \s* eats a blank first-body line, which mis-tokenizes an
+  // empty-body fence so it swallows the opening of the NEXT fence.
+  const closedRe = /```chapter(?:\s+title\s*=\s*"([^"]*)")?[ \t]*\n([\s\S]*?)\n```/gi;
   const chapters = [];
   let cleanReply = reply;
   const consumed = [];
@@ -1241,9 +1244,14 @@ function extractChapters(reply) {
   while ((m = closedRe.exec(reply)) !== null) {
     const title = (m[1] || '').trim();
     const body = (m[2] || '').trim();
+    // Always consume a matched closed fence — it's structured chapter markup,
+    // never prose, so it must not survive into cleanReply. An empty-body fence
+    // contributes no chapter but is still stripped; if we left it behind it
+    // would reach the open-ended (truncation) matcher below and spawn a garbage
+    // chapter whose body is the leftover closing fence ("```").
+    consumed.push([m.index, m.index + m[0].length]);
     if (body) {
       chapters.push({ title, body });
-      consumed.push([m.index, m.index + m[0].length]);
     }
   }
   for (const [s, e] of consumed.reverse()) {
@@ -1252,7 +1260,7 @@ function extractChapters(reply) {
 
   // Open-ended (truncation): a final unterminated ```chapter block.
   if (true) {
-    const openRe = /```chapter(?:\s+title\s*=\s*"([^"]*)")?\s*\n([\s\S]+)$/i;
+    const openRe = /```chapter(?:\s+title\s*=\s*"([^"]*)")?[ \t]*\n([\s\S]+)$/i;
     const open = openRe.exec(cleanReply);
     if (open) {
       const body = (open[2] || '').trim();
@@ -1657,4 +1665,5 @@ export {
   tryParseSuggestionArray,
   grabSuggestionField,
   normalizeSuggestions,
+  extractChapters,
 };
