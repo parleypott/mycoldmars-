@@ -35,13 +35,12 @@ export default async function handler(req) {
   }
 
   const t0 = Date.now();
-  try {
-    await sharedCheckAccess(req);
-  } catch (e) {
-    return new Response(JSON.stringify({ error: 'unauthorized' }), {
-      status: 401, headers: { ...CORS, 'Content-Type': 'application/json' }
-    });
-  }
+  // checkAccess RETURNS a Response on denial (it does not throw), so the gate
+  // is "if (denied) return it" — the old try/catch never fired and let
+  // unauthenticated requests fall straight through. Mirror every other QSS
+  // handler: capture the denial Response and return it CORS-wrapped.
+  const denied = await sharedCheckAccess(req);
+  if (denied) return withCors(denied);
 
   const _body = await readJsonBody(req);
   if (!_body.ok) return new Response(JSON.stringify({ error: _body.error }), { status: _body.status, headers: { ...CORS, 'Content-Type': 'application/json' } });
@@ -74,4 +73,13 @@ export default async function handler(req) {
     status: 200,
     headers: { ...CORS, 'Content-Type': 'application/json' }
   });
+}
+
+// Re-clothe a denial Response (from checkAccess) with this endpoint's CORS
+// headers so the browser doesn't choke on the 401. Passes res.body through
+// untouched — valid because the body has not been read yet.
+export function withCors(res) {
+  const h = new Headers(res.headers);
+  for (const [k, v] of Object.entries(CORS)) h.set(k, v);
+  return new Response(res.body, { status: res.status, headers: h });
 }
