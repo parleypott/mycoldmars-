@@ -24,6 +24,7 @@
 import { checkAccess } from './_lib/access.js';
 import { safeImageRef } from './_lib/gemini-image-ref.js';
 import { readJsonBody } from './_lib/read-json-body.js';
+import { parseModelObject } from './_lib/model-json.js';
 
 export const config = { runtime: 'edge' };
 
@@ -139,13 +140,16 @@ export default async function handler(req) {
 
   const data = await res.json().catch(() => ({}));
   const rawText = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim() || '';
-  let parsed;
-  try {
-    const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-    parsed = JSON.parse(cleaned);
-  } catch {
+  // parseModelObject closes the bare-null crash class: JSON.parse('null')
+  // succeeds and returns null, so the old `parsed.incompatible` access threw a
+  // TypeError on a literal-"null" Gemini reply → unhandled HTTP 500. r.value is
+  // guaranteed a non-null object (a null/primitive reply degrades to {} → the
+  // safe "not incompatible" default, same as the <2-images fallback).
+  const r = parseModelObject(rawText);
+  if (!r.ok) {
     return json(502, { error: 'parse_failed', detail: 'gemini returned non-JSON. snippet: ' + rawText.slice(0, 120) });
   }
+  const parsed = r.value;
 
   return json(200, {
     incompatible: !!parsed.incompatible,

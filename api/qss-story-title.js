@@ -16,6 +16,7 @@ import { checkAccess } from './_lib/access.js';
 import { stripSurroundingQuotes } from './_lib/strip-quotes.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
 import { readJsonBody } from './_lib/read-json-body.js';
+import { parseModelObject } from './_lib/model-json.js';
 
 export const config = { runtime: 'edge' };
 
@@ -110,15 +111,17 @@ export default async function handler(req) {
   catch { return json(502, { error: 'anthropic_bad_json' }); }
 
   const rawText = payload?.content?.[0]?.text || '';
-  let parsed;
-  try {
-    const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-    parsed = JSON.parse(cleaned);
-  } catch {
+  // parseModelObject closes the bare-null crash class: JSON.parse('null')
+  // succeeds and returns null, so the old `parsed.title` access threw a
+  // TypeError on a literal-"null" model reply → unhandled HTTP 500. r.value
+  // is guaranteed a non-null object (a null/primitive reply degrades to {} →
+  // an empty title → the client falls back to its own naming).
+  const r = parseModelObject(rawText);
+  if (!r.ok) {
     return json(502, { error: 'parse_failed', detail: rawText.slice(0, 120) });
   }
 
-  let title = String(parsed.title || '').trim();
+  let title = String(r.value.title || '').trim();
   // Strip surrounding quotes (any wrap type, incl. curly singles) if the
   // model still puts them in — shared with cleanSynopsis via strip-quotes.js.
   title = stripSurroundingQuotes(title).trim();
