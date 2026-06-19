@@ -12,6 +12,8 @@
 // The {TK}/{fc} marker text + the block it sits in + nearby script come in as context so
 // the model writes in Johnny's voice and at the right altitude — not generic filler.
 
+import { readJsonBody } from './_lib/read-json-body.js';
+
 export const config = { runtime: 'edge', maxDuration: 120 };
 
 const MODEL = 'claude-sonnet-4-5-20250929';
@@ -65,7 +67,7 @@ const FC_TOOL = {
   },
 };
 
-function tkPrompt({ marker, block, context }) {
+export function tkPrompt({ marker, block, context }) {
   return `You are a writing partner for Johnny Harris's documentary about Burma/Myanmar (The Human Element). The script is voice-over for a cinematic explainer — plain, vivid, emotionally grounded, never academic or marketing-shouty. One idea per line. Lowercase-friendly, declarative.
 
 A {TK} marker is a GAP the writer left for you to fill. The marker text describes what's needed:
@@ -83,7 +85,7 @@ Nearby script for tone/rhythm/voice:
 Write FIVE genuinely DISTINCT alternatives that could REPLACE the {TK} marker in place. Match the surrounding sentence so the line reads continuously — if the gap is mid-sentence, write a fragment that completes it; if it's a whole line, write a whole line. Vary the five across: length (one tight, one fuller), rhythm, and angle (factual / lyrical / punchy). For any factual claim, put a brief real source in the source field. Do NOT include the curly braces. Call emit_options exactly once.`;
 }
 
-function fcPrompt({ marker, block, context }) {
+export function fcPrompt({ marker, block, context }) {
   return `You are fact-checking a claim in Johnny Harris's Burma/Myanmar documentary script. Use web_search aggressively to verify. The {fc} marker states the claim or the fact to nail down:
 
   CLAIM / FACT NEEDED: ${marker}
@@ -99,8 +101,13 @@ export default async function handler(req) {
     return json({ error: 'POST only' }, 405);
   }
 
-  let body;
-  try { body = await req.json(); } catch { return json({ error: 'bad json' }, 400); }
+  // Shared safe body read: malformed JSON OR a non-object body (a JSON literal
+  // `null`, number, string, array) is a clean 400, never an unhandled 500 — the
+  // null-body crash class fixed across the research-* endpoints (was: `body.mode`
+  // on a null body threw a TypeError -> 500).
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return json({ error: parsed.error }, parsed.status);
+  const body = parsed.body;
 
   const mode = body.mode === 'fc' ? 'fc' : 'tk';
   const marker = typeof body.marker === 'string' ? body.marker.trim() : '';
