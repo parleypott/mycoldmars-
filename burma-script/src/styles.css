@@ -210,6 +210,16 @@ body {
 /* FAILED — high contrast; agrees with the red top banner. */
 .wp-save-pill.is-failed { background: #d23b2c; color: #fff; border-color: var(--ink); }
 .wp-save-pill.is-failed .wp-save-pill-mark { background: #fff; }
+/* CLOUD SYNC states — WHERE the (already-safe) work lives, layered on the calm "saved" pill.
+   SAVED TO CLOUD — confirmed in the cloud; calm green, a touch brighter than local-only saved so the
+   reassurance reads at a glance. The cloud push confirmed: the script follows Johnny to any device. */
+.wp-save-pill.is-cloud { background: #e7f1e4; }
+.wp-save-pill.is-cloud .wp-save-pill-mark { background: #2f7d3e; }
+/* SAVED ON THIS DEVICE · CLOUD OFFLINE — the local save landed (work is safe), but the cloud was
+   unreachable. AMBER, not red: nothing is lost, it just hasn't synced yet. Distinct from the SAVING
+   amber (which pulses) — this one is steady. The next successful push flips it back to green. */
+.wp-save-pill.is-cloud-offline { background: #f7eccf; border-color: var(--ink); }
+.wp-save-pill.is-cloud-offline .wp-save-pill-mark { background: #c9962c; }
 @keyframes wp-save-pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 .wp-save-banner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;

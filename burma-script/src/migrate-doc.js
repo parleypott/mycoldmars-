@@ -110,6 +110,21 @@ export function syncBaseVersion() {
 export function getTabId() { return TAB_ID; }
 export function getKnownBaseVersion() { return knownBaseVersion; }
 
+// PUBLIC: raise the on-disk version stamp (and this tab's base) to AT LEAST `floor`. Used by the
+// cloud-sync reconcile when adopting / seeding a cloud doc that carries cloud version N: we set the
+// local stamp to N first, so the immediately-following saveDoc stamps N+1 (> N) and its cloud push
+// is accepted by the optimistic-concurrency guard rather than bouncing as stale. NEVER lowers the
+// version (monotonic — same invariant saveDoc relies on). Returns the resulting on-disk version.
+export function primeVersionFloor(floor) {
+  const f = Math.floor(Number(floor));
+  if (!Number.isFinite(f) || f <= 0) return readStoredVersion();
+  const cur = readStoredVersion();
+  if (f <= cur) { knownBaseVersion = Math.max(knownBaseVersion, cur); return cur; }
+  knownBaseVersion = f;
+  try { localStorage.setItem(LS_DOC_VER, String(f) + '|' + TAB_ID); } catch {}
+  return f;
+}
+
 // Snapshot the newer (other-tab) doc to a conflict recovery key BEFORE we refuse the write, so
 // the work another tab did is never at the mercy of this tab's next action. Returns the key, or
 // null if the snapshot could not be written (storage broken).

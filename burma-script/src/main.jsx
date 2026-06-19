@@ -9,7 +9,8 @@ import { render } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { BurmaEditor, LS_DOC } from './Editor.jsx';
 import { Exports } from './Exports.jsx';
-import { migrateStoredDoc, snapshotDoc } from './migrate-doc.js';
+import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor } from './migrate-doc.js';
+import { reconcileOnLoad } from './cloud-sync.js';
 import scriptData from '../sample-blocks.json';
 
 const SOURCE_BLOCKS = scriptData.blocks || [];
@@ -339,11 +340,26 @@ function relTime(ms) {
   return h + 'h ago';
 }
 
+// The pill's primary label. SAVING is the live state; once saved it tells Johnny WHERE the work
+// lives so he is never guessing: green "SAVED TO CLOUD" when the cloud push confirmed, amber
+// "SAVED ON THIS DEVICE · CLOUD OFFLINE" when the cloud was unreachable (work is still safe locally),
+// and the plain "ALL CHANGES SAVED" before any push has happened (e.g. cloud table not set up yet).
+function savedPillLabel(state, cloud) {
+  if (state === 'saving') return 'SAVING…';
+  if (cloud === 'cloud') return 'SAVED TO CLOUD';
+  if (cloud === 'offline') return 'SAVED ON THIS DEVICE · CLOUD OFFLINE';
+  return 'ALL CHANGES SAVED';
+}
+
 function SaveStatus() {
   const [state, setState] = useState('saved'); // 'saving' | 'saved' | 'failed'
   const [failMsg, setFailMsg] = useState('');
   const [stale, setStale] = useState(false);
   const [savedAt, setSavedAt] = useState(null); // timestamp of the last verified save
+  // CLOUD reachability of the LAST push: 'unknown' (no push yet) | 'cloud' (confirmed in cloud) |
+  // 'offline' (local save landed, but the cloud was unreachable). This NEVER affects whether the
+  // work is safe — the local save is authoritative — it only tells Johnny WHERE his work also lives.
+  const [cloud, setCloud] = useState('unknown');
   const [, setNowTick] = useState(0);           // forces the relative-time label to re-render
 
   useEffect(() => {
@@ -357,10 +373,15 @@ function SaveStatus() {
     // A cross-tab update doesn't mean THIS tab's save failed — it just means this tab is behind.
     // Flip the gentle stale notice; leave the tab's own save state intact.
     const onStale = () => setStale(true);
+    // CLOUD push outcomes — the pill's "saved" label reflects WHERE the work lives.
+    const onCloudSaved = () => setCloud('cloud');
+    const onCloudOffline = () => setCloud('offline');
     window.addEventListener('wp-dirty', onDirty);
     window.addEventListener('wp-saved', onSaved);
     window.addEventListener('wp-save-failed', onFailed);
     window.addEventListener('wp-stale-tab', onStale);
+    window.addEventListener('wp-cloud-saved', onCloudSaved);
+    window.addEventListener('wp-cloud-offline', onCloudOffline);
     // RACE FIX: consume a failure detected before this listener existed (pre-render startup).
     if (INITIAL_SAVE_FAILURE) {
       setState('failed');
@@ -372,6 +393,8 @@ function SaveStatus() {
       window.removeEventListener('wp-saved', onSaved);
       window.removeEventListener('wp-save-failed', onFailed);
       window.removeEventListener('wp-stale-tab', onStale);
+      window.removeEventListener('wp-cloud-saved', onCloudSaved);
+      window.removeEventListener('wp-cloud-offline', onCloudOffline);
     };
   }, []);
 
@@ -410,9 +433,13 @@ function SaveStatus() {
           </span>
         </div>
       )}
-      <div class={`wp-save-pill is-${state}`} role="status" aria-live="polite">
+      <div
+        class={`wp-save-pill is-${state}${state === 'saved' && cloud === 'cloud' ? ' is-cloud' : ''}${state === 'saved' && cloud === 'offline' ? ' is-cloud-offline' : ''}`}
+        role="status"
+        aria-live="polite"
+      >
         <span class="wp-save-pill-mark" />
-        <span class="wp-save-pill-lab">{state === 'saving' ? 'SAVING…' : 'ALL CHANGES SAVED'}</span>
+        <span class="wp-save-pill-lab">{savedPillLabel(state, cloud)}</span>
         {state === 'saved' && savedAt != null && (
           <span class="wp-save-pill-time">{relTime(savedAt)}</span>
         )}
@@ -615,3 +642,22 @@ try {
 }
 
 render(<App />, document.getElementById('app'));
+
+// CLOUD SYNC — load-time reconcile (cloud-follow-me). Runs ONCE, AFTER the safe migration above and
+// AFTER first render (so the editor is already showing the LOCAL doc — the instant, offline source of
+// truth). It then asks the cloud whether a newer copy exists:
+//   • cloud has a doc + this device has none -> seed from cloud (a fresh browser / wiped laptop).
+//   • cloud strictly newer than local -> snapshot local to .conflict.<ts> FIRST, then adopt cloud.
+//   • local >= cloud (incl. cloud empty / API down / TABLE NOT YET CREATED) -> KEEP LOCAL, push up.
+// If it adopted/seeded a cloud doc it wrote it through the canonical saveDoc path, then we RELOAD so
+// the editor re-seeds cleanly from that doc (same recovery UX as the cross-tab reload). GRACEFUL
+// DEGRADATION: until Johnny runs the migration, every cloud call fails -> the reconcile always lands
+// on KEEP-LOCAL and the app behaves EXACTLY as today, with only the subtle "cloud offline" pill note.
+reconcileOnLoad({ saveDoc, primeVersionFloor })
+  .then((r) => {
+    if (r?.shouldReload) {
+      console.info('[burma] cloud sync: adopted', r.action, '(v' + r.version + ') — reloading to re-seed');
+      location.reload();
+    }
+  })
+  .catch((e) => console.warn('[burma] cloud sync reconcile skipped:', e));

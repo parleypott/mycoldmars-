@@ -19,7 +19,8 @@ import { BURMA_MARKS } from './extensions/marks.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { Workshop } from './Workshop.jsx';
-import { saveDoc, backupRaw, syncBaseVersion, LS_DOC_VER } from './migrate-doc.js';
+import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, LS_DOC_VER } from './migrate-doc.js';
+import { pushDoc } from './cloud-sync.js';
 
 const LS_DOC = 'wp01_burma_doc_v1';
 const LS_BLOCKS = 'wp01_burma_blocks_v1'; // derived schema-faithful export (exercises docToBlocks)
@@ -127,6 +128,14 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
     // payload and is the likeliest line to blow quota, so it must never threaten LS_DOC.
     if (res.ok) {
       try { localStorage.setItem(LS_BLOCKS, JSON.stringify(docToBlocks(json))); } catch {}
+      // CLOUD MIRROR — after the LOCAL save lands durably, push it up so the doc follows Johnny to
+      // any browser/device. Fire-and-forget: a cloud-push failure must NEVER block or undo the local
+      // save (which already succeeded above). pushDoc never throws and fires its own cloud-status
+      // events (wp-cloud-saved / wp-cloud-offline); we deliberately do NOT await it on the hot path.
+      // We push the version saveDoc just stamped so cloud's optimistic-concurrency token stays in
+      // lockstep with the local monotonic LS_DOC_VER.
+      const pushVersion = res.version || getKnownBaseVersion();
+      try { pushDoc(json, pushVersion); } catch {}
     }
   }
   const flushRef = useRef(flushSave);
