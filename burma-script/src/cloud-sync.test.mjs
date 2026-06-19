@@ -20,7 +20,7 @@ globalThis.window = globalThis.window || {};
 globalThis.window.dispatchEvent = globalThis.window.dispatchEvent || (() => true);
 globalThis.CustomEvent = globalThis.CustomEvent || class { constructor(t, i) { this.type = t; this.detail = i?.detail; } };
 
-const { decideReconcile, reconcileOnLoad, fetchCloud, pushDoc } = await import('./cloud-sync.js');
+const { decideReconcile, reconcileOnLoad, bootstrapFromCloud, fetchCloud, pushDoc } = await import('./cloud-sync.js');
 
 let pass = 0, fail = 0;
 const ok = (cond, label) => { if (cond) { pass++; } else { fail++; console.log(`FAIL ${label}`); } };
@@ -200,6 +200,138 @@ function makeDeps({ local, cloud }) {
   const fake = async () => ({ ok: true, status: 200, json: async () => ({ doc: null, version: 0 }) });
   const c = await fetchCloud(fake);
   ok(c.ok === true && c.doc === null && c.version === 0, 'c9. empty cloud parsed as ok/null/0');
+}
+
+/* ───────────────────────── bootstrapFromCloud — cold-start, AWAIT BEFORE PAINT ───────────────────
+ * The reported bug: a fresh/incognito browser showed the bundled SOURCE script, not the cloud copy,
+ * because main.jsx rendered the editor (seeding from source) BEFORE the async reconcile could swap in
+ * the cloud doc. bootstrapFromCloud is the fix: on a no-local-doc device, main.jsx AWAITS this BEFORE
+ * render(), so the cloud doc is written locally first and the editor seeds it on the first paint.
+ */
+
+// helper: bootstrap deps that record what happened. saveDoc returns ok:true by default.
+function makeBootstrapDeps({ cloud, saveOk = true, saveReason }) {
+  const calls = { saved: [], primed: [] };
+  return {
+    deps: {
+      fetchCloud: async () => cloud,
+      primeVersionFloor: (v) => { calls.primed.push(v); },
+      saveDoc: (doc) => { calls.saved.push(doc); return { ok: saveOk, reason: saveReason, version: 0 }; },
+    },
+    calls,
+  };
+}
+
+// (a) no-local-doc + cloud HAS a doc -> SEED cloud before render: primeVersionFloor + saveDoc(cloud).
+{
+  const { deps, calls } = makeBootstrapDeps({ cloud: { ok: true, doc: DOC('johnnys-real-script'), version: 429 } });
+  const r = await bootstrapFromCloud(deps);
+  ok(r.seeded === true, 'd1. fresh device + cloud has doc -> seeded:true (paints cloud, not source)');
+  eq(r.version, 429, 'd1b. seeded at the cloud version');
+  eq(calls.primed[0], 429, 'd1c. primeVersionFloor called with cloud version BEFORE the write');
+  eq(calls.saved.length, 1, 'd1d. cloud doc written through canonical saveDoc');
+  eq(JSON.stringify(calls.saved[0]), JSON.stringify(DOC('johnnys-real-script')), 'd1e. the CLOUD doc is what got saved (not source)');
+}
+
+// (b) no-local-doc + cloud EMPTY -> fall back to source: no prime, no save, seeded:false (no stomp).
+{
+  const { deps, calls } = makeBootstrapDeps({ cloud: { ok: true, doc: null, version: 0 } });
+  const r = await bootstrapFromCloud(deps);
+  ok(r.seeded === false, 'd2. fresh device + empty cloud -> seeded:false (render from source)');
+  eq(calls.saved.length, 0, 'd2b. empty cloud writes NOTHING locally');
+  eq(calls.primed.length, 0, 'd2c. empty cloud primes NOTHING');
+}
+
+// (b cont.) no-local-doc + cloud UNREACHABLE (ok:false) -> fall back to source, no write.
+{
+  const { deps, calls } = makeBootstrapDeps({ cloud: { ok: false } });
+  const r = await bootstrapFromCloud(deps);
+  ok(r.seeded === false, 'd3. fresh device + cloud down -> seeded:false (graceful, render source)');
+  eq(calls.saved.length, 0, 'd3b. unreachable cloud writes nothing');
+}
+
+// (b cont.) no-local-doc + cloud TABLE MISSING (ok:false, big version) -> still source, never seeds.
+{
+  const { deps, calls } = makeBootstrapDeps({ cloud: { ok: false, version: 9999 } });
+  const r = await bootstrapFromCloud(deps);
+  ok(r.seeded === false, 'd4. table-missing cloud (ok:false) cannot seed even with a big version');
+  eq(calls.saved.length, 0, 'd4b. no local write on a malformed/unreachable cloud');
+}
+
+// (a edge) cloud has a doc but the local WRITE fails (quota/blocked) -> seeded:false, fall to source.
+{
+  const { deps, calls } = makeBootstrapDeps({ cloud: { ok: true, doc: DOC('cloud'), version: 5 }, saveOk: false, saveReason: 'quota' });
+  const r = await bootstrapFromCloud(deps);
+  ok(r.seeded === false, 'd5. cloud doc present but save refused -> seeded:false (source fallback, loud)');
+  eq(calls.saved.length, 1, 'd5b. the write was ATTEMPTED through saveDoc (which fires its own banner)');
+}
+
+/* ───────────────────────── (c)/(d) has-local-doc reconcile — adopt vs keep, conflict-guard proof ──
+ * These re-verify with a REAL (non-stub) saveDoc + primeVersionFloor + the cross-tab conflict guard
+ * imported from migrate-doc.js, proving the adopt-cloud write is NOT refused by the guard when the
+ * version floor is primed first. This is the path that, if it returned ok:false, would leave stale
+ * local on screen with no reload — exactly the silent-stale failure we hardened against.
+ */
+{
+  // A localStorage shim so the real migrate-doc.js machinery runs under bun.
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(k, String(v)); },
+    removeItem: (k) => { store.delete(k); },
+    key: (i) => Array.from(store.keys())[i] ?? null,
+    get length() { return store.size; },
+  };
+
+  const LS_DOC = 'wp01_burma_doc_v1';
+  const LS_DOC_VER = 'wp01_burma_doc_ver_v1';
+  const md = await import('./migrate-doc.js');
+
+  // (c) has-local-doc + cloud STRICTLY NEWER -> snapshot + prime + saveDoc SUCCEEDS (not refused),
+  //     and reconcile signals reload. Simulate a tab that seeded a local doc at version 3.
+  {
+    store.clear();
+    store.set(LS_DOC, JSON.stringify(DOC('local-v3')));
+    store.set(LS_DOC_VER, '3|tab_seed');
+    md.syncBaseVersion(); // adopt on-disk v3 as this tab's base (what seedDoc does on load)
+    eq(md.getKnownBaseVersion(), 3, 'd6pre. base adopted as on-disk v3');
+
+    let snapped = 0;
+    const r = await reconcileOnLoad({
+      readLocal: () => ({ hasDoc: true, version: 3, doc: DOC('local-v3') }),
+      fetchCloud: async () => ({ ok: true, doc: DOC('cloud-v10'), version: 10 }),
+      saveDoc: md.saveDoc,
+      primeVersionFloor: md.primeVersionFloor,
+      snapshotConflict: () => { snapped++; return LS_DOC + '.conflict.1'; },
+    });
+    eq(r.action, 'adopt-cloud', 'd6. cloud strictly newer -> adopt-cloud');
+    eq(snapped, 1, 'd6b. local snapshotted BEFORE adopt');
+    ok(r.wrote === true, 'd6c. the adopt write SUCCEEDED — NOT refused by the cross-tab conflict guard');
+    ok(r.shouldReload === true, 'd6d. signals reload so the editor re-seeds the adopted cloud doc');
+    eq(JSON.stringify(JSON.parse(store.get(LS_DOC))), JSON.stringify(DOC('cloud-v10')), 'd6e. cloud doc is now the on-disk doc');
+    ok(md.getKnownBaseVersion() === 11, 'd6f. version stamped to cloud+1 (=11) — next push is accepted, not stale');
+  }
+
+  // (d) has-local-doc + cloud OLDER/EMPTY -> keep local, push up, NEVER overwrite local. No reload.
+  {
+    store.clear();
+    store.set(LS_DOC, JSON.stringify(DOC('local-good-v7')));
+    store.set(LS_DOC_VER, '7|tab_seed');
+    md.syncBaseVersion();
+
+    const r = await reconcileOnLoad({
+      readLocal: () => ({ hasDoc: true, version: 7, doc: DOC('local-good-v7') }),
+      fetchCloud: async () => ({ ok: true, doc: DOC('cloud-old'), version: 2 }),
+      saveDoc: md.saveDoc,
+      primeVersionFloor: md.primeVersionFloor,
+      snapshotConflict: () => LS_DOC + '.conflict.x',
+    });
+    eq(r.action, 'keep-local', 'd7. older cloud -> keep-local');
+    ok(r.shouldReload !== true, 'd7b. no reload — local stays on screen');
+    eq(JSON.stringify(JSON.parse(store.get(LS_DOC))), JSON.stringify(DOC('local-good-v7')), 'd7c. local doc NEVER overwritten by an older cloud');
+  }
+
+  delete globalThis.localStorage;
 }
 
 console.log(`\ncloud-sync: ${pass} passed, ${fail} failed`);

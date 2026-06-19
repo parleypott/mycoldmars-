@@ -191,15 +191,28 @@ export async function reconcileOnLoad(deps = {}) {
     cloud,
   });
 
+  logDecision('reconcile', decision.action, local.version, cloud);
+
   if (decision.action === 'seed-from-cloud' || decision.action === 'adopt-cloud') {
     // On ADOPT (cloud newer than an existing local doc) snapshot the local doc FIRST so it is never
     // lost. On a fresh SEED there is no local doc to snapshot.
     if (decision.snapshotLocal) { try { snapshotConflict(); } catch {} }
     // Align the local version stamp to cloud's BEFORE writing, so saveDoc stamps cloud+1 and the
-    // subsequent push (after reload) is accepted rather than bouncing as stale.
+    // subsequent push (after reload) is accepted rather than bouncing as stale. primeVersionFloor
+    // raises BOTH the on-disk LS_DOC_VER AND this tab's knownBaseVersion to cloud.version, so the
+    // very next saveDoc sees storedVersion === knownBaseVersion (guard passes, no false conflict)
+    // and stamps cloud.version + 1 — the adopt write is NEVER refused by the cross-tab guard.
     try { if (prime) prime(decision.version); } catch {}
     let res = { ok: false };
     try { res = save ? save(decision.doc) : { ok: false }; } catch {}
+    // HARDENING: if the adopt write was refused (res.ok === false — e.g. the conflict guard rejected
+    // it, leaving stale local on screen), say so LOUDLY rather than silently signalling no-reload.
+    // With primeVersionFloor aligning the base above this should be unreachable, but if it ever
+    // happens we want a console trail, not a silent stale-local paint.
+    if (!res?.ok) {
+      console.warn('[burma] cloud reconcile: ' + decision.action + ' write REFUSED (reason=' +
+        (res?.reason || 'unknown') + ') — local left as-is, NOT reloading. cloud=v' + decision.version);
+    }
     return { action: decision.action, wrote: !!res?.ok, version: decision.version, shouldReload: !!res?.ok };
   }
 
@@ -211,6 +224,68 @@ export async function reconcileOnLoad(deps = {}) {
   }
 
   return { action: 'noop', shouldReload: false };
+}
+
+// ── COLD-START BOOTSTRAP (no-local-doc, AWAIT BEFORE FIRST PAINT) ─────────────────────────────────
+// The fresh/incognito-browser path. main.jsx calls this BEFORE render() when there is no local doc,
+// AWAITING it so the cloud copy is written locally before the editor's seedDoc runs — the editor then
+// paints Johnny's real cloud script on the FIRST frame, with NO flash of the bundled source and NO
+// reload. The old path (render source → background reconcile → saveDoc → location.reload) was racy:
+// the user saw source, and the reload-to-cloud could be slow, interrupted, or never visibly land.
+//
+// Returns { seeded:boolean }:
+//   • seeded:true  — the cloud answered cleanly with a doc; it was written locally (primeVersionFloor
+//                    then saveDoc through the canonical guarded path). Caller renders normally and the
+//                    editor seeds the freshly-written cloud doc.
+//   • seeded:false — cloud empty / unreachable / table missing / no doc. Caller renders from SOURCE
+//                    exactly as before (graceful degradation, unchanged). An empty/unreachable cloud
+//                    can NEVER write here (Rule 1 only seeds when cloud has a doc) — so source shows.
+//
+// NEVER throws. Dependencies injected for tests (no bundler / browser / network needed).
+export async function bootstrapFromCloud(deps = {}) {
+  const {
+    saveDoc: save,
+    primeVersionFloor: prime,
+    fetchCloud: fetchC = fetchCloud,
+  } = deps;
+
+  const cloud = await fetchC();
+  // Reuse the SAME pure decision core, with hasLocalDoc:false hardwired — this is the cold-start path.
+  // Only a clean cloud answer that actually HAS a doc yields 'seed-from-cloud'; everything else
+  // (empty cloud, API down, table missing) yields 'noop' and we fall back to source.
+  const decision = decideReconcile({ localVersion: 0, hasLocalDoc: false, cloud });
+
+  logDecision('bootstrap', decision.action, 0, cloud);
+
+  if (decision.action === 'seed-from-cloud') {
+    // Canonical write path: prime the version floor to cloud.version first (so the post-seed editor
+    // saves stamp cloud+1 and the first push is accepted, not bounced as stale), THEN saveDoc.
+    try { if (prime) prime(decision.version); } catch {}
+    let res = { ok: false };
+    try { res = save ? save(decision.doc) : { ok: false }; } catch {}
+    if (res?.ok) {
+      return { seeded: true, version: decision.version };
+    }
+    // Cloud had a doc but the local write failed (quota / blocked). Fall back to source — the editor
+    // will paint source, and saveDoc already fired its loud wp-save-failed banner. Never silent.
+    console.warn('[burma] cloud bootstrap: seed write FAILED (reason=' + (res?.reason || 'unknown') +
+      ') — falling back to source');
+    return { seeded: false };
+  }
+
+  // noop — no cloud doc to seed. Render from source.
+  return { seeded: false };
+}
+
+// Compact decision diagnostics so behaviour is confirmable in the browser console without a debugger.
+//   [burma] cloud bootstrap: seed-from-cloud local=v0 cloud.ok=true cloud=v429
+function logDecision(phase, action, localVersion, cloud) {
+  try {
+    const okFlag = !!(cloud && cloud.ok === true);
+    const cv = okFlag ? toInt(cloud.version) : '?';
+    console.info('[burma] cloud ' + phase + ': ' + action +
+      ' local=v' + toInt(localVersion) + ' cloud.ok=' + okFlag + ' cloud=v' + cv);
+  } catch {}
 }
 
 // Default local reader — pulls LS_DOC + LS_DOC_VER straight from localStorage. NEVER throws.

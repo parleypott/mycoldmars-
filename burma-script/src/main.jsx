@@ -10,7 +10,7 @@ import { useState, useRef, useEffect } from 'preact/hooks';
 import { BurmaEditor, LS_DOC } from './Editor.jsx';
 import { Exports } from './Exports.jsx';
 import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor } from './migrate-doc.js';
-import { reconcileOnLoad } from './cloud-sync.js';
+import { reconcileOnLoad, bootstrapFromCloud } from './cloud-sync.js';
 import scriptData from '../sample-blocks.json';
 
 const SOURCE_BLOCKS = scriptData.blocks || [];
@@ -641,23 +641,81 @@ try {
   console.warn('[burma] safe migration errored — original doc untouched:', e);
 }
 
-render(<App />, document.getElementById('app'));
+// ── DOES THIS DEVICE HAVE A LOCAL DOC? ───────────────────────────────────────────────────────────
+// The startup flow forks on this single question. A local doc means offline-first instant paint;
+// no local doc means a fresh/incognito browser that must pull Johnny's real script from the cloud
+// BEFORE the editor seeds (or the editor would seed from the bundled SOURCE — the reported bug).
+// "Present and parseable" — a corrupt/empty blob is treated as "no usable local doc" so the cloud
+// can still seed (seedDoc independently preserves the corrupt bytes to a .corrupt key, never loses).
+function hasUsableLocalDoc() {
+  try {
+    const raw = localStorage.getItem(LS_DOC);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    return !!(parsed && Array.isArray(parsed.content) && parsed.content.length);
+  } catch {
+    return false; // unparseable -> not usable here; cloud may seed, seedDoc preserves the bytes.
+  }
+}
 
-// CLOUD SYNC — load-time reconcile (cloud-follow-me). Runs ONCE, AFTER the safe migration above and
-// AFTER first render (so the editor is already showing the LOCAL doc — the instant, offline source of
-// truth). It then asks the cloud whether a newer copy exists:
-//   • cloud has a doc + this device has none -> seed from cloud (a fresh browser / wiped laptop).
-//   • cloud strictly newer than local -> snapshot local to .conflict.<ts> FIRST, then adopt cloud.
-//   • local >= cloud (incl. cloud empty / API down / TABLE NOT YET CREATED) -> KEEP LOCAL, push up.
-// If it adopted/seeded a cloud doc it wrote it through the canonical saveDoc path, then we RELOAD so
-// the editor re-seeds cleanly from that doc (same recovery UX as the cross-tab reload). GRACEFUL
-// DEGRADATION: until Johnny runs the migration, every cloud call fails -> the reconcile always lands
-// on KEEP-LOCAL and the app behaves EXACTLY as today, with only the subtle "cloud offline" pill note.
-reconcileOnLoad({ saveDoc, primeVersionFloor })
-  .then((r) => {
-    if (r?.shouldReload) {
-      console.info('[burma] cloud sync: adopted', r.action, '(v' + r.version + ') — reloading to re-seed');
-      location.reload();
-    }
-  })
-  .catch((e) => console.warn('[burma] cloud sync reconcile skipped:', e));
+// A minimal, on-brand pre-paint placeholder shown ONLY while we await the cloud on a fresh device.
+// FLAT JetBrains-mono chrome over the #e7e1d3 page, matching the app's hardware aesthetic — never a
+// spinner, never a logo flash. It is replaced the instant render(<App/>) runs (cloud answered) or
+// we fall through to source. Mounted directly so it needs no React.
+function mountCloudLoadingPlaceholder(el) {
+  if (!el) return;
+  el.innerHTML =
+    '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;' +
+    'background:#e7e1d3;color:#1f1d18;' +
+    "font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;\">" +
+    '<div style="display:flex;flex-direction:column;align-items:center;gap:12px;">' +
+    '<span style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;opacity:0.55;">WP·01</span>' +
+    '<span style="font-size:13px;letter-spacing:0.04em;opacity:0.8;">Loading your script…</span>' +
+    '</div></div>';
+}
+
+// ── STARTUP ORCHESTRATION — deterministic, no flash of source on a fresh device ───────────────────
+async function startup() {
+  const el = document.getElementById('app');
+
+  if (hasUsableLocalDoc()) {
+    // OFFLINE-FIRST (unchanged behaviour). Render immediately from the local doc — instant, never
+    // blocked on the network — then reconcile against the cloud in the BACKGROUND. The only branch
+    // that ever reloads is adopt-cloud (cloud strictly newer); keep-local / noop never reload.
+    render(<App />, el);
+    reconcileOnLoad({ saveDoc, primeVersionFloor })
+      .then((r) => {
+        if (r?.shouldReload) {
+          console.info('[burma] cloud sync: adopted', r.action, '(v' + r.version + ') — reloading to re-seed');
+          location.reload();
+        }
+      })
+      .catch((e) => console.warn('[burma] cloud sync reconcile skipped:', e));
+    return;
+  }
+
+  // FRESH / INCOGNITO DEVICE — no usable local doc. AWAIT the cloud BEFORE the first paint so the
+  // editor seeds Johnny's real cloud script, not the bundled source. While awaiting, show the flat
+  // "Loading your script…" placeholder. If the cloud answers cleanly with a doc, bootstrapFromCloud
+  // writes it locally (primeVersionFloor → saveDoc) and we render(<App/>) — seedDoc then picks up the
+  // freshly-written cloud doc on the FIRST frame: no reload, no flash of source. If the cloud is
+  // empty / unreachable / table-missing, we render from source exactly as before (graceful).
+  mountCloudLoadingPlaceholder(el);
+  let seeded = false;
+  try {
+    const r = await bootstrapFromCloud({ saveDoc, primeVersionFloor });
+    seeded = !!r?.seeded;
+  } catch (e) {
+    console.warn('[burma] cloud bootstrap skipped:', e);
+  }
+  if (seeded) {
+    console.info('[burma] cloud bootstrap: seeded cloud doc before paint — rendering from cloud');
+  } else {
+    console.info('[burma] cloud bootstrap: no cloud doc available — rendering from source');
+  }
+  // Render either way. seedDoc reads localStorage fresh: if bootstrap seeded, it finds the cloud doc;
+  // otherwise it builds from SOURCE_BLOCKS (the prior, unchanged fresh-device behaviour).
+  render(<App />, el);
+}
+
+startup();
