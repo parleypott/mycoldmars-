@@ -1,3 +1,4 @@
+import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge', maxDuration: 120 };
 
@@ -65,7 +66,9 @@ export function strip(md) {
 export default async function handler(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
-  let { text, voice, model, stripMarkdown } = await req.json();
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return new Response(JSON.stringify({ error: parsed.error }), { status: parsed.status, headers: { 'Content-Type': 'application/json' } });
+  let { text, voice, model, stripMarkdown } = parsed.body;
   if (!text || !text.trim()) {
     return new Response(JSON.stringify({ error: 'text required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }

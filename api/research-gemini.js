@@ -1,3 +1,4 @@
+import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
 
@@ -8,7 +9,9 @@ Pursue specifics. Inline citations as [n] keyed to a numbered Sources list. Use 
 export default async function handler(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
-  const { prompt } = await req.json();
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return new Response(JSON.stringify({ error: parsed.error }), { status: parsed.status, headers: { 'Content-Type': 'application/json' } });
+  const { prompt } = parsed.body;
   if (!prompt) return new Response(JSON.stringify({ error: 'prompt required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
   const apiKey = process.env.GEMINI_API_KEY;

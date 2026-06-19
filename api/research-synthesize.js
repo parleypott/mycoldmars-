@@ -1,3 +1,4 @@
+import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge', maxDuration: 120 };
 
@@ -15,7 +16,9 @@ Requirements:
 export default async function handler(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
-  const { prompt, claude, chatgpt, gemini } = await req.json();
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return new Response(JSON.stringify({ error: parsed.error }), { status: parsed.status, headers: { 'Content-Type': 'application/json' } });
+  const { prompt, claude, chatgpt, gemini } = parsed.body;
   if (!prompt) return new Response(JSON.stringify({ error: 'prompt required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   // Cost guard. The three report fields can be large markdown — cap the
   // total combined body before forwarding to Sonnet 4.5 (8000-token max

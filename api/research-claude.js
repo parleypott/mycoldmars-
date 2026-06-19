@@ -1,3 +1,4 @@
+import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge', maxDuration: 300 };
 
@@ -22,7 +23,9 @@ Requirements:
 export default async function handler(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
-  const { prompt } = await req.json();
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return new Response(JSON.stringify({ error: parsed.error }), { status: parsed.status, headers: { 'Content-Type': 'application/json' } });
+  const { prompt } = parsed.body;
   if (!prompt) return new Response(JSON.stringify({ error: 'prompt required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   // Cost guard: this endpoint runs Sonnet 4.5 with 12 web searches and
   // a 16k-token max output. A malicious caller could POST a megabyte

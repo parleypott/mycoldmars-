@@ -1,3 +1,4 @@
+import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge', maxDuration: 30 };
 
@@ -8,7 +9,9 @@ Use the web_search tool extensively. Pursue specifics over generalities. Inline 
 export default async function handler(req) {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
-  const { prompt, model } = await req.json();
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return new Response(JSON.stringify({ error: parsed.error }), { status: parsed.status, headers: { 'Content-Type': 'application/json' } });
+  const { prompt, model } = parsed.body;
   if (!prompt) return new Response(JSON.stringify({ error: 'prompt required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
   const MODEL = model || 'o4-mini-deep-research';
