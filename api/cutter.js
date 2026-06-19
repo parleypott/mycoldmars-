@@ -1,4 +1,5 @@
 import { checkAccess } from './_lib/access.js';
+import { buildSystemInstruction, buildChatContents } from './_lib/cutter-prompt.js';
 
 export const config = { maxDuration: 300 };
 
@@ -203,28 +204,8 @@ async function handleChat({ message, history, segments, title }, res) {
     return;
   }
 
-  const scriptText = (segments || []).map(s =>
-    `[${s.timestamp_start}–${s.timestamp_end}]\n  WORDS: ${s.words}\n  VISUAL: ${s.visual}`
-  ).join('\n\n');
-
-  const systemInstruction = `You are an editorial consultant reviewing a rough cut with a filmmaker.
-
-You have read the complete two-column breakdown of the cut below. Your job is to help restructure the narrative.
-
-When the filmmaker tells you what's not working, be specific and opinionated. Propose concrete reorderings using timestamps. Explain WHY each move improves the story — what it establishes, what tension it creates, what payoff it sets up.
-
-Be direct. One idea at a time. No padding, no disclaimers.
-
-THE CUT — "${title || 'Untitled'}"
-${scriptText || '(no script loaded)'}`;
-
-  const contents = [
-    ...(history || []).slice(-12).map(m => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.content }],
-    })),
-    { role: 'user', parts: [{ text: message }] },
-  ];
+  const systemInstruction = buildSystemInstruction(segments, title);
+  const contents = buildChatContents(history, message);
 
   const r = await fetch(
     `${BASE}/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
