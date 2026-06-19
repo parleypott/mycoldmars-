@@ -7,6 +7,8 @@
 // Caller wires it once with getActions() and getTranscripts() callbacks
 // that return live data each time the palette opens.
 
+import { fuzzyScore, parseRecent } from './command-palette-core.js';
+
 const RECENT_KEY = 'mcm_palette_recent';
 const RECENT_MAX = 5;
 
@@ -242,40 +244,6 @@ function render() {
   listEl.innerHTML = html;
 }
 
-// ── Fuzzy scoring ──────────────────────────────────────────────────────────
-// Sum of:
-//   exact substring match in label  — 100
-//   starts-with match in label      — +60
-//   word-boundary match in label    — +30
-//   substring in hint or group      — +15
-//   subsequence (in-order chars)    — up to +20
-function fuzzyScore(q, label, group, hint) {
-  if (!q) return 1;
-  const ql = q.toLowerCase();
-  const ll = label.toLowerCase();
-  let score = 0;
-  if (ll.includes(ql)) {
-    score += 100;
-    if (ll.startsWith(ql)) score += 60;
-    // bonus for word-boundary match
-    if (new RegExp(`\\b${escapeReg(ql)}`).test(ll)) score += 30;
-  }
-  const gl = (group || '').toLowerCase();
-  const hl = (hint || '').toLowerCase();
-  if (gl.includes(ql) || hl.includes(ql)) score += 15;
-
-  // Subsequence: every char of query appears in order in label.
-  let i = 0;
-  for (const ch of ll) {
-    if (ch === ql[i]) i++;
-    if (i === ql.length) break;
-  }
-  if (i === ql.length) score += 20 - Math.min(20, ll.indexOf(ql[0]));
-
-  return score;
-}
-
-function escapeReg(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function escapeHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
@@ -285,8 +253,7 @@ function stepLabel(step) { return step ? `Step ${step} · ${STEP_NAMES[step] || 
 
 // ── Recents ────────────────────────────────────────────────────────────────
 function loadRecent() {
-  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); }
-  catch { return []; }
+  return parseRecent(localStorage.getItem(RECENT_KEY));
 }
 function saveRecent(list) {
   try { localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX))); } catch {}
