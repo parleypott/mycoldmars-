@@ -1,5 +1,6 @@
 import { checkAccess } from './_lib/access.js';
 import { sanitizeSlug } from './_lib/qss-worlds.js';
+import { pruneVariations } from './_lib/prune-variations.js';
 
 export const config = { runtime: 'edge', maxDuration: 30 };
 
@@ -522,20 +523,10 @@ function sanitizeBlocks(blocks) {
     const cleanVariations = (variations) => {
       if (!Array.isArray(variations)) return undefined;
       const MAX_VARIATIONS = 12;
-      // LOVED-AWARE PRUNING — if we have more than MAX_VARIATIONS, keep
-      // every LOVED variation + the most recent unloved ones, oldest
-      // unloved get dropped first. Stable sort: preserve original order.
-      let working = variations.slice();
-      if (working.length > MAX_VARIATIONS) {
-        const loved = working.filter(v => v?.loved);
-        const unloved = working.filter(v => !v?.loved);
-        const keepUnlovedCount = Math.max(0, MAX_VARIATIONS - loved.length);
-        // Keep the MOST RECENT unloved (last in array). Drop oldest.
-        const keptUnloved = unloved.slice(-keepUnlovedCount);
-        // Re-merge preserving original order
-        const keepSet = new Set([...loved, ...keptUnloved].map(v => v.id));
-        working = variations.filter(v => keepSet.has(v.id));
-      }
+      // LOVED-AWARE PRUNING — keep every LOVED variation + the most recent
+      // unloved ones; oldest unloved dropped first. Order preserved.
+      // (pruneVariations guards the slice(-0) trap that defeated the cap.)
+      const working = pruneVariations(variations, MAX_VARIATIONS);
       const out = [];
       for (const v of working) {
         if (!v || typeof v !== 'object' || !v.id) continue;
