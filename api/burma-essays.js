@@ -1,6 +1,16 @@
 export const config = { runtime: 'edge', maxDuration: 120 };
 
 import { stripMarkdown, firstLine, slug, clampNum, chunkText, CHUNK_LIMIT } from './_lib/burma-essays-text.js';
+import { pgrValue } from './_lib/pgrest.js';
+
+// PostgREST filter fragments for a caller-supplied id. This endpoint is a public,
+// no-auth reader and queries with the Supabase service-role key (RLS-bypassing),
+// so an unescaped id interpolated into `id=eq.${id}` would let `&`/`=` in the value
+// append EXTRA query params onto the service-role request (e.g. `0&or=(id.gte.0)`
+// broadens the read). pgrValue() encodeURIComponent's the value so it stays one
+// opaque filter literal; a no-op for real uuids/ints. Exported for coverage.
+export const idEq = (id) => `id=eq.${pgrValue(id)}`;
+export const essayIdEq = (id) => `essay_id=eq.${pgrValue(id)}`;
 
 /**
  * Burma Essays — paste an essay, get a narrated library item you can scrub.
@@ -90,12 +100,12 @@ async function list() {
 }
 
 async function getOne(id) {
-  const r = await sb(`/rest/v1/burma_essays?id=eq.${id}&select=*`);
+  const r = await sb(`/rest/v1/burma_essays?${idEq(id)}&select=*`);
   if (!r.ok) return err(502, 'DB_READ', await r.text());
   const rows = await r.json();
   if (!rows.length) return err(404, 'NOT_FOUND', 'no such essay');
   const essay = shape(rows[0], true);
-  const hr = await sb(`/rest/v1/burma_highlights?essay_id=eq.${id}&select=id,quote,note,color,created_at&order=created_at.asc`);
+  const hr = await sb(`/rest/v1/burma_highlights?${essayIdEq(id)}&select=id,quote,note,color,created_at&order=created_at.asc`);
   essay.highlights = hr.ok ? await hr.json() : [];
   return ok({ essay });
 }
@@ -128,7 +138,7 @@ async function addHighlight(body) {
 
 async function delHighlight(body) {
   if (!body.id) return err(400, 'NO_ID', 'id required');
-  const r = await sb(`/rest/v1/burma_highlights?id=eq.${body.id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+  const r = await sb(`/rest/v1/burma_highlights?${idEq(body.id)}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
   if (!r.ok) return err(502, 'DB_WRITE', await r.text());
   return ok({ ok: true });
 }
@@ -187,7 +197,7 @@ async function regenerate(body) {
   if (!ELEVEN_KEY) return err(500, 'NO_TTS', 'ELEVENLABS_API_KEY not configured on the server');
   const id = body.id;
   if (!id) return err(400, 'NO_ID', 'id required');
-  const r = await sb(`/rest/v1/burma_essays?id=eq.${id}&select=*`);
+  const r = await sb(`/rest/v1/burma_essays?${idEq(id)}&select=*`);
   if (!r.ok) return err(502, 'DB_READ', await r.text());
   const rows = await r.json();
   if (!rows.length) return err(404, 'NOT_FOUND', 'no such essay');
@@ -211,7 +221,7 @@ async function regenerate(body) {
   });
   if (!up.ok) return err(502, 'UPLOAD', await up.text());
 
-  const u = await sb(`/rest/v1/burma_essays?id=eq.${id}`, {
+  const u = await sb(`/rest/v1/burma_essays?${idEq(id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
     body: JSON.stringify({
@@ -235,7 +245,7 @@ async function savePosition(body) {
   if (!id) return err(400, 'NO_ID', 'id required');
   const patch = { position_sec: clampNum(body.position), updated_at: new Date().toISOString() };
   if (body.duration != null) patch.duration_sec = clampNum(body.duration);
-  const r = await sb(`/rest/v1/burma_essays?id=eq.${id}`, {
+  const r = await sb(`/rest/v1/burma_essays?${idEq(id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
     body: JSON.stringify(patch),
@@ -247,7 +257,7 @@ async function savePosition(body) {
 async function remove(body) {
   const { id } = body;
   if (!id) return err(400, 'NO_ID', 'id required');
-  const r = await sb(`/rest/v1/burma_essays?id=eq.${id}&select=audio_path`);
+  const r = await sb(`/rest/v1/burma_essays?${idEq(id)}&select=audio_path`);
   const rows = r.ok ? await r.json() : [];
   if (rows[0]?.audio_path) {
     await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${rows[0].audio_path}`, {
@@ -255,7 +265,7 @@ async function remove(body) {
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
     }).catch(() => {});
   }
-  const del = await sb(`/rest/v1/burma_essays?id=eq.${id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+  const del = await sb(`/rest/v1/burma_essays?${idEq(id)}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
   if (!del.ok) return err(502, 'DB_WRITE', await del.text());
   return ok({ ok: true });
 }
