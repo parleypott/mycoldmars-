@@ -276,7 +276,7 @@ function directionNodeView({ node, editor, getPos }) {
 export const ChapterBlock = Node.create({
   name: 'chapterBlock',
   group: 'block',
-  content: 'paragraph+',
+  content: '(paragraph | bulletList | orderedList)+',
   defining: true,
   draggable: true,
   addAttributes() {
@@ -322,7 +322,7 @@ export const ChapterBlock = Node.create({
 export const SceneBlock = Node.create({
   name: 'sceneBlock',
   group: 'block',
-  content: 'paragraph+',
+  content: '(paragraph | bulletList | orderedList)+',
   defining: true,
   draggable: true,
   addAttributes() { return baseAttrs(); },
@@ -518,7 +518,7 @@ export const MontageBlock = Node.create({
 export const NoneBlock = Node.create({
   name: 'noneBlock',
   group: 'block',
-  content: 'paragraph+',
+  content: '(paragraph | bulletList | orderedList)+',
   draggable: true,
   addAttributes() { return baseAttrs(); },
   parseHTML() { return [{ tag: 'div[data-none]' }]; },

@@ -44,6 +44,7 @@ const EXPLICIT_TESTS = [
   { file: join(ROOT, 'burma-script/parse-test.ts'), cwd: join(ROOT, 'burma-script') },
   { file: join(ROOT, 'burma-script/routing-test.ts'), cwd: join(ROOT, 'burma-script') },
   { file: join(ROOT, 'burma-script/roundtrip-test.ts'), cwd: join(ROOT, 'burma-script') },
+  { file: join(ROOT, 'burma-script/list-roundtrip-test.ts'), cwd: join(ROOT, 'burma-script') },
 ];
 
 const tests = [...findMjsTests(ROOT), ...EXPLICIT_TESTS]
