@@ -183,6 +183,28 @@ body {
 .wp-toast-lab { font-size: 7px; letter-spacing: .2em; color: var(--label-4); text-transform: uppercase; }
 .wp-toast-tc { font-size: 14px; color: var(--ivory); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
 
+/* ---- SAVE STATUS — the cardinal-sin guard, made visible. A quiet saved/unsaved dot in the
+   corner, and a LOUD persistent red banner across the top if a save ever fails. Data loss must
+   never be silent: if it didn't save, Johnny sees it. ---- */
+.wp-save-dot {
+  position: fixed; right: 14px; bottom: 14px; z-index: 480;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 7px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--label-4); opacity: .55; pointer-events: none; user-select: none;
+}
+.wp-save-dot-mark { width: 7px; height: 7px; border-radius: 50%; background: #5a8f5a; }
+.wp-save-dot.is-unsaved { opacity: .85; }
+.wp-save-dot.is-unsaved .wp-save-dot-mark { background: #c9962c; }
+.wp-save-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  display: flex; align-items: baseline; gap: 12px;
+  background: #d23b2c; color: #fff;
+  padding: 10px 16px; font-family: var(--mono);
+  border-bottom: 2px solid var(--ink);
+}
+.wp-save-banner-lab { font-size: 11px; font-weight: 700; letter-spacing: .12em; white-space: nowrap; }
+.wp-save-banner-msg { font-size: 11px; letter-spacing: .02em; }
+
 /* ============================================================
    MASTHEAD (feature A) — the script's name, big + bold, the page headline
    ============================================================ */

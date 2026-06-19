@@ -315,6 +315,48 @@ function CopyToast() {
   );
 }
 
+// ── SAVE STATUS — the cardinal-sin guard made visible. Data loss must NEVER be silent.
+// Listens for the durable-save events the editor fires: `wp-dirty` (unsaved keystrokes in
+// volatile state), `wp-saved` (a write landed AND passed the read-back invariant), and
+// `wp-save-failed` (quota / private-mode / invariant failure). A failure raises a PERSISTENT,
+// non-dismissable red banner so Johnny can never believe a save landed when it didn't.
+function SaveStatus() {
+  const [state, setState] = useState('saved'); // 'saved' | 'unsaved' | 'failed'
+  const [failMsg, setFailMsg] = useState('');
+
+  useEffect(() => {
+    const onDirty = () => setState((s) => (s === 'failed' ? s : 'unsaved'));
+    const onSaved = () => setState((s) => (s === 'failed' ? s : 'saved'));
+    const onFailed = (e) => {
+      setState('failed');
+      setFailMsg(e.detail?.message || 'your edits are NOT being saved.');
+    };
+    window.addEventListener('wp-dirty', onDirty);
+    window.addEventListener('wp-saved', onSaved);
+    window.addEventListener('wp-save-failed', onFailed);
+    return () => {
+      window.removeEventListener('wp-dirty', onDirty);
+      window.removeEventListener('wp-saved', onSaved);
+      window.removeEventListener('wp-save-failed', onFailed);
+    };
+  }, []);
+
+  if (state === 'failed') {
+    return (
+      <div class="wp-save-banner" role="alert" aria-live="assertive">
+        <span class="wp-save-banner-lab">⚠ SAVE FAILED</span>
+        <span class="wp-save-banner-msg">{failMsg} Export now (EXPORT button) to keep your work.</span>
+      </div>
+    );
+  }
+  return (
+    <div class={`wp-save-dot is-${state}`} role="status" aria-live="polite" title={state === 'unsaved' ? 'Unsaved changes' : 'Saved'}>
+      <span class="wp-save-dot-mark" />
+      <span class="wp-save-dot-lab">{state === 'unsaved' ? 'UNSAVED' : 'SAVED'}</span>
+    </div>
+  );
+}
+
 // ── TIPS & TRICKS (feature C) — a tiny collapsed toggle in the pre-script zone that
 // expands a short, plain-voice how-to. No marketing register — just the affordances.
 const TIPS = [
@@ -357,8 +399,20 @@ function App() {
 
   function resetDoc() {
     // SACRED #1 — never wipe Johnny's fills without a recoverable copy. Snapshot the current
-    // saved doc to a timestamped backup BEFORE removing it, so a RESET is always reversible.
-    try { snapshotDoc(); } catch {}
+    // saved doc to a timestamped backup BEFORE removing it. snapshotDoc returns null when the
+    // backup could not be written (quota / private mode) — in that case ABORT the reset rather
+    // than destroy fills with no recovery copy. Only wipe if we know the snapshot landed (or
+    // there was no saved doc to lose in the first place).
+    let saved = null;
+    try { saved = localStorage.getItem(LS_DOC); } catch {}
+    if (saved) {
+      let bak = null;
+      try { bak = snapshotDoc(); } catch {}
+      if (!bak) {
+        alert('RESET cancelled — could not back up your current script (storage full or blocked). Export first, then reset.');
+        return;
+      }
+    }
     try { localStorage.removeItem(LS_DOC); } catch {}
     location.reload();
   }
@@ -458,6 +512,7 @@ function App() {
 
       <Exports getDoc={() => editorRef.current?.getJSON() || { type: 'doc', content: [] }} docTitle={DOC_TITLE} />
       <CopyToast />
+      <SaveStatus />
     </div>
   );
 }
@@ -469,8 +524,19 @@ function App() {
 // editor then seeds the already-migrated doc; its downstream ensureTableDoc is a clean no-op.
 try {
   const r = migrateStoredDoc();
-  if (!r.ok) console.warn('[burma] safe migration held back original doc:', r.reason, r.error || '');
-  else if (r.migrated) console.info('[burma] safe migration applied + validated (backup:', r.bakKey + ')');
+  if (!r.ok) {
+    console.warn('[burma] safe migration held back original doc:', r.reason, r.error || '');
+    // If migration was held back for a STORAGE reason (can't back up / unavailable), storage is
+    // broken — every downstream autosave will fail too. Make that loud + visible up front rather
+    // than letting Johnny type into a doc that silently never persists.
+    if (/back up|unavailable/i.test(r.reason || '')) {
+      window.dispatchEvent(new CustomEvent('wp-save-failed', {
+        detail: { kind: 'storage', message: 'storage is full or blocked — your edits will NOT be saved.' },
+      }));
+    }
+  } else if (r.migrated) {
+    console.info('[burma] safe migration applied + validated (backup:', r.bakKey + ')');
+  }
 } catch (e) {
   // Never let migration failure block the app — the editor's own ensureTableDoc still wraps at
   // render time as a fallback, and the original saved doc was never overwritten.

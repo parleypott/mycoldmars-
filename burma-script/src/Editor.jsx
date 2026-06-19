@@ -19,23 +19,48 @@ import { BURMA_MARKS } from './extensions/marks.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { Workshop } from './Workshop.jsx';
+import { saveDoc, backupRaw } from './migrate-doc.js';
 
 const LS_DOC = 'wp01_burma_doc_v1';
 const LS_BLOCKS = 'wp01_burma_blocks_v1'; // derived schema-faithful export (exercises docToBlocks)
 
+// CARDINAL SIN GUARD: if the saved doc existed but could NOT be read/parsed at seed time, we
+// must NOT let autosave clobber the original bytes with the fresh source fallback — that would
+// turn a recoverable corruption into permanent loss. seedDoc sets this true ONLY when there was
+// raw bytes we failed to use; a clean "no saved doc yet" leaves it false (fresh save is fine).
+let seededOverUnreadableDoc = false;
+
 // Seed the working copy: prefer the persisted localStorage doc; else build fresh
 // from the read-only blocks. The source blocks array is NEVER mutated.
 function seedDoc(sourceBlocks) {
+  let saved = null;
   try {
-    const saved = localStorage.getItem(LS_DOC);
-    if (saved) {
+    saved = localStorage.getItem(LS_DOC);
+  } catch {}
+  if (saved) {
+    try {
       const parsed = JSON.parse(saved);
       // MIGRATION-SAFE: a doc saved before the table spine has flat block nodes at the top
       // level. ensureTableDoc wraps them into full-width rows so the existing edited doc
       // (Johnny's filled answers) keeps rendering — no content touched, marks ride along.
       if (parsed?.content?.length) return ensureTableDoc(parsed);
+      // Parsed but empty/wrong shape — treat as unreadable so we don't autosave over it.
+      seededOverUnreadableDoc = true;
+    } catch (e) {
+      // Saved bytes exist but won't parse. KEEP THEM: snapshot to a recovery key, flag the
+      // editor so autosave/flush refuse to overwrite LS_DOC, and warn loudly + visibly.
+      seededOverUnreadableDoc = true;
+      try { backupRaw(saved); } catch {}
+      try {
+        const key = LS_DOC + '.corrupt.' + Date.now();
+        localStorage.setItem(key, saved);
+        console.warn('[burma] saved doc unreadable — preserved at', key, '— starting from source', e);
+        window.dispatchEvent(new CustomEvent('wp-save-failed', {
+          detail: { kind: 'corrupt', message: 'saved script could not be read — original preserved, editing starts from source' },
+        }));
+      } catch {}
     }
-  } catch {}
+  }
   return buildEditorDocument(sourceBlocks);
 }
 
@@ -81,6 +106,27 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
   const initial = useMemo(() => seedDoc(sourceBlocks), [sourceBlocks]);
   const saveTimer = useRef(null);
 
+  // The SINGLE canonical-write path. Cancels any pending debounce and writes the absolute latest
+  // editor JSON through saveDoc (quota-aware retry + read-back invariant + loud failure). Used by
+  // the debounce, the unmount flush, AND the pagehide/visibilitychange unload listeners — so a
+  // reload/tab-close can never drop the latest keystroke. Refuses to write if we seeded over an
+  // unreadable saved doc (never clobber recoverable bytes with the source fallback).
+  function flushSave(editor) {
+    if (!editor) return;
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    if (seededOverUnreadableDoc) return; // protected: original bytes preserved, don't overwrite.
+    const json = editor.getJSON();
+    const res = saveDoc(json); // handles its own loud failure + wp-saved on success.
+    // Derived schema-faithful blocks export — keeps docToBlocks() exercised and gives downstream
+    // tools a clean blocks array. SEPARATE try/catch AFTER the canonical doc: it roughly doubles
+    // payload and is the likeliest line to blow quota, so it must never threaten LS_DOC.
+    if (res.ok) {
+      try { localStorage.setItem(LS_BLOCKS, JSON.stringify(docToBlocks(json))); } catch {}
+    }
+  }
+  const flushRef = useRef(flushSave);
+  flushRef.current = flushSave;
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -108,18 +154,12 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
     onUpdate({ editor }) {
       const json = editor.getJSON();
       onTelemetry?.(telemetry(json));
+      // We have unsaved keystrokes in volatile editor state right now — say so, so the
+      // save-status indicator can show "unsaved" between keystroke and the debounced write.
+      window.dispatchEvent(new CustomEvent('wp-dirty'));
       if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        try {
-          localStorage.setItem(LS_DOC, JSON.stringify(json));
-          // Derived schema-faithful blocks export — keeps docToBlocks() exercised at
-          // runtime (the round-trip the schema's persistence contract promises), and
-          // gives a clean blocks array any downstream tool can consume. The doc JSON
-          // stays canonical; this is a read-only derived view.
-          localStorage.setItem(LS_BLOCKS, JSON.stringify(docToBlocks(json)));
-          window.dispatchEvent(new CustomEvent('wp-saved'));
-        } catch {}
-      }, 400);
+      // Short debounce so the persisted copy is never more than a fraction of a second behind.
+      saveTimer.current = setTimeout(() => { flushRef.current(editor); }, 150);
     },
     editorProps: {
       attributes: { class: 'wp-editor-content' },
@@ -153,10 +193,32 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
     return () => window.removeEventListener('wp-replace-span', onReplace);
   }, [editor]);
 
-  // Flush a final save when unmounting.
-  useEffect(() => () => {
+  // DURABLE FLUSH ON PAGE TEARDOWN — the actual safety net Johnny's "edit → reload → gone" needs.
+  // React/Preact useEffect cleanup does NOT run on a hard browser reload (Cmd-R/F5), tab close, or
+  // navigation — the VM is torn down before cleanup fires. So the debounced timer dies unfired and
+  // the last edits are lost. 'pagehide' and 'visibilitychange'(hidden) are the ONLY events that
+  // reliably fire before teardown across browsers (incl. mobile + bfcache). Both synchronously
+  // flush the ABSOLUTE LATEST editor JSON, bypassing the debounce.
+  useEffect(() => {
     if (!editor) return;
-    try { localStorage.setItem(LS_DOC, JSON.stringify(editor.getJSON())); } catch {}
+    const flushNow = () => { flushRef.current(editor); };
+    const onPageHide = () => flushNow();
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flushNow(); };
+    const onBeforeUnload = () => flushNow();
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [editor]);
+
+  // Flush a final save on in-SPA unmount (route change / React teardown). Goes through the same
+  // guarded writer so an unmount can't silently fail or clobber a protected unreadable doc.
+  useEffect(() => () => {
+    flushRef.current(editor);
   }, [editor]);
 
   return (

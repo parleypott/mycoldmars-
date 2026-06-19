@@ -177,7 +177,7 @@ function docPlainText(doc) {
 // Best-effort timestamped backup of the raw saved string. Returns the backup key, or null if
 // localStorage refused (quota / private mode). A null return is itself a STOP signal — we will
 // NOT proceed with a migration we can't back up first.
-function backupRaw(raw) {
+export function backupRaw(raw) {
   const key = BAK_PREFIX + Date.now();
   try {
     localStorage.setItem(key, raw);
@@ -191,17 +191,128 @@ function backupRaw(raw) {
 // Keep only the newest BAK_KEEP backups (lexical sort works because keys end in epoch ms).
 function pruneBackups() {
   try {
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith(BAK_PREFIX)) keys.push(k);
-    }
-    keys.sort();
+    const keys = listBackupKeys();
     while (keys.length > BAK_KEEP) {
       const drop = keys.shift();
       try { localStorage.removeItem(drop); } catch {}
     }
   } catch {}
+}
+
+// Enumerate backup keys (oldest first — keys end in epoch ms so a lexical sort is chronological).
+function listBackupKeys() {
+  const keys = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(BAK_PREFIX)) keys.push(k);
+    }
+  } catch {}
+  keys.sort();
+  return keys;
+}
+
+// Drop the single oldest backup. Returns true if one was removed (i.e. there's room to retry a
+// failed write), false if no backups remain to evict. Used by saveDoc's quota-recovery loop.
+function evictOldestBackup() {
+  const keys = listBackupKeys();
+  if (!keys.length) return false;
+  try { localStorage.removeItem(keys[0]); return true; } catch { return false; }
+}
+
+// ── DURABLE CANONICAL WRITE (Johnny's invariant doctrine) ──────────────────────────────────
+// The ONLY place LS_DOC is written from the editor's hot paths. This is the cardinal-sin guard:
+// data loss must NEVER be silent. The contract:
+//
+//   1. ONCE-PER-SESSION pre-write backup: before the first canonical write of a session, snapshot
+//      the prior good LS_DOC to a .bak.<ts> so day-to-day editing (not just migration) is covered.
+//   2. WRITE LS_DOC. On QuotaExceededError, free space by evicting oldest backups and RETRY until
+//      it lands or there's nothing left to evict.
+//   3. READ-BACK INVARIANT: immediately re-read LS_DOC and confirm it parses and the serialized
+//      string matches what we intended to write. A mismatch is a silent-corruption bug — fire a
+//      LOUD console warning ('[burma save invariant FAIL]') and surface a visible toast.
+//   4. On ANY unrecoverable failure: do NOT swallow. Fire a loud 'wp-save-failed' event so the UI
+//      shows a persistent banner; never let Johnny believe a save landed when it didn't.
+//
+// Returns { ok, reason }. Callers may dispatch their own events too, but this function already
+// fires wp-save-failed / the invariant toast so a bare call is fully guarded on its own.
+let sessionBackedUp = false;
+
+function notifySaveFailed(detail) {
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('wp-save-failed', { detail }));
+    }
+  } catch {}
+}
+
+export function saveDoc(json) {
+  let out;
+  try {
+    out = JSON.stringify(json);
+  } catch (e) {
+    console.warn('[burma] save: doc would not serialize — refusing to write', e);
+    notifySaveFailed({ kind: 'serialize', message: 'editor doc could not be serialized' });
+    return { ok: false, reason: 'serialize-failed' };
+  }
+
+  // STEP 1 — once-per-session snapshot of the prior good doc before we ever overwrite it.
+  if (!sessionBackedUp) {
+    sessionBackedUp = true;
+    try {
+      const prior = localStorage.getItem(LS_DOC);
+      if (prior) backupRaw(prior);
+    } catch {}
+  }
+
+  // STEP 2 — write the canonical doc, freeing space on quota and retrying.
+  let wrote = false;
+  let lastErr = null;
+  for (;;) {
+    try {
+      localStorage.setItem(LS_DOC, out);
+      wrote = true;
+      break;
+    } catch (e) {
+      lastErr = e;
+      // Free room (oldest backup first) and retry; bail when there's nothing left to evict.
+      if (!evictOldestBackup()) break;
+    }
+  }
+
+  if (!wrote) {
+    const quota = lastErr && (lastErr.name === 'QuotaExceededError' || lastErr.code === 22 ||
+      lastErr.code === 1014 || /quota/i.test(String(lastErr && lastErr.message)));
+    console.warn('[burma] save FAILED — LS_DOC not written', lastErr);
+    notifySaveFailed({
+      kind: quota ? 'quota' : 'blocked',
+      message: quota
+        ? 'storage is full — your edits are NOT being saved. Export now.'
+        : 'storage is blocked (private mode?) — your edits are NOT being saved. Export now.',
+    });
+    return { ok: false, reason: quota ? 'quota' : 'setitem-threw' };
+  }
+
+  // STEP 3 — READ-BACK INVARIANT. Confirm the bytes actually landed and round-trip.
+  try {
+    const readBack = localStorage.getItem(LS_DOC);
+    if (readBack !== out) {
+      console.warn('[burma save invariant FAIL] LS_DOC read-back !== written bytes');
+      notifySaveFailed({ kind: 'invariant', message: 'save verification failed — read-back mismatch' });
+      return { ok: false, reason: 'invariant-mismatch' };
+    }
+    JSON.parse(readBack); // must parse — a truncated/garbled write would throw here.
+  } catch (e) {
+    console.warn('[burma save invariant FAIL] LS_DOC read-back did not parse', e);
+    notifySaveFailed({ kind: 'invariant', message: 'save verification failed — stored doc unreadable' });
+    return { ok: false, reason: 'invariant-unparseable' };
+  }
+
+  // SUCCESS — let any save-status indicator flip back to "saved".
+  try {
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('wp-saved'));
+  } catch {}
+  return { ok: true, reason: 'saved' };
 }
 
 // PUBLIC: take a backup snapshot of the current saved doc on demand (used by resetDoc before it
