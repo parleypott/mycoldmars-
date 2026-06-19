@@ -27,6 +27,7 @@ import {
   uploadDevchatImage,
 } from './db.js';
 import { currentUser } from './auth.js';
+import { escDc, safeImageUrl, senderLabel, messageToHtml } from './devchat-render.js';
 
 let panelEl = null;
 let buttonEl = null;
@@ -291,42 +292,8 @@ function appendMessage(row) {
   scrollMessagesToBottom();
 }
 
-// Devchat messages can be written anonymously (intentional, for bug
-// reports). That means metadata.images[].url is attacker-controllable.
-// HTML-encoding the URL still leaves `javascript:` and `data:text/html`
-// schemes live as `<a href>` — click-to-execute in the operator's
-// session. Whitelist scheme before emitting.
-function safeImageUrl(url) {
-  try {
-    const u = new URL(url);
-    if (u.protocol === 'https:' || u.protocol === 'http:') return u.toString();
-  } catch {}
-  return null;
-}
-
-function messageToHtml(m) {
-  const images = m.metadata?.images || [];
-  const safeImages = images
-    .map(img => ({ ...img, url: safeImageUrl(img?.url) }))
-    .filter(img => img.url);
-  const imagesHtml = safeImages.length ? `
-    <div class="devchat-msg-images">
-      ${safeImages.map(img => `
-        <a class="devchat-msg-image" href="${escDc(img.url)}" target="_blank" rel="noopener noreferrer">
-          <img src="${escDc(img.url)}" alt="attachment" loading="lazy">
-        </a>
-      `).join('')}
-    </div>
-  ` : '';
-  const bodyHtml = m.body ? `<div class="devchat-msg-body">${escDc(m.body).replace(/\n/g, '<br>')}</div>` : '';
-  return `
-    <div class="devchat-msg devchat-msg--${escDc(m.sender)}" data-msg-id="${escDc(m.id || '')}">
-      <div class="devchat-msg-sender">${escDc(senderLabel(m.sender))}</div>
-      ${imagesHtml}
-      ${bodyHtml}
-    </div>
-  `;
-}
+// safeImageUrl + messageToHtml moved to ./devchat-render.js (the tested
+// untrusted-message render boundary).
 
 function showTypingIndicator() {
   hideTypingIndicator();
@@ -445,12 +412,7 @@ function clearPendingAttachments() {
   renderPendingAttachments();
 }
 
-function senderLabel(s) {
-  if (s === 'user') return 'you';
-  if (s === 'assistant') return 'parley';
-  if (s === 'agent') return 'fixer';
-  return s;
-}
+// senderLabel moved to ./devchat-render.js
 
 function scrollMessagesToBottom() {
   const host = panelEl?.querySelector('#devchat-thread');
@@ -623,11 +585,7 @@ function bindSetupCta(scope) {
   });
 }
 
-function escDc(str) {
-  return String(str ?? '').replace(/[&<>"']/g, ch => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[ch]));
-}
+// escDc moved to ./devchat-render.js
 
 function relAgo(iso) {
   if (!iso) return '';
