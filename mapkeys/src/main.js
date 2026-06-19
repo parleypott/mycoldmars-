@@ -8,6 +8,7 @@ import { feature as topoFeature } from 'topojson-client';
 // 110m blocks. Worth the payload for a video/animation tool.
 import countriesTopo from 'world-atlas/countries-10m.json';
 import { regularPolygonCoords, KM_PER_DEG_LAT } from './polygon-geom.js';
+import { extractKmlCoords } from './kml-coords.js';
 import './style.css';
 
 // ─── Country data (loaded once at startup) ───
@@ -441,28 +442,7 @@ async function readRouteFile(file) {
 
 function parseKML(text) {
   const doc = new DOMParser().parseFromString(text, 'text/xml');
-  const lineStrings = doc.getElementsByTagName('LineString');
-  const out = [];
-  for (const ls of lineStrings) {
-    const coordEl = ls.getElementsByTagName('coordinates')[0];
-    if (!coordEl) continue;
-    const tokens = coordEl.textContent.trim().split(/\s+/);
-    for (const tok of tokens) {
-      const parts = tok.split(',').map(Number);
-      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-        out.push([parts[0], parts[1]]);
-      }
-    }
-  }
-  // Also try gx:Track / Track if no LineString — flexible KML support
-  if (out.length === 0) {
-    const coords = doc.getElementsByTagName('coord');
-    for (const c of coords) {
-      const parts = c.textContent.trim().split(/\s+/).map(Number);
-      if (parts.length >= 2) out.push([parts[0], parts[1]]);
-    }
-  }
-  return out;
+  return extractKmlCoords(doc);
 }
 
 function haversine(lat1, lon1, lat2, lon2) {
