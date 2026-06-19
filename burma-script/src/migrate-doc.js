@@ -43,7 +43,13 @@ const LS_MIGRATED = 'wp01_burma_doc_migrated_v2';
 // Bound the number of timestamped backups we keep so localStorage never fills up; the most
 // recent few are always retained (the freshest is the pre-migration safety copy).
 const BAK_PREFIX = LS_DOC + '.bak.';
-const BAK_KEEP = 8;
+// BAK_KEEP cut 8 -> 3 (storage-budget): each backup is a full ~167KB copy of LS_DOC, so 8 backups
+// alone were ~1.3MB — by far the biggest, fastest-growing localStorage consumer (and stored UTF-16,
+// the real cost is ~2x). As Johnny fills more {tk}/{fc} answers the doc grows and the backups grow
+// 8x in lockstep, pushing toward quota and forcing saveDoc's evict loop to sacrifice the very
+// safety net the backups exist for. 3 still covers the pre-migration copy + the once-per-session
+// snapshot across a couple of sessions, and the cloud mirror (cloud-sync.js) is the real backstop.
+const BAK_KEEP = 3;
 
 // ── CROSS-TAB CONFLICT GUARD (crosstab-stale-overwrite) ────────────────────────────────────
 // Two open tabs share localStorage. The durable-flush work (pagehide / visibilitychange) made
@@ -66,10 +72,51 @@ const CONFLICT_PREFIX = LS_DOC + '.conflict.';
 // A per-tab id so a version stamp records WHICH tab wrote it (telemetry / conflict snapshots).
 const TAB_ID = 'tab_' + Math.random().toString(36).slice(2, 10);
 
+// ── COLLISION-PROOF SNAPSHOT KEYS (snapshot-key-collision) ─────────────────────────────────────
+// Recovery snapshot keys (.bak. / .conflict. / .corrupt.) are PREFIX + Date.now(). Two snapshots in
+// the SAME millisecond produce the SAME key and the second setItem silently overwrites the first —
+// losing a recovery copy. The pagehide/visibilitychange/beforeunload listeners can fire flushSave
+// 2-3 times in quick succession, so same-ms collisions are reachable. Fix: append a monotonic
+// per-process counter so keys are unique WITHIN a millisecond. We use a counter (not Math.random)
+// so the lexical-sort chronological ordering that pruneBackups/listBackupKeys rely on is preserved
+// deterministically — the fixed-width Date.now() prefix still dominates the sort (valid through
+// year 2286), and ties within a ms break by the (zero-padded) sequence in true write order.
+let _snapSeq = 0;
+function snapshotKey(prefix) {
+  // Zero-pad the sequence so the lexical order matches numeric order within the same ms.
+  const seq = String((_snapSeq++) % 1000000).padStart(6, '0');
+  return prefix + Date.now() + '-' + seq;
+}
+
 // The version this tab believes is the current base — the value it last read at seed or last
 // wrote successfully. Starts at -1 ("haven't read anything yet") so the first read adopts
 // whatever is on disk without tripping the guard.
 let knownBaseVersion = -1;
+
+// ── ADOPT-CLOUD RELOAD GUARD (adopt-cloud-reload-race) ─────────────────────────────────────
+// When reconcileOnLoad adopts a strictly-newer CLOUD doc, it writes the cloud doc to disk and
+// advances knownBaseVersion to cloud+1, THEN signals main.jsx to location.reload() so the editor
+// re-seeds from the freshly-adopted cloud doc. But the editor's in-memory ProseMirror state still
+// holds this device's STALE LOCAL doc. location.reload() fires pagehide/beforeunload, which the
+// editor listens for and turns into flushSave -> saveDoc(editor.getJSON()). At that instant the
+// on-disk version (cloud+1) EQUALS knownBaseVersion, so the cross-tab guard (storedVersion >
+// knownBaseVersion) is FALSE and the stale local doc would be written OVER the adopted cloud doc —
+// silently clobbering the newer device's work on every adopt-cloud reload.
+//
+// The fix: a one-way "we are reloading to re-seed an already-canonical on-disk doc" flag. main.jsx
+// raises it immediately before location.reload(); flushSave early-returns when it is set (exactly
+// mirroring the seededOverUnreadableDoc refusal). This suppresses a SINGLE write during a known
+// reload window where the doc on disk is already canonical and the reload will re-seed it — it can
+// never itself cause loss (the on-disk doc is the one we WANT to keep).
+let reloadingForAdopt = false;
+
+// PUBLIC: arm the adopt-cloud reload guard. Called by main.jsx right before location.reload() on the
+// adopt path. One-way: once a reload is in flight there is nothing this tab should write.
+export function setReloadingForAdopt() { reloadingForAdopt = true; }
+
+// PUBLIC (test/teardown): read / reset the guard.
+export function isReloadingForAdopt() { return reloadingForAdopt; }
+export function resetReloadingForAdopt() { reloadingForAdopt = false; }
 
 // Read the current LS_DOC_VER as a number (missing / unparseable → 0, the implicit "v0" a
 // pre-guard doc carries). The stored value is "<version>|<tabId>" so a conflict can name the
@@ -130,7 +177,7 @@ export function primeVersionFloor(floor) {
 // null if the snapshot could not be written (storage broken).
 function snapshotConflict(raw) {
   if (!raw) return null;
-  const key = CONFLICT_PREFIX + Date.now();
+  const key = snapshotKey(CONFLICT_PREFIX);
   try { localStorage.setItem(key, raw); return key; } catch { return null; }
 }
 
@@ -272,7 +319,7 @@ function docPlainText(doc) {
 // localStorage refused (quota / private mode). A null return is itself a STOP signal — we will
 // NOT proceed with a migration we can't back up first.
 export function backupRaw(raw) {
-  const key = BAK_PREFIX + Date.now();
+  const key = snapshotKey(BAK_PREFIX);
   try {
     localStorage.setItem(key, raw);
     pruneBackups();
@@ -282,7 +329,9 @@ export function backupRaw(raw) {
   }
 }
 
-// Keep only the newest BAK_KEEP backups (lexical sort works because keys end in epoch ms).
+// Keep only the newest BAK_KEEP backups. Lexical sort is chronological: keys are
+// PREFIX + epoch-ms + '-' + zero-padded-seq, and the fixed-width ms prefix dominates the sort
+// (ties within a ms break by the in-order sequence) — valid through year 2286.
 function pruneBackups() {
   try {
     const keys = listBackupKeys();
@@ -293,7 +342,8 @@ function pruneBackups() {
   } catch {}
 }
 
-// Enumerate backup keys (oldest first — keys end in epoch ms so a lexical sort is chronological).
+// Enumerate backup keys (oldest first). Keys are PREFIX + epoch-ms + '-' + seq; the fixed-width ms
+// prefix makes a lexical sort chronological (ties within a ms ordered by write sequence).
 function listBackupKeys() {
   const keys = [];
   try {
@@ -341,6 +391,15 @@ function notifySaveFailed(detail) {
 }
 
 export function saveDoc(json) {
+  // ADOPT-CLOUD RELOAD GUARD — but NOT for the reconcile's OWN adopt write. The flag is set by
+  // main.jsx ONLY after reconcile has already written the cloud doc and is about to reload; any
+  // saveDoc call after that point is a STALE editor flush (the pagehide flush during reload), which
+  // must be refused so it can't clobber the just-adopted on-disk cloud doc. The adopt write itself
+  // happens BEFORE the flag is set, so it is unaffected. flushSave also early-returns on this flag,
+  // so in practice the editor never even reaches here; this is the defense-in-depth backstop.
+  if (reloadingForAdopt) {
+    return { ok: false, reason: 'reloading-for-adopt' };
+  }
   let out;
   try {
     out = JSON.stringify(json);

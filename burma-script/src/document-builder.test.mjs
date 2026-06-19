@@ -318,5 +318,36 @@ eq(
   eq(blocks[0].text, '1962 coup footage\narchival map', 'docToBlocks flattens list body with newline separators');
 }
 
+// ── TIMECODE HOUR PATTERN: builder now agrees with parser.ts (timecode-hour-divergence) ─────────
+// The builder's TIMECODE_RE used \d{1,2} (1-2 digit hour) while parser.ts's TC uses \d{2} (exactly
+// two). A single-digit-hour code "2:02:01:07" therefore chipped as a clickable timecode in the
+// builder but was INVISIBLE to the parser (never routed as a SOT). Both now use \d{2}, so:
+//   • a single-digit-hour code is plain text (NOT chipped) — matching the parser, AND
+//   • text is never lost regardless (chipping only ADDS a mark; the characters survive).
+{
+  // does the built doc carry a 'timecode' chip mark over any inline node?
+  const hasTimecodeMark = (doc) => {
+    let found = false;
+    const walk = (n) => {
+      if (!n || found) return;
+      if (Array.isArray(n.marks)) for (const m of n.marks) if (m?.type === 'timecode') found = true;
+      for (const c of n.content || []) walk(c);
+    };
+    walk(doc);
+    return found;
+  };
+
+  // 2-digit hour → chipped (the normal broadcast case, unchanged).
+  const two = buildEditorDocument([{ id: 'tc2', type: 'vo', text: 'cut at 02:02:01:07 sharp' }]);
+  ok(hasTimecodeMark(two), 'two-digit-hour timecode is chipped (unchanged behaviour)');
+  eq(docToBlocks(two)[0].text, 'cut at 02:02:01:07 sharp', 'two-digit-hour text round-trips intact');
+
+  // 1-digit hour → NOT chipped (now matches parser.ts, which never routed it as a SOT).
+  const one = buildEditorDocument([{ id: 'tc1', type: 'vo', text: 'cut at 2:02:01:07 sharp' }]);
+  ok(!hasTimecodeMark(one), 'single-digit-hour code is NOT chipped (builder now agrees with parser)');
+  // CARDINAL RULE: tightening the regex must never drop text — every character still round-trips.
+  eq(docToBlocks(one)[0].text, 'cut at 2:02:01:07 sharp', 'single-digit-hour text round-trips intact (no data loss)');
+}
+
 console.log(`\ndocument-builder: ${pass} passed, ${fail} failed`);
 process.exit(fail > 0 ? 1 : 0);

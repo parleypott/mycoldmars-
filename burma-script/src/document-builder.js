@@ -93,7 +93,8 @@ function headingClause(text, cap) {
 // (frame-accurate — editors live by it). Just normalise spacing.
 function formatTimecode(tc) {
   if (!tc) return '';
-  const m = String(tc).trim().match(/(\d{1,2}:\d{2}:\d{2}:\d{2})/);
+  // Zero-padded HH:MM:SS:FF (canonical broadcast form, matching TIMECODE_RE / parser.ts's TC).
+  const m = String(tc).trim().match(/(\d{2}:\d{2}:\d{2}:\d{2})/);
   return m ? m[1] : String(tc).trim();
 }
 
@@ -102,14 +103,19 @@ function formatTimecode(tc) {
 // text into TipTap text nodes, marking the spans so the editor can render the Swiss-red
 // underline workshop affordance. Works off literal {…}/[…] in the cleaned text so it
 // survives editing (the schema offsets would drift once the user types).
-// Any broadcast timecode anywhere in the prose: HH:MM:SS:FF or H:MM:SS:FF — INCLUDING when
-// glued to a letter/@/bracket/punct with NO leading space ("ON CAM02:17:09:07", "03:49:59:08@").
-// MIRRORS parser.ts's TC: a non-\b detector with a lookbehind rejecting a longer numeric run
+// Any broadcast timecode anywhere in the prose: zero-padded HH:MM:SS:FF — INCLUDING when glued to a
+// letter/@/bracket/punct with NO leading space ("ON CAM02:17:09:07", "03:49:59:08@").
+// TRULY MIRRORS parser.ts's TC (snapshot-key-collision sibling fix, timecode-hour-divergence): the
+// hour is EXACTLY two digits (\d{2}), same as parser.ts's TC/TC_HAS — broadcast timecodes are
+// conventionally zero-padded. A non-\b detector with a lookbehind rejecting a longer numeric run
 // ("102:02:01:070") or a "digit:" sub-field, and a lookahead rejecting a 5th ":FF" field — so a
-// label-colon ("ALT:03:19:40:07") and a trailing "tc: description" colon are kept. The old \b
-// form silently dropped every glued timecode (#4); these two regexes now match the audit + parser.
-const TIMECODE_RE = /(?<!\d)(?<!\d:)\d{1,2}:\d{2}:\d{2}:\d{2}(?!:?\d)/;
-const TIMECODE_RE_G = /(?<!\d)(?<!\d:)\d{1,2}:\d{2}:\d{2}:\d{2}(?!:?\d)/g;
+// label-colon ("ALT:03:19:40:07") and a trailing "tc: description" colon are kept. The hour pattern
+// (TC_HOUR) is shared with marks.js's input/paste rules so the three sites can't silently drift:
+// previously the builder/marks accepted a single-digit hour the parser rejected, so "2:02:01:07"
+// chipped here but never routed as a SOT — a string that was a timecode in one half of the system
+// and invisible in the other. \d{2} everywhere closes that divergence.
+const TIMECODE_RE = /(?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d)/;
+const TIMECODE_RE_G = /(?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d)/g;
 
 // Running DAY context for the timecode chip's `day` attr (#2). Set per-block by inlineContent /
 // headingNodes from the block's own day (sot/broll) or the nearest preceding DAY N. A bare module

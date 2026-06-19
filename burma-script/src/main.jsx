@@ -9,7 +9,7 @@ import { render } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { BurmaEditor, LS_DOC } from './Editor.jsx';
 import { Exports } from './Exports.jsx';
-import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor } from './migrate-doc.js';
+import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, setReloadingForAdopt } from './migrate-doc.js';
 import { reconcileOnLoad, bootstrapFromCloud } from './cloud-sync.js';
 import scriptData from '../sample-blocks.json';
 
@@ -687,6 +687,15 @@ async function startup() {
       .then((r) => {
         if (r?.shouldReload) {
           console.info('[burma] cloud sync: adopted', r.action, '(v' + r.version + ') — reloading to re-seed');
+          // ADOPT-CLOUD RELOAD RACE FIX (adopt-cloud-reload-race): the cloud doc is already written
+          // to disk and is canonical; the editor's in-memory state still holds this device's STALE
+          // local doc. location.reload() fires pagehide/beforeunload, which the editor turns into a
+          // flushSave -> saveDoc of that stale local doc. At this point the on-disk version equals
+          // this tab's knownBaseVersion, so the cross-tab guard would NOT catch it — the stale local
+          // doc would clobber the just-adopted cloud doc and the newer device's work would be lost.
+          // Arm the suppress-flush guard BEFORE triggering the reload so the teardown flush is
+          // refused; the reload then re-seeds the editor cleanly from the adopted cloud doc.
+          setReloadingForAdopt();
           location.reload();
         }
       })

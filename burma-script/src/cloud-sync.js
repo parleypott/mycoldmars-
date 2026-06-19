@@ -23,6 +23,16 @@ const API = '/api/burma-script-doc';
 const LS_DOC = 'wp01_burma_doc_v1';
 const CONFLICT_PREFIX = LS_DOC + '.conflict.';
 
+// COLLISION-PROOF SNAPSHOT KEY (snapshot-key-collision) — mirrors migrate-doc.js's snapshotKey:
+// PREFIX + Date.now() + '-' + monotonic seq, so two snapshots in the same millisecond never
+// collide and silently overwrite each other. The fixed-width ms prefix keeps lexical sort
+// chronological for the shared recovery tooling.
+let _csSnapSeq = 0;
+function conflictKey() {
+  const seq = String((_csSnapSeq++) % 1000000).padStart(6, '0');
+  return CONFLICT_PREFIX + Date.now() + '-' + seq;
+}
+
 // Cloud-status events the SaveStatus pill listens for (distinct from the local wp-saved family):
 //   wp-cloud-saved   — a cloud push confirmed (green "Saved to cloud")
 //   wp-cloud-offline — a cloud push could not reach the API / table (amber "Saved on this device · cloud offline")
@@ -149,7 +159,7 @@ export function snapshotLocalConflict() {
   try {
     const raw = localStorage.getItem(LS_DOC);
     if (!raw) return null;
-    const key = CONFLICT_PREFIX + Date.now();
+    const key = conflictKey();
     localStorage.setItem(key, raw);
     return key;
   } catch {

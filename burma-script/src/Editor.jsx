@@ -19,7 +19,7 @@ import { BURMA_MARKS } from './extensions/marks.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { Workshop } from './Workshop.jsx';
-import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, LS_DOC_VER } from './migrate-doc.js';
+import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, isReloadingForAdopt, LS_DOC_VER } from './migrate-doc.js';
 import { pushDoc } from './cloud-sync.js';
 
 const LS_DOC = 'wp01_burma_doc_v1';
@@ -58,7 +58,10 @@ function seedDoc(sourceBlocks) {
       seededOverUnreadableDoc = true;
       try { backupRaw(saved); } catch {}
       try {
-        const key = LS_DOC + '.corrupt.' + Date.now();
+        // COLLISION-PROOF KEY (snapshot-key-collision): epoch-ms + monotonic seq so two seeds in the
+        // same ms can't overwrite each other's preserved corrupt bytes. Math.random tail is belt-and-
+        // suspenders for the (single-shot, once-per-seed) corrupt path.
+        const key = LS_DOC + '.corrupt.' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
         localStorage.setItem(key, saved);
         console.warn('[burma] saved doc unreadable — preserved at', key, '— starting from source', e);
         window.dispatchEvent(new CustomEvent('wp-save-failed', {
@@ -121,6 +124,12 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
     if (!editor) return;
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
     if (seededOverUnreadableDoc) return; // protected: original bytes preserved, don't overwrite.
+    // ADOPT-CLOUD RELOAD GUARD — reconcile adopted a strictly-newer cloud doc to disk and is about
+    // to location.reload() so the editor re-seeds from it. The pagehide/beforeunload that reload
+    // fires would otherwise flush THIS tab's stale local doc over the just-adopted cloud doc,
+    // silently clobbering the newer device's work. Refuse the write: the on-disk doc is already
+    // canonical and the reload will re-seed it. (Mirrors the seededOverUnreadableDoc refusal above.)
+    if (isReloadingForAdopt()) return;
     const json = editor.getJSON();
     const res = saveDoc(json); // handles its own loud failure + wp-saved on success.
     // Derived schema-faithful blocks export — keeps docToBlocks() exercised and gives downstream

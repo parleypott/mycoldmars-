@@ -45,6 +45,12 @@ const EXPLICIT_TESTS = [
   { file: join(ROOT, 'burma-script/routing-test.ts'), cwd: join(ROOT, 'burma-script') },
   { file: join(ROOT, 'burma-script/roundtrip-test.ts'), cwd: join(ROOT, 'burma-script') },
   { file: join(ROOT, 'burma-script/list-roundtrip-test.ts'), cwd: join(ROOT, 'burma-script') },
+  // integrity-check.ts enforces the worklist-unwrap + reorder round-trip law on the real 225-block
+  // sample. document-builder.js:51 / Exports.jsx:22 claim that behaviour is "guarded by the
+  // worklist-unwrap checks in integrity-check.ts" — wiring it here makes that guard load-bearing
+  // instead of aspirational. It exits 0/1 and prints a JSON {ok,...} summary, matching this runner's
+  // contract. (audit-integrity.mjs needs a live localhost server, so it stays a manual dev tool.)
+  { file: join(ROOT, 'burma-script/integrity-check.ts'), cwd: join(ROOT, 'burma-script') },
 ];
 
 const tests = [...findMjsTests(ROOT), ...EXPLICIT_TESTS]

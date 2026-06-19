@@ -154,7 +154,9 @@ export const VisualSpan = Mark.create({
 // Johnny: right-click a timecode chip and pick DAY 1 / DAY 2 / DAY 3 (or clear it, or retype the
 // code). The `day` + `tc` attrs already round-trip through the saved doc, so a change here flows
 // straight into onUpdate → autosave → saveDoc and survives reload. Reuses the .wp-blockmenu chrome.
-const TC_RE = /^\d{1,2}:\d{2}:\d{2}:\d{2}$/;
+// Canonical zero-padded HH:MM:SS:FF (matches parser.ts's TC + document-builder's TIMECODE_RE) — a
+// manually-typed code must be in the same form the parser routes, or it'd chip but never become a SOT.
+const TC_RE = /^\d{2}:\d{2}:\d{2}:\d{2}$/;
 let openTcMenuEl = null;
 function closeTcMenu() {
   if (!openTcMenuEl) return;
@@ -269,7 +271,7 @@ export const TimecodeMark = Mark.create({
         // The BARE broadcast timecode (HH:MM:SS:FF). This is the ONLY thing a click copies —
         // never the day. Rides in data-tc so the integrity audit ([data-tc]) sees every chip
         // as TAGGED and the clipboard write copies exactly the code.
-        parseHTML: (el) => el.getAttribute('data-tc') || (el.textContent || '').match(/\d{1,2}:\d{2}:\d{2}:\d{2}/)?.[0] || '',
+        parseHTML: (el) => el.getAttribute('data-tc') || (el.textContent || '').match(/\d{2}:\d{2}:\d{2}:\d{2}/)?.[0] || '',
         renderHTML: (attrs) => (attrs.tc ? { 'data-tc': attrs.tc } : {}),
       },
       // The running DAY this timecode belongs to (1|2|3 or null). Folded into the chip at
@@ -300,14 +302,18 @@ export const TimecodeMark = Mark.create({
     };
   },
   // Live self-mark: a timecode typed into the prose chips itself the moment it's complete —
-  // even when GLUED to a letter/@/bracket/punct with no leading space (matches parser.ts's TC:
-  // a non-\b detector with a lookbehind rejecting a longer numeric run and a lookahead rejecting
-  // a 5th :FF field). So "ON CAM02:17:09:07" and "03:49:59:08@" chip correctly.
+  // even when GLUED to a letter/@/bracket/punct with no leading space. TRULY MIRRORS parser.ts's TC
+  // and document-builder.js's TIMECODE_RE: the hour is EXACTLY two digits (\d{2}, zero-padded
+  // broadcast form), a non-\b detector with a lookbehind rejecting a longer numeric run and a
+  // lookahead rejecting a 5th :FF field. So "ON CAM02:17:09:07" and "03:49:59:08@" chip correctly.
+  // The hour was \d{1,2} here — broader than the parser's \d{2} — so a single-digit-hour code
+  // ("2:02:01:07") self-chipped in the editor but never routed as a SOT in the parser. \d{2} closes
+  // that divergence; the three sites (parser TC, builder TIMECODE_RE, these rules) now agree.
   addInputRules() {
-    return [markInputRule({ find: /((?<!\d)(?<!\d:)\d{1,2}:\d{2}:\d{2}:\d{2}(?!:?\d))$/, type: this.type })];
+    return [markInputRule({ find: /((?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d))$/, type: this.type })];
   },
   addPasteRules() {
-    return [markPasteRule({ find: /((?<!\d)(?<!\d:)\d{1,2}:\d{2}:\d{2}:\d{2}(?!:?\d))/g, type: this.type })];
+    return [markPasteRule({ find: /((?<!\d)(?<!\d:)\d{2}:\d{2}:\d{2}:\d{2}(?!:?\d))/g, type: this.type })];
   },
   // Left-click a timecode chip → copy it (flash + toast), exactly like the SOT LCD. Right-click →
   // the DAY / edit-timecode menu (the left-click guard keeps copy on button 0 only).
