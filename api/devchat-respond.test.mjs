@@ -12,10 +12,11 @@
 
 import assert from 'node:assert/strict';
 import { pgrValue } from './_lib/pgrest.js';
-import { buildThreadQueryUrls } from './devchat-respond.js';
+import { buildThreadQueryUrls, default as handler } from './devchat-respond.js';
 
 let pass = 0, fail = 0;
 const t = (name, fn) => { try { fn(); pass++; } catch (e) { fail++; console.error(`✗ ${name}\n  ${e.message}`); } };
+const at = async (name, fn) => { try { await fn(); pass++; } catch (e) { fail++; console.error(`✗ ${name}\n  ${e.message}`); } };
 
 const SUPA = 'https://example.supabase.co';
 const REAL_UUID = '3f9a1c2e-7b4d-4e1a-9c8f-0a1b2c3d4e5f';
@@ -128,6 +129,76 @@ t('hard invariant: no caller-supplied threadId can add a query param', () => {
 t('null/undefined threadId yields an empty filter value, not "undefined"', () => {
   const { threadUrl } = buildThreadQueryUrls(SUPA, undefined);
   assert.equal(new URL(threadUrl).searchParams.get('id'), 'eq.');
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// NULL-BODY CRASH FIX (same class as the research-* / prawn / burma-tk fixes).
+//
+// devchat-respond is PUBLIC + anonymous. The old read was
+//   let body = {}; try { body = await req.json(); } catch {}
+//   const threadId = body.threadId;
+// A JSON-literal `null` body parses to null (no throw), overwrites the {}
+// default, and `body.threadId` throws a TypeError -> caught by the handler's
+// top-level guard -> HTTP 500. A bad request reported as a server error.
+// readJsonBody now guarantees a plain object or a clean 400.
+//
+// These drive the REAL default export end-to-end with mock Requests. Every
+// case returns at the body guard or the threadId gate BEFORE any Supabase /
+// Anthropic fetch (the mock requests carry no x-forwarded-for, so extractIp()
+// -> null, which the rate limiter always lets through), so no test hits the
+// network.
+function post(bodyStr) {
+  return new Request('https://x/api/devchat-respond', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: bodyStr,
+  });
+}
+
+// Inline RED proof: the OLD unguarded read throws on a JSON-null body.
+await at('RED: old unguarded body.threadId access throws on null body', async () => {
+  const req = post('null');
+  let body = {};
+  try { body = await req.json(); } catch {} // succeeds, body becomes null
+  let threw = false;
+  try { body.threadId; } catch { threw = true; }
+  assert.equal(threw, true, 'old code reads body.threadId on null → TypeError → HTTP 500');
+});
+
+// THE FIX: a non-object body is a clean 400, never a 500.
+for (const b of ['null', '42', '"hi"', 'true', '[]', '[{"threadId":"x"}]']) {
+  await at(`non-object body ${b} -> clean 400 (no 500)`, async () => {
+    let res;
+    try { res = await handler(post(b)); }
+    catch (e) { assert.fail(`handler threw on body ${b}: ${e.message}`); }
+    assert.equal(res.status, 400, `body ${b} should be 400, not 500`);
+    assert.equal((await res.json()).error, 'body must be a json object', `body ${b} 400 message`);
+  });
+}
+
+// BACK-COMPAT: malformed JSON is a clean 400.
+await at('malformed json -> 400 invalid json', async () => {
+  const res = await handler(post('{not json'));
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, 'invalid json');
+});
+
+// A valid object flows through the guard to the threadId gate (no crash).
+await at('valid object, no threadId -> 400 threadId required (body flowed through)', async () => {
+  const res = await handler(post(JSON.stringify({ message: 'hi' })));
+  assert.equal(res.status, 400, 'reaches the threadId gate, does not crash');
+  assert.equal((await res.json()).error, 'threadId required');
+});
+await at('valid object, empty threadId -> 400 threadId required', async () => {
+  const res = await handler(post(JSON.stringify({ threadId: '' })));
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, 'threadId required');
+});
+
+// Method gating unaffected.
+await at('GET -> 405 (POST only)', async () => {
+  const res = await handler(new Request('https://x/api/devchat-respond', { method: 'GET' }));
+  assert.equal(res.status, 405);
 });
 
 console.log(`\ndevchat-respond pgrest: ${pass} passed, ${fail} failed`);

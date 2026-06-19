@@ -18,6 +18,7 @@
 
 import { checkRateLimit } from './_lib/rate-limit.js';
 import { pgrValue } from './_lib/pgrest.js';
+import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge' };
 
@@ -164,8 +165,14 @@ async function handleInner(req) {
     return json({ error: 'Too many requests. Wait a minute.' }, 429);
   }
 
-  let body = {};
-  try { body = await req.json(); } catch {}
+  // A non-object body (JSON-literal null / number / string / array) used to
+  // crash at `body.threadId` -> unhandled TypeError -> HTTP 500 on this
+  // public, anonymous endpoint. readJsonBody guarantees a plain object or a
+  // clean 400. Same null-body-crash class fixed across the research-* /
+  // prawn / burma-tk endpoints.
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return json({ error: parsed.error }, parsed.status);
+  const body = parsed.body;
   const threadId = body.threadId;
   if (!threadId) return json({ error: 'threadId required' }, 400);
 
