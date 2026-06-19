@@ -19,6 +19,7 @@
 import { checkAccess } from './_lib/access.js';
 import { sanitizeSlug } from './_lib/qss-worlds.js';
 import { imageStorageMeta } from './_lib/image-storage.js';
+import { capLovedAware } from './_lib/cap-loved.js';
 
 // Edge runtime. The missing-await bug on checkAccess below was killing
 // every request with a 500 because the async checkAccess Promise was
@@ -432,7 +433,7 @@ const sanitizeWorldSlug = sanitizeSlug;
 
 // ────────────────────── sanitize / row mapping ──────────────────────
 
-function sanitizeCard(c) {
+export function sanitizeCard(c) {
   if (!c || typeof c !== 'object') return null;
   const name = String(c.name || '').trim();
   if (!name) return null;
@@ -449,7 +450,13 @@ function sanitizeCard(c) {
   const MAX_APPS = 80;
   const MAX_LEN = 1200;
 
-  const portraits = Array.isArray(c.portraits) ? c.portraits.filter(p => p && typeof p === 'object').slice(-MAX_PORTRAITS) : [];
+  // Loved-aware cap: keep every loved portrait + the most-recent unloved up to
+  // MAX_PORTRAITS. A naive `.slice(-MAX_PORTRAITS)` silently dropped a loved
+  // portrait sitting among the oldest in a >10-portrait card (same class as the
+  // prune-variations fix, f60ce17). Object-filter first, then cap by reference.
+  const portraits = Array.isArray(c.portraits)
+    ? capLovedAware(c.portraits.filter(p => p && typeof p === 'object'), MAX_PORTRAITS)
+    : [];
   const cleanPortraits = [];
   for (const p of portraits) {
     const dataBase64 = typeof p.dataBase64 === 'string' ? p.dataBase64 : '';
