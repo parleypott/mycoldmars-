@@ -592,6 +592,18 @@ export function nodeText(node) {
   // Reuniting same-span runs first re-serializes each span as exactly one token.
   const pieces = []; // { span: 'tkSpan'|'factCheckSpan'|'visualSpan'|null, text }
   (function walk(n) {
+    // Separate block-level siblings (sibling paragraphs, and the paragraph inside each
+    // list item) with a single line boundary so their words never run together on the
+    // flattened export. Before lists/multi-paragraph bodies were allowed this never fired
+    // (a block body was one paragraph); now a bulletList of clips or a multi-paragraph VO
+    // would otherwise collapse to "first clipsecond clip" / "Line one.Line two.". The
+    // boundary carries span:null so it is never coalesced into a span run, and a guard
+    // skips it when the previous piece is already a boundary (empty middle paragraph) so a
+    // blank paragraph can't double the separator.
+    if (n.type === 'paragraph' && pieces.length) {
+      const last = pieces[pieces.length - 1];
+      if (!(last && last.span === null && last.text === '\n')) pieces.push({ span: null, text: '\n' });
+    }
     if (n.text) {
       const marks = n.marks || [];
       const span = marks.find((m) => m.type === 'tkSpan' || m.type === 'factCheckSpan' || m.type === 'visualSpan');

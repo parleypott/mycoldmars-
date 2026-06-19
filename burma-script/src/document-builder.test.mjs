@@ -240,5 +240,83 @@ eq(
   eq(JSON.stringify(rebuilt), JSON.stringify(built), 'montage build->read-back->build is identity');
 }
 
+// ── nodeText block-level separation (lists + multi-paragraph bodies) ──
+// Bug: once lists/multi-paragraph block bodies were enabled, nodeText's flat tree-walk
+// concatenated sibling block-level nodes with NO boundary, so a bulletList of clips
+// flattened to "first clipsecond clip" and a multi-paragraph VO to "Line one.Line two." —
+// jammed words in the producer-facing blocks/worklist export. Fix inserts one '\n' between
+// block-level siblings. These lock the fix AND the no-regression single-paragraph path.
+const para = (txt) => ({ type: 'paragraph', content: [{ type: 'text', text: txt }] });
+const li = (txt) => ({ type: 'listItem', content: [para(txt)] });
+
+// single paragraph → unchanged, no leading/trailing newline (the common case stays byte-identical)
+eq(nodeText(para('just one line')), 'just one line', 'nodeText single paragraph unchanged');
+
+// two sibling paragraphs (multi-paragraph VO body) → one newline between, none around
+eq(
+  nodeText({ type: 'voBlock', content: [para('Line one.'), para('Line two.')] }),
+  'Line one.\nLine two.',
+  'nodeText separates sibling paragraphs with a single newline'
+);
+
+// bulletList of two items → newline-separated, words not jammed
+eq(
+  nodeText({ type: 'binBlock', content: [
+    { type: 'bulletList', content: [li('first clip'), li('second clip')] },
+  ] }),
+  'first clip\nsecond clip',
+  'nodeText separates bulletList items (no word jamming)'
+);
+
+// orderedList of three items → newline-separated
+eq(
+  nodeText({ type: 'binBlock', content: [
+    { type: 'orderedList', content: [li('alpha'), li('bravo'), li('charlie')] },
+  ] }),
+  'alpha\nbravo\ncharlie',
+  'nodeText separates orderedList items'
+);
+
+// a leading paragraph then a list → all boundaries present, no jamming, no leading newline
+eq(
+  nodeText({ type: 'binBlock', content: [
+    para('intro line'),
+    { type: 'bulletList', content: [li('one'), li('two')] },
+  ] }),
+  'intro line\none\ntwo',
+  'nodeText separates a paragraph followed by list items'
+);
+
+// truly-empty middle paragraph (content: []) must NOT double the separator (guard against "\n\n")
+eq(
+  nodeText({ type: 'voBlock', content: [para('top'), { type: 'paragraph', content: [] }, para('bottom')] }),
+  'top\nbottom',
+  'nodeText empty middle paragraph does not double the boundary'
+);
+
+// spans in DIFFERENT list items must not coalesce across the boundary (each item its own token)
+eq(
+  nodeText({ type: 'binBlock', content: [
+    { type: 'bulletList', content: [
+      { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'shot A', marks: [{ type: 'visualSpan' }] }] }] },
+      { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'shot B', marks: [{ type: 'visualSpan' }] }] }] },
+    ] },
+  ] }),
+  '[shot A]\n[shot B]',
+  'nodeText keeps spans in distinct list items as separate tokens'
+);
+
+// docToBlocks end-to-end: a bin block holding a list exports separated text (the real export path)
+{
+  const doc = { type: 'doc', content: [
+    { type: 'binBlock', attrs: { blockId: 'bx' }, content: [
+      { type: 'bulletList', content: [li('1962 coup footage'), li('archival map')] },
+    ] },
+  ] };
+  const blocks = docToBlocks(doc);
+  eq(blocks.length, 1, 'docToBlocks list body → one block');
+  eq(blocks[0].text, '1962 coup footage\narchival map', 'docToBlocks flattens list body with newline separators');
+}
+
 console.log(`\ndocument-builder: ${pass} passed, ${fail} failed`);
 process.exit(fail > 0 ? 1 : 0);
