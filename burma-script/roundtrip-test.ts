@@ -6,14 +6,11 @@
 //
 // WHY THIS IS MATCHED BY ID, NOT BY INDEX (the fix):
 // The original version asserted out[i].type === src[i].type — index-by-index. That made a
-// FALSE assumption: that buildEditorDocument preserves block ORDER. It deliberately does
-// not. Two shipped transforms reshuffle/retype on purpose:
-//   • FEATURE D (service consolidation): every map-need / archive-req block is gathered into
-//     ONE serviceGroup emitted at the FIRST service block's slot; docToBlocks unwraps them
-//     back in document order. So service blocks RELOCATE — every index after the first
-//     service block shifts. Index-by-index then reads misaligned pairs as "type drift" and
-//     "timecode drift" (the old "block 214 sot 02:28:42:08 -> 02:26:45:07" was a MISALIGNED
-//     comparison, not a corrupted timecode — proven: the timecode multiset is byte-identical).
+// FALSE assumption: that buildEditorDocument preserves block ORDER. Two shipped transforms
+// retype on purpose:
+//   • SERVICE-NEED REMOVAL: every parser-labelled map-need / archive-req block DEMOTES to a
+//     neutral `bin` (DIRECTION) block at build time — the "service need" concept was removed.
+//     Text is fully preserved; only the type changes.
 //   • CHAPTER RECLASSIFICATION (the cadence fix): reclassifyChapter() demotes an over-eager
 //     `chapter` to `oncam` or `scene`. That is a real, intended type change on export.
 // Matching by id makes the test order-independent, so it asserts the contract the round-trip
@@ -35,7 +32,7 @@ if (out.length !== sourceBlocks.length)
   fail(`block count drifted: ${sourceBlocks.length} in, ${out.length} out`);
 
 // 2) id fidelity — every source block id comes back exactly once, none invented.
-//    (Order may change — service blocks relocate — but the SET of blocks must be identical.)
+//    (The SET of blocks must be identical — none dropped, duplicated, or invented.)
 const srcIds = sourceBlocks.map((b: any) => b.id);
 const outById = new Map<string, any>();
 for (const b of out) {
@@ -45,10 +42,13 @@ for (const b of out) {
 for (const id of srcIds) if (!outById.has(id)) fail(`block id vanished on export: ${id}`);
 for (const b of out) if (!srcIds.includes(b.id)) fail(`block id invented on export: ${b.id}`);
 
-// The ONLY type changes the round-trip is allowed to make: reclassifyChapter() may demote a
-// parser-labelled `chapter` to `oncam` or `scene`. Everything else must be type-identical.
+// The type changes the round-trip is allowed to make:
+//   • reclassifyChapter() may demote a parser `chapter` to `oncam` or `scene`.
+//   • the service-need removal demotes parser `map-need` / `archive-req` to neutral `bin`.
+// Everything else must be type-identical.
 const allowedTypeChange = (from: string, to: string) =>
-  from === "chapter" && (to === "oncam" || to === "scene");
+  (from === "chapter" && (to === "oncam" || to === "scene")) ||
+  ((from === "map-need" || from === "archive-req") && to === "bin");
 
 // 3) type fidelity per block, MATCHED BY ID (order-independent).
 sourceBlocks.forEach((src: any) => {

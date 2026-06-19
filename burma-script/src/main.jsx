@@ -328,14 +328,28 @@ let INITIAL_SAVE_FAILURE = null;
 // raises a PERSISTENT, non-dismissable red banner so Johnny can never believe a save landed when
 // it didn't. A SEPARATE, gentler `wp-stale-tab` signal (another tab saved a newer doc) shows a
 // quiet amber "reload" notice — nothing was lost, the tab just needs to catch up.
+// Relative-time label for the "saved" pill — "just now / 12s ago / 3m ago / 1h ago".
+function relTime(ms) {
+  const s = Math.floor((Date.now() - ms) / 1000);
+  if (s < 5) return 'just now';
+  if (s < 60) return s + 's ago';
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + 'm ago';
+  const h = Math.floor(m / 60);
+  return h + 'h ago';
+}
+
 function SaveStatus() {
-  const [state, setState] = useState('saved'); // 'saved' | 'unsaved' | 'failed'
+  const [state, setState] = useState('saved'); // 'saving' | 'saved' | 'failed'
   const [failMsg, setFailMsg] = useState('');
   const [stale, setStale] = useState(false);
+  const [savedAt, setSavedAt] = useState(null); // timestamp of the last verified save
+  const [, setNowTick] = useState(0);           // forces the relative-time label to re-render
 
   useEffect(() => {
-    const onDirty = () => setState((s) => (s === 'failed' ? s : 'unsaved'));
-    const onSaved = () => setState((s) => (s === 'failed' ? s : 'saved'));
+    // 'failed' is sticky by design — a real save failure must NEVER silently flip back to green.
+    const onDirty = () => setState((s) => (s === 'failed' ? s : 'saving'));
+    const onSaved = () => { setState((s) => (s === 'failed' ? s : 'saved')); setSavedAt(Date.now()); };
     const onFailed = (e) => {
       setState('failed');
       setFailMsg(e.detail?.message || 'your edits are NOT being saved.');
@@ -361,12 +375,27 @@ function SaveStatus() {
     };
   }, []);
 
+  // Tick the relative-time label ONLY while we're showing a "saved" timestamp — never a
+  // perpetual timer. Cleared on state change + unmount.
+  useEffect(() => {
+    if (state !== 'saved' || savedAt == null) return;
+    const id = setInterval(() => setNowTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [state, savedAt]);
+
   if (state === 'failed') {
     return (
-      <div class="wp-save-banner" role="alert" aria-live="assertive">
-        <span class="wp-save-banner-lab">⚠ SAVE FAILED</span>
-        <span class="wp-save-banner-msg">{failMsg} Export now (EXPORT button) to keep your work.</span>
-      </div>
+      <>
+        <div class="wp-save-banner" role="alert" aria-live="assertive">
+          <span class="wp-save-banner-lab">⚠ SAVE FAILED</span>
+          <span class="wp-save-banner-msg">{failMsg} Export now (EXPORT button) to keep your work.</span>
+        </div>
+        {/* the corner pill agrees with the banner so the always-visible indicator never lies */}
+        <div class="wp-save-pill is-failed" role="status" aria-live="polite">
+          <span class="wp-save-pill-mark" />
+          <span class="wp-save-pill-lab">SAVE FAILED — EXPORT NOW</span>
+        </div>
+      </>
     );
   }
   return (
@@ -381,9 +410,12 @@ function SaveStatus() {
           </span>
         </div>
       )}
-      <div class={`wp-save-dot is-${state}`} role="status" aria-live="polite" title={state === 'unsaved' ? 'Unsaved changes' : 'Saved'}>
-        <span class="wp-save-dot-mark" />
-        <span class="wp-save-dot-lab">{state === 'unsaved' ? 'UNSAVED' : 'SAVED'}</span>
+      <div class={`wp-save-pill is-${state}`} role="status" aria-live="polite">
+        <span class="wp-save-pill-mark" />
+        <span class="wp-save-pill-lab">{state === 'saving' ? 'SAVING…' : 'ALL CHANGES SAVED'}</span>
+        {state === 'saved' && savedAt != null && (
+          <span class="wp-save-pill-time">{relTime(savedAt)}</span>
+        )}
       </div>
     </>
   );
@@ -456,9 +488,10 @@ function App() {
     const { state } = ed;
     const end = state.doc.content.size;
     // TABLE SPINE — new blocks are inserted as a full-width ROW so the doc stays a uniform
-    // stack of rows (tableRow > tableCell(full) > voBlock).
-    const vo = state.schema.nodes.voBlock.createAndFill({ blockId: 'blk_' + Math.random().toString(36).slice(2, 9), status: 'todo' });
-    const cell = vo && state.schema.nodes.tableCell.createAndFill({ role: 'full' }, vo);
+    // stack of rows (tableRow > tableCell(full) > noneBlock). New blocks are BORN as `none`:
+    // a chrome-less line with a faint pick-a-type hint until the writer picks a type.
+    const none = state.schema.nodes.noneBlock.createAndFill({ blockId: 'blk_' + Math.random().toString(36).slice(2, 9) });
+    const cell = none && state.schema.nodes.tableCell.createAndFill({ role: 'full' }, none);
     const row = cell && state.schema.nodes.tableRow.createAndFill({ cols: 1 }, cell);
     if (row) ed.view.dispatch(state.tr.insert(end, row).scrollIntoView());
   }

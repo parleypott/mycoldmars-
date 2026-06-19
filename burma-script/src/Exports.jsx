@@ -4,11 +4,9 @@
 //      window.print() hides all chrome and lays the document out black-on-white with page
 //      breaks at chapters. The "Print script (PDF)" button just calls window.print() on the
 //      live document — the editor surface itself is the print artifact.
-//   2. WORKLISTS — three clean, printable + downloadable views derived from the LIVE doc:
-//        • MAP NEEDS    — every map-need block (mapping data the graphics team must source)
-//        • ARCHIVE      — every archive-req block (archival footage/stills to license)
+//   2. WORKLIST — one clean, printable + downloadable view derived from the LIVE doc:
 //        • TRANSLATION  — every SOT speaker quote (sound-on-tape to translate / subtitle)
-//      Each worklist is its OWN printable view (a class on <html> swaps which surface prints)
+//      The worklist is its OWN printable view (a class on <html> swaps which surface prints)
 //      and downloadable as a clean .txt the producer can hand off.
 //
 // Reads the doc through docToBlocks(editor.getJSON()) so the worklists reflect every live
@@ -22,7 +20,7 @@ import { buildWorklists, toPlainText, actionable } from './worklists.js';
 // Worklist bodies unwrap the inline span scaffolding ({tk …} / [visual …]) to inner text —
 // stripSpanScaffolding lives beside its inverse (inlineContent/wrapToken) in document-builder.js
 // and is guarded by the worklist-unwrap checks in integrity-check.ts. The pure extraction logic
-// (buildWorklists / cleanBody / toPlainText / actionable) lives in worklists.js so it is
+// (buildWorklists / toPlainText / actionable) lives in worklists.js so it is
 // unit-tested headlessly; this file owns only the render + download/print plumbing.
 
 function download(filename, text) {
@@ -41,12 +39,10 @@ function Worklist({ rows, empty, showDone }) {
   return (
     <ol class="wp-ex-list">
       {rows.map((r) => (
-        <li class={`wp-ex-row ${r.empty ? 'is-placeholder' : ''} ${showDone && r.done ? 'is-done' : ''}`} key={r.id}>
+        <li class={`wp-ex-row ${showDone && r.done ? 'is-done' : ''}`} key={r.id}>
           <div class="wp-ex-primary">{r.primary}{showDone && r.done ? <span class="wp-ex-doneflag">done</span> : null}</div>
           {r.meta ? <div class="wp-ex-meta">{r.meta}</div> : null}
-          {r.empty
-            ? <div class="wp-ex-placeholder">no mapping data specified</div>
-            : (r.body ? <div class="wp-ex-body">{r.body.split('\n').map((bl, i) => <div key={i}>{bl}</div>)}</div> : null)}
+          {r.body ? <div class="wp-ex-body">{r.body.split('\n').map((bl, i) => <div key={i}>{bl}</div>)}</div> : null}
         </li>
       ))}
     </ol>
@@ -54,17 +50,15 @@ function Worklist({ rows, empty, showDone }) {
 }
 
 const TABS = [
-  { key: 'maps', label: 'MAP NEEDS', file: 'burma-map-needs.txt', heading: 'Map needs', empty: 'No map-need blocks in the script.' },
-  { key: 'archive', label: 'ARCHIVE', file: 'burma-archive.txt', heading: 'Archive requests', empty: 'No archive-req blocks in the script.' },
   { key: 'translation', label: 'TRANSLATION', file: 'burma-translation.txt', heading: 'Translation worklist (SOT)', empty: 'No SOT blocks to translate.' },
 ];
 
 // `getDoc` returns the live ProseMirror JSON; `docTitle` heads the printed/downloaded sheet.
 export function Exports({ getDoc, docTitle }) {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState('maps');
-  // Rebuild worklists from the live doc each time the panel opens (cheap; ~225 blocks).
-  const [lists, setLists] = useState({ maps: [], archive: [], translation: [] });
+  const [tab, setTab] = useState('translation');
+  // Rebuild the worklist from the live doc each time the panel opens (cheap; ~225 blocks).
+  const [lists, setLists] = useState({ translation: [] });
 
   const refresh = useCallback(() => {
     try { setLists(buildWorklists(docToBlocks(getDoc()))); } catch { /* doc not ready */ }
@@ -86,7 +80,7 @@ export function Exports({ getDoc, docTitle }) {
 
   const current = useMemo(() => TABS.find((t) => t.key === tab) || TABS[0], [tab]);
   const rows = lists[tab] || [];
-  const liveRows = actionable(rows); // excludes faint empty-map-need placeholders
+  const liveRows = actionable(rows); // passthrough now (TRANSLATION rows carry no empty flag)
   const showDone = tab === 'translation';
 
   // PRINT THE WHOLE SCRIPT: drop the export overlay, mark <html> so the print stylesheet

@@ -297,6 +297,10 @@ function blockToNode(b, opts) {
     if (real === 'oncam') b = { ...b, type: 'oncam', text: b.text || b.title };
     else if (real === 'scene') b = { ...b, type: 'scene', title: b.title };
   }
+  // The "service need" concept is GONE. Legacy map-need / archive-req blocks demote to a neutral
+  // 'bin' (DIRECTION) cartridge everywhere downstream — every word of the body survives via
+  // inlineContent, nothing is special-cased. (See demoteServiceNodes for the saved-doc path.)
+  if (b.type === 'map-need' || b.type === 'archive-req') b = { ...b, type: 'bin' };
   switch (b.type) {
     case 'chapter': {
       // Heading = clean act label. BODY = the remaining title text (COLD OPEN's candidate
@@ -362,25 +366,27 @@ function blockToNode(b, opts) {
         content: [para(inlineContent(cleanQuote(bodyText(b)), 'plain'))],
       };
 
-    case 'map-need':
-    case 'archive-req':
-      // NOTE: when buildEditorDocument runs the consolidation pass (feature D), map-need /
-      // archive-req blocks are gathered into ONE serviceGroup (serviceItem rows) and never
-      // reach this branch. This standalone serviceBlock is kept as a fallback for any service
-      // block produced OUTSIDE the pass (e.g. a future single-block rebuild or change-type).
-      return {
-        type: 'serviceBlock',
-        attrs: { blockId: id, kind: b.type, label: b.title || (b.type === 'map-need' ? 'Mapping data needs' : 'Archive request') },
-        // Route through inlineContent so {tk}/[visual] markers baked into the raw text become
-        // clickable chips that reach the Workshop hub — every marker is a chip (punch-list #6).
-        content: [para(inlineContent(bodyText(b), 'plain'))],
-      };
-
     case 'note':
     case 'jh-note':
       return {
         type: 'noteBlock',
         attrs: { blockId: id, kind: b.type },
+        content: [para(inlineContent(bodyText(b), 'plain'))],
+      };
+
+    case 'montage':
+      return {
+        type: 'montageBlock',
+        attrs: { blockId: id },
+        content: [para(inlineContent(bodyText(b), 'plain'))],
+      };
+
+    case 'none':
+      // A "born" block with no chosen type yet — a chrome-less editable line. It still routes
+      // its body through inlineContent so anything already typed (chips included) survives.
+      return {
+        type: 'noneBlock',
+        attrs: { blockId: id },
         content: [para(inlineContent(bodyText(b), 'plain'))],
       };
 
@@ -393,33 +399,6 @@ function blockToNode(b, opts) {
       };
   }
 }
-
-// ---- service consolidation (FEATURE D) -----------------------------------
-// One serviceItem row inside the consolidated serviceGroup. Keeps the source block's id,
-// kind, and FULL content (every word → inlineContent, so {tk}/[visual]/timecode chips all
-// survive and the integrity audit stays green). The row carries its own kind so the group
-// can label each line MAP / ARCHIVE.
-function serviceItem(b) {
-  return {
-    type: 'serviceItem',
-    attrs: { blockId: b.id, kind: b.type },
-    content: [para(inlineContent(bodyText(b), 'plain'))],
-  };
-}
-
-// Build the ONE consolidated service panel from every map-need / archive-req block in the
-// script. A DIFFERENT FLAVOR from the script cartridges — a single bordered "SERVICE NEEDS"
-// panel listing each need as its own row, so mapping/archive needs read as one clean box,
-// clearly a production service note rather than script. Keeps every word (audit-safe).
-function serviceGroupNode(serviceBlocks) {
-  return {
-    type: 'serviceGroup',
-    attrs: { blockId: 'svc_group' },
-    content: serviceBlocks.map(serviceItem),
-  };
-}
-
-const SERVICE_TYPES = new Set(['map-need', 'archive-req']);
 
 // ---- TABLE SPINE wrapping (SPINE BUILDER #3) ----------------------------
 // The document is now a STACK OF ROWS. Every top-level block node is wrapped into
@@ -449,13 +428,6 @@ export function buildEditorDocument(blocks) {
   // ▸ SCRIPT BEGINS → CH 01), not buried under a collapsed toggle.
   const firstChapter = list.findIndex((b) => b.type === 'chapter');
 
-  // FEATURE D — consolidate ALL map-need / archive-req blocks into ONE serviceGroup.
-  // We emit the whole group inline at the position of the FIRST service block, and skip
-  // every other service block where it originally sat (its words still reach the page, just
-  // inside the single grouped panel). No words dropped → audit stays PASS:true.
-  const serviceBlocks = list.filter((b) => SERVICE_TYPES.has(b.type));
-  const firstServiceIdx = list.findIndex((b) => SERVICE_TYPES.has(b.type));
-
   const content = [];
   // Running DAY context for inline timecode chips (#2). Threads the nearest preceding DAY N
   // across blocks exactly like parser.ts's contextDay, so a chip with no explicit local day
@@ -477,11 +449,6 @@ export function buildEditorDocument(blocks) {
     if (firstChapter > 0 && i === firstChapter) {
       content.push({ type: 'scriptStart', attrs: {} });
     }
-    if (SERVICE_TYPES.has(b.type)) {
-      // Drop the consolidated group in at the first service block's slot; skip the rest.
-      if (i === firstServiceIdx) content.push(serviceGroupNode(serviceBlocks));
-      return;
-    }
     const node = blockToNode(b, { scaffold: b.type === 'bin' && firstChapter > 0 && i < firstChapter });
     if (node) content.push(node);
   });
@@ -501,11 +468,74 @@ export function buildEditorDocument(blocks) {
 // inline marks ride along untouched inside the wrapped block. Already-rowed docs pass through.
 export function ensureTableDoc(doc) {
   if (!doc || doc.type !== 'doc' || !Array.isArray(doc.content)) return doc;
+  // SAFETY: a legacy saved doc may still contain serviceGroup / serviceItem / serviceBlock nodes
+  // (the now-removed "service need" concept). Those node types are no longer registered in the
+  // schema, so TipTap would SILENTLY DROP them (and every word inside) on load. Convert them to
+  // neutral binBlocks FIRST — text-preserving — so no script content is lost on reload.
+  doc = demoteServiceNodes(doc);
   const allRows = doc.content.length > 0 && doc.content.every((n) => n && n.type === 'tableRow');
   if (allRows) return doc;
   // Mixed or flat — wrap any non-row top-level node into a full-width row (idempotent: a node
   // that is already a tableRow is kept as-is so a partially-migrated doc still normalises).
   const content = doc.content.map((n) => (n && n.type === 'tableRow' ? n : fullWidthRow(n)));
+  return { ...doc, content };
+}
+
+// ---- legacy service-node demotion (text-preserving) ----------------------
+// The "service need" concept (serviceGroup / serviceItem / serviceBlock) was removed. A doc
+// already saved to localStorage may still carry those node shapes. This transform rewrites them
+// into neutral binBlocks, copying their inline content VERBATIM so every word + chip mark
+// survives — the migrate-doc text-equality gate proves it. Idempotent: a doc with no service
+// nodes returns an equivalent doc unchanged. Walks doc → rows → cells → blocks AND bare-block
+// (pre-table) docs, so every load path is covered.
+function serviceItemToBin(item) {
+  const a = item.attrs || {};
+  return {
+    type: 'binBlock',
+    attrs: { blockId: a.blockId || null, scaffold: false },
+    // Reuse the serviceItem's paragraph content verbatim — same words, same chip marks.
+    content: (item.content && item.content.length)
+      ? item.content
+      : [{ type: 'paragraph', content: [{ type: 'text', text: ' ' }] }],
+  };
+}
+function serviceBlockToBin(node) {
+  const a = node.attrs || {};
+  return {
+    type: 'binBlock',
+    attrs: { blockId: a.blockId || null, scaffold: false },
+    content: (node.content && node.content.length)
+      ? node.content
+      : [{ type: 'paragraph', content: [{ type: 'text', text: ' ' }] }],
+  };
+}
+// Expand one block-level node into the array of neutral blocks it demotes to. A serviceGroup
+// becomes N binBlocks (one per serviceItem); a standalone serviceBlock becomes one binBlock;
+// anything else passes through untouched.
+function demoteBlockNode(node) {
+  if (!node) return [node];
+  if (node.type === 'serviceGroup') return (node.content || []).map(serviceItemToBin);
+  if (node.type === 'serviceBlock') return [serviceBlockToBin(node)];
+  return [node];
+}
+export function demoteServiceNodes(doc) {
+  if (!doc || doc.type !== 'doc' || !Array.isArray(doc.content)) return doc;
+  const content = [];
+  for (const node of doc.content) {
+    if (node?.type === 'tableRow') {
+      // Walk the row's cells, demoting any service node inside each cell's block list.
+      const cells = (node.content || []).map((cell) => {
+        if (cell?.type !== 'tableCell') return cell;
+        const blocks = [];
+        for (const blk of cell.content || []) blocks.push(...demoteBlockNode(blk));
+        return { ...cell, content: blocks };
+      });
+      content.push({ ...node, content: cells });
+    } else {
+      // Bare (pre-table) top-level node — demote in place, wrapping happens downstream.
+      content.push(...demoteBlockNode(node));
+    }
+  }
   return { ...doc, content };
 }
 
@@ -517,7 +547,8 @@ const NODE_TO_TYPE = {
   oncamBlock: 'oncam',
   sotBlock: 'sot',
   brollBlock: 'broll',
-  serviceBlock: null, // kind held in attrs
+  montageBlock: 'montage',
+  noneBlock: 'none',
   noteBlock: null,
   binBlock: 'bin',
 };
@@ -614,15 +645,6 @@ export function docToBlocks(doc) {
   flat.forEach((node, i) => {
     // scriptStart is a decorative divider — no source content, no block.
     if (node.type === 'scriptStart') return;
-    // serviceGroup (feature D) holds N serviceItem rows — UNWRAP each back into its own
-    // map-need / archive-req block so the persisted blocks array round-trips faithfully.
-    if (node.type === 'serviceGroup') {
-      (node.content || []).forEach((item, j) => {
-        const ia = item.attrs || {};
-        out.push({ id: ia.blockId || `svc_${i}_${j}`, type: ia.kind || 'map-need', text: nodeText(item) });
-      });
-      return;
-    }
     out.push(nodeToBlock(node, i));
   });
   return out;
@@ -633,7 +655,6 @@ function nodeToBlock(node, i) {
   const id = a.blockId || `blk_${i}`;
   const text = nodeText(node);
   let type = NODE_TO_TYPE[node.type];
-  if (node.type === 'serviceBlock') type = a.kind || 'map-need';
   if (node.type === 'noteBlock') type = a.kind || 'note';
   const block = { id, type: type || 'bin' };
   if (node.type === 'chapterBlock') { block.title = text; block.genre = a.genre; }

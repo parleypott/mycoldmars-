@@ -93,7 +93,7 @@ function telemetry(doc) {
     // scriptStart is a decorative divider, not a content block — don't count it.
     if (n.type === 'scriptStart') continue;
     blocks++;
-    if (n.type === 'voBlock' || n.type === 'oncamBlock') {
+    if (n.type === 'voBlock' || n.type === 'oncamBlock' || n.type === 'montageBlock') {
       const t = nodeText(n);
       if (t) words += t.split(/\s+/).filter((w) => /\w/.test(w)).length;
     }
@@ -138,7 +138,10 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
         // OUR custom block nodes own the document; disable StarterKit's blocks
         // so the schema doesn't fight. Keep paragraph + basic inline marks (bold/italic).
         heading: false, blockquote: false, codeBlock: false, code: false,
-        bulletList: false, orderedList: false, listItem: false, horizontalRule: false,
+        // LISTS ON: bullet ("- ") + ordered ("1. ") lists work inside writing block bodies.
+        // MUST stay identical to the mirror schema in migrate-doc.js or saved docs containing a
+        // list fail the read-back invariant and fire wp-save-failed.
+        horizontalRule: false,
         // We own dropcursor/gapcursor below so we can Swiss-red the dropcursor.
         dropcursor: false, gapcursor: false,
       }),

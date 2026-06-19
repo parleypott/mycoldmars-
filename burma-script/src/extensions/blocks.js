@@ -61,7 +61,9 @@ function makeSpine(editor, getPos) {
   return spine;
 }
 
-// Insert a fresh paragraph block (defaults to a VO-style writing block) below `getPos`.
+// Insert a fresh block below `getPos`. New blocks are BORN as a `none` block — a chrome-less
+// editable line with a faint "pick a type" hint — until the writer opens the grip menu and
+// chooses a real type (or just starts writing).
 function insertBlockBelow(editor, getPos) {
   const pos = typeof getPos === 'function' ? getPos() : getPos;
   if (typeof pos !== 'number') return;
@@ -69,7 +71,7 @@ function insertBlockBelow(editor, getPos) {
   const node = state.doc.nodeAt(pos);
   if (!node) return;
   const after = pos + node.nodeSize;
-  const fresh = state.schema.nodes.voBlock.createAndFill({ blockId: 'blk_' + Math.random().toString(36).slice(2, 9), status: 'todo' });
+  const fresh = state.schema.nodes.noneBlock.createAndFill({ blockId: 'blk_' + Math.random().toString(36).slice(2, 9) });
   if (!fresh) return;
   let tr = state.tr.insert(after, fresh);
   try {
@@ -91,6 +93,7 @@ function insertBlockBelow(editor, getPos) {
 const TYPE_MENU = [
   ['chapterBlock', 'CHAPTER'],
   ['voBlock', 'VO — narration'],
+  ['montageBlock', 'Montage'],
   ['oncamBlock', 'Direction'],
   ['sceneBlock', 'Scene heading'],
   ['noteBlock', 'Note'],
@@ -344,7 +347,7 @@ const VO_LABEL = { todo: 'OFF', recorded: 'ARM', 'in-edit': 'REC' };
 export const VoBlock = Node.create({
   name: 'voBlock',
   group: 'block',
-  content: 'paragraph+',
+  content: '(paragraph | bulletList | orderedList)+',
   draggable: true,
   addAttributes() {
     return { ...baseAttrs(), status: { default: 'todo' } };
@@ -410,7 +413,7 @@ export const VoBlock = Node.create({
 export const OncamBlock = Node.create({
   name: 'oncamBlock',
   group: 'block',
-  content: 'paragraph+',
+  content: '(paragraph | bulletList | orderedList)+',
   draggable: true,
   addAttributes() { return baseAttrs(); },
   parseHTML() { return [{ tag: 'div[data-oncam]' }]; },
@@ -429,7 +432,7 @@ export const OncamBlock = Node.create({
 export const SotBlock = Node.create({
   name: 'sotBlock',
   group: 'block',
-  content: 'paragraph+',
+  content: '(paragraph | bulletList | orderedList)+',
   draggable: true,
   addAttributes() {
     return {
@@ -459,7 +462,7 @@ export const SotBlock = Node.create({
 export const BrollBlock = Node.create({
   name: 'brollBlock',
   group: 'block',
-  content: 'paragraph+',
+  content: '(paragraph | bulletList | orderedList)+',
   draggable: true,
   addAttributes() {
     return {
@@ -483,102 +486,64 @@ export const BrollBlock = Node.create({
   },
 });
 
-// --- SERVICE (map-need / archive-req) — light cartridge, kind label ---
-export const ServiceBlock = Node.create({
-  name: 'serviceBlock',
+// --- MONTAGE — first-class block type, flat cartridge, MONTAGE kind label ---
+// A sequence of shots. Mirrors VO/Scene chrome: a cartridge with a non-editable kind head and
+// editable prose body. Its own cap colour (teal) so the rack stays legible against VO blue.
+export const MontageBlock = Node.create({
+  name: 'montageBlock',
   group: 'block',
-  content: 'paragraph+',
+  content: '(paragraph | bulletList | orderedList)+',
   draggable: true,
-  addAttributes() {
-    return { ...baseAttrs(), kind: { default: 'map-need' }, label: { default: '' } };
-  },
-  parseHTML() { return [{ tag: 'div[data-service]' }]; },
+  addAttributes() { return baseAttrs(); },
+  parseHTML() { return [{ tag: 'div[data-montage]' }]; },
   renderHTML({ node }) {
-    const a = node.attrs;
     return ['div', mergeAttributes({
-      'data-service': '', 'data-kind': a.kind, 'data-block-id': a.blockId || '', class: 'wp-cart wp-service',
+      'data-montage': '', 'data-block-id': node.attrs.blockId || '', class: 'wp-cart wp-montage',
     }), ['div', { class: 'wp-cart-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
   addNodeView() {
     return ({ node, editor, getPos }) => {
-      const head = el('div', 'wp-svc-head', { contenteditable: 'false' });
-      head.appendChild(Object.assign(el('span', 'wp-svc-kind'), { textContent: node.attrs.kind === 'archive-req' ? 'ARCHIVE REQUEST' : 'MAPPING NEED' }));
-      const view = cartridge({ blockClass: 'wp-service', dataAttr: 'data-service', node, editor, getPos, headChildren: [head] });
-      view.dom.setAttribute('data-kind', node.attrs.kind);
-      return view;
+      const head = el('div', 'wp-montage-head', { contenteditable: 'false' });
+      head.appendChild(Object.assign(el('span', 'wp-mtg-kind'), { textContent: 'MONTAGE' }));
+      return cartridge({ blockClass: 'wp-montage', dataAttr: 'data-montage', node, editor, getPos, headChildren: [head] });
     };
   },
 });
 
-// --- SERVICE GROUP (feature D) — ONE consolidated production-needs panel ----
-// All map-need + archive-req blocks fold into a SINGLE distinctly-flavored box (dashed
-// frame, tinted fill, "SERVICE NEEDS" cap) — clearly NOT a script cartridge. Each original
-// block becomes a serviceItem row carrying its full editable content (chips intact). FLAT.
-export const ServiceItem = Node.create({
-  name: 'serviceItem',
-  group: 'serviceRow',
-  content: 'paragraph+',
-  defining: true,
-  addAttributes() { return { ...baseAttrs(), kind: { default: 'map-need' } }; },
-  parseHTML() { return [{ tag: 'div[data-service-item]' }]; },
-  renderHTML({ node }) {
-    const a = node.attrs;
-    return ['div', mergeAttributes({
-      'data-service-item': '', 'data-kind': a.kind, 'data-block-id': a.blockId || '', class: 'wp-svc-item',
-    }), ['div', { class: 'wp-svc-item-body' }, 0]];
-  },
-  addNodeView() {
-    return ({ node }) => {
-      const dom = el('div', 'wp-svc-item');
-      dom.setAttribute('data-kind', node.attrs.kind);
-      if (node.attrs.blockId) dom.setAttribute('data-block-id', node.attrs.blockId);
-      const tag = el('span', 'wp-svc-item-tag', { contenteditable: 'false' });
-      tag.textContent = node.attrs.kind === 'archive-req' ? 'ARCHIVE' : 'MAP';
-      dom.appendChild(tag);
-      const body = el('div', 'wp-svc-item-body');
-      dom.appendChild(body);
-      return {
-        dom, contentDOM: body,
-        update(updated) {
-          if (updated.type.name !== 'serviceItem') return false;
-          tag.textContent = updated.attrs.kind === 'archive-req' ? 'ARCHIVE' : 'MAP';
-          dom.setAttribute('data-kind', updated.attrs.kind);
-          return true;
-        },
-      };
-    };
-  },
-});
-
-export const ServiceGroup = Node.create({
-  name: 'serviceGroup',
+// --- NONE — the "born" block: a chrome-less editable line, no cartridge. ----
+// A new block is born as `none`: no border, no cap, no kind label — just an editable line with
+// a faint "press to pick a type" hint and the grip to open the block menu. The moment the writer
+// picks a type from the grip menu, changeBlockType converts it to a real cartridge. The node has
+// a hand-built MINIMAL NodeView (NOT the cartridge shell) so it carries no wp-cart chrome.
+export const NoneBlock = Node.create({
+  name: 'noneBlock',
   group: 'block',
-  content: 'serviceRow+',
-  defining: true,
+  content: 'paragraph+',
   draggable: true,
   addAttributes() { return baseAttrs(); },
-  parseHTML() { return [{ tag: 'section[data-service-group]' }]; },
+  parseHTML() { return [{ tag: 'div[data-none]' }]; },
   renderHTML({ node }) {
-    return ['section', mergeAttributes({
-      'data-service-group': '', 'data-block-id': node.attrs.blockId || '', class: 'wp-cart wp-svc-group',
-    }), ['div', { class: 'wp-svc-group-body' }, 0]];
+    return ['div', mergeAttributes({
+      'data-none': '', 'data-block-id': node.attrs.blockId || '', class: 'wp-none',
+    }), ['div', { class: 'wp-none-body' }, ['div', { class: 'wp-body' }, 0]]];
   },
   addNodeView() {
     return ({ node, editor, getPos }) => {
-      const dom = el('div', 'wp-cart wp-svc-group');
-      dom.setAttribute('data-service-group', '');
+      const dom = el('div', 'wp-none');
+      dom.setAttribute('data-none', '');
       if (node.attrs.blockId) dom.setAttribute('data-block-id', node.attrs.blockId);
+      // The grip still opens the block menu (press-to-pick-a-type), but the spine renders
+      // chrome-less via CSS (.wp-none .wp-spine) — no knurl, no numbered cap.
       dom.appendChild(makeSpine(editor, getPos));
-      const body = el('div', 'wp-svc-group-body');
-      // non-editable header cap — labels the panel as a distinct service flavor.
-      const head = el('div', 'wp-svc-group-head', { contenteditable: 'false' });
-      head.appendChild(Object.assign(el('span', 'wp-svc-group-kind'), { textContent: 'SERVICE NEEDS' }));
-      head.appendChild(Object.assign(el('span', 'wp-svc-group-sub'), { textContent: 'MAPPING · ARCHIVE — production handoff' }));
-      body.appendChild(head);
-      const rows = el('div', 'wp-svc-group-rows');
-      body.appendChild(rows);
+      const body = el('div', 'wp-none-body');
+      // faint, non-editable hint sitting behind the caret.
+      const hint = el('span', 'wp-none-hint', { contenteditable: 'false' });
+      hint.textContent = 'press the grip to pick a type — or just start writing';
+      body.appendChild(hint);
+      const prose = el('div', 'wp-body');
+      body.appendChild(prose);
       dom.appendChild(body);
-      return { dom, contentDOM: rows };
+      return { dom, contentDOM: prose };
     };
   },
 });
@@ -611,7 +576,7 @@ export const ScriptStart = Node.create({
 export const NoteBlock = Node.create({
   name: 'noteBlock',
   group: 'block',
-  content: 'paragraph+',
+  content: '(paragraph | bulletList | orderedList)+',
   draggable: true,
   addAttributes() { return { ...baseAttrs(), kind: { default: 'note' } }; },
   parseHTML() { return [{ tag: 'div[data-note]' }]; },
@@ -636,7 +601,7 @@ export const NoteBlock = Node.create({
 export const BinBlock = Node.create({
   name: 'binBlock',
   group: 'block',
-  content: 'paragraph+',
+  content: '(paragraph | bulletList | orderedList)+',
   draggable: true,
   addAttributes() { return { ...baseAttrs(), scaffold: { default: false } }; },
   parseHTML() { return [{ tag: 'div[data-bin]' }]; },
@@ -668,5 +633,5 @@ export const BinBlock = Node.create({
 
 export const BURMA_NODES = [
   ChapterBlock, SceneBlock, VoBlock, OncamBlock,
-  SotBlock, BrollBlock, ServiceBlock, ServiceGroup, ServiceItem, ScriptStart, NoteBlock, BinBlock,
+  SotBlock, BrollBlock, MontageBlock, NoneBlock, ScriptStart, NoteBlock, BinBlock,
 ];

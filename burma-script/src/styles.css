@@ -51,6 +51,7 @@
   --note-text: #5a4a00;
   --note-lab:  #8a6d00;
   --burgundy:  #6e1f1a;  /* B-ROLL */
+  --teal:      #2f7d72;  /* MONTAGE cap — distinct from VO blue */
   --red:       #e8412b;
   --arm:       #c2491a;
 
@@ -186,15 +187,30 @@ body {
 /* ---- SAVE STATUS — the cardinal-sin guard, made visible. A quiet saved/unsaved dot in the
    corner, and a LOUD persistent red banner across the top if a save ever fails. Data loss must
    never be silent: if it didn't save, Johnny sees it. ---- */
-.wp-save-dot {
-  position: fixed; right: 14px; bottom: 14px; z-index: 480;
-  display: inline-flex; align-items: center; gap: 6px;
-  font-family: var(--mono); font-size: 7px; letter-spacing: .2em; text-transform: uppercase;
-  color: var(--label-4); opacity: .55; pointer-events: none; user-select: none;
+/* SAVE PILL — a prominent, always-visible live save-status indicator (replaces the tiny corner
+   dot). Three states driven ONLY by the real wp-dirty / wp-saved / wp-save-failed events:
+   amber SAVING…, green ALL CHANGES SAVED + relative time, red SAVE FAILED. Flat, mono, no shadow. */
+.wp-save-pill {
+  position: fixed; right: 18px; bottom: 18px; z-index: 480;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--frame); border: 1.5px solid var(--ink); border-radius: 999px;
+  padding: 7px 13px;
+  font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink); pointer-events: none; user-select: none;
+  transition: background .2s var(--ease), border-color .2s var(--ease);
 }
-.wp-save-dot-mark { width: 7px; height: 7px; border-radius: 50%; background: #5a8f5a; }
-.wp-save-dot.is-unsaved { opacity: .85; }
-.wp-save-dot.is-unsaved .wp-save-dot-mark { background: #c9962c; }
+.wp-save-pill-mark { width: 8px; height: 8px; border-radius: 50%; background: #3f8f4f; flex: none; }
+.wp-save-pill-lab { line-height: 1; }
+.wp-save-pill-time { color: var(--label-3); font-weight: 400; letter-spacing: .04em; text-transform: none; }
+/* SAVED — calm, resting; green mark. */
+.wp-save-pill.is-saved .wp-save-pill-mark { background: #3f8f4f; }
+/* SAVING — live/in-progress; amber mark with a gentle pulse + faint amber tint. */
+.wp-save-pill.is-saving { background: #f7eccf; }
+.wp-save-pill.is-saving .wp-save-pill-mark { background: #c9962c; animation: wp-save-pulse 1.2s var(--ease) infinite; }
+/* FAILED — high contrast; agrees with the red top banner. */
+.wp-save-pill.is-failed { background: #d23b2c; color: #fff; border-color: var(--ink); }
+.wp-save-pill.is-failed .wp-save-pill-mark { background: #fff; }
+@keyframes wp-save-pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 .wp-save-banner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   display: flex; align-items: baseline; gap: 12px;
@@ -493,6 +509,14 @@ body {
 .wp-body { min-width: 0; }
 .ProseMirror-selectednode { outline: 2px solid rgba(255,91,31,.5); outline-offset: 2px; border-radius: 11px; }
 
+/* LISTS — a writer types "- " (bullet) or "1. " (ordered) inside any block body and it
+   becomes a real list. Inherit the prose typeface so list items read in the same rhythm. */
+.wp-body ul, .wp-body ol { margin: 4px 0; padding-left: 1.4em; }
+.wp-body ul { list-style: disc; }
+.wp-body ol { list-style: decimal; }
+.wp-body li { margin: 2px 0; }
+.wp-body li p { margin: 0; }
+
 /* per-kind cap colour */
 .wp-vo      .wp-cap-num { background: var(--blue); }
 /* DIRECTION (#3) — sot/broll/oncam/bin all share ONE neutral cap colour. No type-specific
@@ -500,7 +524,7 @@ body {
 .wp-dir     .wp-cap-num { background: var(--ink); }
 .wp-note    .wp-cap-num { background: var(--yellow); color: var(--note-text); }
 .wp-scene   .wp-cap-num { background: var(--ink); }
-.wp-service .wp-cap-num { background: var(--ink); }
+.wp-montage .wp-cap-num { background: var(--teal); }
 .wp-bin     .wp-cap-num { background: var(--label-3); }
 
 /* ---- CHAPTER — inverted dark cartridge ---- */
@@ -566,7 +590,7 @@ body {
 /* ---- PROSE BODY — the readable script. Reading typeface + size + lead are
    driven by THE CONTROL UNIT via --doc-read / --doc-size / --doc-lead. ---- */
 .wp-vo .wp-body, .wp-dir .wp-body,
-.wp-note .wp-body, .wp-service .wp-body, .wp-bin .wp-body {
+.wp-note .wp-body, .wp-montage .wp-body, .wp-bin .wp-body, .wp-none .wp-body {
   font-family: var(--doc-read); font-size: var(--doc-size); line-height: var(--doc-lead); color: var(--body);
 }
 
@@ -595,56 +619,34 @@ body {
 .wp-note-kind { font-size: 8px; letter-spacing: .12em; color: var(--note-lab); text-transform: uppercase; }
 .wp-note .wp-body { font-family: var(--doc-read); font-size: calc(var(--doc-size) - 1px); line-height: calc(var(--doc-lead) - 0.12); color: var(--note-text); font-style: italic; }
 
-/* ---- SERVICE — light utility (single-block fallback) ---- */
-.wp-svc-head { margin-bottom: 5px; }
-.wp-svc-kind { font-size: 8px; letter-spacing: .14em; color: var(--label); text-transform: uppercase; }
-.wp-service .wp-body { color: var(--mono-body); }
+/* ---- MONTAGE — flat cartridge, teal cap, MONTAGE kind label ---- */
+.wp-montage-head { display: flex; justify-content: flex-start; align-items: center; margin-bottom: 7px; gap: 12px; }
+.wp-mtg-kind { font-size: 8px; letter-spacing: .12em; color: #3a6f68; text-transform: uppercase; }
+.wp-montage .wp-body { color: var(--body); }
 
-/* ---- SERVICE GROUP (feature D) — ONE consolidated production-needs panel, a DIFFERENT
-   FLAVOR from the script cartridges: a DASHED frame + cool tinted fill + a SERVICE NEEDS
-   cap, with each map/archive need on its own divided row. Reads instantly as a service
-   handoff, not script. FLAT — no shadow; the dashed border is the only differentiator. ---- */
-.wp-svc-group {
-  margin: 16px 0; border: 1.5px dashed var(--ink); background: var(--panel);
+/* ---- NONE — the "born" block: chrome-less editable line, faint pick-a-type hint. ----
+   NO cartridge border, NO numbered cap, NO knurled spine — just the grip (to open the menu)
+   and an editable line. The hint sits faint behind the caret until the writer types or picks. */
+.wp-none {
+  display: flex; margin: 0 0 7px;
+  background: transparent; border: 0;
 }
-.wp-svc-group .wp-spine { background: var(--grip-grad); }
-.wp-svc-group-body { flex: 1 1 auto; min-width: 0; padding: 12px 16px 14px; }
-.wp-svc-group-head {
-  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
-  padding-bottom: 9px; margin-bottom: 6px; border-bottom: 1.5px dashed var(--label-3);
+.wp-none .wp-spine {
+  width: 22px; background: transparent; border-right: 0;
+  justify-content: flex-start; padding-top: 1px;
 }
-.wp-svc-group-kind {
-  font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .14em;
-  text-transform: uppercase; color: var(--ink);
+.wp-none .wp-cap-num { display: none; }
+.wp-none .wp-grip { flex: none; padding: 2px 0; color: var(--label-4); }
+.wp-none .wp-grip:hover { color: var(--ink); }
+.wp-none-body { flex: 1; min-width: 0; padding: 2px 6px; position: relative; }
+.wp-none .wp-body {
+  font-family: var(--doc-read); font-size: var(--doc-size); line-height: var(--doc-lead); color: var(--body);
 }
-.wp-svc-group-sub {
-  font-family: var(--mono); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; color: var(--label-2);
-}
-.wp-svc-group-rows { display: flex; flex-direction: column; }
-/* fixed tag gutter so every MAP/ARCHIVE tag aligns in a column and all bodies share one
-   left edge — even rows whose body wraps to multiple lines. Body is min-width:0 so the grid
-   track can shrink and long bracket/{tk} chips inside wrap (chip rules below) rather than
-   push past the panel's right border. */
-.wp-svc-item {
-  display: grid; grid-template-columns: 58px 1fr; gap: 12px; align-items: start;
-  padding: 10px 0; border-top: 1px dotted var(--label-4);
-}
-.wp-svc-item:first-child { border-top: 0; padding-top: 2px; }
-.wp-svc-item-tag {
-  justify-self: stretch; margin-top: 1px; padding: 2px 0; text-align: center;
-  border: 1.5px solid var(--ink); border-radius: 5px; background: transparent;
-  font-family: var(--mono); font-size: 7px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--label);
-}
-.wp-svc-item[data-kind="archive-req"] .wp-svc-item-tag { color: var(--burgundy); border-color: var(--burgundy); }
-.wp-svc-item-body {
-  min-width: 0; overflow-wrap: anywhere;
-  font-family: var(--doc-read); font-size: calc(var(--doc-size) - 1px); line-height: calc(var(--doc-lead) - 0.06); color: var(--mono-body);
-}
-.wp-svc-item-body p { margin: 0; }
-/* inside the service panel the chips wrap with the prose (the one box Johnny asked to read
-   as ONE clean column) — no horizontal bleed past the dashed border. */
-.wp-svc-item-body .wp-tk, .wp-svc-item-body .wp-fc, .wp-svc-item-body .wp-visual {
-  white-space: normal; overflow-wrap: anywhere;
+.wp-none .wp-body p { margin: 0; }
+.wp-none-hint {
+  position: absolute; top: 2px; left: 6px; pointer-events: none; user-select: none;
+  font-family: var(--doc-read); font-size: var(--doc-size); line-height: var(--doc-lead);
+  font-style: italic; color: var(--label-4); opacity: .7;
 }
 
 /* ---- BIN — quietest ---- */
@@ -719,17 +721,18 @@ body {
   transition: background .14s var(--ease);
 }
 .wp-fc:hover { background: #f8d3b1; }
+/* [visual] / B-roll spans are INERT — styled (the bracketed mono chip) but not clickable.
+   No pointer cursor, no hover affordance: clicking does nothing (the mousedown plugin is gone).
+   Only {TK} and {fc} spans open the Workshop dock. */
 .wp-visual {
   font-family: var(--mono); font-size: .8em;
   background: var(--vis-bg); border: 1.5px solid var(--ink); border-radius: 5px;
-  padding: 1px 6px; color: var(--vis-text); cursor: pointer;
+  padding: 1px 6px; color: var(--vis-text); cursor: default;
   white-space: normal; overflow-wrap: anywhere;
   -webkit-box-decoration-break: clone; box-decoration-break: clone;
-  transition: background .14s var(--ease);
 }
 .wp-visual::before { content: "["; }
 .wp-visual::after { content: "]"; }
-.wp-visual:hover { background: #e9d4d1; }
 
 /* TIMECODE chip — the integrity copy-tag. EVERY embedded HH:MM:SS:FF becomes a small
    clickable tag (mirrors the {tk} chip + the SOT LCD): flat, mono, hairline, tabular digits.
@@ -1108,7 +1111,7 @@ body {
   .wp-chapter { color: #000 !important; break-before: page; page-break-before: always; }
   .wp-chapter:first-child { break-before: auto; page-break-before: avoid; }
   .wp-chapter .wp-cart-body, .wp-chapter .wp-body, .wp-ch-kind, .wp-ch-tag { color: #000 !important; }
-  .wp-vo .wp-body, .wp-dir .wp-body, .wp-note .wp-body { color: #000 !important; font-size: 11pt !important; }
+  .wp-vo .wp-body, .wp-dir .wp-body, .wp-note .wp-body, .wp-montage .wp-body, .wp-bin .wp-body, .wp-none .wp-body { color: #000 !important; font-size: 11pt !important; }
   .wp-tk, .wp-fc, .wp-visual, .wp-tc-tag { background: none !important; border: 1pt solid #000 !important; color: #000 !important; }
   .wp-tc-tag::before { color: #000 !important; }
   .wp-dir.is-done { opacity: 1 !important; }

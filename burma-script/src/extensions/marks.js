@@ -139,15 +139,9 @@ export const VisualSpan = Mark.create({
   addPasteRules() {
     return [markPasteRule({ find: /\[([^\[\]]+)\]/g, type: this.type })];
   },
-  addProseMirrorPlugins() {
-    return [new Plugin({
-      props: {
-        handleDOMEvents: {
-          mousedown: (view, event) => openWorkshop(view, event, 'visualSpan', 'visual'),
-        },
-      },
-    })];
-  },
+  // NO addProseMirrorPlugins: [visual] / B-roll spans are deliberately INERT — they render
+  // (the bracketed mono chip) and round-trip, but a click does NOTHING. Only {TK} and {fc}
+  // spans open the Workshop dock; visual direction is reference, not an action.
 });
 
 // TIMECODE mark — the DATA-INTEGRITY chip. EVERY broadcast timecode (HH:MM:SS:FF) embedded

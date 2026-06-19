@@ -16,7 +16,7 @@
  * The fix coalesces consecutive same-span text fragments into ONE token before wrapping.
  * The surrounding cases lock in the already-correct round-trip so the fix can't regress.
  */
-import { buildEditorDocument, docToBlocks, nodeText, ensureTableDoc } from './document-builder.js';
+import { buildEditorDocument, docToBlocks, nodeText, ensureTableDoc, demoteServiceNodes } from './document-builder.js';
 
 let pass = 0, fail = 0;
 const eq = (got, want, label) => {
@@ -170,15 +170,74 @@ const voNode = { type: 'voBlock', attrs: { blockId: 'v1', status: 'todo' },
     'ensureTableDoc is idempotent on an already-rowed doc');
 }
 
-// ── serviceGroup unwrap: each serviceItem round-trips back to its own block ──
+// ── SERVICE-NEED REMOVAL: map-need / archive-req DEMOTE to neutral 'bin' blocks, text kept ──
 {
   const doc = buildEditorDocument([
     { id: 'm1', type: 'map-need', title: 'Mapping', text: 'show Irrawaddy delta' },
     { id: 'a1', type: 'archive-req', title: 'Archive', text: '1962 coup footage' },
   ]);
+  // No service node should ever appear in a freshly-built doc.
+  const json = JSON.stringify(doc);
+  ok(!/serviceGroup|serviceItem|serviceBlock/.test(json), 'built doc has NO service nodes');
+  // Text survives, blocks are now neutral 'bin'.
   const blocks = docToBlocks(doc);
-  ok(blocks.some((b) => b.type === 'map-need' && /Irrawaddy/.test(b.text)), 'map-need unwraps from serviceGroup');
-  ok(blocks.some((b) => b.type === 'archive-req' && /1962 coup/.test(b.text)), 'archive-req unwraps from serviceGroup');
+  ok(blocks.some((b) => b.type === 'bin' && /Irrawaddy delta/.test(b.text)), 'map-need demoted to bin, text kept');
+  ok(blocks.some((b) => b.type === 'bin' && /1962 coup footage/.test(b.text)), 'archive-req demoted to bin, text kept');
+  ok(!blocks.some((b) => b.type === 'map-need' || b.type === 'archive-req'), 'no map-need/archive-req blocks remain');
+}
+
+// ── LEGACY SAVED DOC: a serviceGroup node converts to binBlocks with identical text ──
+{
+  const legacy = { type: 'doc', content: [
+    { type: 'tableRow', attrs: { cols: 1 }, content: [
+      { type: 'tableCell', attrs: { role: 'full' }, content: [
+        { type: 'serviceGroup', attrs: { blockId: 'svc_group' }, content: [
+          { type: 'serviceItem', attrs: { blockId: 'm1', kind: 'map-need' },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'show Irrawaddy delta' }] }] },
+          { type: 'serviceItem', attrs: { blockId: 'a1', kind: 'archive-req' },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: '1962 coup footage' }] }] },
+        ]},
+      ]},
+    ]},
+  ]};
+  const demoted = demoteServiceNodes(legacy);
+  const dj = JSON.stringify(demoted);
+  ok(!/serviceGroup|serviceItem|serviceBlock/.test(dj), 'demoteServiceNodes removes all service nodes');
+  const blocks = docToBlocks(ensureTableDoc(demoted));
+  eq(blocks.length, 2, 'serviceGroup -> two binBlocks (one per item)');
+  ok(blocks.every((b) => b.type === 'bin'), 'demoted items are bin blocks');
+  ok(blocks.some((b) => /Irrawaddy delta/.test(b.text)), 'item 1 text preserved verbatim');
+  ok(blocks.some((b) => /1962 coup footage/.test(b.text)), 'item 2 text preserved verbatim');
+  // a standalone serviceBlock also demotes.
+  const legacyBlock = { type: 'doc', content: [
+    { type: 'serviceBlock', attrs: { blockId: 's1', kind: 'map-need' },
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'one need here' }] }] },
+  ]};
+  const db2 = docToBlocks(ensureTableDoc(demoteServiceNodes(legacyBlock)));
+  eq(db2.length, 1, 'serviceBlock -> one binBlock');
+  eq(db2[0].type, 'bin', 'serviceBlock demoted to bin');
+  eq(db2[0].text, 'one need here', 'serviceBlock text preserved');
+}
+
+// ── MONTAGE + NONE round-trip losslessly through build <-> docToBlocks ──
+eq(
+  textOf({ id: 'mt1', type: 'montage', text: 'quick cuts of the market {tk add a stat} at dawn' }),
+  'quick cuts of the market {tk add a stat} at dawn',
+  'montage block round-trips its body (chips intact)'
+);
+{
+  const out = docToBlocks(buildEditorDocument([{ id: 'mt2', type: 'montage', text: 'shot list here' }]));
+  ok(out.some((b) => b.type === 'montage' && b.text === 'shot list here'), 'montage round-trips as type montage');
+}
+{
+  const out = docToBlocks(buildEditorDocument([{ id: 'n1', type: 'none', text: 'a born line typed into' }]));
+  ok(out.some((b) => b.type === 'none' && b.text === 'a born line typed into'), 'none block round-trips as type none');
+}
+// A montage built then read back, re-built, must be identical (build-read-back identity).
+{
+  const built = buildEditorDocument([{ id: 'mt3', type: 'montage', text: 'identity check' }]);
+  const rebuilt = buildEditorDocument(docToBlocks(built));
+  eq(JSON.stringify(rebuilt), JSON.stringify(built), 'montage build->read-back->build is identity');
 }
 
 console.log(`\ndocument-builder: ${pass} passed, ${fail} failed`);

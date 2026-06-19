@@ -111,8 +111,9 @@ function checkWorklistUnwrap() {
 // drag does under the hood), getJSON(), JSON.stringify into LS_DOC, reload, assert.
 const burmaSchema = getSchema([
   StarterKit.configure({
+    // Lists ON — mirrors Editor.jsx / migrate-doc.js so the integrity schema matches the live one.
     heading: false, blockquote: false, codeBlock: false, code: false,
-    bulletList: false, orderedList: false, listItem: false, horizontalRule: false,
+    horizontalRule: false,
     dropcursor: false, gapcursor: false,
   }),
   ...BURMA_NODES,
@@ -147,9 +148,8 @@ function checkReorderPersists(scriptDoc: ScriptDoc) {
   if (total <= 5) return;
 
   // TABLE WORLD: the top-level nodes are tableRows (not blocks), so identity must come
-  // from docToBlocks — which unwraps rows→cells→blocks AND the consolidated serviceGroup
-  // back to the canonical ordered block list (225). Counting top-level nodes here would be
-  // wrong; deriving the real blocks is correct in both the old and new models.
+  // from docToBlocks — which unwraps rows→cells→blocks back to the canonical ordered block
+  // list. Counting top-level nodes here would be wrong; deriving the real blocks is correct.
   const derivedIds = (doc: any) => docToBlocks(doc.toJSON()).map((b: any) => b.id);
   const before = derivedIds(state.doc);
   const fromIndex = 1;          // move the second top-level ROW...

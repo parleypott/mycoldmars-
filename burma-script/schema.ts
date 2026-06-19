@@ -9,8 +9,9 @@ export type ChapterGenre =
 
 export type BlockType =
   | "chapter" | "scene"
-  | "vo" | "oncam" | "sot" | "broll"
-  | "map-need" | "archive-req" | "note" | "jh-note"
+  | "vo" | "oncam" | "sot" | "broll" | "montage"
+  | "note" | "jh-note"
+  | "none" // "born" block: chrome-less line until the writer picks a type
   | "bin"; // holding bin: unplaced SOTs / "words words words"
 
 // VO has a THREE-state status (JH's elegant tri-checkbox): not started → recorded → in the edit
@@ -46,7 +47,7 @@ export interface Block {
   type: BlockType;
   // structure
   genre?: ChapterGenre;      // chapters only
-  title?: string;            // chapter/scene/service-box label
+  title?: string;            // chapter/scene label
   depth?: number;            // chapter=0, scene=1 (for outline view)
   // writing surface
   text?: string;             // VO / ONCAM / note prose

@@ -31,12 +31,15 @@ import Gapcursor from '@tiptap/extension-gapcursor';
 import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
-import { ensureTableDoc, docToBlocks } from './document-builder.js';
+import { ensureTableDoc, docToBlocks, demoteServiceNodes } from './document-builder.js';
 
 const LS_DOC = 'wp01_burma_doc_v1';
 // Marker recording the safe migration ran to completion. Keyed to the spine version so a
 // future schema change can force a fresh, re-validated migration by bumping the suffix.
-const LS_MIGRATED = 'wp01_burma_doc_migrated_v1';
+// BUMPED to v2: the "service need" removal demotes legacy serviceGroup/serviceItem/serviceBlock
+// nodes to neutral binBlocks. Already-migrated (_v1) docs must re-run the pass once so a saved
+// doc that still holds those (now-unregistered) nodes is converted before TipTap drops them.
+const LS_MIGRATED = 'wp01_burma_doc_migrated_v2';
 // Bound the number of timestamped backups we keep so localStorage never fills up; the most
 // recent few are always retained (the freshest is the pre-migration safety copy).
 const BAK_PREFIX = LS_DOC + '.bak.';
@@ -123,8 +126,10 @@ function snapshotConflict(raw) {
 function buildSchema() {
   return getSchema([
     StarterKit.configure({
+      // MUST stay identical to Editor.jsx's StarterKit config — lists ON. If this drifts, a doc
+      // with a list the live editor produced fails this gate's read-back and fires wp-save-failed.
       heading: false, blockquote: false, codeBlock: false, code: false,
-      bulletList: false, orderedList: false, listItem: false, horizontalRule: false,
+      horizontalRule: false,
       dropcursor: false, gapcursor: false,
     }),
     Dropcursor.configure({ color: '#d23b2c', width: 2 }),
@@ -489,16 +494,21 @@ export function migrateStoredDoc() {
   }
 
   try {
-    // ── STEP 2: WRAP (structurally non-destructive, idempotent), THEN apply the additive,
-    //    text-preserving transforms (DAY-attr stamping + colonless-VO bin→vo). ─────────────
-    const wrapped = ensureTableDoc(original);
+    // ── STEP 2: DEMOTE legacy service nodes → neutral binBlocks (text-preserving), then WRAP
+    //    (structurally non-destructive, idempotent), THEN apply the additive transforms
+    //    (DAY-attr stamping + colonless-VO bin→vo). ensureTableDoc ALSO calls demoteServiceNodes
+    //    internally, but we run it explicitly here so we can detect whether it changed anything
+    //    (a service-node demotion must force a rewrite even on an already-all-rows doc). ────────
+    const demoted = demoteServiceNodes(original);
+    const serviceDemoted = JSON.stringify(demoted) !== JSON.stringify(original);
+    const wrapped = ensureTableDoc(demoted);
     const { doc: migrated, changed: additiveChanged } = applyAdditiveTransforms(wrapped);
 
-    // If the doc was already all-rows AND the additive pass changed nothing, there is genuinely
-    // nothing to do — set the marker and pass through without a rewrite.
-    if (allRows && !additiveChanged) {
+    // If the doc was already all-rows AND nothing changed (no demotion, no additive), there is
+    // genuinely nothing to do — set the marker and pass through without a rewrite.
+    if (allRows && !additiveChanged && !serviceDemoted) {
       try { localStorage.setItem(LS_MIGRATED, '1'); } catch {}
-      return { ok: true, reason: 'already migrated; no additive changes', migrated: false, bakKey };
+      return { ok: true, reason: 'already migrated; no changes', migrated: false, bakKey };
     }
 
     // ── STEP 3a: TEXT-EQUALITY GATE — every word + every {tk}/{fc} fill must survive. The
