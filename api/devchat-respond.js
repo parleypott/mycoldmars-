@@ -17,6 +17,7 @@
 // turn); add IP rate-limiting here if abuse ever surfaces.
 
 import { checkRateLimit } from './_lib/rate-limit.js';
+import { pgrValue } from './_lib/pgrest.js';
 
 export const config = { runtime: 'edge' };
 
@@ -50,11 +51,24 @@ function json(payload, status = 200) {
   });
 }
 
+// Build the two service-role PostgREST URLs for a thread. threadId is
+// caller-supplied on a PUBLIC, anonymous endpoint, so it MUST be escaped —
+// raw interpolation lets a request inject extra `&`-separated query params
+// onto a service-role (RLS-bypassing) read. Pure + exported for testing.
+export function buildThreadQueryUrls(supaUrl, threadId) {
+  const v = pgrValue(threadId);
+  return {
+    threadUrl: `${supaUrl}/rest/v1/devchat_threads?id=eq.${v}&select=*`,
+    messagesUrl: `${supaUrl}/rest/v1/devchat_messages?thread_id=eq.${v}&order=created_at.asc&select=*`,
+  };
+}
+
 async function fetchThreadAndMessages(supaUrl, serviceKey, threadId) {
   const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
+  const { threadUrl, messagesUrl } = buildThreadQueryUrls(supaUrl, threadId);
   const [tRes, mRes] = await Promise.all([
-    fetch(`${supaUrl}/rest/v1/devchat_threads?id=eq.${threadId}&select=*`, { headers }),
-    fetch(`${supaUrl}/rest/v1/devchat_messages?thread_id=eq.${threadId}&order=created_at.asc&select=*`, { headers }),
+    fetch(threadUrl, { headers }),
+    fetch(messagesUrl, { headers }),
   ]);
   const thread   = (await tRes.json())?.[0] || null;
   const messages = await mRes.json();
