@@ -65,10 +65,10 @@ async function getDoc() {
 /* ------------------------------------------------------------------ write */
 
 async function putDoc(body) {
-  const doc = body?.doc;
-  const version = toVersion(body?.version);
-  if (doc == null || typeof doc !== 'object') return err(400, 'BAD_DOC', 'doc (object) required');
-  if (!(version > 0)) return err(400, 'BAD_VERSION', 'version (positive integer) required');
+  // Validate the request shape BEFORE touching the DB (a malformed PUT must not cost a read).
+  const v = validatePutBody(body);
+  if (!v.ok) return err(400, v.code, v.message);
+  const { doc, version } = v;
 
   // Read the current row to decide accept vs. 409. (Read-then-write; the write itself is also
   // version-guarded below so a concurrent writer can't slip a newer row past us between the two.)
@@ -79,7 +79,7 @@ async function putDoc(body) {
 
   // STALE: incoming is not strictly newer than what's stored. Refuse and hand back the current row
   // so the client can snapshot-its-local + adopt cloud (see cloud-sync reconcile). 409 = conflict.
-  if (version <= stored) {
+  if (!isWriteAcceptable(version, stored)) {
     return err409({ doc: curRows.length ? (curRows[0].doc ?? null) : null, version: stored });
   }
 
@@ -128,6 +128,30 @@ function toVersion(v) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+// PURE input validation for a PUT body. Mirrors the inline checks the handler used to do:
+// a doc must be a non-null object, a version must coerce to a positive integer. Returns the
+// coerced { doc, version } on success so the caller never re-coerces. (Optional chaining means a
+// null/primitive body is handled here, not as a 500.)
+function validatePutBody(body) {
+  const doc = body?.doc;
+  if (doc == null || typeof doc !== 'object') {
+    return { ok: false, code: 'BAD_DOC', message: 'doc (object) required' };
+  }
+  const version = toVersion(body?.version);
+  if (!(version > 0)) {
+    return { ok: false, code: 'BAD_VERSION', message: 'version (positive integer) required' };
+  }
+  return { ok: true, doc, version };
+}
+
+// THE data-integrity contract, in one pure place: a write is accepted ONLY when the incoming
+// version is STRICTLY greater than what's stored. This is what makes an empty / older / equal
+// client structurally incapable of overwriting newer cloud work — the whole reason this endpoint
+// exists. Both sides are toVersion-coerced so a stringy/NaN version can never sneak past as a write.
+function isWriteAcceptable(incomingVersion, storedVersion) {
+  return toVersion(incomingVersion) > toVersion(storedVersion);
+}
+
 async function sb(path, init = {}) {
   const headers = new Headers(init.headers || {});
   headers.set('apikey', SUPABASE_KEY);
@@ -153,4 +177,4 @@ function err409(current) {
 }
 
 // Exported for unit tests (pure decision logic + id filter).
-export { DOC_ID, idEq, toVersion };
+export { DOC_ID, idEq, toVersion, validatePutBody, isWriteAcceptable };
