@@ -16,11 +16,16 @@
  */
 
 // minimal browser shims so the module's CustomEvent / window references load under bun.
+// Capture EVERY dispatched event so we can assert what the cloud layer told the UI — critically that a
+// hot-path push 409 NEVER fires a false wp-cloud-saved, and DOES fire wp-cloud-conflict.
+const EVENTS = [];
 globalThis.window = globalThis.window || {};
-globalThis.window.dispatchEvent = globalThis.window.dispatchEvent || (() => true);
+globalThis.window.dispatchEvent = (ev) => { try { EVENTS.push({ type: ev?.type, detail: ev?.detail }); } catch {} return true; };
 globalThis.CustomEvent = globalThis.CustomEvent || class { constructor(t, i) { this.type = t; this.detail = i?.detail; } };
+const eventsOfType = (t) => EVENTS.filter((e) => e.type === t);
+const clearEvents = () => { EVENTS.length = 0; };
 
-const { decideReconcile, reconcileOnLoad, bootstrapFromCloud, fetchCloud, pushDoc } = await import('./cloud-sync.js');
+const { decideReconcile, reconcileOnLoad, bootstrapFromCloud, fetchCloud, pushDoc, handlePushResult, snapshotDocConflict, EVT_CLOUD_SAVED, EVT_CLOUD_OFFLINE, EVT_CLOUD_CONFLICT } = await import('./cloud-sync.js');
 
 let pass = 0, fail = 0;
 const ok = (cond, label) => { if (cond) { pass++; } else { fail++; console.log(`FAIL ${label}`); } };
@@ -157,6 +162,7 @@ function makeDeps({ local, cloud }) {
 
 // pushDoc gets a 409 from the API -> returns { stale, doc, version } and does NOT throw / clobber.
 {
+  clearEvents();
   const fake = async (url, init) => ({
     ok: false,
     status: 409,
@@ -166,10 +172,13 @@ function makeDeps({ local, cloud }) {
   ok(res.ok === false && res.stale === true, 'c5. 409 -> stale result, not a hard failure');
   eq(res.version, 12, 'c5b. surfaces the current cloud version for the client to reconcile to');
   eq(JSON.stringify(res.doc), JSON.stringify(DOC('cloud-ahead')), 'c5c. hands back the newer cloud doc');
+  // THE BUG FIX: a 409 must NOT fire a false wp-cloud-saved (the green pill that strands an edit).
+  eq(eventsOfType(EVT_CLOUD_SAVED).length, 0, 'c5d. 409 fires NO wp-cloud-saved (no false "Saved to cloud")');
+  eq(eventsOfType(EVT_CLOUD_OFFLINE).length, 0, 'c5e. 409 is NOT offline either (cloud is reachable, just ahead)');
   // Now feed that 409 outcome back through the decision: cloud(12) > local(5) -> adopt + snapshot.
   const d = decideReconcile({ localVersion: 5, hasLocalDoc: true, cloud: { ok: true, doc: res.doc, version: res.version } });
-  eq(d.action, 'adopt-cloud', 'c5d. the 409\'s cloud doc reconciles via adopt-cloud on next load');
-  ok(d.snapshotLocal === true, 'c5e. and STILL snapshots local first — no edits lost');
+  eq(d.action, 'adopt-cloud', 'c5f. the 409\'s cloud doc reconciles via adopt-cloud on next load');
+  ok(d.snapshotLocal === true, 'c5g. and STILL snapshots local first — no edits lost');
 }
 
 // pushDoc to a DOWN api (network throw) -> offline result, never throws.
@@ -185,6 +194,89 @@ function makeDeps({ local, cloud }) {
   const spy = async () => { called = true; return { ok: true, json: async () => ({}) }; };
   const res = await pushDoc(DOC('x'), 0, spy);
   ok(res.skipped === true && called === false, 'c7. version 0 push is a no-op (no network)');
+}
+
+/* ───────────────────────── (c2) HOT-PATH PUSH-409 CONSUMER — the two-device stranding fix ─────────
+ * The residual data-loss case: Device A and B both in sync at cloud v10. B edits -> cloud v11. A (still
+ * v10) edits a DIFFERENT paragraph -> stamps local v11 -> pushes v11 -> server returns 409 (not strictly
+ * greater than stored v11) with B's doc. The OLD code discarded that 409 AND fired wp-cloud-saved, so A's
+ * pill went green while A's edit lived only in A's localStorage — stranded, then lost on A's next reload.
+ *
+ * handlePushResult is the fix: on a stale (409) push it snapshots BOTH A's stranded doc and B's newer
+ * cloud doc to .conflict.<ts> (lossless), and fires wp-cloud-conflict (the reload/merge banner) — never
+ * a false wp-cloud-saved. These tests run under a localStorage shim so the snapshot writes are real.
+ */
+{
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(k, String(v)); },
+    removeItem: (k) => { store.delete(k); },
+    key: (i) => Array.from(store.keys())[i] ?? null,
+    get length() { return store.size; },
+  };
+  const CONFLICT_PREFIX = 'wp01_burma_doc_v1.conflict.';
+  const conflictKeys = () => Array.from(store.keys()).filter((k) => k.startsWith(CONFLICT_PREFIX));
+
+  // (c2a) a STALE (409) result -> snapshots BOTH local + cloud docs and fires wp-cloud-conflict.
+  {
+    store.clear(); clearEvents();
+    const localEdit = DOC('A-edited-paragraph-Y');     // A's stranded edit (the one the cloud refused)
+    const cloudDoc = DOC('B-edited-paragraph-X');      // B's newer doc the server handed back in the 409
+    const out = handlePushResult({ ok: false, stale: true, doc: cloudDoc, version: 11 }, localEdit);
+
+    ok(out.conflict === true, 'c2a. stale push -> handlePushResult reports a conflict');
+    eq(conflictKeys().length, 2, 'c2b. BOTH docs snapshotted to .conflict.<ts> (local + cloud) — nothing lost');
+    // the two snapshots hold the two distinct docs (A's stranded edit AND B's newer doc).
+    const snaps = conflictKeys().map((k) => store.get(k)).sort();
+    const want = [JSON.stringify(cloudDoc), JSON.stringify(localEdit)].sort();
+    eq(JSON.stringify(snaps), JSON.stringify(want), 'c2c. the snapshots are exactly A\'s edit and B\'s newer doc');
+    ok(out.localSnapshot && out.cloudSnapshot && out.localSnapshot !== out.cloudSnapshot, 'c2d. two distinct snapshot keys returned');
+    // the UI signal: wp-cloud-conflict fired (reload banner), and NO false wp-cloud-saved.
+    eq(eventsOfType(EVT_CLOUD_CONFLICT).length, 1, 'c2e. fires wp-cloud-conflict (reload/merge banner)');
+    eq(eventsOfType(EVT_CLOUD_SAVED).length, 0, 'c2f. NEVER fires a false wp-cloud-saved on a 409');
+    eq(eventsOfType(EVT_CLOUD_CONFLICT)[0].detail.cloudVersion, 11, 'c2g. conflict carries the newer cloud version');
+  }
+
+  // (c2h) an ACCEPTED push (ok:true) -> NOT a conflict, no snapshot, no conflict event.
+  {
+    store.clear(); clearEvents();
+    const out = handlePushResult({ ok: true, version: 12 }, DOC('x'));
+    ok(out.conflict === false, 'c2h. accepted push is not a conflict');
+    eq(conflictKeys().length, 0, 'c2i. accepted push snapshots nothing');
+    eq(eventsOfType(EVT_CLOUD_CONFLICT).length, 0, 'c2j. accepted push fires no conflict event');
+  }
+
+  // (c2k) an OFFLINE push -> NOT a conflict (cloud unreachable is patience, not divergence).
+  {
+    store.clear(); clearEvents();
+    const out = handlePushResult({ ok: false, offline: true }, DOC('x'));
+    ok(out.conflict === false, 'c2k. offline push is not a conflict (no stranded-merge)');
+    eq(conflictKeys().length, 0, 'c2l. offline push snapshots nothing');
+    eq(eventsOfType(EVT_CLOUD_CONFLICT).length, 0, 'c2m. offline push fires no conflict event');
+  }
+
+  // (c2n) a SKIPPED push (version 0) -> NOT a conflict.
+  {
+    store.clear(); clearEvents();
+    const out = handlePushResult({ ok: false, skipped: true }, null);
+    ok(out.conflict === false, 'c2n. skipped push is not a conflict');
+  }
+
+  // (c2o) full hot-path integration: pushDoc 409 result fed straight into handlePushResult — the exact
+  // wiring Editor.flushSave / reconcile keep-local now use. Proves the end-to-end fix, no false green.
+  {
+    store.clear(); clearEvents();
+    const fake = async () => ({ ok: false, status: 409, json: async () => ({ error: { code: 'STALE' }, doc: DOC('cloud-won'), version: 99 }) });
+    const pr = await pushDoc(DOC('my-stranded-edit'), 50, fake);
+    const out = handlePushResult(pr, DOC('my-stranded-edit'));
+    ok(out.conflict === true, 'c2o. pushDoc(409) -> handlePushResult -> conflict, end to end');
+    eq(conflictKeys().length, 2, 'c2p. both docs preserved end to end');
+    eq(eventsOfType(EVT_CLOUD_SAVED).length, 0, 'c2q. end-to-end: no false "Saved to cloud" anywhere on the hot path');
+    eq(eventsOfType(EVT_CLOUD_CONFLICT).length, 1, 'c2r. end-to-end: the reload/merge banner is raised');
+  }
+
+  delete globalThis.localStorage;
 }
 
 /* ───────────────────────── fetchCloud graceful degradation ─────────────────────────────────── */

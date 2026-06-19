@@ -34,11 +34,18 @@ function conflictKey() {
 }
 
 // Cloud-status events the SaveStatus pill listens for (distinct from the local wp-saved family):
-//   wp-cloud-saved   — a cloud push confirmed (green "Saved to cloud")
-//   wp-cloud-offline — a cloud push could not reach the API / table (amber "Saved on this device · cloud offline")
+//   wp-cloud-saved    — a cloud push confirmed (green "Saved to cloud")
+//   wp-cloud-offline  — a cloud push could not reach the API / table (amber "Saved on this device · cloud offline")
+//   wp-cloud-conflict — a HOT-PATH push 409: the cloud already holds a strictly-newer doc, so THIS
+//                       device's just-saved local edit was NEVER merged into the canonical cloud copy
+//                       (the two-device concurrent-edit case). This is NOT "saved to cloud" and NOT
+//                       merely "offline" — it is a real divergence. We snapshot BOTH docs to
+//                       .conflict.<ts> (lossless) and raise the reload/merge banner so Johnny pulls the
+//                       newer doc and re-applies. The pill must NEVER show green on this event.
 // The LOCAL save is the source of truth for "is my work safe"; these only say WHERE it also lives.
 const EVT_CLOUD_SAVED = 'wp-cloud-saved';
 const EVT_CLOUD_OFFLINE = 'wp-cloud-offline';
+const EVT_CLOUD_CONFLICT = 'wp-cloud-conflict';
 
 function emit(type, detail) {
   try {
@@ -117,7 +124,10 @@ export async function fetchCloud(fetchImpl = globalThis.fetch) {
 // Push the local doc + version to the cloud. Returns a result object; NEVER throws and NEVER touches
 // localStorage — a cloud-push failure must never block or undo the local save that already landed.
 //   { ok:true, version }                  — accepted (fires wp-cloud-saved)
-//   { ok:false, stale:true, doc, version }— 409: cloud already has a >= version (caller may adopt)
+//   { ok:false, stale:true, doc, version }— 409: cloud already has a >= version. THIS device's push
+//                                            was NOT merged. Caller MUST run handlePushResult to
+//                                            snapshot-and-adopt — pushDoc itself does NOT fire a
+//                                            "saved" event here (that would be a false green).
 //   { ok:false, offline:true }            — API unreachable / NO_DB / table missing (fires wp-cloud-offline)
 export async function pushDoc(doc, version, fetchImpl = globalThis.fetch) {
   if (doc == null || !(toInt(version) > 0)) {
@@ -137,10 +147,14 @@ export async function pushDoc(doc, version, fetchImpl = globalThis.fetch) {
     }
     if (res && res.status === 409) {
       // Cloud is newer than what we tried to push. NOT an offline state — the cloud is reachable and
-      // ahead. Surface the current cloud row so the caller can snapshot-and-adopt on next load; for
-      // the pill we treat "reachable but ahead" as still cloud-connected (don't flip to offline).
+      // ahead — but it is ALSO NOT "saved to cloud": THIS device's just-pushed edit was REFUSED and
+      // never merged into the canonical cloud copy (the two-device concurrent-edit case). We MUST NOT
+      // fire wp-cloud-saved here — doing so falsely turns the pill green and tells Johnny his edit is
+      // safe in the cloud when it lives ONLY in this device's localStorage and would be lost on the
+      // next adopt/reload. Hand the current cloud row back to the caller (handlePushResult) which
+      // snapshots BOTH docs and raises the conflict banner. The event is fired there, once, with the
+      // local doc in hand — not here, where we only know the cloud side.
       const body = await res.json().catch(() => ({}));
-      emit(EVT_CLOUD_SAVED, { version: toInt(body?.version), reconciled: true });
       return { ok: false, stale: true, doc: body?.doc ?? null, version: toInt(body?.version) };
     }
     // Any other non-2xx (500 NO_DB, 404 table-missing routed as error, 502 …) => cloud unavailable.
@@ -165,6 +179,69 @@ export function snapshotLocalConflict() {
   } catch {
     return null;
   }
+}
+
+// Snapshot an ARBITRARY doc object (e.g. the incoming cloud doc returned by a 409) to its own
+// .conflict.<ts> recovery key, so the cloud side of a divergence is preserved too — not just local.
+// Returns the key, or null if the doc is empty / storage refused. NEVER throws.
+export function snapshotDocConflict(doc) {
+  try {
+    if (doc == null) return null;
+    const raw = JSON.stringify(doc);
+    const key = conflictKey();
+    localStorage.setItem(key, raw);
+    return key;
+  } catch {
+    return null;
+  }
+}
+
+// ── HOT-PATH PUSH-409 CONSUMER (the two-device concurrent-edit stranding fix) ────────────────────
+// Every push path (Editor.flushSave, reconcile keep-local) feeds its pushDoc() result through here.
+// A push 409 means: while THIS device was editing, another device advanced the cloud past us, so our
+// just-pushed local edit was REFUSED and is NOT in the canonical cloud copy. Discarding that (the old
+// behaviour) silently strands this device's word in localStorage only — and the false wp-cloud-saved
+// told Johnny it was safe. We instead treat the 409 EXACTLY like the load-time adopt path:
+//
+//   1. snapshot the LOCAL doc (this device's stranded edit) to .conflict.<ts>  — never lose OUR word
+//   2. snapshot the incoming CLOUD doc (the other device's newer edit) to .conflict.<ts> — never lose THEIRS
+//   3. emit wp-cloud-conflict so SaveStatus raises the reload/merge banner (NOT a green pill)
+//
+// The actual merge is a human reload (the banner's RELOAD button) → reconcileOnLoad sees cloud strictly
+// newer → adopt-cloud (which snapshots local again and re-seeds the editor from the newer cloud doc).
+// Both devices' words survive on disk; Johnny re-applies his stranded edit from the .conflict snapshot.
+//
+// `localDoc` is the doc THIS device just tried to push (so we snapshot the exact bytes that were
+// refused, not whatever LS_DOC happens to hold a moment later). Falls back to LS_DOC if not supplied.
+// Returns a structured outcome for tests: { conflict, localSnapshot, cloudSnapshot, cloudVersion }.
+// NEVER throws — a push-result handler must never break the (already-durable) local save.
+export function handlePushResult(result, localDoc) {
+  if (!result || result.ok === true || result.stale !== true) {
+    // Accepted, skipped, or offline — pushDoc already emitted the right event (saved/offline). Nothing
+    // to reconcile here; only a 409 ('stale') is a true divergence that strands a local edit.
+    return { conflict: false };
+  }
+  // A real two-device divergence. Snapshot BOTH sides before anything can overwrite either.
+  let localSnapshot = null;
+  try {
+    localSnapshot = localDoc != null ? snapshotDocConflict(localDoc) : snapshotLocalConflict();
+  } catch {}
+  let cloudSnapshot = null;
+  try { cloudSnapshot = snapshotDocConflict(result.doc); } catch {}
+  // Raise the conflict banner. Carry the recovery keys + cloud version so the UI/console can point
+  // Johnny straight at his preserved edit. This is the signal that REPLACES the old false green.
+  emit(EVT_CLOUD_CONFLICT, {
+    cloudVersion: toInt(result.version),
+    localSnapshot,
+    cloudSnapshot,
+  });
+  try {
+    console.warn('[burma] cloud push CONFLICT (409): another device advanced the cloud to v' +
+      toInt(result.version) + ' while this device was editing. This device\'s edit was NOT merged — ' +
+      'preserved at ' + localSnapshot + ' (local) and ' + cloudSnapshot + ' (cloud). RELOAD to adopt ' +
+      'the newer doc, then re-apply your change.');
+  } catch {}
+  return { conflict: true, localSnapshot, cloudSnapshot, cloudVersion: toInt(result.version) };
 }
 
 // ── LOAD-TIME RECONCILE ORCHESTRATION ───────────────────────────────────────────────────────────
@@ -228,8 +305,17 @@ export async function reconcileOnLoad(deps = {}) {
 
   if (decision.action === 'keep-local' && decision.push) {
     // KEEP LOCAL — the safest branch (covers cloud empty / API down / older cloud). Push local up so
-    // the cloud copy catches up. Fire-and-forget; pushDoc fires its own cloud-status events.
-    try { if (local.doc != null) pushDoc(local.doc, local.version); } catch {}
+    // the cloud copy catches up. Fire-and-forget for the SAVE, but we now CONSUME the push result:
+    // a keep-local push can still 409 (local.version === cloud.version but the docs diverged — the
+    // exact two-device stranding case), and that 409 must snapshot-and-adopt via handlePushResult,
+    // not be swallowed. pushDoc still fires saved/offline itself; only the 409 path routes here.
+    try {
+      if (local.doc != null) {
+        Promise.resolve(pushDoc(local.doc, local.version))
+          .then((res) => handlePushResult(res, local.doc))
+          .catch(() => {});
+      }
+    } catch {}
     return { action: 'keep-local', shouldReload: false };
   }
 
@@ -309,4 +395,4 @@ function defaultReadLocal() {
   return { hasDoc: !!raw, version, doc };
 }
 
-export { API, LS_DOC, CONFLICT_PREFIX, EVT_CLOUD_SAVED, EVT_CLOUD_OFFLINE, toInt, defaultReadLocal };
+export { API, LS_DOC, CONFLICT_PREFIX, EVT_CLOUD_SAVED, EVT_CLOUD_OFFLINE, EVT_CLOUD_CONFLICT, toInt, defaultReadLocal };

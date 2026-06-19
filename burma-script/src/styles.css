@@ -220,6 +220,12 @@ body {
    amber (which pulses) — this one is steady. The next successful push flips it back to green. */
 .wp-save-pill.is-cloud-offline { background: #f7eccf; border-color: var(--ink); }
 .wp-save-pill.is-cloud-offline .wp-save-pill-mark { background: #c9962c; }
+/* NEWER VERSION ON CLOUD · RELOAD — another device advanced the cloud while this device was editing,
+   so this device's latest change was NOT merged. NOT green (it would lie) and NOT the plain offline
+   amber (this needs action, not patience). A strong burnt-orange with the inked border + a steadily
+   pulsing mark so it reads as "do something" — the work is backed up, but you must reload to merge. */
+.wp-save-pill.is-cloud-conflict { background: #e8853a; color: #1f1d18; border-color: var(--ink); }
+.wp-save-pill.is-cloud-conflict .wp-save-pill-mark { background: var(--ink); animation: wp-save-pulse 1.6s var(--ease) infinite; }
 @keyframes wp-save-pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 .wp-save-banner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
@@ -234,6 +240,11 @@ body {
    tab is just behind another tab's newer save. Same flat top-bar chrome, calmer colour, with an
    inline RELOAD action. Lower z-index than the red banner so a real failure always wins on top. */
 .wp-save-banner.is-stale { background: #c9962c; color: #1f1d18; z-index: 999; }
+/* TWO-DEVICE DIVERGENCE — a newer doc landed on the cloud from another DEVICE (not just another tab)
+   mid-edit, so this device's last change wasn't merged. More serious than the cross-tab amber (real
+   divergence, must reload to merge) but not a local-save failure (the work IS backed up). Burnt-orange
+   between the amber stale notice and the red failure, above stale, below a true SAVE FAILED. */
+.wp-save-banner.is-conflict { background: #e8853a; color: #1f1d18; z-index: 999; }
 .wp-save-banner-act {
   appearance: none; cursor: pointer; margin-left: 4px;
   background: transparent; color: inherit; font-family: var(--mono);

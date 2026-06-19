@@ -20,7 +20,7 @@ import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './do
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { Workshop } from './Workshop.jsx';
 import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, isReloadingForAdopt, LS_DOC_VER } from './migrate-doc.js';
-import { pushDoc } from './cloud-sync.js';
+import { pushDoc, handlePushResult } from './cloud-sync.js';
 
 const LS_DOC = 'wp01_burma_doc_v1';
 const LS_BLOCKS = 'wp01_burma_blocks_v1'; // derived schema-faithful export (exercises docToBlocks)
@@ -138,13 +138,25 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
     if (res.ok) {
       try { localStorage.setItem(LS_BLOCKS, JSON.stringify(docToBlocks(json))); } catch {}
       // CLOUD MIRROR — after the LOCAL save lands durably, push it up so the doc follows Johnny to
-      // any browser/device. Fire-and-forget: a cloud-push failure must NEVER block or undo the local
-      // save (which already succeeded above). pushDoc never throws and fires its own cloud-status
-      // events (wp-cloud-saved / wp-cloud-offline); we deliberately do NOT await it on the hot path.
+      // any browser/device. Fire-and-forget for the SAVE itself: a cloud-push failure must NEVER block
+      // or undo the local save (which already succeeded above). pushDoc never throws and fires its own
+      // wp-cloud-saved / wp-cloud-offline events; we deliberately do NOT await it on the hot path.
       // We push the version saveDoc just stamped so cloud's optimistic-concurrency token stays in
       // lockstep with the local monotonic LS_DOC_VER.
+      //
+      // CRITICAL — we MUST consume the push result. A 409 (two devices in sync both stamp the same
+      // next version, then push divergent edits) means THIS device's edit was REFUSED by the cloud and
+      // lives ONLY in localStorage. Discarding that return (the old `try { pushDoc(...) } catch {}`)
+      // silently stranded the edit AND falsely flipped the pill to "Saved to cloud". handlePushResult
+      // snapshots BOTH this device's edit and the newer cloud doc to .conflict.<ts> and raises the
+      // reload/merge banner — treating a hot-path 409 exactly like the load-time adopt path. We pass
+      // the EXACT json we tried to push so the stranded bytes are the ones snapshotted.
       const pushVersion = res.version || getKnownBaseVersion();
-      try { pushDoc(json, pushVersion); } catch {}
+      try {
+        Promise.resolve(pushDoc(json, pushVersion))
+          .then((pr) => handlePushResult(pr, json))
+          .catch(() => {});
+      } catch {}
     }
   }
   const flushRef = useRef(flushSave);

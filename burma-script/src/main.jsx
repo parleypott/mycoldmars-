@@ -345,6 +345,9 @@ function relTime(ms) {
 // "SAVED ON THIS DEVICE · CLOUD OFFLINE" when the cloud was unreachable (work is still safe locally),
 // and the plain "ALL CHANGES SAVED" before any push has happened (e.g. cloud table not set up yet).
 function savedPillLabel(state, cloud) {
+  // Conflict outranks everything except an in-progress save indicator: the cloud holds a newer doc
+  // this device hasn't merged, so we must NOT claim "saved to cloud". Says reload, plainly.
+  if (cloud === 'conflict') return 'NEWER VERSION ON CLOUD · RELOAD';
   if (state === 'saving') return 'SAVING…';
   if (cloud === 'cloud') return 'SAVED TO CLOUD';
   if (cloud === 'offline') return 'SAVED ON THIS DEVICE · CLOUD OFFLINE';
@@ -360,6 +363,11 @@ function SaveStatus() {
   // 'offline' (local save landed, but the cloud was unreachable). This NEVER affects whether the
   // work is safe — the local save is authoritative — it only tells Johnny WHERE his work also lives.
   const [cloud, setCloud] = useState('unknown');
+  // HOT-PATH PUSH-409 CONFLICT — another device advanced the cloud while this device was editing, so
+  // this device's just-saved edit was NOT merged into the cloud. Sticky like 'failed': it must never
+  // silently clear, and the pill must NEVER read "Saved to cloud" while it stands. Both docs are
+  // already snapshotted to .conflict.<ts> by handlePushResult; this just surfaces the reload banner.
+  const [cloudConflict, setCloudConflict] = useState(false);
   const [, setNowTick] = useState(0);           // forces the relative-time label to re-render
 
   useEffect(() => {
@@ -374,14 +382,23 @@ function SaveStatus() {
     // Flip the gentle stale notice; leave the tab's own save state intact.
     const onStale = () => setStale(true);
     // CLOUD push outcomes — the pill's "saved" label reflects WHERE the work lives.
-    const onCloudSaved = () => setCloud('cloud');
-    const onCloudOffline = () => setCloud('offline');
+    // A confirmed save clears any prior conflict ONLY if the cloud genuinely accepted us again
+    // (a later, strictly-greater version push succeeded) — but to stay safe we keep the conflict
+    // sticky until a reload reconciles; a fresh accepted push after reload starts a clean session.
+    // Once a conflict is standing, do NOT let a stray saved/offline event paint over it — the device
+    // is divergent until a reload reconciles, and a green "Saved to cloud" there would be the exact
+    // false reassurance this fix removes. Conflict is sticky until the page reloads (fresh state).
+    const onCloudSaved = () => setCloud((c) => (c === 'conflict' ? c : 'cloud'));
+    const onCloudOffline = () => setCloud((c) => (c === 'conflict' ? c : 'offline'));
+    // The two-device divergence. Sticky red-ish state: cloud := 'conflict', surface the reload banner.
+    const onCloudConflict = () => { setCloud('conflict'); setCloudConflict(true); };
     window.addEventListener('wp-dirty', onDirty);
     window.addEventListener('wp-saved', onSaved);
     window.addEventListener('wp-save-failed', onFailed);
     window.addEventListener('wp-stale-tab', onStale);
     window.addEventListener('wp-cloud-saved', onCloudSaved);
     window.addEventListener('wp-cloud-offline', onCloudOffline);
+    window.addEventListener('wp-cloud-conflict', onCloudConflict);
     // RACE FIX: consume a failure detected before this listener existed (pre-render startup).
     if (INITIAL_SAVE_FAILURE) {
       setState('failed');
@@ -395,6 +412,7 @@ function SaveStatus() {
       window.removeEventListener('wp-stale-tab', onStale);
       window.removeEventListener('wp-cloud-saved', onCloudSaved);
       window.removeEventListener('wp-cloud-offline', onCloudOffline);
+      window.removeEventListener('wp-cloud-conflict', onCloudConflict);
     };
   }, []);
 
@@ -423,6 +441,18 @@ function SaveStatus() {
   }
   return (
     <>
+      {cloudConflict && (
+        <div class="wp-save-banner is-conflict" role="alert" aria-live="assertive">
+          <span class="wp-save-banner-lab">↻ EDITED ON ANOTHER DEVICE</span>
+          <span class="wp-save-banner-msg">
+            another device saved a newer version of this script while you were editing — your latest
+            change here was NOT merged to the cloud. Both versions are safely backed up. Reload to pull
+            the newer version, then re-apply your change.
+            {' '}
+            <button class="wp-save-banner-act" onClick={() => location.reload()}>RELOAD</button>
+          </span>
+        </div>
+      )}
       {stale && (
         <div class="wp-save-banner is-stale" role="status" aria-live="polite">
           <span class="wp-save-banner-lab">↻ UPDATED IN ANOTHER TAB</span>
@@ -434,7 +464,7 @@ function SaveStatus() {
         </div>
       )}
       <div
-        class={`wp-save-pill is-${state}${state === 'saved' && cloud === 'cloud' ? ' is-cloud' : ''}${state === 'saved' && cloud === 'offline' ? ' is-cloud-offline' : ''}`}
+        class={`wp-save-pill is-${state}${state === 'saved' && cloud === 'cloud' ? ' is-cloud' : ''}${state === 'saved' && cloud === 'offline' ? ' is-cloud-offline' : ''}${cloud === 'conflict' ? ' is-cloud-conflict' : ''}`}
         role="status"
         aria-live="polite"
       >
