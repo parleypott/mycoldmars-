@@ -16,6 +16,7 @@
 // multimodal prompt.
 
 import { checkAccess as sharedCheckAccess } from './_lib/access.js';
+import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge' };
 
@@ -42,9 +43,9 @@ export default async function handler(req) {
     });
   }
 
-  let body;
-  try { body = await req.json(); }
-  catch { return new Response(JSON.stringify({ error: 'bad json' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }); }
+  const _body = await readJsonBody(req);
+  if (!_body.ok) return new Response(JSON.stringify({ error: _body.error }), { status: _body.status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+  const body = _body.body;
 
   const world = (body.world || 'burgundy').slice(0, 32);
   const ctx = body.styleContext || {};

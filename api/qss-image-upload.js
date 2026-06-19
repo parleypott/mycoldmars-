@@ -17,6 +17,7 @@
 
 import { checkAccess } from './_lib/access.js';
 import { imageStorageMeta } from './_lib/image-storage.js';
+import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge' };
 
@@ -53,9 +54,9 @@ export default async function handler(req) {
     return j(500, { error: 'Supabase env not configured' });
   }
 
-  let body;
-  try { body = await req.json(); }
-  catch { return j(400, { error: 'invalid JSON' }); }
+  const _body = await readJsonBody(req);
+  if (!_body.ok) return j(_body.status, { error: _body.error });
+  const body = _body.body;
 
   const dataBase64 = String(body.dataBase64 || '').trim();
   if (!dataBase64) return j(400, { error: 'dataBase64 required' });

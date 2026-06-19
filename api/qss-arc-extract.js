@@ -1,6 +1,7 @@
 import { checkAccess } from './_lib/access.js';
 import { findCanonCharactersInText, canonContextBlock } from './_lib/qss-canon.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
+import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge', maxDuration: 30 };
 
@@ -51,9 +52,9 @@ export default async function handler(req) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return json(500, { error: 'ANTHROPIC_API_KEY not configured' });
 
-  let body;
-  try { body = await req.json(); }
-  catch { return json(400, { error: 'invalid JSON' }); }
+  const _body = await readJsonBody(req);
+  if (!_body.ok) return json(_body.status, { error: _body.error });
+  const body = _body.body;
 
   const blocks = Array.isArray(body.blocks) ? body.blocks : [];
   if (!blocks.length) return json(400, { error: 'no blocks to analyze' });

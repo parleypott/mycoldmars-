@@ -23,6 +23,7 @@
 
 import { checkAccess } from './_lib/access.js';
 import { safeImageRef } from './_lib/gemini-image-ref.js';
+import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge' };
 
@@ -85,9 +86,9 @@ export default async function handler(req) {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) return json(500, { error: 'GEMINI_API_KEY not configured' });
 
-  let body;
-  try { body = await req.json(); }
-  catch { return json(400, { error: 'invalid JSON' }); }
+  const _body = await readJsonBody(req);
+  if (!_body.ok) return json(_body.status, { error: _body.error });
+  const body = _body.body;
 
   const characterName = String(body.character_name || 'this character').slice(0, 80);
   const rawImages = Array.isArray(body.images) ? body.images.slice(0, 4) : [];

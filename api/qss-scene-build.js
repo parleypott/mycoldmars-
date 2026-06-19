@@ -32,6 +32,7 @@
 import { checkAccess } from './_lib/access.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
 import { parseModelObject } from './_lib/model-json.js';
+import { readJsonBody } from './_lib/read-json-body.js';
 
 // Edge runtime. Node was hanging on Fetch-style handlers (Node needs the
 // Express (req, res) signature; my function returns a Response object).
@@ -132,9 +133,9 @@ export default async function handler(req) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return json(500, { error: 'anthropic_key_missing' });
 
-  let body;
-  try { body = await req.json(); }
-  catch { return json(400, { error: 'invalid_json' }); }
+  const _body = await readJsonBody(req);
+  if (!_body.ok) return json(_body.status, { error: _body.error });
+  const body = _body.body;
 
   // Cap source — Haiku handles 200K input tokens, well above our needs.
   // We cap at 200K CHARS for safety; that's roughly 50K tokens which is

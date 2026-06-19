@@ -27,6 +27,7 @@ import { canonForName, canonContextBlock } from './_lib/qss-canon.js';
 import { canonOverlayForBody, resolveWorld, loadWorldStyle } from './_lib/qss-worlds.js';
 import { stripSurroundingQuotes } from './_lib/strip-quotes.js';
 import { safeImageRef } from './_lib/gemini-image-ref.js';
+import { readJsonBody } from './_lib/read-json-body.js';
 
 // Edge runtime. We TRIED moving to Node with a server-side retry to
 // dodge the 25s edge cap, but the combination produced consistent 60s
@@ -86,9 +87,9 @@ export default async function handler(req) {
   if (!anthropicKey) return json(500, { error: 'ANTHROPIC_API_KEY not configured' });
   if (!geminiKey) return json(500, { error: 'GEMINI_API_KEY not configured' });
 
-  let body;
-  try { body = await req.json(); }
-  catch { return json(400, { error: 'invalid JSON' }); }
+  const _body = await readJsonBody(req);
+  if (!_body.ok) return json(_body.status, { error: _body.error });
+  const body = _body.body;
 
   const ch = body.character || {};
   const name = String(ch.name || '').trim();

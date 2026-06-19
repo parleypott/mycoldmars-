@@ -1,5 +1,6 @@
 import { checkAccess } from './_lib/access.js';
 import { blockSignals } from './_lib/qss-signals.js';
+import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge', maxDuration: 10 };
 
@@ -42,9 +43,9 @@ export default async function handler(req) {
     return json(503, { error: 'NO_DB' });
   }
 
-  let body;
-  try { body = await req.json(); }
-  catch { return json(400, { error: 'BAD_JSON' }); }
+  const _body = await readJsonBody(req);
+  if (!_body.ok) return json(_body.status, { error: _body.error });
+  const body = _body.body;
 
   const event = (body.event || '').toString().trim();
   if (!event) return json(400, { error: 'event required' });

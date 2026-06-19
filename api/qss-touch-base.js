@@ -23,6 +23,7 @@
 import { checkAccess as sharedCheckAccess } from './_lib/access.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
 import { buildTrimmedBlocks, buildSpine, normalizeTouchBase } from './_lib/touch-base-normalize.js';
+import { readJsonBody } from './_lib/read-json-body.js';
 
 // Edge runtime. Sonnet's typical response on this prompt is 8-15s,
 // well under the 25s edge cap. Tried Node + maxDuration: 60 but the
@@ -136,9 +137,9 @@ export default async function handler(req) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return json(500, { error: 'ANTHROPIC_API_KEY not configured' });
 
-  let body;
-  try { body = await req.json(); }
-  catch { return json(400, { error: 'invalid JSON' }); }
+  const _body = await readJsonBody(req);
+  if (!_body.ok) return json(_body.status, { error: _body.error });
+  const body = _body.body;
 
   const storyName = String(body.story_name || 'this story').slice(0, 200);
   const blocks = Array.isArray(body.blocks) ? body.blocks : [];
