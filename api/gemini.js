@@ -2,6 +2,7 @@ import { checkAccess } from './_lib/access.js';
 import { createClient } from '@supabase/supabase-js';
 import { parseEmbedding, cosineSim } from './_lib/semantic-search.js';
 import { formatSeconds } from './_lib/format-seconds.js';
+import { buildGeminiChatContents } from './_lib/gemini-chat-contents.js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
 
@@ -574,12 +575,6 @@ async function handleChat(body, apiKey) {
       }).join('\n\n');
   }
 
-  // Build conversation history
-  const historyParts = (conversationHistory || []).slice(-10).map(m => ({
-    role: m.role === 'user' ? 'user' : 'model',
-    parts: [{ text: m.content }],
-  }));
-
   const systemText = `You are Hunter's editorial intelligence — a perceptive documentary editor's assistant who has deep familiarity with the filmmaker's footage archive.
 
 When you reference footage, always cite the clip name and timecode. Be specific, editorial, and insightful. Write as a creative collaborator, not a database.
@@ -589,10 +584,7 @@ ${projectContext || ''}${clipsContext}`;
   const model = 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-  const contents = [
-    ...historyParts,
-    { role: 'user', parts: [{ text: message }] },
-  ];
+  const contents = buildGeminiChatContents(conversationHistory, message, { window: 10 });
 
   const geminiPayload = {
     contents,
@@ -1086,11 +1078,6 @@ async function handleScriptCopilotChat(body, apiKey) {
     }
   }
 
-  const historyParts = (conversationHistory || []).slice(-10).map(m => ({
-    role: m.role === 'user' ? 'user' : 'model',
-    parts: [{ text: m.content }],
-  }));
-
   const systemText = `You are Hunter's Script Copilot — an intelligent editorial assistant with deep understanding of documentary scripts.
 
 You understand two-column script format (voice + visual), color coding (highlight colors carry editorial meaning), and how scripts translate to finished films.
@@ -1102,7 +1089,7 @@ When discussing the script, reference specific beats, sections, and formatting. 
   const model = 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-  const contents = [...historyParts, { role: 'user', parts: [{ text: message }] }];
+  const contents = buildGeminiChatContents(conversationHistory, message, { window: 10 });
 
   const res = await fetch(url, {
     method: 'POST',

@@ -3,6 +3,8 @@
 // the narrative). Extracted from the handler so they can be unit-tested
 // headlessly — the handler itself only fetches Gemini.
 
+import { buildGeminiChatContents } from './gemini-chat-contents.js';
+
 /**
  * Build the system instruction for the restructuring chat: the editorial-
  * consultant framing + the full two-column script rendered from segments.
@@ -37,13 +39,5 @@ ${scriptText || '(no script loaded)'}`;
  * cleanly to just that message.
  */
 export function buildChatContents(history, message) {
-  const windowed = (Array.isArray(history) ? history : []).slice(-12).map(m => ({
-    role: m.role === 'user' ? 'user' : 'model',
-    parts: [{ text: m.content }],
-  }));
-
-  while (windowed.length && windowed[0].role === 'model') windowed.shift();
-
-  windowed.push({ role: 'user', parts: [{ text: message }] });
-  return windowed;
+  return buildGeminiChatContents(history, message, { window: 12 });
 }
