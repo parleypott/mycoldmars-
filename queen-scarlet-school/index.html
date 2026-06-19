@@ -11556,7 +11556,7 @@
         if (/[.!?]/.test(text[i - 1]) && /\s/.test(text[i] || '')) {
           let j = i;
           while (j < text.length && /\s/.test(text[j])) j++;
-          if (j < text.length && /[A-Za-z"'"]/.test(text[j])) return j;
+          if (j < text.length && /[A-Za-z0-9"'“”‘’]/.test(text[j])) return j;
         }
       }
       // Word-end fallback
