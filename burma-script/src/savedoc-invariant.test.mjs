@@ -79,14 +79,16 @@ const doc = (text) => ({ type: 'doc', content: [
   // Seed two evictable backups so the loop has room to free.
   store.set(BAK_PREFIX + '1000000000000-000000', 'old-backup-A');
   store.set(BAK_PREFIX + '1000000000001-000000', 'old-backup-B');
-  // Throw quota on the FIRST LS_DOC write; the retry after one eviction succeeds.
+  // Throw quota on the FIRST LS_DOC write; the escalator's first effective tier (no LS_BLOCKS present,
+  // so tier 0 is skipped) is "evict ALL .bak". After that tier frees space, the retry lands. PHASE-2:
+  // when the live doc can't be written we sacrifice the WHOLE .bak tier — a stale session snapshot is
+  // worthless if the live doc itself can't persist.
   ctl.throwSetItemTimes = 1;
   const res = M.saveDoc(doc('LANDS-AFTER-EVICT'));
-  ok(res.ok, '1a. save eventually lands after evicting one backup');
+  ok(res.ok, '1a. save eventually lands after escalating eviction frees the .bak tier');
   eq(JSON.parse(store.get(LS_DOC)).content[0].content[0].content[0].content[0].content[0].text, 'LANDS-AFTER-EVICT',
     '1b. the doc actually persisted');
-  ok(bakKeys().length === 1, '1c. exactly one backup was evicted to make room (oldest first)');
-  ok(!bakKeys().includes(BAK_PREFIX + '1000000000000-000000'), '1d. the OLDEST backup is the one evicted');
+  ok(bakKeys().length === 0, '1c. the entire .bak tier was sacrificed to land the live doc');
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════

@@ -35,6 +35,11 @@ import { ensureTableDoc, docToBlocks, demoteServiceNodes } from './document-buil
 import { isReadOnly } from './read-mode.js';
 
 const LS_DOC = 'wp01_burma_doc_v1';
+// PERF-2 — the derived schema-faithful blocks export. The editor STOPPED writing this at runtime
+// (it was a ~167KB second copy of the doc that nothing reads), but a key may still linger in an
+// existing browser from before that change. saveDoc's quota escalation drops it FIRST (cheapest,
+// fully derivable from LS_DOC) so reclaimable dead weight is freed before any recovery snapshot.
+const LS_BLOCKS = 'wp01_burma_blocks_v1';
 // Marker recording the safe migration ran to completion. Keyed to the spine version so a
 // future schema change can force a fresh, re-validated migration by bumping the suffix.
 // BUMPED to v2: the "service need" removal demotes legacy serviceGroup/serviceItem/serviceBlock
@@ -414,22 +419,51 @@ function pruneByPrefix(prefix, keep) {
   } catch {}
 }
 
-// Drop the single oldest evictable recovery copy to free space for a failed write. Preference order:
-// oldest .bak first (cheapest to lose — it's a routine session snapshot), then, only as a LAST
-// resort, the oldest .conflict / .corrupt copies (the divergence/corruption recovery copies), always
-// keeping at least the single newest of each so a recover-a-backup flow still has something. Returns
-// true if a copy was removed (room to retry), false if nothing evictable remains. DL-5.
-function evictOldestBackup() {
-  // 1) oldest .bak
-  const baks = listBackupKeys();
-  if (baks.length) { try { localStorage.removeItem(baks[0]); return true; } catch {} }
-  // 2) oldest .conflict beyond the newest one
-  const conflicts = listKeysWithPrefix(CONFLICT_PREFIX);
-  if (conflicts.length > 1) { try { localStorage.removeItem(conflicts[0]); return true; } catch {} }
-  // 3) oldest .corrupt beyond the newest one
-  const corrupts = listKeysWithPrefix(CORRUPT_PREFIX);
-  if (corrupts.length > 1) { try { localStorage.removeItem(corrupts[0]); return true; } catch {} }
-  return false;
+// Remove a single key best-effort; return true iff it existed and is now gone (so the caller knows
+// real space was reclaimed and a retry is worth it).
+function dropKey(k) {
+  try {
+    if (localStorage.getItem(k) == null) return false;
+    localStorage.removeItem(k);
+    return true;
+  } catch { return false; }
+}
+
+// ── ESCALATING QUOTA EVICTION (PHASE-2 quota-recovery) ──────────────────────────────────────────
+// The canonical LS_DOC write must essentially NEVER stay permanently stuck while ANY reclaimable
+// space exists. The old evictor freed ONE oldest recovery copy per call, so a single huge wrong-sized
+// snapshot pile could still take many retries — and it never touched the derived LS_BLOCKS dead-weight
+// copy at all. This evictor escalates in tiers, freeing progressively more aggressive (but always
+// genuinely reclaimable) space, and the caller retries the canonical write after EACH step:
+//
+//   tier 0: drop the derived LS_BLOCKS key (a ~167KB second copy of the doc that nothing reads at
+//           runtime and is fully re-derivable from LS_DOC — the cheapest possible thing to lose).
+//   tier 1: evict ALL .bak copies (routine session snapshots; the cloud mirror is the real backstop).
+//   tier 2: evict ALL .conflict copies (divergence recovery copies).
+//   tier 3: evict ALL .corrupt copies (corruption recovery copies).
+//
+// Unlike the bounded pruners, when we are out of space to save the LIVE doc we sacrifice ALL of a
+// tier — keeping a stale recovery copy is worthless if the live doc can't be written. The escalator
+// is stateful per save attempt: each call advances to the NEXT tier that frees something. It returns
+// true while it freed at least one key (room to retry), false only when every tier is exhausted —
+// i.e. nothing reclaimable remains, which is the ONLY condition under which the save fails loudly.
+function makeQuotaEscalator() {
+  let tier = 0;
+  return function evictStep() {
+    while (tier <= 3) {
+      let freed = false;
+      if (tier === 0) {
+        freed = dropKey(LS_BLOCKS);
+      } else {
+        const prefix = tier === 1 ? BAK_PREFIX : tier === 2 ? CONFLICT_PREFIX : CORRUPT_PREFIX;
+        for (const k of listKeysWithPrefix(prefix)) { if (dropKey(k)) freed = true; }
+      }
+      tier++;
+      if (freed) return true; // freed something this tier — let the caller retry the write.
+      // tier freed nothing (key/prefix already empty) — fall through to the next tier immediately.
+    }
+    return false; // every tier exhausted: nothing reclaimable left.
+  };
 }
 
 // ── DURABLE CANONICAL WRITE (Johnny's invariant doctrine) ──────────────────────────────────
@@ -475,9 +509,10 @@ function notifySaveFailed(detail) {
 // corrupt migrated doc as canonical and mark it migrated). Returns { ok, reason }. NEVER throws.
 function writeCanonicalRaw(out) {
   let wrote = false, lastErr = null;
+  const evict = makeQuotaEscalator(); // fresh tier ladder for this write.
   for (;;) {
     try { localStorage.setItem(LS_DOC, out); wrote = true; break; }
-    catch (e) { lastErr = e; if (!evictOldestBackup()) break; }
+    catch (e) { lastErr = e; if (!evict()) break; }
   }
   if (!wrote) {
     const quota = lastErr && (lastErr.name === 'QuotaExceededError' || lastErr.code === 22 ||
@@ -560,9 +595,14 @@ export function saveDoc(json) {
     } catch {}
   }
 
-  // STEP 2 — write the canonical doc, freeing space on quota and retrying.
+  // STEP 2 — write the canonical doc, ESCALATING eviction on quota and retrying after each step so
+  // the live doc essentially never stays permanently stuck while any reclaimable space exists. The
+  // escalator frees, in order: the derived LS_BLOCKS dead-weight copy, then ALL .bak, then ALL
+  // .conflict, then ALL .corrupt — retrying the canonical write after each tier. We only give up
+  // (and fail loudly) when every tier is exhausted, i.e. there is genuinely nothing left to free.
   let wrote = false;
   let lastErr = null;
+  const evict = makeQuotaEscalator(); // fresh tier ladder for this save attempt.
   for (;;) {
     try {
       localStorage.setItem(LS_DOC, out);
@@ -570,8 +610,7 @@ export function saveDoc(json) {
       break;
     } catch (e) {
       lastErr = e;
-      // Free room (oldest backup first) and retry; bail when there's nothing left to evict.
-      if (!evictOldestBackup()) break;
+      if (!evict()) break; // every reclaim tier exhausted — nothing left to free.
     }
   }
 

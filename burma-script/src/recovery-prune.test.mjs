@@ -60,38 +60,38 @@ const keysWith = (p) => Array.from(store.keys()).filter((k) => k.startsWith(p));
   ok(!left.includes(oldest), '1d. oldest conflict copy was pruned');
 }
 
-// 2) saveDoc's quota loop evicts oldest .conflict (after .bak is exhausted) so a save can land even
-//    when conflict copies are the things hogging storage. We exhaust .bak first (the session backup
-//    is the only .bak), then force enough quota throws that eviction must reach into .conflict.
+// 2) saveDoc's ESCALATING quota loop reaches into the .conflict tier (after .bak is exhausted) so a
+//    save can land even when conflict copies are the things hogging storage. PHASE-2 change: when the
+//    live doc can't be written we sacrifice the WHOLE .conflict tier, not just its oldest copy — a
+//    stale divergence snapshot is worthless if the live doc itself can't persist. We force quota
+//    throws until eviction has reached the conflict tier and the write lands.
 {
   store.clear();
   store.set('wp01_burma_doc_v1', JSON.stringify({ type: 'doc', content: [{ type: 'paragraph' }] }));
   store.set('wp01_burma_doc_ver_v1', '1|tab_seed');
   md.syncBaseVersion();
-  // Three conflict copies (so two are evictable, newest always kept). No corrupt this round.
+  // Three conflict copies hogging storage. No corrupt this round.
   store.set(CONFLICT_PREFIX + '1700000000000-000000', 'c-old');
   store.set(CONFLICT_PREFIX + '1700000000500-000000', 'c-mid');
   store.set(CONFLICT_PREFIX + '1700000000900-000000', 'c-new');
 
-  // Quota-throw the LS_DOC write until 2 evictions have happened: the session .bak (1st), then the
-  // oldest .conflict (2nd). After the 2nd eviction the write lands.
-  let evictionsSeen = 0;
+  // Keep failing the LS_DOC write until eviction has freed at least 3 keys: the session .bak (tier 1)
+  // then all three .conflict copies (tier 2). After the conflict tier is freed, the write lands.
+  let freedSeen = 0;
   let prevKeyCount = store.size;
   globalThis.localStorage.setItem = (k, v) => {
     if (k === 'wp01_burma_doc_v1') {
-      // Count removals that happened since the last failed attempt as evictions.
-      if (store.size < prevKeyCount) evictionsSeen += (prevKeyCount - store.size);
+      if (store.size < prevKeyCount) freedSeen += (prevKeyCount - store.size);
       prevKeyCount = store.size;
-      if (evictionsSeen < 2) { throw quotaErr(); } // keep failing until 2 things were freed
+      if (freedSeen < 3) { throw quotaErr(); } // keep failing until the conflict tier is reclaimed
     }
     store.set(k, String(v));
   };
 
   const res = saveDoc({ type: 'doc', content: [{ type: 'paragraph' }, { type: 'paragraph' }] });
-  ok(res.ok === true, '2a. saveDoc recovered from quota by evicting .bak then a .conflict copy');
+  ok(res.ok === true, '2a. saveDoc recovered from quota by escalating into the .conflict tier');
   const conflictsLeft = keysWith(CONFLICT_PREFIX);
-  ok(conflictsLeft.includes(CONFLICT_PREFIX + '1700000000900-000000'), '2b. newest conflict copy kept');
-  ok(!conflictsLeft.includes(CONFLICT_PREFIX + '1700000000000-000000'), '2c. oldest conflict copy evicted once .bak ran out');
+  ok(conflictsLeft.length === 0, '2b. the ENTIRE .conflict tier was sacrificed to land the live doc (PHASE-2)');
 }
 
 console.log(`recovery-prune: ${pass} passed, ${fail} failed`);

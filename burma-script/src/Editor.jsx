@@ -25,7 +25,6 @@ import { pushDoc, handlePushResult } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
 
 const LS_DOC = 'wp01_burma_doc_v1';
-const LS_BLOCKS = 'wp01_burma_blocks_v1'; // derived schema-faithful export (exercises docToBlocks)
 
 // CARDINAL SIN GUARD: if the saved doc existed but could NOT be read/parsed at seed time, we
 // must NOT let autosave clobber the original bytes with the fresh source fallback — that would
@@ -197,11 +196,15 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
     if (isReloadingForReset()) return;
     const json = editor.getJSON();
     const res = saveDoc(json); // handles its own loud failure + wp-saved on success.
-    // Derived schema-faithful blocks export — keeps docToBlocks() exercised and gives downstream
-    // tools a clean blocks array. SEPARATE try/catch AFTER the canonical doc: it roughly doubles
-    // payload and is the likeliest line to blow quota, so it must never threaten LS_DOC.
     if (res.ok) {
-      try { localStorage.setItem(LS_BLOCKS, JSON.stringify(docToBlocks(json))); } catch {}
+      // PERF-2 — we DELIBERATELY no longer write the derived LS_BLOCKS to localStorage. It was a
+      // ~167KB second copy of the doc on every save that NOTHING reads at runtime (confirmed: the
+      // only readers of docToBlocks are the live Exports panel and tests, which call it on demand
+      // against the in-memory editor JSON — never via this key). On the LIVE failure that triggered
+      // this fix it doubled the per-save storage payload and was a prime contributor to filling the
+      // localStorage quota. docToBlocks stays imported and exercised for exports/tests; it's just not
+      // mirrored to a dead key here. (saveDoc's quota escalator also evicts a lingering LS_BLOCKS key
+      // first, so any copy left over from a pre-PERF-2 build gets reclaimed on the next pinch.)
       // CLOUD MIRROR — after the LOCAL save lands durably, push it up so the doc follows Johnny to
       // any browser/device. Fire-and-forget for the SAVE itself: a cloud-push failure must NEVER block
       // or undo the local save (which already succeeded above). pushDoc never throws and fires its own
