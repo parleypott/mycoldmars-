@@ -20,6 +20,15 @@ export default defineConfig({
     jsxFactory: 'h',
     jsxFragment: 'Fragment',
     jsxInject: `import { h, Fragment } from 'preact'`,
+    // PERF-5 — ACTUALLY strip dev-only diagnostics from production bundles. This is the REAL vite
+    // esbuild hook (the old `build.esbuildOptions` below was not a vite key and was silently
+    // ignored — only `debugger` was ever "configured", and even that didn't take effect). `drop`
+    // removes debugger statements; `pure` marks the console methods side-effect-free so minify
+    // tree-shakes their calls out. console.warn / console.error deliberately SURVIVE so real
+    // failures still surface; only log/info/debug/trace (the hot-path + startup noise in
+    // cloud-sync/main) are stripped, so app internals don't leak to anyone with DevTools open.
+    drop: ['debugger'],
+    pure: ['console.log', 'console.info', 'console.debug', 'console.trace'],
   },
   resolve: {
     alias: {
@@ -30,12 +39,9 @@ export default defineConfig({
     },
   },
   build: {
-    // Strip dev-only console + debugger calls from production bundles.
-    // Editorial app — diagnostic noise that survives to prod just adds
-    // overhead and leaks app internals to anyone with DevTools open.
-    // Console.warn and console.error survive so real failures still
-    // surface; only `log/debug/info/trace` are stripped.
-    esbuildOptions: { drop: ['debugger'] },
+    // Dev-console/debugger stripping is configured in the top-level `esbuild` block above (the real
+    // vite hook). The previous `esbuildOptions` key here was not a recognised vite option and never
+    // took effect — see PERF-5.
     rollupOptions: {
       output: {
         // Code-split the heavy editor/AI/Supabase chunks out of the
