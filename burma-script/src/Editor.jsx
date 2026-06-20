@@ -20,7 +20,7 @@ import { BURMA_MARKS } from './extensions/marks.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { Workshop } from './Workshop.jsx';
-import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, isReloadingForAdopt, isReloadingForReset, LS_DOC_VER } from './migrate-doc.js';
+import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, isReloadingForAdopt, isReloadingForReset, isRenderableLocalDoc, LS_DOC_VER } from './migrate-doc.js';
 import { pushDoc, handlePushResult } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
 
@@ -78,7 +78,8 @@ function seedDoc(sourceBlocks, readOnlyDoc) {
       // MIGRATION-SAFE: a doc saved before the table spine has flat block nodes at the top
       // level. ensureTableDoc wraps them into full-width rows so the existing edited doc
       // (Johnny's filled answers) keeps rendering — no content touched, marks ride along.
-      if (parsed?.content?.length) {
+      // CH-06 — same shared "renderable?" predicate hasUsableLocalDoc + the migrate base-gate use.
+      if (isRenderableLocalDoc(parsed)) {
         // CROSS-TAB BASE: adopt the on-disk version as this tab's base, so the conflict guard
         // measures every later save against the doc this tab actually rendered from.
         syncBaseVersion();
@@ -115,7 +116,7 @@ function seedDoc(sourceBlocks, readOnlyDoc) {
 // regex-scraping stringified JSON, so it counts correctly through marks/escapes.
 // Also derives the OUTLINE (chapter/scene spine) for the left rail — monochrome,
 // indented titles, keyed by blockId so a click can scroll the matching node into view.
-function telemetry(doc) {
+export function telemetry(doc) {
   let words = 0, blocks = 0, done = 0, sot = 0, scaffold = 0;
   const outline = [];
   // TABLE SPINE — the doc top level is tableRow+. Flatten rows→cells→blocks so telemetry counts
@@ -157,6 +158,13 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
   const readOnly = isReadOnly();
   const initial = useMemo(() => seedDoc(sourceBlocks, readOnlyDoc), [sourceBlocks, readOnlyDoc]);
   const saveTimer = useRef(null);
+  // PERF-3/PERF-7/ux-10 — telemetry (full-doc getJSON + nodeText word-recount + outline rebuild)
+  // used to run SYNCHRONOUSLY on every keystroke. That is the one keystroke-latency cost that
+  // scales with doc size (a full plain-object copy of the ~167KB tree allocated per keypress, then
+  // flattened + word-counted). It runs on its own trailing debounce now: the word/block/outline
+  // numbers don't need to update mid-burst — refreshing them when typing pauses is invisible to the
+  // user and removes the only unbounded synchronous per-keystroke work. wp-dirty still fires instantly.
+  const telTimer = useRef(null);
 
   // The SINGLE canonical-write path. Cancels any pending debounce and writes the absolute latest
   // editor JSON through saveDoc (quota-aware retry + read-back invariant + loud failure). Used by
@@ -261,8 +269,14 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
       onEditorReady?.(editor);
     },
     onUpdate({ editor }) {
-      const json = editor.getJSON();
-      onTelemetry?.(telemetry(json));
+      // PERF-3/PERF-7/ux-10 — fire the cheap dirty event INSTANTLY (it's just a CustomEvent), but
+      // defer the expensive telemetry recompute (getJSON + word/outline walk) onto a trailing timer.
+      // No full-doc serialize or tree-walk happens on the synchronous keystroke path anymore.
+      if (telTimer.current) clearTimeout(telTimer.current);
+      telTimer.current = setTimeout(() => {
+        telTimer.current = null;
+        onTelemetry?.(telemetry(editor.getJSON()));
+      }, 200);
       // READ-ONLY SHARE: a non-editable editor should never fire onUpdate, but guard anyway so NO
       // dirty/debounce/flush path can ever run in a reader's session. Telemetry above is harmless.
       if (readOnly) return;
@@ -393,7 +407,10 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
   // READ-ONLY SHARE: skip — there is nothing to flush and saveDoc would refuse anyway.
   useEffect(() => {
     if (readOnly) return undefined;
-    return () => { flushRef.current(editor); };
+    return () => {
+      if (telTimer.current) { clearTimeout(telTimer.current); telTimer.current = null; }
+      flushRef.current(editor);
+    };
   }, [editor]);
 
   return (

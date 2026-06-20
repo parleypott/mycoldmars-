@@ -9,7 +9,7 @@ import { render } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { BurmaEditor, LS_DOC } from './Editor.jsx';
 import { Exports } from './Exports.jsx';
-import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, setReloadingForAdopt, setReloadingForReset, LS_DOC_VER, LS_MIGRATED } from './migrate-doc.js';
+import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, setReloadingForAdopt, setReloadingForReset, isRenderableLocalDoc, LS_DOC_VER, LS_MIGRATED } from './migrate-doc.js';
 import { reconcileOnLoad, bootstrapFromCloud, fetchCloudDocReadOnly } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
 import { scanRecoverySnapshots, readSnapshot, snapshotToText, dismissSnapshot } from './recovery.js';
@@ -800,8 +800,9 @@ function hasUsableLocalDoc() {
   try {
     const raw = localStorage.getItem(LS_DOC);
     if (!raw) return false;
-    const parsed = JSON.parse(raw);
-    return !!(parsed && Array.isArray(parsed.content) && parsed.content.length);
+    // CH-06 — single shared "renderable?" predicate (parseable + non-empty content). seedDoc and the
+    // migrate base-gate use the SAME check, so "usable" means exactly one thing across startup.
+    return isRenderableLocalDoc(raw);
   } catch {
     return false; // unparseable -> not usable here; cloud may seed, seedDoc preserves the bytes.
   }
@@ -848,7 +849,7 @@ async function startup() {
       // else BurmaEditor seeds from the bundled SOURCE_BLOCKS. Either way: still read-only, still no writes.
       try {
         const raw = localStorage.getItem(LS_DOC);
-        if (raw) { const p = JSON.parse(raw); if (p?.content?.length) cloudDoc = p; }
+        if (raw) { const p = JSON.parse(raw); if (isRenderableLocalDoc(p)) cloudDoc = p; }
       } catch {}
       console.info('[burma] read-only: cloud unavailable — rendering from ' + (cloudDoc ? 'local cache' : 'source'));
     } else {

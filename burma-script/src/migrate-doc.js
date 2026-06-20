@@ -52,6 +52,24 @@ const BAK_PREFIX = LS_DOC + '.bak.';
 // snapshot across a couple of sessions, and the cloud mirror (cloud-sync.js) is the real backstop.
 const BAK_KEEP = 3;
 
+// ── CH-06 — ONE shared "is this local doc renderable?" predicate ──────────────────────────────
+// Startup had THREE drifting definitions of "usable local doc": hasUsableLocalDoc (main.jsx),
+// seedDoc (Editor.jsx), and the migrate base-gate (migrateStoredDoc) each re-derived "parseable +
+// non-empty content" inline with subtly different shapes. A future edit to one without the others
+// could route a doc down a branch that drops it from the instant-paint path or skips a needed wrap.
+// This is the single source of truth they all call now. "Renderable" means EXACTLY: parses to an
+// object with a non-empty content array — table-shape is NOT required here (ensureTableDoc wraps a
+// flat-but-valid doc at seed time); the stricter all-rows check stays local to migrateStoredDoc,
+// which is a different question ("does this need migrating?") not "can we paint it?".
+// Accepts either a raw JSON string or an already-parsed object. Never throws.
+export function isRenderableLocalDoc(rawOrParsed) {
+  let parsed = rawOrParsed;
+  if (typeof rawOrParsed === 'string') {
+    try { parsed = JSON.parse(rawOrParsed); } catch { return false; }
+  }
+  return !!(parsed && Array.isArray(parsed.content) && parsed.content.length);
+}
+
 // ── CROSS-TAB CONFLICT GUARD (crosstab-stale-overwrite) ────────────────────────────────────
 // Two open tabs share localStorage. The durable-flush work (pagehide / visibilitychange) made
 // the loss path WORSE: switching away from a stale tab now eagerly flushes its old in-memory
@@ -652,7 +670,10 @@ export function migrateStoredDoc() {
   } catch (e) {
     return { ok: false, reason: 'saved doc unparseable — left untouched', error: String(e) };
   }
-  if (!original || original.type !== 'doc' || !Array.isArray(original.content) || !original.content.length) {
+  // CH-06 — the same shared "renderable?" gate hasUsableLocalDoc + seedDoc use (parseable + non-empty
+  // content). The extra type==='doc' assertion stays: migration writes back to canonical LS_DOC and
+  // wants the stricter doc-root guarantee before it touches anything.
+  if (original.type !== 'doc' || !isRenderableLocalDoc(original)) {
     return { ok: false, reason: 'saved doc not a non-empty doc — left untouched' };
   }
 
