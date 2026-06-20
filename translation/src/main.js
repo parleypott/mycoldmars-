@@ -18,7 +18,7 @@ import { buildPremiereXML, buildPremiereSequenceXML, buildSacredSequencerXML } f
 import { buildPremiereScript } from './export/premiere-script.js';
 import { exportHighlightsPDF } from './export/pdf-export.js';
 import { exportSummaryText, safeFilename } from './export/summary-export.js';
-import { byUpdatedDesc } from './library-time.js';
+import { byUpdatedDesc, isInTrashWindow, trashDaysLeft, relativeTimeFrom } from './library-time.js';
 import { extractHighlightsFromEditor } from './editor/document-builder.js';
 import { buildAutoSummaryPrompt } from './copilot/copilot-prompts.js';
 import { initSotHunter, setSotHunterVisible } from './sot-hunter.js';
@@ -342,10 +342,7 @@ function renderLibrary(transcripts, projectsList, deletedTranscripts) {
     for (const t of items) rows.push(renderFileRow(t));
   } else if (libraryActiveView === 'trash') {
     // Show ONLY deleted items in trash view.
-    const deleted = (deletedTranscripts || []).filter(t => {
-      const deletedAt = new Date(t.deleted_at).getTime();
-      return Date.now() - deletedAt < 30 * 24 * 60 * 60 * 1000;
-    });
+    const deleted = (deletedTranscripts || []).filter(t => isInTrashWindow(t.deleted_at));
     if (deleted.length === 0) {
       libraryList.innerHTML = '';
       const emptyEl = document.getElementById('library-empty');
@@ -357,13 +354,13 @@ function renderLibrary(transcripts, projectsList, deletedTranscripts) {
       return;
     }
     rows.push(...deleted.map(t => {
-      const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - new Date(t.deleted_at).getTime()) / (24 * 60 * 60 * 1000)));
+      const daysLeft = trashDaysLeft(t.deleted_at);
       return `<div class="lib-row lib-row--deleted" data-id="${t.id}" tabindex="-1">
         <div class="lib-col lib-col--name">
           <span class="lib-row-check-spacer"></span>
           <span class="lib-icon">${ICON_FILE}</span>
           <span class="lib-name lib-name--deleted">${esc(t.name)}</span>
-          <span class="lib-deleted-days">${daysLeft}d left</span>
+          <span class="lib-deleted-days">${daysLeft === null ? '—' : `${daysLeft}d left`}</span>
         </div>
         <div class="lib-col lib-col--step"></div>
         <div class="lib-col lib-col--date">${relativeTime(t.deleted_at)}</div>
@@ -1404,18 +1401,7 @@ async function applyMove(ids, projectId) {
 }
 
 function relativeTime(dateStr) {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = now - then;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return 'yesterday';
-  if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return relativeTimeFrom(dateStr);
 }
 
 // ── Transcript title in header ──

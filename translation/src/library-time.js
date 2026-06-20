@@ -29,3 +29,75 @@ export function recencyKey(v) {
 export function byUpdatedDesc(a, b) {
   return recencyKey(b && b.updated_at) - recencyKey(a && a.updated_at);
 }
+
+// ── NaN-safe trash retention + relative-time display ──
+//
+// Same unguarded-`new Date(x).getTime()` class as the sort above, on the two
+// display sites the recent-view fix (4ead52a) logged as the follow-up:
+//   • the trash filter dropped a deleted transcript with a bad deleted_at from
+//     the recovery UI entirely (NaN < window === false), making it
+//     unrecoverable — the most consequential of the two, it's a data-loss path;
+//   • relativeTime fell through to toLocaleDateString on a NaN diff and rendered
+//     "Invalid Date".
+// These guard both. For any VALID date every helper is byte-identical to the old
+// inline code (proven by equivalence cases), so only a bad/missing date changes.
+
+const TRASH_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Parsed epoch-ms for a valid date, or null for missing/unparseable. Treats
+ * null/undefined/'' as missing (not the JS `new Date(null)` === epoch quirk), so
+ * a row with an absent deleted_at is recognized as "unknown time" and kept.
+ */
+export function parseDateMs(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const t = new Date(v).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
+/**
+ * Trash retention predicate. A deleted transcript stays in the 30-day trash
+ * window iff it was deleted within the window — OR its deleted_at is
+ * missing/unparseable, in which case we KEEP it so it stays recoverable.
+ * The old inline check `Date.now() - new Date(deletedAt).getTime() < window`
+ * returned `NaN < window === false` for a bad date, silently DROPPING the
+ * transcript from the recovery UI (unrecoverable). Keeping it is strictly safer
+ * — a deleted item should never vanish from the place you go to restore it.
+ */
+export function isInTrashWindow(deletedAt, now = Date.now(), windowMs = TRASH_WINDOW_MS) {
+  const ms = parseDateMs(deletedAt);
+  if (ms === null) return true; // unknown deletion time -> keep, stay recoverable
+  return now - ms < windowMs;
+}
+
+/**
+ * Days left before a trashed item is purged (0..windowDays), or null when
+ * deleted_at is missing/unparseable (caller renders a dash, not "NaNd left").
+ */
+export function trashDaysLeft(deletedAt, now = Date.now(), windowDays = 30) {
+  const ms = parseDateMs(deletedAt);
+  if (ms === null) return null;
+  return Math.max(0, windowDays - Math.floor((now - ms) / DAY_MS));
+}
+
+/**
+ * Human relative-time label ("just now", "5m ago", "yesterday", "Mar 3").
+ * Returns 'unknown' for a missing/unparseable date — the old inline relativeTime
+ * fell through to toLocaleDateString on a NaN diff and rendered "Invalid Date".
+ * Byte-identical to the old logic for any valid date.
+ */
+export function relativeTimeFrom(dateStr, now = Date.now()) {
+  const then = parseDateMs(dateStr);
+  if (then === null) return 'unknown';
+  const diff = now - then;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days}d ago`;
+  return new Date(then).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
