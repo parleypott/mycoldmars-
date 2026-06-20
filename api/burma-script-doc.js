@@ -86,6 +86,21 @@ async function putDoc(body) {
   const payload = JSON.stringify({ doc, version, updated_at: new Date().toISOString() });
 
   if (!curRows.length) {
+    // cloud-4 — RE-SEED-AFTER-VANISH ALERT. The row is absent (stored===0) but the client is sending
+    // a SUBSTANTIAL version. The version counter starts at 1 and climbs by 1 per save, so a large
+    // incoming version against an empty row means the canonical row was DELETED/TRUNCATED/restore-
+    // gapped and this device is about to RE-SEED the cloud from its local copy. That doesn't lose
+    // data (local is authoritative) but it resets the shared monotonic baseline, so cross-device
+    // version numbers are no longer comparable to pre-deletion numbers. Log it loudly so a vanished
+    // row is visible in the function logs rather than silently re-seeded.
+    if (version > 1) {
+      try {
+        console.warn('[burma-script-doc] cloud row VANISHED — re-seeding from a client at v' + version +
+          ' against an empty row (stored=0). The canonical row was deleted/truncated; the shared ' +
+          'version baseline is being reset. If multiple devices hold divergent local docs, whichever ' +
+          'pushes first wins the re-seed.');
+      } catch {}
+    }
     // FIRST write — insert. If a racing writer inserted between our read and here, the PK conflict
     // surfaces as a non-2xx; we retry once through the guarded PATCH path below to resolve cleanly.
     const ins = await sb(`/rest/v1/burma_script_docs`, {
