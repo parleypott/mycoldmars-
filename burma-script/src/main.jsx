@@ -12,6 +12,7 @@ import { Exports } from './Exports.jsx';
 import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, setReloadingForAdopt, setReloadingForReset, isRenderableLocalDoc, LS_DOC_VER, LS_MIGRATED } from './migrate-doc.js';
 import { reconcileOnLoad, bootstrapFromCloud, fetchCloudDocReadOnly } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
+import { captureWriteTokenFromUrl } from './write-token.js';
 import { scanRecoverySnapshots, readSnapshot, snapshotToText, dismissSnapshot } from './recovery.js';
 import scriptData from '../sample-blocks.json';
 
@@ -862,6 +863,13 @@ function mountCloudLoadingPlaceholder(el) {
 // ── STARTUP ORCHESTRATION — deterministic, no flash of source on a fresh device ───────────────────
 async function startup() {
   const el = document.getElementById('app');
+
+  // SHARE-SAFETY (write-token provisioning). If Johnny opened his edit URL with `?key=SECRET`, stash the
+  // secret into this device's localStorage and SCRUB it from the address bar — so every subsequent push
+  // carries the write token the gated server requires, and the secret never lingers in the URL to be
+  // shoulder-surfed or pasted into a `?read` share. Skipped under read-only (the recipient's device must
+  // never acquire a write secret, even from a crafted `?key=` link). NEVER throws.
+  try { captureWriteTokenFromUrl({ isReadOnly }); } catch {}
 
   // ── READ-ONLY SHARE PATH (read-only-share) ──────────────────────────────────────────────────────
   // `?read` / `?view` opens Johnny's script as a frozen, read-only shared view. We ALWAYS pull his

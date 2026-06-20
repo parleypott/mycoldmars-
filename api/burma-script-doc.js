@@ -24,6 +24,17 @@ import { pgrValue } from './_lib/pgrest.js';
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// SHARE-SAFETY WRITE GATE (server-side). When set, every PUT must carry a matching X-Burma-Write-Token
+// header or it is refused 401 BEFORE any DB read. This is what makes the `?read` share STRUCTURALLY safe:
+// the read link does NOT carry the secret, and the secret is NOT in the shipped bundle (it lives in
+// Johnny's browser localStorage, provisioned once via `?key=` — see burma-script/src/write-token.js).
+// So a recipient with DevTools who hand-crafts a PUT has no token and is rejected here — read-only is no
+// longer merely client-enforced. GRACEFUL DEGRADATION: if BURMA_WRITE_TOKEN is UNSET (local dev, or
+// before Johnny provisions one), PUT stays open exactly as before — turning the gate on is a pure env
+// flip. GET is ALWAYS open (a read-share recipient must be able to read).
+const WRITE_TOKEN = process.env.BURMA_WRITE_TOKEN || '';
+const WRITE_TOKEN_HEADER = 'x-burma-write-token'; // header names are case-insensitive; compare lowercased
+
 // The one canonical doc. There is no multi-doc concept in the tool — one row, fixed id.
 const DOC_ID = 'wp01-burma';
 const idEq = (id) => `id=eq.${pgrValue(id)}`;
@@ -31,9 +42,21 @@ const idEq = (id) => `id=eq.${pgrValue(id)}`;
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  // Allow the write-token header on cross-origin preflight so the gated PUT isn't blocked by CORS.
+  'Access-Control-Allow-Headers': 'Content-Type, X-Burma-Write-Token',
   'Access-Control-Max-Age': '86400',
 };
+
+// PURE write-auth decision (exported for unit tests, no Request/DB needed). Returns true when the PUT is
+// authorized: either no server token is configured (open, graceful), or the presented token EXACTLY
+// matches the configured one. A configured-but-missing/mismatched token is refused.
+//   serverToken : the configured BURMA_WRITE_TOKEN ('' / undefined => gate disabled => always authorized)
+//   presented   : the X-Burma-Write-Token header value from the request (may be null/undefined)
+function isWriteAuthorized(serverToken, presented) {
+  const want = typeof serverToken === 'string' ? serverToken : '';
+  if (want.length === 0) return true; // gate disabled — open, as before
+  return typeof presented === 'string' && presented.length > 0 && presented === want;
+}
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
@@ -42,6 +65,13 @@ export default async function handler(req) {
   try {
     if (req.method === 'GET') return await getDoc();
     if (req.method === 'PUT') {
+      // SHARE-SAFETY WRITE GATE — refuse an unauthorized write BEFORE reading the body or touching the
+      // DB. A `?read` recipient (no device token) hand-crafting a PUT lands here as a clean 401, so the
+      // read-only guarantee is server-enforced, not merely client-side. Open when no token is configured.
+      const presented = req.headers.get(WRITE_TOKEN_HEADER);
+      if (!isWriteAuthorized(WRITE_TOKEN, presented)) {
+        return err(401, 'UNAUTHORIZED', 'A valid write token is required to modify the cloud doc');
+      }
       let body;
       try { body = await req.json(); } catch { return err(400, 'BAD_JSON', 'Body must be JSON'); }
       return await putDoc(body);
@@ -192,4 +222,4 @@ function err409(current) {
 }
 
 // Exported for unit tests (pure decision logic + id filter).
-export { DOC_ID, idEq, toVersion, validatePutBody, isWriteAcceptable };
+export { DOC_ID, idEq, toVersion, validatePutBody, isWriteAcceptable, isWriteAuthorized };

@@ -16,7 +16,7 @@
 
 import assert from 'node:assert';
 
-const { validatePutBody, isWriteAcceptable, toVersion } = await import('./burma-script-doc.js');
+const { validatePutBody, isWriteAcceptable, toVersion, isWriteAuthorized } = await import('./burma-script-doc.js');
 
 let passed = 0;
 let failed = 0;
@@ -133,6 +133,34 @@ ok('integration: a fresh client (v602) against stored 601 validates OK and IS ac
   const v = validatePutBody({ doc: { type: 'doc' }, version: 602 });
   assert.equal(v.ok, true);
   assert.equal(isWriteAcceptable(v.version, 601), true, 'newer write accepted');
+});
+
+// ── isWriteAuthorized: the SHARE-SAFETY write gate (server side) ─────────────
+// The reason a `?read` recipient can no longer clobber Johnny's cloud doc even with DevTools: the PUT
+// now demands a write secret the read link does NOT carry. This pure decision is the gate's core.
+ok('gate DISABLED (no server token) — any PUT authorized (graceful degradation / local dev)', () => {
+  assert.equal(isWriteAuthorized('', 'anything'), true);
+  assert.equal(isWriteAuthorized('', null), true);
+  assert.equal(isWriteAuthorized('', undefined), true);
+  assert.equal(isWriteAuthorized(undefined, undefined), true);
+});
+ok('gate ENABLED — exact token match authorizes', () => {
+  assert.equal(isWriteAuthorized('s3cret', 's3cret'), true);
+});
+ok('gate ENABLED — missing / empty / wrong token is REFUSED (the share-safety guarantee)', () => {
+  assert.equal(isWriteAuthorized('s3cret', null), false, 'a reader sends no token');
+  assert.equal(isWriteAuthorized('s3cret', undefined), false);
+  assert.equal(isWriteAuthorized('s3cret', ''), false);
+  assert.equal(isWriteAuthorized('s3cret', 'wrong'), false);
+  assert.equal(isWriteAuthorized('s3cret', 's3cre'), false, 'no prefix/partial match');
+  assert.equal(isWriteAuthorized('s3cret', 's3cret '), false, 'no trailing-space slop');
+});
+ok('RED: a recipient hand-crafting a PUT with a huge version is still REFUSED when the gate is on', () => {
+  // The DevTools attack: fetch PUT { doc, version: 999999 } with NO token. Version concurrency alone
+  // (isWriteAcceptable) would ACCEPT it — that was the old gap. The gate refuses it first.
+  const stolenVersion = 999999;
+  assert.equal(isWriteAcceptable(stolenVersion, 601), true, 'version-only check would let the clobber through');
+  assert.equal(isWriteAuthorized('s3cret', null), false, 'but the write gate refuses the tokenless PUT');
 });
 
 console.log(`\nburma-script-doc: ${passed} passed, ${failed} failed`);

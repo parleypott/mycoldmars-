@@ -21,6 +21,7 @@
 
 import { isReadOnly } from './read-mode.js';
 import { pruneConflictSnapshots, resetSessionBackup } from './migrate-doc.js';
+import { writeTokenHeaders } from './write-token.js';
 
 const API = '/api/burma-script-doc';
 const LS_DOC = 'wp01_burma_doc_v1';
@@ -145,9 +146,14 @@ export async function pushDoc(doc, version, fetchImpl = globalThis.fetch) {
     return { ok: false, skipped: true };
   }
   try {
+    // SHARE-SAFETY (server-side write gate): carry the device-held write token so a server configured
+    // with BURMA_WRITE_TOKEN accepts THIS device's push. A `?read` recipient's browser has no token in
+    // localStorage, so writeTokenHeaders() is empty and the server rejects their (hand-crafted) PUT 401.
+    // When the server has no token configured, the header is absent and the PUT is accepted as before
+    // (graceful degradation). Header layered AFTER Content-Type so neither clobbers the other.
     const res = await fetchImpl(API, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...writeTokenHeaders() },
       body: JSON.stringify({ doc, version: toInt(version) }),
     });
     if (res && res.ok) {
