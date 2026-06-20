@@ -130,6 +130,83 @@ const DOC = (t) => JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', 
   ok(snapshotToText({ doc }).includes('unsynced word'), 'X6. handles a {doc:{...}} wrapper too');
 }
 
+/* ── REDUNDANT-BACKUP FILTER (recovery-banner-spam): a snapshot whose content EQUALS the live saved
+      doc is NOT surfaced — it's a backup of already-saved work, nothing to recover. A snapshot with
+      genuinely-different content IS surfaced. This is the root fix for "N earlier edits backed up"
+      never clearing no matter how often backups are cleared. ── */
+{
+  const storage = makeStorage({
+    [LS_DOC]: DOC('the saved doc on screen'),
+    // content-equal to the live doc (redundant backup the adopt path keeps minting) -> filtered
+    [CONFLICT_PREFIX + '3000-000000']: DOC('the saved doc on screen'),
+    // genuinely-unsynced content -> surfaced
+    [CONFLICT_PREFIX + '1000-000000']: DOC('an unsynced word that is NOT in the saved doc'),
+  });
+  const snaps = scanRecoverySnapshots({ storage });
+  eq(snaps.length, 1, 'F1. only the genuinely-unsynced snapshot surfaces (content-equal backup filtered)');
+  eq(snaps[0].ts, 1000, 'F2. the surfaced one is the unique-content snapshot');
+}
+
+/* ── canonical compare: a key-order reflow (cosmetic round-trip) of the SAME content is treated as
+      equal-to-live and filtered — not mistaken for a real edit (mirrors cloud-sync localDiffersFrom). ── */
+{
+  // Same logical doc, different key insertion order — stableStringify sorts keys so they're equal.
+  const live = JSON.stringify({ type: 'doc', attrs: { a: 1, b: 2 }, content: [] });
+  const reflow = JSON.stringify({ content: [], attrs: { b: 2, a: 1 }, type: 'doc' });
+  const storage = makeStorage({
+    [LS_DOC]: live,
+    [CONFLICT_PREFIX + '2000-000000']: reflow,
+  });
+  const snaps = scanRecoverySnapshots({ storage });
+  eq(snaps.length, 0, 'F3. cosmetic key-order reflow of live content is filtered (canonical compare)');
+}
+
+/* ── content dedup: the same bytes under two keys never show twice ── */
+{
+  const storage = makeStorage({
+    [LS_DOC]: DOC('saved'),
+    [CONFLICT_PREFIX + '1000-000000']: DOC('identical unsynced edit'),
+    [CONFLICT_PREFIX + '2000-000000']: DOC('identical unsynced edit'),
+    [CONFLICT_PREFIX + '3000-000000']: DOC('a different unsynced edit'),
+  });
+  const snaps = scanRecoverySnapshots({ storage });
+  eq(snaps.length, 2, 'F4. identical-content snapshots collapse to one; the distinct one survives');
+  eq(snaps[0].ts, 3000, 'F5. newest-first ordering preserved across the dedup');
+}
+
+/* ── banner-empty case: ALL snapshots are content-equal to the live doc -> empty list (banner clears) ── */
+{
+  const storage = makeStorage({
+    [LS_DOC]: DOC('everything is already saved'),
+    [CONFLICT_PREFIX + '1000-000000']: DOC('everything is already saved'),
+    [BAK_PREFIX + '2000']: DOC('everything is already saved'),
+  });
+  const snaps = scanRecoverySnapshots({ storage });
+  eq(snaps.length, 0, 'F6. all-redundant snapshots -> empty list (the persistent banner finally clears)');
+}
+
+/* ── no live doc on disk: nothing to compare against, so snapshots are NOT filtered (err toward surfacing) ── */
+{
+  const storage = makeStorage({
+    [CONFLICT_PREFIX + '1000-000000']: DOC('an edit with no live doc to compare'),
+  });
+  const snaps = scanRecoverySnapshots({ storage });
+  eq(snaps.length, 1, 'F7. with no live LS_DOC, the snapshot still surfaces (cannot prove it redundant)');
+}
+
+/* ── async scan applies the same redundant-backup filter (localStorage-only path, IDB unavailable) ── */
+{
+  const { scanRecoverySnapshotsAsync } = await import('./recovery.js');
+  const storage = makeStorage({
+    [LS_DOC]: DOC('cloud-synced doc'),
+    [CONFLICT_PREFIX + '3000-000000']: DOC('cloud-synced doc'),              // redundant -> filtered
+    [CONFLICT_PREFIX + '1000-000000']: DOC('genuinely-unsynced async edit'), // surfaced
+  });
+  const snaps = await scanRecoverySnapshotsAsync({ storage }); // no indexedDB dep -> IDB skipped
+  eq(snaps.length, 1, 'F8. async scan filters the content-equal backup too');
+  eq(snaps[0].ts, 1000, 'F9. async scan surfaces the genuinely-unsynced snapshot');
+}
+
 /* ── no storage / empty storage -> empty list, never throws ── */
 {
   eq(scanRecoverySnapshots({ storage: makeStorage({}) }).length, 0, 'N1. empty storage -> no snapshots');

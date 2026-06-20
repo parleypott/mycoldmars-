@@ -52,6 +52,44 @@ function kindOf(key) {
   return 'unknown';
 }
 
+// ── CANONICAL CONTENT COMPARISON (recovery-banner-spam) ─────────────────────────────────────────
+// A recovery snapshot is only worth surfacing when it holds content that DIFFERS from the doc the
+// editor would paint after a clean load (the live LS_DOC). A snapshot whose content EQUALS the live
+// saved doc is a REDUNDANT backup of already-saved work — there is nothing to recover from it, so it
+// must NOT appear in the banner (otherwise "N unsynced backups found" never clears no matter how
+// often backups are cleared, because the adopt path keeps minting content-equal copies).
+//
+// We compare CANONICAL content (stable JSON with sorted keys), NOT raw bytes, so a cosmetic key-order
+// reflow that a cloud round-trip introduces is treated as "same content" — exactly the same stable
+// serialization the churn gate (localDiffersFrom in cloud-sync.js) uses, kept byte-for-byte identical
+// here so the two surfaces agree on what "same content" means. recovery.js stays dependency-light and
+// browserless-testable, so we inline the helper rather than importing it. NEVER throws.
+function stableStringify(v) {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
+  const keys = Object.keys(v).sort();
+  return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
+}
+
+// Canonical content signature of a RAW snapshot string. Parses the JSON and serializes it with sorted
+// keys so attribute/key ordering can't masquerade as different content. Returns null when the raw
+// value is empty or unparseable (caller treats null as "no comparable content"). NEVER throws.
+function canonicalOfRaw(raw) {
+  if (!raw) return null;
+  let doc = null;
+  try { doc = JSON.parse(raw); } catch { return null; }
+  try { return stableStringify(doc); } catch { return null; }
+}
+
+// The canonical content of the live saved doc currently on disk (LS_DOC), or null if absent /
+// unparseable. A snapshot whose canonical content equals this is redundant and must be filtered out.
+function liveDocCanonical(storage) {
+  if (!storage) return null;
+  let raw = null;
+  try { raw = storage.getItem(LS_DOC); } catch { raw = null; }
+  return canonicalOfRaw(raw);
+}
+
 // Read the dismissed-key set. NEVER throws.
 function readDismissed(storage) {
   try {
@@ -99,6 +137,8 @@ export function scanRecoverySnapshots(deps = {}) {
   let out = [];
   try {
     const dismissed = readDismissed(storage);
+    const liveCanon = liveDocCanonical(storage);   // content the editor already shows after a clean load
+    const seenContent = new Set();                 // canonical signatures already surfaced (content dedup)
     const n = storage.length;
     for (let i = 0; i < n; i++) {
       let k;
@@ -111,7 +151,18 @@ export function scanRecoverySnapshots(deps = {}) {
       let raw = null;
       try { raw = storage.getItem(k); } catch { raw = null; }
       if (!raw) continue;                        // empty / unreadable — nothing to recover
-      out.push({ key: k, kind, ts: snapshotTimestamp(k), bytes: raw.length });
+      // REDUNDANT-BACKUP FILTER: a snapshot whose canonical content equals the live saved doc is a
+      // backup of already-saved work — nothing to recover, so don't surface it (this is what kept the
+      // banner stuck at "N earlier edits backed up"). Snapshots that don't parse (canon === null) are
+      // still surfaced: we can't prove them redundant, and the cardinal rule errs toward NOT hiding.
+      const canon = canonicalOfRaw(raw);
+      if (canon != null && liveCanon != null && canon === liveCanon) continue;
+      // CONTENT DEDUP: the same bytes should never show twice (two keys, identical content).
+      if (canon != null) {
+        if (seenContent.has(canon)) continue;
+        seenContent.add(canon);
+      }
+      out.push({ key: k, kind, ts: snapshotTimestamp(k), bytes: raw.length, raw });
     }
   } catch {
     return [];
@@ -170,7 +221,7 @@ export async function scanRecoverySnapshotsAsync(deps = {}) {
         // the ORIGINAL key for dedup/dismiss continuity even though idbPutSnapshot minted a new key;
         // both keys point at identical bytes, and the list dedups below so the user sees one entry.
         try { storage.removeItem(s.key); } catch {}
-        idbSnaps.push({ key: migrated, kind: s.kind, ts: s.ts, bytes: s.bytes, store: 'idb' });
+        idbSnaps.push({ key: migrated, kind: s.kind, ts: s.ts, bytes: s.bytes, store: 'idb', raw });
         idbKeys.add(migrated);
       }
     }
@@ -184,21 +235,37 @@ export async function scanRecoverySnapshotsAsync(deps = {}) {
     const existing = byKey.get(s.key);
     if (!existing || (existing.store === 'ls' && s.store === 'idb')) byKey.set(s.key, s);
   }
-  // Dedup by CONTENT, not just key: the same edit mirrored/migrated into both stores has DIFFERENT
-  // keys (each store minted its own) but identical bytes. Collapse same-(kind,bytes) duplicates,
-  // preferring the IDB copy (the durable one) and the newest ts as the representative. A byte-length
-  // collision between two genuinely different docs is vanishingly unlikely for full ~167KB docs, and
-  // even then the user previews the actual bytes before recovering — so one entry is the right UX.
+  // REDUNDANT-BACKUP FILTER + CONTENT DEDUP (recovery-banner-spam). Compute each snapshot's CANONICAL
+  // content signature (stable JSON, sorted keys — same as the sync scan and cloud-sync's churn gate).
+  // Then:
+  //   • DROP any snapshot whose canonical content equals the live saved doc (LS_DOC) — a backup of
+  //     already-saved work, nothing to recover. This is the root fix for the banner never clearing.
+  //   • COLLAPSE snapshots with identical canonical content to ONE entry (the same edit mirrored into
+  //     both stores has different keys but identical content), preferring the IDB copy (durable) and
+  //     newest ts as the representative.
+  // Snapshots whose raw can't be parsed (canon === null) are NEVER dropped as redundant and never
+  // collapsed by content — we can't prove them equal to anything, and the cardinal rule errs toward
+  // surfacing. For those we keep the old (kind|bytes) signature so a true duplicate still collapses.
+  const liveCanon = liveDocCanonical(storage);
   const out = [...byKey.values()];
-  const seen = new Map();
+  const seen = new Set();
   const deduped = [];
   for (const s of out.sort((a, b) => {
     if (a.store !== b.store) return a.store === 'idb' ? -1 : 1; // idb first
     return b.ts - a.ts;                                          // then newest first
   })) {
-    const sig = s.kind + '|' + s.bytes;
+    // Both the IDB list and the ls scan now carry `raw` (captured at scan time, before any reclaim),
+    // so the canonical content is always computable without a re-read. Fall back to a storage read
+    // only if some path produced an entry without raw.
+    let raw = s.raw;
+    if (raw == null && s.store === 'ls' && storage) {
+      try { raw = storage.getItem(s.key); } catch { raw = null; }
+    }
+    const canon = canonicalOfRaw(raw);
+    if (canon != null && liveCanon != null && canon === liveCanon) continue; // redundant — drop
+    const sig = canon != null ? 'c|' + canon : s.kind + '|' + s.bytes;       // content-first dedup
     if (seen.has(sig)) continue;
-    seen.set(sig, true);
+    seen.add(sig);
     deduped.push(s);
   }
   deduped.sort((a, b) => b.ts - a.ts);

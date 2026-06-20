@@ -175,8 +175,10 @@ export async function idbPutSnapshot(kind, raw, deps = {}) {
   }
 }
 
-// List ALL snapshots in IDB, newest first: [{ key, kind, ts, bytes }]. `bytes` is raw.length (a
-// cheap size hint for the UI; the raw doc is not parsed here). Resolves to [] on any error.
+// List ALL snapshots in IDB, newest first: [{ key, kind, ts, bytes, raw }]. `bytes` is raw.length (a
+// cheap size hint for the UI; the raw doc is not parsed here). `raw` is the serialized doc string,
+// carried so callers (recovery.js's async scan) can compare canonical content WITHOUT a second IDB
+// read per snapshot — the cursor already has it in hand. Resolves to [] on any error.
 export async function idbListSnapshots(deps = {}) {
   try {
     const db = await openDB(deps);
@@ -191,7 +193,8 @@ export async function idbListSnapshots(deps = {}) {
           const key = v.key;
           const kind = v.kind && v.kind !== 'unknown' ? v.kind : kindOf(String(key));
           if (key && kind !== 'unknown' && v.raw) {
-            out.push({ key, kind, ts: v.ts || snapshotTimestamp(key), bytes: String(v.raw).length });
+            const raw = String(v.raw);
+            out.push({ key, kind, ts: v.ts || snapshotTimestamp(key), bytes: raw.length, raw });
           }
           cursor.continue();
         } else {
