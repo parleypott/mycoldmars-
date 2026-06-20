@@ -3,8 +3,35 @@
 // per cache window (1 hour) instead of on every query — 5-10x faster, ~10% of cost.
 
 import { validateCommentbankInput } from './_lib/commentbank-validate.js';
+import { checkRateLimit } from './_lib/rate-limit.js';
 
 export const config = { runtime: 'edge' };
+
+// Per-IP rate limit. This endpoint is intentionally public + unauthenticated,
+// and runs Sonnet (with a ~500KB corpus) on every accepted POST. The input-size
+// caps in validateCommentbankInput bound cost PER call, but NOT the NUMBER of
+// calls — so without this gate a botted POST loop could blast Anthropic
+// inference costs without bound (the exact attack the devchat-respond limiter
+// guards against). Shared, bounded limiter — the backing Map can't grow without
+// bound under a burst of distinct IPs. A falsy IP is allowed through; this is a
+// cost guard, not the DoS boundary. 6 calls per 60s per IP.
+const _commentbankBucket = new Map();
+const RATE_LIMIT_PER_MIN = 6;
+const RATE_WINDOW_MS = 60_000;
+function rateLimitOk(ip) {
+  return checkRateLimit(_commentbankBucket, ip, Date.now(), {
+    limit: RATE_LIMIT_PER_MIN,
+    windowMs: RATE_WINDOW_MS,
+  });
+}
+function extractIp(req) {
+  try {
+    const h = (typeof req.headers.get === 'function')
+      ? (req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '')
+      : (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || '');
+    return (h || '').split(',')[0].trim() || null;
+  } catch { return null; }
+}
 
 const SYSTEM_PROMPT = `You're searching a corpus of YouTube comments for a documentary filmmaker.
 
@@ -21,6 +48,14 @@ export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response('method not allowed', { status: 405 });
   }
+
+  // Cost-guard rate limit BEFORE body parse, so a junk body can't bypass it.
+  if (!rateLimitOk(extractIp(req))) {
+    return new Response(JSON.stringify({ error: 'Too many requests. Wait a minute.' }), {
+      status: 429, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   let body;
   try { body = await req.json(); }
   catch { return new Response('bad json', { status: 400 }); }
