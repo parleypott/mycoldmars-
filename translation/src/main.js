@@ -5,7 +5,7 @@ import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { parseSoundbites, extractSacredName, detectAllSequences, formatDuration, tcToFrameNotation } from './soundbites.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
-import { buildSRT } from './srt-builder.js';
+import { buildSRT, timeToSeconds } from './srt-builder.js';
 import { parseSummaryBullets } from './summary-bullets.js';
 import { parseEnrichedSummaryBullets } from './enriched-summary-bullets.js';
 import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, releaseLockBeacon, subscribeToTranscript, subscribePresence, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload, listStuckMediaUploads, listShares, addShare, removeShare, updateShareRole, searchUserProfiles } from './db.js';
@@ -3685,22 +3685,17 @@ $('#seq-export-jsx-btn').addEventListener('click', () => {
   const gapFrames = parseInt($('#seq-gap').value) || 12;
   const gapSeconds = gapFrames / fps;
 
-  // Convert soundbites to seconds for the Premiere extension
-  const tcToSec = (tc) => {
-    const parts = tc.replace(',', '.').split(':');
-    if (parts.length === 3) return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2]);
-    if (parts.length === 2) return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
-    return parseFloat(parts[0]) || 0;
-  };
-
+  // Convert soundbites to seconds for the Premiere extension. Routes through the
+  // hardened, anchored, null-safe timeToSeconds (single source of truth, shared
+  // with the SRT export) instead of a divergent inline parser.
   const payload = {
     sacredSequenceName,
     outputName,
     gapSeconds,
     soundbites: seqSoundbites.map((b, i) => ({
       sequenceName: extractSacredName(b.prefix) || sacredSequenceName,
-      inSec: tcToSec(b.start),
-      outSec: tcToSec(b.end),
+      inSec: timeToSeconds(b.start),
+      outSec: timeToSeconds(b.end),
       name: b.prefix || 'Soundbite ' + (i + 1),
     })),
   };
