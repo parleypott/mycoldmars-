@@ -234,6 +234,12 @@
     ];
 
     function lerp(a,b,t){return a+(b-a)*t}
+    // Format a subscriber count for a value label. Rolls over to "1.0M" in the
+    // 999,500–999,999 band so an interpolated running value never flashes "1000K".
+    function fmtCount(v){
+      const k = Math.round(v/1000);
+      return (v>=1e6 || k>=1000) ? (v/1e6).toFixed(1)+'M' : k+'K';
+    }
     function interpolate(ms,max){
       const d=[];
       for(let m=0;m<=max;m++){
@@ -334,7 +340,7 @@
             const v2 = dataArr[ceilIdx] || v1;
             const lv = lerp(v1, v2, frac);
             const color = ds.borderColor;
-            const valStr = lv>=1e6?(lv/1e6).toFixed(1)+'M':Math.round(lv/1000)+'K';
+            const valStr = fmtCount(lv);
 
             ctx.save();
             ctx.beginPath();
@@ -362,7 +368,7 @@
           if(!last) return;
           const lastVal = dataArr[lastIdx];
           const color = ds.borderColor;
-          const valStr = lastVal>=1e6?(lastVal/1e6).toFixed(1)+'M':Math.round(lastVal/1000)+'K';
+          const valStr = fmtCount(lastVal);
 
           ctx.save();
           ctx.beginPath();
@@ -439,7 +445,7 @@
               label: function(c){
                 if(c.parsed.y==null)return null;
                 const v=c.parsed.y;
-                const f=v>=1e6?(v/1e6).toFixed(1)+'M':Math.round(v/1000)+'K';
+                const f=fmtCount(v);
                 return ` ${c.dataset.label}: ${f}`;
               }
             }
