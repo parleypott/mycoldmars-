@@ -13795,12 +13795,17 @@
         elapsedBefore: 0,  // elapsed time before the current scene started
       };
 
-      // Format seconds → "M:SS"
+      // Format seconds → "M:SS", or "H:MM:SS" once a whole story's read-aloud
+      // crosses an hour (total = sum of every scene's TTS audio). Sub-hour output
+      // is byte-identical to the old M:SS.
       function fmt(t) {
         if (!isFinite(t) || t < 0) t = 0;
-        const m = Math.floor(t / 60);
-        const s = Math.floor(t - m * 60);
-        return `${m}:${s.toString().padStart(2, '0')}`;
+        const h = Math.floor(t / 3600);
+        const m = Math.floor((t - h * 3600) / 60);
+        const s = Math.floor(t - h * 3600 - m * 60);
+        return h > 0
+          ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+          : `${m}:${s.toString().padStart(2, '0')}`;
       }
 
       // Compute the text for a given storybook cue — what gets spoken.
