@@ -115,6 +115,20 @@ clean_literals() {
     | grep -E '^[A-Za-z0-9 ._,:/?&%#@!()-]+$' \
     | grep -vE '[a-z][A-Z][a-z].*[a-z][A-Z]' \
     | grep -v 'VITE_' \
+    `# Drop minified CODE fragments the quote-regex captures across string`         \
+    `# boundaries. They carry RENAMED identifiers (let F=… vs let H=…), so Vercel`  \
+    `# and a local vite build disagree on them and they read as "missing" — the`    \
+    `# /translation/ false-STALE that stranded the loop (journal Jun 16-20). They`  \
+    `# are NOT human-readable content. Two signatures cover every observed case:`   \
+    `#  • a paren — call/group syntax: .once(  ),Ft(  ).classList.add(  (kills 11)`  \
+    `#  • a leading , or ) , a trailing , or ; , or a && / || operator — kills the`  \
+    `#    paren-less object-property fragments (,onClick:At,  ,query:F.query,…:)`     \
+    `# Genuine paren-bearing literals (rgba(…), "(no email)", "Smart Sync (rewrite)")` \
+    `# are minifier-STABLE string content, identical on both sides, so they never`   \
+    `# appear in the missing set — dropping them costs nothing for stale-detection,`  \
+    `# while ~800 paren-free genuine literals remain as the comparison surface.`      \
+    | grep -vE '[()]' \
+    | grep -vE '^[,)]|[,;]$|&&|\|\|' \
     | sed -E 's/-[A-Za-z0-9_]{8}\./-H./g' \
     | sort -u
 }
