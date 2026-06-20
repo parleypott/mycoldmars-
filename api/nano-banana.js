@@ -4,6 +4,7 @@ import { findCanonCharactersInText, canonContextBlock, QSS_CANON } from './_lib/
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
 import { extractBibleCharacters } from './_lib/bible-characters.js';
 import { buildGeminiChatContents } from './_lib/gemini-chat-contents.js';
+import { buildTutorClaudePayload, isTutorClaudeResultUsable } from './_lib/tutor-claude.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // WRITING_DISCIPLINE — prepended to every Wordy-side system prompt.
@@ -713,23 +714,12 @@ DO NOT:
   // is missing or Claude errors out.
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (anthropicKey) {
-    const claudeMessages = history.map(m => ({
-      role: m.role === 'user' ? 'user' : 'assistant',
-      content: m.content,
-    }));
-    claudeMessages.push({ role: 'user', content: userTurnText });
-
-    const claudePayload = {
-      model: 'claude-sonnet-4-6',
-      max_tokens: 6000,
-      temperature: 1.0,
-      // top_p widens sampling beyond the typical mass — combined with the
-      // anti-repetition + move-type discipline in DIRECTIONS_SYSTEM this
-      // pulls Wordy out of his autopilot ruts. 0.95 keeps coherence.
-      top_p: 0.95,
-      system: systemText,
-      messages: claudeMessages,
-    };
+    // Build a VALID Sonnet-4.6 payload: ONE sampling parameter (temperature
+    // only — the old code also set top_p, and the Anthropic API rejects both
+    // together on every Claude 4+ model with a 400, which silently defeated
+    // this whole Claude path), with the messages normalized so a seeded/sliced
+    // history can't 400 by opening on a model turn.
+    const claudePayload = buildTutorClaudePayload(systemText, history, userTurnText);
 
     let cres;
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -756,23 +746,31 @@ DO NOT:
       } else {
         ({ cleanReply, blockOptions } = extractBlockOptions(reply));
       }
-      return jsonResponse({
-        reply: cleanReply,
-        phase,
-        directions,
-        blockOptions,
-        chosenDirection: phase === 'blocks' ? effectiveDirection : null,
-        routing,
-        fixation: { fixating: fixation.fixating, severe: fixation.severe, flags: fixation.flags },
-        stage,
-        blocksCommitted: cur,
-        targetMin: blockCountTarget.min,
-        targetMax: blockCountTarget.max,
-        model: 'claude-sonnet-4-6',
-      });
+      // Only RETURN the Claude result when it carries usable options for this
+      // phase. A 200-but-empty/unparseable Claude reply falls through to the
+      // Gemini fallback instead — so the Claude path can only ever match-or-beat
+      // today's Gemini-served behavior, never regress below it.
+      if (isTutorClaudeResultUsable(phase, directions, blockOptions)) {
+        return jsonResponse({
+          reply: cleanReply,
+          phase,
+          directions,
+          blockOptions,
+          chosenDirection: phase === 'blocks' ? effectiveDirection : null,
+          routing,
+          fixation: { fixating: fixation.fixating, severe: fixation.severe, flags: fixation.flags },
+          stage,
+          blocksCommitted: cur,
+          targetMin: blockCountTarget.min,
+          targetMax: blockCountTarget.max,
+          model: 'claude-sonnet-4-6',
+        });
+      }
+      console.warn('[tutor] claude returned no usable options, falling back to gemini');
+    } else {
+      // else: fall through to Gemini fallback below
+      console.warn('[tutor] claude failed, falling back to gemini:', cres.status);
     }
-    // else: fall through to Gemini fallback below
-    console.warn('[tutor] claude failed, falling back to gemini:', cres.status);
   }
 
   // Fallback: Gemini Flash (also used when ANTHROPIC_API_KEY isn't set)
