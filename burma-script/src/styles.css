@@ -227,8 +227,22 @@ body {
 .wp-save-pill.is-saving { background: #f7eccf; }
 .wp-save-pill.is-saving .wp-save-pill-mark { background: #c9962c; animation: wp-save-pulse 1.2s var(--ease) infinite; }
 /* FAILED — high contrast; agrees with the red top banner. */
-.wp-save-pill.is-failed { background: #d23b2c; color: #fff; border-color: var(--ink); }
+/* ux-06 — the failed pill must be ACTIONABLE: re-enable pointer events (the base pill is
+   pointer-events:none) so its EXPORT NOW button is clickable. The save pill is the cardinal-sin
+   guard; in failure it can't be a dead label. */
+.wp-save-pill.is-failed { background: #d23b2c; color: #fff; border-color: var(--ink); pointer-events: auto; }
 .wp-save-pill.is-failed .wp-save-pill-mark { background: #fff; }
+.wp-save-pill-act {
+  margin-left: 2px; pointer-events: auto; cursor: pointer;
+  background: #fff; color: #d23b2c; border: 1.5px solid #fff; border-radius: 999px;
+  padding: 4px 10px; font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; line-height: 1;
+}
+.wp-save-pill-act:hover { background: #1f1d18; color: #fff; border-color: #1f1d18; }
+.wp-save-pill-act:focus-visible { outline: 2px solid #1f1d18; outline-offset: 2px; }
+/* ux-06 — while the right-edge workshop dock is open, move the FAILED pill to the bottom-LEFT so the
+   indicator that must never be hidden is never behind the dock. (The calm states stay bottom-right.) */
+body[data-workshop-open] .wp-save-pill.is-failed { right: auto; left: 18px; }
 /* CLOUD SYNC states — WHERE the (already-safe) work lives, layered on the calm "saved" pill.
    SAVED TO CLOUD — confirmed in the cloud; calm green, a touch brighter than local-only saved so the
    reassurance reads at a glance. The cloud push confirmed: the script follows Johnny to any device. */

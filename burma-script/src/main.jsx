@@ -458,10 +458,20 @@ function SaveStatus() {
           <span class="wp-save-banner-lab">⚠ SAVE FAILED</span>
           <span class="wp-save-banner-msg">{failMsg} Export now (EXPORT button) to keep your work.</span>
         </div>
-        {/* the corner pill agrees with the banner so the always-visible indicator never lies */}
-        <div class="wp-save-pill is-failed" role="status" aria-live="polite">
+        {/* ux-06 — the corner pill agrees with the banner so the always-visible indicator never lies.
+            In the FAILED state it now carries a REAL, clickable EXPORT button (pill is pointer-events:
+            auto only when failed via .is-failed in CSS): it told Johnny to "EXPORT NOW" but, being
+            pointer-events:none, offered no action — he had to hunt for the footer EXPORT himself. This
+            fires the same wp-open-exports event the footer EXPORT does. DATA LOSS IS THE WORST OUTCOME,
+            so the one indicator that must never be inert is now actionable. */}
+        <div class="wp-save-pill is-failed" role="alert" aria-live="assertive">
           <span class="wp-save-pill-mark" />
-          <span class="wp-save-pill-lab">SAVE FAILED — EXPORT NOW</span>
+          <span class="wp-save-pill-lab">SAVE FAILED</span>
+          <button
+            class="wp-save-pill-act"
+            onClick={() => window.dispatchEvent(new CustomEvent('wp-open-exports'))}
+            title="Export your script now to keep your work"
+          >EXPORT NOW</button>
         </div>
       </>
     );

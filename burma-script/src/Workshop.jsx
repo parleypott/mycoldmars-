@@ -81,6 +81,17 @@ export function Workshop() {
   const asideRef = useRef(null);
   const resizing = useRef(false);
 
+  // ux-06 — flag on <body> while the dock is open so the save pill can dodge it (the dock anchors to
+  // the right edge full-height; the pill sat bottom-right underneath it). CSS reads this to move the
+  // FAILED pill — the one indicator that must never be occluded — to the bottom-LEFT while open.
+  const dockOpen = open && !!span;
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    if (dockOpen) document.body.setAttribute('data-workshop-open', '');
+    else document.body.removeAttribute('data-workshop-open');
+    return () => { try { document.body.removeAttribute('data-workshop-open'); } catch {} };
+  }, [dockOpen]);
+
   // Drag the LEFT edge to resize the dock. Width is clamped to [340, 92vw], persisted so
   // Johnny's chosen size sticks across sessions. Dragging implies expanded.
   useEffect(() => {
