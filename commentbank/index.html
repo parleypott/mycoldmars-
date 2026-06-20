@@ -1500,6 +1500,15 @@ let filterOpen = false;
 
 const $ = sel => document.querySelector(sel);
 
+// NaN-safe Slack-timestamp key for sorting. A missing / non-numeric slack_ts must
+// NEVER yield NaN: a single NaN in a subtraction comparator poisons V8's sort and
+// scrambles the ENTIRE displayed order, not just the bad row. Bad/absent -> 0 (sorts
+// as oldest, deterministically). Live data is clean, so this is byte-identical there.
+function tsNum(c) {
+  const n = parseFloat(c && c.slack_ts);
+  return Number.isFinite(n) ? n : 0;
+}
+
 async function load() {
   const res = await fetch(asset("comments.json"));
   if (!res.ok) {
@@ -1508,7 +1517,7 @@ async function load() {
   }
   const arr = await res.json();
   comments = arr.filter(c => c.analysis && !c.analysis.skip);
-  chrono = [...comments].sort((a, b) => parseFloat(a.slack_ts) - parseFloat(b.slack_ts));
+  chrono = [...comments].sort((a, b) => tsNum(a) - tsNum(b));
   $("#totalCount").textContent = comments.length.toLocaleString();
   computeTopThemes();
   renderChips();
@@ -1565,8 +1574,8 @@ function filtered() {
     return true;
   });
   const sort = $("#sort").value;
-  if (sort === "newest") out.sort((a, b) => parseFloat(b.slack_ts) - parseFloat(a.slack_ts));
-  else if (sort === "oldest") out.sort((a, b) => parseFloat(a.slack_ts) - parseFloat(b.slack_ts));
+  if (sort === "newest") out.sort((a, b) => tsNum(b) - tsNum(a));
+  else if (sort === "oldest") out.sort((a, b) => tsNum(a) - tsNum(b));
   else if (sort === "sentiment") out.sort((a, b) => SENTIMENTS.indexOf(a.analysis.sentiment) - SENTIMENTS.indexOf(b.analysis.sentiment));
   return out;
 }
