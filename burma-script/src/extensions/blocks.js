@@ -102,6 +102,24 @@ const TYPE_MENU = [
   ['sceneBlock', 'Scene heading'],
   ['noteBlock', 'Note'],
 ];
+// Structured attrs that carry real producer DATA (not just rendering state) — if the SOURCE block
+// has any of these populated but the TARGET node spec can't hold them, the conversion DROPS them
+// (changeBlockType only copies attrs present on the target spec). For a SOT, that silently strips
+// the structured timecode/speaker/done AND removes the quote from the translation worklist
+// (buildWorklists filters strictly on type==='sot'). So a single misclick on a SOT quietly erases
+// it from the producer handoff. We surface that as a confirm rather than corrupting silently.
+const STRUCTURED_DATA_ATTRS = ['timecode', 'tcOut', 'speaker', 'done', 'rawTimecode'];
+function attrHasData(v) { return v !== undefined && v !== null && v !== '' && v !== false; }
+
+// Pure: which STRUCTURED data attrs the SOURCE carries would be DROPPED converting to a node whose
+// spec attrs are `targetSpecAttrs`. Exported so the data-loss guard is unit-testable headless.
+export function attrsDroppedOnTypeChange(sourceAttrs, targetSpecAttrs) {
+  const specAttrs = targetSpecAttrs || {};
+  return STRUCTURED_DATA_ATTRS.filter(
+    (k) => attrHasData((sourceAttrs || {})[k]) && !(k in specAttrs),
+  );
+}
+
 function changeBlockType(editor, getPos, typeName) {
   const pos = typeof getPos === 'function' ? getPos() : getPos;
   if (typeof pos !== 'number') return;
@@ -110,8 +128,23 @@ function changeBlockType(editor, getPos, typeName) {
   if (!node) return;
   const target = state.schema.nodes[typeName];
   if (!target) return;
-  const defaults = {};
   const specAttrs = target.spec.attrs || {};
+
+  // RT-06 — DATA-LOSS GUARD on the type change. Find structured attrs the SOURCE carries that the
+  // TARGET can't hold; those will be dropped. If any are populated, confirm before proceeding so a
+  // misclick can't silently strip a SOT's timecode/speaker (and drop it from the worklist).
+  const dropping = attrsDroppedOnTypeChange(node.attrs, specAttrs);
+  if (dropping.length) {
+    const tc = node.attrs.timecode ? ` (timecode ${node.attrs.timecode}${node.attrs.speaker ? `, ${node.attrs.speaker}` : ''})` : '';
+    const confirmFn = (typeof window !== 'undefined' && window.confirm) ? window.confirm.bind(window) : () => true;
+    const okToDrop = confirmFn(
+      `This block carries structured data${tc} that "${typeName === 'oncamBlock' ? 'Direction' : typeName}" can't hold — ` +
+      `changing its type will drop the ${dropping.join(', ')} and remove it from the translation worklist. Continue?`,
+    );
+    if (!okToDrop) return; // keep the SOT intact
+  }
+
+  const defaults = {};
   for (const k in specAttrs) defaults[k] = specAttrs[k].default ?? null;
   const next = { ...defaults, blockId: node.attrs.blockId };
   for (const k in specAttrs) {
