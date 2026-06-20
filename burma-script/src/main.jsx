@@ -13,7 +13,7 @@ import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, setReloading
 import { reconcileOnLoad, bootstrapFromCloud, fetchCloudDocReadOnly } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
 import { captureWriteTokenFromUrl } from './write-token.js';
-import { scanRecoverySnapshots, readSnapshot, snapshotToText, dismissSnapshot } from './recovery.js';
+import { scanRecoverySnapshots, scanRecoverySnapshotsAsync, readSnapshot, readSnapshotAsync, snapshotToText, dismissSnapshot, dismissSnapshotAsync } from './recovery.js';
 import scriptData from '../sample-blocks.json';
 
 const SOURCE_BLOCKS = scriptData.blocks || [];
@@ -584,22 +584,39 @@ function recoveryFilename(snap) {
 }
 
 function RecoveryBanner() {
-  // Scan ONCE on mount. The list only shrinks (as Johnny dismisses), so we hold it in state.
+  // SYNCHRONOUS first paint from localStorage (legacy snapshots) so a recovery affordance shows
+  // instantly without waiting on IndexedDB. Then an async pass reads BOTH stores (IDB + localStorage),
+  // migrates legacy localStorage copies into IDB, and replaces the list with the merged/deduped set.
+  // Phase 3 (recovery-idb): the heavy ~167KB snapshots now live in IDB, so the async pass is where the
+  // full picture comes from; the sync pass is just the no-flicker placeholder for any legacy LS copy.
   const [snaps, setSnaps] = useState(() => {
     try { return scanRecoverySnapshots(); } catch { return []; }
   });
   const [expanded, setExpanded] = useState(false);
 
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      let merged = [];
+      try { merged = await scanRecoverySnapshotsAsync(); } catch { merged = []; }
+      if (alive) setSnaps(merged);
+    })();
+    return () => { alive = false; };
+  }, []);
+
   if (!snaps || snaps.length === 0) return null;
 
-  function downloadOne(snap) {
-    const doc = readSnapshot(snap.key);
+  async function downloadOne(snap) {
+    let doc = null;
+    try { doc = await readSnapshotAsync(snap.key, { store: snap.store }); }
+    catch { doc = readSnapshot(snap.key); }
     const text = snapshotToText(doc);
     const ok = downloadText(recoveryFilename(snap), text || '(this backup could not be read as text — open it from the file to inspect raw)');
     if (!ok) alert('Could not download the backup — your browser blocked the file save. Try again, or copy from the preview.');
   }
   function dismissOne(snap) {
-    dismissSnapshot(snap.key);
+    // Dismiss across BOTH stores (records the localStorage dismissal AND deletes the IDB copy).
+    try { dismissSnapshotAsync(snap.key); } catch { dismissSnapshot(snap.key); }
     setSnaps((list) => list.filter((s) => s.key !== snap.key));
   }
 

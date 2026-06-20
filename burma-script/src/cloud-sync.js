@@ -22,6 +22,7 @@
 import { isReadOnly } from './read-mode.js';
 import { pruneConflictSnapshots, resetSessionBackup } from './migrate-doc.js';
 import { writeTokenHeaders } from './write-token.js';
+import { idbPutSnapshot, idbAvailable } from './recovery-store.js';
 
 const API = '/api/burma-script-doc';
 const LS_DOC = 'wp01_burma_doc_v1';
@@ -321,6 +322,42 @@ export function snapshotDocConflict(doc) {
   }
 }
 
+// ── PHASE 3: INDEXEDDB-ROUTED CONFLICT SNAPSHOTS (recovery-idb) ─────────────────────────────────
+// The full-size (~167KB) .conflict copies are the heavy bytes that pushed localStorage to quota and
+// killed the canonical save. IndexedDB's quota is hundreds of MB, so we route these snapshot WRITES
+// there. These async variants are used on the paths that are ALREADY async (reconcileOnLoad's adopt,
+// handlePushResult's 409) so the await costs nothing extra. When IDB is unavailable (private mode
+// lockout, ancient browser, headless node without a shim) they fall back to the SYNCHRONOUS
+// localStorage writers so the must-land safety gate still has somewhere to land. Best-effort: a null
+// return is never fatal to the canonical save — the local doc is already durable in LS_DOC.
+
+// Snapshot the current LOCAL doc to a recovery snapshot, preferring IndexedDB. Resolves to the key
+// (IDB or localStorage), or null if there was nothing to snapshot / both stores refused. NEVER throws.
+export async function snapshotLocalConflictAsync() {
+  let raw = null;
+  try { raw = localStorage.getItem(LS_DOC); } catch { raw = null; }
+  if (!raw) return null;
+  if (idbAvailable()) {
+    const k = await idbPutSnapshot('conflict', raw);
+    if (k) return k;
+    // IDB present but the write failed — fall back to LS so the safety copy still lands.
+  }
+  try { return writeConflictSnapshot(raw); } catch { return null; }
+}
+
+// Snapshot an ARBITRARY doc object to a recovery snapshot, preferring IndexedDB. NEVER throws.
+export async function snapshotDocConflictAsync(doc) {
+  if (doc == null) return null;
+  let raw = null;
+  try { raw = JSON.stringify(doc); } catch { return null; }
+  if (!raw) return null;
+  if (idbAvailable()) {
+    const k = await idbPutSnapshot('conflict', raw);
+    if (k) return k;
+  }
+  try { return writeConflictSnapshot(raw); } catch { return null; }
+}
+
 // ── OFFLINE PUSH RETRY (DL-06) ───────────────────────────────────────────────────────────────────
 // A keep-local reconcile push (or any hot-path push) can come back OFFLINE — the local save is safe,
 // but the cloud silently stays a version BEHIND local forever, until the next successful save. A
@@ -393,12 +430,27 @@ export function handlePushResult(result, localDoc) {
     return { conflict: false };
   }
   // A real two-device divergence. Snapshot BOTH sides before anything can overwrite either.
+  // The SYNC localStorage write gives the banner an immediate recovery key to point Johnny at; the
+  // fire-and-forget IDB mirror (Phase 3) parks the heavy ~167KB copy in IndexedDB too, so even a
+  // burst of 409s during a flaky two-device session can't march localStorage toward quota. Best-
+  // effort: a rejected IDB write is swallowed — the local doc is already durable in LS_DOC.
   let localSnapshot = null;
   try {
     localSnapshot = localDoc != null ? snapshotDocConflict(localDoc) : snapshotLocalConflict();
   } catch {}
   let cloudSnapshot = null;
   try { cloudSnapshot = snapshotDocConflict(result.doc); } catch {}
+  // Mirror both sides into IndexedDB (async, non-blocking). recovery.js's scan reads BOTH stores, so
+  // the snapshot is discoverable wherever it landed.
+  try {
+    if (idbAvailable()) {
+      const localRaw = localDoc != null ? JSON.stringify(localDoc) : (() => {
+        try { return localStorage.getItem(LS_DOC); } catch { return null; }
+      })();
+      if (localRaw) idbPutSnapshot('conflict', localRaw).catch(() => {});
+      try { idbPutSnapshot('conflict', JSON.stringify(result.doc)).catch(() => {}); } catch {}
+    }
+  } catch {}
   // Raise the conflict banner. Carry the recovery keys + cloud version so the UI/console can point
   // Johnny straight at his preserved edit. This is the signal that REPLACES the old false green.
   emit(EVT_CLOUD_CONFLICT, {
@@ -435,7 +487,11 @@ export async function reconcileOnLoad(deps = {}) {
     readLocal = defaultReadLocal,
     saveDoc: save,
     primeVersionFloor: prime,
-    snapshotConflict = snapshotLocalConflict,
+    // PHASE 3 — default to the IDB-routed async snapshotter so the heavy .conflict copy lands in
+    // IndexedDB (hundreds of MB) instead of localStorage (~5MB). reconcileOnLoad is already async, so
+    // awaiting it costs nothing. Tests / callers may inject a sync stub; we await it either way (await
+    // on a non-promise returns the value), so both shapes work without branching.
+    snapshotConflict = snapshotLocalConflictAsync,
     fetchCloud: fetchC = fetchCloud,
   } = deps;
 
@@ -486,7 +542,9 @@ export async function reconcileOnLoad(deps = {}) {
       }
       if (needSnapshot) {
         let snapKey = null;
-        try { snapKey = snapshotConflict(); } catch { snapKey = null; }
+        // await works for BOTH the async IDB snapshotter (default) and any sync stub a test injects
+        // (await on a plain value resolves to that value), so the must-land gate below is uniform.
+        try { snapKey = await snapshotConflict(); } catch { snapKey = null; }
         if (!snapKey) {
           // Could not back up a GENUINELY-DIVERGENT local doc. Adopting now would evict the safety
           // net and clobber the unsynced local edit with no recovery copy. Refuse: keep local on

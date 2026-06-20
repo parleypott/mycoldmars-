@@ -15,6 +15,10 @@
 // live doc could itself lose work (the cardinal sin). Recovery is read-only: the user can PREVIEW
 // and DOWNLOAD a snapshot to a .txt, then decide for themselves. It NEVER throws and NEVER writes.
 
+import {
+  idbListSnapshots, idbReadSnapshot, idbDeleteSnapshot, idbPutSnapshot, idbAvailable,
+} from './recovery-store.js';
+
 const LS_DOC = 'wp01_burma_doc_v1';
 const LS_DOC_VER = 'wp01_burma_doc_ver_v1';
 const CONFLICT_PREFIX = LS_DOC + '.conflict.';
@@ -115,6 +119,116 @@ export function scanRecoverySnapshots(deps = {}) {
   // Newest first so the most-likely-relevant recovery is at the top.
   out.sort((a, b) => b.ts - a.ts);
   return out;
+}
+
+// ── PHASE 3: READ FROM BOTH STORES (recovery-idb) ──────────────────────────────────────────────
+// The full-size recovery snapshots now live primarily in IndexedDB (quota: hundreds of MB), with
+// legacy snapshots possibly still sitting in localStorage from before this change. The async scan
+// reads BOTH, merges them (deduping by key — a snapshot mirrored to both stores appears ONCE), and
+// OPPORTUNISTICALLY migrates any legacy localStorage snapshot into IDB then removes the localStorage
+// copy, so the next load finds it in the big store and localStorage is freed. NEVER throws / rejects:
+// resolves to the merged list, or just the localStorage list if IDB is unavailable.
+//
+//   [{ key, kind, ts, bytes, store }]  — `store` is 'idb' | 'ls' (where the bytes were found).
+//
+// `deps` mirrors scanRecoverySnapshots: { storage } for localStorage, plus { indexedDB, IDBKeyRange }
+// forwarded to the IDB store for headless tests.
+export async function scanRecoverySnapshotsAsync(deps = {}) {
+  const storage = deps.storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+
+  // 1) localStorage snapshots (the legacy / fallback store) — reuse the sync scan, tag store='ls'.
+  const lsSnaps = scanRecoverySnapshots({ storage }).map((s) => ({ ...s, store: 'ls' }));
+
+  // 2) IndexedDB snapshots (the primary store going forward).
+  let idbSnaps = [];
+  try {
+    if (idbAvailable(deps)) {
+      idbSnaps = (await idbListSnapshots(deps)).map((s) => ({ ...s, store: 'idb' }));
+    }
+  } catch { idbSnaps = []; }
+
+  // 3) OPPORTUNISTIC MIGRATION — copy each legacy localStorage snapshot into IDB, then drop the
+  //    localStorage copy so the heavy bytes stop counting against the ~5MB quota. Best-effort: a
+  //    failed migration just leaves the localStorage copy in place (still surfaced via lsSnaps).
+  //    Skip ones already present in IDB (by key) so we don't write a duplicate. Never blocks the scan
+  //    result on a migration failure.
+  const idbKeys = new Set(idbSnaps.map((s) => s.key));
+  if (storage && idbAvailable(deps) && lsSnaps.length) {
+    for (const s of lsSnaps) {
+      if (idbKeys.has(s.key)) {
+        // Already mirrored into IDB — just reclaim the localStorage copy.
+        try { storage.removeItem(s.key); } catch {}
+        continue;
+      }
+      let raw = null;
+      try { raw = storage.getItem(s.key); } catch { raw = null; }
+      if (!raw) continue;
+      let migrated = null;
+      try { migrated = await idbPutSnapshot(s.kind, raw, deps); } catch { migrated = null; }
+      if (migrated) {
+        // Landed in IDB — reclaim the localStorage copy and represent it as an IDB snapshot. We keep
+        // the ORIGINAL key for dedup/dismiss continuity even though idbPutSnapshot minted a new key;
+        // both keys point at identical bytes, and the list dedups below so the user sees one entry.
+        try { storage.removeItem(s.key); } catch {}
+        idbSnaps.push({ key: migrated, kind: s.kind, ts: s.ts, bytes: s.bytes, store: 'idb' });
+        idbKeys.add(migrated);
+      }
+    }
+  }
+
+  // 4) MERGE + DEDUP by key (idb wins over a same-key ls entry), newest first. Migrated entries were
+  //    removed from localStorage above so their ls copy no longer exists; we still re-scan lsSnaps for
+  //    any that could not be migrated (IDB unavailable / write refused) so nothing is ever hidden.
+  const byKey = new Map();
+  for (const s of [...idbSnaps, ...lsSnaps]) {
+    const existing = byKey.get(s.key);
+    if (!existing || (existing.store === 'ls' && s.store === 'idb')) byKey.set(s.key, s);
+  }
+  // Dedup by CONTENT, not just key: the same edit mirrored/migrated into both stores has DIFFERENT
+  // keys (each store minted its own) but identical bytes. Collapse same-(kind,bytes) duplicates,
+  // preferring the IDB copy (the durable one) and the newest ts as the representative. A byte-length
+  // collision between two genuinely different docs is vanishingly unlikely for full ~167KB docs, and
+  // even then the user previews the actual bytes before recovering — so one entry is the right UX.
+  const out = [...byKey.values()];
+  const seen = new Map();
+  const deduped = [];
+  for (const s of out.sort((a, b) => {
+    if (a.store !== b.store) return a.store === 'idb' ? -1 : 1; // idb first
+    return b.ts - a.ts;                                          // then newest first
+  })) {
+    const sig = s.kind + '|' + s.bytes;
+    if (seen.has(sig)) continue;
+    seen.set(sig, true);
+    deduped.push(s);
+  }
+  deduped.sort((a, b) => b.ts - a.ts);
+  return deduped;
+}
+
+// Read a single snapshot's parsed doc, trying IndexedDB first (where snapshots now live), then
+// falling back to localStorage for legacy keys. `store` (from a scan result) is an optional hint that
+// short-circuits to the right store. Resolves to the parsed object, or null. NEVER throws.
+export async function readSnapshotAsync(key, deps = {}) {
+  if (!key) return null;
+  const storage = deps.storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+  // Hint says localStorage → read it directly.
+  if (deps.store === 'ls') return readSnapshot(key, { storage });
+  // Try IDB first (primary store), then fall back to localStorage.
+  try {
+    if (idbAvailable(deps)) {
+      const fromIdb = await idbReadSnapshot(key, deps);
+      if (fromIdb != null) return fromIdb;
+    }
+  } catch {}
+  return readSnapshot(key, { storage });
+}
+
+// Dismiss a snapshot wherever it lives: record the dismissal (so a localStorage copy stops surfacing)
+// AND delete it from IDB (so the IDB copy stops surfacing too). Best-effort — NEVER throws.
+export async function dismissSnapshotAsync(key, deps = {}) {
+  const persisted = dismissSnapshot(key, deps);
+  try { if (idbAvailable(deps)) await idbDeleteSnapshot(key, deps); } catch {}
+  return persisted;
 }
 
 // Read a single snapshot's parsed doc by key. Returns the parsed object, or null if missing /

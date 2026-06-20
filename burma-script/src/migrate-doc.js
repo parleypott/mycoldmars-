@@ -33,6 +33,22 @@ import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
 import { ensureTableDoc, docToBlocks, demoteServiceNodes } from './document-builder.js';
 import { isReadOnly } from './read-mode.js';
+import { idbPutSnapshot, idbAvailable } from './recovery-store.js';
+
+// PHASE 3 (recovery-idb) — best-effort mirror of a full-size recovery snapshot into IndexedDB, whose
+// quota is hundreds of MB vs localStorage's ~5MB. The sync localStorage write that wraps each call to
+// this stays the LOAD-BEARING data-loss gate (migration/reset REQUIRE a synchronous truthy key proving
+// a recovery copy exists before they overwrite a fill), so this IDB write is a PURE ADDITION: it parks
+// a second copy in the big store so the bounded localStorage caps (BAK_KEEP/CONFLICT_KEEP) can't pile
+// up toward quota and break the canonical save. Fire-and-forget: it NEVER blocks, throws, or rejects
+// into the caller — a failed IDB write changes nothing about the (already durable) localStorage path.
+function mirrorSnapshotToIDB(kind, raw) {
+  try {
+    if (!raw) return;
+    if (!idbAvailable()) return;
+    idbPutSnapshot(kind, raw).catch(() => {});
+  } catch { /* best-effort — never disturb the canonical path */ }
+}
 
 const LS_DOC = 'wp01_burma_doc_v1';
 // PERF-2 — the derived schema-faithful blocks export. The editor STOPPED writing this at runtime
@@ -226,6 +242,7 @@ function snapshotConflict(raw) {
   try {
     localStorage.setItem(key, raw);
     pruneByPrefix(CONFLICT_PREFIX, CONFLICT_KEEP); // DL-5: keep the recovery set bounded.
+    mirrorSnapshotToIDB('conflict', raw);          // Phase 3: park a copy in the big IDB store too.
     return key;
   } catch { return null; }
 }
@@ -372,6 +389,7 @@ export function backupRaw(raw) {
   try {
     localStorage.setItem(key, raw);
     pruneBackups();
+    mirrorSnapshotToIDB('bak', raw);  // Phase 3: park a copy in the big IDB store too.
     return key;
   } catch {
     return null;
