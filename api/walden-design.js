@@ -35,6 +35,7 @@ import {
   extractOpsFromText,
 } from './_lib/walden-ops.js';
 import { parseImageInput } from './_lib/walden-image-input.js';
+import { buildGeminiHistoryContents } from './_lib/gemini-chat-contents.js';
 
 const TEXT_MODEL = 'gemini-2.5-flash';
 const IMAGE_MODEL = 'gemini-2.5-flash-image';
@@ -203,10 +204,10 @@ When you reference an existing element for move/resize/rotate/delete/rename, use
 
   const systemText = CHAT_SYSTEM + planBlock;
 
-  const contents = history.map((m) => ({
-    role: m.role === 'user' ? 'user' : 'model',
-    parts: [{ text: String(m.content || '') }],
-  }));
+  // Shared builder drops any leading model turn so Gemini's "first turn must be
+  // user" contract holds on a seeded/sliced history; the final user turn is
+  // appended below because it may carry attached reference-image parts.
+  const contents = buildGeminiHistoryContents(history);
   // The homeowner can attach reference photos (a pool style, their real yard, a mood board).
   const userParts = [{ text: message }];
   const imgs = Array.isArray(body.images) ? body.images.slice(0, 4) : [];

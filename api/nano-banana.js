@@ -3,6 +3,7 @@ import { detectFixation } from './_lib/qss-signals.js';
 import { findCanonCharactersInText, canonContextBlock, QSS_CANON } from './_lib/qss-canon.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
 import { extractBibleCharacters } from './_lib/bible-characters.js';
+import { buildGeminiChatContents } from './_lib/gemini-chat-contents.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // WRITING_DISCIPLINE — prepended to every Wordy-side system prompt.
@@ -694,17 +695,16 @@ DO NOT:
     + routingBlock
     + stuckBlock;
 
-  const contents = history.map(m => ({
-    role: m.role === 'user' ? 'user' : 'model',
-    parts: [{ text: m.content }],
-  }));
   // First-turn nudge if no message
   const userTurnText = stuckMode
     ? "i'm stuck — i don't know what could happen next. give me 3 totally different concrete moves with strong sensory hooks. no lecture, just the scenarios."
     : (message || (cur === 0
         ? "let's start! what are 3 great ways i could open this story?"
         : `i'm ready for what's next. give me 3 options that fit where we are in the story.`));
-  contents.push({ role: 'user', parts: [{ text: userTurnText }] });
+  // Shared builder drops any leading model turn so Gemini's "first turn must be
+  // user" contract holds on a seeded/sliced history (this is the Gemini fallback
+  // path; the primary Claude path below builds its own messages).
+  const contents = buildGeminiChatContents(history, userTurnText);
 
   // ── Claude Sonnet 4.6 for tutor mode ──
   // Gemini Flash was producing crummy / generic prose. Claude is dramatically
@@ -1187,11 +1187,7 @@ async function handleScribe(body, apiKey) {
 
   const systemText = SCRIBE_SYSTEM + canonOverlayForBody(body) + bibleContext + chaptersContext + activeContext;
 
-  const contents = history.map(m => ({
-    role: m.role === 'user' ? 'user' : 'model',
-    parts: [{ text: m.content }],
-  }));
-  contents.push({ role: 'user', parts: [{ text: message }] });
+  const contents = buildGeminiChatContents(history, message);
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent`;
   const payload = {
@@ -1308,11 +1304,7 @@ async function handleText(body, apiKey) {
 
   const systemText = STORY_SYSTEM + canonOverlayForBody(body) + bibleContext + storyboardContext;
 
-  const contents = history.map(m => ({
-    role: m.role === 'user' ? 'user' : 'model',
-    parts: [{ text: m.content }],
-  }));
-  contents.push({ role: 'user', parts: [{ text: message }] });
+  const contents = buildGeminiChatContents(history, message);
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent`;
   const payload = {

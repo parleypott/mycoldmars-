@@ -4,7 +4,10 @@
 // cutter.js (window 12) and gemini.js handleChat + handleScriptChat (window 10).
 //
 // Run: node api/_lib/gemini-chat-contents.test.mjs  (or `bun run test`)
-import { buildGeminiChatContents } from './gemini-chat-contents.js';
+import { buildGeminiChatContents, buildGeminiHistoryContents } from './gemini-chat-contents.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 let pass = 0, fail = 0;
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -96,6 +99,75 @@ ok('cutter buildChatContents delegates: leads with user on seeded history',
   buildChatContents(seeded, 'next').at(0).role === 'user');
 ok('cutter buildChatContents uses window 12',
   buildChatContents(long, 'X').length === 13);
+
+// ════════════════════════════════════════════════════════════════════════════
+// buildGeminiHistoryContents — the history-only helper used by callers whose new
+// user turn carries non-text parts (walden-design attaches reference images). It
+// must do the SAME leading-model-turn drop but NOT append a user turn.
+// ════════════════════════════════════════════════════════════════════════════
+
+// inline RED proof: the OLD inline nano-banana / walden map had NO drop, so a
+// seeded (model-leading) history left contents[0] === 'model' → Gemini 400.
+function oldInlineHistory(history) {
+  return (history || []).map(m => ({
+    role: m.role === 'user' ? 'user' : 'model',
+    parts: [{ text: String(m.content || '') }],
+  }));
+}
+ok('RED proof: old inline history map leads with a model turn',
+  oldInlineHistory(seeded).at(0).role === 'model');
+ok('FIX: buildGeminiHistoryContents drops the leading model turn',
+  buildGeminiHistoryContents(seeded).at(0).role === 'user');
+
+// history-only: never appends a user turn (the caller owns the final turn)
+ok('history helper does not append a new user turn (clean alternating)',
+  eq(buildGeminiHistoryContents(clean), [
+    { role: 'user', parts: [{ text: 'q1' }] },
+    { role: 'model', parts: [{ text: 'a1' }] },
+    { role: 'user', parts: [{ text: 'q2' }] },
+    { role: 'model', parts: [{ text: 'a2' }] },
+  ]));
+ok('history helper: all-model history collapses to []',
+  eq(buildGeminiHistoryContents([{ role: 'assistant', content: 'x' }, { role: 'model', content: 'y' }]), []));
+ok('history helper: empty / non-array → []',
+  eq(buildGeminiHistoryContents([]), []) && eq(buildGeminiHistoryContents(null), []) && eq(buildGeminiHistoryContents('nope'), []));
+// content coercion: null/undefined/number content never yields a non-string text part
+ok('history helper: content coerced to string (null/number safe)',
+  eq(buildGeminiHistoryContents([{ role: 'user', content: null }, { role: 'user', content: 42 }]),
+     [{ role: 'user', parts: [{ text: '' }] }, { role: 'user', parts: [{ text: '42' }] }]));
+// window default 12, override honored
+ok('history helper: default window 12',
+  buildGeminiHistoryContents(long).length <= 12 && buildGeminiHistoryContents(long).length >= 11);
+ok('history helper: window override',
+  buildGeminiHistoryContents(long, { window: 4 }).length <= 4);
+// buildGeminiChatContents is buildGeminiHistoryContents + one appended user turn
+ok('chat builder = history helper + appended user turn',
+  eq(buildGeminiChatContents(clean, 'q3', { window: 10 }),
+     [...buildGeminiHistoryContents(clean, { window: 10 }), { role: 'user', parts: [{ text: 'q3' }] }]));
+
+// ════════════════════════════════════════════════════════════════════════════
+// SOURCE-BINDING — the four newly-consolidated Gemini call sites must import the
+// shared builder and carry NO surviving inline `history.map(... parts:[{ text`
+// contents copy. (The line-716 nano-banana CLAUDE messages map is a DIFFERENT,
+// Anthropic-shaped builder — deliberately out of scope — so we assert on the
+// Gemini `parts:[{ text` shape specifically.)
+// ════════════════════════════════════════════════════════════════════════════
+const here = dirname(fileURLToPath(import.meta.url));
+const apiDir = join(here, '..');
+const stripComments = (s) => s.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+const nano = stripComments(readFileSync(join(apiDir, 'nano-banana.js'), 'utf8'));
+const walden = stripComments(readFileSync(join(apiDir, 'walden-design.js'), 'utf8'));
+
+ok('nano-banana imports the shared builder',
+  /from '\.\/_lib\/gemini-chat-contents\.js'/.test(nano) && /buildGeminiChatContents/.test(nano));
+ok('walden-design imports the shared history helper',
+  /from '\.\/_lib\/gemini-chat-contents\.js'/.test(walden) && /buildGeminiHistoryContents/.test(walden));
+// no surviving inline Gemini contents copy (history.map → parts:[{ text ...}])
+const inlineGeminiCopy = /history\.map\([\s\S]{0,140}parts:\s*\[\{\s*text/;
+ok('nano-banana has no inline Gemini contents map (only the shared builder)',
+  !inlineGeminiCopy.test(nano));
+ok('walden-design has no inline Gemini contents map',
+  !inlineGeminiCopy.test(walden));
 
 console.log(`\ngemini-chat-contents: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
