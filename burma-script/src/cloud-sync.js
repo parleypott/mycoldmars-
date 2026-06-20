@@ -184,17 +184,126 @@ export async function pushDoc(doc, version, fetchImpl = globalThis.fetch) {
   }
 }
 
+// ── SNAPSHOT-CHURN GUARD (recovery-banner-spam) ───────────────────────────────────────────────
+// THE LIVE FAILURE: every reload runs reconcileOnLoad. When the cloud is strictly newer than local
+// (the normal steady state — another tab/device pushed, or this device's last push bumped the cloud
+// version past the local stamp) the adopt path fired snapshotLocalConflict() UNCONDITIONALLY before
+// pulling cloud. But the local doc is, in the overwhelmingly common case, byte-identical to (or a
+// content-equal ancestor of) the cloud doc being adopted — there is NOTHING unique to preserve. So
+// every single reload manufactured a fresh full-size (~167KB) .conflict snapshot, the recovery banner
+// ("N unsynced backups found") never cleared, and the snapshots marched localStorage toward quota
+// until saveDoc started firing SAVE FAILED. The snapshot is only WORTH taking when the local doc
+// GENUINELY DIFFERS from the doc about to overwrite it. These helpers enforce that:
+//
+//   • localDiffersFrom(otherDoc): true ONLY if the local doc has content the `otherDoc` does not —
+//     i.e. their canonical text differs. Byte-identical, or local-is-an-empty/ancestor with no unique
+//     text, → false → no snapshot. (We compare canonical text, not raw JSON, so a cosmetic attr/
+//     ordering reflow that the cloud round-trip introduces does not masquerade as a real edit.)
+//   • DEDUP: never write a snapshot whose content matches the most recent existing snapshot — a churn
+//     loop that somehow still triggers can't pile up identical copies.
+//   • CAP: keep only the newest 2 conflict snapshots (CS_CONFLICT_CAP) — a hard ceiling on top of
+//     migrate-doc's CONFLICT_KEEP, so even a pathological loop bounds the recovery set tightly.
+const CS_CONFLICT_CAP = 2;
+
+// Canonical text of a doc for divergence comparison. We don't have the editor's docToBlocks here
+// (cloud-sync stays dependency-light and browserless-testable), so we use a stable JSON serialization
+// with sorted keys — identical content always serializes identically regardless of key insertion
+// order, so an adopt that only reorders attributes does NOT read as a real edit. NEVER throws.
+function canonicalText(doc) {
+  try {
+    if (doc == null) return '';
+    return stableStringify(doc);
+  } catch { return ''; }
+}
+function stableStringify(v) {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
+  const keys = Object.keys(v).sort();
+  return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
+}
+
+// Does the LOCAL doc genuinely differ from `otherDoc` (the doc about to overwrite it)? Returns false
+// when there is nothing unique to preserve: no local doc, local unparseable-but-empty, or local's
+// canonical text equals otherDoc's. Only a true return justifies burning a recovery snapshot.
+export function localDiffersFrom(otherDoc) {
+  let localRaw = null;
+  try { localRaw = localStorage.getItem(LS_DOC); } catch { return false; }
+  if (!localRaw) return false;                 // no local doc → nothing of ours to lose
+  let localDoc = null;
+  try { localDoc = JSON.parse(localRaw); } catch { localDoc = null; }
+  // Unparseable local: it IS bytes on disk that the adopt would overwrite — preserve it (differs).
+  if (localDoc == null) return true;
+  const localTxt = canonicalText(localDoc);
+  const otherTxt = canonicalText(otherDoc);
+  if (!localTxt) return false;                 // local serialized to nothing → nothing to preserve
+  return localTxt !== otherTxt;
+}
+
+// The content of the most recent existing conflict snapshot (for dedup), or null. NEVER throws.
+function newestConflictSnapshotRaw() {
+  try {
+    let newestKey = null;
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(CONFLICT_PREFIX) && (newestKey == null || k > newestKey)) newestKey = k;
+    }
+    return newestKey ? localStorage.getItem(newestKey) : null;
+  } catch { return null; }
+}
+
+// Cap conflict snapshots to the newest CS_CONFLICT_CAP (hard ceiling on top of pruneConflictSnapshots).
+function capConflictSnapshots() {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(CONFLICT_PREFIX)) keys.push(k);
+    }
+    keys.sort(); // lexical == chronological (fixed-width ms prefix dominates)
+    while (keys.length > CS_CONFLICT_CAP) {
+      const drop = keys.shift();
+      try { localStorage.removeItem(drop); } catch {}
+    }
+  } catch {}
+}
+
+// Low-level snapshot write with DEDUP + CAP. Writes `raw` to a fresh .conflict key UNLESS it matches
+// the newest existing snapshot (dedup → returns that existing key, writing nothing). Returns the key
+// written (or the matched existing key on dedup), or null if storage refused / raw empty. NEVER throws.
+function writeConflictSnapshot(raw) {
+  try {
+    if (!raw) return null;
+    // DEDUP — identical to the most recent snapshot? Don't write a redundant copy.
+    let newestKey = null;
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(CONFLICT_PREFIX) && (newestKey == null || k > newestKey)) newestKey = k;
+    }
+    if (newestKey != null) {
+      let newestRaw = null;
+      try { newestRaw = localStorage.getItem(newestKey); } catch {}
+      if (newestRaw === raw) return newestKey; // already preserved — reuse, write nothing
+    }
+    const key = conflictKey();
+    localStorage.setItem(key, raw);
+    try { pruneConflictSnapshots(); } catch {} // DL-5: keep the shared .conflict set bounded.
+    try { capConflictSnapshots(); } catch {}   // hard cap on top of DL-5's CONFLICT_KEEP.
+    return key;
+  } catch {
+    return null;
+  }
+}
+
 // Snapshot the current LOCAL doc to a .conflict.<ts> recovery key BEFORE we adopt a newer cloud doc
 // over it — mirrors migrate-doc.js's snapshotConflict so the existing recovery tooling finds it.
-// Returns the key, or null if storage refused. NEVER throws.
+// DEDUPED + CAPPED via writeConflictSnapshot. Returns the key, or null if storage refused / no local
+// doc. NEVER throws. (Whether a snapshot is NEEDED at all — i.e. local genuinely differs from cloud —
+// is decided by the caller via localDiffersFrom; this function just performs the write when asked.)
 export function snapshotLocalConflict() {
   try {
     const raw = localStorage.getItem(LS_DOC);
     if (!raw) return null;
-    const key = conflictKey();
-    localStorage.setItem(key, raw);
-    try { pruneConflictSnapshots(); } catch {} // DL-5: keep the shared .conflict set bounded.
-    return key;
+    return writeConflictSnapshot(raw);
   } catch {
     return null;
   }
@@ -202,15 +311,11 @@ export function snapshotLocalConflict() {
 
 // Snapshot an ARBITRARY doc object (e.g. the incoming cloud doc returned by a 409) to its own
 // .conflict.<ts> recovery key, so the cloud side of a divergence is preserved too — not just local.
-// Returns the key, or null if the doc is empty / storage refused. NEVER throws.
+// DEDUPED + CAPPED. Returns the key, or null if the doc is empty / storage refused. NEVER throws.
 export function snapshotDocConflict(doc) {
   try {
     if (doc == null) return null;
-    const raw = JSON.stringify(doc);
-    const key = conflictKey();
-    localStorage.setItem(key, raw);
-    try { pruneConflictSnapshots(); } catch {} // DL-5: keep the shared .conflict set bounded.
-    return key;
+    return writeConflictSnapshot(JSON.stringify(doc));
   } catch {
     return null;
   }
@@ -363,26 +468,51 @@ export async function reconcileOnLoad(deps = {}) {
     // saveDoc's "could not back up → abort" contract and fire the loud wp-save-failed banner so a
     // dyslexic non-coder SEES that their on-screen local copy is the one to trust, then reload later.
     if (decision.snapshotLocal) {
-      let snapKey = null;
-      try { snapKey = snapshotConflict(); } catch { snapKey = null; }
-      if (!snapKey) {
-        // Could not back up the local doc. Adopting now would evict the safety net and clobber the
-        // unsynced local edit with no recovery copy. Refuse: keep local on screen, warn LOUDLY.
-        emit('wp-save-failed', {
-          reason: 'adopt-snapshot-failed',
-          message: 'A newer cloud version exists, but this device could not back up your current ' +
-            'copy first (storage is full). Keeping your on-screen copy. Free up space, then reload.',
-          action: decision.action,
-          cloudVersion: decision.version,
-        });
+      // SNAPSHOT-CHURN GUARD (recovery-banner-spam): only snapshot when the local doc GENUINELY
+      // DIFFERS from the cloud doc about to overwrite it. In steady state local is byte-identical
+      // to (or a content-equal ancestor of) the adopted cloud doc — there is nothing unique to
+      // preserve, and the old unconditional snapshot manufactured a fresh ~167KB .conflict copy on
+      // EVERY reload, so the recovery banner never cleared and storage marched to quota → SAVE
+      // FAILED. When local has no unique content vs cloud, adopting loses NOTHING, so we skip the
+      // snapshot entirely and adopt cleanly. The hard abort below stays — but ONLY for the genuine
+      // case where local DOES diverge AND the safety snapshot could not be written.
+      // Default to NEEDING a snapshot (conservative — never skip a safety copy on uncertainty). Only
+      // skip when localStorage is actually reachable AND it tells us local is content-identical to
+      // cloud. When storage is unavailable (e.g. the pure-decision unit tests with no localStorage
+      // global) we keep the original always-snapshot behaviour, so the must-land abort contract holds.
+      let needSnapshot = true;
+      if (typeof localStorage !== 'undefined' && localStorage) {
+        try { needSnapshot = localDiffersFrom(decision.doc); } catch { needSnapshot = true; }
+      }
+      if (needSnapshot) {
+        let snapKey = null;
+        try { snapKey = snapshotConflict(); } catch { snapKey = null; }
+        if (!snapKey) {
+          // Could not back up a GENUINELY-DIVERGENT local doc. Adopting now would evict the safety
+          // net and clobber the unsynced local edit with no recovery copy. Refuse: keep local on
+          // screen, warn LOUDLY.
+          emit('wp-save-failed', {
+            reason: 'adopt-snapshot-failed',
+            message: 'A newer cloud version exists, but this device could not back up your current ' +
+              'copy first (storage is full). Keeping your on-screen copy. Free up space, then reload.',
+            action: decision.action,
+            cloudVersion: decision.version,
+          });
+          try {
+            console.warn('[burma] cloud reconcile: ' + decision.action + ' ABORTED — could not snapshot ' +
+              'local before adopt (storage refused / quota). NOT writing cloud doc, NOT reloading. Local ' +
+              'stays on screen; cloud v' + decision.version + ' is untouched and still adoptable after ' +
+              'space is freed.');
+          } catch {}
+          return { action: decision.action, wrote: false, version: decision.version,
+                   shouldReload: false, aborted: true, reason: 'adopt-snapshot-failed' };
+        }
+      } else {
         try {
-          console.warn('[burma] cloud reconcile: ' + decision.action + ' ABORTED — could not snapshot ' +
-            'local before adopt (storage refused / quota). NOT writing cloud doc, NOT reloading. Local ' +
-            'stays on screen; cloud v' + decision.version + ' is untouched and still adoptable after ' +
-            'space is freed.');
+          console.info('[burma] cloud reconcile: ' + decision.action + ' — local is content-identical ' +
+            'to cloud v' + decision.version + '; skipping redundant .conflict snapshot (no unique local ' +
+            'edit to preserve).');
         } catch {}
-        return { action: decision.action, wrote: false, version: decision.version,
-                 shouldReload: false, aborted: true, reason: 'adopt-snapshot-failed' };
       }
     }
     // Align the local version stamp to cloud's BEFORE writing, so saveDoc stamps cloud+1 and the
