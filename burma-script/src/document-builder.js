@@ -349,6 +349,9 @@ function blockToNode(b, opts) {
         attrs: {
           blockId: id,
           timecode: formatTimecode(b.timecode?.tc),
+          // OUT/range-end timecode (frame-accurate range editors live by). Carried so it
+          // survives docToBlocks round-trip instead of silently vanishing into body prose.
+          tcOut: b.timecode?.tcOut || '',
           rawTimecode: b.timecode?.raw || b.timecode?.tc || '',
           day: b.timecode?.day ?? null,
           ambiguous: !!b.timecode?.ambiguous,
@@ -364,9 +367,11 @@ function blockToNode(b, opts) {
         attrs: {
           blockId: id,
           timecode: formatTimecode(b.timecode?.tc),
+          tcOut: b.timecode?.tcOut || '',
           rawTimecode: b.timecode?.raw || b.timecode?.tc || '',
           day: b.timecode?.day ?? null,
           ambiguous: !!b.timecode?.ambiguous,
+          speaker: b.speaker || '',
           done: !!b.done,
         },
         content: [para(inlineContent(cleanQuote(bodyText(b)), 'plain'))],
@@ -680,6 +685,8 @@ function nodeToBlock(node, i) {
   else if (node.type === 'sotBlock' || node.type === 'brollBlock') {
     block.text = text;
     block.timecode = { tc: a.timecode || '', day: a.day ?? null, ambiguous: !!a.ambiguous, raw: a.rawTimecode || a.timecode || '' };
+    // OUT/range-end code only present when set (keep the block shape minimal otherwise).
+    if (a.tcOut) block.timecode.tcOut = a.tcOut;
     if (a.speaker) block.speaker = a.speaker;
     block.done = !!a.done;
   } else if (node.type === 'voBlock') { block.text = text; block.voStatus = a.status || 'todo'; }

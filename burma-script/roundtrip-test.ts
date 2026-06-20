@@ -61,20 +61,74 @@ sourceBlocks.forEach((src: any) => {
 // 4) timecode HERO fidelity on every SOT/broll, MATCHED BY ID.
 const tcBlocks = sourceBlocks.filter((b: any) => b.type === "sot" || b.type === "broll");
 let tcChecked = 0;
+let tcOutChecked = 0;
+let speakerChecked = 0;
 for (const b of tcBlocks) {
   const got = outById.get(b.id);
   if (!got) continue; // vanished — already reported
   const srcTc = (b.timecode?.tc || "").trim();
   const gotTc = (got.timecode?.tc || "").trim();
   // formatTimecode normalises to HH:MM:SS:FF; assert the normalised value survives byte-identical.
-  const norm = srcTc.match(/(\d{1,2}:\d{2}:\d{2}:\d{2})/)?.[1] || srcTc;
-  if (norm && gotTc !== norm)
-    fail(`block ${b.id} (${b.type}) timecode drift: "${norm}" -> "${gotTc}"`);
+  const normd = srcTc.match(/(\d{1,2}:\d{2}:\d{2}:\d{2})/)?.[1] || srcTc;
+  if (normd && gotTc !== normd)
+    fail(`block ${b.id} (${b.type}) timecode drift: "${normd}" -> "${gotTc}"`);
   if (!!got.done !== !!b.done)
     fail(`block ${b.id} (${b.type}) done flag drift`);
+  // (RT-01) tcOut — the OUT/range-end code must survive the round-trip, not vanish into prose.
+  const srcOut = (b.timecode?.tcOut || "").trim();
+  if (srcOut) {
+    const gotOut = (got.timecode?.tcOut || "").trim();
+    if (gotOut !== srcOut)
+      fail(`block ${b.id} (${b.type}) tcOut drift: "${srcOut}" -> "${gotOut}"`);
+    tcOutChecked++;
+  }
+  // speaker fidelity (SOT carries the on-cam speaker; the worklist reads it).
+  const srcSpk = (b.speaker || "").trim();
+  if (srcSpk) {
+    const gotSpk = (got.speaker || "").trim();
+    if (gotSpk !== srcSpk)
+      fail(`block ${b.id} (${b.type}) speaker drift: "${srcSpk}" -> "${gotSpk}"`);
+    speakerChecked++;
+  }
   tcChecked++;
 }
 
-console.log(`round-trip: ${sourceBlocks.length} blocks, ${tcChecked} timecode blocks checked (matched by id)`);
+// 5) voStatus fidelity on every VO block, MATCHED BY ID.
+let voChecked = 0;
+for (const b of sourceBlocks.filter((x: any) => x.type === "vo")) {
+  const got = outById.get(b.id);
+  if (!got) continue;
+  const srcVs = b.voStatus || "todo";
+  const gotVs = got.voStatus || "todo";
+  if (gotVs !== srcVs)
+    fail(`block ${b.id} (vo) voStatus drift: "${srcVs}" -> "${gotVs}"`);
+  voChecked++;
+}
+
+// 6) BODY-TEXT fidelity — the words themselves must survive the round-trip. The build path
+//    (buildEditorDocument) chips/cleans prose; the contract is that re-reading the resulting
+//    doc yields the SAME words back. We assert IDEMPOTENCY: a SECOND pass (doc -> blocks ->
+//    doc -> blocks) must yield byte-identical normalised body text + title per block. The first
+//    pass establishes the canonical text; any drift on the second pass is a real round-trip leak
+//    (a dropped/duplicated/garbled word — the cardinal sin — surfaces here even when the
+//    structural assertions above stay green).
+const doc2 = buildEditorDocument(out);
+const out2 = docToBlocks(doc2);
+const out2ById = new Map<string, any>();
+for (const b of out2) out2ById.set(b.id, b);
+const normWs = (s: string) => (s || "").replace(/\s+/g, " ").trim();
+let textChecked = 0;
+for (const b of out) {
+  const b2 = out2ById.get(b.id);
+  if (!b2) { fail(`block ${b.id} vanished on second round-trip`); continue; }
+  if (normWs(b.text || "") !== normWs(b2.text || ""))
+    fail(`block ${b.id} (${b.type}) body-text drift on re-round-trip`);
+  if (normWs(b.title || "") !== normWs(b2.title || ""))
+    fail(`block ${b.id} (${b.type}) title drift on re-round-trip`);
+  textChecked++;
+}
+
+console.log(`round-trip: ${sourceBlocks.length} blocks, ${tcChecked} timecode, ` +
+  `${tcOutChecked} tcOut, ${speakerChecked} speaker, ${voChecked} voStatus, ${textChecked} body-text checked`);
 if (failures) { console.error(`FAILED — ${failures} assertion(s) broke`); process.exit(1); }
-console.log("OK — id + type + timecode fidelity preserved through buildEditorDocument -> docToBlocks");
+console.log("OK — id + type + timecode + tcOut + speaker + voStatus + body-text fidelity preserved");

@@ -441,7 +441,7 @@ export const SotBlock = Node.create({
   addAttributes() {
     return {
       ...baseAttrs(),
-      timecode: { default: '' }, day: { default: null }, ambiguous: { default: false },
+      timecode: { default: '' }, tcOut: { default: '' }, day: { default: null }, ambiguous: { default: false },
       speaker: { default: '' }, done: { default: false }, rawTimecode: { default: '' },
     };
   },
@@ -471,8 +471,10 @@ export const BrollBlock = Node.create({
   addAttributes() {
     return {
       ...baseAttrs(),
-      timecode: { default: '' }, day: { default: null }, ambiguous: { default: false },
-      done: { default: false }, rawTimecode: { default: '' },
+      timecode: { default: '' }, tcOut: { default: '' }, day: { default: null }, ambiguous: { default: false },
+      // speaker carried through (some b-roll strings attribute an on-cam speaker, e.g. "JH"/"Drew").
+      // Not rendered in the flat DIRECTION view, but preserved so it round-trips losslessly.
+      speaker: { default: '' }, done: { default: false }, rawTimecode: { default: '' },
     };
   },
   parseHTML() { return [{ tag: 'div[data-broll]' }]; },
