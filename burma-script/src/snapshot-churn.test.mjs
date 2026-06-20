@@ -127,6 +127,34 @@ async function adopt(cloudDoc, cloudVersion, localVersion) {
   eq(k2, k1, '4c. dedup returns the existing key, not a new one');
 }
 
+/* ── 6: CANONICAL gate at the SOURCE (recovery-banner-spam, Fix 2) — a cloud doc that is CONTENT-
+      equal to local but differs in key ORDER / cosmetic round-trip reflow, and carries a DIFFERENT
+      version number, must produce ZERO snapshots. localDiffersFrom compares canonical content (stable
+      JSON, sorted keys), so a reflow is NOT mistaken for a real edit. This is the source-side stop
+      that keeps the redundant snapshots from ever being manufactured (Fix 1 filters survivors; Fix 2
+      prevents creation). ── */
+{
+  store.clear();
+  // Local doc with one key order…
+  const localDoc = { type: 'doc', attrs: { lang: 'en', theme: 'dark' },
+    content: [{ type: 'paragraph', content: [{ type: 'text', text: 'identical body, reflowed attrs' }] }] };
+  // …cloud doc: SAME content, attrs in a different insertion order (what a server round-trip does).
+  const cloudReflow = { content: [{ type: 'paragraph', content: [{ type: 'text', text: 'identical body, reflowed attrs' }] }],
+    attrs: { theme: 'dark', lang: 'en' }, type: 'doc' };
+  seedLocal(localDoc, 646);
+
+  ok(localDiffersFrom(cloudReflow) === false,
+    '6a. localDiffersFrom: key-order reflow of identical content === false (canonical compare)');
+
+  // Repeated reloads of this content-equal-but-version-different adopt: zero snapshots every time.
+  for (let i = 0; i < 5; i++) {
+    const r = await adopt(cloudReflow, 647 + i, 646 + i);
+    eq(r.action, 'adopt-cloud', `6b.${i}. cloud version strictly newer → adopt-cloud`);
+    ok(r.aborted !== true, `6c.${i}. not aborted`);
+  }
+  eq(countConflicts(), 0, '6d. CARDINAL: five reloads of a reflow-only adopt created ZERO snapshots');
+}
+
 /* ── 5: CAP — many DIFFERENT divergent snapshots never exceed CS_CONFLICT_CAP (2) ── */
 {
   store.clear();
