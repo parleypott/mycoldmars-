@@ -588,7 +588,15 @@ export function saveDoc(json) {
     return { ok: false, reason: quota ? 'quota' : 'setitem-threw' };
   }
 
-  // STEP 3 — READ-BACK INVARIANT. Confirm the bytes actually landed and round-trip.
+  // STEP 3 — READ-BACK INVARIANT. Confirm the bytes actually landed. The string-equality check below
+  // IS the data-loss guard: it proves the stored bytes are byte-identical to `out`, and `out` is a
+  // value we just produced via JSON.stringify(json) — so equality already guarantees the stored bytes
+  // parse (they're a verbatim copy of valid JSON). PERF-4: the trailing JSON.parse(readBack) that used
+  // to follow was therefore provably redundant (it could only fire on bytes that EQUAL valid `out` yet
+  // fail to parse — impossible for a well-formed `out`) and re-parsed the whole ~167KB doc on every
+  // save. Dropped: zero loss of the guarantee, ~4ms/save saved that scaled linearly with doc size.
+  // (A garbled/truncated read-back still fails loudly here — garbled bytes !== `out`.) The getItem can
+  // still throw (storage blocked mid-call); the try/catch keeps that path a loud invariant failure.
   try {
     const readBack = localStorage.getItem(LS_DOC);
     if (readBack !== out) {
@@ -596,9 +604,8 @@ export function saveDoc(json) {
       notifySaveFailed({ kind: 'invariant', message: 'save verification failed — read-back mismatch' });
       return { ok: false, reason: 'invariant-mismatch' };
     }
-    JSON.parse(readBack); // must parse — a truncated/garbled write would throw here.
   } catch (e) {
-    console.warn('[burma save invariant FAIL] LS_DOC read-back did not parse', e);
+    console.warn('[burma save invariant FAIL] LS_DOC read-back threw', e);
     notifySaveFailed({ kind: 'invariant', message: 'save verification failed — stored doc unreadable' });
     return { ok: false, reason: 'invariant-unparseable' };
   }
