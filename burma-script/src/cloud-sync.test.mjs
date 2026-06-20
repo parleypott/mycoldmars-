@@ -426,5 +426,56 @@ function makeBootstrapDeps({ cloud, saveOk = true, saveReason }) {
   delete globalThis.localStorage;
 }
 
+/* ───────────────────────── (e) DL-06 — OFFLINE PUSH RETRY catches the cloud up ─────────────── */
+// A push that comes back OFFLINE must arm a one-shot retry that fires on the next connectivity
+// event and pushes the LIVE on-disk doc — so the cloud can never be left permanently behind local.
+{
+  const { scheduleOfflinePushRetry, isOfflineRetryArmed } = await import('./cloud-sync.js');
+
+  // A real localStorage shim so readLiveLocal() reads the freshest on-disk doc.
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(k, String(v)); },
+    removeItem: (k) => { store.delete(k); },
+  };
+  store.set('wp01_burma_doc_v1', JSON.stringify(DOC('live-local-v9')));
+  store.set('wp01_burma_doc_ver_v1', '9|tab_x');
+
+  // Capture window event listeners so the test can FIRE the 'online' event itself.
+  const listeners = {};
+  globalThis.window.addEventListener = (t, fn) => { (listeners[t] = listeners[t] || []).push(fn); };
+  globalThis.window.removeEventListener = (t, fn) => { listeners[t] = (listeners[t] || []).filter((f) => f !== fn); };
+
+  // First: a failing fetch arms the retry (offline) and does NOT throw.
+  clearEvents();
+  const offlineFetch = async () => ({ ok: false, status: 503 });
+  const r1 = await pushDoc(DOC('live-local-v9'), 9, offlineFetch);
+  ok(r1 && r1.offline === true, 'e1. push to a 503 cloud returns offline');
+  ok(isOfflineRetryArmed(), 'e2. an offline push armed the retry');
+  ok((listeners['online'] || []).length >= 1, 'e3. retry registered an online listener');
+
+  // Now connectivity returns: a SUCCEEDING fetch. Firing 'online' must push the LIVE doc and clear
+  // the armed flag. We swap globalThis.fetch (pushDoc's default) to the success impl.
+  let pushedBody = null;
+  globalThis.fetch = async (url, opts) => {
+    try { pushedBody = JSON.parse(opts.body); } catch {}
+    return { ok: true, status: 200, json: async () => ({ version: 10 }) };
+  };
+  const onlineFns = [...(listeners['online'] || [])];
+  for (const fn of onlineFns) fn();
+  // The retry runs async (Promise) — let microtasks drain.
+  await new Promise((res) => setTimeout(res, 0));
+  ok(!isOfflineRetryArmed(), 'e4. firing online disarmed the retry');
+  ok(pushedBody && pushedBody.doc && JSON.stringify(pushedBody.doc) === JSON.stringify(DOC('live-local-v9')),
+    'e5. retry pushed the LIVE on-disk doc');
+  eq(pushedBody?.version, 9, 'e6. retry pushed the live on-disk version');
+
+  delete globalThis.fetch;
+  delete globalThis.localStorage;
+  delete globalThis.window.addEventListener;
+  delete globalThis.window.removeEventListener;
+}
+
 console.log(`\ncloud-sync: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

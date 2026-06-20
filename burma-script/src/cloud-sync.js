@@ -168,9 +168,11 @@ export async function pushDoc(doc, version, fetchImpl = globalThis.fetch) {
     }
     // Any other non-2xx (500 NO_DB, 404 table-missing routed as error, 502 …) => cloud unavailable.
     emit(EVT_CLOUD_OFFLINE, { status: res?.status });
+    scheduleOfflinePushRetry(); // DL-06: catch the cloud up the moment connectivity returns.
     return { ok: false, offline: true, status: res?.status };
   } catch {
     emit(EVT_CLOUD_OFFLINE, {});
+    scheduleOfflinePushRetry();
     return { ok: false, offline: true };
   }
 }
@@ -204,6 +206,52 @@ export function snapshotDocConflict(doc) {
     return null;
   }
 }
+
+// ── OFFLINE PUSH RETRY (DL-06) ───────────────────────────────────────────────────────────────────
+// A keep-local reconcile push (or any hot-path push) can come back OFFLINE — the local save is safe,
+// but the cloud silently stays a version BEHIND local forever, until the next successful save. A
+// single offline blip on the LAST edit of a session means the cloud permanently lags, and a fresh
+// device (or an adopt) could then seed/adopt the OLDER cloud doc, losing the last edits. There was
+// no "cloud is behind — retry the push" path. This arms a ONE-SHOT retry that fires on the next
+// `online` / `visibilitychange→visible` event and pushes the LIVE on-disk doc+version (not whatever
+// stale snapshot triggered the offline), so the cloud catches up the instant connectivity returns.
+// Idempotent: re-arming while a retry is already pending is a no-op (we don't stack listeners).
+let _offlineRetryArmed = false;
+function readLiveLocal() {
+  // Read the CURRENT on-disk doc + version straight from localStorage (not a captured snapshot),
+  // so the retry pushes the freshest local content the editor has persisted. NEVER throws.
+  try { return defaultReadLocal(); } catch { return { hasDoc: false, version: 0, doc: null }; }
+}
+export function scheduleOfflinePushRetry() {
+  if (_offlineRetryArmed) return;
+  if (typeof window === 'undefined' || !window.addEventListener) return;
+  _offlineRetryArmed = true;
+  const fire = () => {
+    // Disarm FIRST so a push that itself comes back offline can re-arm cleanly for the next event.
+    disarm();
+    const live = readLiveLocal();
+    if (!live.hasDoc || live.doc == null || !(toInt(live.version) > 0)) return;
+    Promise.resolve(pushDoc(live.doc, live.version))
+      .then((res) => {
+        // A retry can ALSO 409 (another device moved ahead) → snapshot-and-conflict like any push.
+        // Or it can come back offline again → re-arm for the next connectivity event.
+        if (res && res.offline) { scheduleOfflinePushRetry(); return; }
+        handlePushResult(res, live.doc);
+      })
+      .catch(() => {});
+  };
+  function onVisible() { if (typeof document === 'undefined' || document.visibilityState === 'visible') fire(); }
+  function disarm() {
+    _offlineRetryArmed = false;
+    try { window.removeEventListener('online', fire); } catch {}
+    try { if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible); } catch {}
+  }
+  try { window.addEventListener('online', fire); } catch {}
+  try { if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible); } catch {}
+}
+
+// PUBLIC (test): is an offline retry currently armed?
+export function isOfflineRetryArmed() { return _offlineRetryArmed; }
 
 // ── HOT-PATH PUSH-409 CONSUMER (the two-device concurrent-edit stranding fix) ────────────────────
 // Every push path (Editor.flushSave, reconcile keep-local) feeds its pushDoc() result through here.
@@ -353,10 +401,20 @@ export async function reconcileOnLoad(deps = {}) {
     // a keep-local push can still 409 (local.version === cloud.version but the docs diverged — the
     // exact two-device stranding case), and that 409 must snapshot-and-adopt via handlePushResult,
     // not be swallowed. pushDoc still fires saved/offline itself; only the 409 path routes here.
+    //
+    // DL-06: read the LIVE on-disk doc at push time, NOT the snapshot captured at the top of
+    // reconcileOnLoad. The editor may have already saved a newer doc between reconcile-start and
+    // here; pushing the stale start snapshot could no-op against an equal cloud version and leave
+    // the cloud permanently a version behind the live local doc. pushDoc itself arms an offline
+    // retry, so an unreachable cloud here is caught up on the next connectivity event.
     try {
-      if (local.doc != null) {
-        Promise.resolve(pushDoc(local.doc, local.version))
-          .then((res) => handlePushResult(res, local.doc))
+      let live = local;
+      try { live = readLiveLocal(); } catch {}
+      const pushDocBody = (live && live.doc != null) ? live.doc : local.doc;
+      const pushVer = (live && live.hasDoc) ? live.version : local.version;
+      if (pushDocBody != null) {
+        Promise.resolve(pushDoc(pushDocBody, pushVer))
+          .then((res) => handlePushResult(res, pushDocBody))
           .catch(() => {});
       }
     } catch {}

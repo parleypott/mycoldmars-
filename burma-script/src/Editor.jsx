@@ -190,12 +190,23 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
       // snapshots BOTH this device's edit and the newer cloud doc to .conflict.<ts> and raises the
       // reload/merge banner — treating a hot-path 409 exactly like the load-time adopt path. We pass
       // the EXACT json we tried to push so the stranded bytes are the ones snapshotted.
-      const pushVersion = res.version || getKnownBaseVersion();
-      try {
-        Promise.resolve(pushDoc(json, pushVersion))
-          .then((pr) => handlePushResult(pr, json))
-          .catch(() => {});
-      } catch {}
+      // cloud-7 — use the version saveDoc just stamped DIRECTLY. On res.ok it is guaranteed >= 1
+      // (max(...)+1), so the old `res.version || getKnownBaseVersion()` fallback only mattered if a
+      // future saveDoc returned ok without a version — in which case `||` would ALSO swallow a
+      // legitimate version 0 and silently push a mismatched/stale version that 409s. Prefer the
+      // stamped version; only fall back (and warn) if it is genuinely absent, and never push a 0.
+      let pushVersion = res.version;
+      if (!(pushVersion > 0)) {
+        pushVersion = getKnownBaseVersion();
+        console.warn('[burma] saveDoc returned ok without a version — falling back to knownBaseVersion v' + pushVersion);
+      }
+      if (pushVersion > 0) {
+        try {
+          Promise.resolve(pushDoc(json, pushVersion))
+            .then((pr) => handlePushResult(pr, json))
+            .catch(() => {});
+        } catch {}
+      }
     }
   }
   const flushRef = useRef(flushSave);
