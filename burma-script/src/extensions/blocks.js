@@ -10,6 +10,7 @@
 // flat repeating-linear-gradient texture and is the only gradient allowed.
 
 import { Node, mergeAttributes } from '@tiptap/core';
+import { isReadOnly } from '../read-mode.js';
 
 const baseAttrs = () => ({ blockId: { default: null } });
 
@@ -53,6 +54,9 @@ function makeSpine(editor, getPos) {
   grip.addEventListener('click', (e) => {
     e.preventDefault(); e.stopPropagation();
     if (dragged) { dragged = false; return; }
+    // READ-ONLY SHARE: the block menu (change type / insert / delete) is edit-only. CSS also hides
+    // the grip in read-only, but gate the handler too so no mutation menu can ever open for a reader.
+    if (isReadOnly()) return;
     openBlockMenu(editor, getPos, grip);
   });
 

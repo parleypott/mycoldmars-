@@ -21,6 +21,7 @@ import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { Workshop } from './Workshop.jsx';
 import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, isReloadingForAdopt, LS_DOC_VER } from './migrate-doc.js';
 import { pushDoc, handlePushResult } from './cloud-sync.js';
+import { isReadOnly } from './read-mode.js';
 
 const LS_DOC = 'wp01_burma_doc_v1';
 const LS_BLOCKS = 'wp01_burma_blocks_v1'; // derived schema-faithful export (exercises docToBlocks)
@@ -33,7 +34,14 @@ let seededOverUnreadableDoc = false;
 
 // Seed the working copy: prefer the persisted localStorage doc; else build fresh
 // from the read-only blocks. The source blocks array is NEVER mutated.
-function seedDoc(sourceBlocks) {
+// READ-ONLY SHARE (read-only-share): when a `?read`/`?view` recipient is given Johnny's latest
+// CLOUD doc, seed straight from THAT (so they see his live script) and skip every localStorage read —
+// a reader's view is built purely in-memory from the cloud bytes, never from their own LS_DOC, and
+// `seededOverUnreadableDoc` stays false because no write path is ever reachable in read-only mode.
+function seedDoc(sourceBlocks, readOnlyDoc) {
+  if (readOnlyDoc?.content?.length) {
+    return ensureTableDoc(readOnlyDoc);
+  }
   let saved = null;
   try {
     saved = localStorage.getItem(LS_DOC);
@@ -111,8 +119,13 @@ function telemetry(doc) {
   return { words, blocks, sot, done, scaffold, outline };
 }
 
-export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
-  const initial = useMemo(() => seedDoc(sourceBlocks), [sourceBlocks]);
+export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnlyDoc }) {
+  // READ-ONLY SHARE (read-only-share): frozen at mount. In read-only mode the editor is constructed
+  // NON-editable and the ENTIRE persistence layer is short-circuited — no debounce, no flushSave, no
+  // pagehide/visibility/storage listeners, no cloud push. A reader's browser has no code path that
+  // can write LS_DOC or PUT the cloud. (saveDoc/pushDoc also refuse independently — defense in depth.)
+  const readOnly = isReadOnly();
+  const initial = useMemo(() => seedDoc(sourceBlocks, readOnlyDoc), [sourceBlocks, readOnlyDoc]);
   const saveTimer = useRef(null);
 
   // The SINGLE canonical-write path. Cancels any pending debounce and writes the absolute latest
@@ -183,6 +196,9 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
     ],
     content: initial,
     autofocus: false,
+    // READ-ONLY SHARE: construct the surface non-editable so the recipient cannot type, drag, or
+    // delete. Combined with the short-circuited persistence below, the doc is structurally frozen.
+    editable: !readOnly,
     onCreate({ editor }) {
       onTelemetry?.(telemetry(editor.getJSON()));
       // Hand the live editor up so the Exports panel can read the current doc JSON
@@ -192,6 +208,9 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
     onUpdate({ editor }) {
       const json = editor.getJSON();
       onTelemetry?.(telemetry(json));
+      // READ-ONLY SHARE: a non-editable editor should never fire onUpdate, but guard anyway so NO
+      // dirty/debounce/flush path can ever run in a reader's session. Telemetry above is harmless.
+      if (readOnly) return;
       // We have unsaved keystrokes in volatile editor state right now — say so, so the
       // save-status indicator can show "unsaved" between keystroke and the debounced write.
       window.dispatchEvent(new CustomEvent('wp-dirty'));
@@ -239,6 +258,7 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
   // flush the ABSOLUTE LATEST editor JSON, bypassing the debounce.
   useEffect(() => {
     if (!editor) return;
+    if (readOnly) return; // READ-ONLY SHARE: no teardown flush — there is nothing to persist.
     const flushNow = () => { flushRef.current(editor); };
     const onPageHide = () => flushNow();
     const onVisibility = () => { if (document.visibilityState === 'hidden') flushNow(); };
@@ -262,6 +282,7 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
   // it re-seeds from disk and re-syncs the base. (We never lose anything either way: a stomp
   // attempt is caught by the guard and snapshotted to a .conflict key.)
   useEffect(() => {
+    if (readOnly) return; // READ-ONLY SHARE: a reader never reacts to cross-tab writes — it's frozen.
     const onStorage = (e) => {
       if (!e) return;
       // Only care about the doc itself or its version stamp changing under us.
@@ -277,15 +298,19 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady }) {
 
   // Flush a final save on in-SPA unmount (route change / React teardown). Goes through the same
   // guarded writer so an unmount can't silently fail or clobber a protected unreadable doc.
-  useEffect(() => () => {
-    flushRef.current(editor);
+  // READ-ONLY SHARE: skip — there is nothing to flush and saveDoc would refuse anyway.
+  useEffect(() => {
+    if (readOnly) return undefined;
+    return () => { flushRef.current(editor); };
   }, [editor]);
 
   return (
     <>
       <EditorContent editor={editor} class="wp-editor" />
-      <BurmaBubbleMenu editor={editor} />
-      <Workshop />
+      {/* READ-ONLY SHARE: the BubbleMenu (TK/visual/bold marks) and Workshop dock are edit-only
+          chrome — omit them entirely so a reader gets a calm, clean reading surface. */}
+      {!readOnly && <BurmaBubbleMenu editor={editor} />}
+      {!readOnly && <Workshop />}
     </>
   );
 }

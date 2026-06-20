@@ -13,10 +13,14 @@
 import { Mark, markInputRule, markPasteRule, getMarkRange } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
 import { contiguousMarkRun } from './mark-run.js';
+import { isReadOnly } from '../read-mode.js';
 
 // Find the marked span the user clicked, resolve its text + range, and emit the
 // workshop event. Returns true if a span was hit (so PM stops default handling).
 function openWorkshop(view, event, markName, kind) {
+  // READ-ONLY SHARE: the Workshop is edit-only chrome (and isn't even mounted for a reader).
+  // Don't intercept the click — let the {tk}/[visual] span read as plain styled text.
+  if (isReadOnly()) return false;
   const target = event.target.closest(`span[data-${kind}]`);
   if (!target) return false;
   event.preventDefault();
@@ -346,6 +350,9 @@ export const TimecodeMark = Mark.create({
             return true;
           },
           contextmenu: (view, event) => {
+            // READ-ONLY SHARE: the right-click DAY menu mutates the doc (sets the shooting day),
+            // which a reader must never do. Let the browser's native menu through, change nothing.
+            if (isReadOnly()) return false;
             const target = event.target.closest('span.wp-tc-tag, span[data-tc]');
             if (!target) return false;
             event.preventDefault();

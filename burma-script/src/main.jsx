@@ -10,7 +10,8 @@ import { useState, useRef, useEffect } from 'preact/hooks';
 import { BurmaEditor, LS_DOC } from './Editor.jsx';
 import { Exports } from './Exports.jsx';
 import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, setReloadingForAdopt } from './migrate-doc.js';
-import { reconcileOnLoad, bootstrapFromCloud } from './cloud-sync.js';
+import { reconcileOnLoad, bootstrapFromCloud, fetchCloudDocReadOnly } from './cloud-sync.js';
+import { isReadOnly } from './read-mode.js';
 import { scanRecoverySnapshots, readSnapshot, snapshotToText, dismissSnapshot } from './recovery.js';
 import scriptData from '../sample-blocks.json';
 
@@ -596,7 +597,19 @@ function RecoveryBanner() {
   );
 }
 
-function App() {
+// READ-ONLY SHARE BADGE (read-only-share) — the calm replacement for the save pill. A reader is never
+// saving anything, so the always-visible status indicator says plainly what this view is: a shared,
+// read-only copy of Johnny's live script. FLAT, JetBrains-mono, on-brand — no alarm, no action.
+function ReadOnlyBadge() {
+  return (
+    <div class="wp-save-pill is-readonly" role="status" aria-live="polite">
+      <span class="wp-save-pill-mark" />
+      <span class="wp-save-pill-lab">READ-ONLY · SHARED VIEW</span>
+    </div>
+  );
+}
+
+function App({ readOnly = false, readOnlyDoc = null }) {
   const [tel, setTel] = useState(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const editorRef = useRef(null);
@@ -643,8 +656,10 @@ function App() {
   const scaffold = tel?.scaffold || 0;
 
   return (
-    <div class="wp-page">
+    <div class="wp-page" data-readonly={readOnly ? '' : undefined}>
       <OutlinePanel items={tel?.outline} open={outlineOpen} onClose={() => setOutlineOpen(false)} />
+      {/* Reading controls (font/size/scheme) stay in read-only — they help a dyslexic reader and
+          touch nothing but CSS variables. Edit-only chrome below is what we strip. */}
       <ControlUnit outlineOpen={outlineOpen} />
 
       <div class={`wp-device${outlineOpen ? ' outline-open' : ''}`}>
@@ -658,8 +673,9 @@ function App() {
         <div class="wp-masthead">
           <h1 class="wp-masthead-title">{DOC_TITLE}</h1>
           <div class="wp-masthead-meta">
-            <span class="wp-masthead-tag">SCRIPT · DRAFT</span>
-            <TipsToggle />
+            <span class="wp-masthead-tag">{readOnly ? 'SCRIPT · SHARED' : 'SCRIPT · DRAFT'}</span>
+            {/* Tips are editing affordances ("drag a block", "click a {tk} chip") — hide for a reader. */}
+            {!readOnly && <TipsToggle />}
           </div>
         </div>
 
@@ -695,30 +711,36 @@ function App() {
             )}
             <BurmaEditor
               sourceBlocks={SOURCE_BLOCKS}
+              readOnlyDoc={readOnlyDoc}
               onTelemetry={setTel}
               onEditorReady={(ed) => { editorRef.current = ed; }}
             />
           </div>
 
-          {/* footer affordance */}
+          {/* footer affordance — INSERT / EXPORT / RESET are edit-only and are dropped in read-only.
+              PRINT stays: the print/PDF path must still work from a shared read-only view. */}
           <div class="wp-rack-foot">
-            <button class="wp-insert" onClick={insertFromFooter} title="Insert a block">
-              <span class="wp-insert-box">+</span>
-              <span class="wp-insert-lab">INSERT BLOCK — CHAPTER · VO · SOT · B-ROLL · NOTE</span>
-            </button>
+            {!readOnly && (
+              <button class="wp-insert" onClick={insertFromFooter} title="Insert a block">
+                <span class="wp-insert-box">+</span>
+                <span class="wp-insert-lab">INSERT BLOCK — CHAPTER · VO · SOT · B-ROLL · NOTE</span>
+              </button>
+            )}
             <div class="wp-rack-foot-right">
-              <button class="wp-foot-btn" onClick={openExports} title="Export worklists">EXPORT</button>
+              {!readOnly && <button class="wp-foot-btn" onClick={openExports} title="Export worklists">EXPORT</button>}
               <button class="wp-foot-btn" onClick={() => window.print()} title="Print / PDF">PRINT</button>
-              <button class="wp-foot-btn" onClick={resetDoc} title="Reset to source script">RESET</button>
+              {!readOnly && <button class="wp-foot-btn" onClick={resetDoc} title="Reset to source script">RESET</button>}
             </div>
           </div>
         </main>
       </div>
 
-      <Exports getDoc={() => editorRef.current?.getJSON() || { type: 'doc', content: [] }} docTitle={DOC_TITLE} />
+      {/* Exports dock (worklist generator) is edit-side tooling — omit for a reader. PRINT covers
+          the shared-view print/PDF need. RecoveryBanner is edit-only (unsynced-backup recovery). */}
+      {!readOnly && <Exports getDoc={() => editorRef.current?.getJSON() || { type: 'doc', content: [] }} docTitle={DOC_TITLE} />}
       <CopyToast />
-      <SaveStatus />
-      <RecoveryBanner />
+      {readOnly ? <ReadOnlyBadge /> : <SaveStatus />}
+      {!readOnly && <RecoveryBanner />}
     </div>
   );
 }
@@ -728,7 +750,11 @@ function App() {
 // + live-schema round-trip), and only persist the rowed doc on success — otherwise keep the
 // original untouched. Version-gated + idempotent, so a healthy doc is never re-wrapped. The
 // editor then seeds the already-migrated doc; its downstream ensureTableDoc is a clean no-op.
-try {
+//
+// READ-ONLY SHARE: migration WRITES to LS_DOC. A reader must never write, so we skip the whole
+// pass — the read-only seed comes from the cloud and is wrapped in-memory by ensureTableDoc. The
+// reader's own localStorage is left completely untouched.
+if (!isReadOnly()) try {
   const r = migrateStoredDoc();
   if (!r.ok) {
     console.warn('[burma] safe migration held back original doc:', r.reason, r.error || '');
@@ -791,6 +817,37 @@ function mountCloudLoadingPlaceholder(el) {
 // ── STARTUP ORCHESTRATION — deterministic, no flash of source on a fresh device ───────────────────
 async function startup() {
   const el = document.getElementById('app');
+
+  // ── READ-ONLY SHARE PATH (read-only-share) ──────────────────────────────────────────────────────
+  // `?read` / `?view` opens Johnny's script as a frozen, read-only shared view. We ALWAYS pull his
+  // LATEST from the cloud (a recipient should never see a stale local copy) and render a non-editable
+  // App with ZERO writes — no migration, no reconcile, no bootstrap-seed, no localStorage LS_DOC write,
+  // no cloud PUT. If the cloud is unreachable, fall back to any local doc, else the bundled source, so
+  // the link still renders something readable. saveDoc/pushDoc also refuse independently (defense in
+  // depth), but this path simply never calls them.
+  if (isReadOnly()) {
+    mountCloudLoadingPlaceholder(el);
+    let cloudDoc = null;
+    try {
+      const r = await fetchCloudDocReadOnly({});
+      if (r?.ok && r.doc) cloudDoc = r.doc;
+    } catch (e) {
+      console.warn('[burma] read-only cloud fetch skipped:', e);
+    }
+    if (!cloudDoc) {
+      // Cloud unreachable/empty — fall back to a local doc if one happens to exist on this device,
+      // else BurmaEditor seeds from the bundled SOURCE_BLOCKS. Either way: still read-only, still no writes.
+      try {
+        const raw = localStorage.getItem(LS_DOC);
+        if (raw) { const p = JSON.parse(raw); if (p?.content?.length) cloudDoc = p; }
+      } catch {}
+      console.info('[burma] read-only: cloud unavailable — rendering from ' + (cloudDoc ? 'local cache' : 'source'));
+    } else {
+      console.info('[burma] read-only: rendering Johnny\'s latest cloud doc (frozen, no writes)');
+    }
+    render(<App readOnly readOnlyDoc={cloudDoc} />, el);
+    return;
+  }
 
   if (hasUsableLocalDoc()) {
     // OFFLINE-FIRST (unchanged behaviour). Render immediately from the local doc — instant, never

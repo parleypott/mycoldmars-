@@ -32,6 +32,7 @@ import { BURMA_NODES } from './extensions/blocks.js';
 import { BURMA_TABLE_NODES } from './extensions/table.js';
 import { BURMA_MARKS } from './extensions/marks.js';
 import { ensureTableDoc, docToBlocks, demoteServiceNodes } from './document-builder.js';
+import { isReadOnly } from './read-mode.js';
 
 const LS_DOC = 'wp01_burma_doc_v1';
 // Marker recording the safe migration ran to completion. Keyed to the spine version so a
@@ -391,6 +392,15 @@ function notifySaveFailed(detail) {
 }
 
 export function saveDoc(json) {
+  // READ-ONLY SHARE GUARD (read-only-share) — the structural safety core. When the doc is opened
+  // through a `?read`/`?view` share link, this device is a READER of Johnny's canonical doc and must
+  // be incapable of writing to it. saveDoc is the ONLY place LS_DOC is ever written, so refusing here
+  // makes a recipient's browser structurally unable to clobber the doc in localStorage — no autosave,
+  // no flush, no migration write can get past this line. Returns a clean no-op (never fires wp-saved,
+  // never throws). This MUST sit above every other branch so nothing downstream can write.
+  if (isReadOnly()) {
+    return { ok: false, reason: 'read-only' };
+  }
   // ADOPT-CLOUD RELOAD GUARD — but NOT for the reconcile's OWN adopt write. The flag is set by
   // main.jsx ONLY after reconcile has already written the cloud doc and is about to reload; any
   // saveDoc call after that point is a STALE editor flush (the pagehide flush during reload), which

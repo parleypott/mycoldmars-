@@ -19,6 +19,8 @@
 // Rule 3 is the load-bearing one: any ambiguity (no cloud answer, malformed answer, older answer)
 // resolves to KEEP LOCAL. Cloud only wins when it answers cleanly AND is strictly newer.
 
+import { isReadOnly } from './read-mode.js';
+
 const API = '/api/burma-script-doc';
 const LS_DOC = 'wp01_burma_doc_v1';
 const CONFLICT_PREFIX = LS_DOC + '.conflict.';
@@ -130,6 +132,13 @@ export async function fetchCloud(fetchImpl = globalThis.fetch) {
 //                                            "saved" event here (that would be a false green).
 //   { ok:false, offline:true }            — API unreachable / NO_DB / table missing (fires wp-cloud-offline)
 export async function pushDoc(doc, version, fetchImpl = globalThis.fetch) {
+  // READ-ONLY SHARE GUARD (read-only-share) — a recipient on a `?read`/`?view` link must never PUT
+  // to the cloud. This is the cloud half of the safety core (saveDoc is the local half): refuse the
+  // write structurally so a reader's browser is incapable of advancing or clobbering Johnny's
+  // canonical cloud doc. No-op success, no event, no network call.
+  if (isReadOnly()) {
+    return { ok: false, skipped: true, readOnly: true };
+  }
   if (doc == null || !(toInt(version) > 0)) {
     // Nothing meaningful to push yet (e.g. version 0). Treat as a no-op success, no event.
     return { ok: false, skipped: true };
@@ -406,6 +415,23 @@ export async function bootstrapFromCloud(deps = {}) {
 
   // noop — no cloud doc to seed. Render from source.
   return { seeded: false };
+}
+
+// READ-ONLY SHARE LOADER (read-only-share) — fetch Johnny's latest CLOUD doc for a `?read`/`?view`
+// recipient WITHOUT writing anything anywhere. This is deliberately separate from bootstrapFromCloud:
+// bootstrap's job is to SEED localStorage (it calls saveDoc/primeVersionFloor), which a reader must
+// never do. Here we only READ: return the cloud doc so the editor can seed its in-memory copy from it,
+// and the caller renders a non-editable view. If the cloud is unreachable / empty, the caller falls
+// back to whatever local doc exists, else the bundled source — exactly the graceful degradation the
+// spec asks for. NEVER throws; NEVER touches localStorage or the cloud beyond the single GET.
+export async function fetchCloudDocReadOnly(deps = {}) {
+  const { fetchCloud: fetchC = fetchCloud } = deps;
+  const cloud = await fetchC();
+  logDecision('read-only', cloud && cloud.ok ? 'cloud-doc' : 'noop', 0, cloud);
+  if (cloud && cloud.ok && cloud.doc != null) {
+    return { ok: true, doc: cloud.doc, version: toInt(cloud.version) };
+  }
+  return { ok: false };
 }
 
 // Compact decision diagnostics so behaviour is confirmable in the browser console without a debugger.

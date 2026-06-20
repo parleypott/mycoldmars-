@@ -226,7 +226,20 @@ body {
    pulsing mark so it reads as "do something" — the work is backed up, but you must reload to merge. */
 .wp-save-pill.is-cloud-conflict { background: #e8853a; color: #1f1d18; border-color: var(--ink); }
 .wp-save-pill.is-cloud-conflict .wp-save-pill-mark { background: var(--ink); animation: wp-save-pulse 1.6s var(--ease) infinite; }
+/* READ-ONLY · SHARED VIEW — the calm badge that replaces the save pill in a `?read`/`?view` share.
+   Nothing is saving, so it reads as a quiet label, not a status: neutral graphite mark on the resting
+   frame, same flat pill shell as the others so it sits right in the chrome family. */
+.wp-save-pill.is-readonly { background: var(--frame); border-color: var(--ink); }
+.wp-save-pill.is-readonly .wp-save-pill-mark { background: var(--label-3); }
 @keyframes wp-save-pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* READ-ONLY SHARE — structurally hide edit-only chrome that lives inside the editor surface (the per-
+   block drag grips). The grip's click handler is also gated in code; this makes the rail read clean and
+   removes the affordance entirely so a reader never sees a control that does nothing. The reading
+   controls, outline, copy-on-click timecodes and PRINT all stay. */
+.wp-page[data-readonly] .wp-grip { display: none; }
+/* The editor surface is non-editable; render the default text cursor over prose so it reads, not edits. */
+.wp-page[data-readonly] .wp-editor-content { caret-color: transparent; }
 .wp-save-banner {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   display: flex; align-items: baseline; gap: 12px;
