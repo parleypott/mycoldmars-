@@ -9,7 +9,7 @@
 // If ACCESS_CODE is unset, the gate runs in dev mode (open). Set it in
 // production — see /SECURITY.md for the full posture.
 
-function readHeader(req, name) {
+export function readHeader(req, name) {
   const h = req?.headers;
   if (!h) return '';
   // Web Request / Headers
@@ -27,7 +27,7 @@ function readHeader(req, name) {
 // every other paid endpoint to the open internet. Now: shape check
 // followed by a real /auth/v1/user round-trip, results cached in
 // memory for 60s to amortize the latency.
-const BEARER_JWT_SHAPE = /^Bearer\s+(eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\s*$/i;
+export const BEARER_JWT_SHAPE = /^Bearer\s+(eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\s*$/i;
 
 // Module-level cache. Edge runtime keeps the module alive across
 // requests in the same instance, so this is per-instance. Key: JWT
