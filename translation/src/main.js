@@ -7,6 +7,7 @@ import { parseSoundbites, extractSacredName, detectAllSequences, formatDuration,
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
 import { parseSummaryBullets } from './summary-bullets.js';
+import { parseEnrichedSummaryBullets } from './enriched-summary-bullets.js';
 import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, releaseLockBeacon, subscribeToTranscript, subscribePresence, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload, listStuckMediaUploads, listShares, addShare, removeShare, updateShareRole, searchUserProfiles } from './db.js';
 import { saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan, saveDraftSnapshot, loadDraftSnapshot, clearDraftSnapshot } from './snapshot.js';
 import { mountEditor } from './editor/mount.js';
@@ -5688,6 +5689,8 @@ function attachEnrichedTextToBullets() {
 function parseSummaryBulletsFromEnriched(enrichedText) {
   // For pre-existing transcripts with no raw summary — parse bullet structure from
   // enriched text and reverse-map timecodes to segment numbers using the segments array.
+  // Pure parsing/linking lives in enriched-summary-bullets.js; here we just build the
+  // reverse map from the live segments and delegate.
   if (!enrichedText) return [];
 
   // Build reverse map: timecode short form → segment number
@@ -5699,56 +5702,7 @@ function parseSummaryBulletsFromEnriched(enrichedText) {
     }
   }
 
-  const lines = enrichedText.split('\n');
-  const bullets = [];
-  let id = 0;
-  let sectionSegStart = null;
-  let sectionSegEnd = null;
-
-  let sectionTitle = null;
-
-  for (const line of lines) {
-    // Check for section header with timecodes like (0:38 – 6:00)
-    const isHeader = line.startsWith('**') || line.startsWith('## ') || line.startsWith('# ');
-    if (isHeader) {
-      sectionTitle = line.replace(/^#+\s*/, '').replace(/^\*\*(.+?)\*\*$/, '$1').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
-      const tcMatch = line.match(/\((\d+:\d+(?::\d+)?)\s*[–—-]\s*(\d+:\d+(?::\d+)?)\)/);
-      if (tcMatch) {
-        sectionSegStart = tcToSeg[tcMatch[1]] || null;
-        sectionSegEnd = tcToSeg[tcMatch[2]] || null;
-      } else {
-        const singleTcMatch = line.match(/\((\d+:\d+(?::\d+)?)\)/);
-        if (singleTcMatch) {
-          sectionSegStart = tcToSeg[singleTcMatch[1]] || null;
-          sectionSegEnd = sectionSegStart;
-        }
-      }
-      continue;
-    }
-
-    const bulletMatch = line.match(/^(?:[-•]|\d+\.)\s+(.+)/);
-    if (!bulletMatch) continue;
-
-    const text = bulletMatch[1];
-    // Check for per-bullet timecodes or [X-Y] segment refs
-    let segStart = sectionSegStart;
-    let segEnd = sectionSegEnd;
-    const bulletTcMatch = text.match(/\((\d+:\d+(?::\d+)?)\s*[–—-]\s*(\d+:\d+(?::\d+)?)\)/);
-    if (bulletTcMatch) {
-      segStart = tcToSeg[bulletTcMatch[1]] || segStart;
-      segEnd = tcToSeg[bulletTcMatch[2]] || segEnd;
-    } else {
-      // Also try [X-Y] segment number format
-      const bracketMatch = text.match(/\[(\d+)(?:\s*[-–]\s*(\d+))?\]/);
-      if (bracketMatch) {
-        segStart = parseInt(bracketMatch[1]);
-        segEnd = bracketMatch[2] ? parseInt(bracketMatch[2]) : segStart;
-      }
-    }
-
-    bullets.push({ id: id++, rawText: text, enrichedText: text, sectionTitle, sectionTitleEnriched: sectionTitle, segmentStart: segStart, segmentEnd: segEnd });
-  }
-  return bullets;
+  return parseEnrichedSummaryBullets(enrichedText, tcToSeg);
 }
 
 function fmtShortTimecode(tc) {
