@@ -1509,6 +1509,28 @@ function tsNum(c) {
   return Number.isFinite(n) ? n : 0;
 }
 
+// NaN-safe Slack timestamp -> Date. A missing / non-numeric slack_ts must NEVER
+// produce an Invalid Date: that renders "Invalid Date" in the browse month header
+// and "NaN years ago" on the stylized comment embed Johnny copies into videos.
+// Bad/absent -> null so callers fall back to a neutral label. Live data is clean,
+// so this is byte-identical there.
+function tsToDate(c) {
+  const n = parseFloat(c && c.slack_ts);
+  return Number.isFinite(n) ? new Date(n * 1000) : null;
+}
+
+// Relative "N units ago" label from a Date (or null). Null / Invalid Date ->
+// "recently" so a bad timestamp never renders "NaN years ago" on the embed.
+// For a valid Date this is byte-identical to the old inline expression.
+function relTimeAgo(d) {
+  if (!d || isNaN(d.getTime())) return "recently";
+  const daysAgo = Math.max(1, Math.round((Date.now() - d.getTime()) / 86400000));
+  return daysAgo < 7 ? `${daysAgo} day${daysAgo === 1 ? "" : "s"} ago`
+    : daysAgo < 30 ? `${Math.round(daysAgo/7)} week${Math.round(daysAgo/7) === 1 ? "" : "s"} ago`
+    : daysAgo < 365 ? `${Math.round(daysAgo/30)} month${Math.round(daysAgo/30) === 1 ? "" : "s"} ago`
+    : `${Math.round(daysAgo/365)} year${Math.round(daysAgo/365) === 1 ? "" : "s"} ago`;
+}
+
 async function load() {
   const res = await fetch(asset("comments.json"));
   if (!res.ok) {
@@ -1749,8 +1771,8 @@ function renderBrowse() {
   const ordered = [...chrono].reverse();
   let lastMonth = "";
   ordered.forEach((c, i) => {
-    const d = new Date(parseFloat(c.slack_ts) * 1000);
-    const monthKey = d.toLocaleDateString("en-US", { year: "numeric", month: "long" });
+    const d = tsToDate(c);
+    const monthKey = d ? d.toLocaleDateString("en-US", { year: "numeric", month: "long" }) : "Undated";
     if (monthKey !== lastMonth) {
       lastMonth = monthKey;
       const h = document.createElement("div");
@@ -1758,7 +1780,7 @@ function renderBrowse() {
       h.innerHTML = `${monthKey} <span class="marker">/ entries</span>`;
       stream.appendChild(h);
     }
-    const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const dateStr = d ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
     const a = c.analysis;
     const num = String(ordered.length - i).padStart(3, "0");
     const sent = (a.sentiment || "").replace("_", " ");
@@ -1992,12 +2014,7 @@ $("#stylizeClose").onclick = () => {
 function buildEditFor(c) {
   if (stylizeState.edits.has(c.id)) return stylizeState.edits.get(c.id);
   const a = c.analysis;
-  const d = new Date(parseFloat(c.slack_ts) * 1000);
-  const daysAgo = Math.max(1, Math.round((Date.now() - d.getTime()) / 86400000));
-  const timeStr = daysAgo < 7 ? `${daysAgo} day${daysAgo === 1 ? "" : "s"} ago`
-    : daysAgo < 30 ? `${Math.round(daysAgo/7)} week${Math.round(daysAgo/7) === 1 ? "" : "s"} ago`
-    : daysAgo < 365 ? `${Math.round(daysAgo/30)} month${Math.round(daysAgo/30) === 1 ? "" : "s"} ago`
-    : `${Math.round(daysAgo/365)} year${Math.round(daysAgo/365) === 1 ? "" : "s"} ago`;
+  const timeStr = relTimeAgo(tsToDate(c));
   const handle = a.commenter ? (a.commenter.startsWith("@") ? a.commenter : "@" + a.commenter) : "@viewer";
   const edit = {
     textHtml: escapeHtml(a.comment_text || ""),
