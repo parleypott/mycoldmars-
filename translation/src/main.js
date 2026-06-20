@@ -18,6 +18,7 @@ import { buildPremiereXML, buildPremiereSequenceXML, buildSacredSequencerXML } f
 import { buildPremiereScript } from './export/premiere-script.js';
 import { exportHighlightsPDF } from './export/pdf-export.js';
 import { exportSummaryText, safeFilename } from './export/summary-export.js';
+import { byUpdatedDesc } from './library-time.js';
 import { extractHighlightsFromEditor } from './editor/document-builder.js';
 import { buildAutoSummaryPrompt } from './copilot/copilot-prompts.js';
 import { initSotHunter, setSotHunterVisible } from './sot-hunter.js';
@@ -336,7 +337,7 @@ function renderLibrary(transcripts, projectsList, deletedTranscripts) {
     for (const t of sortTranscripts(items)) rows.push(renderFileRow(t));
   } else if (libraryActiveView === 'recent') {
     const items = [...(transcripts || [])]
-      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .sort(byUpdatedDesc)
       .slice(0, 25);
     for (const t of items) rows.push(renderFileRow(t));
   } else if (libraryActiveView === 'trash') {
