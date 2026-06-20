@@ -20,6 +20,7 @@
 // resolves to KEEP LOCAL. Cloud only wins when it answers cleanly AND is strictly newer.
 
 import { isReadOnly } from './read-mode.js';
+import { pruneConflictSnapshots } from './migrate-doc.js';
 
 const API = '/api/burma-script-doc';
 const LS_DOC = 'wp01_burma_doc_v1';
@@ -186,6 +187,7 @@ export function snapshotLocalConflict() {
     if (!raw) return null;
     const key = conflictKey();
     localStorage.setItem(key, raw);
+    try { pruneConflictSnapshots(); } catch {} // DL-5: keep the shared .conflict set bounded.
     return key;
   } catch {
     return null;
@@ -201,6 +203,7 @@ export function snapshotDocConflict(doc) {
     const raw = JSON.stringify(doc);
     const key = conflictKey();
     localStorage.setItem(key, raw);
+    try { pruneConflictSnapshots(); } catch {} // DL-5: keep the shared .conflict set bounded.
     return key;
   } catch {
     return null;

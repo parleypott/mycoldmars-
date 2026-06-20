@@ -70,6 +70,14 @@ const BAK_KEEP = 3;
 //     base on the storage event: advancing it would re-enable the very stomp we're closing.
 const LS_DOC_VER = 'wp01_burma_doc_ver_v1';
 const CONFLICT_PREFIX = LS_DOC + '.conflict.';
+const CORRUPT_PREFIX = LS_DOC + '.corrupt.';
+// DL-5 — bound the recovery snapshots so they can't grow unbounded and exhaust quota (which would
+// flip every future save to the quota-failed banner). Only .bak was bounded before; a repeated
+// cross-tab/cloud-conflict loop accumulated full-doc .conflict/.corrupt copies forever. Keep the
+// newest few of each (the freshest is the only one a recover-a-backup flow realistically needs),
+// and let saveDoc's quota loop evict the OLDEST of these as a last resort after .bak is exhausted.
+const CONFLICT_KEEP = 4;
+const CORRUPT_KEEP = 2;
 // A per-tab id so a version stamp records WHICH tab wrote it (telemetry / conflict snapshots).
 const TAB_ID = 'tab_' + Math.random().toString(36).slice(2, 10);
 
@@ -179,7 +187,11 @@ export function primeVersionFloor(floor) {
 function snapshotConflict(raw) {
   if (!raw) return null;
   const key = snapshotKey(CONFLICT_PREFIX);
-  try { localStorage.setItem(key, raw); return key; } catch { return null; }
+  try {
+    localStorage.setItem(key, raw);
+    pruneByPrefix(CONFLICT_PREFIX, CONFLICT_KEEP); // DL-5: keep the recovery set bounded.
+    return key;
+  } catch { return null; }
 }
 
 // EXACTLY the editor's extension set (Editor.jsx). The schema gate is only meaningful if it
@@ -343,26 +355,50 @@ function pruneBackups() {
   } catch {}
 }
 
-// Enumerate backup keys (oldest first). Keys are PREFIX + epoch-ms + '-' + seq; the fixed-width ms
-// prefix makes a lexical sort chronological (ties within a ms ordered by write sequence).
-function listBackupKeys() {
+// Enumerate keys with a given recovery prefix (oldest first). Keys are PREFIX + epoch-ms + '-' + seq;
+// the fixed-width ms prefix makes a lexical sort chronological (ties within a ms ordered by write
+// sequence). Generic so .bak / .conflict / .corrupt all sort identically.
+function listKeysWithPrefix(prefix) {
   const keys = [];
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith(BAK_PREFIX)) keys.push(k);
+      if (k && k.startsWith(prefix)) keys.push(k);
     }
   } catch {}
   keys.sort();
   return keys;
 }
+function listBackupKeys() { return listKeysWithPrefix(BAK_PREFIX); }
 
-// Drop the single oldest backup. Returns true if one was removed (i.e. there's room to retry a
-// failed write), false if no backups remain to evict. Used by saveDoc's quota-recovery loop.
+// DL-5 — keep only the newest `keep` snapshots under a prefix. Used to bound .conflict/.corrupt the
+// same way .bak is bounded, so the recovery machinery can't itself fill storage and stop saves.
+function pruneByPrefix(prefix, keep) {
+  try {
+    const keys = listKeysWithPrefix(prefix);
+    while (keys.length > keep) {
+      const drop = keys.shift();
+      try { localStorage.removeItem(drop); } catch {}
+    }
+  } catch {}
+}
+
+// Drop the single oldest evictable recovery copy to free space for a failed write. Preference order:
+// oldest .bak first (cheapest to lose — it's a routine session snapshot), then, only as a LAST
+// resort, the oldest .conflict / .corrupt copies (the divergence/corruption recovery copies), always
+// keeping at least the single newest of each so a recover-a-backup flow still has something. Returns
+// true if a copy was removed (room to retry), false if nothing evictable remains. DL-5.
 function evictOldestBackup() {
-  const keys = listBackupKeys();
-  if (!keys.length) return false;
-  try { localStorage.removeItem(keys[0]); return true; } catch { return false; }
+  // 1) oldest .bak
+  const baks = listBackupKeys();
+  if (baks.length) { try { localStorage.removeItem(baks[0]); return true; } catch {} }
+  // 2) oldest .conflict beyond the newest one
+  const conflicts = listKeysWithPrefix(CONFLICT_PREFIX);
+  if (conflicts.length > 1) { try { localStorage.removeItem(conflicts[0]); return true; } catch {} }
+  // 3) oldest .corrupt beyond the newest one
+  const corrupts = listKeysWithPrefix(CORRUPT_PREFIX);
+  if (corrupts.length > 1) { try { localStorage.removeItem(corrupts[0]); return true; } catch {} }
+  return false;
 }
 
 // ── DURABLE CANONICAL WRITE (Johnny's invariant doctrine) ──────────────────────────────────
@@ -621,4 +657,8 @@ export function migrateStoredDoc() {
   }
 }
 
-export { LS_DOC, LS_MIGRATED, LS_DOC_VER };
+// DL-5 — exported so cloud-sync.js (which also writes .conflict snapshots) can keep its recovery
+// copies bounded with the SAME policy, instead of growing them unbounded in parallel.
+export function pruneConflictSnapshots() { pruneByPrefix(CONFLICT_PREFIX, CONFLICT_KEEP); }
+
+export { LS_DOC, LS_MIGRATED, LS_DOC_VER, CONFLICT_PREFIX, CORRUPT_PREFIX, CONFLICT_KEEP, CORRUPT_KEEP };
