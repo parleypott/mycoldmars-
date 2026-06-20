@@ -12,6 +12,7 @@
 
 import { Mark, markInputRule, markPasteRule, getMarkRange } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
+import { contiguousMarkRun } from './mark-run.js';
 
 // Find the marked span the user clicked, resolve its text + range, and emit the
 // workshop event. Returns true if a span was hit (so PM stops default handling).
@@ -24,17 +25,26 @@ function openWorkshop(view, event, markName, kind) {
   const $pos = view.state.doc.resolve(pos);
   const mark = view.state.schema.marks[markName];
 
-  // Expand to the full contiguous run of this mark around the click.
-  let from = pos, to = pos;
+  // Expand to the full contiguous run of this mark around the click. A {tk …}/{fc …} span
+  // that contains an embedded timecode is split into multiple text-node fragments (the
+  // timecode fragment carries an extra chip mark) — but every fragment still carries the span
+  // mark. Gather all fragments, then expand across the whole run so a click on ANY fragment
+  // (e.g. after the timecode) captures the ENTIRE ask, not just the clicked piece. (The old
+  // single-fragment loop kept only the clicked piece → truncated text + a too-narrow write-back
+  // range that shattered the span. Same fragmentation class as the nodeText export bug.)
   const parent = $pos.parent;
   const start = $pos.start();
+  const fragments = [];
   parent.forEach((child, offset) => {
-    if (child.isText && child.marks.some((m) => m.type === mark)) {
-      const cFrom = start + offset;
-      const cTo = cFrom + child.nodeSize;
-      if (cFrom <= pos && pos <= cTo) { from = cFrom; to = cTo; }
-    }
+    const cFrom = start + offset;
+    fragments.push({
+      from: cFrom,
+      to: cFrom + child.nodeSize,
+      hasMark: child.isText && child.marks.some((m) => m.type === mark),
+    });
   });
+  const run = contiguousMarkRun(fragments, pos);
+  const from = run.from, to = run.to;
 
   const text = view.state.doc.textBetween(from, to, '');
 
