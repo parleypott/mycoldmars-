@@ -27,6 +27,7 @@
 // }
 
 import { checkAccess } from './_lib/access.js';
+import { normalizeAnthropicMessages } from './_lib/anthropic-messages.js';
 import { findCanonCharactersInText, canonContextBlock, QSS_CANON } from './_lib/qss-canon.js';
 
 export const config = { runtime: 'edge' };
@@ -174,6 +175,14 @@ export default async function handler(req) {
   }
   messages.push({ role: 'user', content: message });
 
+  // Guarantee the Anthropic contract: first turn is `user`, no consecutive
+  // same-role turns. A seeded wordy greeting in `history` (with an empty
+  // preamble) would otherwise lead with an `assistant` turn → 400; the
+  // injected "Got it" preamble turn followed by a leading wordy turn would
+  // otherwise emit two assistant turns in a row. Behavior-preserving for an
+  // already-valid alternating history.
+  const safeMessages = normalizeAnthropicMessages(messages);
+
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -187,7 +196,7 @@ export default async function handler(req) {
         max_tokens: 600,
         temperature: 0.85,
         system: FREESTYLE_SYSTEM,
-        messages,
+        messages: safeMessages,
       }),
     });
 
