@@ -399,9 +399,15 @@ function SaveStatus() {
   const [, setNowTick] = useState(0);           // forces the relative-time label to re-render
 
   useEffect(() => {
-    // 'failed' is sticky by design — a real save failure must NEVER silently flip back to green.
+    // A failure stays sticky until a SUBSEQUENT save actually lands — never on a mere keystroke. A
+    // `wp-dirty` does NOT clear it (more unsaved edits are still at risk), so dirty bails while failed.
     const onDirty = () => setState((s) => (s === 'failed' ? s : 'saving'));
-    const onSaved = () => { setState((s) => (s === 'failed' ? s : 'saved')); setSavedAt(Date.now()); };
+    // SELF-HEALING (phase-4): `wp-saved` only fires after saveDoc's read-back invariant passed — i.e.
+    // a write LANDED and verified. That is proof storage recovered (quota freed, private-mode gone),
+    // so it is the one signal allowed to clear a standing 'failed': flip back to the normal saved pill
+    // and drop the red banner WITHOUT a manual reload. (Quota-failed + stale-recovery self-heal; the
+    // genuine cross-tab/cloud CONFLICT stays sticky-until-reload — it's tracked separately in `cloud`.)
+    const onSaved = () => { setState('saved'); setFailMsg(''); setSavedAt(Date.now()); };
     const onFailed = (e) => {
       setState('failed');
       setFailMsg(e.detail?.message || 'your edits are NOT being saved.');
@@ -594,14 +600,37 @@ function RecoveryBanner() {
   });
   const [expanded, setExpanded] = useState(false);
 
+  // SELF-HEALING (phase-4): the snapshot set was scanned ONCE at mount, so after the snapshots that
+  // filled the quota were recovered/pruned/dismissed the banner lingered until a full reload (Johnny
+  // had to clear it by hand). Re-run the async scan whenever the recovery picture could have changed:
+  //   • `wp-saved`            — a verified save landed; quota-recovery may have pruned snapshots, so
+  //                             the stale "unsynced backup" notice should disappear without a reload.
+  //   • `wp-recovery-changed` — an explicit recover/clear/dismiss elsewhere; re-scan to reflect it.
+  // The scan reads BOTH stores, so a banner that has nothing left to show returns [] and unmounts.
+  // Crucially this does NOT touch the cross-tab/cloud CONFLICT banner (that one is reload-to-merge).
   useEffect(() => {
     let alive = true;
-    (async () => {
+    let pending = false;
+    const rescan = async () => {
+      if (pending) return; // coalesce bursts (a save can fire wp-saved rapidly)
+      pending = true;
       let merged = [];
       try { merged = await scanRecoverySnapshotsAsync(); } catch { merged = []; }
+      pending = false;
       if (alive) setSnaps(merged);
-    })();
-    return () => { alive = false; };
+    };
+    rescan(); // initial full pass (replaces the sync placeholder with the merged IDB+LS set)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('wp-saved', rescan);
+      window.addEventListener('wp-recovery-changed', rescan);
+    }
+    return () => {
+      alive = false;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('wp-saved', rescan);
+        window.removeEventListener('wp-recovery-changed', rescan);
+      }
+    };
   }, []);
 
   if (!snaps || snaps.length === 0) return null;
@@ -617,7 +646,12 @@ function RecoveryBanner() {
   function dismissOne(snap) {
     // Dismiss across BOTH stores (records the localStorage dismissal AND deletes the IDB copy).
     try { dismissSnapshotAsync(snap.key); } catch { dismissSnapshot(snap.key); }
+    // Optimistic local removal for instant feedback (the last dismiss unmounts the banner — no reload).
     setSnaps((list) => list.filter((s) => s.key !== snap.key));
+    // Broadcast so any other recovery surface re-syncs from the stores after the dismissal lands.
+    try {
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('wp-recovery-changed'));
+    } catch {}
   }
 
   const n = snaps.length;
