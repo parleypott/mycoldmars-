@@ -20,7 +20,7 @@ import { BURMA_MARKS } from './extensions/marks.js';
 import { buildEditorDocument, ensureTableDoc, docToBlocks, nodeText } from './document-builder.js';
 import { BurmaBubbleMenu } from './BubbleMenu.jsx';
 import { Workshop } from './Workshop.jsx';
-import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, isReloadingForAdopt, LS_DOC_VER } from './migrate-doc.js';
+import { saveDoc, backupRaw, syncBaseVersion, getKnownBaseVersion, isReloadingForAdopt, isReloadingForReset, LS_DOC_VER } from './migrate-doc.js';
 import { pushDoc, handlePushResult } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
 
@@ -84,8 +84,12 @@ function seedDoc(sourceBlocks, readOnlyDoc) {
         syncBaseVersion();
         return ensureTableDoc(parsed);
       }
-      // Parsed but empty/wrong shape — treat as unreadable so we don't autosave over it.
-      seededOverUnreadableDoc = true;
+      // DL-04 — Parsed cleanly but EMPTY / wrong shape (no content). This is NOT corrupt bytes
+      // worth preserving — it's an empty doc. Latching here would make the ENTIRE session
+      // read-only-to-disk (flushSave early-returns forever), so every edit Johnny makes would
+      // vanish on reload with no banner. An empty doc is SAFE to overwrite — do NOT latch; fall
+      // through and build a fresh doc from source, which the editor will then save normally.
+      console.warn('[burma] saved doc parsed but is empty/shapeless — starting from source (safe to overwrite)');
     } catch (e) {
       // Saved bytes exist but won't parse. KEEP THEM: snapshot to a recovery key, flag the
       // editor so autosave/flush refuse to overwrite LS_DOC, and warn loudly + visibly.
@@ -162,13 +166,27 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
   function flushSave(editor) {
     if (!editor) return;
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
-    if (seededOverUnreadableDoc) return; // protected: original bytes preserved, don't overwrite.
+    if (seededOverUnreadableDoc) {
+      // DL-04 — the latch is set ONLY when the saved bytes were genuinely unreadable (parse threw)
+      // and we preserved them. We refuse to overwrite, but we must NOT let the indicator sit on
+      // green/SAVED while nothing persists: re-fire wp-save-failed each attempt so the banner stays
+      // up and Johnny knows his on-screen copy is the one to trust (and to export it).
+      try {
+        window.dispatchEvent(new CustomEvent('wp-save-failed', {
+          detail: { kind: 'corrupt', message: 'your previous saved script could not be read and was preserved — new edits are NOT being saved over it. Export now to keep them.' },
+        }));
+      } catch {}
+      return; // protected: original bytes preserved, don't overwrite.
+    }
     // ADOPT-CLOUD RELOAD GUARD — reconcile adopted a strictly-newer cloud doc to disk and is about
     // to location.reload() so the editor re-seeds from it. The pagehide/beforeunload that reload
     // fires would otherwise flush THIS tab's stale local doc over the just-adopted cloud doc,
     // silently clobbering the newer device's work. Refuse the write: the on-disk doc is already
     // canonical and the reload will re-seed it. (Mirrors the seededOverUnreadableDoc refusal above.)
     if (isReloadingForAdopt()) return;
+    // DL-05 — RESET RELOAD GUARD: resetDoc removed LS_DOC and is reloading to clear back to source.
+    // The teardown flush during that reload would resurrect the just-reset doc. Refuse the write.
+    if (isReloadingForReset()) return;
     const json = editor.getJSON();
     const res = saveDoc(json); // handles its own loud failure + wp-saved on success.
     // Derived schema-faithful blocks export — keeps docToBlocks() exercised and gives downstream

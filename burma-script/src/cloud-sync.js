@@ -20,7 +20,7 @@
 // resolves to KEEP LOCAL. Cloud only wins when it answers cleanly AND is strictly newer.
 
 import { isReadOnly } from './read-mode.js';
-import { pruneConflictSnapshots } from './migrate-doc.js';
+import { pruneConflictSnapshots, resetSessionBackup } from './migrate-doc.js';
 
 const API = '/api/burma-script-doc';
 const LS_DOC = 'wp01_burma_doc_v1';
@@ -387,6 +387,10 @@ export async function reconcileOnLoad(deps = {}) {
     try { if (prime) prime(decision.version); } catch {}
     let res = { ok: false };
     try { res = save ? save(decision.doc) : { ok: false }; } catch {}
+    // DL-8 — the adopt/seed write above just burned the once-per-session backup latch on the PRIOR
+    // bytes. Reset it so the EDITOR's first real autosave of the seeded doc still takes its own
+    // pre-edit backup (otherwise the seeded doc is unbacked before Johnny's first edit overwrites it).
+    if (res?.ok) { try { resetSessionBackup(); } catch {} }
     // HARDENING: if the adopt write was refused (res.ok === false — e.g. the conflict guard rejected
     // it, leaving stale local on screen), say so LOUDLY rather than silently signalling no-reload.
     // With primeVersionFloor aligning the base above this should be unreachable, but if it ever
@@ -465,6 +469,9 @@ export async function bootstrapFromCloud(deps = {}) {
     let res = { ok: false };
     try { res = save ? save(decision.doc) : { ok: false }; } catch {}
     if (res?.ok) {
+      // DL-8 — same as adopt: reset the session-backup latch the seed write just burned so the
+      // editor's first autosave of the seeded doc takes its own pre-edit backup.
+      try { resetSessionBackup(); } catch {}
       return { seeded: true, version: decision.version };
     }
     // Cloud had a doc but the local write failed (quota / blocked). Fall back to source — the editor

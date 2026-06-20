@@ -127,6 +127,19 @@ export function setReloadingForAdopt() { reloadingForAdopt = true; }
 export function isReloadingForAdopt() { return reloadingForAdopt; }
 export function resetReloadingForAdopt() { reloadingForAdopt = false; }
 
+// ── RESET RELOAD GUARD (DL-05) ─────────────────────────────────────────────────────────────────
+// resetDoc snapshots → removeItem(LS_DOC) → location.reload() to wipe back to source. But the reload
+// fires pagehide/beforeunload, which the editor turns into flushSave → saveDoc(editor.getJSON()). At
+// that instant LS_DOC was just removed (readStoredVersion()=0) while this tab's knownBaseVersion is
+// still the pre-reset value, so the cross-tab guard (stored > base) is FALSE and saveDoc happily
+// RE-WRITES the editor's in-memory (pre-reset) doc back to LS_DOC — RESURRECTING the doc the user
+// just reset (and re-pushing it to cloud). Reset never reliably clears. Same shape as the adopt
+// guard: a one-way "we are reloading to clear the doc" flag that flushSave + saveDoc both honor.
+let reloadingForReset = false;
+export function setReloadingForReset() { reloadingForReset = true; }
+export function isReloadingForReset() { return reloadingForReset; }
+export function resetReloadingForReset() { reloadingForReset = false; }
+
 // Read the current LS_DOC_VER as a number (missing / unparseable → 0, the implicit "v0" a
 // pre-guard doc carries). The stored value is "<version>|<tabId>" so a conflict can name the
 // tab that wrote it; we parse the leading integer. Never throws.
@@ -419,12 +432,48 @@ function evictOldestBackup() {
 // fires wp-save-failed / the invariant toast so a bare call is fully guarded on its own.
 let sessionBackedUp = false;
 
+// DL-8 — the cloud adopt-cloud / bootstrap paths call saveDoc(cloudDoc) BEFORE the editor's first
+// autosave. That first programmatic save burns the once-per-session backup latch (snapshotting the
+// PRIOR bytes — on bootstrap, nothing), so when the editor later does its first real autosave of
+// Johnny's edit, sessionBackedUp is already true and NO fresh pre-edit backup of the seeded doc is
+// taken. The "snapshot before the session's first overwrite" protection silently doesn't happen for
+// the editor's content on cloud-seeded sessions. Fix: a programmatic adopt/seed write resets the
+// latch so the EDITOR's first write still takes its own pre-edit backup of the seeded doc.
+export function resetSessionBackup() { sessionBackedUp = false; }
+export function isSessionBackedUp() { return sessionBackedUp; }
+
 function notifySaveFailed(detail) {
   try {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('wp-save-failed', { detail }));
     }
   } catch {}
+}
+
+// DL-09 — guarded raw write of an already-serialized doc string to LS_DOC: quota-retry (evict oldest
+// recovery copies and retry) + READ-BACK INVARIANT (re-read, confirm byte-identical + parses). This
+// is the same durability core saveDoc uses, factored out so the MIGRATION persist can route through
+// it instead of a bare setItem (which had no read-back: a silent platform truncation would persist a
+// corrupt migrated doc as canonical and mark it migrated). Returns { ok, reason }. NEVER throws.
+function writeCanonicalRaw(out) {
+  let wrote = false, lastErr = null;
+  for (;;) {
+    try { localStorage.setItem(LS_DOC, out); wrote = true; break; }
+    catch (e) { lastErr = e; if (!evictOldestBackup()) break; }
+  }
+  if (!wrote) {
+    const quota = lastErr && (lastErr.name === 'QuotaExceededError' || lastErr.code === 22 ||
+      lastErr.code === 1014 || /quota/i.test(String(lastErr && lastErr.message)));
+    return { ok: false, reason: quota ? 'quota' : 'setitem-threw' };
+  }
+  try {
+    const readBack = localStorage.getItem(LS_DOC);
+    if (readBack !== out) return { ok: false, reason: 'invariant-mismatch' };
+    JSON.parse(readBack);
+  } catch {
+    return { ok: false, reason: 'invariant-unparseable' };
+  }
+  return { ok: true, reason: 'written' };
 }
 
 export function saveDoc(json) {
@@ -445,6 +494,11 @@ export function saveDoc(json) {
   // so in practice the editor never even reaches here; this is the defense-in-depth backstop.
   if (reloadingForAdopt) {
     return { ok: false, reason: 'reloading-for-adopt' };
+  }
+  // DL-05 — RESET RELOAD GUARD. resetDoc removed LS_DOC and is reloading to clear back to source;
+  // any saveDoc call now is the stale teardown flush that would resurrect the just-reset doc. Refuse.
+  if (reloadingForReset) {
+    return { ok: false, reason: 'reloading-for-reset' };
   }
   let out;
   try {
@@ -645,9 +699,17 @@ export function migrateStoredDoc() {
     node.check();                                   // throws on any invalid content fit
 
     // ── STEP 4: PERSIST — both gates green. Write the rowed doc back so the editor seeds it
-    //    cleanly (downstream ensureTableDoc becomes an idempotent no-op). ──────────────────
+    //    cleanly (downstream ensureTableDoc becomes an idempotent no-op). DL-09: route through the
+    //    guarded write (quota-retry + read-back invariant) instead of a bare setItem — a silent
+    //    platform truncation would otherwise persist a corrupt migrated doc as canonical and mark
+    //    it migrated, and the next load would seed the truncated doc + autosave it forward. If the
+    //    write fails, do NOT set LS_MIGRATED so the migration RE-RUNS next load from the untouched
+    //    original/backup (the pre-migration backup is in bakKey). ──────────────────────────────
     const out = JSON.stringify(migrated);
-    localStorage.setItem(LS_DOC, out);
+    const w = writeCanonicalRaw(out);
+    if (!w.ok) {
+      return { ok: false, reason: 'migrated-write-failed (' + w.reason + ') — original/backup kept, marker NOT set', bakKey };
+    }
     try { localStorage.setItem(LS_MIGRATED, '1'); } catch {}
     return { ok: true, reason: 'migrated + validated', migrated: true, bakKey };
   } catch (e) {

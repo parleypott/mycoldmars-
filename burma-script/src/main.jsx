@@ -9,7 +9,7 @@ import { render } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { BurmaEditor, LS_DOC } from './Editor.jsx';
 import { Exports } from './Exports.jsx';
-import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, setReloadingForAdopt } from './migrate-doc.js';
+import { migrateStoredDoc, snapshotDoc, saveDoc, primeVersionFloor, setReloadingForAdopt, setReloadingForReset, LS_DOC_VER, LS_MIGRATED } from './migrate-doc.js';
 import { reconcileOnLoad, bootstrapFromCloud, fetchCloudDocReadOnly } from './cloud-sync.js';
 import { isReadOnly } from './read-mode.js';
 import { scanRecoverySnapshots, readSnapshot, snapshotToText, dismissSnapshot } from './recovery.js';
@@ -630,7 +630,16 @@ function App({ readOnly = false, readOnlyDoc = null }) {
         return;
       }
     }
+    // DL-05 — arm the reset reload guard BEFORE we remove the doc + reload. The reload fires
+    // pagehide/beforeunload → flushSave → saveDoc; without this flag that teardown flush would
+    // re-write the editor's in-memory (pre-reset) doc back to LS_DOC and RESURRECT what we just
+    // reset (and re-push it to cloud). flushSave + saveDoc both early-return while this is set.
+    setReloadingForReset();
     try { localStorage.removeItem(LS_DOC); } catch {}
+    // Clear the version + migration lineage too, so a (suppressed) resurrected write can't carry the
+    // old version forward and a fresh-from-source doc re-runs migration cleanly on next load.
+    try { localStorage.removeItem(LS_DOC_VER); } catch {}
+    try { localStorage.removeItem(LS_MIGRATED); } catch {}
     location.reload();
   }
   function openExports() { window.dispatchEvent(new CustomEvent('wp-open-exports')); }
