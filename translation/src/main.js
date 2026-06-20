@@ -6,6 +6,7 @@ import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.
 import { parseSoundbites, extractSacredName, detectAllSequences, formatDuration, tcToFrameNotation } from './soundbites.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT } from './srt-builder.js';
+import { parseSummaryBullets } from './summary-bullets.js';
 import { saveTranscript, updateTranscript, listTranscripts, loadTranscript, loadTranscriptBySlug, isSlugTaken, deleteTranscript, restoreTranscript, permanentlyDeleteTranscript, listDeletedTranscripts, createProject, listProjects, deleteProject, supabaseAvailable, getStorageInfo, migrateLocalStorageToSupabase, isConfigured as isDbConfigured, getInitError as getDbInitError, insertRevision, listRevisions, loadRevision, checkLock, acquireLock, heartbeatLock, releaseLock, releaseLockBeacon, subscribeToTranscript, subscribePresence, searchTranscripts, getSchemaStatus, getMediaUpload, getMediaSignedUrl, updateMediaUpload, listStuckMediaUploads, listShares, addShare, removeShare, updateShareRole, searchUserProfiles } from './db.js';
 import { saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan, saveDraftSnapshot, loadDraftSnapshot, clearDraftSnapshot } from './snapshot.js';
 import { mountEditor } from './editor/mount.js';
@@ -5662,55 +5663,6 @@ if (btnExportMenu) {
 }
 
 // ── Auto Summary ──
-function parseSummaryBullets(rawText) {
-  if (!rawText) return [];
-  const lines = rawText.split('\n');
-  const bullets = [];
-  let id = 0;
-  // Track current section's segment range (from headers like **Title (Segments 15-18)**)
-  let sectionSegStart = null;
-  let sectionSegEnd = null;
-  let sectionTitle = null;
-  let sectionTitleEnriched = null;
-
-  for (const line of lines) {
-    // Check for section header (bold or markdown heading)
-    const isHeader = line.startsWith('**') || line.startsWith('## ') || line.startsWith('# ');
-    if (isHeader) {
-      // Clean header text: strip ** and ## prefixes
-      sectionTitle = line.replace(/^#+\s*/, '').replace(/^\*\*(.+?)\*\*$/, '$1').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
-      sectionTitleEnriched = null; // will be set during enriched text pass
-
-      const headerSegMatch = line.match(/(?:\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)|\[(\d+)(?:\s*[-–]\s*(\d+))?\])/i);
-      if (headerSegMatch) {
-        sectionSegStart = parseInt(headerSegMatch[1] || headerSegMatch[3]);
-        sectionSegEnd = parseInt(headerSegMatch[2] || headerSegMatch[4] || headerSegMatch[1] || headerSegMatch[3]);
-      }
-      continue;
-    }
-
-    // Match bullet lines starting with "- ", "N. ", or "• "
-    const bulletMatch = line.match(/^(?:[-•]|\d+\.)\s+(.+)/);
-    if (!bulletMatch) continue;
-
-    const text = bulletMatch[1];
-    // Check for per-bullet segment refs: (Segments X-Y), (Segment X), [X-Y], [X]
-    const bulletSegMatch = text.match(/(?:\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)|\[(\d+)(?:\s*[-–]\s*(\d+))?\])/i);
-    let segStart, segEnd;
-    if (bulletSegMatch) {
-      segStart = parseInt(bulletSegMatch[1] || bulletSegMatch[3]);
-      segEnd = parseInt(bulletSegMatch[2] || bulletSegMatch[4] || bulletSegMatch[1] || bulletSegMatch[3]);
-    } else {
-      // Inherit from section header
-      segStart = sectionSegStart;
-      segEnd = sectionSegEnd;
-    }
-
-    bullets.push({ id: id++, rawText: text, enrichedText: '', sectionTitle, segmentStart: segStart, segmentEnd: segEnd });
-  }
-  return bullets;
-}
-
 function attachEnrichedTextToBullets() {
   if (!currentSummary || !summaryBullets.length) return;
   const enrichedLines = currentSummary.split('\n');
