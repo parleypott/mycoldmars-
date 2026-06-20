@@ -9,6 +9,7 @@
 // (extensions/blocks.js) and dispatches real transactions — no centralized DOM shim.
 
 import { useEditor, EditorContent } from '@tiptap/react';
+import { getMarkRange } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
@@ -31,6 +32,31 @@ const LS_BLOCKS = 'wp01_burma_blocks_v1'; // derived schema-faithful export (exe
 // turn a recoverable corruption into permanent loss. seedDoc sets this true ONLY when there was
 // raw bytes we failed to use; a clean "no saved doc yet" leaves it false (fresh save is fine).
 let seededOverUnreadableDoc = false;
+
+// CH-02 — re-resolve a span mark's CURRENT contiguous range near a cached [a,b] window. The
+// Workshop's cached coordinates may be stale (the doc shifted under an open dock), so we probe a
+// handful of positions across the cached range for the mark and, on the first hit, expand to the
+// mark's full run via getMarkRange. Returns { from, to } or null if the mark no longer lives there.
+// Pure (no dispatch) so it is safe to call before deciding whether to insert.
+export function findMarkRange(state, markType, a, b) {
+  if (!markType) return null;
+  const size = state.doc.content.size;
+  const lo = Math.max(0, Math.min(a, size));
+  const hi = Math.max(lo, Math.min(b, size));
+  // Probe lo, hi, midpoint, and a few interior steps — robust to boundary/inclusive quirks.
+  const probes = new Set([lo, hi, Math.floor((lo + hi) / 2)]);
+  const span = Math.max(1, hi - lo);
+  for (let k = 1; k < 4; k++) probes.add(lo + Math.floor((span * k) / 4));
+  for (const p of probes) {
+    if (p < 0 || p > size) continue;
+    let range = null;
+    try { range = getMarkRange(state.doc.resolve(p), markType); } catch {}
+    if (range && range.from != null && range.to != null && range.to > range.from) {
+      return { from: range.from, to: range.to };
+    }
+  }
+  return null;
+}
 
 // Seed the working copy: prefer the persisted localStorage doc; else build fresh
 // from the read-only blocks. The source blocks array is NEVER mutated.
@@ -232,11 +258,48 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
   useEffect(() => {
     if (!editor) return;
     const onReplace = (e) => {
-      const { from, to, text } = e.detail || {};
+      const { from, to, text, markerText, kind } = e.detail || {};
       if (typeof from !== 'number' || typeof to !== 'number' || !text) return;
-      const size = editor.state.doc.content.size;
-      const a = Math.max(0, Math.min(from, size));
-      const b = Math.max(a, Math.min(to, size));
+      const { state } = editor;
+      const size = state.doc.content.size;
+      let a = Math.max(0, Math.min(from, size));
+      let b = Math.max(a, Math.min(to, size));
+
+      // CH-02 — STALE-RANGE GUARD. The Workshop dock captured {from,to} when the marker was
+      // clicked, but stayed open while the editor remained fully editable. If Johnny edited ABOVE
+      // the marker before picking a card, every later position shifted and the cached range no
+      // longer covers the {tk}/{fc} marker — inserting at it would drop the prose in the wrong
+      // place and silently delete good script. Before touching anything, re-resolve the marker:
+      //   1. re-find the span mark's CURRENT range fresh (authoritative), or
+      //   2. if no mark sits at the cached range, fall back to confirming the cached text still
+      //      reads as the marker we opened on.
+      // If neither holds, ABORT and toast — never corrupt text.
+      const markName = kind === 'tk' ? 'tkSpan' : kind === 'fc' ? 'factCheckSpan'
+        : kind === 'visual' ? 'visualSpan' : null;
+      const markType = markName ? state.schema.marks[markName] : null;
+      let resolved = false;
+      if (markType) {
+        // Probe a few positions inside the cached range for the span mark, then expand to its full
+        // contiguous run via getMarkRange — this re-derives the TRUE current marker bounds even if
+        // the doc shifted, as long as the mark still exists somewhere at/near the cached range.
+        const range = findMarkRange(state, markType, a, b);
+        if (range) { a = range.from; b = range.to; resolved = true; }
+      }
+      if (!resolved && typeof markerText === 'string' && markerText.length) {
+        // No live mark at the cached range. Only proceed if the cached coordinates still hold the
+        // EXACT marker text we opened on (so we're overwriting the same words, just unmarked).
+        const here = state.doc.textBetween(a, b, '');
+        if (here.trim() === markerText.trim()) resolved = true;
+      }
+      // If we have NO marker identity to check against (legacy/visual with no markerText), keep the
+      // old clamp-only behaviour so existing flows don't regress.
+      if (!resolved && (markType || (typeof markerText === 'string' && markerText.length))) {
+        window.dispatchEvent(new CustomEvent('wp-toast', {
+          detail: { tc: 'that marker moved — click it again to insert' },
+        }));
+        return;
+      }
+
       editor
         .chain()
         .focus()

@@ -170,9 +170,15 @@ export function Workshop() {
   }
 
   // Pick an option (or the fc suggested edit) → ask the Editor to replace the marker range.
+  // CH-02: pass the ORIGINAL marker text + kind so the Editor can re-validate the cached
+  // {from,to} range still spans the same marker before overwriting. The dock stays open over a
+  // fully-editable editor, so any edit ABOVE the marker shifts these coordinates; replacing the
+  // stale range would land the prose in the wrong place and delete good script silently.
   function pick(text) {
     if (!span || typeof span.from !== 'number') return;
-    window.dispatchEvent(new CustomEvent('wp-replace-span', { detail: { from: span.from, to: span.to, text } }));
+    window.dispatchEvent(new CustomEvent('wp-replace-span', {
+      detail: { from: span.from, to: span.to, text, markerText: span.text, kind: span.kind },
+    }));
     persist({ resolved: true, chosen: text });
     setResolved(true);
     setOpen(false);
