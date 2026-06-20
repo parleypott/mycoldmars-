@@ -24,6 +24,7 @@ if (existsSync(envPath)) {
 }
 
 import { createClient } from '@supabase/supabase-js';
+import { cosineSim, parseEmbedding, extractDateFromClipName, extractCameraId, sceneDateLabels } from './scene-detection-core.js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
@@ -34,39 +35,6 @@ const PROJECT_ID = pidIdx >= 0 ? args[pidIdx + 1] : 'd745ee49-0ac1-47c7-b81e-940
 const threshIdx = args.indexOf('--threshold');
 const SIM_THRESHOLD = threshIdx >= 0 ? parseFloat(args[threshIdx + 1]) : 0.65;
 const TEMPORAL_GAP_MINUTES = 30; // Clips more than 30min apart = different temporal group
-
-function cosineSim(a, b) {
-  let dot = 0, nA = 0, nB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    nA += a[i] * a[i];
-    nB += b[i] * b[i];
-  }
-  const d = Math.sqrt(nA) * Math.sqrt(nB);
-  return d > 0 ? dot / d : 0;
-}
-
-function parseEmbedding(emb) {
-  if (Array.isArray(emb)) return emb;
-  if (typeof emb === 'string') {
-    try { return JSON.parse(emb); } catch {}
-    return emb.replace(/[[\]()]/g, '').split(',').map(Number);
-  }
-  return null;
-}
-
-function extractDateFromClipName(name) {
-  // Pattern: 20241007-1332-C8757_Proxy.MP4 → date=2024-10-07, time=13:32
-  const m = name?.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/);
-  if (!m) return null;
-  return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]), parseInt(m[4]), parseInt(m[5]));
-}
-
-function extractCameraId(name) {
-  // Pattern: C8757 from 20241007-1332-C8757_Proxy.MP4
-  const m = name?.match(/C(\d+)/);
-  return m ? parseInt(m[1]) : null;
-}
 
 async function fetchAllPaginated(table, select, filters = {}) {
   let all = [];
@@ -157,8 +125,9 @@ async function main() {
   console.log(`\nTemporal groups: ${temporalGroups.length}`);
   for (let i = 0; i < Math.min(temporalGroups.length, 10); i++) {
     const g = temporalGroups[i];
-    const start = g[0].timestamp.toISOString().slice(0, 16);
-    const end = g[g.length - 1].timestamp.toISOString().slice(0, 16);
+    const sl = sceneDateLabels(g[0].timestamp), el = sceneDateLabels(g[g.length - 1].timestamp);
+    const start = `${sl.day} ${sl.time}`;
+    const end = `${el.day} ${el.time}`;
     console.log(`  Group ${i + 1}: ${g.length} clips (${start} → ${end})`);
   }
 
@@ -219,8 +188,7 @@ async function main() {
     // Add temporal info
     const dates = scene.units.map(u => u.timestamp).filter(Boolean);
     if (dates.length) {
-      const day = dates[0].toISOString().slice(0, 10);
-      const time = dates[0].toISOString().slice(11, 16);
+      const { day, time } = sceneDateLabels(dates[0]);
       scene.dayLabel = day;
       scene.timeLabel = time;
     }
