@@ -167,6 +167,14 @@ const DOW=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday
 const MON=["January","February","March","April","May","June","July","August","September","October","November","December"];
 const groupDt=l=>l.tbd?parse(l.date+" 12:00"):parse(l.depart);
 const fmtDate=dt=>`${MON[dt.getMonth()].slice(0,3)} ${dt.getDate()}`;
+// Pure: classify a same-airport connection gap by minutes between previous arrival and next departure.
+// <75 min = too tight to make the connection (book a later flight); <=12h = a layover; longer = on the
+// ground (overnight+). Returns the pill CSS class + head label so render() interpolates byte-identically.
+function classifyGap(mins){
+  if(mins<75) return {pill:"warn", tight:true, head:null};
+  const short=mins<=12*60;
+  return {pill:short?"lay":"ground", tight:false, head:short?"⏱ Layover":"☾ On the ground"};
+}
 
 /* ---- state ---- */
 let state={bookings:{}};
@@ -195,11 +203,11 @@ function render(){
       const city=(AIRPORTS[l.from]||{}).city||"";
       if(pArr&&tDep){
         const mins=(tDep-pArr)/60000;
-        if(mins<75){
+        const g=classifyGap(mins);
+        if(g.tight){
           html+=`<div class="gap"><span class="pill warn"><span class="t">⚠ ${Math.round(mins)} min connection</span><span class="sub">in ${city} · too tight — book a later flight</span></span></div>`;
         }else{
-          const short=mins<=12*60;
-          html+=`<div class="gap"><span class="pill ${short?'lay':'ground'}"><span class="t">${short?'⏱ Layover':'☾ On the ground'}</span><span>${dur(pArr,tDep)}</span><span class="sub">in ${city}</span></span></div>`;
+          html+=`<div class="gap"><span class="pill ${g.pill}"><span class="t">${g.head}</span><span>${dur(pArr,tDep)}</span><span class="sub">in ${city}</span></span></div>`;
         }
       }else{
         const days=Math.round((dayOnly(l.tbd?parse(l.date+" 12:00"):tDep)-dayOnly(prev.tbd?parse(prev.date+" 12:00"):pArr))/86400000);
