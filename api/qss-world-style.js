@@ -12,7 +12,7 @@
 // wins, bundled hardcoded defaults are the fallback.
 
 import { checkAccess } from './_lib/access.js';
-import { sanitizeSlug } from './_lib/qss-worlds.js';
+import { sanitizeSlug, invalidateWorldStyleCache } from './_lib/qss-worlds.js';
 
 export const config = { runtime: 'edge' };
 
@@ -100,6 +100,13 @@ export default async function handler(req) {
       patch.updated_at = new Date().toISOString();
       const rows = await sb('PATCH', `qss_worlds?slug=eq.${encodeURIComponent(world)}&select=${SELECT_COLS}`, patch);
       if (!rows?.length) return j(404, { error: 'world_not_found' });
+      // Bust this edge instance's per-slug STYLE_CACHE so the next portrait
+      // draw on this instance re-fetches the freshly-written art_style/canon
+      // from Supabase instead of serving the stale cached style for up to the
+      // 5-min TTL. Honors the cache-bust hook's documented intent (its own
+      // comment: "call from PUT handler after writing"). Per-instance only,
+      // but strictly better than not calling it (zero downside on a miss).
+      invalidateWorldStyleCache(world);
       return j(200, { world: rows[0] });
     }
 
