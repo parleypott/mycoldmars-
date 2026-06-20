@@ -11,6 +11,7 @@
 
 import { Node, mergeAttributes } from '@tiptap/core';
 import { isReadOnly } from '../read-mode.js';
+import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
 
 const baseAttrs = () => ({ blockId: { default: null } });
 
@@ -43,9 +44,15 @@ function makeSpine(editor, getPos) {
 
   // ⠿ grip — the real drag handle. A plain click opens the block menu (change type /
   // insert below / delete); a drag reorders. The spine stays clean (just the grip glyph).
+  // L6/ux-02 — the grip is the ONLY route to the block menu (turn-into / insert / delete), the most-
+  // used structural action on a 225-block doc. It was tabindex=-1 (mouse-only). In edit mode it is
+  // now keyboard-focusable (tabindex 0) and opens the menu on Enter/Space, so a keyboard user can
+  // change a block's type without a mouse. (Read-only hides the grip in CSS, so keep it out of the
+  // tab order there.) aria-haspopup advertises the menu to assistive tech.
   const grip = el('button', 'wp-grip', {
     type: 'button', contenteditable: 'false', 'data-drag-handle': '', draggable: 'true',
-    title: 'Drag to move · click for menu', 'aria-label': 'Move or open block menu', tabindex: '-1',
+    title: 'Drag to move · click or Enter for menu', 'aria-label': 'Move or open block menu',
+    'aria-haspopup': 'menu', tabindex: isReadOnly() ? '-1' : '0',
   });
   grip.textContent = '⠿';
   let dragged = false;
@@ -56,6 +63,12 @@ function makeSpine(editor, getPos) {
     if (dragged) { dragged = false; return; }
     // READ-ONLY SHARE: the block menu (change type / insert / delete) is edit-only. CSS also hides
     // the grip in read-only, but gate the handler too so no mutation menu can ever open for a reader.
+    if (isReadOnly()) return;
+    openBlockMenu(editor, getPos, grip);
+  });
+  grip.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    e.preventDefault(); e.stopPropagation();
     if (isReadOnly()) return;
     openBlockMenu(editor, getPos, grip);
   });
@@ -171,7 +184,18 @@ function deleteBlock(editor, getPos) {
   if (state.doc.childCount <= 1) return;
   const savedY = window.scrollY;
   // NO .scrollIntoView() — that's what snapped the viewport to the old edit spot.
-  view.dispatch(state.tr.delete(pos, pos + node.nodeSize));
+  // ux-08 — set an EXPLICIT caret after the delete so it lands predictably, mirroring
+  // insertBlockBelow's Selection.near pattern. Before this, view.focus() let PM map the caret to
+  // wherever its position-mapping landed — often silently inside an unrelated neighbour, which is
+  // disorienting (especially for a dyslexic user). Place it at the START of the block now occupying
+  // the deleted slot (`pos`), or — if we deleted the LAST block — just before what's there now.
+  let tr = state.tr.delete(pos, pos + node.nodeSize);
+  try {
+    const Selection = state.selection.constructor;
+    const target = Math.min(pos, Math.max(0, tr.doc.content.size - 1));
+    tr = tr.setSelection(Selection.near(tr.doc.resolve(target), pos >= tr.doc.content.size ? -1 : 1));
+  } catch {}
+  view.dispatch(tr);
   // Restore the viewport: focus() and PM's selection sync can both nudge scroll; pin it now and
   // again on the next frame (after layout settles) so the user stays exactly where they acted.
   view.focus();
@@ -183,6 +207,8 @@ function deleteBlock(editor, getPos) {
 // time. Insert-below + change-type list + delete.
 let openMenuEl = null;
 let openMenuReposition = null;
+let openMenuKeydown = null;
+let openMenuReturnFocus = null;
 function closeBlockMenu() {
   if (!openMenuEl) return;
   openMenuEl.remove(); openMenuEl = null;
@@ -192,6 +218,13 @@ function closeBlockMenu() {
     window.removeEventListener('resize', openMenuReposition);
     openMenuReposition = null;
   }
+  if (openMenuKeydown) {
+    document.removeEventListener('keydown', openMenuKeydown, true);
+    openMenuKeydown = null;
+  }
+  // L6/ux-02 — return focus to the grip that opened the menu so keyboard focus isn't stranded.
+  const back = openMenuReturnFocus; openMenuReturnFocus = null;
+  if (back && typeof back.focus === 'function') { try { back.focus(); } catch {} }
 }
 function onDocDown(e) { if (openMenuEl && !openMenuEl.contains(e.target)) closeBlockMenu(); }
 function openBlockMenu(editor, getPos, anchor) {
@@ -201,26 +234,33 @@ function openBlockMenu(editor, getPos, anchor) {
   const curNode = editor.state.doc.nodeAt(curPos);
   const curType = curNode?.type.name;
 
+  menu.setAttribute('role', 'menu');
   const head = el('div', 'wp-bm-head'); head.textContent = 'Turn into';
   menu.appendChild(head);
   TYPE_MENU.forEach(([name, label]) => {
     const item = el('button', 'wp-bm-item' + (name === curType ? ' is-current' : ''), { type: 'button' });
     item.textContent = label;
     item.addEventListener('mousedown', (e) => { e.preventDefault(); changeBlockType(editor, getPos, name); closeBlockMenu(); });
+    makeItemKeyActivatable(item);
     menu.appendChild(item);
   });
   const sep = el('div', 'wp-bm-sep'); menu.appendChild(sep);
   const ins = el('button', 'wp-bm-item', { type: 'button' });
   ins.textContent = 'Insert block below';
   ins.addEventListener('mousedown', (e) => { e.preventDefault(); insertBlockBelow(editor, getPos); closeBlockMenu(); });
+  makeItemKeyActivatable(ins);
   menu.appendChild(ins);
   const del = el('button', 'wp-bm-item wp-bm-del', { type: 'button' });
   del.textContent = 'Delete block';
   del.addEventListener('mousedown', (e) => { e.preventDefault(); deleteBlock(editor, getPos); closeBlockMenu(); });
+  makeItemKeyActivatable(del);
   menu.appendChild(del);
 
   document.body.appendChild(menu);
   menu.style.position = 'fixed';
+  // ux-04 — also re-pin while the doc layout shifts under the menu (e.g. the red SAVE-FAILED banner
+  // mounting at the top pushes everything down ~40px). We listen on capture-phase scroll + resize AND
+  // observe the body's size; if the anchor leaves the viewport the menu closes rather than detaching.
   const place = () => {
     const r = anchor.getBoundingClientRect();
     if (r.bottom < 0 || r.top > window.innerHeight) { closeBlockMenu(); return; }
@@ -230,8 +270,10 @@ function openBlockMenu(editor, getPos, anchor) {
   place();
   openMenuEl = menu;
   openMenuReposition = place;
+  openMenuReturnFocus = anchor;
   window.addEventListener('scroll', place, true);
   window.addEventListener('resize', place);
+  openMenuKeydown = attachMenuKeynav(menu, closeBlockMenu);
   setTimeout(() => document.addEventListener('mousedown', onDocDown, true), 0);
 }
 
@@ -281,14 +323,20 @@ function directionNodeView({ node, editor, getPos }) {
 
   let done = null;
   if (hasDone) {
+    // L6/L8 — the mark-done tick is a real interactive control; make it keyboard-focusable
+    // (tabindex 0, read-only excluded) with aria-pressed reflecting state, and activate on Enter/Space.
     done = el('button', 'wp-done' + (a.done ? ' is-done' : ''), {
-      type: 'button', contenteditable: 'false', title: 'mark done', 'aria-label': 'mark done', tabindex: '-1',
+      type: 'button', contenteditable: 'false', title: 'mark done', 'aria-label': 'mark done',
+      'aria-pressed': a.done ? 'true' : 'false', tabindex: isReadOnly() ? '-1' : '0',
     });
     done.textContent = '✓';
-    done.addEventListener('mousedown', (e) => {
-      e.preventDefault();
+    const toggleDone = () => {
       const cur = editor.state.doc.nodeAt(getPos());
       setAttr(editor, getPos, { done: !cur?.attrs.done });
+    };
+    done.addEventListener('mousedown', (e) => { e.preventDefault(); toggleDone(); });
+    done.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); toggleDone(); }
     });
     head.appendChild(done);
   }
@@ -302,7 +350,7 @@ function directionNodeView({ node, editor, getPos }) {
       if (hasDone) {
         view.dom.classList.toggle('is-done', !!updated.attrs.done);
         view.dom.setAttribute('data-done', updated.attrs.done ? '1' : '0');
-        if (done) done.classList.toggle('is-done', !!updated.attrs.done);
+        if (done) { done.classList.toggle('is-done', !!updated.attrs.done); done.setAttribute('aria-pressed', updated.attrs.done ? 'true' : 'false'); }
       }
       return true;
     },
@@ -404,7 +452,11 @@ export const VoBlock = Node.create({
       head.appendChild(Object.assign(el('span', 'wp-vo-kind'), { textContent: 'VO · NARRATION' }));
 
       // REC control: word REC + 3-position pill (3 pips) + state label.
-      const rec = el('div', 'wp-rec', { title: 'cycle record state', role: 'button', tabindex: '-1' });
+      // L6 — keyboard-operable: focusable in edit mode (read-only excluded) + Enter/Space cycles state.
+      const rec = el('div', 'wp-rec', {
+        title: 'cycle record state', role: 'button', 'aria-label': 'cycle record state',
+        tabindex: isReadOnly() ? '-1' : '0',
+      });
       rec.appendChild(Object.assign(el('span', 'wp-rec-word'), { textContent: 'REC' }));
       const pill = el('span', 'wp-rec-pill');
       const pips = [el('i', 'wp-rec-pip'), el('i', 'wp-rec-pip'), el('i', 'wp-rec-pip')];
@@ -428,6 +480,9 @@ export const VoBlock = Node.create({
       // activation (a synthetic click with no preceding mousedown) can't be dropped.
       rec.addEventListener('mousedown', cycle);
       rec.addEventListener('click', (e) => { e.preventDefault(); });
+      rec.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') cycle(e);
+      });
       head.appendChild(rec);
 
       const view = cartridge({ blockClass: 'wp-vo', dataAttr: 'data-vo', node, editor, getPos, headChildren: [head] });

@@ -295,21 +295,31 @@ function OutlinePanel({ items, open, onClose }) {
 // action — this is the obvious, forgiving confirmation the spec asks for. FLAT.
 function CopyToast() {
   const [tc, setTc] = useState(null);
+  const [tone, setTone] = useState('ok'); // ux-01 — 'ok' (green COPIED) vs 'error' (red INVALID)
   const [up, setUp] = useState(false);
   const hideTimer = useRef(null);
   const clearTimer = useRef(null);
 
   useEffect(() => {
     const onToast = (e) => {
-      const val = e.detail?.tc;
+      const d = e.detail || {};
+      // ux-01 — an error toast carries { tone:'error', msg }; a copy carries { tc, tone:'ok' }. The
+      // toast used to render every payload as a green "COPIED", so a REJECTED timecode edit looked
+      // like a success the instant Johnny mistyped. Read the tone and surface a distinct red state.
+      const isError = d.tone === 'error';
+      const val = isError ? d.msg : d.tc;
+      // Back-compat: a bare { tc } with no tone is still a copy.
       if (!val) return;
       if (hideTimer.current) clearTimeout(hideTimer.current);
       if (clearTimer.current) clearTimeout(clearTimer.current);
+      setTone(isError ? 'error' : 'ok');
       setTc(val);
       // next frame: flip to the raised/visible state so the transition runs.
       requestAnimationFrame(() => requestAnimationFrame(() => setUp(true)));
-      hideTimer.current = setTimeout(() => setUp(false), 1300);
-      clearTimer.current = setTimeout(() => setTc(null), 1300 + 200);
+      // Errors linger a touch longer — they ask Johnny to re-do something, not just confirm.
+      const hold = isError ? 2200 : 1300;
+      hideTimer.current = setTimeout(() => setUp(false), hold);
+      clearTimer.current = setTimeout(() => setTc(null), hold + 200);
     };
     window.addEventListener('wp-toast', onToast);
     return () => {
@@ -320,9 +330,14 @@ function CopyToast() {
   }, []);
 
   if (!tc) return null;
+  const isError = tone === 'error';
   return (
-    <div class={`wp-toast${up ? ' is-up' : ''}`} role="status" aria-live="polite">
-      <span class="wp-toast-lab">COPIED</span>
+    <div
+      class={`wp-toast${up ? ' is-up' : ''}${isError ? ' is-error' : ''}`}
+      role={isError ? 'alert' : 'status'}
+      aria-live={isError ? 'assertive' : 'polite'}
+    >
+      <span class="wp-toast-lab">{isError ? 'INVALID' : 'COPIED'}</span>
       <span class="wp-toast-tc">{tc}</span>
     </div>
   );

@@ -14,6 +14,7 @@ import { Mark, markInputRule, markPasteRule, getMarkRange } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
 import { contiguousMarkRun } from './mark-run.js';
 import { isReadOnly } from '../read-mode.js';
+import { attachMenuKeynav, makeItemKeyActivatable } from './menu-kbd.js';
 
 // Find the marked span the user clicked, resolve its text + range, and emit the
 // workshop event. Returns true if a span was hit (so PM stops default handling).
@@ -171,12 +172,38 @@ export const VisualSpan = Mark.create({
 // Canonical zero-padded HH:MM:SS:FF (matches parser.ts's TC + document-builder's TIMECODE_RE) — a
 // manually-typed code must be in the same form the parser routes, or it'd chip but never become a SOT.
 const TC_RE = /^\d{2}:\d{2}:\d{2}:\d{2}$/;
+
+// Copy a timecode chip's code to the clipboard + flash + toast. Shared by the mouse (mousedown) and
+// keyboard (Enter/Space on a focused chip) paths so both do EXACTLY the same primary action.
+function copyTimecodeChip(target) {
+  const tc = target.getAttribute('data-tc') || target.textContent || '';
+  if (!tc) return;
+  navigator.clipboard?.writeText(tc).catch(() => {});
+  window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tc, tone: 'ok' } }));
+  target.classList.add('copied');
+  setTimeout(() => target.classList.remove('copied'), 700);
+}
+
 let openTcMenuEl = null;
+let openTcReposition = null;   // ux-04 — re-pin on scroll/resize/layout-shift
+let openTcKeydown = null;      // ux-02 — Escape-to-close + arrow nav
+let openTcReturnFocus = null;  // restore focus to the chip on close
 function closeTcMenu() {
   if (!openTcMenuEl) return;
   openTcMenuEl.remove();
   openTcMenuEl = null;
   document.removeEventListener('mousedown', onTcDocDown, true);
+  if (openTcReposition) {
+    window.removeEventListener('scroll', openTcReposition, true);
+    window.removeEventListener('resize', openTcReposition);
+    openTcReposition = null;
+  }
+  if (openTcKeydown) {
+    document.removeEventListener('keydown', openTcKeydown, true);
+    openTcKeydown = null;
+  }
+  const back = openTcReturnFocus; openTcReturnFocus = null;
+  if (back && typeof back.focus === 'function') { try { back.focus(); } catch {} }
 }
 function onTcDocDown(e) { if (openTcMenuEl && !openTcMenuEl.contains(e.target)) closeTcMenu(); }
 
@@ -222,6 +249,7 @@ function openTimecodeMenu(view, pos, anchorRect) {
   const menu = document.createElement('div');
   menu.className = 'wp-blockmenu wp-tcmenu';
   menu.setAttribute('contenteditable', 'false');
+  menu.setAttribute('role', 'menu');
 
   const head = document.createElement('div');
   head.className = 'wp-bm-head';
@@ -234,6 +262,7 @@ function openTimecodeMenu(view, pos, anchorRect) {
     item.className = 'wp-bm-item' + (isCurrent ? ' is-current' : '');
     item.textContent = label;
     item.addEventListener('mousedown', (e) => { e.preventDefault(); onPick(); closeTcMenu(); view.focus(); });
+    makeItemKeyActivatable(item); // ux-02 — Enter/Space activates a focused item
     menu.appendChild(item);
   };
 
@@ -252,25 +281,57 @@ function openTimecodeMenu(view, pos, anchorRect) {
     const next = (window.prompt('Timecode (HH:MM:SS:FF)', curTc) || '').trim();
     if (!next || next === curTc) { view.focus(); return; }
     if (!TC_RE.test(next)) {
-      window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tc: 'not a valid timecode (HH:MM:SS:FF)' } }));
+      // ux-01 — a REJECTED edit must NOT look like a success. The toast was hardcoded to a green
+      // "COPIED" label, so a bad timecode read "COPIED — not a valid timecode" the moment Johnny made
+      // a mistake. Send an explicit error tone; CopyToast renders an "INVALID" red state for it.
+      window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tone: 'error', msg: 'not a valid timecode (HH:MM:SS:FF)' } }));
       view.focus();
       return;
     }
     patchTimecodeAt(view, pos, { tc: next });
     view.focus();
   });
+  makeItemKeyActivatable(edit); // ux-02 — keyboard-activatable
   menu.appendChild(edit);
 
   document.body.appendChild(menu);
   menu.style.position = 'fixed';
-  menu.style.top = `${anchorRect.bottom + 4}px`;
-  menu.style.left = `${anchorRect.left}px`;
-  const r = menu.getBoundingClientRect();
-  if (r.right > window.innerWidth - 8) menu.style.left = `${Math.max(8, window.innerWidth - r.width - 8)}px`;
-  if (r.bottom > window.innerHeight - 8) menu.style.top = `${Math.max(8, anchorRect.top - r.height - 4)}px`;
+  // ux-04 — this menu used to position ONCE and never re-pin; if the doc scrolled (or a save banner
+  // mounted at the top and pushed everything down) it floated detached from its chip. Re-pin to the
+  // LIVE chip rect on scroll/resize, and close if the chip scrolls out of view.
+  const place = () => {
+    // Re-derive the chip's current rect each tick so layout shifts (banner mount, scroll) track it.
+    const live = findTcChipRect(view, pos) || anchorRect;
+    if (live.bottom < 0 || live.top > window.innerHeight) { closeTcMenu(); return; }
+    menu.style.top = `${live.bottom + 4}px`;
+    menu.style.left = `${live.left}px`;
+    const r = menu.getBoundingClientRect();
+    if (r.right > window.innerWidth - 8) menu.style.left = `${Math.max(8, window.innerWidth - r.width - 8)}px`;
+    if (r.bottom > window.innerHeight - 8) menu.style.top = `${Math.max(8, live.top - r.height - 4)}px`;
+  };
+  place();
 
   openTcMenuEl = menu;
+  openTcReposition = place;
+  openTcReturnFocus = (typeof document !== 'undefined') ? document.activeElement : null;
+  window.addEventListener('scroll', place, true);
+  window.addEventListener('resize', place);
+  openTcKeydown = attachMenuKeynav(menu, closeTcMenu); // ux-02 — Escape + arrow nav
   setTimeout(() => document.addEventListener('mousedown', onTcDocDown, true), 0);
+}
+
+// ux-04 — find the LIVE bounding rect of the timecode chip covering `pos`, so the menu re-pins to it
+// as the layout shifts. Falls back to null (caller uses the original anchorRect) if it can't resolve.
+function findTcChipRect(view, pos) {
+  try {
+    const dom = view.nodeDOM ? view.nodeDOM(pos) : null;
+    const node = (dom && dom.nodeType === 1 ? dom : (dom && dom.parentElement)) || null;
+    const chip = node && node.closest ? node.closest('span.wp-tc-tag, span[data-tc]') : null;
+    if (chip) return chip.getBoundingClientRect();
+    // Fall back to the coords of the position itself.
+    const c = view.coordsAtPos(pos);
+    return { left: c.left, top: c.top, bottom: c.bottom, right: c.left };
+  } catch { return null; }
 }
 
 export const TimecodeMark = Mark.create({
@@ -307,7 +368,10 @@ export const TimecodeMark = Mark.create({
     // The chip's VISIBLE text is supplied by CSS (::before = "DAY N · " when data-day is set);
     // the editable text node it wraps is the bare timecode, so the body prose still reads the
     // raw HH:MM:SS:FF and the audit counts it on-page. data-day drives the DAY prefix display.
-    return ['span', { ...HTMLAttributes, class: 'wp-tc-tag', title: 'click to copy · right-click to set day', role: 'button', tabindex: '-1' }, 0];
+    // L6 — copying a timecode is the editor's PRIMARY action; it was mouse-only (tabindex -1, no key
+    // handler). The chip is now keyboard-focusable (tabindex 0) and Enter/Space copies it (handled in
+    // the plugin keydown below), so a keyboard user can copy a timecode. aria-label spells the action.
+    return ['span', { ...HTMLAttributes, class: 'wp-tc-tag', title: 'copy timecode · right-click to set day', role: 'button', 'aria-label': 'copy timecode', tabindex: '0' }, 0];
   },
   addCommands() {
     return {
@@ -340,13 +404,18 @@ export const TimecodeMark = Mark.create({
             const target = event.target.closest('span.wp-tc-tag, span[data-tc]');
             if (!target) return false;
             event.preventDefault();
-            const tc = target.getAttribute('data-tc') || target.textContent || '';
-            if (tc) {
-              navigator.clipboard?.writeText(tc).catch(() => {});
-              window.dispatchEvent(new CustomEvent('wp-toast', { detail: { tc } }));
-              target.classList.add('copied');
-              setTimeout(() => target.classList.remove('copied'), 700);
-            }
+            copyTimecodeChip(target);
+            return true;
+          },
+          // L6 — keyboard copy: when a timecode chip is focused, Enter or Space copies it (the same
+          // primary action as a click). Other keys pass through so the chip text stays editable.
+          keydown: (view, event) => {
+            if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return false;
+            const active = document.activeElement;
+            const target = active && active.closest && active.closest('span.wp-tc-tag, span[data-tc]');
+            if (!target) return false;
+            event.preventDefault();
+            copyTimecodeChip(target);
             return true;
           },
           contextmenu: (view, event) => {

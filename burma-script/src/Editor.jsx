@@ -337,8 +337,10 @@ export function BurmaEditor({ sourceBlocks, onTelemetry, onEditorReady, readOnly
       // If we have NO marker identity to check against (legacy/visual with no markerText), keep the
       // old clamp-only behaviour so existing flows don't regress.
       if (!resolved && (markType || (typeof markerText === 'string' && markerText.length))) {
+        // ux-01 — this is an ABORT, not a copy. Send the error tone so the toast reads "CAN'T —
+        // that marker moved" (red), not a reassuring green "COPIED".
         window.dispatchEvent(new CustomEvent('wp-toast', {
-          detail: { tc: 'that marker moved — click it again to insert' },
+          detail: { tone: 'error', msg: 'that marker moved — click it again to insert' },
         }));
         return;
       }

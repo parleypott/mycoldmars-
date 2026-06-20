@@ -197,6 +197,11 @@ body {
 .wp-toast.is-up { opacity: 1; transform: translate(-50%, 0); }
 .wp-toast-lab { font-size: var(--chrome-size); letter-spacing: .2em; color: var(--label-4); text-transform: uppercase; }
 .wp-toast-tc { font-size: 14px; color: var(--ivory); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+/* ux-01 — ERROR state. A rejected timecode edit (or a moved-marker abort) must read as a FAILURE,
+   never a green "COPIED". Swiss-red border + label, light text, so the eye reads "something's wrong". */
+.wp-toast.is-error { background: #3a1714; border-color: var(--red); }
+.wp-toast.is-error .wp-toast-lab { color: #ff8a78; }
+.wp-toast.is-error .wp-toast-tc { color: #ffd9d2; font-size: var(--chrome-size); letter-spacing: .04em; text-transform: none; }
 
 /* ---- SAVE STATUS — the cardinal-sin guard, made visible. A quiet saved/unsaved dot in the
    corner, and a LOUD persistent red banner across the top if a save ever fails. Data loss must
@@ -405,6 +410,17 @@ body {
 .wp-rack-inner { counter-reset: wp-num; }
 .wp-editor :focus { outline: none; }
 .wp-editor-content { outline: none; }
+/* L6 — the interactive block affordances are now keyboard-reachable (grip → menu, mark-done, REC
+   cycle, timecode-copy chip). The blanket `:focus { outline:none }` above hid keyboard focus on them;
+   restore a clear focus-visible ring so a keyboard user can SEE what they're about to activate. Only
+   on :focus-visible (keyboard), so a mouse click never paints a ring. */
+.wp-editor .wp-grip:focus-visible,
+.wp-editor .wp-done:focus-visible,
+.wp-editor .wp-rec:focus-visible,
+.wp-editor .wp-tc-tag:focus-visible,
+.wp-blockmenu .wp-bm-item:focus-visible {
+  outline: 2px solid var(--orange); outline-offset: 2px; border-radius: 5px;
+}
 .wp-editor-content p { margin: 0; }
 
 /* ---- footer affordance ---- */
@@ -971,7 +987,9 @@ body {
 .wp-control-rowlab { font-size: var(--chrome-size); letter-spacing: .16em; color: var(--label); }
 .wp-font-sel { display: flex; align-items: center; gap: 2px; border: 1.5px solid var(--ink); border-radius: 7px; overflow: hidden; flex: 0 1 auto; }
 .wp-font-step {
-  width: 20px; height: 26px; border: 0; background: transparent; cursor: pointer;
+  /* L8 — was 20px wide (below the WCAG 2.2 24x24 minimum); fiddly on a trackpad when stepping
+     through 9 fonts. Bumped to 26x28 so each arrow clears the 24x24 hit-target floor. */
+  width: 26px; height: 28px; border: 0; background: transparent; cursor: pointer;
   font-family: var(--mono); font-size: 13px; line-height: 1; color: var(--label); padding: 0;
 }
 .wp-font-step:hover { background: var(--ink); color: var(--frame); }
@@ -984,7 +1002,8 @@ body {
 /* ── SCHEME FLIPPER ── */
 .wp-scheme-grid { display: flex; gap: 6px; flex-wrap: wrap; }
 .wp-scheme-sw {
-  width: 28px; height: 24px; border: 1.5px solid var(--ink); border-radius: 6px; cursor: pointer;
+  /* L8 — was 28x24 (24 high = exactly at the floor); nudged to 26 high for margin. */
+  width: 28px; height: 26px; border: 1.5px solid var(--ink); border-radius: 6px; cursor: pointer;
   padding: 0; display: flex; align-items: center; justify-content: center;
   transition: transform .12s var(--ease);
 }
