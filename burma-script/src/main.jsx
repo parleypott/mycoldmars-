@@ -135,6 +135,12 @@ function ControlUnit({ outlineOpen }) {
     page.style.setProperty('--doc-read', font.stack);
     page.style.setProperty('--doc-size', s.size + 'px');
     page.style.setProperty('--doc-lead', String(s.lead));
+    // L1 — the SIZE knob also scales the structural chrome labels at HALF rate, floored at 11px,
+    // so enlarging reading text proportionally enlarges the VO/SOT/NOTE kind labels, lane labels,
+    // telemetry, etc. that tell a dyslexic reader what each block IS. SIZE 14 → 11px, 22 → 15px.
+    const chrome = Math.max(11, 11 + (s.size - SIZE_MIN) * 0.5);
+    page.style.setProperty('--chrome-size', chrome.toFixed(2) + 'px');
+    page.style.setProperty('--chrome-size-sm', Math.max(10, chrome - 1).toFixed(2) + 'px');
     page.setAttribute('data-scheme', s.scheme);
     // mirror scheme onto <html> so the body/overscroll area re-skins too
     document.documentElement.setAttribute('data-scheme', s.scheme);
@@ -252,7 +258,11 @@ function OutlinePanel({ items, open, onClose }) {
 
   const jump = (id) => {
     const node = document.querySelector(`[data-block-id="${id}"]`);
-    if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!node) return;
+    // L4 — honor prefers-reduced-motion: jump instantly instead of smooth-scrolling for users who
+    // asked the OS to reduce motion (smooth-scroll across a 225-block doc is a vestibular trigger).
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    node.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   };
 
   return (

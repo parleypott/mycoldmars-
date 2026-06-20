@@ -35,13 +35,17 @@
   --rule:      #cdc6b4;  /* the ONE hairline between split columns */
   --said-tint: transparent;            /* LEFT / narration-VO lane — paper, no tint */
   --shown-tint:rgba(110, 31, 26, .028);/* RIGHT / visual lane — faintest burgundy wash */
-  --lane-lab:  #8a857a;  /* column lane label (SAID / SHOWN) */
+  --lane-lab:  #6c685f;  /* column lane label (SAID / SHOWN) — L2: AA 4.5:1 on face */
 
+  /* L2 — every label token that paints real (sub-18px) text must clear WCAG AA 4.5:1 against
+     the frame/face it sits on. label-3/4/5 + lane-lab were 2.6–3.5:1 (the "pick a type" hint,
+     toast label, grip glyph, REC label). Darkened to ~4.6:1 here; they stay visually quiet via
+     small size + heavy tracking, not via low contrast. Verified per-scheme in styles.css. */
   --label:     #6b6658;
   --label-2:   #7d7768;
-  --label-3:   #8a857a;
-  --label-4:   #9a917e;
-  --label-5:   #9b968c;
+  --label-3:   #6c685f;
+  --label-4:   #6f6857;
+  --label-5:   #6d685f;
 
   --orange:    #ff5b1f;  /* SOT / brand / active */
   --blue:      #2f6fb0;  /* VO */
@@ -80,6 +84,16 @@
   --doc-read:  var(--sans);   /* reading typeface (font selector) */
   --doc-size:  15px;          /* base body size (TEXT SIZE knob) */
   --doc-lead:  1.62;          /* line-height (LEAD knob) */
+
+  /* L1 — STRUCTURAL CHROME LABEL SIZE. The lane labels (SAID/SHOWN), kind labels (VO/SOT/NOTE…),
+     telemetry, masthead tag, knob labels etc. were hard-coded 7–8px — below a readable floor and,
+     worse, the SIZE knob (which only drove --doc-size on prose) couldn't enlarge them, so a dyslexic
+     reader who turned body text up to 22px still faced 7–8px wayfinding labels telling him what each
+     block IS. These now read --chrome-size, floored at 11px, and the SIZE knob nudges it at half rate
+     (set live on .wp-page in main.jsx: 11px at SIZE 14 → 15px at SIZE 22). --chrome-size-sm is the
+     one-step-smaller tier for the most decorative captions, floored at 10px. */
+  --chrome-size:    11px;
+  --chrome-size-sm: 10px;
 }
 
 /* ============================================================
@@ -92,21 +106,21 @@
   --page:#e4e5e7; --frame:#f4f5f6; --face:#fdfdfe; --face-hover:#eef0f2; --panel:#eceef0;
   --ink:#22252b; --ch-ink:#20242b; --ch-text:#eef0f2; --ivory:#e6e8ea; --lcd-bg:#21242a;
   --body:#22262c; --mono-body:#454a52;
-  --label:#646b76; --label-2:#737a85; --label-3:#838a94; --label-4:#949aa3; --label-5:#969ba4;
+  --label:#646b76; --label-2:#737a85; --label-3:#676e78; --label-4:#686e79; --label-5:#6a6f7a; --lane-lab:#676e78;
   --grip-grad: repeating-linear-gradient(0deg,#d6d8dc,#d6d8dc 2px,#e8eaed 2px,#e8eaed 4px);
 }
 [data-scheme="sepia"] {
   --page:#e3d4ba; --frame:#f3e7cf; --face:#fbf3e1; --face-hover:#efe2c8; --panel:#eee1c5;
   --ink:#3a2f1e; --ch-ink:#352b1c; --ch-text:#f3e7cf; --ivory:#ecddc0; --lcd-bg:#2c2316;
   --body:#3c3120; --mono-body:#5e5037;
-  --label:#7d6c4d; --label-2:#8a7956; --label-3:#978665; --label-4:#a59575; --label-5:#a89878;
+  --label:#7d6c4d; --label-2:#8a7956; --label-3:#72654c; --label-4:#706349; --label-5:#716449; --lane-lab:#72654c;
   --grip-grad: repeating-linear-gradient(0deg,#d8c8a4,#d8c8a4 2px,#e7d9ba 2px,#e7d9ba 4px);
 }
 [data-scheme="slate"] {
   --page:#1b1d21; --frame:#26282d; --face:#2e3036; --face-hover:#34373d; --panel:#2b2e34;
   --ink:#e7e8ea; --ch-ink:#3a3d44; --ch-text:#eceef0; --ivory:#cfd2d6; --lcd-bg:#17181b;
   --body:#dadce0; --mono-body:#aeb2b9;
-  --label:#9298a1; --label-2:#888e97; --label-3:#7d838c; --label-4:#727882; --label-5:#888e97;
+  --label:#9298a1; --label-2:#9197a0; --label-3:#959aa2; --label-4:#959aa2; --label-5:#969ba3; --lane-lab:#959aa2;
   --note-fill:#34321f; --note-fill-hover:#3d3a24; --note-text:#e8dca0; --note-lab:#c9b96e;
   --tk-bg:#3a3520; --tk-text:#e8d488; --vis-bg:#3a2926; --vis-text:#e0a59a;
   --grip-grad: repeating-linear-gradient(0deg,#34373d,#34373d 2px,#3d4047 2px,#3d4047 4px);
@@ -118,14 +132,14 @@
   --page:#d9dadd; --frame:#e8e9eb; --face:#f3f4f5; --face-hover:#e3e5e8; --panel:#e0e2e5;
   --ink:#1c1e22; --ch-ink:#23262c; --ch-text:#eef0f2; --ivory:#dfe1e4; --lcd-bg:#1a1c20;
   --body:#22252a; --mono-body:#4d525a;
-  --label:#5f6670; --label-2:#6e7580; --label-3:#7e848e; --label-4:#8e949d; --label-5:#9096a0;
+  --label:#5f6670; --label-2:#6e7580; --label-3:#636871; --label-4:#60666f; --label-5:#626872; --lane-lab:#636871;
   --grip-grad: repeating-linear-gradient(0deg,#cbccd0,#cbccd0 2px,#dddee2 2px,#dddee2 4px);
 }
 [data-scheme="manila"] {
   --page:#ddcfac; --frame:#ece0c1; --face:#f6ecd2; --face-hover:#e9dcb9; --panel:#e7dab7;
   --ink:#332b1a; --ch-ink:#2f2818; --ch-text:#ece0c1; --ivory:#e6d8b6; --lcd-bg:#272013;
   --body:#352d1c; --mono-body:#574a31;
-  --label:#776744; --label-2:#84744f; --label-3:#92825e; --label-4:#a0906c; --label-5:#a39370;
+  --label:#776744; --label-2:#84744f; --label-3:#6d6146; --label-4:#6b5f45; --label-5:#6c6046; --lane-lab:#6d6146;
   --grip-grad: repeating-linear-gradient(0deg,#d2c298,#d2c298 2px,#e1d3ab 2px,#e1d3ab 4px);
 }
 
@@ -181,7 +195,7 @@ body {
   transition: opacity .16s var(--ease), transform .16s var(--ease);
 }
 .wp-toast.is-up { opacity: 1; transform: translate(-50%, 0); }
-.wp-toast-lab { font-size: 7px; letter-spacing: .2em; color: var(--label-4); text-transform: uppercase; }
+.wp-toast-lab { font-size: var(--chrome-size); letter-spacing: .2em; color: var(--label-4); text-transform: uppercase; }
 .wp-toast-tc { font-size: 14px; color: var(--ivory); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
 
 /* ---- SAVE STATUS — the cardinal-sin guard, made visible. A quiet saved/unsaved dot in the
@@ -324,7 +338,7 @@ body {
 }
 .wp-masthead-meta { display: flex; align-items: center; gap: 12px; flex: none; padding-bottom: 4px; }
 .wp-masthead-tag {
-  font-family: var(--mono); font-size: 8px; letter-spacing: .18em; text-transform: uppercase; color: var(--label-2);
+  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .18em; text-transform: uppercase; color: var(--label-2);
 }
 
 /* ---- TIPS & TRICKS (feature C) — tiny collapsed toggle that expands a plain how-to ---- */
@@ -332,7 +346,7 @@ body {
 .wp-tips-toggle {
   display: inline-flex; align-items: center; gap: 7px;
   background: transparent; border: 1.5px solid var(--ink); border-radius: 7px; padding: 5px 10px; cursor: pointer;
-  font-family: var(--mono); font-size: 8px; letter-spacing: .12em; text-transform: lowercase; color: var(--label);
+  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .12em; text-transform: lowercase; color: var(--label);
   transition: background .14s var(--ease), color .14s var(--ease);
 }
 .wp-tips-toggle:hover { background: var(--panel); color: var(--ink); }
@@ -340,7 +354,7 @@ body {
 .wp-tips-glyph {
   display: inline-flex; align-items: center; justify-content: center;
   width: 13px; height: 13px; border: 1.5px solid currentColor; border-radius: 50%;
-  font-size: 8px; font-weight: 700; line-height: 1;
+  font-size: var(--chrome-size); font-weight: 700; line-height: 1;
 }
 .wp-tips-body {
   overflow: hidden; max-height: 0; opacity: 0;
@@ -369,11 +383,11 @@ body {
 .wp-rack-id { display: flex; align-items: baseline; gap: 12px; }
 .wp-wordmark { font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: .01em; }
 .wp-wordmark b { color: var(--orange); }
-.wp-rack-fig { font-size: 7px; color: var(--label-2); letter-spacing: .14em; text-transform: uppercase; }
+.wp-rack-fig { font-size: var(--chrome-size); color: var(--label-2); letter-spacing: .14em; text-transform: uppercase; }
 
 .wp-outline-btn {
   display: inline-flex; align-items: center; gap: 6px; align-self: center;
-  font-family: var(--mono); font-size: 8px; letter-spacing: .14em; text-transform: uppercase;
+  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .14em; text-transform: uppercase;
   color: var(--label); background: transparent; border: 1.5px solid var(--ink);
   border-radius: 7px; padding: 5px 9px; cursor: pointer; transition: background .14s var(--ease), color .14s var(--ease);
 }
@@ -381,7 +395,7 @@ body {
 .wp-outline-btn.is-open { background: var(--ink); color: var(--frame); }
 .wp-outline-glyph { font-size: 10px; line-height: 1; }
 
-.wp-telemetry { font-size: 8px; letter-spacing: .16em; color: var(--label); text-transform: uppercase; }
+.wp-telemetry { font-size: var(--chrome-size); letter-spacing: .16em; color: var(--label); text-transform: uppercase; }
 .wp-tel-sot { color: var(--burgundy); }
 
 /* ============================================================
@@ -401,7 +415,7 @@ body {
 .wp-insert {
   display: inline-flex; align-items: center; gap: 10px;
   background: transparent; border: 0; cursor: pointer;
-  font-family: var(--mono); font-size: 8px; letter-spacing: .16em; text-transform: uppercase; color: var(--label-3);
+  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .16em; text-transform: uppercase; color: var(--label-3);
 }
 .wp-insert-box {
   width: 26px; height: 26px; border-radius: 8px; border: 1.5px dashed #a39e92;
@@ -411,7 +425,7 @@ body {
 .wp-insert:hover .wp-insert-box { border-color: var(--ink); color: var(--ink); }
 .wp-rack-foot-right { display: inline-flex; gap: 6px; }
 .wp-foot-btn {
-  font-family: var(--mono); font-size: 8px; letter-spacing: .14em; text-transform: uppercase; color: var(--label);
+  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .14em; text-transform: uppercase; color: var(--label);
   background: transparent; border: 1.5px solid var(--ink); border-radius: 7px; padding: 5px 11px; cursor: pointer;
   transition: background .14s var(--ease), color .14s var(--ease);
 }
@@ -522,7 +536,7 @@ body {
 .wp-trow[data-cols="2"] .wp-tcell[data-role]::before,
 .wp-trow[data-cols="3"] .wp-tcell[data-role]::before {
   font-family: var(--mono);
-  font-size: 7px;
+  font-size: var(--chrome-size);
   letter-spacing: .22em;
   text-transform: uppercase;
   color: var(--lane-lab);
@@ -553,10 +567,18 @@ body {
 .wp-cart {
   display: flex; margin: 0 0 11px;
   border: 1.5px solid var(--ink); border-radius: 11px; overflow: hidden;
-  background: var(--face); transition: background .16s var(--ease);
+  background: var(--face);
   counter-increment: wp-num;
 }
-.wp-cart:hover { background: var(--face-hover); }
+/* ux-07 — the whole-cart hover tint used to FADE in/out over 160ms. With 225 cartridges, scrolling
+   the wheel while the cursor sits still ran that fade on every block that passed under the pointer —
+   a continuous shimmer of fades down the rack. Fix: (1) drop the background transition so hover is
+   instant (no fade trail to animate during scroll), and (2) gate the tint behind a real mouse
+   (hover:hover + pointer:fine) so touch/trackpad-scroll never triggers it. The grip/controls keep
+   their own affordances; this only removes the cart-wide shimmer. */
+@media (hover: hover) and (pointer: fine) {
+  .wp-cart:hover { background: var(--face-hover); }
+}
 .wp-chapter { margin: 18px 0 11px; }
 .wp-bin.is-scaffold { margin: 0 0 7px; }
 
@@ -570,7 +592,7 @@ body {
 }
 .wp-cap-num {
   width: 100%; padding: 3px 0; text-align: center;
-  font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: .04em;
+  font-family: var(--mono); font-size: var(--chrome-size); font-weight: 700; letter-spacing: .04em;
   color: #fff; border-bottom: 1.5px solid var(--ink);
 }
 .wp-cap-num::before { content: counter(wp-num, decimal-leading-zero); }
@@ -607,16 +629,17 @@ body {
 
 /* ---- CHAPTER — inverted dark cartridge ---- */
 .wp-chapter { background: var(--ch-ink); }
-.wp-chapter:hover { background: #232320; }
+/* ux-07 — fine-pointer only (see .wp-cart): no hover tint on touch/trackpad-scroll. */
+@media (hover: hover) and (pointer: fine) { .wp-chapter:hover { background: #232320; } }
 .wp-chapter .wp-spine { background: var(--grip-grad-dark); }
 .wp-chapter .wp-cap-num { background: var(--ivory); color: #23211b; }
 .wp-chapter .wp-grip { color: #5a594f; }
 .wp-chapter .wp-cart-body { padding: 12px 15px; color: var(--ch-text); position: relative; }
 .wp-ch-head { display: flex; justify-content: flex-start; align-items: center; margin-bottom: 6px; }
-.wp-ch-kind { font-size: 8px; letter-spacing: .16em; color: rgba(243,241,234,.53); }
+.wp-ch-kind { font-size: var(--chrome-size); letter-spacing: .16em; color: rgba(243,241,234,.53); }
 /* genre ACT tag — pinned top-right (it sits AFTER the content in DOM order for clean reading
    order + audit contiguity, so position it visually back at the top-right of the cartridge). */
-.wp-ch-tag { position: absolute; top: 12px; right: 15px; font-size: 8px; letter-spacing: .16em; color: var(--ivory); }
+.wp-ch-tag { position: absolute; top: 12px; right: 15px; font-size: var(--chrome-size); letter-spacing: .16em; color: var(--ivory); }
 .wp-chapter .wp-body {
   font-family: var(--mono); font-size: 18px; font-weight: 800; letter-spacing: .02em;
   color: var(--ch-text); line-height: 1.18; text-transform: none;
@@ -645,11 +668,11 @@ body {
 
 /* ---- VO — blue cap + REC toggle + prose ---- */
 .wp-vo-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; gap: 12px; }
-.wp-vo-kind { font-size: 8px; letter-spacing: .12em; color: #5c584e; text-transform: uppercase; }
+.wp-vo-kind { font-size: var(--chrome-size); letter-spacing: .12em; color: #5c584e; text-transform: uppercase; }
 
 .wp-rec {
   display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
-  font-size: 8px; letter-spacing: .12em; color: #5c584e; flex: none;
+  font-size: var(--chrome-size); letter-spacing: .12em; color: #5c584e; flex: none;
 }
 .wp-rec-word { line-height: 1; }
 .wp-rec-pill {
@@ -677,7 +700,7 @@ body {
    neutral DIRECTION kind label and the editable body; timecodes live ONLY as inline chips in
    the prose. FLAT: no shadow, no bevel, one ink hairline (inherited from .wp-cart). */
 .wp-dir-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; gap: 12px; }
-.wp-dir-kind { font-size: 8px; letter-spacing: .12em; color: #5c584e; text-transform: uppercase; }
+.wp-dir-kind { font-size: var(--chrome-size); letter-spacing: .12em; color: #5c584e; text-transform: uppercase; }
 .wp-dir .wp-body { color: var(--body); }
 .wp-done {
   width: 30px; height: 26px; border-radius: 7px; flex: none;
@@ -690,16 +713,16 @@ body {
 
 /* ---- NOTE — yellow cap, tinted cartridge ---- */
 .wp-note { background: var(--note-fill); }
-.wp-note:hover { background: var(--note-fill-hover); }
+@media (hover: hover) and (pointer: fine) { .wp-note:hover { background: var(--note-fill-hover); } }
 .wp-note .wp-spine { background: var(--grip-grad-note); }
 .wp-note .wp-grip { color: #b8a24a; }
 .wp-note-head { margin-bottom: 5px; }
-.wp-note-kind { font-size: 8px; letter-spacing: .12em; color: var(--note-lab); text-transform: uppercase; }
+.wp-note-kind { font-size: var(--chrome-size); letter-spacing: .12em; color: var(--note-lab); text-transform: uppercase; }
 .wp-note .wp-body { font-family: var(--doc-read); font-size: calc(var(--doc-size) - 1px); line-height: calc(var(--doc-lead) - 0.12); color: var(--note-text); font-style: italic; }
 
 /* ---- MONTAGE — flat cartridge, teal cap, MONTAGE kind label ---- */
 .wp-montage-head { display: flex; justify-content: flex-start; align-items: center; margin-bottom: 7px; gap: 12px; }
-.wp-mtg-kind { font-size: 8px; letter-spacing: .12em; color: #3a6f68; text-transform: uppercase; }
+.wp-mtg-kind { font-size: var(--chrome-size); letter-spacing: .12em; color: #3a6f68; text-transform: uppercase; }
 .wp-montage .wp-body { color: var(--body); }
 
 /* ---- NONE — the "born" block: chrome-less editable line, faint pick-a-type hint. ----
@@ -729,7 +752,7 @@ body {
 
 /* ---- BIN — quietest ---- */
 .wp-bin-head { margin-bottom: 5px; }
-.wp-bin-kind { font-size: 8px; letter-spacing: .14em; color: var(--label-3); text-transform: uppercase; }
+.wp-bin-kind { font-size: var(--chrome-size); letter-spacing: .14em; color: var(--label-3); text-transform: uppercase; }
 .wp-bin .wp-body { color: var(--label); }
 
 /* ============================================================
@@ -739,7 +762,7 @@ body {
    open NOTE boxes: the note-fill paper, yellow knurl spine, italic editor voice. These are
    the author's notes-to-editor ("read this after the prompt", "no Drew Binsky footage"). */
 .wp-bin.is-scaffold { background: var(--note-fill); margin: 0 0 9px; }
-.wp-bin.is-scaffold:hover { background: var(--note-fill-hover); }
+@media (hover: hover) and (pointer: fine) { .wp-bin.is-scaffold:hover { background: var(--note-fill-hover); } }
 .wp-bin.is-scaffold .wp-spine { background: var(--grip-grad-note); }
 .wp-bin.is-scaffold .wp-grip { color: #b8a24a; }
 .wp-bin.is-scaffold .wp-cart-body { padding: 9px 14px; }
@@ -754,7 +777,7 @@ body {
   display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
   margin: 0 2px 9px; padding: 4px 11px;
   border: 1.5px dashed #cbb96a; border-radius: 7px; background: var(--note-fill);
-  font-family: var(--mono); font-size: 8px; letter-spacing: .16em; text-transform: uppercase; color: var(--note-lab);
+  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .16em; text-transform: uppercase; color: var(--note-lab);
 }
 .wp-prescript-glyph { font-size: 10px; line-height: 1; }
 
@@ -858,7 +881,7 @@ body {
 }
 .wp-outline-collapse:hover { background: var(--ink); color: var(--frame); }
 .wp-outline-list { flex: 1 1 auto; overflow-y: auto; scrollbar-width: thin; display: flex; flex-direction: column; }
-.wp-outline-empty { font-family: var(--mono); font-size: 8px; letter-spacing: .16em; color: var(--label-3); padding: 8px 0; }
+.wp-outline-empty { font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .16em; color: var(--label-3); padding: 8px 0; }
 .wp-outline-item {
   display: block; width: 100%; text-align: left; background: transparent; border: 0; cursor: pointer;
   font-family: var(--mono); color: var(--label-2); padding: 4px 0; line-height: 1.25; letter-spacing: .04em;
@@ -873,7 +896,7 @@ body {
   content: ""; display: inline-block; width: 9px; height: 1.5px; background: #c2bcae; margin-right: 7px; flex: none;
   transition: background .14s var(--ease), width .14s var(--ease);
 }
-.wp-outline-item.lvl-1 { font-size: 8px; padding-left: 16px; color: var(--label-3); text-transform: uppercase; letter-spacing: .06em; }
+.wp-outline-item.lvl-1 { font-size: var(--chrome-size); padding-left: 16px; color: var(--label-3); text-transform: uppercase; letter-spacing: .06em; }
 .wp-outline-item:hover { color: var(--orange); }
 .wp-outline-item.lvl-0.is-active::before { background: var(--orange); width: 13px; }
 
@@ -939,13 +962,13 @@ body {
   background: var(--orange); border-radius: 2px;
   transform-origin: 50% 100%; margin-left: -1.25px; margin-top: -17px;
 }
-.wp-knob-lab { font-size: 8px; letter-spacing: .14em; color: var(--label); }
+.wp-knob-lab { font-size: var(--chrome-size); letter-spacing: .14em; color: var(--label); }
 .wp-knob-val { font-size: 10px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* ── FONT SELECTOR ── */
 .wp-control-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .wp-control-row.col { flex-direction: column; align-items: stretch; gap: 7px; }
-.wp-control-rowlab { font-size: 8px; letter-spacing: .16em; color: var(--label); }
+.wp-control-rowlab { font-size: var(--chrome-size); letter-spacing: .16em; color: var(--label); }
 .wp-font-sel { display: flex; align-items: center; gap: 2px; border: 1.5px solid var(--ink); border-radius: 7px; overflow: hidden; flex: 0 1 auto; }
 .wp-font-step {
   width: 20px; height: 26px; border: 0; background: transparent; cursor: pointer;
@@ -992,7 +1015,7 @@ body {
   position: absolute; left: 50%; top: 4px; width: 2px; height: 9px; background: var(--orange);
   border-radius: 2px; margin-left: -1px; z-index: 1;
 }
-.wp-knobicon-lab { font-size: 7px; letter-spacing: .14em; color: var(--label); }
+.wp-knobicon-lab { font-size: var(--chrome-size); letter-spacing: .14em; color: var(--label); }
 .wp-control-knobicon:hover .wp-knobicon-lab { color: var(--ink); }
 
 /* coexist with the OUTLINE slide-out — slide the control unit right when outline opens */
@@ -1018,7 +1041,7 @@ body {
   border: 1.5px solid var(--ink); border-radius: 9px;
   padding: 6px; font-family: var(--mono);
 }
-.wp-bm-head { font-size: 8px; letter-spacing: .14em; text-transform: uppercase; color: var(--label); padding: 4px 8px 6px; }
+.wp-bm-head { font-size: var(--chrome-size); letter-spacing: .14em; text-transform: uppercase; color: var(--label); padding: 4px 8px 6px; }
 .wp-bm-item {
   display: block; width: 100%; text-align: left; font-size: 11px; letter-spacing: .03em; color: var(--ink);
   background: transparent; border: 0; border-radius: 6px; padding: 7px 8px; cursor: pointer; transition: background .12s;
@@ -1087,7 +1110,7 @@ body {
   display: inline-flex; align-items: center; gap: 5px;
   background: transparent; border: 1.5px solid var(--ink); color: var(--ink);
   border-radius: 6px; height: 24px; padding: 0 8px; line-height: 1; cursor: pointer;
-  font-family: var(--mono); font-size: 8px; letter-spacing: .12em; text-transform: uppercase;
+  font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .12em; text-transform: uppercase;
   transition: background .14s var(--ease), color .14s var(--ease);
 }
 .wp-ws-expand .wp-ws-expand-glyph { font-size: 13px; }
@@ -1240,7 +1263,7 @@ body {
 }
 .wp-ex-tab:hover { color: var(--ink); }
 .wp-ex-tab.is-active { color: var(--ink); border-bottom-color: var(--orange); }
-.wp-ex-count { font-size: 8px; min-width: 16px; height: 16px; padding: 0 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--page); color: var(--label); letter-spacing: 0; }
+.wp-ex-count { font-size: var(--chrome-size); min-width: 16px; height: 16px; padding: 0 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--page); color: var(--label); letter-spacing: 0; }
 .wp-ex-tab.is-active .wp-ex-count { color: var(--ink); }
 .wp-ex-sheet { background: var(--panel); border: 1.5px solid var(--ink); border-radius: 9px; padding: 22px 24px; max-height: 52vh; overflow-y: auto; scrollbar-width: thin; }
 .wp-ex-sheet-head { margin-bottom: 16px; }
@@ -1253,7 +1276,7 @@ body {
 .wp-ex-row::before { content: counter(ex, decimal-leading-zero); position: absolute; left: 0; top: 13px; font-family: var(--mono); font-size: 10px; color: var(--label-3); font-variant-numeric: tabular-nums; }
 .wp-ex-primary { font-family: var(--sans); font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.4; display: flex; align-items: baseline; gap: 10px; }
 .wp-ex-sheet[data-worklist="translation"] .wp-ex-primary { font-family: var(--mono); color: var(--burgundy); letter-spacing: .01em; font-variant-numeric: tabular-nums; }
-.wp-ex-doneflag { font-family: var(--mono); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; color: #fff; background: var(--ink); padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+.wp-ex-doneflag { font-family: var(--mono); font-size: var(--chrome-size); letter-spacing: .1em; text-transform: uppercase; color: #fff; background: var(--ink); padding: 2px 6px; border-radius: 4px; font-weight: 700; }
 .wp-ex-meta { font-family: var(--mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--label); margin-top: 4px; }
 .wp-ex-body { font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: var(--mono-body); margin-top: 6px; }
 .wp-ex-body > div { white-space: pre-wrap; }
@@ -1266,4 +1289,25 @@ body {
 @media (max-width: 720px) {
   .wp-ex-overlay { padding: 0; }
   .wp-ex-panel { border-radius: 0; min-height: 100%; max-width: 100%; }
+}
+
+/* ============================================================
+   L4 — REDUCED MOTION. Respect the OS "reduce motion" preference: kill the indefinite
+   save-pill pulse, the workshop/exports slide-ins, the scheme-swatch hover lifts, the
+   outline slide, the cartridge hover fade, and smooth-scroll. Continuous motion (the
+   infinite save pulse especially) is a vestibular trigger and distracts a dyslexic reader
+   trying to hold their place. The save indicator stays fully VISIBLE — only its animation
+   stops; opacity is pinned to 1 so the cardinal-sin guard never animates itself out of view.
+   The JS smooth-scroll (OutlinePanel jump) is gated separately in main.jsx via matchMedia.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* The save pill pulses opacity 1↔.35 forever; with animation frozen at an arbitrary frame it
+     could rest dimmed. Pin it visible — the indicator that must never hide stays at full opacity. */
+  .wp-save-pill, .wp-save-pill * { opacity: 1 !important; }
 }
