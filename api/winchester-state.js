@@ -1,5 +1,6 @@
 import { checkAccess } from './_lib/access.js';
 import { validateStatePayload } from './_lib/winchester-validate.js';
+import { extractStateRow, wantsConcurrencyCheck, shouldReject409 } from './_lib/winchester-state-core.js';
 
 export const config = { runtime: 'edge', maxDuration: 15 };
 
@@ -67,8 +68,7 @@ async function handleGet() {
     return jsonError(502, 'DB_READ_FAILED', text || `Supabase responded ${r.status}`);
   }
   const rows = await r.json();
-  const row = Array.isArray(rows) && rows.length ? rows[0] : { state: {}, updated_at: null };
-  return jsonOk({ state: row.state || {}, updated_at: row.updated_at });
+  return jsonOk(extractStateRow(rows));
 }
 
 async function handlePost(req) {
@@ -86,12 +86,12 @@ async function handlePost(req) {
   const { state } = v;
 
   // Optimistic concurrency check (optional — caller can omit to last-write-wins)
-  if (typeof body.expectedUpdatedAt === 'string' && body.expectedUpdatedAt) {
+  if (wantsConcurrencyCheck(body.expectedUpdatedAt)) {
     const headR = await sb(`/rest/v1/winchester_state?id=eq.${ROW_ID}&select=updated_at`);
     if (headR.ok) {
       const rows = await headR.json();
       const serverTs = Array.isArray(rows) && rows.length ? rows[0].updated_at : null;
-      if (serverTs && serverTs !== body.expectedUpdatedAt) {
+      if (shouldReject409(serverTs, body.expectedUpdatedAt)) {
         // Return the current server state so the client can merge.
         const cur = await handleGet();
         const curJson = await cur.json();
