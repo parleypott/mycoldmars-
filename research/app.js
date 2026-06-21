@@ -1,6 +1,8 @@
 // research-hub frontend — vanilla JS, calls mycoldmars edge endpoints.
 // All state lives client-side (localStorage). No server-side persistence.
 
+import { mdToHtml } from "./md.js";
+
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
@@ -50,35 +52,6 @@ async function gFetch(input, init = {}) {
 window.fetch = gFetch;
 
 // ----- markdown -> html (tiny inline renderer) -----
-function mdToHtml(md) {
-  if (!md) return "";
-  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  let html = esc(md);
-  html = html.replace(/```([\s\S]*?)```/g, (_, c) => `<pre><code>${c.trim()}</code></pre>`);
-  html = html.replace(/^###### (.*)$/gm, "<h6>$1</h6>");
-  html = html.replace(/^##### (.*)$/gm, "<h5>$1</h5>");
-  html = html.replace(/^#### (.*)$/gm, "<h4>$1</h4>");
-  html = html.replace(/^### (.*)$/gm, "<h3>$1</h3>");
-  html = html.replace(/^## (.*)$/gm, "<h2>$1</h2>");
-  html = html.replace(/^# (.*)$/gm, "<h1>$1</h1>");
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
-  html = html.replace(/^(?:- |\* )(.*)$/gm, "<li>$1</li>");
-  html = html.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
-  html = html.replace(/^(\d+)\. (.*)$/gm, "<li>$2</li>");
-  html = html
-    .split(/\n{2,}/)
-    .map((block) => {
-      if (/^\s*<(h\d|ul|ol|pre|li|p|blockquote)/i.test(block.trim())) return block;
-      if (!block.trim()) return "";
-      return `<p>${block.replace(/\n/g, "<br>")}</p>`;
-    })
-    .join("\n");
-  return html;
-}
-
 // ----- session model -----
 const SESSIONS_KEY = "research-hub-sessions-v1";
 function loadSessions() {
