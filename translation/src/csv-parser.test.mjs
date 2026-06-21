@@ -101,11 +101,26 @@ eq(cleanSpeakerName('260317-04-104-JERRY - JOHNNY'), 'Johnny', 'clean: strips se
 eq(cleanSpeakerName('Mikael Antell'), 'Mikael Antell', 'clean: plain name preserved');
 eq(cleanSpeakerName('ALL JH ONCAM'), 'ALL JH ONCAM', 'clean: no-digit multiword as-is');
 eq(cleanSpeakerName(''), '', 'clean: empty');
+// Apostrophe surnames — straight AND curly (the smart-quote default in real
+// exports). The strip-class was straight-only, so a name whose only alpha word
+// carried a curly apostrophe failed the [a-zA-Z]{2,} test in BOTH cleanSpeakerName
+// (the line strip) AND isGenericSpeaker (which then flagged the name "generic",
+// making cleanSpeakerName early-return the whole raw sequence prefix). RED proof:
+// before the fix curly "O’Brien" returned "260317-04-104-O’Brien".
+eq(cleanSpeakerName("260317-04-104-O'Brien"), 'Obrien', 'clean: straight-apostrophe surname stripped');
+eq(cleanSpeakerName('260317-04-104-O’Brien'), 'Obrien', 'clean: curly U+2019 surname (was leaking whole prefix)');
+eq(cleanSpeakerName('260317-04-104-O‘Brien'), 'Obrien', 'clean: curly U+2018 surname');
+eq(cleanSpeakerName('260304-02-JANE-D’Angelo'), 'Dangelo', 'clean: curly surname is the trailing speaker, not an earlier word');
 
 // ── isGenericSpeaker ──
 ok(isGenericSpeaker('Speaker 1'), 'generic: "Speaker 1" is generic');
 ok(isGenericSpeaker(''), 'generic: empty is generic');
 ok(!isGenericSpeaker('Johnny'), 'generic: real name is not generic');
+// A real surname carrying a curly apostrophe must NOT read as a generic label.
+ok(!isGenericSpeaker("260317-04-104-O'Brien"), 'generic: straight-apostrophe surname is a real name');
+ok(!isGenericSpeaker('260317-04-104-O’Brien'), 'generic: curly U+2019 surname is a real name (was wrongly generic)');
+ok(!isGenericSpeaker('260304-02-D’Angelo'), 'generic: curly surname alone is a real name');
+ok(isGenericSpeaker('260317-04-104'), 'generic: pure numeric code is generic');
 
 // ── parseSequenceInfo date (UTC, stable across timezones) ──
 {

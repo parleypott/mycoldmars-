@@ -28,7 +28,7 @@ export function cleanSpeakerName(raw) {
   // for the last all-alpha word.
   const words = trimmed.split(/[\s\-_]+/);
   for (let i = words.length - 1; i >= 0; i--) {
-    const w = words[i].replace(/['']/g, ''); // strip apostrophes
+    const w = words[i].replace(/['‘’]/g, ''); // strip apostrophes (straight + curly U+2018/U+2019)
     if (/^[a-zA-Z]{2,}$/i.test(w)) {
       return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
     }
@@ -86,7 +86,7 @@ export function isGenericSpeaker(name) {
   if (/^speaker\s*\d+$/i.test(cleaned)) return true;
   // Pure numbers or codes with no alpha word
   const words = cleaned.split(/[\s\-_]+/);
-  const hasAlphaWord = words.some(w => /^[a-zA-Z]{2,}$/.test(w.replace(/['']/g, '')) && !/^speaker$/i.test(w));
+  const hasAlphaWord = words.some(w => /^[a-zA-Z]{2,}$/.test(w.replace(/['‘’]/g, '')) && !/^speaker$/i.test(w));
   return !hasAlphaWord;
 }
 
