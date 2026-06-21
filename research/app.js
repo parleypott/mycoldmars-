@@ -2,6 +2,7 @@
 // All state lives client-side (localStorage). No server-side persistence.
 
 import { mdToHtml } from "./md.js";
+import { renderClarifyPanel } from "./clarify.js";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -287,24 +288,7 @@ async function clarifyPhase(prompt) {
   const summary = data?.summary ?? "";
 
   return new Promise((resolve) => {
-    panel.innerHTML = `
-      <div class="clarify-head">
-        <div class="clarify-eyebrow">scope · before we dispatch</div>
-        <div class="clarify-summary">${escapeHtml(summary)}</div>
-      </div>
-      <div class="clarify-questions">
-        ${questions.map((q, i) => `
-          <div class="clarify-q">
-            <label class="clarify-q-label">${escapeHtml(q.question)}</label>
-            <input class="clarify-q-input" data-qid="${q.id ?? `q${i}`}" data-question="${escapeHtml(q.question)}" placeholder="${(q.examples ?? []).join(' · ') || 'optional'}" autocomplete="off" spellcheck="false" />
-          </div>
-        `).join("")}
-      </div>
-      <div class="clarify-actions">
-        <button id="clarify-skip" class="ghost-btn">skip — just research it</button>
-        <button id="clarify-go" class="primary-btn">dispatch with my answers →</button>
-      </div>
-    `;
+    panel.innerHTML = renderClarifyPanel(summary, questions);
 
     const finish = (useAnswers) => {
       let enrichedPrompt = prompt;
