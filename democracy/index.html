@@ -1021,6 +1021,7 @@
   </footer>
 
   <script type="module">
+    import { parseAxisState } from './url-state.js';
     // ───────── Country presets ─────────
     // Values are 0-100 on each axis. These are stylized approximations
     // (loosely calibrated to V-Dem v14 scores), not the institute's numbers.
@@ -1262,8 +1263,8 @@
       const q = params.get('s');
       const n = params.get('n');
       if (q) {
-        const parts = q.split(',').map(x => Math.max(0, Math.min(100, parseInt(x, 10) || 50)));
-        if (parts.length === 5) applyState(Object.fromEntries(AXES.map((a, i) => [a, parts[i]])));
+        const st = parseAxisState(q, AXES);
+        if (st) applyState(st);
       }
       if (n) nameInput.value = n;
     }
