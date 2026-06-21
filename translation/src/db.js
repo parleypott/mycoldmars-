@@ -21,6 +21,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { needsTranscode, guessExtFromMime, mediaFieldsToRow } from './media-rules.js';
+import { escapeLikePattern } from './like-escape.js';
 
 // Re-export so existing importers (e.g. upload/media-flow.js) keep their
 // `import { needsTranscode } from '../db.js'` path working after the pure
@@ -855,7 +856,7 @@ export async function searchTranscripts(query, projectId) {
   if (!q) return listTranscripts(projectId);
 
   const cols = 'id, name, step, created_at, updated_at, project_id, slug';
-  const escaped = q.replace(/[%_]/g, ch => '\\' + ch);
+  const escaped = escapeLikePattern(q);
 
   // Preferred: search_text column.
   let qb = db().from('transcripts').select(cols)
@@ -992,7 +993,7 @@ export async function searchUserProfiles(query, { limit = 8 } = {}) {
   if (!supabase) return [];
   const q = (query || '').trim();
   if (!q) return [];
-  const escaped = q.replace(/[%_]/g, ch => '\\' + ch);
+  const escaped = escapeLikePattern(q);
   try {
     const { data, error } = await db().from('user_profiles')
       .select('user_id, display_name, color, avatar_url, email')
