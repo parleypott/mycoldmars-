@@ -9,6 +9,7 @@
 // of which gate path won.
 
 import { bootstrap, sendMagicLink, signInWithPassword, currentUser, currentProfile, onAuthChange } from './auth.js';
+import { readSupabaseAccessTokenSync } from './auth-token.js';
 
 const COOKIE_NAME = 'np_access';
 const gate = document.getElementById('gate');
@@ -70,29 +71,6 @@ function installApiFetchInterceptor() {
     } catch {}
     return originalFetch(input, init);
   };
-}
-
-// Read the Supabase access token from localStorage. The storage key shape
-// is `sb-<projectRef>-auth-token`; pre-v2 used `supabase.auth.token`. We
-// match either and parse the JWT out of the payload.
-function readSupabaseAccessTokenSync() {
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (!key) continue;
-      if (!/^sb-.*-auth-token$/i.test(key) && key !== 'supabase.auth.token') continue;
-      const raw = localStorage.getItem(key);
-      if (!raw) continue;
-      const parsed = JSON.parse(raw);
-      // v2 stores { access_token, refresh_token, ... }
-      if (parsed && typeof parsed === 'object' && parsed.access_token) return parsed.access_token;
-      // Some adapter versions wrap in an array; element 0 is access token.
-      if (Array.isArray(parsed) && typeof parsed[0] === 'string') return parsed[0];
-      // currentSession.access_token (legacy)
-      if (parsed?.currentSession?.access_token) return parsed.currentSession.access_token;
-    }
-  } catch {}
-  return null;
 }
 
 function unlock(opts = {}) {
