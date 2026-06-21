@@ -57,3 +57,21 @@ export function sceneDateLabels(date) {
   const iso = date.toISOString();
   return { day: iso.slice(0, 10), time: iso.slice(11, 16) };
 }
+
+// Map an hour-of-day (0-23) to a shoot time-of-day label. Pure. Callers MUST
+// pass the hour read the SAME way the day/time labels are read — i.e. UTC
+// (date.getUTCHours()), since the Date is constructed in UTC by
+// extractDateFromClipName and the labels come from .toISOString(). Reading this
+// hour via getHours() (local) while the day/time come from toISOString() (UTC)
+// is the bug this consolidation fixes: on a non-UTC machine the scene's
+// shoot_day would say one thing and its time_of_day another.
+export function timeOfDayFromHour(hour) {
+  if (hour < 6) return 'night';
+  if (hour < 8) return 'dawn';
+  if (hour < 12) return 'morning';
+  if (hour < 14) return 'midday';
+  if (hour < 17) return 'afternoon';
+  if (hour < 19) return 'golden-hour';
+  if (hour < 21) return 'evening';
+  return 'night';
+}

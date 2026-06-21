@@ -33,6 +33,15 @@ import {
   synthesizeProject,
   extractSubjectsFromAnalyses,
 } from './gemini-client.js';
+// Shared, timezone-safe clip-temporal helpers (single source of truth with
+// scene-detection.mjs). extractDateFromClipName builds the Date in UTC so the
+// filename's wall-clock round-trips through every readback on ANY machine; the
+// day/time/time-of-day labels must all be read in UTC to stay consistent.
+import {
+  extractDateFromClipName,
+  sceneDateLabels,
+  timeOfDayFromHour,
+} from './scene-detection-core.js';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
@@ -156,12 +165,6 @@ function setupShutdownHandler() {
 }
 
 // ── Timestamp parsing (ported from main.js groupIntoScenes) ──
-
-function extractDateFromClipName(name) {
-  const m = name?.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/);
-  if (!m) return null;
-  return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]), parseInt(m[4]), parseInt(m[5]));
-}
 
 // ══════════════════════════════════════════════════════════
 // STEP 1: SUBJECT EXTRACTION
@@ -392,8 +395,7 @@ async function step2SceneMaterialization(allUnits) {
   for (let i = 0; i < sceneGroups.length; i++) {
     const clips = sceneGroups[i];
     const start = clips[0].timestamp;
-    const day = start.toISOString().slice(0, 10);
-    const time = start.toISOString().slice(11, 16);
+    const { day, time } = sceneDateLabels(start);
 
     const totalDuration = clips.reduce((sum, c) => {
       const dur = (c.end_seconds || 0) - (c.start_seconds || 0);
@@ -404,7 +406,7 @@ async function step2SceneMaterialization(allUnits) {
       project_id: PROJECT_ID,
       name: `Scene at ${time}`,
       shoot_day: day,
-      time_of_day: timeOfDayFromHour(start.getHours()),
+      time_of_day: timeOfDayFromHour(start.getUTCHours()),
       chronological_order: i,
       clip_count: clips.length,
       total_duration_seconds: Math.round(totalDuration),
@@ -435,17 +437,6 @@ async function step2SceneMaterialization(allUnits) {
 
   console.log(`  ✓ Step 2 complete: ${sceneRows.length} scenes materialized, ${timed.length} clips assigned`);
   return sceneRows;
-}
-
-function timeOfDayFromHour(hour) {
-  if (hour < 6) return 'night';
-  if (hour < 8) return 'dawn';
-  if (hour < 12) return 'morning';
-  if (hour < 14) return 'midday';
-  if (hour < 17) return 'afternoon';
-  if (hour < 19) return 'golden-hour';
-  if (hour < 21) return 'evening';
-  return 'night';
 }
 
 // ══════════════════════════════════════════════════════════
