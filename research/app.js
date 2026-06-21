@@ -3,6 +3,7 @@
 
 import { mdToHtml } from "./md.js";
 import { renderClarifyPanel } from "./clarify.js";
+import { decidePollOutcome } from "./poll-decision.js";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -234,16 +235,17 @@ async function runOpenAI(prompt) {
         appendPhase("chatgpt", `· ${data.status}`);
         lastStatus = data.status;
       }
-      if (data.status === "completed") {
-        renderReport("chatgpt", data.report ?? "(empty result)");
+      const outcome = decidePollOutcome(data);
+      if (outcome.action === "done") {
+        renderReport("chatgpt", outcome.report);
         setStatus("chatgpt", "done", "done");
         current.status.chatgpt = "done";
         updateSession(current);
         checkAudioReady();
         return;
       }
-      if (data.status === "failed" || data.status === "cancelled") {
-        throw new Error(`openai ${data.status}: ${data.error ?? ""}`);
+      if (outcome.action === "error") {
+        throw new Error(outcome.error);
       }
     } catch (e) {
       setStatus("chatgpt", "error", "error");
