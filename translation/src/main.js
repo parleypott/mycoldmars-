@@ -15,6 +15,7 @@ import { buildEditorDocument, getDismissedSegmentNumbers } from './editor/docume
 import { mountTagSearch } from './tags/mount.js';
 import { mountCopilot } from './copilot/mount.js';
 import { buildPremiereXML, buildPremiereSequenceXML, buildSacredSequencerXML } from './export/premiere-xml.js';
+import { parseGapFrames } from './seq-gap.js';
 import { buildPremiereScript } from './export/premiere-script.js';
 import { exportHighlightsPDF } from './export/pdf-export.js';
 import { exportSummaryText, safeFilename } from './export/summary-export.js';
@@ -3661,7 +3662,7 @@ $('#seq-export-jsx-btn').addEventListener('click', () => {
   const sacredSequenceName = $('#seq-name').value.trim() || 'Sacred Sequence';
   const outputName = $('#seq-output-name').value.trim() || sacredSequenceName + '_Sacred Selects';
   const fps = parseFloat($('#seq-fps').value) || 23.976;
-  const gapFrames = parseInt($('#seq-gap').value) || 12;
+  const gapFrames = parseGapFrames($('#seq-gap').value);
   const gapSeconds = gapFrames / fps;
 
   // Convert soundbites to seconds for the Premiere extension. Routes through the
@@ -3706,7 +3707,7 @@ $('#seq-export-btn').addEventListener('click', () => {
   const sacredSequenceName = $('#seq-name').value.trim() || 'Sacred Sequence';
   const outputName = $('#seq-output-name').value.trim() || sacredSequenceName + '_Sacred Selects';
   const fps = parseFloat($('#seq-fps').value) || 23.976;
-  const gapFrames = parseInt($('#seq-gap').value) || 12;
+  const gapFrames = parseGapFrames($('#seq-gap').value);
 
   const xml = buildSacredSequencerXML({
     soundbites: seqSoundbites,
