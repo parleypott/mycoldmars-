@@ -22,6 +22,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { needsTranscode, guessExtFromMime, mediaFieldsToRow } from './media-rules.js';
 import { escapeLikePattern } from './like-escape.js';
+import { planProfileSearch, mergeProfileMatches } from './profile-search.js';
 
 // Re-export so existing importers (e.g. upload/media-flow.js) keep their
 // `import { needsTranscode } from '../db.js'` path working after the pure
@@ -994,16 +995,24 @@ export async function searchUserProfiles(query, { limit = 8 } = {}) {
   const q = (query || '').trim();
   if (!q) return [];
   const escaped = escapeLikePattern(q);
+  const cols = 'user_id, display_name, color, avatar_url, email';
   try {
-    const { data, error } = await db().from('user_profiles')
-      .select('user_id, display_name, color, avatar_url, email')
-      .or(`display_name.ilike.%${escaped}%,email.ilike.%${escaped}%`)
-      .limit(limit);
-    if (error) {
-      if (SHARES_MISSING_CODES.has(error.code)) return [];
-      throw normalizeError(error, 'searchUserProfiles');
+    // One scalar `.ilike()` per field instead of a single `.or()` string — a
+    // comma in the value (a "Last, First" name) corrupts an `.or()` filter but
+    // is a literal part of a scalar `.ilike()` pattern. OR-combine in JS.
+    const plan = planProfileSearch(escaped);
+    const results = await Promise.all(plan.map(({ column, pattern }) =>
+      db().from('user_profiles').select(cols).ilike(column, pattern).limit(limit)
+    ));
+    const rowSets = [];
+    for (const { data, error } of results) {
+      if (error) {
+        if (SHARES_MISSING_CODES.has(error.code)) return [];
+        throw normalizeError(error, 'searchUserProfiles');
+      }
+      rowSets.push(data || []);
     }
-    return data || [];
+    return mergeProfileMatches(rowSets, limit);
   } catch (err) {
     if (SHARES_MISSING_CODES.has(err?.code)) return [];
     throw err;
