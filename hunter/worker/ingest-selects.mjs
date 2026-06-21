@@ -10,6 +10,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { parseFCP7XML, extractCorpusUnits } from './selects-parse-core.js';
+import { buildRawUnitMatcher, findRawMatch } from './selects-crossref.js';
 
 // Load env
 const envPath = join(import.meta.dirname, '..', '..', '.env');
@@ -162,7 +163,7 @@ async function main() {
     .select('id').eq('project_id', projectId).eq('tier', 'raw');
   const rawAssetIds = (rawAssets || []).map(a => a.id);
 
-  let rawUnitsMap = new Map(); // source_clip_name → corpus_unit
+  let rawUnitsMap = new Map(); // clip-name variant → corpus_unit
   if (rawAssetIds.length > 0) {
     // Fetch all raw corpus units in pages
     let allRawUnits = [];
@@ -178,17 +179,9 @@ async function main() {
       offset += 1000;
     }
 
-    for (const u of allRawUnits) {
-      rawUnitsMap.set(u.source_clip_name, u);
-      // Map without extension
-      const nameNoExt = u.source_clip_name.replace(/\.[^.]+$/, '');
-      rawUnitsMap.set(nameNoExt, u);
-      // Map without _Proxy suffix (Premiere uses original names, Dropbox has proxy names)
-      const nameNoProxy = u.source_clip_name.replace(/_Proxy/i, '');
-      rawUnitsMap.set(nameNoProxy, u);
-      const nameNoProxyNoExt = nameNoExt.replace(/_Proxy/i, '');
-      rawUnitsMap.set(nameNoProxyNoExt, u);
-    }
+    // Symmetric clip-name matching: both sides normalize through clipMatchKeys
+    // (full → no-ext → no-_Proxy → no-_Proxy-no-ext). See selects-crossref.js.
+    rawUnitsMap = buildRawUnitMatcher(allRawUnits);
     console.log(`[selects] loaded ${allRawUnits.length} raw corpus units for cross-referencing`);
   }
 
@@ -201,9 +194,9 @@ async function main() {
 
   await Promise.allSettled(remaining.map((unit, i) => limit(async () => {
     try {
-      // Find matching raw unit
-      const rawMatch = rawUnitsMap.get(unit.sourceClipName)
-        || rawUnitsMap.get(unit.sourceClipName.replace(/\.[^.]+$/, ''));
+      // Find matching raw unit (symmetric: selects name normalized the same
+      // way as the raw map keys, so a selects name carrying "_Proxy" matches too)
+      const rawMatch = findRawMatch(rawUnitsMap, unit.sourceClipName);
 
       // Create corpus unit with edit context in track_label
       const { data: cu, error } = await supabase.from('corpus_units')
