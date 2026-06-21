@@ -5748,9 +5748,20 @@ function extractFromMeta(doc) {
   const parts = addrChunk.split(',').map(p => p.trim()).filter(Boolean);
   const streetAddress = parts[0];
   const city = parts[1];
-  const stateZipMatch = parts[2]?.match(/([A-Z]{2})\s+(\d{5})/);
-  const state = stateZipMatch?.[1] || parts[2];
-  const zip = stateZipMatch?.[2];
+  // Normalize the state chunk. A spelled-out state ("New York") or a full name with
+  // the zip baked in ("New York 10514") leaked verbatim into the geocode query because
+  // the old /([A-Z]{2})\s+(\d{5})/ only recognized a 2-letter code. Same trap fixed in
+  // parseListingFilename (the import-filename front door); this OG-meta fallback was the
+  // surviving divergent copy. Pull a trailing zip first, then map a full name → abbrev.
+  let stateChunk = (parts[2] || '').trim();
+  const zipM = stateChunk.match(/(\d{5})\s*$/);
+  const zip = zipM ? zipM[1] : undefined;
+  if (zipM) stateChunk = stateChunk.slice(0, zipM.index).replace(/[,\s]+$/, '').trim();
+  const ST_NAMES = { 'new york': 'NY', 'connecticut': 'CT', 'new jersey': 'NJ', 'pennsylvania': 'PA', 'massachusetts': 'MA', 'rhode island': 'RI', 'vermont': 'VT', 'new hampshire': 'NH', 'maine': 'ME' };
+  let state;
+  if (/^[A-Za-z]{2}$/.test(stateChunk)) state = stateChunk.toUpperCase();
+  else if (ST_NAMES[stateChunk.toLowerCase()]) state = ST_NAMES[stateChunk.toLowerCase()];
+  else state = stateChunk || undefined;
   const specs = (ogDesc || '').match(/(\d+)\s*bed[s]?[\s,·|]+(\d+(?:\.\d+)?)\s*bath[s]?[\s,·|]+([\d,]+)\s*(?:sqft|sq\.?\s*ft)/i);
   return {
     streetAddress, city, state, zip, price,
