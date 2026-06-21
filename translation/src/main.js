@@ -19,6 +19,7 @@ import { buildPremiereScript } from './export/premiere-script.js';
 import { exportHighlightsPDF } from './export/pdf-export.js';
 import { exportSummaryText, safeFilename } from './export/summary-export.js';
 import { byUpdatedDesc, isInTrashWindow, trashDaysLeft, relativeTimeFrom } from './library-time.js';
+import { generateSlug } from './slug.js';
 import { extractHighlightsFromEditor } from './editor/document-builder.js';
 import { buildAutoSummaryPrompt } from './copilot/copilot-prompts.js';
 import { initSotHunter, setSotHunterVisible } from './sot-hunter.js';
@@ -2926,15 +2927,6 @@ function generateAutoName() {
   const speaker = seqMeta.primarySpeaker || 'Untitled';
   const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   return `${speaker} — ${date}`;
-}
-
-function generateSlug(name) {
-  return name
-    .toLowerCase()
-    .replace(/['']/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 60) || 'untitled';
 }
 
 const RESERVED_SLUGS = ['sequencer'];
