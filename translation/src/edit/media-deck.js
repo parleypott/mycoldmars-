@@ -25,6 +25,7 @@ import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.js';
 
 import { parseTimecodeToSeconds } from '../timecode-utils.js';
+import { buildSegIndex, findSegmentAt as locateSegmentAt, highlightTimeSpan } from './segment-locate.js';
 import { wordIndexFromCharOffset } from './word-index.js';
 import { formatClock } from '../format-clock.js';
 
@@ -426,28 +427,15 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   let segIndexFromRef = null;
   function ensureSegIndex() {
     if (segIndexFromRef === segments) return;
-    segIndex = segments.map(s => ({
-      number: s.number,
-      startSec: typeof s.startSec === 'number' ? s.startSec : parseTimecodeToSeconds(s.start),
-      endSec:   typeof s.endSec   === 'number' ? s.endSec   : parseTimecodeToSeconds(s.end),
-    }));
+    segIndex = buildSegIndex(segments);
     segIndexFromRef = segments;
   }
 
-  // Binary search for the segment containing currentTime. Segments are
-  // ordered by start time; we want the last one whose startSec <= t.
+  // Binary search for the segment containing currentTime (delegates to the
+  // shared, unit-tested locator in segment-locate.js).
   function findSegmentAt(t) {
     ensureSegIndex();
-    let lo = 0, hi = segIndex.length - 1, found = -1;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      const s = segIndex[mid];
-      if (s.startSec <= t) { found = mid; lo = mid + 1; }
-      else hi = mid - 1;
-    }
-    if (found < 0) return null;
-    const s = segIndex[found];
-    return (t < s.endSec) ? s : null;
+    return locateSegmentAt(segIndex, t);
   }
 
   // Capture refs so destroy() can detach.
@@ -697,20 +685,4 @@ function caretOffsetWithin(segEl, node, offset) {
   return count;
 }
 
-// Resolve a highlight to a {start, end} time span by looking up its
-// segment numbers in the segments list. Highlights span 1..N segments.
-function highlightTimeSpan(h, segments) {
-  const nums = h.segment_numbers || h.segmentNumbers || [];
-  if (!nums.length) return null;
-  let start = Infinity, end = -Infinity;
-  for (const n of nums) {
-    const s = segments.find(seg => seg.number === n);
-    if (!s) continue;
-    const ss = typeof s.startSec === 'number' ? s.startSec : parseTimecodeToSeconds(s.start);
-    const ee = typeof s.endSec   === 'number' ? s.endSec   : parseTimecodeToSeconds(s.end);
-    if (isFinite(ss) && ss < start) start = ss;
-    if (isFinite(ee) && ee > end)   end   = ee;
-  }
-  if (!isFinite(start) || !isFinite(end) || end <= start) return null;
-  return { start, end };
-}
+// highlightTimeSpan now lives in segment-locate.js (shared + unit-tested).
