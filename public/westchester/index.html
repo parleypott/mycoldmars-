@@ -6339,7 +6339,13 @@ const US_STATE_ABBREV = {
   'wisconsin': 'WI', 'wyoming': 'WY', 'district of columbia': 'DC',
 };
 function normalizeStateAbbrev(s) {
-  const v = String(s || '').trim();
+  let v = String(s || '').trim();
+  if (!v) return '';
+  // Strip a trailing US ZIP ("NY 10506" / "Connecticut 06830-1234") so a
+  // "State ZIP" chunk — the standard US address tail the fallback parse feeds
+  // in via pin.address segments — resolves to the state instead of garbage
+  // initials ("NY 10506" → "N1", "Connecticut 06830" → "C0").
+  v = v.replace(/\s+\d{5}(?:-\d{4})?$/, '').trim();
   if (!v) return '';
   if (v.length === 2) return v.toUpperCase();
   const lower = v.toLowerCase();

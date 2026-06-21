@@ -137,5 +137,46 @@ t('truly-unknown input still falls back without throwing', () => {
   assert.strictEqual(normalizeStateAbbrev('Some Place'), 'SP');
 });
 
+// ── "State ZIP" tail (the bug): pinAddressParts' fallback parse splits a pin's
+// address string on commas, so segs[2] is the standard US "State ZIP" tail
+// ("..., Bedford, NY 10506"). The OLD code fed that whole chunk into the map /
+// initials fallback → "NY 10506" → "N1", "Connecticut 06830" → "C0",
+// "Washington 98101" → "W9". A garbage code that ALSO !== 'NY', so a NY home
+// got wrongly flagged + shown as out-of-state. The fix strips the trailing ZIP.
+t('RED PROOF: old normalize mangled a "State ZIP" tail into a garbage code', () => {
+  assert.strictEqual(oldNormalize('NY 10506'), 'N1');        // should be NY
+  assert.strictEqual(oldNormalize('CT 06830'), 'C0');        // should be CT
+  assert.strictEqual(oldNormalize('Connecticut 06830'), 'C0'); // should be CT
+  assert.strictEqual(oldNormalize('Washington 98101'), 'W9');  // should be WA
+  // shipped (fixed) fn resolves the state correctly:
+  assert.strictEqual(normalizeStateAbbrev('NY 10506'), 'NY');
+  assert.strictEqual(normalizeStateAbbrev('CT 06830'), 'CT');
+  assert.strictEqual(normalizeStateAbbrev('Connecticut 06830'), 'CT');
+  assert.strictEqual(normalizeStateAbbrev('Washington 98101'), 'WA');
+});
+t('2-letter code + ZIP → the code (the common Westchester/CT shape)', () => {
+  assert.strictEqual(normalizeStateAbbrev('NY 10506'), 'NY');
+  assert.strictEqual(normalizeStateAbbrev('ny 10514'), 'NY');
+  assert.strictEqual(normalizeStateAbbrev('CT 06830'), 'CT');
+  assert.strictEqual(normalizeStateAbbrev('NJ 07601'), 'NJ');
+});
+t('full state name + ZIP → the code (incl. ZIP+4)', () => {
+  assert.strictEqual(normalizeStateAbbrev('New York 10506'), 'NY');
+  assert.strictEqual(normalizeStateAbbrev('Connecticut 06830'), 'CT');
+  assert.strictEqual(normalizeStateAbbrev('NY 10506-1234'), 'NY');
+  assert.strictEqual(normalizeStateAbbrev('North Carolina 27514'), 'NC');
+  assert.strictEqual(normalizeStateAbbrev('Washington 98101'), 'WA');
+});
+t('every state + a ZIP tail resolves to its USPS code', () => {
+  for (const [name, code] of Object.entries(USPS))
+    assert.strictEqual(normalizeStateAbbrev(`${name} 12345`), code, `${name} 12345 should be ${code}`);
+});
+t('no-regression: a bare/partial ZIP is NOT stripped (no leading-space full ZIP)', () => {
+  // bare "10506" has no leading whitespace before 5 digits → unchanged ("1", as before)
+  assert.strictEqual(normalizeStateAbbrev('10506'), '1');
+  // a 3-digit partial is not a ZIP → unchanged ("N1", as before)
+  assert.strictEqual(normalizeStateAbbrev('NY 123'), 'N1');
+});
+
 console.log(`\nwestchester-state-abbrev: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
