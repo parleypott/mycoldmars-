@@ -26,6 +26,7 @@ if (existsSync(envPath)) {
 
 import { createClient } from '@supabase/supabase-js';
 import { generateEmbedding, synthesizePatterns } from './gemini-client.js';
+import { cosineSimilarity } from './cross-tier-core.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -48,32 +49,6 @@ async function fetchAllPaginated(table, select, filters = {}, orderCol = 'create
     offset += 1000;
   }
   return all;
-}
-
-function parseEmbedding(emb) {
-  if (Array.isArray(emb)) return emb;
-  if (typeof emb === 'string') {
-    // pgvector returns "[0.1,0.2,...]" format
-    try { return JSON.parse(emb); } catch {}
-    // Or "(0.1,0.2,...)" format
-    return emb.replace(/[[\]()]/g, '').split(',').map(Number);
-  }
-  return null;
-}
-
-function cosineSimilarity(a, b) {
-  const va = parseEmbedding(a);
-  const vb = parseEmbedding(b);
-  if (!va || !vb || va.length !== vb.length) return 0;
-
-  let dot = 0, normA = 0, normB = 0;
-  for (let i = 0; i < va.length; i++) {
-    dot += va[i] * vb[i];
-    normA += va[i] * va[i];
-    normB += vb[i] * vb[i];
-  }
-  const denom = Math.sqrt(normA) * Math.sqrt(normB);
-  return denom > 0 ? dot / denom : 0;
 }
 
 // ── Script → Raw Matching ──
