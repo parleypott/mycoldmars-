@@ -2,6 +2,7 @@ import { isConfigured, listProjects, createProject, getProject, listMediaAssets,
 import { SCENE_TEMPORAL_GAP_MINUTES, extractDateFromClipName, extractCameraId, groupIntoScenes } from './scene-grouping.js';
 import { formatTc } from './format-tc.js';
 import { byAnalysisRecencyDesc } from './feed-sort.js';
+import { normalizeKeepability } from './keepability.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -680,7 +681,7 @@ function renderInsightsTab(units, patterns, assets, signal) {
   }
   const topEmotions = Object.entries(emotions).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const topShots = Object.entries(shotTypes).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const avgKeep = keepN > 0 ? (keepSum / keepN).toFixed(2) : '—';
+  const avgKeep = keepN > 0 ? normalizeKeepability(keepSum / keepN).toFixed(1) : '—';
   const scenes = groupIntoScenes(units);
 
   // Read rich project context from metadata if available
@@ -1163,8 +1164,9 @@ function renderScenesTab(units, signal) {
 
   // Assign status to scenes based on keepability
   const enriched = scenes.map((s, i) => {
-    const status = s.avgKeep != null && s.avgKeep >= 7 ? 'accepted' : s.avgKeep != null && s.avgKeep >= 5 ? 'refined' : 'proposed';
-    const confidence = s.avgKeep != null ? Math.min(95, Math.round(s.avgKeep * 10 + Math.random() * 5)) : Math.round(50 + Math.random() * 30);
+    const k = normalizeKeepability(s.avgKeep);
+    const status = k != null && k >= 7 ? 'accepted' : k != null && k >= 5 ? 'refined' : 'proposed';
+    const confidence = k != null ? Math.min(95, Math.round(k + Math.random() * 5)) : Math.round(50 + Math.random() * 30);
     return { ...s, status, confidence, index: i };
   });
 
@@ -3232,7 +3234,7 @@ function getFilteredCorpus() {
   // Keepability filter
   if (corpusKeepFilter) {
     filtered = filtered.filter(u => {
-      const score = u.analyses?.[0]?.output_json?.keepability_score;
+      const score = normalizeKeepability(u.analyses?.[0]?.output_json?.keepability_score);
       if (score == null) return false;
       if (corpusKeepFilter === 'high') return score >= 7;
       if (corpusKeepFilter === 'mid') return score >= 4 && score <= 6;
@@ -3242,9 +3244,9 @@ function getFilteredCorpus() {
   }
   // Sort
   if (corpusSort === 'keep-desc') {
-    filtered.sort((a, b) => (b.analyses?.[0]?.output_json?.keepability_score ?? -1) - (a.analyses?.[0]?.output_json?.keepability_score ?? -1));
+    filtered.sort((a, b) => (normalizeKeepability(b.analyses?.[0]?.output_json?.keepability_score) ?? -1) - (normalizeKeepability(a.analyses?.[0]?.output_json?.keepability_score) ?? -1));
   } else if (corpusSort === 'keep-asc') {
-    filtered.sort((a, b) => (a.analyses?.[0]?.output_json?.keepability_score ?? 99) - (b.analyses?.[0]?.output_json?.keepability_score ?? 99));
+    filtered.sort((a, b) => (normalizeKeepability(a.analyses?.[0]?.output_json?.keepability_score) ?? 99) - (normalizeKeepability(b.analyses?.[0]?.output_json?.keepability_score) ?? 99));
   }
   return filtered;
 }
@@ -3271,7 +3273,7 @@ function renderCorpusSummary() {
     if (j.shot_type) shotTypes[j.shot_type] = (shotTypes[j.shot_type] || 0) + 1;
   }
 
-  const avgKeep = keepN > 0 ? (keepSum / keepN).toFixed(1) : '—';
+  const avgKeep = keepN > 0 ? normalizeKeepability(keepSum / keepN).toFixed(1) : '—';
   const topShots = Object.entries(shotTypes).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
   const hours = Math.floor(totalDur / 3600);
   const mins = Math.floor((totalDur % 3600) / 60);
@@ -3388,10 +3390,10 @@ function renderAnalysisBadges(structured) {
   const badges = [];
   if (structured.shot_type) badges.push(structured.shot_type);
   if (structured.camera_movement && structured.camera_movement !== 'static') badges.push(structured.camera_movement);
-  if (structured.keepability_score != null) {
-    const score = structured.keepability_score;
-    const cls = score >= 7 ? 'analysis-badge--keep' : score <= 3 ? 'analysis-badge--cut' : '';
-    badges.push(`<span class="analysis-badge ${cls}">keep: ${score}/10</span>`);
+  const keepScore = normalizeKeepability(structured.keepability_score);
+  if (keepScore != null) {
+    const cls = keepScore >= 7 ? 'analysis-badge--keep' : keepScore <= 3 ? 'analysis-badge--cut' : '';
+    badges.push(`<span class="analysis-badge ${cls}">keep: ${keepScore.toFixed(1)}/10</span>`);
   }
   if (structured.editorial_function) badges.push(structured.editorial_function);
   if (!badges.length) return '';
@@ -3926,10 +3928,10 @@ function renderProjectStats(units) {
 
   // Keepability score overview
   if (keepCount > 0) {
-    const avg = (keepTotal / keepCount).toFixed(1);
-    const highKeep = analyzed.filter(u => (u.analyses[0].output_json.keepability_score || 0) >= 7).length;
+    const avg = normalizeKeepability(keepTotal / keepCount).toFixed(1);
+    const highKeep = analyzed.filter(u => (normalizeKeepability(u.analyses[0].output_json.keepability_score) || 0) >= 7).length;
     const lowKeep = analyzed.filter(u => {
-      const s = u.analyses[0].output_json.keepability_score;
+      const s = normalizeKeepability(u.analyses[0].output_json.keepability_score);
       return s != null && s <= 3;
     }).length;
     html += `<div class="stats-card stats-card--highlight">
@@ -4030,8 +4032,8 @@ function renderBestClips(units) {
 
   // Filter to units with keepability scores >= 6
   const scored = units
-    .filter(u => u.analyses?.[0]?.output_json?.keepability_score >= 6)
-    .sort((a, b) => (b.analyses[0].output_json.keepability_score) - (a.analyses[0].output_json.keepability_score))
+    .filter(u => (normalizeKeepability(u.analyses?.[0]?.output_json?.keepability_score) ?? -1) >= 6)
+    .sort((a, b) => (normalizeKeepability(b.analyses[0].output_json.keepability_score) ?? -1) - (normalizeKeepability(a.analyses[0].output_json.keepability_score) ?? -1))
     .slice(0, 20);
 
   if (scored.length < 1) {
@@ -4046,12 +4048,12 @@ function renderBestClips(units) {
     const j = u.analyses[0].output_json;
     const text = u.analyses[0].output_text || '';
     const clipName = (u.source_clip_name || u.sourceClipName || '').replace(/_Proxy\.MP4$/i, '');
-    const score = j.keepability_score;
+    const score = normalizeKeepability(j.keepability_score);
     const scoreClass = score >= 8 ? 'best-clip-score--high' : '';
 
     return `<div class="best-clip-card">
       <div class="best-clip-top">
-        <span class="best-clip-score ${scoreClass}">${score}/10</span>
+        <span class="best-clip-score ${scoreClass}">${score.toFixed(1)}/10</span>
         <span class="best-clip-name">${escHtml(clipName.replace(/^\d{8}-\d{4}-/, ''))}</span>
       </div>
       <div class="best-clip-tags">
@@ -4152,10 +4154,8 @@ function renderScenes(units) {
         <div class="scenes-day-strip">
           ${dayScenes.map((scene, si) => {
             const sceneId = `scene-${day}-${si}`;
-            // Normalize keepability: if < 1 it's 0-1 scale, multiply by 10
-            const keepDisplay = scene.avgKeep != null
-              ? (scene.avgKeep <= 1 ? (scene.avgKeep * 10).toFixed(1) : scene.avgKeep.toFixed(1))
-              : null;
+            const keepNorm = normalizeKeepability(scene.avgKeep);
+            const keepDisplay = keepNorm != null ? keepNorm.toFixed(1) : null;
             // Clean preview: strip markdown formatting
             const cleanPreview = scene.firstAnalysis
               ? scene.firstAnalysis.replace(/\*\*[^*]*\*\*:?\s*/g, '').replace(/^#+\s+.*/gm, '').replace(/\*/g, '').trim().slice(0, 120)
@@ -4370,7 +4370,7 @@ function renderReviewCard(filtered) {
   const projectName = u.media_assets?.hunter_projects?.name || '';
   const tier = u.media_assets?.tier || '';
   const text = analysis?.output_text || '';
-  const score = j.keepability_score;
+  const score = normalizeKeepability(j.keepability_score);
 
   const tags = [j.shot_type, j.camera_movement, j.editorial_function, j.emotional_register, j.lighting, j.audio_quality].filter(Boolean);
 
@@ -4382,7 +4382,7 @@ function renderReviewCard(filtered) {
       </div>
       <div class="review-clip-name">${escHtml(clipName)}</div>
       <div class="review-meta">${escHtml(projectName)} / ${tier} · ${formatTc(u.start_seconds)} – ${formatTc(u.end_seconds)}</div>
-      ${score != null ? `<div class="review-score ${score >= 7 ? 'review-score--high' : score <= 3 ? 'review-score--low' : ''}">keepability: ${score}/10</div>` : ''}
+      ${score != null ? `<div class="review-score ${score >= 7 ? 'review-score--high' : score <= 3 ? 'review-score--low' : ''}">keepability: ${score.toFixed(1)}/10</div>` : ''}
       <div class="review-tags">${tags.map(t => `<span class="review-tag">${escHtml(t)}</span>`).join('')}</div>
       ${text ? `<div class="review-text">${escHtml(text)}</div>` : ''}
       ${j.visual_description ? `<div class="review-visual"><strong>visual:</strong> ${escHtml(j.visual_description)}</div>` : ''}
