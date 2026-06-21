@@ -9756,6 +9756,10 @@ function scoreBand(s) {
 // Mines compass.description + pin.notes for keywords. Returns booleans.
 // If the user has manually toggled (pin.hasPool / pin.hasAdu defined), the
 // override wins. Otherwise we fall back to the text scan.
+// Strong, unambiguous pool signals — these WIN even when a negative keyword (e.g. "pool table")
+// also appears in the same listing, so a house with a real in-ground pool AND a game room with a
+// pool table isn't wrongly flagged no-pool. The negative veto only guards the weak \bpool\b catch-all.
+const STRONG_POOL_RE = /\b(in[-\s]?ground pool|swimming pool|gunite pool|heated pool|saltwater pool)\b/i;
 const POOL_RE = /\b(in[-\s]?ground pool|swimming pool|gunite pool|heated pool|saltwater pool|\bpool\b)/i;
 const POOL_NEG_RE = /\b(no pool|without (?:a )?pool|car ?pool|liverpool|pool table|cesspool)\b/i;
 const ADU_RE = /\b(ADU|accessory dwelling|accessory apartment|guest house|guest cottage|guest quarters|in[-\s]?law (?:suite|apartment|unit)|carriage house|pool house|detached cottage|detached studio|separate cottage|separate apartment|au pair)\b/i;
@@ -9767,7 +9771,7 @@ function detectPinAmenities(p) {
   ].filter(Boolean).join(' \n ');
   let pool = false, adu = false;
   if (text) {
-    if (POOL_RE.test(text) && !POOL_NEG_RE.test(text)) pool = true;
+    if (STRONG_POOL_RE.test(text) || (POOL_RE.test(text) && !POOL_NEG_RE.test(text))) pool = true;
     if (ADU_RE.test(text)) adu = true;
   }
   const hasPool = (typeof p.hasPool === 'boolean') ? p.hasPool : pool;
