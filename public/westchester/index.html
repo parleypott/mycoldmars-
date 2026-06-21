@@ -5522,6 +5522,23 @@ function parseListingFilename(name) {
   return null;
 }
 
+// Parse a listing price out of free OG-meta text. The old regexes (/\$([0-9,]+)/ and
+// /\$\s*([\d,]+)/) captured only the integer run, so a SHORTHAND price — "$2.5M",
+// "$2.5 million", "$950K" — captured just the leading digit ("$2" → 2), pricing a
+// multimillion-dollar house at $2 and (in extractFromMeta) leaking the ".5M" tail into
+// the geocode address. Shorthand prices are common in non-Compass share cards (Zillow/
+// Redfin/realtor/MLS og: tags) — the exact fallback sources extractFromMeta exists for.
+// Shorthand is matched FIRST; a comma/plain full price is byte-identical to before.
+function parseListingPrice(text) {
+  if (!text) return null;
+  const m = String(text).match(/\$\s*([\d,]+(?:\.\d+)?)\s*(million|mil|thousand|[mk])?\b/i);
+  if (!m) return null;
+  let n = parseFloat(m[1].replace(/,/g, ''));
+  if (!Number.isFinite(n)) return null;
+  if (m[2]) n *= (m[2][0].toLowerCase() === 'm') ? 1e6 : 1e3;
+  return n > 0 ? Math.round(n) : null;
+}
+
 // Extract { price, beds, baths, sqft, brokerage } from a Compass-saved HTML string
 // via og:description meta. Returns nulls for missing fields. Generic Compass shells
 // (saved before SSR populated listing data) return all nulls.
@@ -5531,12 +5548,11 @@ function extractCompassMetaFromHtml(html) {
              || html.match(/<meta[^>]+(?:property|name)=["']description["'][^>]+content=["']([^"']+)["']/i)
              || [])[1] || '';
   if (/Centralized hub|guided, transparent/i.test(desc) || !desc) return {};
-  const priceM = desc.match(/\$([0-9,]+)/);
   const bedsM = desc.match(/(\d+(?:\.\d+)?)\s*-?\s*bed/i);
   const bathsM = desc.match(/(\d+(?:\.\d+)?)\s*-?\s*bath/i);
   const sqftM = desc.match(/([\d,]+)\s*sqft/i);
   return {
-    price: priceM ? parseInt(priceM[1].replace(/,/g, ''), 10) : null,
+    price: parseListingPrice(desc),
     beds: bedsM ? parseFloat(bedsM[1]) : null,
     baths: bathsM ? parseFloat(bathsM[1]) : null,
     sqft: sqftM ? parseInt(sqftM[1].replace(/,/g, ''), 10) : null,
@@ -5742,9 +5758,10 @@ function extractFromMeta(doc) {
   const ogImg = doc.querySelector('meta[property="og:image"]')?.content;
   const ogUrl = doc.querySelector('meta[property="og:url"]')?.content || doc.querySelector('link[rel="canonical"]')?.href;
   if (!ogTitle) return null;
-  const priceMatch = (ogTitle + ' ' + (ogDesc||'')).match(/\$\s*([\d,]+)/);
-  const price = priceMatch ? parseInt(priceMatch[1].replace(/[^\d]/g, ''), 10) : null;
-  const addrChunk = ogTitle.replace(/\$\s*[\d,]+/, '').replace(/[|·]/g, ',').trim();
+  const price = parseListingPrice(ogTitle + ' ' + (ogDesc||''));
+  // Strip the FULL price token (incl. a "$2.5M"/"$2.5 million"/"$950K" tail) from the
+  // address — the old /\$\s*[\d,]+/ removed only "$2" and leaked ".5M" into the geocode.
+  const addrChunk = ogTitle.replace(/\$\s*[\d,]+(?:\.\d+)?\s*(?:million|mil|thousand|[mk])?\b/i, '').replace(/[|·]/g, ',').trim();
   const parts = addrChunk.split(',').map(p => p.trim()).filter(Boolean);
   const streetAddress = parts[0];
   const city = parts[1];

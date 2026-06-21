@@ -22,12 +22,17 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HTML = fs.readFileSync(path.join(__dirname, '..', 'public', 'westchester', 'index.html'), 'utf8');
 
-function extractFn() {
-  const m = HTML.match(/function extractFromMeta\(doc\) \{[\s\S]*?\n\}\n/);
-  if (!m) throw new Error('could not locate extractFromMeta in index.html');
+function grab(re, label) {
+  const m = HTML.match(re);
+  if (!m) throw new Error('could not locate ' + label + ' in index.html');
   return m[0];
 }
-const extractFromMeta = new Function(extractFn() + '\nreturn extractFromMeta;')();
+// extractFromMeta now calls the shared parseListingPrice helper — pull it into scope too.
+const extractFromMeta = new Function(
+  grab(/function parseListingPrice\(text\) \{[\s\S]*?\n\}\n/, 'parseListingPrice') +
+  grab(/function extractFromMeta\(doc\) \{[\s\S]*?\n\}\n/, 'extractFromMeta') +
+  '\nreturn extractFromMeta;'
+)();
 
 // Minimal doc stub — extractFromMeta reads everything through doc.querySelector().
 function makeDoc(meta) {
