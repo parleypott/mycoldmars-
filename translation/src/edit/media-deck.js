@@ -28,6 +28,7 @@ import { parseTimecodeToSeconds } from '../timecode-utils.js';
 import { buildSegIndex, findSegmentAt as locateSegmentAt, highlightTimeSpan } from './segment-locate.js';
 import { wordIndexFromCharOffset } from './word-index.js';
 import { formatClock } from '../format-clock.js';
+import { parseDeckCoord } from './deck-position.js';
 
 const VIDEO_HEIGHT = 200;
 const WAVEFORM_HEIGHT = 72;
@@ -186,8 +187,8 @@ export function mountMediaDeck(editorContainer, opts = {}) {
     dragState = null;
     document.body.classList.remove('media-deck-dragging');
     try {
-      const left = parseFloat(videoFrame.style.left) || 16;
-      const bottom = parseFloat(videoFrame.style.bottom) || 86;
+      const left = parseDeckCoord(videoFrame.style.left, 16);
+      const bottom = parseDeckCoord(videoFrame.style.bottom, 86);
       const collapsed = videoFrame.classList.contains('media-deck-video--collapsed');
       localStorage.setItem('mcm_media_deck_pos', JSON.stringify({ left, bottom, collapsed }));
     } catch {}
