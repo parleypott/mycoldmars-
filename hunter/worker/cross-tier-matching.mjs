@@ -27,6 +27,7 @@ if (existsSync(envPath)) {
 import { createClient } from '@supabase/supabase-js';
 import { generateEmbedding, synthesizePatterns } from './gemini-client.js';
 import { cosineSimilarity } from './cross-tier-core.js';
+import { buildClipNameKeySet, clipNameMatchesSet } from './selects-crossref.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -208,22 +209,16 @@ async function rawToSelectsAnalysis(projectId) {
     selectsUnits = selectsUnits.concat(await fetchAllPaginated('corpus_units', 'id, source_clip_name, start_seconds, end_seconds', { media_asset_id: id }));
   }
 
-  // Cross-reference: which raw clips appear in selects?
-  const selectsClipNames = new Set();
-  for (const u of selectsUnits) {
-    selectsClipNames.add(u.source_clip_name);
-    selectsClipNames.add(u.source_clip_name.replace(/\.[^.]+$/, ''));
-  }
+  // Cross-reference: which raw clips appear in selects? Symmetric matching — both
+  // sides normalize through clipMatchKeys so a proxy-edited selects sequence
+  // (clip names carrying _Proxy) still matches camera-original raw clips.
+  const selectsClipNames = buildClipNameKeySet(selectsUnits);
 
   const kept = [];
   const discarded = [];
 
   for (const raw of rawUnits) {
-    const name = raw.source_clip_name;
-    const nameNoProxy = name.replace(/_Proxy/i, '');
-    const nameNoExt = nameNoProxy.replace(/\.[^.]+$/, '');
-
-    if (selectsClipNames.has(nameNoProxy) || selectsClipNames.has(nameNoExt)) {
+    if (clipNameMatchesSet(selectsClipNames, raw.source_clip_name)) {
       kept.push(raw);
     } else {
       discarded.push(raw);
@@ -389,19 +384,12 @@ export async function computeAndPersistDecisions(projectId) {
     selectsUnits = selectsUnits.concat(await fetchAllPaginated('corpus_units', 'id, source_clip_name, start_seconds, end_seconds', { media_asset_id: id }));
   }
 
-  const selectsClipNames = new Set();
-  for (const u of selectsUnits) {
-    selectsClipNames.add(u.source_clip_name);
-    selectsClipNames.add(u.source_clip_name.replace(/\.[^.]+$/, ''));
-  }
+  const selectsClipNames = buildClipNameKeySet(selectsUnits);
 
   const kept = [];
   const discarded = [];
   for (const raw of rawUnits) {
-    const name = raw.source_clip_name;
-    const nameNoProxy = name.replace(/_Proxy/i, '');
-    const nameNoExt = nameNoProxy.replace(/\.[^.]+$/, '');
-    if (selectsClipNames.has(nameNoProxy) || selectsClipNames.has(nameNoExt)) {
+    if (clipNameMatchesSet(selectsClipNames, raw.source_clip_name)) {
       kept.push(raw);
     } else {
       discarded.push(raw);

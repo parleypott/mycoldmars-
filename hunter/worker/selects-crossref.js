@@ -71,3 +71,34 @@ export function findRawMatch(matcher, selectsName) {
   }
   return null;
 }
+
+/**
+ * Build a Set of EVERY match-key variant across a list of units'
+ * source_clip_name. Used for the "which raw clips appear in selects?" membership
+ * test in cross-tier-matching: the SELECTS side is normalized through the same
+ * clipMatchKeys as the raw side, so membership is SYMMETRIC. The old inline Set
+ * only stored {full, no-extension} of each selects name (never stripping
+ * "_Proxy"), so a selects sequence edited with PROXY files (clip names carrying
+ * "_Proxy", raw = camera originals without it) never matched — every
+ * cross-reference missed. clipMatchKeys strips _Proxy on both sides, closing it.
+ */
+export function buildClipNameKeySet(units) {
+  const set = new Set();
+  for (const u of units || []) {
+    if (!u) continue;
+    for (const key of clipMatchKeys(u.source_clip_name)) set.add(key);
+  }
+  return set;
+}
+
+/**
+ * Does any match-key variant of `name` appear in `keySet`? Symmetric counterpart
+ * to buildClipNameKeySet — both sides go through clipMatchKeys.
+ */
+export function clipNameMatchesSet(keySet, name) {
+  if (!keySet) return false;
+  for (const key of clipMatchKeys(name)) {
+    if (keySet.has(key)) return true;
+  }
+  return false;
+}

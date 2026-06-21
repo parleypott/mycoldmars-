@@ -3,7 +3,7 @@
 //  - documented direction (selects = original name) is byte-identical to the
 //    OLD asymmetric inline matcher (zero regression);
 //  - reverse direction (selects carries "_Proxy") now matches (the additive win).
-import { clipMatchKeys, buildRawUnitMatcher, findRawMatch } from './selects-crossref.js';
+import { clipMatchKeys, buildRawUnitMatcher, findRawMatch, buildClipNameKeySet, clipNameMatchesSet } from './selects-crossref.js';
 
 let pass = 0, fail = 0;
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -107,6 +107,78 @@ ok('build: skips null units', findRawMatch(buildRawUnitMatcher([null, { id: 'r1'
   ]);
   ok('build: last-writer-wins on a shared variant key', findRawMatch(m, 'A001.mov')?.id === 'second');
 }
+
+// ── Set-membership matching (cross-tier-matching.mjs "which raw appear in selects?") ──
+// Reconstruct the OLD inline asymmetric Set/membership test the helpers replace:
+// the selects Set stored {full, no-extension} only (never stripping _Proxy); the
+// raw side stripped _Proxy. So a proxy-edited selects sequence (clip names carry
+// _Proxy, raw = camera originals without it) never matched.
+function oldSetBuild(selectsUnits) {
+  const s = new Set();
+  for (const u of selectsUnits) {
+    s.add(u.source_clip_name);
+    s.add(u.source_clip_name.replace(/\.[^.]+$/, ''));
+  }
+  return s;
+}
+function oldSetHas(set, rawName) {
+  const noProxy = rawName.replace(/_Proxy/i, '');
+  const noExt = noProxy.replace(/\.[^.]+$/, '');
+  return set.has(noProxy) || set.has(noExt);
+}
+
+// INLINE RED PROOF: proxy-editing direction — selects carries _Proxy, raw doesn't.
+{
+  const selectsUnits = [{ source_clip_name: 'A001_C002_Proxy.mov' }]; // edited with proxies
+  const rawName = 'A001_C002.mov';                                     // camera original
+  ok('RED: old Set membership MISSES proxy-edited selects ↔ original raw', oldSetHas(oldSetBuild(selectsUnits), rawName) === false);
+  ok('GREEN: new Set membership FINDS it (symmetric _Proxy strip)', clipNameMatchesSet(buildClipNameKeySet(selectsUnits), rawName) === true);
+}
+
+// NO-REGRESSION: documented direction (selects = original, raw = _Proxy) — identical decisions.
+{
+  const selectsUnits = [
+    { source_clip_name: 'A001_C002.mov' },
+    { source_clip_name: 'B007_C001.mov' },
+    { source_clip_name: 'C100_C009.MP4' },
+  ];
+  const oldSet = oldSetBuild(selectsUnits);
+  const newSet = buildClipNameKeySet(selectsUnits);
+  const rawNames = [
+    'A001_C002_Proxy.MP4',  // raw proxy, ext differs — documented direction
+    'A001_C002_Proxy.mov',  // raw proxy, same ext
+    'A001_C002.mov',        // exact
+    'B007_C001.mov',        // exact
+    'C100_C009.MP4',        // exact
+    'C100_C009_Proxy.mov',  // raw proxy of a .MP4 select
+    'Z999_NOMATCH.mov',     // no match either way
+    'UNRELATED.mov',        // no match
+  ];
+  let allSame = true;
+  for (const r of rawNames) {
+    const o = oldSetHas(oldSet, r), n = clipNameMatchesSet(newSet, r);
+    if (o !== n) { allSame = false; console.error(`  set-regress on "${r}": old=${o} new=${n}`); }
+  }
+  ok('NO-REGRESSION: documented direction → identical kept/discarded decisions', allSame);
+}
+
+// ADDITIVE WIN: every reverse-direction variant now matches.
+{
+  const set = buildClipNameKeySet([{ source_clip_name: 'A001_C002_Proxy.mov' }]);
+  ok('reverse-set: raw "A001_C002.mov" → matches proxy-edited selects', clipNameMatchesSet(set, 'A001_C002.mov') === true);
+  ok('reverse-set: raw "A001_C002.MP4" (diff ext) → matches', clipNameMatchesSet(set, 'A001_C002.MP4') === true);
+  ok('reverse-set: raw "A001_C002" (no ext) → matches', clipNameMatchesSet(set, 'A001_C002') === true);
+  ok('reverse-set: unrelated raw → no match', clipNameMatchesSet(set, 'B999_X.mov') === false);
+}
+
+// buildClipNameKeySet / clipNameMatchesSet robustness.
+ok('set-build: empty/null units → empty set', buildClipNameKeySet([]).size === 0 && buildClipNameKeySet(null).size === 0);
+ok('set-build: skips null units', clipNameMatchesSet(buildClipNameKeySet([null, { source_clip_name: 'A001.mov' }]), 'A001.mov') === true);
+ok('set-has: null set → false', clipNameMatchesSet(null, 'A001.mov') === false);
+ok('set-has: non-string name → false', clipNameMatchesSet(buildClipNameKeySet([{ source_clip_name: 'A001.mov' }]), null) === false);
+ok('set-build: a proxy-named unit indexes all 4 key variants',
+  (() => { const s = buildClipNameKeySet([{ source_clip_name: 'A001_Proxy.mov' }]);
+    return s.has('A001_Proxy.mov') && s.has('A001_Proxy') && s.has('A001.mov') && s.has('A001'); })());
 
 console.log(`\nselects-crossref: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
