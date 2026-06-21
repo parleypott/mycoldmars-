@@ -1,6 +1,7 @@
 import { isConfigured, listProjects, createProject, getProject, listMediaAssets, listCorpusUnitsForProject, listPatternObservations, updatePatternStatus, listAllCorpusUnits, getIngestStatus, semanticSearch, findSimilarClips, fetchSceneInsights, chatWithFootage, fetchTierComparison, fetchNarrativeInsights, listScenes, listArcSummaries, fetchCorpusContext, getScriptSnapshot, listScriptPasses, runScriptPass, chatWithScript, fetchParseDoc, runGlobalTraining, getGlobalTraining, persistEditorialDecisions, runTasteTraining, getTasteProfile, createJob, listJobs, getWorkerStatus, getUploadUrl, getSupabaseClient } from './db.js';
 import { SCENE_TEMPORAL_GAP_MINUTES, extractDateFromClipName, extractCameraId, groupIntoScenes } from './scene-grouping.js';
 import { formatTc } from './format-tc.js';
+import { byAnalysisRecencyDesc } from './feed-sort.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -538,7 +539,7 @@ function renderTrainingTab(units, assets) {
   // Recent analyses for the feed
   const recentUnits = units
     .filter(u => u.analyses?.length > 0)
-    .sort((a, b) => new Date(b.analyses[0].created_at || 0) - new Date(a.analyses[0].created_at || 0))
+    .sort(byAnalysisRecencyDesc)
     .slice(0, 40);
 
   const feedRows = recentUnits.map((u, i) => {
