@@ -23,6 +23,7 @@ import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { buildScriptSummary } from './script-summary-core.js';
 
 // Load env
 const envPath = join(import.meta.dirname, '..', '..', '.env');
@@ -46,66 +47,6 @@ const MODEL = 'gemini-2.5-flash';
 // ~600K tokens per Gemini call is safe. At ~4 chars/token and ~2K chars per script summary,
 // we can fit ~75 script summaries per batch. Use 50 for safety margin.
 const SCRIPTS_PER_BATCH = 50;
-
-/**
- * Build a compact summary of a script snapshot for training.
- * Includes color profile, structure overview, and a diverse sample of beats.
- */
-function buildScriptSummary(snap, index) {
-  const doc = snap.parsed_doc;
-  const elements = doc.elements || [];
-  const beats = elements.filter(e => e.type === 'beat');
-  const headings = elements.filter(e => e.type === 'heading' && !e.isTab).map(e => e.text);
-
-  // Color summary
-  const colorSummary = Object.entries(snap.color_profile || {})
-    .sort((a, b) => b[1].count - a[1].count)
-    .map(([color, data]) => {
-      const samples = (data.sampleTexts || []).slice(0, 3).map(s => `"${s.slice(0, 50)}"`).join(', ');
-      return `  ${color}: ${data.count}x — ${samples}`;
-    })
-    .join('\n');
-
-  // Sample beats — take from beginning, middle, and end for diversity
-  const sampleIndices = [];
-  if (beats.length <= 20) {
-    for (let i = 0; i < beats.length; i++) sampleIndices.push(i);
-  } else {
-    // 7 from start, 6 from middle, 7 from end
-    for (let i = 0; i < 7; i++) sampleIndices.push(i);
-    const mid = Math.floor(beats.length / 2);
-    for (let i = mid - 3; i < mid + 3; i++) sampleIndices.push(i);
-    for (let i = beats.length - 7; i < beats.length; i++) sampleIndices.push(i);
-  }
-
-  const sampleBeats = [...new Set(sampleIndices)].map(i => {
-    const beat = beats[i];
-    if (!beat) return '';
-
-    const fmtRuns = (runs) => (runs || []).map(r => {
-      const s = r.style || {};
-      const a = [];
-      if (s.highlight) a.push(s.highlight);
-      if (s.bold) a.push('BOLD');
-      if (s.italic) a.push('ITALIC');
-      if (s.strikethrough) a.push('STRUCK');
-      const txt = (r.text || '').trim().slice(0, 80);
-      return a.length ? `[${a.join('/')}: ${txt}]` : txt;
-    }).filter(Boolean).join(' ');
-
-    const voice = fmtRuns(beat.voice?.runs) || beat.voice?.text?.slice(0, 100) || '(empty)';
-    const visual = fmtRuns(beat.visual?.runs) || beat.visual?.text?.slice(0, 100) || '(empty)';
-    return `  Beat ${i + 1}/${beats.length}:\n    VOICE: ${voice}\n    VISUAL: ${visual}`;
-  }).filter(Boolean).join('\n');
-
-  return `=== SCRIPT ${index + 1}: "${doc.title}" ===
-Stats: ${beats.length} beats, ${doc.stats?.wordCount || '?'} words, ${doc.stats?.coloredRunCount || 0} colored runs
-Headings: ${headings.join(' → ') || '(none)'}
-Colors:
-${colorSummary || '  (no colors)'}
-Sample beats:
-${sampleBeats}`;
-}
 
 /**
  * Run a single batch analysis on a subset of scripts.
