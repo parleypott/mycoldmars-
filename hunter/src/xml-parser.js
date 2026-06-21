@@ -29,6 +29,14 @@ export function parseFCP7XML(xmlString) {
   //
   // Nested (skip) sequences live at:
   //   ... > clipitem > sequence
+
+  // FCP7/Premiere defines each <file> once with full <name>/<pathurl>, then
+  // references it on later clips by a BARE <file id="..."/> (no children).
+  // Selects sequences pull many cuts from one source file, so most clips after
+  // the first per-file are bare references. Build a document-wide id→def map so
+  // those repeats resolve to their real source instead of dropping to null.
+  const fileDefs = buildFileDefs(doc);
+
   const sequences = [];
   const allSeqElements = doc.querySelectorAll('sequence');
 
@@ -36,7 +44,7 @@ export function parseFCP7XML(xmlString) {
     // Walk up the parent chain — if any ancestor is a <clipitem>, skip
     if (isNestedInClipItem(seqEl)) continue;
 
-    const seq = parseSequence(seqEl);
+    const seq = parseSequence(seqEl, fileDefs);
     if (!seq) continue;
 
     // Skip empty sequences
@@ -71,7 +79,7 @@ export function deriveFps(timebase, ntsc) {
   }
 }
 
-function parseSequence(seqEl) {
+function parseSequence(seqEl, fileDefs) {
   const name = getText(seqEl, ':scope > name');
   const duration = getNum(seqEl, ':scope > duration');
   const rateEl = seqEl.querySelector(':scope > rate');
@@ -87,7 +95,7 @@ function parseSequence(seqEl) {
   if (videoEl) {
     const trackEls = videoEl.querySelectorAll(':scope > track');
     for (let t = 0; t < trackEls.length; t++) {
-      const clips = parseTrackClips(trackEls[t], fps);
+      const clips = parseTrackClips(trackEls[t], fps, fileDefs);
       videoTracks.push({ index: t + 1, clips });
     }
   }
@@ -97,7 +105,7 @@ function parseSequence(seqEl) {
   if (audioEl) {
     const trackEls = audioEl.querySelectorAll(':scope > track');
     for (let t = 0; t < trackEls.length; t++) {
-      const clips = parseTrackClips(trackEls[t], fps);
+      const clips = parseTrackClips(trackEls[t], fps, fileDefs);
       audioTracks.push({ index: t + 1, clips });
     }
   }
@@ -113,19 +121,19 @@ function parseSequence(seqEl) {
   };
 }
 
-function parseTrackClips(trackEl, fps) {
+function parseTrackClips(trackEl, fps, fileDefs) {
   const clips = [];
   const clipEls = trackEl.querySelectorAll(':scope > clipitem');
 
   for (const clipEl of clipEls) {
-    const clip = parseClipItem(clipEl, fps);
+    const clip = parseClipItem(clipEl, fps, fileDefs);
     if (clip) clips.push(clip);
   }
 
   return clips;
 }
 
-function parseClipItem(clipEl, fps) {
+function parseClipItem(clipEl, fps, fileDefs) {
   const name = getText(clipEl, ':scope > name');
   const start = getNum(clipEl, ':scope > start');  // position on timeline (frames)
   const end = getNum(clipEl, ':scope > end');      // end on timeline (frames)
@@ -138,8 +146,15 @@ function parseClipItem(clipEl, fps) {
   let sourceFile = null;
   if (fileEl) {
     const fileId = fileEl.getAttribute('id');
-    const fileName = getText(fileEl, 'name');
-    const pathUrl = getText(fileEl, 'pathurl');
+    let fileName = getText(fileEl, 'name');
+    let pathUrl = getText(fileEl, 'pathurl');
+    // Bare reference (<file id="..."/> with no children) — resolve from the
+    // document's full file definitions so repeat cuts keep their real source.
+    if (!fileName && !pathUrl && fileId && fileDefs && fileDefs.has(fileId)) {
+      const def = fileDefs.get(fileId);
+      fileName = def.name;
+      pathUrl = def.pathUrl;
+    }
     if (fileName || pathUrl) {
       sourceFile = { id: fileId, name: fileName, pathUrl };
     }
@@ -242,6 +257,27 @@ export function extractSourceClips(sequences) {
 }
 
 // ── Helpers ──
+
+/**
+ * Scan the whole document for FULL <file> definitions (those carrying a
+ * <name> or <pathurl>) and map fileId → { name, pathUrl }. Premiere defines
+ * each file once and then references it by bare id; this lets parseClipItem
+ * resolve those bare references. First full definition per id wins.
+ */
+function buildFileDefs(doc) {
+  const defs = new Map();
+  const fileEls = doc.querySelectorAll('file');
+  for (const fileEl of fileEls) {
+    const id = fileEl.getAttribute('id');
+    if (!id || defs.has(id)) continue;
+    const name = getText(fileEl, 'name');
+    const pathUrl = getText(fileEl, 'pathurl');
+    if (name || pathUrl) {
+      defs.set(id, { name, pathUrl });
+    }
+  }
+  return defs;
+}
 
 function isNestedInClipItem(el) {
   let node = el.parentElement;
