@@ -125,7 +125,7 @@ function parseParagraph(para) {
  * Extract formatting style from a textStyle object.
  * Returns only non-default values to keep output compact.
  */
-function extractRunStyle(textStyle) {
+export function extractRunStyle(textStyle) {
   const style = {};
 
   if (textStyle.bold) style.bold = true;
@@ -143,8 +143,11 @@ function extractRunStyle(textStyle) {
   const fg = textStyle.foregroundColor?.color?.rgbColor;
   if (fg) {
     const hex = rgbToHex(fg);
-    // Skip black/near-black — it's the default
-    if (hex !== '#000000' && hex !== '#1a1a1a') {
+    // Skip black/near-black — it's the default. rgbToHex returns UPPERCASE hex,
+    // so the skip set MUST be uppercase too: the old lowercase '#1a1a1a' literal
+    // never matched, so soft-black body text leaked in as a "colored" run.
+    const up = hex.toUpperCase();
+    if (up !== '#000000' && up !== '#1A1A1A') {
       style.color = hex;
     }
   }
@@ -165,7 +168,7 @@ function extractRunStyle(textStyle) {
  * Convert Google Docs RGB color object to hex string.
  * Docs API uses { red: 0-1, green: 0-1, blue: 0-1 }.
  */
-function rgbToHex({ red = 0, green = 0, blue = 0 }) {
+export function rgbToHex({ red = 0, green = 0, blue = 0 }) {
   const r = Math.round((red || 0) * 255);
   const g = Math.round((green || 0) * 255);
   const b = Math.round((blue || 0) * 255);
@@ -383,7 +386,7 @@ export function buildColorProfile(elements) {
  * Normalize a color to the nearest existing color in the profile,
  * or return it as-is if no close match exists.
  */
-function normalizeColor(hex, existingColors) {
+export function normalizeColor(hex, existingColors) {
   const [r, g, b] = hexToRgb(hex);
 
   for (const existing of existingColors) {
@@ -397,7 +400,7 @@ function normalizeColor(hex, existingColors) {
   return hex;
 }
 
-function hexToRgb(hex) {
+export function hexToRgb(hex) {
   const h = hex.replace('#', '');
   return [
     parseInt(h.substring(0, 2), 16),
@@ -595,7 +598,7 @@ function annotateRuns(runs, colorConventions = {}) {
 /**
  * Approximate a human-readable color name from a hex value.
  */
-function approximateColorName(hex) {
+export function approximateColorName(hex) {
   const [r, g, b] = hexToRgb(hex);
 
   // Common Google Docs highlight colors
