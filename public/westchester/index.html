@@ -8301,6 +8301,25 @@ document.getElementById('gen-modal-regen')?.addEventListener('click', () => {
 document.getElementById('gen-modal-print')?.addEventListener('click', () => window.print());
 
 // ===================== DECISION MATRIX =====================
+// Quintile rank-coloring for a comparison-matrix row. Takes the raw cell values
+// (numbers, numeric strings, or null/undefined) and returns a band string per
+// value ('5'=best … '1'=worst, null=no data). Drives which home "looks best" on
+// each criterion in the side-by-side top-5 comparison. lowerIsBetter inverts the
+// rank (price/commute/monthly: smaller wins). Needs >=2 numeric values to band;
+// otherwise every cell is null (no coloring).
+function matrixBands(rawValues, lowerIsBetter) {
+  const norm = v => typeof v === 'number' ? v : (Number.isFinite(parseFloat(v)) ? parseFloat(v) : null);
+  const vals = rawValues.map(norm);
+  const nums = vals.filter(n => n != null);
+  if (nums.length < 2) return rawValues.map(() => null);
+  const sorted = [...nums].sort((a, b) => lowerIsBetter ? a - b : b - a);
+  return vals.map(n => {
+    if (n == null) return null;
+    const idx = sorted.indexOf(n);
+    const pct = idx / Math.max(sorted.length - 1, 1);
+    return pct < 0.2 ? '5' : pct < 0.4 ? '4' : pct < 0.6 ? '3' : pct < 0.8 ? '2' : '1';
+  });
+}
 function openDecisionMatrix() {
   const overlay = document.getElementById('matrix-modal-overlay');
   const wrap = document.getElementById('matrix-wrap');
@@ -8352,21 +8371,7 @@ function openDecisionMatrix() {
       const display = row.fmt ? (row.fmt(p) ?? '—') : (raw != null ? raw : '—');
       return { display, raw };
     });
-    let bands = values.map(() => null);
-    if (row.sortNumeric) {
-      const nums = values.map(v => typeof v.raw === 'number' ? v.raw : (Number.isFinite(parseFloat(v.raw)) ? parseFloat(v.raw) : null)).filter(n => n != null);
-      if (nums.length >= 2) {
-        const sorted = [...nums].sort((a,b) => row.lowerIsBetter ? a - b : b - a);
-        const q = (i) => sorted[Math.floor(sorted.length * i / 5)];
-        bands = values.map(v => {
-          const n = typeof v.raw === 'number' ? v.raw : (Number.isFinite(parseFloat(v.raw)) ? parseFloat(v.raw) : null);
-          if (n == null) return null;
-          const idx = sorted.indexOf(n);
-          const pct = idx / Math.max(sorted.length - 1, 1);
-          return pct < 0.2 ? '5' : pct < 0.4 ? '4' : pct < 0.6 ? '3' : pct < 0.8 ? '2' : '1';
-        });
-      }
-    }
+    const bands = row.sortNumeric ? matrixBands(values.map(v => v.raw), row.lowerIsBetter) : values.map(() => null);
     html += '<tr><td class="criterion-name">' + escapeHtml(row.label) + '</td>';
     values.forEach((v, i) => {
       const band = bands[i] ? ' data-band="' + bands[i] + '"' : '';
