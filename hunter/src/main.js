@@ -3,6 +3,7 @@ import { SCENE_TEMPORAL_GAP_MINUTES, extractDateFromClipName, extractCameraId, g
 import { formatTc } from './format-tc.js';
 import { byAnalysisRecencyDesc } from './feed-sort.js';
 import { normalizeKeepability } from './keepability.js';
+import { filterAndSortCorpus } from './corpus-filter.js';
 import { buildCorpusCsv } from './csv-export.js';
 
 // ── State ──
@@ -3226,30 +3227,7 @@ async function loadCorpusBrowser() {
 }
 
 function getFilteredCorpus() {
-  let filtered = allCorpusUnits;
-  // Only show analyzed units (skip noise from pending analysis)
-  filtered = filtered.filter(u => u.analyses?.length > 0 && u.analyses[0]?.output_text);
-  if (corpusFilter) {
-    filtered = filtered.filter(u => (u.media_assets?.tier || '') === corpusFilter);
-  }
-  // Keepability filter
-  if (corpusKeepFilter) {
-    filtered = filtered.filter(u => {
-      const score = normalizeKeepability(u.analyses?.[0]?.output_json?.keepability_score);
-      if (score == null) return false;
-      if (corpusKeepFilter === 'high') return score >= 7;
-      if (corpusKeepFilter === 'mid') return score >= 4 && score <= 6;
-      if (corpusKeepFilter === 'low') return score <= 3;
-      return true;
-    });
-  }
-  // Sort
-  if (corpusSort === 'keep-desc') {
-    filtered.sort((a, b) => (normalizeKeepability(b.analyses?.[0]?.output_json?.keepability_score) ?? -1) - (normalizeKeepability(a.analyses?.[0]?.output_json?.keepability_score) ?? -1));
-  } else if (corpusSort === 'keep-asc') {
-    filtered.sort((a, b) => (normalizeKeepability(a.analyses?.[0]?.output_json?.keepability_score) ?? 99) - (normalizeKeepability(b.analyses?.[0]?.output_json?.keepability_score) ?? 99));
-  }
-  return filtered;
+  return filterAndSortCorpus(allCorpusUnits, { tier: corpusFilter, keep: corpusKeepFilter, sort: corpusSort });
 }
 
 function renderCorpusSummary() {
