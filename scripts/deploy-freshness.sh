@@ -47,6 +47,12 @@ HOST="${3:-https://mycoldmars.com}"
 # and the occasional minifier string-split difference. A genuinely stale deploy —
 # one missing a whole commit's worth of new code — misses far more than this.
 TOLERANCE="${FRESHNESS_TOLERANCE:-3}"
+# How much drift in minifier-invariant global-API call counts (Stage 2b) is still
+# FRESH. These are built-in member names a minifier CANNOT rename, so a same-source
+# build matches them EXACTLY — default 0. Bump only if a build-env-conditional dead
+# branch is ever found to touch one (none known; the VITE_* env guard is a string
+# check, which shows up in the literal diff, not here).
+API_TOLERANCE="${FRESHNESS_API_TOLERANCE:-0}"
 
 if [[ -z "$ARG1" ]]; then
   echo "Usage: deploy-freshness.sh <url-or-path> [dist-html-path] [host]" >&2
@@ -165,8 +171,50 @@ MISS_N=0
 [[ -n "$MISSING" ]] && MISS_N=$(printf '%s\n' "$MISSING" | grep -c .)
 
 if [[ "$MISS_N" -le "$TOLERANCE" ]]; then
+  # ── Stage 2b: logic-only guard (minifier-invariant global-API call counts) ──
+  # Clean string literals MISS logic-only changes — a new Array.isArray guard, a
+  # Number.isFinite check, an extra Math.max — that add NO new literal. So Stage 2
+  # would call a stale deploy FRESH (the exact blindspot that masked the sot-hunter
+  # loadFeedback fix not landing; loop journal Jun 22 #16/#17). Built-in member names
+  # (Array.isArray, JSON.parse, Math.*, localStorage.*, parseInt) are un-renameable
+  # by ANY minifier, so their COUNTS are source-deterministic + minifier-invariant: a
+  # genuinely fresh deploy matches them EXACTLY, a stale one missing logic-only source
+  # differs. This catches what literals cannot WITHOUT the false-STALE risk — same-source
+  # builds always agree (empirically: 5/6 tokens matched exactly across Vercel-vs-local
+  # builds of different commits; only the one real source diff showed up).
+  API_TOKENS=(
+    'Array\.isArray('   'JSON\.parse('       'JSON\.stringify('
+    'Number\.isFinite(' 'Number\.isInteger(' 'Object\.keys('
+    'Object\.entries('  'Object\.assign('    'Object\.values('
+    'Math\.max('        'Math\.min('         'Math\.floor('
+    'Math\.round('      'Math\.abs('         'Math\.ceil('
+    'localStorage\.getItem(' 'localStorage\.setItem('
+    'parseInt('         'parseFloat('        'encodeURIComponent('
+  )
+  cat "$TMP"/live-*.js  > "$TMP/live.all"  2>/dev/null || true
+  cat "$TMP"/local-*.js > "$TMP/local.all" 2>/dev/null || true
+  API_DRIFT=""
+  API_DRIFT_N=0
+  for tok in "${API_TOKENS[@]}"; do
+    # `|| true` swallows grep's exit-1-on-no-match so set -e/pipefail don't trip
+    # when a token (e.g. Math.abs) is absent from a bundle — a 0 count is valid.
+    l=$( { grep -o "$tok" "$TMP/local.all" 2>/dev/null || true; } | wc -l | tr -d ' ')
+    v=$( { grep -o "$tok" "$TMP/live.all"  2>/dev/null || true; } | wc -l | tr -d ' ')
+    if [[ "$l" -ne "$v" ]]; then
+      d=$(( l > v ? l - v : v - l ))
+      API_DRIFT_N=$(( API_DRIFT_N + d ))
+      API_DRIFT+="    ${tok//\\/}  local=${l}  live=${v}"$'\n'
+    fi
+  done
+  if [[ "$API_DRIFT_N" -gt "$API_TOLERANCE" ]]; then
+    echo "STALE  ${HOST}${PAGE_PATH} matches HEAD's string literals but DIFFERS on ${API_DRIFT_N} minifier-invariant global-API call(s) — a LOGIC-ONLY change (a new guard / check that adds no string literal) has not propagated"
+    echo "  string literals can't see logic-only diffs; un-renameable built-in counts can:"
+    printf '%s' "$API_DRIFT"
+    echo "  (live is serving older code whose logic differs from HEAD — re-check after the deploy lands)"
+    exit 1
+  fi
   echo "FRESH  ${HOST}${PAGE_PATH} serves local HEAD source (content match; hashes differ — Vercel minifier output differs from local \`bunx vite build\`, NOT staleness)"
-  echo "  hash sets differ but all ${local_js} local JS bundle(s) share HEAD's source literals (${MISS_N} missing ≤ ${TOLERANCE} tolerance)"
+  echo "  hash sets differ but all ${local_js} local JS bundle(s) share HEAD's source literals (${MISS_N} missing ≤ ${TOLERANCE} tolerance) AND match on every minifier-invariant global-API call count (logic-only diffs checked)"
   if [[ "$MISS_N" -gt 0 ]]; then
     echo "  tolerated misses (build-env artifacts):"; printf '%s\n' "$MISSING" | sed 's/^/    /'
   fi
