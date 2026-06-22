@@ -50,9 +50,26 @@ const ROBIN_PIXELS = (() => {
   return `<svg class="sot-hunter-icon" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects.join('')}</svg>`;
 })();
 
+// Guarantee an array from the persisted feedback store. JSON.parse of a
+// valid-but-non-array stored value ('{}', '5', '"x"' — a corrupt/legacy/tampered
+// FEEDBACK_KEY) SUCCEEDS, so the old `JSON.parse(...) ?? '[]'` returned that
+// non-array verbatim — and logFeedback's `const all = loadFeedback(); all.push(...)`
+// then crashed with "all.push is not a function" on the feedback-submit path
+// (thumbs up/down on a hunt result), with no recovery. A non-array, malformed
+// JSON, or absent value all degrade to []. A real array passes through verbatim
+// (zero regression). Same JSON.parse(localStorage) type-confusion class hardened
+// in research/sessions-store.js, glossary loadBench, westchester parseArrayLS.
+export function parseFeedbackList(raw) {
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
 function loadFeedback() {
-  try { return JSON.parse(localStorage.getItem(FEEDBACK_KEY) || '[]'); }
-  catch { return []; }
+  return parseFeedbackList(localStorage.getItem(FEEDBACK_KEY));
 }
 
 function saveFeedback(entries) {
