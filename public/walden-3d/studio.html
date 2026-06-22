@@ -187,7 +187,7 @@ const DDEFS={
 };
 const DORDER=['pool','spa','deck','patio','bed','hedge','tree','firepit','path'];
 let dElements=[], dSel=null, dUid=1, placeType=null;
-(function(){try{const s=JSON.parse(localStorage.getItem('walden-design')||'null');if(s&&s.els){dElements=s.els;dUid=s.uid||(dElements.length+1);}}catch(_){}})();
+(function(){try{const s=JSON.parse(localStorage.getItem('walden-design')||'null');if(s&&Array.isArray(s.els)){dElements=s.els;dUid=s.uid||(dElements.length+1);}}catch(_){}})();
 function dSave(){try{localStorage.setItem('walden-design',JSON.stringify({els:dElements,uid:dUid}));}catch(_){}}
 
 /* ============ 3D ============ */

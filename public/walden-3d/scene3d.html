@@ -116,7 +116,7 @@ function box(e,n,wFt,lFt,h,y0,mat,rot){const g=new THREE.Mesh(new THREE.BoxGeome
 function renderDesign(){
   if(designGroup){scene.remove(designGroup);designGroup.traverse(o=>{o.geometry&&o.geometry.dispose&&o.geometry.dispose();});}
   designGroup=new THREE.Group();scene.add(designGroup);
-  let els=[];try{const d=JSON.parse(localStorage.getItem('walden-design')||'null');els=(d&&d.els)||[];}catch(_){ }
+  let els=[];try{const d=JSON.parse(localStorage.getItem('walden-design')||'null');els=(d&&Array.isArray(d.els))?d.els:[];}catch(_){ }
   for(const el of els){
     const e=+el.e||0,n=+el.n||0,w=+el.wFt||8,l=+el.lFt||8,rot=+el.rot||0;
     switch(el.type){
