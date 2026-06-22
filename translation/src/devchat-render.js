@@ -7,13 +7,12 @@
 // message row into HTML, so the XSS + URL-scheme boundary lives in one tested
 // spot. Pure (no DOM, no network) so it can be locked headlessly.
 
+import { escapeHtml } from './html-escape.js';
+
 // HTML-encode the five characters that can break out of an HTML context
-// (text node OR a double/single-quoted attribute value).
-export function escDc(str) {
-  return String(str ?? '').replace(/[&<>"']/g, ch => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[ch]));
-}
+// (text node OR a double/single-quoted attribute value). Delegates to the
+// shared escapeHtml so every translation escaper has one source of truth.
+export const escDc = escapeHtml;
 
 // Whitelist the URL scheme before emitting an attachment <a href>/<img src>.
 // HTML-encoding alone still leaves `javascript:` and `data:text/html` schemes

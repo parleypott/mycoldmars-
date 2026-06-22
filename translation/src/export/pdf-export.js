@@ -1,3 +1,5 @@
+import { escapeHtml } from '../html-escape.js';
+
 /**
  * Generate a printable HTML document of highlights grouped by tag.
  * Opens in a new window for the user to print/save as PDF.
@@ -78,12 +80,6 @@ function renderHighlight(h) {
 // and inject markup into the PDF preview window.
 // Exported so the XSS-guard contract is locked by a test — every user-typed
 // tag name / color / note flows through here into win.document.write(html).
-export function esc(str) {
-  if (str == null) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+// Delegates to the shared escapeHtml so every translation escaper has one
+// source of truth (behavior-identical to the prior chained-.replace form).
+export const esc = escapeHtml;

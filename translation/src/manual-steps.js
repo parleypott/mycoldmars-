@@ -13,6 +13,7 @@
 // without leaving the modal.
 
 import { supabase } from './db.js';
+import { escapeHtml } from './html-escape.js';
 
 const DONE_KEY = 'mcm_manual_steps_done_v1';
 
@@ -426,8 +427,4 @@ function renderStep(step, isDone, number) {
   `;
 }
 
-function esc(str) {
-  return String(str ?? '').replace(/[&<>"']/g, ch => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[ch]));
-}
+const esc = escapeHtml;
