@@ -5,6 +5,7 @@ import { byAnalysisRecencyDesc } from './feed-sort.js';
 import { normalizeKeepability } from './keepability.js';
 import { filterAndSortCorpus } from './corpus-filter.js';
 import { buildCorpusCsv } from './csv-export.js';
+import { classifySequence } from './sequence-classify.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -2876,34 +2877,6 @@ document.querySelectorAll('.tier-file-input').forEach(input => {
  * - Many short clips (avg < 10s) with same source → stringout
  * - Fewer clips, longer duration, multiple sources → master/selects
  */
-function classifySequence(seq) {
-  const name = (seq.name || '').toLowerCase();
-
-  // Name-based classification (strong signals)
-  if (/\bon.?cam\b|\boc\b|\ba.?cam\b|\btalking.?head\b|\binterview\b|\bpresenter\b/.test(name)) return 'on-cam';
-  if (/\bselect\b|\bsel\b|\bpick\b|\bfavorite\b|\bfav\b|\bbest\b|\bhighlight\b/.test(name)) return 'selects';
-  if (/\bmaster\b|\bfinal\b|\bedit\b|\bassembly\b|\bcut\b|\bv\d\b|\brough\b|\bfine\b/.test(name)) return 'master';
-  if (/\bstring.?out\b|\ball.?clip\b|\bdump\b|\bfull\b/.test(name)) return 'stringout';
-
-  // Structure-based classification (weaker signals)
-  const allClips = seq.videoTracks.flatMap(t => t.clips);
-  if (allClips.length === 0) return 'unknown';
-
-  const avgDuration = allClips.reduce((sum, c) => sum + (c.endSeconds - c.startSeconds), 0) / allClips.length;
-  const uniqueSources = new Set(allClips.map(c => c.sourceFile?.name).filter(Boolean));
-
-  // Single source + many clips = on-cam or stringout
-  if (uniqueSources.size <= 2 && allClips.length > 20) return 'stringout';
-  // Few sources + short clips = on-cam
-  if (uniqueSources.size <= 3 && avgDuration < 15 && allClips.length > 5) return 'on-cam';
-  // Many sources + moderate clips = selects
-  if (uniqueSources.size > 5 && allClips.length > 3) return 'selects';
-  // Long average duration + multiple sources = master
-  if (avgDuration > 30 && uniqueSources.size > 3) return 'master';
-
-  return 'selects'; // default to selects for unclassified
-}
-
 // ── Insights Hub ──
 
 let chatHistory = [];
