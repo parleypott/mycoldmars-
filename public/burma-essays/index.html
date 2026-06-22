@@ -410,7 +410,7 @@ const setLocalPos = (id, p) => localStorage.setItem(lsKey(id), String(p));
    Saved essays live in: Cache Storage (the audio blob) + localStorage (text/metadata).
    This lets the whole app work on a plane with no signal. */
 const AUDIO_CACHE = 'burma-audio-v1';
-const offlineIds = () => { try { return JSON.parse(localStorage.getItem('burma:offline') || '[]'); } catch { return []; } };
+const offlineIds = () => { try { const v = JSON.parse(localStorage.getItem('burma:offline') || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
 const isOffline = (id) => offlineIds().includes(id);
 function setOfflineId(id, on) {
   const s = new Set(offlineIds());
