@@ -5846,7 +5846,10 @@ async function importListingAsPin(listing) {
 
 // ===================== SAVED SCENARIOS =====================
 function listScenarios() {
-  try { return JSON.parse(localStorage.getItem(SCENARIOS_KEY) || '[]'); } catch { return []; }
+  // parseArrayLS GUARANTEES an array: whh:scenarios:v1 is a CLOUD_KEYS entry, so a
+  // non-array value synced down from another machine (or a corrupt/legacy store) must
+  // not crash renderScenarioMenu()'s list.map at page load. Same guard pins/villages use.
+  return parseArrayLS(SCENARIOS_KEY);
 }
 function writeScenarios(list) {
   safeSet(SCENARIOS_KEY, JSON.stringify(list));
@@ -8703,8 +8706,11 @@ async function loadFamilyCriteria({ force = false } = {}) {
 }
 // kick off the load on script start so first chat is fast
 loadFamilyCriteria();
-try { agentMemory = JSON.parse(localStorage.getItem(AGENT_MEM_KEY) || '[]'); } catch {}
-try { agentMessages = JSON.parse(localStorage.getItem(AGENT_CHAT_KEY) || '[]'); } catch {}
+// parseArrayLS GUARANTEES an array: both keys are CLOUD_KEYS entries, so a non-array
+// value synced down (or a corrupt/legacy store) must not crash the agent panel/chat
+// render (.map/.unshift/.slice). Same guard pins/villages/scenarios use.
+agentMemory = parseArrayLS(AGENT_MEM_KEY);
+agentMessages = parseArrayLS(AGENT_CHAT_KEY);
 function saveAgentMemory() {
   try { localStorage.setItem(AGENT_MEM_KEY, JSON.stringify(agentMemory)); } catch {}
   try { _bumpLocalKeyTs(AGENT_MEM_KEY); cloudPushSoon(); } catch {}
