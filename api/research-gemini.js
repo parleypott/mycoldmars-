@@ -1,4 +1,5 @@
 import { readJsonBody } from './_lib/read-json-body.js';
+import { buildGeminiReport } from './_lib/research-gemini-report.js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
 
@@ -49,18 +50,9 @@ export default async function handler(req) {
   }
 
   const data = await res.json();
-  const cand = data.candidates?.[0];
-  const text = cand?.content?.parts?.map(p => p.text ?? '').join('\n').trim() ?? '(empty)';
-  const sources = [];
-  for (const ch of cand?.groundingMetadata?.groundingChunks ?? []) {
-    if (ch.web?.uri) sources.push(ch.web.uri);
-  }
-  const queries = cand?.groundingMetadata?.webSearchQueries ?? [];
-  const report = text +
-    (sources.length ? `\n\n## Sources\n${[...new Set(sources)].map((u, i) => `${i + 1}. ${u}`).join('\n')}` : '') +
-    (queries.length ? `\n\n_Search queries used: ${queries.map(q => `\`${q}\``).join(', ')}_` : '');
+  const { report, sources, queries } = buildGeminiReport(data);
 
-  return new Response(JSON.stringify({ report, sources: sources.length, queries: queries.length }), {
+  return new Response(JSON.stringify({ report, sources, queries }), {
     headers: { 'Content-Type': 'application/json' },
   });
 }
