@@ -4069,6 +4069,21 @@ function safeSet(key, value) {
   }
 }
 
+// Parse a localStorage ARRAY, guaranteeing an array out. A valid-but-non-array
+// stored value (a legacy/corrupt store, or a non-array value synced down into the
+// store from the cloud singleton row — cloudPull writes the server's raw value
+// verbatim and winchester-state doesn't validate each key's shape) would otherwise
+// become the in-memory pins/villages and crash every .map/.forEach that iterates it,
+// breaking the whole tool at load with no recovery. Non-array / malformed / missing
+// all degrade to []. (Function declaration — hoisted, so it's visible at every read
+// site regardless of textual order.)
+function parseArrayLS(key) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch { return []; }
+}
+
 // ===================== HARDENED FETCH =====================
 // Every secondary HTTP call in this page goes through here. Three jobs:
 //   1. Retry transient failures (Vercel Attack Challenge 403, 502/503, network blips)
@@ -4364,10 +4379,10 @@ window.addEventListener('cloud-hydrated', (e) => {
   if (!e.detail || !e.detail.touchedAny) return;
   try {
     if (typeof pins !== 'undefined') {
-      try { pins = JSON.parse(localStorage.getItem('whh:pins:v1') || '[]'); } catch {}
+      pins = parseArrayLS('whh:pins:v1');
     }
     if (typeof villages !== 'undefined') {
-      try { villages = JSON.parse(localStorage.getItem('whh:villages:v1') || '[]'); } catch {}
+      villages = parseArrayLS('whh:villages:v1');
     }
     if (typeof renderPins === 'function') renderPins();
     if (typeof renderMapMarkers === 'function') renderMapMarkers();
@@ -6375,14 +6390,12 @@ function formatPinAddressHtml(pin) {
 
 // ===================== STORAGE =====================
 const STORAGE_KEY = 'whh:pins:v1';
-let pins = [];
-try { pins = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { pins = []; }
+let pins = parseArrayLS(STORAGE_KEY);
 function savePins() { safeSet(STORAGE_KEY, JSON.stringify(pins)); }
 
 const V_KEY = 'whh:villages:v1';
-let villages = [];
+let villages = parseArrayLS(V_KEY);
 try {
-  villages = JSON.parse(localStorage.getItem(V_KEY) || '[]');
   // Retro-clean any "Village of …" prefixes from already-saved village names
   villages.forEach(v => { if (v.name) v.name = String(v.name).replace(/^(Village|Town|City|Hamlet|Township|Borough)\s+of\s+/i, '').trim(); });
 } catch (e) { villages = []; }
