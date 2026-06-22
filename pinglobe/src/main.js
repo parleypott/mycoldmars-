@@ -4,6 +4,7 @@ import worldTopo from 'world-atlas/countries-50m.json';
 
 import { Game } from './game.js';
 import { initThemes } from './theme.js';
+import { parseFeedbackList } from './feedback-store.js';
 import './style.css';
 
 // ─── On-screen error overlay (so failures don't hide in devtools) ───
@@ -579,7 +580,7 @@ feedbackSubmit.addEventListener('click', () => {
     ua: navigator.userAgent,
   };
 
-  const stored = JSON.parse(localStorage.getItem('pg-feedback') || '[]');
+  const stored = parseFeedbackList(localStorage.getItem('pg-feedback'));
   stored.push(entry);
   localStorage.setItem('pg-feedback', JSON.stringify(stored));
 
