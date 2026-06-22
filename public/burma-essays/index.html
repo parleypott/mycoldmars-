@@ -411,6 +411,7 @@ const setLocalPos = (id, p) => localStorage.setItem(lsKey(id), String(p));
    This lets the whole app work on a plane with no signal. */
 const AUDIO_CACHE = 'burma-audio-v1';
 const offlineIds = () => { try { const v = JSON.parse(localStorage.getItem('burma:offline') || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
+const loadEssaysCache = () => { try { const v = JSON.parse(localStorage.getItem('burma:list') || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
 const isOffline = (id) => offlineIds().includes(id);
 function setOfflineId(id, on) {
   const s = new Set(offlineIds());
@@ -442,7 +443,7 @@ async function load() {
     essays = j.essays || [];
     localStorage.setItem('burma:list', JSON.stringify(essays));   // keep a copy for offline cold-starts
   } catch {
-    try { essays = JSON.parse(localStorage.getItem('burma:list') || '[]'); } catch { essays = []; }
+    essays = loadEssaysCache();
   }
   renderList();
 }
