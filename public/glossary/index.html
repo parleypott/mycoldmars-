@@ -412,7 +412,7 @@ const benchEl=document.getElementById('bench');
 const benchChips=document.getElementById('benchChips');
 const benchMerged=document.getElementById('benchMerged');
 const benchCount=document.getElementById('benchCount');
-function loadBench(){ try{ return JSON.parse(localStorage.getItem(BENCH_KEY)||'[]'); }catch(e){ return []; } }
+function loadBench(){ try{ const v=JSON.parse(localStorage.getItem(BENCH_KEY)||'[]'); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
 function saveBench(list){ try{ localStorage.setItem(BENCH_KEY, JSON.stringify(list)); }catch(e){} }
 function benchTraditions(){ const names=loadBench(); return names.map(n=>TRADITIONS.find(t=>t.name===n)).filter(Boolean); }
 function renderBench(){
