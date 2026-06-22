@@ -9,6 +9,10 @@ import { feature as topoFeature } from 'topojson-client';
 import countriesTopo from 'world-atlas/countries-10m.json';
 import { regularPolygonCoords, KM_PER_DEG_LAT } from './polygon-geom.js';
 import { extractKmlCoords } from './kml-coords.js';
+import {
+  haversine, buildRoute, sliceRoute, lineCentroid, transformLineCoords,
+  lineLength, sliceLineCoords, lerpLng, lerpBearing,
+} from './route-geo.js';
 import './style.css';
 
 // ─── Country data (loaded once at startup) ───
@@ -445,40 +449,6 @@ function parseKML(text) {
   return extractKmlCoords(doc);
 }
 
-function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const toRad = d => d * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-function buildRoute(coords) {
-  const cumDist = [0];
-  for (let i = 1; i < coords.length; i++) {
-    const [lng1, lat1] = coords[i - 1];
-    const [lng2, lat2] = coords[i];
-    cumDist.push(cumDist[i - 1] + haversine(lat1, lng1, lat2, lng2));
-  }
-  return { coords, cumDist, totalDist: cumDist[cumDist.length - 1] || 0 };
-}
-
-function sliceRoute(route, progress) {
-  const { coords, cumDist, totalDist } = route;
-  if (progress <= 0 || coords.length < 2) return [];
-  if (progress >= 1) return coords.slice();
-  const target = totalDist * progress;
-  let i = 1;
-  while (i < cumDist.length && cumDist[i] < target) i++;
-  if (i >= coords.length) return coords.slice();
-  const segLen = cumDist[i] - cumDist[i - 1];
-  const t = segLen > 0 ? (target - cumDist[i - 1]) / segLen : 0;
-  const [lng1, lat1] = coords[i - 1];
-  const [lng2, lat2] = coords[i];
-  return [...coords.slice(0, i), [lng1 + (lng2 - lng1) * t, lat1 + (lat2 - lat1) * t]];
-}
-
 function setRouteSources(progress) {
   for (const layer of state.layers) {
     const ids = layerSourceIds(layer.id);
@@ -518,47 +488,6 @@ function shapeSourceIds(id) {
     lineLayer: `shape-line-${id}`,
     labelLayer: `shape-label-${id}`,
   };
-}
-
-function lineCentroid(coords) {
-  let sx = 0, sy = 0;
-  for (const [x, y] of coords) { sx += x; sy += y; }
-  return [sx / coords.length, sy / coords.length];
-}
-
-function transformLineCoords(baseCoords, offsetLng, offsetLat, scale) {
-  const [cx, cy] = lineCentroid(baseCoords);
-  return baseCoords.map(([lng, lat]) => [
-    cx + (lng - cx) * scale + offsetLng,
-    cy + (lat - cy) * scale + offsetLat,
-  ]);
-}
-
-function lineLength(coords) {
-  let d = 0;
-  for (let i = 1; i < coords.length; i++) {
-    d += haversine(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]);
-  }
-  return d;
-}
-
-function sliceLineCoords(coords, drawProgress) {
-  if (drawProgress <= 0 || coords.length < 2) return [];
-  if (drawProgress >= 1) return coords.slice();
-  const cum = [0];
-  for (let i = 1; i < coords.length; i++) {
-    cum.push(cum[i - 1] + haversine(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]));
-  }
-  const total = cum[cum.length - 1];
-  const target = total * drawProgress;
-  let i = 1;
-  while (i < cum.length && cum[i] < target) i++;
-  if (i >= coords.length) return coords.slice();
-  const segLen = cum[i] - cum[i - 1];
-  const t = segLen > 0 ? (target - cum[i - 1]) / segLen : 0;
-  const [lng1, lat1] = coords[i - 1];
-  const [lng2, lat2] = coords[i];
-  return [...coords.slice(0, i), [lng1 + (lng2 - lng1) * t, lat1 + (lat2 - lat1) * t]];
 }
 
 function defaultShapePreview(type, atCenter) {
@@ -1538,20 +1467,6 @@ function totalDuration() {
 // ─── Interpolation ───
 
 function lerp(a, b, t) { return a + (b - a) * t; }
-
-function lerpLng(a, b, t) {
-  let diff = b - a;
-  if (diff > 180) diff -= 360;
-  if (diff < -180) diff += 360;
-  return a + diff * t;
-}
-
-function lerpBearing(a, b, t) {
-  let diff = b - a;
-  if (diff > 180) diff -= 360;
-  if (diff < -180) diff += 360;
-  return a + diff * t;
-}
 
 function applyAtTime(timeSec) {
   const kfs = state.keyframes;
