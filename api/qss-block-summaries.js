@@ -18,6 +18,7 @@
 import { checkAccess } from './_lib/access.js';
 import { canonOverlayForBody } from './_lib/qss-worlds.js';
 import { parseModelObject } from './_lib/model-json.js';
+import { selectSummarizableBlocks, zipSummaries } from './_lib/block-summaries.js';
 
 export const config = { runtime: 'edge' };
 
@@ -77,13 +78,9 @@ export default async function handler(req) {
   try { body = await req.json(); }
   catch { return json(400, { error: 'invalid JSON' }); }
 
-  const rawBlocks = Array.isArray(body.blocks) ? body.blocks : [];
-  // Only summarize blocks with usable text. Cap each block's text at 1.2k
-  // chars so the prompt doesn't blow up.
-  const blocks = rawBlocks
-    .filter(b => b && typeof b === 'object' && b.id && (b.text || '').trim())
-    .slice(0, 60)
-    .map(b => ({ id: String(b.id).slice(0, 80), text: String(b.text).slice(0, 1200) }));
+  // Only summarize blocks with usable text; cap count + each block's text so
+  // the prompt doesn't blow up. (Pure core in _lib/block-summaries.js.)
+  const blocks = selectSummarizableBlocks(body.blocks);
 
   if (!blocks.length) return json(200, { summaries: [] });
 
@@ -127,19 +124,10 @@ export default async function handler(req) {
     return json(502, { error: 'parse_failed', detail: 'model returned non-JSON. snippet: ' + rawText.slice(0, 120) });
   }
 
-  // Validate + normalize. Map id → summary; drop anything malformed.
-  const out = new Map();
-  const list = Array.isArray(parsed.summaries) ? parsed.summaries : [];
-  for (const item of list) {
-    if (!item || typeof item !== 'object') continue;
-    const id = String(item.id || '').slice(0, 80);
-    if (!id) continue;
-    let summary = String(item.summary || '').trim();
-    if (summary.length > 120) summary = summary.slice(0, 117).trim() + '…';
-    out.set(id, summary);
-  }
-  // Build response in input-block order so the client can zip them.
-  const summaries = blocks.map(b => ({ id: b.id, summary: out.get(b.id) || '' }));
+  // Validate + normalize: map id → summary, drop malformed, and build the
+  // response IN INPUT-BLOCK ORDER so the client can zip them by position.
+  // (Pure core in _lib/block-summaries.js.)
+  const summaries = zipSummaries(blocks, parsed);
 
   return json(200, { summaries, modelMs: Date.now() - t0, model: 'claude-haiku-4-5-20251001' });
 }
