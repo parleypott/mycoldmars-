@@ -321,6 +321,17 @@ async function mergeWithExisting(card, world) {
       } catch {}
     }
   }
+  return mergeCardData(card, existing);
+}
+
+// Pure, deterministic merge core extracted from mergeWithExisting so the
+// data-integrity contract — "server NEVER reduces portrait count, NEVER
+// drops visual_notes, NEVER drops loved flags" — can be locked by tests.
+// `existing` is the current DB row (or null for a brand-new character).
+// Takes the already-sanitized incoming `card`. No DB/IO; given the same
+// inputs it always returns the same merged card (modulo the Date.now()
+// fallback when neither side carries a timestamp).
+export function mergeCardData(card, existing) {
   if (!existing) return card;
 
   const existingPortraits = Array.isArray(existing.portraits) ? existing.portraits : [];
