@@ -49,6 +49,7 @@ globalThis.localStorage = LS;
 const {
   saveSnapshot, loadSnapshot, clearSnapshot, isSnapshotNewerThan,
   saveDraftSnapshot, loadDraftSnapshot, clearDraftSnapshot, snapshotStats,
+  readIndex: readIndexReal,
 } = await import('./snapshot.js');
 
 const INDEX_KEY = 'mcm_snap_index';
@@ -218,6 +219,70 @@ ok('save under quota pressure never throws',   threw === false);
 ok('newest (q3) survives the quota squeeze',   loadSnapshot('q3') !== null);
 ok('quota eviction kept total within cap',     LS.length <= 3);
 // restore the default unlimited mock for any later additions
+reset();
+
+// ──────────────────────────────────────────────────────────────────────────
+// readIndex — non-array store hardening (JSON.parse type-confusion class)
+// A valid-but-non-array stored INDEX_KEY ('{}', '5', '"x"') parses without
+// throwing, so the try/catch alone does NOT catch it. Returning it verbatim
+// crashes every consumer: saveSnapshot's readIndex().filter() (the vault stops
+// mirroring saves → no crash recovery) and snapshotStats's `for...of`.
+// Mutation: revert `Array.isArray(v) ? v : []` to `return v` → these go RED.
+// ──────────────────────────────────────────────────────────────────────────
+
+// RED proof: the OLD verbatim-return reproduced here returns a non-array AND
+// crashes the real consumers, while the shipped readIndex degrades to [].
+const oldReadIndex = () => {
+  try { return JSON.parse(localStorage.getItem(INDEX_KEY) || '[]'); }
+  catch { return []; }
+};
+reset();
+LS.setItem(INDEX_KEY, '{}');               // corrupt: object, not array
+ok('RED proof: old readIndex returns non-array', !Array.isArray(oldReadIndex()));
+let oldCrashed = false;
+try { oldReadIndex().filter((x) => x); } catch { oldCrashed = true; }
+ok('RED proof: old non-array crashes .filter (saveSnapshot)', oldCrashed === true);
+
+// The fix: every non-array shape degrades to []
+for (const [label, raw] of [
+  ['object {}', '{}'],
+  ['populated object', '{"a":1}'],
+  ['number', '5'],
+  ['string', '"x"'],
+  ['boolean', 'true'],
+  ['null literal', 'null'],
+]) {
+  reset();
+  LS.setItem(INDEX_KEY, raw);
+  ok(`non-array INDEX_KEY (${label}) → readIndex []`, Array.isArray(readIndexReal()) && readIndexReal().length === 0);
+}
+// malformed JSON still → [] (the original try/catch path)
+reset();
+LS.setItem(INDEX_KEY, '{broken');
+ok('malformed INDEX_KEY → readIndex []',        Array.isArray(readIndexReal()) && readIndexReal().length === 0);
+// absent key → []
+reset();
+ok('absent INDEX_KEY → readIndex []',           Array.isArray(readIndexReal()) && readIndexReal().length === 0);
+// no-regression: a real array passes through verbatim
+reset();
+LS.setItem(INDEX_KEY, '["a","b","c"]');
+ok('real array INDEX_KEY → preserved',          JSON.stringify(readIndexReal()) === JSON.stringify(['a', 'b', 'c']));
+
+// end-to-end: a corrupt INDEX_KEY no longer crashes the public consumers, and
+// saveSnapshot recovers the vault (rewrites a clean array index).
+reset();
+LS.setItem(INDEX_KEY, '{"corrupt":true}');     // non-array store
+let saveThrew = false;
+try { saveSnapshot('e2e', { n: 1 }, 'ts'); } catch { saveThrew = true; }
+ok('corrupt INDEX_KEY: saveSnapshot never throws', saveThrew === false);
+ok('corrupt INDEX_KEY: vault recovered (snapshot saved)', loadSnapshot('e2e') !== null);
+ok('corrupt INDEX_KEY: index rewritten as clean array',   JSON.stringify(readIndexReal()) === JSON.stringify(['e2e']));
+reset();
+LS.setItem(INDEX_KEY, '42');                    // non-array store, non-iterable
+let statsThrew = false;
+try { snapshotStats(); } catch { statsThrew = true; }
+ok('corrupt INDEX_KEY: snapshotStats never throws', statsThrew === false);
+ok('corrupt INDEX_KEY: snapshotStats count 0',      snapshotStats().count === 0);
 reset();
 
 console.log(`snapshot: ${pass} passed, ${fail} failed`);

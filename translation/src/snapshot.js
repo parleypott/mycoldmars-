@@ -14,9 +14,15 @@ const INDEX_KEY = 'mcm_snap_index'; // ordered list of transcriptIds, newest fir
 const MAX_TRANSCRIPTS = 10;
 const MAX_BYTES = 4 * 1024 * 1024;
 
-function readIndex() {
+export function readIndex() {
   try {
-    return JSON.parse(localStorage.getItem(INDEX_KEY) || '[]');
+    const v = JSON.parse(localStorage.getItem(INDEX_KEY) || '[]');
+    // A valid-but-non-array stored value (corrupt/legacy/tampered store) parses
+    // fine — JSON.parse('{}') succeeds — so the try/catch alone doesn't catch it.
+    // Returning it verbatim would crash every consumer: saveSnapshot does
+    // readIndex().filter(...) (the vault stops mirroring saves → no crash recovery)
+    // and snapshotStats does `for...of` (not iterable). Guarantee an array.
+    return Array.isArray(v) ? v : [];
   } catch { return []; }
 }
 
