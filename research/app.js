@@ -4,6 +4,7 @@
 import { mdToHtml } from "./md.js";
 import { renderClarifyPanel } from "./clarify.js";
 import { decidePollOutcome } from "./poll-decision.js";
+import { parseSessionList } from "./sessions-store.js";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -57,7 +58,7 @@ window.fetch = gFetch;
 // ----- session model -----
 const SESSIONS_KEY = "research-hub-sessions-v1";
 function loadSessions() {
-  try { return JSON.parse(localStorage.getItem(SESSIONS_KEY)) ?? []; } catch { return []; }
+  return parseSessionList(localStorage.getItem(SESSIONS_KEY));
 }
 function saveSessions(arr) {
   try { localStorage.setItem(SESSIONS_KEY, JSON.stringify(arr.slice(0, 60))); } catch {}
