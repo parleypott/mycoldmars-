@@ -166,8 +166,17 @@ export function parseCSV(text) {
     const text = (fields[textIdx] || '').trim();
     if (!text) continue;
 
+    // Segment number: respect an explicit value from the Number/# column —
+    // including a literal 0 (a 0-indexed export). Only fall back to the loop
+    // counter when the column is absent or the value isn't a number. The old
+    // `parseInt(...) || i` was a truthy-zero trap: a segment numbered "0"
+    // collided with the loop-counter fallback, and seg.number is an ALIGNMENT
+    // KEY (translations, segment marks, and copilot selection all match on it),
+    // so a collision silently mis-aligned translations with no error.
+    const parsedNum = numIdx !== -1 ? parseInt(fields[numIdx], 10) : NaN;
+
     segments.push({
-      number: numIdx !== -1 ? parseInt(fields[numIdx], 10) || i : i,
+      number: Number.isNaN(parsedNum) ? i : parsedNum,
       speaker: speakerIdx !== -1 ? (fields[speakerIdx] || '').trim() : '',
       start: fields[startIdx]?.trim() || '',
       end: fields[endIdx]?.trim() || '',

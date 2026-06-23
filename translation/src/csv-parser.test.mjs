@@ -141,6 +141,61 @@ eq(parseSequenceInfo('NO DATE HERE').dateFilmed, null, 'date: no leading 6-digit
   eq(st.duration, '0:00:09,000', 'stats: duration = last end');
 }
 
+// ── segment NUMBER: explicit 0 must survive (truthy-zero trap) ──
+// seg.number is an ALIGNMENT KEY — translations, segment marks, and copilot
+// selection all match segments by .number (main.js translatedMap, sot-hunter
+// byNum, copilot-prompts findIndex). The old `parseInt(field,10) || i` replaced
+// an explicit "0" with the loop counter i, so a 0-indexed export's segment 0
+// collided with another segment's number → silent wrong-translation alignment.
+{
+  // Inline RED proof: reconstruct the OLD logic and show it loses the 0.
+  const oldNumber = (field, i) => parseInt(field, 10) || i;
+  ok(oldNumber('0', 1) === 1, 'RED-proof: old logic turns "0" into the loop counter (collision)');
+  ok(oldNumber('0', 5) === 5, 'RED-proof: old logic, segment 0 at row 5 becomes 5');
+
+  // A 0-indexed export: numbers 0,1,2 across three rows. The fix must keep them
+  // 0,1,2 (distinct); the old logic would make them i=1,2,3 — and crucially the
+  // "0" row collides with the second row's "1" once shifted.
+  const z = parseCSV(`${H}\n0;A;0:00:00,000;0:00:01,000;1;Zero\n1;B;0:00:01,000;0:00:02,000;1;One\n2;C;0:00:02,000;0:00:03,000;1;Two`);
+  eq(z.length, 3, 'seg0: three segments');
+  eq(z[0].number, 0, 'seg0: explicit 0 preserved (not replaced by loop counter)');
+  eq(z[1].number, 1, 'seg0: 1 preserved');
+  eq(z[2].number, 2, 'seg0: 2 preserved');
+  ok(new Set(z.map(s => s.number)).size === 3, 'seg0: all three numbers distinct (no key collision)');
+
+  // A 0 in the MIDDLE of a 1-indexed-ish set must still be the literal 0.
+  const mid = parseCSV(`${H}\n5;A;0:00:00,000;0:00:01,000;1;Five\n0;B;0:00:01,000;0:00:02,000;1;Zero\n7;C;0:00:02,000;0:00:03,000;1;Seven`);
+  eq(mid[1].number, 0, 'seg0: middle explicit 0 preserved');
+  eq(mid[0].number, 5, 'seg0: explicit 5 preserved');
+  eq(mid[2].number, 7, 'seg0: explicit 7 preserved');
+}
+
+// ── segment NUMBER no-regression: 1-indexed + fallback paths unchanged ──
+{
+  // Every 1-indexed value (>=1) is byte-identical to the old `||i` behavior.
+  const oldNumber = (field, i) => parseInt(field, 10) || i;
+  const rows = [
+    ['1', 1], ['2', 2], ['3', 3], ['42', 9], ['1000', 4],   // ordinary 1-indexed
+    ['-1', 2],                                               // negative was already truthy-preserved
+    ['7abc', 3],                                             // parseInt-lenient leading number
+    ['', 6], ['   ', 8], ['abc', 5], ['N/A', 7],             // garbage/empty -> fall back to i
+  ];
+  for (const [field, i] of rows) {
+    const parsedNum = parseInt(field, 10);
+    const fixed = Number.isNaN(parsedNum) ? i : parsedNum;
+    eq(fixed, oldNumber(field, i), `no-regression: "${field}" @${i} matches old ||i behavior`);
+  }
+
+  // No Number/# column at all -> loop counter, exactly as before.
+  const noNum = parseCSV(`Speaker;Start time;End time;Text\nJOHN;0:00:01,000;0:00:02,000;Hi\nJANE;0:00:02,000;0:00:03,000;Yo`);
+  eq(noNum[0].number, 1, 'no-column: first row -> i=1');
+  eq(noNum[1].number, 2, 'no-column: second row -> i=2');
+
+  // Garbage number field -> loop counter (intended fallback preserved).
+  const garbage = parseCSV(`${H}\nNaN;A;0:00:00,000;0:00:01,000;1;Hi`);
+  eq(garbage[0].number, 1, 'garbage-number: falls back to loop counter i=1');
+}
+
 console.log(fail === 0
   ? `PASS — all ${pass} csv-parser cases correct`
   : `\n${fail} FAILED, ${pass} passed`);
