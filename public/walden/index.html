@@ -672,7 +672,7 @@ function stateObj(){return{elements,uid,mode,gridOn,base:currentBase,year:curren
 function applyState(s){elements=s.elements||[];uid=s.uid||(elements.reduce((m,e)=>Math.max(m,+(''+e.id).replace('el_','')||0),0)+1);if(s.sb){$('#sb-struct').value=s.sb.struct;$('#sb-pool').value=s.sb.pool;$('#env-on').checked=s.sb.env;$('#poolring-on').checked=s.sb.ring;}}
 function save(){try{localStorage.setItem(STORE,JSON.stringify(stateObj()));}catch(_){}}
 function loadState(){try{const r=localStorage.getItem(STORE);if(!r)return false;applyState(JSON.parse(r));return true;}catch(_){return false;}}
-function scenes(){try{return JSON.parse(localStorage.getItem(SCENES)||'{}');}catch(_){return{};}}
+function scenes(){try{const v=JSON.parse(localStorage.getItem(SCENES)||'{}');return(v&&typeof v==='object'&&!Array.isArray(v))?v:{};}catch(_){return{};}}
 function restoreScenes(){const n=Object.keys(scenes());const sel=$('#sc-sel');sel.innerHTML='<option value="">— saved —</option>'+n.map(x=>`<option>${x}</option>`).join('');}
 $('#sc-save').onclick=()=>{const n=prompt('save scenario as:','scheme '+(Object.keys(scenes()).length+1));if(!n)return;const o=scenes();o[n]=stateObj();localStorage.setItem(SCENES,JSON.stringify(o));restoreScenes();};
 $('#sc-load').onclick=()=>{const n=$('#sc-sel').value;if(!n)return;const o=scenes();if(o[n]){applyState(JSON.parse(JSON.stringify(o[n])));renderEnv();redraw();save();closeInspector();}};
