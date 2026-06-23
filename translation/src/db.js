@@ -23,6 +23,7 @@ import { createClient } from '@supabase/supabase-js';
 import { needsTranscode, guessExtFromMime, mediaFieldsToRow } from './media-rules.js';
 import { escapeLikePattern } from './like-escape.js';
 import { planProfileSearch, mergeProfileMatches } from './profile-search.js';
+import { lsGet, lsDelete, lsGetIndex } from './ls-index.js';
 
 // Re-export so existing importers (e.g. upload/media-flow.js) keep their
 // `import { needsTranscode } from '../db.js'` path working after the pure
@@ -1473,16 +1474,9 @@ export async function deleteMediaFile(path, { bucket = 'media' } = {}) {
 // the LS data so we never have to think about it again.
 // ============================================================
 const MIGRATION_KEY = 'mcm_migrated_to_supabase';
-const LS_PREFIX = 'mcm_';
-
-function lsGet(key) {
-  try {
-    const raw = localStorage.getItem(LS_PREFIX + key);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-function lsDelete(key) { try { localStorage.removeItem(LS_PREFIX + key); } catch {} }
-function lsGetIndex(collection) { return lsGet(`index_${collection}`) || []; }
+// lsGet / lsDelete / lsGetIndex moved to ./ls-index.js (imported above) so the
+// index array-safety guarantee is unit-testable. lsGetIndex now returns [] for
+// a corrupt/non-array index instead of letting it crash the migration's for...of.
 
 export async function migrateLocalStorageToSupabase() {
   if (!supabase) return { migrated: false, reason: 'no supabase client' };
