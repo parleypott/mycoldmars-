@@ -28,7 +28,7 @@ import {
 } from './db.js';
 import { currentUser } from './auth.js';
 import { escDc, safeImageUrl, senderLabel, messageToHtml } from './devchat-render.js';
-import { relAgo } from './devchat-time.js';
+import { relAgo, isNewAssistantMessage } from './devchat-time.js';
 
 let panelEl = null;
 let buttonEl = null;
@@ -354,9 +354,7 @@ async function pollAssistantReply(threadId, sinceIso) {
     if (activeThreadId !== threadId) return;   // user navigated away
     try {
       const messages = await listDevchatMessages(threadId);
-      const newer = messages.filter(m =>
-        m.sender !== 'user' && new Date(m.created_at) > new Date(sinceIso)
-      );
+      const newer = messages.filter(m => isNewAssistantMessage(m, sinceIso));
       for (const m of newer) {
         if (document.querySelector(`[data-msg-id="${m.id}"]`)) continue;
         hideTypingIndicator();
