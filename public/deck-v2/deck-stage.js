@@ -57,6 +57,39 @@
 
   const pad2 = (n) => String(n).padStart(2, '0');
 
+  // ── Pure navigation/scaling cores (no DOM, no `this`) ──────────────────
+  // Extracted so the slide-index clamp, fit-scale, persisted-index recovery,
+  // and number-key jump are unit-testable. A regression in any of these
+  // silently breaks navigation/scaling on every deck, so they are locked.
+
+  // Clamp a target index into [0, length-1]. length<=0 → 0 (no slides).
+  function clampSlideIndex(i, length) {
+    if (!(length > 0)) return 0;
+    return Math.max(0, Math.min(length - 1, i));
+  }
+
+  // Letterbox fit: the largest scale that fits the design size in the viewport.
+  function fitScale(vw, vh, designW, designH) {
+    return Math.min(vw / designW, vh / designH);
+  }
+
+  // Recover a persisted slide index from its raw localStorage string.
+  // Returns a valid in-range index, or null to keep the current default.
+  function parseRestoredIndex(raw, length) {
+    if (raw == null) return null;
+    const n = parseInt(raw, 10);
+    if (Number.isFinite(n) && n >= 0 && n < length) return n;
+    return null;
+  }
+
+  // Number-key jump: 1–9 → index 0–8, 0 → index 9 (the 10th slide).
+  // Returns the target index if it exists, else null (out of range / non-digit).
+  function digitJumpTarget(key, length) {
+    if (!/^[0-9]$/.test(key)) return null;
+    const n = key === '0' ? 9 : parseInt(key, 10) - 1;
+    return n < length ? n : null;
+  }
+
   const stylesheet = `
     :host {
       position: fixed;
@@ -463,13 +496,8 @@
 
     _restoreIndex() {
       try {
-        const raw = localStorage.getItem(this._storageKey);
-        if (raw != null) {
-          const n = parseInt(raw, 10);
-          if (Number.isFinite(n) && n >= 0 && n < this._slides.length) {
-            this._index = n;
-          }
-        }
+        const idx = parseRestoredIndex(localStorage.getItem(this._storageKey), this._slides.length);
+        if (idx != null) this._index = idx;
       } catch (e) { /* ignore */ }
     }
 
@@ -537,7 +565,7 @@
       }
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      const s = Math.min(vw / this.designWidth, vh / this.designHeight);
+      const s = fitScale(vw, vh, this.designWidth, this.designHeight);
       this._canvas.style.transform = `scale(${s})`;
     }
 
@@ -579,8 +607,8 @@
         this._go(0, 'keyboard');
       } else if (/^[0-9]$/.test(key)) {
         // 1..9 jump to that slide; 0 jumps to 10.
-        const n = key === '0' ? 9 : parseInt(key, 10) - 1;
-        if (n < this._slides.length) this._go(n, 'keyboard');
+        const n = digitJumpTarget(key, this._slides.length);
+        if (n != null) this._go(n, 'keyboard');
       } else {
         handled = false;
       }
@@ -593,7 +621,7 @@
 
     _go(i, reason = 'api') {
       if (!this._slides.length) return;
-      const clamped = Math.max(0, Math.min(this._slides.length - 1, i));
+      const clamped = clampSlideIndex(i, this._slides.length);
       if (clamped === this._index) {
         this._flashOverlay();
         return;
