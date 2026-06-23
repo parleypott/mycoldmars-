@@ -4084,6 +4084,18 @@ function parseArrayLS(key) {
   } catch { return []; }
 }
 
+// Companion to parseArrayLS for OBJECT-shaped stores. JSON.parse(localStorage) can
+// return a non-object — a literal 'null' -> null, '5' -> number, '[..]' -> array —
+// which then crashes the first `obj[key]` read at load (e.g. null[name] throws,
+// halting the layers IIFE and everything below it). A non-plain-object degrades to {}.
+// (Function declaration — hoisted, so it's visible at every read site.)
+function parseObjectLS(key) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || '{}');
+    return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+  } catch { return {}; }
+}
+
 // ===================== HARDENED FETCH =====================
 // Every secondary HTTP call in this page goes through here. Three jobs:
 //   1. Retry transient failures (Vercel Attack Challenge 403, 502/503, network blips)
@@ -4585,8 +4597,7 @@ applyInitialLayerState();
   });
 
   // Restore section state
-  let sectionState = {};
-  try { sectionState = JSON.parse(localStorage.getItem(SECTION_KEY) || '{}'); } catch {}
+  let sectionState = parseObjectLS(SECTION_KEY);
   panel.querySelectorAll('.layers-section').forEach(sec => {
     const name = sec.dataset.section;
     if (sectionState[name]) sec.classList.add('section-collapsed');
