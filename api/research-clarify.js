@@ -2,6 +2,39 @@ import { readJsonBody } from './_lib/read-json-body.js';
 
 export const config = { runtime: 'edge', maxDuration: 30 };
 
+/**
+ * Pull the clarifier's JSON object out of a model reply. The model is asked for
+ * strict JSON but sometimes wraps it in a ```json fence (possibly with prose
+ * before it), so we match a fenced block ANYWHERE in the text first, then fall
+ * back to parsing the whole reply.
+ *
+ * Closes the null-parse class follow-up: JSON.parse('null') SUCCEEDS and returns
+ * null, and a number/string/array reply parses to a non-object too — none of
+ * which is the { questions, summary } shape the caller needs. The old inline
+ * code passed those straight through, so the backend returned a bare "null" /
+ * "5" / "[…]" body from a public endpoint. We now treat any non-object result
+ * as a failed clarify (ok:false) so the handler 502s and the frontend cleanly
+ * SKIPS clarification (hides the panel, dispatches the original prompt) instead
+ * of rendering an empty panel — the same graceful path a genuinely-invalid JSON
+ * reply already takes.
+ *
+ * @returns {{ ok: boolean, value: object|null }} ok:true → value is a plain object.
+ */
+export function parseClarifyJson(text) {
+  const raw = String(text ?? '');
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  let value;
+  try {
+    value = JSON.parse(fenced ? fenced[1] : raw);
+  } catch {
+    return { ok: false, value: null };
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ok: false, value: null };
+  }
+  return { ok: true, value };
+}
+
 const SYSTEM = `You are a deep-research planner. Given a user's research question, your job is to surface what would be MOST USEFUL to know about their intent before dispatching the actual research.
 
 Generate 3 to 5 clarifying questions that, if answered, would significantly improve the depth, scope, and specificity of the research that follows. Focus on:
@@ -68,18 +101,17 @@ export default async function handler(req) {
     .join('\n')
     .trim();
 
-  // Pull out the JSON block (model sometimes wraps in markdown despite instructions)
-  let json;
-  try {
-    const m = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    json = JSON.parse(m ? m[1] : text);
-  } catch (e) {
+  // Pull out the JSON block (model sometimes wraps in markdown despite instructions).
+  // A null / primitive / array reply is not the { questions, summary } object we
+  // need, so it's treated as a failed clarify (frontend cleanly skips).
+  const clarified = parseClarifyJson(text);
+  if (!clarified.ok) {
     return new Response(JSON.stringify({ error: 'clarify produced invalid json', raw: text.slice(0, 800) }), {
       status: 502, headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  return new Response(JSON.stringify(json), {
+  return new Response(JSON.stringify(clarified.value), {
     headers: { 'Content-Type': 'application/json' },
   });
 }
