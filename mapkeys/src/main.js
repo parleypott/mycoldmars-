@@ -14,6 +14,7 @@ import {
   lineLength, sliceLineCoords, lerpLng, lerpBearing,
 } from './route-geo.js';
 import { computeGifRange } from './gif-range.js';
+import { searchCountries as rankCountries } from './country-search.js';
 import './style.css';
 
 // ─── Country data (loaded once at startup) ───
@@ -30,21 +31,9 @@ const COUNTRIES = (() => {
 const COUNTRY_BY_ID = new Map(COUNTRIES.map(c => [c.id, c]));
 const COUNTRY_BY_NAME = new Map(COUNTRIES.map(c => [c.name.toLowerCase(), c]));
 
-function searchCountries(query) {
-  const q = query.trim().toLowerCase();
-  if (!q) return COUNTRIES.slice(0, 60);
-  // Score: prefix > word-prefix > substring; cap results.
-  const scored = [];
-  for (const c of COUNTRIES) {
-    const lower = c.name.toLowerCase();
-    if (lower === q) scored.push([c, 0]);
-    else if (lower.startsWith(q)) scored.push([c, 1]);
-    else if (lower.includes(' ' + q)) scored.push([c, 2]);
-    else if (lower.includes(q)) scored.push([c, 3]);
-  }
-  scored.sort((a, b) => a[1] - b[1] || a[0].name.localeCompare(b[0].name));
-  return scored.slice(0, 60).map(s => s[0]);
-}
+// searchCountries (the country-picker ranking) lives in ./country-search.js so
+// it's headless-testable; here it's bound to the module-scoped COUNTRIES list.
+const searchCountries = (query) => rankCountries(query, COUNTRIES);
 
 // ─── Mapbox setup ───
 
