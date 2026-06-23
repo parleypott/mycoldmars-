@@ -2947,9 +2947,13 @@
       try { history.pushState({}, '', location.pathname + location.search); } catch {}
       render();
     }
+    // Decode a URL-hash fragment without throwing: a bare '%' in a shared/tampered
+    // hash makes decodeURIComponent throw URIError, which would crash the popstate
+    // handler. Fall back to the raw string on malformed input (lookup just misses).
+    function safeDecodeURI(s) { try { return decodeURIComponent(s); } catch { return s; } }
     window.addEventListener('popstate', () => {
       const hash = (location.hash || '').replace(/^#/, '');
-      const name = hash ? decodeURIComponent(hash) : null;
+      const name = hash ? safeDecodeURI(hash) : null;
       if (name && state.cards[name]) { state.view = 'detail'; state.openName = name; }
       else { state.view = 'grid'; state.openName = null; }
       render();

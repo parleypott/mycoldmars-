@@ -1723,6 +1723,11 @@ function updateHash() {
   }
 }
 
+// Decode a URL-hash fragment without throwing: a bare '%' (in a shared/tampered
+// link like #ask/50%) makes decodeURIComponent throw URIError, which would crash
+// applyHash on load + hashchange. Fall back to the raw string on malformed input.
+function safeDecodeURI(s) { try { return decodeURIComponent(s); } catch { return s; } }
+
 function applyHash() {
   const raw = location.hash.replace(/^#/, "");
   if (!raw) { setMode("gallery", { fromHash: true }); return; }
@@ -1747,7 +1752,7 @@ function applyHash() {
   if (modePart === "ask") {
     setMode("ask", { fromHash: true });
     if (detail) {
-      const q = decodeURIComponent(detail);
+      const q = safeDecodeURI(detail);
       $("#askInput").value = q;
       runAsk();
     }
