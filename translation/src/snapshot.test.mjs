@@ -78,6 +78,30 @@ ok('snap newer than server → true',            isSnapshotNewerThan({ updatedAt
 ok('snap older than server → false',           isSnapshotNewerThan({ updatedAt: '2026-06-01T00:00:00Z' }, '2026-06-02T00:00:00Z') === false);
 ok('snap EQUAL to server → false (strict)',    isSnapshotNewerThan({ updatedAt: '2026-06-01T00:00:00Z' }, '2026-06-01T00:00:00Z') === false);
 ok('snap 1ms newer → true',                    isSnapshotNewerThan({ updatedAt: '2026-06-01T00:00:00.002Z' }, '2026-06-01T00:00:00.001Z') === true);
+// present-but-UNPARSEABLE timestamp (corrupt/legacy/tampered store) — `new
+// Date(x).getTime()` is NaN, and `NaN > anything` is always false, so the OLD
+// code silently DROPPED a snapshot that may hold crash-recovery work. When we
+// can't order them, the vault must lean toward OFFERING the restore (user can
+// decline) — same "can't order → recover" stance as the trash filter + devchat.
+// RED proof: the old comparison returns false for both of these.
+const oldIsNewer = (snap, srv) => {
+  if (!snap) return false;
+  if (snap.dirty) return true;
+  if (!snap.updatedAt) return false;
+  if (!srv) return true;
+  return new Date(snap.updatedAt).getTime() > new Date(srv).getTime(); // NaN > x === false
+};
+ok('RED: old logic drops corrupt-snap-ts',     oldIsNewer({ updatedAt: 'not-a-date' }, '2026-06-01T00:00:00Z') === false);
+ok('corrupt snap updatedAt → true (offer)',    isSnapshotNewerThan({ updatedAt: 'not-a-date' }, '2026-06-01T00:00:00Z') === true);
+ok('corrupt snap updatedAt (garbage) → true',  isSnapshotNewerThan({ dirty: false, updatedAt: 'xyz' }, '2026-06-01T00:00:00Z') === true);
+ok('corrupt server ts → true (offer)',         isSnapshotNewerThan({ updatedAt: '2026-06-02T00:00:00Z' }, 'garbage') === true);
+ok('both ts corrupt → true (offer)',           isSnapshotNewerThan({ updatedAt: 'nope' }, 'nope') === true);
+// no-regression: every valid-timestamp case is byte-identical to the old logic
+ok('no-regress: newer matches old',            isSnapshotNewerThan({ updatedAt: '2026-06-02T00:00:00Z' }, '2026-06-01T00:00:00Z') === oldIsNewer({ updatedAt: '2026-06-02T00:00:00Z' }, '2026-06-01T00:00:00Z'));
+ok('no-regress: older matches old',            isSnapshotNewerThan({ updatedAt: '2026-06-01T00:00:00Z' }, '2026-06-02T00:00:00Z') === oldIsNewer({ updatedAt: '2026-06-01T00:00:00Z' }, '2026-06-02T00:00:00Z'));
+ok('no-regress: equal matches old',            isSnapshotNewerThan({ updatedAt: '2026-06-01T00:00:00Z' }, '2026-06-01T00:00:00Z') === oldIsNewer({ updatedAt: '2026-06-01T00:00:00Z' }, '2026-06-01T00:00:00Z'));
+ok('no-regress: dirty still wins',             isSnapshotNewerThan({ dirty: true, updatedAt: 'not-a-date' }, '2026-06-01T00:00:00Z') === true);
+ok('no-regress: clean no-updatedAt → false',   isSnapshotNewerThan({ dirty: false }, '2026-06-01T00:00:00Z') === false);
 
 // ──────────────────────────────────────────────────────────────────────────
 // saveSnapshot + loadSnapshot — round-trip + dirty flag

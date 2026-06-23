@@ -125,7 +125,16 @@ export function isSnapshotNewerThan(snap, serverUpdatedAt) {
   if (snap.dirty) return true; // unsaved local work — always offer to restore
   if (!snap.updatedAt) return false;
   if (!serverUpdatedAt) return true;
-  return new Date(snap.updatedAt).getTime() > new Date(serverUpdatedAt).getTime();
+  const snapMs = new Date(snap.updatedAt).getTime();
+  const serverMs = new Date(serverUpdatedAt).getTime();
+  // A present-but-unparseable timestamp (corrupt/legacy/tampered store) makes
+  // `new Date(x).getTime()` NaN, and `NaN > anything` is always false — so the
+  // old comparison silently returned false and the vault DROPPED a snapshot
+  // that may hold genuine crash-recovery work. When we can't order them, lean
+  // toward OFFERING the restore (the user can decline) rather than losing it —
+  // same "can't order → recover" stance as the trash filter + devchat poll.
+  if (!Number.isFinite(snapMs) || !Number.isFinite(serverMs)) return true;
+  return snapMs > serverMs;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
