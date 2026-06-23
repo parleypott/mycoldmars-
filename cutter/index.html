@@ -666,16 +666,23 @@
     for (const seg of segments) {
       const tr = document.createElement('tr');
       tr.className = 'script-row';
+      tr.innerHTML = buildScriptRowHtml(seg);
+      tbody.appendChild(tr);
+    }
+  }
 
-      const isNoDialogue = /^\[(no dialogue|music|ambient)/i.test(seg.words?.trim() || '');
-
-      tr.innerHTML = `
-        <td class="ts">${seg.timestamp_start || ''}${seg.timestamp_end ? '–' + seg.timestamp_end : ''}</td>
+  // All four interpolated fields come from the same untrusted source (the Gemini
+  // analysis JSON, returned to the client unsanitised), so all four must be esc()'d
+  // before landing in innerHTML — not just words/visual.
+  function buildScriptRowHtml(seg) {
+    const isNoDialogue = /^\[(no dialogue|music|ambient)/i.test(seg.words?.trim() || '');
+    const tsStart = esc(seg.timestamp_start || '');
+    const tsEnd = seg.timestamp_end ? '–' + esc(seg.timestamp_end) : '';
+    return `
+        <td class="ts">${tsStart}${tsEnd}</td>
         <td class="words${isNoDialogue ? ' no-dialogue' : ''}">${esc(seg.words || '')}</td>
         <td class="visual-desc">${esc(seg.visual || '')}</td>
       `;
-      tbody.appendChild(tr);
-    }
   }
 
   function esc(str) {
