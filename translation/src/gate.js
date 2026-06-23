@@ -10,14 +10,14 @@
 
 import { bootstrap, sendMagicLink, signInWithPassword, currentUser, currentProfile, onAuthChange } from './auth.js';
 import { readSupabaseAccessTokenSync } from './auth-token.js';
+import { parseCookieValue } from '../../shared/cookie.js';
 
 const COOKIE_NAME = 'np_access';
 const gate = document.getElementById('gate');
 const app  = document.getElementById('app');
 
 function getCookie(name) {
-  const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
-  return m ? decodeURIComponent(m[1]) : null;
+  return parseCookieValue(document.cookie, name);
 }
 function setCookie(name, value) {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 90}`;

@@ -5,6 +5,7 @@ import { mdToHtml } from "./md.js";
 import { renderClarifyPanel } from "./clarify.js";
 import { decidePollOutcome } from "./poll-decision.js";
 import { parseSessionList } from "./sessions-store.js";
+import { parseCookieValue } from "../shared/cookie.js";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -14,8 +15,7 @@ const ACCESS_SESSION_KEY = "mcm_access_code";
 const ACCESS_COOKIE = "np_access";
 
 function getCookie(name) {
-  const m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
-  return m ? decodeURIComponent(m[1]) : null;
+  return parseCookieValue(document.cookie, name);
 }
 function setCookie(name, value) {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 90}`;
