@@ -1,4 +1,5 @@
 import { readJsonBody } from './_lib/read-json-body.js';
+import { validateResearchPrompt, resolveResearchModel } from './_lib/research-input.js';
 
 export const config = { runtime: 'edge', maxDuration: 30 };
 
@@ -12,9 +13,12 @@ export default async function handler(req) {
   const parsed = await readJsonBody(req);
   if (!parsed.ok) return new Response(JSON.stringify({ error: parsed.error }), { status: parsed.status, headers: { 'Content-Type': 'application/json' } });
   const { prompt, model } = parsed.body;
-  if (!prompt) return new Response(JSON.stringify({ error: 'prompt required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  const v = validateResearchPrompt(prompt);
+  if (!v.ok) return new Response(JSON.stringify({ error: v.error }), { status: v.status, headers: { 'Content-Type': 'application/json' } });
 
-  const MODEL = model || 'o4-mini-deep-research';
+  // Coerce any client-supplied model to the allow-listed cheap default so a
+  // public caller can't force the far pricier o3-deep-research.
+  const MODEL = resolveResearchModel(model);
 
   const res = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',

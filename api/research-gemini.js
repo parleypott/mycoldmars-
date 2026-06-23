@@ -1,5 +1,6 @@
 import { readJsonBody } from './_lib/read-json-body.js';
 import { buildGeminiReport } from './_lib/research-gemini-report.js';
+import { validateResearchPrompt } from './_lib/research-input.js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
 
@@ -13,7 +14,9 @@ export default async function handler(req) {
   const parsed = await readJsonBody(req);
   if (!parsed.ok) return new Response(JSON.stringify({ error: parsed.error }), { status: parsed.status, headers: { 'Content-Type': 'application/json' } });
   const { prompt } = parsed.body;
-  if (!prompt) return new Response(JSON.stringify({ error: 'prompt required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  // Cost guard: public, unauthenticated, runs Gemini 2.5 Pro on every POST.
+  const v = validateResearchPrompt(prompt);
+  if (!v.ok) return new Response(JSON.stringify({ error: v.error }), { status: v.status, headers: { 'Content-Type': 'application/json' } });
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
