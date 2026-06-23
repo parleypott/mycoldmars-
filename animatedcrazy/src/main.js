@@ -1,6 +1,7 @@
 import GIF from 'gif.js';
 import gifWorkerUrl from 'gif.js/dist/gif.worker.js?url';
 import './style.css';
+import { clamp, lerp, lerpColor, totalAnimDuration, segmentAtTime } from './anim-core.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -249,7 +250,7 @@ function squigglePathD(s) {
   return d;
 }
 
-function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
+// clamp imported from ./anim-core.js
 
 function renderShapes() {
   shapesLayer.innerHTML = '';
@@ -762,10 +763,7 @@ function deleteKeyframe(id) {
 }
 
 function totalDuration() {
-  if (state.keyframes.length < 2) return 0;
-  let t = 0;
-  for (let i = 0; i < state.keyframes.length - 1; i++) t += (state.keyframes[i].duration || 0);
-  return t;
+  return totalAnimDuration(state.keyframes);
 }
 
 function selectKeyframe(id) {
@@ -797,51 +795,9 @@ function applyKeyframeToShapes(kf) {
   }
 }
 
-// ─── Easings ───
-const EASINGS = {
-  linear: t => t,
-  easeIn: t => t * t,
-  easeOut: t => 1 - (1 - t) * (1 - t),
-  easeInOut: t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2,
-  bounce: t => {
-    const n1 = 7.5625, d1 = 2.75;
-    if (t < 1 / d1) return n1 * t * t;
-    else if (t < 2 / d1) { t -= 1.5 / d1; return n1 * t * t + 0.75; }
-    else if (t < 2.5 / d1) { t -= 2.25 / d1; return n1 * t * t + 0.9375; }
-    else { t -= 2.625 / d1; return n1 * t * t + 0.984375; }
-  },
-  elastic: t => {
-    if (t === 0 || t === 1) return t;
-    const c = (2 * Math.PI) / 3;
-    return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c) + 1;
-  },
-};
-
-// ─── Color lerp ───
-function hexToRgb(hex) {
-  const h = hex.replace('#', '');
-  const v = h.length === 3
-    ? h.split('').map(c => c + c).join('')
-    : h;
-  const n = parseInt(v, 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-function rgbToHex(r, g, b) {
-  const h = (n) => Math.round(clamp(n, 0, 255)).toString(16).padStart(2, '0');
-  return '#' + h(r) + h(g) + h(b);
-}
-function lerpColor(a, b, t) {
-  if (!a || !b) return a || b;
-  try {
-    const [ar, ag, ab] = hexToRgb(a);
-    const [br, bg, bb] = hexToRgb(b);
-    return rgbToHex(ar + (br - ar) * t, ag + (bg - ag) * t, ab + (bb - ab) * t);
-  } catch { return a; }
-}
+// EASINGS, hexToRgb/rgbToHex/lerpColor, and lerp imported from ./anim-core.js
 
 // ─── Apply scene at time T ───
-function lerp(a, b, t) { return a + (b - a) * t; }
-
 function applyAtTime(timeSec) {
   const kfs = state.keyframes;
   if (kfs.length === 0) return;
@@ -850,22 +806,9 @@ function applyAtTime(timeSec) {
     renderShapes();
     return;
   }
-  // Compute starting time of each kf
-  const times = [0];
-  for (let i = 1; i < kfs.length; i++) times[i] = times[i - 1] + (kfs[i - 1].duration || 0);
-  const total = times[times.length - 1];
-  timeSec = clamp(timeSec, 0, total);
-
-  // Find segment
-  let i = 0;
-  for (let k = 0; k < kfs.length - 1; k++) {
-    if (timeSec >= times[k] && timeSec <= times[k + 1]) { i = k; break; }
-    if (k === kfs.length - 2) i = k;
-  }
+  // Map time → segment [i, i+1] + eased local progress (pure, in anim-core).
+  const { i, eased } = segmentAtTime(kfs, timeSec);
   const a = kfs[i], b = kfs[i + 1];
-  const dur = (a.duration || 0);
-  const localT = dur > 0 ? clamp((timeSec - times[i]) / dur, 0, 1) : 1;
-  const eased = (EASINGS[a.easing] || EASINGS.linear)(localT);
 
   // For each shape, lerp its props from a→b if both exist
   for (const s of state.shapes) {
