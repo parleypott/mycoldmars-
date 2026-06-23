@@ -8,6 +8,13 @@
 #   1) HASH FAST-PATH — compare the content-hashed asset bundles
 #      (assets/<name>-<hash>.js|css) the live page references against the locally
 #      built dist/ for the SAME page. Identical sets -> FRESH (exit 0), done.
+#   LAZY-CHUNK DISCOVERY — the page HTML only names the entry + preloaded bundles.
+#      Code-split lazy chunks (dynamic import()) are referenced INSIDE those bundles,
+#      not the HTML. A fix that lands ONLY in a lazy chunk (e.g. translation's
+#      devchat panel) is invisible to a page-HTML-only scan, producing a FALSE FRESH
+#      (loop journal Jun 23 #19 — the devchat relAgo fix). So Stage 2 walks the
+#      bundle graph: it greps the fetched bundles for further asset refs and pulls
+#      every lazy chunk too, folding their content into the comparison below.
 #   2) CONTENT FALLBACK — if the hash sets DIFFER, do NOT immediately cry STALE.
 #      Vite/Rollup content hashes are minifier-output hashes, and Vercel's build
 #      toolchain renames minified variables differently than a local `bunx vite
@@ -135,7 +142,14 @@ clean_literals() {
     `# while ~800 paren-free genuine literals remain as the comparison surface.`      \
     | grep -vE '[()]' \
     | grep -vE '^[,)]|[,;]$|&&|\|\|' \
-    | sed -E 's/-[A-Za-z0-9_]{8}\./-H./g' \
+    `# Normalise asset-hash fingerprints  <name>-<hash>.<ext>  ->  <name>-H.<ext>`  \
+    `# so a chunk self-/cross-reference compares equal across builds. The hash is`  \
+    `# the 8-char base64url segment before the ext — and base64url INCLUDES '-'`    \
+    `# and '_', so Vercel emits hashes like 'D-P0gDwf' while local vite emits`       \
+    `# 'CPA7lGbx'. The charset MUST allow '-' inside the hash or a hyphen-bearing`   \
+    `# live hash stays un-normalised and reads as a phantom missing literal (the`    \
+    `# self-ref misses lazy-chunk discovery surfaced).`                              \
+    | sed -E 's/-[A-Za-z0-9_-]{8}\.(js|css|mjs)/-H.\1/g' \
     | sort -u
 }
 
@@ -161,6 +175,41 @@ if [[ "$live_js" -eq 0 || "$local_js" -eq 0 ]]; then
   echo "  local:"; echo "$LOCAL_SET" | sed 's/^/    /'
   exit 1
 fi
+
+# ── Stage 2 (cont.): transitively pull LAZY-loaded chunks ──────────────────
+# The page HTML names only the entry + preloaded bundles; code-split lazy chunks
+# (dynamic import()) live INSIDE the entry bundle (e.g. "assets/devchat-<hash>.js").
+# A change confined to a lazy chunk DOES flip the entry hash (the chunk filename is
+# embedded), so Stage 1 mismatches and we land here — but the entry's lazy-chunk ref
+# normalises to "<name>-H.js" (identical across builds) and the chunk's own literals
+# + logic are never fetched, so the diff below sees nothing → FALSE FRESH (the gap
+# that masked the devchat relAgo fix not propagating, journal Jun 23 #19). Fix: walk
+# the bundle graph to a fixpoint — grep already-fetched bundles for asset refs, fetch
+# any not yet present, repeat. Folds lazy-chunk content into the SAME literal +
+# API-count comparison. live side pulls from the network (its OWN hashes), local from
+# dist (HEAD's hashes); the comparison is union-based so chunks match by content, not
+# name, and a stale-live lazy chunk surfaces as a missing literal or an API drift.
+discover_chunks() {
+  local prefix="$1" added=1 pass=0 a base
+  while [[ "$added" -gt 0 && "$pass" -lt 8 ]]; do
+    added=0; pass=$((pass+1))
+    while IFS= read -r a; do
+      [[ -n "$a" && "$a" == *.js ]] || continue
+      base="$(basename "$a")"
+      [[ -f "$TMP/$prefix-$base" ]] && continue   # already fetched
+      if [[ "$prefix" == "live" ]]; then
+        if curl -sSL "${HOST}/${a}" -o "$TMP/$prefix-$base"; then added=$((added+1)); else rm -f "$TMP/$prefix-$base"; fi
+      else
+        if [[ -f "dist/$a" ]]; then cp "dist/$a" "$TMP/$prefix-$base"; added=$((added+1)); fi
+      fi
+    done < <(cat "$TMP/$prefix-"*.js 2>/dev/null | extract_assets || true)
+  done
+}
+discover_chunks live
+discover_chunks local
+
+# Full count of local bundles actually compared (entry + preloaded + lazy chunks).
+COMPARED=$(ls "$TMP"/local-*.js 2>/dev/null | wc -l | tr -d ' ')
 
 clean_literals "$TMP"/live-*.js  > "$TMP/live.lit"
 clean_literals "$TMP"/local-*.js > "$TMP/local.lit"
@@ -190,6 +239,7 @@ if [[ "$MISS_N" -le "$TOLERANCE" ]]; then
     'Math\.round('      'Math\.abs('         'Math\.ceil('
     'localStorage\.getItem(' 'localStorage\.setItem('
     'parseInt('         'parseFloat('        'encodeURIComponent('
+    'isFinite('         'isNaN('
   )
   cat "$TMP"/live-*.js  > "$TMP/live.all"  2>/dev/null || true
   cat "$TMP"/local-*.js > "$TMP/local.all" 2>/dev/null || true
@@ -214,7 +264,7 @@ if [[ "$MISS_N" -le "$TOLERANCE" ]]; then
     exit 1
   fi
   echo "FRESH  ${HOST}${PAGE_PATH} serves local HEAD source (content match; hashes differ — Vercel minifier output differs from local \`bunx vite build\`, NOT staleness)"
-  echo "  hash sets differ but all ${local_js} local JS bundle(s) share HEAD's source literals (${MISS_N} missing ≤ ${TOLERANCE} tolerance) AND match on every minifier-invariant global-API call count (logic-only diffs checked)"
+  echo "  hash sets differ but all ${COMPARED} local JS bundle(s) — entry + preloaded + lazy chunks — share HEAD's source literals (${MISS_N} missing ≤ ${TOLERANCE} tolerance) AND match on every minifier-invariant global-API call count (logic-only diffs checked)"
   if [[ "$MISS_N" -gt 0 ]]; then
     echo "  tolerated misses (build-env artifacts):"; printf '%s\n' "$MISSING" | sed 's/^/    /'
   fi
