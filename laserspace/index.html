@@ -367,6 +367,14 @@ function drawText(str, x, y, color = C.white, scale = 1) {
 /* ====================================================================
    G A M E   S T A T E
    ==================================================================== */
+// Read the persisted high score, NaN-safe: a corrupt/non-numeric stored
+// value (parseInt -> NaN) must fall back to 0, not render "00NaN" and freeze
+// the score forever (score > NaN is always false, so it never updates).
+function readHiScore(raw) {
+  const v = parseInt(raw || "0", 10);
+  return Number.isFinite(v) ? v : 0;
+}
+
 const state = {
   player: { x: 100, y: 224, w: 14, h: 14, speed: 1.2, alive: true, respawn: 0 },
   bullets: [],   // {x, y, vy}
@@ -380,7 +388,7 @@ const state = {
   octopusTimer: 600,
   bunkers: [],
   score: 0,
-  hi: parseInt(localStorage.getItem("laserspaceHi") || "0", 10),
+  hi: readHiScore(localStorage.getItem("laserspaceHi")),
   lives: 3,
   level: 1,
   paused: false,
