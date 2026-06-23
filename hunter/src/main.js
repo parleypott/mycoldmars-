@@ -6,6 +6,7 @@ import { normalizeKeepability } from './keepability.js';
 import { filterAndSortCorpus } from './corpus-filter.js';
 import { buildCorpusCsv } from './csv-export.js';
 import { classifySequence } from './sequence-classify.js';
+import { formatTimeAgo, formatDate } from './time-format.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -2461,13 +2462,7 @@ function renderOpsJob(job) {
   `;
 }
 
-function formatTimeAgo(date) {
-  const s = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
+// formatTimeAgo + formatDate live in ./time-format.js (NaN-date guarded, tested).
 
 function wireOpsEvents(project, signal) {
   const opts = { signal };
@@ -2586,11 +2581,6 @@ function countDays(units) {
   return days.size > 0 ? `${days.size}` : '—';
 }
 
-function formatDate(isoStr) {
-  try {
-    return new Date(isoStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
-  } catch { return '—'; }
-}
 
 // Tier add/replace prompts for v2
 async function promptScriptUpload() {
