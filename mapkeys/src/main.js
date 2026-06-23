@@ -13,6 +13,7 @@ import {
   haversine, buildRoute, sliceRoute, lineCentroid, transformLineCoords,
   lineLength, sliceLineCoords, lerpLng, lerpBearing,
 } from './route-geo.js';
+import { computeGifRange } from './gif-range.js';
 import './style.css';
 
 // ─── Country data (loaded once at startup) ───
@@ -3028,16 +3029,7 @@ const gifGo = document.getElementById('gif-go');
 function gifRange() {
   const fromSel = document.getElementById('gif-from');
   const toSel = document.getElementById('gif-to');
-  const n = state.keyframes.length;
-  if (n === 0) return { tStart: 0, tEnd: 0, fromIdx: 0, toIdx: 0 };
-  const fromIdx = Math.min(n - 1, Math.max(0, parseInt(fromSel.value, 10) || 0));
-  const toIdx = Math.min(n - 1, Math.max(0, parseInt(toSel.value, 10) || (n - 1)));
-  const a = Math.min(fromIdx, toIdx);
-  const b = Math.max(fromIdx, toIdx);
-  let tStart = 0, tEnd = 0;
-  for (let i = 0; i < a; i++) tStart += state.keyframes[i].duration;
-  for (let i = 0; i < b; i++) tEnd += state.keyframes[i].duration;
-  return { tStart, tEnd, fromIdx: a, toIdx: b };
+  return computeGifRange(fromSel.value, toSel.value, state.keyframes.map(k => k.duration));
 }
 
 function populateGifRange() {
