@@ -28,6 +28,7 @@ import {
 } from './db.js';
 import { currentUser } from './auth.js';
 import { escDc, safeImageUrl, senderLabel, messageToHtml } from './devchat-render.js';
+import { relAgo } from './devchat-time.js';
 
 let panelEl = null;
 let buttonEl = null;
@@ -586,13 +587,4 @@ function bindSetupCta(scope) {
 }
 
 // escDc moved to ./devchat-render.js
-
-function relAgo(iso) {
-  if (!iso) return '';
-  const ms = Date.now() - new Date(iso).getTime();
-  const s = Math.round(ms / 1000);
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.round(s/60)}m`;
-  if (s < 86400) return `${Math.round(s/3600)}h`;
-  return `${Math.round(s/86400)}d`;
-}
+// relAgo moved to ./devchat-time.js (the tested + present-but-bad-date-hardened copy)
