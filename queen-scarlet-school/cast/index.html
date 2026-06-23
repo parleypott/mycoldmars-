@@ -1180,7 +1180,7 @@
     (function() {
       const COOKIE = 'qss_access', PASS = 'newpress';
       const gateEl = document.getElementById('gate'), appEl = document.getElementById('app');
-      function getCookie(n) { const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : null; }
+      function getCookie(n) { if (!n) return null; for (const part of document.cookie.split('; ')) { const eq = part.indexOf('='); if (eq === -1) continue; if (part.slice(0, eq) === n) { try { return decodeURIComponent(part.slice(eq + 1)); } catch { return part.slice(eq + 1); } } } return null; }
       function unlock() {
         document.cookie = COOKIE + '=granted; path=/; max-age=' + (60*60*24*90);
         gateEl.classList.add('hidden'); appEl.classList.remove('hidden');
