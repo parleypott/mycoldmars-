@@ -15,11 +15,21 @@
 //
 // Adding a new test: drop a *.test.mjs anywhere and it's auto-discovered. For a .ts
 // test (or one with a special cwd) add a line to EXPLICIT_TESTS below.
+//
+// Suites run CONCURRENTLY in a CPU-capped worker pool — each suite is an independent
+// `bun <file>` subprocess (they share no state, only the filesystem read-only + their
+// own assert output), so the only cost the serial version was paying was per-process
+// startup × N. With 250+ suites that startup tax dominated wall-clock; the pool spreads
+// it across cores. The contract is unchanged: same discovered set, same per-suite
+// pass/fail verdict (exit 0 = pass), same final exit code (0 iff every suite passes).
+// Output is collected and printed in sorted order so a run reads identically to before,
+// regardless of completion order. Override the pool size with TEST_CONCURRENCY=N.
 
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { readdirSync, statSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { cpus } from 'node:os';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const IGNORE_DIRS = new Set(['node_modules', 'dist', '.git', '.vercel']);
@@ -68,24 +78,53 @@ function summaryLine(stdout) {
   return (scored.length ? scored[scored.length - 1] : lines[lines.length - 1]) || '(no output)';
 }
 
-console.log(`\n  mycoldmars test suite — ${tests.length} suites (bun)\n`);
+// Run one suite as an async `bun <file>` subprocess; resolve with its verdict.
+// Mirrors the old spawnSync contract exactly: exit code 0 => pass, anything else => fail
+// (a spawn error — e.g. bun missing — resolves as a fail too, never rejects).
+function runSuite({ file, cwd }) {
+  return new Promise((resolve) => {
+    const rel = relative(ROOT, file);
+    let stdout = '';
+    let stderr = '';
+    const child = spawn('bun', [file], {
+      cwd: cwd || ROOT,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    child.stdout.on('data', (d) => { stdout += d; });
+    child.stderr.on('data', (d) => { stderr += d; });
+    child.on('error', (err) => {
+      resolve({ rel, ok: false, summary: `(spawn error: ${err.message})`, out: stderr || String(err) });
+    });
+    child.on('close', (code) => {
+      resolve({ rel, ok: code === 0, summary: summaryLine(stdout), out: stdout + stderr });
+    });
+  });
+}
 
+// Bounded-concurrency pool: keep up to POOL suites in flight at once, draining a shared
+// queue. Pool size defaults to the core count (work is process-startup-bound, so ~cores
+// is the sweet spot — more just oversubscribes). TEST_CONCURRENCY overrides.
+const POOL = Math.max(1, Number(process.env.TEST_CONCURRENCY) || cpus().length);
+console.log(`\n  mycoldmars test suite — ${tests.length} suites (bun, ${POOL}-way parallel)\n`);
+
+const results = new Array(tests.length);
+let next = 0;
+async function worker() {
+  while (true) {
+    const i = next++;
+    if (i >= tests.length) return;
+    results[i] = await runSuite(tests[i]);
+  }
+}
+await Promise.all(Array.from({ length: Math.min(POOL, tests.length) }, worker));
+
+// Print in the SAME sorted order the suites were discovered in, so a run reads identically
+// to the old serial runner regardless of which suite finished first.
 let failed = 0;
 const failures = [];
-for (const { file, cwd } of tests) {
-  const rel = relative(ROOT, file);
-  const res = spawnSync('bun', [file], {
-    cwd: cwd || ROOT,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  const ok = res.status === 0;
-  const summary = summaryLine(res.stdout || '');
-  console.log(`  ${ok ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m'} ${rel.padEnd(48)} ${summary}`);
-  if (!ok) {
-    failed++;
-    failures.push({ rel, out: (res.stdout || '') + (res.stderr || '') });
-  }
+for (const r of results) {
+  console.log(`  ${r.ok ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m'} ${r.rel.padEnd(48)} ${r.summary}`);
+  if (!r.ok) { failed++; failures.push(r); }
 }
 
 if (failed) {
