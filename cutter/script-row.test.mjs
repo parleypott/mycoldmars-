@@ -131,5 +131,28 @@ for (const seg of [
   ok(`equivalence (benign) ts=${seg.timestamp_start}`, buildScriptRowHtml(seg) === oldBuildRow(seg));
 }
 
+// ── non-string fields (numeric Gemini JSON) must not crash the render ─────────
+// The analysis JSON is unsanitised and an LLM readily emits a NUMBER where a string
+// is expected — timestamps especially ("timestamp_end": 90). The OLD esc did a bare
+// `str.replace(...)` and the OLD row did `seg.words?.trim()`; both THROW on a number,
+// and a single throw aborts the whole renderScript loop → a blank script panel
+// (cutter's primary output). The shipped code now coerces with String().
+const oldEsc = new Function('return function esc(str){ return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }')();
+ok('RED-proof: OLD esc throws on a numeric field',
+  (() => { try { oldEsc(90); return false; } catch (e) { return /replace is not a function/.test(e.message); } })());
+ok('RED-proof: OLD row builder throws on numeric words (seg.words?.trim())',
+  (() => { try { oldBuildRow({ timestamp_start: '0:00', words: 5, visual: 'v' }); return false; } catch { return true; } })());
+ok('FIX: shipped esc coerces a number instead of throwing', esc(90) === '90');
+ok('FIX: shipped row survives numeric timestamp_end (renders –90)',
+  (() => { try { return buildScriptRowHtml({ timestamp_start: '0:00', timestamp_end: 90, words: 'hi', visual: 'v' }).includes('–90'); } catch { return false; } })());
+ok('FIX: shipped row survives numeric timestamp_start (renders 12)',
+  (() => { try { return buildScriptRowHtml({ timestamp_start: 12, words: 'hi', visual: 'v' }).includes('12'); } catch { return false; } })());
+ok('FIX: shipped row survives numeric words (no throw)',
+  (() => { try { buildScriptRowHtml({ timestamp_start: '0:00', words: 5, visual: 'v' }); return true; } catch { return false; } })());
+ok('FIX: numeric/zero words does not falsely trigger no-dialogue',
+  !buildScriptRowHtml({ words: 0, visual: 'v' }).includes('no-dialogue'));
+ok('FIX: a non-string visual is still HTML-escaped, not crashed',
+  (() => { const out = buildScriptRowHtml({ words: 'w', visual: 5 }); return out.includes('5'); })());
+
 console.log(`script-row.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

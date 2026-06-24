@@ -675,7 +675,13 @@
   // analysis JSON, returned to the client unsanitised), so all four must be esc()'d
   // before landing in innerHTML — not just words/visual.
   function buildScriptRowHtml(seg) {
-    const isNoDialogue = /^\[(no dialogue|music|ambient)/i.test(seg.words?.trim() || '');
+    // seg fields come from the unsanitised Gemini JSON and are NOT guaranteed to
+    // be strings — an LLM readily emits a numeric timestamp ("timestamp_end": 90)
+    // or numeric words. `.trim()` and esc()'s `.replace()` throw on a number, and a
+    // single throw here aborts the whole renderScript loop → a blank script panel
+    // (cutter's primary output). Coerce defensively; esc() does the same below so
+    // every interpolation is crash-proof against non-string fields.
+    const isNoDialogue = /^\[(no dialogue|music|ambient)/i.test(String(seg.words ?? '').trim());
     const tsStart = esc(seg.timestamp_start || '');
     const tsEnd = seg.timestamp_end ? '–' + esc(seg.timestamp_end) : '';
     return `
@@ -686,7 +692,11 @@
   }
 
   function esc(str) {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // String() coercion: the interpolated fields are unsanitised Gemini JSON and
+    // may be numbers (timestamps especially). For any string this is byte-identical;
+    // for a non-string it neutralises a `str.replace is not a function` crash that
+    // would otherwise blank the whole script.
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   // ── Step indicators ──────────────────────────────────────────────────────────
