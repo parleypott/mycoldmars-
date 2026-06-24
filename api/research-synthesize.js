@@ -1,4 +1,5 @@
 import { readJsonBody } from './_lib/read-json-body.js';
+import { countWords } from './_lib/count-words.js';
 
 export const config = { runtime: 'edge', maxDuration: 120 };
 
@@ -65,7 +66,7 @@ export default async function handler(req) {
     .join('\n\n')
     .trim();
 
-  const words = text.split(/\s+/).length;
+  const words = countWords(text);
   const minutes = Math.round((words / 150) * 10) / 10;
 
   return new Response(JSON.stringify({ text, words, minutes }), {

@@ -4,6 +4,7 @@ import { parseEmbedding, cosineSim } from './_lib/semantic-search.js';
 import { formatSeconds } from './_lib/format-seconds.js';
 import { buildGeminiChatContents } from './_lib/gemini-chat-contents.js';
 import { readJsonBody } from './_lib/read-json-body.js';
+import { countWords } from './_lib/count-words.js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
 
@@ -1219,7 +1220,7 @@ async function handleFetchParseDoc(body) {
       }
 
       if (text.trim()) {
-        wordCount += text.trim().split(/\s+/).length;
+        wordCount += countWords(text);
         const namedStyle = para.paragraphStyle?.namedStyleType || '';
         if (namedStyle.match(/HEADING_/)) {
           elements.push({ type: 'heading', text: text.trim() });
@@ -1266,7 +1267,7 @@ async function handleFetchParseDoc(body) {
         const visual = sorted[1] || { text: '', runs: [] };
 
         totalBeats++;
-        wordCount += voice.text.split(/\s+/).length + visual.text.split(/\s+/).length;
+        wordCount += countWords(voice.text) + countWords(visual.text);
       }
     }
   }

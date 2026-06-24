@@ -1,6 +1,7 @@
 // research-hub frontend — vanilla JS, calls mycoldmars edge endpoints.
 // All state lives client-side (localStorage). No server-side persistence.
 
+import { countWords } from "../api/_lib/count-words.js";
 import { mdToHtml } from "./md.js";
 import { renderClarifyPanel } from "./clarify.js";
 import { decidePollOutcome } from "./poll-decision.js";
@@ -429,7 +430,7 @@ async function renderAudio() {
     $("#player").src = url;
     $("#dl").href = url;
     $("#dl").download = `research-${source}-${Date.now()}.mp3`;
-    const words = text.trim().split(/\s+/).length;
+    const words = countWords(text);
     const minutes = Math.round((words / 150) * 10) / 10;
     $("#audio-meta-text").textContent = `${source} · ~${minutes} min · ${(blob.size / 1024).toFixed(0)} kb`;
     $("#player").play().catch(() => {});

@@ -11033,7 +11033,10 @@
         const wordCount = (() => {
           let n = 0;
           for (let i = s.prose_start_block; i <= s.prose_end_block && i < blocks.length; i++) {
-            n += (blocks[i]?.text || '').split(/\s+/).length;
+            // Guard the ''.split(/\s+/).length === 1 trap: a blank block must
+            // count 0 words, not 1, or it inflates the auto-advance dwell below.
+            const t = (blocks[i]?.text || '').trim();
+            n += t ? t.split(/\s+/).length : 0;
           }
           return n;
         })();
