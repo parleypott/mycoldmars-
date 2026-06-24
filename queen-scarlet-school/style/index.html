@@ -371,6 +371,16 @@
       castChars: [],         // pulled from /api/qss-cast for the test panel
     };
 
+    // Guard the "last saved" stamp against a present-but-unparseable updated_at.
+    // .toLocaleString() on an Invalid Date RETURNS the literal "Invalid Date"
+    // (it never throws), so an unguarded render leaks it into the chip. A bad/
+    // missing timestamp degrades to 'never saved' rather than a broken stamp.
+    function fmtSaved(iso) {
+      if (!iso) return 'never saved';
+      const d = new Date(iso);
+      return isFinite(d.getTime()) ? `last saved ${d.toLocaleString()}` : 'never saved';
+    }
+
     function setStatus(label, cls) {
       const el = document.getElementById('save-status');
       el.textContent = label;
@@ -441,8 +451,7 @@
           state.original[f.key] = raw;
         }
         document.getElementById('world-name').textContent = w.short_name || w.name || world;
-        document.getElementById('updated-chip').textContent =
-          w.updated_at ? `last saved ${new Date(w.updated_at).toLocaleString()}` : 'never saved';
+        document.getElementById('updated-chip').textContent = fmtSaved(w.updated_at);
         renderFields();
         setStatus('all saved', 'saved');
       } catch (e) {
@@ -475,8 +484,7 @@
         const { world: w } = await r.json();
         state.world = w;
         for (const f of FIELDS) state.original[f.key] = state.values[f.key] || '';
-        document.getElementById('updated-chip').textContent =
-          `last saved ${new Date(w.updated_at).toLocaleString()}`;
+        document.getElementById('updated-chip').textContent = fmtSaved(w.updated_at);
         state.dirty = false;
         setStatus('all saved', 'saved');
         toast('style saved — next draw uses it', 'ok');
