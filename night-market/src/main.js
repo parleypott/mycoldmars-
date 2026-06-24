@@ -5,12 +5,14 @@
 import './style.css';
 import foods from './data/foods.js';
 import { initUI } from './ui.js';
+import { parseStudiedSet } from './studied-store.js';
 
 const grid = document.getElementById('food-grid');
 const ui = initUI();
 
-// Track studied foods
-const studied = new Set(JSON.parse(localStorage.getItem('nm-studied') || '[]'));
+// Track studied foods — guarded against a corrupt/non-array store (a bad
+// 'nm-studied' value used to crash the whole tool at load; see studied-store.js).
+const studied = parseStudiedSet(localStorage.getItem('nm-studied'));
 updateProgress();
 
 foods.forEach((food, idx) => {
