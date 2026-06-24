@@ -28,7 +28,7 @@ import { parseTimecodeToSeconds } from '../timecode-utils.js';
 import { buildSegIndex, findSegmentAt as locateSegmentAt, highlightTimeSpan } from './segment-locate.js';
 import { wordIndexFromCharOffset } from './word-index.js';
 import { formatClock } from '../format-clock.js';
-import { parseDeckCoord } from './deck-position.js';
+import { parseDeckCoord, clampDeckPosition } from './deck-position.js';
 
 const VIDEO_HEIGHT = 200;
 const WAVEFORM_HEIGHT = 72;
@@ -145,8 +145,16 @@ export function mountMediaDeck(editorContainer, opts = {}) {
   try {
     const saved = JSON.parse(localStorage.getItem('mcm_media_deck_pos') || 'null');
     if (saved && typeof saved.left === 'number' && typeof saved.bottom === 'number') {
-      videoFrame.style.left = `${saved.left}px`;
-      videoFrame.style.bottom = `${saved.bottom}px`;
+      // Clamp to the CURRENT viewport — a position saved on a wider/taller screen
+      // would otherwise restore off-screen and strand the PIP out of reach.
+      const rect = videoFrame.getBoundingClientRect();
+      const pos = clampDeckPosition(
+        saved,
+        { width: window.innerWidth, height: window.innerHeight },
+        { width: rect.width, height: rect.height },
+      );
+      videoFrame.style.left = `${pos.left}px`;
+      videoFrame.style.bottom = `${pos.bottom}px`;
       videoFrame.style.right = 'auto';
     }
     if (saved && saved.collapsed) {
