@@ -9688,6 +9688,12 @@
         </button>`;
       document.getElementById('arc-chip-btn').addEventListener('click', openArcInspector);
     }
+    function arcUpdatedLabel(iso) {
+      const d = iso ? new Date(iso) : null;
+      return d && isFinite(d.getTime())
+        ? `updated ${d.toLocaleTimeString()}`
+        : 'no analysis yet';
+    }
     function openArcInspector() {
       document.getElementById('arc-inspector').classList.add('open');
       renderArcInspector();
@@ -9707,9 +9713,7 @@
         ? '<span class="arc-stat arc-stat-stale">stale · refreshing soon</span>'
         : status === 'error'
         ? `<span class="arc-stat arc-stat-err">error: ${esc(state.arcError || 'unknown')}</span>`
-        : arc?.updated_at
-        ? `<span class="arc-stat">updated ${new Date(arc.updated_at).toLocaleTimeString()}</span>`
-        : '<span class="arc-stat">no analysis yet</span>';
+        : `<span class="arc-stat">${arcUpdatedLabel(arc?.updated_at)}</span>`;
 
       if (!arc || (!arc.synopsis && !arc.characters?.length)) {
         body.innerHTML = `<div class="arc-empty">No arc analysis yet. Add a block or two, then come back — or hit refresh below to force one now.</div>`;
