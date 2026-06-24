@@ -21,11 +21,17 @@ export function exportSummaryText(summaryContent, transcriptName) {
 // Compact filename sanitizer — preserves dots, dashes, underscores; collapses
 // runs of replacement chars; drops leading/trailing dashes. Replaces the
 // /[^a-z0-9]/gi pattern that produced dash bloat ("My___File" → "my---file").
+//
+// The trailing strip runs AFTER the 120-char cap, not before: truncating a long
+// name can land the cut on a separator ("…title " → "…title-"), and stripping
+// first would leave that dangling dash in the download name ("…title--summary.txt").
+// Strip-after-slice keeps the documented "no leading/trailing dashes" contract
+// even when the cap bites. Byte-identical for every name short enough to skip the cap.
 export function safeFilename(name) {
   return String(name || 'untitled')
     .replace(/[^a-z0-9._-]+/gi, '-')
     .replace(/-+/g, '-')
-    .replace(/^[-.]+|[-.]+$/g, '')
     .toLowerCase()
-    .slice(0, 120) || 'untitled';
+    .slice(0, 120)
+    .replace(/^[-.]+|[-.]+$/g, '') || 'untitled';
 }

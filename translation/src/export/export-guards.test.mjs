@@ -85,4 +85,31 @@ eq(safeFilename('   '), 'untitled', 'whitespace-only → untitled');
 // length cap
 ok(safeFilename('a'.repeat(500)).length <= 120, 'capped at 120 chars');
 
+// ── safeFilename(): truncation must NOT leave a dangling separator ─────────────
+// The cap can land the 120-char cut on a separator. Stripping leading/trailing
+// dashes BEFORE the slice (the prior order) re-introduced that dash into the
+// download name ("…title--summary.txt"). These lock the strip-after-slice fix.
+// RED proof: the buggy order (strip then slice) leaves a trailing dash on both.
+{
+  const cutOnDash = 'a'.repeat(119) + ' bcd';          // 120th char becomes '-'
+  const r1 = safeFilename(cutOnDash);
+  ok(r1.length <= 120, 'truncated name still within cap');
+  ok(!/[-.]$/.test(r1), 'truncation does not leave a trailing separator (cut-on-dash)');
+
+  const longSpaced = 'My Long Burma Interview Title '.repeat(6);  // realistic long name
+  const r2 = safeFilename(longSpaced);
+  ok(!/[-.]$/.test(r2), 'truncation does not leave a trailing separator (long spaced name)');
+  ok(!/^[-.]/.test(r2), 'no leading separator after the cap either');
+
+  // Prove the OLD order was actually buggy (strip BEFORE slice keeps the dash).
+  const oldOrder = (s) => String(s || 'untitled')
+    .replace(/[^a-z0-9._-]+/gi, '-').replace(/-+/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '').toLowerCase().slice(0, 120) || 'untitled';
+  ok(/[-.]$/.test(oldOrder(cutOnDash)), 'RED proof: old strip-then-slice order LEFT a trailing dash');
+  ok(!/[-.]$/.test(safeFilename(cutOnDash)), 'GREEN: shipped strip-after-slice order removes it');
+}
+
+// degenerate cap case: a name that is ALL separators past the cap still floors to 'untitled'
+eq(safeFilename('-'.repeat(200)), 'untitled', 'all-separator long name → untitled (not a bare dash)');
+
 console.log(`export-guards: ${pass}/${pass} GREEN`);
