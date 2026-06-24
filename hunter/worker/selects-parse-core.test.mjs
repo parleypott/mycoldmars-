@@ -25,6 +25,7 @@ import {
   extractCorpusUnits,
   buildFileDefs,
   parseClipItem,
+  normalizeSourceFrames,
   getText,
   getNum,
   getDirectChildren,
@@ -181,6 +182,54 @@ const SELECTS_XML = `<?xml version="1.0" encoding="UTF-8"?>
   eq(getNum(root, 'n'), 3.5, 'getNum parses float');
   eq(getNum(root, 'a'), 0, 'getNum non-numeric → 0');
   eq(getDirectChildren(root, 'b').length, 2, 'getDirectChildren counts direct matches');
+}
+
+// ── FCP7 "-1" unset-in/out sentinel: no negative source timecodes ──
+// FCP7's interchange format writes -1 for an UNTRIMMED source in/out ("use the
+// full media"); FCP7-native and DaVinci Resolve FCP7-XML exports emit it. Left
+// raw, -1/fps gives a NEGATIVE source timecode that poisons the corpus
+// (extractCorpusUnits keys each unit on in/outSeconds). normalizeSourceFrames
+// clamps it: -1 in → 0, -1 out → in + duration (run `duration` frames from in).
+{
+  // pure helper — the contract, directly.
+  eq(JSON.stringify(normalizeSourceFrames(-1, -1, 48)), JSON.stringify({ inPoint: 0, outPoint: 48 }),
+    'both unset (-1) → in 0, out in+duration');
+  eq(JSON.stringify(normalizeSourceFrames(100, -1, 48)), JSON.stringify({ inPoint: 100, outPoint: 148 }),
+    'unset out only → in + duration');
+  eq(JSON.stringify(normalizeSourceFrames(-1, 240, 48)), JSON.stringify({ inPoint: 0, outPoint: 240 }),
+    'unset in only → 0, out kept');
+  eq(JSON.stringify(normalizeSourceFrames(-1, -1, 0)), JSON.stringify({ inPoint: 0, outPoint: 0 }),
+    'both unset with unknown duration → 0/0 (non-negative, never inverted)');
+  // Byte-identical for every clip with valid (>=0) in/out — the no-regression leg.
+  eq(JSON.stringify(normalizeSourceFrames(100, 148, 48)), JSON.stringify({ inPoint: 100, outPoint: 148 }),
+    'valid in/out pass through unchanged');
+  eq(JSON.stringify(normalizeSourceFrames(0, 24, 24)), JSON.stringify({ inPoint: 0, outPoint: 24 }),
+    'zero-in valid clip unchanged');
+
+  // End-to-end through parseFCP7XML: a full-media B-roll cut with <in>-1/<out>-1.
+  const sentinelXml = `<xmeml><sequence><name>S</name>
+    <rate><timebase>24</timebase><ntsc>FALSE</ntsc></rate>
+    <media><video><track>
+      <clipitem id="c1"><name>BROLL.mov</name>
+        <start>0</start><end>48</end><in>-1</in><out>-1</out><duration>48</duration>
+        <file id="f1"><name>BROLL.mov</name><pathurl>file:///vol/BROLL.mov</pathurl></file>
+      </clipitem>
+    </track></video></media></sequence></xmeml>`;
+  const sclip = parseFCP7XML(sentinelXml)[0].videoTracks[0].clips[0];
+  ok(sclip.inSeconds >= 0, `sentinel in never negative — got ${sclip.inSeconds}`);
+  ok(sclip.outSeconds >= 0, `sentinel out never negative — got ${sclip.outSeconds}`);
+  eq(sclip.inSeconds, 0, 'sentinel in → 0s');
+  eq(sclip.outSeconds, Math.round((48 / 24) * 100) / 100, 'sentinel out → (in+duration)/fps = 2s');
+  // The corpus unit carries a clean, forward [0, 2] source range (not [-0.04, -0.04]).
+  const sunit = extractCorpusUnits(parseFCP7XML(sentinelXml))[0];
+  ok(sunit.startSeconds >= 0 && sunit.endSeconds >= sunit.startSeconds,
+    `corpus source range is forward & non-negative — got [${sunit.startSeconds}, ${sunit.endSeconds}]`);
+
+  // INLINE RED proof: the OLD raw behavior (no normalize) WOULD have produced a
+  // negative source timecode. Reconstruct it and assert it was broken.
+  const rawIn = -1, fps = 24;
+  const oldInSeconds = Math.round((rawIn / fps) * 100) / 100;
+  ok(oldInSeconds < 0, `old raw -1/fps was negative (${oldInSeconds}) — the bug this locks`);
 }
 
 console.log(`selects-parse-core: ${pass} passed, ${fail} failed`);

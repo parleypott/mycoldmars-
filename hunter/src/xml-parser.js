@@ -133,13 +133,28 @@ function parseTrackClips(trackEl, fps, fileDefs) {
   return clips;
 }
 
+// FCP7's interchange format uses -1 for an UNSET source in/out point ("clip not
+// trimmed — use the full media"). FCP7-native and DaVinci Resolve FCP7-XML
+// exports emit it. Left raw, -1/fps yields a NEGATIVE source timecode that
+// poisons the corpus (extractCorpusUnits keys each unit's range on in/outSeconds).
+// Normalize: a -1 in → 0; a -1 out → in + duration (run `duration` frames from
+// in), or in when duration is unknown. Byte-identical for valid (>=0) in/out.
+// Mirror of normalizeSourceFrames in worker/selects-parse-core.js.
+export function normalizeSourceFrames(inPoint, outPoint, duration) {
+  const inN = inPoint < 0 ? 0 : inPoint;
+  let outN = outPoint;
+  if (outN < 0) outN = duration > 0 ? inN + duration : inN;
+  return { inPoint: inN, outPoint: outN };
+}
+
 function parseClipItem(clipEl, fps, fileDefs) {
   const name = getText(clipEl, ':scope > name');
   const start = getNum(clipEl, ':scope > start');  // position on timeline (frames)
   const end = getNum(clipEl, ':scope > end');      // end on timeline (frames)
-  const inPoint = getNum(clipEl, ':scope > in');   // source in (frames)
-  const outPoint = getNum(clipEl, ':scope > out'); // source out (frames)
   const duration = getNum(clipEl, ':scope > duration');
+  let inPoint = getNum(clipEl, ':scope > in');     // source in (frames)
+  let outPoint = getNum(clipEl, ':scope > out');   // source out (frames)
+  ({ inPoint, outPoint } = normalizeSourceFrames(inPoint, outPoint, duration));
 
   // Source file info
   const fileEl = clipEl.querySelector(':scope > file');

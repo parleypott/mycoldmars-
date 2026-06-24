@@ -50,13 +50,29 @@ export function isNestedInClipItem(el) {
   return false;
 }
 
+// FCP7's interchange format uses -1 for an UNSET source in/out point ("clip not
+// trimmed — use the full media"). FCP7-native and DaVinci Resolve FCP7-XML
+// exports emit it. Left raw, -1/fps yields a NEGATIVE source timecode that
+// poisons the corpus: extractCorpusUnits keys each unit's range on in/outSeconds,
+// so a full-media B-roll cut lands at startSeconds ≈ -0.04 with an inverted range.
+// Normalize: a -1 in → 0 (start of media); a -1 out → in + duration (the FCP7
+// semantics — run `duration` frames from in), or in when duration is unknown.
+// Byte-identical for every clip with valid (>=0) in/out.
+export function normalizeSourceFrames(inPoint, outPoint, duration) {
+  const inN = inPoint < 0 ? 0 : inPoint;
+  let outN = outPoint;
+  if (outN < 0) outN = duration > 0 ? inN + duration : inN;
+  return { inPoint: inN, outPoint: outN };
+}
+
 export function parseClipItem(clipEl, fps, fileDefs) {
   const name = getText(clipEl, 'name');
   const start = getNum(clipEl, 'start');
   const end = getNum(clipEl, 'end');
-  const inPoint = getNum(clipEl, 'in');
-  const outPoint = getNum(clipEl, 'out');
   const duration = getNum(clipEl, 'duration');
+  let inPoint = getNum(clipEl, 'in');
+  let outPoint = getNum(clipEl, 'out');
+  ({ inPoint, outPoint } = normalizeSourceFrames(inPoint, outPoint, duration));
 
   // Source file
   const fileEls = getDirectChildren(clipEl, 'file');
