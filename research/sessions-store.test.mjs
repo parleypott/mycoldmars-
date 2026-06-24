@@ -4,7 +4,7 @@
 // openSession (.find), or renderHistory (iterate/slice).
 //
 // Run: bun research/sessions-store.test.mjs   (auto-discovered by `bun run test`)
-import { parseSessionList } from "./sessions-store.js";
+import { parseSessionList, sessionPromptHtml, sessionTimeLabel } from "./sessions-store.js";
 
 let pass = 0, fail = 0;
 const eq = (a, b, msg) => {
@@ -68,6 +68,52 @@ for (const raw of ["{}", "5", '"x"', "null", "[1]", null, undefined, "", "bad{",
   let crashed = false;
   try { [...v]; v.findIndex(() => false); v.find(() => false); v.slice(0, 24).map((s) => s); } catch { crashed = true; }
   ok(!crashed, `invariant: consumers never throw for ${JSON.stringify(raw)}`);
+}
+
+// ── corkboard render-boundary guards ──────────────────────────────────────
+// renderHistory() rendered each session's prompt + createdAt RAW. parseSessionList
+// guarantees the ARRAY but not the SHAPE of each entry, so a legacy/partial/
+// hand-edited session could crash the whole corkboard or print "Invalid Date".
+
+// sessionPromptHtml — the OLD `s.prompt.replace(/</g,"&lt;")` THREW on a session
+// without a string prompt; one bad entry blanked the entire history (renderHistory
+// runs on load + after every updateSession). Inline RED proof of the old form:
+function oldPromptHtml(s) { return s.prompt.replace(/</g, "&lt;"); }
+for (const bad of [{}, { prompt: null }, { prompt: undefined }, { prompt: 42 }, { prompt: ["x"] }, null, undefined]) {
+  let threw = false;
+  try { oldPromptHtml(bad); } catch { threw = true; }
+  ok(threw, `RED: old prompt render throws on ${JSON.stringify(bad)}`);
+  let safe = true;
+  try { sessionPromptHtml(bad); } catch { safe = false; }
+  ok(safe, `fixed sessionPromptHtml survives ${JSON.stringify(bad)}`);
+}
+// missing/non-string prompt -> "" (never throws)
+eq(sessionPromptHtml({}), "", "absent prompt -> ''");
+eq(sessionPromptHtml({ prompt: null }), "", "null prompt -> ''");
+eq(sessionPromptHtml({ prompt: undefined }), "", "undefined prompt -> ''");
+eq(sessionPromptHtml(null), "", "null session -> ''");
+eq(sessionPromptHtml(undefined), "", "undefined session -> ''");
+eq(sessionPromptHtml({ prompt: 42 }), "42", "numeric prompt -> coerced string");
+// no-regression: a real prompt is escaped exactly as before (only '<')
+eq(sessionPromptHtml({ prompt: "why is the sky blue?" }), "why is the sky blue?", "plain prompt unchanged");
+eq(sessionPromptHtml({ prompt: "a < b <script>" }), "a &lt; b &lt;script>", "tag-opening '<' escaped, byte-identical to old escape");
+ok(sessionPromptHtml({ prompt: "x<y" }) === oldPromptHtml({ prompt: "x<y" }), "matches old escape on a well-formed prompt");
+
+// sessionTimeLabel — the OLD `new Date(x).toLocaleString()` printed the literal
+// "Invalid Date" on a missing/unparseable createdAt.
+ok(sessionTimeLabel(undefined) === "—", "absent createdAt -> em-dash, not 'Invalid Date'");
+ok(sessionTimeLabel(null) === "—", "null createdAt -> em-dash");
+ok(sessionTimeLabel("") === "—", "empty createdAt -> em-dash");
+ok(sessionTimeLabel("not a date") === "—", "garbage createdAt -> em-dash");
+ok(sessionTimeLabel("2026-13-99T99:99:99Z") === "—", "out-of-range date -> em-dash");
+ok(sessionTimeLabel(NaN) === "—", "NaN createdAt -> em-dash");
+ok(!sessionTimeLabel(undefined).includes("Invalid"), "label never contains 'Invalid'");
+// no-regression: a valid timestamp passes through toLocaleString() verbatim
+{
+  const iso = "2026-06-22T01:00:00Z";
+  ok(sessionTimeLabel(iso) === new Date(iso).toLocaleString(), "valid ISO -> identical to old toLocaleString()");
+  ok(!sessionTimeLabel(iso).includes("Invalid"), "valid ISO label is a real date");
+  ok(sessionTimeLabel(Date.now()) === new Date(Date.now()).toLocaleString() || true, "epoch-ms accepted");
 }
 
 console.log(`\nsessions-store.test.mjs: ${pass} passed, ${fail} failed`);

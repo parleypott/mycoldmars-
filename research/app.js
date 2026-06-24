@@ -5,7 +5,7 @@ import { countWords } from "../api/_lib/count-words.js";
 import { mdToHtml } from "./md.js";
 import { renderClarifyPanel } from "./clarify.js";
 import { decidePollOutcome } from "./poll-decision.js";
-import { parseSessionList } from "./sessions-store.js";
+import { parseSessionList, sessionPromptHtml, sessionTimeLabel } from "./sessions-store.js";
 import { parseCookieValue } from "../shared/cookie.js";
 
 const $ = (s) => document.querySelector(s);
@@ -456,8 +456,8 @@ function renderHistory() {
   for (const s of all.slice(0, 24)) {
     const li = document.createElement("li");
     li.innerHTML = `
-      <span class="session-prompt">${s.prompt.replace(/</g, "&lt;")}</span>
-      <span class="session-time">${new Date(s.createdAt).toLocaleString()}</span>
+      <span class="session-prompt">${sessionPromptHtml(s)}</span>
+      <span class="session-time">${sessionTimeLabel(s.createdAt)}</span>
     `;
     li.addEventListener("click", () => openSession(s.id));
     ul.appendChild(li);
