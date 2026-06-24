@@ -12,6 +12,8 @@
 // the running range to null. (Per-bullet refs still win; sections that declare a range
 // are unchanged.)
 
+import { matchSegmentRef } from './segment-ref.js';
+
 export function parseSummaryBullets(rawText) {
   if (!rawText) return [];
   const lines = rawText.split('\n');
@@ -29,10 +31,10 @@ export function parseSummaryBullets(rawText) {
       // Clean header text: strip ** and ## prefixes
       sectionTitle = line.replace(/^#+\s*/, '').replace(/^\*\*(.+?)\*\*$/, '$1').replace(/^\*\*/, '').replace(/\*\*$/, '').trim();
 
-      const headerSegMatch = line.match(/(?:\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)|\[(\d+)(?:\s*[-–]\s*(\d+))?\])/i);
-      if (headerSegMatch) {
-        sectionSegStart = parseInt(headerSegMatch[1] || headerSegMatch[3]);
-        sectionSegEnd = parseInt(headerSegMatch[2] || headerSegMatch[4] || headerSegMatch[1] || headerSegMatch[3]);
+      const headerSeg = matchSegmentRef(line);
+      if (headerSeg) {
+        sectionSegStart = headerSeg.start;
+        sectionSegEnd = headerSeg.end;
       } else {
         // A new section with no declared range carries NO inherited range — reset, don't
         // bleed the previous section's range onto this section's bullets.
@@ -48,11 +50,11 @@ export function parseSummaryBullets(rawText) {
 
     const text = bulletMatch[1];
     // Check for per-bullet segment refs: (Segments X-Y), (Segment X), [X-Y], [X]
-    const bulletSegMatch = text.match(/(?:\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)|\[(\d+)(?:\s*[-–]\s*(\d+))?\])/i);
+    const bulletSeg = matchSegmentRef(text);
     let segStart, segEnd;
-    if (bulletSegMatch) {
-      segStart = parseInt(bulletSegMatch[1] || bulletSegMatch[3]);
-      segEnd = parseInt(bulletSegMatch[2] || bulletSegMatch[4] || bulletSegMatch[1] || bulletSegMatch[3]);
+    if (bulletSeg) {
+      segStart = bulletSeg.start;
+      segEnd = bulletSeg.end;
     } else {
       // Inherit from section header
       segStart = sectionSegStart;

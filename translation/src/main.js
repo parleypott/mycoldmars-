@@ -4,6 +4,7 @@ import { parseTrintHTML } from './trint-html-parser.js';
 import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { fmtShortTimecode } from './short-timecode.js';
+import { enrichSegmentRefs } from './segment-ref.js';
 import { parseSoundbites, extractSacredName, detectAllSequences, formatDuration, tcToFrameNotation } from './soundbites.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
 import { buildSRT, timeToSeconds } from './srt-builder.js';
@@ -5692,38 +5693,13 @@ function enrichSummaryWithTimecodes(text) {
     }
   }
 
-  // Format a timecode value to short form (M:SS or H:MM:SS)
-  const fmtShort = fmtShortTimecode;
-
-  // Replace (Segments X-Y) or [X-Y] with (X:XX – Y:YY)
-  let result = text.replace(/\(Segments?\s+(\d+)(?:\s*[-–]\s*(\d+))?\)/gi, (match, startNum, endNum) => {
-    const startTc = segTimecodes[parseInt(startNum)];
-    if (!startTc) return match;
-    const startFmt = fmtShort(startTc);
-    if (endNum) {
-      const endTc = segTimecodes[parseInt(endNum)];
-      const endFmt = endTc ? fmtShort(endTc) : '';
-      const range = endFmt ? `${startFmt} – ${endFmt}` : startFmt;
-      return `(${range})`;
-    }
-    return `(${startFmt})`;
+  // Delegate to the shared recognizer (segment-ref.js) so (Segments X-Y), [X-Y],
+  // and the em-dash / "to" ranges the model actually emits all resolve the same way
+  // — and stay in lockstep with the bullet parser that links these refs to segments.
+  return enrichSegmentRefs(text, (num) => {
+    const tc = segTimecodes[num];
+    return tc ? fmtShortTimecode(tc) : null;
   });
-
-  // Also handle [X-Y] bracket format
-  result = result.replace(/\[(\d+)(?:\s*[-–]\s*(\d+))?\]/g, (match, startNum, endNum) => {
-    const startTc = segTimecodes[parseInt(startNum)];
-    if (!startTc) return match;
-    const startFmt = fmtShort(startTc);
-    if (endNum) {
-      const endTc = segTimecodes[parseInt(endNum)];
-      const endFmt = endTc ? fmtShort(endTc) : '';
-      const range = endFmt ? `${startFmt} – ${endFmt}` : startFmt;
-      return `[${range}]`;
-    }
-    return `[${startFmt}]`;
-  });
-
-  return result;
 }
 
 async function generateAutoSummary() {
