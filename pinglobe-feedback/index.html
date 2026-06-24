@@ -105,13 +105,36 @@
   <button id="clear" class="clear-btn hidden">CLEAR ALL</button>
 
   <script>
-    const entries = JSON.parse(localStorage.getItem('pg-feedback') || '[]');
+    // Parse the 'pg-feedback' store into a GUARANTEED array. This viewer is the
+    // sibling of pinglobe/src/feedback-store.js's parseFeedbackList — both read the
+    // SAME localStorage key on the same origin. The old inline form
+    //   const entries = JSON.parse(localStorage.getItem('pg-feedback') || '[]');
+    // had NO try/catch and trusted the result to be an array, so a corrupt/legacy
+    // store blanked this whole admin page two ways:
+    //   (1) MALFORMED JSON -> JSON.parse threw at load -> render() never ran.
+    //   (2) valid-but-NON-array ('{}', '5', 'null') -> render's [...data].reverse()
+    //       threw "data is not iterable".
+    // Returns [] for any non-array / unparseable / missing value; a real array
+    // passes through verbatim (byte-identical common case -> zero regression).
+    // Keep identical to pinglobe-feedback/feedback-viewer.test.mjs.
+    function parseFeedbackList(raw) {
+      if (raw == null) return [];
+      try {
+        const v = JSON.parse(raw);
+        return Array.isArray(v) ? v : [];
+      } catch {
+        return [];
+      }
+    }
+
+    const entries = parseFeedbackList(localStorage.getItem('pg-feedback'));
     const container = document.getElementById('entries');
     const countEl = document.getElementById('count');
     const emptyEl = document.getElementById('empty');
     const clearBtn = document.getElementById('clear');
 
     function render(data) {
+      if (!Array.isArray(data)) data = [];
       container.innerHTML = '';
       if (data.length === 0) {
         countEl.textContent = '';
