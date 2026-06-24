@@ -140,14 +140,21 @@ export function detectAllSequences(bites) {
 
 export function formatDuration(bites) {
   let totalSec = 0;
+  // Each field coerces to a FINITE number — the soundbite regex (`[0-9:.,]+`)
+  // accepts pure-punctuation timecodes (":", "::"), so an empty hh/mm field
+  // would yield NaN. A single NaN here used to poison the whole running total
+  // (NaN + anything = NaN), collapsing a real multi-minute sequence to "0:00".
+  // Isolate it per-bite: a malformed bite contributes 0, not poison.
+  const num = (x) => { const v = parseFloat(x); return Number.isFinite(v) ? v : 0; };
+  const parts = (tc) => {
+    const p = String(tc ?? '').replace(',', '.').split(':');
+    if (p.length === 3) return num(p[0]) * 3600 + num(p[1]) * 60 + num(p[2]);
+    if (p.length === 2) return num(p[0]) * 60 + num(p[1]);
+    return num(p[0]);
+  };
   for (const b of bites) {
-    const parts = (tc) => {
-      const p = tc.replace(',', '.').split(':');
-      if (p.length === 3) return parseInt(p[0]) * 3600 + parseInt(p[1]) * 60 + parseFloat(p[2]);
-      if (p.length === 2) return parseInt(p[0]) * 60 + parseFloat(p[1]);
-      return parseFloat(p[0]) || 0;
-    };
-    totalSec += Math.max(0, parts(b.end) - parts(b.start));
+    const dur = parts(b.end) - parts(b.start);
+    totalSec += dur > 0 ? dur : 0;
   }
   // Hour-carrying clock format (shared) — a long soundbite sequence can total
   // over an hour, which the old inline `${m}:${s}` dropped to e.g. "90:00".

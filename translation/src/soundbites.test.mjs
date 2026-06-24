@@ -213,6 +213,48 @@ eq(formatDuration([
 ]), '0:30', 'dur: a reversed bite does not erode a sibling bite (per-bite clamp)');
 eq(formatDuration([]), '0:00', 'dur: empty -> 0:00');
 
+// ── formatDuration: a malformed bite must NOT poison the whole total ─────────
+// The soundbite regex `[0-9:.,]+` accepts pure-punctuation timecodes (":", "::"),
+// and the workshop lets producers hand-edit bites. An empty hh/mm field yields
+// NaN; the OLD code did `parseInt(p[0]) * 60 + ...` with no guard, so one bad
+// bite's NaN poisoned the running sum (NaN + anything = NaN) and `formatClock`
+// collapsed a real 10-minute sequence to "0:00". The fix isolates NaN per-bite.
+eq(formatDuration([
+  { start: '00:00:00', end: '00:10:00' },
+  { start: '00:00:00', end: ':' },
+]), '10:00', 'dur: an end=":" malformed bite contributes 0, does not zero the total');
+eq(formatDuration([
+  { start: '00:00:00', end: '00:10:00' },
+  { start: '::', end: '::' },
+]), '10:00', 'dur: a "::" bite is isolated, real sibling duration survives');
+eq(formatDuration([
+  { start: '00:00:00', end: '00:05:00' },
+  { start: 'abc', end: 'xyz' },
+]), '5:00', 'dur: non-numeric timecodes contribute 0, never NaN');
+eq(formatDuration([{ start: '00:00:00', end: null }]), '0:00',
+   'dur: null timecode is coerced (no crash, contributes 0)');
+eq(formatDuration([{ start: undefined, end: '00:00:30' }]), '0:30',
+   'dur: undefined start coerces to 0, real end still counts');
+
+// ── RED proof: the OLD unguarded `parts` poisons the total on one bad bite ───
+{
+  const badParts = (tc) => {
+    const p = tc.replace(',', '.').split(':');
+    if (p.length === 3) return parseInt(p[0]) * 3600 + parseInt(p[1]) * 60 + parseFloat(p[2]);
+    if (p.length === 2) return parseInt(p[0]) * 60 + parseFloat(p[1]); // NaN on empty fields
+    return parseFloat(p[0]) || 0;
+  };
+  const badTotal =
+    Math.max(0, badParts('00:10:00') - badParts('00:00:00')) +
+    Math.max(0, badParts(':')       - badParts('00:00:00'));
+  ok(Number.isNaN(badTotal), 'RED proof: old unguarded parts() yields NaN total on a ":" bite');
+  // And the shipped function does NOT:
+  eq(formatDuration([
+    { start: '00:00:00', end: '00:10:00' },
+    { start: '00:00:00', end: ':' },
+  ]), '10:00', 'shipped formatDuration isolates the bad bite (10:00, not 0:00)');
+}
+
 // ── tcToFrameNotation: FCP7 frame notation, fps-aware ───────────────────────
 eq(tcToFrameNotation('00:00:01.5', 24), '0:01:12', 'tc: .5s at 24fps -> frame 12');
 eq(tcToFrameNotation('00:00:05', 24), '0:05:00', 'tc: no fraction -> frame 00');
