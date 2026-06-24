@@ -303,8 +303,13 @@ async function load(){
   render();
 }
 
+function fmtSyncTime(updatedAt){
+  if(!updatedAt) return "";
+  const d = new Date(updatedAt);
+  return isFinite(d.getTime()) ? d.toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}) : "";
+}
 function setSynced(msg){
-  const t = updatedAt ? new Date(updatedAt).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}) : "";
+  const t = fmtSyncTime(updatedAt);
   document.getElementById("synced").textContent = msg + (t?` · last update ${t}`:"");
 }
 let toastTimer=null;
