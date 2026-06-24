@@ -33,3 +33,16 @@ export function formatDate(isoStr) {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
   } catch { return '—'; }
 }
+
+// Full locale date stamp ("6/23/2026") — the bare .toLocaleDateString() form
+// the project-list / snapshot / learned-context / taste-context rows use.
+// Same Invalid-Date trap as formatDate: a corrupt value renders "Invalid Date"
+// and a null renders a misleading 1970 epoch ("1/1/1970"). Degrades to the
+// fallback ('' by default — the empty render those inline rows already use for
+// an absent timestamp). Byte-identical for every valid date.
+export function fmtLocaleDate(isoStr, fallback = '') {
+  if (isoStr == null || isoStr === '') return fallback;
+  const d = new Date(isoStr);
+  if (Number.isNaN(d.getTime())) return fallback;
+  return d.toLocaleDateString();
+}

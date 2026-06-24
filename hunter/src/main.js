@@ -6,7 +6,7 @@ import { normalizeKeepability } from './keepability.js';
 import { filterAndSortCorpus } from './corpus-filter.js';
 import { buildCorpusCsv } from './csv-export.js';
 import { classifySequence } from './sequence-classify.js';
-import { formatTimeAgo, formatDate } from './time-format.js';
+import { formatTimeAgo, formatDate, fmtLocaleDate } from './time-format.js';
 
 // ── State ──
 let currentView = 'projects';
@@ -149,7 +149,7 @@ async function loadProjects() {
   projectsList.innerHTML = projects.map(p => `
     <div class="project-row" data-id="${p.id}">
       <span class="project-row-name">${escHtml(p.name)}</span>
-      <span class="project-row-meta">${new Date(p.created_at).toLocaleDateString()}</span>
+      <span class="project-row-meta">${fmtLocaleDate(p.created_at)}</span>
     </div>
   `).join('');
 
@@ -1465,7 +1465,7 @@ async function renderScriptTab(project, assets, signal) {
           </div>
           <div style="text-align:right">
             <div class="v2-caps v2-caps--dim" style="letter-spacing:0.12em">v${snapshot.version_number || 1}</div>
-            <div class="v2-caps v2-caps--xs v2-caps--dim">${snapshot.created_at ? new Date(snapshot.created_at).toLocaleDateString() : ''}</div>
+            <div class="v2-caps v2-caps--xs v2-caps--dim">${fmtLocaleDate(snapshot.created_at)}</div>
           </div>
         </div>
         <div style="display:flex;gap:2rem;margin-top:1rem">
@@ -1902,7 +1902,7 @@ async function renderScriptCopilotHub() {
 
       ${t?.script_context ? `
       <div class="sc-section">
-        <div class="sc-section-label">LEARNED CONTEXT <span style="color:rgba(255,255,255,0.15)">${t.doc_count} scripts / ${new Date(t.created_at).toLocaleDateString()}</span></div>
+        <div class="sc-section-label">LEARNED CONTEXT <span style="color:rgba(255,255,255,0.15)">${t.doc_count} scripts / ${fmtLocaleDate(t.created_at)}</span></div>
         <div class="sc-context-text">${escHtml(t.script_context)}</div>
       </div>` : ''}
 
@@ -2210,7 +2210,7 @@ function renderFootageTasteSection() {
 
     ${tp?.taste_context ? `
     <div class="sc-section">
-      <div class="sc-section-label">TASTE CONTEXT <span style="color:rgba(255,255,255,0.15)">${tp.project_count} projects / ${new Date(tp.created_at).toLocaleDateString()}</span></div>
+      <div class="sc-section-label">TASTE CONTEXT <span style="color:rgba(255,255,255,0.15)">${tp.project_count} projects / ${fmtLocaleDate(tp.created_at)}</span></div>
       <div class="sc-context-text">${escHtml(tp.taste_context)}</div>
     </div>` : ''}
 

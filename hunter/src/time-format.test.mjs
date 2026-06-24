@@ -13,7 +13,7 @@
 // library/write, devchat — these were the surviving copies in hunter/src.
 // Imports the REAL shipped functions — no mirror, can't drift.
 
-import { formatTimeAgo, formatDate } from './time-format.js';
+import { formatTimeAgo, formatDate, fmtLocaleDate } from './time-format.js';
 
 let pass = 0, fail = 0;
 const eq = (got, want, msg) => {
@@ -104,6 +104,43 @@ for (const iso of ['2026-06-23T12:00:00Z', '2026-01-01T00:00:00Z',
 // known outputs
 eq(formatDate('2026-06-23T12:00:00Z'), 'JUN 23', 'formatDate: JUN 23');
 eq(formatDate('2026-01-01T12:00:00Z'), 'JAN 1', 'formatDate: JAN 1');
+
+// ── fmtLocaleDate: the project-list / snapshot / learned-context / taste-context
+//    rows used a BARE new Date(x).toLocaleDateString() — three with NO guard, so
+//    a missing created_at leaked "Invalid Date" (undefined) or "1/1/1970" (null).
+// RED PROOF: reconstruct the OLD bare inline form.
+function oldBareLocaleDate(isoStr) {
+  return new Date(isoStr).toLocaleDateString();
+}
+eq(oldBareLocaleDate(undefined), 'Invalid Date', 'RED: old bare form leaks "Invalid Date" (undefined)');
+eq(oldBareLocaleDate('garbage'), 'Invalid Date', 'RED: old bare form leaks "Invalid Date" (garbage)');
+eq(fmtLocaleDate(undefined), '', 'fixed fmtLocaleDate defuses undefined -> ""');
+eq(fmtLocaleDate('garbage'), '', 'fixed fmtLocaleDate defuses garbage -> ""');
+
+// the null -> misleading 1970 epoch the old form rendered
+ok(oldBareLocaleDate(null).includes('1970'), 'RED: old bare form renders 1970 on null');
+eq(fmtLocaleDate(null), '', 'fmtLocaleDate: null -> "" (no misleading 1970)');
+
+// every corrupt/absent shape -> fallback, never "Invalid Date"/"NaN"/"1970"
+for (const bad of ['garbage', 'not-a-date', '99:99', '2026-13-40', '', undefined, null, {}, []]) {
+  const out = fmtLocaleDate(bad);
+  eq(out, '', `fmtLocaleDate: ${JSON.stringify(String(bad))} -> ""`);
+  ok(!out.includes('Invalid') && !out.includes('NaN') && !out.includes('1970'),
+     `fmtLocaleDate: no Invalid/NaN/1970 for ${JSON.stringify(String(bad))}`);
+}
+
+// custom fallback honored (e.g. a '—' caller)
+eq(fmtLocaleDate('garbage', '—'), '—', 'fmtLocaleDate: custom fallback on bad date');
+eq(fmtLocaleDate(null, '—'), '—', 'fmtLocaleDate: custom fallback on null');
+
+// NO-REGRESSION: valid ISO strings byte-identical to the OLD bare form
+for (const iso of ['2026-06-23T12:00:00Z', '2026-01-01T00:00:00Z',
+                   '2025-12-31T23:59:59Z', '2026-07-04T18:30:00Z',
+                   '2024-02-29T06:00:00Z', '2026-06-23']) {
+  eq(fmtLocaleDate(iso), oldBareLocaleDate(iso), `fmtLocaleDate: ${iso} === old bare form`);
+}
+// a valid date renders a real, non-empty stamp
+ok(fmtLocaleDate('2026-06-23T12:00:00Z').length > 0, 'fmtLocaleDate: valid date is non-empty');
 
 console.log(`time-format: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
