@@ -1,4 +1,5 @@
 import { easy, hard } from './questions.js';
+import { newQuiz, nextQuestion, applyAnswer } from '../../shared/quiz-answer.js';
 
 /* ─── Themes ─── */
 const THEMES = {
@@ -169,8 +170,7 @@ map.on('style.load', () => {
 let difficulty = 'easy';
 let questions = [];
 let currentIdx = 0;
-let score = 0;
-let results = []; // { question, correct, userAnswer, correctAnswer }
+let quiz = newQuiz();
 const TOTAL = 5;
 
 /* ─── DOM refs ─── */
@@ -227,8 +227,7 @@ let vibesIntroPlayed = false;
 function startGame() {
   questions = pickQuestions();
   currentIdx = 0;
-  score = 0;
-  results = [];
+  quiz = newQuiz();
 
   startScreen.classList.add('hidden');
   scorecard.classList.add('hidden');
@@ -258,9 +257,10 @@ function startGame() {
 const LETTERS = ['A', 'B', 'C', 'D'];
 
 function showQuestion() {
+  quiz = nextQuestion(quiz); // clear the per-question double-click guard
   const q = questions[currentIdx];
   quizNumber.textContent = `${String(currentIdx + 1).padStart(2, '0')}/${String(TOTAL).padStart(2, '0')}`;
-  quizScore.textContent = score;
+  quizScore.textContent = quiz.score;
   quizQuestion.textContent = q.question;
 
   // Reset feedback
@@ -281,16 +281,10 @@ function showQuestion() {
 
 /* ─── Handle Answer ─── */
 function handleAnswer(idx) {
+  if (quiz.answered) return; // ignore double-clicks during the 400ms reveal window
   const q = questions[currentIdx];
   const isCorrect = idx === q.answer;
-  if (isCorrect) score++;
-
-  results.push({
-    question: q.question,
-    correct: isCorrect,
-    userAnswer: q.options[idx],
-    correctAnswer: q.options[q.answer],
-  });
+  quiz = applyAnswer(quiz, idx, q);
 
   // Disable all buttons, highlight correct/wrong
   const btns = quizOptions.querySelectorAll('.option-btn');
@@ -333,15 +327,15 @@ function showScorecard() {
   scorecardBadge.innerHTML = `<div class="badge-label">${difficulty === 'easy' ? 'EASY MODE' : 'HARD MODE'}</div>`;
 
   // Total
-  const pct = Math.round((score / TOTAL) * 100);
+  const pct = Math.round((quiz.score / TOTAL) * 100);
   scorecardTotal.innerHTML = `
-    <div class="total-number">${score}/${TOTAL}</div>
-    <div class="total-label">${pct}% — ${getGrade(score)}</div>
+    <div class="total-number">${quiz.score}/${TOTAL}</div>
+    <div class="total-label">${pct}% — ${getGrade(quiz.score)}</div>
   `;
 
   // Rows
   scorecardBody.innerHTML = '';
-  results.forEach((r, i) => {
+  quiz.results.forEach((r, i) => {
     const row = document.createElement('div');
     row.className = 'scorecard-row';
     row.style.animationDelay = `${0.4 + i * 0.08}s`;
