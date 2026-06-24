@@ -8,7 +8,7 @@
 // qss-arc-extract balanceJson. This locks the string-aware fix + the surrounding
 // already-correct paths so it can't regress.
 // Run: node translation/src/api-client.test.mjs  (or via `bun run test`)
-import { extractJSON, isGenericSpeaker } from './api-client.js';
+import { extractJSON, isGenericSpeaker, reassembleBatch } from './api-client.js';
 
 let pass = 0, fail = 0;
 function eq(actual, expected, label) {
@@ -123,6 +123,108 @@ ok(isGenericSpeaker(undefined) === true, 'undefined name is generic');
 ok(isGenericSpeaker('Johnny') === false, 'a real name is not generic');
 ok(isGenericSpeaker('Speaker Wong') === false, 'Speaker followed by a word is NOT generic');
 ok(isGenericSpeaker('260317-04-JERRY') === false, 'a sequence-coded name is not generic');
+
+// ── reassembleBatch — re-attaching the model's batch output to segments. ──
+// The original code paired results PURELY by position (`translated[j]`), so one
+// dropped/merged item from the model (a real LLM failure on a 20-item list)
+// shifted every later segment onto the WRONG translation. reassembleBatch keys
+// on the returned `number` first, with positional + pass-through fallbacks.
+//
+// Reconstruct the OLD positional reassembly as an inline RED proof — it
+// mislabels on a dropped middle item where the number-aware version recovers.
+function oldReassemble(batch, translated, segments) {
+  const arr = Array.isArray(translated) ? translated : [];
+  return batch.map(({ resultIndex }, j) => ({
+    resultIndex,
+    value: arr[j] || {
+      number: segments[resultIndex].number,
+      original: segments[resultIndex].text,
+      translated: segments[resultIndex].text,
+      language: 'unknown', kept_original: true,
+    },
+  }));
+}
+const seg = (n) => ({ number: n, text: `orig ${n}`, speaker: 'Johnny' });
+const tr = (n, txt) => ({ number: n, original: `orig ${n}`, translated: txt, language: 'en', kept_original: false });
+// A batch of 3 segments at result indices 10,11,12 (offset to prove indices flow through).
+const SEGMENTS = [];
+for (let i = 0; i < 13; i++) SEGMENTS.push(seg(i + 1));
+const BATCH = [
+  { segment: SEGMENTS[10], resultIndex: 10 }, // number 11
+  { segment: SEGMENTS[11], resultIndex: 11 }, // number 12
+  { segment: SEGMENTS[12], resultIndex: 12 }, // number 13
+];
+
+// Happy path: full, in-order, correctly-numbered → byte-identical to positional.
+{
+  const model = [tr(11, 'A'), tr(12, 'B'), tr(13, 'C')];
+  const got = reassembleBatch(BATCH, model, SEGMENTS);
+  eq(got.map(g => [g.resultIndex, g.value.translated]),
+     [[10, 'A'], [11, 'B'], [12, 'C']], 'happy path maps each segment to its translation');
+  eq(reassembleBatch(BATCH, model, SEGMENTS).map(g => g.value.translated),
+     oldReassemble(BATCH, model, SEGMENTS).map(g => g.value.translated),
+     'happy path identical to old positional behaviour');
+}
+
+// THE BUG: model drops the MIDDLE item (returns 11 and 13 only).
+{
+  const dropped = [tr(11, 'A'), tr(13, 'C')];
+  const oldOut = oldReassemble(BATCH, dropped, SEGMENTS);
+  // RED proof: old positional pairing snaps seg 12's slot onto C (number 13's
+  // translation) and seg 13 falls to the pass-through fallback. Corruption.
+  ok(oldOut[1].value.translated === 'C', 'RED: old code mislabels segment 12 with segment 13\'s translation');
+  ok(oldOut[2].value.kept_original === true, 'RED: old code drops segment 13 to fallback');
+
+  const got = reassembleBatch(BATCH, dropped, SEGMENTS);
+  eq(got[0].value.translated, 'A', 'recover: seg 11 -> A');
+  ok(got[1].value.translated === 'orig 12' && got[1].value.kept_original === true,
+     'recover: dropped seg 12 falls to its OWN fallback (not seg 13\'s text)');
+  eq(got[2].value.translated, 'C', 'recover: seg 13 -> C by number despite the gap');
+}
+
+// Reordered output still aligns by number.
+{
+  const shuffled = [tr(13, 'C'), tr(11, 'A'), tr(12, 'B')];
+  const got = reassembleBatch(BATCH, shuffled, SEGMENTS);
+  eq(got.map(g => g.value.translated), ['A', 'B', 'C'], 'reordered model output realigned by number');
+}
+
+// Stringified numbers from the model still match numeric segment numbers.
+{
+  const strNums = [{ ...tr(11, 'A'), number: '11' }, { ...tr(12, 'B'), number: '12' }, { ...tr(13, 'C'), number: '13' }];
+  const got = reassembleBatch(BATCH, strNums, SEGMENTS);
+  eq(got.map(g => g.value.translated), ['A', 'B', 'C'], 'string "11" aligns with numeric segment 11');
+}
+
+// Untagged objects (model omitted `number`) fall back to positional pairing.
+{
+  const untagged = [{ translated: 'A' }, { translated: 'B' }, { translated: 'C' }];
+  const got = reassembleBatch(BATCH, untagged, SEGMENTS);
+  eq(got.map(g => g.value.translated), ['A', 'B', 'C'], 'untagged output uses positional fallback');
+}
+
+// A mis-numbered object is NOT snapped onto a slot — that slot takes its fallback.
+{
+  const wrongNum = [tr(999, 'X'), tr(12, 'B'), tr(13, 'C')];
+  const got = reassembleBatch(BATCH, wrongNum, SEGMENTS);
+  ok(got[0].value.kept_original === true && got[0].value.translated === 'orig 11',
+     'mis-numbered object does not hijack seg 11; seg 11 takes its fallback');
+  eq(got[1].value.translated, 'B', 'seg 12 still aligns by number');
+}
+
+// Non-array model reply (null / object) → every segment to its fallback, no throw.
+{
+  const got = reassembleBatch(BATCH, null, SEGMENTS);
+  ok(got.length === 3 && got.every(g => g.value.kept_original === true), 'null model reply -> all fallbacks, no crash');
+  const got2 = reassembleBatch(BATCH, { not: 'an array' }, SEGMENTS);
+  ok(got2.every(g => g.value.kept_original === true), 'non-array object reply -> all fallbacks');
+}
+
+// resultIndex passes through untouched (the slot the value lands in).
+{
+  const got = reassembleBatch(BATCH, [tr(11, 'A'), tr(12, 'B'), tr(13, 'C')], SEGMENTS);
+  eq(got.map(g => g.resultIndex), [10, 11, 12], 'resultIndex preserved for write-back');
+}
 
 console.log(`\napi-client.test.mjs: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

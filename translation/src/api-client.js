@@ -201,6 +201,53 @@ function buildContext({ narrativeSummary, editorialFocus, languageMap, clarifica
   return context;
 }
 
+/**
+ * Re-attach one batch's model output to the right segments.
+ *
+ * The model is asked to return a JSON array of translation objects, each
+ * carrying its source `number`, "in exact order and count". But LLMs DO drop
+ * or merge an item inside a 20-segment list, and the original reassembly paired
+ * results purely by POSITION (`translated[j]`). One dropped item there shifts
+ * every later segment in the batch onto the WRONG translation and silently
+ * corrupts the subtitles. So: match each segment to the returned object by
+ * `number` first (robust to a drop/reorder), fall back to positional pairing
+ * only for an UNtagged object (older models that omit `number`), and finally to
+ * a pass-through fallback. Numbers are compared as strings so a model that
+ * stringifies `"number": "7"` still aligns with a numeric segment 7.
+ *
+ * Byte-identical to positional pairing on the happy path (a full, in-order,
+ * correctly-numbered array).
+ *
+ * @param {Array}  batch       — [{ segment, resultIndex }]
+ * @param {*}      translated  — the model's parsed reply (expected: array)
+ * @param {Array}  segments    — full segment list (for the fallback shape)
+ * @returns {Array} [{ resultIndex, value }]
+ */
+export function reassembleBatch(batch, translated, segments) {
+  const arr = Array.isArray(translated) ? translated : [];
+  const byNumber = new Map();
+  for (const t of arr) {
+    if (t && typeof t === 'object' && t.number != null) {
+      const key = String(t.number);
+      if (!byNumber.has(key)) byNumber.set(key, t); // first occurrence wins
+    }
+  }
+  return batch.map(({ segment, resultIndex }, j) => {
+    const keyed = byNumber.get(String(segment.number));
+    // Positional fallback ONLY for an untagged object — never silently snap a
+    // mis-numbered object onto this slot (that's the corruption we're fixing).
+    const positional = !keyed && arr[j] && typeof arr[j] === 'object' && arr[j].number == null ? arr[j] : null;
+    const value = keyed || positional || {
+      number: segments[resultIndex].number,
+      original: segments[resultIndex].text,
+      translated: segments[resultIndex].text,
+      language: 'unknown',
+      kept_original: true,
+    };
+    return { resultIndex, value };
+  });
+}
+
 export async function translateSegments({ segments, languageMap, narrativeSummary, clarifications, editorialFocus, onProgress }) {
   const results = new Array(segments.length);
   const labeledWithIndex = [];
@@ -272,15 +319,8 @@ export async function translateSegments({ segments, languageMap, narrativeSummar
   const batchResults = await mapWithConcurrency(batches, 5, runBatch);
 
   for (const { batch, translated } of batchResults) {
-    for (let j = 0; j < batch.length; j++) {
-      const { resultIndex } = batch[j];
-      results[resultIndex] = translated[j] || {
-        number: segments[resultIndex].number,
-        original: segments[resultIndex].text,
-        translated: segments[resultIndex].text,
-        language: 'unknown',
-        kept_original: true,
-      };
+    for (const { resultIndex, value } of reassembleBatch(batch, translated, segments)) {
+      results[resultIndex] = value;
     }
   }
 
