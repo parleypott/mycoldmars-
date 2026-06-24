@@ -6,7 +6,19 @@ import foods from './data/foods.js';
 let mode = 'study'; // 'study' or 'quiz'
 let quizPhase = 'name'; // 'name' | 'trivia' | 'done'
 let currentFood = null;
+let currentChoices = []; // the foods shown as name-quiz answer buttons, in display order
 let score = { nameCorrect: 0, triviaCorrect: 0, visited: 0 };
+
+/**
+ * Which of the displayed name-quiz choices should be flagged as the correct
+ * answer to reveal. Match on the STABLE id — never on name text. One dish's
+ * Chinese name can be a clean substring of another's (e.g. 粄條 ⊂ 炒粄條), so a
+ * `textContent.includes(correct.zhName)` reveal would light up the wrong button
+ * too and teach the wrong answer.
+ */
+export function revealCorrectChoices(choiceFoods, correctFood) {
+  return choiceFoods.filter((f) => f.id === correctFood.id);
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -135,10 +147,12 @@ export function initUI() {
     els.quizPrompt.textContent = 'What dish is this?';
 
     const choices = buildChoices(food);
+    currentChoices = choices;
     els.quizChoices.innerHTML = '';
     choices.forEach((f) => {
       const btn = document.createElement('button');
       btn.className = 'quiz-choice';
+      btn.dataset.foodId = f.id;
       btn.textContent = `${f.zhName}  ${f.enName}`;
       btn.addEventListener('click', () => handleNameAnswer(btn, f, food));
       els.quizChoices.appendChild(btn);
@@ -165,8 +179,9 @@ export function initUI() {
       showFeedback(true, `Correct! It's ${correct.enName}.`);
     } else {
       btn.classList.add('wrong');
+      const revealIds = new Set(revealCorrectChoices(currentChoices, correct).map((f) => f.id));
       buttons.forEach((b) => {
-        if (b.textContent.includes(correct.zhName)) b.classList.add('reveal');
+        if (revealIds.has(b.dataset.foodId)) b.classList.add('reveal');
       });
       showFeedback(false, `That's ${correct.zhName} — ${correct.enName}.`);
     }
