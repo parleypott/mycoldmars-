@@ -3925,18 +3925,15 @@ function renderShootCalendar(units) {
   grid.querySelectorAll('.shoot-day').forEach(el => {
     el.addEventListener('click', () => {
       const day = el.dataset.day;
-      const sceneDay = document.querySelector(`.scenes-day-label`);
-      // Find the scenes-day that matches this date
-      const allDays = document.querySelectorAll('.scenes-day');
-      for (const sd of allDays) {
-        const labelText = sd.querySelector('.scenes-day-label')?.textContent || '';
-        // Match by scrolling to the scenes section and hoping the day is visible
-        if (labelText.includes(new Date(day + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))) {
-          sd.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          sd.classList.add('scenes-day--highlight');
-          setTimeout(() => sd.classList.remove('scenes-day--highlight'), 2000);
-          return;
-        }
+      // Match the scenes-day by its exact ISO date, not a fuzzy label substring.
+      // The old code matched on the localized label ("Jun 1"), which is a substring
+      // of "Jun 18".."Jun 19", so clicking one day could scroll to a different one.
+      const sd = document.querySelector(`.scenes-day[data-day="${day}"]`);
+      if (sd) {
+        sd.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        sd.classList.add('scenes-day--highlight');
+        setTimeout(() => sd.classList.remove('scenes-day--highlight'), 2000);
+        return;
       }
       // Fallback: just scroll to scenes section
       document.getElementById('project-scenes')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4067,7 +4064,7 @@ function renderScenes(units) {
     const dayLabel = new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
     return `
-      <div class="scenes-day">
+      <div class="scenes-day" data-day="${day}">
         <div class="scenes-day-label">
           ${dayLabel}
           <span class="scenes-day-count">${dayScenes.length} scenes · ${totalClips} clips</span>
