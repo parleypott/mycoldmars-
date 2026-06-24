@@ -162,7 +162,13 @@ export function formatDuration(bites) {
 }
 
 export function tcToFrameNotation(tc, fps) {
-  const parts = tc.replace(',', '.').split(':');
+  // Mirror formatDuration's parts() guard: a persisted/edited soundbite whose
+  // start/end arrives as a number, null, or undefined would otherwise throw
+  // "tc.replace is not a function" here and crash the WHOLE sequence-block
+  // render (this runs per block, not just for the total). Coerce defensively —
+  // a nullish/garbage tc renders as frame 0, never a throw. Byte-identical for
+  // every well-formed string timecode.
+  const parts = String(tc ?? '').replace(',', '.').split(':');
   let h = 0, m = 0, secStr = '0';
   if (parts.length === 3) { h = parseInt(parts[0]) || 0; m = parseInt(parts[1]) || 0; secStr = parts[2]; }
   else if (parts.length === 2) { m = parseInt(parts[0]) || 0; secStr = parts[1]; }

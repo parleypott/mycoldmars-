@@ -282,5 +282,41 @@ eq(tcToFrameNotation('00:00:07.25', 24), '0:07:06', 'tc: 0.25*24=6 -> padded fra
   eq(tcToFrameNotation('01:02:03.96', 23.976), '1:02:03:23', 'shipped tc keeps the hour');
 }
 
+// ── RED proof: a non-string tc (number/null/undefined) crashes the OLD
+//    unguarded `tc.replace(...)` — exactly the throw formatDuration was hardened
+//    against, here in the per-block display that runs for EVERY soundbite. ─────
+{
+  const badTc = (tc, fps) => {
+    const parts = tc.replace(',', '.').split(':'); // throws if tc isn't a string
+    let h = 0, m = 0, secStr = '0';
+    if (parts.length === 3) { h = parseInt(parts[0]) || 0; m = parseInt(parts[1]) || 0; secStr = parts[2]; }
+    else if (parts.length === 2) { m = parseInt(parts[0]) || 0; secStr = parts[1]; }
+    else { secStr = parts[0]; }
+    const dotIdx = secStr.indexOf('.');
+    const s = parseInt(dotIdx >= 0 ? secStr.slice(0, dotIdx) : secStr) || 0;
+    const frac = dotIdx >= 0 ? parseFloat('0' + secStr.slice(dotIdx)) : 0;
+    const ff = Math.floor(frac * fps).toString().padStart(2, '0');
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${ff}`;
+    return `${m}:${s.toString().padStart(2, '0')}:${ff}`;
+  };
+  for (const bad of [null, undefined, 5, {}, NaN]) {
+    let threw = false;
+    try { badTc(bad, 24); } catch { threw = true; }
+    eq(threw, true, `RED proof: unguarded tcToFrameNotation throws on ${String(bad)}`);
+    // The shipped, guarded version must NOT throw and must yield a clean string
+    // with no "NaN" leaking into the frame notation.
+    let out = null, shippedThrew = false;
+    try { out = tcToFrameNotation(bad, 24); } catch { shippedThrew = true; }
+    eq(shippedThrew, false, `guarded tcToFrameNotation survives ${String(bad)}`);
+    eq(typeof out === 'string' && !out.includes('NaN'), true,
+       `guarded tcToFrameNotation -> clean string on ${String(bad)} (got "${out}")`);
+  }
+  // Nullish/empty all collapse to a valid frame-0 label, never a throw.
+  eq(tcToFrameNotation(null, 24), '0:00:00', 'null tc -> frame 0 label');
+  eq(tcToFrameNotation('', 24), '0:00:00', 'empty tc -> frame 0 label');
+  // A bare numeric tc is treated as seconds (String-coerced), still valid.
+  eq(tcToFrameNotation(5, 24), '0:05:00', 'numeric tc 5 -> seconds, no throw');
+}
+
 console.log(`\nsoundbites: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
