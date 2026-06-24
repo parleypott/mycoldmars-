@@ -86,6 +86,25 @@ export function sliceLineCoords(coords, drawProgress) {
   return [...coords.slice(0, i), [lng1 + (lng2 - lng1) * t, lat1 + (lat2 - lat1) * t]];
 }
 
+// Bounding box of a [lng,lat][] path as the [[minLng,minLat],[maxLng,maxLat]]
+// pair map.fitBounds() expects. Computed in a single pass on purpose: the old
+// `Math.max(...lngs)` form throws `RangeError: Maximum call stack size exceeded`
+// once a track exceeds ~125k points (V8's spread-argument cap), and recorded
+// gx:Track GPS logs — the longest tracks — routinely run that large. Empty input
+// returns the same Infinity box the spread form did, so behavior is identical
+// for every array that was ever safe to spread.
+export function coordsBounds(coords) {
+  let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+  for (const c of coords) {
+    const lng = c[0], lat = c[1];
+    if (lng < minLng) minLng = lng;
+    if (lng > maxLng) maxLng = lng;
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+  }
+  return [[minLng, minLat], [maxLng, maxLat]];
+}
+
 // Interpolate longitude the SHORT way around the globe (antimeridian-safe).
 export function lerpLng(a, b, t) {
   let diff = b - a;

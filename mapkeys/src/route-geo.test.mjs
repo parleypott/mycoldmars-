@@ -12,7 +12,7 @@
 
 import {
   haversine, buildRoute, sliceRoute, lineCentroid, transformLineCoords,
-  lineLength, sliceLineCoords, lerpLng, lerpBearing,
+  lineLength, sliceLineCoords, lerpLng, lerpBearing, coordsBounds,
 } from './route-geo.js';
 
 let pass = 0, fail = 0;
@@ -134,6 +134,47 @@ ok(near(lerpBearing(0, 90, 0.5), 45), 'lerpBearing: 0→90 → 45');
 ok(near(lerpBearing(350, 10, 0.5), 360), 'lerpBearing: 350→10 takes the +20° short way (to 360), not -340');
 ok(near(lerpBearing(10, 350, 0.5), 0), 'lerpBearing: 10→350 takes the -20° short way (to 0)');
 ok(near(lerpBearing(90, 90, 0.7), 90), 'lerpBearing: a==b → a');
+
+// ── coordsBounds (fitBounds box, single-pass, spread-overflow-safe) ──
+{
+  const c = coordsBounds([[1, 2], [-3, 4], [5, -6]]);
+  ok(c[0][0] === -3 && c[0][1] === -6, 'coordsBounds: min corner = [minLng, minLat]');
+  ok(c[1][0] === 5 && c[1][1] === 4, 'coordsBounds: max corner = [maxLng, maxLat]');
+  const one = coordsBounds([[7, 8]]);
+  ok(one[0][0] === 7 && one[1][0] === 7 && one[0][1] === 8 && one[1][1] === 8, 'coordsBounds: single point → degenerate box at that point');
+  const empty = coordsBounds([]);
+  ok(empty[0][0] === Infinity && empty[1][0] === -Infinity, 'coordsBounds: empty → Infinity box (byte-identical to old spread form)');
+}
+// Behavior-identity: on every array small enough that the old Math.min/max spread
+// was even legal, coordsBounds returns the exact same box.
+{
+  const coords = Array.from({ length: 5000 }, (_, i) => [Math.sin(i) * 10, Math.cos(i) * 20]);
+  const lngs = coords.map(c => c[0]), lats = coords.map(c => c[1]);
+  const spreadBox = [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]];
+  const box = coordsBounds(coords);
+  ok(box[0][0] === spreadBox[0][0] && box[0][1] === spreadBox[0][1] &&
+     box[1][0] === spreadBox[1][0] && box[1][1] === spreadBox[1][1],
+    'coordsBounds: identical to the old Math.min/max spread on a normal-size track');
+}
+// ── RED proof: the old spread form THROWS on a long recorded gx:Track; coordsBounds doesn't. ──
+{
+  // V8/Chrome (where this code actually runs) caps spread args at ~125k; JSC/bun
+  // (this test runtime) caps near ~1M. Size above BOTH so the RED-proof is real
+  // in whatever runtime runs it. A multi-hour recorded GPS log (gx:Track, the
+  // just-enabled import path — the longest tracks) routinely exceeds the browser cap.
+  const N = 1_100_000;
+  const big = Array.from({ length: N }, (_, i) => [i * 0.0001, -(i * 0.0002)]);
+  let spreadThrew = false;
+  try { Math.max(...big.map(c => c[0])); } catch { spreadThrew = true; }
+  ok(spreadThrew, `RED-proof: Math.max(...lngs) throws RangeError on a ${N}-point track (the bug)`);
+  let boundsThrew = false, box = null;
+  try { box = coordsBounds(big); } catch { boundsThrew = true; }
+  ok(!boundsThrew, 'coordsBounds: handles the oversized track without throwing (the fix)');
+  ok(box && near(box[0][0], 0) && near(box[1][0], (N - 1) * 0.0001),
+    'coordsBounds: correct lng bounds even on the oversized track');
+  ok(box && near(box[0][1], -((N - 1) * 0.0002)) && near(box[1][1], 0),
+    'coordsBounds: correct lat bounds even on the oversized track');
+}
 
 console.log(`route-geo: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

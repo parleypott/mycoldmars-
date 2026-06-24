@@ -11,7 +11,7 @@ import { regularPolygonCoords, KM_PER_DEG_LAT } from './polygon-geom.js';
 import { extractKmlCoords } from './kml-coords.js';
 import {
   haversine, buildRoute, sliceRoute, lineCentroid, transformLineCoords,
-  lineLength, sliceLineCoords, lerpLng, lerpBearing,
+  lineLength, sliceLineCoords, lerpLng, lerpBearing, coordsBounds,
 } from './route-geo.js';
 import { computeGifRange } from './gif-range.js';
 import { searchCountries as rankCountries } from './country-search.js';
@@ -1811,11 +1811,7 @@ function addLayerFromKML(file, coords) {
   syncRouteStyleInputs();
   showRouteUI();
   // Fit map to route
-  const lngs = layer.coords.map(c => c[0]), lats = layer.coords.map(c => c[1]);
-  map.fitBounds([
-    [Math.min(...lngs), Math.min(...lats)],
-    [Math.max(...lngs), Math.max(...lats)],
-  ], { padding: 80, duration: 1000 });
+  map.fitBounds(coordsBounds(layer.coords), { padding: 80, duration: 1000 });
   setRouteSources(state.previewProgress);
 }
 
@@ -1946,11 +1942,7 @@ function renderLayersPanel() {
     });
     row.querySelector('.layer-btn-fit').addEventListener('click', e => {
       e.stopPropagation();
-      const lngs = layer.coords.map(c => c[0]), lats = layer.coords.map(c => c[1]);
-      map.fitBounds([
-        [Math.min(...lngs), Math.min(...lats)],
-        [Math.max(...lngs), Math.max(...lats)],
-      ], { padding: 80, duration: 800 });
+      map.fitBounds(coordsBounds(layer.coords), { padding: 80, duration: 800 });
     });
     row.addEventListener('click', () => selectLayer(layer.id));
     list.appendChild(row);
@@ -2073,26 +2065,19 @@ function renderShapesPanel() {
 }
 
 function fitToShape(shape) {
-  let lngs = [], lats = [];
+  let coords = [];
   if (shape.type === 'polygon') {
-    const ring = regularPolygonCoords(shape.preview.center, shape.sides, shape.preview.radiusKm, shape.preview.rotation);
-    lngs = ring.map(c => c[0]); lats = ring.map(c => c[1]);
+    coords = regularPolygonCoords(shape.preview.center, shape.sides, shape.preview.radiusKm, shape.preview.rotation);
   } else if (shape.type === 'line') {
-    const coords = transformLineCoords(shape.baseCoords, shape.preview.offsetLng, shape.preview.offsetLat, shape.preview.scale);
-    lngs = coords.map(c => c[0]); lats = coords.map(c => c[1]);
+    coords = transformLineCoords(shape.baseCoords, shape.preview.offsetLng, shape.preview.offsetLat, shape.preview.scale);
   } else if (shape.type === 'country') {
     const geom = resolveCountryGeometry(shape);
     if (!geom) return;
     const rings = geom.type === 'Polygon' ? geom.coordinates : geom.coordinates.flat();
-    for (const ring of rings) {
-      for (const [lng, lat] of ring) { lngs.push(lng); lats.push(lat); }
-    }
+    for (const ring of rings) coords = coords.concat(ring);
   }
-  if (lngs.length === 0) return;
-  map.fitBounds([
-    [Math.min(...lngs), Math.min(...lats)],
-    [Math.max(...lngs), Math.max(...lats)],
-  ], { padding: 120, duration: 800 });
+  if (coords.length === 0) return;
+  map.fitBounds(coordsBounds(coords), { padding: 120, duration: 800 });
 }
 
 // ─── Shape style panel ───
