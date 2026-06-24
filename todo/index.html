@@ -762,6 +762,34 @@ function load() {
     return structuredClone(DEFAULT_STATE);
   }
 }
+// An imported plan is untrusted input (a hand-edited backup, the WRONG json file, or a
+// future/legacy export). The old import handler only checked `incoming.columns` was
+// TRUTHY, then mutated + save()'d state BEFORE render() — so a truthy-but-non-array
+// columns (e.g. a different tool's export that happens to carry a `columns` object)
+// sailed past the guard, corrupted the persisted store, and broke the live UI behind a
+// generic "import failed" toast. And a block carrying a non-numeric startMin/endMin
+// silently poisoned the lane sort + minToPx() → blocks positioned at `top:NaNpx`
+// (invisible). This validates + repairs the payload into a known-good shape and returns
+// null for anything that isn't a real todo export, so the caller can reject it WITHOUT
+// touching live state. Pure + self-contained (Array.isArray / Number.isFinite /
+// structuredClone) so it's headless-testable.
+function sanitizeImportedState(incoming, defaults) {
+  if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming) ||
+      !Array.isArray(incoming.columns)) {
+    return null;
+  }
+  const columns = incoming.columns
+    .filter(c => c && typeof c === 'object' && !Array.isArray(c))
+    .map(c => {
+      const blocks = Array.isArray(c.blocks)
+        ? c.blocks.filter(b => b && typeof b === 'object' &&
+            Number.isFinite(b.startMin) && Number.isFinite(b.endMin) &&
+            b.endMin > b.startMin)
+        : [];
+      return { ...c, blocks };
+    });
+  return { ...structuredClone(defaults), ...incoming, columns };
+}
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
@@ -1945,9 +1973,12 @@ document.getElementById('import-file').addEventListener('change', async e => {
   try {
     const text = await f.text();
     const incoming = JSON.parse(text);
-    if (!incoming.columns) throw new Error('not a todo export');
+    // Validate + repair BEFORE touching live state — a null verdict means "not a real
+    // todo export", and we reject without having mutated/persisted anything.
+    const next = sanitizeImportedState(incoming, DEFAULT_STATE);
+    if (!next) throw new Error('not a todo export');
     pushHistory();
-    state = { ...structuredClone(DEFAULT_STATE), ...incoming };
+    state = next;
     if (!state.view) state.view = { tx: 0, ty: 0, scale: 1 };
     save();
     render();
