@@ -62,6 +62,26 @@ eq(stripMarkdown('plain prose, nothing to strip'), 'plain prose, nothing to stri
 // combined: bold + italic + strike in one line
 eq(stripMarkdown('**B** and __b2__ and _i_ and ~~s~~'), 'B and b2 and i and s', 'combined emphasis forms');
 
+// ---- RED PROOF: structural markdown (horizontal rules, setext underlines, tables) that the old
+// function left intact, so ElevenLabs read the glyphs aloud ("dash dash dash", "vertical bar").
+eq(stripMarkdownOLD('A.\n\n---\n\nB.'), 'A.\n\n---\n\nB.', 'RED: old code leaves --- thematic break (read as dashes)');
+eq(stripMarkdownOLD('A.\n\n***\n\nB.'), 'A.\n\n***\n\nB.', 'RED: old code leaves *** thematic break');
+eq(stripMarkdownOLD('Title\n===\n\nBody.'), 'Title\n===\n\nBody.', 'RED: old code leaves setext === underline');
+eq(stripMarkdownOLD('| City | Pop |\n|---|---|\n| Yangon | 5M |'), '| City | Pop |\n|---|---|\n| Yangon | 5M |', 'RED: old code leaves table pipes/dashes');
+// FIX: each structural form no longer reaches the narrator as raw markup.
+eq(stripMarkdown('First para.\n\n---\n\nSecond para.'), 'First para.\n\nSecond para.', 'FIX: --- thematic break removed');
+eq(stripMarkdown('A.\n\n***\n\nB.'), 'A.\n\nB.', 'FIX: *** thematic break removed');
+eq(stripMarkdown('A.\n\n___\n\nB.'), 'A.\n\nB.', 'FIX: ___ thematic break removed');
+eq(stripMarkdown('A.\n\n- - -\n\nB.'), 'A.\n\nB.', 'FIX: spaced - - - thematic break removed');
+eq(stripMarkdown('My Title\n===\n\nBody text here.'), 'My Title\n\nBody text here.', 'FIX: setext H1 underline removed, title kept');
+eq(stripMarkdown('A Section\n---\n\nBody.'), 'A Section\n\nBody.', 'FIX: setext H2 underline removed, title kept');
+eq(stripMarkdown('| City | Pop |\n|------|-----|\n| Yangon | 5M |'), 'City, Pop\n\nYangon, 5M', 'FIX: table cells spoken, bars/dashes dropped');
+eq(stripMarkdown('| One |\n|---|\n| Two |'), 'One\n\nTwo', 'FIX: single-column table');
+// No regression: prose with an incidental mid-line pipe or a hyphenated phrase stays untouched.
+eq(stripMarkdown('He paused | then spoke.'), 'He paused | then spoke.', 'mid-line pipe in prose preserved (not a table row)');
+eq(stripMarkdown('a well-worn path'), 'a well-worn path', 'hyphenated word preserved');
+eq(stripMarkdown('cost: 5-10 dollars'), 'cost: 5-10 dollars', 'number range with single hyphen preserved');
+
 // ---- firstLine
 eq(firstLine('\n\n  Hello there  \nsecond'), 'Hello there', 'firstLine trims + finds first non-empty');
 eq(firstLine(''), undefined, 'firstLine empty -> undefined');

@@ -9,6 +9,20 @@ export function stripMarkdown(md) {
     .replace(/`([^`]+)`/g, '$1')           // inline code
     .replace(/!\[[^\]]*\]\([^)]+\)/g, '')  // images
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links -> link text
+    // Table separator rows (|---|:--:|) — strip BEFORE the row→comma pass below,
+    // else the dashes read as "dash dash dash" or leak in as a bogus cell.
+    .replace(/^[ \t]*\|?[ \t]*:?-{3,}:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/gm, '')
+    // Pipe-bordered table rows (| City | Pop |) — speak the cells, drop the bars
+    // (else ElevenLabs reads "vertical bar"). Only fires on lines that BOTH
+    // start and end with a pipe, so prose containing a stray "|" is untouched.
+    .replace(/^[ \t]*\|(.+)\|[ \t]*$/gm, (_m, inner) =>
+      inner.split('|').map((c) => c.trim()).filter(Boolean).join(', '))
+    // Thematic breaks (---, ***, ___, or spaced - - -) on their own line — these
+    // dodge the bullet rule below (no trailing content) and get read aloud.
+    .replace(/^[ \t]*([-*_])(?:[ \t]*\1){2,}[ \t]*$/gm, '')
+    // Setext heading underline (=== under a title); the H2 dash form is already
+    // killed by the thematic-break rule above. Keeps the title text as prose.
+    .replace(/^[ \t]*=+[ \t]*$/gm, '')
     .replace(/^#+\s*/gm, '')               // ATX headings
     .replace(/^\s*[-*]\s+/gm, '')          // bullet lists
     .replace(/^\s*\d+\.\s+/gm, '')         // numbered lists
