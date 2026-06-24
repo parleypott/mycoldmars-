@@ -5924,13 +5924,22 @@ function deleteSelectedScenario() {
   if (sel) sel.value = '';
   toggleDeleteBtn();
 }
+// Guarded date label: a present-but-unparseable timestamp makes .toLocale*String()
+// RETURN the literal "Invalid Date" (it never throws), so the bare inline form leaked
+// "Invalid Date" into the UI. nullish/unparseable -> fallback; valid -> the locale string.
+function fmtWhenLabel(value, fallback, withTime) {
+  if (!value) return fallback;
+  const d = new Date(value);
+  if (!isFinite(d.getTime())) return fallback;
+  return withTime ? d.toLocaleString() : d.toLocaleDateString();
+}
 function renderScenarioMenu() {
   const sel = document.getElementById('scenario-select');
   if (!sel) return;
   const list = listScenarios();
   const cur = sel.value;
   sel.innerHTML = '<option value="">Load scenario…</option>' +
-    list.map(s => `<option value="${s.id}">${escapeHtml(s.name)} · ${new Date(s.savedAt).toLocaleDateString()}</option>`).join('');
+    list.map(s => { const when = fmtWhenLabel(s.savedAt, '', false); return `<option value="${s.id}">${escapeHtml(s.name)}${when ? ' · ' + when : ''}</option>`; }).join('');
   if (cur && list.find(s => s.id === cur)) sel.value = cur;
 }
 function toggleDeleteBtn() {
@@ -8563,7 +8572,7 @@ function applyWatchData(data) {
   const meta = document.getElementById('ag-watch-meta');
   const badge = document.getElementById('header-new-badge');
   const n = data.newListings?.length || 0;
-  const lastRun = data.lastRun ? new Date(data.lastRun).toLocaleString() : 'never';
+  const lastRun = fmtWhenLabel(data.lastRun, 'never', true);
   if (meta) {
     meta.innerHTML = `<strong>Last run:</strong> ${lastRun} · <strong>New today:</strong> ${n}<br><span style="font-size:10px;">${escapeHtml(data.note || '')}</span>`;
   }
