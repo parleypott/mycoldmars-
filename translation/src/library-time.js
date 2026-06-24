@@ -101,3 +101,33 @@ export function relativeTimeFrom(dateStr, now = Date.now()) {
   if (days < 7) return `${days}d ago`;
   return new Date(then).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
+
+// ── Guarded absolute-time stamp for conflict / recovery UI ──
+//
+// Same present-but-bad-date class as relativeTimeFrom above, on the ABSOLUTE
+// `new Date(x).toLocale*String()` stamps the interpreter renders in its
+// conflict/recovery surfaces: the snapshot-restore modal ("Newer local copy
+// found"), the remote-change banner ("updated elsewhere at <time>"), the
+// lock-conflict modal ("another tab, last seen <time>"), and the unsaved-work
+// recovery overlay. Each was truthiness-guarded (`value ? new Date(value)
+// .toLocale*() : fallback`) but NOT finite-guarded — and .toLocaleString() /
+// .toLocaleTimeString() on an Invalid Date RETURN the literal string
+// "Invalid Date" (they never throw), so a present-but-unparseable timestamp
+// rendered "Invalid Date" in exactly the moments (a recovery prompt) where a
+// confusing stamp matters most. These are DB/local-set timestamps, so latent —
+// but it's the established class, in Johnny's most-used tool.
+//
+// fmtAbsoluteTime preserves the old truthiness branch (falsy value -> fallback,
+// matching `value ?`) AND adds the finite guard (truthy-but-unparseable ->
+// fallback). For any valid date it is byte-identical to the old inline code,
+// so only a corrupt/absent value changes (from "Invalid Date" to the fallback).
+// `time` -> toLocaleTimeString (clock only), `date` -> toLocaleDateString
+// (calendar only), neither -> toLocaleString (date + time).
+export function fmtAbsoluteTime(value, fallback = '', { time = false, date = false } = {}) {
+  if (!value) return fallback;
+  const t = new Date(value).getTime();
+  if (!Number.isFinite(t)) return fallback;
+  const d = new Date(value);
+  if (date) return d.toLocaleDateString();
+  return time ? d.toLocaleTimeString() : d.toLocaleString();
+}

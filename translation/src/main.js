@@ -20,7 +20,7 @@ import { parseGapFrames } from './seq-gap.js';
 import { buildPremiereScript } from './export/premiere-script.js';
 import { exportHighlightsPDF } from './export/pdf-export.js';
 import { exportSummaryText, safeFilename } from './export/summary-export.js';
-import { byUpdatedDesc, isInTrashWindow, trashDaysLeft, relativeTimeFrom } from './library-time.js';
+import { byUpdatedDesc, isInTrashWindow, trashDaysLeft, relativeTimeFrom, fmtAbsoluteTime } from './library-time.js';
 import { generateSlug } from './slug.js';
 import { extractHighlightsFromEditor } from './editor/document-builder.js';
 import { buildAutoSummaryPrompt } from './copilot/copilot-prompts.js';
@@ -1533,8 +1533,8 @@ function promptSnapshotRestore(serverRow, snap) {
     const modal = document.createElement('div');
     modal.id = 'snapshot-restore-modal';
     modal.className = 'np-modal';
-    const serverWhen = serverRow.updated_at ? new Date(serverRow.updated_at).toLocaleString() : 'unknown';
-    const snapWhen = snap.savedAt ? new Date(snap.savedAt).toLocaleString() : 'unknown';
+    const serverWhen = fmtAbsoluteTime(serverRow.updated_at, 'unknown');
+    const snapWhen = fmtAbsoluteTime(snap.savedAt, 'unknown');
     const isDirty = !!snap.dirty;
     const heading = isDirty ? 'Unsaved work recovered' : 'Newer local copy found';
     const explanation = isDirty
@@ -2189,8 +2189,8 @@ async function openAccountModal(opts = {}) {
       const meId = currentUserId();
       usersListEl.innerHTML = users.map(u => {
         const isMe = u.id === meId;
-        const last = u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : 'never';
-        const created = u.created_at ? new Date(u.created_at).toLocaleDateString() : '';
+        const last = fmtAbsoluteTime(u.last_sign_in_at, 'never', { date: true });
+        const created = fmtAbsoluteTime(u.created_at, '', { date: true });
         return `
           <div class="account-user-row">
             <div class="account-user-body">
@@ -2376,7 +2376,7 @@ async function openAdminConsole() {
       const meId = currentUserId();
       list.innerHTML = users.map(u => {
         const isMe = u.id === meId;
-        const last = u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : '—';
+        const last = fmtAbsoluteTime(u.last_sign_in_at, '—', { date: true });
         return `
           <div class="admin-user-row">
             <div class="admin-user-body">
@@ -6715,7 +6715,7 @@ function showRemoteChangeBanner(newRow) {
   banner = document.createElement('div');
   banner.id = 'remote-change-banner';
   banner.className = 'remote-change-banner';
-  const when = newRow.updated_at ? new Date(newRow.updated_at).toLocaleTimeString() : '';
+  const when = fmtAbsoluteTime(newRow.updated_at, '', { time: true });
   banner.innerHTML = `
     <div class="remote-change-text">
       <strong>This transcript was updated elsewhere${when ? ' at ' + escapeHtmlSafe(when) : ''}.</strong>
@@ -6839,7 +6839,7 @@ function promptLockConflict(lock) {
   return new Promise((resolve) => {
     const modal = document.createElement('div');
     modal.className = 'np-modal';
-    const since = lock.last_seen ? new Date(lock.last_seen).toLocaleTimeString() : 'recently';
+    const since = fmtAbsoluteTime(lock.last_seen, 'recently', { time: true });
     const label = lock.holder_label || 'another tab';
     modal.innerHTML = `
       <div class="np-modal-backdrop"></div>
@@ -7556,7 +7556,7 @@ function safeInit(name, fn) {
     const draft = loadDraftSnapshot();
     if (draft?.payload && (draft.payload.segments || []).length > 0 && !getPermalinkId()) {
       const segCount = draft.payload.segments.length;
-      const when = draft.savedAt ? new Date(draft.savedAt).toLocaleString() : 'recently';
+      const when = fmtAbsoluteTime(draft.savedAt, 'recently');
       const recover = await openConfirmOverlay({
         title: 'Recover unsaved work?',
         message: `${segCount} segments from a previous session were never saved to the cloud (${when}). Recover, or discard?`,
