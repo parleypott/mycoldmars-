@@ -53,6 +53,31 @@ near(parseTimecodeToSeconds('105.4'),     105.4,  'parse bare decimal');
 near(parseTimecodeToSeconds('2:00'),      120,    'parse M:SS');
 near(parseTimecodeToSeconds(''),          0,      'parse empty');
 
+// ── non-string inputs must NOT throw (the `.match` crash class) ──
+// parseTimecodeToSeconds calls tc.match() directly; a non-string input
+// (a numeric `start` on a legacy/imported segment, reached via
+// segment-locate's startSec→start fallback) used to throw a TypeError and
+// crash segment location / the sort comparators. A number is already seconds;
+// any other non-string degrades to 0. Each case is wrapped so a regression to
+// the unguarded form (which throws) goes RED instead of aborting the file.
+const noThrow = (input, want, label) => {
+  let got;
+  try { got = parseTimecodeToSeconds(input); }
+  catch (e) { fail++; console.log(`FAIL ${label}: threw ${e && e.message}`); return; }
+  if (typeof want === 'number' && Math.abs(got - want) <= 1e-6) pass++;
+  else if (got === want) pass++;
+  else { fail++; console.log(`FAIL ${label}: got ${JSON.stringify(got)} want ${JSON.stringify(want)}`); }
+};
+noThrow(105.4, 105.4, 'number 105.4 passthrough (no crash)');
+noThrow(120,   120,   'number 120 passthrough');
+noThrow(0,     0,     'number 0');
+noThrow(NaN,   0,     'number NaN -> 0');
+noThrow(Infinity, 0,  'number Infinity -> 0');
+noThrow(null,  0,     'null -> 0');
+noThrow(undefined, 0, 'undefined -> 0');
+noThrow({},    0,     'object -> 0 (coerced, no crash)');
+noThrow([],    0,     'empty array -> 0');
+
 // ── round trip: format then parse should land back within a tenth ──
 for (const sec of [0, 5, 65.5, 105.4, 3599.96, 3930.12]) {
   const round = parseTimecodeToSeconds(formatPreciseTimecode(sec));

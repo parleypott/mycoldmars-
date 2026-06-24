@@ -32,6 +32,19 @@ export function formatPreciseTimecode(seconds) {
 export function parseTimecodeToSeconds(tc) {
   if (!tc) return 0;
 
+  // A numeric input is already seconds — return it directly (finite only).
+  // Segments carry their start as a timecode STRING, but `startSec`/`endSec`
+  // are numbers, and segment-locate.js falls back to parsing `start` when
+  // `startSec` is missing — so a legacy/imported segment storing numeric
+  // seconds in `start` would otherwise reach the string branches below and
+  // crash on `(number).match`. Mirrors the JSDoc's "bare decimal seconds".
+  if (typeof tc === 'number') return isFinite(tc) ? tc : 0;
+
+  // Coerce any other non-string (object, etc.) to a string so the regex
+  // branches below never throw on a missing `.match`; unparseable input
+  // degrades to 0 via the bare-decimal fallback.
+  if (typeof tc !== 'string') tc = String(tc);
+
   // HH:MM:SS.f or HH:MM:SS,mmm
   const m3 = tc.match(/(\d+):(\d+):(\d+)[.,](\d+)/);
   if (m3) {
