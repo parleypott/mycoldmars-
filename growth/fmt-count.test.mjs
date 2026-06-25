@@ -76,5 +76,47 @@ eq(fmtCount(925000), '925K', '2nd-channel peak (Search Party) → 925K, no spuri
 eq(fmtCount(7640000), '7.6M', 'JH final value → 7.6M');
 eq(fmtCount(1060000), '1.1M', 'JH month-51 interpolated point → 1.1M');
 
+// ---- THE Y-AXIS TICK CALLBACK: a fourth, surviving divergent copy (now fixed) ----
+// The prior consolidation merged the three DATA-LABEL formatters into fmtCount() but
+// LEFT the y-axis tick callback as its own copy:
+//     if(v>=1e6) return Math.round(v/1e6)+'M';
+//     return Math.round(v/1000)+'K';
+// Worse than oldFmt: the M branch is Math.round (not toFixed(1)), so it COLLAPSES a
+// 1.0M tick and a 1.25M tick both to "1M", and rounds a 1.5M tick UP to "2M" (a phantom
+// above the real top). And y.max is ANIMATED (lerp'd) up to 7.64M, so Chart.js generates
+// nice 250K-step ticks across the 1M–2M range live — the collisions are reachable on a
+// chart Johnny screen-records. The fix routes the axis through the same fmtCount().
+
+// The OLD divergent axis formatter — inline RED proof of its defects.
+const oldAxis = (v) => {
+  if (v === 0) return '0';
+  if (v >= 1e6) return Math.round(v / 1e6) + 'M';
+  return Math.round(v / 1000) + 'K';
+};
+eq(oldAxis(1000000), '1M', 'RED: old axis renders 1.0M tick as "1M"');
+eq(oldAxis(1250000), '1M', 'RED: old axis COLLAPSES 1.25M tick to "1M" (collides with 1M)');
+eq(oldAxis(1500000), '2M', 'RED: old axis rounds 1.5M tick UP to phantom "2M"');
+eq(oldAxis(999500), '1000K', 'RED: old axis flashes "1000K" in the rollover band');
+assert.equal(oldAxis(1250000), oldAxis(1000000),
+  'RED: old axis collapses 1.0M and 1.25M ticks to the SAME label');
+
+// GREEN: fmtCount keeps the same ticks distinct and rolls the band over.
+eq(fmtCount(1000000), '1.0M', 'axis: 1.0M tick → "1.0M"');
+eq(fmtCount(1250000), '1.3M', 'axis: 1.25M tick → "1.3M" (distinct from 1.0M)');
+eq(fmtCount(1500000), '1.5M', 'axis: 1.5M tick → "1.5M" (no phantom 2M)');
+eq(fmtCount(750000), '750K', 'axis: 750K tick → "750K"');
+assert.notEqual(fmtCount(1250000), fmtCount(1000000),
+  'GREEN: fmtCount keeps 1.0M and 1.25M ticks distinct');
+
+// ---- HTML LOCK: the axis callback routes through fmtCount, no divergent copy survives ----
+const axisM = html.match(/callback:\s*function\(v\)\{[\s\S]*?\}/);
+assert.ok(axisM, 'could not locate the y-axis tick callback in growth/index.html');
+const axisBody = axisM[0];
+assert.ok(/return fmtCount\(v\)/.test(axisBody),
+  'LOCK: the y-axis tick callback must route through fmtCount(v)');
+assert.ok(!/Math\.round\(v\/1e6\)/.test(html),
+  'LOCK: no divergent "Math.round(v/1e6)" axis formatter may survive anywhere in the page');
+pass += 2;
+
 console.log(`fmt-count: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

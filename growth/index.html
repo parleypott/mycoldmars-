@@ -473,8 +473,7 @@
               color: '#bbb',
               callback: function(v){
                 if(v===0)return '0';
-                if(v>=1e6) return Math.round(v/1e6)+'M';
-                return Math.round(v/1000)+'K';
+                return fmtCount(v); // same formatter as the data labels — no divergent axis copy
               }
             }
           }
