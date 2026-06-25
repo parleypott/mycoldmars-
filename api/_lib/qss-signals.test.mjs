@@ -135,6 +135,34 @@ ok(!extractCharacters('the marketing scheme').includes('Mark Rober'), 'extractCh
 ok((categoryHits('she whispered quietly').quiet || 0) >= 2, 'categoryHits tallies quiet words');
 ok(detectSettings('in the library by the shelves').includes('library'), 'detectSettings finds the library');
 
+// ── categoryHits: all four buckets tally, not just 'quiet' ────────────────
+// (Only 'quiet' was covered before; extreme/loud/comedic drove escalation and
+// the EXTREME_DENSITY hint with zero direct coverage.)
+ok((categoryHits('bomb explosion kill').extreme || 0) === 3,
+   'categoryHits tallies extreme verbs (bomb/explosion/kill = 3)');
+ok((categoryHits('yelled shouting screaming').loud || 0) === 3,
+   'categoryHits tallies loud verbs (yelled/shouting/screaming = 3)');
+ok((categoryHits('he tripped and giggled').comedic || 0) === 2,
+   'categoryHits tallies comedic verbs (tripped/giggled = 2)');
+
+// ── categoryHits matches WHOLE WORDS only (the \b boundary) ────────────────
+// 'fire' is an extreme verb, but it must NOT fire inside 'firefighter'.
+// This locks the word-boundary behavior the \b-anchored matcher relies on —
+// a substring match here would over-count escalation on innocent prose.
+ok((categoryHits('the brave firefighter arrived on the truck').extreme || 0) === 0,
+   'categoryHits does NOT substring-match "fire" inside "firefighter" (whole-word only)');
+
+// ── escalationScore weights LOUD at half of EXTREME (the 0.5 coefficient) ──
+// Untested until now: escalationScore = (extreme + loud*0.5) / words. At an
+// equal word count, a pure-LOUD block must score exactly HALF a pure-EXTREME
+// block. This is the coefficient that decides whether yelling alone is enough
+// to nudge ESCALATION_RUN — getting it wrong mis-calibrates Henry's tutor.
+const loudOnly    = escalationScore('yelled shouting screaming');         // (0 + 3*0.5)/3 = 50.0
+const extremeOnly = escalationScore('bomb explosion kill');               // (3 + 0)/3      = 100.0
+ok(loudOnly > 0, 'pure-loud text still produces a positive escalation score');
+ok(loudOnly < extremeOnly, 'pure-loud scores below equal-count pure-extreme');
+ok(loudOnly * 2 === extremeOnly, 'loud is weighted at exactly half of extreme (the 0.5 coefficient)');
+
 // ── report ────────────────────────────────────────────────────────────────
 console.log(fails.join('\n'));
 console.log(`\nqss-signals: ${pass} passed, ${fail} failed`);
