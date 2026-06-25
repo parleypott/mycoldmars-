@@ -41,6 +41,43 @@ export async function computeScoreCacheKey(promptVersion, systemPrompt, userMsg)
   return sha256Hex(`${promptVersion}\u0000${systemPrompt}\u0000${userMsg}`);
 }
 
+// Deterministically enforce the documented HARD-RULE score caps.
+//
+// The system prompt instructs Claude to apply these caps "in your head", but
+// LLMs are unreliable at arithmetic constraints — a model that scores
+// villageConnectionFit at 35 yet returns total 80 silently violates Johnny's
+// stated doctrine on a real-money house hunt. Enforce the caps in code so the
+// contract holds regardless of the model's arithmetic. This only ever LOWERS a
+// total that breaks a stated rule; it never invents or raises a score, and is
+// byte-identical for any already-compliant payload.
+//
+//   - villageConnectionFit < 40  → total capped at 65
+//   - schoolFit            < 30  → total capped at 55
+//
+// Each breakdown entry is { score, note }; a missing/non-numeric score skips its
+// cap (conservative — never fabricates a cap from a bad field).
+export function enforceScoreCaps(parsed) {
+  if (!parsed || typeof parsed !== 'object') return parsed;
+  const b = parsed.breakdown;
+  if (!b || typeof b !== 'object') return parsed;
+  if (typeof parsed.total !== 'number' || !Number.isFinite(parsed.total)) return parsed;
+
+  const scoreOf = (k) =>
+    b[k] && typeof b[k].score === 'number' && Number.isFinite(b[k].score)
+      ? b[k].score
+      : null;
+
+  const village = scoreOf('villageConnectionFit');
+  const school = scoreOf('schoolFit');
+
+  let capped = parsed.total;
+  if (village !== null && village < 40) capped = Math.min(capped, 65);
+  if (school !== null && school < 30) capped = Math.min(capped, 55);
+
+  if (capped === parsed.total) return parsed;
+  return { ...parsed, total: capped };
+}
+
 async function readCache(cacheKey) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return null;
   try {
@@ -191,7 +228,10 @@ Score this home now. Output the JSON object and nothing else.`;
   if (!force) {
     const hit = await readCache(cacheKey);
     if (hit) {
-      return new Response(JSON.stringify({ ...hit, _ts: Date.now(), _cached: true }), {
+      // Enforce hard-rule caps on read too — corrects any stale score cached
+      // before this guard existed (or by a model that ignored the caps).
+      const cappedHit = enforceScoreCaps(hit);
+      return new Response(JSON.stringify({ ...cappedHit, _ts: Date.now(), _cached: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
       });
@@ -224,6 +264,9 @@ Score this home now. Output the JSON object and nothing else.`;
   let parsed;
   try { parsed = JSON.parse(cleaned); }
   catch { return jsonError(502, 'parse_failed', 'Claude returned non-JSON: ' + cleaned.slice(0, 200)); }
+  // Enforce the documented hard-rule caps deterministically before caching, so
+  // the stored value (and every future cache hit) already honors the doctrine.
+  parsed = enforceScoreCaps(parsed);
   // Best-effort cache write — don't block the response on it.
   writeCache(cacheKey, parsed, pin.address);
   return new Response(JSON.stringify({ ...parsed, _ts: Date.now(), _cached: false }), {
