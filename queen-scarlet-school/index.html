@@ -9019,7 +9019,15 @@
     // adding visible clutter. Counts persist across sessions.
     (function eggs() {
       const KEY = 'qss-eggs-found';
-      const state = JSON.parse(localStorage.getItem(KEY) || '{}');
+      // Guard the parse: a corrupt / tampered / literal-"null" value here would
+      // throw synchronously at the TOP of this init scope and brick every
+      // handler defined after it — silently killing the whole write app on load.
+      // Coerce to a plain object so unlock()/bumpChip() never hit null/array.
+      let state = {};
+      try {
+        const parsed = JSON.parse(localStorage.getItem(KEY) || '{}');
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) state = parsed;
+      } catch {}
       const boltClicks = { count: 0, last: 0 };
       const bennyClicks = { count: 0, last: 0 };
       function bumpChip() {
