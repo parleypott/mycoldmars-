@@ -1898,13 +1898,21 @@ function snap15(min) { return Math.round(min / 15) * 15; }
 function pxToMin(px) { return (px / cssVarPx('--hour-h')) * 60; }
 function minToPx(min) { return (min / 60) * cssVarPx('--hour-h'); }
 function minToTimeStr(absMin) {
-  const h = Math.floor(absMin / 60) % 24;
+  // Normalize into a single 24h day FIRST: a corrupt/out-of-range value — e.g. a
+  // negative or >1440 startMin slipping in from a bad import — must render a real
+  // clock time, not "-1:-30a" garbage. Identical output for every in-range value
+  // (incl. the 1440 end-of-day edge -> "12:00a").
+  absMin = Number.isFinite(absMin) ? ((Math.round(absMin) % 1440) + 1440) % 1440 : 0;
+  const h = Math.floor(absMin / 60);
   const m = absMin % 60;
   const ampm = h < 12 ? 'a' : 'p';
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${String(m).padStart(2,'0')}${ampm}`;
 }
 function formatHour(h) {
+  // Normalize so 24 -> 0 reads as midnight "12 AM" (not "12 PM") and any
+  // out-of-range hour folds onto the clock. Unchanged for h in 0..23.
+  h = ((Math.trunc(h) % 24) + 24) % 24;
   const ampm = h < 12 ? 'AM' : 'PM';
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12} ${ampm}`;
