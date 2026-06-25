@@ -1,4 +1,5 @@
 import { spaces, mediaManifest } from './spaces.js';
+import { tileToCount } from './tile.js';
 import { createGridCollage, destroyGridCollage } from './grid-collage.js';
 import { createGridGallery, destroyGridGallery } from './grid-gallery.js';
 import { createWheel, destroyWheel } from './wheel.js';
@@ -315,10 +316,9 @@ function renderSpace(slug, mode) {
   let scene;
 
   if (currentMode === 'blinds') {
-    // Tile to 10 for the blinds grid
-    let tiled = [...media];
-    while (tiled.length < 10) tiled = tiled.concat(media);
-    scene = createGridCollage(tiled.slice(0, 10), container);
+    // Tile to 10 for the blinds grid. tileToCount returns [] (not an infinite
+    // loop) when media is empty — see tile.js.
+    scene = createGridCollage(tileToCount(media, 10), container);
   } else {
     // Gallery mode — pass full pool, cells pick randomly
     scene = createGridGallery(media, container);

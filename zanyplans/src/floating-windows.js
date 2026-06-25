@@ -1,4 +1,5 @@
 import { createMacWindow } from './mac-window.js';
+import { tileToCount } from './tile.js';
 
 /**
  * Creates 20 floating Mac windows with drift physics.
@@ -10,10 +11,9 @@ export function createFloatingScene(mediaList, container) {
   const windows = [];
   let rafId = null;
 
-  // Tile or trim to 20
-  let items = [...mediaList];
-  while (items.length < 20) items.push(...mediaList);
-  items = items.slice(0, 20);
+  // Tile or trim to 20. tileToCount returns [] (not an infinite loop) when
+  // mediaList is empty — see tile.js.
+  const items = tileToCount(mediaList, 20);
 
   const cw = container.clientWidth;
   const ch = container.clientHeight;

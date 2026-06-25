@@ -5,6 +5,8 @@
  *  - Animated stripe overlay that slides across, revealing/hiding slices
  */
 
+import { tileToCount } from './tile.js';
+
 // Grid cell placements (5-column, 3-row grid)
 const GRID_CELLS = [
   { col: '1 / 2', row: '1 / 2' },
@@ -42,10 +44,9 @@ export function createGridCollage(mediaList, container) {
   const grid = document.createElement('div');
   grid.className = 'collage-grid';
 
-  // Tile media to fill grid cells
-  let items = [...mediaList];
-  while (items.length < GRID_CELLS.length) items = items.concat(mediaList);
-  items = items.slice(0, GRID_CELLS.length);
+  // Tile media to fill grid cells. tileToCount returns [] (not an infinite
+  // loop) when mediaList is empty — see tile.js.
+  const items = tileToCount(mediaList, GRID_CELLS.length);
 
   items.forEach((media, i) => {
     const layout = GRID_CELLS[i];
