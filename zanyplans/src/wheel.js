@@ -1,3 +1,5 @@
+import { planSpin, selectedFromAngle } from './wheel-spin.js';
+
 const SEGMENTS = [
   { color: '#00ffcc', effect: 'VHS MELT' },
   { color: '#ff3366', effect: 'CHROMATIC RIP' },
@@ -31,19 +33,17 @@ export function createWheel(onEffectSelected) {
     if (spinning) return;
     spinning = true;
 
-    const extraRotations = 3 + Math.floor(Math.random() * 4);
-    const segmentAngle = 360 / SEGMENTS.length;
-    const randomSegment = Math.floor(Math.random() * SEGMENTS.length);
-    const targetAngle = currentRotation + extraRotations * 360 + randomSegment * segmentAngle + segmentAngle / 2;
+    // Land the chosen segment's CENTER under the pointer every spin — planSpin
+    // floors the accumulated rotation so the half-segment offset can't compound
+    // (the old inline math drifted onto boundaries + mis-announced the effect).
+    const targetAngle = planSpin(currentRotation, SEGMENTS.length);
 
     currentRotation = targetAngle;
     svg.style.transform = `rotate(${targetAngle}deg)`;
 
     setTimeout(() => {
       spinning = false;
-      const normalizedAngle = targetAngle % 360;
-      const idx = Math.round(normalizedAngle / segmentAngle) % SEGMENTS.length;
-      const selected = SEGMENTS[(SEGMENTS.length - idx) % SEGMENTS.length];
+      const selected = SEGMENTS[selectedFromAngle(targetAngle, SEGMENTS.length)];
       onEffectSelected(selected.effect);
       try { playClickSound(); } catch(e) {}
     }, 2600);
