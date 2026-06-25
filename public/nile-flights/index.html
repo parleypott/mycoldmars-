@@ -166,7 +166,7 @@ const dayOnly=dt=>new Date(dt.getFullYear(),dt.getMonth(),dt.getDate());
 const DOW=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const MON=["January","February","March","April","May","June","July","August","September","October","November","December"];
 const groupDt=l=>l.tbd?parse(l.date+" 12:00"):parse(l.depart);
-const fmtDate=dt=>`${MON[dt.getMonth()].slice(0,3)} ${dt.getDate()}`;
+const fmtDate=dt=>(dt&&isFinite(dt.getTime()))?`${MON[dt.getMonth()].slice(0,3)} ${dt.getDate()}`:"";
 // Pure: classify a same-airport connection gap by minutes between previous arrival and next departure.
 // <75 min = too tight to make the connection (book a later flight); <=12h = a layover; longer = on the
 // ground (overnight+). Returns the pill CSS class + head label so render() interpolates byte-identically.
