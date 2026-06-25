@@ -82,9 +82,11 @@ t('esc: escapes & < > " (text-content set)', () => {
   assert.equal(esc('<x>'), '&lt;x&gt;');
   assert.equal(esc('say "hi"'), 'say &quot;hi&quot;');
 });
-t('esc: leaves single quote (text context — no dynamic attribute in markup)', () => {
-  // The shipped esc intentionally does NOT escape ' — markup uses text context only.
-  assert.equal(esc("it's"), "it's");
+t('esc: escapes the single quote (harmonized with every other repo escaper)', () => {
+  // esc now escapes ' as well. markup() uses text context (where ' is harmless),
+  // but the switcher feeds esc(e.id) into a data-id attribute, so the full
+  // [&<>"'] set is the contract — no escaper in the repo may be weaker.
+  assert.equal(esc("it's"), 'it&#39;s');
 });
 t('esc: null/undefined/empty -> empty string, no throw', () => {
   assert.equal(esc(null), '');
@@ -178,8 +180,8 @@ t('markup: adjacent quotes (no gap between them) render back-to-back marks', () 
 // ============================================================
 // SOURCE-BINDING: confirm esc is the &<>" entity escaper used by markup
 // ============================================================
-t('source binding: esc escapes exactly &<>" and markup calls esc', () => {
-  assert.ok(/replace\(\/\[&<>"\]\/g/.test(escSrc), 'esc uses the [&<>"] char class');
+t('source binding: esc escapes the full &<>"\' set and markup calls esc', () => {
+  assert.ok(/replace\(\/\[&<>"'\]\/g/.test(escSrc), "esc uses the [&<>\"'] char class");
   assert.ok(/esc\(body\.slice/.test(markupSrc), 'markup escapes body slices via esc');
 });
 

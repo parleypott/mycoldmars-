@@ -481,7 +481,7 @@ function renderList() {
   }
 }
 
-function esc(s){ return (s||'').replace(/[&<>"]/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function esc(s){ return (s||'').replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 /* ---- add ---- */
 $('composerHead').onclick = () => {
@@ -994,7 +994,7 @@ function openSwitcher() {
   el.innerHTML = essays.map(e => {
     const dur = e.duration_sec ? fmt(e.duration_sec) : '—';
     const cls = (current && current.id === e.id) ? ' cur' : '';
-    return `<div class="sw-item${cls}" onclick="swPick('${esc(e.id)}')">
+    return `<div class="sw-item${cls}" data-id="${esc(e.id)}">
       <div class="sw-dot"></div>
       <div class="sw-meta">
         <div class="sw-t">${esc(e.title)}</div>
@@ -1015,6 +1015,15 @@ function swPick(id) {
   closeSwitcher();
   if (!current || current.id !== id) play(id);
 }
+
+/* Delegated click: the essay id rides a data-id attribute (esc-protected in a
+   double-quoted attribute, exact round-trip via dataset) instead of an inline
+   onclick JS-string — so an apostrophe (or crafted) id can't break out of a
+   swPick('…') argument. One listener survives openSwitcher's innerHTML rebuilds. */
+document.addEventListener('click', (ev) => {
+  const item = ev.target.closest && ev.target.closest('.sw-item[data-id]');
+  if (item) swPick(item.dataset.id);
+});
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSwitcher(); });
 
