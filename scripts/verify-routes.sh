@@ -10,9 +10,16 @@
 # This walks every page Vite actually builds — parsed straight from
 # vite.config.js's `resolve(__dirname, '<dir>/index.html')` entries, so the route
 # list can NEVER drift from what's deployed: add a tool to the build and it's
-# covered here automatically, with no edit to this script. A small EXTRA_ROUTES
-# list covers paths that are served but not Vite build entries (walden,
-# westchester — built/hosted separately).
+# covered here automatically, with no edit to this script.
+#
+# It ALSO walks every static page under public/ (burma-essays, glossary,
+# nile-flights, deck-v2, walden, walden-3d, westchester, …). Vite copies public/
+# to the deploy root verbatim, so `public/<name>/index.html` is served live at
+# `/<name>/` but is NOT a build entry — the earlier version hardcoded only two of
+# these (walden, westchester) and silently OMITTED the rest, including the
+# flagship burma-essays PWA. Deriving them from public/*/index.html keeps the
+# "full surface" honestly full and drift-proof: drop a new static page into
+# public/ and it's covered automatically, no edit here.
 #
 # Semantics: a route is HEALTHY if it returns 2xx OR 3xx. A 3xx is a working
 # redirect (the QSS /queen-scarlet-school/* routes legitimately 307 to /universe/*),
@@ -49,10 +56,17 @@ mapfile -t ROUTES < <(
     | sort -u
 )
 
-# ── Served but not Vite build entries (hosted/built separately) ──
-EXTRA_ROUTES=(
-  "/walden/"
-  "/westchester/"
+# ── Static pages under public/ (served at root, NOT Vite build entries) ──
+# Vite copies public/ verbatim to the deploy root, so public/<name>/index.html
+# serves live at /<name>/. Derive these the same way as build entries so the
+# list can never drift (a new public page is covered automatically).
+mapfile -t EXTRA_ROUTES < <(
+  if [[ -d "$ROOT/public" ]]; then
+    ( cd "$ROOT" && find public -name index.html -type f ) \
+      | sed -E 's#^public/##; s#/?index\.html$##' \
+      | sed -E 's#^#/#; s#//#/#' \
+      | sort -u
+  fi
 )
 
 # Normalize: ensure a single trailing slash on non-root paths.
