@@ -13,8 +13,13 @@
 // from the correct working directory, aggregates by exit code, and exits nonzero if
 // any suite fails. Run it with:  bun run test   (or: bun scripts/run-tests.mjs)
 //
-// Adding a new test: drop a *.test.mjs anywhere and it's auto-discovered. For a .ts
-// test (or one with a special cwd) add a line to EXPLICIT_TESTS below.
+// Adding a new test: drop a *.test.{mjs,ts,js} or *.spec.{mjs,ts,js} anywhere and it's
+// auto-discovered (all run under bun, which handles .ts/.mjs/.js uniformly). For a test
+// with a NON-STANDARD name (the burma-script *-test.ts) or a special cwd, add a line to
+// EXPLICIT_TESTS below. The auto-glob used to match ONLY *.test.mjs, so a *.test.ts a
+// future iteration dropped would have sat on disk, passed by hand, and silently NEVER run
+// in `bun run test` — a textbook false-green. The glob below now covers .ts/.js/.spec too
+// so the runner can't quietly skip a standard-named suite.
 //
 // Suites run CONCURRENTLY in a CPU-capped worker pool — each suite is an independent
 // `bun <file>` subprocess (they share no state, only the filesystem read-only + their
@@ -34,15 +39,21 @@ import { cpus } from 'node:os';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const IGNORE_DIRS = new Set(['node_modules', 'dist', '.git', '.vercel']);
 
-// Recursively find every *.test.mjs under the repo (skipping build/dep dirs).
-function findMjsTests(dir) {
+// A file is an auto-discoverable suite if it's named <something>.{test,spec}.{mjs,ts,js}.
+// (Kept deliberately to the two standard conventions — .test. and .spec. — so a random
+// helper like burma-script's `parse-test.ts` isn't swept in with the wrong cwd; those
+// non-standard names live in EXPLICIT_TESTS instead.)
+const AUTO_TEST_RE = /\.(test|spec)\.(mjs|ts|js)$/;
+
+// Recursively find every auto-discoverable suite under the repo (skipping build/dep dirs).
+function findAutoTests(dir) {
   const out = [];
   for (const name of readdirSync(dir)) {
     if (IGNORE_DIRS.has(name)) continue;
     const full = join(dir, name);
     const st = statSync(full);
-    if (st.isDirectory()) out.push(...findMjsTests(full));
-    else if (name.endsWith('.test.mjs')) out.push({ file: full });
+    if (st.isDirectory()) out.push(...findAutoTests(full));
+    else if (AUTO_TEST_RE.test(name)) out.push({ file: full });
   }
   return out;
 }
@@ -63,7 +74,12 @@ const EXPLICIT_TESTS = [
   { file: join(ROOT, 'burma-script/integrity-check.ts'), cwd: join(ROOT, 'burma-script') },
 ];
 
-const tests = [...findMjsTests(ROOT), ...EXPLICIT_TESTS]
+// Union of auto-discovered + explicit, de-duped by absolute path so a file that somehow
+// matches both lists (e.g. an explicit entry later renamed to a standard suffix) can't
+// run twice.
+const seenPaths = new Set();
+const tests = [...findAutoTests(ROOT), ...EXPLICIT_TESTS]
+  .filter(({ file }) => (seenPaths.has(file) ? false : (seenPaths.add(file), true)))
   .sort((a, b) => a.file.localeCompare(b.file));
 
 // Pull the most informative one-line summary out of a test's stdout, ignoring the
