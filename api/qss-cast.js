@@ -528,7 +528,7 @@ export function sanitizeCard(c) {
   };
 }
 
-function cardToRow(card) {
+export function cardToRow(card) {
   // Strip dataBase64 from every portrait before persisting — the bytes
   // live in Supabase Storage now, the row only carries the URL refs.
   // Portraits without image_url AND without dataBase64 are dropped
@@ -564,7 +564,16 @@ function cardToRow(card) {
     primary_image_url: primaryImageUrl,
     chat: card.chat,
     story_appearances: card.story_appearances,
-    generated_at: new Date(card.generated_at).toISOString(),
+    // Guard the timestamp like every other generated_at access in this file
+    // (cf. line ~546, sanitizeCard, rowToCard). `new Date(undefined|NaN|bad
+    // string).toISOString()` throws "Invalid time value" — an unguarded card
+    // reaching the SAVE serializer would 500 the upsert and silently lose
+    // Henry's character save. Coerce to a finite ms epoch, else stamp now.
+    generated_at: new Date(
+      typeof card.generated_at === 'number' && Number.isFinite(card.generated_at)
+        ? card.generated_at
+        : Date.now()
+    ).toISOString(),
   };
 }
 
