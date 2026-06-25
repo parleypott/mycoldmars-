@@ -352,6 +352,7 @@ function draw() {
 
 // ── End level ──
 function endLevel(won, reason) {
+  if (!gameActive) return; // idempotent: a final-bounce tap already ended the level; ignore the stale 'time' timer
   gameActive = false;
   sessionResults.push(won);
   buildScoreRow();
