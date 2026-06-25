@@ -1,6 +1,7 @@
 import mapboxgl from 'mapbox-gl';
 import * as topojson from 'topojson-client';
 import worldTopo from 'world-atlas/countries-110m.json';
+import { resolveEezHover } from './hover.js';
 import './style.css';
 
 mapboxgl.accessToken =
@@ -351,15 +352,24 @@ function setupHover() {
   map.on('mousemove', 'eez-fill', (e) => {
     if (!e.features || e.features.length === 0) return;
 
-    const name = e.features[0].properties.Country ||
-                 e.features[0].properties.ISO_A3 || '';
+    const hit = resolveEezHover(e.features[0].properties);
+    if (!hit) {
+      // Nothing nameable under the cursor — don't leak a blank tooltip box
+      // or a degenerate highlight that matches every empty-named feature.
+      tooltip.classList.remove('visible');
+      map.setPaintProperty('eez-fill', 'fill-opacity', DEFAULT_FILL_OPACITY);
+      return;
+    }
 
-    tooltip.textContent = name;
+    tooltip.textContent = hit.name;
     tooltip.classList.add('visible');
 
+    // Highlight on the SAME property that produced the label, so the polygon
+    // under the cursor is the one that lights up (an ISO_A3-only feature used
+    // to show a tooltip but never highlight).
     map.setPaintProperty('eez-fill', 'fill-opacity', [
       'case',
-      ['==', ['get', 'Country'], name],
+      ['==', ['get', hit.field], hit.value],
       ['interpolate', ['linear'], ['zoom'], 0, 0.08, 3, 0.15, 6, 0.25],
       DEFAULT_FILL_OPACITY,
     ]);
