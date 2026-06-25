@@ -38,3 +38,31 @@ export function applyAnswer(state, idx, question) {
     answered: true,
   };
 }
+
+// How many rounds a quiz will actually play: the smaller of the question cap and
+// how many questions the pool can supply. The games slice their shuffled pool to
+// this length, then walk `currentIdx` until it reaches the round count. Driving
+// the end condition off a hardcoded cap instead of the real length is a latent
+// crash: a pool trimmed below the cap leaves the game indexing past the end of
+// the (shorter) sliced list — `questions[currentIdx]` is `undefined` and reading
+// `.question` off it is a hard white-screen crash. For a full pool this returns
+// the cap unchanged, so the normal 5-question game is byte-identical.
+export function roundCount(poolLength, cap) {
+  const n = Math.max(0, Math.floor(Number(poolLength) || 0));
+  const c = Math.max(0, Math.floor(Number(cap) || 0));
+  return Math.min(n, c);
+}
+
+// Grade label for a final score out of `total`. Percentage-based so it stays
+// correct for ANY round count, not just the canonical 5. For total === 5 the
+// tiers reproduce the games' original hardcoded labels exactly:
+//   5 → PERFECT, 4 → EXCELLENT, 3 → GOOD, 2 → NOT BAD, 1/0 → KEEP LEARNING.
+export function gradeFor(score, total) {
+  if (!total || total <= 0) return 'KEEP LEARNING';
+  if (score >= total) return 'PERFECT';
+  const pct = (score / total) * 100;
+  if (pct >= 80) return 'EXCELLENT';
+  if (pct >= 60) return 'GOOD';
+  if (pct >= 40) return 'NOT BAD';
+  return 'KEEP LEARNING';
+}

@@ -1,6 +1,6 @@
 // Mutation-locked tests for the shared quiz answer-accounting core.
 // Run: node shared/quiz-answer.test.mjs  (picked up by scripts/run-tests.mjs)
-import { newQuiz, nextQuestion, applyAnswer } from './quiz-answer.js';
+import { newQuiz, nextQuestion, applyAnswer, roundCount, gradeFor } from './quiz-answer.js';
 import assert from 'node:assert/strict';
 
 let pass = 0;
@@ -86,6 +86,90 @@ t('applyAnswer never mutates the input state', () => {
   const snapshot = JSON.stringify(before);
   applyAnswer(before, 2, Q);
   assert.equal(JSON.stringify(before), snapshot, 'input must be unchanged');
+});
+
+// ── roundCount: the latent-crash guard ──
+
+t('roundCount returns the cap when the pool can supply it', () => {
+  assert.equal(roundCount(25, 5), 5);
+  assert.equal(roundCount(5, 5), 5);
+});
+
+t('roundCount caps to the pool when the pool is short of the cap', () => {
+  assert.equal(roundCount(3, 5), 3);
+  assert.equal(roundCount(0, 5), 0);
+  assert.equal(roundCount(1, 5), 1);
+});
+
+t('roundCount degrades garbage input to 0 instead of NaN', () => {
+  assert.equal(roundCount(undefined, 5), 0);
+  assert.equal(roundCount(null, 5), 0);
+  assert.equal(roundCount(-4, 5), 0);
+  assert.equal(roundCount(3.9, 5), 3); // floors, never over-counts
+});
+
+// THE CRASH LOCK: the games slice their pool to `roundCount` and walk
+// `currentIdx` until it reaches that length. If a pool is trimmed below the cap,
+// driving the walk off the hardcoded cap (the old `currentIdx >= TOTAL`) indexes
+// past the end of the shorter sliced list → `questions[idx]` is undefined →
+// reading `.question` is a hard white-screen crash. Proven here: with a 3-item
+// pool and a cap of 5, walking to the cap touches undefined; walking to
+// roundCount never does.
+t('walking to the cap crashes on a short pool; walking to roundCount does not', () => {
+  const pool = [{ question: 'a' }, { question: 'b' }, { question: 'c' }];
+  const CAP = 5;
+  const questions = pool.slice(0, roundCount(pool.length, CAP));
+
+  // Old buggy walk: end condition uses the constant cap.
+  let crashed = false;
+  try {
+    for (let i = 0; i < CAP; i++) {
+      const q = questions[i];
+      void q.question; // throws at i=3 (undefined)
+    }
+  } catch { crashed = true; }
+  assert.equal(crashed, true, 'walking to the hardcoded cap must hit undefined');
+
+  // Fixed walk: end condition uses the real length.
+  let ok = true;
+  try {
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      void q.question;
+    }
+  } catch { ok = false; }
+  assert.equal(ok, true, 'walking to questions.length never touches undefined');
+  assert.equal(questions.length, 3);
+});
+
+// ── gradeFor: percentage-based, but byte-identical to the old labels at total=5 ──
+
+// The original hardcoded grader the three games each carried inline. The lock
+// below proves gradeFor reproduces it EXACTLY for the canonical 5-question game.
+function legacyGrade5(s) {
+  if (s === 5) return 'PERFECT';
+  if (s >= 4) return 'EXCELLENT';
+  if (s >= 3) return 'GOOD';
+  if (s >= 2) return 'NOT BAD';
+  return 'KEEP LEARNING';
+}
+
+t('gradeFor matches the original hardcoded labels for every score out of 5', () => {
+  for (let s = 0; s <= 5; s++) {
+    assert.equal(gradeFor(s, 5), legacyGrade5(s), `score ${s}/5`);
+  }
+});
+
+t('gradeFor degrades to sensible labels for a short (3-question) game', () => {
+  assert.equal(gradeFor(3, 3), 'PERFECT');      // 100%
+  assert.equal(gradeFor(2, 3), 'GOOD');         // 66.6% → ≥60
+  assert.equal(gradeFor(1, 3), 'KEEP LEARNING'); // 33% → <40
+  assert.equal(gradeFor(0, 3), 'KEEP LEARNING');
+});
+
+t('gradeFor never divides by zero on an empty game', () => {
+  assert.equal(gradeFor(0, 0), 'KEEP LEARNING');
+  assert.equal(gradeFor(0, undefined), 'KEEP LEARNING');
 });
 
 console.log(`\nquiz-answer: ${pass} checks passed`);

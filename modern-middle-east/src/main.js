@@ -1,5 +1,5 @@
 import { easy, hard } from './questions.js';
-import { newQuiz, nextQuestion, applyAnswer } from '../../shared/quiz-answer.js';
+import { newQuiz, nextQuestion, applyAnswer, roundCount, gradeFor } from '../../shared/quiz-answer.js';
 
 /* ─── Themes ─── */
 const THEMES = {
@@ -216,7 +216,7 @@ function shuffle(arr) {
 
 function pickQuestions() {
   const pool = difficulty === 'easy' ? easy : hard;
-  return shuffle(pool).slice(0, TOTAL);
+  return shuffle(pool).slice(0, roundCount(pool.length, TOTAL));
 }
 
 /* ─── Start Game ─── */
@@ -259,7 +259,7 @@ const LETTERS = ['A', 'B', 'C', 'D'];
 function showQuestion() {
   quiz = nextQuestion(quiz); // clear the per-question double-click guard
   const q = questions[currentIdx];
-  quizNumber.textContent = `${String(currentIdx + 1).padStart(2, '0')}/${String(TOTAL).padStart(2, '0')}`;
+  quizNumber.textContent = `${String(currentIdx + 1).padStart(2, '0')}/${String(questions.length).padStart(2, '0')}`;
   quizScore.textContent = quiz.score;
   quizQuestion.textContent = q.question;
 
@@ -309,7 +309,7 @@ resultNextBtn.addEventListener('click', () => {
   resultOverlay.classList.add('hidden');
   currentIdx++;
 
-  if (currentIdx >= TOTAL) {
+  if (currentIdx >= questions.length) {
     showScorecard();
   } else {
     quizPanel.classList.remove('hidden');
@@ -327,10 +327,11 @@ function showScorecard() {
   scorecardBadge.innerHTML = `<div class="badge-label">${difficulty === 'easy' ? 'EASY MODE' : 'HARD MODE'}</div>`;
 
   // Total
-  const pct = Math.round((quiz.score / TOTAL) * 100);
+  const rounds = questions.length;
+  const pct = rounds ? Math.round((quiz.score / rounds) * 100) : 0;
   scorecardTotal.innerHTML = `
-    <div class="total-number">${quiz.score}/${TOTAL}</div>
-    <div class="total-label">${pct}% — ${getGrade(quiz.score)}</div>
+    <div class="total-number">${quiz.score}/${rounds}</div>
+    <div class="total-label">${pct}% — ${gradeFor(quiz.score, rounds)}</div>
   `;
 
   // Rows
@@ -347,13 +348,6 @@ function showScorecard() {
   });
 }
 
-function getGrade(s) {
-  if (s === TOTAL) return 'PERFECT';
-  if (s >= 4) return 'EXCELLENT';
-  if (s >= 3) return 'GOOD';
-  if (s >= 2) return 'NOT BAD';
-  return 'KEEP LEARNING';
-}
 
 /* ─── Play Again ─── */
 playAgainBtn.addEventListener('click', () => {
