@@ -71,5 +71,41 @@ eq(fmtViews(24521382), '24.5M', 'real peak data point → M with one decimal');
 eq(fmtViews(61106789), '61.1M', 'top channel peak → 61.1M');
 eq(fmtViews(2.4e9), '2.4B', 'B tier');
 
+// ---- AXIS-TICK LOCK ----------------------------------------------------------
+// The comment above ("fmtViews drives ... the y-axis ticks") was ASPIRATIONAL when
+// first written: the y-axis tick callback was actually a DIVERGENT inline copy that
+// used Math.round(v/1e6)+'M' — collapsing a 1.0M tick and a 1.25M tick to the SAME
+// "1M" label, rounding 1.5M UP to a phantom "2M" past the real max, and STILL
+// flashing "1000K" (the very rollover this file locks for the running label). The
+// y.max is animated (lerp'd) up to the real peak, so non-round intermediate ticks
+// in those bands are reachable mid-animation. The fix routes the axis through
+// fmtViews. These assertions lock that.
+
+// The OLD, buggy axis formatter — inline RED proof of what was shipping.
+const oldAxis = (v) => {
+  if (v === 0) return '0';
+  if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B';
+  if (v >= 1e6) return Math.round(v / 1e6) + 'M';
+  if (v >= 1e3) return Math.round(v / 1000) + 'K';
+  return String(v);
+};
+eq(oldAxis(1e6), '1M', 'RED proof: old axis labels 1.0M tick "1M"');
+eq(oldAxis(1.25e6), '1M', 'RED proof: old axis ALSO labels 1.25M tick "1M" (duplicate)');
+eq(oldAxis(1.5e6), '2M', 'RED proof: old axis rounds 1.5M tick up to phantom "2M"');
+eq(oldAxis(999600), '1000K', 'RED proof: old axis still flashes "1000K"');
+eq(oldAxis(1e6) === oldAxis(1.25e6), true, 'RED proof: old axis collapses 1.0M and 1.25M to one label');
+
+// GREEN: fmtViews (the formatter the axis now uses) keeps those ticks distinct + clean.
+eq(fmtViews(1.25e6), '1.3M', '1.25M tick is a DISTINCT "1.3M", not a duplicate "1M"');
+eq(fmtViews(1.5e6), '1.5M', '1.5M tick is "1.5M", no phantom "2M"');
+assert.notEqual(fmtViews(1e6), fmtViews(1.25e6), '1.0M and 1.25M ticks differ');
+eq(fmtViews(999600), '1.0M', '999.6K tick rolls to "1.0M", never "1000K"');
+
+// LOCK the fix in the HTML: axis callback routes through fmtViews; no divergent copy survives.
+eq(/callback:\s*function\(v\)\s*\{\s*return fmtViews\(v\);\s*\}/.test(html), true,
+  'y-axis tick callback routes through fmtViews(v)');
+eq(/return\s+Math\.round\(v\s*\/\s*1e6\)/.test(html), false,
+  'no surviving "return Math.round(v/1e6)" divergent axis copy in the HTML');
+
 console.log(`fmt-views: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

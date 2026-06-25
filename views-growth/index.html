@@ -490,13 +490,14 @@
             ticks: {
               font:{family:"'Space Mono',monospace",size:12},
               color: '#bbb',
-              callback: function(v){
-                if(v===0)return '0';
-                if(v>=1e9) return (v/1e9).toFixed(1)+'B';
-                if(v>=1e6) return Math.round(v/1e6)+'M';
-                if(v>=1e3) return Math.round(v/1000)+'K';
-                return v;
-              }
+              // Route axis ticks through fmtViews (the SAME formatter the data
+              // labels use) instead of a divergent copy. The old copy used
+              // Math.round(v/1e6)+'M', which collapsed a 1.0M and a 1.25M tick to
+              // a duplicate "1M" (and round(1.5M)→"2M", a phantom label past the
+              // real max), and Math.round(v/1000)+'K' could flash "1000K" on the
+              // 999.5K–999.99K band that the lerp'd y.max sweeps through
+              // mid-animation. fmtViews(0) returns "0", so the zero tick is kept.
+              callback: function(v){ return fmtViews(v); }
             }
           }
         },
