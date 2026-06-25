@@ -67,6 +67,10 @@ class AudioEngine {
   _attach(node) {
     if (this.source) { try { this.source.disconnect(); } catch {} }
     if (this.htmlAudio) { this.htmlAudio.pause(); this.htmlAudio.src = ''; this.htmlAudio = null; }
+    // Tear down any prior monitor path. File playback routes analyser → destination so the
+    // track is audible; without this teardown, switching File → Mic/Tab leaves that edge live
+    // and the new source gets piped straight to the speakers (mic feedback / tab echo).
+    if (this.analyser && this.ctx) { try { this.analyser.disconnect(this.ctx.destination); } catch {} }
     this.source = node;
     node.connect(this.analyser);
     this.sourceListeners.forEach(fn => fn(node));
@@ -75,6 +79,7 @@ class AudioEngine {
   disconnect() {
     if (this.source) { try { this.source.disconnect(); } catch {} this.source = null; }
     if (this.htmlAudio) { this.htmlAudio.pause(); this.htmlAudio.src = ''; this.htmlAudio = null; }
+    if (this.analyser && this.ctx) { try { this.analyser.disconnect(this.ctx.destination); } catch {} }
   }
 
   async useMic() {
