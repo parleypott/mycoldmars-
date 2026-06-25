@@ -14,6 +14,7 @@ import {
   isGenericSpeaker,
   parseSequenceInfo,
   getStats,
+  findKeywordCol,
 } from './csv-parser.js';
 
 let pass = 0, fail = 0;
@@ -194,6 +195,54 @@ eq(parseSequenceInfo('NO DATE HERE').dateFilmed, null, 'date: no leading 6-digit
   // Garbage number field -> loop counter (intended fallback preserved).
   const garbage = parseCSV(`${H}\nNaN;A;0:00:00,000;0:00:01,000;1;Hi`);
   eq(garbage[0].number, 1, 'garbage-number: falls back to loop counter i=1');
+}
+
+// ── column detection: whole-word match beats substring collision ──
+// The old detector was `cols.findIndex(c => c.includes(kw))`. A column that
+// merely *contains* the keyword as a substring — "Sender" / "Legend" /
+// "Recommended" all contain "end", "Restart" contains "start" — would hijack
+// the timecode lookup (findIndex returns the FIRST match), feeding garbage into
+// every segment's start/end with no error and corrupting all downstream exports.
+{
+  const lower = a => a.map(s => s.toLowerCase());
+
+  // The headline collision: a chat/messaging transcript with a "Sender" column.
+  // "sender".includes("end") === true, and Sender comes BEFORE the real End col.
+  const chat = lower(['Sender', 'Start time', 'End time', 'Text']);
+  eq(findKeywordCol(chat, 'end'), 2, 'collision: "Sender" must NOT steal the End column');
+  eq(findKeywordCol(chat, 'start'), 1, 'collision: Start column resolves correctly past "Sender"');
+
+  // RED-proof: the OLD substring logic picks "Sender" (index 0) as the End col.
+  const oldFind = (cols, kw) => cols.findIndex(c => c.includes(kw));
+  ok(oldFind(chat, 'end') === 0, 'RED-proof: old includes() logic mis-maps End→"Sender"');
+  ok(findKeywordCol(chat, 'end') !== oldFind(chat, 'end'), 'fix diverges from buggy logic on the collision');
+
+  // Other plausible substring collisions on "end".
+  eq(findKeywordCol(lower(['Legend', 'Start', 'End', 'Text']), 'end'), 2, 'collision: "Legend" must not steal End');
+  eq(findKeywordCol(lower(['Recommended', 'Start', 'End', 'Text']), 'end'), 2, 'collision: "Recommended" must not steal End');
+  eq(findKeywordCol(lower(['Restart count', 'Start', 'End', 'Text']), 'start'), 1, 'collision: "Restart" must not steal Start');
+
+  // No-regression: every real header shape still resolves to the right column.
+  const hs = lower(['Number', 'Speaker', 'Start time', 'End time', 'Duration', 'Text']);
+  eq(findKeywordCol(hs, 'start'), 2, 'real header: "Start time" resolves');
+  eq(findKeywordCol(hs, 'end'), 3, 'real header: "End time" resolves');
+  eq(findKeywordCol(hs, 'duration'), 4, 'real header: "Duration" resolves');
+  eq(findKeywordCol(lower(['start', 'end', 'text']), 'end'), 1, 'bare "end" word resolves');
+  eq(findKeywordCol(lower(['start (s)', 'end (s)', 'text']), 'end'), 1, '"end (s)" resolves via word boundary');
+
+  // Loose-substring FALLBACK preserved: an oddball header with no word-boundary
+  // match still resolves via includes() exactly as the old code did.
+  eq(findKeywordCol(lower(['clipstart', 'clipend', 'text']), 'start'), 0, 'fallback: "clipstart" still resolves');
+  eq(findKeywordCol(lower(['clipstart', 'clipend', 'text']), 'end'), 1, 'fallback: "clipend" still resolves');
+
+  // Missing column → -1 (so parseCSV still throws its clear error).
+  eq(findKeywordCol(lower(['speaker', 'text']), 'end'), -1, 'absent column → -1');
+
+  // End-to-end: parseCSV on a "Sender" CSV must read END timecodes, not names.
+  const chatCsv = 'Sender;Start time;End time;Text\nJOHN;0:00:01,000;0:00:02,500;Hi\nJANE;0:00:02,500;0:00:04,000;Yo';
+  const chatSegs = parseCSV(chatCsv);
+  eq(chatSegs[0].end, '0:00:02,500', 'e2e: End field carries the timecode, not the Sender name');
+  eq(chatSegs[1].end, '0:00:04,000', 'e2e: second row End timecode intact');
 }
 
 console.log(fail === 0

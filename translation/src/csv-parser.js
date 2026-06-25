@@ -115,6 +115,34 @@ export function getSequenceMetadata(segments) {
 }
 
 /**
+ * Find the column index for a timecode keyword ('start' / 'end' / 'duration'),
+ * preferring a WHOLE-WORD match over a bare substring match.
+ *
+ * The old detector was `cols.findIndex(c => c.includes(kw))`, which is a
+ * substring-collision landmine on this live import front door: a column whose
+ * name merely *contains* "end" as a substring — "Sender" (chat / messaging
+ * transcript exports), "Legend", "Recommended", "Append" — would be picked as
+ * the End-time column ahead of the real "End time" header, because findIndex
+ * returns the FIRST match. Same trap for "start" ("Restart"). The wrong column
+ * then feeds garbage into every segment's timecode with NO error — and since
+ * every downstream export (SRT, Premiere XML, sacred sequencer) is built from
+ * these timings, the whole import silently corrupts.
+ *
+ * Fix: try a word-boundary match first ("end" / "end time" / "end (s)" all
+ * match; "sender" / "legend" do not). Only if NO column matches as a whole word
+ * do we fall back to the original loose `includes` — so any unusual header that
+ * only ever matched loosely ("clipstart", "endtime" with no separator) still
+ * resolves exactly as before. The word-aware pass can only ADD precision when a
+ * boundary match exists, never change a header that resolves correctly today.
+ */
+export function findKeywordCol(cols, kw) {
+  const wordRe = new RegExp(`(^|[^a-z])${kw}([^a-z]|$)`);
+  const wordIdx = cols.findIndex(c => wordRe.test(c));
+  if (wordIdx !== -1) return wordIdx;
+  return cols.findIndex(c => c.includes(kw));
+}
+
+/**
  * Parse Happy Scribe semicolon-delimited CSV.
  * Expected header: Number;Speaker;Start time;End time;Duration;Text
  */
@@ -147,9 +175,9 @@ export function parseCSV(text) {
 
   const numIdx = cols.findIndex(c => c === 'number' || c === '#');
   const speakerIdx = cols.findIndex(c => c === 'speaker' || c === 'speaker name' || c === 'name');
-  const startIdx = cols.findIndex(c => c.includes('start'));
-  const endIdx = cols.findIndex(c => c.includes('end'));
-  const durationIdx = cols.findIndex(c => c.includes('duration'));
+  const startIdx = findKeywordCol(cols, 'start');
+  const endIdx = findKeywordCol(cols, 'end');
+  const durationIdx = findKeywordCol(cols, 'duration');
   const textIdx = cols.findIndex(c => c === 'text' || c === 'content');
 
   if (textIdx === -1) throw new Error('Could not find "Text" column in CSV');
