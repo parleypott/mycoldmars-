@@ -451,7 +451,7 @@ function render() {
     <div class="row" id="row-${e.id}" data-id="${e.id}">
       <div class="row-prog-line" id="rpl-${e.id}"></div>
 
-      <div class="row-collapsed" onclick="pick('${e.id}')">
+      <div class="row-collapsed" data-pick="${e.id}">
         <button class="row-play-btn" aria-label="Play ${e.title}">${PLAY_SVG}</button>
         <div class="row-text">
           <div class="row-num">0${i+1}</div>
@@ -636,6 +636,17 @@ window.addEventListener('scroll', ()=>{
 
 buildTicker();
 render();
+
+// Delegated row-pick: the essay id rides a data-pick attribute (not an inline
+// onclick JS-string), so a slug with an apostrophe can't break out of pick('…')
+// and inject script. The listener lives on the static #essay-list container, so
+// it survives the innerHTML rebuilds in render(). Behavior is identical to the
+// old onclick — any click inside .row-collapsed (incl. the play button, which
+// has no own handler) picks that row; expanded controls sit outside it.
+document.getElementById('essay-list').addEventListener('click', (ev) => {
+  const el = ev.target.closest('.row-collapsed[data-pick]');
+  if (el) pick(el.dataset.pick);
+});
 
 // ── Bouncing 夜市 character ──
 (function() {
