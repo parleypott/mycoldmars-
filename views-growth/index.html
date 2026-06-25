@@ -413,7 +413,12 @@
 
     function fmtViews(v) {
       if (v >= 1e9) return (v/1e9).toFixed(1) + 'B';
-      if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
+      if (v >= 1e6) {
+        // 999,950,000-999,999,999 rounds to "1000.0M" — roll it over to "1.0B",
+        // the same boundary-rollover guard the K->M branch below applies.
+        const m = (v/1e6).toFixed(1);
+        return m === '1000.0' ? (v/1e9).toFixed(1) + 'B' : m + 'M';
+      }
       if (v >= 1e3) {
         const k = Math.round(v/1000);
         return k >= 1000 ? (v/1e6).toFixed(1) + 'M' : k + 'K';  // 999,500-999,999 rolls over to "1.0M", not "1000K"

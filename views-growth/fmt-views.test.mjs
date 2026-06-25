@@ -6,8 +6,14 @@
 // the chart animates each channel climbing from 0 to its peak (up to ~61M in this page's data),
 // so the running label PASSES THROUGH that band on the way up — flashing "1000K" mid-climb on a
 // growth chart a filmmaker may screen-record. Same boundary-rollover class the loop has fixed
-// repeatedly (the hour-drop formatters). The fix rolls 999.5K–999.99K over to "1.0M"; the M and
-// B branches are byte-identical, so every other value is unchanged.
+// repeatedly (the hour-drop formatters). The fix rolls 999.5K–999.99K over to "1.0M".
+//
+// THE SECOND BUG (this iteration): the SAME rollover lived one tier up. The M branch did a bare
+// (v/1e6).toFixed(1)+'M', so any view count in 999,950,000–999,999,999 rounded to "1000.0M"
+// instead of rolling over to "1.0B" — exactly the "1000K" class, just at the M→B boundary. The
+// chart animates cumulative views (a filmmaker's channel totals run into the billions) climbing
+// from 0 to peak, so the running label PASSES THROUGH that window mid-climb. The fix promotes the
+// "1000.0M" rollover to "1.0B". Every value outside [999.95M, 1B) is unchanged.
 //
 // This test EXTRACTS the REAL shipped fmtViews from views-growth/index.html at runtime
 // (new Function), so it can never drift from a hand-copied mirror.
@@ -50,6 +56,18 @@ eq(fmtViews(999999), '1.0M', 'upper edge of the rollover band → 1.0M');
 eq(fmtViews(999949), '1.0M', 'rounds to 1000K (999.949K) → 1.0M');
 eq(fmtViews(999499), '999K', 'one below the band rounds to 999K (stays K)');
 eq(fmtViews(1000000), '1.0M', 'exact 1M → 1.0M (M branch)');
+
+// ---- THE M→B FIX: 999.95M–999.99M rolls over to "1.0B", never "1000.0M" ----
+// oldFmt (above) reproduces the pre-fix M branch verbatim, so it doubles as the RED proof.
+eq(oldFmt(999950000), '1000.0M', 'RED proof: old M branch renders 999,950,000 as "1000.0M"');
+eq(oldFmt(999999999), '1000.0M', 'RED proof: old M branch renders 999,999,999 as "1000.0M"');
+assert.notEqual(oldFmt(999999999), '1.0B', 'RED proof: old M branch does NOT roll over to 1.0B');
+eq(fmtViews(999950000), '1.0B', 'lower edge of the M→B rollover window → 1.0B');
+eq(fmtViews(999999999), '1.0B', 'upper edge of the M→B rollover window → 1.0B');
+eq(fmtViews(999949999), '999.9M', 'one below the window stays "999.9M" (no rollover)');
+eq(fmtViews(999000000), '999.0M', 'mid-999M stays "999.0M"');
+eq(fmtViews(1000000000), '1.0B', 'exact 1B → 1.0B (B branch, unchanged)');
+eq(fmtViews(1500000000), '1.5B', '1.5B → 1.5B (B branch, unchanged)');
 
 // ---- NO REGRESSION: every value outside the rollover band is byte-identical to the old fmt ----
 const sample = [
