@@ -241,7 +241,7 @@ function render(){
       statusHtml=`<div class="status tobook">○ To book</div>`;
     }
     const cls=booked?(l.preBooked?"card booked locked":"card booked"):"card";
-    const checkAttr=l.preBooked?"":`onclick="toggle('${l.id}')"`;
+    const checkAttr=l.preBooked?"":`data-toggle="${l.id}"`;
     html+=`<div class="${cls}" id="card-${l.id}">
       <div class="check" ${checkAttr} role="checkbox" aria-checked="${booked}" tabindex="0">${CHECK_SVG}</div>
       <div class="body">
@@ -318,9 +318,15 @@ function toast(msg,kind){
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className="",2600);
 }
 
+// click toggle on checkbox (delegated — no inline JS-string handler)
+tl.addEventListener("click",e=>{
+  const c=e.target.closest&&e.target.closest(".check[data-toggle]");
+  if(c) toggle(c.dataset.toggle);
+});
+
 // keyboard toggle on checkbox
 document.addEventListener("keydown",e=>{
-  if((e.key===" "||e.key==="Enter")&&e.target.classList&&e.target.classList.contains("check")&&e.target.getAttribute("onclick")){
+  if((e.key===" "||e.key==="Enter")&&e.target.classList&&e.target.classList.contains("check")&&e.target.dataset&&e.target.dataset.toggle){
     e.preventDefault(); e.target.click();
   }
 });
