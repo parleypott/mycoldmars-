@@ -1,5 +1,163 @@
 [
   {
+    "id": "F0BDECJCXMY",
+    "name": "Screenshot 2026-06-26 at 8.22.40 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 25447,
+    "local_path": "images/F0BDECJCXMY.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1782478436.489989",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1782478436489989",
+    "posted_at": "2026-06-26T12:53:56.489Z",
+    "analysis": {
+      "comment_text": "What a great way to start Friday!",
+      "commenter": "OpenSourcedSauce",
+      "sentiment": "praise",
+      "themes": [
+        "positive reaction",
+        "timing",
+        "enthusiasm"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-26T13:12:45.488Z"
+  },
+  {
+    "id": "F0BD829TGTV",
+    "name": "Screenshot 2026-06-26 at 8.13.38 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 47394,
+    "local_path": "images/F0BD829TGTV.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1782478436.489989",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1782478436489989",
+    "posted_at": "2026-06-26T12:53:56.489Z",
+    "analysis": {
+      "comment_text": "The way you explain things is so good, I have really been enjoying your channel! Thank you for making stuff like this easy to understand,",
+      "commenter": "@maartenhof",
+      "sentiment": "praise",
+      "themes": [
+        "explanation",
+        "teaching",
+        "channel",
+        "accessibility"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-26T13:12:46.230Z"
+  },
+  {
+    "id": "F0BDG80JDJM",
+    "name": "Screenshot 2026-06-26 at 8.22.37 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 49696,
+    "local_path": "images/F0BDG80JDJM.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1782478436.489989",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1782478436489989",
+    "posted_at": "2026-06-26T12:53:56.489Z",
+    "analysis": {
+      "comment_text": "You guys make the best visual videos to compliment what you're trying to say. It's a work of art. Thank you for the deep thought journalism in the stories you do!",
+      "commenter": "silvaspooner",
+      "sentiment": "praise",
+      "themes": [
+        "cinematography",
+        "editing",
+        "journalism",
+        "storytelling"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-26T13:12:46.434Z"
+  },
+  {
+    "id": "F0BDC9RL0GN",
+    "name": "Screenshot 2026-06-26 at 8.20.24 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 39060,
+    "local_path": "images/F0BDC9RL0GN.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1782478436.489989",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1782478436489989",
+    "posted_at": "2026-06-26T12:53:56.489Z",
+    "analysis": {
+      "comment_text": "You're becoming my new favorite creator. Keep it up. Feels like you are saying obvious things that most liberals won't make videos about.",
+      "commenter": "alexkuron5069",
+      "sentiment": "praise",
+      "themes": [
+        "creator praise",
+        "political commentary",
+        "liberal critique",
+        "content appreciation"
+      ],
+      "video_hint": "Video likely contains centrist or left-leaning self-critical political commentary",
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-26T13:12:47.991Z"
+  },
+  {
+    "id": "F0BDG80SKAM",
+    "name": "Screenshot 2026-06-26 at 8.05.12 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 22325,
+    "local_path": "images/F0BDG80SKAM.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1782478436.489989",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1782478436489989",
+    "posted_at": "2026-06-26T12:53:56.489Z",
+    "analysis": {
+      "comment_text": "Excellent deployment of the board, really.",
+      "commenter": "franjopego1",
+      "sentiment": "praise",
+      "themes": [
+        "board",
+        "deployment",
+        "technique"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-26T13:12:48.488Z"
+  },
+  {
+    "id": "F0BDECJNPD0",
+    "name": "Screenshot 2026-06-26 at 8.23.01 AM.png",
+    "ext": "png",
+    "mimetype": "image/png",
+    "size": 12709,
+    "local_path": "images/F0BDECJNPD0.png",
+    "slack_user": "U07UR1SB988",
+    "slack_ts": "1782478436.489989",
+    "slack_permalink": "https://newpressteam.slack.com/archives/C084AQ5MNTS/p1782478436489989",
+    "posted_at": "2026-06-26T12:53:56.489Z",
+    "analysis": {
+      "comment_text": "love ur work btw another fab vid 👋",
+      "commenter": null,
+      "sentiment": "praise",
+      "themes": [
+        "creator appreciation",
+        "video quality"
+      ],
+      "video_hint": null,
+      "is_question": false,
+      "is_criticism": false
+    },
+    "analyzed_at": "2026-06-26T13:12:48.534Z"
+  },
+  {
     "id": "F0BBS0XTG7Q",
     "name": "Screenshot 2026-06-19 at 8.25.40 AM.png",
     "ext": "png",
