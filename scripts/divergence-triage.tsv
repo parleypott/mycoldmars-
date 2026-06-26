@@ -46,3 +46,5 @@ jsonOk	SAFE	83	whitespace-only forks of one Response helper EXCEPT qss-stories i
 innerHandler	SAFE	88	genuinely different request handlers sharing a wrapper name: nano-banana adds checkAccess+mode-routing, walden-design uses CORS_HEADERS, generate-plan renames the dispatch fn — intentional per-endpoint logic
 handleGet	SAFE	50	different tables + different sb() signatures: nile/winchester use sb(url,{headers})->Response; qss-stories uses sb('GET',path)->rows with its own id-param/404 path — unrelated GET readers sharing a name
 modelId	SAFE	83	extraction noise / same-name collision — scanner pairs unrelated bodies (referenceImages loop vs TTS voice_settings vs bare {modelId}); not a real divergent copy
+
+escapeHtmlSafe	SAFE	0	main.js's inline 4-char escaper (& < > " no single-quote, String(str) not nullish-safe) — CONSOLIDATED onto shared html-escape.js escapeHtml (47e4b5b). No longer a divergent copy; locked by main-escape-delegation.test.mjs.
