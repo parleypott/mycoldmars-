@@ -74,13 +74,45 @@ const EXPLICIT_TESTS = [
   { file: join(ROOT, 'burma-script/integrity-check.ts'), cwd: join(ROOT, 'burma-script') },
 ];
 
+// Shape-scanner GATES — the standalone audit scripts the loop built to catch whole
+// CLASSES of live bug the name-based tooling is structurally blind to (the "1000K"
+// rollover flash, the corrupt-localStorage brick-on-load). Each exits 0/1, matching
+// this runner's contract. They were standalone .sh scripts that NOTHING ran — so a
+// future iteration (or Johnny) re-introducing one of these patterns would sail clean
+// through `bun run test`, exactly the aspirational-guard trap the integrity-check
+// wiring above exists to kill. Wiring them here makes them load-bearing.
+//
+// For each gate we run BOTH modes, on purpose:
+//   --self-test : proves the gate's own classifier still works. A gate whose --check
+//                 silently always-passes (e.g. a regex that stopped matching) is a
+//                 false-green — the precise failure this whole runner is paranoid about.
+//   --check     : proves the live repo currently has ZERO naive sites (the regression
+//                 gate that trips red the moment someone ships a new one).
+//
+// Scope is deliberate: only OFFLINE, DETERMINISTIC, exit-nonzero-on-finding scanners
+// belong here. The divergence scanner is a TRIAGE tool (a new shared-name copy isn't
+// inherently a bug — it'd false-RED), and the deploy/route scripts need a live network,
+// so all of those stay manual dev tools, out of the offline suite.
+const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.sh'].flatMap((s) =>
+  ['--self-test', '--check'].map((mode) => ({
+    file: join(ROOT, 'scripts', s),
+    cmd: 'bash',
+    args: [join(ROOT, 'scripts', s), mode],
+    label: `scripts/${s} ${mode}`,
+  })),
+);
+
 // Union of auto-discovered + explicit, de-duped by absolute path so a file that somehow
 // matches both lists (e.g. an explicit entry later renamed to a standard suffix) can't
 // run twice.
+// Dedup key includes args, because a gate lists the SAME script twice (--self-test and
+// --check) — keying on `file` alone would silently drop one mode. Auto/explicit suites
+// carry no args, so their key stays just the path (unchanged behaviour).
+const suiteKey = (t) => t.file + (t.args ? ' ' + t.args.join(' ') : '');
 const seenPaths = new Set();
-const tests = [...findAutoTests(ROOT), ...EXPLICIT_TESTS]
-  .filter(({ file }) => (seenPaths.has(file) ? false : (seenPaths.add(file), true)))
-  .sort((a, b) => a.file.localeCompare(b.file));
+const tests = [...findAutoTests(ROOT), ...EXPLICIT_TESTS, ...SHELL_GATES]
+  .filter((t) => (seenPaths.has(suiteKey(t)) ? false : (seenPaths.add(suiteKey(t)), true)))
+  .sort((a, b) => (a.label || relative(ROOT, a.file)).localeCompare(b.label || relative(ROOT, b.file)));
 
 // Pull the most informative one-line summary out of a test's stdout, ignoring the
 // MODULE_TYPELESS_PACKAGE_JSON noise node prints for extensionless ES modules.
@@ -97,12 +129,14 @@ function summaryLine(stdout) {
 // Run one suite as an async `bun <file>` subprocess; resolve with its verdict.
 // Mirrors the old spawnSync contract exactly: exit code 0 => pass, anything else => fail
 // (a spawn error — e.g. bun missing — resolves as a fail too, never rejects).
-function runSuite({ file, cwd }) {
+function runSuite({ file, cwd, cmd, args, label }) {
   return new Promise((resolve) => {
-    const rel = relative(ROOT, file);
+    const rel = label || relative(ROOT, file);
     let stdout = '';
     let stderr = '';
-    const child = spawn('bun', [file], {
+    // Default: run the suite under `bun <file>`. A gate overrides cmd/args to run
+    // `bash <script> <mode>` instead — same stdout-scrape + exit-code contract.
+    const child = spawn(cmd || 'bun', args || [file], {
       cwd: cwd || ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
