@@ -15,6 +15,7 @@
 import { checkAccess } from './_lib/access.js';
 import { loadWorldStyle } from './_lib/qss-worlds.js';
 import { imageStorageMeta } from './_lib/image-storage.js';
+import { extractSceneText, buildScenePrompt } from './_lib/qss-scene-prompt.js';
 
 // Edge runtime — Node fails on this project. Gemini 2.5-flash-image
 // returns in 5-12s, comfortably inside the 25s Edge cap.
@@ -111,10 +112,6 @@ export default async function handler(req) {
       } catch {}
     }
   }
-  const charBlock = charPromptParts.length
-    ? `\n\nCHARACTERS in this scene (preserve their established visual identity):\n${charPromptParts.join('\n')}`
-    : '';
-
   // 3. Setting — match against world_explorer for an anchor image if present
   let settingBlock = scene.setting ? `\n\nSETTING: ${scene.setting}` : '';
   if (scene.setting) {
@@ -128,38 +125,21 @@ export default async function handler(req) {
 
   // 4. The actual prose excerpt — what's happening NOW
   const blocks = Array.isArray(story.blocks) ? story.blocks : [];
-  const sceneText = [];
-  for (let i = scene.prose_start_block; i <= scene.prose_end_block && i < blocks.length; i++) {
-    const b = blocks[i];
-    const text = (typeof b === 'string' ? b : b?.text || '').trim();
-    if (text) sceneText.push(text);
-  }
-  const proseBlock = sceneText.length
-    ? `\n\nWHAT HAPPENS IN THIS SCENE:\n${sceneText.join('\n\n').slice(0, 1500)}`
-    : (scene.prose_excerpt ? `\n\nSCENE SUMMARY: ${scene.prose_excerpt}` : '');
+  const sceneText = extractSceneText(blocks, scene.prose_start_block, scene.prose_end_block);
 
-  // 5. Time / framing hint
-  const timeBlock = scene.time_of_day ? `\n\nTIME: ${scene.time_of_day}` : '';
-  const FRAMING = [
-    'CINEMATIC single-frame illustration — one composition, one camera angle, one moment.',
-    '',
-    'COMPOSITION RULE (absolute, do not break):',
-    '- ONE single image. ONE moment.',
-    '- NEVER a comic panel layout. NEVER a multi-panel collage. NEVER split-screen.',
-    '- NEVER speech bubbles. NEVER thought bubbles. NEVER captions.',
-    '- NEVER any text, words, letters, numbers, signs, or labels visible inside the image.',
-    '- NEVER show a sequence of beats. Pick the ONE strongest visual moment from the scene below — the most surprising, the most physically dynamic, or the most emotionally loaded — and render ONLY that single picture.',
-    '- If the scene describes many things happening, choose the SINGLE image that captures the spirit best. Drop the rest.',
-    '- Treat the output like one page of a picture book, NOT a page of a graphic novel.',
-  ].join('\n');
-
-  // 6. Variation hint — if generating a variant, ask for a meaningfully
-  // different composition with the same characters/setting.
-  const variantHint = isVariation
-    ? `\n\nVARIATION — same characters, same setting, but a DIFFERENT moment / camera angle / composition from any previous attempt.`
-    : '';
-
-  const fullPrompt = `${STYLE}\n\n${FRAMING}\n\nTITLE: ${scene.title}${settingBlock}${timeBlock}${charBlock}${proseBlock}${variantHint}`;
+  // 5/6. Assemble the full prompt — framing guardrails, title, setting, time,
+  // characters, prose excerpt, and the variation hint — in the load-bearing order.
+  // (Pure assembler lives in _lib/qss-scene-prompt.js, mutation-locked.)
+  const fullPrompt = buildScenePrompt({
+    style: STYLE,
+    title: scene.title,
+    settingBlock,
+    timeOfDay: scene.time_of_day,
+    charParts: charPromptParts,
+    sceneTexts: sceneText,
+    proseExcerpt: scene.prose_excerpt,
+    isVariation,
+  });
 
   // ── Generate ──────────────────────────────────────────────────
   const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
