@@ -15,6 +15,8 @@
 // Both reject when the user dismisses the modal so the caller can
 // short-circuit cleanly.
 
+import { fmtBytes, fmtDuration } from './format-pills.js';
+
 const ISO_LANG_CHOICES = [
   ['',   'Auto-detect'],
   ['en', 'English'],
@@ -51,24 +53,6 @@ const TARGET_LANG_CHOICES = [
 function langName(code) {
   const m = ISO_LANG_CHOICES.find(([c]) => c === code);
   return m ? m[1] : code;
-}
-
-function fmtBytes(n) {
-  if (n >= 1024 * 1024 * 1024) return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
-  if (n >= 1024 * 1024)        return (n / 1024 / 1024).toFixed(1) + ' MB';
-  if (n >= 1024)               return (n / 1024).toFixed(0) + ' KB';
-  return n + ' B';
-}
-
-function fmtDuration(seconds) {
-  if (!seconds || !isFinite(seconds)) return '—';
-  const total = Math.round(seconds);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
 }
 
 function escapeHtml(str) {
