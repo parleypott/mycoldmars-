@@ -1,4 +1,5 @@
-import { spaces, mediaManifest } from './spaces.js';
+import { spaces } from './spaces.js';
+import { getMediaForSpace } from './media.js';
 import { tileToCount } from './tile.js';
 import { createGridCollage, destroyGridCollage } from './grid-collage.js';
 import { createGridGallery, destroyGridGallery } from './grid-gallery.js';
@@ -10,36 +11,6 @@ const app = document.getElementById('app');
 let currentCleanup = null;
 let currentMode = 'gallery'; // 'gallery' (default) or 'blinds'
 let currentSlug = null;
-
-function getMediaType(filename) {
-  const ext = filename.split('.').pop().toLowerCase();
-  if (['mp4', 'webm'].includes(ext)) return 'video';
-  if (ext === 'gif') return 'gif';
-  return 'image';
-}
-
-function getMediaForSpace(slug) {
-  const files = mediaManifest[slug] || [];
-  if (files.length > 0) {
-    return files.map(f => ({
-      src: `/zanyplans/spaces/${slug}/${f}`,
-      type: getMediaType(f),
-      label: f
-    }));
-  }
-  // Generate placeholders
-  const palettes = {
-    void: [220, 260],
-    memories: [0, 30],
-  };
-  const [hueMin, hueMax] = palettes[slug] || [0, 360];
-  return Array.from({ length: 12 }, (_, i) => ({
-    src: null,
-    type: 'placeholder',
-    color: `hsl(${hueMin + ((hueMax - hueMin) * i / 12)}, 50%, ${15 + Math.random() * 20}%)`,
-    label: `${slug.toUpperCase()}_${String(i).padStart(3, '0')}.DAT`
-  }));
-}
 
 // ═══════════════════════════════════════════
 // HOMEPAGE
