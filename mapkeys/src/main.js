@@ -14,6 +14,7 @@ import {
   lineLength, sliceLineCoords, lerpLng, lerpBearing, coordsBounds,
 } from './route-geo.js';
 import { computeGifRange } from './gif-range.js';
+import { EASINGS, totalDuration, resolveKeyframeSegment } from './playback-timing.js';
 import { searchCountries as rankCountries } from './country-search.js';
 import './style.css';
 
@@ -411,12 +412,8 @@ function undo() {
   syncDrawSlider();
 }
 
-const EASINGS = {
-  linear: t => t,
-  easeIn: t => t * t,
-  easeOut: t => 1 - (1 - t) * (1 - t),
-  easeInOut: t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2,
-};
+// EASINGS, totalDuration, and the segment-resolution math now live in
+// ./playback-timing.js so they're headless-testable (imported at top).
 
 // ─── KML / KMZ parsing ───
 
@@ -1447,13 +1444,6 @@ function selectKeyframe(id, jump = true) {
   }
 }
 
-function totalDuration() {
-  if (state.keyframes.length < 2) return 0;
-  let t = 0;
-  for (let i = 0; i < state.keyframes.length - 1; i++) t += state.keyframes[i].duration;
-  return t;
-}
-
 // ─── Interpolation ───
 
 function lerp(a, b, t) { return a + (b - a) * t; }
@@ -1471,29 +1461,23 @@ function applyAtTime(timeSec) {
     return;
   }
 
-  // Find segment
-  let acc = 0;
-  for (let i = 0; i < kfs.length - 1; i++) {
-    const dur = kfs[i].duration;
-    if (timeSec <= acc + dur || i === kfs.length - 2) {
-      const localT = dur > 0 ? Math.max(0, Math.min(1, (timeSec - acc) / dur)) : 1;
-      const eased = (EASINGS[kfs[i].easing] || EASINGS.linear)(localT);
-      const a = kfs[i], b = kfs[i + 1];
-      const lng = lerpLng(a.center[0], b.center[0], eased);
-      const lat = lerp(a.center[1], b.center[1], eased);
-      const zoom = lerp(a.zoom, b.zoom, eased);
-      const bearing = lerpBearing(a.bearing, b.bearing, eased);
-      const pitch = lerp(a.pitch, b.pitch, eased);
-      const progress = lerp(a.progress, b.progress, eased);
-      map.jumpTo({ center: [lng, lat], zoom, bearing, pitch });
-      state.previewProgress = progress;
-      setRouteSources(progress);
-      interpolateShapesAtTime(a, b, eased);
-      syncDrawSlider();
-      return;
-    }
-    acc += dur;
-  }
+  // Find segment + eased position (pure math lives in playback-timing.js).
+  const seg = resolveKeyframeSegment(kfs, timeSec);
+  if (!seg) return;
+  const i = seg.index;
+  const eased = (EASINGS[kfs[i].easing] || EASINGS.linear)(seg.localT);
+  const a = kfs[i], b = kfs[i + 1];
+  const lng = lerpLng(a.center[0], b.center[0], eased);
+  const lat = lerp(a.center[1], b.center[1], eased);
+  const zoom = lerp(a.zoom, b.zoom, eased);
+  const bearing = lerpBearing(a.bearing, b.bearing, eased);
+  const pitch = lerp(a.pitch, b.pitch, eased);
+  const progress = lerp(a.progress, b.progress, eased);
+  map.jumpTo({ center: [lng, lat], zoom, bearing, pitch });
+  state.previewProgress = progress;
+  setRouteSources(progress);
+  interpolateShapesAtTime(a, b, eased);
+  syncDrawSlider();
 }
 
 // ─── Playback ───
@@ -1501,7 +1485,7 @@ function applyAtTime(timeSec) {
 function play() {
   if (state.keyframes.length < 2) return;
   if (state.playing) return;
-  const total = totalDuration();
+  const total = totalDuration(state.keyframes);
   // If at end, restart from 0
   let offset = state.playOffset;
   if (offset >= total) offset = 0;
@@ -1529,7 +1513,7 @@ function play() {
 function stop() {
   if (!state.playing) return;
   const elapsed = (performance.now() - state.playStart) / 1000 + state.playOffset;
-  state.playOffset = Math.min(elapsed, totalDuration());
+  state.playOffset = Math.min(elapsed, totalDuration(state.keyframes));
   state.playing = false;
   isPlayingBack = false;
   cancelAnimationFrame(state.rafId);
@@ -1590,7 +1574,7 @@ function renderKeyframes() {
         const v = parseFloat(durIn.value);
         if (isFinite(v) && v >= 0) {
           kf.duration = v;
-          document.getElementById('time-total').textContent = totalDuration().toFixed(1);
+          document.getElementById('time-total').textContent = totalDuration(state.keyframes).toFixed(1);
           saveLayers();
         }
       });
@@ -1606,7 +1590,7 @@ function renderKeyframes() {
     }
   });
 
-  document.getElementById('time-total').textContent = totalDuration().toFixed(1);
+  document.getElementById('time-total').textContent = totalDuration(state.keyframes).toFixed(1);
 }
 
 function renderEditor() {
