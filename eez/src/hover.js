@@ -11,14 +11,22 @@
 //   null  => nothing nameable under the cursor: hide the tooltip, no highlight.
 //   field => the property the highlight `case` must compare against, so the
 //            polygon that produced the label is the one that lights up.
+// `value` must be the RAW property string, not the trimmed display name: the map
+// highlight runs `['==', ['get', field], value]`, and Mapbox `['get', field]`
+// returns the unmodified feature property. If we matched against the trimmed name,
+// any whitespace-padded feature (e.g. " Palau ") would show a tooltip but never
+// light up its polygon — the exact label-vs-highlight divergence this module exists
+// to prevent. So: trim for the human-readable `name`, keep the raw string for `value`.
 export function resolveEezHover(props) {
   if (!props || typeof props !== 'object') return null;
 
-  const country = typeof props.Country === 'string' ? props.Country.trim() : '';
-  if (country) return { name: country, field: 'Country', value: country };
+  if (typeof props.Country === 'string' && props.Country.trim()) {
+    return { name: props.Country.trim(), field: 'Country', value: props.Country };
+  }
 
-  const iso = typeof props.ISO_A3 === 'string' ? props.ISO_A3.trim() : '';
-  if (iso) return { name: iso, field: 'ISO_A3', value: iso };
+  if (typeof props.ISO_A3 === 'string' && props.ISO_A3.trim()) {
+    return { name: props.ISO_A3.trim(), field: 'ISO_A3', value: props.ISO_A3 };
+  }
 
   return null;
 }
