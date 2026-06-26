@@ -4,6 +4,7 @@ import { parseTrintHTML } from './trint-html-parser.js';
 import { chattyStart, chattyEnd, SUMMARY_PHRASES } from './chatty-loader.js';
 import { formatPreciseTimecode, parseTimecodeToSeconds } from './timecode-utils.js';
 import { fmtShortTimecode } from './short-timecode.js';
+import { escapeHtml } from './html-escape.js';
 import { enrichSegmentRefs } from './segment-ref.js';
 import { parseSoundbites, extractSacredName, detectAllSequences, formatDuration, tcToFrameNotation } from './soundbites.js';
 import { analyzeTranscript, translateSegments } from './api-client.js';
@@ -3449,8 +3450,14 @@ function renderSeqSources() {
   ).join('');
 }
 
+// Delegates to the shared 5-char, nullish-safe escaper (html-escape.js) — the
+// XSS boundary the rest of translation/src already funnels through. The old
+// inline copy escaped only & < > " (no single quote) and used String(str)
+// instead of String(str ?? ''), so a nullish value leaked the literal
+// "null"/"undefined" and a single quote went raw. Kept as a thin alias so the
+// ~20 escapeHtmlSafe() call sites don't all have to change.
 function escapeHtmlSafe(str) {
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return escapeHtml(str);
 }
 
 function renderSeqBlocks() {
