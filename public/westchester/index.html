@@ -4908,6 +4908,9 @@ function moneyRecalc() {
   if (nyOutEl) nyOutEl.textContent = '= ' + fmtUSD(ny.total);
   const nyBreakdownEl = document.getElementById('nyClosing-breakdown');
   if (nyBreakdownEl) {
+    // rollover-audit:ignore — fixed $K breakdown; these closing-cost line items
+    // (title ins, mortgage recording tax, fixed fees, escrows) top out in the
+    // tens of $K even on a $5M home, so the /1000 never reaches the 1000K band.
     nyBreakdownEl.textContent =
       'Title $' + (ny.titleIns/1000).toFixed(1) + 'K · Mortgage tax $' + (ny.mortRecTax/1000).toFixed(1) + 'K · Fixed $' + (ny.fixed/1000).toFixed(1) + 'K · Escrows $' + (ny.escrow/1000).toFixed(1) + 'K';
   }
