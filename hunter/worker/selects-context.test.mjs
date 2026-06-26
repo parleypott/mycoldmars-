@@ -91,6 +91,38 @@ test('cross-reference block present with rawMatch', () => {
   assert.ok(!text.includes('No raw footage match found'));
 });
 
+// ---- the divide-by-zero / NaN guard on the raw-match usage math ----
+// A zero-length, negative, or non-finite raw source range must never embed
+// "Infinity%", "NaN%", or a "NaNs source clip" into the corpus the model reads.
+test('well-formed rawMatch usage percent is exact (no regression)', () => {
+  // 60s of source (baseUnit 3930–3990) out of a 300s raw clip = 20.0%.
+  const text = buildSelectsAnalysisContext(baseUnit, { id: 'raw-77', start_seconds: 3900, end_seconds: 4200 });
+  assert.ok(text.includes('The editor selected 60s from a 300s source clip.'), `got:\n${text}`);
+  assert.ok(text.includes('Usage: 20.0% of source material was used in this edit.'), `got:\n${text}`);
+});
+
+test('zero-length raw source clip does NOT emit Infinity%', () => {
+  const text = buildSelectsAnalysisContext(baseUnit, { id: 'raw-z', start_seconds: 1000, end_seconds: 1000 });
+  assert.ok(!text.includes('Infinity'), `must not emit Infinity, got:\n${text}`);
+  assert.ok(!text.includes('NaN'), `must not emit NaN, got:\n${text}`);
+  assert.ok(text.includes('raw source length unavailable'), `must degrade honestly, got:\n${text}`);
+  assert.ok(text.includes('CROSS-REFERENCE: This clip matches raw corpus unit raw-z.'));
+});
+
+test('missing/non-finite raw source seconds does NOT emit NaN', () => {
+  const text = buildSelectsAnalysisContext(baseUnit, { id: 'raw-x', start_seconds: undefined, end_seconds: undefined });
+  assert.ok(!text.includes('NaN'), `must not emit NaN, got:\n${text}`);
+  assert.ok(!text.includes('Infinity'), `got:\n${text}`);
+  assert.ok(text.includes('Usage: unknown — raw source length unavailable.'), `got:\n${text}`);
+});
+
+test('negative raw range (end < start) degrades instead of going negative', () => {
+  const text = buildSelectsAnalysisContext(baseUnit, { id: 'raw-n', start_seconds: 200, end_seconds: 100 });
+  assert.ok(!/-\d+s source clip/.test(text), `must not emit a negative source length, got:\n${text}`);
+  assert.ok(!/Usage: -/.test(text), `must not emit a negative usage percent, got:\n${text}`);
+  assert.ok(text.includes('raw source length unavailable'), `got:\n${text}`);
+});
+
 test('no-match block present without rawMatch', () => {
   const text = buildSelectsAnalysisContext(baseUnit, null);
   assert.ok(text.includes('No raw footage match found for this source clip.'));

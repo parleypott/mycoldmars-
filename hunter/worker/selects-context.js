@@ -25,9 +25,21 @@ export function buildSelectsAnalysisContext(unit, rawMatch) {
 
   if (rawMatch) {
     text += `\nCROSS-REFERENCE: This clip matches raw corpus unit ${rawMatch.id}.\n`;
-    text += `The editor selected ${duration}s from a ${Math.round(rawMatch.end_seconds - rawMatch.start_seconds)}s source clip.\n`;
-    const usagePercent = ((duration / (rawMatch.end_seconds - rawMatch.start_seconds)) * 100).toFixed(1);
-    text += `Usage: ${usagePercent}% of source material was used in this edit.\n`;
+    // Source clip length from the raw match's metadata. A zero-length (single-frame
+    // or bad-metadata) or missing/non-finite range must NOT divide into a bogus
+    // "Infinity%" / "NaN%" usage figure — that garbage gets EMBEDDED and poisons the
+    // editorial corpus the model reasons over. Guard finite & positive before the
+    // division; degrade to an honest "unknown" line otherwise. Well-formed ranges
+    // are byte-identical to before.
+    const sourceLen = rawMatch.end_seconds - rawMatch.start_seconds;
+    if (Number.isFinite(sourceLen) && sourceLen > 0) {
+      text += `The editor selected ${duration}s from a ${Math.round(sourceLen)}s source clip.\n`;
+      const usagePercent = ((duration / sourceLen) * 100).toFixed(1);
+      text += `Usage: ${usagePercent}% of source material was used in this edit.\n`;
+    } else {
+      text += `The editor selected ${duration}s from this source clip (raw source length unavailable).\n`;
+      text += `Usage: unknown — raw source length unavailable.\n`;
+    }
   } else {
     text += `\nNo raw footage match found for this source clip.\n`;
   }
