@@ -30,6 +30,40 @@ export function byUpdatedDesc(a, b) {
   return recencyKey(b && b.updated_at) - recencyKey(a && a.updated_at);
 }
 
+/**
+ * General library column-sort comparator (Name / Status / Edited columns).
+ * NaN/missing-safe — the sibling of byUpdatedDesc for the DEFAULT column sort.
+ *
+ * The pre-fix inline compare used raw `<`/`>` on `a[key]`. For the `updated_at`
+ * column (the library default) that compared ISO strings lexicographically,
+ * which matches chronological order for valid same-format dates — but a
+ * missing/null/undefined updated_at returned 0 against EVERY other value
+ * (`undefined < "2026…"` and `undefined > "2026…"` are both false). A
+ * comparator that reports "equal" between an undated row and every dated row
+ * breaks transitivity, and V8's TimSort then scrambles the whole library order
+ * (not just the undated row). Same NaN/0-poison class as byUpdatedDesc — this
+ * was simply the second, un-migrated sort path on the same field.
+ *
+ * Fix: the `updated_at` column now sorts by real epoch-ms via recencyKey (a
+ * missing/bad date → 0 → sorts oldest, consistent and never poisoning), so the
+ * default library order matches the recent-view sort. String columns coerce a
+ * missing field to '' so an absent value compares as empty, not as a wildcard.
+ *
+ * For the all-valid case this is order-identical to the old inline compare.
+ */
+export function compareForLibrary(a, b, key, asc) {
+  if (key === 'updated_at') {
+    const ka = recencyKey(a && a.updated_at), kb = recencyKey(b && b.updated_at);
+    return asc ? ka - kb : kb - ka;
+  }
+  let va = a ? a[key] : undefined, vb = b ? b[key] : undefined;
+  if (key === 'name') { va = (va || '').toLowerCase(); vb = (vb || '').toLowerCase(); }
+  else { va = va == null ? '' : va; vb = vb == null ? '' : vb; }
+  if (va < vb) return asc ? -1 : 1;
+  if (va > vb) return asc ? 1 : -1;
+  return 0;
+}
+
 // ── NaN-safe trash retention + relative-time display ──
 //
 // Same unguarded-`new Date(x).getTime()` class as the sort above, on the two

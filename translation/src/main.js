@@ -21,7 +21,7 @@ import { parseGapFrames } from './seq-gap.js';
 import { buildPremiereScript } from './export/premiere-script.js';
 import { exportHighlightsPDF } from './export/pdf-export.js';
 import { exportSummaryText, safeFilename } from './export/summary-export.js';
-import { byUpdatedDesc, isInTrashWindow, trashDaysLeft, relativeTimeFrom, fmtAbsoluteTime } from './library-time.js';
+import { byUpdatedDesc, compareForLibrary, isInTrashWindow, trashDaysLeft, relativeTimeFrom, fmtAbsoluteTime } from './library-time.js';
 import { generateSlug } from './slug.js';
 import { extractHighlightsFromEditor } from './editor/document-builder.js';
 import { buildAutoSummaryPrompt } from './copilot/copilot-prompts.js';
@@ -538,13 +538,10 @@ function renderBreadcrumb() {
 }
 
 function sortTranscripts(items) {
-  return [...items].sort((a, b) => {
-    let va = a[librarySortKey], vb = b[librarySortKey];
-    if (librarySortKey === 'name') { va = (va || '').toLowerCase(); vb = (vb || '').toLowerCase(); }
-    if (va < vb) return librarySortAsc ? -1 : 1;
-    if (va > vb) return librarySortAsc ? 1 : -1;
-    return 0;
-  });
+  // Delegates to the NaN/missing-safe comparator in library-time.js. The old
+  // inline `<`/`>` compare returned 0 for an absent updated_at vs ANY row,
+  // breaking transitivity and scrambling the whole library order.
+  return [...items].sort((a, b) => compareForLibrary(a, b, librarySortKey, librarySortAsc));
 }
 
 // Track last-clicked row id for shift-click range selection.

@@ -1,6 +1,6 @@
 // Mutation-proven lock for the transcript library's NaN-safe recency sort.
 // Imports the REAL shipped functions. Run: bun translation/src/library-time.test.mjs
-import { recencyKey, byUpdatedDesc } from './library-time.js';
+import { recencyKey, byUpdatedDesc, compareForLibrary } from './library-time.js';
 
 let pass = 0, fail = 0;
 const ok = (cond, msg) => { if (cond) pass++; else { fail++; console.error('  FAIL:', msg); } };
@@ -96,6 +96,80 @@ eq(recencyKey(1700000000000), 1700000000000, 'numeric epoch ms → itself');
   // The recent-25 slice contains all 20 real dated rows (none displaced by an undated row).
   const top25 = sorted.slice(0, 25).map(r => r.id);
   ok(expected.every(id => top25.includes(id)), 'every genuinely-dated row survives the recent-25 slice');
+}
+
+// ── compareForLibrary: the DEFAULT column-sort comparator (Name / Status / Edited) ──
+// This is the second, previously-un-migrated sort path on updated_at. Same
+// NaN/0-poison class as byUpdatedDesc, reached by the library's default ordering.
+{
+  // RED PROOF: reconstruct main.js's pre-fix inline `<`/`>` compare on updated_at.
+  // A missing updated_at returns 0 against EVERY row (undefined < "x" is false,
+  // undefined > "x" is false), so the comparator is non-transitive and V8
+  // scrambles the order. Demonstrate the broken "equal-to-everything" verdict.
+  const oldCmp = (a, b, key, asc) => {
+    let va = a[key], vb = b[key];
+    if (key === 'name') { va = (va || '').toLowerCase(); vb = (vb || '').toLowerCase(); }
+    if (va < vb) return asc ? -1 : 1;
+    if (va > vb) return asc ? 1 : -1;
+    return 0;
+  };
+  const undated = { id: 'U', updated_at: undefined };
+  const newRow = { id: 'N', updated_at: '2026-06-25T00:00:00Z' };
+  const oldRow = { id: 'O', updated_at: '2020-01-01T00:00:00Z' };
+  // The bug: pre-fix, the undated row claims "equal" to BOTH a new and an old row,
+  // yet new and old are NOT equal — a textbook transitivity break.
+  eq(oldCmp(undated, newRow, 'updated_at', false), 0, 'RED PROOF: old compare says undated == newest');
+  eq(oldCmp(undated, oldRow, 'updated_at', false), 0, 'RED PROOF: old compare says undated == oldest');
+  ok(oldCmp(newRow, oldRow, 'updated_at', false) !== 0, 'RED PROOF: but newest != oldest → non-transitive');
+  // FIX: the undated row is strictly oldest (key 0), and the relation is consistent.
+  ok(compareForLibrary(undated, newRow, 'updated_at', false) > 0, 'FIX: undated sorts after newest (desc)');
+  ok(compareForLibrary(undated, oldRow, 'updated_at', false) > 0, 'FIX: undated sorts after a real old date too');
+  ok(compareForLibrary(newRow, oldRow, 'updated_at', false) < 0, 'FIX: newest before oldest (desc) — consistent');
+}
+
+// compareForLibrary updated_at: end-to-end no-scramble with the DEFAULT (desc) order
+{
+  const rows = [];
+  for (let i = 0; i < 12; i++) {
+    rows.push({ id: `d${i}`, name: `n${i}`, updated_at: new Date(Date.UTC(2026, 5, 20 - i, 12)).toISOString() });
+  }
+  rows.splice(2, 0, { id: 'u1', name: 'zz', updated_at: undefined });
+  rows.splice(7, 0, { id: 'u2', name: 'zz', updated_at: 'garbage' });
+  const sorted = [...rows].sort((a, b) => compareForLibrary(a, b, 'updated_at', false));
+  const dated = sorted.filter(r => r.id.startsWith('d')).map(r => r.id);
+  eq(dated.join(','), Array.from({ length: 12 }, (_, i) => `d${i}`).join(','),
+     'default desc: dated rows keep strict newest→oldest order despite undated ones');
+  eq(sorted.slice(-2).map(r => r.id).sort().join(','), 'u1,u2', 'undated rows sink to the bottom (desc)');
+}
+
+// compareForLibrary updated_at: equivalence to byUpdatedDesc for the default (desc) view
+{
+  const rows = [
+    { updated_at: '2026-06-20T10:00:00Z' },
+    { updated_at: '2026-01-01T00:00:00Z' },
+    { updated_at: undefined },
+    { updated_at: '2025-12-31T23:59:59Z' },
+  ];
+  for (const x of rows) for (const y of rows) {
+    eq(Math.sign(compareForLibrary(x, y, 'updated_at', false)), Math.sign(byUpdatedDesc(x, y)),
+       'updated_at desc compareForLibrary matches byUpdatedDesc sign');
+  }
+}
+
+// compareForLibrary string columns (name / step): null-safe, asc/desc honored
+{
+  // name lowercases (case-insensitive), missing → '' (sorts first asc)
+  ok(compareForLibrary({ name: 'Apple' }, { name: 'banana' }, 'name', true) < 0, 'name asc: Apple before banana (case-insensitive)');
+  ok(compareForLibrary({ name: undefined }, { name: 'a' }, 'name', true) < 0, 'name asc: missing name sorts first');
+  eq(compareForLibrary({ name: undefined }, { name: undefined }, 'name', true), 0, 'two missing names compare equal');
+  ok(compareForLibrary({ name: 'a' }, { name: 'b' }, 'name', false) > 0, 'name desc flips the order');
+  // step (status) is a non-name string column: coerced null→'' but NOT lowercased
+  ok(compareForLibrary({ step: 'draft' }, { step: 'translated' }, 'step', true) < 0, 'step asc: draft before translated');
+  ok(compareForLibrary({ step: undefined }, { step: 'draft' }, 'step', true) < 0, 'step asc: missing status sorts first');
+  eq(compareForLibrary({ step: undefined }, { step: null }, 'step', true), 0, 'missing vs null status compare equal');
+  // null row objects must not throw
+  ok(Number.isFinite(compareForLibrary(null, { name: 'a' }, 'name', true)), 'null row → finite (name)');
+  ok(Number.isFinite(compareForLibrary({ updated_at: 'x' }, null, 'updated_at', false)), 'null row → finite (updated_at)');
 }
 
 console.log(`\nlibrary-time: ${pass} passed, ${fail} failed`);
