@@ -34,9 +34,16 @@
 # awk are always present.
 #
 # USAGE
-#   scripts/diff-divergent-fn.sh NAME              # compare one function's bodies
-#   scripts/diff-divergent-fn.sh --scan [MIN]      # shortlist all DIVERGENT names
-#   scripts/diff-divergent-fn.sh --self-test       # prove the classifier; exit!=0 on fail
+#   scripts/diff-divergent-fn.sh NAME                 # compare one function's bodies
+#   scripts/diff-divergent-fn.sh --scan [MIN]         # shortlist DIVERGENT names, tagged vs the triage ledger
+#   scripts/diff-divergent-fn.sh --scan [MIN] --new   # ONLY untriaged / re-drifted names (skip judged-SAFE forks)
+#   scripts/diff-divergent-fn.sh --self-test          # prove the classifier; exit!=0 on fail
+#
+# TRIAGE LEDGER: scripts/divergence-triage.tsv remembers which names were already
+# judged SAFE (a legit fork) vs BUG. --scan tags each candidate; --new hides the
+# settled-SAFE ones so a future iteration only eyeballs what's genuinely new. A
+# SAFE name whose overlap% later CHANGES is re-flagged "SAFE↻" (the fork drifted
+# further — re-check before trusting the old verdict). Record every verdict there.
 #
 # EXIT
 #   single-name mode : 0 if IDENTICAL (or <2 bodies), 1 if DIVERGENT
@@ -205,9 +212,33 @@ compare_name() {
   return 1
 }
 
+# --- triage ledger -----------------------------------------------------------
+# scripts/divergence-triage.tsv records which divergent names were already JUDGED
+# (NAME<TAB>STATUS<TAB>SIM_AT_TRIAGE<TAB>REASON), so the scan can tag known forks
+# and `--new` can hide them. lookup_triage NAME → prints "STATUS<TAB>SIM" or "".
+LEDGER="scripts/divergence-triage.tsv"
+lookup_triage() {
+  local name="$1"
+  [ -f "$LEDGER" ] || return 0
+  awk -F'\t' -v n="$name" '
+    /^#/ { next }
+    $1 == n { print $2 "\t" $3; exit }
+  ' "$LEDGER"
+}
+
 # --- scan mode: shortlist every DIVERGENT shared name ------------------------
+# Usage: scan_mode [MIN] [--new]
+#   --new → print ONLY untriaged (NEW) or re-drifted (SAFE↻) candidates: the
+#           actionable set once the known-safe forks are recorded in the ledger.
 scan_mode() {
-  local min="${1:-2}"
+  local min=2 only_new=0 a
+  for a in "$@"; do
+    case "$a" in
+      --new) only_new=1 ;;
+      ''|*[!0-9]*) : ;;   # non-numeric, ignore
+      *) min="$a" ;;
+    esac
+  done
   echo "Scanning shared-name candidates (min files: $min) for DRIFTED COPIES" \
        "(body overlap ≥ ${SIM_THRESHOLD}%)…" >&2
   local results; results="$(mktemp)"
@@ -222,15 +253,36 @@ scan_mode() {
     compare_name "$name" quiet >> "$results" 2>/dev/null || true
   done < <(scripts/find-divergent-fns.sh "$min" 2>/dev/null || true)
 
-  local divcount; divcount="$(grep -c . "$results" 2>/dev/null || echo 0)"
-  if [ "$divcount" -gt 0 ]; then
-    echo "  SIM%  NAME (files)  →  inspect with: $SELF NAME"
-    sort -rn "$results" | while IFS=$'\t' read -r sim name nfiles; do
-      printf '  %3s%%  %s (%s files)\n' "$sim" "$name" "$nfiles"
-    done
+  local total newcount=0 safecount=0
+  total="$(grep -c . "$results" 2>/dev/null || echo 0)"
+  if [ "$total" -gt 0 ]; then
+    echo "  STATUS    SIM%  NAME (files)   [SAFE=judged-fork · BUG=open · NEW=untriaged · ↻=re-drifted]"
+    # Annotate each row against the ledger, then (optionally) filter to NEW/↻/BUG.
+    while IFS=$'\t' read -r sim name nfiles; do
+      local rec status logged_sim tag
+      rec="$(lookup_triage "$name")"
+      if [ -z "$rec" ]; then
+        status=NEW; tag=NEW; newcount=$((newcount + 1))
+      else
+        status="$(printf '%s' "$rec" | cut -f1)"
+        logged_sim="$(printf '%s' "$rec" | cut -f2)"
+        if [ "$status" = SAFE ] && [ "$logged_sim" != "$sim" ]; then
+          tag="SAFE↻"; newcount=$((newcount + 1))   # drift changed → re-review
+        elif [ "$status" = SAFE ]; then
+          tag=SAFE; safecount=$((safecount + 1))
+        else
+          tag="$status"   # BUG (or any other recorded status)
+        fi
+      fi
+      if [ "$only_new" -eq 1 ] && { [ "$tag" = SAFE ]; }; then
+        continue   # --new hides settled SAFE rows; NEW/SAFE↻/BUG still shown
+      fi
+      printf '  %-8s %3s%%  %s (%s files)\n' "$tag" "$sim" "$name" "$nfiles"
+    done < <(sort -rn "$results")
+    echo "  → inspect any row with: $SELF NAME    (then record the verdict in $LEDGER)"
   fi
   rm -f "$results"
-  echo "→ $divcount drifted-copy candidate(s) above ${SIM_THRESHOLD}% overlap." >&2
+  echo "→ $total drifted-copy candidate(s); $newcount need a look (NEW/re-drifted), $safecount already judged SAFE." >&2
 }
 
 # --- self-test: prove the classifier on fixtures -----------------------------
@@ -296,6 +348,29 @@ EOF
   else
     echo "  ✗ FAIL: nested-brace body truncated early"; pass=0; fail=1
   fi
+  # Triage ledger: lookup hits a recorded row, misses an unknown one, and the
+  # SIM-changed re-review logic fires (logged sim != current sim → SAFE↻).
+  local saved_ledger="$LEDGER"
+  LEDGER="$t/ledger.tsv"
+  printf '# comment line\nfoo\tSAFE\t77\tjust a fork\nbar\tBUG\t60\topen defect\n' > "$LEDGER"
+  if [ "$(lookup_triage foo)" = "$(printf 'SAFE\t77')" ]; then
+    echo "  ✓ ledger lookup returns STATUS+SIM for a recorded name"
+  else
+    echo "  ✗ FAIL: ledger lookup wrong for recorded name"; pass=0; fail=1
+  fi
+  if [ -z "$(lookup_triage neverseen)" ]; then
+    echo "  ✓ ledger lookup empty for an untriaged name (→ NEW)"
+  else
+    echo "  ✗ FAIL: ledger lookup non-empty for untriaged name"; pass=0; fail=1
+  fi
+  # re-review trigger: recorded sim 77 vs a current 70 must be detected as changed
+  local lr ls li; lr="$(lookup_triage foo)"; ls="$(printf '%s' "$lr" | cut -f1)"; li="$(printf '%s' "$lr" | cut -f2)"
+  if [ "$ls" = SAFE ] && [ "$li" != 70 ]; then
+    echo "  ✓ SIM-change re-review condition fires (logged 77 ≠ current 70 → SAFE↻)"
+  else
+    echo "  ✗ FAIL: SIM-change re-review condition did not fire"; pass=0; fail=1
+  fi
+  LEDGER="$saved_ledger"
   rm -rf "$t"
   if [ "$pass" -eq 1 ]; then echo "self-test: PASS"; else echo "self-test: FAIL"; fi
   return $fail
@@ -304,7 +379,7 @@ EOF
 # --- dispatch ----------------------------------------------------------------
 case "${1:-}" in
   --self-test) self_test ;;
-  --scan)      scan_mode "${2:-2}" ;;
+  --scan)      shift; scan_mode "$@" ;;
   ""|-h|--help)
     grep '^#' "$SELF" | sed 's/^# \{0,1\}//' | sed '/^!/d'
     ;;
