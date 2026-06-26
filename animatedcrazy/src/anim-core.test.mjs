@@ -14,6 +14,7 @@
 import {
   clamp, lerp, hexToRgb, rgbToHex, lerpColor, EASINGS,
   keyframeTimes, totalAnimDuration, segmentAtTime,
+  starPoints, squigglePathD,
 } from './anim-core.js';
 
 let passed = 0, failed = 0;
@@ -126,6 +127,58 @@ eq(totalAnimDuration([KF('a', undefined), KF('b', 4)]), 0, 'totalAnimDuration mi
   // Unknown easing name falls back to linear.
   const kfs = [KF('a', 2, 'nonsense'), KF('b', 2, 'linear')];
   close(segmentAtTime(kfs, 1).eased, 0.5, 'unknown easing falls back to linear');
+}
+
+// ─── starPoints (shape geometry) ───
+{
+  // A 5-spoke star emits n*2 = 10 vertices (outer/inner alternating).
+  const verts = starPoints(5, 100, 100).split(' ');
+  eq(verts.length, 10, 'starPoints(5) -> 10 vertices');
+  // First vertex points straight UP: cos(-90°)=0, sin(-90°)=-1 -> (0, -R).
+  eq(verts[0], '0.00,-100.00', 'starPoints first vertex points straight up');
+  // Vertex 1 is an INNER vertex: distance from origin = 0.42 * R, not R.
+  const [x1, y1] = verts[1].split(',').map(Number);
+  ok(Math.abs(Math.hypot(x1, y1) - 42) < 0.05, 'starPoints inner vertex sits at 0.42 * radius');
+}
+{
+  // Spoke count clamps to [3, 12]: below 3 -> 3 spokes (6 verts);
+  // above 12 -> 12 spokes (24 verts).
+  eq(starPoints(2, 50, 50).split(' ').length, 6, 'starPoints clamps low to 3 spokes');
+  eq(starPoints(99, 50, 50).split(' ').length, 24, 'starPoints clamps high to 12 spokes');
+}
+{
+  // Outer radius scales x/y independently (rx vs ry).
+  const verts = starPoints(3, 200, 80).split(' ');
+  // First vertex is straight up -> (0, -ry).
+  eq(verts[0], '0.00,-80.00', 'starPoints honors separate ry on the up vertex');
+}
+
+// ─── squigglePathD (smooth path builder) ───
+{
+  eq(squigglePathD({ points: [], width: 100, height: 100 }), '', 'empty squiggle -> empty path');
+}
+{
+  // Single point: a bare moveto in SCALED space (unit * size). 0.5*100=50, 0.5*200=100.
+  eq(
+    squigglePathD({ points: [[0.5, 0.5]], width: 100, height: 200 }),
+    'M 50 100',
+    'single-point squiggle scales the moveto into pixel space',
+  );
+}
+{
+  // Two points -> one cubic bezier. Endpoints duplicate their neighbour, control
+  // points use the /6 Catmull-Rom factor, and the curve ENDS exactly at p2.
+  // p0=p1=[0,0], p2=p3=[100,100]: c1=(0+100/6)=16.67, c2=(100-100/6)=83.33.
+  eq(
+    squigglePathD({ points: [[0, 0], [1, 1]], width: 100, height: 100 }),
+    'M 0.00 0.00 C 16.67 16.67, 83.33 83.33, 100.00 100.00',
+    'two-point squiggle: /6 control points, exact p2 endpoint',
+  );
+}
+{
+  // Scaling is load-bearing: same unit points at half width must halve the x span.
+  const d = squigglePathD({ points: [[0, 0], [1, 1]], width: 50, height: 100 });
+  ok(d.endsWith('50.00 100.00'), 'squiggle endpoint reflects per-axis scaling (w=50,h=100)');
 }
 
 console.log(`anim-core: ${passed} passed, ${failed} failed`);

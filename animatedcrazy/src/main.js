@@ -1,7 +1,7 @@
 import GIF from 'gif.js';
 import gifWorkerUrl from 'gif.js/dist/gif.worker.js?url';
 import './style.css';
-import { clamp, lerp, lerpColor, totalAnimDuration, segmentAtTime } from './anim-core.js';
+import { clamp, lerp, lerpColor, totalAnimDuration, segmentAtTime, starPoints, squigglePathD } from './anim-core.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -214,43 +214,7 @@ function shapeToSvgEl(s, opts = {}) {
   return g;
 }
 
-function starPoints(numPoints, rxOuter, ryOuter) {
-  // numPoints used as "spokes" — outer/inner alternating
-  const n = Math.max(3, Math.min(12, numPoints));
-  const inner = 0.42;
-  const pts = [];
-  for (let i = 0; i < n * 2; i++) {
-    const a = (i / (n * 2)) * Math.PI * 2 - Math.PI / 2;
-    const r = i % 2 === 0 ? 1 : inner;
-    const x = Math.cos(a) * rxOuter * r;
-    const y = Math.sin(a) * ryOuter * r;
-    pts.push(`${x.toFixed(2)},${y.toFixed(2)}`);
-  }
-  return pts.join(' ');
-}
-
-// Build a smooth path string from squiggly's unit-space points.
-function squigglePathD(s) {
-  const pts = (s.points || []).map(([ux, uy]) => [ux * s.width, uy * s.height]);
-  if (pts.length === 0) return '';
-  if (pts.length === 1) return `M ${pts[0][0]} ${pts[0][1]}`;
-  // Catmull-Rom-ish smoothing
-  let d = `M ${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] || pts[i];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[i + 2] || p2;
-    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
-    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
-    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
-    d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2[0].toFixed(2)} ${p2[1].toFixed(2)}`;
-  }
-  return d;
-}
-
-// clamp imported from ./anim-core.js
+// starPoints / squigglePathD / clamp imported from ./anim-core.js
 
 function renderShapes() {
   shapesLayer.innerHTML = '';

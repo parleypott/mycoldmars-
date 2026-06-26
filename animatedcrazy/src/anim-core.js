@@ -87,3 +87,46 @@ export function segmentAtTime(kfs, timeSec) {
   const eased = (EASINGS[kfs[i].easing] || EASINGS.linear)(localT);
   return { i, eased };
 }
+
+// ─── Shape geometry (pure, DOM-free) ───
+// Extracted VERBATIM from main.js's renderers so the SVG-string math is
+// unit-testable. main.js imports these; output is byte-identical to the old
+// inline copies, so the live tool draws exactly the same shapes.
+
+// Points string for an N-spoke star, alternating outer/inner radius. numPoints
+// is clamped to [3, 12] spokes; the first vertex points straight up.
+export function starPoints(numPoints, rxOuter, ryOuter) {
+  const n = Math.max(3, Math.min(12, numPoints));
+  const inner = 0.42;
+  const pts = [];
+  for (let i = 0; i < n * 2; i++) {
+    const a = (i / (n * 2)) * Math.PI * 2 - Math.PI / 2;
+    const r = i % 2 === 0 ? 1 : inner;
+    const x = Math.cos(a) * rxOuter * r;
+    const y = Math.sin(a) * ryOuter * r;
+    pts.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+  }
+  return pts.join(' ');
+}
+
+// Build a smooth SVG path `d` string from a squiggle shape's unit-space points
+// (Catmull-Rom-ish smoothing -> cubic beziers). Endpoints duplicate their
+// neighbour so the curve doesn't overshoot at the ends.
+export function squigglePathD(s) {
+  const pts = (s.points || []).map(([ux, uy]) => [ux * s.width, uy * s.height]);
+  if (pts.length === 0) return '';
+  if (pts.length === 1) return `M ${pts[0][0]} ${pts[0][1]}`;
+  let d = `M ${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2[0].toFixed(2)} ${p2[1].toFixed(2)}`;
+  }
+  return d;
+}
