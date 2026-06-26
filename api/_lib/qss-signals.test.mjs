@@ -25,6 +25,7 @@ import {
   extractCharacters,
   categoryHits,
   detectSettings,
+  escapeRegExp,
 } from './qss-signals.js';
 
 let pass = 0, fail = 0;
@@ -162,6 +163,53 @@ const extremeOnly = escalationScore('bomb explosion kill');               // (3 
 ok(loudOnly > 0, 'pure-loud text still produces a positive escalation score');
 ok(loudOnly < extremeOnly, 'pure-loud scores below equal-count pure-extreme');
 ok(loudOnly * 2 === extremeOnly, 'loud is weighted at exactly half of extreme (the 0.5 coefficient)');
+
+// ── regex-metachar safety: both word matchers escape their vocabulary ─────
+// extractCharacters (proper-noun matcher) escaped its words; its twin
+// categoryHits did NOT — it interpolated the raw category word into a
+// `\b…\b` regex. Both now funnel through the shared escapeRegExp so a future
+// lexeme carrying a metachar can't crash the signal pass or mis-match.
+//
+// Why this matters: a single bad word silently kills the WHOLE tutor-signal
+// pass. 'C++ club' as a setting verb, 'K.O.' as a comedic beat, a name like
+// 'Dr. Periwinkle' — any of them turns `new RegExp('\\b' + w + '\\b')` into
+// either a SyntaxError (unbalanced '(' / dangling '+') or a '.'-matches-any
+// over-count. Escaping makes the word match literally.
+
+// escapeRegExp neutralizes every JS regex metacharacter.
+ok(escapeRegExp('Dr. Periwinkle') === 'Dr\\. Periwinkle',
+   'escapeRegExp escapes the dot in a name');
+ok(escapeRegExp('a+b') === 'a\\+b', 'escapeRegExp escapes +');
+ok(escapeRegExp('(x)') === '\\(x\\)', 'escapeRegExp escapes parens');
+ok(escapeRegExp('plain') === 'plain', 'escapeRegExp leaves plain words untouched (no-op)');
+
+// End-to-end through categoryHits with an INJECTED metachar-bearing lexicon.
+// 'a(b' carries an unbalanced '(' — raw interpolation builds the invalid
+// pattern `\ba(b\b` and THROWS SyntaxError (unterminated group), killing the
+// whole signal pass. The escaped matcher builds `\ba\(b\b` and counts the
+// literal token. This is the mutation sentinel: revert escapeRegExp to an
+// identity passthrough and this block goes RED (throws), proving the escape
+// is load-bearing.
+let metacharThrew = false;
+let metacharHits = null;
+try {
+  metacharHits = categoryHits('the a(b club met and the a(b club cheered',
+                              { tech: ['a(b'] });
+} catch (e) { metacharThrew = true; }
+ok(!metacharThrew, 'categoryHits does not throw on a category word with a regex metachar');
+ok(metacharHits && (metacharHits.tech || 0) === 2,
+   'categoryHits counts the literal "a(b" token twice (metachar matched literally, not parsed as a group)');
+
+// A metachar word must match LITERALLY, not as a regex: '.' must not match
+// any character. 'a.b' should hit 'a.b' but NOT 'axb'.
+ok((categoryHits('a.b and a.b again', { dotted: ['a.b'] }).dotted || 0) === 2,
+   'categoryHits matches "a.b" literally (two real hits)');
+ok((categoryHits('axb only', { dotted: ['a.b'] }).dotted || 0) === 0,
+   'categoryHits does NOT let "a.b" wildcard-match "axb" (dot is escaped)');
+
+// Default lexicon still behaves: passing no cats arg uses CATEGORIES.
+ok((categoryHits('bomb explosion kill').extreme || 0) === 3,
+   'categoryHits default lexicon unchanged after the cats param was added');
 
 // ── report ────────────────────────────────────────────────────────────────
 console.log(fails.join('\n'));

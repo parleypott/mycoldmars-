@@ -76,30 +76,40 @@ function wordCount(text) {
   return (text.match(/\S+/g) || []).length;
 }
 
+// Escape regex metacharacters so a vocabulary word (a character name, a
+// category verb) is matched LITERALLY when interpolated into a `\b…\b`
+// pattern. Without this, the moment someone adds 'Dr. Periwinkle', 'K.O.'
+// or any word carrying a regex metachar, `new RegExp` either silently
+// mis-matches (the '.' matches any char) or throws SyntaxError and crashes
+// the whole signal pass. Both call sites below funnel through this so they
+// can never drift apart again.
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function extractCharacters(text, extras = []) {
   if (!text) return [];
   const out = new Set();
   const list = [...CANON_CHARACTERS, ...extras];
   for (const c of list) {
     // Match whole-word, case-sensitive for proper nouns.
-    // The escape pattern in the previous version had a double-escaped
-    // replacement string ('\\\\$&') that produced literal '\\$&' in the
-    // output — harmless for current names but would fail the moment
-    // someone added 'Dr. Periwinkle' or anything with a regex metachar.
-    const re = new RegExp(`\\b${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+    const re = new RegExp(`\\b${escapeRegExp(c)}\\b`);
     if (re.test(text)) out.add(c);
   }
   return [...out];
 }
 
-function categoryHits(text) {
+function categoryHits(text, cats = CATEGORIES) {
   if (!text) return {};
   const lc = text.toLowerCase();
   const out = {};
-  for (const [cat, words] of Object.entries(CATEGORIES)) {
+  for (const [cat, words] of Object.entries(cats)) {
     let count = 0;
     for (const w of words) {
-      const re = new RegExp(`\\b${w}\\b`, 'g');
+      // escapeRegExp: this twin of extractCharacters used to interpolate the
+      // raw word, so a future category lexeme with a metachar would crash the
+      // whole signal pass. Now it matches literally, like its sibling.
+      const re = new RegExp(`\\b${escapeRegExp(w)}\\b`, 'g');
       const m = lc.match(re);
       if (m) count += m.length;
     }
@@ -246,4 +256,5 @@ export {
   categoryHits,
   detectSettings,
   escalationScore,
+  escapeRegExp,
 };
