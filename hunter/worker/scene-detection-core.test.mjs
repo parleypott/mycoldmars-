@@ -140,6 +140,19 @@ approx(cosineSim([1, 0], [-1, 0]), -1, 'opposite vectors → -1');
 approx(cosineSim([0, 0], [1, 1]), 0, 'zero vector → 0 (no NaN)');
 approx(cosineSim([1, 2, 3], [2, 4, 6]), 1, 'parallel vectors → 1');
 
+// LOAD-BEARING crash guard. scene-detection.mjs feeds cosineSim the raw
+// `unit.embedding` / `other.embedding` (line 155), and a null/malformed
+// embedding row slips past its `embeddingMap.has(id)` filter (the key is set
+// even when parseEmbedding returns null). The OLD unguarded `for (i<a.length)`
+// did `null.length` → TypeError → the ENTIRE scene-detection run aborts (one bad
+// embedding row = zero scenes for the whole project). The guard degrades that to
+// sim=0 (clip strands as its own singleton scene). Removing the guard makes
+// these throw → the suite goes RED.
+eq(cosineSim(null, [1, 0]), 0, 'null first vector → 0 (no crash — the whole-run-abort guard)');
+eq(cosineSim([1, 0], null), 0, 'null second vector → 0 (no crash)');
+eq(cosineSim(undefined, undefined), 0, 'both undefined → 0 (no crash)');
+eq(cosineSim([1, 2], [1, 2, 3]), 0, 'length mismatch → 0 (no bogus partial similarity)');
+
 // ─────────────────────────────────────────────────────────────────────────
 // parseEmbedding
 // ─────────────────────────────────────────────────────────────────────────
@@ -147,8 +160,20 @@ approx(cosineSim([1, 2, 3], [2, 4, 6]), 1, 'parallel vectors → 1');
 eq(parseEmbedding([0.1, 0.2, 0.3]), [0.1, 0.2, 0.3], 'array passes through');
 eq(parseEmbedding('[0.1,0.2,0.3]'), [0.1, 0.2, 0.3], 'JSON-array string parses');
 eq(parseEmbedding('(0.5, 0.25)'), [0.5, 0.25], 'paren/bracket-stripped CSV string parses');
+eq(parseEmbedding(['0.1', '0.2']), [0.1, 0.2], 'numeric-string entries coerced (tolerance kept)');
 eq(parseEmbedding(null), null, 'null → null');
 eq(parseEmbedding(42), null, 'number → null');
+
+// Poison-vector rejection: every malformed shape returns null (never a [NaN]
+// vector or a non-array scalar), so it can NEVER reach cosineSim. The OLD copy
+// returned the raw value for all of these — each line below goes RED on revert.
+eq(parseEmbedding([1, NaN, 3]), null, '[NaN] entry → null (would poison cosine ranking)');
+eq(parseEmbedding([1, Infinity]), null, 'Infinity entry → null');
+eq(parseEmbedding([1, -Infinity]), null, '-Infinity entry → null');
+eq(parseEmbedding('[1, "x", 3]'), null, 'JSON array with non-numeric entry → null');
+eq(parseEmbedding('{"a":1}'), null, 'JSON object string → null (not a vector)');
+eq(parseEmbedding([]), null, 'empty array → null');
+eq(parseEmbedding('[]'), null, 'empty JSON-array string → null');
 
 // ─────────────────────────────────────────────────────────────────────────
 

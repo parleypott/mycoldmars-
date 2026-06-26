@@ -14,7 +14,22 @@
 // filename's wall-clock on ANY machine. Gap math is unaffected — all timestamps
 // shift uniformly, so temporal gaps are preserved.
 
+// Cosine similarity of two equal-length numeric vectors. Returns 0 for
+// missing/mismatched/zero-magnitude inputs (a safe "no signal" value).
+//
+// The `!a || !b || a.length !== b.length` guard is LOAD-BEARING here, not
+// cosmetic: scene-detection.mjs feeds this `unit.embedding` / `other.embedding`
+// straight from parseEmbedding (line 87/155). Before parseEmbedding was hardened
+// below, a null/malformed embedding row reached this function as `null`, and the
+// old unguarded `for (i < a.length)` did `null.length` → TypeError, which aborts
+// the ENTIRE scene-detection run (one bad embedding row → zero scenes for the
+// whole project). The guard degrades that to sim=0 (the clip strands as its own
+// singleton scene) instead of crashing. The length-mismatch check also stops a
+// short/corrupt vector from yielding a bogus partial similarity. This is the
+// consolidated, hardened copy — behaviourally identical to api/_lib/semantic-
+// search.js (tested) and hunter/worker/cross-tier-core.js (tested).
 export function cosineSim(a, b) {
+  if (!a || !b || a.length !== b.length) return 0;
   let dot = 0, nA = 0, nB = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
@@ -25,13 +40,38 @@ export function cosineSim(a, b) {
   return d > 0 ? dot / d : 0;
 }
 
+// Parse a stored embedding (PostgREST: JSON-array string, JSON array, or
+// paren/bracket literal) into a clean numeric vector, or null if it can't be
+// trusted. GUARANTEES a non-empty array of finite numbers or null — never a
+// poison `[NaN]` vector, a non-array scalar (e.g. JSON.parse("42") === 42), or
+// an empty array, all of which the OLD copy returned and which then slipped
+// past scene-detection.mjs's `embeddingMap.has(id)` filter (the key is set even
+// when the value is null/garbage) to reach cosineSim. Matches the hardened
+// sibling copies in api/_lib/semantic-search.js and cross-tier-core.js.
 export function parseEmbedding(emb) {
-  if (Array.isArray(emb)) return emb;
-  if (typeof emb === 'string') {
-    try { return JSON.parse(emb); } catch {}
-    return emb.replace(/[[\]()]/g, '').split(',').map(Number);
+  let arr = null;
+  if (Array.isArray(emb)) {
+    arr = emb;
+  } else if (typeof emb === 'string') {
+    try {
+      const parsed = JSON.parse(emb);
+      if (Array.isArray(parsed)) arr = parsed;
+    } catch {
+      // not JSON — fall through to the literal parser below
+    }
+    if (!arr) {
+      arr = emb.replace(/[[\]()]/g, '').split(',').map(Number);
+    }
   }
-  return null;
+  if (!Array.isArray(arr) || arr.length === 0) return null;
+
+  const out = new Array(arr.length);
+  for (let i = 0; i < arr.length; i++) {
+    const n = Number(arr[i]);
+    if (!Number.isFinite(n)) return null;
+    out[i] = n;
+  }
+  return out;
 }
 
 export function extractDateFromClipName(name) {
