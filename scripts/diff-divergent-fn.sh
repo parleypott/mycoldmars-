@@ -40,10 +40,15 @@
 #   scripts/diff-divergent-fn.sh --self-test          # prove the classifier; exit!=0 on fail
 #
 # TRIAGE LEDGER: scripts/divergence-triage.tsv remembers which names were already
-# judged SAFE (a legit fork) vs BUG. --scan tags each candidate; --new hides the
-# settled-SAFE ones so a future iteration only eyeballs what's genuinely new. A
-# SAFE name whose overlap% later CHANGES is re-flagged "SAFE↻" (the fork drifted
-# further — re-check before trusting the old verdict). Record every verdict there.
+# judged SAFE (a legit fork), BUG (open), or IGNORE (a same-name COLLISION — N
+# unrelated functions sharing a generic identifier like `handler`/`txt`/`items`,
+# never a real divergent copy). --scan tags each candidate; --new hides the
+# settled SAFE *and* IGNORE rows so a future iteration only eyeballs what's
+# genuinely new. A SAFE name whose overlap% later CHANGES is re-flagged "SAFE↻"
+# (the fork drifted further — re-check before trusting the old verdict); IGNORE
+# rows are EXEMPT from that re-review (collision overlap is meaningless noise that
+# drifts constantly, so a SAFE row could never silence them durably). Record
+# every verdict there.
 #
 # EXIT
 #   single-name mode : 0 if IDENTICAL (or <2 bodies), 1 if DIVERGENT
@@ -226,6 +231,25 @@ lookup_triage() {
   ' "$LEDGER"
 }
 
+# Decide the display tag for a candidate from its ledger status + sims. Pure
+# (prints one tag), so scan_mode and the self-test share one source of truth.
+#   triage_tag STATUS LOGGED_SIM CURRENT_SIM
+#   ""      (untriaged)            → NEW
+#   IGNORE  (same-name collision)  → IGNORE   — hidden permanently, NEVER re-flagged
+#                                               on sim drift (collision overlap is noise)
+#   SAFE    + sim unchanged        → SAFE
+#   SAFE    + sim changed          → SAFE↻    — fork drifted, re-review before trusting
+#   anything else (BUG, …)         → echoed verbatim
+triage_tag() {
+  local status="$1" logged_sim="$2" cur_sim="$3"
+  if [ -z "$status" ]; then echo NEW; return; fi
+  case "$status" in
+    IGNORE) echo IGNORE ;;
+    SAFE)   if [ "$logged_sim" != "$cur_sim" ]; then echo "SAFE↻"; else echo SAFE; fi ;;
+    *)      echo "$status" ;;
+  esac
+}
+
 # --- scan mode: shortlist every DIVERGENT shared name ------------------------
 # Usage: scan_mode [MIN] [--new]
 #   --new → print ONLY untriaged (NEW) or re-drifted (SAFE↻) candidates: the
@@ -256,33 +280,28 @@ scan_mode() {
   local total newcount=0 safecount=0
   total="$(grep -c . "$results" 2>/dev/null || echo 0)"
   if [ "$total" -gt 0 ]; then
-    echo "  STATUS    SIM%  NAME (files)   [SAFE=judged-fork · BUG=open · NEW=untriaged · ↻=re-drifted]"
+    echo "  STATUS    SIM%  NAME (files)   [SAFE=judged-fork · IGNORE=name-collision noise · BUG=open · NEW=untriaged · ↻=re-drifted]"
     # Annotate each row against the ledger, then (optionally) filter to NEW/↻/BUG.
     while IFS=$'\t' read -r sim name nfiles; do
       local rec status logged_sim tag
       rec="$(lookup_triage "$name")"
-      if [ -z "$rec" ]; then
-        status=NEW; tag=NEW; newcount=$((newcount + 1))
-      else
-        status="$(printf '%s' "$rec" | cut -f1)"
-        logged_sim="$(printf '%s' "$rec" | cut -f2)"
-        if [ "$status" = SAFE ] && [ "$logged_sim" != "$sim" ]; then
-          tag="SAFE↻"; newcount=$((newcount + 1))   # drift changed → re-review
-        elif [ "$status" = SAFE ]; then
-          tag=SAFE; safecount=$((safecount + 1))
-        else
-          tag="$status"   # BUG (or any other recorded status)
-        fi
-      fi
-      if [ "$only_new" -eq 1 ] && { [ "$tag" = SAFE ]; }; then
-        continue   # --new hides settled SAFE rows; NEW/SAFE↻/BUG still shown
+      status="$(printf '%s' "$rec" | cut -f1)"
+      logged_sim="$(printf '%s' "$rec" | cut -f2)"
+      tag="$(triage_tag "$status" "$logged_sim" "$sim")"
+      case "$tag" in
+        NEW|"SAFE↻") newcount=$((newcount + 1)) ;;   # actionable: needs a look
+        SAFE|IGNORE) safecount=$((safecount + 1)) ;;  # settled / noise
+        *) ;;                                         # BUG etc — count neither
+      esac
+      if [ "$only_new" -eq 1 ] && { [ "$tag" = SAFE ] || [ "$tag" = IGNORE ]; }; then
+        continue   # --new hides settled SAFE + collision-noise IGNORE; NEW/SAFE↻/BUG still shown
       fi
       printf '  %-8s %3s%%  %s (%s files)\n' "$tag" "$sim" "$name" "$nfiles"
     done < <(sort -rn "$results")
     echo "  → inspect any row with: $SELF NAME    (then record the verdict in $LEDGER)"
   fi
   rm -f "$results"
-  echo "→ $total drifted-copy candidate(s); $newcount need a look (NEW/re-drifted), $safecount already judged SAFE." >&2
+  echo "→ $total drifted-copy candidate(s); $newcount need a look (NEW/re-drifted), $safecount settled (SAFE/IGNORE)." >&2
 }
 
 # --- self-test: prove the classifier on fixtures -----------------------------
@@ -370,6 +389,22 @@ EOF
   else
     echo "  ✗ FAIL: SIM-change re-review condition did not fire"; pass=0; fail=1
   fi
+  # triage_tag: the pure tag decision shared by scan_mode. Cover every status,
+  # including the load-bearing IGNORE-never-re-flagged-on-sim-drift property.
+  if [ "$(triage_tag '' '' 75)" = NEW ]; then
+    echo "  ✓ triage_tag: untriaged (empty status) → NEW"
+  else echo "  ✗ FAIL: triage_tag empty→NEW"; pass=0; fail=1; fi
+  if [ "$(triage_tag SAFE 77 77)" = SAFE ] && [ "$(triage_tag SAFE 77 70)" = "SAFE↻" ]; then
+    echo "  ✓ triage_tag: SAFE stays SAFE on match, SAFE↻ on sim drift"
+  else echo "  ✗ FAIL: triage_tag SAFE drift logic"; pass=0; fail=1; fi
+  # IGNORE must be IGNORE whether or not the sim matches the recorded one —
+  # collision overlap drifts every scan, and it must never resurface as actionable.
+  if [ "$(triage_tag IGNORE 93 93)" = IGNORE ] && [ "$(triage_tag IGNORE 93 41)" = IGNORE ]; then
+    echo "  ✓ triage_tag: IGNORE stays IGNORE even when sim drifts (collision stays silenced)"
+  else echo "  ✗ FAIL: triage_tag IGNORE re-flagged on sim drift"; pass=0; fail=1; fi
+  if [ "$(triage_tag BUG 60 55)" = BUG ]; then
+    echo "  ✓ triage_tag: BUG echoed verbatim"
+  else echo "  ✗ FAIL: triage_tag BUG passthrough"; pass=0; fail=1; fi
   LEDGER="$saved_ledger"
   rm -rf "$t"
   if [ "$pass" -eq 1 ]; then echo "self-test: PASS"; else echo "self-test: FAIL"; fi

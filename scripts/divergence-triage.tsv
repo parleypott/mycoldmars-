@@ -4,12 +4,22 @@
 # its status here; `--scan --new` shows ONLY untriaged (NEW) or re-drifted ones.
 #
 # Format (TAB-separated):  NAME <TAB> STATUS <TAB> SIM_AT_TRIAGE <TAB> REASON
-#   STATUS  = SAFE  (judged a legitimate fork / non-bug)  or  BUG (open — fix it)
+#   STATUS  = SAFE   (judged a legitimate fork / non-bug)
+#           | BUG    (open — fix it)
+#           | IGNORE (NOT a divergent copy at all — a same-name COLLISION: N
+#                     unrelated functions that merely share a generic identifier,
+#                     e.g. `handler`, `txt`, `items`, `worker`. The scanner's
+#                     brace extractor pairs their unrelated bodies and reports a
+#                     coincidental overlap, so they can never be a "stale twin".)
 #   SIM_AT_TRIAGE = the scan's body-overlap % when judged. If the live scan later
 #     reports a DIFFERENT sim for a SAFE name, the fork drifted further since the
 #     judgment — diff-divergent-fn.sh re-flags it as "SAFE↻ re-review", so a newly
 #     introduced bug in a previously-safe copy can't hide behind an old verdict.
-#   REASON  = one line on WHY it's safe (or what the bug is).
+#     IGNORE rows are EXEMPT from this re-review: collision overlap is meaningless
+#     and drifts constantly, so a SAFE row could never silence them durably —
+#     IGNORE hides them permanently regardless of sim. (SIM is recorded for
+#     reference only on IGNORE rows.)
+#   REASON  = one line on WHY it's safe / a collision (or what the bug is).
 #
 # Add a row the moment you finish judging a candidate. Keep reasons short.
 # A name whose copies get CONSOLIDATED to identical simply stops appearing in the
@@ -35,7 +45,7 @@ getNum	SAFE	60	hunter browser-vs-worker DOM accessor fork (judged #15)
 callGemini	SAFE	75	worker-vs-client fork (judged #15)
 extractDateFromClipName	SAFE	50	worker-vs-client fork (judged #15)
 deleteProject	SAFE	75	different tables (hunter_projects vs projects) — sibling of listProjects
-play	SAFE	70	animatedcrazy vs mapkeys playback — different app DOM (playBtn vs getElementById) + isPlayingBack flag
+play	SAFE	66	animatedcrazy vs mapkeys playback — different app DOM (playBtn vs getElementById) + isPlayingBack flag; mapkeys copy is the more-robust one (caches total, guards offset) — re-confirmed safe iter #29
 stop	SAFE	66	animatedcrazy vs mapkeys; clamp(elapsed,0,total) vs Math.min(elapsed,total) — elapsed is always ≥0 here, so equivalent
 cancel	SAFE	57	unrelated functions sharing a name: mapkeys map-label editor vs translation lib-name editor
 reset	SAFE	57	animatedcrazy vs mapkeys playback reset — different app helpers (timeCur vs updateTimeDisplay)
@@ -45,6 +55,15 @@ retryWithBackoff	SAFE	77	all 5 copies are hunter/worker/* (run on Johnny's Mac, 
 jsonOk	SAFE	83	whitespace-only forks of one Response helper EXCEPT qss-stories intentionally adds Cache-Control:no-store (stories must not edge-cache) — correct, not a bug
 innerHandler	SAFE	88	genuinely different request handlers sharing a wrapper name: nano-banana adds checkAccess+mode-routing, walden-design uses CORS_HEADERS, generate-plan renames the dispatch fn — intentional per-endpoint logic
 handleGet	SAFE	50	different tables + different sb() signatures: nile/winchester use sb(url,{headers})->Response; qss-stories uses sb('GET',path)->rows with its own id-param/404 path — unrelated GET readers sharing a name
-modelId	SAFE	83	extraction noise / same-name collision — scanner pairs unrelated bodies (referenceImages loop vs TTS voice_settings vs bare {modelId}); not a real divergent copy
+modelId	IGNORE	83	collision: scanner pairs unrelated bodies (referenceImages loop vs TTS voice_settings vs bare {modelId}); not a real divergent copy
 
 escapeHtmlSafe	SAFE	0	main.js's inline 4-char escaper (& < > " no single-quote, String(str) not nullish-safe) — CONSOLIDATED onto shared html-escape.js escapeHtml (47e4b5b). No longer a divergent copy; locked by main-escape-delegation.test.mjs.
+handler	IGNORE	93	collision: the default-export name in 58 api/* handlers — unrelated request handlers, never a shared helper
+txt	IGNORE	66	collision: generic local for response text across 12 unrelated handlers (error string vs status vs migration note)
+items	IGNORE	60	collision: 7 unrelated bodies (fence-collector loop vs menu-kbd arrow-key nav vs others) sharing the name
+worker	IGNORE	50	collision: api/burma-essays pool-loop vs run-tests runner vs api-client — unrelated
+projectRef	IGNORE	50	collision: deploy-rpc env-check vs setup-browser fallback vs translation manual-steps — unrelated
+norm	IGNORE	50	collision: page.goto opts vs regex match vs trippy audio-band smoothing — totally unrelated
+elapsed	IGNORE	83	collision: generic timing local across 8 anim/worker files — not a shared helper
+tick	IGNORE	76	collision: per-app rAF loop closures (8 files) — each its own animation engine, intentionally distinct
+raw	IGNORE	66	collision: generic local for raw input/response across 26 unrelated files
