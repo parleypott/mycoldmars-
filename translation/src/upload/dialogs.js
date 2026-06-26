@@ -16,6 +16,7 @@
 // short-circuit cleanly.
 
 import { fmtBytes, fmtDuration } from './format-pills.js';
+import { escapeHtml } from '../html-escape.js';
 
 const ISO_LANG_CHOICES = [
   ['',   'Auto-detect'],
@@ -55,13 +56,6 @@ function langName(code) {
   return m ? m[1] : code;
 }
 
-function escapeHtml(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 // ── openPreTranscribeDialog ──────────────────────────────────────────
 // Shown after upload completes, before transcription kicks off.
