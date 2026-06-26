@@ -274,10 +274,17 @@ function loadPhoto(container, food) {
   container.appendChild(slot);
 }
 
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
+// Fisher-Yates. Copy-first so the caller's array is never reordered as a side
+// effect — matches the canonical form used by the quiz tools (fascism/flying-
+// money/modern-middle-east). The old in-place version mutated its input; every
+// call site here passes a throwaway array (a .filter() result or an array
+// literal) so it was harmless today, but a future `shuffle(somePool)` on a
+// shared/imported array would have silently corrupted that pool's order.
+export function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    [a[i], a[j]] = [a[j], a[i]];
   }
-  return arr;
+  return a;
 }
