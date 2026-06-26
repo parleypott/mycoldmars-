@@ -107,7 +107,7 @@ export function parseJSON(text) {
  * Split an array of word objects into sub-groups of ~TARGET_WORDS,
  * preferring to break after punctuation.
  */
-function splitIntoSubGroups(words) {
+export function splitIntoSubGroups(words) {
   const groups = [];
   let current = [];
 
@@ -126,13 +126,15 @@ function splitIntoSubGroups(words) {
     }
   }
 
-  if (current.length > 0) {
-    // Merge tiny remainder into previous group
-    if (groups.length > 0 && current.length <= 2) {
-      groups[groups.length - 1].push(...current);
-    } else {
-      groups.push(current);
-    }
+  // Avoid orphan micro-segments: if the final group came out tiny (<=2 words),
+  // fold it back into the previous one. The loop always flushes the last group
+  // on `isLast`, so by here `current` is empty and the merge must run on
+  // `groups` — the old `current.length > 0` guard here was permanently false,
+  // so the merge never happened and 1-2 word orphans shipped (same dead-code
+  // bug already fixed in trint-html-parser's copy).
+  if (groups.length > 1 && groups[groups.length - 1].length <= 2) {
+    const tail = groups.pop();
+    groups[groups.length - 1].push(...tail);
   }
 
   return groups;

@@ -11,7 +11,7 @@
  * empty chunk verbatim — shipping a blank-text segment at a real timecode. The
  * fix falls back to the group's English words, matching every other path here.
  */
-import { parseJSON } from './json-parser.js';
+import { parseJSON, splitIntoSubGroups } from './json-parser.js';
 
 let pass = 0, fail = 0;
 const eq = (got, want, label) => {
@@ -155,5 +155,53 @@ const w = (text, s, d = 0.4) => ({ text, data_start: s, data_end: s + d });
   ok(threw, 'error: empty array (no segments) throws');
 }
 
+// ── Orphan micro-segment merge (the divergence fix) ─────────────────────────────
+// splitIntoSubGroups must fold a tiny (<=2 word) trailing group back into its
+// predecessor so the importer never ships an orphan 1-2 word micro-segment. The
+// loop's `isLast` branch ALWAYS flushes the final group, so the OLD post-loop
+// `if (current.length > 0)` guard was permanently dead and the merge never ran.
+// This is the same dead-code bug already fixed in trint-html-parser's copy; it
+// had survived here. These cases go RED on the buggy form, GREEN on the fix.
+{
+  // 9 plain words: cap (TARGET+3=8) flushes a group of 8, then a lone word.
+  // Buggy: [8, 1] (orphan). Fixed: lone word folds back → [9].
+  const groups = splitIntoSubGroups(makeWords9());
+  eq(groups[groups.length - 1].length > 2, true, 'orphan: no 1-word trailing micro-segment');
+  eq(groups.flat().length, 9, 'orphan: word conservation (9 in → 9 out)');
+}
+{
+  // 7 words, comma after word 4: break → [5], tail of 2. Buggy: [5, 2]. Fixed: [7].
+  const groups = splitIntoSubGroups(makeWords7Comma4());
+  eq(groups[groups.length - 1].length > 2, true, 'orphan: no 2-word trailing micro-segment');
+  eq(groups.flat().length, 7, 'orphan: word conservation (7 in → 7 out)');
+}
+{
+  // A clean two-group run (10 words, comma at 4) must NOT be over-merged: the
+  // 5-word tail is not tiny, so both groups survive.
+  const groups = splitIntoSubGroups(makeWords10Comma4());
+  ok(groups.length >= 2, 'orphan: healthy 5-word tail is preserved, not folded');
+  eq(groups.flat().length, 10, 'orphan: word conservation (10 in → 10 out)');
+}
+// End-to-end through the real front door: 9 English words, no Chinese.
+// Buggy: ships a lone-word orphan segment. Fixed: one clean segment.
+{
+  const input = JSON.stringify([{ speaker: 'I', words: makeWords9() }]);
+  const { segments } = parseJSON(input);
+  eq(segments.length, 1, 'orphan-e2e: single segment, no lone-word orphan');
+  eq(segments.filter(s => s.text.trim().split(/\s+/).filter(Boolean).length <= 2).length, 0,
+    'orphan-e2e: zero 1-2 word micro-segments shipped');
+}
+
 console.log(`\njson-parser: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
+
+// ── helpers for the orphan cases (kept below the run for readability) ───────────
+function makeWords9() {
+  return Array.from({ length: 9 }, (_, i) => w(`w${i}`, i));
+}
+function makeWords7Comma4() {
+  return Array.from({ length: 7 }, (_, i) => w(`w${i}${i === 4 ? ',' : ''}`, i));
+}
+function makeWords10Comma4() {
+  return Array.from({ length: 10 }, (_, i) => w(`w${i}${i === 4 ? ',' : ''}`, i));
+}
