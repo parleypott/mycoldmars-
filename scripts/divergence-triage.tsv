@@ -40,3 +40,9 @@ stop	SAFE	66	animatedcrazy vs mapkeys; clamp(elapsed,0,total) vs Math.min(elapse
 cancel	SAFE	57	unrelated functions sharing a name: mapkeys map-label editor vs translation lib-name editor
 reset	SAFE	57	animatedcrazy vs mapkeys playback reset — different app helpers (timeCur vs updateTimeDisplay)
 whoAmI	SAFE	50	qss copy is the HARDENED one (headers.get guard, String() coerce, QSS_SUPABASE_URL); admin-users is Edge-runtime where headers.get always exists — already mutation-locked auth gate
+escapeHtml	SAFE	66	strong copies (command-palette/SpeakerBlock/html-escape/sot-hunter) full 5-char [&<>"']; research/app.js missing ' is DEAD (defined @317, never called); workshop/index.js escapes text-only [&<>] but has a correct sibling escapeAttr for all 3 attribute sinks — deliberate two-fn split
+retryWithBackoff	SAFE	77	all 5 copies are hunter/worker/* (run on Johnny's Mac, not Vercel); each a deliberately-tuned backoff fork — different retryable-error sets, wait curves, log prefixes, optional throttle(); all functionally-correct bounded retry loops
+jsonOk	SAFE	83	whitespace-only forks of one Response helper EXCEPT qss-stories intentionally adds Cache-Control:no-store (stories must not edge-cache) — correct, not a bug
+innerHandler	SAFE	88	genuinely different request handlers sharing a wrapper name: nano-banana adds checkAccess+mode-routing, walden-design uses CORS_HEADERS, generate-plan renames the dispatch fn — intentional per-endpoint logic
+handleGet	SAFE	50	different tables + different sb() signatures: nile/winchester use sb(url,{headers})->Response; qss-stories uses sb('GET',path)->rows with its own id-param/404 path — unrelated GET readers sharing a name
+modelId	SAFE	83	extraction noise / same-name collision — scanner pairs unrelated bodies (referenceImages loop vs TTS voice_settings vs bare {modelId}); not a real divergent copy
