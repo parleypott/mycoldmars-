@@ -15,6 +15,32 @@ const PAGE_HEIGHT = 300;
 const SCROLL_SPEED = 0.35;
 const KB = ['kb-zoom-in', 'kb-zoom-out', 'kb-pan-left', 'kb-pan-right', 'kb-pan-up'];
 
+// Pure media-index picker shared by a layer's first pick and every swap.
+//
+// The gallery is the ONLY scene builder that does NOT route its pool through
+// tileToCount (tile.js) — it indexes randomly and swaps randomly, so it can't
+// pre-tile to a fixed cell count. That left it as the unguarded sibling of the
+// exact crash tile.js was written to kill: an EMPTY pool makes the old inline
+// `Math.floor(Math.random() * pool.length)` return 0, then `pool[0]` is
+// `undefined` and reading `.type` off it is a hard white-screen crash. Today the
+// only thing standing between the user and that crash is getMediaForSpace()'s
+// 12-placeholder fallback; one new empty space (or any caller passing []) brings
+// it back — and the gallery is the DEFAULT mode.
+//
+// Returns -1 for an empty/invalid pool (caller degrades to a placeholder, never
+// indexes undefined), 0 for a single item, and an in-range index that never
+// repeats `currentIdx` for multi-item pools. Byte-identical distribution to the
+// old inline picks for every non-empty pool: first pick (currentIdx = -1) is
+// uniform over 0..n-1; a swap avoids the current index exactly as before.
+export function pickMediaIndex(poolLength, currentIdx = -1, rand = Math.random) {
+  const n = Math.max(0, Math.floor(Number(poolLength) || 0));
+  if (n === 0) return -1;
+  if (n === 1) return 0;
+  let next;
+  do { next = Math.floor(rand() * n); } while (next === currentIdx);
+  return next;
+}
+
 // Tier definitions: backdrop, back, mid, front
 function tierForIndex(i) {
   if (i < 6)  return 'backdrop'; // massive, always visible, minimal clip
@@ -79,7 +105,7 @@ class LayerController {
     this.index = index;
     this.tier = tierForIndex(index);
     this.stageHeightVh = stageHeightVh;
-    this.mediaIdx = Math.floor(Math.random() * pool.length);
+    this.mediaIdx = pickMediaIndex(pool.length);
     this.mediaEl = null;
     this.swapped = false;
 
@@ -130,7 +156,10 @@ class LayerController {
   }
 
   loadMedia() {
-    const media = this.pool[this.mediaIdx];
+    // `|| {}` degrades an empty/out-of-range pool to a placeholder div (the
+    // `else` branch below) instead of crashing on `undefined.type` — see
+    // pickMediaIndex.
+    const media = this.pool[this.mediaIdx] || {};
     if (this.mediaEl) {
       if (this.mediaEl.tagName === 'VIDEO') {
         this.mediaEl.pause();
@@ -165,9 +194,8 @@ class LayerController {
   }
 
   nextMedia() {
-    let next;
-    do { next = Math.floor(Math.random() * this.pool.length); }
-    while (next === this.mediaIdx && this.pool.length > 1);
+    const next = pickMediaIndex(this.pool.length, this.mediaIdx);
+    if (next < 0) return; // empty pool — nothing to swap to
     this.mediaIdx = next;
     this.loadMedia();
     this.setRandomBounds();
@@ -230,6 +258,8 @@ class LayerController {
 }
 
 export function createGridGallery(mediaList, container) {
+  const pool = Array.isArray(mediaList) ? mediaList : [];
+
   const scroller = document.createElement('div');
   scroller.className = 'layer-scroller';
 
@@ -243,7 +273,7 @@ export function createGridGallery(mediaList, container) {
     layer.className = 'layer';
     layer.style.zIndex = i;
     stage.appendChild(layer);
-    controllers.push(new LayerController(layer, mediaList, i, PAGE_HEIGHT));
+    controllers.push(new LayerController(layer, pool, i, PAGE_HEIGHT));
   }
 
   scroller.appendChild(stage);
