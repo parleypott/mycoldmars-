@@ -82,6 +82,63 @@ eq(stripMarkdown('He paused | then spoke.'), 'He paused | then spoke.', 'mid-lin
 eq(stripMarkdown('a well-worn path'), 'a well-worn path', 'hyphenated word preserved');
 eq(stripMarkdown('cost: 5-10 dollars'), 'cost: 5-10 dollars', 'number range with single hyphen preserved');
 
+// ---- RED PROOF: the pre-this-fix function (structural rules present, but NO html-tag /
+// autolink / reference-link / footnote / html-comment / closed-ATX handling) leaked these
+// straight into the spoken text — raw source URLs, "<br>", and even invisible editor notes.
+function stripMarkdownPreHtml(md) {
+  return md
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^[ \t]*\|?[ \t]*:?-{3,}:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/gm, '')
+    .replace(/^[ \t]*\|(.+)\|[ \t]*$/gm, (_m, inner) =>
+      inner.split('|').map((c) => c.trim()).filter(Boolean).join(', '))
+    .replace(/^[ \t]*([-*_])(?:[ \t]*\1){2,}[ \t]*$/gm, '')
+    .replace(/^[ \t]*=+[ \t]*$/gm, '')
+    .replace(/^#+\s*/gm, '')
+    .replace(/^\s*[-*]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/~~([^~]+)~~/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/^>+\s*/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+// HTML comment — invisible on the page, but the OLD code reads the editor's note aloud.
+eq(stripMarkdownPreHtml('Before.<!-- editor note: cut this -->After.'), 'Before.<!-- editor note: cut this -->After.', 'RED: old code reads the HTML comment aloud');
+eq(stripMarkdown('Before.<!-- editor note: cut this -->After.'), 'Before.After.', 'FIX: HTML comment stripped');
+// Reference link definition — OLD code reads the raw source URL aloud.
+eq(stripMarkdownPreHtml('See the report.\n\n[1]: https://example.com/source'), 'See the report.\n\n[1]: https://example.com/source', 'RED: old code reads the ref-link URL aloud');
+eq(stripMarkdown('See the report.\n\n[1]: https://example.com/source'), 'See the report.', 'FIX: reference link definition dropped');
+// Autolink — OLD code reads the bare URL aloud.
+eq(stripMarkdownPreHtml('Read more at <https://example.com/source>.').includes('https://'), true, 'RED: old code leaves the autolink URL');
+eq(stripMarkdown('Read more at <https://example.com/source> now.').includes('https://'), false, 'FIX: autolink URL dropped');
+// Raw HTML tags — OLD code reads "<br>"/"<em>" aloud.
+eq(stripMarkdownPreHtml('Line.<br>Next.<em>x</em>'), 'Line.<br>Next.<em>x</em>', 'RED: old code leaves raw HTML tags');
+eq(stripMarkdown('Line.<br>Next.<em>x</em>'), 'Line.Next.x', 'FIX: raw HTML tags dropped, text kept');
+// Reference-style link USE — keep visible text, drop the [id].
+eq(stripMarkdown('See [the report][1] for details.'), 'See the report for details.', 'FIX: reference-style link use keeps text, drops [id]');
+// Footnotes — inline marker dropped, definition text kept.
+eq(stripMarkdown('A claim.[^1]\n\n[^1]: the source note.'), 'A claim.\n\nthe source note.', 'FIX: footnote marker dropped, def text kept');
+// Closed ATX heading — drop the trailing ###.
+eq(stripMarkdownPreHtml('## The Border ##\n\nBody.'), 'The Border ##\n\nBody.', 'RED: old code leaves trailing ## ("hash hash")');
+eq(stripMarkdown('## The Border ##\n\nBody.'), 'The Border\n\nBody.', 'FIX: closed ATX trailing hashes dropped');
+
+// ---- No regression from the new rules: prose with comparison operators, snake_case, C#,
+// stray brackets, colons, and ordinary links must all survive untouched.
+eq(stripMarkdown('If a < b and c > d then ok.'), 'If a < b and c > d then ok.', 'spaced comparison operators preserved');
+eq(stripMarkdown('3 < 5 is true, 9 > 2 also.'), '3 < 5 is true, 9 > 2 also.', 'digit comparisons preserved');
+eq(stripMarkdown('value x<y stays as prose.'), 'value x<y stays as prose.', 'angle with no closing > preserved');
+eq(stripMarkdown('I write in C#'), 'I write in C#', 'trailing C# (not a closed heading) preserved');
+eq(stripMarkdown('Note: this matters a lot.'), 'Note: this matters a lot.', 'prose colon line (not a ref def) preserved');
+eq(stripMarkdown('He wrote [sic] in the margin.'), 'He wrote [sic] in the margin.', 'stray bracket word preserved');
+eq(stripMarkdown('see item [3] in the list'), 'see item [3] in the list', 'inline bracket-number preserved');
+eq(stripMarkdown('[Newpress](https://newpress.co) link'), 'Newpress link', 'inline link still -> text (no regression)');
+
 // ---- firstLine
 eq(firstLine('\n\n  Hello there  \nsecond'), 'Hello there', 'firstLine trims + finds first non-empty');
 eq(firstLine(''), undefined, 'firstLine empty -> undefined');

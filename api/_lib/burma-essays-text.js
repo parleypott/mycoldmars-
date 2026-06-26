@@ -6,9 +6,26 @@
 export function stripMarkdown(md) {
   return md
     .replace(/```[\s\S]*?```/g, '')        // fenced code blocks
+    // HTML comments (<!-- editor note -->) — invisible on the page, but read ALOUD
+    // by the TTS as the raw note. Strip before anything else.
+    .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/`([^`]+)`/g, '$1')           // inline code
     .replace(/!\[[^\]]*\]\([^)]+\)/g, '')  // images
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links -> link text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // inline links -> link text
+    // Reference-style link USE — [text][id] / [text][] -> keep the visible text, drop [id].
+    .replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1')
+    // Footnote definition lines ([^id]: text) -> keep the text, drop the marker.
+    // (Runs before the ref-def rule below so the def line's text survives.)
+    .replace(/^[ \t]*\[\^[^\]]+\]:[ \t]*/gm, '')
+    // Reference link DEFINITIONS ([id]: https://… "title") on their own line -> drop,
+    // else ElevenLabs reads the raw source URL aloud. Must start with [id]: + a target.
+    .replace(/^[ \t]*\[[^\]]+\]:[ \t]+\S.*$/gm, '')
+    // Inline footnote refs [^id] -> drop (reads "bracket caret one" otherwise).
+    .replace(/\[\^[^\]]+\]/g, '')
+    // Raw inline HTML tags AND autolinks (<br>, <em>, </strong>, <https://…>, <mailto:…>)
+    // -> drop. Requires a letter or "/" right after "<" AND a closing ">", so prose
+    // comparisons ("a < b", "3 < 5", "x<y" with no close) are left untouched.
+    .replace(/<\/?[a-zA-Z][^>]*>/g, '')
     // Table separator rows (|---|:--:|) — strip BEFORE the row→comma pass below,
     // else the dashes read as "dash dash dash" or leak in as a bogus cell.
     .replace(/^[ \t]*\|?[ \t]*:?-{3,}:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/gm, '')
@@ -23,7 +40,10 @@ export function stripMarkdown(md) {
     // Setext heading underline (=== under a title); the H2 dash form is already
     // killed by the thematic-break rule above. Keeps the title text as prose.
     .replace(/^[ \t]*=+[ \t]*$/gm, '')
-    .replace(/^#+\s*/gm, '')               // ATX headings
+    // Closed ATX headings (## Title ##) — drop the trailing ### (else "Title hash hash").
+    // Scoped to lines that START with # so prose ending in " #" is untouched.
+    .replace(/^(#+[ \t]+.*?)[ \t]+#+[ \t]*$/gm, '$1')
+    .replace(/^#+\s*/gm, '')               // ATX headings (leading)
     .replace(/^\s*[-*]\s+/gm, '')          // bullet lists
     .replace(/^\s*\d+\.\s+/gm, '')         // numbered lists
     .replace(/~~([^~]+)~~/g, '$1')         // strikethrough (else reads "tilde")
