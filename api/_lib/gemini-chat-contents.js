@@ -21,7 +21,16 @@
 // when the new user turn carries non-text parts (e.g. attached images);
 // otherwise use buildGeminiChatContents.
 export function buildGeminiHistoryContents(history, { window = 12 } = {}) {
-  const windowed = (Array.isArray(history) ? history : []).slice(-window).map(m => ({
+  // Guard the slice cap: `slice(-window)` with a falsy/invalid window is a
+  // footgun — `slice(-0)`, `slice(NaN)`, `slice(-2.5)` all collapse to
+  // `slice(0)` and return the ENTIRE history (the opposite of "keep the last
+  // N"), and a negative window keeps too many turns. Today every caller passes
+  // a literal 10/12, so this is latent; but a future config-driven window of
+  // 0/NaN/-1 would silently send unbounded chat history to Gemini (cost +
+  // payload blowup). Any non-positive / non-integer window falls back to the
+  // default cap of 12 — never unbounded.
+  const cap = Number.isInteger(window) && window > 0 ? window : 12;
+  const windowed = (Array.isArray(history) ? history : []).slice(-cap).map(m => ({
     role: m && m.role === 'user' ? 'user' : 'model',
     parts: [{ text: String(m && m.content != null ? m.content : '') }],
   }));

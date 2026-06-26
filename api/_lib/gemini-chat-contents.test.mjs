@@ -140,6 +140,32 @@ ok('history helper: default window 12',
   buildGeminiHistoryContents(long).length <= 12 && buildGeminiHistoryContents(long).length >= 11);
 ok('history helper: window override',
   buildGeminiHistoryContents(long, { window: 4 }).length <= 4);
+// ---- window-cap guard: a bad window must NEVER return unbounded history ----
+// RED proof: the old unguarded `slice(-window)` collapses to slice(0) for
+// window 0 / NaN, returning the WHOLE 30-turn history instead of a capped slice.
+function oldUnguardedHistory(history, window) {
+  return (Array.isArray(history) ? history : []).slice(-window).map(m => ({
+    role: m && m.role === 'user' ? 'user' : 'model',
+    parts: [{ text: String(m && m.content != null ? m.content : '') }],
+  }));
+}
+ok('RED proof: old unguarded window:0 returns the ENTIRE history',
+  oldUnguardedHistory(long, 0).length === 30);
+ok('RED proof: old unguarded window:NaN returns the ENTIRE history',
+  oldUnguardedHistory(long, NaN).length === 30);
+// FIX: every invalid window falls back to the default cap of 12 (never unbounded).
+for (const badWindow of [0, -1, -10, NaN, Infinity, -Infinity, 2.5, null, 'big']) {
+  const h = buildGeminiHistoryContents(long, { window: badWindow });
+  ok('history helper: invalid window ' + JSON.stringify(badWindow) + ' caps at 12 (not unbounded)',
+    h.length === 12);
+  const c = buildGeminiChatContents(long, 'X', { window: badWindow });
+  ok('chat builder: invalid window ' + JSON.stringify(badWindow) + ' caps at 12 history + new msg',
+    c.length === 13);
+}
+// a valid small integer override is still honored exactly
+ok('history helper: valid window:4 still keeps exactly 4 (guard does not over-cap)',
+  buildGeminiHistoryContents(long, { window: 4 }).length === 4);
+
 // buildGeminiChatContents is buildGeminiHistoryContents + one appended user turn
 ok('chat builder = history helper + appended user turn',
   eq(buildGeminiChatContents(clean, 'q3', { window: 10 }),
