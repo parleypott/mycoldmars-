@@ -8,7 +8,7 @@
 // drop getMediaType's String() guard back to `filename.split` → RED on nullish;
 // change the placeholder count from 12 → RED.
 
-import { getMediaType, getMediaForSpace } from './media.js';
+import { getMediaType, getMediaForSpace, pickMediaKind } from './media.js';
 
 let pass = 0, fail = 0;
 const eq = (got, want, msg) => {
@@ -90,6 +90,49 @@ for (const slug of ['void', 'memories', 'no-such-space']) {
   ok(memHues.every(h => h >= 0 && h < 30), 'memories hues within [0,30)');
   const wheelHues = getMediaForSpace('mystery').map(m => hueOf(m.color));
   ok(wheelHues.every(h => h >= 0 && h < 360), 'unknown slug uses the full wheel [0,360)');
+}
+
+// ── pickMediaKind: the SHARED video/image/placeholder element decision ──
+// (was duplicated + divergent in grid-collage.js and mac-window.js). Every media
+// object getMediaForSpace produces must resolve the same way both render builders
+// used to agree on, and the two former edge divergences are now pinned to one rule.
+
+// Canonical render-list shapes (the only inputs that reach this live):
+eq(pickMediaKind({ type: 'video', src: '/x.mp4', label: 'x' }), 'video', 'video+src -> video');
+eq(pickMediaKind({ type: 'image', src: '/x.png', label: 'x' }), 'image', 'image+src -> image');
+eq(pickMediaKind({ type: 'gif', src: '/x.gif', label: 'x' }), 'image', 'gif+src -> image (both builders agreed)');
+eq(pickMediaKind({ type: 'placeholder', src: null, color: 'hsl(0,0%,0%)' }), 'placeholder', 'placeholder/null-src -> placeholder');
+
+// Sentinel: a real video element must NOT be served for a still image, and vice
+// versa — a wrong verdict ships a broken <video> for a JPG or a frozen <img> for a clip.
+ok(pickMediaKind({ type: 'video', src: '/x.mp4' }) !== 'image', 'video sentinel: clip never renders as <img>');
+ok(pickMediaKind({ type: 'image', src: '/x.png' }) !== 'video', 'image sentinel: still never renders as <video>');
+
+// A video TYPE with no src can't be a <video> (empty-src element) — falls to placeholder.
+eq(pickMediaKind({ type: 'video', src: null }), 'placeholder', 'video type but null src -> placeholder (no empty <video>)');
+eq(pickMediaKind({ type: 'video', src: '' }), 'placeholder', 'video type but empty src -> placeholder');
+
+// The former divergence, now pinned to ONE rule:
+//  - unknown type WITH a src -> image (was placeholder in mac-window, image in grid-collage).
+eq(pickMediaKind({ type: 'sprite', src: '/x.bin' }), 'image', 'unknown type + src -> image (show the media)');
+eq(pickMediaKind({ src: '/x.bin' }), 'image', 'missing type + src -> image');
+//  - explicit placeholder type WITH a stray src -> placeholder (was image in grid-collage).
+eq(pickMediaKind({ type: 'placeholder', src: '/x.bin' }), 'placeholder', 'placeholder type wins even with a stray src');
+
+// Never THROWS on garbage — a render-time crash here is a white screen.
+ok((() => { try { return pickMediaKind(null) === 'placeholder'; } catch { return false; } })(),
+   'null media -> placeholder, no throw');
+ok((() => { try { return pickMediaKind(undefined) === 'placeholder'; } catch { return false; } })(),
+   'undefined media -> placeholder, no throw');
+
+// Cross-check: every item getMediaForSpace emits resolves to a real render kind.
+for (const slug of ['taiwan-hong-kong', 'void', 'night-market']) {
+  for (const m of getMediaForSpace(slug)) {
+    const kind = pickMediaKind(m);
+    ok(['video', 'image', 'placeholder'].includes(kind), `${slug}: ${m.label} -> a real render kind (${kind})`);
+    // src-bearing manifest media must never collapse to a blank placeholder tile.
+    if (m.src) ok(kind !== 'placeholder', `${slug}: src-bearing ${m.label} never renders as a blank tile`);
+  }
 }
 
 console.log(`\nmedia: ${pass} passed, ${fail} failed`);

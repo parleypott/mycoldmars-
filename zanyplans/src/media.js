@@ -19,6 +19,28 @@ export function getMediaType(filename) {
   return 'image';
 }
 
+/**
+ * Decide which DOM element a media object renders as: 'video' | 'image' |
+ * 'placeholder'. This was duplicated, and DIVERGENT, in the two live render
+ * builders (grid-collage.js and mac-window.js): grid-collage treated ANY
+ * src-bearing non-video as an <img>, while mac-window only did so for an
+ * explicit 'image'/'gif' type and dropped everything else to the placeholder.
+ * For the canonical render list (getMediaForSpace → type ∈ video|gif|image with
+ * a src, or 'placeholder' with src:null) both copies agreed — but a media object
+ * with an unexpected type-plus-src would render differently in each. One rule now:
+ *   - a real video → <video>
+ *   - anything else carrying a src (image, gif, or unknown) that isn't an
+ *     explicit placeholder → <img> (show the media if we can)
+ *   - otherwise → the placeholder tile.
+ * Null/garbage input degrades to 'placeholder' instead of throwing.
+ */
+export function pickMediaKind(media) {
+  const m = media || {};
+  if (m.type === 'video' && m.src) return 'video';
+  if (m.src && m.type !== 'placeholder') return 'image';
+  return 'placeholder';
+}
+
 // Placeholder hue ranges per space; everything else gets the full wheel.
 const PLACEHOLDER_PALETTES = {
   void: [220, 260],

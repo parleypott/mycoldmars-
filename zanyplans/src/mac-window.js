@@ -1,3 +1,5 @@
+import { pickMediaKind } from './media.js';
+
 /**
  * Creates a Mac OS System 7 style window element.
  * @param {object} media - { src, type, color, label }
@@ -35,7 +37,8 @@ export function createMacWindow(media, opts = {}) {
   const content = document.createElement('div');
   content.className = 'mac-win-content';
 
-  if (media.type === 'video' && media.src) {
+  const kind = pickMediaKind(media);
+  if (kind === 'video') {
     const video = document.createElement('video');
     video.src = media.src;
     video.autoplay = true;
@@ -45,7 +48,7 @@ export function createMacWindow(media, opts = {}) {
     video.preload = 'none';
     video.setAttribute('loading', 'lazy');
     content.appendChild(video);
-  } else if ((media.type === 'image' || media.type === 'gif') && media.src) {
+  } else if (kind === 'image') {
     const img = document.createElement('img');
     img.src = media.src;
     img.alt = media.label || '';

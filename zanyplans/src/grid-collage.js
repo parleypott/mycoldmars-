@@ -6,6 +6,7 @@
  */
 
 import { tileToCount } from './tile.js';
+import { pickMediaKind } from './media.js';
 
 // Grid cell placements (5-column, 3-row grid)
 const GRID_CELLS = [
@@ -64,9 +65,10 @@ export function createGridCollage(mediaList, container) {
     cell.style.setProperty('--mask-speed', `${style.speed}s`);
     cell.style.setProperty('--anim-delay', `${(-Math.random() * style.speed).toFixed(1)}s`);
 
-    // Media element
+    // Media element — kind decided by the shared pickMediaKind (see media.js).
     let el;
-    if (media.type === 'video' && media.src) {
+    const kind = pickMediaKind(media);
+    if (kind === 'video') {
       el = document.createElement('video');
       el.src = media.src;
       el.autoplay = true;
@@ -74,7 +76,7 @@ export function createGridCollage(mediaList, container) {
       el.loop = true;
       el.playsInline = true;
       el.preload = 'auto';
-    } else if (media.src) {
+    } else if (kind === 'image') {
       el = document.createElement('img');
       el.src = media.src;
       el.alt = media.label || '';
