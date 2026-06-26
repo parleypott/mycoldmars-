@@ -120,6 +120,39 @@ export const CHARACTER_LOOKBOOK = {
 };
 
 // ─────────────────────────────────────────────────────────────
+//  LOOKBOOK ALIAS INDEX
+// ─────────────────────────────────────────────────────────────
+// Maps every name a character can be referred to — its canonical key,
+// its display name, and every alias — to the single lookbook entry,
+// all lowercased + trimmed. This is the SAME alias awareness that
+// detectCharactersInScene has via prose matching, but for the
+// explicit-key path: a caller that passes `['scarlet']`, `['mr rober']`,
+// or `['benny the beaver']` must resolve to the right entry. The old
+// explicit path did a bare `CHARACTER_LOOKBOOK[key]` lookup, which only
+// matched canonical keys and SILENTLY DROPPED any character named by an
+// alias — taking that character's load-bearing DON'T rules with it (the
+// exact trope-bleed, e.g. Mark Rober getting Kevin's calculator-helmet,
+// this whole file exists to prevent).
+const LOOKBOOK_INDEX = (() => {
+  const idx = {};
+  for (const [key, entry] of Object.entries(CHARACTER_LOOKBOOK)) {
+    const names = [key, entry.name, ...(entry.aliases || [])];
+    for (const n of names) {
+      const k = String(n ?? '').toLowerCase().trim();
+      if (k) idx[k] = entry;
+    }
+  }
+  return idx;
+})();
+
+// Resolve a caller-supplied character name/key/alias to its lookbook
+// entry, or null if it isn't a known character. Case- and whitespace-
+// insensitive; alias-aware (unlike the old bare-key lookup).
+export function resolveLookbookEntry(nameOrKey) {
+  return LOOKBOOK_INDEX[String(nameOrKey ?? '').toLowerCase().trim()] || null;
+}
+
+// ─────────────────────────────────────────────────────────────
 //  CHARACTER DETECTION + LOOKBOOK SUBSET
 // ─────────────────────────────────────────────────────────────
 // Given the scene text (the actual prose being illustrated), find
@@ -157,10 +190,21 @@ export function assembleImagePrompt({
   extra = '',
   variation = false,
 }) {
-  // Auto-detect if not provided
-  const characters = (charactersInScene && charactersInScene.length)
-    ? charactersInScene.map(key => CHARACTER_LOOKBOOK[String(key).toLowerCase()]).filter(Boolean)
-    : detectCharactersInScene(sceneText);
+  // Auto-detect if not provided. The explicit-list path resolves through
+  // resolveLookbookEntry so an alias key ('scarlet', 'mr rober', 'benny the
+  // beaver') maps to the right character instead of being dropped, and dedupes
+  // so passing both an alias and the canonical key won't double the entry.
+  let characters;
+  if (charactersInScene && charactersInScene.length) {
+    const seen = new Set();
+    characters = [];
+    for (const key of charactersInScene) {
+      const entry = resolveLookbookEntry(key);
+      if (entry && !seen.has(entry.name)) { seen.add(entry.name); characters.push(entry); }
+    }
+  } else {
+    characters = detectCharactersInScene(sceneText);
+  }
 
   const lookbookBlock = characters.length
     ? `CHARACTERS IN THIS SCENE (use these established looks — only these characters get their signature props; all other faces in the scene are ordinary-looking extras):\n${characters.map(c => {
@@ -185,6 +229,6 @@ export function assembleImagePrompt({
     '',
     lookbookBlock,
     '',
-    `SCENE TO ILLUSTRATE:\n${sceneText.slice(0, 1800)}${variationBlock}${extraBlock}`,
+    `SCENE TO ILLUSTRATE:\n${String(sceneText ?? '').slice(0, 1800)}${variationBlock}${extraBlock}`,
   ].join('\n');
 }
