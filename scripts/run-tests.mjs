@@ -102,6 +102,18 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
   })),
 );
 
+// Same dual-mode contract as SHELL_GATES, but these gates are bun scripts (cleaner
+// paren-balanced parsing than awk for AST-shaped checks). find-bool-sort-comparator
+// flags sort comparators that return a boolean instead of a number (silent wrong order).
+const BUN_GATES = ['find-bool-sort-comparator.mjs'].flatMap((s) =>
+  ['--self-test', '--check'].map((mode) => ({
+    file: join(ROOT, 'scripts', s),
+    cmd: 'bun',
+    args: [join(ROOT, 'scripts', s), mode],
+    label: `scripts/${s} ${mode}`,
+  })),
+);
+
 // Union of auto-discovered + explicit, de-duped by absolute path so a file that somehow
 // matches both lists (e.g. an explicit entry later renamed to a standard suffix) can't
 // run twice.
@@ -110,7 +122,7 @@ const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.s
 // carry no args, so their key stays just the path (unchanged behaviour).
 const suiteKey = (t) => t.file + (t.args ? ' ' + t.args.join(' ') : '');
 const seenPaths = new Set();
-const tests = [...findAutoTests(ROOT), ...EXPLICIT_TESTS, ...SHELL_GATES]
+const tests = [...findAutoTests(ROOT), ...EXPLICIT_TESTS, ...SHELL_GATES, ...BUN_GATES]
   .filter((t) => (seenPaths.has(suiteKey(t)) ? false : (seenPaths.add(suiteKey(t)), true)))
   .sort((a, b) => (a.label || relative(ROOT, a.file)).localeCompare(b.label || relative(ROOT, b.file)));
 
