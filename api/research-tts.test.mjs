@@ -146,9 +146,32 @@ eq(strip('1. first\n2. second'), 'first\nsecond', 'numbered list markers removed
 eq(strip('+ plus a\n+ plus b'), 'plus a\nplus b', 'plus (+) bullet markers removed');
 eq(strip('1) one\n2) two'), 'one\ntwo', 'paren (1)) numbered markers removed');
 eq(strip('a claim[3] here'), 'a claim here', 'citation marker removed');
+eq(strip('claim at end [12]'), 'claim at end', 'trailing citation marker removed + trimmed');
 eq(strip('> a quote'), 'a quote', 'blockquote marker removed');
 eq(strip('line\n\n\n\nline'), 'line\n\nline', 'collapse 3+ blank lines to one');
 eq(strip('  trimmed  '), 'trimmed', 'outer whitespace trimmed');
+
+// ---------------------------------------------------------------------------
+// CONSOLIDATION LOCK — strip() now delegates to the shared, hardened stripMarkdown
+// core. These cover the leaks the OLD divergent-weaker local copy MISSED. Deep-
+// research output is markdown-rich (URLs, tables, HR, __bold__, ~~strike~~, HTML
+// comments, autolinks), so each of these was reaching ElevenLabs and being read
+// aloud as symbols. Reverting strip() to a weaker copy turns these RED.
+// ---------------------------------------------------------------------------
+ok(!strip('reported at https://reuters.com today').includes('reuters'), 'bare URL dropped (not spelled out)');
+ok(!strip('see www.example.org/path here').includes('example'), 'bare www URL dropped');
+eq(strip('…reported at https://reuters.com.'), '…reported at .', 'bare URL dropped but sentence period kept');
+eq(strip('__strong__ text'), 'strong text', 'double-underscore bold stripped (was leaking "_strong_")');
+eq(strip('~~old~~ new'), 'old new', 'strikethrough stripped (was reading "tilde")');
+ok(!strip('above\n\n---\n\nbelow').includes('---'), 'thematic break (---) removed');
+ok(!strip('text <!-- editor note --> more').includes('note'), 'HTML comment removed');
+ok(!strip('link <https://x.com> here').includes('x.com'), 'autolink removed');
+{
+  const t = strip('| City | Pop |\n| --- | --- |\n| Yangon | 5M |');
+  ok(!t.includes('|'), 'table pipes removed');
+  ok(!t.includes('---'), 'table separator row removed');
+  ok(t.includes('Yangon') && t.includes('5M'), 'table cell content spoken');
+}
 
 console.log(`\nresearch-tts: ${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

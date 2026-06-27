@@ -1,9 +1,9 @@
 import { readJsonBody } from './_lib/read-json-body.js';
-// chunkText is the single, mutation-locked TTS chunker shared with the Burma
-// Essays narrator. Re-exported here so this endpoint (and its test) keep a stable
-// import surface while there is exactly ONE implementation — no divergent copy to
-// drift. Both feed the same ElevenLabs per-request budget (CHUNK_LIMIT = 4800).
-import { chunkText } from './_lib/burma-essays-text.js';
+// chunkText AND stripMarkdown are the single, mutation-locked TTS helpers shared
+// with the Burma Essays narrator. Both feed the same ElevenLabs per-request budget
+// (CHUNK_LIMIT = 4800) and the same synth voice, so there must be exactly ONE
+// implementation of each — no divergent copy to drift.
+import { chunkText, stripMarkdown } from './_lib/burma-essays-text.js';
 
 export const config = { runtime: 'edge', maxDuration: 120 };
 
@@ -11,22 +11,21 @@ const VOICE_DEFAULT = 'ZF6FPAbjXT4488VcRRnw';
 
 export { chunkText };
 
+// strip() = the shared, hardened stripMarkdown core PLUS one research-only rule.
+//
+// The old local copy was a DIVERGENT-WEAKER twin of stripMarkdown: it missed bare
+// URLs (deep-research output is full of them — ElevenLabs reads "h-t-t-p-s colon
+// slash slash…" letter by letter), tables, thematic breaks (---), HTML comments,
+// autolinks, AND it mangled __bold__ into "_strong_" and read ~~strike~~ as "tilde".
+// Delegating to the shared core kills all of those leaks at once and ends the drift.
+//
+// The one rule that stays LOCAL: numeric citation markers ([3], [12]) that deep-
+// research prose sprinkles inline and that would otherwise be read aloud as
+// "bracket three". Burma essays don't use those, so it doesn't belong in the shared
+// core. Applied after stripMarkdown (which leaves bare [3] untouched), then a final
+// trim in case a citation sat at the very end.
 export function strip(md) {
-  return md
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/^#+\s*/gm, '')
-    .replace(/^\s*[-*+]\s+/gm, '')         // bullet lists (-, *, +) — "+" else read "plus"
-    .replace(/^\s*\d+[.)]\s+/gm, '')       // numbered lists (1. and 1)) — ")" else read "close paren"
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/_([^_]+)_/g, '$1')
-    .replace(/\[\d+\]/g, '')
-    .replace(/^>+\s*/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  return stripMarkdown(String(md ?? '')).replace(/\[\d+\]/g, '').trim();
 }
 
 export default async function handler(req) {
