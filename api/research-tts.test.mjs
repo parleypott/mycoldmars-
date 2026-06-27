@@ -141,6 +141,10 @@ eq(strip('see [the docs](http://x.com)'), 'see the docs', 'link -> text only');
 eq(strip('![alt](http://img.png) gone'), 'gone', 'image removed entirely');
 eq(strip('- one\n- two'), 'one\ntwo', 'bullet list markers removed');
 eq(strip('1. first\n2. second'), 'first\nsecond', 'numbered list markers removed');
+// CommonMark also allows "+" bullets and "1)" ordered markers — both leaked their
+// literal symbol into the readout ("plus", "close paren") before the fix.
+eq(strip('+ plus a\n+ plus b'), 'plus a\nplus b', 'plus (+) bullet markers removed');
+eq(strip('1) one\n2) two'), 'one\ntwo', 'paren (1)) numbered markers removed');
 eq(strip('a claim[3] here'), 'a claim here', 'citation marker removed');
 eq(strip('> a quote'), 'a quote', 'blockquote marker removed');
 eq(strip('line\n\n\n\nline'), 'line\n\nline', 'collapse 3+ blank lines to one');

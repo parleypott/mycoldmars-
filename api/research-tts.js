@@ -18,8 +18,8 @@ export function strip(md) {
     .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/^#+\s*/gm, '')
-    .replace(/^\s*[-*]\s+/gm, '')
-    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')         // bullet lists (-, *, +) — "+" else read "plus"
+    .replace(/^\s*\d+[.)]\s+/gm, '')       // numbered lists (1. and 1)) — ")" else read "close paren"
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/_([^_]+)_/g, '$1')

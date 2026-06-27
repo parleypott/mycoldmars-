@@ -47,6 +47,13 @@ eq(stripMarkdown('# Heading'), 'Heading', 'ATX heading');
 eq(stripMarkdown('## Two'), 'Two', 'ATX heading 2');
 eq(stripMarkdown('- item one\n- item two'), 'item one\nitem two', 'bullet list');
 eq(stripMarkdown('1. first\n2. second'), 'first\nsecond', 'numbered list');
+// CommonMark list-marker coverage: + is a valid bullet marker and 1) a valid
+// ordered marker. Both leaked their literal symbol into the TTS audio before the
+// fix ("plus", "close paren"). Mutation guard: reverting to [-*] / \d+\. fails these.
+eq(stripMarkdown('+ plus one\n+ plus two'), 'plus one\nplus two', 'plus bullet list (+)');
+eq(stripMarkdown('* star one\n+ plus two\n- dash three'), 'star one\nplus two\ndash three', 'mixed -/*/+ bullets');
+eq(stripMarkdown('1) first\n2) second'), 'first\nsecond', 'paren-numbered list (1))');
+eq(stripMarkdown('  + indented plus'), 'indented plus', 'indented + bullet');
 eq(stripMarkdown('> quoted line'), 'quoted line', 'blockquote');
 eq(stripMarkdown('[Newpress](https://newpress.co) link'), 'Newpress link', 'link -> text');
 eq(stripMarkdown('![alt](https://x/y.png) caption'), 'caption', 'image removed');

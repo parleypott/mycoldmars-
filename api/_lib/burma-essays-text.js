@@ -50,8 +50,12 @@ export function stripMarkdown(md) {
     // Scoped to lines that START with # so prose ending in " #" is untouched.
     .replace(/^(#+[ \t]+.*?)[ \t]+#+[ \t]*$/gm, '$1')
     .replace(/^#+\s*/gm, '')               // ATX headings (leading)
-    .replace(/^\s*[-*]\s+/gm, '')          // bullet lists
-    .replace(/^\s*\d+\.\s+/gm, '')         // numbered lists
+    // Bullet lists. CommonMark allows THREE bullet markers — -, *, AND + — so a
+    // "+ point" list leaked its literal "+" into the audio (read aloud as "plus").
+    .replace(/^\s*[-*+]\s+/gm, '')         // bullet lists (-, *, +)
+    // Numbered lists. CommonMark allows BOTH "1." and "1)" as ordered markers, so
+    // a "1) point" list leaked its literal ")" into the audio (read as "close paren").
+    .replace(/^\s*\d+[.)]\s+/gm, '')       // numbered lists (1. and 1))
     .replace(/~~([^~]+)~~/g, '$1')         // strikethrough (else reads "tilde")
     .replace(/\*\*([^*]+)\*\*/g, '$1')     // bold **
     .replace(/__([^_]+)__/g, '$1')         // bold __ (else leaves stray underscores)
