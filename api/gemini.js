@@ -5,6 +5,7 @@ import { formatSeconds } from './_lib/format-seconds.js';
 import { buildGeminiChatContents } from './_lib/gemini-chat-contents.js';
 import { readJsonBody } from './_lib/read-json-body.js';
 import { countWords } from './_lib/count-words.js';
+import { normalizeKeepability } from './_lib/keepability.js';
 
 export const config = { runtime: 'edge', maxDuration: 60 };
 
@@ -732,7 +733,7 @@ async function handleNarrativeInsights(body, apiKey) {
 
     return `SCENE ${i + 1}: Day ${scene.day || '?'}, ${scene.time || '?'} — "${scene.label || 'Untitled'}"
   ${scene.clipCount || 0} clips, ${scene.durationStr || '?'} total
-  Dominant emotion: ${scene.topEmotion || 'unknown'} | Shot type: ${scene.topShot || 'mixed'} | Keep: ${scene.avgKeep != null ? scene.avgKeep.toFixed(1) : '?'}/10
+  Dominant emotion: ${scene.topEmotion || 'unknown'} | Shot type: ${scene.topShot || 'mixed'} | Keep: ${normalizeKeepability(scene.avgKeep)?.toFixed(1) ?? '?'}/10
   Cameras: ${scene.cameras || '?'}
 ${clipDetails}`;
   });
