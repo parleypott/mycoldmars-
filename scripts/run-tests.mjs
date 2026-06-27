@@ -93,7 +93,7 @@ const EXPLICIT_TESTS = [
 // belong here. The divergence scanner is a TRIAGE tool (a new shared-name copy isn't
 // inherently a bug — it'd false-RED), and the deploy/route scripts need a live network,
 // so all of those stay manual dev tools, out of the offline suite.
-const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.sh', 'find-unguarded-date-format.sh', 'find-hour-drop-timecode.sh'].flatMap((s) =>
+const SHELL_GATES = ['find-rollover-formatters.sh', 'find-unguarded-json-parse.sh', 'find-unguarded-date-format.sh', 'find-hour-drop-timecode.sh', 'find-html-parse-errors.sh'].flatMap((s) =>
   ['--self-test', '--check'].map((mode) => ({
     file: join(ROOT, 'scripts', s),
     cmd: 'bash',
