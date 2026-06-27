@@ -14,6 +14,7 @@
 // cross-reference via the clip.name fallback.
 
 import { DOMParser } from '@xmldom/xmldom';
+import { deriveFps } from '../src/derive-fps.js';
 
 export function getText(el, tagName) {
   if (!el) return '';
@@ -117,7 +118,10 @@ export function parseSequence(seqEl, fileDefs) {
   const rateEl = getDirectChildren(seqEl, 'rate')[0];
   const timebase = rateEl ? getNum(rateEl, 'timebase') : 24;
   const ntsc = rateEl ? getText(rateEl, 'ntsc') === 'TRUE' : false;
-  const fps = ntsc ? (timebase === 24 ? 23.976 : timebase === 30 ? 29.97 : timebase) : timebase;
+  // Shared derivation — the inline copy here used to omit the 60→59.94 NTSC case,
+  // so 59.94p footage ingested as flat 60fps and every frame→seconds conversion
+  // below ran ~0.1% fast, inflating the corpus source timecodes for 60p clips.
+  const fps = deriveFps(timebase, ntsc);
 
   const videoTracks = [];
   const mediaEl = getDirectChildren(seqEl, 'media')[0];

@@ -148,6 +148,20 @@ const SELECTS_XML = `<?xml version="1.0" encoding="UTF-8"?>
     <file id="f1"><name>C.mov</name></file></clipitem></track></video></media></sequence></xmeml>`;
   eq(parseFCP7XML(ntscXml)[0].fps, 29.97, 'NTSC timebase 30 → 29.97 fps');
 
+  // NTSC 60→59.94 — the divergent-weaker copy bug: the worker's old inline
+  // derivation fell through on timebase 60, reading 59.94p footage as flat 60fps
+  // and inflating every source timecode ~0.1%. Now via shared deriveFps.
+  // out=360 frames is chosen so the 0.1% rate error crosses a 2-decimal boundary:
+  // 360/59.94 = 6.01s but 360/60 = 6.00s — so this assertion actually distinguishes
+  // the fixed rate from the buggy flat-60, not just the fps field.
+  const ntsc60Xml = `<xmeml><sequence><name>N60</name><rate><timebase>60</timebase><ntsc>TRUE</ntsc></rate>
+    <media><video><track><clipitem><name>C</name><start>0</start><end>360</end><in>0</in><out>360</out>
+    <file id="f1"><name>C.mov</name></file></clipitem></track></video></media></sequence></xmeml>`;
+  const seq60 = parseFCP7XML(ntsc60Xml)[0];
+  eq(seq60.fps, 59.94, 'NTSC timebase 60 → 59.94 fps (was flat 60 — the bug)');
+  eq(seq60.videoTracks[0].clips[0].outSeconds, Math.round((360 / 59.94) * 100) / 100,
+     'outSeconds at 59.94 (6.01s) not flat 60 (6.00s) — exposes the ~0.1% drift');
+
   // "Nested Sequence N" auto-names are skipped.
   const nestedNameXml = `<xmeml><sequence><name>Nested Sequence 2</name><media><video><track>
     <clipitem><name>C</name><start>0</start><end>24</end><in>0</in><out>24</out><file id="f1"><name>C.mov</name></file></clipitem>

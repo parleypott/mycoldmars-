@@ -4,6 +4,11 @@
  * cut points, and source clip references. Used for selects ingest.
  */
 
+// Frame-rate derivation lives in the shared module so the worker parser
+// (hunter/worker/selects-parse-core.js) reads the exact same rate. Re-exported
+// below so existing `import { deriveFps } from './xml-parser.js'` callers keep working.
+import { deriveFps } from './derive-fps.js';
+
 /**
  * Parse an FCP7 XML string and extract all sequences with their clips.
  * Returns an array of sequence objects, each containing clip items with
@@ -60,24 +65,7 @@ export function parseFCP7XML(xmlString) {
   return sequences;
 }
 
-/**
- * Derive the true frame rate from an FCP7 <rate> (integer timebase + ntsc flag).
- * FCP7 XML never stores fractional rates directly: 59.94fps footage is written
- * as <timebase>60</timebase><ntsc>TRUE</ntsc>, 29.97 as 30+TRUE, 23.976 as 24+TRUE.
- * Maps each NTSC timebase back to the canonical fractional rate the Hunter's
- * xml-writer (isNtscRate) emits — the two MUST agree so a write→read round-trip
- * of an NTSC sequence preserves its rate. Without the 60→59.94 case a 59.94
- * import was read as a flat 60fps, inflating every frame→seconds conversion ~0.1%.
- */
-export function deriveFps(timebase, ntsc) {
-  if (!ntsc) return timebase;
-  switch (timebase) {
-    case 24: return 23.976;
-    case 30: return 29.97;
-    case 60: return 59.94;
-    default: return timebase;
-  }
-}
+export { deriveFps };
 
 function parseSequence(seqEl, fileDefs) {
   const name = getText(seqEl, ':scope > name');
