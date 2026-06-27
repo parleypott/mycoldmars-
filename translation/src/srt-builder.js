@@ -7,9 +7,21 @@
  * @param {object} opts        — { maxWords: 16, maxDuration: 5 }
  * @returns {string} SRT file content
  */
+// Normalize an SRT chunking limit to a POSITIVE finite number, falling back to
+// `d` for anything invalid. The old `opts.maxWords || 16` form looked safe but
+// only caught undefined/NaN/0 — a NEGATIVE value is truthy, so `-5` sailed
+// through and made `Math.ceil(words.length / -5)` a negative chunk count
+// (malformed/empty SRT). Unreachable from today's min=10/min=3 range sliders,
+// but the core must not trust its callers: any future number-input markup or new
+// caller passing 0/negative/NaN/"" now degrades to the sane default instead.
+function posLimit(v, d) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : d;
+}
+
 export function buildSRT(translations, segments, opts = {}) {
-  const maxWords = opts.maxWords || 16;
-  const maxDuration = opts.maxDuration || 5;
+  const maxWords = posLimit(opts.maxWords, 16);
+  const maxDuration = posLimit(opts.maxDuration, 5);
   const dismissedSegments = opts.dismissedSegments || null;
   const hideUnintelligible = opts.hideUnintelligible || false;
 

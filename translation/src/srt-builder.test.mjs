@@ -67,5 +67,39 @@ eq(formatSRT(100 * 3600), '99:59:59,999', 'formatSRT >=100h capped to 2-digit ho
   eq(out.startsWith('1\r\n00:00:00,000 --> 00:00:02,000'), true, 'buildSRT short cue keeps original timing');
 }
 
+// ---- buildSRT: maxWords/maxDuration limits must reject non-positive/non-finite ----
+// The old `opts.maxWords || 16` form caught undefined/NaN/0 but NOT a negative
+// value (truthy), so `-1` sailed through and `Math.ceil(words/-1)` went negative —
+// defeating word-based splitting so a long line collapsed into ONE oversized cue.
+// posLimit() now degrades any non-positive/non-finite limit to the default.
+const cueCount = (srt) => (srt.match(/-->/g) || []).length;
+{
+  // 30-word line, 2s duration: with maxWords=16 the words term forces 2 chunks
+  // (ceil(30/16)=2); the duration term is just ceil(2/5)=1. So a correct limit
+  // splits into >=2 cues. A negative maxWords that leaks through yields ceil(30/-1)
+  // = -30, Math.max picks the duration term (1), and the whole line stays one cue.
+  const longLine = Array.from({ length: 30 }, (_, i) => `w${i + 1}`).join(' ');
+  const seg = [{ number: 1, start: '00:00:00', end: '00:00:02' }];
+  const tr = [{ number: 1, translated: longLine }];
+
+  const baseline = cueCount(buildSRT(tr, seg, { maxWords: 16, maxDuration: 5 }));
+  eq(baseline >= 2, true, 'sanity: maxWords=16 splits the 30-word line into >=2 cues');
+
+  // The load-bearing assertion — a negative limit must behave like the default,
+  // not defeat splitting (this goes RED if posLimit reverts to `|| 16`).
+  eq(cueCount(buildSRT(tr, seg, { maxWords: -1, maxDuration: 5 })), baseline,
+     'negative maxWords falls back to default (does NOT collapse into one oversized cue)');
+
+  // The cases the old `|| default` already handled stay handled.
+  eq(cueCount(buildSRT(tr, seg, { maxWords: 0, maxDuration: 5 })), baseline, 'zero maxWords -> default');
+  eq(cueCount(buildSRT(tr, seg, { maxWords: NaN, maxDuration: 5 })), baseline, 'NaN maxWords -> default');
+  eq(cueCount(buildSRT(tr, seg, { maxWords: undefined, maxDuration: 5 })), baseline, 'missing maxWords -> default');
+
+  // A valid positive limit must still pass through (not get clobbered to the default):
+  // maxWords=4 forces more chunks (ceil(30/4)=8) than the default 16 (=2).
+  eq(cueCount(buildSRT(tr, seg, { maxWords: 4, maxDuration: 5 })) > baseline, true,
+     'valid small maxWords still tightens splitting (limit honored, not defaulted)');
+}
+
 console.log(`\nsrt-builder: ${pass}/${pass + fail} passed${fail ? `, ${fail} FAILED` : ''}`);
 process.exit(fail ? 1 : 0);
